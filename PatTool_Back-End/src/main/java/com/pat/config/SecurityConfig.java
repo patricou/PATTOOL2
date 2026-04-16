@@ -186,6 +186,11 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/geocode/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/weather/altitudes").permitAll()
 
+                // News image proxy: <img src> tags cannot send a JWT. The proxy
+                // itself enforces SSRF + size + content-type guards, so leaving
+                // the endpoint public is safe.
+                .requestMatchers(HttpMethod.GET, "/api/external/news/image").permitAll()
+
                 // Calendar month view: activities use optional user-id header; personal appointments only when authenticated (see controller)
                 .requestMatchers(HttpMethod.GET, "/api/calendar/entries").permitAll()
                 // Public holidays proxy (Nager.Date) — données publiques, sans auth

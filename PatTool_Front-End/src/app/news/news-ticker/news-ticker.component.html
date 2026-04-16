@@ -1,0 +1,71 @@
+<div class="news-ticker" *ngIf="enabled" role="marquee" aria-label="News ticker">
+    <div class="news-ticker-label" aria-hidden="true">
+        <i class="fa fa-newspaper-o"></i>
+        <span>{{ 'NEWS.TICKER_LABEL' | translate }}</span>
+    </div>
+
+    <div class="news-ticker-rows">
+        <!-- Loading / empty placeholder if the API hasn't produced anything yet -->
+        <div class="news-ticker-loading" *ngIf="!hasArticles()">
+            <ng-container *ngIf="loading; else emptyTpl">
+                <i class="fa fa-spinner fa-spin"></i>
+                <span>{{ 'NEWS.TICKER_LOADING' | translate }}</span>
+            </ng-container>
+            <ng-template #emptyTpl>
+                <i class="fa fa-info-circle"></i>
+                <span>{{ 'NEWS.TICKER_EMPTY' | translate }}</span>
+            </ng-template>
+        </div>
+
+        <ng-container *ngIf="hasArticles()">
+            <!-- Row 1: scrolls right-to-left (faster) -->
+            <div class="news-ticker-row">
+                <div class="news-ticker-track news-ticker-track--row1">
+                    <ng-container *ngFor="let a of rowOne; trackBy: trackByIndex">
+                        <ng-container *ngTemplateOutlet="itemTpl; context: { $implicit: a, hidden: false }"></ng-container>
+                    </ng-container>
+                    <!-- Duplicate content for a seamless loop (the animation moves by -50%) -->
+                    <ng-container *ngFor="let a of rowOne; trackBy: trackByIndex">
+                        <ng-container *ngTemplateOutlet="itemTpl; context: { $implicit: a, hidden: true }"></ng-container>
+                    </ng-container>
+                </div>
+            </div>
+
+            <!-- Row 2: scrolls right-to-left (slower) -->
+            <div class="news-ticker-row">
+                <div class="news-ticker-track news-ticker-track--row2">
+                    <ng-container *ngFor="let a of rowTwo; trackBy: trackByIndex">
+                        <ng-container *ngTemplateOutlet="itemTpl; context: { $implicit: a, hidden: false }"></ng-container>
+                    </ng-container>
+                    <ng-container *ngFor="let a of rowTwo; trackBy: trackByIndex">
+                        <ng-container *ngTemplateOutlet="itemTpl; context: { $implicit: a, hidden: true }"></ng-container>
+                    </ng-container>
+                </div>
+            </div>
+
+            <!-- Reusable item template: thumbnail (or icon fallback) + source + title -->
+            <ng-template #itemTpl let-a let-hidden="hidden">
+                <a class="news-ticker-item"
+                   [href]="a.url"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   [attr.aria-hidden]="hidden ? 'true' : null"
+                   [attr.tabindex]="hidden ? -1 : null">
+                    <span class="news-ticker-thumb">
+                        <img *ngIf="shouldShowThumb(a); else thumbIcon"
+                             [src]="getThumbUrl(a)"
+                             [alt]="a.sourceName || ''"
+                             loading="lazy"
+                             (error)="onThumbError(a)" />
+                        <ng-template #thumbIcon>
+                            <i class="fa fa-newspaper-o"></i>
+                        </ng-template>
+                    </span>
+                    <span class="news-ticker-source" *ngIf="a.sourceName">{{ a.sourceName }}</span>
+                    <span class="news-ticker-sep" *ngIf="a.sourceName">·</span>
+                    <span class="news-ticker-title">{{ a.title }}</span>
+                </a>
+            </ng-template>
+        </ng-container>
+    </div>
+</div>

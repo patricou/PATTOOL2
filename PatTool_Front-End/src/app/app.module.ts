@@ -126,6 +126,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./address-geocode/address-geocode.component').then(m => m.AddressGeocodeComponent)
 			},
 			{
+				path: 'api/news',
+				loadComponent: () => import('./news/news.component').then(m => m.NewsComponent)
+			},
+			{
 				path: 'calendrier',
 				loadComponent: () => import('./calendar/calendar.component').then(m => m.CalendarComponent)
 			},

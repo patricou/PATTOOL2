@@ -1,0 +1,222 @@
+/* News ticker: two-row scrolling banner shown between the top navbar and
+ * the page title. Mounted by AppComponent so it's visible on every route.
+ *
+ * Marquee pattern: each row contains a flex "track" whose width equals the
+ * natural width of its items (flex items with flex:0 0 auto don't shrink).
+ * The items list is duplicated in the template so that translating the
+ * track by -50% of its own width slides exactly one copy off-screen,
+ * producing a seamless infinite loop.
+ */
+.news-ticker {
+    position: fixed;
+    top: 56px; /* matches the fixed-top Bootstrap navbar height */
+    left: 0;
+    right: 0;
+    z-index: 1020;
+    display: flex;
+    align-items: stretch;
+    background: linear-gradient(90deg, #1a1d2a 0%, #242a3f 50%, #1a1d2a 100%);
+    color: #f8f9fa;
+    border-top: 1px solid #2c3144;
+    border-bottom: 1px solid #2c3144;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+    font-size: 0.9rem;
+    height: 56px;
+}
+
+.news-ticker-label {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0 1rem;
+    background: linear-gradient(135deg, #d9534f 0%, #b52b27 100%);
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+    white-space: nowrap;
+    box-shadow: 2px 0 6px rgba(0, 0, 0, 0.35);
+    z-index: 2;
+    position: relative;
+}
+
+.news-ticker-label i {
+    font-size: 1rem;
+}
+
+.news-ticker-rows {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.news-ticker-row {
+    position: relative;
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.news-ticker-row + .news-ticker-row {
+    border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+/* Canonical CSS-marquee pattern: the track is a single long flex line
+ * (width:max-content = intrinsic content width). The template duplicates
+ * every item, so translating by -50% of the track's width slides exactly
+ * one full copy off-screen for a seamless, perfectly loopable animation. */
+.news-ticker-track {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    width: max-content;
+    height: 100%;
+    white-space: nowrap;
+    will-change: transform;
+    transform: translate3d(0, 0, 0); /* promote to own layer for smoothness */
+}
+
+/* Both rows scroll right-to-left (content moves leftwards). Different
+ * durations give a lively "two streams" effect without them staying in
+ * sync. Row 1 is the SLOWER one (longer duration). */
+.news-ticker-track--row1 {
+    animation: news-ticker-scroll-left 60s linear infinite;
+}
+
+.news-ticker-track--row2 {
+    animation: news-ticker-scroll-left 80s linear infinite;
+}
+
+/* Legacy class names kept for backward compat if anything else hooks in. */
+.news-ticker-track--ltr {
+    animation: news-ticker-scroll-left 60s linear infinite;
+}
+
+.news-ticker-track--rtl {
+    animation: news-ticker-scroll-left 80s linear infinite;
+}
+
+/* Pause on hover so users can actually click/read an item */
+.news-ticker:hover .news-ticker-track {
+    animation-play-state: paused;
+}
+
+.news-ticker-item {
+    flex: 0 0 auto; /* never shrink - crucial for the marquee math */
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0 1.5rem;
+    color: #f8f9fa;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color 0.15s ease;
+}
+
+.news-ticker-item:hover {
+    color: #ffd166;
+    text-decoration: none;
+}
+
+/* Tiny circular thumbnail (or icon fallback) shown in front of every item. */
+.news-ticker-thumb {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 0.3rem;
+}
+
+.news-ticker-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.news-ticker-thumb i.fa {
+    color: #ffd166;
+    font-size: 0.85rem;
+}
+
+@media (max-width: 576px) {
+    .news-ticker-thumb {
+        width: 22px;
+        height: 22px;
+    }
+}
+
+.news-ticker-source {
+    color: #ffd166;
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.news-ticker-sep {
+    opacity: 0.5;
+}
+
+.news-ticker-title {
+    font-weight: 400;
+}
+
+.news-ticker-loading {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 1rem;
+    color: #cdd3e1;
+    font-style: italic;
+    font-size: 0.85rem;
+    gap: 0.5rem;
+}
+
+/* Single keyframe: move content from its initial position to -50% of its
+ * own (doubled) width, so exactly one full copy of the items has scrolled
+ * off-screen to the left by the time we loop. */
+@keyframes news-ticker-scroll-left {
+    from { transform: translate3d(0, 0, 0); }
+    to   { transform: translate3d(-50%, 0, 0); }
+}
+
+/* Legacy aliases kept in case something else references these names. */
+@keyframes news-ticker-scroll-ltr {
+    from { transform: translate3d(0, 0, 0); }
+    to   { transform: translate3d(-50%, 0, 0); }
+}
+
+@keyframes news-ticker-scroll-rtl {
+    from { transform: translate3d(0, 0, 0); }
+    to   { transform: translate3d(-50%, 0, 0); }
+}
+
+/* NOTE: We intentionally do NOT honor prefers-reduced-motion here because
+ * the whole feature IS the scrolling banner -- stopping it turns the
+ * ticker into a frozen unreadable snippet. Users can still disable the
+ * ticker entirely via the switch on the News page. */
+
+@media (max-width: 576px) {
+    .news-ticker-label span {
+        display: none;
+    }
+    .news-ticker-label {
+        padding: 0 0.6rem;
+    }
+    .news-ticker {
+        font-size: 0.82rem;
+        height: 50px;
+    }
+}

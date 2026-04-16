@@ -646,6 +646,14 @@
     margin-bottom: 0;
 }
 
+/* When the global news ticker is enabled it adds ~56px under the navbar
+ * (two scrolling rows + borders). navbar(56) + ticker(56) = 112px of fixed
+ * chrome; add a small breathing gap before the page title so the two
+ * sections don't visually collide. */
+.pat-div.pat-div--with-news-ticker {
+    margin-bottom: 124px;
+}
+
 .pat-lang-selector {
     position: fixed;
     z-index: 1000;

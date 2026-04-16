@@ -15,13 +15,15 @@ import { FileService } from './services/file.service';
 import * as piexif from 'piexifjs';
 import { NavigationButtonsComponent } from './shared/navigation-buttons/navigation-buttons.component';
 import { FriendsService } from './services/friends.service';
+import { NewsTickerComponent } from './news/news-ticker/news-ticker.component';
+import { NewsTickerService } from './services/news-ticker.service';
 
 @Component({
     selector: 'app-root',
     templateUrl: './app.component.html',
     styleUrls: ['./app.component.css'],
     standalone: true,
-    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule, NavigationButtonsComponent]
+    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule, NavigationButtonsComponent, NewsTickerComponent]
 })
 export class AppComponent implements OnInit {
 
@@ -84,6 +86,9 @@ export class AppComponent implements OnInit {
     public langSelectorTop: number = 50; // 50% de la hauteur de l'écran
     private dragMoveRafId: number | null = null; // Throttling for mousemove during drag
 
+    /** True while the global news ticker banner is visible (pushed by NewsTickerService). */
+    public newsTickerEnabled: boolean = false;
+
     constructor(public _translate: TranslateService,
         public _kc: KeycloakService,
         public _membersService: MembersService,
@@ -92,8 +97,13 @@ export class AppComponent implements OnInit {
         public _fileService: FileService,
         private _friendsService: FriendsService,
         private router: Router,
-        private cdr: ChangeDetectorRef) {
+        private cdr: ChangeDetectorRef,
+        private _newsTicker: NewsTickerService) {
         this.selectedFiles = [];
+        this._newsTicker.enabled$.subscribe((v) => {
+            this.newsTickerEnabled = v;
+            this.cdr.markForCheck();
+        });
     }
 
     ngOnInit() {

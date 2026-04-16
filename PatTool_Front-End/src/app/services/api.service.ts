@@ -197,10 +197,90 @@ export class ApiService {
   /**
    * Get approximate location (lat, lon) from client IP via backend.
    */
-  getLocationByIp(): Observable<{ status: string; lat?: number; lon?: number }> {
+  getLocationByIp(): Observable<{ status: string; lat?: number; lon?: number; countryCode?: string }> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers =>
-        this._http.get<{ status: string; lat?: number; lon?: number }>(this.API_URL + 'external/geocode/location-by-ip', { headers: headers })
+        this._http.get<{ status: string; lat?: number; lon?: number; countryCode?: string }>(this.API_URL + 'external/geocode/location-by-ip', { headers: headers })
+      )
+    );
+  }
+
+  // ===================================================================
+  // NewsAPI endpoints (backend proxy: /api/external/news/*)
+  // ===================================================================
+
+  /**
+   * Top headlines. At least one of country / category / q should be set; backend
+   * will fall back to country=us if none is provided to avoid a 400.
+   */
+  getTopHeadlines(options: {
+    country?: string;
+    category?: string;
+    q?: string;
+    pageSize?: number;
+    page?: number;
+  }): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => {
+        let params = new HttpParams();
+        if (options.country)  params = params.set('country', options.country);
+        if (options.category) params = params.set('category', options.category);
+        if (options.q)        params = params.set('q', options.q);
+        if (options.pageSize) params = params.set('pageSize', options.pageSize.toString());
+        if (options.page)     params = params.set('page', options.page.toString());
+        return this._http.get(this.API_URL + 'external/news/top-headlines', { headers, params });
+      })
+    );
+  }
+
+  /**
+   * Full-text article search (NewsAPI /everything). Requires {@code q}.
+   */
+  getEverything(options: {
+    q: string;
+    language?: string;
+    from?: string;
+    to?: string;
+    sortBy?: 'publishedAt' | 'relevancy' | 'popularity';
+    pageSize?: number;
+    page?: number;
+  }): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => {
+        let params = new HttpParams().set('q', options.q);
+        if (options.language) params = params.set('language', options.language);
+        if (options.from)     params = params.set('from', options.from);
+        if (options.to)       params = params.set('to', options.to);
+        if (options.sortBy)   params = params.set('sortBy', options.sortBy);
+        if (options.pageSize) params = params.set('pageSize', options.pageSize.toString());
+        if (options.page)     params = params.set('page', options.page.toString());
+        return this._http.get(this.API_URL + 'external/news/everything', { headers, params });
+      })
+    );
+  }
+
+  /** Available news sources, optionally filtered. */
+  getNewsSources(options: {
+    country?: string;
+    category?: string;
+    language?: string;
+  } = {}): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => {
+        let params = new HttpParams();
+        if (options.country)  params = params.set('country', options.country);
+        if (options.category) params = params.set('category', options.category);
+        if (options.language) params = params.set('language', options.language);
+        return this._http.get(this.API_URL + 'external/news/sources', { headers, params });
+      })
+    );
+  }
+
+  /** Status probe for the News API, used by the status panel in the News page. */
+  getNewsApiStatus(): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get(this.API_URL + 'external/news/status', { headers })
       )
     );
   }

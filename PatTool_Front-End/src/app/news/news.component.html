@@ -1,0 +1,419 @@
+<!-- Standard Title Section -->
+<div class="pat-title">
+    <app-navigation-buttons></app-navigation-buttons>
+    <h2>
+        <i class="fa fa-newspaper-o me-2"></i>
+        {{ newsTitle || ('NEWS.PAGE_TITLE' | translate) }}
+    </h2>
+    <div class="pat-title-subtitle">{{ 'NEWS.PAGE_SUBTITLE' | translate }}</div>
+</div>
+
+<!-- Main Content -->
+<div class="container mt-0 news-container">
+    <div class="row justify-content-center">
+        <div class="col-12">
+
+            <!-- Messages -->
+            <div class="alert alert-danger" *ngIf="errorMessage" role="alert">
+                <i class="fa fa-exclamation-circle"></i> {{ errorMessage }}
+            </div>
+            <div class="alert alert-success" *ngIf="successMessage" role="alert">
+                <i class="fa fa-check-circle"></i> {{ successMessage }}
+            </div>
+            <div class="alert alert-info news-fallback-banner" *ngIf="fallbackInfo && !isLoading && !errorMessage" role="status">
+                <i class="fa fa-info-circle"></i>
+                <span class="fallback-flag" *ngIf="fallbackInfo.flag">{{ fallbackInfo.flag }}</span>
+                <span>
+                    {{ 'NEWS.FALLBACK_BANNER' | translate:{ country: fallbackInfo.countryName } }}
+                    <span *ngIf="fallbackInfo.categoryLabel"> · {{ fallbackInfo.categoryLabel }}</span>
+                </span>
+                <button type="button" class="btn btn-link btn-sm fallback-cta" (click)="setMode('search')">
+                    <i class="fa fa-search"></i> {{ 'NEWS.FALLBACK_GO_SEARCH' | translate }}
+                </button>
+            </div>
+
+            <!-- Collapse toggle for the whole top toolbar -->
+            <button type="button"
+                    class="news-filters-collapse-btn"
+                    (click)="toggleFiltersCollapsed()"
+                    [attr.aria-expanded]="!filtersCollapsed"
+                    [title]="(filtersCollapsed ? 'NEWS.FILTERS_SHOW' : 'NEWS.FILTERS_HIDE') | translate">
+                <i class="fa" [class.fa-chevron-down]="!filtersCollapsed" [class.fa-chevron-right]="filtersCollapsed"></i>
+                <span>{{ 'NEWS.FILTERS_SECTION' | translate }}</span>
+                <span class="news-filters-collapse-summary" *ngIf="filtersCollapsed">
+                    · {{ ('NEWS.MODE_' + mode.toUpperCase()) | translate }}
+                    <ng-container *ngIf="country"> · {{ country | uppercase }}</ng-container>
+                    <ng-container *ngIf="language"> · {{ language | uppercase }}</ng-container>
+                </span>
+            </button>
+
+            <ng-container *ngIf="!filtersCollapsed">
+            <!-- Mode toggle -->
+            <div class="news-mode-toggle" role="tablist">
+                <button type="button"
+                        class="btn"
+                        [class.btn-primary]="mode === 'headlines'"
+                        [class.btn-outline-primary]="mode !== 'headlines'"
+                        (click)="setMode('headlines')"
+                        role="tab"
+                        [attr.aria-selected]="mode === 'headlines'">
+                    <i class="fa fa-fire"></i>
+                    <span class="btn-text">{{ 'NEWS.MODE_HEADLINES' | translate }}</span>
+                </button>
+                <button type="button"
+                        class="btn"
+                        [class.btn-primary]="mode === 'search'"
+                        [class.btn-outline-primary]="mode !== 'search'"
+                        (click)="setMode('search')"
+                        role="tab"
+                        [attr.aria-selected]="mode === 'search'">
+                    <i class="fa fa-search"></i>
+                    <span class="btn-text">{{ 'NEWS.MODE_SEARCH' | translate }}</span>
+                </button>
+                <button type="button"
+                        class="btn"
+                        [class.btn-primary]="mode === 'sources'"
+                        [class.btn-outline-primary]="mode !== 'sources'"
+                        (click)="setMode('sources')"
+                        role="tab"
+                        [attr.aria-selected]="mode === 'sources'">
+                    <i class="fa fa-book"></i>
+                    <span class="btn-text">{{ 'NEWS.MODE_SOURCES' | translate }}</span>
+                </button>
+
+                <button type="button"
+                        class="btn btn-outline-secondary ms-auto refresh-btn"
+                        (click)="refreshAll()"
+                        [disabled]="isLoading"
+                        [title]="'NEWS.REFRESH' | translate">
+                    <i class="fa" [class.fa-refresh]="!isLoading" [class.fa-spinner]="isLoading" [class.fa-spin]="isLoading"></i>
+                    <span class="btn-text">{{ 'NEWS.REFRESH' | translate }}</span>
+                </button>
+            </div>
+
+            <!-- API status badge -->
+            <div class="news-status" *ngIf="apiStatus">
+                <span class="badge" [class.bg-success]="apiStatus.status === 'available'"
+                                    [class.bg-warning]="apiStatus.status !== 'available'">
+                    <i class="fa" [class.fa-check-circle]="apiStatus.status === 'available'"
+                                  [class.fa-exclamation-triangle]="apiStatus.status !== 'available'"></i>
+                    {{ 'NEWS.API_STATUS' | translate }}: {{ apiStatus.status }}
+                </span>
+                <span class="badge bg-light text-dark" *ngIf="apiStatus.cacheEntries !== undefined">
+                    <i class="fa fa-database"></i>
+                    {{ 'NEWS.CACHE_ENTRIES' | translate }}: {{ apiStatus.cacheEntries }}
+                    <span *ngIf="apiStatus.cacheTtlMinutes !== undefined"> ({{ apiStatus.cacheTtlMinutes }} min)</span>
+                </span>
+                <span class="badge bg-danger" *ngIf="apiStatus.configured === false">
+                    <i class="fa fa-key"></i> {{ 'NEWS.KEY_MISSING' | translate }}
+                </span>
+            </div>
+
+            <!-- Filters card -->
+            <div class="news-filters">
+                <!-- Top toolbar: ticker switch (left) + reset button (right) -->
+                <div class="filter-row filter-row-ticker">
+                    <div class="news-ticker-toggle" [title]="'NEWS.TICKER_TOGGLE_HINT' | translate">
+                        <div class="form-check form-switch news-ticker-switch">
+                            <input type="checkbox"
+                                   class="form-check-input"
+                                   id="newsTickerSwitch"
+                                   [checked]="tickerEnabled"
+                                   (change)="onToggleTicker($any($event.target).checked)">
+                            <label class="form-check-label" for="newsTickerSwitch">
+                                <i class="fa fa-bullhorn"></i>
+                                <span class="news-ticker-switch-label">{{ 'NEWS.TICKER_TOGGLE_LABEL' | translate }}</span>
+                            </label>
+                        </div>
+                    </div>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary news-filters-reset"
+                            (click)="resetFilters()"
+                            [title]="'NEWS.FILTERS_RESET' | translate">
+                        <i class="fa fa-undo"></i>
+                        <span>{{ 'NEWS.FILTERS_RESET' | translate }}</span>
+                    </button>
+                </div>
+
+                <!-- Help banner: explains how Country/Language behave per mode -->
+                <div class="filter-row filter-help">
+                    <i class="fa fa-info-circle"></i>
+                    <div>
+                        <strong>{{ 'NEWS.FILTERS_HELP_TITLE' | translate }}</strong>
+                        <span *ngIf="mode === 'headlines'">{{ 'NEWS.FILTERS_HELP_HEADLINES' | translate }}</span>
+                        <span *ngIf="mode === 'search'">{{ 'NEWS.FILTERS_HELP_SEARCH' | translate }}</span>
+                        <span *ngIf="mode === 'sources'">{{ 'NEWS.FILTERS_HELP_SOURCES' | translate }}</span>
+                    </div>
+                </div>
+
+                <!-- Free-text query (always visible; mandatory for /everything) -->
+                <div class="filter-row filter-row-search">
+                    <label for="news-q">
+                        <i class="fa fa-search"></i>
+                        {{ 'NEWS.SEARCH_QUERY' | translate }}
+                    </label>
+                    <input id="news-q"
+                           type="text"
+                           class="form-control"
+                           [(ngModel)]="query"
+                           (ngModelChange)="onSearchInputChange()"
+                           [placeholder]="(mode === 'search' ? ('NEWS.SEARCH_PLACEHOLDER_REQUIRED' | translate) : ('NEWS.SEARCH_PLACEHOLDER_OPTIONAL' | translate))">
+                </div>
+
+                <!-- Common filters -->
+                <div class="filter-row filter-row-grid">
+                    <div class="filter-item">
+                        <label for="news-country">
+                            <i class="fa fa-flag"></i> {{ 'NEWS.COUNTRY' | translate }}
+                            <span class="flag-preview" *ngIf="country">{{ getCountryFlag(country) }}</span>
+                        </label>
+                        <select id="news-country"
+                                class="form-control country-select"
+                                [(ngModel)]="country"
+                                (ngModelChange)="onFilterChange()">
+                            <option *ngFor="let c of countries" [value]="c.code">
+                                {{ c.code ? (getCountryFlag(c.code) + ' ' + c.name + ' (' + (c.code | uppercase) + ')') : c.name }}
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="filter-item" *ngIf="mode !== 'search'">
+                        <label>
+                            <i class="fa fa-tags"></i> {{ 'NEWS.CATEGORY' | translate }}
+                        </label>
+                        <div class="category-chips">
+                            <button type="button"
+                                    *ngFor="let cat of categories"
+                                    class="chip"
+                                    [class.chip-active]="category === cat.code"
+                                    (click)="setCategory(cat.code)"
+                                    [title]="cat.labelKey | translate">
+                                <i class="fa" [ngClass]="cat.icon"></i>
+                                <span>{{ cat.labelKey | translate }}</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="filter-item" *ngIf="mode === 'search' || mode === 'sources'">
+                        <label for="news-lang">
+                            <i class="fa fa-language"></i> {{ 'NEWS.LANGUAGE' | translate }}
+                        </label>
+                        <select id="news-lang"
+                                class="form-control"
+                                [(ngModel)]="language"
+                                (ngModelChange)="onFilterChange()">
+                            <option *ngFor="let l of languages" [value]="l.code">
+                                {{ l.code ? (l.name + ' (' + (l.code | uppercase) + ')') : l.name }}
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="filter-item" *ngIf="mode === 'sources'">
+                        <label for="news-sources-cat">
+                            <i class="fa fa-tags"></i> {{ 'NEWS.CATEGORY' | translate }}
+                        </label>
+                        <select id="news-sources-cat"
+                                class="form-control"
+                                [(ngModel)]="category"
+                                (ngModelChange)="onFilterChange()">
+                            <option *ngFor="let cat of categories" [value]="cat.code">
+                                {{ cat.labelKey | translate }}
+                            </option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- /everything specific -->
+                <div class="filter-row filter-row-grid" *ngIf="mode === 'search'">
+                    <div class="filter-item">
+                        <label for="news-from"><i class="fa fa-calendar-o"></i> {{ 'NEWS.DATE_FROM' | translate }}</label>
+                        <input id="news-from"
+                               type="datetime-local"
+                               class="form-control"
+                               [(ngModel)]="dateFrom"
+                               (ngModelChange)="onFilterChange()">
+                    </div>
+                    <div class="filter-item">
+                        <label for="news-to"><i class="fa fa-calendar"></i> {{ 'NEWS.DATE_TO' | translate }}</label>
+                        <input id="news-to"
+                               type="datetime-local"
+                               class="form-control"
+                               [(ngModel)]="dateTo"
+                               (ngModelChange)="onFilterChange()">
+                    </div>
+                    <div class="filter-item">
+                        <label><i class="fa fa-sort"></i> {{ 'NEWS.SORT_BY' | translate }}</label>
+                        <div class="sort-chips">
+                            <button type="button" class="chip"
+                                    [class.chip-active]="sortBy === 'publishedAt'"
+                                    (click)="sortBy = 'publishedAt'; onFilterChange()">
+                                <i class="fa fa-clock-o"></i> {{ 'NEWS.SORT_PUBLISHED_AT' | translate }}
+                            </button>
+                            <button type="button" class="chip"
+                                    [class.chip-active]="sortBy === 'relevancy'"
+                                    (click)="sortBy = 'relevancy'; onFilterChange()">
+                                <i class="fa fa-bullseye"></i> {{ 'NEWS.SORT_RELEVANCY' | translate }}
+                            </button>
+                            <button type="button" class="chip"
+                                    [class.chip-active]="sortBy === 'popularity'"
+                                    (click)="sortBy = 'popularity'; onFilterChange()">
+                                <i class="fa fa-fire"></i> {{ 'NEWS.SORT_POPULARITY' | translate }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </ng-container>
+
+            <!-- Loading state -->
+            <div class="news-loading" *ngIf="isLoading">
+                <i class="fa fa-spinner fa-spin fa-2x"></i>
+                <span>{{ 'NEWS.LOADING' | translate }}</span>
+            </div>
+
+            <!-- Results -->
+            <div class="news-results" *ngIf="!isLoading">
+
+                <!-- Headlines / search totals -->
+                <div class="news-results-meta" *ngIf="(mode === 'headlines' || mode === 'search') && articles.length > 0">
+                    <span>
+                        <i class="fa fa-newspaper-o"></i>
+                        {{ 'NEWS.TOTAL_RESULTS' | translate }}: <strong>{{ totalResults | number }}</strong>
+                    </span>
+                    <span *ngIf="totalPages > 1">
+                        <i class="fa fa-book"></i>
+                        {{ 'NEWS.PAGE' | translate }} {{ page }} / {{ totalPages }}
+                    </span>
+                </div>
+
+                <!-- Empty state -->
+                <div class="news-empty" *ngIf="(mode === 'headlines' || mode === 'search') && articles.length === 0 && !errorMessage">
+                    <i class="fa fa-inbox fa-3x"></i>
+                    <p>{{ 'NEWS.NO_ARTICLES' | translate }}</p>
+                    <p class="news-empty-hint">{{ 'NEWS.NO_ARTICLES_HINT' | translate }}</p>
+                    <button type="button" class="btn btn-sm btn-primary" (click)="resetFilters()">
+                        <i class="fa fa-undo"></i> {{ 'NEWS.FILTERS_RESET' | translate }}
+                    </button>
+                </div>
+
+                <div class="news-empty" *ngIf="mode === 'sources' && sources.length === 0 && !errorMessage">
+                    <i class="fa fa-book fa-3x"></i>
+                    <p>{{ 'NEWS.NO_SOURCES' | translate }}</p>
+                </div>
+
+                <!-- Articles grid -->
+                <div class="news-grid" *ngIf="(mode === 'headlines' || mode === 'search') && articles.length > 0">
+                    <article class="news-card" *ngFor="let article of articles"
+                             (click)="openArticle(article)"
+                             (keyup.enter)="openArticle(article)"
+                             tabindex="0">
+
+                        <div class="news-card-media">
+                            <img *ngIf="shouldShowImage(article); else placeholder"
+                                 [src]="getProxiedImageUrl(article.urlToImage!)"
+                                 [alt]="article.title || ''"
+                                 loading="lazy"
+                                 (error)="onImgError(article)">
+                            <ng-template #placeholder>
+                                <div class="news-card-placeholder"
+                                     [style.background]="getPlaceholderGradient(article)">
+                                    <i class="fa fa-3x" [ngClass]="getPlaceholderIcon(article)"></i>
+                                    <span class="placeholder-initials">{{ getPlaceholderInitials(article) }}</span>
+                                    <span class="placeholder-source" *ngIf="article.source && article.source.name">
+                                        {{ article.source.name }}
+                                    </span>
+                                </div>
+                            </ng-template>
+                        </div>
+
+                        <div class="news-card-body">
+                            <div class="news-card-source" *ngIf="article.source && article.source.name">
+                                <span class="badge source-badge">
+                                    <i class="fa fa-rss"></i> {{ article.source.name }}
+                                </span>
+                                <span class="news-card-time" [title]="formatAbsoluteTime(article.publishedAt)">
+                                    <i class="fa fa-clock-o"></i> {{ formatRelativeTime(article.publishedAt) }}
+                                </span>
+                            </div>
+
+                            <h3 class="news-card-title">{{ article.title }}</h3>
+                            <p class="news-card-desc" *ngIf="article.description">{{ article.description }}</p>
+
+                            <div class="news-card-footer">
+                                <span class="news-card-author" *ngIf="article.author" [title]="article.author">
+                                    <i class="fa fa-user-o"></i> {{ article.author }}
+                                </span>
+                                <div class="news-card-actions">
+                                    <button type="button"
+                                            class="icon-btn"
+                                            (click)="openArticle(article, $event)"
+                                            [title]="'NEWS.OPEN_ARTICLE' | translate">
+                                        <i class="fa fa-external-link"></i>
+                                    </button>
+                                    <button type="button"
+                                            class="icon-btn"
+                                            (click)="shareArticle(article, $event)"
+                                            [title]="'NEWS.SHARE_ARTICLE' | translate">
+                                        <i class="fa fa-share-alt"></i>
+                                    </button>
+                                    <button type="button"
+                                            class="icon-btn"
+                                            (click)="copyLink(article, $event)"
+                                            [title]="'NEWS.COPY_LINK' | translate">
+                                        <i class="fa fa-link"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+
+                <!-- Sources grid -->
+                <div class="news-sources-grid" *ngIf="mode === 'sources' && sources.length > 0">
+                    <div class="source-card" *ngFor="let src of sources">
+                        <h4><i class="fa fa-rss"></i> {{ src.name }}</h4>
+                        <p *ngIf="src.description">{{ src.description }}</p>
+                        <div class="source-meta">
+                            <span class="badge bg-light text-dark" *ngIf="src.category">
+                                <i class="fa fa-tag"></i> {{ src.category }}
+                            </span>
+                            <span class="badge bg-light text-dark" *ngIf="src.language">
+                                <i class="fa fa-language"></i> {{ src.language }}
+                            </span>
+                            <span class="badge bg-light text-dark" *ngIf="src.country">
+                                {{ getCountryFlag(src.country) }} {{ src.country | uppercase }}
+                            </span>
+                        </div>
+                        <a *ngIf="src.url"
+                           [href]="src.url"
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="source-link">
+                            <i class="fa fa-external-link"></i> {{ 'NEWS.VISIT_SOURCE' | translate }}
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Pagination -->
+                <nav class="news-pagination" *ngIf="(mode === 'headlines' || mode === 'search') && totalPages > 1">
+                    <button class="btn btn-outline-primary"
+                            (click)="goToPage(page - 1)"
+                            [disabled]="page <= 1">
+                        <i class="fa fa-chevron-left"></i>
+                        <span class="btn-text">{{ 'NEWS.PREVIOUS' | translate }}</span>
+                    </button>
+                    <span class="page-indicator">
+                        {{ 'NEWS.PAGE' | translate }} <strong>{{ page }}</strong> / {{ totalPages }}
+                    </span>
+                    <button class="btn btn-outline-primary"
+                            (click)="goToPage(page + 1)"
+                            [disabled]="page >= totalPages">
+                        <span class="btn-text">{{ 'NEWS.NEXT' | translate }}</span>
+                        <i class="fa fa-chevron-right"></i>
+                    </button>
+                </nav>
+            </div>
+
+        </div>
+    </div>
+</div>

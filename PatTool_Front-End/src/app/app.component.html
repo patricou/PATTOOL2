@@ -121,6 +121,11 @@
                            (click)="closeMenu()">
                         <i class="fa fa-map-marker"></i> {{ 'MENU.ADDRESS_TO_MAP' | translate }}
                     </a></li>
+                    <li><a class="dropdown-item"
+                           [routerLink]="['api/news']"
+                           (click)="closeMenu()">
+                        <i class="fa fa-newspaper-o"></i> {{ 'MENU.NEWS' | translate }}
+                    </a></li>
                 </ul>
             </li>
 
@@ -340,6 +345,10 @@
     </div>
 </nav>
 
+<!-- Global news ticker (toggle from the News page). Sits between the top
+     navbar and the per-page title so it's visible on every route. -->
+<app-news-ticker></app-news-ticker>
+
 <!-- Demandes d'amis en attente : bannière (plus de modale / pas de double cadre Bootstrap) -->
 <div *ngIf="showFriendRequestsPromptBanner()"
      class="friend-requests-app-banner"
@@ -372,7 +381,9 @@
 </div>
 
 <!-- Sans bannière : marge sous la navbar ; avec bannière : la bannière occupe déjà le dégagement → évite ~80px de vide avant le contenu -->
-<div class="pat-div" [class.pat-div--with-friend-requests-banner]="showFriendRequestsPromptBanner()"></div>
+<div class="pat-div"
+     [class.pat-div--with-friend-requests-banner]="showFriendRequestsPromptBanner()"
+     [class.pat-div--with-news-ticker]="newsTickerEnabled"></div>
 <router-outlet></router-outlet>
 
 <!-- Modal window for user information -->
