@@ -214,6 +214,7 @@ export class ApiService {
    * will fall back to country=us if none is provided to avoid a 400.
    */
   getTopHeadlines(options: {
+    provider?: 'newsapi' | 'newsdata';
     country?: string;
     category?: string;
     q?: string;
@@ -223,6 +224,7 @@ export class ApiService {
     return this.getHeaderWithToken().pipe(
       switchMap(headers => {
         let params = new HttpParams();
+        if (options.provider) params = params.set('provider', options.provider);
         if (options.country)  params = params.set('country', options.country);
         if (options.category) params = params.set('category', options.category);
         if (options.q)        params = params.set('q', options.q);
@@ -234,9 +236,11 @@ export class ApiService {
   }
 
   /**
-   * Full-text article search (NewsAPI /everything). Requires {@code q}.
+   * Full-text article search (NewsAPI /everything, NewsData.io /latest).
+   * Requires {@code q}.
    */
   getEverything(options: {
+    provider?: 'newsapi' | 'newsdata';
     q: string;
     language?: string;
     from?: string;
@@ -248,6 +252,7 @@ export class ApiService {
     return this.getHeaderWithToken().pipe(
       switchMap(headers => {
         let params = new HttpParams().set('q', options.q);
+        if (options.provider) params = params.set('provider', options.provider);
         if (options.language) params = params.set('language', options.language);
         if (options.from)     params = params.set('from', options.from);
         if (options.to)       params = params.set('to', options.to);
@@ -261,6 +266,7 @@ export class ApiService {
 
   /** Available news sources, optionally filtered. */
   getNewsSources(options: {
+    provider?: 'newsapi' | 'newsdata';
     country?: string;
     category?: string;
     language?: string;
@@ -268,6 +274,7 @@ export class ApiService {
     return this.getHeaderWithToken().pipe(
       switchMap(headers => {
         let params = new HttpParams();
+        if (options.provider) params = params.set('provider', options.provider);
         if (options.country)  params = params.set('country', options.country);
         if (options.category) params = params.set('category', options.category);
         if (options.language) params = params.set('language', options.language);
@@ -276,25 +283,29 @@ export class ApiService {
     );
   }
 
-  /** Status probe for the News API, used by the status panel in the News page. */
-  getNewsApiStatus(): Observable<any> {
+  /** Status probe for the selected News provider, used by the status panel. */
+  getNewsApiStatus(provider?: 'newsapi' | 'newsdata'): Observable<any> {
     return this.getHeaderWithToken().pipe(
-      switchMap(headers =>
-        this._http.get(this.API_URL + 'external/news/status', { headers })
-      )
+      switchMap(headers => {
+        let params = new HttpParams();
+        if (provider) params = params.set('provider', provider);
+        return this._http.get(this.API_URL + 'external/news/status', { headers, params });
+      })
     );
   }
 
   /**
-   * Drop every cached NewsAPI response on the server (bypasses the 30-min
-   * TTL). The next call will hit the network and burn one quota slot.
-   * Used by the "force refresh" button on the News page.
+   * Drop every cached response on the server for the selected provider
+   * (bypasses the 30-min TTL). The next call will hit the network and
+   * burn one quota slot. Used by the "force refresh" button.
    */
-  clearNewsApiCache(): Observable<any> {
+  clearNewsApiCache(provider?: 'newsapi' | 'newsdata'): Observable<any> {
     return this.getHeaderWithToken().pipe(
-      switchMap(headers =>
-        this._http.post(this.API_URL + 'external/news/cache/clear', {}, { headers })
-      )
+      switchMap(headers => {
+        let params = new HttpParams();
+        if (provider) params = params.set('provider', provider);
+        return this._http.post(this.API_URL + 'external/news/cache/clear', {}, { headers, params });
+      })
     );
   }
 }

@@ -119,6 +119,54 @@
     font-size: 0.8rem;
 }
 
+/* ---------- Inline hints under individual filter inputs ----------
+ * Small, unobtrusive one-liner that appears under a filter field to
+ * give a per-mode or per-value hint (e.g. "language ignored in
+ * Headlines", "virtual country — switched to Search"). Deliberately
+ * low-contrast so it doesn't compete with the main help banner. */
+.news-filters .filter-item-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 3px;
+    font-size: 0.72rem;
+    line-height: 1.25;
+}
+
+.news-filters .filter-item-hint i {
+    font-size: 0.72rem;
+    flex: 0 0 auto;
+}
+
+.news-filters .filter-item-hint-virtual {
+    color: #6f42c1;
+}
+
+.news-filters .filter-item-hint-virtual i {
+    color: #8e5be0;
+}
+
+.news-filters .filter-item-hint-muted {
+    color: #7a8391;
+    font-style: italic;
+}
+
+.news-filters .filter-item-hint-muted i {
+    color: #9aa3b0;
+}
+
+/* ---------- Optgroup visual cue in the country picker ----------
+ * Make the "virtual countries" optgroup visually distinct so users
+ * understand they're stepping into a different (search-backed) mode.
+ * We can only style the <optgroup> label itself cross-browser; the
+ * actual <option> children inherit from the browser's native style. */
+.news-filters .country-select optgroup {
+    font-weight: 600;
+    font-style: normal;
+    color: #0d2b5c;
+    background: #f3f6fb;
+}
+
 /* ---------- Fallback banner ---------- */
 .news-fallback-banner {
     display: flex;
@@ -223,6 +271,305 @@
     margin-left: 0;
 }
 
+/* ---------- New two-tab layout ----------
+ * The old 3-button segmented toggle exposed the NewsAPI endpoint split
+ * to the user. The new design is simpler: two big tabs for the main use
+ * cases ("À la une" / "Rechercher") and one discreet link for Sources.
+ * Each tab has a one-line hint under its label explaining what it's for. */
+/* ---------- Provider tabs (NewsData.io / NewsAPI) ----------
+ * A thin, secondary selector above the main content tabs.
+ * Intentionally less visually dominant than .news-tabs: the
+ * provider is a power-user knob, not the primary navigation.
+ */
+.news-providers {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+    padding: 4px 2px;
+    border-bottom: 1px dashed #e4e8ef;
+}
+
+.news-providers-label {
+    font-size: 0.78rem;
+    color: #7a8693;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-right: 4px;
+}
+
+.news-provider {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    background: #f4f6fb;
+    border: 1px solid #dfe3ec;
+    border-radius: 999px;
+    color: #495668;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.news-provider:hover:not(.news-provider-active) {
+    background: #e9eef8;
+    color: #2c3e50;
+}
+
+.news-provider-active {
+    background: #0d6efd;
+    border-color: #0d6efd;
+    color: #fff;
+}
+
+.news-provider-active:hover {
+    background: #0b5ed7;
+    border-color: #0b5ed7;
+}
+
+.news-provider > i.fa {
+    font-size: 0.9em;
+}
+
+/* Each provider pill is paired with a tiny "?" help button. The pair
+ * stays visually glued (same border-radius sandwich) so it reads as one
+ * widget, not as two unrelated controls. */
+.news-provider-group {
+    display: inline-flex;
+    align-items: stretch;
+    gap: 0;
+}
+
+.news-provider-group .news-provider {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-right: none;
+}
+
+.news-provider-help {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 10px;
+    background: #f4f6fb;
+    border: 1px solid #dfe3ec;
+    border-top-right-radius: 999px;
+    border-bottom-right-radius: 999px;
+    color: #7a8693;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+    font-size: 0.95rem;
+}
+
+.news-provider-help:hover {
+    background: #e1ecfd;
+    color: #0d6efd;
+    border-color: #b6d4fe;
+}
+
+.news-provider-help:focus-visible {
+    outline: 2px solid #0d6efd;
+    outline-offset: 1px;
+}
+
+/* --- Provider help modal --- */
+.news-help-header {
+    align-items: center;
+    background: #f8faff;
+    border-bottom: 1px solid #e4e8ef;
+}
+
+.news-help-header .modal-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+}
+
+.news-help-body {
+    font-size: 0.95rem;
+    line-height: 1.55;
+    color: #2c3e50;
+}
+
+.news-help-body h6 {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    margin-bottom: 6px;
+    color: #0d6efd;
+    font-weight: 600;
+}
+
+.news-help-body h6.news-help-provider {
+    color: #495668;
+}
+
+.news-help-body ul {
+    margin-bottom: 12px;
+    padding-left: 22px;
+}
+
+.news-help-body li + li {
+    margin-top: 4px;
+}
+
+.news-help-body code {
+    background: #eef2f7;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: #2c3e50;
+}
+
+.news-help-lead {
+    background: #eef5ff;
+    border-left: 4px solid #0d6efd;
+    padding: 10px 14px;
+    border-radius: 4px;
+    margin-bottom: 16px;
+}
+
+.news-help-tip {
+    margin-top: 16px;
+    padding: 10px 14px;
+    background: #fff8e1;
+    border-left: 4px solid #f0ad4e;
+    border-radius: 4px;
+}
+
+.news-help-tip i.fa {
+    margin-right: 6px;
+    color: #e0a800;
+}
+
+.news-help-footer {
+    border-top: 1px solid #e4e8ef;
+}
+
+.news-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    align-items: stretch;
+    margin-bottom: 8px;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.news-tab {
+    flex: 0 1 auto;
+    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    padding: 8px 16px 10px;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    color: #495668;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    text-align: left;
+}
+
+.news-tab:hover:not(.news-tab-active) {
+    background: #f4f6fb;
+    color: #2c3e50;
+}
+
+.news-tab-active {
+    color: #0d6efd;
+    border-bottom-color: #0d6efd;
+    background: #f8faff;
+}
+
+.news-tab .news-tab-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.news-tab .news-tab-label i {
+    font-size: 0.9rem;
+}
+
+.news-tab .news-tab-hint {
+    font-size: 0.72rem;
+    color: #6c757d;
+    font-weight: 400;
+    padding-left: 22px; /* aligned with label text (after icon + gap) */
+}
+
+.news-tab-active .news-tab-hint {
+    color: #3b5998;
+}
+
+.news-tab > i.fa {
+    display: none; /* icon is embedded inside .news-tab-label */
+}
+
+/* Right-side action cluster: sources toggle, refresh, force-refresh.
+ * Pushed to the right via `ms-auto` in the template. */
+.news-tabs-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 4px;
+    margin-bottom: -2px; /* align bottom with tabs */
+}
+
+.news-sources-link {
+    font-size: 0.8rem;
+    color: #6c757d;
+    text-decoration: none;
+    padding: 4px 10px;
+    border-radius: 14px;
+    transition: all 0.15s ease;
+}
+
+.news-sources-link:hover {
+    background: #f4f6fb;
+    color: #2c3e50;
+    text-decoration: none;
+}
+
+.news-sources-link-active {
+    background: #e9ecfd;
+    color: #0d6efd;
+    font-weight: 600;
+}
+
+.news-sources-link i {
+    margin-right: 4px;
+}
+
+/* Lets the category chips row breathe across the second grid column
+ * when the Country selector is the only other filter in "À la une". */
+.news-filters .filter-item-wide {
+    grid-column: span 2;
+}
+
+@media (max-width: 640px) {
+    .news-filters .filter-item-wide {
+        grid-column: span 1;
+    }
+    .news-tab {
+        min-width: 120px;
+        padding: 6px 10px 8px;
+    }
+    .news-tab .news-tab-hint {
+        display: none; /* save vertical space on phones */
+    }
+}
+
 /* ---------- Status badges ---------- */
 .news-status {
     display: flex;
@@ -251,6 +598,48 @@
 }
 .news-status .news-quota-badge.bg-danger {
     box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.15);
+}
+
+/* ---------- Per-key breakdown badges ----------
+ * One tiny pill per configured NewsAPI key so the user can tell at a
+ * glance which key is currently active (purple border), which ones are
+ * available (neutral), and which ones have been exhausted (red). */
+.news-status .news-keybadge {
+    background: #f3f6fb;
+    color: #495668;
+    border: 1px solid #dfe4ec;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.3px;
+    cursor: help;
+}
+
+.news-status .news-keybadge i {
+    margin-right: 3px;
+    font-size: 0.72rem;
+}
+
+.news-status .news-keybadge-active {
+    background: #ede4ff;
+    border-color: #b699f0;
+    color: #45258a;
+    font-weight: 600;
+}
+
+.news-status .news-keybadge-active i {
+    color: #6f42c1;
+}
+
+.news-status .news-keybadge-saturated {
+    background: #fdecee;
+    border-color: #f1aeb5;
+    color: #842029;
+    text-decoration: line-through;
+}
+
+.news-status .news-keybadge-saturated i {
+    color: #dc3545;
+    text-decoration: none;
 }
 
 /* ---------- Filters card ---------- */

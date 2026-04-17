@@ -1,5 +1,6 @@
 import { Injectable, OnDestroy } from '@angular/core';
-import { BehaviorSubject, Observable, Subscription, timer } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, Subscription, timer } from 'rxjs';
+import { debounceTime } from 'rxjs/operators';
 
 import { ApiService } from './api.service';
 
@@ -10,6 +11,21 @@ export interface TickerArticle {
   publishedAt: string;
   /** Original NewsAPI image URL (not yet proxied); may be empty. */
   imageUrl: string;
+}
+
+/**
+ * Snapshot of the News page filters (read from localStorage) that drive
+ * which articles the ticker requests. Kept in one object so the fetch
+ * pipeline takes a single argument and adding new dimensions later
+ * (e.g. sortBy) doesn't ripple through every call site.
+ */
+interface UserPrefs {
+  country: string;
+  language: string;
+  category: string;
+  query: string;
+  provider: 'newsdata' | 'newsapi';
+  userTab: 'headlines' | 'search' | 'sources';
 }
 
 /**
@@ -110,14 +126,30 @@ export class NewsTickerService implements OnDestroy {
   /** Wall-clock timestamp (ms) of the last successful or failed network call. */
   private lastFetchAt: number = 0;
 
+  /**
+   * Coalesces rapid filter changes (typing, toggling country, switching
+   * provider) into a single refresh so the user sees the ticker update
+   * without us firing one request per keystroke.
+   */
+  private readonly filtersChanged$ = new Subject<void>();
+  private filtersSub?: Subscription;
+
   constructor(private api: ApiService) {
     // Ticker starts OFF on every page load — intentional. No auto-fetch here.
     // See class-level comment for rationale (quota protection).
     this.clearLegacyPreference();
+    this.filtersSub = this.filtersChanged$.pipe(debounceTime(500)).subscribe(() => {
+      // Only refetch when the ticker is actually visible — no point
+      // burning quota to update a bar the user isn't looking at.
+      if (this._enabled$.value) {
+        this.fetchLatest(true);
+      }
+    });
   }
 
   ngOnDestroy(): void {
     this.refreshSub?.unsubscribe();
+    this.filtersSub?.unsubscribe();
   }
 
   // ---------- Public API ----------
@@ -175,6 +207,17 @@ export class NewsTickerService implements OnDestroy {
     this.fetchLatest(true);
   }
 
+  /**
+   * Called by the News page whenever the user tweaks a filter
+   * (country, language, category, provider, query, tab). Debounced
+   * internally so back-to-back changes cost one refresh at most.
+   * No-op when the ticker is off — the next time the user turns it on,
+   * {@link #fetchLatest} will naturally pick up the fresh filters.
+   */
+  notifyFiltersChanged(): void {
+    this.filtersChanged$.next();
+  }
+
   // ---------- Internal ----------
 
   private startAutoRefresh(): void {
@@ -205,14 +248,28 @@ export class NewsTickerService implements OnDestroy {
     }
     this.lastFetchAt = now;
 
-    const { country, language } = this.readUserPrefs();
+    const prefs = this.readUserPrefs();
     this._loading$.next(true);
+
+    // If the user is explicitly in "search" mode with a real query, or
+    // on a virtual country (one we don't support for /top-headlines),
+    // skip the headlines endpoint entirely and go straight to the
+    // /everything-style query — the headlines call would return empty
+    // and burn a quota slot for nothing.
+    const query = prefs.query.trim();
+    const isVirtualCountry = !NewsTickerService.COUNTRY_MAP[prefs.country];
+    if ((prefs.userTab === 'search' && query.length >= 2) || isVirtualCountry) {
+      this.fallbackEverything(prefs);
+      return;
+    }
 
     // Headlines first: richer "breaking news" flavor for the marquee.
     this.api.getTopHeadlines({
-      country,
+      country: prefs.country,
+      category: prefs.category || undefined,
       pageSize: NewsTickerService.PAGE_SIZE,
-      page: 1
+      page: 1,
+      provider: prefs.provider
     }).subscribe({
       next: (resp) => {
         const articles = this.extractArticles(resp);
@@ -221,26 +278,34 @@ export class NewsTickerService implements OnDestroy {
           this._loading$.next(false);
           return;
         }
-        // Empty headlines (common for non-US on the free tier): fall back
-        // to /everything with the country name so the user gets something
-        // relevant on their ticker instead of an empty bar.
-        this.fallbackEverything(country, language);
+        // Empty headlines (common for non-US on the NewsAPI free tier):
+        // fall back to /everything with the country name so the user
+        // gets something relevant on their ticker instead of an empty bar.
+        this.fallbackEverything(prefs);
       },
-      error: () => this.fallbackEverything(country, language)
+      error: () => this.fallbackEverything(prefs)
     });
   }
 
-  private fallbackEverything(country: string, language: string): void {
-    const entry = NewsTickerService.COUNTRY_MAP[country];
-    const q = entry?.name || country.toUpperCase();
-    const lang = language || entry?.language || 'en';
+  private fallbackEverything(prefs: UserPrefs): void {
+    const entry = NewsTickerService.COUNTRY_MAP[prefs.country];
+    // Prefer the user's explicit query over a synthetic country name
+    // so the ticker truly mirrors what's displayed on the News page.
+    const typed = prefs.query.trim();
+    const q = typed.length >= 2
+      ? typed
+      : (prefs.category
+          ? `${entry?.name || prefs.country.toUpperCase()} ${prefs.category}`
+          : (entry?.name || prefs.country.toUpperCase()));
+    const lang = prefs.language || entry?.language || 'en';
 
     this.api.getEverything({
       q,
       language: lang,
       sortBy: 'publishedAt',
       pageSize: NewsTickerService.PAGE_SIZE,
-      page: 1
+      page: 1,
+      provider: prefs.provider
     }).subscribe({
       next: (resp) => {
         this._articles$.next(this.extractArticles(resp));
@@ -268,22 +333,43 @@ export class NewsTickerService implements OnDestroy {
   }
 
   /**
-   * Read the country/language the user picked on the News page so the ticker
-   * stays consistent with their browsing preferences. Falls back to FR/fr.
+   * Read the filters the user picked on the News page so the ticker
+   * stays in sync with their browsing preferences (country, language,
+   * category, provider, search query, active tab). Falls back to FR/fr
+   * on NewsData.io if nothing has been saved yet.
+   *
+   * IMPORTANT: this key must match {@code STORAGE_KEY} in
+   * {@code news.component.ts}. When the News page bumps its version,
+   * bump it here too — otherwise the ticker silently keeps showing
+   * defaults while the UI shows the user's real selection.
    */
-  private readUserPrefs(): { country: string; language: string } {
+  private readUserPrefs(): UserPrefs {
+    const defaults: UserPrefs = {
+      country: 'fr',
+      language: 'fr',
+      category: '',
+      query: '',
+      provider: 'newsdata',
+      userTab: 'headlines'
+    };
     try {
-      const raw = localStorage.getItem('pat.news.filters.v3');
-      if (raw) {
-        const saved = JSON.parse(raw);
-        const country = typeof saved?.country === 'string' && saved.country ? saved.country : 'fr';
-        const language = typeof saved?.language === 'string' && saved.language ? saved.language : 'fr';
-        return { country, language };
-      }
+      const raw = localStorage.getItem('pat.news.filters.v5');
+      if (!raw) return defaults;
+      const saved = JSON.parse(raw) || {};
+      return {
+        country: typeof saved.country === 'string' && saved.country ? saved.country : defaults.country,
+        language: typeof saved.language === 'string' && saved.language ? saved.language : defaults.language,
+        category: typeof saved.category === 'string' ? saved.category : '',
+        query: typeof saved.query === 'string' ? saved.query : '',
+        provider: saved.provider === 'newsapi' ? 'newsapi' : 'newsdata',
+        userTab: (saved.userTab === 'search' || saved.userTab === 'sources' || saved.userTab === 'headlines')
+          ? saved.userTab
+          : 'headlines'
+      };
     } catch {
       // ignore corrupted payloads; fall through to defaults
+      return defaults;
     }
-    return { country: 'fr', language: 'fr' };
   }
 
   /**

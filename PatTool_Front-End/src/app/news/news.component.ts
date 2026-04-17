@@ -1,7 +1,7 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, TemplateRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
+import { NgbModule, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService, LangChangeEvent } from '@ngx-translate/core';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
@@ -36,6 +36,13 @@ interface NewsArticle {
 interface CountryOption {
   code: string;
   name: string;
+  /**
+   * Virtual countries are NOT supported by NewsAPI's /top-headlines endpoint,
+   * so we expose them in a separate optgroup and auto-switch the user to
+   * "Search" mode when they pick one. The country name is then used as the
+   * /everything query (and its natural language is pre-selected).
+   */
+  virtual?: boolean;
 }
 
 interface CategoryOption {
@@ -45,6 +52,15 @@ interface CategoryOption {
 }
 
 type NewsMode = 'headlines' | 'search' | 'sources';
+
+/**
+ * Which upstream news provider the backend should talk to for this
+ * request. Both providers expose the exact same REST contract to this
+ * component — only the endpoint URL and the quota/delay characteristics
+ * differ — so the rest of the code never branches on this value except
+ * to include it in persisted state and the backend query string.
+ */
+type NewsProviderId = 'newsdata' | 'newsapi';
 
 @Component({
   selector: 'app-news',
@@ -58,7 +74,32 @@ export class NewsComponent implements OnInit, OnDestroy {
   Math = Math;
 
   // ---------------- UI state ----------------
+  /**
+   * Low-level endpoint selector sent to the backend. Derived from
+   * {@link userTab} + current country (virtual countries silently force
+   * {@code 'search'}). Persisted for backward compat with saved prefs but
+   * the user now interacts with {@link userTab} instead.
+   */
   mode: NewsMode = 'headlines';
+
+  /**
+   * Tab the user explicitly clicked on — independent of which NewsAPI
+   * endpoint we actually hit. This is what drives the UI's tab highlight
+   * and which filters are shown. Keeping it decoupled from {@link mode}
+   * lets us pick Peru (a "virtual" country unsupported by /top-headlines)
+   * from the "À la une" tab without visually jumping the user into the
+   * "Rechercher" tab: we quietly call /everything under the hood and
+   * leave the "À la une" tab highlighted.
+   */
+  userTab: 'headlines' | 'search' | 'sources' = 'headlines';
+
+  /**
+   * Selected news provider. NewsData.io is the default because its
+   * Free plan has no 24h delay on articles (unlike NewsAPI's Developer
+   * plan). The user can switch to NewsAPI from the provider tabs at
+   * the top of the page; the selection is persisted in localStorage.
+   */
+  provider: NewsProviderId = 'newsdata';
   // Initial hardcoded defaults (used before the backend /status response
   // arrives). The real defaults come from application.properties via
   // {@code newsapi.default.country} and {@code newsapi.default.language}
@@ -102,11 +143,45 @@ export class NewsComponent implements OnInit, OnDestroy {
   fallbackUsed = false;
   fallbackInfo: { countryName: string; flag: string; categoryLabel?: string } | null = null;
 
-  private readonly STORAGE_KEY = 'pat.news.filters.v3';
+  // Bumped to v4 when the UI switched from the 3-button (Headlines /
+  // Search / Sources) toggle to the 2-tab layout (À la une / Rechercher +
+  // discreet Sources link). Old v3 payloads are ignored rather than
+  // migrated, so the user gets the new defaults instead of inheriting a
+  // mode that no longer maps cleanly to a tab.
+  // v5 adds the `provider` field (NewsData.io vs NewsAPI). Older keys
+  // are ignored on load so returning users transparently pick up the
+  // new default provider without carrying a stale field.
+  private readonly STORAGE_KEY = 'pat.news.filters.v5';
   private readonly IMAGE_PROXY_BASE = environment.API_URL + 'external/news/image?u=';
   private langChangeSub?: Subscription;
   private search$ = new Subject<void>();
   private searchSub?: Subscription;
+
+  /**
+   * Tracks the currently in-flight NewsAPI HTTP request so we can cancel
+   * it as soon as the user triggers a new one. Without this, rapid
+   * category/country/tab clicks would fan out N concurrent HTTP calls
+   * (and on the backend, N cache misses → N NewsAPI calls).
+   */
+  private currentQuerySub?: Subscription;
+
+  /**
+   * Signature of the last query we SUCCESSFULLY started/completed. Used
+   * to de-dupe a trigger that wouldn't change anything ("click same tab
+   * twice", "ngOnInit + loadStatus override to same value", etc.), so a
+   * single user intent never translates to more than one NewsAPI call.
+   * Intentionally {@code undefined} on first load so the initial fetch
+   * always runs.
+   */
+  private lastQuerySignature?: string;
+
+  /**
+   * {@code true} once {@link ngOnInit} has fired its very first
+   * {@link runQuery} call. Used to gate the loadStatus-driven re-run of
+   * {@link runQuery} for first-time visitors whose server defaults
+   * happen to match the hardcoded ones (no change → no double fetch).
+   */
+  private initialQueryFired = false;
 
   /** Tracks articles whose proxied image failed to load so we render the placeholder instead. */
   private readonly failedImages = new Set<string>();
@@ -172,6 +247,82 @@ export class NewsComponent implements OnInit, OnDestroy {
     { code: 've', name: 'Venezuela' },
     { code: 'za', name: 'South Africa' }
   ];
+
+  /**
+   * Countries NewsAPI does not cover on {@code /top-headlines} but that users
+   * still routinely ask for (Spain, Peru, Chile, Lebanon, Finland…). Picking
+   * one of these auto-switches the UI to "Search" mode and runs an
+   * {@code /everything} query with the English country name and a sensible
+   * default language. The list stays alphabetical by code.
+   */
+  readonly virtualCountries: CountryOption[] = [
+    { code: 'bd', name: 'বাংলাদেশ',       virtual: true },
+    { code: 'bo', name: 'Bolivia',         virtual: true },
+    { code: 'cl', name: 'Chile',           virtual: true },
+    { code: 'cr', name: 'Costa Rica',      virtual: true },
+    { code: 'dk', name: 'Danmark',         virtual: true },
+    { code: 'do', name: 'Rep. Dominicana', virtual: true },
+    { code: 'dz', name: 'الجزائر',        virtual: true },
+    { code: 'ec', name: 'Ecuador',         virtual: true },
+    { code: 'ee', name: 'Eesti',           virtual: true },
+    { code: 'es', name: 'España',          virtual: true },
+    { code: 'fi', name: 'Suomi',           virtual: true },
+    { code: 'gt', name: 'Guatemala',       virtual: true },
+    { code: 'hn', name: 'Honduras',        virtual: true },
+    { code: 'hr', name: 'Hrvatska',        virtual: true },
+    { code: 'is', name: 'Ísland',          virtual: true },
+    { code: 'jo', name: 'الأردن',         virtual: true },
+    { code: 'ke', name: 'Kenya',           virtual: true },
+    { code: 'lb', name: 'لبنان',          virtual: true },
+    { code: 'ni', name: 'Nicaragua',       virtual: true },
+    { code: 'pa', name: 'Panamá',          virtual: true },
+    { code: 'pe', name: 'Perú',            virtual: true },
+    { code: 'pk', name: 'پاکستان',        virtual: true },
+    { code: 'py', name: 'Paraguay',        virtual: true },
+    { code: 'qa', name: 'قطر',            virtual: true },
+    { code: 'sv', name: 'El Salvador',     virtual: true },
+    { code: 'tn', name: 'تونس',           virtual: true },
+    { code: 'uy', name: 'Uruguay',         virtual: true },
+    { code: 'vn', name: 'Việt Nam',        virtual: true }
+  ];
+
+  /**
+   * Flat, alpha-sorted merge of {@link countries} and {@link virtualCountries}.
+   *
+   * The UI no longer splits natives and virtuals into two {@code optgroup}s
+   * because that exposed the NewsAPI endpoint difference to the user (which
+   * was confusing). The {@code virtual} flag is still used internally by
+   * {@link resolveModeFromTab} to pick the right endpoint behind the scenes,
+   * and by the template to prefix those entries with a subtle globe marker
+   * so countries like Peru or Spain stay easy to spot in the long list.
+   *
+   * Computed eagerly on first access and cached in {@link _allCountriesCache}
+   * — the lists are static, so a single sort per session is enough.
+   */
+  private _allCountriesCache: CountryOption[] | null = null;
+  get allCountries(): CountryOption[] {
+    if (this._allCountriesCache) return this._allCountriesCache;
+    const empty = this.countries.filter(c => !c.code);
+    const real = this.countries.filter(c => !!c.code);
+    const merged = [...real, ...this.virtualCountries];
+    merged.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    this._allCountriesCache = [...empty, ...merged];
+    return this._allCountriesCache;
+  }
+
+  /**
+   * Rendering helper used by the {@code <option>} labels in all three
+   * country pickers. Prefixes the flag, name and ISO code — and marks
+   * "virtual" countries (Peru, Spain, Chile…) with a discreet globe
+   * glyph so they don't get lost in the alphabetical list. The glyph is
+   * cosmetic only; selection, comparison and persistence still use the
+   * raw {@link CountryOption#code}.
+   */
+  formatCountryOption(c: CountryOption): string {
+    if (!c.code) return c.name;
+    const prefix = c.virtual ? '🌐 ' : '';
+    return `${prefix}${this.getCountryFlag(c.code)} ${c.name} (${c.code.toUpperCase()})`;
+  }
 
   readonly categories: CategoryOption[] = [
     { code: '',               labelKey: 'NEWS.CATEGORY_ALL',           icon: 'fa-globe' },
@@ -246,7 +397,36 @@ export class NewsComponent implements OnInit, OnDestroy {
     ua: { name: 'Ukraine', language: 'ru' },
     us: { name: 'United States', language: 'en' },
     ve: { name: 'Venezuela', language: 'es' },
-    za: { name: 'South Africa', language: 'en' }
+    za: { name: 'South Africa', language: 'en' },
+    // ----- Virtual countries (no /top-headlines support, /everything only) -----
+    bd: { name: 'Bangladesh' },
+    bo: { name: 'Bolivia', language: 'es' },
+    cl: { name: 'Chile', language: 'es' },
+    cr: { name: 'Costa Rica', language: 'es' },
+    dk: { name: 'Denmark' },
+    do: { name: 'Dominican Republic', language: 'es' },
+    dz: { name: 'Algeria', language: 'ar' },
+    ec: { name: 'Ecuador', language: 'es' },
+    ee: { name: 'Estonia' },
+    es: { name: 'Spain', language: 'es' },
+    fi: { name: 'Finland' },
+    gt: { name: 'Guatemala', language: 'es' },
+    hn: { name: 'Honduras', language: 'es' },
+    hr: { name: 'Croatia' },
+    is: { name: 'Iceland' },
+    jo: { name: 'Jordan', language: 'ar' },
+    ke: { name: 'Kenya', language: 'en' },
+    lb: { name: 'Lebanon', language: 'ar' },
+    ni: { name: 'Nicaragua', language: 'es' },
+    pa: { name: 'Panama', language: 'es' },
+    pe: { name: 'Peru', language: 'es' },
+    pk: { name: 'Pakistan', language: 'en' },
+    py: { name: 'Paraguay', language: 'es' },
+    qa: { name: 'Qatar', language: 'ar' },
+    sv: { name: 'El Salvador', language: 'es' },
+    tn: { name: 'Tunisia', language: 'ar' },
+    uy: { name: 'Uruguay', language: 'es' },
+    vn: { name: 'Vietnam' }
   };
 
   // NewsAPI /everything supported languages.
@@ -280,17 +460,71 @@ export class NewsComponent implements OnInit, OnDestroy {
    */
   public filtersCollapsed: boolean = true;
 
+  /**
+   * Template used by {@link openProviderHelp}. Bound via ViewChild so
+   * we don't need a separate component for the help dialog; the modal
+   * body is inlined in news.component.html as an <ng-template>.
+   */
+  @ViewChild('providerHelpModal') private providerHelpModalTpl?: TemplateRef<unknown>;
+  private providerHelpModalRef?: NgbModalRef;
+
+  /**
+   * Which provider the help modal is currently describing. Drives the
+   * conditional sections inside the modal body.
+   */
+  helpProvider: NewsProviderId = 'newsdata';
+
   constructor(
     private apiService: ApiService,
     private translate: TranslateService,
     private cdr: ChangeDetectorRef,
-    private newsTicker: NewsTickerService
+    private newsTicker: NewsTickerService,
+    private modalService: NgbModal
   ) {}
+
+  /**
+   * {@code true} when the user's current i18n language is French.
+   * Per product decision, the filter help is only translated to FR/EN:
+   * FR for french-speaking users, EN for everyone else.
+   */
+  get isFrenchUi(): boolean {
+    const lang = (this.translate.currentLang || this.translate.defaultLang || '').toLowerCase();
+    return lang === 'fr' || lang.startsWith('fr-') || lang.startsWith('fr_');
+  }
+
+  /**
+   * Open the "how do the filters work?" modal. The content is
+   * provider-specific (quota, delay, country coverage quirks) so each
+   * provider pill carries its own {@code ?} button that calls this
+   * method with the right id.
+   */
+  openProviderHelp(provider: NewsProviderId): void {
+    this.helpProvider = provider;
+    if (!this.providerHelpModalTpl) return;
+    this.providerHelpModalRef = this.modalService.open(this.providerHelpModalTpl, {
+      size: 'lg',
+      scrollable: true,
+      centered: true,
+      backdrop: true,
+      ariaLabelledBy: 'news-help-title'
+    });
+    this.providerHelpModalRef.result.finally(() => {
+      this.providerHelpModalRef = undefined;
+    });
+  }
+
+  closeProviderHelp(): void {
+    this.providerHelpModalRef?.close();
+  }
 
   // ---------------- Lifecycle ----------------
 
   ngOnInit(): void {
     this.restoreFilters();
+    // Ensure {@link mode} is consistent with {@link userTab} + current
+    // country right after restore (a stale saved mode or an unseen-before
+    // virtual country could otherwise produce a wrong endpoint call).
+    this.resolveModeFromTab();
     this.updateTitle();
     this.loadStatus();
 
@@ -305,13 +539,23 @@ export class NewsComponent implements OnInit, OnDestroy {
       this.cdr.markForCheck();
     });
 
-    this.runQuery();
+    // First-visit users (no saved filters) defer their initial query to
+    // {@link loadStatus}'s callback so that server-provided defaults
+    // (country / language from application.properties) get applied
+    // BEFORE we hit NewsAPI — which prevents firing the same query
+    // twice (once with hardcoded defaults, once after the override).
+    // Returning users have their prefs restored synchronously so we can
+    // kick the fetch off immediately.
+    if (this.userHasFilterPrefs) {
+      this.runQuery();
+    }
   }
 
   ngOnDestroy(): void {
     this.langChangeSub?.unsubscribe();
     this.searchSub?.unsubscribe();
     this.tickerSub?.unsubscribe();
+    this.currentQuerySub?.unsubscribe();
   }
 
   // ---------------- Ticker toggle ----------------
@@ -354,6 +598,12 @@ export class NewsComponent implements OnInit, OnDestroy {
 
   // ---------------- User actions ----------------
 
+  /**
+   * Low-level mode setter. Called by legacy code paths (the fallback CTA
+   * banner and internal resolution). The new preferred entry point is
+   * {@link setTab}, which keeps the user-visible tab decoupled from the
+   * NewsAPI endpoint we actually hit.
+   */
   setMode(mode: NewsMode): void {
     if (this.mode === mode) return;
     this.mode = mode;
@@ -364,10 +614,93 @@ export class NewsComponent implements OnInit, OnDestroy {
     this.errorMessage = '';
     this.updateTitle();
     this.persistFilters();
+    // Let the new mode fire a fresh query even if the caller just
+    // "came back to a state we recently fetched" — the signature-based
+    // dedup would otherwise swallow the user's intent.
+    this.runQuery(true);
+  }
+
+  /**
+   * User clicked one of the two main tabs ("À la une" / "Rechercher") or
+   * the discreet "Sources" link. This updates {@link userTab} (what the
+   * UI highlights) AND resolves the correct underlying {@link mode} for
+   * the backend — which may differ when {@link country} is a virtual one.
+   */
+  /**
+   * Switch to the other news provider (NewsData.io ↔ NewsAPI).
+   *
+   * Provider switching is intentionally destructive for the current
+   * result set: quotas, caches and status panels are per-provider on
+   * the backend, so the articles / sources / status previously shown
+   * are stale as soon as we flip. The localStorage filter preferences
+   * stay intact though — same tab, same country, same category — so
+   * the user keeps their context when comparing providers.
+   */
+  setProvider(provider: NewsProviderId): void {
+    if (this.provider === provider) return;
+    this.provider = provider;
+    this.page = 1;
+    this.articles = [];
+    this.sources = [];
+    this.totalResults = 0;
+    this.errorMessage = '';
+    this.apiStatus = null;
+    this.persistFilters();
+    this.updateTitle();
+    this.loadStatus();
+    // {@link buildQuerySignature} already includes the provider, so
+    // force=true is not strictly needed, but we keep it explicit: a
+    // user clicking the provider tab always expects a fresh fetch.
+    this.runQuery(true);
+  }
+
+  setTab(tab: 'headlines' | 'search' | 'sources'): void {
+    if (this.userTab === tab) {
+      // Clicking the already-active tab is a "refresh my results"
+      // intent — force a re-run even if nothing in the query signature
+      // changed. The backend cache will still absorb repeats within
+      // the 5-minute TTL window, so this never hits NewsAPI twice.
+      this.runQuery(true);
+      return;
+    }
+    this.userTab = tab;
+    this.page = 1;
+    this.articles = [];
+    this.sources = [];
+    this.totalResults = 0;
+    this.errorMessage = '';
+    this.resolveModeFromTab();
+    this.updateTitle();
+    this.persistFilters();
     this.runQuery();
   }
 
+  /**
+   * Derive the backend-facing {@link mode} from the user-chosen
+   * {@link userTab} and the current {@link country}. Virtual countries
+   * (Peru, Spain…) are silently routed to {@code /everything} even when
+   * the user stays on the "À la une" tab, because {@code /top-headlines}
+   * does not cover them. The UI tab highlight is NOT changed here, only
+   * the endpoint we talk to.
+   */
+  private resolveModeFromTab(): void {
+    if (this.userTab === 'sources') {
+      this.mode = 'sources';
+      return;
+    }
+    if (this.userTab === 'search') {
+      this.mode = 'search';
+      return;
+    }
+    // userTab === 'headlines'
+    this.mode = this.isVirtualCountry(this.country) ? 'search' : 'headlines';
+  }
+
   setCategory(code: string): void {
+    // Clicking the currently-active category chip is a no-op: we don't
+    // want the click to be interpreted as a "refresh" that burns a
+    // backend round-trip for nothing.
+    if (this.category === code) return;
     this.category = code;
     this.page = 1;
     this.updateTitle();
@@ -380,6 +713,55 @@ export class NewsComponent implements OnInit, OnDestroy {
     this.updateTitle();
     this.persistFilters();
     this.search$.next();
+  }
+
+  /**
+   * Returns {@code true} when {@code code} refers to a "virtual" country —
+   * i.e. one we expose in the selector but that NewsAPI's /top-headlines
+   * endpoint does not cover (Peru, Chile, Spain, Lebanon, Finland, etc.).
+   */
+  isVirtualCountry(code: string): boolean {
+    if (!code) return false;
+    return this.virtualCountries.some(c => c.code === code);
+  }
+
+  /**
+   * Specialised filter-change handler for the Country selector.
+   *
+   * When the user picks a virtual country (Peru, Spain, Chile…) from the
+   * "À la une" tab, we transparently switch the underlying endpoint to
+   * {@code /everything} — but we do NOT change {@link userTab}. From the
+   * user's perspective, "À la une + Peru" just works: they stay on the
+   * "À la une" tab and see Peruvian articles. The complexity of NewsAPI's
+   * country coverage is hidden.
+   */
+  onCountryChange(): void {
+    if (this.country && this.isVirtualCountry(this.country)) {
+      // Pre-fill a sensible default language so /everything does not come
+      // back empty (e.g. Peru → Spanish, Vietnam → Vietnamese). Never
+      // overwrite a language the user already picked explicitly.
+      const entry = this.fallbackQueryMap[this.country];
+      if (entry && entry.language && !this.language) {
+        this.language = entry.language;
+      }
+    }
+    this.resolveModeFromTab();
+    this.onFilterChange();
+  }
+
+  /**
+   * Human-readable name of the currently selected country (either the
+   * value in the picker, or the English fallback name). Used by the
+   * virtual-country banner so the user sees why the mode just changed.
+   */
+  getSelectedCountryName(): string {
+    if (!this.country) return '';
+    const merged: CountryOption | undefined =
+      this.countries.find(c => c.code === this.country) ||
+      this.virtualCountries.find(c => c.code === this.country);
+    if (merged) return merged.name;
+    const entry = this.fallbackQueryMap[this.country];
+    return entry?.name || this.country.toUpperCase();
   }
 
   onSearchInputChange(): void {
@@ -400,6 +782,7 @@ export class NewsComponent implements OnInit, OnDestroy {
 
   goToPage(newPage: number): void {
     if (newPage < 1) return;
+    if (newPage === this.page) return; // already on this page
     const totalPages = this.totalPages;
     if (totalPages > 0 && newPage > totalPages) return;
     this.page = newPage;
@@ -412,10 +795,39 @@ export class NewsComponent implements OnInit, OnDestroy {
   }
 
   get totalPages(): number {
-    if (!this.totalResults || this.pageSize <= 0) return 0;
-    // NewsAPI developer plan caps pagination at 100 results total.
-    const capped = Math.min(this.totalResults, 100);
-    return Math.ceil(capped / this.pageSize);
+    const effective = this.effectivePageSize;
+    if (!this.totalResults || effective <= 0) return 0;
+    // Per-provider pagination ceiling:
+    //  - NewsAPI developer plan HARD-caps reachable results at 100 (the
+    //    API flat-out refuses page numbers beyond that), so exposing
+    //    more pages would just lead to errors.
+    //  - NewsData.io has no equivalent hard cap — you can walk the
+    //    cursor as deep as your 200 credits/day allow. We still apply
+    //    a soft UI cap (1000 articles = 100 pages @ 10/page) to keep
+    //    the "Page X / Y" label readable and to stop a user from
+    //    accidentally burning a huge chunk of their daily quota on
+    //    deep navigation. The true result count is still shown in the
+    //    banner (e.g. "16,613 results") so users understand the data
+    //    exists, just beyond a sensible browsing depth.
+    const maxReachable = this.provider === 'newsdata' ? 1000 : 100;
+    const capped = Math.min(this.totalResults, maxReachable);
+    return Math.ceil(capped / effective);
+  }
+
+  /**
+   * Real page size actually sent to the backend, honoring per-provider
+   * server-side ceilings:
+   *   - NewsData.io free plan caps {@code /latest} at 10 articles/call.
+   *     Anything higher returns HTTP 422, so we silently clamp here
+   *     rather than letting the user's stored 12 cause an error.
+   *   - NewsAPI accepts up to 100; we pass the user's value as-is.
+   *
+   * We keep {@link pageSize} (the user's preference) untouched so
+   * switching back to NewsAPI restores the richer page size.
+   */
+  get effectivePageSize(): number {
+    if (this.provider === 'newsdata') return Math.min(this.pageSize, 10);
+    return this.pageSize;
   }
 
   openArticle(article: NewsArticle, event?: MouseEvent): void {
@@ -447,7 +859,10 @@ export class NewsComponent implements OnInit, OnDestroy {
 
   refreshAll(): void {
     this.loadStatus();
-    this.runQuery();
+    // "Refresh" is explicitly a re-run intent, so bypass the
+    // same-signature short-circuit. Backend cache still absorbs the
+    // repeat within the 5-minute TTL.
+    this.runQuery(true);
   }
 
   /**
@@ -463,7 +878,7 @@ export class NewsComponent implements OnInit, OnDestroy {
     if (this.isClearingCache) return;
     this.isClearingCache = true;
     this.cdr.markForCheck();
-    this.apiService.clearNewsApiCache().subscribe({
+    this.apiService.clearNewsApiCache(this.provider).subscribe({
       next: (resp) => {
         const cleared = Number(resp?.cleared) || 0;
         this.successMessage = this.translate.instant('NEWS.CACHE_CLEARED', { count: cleared });
@@ -482,17 +897,31 @@ export class NewsComponent implements OnInit, OnDestroy {
   // ---------------- Quota meter helpers (displayed in the status badge) ----------------
 
   /**
+   * Effective quota shown on the "used / quota" badge. When multiple
+   * NewsAPI keys are configured (new in the backend), the server exposes
+   * {@code totalQuotaDaily = quotaDaily * keyCount} and we use it here so
+   * the gauge reflects the combined daily budget rather than per-key.
+   * Falls back to {@code quotaDaily} for backward compatibility.
+   */
+  getEffectiveQuota(): number | null {
+    const total = Number(this.apiStatus?.totalQuotaDaily);
+    if (Number.isFinite(total) && total > 0) return total;
+    const q = Number(this.apiStatus?.quotaDaily);
+    return Number.isFinite(q) && q > 0 ? q : null;
+  }
+
+  /**
    * Severity bucket for the quota badge color.
    *  - 'ok'     : < 60% used
    *  - 'warn'   : 60% - 89% used
    *  - 'danger' : >= 90% used (or over quota)
-   * Falls back to 'ok' when the server hasn't reported {@code quotaDaily}.
+   * Falls back to 'ok' when the server hasn't reported any quota.
    */
   getQuotaLevel(): 'ok' | 'warn' | 'danger' {
     const used = Number(this.apiStatus?.requestsLast24h);
-    const quota = Number(this.apiStatus?.quotaDaily);
+    const quota = this.getEffectiveQuota();
     if (!Number.isFinite(used)) return 'ok';
-    if (!Number.isFinite(quota) || quota <= 0) return 'ok';
+    if (!quota) return 'ok';
     const ratio = used / quota;
     if (ratio >= 0.9) return 'danger';
     if (ratio >= 0.6) return 'warn';
@@ -506,10 +935,10 @@ export class NewsComponent implements OnInit, OnDestroy {
   getQuotaTooltip(): string {
     const s = this.apiStatus || {};
     const used = Number(s.requestsLast24h);
-    const quota = Number(s.quotaDaily);
+    const quota = this.getEffectiveQuota();
     const remaining = Number(s.requestsRemaining);
     const parts: string[] = [];
-    if (Number.isFinite(used) && Number.isFinite(quota) && quota > 0) {
+    if (Number.isFinite(used) && quota) {
       parts.push(`${used} / ${quota} ${this.translate.instant('NEWS.QUOTA_REQUESTS_IN_24H')}`);
     } else if (Number.isFinite(used)) {
       parts.push(`${used} ${this.translate.instant('NEWS.QUOTA_REQUESTS_IN_24H')}`);
@@ -520,6 +949,40 @@ export class NewsComponent implements OnInit, OnDestroy {
     if (s.windowResetsAt) {
       try {
         const reset = new Date(s.windowResetsAt);
+        if (!isNaN(reset.getTime())) {
+          parts.push(`${this.translate.instant('NEWS.QUOTA_NEXT_SLOT')}: ${reset.toLocaleString()}`);
+        }
+      } catch (_) { /* ignore */ }
+    }
+    const keys = Array.isArray(s.keys) ? s.keys : [];
+    if (keys.length > 1) {
+      parts.push(this.translate.instant('NEWS.QUOTA_MULTI_KEY', { count: keys.length }));
+    }
+    return parts.join(' — ');
+  }
+
+  /**
+   * Tooltip for each per-key badge — explains which key is active, how
+   * much quota each key has burned, when its 24h window frees up, etc.
+   */
+  getKeyTooltip(k: any): string {
+    if (!k) return '';
+    const parts: string[] = [];
+    const used = Number(k.used);
+    const quota = Number(k.quota);
+    const remaining = Number(k.remaining);
+    parts.push(`${this.translate.instant('NEWS.KEY_ID')}: ${k.keyId}`);
+    if (Number.isFinite(used) && Number.isFinite(quota) && quota > 0) {
+      parts.push(`${used} / ${quota} ${this.translate.instant('NEWS.QUOTA_REQUESTS_IN_24H')}`);
+    }
+    if (Number.isFinite(remaining)) {
+      parts.push(`${this.translate.instant('NEWS.QUOTA_REMAINING')}: ${remaining}`);
+    }
+    if (k.active) parts.push(this.translate.instant('NEWS.KEY_ACTIVE'));
+    if (k.saturated) parts.push(this.translate.instant('NEWS.KEY_SATURATED'));
+    if (k.windowResetsAt) {
+      try {
+        const reset = new Date(k.windowResetsAt);
         if (!isNaN(reset.getTime())) {
           parts.push(`${this.translate.instant('NEWS.QUOTA_NEXT_SLOT')}: ${reset.toLocaleString()}`);
         }
@@ -600,7 +1063,74 @@ export class NewsComponent implements OnInit, OnDestroy {
 
   // ---------------- Data fetching ----------------
 
-  private runQuery(): void {
+  /**
+   * Build a stable signature describing the query we are ABOUT to run,
+   * covering every parameter that would produce a different backend
+   * (and thus NewsAPI) URL. Used for de-duplication so a single user
+   * intent never translates to more than one NewsAPI call.
+   */
+  private buildQuerySignature(): string {
+    // The provider prefix is part of the signature so that switching
+    // between NewsData.io and NewsAPI always triggers a fresh fetch,
+    // even when every other filter value stays the same.
+    const base = this.provider + ':';
+    if (this.mode === 'sources') {
+      return base + [
+        'sources',
+        this.country || '',
+        this.category || '',
+        this.language || ''
+      ].join('|');
+    }
+    if (this.mode === 'search') {
+      return base + [
+        'search',
+        (this.query || '').trim().toLowerCase(),
+        this.country || '',
+        this.category || '',
+        this.language || '',
+        this.sortBy || '',
+        this.dateFrom || '',
+        this.dateTo || '',
+        this.pageSize,
+        this.page
+      ].join('|');
+    }
+    // headlines
+    return base + [
+      'headlines',
+      this.country || '',
+      this.category || '',
+      (this.query || '').trim().toLowerCase(),
+      this.pageSize,
+      this.page
+    ].join('|');
+  }
+
+  /**
+   * Kick off a NewsAPI fetch for the current filter state.
+   *
+   * Two safeguards keep NewsAPI call volume to the strict minimum:
+   *  - We cancel any still-in-flight HTTP request before starting a new
+   *    one, so a burst of clicks never fans out into concurrent calls.
+   *  - We short-circuit when the new query signature matches the last
+   *    one we actually fired (unless {@code force=true}, used by the
+   *    "Force refresh" button and pagination where the user really does
+   *    want a fresh request). The backend TTL cache would likely serve
+   *    duplicates anyway, but skipping the HTTP round-trip entirely is
+   *    strictly better.
+   */
+  private runQuery(force: boolean = false): void {
+    const signature = this.buildQuerySignature();
+    if (!force && signature === this.lastQuerySignature && this.isLoading) {
+      // Identical request already in flight — let it finish instead of
+      // re-firing it and racing handlers.
+      return;
+    }
+    this.lastQuerySignature = signature;
+    this.initialQueryFired = true;
+    this.currentQuerySub?.unsubscribe();
+
     this.errorMessage = '';
     this.successMessage = '';
     this.fallbackUsed = false;
@@ -619,11 +1149,12 @@ export class NewsComponent implements OnInit, OnDestroy {
   }
 
   private fetchHeadlines(): void {
-    this.apiService.getTopHeadlines({
+    this.currentQuerySub = this.apiService.getTopHeadlines({
+      provider: this.provider,
       country: this.country || undefined,
       category: this.category || undefined,
       q: this.query || undefined,
-      pageSize: this.pageSize,
+      pageSize: this.effectivePageSize,
       page: this.page
     }).subscribe({
       next: (resp) => this.handleArticleResponse(resp),
@@ -642,13 +1173,21 @@ export class NewsComponent implements OnInit, OnDestroy {
     //     AND it with the country name, which used to silently kill the
     //     result set, e.g. "Liban France" returned 0 articles).
     //   - If the query is empty but a country is selected, use the country
-    //     name as the query so they still see something relevant.
+    //     name as the query so they still see something relevant — and
+    //     tack on the selected category as an extra keyword when we were
+    //     called through the "À la une" tab (where /everything is used
+    //     silently for virtual countries like Peru/Spain). That way the
+    //     Sport chip on "À la une + Pérou" actually filters results
+    //     instead of being ignored by the endpoint.
     //   - In both cases, derive a default language from the country when
     //     the user has not explicitly picked one.
     if (this.country) {
       const entry = this.fallbackQueryMap[this.country] || { name: this.country.toUpperCase() };
       if (!userQ) {
         effectiveQ = entry.name;
+        if (this.category && this.userTab === 'headlines') {
+          effectiveQ += ' ' + this.category;
+        }
       }
       if (!effectiveLang && entry.language) {
         effectiveLang = entry.language;
@@ -669,13 +1208,14 @@ export class NewsComponent implements OnInit, OnDestroy {
     // from a previous session used to silently kill the result set.
     const { from, to } = this.getEffectiveDateRange();
 
-    this.apiService.getEverything({
+    this.currentQuerySub = this.apiService.getEverything({
+      provider: this.provider,
       q: effectiveQ,
       language: effectiveLang,
       from,
       to,
       sortBy: this.sortBy,
-      pageSize: this.pageSize,
+      pageSize: this.effectivePageSize,
       page: this.page
     }).subscribe({
       next: (resp) => this.handleArticleResponse(resp),
@@ -715,7 +1255,8 @@ export class NewsComponent implements OnInit, OnDestroy {
   }
 
   private fetchSources(): void {
-    this.apiService.getNewsSources({
+    this.currentQuerySub = this.apiService.getNewsSources({
+      provider: this.provider,
       country: this.country || undefined,
       category: this.category || undefined,
       language: this.language || undefined
@@ -799,11 +1340,12 @@ export class NewsComponent implements OnInit, OnDestroy {
     };
     this.isLoading = true;
 
-    this.apiService.getEverything({
+    this.currentQuerySub = this.apiService.getEverything({
+      provider: this.provider,
       q,
       language: entry.language,
       sortBy: 'publishedAt',
-      pageSize: this.pageSize,
+      pageSize: this.effectivePageSize,
       page: this.page
     }).subscribe({
       next: (resp) => this.handleArticleResponse(resp),
@@ -841,7 +1383,7 @@ export class NewsComponent implements OnInit, OnDestroy {
 
   private loadStatus(): void {
     this.isLoadingStatus = true;
-    this.apiService.getNewsApiStatus().subscribe({
+    this.apiService.getNewsApiStatus(this.provider).subscribe({
       next: (status) => {
         this.apiStatus = status;
         this.isLoadingStatus = false;
@@ -870,8 +1412,18 @@ export class NewsComponent implements OnInit, OnDestroy {
             languageChanged = true;
           }
         }
-        if (countryChanged || languageChanged) {
-          this.updateTitle();
+        // Three cases:
+        //  - First visit AND the server pushed new defaults → we need
+        //    the updated country/language in the query we're about to
+        //    fire for the very first time.
+        //  - First visit AND server defaults match the hardcoded ones
+        //    → we still owe the user an initial fetch (deferred by
+        //    ngOnInit to avoid double-firing).
+        //  - Returning visit → ngOnInit already fired runQuery(); we
+        //    only re-fire it when defaults actually changed.
+        const needInitialFetch = !this.initialQueryFired;
+        if (countryChanged || languageChanged) this.updateTitle();
+        if (needInitialFetch || countryChanged || languageChanged) {
           this.runQuery();
         }
         this.cdr.detectChanges();
@@ -893,7 +1445,8 @@ export class NewsComponent implements OnInit, OnDestroy {
   }
 
   getCountryName(code: string): string {
-    const c = this.countries.find(x => x.code === code);
+    const c = this.countries.find(x => x.code === code)
+           || this.virtualCountries.find(x => x.code === code);
     return c ? c.name : code.toUpperCase();
   }
 
@@ -933,34 +1486,83 @@ export class NewsComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Rebuild the big "—" separated title shown in the page header.
+   *
+   * The title now mirrors what the user sees in the UI (driven by
+   * {@link userTab}), not what the backend endpoint is (driven by
+   * {@link mode}). So "À la une + Pérou + Sport" reads as
+   * "News — À la une — 🇵🇪 Perú — Sport", never as "Recherche — …"
+   * just because the virtual-country fallback silently hit /everything.
+   *
+   * Each filter is appended in reading order and only when it actually
+   * influences the current request, so the title stays concise instead
+   * of listing every form field.
+   */
   private updateTitle(): void {
     const base = this.translate.instant('NEWS.PAGE_TITLE');
     const parts: string[] = [base];
-    if (this.mode === 'headlines') {
-      const cat = this.category
-        ? this.translate.instant(this.categories.find(c => c.code === this.category)?.labelKey || '')
-        : '';
-      const country = this.country ? `${this.getCountryFlag(this.country)} ${this.getCountryName(this.country)}` : '';
-      if (cat) parts.push(cat);
-      if (country) parts.push(country);
-    } else if (this.mode === 'search') {
-      parts.push(this.translate.instant('NEWS.MODE_SEARCH'));
-      if (this.query) parts.push(`"${this.query}"`);
-    } else {
-      parts.push(this.translate.instant('NEWS.MODE_SOURCES'));
+
+    parts.push(this.translate.instant('NEWS.TAB_' + this.userTab.toUpperCase()));
+
+    if (this.userTab === 'search' && this.query) {
+      parts.push(`"${this.query}"`);
     }
+
+    if (this.country) {
+      parts.push(`${this.getCountryFlag(this.country)} ${this.getCountryName(this.country)}`);
+    }
+
+    // Category is shown for headlines/sources (where it filters the API
+    // directly) and for headlines + virtual country (where it is injected
+    // as an extra keyword into /everything in {@link fetchEverything}).
+    const categoryIsUsed =
+      !!this.category &&
+      this.userTab !== 'search';
+    if (categoryIsUsed) {
+      const labelKey = this.categories.find(c => c.code === this.category)?.labelKey;
+      if (labelKey) parts.push(this.translate.instant(labelKey));
+    }
+
+    // Language only matters when the target endpoint honours it: always
+    // for /everything (Search) and /sources, but for Headlines only when
+    // we silently fall back to /everything for a virtual country.
+    const languageIsUsed =
+      !!this.language && (
+        this.userTab === 'search' ||
+        this.userTab === 'sources' ||
+        (this.userTab === 'headlines' && this.isVirtualCountry(this.country))
+      );
+    if (languageIsUsed) {
+      parts.push(this.language.toUpperCase());
+    }
+
     this.newsTitle = parts.join(' — ');
+  }
+
+  /**
+   * Translation key of the currently selected category — exposed for the
+   * collapsed-filters summary which needs the label inline.
+   */
+  getCategoryLabelKey(): string {
+    return this.categories.find(c => c.code === this.category)?.labelKey || '';
   }
 
   private persistFilters(): void {
     try {
       const payload = {
-        mode: this.mode, country: this.country, category: this.category,
+        provider: this.provider,
+        userTab: this.userTab, mode: this.mode,
+        country: this.country, category: this.category,
         language: this.language, query: this.query, sortBy: this.sortBy,
         dateFrom: this.dateFrom, dateTo: this.dateTo, pageSize: this.pageSize
       };
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(payload));
     } catch (_) { /* localStorage may be unavailable (private mode) */ }
+    // Keep the global ticker (rendered in AppComponent) in sync with
+    // whatever the user just selected — debounced inside the service
+    // so rapid edits (typing in the search box) cost one refresh.
+    this.newsTicker.notifyFiltersChanged();
   }
 
   /**
@@ -982,6 +1584,12 @@ export class NewsComponent implements OnInit, OnDestroy {
       if (!raw) return;
       const saved = JSON.parse(raw);
       if (!saved || typeof saved !== 'object') return;
+      if (saved.provider === 'newsdata' || saved.provider === 'newsapi') {
+        this.provider = saved.provider;
+      }
+      if (saved.userTab === 'headlines' || saved.userTab === 'search' || saved.userTab === 'sources') {
+        this.userTab = saved.userTab;
+      }
       if (saved.mode === 'headlines' || saved.mode === 'search' || saved.mode === 'sources') this.mode = saved.mode;
       if (typeof saved.country === 'string') this.country = saved.country;
       if (typeof saved.category === 'string') this.category = saved.category;

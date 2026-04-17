@@ -1,11 +1,14 @@
-<!-- Standard Title Section -->
+<!-- Standard Title Section — the top app bar already embeds an
+     <app-navigation-buttons>, so we deliberately drop the one that used
+     to sit here to avoid the double toolbar visible on narrow screens.
+     The subtitle was also removed by user request; the page title alone
+     (country + category + provider, rebuilt by updateTitle()) is enough
+     context. -->
 <div class="pat-title">
-    <app-navigation-buttons></app-navigation-buttons>
     <h2>
         <i class="fa fa-newspaper-o me-2"></i>
         {{ newsTitle || ('NEWS.PAGE_TITLE' | translate) }}
     </h2>
-    <div class="pat-title-subtitle">{{ 'NEWS.PAGE_SUBTITLE' | translate }}</div>
 </div>
 
 <!-- Main Content -->
@@ -27,7 +30,7 @@
                     {{ 'NEWS.FALLBACK_BANNER' | translate:{ country: fallbackInfo.countryName } }}
                     <span *ngIf="fallbackInfo.categoryLabel"> · {{ fallbackInfo.categoryLabel }}</span>
                 </span>
-                <button type="button" class="btn btn-link btn-sm fallback-cta" (click)="setMode('search')">
+                <button type="button" class="btn btn-link btn-sm fallback-cta" (click)="setTab('search')">
                     <i class="fa fa-search"></i> {{ 'NEWS.FALLBACK_GO_SEARCH' | translate }}
                 </button>
             </div>
@@ -41,62 +44,116 @@
                 <i class="fa" [class.fa-chevron-down]="!filtersCollapsed" [class.fa-chevron-right]="filtersCollapsed"></i>
                 <span>{{ 'NEWS.FILTERS_SECTION' | translate }}</span>
                 <span class="news-filters-collapse-summary" *ngIf="filtersCollapsed">
-                    · {{ ('NEWS.MODE_' + mode.toUpperCase()) | translate }}
-                    <ng-container *ngIf="country"> · {{ country | uppercase }}</ng-container>
-                    <ng-container *ngIf="language"> · {{ language | uppercase }}</ng-container>
+                    · {{ (provider === 'newsdata' ? 'NEWS.PROVIDER_NEWSDATA' : 'NEWS.PROVIDER_NEWSAPI') | translate }}
+                    · {{ ('NEWS.TAB_' + userTab.toUpperCase()) | translate }}
+                    <ng-container *ngIf="userTab === 'search' && query"> · "{{ query }}"</ng-container>
+                    <ng-container *ngIf="country"> · {{ getCountryFlag(country) }} {{ getCountryName(country) }}</ng-container>
+                    <ng-container *ngIf="category && userTab !== 'search'"> · {{ getCategoryLabelKey() | translate }}</ng-container>
+                    <ng-container *ngIf="language && (userTab === 'search' || userTab === 'sources' || (userTab === 'headlines' && isVirtualCountry(country)))"> · {{ language | uppercase }}</ng-container>
                 </span>
             </button>
 
             <ng-container *ngIf="!filtersCollapsed">
-            <!-- Mode toggle -->
-            <div class="news-mode-toggle" role="tablist">
+            <!-- Provider selector: upstream news API. NewsData.io is the
+                 default (no 24h delay on the Free plan); NewsAPI is kept
+                 as an alternative. Each has its own quota / cache, hence
+                 switching reloads both status and results.
+                 A small "?" button next to each pill opens a plain FR/EN
+                 explanation of the filters — discoverable but unobtrusive. -->
+            <div class="news-providers" role="tablist" [attr.aria-label]="'NEWS.PROVIDER' | translate">
+                <span class="news-providers-label">{{ 'NEWS.PROVIDER' | translate }}</span>
+                <div class="news-provider-group">
+                    <button type="button"
+                            class="news-provider"
+                            [class.news-provider-active]="provider === 'newsdata'"
+                            (click)="setProvider('newsdata')"
+                            role="tab"
+                            [attr.aria-selected]="provider === 'newsdata'"
+                            [title]="'NEWS.PROVIDER_NEWSDATA_HINT' | translate">
+                        <i class="fa fa-bolt"></i>
+                        <span>{{ 'NEWS.PROVIDER_NEWSDATA' | translate }}</span>
+                    </button>
+                    <button type="button"
+                            class="news-provider-help"
+                            (click)="openProviderHelp('newsdata')"
+                            [title]="isFrenchUi ? 'Comment marchent les filtres ?' : 'How do the filters work?'"
+                            [attr.aria-label]="isFrenchUi ? 'Aide NewsData.io' : 'NewsData.io help'">
+                        <i class="fa fa-question-circle"></i>
+                    </button>
+                </div>
+                <div class="news-provider-group">
+                    <button type="button"
+                            class="news-provider"
+                            [class.news-provider-active]="provider === 'newsapi'"
+                            (click)="setProvider('newsapi')"
+                            role="tab"
+                            [attr.aria-selected]="provider === 'newsapi'"
+                            [title]="'NEWS.PROVIDER_NEWSAPI_HINT' | translate">
+                        <i class="fa fa-newspaper-o"></i>
+                        <span>{{ 'NEWS.PROVIDER_NEWSAPI' | translate }}</span>
+                    </button>
+                    <button type="button"
+                            class="news-provider-help"
+                            (click)="openProviderHelp('newsapi')"
+                            [title]="isFrenchUi ? 'Comment marchent les filtres ?' : 'How do the filters work?'"
+                            [attr.aria-label]="isFrenchUi ? 'Aide NewsAPI' : 'NewsAPI help'">
+                        <i class="fa fa-question-circle"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Top tabs: 2 big tabs for the main use cases, one discreet
+                 link for the power-user "Sources" view. -->
+            <div class="news-tabs" role="tablist">
                 <button type="button"
-                        class="btn"
-                        [class.btn-primary]="mode === 'headlines'"
-                        [class.btn-outline-primary]="mode !== 'headlines'"
-                        (click)="setMode('headlines')"
+                        class="news-tab"
+                        [class.news-tab-active]="userTab === 'headlines'"
+                        (click)="setTab('headlines')"
                         role="tab"
-                        [attr.aria-selected]="mode === 'headlines'">
+                        [attr.aria-selected]="userTab === 'headlines'">
                     <i class="fa fa-fire"></i>
-                    <span class="btn-text">{{ 'NEWS.MODE_HEADLINES' | translate }}</span>
+                    <span class="news-tab-label">{{ 'NEWS.TAB_HEADLINES' | translate }}</span>
+                    <span class="news-tab-hint">{{ 'NEWS.TAB_HEADLINES_HINT' | translate }}</span>
                 </button>
                 <button type="button"
-                        class="btn"
-                        [class.btn-primary]="mode === 'search'"
-                        [class.btn-outline-primary]="mode !== 'search'"
-                        (click)="setMode('search')"
+                        class="news-tab"
+                        [class.news-tab-active]="userTab === 'search'"
+                        (click)="setTab('search')"
                         role="tab"
-                        [attr.aria-selected]="mode === 'search'">
+                        [attr.aria-selected]="userTab === 'search'">
                     <i class="fa fa-search"></i>
-                    <span class="btn-text">{{ 'NEWS.MODE_SEARCH' | translate }}</span>
-                </button>
-                <button type="button"
-                        class="btn"
-                        [class.btn-primary]="mode === 'sources'"
-                        [class.btn-outline-primary]="mode !== 'sources'"
-                        (click)="setMode('sources')"
-                        role="tab"
-                        [attr.aria-selected]="mode === 'sources'">
-                    <i class="fa fa-book"></i>
-                    <span class="btn-text">{{ 'NEWS.MODE_SOURCES' | translate }}</span>
+                    <span class="news-tab-label">{{ 'NEWS.TAB_SEARCH' | translate }}</span>
+                    <span class="news-tab-hint">{{ 'NEWS.TAB_SEARCH_HINT' | translate }}</span>
                 </button>
 
-                <button type="button"
-                        class="btn btn-outline-secondary ms-auto refresh-btn"
-                        (click)="refreshAll()"
-                        [disabled]="isLoading"
-                        [title]="'NEWS.REFRESH' | translate">
-                    <i class="fa" [class.fa-refresh]="!isLoading" [class.fa-spinner]="isLoading" [class.fa-spin]="isLoading"></i>
-                    <span class="btn-text">{{ 'NEWS.REFRESH' | translate }}</span>
-                </button>
-                <button type="button"
-                        class="btn btn-outline-danger refresh-btn refresh-btn-force"
-                        (click)="forceRefresh()"
-                        [disabled]="isLoading || isClearingCache"
-                        [title]="'NEWS.FORCE_REFRESH_HINT' | translate">
-                    <i class="fa" [class.fa-bolt]="!isClearingCache" [class.fa-spinner]="isClearingCache" [class.fa-spin]="isClearingCache"></i>
-                    <span class="btn-text">{{ 'NEWS.FORCE_REFRESH' | translate }}</span>
-                </button>
+                <div class="news-tabs-actions ms-auto">
+                    <button type="button"
+                            class="btn btn-sm btn-link news-sources-link"
+                            [class.news-sources-link-active]="userTab === 'sources'"
+                            (click)="setTab(userTab === 'sources' ? 'headlines' : 'sources')"
+                            role="tab"
+                            [attr.aria-selected]="userTab === 'sources'"
+                            [title]="'NEWS.TAB_SOURCES_HINT' | translate">
+                        <i class="fa fa-book"></i>
+                        <span>{{ 'NEWS.TAB_SOURCES' | translate }}</span>
+                    </button>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary refresh-btn"
+                            (click)="refreshAll()"
+                            [disabled]="isLoading"
+                            [title]="'NEWS.REFRESH' | translate">
+                        <i class="fa" [class.fa-refresh]="!isLoading" [class.fa-spinner]="isLoading" [class.fa-spin]="isLoading"></i>
+                        <span class="btn-text">{{ 'NEWS.REFRESH' | translate }}</span>
+                    </button>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-danger refresh-btn refresh-btn-force"
+                            (click)="forceRefresh()"
+                            [disabled]="isLoading || isClearingCache"
+                            [title]="'NEWS.FORCE_REFRESH_HINT' | translate">
+                        <i class="fa" [class.fa-bolt]="!isClearingCache" [class.fa-spinner]="isClearingCache" [class.fa-spin]="isClearingCache"></i>
+                        <span class="btn-text">{{ 'NEWS.FORCE_REFRESH' | translate }}</span>
+                    </button>
+                </div>
             </div>
 
             <!-- API status badge -->
@@ -120,7 +177,19 @@
                       [title]="getQuotaTooltip()">
                     <i class="fa fa-tachometer"></i>
                     {{ 'NEWS.QUOTA_USED' | translate }}:
-                    {{ apiStatus.requestsLast24h }}<ng-container *ngIf="apiStatus.quotaDaily"> / {{ apiStatus.quotaDaily }}</ng-container>
+                    {{ apiStatus.requestsLast24h }}<ng-container *ngIf="getEffectiveQuota()"> / {{ getEffectiveQuota() }}</ng-container>
+                </span>
+                <!-- Per-key breakdown: one small badge per configured NewsAPI key,
+                     purple when the key is currently active, red when saturated. -->
+                <span *ngFor="let k of apiStatus.keys"
+                      class="badge news-keybadge"
+                      [class.news-keybadge-active]="k.active"
+                      [class.news-keybadge-saturated]="k.saturated"
+                      [title]="getKeyTooltip(k)">
+                    <i class="fa" [class.fa-play-circle]="k.active && !k.saturated"
+                                  [class.fa-ban]="k.saturated"
+                                  [class.fa-circle-o]="!k.active && !k.saturated"></i>
+                    {{ k.masked }} · {{ k.used }}<ng-container *ngIf="k.quota"> / {{ k.quota }}</ng-container>
                 </span>
                 <span class="badge bg-danger" *ngIf="apiStatus.configured === false">
                     <i class="fa fa-key"></i> {{ 'NEWS.KEY_MISSING' | translate }}
@@ -153,96 +222,157 @@
                     </button>
                 </div>
 
-                <!-- Help banner: explains how Country/Language behave per mode -->
-                <div class="filter-row filter-help">
-                    <i class="fa fa-info-circle"></i>
-                    <div>
-                        <strong>{{ 'NEWS.FILTERS_HELP_TITLE' | translate }}</strong>
-                        <span *ngIf="mode === 'headlines'">{{ 'NEWS.FILTERS_HELP_HEADLINES' | translate }}</span>
-                        <span *ngIf="mode === 'search'">{{ 'NEWS.FILTERS_HELP_SEARCH' | translate }}</span>
-                        <span *ngIf="mode === 'sources'">{{ 'NEWS.FILTERS_HELP_SOURCES' | translate }}</span>
-                    </div>
-                </div>
+                <!-- =================================================
+                     TAB: À LA UNE  —  minimal filters, zero jargon.
+                     Just "what country" and "what category". The endpoint
+                     details (top-headlines vs everything-fallback for
+                     virtual countries) are resolved silently in TS.
+                     ================================================= -->
+                <ng-container *ngIf="userTab === 'headlines'">
+                    <div class="filter-row filter-row-grid">
+                        <div class="filter-item">
+                            <label for="news-country">
+                                <i class="fa fa-flag"></i> {{ 'NEWS.COUNTRY' | translate }}
+                                <span class="flag-preview" *ngIf="country">{{ getCountryFlag(country) }}</span>
+                            </label>
+                            <select id="news-country"
+                                    class="form-control country-select"
+                                    [(ngModel)]="country"
+                                    (ngModelChange)="onCountryChange()">
+                                <option *ngFor="let c of allCountries" [value]="c.code">
+                                    {{ formatCountryOption(c) }}
+                                </option>
+                            </select>
+                            <small class="filter-item-hint filter-item-hint-muted"
+                                   *ngIf="isVirtualCountry(country) && category">
+                                <i class="fa fa-info-circle"></i>
+                                {{ 'NEWS.VIRTUAL_CATEGORY_HINT' | translate }}
+                            </small>
+                        </div>
 
-                <!-- Free-text query (always visible; mandatory for /everything) -->
-                <div class="filter-row filter-row-search">
-                    <label for="news-q">
-                        <i class="fa fa-search"></i>
-                        {{ 'NEWS.SEARCH_QUERY' | translate }}
-                    </label>
-                    <input id="news-q"
-                           type="text"
-                           class="form-control"
-                           [(ngModel)]="query"
-                           (ngModelChange)="onSearchInputChange()"
-                           [placeholder]="(mode === 'search' ? ('NEWS.SEARCH_PLACEHOLDER_REQUIRED' | translate) : ('NEWS.SEARCH_PLACEHOLDER_OPTIONAL' | translate))">
-                </div>
-
-                <!-- Common filters -->
-                <div class="filter-row filter-row-grid">
-                    <div class="filter-item">
-                        <label for="news-country">
-                            <i class="fa fa-flag"></i> {{ 'NEWS.COUNTRY' | translate }}
-                            <span class="flag-preview" *ngIf="country">{{ getCountryFlag(country) }}</span>
-                        </label>
-                        <select id="news-country"
-                                class="form-control country-select"
-                                [(ngModel)]="country"
-                                (ngModelChange)="onFilterChange()">
-                            <option *ngFor="let c of countries" [value]="c.code">
-                                {{ c.code ? (getCountryFlag(c.code) + ' ' + c.name + ' (' + (c.code | uppercase) + ')') : c.name }}
-                            </option>
-                        </select>
-                    </div>
-
-                    <div class="filter-item" *ngIf="mode !== 'search'">
-                        <label>
-                            <i class="fa fa-tags"></i> {{ 'NEWS.CATEGORY' | translate }}
-                        </label>
-                        <div class="category-chips">
-                            <button type="button"
-                                    *ngFor="let cat of categories"
-                                    class="chip"
-                                    [class.chip-active]="category === cat.code"
-                                    (click)="setCategory(cat.code)"
-                                    [title]="cat.labelKey | translate">
-                                <i class="fa" [ngClass]="cat.icon"></i>
-                                <span>{{ cat.labelKey | translate }}</span>
-                            </button>
+                        <div class="filter-item filter-item-wide">
+                            <label>
+                                <i class="fa fa-tags"></i> {{ 'NEWS.CATEGORY' | translate }}
+                            </label>
+                            <div class="category-chips">
+                                <button type="button"
+                                        *ngFor="let cat of categories"
+                                        class="chip"
+                                        [class.chip-active]="category === cat.code"
+                                        (click)="setCategory(cat.code)"
+                                        [title]="cat.labelKey | translate">
+                                    <i class="fa" [ngClass]="cat.icon"></i>
+                                    <span>{{ cat.labelKey | translate }}</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
+                </ng-container>
 
-                    <div class="filter-item" *ngIf="mode === 'search' || mode === 'sources'">
-                        <label for="news-lang">
-                            <i class="fa fa-language"></i> {{ 'NEWS.LANGUAGE' | translate }}
+                <!-- =================================================
+                     TAB: RECHERCHER  —  big search box is the primary
+                     filter, language narrows the result, country is
+                     optional (used as keyword when search box is empty).
+                     ================================================= -->
+                <ng-container *ngIf="userTab === 'search'">
+                    <div class="filter-row filter-row-search">
+                        <label for="news-q">
+                            <i class="fa fa-search"></i>
+                            {{ 'NEWS.SEARCH_QUERY' | translate }}
                         </label>
-                        <select id="news-lang"
-                                class="form-control"
-                                [(ngModel)]="language"
-                                (ngModelChange)="onFilterChange()">
-                            <option *ngFor="let l of languages" [value]="l.code">
-                                {{ l.code ? (l.name + ' (' + (l.code | uppercase) + ')') : l.name }}
-                            </option>
-                        </select>
+                        <input id="news-q"
+                               type="text"
+                               class="form-control"
+                               [(ngModel)]="query"
+                               (ngModelChange)="onSearchInputChange()"
+                               [placeholder]="'NEWS.SEARCH_PLACEHOLDER_REQUIRED' | translate"
+                               autofocus>
                     </div>
 
-                    <div class="filter-item" *ngIf="mode === 'sources'">
-                        <label for="news-sources-cat">
-                            <i class="fa fa-tags"></i> {{ 'NEWS.CATEGORY' | translate }}
-                        </label>
-                        <select id="news-sources-cat"
-                                class="form-control"
-                                [(ngModel)]="category"
-                                (ngModelChange)="onFilterChange()">
-                            <option *ngFor="let cat of categories" [value]="cat.code">
-                                {{ cat.labelKey | translate }}
-                            </option>
-                        </select>
+                    <div class="filter-row filter-row-grid">
+                        <div class="filter-item">
+                            <label for="news-lang">
+                                <i class="fa fa-language"></i> {{ 'NEWS.LANGUAGE' | translate }}
+                            </label>
+                            <select id="news-lang"
+                                    class="form-control"
+                                    [(ngModel)]="language"
+                                    (ngModelChange)="onFilterChange()">
+                                <option *ngFor="let l of languages" [value]="l.code">
+                                    {{ l.code ? (l.name + ' (' + (l.code | uppercase) + ')') : l.name }}
+                                </option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label for="news-country-search">
+                                <i class="fa fa-flag"></i>
+                                {{ 'NEWS.COUNTRY_OPTIONAL' | translate }}
+                                <span class="flag-preview" *ngIf="country">{{ getCountryFlag(country) }}</span>
+                            </label>
+                            <select id="news-country-search"
+                                    class="form-control country-select"
+                                    [(ngModel)]="country"
+                                    (ngModelChange)="onCountryChange()">
+                                <option *ngFor="let c of allCountries" [value]="c.code">
+                                    {{ formatCountryOption(c) }}
+                                </option>
+                            </select>
+                        </div>
                     </div>
-                </div>
+                </ng-container>
 
-                <!-- /everything specific -->
-                <div class="filter-row filter-row-grid" *ngIf="mode === 'search'">
+                <!-- =================================================
+                     TAB: SOURCES  —  power-user view, all 3 filters are
+                     valid and independent (they narrow the catalogue of
+                     available sources).
+                     ================================================= -->
+                <ng-container *ngIf="userTab === 'sources'">
+                    <div class="filter-row filter-row-grid">
+                        <div class="filter-item">
+                            <label for="news-country-sources">
+                                <i class="fa fa-flag"></i> {{ 'NEWS.COUNTRY' | translate }}
+                                <span class="flag-preview" *ngIf="country">{{ getCountryFlag(country) }}</span>
+                            </label>
+                            <select id="news-country-sources"
+                                    class="form-control country-select"
+                                    [(ngModel)]="country"
+                                    (ngModelChange)="onCountryChange()">
+                                <option *ngFor="let c of allCountries" [value]="c.code">
+                                    {{ formatCountryOption(c) }}
+                                </option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label for="news-sources-cat">
+                                <i class="fa fa-tags"></i> {{ 'NEWS.CATEGORY' | translate }}
+                            </label>
+                            <select id="news-sources-cat"
+                                    class="form-control"
+                                    [(ngModel)]="category"
+                                    (ngModelChange)="onFilterChange()">
+                                <option *ngFor="let cat of categories" [value]="cat.code">
+                                    {{ cat.labelKey | translate }}
+                                </option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label for="news-lang-sources">
+                                <i class="fa fa-language"></i> {{ 'NEWS.LANGUAGE' | translate }}
+                            </label>
+                            <select id="news-lang-sources"
+                                    class="form-control"
+                                    [(ngModel)]="language"
+                                    (ngModelChange)="onFilterChange()">
+                                <option *ngFor="let l of languages" [value]="l.code">
+                                    {{ l.code ? (l.name + ' (' + (l.code | uppercase) + ')') : l.name }}
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                </ng-container>
+
+                <!-- /everything specific: advanced filters (dates, sort) -->
+                <div class="filter-row filter-row-grid" *ngIf="userTab === 'search'">
                     <div class="filter-item">
                         <label for="news-from"><i class="fa fa-calendar-o"></i> {{ 'NEWS.DATE_FROM' | translate }}</label>
                         <input id="news-from"
@@ -435,3 +565,278 @@
         </div>
     </div>
 </div>
+
+<!-- =========================================================
+     Provider help modal
+     =========================================================
+     A plain FR-or-EN explanation of the filters, opened by the small
+     "?" button next to each provider pill. Content intentionally kept
+     language-switched inline (no ngx-translate keys) to keep the help
+     copy readable and to avoid polluting 12 locale files with walls of
+     text for a feature only 2 languages need. -->
+<ng-template #providerHelpModal let-modal>
+    <div class="modal-header news-help-header">
+        <h5 class="modal-title" id="news-help-title">
+            <i class="fa" [class.fa-bolt]="helpProvider === 'newsdata'"
+                          [class.fa-newspaper-o]="helpProvider === 'newsapi'"></i>
+            <ng-container *ngIf="isFrenchUi; else titleEn">
+                Aide — {{ helpProvider === 'newsdata' ? 'NewsData.io' : 'NewsAPI' }}
+            </ng-container>
+            <ng-template #titleEn>
+                Help — {{ helpProvider === 'newsdata' ? 'NewsData.io' : 'NewsAPI' }}
+            </ng-template>
+        </h5>
+        <button type="button" class="btn-close" (click)="closeProviderHelp()"
+                [attr.aria-label]="isFrenchUi ? 'Fermer' : 'Close'"></button>
+    </div>
+
+    <div class="modal-body news-help-body">
+
+        <!-- =================== FRENCH ================= -->
+        <ng-container *ngIf="isFrenchUi">
+            <p class="news-help-lead">
+                <strong>En bref</strong> : tu choisis une <em>source</em> (NewsData.io ou NewsAPI),
+                tu choisis un <em>mode</em> (À la une ou Rechercher), puis tu affines avec les filtres.
+                Plus tu mets de filtres, plus c'est précis — mais aussi plus tu risques d'avoir zéro résultat.
+            </p>
+
+            <h6><i class="fa fa-fire"></i> À la une</h6>
+            <p>
+                Affiche <strong>les titres du jour d'un pays</strong>. Les filtres utiles ici sont :
+            </p>
+            <ul>
+                <li><strong>Pays</strong> : d'où viennent les articles (France, US, Allemagne…).</li>
+                <li><strong>Catégorie</strong> : Économie, Sport, Santé, Divertissement, etc.
+                    Une catégorie "calme" (comme Divertissement) peut ne renvoyer que quelques articles de la veille.</li>
+            </ul>
+
+            <h6><i class="fa fa-search"></i> Rechercher</h6>
+            <p>
+                Cherche un <strong>mot-clé ou un sujet</strong> parmi tous les articles récents.
+            </p>
+            <ul>
+                <li><strong>Recherche</strong> : le mot-clé. Tu peux combiner : <code>ukraine AND russie</code>,
+                    <code>"intelligence artificielle"</code>, <code>bitcoin OR ether</code>.</li>
+                <li><strong>Langue</strong> : la langue des articles retournés.</li>
+                <li><strong>Pays</strong> : facultatif. Si tu ne tapes aucun mot-clé mais tu choisis un pays,
+                    le nom du pays sert de recherche (ex. <em>Pérou</em>).</li>
+                <li><strong>Dates</strong> : ne cherche que dans la plage — attention, les plans gratuits couvrent
+                    uniquement les dernières <strong>24 à 48 heures</strong>.</li>
+                <li><strong>Trier par</strong> : "Plus récent" par défaut, sinon "Pertinence" (meilleur match avec le mot-clé)
+                    ou "Popularité".</li>
+            </ul>
+
+            <hr>
+
+            <h6 *ngIf="helpProvider === 'newsdata'" class="news-help-provider">
+                <i class="fa fa-bolt"></i> Spécificités NewsData.io
+            </h6>
+            <ul *ngIf="helpProvider === 'newsdata'">
+                <li><strong>Sans délai</strong> : les articles sont publiés en temps réel.</li>
+                <li><strong>Quota</strong> : 200 requêtes par jour (plan gratuit). Chaque page affichée
+                    = 1 requête ; les pages revisitées sortent du cache (gratuit).</li>
+                <li><strong>Cadence</strong> : maximum 30 requêtes par 15 minutes. Au-delà, NewsData
+                    répond <code>429 rateLimited</code> ; on bascule alors sur la clé suivante si
+                    disponible.</li>
+                <li><strong>Pages</strong> : 10 articles par page (limite serveur, non modifiable).</li>
+                <li><strong>Nombre de résultats vs pages navigables</strong> : le bandeau peut annoncer
+                    un total énorme (ex. <em>16 613 résultats</em>) parce que NewsData indexe toutes les
+                    occurrences correspondant à tes filtres. En revanche, la navigation est plafonnée à
+                    <strong>100 pages</strong> (≈ 1 000 articles) pour préserver tes 200 crédits/jour —
+                    chaque clic sur "Suivant" coûte 1 crédit. Pour affiner, utilise des mots-clés ou des
+                    filtres plus précis plutôt que de parcourir en profondeur.</li>
+                <li><strong>Fenêtre temporelle</strong> : uniquement les <strong>dernières 48 heures</strong>
+                    sur le plan gratuit. Les filtres <em>Date de début / Date de fin</em> sont acceptés
+                    mais ignorés au-delà de cette fenêtre (l'archive complète nécessite un plan payant).</li>
+                <li><strong>Tri</strong> : seul "Plus récent" fonctionne sur le plan gratuit.
+                    "Pertinence" et "Popularité" sont des options payantes — elles sont silencieusement
+                    retirées de la requête pour éviter une erreur serveur (HTTP 422).</li>
+                <li><strong>Contenu partiel</strong> : les articles ne contiennent qu'un résumé court,
+                    pas le texte intégral. Clique sur le titre pour ouvrir l'article complet chez la
+                    source.</li>
+                <li><strong>Images</strong> : certains articles n'ont pas d'image de couverture (selon
+                    la source). Une image par défaut est affichée le cas échéant.</li>
+                <li><strong>Doublons</strong> : quand plusieurs sites d'un même groupe (ex. groupe EBRA :
+                    Le Journal, DNA, L'Alsace) republient la même dépêche AFP, on les supprime automatiquement
+                    (côté NewsData + déduplication post-traitement locale).</li>
+                <li><strong>Couverture géographique</strong> : tous les pays, y compris ceux que NewsAPI
+                    ne couvre pas (Pérou, Chili, Liban, Finlande…).</li>
+                <li><strong>Sources</strong> : la liste "Sources" du plan gratuit est un sous-ensemble
+                    des sources premium ; certains médias spécialisés ou régionaux n'y sont pas.</li>
+                <li><strong>Usage commercial</strong> : le plan gratuit est réservé à un usage personnel
+                    / non-commercial (voir les CGU de NewsData.io).</li>
+            </ul>
+
+            <h6 *ngIf="helpProvider === 'newsapi'" class="news-help-provider">
+                <i class="fa fa-newspaper-o"></i> Spécificités NewsAPI
+            </h6>
+            <ul *ngIf="helpProvider === 'newsapi'">
+                <li><strong>Délai de 24 heures</strong> : sur le plan gratuit (Developer), les articles
+                    sont retardés d'environ une journée. Ce n'est pas un bug. C'est pour ça que tu vois
+                    souvent "Il y a 24 h" comme publication la plus récente.</li>
+                <li><strong>Quota</strong> : 100 requêtes par jour et par clé. Plusieurs clés sont
+                    configurées et basculent automatiquement quand l'une atteint son plafond (erreur
+                    <code>429 rateLimited</code>).</li>
+                <li><strong>Pages</strong> : 12 articles par page.</li>
+                <li><strong>Nombre de résultats vs pages navigables</strong> : le bandeau peut indiquer
+                    plusieurs milliers de résultats, mais NewsAPI <strong>refuse d'accéder au-delà du
+                    100ᵉ article</strong> sur le plan gratuit — donc la navigation est strictement bornée à
+                    <strong>≈ 9 pages</strong> (100 articles au total). Pour voir plus, il faut affiner
+                    les filtres, pas paginer plus loin.</li>
+                <li><strong>Fenêtre "Rechercher"</strong> : seuls les articles des <strong>30 derniers
+                    jours</strong> sont accessibles sur le plan gratuit. Au-delà (archives historiques),
+                    il faut un plan payant.</li>
+                <li><strong>Couverture limitée</strong> sur "À la une" : certains pays ne sont pas
+                    supportés par l'endpoint <code>/top-headlines</code> (Pérou, Chili, Espagne,
+                    Liban, Finlande…). Pour eux, on bascule automatiquement vers "Rechercher" afin
+                    de renvoyer quand même des articles.</li>
+                <li><strong>Langue ignorée sur "À la une"</strong> : l'endpoint top-headlines n'accepte
+                    pas de filtre langue — seul le pays compte. Utilise "Rechercher" si tu veux filtrer
+                    par langue.</li>
+                <li><strong>Contenu tronqué</strong> : la description et le contenu renvoyés par NewsAPI
+                    sont coupés à environ 200 caractères (mention <em>[+1234 chars]</em> à la fin).
+                    Pour lire l'article complet, il faut cliquer sur le titre pour ouvrir le site source.</li>
+                <li><strong>Sources</strong> : environ 150 sources indexées dans le monde, surtout
+                    anglophones et européennes. Des médias exotiques ou régionaux peuvent manquer.</li>
+                <li><strong>Combinaisons croisées non garanties</strong> : toutes les combinaisons
+                    pays × catégorie × langue ne renvoient pas toujours des résultats (ex. "US +
+                    Divertissement + français" = souvent 0 article). Dans ce cas, retire un filtre.</li>
+                <li><strong>Usage commercial</strong> : le plan Developer (gratuit) est réservé au
+                    développement / au non-commercial. Un plan payant est requis pour une app en prod.</li>
+            </ul>
+
+            <div class="news-help-tip">
+                <i class="fa fa-lightbulb-o"></i>
+                <strong>Astuce</strong> : si tu as 0 résultat, retire d'abord les filtres les plus restrictifs
+                (dates, catégorie, langue) et vois ce qui revient. Le bouton <em>Réinitialiser</em> remet
+                tout à zéro.
+            </div>
+        </ng-container>
+
+        <!-- =================== ENGLISH ================ -->
+        <ng-container *ngIf="!isFrenchUi">
+            <p class="news-help-lead">
+                <strong>In a nutshell</strong>: pick a <em>source</em> (NewsData.io or NewsAPI),
+                pick a <em>mode</em> (Headlines or Search), then refine with the filters.
+                The more filters you add, the more specific the results — but the higher the chance of getting zero matches.
+            </p>
+
+            <h6><i class="fa fa-fire"></i> Headlines</h6>
+            <p>
+                Shows <strong>today's top stories for a country</strong>. Useful filters here:
+            </p>
+            <ul>
+                <li><strong>Country</strong>: where articles come from (US, France, Germany…).</li>
+                <li><strong>Category</strong>: Business, Sports, Health, Entertainment, etc.
+                    A quiet category (like Entertainment) may only return articles from yesterday.</li>
+            </ul>
+
+            <h6><i class="fa fa-search"></i> Search</h6>
+            <p>
+                Looks for a <strong>keyword or topic</strong> across all recent articles.
+            </p>
+            <ul>
+                <li><strong>Search</strong>: the keyword. You can combine them:
+                    <code>ukraine AND russia</code>, <code>"artificial intelligence"</code>,
+                    <code>bitcoin OR ether</code>.</li>
+                <li><strong>Language</strong>: the language of the returned articles.</li>
+                <li><strong>Country</strong>: optional. If you leave the keyword empty but pick a country,
+                    the country name itself becomes the search term (e.g. <em>Peru</em>).</li>
+                <li><strong>Dates</strong>: limits the time window — note that free plans only cover the
+                    <strong>last 24 to 48 hours</strong>.</li>
+                <li><strong>Sort by</strong>: "Newest" by default, or "Relevance" (best keyword match)
+                    or "Popularity".</li>
+            </ul>
+
+            <hr>
+
+            <h6 *ngIf="helpProvider === 'newsdata'" class="news-help-provider">
+                <i class="fa fa-bolt"></i> NewsData.io specifics
+            </h6>
+            <ul *ngIf="helpProvider === 'newsdata'">
+                <li><strong>No delay</strong>: articles are published in real time.</li>
+                <li><strong>Quota</strong>: 200 requests per day (free plan). Each displayed page
+                    costs 1 request; revisiting pages hits the cache (free).</li>
+                <li><strong>Rate limit</strong>: up to 30 requests per 15 minutes. Past that,
+                    NewsData returns <code>429 rateLimited</code> and we fail over to the next key
+                    if one is available.</li>
+                <li><strong>Pages</strong>: 10 articles per page (server-side limit, not tunable).</li>
+                <li><strong>Total results vs navigable pages</strong>: the banner may advertise a huge
+                    total (e.g. <em>16,613 results</em>) because NewsData indexes every match for your
+                    filters. Navigation however is capped at <strong>100 pages</strong> (≈ 1,000 articles)
+                    to protect your 200 credits/day — each "Next" click costs 1 credit. To narrow down,
+                    use more specific keywords or filters rather than deep-paging.</li>
+                <li><strong>Time window</strong>: only the <strong>last 48 hours</strong> on the free
+                    plan. The <em>From / To</em> date filters are accepted but ignored beyond that
+                    window (full archive requires a paid plan).</li>
+                <li><strong>Sort</strong>: only "Newest" works on the free plan.
+                    "Relevance" and "Popularity" are paid options — we silently drop them from the
+                    request so you don't hit a 422 server error.</li>
+                <li><strong>Partial content</strong>: articles only include a short summary, not the
+                    full text. Click the title to open the full story on the source site.</li>
+                <li><strong>Images</strong>: some articles don't ship with a cover image (depends on
+                    the source). A fallback is shown when missing.</li>
+                <li><strong>Duplicates</strong>: when several sites of the same press group (e.g.
+                    France's EBRA group: Le Journal, DNA, L'Alsace) repost the exact same AFP wire,
+                    we automatically keep only one copy (NewsData-side + local post-dedup).</li>
+                <li><strong>Geographic coverage</strong>: every country, including those NewsAPI
+                    doesn't cover (Peru, Chile, Lebanon, Finland…).</li>
+                <li><strong>Sources</strong>: the free-plan "Sources" list is a subset of the
+                    premium catalog; some niche or regional outlets aren't listed.</li>
+                <li><strong>Commercial use</strong>: the free plan is for personal / non-commercial
+                    use only (see NewsData.io terms).</li>
+            </ul>
+
+            <h6 *ngIf="helpProvider === 'newsapi'" class="news-help-provider">
+                <i class="fa fa-newspaper-o"></i> NewsAPI specifics
+            </h6>
+            <ul *ngIf="helpProvider === 'newsapi'">
+                <li><strong>24-hour delay</strong>: on the free (Developer) plan, articles are delayed
+                    by roughly one day. That's not a bug — it's why the most recent stamp is usually
+                    "24h ago".</li>
+                <li><strong>Quota</strong>: 100 requests per day per key. Multiple keys are configured
+                    and fail over automatically when one hits its ceiling
+                    (<code>429 rateLimited</code>).</li>
+                <li><strong>Pages</strong>: 12 articles per page.</li>
+                <li><strong>Total results vs navigable pages</strong>: the banner may show several
+                    thousand results, but NewsAPI <strong>refuses to go past the 100th article</strong>
+                    on the free plan — so navigation is hard-capped at <strong>≈ 9 pages</strong>
+                    (100 articles total). To see more, refine the filters rather than trying to
+                    paginate further.</li>
+                <li><strong>"Search" window</strong>: only articles from the <strong>last 30 days</strong>
+                    are accessible on the free plan. Historical archives require a paid plan.</li>
+                <li><strong>Limited coverage</strong> for Headlines: some countries are not supported
+                    by the <code>/top-headlines</code> endpoint (Peru, Chile, Spain, Lebanon,
+                    Finland…). For those, the page silently falls back to Search so you still get
+                    results.</li>
+                <li><strong>Language ignored on Headlines</strong>: the top-headlines endpoint does
+                    not accept a language filter — only the country matters. Switch to Search if you
+                    want to filter by language.</li>
+                <li><strong>Truncated content</strong>: NewsAPI only returns ~200 characters of
+                    description/content (ending in <em>[+1234 chars]</em>). To read the full
+                    article, click the title to open the source site.</li>
+                <li><strong>Sources</strong>: about 150 indexed outlets worldwide, mostly
+                    English-speaking and European. Niche or regional media may be missing.</li>
+                <li><strong>Cross-filter combinations are not guaranteed</strong>: not every
+                    country × category × language triple has results (e.g. "US + Entertainment +
+                    French" often returns 0 articles). When that happens, drop one filter.</li>
+                <li><strong>Commercial use</strong>: the Developer (free) plan is restricted to
+                    development / non-commercial use. A paid plan is required for a production app.</li>
+            </ul>
+
+            <div class="news-help-tip">
+                <i class="fa fa-lightbulb-o"></i>
+                <strong>Tip</strong>: if you get zero results, drop the most restrictive filters first
+                (dates, category, language) and see what comes back. The <em>Reset</em> button clears
+                everything.
+            </div>
+        </ng-container>
+    </div>
+
+    <div class="modal-footer news-help-footer">
+        <button type="button" class="btn btn-primary" (click)="closeProviderHelp()">
+            <ng-container *ngIf="isFrenchUi; else closeEn">Fermer</ng-container>
+            <ng-template #closeEn>Close</ng-template>
+        </button>
+    </div>
+</ng-template>
