@@ -1292,11 +1292,22 @@ export class NewsComponent implements OnInit, OnDestroy {
     // Free-tier fallback: /top-headlines with a non-US country filter often
     // returns {status:ok, totalResults:0}. In that case transparently re-query
     // /everything with the country name so the user still sees something.
+    //
+    // The fallback must be scheduled asynchronously (microtask) rather than
+    // called inline: {@link runHeadlinesFallback} flips {@code fallbackInfo}
+    // from null to an object AND {@code isLoading} from false back to true,
+    // which — under Keycloak-driven token refreshes that resume the HTTP
+    // continuation inside Angular's running CD cycle — causes NG0100
+    // "Expression has changed after it was checked" on the fallback banner
+    // binding (<div *ngIf="fallbackInfo && !isLoading && !errorMessage">).
+    // Deferring to a queueMicrotask lets the current CD cycle finish on a
+    // consistent {fallbackInfo=null, isLoading=true} snapshot, then the
+    // fallback reshapes state in a fresh tick.
     if (this.mode === 'headlines'
         && articles.length === 0
         && !!this.country
         && !this.fallbackUsed) {
-      this.runHeadlinesFallback();
+      queueMicrotask(() => this.runHeadlinesFallback());
       return;
     }
 
