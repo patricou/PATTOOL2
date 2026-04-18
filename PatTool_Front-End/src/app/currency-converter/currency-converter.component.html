@@ -1,0 +1,181 @@
+<div class="currency-page">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h2 class="page-title mb-0">
+            <i class="fa fa-exchange me-2"></i>
+            {{ 'CURRENCY.TITLE' | translate }}
+        </h2>
+        <app-navigation-buttons></app-navigation-buttons>
+    </div>
+
+    <p class="text-muted small mb-4">
+        {{ 'CURRENCY.SUBTITLE' | translate }}
+    </p>
+
+    <!-- Error banner -->
+    <div *ngIf="errorMessage" class="alert alert-warning d-flex align-items-center" role="alert">
+        <i class="fa fa-exclamation-triangle me-2"></i>
+        <span>{{ errorMessage | translate }}</span>
+    </div>
+
+    <div class="row g-3">
+        <!-- Converter card -->
+        <div class="col-12 col-lg-5">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fa fa-calculator me-1"></i>
+                        {{ 'CURRENCY.CONVERT' | translate }}
+                    </h5>
+
+                    <div class="mb-3">
+                        <label class="form-label small">{{ 'CURRENCY.AMOUNT' | translate }}</label>
+                        <input type="number"
+                               class="form-control form-control-lg"
+                               min="0"
+                               step="any"
+                               [(ngModel)]="amount"
+                               (ngModelChange)="onInputChanged()"
+                               aria-label="amount" />
+                    </div>
+
+                    <div class="row g-2 align-items-end">
+                        <div class="col">
+                            <label class="form-label small">{{ 'CURRENCY.FROM' | translate }}</label>
+                            <select class="form-select"
+                                    [(ngModel)]="from"
+                                    (ngModelChange)="onInputChanged()"
+                                    aria-label="from currency">
+                                <option *ngFor="let c of currencies" [value]="c.code">
+                                    {{ c.code }} — {{ c.name }}
+                                </option>
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <button type="button"
+                                    class="btn btn-outline-secondary swap-btn"
+                                    (click)="swap()"
+                                    [title]="'CURRENCY.SWAP' | translate"
+                                    [attr.aria-label]="'CURRENCY.SWAP' | translate">
+                                <i class="fa fa-exchange"></i>
+                            </button>
+                        </div>
+                        <div class="col">
+                            <label class="form-label small">{{ 'CURRENCY.TO' | translate }}</label>
+                            <select class="form-select"
+                                    [(ngModel)]="to"
+                                    (ngModelChange)="onInputChanged()"
+                                    aria-label="to currency">
+                                <option *ngFor="let c of currencies" [value]="c.code">
+                                    {{ c.code }} — {{ c.name }}
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <hr class="my-3" />
+
+                    <!-- Main result -->
+                    <div class="result-box">
+                        <div *ngIf="isLoadingRate" class="text-muted small">
+                            <i class="fa fa-spinner fa-spin me-1"></i>
+                            {{ 'CURRENCY.LOADING' | translate }}
+                        </div>
+                        <ng-container *ngIf="!isLoadingRate">
+                            <div class="result-from">
+                                {{ amount | number:'1.0-4' }} {{ from }}
+                            </div>
+                            <div class="result-equals">=</div>
+                            <div class="result-to" *ngIf="converted !== null">
+                                {{ converted | number:'1.2-6' }} {{ to }}
+                            </div>
+                            <div *ngIf="converted === null && !errorMessage" class="text-muted small">
+                                {{ 'CURRENCY.NO_DATA' | translate }}
+                            </div>
+                            <div class="result-meta text-muted small mt-2" *ngIf="unitRate !== null">
+                                1 {{ from }} = {{ unitRate | number:'1.4-6' }} {{ to }}
+                                <span *ngIf="lastUpdated">
+                                    · {{ 'CURRENCY.UPDATED' | translate }} {{ lastUpdated }}
+                                </span>
+                            </div>
+                        </ng-container>
+                    </div>
+
+                    <div class="d-flex align-items-center justify-content-between mt-3">
+                        <button type="button"
+                                class="btn btn-sm btn-outline-primary"
+                                (click)="refresh()"
+                                [disabled]="isLoadingRate || isLoadingHistory">
+                            <i class="fa fa-refresh me-1" [class.fa-spin]="isLoadingRate || isLoadingHistory"></i>
+                            {{ 'CURRENCY.REFRESH' | translate }}
+                        </button>
+
+                        <div class="form-check form-switch">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   id="tickerSwitch"
+                                   [checked]="tickerEnabled"
+                                   (change)="toggleTicker()" />
+                            <label class="form-check-label small" for="tickerSwitch">
+                                {{ 'CURRENCY.TICKER_TOGGLE' | translate }}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chart card -->
+        <div class="col-12 col-lg-7">
+            <div class="card shadow-sm h-100">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between mb-2">
+                        <h5 class="card-title mb-0">
+                            <i class="fa fa-line-chart me-1"></i>
+                            {{ 'CURRENCY.HISTORY' | translate }}:
+                            <span class="text-primary">{{ from }} → {{ to }}</span>
+                        </h5>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="range">
+                            <button type="button"
+                                    class="btn btn-outline-secondary"
+                                    [class.active]="rangeDays === 7"
+                                    (click)="setRange(7)">7d</button>
+                            <button type="button"
+                                    class="btn btn-outline-secondary"
+                                    [class.active]="rangeDays === 30"
+                                    (click)="setRange(30)">30d</button>
+                            <button type="button"
+                                    class="btn btn-outline-secondary"
+                                    [class.active]="rangeDays === 90"
+                                    (click)="setRange(90)">90d</button>
+                            <button type="button"
+                                    class="btn btn-outline-secondary"
+                                    [class.active]="rangeDays === 365"
+                                    (click)="setRange(365)">1y</button>
+                        </div>
+                    </div>
+
+                    <div class="chart-container flex-grow-1">
+                        <div *ngIf="isLoadingHistory" class="chart-overlay text-muted">
+                            <i class="fa fa-spinner fa-spin me-1"></i>
+                            {{ 'CURRENCY.LOADING_HISTORY' | translate }}
+                        </div>
+                        <canvas *ngIf="from !== to"
+                                baseChart
+                                [data]="chartData"
+                                [options]="chartOptions"
+                                [type]="chartType"></canvas>
+                        <div *ngIf="from === to" class="chart-overlay text-muted small">
+                            <i class="fa fa-info-circle me-1"></i>
+                            {{ 'CURRENCY.SAME_CURRENCY' | translate }}
+                        </div>
+                    </div>
+
+                    <div class="text-muted small mt-2">
+                        <i class="fa fa-info-circle me-1"></i>
+                        {{ 'CURRENCY.SOURCE_NOTE' | translate }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -38,6 +38,7 @@
         "POSITION_METEO": "Position/Météo",
         "ADDRESS_TO_MAP": "Adresse/GPS vers carte",
         "NEWS": "Actualités",
+        "CURRENCY_CONVERTER": "Convertisseur de devises",
         "PHOTOS": "Mur de Photos",
         "LINKS_ADMINISTRATION": "Administration",
         "CALENDAR": "Agenda"
@@ -1869,6 +1870,31 @@
         "PAGE": "Page",
         "PREVIOUS": "Précédent",
         "NEXT": "Suivant"
+    },
+    "CURRENCY": {
+        "TITLE": "Convertisseur de devises",
+        "SUBTITLE": "Taux de change officiels de la Banque Centrale Européenne, via Frankfurter (gratuit, sans clé).",
+        "CONVERT": "Conversion",
+        "AMOUNT": "Montant",
+        "FROM": "De",
+        "TO": "Vers",
+        "SWAP": "Inverser les devises",
+        "REFRESH": "Actualiser",
+        "LOADING": "Chargement du taux…",
+        "LOADING_HISTORY": "Chargement de l'historique…",
+        "UPDATED": "Mis à jour le",
+        "NO_DATA": "Aucune donnée disponible.",
+        "HISTORY": "Historique",
+        "SAME_CURRENCY": "Choisissez deux devises différentes pour voir l'historique.",
+        "SOURCE_NOTE": "Source : Frankfurter / BCE — mise à jour quotidienne (jours ouvrés).",
+        "TICKER_TOGGLE": "Ticker taux de change",
+        "TICKER_LABEL": "TAUX",
+        "TICKER_LOADING": "Chargement des taux…",
+        "TICKER_EMPTY": "Aucun taux disponible pour l'instant.",
+        "ERROR_NETWORK": "Impossible de joindre le serveur. Vérifiez votre connexion.",
+        "ERROR_BAD_INPUT": "Paramètres invalides (devise ou date).",
+        "ERROR_UPSTREAM": "Le service Frankfurter est momentanément indisponible.",
+        "ERROR_GENERIC": "Une erreur est survenue lors de la récupération des taux."
     }
 }
 

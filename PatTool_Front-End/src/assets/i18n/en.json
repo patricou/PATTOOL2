@@ -38,6 +38,7 @@
         "POSITION_METEO": "Position/Weather",
         "ADDRESS_TO_MAP": "Address/GPS to map",
         "NEWS": "News",
+        "CURRENCY_CONVERTER": "Currency converter",
         "PHOTOS": "Photo Wall",
         "LINKS_ADMINISTRATION": "Administration",
         "CALENDAR": "Agenda"
@@ -1880,6 +1881,31 @@
         "PAGE": "Page",
         "PREVIOUS": "Previous",
         "NEXT": "Next"
+    },
+    "CURRENCY": {
+        "TITLE": "Currency converter",
+        "SUBTITLE": "Official exchange rates from the European Central Bank, via Frankfurter (free, no key).",
+        "CONVERT": "Conversion",
+        "AMOUNT": "Amount",
+        "FROM": "From",
+        "TO": "To",
+        "SWAP": "Swap currencies",
+        "REFRESH": "Refresh",
+        "LOADING": "Loading rate…",
+        "LOADING_HISTORY": "Loading history…",
+        "UPDATED": "Updated on",
+        "NO_DATA": "No data available.",
+        "HISTORY": "History",
+        "SAME_CURRENCY": "Pick two different currencies to see the chart.",
+        "SOURCE_NOTE": "Source: Frankfurter / ECB — updated daily (business days).",
+        "TICKER_TOGGLE": "Exchange rate ticker",
+        "TICKER_LABEL": "RATES",
+        "TICKER_LOADING": "Loading rates…",
+        "TICKER_EMPTY": "No rate available right now.",
+        "ERROR_NETWORK": "Unable to reach the server. Check your connection.",
+        "ERROR_BAD_INPUT": "Invalid input (currency or date).",
+        "ERROR_UPSTREAM": "Frankfurter service is temporarily unavailable.",
+        "ERROR_GENERIC": "An error occurred while fetching rates."
     }
 }
 

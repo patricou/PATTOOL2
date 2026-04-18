@@ -654,6 +654,16 @@
     margin-bottom: 124px;
 }
 
+/* Currency ticker is a single 40px row. Alone: navbar(56) + ticker(40) = 96px.
+ * Stacked under news-ticker: navbar(56) + news(56) + currency(40) = 152px. */
+.pat-div.pat-div--with-currency-ticker {
+    margin-bottom: 108px;
+}
+
+.pat-div.pat-div--with-news-ticker.pat-div--with-currency-ticker {
+    margin-bottom: 164px;
+}
+
 .pat-lang-selector {
     position: fixed;
     z-index: 1000;

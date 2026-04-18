@@ -1,0 +1,153 @@
+/* Currency ticker: single-row scrolling banner under the news ticker.
+ * Uses the same marquee pattern as <app-news-ticker>: a flex track whose
+ * items are duplicated in the template so translating by -50% loops.
+ *
+ * Stacking:
+ *   - Default `top` = navbar height (56px).
+ *   - When the news ticker is also visible, AppComponent adds
+ *     `body.pat-has-news-ticker` which bumps the top to 56 + 56 = 112px.
+ */
+.currency-ticker {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    right: 0;
+    z-index: 1019;
+    display: flex;
+    align-items: stretch;
+    background: linear-gradient(90deg, #0b2a40 0%, #133a5c 50%, #0b2a40 100%);
+    color: #e9f2fb;
+    border-top: 1px solid #1a3d5e;
+    border-bottom: 1px solid #1a3d5e;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+    font-size: 0.9rem;
+    height: 40px;
+}
+
+:host-context(body.pat-has-news-ticker) .currency-ticker {
+    top: 112px;
+}
+
+.currency-ticker-label {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0 1rem;
+    background: linear-gradient(135deg, #198754 0%, #115c3a 100%);
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    white-space: nowrap;
+    box-shadow: 2px 0 6px rgba(0, 0, 0, 0.35);
+    z-index: 2;
+    position: relative;
+}
+
+.currency-ticker-label i {
+    font-size: 0.95rem;
+}
+
+.currency-ticker-rows {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    justify-content: center;
+}
+
+.currency-ticker-row {
+    position: relative;
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.currency-ticker-track {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    width: max-content;
+    animation: currency-marquee 60s linear infinite;
+    will-change: transform;
+}
+
+.currency-ticker:hover .currency-ticker-track {
+    animation-play-state: paused;
+}
+
+.currency-ticker-item {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0 1.1rem;
+    white-space: nowrap;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.currency-pair {
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #f8f9fa;
+}
+
+.currency-rate {
+    font-variant-numeric: tabular-nums;
+    color: #c9e7ff;
+    font-weight: 500;
+}
+
+.currency-variation {
+    font-size: 0.78rem;
+    padding: 0.05rem 0.4rem;
+    border-radius: 4px;
+    font-variant-numeric: tabular-nums;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+.currency-variation.var-up {
+    background: rgba(40, 167, 69, 0.22);
+    color: #4ed16f;
+}
+
+.currency-variation.var-down {
+    background: rgba(220, 53, 69, 0.22);
+    color: #ff7b88;
+}
+
+.currency-variation.var-flat {
+    background: rgba(108, 117, 125, 0.25);
+    color: #c5ced6;
+}
+
+.currency-arrow {
+    font-size: 0.75rem;
+    line-height: 1;
+}
+
+.currency-ticker-loading {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0 1.1rem;
+    color: #c9e7ff;
+    font-size: 0.85rem;
+}
+
+@keyframes currency-marquee {
+    from { transform: translate3d(0, 0, 0); }
+    to   { transform: translate3d(-50%, 0, 0); }
+}
+
+/* Reduced motion: freeze the marquee so it doesn't trigger vestibular issues. */
+@media (prefers-reduced-motion: reduce) {
+    .currency-ticker-track {
+        animation: none;
+    }
+}

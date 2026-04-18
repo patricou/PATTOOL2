@@ -1,0 +1,84 @@
+.currency-page {
+    padding: 1rem 1.25rem;
+    max-width: 1280px;
+    margin: 0 auto;
+}
+
+.page-title {
+    font-weight: 600;
+    color: #0d6efd;
+}
+
+.result-box {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    text-align: center;
+    min-height: 110px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.result-from {
+    font-size: 1.1rem;
+    color: #495057;
+}
+
+.result-equals {
+    color: #adb5bd;
+    font-size: 1rem;
+    margin: 0.2rem 0;
+}
+
+.result-to {
+    font-size: 1.9rem;
+    font-weight: 700;
+    color: #0d6efd;
+    letter-spacing: -0.01em;
+    word-break: break-word;
+}
+
+.result-meta {
+    font-size: 0.8rem;
+}
+
+.swap-btn {
+    height: 38px;
+    width: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin-bottom: 0;
+}
+
+.chart-container {
+    position: relative;
+    min-height: 320px;
+    height: 380px;
+}
+
+.chart-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 2;
+    text-align: center;
+}
+
+.card-title {
+    color: #343a40;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+/* The page is mounted below the news/currency tickers and navbar — add room. */
+@media (min-width: 992px) {
+    .chart-container {
+        height: 420px;
+    }
+}

@@ -308,4 +308,87 @@ export class ApiService {
       })
     );
   }
+
+  // ===================================================================
+  // Frankfurter — currency exchange rates (ECB) proxy
+  // Backend: /api/external/currency/* (no auth required — public data)
+  // ===================================================================
+
+  /**
+   * All currencies supported by Frankfurter.
+   * @returns Map of ISO code -> English display name (e.g. { "USD": "US Dollar", ... }).
+   */
+  getCurrencies(): Observable<{ [code: string]: string }> {
+    return this._http.get<{ [code: string]: string }>(
+      this.API_URL + 'external/currency/currencies'
+    );
+  }
+
+  /**
+   * Latest exchange rates published by the ECB.
+   * @param base    Base currency (default EUR if omitted).
+   * @param symbols Optional list of target currency codes (e.g. ['USD','GBP']).
+   */
+  getLatestRates(base?: string, symbols?: string[]): Observable<FrankfurterRates> {
+    let params = new HttpParams();
+    if (base) params = params.set('base', base);
+    if (symbols && symbols.length) params = params.set('symbols', symbols.join(','));
+    return this._http.get<FrankfurterRates>(
+      this.API_URL + 'external/currency/latest',
+      { params }
+    );
+  }
+
+  /**
+   * Historical rates for a single date.
+   * @param date    ISO date (yyyy-MM-dd).
+   * @param base    Optional base currency.
+   * @param symbols Optional list of target currency codes.
+   */
+  getHistoricalRates(date: string, base?: string, symbols?: string[]): Observable<FrankfurterRates> {
+    let params = new HttpParams().set('date', date);
+    if (base) params = params.set('base', base);
+    if (symbols && symbols.length) params = params.set('symbols', symbols.join(','));
+    return this._http.get<FrankfurterRates>(
+      this.API_URL + 'external/currency/historical',
+      { params }
+    );
+  }
+
+  /**
+   * Time series of rates between two ISO dates (inclusive).
+   * If {@code end} is omitted, Frankfurter returns data up to today.
+   */
+  getTimeseriesRates(
+    start: string,
+    end?: string,
+    base?: string,
+    symbols?: string[]
+  ): Observable<FrankfurterTimeseries> {
+    let params = new HttpParams().set('start', start);
+    if (end) params = params.set('end', end);
+    if (base) params = params.set('base', base);
+    if (symbols && symbols.length) params = params.set('symbols', symbols.join(','));
+    return this._http.get<FrankfurterTimeseries>(
+      this.API_URL + 'external/currency/timeseries',
+      { params }
+    );
+  }
+}
+
+/** Frankfurter /latest and /historical response shape. */
+export interface FrankfurterRates {
+  amount: number;
+  base: string;
+  date: string;
+  rates: { [currency: string]: number };
+}
+
+/** Frankfurter /timeseries response shape. */
+export interface FrankfurterTimeseries {
+  amount: number;
+  base: string;
+  start_date: string;
+  end_date: string;
+  rates: { [isoDate: string]: { [currency: string]: number } };
 }

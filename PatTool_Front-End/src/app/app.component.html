@@ -126,6 +126,11 @@
                            (click)="closeMenu()">
                         <i class="fa fa-newspaper-o"></i> {{ 'MENU.NEWS' | translate }}
                     </a></li>
+                    <li><a class="dropdown-item"
+                           [routerLink]="['api/currency-converter']"
+                           (click)="closeMenu()">
+                        <i class="fa fa-money"></i> {{ 'MENU.CURRENCY_CONVERTER' | translate }}
+                    </a></li>
                 </ul>
             </li>
 
@@ -348,6 +353,7 @@
 <!-- Global news ticker (toggle from the News page). Sits between the top
      navbar and the per-page title so it's visible on every route. -->
 <app-news-ticker></app-news-ticker>
+<app-currency-ticker></app-currency-ticker>
 
 <!-- Demandes d'amis en attente : bannière (plus de modale / pas de double cadre Bootstrap) -->
 <div *ngIf="showFriendRequestsPromptBanner()"
@@ -383,7 +389,8 @@
 <!-- Sans bannière : marge sous la navbar ; avec bannière : la bannière occupe déjà le dégagement → évite ~80px de vide avant le contenu -->
 <div class="pat-div"
      [class.pat-div--with-friend-requests-banner]="showFriendRequestsPromptBanner()"
-     [class.pat-div--with-news-ticker]="newsTickerEnabled"></div>
+     [class.pat-div--with-news-ticker]="newsTickerEnabled"
+     [class.pat-div--with-currency-ticker]="currencyTickerEnabled"></div>
 <router-outlet></router-outlet>
 
 <!-- Modal window for user information -->

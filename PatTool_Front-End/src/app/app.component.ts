@@ -17,13 +17,15 @@ import { NavigationButtonsComponent } from './shared/navigation-buttons/navigati
 import { FriendsService } from './services/friends.service';
 import { NewsTickerComponent } from './news/news-ticker/news-ticker.component';
 import { NewsTickerService } from './services/news-ticker.service';
+import { CurrencyTickerComponent } from './currency-converter/currency-ticker/currency-ticker.component';
+import { CurrencyTickerService } from './services/currency-ticker.service';
 
 @Component({
     selector: 'app-root',
     templateUrl: './app.component.html',
     styleUrls: ['./app.component.css'],
     standalone: true,
-    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule, NavigationButtonsComponent, NewsTickerComponent]
+    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule, NavigationButtonsComponent, NewsTickerComponent, CurrencyTickerComponent]
 })
 export class AppComponent implements OnInit {
 
@@ -88,6 +90,8 @@ export class AppComponent implements OnInit {
 
     /** True while the global news ticker banner is visible (pushed by NewsTickerService). */
     public newsTickerEnabled: boolean = false;
+    /** True while the global currency-rate ticker banner is visible (pushed by CurrencyTickerService). */
+    public currencyTickerEnabled: boolean = false;
 
     constructor(public _translate: TranslateService,
         public _kc: KeycloakService,
@@ -98,12 +102,35 @@ export class AppComponent implements OnInit {
         private _friendsService: FriendsService,
         private router: Router,
         private cdr: ChangeDetectorRef,
-        private _newsTicker: NewsTickerService) {
+        private _newsTicker: NewsTickerService,
+        private _currencyTicker: CurrencyTickerService) {
         this.selectedFiles = [];
         this._newsTicker.enabled$.subscribe((v) => {
             this.newsTickerEnabled = v;
+            this.updateTickerBodyClasses();
             this.cdr.markForCheck();
         });
+        this._currencyTicker.enabled$.subscribe((v) => {
+            this.currencyTickerEnabled = v;
+            this.updateTickerBodyClasses();
+            this.cdr.markForCheck();
+        });
+    }
+
+    /**
+     * Sync body-level classes so each ticker's CSS can know whether the other
+     * one is visible (used by currency-ticker to shift below news-ticker).
+     * Kept on &lt;body&gt; rather than the host so :host-context resolves cleanly
+     * across all mount points, including lazy-loaded routes.
+     */
+    private updateTickerBodyClasses(): void {
+        try {
+            const body = document.body;
+            body.classList.toggle('pat-has-news-ticker', this.newsTickerEnabled);
+            body.classList.toggle('pat-has-currency-ticker', this.currencyTickerEnabled);
+        } catch {
+            // SSR / non-browser context: harmless no-op.
+        }
     }
 
     ngOnInit() {

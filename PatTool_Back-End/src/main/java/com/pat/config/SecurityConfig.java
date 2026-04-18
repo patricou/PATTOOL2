@@ -195,6 +195,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/calendar/entries").permitAll()
                 // Public holidays proxy (Nager.Date) — données publiques, sans auth
                 .requestMatchers(HttpMethod.GET, "/api/calendar/public-holidays/**").permitAll()
+                // Currency rates proxy (Frankfurter / BCE) — données publiques, sans auth
+                .requestMatchers(HttpMethod.GET, "/api/external/currency/**").permitAll()
                 
                 // Stream event files (SSE): require authentication so SecurityContext has user and getCurrentUserId() works
                 .requestMatchers(HttpMethod.GET, "/api/even/*/files/stream").authenticated()

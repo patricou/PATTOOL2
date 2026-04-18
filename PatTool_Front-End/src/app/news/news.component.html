@@ -373,7 +373,7 @@
 
                 <!-- /everything specific: advanced filters (dates, sort) -->
                 <div class="filter-row filter-row-grid" *ngIf="userTab === 'search'">
-                    <div class="filter-item">
+                    <div class="filter-item filter-item-date">
                         <label for="news-from"><i class="fa fa-calendar-o"></i> {{ 'NEWS.DATE_FROM' | translate }}</label>
                         <input id="news-from"
                                type="datetime-local"
@@ -381,7 +381,7 @@
                                [(ngModel)]="dateFrom"
                                (ngModelChange)="onFilterChange()">
                     </div>
-                    <div class="filter-item">
+                    <div class="filter-item filter-item-date">
                         <label for="news-to"><i class="fa fa-calendar"></i> {{ 'NEWS.DATE_TO' | translate }}</label>
                         <input id="news-to"
                                type="datetime-local"
