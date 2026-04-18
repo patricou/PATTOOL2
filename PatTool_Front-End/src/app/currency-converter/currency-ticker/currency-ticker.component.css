@@ -68,11 +68,14 @@
 
 .currency-ticker-track {
     display: flex;
+    flex-wrap: nowrap;
     align-items: center;
     height: 100%;
     width: max-content;
+    white-space: nowrap;
     animation: currency-marquee 60s linear infinite;
     will-change: transform;
+    transform: translate3d(0, 0, 0);
 }
 
 .currency-ticker:hover .currency-ticker-track {
@@ -145,9 +148,7 @@
     to   { transform: translate3d(-50%, 0, 0); }
 }
 
-/* Reduced motion: freeze the marquee so it doesn't trigger vestibular issues. */
-@media (prefers-reduced-motion: reduce) {
-    .currency-ticker-track {
-        animation: none;
-    }
-}
+/* NOTE: We intentionally do NOT honor prefers-reduced-motion here because
+ * the whole feature IS the scrolling banner — stopping it turns the ticker
+ * into a frozen unreadable snippet. Users can disable it entirely via the
+ * switch on the Currency Converter page. (Same rationale as news-ticker.) */

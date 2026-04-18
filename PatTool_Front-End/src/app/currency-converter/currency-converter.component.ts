@@ -8,7 +8,6 @@ import { Chart, ChartConfiguration, ChartOptions, registerables } from 'chart.js
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 
-import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 import { ApiService, FrankfurterRates, FrankfurterTimeseries } from '../services/api.service';
 import { CurrencyTickerService } from '../services/currency-ticker.service';
 
@@ -36,7 +35,7 @@ Chart.register(...registerables);
   templateUrl: './currency-converter.component.html',
   styleUrls: ['./currency-converter.component.css'],
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NgbModule, NavigationButtonsModule, BaseChartDirective]
+  imports: [CommonModule, FormsModule, TranslateModule, NgbModule, BaseChartDirective]
 })
 export class CurrencyConverterComponent implements OnInit, OnDestroy {
 
@@ -44,8 +43,8 @@ export class CurrencyConverterComponent implements OnInit, OnDestroy {
 
   // ----- Inputs -----
   amount = 1;
-  from = 'EUR';
-  to = 'USD';
+  from = 'CHF';
+  to = 'EUR';
 
   // ----- State -----
   currencies: { code: string; name: string }[] = [];
