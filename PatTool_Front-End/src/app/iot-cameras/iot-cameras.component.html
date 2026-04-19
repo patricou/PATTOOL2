@@ -1,0 +1,427 @@
+<div class="pat-title">
+    <h2>{{ 'CAMERAS.TITLE' | translate }}</h2>
+</div>
+
+<div class="container mt-0 cameras-container">
+
+    <!-- Toolbar -->
+    <div class="cameras-toolbar">
+        <div class="toolbar-left">
+            <button type="button" class="btn btn-sm btn-primary" (click)="openCreate()">
+                <i class="fa fa-plus"></i> {{ 'CAMERAS.ADD' | translate }}
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="loadCameras()" [disabled]="isLoading">
+                <i class="fa" [class.fa-refresh]="!isLoading" [class.fa-spinner]="isLoading" [class.fa-spin]="isLoading"></i>
+                {{ 'CAMERAS.REFRESH' | translate }}
+            </button>
+            <button type="button" class="btn btn-sm"
+                    [class.btn-warning]="hasAnyLive()"
+                    [class.btn-outline-success]="!hasAnyLive()"
+                    [disabled]="!hasAnySnapshotCapable()"
+                    (click)="toggleAllLive()"
+                    [title]="(hasAnyLive() ? 'CAMERAS.PAUSE_ALL' : 'CAMERAS.START_ALL') | translate">
+                <i class="fa" [class.fa-pause]="hasAnyLive()" [class.fa-play]="!hasAnyLive()"></i>
+                {{ (hasAnyLive() ? 'CAMERAS.PAUSE_ALL' : 'CAMERAS.START_ALL') | translate }}
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-primary"
+                    [disabled]="!hasAnySnapshotCapable()"
+                    (click)="openMosaic()"
+                    [title]="'CAMERAS.MOSAIC' | translate">
+                <i class="fa fa-th-large"></i>
+                {{ 'CAMERAS.MOSAIC' | translate }}
+            </button>
+            <div class="refresh-rate-control" [title]="'CAMERAS.REFRESH_RATE_HINT' | translate">
+                <span class="refresh-rate-label">
+                    <i class="fa fa-tachometer"></i>
+                    {{ 'CAMERAS.REFRESH_RATE' | translate }}
+                </span>
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn btn-outline-secondary"
+                            (click)="decreaseInterval()"
+                            [disabled]="!canDecreaseInterval()"
+                            [title]="'CAMERAS.REFRESH_RATE_DECREASE' | translate">
+                        <i class="fa fa-minus"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary refresh-rate-value" disabled>
+                        {{ snapshotIntervalMs }} ms
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary"
+                            (click)="increaseInterval()"
+                            [disabled]="!canIncreaseInterval()"
+                            [title]="'CAMERAS.REFRESH_RATE_INCREASE' | translate">
+                        <i class="fa fa-plus"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="toolbar-right">
+            <div class="btn-group view-switch" role="group">
+                <button type="button" class="btn btn-sm"
+                        [class.btn-primary]="viewMode === 'grid'"
+                        [class.btn-outline-primary]="viewMode !== 'grid'"
+                        (click)="setView('grid')">
+                    <i class="fa fa-th"></i> {{ 'CAMERAS.VIEW_GRID' | translate }}
+                </button>
+                <button type="button" class="btn btn-sm"
+                        [class.btn-primary]="viewMode === 'list'"
+                        [class.btn-outline-primary]="viewMode !== 'list'"
+                        (click)="setView('list')">
+                    <i class="fa fa-list"></i> {{ 'CAMERAS.VIEW_LIST' | translate }}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error -->
+    <div *ngIf="errorMessage" class="alert alert-danger">
+        <strong>{{ 'CAMERAS.ERROR' | translate }}:</strong> {{ errorMessage }}
+    </div>
+
+    <!-- Loading -->
+    <div *ngIf="isLoading" class="text-center loading-block">
+        <i class="fa fa-spinner fa-spin fa-2x"></i>
+        <p>{{ 'CAMERAS.LOADING' | translate }}</p>
+    </div>
+
+    <!-- Empty -->
+    <div *ngIf="!isLoading && cameras.length === 0" class="text-muted text-center empty-block">
+        {{ 'CAMERAS.NO_CAMERAS' | translate }}
+    </div>
+
+    <!-- Grid View -->
+    <div *ngIf="!isLoading && viewMode === 'grid' && cameras.length > 0" class="cameras-grid">
+        <div class="camera-card" *ngFor="let cam of cameras; trackBy: trackById">
+            <div class="camera-header">
+                <div class="camera-title-block">
+                    <h4 class="camera-name">{{ cam.name }}</h4>
+                    <span class="camera-location" *ngIf="cam.place || cam.room">
+                        <i class="fa fa-map-marker"></i>
+                        {{ cam.place }}<span *ngIf="cam.place && cam.room"> · </span>{{ cam.room }}
+                    </span>
+                </div>
+                <div class="camera-actions">
+                    <button *ngIf="cam.snapshotUrl" type="button" class="btn btn-sm"
+                            [class.btn-success]="isLive(cam)"
+                            [class.btn-outline-success]="!isLive(cam)"
+                            (click)="toggleLive(cam)"
+                            [title]="(isLive(cam) ? 'CAMERAS.LIVE_STOP' : 'CAMERAS.LIVE_START') | translate">
+                        <i class="fa" [class.fa-pause]="isLive(cam)" [class.fa-play]="!isLive(cam)"></i>
+                    </button>
+                    <button *ngIf="cam.snapshotUrl" type="button" class="btn btn-sm btn-outline-secondary"
+                            (click)="toggleCardFullscreen(cam)"
+                            [title]="'CAMERAS.FULLSCREEN' | translate">
+                        <i class="fa fa-expand"></i>
+                    </button>
+                    <a *ngIf="externalUrl(cam)" [href]="externalUrl(cam)" target="_blank" rel="noopener noreferrer"
+                       class="btn btn-sm btn-outline-secondary"
+                       [title]="'CAMERAS.OPEN_EXTERNAL' | translate">
+                        <i class="fa fa-external-link"></i>
+                    </a>
+                    <button type="button" class="btn btn-sm btn-outline-primary" (click)="openEdit(cam)"
+                            [title]="'CAMERAS.EDIT' | translate">
+                        <i class="fa fa-pencil"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-info" (click)="duplicate(cam)"
+                            [title]="'CAMERAS.DUPLICATE' | translate">
+                        <i class="fa fa-clone"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" (click)="askDelete(cam)"
+                            [title]="'CAMERAS.DELETE' | translate">
+                        <i class="fa fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="camera-stream">
+                <div *ngIf="cam.snapshotUrl; else noSnapshot" class="stream-snapshot-wrapper" [id]="'cam-stream-' + cam.id">
+                    <img *ngIf="liveSrc(cam)" [src]="liveSrc(cam)!" alt="{{ cam.name }}" class="stream-img" />
+                    <div *ngIf="!liveSrc(cam) && isLive(cam)" class="stream-placeholder">
+                        <i class="fa fa-spinner fa-spin fa-2x"></i>
+                        <p>{{ 'CAMERAS.LIVE_CONNECTING' | translate }}</p>
+                    </div>
+                    <div *ngIf="!liveSrc(cam) && !isLive(cam)" class="stream-placeholder">
+                        <i class="fa fa-video-camera"></i>
+                        <p>{{ 'CAMERAS.LIVE_OFF' | translate }}</p>
+                        <button type="button" class="btn btn-sm btn-success mt-2" (click)="toggleLive(cam)">
+                            <i class="fa fa-play"></i> {{ 'CAMERAS.LIVE_START' | translate }}
+                        </button>
+                    </div>
+                    <div *ngIf="liveError(cam) && isLive(cam)" class="snapshot-error">
+                        <i class="fa fa-exclamation-triangle"></i> {{ liveError(cam) }}
+                    </div>
+                </div>
+                <ng-template #noSnapshot>
+                    <div class="stream-placeholder">
+                        <i class="fa fa-video-camera"></i>
+                        <p>{{ 'CAMERAS.NO_STREAM' | translate }}</p>
+                        <a *ngIf="externalUrl(cam)" [href]="externalUrl(cam)" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-light mt-2">
+                            <i class="fa fa-external-link"></i> {{ 'CAMERAS.OPEN_EXTERNAL' | translate }}
+                        </a>
+                    </div>
+                </ng-template>
+            </div>
+
+            <div class="camera-live-bar" *ngIf="cam.snapshotUrl">
+                <span *ngIf="isLive(cam) && liveSrc(cam)" class="live-badge">
+                    <i class="fa fa-circle"></i> LIVE
+                </span>
+            </div>
+
+            <div class="camera-meta" *ngIf="cam.brand || cam.type || cam.ip">
+                <div class="meta-item" *ngIf="cam.brand"><strong>{{ 'CAMERAS.BRAND' | translate }}:</strong> {{ cam.brand }}</div>
+                <div class="meta-item" *ngIf="cam.type"><strong>{{ 'CAMERAS.TYPE' | translate }}:</strong> {{ cam.type }}</div>
+                <div class="meta-item" *ngIf="cam.ip"><strong>{{ 'CAMERAS.IP' | translate }}:</strong> {{ cam.ip }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- List View -->
+    <div *ngIf="!isLoading && viewMode === 'list' && cameras.length > 0" class="table-responsive cameras-table-wrapper">
+        <table class="table table-hover cameras-table">
+            <thead>
+                <tr>
+                    <th>{{ 'CAMERAS.NAME' | translate }}</th>
+                    <th>{{ 'CAMERAS.UID' | translate }}</th>
+                    <th>{{ 'CAMERAS.BRAND' | translate }}</th>
+                    <th>{{ 'CAMERAS.TYPE' | translate }}</th>
+                    <th>{{ 'CAMERAS.IP' | translate }}</th>
+                    <th>{{ 'CAMERAS.PLACE' | translate }}</th>
+                    <th>{{ 'CAMERAS.ROOM' | translate }}</th>
+                    <th class="text-end">{{ 'CAMERAS.ACTIONS' | translate }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr *ngFor="let cam of cameras; trackBy: trackById">
+                    <td>{{ cam.name }}</td>
+                    <td class="uid-cell" [title]="cam.uid"><code>{{ cam.uid }}</code></td>
+                    <td>{{ cam.brand }}</td>
+                    <td>{{ cam.type }}</td>
+                    <td>{{ cam.ip }}</td>
+                    <td>{{ cam.place }}</td>
+                    <td>{{ cam.room }}</td>
+                    <td class="text-end">
+                        <button type="button" class="btn btn-sm btn-outline-primary me-1" (click)="openEdit(cam)"
+                                [title]="'CAMERAS.EDIT' | translate">
+                            <i class="fa fa-pencil"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-info me-1" (click)="duplicate(cam)"
+                                [title]="'CAMERAS.DUPLICATE' | translate">
+                            <i class="fa fa-clone"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger" (click)="askDelete(cam)"
+                                [title]="'CAMERAS.DELETE' | translate">
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Editor modal -->
+    <div class="modal fade show camera-modal" *ngIf="showEditor" style="display:block;" (click)="closeEditor()">
+        <div class="modal-dialog camera-modal-window" (click)="$event.stopPropagation()">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fa fa-video-camera"></i>
+                        {{ (isEditMode ? 'CAMERAS.EDIT_TITLE' : 'CAMERAS.ADD_TITLE') | translate }}
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" (click)="closeEditor()"></button>
+                </div>
+                <div class="modal-body">
+                    <form (ngSubmit)="save()" #camForm="ngForm">
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label class="form-label">{{ 'CAMERAS.NAME' | translate }} *</label>
+                                <input type="text" class="form-control" name="name" [(ngModel)]="editing.name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">{{ 'CAMERAS.OWNER' | translate }}</label>
+                                <input type="text" class="form-control" name="owner" [(ngModel)]="editing.owner">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">{{ 'CAMERAS.UID' | translate }}</label>
+                                <input type="text" class="form-control" name="uid" [(ngModel)]="editing.uid"
+                                       readonly
+                                       [placeholder]="'CAMERAS.UID_AUTO_PLACEHOLDER' | translate"
+                                       [title]="'CAMERAS.UID_READONLY_HINT' | translate">
+                                <small class="form-text text-muted">
+                                    <span *ngIf="isEditMode">{{ 'CAMERAS.UID_READONLY_HINT' | translate }}</span>
+                                    <span *ngIf="!isEditMode">{{ 'CAMERAS.UID_CREATE_HINT' | translate }}</span>
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">{{ 'CAMERAS.BRAND' | translate }}</label>
+                                <input type="text" class="form-control" name="brand" [(ngModel)]="editing.brand">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">{{ 'CAMERAS.TYPE' | translate }}</label>
+                                <input type="text" class="form-control" list="cameraTypes" name="type" [(ngModel)]="editing.type"
+                                       [placeholder]="'CAMERAS.TYPE_PLACEHOLDER' | translate">
+                                <datalist id="cameraTypes">
+                                    <option *ngFor="let t of knownTypes" [value]="t"></option>
+                                </datalist>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">{{ 'CAMERAS.WEB_URL' | translate }}</label>
+                                <input type="text" class="form-control" name="webUrl" [(ngModel)]="editing.webUrl"
+                                       placeholder="http://192.168.1.x/">
+                                <small class="form-text text-muted">{{ 'CAMERAS.WEB_URL_HINT' | translate }}</small>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">{{ 'CAMERAS.SNAPSHOT_URL' | translate }}</label>
+                                <input type="text" class="form-control" name="snapshotUrl" [(ngModel)]="editing.snapshotUrl"
+                                       placeholder="http://192.168.1.x/cgi-bin/api.cgi?cmd=Snap&amp;channel=0&amp;user={USER}&amp;password={PASSWORD}">
+                                <small class="form-text text-muted">{{ 'CAMERAS.SNAPSHOT_URL_HINT' | translate }}</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">{{ 'CAMERAS.USERNAME' | translate }}</label>
+                                <input type="text" class="form-control" name="username" [(ngModel)]="editing.username"
+                                       autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">{{ 'CAMERAS.PASSWORD' | translate }}</label>
+                                <input type="password" class="form-control" name="password" [(ngModel)]="editing.password"
+                                       autocomplete="new-password"
+                                       [placeholder]="(isEditMode && editing.hasPassword ? 'CAMERAS.PASSWORD_SET_PLACEHOLDER' : 'CAMERAS.PASSWORD_PLACEHOLDER') | translate">
+                                <small class="form-text text-muted">
+                                    <span *ngIf="isEditMode">{{ 'CAMERAS.PASSWORD_EDIT_HINT' | translate }}</span>
+                                    <span *ngIf="!isEditMode">{{ 'CAMERAS.PASSWORD_HINT' | translate }}</span>
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">{{ 'CAMERAS.SERVICE' | translate }}</label>
+                                <input type="text" class="form-control" name="service" [(ngModel)]="editing.service">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">{{ 'CAMERAS.IP' | translate }}</label>
+                                <input type="text" class="form-control" name="ip" [(ngModel)]="editing.ip">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">{{ 'CAMERAS.MAC' | translate }}</label>
+                                <input type="text" class="form-control" name="macaddress" [(ngModel)]="editing.macaddress">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">{{ 'CAMERAS.PLACE' | translate }}</label>
+                                <input type="text" class="form-control" name="place" [(ngModel)]="editing.place">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">{{ 'CAMERAS.ROOM' | translate }}</label>
+                                <input type="text" class="form-control" name="room" [(ngModel)]="editing.room">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">{{ 'CAMERAS.PARAM1' | translate }}</label>
+                                <input type="text" class="form-control" name="param1" [(ngModel)]="editing.param1">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">{{ 'CAMERAS.PARAM2' | translate }}</label>
+                                <input type="text" class="form-control" name="param2" [(ngModel)]="editing.param2">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">{{ 'CAMERAS.PARAM3' | translate }}</label>
+                                <input type="text" class="form-control" name="param3" [(ngModel)]="editing.param3">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" (click)="closeEditor()">
+                        {{ 'CAMERAS.CANCEL' | translate }}
+                    </button>
+                    <button type="button" class="btn btn-primary" (click)="save()">
+                        <i class="fa fa-save"></i> {{ 'CAMERAS.SAVE' | translate }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mosaic modal: fullscreen-capable grid of draggable / resizable tiles -->
+    <div class="mosaic-modal" *ngIf="showMosaic" [class.mosaic-modal-fullscreen]="isFullscreen">
+        <div class="mosaic-header">
+            <div class="mosaic-title">
+                <i class="fa fa-th-large"></i>
+                {{ 'CAMERAS.MOSAIC_TITLE' | translate }}
+                <span class="mosaic-hint">{{ 'CAMERAS.MOSAIC_HINT' | translate }}</span>
+            </div>
+            <div class="mosaic-actions">
+                <button type="button" class="btn btn-sm btn-outline-light" (click)="autoLayout()"
+                        [title]="'CAMERAS.MOSAIC_AUTO_LAYOUT' | translate">
+                    <i class="fa fa-th"></i>
+                    {{ 'CAMERAS.MOSAIC_AUTO_LAYOUT' | translate }}
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-light" (click)="toggleFullscreen()"
+                        [title]="(isFullscreen ? 'CAMERAS.MOSAIC_EXIT_FULLSCREEN' : 'CAMERAS.MOSAIC_FULLSCREEN') | translate">
+                    <i class="fa" [class.fa-expand]="!isFullscreen" [class.fa-compress]="isFullscreen"></i>
+                    {{ (isFullscreen ? 'CAMERAS.MOSAIC_EXIT_FULLSCREEN' : 'CAMERAS.MOSAIC_FULLSCREEN') | translate }}
+                </button>
+                <button type="button" class="btn btn-sm btn-light" (click)="closeMosaic()"
+                        [title]="'CAMERAS.CLOSE' | translate">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+        </div>
+        <div #mosaicCanvas class="mosaic-canvas">
+            <div *ngIf="mosaicTiles.length === 0" class="mosaic-empty">
+                <i class="fa fa-video-camera"></i>
+                <p>{{ 'CAMERAS.MOSAIC_EMPTY' | translate }}</p>
+            </div>
+            <div *ngFor="let tile of mosaicTiles; trackBy: trackTile"
+                 class="mosaic-tile"
+                 [style.left.px]="tile.x"
+                 [style.top.px]="tile.y"
+                 [style.width.px]="tile.width"
+                 [style.height.px]="tile.height"
+                 [style.z-index]="tile.zIndex">
+                <div class="mosaic-tile-header" (pointerdown)="startTileDrag(tile, $event)">
+                    <i class="fa fa-arrows"></i>
+                    <span class="mosaic-tile-name">{{ getMosaicCamera(tile.cameraId)?.name }}</span>
+                    <span *ngIf="isLive(getMosaicCamera(tile.cameraId)!) && liveSrc(getMosaicCamera(tile.cameraId)!)"
+                          class="live-badge mosaic-live-badge">
+                        <i class="fa fa-circle"></i> LIVE
+                    </span>
+                </div>
+                <div class="mosaic-tile-body">
+                    <img *ngIf="liveSrc(getMosaicCamera(tile.cameraId)!)"
+                         [src]="liveSrc(getMosaicCamera(tile.cameraId)!)!"
+                         [alt]="getMosaicCamera(tile.cameraId)?.name || ''"
+                         class="stream-img" />
+                    <div *ngIf="!liveSrc(getMosaicCamera(tile.cameraId)!)" class="mosaic-tile-loader">
+                        <i class="fa fa-spinner fa-spin"></i>
+                    </div>
+                </div>
+                <div class="mosaic-tile-resize"
+                     (pointerdown)="startTileResize(tile, $event)"
+                     [title]="'CAMERAS.MOSAIC_RESIZE' | translate">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete confirmation modal -->
+    <div class="modal fade show camera-modal" *ngIf="confirmDeleteId" style="display:block;" (click)="cancelDelete()">
+        <div class="modal-dialog camera-modal-window camera-modal-window-sm" (click)="$event.stopPropagation()">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fa fa-exclamation-triangle"></i> {{ 'CAMERAS.CONFIRM_DELETE_TITLE' | translate }}
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" (click)="cancelDelete()"></button>
+                </div>
+                <div class="modal-body">
+                    <p>{{ 'CAMERAS.CONFIRM_DELETE_TEXT' | translate }}</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" (click)="cancelDelete()">
+                        {{ 'CAMERAS.CANCEL' | translate }}
+                    </button>
+                    <button type="button" class="btn btn-danger" (click)="confirmDelete()">
+                        <i class="fa fa-trash"></i> {{ 'CAMERAS.DELETE' | translate }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>

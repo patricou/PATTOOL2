@@ -109,6 +109,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				path: 'iot/local-network', 
 				loadComponent: () => import('./local-network/local-network.component').then(m => m.LocalNetworkComponent)
 			},
+			{
+				path: 'iot/cameras',
+				loadComponent: () => import('./iot-cameras/iot-cameras.component').then(m => m.IotCamerasComponent)
+			},
 			{ 
 				path: 'photos', 
 				loadChildren: () => import('./photo-timeline/photo-timeline.module').then(m => m.PhotoTimelineModule)

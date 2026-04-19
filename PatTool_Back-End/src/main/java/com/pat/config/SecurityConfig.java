@@ -177,6 +177,12 @@ public class SecurityConfig {
                 // ============================================
                 // IoT endpoints - require Iot role
                 .requestMatchers("/iot", "/api/testarduino", "/api/opcl").hasRole("Iot")
+
+                // IoT Cameras CRUD - protected: only users with Iot role can list,
+                // view, create, update or delete cameras. Case-insensitive match
+                // on the role name ("Iot" / "iot") matches the frontend guard in
+                // KeycloakService.hasIotRole().
+                .requestMatchers("/api/cameras", "/api/cameras/**").hasAnyRole("Iot", "iot")
                 
                 // GET event details by ID: allow anonymous so controller can return 403 (no access) instead of 401
                 // This way the frontend can show "ask owner for access" instead of redirecting to login

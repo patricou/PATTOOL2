@@ -158,6 +158,11 @@
                            (click)="closeMenu()">
                         <i class="fa fa-sitemap"></i> {{ 'MENU.LOCAL_NETWORK' | translate }}
                     </a></li>
+                    <li><a class="dropdown-item"
+                           [routerLink]="['iot/cameras']"
+                           (click)="closeMenu()">
+                        <i class="fa fa-video-camera"></i> {{ 'MENU.CAMERAS' | translate }}
+                    </a></li>
                 </ul>
             </li>
 

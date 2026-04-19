@@ -37,6 +37,7 @@ import java.time.format.DateTimeFormatter;
         classes = {
             com.pat.repo.AppParameterRepository.class,
             com.pat.repo.CalendarAppointmentRepository.class,
+            com.pat.repo.CameraRepository.class,
             com.pat.repo.CategoryLinkRepository.class,
             com.pat.repo.DiscussionRepository.class,
             com.pat.repo.EvenementsRepository.class,
