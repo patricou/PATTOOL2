@@ -664,6 +664,31 @@
     margin-bottom: 164px;
 }
 
+/* Stock ticker is also a single 40px row, always rendered below the currency
+ * ticker (and below news when both are on). Heights accumulate linearly:
+ *   stock alone:                     navbar(56) + stock(40)                 +68 = 164 → 108
+ *   news + stock:                    navbar(56) + news(56) + stock(40)      +68 = 220 → 164
+ *   currency + stock:                navbar(56) + currency(40) + stock(40)  +68 = 204 → 148
+ *   news + currency + stock:         navbar(56) + news(56) + currency(40) + stock(40) +68 = 260 → 204
+ * (The "+68" matches the breathing gap used by the other ticker rules so the
+ * page title doesn't collide with the bottom of the fixed chrome.)
+ */
+.pat-div.pat-div--with-stock-ticker {
+    margin-bottom: 108px;
+}
+
+.pat-div.pat-div--with-news-ticker.pat-div--with-stock-ticker {
+    margin-bottom: 164px;
+}
+
+.pat-div.pat-div--with-currency-ticker.pat-div--with-stock-ticker {
+    margin-bottom: 148px;
+}
+
+.pat-div.pat-div--with-news-ticker.pat-div--with-currency-ticker.pat-div--with-stock-ticker {
+    margin-bottom: 204px;
+}
+
 .pat-lang-selector {
     position: fixed;
     z-index: 1000;

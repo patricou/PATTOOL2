@@ -374,6 +374,122 @@ export class ApiService {
       { params }
     );
   }
+
+  // ===================================================================
+  // Twelve Data — stock exchange proxy
+  // Backend: /api/external/stock/* (no auth required — server-side API key)
+  // ===================================================================
+
+  /**
+   * List of instruments available on Twelve Data, optionally filtered by country.
+   * Response can be huge (20k+) on unfiltered queries, so callers should always
+   * pass a country. The first call is network-heavy; subsequent ones are cached
+   * server-side for 24 h.
+   */
+  getStockSymbols(country?: string): Observable<StockSymbol[]> {
+    let params = new HttpParams();
+    if (country) params = params.set('country', country);
+    return this._http.get<StockSymbol[]>(
+      this.API_URL + 'external/stock/symbols',
+      { params }
+    );
+  }
+
+  /**
+   * Full-text symbol search (ticker or company name).
+   * Lets the user type e.g. "airbus" and pick the matching ticker from the
+   * returned list (symbol + company + exchange + country).
+   *
+   * @param query  search text (2..64 chars, backend enforces)
+   * @param size   optional max results (1..50, default 20)
+   */
+  searchStockSymbols(query: string, size?: number): Observable<StockSymbolSearchResult[]> {
+    let params = new HttpParams().set('q', query);
+    if (size !== undefined && size !== null) {
+      params = params.set('size', size.toString());
+    }
+    return this._http.get<StockSymbolSearchResult[]>(
+      this.API_URL + 'external/stock/search',
+      { params }
+    );
+  }
+
+  /**
+   * Real-time quote for a single symbol.
+   * <p>
+   * Forwards the Keycloak JWT when available so the backend can tag the
+   * cached quote with the caller's initials (used by the global ticker).
+   * Anonymous fallback keeps the call working before the user logs in.
+   */
+  getStockQuote(symbol: string): Observable<StockQuote> {
+    const url = this.API_URL + 'external/stock/quote';
+    const params = new HttpParams().set('symbol', symbol);
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => this._http.get<StockQuote>(url, { headers, params })),
+      catchError(() => this._http.get<StockQuote>(url, { params }))
+    );
+  }
+
+  /**
+   * Batch quotes. Returns a map keyed by symbol. Missing / errored symbols are
+   * simply absent from the map, so callers can do {@code map[sym] ?? null}.
+   * <p>
+   * Same auth handling as {@link #getStockQuote}: JWT is forwarded when the
+   * user is logged in so their initials get attached to every symbol in the
+   * response.
+   */
+  getStockQuotesBatch(symbols: string[]): Observable<{ [symbol: string]: StockQuote }> {
+    const url = this.API_URL + 'external/stock/quote/batch';
+    const params = new HttpParams().set('symbols', symbols.join(','));
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => this._http.get<{ [symbol: string]: StockQuote }>(url, { headers, params })),
+      catchError(() => this._http.get<{ [symbol: string]: StockQuote }>(url, { params }))
+    );
+  }
+
+  /**
+   * Snapshot of every quote currently in the backend's in-memory cache —
+   * no call is made to Twelve Data. Used by the global ticker so it only
+   * shows what users have already looked up, costing zero API credits.
+   * Each entry carries {@code loaded_by} / {@code last_loaded_by} initials.
+   */
+  getCachedStockQuotes(): Observable<{ [symbol: string]: StockQuote }> {
+    return this._http.get<{ [symbol: string]: StockQuote }>(
+      this.API_URL + 'external/stock/quote/cached'
+    );
+  }
+
+  /**
+   * Purge the backend quote cache that feeds the ticker (quotes, time series,
+   * loader initials, cached upstream errors). Symbol search/metadata caches
+   * are preserved on the server because re-populating them would burn quota
+   * for no UX gain. Returns the number of entries the server removed.
+   */
+  clearCachedStockQuotes(): Observable<{ removed: number }> {
+    return this._http.delete<{ removed: number }>(
+      this.API_URL + 'external/stock/quote/cached'
+    );
+  }
+
+  /**
+   * Historical OHLCV candles.
+   * @param interval   one of: 1min, 5min, 15min, 30min, 45min, 1h, 2h, 4h, 1day, 1week, 1month
+   * @param outputsize 1..5000 (default 30)
+   */
+  getStockTimeSeries(
+    symbol: string,
+    interval: string = '1day',
+    outputsize: number = 30
+  ): Observable<StockTimeSeries> {
+    const params = new HttpParams()
+      .set('symbol', symbol)
+      .set('interval', interval)
+      .set('outputsize', outputsize.toString());
+    return this._http.get<StockTimeSeries>(
+      this.API_URL + 'external/stock/timeseries',
+      { params }
+    );
+  }
 }
 
 /** Frankfurter /latest and /historical response shape. */
@@ -391,4 +507,89 @@ export interface FrankfurterTimeseries {
   start_date: string;
   end_date: string;
   rates: { [isoDate: string]: { [currency: string]: number } };
+}
+
+// ===================================================================
+// Twelve Data — stock exchange types
+// Numeric fields come back as strings from the upstream API; the UI
+// parses them with parseFloat where needed. Keeping them as string here
+// means "null / not reported" is preserved verbatim instead of being
+// coerced to 0.
+// ===================================================================
+
+/** Single stock quote (mirror of backend TwelveDataQuoteDto / CachedStockQuoteDto). */
+export interface StockQuote {
+  symbol: string;
+  name?: string;
+  exchange?: string;
+  currency?: string;
+  datetime?: string;
+  timestamp?: number;
+  open?: string;
+  high?: string;
+  low?: string;
+  close?: string;
+  volume?: string;
+  previous_close?: string;
+  change?: string;
+  percent_change?: string;
+  average_volume?: string;
+  is_market_open?: boolean;
+
+  /**
+   * Populated only on responses from {@code /quote/cached}: initials of the
+   * most recent user who looked this symbol up (e.g. "PD"). Anonymous
+   * callers are not recorded.
+   */
+  last_loaded_by?: string;
+  /** Up to 5 unique initials, most-recent first. */
+  loaded_by?: string[];
+}
+
+/** One OHLCV candle from /time_series. */
+export interface StockBar {
+  datetime: string;
+  open: string;
+  high: string;
+  low: string;
+  close: string;
+  volume: string;
+}
+
+/** Full /time_series response: meta block + ordered candles (newest first in Twelve Data). */
+export interface StockTimeSeries {
+  meta?: {
+    symbol?: string;
+    interval?: string;
+    currency?: string;
+    exchange?: string;
+    type?: string;
+  };
+  values?: StockBar[];
+  status?: string;
+}
+
+/** Entry from /stocks — used to build the symbol picker. */
+export interface StockSymbol {
+  symbol: string;
+  name?: string;
+  currency?: string;
+  exchange?: string;
+  country?: string;
+  type?: string;
+}
+
+/**
+ * Entry from /symbol_search — used by the autocomplete.
+ * Field names follow Twelve Data's raw response.
+ */
+export interface StockSymbolSearchResult {
+  symbol: string;
+  instrument_name?: string;
+  exchange?: string;
+  mic_code?: string;
+  exchange_timezone?: string;
+  instrument_type?: string;
+  country?: string;
+  currency?: string;
 }

@@ -1,0 +1,205 @@
+/* Stock ticker: single-row scrolling banner, stacked BELOW the currency
+ * ticker (and itself below the news ticker when present).
+ *
+ * Layout reference (navbar = 56px, news = 56px, currency = 40px, stock = 40px):
+ *   - Alone:                               top = 56
+ *   - With currency only:                  top = 56 + 40 = 96
+ *   - With news only:                      top = 56 + 56 = 112
+ *   - With news + currency:                top = 56 + 56 + 40 = 152
+ *
+ * Same marquee pattern as the currency & news tickers: a flex track whose
+ * items are duplicated in the template so translating by -50% loops.
+ */
+.stock-ticker {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    right: 0;
+    z-index: 1018; /* below currency (1019) so overlap feels natural during transitions */
+    display: flex;
+    align-items: stretch;
+    background: linear-gradient(90deg, #1a1a2e 0%, #24243e 50%, #1a1a2e 100%);
+    color: #f0efff;
+    border-top: 1px solid #35355a;
+    border-bottom: 1px solid #35355a;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+    font-size: 0.9rem;
+    height: 40px;
+}
+
+:host-context(body.pat-has-currency-ticker) .stock-ticker {
+    top: 96px;
+}
+
+:host-context(body.pat-has-news-ticker) .stock-ticker {
+    top: 112px;
+}
+
+:host-context(body.pat-has-news-ticker.pat-has-currency-ticker) .stock-ticker {
+    top: 152px;
+}
+
+.stock-ticker-label {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0 1rem;
+    background: linear-gradient(135deg, #6f42c1 0%, #3d1f70 100%);
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    white-space: nowrap;
+    box-shadow: 2px 0 6px rgba(0, 0, 0, 0.35);
+    z-index: 2;
+    position: relative;
+}
+
+.stock-ticker-label i {
+    font-size: 0.95rem;
+}
+
+.stock-ticker-rows {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    justify-content: center;
+}
+
+.stock-ticker-row {
+    position: relative;
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.stock-ticker-track {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    height: 100%;
+    width: max-content;
+    white-space: nowrap;
+    animation: stock-marquee 75s linear infinite;
+    will-change: transform;
+    transform: translate3d(0, 0, 0);
+}
+
+.stock-ticker:hover .stock-ticker-track {
+    animation-play-state: paused;
+}
+
+.stock-ticker-item {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0 1.1rem;
+    white-space: nowrap;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.stock-symbol {
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #f8f9fa;
+}
+
+.stock-price {
+    font-variant-numeric: tabular-nums;
+    color: #d8d0ff;
+    font-weight: 500;
+}
+
+.stock-currency {
+    color: #8c85b8;
+    font-size: 0.78rem;
+    font-weight: 400;
+    margin-left: 0.15rem;
+}
+
+.stock-variation {
+    font-size: 0.78rem;
+    padding: 0.05rem 0.4rem;
+    border-radius: 4px;
+    font-variant-numeric: tabular-nums;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+.stock-variation.var-up {
+    background: rgba(40, 167, 69, 0.22);
+    color: #4ed16f;
+}
+
+.stock-variation.var-down {
+    background: rgba(220, 53, 69, 0.22);
+    color: #ff7b88;
+}
+
+.stock-variation.var-flat {
+    background: rgba(108, 117, 125, 0.25);
+    color: #c5ced6;
+}
+
+.stock-arrow {
+    font-size: 0.75rem;
+    line-height: 1;
+}
+
+/* Initials cluster: the user(s) who most recently loaded this symbol.
+ * The most recent loader is highlighted with `.primary`; older ones fade out. */
+.stock-loaders {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.18rem;
+    margin-left: 0.15rem;
+}
+
+.stock-loader-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.35rem;
+    height: 1.35rem;
+    padding: 0 0.32rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #c9c3ee;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.stock-loader-badge.primary {
+    background: linear-gradient(135deg, #6f42c1 0%, #8a5ede 100%);
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 0 6px rgba(138, 94, 222, 0.55);
+}
+
+.stock-ticker-loading {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0 1.1rem;
+    color: #d8d0ff;
+    font-size: 0.85rem;
+}
+
+@keyframes stock-marquee {
+    from { transform: translate3d(0, 0, 0); }
+    to   { transform: translate3d(-50%, 0, 0); }
+}
+
+/* Reduced-motion: same rationale as news / currency tickers — the entire
+ * point of the widget IS the scrolling banner. Users can disable it via the
+ * switch on the Stock Exchange page. */

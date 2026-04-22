@@ -131,6 +131,11 @@
                            (click)="closeMenu()">
                         <i class="fa fa-money"></i> {{ 'MENU.CURRENCY_CONVERTER' | translate }}
                     </a></li>
+                    <li><a class="dropdown-item"
+                           [routerLink]="['api/stock-exchange']"
+                           (click)="closeMenu()">
+                        <i class="fa fa-line-chart"></i> {{ 'MENU.STOCK_EXCHANGE' | translate }}
+                    </a></li>
                 </ul>
             </li>
 
@@ -359,6 +364,7 @@
      navbar and the per-page title so it's visible on every route. -->
 <app-news-ticker></app-news-ticker>
 <app-currency-ticker></app-currency-ticker>
+<app-stock-ticker></app-stock-ticker>
 
 <!-- Demandes d'amis en attente : bannière (plus de modale / pas de double cadre Bootstrap) -->
 <div *ngIf="showFriendRequestsPromptBanner()"
@@ -395,7 +401,8 @@
 <div class="pat-div"
      [class.pat-div--with-friend-requests-banner]="showFriendRequestsPromptBanner()"
      [class.pat-div--with-news-ticker]="newsTickerEnabled"
-     [class.pat-div--with-currency-ticker]="currencyTickerEnabled"></div>
+     [class.pat-div--with-currency-ticker]="currencyTickerEnabled"
+     [class.pat-div--with-stock-ticker]="stockTickerEnabled"></div>
 <router-outlet></router-outlet>
 
 <!-- Modal window for user information -->

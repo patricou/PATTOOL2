@@ -1,0 +1,55 @@
+<div class="stock-ticker" *ngIf="enabled" role="marquee" aria-label="Stock quote ticker">
+    <div class="stock-ticker-label" aria-hidden="true">
+        <i class="fa fa-line-chart"></i>
+        <span>{{ 'STOCK.TICKER_LABEL' | translate }}</span>
+    </div>
+
+    <div class="stock-ticker-rows">
+        <div class="stock-ticker-loading" *ngIf="!hasItems()">
+            <ng-container *ngIf="loading; else emptyTpl">
+                <i class="fa fa-spinner fa-spin"></i>
+                <span>{{ 'STOCK.TICKER_LOADING' | translate }}</span>
+            </ng-container>
+            <ng-template #emptyTpl>
+                <i class="fa fa-info-circle"></i>
+                <span>{{ 'STOCK.TICKER_EMPTY' | translate }}</span>
+            </ng-template>
+        </div>
+
+        <ng-container *ngIf="hasItems()">
+            <div class="stock-ticker-row">
+                <div class="stock-ticker-track">
+                    <ng-container *ngFor="let q of items; trackBy: trackByIndex">
+                        <ng-container *ngTemplateOutlet="itemTpl; context: { $implicit: q, hidden: false }"></ng-container>
+                    </ng-container>
+                    <!-- Duplicate items for a seamless marquee loop (-50% translate). -->
+                    <ng-container *ngFor="let q of items; trackBy: trackByIndex">
+                        <ng-container *ngTemplateOutlet="itemTpl; context: { $implicit: q, hidden: true }"></ng-container>
+                    </ng-container>
+                </div>
+            </div>
+
+            <ng-template #itemTpl let-q let-hidden="hidden">
+                <span class="stock-ticker-item"
+                      [attr.aria-hidden]="hidden ? 'true' : null">
+                    <span class="stock-symbol">{{ q.symbol }}</span>
+                    <span class="stock-price">
+                        {{ formatPrice(q) }}<span class="stock-currency" *ngIf="q.currency"> {{ q.currency }}</span>
+                    </span>
+                    <span class="stock-variation" [ngClass]="variationClass(q)">
+                        <span class="stock-arrow">{{ variationSymbol(q) }}</span>
+                        {{ formatDayChange(q) }}
+                    </span>
+                    <span class="stock-loaders"
+                          *ngIf="q.loadedBy && q.loadedBy.length > 0"
+                          [title]="loadersTooltip(q)"
+                          [attr.aria-label]="loadersTooltip(q)">
+                        <span class="stock-loader-badge"
+                              *ngFor="let ini of q.loadedBy"
+                              [class.primary]="ini === q.lastLoadedBy">{{ ini }}</span>
+                    </span>
+                </span>
+            </ng-template>
+        </ng-container>
+    </div>
+</div>

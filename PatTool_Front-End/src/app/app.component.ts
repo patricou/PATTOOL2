@@ -19,13 +19,15 @@ import { NewsTickerComponent } from './news/news-ticker/news-ticker.component';
 import { NewsTickerService } from './services/news-ticker.service';
 import { CurrencyTickerComponent } from './currency-converter/currency-ticker/currency-ticker.component';
 import { CurrencyTickerService } from './services/currency-ticker.service';
+import { StockTickerComponent } from './stock-exchange/stock-ticker/stock-ticker.component';
+import { StockTickerService } from './services/stock-ticker.service';
 
 @Component({
     selector: 'app-root',
     templateUrl: './app.component.html',
     styleUrls: ['./app.component.css'],
     standalone: true,
-    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule, NavigationButtonsComponent, NewsTickerComponent, CurrencyTickerComponent]
+    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule, NavigationButtonsComponent, NewsTickerComponent, CurrencyTickerComponent, StockTickerComponent]
 })
 export class AppComponent implements OnInit {
 
@@ -92,6 +94,8 @@ export class AppComponent implements OnInit {
     public newsTickerEnabled: boolean = false;
     /** True while the global currency-rate ticker banner is visible (pushed by CurrencyTickerService). */
     public currencyTickerEnabled: boolean = false;
+    /** True while the global stock-quote ticker banner is visible (pushed by StockTickerService). */
+    public stockTickerEnabled: boolean = false;
 
     constructor(public _translate: TranslateService,
         public _kc: KeycloakService,
@@ -103,7 +107,8 @@ export class AppComponent implements OnInit {
         private router: Router,
         private cdr: ChangeDetectorRef,
         private _newsTicker: NewsTickerService,
-        private _currencyTicker: CurrencyTickerService) {
+        private _currencyTicker: CurrencyTickerService,
+        private _stockTicker: StockTickerService) {
         this.selectedFiles = [];
         this._newsTicker.enabled$.subscribe((v) => {
             this.newsTickerEnabled = v;
@@ -112,6 +117,11 @@ export class AppComponent implements OnInit {
         });
         this._currencyTicker.enabled$.subscribe((v) => {
             this.currencyTickerEnabled = v;
+            this.updateTickerBodyClasses();
+            this.cdr.markForCheck();
+        });
+        this._stockTicker.enabled$.subscribe((v) => {
+            this.stockTickerEnabled = v;
             this.updateTickerBodyClasses();
             this.cdr.markForCheck();
         });
@@ -128,6 +138,7 @@ export class AppComponent implements OnInit {
             const body = document.body;
             body.classList.toggle('pat-has-news-ticker', this.newsTickerEnabled);
             body.classList.toggle('pat-has-currency-ticker', this.currencyTickerEnabled);
+            body.classList.toggle('pat-has-stock-ticker', this.stockTickerEnabled);
         } catch {
             // SSR / non-browser context: harmless no-op.
         }

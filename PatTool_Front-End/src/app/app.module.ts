@@ -138,6 +138,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./currency-converter/currency-converter.component').then(m => m.CurrencyConverterComponent)
 			},
 			{
+				path: 'api/stock-exchange',
+				loadComponent: () => import('./stock-exchange/stock-exchange.component').then(m => m.StockExchangeComponent)
+			},
+			{
 				path: 'calendrier',
 				loadComponent: () => import('./calendar/calendar.component').then(m => m.CalendarComponent)
 			},

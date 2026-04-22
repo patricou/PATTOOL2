@@ -203,6 +203,10 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/calendar/public-holidays/**").permitAll()
                 // Currency rates proxy (Frankfurter / BCE) — données publiques, sans auth
                 .requestMatchers(HttpMethod.GET, "/api/external/currency/**").permitAll()
+                // Stock exchange proxy (Twelve Data) — lecture seule + purge du cache ticker,
+                // sans auth (la clé API est côté serveur, aucun secret n'est exposé).
+                .requestMatchers(HttpMethod.GET, "/api/external/stock/**").permitAll()
+                .requestMatchers(HttpMethod.DELETE, "/api/external/stock/quote/cached").permitAll()
                 
                 // Stream event files (SSE): require authentication so SecurityContext has user and getCurrentUserId() works
                 .requestMatchers(HttpMethod.GET, "/api/even/*/files/stream").authenticated()

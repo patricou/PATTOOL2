@@ -1,0 +1,264 @@
+<!-- Standard Title Section - matches currency-converter / news pages -->
+<div class="pat-title">
+    <h2>
+        <i class="fa fa-line-chart me-2"></i>
+        {{ 'STOCK.TITLE' | translate }}
+    </h2>
+</div>
+
+<div class="stock-page">
+    <p class="text-muted small mb-4">
+        {{ 'STOCK.SUBTITLE' | translate }}
+    </p>
+
+    <div *ngIf="errorMessage" class="alert alert-warning d-flex align-items-start" role="alert">
+        <i class="fa fa-exclamation-triangle me-2 mt-1"></i>
+        <div class="flex-grow-1">
+            <div>{{ errorMessage | translate }}</div>
+            <div *ngIf="errorDetail" class="small text-muted mt-1">
+                {{ errorDetail }}
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-12 col-lg-5">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fa fa-tags me-1"></i>
+                        {{ 'STOCK.QUOTE' | translate }}
+                    </h5>
+
+                    <div class="mb-3 stock-search" #searchBox>
+                        <label class="form-label small" for="stockSymbolInput">{{ 'STOCK.SEARCH_LABEL' | translate }}</label>
+                        <div class="input-group input-group-lg">
+                            <span class="input-group-text bg-white">
+                                <i class="fa"
+                                   [class.fa-search]="!isSearching"
+                                   [class.fa-spinner]="isSearching"
+                                   [class.fa-spin]="isSearching"></i>
+                            </span>
+                            <input id="stockSymbolInput"
+                                   type="text"
+                                   class="form-control form-control-lg"
+                                   [(ngModel)]="searchQuery"
+                                   (ngModelChange)="onSearchInput()"
+                                   (focus)="onSearchFocus($event)"
+                                   (keydown)="onSearchKeydown($event)"
+                                   [placeholder]="'STOCK.SEARCH_PLACEHOLDER' | translate"
+                                   autocomplete="off"
+                                   aria-label="search stock symbol or company" />
+                            <button type="button"
+                                    class="btn btn-primary"
+                                    (click)="onSearchSubmit()"
+                                    [disabled]="!searchQuery || searchQuery.length < 1"
+                                    [title]="'STOCK.SEARCH_LOAD' | translate">
+                                <i class="fa fa-arrow-right"></i>
+                            </button>
+                        </div>
+
+                        <ul *ngIf="showResults && searchResults.length > 0"
+                            class="search-results list-group shadow-sm"
+                            role="listbox">
+                            <li *ngFor="let r of searchResults; let i = index"
+                                class="list-group-item list-group-item-action search-result-item"
+                                [class.active]="i === highlightedIndex"
+                                role="option"
+                                (mousedown)="selectSearchResult(r)"
+                                (mouseenter)="highlightedIndex = i">
+                                <div class="sr-top">
+                                    <span class="sr-symbol">{{ r.symbol }}</span>
+                                    <span class="sr-name" *ngIf="r.instrument_name">{{ r.instrument_name }}</span>
+                                </div>
+                                <div class="sr-bottom text-muted small" *ngIf="formatResultLine(r) as line">
+                                    {{ line }}
+                                    <span *ngIf="r.instrument_type" class="sr-type">- {{ r.instrument_type }}</span>
+                                </div>
+                            </li>
+                        </ul>
+
+                        <div class="form-text small">
+                            {{ 'STOCK.SEARCH_HINT' | translate }}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="small text-muted mb-1">{{ 'STOCK.POPULAR' | translate }}</div>
+                        <div class="d-flex flex-wrap gap-1">
+                            <button *ngFor="let s of defaultSymbols"
+                                    type="button"
+                                    class="btn btn-sm btn-outline-secondary symbol-chip"
+                                    [class.active]="symbol === s.symbol"
+                                    (click)="pickSymbol(s.symbol)"
+                                    [title]="s.name">
+                                {{ s.symbol }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <hr class="my-3" />
+
+                    <div class="result-box">
+                        <div *ngIf="isLoadingQuote" class="text-muted small">
+                            <i class="fa fa-spinner fa-spin me-1"></i>
+                            {{ 'STOCK.LOADING' | translate }}
+                        </div>
+                        <ng-container *ngIf="!isLoadingQuote">
+                            <div class="result-symbol">
+                                <span class="symbol-code">{{ quote?.symbol || symbol }}</span>
+                                <span *ngIf="quote?.name" class="symbol-name">- {{ quote?.name }}</span>
+                            </div>
+                            <div *ngIf="priceNumber !== null; else noPriceTpl" class="result-price">
+                                {{ priceNumber | number:'1.2-4' }}
+                                <span class="result-currency" *ngIf="quote?.currency">{{ quote?.currency }}</span>
+                            </div>
+                            <ng-template #noPriceTpl>
+                                <div class="text-muted small" *ngIf="!errorMessage">
+                                    {{ 'STOCK.NO_DATA' | translate }}
+                                </div>
+                            </ng-template>
+
+                            <div *ngIf="percentChangeNumber !== null" class="result-change" [ngClass]="changeClass">
+                                <span class="change-arrow">{{ changeArrow() }}</span>
+                                <span *ngIf="changeNumber !== null">
+                                    {{ (changeNumber || 0) > 0 ? '+' : '' }}{{ changeNumber | number:'1.2-4' }}
+                                </span>
+                                <span class="change-pct">
+                                    ({{ (percentChangeNumber || 0) > 0 ? '+' : '' }}{{ percentChangeNumber | number:'1.2-3' }}%)
+                                </span>
+                            </div>
+
+                            <div class="result-meta text-muted small mt-2" *ngIf="lastUpdated">
+                                <span>{{ 'STOCK.UPDATED' | translate }} {{ lastUpdated }}</span>
+                                <span *ngIf="quote?.is_market_open !== undefined" class="ms-2">
+                                    - <i class="fa"
+                                         [class.fa-circle]="quote?.is_market_open"
+                                         [class.fa-circle-o]="!quote?.is_market_open"
+                                         [class.text-success]="quote?.is_market_open"></i>
+                                    {{ (quote?.is_market_open ? 'STOCK.MARKET_OPEN' : 'STOCK.MARKET_CLOSED') | translate }}
+                                </span>
+                            </div>
+                        </ng-container>
+                    </div>
+
+                    <div class="ohlc-grid mt-3" *ngIf="quote && !isLoadingQuote">
+                        <div class="ohlc-cell">
+                            <div class="ohlc-label">{{ 'STOCK.OPEN' | translate }}</div>
+                            <div class="ohlc-value">{{ asNumber(quote.open) !== null ? (asNumber(quote.open) | number:'1.2-4') : '-' }}</div>
+                        </div>
+                        <div class="ohlc-cell">
+                            <div class="ohlc-label">{{ 'STOCK.HIGH' | translate }}</div>
+                            <div class="ohlc-value">{{ asNumber(quote.high) !== null ? (asNumber(quote.high) | number:'1.2-4') : '-' }}</div>
+                        </div>
+                        <div class="ohlc-cell">
+                            <div class="ohlc-label">{{ 'STOCK.LOW' | translate }}</div>
+                            <div class="ohlc-value">{{ asNumber(quote.low) !== null ? (asNumber(quote.low) | number:'1.2-4') : '-' }}</div>
+                        </div>
+                        <div class="ohlc-cell">
+                            <div class="ohlc-label">{{ 'STOCK.PREV_CLOSE' | translate }}</div>
+                            <div class="ohlc-value">{{ previousCloseNumber !== null ? (previousCloseNumber | number:'1.2-4') : '-' }}</div>
+                        </div>
+                        <div class="ohlc-cell">
+                            <div class="ohlc-label">{{ 'STOCK.VOLUME' | translate }}</div>
+                            <div class="ohlc-value">{{ formatVolume(quote.volume) }}</div>
+                        </div>
+                        <div class="ohlc-cell">
+                            <div class="ohlc-label">{{ 'STOCK.EXCHANGE' | translate }}</div>
+                            <div class="ohlc-value">{{ quote.exchange || '-' }}</div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-primary"
+                                    (click)="refresh()"
+                                    [disabled]="isLoadingQuote || isLoadingHistory">
+                                <i class="fa fa-refresh me-1" [class.fa-spin]="isLoadingQuote || isLoadingHistory"></i>
+                                {{ 'STOCK.REFRESH' | translate }}
+                            </button>
+
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-danger"
+                                    (click)="clearTickerCache()"
+                                    [disabled]="isClearingCache"
+                                    [title]="'STOCK.CLEAR_CACHE_HINT' | translate">
+                                <i class="fa me-1"
+                                   [class.fa-trash]="!isClearingCache && !cacheCleared"
+                                   [class.fa-spinner]="isClearingCache"
+                                   [class.fa-spin]="isClearingCache"
+                                   [class.fa-check]="cacheCleared && !isClearingCache"></i>
+                                {{ (cacheCleared ? 'STOCK.CLEAR_CACHE_DONE' : 'STOCK.CLEAR_CACHE') | translate }}
+                            </button>
+                        </div>
+
+                        <div class="form-check form-switch">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   id="stockTickerSwitch"
+                                   [checked]="tickerEnabled"
+                                   (change)="toggleTicker()" />
+                            <label class="form-check-label small" for="stockTickerSwitch">
+                                {{ 'STOCK.TICKER_TOGGLE' | translate }}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-7">
+            <div class="card shadow-sm h-100">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between mb-2">
+                        <h5 class="card-title mb-0">
+                            <i class="fa fa-area-chart me-1"></i>
+                            {{ 'STOCK.HISTORY' | translate }}:
+                            <span class="text-primary">{{ symbol }}</span>
+                        </h5>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="range">
+                            <button type="button"
+                                    class="btn btn-outline-secondary"
+                                    [class.active]="rangeDays === 7"
+                                    (click)="setRange(7)">7d</button>
+                            <button type="button"
+                                    class="btn btn-outline-secondary"
+                                    [class.active]="rangeDays === 30"
+                                    (click)="setRange(30)">30d</button>
+                            <button type="button"
+                                    class="btn btn-outline-secondary"
+                                    [class.active]="rangeDays === 90"
+                                    (click)="setRange(90)">90d</button>
+                            <button type="button"
+                                    class="btn btn-outline-secondary"
+                                    [class.active]="rangeDays === 365"
+                                    (click)="setRange(365)">1y</button>
+                        </div>
+                    </div>
+
+                    <div class="chart-container flex-grow-1">
+                        <div *ngIf="isLoadingHistory" class="chart-overlay text-muted">
+                            <i class="fa fa-spinner fa-spin me-1"></i>
+                            {{ 'STOCK.LOADING_HISTORY' | translate }}
+                        </div>
+                        <canvas *ngIf="symbol"
+                                baseChart
+                                [data]="chartData"
+                                [options]="chartOptions"
+                                [type]="chartType"></canvas>
+                        <div *ngIf="!symbol" class="chart-overlay text-muted small">
+                            <i class="fa fa-info-circle me-1"></i>
+                            {{ 'STOCK.NO_SYMBOL' | translate }}
+                        </div>
+                    </div>
+
+                    <div class="text-muted small mt-2">
+                        <i class="fa fa-info-circle me-1"></i>
+                        {{ 'STOCK.SOURCE_NOTE' | translate }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

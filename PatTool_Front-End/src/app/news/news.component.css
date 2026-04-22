@@ -1223,11 +1223,24 @@
         display: none;
     }
 
-    /* Hide the "Source d'actualités" provider selector on phones — it's a
-     * power-user control (NewsData.io vs NewsAPI) and the default provider
-     * is fine for the mobile use case. Kept visible from tablet upwards. */
+    /* Keep the "Source d'actualités" provider selector visible on phones so
+     * the user can still switch between NewsData.io and NewsAPI on a small
+     * screen. We only tighten the spacing a bit and allow the label to wrap
+     * onto its own line above the pills when space is tight. */
     .news-providers {
-        display: none;
+        gap: 4px;
+        padding: 2px 0;
+        margin-bottom: 8px;
+        font-size: 0.85rem;
+    }
+    .news-providers-label {
+        flex-basis: 100%;
+        margin-right: 0;
+        margin-bottom: 2px;
+    }
+    .news-provider {
+        padding: 3px 10px;
+        font-size: 0.8rem;
     }
 
     /* Hide the "Du" / "Au" date-range filters on phones: the free plans of

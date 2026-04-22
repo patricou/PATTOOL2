@@ -1,0 +1,230 @@
+.stock-page {
+    padding: 1rem 1.25rem;
+    max-width: 1280px;
+    margin: 0 auto;
+}
+
+.result-box {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    text-align: center;
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.result-symbol {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    justify-content: center;
+    align-items: baseline;
+}
+
+.symbol-code {
+    font-weight: 700;
+    color: #343a40;
+    letter-spacing: 0.02em;
+}
+
+.symbol-name {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.result-price {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #6f42c1;
+    letter-spacing: -0.01em;
+    word-break: break-word;
+    margin-top: 0.15rem;
+}
+
+.result-currency {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #8c85b8;
+    margin-left: 0.25rem;
+}
+
+.result-change {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-top: 0.25rem;
+    padding: 0.1rem 0.6rem;
+    border-radius: 6px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.95rem;
+}
+
+.result-change .change-arrow {
+    font-size: 0.8rem;
+    line-height: 1;
+}
+
+.result-change .change-pct {
+    font-size: 0.85rem;
+    font-weight: 500;
+    opacity: 0.9;
+}
+
+.result-change.chg-up {
+    background: rgba(40, 167, 69, 0.15);
+    color: #1b7e3b;
+}
+
+.result-change.chg-down {
+    background: rgba(220, 53, 69, 0.15);
+    color: #a82834;
+}
+
+.result-change.chg-flat {
+    background: rgba(108, 117, 125, 0.15);
+    color: #495057;
+}
+
+.result-meta {
+    font-size: 0.8rem;
+}
+
+.stock-search {
+    position: relative;
+}
+
+.search-results {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    right: 0;
+    z-index: 1050;
+    max-height: 340px;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0;
+    border-radius: 0.5rem;
+    background: #fff;
+}
+
+.search-result-item {
+    cursor: pointer;
+    padding: 0.55rem 0.75rem;
+    border-left: 3px solid transparent;
+    transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.search-result-item.active,
+.search-result-item:hover {
+    background: #f1ecfa;
+    border-left-color: #6f42c1;
+    color: inherit;
+}
+
+.sr-top {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: baseline;
+}
+
+.sr-symbol {
+    font-weight: 700;
+    color: #6f42c1;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.sr-name {
+    color: #343a40;
+    font-size: 0.92rem;
+}
+
+.sr-bottom {
+    margin-top: 0.1rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.sr-type {
+    color: #8a8a8a;
+}
+
+.symbol-chip {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    font-weight: 600;
+}
+
+.symbol-chip.active {
+    background: #6f42c1;
+    color: #fff;
+    border-color: #6f42c1;
+}
+
+/* Compact OHLCV grid under the main quote box. */
+.ohlc-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+}
+
+.ohlc-cell {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 0.4rem;
+    padding: 0.45rem 0.6rem;
+    text-align: center;
+}
+
+.ohlc-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #8a8a8a;
+    font-weight: 600;
+}
+
+.ohlc-value {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: #343a40;
+    font-size: 0.95rem;
+}
+
+.chart-container {
+    position: relative;
+    min-height: 320px;
+    height: 380px;
+}
+
+.chart-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 2;
+    text-align: center;
+}
+
+.card-title {
+    color: #343a40;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+@media (min-width: 992px) {
+    .chart-container {
+        height: 420px;
+    }
+}
+
+@media (max-width: 540px) {
+    .ohlc-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
