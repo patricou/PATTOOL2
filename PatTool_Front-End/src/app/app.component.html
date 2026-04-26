@@ -89,13 +89,30 @@
                 </a>
             </li>
 
-            <!-- Calendar (appointments + activities) -->
-            <li class="nav-item">
-                <a class="nav-link"
-                   [routerLink]="['calendrier']"
-                   (click)="closeMenu()">
-                    <i class="fa fa-calendar-check-o"></i> {{ 'MENU.CALENDAR' | translate }}
+            <!-- Organisation Dropdown (Agenda + future tools) -->
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle"
+                   href="#"
+                   id="organisationDropdown"
+                   role="button"
+                   (click)="toggleOrganisationDropdown($event)"
+                   [attr.aria-expanded]="showOrganisationDropdown">
+                    <i class="fa fa-sitemap"></i> {{ 'MENU.ORGANISATION' | translate }}
                 </a>
+                <ul class="dropdown-menu"
+                    [class.show]="showOrganisationDropdown"
+                    aria-labelledby="organisationDropdown">
+                    <li><a class="dropdown-item"
+                           [routerLink]="['calendrier']"
+                           (click)="closeMenu()">
+                        <i class="fa fa-calendar-check-o"></i> {{ 'MENU.CALENDAR' | translate }}
+                    </a></li>
+                    <li><a class="dropdown-item"
+                           [routerLink]="['todolists']"
+                           (click)="closeMenu()">
+                        <i class="fa fa-tasks"></i> {{ 'MENU.TODOLISTS' | translate }}
+                    </a></li>
+                </ul>
             </li>
 
             <!-- Geo Dropdown (position, weather, map) -->

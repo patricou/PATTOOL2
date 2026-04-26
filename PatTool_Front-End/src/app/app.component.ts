@@ -48,6 +48,7 @@ export class AppComponent implements OnInit {
     public showLinksDropdown: boolean = false;
     public showIotDropdown: boolean = false;
     public showApiDropdown: boolean = false;
+    public showOrganisationDropdown: boolean = false;
     public showLanguageSubmenu: boolean = false;
     public showDocumentationSubmenu: boolean = false;
     public isDragOver: boolean = false;
@@ -183,7 +184,7 @@ export class AppComponent implements OnInit {
 
     navigateToHome(event: Event): void {
         // Only navigate if no dropdowns are open and it's not a dropdown trigger
-        if (!this.showEventsDropdown && !this.showToolsDropdown && !this.showIotDropdown && !this.showApiDropdown) {
+        if (!this.showEventsDropdown && !this.showToolsDropdown && !this.showIotDropdown && !this.showApiDropdown && !this.showOrganisationDropdown) {
             event.preventDefault();
             event.stopPropagation();
             this.router.navigate(['']);
@@ -1082,6 +1083,7 @@ export class AppComponent implements OnInit {
         this.showLinksDropdown = false; // Close other dropdown
         this.showIotDropdown = false; // Close other dropdown
         this.showApiDropdown = false; // Close other dropdown
+        this.showOrganisationDropdown = false; // Close other dropdown
     }
 
     toggleLinksDropdown(event: Event): void {
@@ -1092,6 +1094,7 @@ export class AppComponent implements OnInit {
         this.showToolsDropdown = false; // Close other dropdown
         this.showIotDropdown = false; // Close other dropdown
         this.showApiDropdown = false; // Close other dropdown
+        this.showOrganisationDropdown = false; // Close other dropdown
     }
 
     toggleIotDropdown(event: Event): void {
@@ -1102,6 +1105,7 @@ export class AppComponent implements OnInit {
         this.showToolsDropdown = false; // Close other dropdown
         this.showLinksDropdown = false; // Close other dropdown
         this.showApiDropdown = false; // Close other dropdown
+        this.showOrganisationDropdown = false; // Close other dropdown
     }
 
     toggleApiDropdown(event: Event): void {
@@ -1112,6 +1116,18 @@ export class AppComponent implements OnInit {
         this.showToolsDropdown = false; // Close other dropdown
         this.showLinksDropdown = false; // Close other dropdown
         this.showIotDropdown = false; // Close other dropdown
+        this.showOrganisationDropdown = false; // Close other dropdown
+    }
+
+    toggleOrganisationDropdown(event: Event): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this.showOrganisationDropdown = !this.showOrganisationDropdown;
+        this.showEventsDropdown = false; // Close other dropdown
+        this.showToolsDropdown = false; // Close other dropdown
+        this.showLinksDropdown = false; // Close other dropdown
+        this.showIotDropdown = false; // Close other dropdown
+        this.showApiDropdown = false; // Close other dropdown
     }
 
     toggleToolsDropdown(event: Event): void {
@@ -1122,6 +1138,7 @@ export class AppComponent implements OnInit {
         this.showLinksDropdown = false; // Close other dropdown
         this.showIotDropdown = false; // Close other dropdown
         this.showApiDropdown = false; // Close other dropdown
+        this.showOrganisationDropdown = false; // Close other dropdown
         if (!this.showToolsDropdown) {
             this.showLanguageSubmenu = false; // Close language submenu when tools dropdown closes
             this.showDocumentationSubmenu = false; // Close documentation submenu when tools dropdown closes
@@ -1469,6 +1486,7 @@ export class AppComponent implements OnInit {
         this.showLinksDropdown = false;
         this.showIotDropdown = false;
         this.showApiDropdown = false;
+        this.showOrganisationDropdown = false;
         this.showLanguageSubmenu = false;
         this.showDocumentationSubmenu = false;
         this.showIASubmenu = false;
@@ -1480,6 +1498,7 @@ export class AppComponent implements OnInit {
         this.showLinksDropdown = false;
         this.showIotDropdown = false;
         this.showApiDropdown = false;
+        this.showOrganisationDropdown = false;
         this.showLanguageSubmenu = false;
         this.showDocumentationSubmenu = false;
         this.showIASubmenu = false;

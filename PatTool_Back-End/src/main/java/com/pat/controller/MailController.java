@@ -132,6 +132,41 @@ public class MailController {
     }
 
     /**
+     * Send multipart/alternative (explicit plain + HTML) to one recipient.
+     * Prefer this over {@link #sendMailToRecipient(String, String, String, boolean, String, String)}
+     * with {@code isHtml=true} when the plain part must carry structured content (e.g. task lists),
+     * because {@link com.pat.service.SmtpMailSender#sendMail} otherwise derives plain text from HTML
+     * with a naive strip that can lose list structure.
+     */
+    public String sendMailToRecipientPlainAndHtml(String recipientEmail, String subject,
+            String plainText, String htmlBody, String bcc) {
+        log.debug("=== MAIL SENDING ATTEMPT (PLAIN+HTML TO RECIPIENT) ===");
+        log.debug("Subject: {}", subject);
+        log.debug("To: {}", recipientEmail);
+        log.debug("BCC: {}", bcc != null ? bcc : "none");
+        log.debug("From: {}", mailSentFrom);
+        log.debug("Mail enabled (app.sendmail): {}", sendmail);
+        try {
+            if (sendmail && recipientEmail != null && !recipientEmail.trim().isEmpty()) {
+                smtpMailSender.sendMailPlainAndHtml(mailSentFrom, recipientEmail, null, bcc, subject, plainText, htmlBody);
+                log.debug("✓ Mail sent successfully to {} - Subject: '{}'", recipientEmail, subject);
+            } else {
+                if (!sendmail) {
+                    log.warn("✗ Mail sending skipped - app.sendmail is set to false");
+                } else {
+                    log.warn("✗ Mail sending skipped - recipient email is empty");
+                }
+            }
+        } catch (Exception e) {
+            log.error("✗ ERROR sending mail to {} - Subject: '{}' - Error: {}",
+                    recipientEmail, subject, e.getMessage(), e);
+            e.printStackTrace();
+        }
+        log.debug("=== END MAIL SENDING ATTEMPT (PLAIN+HTML TO RECIPIENT) ===\n");
+        return null;
+    }
+
+    /**
      * Send HTML email to a single recipient with an inline image (e.g. event thumbnail).
      * HTML body should reference the image with src="cid:contentId".
      */

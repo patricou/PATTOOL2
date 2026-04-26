@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PatTool</title>
+  <script>
+    (function () {
+      var search = window.location.search || '';
+      var listId = new URLSearchParams(search).get('list') || new URLSearchParams(search).get('id');
+      var pathname = window.location.pathname || '/';
+      if (pathname.length > 1 && pathname.charAt(pathname.length - 1) === '/') {
+        pathname = pathname.slice(0, -1);
+      }
+      var marker = '/assets/todolist-link.html';
+      var at = pathname.indexOf(marker);
+      var base;
+      if (at >= 0) {
+        base = pathname.substring(0, at);
+      } else if (pathname === '/') {
+        base = '';
+      } else if (pathname.slice(-11) === '/index.html') {
+        base = pathname.slice(0, -11);
+        if (base === '/') {
+          base = '';
+        }
+      } else {
+        base = pathname;
+      }
+      if (listId) {
+        window.location.replace(window.location.origin + base + '/#/todolists?list=' + encodeURIComponent(listId));
+        return;
+      }
+      window.location.replace(window.location.origin + (base || '') + '/#/todolists');
+    })();
+  </script>
+  <noscript><meta http-equiv="refresh" content="0;url=/"></noscript>
+</head>
+<body><p>Redirection…</p></body>
+</html>

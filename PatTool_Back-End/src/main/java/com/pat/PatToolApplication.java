@@ -49,6 +49,7 @@ import java.time.format.DateTimeFormatter;
             com.pat.repo.MembersRepository.class,
             com.pat.repo.NetworkDeviceMappingRepository.class,
             com.pat.repo.NewDeviceHistoryRepository.class,
+            com.pat.repo.TodoListRepository.class,
             com.pat.repo.UrlLinkRepository.class,
             com.pat.repo.UserConnectionLogRepository.class
         }

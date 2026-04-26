@@ -1,0 +1,825 @@
+/* =========================================================================
+   To-do lists page
+   - Card grid with cover image, status badge, progress bar, owner avatar.
+   - Animated hover. Distinct overdue accent.
+   ========================================================================= */
+
+.todolists-page {
+    padding: 24px 16px 80px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.todolists-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e2e2e2;
+}
+
+.todolists-title-block {
+    flex: 1 1 auto;
+    min-width: 240px;
+}
+
+.todolists-title {
+    margin: 0;
+    font-weight: 700;
+    color: #2c3e50;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.todolists-title i {
+    color: #4a90e2;
+}
+
+.todolists-subtitle {
+    margin: 6px 0 0;
+    color: #6c757d;
+    font-size: 0.95rem;
+}
+
+.todolists-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: stretch;
+}
+
+.todolists-filter {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.todolists-filter input,
+.todolists-filter select {
+    min-width: 180px;
+}
+
+.todolists-create-btn {
+    align-self: stretch;
+}
+
+.todolists-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 0;
+    color: #6c757d;
+}
+
+.todolists-empty {
+    text-align: center;
+    padding: 60px 24px;
+    color: #6c757d;
+    background: linear-gradient(160deg, #fafbff 0%, #eef3fb 100%);
+    border-radius: 16px;
+    border: 1px dashed #c5d0e0;
+}
+
+.todolists-empty-icon {
+    font-size: 56px;
+    color: #b3c2d5;
+    display: block;
+    margin-bottom: 12px;
+}
+
+/* ----- Grid ----- */
+.todolists-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 18px;
+}
+
+.todolists-card {
+    background: #fff;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(40, 60, 90, 0.08);
+    border: 1px solid #eef0f4;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    transition: transform 180ms ease, box-shadow 180ms ease;
+    position: relative;
+}
+
+.todolists-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 24px rgba(40, 60, 90, 0.16);
+}
+
+.todolists-card--overdue {
+    border-color: #f5c2c7;
+    box-shadow: 0 4px 16px rgba(220, 53, 69, 0.18);
+}
+
+.todolists-card-cover {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    background: linear-gradient(135deg, #5b8def 0%, #7d54f2 100%);
+    overflow: hidden;
+}
+
+.todolists-card-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.todolists-card-cover-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 56px;
+}
+
+.todolists-card-status {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+.todolists-card-visibility {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    color: #4a90e2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+.todolists-card-body {
+    padding: 14px 16px 12px;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.todolists-card-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #2c3e50;
+    word-break: break-word;
+}
+
+.todolists-card-desc {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #6c757d;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.todolists-card-progress {
+    margin-top: auto;
+}
+
+.todolists-card-progress .progress {
+    height: 8px;
+    background: #eef0f4;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.todolists-card-progress .progress-bar {
+    background: linear-gradient(90deg, #4a90e2 0%, #7d54f2 100%);
+    transition: width 240ms ease;
+}
+
+.todolists-card-progress-label {
+    display: block;
+    margin-top: 4px;
+    color: #6c757d;
+    font-size: 0.8rem;
+}
+
+.todolists-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    font-size: 0.82rem;
+    color: #495057;
+    align-items: center;
+}
+
+.todolists-card-meta i {
+    margin-right: 3px;
+    opacity: 0.75;
+}
+
+.todolists-card-owner {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 60%;
+}
+
+.todolists-card-owner-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 140px;
+}
+
+.todolists-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #5b8def 0%, #7d54f2 100%);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.todolists-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: flex-end;
+    padding: 8px 12px 12px;
+    border-top: 1px solid #f0f3f7;
+    background: #fbfcfe;
+}
+
+.todolists-card-actions .btn {
+    flex: 0 0 auto;
+}
+
+/* =========================================================================
+   Details modal
+   ========================================================================= */
+.todolists-details-modal {
+    display: flex;
+    flex-direction: column;
+    max-height: 86vh;
+}
+
+.todolists-details-header {
+    background: linear-gradient(135deg, #4a90e2 0%, #7d54f2 100%);
+    color: #fff;
+}
+
+.todolists-details-header .modal-title i {
+    margin-right: 6px;
+}
+
+.todolists-details-header .btn-close {
+    filter: invert(1);
+}
+
+.todolists-details-body {
+    overflow-y: auto;
+}
+
+.todolists-details-banner {
+    margin: -16px -16px 16px;
+    max-height: 240px;
+    overflow: hidden;
+}
+
+.todolists-details-banner img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.todolists-details-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    margin-bottom: 12px;
+    font-size: 0.88rem;
+    color: #495057;
+    align-items: center;
+}
+
+.todolists-details-meta-item i {
+    margin-right: 4px;
+    opacity: 0.75;
+}
+
+.todolists-details-desc {
+    color: #495057;
+    margin-bottom: 14px;
+}
+
+.todolists-details-progress {
+    margin-bottom: 18px;
+}
+
+.todolists-details-progress .progress {
+    height: 10px;
+    background: #eef0f4;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.todolists-details-progress .progress-bar {
+    background: linear-gradient(90deg, #4a90e2 0%, #7d54f2 100%);
+    transition: width 240ms ease;
+}
+
+/* ----- Items list (details) ----- */
+.todolists-items-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.todolists-item {
+    display: flex;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #f8fafd;
+    border: 1px solid #e3e8ef;
+    border-radius: 10px;
+    align-items: flex-start;
+    transition: background 160ms ease;
+}
+
+.todolists-item--done {
+    background: #f0fbf4;
+    border-color: #cdeed7;
+}
+
+.todolists-item--done .todolists-item-title span {
+    text-decoration: line-through;
+    color: #6c757d;
+}
+
+.todolists-item--high {
+    border-left: 4px solid #dc3545;
+}
+
+.todolists-item--low {
+    border-left: 4px solid #95a5a6;
+}
+
+.todolists-item-check {
+    background: none;
+    border: none;
+    font-size: 1.4rem;
+    color: #4a90e2;
+    padding: 0;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.todolists-item-body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.todolists-item-title {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    font-weight: 600;
+    color: #2c3e50;
+    word-break: break-word;
+}
+
+.todolists-item-priority {
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #e3e8ef;
+    color: #6c757d;
+}
+
+.todolists-item-priority--high {
+    background: #fde0e3;
+    color: #c0202d;
+}
+
+.todolists-item-priority--low {
+    background: #e6e9ef;
+    color: #6c757d;
+}
+
+.todolists-item-priority--normal {
+    background: #e0eaff;
+    color: #2a5fb5;
+}
+
+.todolists-item-desc {
+    margin: 4px 0 0;
+    color: #6c757d;
+    font-size: 0.9rem;
+    white-space: pre-wrap;
+}
+
+.todolists-item-meta {
+    margin-top: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    font-size: 0.82rem;
+    color: #495057;
+}
+
+.todolists-item-meta i {
+    margin-right: 3px;
+    opacity: 0.75;
+}
+
+.todolists-item-completed {
+    color: #198754;
+}
+
+.todolists-empty-items {
+    color: #6c757d;
+    text-align: center;
+    margin: 16px 0;
+}
+
+/* =========================================================================
+   Editor (create / edit) modal
+   ========================================================================= */
+.todolists-editor-header {
+    background: linear-gradient(135deg, #4a90e2 0%, #7d54f2 100%);
+    color: #fff;
+}
+
+.todolists-editor-header .modal-title {
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.todolists-editor-header .modal-title i {
+    opacity: 0.95;
+}
+
+/* ng-bootstrap puts our template inside .modal-content; make the wrapper behave like
+   modal-content so { scrollable: true } can lock the header/footer and only scroll
+   the body. */
+.todolists-editor,
+.todolists-details-modal,
+.todolists-share-modal {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 3.5rem);
+    min-height: 0;
+}
+
+.todolists-editor > .modal-header,
+.todolists-editor > .modal-footer,
+.todolists-details-modal > .modal-header,
+.todolists-details-modal > .modal-footer,
+.todolists-share-modal > .modal-header,
+.todolists-share-modal > .modal-footer {
+    flex: 0 0 auto;
+}
+
+.todolists-editor > .modal-body,
+.todolists-details-modal > .modal-body,
+.todolists-share-modal > .modal-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.todolists-editor .modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.todolists-editor-cover {
+    display: flex;
+    gap: 14px;
+    align-items: stretch;
+}
+
+.todolists-editor-cover-preview {
+    flex: 0 0 200px;
+    aspect-ratio: 16 / 9;
+    background: linear-gradient(135deg, #eef3fb 0%, #dde6f2 100%);
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.todolists-editor-cover-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.todolists-editor-cover-placeholder {
+    text-align: center;
+    color: #b3c2d5;
+}
+
+.todolists-editor-cover-placeholder i {
+    font-size: 36px;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.todolists-editor-cover-actions {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    flex: 1 1 auto;
+}
+
+.todolists-editor-visibility {
+    background: #f8fafd;
+    border: 1px solid #e3e8ef;
+    border-radius: 10px;
+    padding: 12px;
+}
+
+.todolists-editor-visibility .btn-group {
+    gap: 4px;
+}
+
+.todolists-editor-groups {
+    margin-top: 10px;
+}
+
+.todolists-editor-group-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.todolists-editor-recipients {
+    margin-top: 10px;
+    color: #495057;
+}
+
+.todolists-editor-items {
+    margin-top: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.todolists-editor-items-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #e3e8ef;
+    padding-bottom: 6px;
+}
+
+.todolists-editor-items-header h6 {
+    margin: 0;
+}
+
+.todolists-editor-item {
+    background: #f8fafd;
+    border: 1px solid #e3e8ef;
+    border-radius: 10px;
+    padding: 10px 12px;
+}
+
+/* =========================================================================
+   Rich text (Quill) integration
+   - Used both inside the editor (input) and in cards / details (output).
+   - We don't reset .ql-editor styles so the user's font / colour / size
+     formatting is preserved when the description is rendered back.
+   ========================================================================= */
+
+.todolists-editor-quill {
+    display: block;
+    background: #fff;
+    border-radius: 6px;
+}
+
+.todolists-editor-quill .ql-toolbar {
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    border-color: #ced4da;
+    background: #f8fafd;
+}
+
+.todolists-editor-quill .ql-container {
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+    border-color: #ced4da;
+    font-size: 14px;
+}
+
+.todolists-editor-quill--small .ql-toolbar {
+    padding: 4px;
+}
+
+.todolists-editor-quill--small .ql-toolbar .ql-formats {
+    margin-right: 6px;
+}
+
+/* Rendered rich-text blocks (cards, details, items). Keep tag-level formatting
+   visible while clamping the cards to two lines. */
+.todolists-rich-text {
+    font-size: 14px;
+    line-height: 1.45;
+    color: #495057;
+}
+
+.todolists-rich-text p,
+.todolists-rich-text ul,
+.todolists-rich-text ol {
+    margin: 0 0 6px 0;
+}
+
+.todolists-rich-text *:last-child {
+    margin-bottom: 0;
+}
+
+.todolists-rich-text img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+}
+
+.todolists-card-desc.todolists-rich-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Quill picker dropdowns must float above the modal backdrop. */
+.todolists-editor-quill .ql-picker-options,
+.todolists-editor-quill .ql-tooltip {
+    z-index: 1080;
+}
+
+/* =========================================================================
+   Share modal (e-mail / WhatsApp)
+   ========================================================================= */
+
+.todolists-share-header {
+    background: linear-gradient(135deg, #4a90e2 0%, #7d54f2 100%);
+    color: #fff;
+}
+
+.todolists-share-header--whatsapp {
+    background: linear-gradient(135deg, #25d366 0%, #128c7e 100%);
+}
+
+.todolists-share-header .modal-title {
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.todolists-share-body {
+    padding: 18px 22px;
+}
+
+.todolists-share-list-summary {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 12px;
+    background: #f8fafd;
+    border: 1px solid #e3e8ef;
+    border-radius: 10px;
+    margin-bottom: 16px;
+}
+
+.todolists-share-list-cover {
+    width: 56px;
+    height: 56px;
+    border-radius: 10px;
+    background-size: cover;
+    background-position: center;
+    background-color: #e9eef7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #7c8ca0;
+    flex: 0 0 auto;
+    font-size: 22px;
+}
+
+.todolists-share-recipient-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.todolists-share-recipient-chips .btn {
+    border-radius: 999px;
+    padding-inline: 12px;
+}
+
+.todolists-share-recipients .form-label {
+    font-weight: 600;
+    color: #34325c;
+}
+
+.todolists-share-summary-desc {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.todolists-share-tasks-preview {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid #e3e8ef;
+    background: #fafbfd;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.todolists-share-tasks-preview-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #34325c;
+    margin-bottom: 8px;
+}
+
+.todolists-share-tasks-preview-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.todolists-share-tasks-preview-list li {
+    font-size: 0.875rem;
+    padding: 3px 0;
+    color: #495057;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.todolists-share-tasks-preview-list .fa {
+    margin-top: 2px;
+    color: #6c757d;
+}
+
+.todolists-share-tabs .btn {
+    font-weight: 600;
+}
+
+@media (max-width: 600px) {
+    .todolists-editor-cover {
+        flex-direction: column;
+    }
+
+    .todolists-editor-cover-preview {
+        flex: 0 0 auto;
+        width: 100%;
+    }
+
+    .todolists-share-list-summary {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+/* Même bordure blanche que les autres modales (friends, événements, etc.) */
+::ng-deep .todolists-modal .modal-content {
+    border: 4px solid #fff !important;
+}

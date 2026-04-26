@@ -145,6 +145,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				path: 'calendrier',
 				loadComponent: () => import('./calendar/calendar.component').then(m => m.CalendarComponent)
 			},
+			{
+				path: 'todolists',
+				loadComponent: () => import('./todolists/todolists.component').then(m => m.TodolistsComponent)
+			},
 			{ path: '**', redirectTo: 'home', pathMatch: 'full' }
 		], { onSameUrlNavigation: 'reload' }),
 		NgbModule,
