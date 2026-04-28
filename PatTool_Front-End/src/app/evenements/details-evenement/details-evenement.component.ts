@@ -22,6 +22,8 @@ import { Commentary } from '../../model/commentary';
 import { DiscussionService, DiscussionMessage } from '../../services/discussion.service';
 import { EvenementsService } from '../../services/evenements.service';
 import { MembersService } from '../../services/members.service';
+import { TodoList, TodoListService } from '../../todolists/todolist.service';
+import { TodoListDetailOverlayService } from '../../todolists/todo-list-detail-overlay.service';
 import { FileService, ImageDownloadResult } from '../../services/file.service';
 import { WindowRefService } from '../../services/window-ref.service';
 import { FriendsService } from '../../services/friends.service';
@@ -69,6 +71,13 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
   public accessDeniedOwnerEmail: string | null = null;
   public accessDeniedEventName: string | null = null;
   public accessDenied: boolean = false;
+
+  /** Lists owned by the current user (for linking to this activity). */
+  public eventOwnedTodoLists: TodoList[] = [];
+  public eventTodoListsLoading = false;
+  public eventSelectedTodoListId = '';
+  private eventLinkedTodoListIdInitial = '';
+  public eventAssignmentSaving = false;
 
   // API URLs
   public API_URL: string = environment.API_URL;
@@ -323,7 +332,9 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     private eventColorService: EventColorService,
     private keycloakService: KeycloakService,
     private eventVideoPreloadService: EventVideoPreloadService,
-    private addToDbLayer: AddToDbLayerService
+    private addToDbLayer: AddToDbLayerService,
+    private todoListService: TodoListService,
+    private todoListOverlay: TodoListDetailOverlayService
   ) {
     this.nativeWindow = winRef.getNativeWindow();
   }
@@ -1057,6 +1068,10 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
       next: (evenement: Evenement) => {
         try {
           this.evenement = evenement;
+
+          this.eventLinkedTodoListIdInitial = (evenement.linkedTodoListId || '').trim();
+          this.eventSelectedTodoListId = this.eventLinkedTodoListIdInitial;
+          this.loadOwnedTodoListsForEvent();
 
           // Re-apply event color after event is loaded to ensure it's available
           try {
@@ -3524,6 +3539,75 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     const url = this.getMailToOwnerUrl();
     if (url !== 'mailto:') {
       window.open(url, '_blank');
+    }
+  }
+
+  public loadOwnedTodoListsForEvent(): void {
+    if (!this.user?.id || !this.evenement?.id || this.accessDenied) {
+      this.eventOwnedTodoLists = [];
+      this.eventTodoListsLoading = false;
+      return;
+    }
+    this.eventTodoListsLoading = true;
+    this.todoListService.listAccessible().subscribe({
+      next: lists => {
+        const uid = (this.user!.id || '').trim();
+        this.eventOwnedTodoLists = (lists || []).filter(
+          l => (l.ownerMemberId || '').trim() === uid && (l.id || '').trim().length > 0
+        );
+        this.eventTodoListsLoading = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.eventOwnedTodoLists = [];
+        this.eventTodoListsLoading = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  public saveEventTodoListAssignment(): void {
+    if (!this.evenement?.id || !this.user?.id) {
+      return;
+    }
+    const evId = this.evenement.id;
+    const desired = (this.eventSelectedTodoListId || '').trim();
+    const prev = (this.eventLinkedTodoListIdInitial || '').trim();
+    if (desired === prev) {
+      return;
+    }
+    this.eventAssignmentSaving = true;
+    this.cdr.markForCheck();
+    const done = (err: boolean): void => {
+      this.eventAssignmentSaving = false;
+      if (!err && this.evenement) {
+        this.eventLinkedTodoListIdInitial = desired;
+        this.evenement.linkedTodoListId = desired ? desired : undefined;
+      }
+      this.cdr.markForCheck();
+    };
+    if (!desired) {
+      if (!prev) {
+        done(false);
+        return;
+      }
+      this.todoListService.patchAssignment(prev, { calendarAppointmentId: null, evenementId: null }).subscribe({
+        next: () => done(false),
+        error: () => done(true)
+      });
+      return;
+    }
+    this.todoListService.patchAssignment(desired, { calendarAppointmentId: null, evenementId: evId }).subscribe({
+      next: () => done(false),
+      error: () => done(true)
+    });
+  }
+
+  /** Opens the activity’s linked to-do list in a modal (no full-page navigation). */
+  public openLinkedTodoListInOverlay(): void {
+    const id = (this.evenement?.linkedTodoListId || '').trim();
+    if (id) {
+      this.todoListOverlay.open(id);
     }
   }
 

@@ -31,6 +31,13 @@ public class TodoListRequest {
 
     private List<TodoItemPayload> items;
 
+    /** When {@code true} on update, {@link #calendarAppointmentId} and {@link #evenementId} replace link fields. */
+    private Boolean linkTargetsProvided;
+
+    private String calendarAppointmentId;
+
+    private String evenementId;
+
     public String getName() {
         return name;
     }
@@ -101,6 +108,30 @@ public class TodoListRequest {
 
     public void setItems(List<TodoItemPayload> items) {
         this.items = items;
+    }
+
+    public Boolean getLinkTargetsProvided() {
+        return linkTargetsProvided;
+    }
+
+    public void setLinkTargetsProvided(Boolean linkTargetsProvided) {
+        this.linkTargetsProvided = linkTargetsProvided;
+    }
+
+    public String getCalendarAppointmentId() {
+        return calendarAppointmentId;
+    }
+
+    public void setCalendarAppointmentId(String calendarAppointmentId) {
+        this.calendarAppointmentId = calendarAppointmentId;
+    }
+
+    public String getEvenementId() {
+        return evenementId;
+    }
+
+    public void setEvenementId(String evenementId) {
+        this.evenementId = evenementId;
     }
 
     public static class TodoItemPayload {

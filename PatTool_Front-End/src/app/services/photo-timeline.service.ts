@@ -53,6 +53,8 @@ export interface TimelineGroup {
     ratingPlus?: number;
     /** Number of negative votes for the event (photo wall). */
     ratingMinus?: number;
+    /** Linked to-do list when the activity has one (from timeline API). */
+    linkedTodoListId?: string | null;
 }
 
 export interface TimelineResponse {

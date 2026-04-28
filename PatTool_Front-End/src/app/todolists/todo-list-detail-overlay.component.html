@@ -1,0 +1,125 @@
+<div class="todolists-details-modal" *ngIf="!loading && list as l">
+  <div class="modal-header todolists-details-header">
+    <div class="todolists-editor-header-media" aria-hidden="true">
+      <img *ngIf="l.imageDataUrl" [src]="l.imageDataUrl" alt="">
+      <div *ngIf="!l.imageDataUrl" class="todolists-editor-header-fallback"></div>
+      <div class="todolists-editor-header-scrim" *ngIf="l.imageDataUrl"></div>
+    </div>
+    <div class="todolists-editor-header-top">
+      <h5 class="modal-title mb-0 fw-semibold d-flex align-items-center gap-2">
+        <i class="fa fa-list-ul opacity-90"></i> {{ l.name }}
+      </h5>
+      <button type="button" class="btn-close btn-close-white" [attr.aria-label]="'COMMUN.CLOSE' | translate" (click)="activeModal.dismiss()"></button>
+    </div>
+  </div>
+
+  <div class="modal-body todolists-details-body">
+    <div class="todolists-details-meta">
+      <span class="todolists-details-meta-item">
+        <i class="fa fa-user"></i> {{ ownerLabelFor(l) }}
+      </span>
+      <span class="todolists-details-meta-item" *ngIf="l.createdAt">
+        <i class="fa fa-calendar-plus-o"></i> {{ formatDateTime(l.createdAt) }}
+      </span>
+      <span class="todolists-details-meta-item" *ngIf="l.dueDate" [class.text-danger]="metaFor(l).overdue">
+        <i class="fa fa-flag-checkered"></i> {{ formatDate(l.dueDate) }}
+      </span>
+      <span class="todolists-details-meta-item">
+        <span [ngClass]="statusBadgeClass(l.status)">
+          {{ ('TODOLISTS.STATUS.' + (l.status || 'OPEN').toUpperCase()) | translate }}
+        </span>
+      </span>
+      <span class="todolists-details-meta-item" [title]="visibilityLabelKey(l.visibility) | translate">
+        <i class="fa" [ngClass]="visibilityIcon(l.visibility)"></i>
+        {{ visibilityDisplay(l) }}
+      </span>
+    </div>
+
+    <div class="todolists-details-desc todolists-rich-text" *ngIf="l.description" [innerHTML]="safeHtml(l.description)"></div>
+
+    <div class="todolists-details-progress">
+      <div class="progress">
+        <div
+          class="progress-bar"
+          [class.bg-success]="metaFor(l).percent === 100"
+          [style.width.%]="metaFor(l).percent">
+        </div>
+      </div>
+      <small>
+        {{ metaFor(l).completed }} / {{ metaFor(l).total }}
+        ({{ metaFor(l).percent }}%)
+      </small>
+    </div>
+
+    <ul class="todolists-items-list" *ngIf="l.items.length; else noItems">
+      <li
+        *ngFor="let item of l.items; let idx = index; trackBy: trackById"
+        class="todolists-item"
+        [class.todolists-item--done]="item.status === 'done'"
+        [class.todolists-item--high]="item.priority === 'high'"
+        [class.todolists-item--low]="item.priority === 'low'">
+        <button
+          type="button"
+          class="todolists-item-check"
+          (click)="toggleItemStatus(l, item)"
+          [attr.aria-pressed]="item.status === 'done'">
+          <i
+            class="fa"
+            [class.fa-check-square-o]="item.status === 'done'"
+            [class.fa-square-o]="item.status !== 'done'"></i>
+        </button>
+
+        <div class="todolists-item-body">
+          <div class="todolists-item-title">
+            <span class="badge text-bg-secondary todolists-item-number-badge">{{
+              'TODOLISTS.ITEM_NUMBER' | translate : { n: idx + 1 }
+            }}</span>
+            <span>{{ item.title }}</span>
+            <span
+              class="todolists-item-priority"
+              *ngIf="item.priority"
+              [ngClass]="'todolists-item-priority--' + item.priority">
+              {{ ('TODOLISTS.PRIORITY.' + item.priority.toUpperCase()) | translate }}
+            </span>
+          </div>
+          <div class="todolists-item-desc todolists-rich-text" *ngIf="item.description" [innerHTML]="safeHtml(item.description)"></div>
+          <div class="todolists-item-meta">
+            <span *ngIf="item.dueDate" class="todolists-item-due">
+              <i class="fa fa-clock-o"></i> {{ formatDate(item.dueDate) }}
+            </span>
+            <span *ngIf="item.assigneeMemberId" class="todolists-item-assignee">
+              <i class="fa fa-user-circle"></i> {{ assigneeLabel(item.assigneeMemberId) }}
+            </span>
+            <span *ngIf="item.completedAt" class="todolists-item-completed">
+              <i class="fa fa-check"></i> {{ formatDateTime(item.completedAt) }}
+            </span>
+          </div>
+        </div>
+      </li>
+    </ul>
+    <ng-template #noItems>
+      <p class="todolists-empty-items">{{ 'TODOLISTS.EMPTY_ITEMS' | translate }}</p>
+    </ng-template>
+  </div>
+
+  <div class="modal-footer flex-wrap gap-2">
+    <button type="button" class="btn btn-outline-secondary me-auto" (click)="goToTodolistsPage()">
+      <i class="fa fa-external-link me-1" aria-hidden="true"></i>{{ 'TODOLISTS.OPEN_FULL_PAGE' | translate }}
+    </button>
+    <button type="button" class="btn btn-secondary" (click)="activeModal.dismiss()">
+      <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
+    </button>
+  </div>
+</div>
+
+<div class="p-4 text-center" *ngIf="loading">
+  <div class="spinner-border text-primary" role="status"></div>
+  <p class="small text-muted mt-2 mb-0">{{ 'TODOLISTS.LOADING_DETAIL' | translate }}</p>
+</div>
+
+<div class="p-4" *ngIf="!loading && loadError">
+  <p class="text-danger mb-0">{{ 'TODOLISTS.DETAIL_LOAD_ERROR' | translate }}</p>
+  <button type="button" class="btn btn-sm btn-secondary mt-2" (click)="activeModal.dismiss()">
+    {{ 'COMMUN.CLOSE' | translate }}
+  </button>
+</div>

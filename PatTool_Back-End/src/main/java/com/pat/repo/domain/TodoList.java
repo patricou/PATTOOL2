@@ -69,6 +69,18 @@ public class TodoList {
     /** Items / tasks inside this list. */
     private List<TodoItem> items = new ArrayList<>();
 
+    /**
+     * Optional link to a personal agenda row in {@code calendar_appointments}. Mutually exclusive
+     * with {@link #evenementId}; at most one list may reference a given appointment.
+     */
+    private String calendarAppointmentId;
+
+    /**
+     * Optional link to an activity ({@code evenements}). Mutually exclusive with
+     * {@link #calendarAppointmentId}; at most one list may reference a given event.
+     */
+    private String evenementId;
+
     public String getId() {
         return id;
     }
@@ -171,5 +183,21 @@ public class TodoList {
 
     public void setItems(List<TodoItem> items) {
         this.items = items;
+    }
+
+    public String getCalendarAppointmentId() {
+        return calendarAppointmentId;
+    }
+
+    public void setCalendarAppointmentId(String calendarAppointmentId) {
+        this.calendarAppointmentId = calendarAppointmentId;
+    }
+
+    public String getEvenementId() {
+        return evenementId;
+    }
+
+    public void setEvenementId(String evenementId) {
+        this.evenementId = evenementId;
     }
 }

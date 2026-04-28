@@ -7,9 +7,11 @@ import com.pat.controller.dto.CalendarVisibilityPreviewRequest;
 import com.pat.controller.dto.CalendarVisibilityRecipientDTO;
 import com.pat.repo.CalendarAppointmentRepository;
 import com.pat.repo.EvenementsRepository;
+import com.pat.repo.TodoListRepository;
 import com.pat.repo.domain.CalendarAppointment;
 import com.pat.repo.domain.Evenement;
 import com.pat.repo.domain.FileUploaded;
+import com.pat.repo.domain.TodoList;
 import com.pat.service.CalendarAppointmentReminderMailService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,7 +26,9 @@ import org.springframework.web.bind.annotation.*;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -40,6 +44,9 @@ public class CalendarRestController {
 
     @Autowired
     private EvenementsRepository evenementsRepository;
+
+    @Autowired
+    private TodoListRepository todoListRepository;
 
     @Autowired
     private CalendarAppointmentReminderMailService calendarAppointmentReminderMailService;
@@ -69,6 +76,15 @@ public class CalendarRestController {
         List<CalendarEntryDTO> out = new ArrayList<>();
 
         List<Evenement> events = evenementsRepository.findAccessibleOverlappingRange(from, to, effectiveUserIdForEvents);
+        List<String> eventIds = events.stream().map(Evenement::getId).filter(StringUtils::hasText).distinct().toList();
+        Map<String, String> eventIdToTodoListId = new HashMap<>();
+        if (!eventIds.isEmpty()) {
+            for (TodoList tl : todoListRepository.findByEvenementIdIn(eventIds)) {
+                if (tl != null && StringUtils.hasText(tl.getEvenementId()) && StringUtils.hasText(tl.getId())) {
+                    eventIdToTodoListId.putIfAbsent(tl.getEvenementId(), tl.getId());
+                }
+            }
+        }
         for (Evenement ev : events) {
             CalendarEntryDTO row = new CalendarEntryDTO();
             row.setKind(CalendarEntryDTO.KIND_ACTIVITY);
@@ -81,6 +97,7 @@ public class CalendarRestController {
             if (thumb != null && StringUtils.hasText(thumb.getFieldId())) {
                 row.setThumbnailFileId(thumb.getFieldId());
             }
+            row.setTodoListId(eventIdToTodoListId.get(ev.getId()));
             out.add(row);
         }
 
@@ -93,6 +110,19 @@ public class CalendarRestController {
         if (appointmentAccessUserId != null || !loggedIn) {
             List<CalendarAppointment> appointments = calendarAppointmentRepository
                     .findAccessibleOverlappingRange(from, to, appointmentAccessUserId);
+            List<String> appointmentIds = appointments.stream()
+                    .map(CalendarAppointment::getId)
+                    .filter(StringUtils::hasText)
+                    .distinct()
+                    .toList();
+            Map<String, String> appointmentIdToTodoListId = new HashMap<>();
+            if (!appointmentIds.isEmpty()) {
+                for (TodoList tl : todoListRepository.findByCalendarAppointmentIdIn(appointmentIds)) {
+                    if (tl != null && StringUtils.hasText(tl.getCalendarAppointmentId()) && StringUtils.hasText(tl.getId())) {
+                        appointmentIdToTodoListId.putIfAbsent(tl.getCalendarAppointmentId(), tl.getId());
+                    }
+                }
+            }
             for (CalendarAppointment a : appointments) {
                 CalendarEntryDTO row = new CalendarEntryDTO();
                 row.setKind(CalendarEntryDTO.KIND_APPOINTMENT);
@@ -106,6 +136,7 @@ public class CalendarRestController {
                 row.setVisibility(a.getVisibility());
                 row.setFriendGroupId(a.getFriendGroupId());
                 row.setFriendGroupIds(a.getFriendGroupIds());
+                row.setTodoListId(appointmentIdToTodoListId.get(a.getId()));
                 out.add(row);
             }
         }
@@ -237,6 +268,10 @@ public class CalendarRestController {
         if (existing.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
+        todoListRepository.findFirstByCalendarAppointmentId(id).ifPresent(tl -> {
+            tl.setCalendarAppointmentId(null);
+            todoListRepository.save(tl);
+        });
         calendarAppointmentRepository.delete(existing.get());
         return ResponseEntity.noContent().build();
     }

@@ -30,6 +30,9 @@ public class CalendarEntryDTO {
 
     private List<String> friendGroupIds;
 
+    /** When a {@link com.pat.repo.domain.TodoList} is linked to this row; null if none. */
+    private String todoListId;
+
     public CalendarEntryDTO() {
     }
 
@@ -119,5 +122,13 @@ public class CalendarEntryDTO {
 
     public void setFriendGroupIds(List<String> friendGroupIds) {
         this.friendGroupIds = friendGroupIds;
+    }
+
+    public String getTodoListId() {
+        return todoListId;
+    }
+
+    public void setTodoListId(String todoListId) {
+        this.todoListId = todoListId;
     }
 }

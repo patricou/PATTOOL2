@@ -195,6 +195,43 @@
                    accept="image/*,video/*,.mp4,.webm,.ogg,.ogv,.mov,.avi,.mkv,.flv,.wmv,.m4v,.3gp,.pdf,.doc,.docx,.xls,.xlsx,.ods,.odt,.txt,.zip,.rar,.gpx,.kml,.kmz,.gdb,.tcx"
                    style="display: none;" />
           </div>
+          <div class="event-todolist-link-wrapper"
+               *ngIf="evenement && !accessDenied && (evenement.linkedTodoListId || (user && isEventOwner()))">
+            <!-- Liste déjà liée : un seul bouton (ouvrir la todo) -->
+            <div *ngIf="evenement.linkedTodoListId">
+              <button
+                type="button"
+                class="btn-compact btn-primary-compact"
+                (click)="openLinkedTodoListInOverlay(); $event.stopPropagation()"
+                [attr.title]="'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate"
+                [attr.aria-label]="'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate">
+                <i class="fa fa-tasks" aria-hidden="true"></i>
+                <span class="btn-text">{{ 'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate }}</span>
+              </button>
+            </div>
+            <!-- Propriétaire sans liste liée : lier une liste -->
+            <ng-container *ngIf="user && isEventOwner() && !evenement.linkedTodoListId">
+              <label class="small text-white-50 d-block mb-1">{{ 'EVENTELEM.TODOLIST_LINK_TITLE' | translate }}</label>
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <select
+                  class="form-select form-select-sm bg-dark text-white border-secondary"
+                  style="max-width: 260px"
+                  [(ngModel)]="eventSelectedTodoListId"
+                  [disabled]="eventTodoListsLoading || eventAssignmentSaving">
+                  <option value="">{{ 'EVENTELEM.TODOLIST_LINK_NONE' | translate }}</option>
+                  <option *ngFor="let l of eventOwnedTodoLists" [value]="l.id">{{ l.name }}</option>
+                </select>
+                <button
+                  type="button"
+                  class="btn-compact btn-secondary-compact"
+                  (click)="saveEventTodoListAssignment()"
+                  [disabled]="eventAssignmentSaving || eventTodoListsLoading">
+                  <span class="btn-text">{{ 'EVENTELEM.TODOLIST_LINK_APPLY' | translate }}</span>
+                </button>
+              </div>
+              <p *ngIf="eventTodoListsLoading" class="small text-white-50 mb-0 mt-1">{{ 'EVENTELEM.TODOLIST_LINK_LOADING' | translate }}</p>
+            </ng-container>
+          </div>
           <div class="notes-section" *ngIf="evenement && evenement.notes">
             <div class="notes-content">
               <p class="notes-text">{{ evenement.notes }}</p>

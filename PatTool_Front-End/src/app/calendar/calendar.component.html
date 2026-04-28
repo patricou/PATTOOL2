@@ -21,7 +21,7 @@
       <ng-template #eventContent let-arg>
         @let ext = $any(arg.event.extendedProps);
         <div
-          class="fc-event-custom pat-cal-event-root w-100 min-w-0 px-1 rounded-1"
+          class="fc-event-custom pat-cal-event-root w-100 min-w-0 px-1 rounded-1 d-flex flex-row align-items-start gap-1"
           [attr.title]="patCalTooltip(arg)"
           [style.background-color]="ext['calBg'] || 'transparent'"
           [style.border-left]="ext['displayBorderLeft'] || '3px solid transparent'">
@@ -64,6 +64,15 @@
               </span>
             </div>
           </div>
+          <button
+            *ngIf="isAuthenticated() && ext['todoListId']"
+            type="button"
+            class="fc-event-todolist-link flex-shrink-0 ms-1 text-decoration-none bg-transparent border-0"
+            (click)="openTodoListOverlay(ext['todoListId']); $event.stopPropagation()"
+            [attr.title]="'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate"
+            [attr.aria-label]="'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate">
+            <i class="fa fa-tasks" aria-hidden="true"></i>
+          </button>
         </div>
       </ng-template>
     </full-calendar>
@@ -113,6 +122,16 @@
     <div *ngIf="reminderMailErrorMessage" class="alert alert-danger py-2 mb-2">{{ reminderMailErrorMessage | translate }}</div>
     <p class="text-muted small mb-1">{{ d.kindI18nKey | translate }}</p>
     <p class="fw-semibold mb-2">{{ d.headline }}</p>
+    <p class="mb-2" *ngIf="d.todoListId && isAuthenticated()">
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-primary"
+        (click)="openTodoListOverlay(d.todoListId, modal, 'close')"
+        [attr.title]="'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate"
+        [attr.aria-label]="'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate">
+        <i class="fa fa-tasks me-1" aria-hidden="true"></i>{{ 'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate }}
+      </button>
+    </p>
     <p *ngIf="d.kind === 'APPOINTMENT' && !isAuthenticated()" class="small text-muted mb-2">{{ 'CALENDAR.LOGIN_HINT' | translate }}</p>
     <p *ngIf="d.kind === 'ACTIVITY' && !isAuthenticated()" class="small text-muted mb-2">{{ 'CALENDAR.ACTIVITY_MAIL_LOGIN_HINT' | translate }}</p>
     <div *ngIf="d.kind === 'APPOINTMENT' && isAuthenticated()" class="mb-3">
@@ -265,6 +284,16 @@
       <span class="pat-cal-modal-btn-label ms-1">{{ 'CALENDAR.EDIT_APPOINTMENT' | translate }}</span>
     </button>
     <button
+      *ngIf="d.todoListId && isAuthenticated()"
+      type="button"
+      class="btn btn-sm btn-outline-primary"
+      (click)="openTodoListOverlay(d.todoListId, modal, 'close')"
+      [attr.title]="'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate"
+      [attr.aria-label]="'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate">
+      <i class="fa fa-tasks pat-cal-entry-detail-footer-icon" aria-hidden="true"></i>
+      <span class="pat-cal-modal-btn-label ms-1">{{ 'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate }}</span>
+    </button>
+    <button
       type="button"
       class="btn btn-sm btn-secondary"
       (click)="modal.close()"
@@ -304,6 +333,7 @@
     <button type="button" class="btn-close btn-close-white btn-close-sm" [attr.aria-label]="'COMMUN.CLOSE' | translate" (click)="modal.dismiss()"></button>
   </div>
   <div class="modal-body px-3 py-2">
+    <div *ngIf="errorMessage" class="alert alert-danger py-2 mb-2">{{ errorMessage | translate }}</div>
     <div *ngIf="reminderMailErrorMessage" class="alert alert-danger py-2 mb-2">{{ reminderMailErrorMessage | translate }}</div>
     <p *ngIf="editingId && !appointmentCanEdit" class="small text-muted mb-2">{{ 'CALENDAR.READ_ONLY_APPOINTMENT' | translate }}</p>
     <div class="mb-2">
@@ -444,6 +474,30 @@
           {{ 'CALENDAR.VISIBILITY_RECIPIENTS_EMPTY' | translate }}
         </p>
       </div>
+    </div>
+    <div class="mb-2" *ngIf="appointmentCanEdit && isAuthenticated()">
+      <label class="form-label small mb-1">{{ 'CALENDAR.LINKED_TODO_LIST' | translate }}</label>
+      <select
+        class="form-select form-select-sm"
+        [(ngModel)]="appointmentLinkedTodoListId"
+        name="appointmentTodoList"
+        [disabled]="appointmentTodoListsLoading">
+        <option value="">{{ 'CALENDAR.LINKED_TODO_LIST_NONE' | translate }}</option>
+        <option *ngFor="let l of appointmentOwnedTodoLists" [value]="l.id">{{ l.name }}</option>
+      </select>
+      <p *ngIf="appointmentTodoListsLoading" class="small text-muted mb-0 mt-1">
+        {{ 'CALENDAR.LINKED_TODO_LIST_LOADING' | translate }}
+      </p>
+    </div>
+    <div class="mb-2" *ngIf="editingId && isAuthenticated() && (appointmentLinkedTodoListId || '').trim().length">
+      <button
+        type="button"
+        class="btn btn-sm btn-primary"
+        (click)="openTodoListOverlay(appointmentLinkedTodoListId, modal, 'dismiss')"
+        [attr.title]="'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate"
+        [attr.aria-label]="'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate">
+        <i class="fa fa-tasks me-1" aria-hidden="true"></i>{{ 'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate }}
+      </button>
     </div>
     <div class="mb-2">
       <label class="form-label small mb-1">{{ 'CALENDAR.FIELD_NOTES' | translate }}</label>

@@ -18,7 +18,10 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
+
+import com.pat.service.EvenementTodoListLinkService;
 
 import java.text.Normalizer;
 import java.time.LocalDate;
@@ -104,6 +107,9 @@ public class PhotoTimelineRestController {
 
     @Autowired
     private FriendGroupRepository friendGroupRepository;
+
+    @Autowired
+    private EvenementTodoListLinkService evenementTodoListLinkService;
 
     /**
      * Cache the expensive access criteria per user so it's only computed once
@@ -224,6 +230,8 @@ public class PhotoTimelineRestController {
         private Integer ratingPlus;
         /** Number of negative votes for the event (photo wall). */
         private Integer ratingMinus;
+        /** Linked to-do list id when the activity has one (same as {@link Evenement#getLinkedTodoListId()}). */
+        private String linkedTodoListId;
 
         public TimelineGroup() {}
 
@@ -259,6 +267,8 @@ public class PhotoTimelineRestController {
         public void setRatingPlus(Integer ratingPlus) { this.ratingPlus = ratingPlus; }
         public Integer getRatingMinus() { return ratingMinus; }
         public void setRatingMinus(Integer ratingMinus) { this.ratingMinus = ratingMinus; }
+        public String getLinkedTodoListId() { return linkedTodoListId; }
+        public void setLinkedTodoListId(String linkedTodoListId) { this.linkedTodoListId = linkedTodoListId; }
     }
 
     public static class TimelineResponse {
@@ -356,6 +366,9 @@ public class PhotoTimelineRestController {
                 events = events.subList(0, size);
             }
 
+            evenementTodoListLinkService.attachLinkedTodoListsForEvents(
+                    events, StringUtils.hasText(userId) ? userId.trim() : "");
+
             List<TimelineGroup> groups = new ArrayList<>();
             int totalPhotosInPage = 0;
             Map<String, Member> authorCache = new HashMap<>();
@@ -374,6 +387,7 @@ public class PhotoTimelineRestController {
                     group.setVisibility(e.getVisibility());
                     group.setFriendGroupId(e.getFriendGroupId());
                     group.setFriendGroupIds(e.getFriendGroupIds());
+                    group.setLinkedTodoListId(e.getLinkedTodoListId());
                     group.setPhotos(photos);
                     group.setVideos(videos != null ? videos : Collections.emptyList());
                     group.setFsPhotoLinks(fsLinks);
@@ -478,6 +492,9 @@ public class PhotoTimelineRestController {
                 events = events.subList(0, size);
             }
 
+            evenementTodoListLinkService.attachLinkedTodoListsForEvents(
+                    events, StringUtils.hasText(userId) ? userId.trim() : "");
+
             List<TimelineGroup> groups = new ArrayList<>();
             int totalVideosInPage = 0;
             Map<String, Member> authorCache = new HashMap<>();
@@ -494,6 +511,7 @@ public class PhotoTimelineRestController {
                     group.setVisibility(e.getVisibility());
                     group.setFriendGroupId(e.getFriendGroupId());
                     group.setFriendGroupIds(e.getFriendGroupIds());
+                    group.setLinkedTodoListId(e.getLinkedTodoListId());
                     group.setPhotos(videos);
                     group.setFsPhotoLinks(extractFsPhotoLinks(e));
                     group.setRatingPlus(e.getRatingPlus());

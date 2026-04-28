@@ -35,6 +35,7 @@ import { CommentaryEditor } from '../../commentary-editor/commentary-editor';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { computeTrackStatsFromFileContent } from '../../photo-timeline/track-route-stats.util';
 import { getEventTypeFaIconSuffix } from '../../shared/event-type-icon.util';
+import { TodoListDetailOverlayService } from '../../todolists/todo-list-detail-overlay.service';
 
 @Component({
 	selector: 'element-evenement',
@@ -334,6 +335,17 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			this.storeEventForReturn.emit(this.evenement.id);
 		}
 	}
+
+	/** Opens linked to-do list in a modal (no navigation away from the wall / card). */
+	public openLinkedTodoListOverlay(ev: MouseEvent): void {
+		ev.preventDefault();
+		ev.stopPropagation();
+		this.storeEventIdForReturn();
+		const id = (this.evenement?.linkedTodoListId || '').trim();
+		if (id) {
+			this.todoListOverlay.open(id);
+		}
+	}
 	
 	// Emit card ready event when thumbnail is successfully set
 	private emitCardReady(): void {
@@ -364,7 +376,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		private _keycloakService: KeycloakService,
 		private cdr: ChangeDetectorRef,
 		private ngZone: NgZone,
-		private addToDbLayer: AddToDbLayerService
+		private addToDbLayer: AddToDbLayerService,
+		private todoListOverlay: TodoListDetailOverlayService
 	) {
 		// Rating config 
 		this.ratingConfig.max = 10;

@@ -13,6 +13,8 @@ import com.pat.repo.FriendGroupRepository;
 import com.pat.repo.FriendRepository;
 import com.pat.repo.MembersRepository;
 import com.pat.repo.DiscussionRepository;
+import com.pat.repo.TodoListRepository;
+import com.pat.service.EvenementTodoListLinkService;
 import com.pat.repo.UserConnectionLogRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +34,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -42,6 +45,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -70,6 +74,12 @@ public class EvenementRestController {
 
     @Autowired
     private EvenementsRepository evenementsRepository;
+    
+    @Autowired
+    private TodoListRepository todoListRepository;
+
+    @Autowired
+    private EvenementTodoListLinkService evenementTodoListLinkService;
     
     @Autowired
     private GridFsTemplate gridFsTemplate;
@@ -150,7 +160,97 @@ public class EvenementRestController {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "beginEventDate"));
 
-        return evenementsRepository.searchByFilter(evenementName, userId, pageable);
+        Page<Evenement> pageResult = evenementsRepository.searchByFilter(evenementName, userId, pageable);
+        if (pageResult != null && StringUtils.hasText(userId)) {
+            evenementTodoListLinkService.attachLinkedTodoListsForEvents(pageResult.getContent(), userId.trim());
+        }
+        return pageResult;
+    }
+
+    private static final int STREAM_TODO_LINK_BATCH = 8;
+
+    private static void resolveStreamEventDbRefs(Evenement event) {
+        if (event == null) {
+            return;
+        }
+        if (event.getAuthor() != null) {
+            event.getAuthor().getId();
+        }
+        if (event.getMembers() != null && !event.getMembers().isEmpty()) {
+            event.getMembers().forEach(member -> {
+                if (member != null) {
+                    member.getId();
+                }
+            });
+        }
+    }
+
+    /**
+     * Enriches {@code linkedTodoListId} for a batch then sends each event (SSE home wall).
+     * Batching avoids one {@code findByEvenementIdIn} per card; {@code listAccessCache} dedupes list access checks.
+     */
+    private void flushStreamDatedTodoBatch(
+            List<Evenement> buffer,
+            String memberId,
+            Map<String, Boolean> listAccessCache,
+            ObjectMapper mapper,
+            SseEmitter emitter,
+            java.util.concurrent.atomic.AtomicBoolean clientConnected,
+            AtomicInteger sentCount) {
+        if (buffer.isEmpty()) {
+            return;
+        }
+        evenementTodoListLinkService.attachLinkedTodoListsForEvents(buffer, memberId, listAccessCache);
+        List<Evenement> toSend = new ArrayList<>(buffer);
+        buffer.clear();
+        for (int i = 0; i < toSend.size(); i++) {
+            Evenement ev = toSend.get(i);
+            if (!clientConnected.get()) {
+                buffer.addAll(toSend.subList(i, toSend.size()));
+                return;
+            }
+            try {
+                resolveStreamEventDbRefs(ev);
+                String eventJson = mapper.writeValueAsString(ev);
+                emitter.send(SseEmitter.event()
+                        .name("event")
+                        .data(eventJson));
+                sentCount.incrementAndGet();
+            } catch (IOException e) {
+                log.debug("Client disconnected during streaming", e);
+                clientConnected.set(false);
+                buffer.addAll(toSend.subList(i + 1, toSend.size()));
+                return;
+            } catch (IllegalStateException e) {
+                log.debug("Emitter already closed, stopping stream", e);
+                clientConnected.set(false);
+                buffer.addAll(toSend.subList(i + 1, toSend.size()));
+                return;
+            } catch (Exception e) {
+                log.error("Error sending event", e);
+            }
+        }
+    }
+
+    /** Single-card path (e.g. null-dated overflow): one todo batch + send. */
+    private void sendStreamEventAfterTodoAttach(
+            Evenement event,
+            String userId,
+            Map<String, Boolean> listAccessCache,
+            ObjectMapper mapper,
+            SseEmitter emitter,
+            java.util.concurrent.atomic.AtomicBoolean clientConnected,
+            AtomicInteger sentCount) throws IOException {
+        evenementTodoListLinkService.attachForStreamEvent(event, userId, listAccessCache);
+        resolveStreamEventDbRefs(event);
+        if (!clientConnected.get()) {
+            return;
+        }
+        String eventJson = mapper.writeValueAsString(event);
+        emitter.send(SseEmitter.event()
+                .name("event")
+                .data(eventJson));
+        sentCount.incrementAndGet();
     }
 
     /**
@@ -280,6 +380,9 @@ public class EvenementRestController {
                 // Only collect events with null dates to send them at the end
                 // Limit size to prevent excessive memory usage (max 1000 null-dated events)
                 List<Evenement> nullDateEvents = new java.util.ArrayList<>(1000);
+                Map<String, Boolean> streamTodoListAccessCache = new HashMap<>();
+                List<Evenement> streamDatedTodoBuffer = new ArrayList<>(STREAM_TODO_LINK_BATCH);
+                String streamMemberId = StringUtils.hasText(userId) ? userId.trim() : "";
                 
                 
                 // Use stream() which returns a Stream backed by a MongoDB cursor
@@ -317,11 +420,9 @@ public class EvenementRestController {
                                             if (!clientConnected.get()) {
                                                 return;
                                             }
-                                            String eventJson = objectMapper.writeValueAsString(event);
-                                            emitter.send(SseEmitter.event()
-                                                .name("event")
-                                                .data(eventJson));
-                                            sentCount.incrementAndGet();
+                                            sendStreamEventAfterTodoAttach(
+                                                    event, userId, streamTodoListAccessCache,
+                                                    objectMapper, emitter, clientConnected, sentCount);
                                             log.debug("Sent null-dated event immediately (limit reached): {}", event.getId());
                                         } catch (IOException | IllegalStateException e) {
                                             log.debug("Client disconnected or emitter closed while sending null-dated event", e);
@@ -332,47 +433,24 @@ public class EvenementRestController {
                                         }
                                     }
                                 } else {
-                                    // Send events with dates immediately (they're already sorted by MongoDB)
-                                    try {
-                                        // Check connection before sending
-                                        if (!clientConnected.get()) {
-                                            return; // Stop if client disconnected
+                                    // Dated events: buffer + periodic todo-link batch (aligns with Mongo cursor batch of 8)
+                                    if (!clientConnected.get()) {
+                                        return;
+                                    }
+                                    streamDatedTodoBuffer.add(event);
+                                    if (streamDatedTodoBuffer.size() >= STREAM_TODO_LINK_BATCH) {
+                                        try {
+                                            flushStreamDatedTodoBatch(
+                                                    streamDatedTodoBuffer,
+                                                    streamMemberId,
+                                                    streamTodoListAccessCache,
+                                                    objectMapper,
+                                                    emitter,
+                                                    clientConnected,
+                                                    sentCount);
+                                        } catch (Exception e) {
+                                            log.error("Error flushing streamed event batch", e);
                                         }
-                                        
-                                        // Preload DBRef to avoid lazy loading during serialization
-                                        // This ensures DBRef resolution happens before serialization, not during
-                                        if (event.getAuthor() != null) {
-                                            // Trigger DBRef resolution by accessing the object
-                                            event.getAuthor().getId();
-                                        }
-                                        if (event.getMembers() != null && !event.getMembers().isEmpty()) {
-                                            // Trigger DBRef resolution for all members
-                                            event.getMembers().forEach(member -> {
-                                                if (member != null) {
-                                                    member.getId();
-                                                }
-                                            });
-                                        }
-                                        
-                                        String eventJson = objectMapper.writeValueAsString(event);
-                                        emitter.send(SseEmitter.event()
-                                            .name("event")
-                                            .data(eventJson));
-                                        
-                                        sentCount.incrementAndGet();
-                                    } catch (IOException e) {
-                                        // Client disconnected - mark as disconnected and stop processing
-                                        log.debug("Client disconnected during streaming", e);
-                                        clientConnected.set(false);
-                                        return; // Stop processing stream
-                                    } catch (IllegalStateException e) {
-                                        // Emitter already completed/closed
-                                        log.debug("Emitter already closed, stopping stream", e);
-                                        clientConnected.set(false);
-                                        return; // Stop processing stream
-                                    } catch (Exception e) {
-                                        log.error("Error sending event", e);
-                                        // Continue with next event instead of failing completely
                                     }
                                 }
                             }
@@ -382,10 +460,29 @@ public class EvenementRestController {
                         }
                     });
                 }
+
+                if (clientConnected.get()) {
+                    try {
+                        flushStreamDatedTodoBatch(
+                                streamDatedTodoBuffer,
+                                streamMemberId,
+                                streamTodoListAccessCache,
+                                objectMapper,
+                                emitter,
+                                clientConnected,
+                                sentCount);
+                    } catch (Exception e) {
+                        log.error("Error flushing final streamed event batch", e);
+                    }
+                }
                 
                 // Send null-dated events at the end (they were collected separately)
                 // Only if client is still connected
                 if (clientConnected.get()) {
+                    if (!nullDateEvents.isEmpty()) {
+                        evenementTodoListLinkService.attachLinkedTodoListsForEvents(
+                                nullDateEvents, streamMemberId, streamTodoListAccessCache);
+                    }
                     for (Evenement event : nullDateEvents) {
                         try {
                             // Check connection before sending
@@ -396,12 +493,13 @@ public class EvenementRestController {
                             // Ensure only thumbnail file is included (should already be done, but double-check)
                             if (event.getFileUploadeds() != null && !event.getFileUploadeds().isEmpty()) {
                                 List<FileUploaded> thumbnailOnly = event.getFileUploadeds().stream()
-                                    .filter(file -> file.getFileName() != null && 
-                                            file.getFileName().toLowerCase().contains("thumbnail"))
-                                    .collect(java.util.stream.Collectors.toList());
+                                        .filter(file -> file.getFileName() != null &&
+                                                file.getFileName().toLowerCase().contains("thumbnail"))
+                                        .collect(java.util.stream.Collectors.toList());
                                 event.setFileUploadeds(thumbnailOnly);
                             }
                             
+                            resolveStreamEventDbRefs(event);
                             String eventJson = objectMapper.writeValueAsString(event);
                             emitter.send(SseEmitter.event()
                                 .name("event")
@@ -1286,6 +1384,8 @@ public class EvenementRestController {
             // 200 + body EVENT_ACCESS_DENIED pour que le front affiche le message immédiatement (sans passer par le flux erreur HTTP)
             return ResponseEntity.ok().body(body);
         }
+
+        evenementTodoListLinkService.attachLinkedTodoListIfAccessible(evenement, currentUserId);
         
         // Handle discussionId: if it exists but the discussion doesn't, create it (like for FriendGroup)
         if (evenement.getDiscussionId() != null && !evenement.getDiscussionId().trim().isEmpty()) {
@@ -1896,6 +1996,11 @@ public class EvenementRestController {
         }
         
         log.info("Event found: {} - '{}'", id, evenement.getEvenementName());
+
+        todoListRepository.findFirstByEvenementId(id).ifPresent(tl -> {
+            tl.setEvenementId(null);
+            todoListRepository.save(tl);
+        });
         
         // Count embedded objects
         int urlEventsCount = (evenement.getUrlEvents() != null) ? evenement.getUrlEvents().size() : 0;

@@ -459,3 +459,20 @@
         padding: 0.15em 0.4em;
     }
 }
+
+/* Lien « liste de tâches » sur les entrées agenda liées (icône à droite du titre) */
+.fc-event-todolist-link {
+    color: inherit;
+    opacity: 0.92;
+    line-height: 1;
+    padding: 0.06rem 0.18rem;
+    margin-top: 0.04rem;
+    border-radius: 0.2rem;
+}
+
+.fc-event-todolist-link:hover,
+.fc-event-todolist-link:focus-visible {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.38);
+    outline: none;
+}

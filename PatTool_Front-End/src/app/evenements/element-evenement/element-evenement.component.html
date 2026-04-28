@@ -367,6 +367,19 @@
        (mouseleave)="onTooltipMouseLeave($event)">
         <i class="fa fa-eye" aria-hidden="true"></i>
     </a>
+
+    <button *ngIf="evenement.linkedTodoListId"
+       type="button"
+       class="btn btn-sm btn-outline-light mb-1 me-1 dynamic-footer-btn"
+       [ngStyle]="getFooterButtonStyles('todolist')"
+       placement="top"
+       ngbTooltip="{{ 'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate }}"
+       [attr.title]="'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate"
+       [attr.aria-label]="'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate"
+       (click)="openLinkedTodoListOverlay($event)"
+       (mouseleave)="onTooltipMouseLeave($event)">
+        <i class="fa fa-tasks" aria-hidden="true"></i><span class="d-none d-md-inline ms-1 small">{{ 'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate }}</span>
+    </button>
     
     <button *ngIf="getUrlEventsCount() > 0"
             class="btn btn-primary btn-sm mb-1 me-1 dynamic-footer-btn" 

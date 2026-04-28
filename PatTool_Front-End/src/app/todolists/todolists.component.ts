@@ -34,6 +34,7 @@ import { KeycloakService } from '../keycloak/keycloak.service';
 import { FriendGroup } from '../model/friend';
 import { Member } from '../model/member';
 import { environment } from '../../environments/environment';
+import { CalendarEntry, CalendarService } from '../calendar/calendar.service';
 
 interface OwnerLabel {
     id: string;
@@ -49,10 +50,19 @@ interface ListMeta {
     daysUntilDue: number | null;
 }
 
+/** One row for agenda / activity pickers in the list editor. */
+interface TodolistLinkOption {
+    id: string;
+    label: string;
+}
+
 const VISIBILITY_PRESETS: TodoVisibility[] = ['private', 'friends', 'friendGroups', 'public'];
 const STATUS_PRESETS: TodoStatus[] = ['open', 'in_progress', 'done', 'archived'];
 const ITEM_STATUS_PRESETS: TodoStatus[] = ['open', 'in_progress', 'done'];
 const PRIORITY_PRESETS: TodoPriority[] = ['low', 'normal', 'high'];
+
+/** Each {@code GET /api/calendar/entries} call must stay under the back-end window (~370 days). */
+const CALENDAR_ENTRIES_CHUNK_MS = 350 * 24 * 60 * 60 * 1000;
 
 /**
  * Shareable to-do lists. Acts as both index (cards grid) and editor (modal-based create / edit).
@@ -83,6 +93,7 @@ export class TodolistsComponent implements OnInit, OnDestroy {
     private http = inject(HttpClient);
     private sanitizer = inject(DomSanitizer);
     private route = inject(ActivatedRoute);
+    private calendarService = inject(CalendarService);
 
     /** Same toolbar as the commentary editor used by events: full font / colour / size / etc. */
     readonly quillModules: Record<string, unknown> = {
@@ -149,6 +160,8 @@ export class TodolistsComponent implements OnInit, OnDestroy {
     editorSaving = false;
     editorRecipients: TodoVisibilityRecipient[] = [];
     editorRecipientsLoading = false;
+    /** Expanded panel listing members who can see the list (preview from current editor fields). */
+    editorRecipientsDetailOpen = false;
     private editorModalRef: NgbModalRef | null = null;
 
     // Details state
@@ -173,6 +186,12 @@ export class TodolistsComponent implements OnInit, OnDestroy {
     // Filter state
     statusFilter: '' | TodoStatus = '';
     searchTerm = '';
+
+    /** Agenda / activity rows for linking (owner editor only). */
+    linkPickerAppointments: TodolistLinkOption[] = [];
+    linkPickerActivities: TodolistLinkOption[] = [];
+    linkPickerLoading = false;
+    linkPickerError = false;
 
     private subs: Subscription[] = [];
 
@@ -486,12 +505,15 @@ export class TodolistsComponent implements OnInit, OnDestroy {
         this.isNew = true;
         this.editorErrorMessage = '';
         this.editorRecipients = [];
+        this.editorRecipientsDetailOpen = false;
         this.editorModalRef = this.modal.open(this.editModal, {
             size: 'lg',
             scrollable: true,
-            windowClass: 'todolists-modal'
+            windowClass: 'todolists-modal',
+            modalDialogClass: 'todolists-editor-dialog'
         });
         this.refreshEditorRecipients();
+        this.loadLinkPickerOptions();
     }
 
     openEdit(list: TodoList): void {
@@ -500,12 +522,15 @@ export class TodolistsComponent implements OnInit, OnDestroy {
         this.isNew = false;
         this.editorErrorMessage = '';
         this.editorRecipients = [];
+        this.editorRecipientsDetailOpen = false;
         this.editorModalRef = this.modal.open(this.editModal, {
             size: 'lg',
             scrollable: true,
-            windowClass: 'todolists-modal'
+            windowClass: 'todolists-modal',
+            modalDialogClass: 'todolists-editor-dialog'
         });
         this.refreshEditorRecipients();
+        this.loadLinkPickerOptions();
     }
 
     addItem(): void {
@@ -597,6 +622,28 @@ export class TodolistsComponent implements OnInit, OnDestroy {
         this.refreshEditorRecipients();
     }
 
+    /** Toggle the panel that lists members who can see the list (server preview of current visibility). */
+    toggleEditorRecipientsDetail(): void {
+        this.editorRecipientsDetailOpen = !this.editorRecipientsDetailOpen;
+        if (this.editorRecipientsDetailOpen) {
+            this.refreshEditorRecipients();
+        }
+        this.cdr.markForCheck();
+    }
+
+    /** Same idea as calendar visibility panel: hide @username when it duplicates display name. */
+    editorRecipientUsername(r: TodoVisibilityRecipient): string {
+        const u = (r.userName ?? '').trim();
+        if (!u) {
+            return '';
+        }
+        const label = (r.displayName ?? '').trim();
+        if (label && u.localeCompare(label, undefined, { sensitivity: 'accent' }) === 0) {
+            return '';
+        }
+        return u;
+    }
+
     toggleFriendGroupSelection(groupId: string): void {
         const ids = new Set(this.editing.friendGroupIds || []);
         if (ids.has(groupId)) {
@@ -640,9 +687,10 @@ export class TodolistsComponent implements OnInit, OnDestroy {
         this.editing.visibility = this.editing.visibility || 'private';
 
         this.editorSaving = true;
+        const payload = { ...this.editing, linkTargetsProvided: true } as TodoList & { linkTargetsProvided: boolean };
         const obs = this.isNew
-            ? this.todoService.create(this.editing)
-            : this.todoService.update(this.editing.id || '', this.editing);
+            ? this.todoService.create(payload as TodoList)
+            : this.todoService.update(this.editing.id || '', payload as TodoList);
         this.subs.push(obs.pipe(
             finalize(() => {
                 this.editorSaving = false;
@@ -1170,6 +1218,154 @@ export class TodolistsComponent implements OnInit, OnDestroy {
         item.dueDate = this.fromDateInput(value);
     }
 
+    onAppointmentLinkSelect(value: string): void {
+        const v = (value || '').trim();
+        this.editing.calendarAppointmentId = v.length > 0 ? v : null;
+        if (v.length > 0) {
+            this.editing.evenementId = null;
+        }
+        this.cdr.markForCheck();
+    }
+
+    onActivityLinkSelect(value: string): void {
+        const v = (value || '').trim();
+        this.editing.evenementId = v.length > 0 ? v : null;
+        if (v.length > 0) {
+            this.editing.calendarAppointmentId = null;
+        }
+        this.cdr.markForCheck();
+    }
+
+    private loadLinkPickerOptions(): void {
+        if (!this.isOwner(this.editing)) {
+            this.linkPickerAppointments = [];
+            this.linkPickerActivities = [];
+            return;
+        }
+        this.linkPickerLoading = true;
+        this.linkPickerError = false;
+        this.cdr.markForCheck();
+        const from = new Date();
+        from.setFullYear(from.getFullYear() - 3);
+        const to = new Date();
+        to.setFullYear(to.getFullYear() + 3);
+        const chunks = this.buildCalendarEntryChunks(from, to);
+        if (chunks.length === 0) {
+            this.linkPickerLoading = false;
+            this.linkPickerAppointments = [];
+            this.linkPickerActivities = [];
+            this.ensureStaleLinkOptions();
+            this.cdr.markForCheck();
+            return;
+        }
+        const requests = chunks.map(ch => this.calendarService.getEntries(ch.start, ch.end));
+        this.subs.push(
+            forkJoin(requests).pipe(
+                map(parts => {
+                    const merged = new Map<string, CalendarEntry>();
+                    for (const part of parts) {
+                        for (const e of part || []) {
+                            merged.set(`${e.kind}:${e.id}`, e);
+                        }
+                    }
+                    return Array.from(merged.values());
+                }),
+                finalize(() => {
+                    this.linkPickerLoading = false;
+                    this.cdr.markForCheck();
+                })
+            ).subscribe({
+                next: rows => {
+                    const list = rows || [];
+                    const appts = list
+                        .filter(e => e.kind === 'APPOINTMENT')
+                        .sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime())
+                        .map(e => ({ id: e.id, label: this.formatCalendarEntryLabel(e) }));
+                    const acts = list
+                        .filter(e => e.kind === 'ACTIVITY')
+                        .sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime())
+                        .map(e => ({ id: e.id, label: this.formatCalendarEntryLabel(e) }));
+                    this.linkPickerAppointments = appts;
+                    this.linkPickerActivities = acts;
+                    this.ensureStaleLinkOptions();
+                    this.cdr.markForCheck();
+                },
+                error: () => {
+                    this.linkPickerAppointments = [];
+                    this.linkPickerActivities = [];
+                    this.linkPickerError = true;
+                    this.ensureStaleLinkOptions();
+                    this.cdr.markForCheck();
+                }
+            })
+        );
+    }
+
+    /** Splits [from, to] into windows accepted by {@code /api/calendar/entries} (max ~370 days each). */
+    private buildCalendarEntryChunks(from: Date, to: Date): { start: Date; end: Date }[] {
+        const out: { start: Date; end: Date }[] = [];
+        const t0 = from.getTime();
+        const t1 = to.getTime();
+        if (!(t1 > t0)) {
+            return out;
+        }
+        let cur = t0;
+        while (cur < t1) {
+            const end = Math.min(cur + CALENDAR_ENTRIES_CHUNK_MS, t1);
+            out.push({ start: new Date(cur), end: new Date(end) });
+            cur = end;
+        }
+        return out;
+    }
+
+    private formatCalendarEntryLabel(e: CalendarEntry): string {
+        const title = (e.title || '').trim() || '—';
+        const start = new Date(e.start);
+        if (Number.isNaN(start.getTime())) {
+            return title;
+        }
+        const rawLang = (this.translate.currentLang || 'fr').trim().replace(/_/g, '-');
+        const primary = rawLang.split('-')[0] || 'fr';
+        try {
+            const d = start.toLocaleString(rawLang, { dateStyle: 'medium', timeStyle: 'short' });
+            return `${title} · ${d}`;
+        } catch {
+            try {
+                const d = start.toLocaleString(primary, { dateStyle: 'medium', timeStyle: 'short' });
+                return `${title} · ${d}`;
+            } catch {
+                return `${title} · ${start.toISOString()}`;
+            }
+        }
+    }
+
+    /**
+     * If the list already references an id outside the loaded window (or load failed), keep a
+     * single synthetic option so the select still shows something meaningful.
+     */
+    private ensureStaleLinkOptions(): void {
+        const apId = (this.editing.calendarAppointmentId || '').trim();
+        if (apId && !this.linkPickerAppointments.some(o => o.id === apId)) {
+            this.linkPickerAppointments = [
+                {
+                    id: apId,
+                    label: this.translate.instant('TODOLISTS.LINK_STALE_APPOINTMENT', { id: apId })
+                },
+                ...this.linkPickerAppointments
+            ];
+        }
+        const evId = (this.editing.evenementId || '').trim();
+        if (evId && !this.linkPickerActivities.some(o => o.id === evId)) {
+            this.linkPickerActivities = [
+                {
+                    id: evId,
+                    label: this.translate.instant('TODOLISTS.LINK_STALE_ACTIVITY', { id: evId })
+                },
+                ...this.linkPickerActivities
+            ];
+        }
+    }
+
     private blankList(): TodoList {
         return {
             name: '',
@@ -1179,6 +1375,8 @@ export class TodolistsComponent implements OnInit, OnDestroy {
             status: 'open',
             visibility: 'private',
             friendGroupIds: [],
+            calendarAppointmentId: null,
+            evenementId: null,
             items: []
         };
     }

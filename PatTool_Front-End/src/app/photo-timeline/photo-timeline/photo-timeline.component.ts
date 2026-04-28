@@ -34,6 +34,7 @@ import { Member } from '../../model/member';
 import { ScaleRowToFitDirective } from './scale-row-to-fit.directive';
 import { computeTrackStatsFromFileContent } from '../track-route-stats.util';
 import { getEventTypeFaIconSuffix } from '../../shared/event-type-icon.util';
+import { TodoListDetailOverlayService } from '../../todolists/todo-list-detail-overlay.service';
 
 const BUFFER_AHEAD = 3;
 /** Number of groups (activities) to load per API request. */
@@ -298,7 +299,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         private keycloakService: KeycloakService,
         private ngZone: NgZone,
         private videoCompressionService: VideoCompressionService,
-        private videoUploadProcessingService: VideoUploadProcessingService
+        private videoUploadProcessingService: VideoUploadProcessingService,
+        private todoListOverlay: TodoListDetailOverlayService
     ) {}
 
     ngOnInit(): void {
@@ -2984,6 +2986,15 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             error: () => alert(this.translate.instant('EVENTELEM.ERROR_DELETING_COMMENTARY'))
         });
         this.subscriptions.push(sub);
+    }
+
+    /** Opens the activity’s linked to-do list in a modal (same overlay as agenda / cartes). */
+    openWallTodoList(group: TimelineGroup, ev?: Event): void {
+        ev?.stopPropagation();
+        const id = (group?.linkedTodoListId || '').trim();
+        if (id) {
+            this.todoListOverlay.open(id);
+        }
     }
 
     /** Live discussion: same flow as event detail. */

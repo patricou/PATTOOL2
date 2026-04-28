@@ -187,6 +187,14 @@
                         <span class="group-action-btn-text">{{ 'PHOTO_TIMELINE.EVENT_CARD' | translate }}</span>
                     </button>
                     <button type="button"
+                            class="btn btn-sm group-action-btn group-action-btn--todolist"
+                            *ngIf="group.linkedTodoListId"
+                            (click)="openWallTodoList(group, $event)"
+                            [title]="'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate">
+                        <i class="fa fa-tasks"></i>
+                        <span class="group-action-btn-text">{{ 'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate }}</span>
+                    </button>
+                    <button type="button"
                             class="btn btn-sm group-action-btn group-action-btn--discussion"
                             *ngIf="group.eventId"
                             (click)="openWallDiscussion(group); $event.stopPropagation()"

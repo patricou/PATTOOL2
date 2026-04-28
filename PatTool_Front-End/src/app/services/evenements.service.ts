@@ -42,7 +42,7 @@ export class EvenementsService {
 			if (!evenement) {
 				throw new Error('Event not found');
 			}
-			return new Evenement(
+			const ev = new Evenement(
 				evenement.author,
 				evenement.closeInscriptionDate,
 				evenement.comments,
@@ -68,10 +68,12 @@ export class EvenementsService {
 				evenement.thumbnail,
 				evenement.friendGroupId,
 				evenement.friendGroupIds,
-				evenement.discussionId
+				evenement.discussionId,
+				evenement.notes
 			);
+			ev.linkedTodoListId = evenement.linkedTodoListId ?? null;
+			return ev;
 		};
-		// Backend renvoie 200 + body EVENT_ACCESS_DENIED (plus de 403) → on convertit en erreur pour le handler
 		const isEventAccessDenied = (err: any) => err?.error?.code === 'EVENT_ACCESS_DENIED';
 		const handleResponse = (response: any) => {
 			if (response?.code === 'EVENT_ACCESS_DENIED') {
@@ -462,8 +464,10 @@ export class EvenementsService {
 					parsed.thumbnail,
 					parsed.friendGroupId,
 					parsed.friendGroupIds,
-					parsed.discussionId
+					parsed.discussionId,
+					parsed.notes
 				);
+				evenement.linkedTodoListId = parsed.linkedTodoListId ?? undefined;
 				subject.next({
 					type: 'event',
 					data: evenement

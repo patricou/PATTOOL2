@@ -34,4 +34,7 @@ export class Evenement {
         public discussionId?: string, // ID of the discussion associated with this event
         public notes?: string // Notes field for additional event information
     ) { }
+
+    /** Set by GET /api/even/{id} when a to-do list is linked; not part of the persisted event document. */
+    linkedTodoListId?: string | null;
 }

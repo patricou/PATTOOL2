@@ -146,17 +146,20 @@
 <ng-template #detailsModal let-c="close" let-d="dismiss">
     <div class="todolists-details-modal" *ngIf="detailsList as list">
         <div class="modal-header todolists-details-header">
-            <h5 class="modal-title">
-                <i class="fa fa-list-ul"></i> {{ list.name }}
-            </h5>
-            <button type="button" class="btn-close" aria-label="Close" (click)="d('close')"></button>
+            <div class="todolists-editor-header-media" aria-hidden="true">
+                <img *ngIf="list.imageDataUrl" [src]="list.imageDataUrl" alt="">
+                <div *ngIf="!list.imageDataUrl" class="todolists-editor-header-fallback"></div>
+                <div class="todolists-editor-header-scrim" *ngIf="list.imageDataUrl"></div>
+            </div>
+            <div class="todolists-editor-header-top">
+                <h5 class="modal-title mb-0 fw-semibold d-flex align-items-center gap-2">
+                    <i class="fa fa-list-ul opacity-90"></i> {{ list.name }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" aria-label="Close" (click)="d('close')"></button>
+            </div>
         </div>
 
         <div class="modal-body todolists-details-body">
-
-            <div class="todolists-details-banner" *ngIf="list.imageDataUrl">
-                <img [src]="list.imageDataUrl" alt="">
-            </div>
 
             <div class="todolists-details-meta">
                 <span class="todolists-details-meta-item">
@@ -199,7 +202,7 @@
             </div>
 
             <ul class="todolists-items-list" *ngIf="list.items.length; else noItems">
-                <li *ngFor="let item of list.items; trackBy: trackById"
+                <li *ngFor="let item of list.items; let idx = index; trackBy: trackById"
                     class="todolists-item"
                     [class.todolists-item--done]="item.status === 'done'"
                     [class.todolists-item--high]="item.priority === 'high'"
@@ -215,6 +218,7 @@
 
                     <div class="todolists-item-body">
                         <div class="todolists-item-title">
+                            <span class="badge text-bg-secondary todolists-item-number-badge">{{ 'TODOLISTS.ITEM_NUMBER' | translate:{ n: idx + 1 } }}</span>
                             <span>{{ item.title }}</span>
                             <span class="todolists-item-priority" *ngIf="item.priority"
                                   [ngClass]="'todolists-item-priority--' + item.priority">
@@ -266,52 +270,48 @@
 
 <!-- ============================ Create / edit modal ================================ -->
 <ng-template #editModal let-c="close" let-d="dismiss">
-    <div class="todolists-editor">
+    <div class="todolists-editor todolists-editor--compact">
         <div class="modal-header todolists-editor-header">
-            <h5 class="modal-title">
-                <i class="fa" [class.fa-plus]="isNew" [class.fa-pencil]="!isNew"></i>
-                {{ (isNew ? 'TODOLISTS.CREATE_TITLE' : 'TODOLISTS.EDIT_TITLE') | translate }}
-            </h5>
-            <button type="button" class="btn-close btn-close-white" aria-label="Close" (click)="d('close')"></button>
+            <div class="todolists-editor-header-media" aria-hidden="true">
+                <img *ngIf="editing.imageDataUrl" [src]="editing.imageDataUrl" alt="">
+                <div *ngIf="!editing.imageDataUrl" class="todolists-editor-header-fallback"></div>
+                <div class="todolists-editor-header-scrim" *ngIf="editing.imageDataUrl"></div>
+            </div>
+            <div class="todolists-editor-header-top">
+                <h6 class="modal-title mb-0 fw-semibold d-flex align-items-center gap-2">
+                    <i class="fa opacity-90" [class.fa-plus]="isNew" [class.fa-pencil]="!isNew"></i>
+                    {{ (isNew ? 'TODOLISTS.CREATE_TITLE' : 'TODOLISTS.EDIT_TITLE') | translate }}
+                </h6>
+                <button type="button" class="btn-close btn-close-white" aria-label="Close" (click)="d('close')"></button>
+            </div>
+            <div class="todolists-editor-header-tools">
+                <label class="btn btn-sm btn-light mb-0 text-primary">
+                    <i class="fa fa-upload"></i> {{ 'TODOLISTS.PICK_IMAGE' | translate }}
+                    <input type="file" accept="image/*" hidden (change)="onCoverFileSelected($event)">
+                </label>
+                <button type="button" class="btn btn-sm btn-outline-light"
+                        *ngIf="editing.imageDataUrl"
+                        (click)="clearCoverImage()">
+                    <i class="fa fa-times"></i> {{ 'TODOLISTS.REMOVE_IMAGE' | translate }}
+                </button>
+            </div>
         </div>
 
-        <div class="modal-body">
+        <div class="modal-body todolists-editor-body">
 
-            <div *ngIf="editorErrorMessage" class="alert alert-danger" role="alert">
+            <div *ngIf="editorErrorMessage" class="alert alert-danger py-2 px-3 small mb-0" role="alert">
                 {{ editorErrorMessage }}
-            </div>
-
-            <!-- Cover image -->
-            <div class="todolists-editor-cover">
-                <div class="todolists-editor-cover-preview">
-                    <img *ngIf="editing.imageDataUrl" [src]="editing.imageDataUrl" alt="">
-                    <div *ngIf="!editing.imageDataUrl" class="todolists-editor-cover-placeholder">
-                        <i class="fa fa-image"></i>
-                        <span>{{ 'TODOLISTS.NO_IMAGE' | translate }}</span>
-                    </div>
-                </div>
-                <div class="todolists-editor-cover-actions">
-                    <label class="btn btn-outline-primary mb-2">
-                        <i class="fa fa-upload"></i> {{ 'TODOLISTS.PICK_IMAGE' | translate }}
-                        <input type="file" accept="image/*" hidden (change)="onCoverFileSelected($event)">
-                    </label>
-                    <button type="button" class="btn btn-outline-secondary"
-                            *ngIf="editing.imageDataUrl"
-                            (click)="clearCoverImage()">
-                        <i class="fa fa-times"></i> {{ 'TODOLISTS.REMOVE_IMAGE' | translate }}
-                    </button>
-                </div>
             </div>
 
             <!-- Name + status -->
             <div class="row g-2">
                 <div class="col-12 col-md-8">
-                    <label class="form-label">{{ 'TODOLISTS.NAME' | translate }}</label>
-                    <input type="text" class="form-control" [(ngModel)]="editing.name" maxlength="120">
+                    <label class="form-label todolists-editor-label">{{ 'TODOLISTS.NAME' | translate }}</label>
+                    <input type="text" class="form-control form-control-sm" [(ngModel)]="editing.name" maxlength="120">
                 </div>
                 <div class="col-12 col-md-4">
-                    <label class="form-label">{{ 'TODOLISTS.LIST_STATUS' | translate }}</label>
-                    <select class="form-select" [(ngModel)]="editing.status">
+                    <label class="form-label todolists-editor-label">{{ 'TODOLISTS.LIST_STATUS' | translate }}</label>
+                    <select class="form-select form-select-sm" [(ngModel)]="editing.status">
                         <option *ngFor="let s of statusPresets" [value]="s">
                             {{ ('TODOLISTS.STATUS.' + s.toUpperCase()) | translate }}
                         </option>
@@ -319,114 +319,161 @@
                 </div>
             </div>
 
-            <!-- Description + due date -->
-            <div class="row g-2 mt-1">
-                <div class="col-12 col-md-8">
-                    <label class="form-label">{{ 'TODOLISTS.DESCRIPTION' | translate }}</label>
-                    <quill-editor class="todolists-editor-quill"
+            <!-- Description (full width) + due date -->
+            <div class="row g-2">
+                <div class="col-12">
+                    <label class="form-label todolists-editor-label">{{ 'TODOLISTS.DESCRIPTION' | translate }}</label>
+                    <quill-editor class="todolists-editor-quill w-100"
                                   [(ngModel)]="editing.description"
                                   [modules]="quillModules"
-                                  [styles]="{ height: '180px' }"
+                                  [styles]="{ height: '148px' }"
                                   [placeholder]="'TODOLISTS.DESCRIPTION' | translate">
                     </quill-editor>
                 </div>
-                <div class="col-12 col-md-4">
-                    <label class="form-label">{{ 'TODOLISTS.DUE_DATE' | translate }}</label>
-                    <input type="date" class="form-control"
+                <div class="col-12 col-sm-6 col-md-4">
+                    <label class="form-label todolists-editor-label">{{ 'TODOLISTS.DUE_DATE' | translate }}</label>
+                    <input type="date" class="form-control form-control-sm"
                            [value]="toDateInput(editing.dueDate)"
                            (input)="onListDueDateInput($any($event.target).value)">
                 </div>
             </div>
 
-            <!-- Items (tasks) — right after description / due date -->
+            <!-- Items (tasks) -->
             <div class="todolists-editor-items">
                 <div class="todolists-editor-items-header">
-                    <h6>{{ 'TODOLISTS.ITEMS' | translate }}</h6>
-                    <button type="button" class="btn btn-sm btn-outline-primary" (click)="addItem()">
+                    <span class="todolists-editor-section-title">{{ 'TODOLISTS.ITEMS' | translate }}</span>
+                    <button type="button" class="btn btn-sm btn-primary" (click)="addItem()">
                         <i class="fa fa-plus"></i> {{ 'TODOLISTS.ADD_ITEM' | translate }}
                     </button>
                 </div>
 
                 <div *ngFor="let item of editing.items; let i = index; trackBy: trackByIndex"
                      class="todolists-editor-item">
+                    <div class="todolists-editor-item-heading">
+                        <span class="badge text-bg-primary todolists-editor-item-badge">
+                            {{ 'TODOLISTS.ITEM_NUMBER' | translate:{ n: i + 1 } }}
+                        </span>
+                    </div>
                     <div class="row g-2 align-items-end">
                         <div class="col-12 col-md-5">
-                            <label class="form-label">{{ 'TODOLISTS.ITEM_TITLE' | translate }}</label>
-                            <input type="text" class="form-control" [(ngModel)]="item.title">
+                            <label class="form-label todolists-editor-label">{{ 'TODOLISTS.ITEM_TITLE' | translate }}</label>
+                            <input type="text" class="form-control form-control-sm" [(ngModel)]="item.title">
                         </div>
                         <div class="col-6 col-md-3">
-                            <label class="form-label">{{ 'TODOLISTS.ITEM_DUE' | translate }}</label>
-                            <input type="date" class="form-control"
+                            <label class="form-label todolists-editor-label">{{ 'TODOLISTS.ITEM_DUE' | translate }}</label>
+                            <input type="date" class="form-control form-control-sm"
                                    [value]="toDateInput(item.dueDate)"
                                    (input)="onItemDueDateInput(item, $any($event.target).value)">
                         </div>
                         <div class="col-6 col-md-2">
-                            <label class="form-label">{{ 'TODOLISTS.ITEM_STATUS' | translate }}</label>
-                            <select class="form-select" [(ngModel)]="item.status">
+                            <label class="form-label todolists-editor-label">{{ 'TODOLISTS.ITEM_STATUS' | translate }}</label>
+                            <select class="form-select form-select-sm" [(ngModel)]="item.status">
                                 <option *ngFor="let s of itemStatusPresets" [value]="s">
                                     {{ ('TODOLISTS.STATUS.' + s.toUpperCase()) | translate }}
                                 </option>
                             </select>
                         </div>
                         <div class="col-6 col-md-2">
-                            <label class="form-label">{{ 'TODOLISTS.ITEM_PRIORITY' | translate }}</label>
-                            <select class="form-select" [(ngModel)]="item.priority">
+                            <label class="form-label todolists-editor-label">{{ 'TODOLISTS.ITEM_PRIORITY' | translate }}</label>
+                            <select class="form-select form-select-sm" [(ngModel)]="item.priority">
                                 <option *ngFor="let p of priorityPresets" [value]="p">
                                     {{ ('TODOLISTS.PRIORITY.' + p.toUpperCase()) | translate }}
                                 </option>
                             </select>
                         </div>
                         <div class="col-12 col-md-10">
-                            <label class="form-label">{{ 'TODOLISTS.ITEM_ASSIGNEE' | translate }}</label>
-                            <select class="form-select" [(ngModel)]="item.assigneeMemberId">
+                            <label class="form-label todolists-editor-label">{{ 'TODOLISTS.ITEM_ASSIGNEE' | translate }}</label>
+                            <select class="form-select form-select-sm" [(ngModel)]="item.assigneeMemberId">
                                 <option [ngValue]="null">{{ 'TODOLISTS.NO_ASSIGNEE' | translate }}</option>
                                 <option *ngFor="let r of editorRecipients" [ngValue]="r.memberId">
                                     {{ r.displayName }}<span *ngIf="r.userName"> ({{ r.userName }})</span>
                                 </option>
                             </select>
                         </div>
-                        <div class="col-12 col-md-2 d-flex align-items-end justify-content-end">
-                            <button type="button" class="btn btn-outline-danger w-100"
+                        <div class="col-12 col-md-2 d-flex align-items-end justify-content-md-end">
+                            <button type="button" class="btn btn-sm btn-outline-danger w-100"
                                     (click)="removeItem(i)" [title]="'TODOLISTS.REMOVE_ITEM' | translate">
                                 <i class="fa fa-trash"></i>
                             </button>
                         </div>
                         <div class="col-12">
-                            <label class="form-label">{{ 'TODOLISTS.ITEM_DESC' | translate }}</label>
+                            <label class="form-label todolists-editor-label">{{ 'TODOLISTS.ITEM_DESC' | translate }}</label>
                             <quill-editor class="todolists-editor-quill todolists-editor-quill--small"
                                           [(ngModel)]="item.description"
                                           [modules]="quillModules"
-                                          [styles]="{ height: '140px' }"
+                                          [styles]="{ height: '104px' }"
                                           [placeholder]="'TODOLISTS.ITEM_DESC' | translate">
                             </quill-editor>
                         </div>
                     </div>
                 </div>
 
-                <p *ngIf="!editing.items.length" class="todolists-empty-items">
+                <p *ngIf="!editing.items.length" class="todolists-empty-items small mb-0">
                     {{ 'TODOLISTS.NO_ITEMS_YET' | translate }}
                 </p>
             </div>
 
-            <!-- Visibility (after list content and tasks) -->
+            <!-- Link agenda / activity -->
+            <div class="todolists-editor-links" *ngIf="isOwner(editing)">
+                <span class="todolists-editor-section-title">{{ 'TODOLISTS.LINK_SECTION_TITLE' | translate }}</span>
+                <p class="todolists-editor-intro small text-muted mb-2">{{ 'TODOLISTS.LINK_SECTION_INTRO' | translate }}</p>
+                <div *ngIf="linkPickerLoading" class="small text-muted mb-2">
+                    <i class="fa fa-spinner fa-spin"></i> {{ 'TODOLISTS.LINK_LOADING_CALENDAR' | translate }}
+                </div>
+                <div *ngIf="linkPickerError && !linkPickerLoading" class="small text-warning mb-2">
+                    {{ 'TODOLISTS.LINK_LOAD_ERROR' | translate }}
+                </div>
+                <div class="row g-2">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label todolists-editor-label">{{ 'TODOLISTS.LINK_PICK_ACTIVITY' | translate }}</label>
+                        <select class="form-select form-select-sm"
+                                name="todoEventPick"
+                                [disabled]="linkPickerLoading"
+                                [ngModel]="editing.evenementId || ''"
+                                (ngModelChange)="onActivityLinkSelect($event)">
+                            <option value="">{{ 'TODOLISTS.LINK_NONE' | translate }}</option>
+                            <option *ngFor="let o of linkPickerActivities" [value]="o.id">{{ o.label }}</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label todolists-editor-label">{{ 'TODOLISTS.LINK_PICK_APPOINTMENT' | translate }}</label>
+                        <select class="form-select form-select-sm"
+                                name="todoCalApptPick"
+                                [disabled]="linkPickerLoading"
+                                [ngModel]="editing.calendarAppointmentId || ''"
+                                (ngModelChange)="onAppointmentLinkSelect($event)">
+                            <option value="">{{ 'TODOLISTS.LINK_NONE' | translate }}</option>
+                            <option *ngFor="let o of linkPickerAppointments" [value]="o.id">{{ o.label }}</option>
+                        </select>
+                    </div>
+                </div>
+                <p class="small text-muted mb-0 mt-1">{{ 'TODOLISTS.LINK_HINT' | translate }}</p>
+            </div>
+
+            <!-- Visibility -->
             <div class="todolists-editor-visibility">
-                <label class="form-label">{{ 'TODOLISTS.VISIBILITY_LABEL' | translate }}</label>
-                <div class="btn-group flex-wrap" role="group">
+                <label class="form-label todolists-editor-label d-flex align-items-center gap-2 mb-2">
+                    <span class="todolists-vis-scope-icon rounded-circle d-inline-flex align-items-center justify-content-center" aria-hidden="true">
+                        <i class="fa fa-eye"></i>
+                    </span>
+                    {{ 'TODOLISTS.VISIBILITY_LABEL' | translate }}
+                </label>
+                <div class="btn-group btn-group-sm flex-wrap todolists-vis-presets" role="group">
                     <ng-container *ngFor="let v of visibilityPresets">
                         <input type="radio" class="btn-check"
                                [id]="'todo-vis-' + v"
                                [checked]="editing.visibility === v"
                                (change)="editing.visibility = v; onVisibilityChange()">
-                        <label class="btn btn-outline-primary" [for]="'todo-vis-' + v">
-                            <i class="fa" [ngClass]="visibilityIcon(v)"></i>
-                            {{ visibilityLabelKey(v) | translate }}
+                        <label class="btn btn-outline-primary todolists-vis-preset-btn" [for]="'todo-vis-' + v" [attr.data-vis]="v">
+                            <i class="fa me-1" [ngClass]="visibilityIcon(v)"></i>
+                            <span class="d-none d-sm-inline">{{ visibilityLabelKey(v) | translate }}</span>
                         </label>
                     </ng-container>
                 </div>
 
                 <div *ngIf="editing.visibility === 'friendGroups'" class="todolists-editor-groups">
-                    <label class="form-label">{{ 'TODOLISTS.PICK_GROUPS' | translate }}</label>
-                    <div *ngIf="friendGroups.length === 0" class="text-muted">
+                    <label class="form-label todolists-editor-label">{{ 'TODOLISTS.PICK_GROUPS' | translate }}</label>
+                    <div *ngIf="friendGroups.length === 0" class="text-muted small">
                         {{ 'TODOLISTS.NO_GROUPS' | translate }}
                     </div>
                     <div class="todolists-editor-group-chips">
@@ -435,7 +482,7 @@
                                 [class.btn-primary]="isFriendGroupSelected(g.id)"
                                 [class.btn-outline-primary]="!isFriendGroupSelected(g.id)"
                                 (click)="toggleFriendGroupSelection(g.id)">
-                            <i class="fa"
+                            <i class="fa me-1"
                                [class.fa-check-circle]="isFriendGroupSelected(g.id)"
                                [class.fa-circle-o]="!isFriendGroupSelected(g.id)"></i>
                             {{ g.name }}
@@ -443,24 +490,74 @@
                     </div>
                 </div>
 
-                <div class="todolists-editor-recipients">
-                    <small *ngIf="editorRecipientsLoading" class="text-muted">
-                        <i class="fa fa-spinner fa-spin"></i> {{ 'TODOLISTS.LOADING_RECIPIENTS' | translate }}
-                    </small>
-                    <small *ngIf="!editorRecipientsLoading">
-                        {{ 'TODOLISTS.RECIPIENTS_COUNT' | translate:{ count: editorRecipients.length } }}
-                    </small>
+                <div class="todolists-editor-recipients d-flex flex-wrap align-items-center gap-2 mt-3">
+                    <span *ngIf="editorRecipientsLoading" class="todolists-recipients-loading d-inline-flex align-items-center gap-2 text-primary small">
+                        <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+                        <span>{{ 'TODOLISTS.LOADING_RECIPIENTS' | translate }}</span>
+                    </span>
+                    <span *ngIf="!editorRecipientsLoading" class="todolists-recipients-summary d-inline-flex align-items-center gap-2 rounded-pill px-2 py-1 small">
+                        <i class="fa fa-users text-primary" aria-hidden="true"></i>
+                        <span class="todolists-recipients-summary-text">{{ 'TODOLISTS.RECIPIENTS_COUNT' | translate:{ count: editorRecipients.length } }}</span>
+                    </span>
+                    <button type="button"
+                            class="btn btn-sm d-inline-flex align-items-center gap-1 todolists-recipients-toggle-btn"
+                            [ngClass]="editorRecipientsDetailOpen ? 'btn-outline-secondary' : 'btn-primary'"
+                            (click)="toggleEditorRecipientsDetail()"
+                            [disabled]="editorRecipientsLoading"
+                            [attr.aria-expanded]="editorRecipientsDetailOpen">
+                        <i class="fa" [class.fa-chevron-up]="editorRecipientsDetailOpen" [class.fa-binoculars]="!editorRecipientsDetailOpen" aria-hidden="true"></i>
+                        <span>{{ (editorRecipientsDetailOpen ? 'TODOLISTS.HIDE_WHO_CAN_SEE' : 'TODOLISTS.VIEW_WHO_CAN_SEE') | translate }}</span>
+                    </button>
+                </div>
+                <div *ngIf="editorRecipientsDetailOpen" class="todolists-editor-recipients-panel rounded-3 overflow-hidden mt-2 small shadow-sm">
+                    <div class="todolists-editor-recipients-panel-head d-flex align-items-center gap-2 px-3 py-2 text-white">
+                        <i class="fa fa-users fa-lg opacity-90" aria-hidden="true"></i>
+                        <span class="fw-semibold">{{ 'TODOLISTS.WHO_CAN_SEE_TITLE' | translate }}</span>
+                    </div>
+                    <div class="todolists-editor-recipients-panel-body px-3 py-2">
+                        <p class="todolists-editor-recipients-intro text-muted small mb-2 d-flex align-items-start gap-2">
+                            <i class="fa fa-lightbulb-o text-warning mt-0" aria-hidden="true"></i>
+                            <span>{{ 'TODOLISTS.WHO_CAN_SEE_INTRO' | translate }}</span>
+                        </p>
+                        <div *ngIf="editorRecipientsLoading" class="text-primary py-2 d-flex align-items-center gap-2">
+                            <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+                            <span>{{ 'TODOLISTS.LOADING_RECIPIENTS' | translate }}</span>
+                        </div>
+                        <ul class="list-unstyled mb-0 todolists-editor-recipients-names" *ngIf="!editorRecipientsLoading && editorRecipients.length > 0">
+                            <li *ngFor="let r of editorRecipients; let i = index"
+                                class="todolists-editor-recipient-row d-flex align-items-center gap-2 py-2 px-2 rounded-2 mb-1"
+                                [class.bg-light]="i % 2 === 0">
+                                <i class="fa fa-user-circle todolists-editor-recipient-avatar flex-shrink-0" aria-hidden="true"></i>
+                                <div class="flex-grow-1 min-w-0">
+                                    <div class="fw-medium text-dark text-truncate">{{ r.displayName }}</div>
+                                    <div *ngIf="editorRecipientUsername(r)" class="small text-muted text-truncate">
+                                        <span class="todolists-at-prefix text-secondary">&#64;</span>{{ editorRecipientUsername(r) }}
+                                    </div>
+                                </div>
+                                <span *ngIf="r.hasEmail" class="badge todolists-recipient-badge-mail flex-shrink-0" [title]="'TODOLISTS.RECIPIENT_HAS_EMAIL' | translate">
+                                    <i class="fa fa-envelope me-1" aria-hidden="true"></i>
+                                </span>
+                                <span *ngIf="!r.hasEmail" class="badge todolists-recipient-badge-no-mail flex-shrink-0">
+                                    <i class="fa fa-envelope-o me-1" aria-hidden="true"></i>{{ 'CALENDAR.NO_EMAIL_BADGE' | translate }}
+                                </span>
+                            </li>
+                        </ul>
+                        <p *ngIf="!editorRecipientsLoading && editorRecipients.length === 0" class="todolists-recipients-empty mb-0 d-flex align-items-start gap-2 small">
+                            <i class="fa fa-info-circle text-info mt-0" aria-hidden="true"></i>
+                            <span>{{ 'TODOLISTS.RECIPIENTS_PREVIEW_EMPTY' | translate }}</span>
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" (click)="cancelEditor()" [disabled]="editorSaving">
-                <i class="fa fa-times"></i> {{ 'COMMUN.CANCEL' | translate }}
+        <div class="modal-footer todolists-editor-footer py-2 px-3">
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelEditor()" [disabled]="editorSaving">
+                {{ 'COMMUN.CANCEL' | translate }}
             </button>
-            <button type="button" class="btn btn-primary" (click)="saveEditor()" [disabled]="editorSaving">
-                <i class="fa fa-save" *ngIf="!editorSaving"></i>
-                <i class="fa fa-spinner fa-spin" *ngIf="editorSaving"></i>
+            <button type="button" class="btn btn-sm btn-primary px-3" (click)="saveEditor()" [disabled]="editorSaving">
+                <i class="fa fa-save me-1" *ngIf="!editorSaving"></i>
+                <i class="fa fa-spinner fa-spin me-1" *ngIf="editorSaving"></i>
                 {{ 'TODOLISTS.SAVE' | translate }}
             </button>
         </div>
@@ -470,15 +567,24 @@
 <!-- ============================ Share modal (e-mail / WhatsApp) ==================== -->
 <ng-template #shareModal let-c="close" let-d="dismiss">
     <div class="todolists-share-modal" *ngIf="shareList as list">
-        <div class="modal-header todolists-share-header"
-             [class.todolists-share-header--whatsapp]="shareMode === 'whatsapp'">
-            <h5 class="modal-title">
-                <i class="fa" [class.fa-whatsapp]="shareMode === 'whatsapp'"
-                              [class.fa-envelope-o]="shareMode === 'email'"></i>
-                {{ (shareMode === 'whatsapp' ? 'TODOLISTS.SHARE.WHATSAPP_TITLE'
-                                             : 'TODOLISTS.SHARE.EMAIL_TITLE') | translate }}
-            </h5>
-            <button type="button" class="btn-close btn-close-white" aria-label="Close" (click)="d('close')"></button>
+        <div class="modal-header todolists-share-header">
+            <div class="todolists-editor-header-media" aria-hidden="true">
+                <img *ngIf="list.imageDataUrl" [src]="list.imageDataUrl" alt="">
+                <div *ngIf="!list.imageDataUrl"
+                     class="todolists-editor-header-fallback"
+                     [class.todolists-share-header-fallback--whatsapp]="shareMode === 'whatsapp'"></div>
+                <div class="todolists-editor-header-scrim" *ngIf="list.imageDataUrl"
+                     [class.todolists-share-header-scrim--whatsapp]="shareMode === 'whatsapp'"></div>
+            </div>
+            <div class="todolists-editor-header-top">
+                <h5 class="modal-title mb-0 fw-semibold d-flex align-items-center gap-2">
+                    <i class="fa opacity-90" [class.fa-whatsapp]="shareMode === 'whatsapp'"
+                       [class.fa-envelope-o]="shareMode === 'email'"></i>
+                    {{ (shareMode === 'whatsapp' ? 'TODOLISTS.SHARE.WHATSAPP_TITLE'
+                                                 : 'TODOLISTS.SHARE.EMAIL_TITLE') | translate }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" aria-label="Close" (click)="d('close')"></button>
+            </div>
         </div>
 
         <div class="modal-body todolists-share-body">
@@ -498,10 +604,6 @@
             </div>
 
             <div class="todolists-share-list-summary">
-                <div class="todolists-share-list-cover"
-                     [style.background-image]="list.imageDataUrl ? 'url(' + list.imageDataUrl + ')' : null">
-                    <i *ngIf="!list.imageDataUrl" class="fa fa-list-ul"></i>
-                </div>
                 <div>
                     <strong>{{ list.name }}</strong>
                     <div class="text-muted small todolists-share-summary-desc" *ngIf="list.description">

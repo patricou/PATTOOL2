@@ -1,12 +1,16 @@
 package com.pat.controller;
 
 import com.pat.controller.dto.CalendarVisibilityRecipientDTO;
+import com.pat.controller.dto.TodoListAssignmentRequest;
 import com.pat.controller.dto.TodoListRequest;
+import com.pat.repo.CalendarAppointmentRepository;
+import com.pat.repo.EvenementsRepository;
 import com.pat.repo.MembersRepository;
 import com.pat.repo.TodoListRepository;
 import com.pat.repo.domain.Member;
 import com.pat.repo.domain.TodoItem;
 import com.pat.repo.domain.TodoList;
+import com.pat.service.DiscussionService;
 import com.pat.service.TodoListVisibilityService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -56,6 +60,15 @@ public class TodoListRestController {
     @Autowired
     private MembersRepository membersRepository;
 
+    @Autowired
+    private CalendarAppointmentRepository calendarAppointmentRepository;
+
+    @Autowired
+    private EvenementsRepository evenementsRepository;
+
+    @Autowired
+    private DiscussionService discussionService;
+
     @GetMapping
     public ResponseEntity<List<TodoList>> listAccessible(
             @RequestHeader(value = "user-id", required = false) String userId) {
@@ -90,6 +103,10 @@ public class TodoListRestController {
         list.setOwnerMemberId(userId);
         list.setCreatedAt(new Date());
         applyEditableFields(list, body);
+        Optional<ResponseEntity<TodoList>> linkErr = applyLinkFieldsIfNeeded(list, body, userId);
+        if (linkErr.isPresent()) {
+            return linkErr.get();
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(todoListRepository.save(list));
     }
 
@@ -110,6 +127,36 @@ public class TodoListRestController {
         }
         TodoList list = existing.get();
         applyEditableFields(list, body);
+        Optional<ResponseEntity<TodoList>> linkErr = applyLinkFieldsIfNeeded(list, body, userId);
+        if (linkErr.isPresent()) {
+            return linkErr.get();
+        }
+        return ResponseEntity.ok(todoListRepository.save(list));
+    }
+
+    /**
+     * Link this list (owner only) to a calendar appointment or an activity, or clear both.
+     * Any previous list attached to the same appointment or event is unlinked automatically.
+     */
+    @PatchMapping("/{id}/assignment")
+    public ResponseEntity<TodoList> patchAssignment(
+            @PathVariable String id,
+            @RequestBody TodoListAssignmentRequest body,
+            @RequestHeader(value = "user-id", required = false) String userId) {
+        if (!StringUtils.hasText(userId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        Optional<TodoList> existing = todoListRepository.findByIdAndOwnerMemberId(id, userId);
+        if (existing.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        TodoList list = existing.get();
+        Optional<ResponseEntity<TodoList>> err = applyValidatedLinks(list, body.getCalendarAppointmentId(),
+                body.getEvenementId(), userId);
+        if (err.isPresent()) {
+            return err.get();
+        }
+        list.setUpdatedAt(new Date());
         return ResponseEntity.ok(todoListRepository.save(list));
     }
 
@@ -685,6 +732,75 @@ public class TodoListRestController {
             return TODO_EMAIL_MESSAGES.get("fr");
         }
         return TODO_EMAIL_MESSAGES.get("en");
+    }
+
+    private Optional<ResponseEntity<TodoList>> applyLinkFieldsIfNeeded(TodoList list, TodoListRequest body, String userId) {
+        boolean isCreate = !StringUtils.hasText(list.getId());
+        if (!isCreate && !Boolean.TRUE.equals(body.getLinkTargetsProvided())) {
+            return Optional.empty();
+        }
+        return applyValidatedLinks(list, body.getCalendarAppointmentId(), body.getEvenementId(), userId);
+    }
+
+    /**
+     * Validates and sets {@link TodoList#getCalendarAppointmentId()} / {@link TodoList#getEvenementId()}
+     * (mutually exclusive). Detaches any other list currently pointing at the same target.
+     *
+     * @return empty if OK, or a non-2xx response to return from the controller
+     */
+    private Optional<ResponseEntity<TodoList>> applyValidatedLinks(TodoList list, String calRaw, String evRaw,
+            String userId) {
+        String calId = StringUtils.hasText(calRaw) ? calRaw.trim() : null;
+        String evId = StringUtils.hasText(evRaw) ? evRaw.trim() : null;
+        if (calId != null && evId != null) {
+            return Optional.of(ResponseEntity.badRequest().build());
+        }
+        String listId = list.getId();
+        if (calId != null) {
+            if (calendarAppointmentRepository.findById(calId).isEmpty()) {
+                return Optional.of(ResponseEntity.badRequest().build());
+            }
+            if (calendarAppointmentRepository.findAccessibleByIdAndMember(calId, userId).isEmpty()) {
+                return Optional.of(ResponseEntity.status(HttpStatus.FORBIDDEN).build());
+            }
+            detachOtherListFromAppointment(calId, listId);
+            list.setCalendarAppointmentId(calId);
+            list.setEvenementId(null);
+            return Optional.empty();
+        }
+        if (evId != null) {
+            if (evenementsRepository.findById(evId).isEmpty()) {
+                return Optional.of(ResponseEntity.badRequest().build());
+            }
+            if (!discussionService.canUserAccessEventForDetail(evId, userId)) {
+                return Optional.of(ResponseEntity.status(HttpStatus.FORBIDDEN).build());
+            }
+            detachOtherListFromEvenement(evId, listId);
+            list.setEvenementId(evId);
+            list.setCalendarAppointmentId(null);
+            return Optional.empty();
+        }
+        list.setCalendarAppointmentId(null);
+        list.setEvenementId(null);
+        return Optional.empty();
+    }
+
+    private void detachOtherListFromAppointment(String appointmentId, String exceptListId) {
+        todoListRepository.findFirstByCalendarAppointmentId(appointmentId).ifPresent(other -> {
+            if (exceptListId == null || !exceptListId.equals(other.getId())) {
+                other.setCalendarAppointmentId(null);
+                todoListRepository.save(other);
+            }
+        });
+    }
+
+    private void detachOtherListFromEvenement(String evenementId, String exceptListId) {
+        todoListRepository.findFirstByEvenementId(evenementId).ifPresent(other -> {
+            if (exceptListId == null || !exceptListId.equals(other.getId())) {
+                other.setEvenementId(null);
+                todoListRepository.save(other);
+            }
+        });
     }
 
     private void applyEditableFields(TodoList list, TodoListRequest body) {

@@ -2,6 +2,7 @@ package com.pat.repo.domain;
 
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -60,6 +61,10 @@ public class Evenement {
     private String discussionId; // ID of the discussion associated with this event
     private List<UrlEvent> urlEvents = new ArrayList<UrlEvent>();
     private List<Commentary> commentaries = new ArrayList<Commentary>();
+
+    /** Populated on GET when a {@link com.pat.repo.domain.TodoList} links to this event; not stored in MongoDB. */
+    @Transient
+    private String linkedTodoListId;
 
     public List<Member> getMembers() {
         return members;
@@ -283,6 +288,14 @@ public class Evenement {
 
     public void setCommentaries(List<Commentary> commentaries) {
         this.commentaries = commentaries;
+    }
+
+    public String getLinkedTodoListId() {
+        return linkedTodoListId;
+    }
+
+    public void setLinkedTodoListId(String linkedTodoListId) {
+        this.linkedTodoListId = linkedTodoListId;
     }
 
     @Override

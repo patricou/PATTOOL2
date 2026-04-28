@@ -17,6 +17,8 @@ export interface CalendarEntry {
     visibility?: string | null;
     friendGroupId?: string | null;
     friendGroupIds?: string[] | null;
+    /** Linked to-do list id when the back-end attached one to this row. */
+    todoListId?: string | null;
 }
 
 export interface CalendarReminderMailResult {
@@ -89,18 +91,18 @@ export class CalendarService {
         );
     }
 
-    createAppointment(body: CalendarAppointmentPayload): Observable<unknown> {
+    createAppointment(body: CalendarAppointmentPayload): Observable<{ id: string }> {
         return this.withUserHeaders().pipe(
             switchMap(headers =>
-                this.http.post(`${environment.API_URL}calendar/appointments`, body, { headers })
+                this.http.post<{ id: string }>(`${environment.API_URL}calendar/appointments`, body, { headers })
             )
         );
     }
 
-    updateAppointment(id: string, body: CalendarAppointmentPayload): Observable<unknown> {
+    updateAppointment(id: string, body: CalendarAppointmentPayload): Observable<{ id: string }> {
         return this.withUserHeaders().pipe(
             switchMap(headers =>
-                this.http.put(`${environment.API_URL}calendar/appointments/${id}`, body, { headers })
+                this.http.put<{ id: string }>(`${environment.API_URL}calendar/appointments/${id}`, body, { headers })
             )
         );
     }

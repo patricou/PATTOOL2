@@ -33,7 +33,17 @@ export interface TodoList {
     visibility?: TodoVisibility;
     friendGroupId?: string | null;
     friendGroupIds?: string[] | null;
+    /** MongoDB id of a personal calendar appointment, when this list is linked to the agenda. */
+    calendarAppointmentId?: string | null;
+    /** MongoDB id of an activity (événement), when this list is linked to it. */
+    evenementId?: string | null;
     items: TodoItem[];
+}
+
+/** Body for {@code PATCH .../todolists/{id}/assignment}. */
+export interface TodoListAssignmentPayload {
+    calendarAppointmentId?: string | null;
+    evenementId?: string | null;
 }
 
 export interface TodoVisibilityRecipient {
@@ -127,6 +137,15 @@ export class TodoListService {
         return this.withUserHeaders().pipe(
             switchMap(headers =>
                 this.http.put<TodoList>(`${environment.API_URL}todolists/${id}`, body, { headers })
+            )
+        );
+    }
+
+    /** Owner only: attach this list to an appointment and/or clear event link, or the reverse. */
+    patchAssignment(id: string, body: TodoListAssignmentPayload): Observable<TodoList> {
+        return this.withUserHeaders().pipe(
+            switchMap(headers =>
+                this.http.patch<TodoList>(`${environment.API_URL}todolists/${id}/assignment`, body, { headers })
             )
         );
     }

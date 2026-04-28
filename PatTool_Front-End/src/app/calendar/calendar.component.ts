@@ -15,6 +15,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NgbActiveModal, NgbModal, NgbModalModule } from '@ng-bootstrap/ng-bootstrap';
+import { TodoListDetailOverlayService } from '../todolists/todo-list-detail-overlay.service';
 import { FullCalendarComponent, FullCalendarModule } from '@fullcalendar/angular';
 import { CalendarOptions, DateSelectArg, EventClickArg, EventInput, LocaleInput } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -33,7 +34,7 @@ import itLocale from '@fullcalendar/core/locales/it';
 import jaLocale from '@fullcalendar/core/locales/ja';
 import ruLocale from '@fullcalendar/core/locales/ru';
 import zhCnLocale from '@fullcalendar/core/locales/zh-cn';
-import { catchError, finalize, map, take } from 'rxjs/operators';
+import { catchError, finalize, map, switchMap, take } from 'rxjs/operators';
 import { forkJoin, Observable, of, Subscription } from 'rxjs';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { FileService } from '../services/file.service';
@@ -50,6 +51,7 @@ import {
 } from './calendar.service';
 import { CALENDAR_HELP_TEXT_EN, CALENDAR_HELP_TEXT_FR } from './calendar-help-text';
 import { NagerPublicHoliday, PublicHolidayService } from './public-holiday.service';
+import { TodoList, TodoListService } from '../todolists/todolist.service';
 
 const HOLIDAY_COUNTRY_STORAGE = 'pat-tool-calendar-holiday-country';
 const HOLIDAY_NAMES_MODE_STORAGE = 'pat-tool-calendar-holiday-names-mode';
@@ -67,6 +69,8 @@ interface MobileCalendarEntryDetail {
     appointmentCanSendReminder?: boolean;
     /** Activité : utilisateur connecté avec une adresse e-mail (envoi des détails à soi-même). */
     activityCanSendDetailsMail?: boolean;
+    /** When a to-do list is linked to this calendar row (appointment or activity). */
+    todoListId?: string | null;
 }
 
 @Component({
@@ -116,6 +120,8 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     private fileService = inject(FileService);
     private cdr = inject(ChangeDetectorRef);
     private evenementsService = inject(EvenementsService);
+    private todoListService = inject(TodoListService);
+    private todoListOverlay = inject(TodoListDetailOverlayService);
 
     private thumbnailBlobUrls = new Map<string, string>();
     private thumbnailLoadsInFlight = new Set<string>();
@@ -155,6 +161,13 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     friendGroupsSorted: FriendGroup[] = [];
     currentMemberId = '';
     appointmentCanEdit = true;
+
+    /** Owner’s lists for linking a personal appointment to a to-do list. */
+    appointmentOwnedTodoLists: TodoList[] = [];
+    appointmentTodoListsLoading = false;
+    /** Selected list id, or empty string for none. */
+    appointmentLinkedTodoListId = '';
+    appointmentLinkedTodoListIdInitial = '';
 
     /** Pays pour les jours fériés (API Nager.Date), défaut France. */
     holidayCountryCode = 'FR';
@@ -387,6 +400,36 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
 
     isAuthenticated(): boolean {
         return this.keycloak.getAuth().authenticated;
+    }
+
+    /**
+     * Opens the linked to-do list in a modal above the calendar (no navigation).
+     * @param parentModal When set, closed/dismissed before opening the overlay (avoids stacked modals).
+     * @param closeParent {@code close} or {@code dismiss} — matches previous anchor behaviour per modal.
+     */
+    openTodoListOverlay(
+        listId: string | null | undefined,
+        parentModal?: NgbActiveModal,
+        closeParent: 'close' | 'dismiss' | 'none' = 'none'
+    ): void {
+        const id = (listId || '').trim();
+        if (!id) {
+            return;
+        }
+        const open = (): void => {
+            this.todoListOverlay.open(id);
+        };
+        if (parentModal && closeParent === 'close') {
+            parentModal.close();
+            setTimeout(open, 0);
+            return;
+        }
+        if (parentModal && closeParent === 'dismiss') {
+            parentModal.dismiss();
+            setTimeout(open, 0);
+            return;
+        }
+        open();
     }
 
     private rebuildFriendGroupsSorted(): void {
@@ -705,7 +748,17 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
             return;
         }
         const start = new Date(this.formStart);
-        const end = this.clampEndToSameLocalDay(start, new Date(this.formEnd));
+        const end = new Date(this.formEnd);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+            this.errorMessage = 'CALENDAR.SAVE_ERROR';
+            this.cdr.markForCheck();
+            return;
+        }
+        if (end.getTime() <= start.getTime()) {
+            this.errorMessage = 'CALENDAR.SAVE_ERROR';
+            this.cdr.markForCheck();
+            return;
+        }
         const vis = this.buildAppointmentVisibilityPayload();
         const payload: CalendarAppointmentPayload = {
             title: this.formTitle.trim(),
@@ -721,7 +774,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         const req = this.editingId
             ? this.calendarService.updateAppointment(this.editingId, payload)
             : this.calendarService.createAppointment(payload);
-        req.subscribe({
+        req.pipe(switchMap(res => this.applyAppointmentTodoListLink$(this.resolveSavedAppointmentId(res)))).subscribe({
             next: () => {
                 this.errorMessage = '';
                 this.reminderMailSuccessMessage = '';
@@ -733,8 +786,72 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
             },
             error: () => {
                 this.errorMessage = 'CALENDAR.SAVE_ERROR';
+                this.cdr.markForCheck();
             }
         });
+    }
+
+    private resolveSavedAppointmentId(res: { id?: string }): string {
+        const fromEdit = (this.editingId || '').trim();
+        if (fromEdit) {
+            return fromEdit;
+        }
+        return ((res && res.id) || '').trim();
+    }
+
+    private applyAppointmentTodoListLink$(appointmentId: string): Observable<unknown> {
+        const desired = (this.appointmentLinkedTodoListId || '').trim();
+        const prev = (this.appointmentLinkedTodoListIdInitial || '').trim();
+        if (!appointmentId) {
+            return of(null);
+        }
+        if (desired === prev) {
+            return of(null);
+        }
+        if (!desired) {
+            if (!prev) {
+                return of(null);
+            }
+            return this.todoListService.patchAssignment(prev, { calendarAppointmentId: null, evenementId: null });
+        }
+        return this.todoListService.patchAssignment(desired, {
+            calendarAppointmentId: appointmentId,
+            evenementId: null
+        });
+    }
+
+    private loadAppointmentTodoListsForModal(): void {
+        if (!this.isAuthenticated() || !this.appointmentCanEdit) {
+            this.appointmentOwnedTodoLists = [];
+            this.appointmentTodoListsLoading = false;
+            this.cdr.markForCheck();
+            return;
+        }
+        this.appointmentTodoListsLoading = true;
+        this.cdr.markForCheck();
+        this.membersService
+            .getUserId({ skipGeolocation: true })
+            .pipe(
+                switchMap(m => {
+                    this.currentMemberId = (m.id || '').trim();
+                    return this.todoListService.listAccessible();
+                })
+            )
+            .subscribe({
+                next: lists => {
+                    const uid = (this.currentMemberId || '').trim();
+                    this.appointmentOwnedTodoLists = (lists || []).filter(
+                        l => (l.ownerMemberId || '').trim() === uid && (l.id || '').trim().length > 0
+                    );
+                    this.appointmentTodoListsLoading = false;
+                    this.cdr.markForCheck();
+                },
+                error: () => {
+                    this.appointmentOwnedTodoLists = [];
+                    this.appointmentTodoListsLoading = false;
+                    this.cdr.markForCheck();
+                }
+            });
     }
 
     deleteEditingAppointment(): void {
@@ -844,6 +961,8 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         this.editingId = null;
         this.formTitle = '';
         this.formNotes = '';
+        this.appointmentLinkedTodoListId = '';
+        this.appointmentLinkedTodoListIdInitial = '';
         this.resetAppointmentVisibilityForm();
         this.appointmentCanEdit = true;
         this.reminderMailSuccessMessage = '';
@@ -862,6 +981,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
             return;
         }
         this.lastNewAppointmentModalOpenedAt = now;
+        this.errorMessage = '';
         this.modal.open(this.appointmentModal, {
             size: 'md',
             windowClass: 'calendar-appointment-modal pat-cal-agenda-modal-buttons',
@@ -869,9 +989,11 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
             centered: true,
             container: 'body'
         });
+        this.loadAppointmentTodoListsForModal();
     }
 
     private openAppointmentModalImmediate(): void {
+        this.errorMessage = '';
         this.modal.open(this.appointmentModal, {
             size: 'md',
             windowClass: 'calendar-appointment-modal pat-cal-agenda-modal-buttons',
@@ -879,6 +1001,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
             centered: true,
             container: 'body'
         });
+        this.loadAppointmentTodoListsForModal();
     }
 
     /** 0–1 : heure locale de début dans la journée (détermine la teinte). */
@@ -1010,6 +1133,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
             });
         }
         this.mobileEntryClickArg = arg;
+        const extTodo = String(arg.event.extendedProps?.['todoListId'] ?? '').trim();
         this.mobileEntryDetail = {
             kind,
             kindI18nKey,
@@ -1017,7 +1141,8 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
             headline,
             detailText,
             appointmentCanSendReminder,
-            activityCanSendDetailsMail
+            activityCanSendDetailsMail,
+            todoListId: extTodo || null
         };
         this.cdr.markForCheck();
         const ref = this.modal.open(this.mobileEntryDetailModal, {
@@ -1076,11 +1201,24 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
                 this.editingId = arg.event.id;
                 this.formTitle = arg.event.title as string;
                 this.formNotes = (ext['notes'] as string) || '';
-                this.formStart = this.toDatetimeLocal(arg.event.start!);
-                this.formEnd = this.toDatetimeLocal(arg.event.end!);
+                const startEv = arg.event.start!;
+                const startD = startEv instanceof Date ? startEv : new Date(startEv);
+                const endRaw = arg.event.end;
+                const endD =
+                    endRaw != null
+                        ? endRaw instanceof Date
+                            ? endRaw
+                            : new Date(endRaw)
+                        : new Date(startD.getTime() + 60 * 60 * 1000);
+                this.formStart = this.toDatetimeLocal(startD);
+                this.formEnd = this.toDatetimeLocal(endD);
                 this.syncVisibilityFormFromExtendedProps(ext);
+                const tl = String(ext['todoListId'] ?? '').trim();
+                this.appointmentLinkedTodoListId = tl;
+                this.appointmentLinkedTodoListIdInitial = tl;
                 this.appointmentCanEdit =
                     this.currentMemberId.length > 0 && owner.length > 0 && owner === this.currentMemberId;
+                this.loadAppointmentTodoListsForModal();
                 this.openAppointmentModalImmediate();
                 this.cdr.markForCheck();
             },
@@ -1097,6 +1235,8 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         this.editingId = null;
         this.formTitle = '';
         this.formNotes = '';
+        this.appointmentLinkedTodoListId = '';
+        this.appointmentLinkedTodoListIdInitial = '';
         this.resetAppointmentVisibilityForm();
         this.appointmentCanEdit = true;
         this.reminderMailSuccessMessage = '';
@@ -1228,6 +1368,11 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
                 ext['visibility'] = e.visibility ?? null;
                 ext['friendGroupId'] = e.friendGroupId ?? null;
                 ext['friendGroupIds'] = e.friendGroupIds ?? null;
+            }
+            if ((e.todoListId || '').trim()) {
+                ext['todoListId'] = (e.todoListId || '').trim();
+            } else {
+                ext['todoListId'] = null;
             }
             return {
                 id: e.id,

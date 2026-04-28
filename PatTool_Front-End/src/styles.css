@@ -941,3 +941,9 @@ input#message {
         padding-right: 1rem;
     }
 }
+
+/* Todo list create/edit — dialog width (ng-bootstrap attaches modal under body). */
+.modal.todolists-modal .modal-dialog.modal-lg.todolists-editor-dialog {
+    max-width: min(40rem, calc(100vw - 1rem)) !important;
+    width: 100%;
+}
