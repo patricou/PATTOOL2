@@ -1,33 +1,31 @@
-<div class="todolists-page">
+<div>
+    <div class="pat-title">
+        <h2>
+            <i class="fa fa-tasks me-2"></i>
+            {{ 'TODOLISTS.TITLE' | translate }}
+        </h2>
+        <p class="pat-title-subtitle mb-0">{{ 'TODOLISTS.SUBTITLE' | translate }}</p>
+    </div>
 
-    <header class="todolists-header">
-        <div class="todolists-title-block">
-            <h2 class="todolists-title">
-                <i class="fa fa-tasks"></i>
-                {{ 'TODOLISTS.TITLE' | translate }}
-            </h2>
-            <p class="todolists-subtitle">{{ 'TODOLISTS.SUBTITLE' | translate }}</p>
-        </div>
-
-        <div class="todolists-actions">
+    <div class="todolists-page">
+        <div class="todolists-toolbar">
             <div class="todolists-filter">
                 <input type="search"
-                       class="form-control"
+                       class="form-control form-control-sm"
                        [(ngModel)]="searchTerm"
                        [placeholder]="'TODOLISTS.SEARCH_PLACEHOLDER' | translate"
                        aria-label="search">
-                <select class="form-select" [(ngModel)]="statusFilter">
+                <select class="form-select form-select-sm" [(ngModel)]="statusFilter">
                     <option value="">{{ 'TODOLISTS.ALL_STATUSES' | translate }}</option>
                     <option *ngFor="let s of statusPresets" [value]="s">
                         {{ ('TODOLISTS.STATUS.' + s.toUpperCase()) | translate }}
                     </option>
                 </select>
             </div>
-            <button type="button" class="btn btn-primary todolists-create-btn" (click)="openCreate()">
+            <button type="button" class="btn btn-sm btn-primary todolists-create-btn" (click)="openCreate()">
                 <i class="fa fa-plus"></i> {{ 'TODOLISTS.CREATE' | translate }}
             </button>
         </div>
-    </header>
 
     <div *ngIf="errorMessage" class="alert alert-danger" role="alert">
         {{ errorMessage }}
@@ -140,6 +138,7 @@
             </div>
         </article>
     </section>
+    </div>
 </div>
 
 <!-- ============================ Details / view modal =============================== -->

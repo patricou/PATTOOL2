@@ -1,0 +1,133 @@
+<div class="pat-title">
+    <h2>{{ 'IOT_PROXY.TITLE' | translate }}</h2>
+</div>
+
+<div class="container mt-0 iot-proxy-scope">
+    <p class="text-muted">{{ 'IOT_PROXY.INTRO' | translate }}</p>
+
+    <div class="toolbar mb-3 d-flex flex-wrap gap-2 align-items-center">
+        <button type="button" class="btn btn-sm btn-primary" (click)="openCreate()">
+            <i class="fa fa-plus"></i> {{ 'IOT_PROXY.ADD' | translate }}
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="reload()" [disabled]="isLoading">
+            <i class="fa" [class.fa-refresh]="!isLoading" [class.fa-spinner]="isLoading" [class.fa-spin]="isLoading"></i>
+            {{ 'IOT_PROXY.REFRESH' | translate }}
+        </button>
+        <label class="small mb-0 ms-2 d-flex align-items-center gap-1">
+            {{ 'IOT_PROXY.OPTIONAL_PATH_HINT' | translate }}
+            <input type="text" class="form-control form-control-sm" style="width:220px;"
+                   [(ngModel)]="openPathExtra" [placeholder]="'IOT_PROXY.OPTIONAL_PATH_PLACEHOLDER' | translate"/>
+        </label>
+    </div>
+
+    <div *ngIf="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
+
+    <div *ngIf="isLoading" class="text-center py-5">
+        <i class="fa fa-spinner fa-spin fa-2x"></i>
+    </div>
+
+    <div *ngIf="!isLoading && rows.length === 0" class="text-muted text-center py-5">
+        {{ 'IOT_PROXY.EMPTY' | translate }}
+    </div>
+
+    <div *ngIf="!isLoading && rows.length > 0" class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+            <tr>
+                <th>{{ 'IOT_PROXY.DESCRIPTION' | translate }}</th>
+                <th>{{ 'IOT_PROXY.SLUG' | translate }}</th>
+                <th>{{ 'IOT_PROXY.UPSTREAM' | translate }}</th>
+                <th>{{ 'IOT_PROXY.OWNER' | translate }}</th>
+                <th>{{ 'IOT_PROXY.CREATED' | translate }}</th>
+                <th class="text-end">{{ 'IOT_PROXY.ACTIONS' | translate }}</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr *ngFor="let row of rows">
+                <td>{{ row.description }}</td>
+                <td><code>{{ row.publicSlug }}</code></td>
+                <td><code>{{ row.upstreamBaseUrl }}</code></td>
+                <td>{{ row.owner }}</td>
+                <td>{{ formatDate(row.creationDate) }}</td>
+                <td class="text-end text-nowrap">
+                    <button type="button" class="btn btn-sm btn-success me-1" (click)="openInBrowser(row)"
+                            [title]="'IOT_PROXY.OPEN_BROWSER' | translate">
+                        <i class="fa fa-external-link"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary me-1" (click)="openEdit(row)">
+                        <i class="fa fa-pencil"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" (click)="askDelete(row)">
+                        <i class="fa fa-trash"></i>
+                    </button>
+                    <div *ngIf="confirmDeleteId === row.id" class="confirm-delete-inline mt-1">
+                        <button type="button" class="btn btn-sm btn-danger" (click)="deleteRow(row)">
+                            {{ 'IOT_PROXY.CONFIRM_DELETE' | translate }}
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary ms-1" (click)="confirmDeleteId = null">
+                            {{ 'IOT_PROXY.CANCEL' | translate }}
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade show modal-backdrop-fake" *ngIf="showEditor" style="display:block;" tabindex="-1" role="dialog" (click)="closeEditor()">
+    <div class="modal-dialog modal-lg" role="document" (click)="$event.stopPropagation()">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    {{ (isEditMode ? 'IOT_PROXY.EDIT_TITLE' : 'IOT_PROXY.ADD_TITLE') | translate }}
+                </h5>
+                <button type="button" class="btn-close" aria-label="Close" (click)="closeEditor()"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-2">
+                    <div class="col-12" *ngIf="editing.publicSlug">
+                        <label class="form-label">{{ 'IOT_PROXY.SLUG' | translate }}</label>
+                        <input type="text" class="form-control" [(ngModel)]="editing.publicSlug" readonly>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">{{ 'IOT_PROXY.UPSTREAM' | translate }} *</label>
+                        <input type="url" class="form-control" [(ngModel)]="editing.upstreamBaseUrl"
+                               [placeholder]="'IOT_PROXY.UPSTREAM_HINT' | translate">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">{{ 'IOT_PROXY.DESCRIPTION' | translate }}</label>
+                        <input type="text" class="form-control" [(ngModel)]="editing.description" maxlength="512">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">{{ 'IOT_PROXY.BASIC_USER' | translate }}</label>
+                        <input type="text" autocomplete="username" class="form-control" [(ngModel)]="editing.upstreamUsername">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">{{ 'IOT_PROXY.BASIC_PASS' | translate }}</label>
+                        <input type="password" autocomplete="new-password" class="form-control" [(ngModel)]="editing.upstreamPassword">
+                        <small *ngIf="isEditMode && editing.hasUpstreamPassword" class="text-muted">
+                            {{ 'IOT_PROXY.PASS_LEAVE_BLANK' | translate }}
+                        </small>
+                    </div>
+                    <div class="col-12" *ngIf="editing.owner">
+                        <small class="text-muted">{{ 'IOT_PROXY.OWNER' | translate }}: {{ editing.owner }}</small>
+                    </div>
+                    <div class="col-12" *ngIf="editing.creationDate">
+                        <small class="text-muted">{{ 'IOT_PROXY.CREATED' | translate }}: {{ formatDate(editing.creationDate) }}</small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" (click)="closeEditor()">
+                    {{ 'IOT_PROXY.CANCEL' | translate }}
+                </button>
+                <button type="button" class="btn btn-primary" [disabled]="!editing.upstreamBaseUrl?.trim()" (click)="save()">
+                    {{ 'IOT_PROXY.SAVE' | translate }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<app-navigation-buttons></app-navigation-buttons>

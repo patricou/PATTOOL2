@@ -270,6 +270,20 @@
                                     <i class="fa fa-link"></i>
                                     {{ "LOCAL_NETWORK.OPEN_HTTP" | translate }}
                                 </button>
+                                <button *ngIf="matchingProxyForDevice(device)" type="button"
+                                        (click)="openLanProxyForDevice(device)"
+                                        class="btn btn-xs btn-outline-light device-open-btn"
+                                        [title]="'CAMERAS.OPEN_LAN_PROXY' | translate">
+                                    <i class="fa fa-exchange"></i>
+                                    {{ "CAMERAS.OPEN_LAN_PROXY" | translate }}
+                                </button>
+                                <button *ngIf="!matchingProxyForDevice(device)" type="button"
+                                        (click)="goCreateLanProxyForDevice(device)"
+                                        class="btn btn-xs btn-outline-light device-open-btn device-lan-proxy-create"
+                                        [title]="'CAMERAS.CREATE_LAN_PROXY_HINT' | translate">
+                                    <i class="fa fa-plus"></i>
+                                    {{ "CAMERAS.CREATE_LAN_PROXY" | translate }}
+                                </button>
                                 <span class="badge device-status-badge" [ngClass]="{
                                     'badge-success': device.status === 'online',
                                     'badge-secondary': device.status === 'offline',

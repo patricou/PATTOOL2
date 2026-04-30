@@ -10,7 +10,10 @@ import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation
 import { Camera } from '../model/camera';
 import { Member } from '../model/member';
 import { CameraService } from '../services/camera.service';
+import { IotProxyService } from '../services/iot-proxy.service';
+import { IotProxyTarget } from '../model/iot-proxy-target';
 import { MembersService } from '../services/members.service';
+import { Router } from '@angular/router';
 
 type CameraViewMode = 'grid' | 'list';
 
@@ -61,6 +64,8 @@ export class IotCamerasComponent implements OnInit, OnDestroy {
     user: Member = this._membersService.getUser();
 
     cameras: Camera[] = [];
+    /** IoT LAN proxy rows — used to offer “open via proxy” when a camera host matches upstream. */
+    proxyTargets: IotProxyTarget[] = [];
     isLoading = false;
     errorMessage = '';
 
@@ -106,7 +111,9 @@ export class IotCamerasComponent implements OnInit, OnDestroy {
 
     constructor(
         private _cameraService: CameraService,
+        private _iotProxyService: IotProxyService,
         private _membersService: MembersService,
+        private _router: Router,
         private _cdr: ChangeDetectorRef,
         private _zone: NgZone
     ) {}
@@ -128,9 +135,17 @@ export class IotCamerasComponent implements OnInit, OnDestroy {
         this._cameraService.getCameras(this.user?.id).subscribe({
             next: (cameras) => {
                 this.cameras = cameras || [];
-                this.isLoading = false;
-                this.autoStartLivePreviews();
-                this._cdr.markForCheck();
+                this._iotProxyService.list(this.user?.id).subscribe({
+                    next: (proxies) => {
+                        this.proxyTargets = proxies || [];
+                        this.finishLoadCameras();
+                    },
+                    error: (err) => {
+                        console.warn('Could not load IoT proxies for camera page', err);
+                        this.proxyTargets = [];
+                        this.finishLoadCameras();
+                    }
+                });
             },
             error: (err) => {
                 console.error('Error loading cameras', err);
@@ -138,6 +153,12 @@ export class IotCamerasComponent implements OnInit, OnDestroy {
                 this.isLoading = false;
             }
         });
+    }
+
+    private finishLoadCameras(): void {
+        this.isLoading = false;
+        this.autoStartLivePreviews();
+        this._cdr.markForCheck();
     }
 
     setView(mode: CameraViewMode): void {
@@ -244,6 +265,144 @@ export class IotCamerasComponent implements OnInit, OnDestroy {
 
     externalUrl(camera: Camera): string {
         return camera?.webUrl || '';
+    }
+
+    /**
+     * IoT proxy whose upstream host matches this camera after normalizing URLs to hostnames only
+     * (scheme {@code http(s)://}, path, trailing slash stripped — comparison is equal host, not substring “contains”).
+     * Camera {@link Camera#ip} may be a bare IP/host or a full URL; proxy {@link IotProxyTarget#upstreamBaseUrl} may be {@code http(s)://ip/…}.
+     */
+    matchingProxyForCamera(cam: Camera): IotProxyTarget | undefined {
+        const candidates = this.collectCameraHostCandidates(cam);
+        if (candidates.size === 0) {
+            return undefined;
+        }
+        for (const p of this.proxyTargets) {
+            const ph = this.parseHttpUrlHostname(p.upstreamBaseUrl || '');
+            if (ph && candidates.has(ph)) {
+                return p;
+            }
+        }
+        return undefined;
+    }
+
+    openLanProxy(cam: Camera): void {
+        const row = this.matchingProxyForCamera(cam);
+        if (!row?.publicSlug) {
+            return;
+        }
+        this.mintAndOpenLanProxySlug(row.publicSlug);
+    }
+
+    /**
+     * IoT LAN proxy for the Reolink NVR web UI: proxy {@link IotProxyTarget#description} must contain both “nvr” and “reolink” (any case).
+     */
+    reolinkNvrProxy(): IotProxyTarget | undefined {
+        return this.proxyTargets.find((p) => {
+            const d = (p.description || '').toLowerCase();
+            return d.includes('reolink') && d.includes('nvr');
+        });
+    }
+
+    openReolinkNvrProxy(): void {
+        const row = this.reolinkNvrProxy();
+        if (!row?.publicSlug) {
+            return;
+        }
+        this.mintAndOpenLanProxySlug(row.publicSlug);
+    }
+
+    private mintAndOpenLanProxySlug(publicSlug: string): void {
+        this.errorMessage = '';
+        this._iotProxyService.mintBrowserOpenUrl(publicSlug, undefined, this.user?.id).subscribe({
+            next: (res) => {
+                const abs = this._iotProxyService.resolveBackendAbsoluteUrl(res.relativeUrlWithQuery);
+                window.open(abs, '_blank', 'noopener,noreferrer');
+            },
+            error: (err) => {
+                console.error('mintBrowserOpenUrl', err);
+                this.errorMessage = err?.message || err?.statusText || 'LAN proxy open failed';
+                this._cdr.markForCheck();
+            }
+        });
+    }
+
+    /** Default upstream base URL for a new IoT proxy row (camera IP or host from web/snapshot URL). */
+    suggestedProxyUpstreamForCamera(cam: Camera): string {
+        const host =
+            this.parseHttpUrlHostname(cam.ip) ??
+            this.parseHttpUrlHostname(cam.webUrl) ??
+            this.parseHttpUrlHostname(cam.snapshotUrl);
+        if (!host) {
+            return '';
+        }
+        return this.formatHttpLanBaseUrl(host);
+    }
+
+    /** Navigate to IoT LAN proxy page and open “add” with prefilled upstream/description when possible. */
+    goCreateLanProxyForCamera(cam: Camera): void {
+        this.errorMessage = '';
+        const upstream = this.suggestedProxyUpstreamForCamera(cam).trim();
+        const desc = (cam.name || '').trim() || 'Camera';
+        const qp: Record<string, string> = { new: '1', desc };
+        if (upstream) {
+            qp['upstream'] = upstream;
+        }
+        this._router.navigate(['/iot/proxy'], { queryParams: qp }).catch((err) => console.error(err));
+    }
+
+    private formatHttpLanBaseUrl(host: string): string {
+        const needBrackets = host.includes(':') && !host.startsWith('[');
+        const h = needBrackets ? `[${host}]` : host;
+        return `http://${h}/`;
+    }
+
+    /** Hostnames stripped of scheme/path for matching (see {@link #parseHttpUrlHostname}). */
+    private collectCameraHostCandidates(cam: Camera): Set<string> {
+        const set = new Set<string>();
+        const ipH = this.parseHttpUrlHostname(cam.ip) ?? this.normalizePlainHost(cam.ip);
+        if (ipH) {
+            set.add(ipH);
+        }
+        const wh = this.parseHttpUrlHostname(cam.webUrl);
+        if (wh) {
+            set.add(wh);
+        }
+        const sh = this.parseHttpUrlHostname(cam.snapshotUrl);
+        if (sh) {
+            set.add(sh);
+        }
+        return set;
+    }
+
+    /** Lowercase hostname / bracketless IPv6; does not strip {@code http://} — prefer {@link #parseHttpUrlHostname} for URLs. */
+    private normalizePlainHost(raw: string | undefined | null): string | null {
+        if (!raw || !String(raw).trim()) {
+            return null;
+        }
+        let s = String(raw).trim().toLowerCase();
+        if (s.startsWith('[') && s.endsWith(']')) {
+            s = s.slice(1, -1);
+        }
+        return s;
+    }
+
+    /**
+     * Extracts hostname from an absolute or abbreviated URL string (camera IP field, proxy base URL, web/snapshot URLs).
+     * Handles {@code http(s)://}, path, trailing slash; port is not part of the returned host (RFC host only).
+     * Bare {@code 192.168.1.1} is parsed as {@code http://192.168.1.1}.
+     */
+    private parseHttpUrlHostname(urlLike: string | undefined | null): string | null {
+        if (!urlLike || !String(urlLike).trim()) {
+            return null;
+        }
+        const t = String(urlLike).trim();
+        try {
+            const u = new URL(t.includes('://') ? t : `http://${t}`);
+            return this.normalizePlainHost(u.hostname);
+        } catch {
+            return null;
+        }
     }
 
     // ===================== Live snapshot polling =====================

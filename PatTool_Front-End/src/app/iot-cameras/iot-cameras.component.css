@@ -246,6 +246,27 @@
     margin-right: 3px;
 }
 
+.meta-ip-row {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.15rem 0.35rem;
+}
+
+.meta-ip-row .meta-ip-value {
+    word-break: break-all;
+}
+
+.btn-proxy-by-ip {
+    flex-shrink: 0;
+}
+
+.ip-cell {
+    white-space: normal;
+    vertical-align: middle;
+    max-width: 280px;
+}
+
 .cameras-table-wrapper {
     background: #fff;
     border: 1px solid #e0e0e0;

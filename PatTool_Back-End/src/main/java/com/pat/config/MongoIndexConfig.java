@@ -169,8 +169,25 @@ public class MongoIndexConfig {
 
             // Links page: categorylink + urllink + friends lookups
             createLinksViewIndexes();
+
+            // IoT LAN proxy targets: list by owner sorted by creation date
+            createIotProxyTargetIndexes();
         } catch (Exception e) {
             log.error("Error creating MongoDB indexes", e);
+        }
+    }
+
+    /** {@code GET /api/iot-proxies}: {@link com.pat.repo.IotProxyTargetRepository#findByOwnerOrderByCreationDateDesc(String)} */
+    private void createIotProxyTargetIndexes() {
+        try {
+            log.debug("Creating MongoDB indexes for iot_proxy_targets");
+            createCompoundIndexIfNotExists("iot_proxy_targets",
+                    new String[]{"owner", "creationDate"},
+                    new Sort.Direction[]{Sort.Direction.ASC, Sort.Direction.DESC},
+                    "IoT proxies: filter by owner, sort newest first");
+            log.debug("MongoDB indexes for iot_proxy_targets done");
+        } catch (Exception e) {
+            log.error("Error creating iot_proxy_targets MongoDB indexes", e);
         }
     }
 

@@ -185,6 +185,11 @@
                            (click)="closeMenu()">
                         <i class="fa fa-video-camera"></i> {{ 'MENU.CAMERAS' | translate }}
                     </a></li>
+                    <li><a class="dropdown-item"
+                           [routerLink]="['iot/proxy']"
+                           (click)="closeMenu()">
+                        <i class="fa fa-random"></i> {{ 'MENU.IOT_PROXY' | translate }}
+                    </a></li>
                 </ul>
             </li>
 

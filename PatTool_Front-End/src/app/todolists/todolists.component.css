@@ -10,61 +10,61 @@
     margin: 0 auto;
 }
 
-.todolists-header {
+.todolists-toolbar {
     display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 20px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid #e2e2e2;
-}
-
-.todolists-title-block {
-    flex: 1 1 auto;
-    min-width: 240px;
-}
-
-.todolists-title {
-    margin: 0;
-    font-weight: 700;
-    color: #2c3e50;
-    display: flex;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 10px;
-}
-
-.todolists-title i {
-    color: #4a90e2;
-}
-
-.todolists-subtitle {
-    margin: 6px 0 0;
-    color: #6c757d;
-    font-size: 0.95rem;
-}
-
-.todolists-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: stretch;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 20px;
 }
 
 .todolists-filter {
     display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    flex: 0 1 auto;
+    min-width: 0;
 }
 
-.todolists-filter input,
+.todolists-filter input[type='search'] {
+    flex: 1 1 6rem;
+    min-width: 6rem;
+    max-width: 14rem;
+}
+
 .todolists-filter select {
-    min-width: 180px;
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 7.5rem;
+    max-width: 11rem;
 }
 
 .todolists-create-btn {
-    align-self: stretch;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+@media (max-width: 575.98px) {
+    .todolists-toolbar {
+        flex-wrap: wrap;
+        row-gap: 8px;
+    }
+
+    .todolists-filter {
+        flex: 1 1 100%;
+        min-width: 100%;
+    }
+
+    .todolists-filter input[type='search'] {
+        flex: 1 1 auto;
+        max-width: none;
+    }
+
+    .todolists-create-btn {
+        margin-left: auto;
+    }
 }
 
 .todolists-loading {

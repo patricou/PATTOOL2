@@ -7,6 +7,10 @@ import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { LocalNetworkService } from '../services/local-network.service';
+import { IotProxyService } from '../services/iot-proxy.service';
+import { IotProxyTarget } from '../model/iot-proxy-target';
+import { MembersService } from '../services/members.service';
+import { Member } from '../model/member';
 
 export interface NetworkDevice {
   ipAddress: string;
@@ -60,7 +64,11 @@ export interface Vulnerability {
 })
 export class LocalNetworkComponent implements OnInit, OnDestroy {
 
+  user: Member = this.membersService.getUser();
+
   devices: NetworkDevice[] = [];
+  /** IoT LAN proxies — match device IP/host to upstream for open / create actions. */
+  proxyTargets: IotProxyTarget[] = [];
   isLoading: boolean = false;
   isScanning: boolean = false;
   scanProgress: number = 0;
@@ -170,6 +178,8 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     private router: Router,
     public keycloakService: KeycloakService,
     private localNetworkService: LocalNetworkService,
+    private iotProxyService: IotProxyService,
+    private membersService: MembersService,
     private cdr: ChangeDetectorRef,
     private ngZone: NgZone,
     private modalService: NgbModal,
@@ -187,6 +197,8 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     
     // Load device mappings on startup to enable MAC address comparison
     this.loadDeviceMappingsSilently();
+
+    this.loadIotProxies();
     
     // Load scheduler enabled status
     this.loadScanSchedulerStatus();
@@ -312,6 +324,7 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
         this.scanProgress = 100;
         this.scanProgressText = `100% (${this.totalIps}/${this.totalIps})`;
         this.scannedIps = this.totalIps;
+        this.loadIotProxies();
         
         // Wait a moment before hiding progress bar
         setTimeout(() => {
@@ -416,6 +429,7 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
       // If we reach here without scan-completed event, mark as complete
       this.scanProgress = 100;
       this.scanProgressText = `100% (${this.totalIps}/${this.totalIps})`;
+      this.loadIotProxies();
       
       setTimeout(() => {
         this.isScanning = false;
@@ -513,6 +527,122 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   openDeviceUrl(device: NetworkDevice): void {
     const url = `http://${device.ipAddress}`;
     window.open(url, '_blank');
+  }
+
+  private loadIotProxies(): void {
+    this.iotProxyService.list(this.user?.id).subscribe({
+      next: (proxies) => {
+        this.proxyTargets = proxies || [];
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        console.warn('Could not load IoT proxies for local network page', err);
+        this.proxyTargets = [];
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  /**
+   * IoT proxy whose upstream host matches this device (IP and optional web URL), same normalization as IoT cameras.
+   */
+  matchingProxyForDevice(device: NetworkDevice): IotProxyTarget | undefined {
+    const candidates = this.collectNetworkDeviceHostCandidates(device);
+    if (candidates.size === 0) {
+      return undefined;
+    }
+    for (const p of this.proxyTargets) {
+      const ph = this.parseHttpUrlHostname(p.upstreamBaseUrl || '');
+      if (ph && candidates.has(ph)) {
+        return p;
+      }
+    }
+    return undefined;
+  }
+
+  openLanProxyForDevice(device: NetworkDevice): void {
+    const row = this.matchingProxyForDevice(device);
+    if (!row?.publicSlug) {
+      return;
+    }
+    this.iotProxyService.mintBrowserOpenUrl(row.publicSlug, undefined, this.user?.id).subscribe({
+      next: (res) => {
+        const abs = this.iotProxyService.resolveBackendAbsoluteUrl(res.relativeUrlWithQuery);
+        window.open(abs, '_blank', 'noopener,noreferrer');
+      },
+      error: (err) => {
+        console.error('mintBrowserOpenUrl (local network)', err);
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  /** Default upstream for a new IoT proxy row from scan data. */
+  suggestedProxyUpstreamForDevice(device: NetworkDevice): string {
+    const host =
+      this.parseHttpUrlHostname(device.ipAddress) ??
+      this.parseHttpUrlHostname(device.webUrl);
+    if (!host) {
+      return '';
+    }
+    return this.formatHttpLanBaseUrl(host);
+  }
+
+  goCreateLanProxyForDevice(device: NetworkDevice): void {
+    const upstream = this.suggestedProxyUpstreamForDevice(device).trim();
+    const desc =
+      this.getDeviceDisplayName(device).trim() ||
+      (device.hostname || '').trim() ||
+      device.ipAddress ||
+      'Device';
+    const qp: Record<string, string> = { new: '1', desc };
+    if (upstream) {
+      qp['upstream'] = upstream;
+    }
+    this.router.navigate(['/iot/proxy'], { queryParams: qp }).catch((err) => console.error(err));
+  }
+
+  private formatHttpLanBaseUrl(host: string): string {
+    const needBrackets = host.includes(':') && !host.startsWith('[');
+    const h = needBrackets ? `[${host}]` : host;
+    return `http://${h}/`;
+  }
+
+  private collectNetworkDeviceHostCandidates(device: NetworkDevice): Set<string> {
+    const set = new Set<string>();
+    const ipH = this.parseHttpUrlHostname(device.ipAddress) ?? this.normalizePlainHost(device.ipAddress);
+    if (ipH) {
+      set.add(ipH);
+    }
+    const wh = this.parseHttpUrlHostname(device.webUrl);
+    if (wh) {
+      set.add(wh);
+    }
+    return set;
+  }
+
+  private normalizePlainHost(raw: string | undefined | null): string | null {
+    if (!raw || !String(raw).trim()) {
+      return null;
+    }
+    let s = String(raw).trim().toLowerCase();
+    if (s.startsWith('[') && s.endsWith(']')) {
+      s = s.slice(1, -1);
+    }
+    return s;
+  }
+
+  private parseHttpUrlHostname(urlLike: string | undefined | null): string | null {
+    if (!urlLike || !String(urlLike).trim()) {
+      return null;
+    }
+    const t = String(urlLike).trim();
+    try {
+      const u = new URL(t.includes('://') ? t : `http://${t}`);
+      return this.normalizePlainHost(u.hostname);
+    } catch {
+      return null;
+    }
   }
 
   /**

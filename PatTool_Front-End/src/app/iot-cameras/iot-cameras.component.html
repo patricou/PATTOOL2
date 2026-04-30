@@ -30,6 +30,13 @@
                 <i class="fa fa-th-large"></i>
                 {{ 'CAMERAS.MOSAIC' | translate }}
             </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary"
+                    *ngIf="reolinkNvrProxy()"
+                    (click)="openReolinkNvrProxy()"
+                    [title]="'CAMERAS.OPEN_REOLINK_NVR_PROXY_HINT' | translate">
+                <i class="fa fa-hdd-o"></i>
+                {{ 'CAMERAS.OPEN_REOLINK_NVR_PROXY' | translate }}
+            </button>
             <div class="refresh-rate-control" [title]="'CAMERAS.REFRESH_RATE_HINT' | translate">
                 <span class="refresh-rate-label">
                     <i class="fa fa-tachometer"></i>
@@ -167,10 +174,25 @@
                 </span>
             </div>
 
-            <div class="camera-meta" *ngIf="cam.brand || cam.type || cam.ip">
+            <div class="camera-meta">
                 <div class="meta-item" *ngIf="cam.brand"><strong>{{ 'CAMERAS.BRAND' | translate }}:</strong> {{ cam.brand }}</div>
                 <div class="meta-item" *ngIf="cam.type"><strong>{{ 'CAMERAS.TYPE' | translate }}:</strong> {{ cam.type }}</div>
-                <div class="meta-item" *ngIf="cam.ip"><strong>{{ 'CAMERAS.IP' | translate }}:</strong> {{ cam.ip }}</div>
+                <div class="meta-item meta-ip-row">
+                    <strong>{{ 'CAMERAS.IP' | translate }}:</strong>
+                    <span class="meta-ip-value">{{ cam.ip.trim() ? cam.ip : '—' }}</span>
+                    <button *ngIf="matchingProxyForCamera(cam)" type="button"
+                            class="btn btn-sm btn-outline-secondary btn-proxy-by-ip ms-1"
+                            (click)="openLanProxy(cam)"
+                            [title]="'CAMERAS.OPEN_LAN_PROXY' | translate">
+                        <i class="fa fa-exchange me-1"></i>{{ 'CAMERAS.OPEN_LAN_PROXY' | translate }}
+                    </button>
+                    <button *ngIf="!matchingProxyForCamera(cam)" type="button"
+                            class="btn btn-sm btn-outline-primary btn-proxy-by-ip ms-1"
+                            (click)="goCreateLanProxyForCamera(cam)"
+                            [title]="'CAMERAS.CREATE_LAN_PROXY_HINT' | translate">
+                        <i class="fa fa-plus me-1"></i>{{ 'CAMERAS.CREATE_LAN_PROXY' | translate }}
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -196,7 +218,21 @@
                     <td class="uid-cell" [title]="cam.uid"><code>{{ cam.uid }}</code></td>
                     <td>{{ cam.brand }}</td>
                     <td>{{ cam.type }}</td>
-                    <td>{{ cam.ip }}</td>
+                    <td class="ip-cell">
+                        <span>{{ cam.ip.trim() ? cam.ip : '—' }}</span>
+                        <button *ngIf="matchingProxyForCamera(cam)" type="button"
+                                class="btn btn-sm btn-outline-secondary btn-proxy-by-ip ms-1"
+                                (click)="openLanProxy(cam)"
+                                [title]="'CAMERAS.OPEN_LAN_PROXY' | translate">
+                            <i class="fa fa-exchange me-1"></i>{{ 'CAMERAS.OPEN_LAN_PROXY' | translate }}
+                        </button>
+                        <button *ngIf="!matchingProxyForCamera(cam)" type="button"
+                                class="btn btn-sm btn-outline-primary btn-proxy-by-ip ms-1"
+                                (click)="goCreateLanProxyForCamera(cam)"
+                                [title]="'CAMERAS.CREATE_LAN_PROXY_HINT' | translate">
+                            <i class="fa fa-plus me-1"></i>{{ 'CAMERAS.CREATE_LAN_PROXY' | translate }}
+                        </button>
+                    </td>
                     <td>{{ cam.place }}</td>
                     <td>{{ cam.room }}</td>
                     <td class="text-end">

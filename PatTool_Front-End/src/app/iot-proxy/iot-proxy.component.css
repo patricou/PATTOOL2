@@ -1,0 +1,11 @@
+.iot-proxy-scope code {
+    font-size: 0.82rem;
+}
+
+.modal-backdrop-fake {
+    background: rgba(0, 0, 0, 0.35);
+}
+
+.confirm-delete-inline {
+    text-align: right;
+}

@@ -183,6 +183,11 @@ public class SecurityConfig {
                 // on the role name ("Iot" / "iot") matches the frontend guard in
                 // KeycloakService.hasIotRole().
                 .requestMatchers("/api/cameras", "/api/cameras/**").hasAnyRole("Iot", "iot")
+
+                // IoT LAN proxy: CRUD restricted to Iot; forward path (any method) validated inside controller (iotOpen cookie/query or Bearer + Iot).
+                // Forms and XHR on the proxied SPA use POST/PUT etc. — they must reach the controller without a PatTool JWT.
+                .requestMatchers("/api/iot-proxies/forward/**").permitAll()
+                .requestMatchers("/api/iot-proxies/**").hasAnyRole("Iot", "iot")
                 
                 // GET event details by ID: allow anonymous so controller can return 403 (no access) instead of 401
                 // This way the frontend can show "ask owner for access" instead of redirecting to login
