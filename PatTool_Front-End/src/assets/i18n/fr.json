@@ -72,6 +72,9 @@
         "OPTIONAL_PATH_HINT": "Chemin après la base:",
         "OPTIONAL_PATH_PLACEHOLDER": "ex. chemin/vers/page",
         "CONFIRM_DELETE": "Confirmer suppression",
+        "FILTER_LABEL": "Filtre",
+        "FILTER_PLACEHOLDER": "Description ou URL / IP amont",
+        "NO_MATCH": "Aucun proxy ne correspond à ce filtre.",
         "DELETE_HINT": ""
     },
     "TODOLISTS": {
@@ -134,6 +137,13 @@
         "OPEN_FULL_PAGE": "Ouvrir la page des listes",
         "SAVE_ERROR": "Impossible d'enregistrer la liste. Réessayez.",
         "ALL_STATUSES": "Tous les statuts",
+        "SORT": {
+            "LABEL": "Trier les listes",
+            "CREATED_DESC": "Date — plus récentes",
+            "CREATED_ASC": "Date — plus anciennes",
+            "NAME_ASC": "Nom — A à Z",
+            "NAME_DESC": "Nom — Z à A"
+        },
         "SEARCH_PLACEHOLDER": "Rechercher...",
         "DAYS_LEFT": "Reste {{days}} jour(s)",
         "OVERDUE": "En retard",
@@ -428,6 +438,9 @@
         "HOSTNAME": "Nom d'hôte",
         "MAC_ADDRESS": "Adresse MAC",
         "VENDOR": "Fabricant",
+        "EXTRA_INFO_EXPAND": "Détails du scan",
+        "EXTRA_INFO_COLLAPSE": "Masquer",
+        "EXTRA_INFO_TOGGLE_TOOLTIP": "OS, interface web, base de données, partage, accès distant, dernière vue",
         "OS": "Système d'exploitation",
         "OPEN_PORTS": "Ports Ouverts",
         "LAST_SEEN": "Vu pour la dernière fois",

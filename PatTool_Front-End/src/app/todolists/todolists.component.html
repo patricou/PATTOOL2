@@ -21,6 +21,15 @@
                         {{ ('TODOLISTS.STATUS.' + s.toUpperCase()) | translate }}
                     </option>
                 </select>
+                <select class="form-select form-select-sm todolists-sort-select"
+                        [(ngModel)]="listSortKey"
+                        [attr.title]="'TODOLISTS.SORT.LABEL' | translate"
+                        [attr.aria-label]="'TODOLISTS.SORT.LABEL' | translate">
+                    <option value="created_desc">{{ 'TODOLISTS.SORT.CREATED_DESC' | translate }}</option>
+                    <option value="created_asc">{{ 'TODOLISTS.SORT.CREATED_ASC' | translate }}</option>
+                    <option value="name_asc">{{ 'TODOLISTS.SORT.NAME_ASC' | translate }}</option>
+                    <option value="name_desc">{{ 'TODOLISTS.SORT.NAME_DESC' | translate }}</option>
+                </select>
             </div>
             <button type="button" class="btn btn-sm btn-primary todolists-create-btn" (click)="openCreate()">
                 <i class="fa fa-plus"></i> {{ 'TODOLISTS.CREATE' | translate }}

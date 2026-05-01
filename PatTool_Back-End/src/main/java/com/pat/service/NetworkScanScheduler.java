@@ -41,7 +41,7 @@ public class NetworkScanScheduler {
     @Autowired
     private MailController mailController;
 
-    @Value("${app.network.scan.scheduler.enabled:false}")
+    @Value("${app.network.scan.scheduler.enabled:true}")
     private boolean schedulerEnabledDefault;
 
     @Value("${app.network.scan.scheduler.cron:0 */10 * * * ?}")
@@ -123,7 +123,7 @@ public class NetworkScanScheduler {
     @Scheduled(cron = "${app.network.scan.scheduler.cron:0 */10 * * * ?}")
     public void scheduledNetworkScan() {
         if (!schedulerEnabled) {
-            log.debug("Network scan scheduler is disabled (app.network.scan.scheduler.enabled=false)");
+            log.debug("Network scan scheduler is disabled (scheduler enabled flag is false)");
             return;
         }
 

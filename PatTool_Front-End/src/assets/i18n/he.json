@@ -72,6 +72,9 @@
         "OPTIONAL_PATH_HINT": "סיומת נתיב:",
         "OPTIONAL_PATH_PLACEHOLDER": "למשל path/to/page",
         "CONFIRM_DELETE": "אישור מחיקה",
+        "FILTER_LABEL": "סינון",
+        "FILTER_PLACEHOLDER": "תיאור או כתובת upstream / IP",
+        "NO_MATCH": "אין פרוקסי שמתאימים למסנן.",
         "DELETE_HINT": ""
     },
     "TODOLISTS": {
@@ -124,6 +127,13 @@
         "OPEN_FULL_PAGE": "פתיחת דף הרשימות",
         "SAVE_ERROR": "שמירת הרשימה נכשלה. נסו שוב.",
         "ALL_STATUSES": "כל הסטטוסים",
+        "SORT": {
+            "LABEL": "מיון רשימות",
+            "CREATED_DESC": "תאריך — החדשות ביותר קודם",
+            "CREATED_ASC": "תאריך — הישנות ביותר קודם",
+            "NAME_ASC": "שם — א׳ עד ת׳",
+            "NAME_DESC": "שם — ת׳ עד א׳"
+        },
         "SEARCH_PLACEHOLDER": "חיפוש...",
         "DAYS_LEFT": "נותרו {{days}} ימים",
         "OVERDUE": "באיחור",

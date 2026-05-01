@@ -72,6 +72,9 @@
         "OPTIONAL_PATH_HINT": "Suffix path:",
         "OPTIONAL_PATH_PLACEHOLDER": "e.g. path/to/page",
         "CONFIRM_DELETE": "Confirm delete",
+        "FILTER_LABEL": "Filter",
+        "FILTER_PLACEHOLDER": "Description or upstream URL / IP",
+        "NO_MATCH": "No proxy matches this filter.",
         "DELETE_HINT": ""
     },
     "TODOLISTS": {
@@ -134,6 +137,13 @@
         "OPEN_FULL_PAGE": "Open full lists page",
         "SAVE_ERROR": "Could not save the list. Please try again.",
         "ALL_STATUSES": "All statuses",
+        "SORT": {
+            "LABEL": "Sort lists",
+            "CREATED_DESC": "Date — newest first",
+            "CREATED_ASC": "Date — oldest first",
+            "NAME_ASC": "Name — A to Z",
+            "NAME_DESC": "Name — Z to A"
+        },
         "SEARCH_PLACEHOLDER": "Search...",
         "DAYS_LEFT": "{{days}} day(s) left",
         "OVERDUE": "Overdue",
@@ -433,6 +443,9 @@
         "HOSTNAME": "Hostname",
         "MAC_ADDRESS": "MAC Address",
         "VENDOR": "Vendor",
+        "EXTRA_INFO_EXPAND": "Scan details",
+        "EXTRA_INFO_COLLAPSE": "Hide",
+        "EXTRA_INFO_TOGGLE_TOOLTIP": "OS, web interface, database, file sharing, remote access, last seen",
         "OS": "Operating System",
         "OPEN_PORTS": "Open Ports",
         "LAST_SEEN": "Last Seen",

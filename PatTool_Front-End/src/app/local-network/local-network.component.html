@@ -270,20 +270,6 @@
                                     <i class="fa fa-link"></i>
                                     {{ "LOCAL_NETWORK.OPEN_HTTP" | translate }}
                                 </button>
-                                <button *ngIf="matchingProxyForDevice(device)" type="button"
-                                        (click)="openLanProxyForDevice(device)"
-                                        class="btn btn-xs btn-outline-light device-open-btn"
-                                        [title]="'CAMERAS.OPEN_LAN_PROXY' | translate">
-                                    <i class="fa fa-exchange"></i>
-                                    {{ "CAMERAS.OPEN_LAN_PROXY" | translate }}
-                                </button>
-                                <button *ngIf="!matchingProxyForDevice(device)" type="button"
-                                        (click)="goCreateLanProxyForDevice(device)"
-                                        class="btn btn-xs btn-outline-light device-open-btn device-lan-proxy-create"
-                                        [title]="'CAMERAS.CREATE_LAN_PROXY_HINT' | translate">
-                                    <i class="fa fa-plus"></i>
-                                    {{ "CAMERAS.CREATE_LAN_PROXY" | translate }}
-                                </button>
                                 <span class="badge device-status-badge" [ngClass]="{
                                     'badge-success': device.status === 'online',
                                     'badge-secondary': device.status === 'offline',
@@ -296,6 +282,23 @@
                     </div>
                     
                     <div class="device-body">
+                        <!-- Vulnerabilities Section (shown first when present) -->
+                        <div *ngIf="device.vulnerabilities && device.vulnerabilities.length > 0" class="vulnerabilities-section vulnerabilities-section--first mb-3">
+                            <h5><i class="fa fa-shield"></i> {{ "LOCAL_NETWORK.VULNERABILITIES" | translate }}</h5>
+                            <div class="vulnerability-item" *ngFor="let vuln of device.vulnerabilities">
+                                <div class="vulnerability-header">
+                                    <span class="badge" [ngClass]="getSeverityClass(vuln.severity)">
+                                        {{ getSeverityLabel(vuln.severity) }}
+                                    </span>
+                                    <strong>{{ getVulnerabilityTypeLabel(vuln.type) }}</strong>
+                                    <span *ngIf="vuln.port" class="text-muted ml-2">
+                                        ({{ "LOCAL_NETWORK.PORT" | translate }}: {{ vuln.port }})
+                                    </span>
+                                </div>
+                                <p class="vulnerability-description">{{ getVulnerabilityDescription(vuln.description) }}</p>
+                            </div>
+                        </div>
+
                         <!-- Basic Information -->
                         <div class="device-info-grid">
                             <div class="info-item" *ngIf="device.hostname && device.hostname !== device.ipAddress">
@@ -317,10 +320,9 @@
                                 <div>
                                     <strong>{{ "LOCAL_NETWORK.DEVICE_TYPE" | translate }}</strong>
                                     <div>
-                                        <span class="badge badge-primary" 
-                                              style="font-size: 0.75rem; padding: 0.25rem 0.5rem; color: #000; font-weight: 600;"
+                                        <span class="badge device-type-pill"
                                               [title]="getDeviceMapping(device)?.deviceType ? ('Type depuis MongoDB: ' + getDeviceMapping(device).deviceType) : (device.vendor ? ('Détecté via: ' + (device.macAddressSource === 'arp' ? 'MAC Address (ARP)' : device.macAddressSource === 'mongodb' ? 'MongoDB' : 'Local') + ' - Fabricant: ' + device.vendor) : 'Type détecté via ports ouverts')">
-                                            <i class="fa fa-info-circle" style="margin-right: 3px; font-size: 0.7rem;"></i>
+                                            <i class="fa fa-info-circle device-type-pill-icon" aria-hidden="true"></i>
                                             <ng-container *ngIf="getDeviceMapping(device)?.deviceType; else scannedDeviceType">
                                                 {{ getDeviceMapping(device).deviceType }}
                                             </ng-container>
@@ -331,12 +333,12 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="info-item" *ngIf="getDeviceMapping(device)?.deviceDescription" style="grid-column: 1 / -1; margin-top: 5px; padding: 8px; background-color: rgba(108, 117, 125, 0.15); border-radius: 4px; border-left: 3px solid #6c757d;">
-                                <div style="display: flex; align-items: flex-start; gap: 8px;">
-                                    <i class="fa fa-file-text-o" style="font-size: 1rem; color: #6c757d; margin-top: 2px;"></i>
-                                    <div style="flex: 1;">
-                                        <strong style="font-size: 0.85rem; color: #000;">{{ "LOCAL_NETWORK.DEVICE_DESCRIPTION" | translate }}</strong>
-                                        <div style="margin-top: 4px; color: #000; font-size: 0.9rem;">
+                            <div class="info-item device-desc-callout" *ngIf="getDeviceMapping(device)?.deviceDescription">
+                                <div class="device-desc-callout-inner">
+                                    <i class="fa fa-file-text-o device-desc-callout-icon" aria-hidden="true"></i>
+                                    <div class="device-desc-callout-body">
+                                        <strong class="device-desc-callout-title">{{ "LOCAL_NETWORK.DEVICE_DESCRIPTION" | translate }}</strong>
+                                        <div class="device-desc-callout-text">
                                             {{ getDeviceMapping(device).deviceDescription }}
                                         </div>
                                     </div>
@@ -347,18 +349,18 @@
                                 <div>
                                     <strong>{{ "LOCAL_NETWORK.MAC_ADDRESS" | translate }}</strong>
                                     <!-- Conflict: Both MAC addresses are different -->
-                                    <div *ngIf="hasMacConflict(device)" class="mt-1">
+                                    <div *ngIf="hasMacConflict(device)" class="mt-1 device-mac-conflict-block">
                                         <div class="mb-2">
-                                            <code style="color: #dc3545; font-weight: bold; font-size: 0.9em;" [title]="'ARP (Real Device): ' + device.macAddress">
+                                            <code class="device-mac-conflict-code" [title]="'ARP (Real Device): ' + device.macAddress">
                                                 {{ device.macAddress }}
                                             </code>
-                                            <span style="color: #dc3545; font-size: 0.85em; margin-left: 5px;">(ARP - Real Device)</span>
+                                            <span class="device-mac-conflict-hint">(ARP - Real Device)</span>
                                         </div>
                                         <div>
-                                            <code style="color: #dc3545; font-weight: bold; font-size: 0.9em;" [title]="'MongoDB: ' + device.macAddressMongoDB">
+                                            <code class="device-mac-conflict-code" [title]="'MongoDB: ' + device.macAddressMongoDB">
                                                 {{ device.macAddressMongoDB }}
                                             </code>
-                                            <span style="color: #dc3545; font-size: 0.85em; margin-left: 5px;">(MongoDB)</span>
+                                            <span class="device-mac-conflict-hint">(MongoDB)</span>
                                         </div>
                                     </div>
                                     <!-- No conflict: Single MAC address with source color -->
@@ -383,31 +385,50 @@
                                 </div>
                             </div>
                             
-                            <!-- New Device Indicator -->
-                            <div class="info-item" *ngIf="isNewDevice(device)" style="grid-column: 1 / -1; margin-top: 10px; padding: 10px; background-color: rgba(255, 192, 203, 0.2); border-radius: 4px; border: 1px solid #ff69b4;">
-                                <div style="text-align: center; width: 100%;">
-                                    <i class="fa fa-star" style="color: #ff69b4; margin-right: 5px;"></i>
-                                    <strong style="color: #ff69b4;">{{ "LOCAL_NETWORK.NEW_DEVICE_DETECTED" | translate }}</strong>
+                            <div class="info-item device-new-banner" *ngIf="isNewDevice(device)">
+                                <div class="device-new-banner-inner">
+                                    <i class="fa fa-star device-new-banner-icon" aria-hidden="true"></i>
+                                    <strong class="device-new-banner-text">{{ "LOCAL_NETWORK.NEW_DEVICE_DETECTED" | translate }}</strong>
                                 </div>
                             </div>
                             
-                            <div class="info-item" *ngIf="device.vendor" style="grid-column: 1 / -1; margin-top: 5px; padding: 8px; background-color: rgba(23, 162, 184, 0.15); border-radius: 4px; border-left: 3px solid #17a2b8;">
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <i class="fa fa-industry" style="font-size: 1rem; color: #17a2b8;"></i>
-                                    <div style="flex: 1;">
-                                        <strong style="font-size: 0.85rem; color: #000;">{{ "LOCAL_NETWORK.VENDOR" | translate }}</strong>
-                                        <div style="margin-top: 4px;">
-                                            <span class="badge" 
-                                                  [ngClass]="useExternalVendorAPI ? 'badge-success' : 'badge-info'"
-                                                  style="font-size: 0.75rem; padding: 0.25rem 0.5rem; font-weight: 600; white-space: normal; word-wrap: break-word; word-break: normal; overflow-wrap: break-word; display: inline-block; max-width: 100%;"
-                                                  [title]="useExternalVendorAPI ? 'Fabricant détecté via API externe (macvendors.com)' : 'Fabricant détecté via base de données locale (OUI)'">
-                                                <i class="fa" [ngClass]="useExternalVendorAPI ? 'fa-cloud' : 'fa-database'" style="margin-right: 3px; font-size: 0.7rem;"></i>
-                                                {{ device.vendor }}
+                            <div class="info-item device-vendor-item" *ngIf="device.vendor">
+                                <div class="device-vendor-block">
+                                    <div class="device-vendor-header">
+                                        <i class="fa fa-industry device-vendor-icon" aria-hidden="true"></i>
+                                        <span class="device-vendor-label">{{ "LOCAL_NETWORK.VENDOR" | translate }}</span>
+                                    </div>
+                                    <div class="device-vendor-value-row">
+                                        <span class="device-vendor-badge device-vendor-pill"
+                                              [class.device-vendor-pill--api]="useExternalVendorAPI"
+                                              [class.device-vendor-pill--local]="!useExternalVendorAPI"
+                                              [title]="device.vendor">
+                                            <span class="device-vendor-badge-inner">
+                                                <i class="fa device-vendor-src-icon"
+                                                   [ngClass]="useExternalVendorAPI ? 'fa-cloud' : 'fa-database'"
+                                                   aria-hidden="true"></i>
+                                                <span class="device-vendor-name">{{ truncateVendorName(device.vendor) }}</span>
                                             </span>
-                                        </div>
+                                        </span>
                                     </div>
                                 </div>
                             </div>
+
+                            <div class="device-extra-details-toggle-wrap" *ngIf="hasDeviceExtraDetails(device)">
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-secondary w-100 device-extra-details-toggle"
+                                        (click)="toggleDeviceExtraDetails(device)"
+                                        [attr.aria-expanded]="isDeviceExtraDetailsExpanded(device)"
+                                        [title]="'LOCAL_NETWORK.EXTRA_INFO_TOGGLE_TOOLTIP' | translate">
+                                    <i class="fa me-1"
+                                       [ngClass]="isDeviceExtraDetailsExpanded(device) ? 'fa-chevron-up' : 'fa-chevron-down'"
+                                       aria-hidden="true"></i>
+                                    <ng-container *ngIf="!isDeviceExtraDetailsExpanded(device)">{{ "LOCAL_NETWORK.EXTRA_INFO_EXPAND" | translate }}</ng-container>
+                                    <ng-container *ngIf="isDeviceExtraDetailsExpanded(device)">{{ "LOCAL_NETWORK.EXTRA_INFO_COLLAPSE" | translate }}</ng-container>
+                                </button>
+                            </div>
+
+                            <ng-container *ngIf="hasDeviceExtraDetails(device) && isDeviceExtraDetailsExpanded(device)">
                             <div class="info-item" *ngIf="device.os">
                                 <i class="fa fa-laptop"></i>
                                 <div>
@@ -458,12 +479,29 @@
                                     <div>{{ device.lastSeen | date:'short' }}</div>
                                 </div>
                             </div>
+                            </ng-container>
                         </div>
 
                         <!-- Services and Ports Details -->
-                        <div *ngIf="hasServices(device.services)" class="services-section mt-3">
+                        <div class="services-section mt-3">
                             <h5><i class="fa fa-server"></i> {{ "LOCAL_NETWORK.SERVICES" | translate }}</h5>
-                            <div class="services-list">
+                            <div class="lan-proxy-service-actions mb-2">
+                                <button *ngIf="matchingProxyForDevice(device)" type="button"
+                                        (click)="openLanProxyForDevice(device)"
+                                        class="btn btn-sm lan-proxy-btn-open w-100"
+                                        [title]="'CAMERAS.OPEN_LAN_PROXY' | translate">
+                                    <i class="fa fa-exchange me-2"></i>
+                                    {{ "CAMERAS.OPEN_LAN_PROXY" | translate }}
+                                </button>
+                                <button *ngIf="!matchingProxyForDevice(device)" type="button"
+                                        (click)="goCreateLanProxyForDevice(device)"
+                                        class="btn btn-sm lan-proxy-btn-create w-100"
+                                        [title]="'CAMERAS.CREATE_LAN_PROXY_HINT' | translate">
+                                    <i class="fa fa-plus me-2"></i>
+                                    {{ "CAMERAS.CREATE_LAN_PROXY" | translate }}
+                                </button>
+                            </div>
+                            <div class="services-list" *ngIf="hasServices(device.services)">
                                 <div class="service-item" *ngFor="let service of getServicesArray(device.services)">
                                     <div class="service-header">
                                         <span class="badge badge-info">{{ service.port }}</span>
@@ -513,22 +551,6 @@
                             </div>
                         </div>
 
-                        <!-- Vulnerabilities Section -->
-                        <div *ngIf="device.vulnerabilities && device.vulnerabilities.length > 0" class="vulnerabilities-section mt-3">
-                            <h5><i class="fa fa-shield"></i> {{ "LOCAL_NETWORK.VULNERABILITIES" | translate }}</h5>
-                            <div class="vulnerability-item" *ngFor="let vuln of device.vulnerabilities">
-                                <div class="vulnerability-header">
-                                    <span class="badge" [ngClass]="getSeverityClass(vuln.severity)">
-                                        {{ getSeverityLabel(vuln.severity) }}
-                                    </span>
-                                    <strong>{{ getVulnerabilityTypeLabel(vuln.type) }}</strong>
-                                    <span *ngIf="vuln.port" class="text-muted ml-2">
-                                        ({{ "LOCAL_NETWORK.PORT" | translate }}: {{ vuln.port }})
-                                    </span>
-                                </div>
-                                <p class="vulnerability-description">{{ getVulnerabilityDescription(vuln.description) }}</p>
-                            </div>
-                        </div>
                     </div>
                     
                     <!-- Device Footer -->

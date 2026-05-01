@@ -134,7 +134,7 @@ export class IotCamerasComponent implements OnInit, OnDestroy {
         this.errorMessage = '';
         this._cameraService.getCameras(this.user?.id).subscribe({
             next: (cameras) => {
-                this.cameras = cameras || [];
+                this.cameras = this.sortCamerasByNameAsc(cameras || []);
                 this._iotProxyService.list(this.user?.id).subscribe({
                     next: (proxies) => {
                         this.proxyTargets = proxies || [];
@@ -159,6 +159,24 @@ export class IotCamerasComponent implements OnInit, OnDestroy {
         this.isLoading = false;
         this.autoStartLivePreviews();
         this._cdr.markForCheck();
+    }
+
+    /** Default order: A→Z on {@link Camera#name}; empty names last. */
+    private sortCamerasByNameAsc(cameras: Camera[]): Camera[] {
+        return [...cameras].sort((a, b) => {
+            const na = (a.name ?? '').trim();
+            const nb = (b.name ?? '').trim();
+            if (!na && !nb) {
+                return 0;
+            }
+            if (!na) {
+                return 1;
+            }
+            if (!nb) {
+                return -1;
+            }
+            return na.localeCompare(nb, undefined, { sensitivity: 'base', numeric: true });
+        });
     }
 
     setView(mode: CameraViewMode): void {

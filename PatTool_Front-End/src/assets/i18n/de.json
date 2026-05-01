@@ -72,6 +72,9 @@
         "OPTIONAL_PATH_HINT": "Pfadsuffix:",
         "OPTIONAL_PATH_PLACEHOLDER": "z. B. pfad/zur/seite",
         "CONFIRM_DELETE": "Löschen bestätigen",
+        "FILTER_LABEL": "Filter",
+        "FILTER_PLACEHOLDER": "Beschreibung oder Upstream-URL / IP",
+        "NO_MATCH": "Kein Proxy entspricht diesem Filter.",
         "DELETE_HINT": ""
     },
     "TODOLISTS": {
@@ -124,6 +127,13 @@
         "OPEN_FULL_PAGE": "Seite „Aufgabenlisten“ öffnen",
         "SAVE_ERROR": "Liste konnte nicht gespeichert werden. Bitte erneut versuchen.",
         "ALL_STATUSES": "Alle Status",
+        "SORT": {
+            "LABEL": "Listen sortieren",
+            "CREATED_DESC": "Datum — neueste zuerst",
+            "CREATED_ASC": "Datum — älteste zuerst",
+            "NAME_ASC": "Name — A bis Z",
+            "NAME_DESC": "Name — Z bis A"
+        },
         "SEARCH_PLACEHOLDER": "Suchen...",
         "DAYS_LEFT": "Noch {{days}} Tag(e)",
         "OVERDUE": "Überfällig",

@@ -1,5 +1,46 @@
-.iot-proxy-scope code {
-    font-size: 0.82rem;
+/* Colonnes dimensionnées par le contenu ; pas de troncature — défilement horizontal via .table-responsive */
+.iot-proxy-scope .iot-proxy-table {
+    table-layout: auto;
+    width: max-content;
+    min-width: 100%;
+}
+
+.iot-proxy-scope .iot-proxy-table th,
+.iot-proxy-scope .iot-proxy-table td {
+    font-size: 0.875rem;
+    line-height: 1.35;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.iot-proxy-scope .iot-proxy-table code.iot-proxy-public-slug {
+    color: var(--bs-code-color, #d63384);
+}
+
+.iot-proxy-scope .iot-proxy-table code {
+    font-size: inherit;
+    line-height: inherit;
+    color: inherit;
+}
+
+.iot-sortable-th {
+    cursor: pointer;
+    user-select: none;
+}
+
+.iot-sortable-th:focus {
+    outline: 2px solid rgba(13, 110, 253, 0.45);
+    outline-offset: 1px;
+}
+
+.iot-sortable-th .fa-sort {
+    opacity: 0.55;
+}
+
+.iot-proxy-scope .iot-proxy-open-proxied-btn {
+    min-width: 4.25rem;
+    padding-left: 0.65rem;
+    padding-right: 0.65rem;
 }
 
 .modal-backdrop-fake {

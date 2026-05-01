@@ -72,6 +72,9 @@
         "OPTIONAL_PATH_HINT": "لاحقة المسار:",
         "OPTIONAL_PATH_PLACEHOLDER": "مثل مسار/إلى/صفحة",
         "CONFIRM_DELETE": "تأكيد الحذف",
+        "FILTER_LABEL": "تصفية",
+        "FILTER_PLACEHOLDER": "الوصف أو رابط المصدر / IP",
+        "NO_MATCH": "لا يوجد وكيل يطابق هذا المرشح.",
         "DELETE_HINT": ""
     },
     "TODOLISTS": {
@@ -124,6 +127,13 @@
         "OPEN_FULL_PAGE": "فتح صفحة القوائم",
         "SAVE_ERROR": "تعذر حفظ القائمة. حاول مجددًا.",
         "ALL_STATUSES": "كل الحالات",
+        "SORT": {
+            "LABEL": "ترتيب القوائم",
+            "CREATED_DESC": "التاريخ — الأحدث أولاً",
+            "CREATED_ASC": "التاريخ — الأقدم أولاً",
+            "NAME_ASC": "الاسم — أ إلى ي",
+            "NAME_DESC": "الاسم — ي إلى أ"
+        },
         "SEARCH_PLACEHOLDER": "بحث...",
         "DAYS_LEFT": "متبقي {{days}} يوم",
         "OVERDUE": "متأخرة",

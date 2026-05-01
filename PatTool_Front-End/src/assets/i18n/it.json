@@ -70,6 +70,9 @@
         "OPTIONAL_PATH_HINT": "Suffisso percorso:",
         "OPTIONAL_PATH_PLACEHOLDER": "es. percorso/alla/pagina",
         "CONFIRM_DELETE": "Conferma eliminazione",
+        "FILTER_LABEL": "Filtro",
+        "FILTER_PLACEHOLDER": "Descrizione o URL / IP upstream",
+        "NO_MATCH": "Nessun proxy corrisponde a questo filtro.",
         "DELETE_HINT": ""
     },
     "TODOLISTS": {
@@ -122,6 +125,13 @@
         "OPEN_FULL_PAGE": "Apri la pagina delle liste",
         "SAVE_ERROR": "Impossibile salvare la lista. Riprova.",
         "ALL_STATUSES": "Tutti gli stati",
+        "SORT": {
+            "LABEL": "Ordina le liste",
+            "CREATED_DESC": "Data — più recenti",
+            "CREATED_ASC": "Data — più vecchie",
+            "NAME_ASC": "Nome — A → Z",
+            "NAME_DESC": "Nome — Z → A"
+        },
         "SEARCH_PLACEHOLDER": "Cerca...",
         "DAYS_LEFT": "Mancano {{days}} giorno/i",
         "OVERDUE": "In ritardo",

@@ -72,6 +72,9 @@
         "OPTIONAL_PATH_HINT": "パス接尾辞:",
         "OPTIONAL_PATH_PLACEHOLDER": "例: path/to/page",
         "CONFIRM_DELETE": "削除を確認",
+        "FILTER_LABEL": "フィルター",
+        "FILTER_PLACEHOLDER": "説明または上流 URL / IP",
+        "NO_MATCH": "条件に一致するプロキシはありません。",
         "DELETE_HINT": ""
     },
     "TODOLISTS": {
@@ -124,6 +127,13 @@
         "OPEN_FULL_PAGE": "リスト一覧ページを開く",
         "SAVE_ERROR": "リストを保存できませんでした。もう一度お試しください。",
         "ALL_STATUSES": "すべての状態",
+        "SORT": {
+            "LABEL": "リストを並べ替え",
+            "CREATED_DESC": "作成日 — 新しい順",
+            "CREATED_ASC": "作成日 — 古い順",
+            "NAME_ASC": "名前 — あいうえお順",
+            "NAME_DESC": "名前 — 逆順"
+        },
         "SEARCH_PLACEHOLDER": "検索...",
         "DAYS_LEFT": "残り{{days}}日",
         "OVERDUE": "期限切れ",

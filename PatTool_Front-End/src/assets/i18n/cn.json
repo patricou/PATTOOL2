@@ -72,6 +72,9 @@
         "OPTIONAL_PATH_HINT": "路径后缀：",
         "OPTIONAL_PATH_PLACEHOLDER": "例如 path/to/page",
         "CONFIRM_DELETE": "确认删除",
+        "FILTER_LABEL": "筛选",
+        "FILTER_PLACEHOLDER": "描述或上游 URL / IP",
+        "NO_MATCH": "没有与筛选条件匹配的代理。",
         "DELETE_HINT": ""
     },
     "TODOLISTS": {
@@ -124,6 +127,13 @@
         "OPEN_FULL_PAGE": "打开清单完整页面",
         "SAVE_ERROR": "无法保存清单,请重试。",
         "ALL_STATUSES": "所有状态",
+        "SORT": {
+            "LABEL": "列表排序",
+            "CREATED_DESC": "日期 — 最新在前",
+            "CREATED_ASC": "日期 — 最旧在前",
+            "NAME_ASC": "名称 — 升序 (A–Z)",
+            "NAME_DESC": "名称 — 降序 (Z–A)"
+        },
         "SEARCH_PLACEHOLDER": "搜索...",
         "DAYS_LEFT": "剩余 {{days}} 天",
         "OVERDUE": "已逾期",

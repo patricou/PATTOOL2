@@ -64,6 +64,12 @@ const PRIORITY_PRESETS: TodoPriority[] = ['low', 'normal', 'high'];
 /** Each {@code GET /api/calendar/entries} call must stay under the back-end window (~370 days). */
 const CALENDAR_ENTRIES_CHUNK_MS = 350 * 24 * 60 * 60 * 1000;
 
+type TodolistSortKey =
+    | 'created_desc'
+    | 'created_asc'
+    | 'name_asc'
+    | 'name_desc';
+
 /**
  * Shareable to-do lists. Acts as both index (cards grid) and editor (modal-based create / edit).
  * Anyone in the list visibility group can flip individual item statuses; only the owner can
@@ -186,6 +192,8 @@ export class TodolistsComponent implements OnInit, OnDestroy {
     // Filter state
     statusFilter: '' | TodoStatus = '';
     searchTerm = '';
+    /** Display order on the grid (after search / status filters). */
+    listSortKey: TodolistSortKey = 'created_desc';
 
     /** Agenda / activity rows for linking (owner editor only). */
     linkPickerAppointments: TodolistLinkOption[] = [];
@@ -304,11 +312,7 @@ export class TodolistsComponent implements OnInit, OnDestroy {
             })
         ).subscribe({
             next: lists => {
-                this.lists = (lists || []).sort((a, b) => {
-                    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-                    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-                    return tb - ta;
-                });
+                this.lists = lists || [];
                 this.recomputeMeta();
                 this.fetchOwnerLabels();
             },
@@ -403,7 +407,7 @@ export class TodolistsComponent implements OnInit, OnDestroy {
     get filteredLists(): TodoList[] {
         const term = this.searchTerm.trim().toLowerCase();
         const stripTags = (s?: string | null) => (s || '').replace(/<[^>]+>/g, ' ').toLowerCase();
-        return this.lists.filter(l => {
+        const filtered = this.lists.filter(l => {
             if (this.statusFilter && l.status !== this.statusFilter) {
                 return false;
             }
@@ -416,6 +420,25 @@ export class TodolistsComponent implements OnInit, OnDestroy {
                 return inName || inDesc || inItems;
             }
             return true;
+        });
+
+        const time = (l: TodoList) => {
+            const t = l.createdAt ? new Date(l.createdAt).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+        };
+
+        return filtered.slice().sort((a, b) => {
+            switch (this.listSortKey) {
+                case 'name_asc':
+                    return (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' });
+                case 'name_desc':
+                    return (b.name || '').localeCompare(a.name || '', undefined, { sensitivity: 'base' });
+                case 'created_asc':
+                    return time(a) - time(b);
+                case 'created_desc':
+                default:
+                    return time(b) - time(a);
+            }
         });
     }
 

@@ -1,5 +1,6 @@
 package com.pat.repo.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
@@ -37,6 +38,12 @@ public class IotProxyTarget {
 
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String upstreamPassword;
+
+    /**
+     * Persisted so list queries can omit {@link #upstreamPassword} over the wire and from BSON.
+     * Backfilled on startup; create/update keep it in sync.
+     */
+    private Boolean upstreamAuthPasswordPresent;
 
     public IotProxyTarget() {}
 
@@ -112,8 +119,24 @@ public class IotProxyTarget {
         this.upstreamPassword = upstreamPassword;
     }
 
-    /** Exposed as {@code hasUpstreamPassword} — never exposes the secret. */
+    @JsonIgnore
+    public Boolean getUpstreamAuthPasswordPresent() {
+        return upstreamAuthPasswordPresent;
+    }
+
+    @JsonIgnore
+    public void setUpstreamAuthPasswordPresent(Boolean upstreamAuthPasswordPresent) {
+        this.upstreamAuthPasswordPresent = upstreamAuthPasswordPresent;
+    }
+
+    /**
+     * JSON {@code hasUpstreamPassword} — never exposes the secret.
+     * Uses persisted flag when {@link #upstreamPassword} was not loaded (e.g. list projection).
+     */
     public boolean isHasUpstreamPassword() {
+        if (upstreamAuthPasswordPresent != null) {
+            return Boolean.TRUE.equals(upstreamAuthPasswordPresent);
+        }
         return upstreamPassword != null && !upstreamPassword.isEmpty();
     }
 }

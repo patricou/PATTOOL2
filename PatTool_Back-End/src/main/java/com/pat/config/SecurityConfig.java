@@ -185,7 +185,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/cameras", "/api/cameras/**").hasAnyRole("Iot", "iot")
 
                 // IoT LAN proxy: CRUD restricted to Iot; forward path (any method) validated inside controller (iotOpen cookie/query or Bearer + Iot).
-                // Forms and XHR on the proxied SPA use POST/PUT etc. — they must reach the controller without a PatTool JWT.
+                    // Forms and XHR on the proxied SPA use POST/PUT etc. — they must reach the controller without a PatTool JWT.
                 .requestMatchers("/api/iot-proxies/forward/**").permitAll()
                 .requestMatchers("/api/iot-proxies/**").hasAnyRole("Iot", "iot")
                 

@@ -84,6 +84,9 @@
         "OPTIONAL_PATH_HINT": "पथ प्रत्यय:",
         "OPTIONAL_PATH_PLACEHOLDER": "उदा. path/to/page",
         "CONFIRM_DELETE": "हटाने की पुष्टि करें",
+        "FILTER_LABEL": "फ़िल्टर",
+        "FILTER_PLACEHOLDER": "विवरण या अपस्ट्रीम URL / IP",
+        "NO_MATCH": "इस फ़िल्टर से कोई प्रॉक्सी मेल नहीं खाता।",
         "DELETE_HINT": ""
     },
     "TODOLISTS": {
@@ -136,6 +139,13 @@
         "OPEN_FULL_PAGE": "सूचियों का पूरा पृष्ठ खोलें",
         "SAVE_ERROR": "सूची सहेजी नहीं जा सकी। पुनः प्रयास करें।",
         "ALL_STATUSES": "सभी स्थितियाँ",
+        "SORT": {
+            "LABEL": "सूचियाँ क्रमबद्ध करें",
+            "CREATED_DESC": "दिनांक — नवीनतम पहले",
+            "CREATED_ASC": "दिनांक — पुरानी पहले",
+            "NAME_ASC": "नाम — A से Z",
+            "NAME_DESC": "नाम — Z से A"
+        },
         "SEARCH_PLACEHOLDER": "खोजें...",
         "DAYS_LEFT": "{{days}} दिन शेष",
         "OVERDUE": "अतिदेय",

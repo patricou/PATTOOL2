@@ -72,6 +72,9 @@
         "OPTIONAL_PATH_HINT": "Κατάληξη διαδρομής:",
         "OPTIONAL_PATH_PLACEHOLDER": "π.χ. path/to/page",
         "CONFIRM_DELETE": "Επιβεβαίωση διαγραφής",
+        "FILTER_LABEL": "Φίλτρο",
+        "FILTER_PLACEHOLDER": "Περιγραφή ή upstream URL / IP",
+        "NO_MATCH": "Κανένα proxy δεν ταιριάζει σε αυτό το φίλτρο.",
         "DELETE_HINT": ""
     },
     "TODOLISTS": {
@@ -124,6 +127,13 @@
         "OPEN_FULL_PAGE": "Άνοιγμα σελίδας λιστών",
         "SAVE_ERROR": "Αδυναμία αποθήκευσης. Δοκιμάστε ξανά.",
         "ALL_STATUSES": "Όλες οι καταστάσεις",
+        "SORT": {
+            "LABEL": "Ταξινόμηση λιστών",
+            "CREATED_DESC": "Ημερομηνία — νεότερα πρώτα",
+            "CREATED_ASC": "Ημερομηνία — παλαιότερα πρώτα",
+            "NAME_ASC": "Όνομα — Α έως Ω",
+            "NAME_DESC": "Όνομα — Ω έως Α"
+        },
         "SEARCH_PLACEHOLDER": "Αναζήτηση...",
         "DAYS_LEFT": "Απομένουν {{days}} ημέρα/ες",
         "OVERDUE": "Εκπρόθεσμη",

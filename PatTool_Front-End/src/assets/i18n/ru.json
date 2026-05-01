@@ -84,6 +84,9 @@
         "OPTIONAL_PATH_HINT": "Суффикс пути:",
         "OPTIONAL_PATH_PLACEHOLDER": "например path/to/page",
         "CONFIRM_DELETE": "Подтвердить удаление",
+        "FILTER_LABEL": "Фильтр",
+        "FILTER_PLACEHOLDER": "Описание или upstream URL / IP",
+        "NO_MATCH": "Нет прокси, подходящих под этот фильтр.",
         "DELETE_HINT": ""
     },
     "TODOLISTS": {
@@ -136,6 +139,13 @@
         "OPEN_FULL_PAGE": "Открыть страницу списков",
         "SAVE_ERROR": "Не удалось сохранить список. Попробуйте ещё раз.",
         "ALL_STATUSES": "Все статусы",
+        "SORT": {
+            "LABEL": "Сортировать списки",
+            "CREATED_DESC": "По дате — сначала новые",
+            "CREATED_ASC": "По дате — сначала старые",
+            "NAME_ASC": "По имени — А → Я",
+            "NAME_DESC": "По имени — Я → А"
+        },
         "SEARCH_PLACEHOLDER": "Поиск...",
         "DAYS_LEFT": "Осталось {{days}} дн.",
         "OVERDUE": "Просрочено",

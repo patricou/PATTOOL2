@@ -98,7 +98,7 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   useExternalVendorAPI: boolean = false; // Default: false (use local database)
 
   // Network scan scheduler enabled flag
-  scanSchedulerEnabled: boolean = false; // Default: false
+  scanSchedulerEnabled: boolean = true; // Default until loaded from API (matches server default)
   isLoadingSchedulerStatus: boolean = false;
   scanIntervalMinutes: number = 10; // Default: 10 minutes
 
@@ -600,6 +600,51 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
       qp['upstream'] = upstream;
     }
     this.router.navigate(['/iot/proxy'], { queryParams: qp }).catch((err) => console.error(err));
+  }
+
+  /** OS / web / DB / etc. between vendor block and Services — collapsed by default (per device). */
+  private readonly deviceExtraDetailsExpandedIds = new Set<string>();
+
+  private deviceExtraDetailsKey(device: NetworkDevice): string {
+    return `${device.ipAddress}\u001f${device.macAddress ?? ''}`;
+  }
+
+  hasDeviceExtraDetails(device: NetworkDevice): boolean {
+    const ra = device.remoteAccess?.trim();
+    return !!(
+      device.os ||
+      device.webInterface ||
+      device.databaseServer ||
+      device.fileSharing ||
+      (ra && ra.length > 0) ||
+      device.lastSeen
+    );
+  }
+
+  isDeviceExtraDetailsExpanded(device: NetworkDevice): boolean {
+    return this.deviceExtraDetailsExpandedIds.has(this.deviceExtraDetailsKey(device));
+  }
+
+  toggleDeviceExtraDetails(device: NetworkDevice): void {
+    const k = this.deviceExtraDetailsKey(device);
+    if (this.deviceExtraDetailsExpandedIds.has(k)) {
+      this.deviceExtraDetailsExpandedIds.delete(k);
+    } else {
+      this.deviceExtraDetailsExpandedIds.add(k);
+    }
+    this.cdr.markForCheck();
+  }
+
+  /** Libellé fabricant dans la carte (nom complet en `title` sur le badge). */
+  truncateVendorName(vendor: string | undefined | null, maxLen = 20): string {
+    if (vendor == null || vendor === '') {
+      return '';
+    }
+    const s = String(vendor);
+    if (s.length <= maxLen) {
+      return s;
+    }
+    return s.slice(0, maxLen) + '…';
   }
 
   private formatHttpLanBaseUrl(host: string): string {
@@ -2174,7 +2219,7 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
             console.log('Scan scheduler status loaded:', response.enabled);
           } else {
             console.warn('Invalid response from getScanSchedulerEnabled:', response);
-            this.scanSchedulerEnabled = false;
+            this.scanSchedulerEnabled = true;
           }
           this.cdr.detectChanges();
         });
@@ -2182,13 +2227,13 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
       error: (error) => {
         this.ngZone.run(() => {
           this.isLoadingSchedulerStatus = false;
-          // Default to false on error
-          this.scanSchedulerEnabled = false;
+          // Même valeur par défaut que le backend si l’API échoue
+          this.scanSchedulerEnabled = true;
           console.error('Error loading scan scheduler status:', error);
           this.cdr.detectChanges();
         });
       }
-    });
+})
   }
 
   /**

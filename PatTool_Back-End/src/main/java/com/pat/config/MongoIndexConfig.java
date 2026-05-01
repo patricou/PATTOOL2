@@ -9,6 +9,9 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.index.Index;
 import org.springframework.data.mongodb.core.index.IndexOperations;
 import org.springframework.stereotype.Component;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import com.mongodb.client.MongoCollection;
 import org.bson.Document;
 import java.util.List;
@@ -177,7 +180,7 @@ public class MongoIndexConfig {
         }
     }
 
-    /** {@code GET /api/iot-proxies}: {@link com.pat.repo.IotProxyTargetRepository#findByOwnerOrderByCreationDateDesc(String)} */
+    /** {@code GET /api/iot-proxies}: indexed by owner + creationDate; list uses projection without password. */
     private void createIotProxyTargetIndexes() {
         try {
             log.debug("Creating MongoDB indexes for iot_proxy_targets");
@@ -185,9 +188,38 @@ public class MongoIndexConfig {
                     new String[]{"owner", "creationDate"},
                     new Sort.Direction[]{Sort.Direction.ASC, Sort.Direction.DESC},
                     "IoT proxies: filter by owner, sort newest first");
+            createIndexIfNotExists("iot_proxy_targets", "creationDate", Sort.Direction.DESC,
+                    "IoT proxies: admin list sort by creationDate");
+            backfillIotProxyPasswordPresenceFlags();
             log.debug("MongoDB indexes for iot_proxy_targets done");
         } catch (Exception e) {
             log.error("Error creating iot_proxy_targets MongoDB indexes", e);
+        }
+    }
+
+    /** Sets {@code upstreamAuthPasswordPresent} for list queries that omit {@code upstreamPassword}. Idempotent. */
+    private void backfillIotProxyPasswordPresenceFlags() {
+        try {
+            Query hasSecret = new Query(new Criteria().andOperator(
+                    Criteria.where("upstreamPassword").exists(true),
+                    Criteria.where("upstreamPassword").ne(null),
+                    Criteria.where("upstreamPassword").ne("")));
+            long setTrue = mongoTemplate.updateMulti(hasSecret,
+                    new Update().set("upstreamAuthPasswordPresent", true),
+                    "iot_proxy_targets").getModifiedCount();
+
+            Query emptySecret = new Query(new Criteria().orOperator(
+                    Criteria.where("upstreamPassword").exists(false),
+                    Criteria.where("upstreamPassword").is(null),
+                    Criteria.where("upstreamPassword").is("")));
+            long setFalse = mongoTemplate.updateMulti(emptySecret,
+                    new Update().set("upstreamAuthPasswordPresent", false),
+                    "iot_proxy_targets").getModifiedCount();
+
+            log.debug("iot_proxy_targets upstreamAuthPasswordPresent backfill: modified {} with secret, {} without",
+                    setTrue, setFalse);
+        } catch (Exception e) {
+            log.warn("iot_proxy_targets upstreamAuthPasswordPresent backfill failed: {}", e.getMessage());
         }
     }
 

@@ -13,6 +13,14 @@
             <i class="fa" [class.fa-refresh]="!isLoading" [class.fa-spinner]="isLoading" [class.fa-spin]="isLoading"></i>
             {{ 'IOT_PROXY.REFRESH' | translate }}
         </button>
+        <label class="small mb-0 ms-2 d-flex align-items-center gap-1 flex-grow-1" style="min-width: 200px; max-width: 360px;">
+            <span class="text-nowrap">{{ 'IOT_PROXY.FILTER_LABEL' | translate }}</span>
+            <input type="search" class="form-control form-control-sm flex-grow-1"
+                   [ngModel]="listFilter"
+                   (ngModelChange)="onListFilterChange($event)"
+                   [placeholder]="'IOT_PROXY.FILTER_PLACEHOLDER' | translate"
+                   autocomplete="off"/>
+        </label>
         <label class="small mb-0 ms-2 d-flex align-items-center gap-1">
             {{ 'IOT_PROXY.OPTIONAL_PATH_HINT' | translate }}
             <input type="text" class="form-control form-control-sm" style="width:220px;"
@@ -30,29 +38,89 @@
         {{ 'IOT_PROXY.EMPTY' | translate }}
     </div>
 
-    <div *ngIf="!isLoading && rows.length > 0" class="table-responsive">
-        <table class="table table-hover align-middle">
+    <div *ngIf="!isLoading && rows.length > 0 && displayRows.length === 0" class="text-muted text-center py-5">
+        {{ 'IOT_PROXY.NO_MATCH' | translate }}
+    </div>
+
+    <div *ngIf="!isLoading && rows.length > 0 && displayRows.length > 0" class="table-responsive">
+        <table class="table table-hover align-middle iot-proxy-table">
             <thead>
             <tr>
-                <th>{{ 'IOT_PROXY.DESCRIPTION' | translate }}</th>
-                <th>{{ 'IOT_PROXY.SLUG' | translate }}</th>
-                <th>{{ 'IOT_PROXY.UPSTREAM' | translate }}</th>
-                <th>{{ 'IOT_PROXY.OWNER' | translate }}</th>
-                <th>{{ 'IOT_PROXY.CREATED' | translate }}</th>
-                <th class="text-end">{{ 'IOT_PROXY.ACTIONS' | translate }}</th>
+                <th scope="col"
+                    class="iot-sortable-th"
+                    tabindex="0"
+                    (click)="toggleSort('description')"
+                    (keydown.enter)="toggleSort('description')"
+                    (keydown.space)="$event.preventDefault(); toggleSort('description')"
+                    [attr.aria-sort]="ariaSort('description')">
+                    {{ 'IOT_PROXY.DESCRIPTION' | translate }}
+                    <i class="fa ms-1" [ngClass]="sortIconClass('description')" aria-hidden="true"></i>
+                </th>
+                <th scope="col"
+                    class="iot-sortable-th"
+                    tabindex="0"
+                    (click)="toggleSort('publicSlug')"
+                    (keydown.enter)="toggleSort('publicSlug')"
+                    (keydown.space)="$event.preventDefault(); toggleSort('publicSlug')"
+                    [attr.aria-sort]="ariaSort('publicSlug')">
+                    {{ 'IOT_PROXY.SLUG' | translate }}
+                    <i class="fa ms-1" [ngClass]="sortIconClass('publicSlug')" aria-hidden="true"></i>
+                </th>
+                <th scope="col"
+                    class="iot-sortable-th"
+                    tabindex="0"
+                    (click)="toggleSort('upstreamBaseUrl')"
+                    (keydown.enter)="toggleSort('upstreamBaseUrl')"
+                    (keydown.space)="$event.preventDefault(); toggleSort('upstreamBaseUrl')"
+                    [attr.aria-sort]="ariaSort('upstreamBaseUrl')">
+                    {{ 'IOT_PROXY.UPSTREAM' | translate }}
+                    <i class="fa ms-1" [ngClass]="sortIconClass('upstreamBaseUrl')" aria-hidden="true"></i>
+                </th>
+                <th scope="col"
+                    class="iot-sortable-th"
+                    tabindex="0"
+                    (click)="toggleSort('owner')"
+                    (keydown.enter)="toggleSort('owner')"
+                    (keydown.space)="$event.preventDefault(); toggleSort('owner')"
+                    [attr.aria-sort]="ariaSort('owner')">
+                    {{ 'IOT_PROXY.OWNER' | translate }}
+                    <i class="fa ms-1" [ngClass]="sortIconClass('owner')" aria-hidden="true"></i>
+                </th>
+                <th scope="col"
+                    class="iot-sortable-th"
+                    tabindex="0"
+                    (click)="toggleSort('creationDate')"
+                    (keydown.enter)="toggleSort('creationDate')"
+                    (keydown.space)="$event.preventDefault(); toggleSort('creationDate')"
+                    [attr.aria-sort]="ariaSort('creationDate')">
+                    {{ 'IOT_PROXY.CREATED' | translate }}
+                    <i class="fa ms-1" [ngClass]="sortIconClass('creationDate')" aria-hidden="true"></i>
+                </th>
+                <th scope="col" class="text-end">{{ 'IOT_PROXY.ACTIONS' | translate }}</th>
             </tr>
             </thead>
             <tbody>
-            <tr *ngFor="let row of rows">
+            <tr *ngFor="let row of displayRows; trackBy: trackByRowId">
                 <td>{{ row.description }}</td>
-                <td><code>{{ row.publicSlug }}</code></td>
-                <td><code>{{ row.upstreamBaseUrl }}</code></td>
+                <td><code class="iot-proxy-public-slug">{{ row.publicSlug }}</code></td>
+                <td>
+                    <a *ngIf="row.upstreamBaseUrl?.trim()"
+                       [href]="(row.upstreamBaseUrl ?? '').trim()"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="link-primary">
+                        <code>{{ row.upstreamBaseUrl }}</code>
+                    </a>
+                    <span *ngIf="!row.upstreamBaseUrl?.trim()" class="text-muted">—</span>
+                </td>
                 <td>{{ row.owner }}</td>
                 <td>{{ formatDate(row.creationDate) }}</td>
                 <td class="text-end text-nowrap">
-                    <button type="button" class="btn btn-sm btn-success me-1" (click)="openInBrowser(row)"
+                    <button type="button"
+                            class="btn btn-sm btn-success me-1 iot-proxy-open-proxied-btn"
+                            (click)="openInBrowser(row)"
                             [title]="'IOT_PROXY.OPEN_BROWSER' | translate">
-                        <i class="fa fa-external-link"></i>
+                        <i class="fa fa-external-link" aria-hidden="true"></i>
                     </button>
                     <button type="button" class="btn btn-sm btn-outline-primary me-1" (click)="openEdit(row)">
                         <i class="fa fa-pencil"></i>
@@ -60,7 +128,7 @@
                     <button type="button" class="btn btn-sm btn-outline-danger" (click)="askDelete(row)">
                         <i class="fa fa-trash"></i>
                     </button>
-                    <div *ngIf="confirmDeleteId === row.id" class="confirm-delete-inline mt-1">
+                    <div *ngIf="confirmDeleteId === row.id" class="confirm-delete-inline d-flex flex-nowrap gap-1 justify-content-end align-items-center mt-1">
                         <button type="button" class="btn btn-sm btn-danger" (click)="deleteRow(row)">
                             {{ 'IOT_PROXY.CONFIRM_DELETE' | translate }}
                         </button>

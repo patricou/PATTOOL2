@@ -21,6 +21,10 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.util.StringUtils;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.ByteArrayInputStream;
@@ -69,6 +73,9 @@ public class IotProxyRestController {
     private LanUpstreamUrlValidator upstreamUrlValidator;
     @Autowired
     private IotProxyOpenTokenService openTokenService;
+
+    @Autowired
+    private MongoTemplate mongoTemplate;
 
     @Value("${app.iot-proxy.max-response-bytes:52428800}")
     private long maxResponseBytes;
@@ -243,10 +250,23 @@ public class IotProxyRestController {
             return denied.get();
         }
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (hasAdminRole(auth)) {
-            return ResponseEntity.ok(repository.findAll());
+        boolean admin = hasAdminRole(auth);
+        String owner = resolveOwner(auth, userId);
+        return ResponseEntity.ok(listIotProxyTargetsForApi(admin ? null : owner, admin));
+    }
+
+    /**
+     * List proxies with stable sort and without loading {@link IotProxyTarget#getUpstreamPassword()} from Mongo
+     * (smaller docs + less BSON); {@code hasUpstreamPassword} JSON comes from {@code upstreamAuthPasswordPresent}.
+     */
+    private List<IotProxyTarget> listIotProxyTargetsForApi(String ownerFilterOrNull, boolean admin) {
+        Query q = new Query();
+        if (!admin) {
+            q.addCriteria(Criteria.where("owner").is(ownerFilterOrNull));
         }
-        return ResponseEntity.ok(repository.findByOwnerOrderByCreationDateDesc(resolveOwner(auth, userId)));
+        q.with(Sort.by(Sort.Direction.DESC, "creationDate"));
+        q.fields().exclude("upstreamPassword");
+        return mongoTemplate.find(q, IotProxyTarget.class);
     }
 
     @GetMapping(value = "/target/{mongoId}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -290,6 +310,7 @@ public class IotProxyRestController {
         if (StringUtils.hasText(body.getUpstreamPassword())) {
             e.setUpstreamPassword(body.getUpstreamPassword());
         }
+        e.setUpstreamAuthPasswordPresent(StringUtils.hasText(body.getUpstreamPassword()));
         e.setOwner(resolveOwner(auth, userId));
         e.setCreationDate(now);
         e.setUpdateDate(now);
@@ -331,6 +352,7 @@ public class IotProxyRestController {
         }
         if (StringUtils.hasText(body.getUpstreamPassword())) {
             e.setUpstreamPassword(body.getUpstreamPassword());
+            e.setUpstreamAuthPasswordPresent(true);
         }
         e.setUpdateDate(new Date());
         return ResponseEntity.ok(repository.save(e));
