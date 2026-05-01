@@ -286,6 +286,12 @@
         "ADMIN_BUTTON": "Verwaltung",
         "N_CATEGORIES": "{{count}} Kategorien",
         "N_LINKS": "{{count}} Links",
+        "PROXY": "Proxy",
+        "OPEN_VIA_PROXY_LAN": "Über LAN-Proxy öffnen (signiert)",
+        "OPEN_VIA_PROXY_LAN_SHORT": "Proxy LAN",
+        "PROXY_NO_MATCH": "Kein IoT-Proxy passt zu diesem Host/IP. Legen Sie einen Proxy mit demselben Host wie der Link an.",
+        "PROXY_PATH_MISMATCH": "Dieser URL-Pfad passt nicht zur Upstream-Basis des Proxys.",
+        "PROXY_OPEN_FAILED": "Signierter Proxy-Link konnte nicht geöffnet werden. Prüfen Sie IoT-Rolle und Proxy-Konfiguration.",
         "CATEGORIES": {
             "ADMINISTRATIF": "Verwaltung"
         }
@@ -1435,6 +1441,8 @@
         "PRIVATE": "Privat",
         "FRIENDS": "Freunde",
         "VISIBILITY": "Sichtbarkeit",
+        "PROXY_LAN": "Proxy LAN",
+        "OPEN_VIA_PROXY_LAN": "Über LAN-Proxy öffnen (signierte URL)",
         "CATEGORY": "Kategorie",
         "AUTHOR": "Autor",
         "LINKS_LIST": "Linksliste",

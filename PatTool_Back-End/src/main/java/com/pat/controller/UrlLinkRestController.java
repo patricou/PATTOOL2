@@ -184,6 +184,7 @@ public class UrlLinkRestController {
             
             urlLink.setCategoryLinkID(urlLinkDetails.getCategoryLinkID());
             urlLink.setVisibility(urlLinkDetails.getVisibility());
+            urlLink.setOpenByProxyLan(urlLinkDetails.isOpenByProxyLan());
             urlLink.setAuthor(urlLinkDetails.getAuthor());
             
             UrlLink updatedUrlLink = urlLinkRepository.save(urlLink);

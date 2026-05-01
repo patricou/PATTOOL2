@@ -286,6 +286,12 @@
         "ADMIN_BUTTON": "ניהול",
         "N_CATEGORIES": "{{count}} קטגוריות",
         "N_LINKS": "{{count}} קישורים",
+        "PROXY": "פרוקסי",
+        "OPEN_VIA_PROXY_LAN": "פתיחה דרך פרוקסי LAN (קישור חתום)",
+        "OPEN_VIA_PROXY_LAN_SHORT": "פרוקסי LAN",
+        "PROXY_NO_MATCH": "אין פרוקסי IoT שתואם למארח של כתובת URL זו. הגדר פרוקסי עם אותו מארח/IP כמו הקישור.",
+        "PROXY_PATH_MISMATCH": "נתיב כתובת URL זו אינו תואם לבסיס ה-upstream של הפרוקסי.",
+        "PROXY_OPEN_FAILED": "לא ניתן לפתוח את הקישור החתום של הפרוקסי. בדוק את תפקיד ה-IoT ואת הגדרות הפרוקסי.",
         "CATEGORIES": {
             "ADMINISTRATIF": "מנהלי"
         }
@@ -1429,6 +1435,8 @@
         "PRIVATE": "פרטי",
         "FRIENDS": "חברים",
         "VISIBILITY": "נראות",
+        "PROXY_LAN": "פרוקסי LAN",
+        "OPEN_VIA_PROXY_LAN": "פתיחה דרך פרוקסי LAN (כתובת חתומה)",
         "CATEGORY": "קטגוריה",
         "AUTHOR": "מחבר",
         "LINKS_LIST": "רשימת קישורים",

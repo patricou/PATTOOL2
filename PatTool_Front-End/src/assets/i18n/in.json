@@ -1393,6 +1393,12 @@
         "ADMIN_BUTTON": "प्रशासन",
         "N_CATEGORIES": "{{count}} श्रेणियाँ",
         "N_LINKS": "{{count}} लिंक",
+        "PROXY": "प्रॉक्सी",
+        "OPEN_VIA_PROXY_LAN": "LAN प्रॉक्सी के ज़रिए खोलें (हस्ताक्षरित लिंक)",
+        "OPEN_VIA_PROXY_LAN_SHORT": "LAN प्रॉक्सी",
+        "PROXY_NO_MATCH": "इस URL की मेज़बानी से मेल खाने वाला कोई IoT प्रॉक्सी नहीं है। लिंक के समान होस्ट/IP वाला प्रॉक्सी कॉन्फ़िगर करें।",
+        "PROXY_PATH_MISMATCH": "इस URL का पथ प्रॉक्सी के अपस्ट्रीम आधार से मेल नहीं खाता।",
+        "PROXY_OPEN_FAILED": "हस्ताक्षरित प्रॉक्सी लिंक नहीं खोला जा सका। IoT भूमिका और प्रॉक्सी कॉन्फ़िगरेशन देखें।",
         "CATEGORIES": {
             "ADMINISTRATIF": "प्रशासनिक"
         }
@@ -1428,6 +1434,8 @@
         "PRIVATE": "निजी",
         "FRIENDS": "दोस्त",
         "VISIBILITY": "दृश्यता",
+        "PROXY_LAN": "LAN प्रॉक्सी",
+        "OPEN_VIA_PROXY_LAN": "LAN प्रॉक्सी के ज़रिए खोलें (हस्ताक्षरित URL)",
         "CATEGORY": "श्रेणी",
         "AUTHOR": "लेखक",
         "LINKS_LIST": "लिंक सूची",

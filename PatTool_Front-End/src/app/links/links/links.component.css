@@ -628,6 +628,45 @@
     gap: 0.5rem 0.75rem;
 }
 
+.link-meta-end {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex-shrink: 0;
+}
+
+.link-proxy-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.18rem;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.link-proxy-label {
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #636e72;
+    text-transform: uppercase;
+    user-select: none;
+}
+
+.link-proxy-lan-switch {
+    margin: 0;
+    padding: 0;
+    min-height: 0;
+    flex-shrink: 0;
+}
+
+/* Compact switch (smaller than Bootstrap form-switch-sm) */
+.link-proxy-lan-switch .form-check-input {
+    width: 1.32rem;
+    height: 0.68rem;
+    margin: 0;
+    cursor: default;
+}
+
 .link-url {
     font-size: 0.7rem;
     color: #636e72;

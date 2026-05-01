@@ -474,6 +474,10 @@ public class LinksViewService {
             link.setCategoryLinkID(catId.toString());
         }
         link.setVisibility(d.getString("visibility"));
+        Object obpl = d.get("openByProxyLan");
+        if (obpl instanceof Boolean b) {
+            link.setOpenByProxyLan(b);
+        }
         Member author = resolveMemberAuthor(rawAuthorFromCategoryOrLink(d), authorMap);
         if (author == null && catId != null && categoryAuthorFallback != null) {
             author = categoryAuthorFallback.get(catId.toString());

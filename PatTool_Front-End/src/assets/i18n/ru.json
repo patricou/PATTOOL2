@@ -298,6 +298,12 @@
         "ADMIN_BUTTON": "Администрирование",
         "N_CATEGORIES": "{{count}} категорий",
         "N_LINKS": "{{count}} ссылок",
+        "PROXY": "Прокси",
+        "OPEN_VIA_PROXY_LAN": "Открыть через LAN-прокси (подписанная ссылка)",
+        "OPEN_VIA_PROXY_LAN_SHORT": "LAN-прокси",
+        "PROXY_NO_MATCH": "Нет IoT-прокси для хоста этого URL. Настройте прокси с тем же хостом/IP, что и у ссылки.",
+        "PROXY_PATH_MISMATCH": "Путь этого URL не совпадает с базой upstream прокси.",
+        "PROXY_OPEN_FAILED": "Не удалось открыть подписанную ссылку прокси. Проверьте роль IoT и настройки прокси.",
         "CATEGORIES": {
             "ADMINISTRATIF": "Администрирование"
         }
@@ -1431,6 +1437,8 @@
         "PRIVATE": "Приватный",
         "FRIENDS": "Друзья",
         "VISIBILITY": "Видимость",
+        "PROXY_LAN": "LAN-прокси",
+        "OPEN_VIA_PROXY_LAN": "Открыть через LAN-прокси (подписанный URL)",
         "CATEGORY": "Категория",
         "AUTHOR": "Автор",
         "LINKS_LIST": "Список ссылок",

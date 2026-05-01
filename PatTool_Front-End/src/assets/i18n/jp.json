@@ -286,6 +286,12 @@
         "ADMIN_BUTTON": "管理",
         "N_CATEGORIES": "{{count}} カテゴリ",
         "N_LINKS": "{{count}} リンク",
+        "PROXY": "プロキシ",
+        "OPEN_VIA_PROXY_LAN": "LANプロキシ経由で開く（署名付き）",
+        "OPEN_VIA_PROXY_LAN_SHORT": "LANプロキシ",
+        "PROXY_NO_MATCH": "このURLのホストに一致するIoTプロキシがありません。リンクと同じホスト/IPのプロキシを設定してください。",
+        "PROXY_PATH_MISMATCH": "このURLのパスはプロキシのアップストリームベースと一致しません。",
+        "PROXY_OPEN_FAILED": "プロキシの署名付きリンクを開けませんでした。IoTの権限とプロキシ設定を確認してください。",
         "CATEGORIES": {
             "ADMINISTRATIF": "管理"
         }
@@ -1243,6 +1249,8 @@
         "PRIVATE": "非公開",
         "FRIENDS": "友達",
         "VISIBILITY": "表示設定",
+        "PROXY_LAN": "LANプロキシ",
+        "OPEN_VIA_PROXY_LAN": "LANプロキシ経由で開く（署名付きURL）",
         "CATEGORY": "カテゴリ",
         "AUTHOR": "作成者",
         "LINKS_LIST": "リンクリスト",

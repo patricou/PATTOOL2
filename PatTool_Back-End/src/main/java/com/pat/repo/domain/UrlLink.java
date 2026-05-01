@@ -21,13 +21,15 @@ public class UrlLink {
     private String categoryLinkID;
     @NotNull
     private String visibility;
+    /** When true, opening the link uses the IoT LAN proxy signed URL (same path as proxy "open in browser"). */
+    private boolean openByProxyLan;
     @NotNull
     @DBRef
     private Member author;
 
     public UrlLink() {}
 
-public UrlLink(String id, String urlLinkID, String linkDescription, String linkName, String url, String categoryLinkID, String visibility, Member author) {
+public UrlLink(String id, String urlLinkID, String linkDescription, String linkName, String url, String categoryLinkID, String visibility, boolean openByProxyLan, Member author) {
         this.id = id;
         this.urlLinkID = urlLinkID;
         this.linkDescription = linkDescription;
@@ -35,6 +37,7 @@ public UrlLink(String id, String urlLinkID, String linkDescription, String linkN
         this.url = url;
         this.categoryLinkID = categoryLinkID;
         this.visibility = visibility;
+        this.openByProxyLan = openByProxyLan;
         this.author = author;
     }
 
@@ -48,6 +51,7 @@ public UrlLink(String id, String urlLinkID, String linkDescription, String linkN
                 ", url='" + url + '\'' +
                 ", categoryLinkID='" + categoryLinkID + '\'' +
                 ", visibility='" + visibility + '\'' +
+                ", openByProxyLan=" + openByProxyLan +
                 ", author=" + author +
                 '}';
     }
@@ -106,6 +110,14 @@ public UrlLink(String id, String urlLinkID, String linkDescription, String linkN
 
     public void setVisibility(String visibility) {
         this.visibility = visibility;
+    }
+
+    public boolean isOpenByProxyLan() {
+        return openByProxyLan;
+    }
+
+    public void setOpenByProxyLan(boolean openByProxyLan) {
+        this.openByProxyLan = openByProxyLan;
     }
 
     public Member getAuthor() {

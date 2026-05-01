@@ -1452,6 +1452,12 @@
         "ADMIN_BUTTON": "Administration",
         "N_CATEGORIES": "{{count}} categories",
         "N_LINKS": "{{count}} links",
+        "PROXY": "Proxy",
+        "OPEN_VIA_PROXY_LAN": "Open via LAN proxy (signed)",
+        "OPEN_VIA_PROXY_LAN_SHORT": "Proxy LAN",
+        "PROXY_NO_MATCH": "No IoT proxy matches this URL host. Configure a proxy with the same host/IP as the link.",
+        "PROXY_PATH_MISMATCH": "This URL path does not match the proxy upstream base.",
+        "PROXY_OPEN_FAILED": "Could not open the signed proxy link. Check your IoT role and proxy configuration.",
         "CATEGORIES": {
             "ADMINISTRATIF": "Administrative"
         }
@@ -1487,6 +1493,8 @@
         "PRIVATE": "Private",
         "FRIENDS": "Friends",
         "VISIBILITY": "Visibility",
+        "PROXY_LAN": "Proxy LAN",
+        "OPEN_VIA_PROXY_LAN": "Open via LAN proxy (signed URL)",
         "CATEGORY": "Category",
         "AUTHOR": "Author",
         "LINKS_LIST": "Links list",

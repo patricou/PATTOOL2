@@ -113,7 +113,8 @@
                                     </div>
                                     <div class="link-info">
                                         <div class="link-title-row">
-                                            <a href="{{ u.url }}" target="_blank" class="link-name" [title]="u.url" (click)="$event.stopPropagation()">
+                                            <a href="{{ u.url }}" target="_blank" rel="noopener noreferrer" class="link-name" [title]="u.url"
+                                               (click)="onLinkAnchorClick(u, $event); $event.stopPropagation()">
                                                 {{ u.linkName }}
                                             </a>
                                             <div class="link-owner-col">
@@ -124,8 +125,19 @@
                                         </div>
                                         <div class="link-meta">
                                             <span class="link-url">{{ u.linkDescription || u.url }}</span>
-                                            <span class="link-visibility"
-                                                  [ngClass]="linkVisibilityBadgeClass(u)">{{ visibilityTitle(u) }}</span>
+                                            <div class="link-meta-end">
+                                                <div class="link-proxy-row"
+                                                     [title]="'LINKS.OPEN_VIA_PROXY_LAN' | translate">
+                                                    <span class="link-proxy-label">{{ 'LINKS.PROXY' | translate }}</span>
+                                                    <div class="form-check form-switch link-proxy-lan-switch">
+                                                        <input class="form-check-input" type="checkbox" role="switch"
+                                                               [checked]="u.openByProxyLan === true" disabled
+                                                               [attr.aria-label]="('LINKS.PROXY' | translate) + ' — ' + ('LINKS.OPEN_VIA_PROXY_LAN' | translate)">
+                                                    </div>
+                                                </div>
+                                                <span class="link-visibility"
+                                                      [ngClass]="linkVisibilityBadgeClass(u)">{{ visibilityTitle(u) }}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

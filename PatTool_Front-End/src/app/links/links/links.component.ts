@@ -7,6 +7,8 @@ import {
 } from '@angular/core';
 import { debounceTime, take } from 'rxjs/operators';
 import { Subject, Subscription } from 'rxjs';
+import { IotProxyTarget } from '../../model/iot-proxy-target';
+import { IotProxyService } from '../../services/iot-proxy.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -51,6 +53,8 @@ export class LinksComponent implements OnInit, OnDestroy {
   public visibilityTitlePublic = '';
   public visibilityTitlePrivate = '';
   public visibilityTitleFriends = '';
+
+  private proxyTargets: IotProxyTarget[] = [];
 
   filteredLinksByCategoryId: Record<string, urllink[]> = {};
   categoryLinkCountById: Record<string, number> = {};
@@ -97,6 +101,7 @@ export class LinksComponent implements OnInit, OnDestroy {
   constructor(
     private _memberService: MembersService,
     private _urlLinkService: UrllinkService,
+    private _iotProxyService: IotProxyService,
     private translate: TranslateService,
     private cdr: ChangeDetectorRef
   ) { }
@@ -117,6 +122,7 @@ export class LinksComponent implements OnInit, OnDestroy {
     this.loading = true;
     const loadLinks = () => {
       this.user = this._memberService.getUser();
+      this.loadProxyTargets();
       this._urlLinkService.getLinksView(this.user).subscribe({
         next: (res) => {
           this.categories = (res.categories ?? []).map((c) => this.normalizeCategoryAuthor(c));
@@ -451,7 +457,7 @@ export class LinksComponent implements OnInit, OnDestroy {
 
   selectSuggestion(suggestion: urllink): void {
     if (this.openUrlOnClick) {
-      window.open(String(suggestion.url), '_blank');
+      this.openLinkInBrowser(suggestion);
     }
 
     const categoryIndex = this.categories.findIndex(c => c.categoryLinkID === suggestion.categoryLinkID);
@@ -545,6 +551,55 @@ export class LinksComponent implements OnInit, OnDestroy {
       return this.visibilityTitlePrivate;
     }
     return this.visibilityTitleFriends;
+  }
+
+  onLinkAnchorClick(u: urllink, event: MouseEvent): void {
+    if (!u.openByProxyLan) {
+      return;
+    }
+    event.preventDefault();
+    this.openLinkInBrowser(u);
+  }
+
+  openLinkInBrowser(u: urllink): void {
+    const raw = String(u.url || '');
+    if (!u.openByProxyLan) {
+      window.open(raw, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    const row = this._iotProxyService.findMatchingProxyForLinkUrl(raw, this.proxyTargets);
+    if (!row?.publicSlug) {
+      alert(this.translate.instant('LINKS.PROXY_NO_MATCH'));
+      return;
+    }
+    const parts = this._iotProxyService.buildProxyOpenPathParts(raw, row.upstreamBaseUrl || '');
+    if (!parts) {
+      alert(this.translate.instant('LINKS.PROXY_PATH_MISMATCH'));
+      return;
+    }
+    this._iotProxyService
+      .mintBrowserOpenUrl(row.publicSlug, parts.path, this.user?.id, parts.forwardQuery)
+      .pipe(take(1))
+      .subscribe({
+        next: (res) => {
+          const abs = this._iotProxyService.resolveBackendAbsoluteUrl(res.relativeUrlWithQuery);
+          window.open(abs, '_blank', 'noopener,noreferrer');
+        },
+        error: () => alert(this.translate.instant('LINKS.PROXY_OPEN_FAILED'))
+      });
+  }
+
+  private loadProxyTargets(): void {
+    this._iotProxyService.list(this.user?.id).subscribe({
+      next: (rows) => {
+        this.proxyTargets = rows || [];
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.proxyTargets = [];
+        this.cdr.markForCheck();
+      }
+    });
   }
 
 }

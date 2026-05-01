@@ -9,6 +9,7 @@ export class urllink{
         public url:string,
         public categoryLinkID:string,
         public visibility:string,
-        public author:Member
+        public author:Member,
+        public openByProxyLan: boolean = false
         ){}
 }

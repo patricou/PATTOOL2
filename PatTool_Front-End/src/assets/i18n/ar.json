@@ -286,6 +286,12 @@
         "ADMIN_BUTTON": "الإدارة",
         "N_CATEGORIES": "{{count}} فئات",
         "N_LINKS": "{{count}} روابط",
+        "PROXY": "وكيل",
+        "OPEN_VIA_PROXY_LAN": "فتح عبر وكيل الشبكة المحلية (موقع موقّع)",
+        "OPEN_VIA_PROXY_LAN_SHORT": "وكيل LAN",
+        "PROXY_NO_MATCH": "لا يوجد وكيل IoT يطابق مضيف هذا الرابط. اضبط وكيلاً بنفس المضيف/IP للرابط.",
+        "PROXY_PATH_MISMATCH": "مسار هذا الرابط لا يطابق قاعدة الوكيل الصاعدة.",
+        "PROXY_OPEN_FAILED": "تعذّر فتح رابط الوكيل الموقّع. تحقق من دور IoT وإعدادات الوكيل.",
         "CATEGORIES": {
             "ADMINISTRATIF": "إداري"
         }
@@ -1436,6 +1442,8 @@
         "PRIVATE": "خاص",
         "FRIENDS": "أصدقاء",
         "VISIBILITY": "الرؤية",
+        "PROXY_LAN": "وكيل LAN",
+        "OPEN_VIA_PROXY_LAN": "فتح عبر وكيل LAN (رابط موقّع)",
         "CATEGORY": "الفئة",
         "AUTHOR": "المؤلف",
         "LINKS_LIST": "قائمة الروابط",

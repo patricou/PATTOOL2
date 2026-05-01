@@ -286,6 +286,12 @@
         "ADMIN_BUTTON": "Διαχείριση",
         "N_CATEGORIES": "{{count}} κατηγορίες",
         "N_LINKS": "{{count}} σύνδεσμοι",
+        "PROXY": "Proxy",
+        "OPEN_VIA_PROXY_LAN": "Άνοιγμα μέσω LAN proxy (υπογεγραμμένο)",
+        "OPEN_VIA_PROXY_LAN_SHORT": "LAN proxy",
+        "PROXY_NO_MATCH": "Κανένα IoT proxy δεν ταιριάζει με τον κεντρικό υπολογιστή αυτού του URL. Ρυθμίστε proxy με τον ίδιο κεντρικό υπολογιστή/IP με τον σύνδεσμο.",
+        "PROXY_PATH_MISMATCH": "Η διαδρομή αυτού του URL δεν ταιριάζει με τη βάση upstream του proxy.",
+        "PROXY_OPEN_FAILED": "Δεν ήταν δυνατό το άνοιγμα του υπογεγραμμένου συνδέσμου proxy. Ελέγξτε τον ρόλο IoT και τη διαμόρφωση proxy.",
         "CATEGORIES": {
             "ADMINISTRATIF": "Διοικητικό"
         }
@@ -1241,6 +1247,8 @@
         "PRIVATE": "Ιδιωτικό",
         "FRIENDS": "Φίλοι",
         "VISIBILITY": "Ορατότητα",
+        "PROXY_LAN": "LAN proxy",
+        "OPEN_VIA_PROXY_LAN": "Άνοιγμα μέσω LAN proxy (υπογεγραμμένο URL)",
         "CATEGORY": "Κατηγορία",
         "AUTHOR": "Συντάκτης",
         "LINKS_LIST": "Κατάλογος συνδέσμων",

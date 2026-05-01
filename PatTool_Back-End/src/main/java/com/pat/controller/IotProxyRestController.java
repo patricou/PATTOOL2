@@ -394,18 +394,19 @@ public class IotProxyRestController {
                 ? row.get().getOwner()
                 : resolveOwner(auth, userId);
         String pathExtra = body != null ? body.get("path") : null;
+        String forwardQuery = body != null ? body.get("forwardQuery") : null;
         try {
             String token = openTokenService.mint(publicSlug, ownerKey);
             String pathSuffix = "/";
             if (pathExtra != null && StringUtils.hasText(pathExtra)) {
                 String p = pathExtra.trim();
-                if (p.contains("..")) {
+                if (p.contains("..") || p.indexOf('?') >= 0) {
                     return ResponseEntity.badRequest().body(Map.of("error", "badPath"));
                 }
                 pathSuffix = p.startsWith("/") ? p : "/" + p;
             }
-            String rel = "/api/iot-proxies/forward/" + publicSlug + pathSuffix +
-                    "?iotOpen=" + java.net.URLEncoder.encode(token, StandardCharsets.UTF_8);
+            String queryString = mergeIotOpenQueryString(forwardQuery, token);
+            String rel = "/api/iot-proxies/forward/" + publicSlug + pathSuffix + "?" + queryString;
             return ResponseEntity.ok(Map.of(
                     "relativeUrlWithQuery", rel,
                     "expiresInSeconds", openTokenService.validitySeconds()));
@@ -545,6 +546,42 @@ public class IotProxyRestController {
             return Optional.empty();
         }
         return Optional.of(String.join("&", kept));
+    }
+
+    /** Appends {@code iotOpen}; strips any {@code iotOpen} from {@code forwardQueryRaw} first. */
+    private static String mergeIotOpenQueryString(String forwardQueryRaw, String token) {
+        StringBuilder qs = new StringBuilder();
+        if (StringUtils.hasText(forwardQueryRaw)) {
+            String stripped = stripIotOpenFromRawQuery(forwardQueryRaw.trim());
+            if (StringUtils.hasText(stripped)) {
+                qs.append(stripped);
+            }
+        }
+        if (qs.length() > 0) {
+            qs.append('&');
+        }
+        qs.append("iotOpen=").append(java.net.URLEncoder.encode(token, StandardCharsets.UTF_8));
+        return qs.toString();
+    }
+
+    private static String stripIotOpenFromRawQuery(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return "";
+        }
+        String[] parts = raw.split("&");
+        List<String> kept = new ArrayList<>();
+        for (String part : parts) {
+            String key = part;
+            int eq = part.indexOf('=');
+            if (eq >= 0) {
+                key = part.substring(0, eq);
+            }
+            if ("iotOpen".equalsIgnoreCase(key)) {
+                continue;
+            }
+            kept.add(part);
+        }
+        return String.join("&", kept);
     }
 
     private void replay(String method, String seedUrl,

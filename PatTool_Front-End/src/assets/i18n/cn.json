@@ -286,6 +286,12 @@
         "ADMIN_BUTTON": "管理",
         "N_CATEGORIES": "{{count}} 个类别",
         "N_LINKS": "{{count}} 个链接",
+        "PROXY": "代理",
+        "OPEN_VIA_PROXY_LAN": "通过局域网代理打开（签名链接）",
+        "OPEN_VIA_PROXY_LAN_SHORT": "LAN 代理",
+        "PROXY_NO_MATCH": "没有 IoT 代理与此 URL 的主机匹配。请配置与链接相同主机/IP 的代理。",
+        "PROXY_PATH_MISMATCH": "此 URL 路径与代理的上游基础路径不匹配。",
+        "PROXY_OPEN_FAILED": "无法打开代理签名链接。请检查 IoT 角色和代理配置。",
         "CATEGORIES": {
             "ADMINISTRATIF": "行政"
         }
@@ -1437,6 +1443,8 @@
         "PRIVATE": "私有",
         "FRIENDS": "朋友",
         "VISIBILITY": "可见性",
+        "PROXY_LAN": "LAN 代理",
+        "OPEN_VIA_PROXY_LAN": "通过 LAN 代理打开（签名 URL）",
         "CATEGORY": "分类",
         "AUTHOR": "作者",
         "LINKS_LIST": "链接列表",

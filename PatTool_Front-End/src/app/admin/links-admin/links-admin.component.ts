@@ -219,7 +219,7 @@ export class LinksAdminComponent implements OnInit {
   }
 
   editUrllink(link: urllink) {
-    this.selectedUrllink = { ...link };
+    this.selectedUrllink = { ...link, openByProxyLan: link.openByProxyLan === true };
     this.isEditingUrllink = true;
   }
 
@@ -325,6 +325,10 @@ export class LinksAdminComponent implements OnInit {
           case 'visibility':
             aValue = a.visibility || '';
             bValue = b.visibility || '';
+            break;
+          case 'openByProxyLan':
+            aValue = a.openByProxyLan === true ? 1 : 0;
+            bValue = b.openByProxyLan === true ? 1 : 0;
             break;
           case 'author':
             aValue = a.author.userName || '';

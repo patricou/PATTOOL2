@@ -249,7 +249,14 @@
                 </div>
               </div>
               <div class="row">
-                <div class="col-md-3">
+                <div class="col-md-2">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="newOpenProxyLan"
+                           [(ngModel)]="newUrllink.openByProxyLan">
+                    <label class="form-check-label" for="newOpenProxyLan">{{ 'LINKSADMIN.OPEN_VIA_PROXY_LAN' | translate }}</label>
+                  </div>
+                </div>
+                <div class="col-md-2">
                   <select class="form-control" [(ngModel)]="newUrllink.visibility">
                     <option value="public">{{ 'LINKSADMIN.PUBLIC' | translate }}</option>
                     <option value="private">{{ 'LINKSADMIN.PRIVATE' | translate }}</option>
@@ -288,7 +295,7 @@
                 </div>
               </div>
               <div class="row">
-                <div class="col-md-4">
+                <div class="col-md-3">
                   <select class="form-control" [(ngModel)]="selectedUrllink.categoryLinkID">
                     <option [value]="''">{{ 'LINKSADMIN.SELECT_CATEGORY' | translate }}</option>
                     <option *ngFor="let cat of categories" [value]="cat.categoryLinkID">
@@ -296,7 +303,14 @@
                     </option>
                   </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
+                  <div class="form-check form-switch pt-1">
+                    <input class="form-check-input" type="checkbox" role="switch" id="editOpenProxyLan"
+                           [(ngModel)]="selectedUrllink.openByProxyLan">
+                    <label class="form-check-label" for="editOpenProxyLan">{{ 'LINKSADMIN.OPEN_VIA_PROXY_LAN' | translate }}</label>
+                  </div>
+                </div>
+                <div class="col-md-2">
                   <select class="form-control" [(ngModel)]="selectedUrllink.visibility">
                     <option value="public">{{ 'LINKSADMIN.PUBLIC' | translate }}</option>
                     <option value="private">{{ 'LINKSADMIN.PRIVATE' | translate }}</option>
@@ -350,13 +364,16 @@
                     <th style="width: 21%" (click)="sortLinks('description')" class="sortable">
                       {{ 'LINKSADMIN.DESCRIPTION' | translate }} <i class="fa" [ngClass]="getSortIcon('links', 'description')"></i>
                     </th>
-                    <th style="width: 21%" (click)="sortLinks('url')" class="sortable">
+                    <th style="width: 19%" (click)="sortLinks('url')" class="sortable">
                       {{ 'LINKSADMIN.URL' | translate }} <i class="fa" [ngClass]="getSortIcon('links', 'url')"></i>
                     </th>
-                    <th style="width: 13%" (click)="sortLinks('category')" class="sortable">
+                    <th style="width: 11%" (click)="sortLinks('category')" class="sortable">
                       {{ 'LINKSADMIN.CATEGORY' | translate }} <i class="fa" [ngClass]="getSortIcon('links', 'category')"></i>
                     </th>
-                    <th style="width: 9%" (click)="sortLinks('visibility')" class="sortable">
+                    <th style="width: 8%" (click)="sortLinks('openByProxyLan')" class="sortable">
+                      {{ 'LINKSADMIN.PROXY_LAN' | translate }} <i class="fa" [ngClass]="getSortIcon('links', 'openByProxyLan')"></i>
+                    </th>
+                    <th style="width: 8%" (click)="sortLinks('visibility')" class="sortable">
                       {{ 'LINKSADMIN.VISIBILITY' | translate }} <i class="fa" [ngClass]="getSortIcon('links', 'visibility')"></i>
                     </th>
                     <th style="width: 9%" (click)="sortLinks('author')" class="sortable">
@@ -379,6 +396,11 @@
                     <td>
                       <span class="badge bg-secondary" [title]="getCategoryName(link.categoryLinkID)">
                         {{ getCategoryName(link.categoryLinkID) }}
+                      </span>
+                    </td>
+                    <td class="text-center">
+                      <span class="badge" [class.bg-primary]="link.openByProxyLan === true" [class.bg-secondary]="link.openByProxyLan !== true">
+                        {{ link.openByProxyLan === true ? ('COMMUN.YES' | translate) : ('COMMUN.NO' | translate) }}
                       </span>
                     </td>
                     <td>
@@ -410,7 +432,7 @@
                     </td>
                   </tr>
                   <tr *ngIf="getVisibleLinks().length === 0">
-                    <td colspan="8" class="text-center text-muted">
+                    <td colspan="9" class="text-center text-muted">
                       <span *ngIf="urllinks.length === 0">{{ 'LINKSADMIN.NO_LINKS' | translate }}</span>
                       <span *ngIf="urllinks.length > 0 && !linkFilter">{{ 'LINKSADMIN.NO_VISIBLE_LINKS' | translate }}</span>
                       <span *ngIf="linkFilter">{{ 'LINKSADMIN.NO_RESULTS' | translate }} "{{ linkFilter }}"</span>
