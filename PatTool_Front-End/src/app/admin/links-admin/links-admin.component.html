@@ -126,7 +126,7 @@
             <!-- Categories List -->
             <div class="mb-3">
               <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="mb-0">{{ 'LINKSADMIN.CATEGORIES_LIST' | translate }} ({{ getFilteredCategories().length }})</h6>
+                <h6 class="mb-0">{{ 'LINKSADMIN.CATEGORIES_LIST' | translate }} ({{ displayCategories.length }})</h6>
                 <div class="input-group" style="max-width: 300px;">
                   <span class="input-group-text">
                     <i class="fa fa-search"></i>
@@ -134,11 +134,12 @@
                   <input type="text" 
                          class="form-control" 
                          [placeholder]="'LINKSADMIN.SEARCH_PLACEHOLDER' | translate"
-                         [(ngModel)]="categoryFilter">
+                         [(ngModel)]="categoryFilter"
+                         (ngModelChange)="onCategoryFilterChange()">
                   <button *ngIf="categoryFilter" 
                           class="btn btn-outline-secondary" 
                           type="button" 
-                          (click)="categoryFilter = ''">
+                          (click)="categoryFilter = ''; onCategoryFilterChange()">
                     <i class="fa fa-times"></i>
                   </button>
                 </div>
@@ -163,7 +164,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let category of getFilteredCategories()">
+                  <tr *ngFor="let category of displayCategories; trackBy: trackByCategoryRow">
                     <td><small>{{ category.categoryLinkID }}</small></td>
                     <td><strong>{{ category.categoryName }}</strong></td>
                     <td><small>{{ category.categoryDescription || '-' }}</small></td>
@@ -191,7 +192,7 @@
                       </div>
                     </td>
                   </tr>
-                  <tr *ngIf="getFilteredCategories().length === 0">
+                  <tr *ngIf="displayCategories.length === 0">
                     <td colspan="6" class="text-center text-muted">
                       <span *ngIf="!categoryFilter">{{ 'LINKSADMIN.NO_CATEGORIES' | translate }}</span>
                       <span *ngIf="categoryFilter">{{ 'LINKSADMIN.NO_RESULTS' | translate }} "{{ categoryFilter }}"</span>
@@ -209,7 +210,7 @@
         <div class="card">
           <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">
-              <i class="fa fa-link"></i> {{ 'LINKSADMIN.LINKS_MANAGEMENT' | translate }} ({{ getVisibleLinks().length }})
+              <i class="fa fa-link"></i> {{ 'LINKSADMIN.LINKS_MANAGEMENT' | translate }} ({{ visibleLinks.length }})
             </h5>
             <button class="btn btn-sm btn-info" (click)="showUrllinksJSON()">
               <i class="fa fa-code"></i> {{ 'LINKSADMIN.SHOW_JSON' | translate }}
@@ -333,7 +334,7 @@
             <!-- Links List -->
             <div class="mb-3">
               <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="mb-0">{{ 'LINKSADMIN.LINKS_LIST' | translate }} ({{ getVisibleLinks().length }})</h6>
+                <h6 class="mb-0">{{ 'LINKSADMIN.LINKS_LIST' | translate }} ({{ visibleLinks.length }})</h6>
                 <div class="input-group" style="max-width: 300px;">
                   <span class="input-group-text">
                     <i class="fa fa-search"></i>
@@ -341,11 +342,12 @@
                   <input type="text" 
                          class="form-control" 
                          [placeholder]="'LINKSADMIN.SEARCH_PLACEHOLDER' | translate"
-                         [(ngModel)]="linkFilter">
+                         [(ngModel)]="linkFilter"
+                         (ngModelChange)="onLinkFilterChange()">
                   <button *ngIf="linkFilter" 
                           class="btn btn-outline-secondary" 
                           type="button" 
-                          (click)="linkFilter = ''">
+                          (click)="linkFilter = ''; onLinkFilterChange()">
                     <i class="fa fa-times"></i>
                   </button>
                 </div>
@@ -383,7 +385,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let link of getVisibleLinks()">
+                  <tr *ngFor="let link of visibleLinks; trackBy: trackByLinkRow">
                     <td [title]="link.urlLinkID">{{ link.urlLinkID }}</td>
                     <td [title]="link.linkName"><strong>{{ link.linkName }}</strong></td>
                     <td [title]="link.linkDescription || '-'">{{ link.linkDescription || '-' }}</td>
@@ -431,7 +433,7 @@
                       </div>
                     </td>
                   </tr>
-                  <tr *ngIf="getVisibleLinks().length === 0">
+                  <tr *ngIf="visibleLinks.length === 0">
                     <td colspan="9" class="text-center text-muted">
                       <span *ngIf="urllinks.length === 0">{{ 'LINKSADMIN.NO_LINKS' | translate }}</span>
                       <span *ngIf="urllinks.length > 0 && !linkFilter">{{ 'LINKSADMIN.NO_VISIBLE_LINKS' | translate }}</span>

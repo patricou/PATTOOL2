@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
+import { take } from 'rxjs/operators';
 import { Category } from '../../model/Category';
 import { urllink } from '../../model/urllink';
 import { Member } from '../../model/member';
@@ -55,74 +56,86 @@ export class LinksAdminComponent implements OnInit {
   public urllinksJSON: string = '';
   public loading: boolean = true;
 
+  /** O(1) category labels for table cells (avoid repeated find() per row per CD cycle). */
+  private categoryNameByLinkId: Record<string, string> = {};
+
+  /** Precomputed table rows — do not call filter/sort getters from the template. */
+  public visibleLinks: urllink[] = [];
+  public displayCategories: Category[] = [];
+
   constructor(
     private _urlLinkService: UrllinkService,
     private _memberService: MembersService
   ) { }
 
-  ngOnInit() {
+  ngOnInit(): void {
     this.loading = true;
-    this.waitForNonEmptyValue().then(() => {
-      let categoriesLoaded = false;
-      let linksLoaded = false;
-      const maybeDone = () => {
-        if (categoriesLoaded && linksLoaded) {
+    const load = (): void => {
+      this.user = this._memberService.getUser();
+      this._urlLinkService.getLinksView(this.user).subscribe({
+        next: (res) => {
+          this.applyLinksViewPayload(res);
+          this.newCategory = this.createNewCategory();
+          this.loading = false;
+        },
+        error: (err) => {
+          alert('Error loading links administration: ' + err);
           this.loading = false;
         }
-      };
+      });
+    };
 
-      this._urlLinkService.getCategories(this.user).subscribe(
-        categories => {
-          this.categories = categories;
-          categoriesLoaded = true;
-          maybeDone();
-        },
-        error => {
-          alert("Error getting categories: " + error);
-          categoriesLoaded = true;
-          maybeDone();
-        }
-      );
+    if (this._memberService.getUser().id) {
+      load();
+    } else {
+      this._memberService.getUserId({ skipGeolocation: true }).pipe(take(1)).subscribe({
+        next: () => load(),
+        error: () => load()
+      });
+    }
+  }
 
-      this._urlLinkService.getLinks(this.user).subscribe(
-        links => {
-          this.urllinks = links;
-          linksLoaded = true;
-          maybeDone();
-        },
-        error => {
-          alert("Error getting links: " + error);
-          linksLoaded = true;
-          maybeDone();
-        }
-      );
+  private applyLinksViewPayload(res: {
+    categories: Category[];
+    linksByCategoryId: Record<string, urllink[]>;
+  }): void {
+    this.categories = res.categories ?? [];
+    this.urllinks = Object.values(res.linksByCategoryId ?? {}).flat();
+    this.rebuildCategoryNameMap();
+    this.rebuildDisplayCategories();
+    this.rebuildVisibleLinks();
+  }
 
-      this.newCategory = this.createNewCategory();
+  private refreshFromLinksView(): void {
+    this.user = this._memberService.getUser();
+    this._urlLinkService.getLinksView(this.user).subscribe({
+      next: (res) => this.applyLinksViewPayload(res),
+      error: (err) => alert('Error loading data: ' + err)
     });
   }
 
-  private waitForNonEmptyValue(): Promise<void> {
-    return new Promise<void>((resolve) => {
-      const checkValue = () => {
-        if (this.user.id !== "") {
-          resolve();
-        } else {
-          setTimeout(checkValue, 100);
-        }
-      };
-      checkValue();
-    });
+  private rebuildCategoryNameMap(): void {
+    const m: Record<string, string> = {};
+    for (const c of this.categories) {
+      if (c.categoryLinkID) {
+        m[c.categoryLinkID] = c.categoryName || '';
+      }
+    }
+    this.categoryNameByLinkId = m;
+  }
+
+  onLinkFilterChange(): void {
+    this.rebuildVisibleLinks();
+  }
+
+  onCategoryFilterChange(): void {
+    this.rebuildDisplayCategories();
   }
 
   // ==================== CATEGORIES ====================
 
   loadCategories() {
-    this._urlLinkService.getCategories(this.user).subscribe(
-      categories => {
-        this.categories = categories;
-      },
-      error => alert("Error getting categories: " + error)
-    );
+    this.refreshFromLinksView();
   }
 
   createCategory() {
@@ -191,12 +204,7 @@ export class LinksAdminComponent implements OnInit {
   // ==================== URLLINKS ====================
 
   loadLinks() {
-    this._urlLinkService.getLinks(this.user).subscribe(
-      links => {
-        this.urllinks = links;
-      },
-      error => alert("Error getting links: " + error)
-    );
+    this.refreshFromLinksView();
   }
 
   createUrllink() {
@@ -256,8 +264,18 @@ export class LinksAdminComponent implements OnInit {
   // ==================== UI HELPERS ====================
 
   getCategoryName(categoryLinkID: string): string {
-    const category = this.categories.find(c => c.categoryLinkID === categoryLinkID);
-    return category ? category.categoryName : '';
+    if (!categoryLinkID) {
+      return '';
+    }
+    return this.categoryNameByLinkId[categoryLinkID] ?? '';
+  }
+
+  trackByLinkRow(_index: number, link: urllink): string {
+    return link.id || link.urlLinkID || String(_index);
+  }
+
+  trackByCategoryRow(_index: number, category: Category): string {
+    return category.id || category.categoryLinkID || String(_index);
   }
 
   setActiveTab(tab: 'categories' | 'links') {
@@ -268,40 +286,34 @@ export class LinksAdminComponent implements OnInit {
   isLinkVisible(link: urllink): boolean {
     // Backend already filters links, so if a link is in the list, it's visible
     // This is just for display purposes in admin - show all links user can see
-    return link.author.id === this.user.id || link.visibility === 'public' || link.visibility === 'friends';
+    return link.author?.id === this.user.id || link.visibility === 'public' || link.visibility === 'friends';
   }
 
-  // Get all visible links
-  getVisibleLinks(): urllink[] {
-    let visibleLinks = this.urllinks.filter(link => this.isLinkVisible(link));
-    
-    // Apply filter if set
+  private rebuildVisibleLinks(): void {
+    let list = this.urllinks.filter(link => this.isLinkVisible(link));
+
     if (this.linkFilter) {
       const filterLower = this.linkFilter.toLowerCase();
-      visibleLinks = visibleLinks.filter(link => 
+      list = list.filter(link =>
         (link.linkName && link.linkName.toLowerCase().includes(filterLower)) ||
         (link.linkDescription && link.linkDescription.toLowerCase().includes(filterLower)) ||
         (link.url && link.url.toLowerCase().includes(filterLower)) ||
-        (this.getCategoryName(link.categoryLinkID) && this.getCategoryName(link.categoryLinkID).toLowerCase().includes(filterLower))
+        (this.categoryNameByLinkId[link.categoryLinkID || ''] || '').toLowerCase().includes(filterLower)
       );
     }
-    
-    // Apply sorting if a sort column is set
+
     if (this.linkSortColumn) {
-      return [...visibleLinks].sort((a, b) => {
+      list = [...list].sort((a, b) => {
         let aValue: any;
         let bValue: any;
-        let isNumeric = false;
 
-        switch(this.linkSortColumn) {
+        switch (this.linkSortColumn) {
           case 'id':
             aValue = a.urlLinkID || '';
             bValue = b.urlLinkID || '';
-            // Check if values are numeric
             const aNum = Number(aValue);
             const bNum = Number(bValue);
-            isNumeric = !isNaN(aNum) && !isNaN(bNum);
-            if (isNumeric) {
+            if (!isNaN(aNum) && !isNaN(bNum)) {
               aValue = aNum;
               bValue = bNum;
             }
@@ -319,8 +331,8 @@ export class LinksAdminComponent implements OnInit {
             bValue = b.url || '';
             break;
           case 'category':
-            aValue = this.getCategoryName(a.categoryLinkID) || '';
-            bValue = this.getCategoryName(b.categoryLinkID) || '';
+            aValue = this.categoryNameByLinkId[a.categoryLinkID || ''] || '';
+            bValue = this.categoryNameByLinkId[b.categoryLinkID || ''] || '';
             break;
           case 'visibility':
             aValue = a.visibility || '';
@@ -331,8 +343,8 @@ export class LinksAdminComponent implements OnInit {
             bValue = b.openByProxyLan === true ? 1 : 0;
             break;
           case 'author':
-            aValue = a.author.userName || '';
-            bValue = b.author.userName || '';
+            aValue = a.author?.userName || '';
+            bValue = b.author?.userName || '';
             break;
           default:
             return 0;
@@ -343,39 +355,33 @@ export class LinksAdminComponent implements OnInit {
         return 0;
       });
     }
-    
-    return visibleLinks;
+
+    this.visibleLinks = list;
   }
 
-  // Get filtered categories
-  getFilteredCategories(): Category[] {
-    let filteredCategories = this.categories;
-    
-    // Apply filter if set
+  private rebuildDisplayCategories(): void {
+    let list = this.categories;
+
     if (this.categoryFilter) {
       const filterLower = this.categoryFilter.toLowerCase();
-      filteredCategories = this.categories.filter(category => 
+      list = this.categories.filter(category =>
         (category.categoryName && category.categoryName.toLowerCase().includes(filterLower)) ||
         (category.categoryDescription && category.categoryDescription.toLowerCase().includes(filterLower))
       );
     }
-    
-    // Apply sorting if a sort column is set
+
     if (this.categorySortColumn) {
-      return [...filteredCategories].sort((a, b) => {
+      list = [...list].sort((a, b) => {
         let aValue: any;
         let bValue: any;
-        let isNumeric = false;
 
-        switch(this.categorySortColumn) {
+        switch (this.categorySortColumn) {
           case 'id':
             aValue = a.categoryLinkID || '';
             bValue = b.categoryLinkID || '';
-            // Check if values are numeric
             const aNum = Number(aValue);
             const bNum = Number(bValue);
-            isNumeric = !isNaN(aNum) && !isNaN(bNum);
-            if (isNumeric) {
+            if (!isNaN(aNum) && !isNaN(bNum)) {
               aValue = aNum;
               bValue = bNum;
             }
@@ -397,8 +403,8 @@ export class LinksAdminComponent implements OnInit {
         return 0;
       });
     }
-    
-    return filteredCategories;
+
+    this.displayCategories = list;
   }
 
   // ==================== SORTING ====================
@@ -410,7 +416,7 @@ export class LinksAdminComponent implements OnInit {
       this.categorySortColumn = column;
       this.categorySortDirection = 'asc';
     }
-    // The actual sorting is handled in getFilteredCategories()
+    this.rebuildDisplayCategories();
   }
 
   sortLinks(column: string) {
@@ -420,7 +426,7 @@ export class LinksAdminComponent implements OnInit {
       this.linkSortColumn = column;
       this.linkSortDirection = 'asc';
     }
-    // The actual sorting is handled in getVisibleLinks()
+    this.rebuildVisibleLinks();
   }
 
   getSortIcon(table: 'categories' | 'links', column: string): string {
