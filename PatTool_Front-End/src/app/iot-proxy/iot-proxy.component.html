@@ -1,19 +1,21 @@
-<div class="pat-title">
+<div class="pat-title px-2 px-md-0">
     <h2>{{ 'IOT_PROXY.TITLE' | translate }}</h2>
 </div>
 
-<div class="container mt-0 iot-proxy-scope">
-    <p class="text-muted">{{ 'IOT_PROXY.INTRO' | translate }}</p>
+<div class="container-fluid px-2 px-sm-3 mt-0 iot-proxy-scope">
+    <p class="text-muted small mb-2">{{ 'IOT_PROXY.INTRO' | translate }}</p>
 
-    <div class="toolbar mb-3 d-flex flex-wrap gap-2 align-items-center">
-        <button type="button" class="btn btn-sm btn-primary" (click)="openCreate()">
-            <i class="fa fa-plus"></i> {{ 'IOT_PROXY.ADD' | translate }}
-        </button>
-        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="reload()" [disabled]="isLoading">
-            <i class="fa" [class.fa-refresh]="!isLoading" [class.fa-spinner]="isLoading" [class.fa-spin]="isLoading"></i>
-            {{ 'IOT_PROXY.REFRESH' | translate }}
-        </button>
-        <label class="small mb-0 ms-2 d-flex align-items-center gap-1 flex-grow-1" style="min-width: 200px; max-width: 360px;">
+    <div class="toolbar mb-3 d-flex flex-column flex-md-row flex-wrap gap-2 align-items-stretch align-items-md-center iot-proxy-toolbar">
+        <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-sm btn-primary" (click)="openCreate()">
+                <i class="fa fa-plus"></i> {{ 'IOT_PROXY.ADD' | translate }}
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="reload()" [disabled]="isLoading">
+                <i class="fa" [class.fa-refresh]="!isLoading" [class.fa-spinner]="isLoading" [class.fa-spin]="isLoading"></i>
+                {{ 'IOT_PROXY.REFRESH' | translate }}
+            </button>
+        </div>
+        <label class="small mb-0 d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-1 iot-proxy-filter flex-grow-1">
             <span class="text-nowrap">{{ 'IOT_PROXY.FILTER_LABEL' | translate }}</span>
             <input type="search" class="form-control form-control-sm flex-grow-1"
                    [ngModel]="listFilter"
@@ -21,9 +23,9 @@
                    [placeholder]="'IOT_PROXY.FILTER_PLACEHOLDER' | translate"
                    autocomplete="off"/>
         </label>
-        <label class="small mb-0 ms-2 d-flex align-items-center gap-1">
-            {{ 'IOT_PROXY.OPTIONAL_PATH_HINT' | translate }}
-            <input type="text" class="form-control form-control-sm" style="width:220px;"
+        <label class="small mb-0 d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 iot-proxy-path-extra flex-grow-1 flex-md-grow-0">
+            <span>{{ 'IOT_PROXY.OPTIONAL_PATH_HINT' | translate }}</span>
+            <input type="text" class="form-control form-control-sm iot-proxy-path-input"
                    [(ngModel)]="openPathExtra" [placeholder]="'IOT_PROXY.OPTIONAL_PATH_PLACEHOLDER' | translate"/>
         </label>
     </div>
@@ -101,9 +103,9 @@
             </thead>
             <tbody>
             <tr *ngFor="let row of displayRows; trackBy: trackByRowId">
-                <td>{{ row.description }}</td>
-                <td><code class="iot-proxy-public-slug">{{ row.publicSlug }}</code></td>
-                <td>
+                <td [attr.data-label]="'IOT_PROXY.DESCRIPTION' | translate">{{ row.description }}</td>
+                <td [attr.data-label]="'IOT_PROXY.SLUG' | translate"><code class="iot-proxy-public-slug">{{ row.publicSlug }}</code></td>
+                <td [attr.data-label]="'IOT_PROXY.UPSTREAM' | translate">
                     <a *ngIf="row.upstreamBaseUrl?.trim()"
                        [href]="(row.upstreamBaseUrl ?? '').trim()"
                        target="_blank"
@@ -113,22 +115,25 @@
                     </a>
                     <span *ngIf="!row.upstreamBaseUrl?.trim()" class="text-muted">—</span>
                 </td>
-                <td>{{ row.owner }}</td>
-                <td>{{ formatDate(row.creationDate) }}</td>
-                <td class="text-end text-nowrap">
+                <td [attr.data-label]="'IOT_PROXY.OWNER' | translate">{{ row.owner }}</td>
+                <td [attr.data-label]="'IOT_PROXY.CREATED' | translate">{{ formatDate(row.creationDate) }}</td>
+                <td class="text-end text-md-end text-start iot-proxy-actions-cell"
+                    [attr.data-label]="'IOT_PROXY.ACTIONS' | translate">
+                    <div class="d-flex flex-wrap gap-1 justify-content-md-end justify-content-start align-items-center">
                     <button type="button"
-                            class="btn btn-sm btn-success me-1 iot-proxy-open-proxied-btn"
+                            class="btn btn-sm btn-success iot-proxy-open-proxied-btn"
                             (click)="openInBrowser(row)"
                             [title]="'IOT_PROXY.OPEN_BROWSER' | translate">
                         <i class="fa fa-external-link" aria-hidden="true"></i>
                     </button>
-                    <button type="button" class="btn btn-sm btn-outline-primary me-1" (click)="openEdit(row)">
+                    <button type="button" class="btn btn-sm btn-outline-primary" (click)="openEdit(row)">
                         <i class="fa fa-pencil"></i>
                     </button>
                     <button type="button" class="btn btn-sm btn-outline-danger" (click)="askDelete(row)">
                         <i class="fa fa-trash"></i>
                     </button>
-                    <div *ngIf="confirmDeleteId === row.id" class="confirm-delete-inline d-flex flex-nowrap gap-1 justify-content-end align-items-center mt-1">
+                    </div>
+                    <div *ngIf="confirmDeleteId === row.id" class="confirm-delete-inline d-flex flex-wrap gap-1 justify-content-md-end justify-content-start align-items-center mt-1 w-100">
                         <button type="button" class="btn btn-sm btn-danger" (click)="deleteRow(row)">
                             {{ 'IOT_PROXY.CONFIRM_DELETE' | translate }}
                         </button>
@@ -144,7 +149,7 @@
 </div>
 
 <div class="modal fade show modal-backdrop-fake" *ngIf="showEditor" style="display:block;" tabindex="-1" role="dialog" (click)="closeEditor()">
-    <div class="modal-dialog modal-lg" role="document" (click)="$event.stopPropagation()">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down" role="document" (click)="$event.stopPropagation()">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">

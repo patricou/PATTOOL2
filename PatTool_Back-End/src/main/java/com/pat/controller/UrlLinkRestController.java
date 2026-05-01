@@ -8,6 +8,7 @@ import com.pat.repo.FriendRepository;
 import com.pat.repo.MembersRepository;
 import com.pat.controller.dto.LinksViewDTO;
 import com.pat.service.LinksViewService;
+import com.pat.util.MemberReferenceIds;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,8 +18,12 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.IdentityHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
@@ -44,6 +49,7 @@ public class UrlLinkRestController {
         log.debug("Get urlLink / User Id : "+ userId);
         Sort sort = Sort.by(Sort.Direction.ASC, "linkName");
         List<UrlLink> allLinks = urlLinkRepository.findAll(sort);
+        hydrateUrlLinkAuthors(allLinks);
         
         // Filter links: show public ones, friends visibility ones, or those where user is author
         if (userId != null && !userId.isEmpty()) {
@@ -105,7 +111,10 @@ public class UrlLinkRestController {
     public ResponseEntity<UrlLink> getUrlLinkById(@PathVariable("id") String id) {
         log.info("Get urlLink by id: {}", id);
         Optional<UrlLink> urlLink = urlLinkRepository.findById(id);
-        return urlLink.map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+        return urlLink.map(u -> {
+            hydrateUrlLinkAuthors(java.util.List.of(u));
+            return ResponseEntity.ok(u);
+        }).orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping(value="/urllink", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -201,5 +210,52 @@ public class UrlLinkRestController {
             log.error("Error deleting urlLink: ", e);
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    /**
+     * Spring Data may map {@link UrlLink#getAuthor()} to a hollow {@link Member} whose {@code id}
+     * is a DBRef {@code toString()} and other fields null. Batch-resolve via {@link LinksViewService}
+     * (same query strategy as {@code /links-view}).
+     */
+    private void hydrateUrlLinkAuthors(List<UrlLink> links) {
+        Set<String> hexes = new LinkedHashSet<>();
+        Map<UrlLink, String> linkToHex = new IdentityHashMap<>();
+        for (UrlLink link : links) {
+            Member a = link.getAuthor();
+            if (a == null) {
+                continue;
+            }
+            if (authorMemberHasDisplayFields(a)) {
+                continue;
+            }
+            String rawId = a.getId();
+            if (rawId == null || rawId.isBlank()) {
+                continue;
+            }
+            String hex = MemberReferenceIds.extractMemberId(rawId);
+            if (hex == null) {
+                continue;
+            }
+            hexes.add(hex);
+            linkToHex.put(link, hex);
+        }
+        if (hexes.isEmpty()) {
+            return;
+        }
+        Map<String, Member> resolved = linksViewService.resolveAuthorsByIds(hexes);
+        for (Map.Entry<UrlLink, String> e : linkToHex.entrySet()) {
+            String key = e.getValue() == null ? "" : e.getValue().trim().toLowerCase();
+            Member m = resolved.get(key);
+            if (m != null && authorMemberHasDisplayFields(m)) {
+                e.getKey().setAuthor(m);
+            }
+        }
+    }
+
+    private static boolean authorMemberHasDisplayFields(Member a) {
+        return (a.getUserName() != null && !a.getUserName().isBlank())
+                || (a.getFirstName() != null && !a.getFirstName().isBlank())
+                || (a.getLastName() != null && !a.getLastName().isBlank())
+                || (a.getAddressEmail() != null && !a.getAddressEmail().isBlank());
     }
 }

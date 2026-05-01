@@ -4,6 +4,7 @@ import com.pat.controller.dto.LinksViewDTO;
 import com.pat.repo.domain.CategoryLink;
 import com.pat.repo.domain.Member;
 import com.pat.repo.domain.UrlLink;
+import com.pat.util.MemberReferenceIds;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
@@ -15,6 +16,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -51,19 +53,31 @@ public class LinksViewService {
 
         Set<String> authorIds = new HashSet<>();
         for (Document d : categoryDocs) {
-            String aid = extractDbRefId(d.get("author"));
+            String aid = MemberReferenceIds.extractMemberId(rawAuthorFromCategoryOrLink(d));
             if (aid != null) {
                 authorIds.add(aid);
             }
         }
         for (Document d : linkDocs) {
-            String aid = extractDbRefId(d.get("author"));
+            String aid = MemberReferenceIds.extractMemberId(rawAuthorFromCategoryOrLink(d));
             if (aid != null) {
                 authorIds.add(aid);
             }
         }
 
-        Map<String, Member> authorMap = loadAuthorsLite(authorIds);
+        Map<String, Member> authorMap = loadAuthors(authorIds);
+
+        Map<String, Member> categoryAuthorFallback = new LinkedHashMap<>();
+        for (Document d : categoryDocs) {
+            Object catLinkId = d.get("categoryLinkID");
+            if (catLinkId == null) {
+                continue;
+            }
+            Member catAuthor = resolveMemberAuthor(rawAuthorFromCategoryOrLink(d), authorMap);
+            if (catAuthor != null) {
+                categoryAuthorFallback.put(catLinkId.toString(), catAuthor);
+            }
+        }
 
         List<CategoryLink> categories = new ArrayList<>();
         for (Document d : categoryDocs) {
@@ -72,7 +86,7 @@ public class LinksViewService {
 
         List<UrlLink> links = new ArrayList<>();
         for (Document d : linkDocs) {
-            links.add(urlLinkFromDocument(d, authorMap));
+            links.add(urlLinkFromDocument(d, authorMap, categoryAuthorFallback));
         }
 
         Map<String, List<UrlLink>> linksByCategoryId = new LinkedHashMap<>();
@@ -91,6 +105,17 @@ public class LinksViewService {
         }
 
         return new LinksViewDTO(categories, linksByCategoryId);
+    }
+
+    /**
+     * Batch-resolve {@link Member}s the same way as for {@code /links-view} (for hydrating {@link UrlLink#getAuthor()}).
+     * Keys are lowercase trimmed ids ({@link #normalizeIdKey}).
+     */
+    public Map<String, Member> resolveAuthorsByIds(Set<String> authorIds) {
+        if (authorIds == null || authorIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return loadAuthors(new HashSet<>(authorIds));
     }
 
     /**
@@ -113,8 +138,8 @@ public class LinksViewService {
         String selfNorm = normalizeIdKey(userId);
         Set<String> out = new HashSet<>();
         for (Document row : rows) {
-            String id1 = extractDbRefId(row.get("user1"));
-            String id2 = extractDbRefId(row.get("user2"));
+            String id1 = MemberReferenceIds.extractMemberId(row.get("user1"));
+            String id2 = MemberReferenceIds.extractMemberId(row.get("user2"));
             if (id1 != null && !normalizeIdKey(id1).equals(selfNorm)) {
                 out.add(id1);
             }
@@ -125,22 +150,103 @@ public class LinksViewService {
         return new ArrayList<>(out);
     }
 
-    private Map<String, Member> loadAuthorsLite(Set<String> authorIds) {
+    /**
+     * Load link/category authors: {@link Member} via {@link MongoTemplate} with an {@code _id} query that
+     * matches both String and {@link ObjectId} encodings ( Spring {@code findAllById} often misses ObjectId _ids
+     * when given hex strings). Then BSON projection fallback, then stubs.
+     */
+    private Map<String, Member> loadAuthors(Set<String> authorIds) {
+        Map<String, Member> map = new HashMap<>();
+        if (authorIds == null || authorIds.isEmpty()) {
+            return map;
+        }
+        List<String> ids = new ArrayList<>();
+        for (String id : authorIds) {
+            if (id != null && !id.isBlank()) {
+                ids.add(id.trim());
+            }
+        }
+        if (ids.isEmpty()) {
+            return map;
+        }
+        Criteria idCriteria = buildMemberIdInCriteria(ids);
+        if (idCriteria != null) {
+            List<Member> found = mongoTemplate.find(new Query(idCriteria), Member.class, "members");
+            for (Member m : found) {
+                if (m != null && m.getId() != null) {
+                    map.put(normalizeIdKey(m.getId()), m);
+                }
+            }
+        }
+        Set<String> missing = new HashSet<>();
+        for (String aid : ids) {
+            if (!map.containsKey(normalizeIdKey(aid))) {
+                missing.add(aid);
+            }
+        }
+        if (!missing.isEmpty()) {
+            map.putAll(loadAuthorsLiteFromDocuments(missing));
+        }
+        for (String aid : ids) {
+            String k = normalizeIdKey(aid);
+            if (!map.containsKey(k)) {
+                Member stub = new Member();
+                stub.setId(aid);
+                map.put(k, stub);
+            }
+        }
+        return map;
+    }
+
+    /**
+     * Match {@code members._id} whether stored as {@link String} or {@link ObjectId}
+     * (a single {@code $in} with mixed or wrongly typed ids often returns no rows).
+     */
+    private static Criteria buildMemberIdInCriteria(Collection<String> rawIds) {
+        LinkedHashSet<String> strCandidates = new LinkedHashSet<>();
+        List<ObjectId> oidCandidates = new ArrayList<>();
+        for (String id : rawIds) {
+            if (id == null || id.isEmpty()) {
+                continue;
+            }
+            String trimmed = id.trim();
+            strCandidates.add(trimmed);
+            if (ObjectId.isValid(trimmed)) {
+                try {
+                    oidCandidates.add(new ObjectId(trimmed));
+                } catch (IllegalArgumentException ignored) {
+                    // keep string form only
+                }
+            }
+        }
+        if (strCandidates.isEmpty() && oidCandidates.isEmpty()) {
+            return null;
+        }
+        List<Criteria> idBranches = new ArrayList<>();
+        if (!strCandidates.isEmpty()) {
+            idBranches.add(Criteria.where("_id").in(strCandidates));
+        }
+        if (!oidCandidates.isEmpty()) {
+            idBranches.add(Criteria.where("_id").in(oidCandidates));
+        }
+        return idBranches.size() == 1
+                ? idBranches.get(0)
+                : new Criteria().orOperator(idBranches.toArray(new Criteria[0]));
+    }
+
+    /**
+     * BSON projection fallback when {@link #loadAuthors} entity mapping still misses rows (legacy id shapes).
+     */
+    private Map<String, Member> loadAuthorsLiteFromDocuments(Set<String> authorIds) {
         if (authorIds.isEmpty()) {
             return Collections.emptyMap();
         }
-        LinkedHashSet<Object> inVals = new LinkedHashSet<>();
-        for (String id : authorIds) {
-            Object v = authorRefIdForQuery(id);
-            if (v != null) {
-                inVals.add(v);
-            }
-        }
-        if (inVals.isEmpty()) {
+        Criteria idCriteria = buildMemberIdInCriteria(authorIds);
+        if (idCriteria == null) {
             return Collections.emptyMap();
         }
-        Query q = new Query(Criteria.where("_id").in(new ArrayList<>(inVals)));
-        q.fields().include("_id").include("userName").include("firstName").include("lastName");
+        Query q = new Query(idCriteria);
+        q.fields().include("_id").include("userName").include("firstName").include("lastName").include("addressEmail");
         List<Document> docs = mongoTemplate.find(q, Document.class, "members");
         Map<String, Member> map = new HashMap<>();
         for (Document d : docs) {
@@ -148,15 +254,36 @@ public class LinksViewService {
             if (id == null) {
                 continue;
             }
-            Member m = new Member();
-            m.setId(id);
-            m.setUserName(d.getString("userName"));
-            m.setFirstName(d.getString("firstName"));
-            m.setLastName(d.getString("lastName"));
-            m.setPositions(Collections.emptyList());
+            Member m = memberFromAuthorDocument(d, id);
             map.put(normalizeIdKey(id), m);
         }
         return map;
+    }
+
+    /** Best-effort display fields from members collection (legacy keys / empty username). */
+    private static Member memberFromAuthorDocument(Document d, String id) {
+        Member m = new Member();
+        m.setId(id);
+        m.setUserName(firstNonBlankString(d, "userName", "username", "login"));
+        m.setFirstName(firstNonBlankString(d, "firstName", "first_name"));
+        m.setLastName(firstNonBlankString(d, "lastName", "last_name"));
+        m.setAddressEmail(firstNonBlankString(d, "addressEmail", "address_email", "email"));
+        m.setPositions(Collections.emptyList());
+        return m;
+    }
+
+    private static String firstNonBlankString(Document d, String... keys) {
+        for (String k : keys) {
+            Object v = d.get(k);
+            if (v == null) {
+                continue;
+            }
+            String s = v.toString().trim();
+            if (!s.isEmpty()) {
+                return s;
+            }
+        }
+        return null;
     }
 
     private static String normalizeIdKey(String id) {
@@ -242,21 +369,69 @@ public class LinksViewService {
         return q;
     }
 
-    private static String extractDbRefId(Object refVal) {
-        if (refVal == null) {
+    /**
+     * Legacy / mixed shapes: nested {@code author}, plain id, or alternate field names.
+     */
+    private static Object rawAuthorFromCategoryOrLink(Document d) {
+        if (d == null) {
             return null;
         }
-        if (refVal instanceof Document doc) {
-            Object id = doc.get("$id");
-            if (id instanceof ObjectId oid) {
-                return oid.toHexString();
+        String[] keys = {
+                "author", "Author", "authorId", "author_id",
+                "owner", "ownerId", "owner_id",
+                "userId", "user_id", "memberId", "member_id",
+                "createdBy", "created_by"
+        };
+        for (String k : keys) {
+            Object v = d.get(k);
+            if (v != null) {
+                return v;
             }
-            return id != null ? id.toString() : null;
         }
-        if (refVal instanceof ObjectId oid) {
-            return oid.toHexString();
+        return null;
+    }
+
+    /**
+     * Resolves {@link Member} from raw BSON: DBRef ({@code $ref}/$id), embedded subdocument,
+     * or plain {@link ObjectId} / string id (common when {@code @DBRef} was not used).
+     */
+    private static Member resolveMemberAuthor(Object rawAuthor, Map<String, Member> authorMap) {
+        if (rawAuthor == null) {
+            return null;
         }
-        return refVal.toString();
+        if (rawAuthor instanceof Document adoc) {
+            boolean dbRef = adoc.containsKey("$id") || adoc.containsKey("$ref");
+            String aid = MemberReferenceIds.extractMemberId(rawAuthor);
+            if (!dbRef) {
+                Member inline = memberFromAuthorDocument(adoc, aid != null ? aid : "");
+                if (inline.getUserName() != null || inline.getFirstName() != null || inline.getLastName() != null
+                        || inline.getAddressEmail() != null) {
+                    if ((inline.getId() == null || inline.getId().isBlank()) && aid != null) {
+                        inline.setId(aid);
+                    }
+                    return inline;
+                }
+            }
+            if (aid == null) {
+                return null;
+            }
+            return memberFromMapOrStub(aid, authorMap);
+        }
+        String aid = MemberReferenceIds.extractMemberId(rawAuthor);
+        if (aid == null) {
+            return null;
+        }
+        return memberFromMapOrStub(aid, authorMap);
+    }
+
+    private static Member memberFromMapOrStub(String aid, Map<String, Member> authorMap) {
+        Member m = authorMap.get(normalizeIdKey(aid));
+        if (m != null) {
+            return m;
+        }
+        Member stub = new Member();
+        stub.setId(aid);
+        return stub;
     }
 
     private static String documentIdToString(Object idObj) {
@@ -276,21 +451,15 @@ public class LinksViewService {
         c.setCategoryName(d.getString("categoryName"));
         c.setCategoryDescription(d.getString("categoryDescription"));
         c.setVisibility(d.getString("visibility"));
-        String aid = extractDbRefId(d.get("author"));
-        if (aid != null) {
-            Member m = authorMap.get(normalizeIdKey(aid));
-            if (m != null) {
-                c.setAuthor(m);
-            } else {
-                Member stub = new Member();
-                stub.setId(aid);
-                c.setAuthor(stub);
-            }
+        Member author = resolveMemberAuthor(rawAuthorFromCategoryOrLink(d), authorMap);
+        if (author != null) {
+            c.setAuthor(author);
         }
         return c;
     }
 
-    private static UrlLink urlLinkFromDocument(Document d, Map<String, Member> authorMap) {
+    private static UrlLink urlLinkFromDocument(Document d, Map<String, Member> authorMap,
+            Map<String, Member> categoryAuthorFallback) {
         UrlLink link = new UrlLink();
         link.setId(documentIdToString(d.get("_id")));
         Object urlLinkId = d.get("urlLinkID");
@@ -305,16 +474,12 @@ public class LinksViewService {
             link.setCategoryLinkID(catId.toString());
         }
         link.setVisibility(d.getString("visibility"));
-        String aid = extractDbRefId(d.get("author"));
-        if (aid != null) {
-            Member m = authorMap.get(normalizeIdKey(aid));
-            if (m != null) {
-                link.setAuthor(m);
-            } else {
-                Member stub = new Member();
-                stub.setId(aid);
-                link.setAuthor(stub);
-            }
+        Member author = resolveMemberAuthor(rawAuthorFromCategoryOrLink(d), authorMap);
+        if (author == null && catId != null && categoryAuthorFallback != null) {
+            author = categoryAuthorFallback.get(catId.toString());
+        }
+        if (author != null) {
+            link.setAuthor(author);
         }
         return link;
     }

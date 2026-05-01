@@ -119,8 +119,8 @@ export class LinksComponent implements OnInit, OnDestroy {
       this.user = this._memberService.getUser();
       this._urlLinkService.getLinksView(this.user).subscribe({
         next: (res) => {
-          this.categories = res.categories ?? [];
-          this.linksByCategoryId = res.linksByCategoryId ?? {};
+          this.categories = (res.categories ?? []).map((c) => this.normalizeCategoryAuthor(c));
+          this.linksByCategoryId = this.normalizeLinksAuthors(res.linksByCategoryId ?? {});
           this.urllinks = Object.values(this.linksByCategoryId).flat();
           this.refreshFilteredLinks();
           this.refreshAllStaticLabels();
@@ -214,37 +214,189 @@ export class LinksComponent implements OnInit, OnDestroy {
     this.categoryUi = ui;
   }
 
-  submitVisibilityChange(urllinkItem: urllink, event?: Event): void {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
+  /**
+   * API may omit camelCase consistency; map authorId / Author into author for display.
+   */
+  private normalizeLinksAuthors(src: Record<string, urllink[]>): Record<string, urllink[]> {
+    const out: Record<string, urllink[]> = {};
+    for (const key of Object.keys(src)) {
+      const list = src[key] ?? [];
+      out[key] = list.map((u) => this.normalizeLinkAuthor(u));
     }
-
-    const currentVisibility = urllinkItem.visibility || 'public';
-
-    if (currentVisibility === 'public') {
-      urllinkItem.visibility = 'private';
-    } else if (currentVisibility === 'private') {
-      urllinkItem.visibility = 'friends';
-    } else {
-      urllinkItem.visibility = 'public';
-    }
-
-    this._urlLinkService.updateVisibility(urllinkItem).subscribe({
-      next: () => {
-        this.refreshFilteredLinks();
-        this.cdr.markForCheck();
-      },
-      error: (err) => {
-        console.error('An error occurred while updating visibility', err);
-        urllinkItem.visibility = currentVisibility;
-        this.cdr.markForCheck();
-      }
-    });
+    return out;
   }
 
-  canEdit(u: urllink): boolean {
-    return u.author?.id === this.user.id;
+  private normalizeLinkAuthor(link: urllink): urllink {
+    const raw = link as unknown as Record<string, unknown>;
+    const authorRaw = raw['author'] ?? raw['Author'];
+    const authorId = raw['authorId'] ?? raw['author_id'];
+    if (authorRaw && typeof authorRaw === 'object' && !Array.isArray(authorRaw)) {
+      const a = authorRaw as Record<string, unknown>;
+      const hasIdentity =
+        a['id'] ||
+        a['_id'] ||
+        LinksComponent.firstNonBlank(
+          a['userName'],
+          a['user_name'],
+          a['username'],
+          a['Username'],
+          a['login'],
+          a['Login']
+        ) ||
+        a['firstName'] ||
+        a['first_name'] ||
+        a['lastName'] ||
+        a['last_name'] ||
+        a['addressEmail'] ||
+        a['email'];
+      if (hasIdentity) {
+        return { ...link, author: LinksComponent.normalizeMemberLike(a) };
+      }
+    }
+    if (authorId != null && String(authorId).trim()) {
+      const sid = String(authorId).trim();
+      return { ...link, author: { id: sid } as Member };
+    }
+    return link;
+  }
+
+  /**
+   * Libellé affiché pour la ligne « propriétaire » : auteur du lien, sinon auteur de la catégorie
+   * (liens anciens sans {@code author} en base).
+   */
+  linkRowAuthorLabel(u: urllink, category: Category): string | null {
+    return this.linkAuthorLabel(u.author) ?? this.linkAuthorLabel(category?.author);
+  }
+
+  private normalizeCategoryAuthor(category: Category): Category {
+    const raw = category as unknown as Record<string, unknown>;
+    const authorRaw = raw['author'] ?? raw['Author'];
+    if (authorRaw && typeof authorRaw === 'object' && !Array.isArray(authorRaw)) {
+      const a = authorRaw as Record<string, unknown>;
+      const hasIdentity =
+        a['id'] ||
+        a['_id'] ||
+        LinksComponent.firstNonBlank(
+          a['userName'],
+          a['user_name'],
+          a['username'],
+          a['Username'],
+          a['login'],
+          a['Login']
+        ) ||
+        a['firstName'] ||
+        a['first_name'] ||
+        a['lastName'] ||
+        a['last_name'] ||
+        a['addressEmail'] ||
+        a['email'];
+      if (hasIdentity) {
+        return { ...category, author: LinksComponent.normalizeMemberLike(a) };
+      }
+    }
+    return category;
+  }
+
+  /** userName + prénom/nom (toutes variantes de clés JSON / Mongo). */
+  linkAuthorLabel(m: Member | undefined | null): string | null {
+    if (!m) {
+      return null;
+    }
+    const raw = m as unknown as Record<string, unknown>;
+    const userName = LinksComponent.firstNonBlank(
+      m.userName,
+      raw['userName'],
+      raw['user_name'],
+      raw['username'],
+      raw['Username'],
+      raw['login'],
+      raw['Login']
+    );
+    const firstName = LinksComponent.firstNonBlank(m.firstName, raw['firstName'], raw['first_name']);
+    const lastName = LinksComponent.firstNonBlank(m.lastName, raw['lastName'], raw['last_name']);
+    const full = `${firstName} ${lastName}`.trim();
+    const email = LinksComponent.firstNonBlank(
+      m.addressEmail,
+      raw['addressEmail'],
+      raw['address_email'],
+      raw['email']
+    );
+    if (userName && full) {
+      return `${userName} — ${full}`;
+    }
+    if (userName) {
+      return userName;
+    }
+    if (full) {
+      return full;
+    }
+    if (email) {
+      return email;
+    }
+    return null;
+  }
+
+  private static firstNonBlank(...candidates: unknown[]): string {
+    for (const c of candidates) {
+      if (c == null) {
+        continue;
+      }
+      const s = String(c).trim();
+      if (s) {
+        return s;
+      }
+    }
+    return '';
+  }
+
+  /** Plain Member-like object (id + champs d’affichage). */
+  private static normalizeMemberLike(a: Record<string, unknown>): Member {
+    const idRaw = LinksComponent.firstNonBlank(a['id'], a['_id']);
+    const id = LinksComponent.extractHexMemberId(idRaw);
+    const userName = LinksComponent.firstNonBlank(
+      a['userName'],
+      a['user_name'],
+      a['username'],
+      a['Username'],
+      a['login'],
+      a['Login']
+    );
+    const firstName = LinksComponent.firstNonBlank(a['firstName'], a['first_name']);
+    const lastName = LinksComponent.firstNonBlank(a['lastName'], a['last_name']);
+    const addressEmail = LinksComponent.firstNonBlank(
+      a['addressEmail'],
+      a['address_email'],
+      a['email']
+    );
+    return {
+      id,
+      userName,
+      firstName,
+      lastName,
+      addressEmail,
+      roles: [],
+      keycloakId: ''
+    } as Member;
+  }
+
+  /** Id membre : hex 24 ou chaîne DBRef Java / Mongo {@code "$id" : "..."}. */
+  private static extractHexMemberId(raw: string): string {
+    const t = (raw || '').trim();
+    if (!t) {
+      return '';
+    }
+    if (/^[a-fA-F0-9]{24}$/.test(t)) {
+      return t.toLowerCase();
+    }
+    const m = t.match(/"\$id"\s*:\s*"([a-fA-F0-9]{24})"/i);
+    if (m?.[1]) {
+      return m[1].toLowerCase();
+    }
+    const o = t.match(/"\$oid"\s*:\s*"([a-fA-F0-9]{24})"/i);
+    if (o?.[1]) {
+      return o[1].toLowerCase();
+    }
+    return t;
   }
 
   refreshFilteredLinks(): void {
@@ -276,8 +428,25 @@ export class LinksComponent implements OnInit, OnDestroy {
     return linkName.includes(lower) || linkDescription.includes(lower) || url.includes(lower);
   }
 
-  isCategoryVisible(_category: Category): boolean {
-    return true;
+  /**
+   * While the search box has text, hide categories with no matching links (0 after filter).
+   * Without a search term, all categories stay visible (including empty ones).
+   */
+  isCategoryVisible(category: Category): boolean {
+    const term = (this.searchFilter ?? '').trim();
+    if (!term) {
+      return true;
+    }
+    return (this.categoryLinkCountById[category.categoryLinkID] ?? 0) > 0;
+  }
+
+  /** False only when user is searching and every category has 0 matches — show global empty state. */
+  hasSearchMatchInCategories(): boolean {
+    const term = (this.searchFilter ?? '').trim();
+    if (!term) {
+      return true;
+    }
+    return this.categories.some(c => (this.categoryLinkCountById[c.categoryLinkID] ?? 0) > 0);
   }
 
   selectSuggestion(suggestion: urllink): void {
@@ -352,6 +521,20 @@ export class LinksComponent implements OnInit, OnDestroy {
   /** Arrow: Angular calls trackBy without component `this`; must not delegate via `this.method`. */
   readonly trackBySuggestion = (_index: number, u: urllink): string =>
     this.trackByLinkId(_index, u);
+
+  /**
+   * Classe CSS pour le badge de visibilité (fond différent public / privé / amis).
+   */
+  linkVisibilityBadgeClass(u: urllink): string {
+    const v = (u.visibility || 'public').toLowerCase();
+    if (v === 'private') {
+      return 'link-visibility--private';
+    }
+    if (v === 'friends') {
+      return 'link-visibility--friends';
+    }
+    return 'link-visibility--public';
+  }
 
   visibilityTitle(u: urllink): string {
     const v = u.visibility || 'public';

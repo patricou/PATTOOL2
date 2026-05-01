@@ -66,7 +66,6 @@
                         <div class="suggestion-content">
                             <div class="suggestion-name">{{ suggestion.linkName }}</div>
                             <div class="suggestion-description" *ngIf="suggestion.linkDescription">{{ suggestion.linkDescription }}</div>
-                            <div class="suggestion-url">{{ suggestion.url }}</div>
                         </div>
                         <div class="suggestion-category">
                             {{ getCategoryName(suggestion.categoryLinkID) }}
@@ -86,6 +85,7 @@
             </div>
         </div>
         
+        <ng-container *ngIf="hasSearchMatchInCategories(); else linksSearchNoCategoryInGrid">
         <div class="links-grid">
             <ng-container *ngFor="let c of categories; let i = index; trackBy: trackByCategoryId">
                 <div class="category-card" 
@@ -112,29 +112,20 @@
                                         <i class="fa fa-external-link"></i>
                                     </div>
                                     <div class="link-info">
-                                        <a href="{{ u.url }}" target="_blank" class="link-name" [title]="u.url" (click)="$event.stopPropagation()">
-                                            {{ u.linkName }}
-                                        </a>
+                                        <div class="link-title-row">
+                                            <a href="{{ u.url }}" target="_blank" class="link-name" [title]="u.url" (click)="$event.stopPropagation()">
+                                                {{ u.linkName }}
+                                            </a>
+                                            <div class="link-owner-col">
+                                                <span class="link-author" *ngIf="linkRowAuthorLabel(u, c) as authorLabel">
+                                                    <i class="fa fa-user" aria-hidden="true"></i> {{ authorLabel }}
+                                                </span>
+                                            </div>
+                                        </div>
                                         <div class="link-meta">
                                             <span class="link-url">{{ u.linkDescription || u.url }}</span>
-                                            <span class="link-author" *ngIf="u.author">
-                                                <i class="fa fa-user"></i> {{ u.author.userName }} ({{ u.author.firstName }} {{ u.author.lastName }})
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div class="link-actions" *ngIf="canEdit(u)" (click)="$event.stopPropagation(); $event.preventDefault()">
-                                        <div class="visibility-toggle">
-                                            <button type="button" 
-                                                    class="btn btn-sm visibility-btn"
-                                                    [class.btn-success]="u.visibility === 'public'"
-                                                    [class.btn-warning]="u.visibility === 'private'"
-                                                    [class.btn-info]="u.visibility === 'friends'"
-                                                    (click)="submitVisibilityChange(u, $event)"
-                                                    [title]="visibilityTitle(u)">
-                                                <i class="fa fa-globe" *ngIf="u.visibility === 'public'"></i>
-                                                <i class="fa fa-lock" *ngIf="u.visibility === 'private'"></i>
-                                                <i class="fa fa-users" *ngIf="u.visibility === 'friends'"></i>
-                                            </button>
+                                            <span class="link-visibility"
+                                                  [ngClass]="linkVisibilityBadgeClass(u)">{{ visibilityTitle(u) }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -151,6 +142,15 @@
                 </div>
             </ng-container>
         </div>
+        </ng-container>
+        <ng-template #linksSearchNoCategoryInGrid>
+            <div class="links-grid links-grid-search-no-categories">
+                <div class="empty-state">
+                    <i class="fa fa-search"></i>
+                    <p>{{ 'LINKS.NO_SEARCH_RESULTS' | translate }}</p>
+                </div>
+            </div>
+        </ng-template>
         </ng-container>
     </div>
 </div>

@@ -1,4 +1,26 @@
 /* Colonnes dimensionnées par le contenu ; pas de troncature — défilement horizontal via .table-responsive */
+.iot-proxy-scope {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.iot-proxy-scope .iot-proxy-toolbar .iot-proxy-filter {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.iot-proxy-scope .iot-proxy-path-input {
+    width: 100%;
+    max-width: 360px;
+}
+
+@media (min-width: 768px) {
+    .iot-proxy-scope .iot-proxy-path-input {
+        width: 220px;
+        max-width: none;
+    }
+}
+
 .iot-proxy-scope .iot-proxy-table {
     table-layout: auto;
     width: max-content;
@@ -11,6 +33,11 @@
     line-height: 1.35;
     vertical-align: middle;
     white-space: nowrap;
+}
+
+.iot-proxy-scope .table-responsive {
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
 }
 
 .iot-proxy-scope .iot-proxy-table code.iot-proxy-public-slug {
@@ -41,6 +68,65 @@
     min-width: 4.25rem;
     padding-left: 0.65rem;
     padding-right: 0.65rem;
+}
+
+/* Mobile: cartes empilées lisibles sans zoom horizontal */
+@media (max-width: 575.98px) {
+    .iot-proxy-scope .iot-proxy-table {
+        width: 100%;
+        min-width: 0;
+        table-layout: fixed;
+    }
+
+    .iot-proxy-scope .iot-proxy-table thead {
+        display: none;
+    }
+
+    .iot-proxy-scope .iot-proxy-table tbody tr {
+        display: block;
+        margin-bottom: 0.75rem;
+        border: 1px solid var(--bs-border-color, #dee2e6);
+        border-radius: 0.375rem;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.07);
+    }
+
+    .iot-proxy-scope .iot-proxy-table tbody td {
+        display: grid;
+        grid-template-columns: minmax(4.5rem, 32%) 1fr;
+        gap: 0.25rem 0.6rem;
+        align-items: start;
+        text-align: left !important;
+        white-space: normal;
+        word-break: break-word;
+        padding: 0.45rem 0.65rem;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    .iot-proxy-scope .iot-proxy-table tbody td:last-child {
+        border-bottom: none;
+    }
+
+    .iot-proxy-scope .iot-proxy-table tbody td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        font-size: 0.72rem;
+        color: var(--bs-secondary-color, #6c757d);
+        line-height: 1.35;
+        padding-top: 0.1rem;
+    }
+
+    .iot-proxy-scope .iot-proxy-table tbody td.iot-proxy-actions-cell {
+        display: block;
+    }
+
+    .iot-proxy-scope .iot-proxy-table tbody td.iot-proxy-actions-cell::before {
+        margin-bottom: 0.35rem;
+    }
+
+    .iot-proxy-scope .iot-proxy-table .iot-proxy-open-proxied-btn {
+        min-width: 0;
+    }
 }
 
 .modal-backdrop-fake {
