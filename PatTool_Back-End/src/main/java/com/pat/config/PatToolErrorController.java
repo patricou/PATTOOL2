@@ -17,9 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.ServletWebRequest;
 
 /**
- * Remplace {@link org.springframework.boot.autoconfigure.web.servlet.error.BasicErrorController} pour servir
- * directement du HTML PatTool (évite la Whitelabel et la page Tomcat « HTTP Status 500 » quand la résolution MVC
- * de la vue d'erreur échoue).
+ * Replaces Spring Boot {@link org.springframework.boot.autoconfigure.web.servlet.error.BasicErrorController} to serve
+ * PatTool HTML directly (avoids Whitelabel and Tomcat’s bare “HTTP Status 500” when MVC error view resolution fails).
  */
 @RestController
 @RequestMapping("${server.error.path:${error.path:/error}}")
@@ -38,13 +37,13 @@ public class PatToolErrorController implements ErrorController {
         try {
             HttpStatus status = getStatus(request);
             String[] td = titleAndDetail(status.value());
-            String html = FriendlyErrorHtml.page(true, "fr", "Erreur", td[0], td[1], "Erreur · ");
+            String html = FriendlyErrorHtml.page(true, "en", "Error", td[0], td[1], "Error · ");
             return ResponseEntity.status(status).contentType(MediaType.TEXT_HTML).body(html);
         } catch (Exception e) {
             log.warn("Could not build styled error page, using fallback: {}", e.getMessage());
-            String fallback = "<!DOCTYPE html><html lang=\"fr\"><head><meta charset=\"UTF-8\"/><title>Erreur · PatTool</title></head>"
+            String fallback = "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"/><title>Error · PatTool</title></head>"
                     + "<body style=\"font-family:system-ui,sans-serif;padding:2rem;background:#0b1220;color:#e2e8f0\">"
-                    + "<p>PatTool — une erreur s'est produite. Réessayez plus tard.</p></body></html>";
+                    + "<p>PatTool — something went wrong. Please try again later.</p></body></html>";
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.TEXT_HTML)
                     .body(fallback);
@@ -77,44 +76,44 @@ public class PatToolErrorController implements ErrorController {
     static String[] titleAndDetail(int code) {
         return switch (code) {
             case 400 -> new String[]{
-                    "Requête incorrecte",
-                    "La requête envoyée au serveur est invalide ou mal formée."};
+                    "Bad request",
+                    "The request sent to the server is invalid or malformed."};
             case 401 -> new String[]{
-                    "Non autorisé",
-                    "Vous devez être identifié pour accéder à cette ressource."};
+                    "Unauthorized",
+                    "You must sign in to access this resource."};
             case 403 -> new String[]{
-                    "Accès refusé",
-                    "Vous n'avez pas l'autorisation d'accéder à cette page ou cette API."};
+                    "Forbidden",
+                    "You are not allowed to access this page or API."};
             case 404 -> new String[]{
-                    "Page introuvable",
-                    "La ressource demandée n'existe pas, a été supprimée ou l'URL est incorrecte."};
+                    "Not found",
+                    "The resource does not exist, was removed, or the URL is wrong."};
             case 405 -> new String[]{
-                    "Méthode non autorisée",
-                    "Cette opération n'est pas permise pour cette ressource."};
+                    "Method not allowed",
+                    "This operation is not supported for this resource."};
             case 408 -> new String[]{
-                    "Délai dépassé",
-                    "Le serveur a mis trop de temps à recevoir la requête."};
+                    "Request timeout",
+                    "The server took too long to receive the request."};
             case 413 -> new String[]{
-                    "Requête trop volumineuse",
-                    "Les données envoyées dépassent la taille maximale acceptée."};
+                    "Payload too large",
+                    "The data sent exceeds the maximum size allowed."};
             case 429 -> new String[]{
-                    "Trop de requêtes",
-                    "Veuillez patienter avant d'essayer à nouveau."};
+                    "Too many requests",
+                    "Please wait before trying again."};
             case 500 -> new String[]{
-                    "Erreur serveur",
-                    "Une erreur inattendue s'est produite. Veuillez réessayer dans quelques instants."};
+                    "Server error",
+                    "An unexpected error occurred. Please try again in a few moments."};
             case 502 -> new String[]{
-                    "Passerelle incorrecte",
-                    "Le serveur n'a pas reçu une réponse valide d'un service en amont."};
+                    "Bad gateway",
+                    "The server did not receive a valid response from an upstream service."};
             case 503 -> new String[]{
-                    "Service indisponible",
-                    "Le service est temporairement indisponible. Réessayez plus tard."};
+                    "Service unavailable",
+                    "The service is temporarily unavailable. Please try again later."};
             case 504 -> new String[]{
-                    "Délai d'attente dépassé",
-                    "Le serveur n'a pas reçu de réponse à temps depuis un service distant."};
+                    "Gateway timeout",
+                    "The server did not receive a timely response from an upstream service."};
             default -> new String[]{
-                    "Erreur " + code,
-                    "Une erreur s'est produite. Veuillez réessayer plus tard."};
+                    "Error " + code,
+                    "Something went wrong. Please try again later."};
         };
     }
 }

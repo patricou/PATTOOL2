@@ -319,9 +319,10 @@ public class GlobalExceptionHandler {
             boolean iotForward = request.getRequestURI() != null
                     && request.getRequestURI().contains("/api/iot-proxies/forward");
             String html = iotForward
-                    ? FriendlyErrorHtml.page(false, "fr", "Proxy IoT", "Équipement injoignable",
-                        "PatTool n'a pas pu joindre l'équipement (réseau, délai ou coupure). Vérifiez que l'appareil répond sur le réseau local.",
-                        "Proxy IoT · ")
+                    ? FriendlyErrorHtml.page(false, "en", "IoT Proxy", "Device unreachable",
+                        "PatTool could not reach the device (network, timeout, or connection issue). "
+                                + "Check that the device responds on the local network.",
+                        "IoT Proxy · ")
                     : FriendlyErrorHtml.page(true, "en", "Error", "Connection problem",
                         "Something went wrong while handling the request. Please try again.",
                         "Error · ");
