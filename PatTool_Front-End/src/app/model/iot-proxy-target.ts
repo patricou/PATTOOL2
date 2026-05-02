@@ -16,3 +16,16 @@ export interface BrowserOpenUrlResponse {
     relativeUrlWithQuery: string;
     expiresInSeconds: number;
 }
+
+/** Effective server limits for LAN IoT proxy UI (from {@code GET …/server-settings}). */
+export interface IotProxyServerSettings {
+    openTokenValiditySeconds: number;
+    openTokenExplicitSecretConfigured: boolean;
+    maxResponseBytes: number;
+    maxRequestBodyBytes: number;
+    maxRewriteBodyBytes: number;
+    redirectMaxHops: number;
+    maxUpstreamUrlCharacters: number;
+    connectTimeoutMillis: number;
+    readTimeoutMillis: number;
+}

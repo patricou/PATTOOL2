@@ -1,17 +1,20 @@
 package com.pat.config;
 
 import com.pat.service.ExceptionTrackingService;
+import com.pat.util.FriendlyErrorHtml;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import org.apache.catalina.connector.ClientAbortException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -71,6 +74,18 @@ public class GlobalExceptionHandler {
         
         // Fall back to remote address
         return request.getRemoteAddr();
+    }
+
+    /** Browsers send {@code text/html} in Accept; JSON APIs typically do not. */
+    private static boolean clientPrefersHtml(HttpServletRequest request) {
+        if (request == null) {
+            return false;
+        }
+        String accept = request.getHeader("Accept");
+        if (accept == null || accept.isBlank()) {
+            return false;
+        }
+        return accept.toLowerCase(Locale.ROOT).contains("text/html");
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
@@ -271,7 +286,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(IOException.class)
-    public ResponseEntity<Void> handleIOException(IOException exc, HttpServletRequest request) {
+    public ResponseEntity<?> handleIOException(IOException exc, HttpServletRequest request) {
         if (exc instanceof ClientAbortException clientAbortException) {
             return handleClientAbortException(clientAbortException, request);
         }
@@ -299,7 +314,21 @@ public class GlobalExceptionHandler {
         
         // Track exception if it's a real error (not connection reset)
         trackIOException(exc, request, clientIp, logMessage);
-        
+
+        if (clientPrefersHtml(request)) {
+            boolean iotForward = request.getRequestURI() != null
+                    && request.getRequestURI().contains("/api/iot-proxies/forward");
+            String html = iotForward
+                    ? FriendlyErrorHtml.page(false, "fr", "Proxy IoT", "Équipement injoignable",
+                        "PatTool n'a pas pu joindre l'équipement (réseau, délai ou coupure). Vérifiez que l'appareil répond sur le réseau local.",
+                        "Proxy IoT · ")
+                    : FriendlyErrorHtml.page(true, "en", "Error", "Connection problem",
+                        "Something went wrong while handling the request. Please try again.",
+                        "Error · ");
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .contentType(MediaType.TEXT_HTML)
+                    .body(html);
+        }
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
 
@@ -378,6 +407,15 @@ public class GlobalExceptionHandler {
             logMessage
         );
         
+        if (clientPrefersHtml(request)) {
+            String html = FriendlyErrorHtml.page(true, "en", "Error", "Something went wrong",
+                    "Sorry — an unexpected error occurred. Please try again in a few moments. "
+                            + "If the problem continues, try again later or contact support.",
+                    "Unexpected error · ");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(MediaType.TEXT_HTML)
+                    .body(html);
+        }
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body("An unexpected error occurred. Please try again later.");
     }

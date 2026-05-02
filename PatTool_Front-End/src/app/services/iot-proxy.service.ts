@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { BrowserOpenUrlResponse, IotProxyTarget } from '../model/iot-proxy-target';
+import { BrowserOpenUrlResponse, IotProxyServerSettings, IotProxyTarget } from '../model/iot-proxy-target';
 
 /** Path + query to pass to {@link IotProxyService#mintBrowserOpenUrl} for a full browser URL vs proxy upstream. */
 export interface ProxyOpenPathParts {
@@ -36,6 +36,14 @@ export class IotProxyService {
         return this.http.get<IotProxyTarget[]>(this.API_URL + 'iot-proxies', {
             headers: this.headersJsonGet(userId)
         });
+    }
+
+    /** Limits, timeouts and open-token policy for this backend (role Iot). */
+    getServerSettings(userId?: string): Observable<IotProxyServerSettings> {
+        return this.http.get<IotProxyServerSettings>(
+            this.API_URL + 'iot-proxies/server-settings',
+            { headers: this.headersJsonGet(userId) }
+        );
     }
 
     getById(id: string, userId?: string): Observable<IotProxyTarget> {

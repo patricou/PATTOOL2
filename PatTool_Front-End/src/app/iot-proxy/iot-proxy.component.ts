@@ -3,12 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
+import { forkJoin } from 'rxjs';
 import { take } from 'rxjs/operators';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 import { MembersService } from '../services/members.service';
 import { Member } from '../model/member';
 import { IotProxyService } from '../services/iot-proxy.service';
-import { IotProxyTarget } from '../model/iot-proxy-target';
+import { IotProxyServerSettings, IotProxyTarget } from '../model/iot-proxy-target';
 
 /** Sortable table columns (proxy list). */
 export type IotProxySortKey = 'description' | 'publicSlug' | 'upstreamBaseUrl' | 'owner' | 'creationDate';
@@ -60,6 +61,10 @@ export class IotProxyComponent implements OnInit {
     /** Filters the table by description or upstream URL (host / IP). */
     listFilter = '';
 
+    /** Loaded from server `/iot-proxies/server-settings`; null until success or on error. */
+    serverSettings: IotProxyServerSettings | null = null;
+
+    showServerSettingsModal = false;
     sortColumn: IotProxySortKey = 'description';
     sortDirection: 'asc' | 'desc' = 'asc';
 
@@ -89,9 +94,13 @@ export class IotProxyComponent implements OnInit {
         this.isLoading = true;
         this.errorMessage = '';
         this.cdr.markForCheck();
-        this.iotProxyService.list(this.user?.id).subscribe({
-            next: rows => {
+        forkJoin({
+            rows: this.iotProxyService.list(this.user?.id),
+            settings: this.iotProxyService.getServerSettings(this.user?.id)
+        }).subscribe({
+            next: ({ rows, settings }) => {
                 this.rows = rows || [];
+                this.serverSettings = this.parseServerSettings(settings);
                 this.refreshDisplayRows();
                 this.isLoading = false;
                 this.cdr.markForCheck();
@@ -100,9 +109,20 @@ export class IotProxyComponent implements OnInit {
                 console.error(err);
                 this.errorMessage = err?.message || String(err?.statusText || '');
                 this.isLoading = false;
+                this.serverSettings = null;
                 this.cdr.markForCheck();
             }
         });
+    }
+
+    closeServerSettingsModal(): void {
+        this.showServerSettingsModal = false;
+        this.cdr.markForCheck();
+    }
+
+    openServerSettingsModal(): void {
+        this.showServerSettingsModal = true;
+        this.cdr.markForCheck();
     }
 
     onListFilterChange(value: string): void {
@@ -113,6 +133,60 @@ export class IotProxyComponent implements OnInit {
 
     trackByRowId(_index: number, row: IotProxyTarget): string {
         return row.id ?? row.publicSlug ?? String(_index);
+    }
+
+    formatBytes(bytes: number): string {
+        if (!Number.isFinite(bytes) || bytes < 0) {
+            return '\u2014';
+        }
+        if (bytes >= 1073741824) {
+            return (bytes / 1073741824).toFixed(2) + ' GiB';
+        }
+        if (bytes >= 1048576) {
+            return (bytes / 1048576).toFixed(1) + ' MiB';
+        }
+        if (bytes >= 1024) {
+            return (bytes / 1024).toFixed(1) + ' KiB';
+        }
+        return String(Math.round(bytes)) + ' B';
+    }
+
+    private parseServerSettings(raw: unknown): IotProxyServerSettings | null {
+        if (!raw || typeof raw !== 'object') {
+            return null;
+        }
+        const o = raw as Record<string, unknown>;
+        const num = (k: string): number | null => {
+            const v = o[k];
+            return typeof v === 'number' && Number.isFinite(v) ? v : null;
+        };
+        const ttl = num('openTokenValiditySeconds');
+        const maxRsp = num('maxResponseBytes');
+        const maxReq = num('maxRequestBodyBytes');
+        const maxRew = num('maxRewriteBodyBytes');
+        const hops = num('redirectMaxHops');
+        const maxUrl = num('maxUpstreamUrlCharacters');
+        const conn = num('connectTimeoutMillis');
+        const read = num('readTimeoutMillis');
+        if (ttl === null || maxRsp === null || maxReq === null || maxRew === null || hops === null
+            || maxUrl === null || conn === null || read === null) {
+            return null;
+        }
+        const exp = o['openTokenExplicitSecretConfigured'];
+        if (typeof exp !== 'boolean') {
+            return null;
+        }
+        return {
+            openTokenValiditySeconds: ttl,
+            openTokenExplicitSecretConfigured: exp,
+            maxResponseBytes: maxRsp,
+            maxRequestBodyBytes: maxReq,
+            maxRewriteBodyBytes: maxRew,
+            redirectMaxHops: hops,
+            maxUpstreamUrlCharacters: maxUrl,
+            connectTimeoutMillis: conn,
+            readTimeoutMillis: read
+        };
     }
 
     private refreshDisplayRows(): void {
@@ -132,7 +206,18 @@ export class IotProxyComponent implements OnInit {
     private rowMatchesDescriptionOrUpstream(row: IotProxyTarget, needleLower: string): boolean {
         const desc = (row.description ?? '').toLowerCase();
         const url = (row.upstreamBaseUrl ?? '').toLowerCase();
-        return desc.includes(needleLower) || url.includes(needleLower);
+        const proxied = this.proxiedForwardUrlPrefix(row).toLowerCase();
+        return desc.includes(needleLower) || url.includes(needleLower) || proxied.includes(needleLower);
+    }
+
+    /** Public forward URL prefix (same path as relay; token query appended only when opening). */
+    proxiedForwardUrlPrefix(row: IotProxyTarget): string {
+        const slug = (row.publicSlug ?? '').trim();
+        if (!slug) {
+            return '';
+        }
+        const relative = `/api/iot-proxies/forward/${slug}/`;
+        return this.iotProxyService.resolveBackendAbsoluteUrl(relative);
     }
 
     toggleSort(key: IotProxySortKey): void {

@@ -163,80 +163,79 @@
 
             <!-- Devices List -->
             <div class="devices-section mt-4" *ngIf="devices.length > 0">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div class="d-flex align-items-center">
-                        <h3 class="mb-0">
-                            <i class="fa fa-list"></i> {{ "LOCAL_NETWORK.DEVICES" | translate }}
-                            <span class="badge bg-secondary ms-2" style="font-size: 0.75rem; font-weight: normal;">
-                                {{ getUnknownDevicesCount() }} inconnu{{ getUnknownDevicesCount() > 1 ? 's' : '' }} / {{ getKnownDevicesCount() }} connu{{ getKnownDevicesCount() > 1 ? 's' : '' }}
-                            </span>
-                        </h3>
-                        <div class="form-check form-switch ms-3">
-                            <input class="form-check-input" 
-                                   type="checkbox" 
-                                   id="showOnlyUnknownDevices"
-                                   [(ngModel)]="showOnlyUnknownDevices"
-                                   style="cursor: pointer;">
-                            <label class="form-check-label" 
-                                   for="showOnlyUnknownDevices"
-                                   style="cursor: pointer; font-size: 0.9rem; color: #fff; margin-left: 5px;">
-                                {{ "LOCAL_NETWORK.SHOW_ONLY_UNKNOWN" | translate }}
-                            </label>
+                <div class="local-network-devices-toolbar mb-3">
+                    <h3 class="local-network-toolbar-title mb-0">
+                        <i class="fa fa-list me-1" aria-hidden="true"></i>{{ "LOCAL_NETWORK.DEVICES" | translate }}
+                    </h3>
+
+                    <span class="toolbar-sep d-none d-sm-block" aria-hidden="true"></span>
+
+                    <div class="toolbar-filter-cluster d-flex align-items-center flex-nowrap gap-2">
+                        <span class="badge bg-secondary flex-shrink-0 toolbar-mini-badge"
+                              [attr.title]="('LOCAL_NETWORK.DEVICE_STATS_BADGE_TITLE' | translate: { u: getUnknownDevicesCount(), k: getKnownDevicesCount() })">{{ getUnknownDevicesCount() }} / {{ getKnownDevicesCount() }}</span>
+                        <div class="form-check form-switch mb-0 toolbar-switch flex-shrink-0">
+                            <input class="form-check-input" type="checkbox" id="showOnlyUnknownDevices"
+                                   [(ngModel)]="showOnlyUnknownDevices">
+                            <label class="form-check-label" for="showOnlyUnknownDevices"
+                                   [title]="'LOCAL_NETWORK.SHOW_ONLY_UNKNOWN' | translate">{{ "LOCAL_NETWORK.SHOW_ONLY_UNKNOWN_SHORT" | translate }}</label>
                         </div>
                     </div>
-                    <div class="sort-controls d-flex align-items-center">
-                        <!-- OUI Lookup input -->
-                        <div class="input-group input-group-sm me-2" style="width: 150px;">
-                            <span class="input-group-text">
-                                <i class="fa fa-industry"></i>
-                            </span>
-                            <input type="text" 
-                                   class="form-control form-control-sm" 
-                                   [(ngModel)]="ouiInput"
-                                   (keyup.enter)="lookupVendorByOUI()"
-                                   [placeholder]="'LOCAL_NETWORK.OUI_LOOKUP_PLACEHOLDER' | translate"
-                                   maxlength="8"
-                                   style="text-transform: uppercase;">
-                            <button *ngIf="ouiInput" 
-                                    class="btn btn-sm btn-outline-info" 
-                                    type="button"
-                                    (click)="lookupVendorByOUI()"
-                                    [title]="'LOCAL_NETWORK.LOOKUP_VENDOR_BY_OUI' | translate">
-                                <i class="fa fa-search"></i>
-                            </button>
+
+                    <span class="toolbar-sep d-none d-sm-block" aria-hidden="true"></span>
+
+                    <div class="toolbar-filter-cluster d-flex align-items-center flex-nowrap gap-2">
+                        <span class="badge flex-shrink-0 toolbar-mini-badge"
+                              [class.bg-danger]="getMacConflictDevicesCount() > 0"
+                              [class.bg-secondary]="getMacConflictDevicesCount() === 0"
+                              [title]="getMacConflictDevicesCount() > 0 ? ('LOCAL_NETWORK.MAC_CONFLICT_COUNT_TOOLTIP' | translate) : ''">
+                            {{ getMacConflictDevicesCount() }}
+                        </span>
+                        <div class="form-check form-switch mb-0 toolbar-switch flex-shrink-0">
+                            <input class="form-check-input" type="checkbox" id="showOnlyMacConflictDevices"
+                                   [(ngModel)]="showOnlyMacConflictDevices">
+                            <label class="form-check-label" for="showOnlyMacConflictDevices"
+                                   [title]="'LOCAL_NETWORK.SHOW_ONLY_MAC_CONFLICT_TOOLTIP' | translate">{{ "LOCAL_NETWORK.SHOW_ONLY_MAC_CONFLICT_SHORT" | translate }}</label>
                         </div>
-                        <!-- Filter input -->
-                        <div class="input-group me-3" style="width: 250px;">
-                            <span class="input-group-text">
-                                <i class="fa fa-search"></i>
-                            </span>
-                            <input type="text" 
-                                   class="form-control form-control-sm" 
-                                   [(ngModel)]="deviceFilter"
-                                   [placeholder]="'LOCAL_NETWORK.FILTER_PLACEHOLDER' | translate">
-                            <button *ngIf="deviceFilter" 
-                                    class="btn btn-sm btn-outline-secondary" 
-                                    type="button"
-                                    (click)="deviceFilter = ''"
-                                    [title]="'LOCAL_NETWORK.CLEAR_FILTER' | translate">
-                                <i class="fa fa-times"></i>
-                            </button>
-                        </div>
-                        <!-- Sort controls -->
-                        <label class="me-2" style="color: #fff;">
-                            <i class="fa fa-sort"></i> {{ "LOCAL_NETWORK.SORT_BY" | translate }}:
-                        </label>
-                        <select class="form-select form-select-sm" 
-                                style="width: auto; display: inline-block;"
+                    </div>
+
+                    <span class="toolbar-sep d-none d-md-block" aria-hidden="true"></span>
+
+                    <div class="input-group input-group-sm toolbar-oui flex-shrink-0">
+                        <span class="input-group-text py-0 px-2"><i class="fa fa-industry" aria-hidden="true"></i></span>
+                        <input type="text" class="form-control py-0 px-2" [(ngModel)]="ouiInput"
+                               (keyup.enter)="lookupVendorByOUI()"
+                               [placeholder]="'LOCAL_NETWORK.OUI_LOOKUP_PLACEHOLDER' | translate"
+                               maxlength="8" style="text-transform: uppercase; min-width: 0;">
+                        <button *ngIf="ouiInput" class="btn btn-outline-info py-0 px-2" type="button"
+                                (click)="lookupVendorByOUI()"
+                                [title]="'LOCAL_NETWORK.LOOKUP_VENDOR_BY_OUI' | translate">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <div class="input-group input-group-sm toolbar-search flex-grow-1" style="min-width: 7rem;">
+                        <span class="input-group-text py-0 px-2"><i class="fa fa-search" aria-hidden="true"></i></span>
+                        <input type="text" class="form-control py-0 px-2" [(ngModel)]="deviceFilter"
+                               [placeholder]="'LOCAL_NETWORK.FILTER_PLACEHOLDER' | translate" style="min-width: 0;">
+                        <button *ngIf="deviceFilter" class="btn btn-outline-secondary py-0 px-2" type="button"
+                                (click)="deviceFilter = ''"
+                                [title]="'LOCAL_NETWORK.CLEAR_FILTER' | translate">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </div>
+
+                    <div class="d-flex align-items-center flex-nowrap flex-shrink-0 gap-1 toolbar-sort">
+                        <select class="form-select form-select-sm py-1"
                                 [ngModel]="deviceSortBy"
-                                (ngModelChange)="changeDeviceSort($event)">
+                                (ngModelChange)="changeDeviceSort($event)"
+                                [title]="'LOCAL_NETWORK.SORT_BY' | translate">
                             <option value="vulnerabilities">{{ "LOCAL_NETWORK.SORT_VULNERABILITIES" | translate }}</option>
                             <option value="ip">{{ "LOCAL_NETWORK.SORT_IP" | translate }}</option>
                             <option value="name">{{ "LOCAL_NETWORK.SORT_NAME" | translate }}</option>
                             <option value="type">{{ "LOCAL_NETWORK.SORT_TYPE" | translate }}</option>
                             <option value="status">{{ "LOCAL_NETWORK.SORT_STATUS" | translate }}</option>
                         </select>
-                        <button class="btn btn-sm btn-outline-light ms-2" 
+                        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2"
                                 (click)="changeDeviceSort(deviceSortBy)"
                                 [title]="deviceSortDirection === 'asc' ? ('LOCAL_NETWORK.SORT_ASCENDING_TOOLTIP' | translate) : ('LOCAL_NETWORK.SORT_DESCENDING_TOOLTIP' | translate)">
                             <i class="fa" [ngClass]="deviceSortDirection === 'asc' ? 'fa-sort-up' : 'fa-sort-down'"></i>
@@ -362,6 +361,22 @@
                                             </code>
                                             <span class="device-mac-conflict-hint">(MongoDB)</span>
                                         </div>
+                                        <button type="button"
+                                                class="btn btn-xs btn-outline-primary mt-2"
+                                                (click)="syncMacFromArpToMongoDB(device)"
+                                                [disabled]="syncingMacIp === device.ipAddress"
+                                                [title]="'LOCAL_NETWORK.SYNC_MAC_FROM_ARP_TOOLTIP' | translate">
+                                            <span *ngIf="syncingMacIp === device.ipAddress" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                            <i *ngIf="syncingMacIp !== device.ipAddress" class="fa fa-refresh me-1"></i>
+                                            {{ 'LOCAL_NETWORK.SYNC_MAC_FROM_ARP' | translate }}
+                                        </button>
+                                        <button type="button"
+                                                class="btn btn-xs btn-outline-secondary mt-2 ms-0 ms-sm-2"
+                                                (click)="openInventoryPreviewForDevice(device)"
+                                                [title]="'LOCAL_NETWORK.VIEW_INVENTORY_ENTRY_TOOLTIP' | translate">
+                                            <i class="fa fa-database me-1"></i>
+                                            {{ 'LOCAL_NETWORK.VIEW_INVENTORY_ENTRY' | translate }}
+                                        </button>
                                     </div>
                                     <!-- No conflict: Single MAC address with source color -->
                                     <div *ngIf="!hasMacConflict(device) && device.macAddress" class="mt-1">
@@ -381,6 +396,14 @@
                                             style="font-size: 0.7rem; padding: 0.2rem 0.4rem;">
                                         <i class="fa fa-info-circle"></i>
                                         {{ "LOCAL_NETWORK.GET_VENDOR_INFO" | translate }}
+                                    </button>
+                                    <button type="button"
+                                            (click)="openInventoryPreviewForDevice(device)"
+                                            class="btn btn-xs btn-outline-secondary mt-2 ms-0"
+                                            [title]="'LOCAL_NETWORK.VIEW_INVENTORY_ENTRY_TOOLTIP' | translate"
+                                            style="font-size: 0.7rem; padding: 0.2rem 0.4rem;">
+                                        <i class="fa fa-database me-1"></i>
+                                        {{ 'LOCAL_NETWORK.VIEW_INVENTORY_ENTRY' | translate }}
                                     </button>
                                 </div>
                             </div>
@@ -489,16 +512,16 @@
                                 <button *ngIf="matchingProxyForDevice(device)" type="button"
                                         (click)="openLanProxyForDevice(device)"
                                         class="btn btn-sm lan-proxy-btn-open w-100"
-                                        [title]="'CAMERAS.OPEN_LAN_PROXY' | translate">
+                                        [title]="'LOCAL_NETWORK.OPEN_LAN_PROXY' | translate">
                                     <i class="fa fa-exchange me-2"></i>
-                                    {{ "CAMERAS.OPEN_LAN_PROXY" | translate }}
+                                    {{ "LOCAL_NETWORK.OPEN_LAN_PROXY" | translate }}
                                 </button>
                                 <button *ngIf="!matchingProxyForDevice(device)" type="button"
                                         (click)="goCreateLanProxyForDevice(device)"
                                         class="btn btn-sm lan-proxy-btn-create w-100"
-                                        [title]="'CAMERAS.CREATE_LAN_PROXY_HINT' | translate">
+                                        [title]="'LOCAL_NETWORK.CREATE_LAN_PROXY_HINT' | translate">
                                     <i class="fa fa-plus me-2"></i>
-                                    {{ "CAMERAS.CREATE_LAN_PROXY" | translate }}
+                                    {{ "LOCAL_NETWORK.CREATE_LAN_PROXY" | translate }}
                                 </button>
                             </div>
                             <div class="services-list" *ngIf="hasServices(device.services)">
@@ -554,7 +577,7 @@
                     </div>
                     
                     <!-- Device Footer -->
-                    <div class="device-footer">
+                    <div class="device-footer d-flex flex-column gap-2">
                         <!-- Add to MongoDB button (for new devices) -->
                         <button *ngIf="isNewDevice(device)" 
                                 (click)="openMappingModalForDevice(device)" 
@@ -570,6 +593,13 @@
                                 [title]="'LOCAL_NETWORK.EDIT_MAPPING' | translate">
                             <i class="fa fa-edit"></i>
                             {{ "LOCAL_NETWORK.EDIT_MAPPING" | translate }}
+                        </button>
+                        <button type="button"
+                                (click)="openInventoryPreviewForDevice(device)"
+                                class="btn btn-sm btn-outline-secondary w-100"
+                                [title]="'LOCAL_NETWORK.VIEW_INVENTORY_ENTRY_TOOLTIP' | translate">
+                            <i class="fa fa-database me-1"></i>
+                            {{ 'LOCAL_NETWORK.VIEW_INVENTORY_ENTRY' | translate }}
                         </button>
                     </div>
                     </div>
@@ -811,6 +841,82 @@
                 <small>{{ "LOCAL_NETWORK.TOTAL_MAPPINGS" | translate }}: {{ deviceMappings.length }}</small>
             </div>
         </div>
+    </div>
+</ng-template>
+
+<!-- Inventaire : fiche lecture seule pour l'appareil de la carte -->
+<ng-template #inventoryPreviewModal let-c="close">
+    <div class="modal-header slideshow-header d-flex flex-row align-items-center justify-content-between w-100 gap-2">
+        <h5 class="modal-title mb-0">
+            <i class="fa fa-database me-2"></i>{{ "LOCAL_NETWORK.INVENTORY_PREVIEW_TITLE" | translate }}
+        </h5>
+        <button type="button"
+                class="btn btn-outline-light btn-sm rounded-circle ms-auto flex-shrink-0"
+                (click)="closeInventoryPreviewModal()"
+                [attr.aria-label]="'COMMUN.CLOSE' | translate"
+                style="min-width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; padding: 0;">
+            <i class="fa fa-times"></i>
+        </button>
+    </div>
+    <div class="modal-body slideshow-body" style="padding: 20px; overflow-y: auto;">
+        <div *ngIf="isLoadingInventoryPreview" class="text-center text-white py-4">
+            <i class="fa fa-spinner fa-spin fa-2x"></i>
+            <p class="mt-2 mb-0">{{ "LOCAL_NETWORK.LOADING_MAPPINGS" | translate }}</p>
+        </div>
+        <div *ngIf="inventoryPreviewError && !isLoadingInventoryPreview" class="alert alert-danger mb-0">
+            <i class="fa fa-exclamation-triangle"></i> {{ inventoryPreviewError }}
+        </div>
+        <ng-container *ngIf="inventoryPreviewDevice && !isLoadingInventoryPreview && !inventoryPreviewError">
+            <p class="text-white-50 small mb-3">
+                <strong>{{ "LOCAL_NETWORK.INVENTORY_PREVIEW_SCANNED_LABEL" | translate }}:</strong>
+                {{ inventoryPreviewDevice.hostname && inventoryPreviewDevice.hostname !== inventoryPreviewDevice.ipAddress
+                    ? inventoryPreviewDevice.hostname + ' — ' + inventoryPreviewDevice.ipAddress
+                    : inventoryPreviewDevice.ipAddress }}
+            </p>
+
+            <div *ngIf="inventoryPreviewMapping" class="card bg-dark text-white border-secondary">
+                <div class="card-body">
+                    <dl class="row mb-0 small">
+                        <dt class="col-sm-4">{{ "LOCAL_NETWORK.DEVICE_NUMBER" | translate }}</dt>
+                        <dd class="col-sm-8">{{ inventoryPreviewMapping.deviceNumber ?? '—' }}</dd>
+                        <dt class="col-sm-4">{{ "LOCAL_NETWORK.IP_ADDRESS" | translate }}</dt>
+                        <dd class="col-sm-8"><code>{{ inventoryPreviewMapping.ipAddress }}</code></dd>
+                        <dt class="col-sm-4">{{ "LOCAL_NETWORK.DEVICE_NAME" | translate }}</dt>
+                        <dd class="col-sm-8">{{ inventoryPreviewMapping.deviceName }}</dd>
+                        <dt class="col-sm-4">{{ "LOCAL_NETWORK.MAC_ADDRESS" | translate }}</dt>
+                        <dd class="col-sm-8"><code>{{ inventoryPreviewMapping.macAddress || '—' }}</code></dd>
+                        <dt class="col-sm-4">{{ "LOCAL_NETWORK.DEVICE_TYPE" | translate }}</dt>
+                        <dd class="col-sm-8">{{ inventoryPreviewMapping.deviceType || '—' }}</dd>
+                        <dt class="col-sm-4">{{ "LOCAL_NETWORK.DEVICE_DESCRIPTION" | translate }}</dt>
+                        <dd class="col-sm-8">{{ inventoryPreviewMapping.deviceDescription || '—' }}</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div *ngIf="!inventoryPreviewMapping" class="alert alert-info mb-0">
+                <i class="fa fa-info-circle"></i> {{ "LOCAL_NETWORK.INVENTORY_NOT_MAPPED_BODY" | translate }}
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 mt-4">
+                <button *ngIf="inventoryPreviewMapping"
+                        type="button"
+                        class="btn btn-primary btn-sm"
+                        (click)="navigateToEditInventoryFromPreview()">
+                    <i class="fa fa-edit me-1"></i>{{ "LOCAL_NETWORK.INVENTORY_EDIT_ENTRY" | translate }}
+                </button>
+                <button *ngIf="!inventoryPreviewMapping"
+                        type="button"
+                        class="btn btn-success btn-sm"
+                        (click)="navigateToAddInventoryFromPreview()">
+                    <i class="fa fa-plus me-1"></i>{{ "LOCAL_NETWORK.INVENTORY_ADD_ENTRY" | translate }}
+                </button>
+                <button type="button"
+                        class="btn btn-outline-light btn-sm"
+                        (click)="navigateToFullInventoryFromPreview()">
+                    <i class="fa fa-list me-1"></i>{{ "LOCAL_NETWORK.INVENTORY_OPEN_FULL_LIST" | translate }}
+                </button>
+            </div>
+        </ng-container>
     </div>
 </ng-template>
 

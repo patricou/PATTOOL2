@@ -194,6 +194,8 @@ export class LocalNetworkService {
     deviceName: string;
     macAddress?: string;
     deviceNumber?: number;
+    deviceType?: string | null;
+    deviceDescription?: string | null;
   }): Observable<any> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers =>

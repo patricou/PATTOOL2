@@ -90,6 +90,9 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   
   // Show only unknown devices (not in MongoDB)
   showOnlyUnknownDevices: boolean = false;
+
+  /** Afficher uniquement les appareils avec conflit MAC (ARP ≠ inventaire MongoDB). */
+  showOnlyMacConflictDevices: boolean = false;
   
   // OUI input for vendor lookup
   ouiInput: string = '';
@@ -174,6 +177,17 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   };
   isSavingMapping: boolean = false;
 
+  /** IP du device dont la synchro MAC (ARP → MongoDB) est en cours. */
+  syncingMacIp: string | null = null;
+
+  /** Modal « fiche inventaire » pour l’appareil sélectionné sur la carte. */
+  @ViewChild('inventoryPreviewModal') inventoryPreviewModal!: TemplateRef<any>;
+  private inventoryPreviewModalRef?: NgbModalRef;
+  inventoryPreviewDevice: NetworkDevice | null = null;
+  inventoryPreviewMapping: any | null = null;
+  inventoryPreviewError: string = '';
+  isLoadingInventoryPreview: boolean = false;
+
   constructor(
     private router: Router,
     public keycloakService: KeycloakService,
@@ -224,10 +238,12 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
         } else {
           this.deviceMappings = [];
         }
+        this.cdr.markForCheck();
       },
       error: (error) => {
         // Silently fail - mappings will be loaded when modal is opened
         this.deviceMappings = [];
+        this.cdr.markForCheck();
       }
     });
   }
@@ -355,23 +371,6 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   private addOrUpdateDevice(deviceData: any): void {
     if (!deviceData) {
       return;
-    }
-    
-    // Fix: Ensure macAddressSource is always set if macAddress exists
-    if (deviceData.macAddress && !deviceData.macAddressSource) {
-      // Try to determine source - if we have MongoDB mapping service, check it
-      // For now, default to 'mongodb' if MAC exists but source is missing
-      // This will be corrected by backend, but this is a safety net
-      deviceData.macAddressSource = 'mongodb';
-      deviceData.macAddressConflict = false;
-    }
-
-    // Fix: Ensure macAddressSource is always set if macAddress exists
-    if ((deviceData.macAddress || deviceData.mac) && !deviceData.macAddressSource) {
-      // Default to 'mongodb' if MAC exists but source is missing
-      // This will be corrected by backend, but this is a safety net
-      deviceData.macAddressSource = 'mongodb';
-      deviceData.macAddressConflict = false;
     }
     
     const device: NetworkDevice = {
@@ -735,6 +734,26 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     }
     
     return mapping || null;
+  }
+
+  /**
+   * Repère une ligne d’inventaire pour cet appareil (IP puis MAC).
+   */
+  private findMappingRowForDevice(device: NetworkDevice, list: any[]): any | null {
+    if (!device || !list?.length) {
+      return null;
+    }
+    const normalizeMac = (mac: string | null | undefined): string =>
+      mac ? mac.replace(/[:-]/g, '').toUpperCase() : '';
+    const deviceMac = normalizeMac(device.macAddress || device.macAddressMongoDB);
+    let row = list.find((m: any) => m.ipAddress === device.ipAddress);
+    if (!row && deviceMac) {
+      row = list.find((m: any) => {
+        const mappingMac = normalizeMac(m.macAddress);
+        return !!mappingMac && mappingMac === deviceMac;
+      });
+    }
+    return row || null;
   }
 
   getDeviceDisplayName(device: NetworkDevice): string {
@@ -1220,6 +1239,10 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     if (this.showOnlyUnknownDevices) {
       filtered = filtered.filter(device => this.isNewDevice(device));
     }
+
+    if (this.showOnlyMacConflictDevices) {
+      filtered = filtered.filter(device => this.hasMacConflict(device));
+    }
     
     // Filter by search text
     if (this.deviceFilter && this.deviceFilter.trim()) {
@@ -1432,14 +1455,28 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Check if a device is new (not in MongoDB)
-   * A device is considered new if its MAC address does not exist in MongoDB mappings
-   * This is based on MAC address comparison, not IP address
+   * Appareils dont la MAC ARP / scanner diffère de celle stockée en inventaire MongoDB pour cette IP / entrée.
+   */
+  getMacConflictDevicesCount(): number {
+    if (!this.devices?.length) {
+      return 0;
+    }
+    return this.devices.filter(d => this.hasMacConflict(d)).length;
+  }
+
+  /**
+   * Check if a device is new (not in MongoDB inventories).
+   * Primary rule: MAC not present in mappings and source indicates discovery (ARP/local), not DB.
+   * If there is no MAC (common when ARP fails during a heavy parallel scan), treat as new when this IP has no mapping
+   * and mappings have already been loaded.
    */
   isNewDevice(device: NetworkDevice): boolean {
-    // If device has no MAC address, we cannot determine if it's new
+    const ipMapped = !!(this.deviceMappings?.length &&
+      this.deviceMappings.some(m => m.ipAddress === device.ipAddress));
+
+    // No MAC (ARP missed under parallel scan load, segmented LAN, etc.): flag as new when IP is absent from mappings.
     if (!device.macAddress) {
-      return false;
+      return ipMapped === false && (this.deviceMappings?.length ?? 0) > 0;
     }
     
     // If macAddressSource is 'mongodb', the device is definitely in MongoDB (not new)
@@ -1490,8 +1527,9 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     // - MAC source is 'arp' or 'local' (not 'mongodb')
     // - No macAddressMongoDB (no mapping for this IP)
     // - MAC address not found in loaded mappings
-    // This means it's a new device
-    return device.macAddressSource === 'arp' || device.macAddressSource === 'local';
+    // New if ARP/local, or if source was omitted — do not treat missing source as "from MongoDB".
+    const s = device.macAddressSource;
+    return s === 'arp' || s === 'local' || !s;
   }
 
   /**
@@ -1911,6 +1949,155 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
       }
     }
     return false;
+  }
+
+  /**
+   * Normalize MAC to AA:BB:CC:DD:EE:FF (uppercase) for persistence.
+   */
+  private formatMacColonUpper(mac: string): string {
+    const hex = mac.replace(/[:-]/g, '').replace(/\s/g, '').toUpperCase();
+    if (hex.length !== 12 || !/^[0-9A-F]+$/.test(hex)) {
+      return mac.trim();
+    }
+    return hex.match(/.{2}/g)!.join(':');
+  }
+
+  /**
+   * Met à jour l'inventaire MongoDB avec la MAC détectée (ARP) lorsqu'elle diffère de celle stockée.
+   */
+  syncMacFromArpToMongoDB(device: NetworkDevice): void {
+    if (!device.ipAddress || !device.macAddress || !this.hasMacConflict(device)) {
+      return;
+    }
+    const mapping = this.deviceMappings.find(m => m.ipAddress === device.ipAddress);
+    if (!mapping?.id) {
+      window.alert(this.translateService.instant('LOCAL_NETWORK.SYNC_MAC_NO_MAPPING'));
+      return;
+    }
+    const newMac = this.formatMacColonUpper(device.macAddress);
+    const mappingData = {
+      ipAddress: (mapping.ipAddress || '').trim(),
+      deviceName: (mapping.deviceName || '').trim(),
+      macAddress: newMac,
+      deviceType: mapping.deviceType != null ? String(mapping.deviceType).trim() || null : null,
+      deviceDescription: mapping.deviceDescription != null ? String(mapping.deviceDescription).trim() || null : null
+    } as {
+      ipAddress: string;
+      deviceName: string;
+      macAddress: string;
+      deviceNumber?: number;
+      deviceType: string | null;
+      deviceDescription: string | null;
+    };
+    if (mapping.deviceNumber != null && mapping.deviceNumber !== undefined) {
+      mappingData.deviceNumber = mapping.deviceNumber;
+    }
+
+    this.syncingMacIp = device.ipAddress;
+    this.localNetworkService.updateDeviceMapping(mapping.id, mappingData).subscribe({
+      next: () => {
+        this.ngZone.run(() => {
+          mapping.macAddress = newMac;
+          device.macAddressConflict = false;
+          device.macAddressMongoDB = newMac;
+          device.macAddress = newMac;
+          device.macAddressSource = 'mongodb';
+          this.syncingMacIp = null;
+          this.loadDeviceMappingsSilently();
+          this.cdr.markForCheck();
+        });
+      },
+      error: (err) => {
+        this.ngZone.run(() => {
+          this.syncingMacIp = null;
+          const msg = err?.error?.message || err?.error?.error || err?.message
+            || this.translateService.instant('LOCAL_NETWORK.SYNC_MAC_ERROR');
+          window.alert(msg);
+          this.cdr.markForCheck();
+        });
+      }
+    });
+  }
+
+  openInventoryPreviewForDevice(device: NetworkDevice): void {
+    this.inventoryPreviewDevice = device;
+    this.inventoryPreviewMapping = null;
+    this.inventoryPreviewError = '';
+    this.isLoadingInventoryPreview = true;
+
+    this.inventoryPreviewModalRef = this.modalService.open(this.inventoryPreviewModal, {
+      size: 'lg',
+      windowClass: 'slideshow-modal-wide',
+      backdrop: 'static',
+      keyboard: true,
+      scrollable: true
+    });
+
+    this.localNetworkService.getDeviceMappings().subscribe({
+      next: (response) => {
+        this.ngZone.run(() => {
+          let list: any[] = [];
+          if (response?.devices) {
+            list = response.devices;
+          } else if (Array.isArray(response)) {
+            list = response;
+          }
+          this.deviceMappings = list;
+          this.inventoryPreviewMapping = this.findMappingRowForDevice(device, list);
+          this.updateDevicesWithMappings();
+          this.isLoadingInventoryPreview = false;
+          this.cdr.markForCheck();
+        });
+      },
+      error: (err) => {
+        this.ngZone.run(() => {
+          this.isLoadingInventoryPreview = false;
+          if (err?.status === 403) {
+            this.inventoryPreviewError = this.translateService.instant('LOCAL_NETWORK.INVENTORY_PREVIEW_FORBIDDEN');
+          } else {
+            this.inventoryPreviewError =
+              err?.error?.message ||
+              err?.message ||
+              this.translateService.instant('LOCAL_NETWORK.INVENTORY_PREVIEW_LOAD_ERROR');
+          }
+          this.cdr.markForCheck();
+        });
+      }
+    });
+  }
+
+  closeInventoryPreviewModal(): void {
+    if (this.inventoryPreviewModalRef) {
+      this.inventoryPreviewModalRef.close();
+      this.inventoryPreviewModalRef = undefined;
+    }
+    this.inventoryPreviewDevice = null;
+    this.inventoryPreviewMapping = null;
+    this.inventoryPreviewError = '';
+    this.isLoadingInventoryPreview = false;
+  }
+
+  navigateToEditInventoryFromPreview(): void {
+    const d = this.inventoryPreviewDevice;
+    if (!d) {
+      return;
+    }
+    this.closeInventoryPreviewModal();
+    setTimeout(() => this.editDeviceInMongoDB(d), 150);
+  }
+
+  navigateToAddInventoryFromPreview(): void {
+    const d = this.inventoryPreviewDevice;
+    if (!d) {
+      return;
+    }
+    this.closeInventoryPreviewModal();
+    setTimeout(() => this.openMappingModalForDevice(d), 150);
+  }
+
+  navigateToFullInventoryFromPreview(): void {
+    this.closeInventoryPreviewModal();
+    setTimeout(() => this.openDeviceMappingsModal(), 150);
   }
 
   /**

@@ -4,6 +4,7 @@ import com.pat.repo.IotProxyTargetRepository;
 import com.pat.repo.domain.IotProxyTarget;
 import com.pat.service.iot.IotProxyOpenTokenService;
 import com.pat.service.iot.LanUpstreamUrlValidator;
+import com.pat.util.FriendlyErrorHtml;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -25,6 +26,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.dao.DataAccessException;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.ByteArrayInputStream;
@@ -96,6 +98,40 @@ public class IotProxyRestController {
 
     private static String forwardCookieName(String publicSlug) {
         return OPEN_COOKIE_BASE + "_" + publicSlug.trim();
+    }
+
+    /**
+     * HTML for {@code /forward/...} — proxy/upstream context (badge « Proxy IoT », thème cyan).
+     */
+    private static void writeProxyForwardErrorPage(HttpServletResponse response, int status,
+                                                  String title, String detail) {
+        writeForwardHtml(response, status, false, "fr", "Proxy IoT", title, detail, "Proxy IoT · ");
+    }
+
+    /**
+     * HTML for {@code /forward/...} when the failure is PatTool internals (ex. base de données), not the lien proxy.
+     */
+    private static void writeGenericForwardErrorPage(HttpServletResponse response, int status,
+                                                     String title, String detail) {
+        writeForwardHtml(response, status, true, "fr", "Erreur", title, detail, "Erreur · ");
+    }
+
+    private static void writeForwardHtml(HttpServletResponse response, int status, boolean warmAccent,
+                                        String htmlLang, String badge, String title, String detail,
+                                        String footerBeforeLogo) {
+        try {
+            if (!response.isCommitted()) {
+                response.resetBuffer();
+            }
+            response.setStatus(status);
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            response.setContentType(MediaType.TEXT_HTML_VALUE + ";charset=UTF-8");
+            String html = FriendlyErrorHtml.page(warmAccent, htmlLang, badge, title, detail, footerBeforeLogo);
+            response.getWriter().write(html);
+            response.flushBuffer();
+        } catch (IOException e) {
+            log.debug("Forward friendly error page could not be written: {}", e.getMessage());
+        }
     }
 
     private Optional<ResponseEntity<?>> ensureIotRole() {
@@ -253,6 +289,28 @@ public class IotProxyRestController {
         boolean admin = hasAdminRole(auth);
         String owner = resolveOwner(auth, userId);
         return ResponseEntity.ok(listIotProxyTargetsForApi(admin ? null : owner, admin));
+    }
+
+    /**
+     * IoT LAN proxy limits and timings for UI (role Iot). Does not expose HMAC secrets.
+     */
+    @GetMapping(value = { "/server-settings", "/open-token-settings" }, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> serverSettings() {
+        Optional<ResponseEntity<?>> denied = ensureIotRole();
+        if (denied.isPresent()) {
+            return denied.get();
+        }
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("openTokenValiditySeconds", openTokenService.validitySeconds());
+        body.put("openTokenExplicitSecretConfigured", openTokenService.isExplicitOpenTokenSecretConfigured());
+        body.put("maxResponseBytes", maxResponseBytes);
+        body.put("maxRequestBodyBytes", maxForwardRequestBodyBytes);
+        body.put("maxRewriteBodyBytes", maxRewriteBodyBytes);
+        body.put("redirectMaxHops", redirectMaxHops);
+        body.put("maxUpstreamUrlCharacters", LanUpstreamUrlValidator.MAX_URL_LENGTH);
+        body.put("connectTimeoutMillis", CONNECT_TIMEOUT_MS);
+        body.put("readTimeoutMillis", READ_TIMEOUT_MS);
+        return ResponseEntity.ok(body);
     }
 
     /**
@@ -424,39 +482,66 @@ public class IotProxyRestController {
                         @PathVariable(required = false, name = "remainder") Optional<String> remainder,
                         HttpServletRequest request,
                         HttpServletResponse response,
-                        @RequestHeader(value = "user-id", required = false) String userIdHeader) throws Exception {
-        Optional<IotProxyTarget> targetOpt = resolveTargetForForward(slug.trim(), request, userIdHeader);
-        if (targetOpt.isEmpty()) {
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
-            return;
+                        @RequestHeader(value = "user-id", required = false) String userIdHeader) {
+        try {
+            Optional<IotProxyTarget> targetOpt = resolveTargetForForward(slug.trim(), request, userIdHeader);
+            if (targetOpt.isEmpty()) {
+                writeProxyForwardErrorPage(response, HttpServletResponse.SC_UNAUTHORIZED,
+                        "Lien proxy invalide ou expiré",
+                        "Ce lien d'accès sécurisé n'est plus valide, ou votre session ne permet pas d'atteindre cette ressource. "
+                                + "Générez un nouveau lien depuis PatTool (IoT Proxy) ou reconnectez-vous avec un compte autorisé.");
+                return;
+            }
+            String qpTok = request.getParameter("iotOpen");
+            if (StringUtils.hasText(qpTok)) {
+                issueForwardingOpenCookie(request, response, slug.trim(), qpTok.trim());
+            }
+            IotProxyTarget t = targetOpt.get();
+            String remainderPath = remainder.map(String::trim).filter(StringUtils::hasText).orElse("");
+            if (remainderPath.contains("..")) {
+                writeProxyForwardErrorPage(response, HttpServletResponse.SC_BAD_REQUEST,
+                        "Adresse refusée",
+                        "Le chemin demandé contient des séquences non autorisées.");
+                return;
+            }
+            String upstreamBase = trimTrailingSlash(t.getUpstreamBaseUrl());
+            String pathSegment = remainderPath.isEmpty()
+                    ? ""
+                    : (remainderPath.startsWith("/") ? remainderPath.substring(1) : remainderPath);
+            Optional<String> sanitizedQuery = sanitizeQueryRemovingIotOpen(request.getQueryString());
+            String pathAndQuery = buildUpstreamPath(upstreamBase, pathSegment, sanitizedQuery);
+            URI upstreamUri = safeUri(pathAndQuery, response);
+            if (upstreamUri == null) {
+                writeProxyForwardErrorPage(response, HttpServletResponse.SC_BAD_REQUEST,
+                        "Adresse incorrecte",
+                        "L'URL de l'équipement configurée n'est pas valide.");
+                return;
+            }
+            if (!upstreamUrlValidator.isAllowedLanUrl(upstreamUri.toString())) {
+                writeProxyForwardErrorPage(response, HttpServletResponse.SC_BAD_REQUEST,
+                        "Adresse refusée",
+                        "Seules les URL locales autorisées peuvent être utilisées pour ce proxy.");
+                return;
+            }
+            String method = request.getMethod();
+            replay(method, upstreamUri.toString(), t, request, response, slug.trim());
+        } catch (Exception ex) {
+            log.warn("IoT forward failed, slug={}: {}", slug.trim(), ex.toString());
+            log.debug("IoT forward failure", ex);
+            if (response.isCommitted()) {
+                return;
+            }
+            if (ex instanceof DataAccessException) {
+                writeGenericForwardErrorPage(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                        "Erreur du serveur",
+                        "PatTool n'a pas pu accéder aux données nécessaires. Réessayez dans quelques instants.");
+            } else {
+                writeProxyForwardErrorPage(response, HttpServletResponse.SC_BAD_GATEWAY,
+                        "Équipement injoignable",
+                        "PatTool n'a pas pu joindre l'équipement sur le réseau local (hors ligne, délai dépassé ou erreur réseau). "
+                                + "Vérifiez la configuration du proxy et que l'appareil répond.");
+            }
         }
-        String qpTok = request.getParameter("iotOpen");
-        if (StringUtils.hasText(qpTok)) {
-            issueForwardingOpenCookie(request, response, slug.trim(), qpTok.trim());
-        }
-        IotProxyTarget t = targetOpt.get();
-        String remainderPath = remainder.map(String::trim).filter(StringUtils::hasText).orElse("");
-        if (remainderPath.contains("..")) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            return;
-        }
-        String upstreamBase = trimTrailingSlash(t.getUpstreamBaseUrl());
-        String pathSegment = remainderPath.isEmpty()
-                ? ""
-                : (remainderPath.startsWith("/") ? remainderPath.substring(1) : remainderPath);
-        Optional<String> sanitizedQuery = sanitizeQueryRemovingIotOpen(request.getQueryString());
-        String pathAndQuery = buildUpstreamPath(upstreamBase, pathSegment, sanitizedQuery);
-        URI upstreamUri = safeUri(pathAndQuery, response);
-        if (upstreamUri == null) {
-            return;
-        }
-        if (!upstreamUrlValidator.isAllowedLanUrl(upstreamUri.toString())) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            return;
-        }
-        String method = request.getMethod();
-
-        replay(method, upstreamUri.toString(), t, request, response, slug.trim());
     }
 
     /** Whether we should open an output stream and copy the servlet input toward the LAN device for this hop. */
@@ -593,7 +678,9 @@ public class IotProxyRestController {
         for (int hop = 0; hop <= redirectMaxHops; hop++) {
             URI uri = URI.create(current);
             if (!upstreamUrlValidator.isAllowedLanUrl(uri.toString())) {
-                browser.setStatus(HttpServletResponse.SC_BAD_GATEWAY);
+                writeProxyForwardErrorPage(browser, HttpServletResponse.SC_BAD_GATEWAY,
+                        "Équipement injoignable",
+                        "La requête ne peut pas être relayée vers cette adresse. Vérifiez la configuration du proxy et le réseau local.");
                 return;
             }
             HttpURLConnection conn = (HttpURLConnection) uri.toURL().openConnection();
@@ -616,7 +703,9 @@ public class IotProxyRestController {
             if (attachBody) {
                 long bodyLenHint = request.getContentLengthLong();
                 if (bodyLenHint >= 0 && bodyLenHint > maxForwardRequestBodyBytes) {
-                    browser.setStatus(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
+                    writeProxyForwardErrorPage(browser, HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE,
+                            "Requête trop volumineuse",
+                            "Le contenu envoyé dépasse la taille maximale autorisée pour ce proxy.");
                     return;
                 }
                 conn.setDoOutput(true);
@@ -628,7 +717,9 @@ public class IotProxyRestController {
                 try (OutputStream os = conn.getOutputStream()) {
                     long copied = copyLimited(request.getInputStream(), os, maxForwardRequestBodyBytes);
                     if (copied < 0) {
-                        browser.setStatus(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
+                        writeProxyForwardErrorPage(browser, HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE,
+                                "Requête trop volumineuse",
+                                "Le contenu envoyé dépasse la taille maximale autorisée pour ce proxy.");
                         conn.disconnect();
                         return;
                     }
@@ -640,13 +731,17 @@ public class IotProxyRestController {
                 String loc = conn.getHeaderField(Uh.LOCATION);
                 conn.disconnect();
                 if (loc == null || loc.isBlank()) {
-                    browser.setStatus(HttpServletResponse.SC_BAD_GATEWAY);
+                    writeProxyForwardErrorPage(browser, HttpServletResponse.SC_BAD_GATEWAY,
+                            "Réponse de l'équipement incomplète",
+                            "La redirection renvoyée par l'équipement ne contient pas d'adresse valide.");
                     return;
                 }
                 URI next = uri.resolve(loc);
                 current = next.toString();
                 if (!upstreamUrlValidator.isAllowedLanUrl(current)) {
-                    browser.setStatus(HttpServletResponse.SC_BAD_GATEWAY);
+                    writeProxyForwardErrorPage(browser, HttpServletResponse.SC_BAD_GATEWAY,
+                            "Redirection refusée",
+                            "La cible de la redirection n'est pas une adresse locale autorisée.");
                     return;
                 }
                 continue;
@@ -681,7 +776,9 @@ public class IotProxyRestController {
                 } catch (Exception ex) {
                     log.debug("IoT forward buffering failed: {}", ex.getMessage());
                     conn.disconnect();
-                    browser.setStatus(HttpServletResponse.SC_BAD_GATEWAY);
+                    writeProxyForwardErrorPage(browser, HttpServletResponse.SC_BAD_GATEWAY,
+                            "Équipement injoignable",
+                            "PatTool n'a pas pu lire correctement la réponse de l'équipement (réseau, délai ou format inattendu).");
                     return;
                 }
                 try {
@@ -738,7 +835,9 @@ public class IotProxyRestController {
             }
             return;
         }
-        browser.setStatus(HttpServletResponse.SC_BAD_GATEWAY);
+        writeProxyForwardErrorPage(browser, HttpServletResponse.SC_BAD_GATEWAY,
+                "Équipement injoignable",
+                "Trop de redirections ou impossible de terminer la connexion vers l'équipement.");
     }
 
     private static long parsePositiveLongOrNegOne(String clHdr) {

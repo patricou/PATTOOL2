@@ -14,6 +14,11 @@
                 <i class="fa" [class.fa-refresh]="!isLoading" [class.fa-spinner]="isLoading" [class.fa-spin]="isLoading"></i>
                 {{ 'IOT_PROXY.REFRESH' | translate }}
             </button>
+            <button type="button" class="btn btn-sm btn-outline-info" (click)="openServerSettingsModal()"
+                    [attr.aria-haspopup]="'dialog'"
+                    [attr.aria-expanded]="showServerSettingsModal">
+                <i class="fa fa-sliders" aria-hidden="true"></i> {{ 'IOT_PROXY.SERVER_SETTINGS_BUTTON' | translate }}
+            </button>
         </div>
         <label class="small mb-0 d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-1 iot-proxy-filter flex-grow-1">
             <span class="text-nowrap">{{ 'IOT_PROXY.FILTER_LABEL' | translate }}</span>
@@ -44,12 +49,13 @@
         {{ 'IOT_PROXY.NO_MATCH' | translate }}
     </div>
 
-    <div *ngIf="!isLoading && rows.length > 0 && displayRows.length > 0" class="table-responsive">
-        <table class="table table-hover align-middle iot-proxy-table">
+    <div *ngIf="!isLoading && rows.length > 0 && displayRows.length > 0"
+         class="table-responsive iot-proxy-table-shell">
+        <table class="table table-sm table-hover table-striped align-middle iot-proxy-table mb-0">
             <thead>
             <tr>
                 <th scope="col"
-                    class="iot-sortable-th"
+                    class="iot-sortable-th iot-col-desc"
                     tabindex="0"
                     (click)="toggleSort('description')"
                     (keydown.enter)="toggleSort('description')"
@@ -59,7 +65,7 @@
                     <i class="fa ms-1" [ngClass]="sortIconClass('description')" aria-hidden="true"></i>
                 </th>
                 <th scope="col"
-                    class="iot-sortable-th"
+                    class="iot-sortable-th iot-col-slug"
                     tabindex="0"
                     (click)="toggleSort('publicSlug')"
                     (keydown.enter)="toggleSort('publicSlug')"
@@ -69,7 +75,7 @@
                     <i class="fa ms-1" [ngClass]="sortIconClass('publicSlug')" aria-hidden="true"></i>
                 </th>
                 <th scope="col"
-                    class="iot-sortable-th"
+                    class="iot-sortable-th iot-col-upstream"
                     tabindex="0"
                     (click)="toggleSort('upstreamBaseUrl')"
                     (keydown.enter)="toggleSort('upstreamBaseUrl')"
@@ -79,7 +85,7 @@
                     <i class="fa ms-1" [ngClass]="sortIconClass('upstreamBaseUrl')" aria-hidden="true"></i>
                 </th>
                 <th scope="col"
-                    class="iot-sortable-th"
+                    class="iot-sortable-th iot-col-owner"
                     tabindex="0"
                     (click)="toggleSort('owner')"
                     (keydown.enter)="toggleSort('owner')"
@@ -89,7 +95,7 @@
                     <i class="fa ms-1" [ngClass]="sortIconClass('owner')" aria-hidden="true"></i>
                 </th>
                 <th scope="col"
-                    class="iot-sortable-th"
+                    class="iot-sortable-th iot-col-created"
                     tabindex="0"
                     (click)="toggleSort('creationDate')"
                     (keydown.enter)="toggleSort('creationDate')"
@@ -98,14 +104,17 @@
                     {{ 'IOT_PROXY.CREATED' | translate }}
                     <i class="fa ms-1" [ngClass]="sortIconClass('creationDate')" aria-hidden="true"></i>
                 </th>
-                <th scope="col" class="text-end">{{ 'IOT_PROXY.ACTIONS' | translate }}</th>
+                <th scope="col" class="iot-col-proxified iot-col-proxified-th">
+                    {{ 'IOT_PROXY.PROXIFIED_URL_PREFIX' | translate }}
+                </th>
+                <th scope="col" class="text-end iot-col-actions">{{ 'IOT_PROXY.ACTIONS' | translate }}</th>
             </tr>
             </thead>
             <tbody>
             <tr *ngFor="let row of displayRows; trackBy: trackByRowId">
-                <td [attr.data-label]="'IOT_PROXY.DESCRIPTION' | translate">{{ row.description }}</td>
-                <td [attr.data-label]="'IOT_PROXY.SLUG' | translate"><code class="iot-proxy-public-slug">{{ row.publicSlug }}</code></td>
-                <td [attr.data-label]="'IOT_PROXY.UPSTREAM' | translate">
+                <td class="iot-col-desc" [attr.data-label]="'IOT_PROXY.DESCRIPTION' | translate">{{ row.description }}</td>
+                <td class="iot-col-slug" [attr.data-label]="'IOT_PROXY.SLUG' | translate"><code class="iot-proxy-public-slug">{{ row.publicSlug }}</code></td>
+                <td class="iot-col-upstream" [attr.data-label]="'IOT_PROXY.UPSTREAM' | translate">
                     <a *ngIf="row.upstreamBaseUrl?.trim()"
                        [href]="(row.upstreamBaseUrl ?? '').trim()"
                        target="_blank"
@@ -115,11 +124,19 @@
                     </a>
                     <span *ngIf="!row.upstreamBaseUrl?.trim()" class="text-muted">—</span>
                 </td>
-                <td [attr.data-label]="'IOT_PROXY.OWNER' | translate">{{ row.owner }}</td>
-                <td [attr.data-label]="'IOT_PROXY.CREATED' | translate">{{ formatDate(row.creationDate) }}</td>
-                <td class="text-end text-md-end text-start iot-proxy-actions-cell"
+                <td class="iot-col-owner" [attr.data-label]="'IOT_PROXY.OWNER' | translate">{{ row.owner }}</td>
+                <td class="iot-col-created" [attr.data-label]="'IOT_PROXY.CREATED' | translate">{{ formatDate(row.creationDate) }}</td>
+                <td class="iot-col-proxified" [attr.data-label]="'IOT_PROXY.PROXIFIED_URL_PREFIX' | translate">
+                    @let pfx = proxiedForwardUrlPrefix(row);
+                    @if (pfx) {
+                        <code [title]="pfx" class="iot-proxy-proxied-preview">{{ pfx }}</code>
+                    } @else {
+                        <span class="text-muted">—</span>
+                    }
+                </td>
+                <td class="text-end text-md-end text-start iot-proxy-actions-cell iot-col-actions"
                     [attr.data-label]="'IOT_PROXY.ACTIONS' | translate">
-                    <div class="d-flex flex-wrap gap-1 justify-content-md-end justify-content-start align-items-center">
+                    <div class="d-flex flex-wrap gap-1 justify-content-md-end justify-content-start align-items-center iot-proxy-actions-inner">
                     <button type="button"
                             class="btn btn-sm btn-success iot-proxy-open-proxied-btn"
                             (click)="openInBrowser(row)"
@@ -145,6 +162,62 @@
             </tr>
             </tbody>
         </table>
+    </div>
+</div>
+
+<div class="modal fade show modal-backdrop-fake" *ngIf="showServerSettingsModal" style="display:block; z-index: 1070;" tabindex="-1"
+     role="dialog" aria-modal="true" aria-labelledby="iot-proxy-server-settings-title" (click)="closeServerSettingsModal()">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" role="document" (click)="$event.stopPropagation()">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="iot-proxy-server-settings-title">{{ 'IOT_PROXY.SERVER_SETTINGS_TITLE' | translate }}</h5>
+                <button type="button" class="btn-close" [attr.aria-label]="'COMMUN.CLOSE' | translate" (click)="closeServerSettingsModal()"></button>
+            </div>
+            <div class="modal-body text-muted small">
+                <div *ngIf="isLoading" class="text-center py-4">
+                    <i class="fa fa-spinner fa-spin fa-2x" aria-hidden="true"></i>
+                    <p class="mt-2 mb-0">{{ 'COMMUN.LOADING' | translate }}</p>
+                </div>
+                <p *ngIf="!isLoading && !serverSettings" class="mb-0 text-danger">{{ 'IOT_PROXY.SERVER_SETTINGS_UNAVAILABLE' | translate }}</p>
+                <dl *ngIf="!isLoading && serverSettings" class="row mb-0 gy-1 iot-proxy-settings-dl">
+                    <dt class="col-sm-5 col-lg-4 mb-0">{{ 'IOT_PROXY.SETTING_OPEN_TOKEN_TTL' | translate }}</dt>
+                    <dd class="col-sm-7 col-lg-8 mb-0">{{ serverSettings.openTokenValiditySeconds }} s</dd>
+
+                    <dt class="col-sm-5 col-lg-4 mb-0">{{ 'IOT_PROXY.SETTING_OPEN_TOKEN_SECRET' | translate }}</dt>
+                    <dd class="col-sm-7 col-lg-8 mb-0">
+                        {{ serverSettings.openTokenExplicitSecretConfigured
+                            ? ('IOT_PROXY.SETTING_SECRET_CONFIGURED' | translate)
+                            : ('IOT_PROXY.SETTING_SECRET_DEFAULT' | translate) }}
+                    </dd>
+
+                    <dt class="col-sm-5 col-lg-4 mb-0">{{ 'IOT_PROXY.SETTING_MAX_RESPONSE' | translate }}</dt>
+                    <dd class="col-sm-7 col-lg-8 mb-0">{{ formatBytes(serverSettings.maxResponseBytes) }}</dd>
+
+                    <dt class="col-sm-5 col-lg-4 mb-0">{{ 'IOT_PROXY.SETTING_MAX_REQUEST_BODY' | translate }}</dt>
+                    <dd class="col-sm-7 col-lg-8 mb-0">{{ formatBytes(serverSettings.maxRequestBodyBytes) }}</dd>
+
+                    <dt class="col-sm-5 col-lg-4 mb-0">{{ 'IOT_PROXY.SETTING_MAX_REWRITE' | translate }}</dt>
+                    <dd class="col-sm-7 col-lg-8 mb-0">{{ formatBytes(serverSettings.maxRewriteBodyBytes) }}</dd>
+
+                    <dt class="col-sm-5 col-lg-4 mb-0">{{ 'IOT_PROXY.SETTING_REDIRECT_HOPS' | translate }}</dt>
+                    <dd class="col-sm-7 col-lg-8 mb-0">{{ serverSettings.redirectMaxHops }}</dd>
+
+                    <dt class="col-sm-5 col-lg-4 mb-0">{{ 'IOT_PROXY.SETTING_MAX_URL_CHARS' | translate }}</dt>
+                    <dd class="col-sm-7 col-lg-8 mb-0">{{ serverSettings.maxUpstreamUrlCharacters | number }}</dd>
+
+                    <dt class="col-sm-5 col-lg-4 mb-0">{{ 'IOT_PROXY.SETTING_CONNECT_MS' | translate }}</dt>
+                    <dd class="col-sm-7 col-lg-8 mb-0">{{ serverSettings.connectTimeoutMillis }} ms</dd>
+
+                    <dt class="col-sm-5 col-lg-4 mb-0">{{ 'IOT_PROXY.SETTING_READ_MS' | translate }}</dt>
+                    <dd class="col-sm-7 col-lg-8 mb-0">{{ serverSettings.readTimeoutMillis }} ms</dd>
+                </dl>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" (click)="closeServerSettingsModal()">
+                    {{ 'COMMUN.CLOSE' | translate }}
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 

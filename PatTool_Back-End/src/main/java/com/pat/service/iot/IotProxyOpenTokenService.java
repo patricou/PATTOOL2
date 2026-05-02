@@ -23,11 +23,14 @@ public class IotProxyOpenTokenService {
 
     private final byte[] hmacSecret;
     private final long validityMs;
+    /** Config supplied a raw secret {@code ≥ 32} bytes (recommended for production stable signing). */
+    private final boolean explicitOpenTokenSecretConfigured;
 
     public IotProxyOpenTokenService(
             @Value("${app.iot-proxy.open-token-hmac-secret:}") String secretConfig,
             @Value("${app.iot-proxy.open-token-validity-seconds:300}") long validitySeconds) {
         byte[] configured = secretConfig == null ? new byte[0] : secretConfig.getBytes(StandardCharsets.UTF_8);
+        this.explicitOpenTokenSecretConfigured = configured.length >= 32;
         if (configured.length >= 32) {
             this.hmacSecret = configured;
         } else {
@@ -38,6 +41,11 @@ public class IotProxyOpenTokenService {
 
     public long validitySeconds() {
         return validityMs / 1000L;
+    }
+
+    /** True when {@code app.iot-proxy.open-token-hmac-secret} is at least 32 bytes UTF-8 (stable across restarts when set explicitly). */
+    public boolean isExplicitOpenTokenSecretConfigured() {
+        return explicitOpenTokenSecretConfigured;
     }
 
     private static byte[] sha256ConfiguredOrRandom(byte[] configured) {
