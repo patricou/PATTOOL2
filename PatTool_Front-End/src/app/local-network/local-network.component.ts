@@ -53,6 +53,7 @@ export interface Vulnerability {
   description: string;
   port?: number;
   service?: string;
+  recommendations?: string[];
 }
 
 @Component({
@@ -73,6 +74,10 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   isScanning: boolean = false;
   scanProgress: number = 0;
   scanProgressText: string = '0%';
+  /** English narration of scan phases (SSE + coarse client summary). */
+  scanActivityEnglish: string = '';
+  /** English counters: addresses examined vs responding hosts so far. */
+  scanLiveDetailEnglish: string = '';
   scannedIps: number = 0;
   totalIps: number = 254;
   errorMessage: string = '';
@@ -264,6 +269,8 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     this.isLoading = true;
     this.scanProgress = 0;
     this.scanProgressText = '0%';
+    this.scanActivityEnglish = '';
+    this.scanLiveDetailEnglish = '';
     this.scannedIps = 0;
     this.totalIps = 254;
     this.errorMessage = '';
@@ -314,6 +321,16 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
         this.scanProgressText = '0%';
         this.scannedIps = 0;
         this.scanStartTime = new Date();
+        this.scanActivityEnglish =
+          event.data?.activityMessageEn
+          || 'Initializing scan — detecting your LAN subnet and preparing host discovery.';
+        this.updateScanLiveDetailEnglish();
+        break;
+
+      case 'scan-status':
+        if (typeof event.data?.message === 'string' && event.data.message.trim()) {
+          this.scanActivityEnglish = event.data.message.trim();
+        }
         break;
 
       case 'device-found':
@@ -333,6 +350,7 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
           // Force change detection to update UI immediately
           this.cdr.detectChanges();
         }
+        this.updateScanLiveDetailEnglish();
         break;
 
       case 'scan-completed':
@@ -340,6 +358,8 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
         this.scanProgress = 100;
         this.scanProgressText = `100% (${this.totalIps}/${this.totalIps})`;
         this.scannedIps = this.totalIps;
+        this.scanLiveDetailEnglish = '';
+        this.scanActivityEnglish = '';
         this.loadIotProxies();
         
         // Wait a moment before hiding progress bar
@@ -363,9 +383,22 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
         this.isScanning = false;
         this.scanProgress = 0;
         this.scanProgressText = '0%';
+        this.scanActivityEnglish = '';
+        this.scanLiveDetailEnglish = '';
         this.errorMessage = event.data?.message || event.data?.error || 'Error during network scan';
         break;
     }
+  }
+
+  /** English progress line driven by streamed progress counters (shown while scanning). */
+  private updateScanLiveDetailEnglish(): void {
+    if (!this.isScanning) {
+      return;
+    }
+    const n = this.devices.length;
+    const hostWord = n === 1 ? 'host' : 'hosts';
+    this.scanLiveDetailEnglish =
+      `${this.scannedIps} of ${this.totalIps} addresses examined — ${n} responding ${hostWord} reported so far.`;
   }
 
   private addOrUpdateDevice(deviceData: any): void {
@@ -419,7 +452,9 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     this.isScanning = false;
     this.scanProgress = 0;
     this.scanProgressText = '0%';
-    this.errorMessage = error.error?.message || error.message || 'Erreur lors du scan du réseau';
+    this.scanActivityEnglish = '';
+    this.scanLiveDetailEnglish = '';
+    this.errorMessage = error.error?.message || error.message || 'Network scan failed. Please retry.';
   }
 
   private handleScanComplete(): void {
@@ -428,6 +463,8 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
       // If we reach here without scan-completed event, mark as complete
       this.scanProgress = 100;
       this.scanProgressText = `100% (${this.totalIps}/${this.totalIps})`;
+      this.scanActivityEnglish = '';
+      this.scanLiveDetailEnglish = '';
       this.loadIotProxies();
       
       setTimeout(() => {
@@ -439,6 +476,8 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
           if (!this.isScanning) {
             this.scanProgress = 0;
             this.scanProgressText = '0%';
+            this.scanActivityEnglish = '';
+            this.scanLiveDetailEnglish = '';
           }
         }, 2000);
       }, 500);
@@ -502,6 +541,32 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     return description;
   }
 
+  /**
+   * Full text for vulnerability tooltip (description + optional recommendations from API).
+   */
+  getVulnerabilityTooltipText(vuln: Vulnerability): string {
+    const parts: string[] = [];
+    const desc = this.getVulnerabilityDescription(vuln.description ?? '').trim();
+    if (desc) {
+      parts.push(desc);
+    }
+    const recs = vuln.recommendations;
+    if (Array.isArray(recs) && recs.length > 0) {
+      const headerKey = 'LOCAL_NETWORK.VULN_RECOMMENDATIONS_HEADER';
+      let header = this.translateService.instant(headerKey);
+      if (header === headerKey) {
+        header = 'Recommendations:';
+      }
+      const lines = recs.map((r: string, i: number) => `${i + 1}. ${r}`);
+      parts.push(`${header}\n${lines.join('\n')}`);
+    }
+    const text = parts.join('\n\n').trim();
+    if (text) {
+      return text;
+    }
+    return desc || this.getVulnerabilityTypeLabel(vuln.type);
+  }
+
   getTotalVulnerabilities(): number {
     return this.devices.reduce((total, device) => {
       return total + (device.vulnerabilities?.length || 0);
@@ -520,12 +585,19 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     }, 0);
   }
 
-  /**
-   * Open device URL in a new tab
-   */
-  openDeviceUrl(device: NetworkDevice): void {
-    const url = `http://${device.ipAddress}`;
-    window.open(url, '_blank');
+  /** Toolbar badge color for total vulnerability count */
+  getTotalVulnerabilitiesToolbarBadgeClass(): string {
+    const total = this.getTotalVulnerabilities();
+    if (total === 0) {
+      return 'bg-secondary';
+    }
+    if (this.getCriticalVulnerabilities() > 0) {
+      return 'bg-danger';
+    }
+    if (this.getHighVulnerabilities() > 0) {
+      return 'bg-warning text-dark';
+    }
+    return 'bg-info text-dark';
   }
 
   private loadIotProxies(): void {

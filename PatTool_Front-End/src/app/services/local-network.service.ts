@@ -6,7 +6,7 @@ import { Observable, from, Subject } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
 
 export interface StreamEvent {
-  type: 'scan-started' | 'device-found' | 'scan-completed' | 'error';
+  type: 'scan-started' | 'device-found' | 'scan-status' | 'scan-completed' | 'error';
   data: any;
 }
 

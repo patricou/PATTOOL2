@@ -112,6 +112,14 @@
                                     {{ "LOCAL_NETWORK.SCANNING" | translate }}: {{ scanProgressText }}
                                     <span *ngIf="devices.length > 0"> - {{ devices.length }} {{ "LOCAL_NETWORK.DEVICES_FOUND" | translate }}</span>
                                 </span>
+                                <!-- Live English narration of backend scan phases -->
+                                <div *ngIf="isScanning && (scanActivityEnglish || scanLiveDetailEnglish)"
+                                     class="mt-2 text-secondary scan-activity-lang"
+                                     lang="en"
+                                     style="white-space: pre-line;">
+                                    <div *ngIf="scanActivityEnglish" class="scan-activity-line">{{ scanActivityEnglish }}</div>
+                                    <div *ngIf="scanLiveDetailEnglish" class="scan-live-line small">{{ scanLiveDetailEnglish }}</div>
+                                </div>
                                 <span *ngIf="!isScanning && scanProgress === 100">
                                     <i class="fa fa-check-circle text-success"></i>
                                     {{ "LOCAL_NETWORK.SCAN_COMPLETE" | translate }}
@@ -164,8 +172,17 @@
             <!-- Devices List -->
             <div class="devices-section mt-4" *ngIf="devices.length > 0">
                 <div class="local-network-devices-toolbar mb-3">
-                    <h3 class="local-network-toolbar-title mb-0">
-                        <i class="fa fa-list me-1" aria-hidden="true"></i>{{ "LOCAL_NETWORK.DEVICES" | translate }}
+                    <h3 class="local-network-toolbar-title mb-0 d-flex align-items-center flex-wrap gap-2">
+                        <span class="d-inline-flex align-items-center gap-1">
+                            <i class="fa fa-list" aria-hidden="true"></i>
+                            {{ "LOCAL_NETWORK.DEVICES" | translate }}
+                        </span>
+                        <span class="badge toolbar-mini-badge flex-shrink-0"
+                              [ngClass]="getTotalVulnerabilitiesToolbarBadgeClass()"
+                              [attr.title]="('LOCAL_NETWORK.VULNERABILITY_TOTAL_BADGE_HINT' | translate:{ total: getTotalVulnerabilities(), critical: getCriticalVulnerabilities(), high: getHighVulnerabilities() })">
+                            <i class="fa fa-shield me-1" aria-hidden="true"></i>
+                            {{ getTotalVulnerabilities() }}
+                        </span>
                     </h3>
 
                     <span class="toolbar-sep d-none d-sm-block" aria-hidden="true"></span>
@@ -249,9 +266,10 @@
                            'new-device': isNewDevice(device),
                            'different-ip': hasDifferentIPInMongoDB(device)
                          }" 
-                         *ngFor="let device of getSortedDevices()">
+                         *ngFor="let device of getSortedDevices(); let i = index">
                     <div class="device-header" [ngClass]="getDeviceHeaderClass(device)">
                         <div class="device-header-content">
+                            <span class="device-card-index" [attr.title]="'#' + (i + 1)" [attr.aria-label]="'Device ' + (i + 1)">{{ i + 1 }}</span>
                             <div class="device-title-section">
                                 <h4 class="device-title">
                                     <i class="fa" [ngClass]="getDeviceIcon(device)"></i>
@@ -263,12 +281,6 @@
                                 </div>
                             </div>
                             <div class="device-header-actions">
-                                <button (click)="openDeviceUrl(device)" 
-                                        class="btn btn-xs btn-light device-open-btn"
-                                        [title]="'LOCAL_NETWORK.OPEN_HTTP_TOOLTIP' | translate">
-                                    <i class="fa fa-link"></i>
-                                    {{ "LOCAL_NETWORK.OPEN_HTTP" | translate }}
-                                </button>
                                 <span class="badge device-status-badge" [ngClass]="{
                                     'badge-success': device.status === 'online',
                                     'badge-secondary': device.status === 'offline',
@@ -283,18 +295,28 @@
                     <div class="device-body">
                         <!-- Vulnerabilities Section (shown first when present) -->
                         <div *ngIf="device.vulnerabilities && device.vulnerabilities.length > 0" class="vulnerabilities-section vulnerabilities-section--first mb-3">
-                            <h5><i class="fa fa-shield"></i> {{ "LOCAL_NETWORK.VULNERABILITIES" | translate }}</h5>
+                            <h5><i class="fa fa-shield"></i> {{ "LOCAL_NETWORK.VULNERABILITIES" | translate }} <span class="vuln-section-count">({{ device.vulnerabilities.length }})</span></h5>
                             <div class="vulnerability-item" *ngFor="let vuln of device.vulnerabilities">
-                                <div class="vulnerability-header">
+                                <div class="vulnerability-header vulnerability-header--tooltip"
+                                     [ngbTooltip]="getVulnerabilityTooltipText(vuln)"
+                                     tooltipClass="vulnerability-desc-tooltip"
+                                     container="body"
+                                     placement="top"
+                                     triggers="mouseenter:mouseleave"
+                                     [openDelay]="150"
+                                     [closeDelay]="0">
                                     <span class="badge" [ngClass]="getSeverityClass(vuln.severity)">
                                         {{ getSeverityLabel(vuln.severity) }}
                                     </span>
                                     <strong>{{ getVulnerabilityTypeLabel(vuln.type) }}</strong>
-                                    <span *ngIf="vuln.port" class="text-muted ml-2">
+                                    <span *ngIf="vuln.port" class="text-muted ms-1">
                                         ({{ "LOCAL_NETWORK.PORT" | translate }}: {{ vuln.port }})
                                     </span>
+                                    <span class="vulnerability-tooltip-hint text-muted ms-1"
+                                          [attr.aria-label]="('LOCAL_NETWORK.VULN_DESCRIPTION_HINT' | translate)">
+                                        <i class="fa fa-info-circle" aria-hidden="true"></i>
+                                    </span>
                                 </div>
-                                <p class="vulnerability-description">{{ getVulnerabilityDescription(vuln.description) }}</p>
                             </div>
                         </div>
 

@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 @RestController
@@ -123,6 +124,8 @@ public class LocalNetworkController {
                 Map<String, Object> startData = new HashMap<>();
                 startData.put("status", "started");
                 startData.put("message", "Network scan started");
+                startData.put("activityMessageEn",
+                        "Initializing scan — the server will detect your LAN subnet and enumerate active hosts.");
                 startData.put("scanId", streamId);
                 startData.put("timestamp", System.currentTimeMillis());
                 
@@ -136,6 +139,22 @@ public class LocalNetworkController {
                 final AtomicInteger devicesSent = new AtomicInteger(0);
                 final List<Map<String, Object>> allFoundDevices = new ArrayList<>(); // Collect all devices for history
                 
+                Consumer<String> scanStatusEnglish = english -> {
+                    if (english == null || english.isBlank()) {
+                        return;
+                    }
+                    try {
+                        Map<String, Object> statusPayload = new HashMap<>();
+                        statusPayload.put("message", english);
+                        statusPayload.put("timestamp", System.currentTimeMillis());
+                        emitter.send(SseEmitter.event()
+                                .name("scan-status")
+                                .data(statusPayload));
+                    } catch (IOException io) {
+                        log.debug("[SSE] scan-status emit failed: {}", io.getMessage());
+                    }
+                };
+
                 localNetworkService.scanLocalNetworkStreaming(useExternalVendorAPI, (device, progress, total) -> {
                     try {
                         String deviceIp = (String) device.get("ipAddress");
@@ -184,7 +203,7 @@ public class LocalNetworkController {
                     } catch (Exception e) {
                         log.debug("[SSE] Unexpected error sending device event: {}", e.getMessage(), e);
                     }
-                });
+                }, scanStatusEnglish);
                 
                 log.debug("[{}] Total devices sent via SSE: {}", streamId, devicesSent.get());
                 

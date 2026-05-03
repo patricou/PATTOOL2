@@ -30,15 +30,29 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.Date;
+import java.util.function.Consumer;
 
 @Service
 public class LocalNetworkService {
 
     private static final Logger log = LoggerFactory.getLogger(LocalNetworkService.class);
-    private static final int TIMEOUT = 150; // 150ms timeout for very fast scanning
-    private static final int PORT_TIMEOUT = 100; // 100ms timeout for port scanning
-    private static final int THREAD_POOL_SIZE = 200; // Large thread pool for maximum parallelism
-    private static final List<Integer> COMMON_PORTS = Arrays.asList(22, 80, 443, 445, 3389, 8080); // Reduced port list for speed
+    /** ICMP/TCP probe timeout; very low values cause flaky discovery under parallel load or on hosts that throttle ICMP */
+    private static final int REACHABILITY_TIMEOUT_MS = 500;
+    private static final int PORT_TIMEOUT = 120; // ms — slightly relaxed for sluggish IoT / Wi‑Fi stacks
+    /** Pool size caps threads; Semaphore caps concurrent host probes to avoid drowning the LAN/router */
+    private static final int THREAD_POOL_SIZE = 200;
+    private static final int MAX_CONCURRENT_HOST_SCANS = 48;
+    private static final List<Integer> COMMON_PORTS = Arrays.asList(22, 80, 443, 445, 3389, 8080);
+    /** Extra TCP ports common on printers, IoT, and media devices (used with COMMON_PORTS for discovery) */
+    private static final List<Integer> EXTRA_DISCOVERY_PORTS = Arrays.asList(
+            21, 23, 135, 139, 554, 631, 1883, 5000, 5357, 8443, 9100, 5900, 6379, 9200, 27017, 62078);
+    private static final List<Integer> FAST_SCAN_PORTS;
+
+    static {
+        LinkedHashSet<Integer> scanPortSet = new LinkedHashSet<>(COMMON_PORTS);
+        scanPortSet.addAll(EXTRA_DISCOVERY_PORTS);
+        FAST_SCAN_PORTS = Collections.unmodifiableList(new ArrayList<>(scanPortSet));
+    }
     
     private final RestTemplate restTemplate;
     private final NetworkDeviceMappingRepository deviceMappingRepository;
@@ -79,11 +93,19 @@ public class LocalNetworkService {
     }
 
     /**
-     * Scan the local network for devices and vulnerabilities with streaming callback
-     * Optimized for speed and real-time display
-     * @param useExternalVendorAPI If true, use external API for vendor detection (OUI lookup)
+     * @see #scanLocalNetworkStreaming(boolean, DeviceCallback, Consumer)
      */
     public void scanLocalNetworkStreaming(boolean useExternalVendorAPI, DeviceCallback callback) {
+        scanLocalNetworkStreaming(useExternalVendorAPI, callback, null);
+    }
+
+    /**
+     * Scan the local network for devices with streaming callbacks.
+     *
+     * @param englishStatusReporter optional concise English phrases for UI (SSE); ignored if {@code null}
+     */
+    public void scanLocalNetworkStreaming(boolean useExternalVendorAPI, DeviceCallback callback,
+            Consumer<String> englishStatusReporter) {
         long startTime = System.currentTimeMillis();
         String scanId = "SCAN-" + System.currentTimeMillis();
         log.debug("========== NETWORK SCAN STARTED [{}] ==========", scanId);
@@ -101,9 +123,15 @@ public class LocalNetworkService {
             log.debug("Scanning network range: {}.* (254 IPs)", networkBase);
             log.debug("Thread pool size: {}", THREAD_POOL_SIZE);
 
+            reportEnglishScanStatus(englishStatusReporter,
+                    "Scanning subnet " + networkBase + ".0/24 — probing ICMP reachability, ping, "
+                            + "and common TCP ports on each host in parallel.");
+
             final int totalIps = 254;
             final AtomicInteger completedCount = new AtomicInteger(0);
             final AtomicInteger deviceCount = new AtomicInteger(0);
+            final Set<String> discoveredIps = ConcurrentHashMap.newKeySet();
+            final Semaphore hostScanPermits = new Semaphore(MAX_CONCURRENT_HOST_SCANS);
             
             // Use large thread pool for maximum parallelism
             ExecutorService executor = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
@@ -116,11 +144,15 @@ public class LocalNetworkService {
                 final String ip = networkBase + "." + i;
                 final boolean useExternalAPI = useExternalVendorAPI; // Capture for lambda
                 executor.submit(() -> {
+                    hostScanPermits.acquireUninterruptibly();
                     try {
                         Map<String, Object> device = scanDeviceFast(ip, useExternalAPI);
                         int completed = completedCount.incrementAndGet();
-                        
+                        reportEnglishScanStatus(englishStatusReporter,
+                                throttleHostSweepStatus(completed, totalIps, deviceCount));
+
                         if (device != null && !device.isEmpty()) {
+                            discoveredIps.add(ip);
                             // Quick vulnerability analysis (simplified)
                             try {
                                 List<Map<String, Object>> vulnerabilities = analyzeVulnerabilitiesFast(device);
@@ -178,19 +210,23 @@ public class LocalNetworkService {
                     } catch (Exception e) {
                         log.debug("Error scanning device {}: {}", ip, e.getMessage());
                     } finally {
+                        hostScanPermits.release();
                         latch.countDown();
                     }
                 });
             }
 
             log.debug("All {} scan tasks submitted. Waiting for completion...", totalIps);
+            reportEnglishScanStatus(englishStatusReporter,
+                    "Host sweep in progress — waiting for parallel probes to finish (up to "
+                            + totalIps + " addresses)...");
 
             // Wait for all scans to complete (with timeout)
             boolean allCompleted = false;
             try {
-                allCompleted = latch.await(60, TimeUnit.SECONDS); // Increased to 60 seconds
+                allCompleted = latch.await(120, TimeUnit.SECONDS);
                 if (!allCompleted) {
-                    log.debug("Scan timeout after 60 seconds. Completed: {}/{}", 
+                    log.debug("Scan timeout after 120 seconds. Completed: {}/{}", 
                             completedCount.get(), totalIps);
                 } else {
                     log.debug("All scan tasks completed. Waiting for thread pool shutdown...");
@@ -215,6 +251,9 @@ public class LocalNetworkService {
                 Thread.currentThread().interrupt();
             }
 
+            reconcileDevicesFromArpTable(networkBase, discoveredIps, useExternalVendorAPI, callback, totalIps,
+                    deviceCount, englishStatusReporter);
+
             long endTime = System.currentTimeMillis();
             long duration = endTime - startTime;
             
@@ -229,6 +268,23 @@ public class LocalNetworkService {
             log.debug("Error during network scan", e);
             throw new RuntimeException("Network scan failed", e);
         }
+    }
+
+    private static void reportEnglishScanStatus(Consumer<String> reporter, String message) {
+        if (reporter != null && message != null && !message.isBlank()) {
+            reporter.accept(message);
+        }
+    }
+
+    /** @return English status or {@code null} to skip this completion tick */
+    private static String throttleHostSweepStatus(int completed, int totalIps, AtomicInteger deviceCount) {
+        if (!(completed % 38 == 0 || completed == 10 || completed == totalIps)) {
+            return null;
+        }
+        int n = deviceCount.get();
+        return String.format(Locale.ROOT,
+                "Host sweep: examined %d of %d LAN addresses (%d responding host%s so far).",
+                completed, totalIps, n, n == 1 ? "" : "s");
     }
 
     /**
@@ -365,12 +421,13 @@ public class LocalNetworkService {
         Map<String, Object> device = new HashMap<>();
 
         try {
-            // Quick reachability check
+            // Quick reachability check (ICMP or echo probe; often fails while host is still up)
             InetAddress address = InetAddress.getByName(ip);
-            boolean isReachable = address.isReachable(TIMEOUT);
-
-            if (!isReachable) {
-                return null; // Device not online
+            boolean isReachable = address.isReachable(REACHABILITY_TIMEOUT_MS);
+            if (!isReachable && !probeResponsiveHost(ip)) {
+                if (!pingReachableQuick(ip)) {
+                    return null;
+                }
             }
 
             device.put("ipAddress", ip);
@@ -587,10 +644,11 @@ public class LocalNetworkService {
         try {
             // Check if host is reachable
             InetAddress address = InetAddress.getByName(ip);
-            boolean isReachable = address.isReachable(TIMEOUT);
-
-            if (!isReachable) {
-                return null; // Device not online
+            boolean isReachable = address.isReachable(REACHABILITY_TIMEOUT_MS);
+            if (!isReachable && !probeResponsiveHost(ip)) {
+                if (!pingReachableQuick(ip)) {
+                    return null; // Device not online
+                }
             }
 
             device.put("ipAddress", ip);
@@ -756,19 +814,20 @@ public class LocalNetworkService {
      */
     private List<Integer> scanPorts(String ip) {
         List<Integer> openPorts = new ArrayList<>();
-        ExecutorService executor = Executors.newFixedThreadPool(20);
+        int pool = Math.min(20, FAST_SCAN_PORTS.size());
+        ExecutorService executor = Executors.newFixedThreadPool(pool);
 
         List<Future<Boolean>> futures = new ArrayList<>();
-        for (int port : COMMON_PORTS) {
+        for (int port : FAST_SCAN_PORTS) {
             final int portNum = port;
             Future<Boolean> future = executor.submit(() -> isPortOpen(ip, portNum));
             futures.add(future);
         }
 
-        for (int i = 0; i < COMMON_PORTS.size(); i++) {
+        for (int i = 0; i < FAST_SCAN_PORTS.size(); i++) {
             try {
                 if (futures.get(i).get(500, TimeUnit.MILLISECONDS)) {
-                    openPorts.add(COMMON_PORTS.get(i));
+                    openPorts.add(FAST_SCAN_PORTS.get(i));
                 }
             } catch (Exception e) {
                 // Port is closed or timeout
@@ -784,7 +843,7 @@ public class LocalNetworkService {
      */
     private List<Integer> quickPortScanFast(String ip) {
         List<Integer> openPorts = new ArrayList<>();
-        for (int port : COMMON_PORTS) {
+        for (int port : FAST_SCAN_PORTS) {
             if (isPortOpen(ip, port)) {
                 openPorts.add(port);
             }
@@ -797,19 +856,20 @@ public class LocalNetworkService {
      */
     private List<Integer> quickPortScan(String ip) {
         List<Integer> openPorts = new ArrayList<>();
-        ExecutorService executor = Executors.newFixedThreadPool(COMMON_PORTS.size());
+        int pool = Math.min(20, FAST_SCAN_PORTS.size());
+        ExecutorService executor = Executors.newFixedThreadPool(pool);
 
         List<Future<Boolean>> futures = new ArrayList<>();
-        for (int port : COMMON_PORTS) {
+        for (int port : FAST_SCAN_PORTS) {
             final int portNum = port;
             Future<Boolean> future = executor.submit(() -> isPortOpen(ip, portNum));
             futures.add(future);
         }
 
-        for (int i = 0; i < COMMON_PORTS.size(); i++) {
+        for (int i = 0; i < FAST_SCAN_PORTS.size(); i++) {
             try {
                 if (futures.get(i).get(PORT_TIMEOUT, TimeUnit.MILLISECONDS)) {
-                    openPorts.add(COMMON_PORTS.get(i));
+                    openPorts.add(FAST_SCAN_PORTS.get(i));
                 }
             } catch (Exception e) {
                 // Port is closed or timeout
@@ -926,8 +986,20 @@ public class LocalNetworkService {
             case 3306: return "MySQL";
             case 3389: return "RDP";
             case 5432: return "PostgreSQL";
+            case 554: return "RTSP";
+            case 631: return "IPP";
+            case 1883: return "MQTT";
+            case 5000: return "UPnP";
+            case 5357: return "WSD";
             case 8080: return "HTTP-Proxy";
             case 8443: return "HTTPS-Alt";
+            case 9100: return "Raw-Print";
+            case 62078: return "AirPlay";
+            case 21: return "FTP";
+            case 5900: return "VNC";
+            case 6379: return "Redis";
+            case 9200: return "Elasticsearch";
+            case 27017: return "MongoDB";
             default: return "Unknown";
         }
     }
@@ -1376,6 +1448,16 @@ public class LocalNetworkService {
         }
     }
 
+    /** True when any common LAN service answers TCP — catches hosts that ignore {@link InetAddress#isReachable(int)} probes. */
+    private boolean probeResponsiveHost(String ip) {
+        for (int port : FAST_SCAN_PORTS) {
+            if (isPortOpen(ip, port)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * Force ARP resolution by attempting a socket connection
      * This helps populate the ARP table before querying it
@@ -1436,6 +1518,297 @@ public class LocalNetworkService {
         } catch (Exception e) {
             // Silently fail - ping is just to populate ARP, not critical
             log.debug("Ping failed for {}: {}", ip, e.getMessage());
+        }
+    }
+
+    /**
+     * Quick ICMP ping (one packet); often succeeds when Java {@link InetAddress#isReachable(int)} does not on Windows/non-admin setups.
+     */
+    private boolean pingReachableQuick(String ip) {
+        try {
+            String os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
+            ProcessBuilder pb;
+            if (os.contains("win")) {
+                pb = new ProcessBuilder("ping", "-n", "1", "-w", "650", ip);
+            } else {
+                pb = new ProcessBuilder("ping", "-c", "1", "-W", "2", ip);
+            }
+            pb.redirectErrorStream(true);
+            pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+            Process process = pb.start();
+            boolean finished = process.waitFor(3000, TimeUnit.MILLISECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                return false;
+            }
+            return process.exitValue() == 0;
+        } catch (Exception e) {
+            log.debug("pingReachableQuick failed for {}: {}", ip, e.getMessage());
+            return false;
+        }
+    }
+
+    private boolean isDiscardArpIp(String ip) {
+        if (ip == null || ip.isEmpty()) {
+            return true;
+        }
+        if (ip.startsWith("224.") || ip.startsWith("239.")) {
+            return true;
+        }
+        return "255.255.255.255".equals(ip);
+    }
+
+    /** Skip incomplete / multicast / null hardware addresses from ARP output. */
+    private boolean isDiscardArpMac(String normalizedMacColonUpper) {
+        if (normalizedMacColonUpper == null || normalizedMacColonUpper.contains("INCOMPLETE")) {
+            return true;
+        }
+        if ("00:00:00:00:00:00".equals(normalizedMacColonUpper) || "FF:FF:FF:FF:FF:FF".equals(normalizedMacColonUpper)) {
+            return true;
+        }
+        try {
+            int firstOctet = Integer.parseInt(normalizedMacColonUpper.substring(0, 2), 16);
+            return (firstOctet & 0x01) != 0;
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    /**
+     * Parses the OS ARP table once and returns IP → MAC for hosts on {@code networkBase.*}.
+     */
+    private Map<String, String> parseSubnetArpEntries(String networkBase) {
+        Map<String, String> entries = new LinkedHashMap<>();
+        try {
+            ProcessBuilder pb = new ProcessBuilder("arp", "-a");
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            Pattern macPattern = Pattern.compile("(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}");
+            Pattern ipv4 = Pattern.compile(
+                    "(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)");
+
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    String trimmed = line.trim();
+                    if (trimmed.startsWith("Interface:") || trimmed.isEmpty()) {
+                        continue;
+                    }
+                    if (trimmed.toLowerCase(Locale.ROOT).contains("incomplete")) {
+                        continue;
+                    }
+                    Matcher macMatcher = macPattern.matcher(line);
+                    if (!macMatcher.find()) {
+                        continue;
+                    }
+                    String rawMac = macMatcher.group().replace('-', ':').toUpperCase(Locale.ROOT);
+                    if (isDiscardArpMac(rawMac)) {
+                        continue;
+                    }
+                    Matcher ipMatcher = ipv4.matcher(line);
+                    while (ipMatcher.find()) {
+                        String cand = ipMatcher.group();
+                        if (!cand.startsWith(networkBase + ".")) {
+                            continue;
+                        }
+                        if (isDiscardArpIp(cand)) {
+                            continue;
+                        }
+                        entries.putIfAbsent(cand, rawMac);
+                    }
+                }
+            }
+            process.waitFor(5, TimeUnit.SECONDS);
+            if (process.isAlive()) {
+                process.destroyForcibly();
+            }
+        } catch (Exception e) {
+            log.debug("parseSubnetArpEntries failed: {}", e.getMessage());
+        }
+        log.debug("ARP reconciliation: {} entries on subnet {}", entries.size(), networkBase);
+        return entries;
+    }
+
+    private void reconcileDevicesFromArpTable(String networkBase, Set<String> discoveredIps,
+            boolean useExternalVendorAPI, DeviceCallback callback, int totalIps, AtomicInteger deviceCount,
+            Consumer<String> englishStatusReporter) {
+        try {
+            Thread.sleep(400);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        Map<String, String> arpOnSubnet = parseSubnetArpEntries(networkBase);
+        List<Map.Entry<String, String>> pending = arpOnSubnet.entrySet().stream()
+                .filter(en -> !discoveredIps.contains(en.getKey()))
+                .collect(Collectors.toList());
+        if (pending.isEmpty()) {
+            reportEnglishScanStatus(englishStatusReporter,
+                    "ARP cross-check complete — no extra hosts to verify in the OS ARP cache.");
+            return;
+        }
+        reportEnglishScanStatus(englishStatusReporter,
+                String.format(Locale.ROOT,
+                        "ARP cross-check: %d host%s in the OS ARP cache were not reported yet — "
+                                + "enriching them (open ports, vendor, MAC).",
+                        pending.size(), pending.size() == 1 ? "" : "s"));
+        int workers = Math.min(24, Math.max(4, pending.size()));
+        ExecutorService reconcileExecutor = Executors.newFixedThreadPool(workers);
+        CountDownLatch done = new CountDownLatch(pending.size());
+        for (Map.Entry<String, String> e : pending) {
+            reconcileExecutor.submit(() -> {
+                String ip = e.getKey();
+                try {
+                    if (discoveredIps.contains(ip)) {
+                        return;
+                    }
+                    Map<String, Object> device = enrichDeviceFromArpEntry(ip, e.getValue(), useExternalVendorAPI);
+                    if (device == null || device.isEmpty()) {
+                        return;
+                    }
+                    try {
+                        List<Map<String, Object>> vulnerabilities = analyzeVulnerabilitiesFast(device);
+                        device.put("vulnerabilities", vulnerabilities);
+                    } catch (Exception ex) {
+                        device.put("vulnerabilities", Collections.emptyList());
+                    }
+                    if (!discoveredIps.add(ip)) {
+                        return;
+                    }
+                    int found = deviceCount.incrementAndGet();
+                    log.debug("[SCAN-ARP] Additional device #{}: {} MAC {}", found, ip, e.getValue());
+                    callback.onDeviceFound(device, totalIps, totalIps);
+                } catch (Exception ex) {
+                    log.debug("ARP reconcile failed for {}: {}", ip, ex.getMessage());
+                } finally {
+                    done.countDown();
+                }
+            });
+        }
+        reconcileExecutor.shutdown();
+        try {
+            if (!done.await(90, TimeUnit.SECONDS)) {
+                log.debug("ARP reconcile latch timeout — {} entries", pending.size());
+            }
+            if (!reconcileExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                reconcileExecutor.shutdownNow();
+            }
+        } catch (InterruptedException ie) {
+            reconcileExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+        if (!pending.isEmpty()) {
+            reportEnglishScanStatus(englishStatusReporter,
+                    "ARP cross-check finished — consolidating results.");
+        }
+    }
+
+    /**
+     * Build device map from an ARP row we skipped during active probing — avoids extra ping/process churn for MAC/vendor.
+     */
+    private Map<String, Object> enrichDeviceFromArpEntry(String ip, String macFromArp, boolean useExternalVendorAPI) {
+        Map<String, Object> device = new HashMap<>();
+        try {
+            String macNorm = macFromArp.replace('-', ':').trim().toUpperCase(Locale.ROOT);
+            if (isDiscardArpMac(macNorm)) {
+                return null;
+            }
+            InetAddress address = InetAddress.getByName(ip);
+
+            device.put("ipAddress", ip);
+            device.put("status", "online");
+
+            String macAddressMongoDB = null;
+            Optional<NetworkDeviceMapping> mappingOpt = deviceMappingRepository.findByIpAddress(ip);
+            if (mappingOpt.isPresent()) {
+                NetworkDeviceMapping deviceMapping = mappingOpt.get();
+                String deviceName = deviceMapping.getDeviceName();
+                if (deviceName != null && !deviceName.trim().isEmpty()) {
+                    device.put("hostname", deviceName.trim());
+                    log.debug("ARP-reconcile {} - Using name from MongoDB: {}", ip, deviceName.trim());
+                }
+                if (deviceMapping.getMacAddress() != null && !deviceMapping.getMacAddress().trim().isEmpty()) {
+                    macAddressMongoDB = deviceMapping.getMacAddress().trim();
+                    log.debug("ARP-reconcile {} - Mongo MAC on record {}", ip, macAddressMongoDB);
+                }
+            }
+            if (!device.containsKey("hostname")) {
+                try {
+                    String hostname = address.getHostName();
+                    if (hostname != null && !hostname.equals(ip) && !hostname.isEmpty()) {
+                        device.put("hostname", hostname);
+                    }
+                } catch (Exception ignored) {
+                    // omit reverse DNS failures
+                }
+            }
+
+            List<Integer> openPorts = quickPortScanFast(ip);
+            if (openPorts == null) {
+                openPorts = new ArrayList<>();
+            }
+            device.put("openPorts", openPorts);
+
+            if (!openPorts.isEmpty()) {
+                Map<Integer, Map<String, Object>> portServices = new HashMap<>();
+                for (Integer port : openPorts) {
+                    Map<String, Object> service = new HashMap<>();
+                    service.put("port", port);
+                    service.put("service", getServiceName(port));
+                    service.put("status", "open");
+                    portServices.put(port, service);
+                }
+                device.put("services", portServices);
+            }
+
+            collectDeviceInfoFast(ip, device, openPorts);
+            log.debug("ARP-reconcile {} - Type {}, openPorts {}", ip, device.get("deviceType"), openPorts.size());
+
+            if (!openPorts.isEmpty()) {
+                String osGuess = identifyOperatingSystem(openPorts);
+                if (osGuess != null) {
+                    device.put("os", osGuess);
+                }
+            }
+
+            if (macAddressMongoDB != null) {
+                if (!macNorm.equalsIgnoreCase(macAddressMongoDB)) {
+                    device.put("macAddress", macNorm);
+                    device.put("macAddressSource", "arp");
+                    device.put("macAddressMongoDB", macAddressMongoDB);
+                    device.put("macAddressConflict", true);
+                } else {
+                    device.put("macAddress", macNorm);
+                    device.put("macAddressSource", "arp");
+                    device.put("macAddressConflict", false);
+                }
+            } else {
+                device.put("macAddress", macNorm);
+                device.put("macAddressSource", "arp");
+                device.put("macAddressConflict", false);
+            }
+
+            String primaryMac = (String) device.get("macAddress");
+            if (primaryMac != null) {
+                String vendor = identifyVendor(primaryMac, useExternalVendorAPI);
+                if (vendor != null && !vendor.trim().isEmpty()) {
+                    device.put("vendor", vendor);
+                }
+            }
+
+            if (device.containsKey("macAddress") && device.get("macAddress") != null
+                    && (!device.containsKey("macAddressSource") || device.get("macAddressSource") == null)) {
+                device.put("macAddressSource", "arp");
+                device.put("macAddressConflict", false);
+            }
+
+            device.put("lastSeen", new Date());
+            device.put("discoverySource", "arp-reconcile");
+
+            return device;
+        } catch (Exception ex) {
+            log.debug("enrichDeviceFromArpEntry exception for {}: {}", ip, ex.getMessage());
+            return null;
         }
     }
 
@@ -2980,173 +3353,217 @@ public class LocalNetworkService {
         return null;
     }
 
-    /**
-     * Fast vulnerability analysis (simplified for speed)
-     */
-    private List<Map<String, Object>> analyzeVulnerabilitiesFast(Map<String, Object> device) {
-        List<Map<String, Object>> vulnerabilities = new ArrayList<>();
-        @SuppressWarnings("unchecked")
-        List<Integer> openPorts = (List<Integer>) device.getOrDefault("openPorts", Collections.emptyList());
-
-        // Quick checks only - no detailed port scanning
-        if (openPorts.contains(23)) {
-            Map<String, Object> vuln = new HashMap<>();
-            vuln.put("type", "Telnet Service");
-            vuln.put("severity", "critical");
-            vuln.put("description", "Telnet transmits data in plaintext");
-            vuln.put("port", 23);
-            vulnerabilities.add(vuln);
+    private static Map<String, Object> vulnFinding(String type, String severity, String description, Integer port,
+            String service) {
+        Map<String, Object> vuln = new HashMap<>(6);
+        vuln.put("type", type);
+        vuln.put("severity", severity);
+        vuln.put("description", description);
+        if (port != null) {
+            vuln.put("port", port.intValue());
         }
-
-        if (openPorts.contains(80) && !openPorts.contains(443)) {
-            Map<String, Object> vuln = new HashMap<>();
-            vuln.put("type", "Unencrypted HTTP");
-            vuln.put("severity", "medium");
-            vuln.put("description", "HTTP without HTTPS");
-            vuln.put("port", 80);
-            vulnerabilities.add(vuln);
+        if (service != null) {
+            vuln.put("service", service);
         }
-
-        if (openPorts.contains(3306) || openPorts.contains(5432)) {
-            Map<String, Object> vuln = new HashMap<>();
-            vuln.put("type", "Database Exposed");
-            vuln.put("severity", "critical");
-            vuln.put("description", "Database service on network");
-            vuln.put("port", openPorts.contains(3306) ? 3306 : 5432);
-            vulnerabilities.add(vuln);
-        }
-
-        if (openPorts.contains(445) || openPorts.contains(139)) {
-            Map<String, Object> vuln = new HashMap<>();
-            vuln.put("type", "SMB Exposed");
-            vuln.put("severity", "high");
-            vuln.put("description", "SMB service detected. Requires security hardening.");
-            vuln.put("port", openPorts.contains(445) ? 445 : 139);
-            
-            // Add basic recommendations for fast scan
-            List<String> recommendations = new ArrayList<>();
-            recommendations.add("Apply Windows security patches (MS17-010, KB4551762+) - Critical even on local network");
-            recommendations.add("Disable SMBv1 if not needed (protects against WannaCry/NotPetya propagation)");
-            recommendations.add("Enable SMB Signing (prevents MITM attacks on local network)");
-            recommendations.add("Restrict SMB access via firewall to authorized subnets only");
-            vuln.put("recommendations", recommendations);
-            
-            vulnerabilities.add(vuln);
-        }
-
-        return vulnerabilities;
+        return vuln;
     }
 
     /**
-     * Analyze vulnerabilities based on open ports and services
+     * Add finding if dedupe key (type + optional port) is new.
+     */
+    private static void addDistinctFinding(List<Map<String, Object>> out, Set<String> seenKeys, Map<String, Object> finding) {
+        if (finding == null || finding.isEmpty()) {
+            return;
+        }
+        Object rawType = finding.get("type");
+        Object rawPort = finding.get("port");
+        String key = String.valueOf(rawType) + '|' + String.valueOf(rawPort);
+        if (seenKeys.add(key)) {
+            out.add(finding);
+        }
+    }
+
+    /**
+     * Fast vulnerability analysis — delegated to {@link #analyzeVulnerabilities(Map)} (purely rule-based on open ports).
+     */
+    private List<Map<String, Object>> analyzeVulnerabilitiesFast(Map<String, Object> device) {
+        return analyzeVulnerabilities(device);
+    }
+
+    /**
+     * Analyze vulnerabilities based on open ports / services surfaced by the LAN scan.
      */
     private List<Map<String, Object>> analyzeVulnerabilities(Map<String, Object> device) {
         List<Map<String, Object>> vulnerabilities = new ArrayList<>();
+        Set<String> dedupeKeys = new LinkedHashSet<>();
+
         @SuppressWarnings("unchecked")
-        List<Integer> openPorts = (List<Integer>) device.getOrDefault("openPorts", Collections.emptyList());
+        List<Integer> openPortsRaw = (List<Integer>) device.getOrDefault("openPorts", Collections.emptyList());
+        final List<Integer> openPorts = openPortsRaw == null ? Collections.emptyList() : openPortsRaw;
 
-        // Check for common vulnerabilities
-        for (Integer port : openPorts) {
-            Map<String, Object> vuln = checkPortVulnerability(port);
-            if (vuln != null) {
-                vulnerabilities.add(vuln);
+        for (Integer pObj : openPorts) {
+            if (pObj == null) {
+                continue;
             }
+            int p = pObj;
+            /* SMB analysed as a single finding (combined 139/445) */
+            if (p == 139 || p == 445) {
+                continue;
+            }
+            addDistinctFinding(vulnerabilities, dedupeKeys, checkPortVulnerability(p));
         }
 
-        // Check for default credentials risk
-        if (openPorts.contains(22) || openPorts.contains(23) || openPorts.contains(3389)) {
-            Map<String, Object> vuln = new HashMap<>();
-            vuln.put("type", "Default Credentials Risk");
-            vuln.put("severity", "high");
-            vuln.put("description", "Remote access service detected. Ensure strong passwords are configured.");
-            vulnerabilities.add(vuln);
+        /* Cleartext web */
+        boolean hasHttps = openPorts.contains(443) || openPorts.contains(8443);
+        if (openPorts.contains(80) && !hasHttps) {
+            addDistinctFinding(vulnerabilities, dedupeKeys,
+                    vulnFinding("Unencrypted HTTP", "medium",
+                            "Plain HTTP reachable without TLS on port 443/8443. Credentials and payloads traverse the LAN in cleartext.",
+                            80, "HTTP"));
+        }
+        boolean hasMgmtTls = openPorts.contains(8443);
+        if (openPorts.contains(8080) && !hasHttps && !hasMgmtTls) {
+            addDistinctFinding(vulnerabilities, dedupeKeys,
+                    vulnFinding("Cleartext management endpoint", "medium",
+                            "Port 8080 often exposes appliance or app administration without HTTPS alongside. Prefer reverse proxy TLS or bind to trusted interfaces only.",
+                            8080, "HTTP-Proxy"));
         }
 
-        // Check for unencrypted services
-        if (openPorts.contains(80) && !openPorts.contains(443)) {
-            Map<String, Object> vuln = new HashMap<>();
-            vuln.put("type", "Unencrypted HTTP");
-            vuln.put("severity", "medium");
-            vuln.put("description", "HTTP service detected without HTTPS. Data transmission is unencrypted.");
-            vuln.put("port", 80);
-            vuln.put("service", "HTTP");
-            vulnerabilities.add(vuln);
+        /* RDP: dedicated finding (skipped in per-port pass to avoid duplication) */
+        if (openPorts.contains(3389)) {
+            addDistinctFinding(vulnerabilities, dedupeKeys,
+                    vulnFinding("Remote Desktop exposure", "high",
+                            "RDP is reachable. Enforce Network Level Authentication (NLA), patched OS builds (BlueKeep / similar), MFA via gateway, rate limiting, and allow-lists.",
+                            3389, "RDP"));
         }
 
-        // Check for database exposure
-        if (openPorts.contains(3306) || openPorts.contains(5432)) {
-            Map<String, Object> vuln = new HashMap<>();
-            vuln.put("type", "Database Service Exposed");
-            vuln.put("severity", "critical");
-            vuln.put("description", "Database service detected on network. Ensure proper firewall rules and authentication.");
-            vuln.put("port", openPorts.contains(3306) ? 3306 : 5432);
-            vuln.put("service", openPorts.contains(3306) ? "MySQL" : "PostgreSQL");
-            vulnerabilities.add(vuln);
+        /* Databases & datastores */
+        if (openPorts.contains(3306)) {
+            addDistinctFinding(vulnerabilities, dedupeKeys,
+                    vulnFinding("MySQL exposed", "critical",
+                            "MySQL listens on the LAN. Restrict with firewall/bind-address, TLS, strong auth, least privilege.", 3306, "MySQL"));
+        }
+        if (openPorts.contains(5432)) {
+            addDistinctFinding(vulnerabilities, dedupeKeys,
+                    vulnFinding("PostgreSQL exposed", "critical",
+                            "PostgreSQL reachable on network. Restrict to application subnets, enforce pg_hba and TLS.", 5432, "PostgreSQL"));
+        }
+        if (openPorts.contains(27017)) {
+            addDistinctFinding(vulnerabilities, dedupeKeys,
+                    vulnFinding("MongoDB exposed", "critical",
+                            "MongoDB often deployed without authentication. Isolate; enable authentication, TLS/scram, and bind to trusted hosts.", 27017, "MongoDB"));
+        }
+        if (openPorts.contains(6379)) {
+            addDistinctFinding(vulnerabilities, dedupeKeys,
+                    vulnFinding("Redis exposed", "critical",
+                            "Unauthenticated Redis is frequently compromised for data theft and remote code execution payloads. Bind to localhost or protect with ACL/TLS/IP allow lists.",
+                            6379, "Redis"));
+        }
+        if (openPorts.contains(9200)) {
+            addDistinctFinding(vulnerabilities, dedupeKeys,
+                    vulnFinding("Elasticsearch exposed", "critical",
+                            "Elasticsearch HTTP API can leak indices and permit cluster abuse. Restrict network access, enable auth (Elastic Security/X-Pack), TLS.",
+                            9200, "Elasticsearch"));
         }
 
-        // Check for SMB exposure
+        /* SMB lumped finding + recommendations */
         if (openPorts.contains(445) || openPorts.contains(139)) {
-            Map<String, Object> vuln = new HashMap<>();
-            vuln.put("type", "SMB Service Exposed");
-            vuln.put("severity", "high");
-            vuln.put("description", "SMB service detected on local network. Vulnerable to EternalBlue, SMBGhost, and malware propagation (WannaCry, NotPetya) even on local network. Requires security hardening.");
-            vuln.put("port", openPorts.contains(445) ? 445 : 139);
-            vuln.put("service", "SMB");
-            
-            // Add security recommendations
-            List<String> recommendations = new ArrayList<>();
-            recommendations.add("1. Apply all Windows security patches (MS17-010 for EternalBlue, KB4551762+ for SMBGhost) - CRITICAL even on local network");
-            recommendations.add("2. Disable SMBv1 if not needed (protects against WannaCry/NotPetya that spread via local network)");
-            recommendations.add("3. Enable SMB Signing to prevent man-in-the-middle attacks on local network");
-            recommendations.add("4. Restrict SMB access via firewall to authorized subnets only");
-            recommendations.add("5. Use strong passwords and enable multi-factor authentication");
-            recommendations.add("6. Limit SMB shares to authorized users only");
-            recommendations.add("7. Disable anonymous SMB access (RestrictAnonymous)");
-            recommendations.add("8. Use SMBv3 with encryption if available");
-            recommendations.add("9. Monitor SMB access attempts in logs (detect malware propagation)");
-            recommendations.add("10. Segment the network (VLAN) to isolate critical devices");
+            int smbPort = openPorts.contains(445) ? 445 : 139;
+            Map<String, Object> vuln = vulnFinding("SMB Exposed", "high",
+                    "SMB is reachable on LAN — malware lateral movement (EternalBlue, SMBGhost clusters) and insider abuse remain relevant. Harden SMB version, signing and share ACLs.",
+                    smbPort,
+                    openPorts.contains(445) ? "SMB" : "NetBIOS");
+            List<String> recommendations = Arrays.asList(
+                    "Apply current OS patches for SMB stack (including MS17-010 / SMBGhost-era fixes)",
+                    "Disable SMBv1 where possible",
+                    "Require SMB signing; prefer SMB encryption (SMB v3)",
+                    "Firewall SMB to authorised hosts only",
+                    "Audit shares and remove anonymous guest access");
             vuln.put("recommendations", recommendations);
-            
-            vulnerabilities.add(vuln);
+            addDistinctFinding(vulnerabilities, dedupeKeys, vuln);
+        }
+
+        /* Broad LAN attack surface heuristic */
+        long riskyRemote = openPorts.stream().filter(p -> p != null && (
+                p == 22 || p == 23 || p == 3389 || p == 5900)).distinct().count();
+        if (riskyRemote >= 2) {
+            addDistinctFinding(vulnerabilities, dedupeKeys,
+                    vulnFinding("Multiple remote consoles", "high",
+                            String.format(Locale.ROOT,
+                                    "%d distinct remote-management ports are open simultaneously (e.g., SSH/VNC/RDP/Telnet). Reduces containment if one credential leaks.",
+                                    riskyRemote),
+                            null, null));
         }
 
         return vulnerabilities;
     }
 
     /**
-     * Check for known vulnerabilities on a specific port
+     * Port-specific exposures — omit 139/445 (handled in composite SMB rule).
      */
     private Map<String, Object> checkPortVulnerability(int port) {
-        Map<String, Object> vuln = null;
-
         switch (port) {
+            case 21:
+                return vulnFinding("FTP Service", "high",
+                        "FTP sends credentials and files unencrypted. Disable anonymous FTP, prefer SFTP/FTPS, or retire the service.",
+                        21, "FTP");
+            case 22:
+                return vulnFinding("SSH Service", "medium",
+                        "SSH is exposed to the LAN. Disable password root logins, prefer keys, deploy fail2ban / rate limits, keep OpenSSH current.",
+                        22, "SSH");
             case 23:
-                vuln = new HashMap<>();
-                vuln.put("type", "Telnet Service");
-                vuln.put("severity", "critical");
-                vuln.put("description", "Telnet service detected. Telnet transmits data in plaintext and is highly insecure.");
-                vuln.put("port", port);
-                vuln.put("service", "Telnet");
-                break;
+                return vulnFinding("Telnet Service", "critical",
+                        "Telnet is cleartext and obsolete. Expect credential sniffing and trivial takeover — replace with SSH.",
+                        23, "Telnet");
             case 135:
-                vuln = new HashMap<>();
-                vuln.put("type", "RPC Endpoint Mapper");
-                vuln.put("severity", "high");
-                vuln.put("description", "RPC endpoint mapper detected. Can be used for enumeration attacks.");
-                vuln.put("port", port);
-                vuln.put("service", "RPC");
-                break;
+                return vulnFinding("MS RPC endpoint mapper", "high",
+                        "RPC endpoint mapper can assist reconnaissance toward Windows services over the LAN. Firewall from untrusted subnets.",
+                        135, "RPC");
             case 3389:
-                vuln = new HashMap<>();
-                vuln.put("type", "Remote Desktop Protocol");
-                vuln.put("severity", "high");
-                vuln.put("description", "RDP service detected. Ensure strong authentication and consider restricting access.");
-                vuln.put("port", port);
-                vuln.put("service", "RDP");
-                break;
+                /* Dedicated composite messaging */
+                return null;
+            case 554:
+                return vulnFinding("RTSP / video stream", "high",
+                        "RTSP feeds are often weakly authenticated and unencrypted, enabling interception or camera hijinks. Isolate cameras; prefer VPN or TLS gateways.",
+                        554, "RTSP");
+            case 631:
+                return vulnFinding("Internet Printing Protocol (IPP)", "medium",
+                        "Printers historically ship with defaults and accept jobs over LAN. Restrict to trusted hosts and patch firmware.", 631, "IPP");
+            case 1883:
+                return vulnFinding("MQTT broker", "high",
+                        "MQTT commonly lacks TLS/auth exposing smart-home or industrial telemetry. Require username/password/TLS ACLs.", 1883, "MQTT");
+            case 5000:
+                return vulnFinding("Potential UPnP / control port", "medium",
+                        "TCP/5000 is used by UPnP, Plex, Flask dev servers, etc. Many implementations had historic RCE or unintended exposure — verify purpose and firewall.",
+                        5000, "UPnP");
+            case 5357:
+                return vulnFinding("Web Services for Devices", "medium",
+                        "Microsoft WSD (5357) can leak device metadata across LAN segments. Restrict or disable if printers already managed elsewhere.", 5357, "WSD");
+            case 8080:
+                return null; /* handled with composite cleartext rule */
+            case 8443:
+                return vulnFinding("HTTPS alternate management", "low",
+                        "TLS management plane detected. Still ensure modern ciphers, patch cadence, and avoid default vendor credentials.", 8443, "HTTPS-Alt");
+            case 9100:
+                return vulnFinding("Raw printing (JetDirect)", "medium",
+                        "Port 9100 accepts raw print jobs without application-level auth and is a known pivot point on printers. Restrict by IP or disable remote printing.",
+                        9100, "Raw-Print");
+            case 5900:
+                return vulnFinding("VNC remote desktop", "high",
+                        "VNC historically used weak or no encryption. Prefer SSH tunnel, modern VNC with TLS, or replace with RDP/SSH with MFA.",
+                        5900, "VNC");
+            case 6379:
+            case 9200:
+            case 27017:
+            case 3306:
+            case 5432:
+                return null; /* handled in database composite section */
+            case 62078:
+                return vulnFinding("AirPlay / discovery channel", "low",
+                        "Apple AirPlay discovery may leak device presence. Ensure guest isolation on Wi-Fi and firmware updates.", 62078, "AirPlay");
+            default:
+                return null;
         }
-
-        return vuln;
     }
 
     /**

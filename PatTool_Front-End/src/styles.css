@@ -947,3 +947,14 @@ input#message {
     max-width: min(40rem, calc(100vw - 1rem)) !important;
     width: 100%;
 }
+
+/* Local network — long vulnerability tooltips (ng-bootstrap attaches under body). */
+ngb-tooltip-window.vulnerability-desc-tooltip .tooltip-inner,
+.tooltip.vulnerability-desc-tooltip .tooltip-inner {
+    max-width: min(32rem, 92vw);
+    text-align: left;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 0.8rem;
+    line-height: 1.38;
+}
