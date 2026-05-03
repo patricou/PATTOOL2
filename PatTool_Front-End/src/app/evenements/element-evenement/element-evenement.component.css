@@ -397,6 +397,97 @@
     pointer-events: auto; /* Allow clicking on title */
 }
 
+/* Titre + pastille IA : cercle discret (bordure + icône jaunes), sans fond bleu */
+.card-img-overlay-title-row {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+    max-width: 100%;
+    pointer-events: none;
+}
+
+.card-img-overlay-title-row .card-title {
+    margin: 0;
+    align-self: center;
+}
+
+.card-img-overlay-title-row .pat-event-ai-btn {
+    pointer-events: auto;
+    align-self: center;
+}
+
+.pat-event-ai-btn.pat-event-ai-fab {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 1.92rem;
+    height: 1.92rem;
+    min-width: 1.92rem;
+    min-height: 1.92rem;
+    padding: 0;
+    margin: 0;
+    margin-left: 0.1rem;
+    border: 1.5px solid #facc15;
+    border-radius: 50%;
+    background: transparent;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+    color: #fde047;
+    line-height: 1;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    transition:
+        transform 0.16s ease,
+        border-color 0.16s ease,
+        filter 0.16s ease;
+}
+
+.pat-event-ai-btn.pat-event-ai-fab:hover {
+    transform: scale(1.07);
+    border-color: #fde047;
+    filter: brightness(1.06);
+}
+
+.pat-event-ai-btn.pat-event-ai-fab:focus-visible {
+    outline: 2px solid #facc15;
+    outline-offset: 2px;
+}
+
+.pat-event-ai-btn.pat-event-ai-fab:active {
+    transform: scale(0.94);
+    filter: brightness(0.95);
+}
+
+.pat-event-ai-btn.pat-event-ai-fab .pat-event-ai-fab-icon.fa {
+    font-size: 0.9rem;
+    line-height: 1;
+    color: #fde047;
+    filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.95)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.7));
+}
+
+.pat-event-ai-btn.pat-event-ai-fab:hover .pat-event-ai-fab-icon.fa {
+    color: #fef08a;
+}
+
+@media (max-width: 768px) {
+    .pat-event-ai-btn.pat-event-ai-fab {
+        width: 1.78rem;
+        height: 1.78rem;
+        min-width: 1.78rem;
+        min-height: 1.78rem;
+        border-width: 1px;
+    }
+
+    .pat-event-ai-btn.pat-event-ai-fab .pat-event-ai-fab-icon.fa {
+        font-size: 0.82rem;
+    }
+}
+
 /* Card wrapper styles merged above */
 
 /* Card image container */

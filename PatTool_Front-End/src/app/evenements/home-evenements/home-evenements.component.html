@@ -219,6 +219,7 @@
 
                 <!-- Desktop: Full controls -->
                 <div class="desktop-controls d-none d-md-flex">
+                    <div class="desktop-controls-left">
                     <!-- Results Counter Section -->
                     <div class="results-section-redesigned">
                         <button class="btn btn-sm btn-outline-secondary me-2" 
@@ -274,8 +275,8 @@
                         </div>
                     </div>
 
-                    <!-- Filter Section -->
-                    <div class="filter-section-redesigned">
+                    <!-- Filter Section (text) — juste après « Afficher tout » -->
+                    <div class="filter-section-redesigned filter-section-search-input me-2" style="flex: 0 1 auto;">
                         <div class="filter-input-container-desktop">
                             <i class="fa fa-search search-icon"></i>
                             <input type="text" [(ngModel)]="dataFIlter" #searchterm
@@ -291,6 +292,7 @@
                                 <i class="fa fa-times"></i>
                             </button>
                         </div>
+                    </div>
                     </div>
 
                     <!-- View Controls Section -->
@@ -418,7 +420,20 @@
                 </div>
             </div>
             <div class="compact-content">
-                <div class="compact-title">{{ evenement.evenementName }}</div>
+                <div class="compact-title-row">
+                    <span class="compact-title">{{ evenement.evenementName }}</span>
+                    <button *ngIf="isAssistantAuthenticated()"
+                            type="button"
+                            class="pat-compact-event-ai-btn pat-compact-event-ai-fab"
+                            (click)="openAssistantForActivity(evenement, $event)"
+                            [attr.title]="'ASSISTANT.ASK_FROM_EVENT_TITLE' | translate"
+                            ngbTooltip="{{ 'ASSISTANT.ASK_FROM_EVENT_TITLE' | translate }}"
+                            placement="top"
+                            container="body"
+                            [attr.aria-label]="'ASSISTANT.ASK_FROM_EVENT_TITLE' | translate">
+                        <i class="fa fa-magic pat-compact-event-ai-fab-icon" aria-hidden="true"></i>
+                    </button>
+                </div>
                 <div class="compact-author">
                     <small class="text-muted clickable-user"
                         (click)="openUserModal(evenement.author); $event.stopPropagation()"

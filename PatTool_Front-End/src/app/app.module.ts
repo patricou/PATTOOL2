@@ -20,7 +20,6 @@ import { CreateEvenementComponent } from './evenements/create-evenement/create-e
 import { UpdateEvenementComponent } from './evenements/update-evenement/update-evenement.component';
 import { DetailsEvenementComponent } from './evenements/details-evenement/details-evenement.component';
 import { AccesRefuseEvenementComponent } from './evenements/acces-refuse-evenement/acces-refuse-evenement.component';
-import { KeycloakService } from './keycloak/keycloak.service';
 import { KeycloakHttpInterceptor } from './keycloak/keycloak.http';
 import { HTTP_INTERCEPTORS } from '@angular/common/http';
 import { MembersService } from './services/members.service';
@@ -158,7 +157,6 @@ export function HttpLoaderFactory(http: HttpClient) {
 		NgbModule,
 	],
 	providers: [
-		KeycloakService,
 		MembersService,
 		FileService,
 		CommonvaluesService,

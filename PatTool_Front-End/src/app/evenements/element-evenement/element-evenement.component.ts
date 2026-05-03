@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Input, Output, ViewChild, EventEmitter, AfterViewInit, AfterViewChecked, OnChanges, SimpleChanges, TemplateRef, ElementRef, ChangeDetectorRef, NgZone } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, Output, ViewChild, EventEmitter, AfterViewInit, AfterViewChecked, OnChanges, SimpleChanges, TemplateRef, ElementRef, ChangeDetectorRef, NgZone, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
@@ -33,6 +33,7 @@ import { EventColorService } from '../../services/event-color.service';
 import { AddToDbLayerService } from '../../services/add-to-db-layer.service';
 import { CommentaryEditor } from '../../commentary-editor/commentary-editor';
 import { KeycloakService } from '../../keycloak/keycloak.service';
+import { AssistantLaunchService } from '../../services/assistant-launch.service';
 import { computeTrackStatsFromFileContent } from '../../photo-timeline/track-route-stats.util';
 import { getEventTypeFaIconSuffix } from '../../shared/event-type-icon.util';
 import { TodoListDetailOverlayService } from '../../todolists/todo-list-detail-overlay.service';
@@ -58,6 +59,8 @@ import { TodoListDetailOverlayService } from '../../todolists/todo-list-detail-o
 	providers: [NgbRatingConfig]
 })
 export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges, AfterViewChecked {
+
+	private readonly _keycloakService = inject(KeycloakService);
 
 	public selectedFiles: File[] = [];
 	public API_URL: string = environment.API_URL;
@@ -373,7 +376,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		private _friendsService: FriendsService,
 		private _discussionService: DiscussionService,
 		private eventColorService: EventColorService,
-		private _keycloakService: KeycloakService,
+		private assistantLaunch: AssistantLaunchService,
 		private cdr: ChangeDetectorRef,
 		private ngZone: NgZone,
 		private addToDbLayer: AddToDbLayerService,
@@ -383,6 +386,20 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		this.ratingConfig.max = 10;
 		this.ratingConfig.readonly = true;
 		this.nativeWindow = winRef.getNativeWindow();
+	}
+
+	isAssistantUser(): boolean {
+		return this._keycloakService.isLoggedIn();
+	}
+
+	openAssistantForEvent(ev: MouseEvent): void {
+		ev.stopPropagation();
+		ev.preventDefault();
+		const name = this.evenement?.evenementName?.trim();
+		if (!name || !this.isAssistantUser()) {
+			return;
+		}
+		this.assistantLaunch.openWithDraft(name);
 	}
 
 	/** Call markForCheck only if the view is not destroyed (avoids errors when closing modal). */

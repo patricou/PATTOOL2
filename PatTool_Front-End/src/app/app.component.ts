@@ -21,13 +21,14 @@ import { CurrencyTickerComponent } from './currency-converter/currency-ticker/cu
 import { CurrencyTickerService } from './services/currency-ticker.service';
 import { StockTickerComponent } from './stock-exchange/stock-ticker/stock-ticker.component';
 import { StockTickerService } from './services/stock-ticker.service';
+import { AssistantDrawerComponent } from './shared/assistant-drawer/assistant-drawer.component';
 
 @Component({
     selector: 'app-root',
     templateUrl: './app.component.html',
     styleUrls: ['./app.component.css'],
     standalone: true,
-    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule, NavigationButtonsComponent, NewsTickerComponent, CurrencyTickerComponent, StockTickerComponent]
+    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule, NavigationButtonsComponent, NewsTickerComponent, CurrencyTickerComponent, StockTickerComponent, AssistantDrawerComponent]
 })
 export class AppComponent implements OnInit {
 

@@ -28,6 +28,7 @@ import { ElementEvenementComponent } from '../element-evenement/element-evenemen
 import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { FriendsService } from '../../services/friends.service';
+import { AssistantLaunchService } from '../../services/assistant-launch.service';
 import { FriendGroup } from '../../model/friend';
 
 interface EventColorUpdate {
@@ -202,7 +203,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		private _friendsService: FriendsService,
 		private _http: HttpClient,
 		private _keycloakService: KeycloakService,
-		private _videoPreloadService: EventVideoPreloadService) {
+		private _videoPreloadService: EventVideoPreloadService,
+		private _assistantLaunch: AssistantLaunchService) {
 		this.nativeWindow = winRef.getNativeWindow();
 		this.averageColor = this.defaultAverageColor;
 		this.averageTextColor = this.defaultAverageTextColor;
@@ -3594,6 +3596,20 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			animation: true,
 			centered: true
 		});
+	}
+
+	public isAssistantAuthenticated(): boolean {
+		return this._keycloakService.isLoggedIn();
+	}
+
+	public openAssistantForActivity(evenement: Evenement, ev: MouseEvent): void {
+		ev.stopPropagation();
+		ev.preventDefault();
+		const name = evenement?.evenementName?.trim();
+		if (!name || !this.isAssistantAuthenticated()) {
+			return;
+		}
+		this._assistantLaunch.openWithDraft(name);
 	}
 
 	public openUserModal(user: Member): void {

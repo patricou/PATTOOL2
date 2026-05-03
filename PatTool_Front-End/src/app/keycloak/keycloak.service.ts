@@ -5,7 +5,7 @@ import { Member } from '../model/member';
 
 declare var Keycloak: any;
 
-@Injectable()
+@Injectable({ providedIn: 'root' })
 export class KeycloakService {
   static auth: any = {};
   private static tokenCache: { token: string; atMs: number } = { token: '', atMs: 0 };
@@ -195,6 +195,24 @@ export class KeycloakService {
 
   getAuth(): any {
     return KeycloakService.auth.authz;
+  }
+
+  /**
+   * Utilisable par l’UI (assistant, etc.) : certains adapters n’expose pas `authenticated`,
+   * alors que `loggedIn` + token sont corrects après le flux login-required.
+   */
+  isLoggedIn(): boolean {
+    if (!KeycloakService.auth?.loggedIn) {
+      return false;
+    }
+    const authz: any = KeycloakService.auth.authz;
+    if (!authz) {
+      return false;
+    }
+    if (typeof authz.authenticated === 'boolean') {
+      return authz.authenticated;
+    }
+    return !!(typeof authz.token === 'string' && authz.token.length > 0);
   }
 
   getUserAsMember(): Member {

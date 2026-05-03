@@ -1,0 +1,8 @@
+# OpenAI — utilisé par l’assistant latéral, ChatService (PatGPT) et billing/crédits
+# Ne commitez pas de clé : définissez-la ici en local ou via SPRING_APPLICATION_JSON / variables dédiées.
+openai.key=
+openai.api=https://api.openai.com/v1/chat/completions
+openai.assistant.model=gpt-5.5
+openai.assistant.max-tokens=2000
+openai.chat.max-tokens=2000
+openai.billing.credit-grants-url=https://api.openai.com/v1/dashboard/billing/credit_grants

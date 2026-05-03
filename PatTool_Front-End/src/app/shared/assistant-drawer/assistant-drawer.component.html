@@ -1,0 +1,169 @@
+<!-- Floating control: visible on all routes when authenticated -->
+<button
+  *ngIf="isAuthenticated() && !fullscreen"
+  type="button"
+  class="pat-assistant-fab"
+  [style.top.px]="fabTopPx"
+  (click)="toggle()"
+  [class.pat-assistant-fab--open]="isOpen"
+  [attr.aria-expanded]="isOpen"
+  [attr.aria-label]="(isOpen ? 'ASSISTANT.CLOSE' : 'ASSISTANT.TOGGLE') | translate"
+  [title]="(isOpen ? 'ASSISTANT.CLOSE' : 'ASSISTANT.TOGGLE') | translate">
+  <i *ngIf="!isOpen" class="fa fa-magic" aria-hidden="true"></i>
+  <i *ngIf="isOpen" class="fa fa-times pat-assistant-fab-close-icon" aria-hidden="true"></i>
+</button>
+
+<div
+  *ngIf="isOpen && isAuthenticated() && !fullscreen"
+  class="pat-assistant-backdrop"
+  (click)="close()"
+  aria-hidden="true"></div>
+
+<aside
+  *ngIf="isAuthenticated()"
+  class="pat-assistant-drawer"
+  [class.pat-assistant-drawer--open]="isOpen"
+  [class.pat-assistant-drawer--fullscreen]="fullscreen"
+  role="dialog"
+  [attr.aria-hidden]="!isOpen"
+  [attr.aria-label]="'ASSISTANT.TITLE' | translate">
+  <div class="pat-assistant-drawer-header">
+    <div class="pat-assistant-drawer-title">
+      <i class="fa fa-magic me-2" aria-hidden="true"></i>
+      <span>{{ 'ASSISTANT.TITLE' | translate }}</span>
+    </div>
+    <div class="pat-assistant-drawer-actions">
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary pat-assistant-header-btn pat-assistant-header-credits"
+        (click)="toggleCreditsBanner($event)"
+        [class.active]="creditsBannerOpen"
+        [title]="'ASSISTANT.CREDITS_TOGGLE' | translate"
+        [attr.aria-label]="'ASSISTANT.CREDITS_TOGGLE' | translate"
+        [attr.aria-expanded]="creditsBannerOpen">
+        <i class="fa fa-line-chart me-1" aria-hidden="true"></i>
+        <span *ngIf="credits && credits.ok === true && credits.totalAvailableUsd != null" class="pat-assistant-credits-btn-value">
+          USD&nbsp;{{ credits.totalAvailableUsd | number:'1.2-2' }}</span
+        >
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary pat-assistant-header-btn"
+        (click)="toggleFullscreen()"
+        [title]="fullscreen ? ('ASSISTANT.EXIT_FULLSCREEN' | translate) : ('ASSISTANT.FULLSCREEN' | translate)"
+        [attr.aria-label]="fullscreen ? ('ASSISTANT.EXIT_FULLSCREEN' | translate) : ('ASSISTANT.FULLSCREEN' | translate)">
+        <i class="fa" [ngClass]="fullscreen ? 'fa-compress' : 'fa-expand'" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary pat-assistant-header-btn pat-assistant-close"
+        (click)="close()"
+        [attr.aria-label]="'ASSISTANT.CLOSE' | translate">
+        <i class="fa fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="creditsBannerOpen" class="pat-assistant-credits-banner" role="region" [attr.aria-label]="'ASSISTANT.CREDITS_TITLE' | translate">
+    <div class="pat-assistant-credits-inner">
+      <p *ngIf="creditsLoading" class="pat-assistant-credits-line mb-0">{{ 'ASSISTANT.CREDITS_LOADING' | translate }}</p>
+      <ng-container *ngIf="!creditsLoading && credits">
+        <ng-container *ngIf="credits.ok === true">
+          <p *ngIf="credits.totalAvailableUsd != null" class="pat-assistant-credits-line mb-1">
+            <strong>{{ 'ASSISTANT.CREDITS_AVAILABLE' | translate }}</strong><span>:
+              USD&nbsp;{{ credits.totalAvailableUsd | number:'1.2-4' }}</span>
+          </p>
+          <div class="pat-assistant-credits-sub text-muted">
+            <span *ngIf="credits.totalGrantedUsd != null"
+              >{{ 'ASSISTANT.CREDITS_GRANTED' | translate }}:&nbsp;{{ credits.totalGrantedUsd | number:'1.2-4' }}</span
+            >
+            <span *ngIf="credits.totalGrantedUsd != null && credits.totalUsedUsd != null">&nbsp;·&nbsp;</span>
+            <span *ngIf="credits.totalUsedUsd != null"
+              >{{ 'ASSISTANT.CREDITS_USED' | translate }}:&nbsp;{{ credits.totalUsedUsd | number:'1.2-4' }}</span
+            >
+          </div>
+        </ng-container>
+        <p *ngIf="credits.ok !== true && credits.message"
+           class="pat-assistant-credits-line pat-assistant-credits-err mb-0 pat-assistant-rich-text"
+           [innerHTML]="linkRichContent(credits.message)"></p>
+      </ng-container>
+    </div>
+  </div>
+
+  <div class="pat-assistant-thread" #threadEl>
+    <p *ngIf="messages.length === 0" class="pat-assistant-empty text-muted mb-0">
+      {{ 'ASSISTANT.EMPTY' | translate }}
+    </p>
+    <div
+      *ngFor="let m of messages; let i = index"
+      class="pat-assistant-bubble"
+      [class.pat-assistant-bubble--user]="m.role === 'user'"
+      [class.pat-assistant-bubble--assistant]="m.role === 'assistant'"
+      [class.pat-assistant-bubble--anchor-last-q]="m.role === 'user' && i === lastUserMessageIndex()">
+        <div class="pat-assistant-bubble-head">
+          <span class="pat-assistant-bubble-label">{{
+            m.role === 'user'
+              ? (chatUserLabel() || ('ASSISTANT.YOU' | translate))
+              : ('ASSISTANT.AI' | translate)
+          }}</span>
+          <button
+            *ngIf="m.role === 'user'"
+            type="button"
+            class="pat-assistant-copy-to-draft"
+            [disabled]="loading"
+            (click)="copyQuestionIntoDraft(m.content, $event)"
+            [title]="'ASSISTANT.COPY_TO_INPUT_TITLE' | translate"
+            [attr.aria-label]="'ASSISTANT.COPY_TO_INPUT_TITLE' | translate">
+            <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div class="pat-assistant-bubble-body pat-assistant-rich-text" [innerHTML]="messageRichHtml(m)"></div>
+        <div
+          *ngIf="replyProviderModelLine(m) || replyStatsLine(m)"
+          class="pat-assistant-reply-footer">
+          <div *ngIf="replyProviderModelLine(m)" class="pat-assistant-reply-provider">{{ replyProviderModelLine(m) }}</div>
+          <div *ngIf="replyStatsLine(m)" class="pat-assistant-reply-stats">{{ replyStatsLine(m) }}</div>
+        </div>
+      </div>
+    <div *ngIf="loading" class="pat-assistant-loading">
+      <img src="assets/images/sablier.gif" alt="" width="36" height="36" />
+      <span>{{ 'ASSISTANT.LOADING' | translate }}</span>
+    </div>
+  </div>
+
+  <div class="pat-assistant-compose">
+    <div class="pat-assistant-compose-input-row">
+      <button
+        type="button"
+        class="btn btn-outline-secondary btn-sm pat-assistant-new-chat-btn"
+        (click)="clearThread()"
+        [disabled]="loading || !hasAnythingToReset()"
+        [title]="'ASSISTANT.NEW_CHAT_TITLE' | translate"
+        [attr.aria-label]="'ASSISTANT.NEW_CHAT_TITLE' | translate">
+        <i class="fa fa-comments-o me-1 pat-assistant-new-chat-icon" aria-hidden="true"></i>
+        <span class="pat-assistant-new-chat-label">{{ 'ASSISTANT.NEW_CHAT' | translate }}</span>
+      </button>
+      <textarea
+        #draftInput
+        class="form-control pat-assistant-input"
+        rows="1"
+        [(ngModel)]="draft"
+        (ngModelChange)="onDraftDebouncedPersist()"
+        (keydown)="onTextareaKeydown($event)"
+        [disabled]="loading"
+        [placeholder]="
+          chatUserLabel()
+            ? ('ASSISTANT.PLACEHOLDER_NAMED' | translate : { name: chatUserLabel() })
+            : ('ASSISTANT.PLACEHOLDER' | translate)
+        "></textarea>
+    </div>
+    <button
+      type="button"
+      class="btn pat-assistant-send w-100"
+      (click)="send()"
+      [disabled]="loading || !draft.trim()">
+      <i class="fa fa-paper-plane me-1" aria-hidden="true"></i>
+      {{ 'ASSISTANT.SEND' | translate }}
+    </button>
+  </div>
+</aside>

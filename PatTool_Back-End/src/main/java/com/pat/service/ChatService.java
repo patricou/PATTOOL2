@@ -22,8 +22,14 @@ public class ChatService {
     @Value("${openai.key:}")
     private String apiKey;
 
-    @Value("${openai.api:https://api.openai.com/v1/chat/completions}")
+    @Value("${openai.api}")
     private String apiUrl;
+
+    @Value("${openai.assistant.model}")
+    private String openAiChatModel;
+
+    @Value("${openai.chat.max-tokens}")
+    private int openAiChatMaxTokens;
 
     @Value("${app.maxContextSize:10000}")
     private int maxContextSize;
@@ -74,8 +80,8 @@ public class ChatService {
         // Construire le corps de la requête en utilisant une Map
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("messages", List.of(Map.of("role", "user", "content", context)));
-        requestBody.put("max_tokens", 2000);
-        requestBody.put("model", "gpt-4o");  // Use the correct model you have access to
+        requestBody.put("max_tokens", openAiChatMaxTokens);
+        requestBody.put("model", openAiChatModel);
 
         //log.info("Request Body :  " + requestBody);
 

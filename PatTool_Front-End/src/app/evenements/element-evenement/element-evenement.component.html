@@ -77,12 +77,25 @@
         
         <!-- Title overlay on the image - visible on top -->
         <div class="card-img-overlay">
+            <div class="card-img-overlay-title-row">
             <h4 class="card-title text-center pat-card" 
                 [style.background-color]="getInverseBackgroundColorTransparent()"
                 [style.color]="getInverseTextColor()"
-                style="padding: 0.1rem 0.75rem; border-radius: 0.25rem; display: inline-block; line-height: 1.1; margin-top: 0.5rem;">
+                style="padding: 0.1rem 0.75rem; border-radius: 0.25rem; display: inline-block; line-height: 1.1;">
                 <b>{{evenement.evenementName}}</b>
             </h4>
+            <button *ngIf="isAssistantUser()"
+                    type="button"
+                    class="pat-event-ai-btn pat-event-ai-fab"
+                    (click)="openAssistantForEvent($event)"
+                    [attr.title]="'ASSISTANT.ASK_FROM_EVENT_TITLE' | translate"
+                    ngbTooltip="{{ 'ASSISTANT.ASK_FROM_EVENT_TITLE' | translate }}"
+                    placement="bottom"
+                    container="body"
+                    [attr.aria-label]="'ASSISTANT.ASK_FROM_EVENT_TITLE' | translate">
+                <i class="fa fa-magic pat-event-ai-fab-icon" aria-hidden="true"></i>
+            </button>
+            </div>
             <!-- Play button in title to start slideshow -->
             <button *ngIf="hasImageFiles() && !isCardSlideshowActive" 
                     class="btn btn-sm btn-outline-light play-in-title-btn"
