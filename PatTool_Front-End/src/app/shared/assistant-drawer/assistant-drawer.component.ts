@@ -1,5 +1,6 @@
 import {
   Component,
+  DestroyRef,
   ElementRef,
   ViewChild,
   AfterViewChecked,
@@ -7,14 +8,18 @@ import {
   HostListener,
   OnDestroy,
   OnInit,
-  ChangeDetectorRef
+  ChangeDetectorRef,
+  NgZone,
+  inject
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { combineLatest, filter, Subscription } from 'rxjs';
+import { finalize } from 'rxjs/operators';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import {
   AssistantChatMeta,
@@ -29,6 +34,7 @@ import { MarkdownChatRenderService } from '../../services/markdown-chat-render.s
 import { NewsTickerService } from '../../services/news-ticker.service';
 import { CurrencyTickerService } from '../../services/currency-ticker.service';
 import { StockTickerService } from '../../services/stock-ticker.service';
+import { copyPlainTextToClipboard } from '../clipboard-copy';
 
 @Component({
   selector: 'app-assistant-drawer',
@@ -40,6 +46,8 @@ import { StockTickerService } from '../../services/stock-ticker.service';
 export class AssistantDrawerComponent
   implements AfterViewInit, AfterViewChecked, OnInit, OnDestroy
 {
+  private readonly destroyRef = inject(DestroyRef);
+
   @ViewChild('threadEl') threadEl?: ElementRef<HTMLDivElement>;
   @ViewChild('draftInput') draftInputEl?: ElementRef<HTMLTextAreaElement>;
 
@@ -51,6 +59,8 @@ export class AssistantDrawerComponent
   draft = '';
   loading = false;
   messages: AssistantChatTurn[] = [];
+  /** Réponse (ou erreur) reçue alors que le panneau était fermé — pastille sur le FAB jusqu’à réouverture. */
+  fabUnreadReply = false;
   private shouldAlignLastQuestionTop = false;
 
   /** Détail du solde crédits API (bouton titre). */
@@ -67,9 +77,23 @@ export class AssistantDrawerComponent
   private tickerLayoutSub?: Subscription;
   private routerSub?: Subscription;
   private assistantLaunchSub?: Subscription;
+  /** Annulation si nouvelle requête crédits avant la fin de la précédente. */
+  private creditsFetchSub?: Subscription;
+  /** Une seule requête config à la fois ; HTTP annulé si le composant est détruit. */
+  private assistantConfigSub?: Subscription;
+  private assistantConfigLoading = false;
+  /** Annulation requête chat en cours (ex. navigation pendant l’appel). */
+  private chatSendSub?: Subscription;
   private fabAnchorRaf = 0;
   private draftPersistTimer?: ReturnType<typeof setTimeout>;
+  private transientTimeouts: Array<ReturnType<typeof setTimeout>> = [];
   private readonly boundScheduleFabAnchor = (): void => this.scheduleFabAnchorUpdate();
+
+  /** Markdown assistant : évite de repasser marked/sanitize à chaque cycle de détection Angular. */
+  private readonly assistantBubbleHtmlCache = new WeakMap<
+    AssistantChatTurn,
+    SafeHtml
+  >();
 
   constructor(
     private keycloak: KeycloakService,
@@ -83,7 +107,8 @@ export class AssistantDrawerComponent
     private cdr: ChangeDetectorRef,
     private translate: TranslateService,
     private sanitizer: DomSanitizer,
-    private mdChat: MarkdownChatRenderService
+    private mdChat: MarkdownChatRenderService,
+    private ngZone: NgZone
   ) {}
 
   /** Ligne « fournisseur · modèle » issue de application.properties (GET /assistant/config). */
@@ -101,8 +126,8 @@ export class AssistantDrawerComponent
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
       .subscribe(() => {
         this.scheduleFabAnchorUpdate();
-        setTimeout(() => this.scheduleFabAnchorUpdate(), 0);
-        setTimeout(() => this.scheduleFabAnchorUpdate(), 140);
+        this.scheduleTransient(() => this.scheduleFabAnchorUpdate(), 0);
+        this.scheduleTransient(() => this.scheduleFabAnchorUpdate(), 140);
       });
 
     window.addEventListener('resize', this.boundScheduleFabAnchor, { passive: true });
@@ -122,8 +147,14 @@ export class AssistantDrawerComponent
       if (!this.isAuthenticated() || !p.draft?.trim()) {
         return;
       }
+      if (p.newConversation) {
+        this.chatSendSub?.unsubscribe();
+        this.loading = false;
+        this.messages = [];
+      }
       this.draft = p.draft.trim();
       this.isOpen = true;
+      this.fabUnreadReply = false;
       this.fullscreen = false;
       this.persistSession();
       this.scheduleFabAnchorUpdate();
@@ -134,18 +165,48 @@ export class AssistantDrawerComponent
 
   ngAfterViewInit(): void {
     queueMicrotask(() => this.scheduleFabAnchorUpdate());
-    setTimeout(() => this.scheduleFabAnchorUpdate(), 0);
-    setTimeout(() => this.scheduleFabAnchorUpdate(), 120);
+    this.scheduleTransient(() => this.scheduleFabAnchorUpdate(), 0);
+    this.scheduleTransient(() => this.scheduleFabAnchorUpdate(), 120);
+  }
+
+  /** Timeouts annulés au destroy pour éviter callbacks après destruction. */
+  private scheduleTransient(fn: () => void, ms: number): void {
+    const id = setTimeout(() => {
+      this.transientTimeouts = this.transientTimeouts.filter((t) => t !== id);
+      fn();
+    }, ms);
+    this.transientTimeouts.push(id);
   }
 
   private loadAssistantClientConfig(): void {
-    this.assistant.getAssistantClientConfig().subscribe((c) => {
-      const p = typeof c.provider === 'string' ? c.provider.trim() : '';
-      const m = typeof c.model === 'string' ? c.model.trim() : '';
-      this.clientConfigMetaLine = [p, m].filter((x) => x.length > 0).join(' · ');
-      this.assistantClientConfigLoaded = true;
-      this.cdr.markForCheck();
-    });
+    if (this.assistantClientConfigLoaded || this.assistantConfigLoading) {
+      return;
+    }
+    this.assistantConfigLoading = true;
+    this.assistantConfigSub?.unsubscribe();
+    this.assistantConfigSub = this.assistant
+      .getAssistantClientConfig()
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.assistantConfigLoading = false;
+        })
+      )
+      .subscribe({
+        next: (c) => {
+          const p = typeof c.provider === 'string' ? c.provider.trim() : '';
+          const m = typeof c.model === 'string' ? c.model.trim() : '';
+          this.clientConfigMetaLine = [p, m]
+            .filter((x) => x.length > 0)
+            .join(' · ');
+          this.assistantClientConfigLoaded = true;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.assistantClientConfigLoaded = true;
+          this.cdr.markForCheck();
+        }
+      });
   }
 
   /** Sous-titre du bandeau : config serveur en priorité, sinon dernière réponse. */
@@ -175,6 +236,17 @@ export class AssistantDrawerComponent
     const base = this.translate.instant('ASSISTANT.TITLE');
     const meta = this.headerTitleMetaLine();
     return meta ? `${base} — ${meta}` : base;
+  }
+
+  /** Infobulle / aria du bouton flottant : variante « réponse prête » si le panneau était fermé pendant la réponse. */
+  fabAssistFabTitleKey(): string {
+    if (this.isOpen) {
+      return 'ASSISTANT.CLOSE';
+    }
+    if (this.fabUnreadReply) {
+      return 'ASSISTANT.FAB_REPLY_READY_TITLE';
+    }
+    return 'ASSISTANT.TOGGLE';
   }
 
   /** Fournisseur et modèle (réponse succès uniquement si le backend les envoie). */
@@ -245,31 +317,47 @@ export class AssistantDrawerComponent
     }
     this.creditsLoading = true;
     this.cdr.detectChanges();
-    this.assistant.getOpenAiCredits().subscribe({
-      next: (c) => {
-        this.creditsLoading = false;
-        this.credits = c;
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.creditsLoading = false;
-        this.credits = {
-          ok: false,
-          message: this.translate.instant('ASSISTANT.CREDITS_NETWORK_ERROR')
-        };
-        this.cdr.detectChanges();
-      }
-    });
+    this.creditsFetchSub?.unsubscribe();
+    this.creditsFetchSub = this.assistant
+      .getOpenAiCredits()
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.creditsLoading = false;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
+        next: (c) => {
+          this.credits = c;
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.credits = {
+            ok: false,
+            message: this.translate.instant('ASSISTANT.CREDITS_NETWORK_ERROR')
+          };
+          this.cdr.detectChanges();
+        }
+      });
   }
 
   ngOnDestroy(): void {
     this.persistSession();
+    this.loading = false;
     if (this.draftPersistTimer !== undefined) {
       clearTimeout(this.draftPersistTimer);
     }
+    for (const id of this.transientTimeouts) {
+      clearTimeout(id);
+    }
+    this.transientTimeouts = [];
     this.tickerLayoutSub?.unsubscribe();
     this.routerSub?.unsubscribe();
     this.assistantLaunchSub?.unsubscribe();
+    this.creditsFetchSub?.unsubscribe();
+    this.assistantConfigSub?.unsubscribe();
+    this.chatSendSub?.unsubscribe();
     window.removeEventListener('resize', this.boundScheduleFabAnchor);
     document.removeEventListener('scroll', this.boundScheduleFabAnchor, true);
     if (this.fabAnchorRaf) {
@@ -453,14 +541,18 @@ export class AssistantDrawerComponent
   }
 
   /**
-   * Bulle : Markdown pour l’assistant (gras, italique, listes, code…), liens + sauts de ligne pour l’utilisateur.
+   * Corps de bulle : Markdown assistant (mis en cache par objet tour), liens + sauts de ligne pour l’utilisateur.
    */
-  messageRichHtml(m: AssistantChatTurn): SafeHtml {
+  bubbleRichHtml(m: AssistantChatTurn): SafeHtml {
     if (m.role === 'assistant') {
-      const md = this.mdChat.renderModelReply(m.content);
-      if (md != null) {
-        return md;
+      const hit = this.assistantBubbleHtmlCache.get(m);
+      if (hit != null) {
+        return hit;
       }
+      const md = this.mdChat.renderModelReply(m.content);
+      const built = md ?? this.linkRichContent(m.content);
+      this.assistantBubbleHtmlCache.set(m, built);
+      return built;
     }
     return this.linkRichContent(m.content);
   }
@@ -521,6 +613,13 @@ export class AssistantDrawerComponent
     return this.escapeHtmlBasic(t).replace(/\r?\n/g, ' ');
   }
 
+  /** Copie le texte brut de la réponse (Markdown inclus) dans le presse-papiers. */
+  copyAssistantReply(content: string | null | undefined, ev: MouseEvent): void {
+    ev.stopPropagation();
+    ev.preventDefault();
+    copyPlainTextToClipboard(typeof content === 'string' ? content : '');
+  }
+
   /** Recopie une question précédente dans le champ du bas (pour relancer ou modifier). */
   copyQuestionIntoDraft(content: string, ev: MouseEvent): void {
     ev.stopPropagation();
@@ -569,15 +668,16 @@ export class AssistantDrawerComponent
       return;
     }
     this.isOpen = !this.isOpen;
-    if (this.isOpen && !this.assistantClientConfigLoaded) {
-      this.loadAssistantClientConfig();
-    }
-    if (!this.isOpen) {
+    if (this.isOpen) {
+      this.fabUnreadReply = false;
+      if (!this.assistantClientConfigLoaded) {
+        this.loadAssistantClientConfig();
+      }
+      if (this.messages.length > 0) {
+        queueMicrotask(() => this.requestAlignLastQuestionTop());
+      }
+    } else {
       this.creditsBannerOpen = false;
-      return;
-    }
-    if (this.messages.length > 0) {
-      queueMicrotask(() => this.requestAlignLastQuestionTop());
     }
   }
 
@@ -610,6 +710,7 @@ export class AssistantDrawerComponent
   clearThread(): void {
     this.messages = [];
     this.draft = '';
+    this.fabUnreadReply = false;
     this.persistSession();
   }
 
@@ -638,72 +739,81 @@ export class AssistantDrawerComponent
       content: m.content
     }));
 
-    this.assistant.sendMessages(payload).subscribe({
+    this.chatSendSub?.unsubscribe();
+    this.chatSendSub = this.assistant
+      .sendMessages(payload)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.loading = false;
+        })
+      )
+      .subscribe({
       next: (res) => {
-        this.loading = false;
-        const buildMetaFromRes = (): AssistantChatMeta | undefined => {
-          const meta: AssistantChatMeta = {};
-          const elapsedMs = parseElapsedMsFromAssistantResponse(res);
-          if (elapsedMs != null) {
-            meta.elapsedMs = elapsedMs;
-          }
-          if (res.inputTokens != null) {
-            meta.inputTokens = res.inputTokens;
-          }
-          if (res.outputTokens != null) {
-            meta.outputTokens = res.outputTokens;
-          }
-          const prov =
-            typeof res.provider === 'string' ? res.provider.trim() : '';
-          if (prov) {
-            meta.provider = prov;
-          }
-          const mod =
-            typeof res.model === 'string' ? res.model.trim() : '';
-          if (mod) {
-            meta.model = mod;
-          }
-          return Object.keys(meta).length ? meta : undefined;
-        };
-        if (res.error) {
-          const meta = buildMetaFromRes();
-          this.messages = [
-            ...this.messages,
-            {
-              role: 'assistant',
-              content: res.error,
-              ...(meta ? { meta } : {})
+        this.ngZone.run(() => {
+          const buildMetaFromRes = (): AssistantChatMeta | undefined => {
+            const meta: AssistantChatMeta = {};
+            const elapsedMs = parseElapsedMsFromAssistantResponse(res);
+            if (elapsedMs != null) {
+              meta.elapsedMs = elapsedMs;
             }
-          ];
-        } else {
-          const answer =
-            res.content != null && res.content.length > 0
-              ? res.content
-              : '(Réponse vide)';
-          const meta = buildMetaFromRes();
-          this.messages = [
-            ...this.messages,
-            {
-              role: 'assistant',
-              content: answer,
-              ...(meta ? { meta } : {})
+            if (res.inputTokens != null) {
+              meta.inputTokens = res.inputTokens;
             }
-          ];
-        }
-        this.requestAlignLastQuestionTop();
-        this.persistSession();
+            if (res.outputTokens != null) {
+              meta.outputTokens = res.outputTokens;
+            }
+            const prov =
+              typeof res.provider === 'string' ? res.provider.trim() : '';
+            if (prov) {
+              meta.provider = prov;
+            }
+            const mod =
+              typeof res.model === 'string' ? res.model.trim() : '';
+            if (mod) {
+              meta.model = mod;
+            }
+            return Object.keys(meta).length ? meta : undefined;
+          };
+          if (res.error) {
+            const meta = buildMetaFromRes();
+            this.messages = [
+              ...this.messages,
+              {
+                role: 'assistant',
+                content: res.error,
+                ...(meta ? { meta } : {})
+              }
+            ];
+          } else {
+            const answer =
+              res.content != null && res.content.length > 0
+                ? res.content
+                : '(Réponse vide)';
+            const meta = buildMetaFromRes();
+            this.messages = [
+              ...this.messages,
+              {
+                role: 'assistant',
+                content: answer,
+                ...(meta ? { meta } : {})
+              }
+            ];
+          }
+          this.onAssistantTurnFinished();
+        });
       },
       error: () => {
-        this.loading = false;
-        this.messages = [
-          ...this.messages,
-          {
-            role: 'assistant',
-            content: 'Erreur réseau ou serveur. Réessayez plus tard.'
-          }
-        ];
-        this.requestAlignLastQuestionTop();
-        this.persistSession();
+        this.ngZone.run(() => {
+          this.messages = [
+            ...this.messages,
+            {
+              role: 'assistant',
+              content: 'Erreur réseau ou serveur. Réessayez plus tard.'
+            }
+          ];
+          this.onAssistantTurnFinished();
+        });
       }
     });
   }
@@ -713,6 +823,15 @@ export class AssistantDrawerComponent
       ev.preventDefault();
       this.send();
     }
+  }
+
+  private onAssistantTurnFinished(): void {
+    if (!this.isOpen) {
+      this.fabUnreadReply = true;
+    }
+    this.requestAlignLastQuestionTop();
+    this.persistSession();
+    this.cdr.detectChanges();
   }
 
   private requestAlignLastQuestionTop(): void {

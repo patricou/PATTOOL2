@@ -46,7 +46,8 @@
         "LINKS_ADMINISTRATION": "Verwaltung",
         "CALENDAR": "Agenda",
         "ORGANISATION": "Organisation",
-        "TODOLISTS": "Aufgabenlisten"
+        "TODOLISTS": "Aufgabenlisten",
+        "CALCULATOR": "Taschenrechner"
     },
     "IOT_PROXY": {
         "TITLE": "LAN-HTTP-Proxys",
@@ -1374,9 +1375,23 @@
         "WITHLASTFIRSTQUESTION": "mit den ersten X Fragen",
         "CLEAR": "Löschen"
     },
+    "CALCULATOR": {
+        "TITLE": "Taschenrechner",
+        "SUBTITLE": "Grundrechenarten (+, −, ×, ÷). Klicken Sie auf den Bereich oder drücken Sie Tab für Tastaturkürzel.",
+        "C": "C",
+        "CE": "CE",
+        "BACKSPACE": "Rücktaste",
+        "DISPLAY_ARIA": "Rechenergebnis",
+        "PANEL_ARIA": "Taschenrechner",
+        "KEYBOARD_HINT": "Tastatur: Ziffern; + − * /; Enter oder = für Ergebnis; Esc löscht alles; Rücktaste löscht die letzte Ziffer.",
+        "TAPE_MODE_LABEL": "Detailansicht (Zahlen und Operatoren, je eine Zeile)",
+        "TAPE_ARIA": "Rechenschritte",
+        "TAPE_EMPTY": "Jede Zahl und jeder Operator erscheint hier."
+    },
     "ASSISTANT": {
         "TITLE": "PatTool Assistent",
         "TOGGLE": "KI-Assistenten öffnen oder schließen",
+        "FAB_REPLY_READY_TITLE": "Neue Antwort bereit — Assistenten öffnen",
         "EMPTY": "Stellen Sie eine Frage. Die Unterhaltung bleibt in diesem Bereich; Nachrichten werden nur über den Server übermittelt.",
         "YOU": "Sie",
         "AI": "Assistent",
@@ -1392,6 +1407,7 @@
         "NEW_CHAT_TITLE": "Chat-Verlauf und Kontext für diese Browsersitzung (dieses Tab) löschen und neu beginnen",
         "ASK_FROM_EVENT_TITLE": "Assistent mit diesem Aktivitätstitel als Nachricht öffnen",
         "COPY_TO_INPUT_TITLE": "Frage zurück ins Eingabefeld kopieren",
+        "COPY_REPLY_TITLE": "Diese Antwort in die Zwischenablage kopieren",
         "CREDITS_TITLE": "OpenAI-Guthaben (USD)",
         "CREDITS_TOGGLE": "API-Guthaben ein- oder ausblenden",
         "CREDITS_LOADING": "Guthaben wird geladen…",
@@ -1399,11 +1415,11 @@
         "CREDITS_GRANTED": "Gewährt",
         "CREDITS_USED": "Verbraucht",
         "CREDITS_NETWORK_ERROR": "Server für Guthaben nicht erreichbar.",
-        "CREDITS_ERR_NO_RESPONSE": "No response from the PatTool server. Check that the backend is running and that environment API_URL matches the Spring port (see README server.port — often http://localhost:8000/api/ in dev).",
-        "CREDITS_ERR_UNAUTHORIZED": "Access denied (401/403). Sign in again or check your session.",
-        "CREDITS_ERR_NOT_FOUND": "Credits endpoint not found (404). Check backend version and API_URL (expected …/api/assistant/openai/credits).",
-        "CREDITS_ERR_HTTP": "HTTP error {{status}} when calling PatTool.",
-        "CREDITS_ERR_TOKEN": "Could not obtain an auth token. Try again or sign in.",
+        "CREDITS_ERR_NO_RESPONSE": "Keine Antwort vom PatTool-Server. Prüfen Sie, ob das Backend läuft und API_URL in der Umgebung zum Spring-Port passt (siehe README server.port, oft http://localhost:8000/api/ in der Entwicklung).",
+        "CREDITS_ERR_UNAUTHORIZED": "Zugriff verweigert (401/403). Bitte neu anmelden oder die Sitzung prüfen.",
+        "CREDITS_ERR_NOT_FOUND": "Credits-Endpunkt nicht gefunden (404). Backend-Version und API_URL prüfen (erwartet …/api/assistant/openai/credits).",
+        "CREDITS_ERR_HTTP": "HTTP-Fehler {{status}} beim Aufruf von PatTool.",
+        "CREDITS_ERR_TOKEN": "Authentifizierungstoken konnte nicht abgerufen werden. Erneut versuchen oder neu anmelden.",
         "STAT_MS": "{{ms}} ms",
         "STAT_MS_AND_TOKENS": "{{ms}} ms · {{total}} Tokens ({{in}} Input · {{out}} Output)",
         "STAT_TOKENS": "{{total}} Tokens ({{in}} Input · {{out}} Output)",

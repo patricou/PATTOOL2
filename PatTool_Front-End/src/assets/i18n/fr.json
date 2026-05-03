@@ -46,7 +46,8 @@
         "LINKS_ADMINISTRATION": "Administration",
         "CALENDAR": "Agenda",
         "ORGANISATION": "Organisation",
-        "TODOLISTS": "Listes de tâches"
+        "TODOLISTS": "Listes de tâches",
+        "CALCULATOR": "Calculatrice"
     },
     "IOT_PROXY": {
         "TITLE": "Proxies HTTP LAN",
@@ -1420,9 +1421,23 @@
         "WITHLASTXQUESTION": "X dernières questions",
         "WITHLASTFIRSTQUESTION": "X premières questions"
     },
+    "CALCULATOR": {
+        "TITLE": "Calculatrice",
+        "SUBTITLE": "Opérations de base (+, −, ×, ÷). Cliquez sur le panneau ou appuyez sur Tab pour utiliser le clavier.",
+        "C": "C",
+        "CE": "CE",
+        "BACKSPACE": "Retour arrière",
+        "DISPLAY_ARIA": "Résultat du calcul",
+        "PANEL_ARIA": "Calculatrice",
+        "KEYBOARD_HINT": "Clavier : chiffres ; + − * / ; Entrée ou = pour le résultat ; Échap tout effacer ; Retour arrière supprime le dernier chiffre.",
+        "TAPE_MODE_LABEL": "Vue détaillée (chiffres et opérations, une ligne chacun)",
+        "TAPE_ARIA": "Étapes du calcul",
+        "TAPE_EMPTY": "Chaque nombre et opération s’affichera ici."
+    },
     "ASSISTANT": {
         "TITLE": "Assistant PatTool",
         "TOGGLE": "Ouvrir ou fermer l’assistant IA",
+        "FAB_REPLY_READY_TITLE": "Nouvelle réponse prête — ouvrir l’assistant",
         "EMPTY": "Posez une question. La conversation reste dans ce panneau ; les messages transitent uniquement via le serveur.",
         "YOU": "Vous",
         "AI": "Assistant",
@@ -1438,6 +1453,7 @@
         "NEW_CHAT_TITLE": "Efface l’historique et le contexte pour cette session (cet onglet du navigateur)",
         "ASK_FROM_EVENT_TITLE": "Ouvrir l’assistant avec le titre de cette activité comme message",
         "COPY_TO_INPUT_TITLE": "Recopier cette question dans le champ de message",
+        "COPY_REPLY_TITLE": "Copier cette réponse dans le presse-papiers",
         "CREDITS_TITLE": "Solde prépayé OpenAI (USD)",
         "CREDITS_TOGGLE": "Afficher ou masquer le détail du solde crédits API",
         "CREDITS_LOADING": "Chargement des crédits…",

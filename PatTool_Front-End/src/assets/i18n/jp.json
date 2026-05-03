@@ -46,7 +46,8 @@
         "LINKS_ADMINISTRATION": "管理",
         "CALENDAR": "アジェンダ",
         "ORGANISATION": "組織",
-        "TODOLISTS": "ToDoリスト"
+        "TODOLISTS": "ToDoリスト",
+        "CALCULATOR": "電卓"
     },
     "IOT_PROXY": {
         "TITLE": "LAN HTTP プロキシ",
@@ -1179,9 +1180,23 @@
         "WITHLASTFIRSTQUESTION": "最初のX質問と共に",
         "CLEAR": "クリア"
     },
+    "CALCULATOR": {
+        "TITLE": "電卓",
+        "SUBTITLE": "四則演算 (+、−、×、÷)。パネルをクリックするか Tab でキーボード操作。",
+        "C": "C",
+        "CE": "CE",
+        "BACKSPACE": "バックスペース",
+        "DISPLAY_ARIA": "計算結果",
+        "PANEL_ARIA": "電卓",
+        "KEYBOARD_HINT": "キーボード：数字；+ − * /；Enter または = で結果；Esc で全消去；バックスペースで末尾の桁を削除。",
+        "TAPE_MODE_LABEL": "詳細表示（数字と演算子を1行ずつ）",
+        "TAPE_ARIA": "計算の手順",
+        "TAPE_EMPTY": "数字と演算子がここに表示されます。"
+    },
     "ASSISTANT": {
         "TITLE": "PatTool アシスタント",
         "TOGGLE": "AI アシスタントを開くまたは閉じる",
+        "FAB_REPLY_READY_TITLE": "返信の準備ができました — アシスタントを開く",
         "EMPTY": "質問してください。このパネル内で会話が続きます。メッセージはサーバー経由のみ送信されます。",
         "YOU": "あなた",
         "AI": "アシスタント",
@@ -1197,6 +1212,7 @@
         "NEW_CHAT_TITLE": "このブラウザタブの履歴とコンテキストを消去して最初からやり直す",
         "ASK_FROM_EVENT_TITLE": "この活動タイトルをメッセージにしてアシスタントを開く",
         "COPY_TO_INPUT_TITLE": "この質問を入力欄にコピー",
+        "COPY_REPLY_TITLE": "この返答をクリップボードにコピー",
         "CREDITS_TITLE": "OpenAIの前払い残高（USD）",
         "CREDITS_TOGGLE": "APIクレジット残高の詳細を表示／非表示",
         "CREDITS_LOADING": "残高を読み込み中…",
@@ -1204,11 +1220,11 @@
         "CREDITS_GRANTED": "付与済み合計",
         "CREDITS_USED": "消費済み合計",
         "CREDITS_NETWORK_ERROR": "サーバーに接続できませんでした。",
-        "CREDITS_ERR_NO_RESPONSE": "No response from the PatTool server. Check that the backend is running and that environment API_URL matches the Spring port (see README server.port — often http://localhost:8000/api/ in dev).",
-        "CREDITS_ERR_UNAUTHORIZED": "Access denied (401/403). Sign in again or check your session.",
-        "CREDITS_ERR_NOT_FOUND": "Credits endpoint not found (404). Check backend version and API_URL (expected …/api/assistant/openai/credits).",
-        "CREDITS_ERR_HTTP": "HTTP error {{status}} when calling PatTool.",
-        "CREDITS_ERR_TOKEN": "Could not obtain an auth token. Try again or sign in.",
+        "CREDITS_ERR_NO_RESPONSE": "PatTool サーバーから応答がありません。バックエンドが稼働しているか、環境の API_URL が Spring のポートと一致しているか確認してください（README の server.port を参照。開発ではよく http://localhost:8000/api/）。",
+        "CREDITS_ERR_UNAUTHORIZED": "アクセスが拒否されました（401/403）。再ログインするかセッションを確認してください。",
+        "CREDITS_ERR_NOT_FOUND": "クレジット API が見つかりません（404）。バックエンドのバージョンと API_URL を確認してください（想定パス：…/api/assistant/openai/credits）。",
+        "CREDITS_ERR_HTTP": "PatTool 呼び出しで HTTP エラー {{status}}。",
+        "CREDITS_ERR_TOKEN": "認証トークンを取得できませんでした。再試行するかサインインし直してください。",
         "STAT_MS": "{{ms}} ms",
         "STAT_MS_AND_TOKENS": "{{ms}} ms · {{total}} トークン（入力 {{in}} · 出力 {{out}}）",
         "STAT_TOKENS": "{{total}} トークン（入力 {{in}} · 出力 {{out}}）",

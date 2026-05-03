@@ -93,8 +93,18 @@
           <div *ngIf="chatResponse" class="response-section">
             <div class="response-card">
               <div class="response-header">
-                <i class="fa fa-robot"></i>
-                <strong>{{"PATGPT.RESPONSE" | translate }}</strong>
+                <span class="response-header-title">
+                  <i class="fa fa-robot"></i>
+                  <strong>{{"PATGPT.RESPONSE" | translate }}</strong>
+                </span>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-light patgpt-copy-answer"
+                  (click)="copyPatGptAnswer($event)"
+                  [title]="'ASSISTANT.COPY_REPLY_TITLE' | translate"
+                  [attr.aria-label]="'ASSISTANT.COPY_REPLY_TITLE' | translate">
+                  <i class="fa fa-copy" aria-hidden="true"></i>
+                </button>
               </div>
               <div
                 class="response-content patgpt-md-host"

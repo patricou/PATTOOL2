@@ -58,7 +58,8 @@
         "LINKS_ADMINISTRATION": "प्रशासन",
         "CALENDAR": "एजेंडा",
         "ORGANISATION": "संगठन",
-        "TODOLISTS": "कार्य सूचियाँ"
+        "TODOLISTS": "कार्य सूचियाँ",
+        "CALCULATOR": "कैलकुलेटर"
     },
     "IOT_PROXY": {
         "TITLE": "LAN HTTP प्रॉक्सी",
@@ -1346,9 +1347,23 @@
         "WITHLASTXQUESTION": "पिछले X प्रश्नों के साथ",
         "WITHLASTFIRSTQUESTION": "पिछले पहले प्रश्नों के साथ"
     },
+    "CALCULATOR": {
+        "TITLE": "कैलकुलेटर",
+        "SUBTITLE": "बुनियादी अंकगणित (+, −, ×, ÷)। कीबोर्ड के लिए पैनल पर क्लिक करें या Tab दबाएँ।",
+        "C": "C",
+        "CE": "CE",
+        "BACKSPACE": "बैकस्पेस",
+        "DISPLAY_ARIA": "गणना परिणाम",
+        "PANEL_ARIA": "कैलकुलेटर",
+        "KEYBOARD_HINT": "कीबोर्ड: अंक; + − * /; परिणाम के लिए Enter या =; Esc सब साफ़ करता है; बैकस्पेस अंतिम अंक हटाता है।",
+        "TAPE_MODE_LABEL": "विस्तृत दृश्य (संख्याएँ और संक्रियाएँ, प्रत्येक एक पंक्ति)",
+        "TAPE_ARIA": "गणना के चरण",
+        "TAPE_EMPTY": "प्रत्येक संख्या और संक्रिया यहाँ दिखाई देगी।"
+    },
     "ASSISTANT": {
         "TITLE": "PatTool सहायक",
         "TOGGLE": "AI सहायक खोलें या बंद करें",
+        "FAB_REPLY_READY_TITLE": "नया उत्तर तैयार — सहायक खोलें",
         "EMPTY": "कोई प्रश्न पूछें। बातचीत इस पैनल में रहती है; संदेश केवल सर्वर के ज़रिए जाते हैं।",
         "YOU": "आप",
         "AI": "सहायक",
@@ -1364,6 +1379,7 @@
         "NEW_CHAT_TITLE": "इस ब्राउज़र टैब का चैट इतिहास साफ़ करके फिर से शुरू करें",
         "ASK_FROM_EVENT_TITLE": "इस गतिविधि के शीर्षक को संदेश के रूप में सहायक खोलें",
         "COPY_TO_INPUT_TITLE": "यह प्रश्न संदेश बॉक्स में कॉपी करें",
+        "COPY_REPLY_TITLE": "इस उत्तर को क्लिपबोर्ड पर कॉपी करें",
         "CREDITS_TITLE": "OpenAI प्रीपेड शेष (USD)",
         "CREDITS_TOGGLE": "API क्रेडिट विवरण दिखाएँ/छुपाएँ",
         "CREDITS_LOADING": "क्रेडिट लोड हो रहा है…",
@@ -1371,11 +1387,11 @@
         "CREDITS_GRANTED": "कुल आवंटित",
         "CREDITS_USED": "कुल उपयोग",
         "CREDITS_NETWORK_ERROR": "सर्वर से संपर्क नहीं हो सका।",
-        "CREDITS_ERR_NO_RESPONSE": "No response from the PatTool server. Check that the backend is running and that environment API_URL matches the Spring port (see README server.port — often http://localhost:8000/api/ in dev).",
-        "CREDITS_ERR_UNAUTHORIZED": "Access denied (401/403). Sign in again or check your session.",
-        "CREDITS_ERR_NOT_FOUND": "Credits endpoint not found (404). Check backend version and API_URL (expected …/api/assistant/openai/credits).",
-        "CREDITS_ERR_HTTP": "HTTP error {{status}} when calling PatTool.",
-        "CREDITS_ERR_TOKEN": "Could not obtain an auth token. Try again or sign in.",
+        "CREDITS_ERR_NO_RESPONSE": "PatTool सर्वर से कोई प्रतिक्रिया नहीं। जाँच करें कि बैकएंड चल रहा है और environment में API_URL Spring पोर्ट से मेल खाता है (README में server.port देखें — विकास में अक्सर http://localhost:8000/api/)।",
+        "CREDITS_ERR_UNAUTHORIZED": "पहुँच अस्वीकृत (401/403)। फिर साइन इन करें या सत्र जाँचें।",
+        "CREDITS_ERR_NOT_FOUND": "क्रेडिट एंडपॉइंट नहीं मिला (404)। बैकएंड संस्करण और API_URL जाँचें (अपेक्षित पथ: …/api/assistant/openai/credits)।",
+        "CREDITS_ERR_HTTP": "PatTool को कॉल करते समय HTTP त्रुटि {{status}}।",
+        "CREDITS_ERR_TOKEN": "प्रमाणीकरण टोकन प्राप्त नहीं हो सका। पुनः प्रयास करें या फिर लॉग इन करें।",
         "STAT_MS": "{{ms}} ms",
         "STAT_MS_AND_TOKENS": "{{ms}} ms · {{total}} टोकन ({{in}} इन · {{out}} आउट)",
         "STAT_TOKENS": "{{total}} टोकन ({{in}} इन · {{out}} आउट)",

@@ -1,0 +1,69 @@
+.calculator-page {
+  outline: none;
+}
+
+.calculator-page:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.45);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+.calculator-card {
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.calculator-tape-toggle .form-check-label {
+  font-size: 0.9rem;
+  user-select: none;
+}
+
+.calculator-tape {
+  max-height: 11rem;
+  overflow-y: auto;
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px dashed #cbd5e1;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  text-align: right;
+}
+
+.calculator-tape-placeholder {
+  font-size: 0.85rem;
+  text-align: center;
+  font-style: italic;
+  padding: 0.35rem 0;
+}
+
+.calculator-tape-line {
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: #334155;
+}
+
+.calculator-display {
+  font-size: clamp(1.75rem, 5vw, 2.25rem);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+  min-height: 3.25rem;
+  word-break: break-all;
+}
+
+.calculator-btn {
+  min-height: 48px;
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.calculator-btn-eq {
+  font-weight: 700;
+}

@@ -46,7 +46,8 @@
         "LINKS_ADMINISTRATION": "الإدارة",
         "CALENDAR": "أجندة",
         "ORGANISATION": "تنظيم",
-        "TODOLISTS": "قوائم المهام"
+        "TODOLISTS": "قوائم المهام",
+        "CALCULATOR": "آلة حاسبة"
     },
     "IOT_PROXY": {
         "TITLE": "وكلاء HTTP للشبكة المحلية",
@@ -1375,9 +1376,23 @@
         "WITHLASTFIRSTQUESTION": "مع أول X أسئلة",
         "CLEAR": "مسح"
     },
+    "CALCULATOR": {
+        "TITLE": "آلة حاسبة",
+        "SUBTITLE": "عمليات حسابية أساسية (+، −، ×، ÷). انقر اللوحة أو اضغط Tab لتفعيل اختصارات لوحة المفاتيح.",
+        "C": "C",
+        "CE": "CE",
+        "BACKSPACE": "مسافة للخلف",
+        "DISPLAY_ARIA": "نتيجة الحساب",
+        "PANEL_ARIA": "آلة حاسبة",
+        "KEYBOARD_HINT": "لوحة المفاتيح: أرقام؛ + − * /؛ Enter أو = للنتيجة؛ Esc يمسح الكل؛ مسافة للخلف تحذف الرقم الأخير.",
+        "TAPE_MODE_LABEL": "عرض تفصيلي (أرقام وعمليات، سطر لكل منها)",
+        "TAPE_ARIA": "خطوات الحساب",
+        "TAPE_EMPTY": "يُعرض هنا كل رقم وعملية."
+    },
     "ASSISTANT": {
         "TITLE": "مساعد PatTool",
         "TOGGLE": "فتح أو إغلاق مساعد الذكاء الاصطناعي",
+        "FAB_REPLY_READY_TITLE": "رد جديد جاهز — افتح المساعد",
         "EMPTY": "اطرح سؤالاً. تبقى المحادثة في هذا اللوح؛ الرسائل تمر عبر الخادم فقط.",
         "YOU": "أنت",
         "AI": "المساعد",
@@ -1393,6 +1408,7 @@
         "NEW_CHAT_TITLE": "مسح سجل المحادثة وسياق هذا التبويب ثم البدء من جديد",
         "ASK_FROM_EVENT_TITLE": "فتح المساعد مع عنوان هذا النشاط كرسالة",
         "COPY_TO_INPUT_TITLE": "نسخ هذا السؤال إلى حقل الرسالة",
+        "COPY_REPLY_TITLE": "نسخ هذا الرد إلى الحافظة",
         "CREDITS_TITLE": "رصيد OpenAI المدفوع مسبقًا (بالدولار)",
         "CREDITS_TOGGLE": "إظهار أو إخفاء تفاصيل رصيد واجهة البرمجة",
         "CREDITS_LOADING": "جارٍ تحميل الرصيد…",
@@ -1400,11 +1416,11 @@
         "CREDITS_GRANTED": "الإجمالي المُمنَح",
         "CREDITS_USED": "الإجمالي المستهلك",
         "CREDITS_NETWORK_ERROR": "تعذر الاتصال بالخادم لاسترجاع الرصيد.",
-        "CREDITS_ERR_NO_RESPONSE": "No response from the PatTool server. Check that the backend is running and that environment API_URL matches the Spring port (see README server.port — often http://localhost:8000/api/ in dev).",
-        "CREDITS_ERR_UNAUTHORIZED": "Access denied (401/403). Sign in again or check your session.",
-        "CREDITS_ERR_NOT_FOUND": "Credits endpoint not found (404). Check backend version and API_URL (expected …/api/assistant/openai/credits).",
-        "CREDITS_ERR_HTTP": "HTTP error {{status}} when calling PatTool.",
-        "CREDITS_ERR_TOKEN": "Could not obtain an auth token. Try again or sign in.",
+        "CREDITS_ERR_NO_RESPONSE": "لا استجابة من خادم PatTool. تأكد أن الواجهة الخلفية تعمل وأن API_URL في البيئة يطابق منفذ Spring (راجع README server.port — غالبًا http://localhost:8000/api/ في التطوير).",
+        "CREDITS_ERR_UNAUTHORIZED": "تم رفض الوصول (401/403). سجّل الدخول مجددًا أو تحقق من الجلسة.",
+        "CREDITS_ERR_NOT_FOUND": "لم يُعثر على نقطة رصيد الاعتمادات (404). تحقق من إصدار الواجهة الخلفية و API_URL (المسار المتوقع: …/api/assistant/openai/credits).",
+        "CREDITS_ERR_HTTP": "خطأ HTTP {{status}} عند استدعاء PatTool.",
+        "CREDITS_ERR_TOKEN": "تعذّر الحصول على رمز المصادقة. أعد المحاولة أو سجّل الدخول.",
         "STAT_MS": "{{ms}} ملي ثانية",
         "STAT_MS_AND_TOKENS": "{{ms}} ملي ثانية · {{total}} رموز (إدخال {{in}} · إخراج {{out}})",
         "STAT_TOKENS": "{{total}} رموز (إدخال {{in}} · إخراج {{out}})",

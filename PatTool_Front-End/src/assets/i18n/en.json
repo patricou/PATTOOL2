@@ -46,7 +46,8 @@
         "LINKS_ADMINISTRATION": "Administration",
         "CALENDAR": "Agenda",
         "ORGANISATION": "Organization",
-        "TODOLISTS": "To-do lists"
+        "TODOLISTS": "To-do lists",
+        "CALCULATOR": "Calculator"
     },
     "IOT_PROXY": {
         "TITLE": "LAN HTTP proxies",
@@ -1430,9 +1431,23 @@
         "WITHLASTXQUESTION": "with Last X questions",
         "WITHLASTFIRSTQUESTION": "with last first questions"
     },
+    "CALCULATOR": {
+        "TITLE": "Calculator",
+        "SUBTITLE": "Basic arithmetic (+, −, ×, ÷). Click the panel or press Tab to enable keyboard shortcuts.",
+        "C": "C",
+        "CE": "CE",
+        "BACKSPACE": "Backspace",
+        "DISPLAY_ARIA": "Calculation result",
+        "PANEL_ARIA": "Calculator",
+        "KEYBOARD_HINT": "Keyboard: digits; + − * /; Enter or = for equals; Esc clears all; Backspace deletes the last digit.",
+        "TAPE_MODE_LABEL": "Detailed view (numbers and operators, one line each)",
+        "TAPE_ARIA": "Calculation steps",
+        "TAPE_EMPTY": "Each number and operator will appear here."
+    },
     "ASSISTANT": {
         "TITLE": "PatTool assistant",
         "TOGGLE": "Open or close AI assistant",
+        "FAB_REPLY_READY_TITLE": "New reply ready — open the assistant",
         "EMPTY": "Ask a question. The conversation stays in this panel; messages are sent to the server only.",
         "YOU": "You",
         "AI": "Assistant",
@@ -1448,6 +1463,7 @@
         "NEW_CHAT_TITLE": "Clear this tab’s chat history and start over (same browser session)",
         "ASK_FROM_EVENT_TITLE": "Open the assistant with this activity title as the message",
         "COPY_TO_INPUT_TITLE": "Copy this question into the message field",
+        "COPY_REPLY_TITLE": "Copy this reply to the clipboard",
         "CREDITS_TITLE": "OpenAI prepaid balance (USD)",
         "CREDITS_TOGGLE": "Show or hide API credit balance detail",
         "CREDITS_LOADING": "Loading credits…",

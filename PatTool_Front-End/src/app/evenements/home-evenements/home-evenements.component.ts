@@ -3609,7 +3609,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		if (!name || !this.isAssistantAuthenticated()) {
 			return;
 		}
-		this._assistantLaunch.openWithDraft(name);
+		this._assistantLaunch.openWithDraft(name, { newConversation: true });
 	}
 
 	public openUserModal(user: Member): void {

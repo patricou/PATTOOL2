@@ -101,7 +101,21 @@ export class AssistantSessionStore {
 
   save(messages: AssistantChatTurn[], draft: string): void {
     try {
-      sessionStorage.setItem(this.key(), JSON.stringify({ messages, draft }));
+      const slim = messages.map((m) => {
+        const row: {
+          role: AssistantChatTurn['role'];
+          content: string;
+          meta?: AssistantChatMeta;
+        } = { role: m.role, content: m.content };
+        if (m.meta != null && typeof m.meta === 'object') {
+          const meta = AssistantSessionStore.sanitizeMeta(m.role, m.meta);
+          if (meta) {
+            row.meta = meta;
+          }
+        }
+        return row;
+      });
+      sessionStorage.setItem(this.key(), JSON.stringify({ messages: slim, draft }));
     } catch {
       /* quota / private mode */
     }

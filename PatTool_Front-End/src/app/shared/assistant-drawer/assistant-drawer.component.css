@@ -6,7 +6,8 @@
   z-index: 10900;
   pointer-events: none;
 
-  --pat-assistant-panel-width: min(840px, 100vw);
+  /* Desktop : ~moitié écran ; ≤576px : 100vw via @media */
+  --pat-assistant-panel-width: 50vw;
   --pat-navbar-offset: 60px;
 
   --asst-blue-deep: #1d4ed8;
@@ -68,6 +69,36 @@
   box-shadow: 0 4px 18px rgba(185, 28, 28, 0.5);
 }
 
+.pat-assistant-fab--unread:not(.pat-assistant-fab--open) {
+  animation: pat-assistant-fab-unread-glow 2.2s ease-in-out infinite;
+}
+
+@keyframes pat-assistant-fab-unread-glow {
+  0%,
+  100% {
+    box-shadow: 0 2px 14px rgba(37, 99, 235, 0.35);
+  }
+  50% {
+    box-shadow:
+      0 2px 14px rgba(37, 99, 235, 0.35),
+      0 0 0 4px rgba(251, 191, 36, 0.35);
+  }
+}
+
+.pat-assistant-fab-unread-dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #fbbf24;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+  z-index: 1;
+}
+
 .pat-assistant-fab i {
   font-size: 1.4rem;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
@@ -96,7 +127,6 @@
   top: var(--pat-navbar-offset);
   right: 0;
   left: auto;
-  width: min(840px, 100vw);
   width: var(--pat-assistant-panel-width);
   height: calc(100vh - 60px - env(safe-area-inset-bottom, 0px));
   height: calc(100vh - var(--pat-navbar-offset) - env(safe-area-inset-bottom, 0px));

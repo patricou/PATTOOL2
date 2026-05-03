@@ -145,6 +145,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./stock-exchange/stock-exchange.component').then(m => m.StockExchangeComponent)
 			},
 			{
+				path: 'tools/calculator',
+				loadComponent: () => import('./calculator/calculator.component').then(m => m.CalculatorComponent)
+			},
+			{
 				path: 'calendrier',
 				loadComponent: () => import('./calendar/calendar.component').then(m => m.CalendarComponent)
 			},

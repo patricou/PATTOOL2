@@ -3,6 +3,8 @@ import { Observable, Subject } from 'rxjs';
 
 export interface AssistantLaunchPayload {
   draft: string;
+  /** Si true, l’historique du chat est effacé avant d’ouvrir (nouvelle discussion). */
+  newConversation?: boolean;
 }
 
 /**
@@ -14,11 +16,15 @@ export class AssistantLaunchService {
 
   readonly launches$: Observable<AssistantLaunchPayload> = this.launches.asObservable();
 
-  openWithDraft(text: string): void {
+  openWithDraft(
+    text: string,
+    options?: { newConversation?: boolean }
+  ): void {
     const draft = text?.trim() ?? '';
     if (!draft.length) {
       return;
     }
-    this.launches.next({ draft });
+    const newConversation = options?.newConversation === true;
+    this.launches.next({ draft, newConversation });
   }
 }

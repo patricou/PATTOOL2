@@ -1,0 +1,121 @@
+<div class="pat-title">
+  <h2>
+    <i class="fa fa-calculator me-2" aria-hidden="true"></i>
+    {{ 'CALCULATOR.TITLE' | translate }}
+  </h2>
+  <p class="pat-title-subtitle mb-0">{{ 'CALCULATOR.SUBTITLE' | translate }}</p>
+</div>
+
+<div
+  class="calculator-page container pb-4"
+  tabindex="0"
+  (keydown)="onKeydown($event)"
+  [attr.aria-label]="'CALCULATOR.PANEL_ARIA' | translate">
+  <div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6 col-xl-5">
+      <div class="card shadow-sm calculator-card">
+        <div class="card-body">
+          <div class="form-check form-switch mb-3 calculator-tape-toggle">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="calcTapeMode"
+              [(ngModel)]="tapeMode" />
+            <label class="form-check-label" for="calcTapeMode">{{
+              'CALCULATOR.TAPE_MODE_LABEL' | translate
+            }}</label>
+          </div>
+
+          <div
+            *ngIf="tapeMode"
+            #tapeScroll
+            class="calculator-tape mb-3"
+            role="log"
+            [attr.aria-label]="'CALCULATOR.TAPE_ARIA' | translate">
+            <div *ngIf="tapeLines.length === 0" class="calculator-tape-placeholder text-muted">
+              {{ 'CALCULATOR.TAPE_EMPTY' | translate }}
+            </div>
+            <div *ngFor="let line of tapeLines" class="calculator-tape-line">{{ line }}</div>
+          </div>
+
+          <div
+            class="calculator-display mb-3"
+            role="status"
+            [attr.aria-live]="'polite'"
+            [attr.aria-label]="'CALCULATOR.DISPLAY_ARIA' | translate">
+            {{ display }}
+          </div>
+
+          <div class="calculator-keys d-grid gap-2">
+            <div class="row g-2">
+              <div class="col-3">
+                <button type="button" class="btn btn-outline-secondary w-100 calculator-btn" (click)="clearAll()">
+                  {{ 'CALCULATOR.C' | translate }}
+                </button>
+              </div>
+              <div class="col-3">
+                <button type="button" class="btn btn-outline-secondary w-100 calculator-btn" (click)="clearEntry()">
+                  {{ 'CALCULATOR.CE' | translate }}
+                </button>
+              </div>
+              <div class="col-3">
+                <button type="button" class="btn btn-outline-secondary w-100 calculator-btn" (click)="backspace()" [attr.aria-label]="'CALCULATOR.BACKSPACE' | translate">
+                  ⌫
+                </button>
+              </div>
+              <div class="col-3">
+                <button type="button" class="btn btn-outline-warning w-100 calculator-btn" (click)="operator('/')">
+                  ÷
+                </button>
+              </div>
+            </div>
+
+            <div class="row g-2">
+              <div class="col-3"><button type="button" class="btn btn-light border w-100 calculator-btn" (click)="digit('7')">7</button></div>
+              <div class="col-3"><button type="button" class="btn btn-light border w-100 calculator-btn" (click)="digit('8')">8</button></div>
+              <div class="col-3"><button type="button" class="btn btn-light border w-100 calculator-btn" (click)="digit('9')">9</button></div>
+              <div class="col-3"><button type="button" class="btn btn-outline-warning w-100 calculator-btn" (click)="operator('*')">×</button></div>
+            </div>
+
+            <div class="row g-2">
+              <div class="col-3"><button type="button" class="btn btn-light border w-100 calculator-btn" (click)="digit('4')">4</button></div>
+              <div class="col-3"><button type="button" class="btn btn-light border w-100 calculator-btn" (click)="digit('5')">5</button></div>
+              <div class="col-3"><button type="button" class="btn btn-light border w-100 calculator-btn" (click)="digit('6')">6</button></div>
+              <div class="col-3"><button type="button" class="btn btn-outline-warning w-100 calculator-btn" (click)="operator('-')">−</button></div>
+            </div>
+
+            <div class="row g-2">
+              <div class="col-3"><button type="button" class="btn btn-light border w-100 calculator-btn" (click)="digit('1')">1</button></div>
+              <div class="col-3"><button type="button" class="btn btn-light border w-100 calculator-btn" (click)="digit('2')">2</button></div>
+              <div class="col-3"><button type="button" class="btn btn-light border w-100 calculator-btn" (click)="digit('3')">3</button></div>
+              <div class="col-3"><button type="button" class="btn btn-outline-warning w-100 calculator-btn" (click)="operator('+')">+</button></div>
+            </div>
+
+            <div class="row g-2">
+              <div class="col-3">
+                <button type="button" class="btn btn-outline-secondary w-100 calculator-btn" (click)="toggleSign()">
+                  ±
+                </button>
+              </div>
+              <div class="col-3"><button type="button" class="btn btn-light border w-100 calculator-btn" (click)="digit('0')">0</button></div>
+              <div class="col-3"><button type="button" class="btn btn-light border w-100 calculator-btn" (click)="digit('.')">.</button></div>
+              <div class="col-3"><button type="button" class="btn btn-primary w-100 calculator-btn calculator-btn-eq" (click)="equals()">=</button></div>
+            </div>
+
+            <div class="row g-2">
+              <div class="col-6">
+                <button type="button" class="btn btn-outline-secondary w-100 calculator-btn" (click)="percent()">
+                  %
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <p class="text-muted small mt-3 mb-0">{{ 'CALCULATOR.KEYBOARD_HINT' | translate }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<app-navigation-buttons></app-navigation-buttons>

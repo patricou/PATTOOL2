@@ -399,7 +399,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		if (!name || !this.isAssistantUser()) {
 			return;
 		}
-		this.assistantLaunch.openWithDraft(name);
+		this.assistantLaunch.openWithDraft(name, { newConversation: true });
 	}
 
 	/** Call markForCheck only if the view is not destroyed (avoids errors when closing modal). */

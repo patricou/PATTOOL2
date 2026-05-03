@@ -223,6 +223,11 @@
                            (click)="closeMenu()">
                         <i class="fa fa-map"></i> {{ 'MENU.MAPS' | translate }}
                     </a></li>
+                    <li><a class="dropdown-item"
+                           [routerLink]="['tools/calculator']"
+                           (click)="closeMenu()">
+                        <i class="fa fa-calculator"></i> {{ 'MENU.CALCULATOR' | translate }}
+                    </a></li>
                     <li class="dropdown-submenu"
                         #iaSubmenuItem
                         (mouseenter)="showIASubmenu = true; showToolsDropdown = true; showLanguageSubmenu = false; showDocumentationSubmenu = false; positionIASubmenu()"

@@ -6,9 +6,11 @@
   [style.top.px]="fabTopPx"
   (click)="toggle()"
   [class.pat-assistant-fab--open]="isOpen"
+  [class.pat-assistant-fab--unread]="fabUnreadReply && !isOpen"
   [attr.aria-expanded]="isOpen"
-  [attr.aria-label]="(isOpen ? 'ASSISTANT.CLOSE' : 'ASSISTANT.TOGGLE') | translate"
-  [title]="(isOpen ? 'ASSISTANT.CLOSE' : 'ASSISTANT.TOGGLE') | translate">
+  [attr.aria-label]="fabAssistFabTitleKey() | translate"
+  [title]="fabAssistFabTitleKey() | translate">
+  <span *ngIf="fabUnreadReply && !isOpen" class="pat-assistant-fab-unread-dot" aria-hidden="true"></span>
   <i *ngIf="!isOpen" class="fa fa-magic" aria-hidden="true"></i>
   <i *ngIf="isOpen" class="fa fa-times pat-assistant-fab-close-icon" aria-hidden="true"></i>
 </button>
@@ -112,6 +114,16 @@
               : ('ASSISTANT.AI' | translate)
           }}</span>
           <button
+            *ngIf="m.role === 'assistant'"
+            type="button"
+            class="pat-assistant-copy-to-draft"
+            [disabled]="loading"
+            (click)="copyAssistantReply(m.content, $event)"
+            [title]="'ASSISTANT.COPY_REPLY_TITLE' | translate"
+            [attr.aria-label]="'ASSISTANT.COPY_REPLY_TITLE' | translate">
+            <i class="fa fa-copy" aria-hidden="true"></i>
+          </button>
+          <button
             *ngIf="m.role === 'user'"
             type="button"
             class="pat-assistant-copy-to-draft"
@@ -122,7 +134,7 @@
             <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
           </button>
         </div>
-        <div class="pat-assistant-bubble-body pat-assistant-rich-text" [innerHTML]="messageRichHtml(m)"></div>
+        <div class="pat-assistant-bubble-body pat-assistant-rich-text" [innerHTML]="bubbleRichHtml(m)"></div>
         <div
           *ngIf="replyProviderModelLine(m) || replyStatsLine(m)"
           class="pat-assistant-reply-footer">

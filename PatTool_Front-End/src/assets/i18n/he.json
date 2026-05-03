@@ -46,7 +46,8 @@
         "LINKS_ADMINISTRATION": "ניהול",
         "CALENDAR": "יומן",
         "ORGANISATION": "ארגון",
-        "TODOLISTS": "רשימות משימות"
+        "TODOLISTS": "רשימות משימות",
+        "CALCULATOR": "מחשבון"
     },
     "IOT_PROXY": {
         "TITLE": "פרוקסי HTTP לרשת מקומית",
@@ -1368,9 +1369,23 @@
         "WITHLASTFIRSTQUESTION": "X השאלות הראשונות",
         "CLEAR": "נקה"
     },
+    "CALCULATOR": {
+        "TITLE": "מחשבון",
+        "SUBTITLE": "פעולות חשבון בסיסיות (+, −, ×, ÷). לחץ על האזור או על Tab להפעלת המקלדת.",
+        "C": "C",
+        "CE": "CE",
+        "BACKSPACE": "מחק אחורה",
+        "DISPLAY_ARIA": "תוצאת החישוב",
+        "PANEL_ARIA": "מחשבון",
+        "KEYBOARD_HINT": "מקלדת: ספרות; + − * /; Enter או = לתוצאה; Esc מנקה הכל; מחק אחורה מוחק את הספרה האחרונה.",
+        "TAPE_MODE_LABEL": "תצוגה מפורטת (מספרים ופעולות, שורה לכל אחד)",
+        "TAPE_ARIA": "שלבי החישוב",
+        "TAPE_EMPTY": "כל מספר ופעולה יוצגו כאן."
+    },
     "ASSISTANT": {
         "TITLE": "עוזר PatTool",
         "TOGGLE": "פתיחה או סגירה של העוזר החכם",
+        "FAB_REPLY_READY_TITLE": "תשובה חדשה מוכנה — פתח את העוזר",
         "EMPTY": "שאל שאלה. השיחה נשארת בלוח זה; ההודעות עוברות דרך השרת בלבד.",
         "YOU": "אתה",
         "AI": "העוזר",
@@ -1386,6 +1401,7 @@
         "NEW_CHAT_TITLE": "ניקוי היסטוריית הצ'אט וההקשר בלשונית הזו והתחלה מחדש",
         "ASK_FROM_EVENT_TITLE": "לפתוח את העוזר עם שם הפעילות כהודעה",
         "COPY_TO_INPUT_TITLE": "להעתיק את השאלה לשדה ההודעה",
+        "COPY_REPLY_TITLE": "להעתיק את התשובה ללוח",
         "CREDITS_TITLE": "יתרת OpenAI (USD)",
         "CREDITS_TOGGLE": "להציג או להסתיר פירוט זיכויי ה־API",
         "CREDITS_LOADING": "טוען נתוני יתרה…",
@@ -1393,11 +1409,11 @@
         "CREDITS_GRANTED": "סה״כ הוקצה",
         "CREDITS_USED": "סה״כ נוצל",
         "CREDITS_NETWORK_ERROR": "לא ניתן להתחבר לשרת.",
-        "CREDITS_ERR_NO_RESPONSE": "No response from the PatTool server. Check that the backend is running and that environment API_URL matches the Spring port (see README server.port — often http://localhost:8000/api/ in dev).",
-        "CREDITS_ERR_UNAUTHORIZED": "Access denied (401/403). Sign in again or check your session.",
-        "CREDITS_ERR_NOT_FOUND": "Credits endpoint not found (404). Check backend version and API_URL (expected …/api/assistant/openai/credits).",
-        "CREDITS_ERR_HTTP": "HTTP error {{status}} when calling PatTool.",
-        "CREDITS_ERR_TOKEN": "Could not obtain an auth token. Try again or sign in.",
+        "CREDITS_ERR_NO_RESPONSE": "אין תגובה משרת PatTool. ודא שה-backend פועל וש-API_URL בסביבה תואם לפורט של Spring (ראה README server.port — לעיתים http://localhost:8000/api/ בפיתוח).",
+        "CREDITS_ERR_UNAUTHORIZED": "הגישה נדחתה (401/403). התחבר שוב או בדוק את הסשן.",
+        "CREDITS_ERR_NOT_FOUND": "נקודת קצה של זיכויים לא נמצאה (404). בדוק גרסת backend ו-API_URL (נתיב צפוי: …/api/assistant/openai/credits).",
+        "CREDITS_ERR_HTTP": "שגיאת HTTP {{status}} בקריאה ל-PatTool.",
+        "CREDITS_ERR_TOKEN": "לא ניתן לקבל אסימון אימות. נסה שוב או התחבר מחדש.",
         "STAT_MS": "{{ms}} ms",
         "STAT_MS_AND_TOKENS": "{{ms}} ms · {{total}} טוקנים (כניסה {{in}} · יציאה {{out}})",
         "STAT_TOKENS": "{{total}} טוקנים (כניסה {{in}} · יציאה {{out}})",

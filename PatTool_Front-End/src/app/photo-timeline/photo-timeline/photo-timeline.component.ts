@@ -3002,7 +3002,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         if (!name || !group?.eventId || !this.isAssistantUser()) {
             return;
         }
-        this.assistantLaunch.openWithDraft(name);
+        this.assistantLaunch.openWithDraft(name, { newConversation: true });
     }
 
     /** Opens the activity’s linked to-do list in a modal (same overlay as agenda / cartes). */
