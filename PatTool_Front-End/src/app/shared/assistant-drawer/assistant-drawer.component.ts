@@ -7,8 +7,7 @@ import {
   HostListener,
   OnDestroy,
   OnInit,
-  ChangeDetectorRef,
-  SecurityContext
+  ChangeDetectorRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -26,7 +25,7 @@ import {
 } from '../../services/assistant.service';
 import { AssistantSessionStore } from '../../services/assistant-session.store';
 import { AssistantLaunchService } from '../../services/assistant-launch.service';
-import { marked, setOptions } from 'marked';
+import { MarkdownChatRenderService } from '../../services/markdown-chat-render.service';
 import { NewsTickerService } from '../../services/news-ticker.service';
 import { CurrencyTickerService } from '../../services/currency-ticker.service';
 import { StockTickerService } from '../../services/stock-ticker.service';
@@ -36,7 +35,7 @@ import { StockTickerService } from '../../services/stock-ticker.service';
   standalone: true,
   imports: [CommonModule, FormsModule, TranslateModule],
   templateUrl: './assistant-drawer.component.html',
-  styleUrls: ['./assistant-drawer.component.css']
+  styleUrls: ['./assistant-drawer.component.css', '../markdown-chat-content.css']
 })
 export class AssistantDrawerComponent
   implements AfterViewInit, AfterViewChecked, OnInit, OnDestroy
@@ -83,12 +82,15 @@ export class AssistantDrawerComponent
     private stockTicker: StockTickerService,
     private cdr: ChangeDetectorRef,
     private translate: TranslateService,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private mdChat: MarkdownChatRenderService
   ) {}
 
-  ngOnInit(): void {
-    setOptions({ breaks: true, gfm: true });
+  /** Ligne « fournisseur · modèle » issue de application.properties (GET /assistant/config). */
+  clientConfigMetaLine = '';
+  private assistantClientConfigLoaded = false;
 
+  ngOnInit(): void {
     this.tickerLayoutSub = combineLatest([
       this.newsTicker.enabled$,
       this.currencyTicker.enabled$,
@@ -113,6 +115,7 @@ export class AssistantDrawerComponent
         this.messages = saved.messages;
         this.draft = saved.draft;
       }
+      this.loadAssistantClientConfig();
     }
 
     this.assistantLaunchSub = this.assistantLaunch.launches$.subscribe((p) => {
@@ -133,6 +136,45 @@ export class AssistantDrawerComponent
     queueMicrotask(() => this.scheduleFabAnchorUpdate());
     setTimeout(() => this.scheduleFabAnchorUpdate(), 0);
     setTimeout(() => this.scheduleFabAnchorUpdate(), 120);
+  }
+
+  private loadAssistantClientConfig(): void {
+    this.assistant.getAssistantClientConfig().subscribe((c) => {
+      const p = typeof c.provider === 'string' ? c.provider.trim() : '';
+      const m = typeof c.model === 'string' ? c.model.trim() : '';
+      this.clientConfigMetaLine = [p, m].filter((x) => x.length > 0).join(' · ');
+      this.assistantClientConfigLoaded = true;
+      this.cdr.markForCheck();
+    });
+  }
+
+  /** Sous-titre du bandeau : config serveur en priorité, sinon dernière réponse. */
+  headerTitleMetaLine(): string {
+    if (this.clientConfigMetaLine) {
+      return this.clientConfigMetaLine;
+    }
+    return this.headerProviderModelLine();
+  }
+
+  /** Fournisseur · modèle affichés sous le titre du panneau (dernière réponse assistant). */
+  headerProviderModelLine(): string {
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      const m = this.messages[i];
+      if (m.role === 'assistant') {
+        const line = this.replyProviderModelLine(m);
+        if (line.length > 0) {
+          return line;
+        }
+      }
+    }
+    return '';
+  }
+
+  /** Libellé accessibilité du panneau : titre + fournisseur/modèle si connus. */
+  drawerAriaLabel(): string {
+    const base = this.translate.instant('ASSISTANT.TITLE');
+    const meta = this.headerTitleMetaLine();
+    return meta ? `${base} — ${meta}` : base;
   }
 
   /** Fournisseur et modèle (réponse succès uniquement si le backend les envoie). */
@@ -415,7 +457,10 @@ export class AssistantDrawerComponent
    */
   messageRichHtml(m: AssistantChatTurn): SafeHtml {
     if (m.role === 'assistant') {
-      return this.assistantMarkdownHtml(m.content);
+      const md = this.mdChat.renderModelReply(m.content);
+      if (md != null) {
+        return md;
+      }
     }
     return this.linkRichContent(m.content);
   }
@@ -461,22 +506,6 @@ export class AssistantDrawerComponent
     built += this.escapeHtmlBasic(s.slice(last));
     built = built.replace(/\r\n|\r|\n/g, '<br>');
     return this.sanitizer.bypassSecurityTrustHtml(built);
-  }
-
-  /** Markdown → HTML sanitisé (réponses modèle). */
-  private assistantMarkdownHtml(text: string | null | undefined): SafeHtml {
-    if (text == null || text === '') {
-      return this.sanitizer.bypassSecurityTrustHtml('');
-    }
-    let raw: string;
-    try {
-      raw = marked(String(text), { async: false });
-    } catch {
-      return this.linkRichContent(text);
-    }
-    const wrapped = '<div class="pat-assistant-md">' + raw + '</div>';
-    const cleaned = this.sanitizer.sanitize(SecurityContext.HTML, wrapped);
-    return this.sanitizer.bypassSecurityTrustHtml(cleaned ?? '');
   }
 
   private escapeHtmlBasic(t: string): string {
@@ -540,6 +569,9 @@ export class AssistantDrawerComponent
       return;
     }
     this.isOpen = !this.isOpen;
+    if (this.isOpen && !this.assistantClientConfigLoaded) {
+      this.loadAssistantClientConfig();
+    }
     if (!this.isOpen) {
       this.creditsBannerOpen = false;
       return;

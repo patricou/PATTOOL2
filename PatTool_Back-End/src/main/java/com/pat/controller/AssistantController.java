@@ -2,6 +2,7 @@ package com.pat.controller;
 
 import com.pat.controller.dto.AssistantChatRequestDto;
 import com.pat.controller.dto.AssistantChatResponseDto;
+import com.pat.controller.dto.AssistantClientConfigDto;
 import com.pat.controller.dto.AssistantOpenAiCreditsDto;
 import com.pat.service.OpenAiAssistantService;
 import com.pat.service.OpenAiBillingService;
@@ -24,6 +25,18 @@ public class AssistantController {
             OpenAiBillingService openAiBillingService) {
         this.openAiAssistantService = openAiAssistantService;
         this.openAiBillingService = openAiBillingService;
+    }
+
+    /**
+     * Fournisseur et modèle configurés ({@code openai.provider}, {@code openai.assistant.model}) pour l’affichage dans l’UI.
+     */
+    @GetMapping("/assistant/config")
+    public ResponseEntity<AssistantClientConfigDto> assistantClientConfig() {
+        String p = openAiAssistantService.getConfiguredProviderLabel();
+        String m = openAiAssistantService.getConfiguredModel();
+        return ResponseEntity.ok(new AssistantClientConfigDto(
+                p.isEmpty() ? null : p,
+                m.isEmpty() ? null : m));
     }
 
     /**

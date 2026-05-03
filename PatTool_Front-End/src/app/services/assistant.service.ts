@@ -75,11 +75,18 @@ export interface AssistantOpenAiCredits {
   message?: string | null;
 }
 
+/** openai.provider + openai.assistant.model (backend application.properties). */
+export interface AssistantClientConfig {
+  provider?: string | null;
+  model?: string | null;
+}
+
 
 @Injectable({ providedIn: 'root' })
 export class AssistantService {
   private readonly apiUrl = environment.API_URL + 'assistant/chat';
   private readonly creditsUrl = environment.API_URL + 'assistant/openai/credits';
+  private readonly configUrl = environment.API_URL + 'assistant/config';
 
   constructor(
     private http: HttpClient,
@@ -125,6 +132,18 @@ export class AssistantService {
             })
           )
       )
+    );
+  }
+
+  /** Configuration affichable (application.properties côté serveur). */
+  getAssistantClientConfig(): Observable<AssistantClientConfig> {
+    return this.authHeaders().pipe(
+      switchMap((headers) =>
+        this.http
+          .get<AssistantClientConfig>(this.configUrl, { headers })
+          .pipe(catchError(() => of({})))
+      ),
+      catchError(() => of({}))
     );
   }
 

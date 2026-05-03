@@ -2036,6 +2036,7 @@
         "PDFS_WALL_TABLE_TITLE": "Έγγραφα PDF",
         "PDF_TABLE_DOWNLOAD": "Λήψη PDF",
         "WALL_UPLOAD_BTN": "Προσθήκη αρχείων στη δραστηριότητα (φωτογραφίες, βίντεο, ίχνη GPS, PDF…)",
+        "ASSISTANT_EVENT": "Βοηθός AI",
         "WALL_UPLOADING": "Μεταφόρτωση αρχείων…",
         "WALL_UPLOAD_LOG_WAITING": "Αναμονή έναρξης μεταφόρτωσης…"
     },

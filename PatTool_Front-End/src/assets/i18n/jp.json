@@ -2039,6 +2039,7 @@
         "PDFS_WALL_TABLE_TITLE": "PDF ドキュメント",
         "PDF_TABLE_DOWNLOAD": "PDF をダウンロード",
         "WALL_UPLOAD_BTN": "このアクティビティにファイルを追加（写真、動画、GPSトラック、PDF など）",
+        "ASSISTANT_EVENT": "AIアシスタント",
         "WALL_UPLOADING": "ファイルをアップロード中…",
         "WALL_UPLOAD_LOG_WAITING": "アップロードの開始を待っています…"
     },

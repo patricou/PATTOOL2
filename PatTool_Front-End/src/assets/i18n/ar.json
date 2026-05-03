@@ -2031,6 +2031,7 @@
         "PDFS_WALL_TABLE_TITLE": "مستندات PDF",
         "PDF_TABLE_DOWNLOAD": "تنزيل PDF",
         "WALL_UPLOAD_BTN": "إضافة ملفات إلى هذا النشاط (صور، فيديو، مسارات GPS، PDF…)",
+        "ASSISTANT_EVENT": "مساعد الذكاء الاصطناعي",
         "WALL_UPLOADING": "جاري رفع الملفات…",
         "WALL_UPLOAD_LOG_WAITING": "في انتظار بدء الرفع…"
     },

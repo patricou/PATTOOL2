@@ -1,0 +1,243 @@
+/* Contenu Markdown partagé : panneau assistant + PatGPT (réponses modèle). */
+
+.pat-assistant-md {
+  font-size: 0.94rem;
+  line-height: 1.58;
+  color: #334155;
+  overflow-wrap: anywhere;
+}
+
+.pat-assistant-md--plain {
+  color: inherit;
+}
+
+.pat-assistant-md > :first-child {
+  margin-top: 0;
+}
+
+.pat-assistant-md > :last-child {
+  margin-bottom: 0;
+}
+
+.pat-assistant-md p {
+  margin: 0 0 0.62rem;
+}
+
+.pat-assistant-md h1,
+.pat-assistant-md h2,
+.pat-assistant-md h3,
+.pat-assistant-md h4,
+.pat-assistant-md h5,
+.pat-assistant-md h6 {
+  margin: 0.9rem 0 0.42rem;
+  font-weight: 700;
+  line-height: 1.28;
+  color: #1e293b;
+  letter-spacing: -0.015em;
+}
+
+.pat-assistant-md h1 {
+  font-size: 1.14rem;
+  color: #0f172a;
+  border-bottom: 2px solid rgba(37, 99, 235, 0.18);
+  padding-bottom: 0.3rem;
+}
+
+.pat-assistant-md h2 {
+  font-size: 1.05rem;
+  color: #1e3a8a;
+}
+
+.pat-assistant-md h3 {
+  font-size: 0.98rem;
+  color: #334155;
+}
+
+.pat-assistant-md h4,
+.pat-assistant-md h5,
+.pat-assistant-md h6 {
+  font-size: 0.92rem;
+}
+
+.pat-assistant-md strong {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.pat-assistant-md em {
+  font-style: italic;
+  color: #475569;
+}
+
+.pat-assistant-md u,
+.pat-assistant-md ins {
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 2px;
+  color: #1d4ed8;
+}
+
+.pat-assistant-md mark {
+  background: linear-gradient(104deg, #fef08a 0%, #fde047 90%);
+  color: #713f12;
+  padding: 0.06em 0.28em;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.pat-assistant-md del,
+.pat-assistant-md s {
+  color: #94a3b8;
+}
+
+.pat-assistant-md ul,
+.pat-assistant-md ol {
+  margin: 0.4rem 0 0.65rem;
+  padding-left: 1.35rem;
+}
+
+.pat-assistant-md li {
+  margin: 0.22rem 0;
+}
+
+.pat-assistant-md li::marker {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.pat-assistant-md blockquote {
+  margin: 0.55rem 0;
+  padding: 0.5rem 0.9rem;
+  border-left: 4px solid #60a5fa;
+  background: linear-gradient(90deg, rgba(239, 246, 255, 0.95) 0%, rgba(248, 250, 252, 0.6) 100%);
+  color: #1e40af;
+  border-radius: 0 10px 10px 0;
+}
+
+.pat-assistant-md blockquote blockquote {
+  margin-left: 0;
+  border-left-color: #93c5fd;
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.pat-assistant-md hr {
+  border: none;
+  border-top: 1px solid rgba(148, 163, 184, 0.5);
+  margin: 0.95rem 0;
+}
+
+.pat-assistant-md :not(pre) > code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.86em;
+  font-weight: 600;
+  color: #5b21b6;
+  background: linear-gradient(180deg, #f5f3ff 0%, #ede9fe 100%);
+  padding: 0.14em 0.4em;
+  border-radius: 6px;
+  border: 1px solid rgba(167, 139, 250, 0.35);
+}
+
+.pat-assistant-md pre {
+  margin: 0.6rem 0 0.72rem;
+  padding: 0.75rem 0.95rem;
+  overflow-x: auto;
+  font-size: 0.8125rem;
+  line-height: 1.52;
+  color: #e2e8f0;
+  background: linear-gradient(165deg, #1e293b 0%, #0f172a 55%, #020617 100%);
+  border-radius: 10px;
+  border: 1px solid rgba(51, 65, 85, 0.95);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.pat-assistant-md pre code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  font-weight: 400;
+}
+
+/* Tableaux GFM */
+.pat-assistant-md table {
+  width: 100%;
+  min-width: 280px;
+  border-collapse: collapse;
+  margin: 0.6rem 0 0.75rem;
+  font-size: 0.88rem;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+}
+
+.pat-assistant-md th,
+.pat-assistant-md td {
+  border: 1px solid #e2e8f0;
+  padding: 0.45rem 0.55rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.pat-assistant-md thead tr {
+  background: linear-gradient(180deg, #1e40af 0%, #2563eb 100%);
+  color: #ffffff;
+}
+
+.pat-assistant-md th {
+  background: transparent;
+  font-weight: 700;
+  color: inherit;
+  letter-spacing: 0.01em;
+}
+
+.pat-assistant-md tbody tr:nth-child(even) td {
+  background: #f8fafc;
+}
+
+.pat-assistant-md tbody tr:hover td {
+  background: #eff6ff;
+}
+
+.pat-assistant-md td strong {
+  color: #0f172a;
+}
+
+/* Liens (Markdown + postprocess ciblant .pat-assistant-md-a) */
+.pat-assistant-md a,
+.pat-assistant-md-a {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  word-break: break-word;
+}
+
+.pat-assistant-md a:hover,
+.pat-assistant-md-a:hover {
+  color: #1d4ed8;
+  text-decoration-thickness: 2px;
+}
+
+.pat-assistant-md img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0.55rem 0;
+  border-radius: 10px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
+}
+
+.pat-assistant-md input[type='checkbox'] {
+  margin-right: 0.4rem;
+  vertical-align: middle;
+  accent-color: #3b82f6;
+}
+
+.pat-assistant-md sup,
+.pat-assistant-md sub {
+  font-size: 0.76em;
+}

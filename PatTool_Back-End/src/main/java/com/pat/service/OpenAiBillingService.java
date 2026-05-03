@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pat.controller.dto.AssistantOpenAiCreditsDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -35,7 +36,9 @@ public class OpenAiBillingService {
     @Value("${openai.billing.credit-grants-url}")
     private String creditGrantsUrl;
 
-    public OpenAiBillingService(RestTemplate restTemplate, ObjectMapper objectMapper) {
+    public OpenAiBillingService(
+            @Qualifier("openAiRestTemplate") RestTemplate restTemplate,
+            ObjectMapper objectMapper) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
     }

@@ -26,11 +26,16 @@
   [class.pat-assistant-drawer--fullscreen]="fullscreen"
   role="dialog"
   [attr.aria-hidden]="!isOpen"
-  [attr.aria-label]="'ASSISTANT.TITLE' | translate">
+  [attr.aria-label]="drawerAriaLabel()">
   <div class="pat-assistant-drawer-header">
     <div class="pat-assistant-drawer-title">
       <i class="fa fa-magic me-2" aria-hidden="true"></i>
-      <span>{{ 'ASSISTANT.TITLE' | translate }}</span>
+      <div class="pat-assistant-drawer-title-stack">
+        <span class="pat-assistant-drawer-title-main">{{ 'ASSISTANT.TITLE' | translate }}</span>
+        <span *ngIf="headerTitleMetaLine()" class="pat-assistant-drawer-title-meta">{{
+          headerTitleMetaLine()
+        }}</span>
+      </div>
     </div>
     <div class="pat-assistant-drawer-actions">
       <button

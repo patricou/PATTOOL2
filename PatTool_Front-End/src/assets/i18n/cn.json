@@ -2033,6 +2033,7 @@
         "PDFS_WALL_TABLE_TITLE": "PDF 文档",
         "PDF_TABLE_DOWNLOAD": "下载 PDF",
         "WALL_UPLOAD_BTN": "为此活动添加文件（照片、视频、GPS 轨迹、PDF 等）",
+        "ASSISTANT_EVENT": "AI 助手",
         "WALL_UPLOADING": "正在上传文件…",
         "WALL_UPLOAD_LOG_WAITING": "等待上传开始…"
     },

@@ -2027,6 +2027,7 @@
         "PDFS_WALL_TABLE_TITLE": "PDF-документы",
         "PDF_TABLE_DOWNLOAD": "Скачать PDF",
         "WALL_UPLOAD_BTN": "Добавить файлы к активности (фото, видео, GPS-треки, PDF…)",
+        "ASSISTANT_EVENT": "ИИ-ассистент",
         "WALL_UPLOADING": "Загрузка файлов…",
         "WALL_UPLOAD_LOG_WAITING": "Ожидание начала загрузки…"
     },

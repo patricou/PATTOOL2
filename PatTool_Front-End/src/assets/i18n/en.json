@@ -2028,6 +2028,8 @@
         "SHARE_FAILED": "Failed to share",
         "CHART_INCLUDED": "Chart included in original view",
         "SHARE_WEATHER": "Share Weather",
+        "ASSISTANT_CITY_TITLE": "Open the AI assistant with this city and country in the message.",
+        "ASSISTANT_CITY_BTN": "Assistant",
         "IMAGE_DATA_URL": "Image URL:"
     },
     "ADDRESS_GEOCODE": {
@@ -2117,6 +2119,7 @@
         "PDFS_WALL_TABLE_TITLE": "PDF documents",
         "PDF_TABLE_DOWNLOAD": "Download PDF",
         "WALL_UPLOAD_BTN": "Add files to this activity (photos, videos, GPS tracks, PDF…)",
+        "ASSISTANT_EVENT": "AI assistant",
         "WALL_UPLOADING": "Uploading files…",
         "WALL_UPLOAD_LOG_WAITING": "Waiting for upload to start…"
     },

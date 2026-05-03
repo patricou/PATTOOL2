@@ -2039,6 +2039,7 @@
         "PDFS_WALL_TABLE_TITLE": "Documentos PDF",
         "PDF_TABLE_DOWNLOAD": "Descargar PDF",
         "WALL_UPLOAD_BTN": "Añadir archivos a esta actividad (fotos, vídeos, trazas GPS, PDF…)",
+        "ASSISTANT_EVENT": "Asistente IA",
         "WALL_UPLOADING": "Subiendo archivos…",
         "WALL_UPLOAD_LOG_WAITING": "Esperando el inicio de la subida…"
     },

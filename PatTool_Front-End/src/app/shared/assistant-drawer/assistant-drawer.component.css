@@ -179,10 +179,32 @@
   align-items: center;
   letter-spacing: -0.02em;
   color: #ffffff;
+  min-width: 0;
+  flex: 1;
+}
+
+.pat-assistant-drawer-title-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.pat-assistant-drawer-title-main {
+  line-height: 1.25;
+}
+
+.pat-assistant-drawer-title-meta {
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.88);
+  word-break: break-word;
 }
 
 .pat-assistant-drawer-title .fa-magic {
   color: #bfdbfe;
+  flex-shrink: 0;
 }
 
 .pat-assistant-drawer-actions {
@@ -412,6 +434,7 @@
   white-space: normal;
   word-break: break-word;
   line-height: 1.52;
+  overflow-x: auto;
 }
 
 .pat-assistant-rich-text .pat-assistant-link {
@@ -436,181 +459,6 @@
 
 .pat-assistant-bubble--assistant .pat-assistant-rich-text .pat-assistant-link:hover {
   color: #1d4ed8;
-}
-
-/* Markdown (réponses assistant : gras, italique, listes, tableaux, code…) */
-.pat-assistant-md {
-  font-size: 0.94rem;
-  line-height: 1.56;
-  color: #334155;
-}
-
-.pat-assistant-md > :first-child {
-  margin-top: 0;
-}
-
-.pat-assistant-md > :last-child {
-  margin-bottom: 0;
-}
-
-.pat-assistant-md p {
-  margin: 0 0 0.62rem;
-}
-
-.pat-assistant-md h1,
-.pat-assistant-md h2,
-.pat-assistant-md h3,
-.pat-assistant-md h4,
-.pat-assistant-md h5,
-.pat-assistant-md h6 {
-  margin: 0.85rem 0 0.45rem;
-  font-weight: 700;
-  line-height: 1.28;
-  color: #1e293b;
-  letter-spacing: -0.01em;
-}
-
-.pat-assistant-md h1 {
-  font-size: 1.15rem;
-  color: #0f172a;
-  border-bottom: 1px solid rgba(37, 99, 235, 0.12);
-  padding-bottom: 0.25rem;
-}
-
-.pat-assistant-md h2 {
-  font-size: 1.06rem;
-  color: #1e293b;
-}
-
-.pat-assistant-md h3 {
-  font-size: 0.98rem;
-  color: #334155;
-}
-
-.pat-assistant-md h4,
-.pat-assistant-md h5,
-.pat-assistant-md h6 {
-  font-size: 0.92rem;
-}
-
-.pat-assistant-md strong {
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.pat-assistant-md em {
-  font-style: italic;
-  color: #475569;
-}
-
-.pat-assistant-md del,
-.pat-assistant-md s {
-  color: #94a3b8;
-}
-
-.pat-assistant-md ul,
-.pat-assistant-md ol {
-  margin: 0.4rem 0 0.65rem;
-  padding-left: 1.35rem;
-}
-
-.pat-assistant-md li {
-  margin: 0.2rem 0;
-}
-
-.pat-assistant-md li::marker {
-  color: #3b82f6;
-}
-
-.pat-assistant-md blockquote {
-  margin: 0.55rem 0;
-  padding: 0.45rem 0.85rem;
-  border-left: 4px solid #93c5fd;
-  background: rgba(239, 246, 255, 0.75);
-  color: #1e40af;
-  border-radius: 0 8px 8px 0;
-}
-
-.pat-assistant-md hr {
-  border: none;
-  border-top: 1px solid rgba(148, 163, 184, 0.45);
-  margin: 0.85rem 0;
-}
-
-.pat-assistant-md :not(pre) > code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.86em;
-  font-weight: 500;
-  color: #6d28d9;
-  background: rgba(245, 243, 255, 0.95);
-  padding: 0.12em 0.38em;
-  border-radius: 5px;
-  border: 1px solid rgba(167, 139, 250, 0.28);
-}
-
-.pat-assistant-md pre {
-  margin: 0.55rem 0 0.7rem;
-  padding: 0.65rem 0.85rem;
-  overflow-x: auto;
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  color: #e2e8f0;
-  background: linear-gradient(160deg, #1e293b 0%, #0f172a 100%);
-  border-radius: 9px;
-  border: 1px solid rgba(51, 65, 85, 0.9);
-}
-
-.pat-assistant-md pre code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: inherit;
-  color: inherit;
-  background: none;
-  border: none;
-  padding: 0;
-  font-weight: 400;
-}
-
-.pat-assistant-md table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 0.55rem 0 0.65rem;
-  font-size: 0.88rem;
-}
-
-.pat-assistant-md th,
-.pat-assistant-md td {
-  border: 1px solid #e2e8f0;
-  padding: 0.35rem 0.5rem;
-  text-align: left;
-  vertical-align: top;
-}
-
-.pat-assistant-md th {
-  background: #f1f5f9;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.pat-assistant-md tr:nth-child(even) td {
-  background: #f8fafc;
-}
-
-.pat-assistant-md a {
-  color: #2563eb;
-  font-weight: 550;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  word-break: break-all;
-}
-
-.pat-assistant-md a:hover {
-  color: #1d4ed8;
-}
-
-.pat-assistant-md input[type='checkbox'] {
-  margin-right: 0.4rem;
-  vertical-align: middle;
-  accent-color: #3b82f6;
 }
 
 .pat-assistant-loading {

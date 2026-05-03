@@ -61,6 +61,18 @@
                                    [placeholder]="'API.CITY_PLACEHOLDER' | translate"
                                    (keyup.enter)="searchCityAndGetCoordinates()"
                                    (focus)="closeCitySearchResults()">
+                            <button *ngIf="isAssistantUser() && cityLocationDraft()"
+                                    type="button"
+                                    class="btn btn-outline-secondary btn-weather"
+                                    (click)="openAssistantForCity($event)"
+                                    title="{{ 'API.ASSISTANT_CITY_TITLE' | translate }}"
+                                    ngbTooltip="{{ 'API.ASSISTANT_CITY_TITLE' | translate }}"
+                                    placement="bottom"
+                                    container="body"
+                                    [attr.aria-label]="'API.ASSISTANT_CITY_TITLE' | translate">
+                                <i class="fa fa-magic" aria-hidden="true"></i>
+                                <span class="btn-text">{{ 'API.ASSISTANT_CITY_BTN' | translate }}</span>
+                            </button>
                             <button (click)="searchCityAndGetCoordinates()" 
                                     class="btn btn-primary"
                                     [disabled]="isLoadingCitySearch"

@@ -2017,6 +2017,8 @@
         "SHARE_FAILED": "Échec du partage",
         "CHART_INCLUDED": "Graphique inclus dans la vue originale",
         "SHARE_WEATHER": "Partager la météo",
+        "ASSISTANT_CITY_TITLE": "Ouvrir l’assistant IA avec cette ville et ce pays dans le message.",
+        "ASSISTANT_CITY_BTN": "Assistant",
         "IMAGE_DATA_URL": "URL de l'image:"
     },
     "ADDRESS_GEOCODE": {
@@ -2106,6 +2108,7 @@
         "PDFS_WALL_TABLE_TITLE": "Documents PDF",
         "PDF_TABLE_DOWNLOAD": "Télécharger le PDF",
         "WALL_UPLOAD_BTN": "Ajouter des fichiers à cette activité (photos, vidéos, traces GPS, PDF…)",
+        "ASSISTANT_EVENT": "Assistant IA",
         "WALL_UPLOADING": "Envoi des fichiers en cours…",
         "WALL_UPLOAD_LOG_WAITING": "En attente du début de l'envoi…"
     },

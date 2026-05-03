@@ -6,6 +6,8 @@ import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { ApiService } from '../services/api.service';
+import { AssistantLaunchService } from '../services/assistant-launch.service';
+import { KeycloakService } from '../keycloak/keycloak.service';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration, ChartOptions } from 'chart.js';
 import { Chart, registerables } from 'chart.js';
@@ -374,8 +376,34 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
   constructor(
     private apiService: ApiService,
     private translateService: TranslateService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private assistantLaunch: AssistantLaunchService,
+    private keycloak: KeycloakService
   ) {}
+
+  isAssistantUser(): boolean {
+    return this.keycloak.isLoggedIn();
+  }
+
+  /** City (+ ISO country when set) pre-filled for the PatTool assistant. */
+  cityLocationDraft(): string {
+    const c = (this.city || '').trim();
+    const cc = (this.countryCode || '').trim().toUpperCase();
+    if (!c) {
+      return '';
+    }
+    return cc ? `${c}, ${cc}` : c;
+  }
+
+  openAssistantForCity(ev: MouseEvent): void {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const draft = this.cityLocationDraft();
+    if (!draft) {
+      return;
+    }
+    this.assistantLaunch.openWithDraft(draft);
+  }
 
   ngOnInit(): void {
     this.loadApiStatus();

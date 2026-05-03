@@ -35,6 +35,7 @@ import { ScaleRowToFitDirective } from './scale-row-to-fit.directive';
 import { computeTrackStatsFromFileContent } from '../track-route-stats.util';
 import { getEventTypeFaIconSuffix } from '../../shared/event-type-icon.util';
 import { TodoListDetailOverlayService } from '../../todolists/todo-list-detail-overlay.service';
+import { AssistantLaunchService } from '../../services/assistant-launch.service';
 
 const BUFFER_AHEAD = 3;
 /** Number of groups (activities) to load per API request. */
@@ -300,7 +301,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         private ngZone: NgZone,
         private videoCompressionService: VideoCompressionService,
         private videoUploadProcessingService: VideoUploadProcessingService,
-        private todoListOverlay: TodoListDetailOverlayService
+        private todoListOverlay: TodoListDetailOverlayService,
+        private assistantLaunch: AssistantLaunchService
     ) {}
 
     ngOnInit(): void {
@@ -2986,6 +2988,21 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             error: () => alert(this.translate.instant('EVENTELEM.ERROR_DELETING_COMMENTARY'))
         });
         this.subscriptions.push(sub);
+    }
+
+    /** PatTool assistant : même principe que element-evenement (brouillon = titre de l’activité). */
+    isAssistantUser(): boolean {
+        return this.keycloakService.isLoggedIn();
+    }
+
+    openAssistantForWallGroup(group: TimelineGroup, ev: MouseEvent): void {
+        ev.stopPropagation();
+        ev.preventDefault();
+        const name = group?.eventName?.trim();
+        if (!name || !group?.eventId || !this.isAssistantUser()) {
+            return;
+        }
+        this.assistantLaunch.openWithDraft(name);
     }
 
     /** Opens the activity’s linked to-do list in a modal (same overlay as agenda / cartes). */

@@ -12,7 +12,12 @@
       <div class="chat-card">
         <div class="card-header">
           <i class="fa fa-robot"></i>
-          <h3>Assistant IA</h3>
+          <h3 class="patgpt-chat-heading">
+            Assistant IA
+            <small *ngIf="patGptHeaderMeta() as meta" class="patgpt-header-model">{{
+              meta
+            }}</small>
+          </h3>
           <div class="header-info">
             <small class="current-date">{{ currentDate | date:'fullDate' }} / {{ currentDate | date:'mediumTime' }}</small>
             <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" class="billing-link">
@@ -91,9 +96,9 @@
                 <i class="fa fa-robot"></i>
                 <strong>{{"PATGPT.RESPONSE" | translate }}</strong>
               </div>
-              <div class="response-content">
-                {{ chatResponse.choices[0].message.content }}
-              </div>
+              <div
+                class="response-content patgpt-md-host"
+                [innerHTML]="patGptAnswerHtml()"></div>
               <div class="response-meta">
                 <div class="meta-item">
                   <i class="fa fa-fingerprint"></i>

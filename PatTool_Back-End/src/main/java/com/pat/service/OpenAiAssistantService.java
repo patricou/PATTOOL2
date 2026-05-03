@@ -7,10 +7,12 @@ import com.pat.controller.dto.AssistantChatResponseDto;
 import com.pat.controller.dto.AssistantTurnDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
@@ -44,9 +46,21 @@ public class OpenAiAssistantService {
     @Value("${openai.provider:OpenAI}")
     private String assistantProviderLabel;
 
-    public OpenAiAssistantService(RestTemplate restTemplate, ObjectMapper objectMapper) {
+    public OpenAiAssistantService(
+            @Qualifier("openAiRestTemplate") RestTemplate restTemplate,
+            ObjectMapper objectMapper) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
+    }
+
+    /** Valeur {@code openai.provider} pour l’UI (non sensible). */
+    public String getConfiguredProviderLabel() {
+        return assistantProviderLabel != null ? assistantProviderLabel.trim() : "";
+    }
+
+    /** Valeur {@code openai.assistant.model} pour l’UI (non sensible). */
+    public String getConfiguredModel() {
+        return model != null ? model.trim() : "";
     }
 
     public AssistantChatResponseDto complete(AssistantChatRequestDto request) {
@@ -81,7 +95,7 @@ public class OpenAiAssistantService {
         Map<String, Object> body = new HashMap<>();
         body.put("model", model);
         body.put("messages", chatMessages);
-        body.put("max_tokens", maxTokens);
+        body.put("max_completion_tokens", maxTokens);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -113,6 +127,17 @@ public class OpenAiAssistantService {
             return AssistantChatResponseDto.err(
                     "Erreur du fournisseur IA (" + e.getStatusCode().value() + ")"
                             + (hint != null ? ": " + hint : "."));
+        } catch (ResourceAccessException e) {
+            log.warn("OpenAI API I/O error: {}", e.getMessage());
+            Throwable cause = e.getCause();
+            if (cause instanceof java.net.SocketTimeoutException) {
+                return AssistantChatResponseDto.err(
+                        "Délai d’attente dépassé en lisant la réponse du fournisseur IA. "
+                                + "Les modèles lents peuvent nécessiter d’augmenter openai.http.read-timeout-seconds "
+                                + "(valeur actuelle en secondes dans application.properties). Réessayez.");
+            }
+            return AssistantChatResponseDto.err(
+                    "Impossible de joindre le fournisseur IA (réseau ou coupure). Réessayez plus tard.");
         } catch (Exception e) {
             log.error("OpenAI assistant request failed", e);
             return AssistantChatResponseDto.err("Erreur technique lors de l’appel à l’assistant.");

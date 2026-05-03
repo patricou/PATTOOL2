@@ -4,6 +4,7 @@ import com.pat.repo.domain.ChatRequest;
 import com.pat.repo.ChatRequestRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -42,7 +43,9 @@ public class ChatService {
     private final RestTemplate restTemplate;
     private final ChatRequestRepository chatRequestRepository;
 
-    public ChatService(RestTemplate restTemplate, ChatRequestRepository chatRequestRepository) {
+    public ChatService(
+            @Qualifier("openAiRestTemplate") RestTemplate restTemplate,
+            ChatRequestRepository chatRequestRepository) {
         this.restTemplate = restTemplate;
         this.chatRequestRepository = chatRequestRepository;
     }
@@ -80,7 +83,7 @@ public class ChatService {
         // Construire le corps de la requête en utilisant une Map
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("messages", List.of(Map.of("role", "user", "content", context)));
-        requestBody.put("max_tokens", openAiChatMaxTokens);
+        requestBody.put("max_completion_tokens", openAiChatMaxTokens);
         requestBody.put("model", openAiChatModel);
 
         //log.info("Request Body :  " + requestBody);

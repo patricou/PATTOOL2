@@ -180,6 +180,18 @@
                 </div>
                 <div class="group-header-actions group-header-actions-fit">
                     <div class="group-header-actions-fit-inner" ptScaleRowToFit>
+                    <button type="button"
+                            class="btn btn-sm group-action-btn group-action-btn--assistant"
+                            *ngIf="isAssistantUser() && group.eventId"
+                            (click)="openAssistantForWallGroup(group, $event)"
+                            [title]="'ASSISTANT.ASK_FROM_EVENT_TITLE' | translate"
+                            ngbTooltip="{{ 'ASSISTANT.ASK_FROM_EVENT_TITLE' | translate }}"
+                            placement="bottom"
+                            container="body"
+                            [attr.aria-label]="'ASSISTANT.ASK_FROM_EVENT_TITLE' | translate">
+                        <i class="fa fa-magic"></i>
+                        <span class="group-action-btn-text">{{ 'PHOTO_TIMELINE.ASSISTANT_EVENT' | translate }}</span>
+                    </button>
                     <button class="btn btn-sm group-action-btn group-action-btn--card"
                             (click)="openEventCardModal(group)"
                             [title]="'PHOTO_TIMELINE.EVENT_CARD' | translate">
