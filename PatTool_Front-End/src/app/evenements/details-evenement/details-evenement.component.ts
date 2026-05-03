@@ -22,7 +22,7 @@ import { Commentary } from '../../model/commentary';
 import { DiscussionService, DiscussionMessage } from '../../services/discussion.service';
 import { EvenementsService } from '../../services/evenements.service';
 import { MembersService } from '../../services/members.service';
-import { TodoList, TodoListService } from '../../todolists/todolist.service';
+import { AssistantLaunchService } from '../../services/assistant-launch.service';
 import { TodoListDetailOverlayService } from '../../todolists/todo-list-detail-overlay.service';
 import { FileService, ImageDownloadResult } from '../../services/file.service';
 import { WindowRefService } from '../../services/window-ref.service';
@@ -71,13 +71,6 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
   public accessDeniedOwnerEmail: string | null = null;
   public accessDeniedEventName: string | null = null;
   public accessDenied: boolean = false;
-
-  /** Lists owned by the current user (for linking to this activity). */
-  public eventOwnedTodoLists: TodoList[] = [];
-  public eventTodoListsLoading = false;
-  public eventSelectedTodoListId = '';
-  private eventLinkedTodoListIdInitial = '';
-  public eventAssignmentSaving = false;
 
   // API URLs
   public API_URL: string = environment.API_URL;
@@ -333,7 +326,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     private keycloakService: KeycloakService,
     private eventVideoPreloadService: EventVideoPreloadService,
     private addToDbLayer: AddToDbLayerService,
-    private todoListService: TodoListService,
+    private assistantLaunch: AssistantLaunchService,
     private todoListOverlay: TodoListDetailOverlayService
   ) {
     this.nativeWindow = winRef.getNativeWindow();
@@ -1068,10 +1061,6 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
       next: (evenement: Evenement) => {
         try {
           this.evenement = evenement;
-
-          this.eventLinkedTodoListIdInitial = (evenement.linkedTodoListId || '').trim();
-          this.eventSelectedTodoListId = this.eventLinkedTodoListIdInitial;
-          this.loadOwnedTodoListsForEvent();
 
           // Re-apply event color after event is loaded to ensure it's available
           try {
@@ -3542,68 +3531,28 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
 
-  public loadOwnedTodoListsForEvent(): void {
-    if (!this.user?.id || !this.evenement?.id || this.accessDenied) {
-      this.eventOwnedTodoLists = [];
-      this.eventTodoListsLoading = false;
-      return;
-    }
-    this.eventTodoListsLoading = true;
-    this.todoListService.listAccessible().subscribe({
-      next: lists => {
-        const uid = (this.user!.id || '').trim();
-        this.eventOwnedTodoLists = (lists || []).filter(
-          l => (l.ownerMemberId || '').trim() === uid && (l.id || '').trim().length > 0
-        );
-        this.eventTodoListsLoading = false;
-        this.cdr.markForCheck();
-      },
-      error: () => {
-        this.eventOwnedTodoLists = [];
-        this.eventTodoListsLoading = false;
-        this.cdr.markForCheck();
-      }
-    });
+  /** Même principe que element-evenement / mur de photos : brouillon = titre de l’activité. */
+  public isAssistantUser(): boolean {
+    return this.keycloakService.isLoggedIn();
   }
 
-  public saveEventTodoListAssignment(): void {
-    if (!this.evenement?.id || !this.user?.id) {
+  public openAssistantForEvent(ev: MouseEvent): void {
+    ev.stopPropagation();
+    ev.preventDefault();
+    const name = this.evenement?.evenementName?.trim();
+    if (!name || !this.isAssistantUser()) {
       return;
     }
-    const evId = this.evenement.id;
-    const desired = (this.eventSelectedTodoListId || '').trim();
-    const prev = (this.eventLinkedTodoListIdInitial || '').trim();
-    if (desired === prev) {
-      return;
-    }
-    this.eventAssignmentSaving = true;
-    this.cdr.markForCheck();
-    const done = (err: boolean): void => {
-      this.eventAssignmentSaving = false;
-      if (!err && this.evenement) {
-        this.eventLinkedTodoListIdInitial = desired;
-        this.evenement.linkedTodoListId = desired ? desired : undefined;
-      }
-      this.cdr.markForCheck();
-    };
-    if (!desired) {
-      if (!prev) {
-        done(false);
-        return;
-      }
-      this.todoListService.patchAssignment(prev, { calendarAppointmentId: null, evenementId: null }).subscribe({
-        next: () => done(false),
-        error: () => done(true)
-      });
-      return;
-    }
-    this.todoListService.patchAssignment(desired, { calendarAppointmentId: null, evenementId: evId }).subscribe({
-      next: () => done(false),
-      error: () => done(true)
-    });
+    this.assistantLaunch.openWithDraft(name, { newConversation: true });
   }
 
-  /** Opens the activity’s linked to-do list in a modal (no full-page navigation). */
+  /** Liste de tâches liée à l’activité (id non vide après trim). */
+  public hasLinkedTodoList(): boolean {
+    const raw = this.evenement?.linkedTodoListId;
+    return !!raw && String(raw).trim().length > 0;
+  }
+
+  /** Ouvre la liste associée dans l’overlay (comme la carte événement / mur de photos). */
   public openLinkedTodoListInOverlay(): void {
     const id = (this.evenement?.linkedTodoListId || '').trim();
     if (id) {
@@ -3613,10 +3562,18 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
 
   // Check if current user is the owner of the event
   public isEventOwner(): boolean {
-    if (!this.user || !this.evenement || !this.evenement.author) {
+    if (!this.user || !this.evenement?.author) {
       return false;
     }
-    return this.user.userName?.toLowerCase() === this.evenement.author.userName?.toLowerCase();
+    const author = this.evenement.author;
+    const uid = (this.user.id || '').trim();
+    const aid = (author.id || '').trim();
+    if (uid.length > 0 && aid.length > 0 && uid === aid) {
+      return true;
+    }
+    const uu = (this.user.userName || '').trim().toLowerCase();
+    const au = (author.userName || '').trim().toLowerCase();
+    return uu.length > 0 && au.length > 0 && uu === au;
   }
 
   // Navigate to update event page
