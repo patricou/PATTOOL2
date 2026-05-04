@@ -900,7 +900,11 @@ export class AssistantDrawerComponent
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => {
-          this.loading = false;
+          // Évite NG0100 si la réponse arrive de façon synchrone : finalize sinon dans le même tick que detectChanges() du next.
+          queueMicrotask(() => {
+            this.loading = false;
+            this.cdr.markForCheck();
+          });
         })
       )
       .subscribe({
