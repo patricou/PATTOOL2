@@ -42,6 +42,15 @@
     <div class="pat-assistant-drawer-actions">
       <button
         type="button"
+        class="btn btn-sm btn-success pat-assistant-header-btn"
+        [disabled]="!canShareAssistantWhatsApp()"
+        (click)="openWhatsAppShareModal(); $event.stopPropagation()"
+        [title]="'ASSISTANT.SHARE_WHATSAPP_HINT' | translate"
+        [attr.aria-label]="'ASSISTANT.SHARE_WHATSAPP' | translate">
+        <i class="fa fa-whatsapp" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
         class="btn btn-sm btn-outline-secondary pat-assistant-header-btn pat-assistant-header-credits"
         (click)="toggleCreditsBanner($event)"
         [class.active]="creditsBannerOpen"
@@ -188,9 +197,11 @@
         (keydown)="onTextareaKeydown($event)"
         [disabled]="loading"
         [placeholder]="
-          chatUserLabel()
-            ? ('ASSISTANT.PLACEHOLDER_NAMED' | translate : { name: chatUserLabel() })
-            : ('ASSISTANT.PLACEHOLDER' | translate)
+          pendingImage
+            ? ('ASSISTANT.PLACEHOLDER_WITH_IMAGE' | translate)
+            : chatUserLabel()
+              ? ('ASSISTANT.PLACEHOLDER_NAMED' | translate : { name: chatUserLabel() })
+              : ('ASSISTANT.PLACEHOLDER' | translate)
         "></textarea>
     </div>
     <p *ngIf="imageAttachError" class="pat-assistant-image-err text-danger small mb-0">
@@ -268,7 +279,7 @@
       type="button"
       class="btn pat-assistant-send w-100"
       (click)="send()"
-      [disabled]="loading || (!draft.trim() && !pendingImage)"
+      [disabled]="loading || !draft.trim()"
       [title]="'ASSISTANT.SEND_HINT' | translate"
       [attr.aria-label]="'ASSISTANT.SEND' | translate">
       <i class="fa fa-paper-plane me-1" aria-hidden="true"></i>
@@ -276,3 +287,57 @@
     </button>
   </div>
 </aside>
+
+<ng-template #assistantWhatsappShareModal let-modal>
+  <div class="modal-header bg-success text-white">
+    <h5 class="modal-title">
+      <i class="fa fa-whatsapp me-2"></i>
+      {{ 'EVENTELEM.SHARE_WHATSAPP' | translate }}
+    </h5>
+    <button type="button" class="btn-close btn-close-white" (click)="cancelAssistantWhatsAppShare()" [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+  </div>
+  <div class="modal-body">
+    <div class="whatsapp-share-content">
+      <div class="text-center mb-3">
+        <img
+          [src]="whatsappPreviewSrc()"
+          alt=""
+          class="img-fluid rounded"
+          style="max-width: 88px; max-height: 88px; object-fit: cover; border: 2px solid #007bff; padding: 2px" />
+      </div>
+      <div class="mb-3">
+        <h4 class="fw-bold text-white text-center p-3 rounded mb-0" style="background-color: #007bff">
+          {{ 'ASSISTANT.TITLE' | translate }}
+        </h4>
+      </div>
+      <div class="mb-3">
+        <textarea
+          id="assistantWaMsg"
+          class="form-control"
+          rows="3"
+          [(ngModel)]="whatsappShareMessage"
+          [attr.aria-label]="'ASSISTANT.SHARE_WHATSAPP_TEXTAREA_PLACEHOLDER' | translate"
+          [placeholder]="'ASSISTANT.SHARE_WHATSAPP_TEXTAREA_PLACEHOLDER' | translate"
+          style="resize: vertical; max-height: 180px"></textarea>
+      </div>
+      <div class="mt-3">
+        <label class="form-label mb-2">{{ 'ASSISTANT.SHARE_WHATSAPP_PREVIEW_SECTION_TITLE' | translate }}</label>
+        <div class="whatsapp-share-preview-pane" [innerHTML]="whatsappSharePreviewHtml()"></div>
+        <small class="form-text text-muted">{{ 'ASSISTANT.SHARE_WHATSAPP_PREVIEW_HINT' | translate }}</small>
+      </div>
+      <div class="alert alert-info small mb-0 mt-3">
+        <i class="fa fa-info-circle me-2"></i>
+        {{ 'ASSISTANT.WHATSAPP_NATIVE_SHARE_NOTE' | translate }}
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" (click)="cancelAssistantWhatsAppShare()">
+      {{ 'EVENTELEM.CANCEL' | translate }}
+    </button>
+    <button type="button" class="btn btn-success" (click)="confirmAssistantWhatsAppShare()">
+      <i class="fa fa-whatsapp me-2"></i>
+      {{ 'EVENTELEM.SHARE_NOW' | translate }}
+    </button>
+  </div>
+</ng-template>

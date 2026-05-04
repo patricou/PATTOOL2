@@ -2,6 +2,7 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  TemplateRef,
   ViewChild,
   AfterViewChecked,
   AfterViewInit,
@@ -37,11 +38,12 @@ import { NewsTickerService } from '../../services/news-ticker.service';
 import { CurrencyTickerService } from '../../services/currency-ticker.service';
 import { StockTickerService } from '../../services/stock-ticker.service';
 import { copyPlainTextToClipboard } from '../clipboard-copy';
+import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
 
 @Component({
   selector: 'app-assistant-drawer',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule],
+  imports: [CommonModule, FormsModule, TranslateModule, NgbModule],
   templateUrl: './assistant-drawer.component.html',
   styleUrls: ['./assistant-drawer.component.css', '../markdown-chat-content.css']
 })
@@ -53,6 +55,13 @@ export class AssistantDrawerComponent
   @ViewChild('threadEl') threadEl?: ElementRef<HTMLDivElement>;
   @ViewChild('draftInput') draftInputEl?: ElementRef<HTMLTextAreaElement>;
   @ViewChild('imageFileInput') imageFileInputEl?: ElementRef<HTMLInputElement>;
+  @ViewChild('assistantWhatsappShareModal') assistantWhatsappShareModal!: TemplateRef<unknown>;
+
+  /** Modal partage WhatsApp (même principe que mur de photos). */
+  whatsappShareMessage = '';
+  private whatsappShareModalRef: NgbModalRef | null = null;
+
+  private static readonly WA_ME_SAFE_CHARS = 6000;
 
   /** Juste sous la bande bleue `.pat-title` (ou minimum sous navbar + tickers). */
   fabTopPx = 72;
@@ -127,7 +136,8 @@ export class AssistantDrawerComponent
     private translate: TranslateService,
     private sanitizer: DomSanitizer,
     private mdChat: MarkdownChatRenderService,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private modalService: NgbModal
   ) {}
 
   /** Ligne « fournisseur · modèle » issue de application.properties (GET /assistant/config). */
@@ -395,6 +405,14 @@ export class AssistantDrawerComponent
     this.creditsFetchSub?.unsubscribe();
     this.assistantConfigSub?.unsubscribe();
     this.chatSendSub?.unsubscribe();
+    if (this.whatsappShareModalRef) {
+      try {
+        this.whatsappShareModalRef.dismiss();
+      } catch {
+        /* ignore */
+      }
+      this.whatsappShareModalRef = null;
+    }
     window.removeEventListener('resize', this.boundScheduleFabAnchor);
     document.removeEventListener('scroll', this.boundScheduleFabAnchor, true);
     if (this.fabAnchorRaf) {
@@ -436,6 +454,12 @@ export class AssistantDrawerComponent
   onDraftDebouncedPersist(): void {
     if (!this.isAuthenticated()) {
       return;
+    }
+    if (
+      this.draft.trim().length > 0 &&
+      this.imageAttachError === 'ASSISTANT.IMAGE_NEED_QUESTION'
+    ) {
+      this.imageAttachError = null;
     }
     if (this.draftPersistTimer !== undefined) {
       clearTimeout(this.draftPersistTimer);
@@ -856,8 +880,12 @@ export class AssistantDrawerComponent
     if (!textTrim && !hasImage) {
       return;
     }
-    const text =
-      textTrim || this.translate.instant('ASSISTANT.IMAGE_DEFAULT_PROMPT');
+    if (hasImage && !textTrim) {
+      this.imageAttachError = 'ASSISTANT.IMAGE_NEED_QUESTION';
+      this.cdr.markForCheck();
+      return;
+    }
+    const text = textTrim;
 
     const attached: AssistantAttachedImageRequest | undefined =
       hasImage && this.pendingImage
@@ -995,5 +1023,357 @@ export class AssistantDrawerComponent
 
   private requestAlignLastQuestionTop(): void {
     this.shouldAlignLastQuestionTop = true;
+  }
+
+  /** Ouvert uniquement avec au moins un message dans l’historique. */
+  canShareAssistantWhatsApp(): boolean {
+    return this.messages.length > 0 && !this.loading;
+  }
+
+  whatsappPreviewSrc(): SafeUrl {
+    const u = this.firstUserImageDataUrlInThread();
+    if (u && u.trim()) {
+      return this.sanitizer.bypassSecurityTrustUrl(u.trim());
+    }
+    return this.sanitizer.bypassSecurityTrustUrl('assets/images/pat.png');
+  }
+
+  private firstUserImageDataUrlInThread(): string | null {
+    for (const m of this.messages) {
+      if (m.role === 'user' && m.imageDataUrl && m.imageDataUrl.trim()) {
+        return m.imageDataUrl.trim();
+      }
+    }
+    return null;
+  }
+
+  openWhatsAppShareModal(): void {
+    if (!this.canShareAssistantWhatsApp()) {
+      return;
+    }
+    this.whatsappShareMessage = '';
+    this.whatsappShareModalRef = this.modalService.open(this.assistantWhatsappShareModal, {
+      size: 'lg',
+      centered: true,
+      windowClass: 'whatsapp-share-modal',
+      modalDialogClass: 'whatsapp-share-modal-dialog'
+    });
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Convertit un sous-ensemble Markdown (réponses modèle) vers le formatage texte WhatsApp :
+   * *gras*, titres, ~~barré~~, liens, blocs ``` inchangés.
+   */
+  private formatMarkdownForWhatsApp(md: string): string {
+    if (md == null || md === '') {
+      return '';
+    }
+    const parts = md.split(/(```[\s\S]*?```)/g);
+    return parts
+      .map((part) => {
+        if (part.startsWith('```') && part.endsWith('```')) {
+          return part;
+        }
+        return this.formatMarkdownForWhatsAppSegment(part);
+      })
+      .join('');
+  }
+
+  private formatMarkdownForWhatsAppSegment(s: string): string {
+    let t = s.replace(/\r\n/g, '\n');
+    t = t.replace(/~~([^~]+)~~/g, '~$1~');
+    t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '$1\n$2');
+    t = t.replace(/^#{1,6}\s+(.+)$/gm, '*$1*');
+    t = t.replace(/\*\*((?:[^*]|\*(?!\*))+?)\*\*/g, '*$1*');
+    t = t.replace(/__([^_]+)__/g, '*$1*');
+    // Puces Markdown "* " en début de ligne → "- " (évite qu'un * orphelin active le gras WhatsApp)
+    t = t.replace(/^\* /gm, '- ');
+    return t;
+  }
+
+  /** Réutilise la logique métier « réponse après dernière image » / transcription complète. */
+  private threadHasUserImageTurn(): boolean {
+    return this.messages.some(
+      (m) => m.role === 'user' && (m.hasImage === true || !!m.imageDataUrl?.trim())
+    );
+  }
+
+  private replyTextAfterLastUserImageTurn(): string {
+    let lastImgIdx = -1;
+    for (let i = 0; i < this.messages.length; i++) {
+      const m = this.messages[i];
+      if (m.role === 'user' && (m.hasImage === true || !!m.imageDataUrl?.trim())) {
+        lastImgIdx = i;
+      }
+    }
+    if (lastImgIdx < 0) {
+      return '';
+    }
+    for (let j = lastImgIdx + 1; j < this.messages.length; j++) {
+      if (this.messages[j].role === 'assistant') {
+        const c = this.messages[j].content;
+        return typeof c === 'string' ? c.trim() : '';
+      }
+    }
+    return '';
+  }
+
+  /**
+   * Texte repris dans la zone d’aperçu : réponse à la dernière image envoyée dans le chat
+   * si applicable ; sinon tout l’échange (pour lecture seule avant partage « léger »).
+   */
+  private suggestWhatsAppShareBodyRaw(): string {
+    if (this.threadHasUserImageTurn()) {
+      const afterImg = this.replyTextAfterLastUserImageTurn();
+      if (afterImg.length > 0) {
+        return afterImg;
+      }
+    }
+    return this.buildAssistantTranscriptPlain();
+  }
+
+  private buildAssistantTranscriptPlain(): string {
+    const you = this.translate.instant('ASSISTANT.YOU');
+    const ai = this.translate.instant('ASSISTANT.AI');
+    const imageNote = this.translate.instant('ASSISTANT.IMAGE_SENT_NOTE');
+    const chunks: string[] = [];
+    for (const m of this.messages) {
+      const label = m.role === 'user' ? you : ai;
+      let body = typeof m.content === 'string' ? m.content.trim() : '';
+      if (m.role === 'user' && m.hasImage && !m.imageDataUrl) {
+        body = body ? `${body}\n${imageNote}` : imageNote;
+      }
+      chunks.push(`*${label}*\n${body || '—'}`);
+    }
+    return chunks.join('\n\n');
+  }
+
+  /**
+   * Aperçu : complément facultatif (champ), puis transcription du chat (lecture uniquement —
+   * elle n’est pas envoyée automatiquement sur WhatsApp).
+   */
+  whatsappSharePreviewHtml(): SafeHtml {
+    const addonRaw = (this.whatsappShareMessage ?? '').trim();
+    const addonWa = addonRaw.length > 0 ? this.formatMarkdownForWhatsApp(addonRaw).trim() : '';
+
+    const chatWa = this.formatMarkdownForWhatsApp(this.suggestWhatsAppShareBodyRaw()).trim();
+
+    const label = (k: string): string =>
+      this.escapeHtmlForWaPreview(this.translate.instant(k));
+
+    const chunks: string[] = ['<div class="whatsapp-share-preview-stack">'];
+
+    if (addonWa.length > 0) {
+      chunks.push(
+        `<div class="whatsapp-share-preview-heading">${label('ASSISTANT.SHARE_WHATSAPP_PREVIEW_ADDON_LABEL')}</div>`
+      );
+      chunks.push(this.whatsAppFormattedPlainToPreviewHtml(addonWa));
+    }
+
+    chunks.push(`<div class="whatsapp-share-preview-heading">${label('ASSISTANT.SHARE_WHATSAPP_PREVIEW_CHAT_LABEL')}</div>`);
+    if (chatWa.length > 0) {
+      chunks.push(this.whatsAppFormattedPlainToPreviewHtml(chatWa));
+    } else {
+      chunks.push(
+        `<p class="whatsapp-share-preview-empty mb-0">${label('ASSISTANT.SHARE_WHATSAPP_PREVIEW_CHAT_EMPTY')}</p>`
+      );
+    }
+
+    chunks.push('</div>');
+    return this.sanitizer.bypassSecurityTrustHtml(chunks.join(''));
+  }
+
+  private escapeHtmlForWaPreview(s: string): string {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  private whatsAppFormattedPlainToPreviewHtml(formattedWa: string): string {
+    const parts = formattedWa.split(/(```[\s\S]*?```)/g);
+    const out: string[] = [];
+    for (const part of parts) {
+      if (part.startsWith('```') && part.endsWith('```')) {
+        const inner = part.slice(3, -3);
+        out.push(
+          `<pre class="whatsapp-share-preview-fence"><code>${this.escapeHtmlForWaPreview(inner)}</code></pre>`
+        );
+      } else {
+        const block = this.whatsAppPlainSegmentToStyledHtml(part);
+        if (block) {
+          out.push(block);
+        }
+      }
+    }
+    return out.join('');
+  }
+
+  private whatsAppPlainSegmentToStyledHtml(s: string): string {
+    if (!/\S/.test(s)) {
+      return '';
+    }
+    let t = this.escapeHtmlForWaPreview(s);
+    // Monospace ligne interne WhatsApp avec backticks (`code`)
+    t = t.replace(/`([^`\n]+)`/g, '<code class="whatsapp-share-preview-inline">$1</code>');
+    // *gras*, _italique_, ~barré~ (sans franchir un saut de ligne)
+    t = t.replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>');
+    t = t.replace(/_([^_\n]+)_/g, '<em>$1</em>');
+    t = t.replace(/~([^~\n]+)~/g, '<del>$1</del>');
+    t = t.replace(/\n/g, '<br />');
+    return `<div class="whatsapp-share-preview-para">${t}</div>`;
+  }
+
+  cancelAssistantWhatsAppShare(): void {
+    this.whatsappShareMessage = '';
+    if (this.whatsappShareModalRef) {
+      this.whatsappShareModalRef.close();
+      this.whatsappShareModalRef = null;
+    }
+  }
+
+  private truncateForWaMe(text: string): string {
+    const max = AssistantDrawerComponent.WA_ME_SAFE_CHARS;
+    if (text.length <= max) {
+      return text;
+    }
+    const ell = '\n…';
+    return `${text.slice(0, Math.max(0, max - ell.length))}${ell}`;
+  }
+
+  /** Comme TodolistsComponent : parsing data URL base64 pour construire des {@link File}. */
+  private parseDataUrlBase64(dataUrl: string): { mime: string; base64: string } | null {
+    const s = dataUrl.trim();
+    const comma = s.indexOf(',');
+    if (comma < 0 || !s.startsWith('data:')) {
+      return null;
+    }
+    const header = s.slice(5, comma);
+    const lower = header.toLowerCase();
+    const b64Marker = ';base64';
+    const idx = lower.indexOf(b64Marker);
+    if (idx < 0) {
+      return null;
+    }
+    const mime = (header.slice(0, idx).split(';')[0] || 'image/jpeg').trim() || 'image/jpeg';
+    const base64 = s.slice(comma + 1).replace(/\s/g, '');
+    return base64.length ? { mime, base64 } : null;
+  }
+
+  private async dataUrlToFile(dataUrl: string, fileName: string): Promise<File | null> {
+    const parsed = this.parseDataUrlBase64(dataUrl);
+    if (!parsed) {
+      return null;
+    }
+    const { mime, base64 } = parsed;
+    let blob: Blob | null = null;
+    try {
+      const resp = await fetch(dataUrl.trim());
+      const b = await resp.blob();
+      const t = b.type && b.type !== 'application/octet-stream' ? b.type : mime;
+      blob = t === b.type ? b : new Blob([await b.arrayBuffer()], { type: t });
+    } catch {
+      blob = null;
+    }
+    if (!blob) {
+      try {
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        blob = new Blob([bytes], { type: mime });
+      } catch {
+        return null;
+      }
+    }
+    const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : mime.includes('gif') ? 'gif' : 'jpg';
+    const type = blob.type || mime;
+    try {
+      return new File([blob], `${fileName}.${ext}`, { type });
+    } catch {
+      return null;
+    }
+  }
+
+  /** Web Share ({@code text} ± {@code files}) puis repli {@code wa.me}, comme mur + slideshow. */
+  async confirmAssistantWhatsAppShare(): Promise<void> {
+    const title = this.translate.instant('ASSISTANT.TITLE');
+
+    const addonRaw = (this.whatsappShareMessage ?? '').trim();
+    const addon =
+      addonRaw.length > 0 ? this.formatMarkdownForWhatsApp(addonRaw).trim() : '';
+
+    const recapFormatted = this.formatMarkdownForWhatsApp(
+      this.suggestWhatsAppShareBodyRaw()
+    ).trim();
+
+    let message = `*${title}*`;
+    if (addon.length > 0) {
+      message += `\n\n${addon}`;
+    }
+    if (recapFormatted.length > 0) {
+      const recapTitleEsc = this.translate.instant('ASSISTANT.SHARE_WHATSAPP_RECAP_MESSAGE_TITLE_LINE');
+      // Ligne titre lisible avant le corps (sans ** Markdown : gras WhatsApp direct)
+      message += `\n\n*${recapTitleEsc}*\n\n${recapFormatted}`;
+    }
+
+    const imageFiles: File[] = [];
+    let imgIdx = 0;
+    for (const m of this.messages) {
+      if (m.role === 'user' && m.imageDataUrl?.trim()) {
+        const file = await this.dataUrlToFile(m.imageDataUrl.trim(), `pat-assistant-photo-${imgIdx}`);
+        imgIdx++;
+        if (file) {
+          imageFiles.push(file);
+        }
+      }
+    }
+
+    const nav = navigator as Navigator & {
+      share?: (data: ShareData) => Promise<void>;
+      canShare?: (data: ShareData) => boolean;
+    };
+    const isMobile =
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    const aborted = (e: unknown): boolean =>
+      e != null && typeof e === 'object' && 'name' in e && String((e as { name?: string }).name) === 'AbortError';
+
+    if (typeof nav.share === 'function') {
+      if (imageFiles.length > 0) {
+        const withFiles: ShareData = { title, text: message, files: imageFiles };
+        const allowFiles =
+          isMobile ||
+          (typeof nav.canShare === 'function' ? nav.canShare(withFiles) : false);
+        if (allowFiles) {
+          try {
+            await nav.share(withFiles);
+            this.cancelAssistantWhatsAppShare();
+            return;
+          } catch (err: unknown) {
+            if (aborted(err)) {
+              return;
+            }
+          }
+        }
+      }
+      try {
+        await nav.share({ title, text: message });
+        this.cancelAssistantWhatsAppShare();
+        return;
+      } catch (err: unknown) {
+        if (aborted(err)) {
+          return;
+        }
+      }
+    }
+
+    const waText = this.truncateForWaMe(message);
+    if (this.whatsappShareModalRef) {
+      this.whatsappShareModalRef.close();
+      this.whatsappShareModalRef = null;
+    }
+    this.whatsappShareMessage = '';
+    window.open(`https://wa.me/?text=${encodeURIComponent(waText)}`, '_blank');
+    this.cdr.markForCheck();
   }
 }

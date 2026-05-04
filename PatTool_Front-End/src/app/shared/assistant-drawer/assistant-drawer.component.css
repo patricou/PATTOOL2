@@ -1,9 +1,9 @@
 /* Bleu : pastille FAB (fond bleu / icône claire). Panneau blanc/neutre. */
 :host {
-  /* Empile tout le module au-dessus des barres sticky (ex. liste activités ~1020) tout en gardant le panneau fermé traversable aux clics. */
+/* Empiler le module au-dessus des titres/nav sticky (~1020) mais sous les modales Bootstrap (~1050) */
   display: block;
   position: relative;
-  z-index: 10900;
+  z-index: 1038;
   pointer-events: none;
 
   /* Desktop : ~moitié écran ; ≤576px : 100vw via @media */
@@ -732,4 +732,73 @@
     width: 49px;
     height: 49px;
   }
+}
+
+::ng-deep .whatsapp-share-modal .whatsapp-share-preview-stack {
+  display: flex;
+  flex-direction: column;
+}
+
+::ng-deep .whatsapp-share-modal .whatsapp-share-preview-heading {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  color: #475569;
+  margin: 0 0 0.4rem;
+  padding-bottom: 0.15rem;
+  border-bottom: 1px solid rgba(37, 99, 235, 0.2);
+}
+
+::ng-deep .whatsapp-share-modal .whatsapp-share-preview-stack .whatsapp-share-preview-heading ~ .whatsapp-share-preview-heading {
+  margin-top: 0.85rem;
+}
+
+/* —— Aperçu format WhatsApp (modale en portail body : ::ng-deep sans :host) —— */
+::ng-deep .whatsapp-share-modal .whatsapp-share-preview-pane {
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  border-radius: 0.5rem;
+  padding: 0.85rem 1rem;
+  background: linear-gradient(160deg, #f4fff8 0%, #fafefa 42%, #ffffff 100%);
+  max-height: min(340px, 44vh);
+  overflow-y: auto;
+  font-size: 0.94rem;
+  line-height: 1.52;
+  word-break: break-word;
+}
+
+::ng-deep .whatsapp-share-modal .whatsapp-share-preview-fence {
+  border-radius: 0.375rem;
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  padding: 0.45rem 0.65rem;
+  margin: 0 0 0.65rem;
+  white-space: pre-wrap;
+  font-size: 0.815rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+
+::ng-deep .whatsapp-share-modal .whatsapp-share-preview-fence:last-child {
+  margin-bottom: 0;
+}
+
+::ng-deep .whatsapp-share-modal .whatsapp-share-preview-inline {
+  padding: 0.06rem 0.28rem;
+  border-radius: 0.22rem;
+  background: rgba(15, 23, 42, 0.07);
+  font-size: 0.86em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+
+::ng-deep .whatsapp-share-modal .whatsapp-share-preview-para {
+  margin: 0 0 0.45rem;
+}
+
+::ng-deep .whatsapp-share-modal .whatsapp-share-preview-para:last-child {
+  margin-bottom: 0;
+}
+
+::ng-deep .whatsapp-share-modal .whatsapp-share-preview-empty {
+  font-size: 0.875rem;
+  color: var(--bs-secondary-color, #6c757d) !important;
 }

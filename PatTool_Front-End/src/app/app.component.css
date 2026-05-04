@@ -965,6 +965,44 @@ body > .tooltip {
     border-radius: 8px !important;
 }
 
+/* WhatsApp « Partager » — portail body (même mécanisme ::ng-deep que la modale discussion) */
+::ng-deep .modal.show.whatsapp-share-modal .modal-dialog.whatsapp-share-modal-dialog,
+::ng-deep .modal.fade.show.whatsapp-share-modal .modal-dialog.whatsapp-share-modal-dialog {
+    margin-left: auto !important;
+    margin-right: auto !important;
+    margin-top: clamp(0.5rem, 2vh, 1.75rem) !important;
+    margin-bottom: clamp(0.5rem, 2vh, 1.75rem) !important;
+    max-width: min(800px, calc(100% - 2rem)) !important;
+    width: 100% !important;
+}
+
+::ng-deep .modal.show.whatsapp-share-modal .modal-dialog > .modal-content,
+::ng-deep .modal.fade.show.whatsapp-share-modal .modal-dialog > .modal-content,
+::ng-deep .modal.whatsapp-share-modal.show .modal-dialog > .modal-content,
+::ng-deep .modal-dialog.whatsapp-share-modal-dialog > .modal-content,
+::ng-deep .modal.show .modal-dialog.whatsapp-share-modal-dialog > .modal-content,
+::ng-deep .modal.show.whatsapp-share-modal .modal-dialog.whatsapp-share-modal-dialog > .modal-content {
+    border: 4px solid #ffffff !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    max-height: min(92vh, 840px) !important;
+}
+
+::ng-deep .modal.show.whatsapp-share-modal .modal-dialog .modal-body,
+::ng-deep .modal.fade.show.whatsapp-share-modal .modal-dialog .modal-body {
+    overflow-y: auto !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+}
+
+::ng-deep .modal.show.whatsapp-share-modal .modal-dialog .modal-header,
+::ng-deep .modal.show.whatsapp-share-modal .modal-dialog .modal-footer {
+    flex-shrink: 0 !important;
+}
+
 .modal-content::after {
     content: '';
     position: absolute;

@@ -1470,7 +1470,7 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Copy weather to clipboard (fallback method, like copyToClipboard for position)
+   * Copy weather to clipboard (fallback method, like clipboard fallback for sharing position)
    * On PC, includes image data URL so user can save it
    */
   private async copyWeatherToClipboard(text: string, imageDataUrl?: string | null): Promise<void> {
@@ -1985,6 +1985,44 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Lines identifying the logged-in account (WhatsApp / share parity).
+   * Order: username, then full name from Keycloak given_name + family_name.
+   */
+  private buildSharePositionUserIntroLines(): string[] {
+    if (!this.keycloak.isLoggedIn()) {
+      return [];
+    }
+    try {
+      const m = this.keycloak.getUserAsMember();
+      const userName = typeof m.userName === 'string' ? m.userName.trim() : '';
+      const first = typeof m.firstName === 'string' ? m.firstName.trim() : '';
+      const last = typeof m.lastName === 'string' ? m.lastName.trim() : '';
+      const fullName = [first, last].filter((s) => s.length > 0).join(' ');
+      const lines: string[] = [];
+      if (userName.length > 0) {
+        lines.push(`${this.translateService.instant('API.SHARE_LOCATION_USERNAME')}: ${userName}`);
+      }
+      if (fullName.length > 0) {
+        lines.push(`${this.translateService.instant('API.SHARE_LOCATION_FULLNAME')}: ${fullName}`);
+      }
+      return lines;
+    } catch {
+      return [];
+    }
+  }
+
+  private composePositionShareText(positionText: string, googleMapsUrl: string, bestAltitude: number | null): string {
+    const prefixLines = this.buildSharePositionUserIntroLines();
+    let shareText =
+      (prefixLines.length > 0 ? `${prefixLines.join('\n')}\n\n` : '') +
+      `${this.translateService.instant('API.POSITION')}: ${positionText}\n${this.translateService.instant('API.VIEW_ON_MAPS')}: ${googleMapsUrl}`;
+    if (bestAltitude !== null) {
+      shareText += `\n${this.translateService.instant('API.ALTITUDE')}: ${bestAltitude.toFixed(1)} m`;
+    }
+    return shareText;
+  }
+
+  /**
    * Share the current position (latitude and longitude)
    */
   sharePosition(): void {
@@ -2000,12 +2038,7 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
     const altStr = bestAltitude !== null ? `, ${bestAltitude.toFixed(1)}m` : '';
     const positionText = `${latStr}, ${lonStr}${altStr}`;
     const googleMapsUrl = `https://www.google.com/maps?q=${latStr},${lonStr}`;
-    
-    let shareText = `${this.translateService.instant('API.POSITION')}: ${positionText}\n${this.translateService.instant('API.VIEW_ON_MAPS')}: ${googleMapsUrl}`;
-    
-    if (bestAltitude !== null) {
-      shareText += `\n${this.translateService.instant('API.ALTITUDE')}: ${bestAltitude.toFixed(1)} m`;
-    }
+    const shareText = this.composePositionShareText(positionText, googleMapsUrl, bestAltitude);
 
     // Try Web Share API first (if available on mobile devices)
     if (navigator.share) {
@@ -2016,41 +2049,38 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
       }).catch((error) => {
         // If share fails, fallback to clipboard
         console.log('Web Share API failed, using clipboard:', error);
-        this.copyToClipboard(positionText, googleMapsUrl);
+        this.copyToClipboard(shareText);
       });
     } else {
       // Fallback to clipboard copy
-      this.copyToClipboard(positionText, googleMapsUrl);
+      this.copyToClipboard(shareText);
     }
   }
 
   /**
-   * Copy position to clipboard
+   * Copy composed share message to clipboard (position, maps URL, altitude, identity when logged in).
    */
-  private copyToClipboard(positionText: string, googleMapsUrl: string): void {
-    // Try to copy both the coordinates and the Google Maps URL
-    const textToCopy = `${positionText}\n${googleMapsUrl}`;
-    
+  private copyToClipboard(fullShareText: string): void {
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(textToCopy).then(() => {
+      navigator.clipboard.writeText(fullShareText).then(() => {
         this.successMessage = this.translateService.instant('API.POSITION_COPIED');
         this.clearMessages();
       }).catch((error) => {
         console.error('Failed to copy to clipboard:', error);
         // Fallback: show in alert
-        this.showPositionShareDialog(positionText, googleMapsUrl);
+        this.showPositionShareDialog(fullShareText);
       });
     } else {
       // Fallback for older browsers
-      this.showPositionShareDialog(positionText, googleMapsUrl);
+      this.showPositionShareDialog(fullShareText);
     }
   }
 
   /**
    * Show position share dialog (fallback method)
    */
-  private showPositionShareDialog(positionText: string, googleMapsUrl: string): void {
-    const message = `${this.translateService.instant('API.POSITION')}: ${positionText}\n\n${this.translateService.instant('API.VIEW_ON_MAPS')}: ${googleMapsUrl}\n\n${this.translateService.instant('API.COPY_MANUALLY')}`;
+  private showPositionShareDialog(fullShareText: string): void {
+    const message = `${fullShareText}\n\n${this.translateService.instant('API.COPY_MANUALLY')}`;
     window.prompt(this.translateService.instant('API.SHARE_POSITION'), message);
   }
 

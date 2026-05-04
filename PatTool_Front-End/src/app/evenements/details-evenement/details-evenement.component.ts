@@ -3608,7 +3608,8 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
       this.whatsappShareModalRef = this.modalService.open(this.whatsappShareModal, {
         size: 'lg',
         centered: true,
-        windowClass: 'whatsapp-share-modal'
+        windowClass: 'whatsapp-share-modal',
+        modalDialogClass: 'whatsapp-share-modal-dialog'
       });
     }
   }

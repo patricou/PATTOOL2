@@ -2501,7 +2501,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             this.wallWhatsappShareModalRef = this.modalService.open(this.wallWhatsappShareModal, {
                 size: 'lg',
                 centered: true,
-                windowClass: 'whatsapp-share-modal'
+                windowClass: 'whatsapp-share-modal',
+                modalDialogClass: 'whatsapp-share-modal-dialog'
             });
         }
         this.cdr.markForCheck();
