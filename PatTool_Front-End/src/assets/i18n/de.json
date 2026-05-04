@@ -1438,7 +1438,16 @@
         "TOOL_IMAGE_HINT": "Das Modell kann Bilder erzeugen; kann mehr kosten und länger dauern.",
         "TOOL_MCP_HINT": "Verbindet einen auf dem Backend konfigurierten MCP-Server (openai.mcp.*).",
         "NEW_THREAD_HINT": "Löscht Verlauf und Entwurf in diesem Tab für eine neue Unterhaltung.",
-        "SEND_HINT": "Sendet Ihren Text an den Assistenten mit den aktivierten Optionen."
+        "SEND_HINT": "Sendet Ihre Nachricht (und ein ggf. angehängtes Bild) mit den oben aktivierten Optionen an den Assistenten.",
+        "IMAGE_ATTACH": "Bild",
+        "IMAGE_ATTACH_HINT": "Bild anhängen, damit der Assistent es beschreiben oder analysieren kann (JPEG, PNG, GIF, WebP, max. 8 MB).",
+        "IMAGE_REMOVE": "Bild entfernen",
+        "IMAGE_PREVIEW_ALT": "An Ihrer Nachricht angehängtes Bild",
+        "IMAGE_DEFAULT_PROMPT": "Beschreiben und analysieren Sie dieses Bild ausführlich.",
+        "IMAGE_TOO_LARGE": "Bild zu groß (max. 8 MB).",
+        "IMAGE_TYPE_REJECTED": "Bitte JPEG, PNG, GIF oder WebP verwenden.",
+        "IMAGE_READ_ERROR": "Bilddatei konnte nicht gelesen werden.",
+        "IMAGE_SENT_NOTE": "Bild gesendet (Vorschau wird nach dem Neuladen nicht gespeichert)."
     },
     "ABOUT": {
         "DESIGNED_BY": "Entworfen und entwickelt von",

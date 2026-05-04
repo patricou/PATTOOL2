@@ -17,11 +17,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NavigationEnd, Router } from '@angular/router';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { DomSanitizer, SafeHtml, SafeUrl } from '@angular/platform-browser';
 import { combineLatest, filter, Subscription } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import {
+  AssistantAttachedImageRequest,
   AssistantChatMeta,
   AssistantChatTurn,
   AssistantOpenAiCredits,
@@ -51,6 +52,7 @@ export class AssistantDrawerComponent
 
   @ViewChild('threadEl') threadEl?: ElementRef<HTMLDivElement>;
   @ViewChild('draftInput') draftInputEl?: ElementRef<HTMLTextAreaElement>;
+  @ViewChild('imageFileInput') imageFileInputEl?: ElementRef<HTMLInputElement>;
 
   /** Juste sous la bande bleue `.pat-title` (ou minimum sous navbar + tickers). */
   fabTopPx = 72;
@@ -64,6 +66,18 @@ export class AssistantDrawerComponent
   toolWebSearch = false;
   toolImageGeneration = false;
   toolMcp = false;
+
+  /** Image choisie pour le prochain envoi (vision). */
+  pendingImage: {
+    mimeType: string;
+    base64: string;
+    dataUrl: string;
+  } | null = null;
+  /** Clé i18n ou message d’erreur après sélection de fichier. */
+  imageAttachError: string | null = null;
+
+  private static readonly IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+  private static readonly IMAGE_ACCEPT_RE = /^image\/(jpeg|png|gif|webp)$/i;
   /** Réponse (ou erreur) reçue alors que le panneau était fermé — pastille sur le FAB jusqu’à réouverture. */
   fabUnreadReply = false;
   private shouldAlignLastQuestionTop = false;
@@ -755,6 +769,8 @@ export class AssistantDrawerComponent
   clearThread(): void {
     this.messages = [];
     this.draft = '';
+    this.pendingImage = null;
+    this.imageAttachError = null;
     this.fabUnreadReply = false;
     this.persistSession();
   }
@@ -763,17 +779,106 @@ export class AssistantDrawerComponent
   hasAnythingToReset(): boolean {
     return (
       this.messages.length > 0 ||
-      (!!this.draft && this.draft.trim().length > 0)
+      (!!this.draft && this.draft.trim().length > 0) ||
+      this.pendingImage != null
     );
   }
 
-  send(): void {
-    const text = this.draft.trim();
-    if (!text || this.loading || !this.isAuthenticated()) {
+  openImagePicker(): void {
+    this.imageAttachError = null;
+    this.imageFileInputEl?.nativeElement?.click();
+  }
+
+  clearPendingImage(): void {
+    this.pendingImage = null;
+    this.imageAttachError = null;
+    this.cdr.markForCheck();
+  }
+
+  onImageFileChange(ev: Event): void {
+    const input = ev.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    this.imageAttachError = null;
+    if (!file) {
       return;
     }
+    if (!AssistantDrawerComponent.IMAGE_ACCEPT_RE.test(file.type)) {
+      this.imageAttachError = 'ASSISTANT.IMAGE_TYPE_REJECTED';
+      this.cdr.markForCheck();
+      return;
+    }
+    if (file.size > AssistantDrawerComponent.IMAGE_MAX_BYTES) {
+      this.imageAttachError = 'ASSISTANT.IMAGE_TOO_LARGE';
+      this.cdr.markForCheck();
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.ngZone.run(() => {
+        const dataUrl = reader.result as string;
+        const m = /^data:([^;]+);base64,(.+)$/s.exec(dataUrl);
+        if (!m?.[1] || !m[2]) {
+          this.imageAttachError = 'ASSISTANT.IMAGE_READ_ERROR';
+          this.pendingImage = null;
+          this.cdr.markForCheck();
+          return;
+        }
+        this.pendingImage = {
+          mimeType: m[1].trim().toLowerCase(),
+          base64: m[2].replace(/\s+/g, ''),
+          dataUrl
+        };
+        this.imageAttachError = null;
+        this.cdr.markForCheck();
+      });
+    };
+    reader.onerror = () => {
+      this.ngZone.run(() => {
+        this.imageAttachError = 'ASSISTANT.IMAGE_READ_ERROR';
+        this.pendingImage = null;
+        this.cdr.markForCheck();
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  trustedImageSrc(url: string): SafeUrl {
+    return this.sanitizer.bypassSecurityTrustUrl(url);
+  }
+
+  send(): void {
+    if (this.loading || !this.isAuthenticated()) {
+      return;
+    }
+    const hasImage = this.pendingImage != null;
+    const textTrim = this.draft.trim();
+    if (!textTrim && !hasImage) {
+      return;
+    }
+    const text =
+      textTrim || this.translate.instant('ASSISTANT.IMAGE_DEFAULT_PROMPT');
+
+    const attached: AssistantAttachedImageRequest | undefined =
+      hasImage && this.pendingImage
+        ? {
+            mimeType: this.pendingImage.mimeType,
+            base64: this.pendingImage.base64
+          }
+        : undefined;
+    const previewDataUrl = this.pendingImage?.dataUrl;
+
     this.draft = '';
-    const userMsg: AssistantChatTurn = { role: 'user', content: text };
+    this.pendingImage = null;
+    this.imageAttachError = null;
+
+    const userMsg: AssistantChatTurn = {
+      role: 'user',
+      content: text,
+      ...(attached
+        ? { hasImage: true, imageDataUrl: previewDataUrl }
+        : {})
+    };
     this.messages = [...this.messages, userMsg];
     this.persistSession();
     this.requestAlignLastQuestionTop();
@@ -786,7 +891,12 @@ export class AssistantDrawerComponent
 
     this.chatSendSub?.unsubscribe();
     this.chatSendSub = this.assistant
-      .sendMessages(payload, undefined, this.collectToolFlagsForSession())
+      .sendMessages(
+        payload,
+        undefined,
+        this.collectToolFlagsForSession(),
+        attached
+      )
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => {

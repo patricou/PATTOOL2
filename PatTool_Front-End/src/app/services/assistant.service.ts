@@ -20,6 +20,10 @@ export interface AssistantChatTurn {
   role: 'user' | 'assistant';
   content: string;
   meta?: AssistantChatMeta;
+  /** Indique qu’une image a été envoyée avec ce message. */
+  hasImage?: boolean;
+  /** Aperçu local (data URL) ; non sérialisé en session. */
+  imageDataUrl?: string;
 }
 
 export interface AssistantChatResponse {
@@ -88,6 +92,12 @@ export interface AssistantToolFlagsRequest {
   mcp?: boolean;
 }
 
+/** Image jointe au dernier message (vision côté serveur). */
+export interface AssistantAttachedImageRequest {
+  mimeType: string;
+  base64: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AssistantService {
   private readonly apiUrl = environment.API_URL + 'assistant/chat';
@@ -115,13 +125,19 @@ export class AssistantService {
   sendMessages(
     messages: AssistantChatTurn[],
     system?: string,
-    tools?: AssistantToolFlagsRequest
+    tools?: AssistantToolFlagsRequest,
+    attachedImage?: AssistantAttachedImageRequest
   ): Observable<AssistantChatResponse> {
+    const slimMessages = messages.map((m) => ({
+      role: m.role,
+      content: m.content
+    }));
     const body: {
-      messages: AssistantChatTurn[];
+      messages: { role: string; content: string }[];
       system?: string;
       tools?: AssistantToolFlagsRequest;
-    } = { messages };
+      attachedImage?: AssistantAttachedImageRequest;
+    } = { messages: slimMessages };
     if (system && system.trim()) {
       body.system = system.trim();
     }
@@ -135,6 +151,18 @@ export class AssistantService {
         ...(tools.webSearch === true ? { webSearch: true } : {}),
         ...(tools.imageGeneration === true ? { imageGeneration: true } : {}),
         ...(tools.mcp === true ? { mcp: true } : {})
+      };
+    }
+    if (
+      attachedImage &&
+      attachedImage.mimeType &&
+      attachedImage.base64 &&
+      attachedImage.mimeType.trim() &&
+      attachedImage.base64.trim()
+    ) {
+      body.attachedImage = {
+        mimeType: attachedImage.mimeType.trim(),
+        base64: attachedImage.base64.trim()
       };
     }
     return this.authHeaders().pipe(

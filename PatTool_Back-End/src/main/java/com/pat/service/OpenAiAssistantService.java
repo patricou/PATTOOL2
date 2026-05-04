@@ -2,6 +2,7 @@ package com.pat.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pat.controller.dto.AssistantAttachedImageDto;
 import com.pat.controller.dto.AssistantChatRequestDto;
 import com.pat.controller.dto.AssistantChatResponseDto;
 import com.pat.controller.dto.AssistantToolFlagsDto;
@@ -17,6 +18,7 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -30,6 +32,10 @@ public class OpenAiAssistantService {
 
     private static final int MAX_TURNS = 40;
     private static final int MAX_CONTENT_CHARS = 120_000;
+    private static final int MAX_IMAGE_DECODED_BYTES = 8 * 1024 * 1024;
+
+    private static final Set<String> ALLOWED_IMAGE_MIMES =
+            Set.of("image/jpeg", "image/png", "image/gif", "image/webp");
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -91,6 +97,11 @@ public class OpenAiAssistantService {
             return AssistantChatResponseDto.err("Aucun message valide à envoyer.");
         }
 
+        ImageAttachResult imageAttach = resolveAttachedImage(request.attachedImage(), turns);
+        if (imageAttach.error() != null) {
+            return AssistantChatResponseDto.err(imageAttach.error());
+        }
+
         long totalChars = turns.stream().mapToLong(t -> t.content() != null ? t.content().length() : 0).sum();
         if (request.system() != null && !request.system().isBlank()) {
             totalChars += request.system().trim().length();
@@ -105,15 +116,32 @@ public class OpenAiAssistantService {
             if (mcpErr != null) {
                 return AssistantChatResponseDto.err(mcpErr);
             }
-            return completeWithResponses(request, turns);
+            return completeWithResponses(request, turns, imageAttach.dataUrl());
         }
 
-        List<Map<String, String>> chatMessages = new ArrayList<>();
+        List<Object> chatMessages = new ArrayList<>();
         if (request.system() != null && !request.system().isBlank()) {
             chatMessages.add(Map.of("role", "system", "content", request.system().trim()));
         }
-        for (AssistantTurnDto t : turns) {
-            chatMessages.add(Map.of("role", t.role(), "content", t.content()));
+        int lastIdx = turns.size() - 1;
+        for (int i = 0; i < turns.size(); i++) {
+            AssistantTurnDto t = turns.get(i);
+            if (imageAttach.dataUrl() != null && i == lastIdx && "user".equals(t.role())) {
+                List<Map<String, Object>> parts = new ArrayList<>();
+                parts.add(Map.of("type", "text", "text", t.content()));
+                parts.add(
+                        Map.of(
+                                "type",
+                                "image_url",
+                                "image_url",
+                                Map.of("url", imageAttach.dataUrl())));
+                Map<String, Object> msg = new HashMap<>();
+                msg.put("role", "user");
+                msg.put("content", parts);
+                chatMessages.add(msg);
+            } else {
+                chatMessages.add(Map.of("role", t.role(), "content", t.content()));
+            }
         }
 
         Map<String, Object> body = new HashMap<>();
@@ -168,6 +196,78 @@ public class OpenAiAssistantService {
         }
     }
 
+    private record ImageAttachResult(String dataUrl, String error) {
+        static ImageAttachResult none() {
+            return new ImageAttachResult(null, null);
+        }
+
+        static ImageAttachResult ok(String dataUrl) {
+            return new ImageAttachResult(dataUrl, null);
+        }
+
+        static ImageAttachResult err(String message) {
+            return new ImageAttachResult(null, message);
+        }
+    }
+
+    private ImageAttachResult resolveAttachedImage(
+            AssistantAttachedImageDto attached, List<AssistantTurnDto> turns) {
+        if (attached == null) {
+            return ImageAttachResult.none();
+        }
+        if (turns.isEmpty() || !"user".equals(turns.get(turns.size() - 1).role())) {
+            return ImageAttachResult.err(
+                    "Une image ne peut être analysée qu’avec un message utilisateur en dernier.");
+        }
+        String mimeRaw = attached.mimeType();
+        String b64Raw = attached.base64();
+        if (mimeRaw == null || mimeRaw.isBlank() || b64Raw == null || b64Raw.isBlank()) {
+            return ImageAttachResult.err("Image jointe incomplète (mimeType ou base64 manquant).");
+        }
+        String mime = mimeRaw.trim().toLowerCase();
+        String b64 = b64Raw.strip().replaceAll("\\s+", "");
+        String useMime = mime;
+        if (b64.startsWith("data:")) {
+            int comma = b64.indexOf(',');
+            if (comma < 6) {
+                return ImageAttachResult.err("Image jointe : data URL invalide.");
+            }
+            String header = b64.substring(5, comma);
+            int semi = header.indexOf(';');
+            String declared =
+                    semi > 0 ? header.substring(0, semi).trim().toLowerCase() : header.trim().toLowerCase();
+            if (!declared.isEmpty() && ALLOWED_IMAGE_MIMES.contains(declared)) {
+                useMime = declared;
+            }
+            b64 = b64.substring(comma + 1).replaceAll("\\s+", "");
+        }
+        if (!ALLOWED_IMAGE_MIMES.contains(useMime)) {
+            return ImageAttachResult.err(
+                    "Format d’image non pris en charge. Utilisez JPEG, PNG, GIF ou WebP.");
+        }
+        byte[] decoded;
+        try {
+            decoded = Base64.getDecoder().decode(b64);
+        } catch (IllegalArgumentException e) {
+            return ImageAttachResult.err("Encodage base64 de l’image invalide.");
+        }
+        if (decoded.length == 0) {
+            return ImageAttachResult.err("Image jointe vide.");
+        }
+        if (decoded.length > MAX_IMAGE_DECODED_BYTES) {
+            return ImageAttachResult.err(
+                    "Image trop volumineuse (max "
+                            + (MAX_IMAGE_DECODED_BYTES / (1024 * 1024))
+                            + " Mo après décodage).");
+        }
+        String dataUrl =
+                "data:"
+                        + useMime
+                        + ";base64,"
+                        + Base64.getEncoder().encodeToString(decoded);
+        return ImageAttachResult.ok(dataUrl);
+    }
+
     private static boolean useResponsesTools(AssistantChatRequestDto request) {
         AssistantToolFlagsDto t = request.tools();
         if (t == null) {
@@ -205,7 +305,7 @@ public class OpenAiAssistantService {
     }
 
     private AssistantChatResponseDto completeWithResponses(
-            AssistantChatRequestDto request, List<AssistantTurnDto> turns) {
+            AssistantChatRequestDto request, List<AssistantTurnDto> turns, String imageDataUrl) {
         AssistantToolFlagsDto flags = request.tools();
         List<Map<String, Object>> tools = new ArrayList<>();
         List<String> include = new ArrayList<>();
@@ -228,9 +328,21 @@ public class OpenAiAssistantService {
             tools.add(mcp);
         }
 
-        List<Map<String, String>> input = new ArrayList<>();
-        for (AssistantTurnDto t : turns) {
-            input.add(Map.of("role", t.role(), "content", t.content()));
+        List<Map<String, Object>> input = new ArrayList<>();
+        int lastIdx = turns.size() - 1;
+        for (int i = 0; i < turns.size(); i++) {
+            AssistantTurnDto t = turns.get(i);
+            if (imageDataUrl != null && i == lastIdx && "user".equals(t.role())) {
+                List<Map<String, Object>> parts = new ArrayList<>();
+                parts.add(Map.of("type", "input_text", "text", t.content()));
+                parts.add(Map.of("type", "input_image", "image_url", imageDataUrl));
+                Map<String, Object> msg = new HashMap<>();
+                msg.put("role", "user");
+                msg.put("content", parts);
+                input.add(msg);
+            } else {
+                input.add(Map.of("role", t.role(), "content", t.content()));
+            }
         }
 
         Map<String, Object> body = new HashMap<>();

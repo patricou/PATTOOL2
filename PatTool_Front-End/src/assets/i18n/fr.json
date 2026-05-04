@@ -1484,7 +1484,16 @@
         "TOOL_IMAGE_HINT": "Le modèle peut générer des images ; coût et durée de réponse peuvent augmenter.",
         "TOOL_MCP_HINT": "Branche un serveur MCP configuré sur le backend (propriétés openai.mcp.*).",
         "NEW_THREAD_HINT": "Efface la conversation et le brouillon dans cet onglet pour repartir de zéro.",
-        "SEND_HINT": "Envoie le texte du champ à l’assistant, avec les options cochées ci-dessus."
+        "SEND_HINT": "Envoie le message du champ (et l’image jointe le cas échéant) à l’assistant, avec les options cochées ci-dessus.",
+        "IMAGE_ATTACH": "Image",
+        "IMAGE_ATTACH_HINT": "Joindre une image pour description ou analyse (JPEG, PNG, GIF, WebP, max 8 Mo).",
+        "IMAGE_REMOVE": "Retirer l’image",
+        "IMAGE_PREVIEW_ALT": "Image jointe au message",
+        "IMAGE_DEFAULT_PROMPT": "Décris et analyse cette image en détail.",
+        "IMAGE_TOO_LARGE": "Image trop volumineuse (max 8 Mo).",
+        "IMAGE_TYPE_REJECTED": "Utilisez JPEG, PNG, GIF ou WebP.",
+        "IMAGE_READ_ERROR": "Impossible de lire ce fichier image.",
+        "IMAGE_SENT_NOTE": "Image envoyée (l’aperçu n’est pas conservé après rechargement)."
     },
     "ABOUT": {
         "DESIGNED_BY": "Conçu et développé par",

@@ -648,6 +648,76 @@
   margin-right: 0;
 }
 
+.pat-assistant-tool-flags-image-gap {
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: 1px;
+  min-height: 1.15rem;
+  margin: 0 0.2rem 0 0.45rem;
+  background: var(--asst-border);
+}
+
+.pat-assistant-attach-btn {
+  flex: 0 0 auto;
+}
+
+.pat-assistant-pending-img-wrap {
+  position: relative;
+  flex: 0 0 auto;
+  max-width: 120px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--asst-border);
+}
+
+.pat-assistant-pending-img {
+  display: block;
+  width: 100%;
+  max-height: 72px;
+  object-fit: cover;
+  vertical-align: middle;
+}
+
+.pat-assistant-pending-img-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(17, 24, 39, 0.65);
+  color: #fff;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+}
+
+.pat-assistant-pending-img-remove:hover {
+  background: rgba(17, 24, 39, 0.85);
+}
+
+.pat-assistant-bubble-user-img {
+  display: block;
+  max-width: 100%;
+  max-height: 180px;
+  width: auto;
+  height: auto;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--asst-border);
+  object-fit: contain;
+}
+
+.pat-assistant-image-err {
+  margin-top: 0.35rem;
+  margin-bottom: 0.15rem !important;
+}
+
 @media (max-width: 576px) {
   :host {
     --pat-assistant-panel-width: 100vw;

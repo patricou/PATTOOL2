@@ -135,7 +135,19 @@
             <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
           </button>
         </div>
-        <div class="pat-assistant-bubble-body pat-assistant-rich-text" [innerHTML]="bubbleRichHtml(m)"></div>
+        <div class="pat-assistant-bubble-body pat-assistant-rich-text">
+          <ng-container *ngIf="m.role === 'user'">
+            <p *ngIf="m.hasImage && !m.imageDataUrl" class="pat-assistant-user-image-note small text-muted mb-1">
+              {{ 'ASSISTANT.IMAGE_SENT_NOTE' | translate }}
+            </p>
+            <img
+              *ngIf="m.imageDataUrl"
+              class="pat-assistant-bubble-user-img"
+              [src]="trustedImageSrc(m.imageDataUrl)"
+              [attr.alt]="'ASSISTANT.IMAGE_PREVIEW_ALT' | translate" />
+          </ng-container>
+          <div [innerHTML]="bubbleRichHtml(m)"></div>
+        </div>
         <div
           *ngIf="replyProviderModelLine(m) || replyStatsLine(m)"
           class="pat-assistant-reply-footer">
@@ -150,6 +162,13 @@
   </div>
 
   <div class="pat-assistant-compose">
+    <input
+      #imageFileInput
+      type="file"
+      class="d-none"
+      accept="image/jpeg,image/png,image/gif,image/webp"
+      (change)="onImageFileChange($event)"
+      aria-hidden="true" />
     <div class="pat-assistant-compose-input-row">
       <button
         type="button"
@@ -174,6 +193,9 @@
             : ('ASSISTANT.PLACEHOLDER' | translate)
         "></textarea>
     </div>
+    <p *ngIf="imageAttachError" class="pat-assistant-image-err text-danger small mb-0">
+      {{ imageAttachError | translate }}
+    </p>
     <div class="pat-assistant-tool-flags text-muted small mb-2" role="group" [attr.aria-label]="'ASSISTANT.TOOLS_GROUP' | translate">
       <span class="pat-assistant-tool-flags-label me-1"
             [title]="'ASSISTANT.TOOLS_OPTIONAL_HINT' | translate">{{ 'ASSISTANT.TOOLS_OPTIONAL' | translate }}</span>
@@ -216,12 +238,37 @@
                for="pat-assistant-tool-mcp"
                [title]="'ASSISTANT.TOOL_MCP_HINT' | translate">{{ 'ASSISTANT.TOOL_MCP' | translate }}</label>
       </div>
+      <span class="pat-assistant-tool-flags-image-gap" aria-hidden="true"></span>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary pat-assistant-attach-btn"
+        (click)="openImagePicker()"
+        [disabled]="loading"
+        [title]="'ASSISTANT.IMAGE_ATTACH_HINT' | translate"
+        [attr.aria-label]="'ASSISTANT.IMAGE_ATTACH' | translate">
+        <i class="fa fa-picture-o me-1" aria-hidden="true"></i>
+        {{ 'ASSISTANT.IMAGE_ATTACH' | translate }}
+      </button>
+      <div *ngIf="pendingImage" class="pat-assistant-pending-img-wrap">
+        <img
+          [src]="trustedImageSrc(pendingImage.dataUrl)"
+          class="pat-assistant-pending-img"
+          alt="" />
+        <button
+          type="button"
+          class="pat-assistant-pending-img-remove"
+          (click)="clearPendingImage()"
+          [title]="'ASSISTANT.IMAGE_REMOVE' | translate"
+          [attr.aria-label]="'ASSISTANT.IMAGE_REMOVE' | translate">
+          <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
     </div>
     <button
       type="button"
       class="btn pat-assistant-send w-100"
       (click)="send()"
-      [disabled]="loading || !draft.trim()"
+      [disabled]="loading || (!draft.trim() && !pendingImage)"
       [title]="'ASSISTANT.SEND_HINT' | translate"
       [attr.aria-label]="'ASSISTANT.SEND' | translate">
       <i class="fa fa-paper-plane me-1" aria-hidden="true"></i>

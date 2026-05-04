@@ -110,10 +110,14 @@ export class AssistantSessionStore {
               Object.prototype.hasOwnProperty.call(r, 'meta')
                 ? AssistantSessionStore.sanitizeMeta(r.role, r.meta)
                 : undefined;
+            const hasImage =
+              r.role === 'user' &&
+              (row as unknown as Record<string, unknown>)['hasImage'] === true;
             messages.push({
               role: r.role,
               content: r.content,
-              ...(meta ? { meta } : {})
+              ...(meta ? { meta } : {}),
+              ...(hasImage ? { hasImage: true } : {})
             });
           }
         }
@@ -141,12 +145,16 @@ export class AssistantSessionStore {
           role: AssistantChatTurn['role'];
           content: string;
           meta?: AssistantChatMeta;
+          hasImage?: boolean;
         } = { role: m.role, content: m.content };
         if (m.meta != null && typeof m.meta === 'object') {
           const meta = AssistantSessionStore.sanitizeMeta(m.role, m.meta);
           if (meta) {
             row.meta = meta;
           }
+        }
+        if (m.role === 'user' && m.hasImage === true) {
+          row.hasImage = true;
         }
         return row;
       });

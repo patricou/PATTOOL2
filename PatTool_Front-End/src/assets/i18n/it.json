@@ -1442,7 +1442,16 @@
         "TOOL_IMAGE_HINT": "Il modello può generare immagini; costi e tempi possono aumentare.",
         "TOOL_MCP_HINT": "Collega un server MCP configurato sul backend (openai.mcp.*).",
         "NEW_THREAD_HINT": "Cancella cronologia e bozza in questa scheda per ripartire da zero.",
-        "SEND_HINT": "Invia il testo all’assistente con le opzioni selezionate sopra."
+        "SEND_HINT": "Invia il messaggio (e l’eventuale immagine allegata) all’assistente con le opzioni selezionate sopra.",
+        "IMAGE_ATTACH": "Immagine",
+        "IMAGE_ATTACH_HINT": "Allega un’immagine da far descrivere o analizzare all’assistente (JPEG, PNG, GIF, WebP, max 8 MB).",
+        "IMAGE_REMOVE": "Rimuovi immagine",
+        "IMAGE_PREVIEW_ALT": "Immagine allegata al messaggio",
+        "IMAGE_DEFAULT_PROMPT": "Descrivi e analizza questa immagine in dettaglio.",
+        "IMAGE_TOO_LARGE": "Immagine troppo grande (max 8 MB).",
+        "IMAGE_TYPE_REJECTED": "Usa JPEG, PNG, GIF o WebP.",
+        "IMAGE_READ_ERROR": "Impossibile leggere il file immagine.",
+        "IMAGE_SENT_NOTE": "Immagine inviata (l’anteprima non viene conservata dopo il ricaricamento)."
     },
     "ABOUT": {
         "DESIGNED_BY": "Progettato e sviluppato da",

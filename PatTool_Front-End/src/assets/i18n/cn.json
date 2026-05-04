@@ -1440,7 +1440,16 @@
         "TOOL_IMAGE_HINT": "模型可生成图像；可能更慢、费用更高。",
         "TOOL_MCP_HINT": "连接后端配置的 MCP 服务器（openai.mcp.*）。",
         "NEW_THREAD_HINT": "清除此标签页中的对话与草稿，从头开始。",
-        "SEND_HINT": "将输入框内容发送给助手，并应用上方勾选的选项。"
+        "SEND_HINT": "将输入框中的消息（以及所附图片，如有）发送给助手，并应用上方勾选的选项。",
+        "IMAGE_ATTACH": "图片",
+        "IMAGE_ATTACH_HINT": "附加图片供助手描述或分析（JPEG、PNG、GIF、WebP，最大 8 MB）。",
+        "IMAGE_REMOVE": "移除图片",
+        "IMAGE_PREVIEW_ALT": "附在消息中的图片",
+        "IMAGE_DEFAULT_PROMPT": "请详细描述并分析这张图片。",
+        "IMAGE_TOO_LARGE": "图片过大（最大 8 MB）。",
+        "IMAGE_TYPE_REJECTED": "请使用 JPEG、PNG、GIF 或 WebP。",
+        "IMAGE_READ_ERROR": "无法读取此图片文件。",
+        "IMAGE_SENT_NOTE": "图片已发送（刷新后不保留预览）。"
     },
     "ABOUT": {
         "DESIGNED_BY": "设计与开发者",

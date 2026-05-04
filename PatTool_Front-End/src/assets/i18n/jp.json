@@ -1243,7 +1243,16 @@
         "TOOL_IMAGE_HINT": "モデルが画像を生成できます。コストと時間が増えることがあります。",
         "TOOL_MCP_HINT": "バックエンドで設定した MCP サーバーに接続します（openai.mcp.*）。",
         "NEW_THREAD_HINT": "このタブの会歴と下書きを消して新しく始めます。",
-        "SEND_HINT": "入力内容を、上で選んだオプション付きでアシスタントに送信します。"
+        "SEND_HINT": "入力内容と、あれば添付画像を、上で選んだオプション付きでアシスタントに送信します。",
+        "IMAGE_ATTACH": "画像",
+        "IMAGE_ATTACH_HINT": "アシスタントに説明・分析させる画像を添付（JPEG、PNG、GIF、WebP、最大 8 MB）。",
+        "IMAGE_REMOVE": "画像を削除",
+        "IMAGE_PREVIEW_ALT": "メッセージに添付された画像",
+        "IMAGE_DEFAULT_PROMPT": "この画像を詳しく説明・分析してください。",
+        "IMAGE_TOO_LARGE": "画像が大きすぎます（最大 8 MB）。",
+        "IMAGE_TYPE_REJECTED": "JPEG、PNG、GIF、WebP を使用してください。",
+        "IMAGE_READ_ERROR": "画像ファイルを読み取れませんでした。",
+        "IMAGE_SENT_NOTE": "画像を送信しました（再読み込み後もプレビューは保持されません）。"
     },
     "ABOUT": {
         "DESIGNED_BY": "デザイン・開発者",

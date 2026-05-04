@@ -15,5 +15,7 @@ public record AssistantChatRequestDto(
         /** Optional Claude system prompt (short). */
         @Size(max = 8000) String system,
         /** Recherche web, génération d’images, MCP — active l’API Responses avec outils. */
-        AssistantToolFlagsDto tools
+        AssistantToolFlagsDto tools,
+        /** Image analysée avec le dernier tour « user » (vision). */
+        @Valid AssistantAttachedImageDto attachedImage
 ) {}

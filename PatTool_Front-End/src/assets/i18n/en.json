@@ -1494,7 +1494,16 @@
         "TOOL_IMAGE_HINT": "The model can generate images; may cost more and take longer.",
         "TOOL_MCP_HINT": "Connects an MCP server configured on the backend (openai.mcp.* settings).",
         "NEW_THREAD_HINT": "Clears this tab’s chat history and draft to start fresh.",
-        "SEND_HINT": "Sends your message to the assistant using the options checked above."
+        "SEND_HINT": "Sends your message (and any attached image) to the assistant using the options checked above.",
+        "IMAGE_ATTACH": "Image",
+        "IMAGE_ATTACH_HINT": "Attach an image for the assistant to describe or analyze (JPEG, PNG, GIF, WebP, max 8 MB).",
+        "IMAGE_REMOVE": "Remove image",
+        "IMAGE_PREVIEW_ALT": "Image attached to your message",
+        "IMAGE_DEFAULT_PROMPT": "Describe and analyze this image in detail.",
+        "IMAGE_TOO_LARGE": "Image too large (max 8 MB).",
+        "IMAGE_TYPE_REJECTED": "Use JPEG, PNG, GIF, or WebP.",
+        "IMAGE_READ_ERROR": "Could not read this image file.",
+        "IMAGE_SENT_NOTE": "Image sent (preview is not kept after reload)."
     },
     "ABOUT": {
         "DESIGNED_BY": "Designed and developed by",
