@@ -493,6 +493,17 @@
                                 </span>
                                 <div class="news-card-actions">
                                     <button type="button"
+                                            class="icon-btn icon-btn-ai"
+                                            *ngIf="isAssistantUser()"
+                                            (click)="openAssistantForNews(article, $event)"
+                                            [title]="'ASSISTANT.ASK_FROM_NEWS_TITLE' | translate"
+                                            ngbTooltip="{{ 'ASSISTANT.ASK_FROM_NEWS_TITLE' | translate }}"
+                                            placement="top"
+                                            container="body"
+                                            [attr.aria-label]="'ASSISTANT.ASK_FROM_NEWS_TITLE' | translate">
+                                        <i class="fa fa-magic" aria-hidden="true"></i>
+                                    </button>
+                                    <button type="button"
                                             class="icon-btn"
                                             (click)="openArticle(article, $event)"
                                             [title]="'NEWS.OPEN_ARTICLE' | translate">

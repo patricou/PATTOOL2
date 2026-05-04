@@ -2,12 +2,14 @@ import { Injectable } from '@angular/core';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import {
   AssistantChatMeta,
-  AssistantChatTurn
+  AssistantChatTurn,
+  AssistantToolFlagsRequest
 } from './assistant.service';
 
 interface StoredShape {
   messages?: unknown;
   draft?: string;
+  toolFlags?: AssistantToolFlagsRequest;
 }
 
 /** Historique du panneau assistant par utilisateur, dans sessionStorage (onglet). */
@@ -50,6 +52,26 @@ export class AssistantSessionStore {
     return Object.keys(out).length ? out : undefined;
   }
 
+  private static sanitizeToolFlags(
+    raw: unknown
+  ): AssistantToolFlagsRequest | undefined {
+    if (raw == null || typeof raw !== 'object') {
+      return undefined;
+    }
+    const o = raw as Record<string, unknown>;
+    const out: AssistantToolFlagsRequest = {};
+    if (o['webSearch'] === true) {
+      out.webSearch = true;
+    }
+    if (o['imageGeneration'] === true) {
+      out.imageGeneration = true;
+    }
+    if (o['mcp'] === true) {
+      out.mcp = true;
+    }
+    return Object.keys(out).length ? out : undefined;
+  }
+
   private key(): string {
     const auth = this.keycloak.getAuth();
     const id =
@@ -60,7 +82,11 @@ export class AssistantSessionStore {
     return `${AssistantSessionStore.PREFIX}:${String(id)}`;
   }
 
-  load(): { messages: AssistantChatTurn[]; draft: string } | null {
+  load(): {
+    messages: AssistantChatTurn[];
+    draft: string;
+    toolFlags?: AssistantToolFlagsRequest;
+  } | null {
     try {
       const raw = sessionStorage.getItem(this.key());
       if (!raw) {
@@ -93,13 +119,22 @@ export class AssistantSessionStore {
         }
       }
       const draft = typeof data.draft === 'string' ? data.draft : '';
-      return { messages, draft };
+      const toolFlags = AssistantSessionStore.sanitizeToolFlags(data.toolFlags);
+      return {
+        messages,
+        draft,
+        ...(toolFlags ? { toolFlags } : {})
+      };
     } catch {
       return null;
     }
   }
 
-  save(messages: AssistantChatTurn[], draft: string): void {
+  save(
+    messages: AssistantChatTurn[],
+    draft: string,
+    toolFlags?: AssistantToolFlagsRequest
+  ): void {
     try {
       const slim = messages.map((m) => {
         const row: {
@@ -115,7 +150,11 @@ export class AssistantSessionStore {
         }
         return row;
       });
-      sessionStorage.setItem(this.key(), JSON.stringify({ messages: slim, draft }));
+      const payload: Record<string, unknown> = { messages: slim, draft };
+      if (toolFlags != null && Object.keys(toolFlags).length > 0) {
+        payload['toolFlags'] = toolFlags;
+      }
+      sessionStorage.setItem(this.key(), JSON.stringify(payload));
     } catch {
       /* quota / private mode */
     }

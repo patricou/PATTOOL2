@@ -1101,6 +1101,49 @@
     background: #cfe2ff;
 }
 
+.icon-btn.icon-btn-ai {
+    background: #ffffff;
+    border: 1.5px solid #facc15;
+    color: #fde047;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.18);
+    transition:
+        transform 0.16s ease,
+        border-color 0.16s ease,
+        filter 0.16s ease,
+        box-shadow 0.16s ease;
+}
+
+.icon-btn.icon-btn-ai:hover {
+    background: #ffffff;
+    transform: scale(1.07);
+    border-color: #fde047;
+    color: #fef08a;
+    filter: brightness(1.02);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+}
+
+.icon-btn.icon-btn-ai:active {
+    background: #ffffff;
+    transform: scale(0.94);
+    filter: brightness(0.96);
+}
+
+.icon-btn.icon-btn-ai:focus-visible {
+    outline: 2px solid #facc15;
+    outline-offset: 2px;
+}
+
+.icon-btn.icon-btn-ai .fa {
+    font-size: 0.9rem;
+    line-height: 1;
+    color: #fde047;
+    filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.95)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.7));
+}
+
+.icon-btn.icon-btn-ai:hover .fa {
+    color: #fef08a;
+}
+
 /* ---------- Sources grid ---------- */
 .news-sources-grid {
     display: grid;

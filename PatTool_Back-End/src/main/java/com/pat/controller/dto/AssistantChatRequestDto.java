@@ -13,5 +13,7 @@ public record AssistantChatRequestDto(
         @Valid
         List<AssistantTurnDto> messages,
         /** Optional Claude system prompt (short). */
-        @Size(max = 8000) String system
+        @Size(max = 8000) String system,
+        /** Recherche web, génération d’images, MCP — active l’API Responses avec outils. */
+        AssistantToolFlagsDto tools
 ) {}

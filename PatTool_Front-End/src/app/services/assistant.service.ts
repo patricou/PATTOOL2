@@ -82,6 +82,12 @@ export interface AssistantClientConfig {
 }
 
 
+export interface AssistantToolFlagsRequest {
+  webSearch?: boolean;
+  imageGeneration?: boolean;
+  mcp?: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AssistantService {
   private readonly apiUrl = environment.API_URL + 'assistant/chat';
@@ -108,11 +114,28 @@ export class AssistantService {
 
   sendMessages(
     messages: AssistantChatTurn[],
-    system?: string
+    system?: string,
+    tools?: AssistantToolFlagsRequest
   ): Observable<AssistantChatResponse> {
-    const body: { messages: AssistantChatTurn[]; system?: string } = { messages };
+    const body: {
+      messages: AssistantChatTurn[];
+      system?: string;
+      tools?: AssistantToolFlagsRequest;
+    } = { messages };
     if (system && system.trim()) {
       body.system = system.trim();
+    }
+    if (
+      tools &&
+      (tools.webSearch === true ||
+        tools.imageGeneration === true ||
+        tools.mcp === true)
+    ) {
+      body.tools = {
+        ...(tools.webSearch === true ? { webSearch: true } : {}),
+        ...(tools.imageGeneration === true ? { imageGeneration: true } : {}),
+        ...(tools.mcp === true ? { mcp: true } : {})
+      };
     }
     return this.authHeaders().pipe(
       switchMap((headers) =>

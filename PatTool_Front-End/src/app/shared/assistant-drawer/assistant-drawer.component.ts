@@ -26,6 +26,7 @@ import {
   AssistantChatTurn,
   AssistantOpenAiCredits,
   AssistantService,
+  AssistantToolFlagsRequest,
   parseElapsedMsFromAssistantResponse
 } from '../../services/assistant.service';
 import { AssistantSessionStore } from '../../services/assistant-session.store';
@@ -59,6 +60,10 @@ export class AssistantDrawerComponent
   draft = '';
   loading = false;
   messages: AssistantChatTurn[] = [];
+  /** Outils OpenAI (API Responses) — envoyés avec le prochain message. */
+  toolWebSearch = false;
+  toolImageGeneration = false;
+  toolMcp = false;
   /** Réponse (ou erreur) reçue alors que le panneau était fermé — pastille sur le FAB jusqu’à réouverture. */
   fabUnreadReply = false;
   private shouldAlignLastQuestionTop = false;
@@ -139,6 +144,12 @@ export class AssistantDrawerComponent
       if (saved != null) {
         this.messages = saved.messages;
         this.draft = saved.draft;
+        const tf = saved.toolFlags;
+        if (tf != null) {
+          this.toolWebSearch = tf.webSearch === true;
+          this.toolImageGeneration = tf.imageGeneration === true;
+          this.toolMcp = tf.mcp === true;
+        }
       }
       this.loadAssistantClientConfig();
     }
@@ -153,6 +164,18 @@ export class AssistantDrawerComponent
         this.messages = [];
       }
       this.draft = p.draft.trim();
+      if (p.toolFlags) {
+        const tf = p.toolFlags;
+        if (tf.webSearch !== undefined) {
+          this.toolWebSearch = tf.webSearch;
+        }
+        if (tf.imageGeneration !== undefined) {
+          this.toolImageGeneration = tf.imageGeneration;
+        }
+        if (tf.mcp !== undefined) {
+          this.toolMcp = tf.mcp;
+        }
+      }
       this.isOpen = true;
       this.fabUnreadReply = false;
       this.fullscreen = false;
@@ -370,7 +393,29 @@ export class AssistantDrawerComponent
     if (!this.isAuthenticated()) {
       return;
     }
-    this.assistantSession.save(this.messages, this.draft ?? '');
+    this.assistantSession.save(
+      this.messages,
+      this.draft ?? '',
+      this.collectToolFlagsForSession()
+    );
+  }
+
+  private collectToolFlagsForSession(): AssistantToolFlagsRequest | undefined {
+    const o: AssistantToolFlagsRequest = {};
+    if (this.toolWebSearch) {
+      o.webSearch = true;
+    }
+    if (this.toolImageGeneration) {
+      o.imageGeneration = true;
+    }
+    if (this.toolMcp) {
+      o.mcp = true;
+    }
+    return Object.keys(o).length > 0 ? o : undefined;
+  }
+
+  onToolFlagsChanged(): void {
+    this.persistSession();
   }
 
   /** Frappe dans la zone : reporte l’autosauvegarde du brouillon. */
@@ -741,7 +786,7 @@ export class AssistantDrawerComponent
 
     this.chatSendSub?.unsubscribe();
     this.chatSendSub = this.assistant
-      .sendMessages(payload)
+      .sendMessages(payload, undefined, this.collectToolFlagsForSession())
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => {

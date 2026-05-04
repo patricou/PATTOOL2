@@ -46,6 +46,10 @@ export class MarkdownChatRenderService {
       return null;
     }
     const wrapped = '<div class="pat-assistant-md">' + raw + '</div>';
+    /** Réponses avec image générée (data URL) : le sanitizer HTML supprime souvent les src data:. */
+    if (/<img[^>]*\ssrc=["']data:image\//i.test(wrapped)) {
+      return this.sanitizer.bypassSecurityTrustHtml(wrapped);
+    }
     const cleaned = this.sanitizer.sanitize(SecurityContext.HTML, wrapped);
     if (cleaned == null || cleaned === '') {
       return null;

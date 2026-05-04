@@ -8,6 +8,8 @@ import { debounceTime } from 'rxjs/operators';
 
 import { ApiService } from '../services/api.service';
 import { NewsTickerService } from '../services/news-ticker.service';
+import { AssistantLaunchService } from '../services/assistant-launch.service';
+import { KeycloakService } from '../keycloak/keycloak.service';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 import { environment } from '../../environments/environment';
 
@@ -479,7 +481,9 @@ export class NewsComponent implements OnInit, OnDestroy {
     private translate: TranslateService,
     private cdr: ChangeDetectorRef,
     private newsTicker: NewsTickerService,
-    private modalService: NgbModal
+    private modalService: NgbModal,
+    private keycloak: KeycloakService,
+    private assistantLaunch: AssistantLaunchService
   ) {}
 
   /**
@@ -490,6 +494,27 @@ export class NewsComponent implements OnInit, OnDestroy {
   get isFrenchUi(): boolean {
     const lang = (this.translate.currentLang || this.translate.defaultLang || '').toLowerCase();
     return lang === 'fr' || lang.startsWith('fr-') || lang.startsWith('fr_');
+  }
+
+  isAssistantUser(): boolean {
+    return this.keycloak.isLoggedIn();
+  }
+
+  openAssistantForNews(article: NewsArticle, ev: MouseEvent): void {
+    ev.stopPropagation();
+    ev.preventDefault();
+    const title = article?.title?.trim();
+    if (!title || !this.isAssistantUser()) {
+      return;
+    }
+    this.assistantLaunch.openWithDraft(title, {
+      newConversation: true,
+      toolFlags: {
+        webSearch: true,
+        imageGeneration: false,
+        mcp: false
+      }
+    });
   }
 
   /**

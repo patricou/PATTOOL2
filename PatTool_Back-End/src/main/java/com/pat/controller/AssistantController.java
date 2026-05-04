@@ -40,7 +40,7 @@ public class AssistantController {
     }
 
     /**
-     * Assistant latéral multi-tours (OpenAI Chat Completions). Même clé {@code openai.key} que PatGPT.
+     * Assistant latéral multi-tours (OpenAI Chat Completions, ou API Responses si flags {@code tools}).
      */
     @PostMapping("/assistant/chat")
     public ResponseEntity<AssistantChatResponseDto> chat(@RequestBody @Valid AssistantChatRequestDto body) {
