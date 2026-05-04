@@ -1255,6 +1255,7 @@
         "IMAGE_TYPE_REJECTED": "JPEG、PNG、GIF、WebP を使用してください。",
         "IMAGE_READ_ERROR": "画像ファイルを読み取れませんでした。",
         "IMAGE_SENT_NOTE": "画像を送信しました（再読み込み後もプレビューは保持されません）。",
+        "TRANSCRIPT_PHOTO_LINE": "このメッセージには写真が含まれています（添付を参照）。",
         "SHARE_WHATSAPP": "WhatsApp",
         "SHARE_WHATSAPP_HINT": "チャットを共有：共有パネルで WhatsApp を選ぶか、テキストを含め WhatsApp Web を開きます。",
         "WHATSAPP_NATIVE_SHARE_NOTE": "スマホ（または共有 API があるブラウザのデスクトップ）では WhatsApp を選んでテキストや画像を送れます。それ以外ではテキストのみで開くことがあります。長いテキストは短くなる場合があります。",

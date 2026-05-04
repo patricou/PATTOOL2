@@ -1092,44 +1092,11 @@ export class AssistantDrawerComponent
     return t;
   }
 
-  /** Réutilise la logique métier « réponse après dernière image » / transcription complète. */
-  private threadHasUserImageTurn(): boolean {
-    return this.messages.some(
-      (m) => m.role === 'user' && (m.hasImage === true || !!m.imageDataUrl?.trim())
-    );
-  }
-
-  private replyTextAfterLastUserImageTurn(): string {
-    let lastImgIdx = -1;
-    for (let i = 0; i < this.messages.length; i++) {
-      const m = this.messages[i];
-      if (m.role === 'user' && (m.hasImage === true || !!m.imageDataUrl?.trim())) {
-        lastImgIdx = i;
-      }
-    }
-    if (lastImgIdx < 0) {
-      return '';
-    }
-    for (let j = lastImgIdx + 1; j < this.messages.length; j++) {
-      if (this.messages[j].role === 'assistant') {
-        const c = this.messages[j].content;
-        return typeof c === 'string' ? c.trim() : '';
-      }
-    }
-    return '';
-  }
-
   /**
-   * Texte repris dans la zone d’aperçu : réponse à la dernière image envoyée dans le chat
-   * si applicable ; sinon tout l’échange (pour lecture seule avant partage « léger »).
+   * Corps du message de partage : tout l’historique visible (questions + réponses).
+   * Les images sont envoyées en pièces jointes via {@link confirmAssistantWhatsAppShare} en parallèle.
    */
   private suggestWhatsAppShareBodyRaw(): string {
-    if (this.threadHasUserImageTurn()) {
-      const afterImg = this.replyTextAfterLastUserImageTurn();
-      if (afterImg.length > 0) {
-        return afterImg;
-      }
-    }
     return this.buildAssistantTranscriptPlain();
   }
 
@@ -1137,12 +1104,18 @@ export class AssistantDrawerComponent
     const you = this.translate.instant('ASSISTANT.YOU');
     const ai = this.translate.instant('ASSISTANT.AI');
     const imageNote = this.translate.instant('ASSISTANT.IMAGE_SENT_NOTE');
+    const photoInShare = this.translate.instant('ASSISTANT.TRANSCRIPT_PHOTO_LINE');
     const chunks: string[] = [];
     for (const m of this.messages) {
       const label = m.role === 'user' ? you : ai;
       let body = typeof m.content === 'string' ? m.content.trim() : '';
       if (m.role === 'user' && m.hasImage && !m.imageDataUrl) {
         body = body ? `${body}\n${imageNote}` : imageNote;
+      } else if (m.role === 'user' && m.imageDataUrl?.trim()) {
+        const line = photoInShare.trim();
+        if (line.length > 0) {
+          body = body ? `${body}\n${line}` : line;
+        }
       }
       chunks.push(`*${label}*\n${body || '—'}`);
     }
@@ -1150,8 +1123,7 @@ export class AssistantDrawerComponent
   }
 
   /**
-   * Aperçu : complément facultatif (champ), puis transcription du chat (lecture uniquement —
-   * elle n’est pas envoyée automatiquement sur WhatsApp).
+   * Aperçu : complément facultatif (champ), puis transcription du chat (identique au corps envoyé au partage).
    */
   whatsappSharePreviewHtml(): SafeHtml {
     const addonRaw = (this.whatsappShareMessage ?? '').trim();
@@ -1332,8 +1304,6 @@ export class AssistantDrawerComponent
       share?: (data: ShareData) => Promise<void>;
       canShare?: (data: ShareData) => boolean;
     };
-    const isMobile =
-      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
     const aborted = (e: unknown): boolean =>
       e != null && typeof e === 'object' && 'name' in e && String((e as { name?: string }).name) === 'AbortError';
@@ -1341,18 +1311,13 @@ export class AssistantDrawerComponent
     if (typeof nav.share === 'function') {
       if (imageFiles.length > 0) {
         const withFiles: ShareData = { title, text: message, files: imageFiles };
-        const allowFiles =
-          isMobile ||
-          (typeof nav.canShare === 'function' ? nav.canShare(withFiles) : false);
-        if (allowFiles) {
-          try {
-            await nav.share(withFiles);
-            this.cancelAssistantWhatsAppShare();
+        try {
+          await nav.share(withFiles);
+          this.cancelAssistantWhatsAppShare();
+          return;
+        } catch (err: unknown) {
+          if (aborted(err)) {
             return;
-          } catch (err: unknown) {
-            if (aborted(err)) {
-              return;
-            }
           }
         }
       }

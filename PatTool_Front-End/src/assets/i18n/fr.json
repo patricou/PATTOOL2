@@ -1496,6 +1496,7 @@
         "IMAGE_TYPE_REJECTED": "Utilisez JPEG, PNG, GIF ou WebP.",
         "IMAGE_READ_ERROR": "Impossible de lire ce fichier image.",
         "IMAGE_SENT_NOTE": "Image envoyée (l’aperçu n’est pas conservé après rechargement).",
+        "TRANSCRIPT_PHOTO_LINE": "Photo jointe au partage.",
         "SHARE_WHATSAPP": "WhatsApp",
         "SHARE_WHATSAPP_HINT": "Exporter la conversation : menu système puis WhatsApp ou ouverture de WhatsApp Web avec le message.",
         "WHATSAPP_NATIVE_SHARE_NOTE": "Sur mobile (ou navigateur avec partage système), vous pouvez choisir WhatsApp et joindre texte et images. Sinon une page WhatsApp avec le message texte peut s’ouvrir ; le texte est tronqué s’il est très long.",

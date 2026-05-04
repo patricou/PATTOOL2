@@ -1506,6 +1506,7 @@
         "IMAGE_TYPE_REJECTED": "Use JPEG, PNG, GIF, or WebP.",
         "IMAGE_READ_ERROR": "Could not read this image file.",
         "IMAGE_SENT_NOTE": "Image sent (preview is not kept after reload).",
+        "TRANSCRIPT_PHOTO_LINE": "This message includes a photo (see attachment).",
         "SHARE_WHATSAPP": "WhatsApp",
         "SHARE_WHATSAPP_HINT": "Export conversation: pick WhatsApp from the share sheet or open WhatsApp Web with the text.",
         "WHATSAPP_NATIVE_SHARE_NOTE": "On mobile (or desktops with native share), you can choose WhatsApp and send text plus images. Otherwise WhatsApp may open with the text only; very long transcripts are shortened.",

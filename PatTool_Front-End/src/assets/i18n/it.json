@@ -1454,6 +1454,7 @@
         "IMAGE_TYPE_REJECTED": "Usa JPEG, PNG, GIF o WebP.",
         "IMAGE_READ_ERROR": "Impossibile leggere il file immagine.",
         "IMAGE_SENT_NOTE": "Immagine inviata (l’anteprima non viene conservata dopo il ricaricamento).",
+        "TRANSCRIPT_PHOTO_LINE": "Questo messaggio include una foto (vedi allegato).",
         "SHARE_WHATSAPP": "WhatsApp",
         "SHARE_WHATSAPP_HINT": "Esportare la chat: scegliere WhatsApp dalla condivisione di sistema oppure aprire WhatsApp Web con il testo.",
         "WHATSAPP_NATIVE_SHARE_NOTE": "Su mobile (o su desktop con condivisione nativa) puoi scegliere WhatsApp e inviare testo più immagini. In alternativa si aprirà WhatsApp solo con il testo; contenuti lunghi sono troncati.",
