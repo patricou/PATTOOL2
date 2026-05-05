@@ -1076,3 +1076,35 @@ ngb-tooltip-window.vulnerability-desc-tooltip .tooltip-inner,
     font-size: 0.8rem;
     line-height: 1.38;
 }
+
+/**
+ * Images générées par l'assistant (Markdown rendu via [innerHTML]) :
+ * règle GLOBALE et `!important` car
+ *  1. Le contenu injecté via [innerHTML] ne reçoit pas les attributs
+ *     d'encapsulation Angular, donc les styles définis dans les fichiers
+ *     CSS de composants (markdown-chat-content.css) ne s'appliquent pas
+ *     aux <img> rendues dynamiquement.
+ *  2. On veut un cap dur pour qu'aucune image ne déborde verticalement
+ *     du chat (drawer assistant ou page PatGPT). Le composant calcule
+ *     ensuite par JS un `style.maxHeight` inline plus précis quand c'est
+ *     possible — celui-ci a une priorité supérieure à la règle ci-dessous.
+ */
+.pat-assistant-md img {
+    max-width: 100% !important;
+    max-height: clamp(140px, 28vh, 280px) !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
+    display: block !important;
+    margin: 0.55rem 0 !important;
+    border-radius: 10px;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
+    cursor: zoom-in;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pat-assistant-md img:hover {
+    transform: scale(1.005);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.16);
+}

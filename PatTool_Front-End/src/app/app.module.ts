@@ -28,7 +28,7 @@ import { FileService } from './services/file.service';
 import { environment } from '../environments/environment';
 import { LinksAdminModule } from './admin/links-admin/links-admin.module';
 import { LinksAdminComponent } from './admin/links-admin/links-admin.component';
-import { HashLocationStrategy, LocationStrategy } from '@angular/common';
+import { HashLocationStrategy, LocationStrategy, IMAGE_CONFIG } from '@angular/common';
 import { UnsavedChangesGuard } from './guards/unsaved-changes.guard';
 import { IotService } from './services/iot.service';
 import { LocalNetworkService } from './services/local-network.service';
@@ -173,7 +173,22 @@ export function HttpLoaderFactory(http: HttpClient) {
 		{ provide: LocationStrategy, useClass: HashLocationStrategy },
 		{ provide: TranslateLoader, useFactory: HttpLoaderFactory, deps: [HttpClient] },
 		// HTTP Interceptor
-		{ provide: HTTP_INTERCEPTORS, useClass: KeycloakHttpInterceptor, multi: true }
+		{ provide: HTTP_INTERCEPTORS, useClass: KeycloakHttpInterceptor, multi: true },
+		/**
+		 * Désactive les warnings dev d'Angular sur les <img> :
+		 *   - disableImageSizeWarning : NG0913 (« An image with src ... has intrinsic
+		 *     dimensions much larger than its rendered size »). On l'a en permanence
+		 *     pour les images générées par DALL·E 3 (1024×1024 ou 1024×1536, avec
+		 *     les metadata C2PA en plus) qui sont volontairement affichées plus
+		 *     petites dans le chat assistant. La pleine résolution est conservée
+		 *     pour la copie presse-papier, le slideshow, le partage WhatsApp et
+		 *     l'insertion en pièce jointe d'événement.
+		 *   - disableImageLazyLoadWarning : NG0914 (loading="lazy" sur image LCP).
+		 *
+		 * Ces warnings n'apparaissent qu'en dev et n'affectent pas le runtime prod,
+		 * mais ils polluent la console en boucle dès qu'on génère une image.
+		 */
+		{ provide: IMAGE_CONFIG, useValue: { disableImageSizeWarning: true, disableImageLazyLoadWarning: true } }
 	]
 })
 export class AppModule implements DoBootstrap {

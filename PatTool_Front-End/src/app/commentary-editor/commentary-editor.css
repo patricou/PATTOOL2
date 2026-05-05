@@ -301,9 +301,36 @@
 
 .commentary-content ::ng-deep img {
   max-width: 100%;
+  /**
+   * Cap vertical : sans cela, une image data: générée par l'assistant
+   * (typiquement 1024×1024 ou 1024×1792) prend toute la hauteur disponible
+   * et oblige à scroller. On limite à ~50% du viewport et 420px en valeur
+   * absolue, en conservant le ratio.
+   */
+  max-height: min(420px, 50vh);
+  width: auto;
   height: auto;
+  object-fit: contain;
   border-radius: 4px;
   margin: 0.5rem 0;
+  cursor: zoom-in;
+  transition: transform 0.15s ease;
+}
+
+.commentary-content ::ng-deep img:hover {
+  transform: scale(1.005);
+}
+
+/**
+ * Quand l'image est encadrée par un `<a>` (cas des commentaires insérés
+ * depuis l'assistant : l'image renvoie vers sa propre data URL pour un
+ * affichage plein-écran via le navigateur), le wrapper ne doit pas casser
+ * l'alignement ni ajouter de marges.
+ */
+.commentary-content ::ng-deep a:has(> img) {
+  display: inline-block;
+  text-decoration: none;
+  border: none;
 }
 
 .commentary-content ::ng-deep blockquote {

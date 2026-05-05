@@ -124,6 +124,49 @@
               : ('ASSISTANT.AI' | translate)
           }}</span>
           <button
+            *ngIf="m.role === 'assistant' && hasGeneratedImage(m)"
+            type="button"
+            class="pat-assistant-copy-to-draft pat-assistant-share-img-wa"
+            [disabled]="loading"
+            (click)="shareGeneratedImageOnWhatsApp(m, $event)"
+            [title]="'ASSISTANT.SHARE_GENERATED_IMG_WHATSAPP_HINT' | translate"
+            [attr.aria-label]="'ASSISTANT.SHARE_GENERATED_IMG_WHATSAPP' | translate">
+            <i class="fa fa-whatsapp" aria-hidden="true"></i>
+            <span class="pat-assistant-share-img-wa-text">{{ 'ASSISTANT.SHARE_WHATSAPP' | translate }}</span>
+          </button>
+          <button
+            *ngIf="m.role === 'assistant' && hasGeneratedImage(m)"
+            type="button"
+            class="pat-assistant-copy-to-draft pat-assistant-insert-img-evt"
+            [disabled]="loading"
+            (click)="openInsertImageInEventModal(m, $event)"
+            [title]="'ASSISTANT.INSERT_IMG_IN_EVENT_HINT' | translate"
+            [attr.aria-label]="'ASSISTANT.INSERT_IMG_IN_EVENT' | translate">
+            <i class="fa fa-calendar-plus-o" aria-hidden="true"></i>
+            <span class="pat-assistant-insert-img-evt-text">{{ 'ASSISTANT.INSERT_IMG_IN_EVENT_BTN' | translate }}</span>
+          </button>
+          <button
+            *ngIf="m.role === 'assistant'"
+            type="button"
+            class="pat-assistant-copy-to-draft pat-assistant-insert-cmt-evt"
+            [disabled]="loading"
+            (click)="openInsertCommentInEventModal(m, $event)"
+            [title]="'ASSISTANT.INSERT_CMT_IN_EVENT_HINT' | translate"
+            [attr.aria-label]="'ASSISTANT.INSERT_CMT_IN_EVENT' | translate">
+            <i class="fa fa-comment-o" aria-hidden="true"></i>
+            <span class="pat-assistant-insert-cmt-evt-text">{{ 'ASSISTANT.INSERT_CMT_IN_EVENT_BTN' | translate }}</span>
+          </button>
+          <button
+            *ngIf="m.role === 'assistant' && hasGeneratedImage(m)"
+            type="button"
+            class="pat-assistant-copy-to-draft pat-assistant-copy-img"
+            [disabled]="loading"
+            (click)="copyAssistantImageToClipboard(m, $event)"
+            [title]="'ASSISTANT.COPY_IMG_TITLE' | translate"
+            [attr.aria-label]="'ASSISTANT.COPY_IMG_TITLE' | translate">
+            <i class="fa fa-picture-o" aria-hidden="true"></i>
+          </button>
+          <button
             *ngIf="m.role === 'assistant'"
             type="button"
             class="pat-assistant-copy-to-draft"
@@ -144,7 +187,9 @@
             <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
           </button>
         </div>
-        <div class="pat-assistant-bubble-body pat-assistant-rich-text">
+        <div
+          class="pat-assistant-bubble-body pat-assistant-rich-text"
+          (click)="onBubbleBodyClick($event)">
           <ng-container *ngIf="m.role === 'user'">
             <p *ngIf="m.hasImage && !m.imageDataUrl" class="pat-assistant-user-image-note small text-muted mb-1">
               {{ 'ASSISTANT.IMAGE_SENT_NOTE' | translate }}
@@ -168,6 +213,21 @@
       <img src="assets/images/sablier.gif" alt="" width="36" height="36" />
       <span>{{ 'ASSISTANT.LOADING' | translate }}</span>
     </div>
+  </div>
+
+  <!-- Toast éphémère : succès / erreur de copie d'image dans le presse-papiers. -->
+  <div
+    *ngIf="assistantImageCopyFeedbackKey"
+    class="pat-assistant-copy-img-toast"
+    [class.pat-assistant-copy-img-toast--success]="assistantImageCopyFeedbackKind === 'success'"
+    [class.pat-assistant-copy-img-toast--error]="assistantImageCopyFeedbackKind === 'error'"
+    role="status">
+    <i
+      class="fa"
+      [class.fa-check]="assistantImageCopyFeedbackKind === 'success'"
+      [class.fa-exclamation-triangle]="assistantImageCopyFeedbackKind === 'error'"
+      aria-hidden="true"></i>
+    <span>{{ assistantImageCopyFeedbackKey | translate }}</span>
   </div>
 
   <div class="pat-assistant-compose">
@@ -341,3 +401,158 @@
     </button>
   </div>
 </ng-template>
+
+<ng-template #assistantInsertImageInEventModal let-modal>
+  <div class="modal-header bg-primary text-white">
+    <h5 class="modal-title">
+      <i
+        class="fa me-2"
+        [ngClass]="{
+          'fa-calendar-plus-o': insertMode === 'image',
+          'fa-comment-o': insertMode === 'comment'
+        }"
+        aria-hidden="true"></i>
+      <span *ngIf="insertMode === 'image'">{{ 'ASSISTANT.INSERT_IMG_IN_EVENT_MODAL_TITLE' | translate }}</span>
+      <span *ngIf="insertMode === 'comment'">{{ 'ASSISTANT.INSERT_CMT_IN_EVENT_MODAL_TITLE' | translate }}</span>
+    </h5>
+    <button
+      type="button"
+      class="btn-close btn-close-white"
+      (click)="cancelInsertImageInEventModal()"
+      [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+  </div>
+  <div class="modal-body">
+    <p class="text-muted small mb-2" *ngIf="insertMode === 'image'">{{ 'ASSISTANT.INSERT_IMG_IN_EVENT_DESC' | translate }}</p>
+    <p class="text-muted small mb-2" *ngIf="insertMode === 'comment'">{{ 'ASSISTANT.INSERT_CMT_IN_EVENT_DESC' | translate }}</p>
+
+    <div *ngIf="insertMode === 'comment'" class="mb-3 pat-assistant-insert-cmt-editor-wrap">
+      <label class="form-label small fw-semibold mb-1">
+        {{ 'ASSISTANT.INSERT_CMT_IN_EVENT_TEXTAREA_LABEL' | translate }}
+      </label>
+      <quill-editor
+        class="pat-assistant-insert-cmt-quill"
+        [(ngModel)]="insertCommentText"
+        [modules]="insertCommentQuillModules"
+        [placeholder]="'ASSISTANT.INSERT_CMT_IN_EVENT_TEXTAREA_PLACEHOLDER' | translate"
+        [styles]="{ height: '220px' }"
+        [readOnly]="insertImageUploadingEventId != null"
+        [attr.aria-label]="'ASSISTANT.INSERT_CMT_IN_EVENT_TEXTAREA_LABEL' | translate"></quill-editor>
+    </div>
+
+    <div class="pat-assistant-insert-evt-filters mb-3">
+      <div class="input-group pat-assistant-insert-evt-filter-search">
+        <span class="input-group-text"><i class="fa fa-search" aria-hidden="true"></i></span>
+        <input
+          type="text"
+          class="form-control"
+          [(ngModel)]="insertImageEventsFilter"
+          [disabled]="insertImageUploadingEventId != null"
+          [placeholder]="'ASSISTANT.INSERT_IMG_IN_EVENT_SEARCH_PLACEHOLDER' | translate"
+          [attr.aria-label]="'ASSISTANT.INSERT_IMG_IN_EVENT_SEARCH_PLACEHOLDER' | translate" />
+      </div>
+      <div class="input-group pat-assistant-insert-evt-filter-type">
+        <span class="input-group-text"><i class="fa fa-filter" aria-hidden="true"></i></span>
+        <select
+          class="form-select"
+          [(ngModel)]="insertImageEventsTypeFilter"
+          [disabled]="insertImageUploadingEventId != null"
+          [attr.aria-label]="'ASSISTANT.INSERT_IMG_IN_EVENT_TYPE_FILTER_LABEL' | translate">
+          <option value="">{{ 'ASSISTANT.INSERT_IMG_IN_EVENT_TYPE_FILTER_ALL' | translate }}</option>
+          <option *ngFor="let opt of insertImageEventTypeOptions" [value]="opt.value">
+            {{ opt.labelKey | translate }}
+          </option>
+        </select>
+      </div>
+    </div>
+
+    <div *ngIf="insertImageEventsLoading && insertImageEventsList.length === 0" class="text-center py-4">
+      <img src="assets/images/sablier.gif" alt="" width="32" height="32" />
+      <p class="text-muted small mt-2 mb-0">{{ 'ASSISTANT.INSERT_IMG_IN_EVENT_LOADING' | translate }}</p>
+    </div>
+
+    <div *ngIf="!insertImageEventsLoading && insertImageEventsError" class="alert alert-danger small mb-3">
+      <i class="fa fa-exclamation-triangle me-2"></i>
+      {{ 'ASSISTANT.INSERT_IMG_IN_EVENT_LOAD_ERROR' | translate }}
+    </div>
+
+    <div
+      *ngIf="!insertImageEventsLoading && !insertImageEventsError && insertImageFilteredEvents().length === 0"
+      class="alert alert-secondary small mb-3">
+      <i class="fa fa-info-circle me-2"></i>
+      {{ 'ASSISTANT.INSERT_IMG_IN_EVENT_NO_EVENTS' | translate }}
+    </div>
+
+    <ul
+      *ngIf="insertImageFilteredEvents().length > 0"
+      class="list-group pat-assistant-insert-evt-list"
+      role="listbox">
+      <li
+        *ngFor="let ev of insertImageFilteredEvents()"
+        class="list-group-item list-group-item-action d-flex align-items-center justify-content-between pat-assistant-insert-evt-item"
+        [class.pat-assistant-insert-evt-item--uploading]="insertImageUploadingEventId === ev.id"
+        role="option">
+        <div class="pat-assistant-insert-evt-info">
+          <div class="pat-assistant-insert-evt-name">{{ ev.evenementName }}</div>
+          <div class="pat-assistant-insert-evt-meta text-muted small">
+            <span *ngIf="ev.type">{{ insertImageEventTypeLabelKey(ev.type) | translate }}</span>
+            <span *ngIf="ev.type && insertImageEventDateLabel(ev)"> · </span>
+            <span *ngIf="insertImageEventDateLabel(ev)">{{ insertImageEventDateLabel(ev) }}</span>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="btn btn-sm btn-primary pat-assistant-insert-evt-pick"
+          [disabled]="!canSubmitInsertForEvent(ev)"
+          (click)="onSelectEventForInsert(ev)">
+          <i
+            *ngIf="insertImageUploadingEventId === ev.id"
+            class="fa fa-spinner fa-spin me-1"
+            aria-hidden="true"></i>
+          <i
+            *ngIf="insertImageUploadingEventId !== ev.id"
+            class="fa fa-plus me-1"
+            aria-hidden="true"></i>
+          <span>{{ 'ASSISTANT.INSERT_IMG_IN_EVENT_PICK_BTN' | translate }}</span>
+        </button>
+      </li>
+    </ul>
+
+    <div
+      *ngIf="insertImageFeedbackKey"
+      class="alert small mt-3 mb-0"
+      [ngClass]="{
+        'alert-success': insertImageFeedbackKind === 'success',
+        'alert-danger': insertImageFeedbackKind === 'error'
+      }"
+      role="status"
+      aria-live="polite">
+      <i
+        class="fa me-2"
+        [ngClass]="{
+          'fa-check-circle': insertImageFeedbackKind === 'success',
+          'fa-exclamation-triangle': insertImageFeedbackKind === 'error'
+        }"
+        aria-hidden="true"></i>
+      {{ insertImageFeedbackKey | translate : insertImageFeedbackParams }}
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button
+      type="button"
+      class="btn btn-secondary"
+      [disabled]="insertImageUploadingEventId != null"
+      (click)="cancelInsertImageInEventModal()">
+      {{ 'EVENTELEM.CANCEL' | translate }}
+    </button>
+  </div>
+</ng-template>
+
+<!--
+  Slideshow partagé du projet : utilisé pour visualiser en grand les images
+  cliquées dans le chat (générées par l'assistant ou attachées par l'utilisateur).
+  L'instance est créée ici une seule fois ; `openImageInSlideshow()` lui pousse
+  la liste de toutes les images du chat avec un index de départ.
+-->
+<app-slideshow-modal
+  #slideshowModalComponent
+  (closed)="onSlideshowClosed()"></app-slideshow-modal>

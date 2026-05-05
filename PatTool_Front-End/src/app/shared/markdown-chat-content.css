@@ -221,15 +221,14 @@
   text-decoration-thickness: 2px;
 }
 
-.pat-assistant-md img {
-  max-width: 100%;
-  height: auto;
-  display: block;
-  margin: 0.55rem 0;
-  border-radius: 10px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
-}
+/**
+ * NOTE : les règles `.pat-assistant-md img` ne sont PAS définies ici parce que
+ * le contenu Markdown des bulles est injecté via [innerHTML] et ne reçoit
+ * donc pas les attributs d'encapsulation Angular — les sélecteurs scoped à
+ * un composant ne le toucheraient pas. Voir `src/styles.css` pour la règle
+ * globale (cap dur via `!important`) et `assistant-drawer.component.ts`
+ * (`fitGeneratedImagesInChat`) pour le calcul fin par image.
+ */
 
 .pat-assistant-md input[type='checkbox'] {
   margin-right: 0.4rem;

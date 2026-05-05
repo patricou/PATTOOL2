@@ -39,13 +39,31 @@ import { CurrencyTickerService } from '../../services/currency-ticker.service';
 import { StockTickerService } from '../../services/stock-ticker.service';
 import { copyPlainTextToClipboard } from '../clipboard-copy';
 import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
+import { QuillModule } from 'ngx-quill';
+import { marked } from 'marked';
+import {
+  SlideshowModalComponent,
+  SlideshowImageSource
+} from '../slideshow-modal/slideshow-modal.component';
+import { EvenementsService, StreamedEvent } from '../../services/evenements.service';
+import { FileService } from '../../services/file.service';
+import { MembersService } from '../../services/members.service';
+import { Evenement } from '../../model/evenement';
+import { Commentary } from '../../model/commentary';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-assistant-drawer',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NgbModule],
+  imports: [CommonModule, FormsModule, TranslateModule, NgbModule, QuillModule, SlideshowModalComponent],
   templateUrl: './assistant-drawer.component.html',
-  styleUrls: ['./assistant-drawer.component.css', '../markdown-chat-content.css']
+  styleUrls: ['./assistant-drawer.component.css', '../markdown-chat-content.css'],
+  /**
+   * EvenementsService n'est pas providedIn:'root' (déclaré dans le module Evenements lazy)
+   * mais le drawer assistant est monté globalement : on le fournit ici en local pour
+   * pouvoir lister les évènements depuis le picker d'insertion d'image.
+   */
+  providers: [EvenementsService]
 })
 export class AssistantDrawerComponent
   implements AfterViewInit, AfterViewChecked, OnInit, OnDestroy
@@ -56,10 +74,104 @@ export class AssistantDrawerComponent
   @ViewChild('draftInput') draftInputEl?: ElementRef<HTMLTextAreaElement>;
   @ViewChild('imageFileInput') imageFileInputEl?: ElementRef<HTMLInputElement>;
   @ViewChild('assistantWhatsappShareModal') assistantWhatsappShareModal!: TemplateRef<unknown>;
+  @ViewChild('assistantInsertImageInEventModal') assistantInsertImageInEventModal!: TemplateRef<unknown>;
+  /** Référence à l'instance du slideshow partagé (même viewer que pour les évènements). */
+  @ViewChild('slideshowModalComponent') slideshowModalComponent?: SlideshowModalComponent;
+
+  /**
+   * Object URLs créés à partir des data: URLs des images générées, pour
+   * alimenter le slideshow de façon performante (un blob URL est plus léger
+   * qu'une data URL en base64). Ils sont libérés à la fermeture du slideshow
+   * et au destroy du composant pour éviter les fuites mémoire.
+   */
+  private slideshowBlobUrls: string[] = [];
 
   /** Modal partage WhatsApp (même principe que mur de photos). */
   whatsappShareMessage = '';
   private whatsappShareModalRef: NgbModalRef | null = null;
+
+  /** Modal « Insérer dans un évènement » (image générée OU commentaire texte). */
+  private insertImageModalRef: NgbModalRef | null = null;
+  /** Mode actif du modal : insertion d'image générée vs ajout de commentaire texte. */
+  insertMode: 'image' | 'comment' | null = null;
+  /** Data URL retenue pour l'insertion d'image (mode 'image'). */
+  private insertImageDataUrl: string | null = null;
+  /**
+   * Contenu HTML du commentaire à insérer (mode 'comment') ; pré-rempli avec
+   * la question utilisateur + la réponse assistant (markdown converti en HTML),
+   * modifiable via un éditeur Quill avant soumission. Stocké en HTML pour rester
+   * compatible avec le rendu existant des commentaires (`commentary-editor`).
+   */
+  insertCommentText = '';
+  /**
+   * Plafond pour la portion TEXTE (HTML) d'un commentaire, hors images.
+   * Les images générées (data URL base64) sont concaténées EN PLUS et ne
+   * sont jamais tronquées (pour ne pas casser le base64 et obtenir une
+   * image illisible). Le plafond global du commentaire dépend donc de la
+   * taille des images embarquées (tolérance backend ~plusieurs Mo).
+   */
+  private static readonly INSERT_COMMENT_MAX_TEXT_HTML_CHARS = 8000;
+  /** Toolbar Quill (sous-ensemble similaire à celui de `commentary-editor`). */
+  insertCommentQuillModules: Record<string, unknown> = {
+    toolbar: [
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ header: [1, 2, 3, false] }],
+      [{ list: 'ordered' }, { list: 'bullet' }],
+      [{ script: 'sub' }, { script: 'super' }],
+      [{ color: [] }, { background: [] }],
+      ['blockquote', 'code-block'],
+      ['link'],
+      ['clean']
+    ]
+  };
+  /** Liste d'évènements collectée via {@link EvenementsService.streamEvents}. */
+  insertImageEventsList: Evenement[] = [];
+  /** Texte de filtre saisi dans le modal (filtrage côté client par nom). */
+  insertImageEventsFilter = '';
+  /**
+   * Filtre par type d'activité (ID numérique tel que stocké dans `Evenement.type`).
+   * Chaîne vide = aucun filtre, tous les types sont affichés.
+   */
+  insertImageEventsTypeFilter = '';
+  /**
+   * Options du filtre par type d'activité — IDs numériques (1..19) mappés vers les
+   * mêmes clés i18n `EVENTCREATION.TYPE.*` que celles utilisées dans la création
+   * et la mise à jour d'un évènement, pour rester cohérent avec le reste de l'UI.
+   */
+  readonly insertImageEventTypeOptions: ReadonlyArray<{ value: string; labelKey: string }> = [
+    { value: '11', labelKey: 'EVENTCREATION.TYPE.DOCUMENTS' },
+    { value: '12', labelKey: 'EVENTCREATION.TYPE.FICHE' },
+    { value: '3', labelKey: 'EVENTCREATION.TYPE.RUN' },
+    { value: '6', labelKey: 'EVENTCREATION.TYPE.PARTY' },
+    { value: '4', labelKey: 'EVENTCREATION.TYPE.WALK' },
+    { value: '10', labelKey: 'EVENTCREATION.TYPE.PHOTOS' },
+    { value: '9', labelKey: 'EVENTCREATION.TYPE.RANDO' },
+    { value: '2', labelKey: 'EVENTCREATION.TYPE.SKI' },
+    { value: '7', labelKey: 'EVENTCREATION.TYPE.VACATION' },
+    { value: '5', labelKey: 'EVENTCREATION.TYPE.BIKE' },
+    { value: '8', labelKey: 'EVENTCREATION.TYPE.TRAVEL' },
+    { value: '1', labelKey: 'EVENTCREATION.TYPE.VTT' },
+    { value: '13', labelKey: 'EVENTCREATION.TYPE.WINE' },
+    { value: '14', labelKey: 'EVENTCREATION.TYPE.OTHER' },
+    { value: '15', labelKey: 'EVENTCREATION.TYPE.VISIT' },
+    { value: '16', labelKey: 'EVENTCREATION.TYPE.WORK' },
+    { value: '17', labelKey: 'EVENTCREATION.TYPE.FAMILY' },
+    { value: '18', labelKey: 'EVENTCREATION.TYPE.CINEMA' },
+    { value: '19', labelKey: 'EVENTCREATION.TYPE.MUSIQUE' }
+  ];
+  insertImageEventsLoading = false;
+  insertImageEventsError = false;
+  /** Évènement en cours d'upload/post (id) — pour bloquer les autres lignes pendant l'envoi. */
+  insertImageUploadingEventId: string | null = null;
+  /** Message i18n affiché en bas du modal (succès / erreur). */
+  insertImageFeedbackKey: string | null = null;
+  /** Paramètres d'interpolation pour le message i18n. */
+  insertImageFeedbackParams: { name?: string } = {};
+  insertImageFeedbackKind: 'success' | 'error' | null = null;
+  private insertImageEventsStreamSub?: Subscription;
+  private insertImageUploadSub?: Subscription;
+  private insertImageFeedbackTimer?: ReturnType<typeof setTimeout>;
+  private static readonly INSERT_IMAGE_FEEDBACK_AUTO_CLOSE_MS = 1800;
 
   private static readonly WA_ME_SAFE_CHARS = 6000;
 
@@ -137,7 +249,11 @@ export class AssistantDrawerComponent
     private sanitizer: DomSanitizer,
     private mdChat: MarkdownChatRenderService,
     private ngZone: NgZone,
-    private modalService: NgbModal
+    private modalService: NgbModal,
+    private evenementsService: EvenementsService,
+    private fileService: FileService,
+    private membersService: MembersService,
+    private hostRef: ElementRef<HTMLElement>
   ) {}
 
   /** Ligne « fournisseur · modèle » issue de application.properties (GET /assistant/config). */
@@ -214,7 +330,98 @@ export class AssistantDrawerComponent
     queueMicrotask(() => this.scheduleFabAnchorUpdate());
     this.scheduleTransient(() => this.scheduleFabAnchorUpdate(), 0);
     this.scheduleTransient(() => this.scheduleFabAnchorUpdate(), 120);
+    this.installThreadResizeObserver();
+    queueMicrotask(() => this.fitGeneratedImagesInChat());
+    this.scheduleTransient(() => this.fitGeneratedImagesInChat(), 120);
+    this.scheduleTransient(() => this.fitGeneratedImagesInChat(), 400);
   }
+
+  /**
+   * Recalcule la hauteur max d'une image générée (markdown img dans une bulle
+   * assistant) à partir de la hauteur RÉELLEMENT visible de la zone de
+   * conversation, pour que l'image complète soit vue sans avoir à scroller.
+   *
+   * On retire une marge de chrome (en-tête de bulle, footer de réponse,
+   * boutons d'action, padding du thread, message utilisateur précédent) afin
+   * que l'image + son contexte tiennent dans la zone visible après l'auto-
+   * scroll vers le bas. La valeur est exposée via la variable CSS
+   * `--pat-assistant-md-img-max-h` consommée par `markdown-chat-content.css`.
+   */
+  /**
+   * Pour chaque image générée affichée dans le thread (markdown img dans une
+   * bulle assistant), mesure DIRECTEMENT son offset par rapport au sommet de
+   * la zone de conversation visible, puis pose un `style.maxHeight` inline
+   * calculé pour que l'image entière + le chrome qui la suit (footer de
+   * réponse, marges) tienne dans la zone visible sans avoir à scroller.
+   *
+   * Préférée à une variable CSS approchée : la mesure est faite après que la
+   * bulle est dans le DOM avec ses dimensions réelles, donc indépendante de
+   * la longueur du prompt utilisateur précédent ou de la présence de tickers,
+   * crédits, etc.
+   */
+  private fitGeneratedImagesInChat(): void {
+    const thread = this.threadEl?.nativeElement;
+    if (!thread) {
+      return;
+    }
+    const visible = thread.clientHeight;
+    if (!visible || visible <= 0) {
+      return;
+    }
+    const imgs = thread.querySelectorAll(
+      '.pat-assistant-md img'
+    ) as NodeListOf<HTMLImageElement>;
+    if (!imgs || imgs.length === 0) {
+      return;
+    }
+    /**
+     * Espace réservé SOUS l'image dans le bubble assistant pour la footer
+     * (provider/model/stats), les marges du `<p>` parent, le padding de la
+     * bulle, et un petit buffer pour ne pas frôler la limite.
+     */
+    const belowImageChrome = 110;
+
+    const threadRect = thread.getBoundingClientRect();
+    imgs.forEach((img) => {
+      const apply = () => {
+        const imgRect = img.getBoundingClientRect();
+        const offsetFromThreadTop = imgRect.top - threadRect.top;
+        const available = visible - offsetFromThreadTop - belowImageChrome;
+        const target = Math.max(120, Math.floor(available));
+        img.style.maxHeight = `${target}px`;
+        img.style.maxWidth = '100%';
+        img.style.width = 'auto';
+        img.style.height = 'auto';
+        img.style.objectFit = 'contain';
+      };
+      if (img.complete && img.naturalHeight > 0) {
+        apply();
+      } else {
+        img.addEventListener('load', apply, { once: true });
+      }
+    });
+  }
+
+  private installThreadResizeObserver(): void {
+    const thread = this.threadEl?.nativeElement;
+    if (!thread) {
+      return;
+    }
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', this.boundFitGeneratedImagesInChat);
+      return;
+    }
+    this.threadResizeObserver?.disconnect();
+    this.threadResizeObserver = new ResizeObserver(() => {
+      this.ngZone.run(() => this.fitGeneratedImagesInChat());
+    });
+    this.threadResizeObserver.observe(thread);
+  }
+
+  private threadResizeObserver: ResizeObserver | null = null;
+  private readonly boundFitGeneratedImagesInChat = (): void => {
+    this.fitGeneratedImagesInChat();
+  };
 
   /** Timeouts annulés au destroy pour éviter callbacks après destruction. */
   private scheduleTransient(fn: () => void, ms: number): void {
@@ -405,6 +612,11 @@ export class AssistantDrawerComponent
     this.creditsFetchSub?.unsubscribe();
     this.assistantConfigSub?.unsubscribe();
     this.chatSendSub?.unsubscribe();
+    this.insertImageEventsStreamSub?.unsubscribe();
+    this.insertImageUploadSub?.unsubscribe();
+    if (this.insertImageFeedbackTimer !== undefined) {
+      clearTimeout(this.insertImageFeedbackTimer);
+    }
     if (this.whatsappShareModalRef) {
       try {
         this.whatsappShareModalRef.dismiss();
@@ -413,6 +625,28 @@ export class AssistantDrawerComponent
       }
       this.whatsappShareModalRef = null;
     }
+    if (this.insertImageModalRef) {
+      try {
+        this.insertImageModalRef.dismiss();
+      } catch {
+        /* ignore */
+      }
+      this.insertImageModalRef = null;
+    }
+    this.revokeSlideshowBlobUrls();
+    if (this.assistantImageCopyFeedbackTimer) {
+      clearTimeout(this.assistantImageCopyFeedbackTimer);
+      this.assistantImageCopyFeedbackTimer = undefined;
+    }
+    if (this.threadResizeObserver) {
+      try {
+        this.threadResizeObserver.disconnect();
+      } catch {
+        /* ignore */
+      }
+      this.threadResizeObserver = null;
+    }
+    window.removeEventListener('resize', this.boundFitGeneratedImagesInChat);
     window.removeEventListener('resize', this.boundScheduleFabAnchor);
     document.removeEventListener('scroll', this.boundScheduleFabAnchor, true);
     if (this.fabAnchorRaf) {
@@ -703,6 +937,129 @@ export class AssistantDrawerComponent
     copyPlainTextToClipboard(typeof content === 'string' ? content : '');
   }
 
+  /**
+   * Copie la PREMIÈRE image générée d'une bulle assistant comme image binaire
+   * dans le presse-papiers (utilise l'API Clipboard moderne avec
+   * `ClipboardItem`). Permet ensuite un coller direct dans Word, Outlook,
+   * Paint, etc. — au lieu de copier la longue data URL en base64 sous forme
+   * de texte (ce que faisait l'ancien bouton générique "copier la réponse").
+   */
+  async copyAssistantImageToClipboard(m: AssistantChatTurn, ev: MouseEvent): Promise<void> {
+    ev.stopPropagation();
+    ev.preventDefault();
+    if (m.role !== 'assistant') {
+      return;
+    }
+    const dataUrls = this.extractGeneratedImageDataUrls(m.content);
+    if (dataUrls.length === 0) {
+      return;
+    }
+    const blob = this.dataUrlToBlob(dataUrls[0]);
+    if (!blob) {
+      this.showAssistantImageCopyFeedback(false);
+      return;
+    }
+
+    /**
+     * Pour la compatibilité maximale entre navigateurs, on utilise `image/png`
+     * comme MIME du `ClipboardItem` (Chrome/Edge/Firefox/Safari supportent
+     * tous PNG). Si le blob source est PNG, on le passe tel quel ; sinon on
+     * tente de le re-encoder en PNG via canvas.
+     */
+    let pngBlob: Blob = blob;
+    if (blob.type !== 'image/png') {
+      const reEncoded = await this.encodeBlobAsPng(blob);
+      if (reEncoded) {
+        pngBlob = reEncoded;
+      }
+    }
+
+    try {
+      const w = window as unknown as {
+        ClipboardItem?: new (items: Record<string, Blob | Promise<Blob>>) => unknown;
+      };
+      if (
+        navigator.clipboard &&
+        typeof navigator.clipboard.write === 'function' &&
+        typeof w.ClipboardItem === 'function'
+      ) {
+        const item = new w.ClipboardItem!({ 'image/png': pngBlob });
+        await (
+          navigator.clipboard as unknown as {
+            write: (items: unknown[]) => Promise<void>;
+          }
+        ).write([item]);
+        this.showAssistantImageCopyFeedback(true);
+        return;
+      }
+    } catch {
+      /* fallback below */
+    }
+    this.showAssistantImageCopyFeedback(false);
+  }
+
+  /**
+   * Convertit un Blob image (jpeg/webp/...) en PNG via un canvas off-screen.
+   * Retourne null si l'opération échoue (CORS, decoding error, etc.).
+   */
+  private encodeBlobAsPng(blob: Blob): Promise<Blob | null> {
+    return new Promise((resolve) => {
+      try {
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        const cleanup = () => URL.revokeObjectURL(url);
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth || img.width || 1;
+            canvas.height = img.naturalHeight || img.height || 1;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              cleanup();
+              resolve(null);
+              return;
+            }
+            ctx.drawImage(img, 0, 0);
+            canvas.toBlob((out) => {
+              cleanup();
+              resolve(out);
+            }, 'image/png');
+          } catch {
+            cleanup();
+            resolve(null);
+          }
+        };
+        img.onerror = () => {
+          cleanup();
+          resolve(null);
+        };
+        img.src = url;
+      } catch {
+        resolve(null);
+      }
+    });
+  }
+
+  /** Petit message éphémère sous la zone de chat (succès / échec de copie image). */
+  assistantImageCopyFeedbackKey: string | null = null;
+  assistantImageCopyFeedbackKind: 'success' | 'error' | null = null;
+  private assistantImageCopyFeedbackTimer?: ReturnType<typeof setTimeout>;
+  private showAssistantImageCopyFeedback(success: boolean): void {
+    if (this.assistantImageCopyFeedbackTimer) {
+      clearTimeout(this.assistantImageCopyFeedbackTimer);
+    }
+    this.assistantImageCopyFeedbackKey = success
+      ? 'ASSISTANT.COPY_IMG_SUCCESS'
+      : 'ASSISTANT.COPY_IMG_ERROR';
+    this.assistantImageCopyFeedbackKind = success ? 'success' : 'error';
+    this.cdr.markForCheck();
+    this.assistantImageCopyFeedbackTimer = setTimeout(() => {
+      this.assistantImageCopyFeedbackKey = null;
+      this.assistantImageCopyFeedbackKind = null;
+      this.cdr.markForCheck();
+    }, 2200);
+  }
+
   /** Recopie une question précédente dans le champ du bas (pour relancer ou modifier). */
   copyQuestionIntoDraft(content: string, ev: MouseEvent): void {
     ev.stopPropagation();
@@ -729,21 +1086,27 @@ export class AssistantDrawerComponent
   }
 
   ngAfterViewChecked(): void {
-    if (!this.shouldAlignLastQuestionTop || !this.threadEl) {
-      return;
+    if (this.shouldAlignLastQuestionTop && this.threadEl) {
+      const wrap = this.threadEl.nativeElement;
+      const anchor = wrap.querySelector(
+        '.pat-assistant-bubble--anchor-last-q'
+      ) as HTMLElement | null;
+      if (anchor) {
+        const desiredTop =
+          anchor.getBoundingClientRect().top -
+          wrap.getBoundingClientRect().top +
+          wrap.scrollTop;
+        wrap.scrollTop = Math.max(0, desiredTop - 4);
+      }
+      this.shouldAlignLastQuestionTop = false;
     }
-    const wrap = this.threadEl.nativeElement;
-    const anchor = wrap.querySelector(
-      '.pat-assistant-bubble--anchor-last-q'
-    ) as HTMLElement | null;
-    if (anchor) {
-      const desiredTop =
-        anchor.getBoundingClientRect().top -
-        wrap.getBoundingClientRect().top +
-        wrap.scrollTop;
-      wrap.scrollTop = Math.max(0, desiredTop - 4);
-    }
-    this.shouldAlignLastQuestionTop = false;
+    /**
+     * Toujours redimensionner les images du chat : ngAfterViewChecked se
+     * déclenche après chaque cycle de détection (incluant l'ajout d'une
+     * nouvelle bulle assistant avec image), et fitGeneratedImagesInChat est
+     * idempotent + bon-marché (querySelectorAll ciblé + early-return).
+     */
+    queueMicrotask(() => this.fitGeneratedImagesInChat());
   }
 
   toggle(): void {
@@ -1030,6 +1393,617 @@ export class AssistantDrawerComponent
     return this.messages.length > 0 && !this.loading;
   }
 
+  /**
+   * Vrai si la bulle assistant contient au moins une image générée
+   * (insérée par le backend sous forme de Markdown `![…](data:image/…)` ou de balise `<img>`).
+   */
+  hasGeneratedImage(m: AssistantChatTurn): boolean {
+    return m.role === 'assistant' && this.extractGeneratedImageDataUrls(m.content).length > 0;
+  }
+
+  /**
+   * Extrait les data-URL des images générées présentes dans un contenu assistant.
+   * Couvre le format Markdown produit par le backend (`![Image générée](data:image/…)`)
+   * et le repli direct `<img src="data:image/…">` au cas où le backend changerait.
+   */
+  private extractGeneratedImageDataUrls(content: string | null | undefined): string[] {
+    if (content == null || content === '') {
+      return [];
+    }
+    const out: string[] = [];
+    const seen = new Set<string>();
+    const mdRe = /!\[[^\]]*\]\((data:image\/[a-zA-Z0-9.+-]+;base64,[^)\s]+)\)/g;
+    let m: RegExpExecArray | null;
+    while ((m = mdRe.exec(content)) !== null) {
+      const url = m[1];
+      if (url && !seen.has(url)) {
+        seen.add(url);
+        out.push(url);
+      }
+    }
+    const imgRe = /<img[^>]*\ssrc=["'](data:image\/[a-zA-Z0-9.+-]+;base64,[^"']+)["']/gi;
+    while ((m = imgRe.exec(content)) !== null) {
+      const url = m[1];
+      if (url && !seen.has(url)) {
+        seen.add(url);
+        out.push(url);
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Récupère le texte du dernier message utilisateur précédant la bulle assistant donnée.
+   * Sert de prompt « ayant servi à générer l’image » pour le partage WhatsApp.
+   */
+  private findPromptingUserText(m: AssistantChatTurn): string {
+    const idx = this.messages.indexOf(m);
+    if (idx < 0) {
+      return '';
+    }
+    for (let i = idx - 1; i >= 0; i--) {
+      const prev = this.messages[i];
+      if (prev?.role === 'user') {
+        return typeof prev.content === 'string' ? prev.content.trim() : '';
+      }
+    }
+    return '';
+  }
+
+  /**
+   * Partage WhatsApp ciblé sur une image générée par l’assistant + le prompt utilisateur
+   * qui l’a déclenchée. Utilise Web Share API avec fichier(s) ; repli wa.me texte seul si indispo.
+   */
+  async shareGeneratedImageOnWhatsApp(m: AssistantChatTurn, ev: Event): Promise<void> {
+    ev.stopPropagation();
+    ev.preventDefault();
+    if (!this.hasGeneratedImage(m)) {
+      return;
+    }
+
+    const dataUrls = this.extractGeneratedImageDataUrls(m.content);
+    const files: File[] = [];
+    let i = 0;
+    for (const url of dataUrls) {
+      const f = await this.dataUrlToFile(url, `pat-assistant-generated-${i++}`);
+      if (f) {
+        files.push(f);
+      }
+    }
+
+    const title = this.translate.instant('ASSISTANT.TITLE');
+    const promptLabel = this.translate.instant('ASSISTANT.SHARE_GENERATED_IMG_PROMPT_LABEL');
+    const promptRaw = this.findPromptingUserText(m);
+    const promptWa = promptRaw
+      ? this.formatMarkdownForWhatsApp(promptRaw).trim()
+      : '';
+
+    let message = `*${title}*`;
+    if (promptWa.length > 0) {
+      message += `\n\n*${promptLabel}*\n\n${promptWa}`;
+    }
+
+    const nav = navigator as Navigator & {
+      share?: (data: ShareData) => Promise<void>;
+      canShare?: (data: ShareData) => boolean;
+    };
+
+    const aborted = (e: unknown): boolean =>
+      e != null &&
+      typeof e === 'object' &&
+      'name' in e &&
+      String((e as { name?: string }).name) === 'AbortError';
+
+    if (typeof nav.share === 'function') {
+      if (files.length > 0) {
+        const withFiles: ShareData = { title, text: message, files };
+        const canShare = typeof nav.canShare === 'function' ? nav.canShare(withFiles) : true;
+        if (canShare) {
+          try {
+            await nav.share(withFiles);
+            return;
+          } catch (err: unknown) {
+            if (aborted(err)) {
+              return;
+            }
+          }
+        }
+      }
+      try {
+        await nav.share({ title, text: message });
+        return;
+      } catch (err: unknown) {
+        if (aborted(err)) {
+          return;
+        }
+      }
+    }
+
+    const waText = this.truncateForWaMe(message);
+    window.open(
+      `https://wa.me/?text=${encodeURIComponent(waText)}`,
+      '_blank',
+      'noopener,noreferrer'
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Insertion d'une image générée dans un évènement (collection MongoDB).
+  // -------------------------------------------------------------------------
+
+  /**
+   * Ouvre le modal de sélection d'évènement pour insérer la 1re image générée
+   * de la bulle assistant cliquée. Charge la liste des évènements accessibles
+   * à l'utilisateur courant via SSE (`streamEvents`) et affiche un picker filtrable.
+   */
+  openInsertImageInEventModal(m: AssistantChatTurn, ev: Event): void {
+    ev.stopPropagation();
+    ev.preventDefault();
+    if (!this.hasGeneratedImage(m)) {
+      return;
+    }
+    const dataUrls = this.extractGeneratedImageDataUrls(m.content);
+    if (dataUrls.length === 0) {
+      return;
+    }
+    this.insertMode = 'image';
+    this.insertImageDataUrl = dataUrls[0];
+    this.insertCommentText = '';
+    this.openInsertEventModal();
+  }
+
+  /**
+   * Ouvre le même modal d'évènement mais en mode « insérer comme commentaire » :
+   * le contenu de la bulle assistant (et la question utilisateur précédente) est
+   * pré-rempli dans un textarea modifiable avant envoi.
+   */
+  openInsertCommentInEventModal(m: AssistantChatTurn, ev: Event): void {
+    ev.stopPropagation();
+    ev.preventDefault();
+    if (m.role !== 'assistant') {
+      return;
+    }
+    this.insertMode = 'comment';
+    this.insertImageDataUrl = null;
+    this.insertCommentText = this.buildDefaultCommentText(m);
+    this.openInsertEventModal();
+  }
+
+  /** Initialisation commune des deux modes (état du picker + ouverture NgbModal). */
+  private openInsertEventModal(): void {
+    this.insertImageEventsList = [];
+    this.insertImageEventsFilter = '';
+    this.insertImageEventsTypeFilter = '';
+    this.insertImageEventsLoading = true;
+    this.insertImageEventsError = false;
+    this.insertImageUploadingEventId = null;
+    this.insertImageFeedbackKey = null;
+    this.insertImageFeedbackParams = {};
+    this.insertImageFeedbackKind = null;
+    if (this.insertImageFeedbackTimer !== undefined) {
+      clearTimeout(this.insertImageFeedbackTimer);
+      this.insertImageFeedbackTimer = undefined;
+    }
+
+    this.insertImageModalRef = this.modalService.open(this.assistantInsertImageInEventModal, {
+      size: 'lg',
+      centered: true,
+      windowClass: 'assistant-insert-image-modal',
+      modalDialogClass: 'assistant-insert-image-modal-dialog'
+    });
+    this.insertImageModalRef.dismissed.subscribe(() => this.onInsertImageModalClosed());
+    this.insertImageModalRef.closed.subscribe(() => this.onInsertImageModalClosed());
+    this.cdr.markForCheck();
+
+    this.streamEventsForInsertImage();
+  }
+
+  /**
+   * Pré-remplissage de commentaire en HTML : converti le markdown de la réponse
+   * assistant via marked (gras / italique / titres / listes / liens / code…)
+   * et préfixe par la question utilisateur (échappée HTML pour rester safe).
+   *
+   * Les éventuelles images générées (`data:image/...` base64) sont extraites
+   * de la réponse, le texte est rendu sans elles (et tronqué si trop long),
+   * puis chaque image est ajoutée en fin de commentaire dans son propre
+   * `<p><img src="data:..."/></p>` — afin que la troncature du texte ne
+   * casse jamais le base64 d'une image.
+   *
+   * Compatible avec l'éditeur Quill et l'affichage HTML des commentaires.
+   */
+  private buildDefaultCommentText(m: AssistantChatTurn): string {
+    const promptRaw = this.findPromptingUserText(m);
+    const replyRaw = typeof m.content === 'string' ? m.content : '';
+    const imageDataUrls = this.extractGeneratedImageDataUrls(replyRaw);
+    const replyTextOnly = this.stripGeneratedImagesFromContent(replyRaw).trim();
+
+    const prefixQ = this.translate.instant('ASSISTANT.INSERT_CMT_IN_EVENT_PROMPT_PREFIX');
+    const prefixR = this.translate.instant('ASSISTANT.INSERT_CMT_IN_EVENT_REPLY_PREFIX');
+
+    const parts: string[] = [];
+    if (promptRaw && promptRaw.trim().length > 0) {
+      parts.push(`<p><strong>${this.escapeHtmlBasic(prefixQ)}</strong></p>`);
+      parts.push(
+        `<p>${this.escapeHtmlBasic(promptRaw.trim()).replace(/\r?\n/g, '<br>')}</p>`
+      );
+    }
+    if (replyTextOnly.length > 0) {
+      parts.push(`<p><strong>${this.escapeHtmlBasic(prefixR)}</strong></p>`);
+      let replyHtml: string;
+      try {
+        replyHtml = marked.parse(replyTextOnly, { async: false }) as string;
+      } catch {
+        replyHtml = `<p>${this.escapeHtmlBasic(replyTextOnly).replace(/\r?\n/g, '<br>')}</p>`;
+      }
+      parts.push(replyHtml);
+    }
+
+    let textHtml = parts.join('\n');
+    const max = AssistantDrawerComponent.INSERT_COMMENT_MAX_TEXT_HTML_CHARS;
+    if (textHtml.length > max) {
+      textHtml = textHtml.slice(0, Math.max(0, max - 1)) + '…';
+    }
+
+    if (imageDataUrls.length > 0) {
+      /**
+       * On encapsule chaque image dans un `<a target="_blank">` pointant vers
+       * la même data URL : le rendu HTML du commentaire (commentary-editor)
+       * la limite en taille (max-height en CSS), mais un click sur l'image
+       * l'ouvre alors en plein dans un nouvel onglet du navigateur.
+       */
+      const imagesHtml = imageDataUrls
+        .map(
+          (url) =>
+            `<p><a href="${url}" target="_blank" rel="noopener noreferrer">` +
+            `<img src="${url}" alt="" /></a></p>`
+        )
+        .join('');
+      textHtml = textHtml + imagesHtml;
+    }
+
+    return textHtml;
+  }
+
+  /**
+   * Vrai si le commentaire HTML actuel n'a pas de texte significatif. Utile
+   * parce que Quill renvoie `<p><br></p>` pour un éditeur vide.
+   */
+  isInsertCommentEmpty(): boolean {
+    const html = this.insertCommentText ?? '';
+    if (html.length === 0) {
+      return true;
+    }
+    const text = html
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .trim();
+    return text.length === 0;
+  }
+
+  /** Indique si le bouton « Ajouter ici » est actionnable pour l'évènement courant. */
+  canSubmitInsertForEvent(ev: Evenement): boolean {
+    if (this.insertImageUploadingEventId != null) {
+      return false;
+    }
+    if (this.insertMode === 'comment') {
+      return !this.isInsertCommentEmpty();
+    }
+    return ev?.id != null;
+  }
+
+  /** Supprime les `![…](data:image/…)` Markdown et `<img src="data:…">` du texte. */
+  private stripGeneratedImagesFromContent(content: string): string {
+    if (!content) {
+      return '';
+    }
+    let out = content.replace(
+      /!\[[^\]]*\]\(data:image\/[a-zA-Z0-9.+-]+;base64,[^)\s]+\)/g,
+      ''
+    );
+    out = out.replace(
+      /<img[^>]*\ssrc=["']data:image\/[a-zA-Z0-9.+-]+;base64,[^"']+["'][^>]*\/?>(\s*<\/img>)?/gi,
+      ''
+    );
+    return out.replace(/\n{3,}/g, '\n\n').trim();
+  }
+
+  /**
+   * Appel SSE — récupère tous les évènements visibles par l'utilisateur courant.
+   * On accumule les évènements au fil de l'eau et on remet la liste triée par date.
+   *
+   * NB : le backend monte la route `/api/even/stream/{evenementName}` avec le
+   * nom comme path variable obligatoire ; un nom vide produit `…/stream/` →
+   * 404 (segment vide non matché). Le composant home utilise `"*"` comme
+   * convention « tout afficher » — on suit la même règle.
+   */
+  private streamEventsForInsertImage(): void {
+    this.insertImageEventsStreamSub?.unsubscribe();
+    const user = this.membersService.getUser();
+    const userId = user?.id ?? '';
+
+    this.insertImageEventsStreamSub = this.evenementsService
+      .streamEvents('*', userId)
+      .subscribe({
+        next: (s: StreamedEvent) => {
+          this.ngZone.run(() => {
+            if (s.type === 'event' && s.data && typeof s.data === 'object' && 'id' in s.data) {
+              const incoming = s.data as Evenement;
+              const existsIdx = this.insertImageEventsList.findIndex((e) => e.id === incoming.id);
+              if (existsIdx === -1) {
+                this.insertImageEventsList = [...this.insertImageEventsList, incoming];
+              }
+              this.cdr.markForCheck();
+            } else if (s.type === 'complete') {
+              this.insertImageEventsLoading = false;
+              this.cdr.markForCheck();
+            }
+          });
+        },
+        error: () => {
+          this.ngZone.run(() => {
+            this.insertImageEventsLoading = false;
+            this.insertImageEventsError = true;
+            this.cdr.markForCheck();
+          });
+        },
+        complete: () => {
+          this.ngZone.run(() => {
+            this.insertImageEventsLoading = false;
+            this.cdr.markForCheck();
+          });
+        }
+      });
+  }
+
+  /**
+   * Liste filtrée pour le template :
+   *  - filtrage par nom (texte, insensible à la casse)
+   *  - filtrage par type d'activité (`Evenement.type` exact match)
+   *  - tri décroissant par date de début d'évènement (plus récent d'abord).
+   */
+  insertImageFilteredEvents(): Evenement[] {
+    const term = (this.insertImageEventsFilter ?? '').trim().toLowerCase();
+    const typeFilter = (this.insertImageEventsTypeFilter ?? '').trim();
+    const list = this.insertImageEventsList;
+    let out = !term
+      ? list
+      : list.filter((e) => (e.evenementName ?? '').toLowerCase().includes(term));
+    if (typeFilter) {
+      out = out.filter((e) => (e.type ?? '') === typeFilter);
+    }
+    out = [...out].sort((a, b) => {
+      const dA = a?.beginEventDate ? new Date(a.beginEventDate).getTime() : 0;
+      const dB = b?.beginEventDate ? new Date(b.beginEventDate).getTime() : 0;
+      return dB - dA;
+    });
+    return out;
+  }
+
+  /**
+   * Renvoie la clé i18n associée à un type d'évènement (ID numérique en string).
+   * Si l'ID n'est pas connu, le brut est renvoyé tel quel pour rester debug-friendly.
+   */
+  insertImageEventTypeLabelKey(typeId: string | undefined | null): string {
+    const id = (typeId ?? '').trim();
+    if (!id) {
+      return '';
+    }
+    const found = this.insertImageEventTypeOptions.find((o) => o.value === id);
+    return found ? found.labelKey : id;
+  }
+
+  insertImageEventDateLabel(ev: Evenement): string {
+    const d = ev?.beginEventDate ? new Date(ev.beginEventDate) : null;
+    if (!d || isNaN(d.getTime())) {
+      return '';
+    }
+    try {
+      return d.toLocaleDateString();
+    } catch {
+      return d.toISOString().slice(0, 10);
+    }
+  }
+
+  /**
+   * Dispatcher : selon {@link insertMode}, upload un fichier image (mode 'image')
+   * OU POST un commentaire texte (mode 'comment') sur l'évènement choisi.
+   */
+  async onSelectEventForInsert(ev: Evenement): Promise<void> {
+    if (!ev || !ev.id) {
+      return;
+    }
+    if (this.insertImageUploadingEventId != null) {
+      return;
+    }
+    if (this.insertMode === 'image') {
+      await this.runImageInsert(ev);
+    } else if (this.insertMode === 'comment') {
+      this.runCommentInsert(ev);
+    }
+  }
+
+  /** Upload de l'image générée (mode 'image'). */
+  private async runImageInsert(ev: Evenement): Promise<void> {
+    const dataUrl = this.insertImageDataUrl;
+    if (!dataUrl) {
+      return;
+    }
+    const user = this.membersService.getUser();
+    if (!user || !user.id) {
+      this.setInsertImageFeedback('error', 'ASSISTANT.INSERT_IMG_IN_EVENT_NO_USER');
+      return;
+    }
+
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const file = await this.dataUrlToFile(dataUrl, `pat-assistant-generated-${ts}`);
+    if (!file) {
+      this.setInsertImageFeedback('error', 'ASSISTANT.INSERT_IMG_IN_EVENT_FILE_ERROR');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    formData.append('allowOriginal', 'true');
+
+    const uploadUrl = `${environment.API_URL4FILE}/${user.id}/${ev.id}`;
+
+    this.insertImageUploadingEventId = ev.id;
+    this.insertImageFeedbackKey = null;
+    this.insertImageFeedbackKind = null;
+    this.cdr.markForCheck();
+
+    this.insertImageUploadSub?.unsubscribe();
+    this.insertImageUploadSub = this.fileService
+      .postFileToUrl(formData, user, uploadUrl)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.ngZone.run(() => {
+            this.insertImageUploadingEventId = null;
+            this.cdr.markForCheck();
+          });
+        })
+      )
+      .subscribe({
+        next: () => {
+          this.ngZone.run(() => {
+            this.setInsertImageFeedback(
+              'success',
+              'ASSISTANT.INSERT_IMG_IN_EVENT_SUCCESS',
+              { name: ev.evenementName ?? '' }
+            );
+            this.scheduleInsertModalAutoClose();
+          });
+        },
+        error: () => {
+          this.ngZone.run(() => {
+            this.setInsertImageFeedback('error', 'ASSISTANT.INSERT_IMG_IN_EVENT_UPLOAD_ERROR');
+          });
+        }
+      });
+  }
+
+  /** POST commentaire texte (mode 'comment'). */
+  private runCommentInsert(ev: Evenement): void {
+    const text = (this.insertCommentText ?? '').trim();
+    if (text.length === 0) {
+      this.setInsertImageFeedback('error', 'ASSISTANT.INSERT_CMT_IN_EVENT_EMPTY_ERROR');
+      return;
+    }
+    const user = this.membersService.getUser();
+    if (!user || !user.id) {
+      this.setInsertImageFeedback('error', 'ASSISTANT.INSERT_IMG_IN_EVENT_NO_USER');
+      return;
+    }
+
+    /**
+     * Le backend écrase `commentOwner` et `dateCreation` côté serveur (sécurité),
+     * donc on envoie une valeur cosmétique localement — la véritable source d'autorité
+     * reste l'utilisateur Keycloak côté Spring.
+     */
+    const ownerLabel =
+      this.chatUserLabel()
+      || `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
+      || user.userName
+      || user.id
+      || '';
+    const commentary = new Commentary(ownerLabel, text, new Date());
+
+    this.insertImageUploadingEventId = ev.id;
+    this.insertImageFeedbackKey = null;
+    this.insertImageFeedbackKind = null;
+    this.cdr.markForCheck();
+
+    this.insertImageUploadSub?.unsubscribe();
+    this.insertImageUploadSub = this.evenementsService
+      .addCommentary(ev.id, commentary)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.ngZone.run(() => {
+            this.insertImageUploadingEventId = null;
+            this.cdr.markForCheck();
+          });
+        })
+      )
+      .subscribe({
+        next: () => {
+          this.ngZone.run(() => {
+            this.setInsertImageFeedback(
+              'success',
+              'ASSISTANT.INSERT_CMT_IN_EVENT_SUCCESS',
+              { name: ev.evenementName ?? '' }
+            );
+            this.scheduleInsertModalAutoClose();
+          });
+        },
+        error: () => {
+          this.ngZone.run(() => {
+            this.setInsertImageFeedback('error', 'ASSISTANT.INSERT_CMT_IN_EVENT_POST_ERROR');
+          });
+        }
+      });
+  }
+
+  private scheduleInsertModalAutoClose(): void {
+    if (this.insertImageFeedbackTimer !== undefined) {
+      clearTimeout(this.insertImageFeedbackTimer);
+    }
+    this.insertImageFeedbackTimer = setTimeout(() => {
+      this.cancelInsertImageInEventModal();
+    }, AssistantDrawerComponent.INSERT_IMAGE_FEEDBACK_AUTO_CLOSE_MS);
+  }
+
+  private setInsertImageFeedback(
+    kind: 'success' | 'error',
+    key: string,
+    params: { name?: string } = {}
+  ): void {
+    this.insertImageFeedbackKind = kind;
+    this.insertImageFeedbackKey = key;
+    this.insertImageFeedbackParams = params;
+    this.cdr.markForCheck();
+  }
+
+  cancelInsertImageInEventModal(): void {
+    if (this.insertImageFeedbackTimer !== undefined) {
+      clearTimeout(this.insertImageFeedbackTimer);
+      this.insertImageFeedbackTimer = undefined;
+    }
+    if (this.insertImageModalRef) {
+      try {
+        this.insertImageModalRef.close();
+      } catch {
+        /* ignore */
+      }
+      this.insertImageModalRef = null;
+    }
+  }
+
+  private onInsertImageModalClosed(): void {
+    this.insertImageEventsStreamSub?.unsubscribe();
+    this.insertImageUploadSub?.unsubscribe();
+    if (this.insertImageFeedbackTimer !== undefined) {
+      clearTimeout(this.insertImageFeedbackTimer);
+      this.insertImageFeedbackTimer = undefined;
+    }
+    this.insertMode = null;
+    this.insertImageDataUrl = null;
+    this.insertCommentText = '';
+    this.insertImageEventsList = [];
+    this.insertImageEventsFilter = '';
+    this.insertImageEventsTypeFilter = '';
+    this.insertImageEventsLoading = false;
+    this.insertImageEventsError = false;
+    this.insertImageUploadingEventId = null;
+    this.insertImageFeedbackKey = null;
+    this.insertImageFeedbackParams = {};
+    this.insertImageFeedbackKind = null;
+    this.insertImageModalRef = null;
+    this.cdr.markForCheck();
+  }
+
   whatsappPreviewSrc(): SafeUrl {
     const u = this.firstUserImageDataUrlInThread();
     if (u && u.trim()) {
@@ -1200,6 +2174,144 @@ export class AssistantDrawerComponent
       this.whatsappShareModalRef.close();
       this.whatsappShareModalRef = null;
     }
+  }
+
+  /**
+   * Click delegation sur la zone de contenu d'une bulle : si l'utilisateur clique
+   * sur une `<img>` rendue par le markdown (typiquement une image générée par
+   * l'assistant en `data:image/...` ou une image attachée par l'utilisateur),
+   * on ouvre le slideshow partagé du projet (même viewer que sur les évènements)
+   * avec **toutes les images du chat** ; l'image cliquée est l'image de départ.
+   */
+  onBubbleBodyClick(ev: MouseEvent): void {
+    const target = ev.target as HTMLElement | null;
+    if (!target || target.tagName !== 'IMG') {
+      return;
+    }
+    const img = target as HTMLImageElement;
+    const src = (img.getAttribute('src') ?? img.src ?? '').trim();
+    if (!src) {
+      return;
+    }
+    ev.preventDefault();
+    ev.stopPropagation();
+    this.openImageInSlideshow(src);
+  }
+
+  /**
+   * Collecte toutes les images du chat (générées par l'assistant + uploads
+   * utilisateur) sous forme de data URLs, dans l'ordre chronologique. Sert
+   * de source pour le slideshow lorsque l'utilisateur clique sur une image.
+   */
+  private collectAllChatImageDataUrls(): string[] {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const m of this.messages) {
+      if (m.role === 'assistant') {
+        const urls = this.extractGeneratedImageDataUrls(m.content);
+        for (const u of urls) {
+          if (!seen.has(u)) {
+            seen.add(u);
+            out.push(u);
+          }
+        }
+      } else if (m.role === 'user') {
+        const u = (m.imageDataUrl ?? '').trim();
+        if (u && !seen.has(u)) {
+          seen.add(u);
+          out.push(u);
+        }
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Convertit une data URL `data:image/...;base64,...` en `Blob` pour pouvoir
+   * créer un object URL léger. Retourne null si la data URL est invalide.
+   */
+  private dataUrlToBlob(dataUrl: string): Blob | null {
+    const parts = this.parseDataUrlBase64(dataUrl);
+    if (!parts) {
+      return null;
+    }
+    try {
+      const byteString = atob(parts.base64);
+      const buffer = new ArrayBuffer(byteString.length);
+      const view = new Uint8Array(buffer);
+      for (let i = 0; i < byteString.length; i++) {
+        view[i] = byteString.charCodeAt(i);
+      }
+      return new Blob([buffer], { type: parts.mime });
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Ouvre le slideshow du projet sur l'image cliquée, avec toutes les images
+   * du chat comme contexte de navigation. Les data URLs sont converties en
+   * blob URLs (plus performant que data: pour le `<img>`).
+   */
+  private openImageInSlideshow(clickedSrc: string): void {
+    if (!this.slideshowModalComponent) {
+      return;
+    }
+    const allUrls = this.collectAllChatImageDataUrls();
+    let startIndex = allUrls.indexOf(clickedSrc);
+    let urls: string[];
+    if (startIndex < 0) {
+      urls = [clickedSrc];
+      startIndex = 0;
+    } else {
+      urls = allUrls;
+    }
+
+    this.revokeSlideshowBlobUrls();
+    const sources: SlideshowImageSource[] = urls.map((url, idx) => {
+      const blob = this.dataUrlToBlob(url);
+      let blobUrl: string;
+      if (blob) {
+        blobUrl = URL.createObjectURL(blob);
+        this.slideshowBlobUrls.push(blobUrl);
+      } else {
+        blobUrl = url;
+      }
+      return {
+        blobUrl,
+        blob: blob ?? undefined,
+        fileName: `pat-assistant-image-${idx + 1}.png`
+      };
+    });
+
+    const eventName = this.translate.instant('ASSISTANT.TITLE');
+    const assistantBlue = { r: 37, g: 99, b: 235 };
+    this.slideshowModalComponent.open(
+      sources,
+      eventName,
+      false,
+      0,
+      assistantBlue,
+      Math.max(0, startIndex)
+    );
+    this.cdr.markForCheck();
+  }
+
+  /** Libère les object URLs (fuite mémoire sinon). */
+  private revokeSlideshowBlobUrls(): void {
+    for (const u of this.slideshowBlobUrls) {
+      try {
+        URL.revokeObjectURL(u);
+      } catch {
+        /* ignore */
+      }
+    }
+    this.slideshowBlobUrls = [];
+  }
+
+  /** Hook (closed) du slideshow : on libère les blob URLs créés à l'ouverture. */
+  onSlideshowClosed(): void {
+    this.revokeSlideshowBlobUrls();
   }
 
   private truncateForWaMe(text: string): string {
