@@ -1493,6 +1493,7 @@
         "TOOL_WEB_HINT": "The model can search the web for up-to-date information (slower, higher API usage).",
         "TOOL_IMAGE_HINT": "The model can generate images; may cost more and take longer.",
         "TOOL_MCP_HINT": "Connects an MCP server configured on the backend (openai.mcp.* settings).",
+        "TOOL_MCP_DISABLED_HINT": "MCP unavailable: no MCP server is configured yet.",
         "NEW_THREAD_HINT": "Clears this tab’s chat history and draft to start fresh.",
         "SEND_HINT": "Sends your typed message to the assistant; if an image is attached, the text must contain your question.",
         "IMAGE_ATTACH": "Image",

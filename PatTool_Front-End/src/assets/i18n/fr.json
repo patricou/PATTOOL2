@@ -1483,6 +1483,7 @@
         "TOOL_WEB_HINT": "Le modèle peut consulter le web pour des infos ou actualités récentes (réponse plus lente, usage API accru).",
         "TOOL_IMAGE_HINT": "Le modèle peut générer des images ; coût et durée de réponse peuvent augmenter.",
         "TOOL_MCP_HINT": "Branche un serveur MCP configuré sur le backend (propriétés openai.mcp.*).",
+        "TOOL_MCP_DISABLED_HINT": "MCP indisponible : aucun serveur MCP n'est encore configuré.",
         "NEW_THREAD_HINT": "Efface la conversation et le brouillon dans cet onglet pour repartir de zéro.",
         "SEND_HINT": "Envoie le texte du champ à l’assistant ; avec une image jointe le message doit contenir votre question.",
         "IMAGE_ATTACH": "Image",

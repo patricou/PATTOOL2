@@ -42,12 +42,13 @@
     <div class="pat-assistant-drawer-actions">
       <button
         type="button"
-        class="btn btn-sm btn-success pat-assistant-header-btn"
+        class="btn btn-sm btn-success pat-assistant-header-btn pat-assistant-header-whatsapp"
         [disabled]="!canShareAssistantWhatsApp()"
         (click)="openWhatsAppShareModal(); $event.stopPropagation()"
         [title]="'ASSISTANT.SHARE_WHATSAPP_HINT' | translate"
         [attr.aria-label]="'ASSISTANT.SHARE_WHATSAPP' | translate">
-        <i class="fa fa-whatsapp" aria-hidden="true"></i>
+        <i class="fa fa-whatsapp me-1" aria-hidden="true"></i>
+        <span class="pat-assistant-header-whatsapp-text">{{ 'ASSISTANT.SHARE_WHATSAPP' | translate }}</span>
       </button>
       <button
         type="button"
@@ -303,7 +304,7 @@
           id="pat-assistant-tool-mcp"
           [(ngModel)]="toolMcp"
           (change)="onToolFlagsChanged()"
-          [disabled]="loading"
+          [disabled]="true"
           [title]="'ASSISTANT.TOOL_MCP_HINT' | translate" />
         <label class="form-check-label"
                for="pat-assistant-tool-mcp"
@@ -543,6 +544,59 @@
       [disabled]="insertImageUploadingEventId != null"
       (click)="cancelInsertImageInEventModal()">
       {{ 'EVENTELEM.CANCEL' | translate }}
+    </button>
+  </div>
+</ng-template>
+
+<!--
+  Modal "Compresser l'image ?" : ouvert uniquement quand l'image générée
+  à insérer dans un évènement dépasse ~300KB. Réutilise les libellés
+  `EVENTELEM.IMAGE_COMPRESSION_*` déjà utilisés par `update-evenement` pour
+  rester cohérent avec le reste de l'UI et éviter de dupliquer des chaînes.
+-->
+<ng-template #imageCompressionModal let-modal>
+  <div class="modal-header bg-primary text-white">
+    <h5 class="modal-title">
+      <i class="fa fa-image me-2"></i>
+      {{ 'EVENTELEM.IMAGE_COMPRESSION_TITLE' | translate }}
+    </h5>
+    <button
+      type="button"
+      class="btn-close btn-close-white"
+      (click)="cancelInsertImageCompression()"
+      [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+  </div>
+  <div class="modal-body">
+    <p>{{ 'EVENTELEM.IMAGE_COMPRESSION_MESSAGE' | translate: {count: 1} }}</p>
+    <p class="small text-muted mb-3">
+      <i class="fa fa-info-circle me-1" aria-hidden="true"></i>
+      {{ 'EVENTELEM.EXIF_FILE_SIZE' | translate }}: {{ insertImageSizeKb }} KB
+    </p>
+    <div class="form-group mb-3">
+      <div class="form-check form-switch">
+        <input
+          class="form-check-input"
+          type="checkbox"
+          id="assistantCompressImagesSwitch"
+          [(ngModel)]="compressInsertImage" />
+        <label class="form-check-label" for="assistantCompressImagesSwitch">
+          {{ 'EVENTELEM.COMPRESS_IMAGES' | translate }}
+        </label>
+      </div>
+    </div>
+    <div class="alert alert-info small mb-0">
+      <strong>{{ 'EVENTELEM.COMPRESS_IMAGES_ENABLED' | translate }}:</strong>
+      {{ 'EVENTELEM.COMPRESS_IMAGES_ENABLED_DETAILS' | translate }}<br />
+      <strong>{{ 'EVENTELEM.COMPRESS_IMAGES_DISABLED' | translate }}:</strong>
+      {{ 'EVENTELEM.COMPRESS_IMAGES_DISABLED_DETAILS' | translate }}
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" (click)="cancelInsertImageCompression()">
+      {{ 'COMMUN.CANCEL' | translate }}
+    </button>
+    <button type="button" class="btn btn-primary" (click)="confirmInsertImageCompression()">
+      {{ 'COMMUN.CONFIRM' | translate }}
     </button>
   </div>
 </ng-template>

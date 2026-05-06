@@ -264,6 +264,13 @@
   letter-spacing: 0.02em;
 }
 
+.pat-assistant-header-whatsapp-text {
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+
 .pat-assistant-credits-banner {
   flex-shrink: 0;
   padding: 0.5rem 0.95rem;
@@ -963,8 +970,13 @@
   /* Mobile : on garde l'icône WhatsApp seule pour économiser la place dans la bulle. */
   .pat-assistant-share-img-wa-text,
   .pat-assistant-insert-img-evt-text,
-  .pat-assistant-insert-cmt-evt-text {
+  .pat-assistant-insert-cmt-evt-text,
+  .pat-assistant-header-whatsapp-text {
     display: none;
+  }
+
+  .pat-assistant-header-whatsapp .fa-whatsapp {
+    margin-right: 0 !important;
   }
 
   .pat-assistant-share-img-wa,

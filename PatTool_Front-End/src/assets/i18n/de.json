@@ -1437,6 +1437,7 @@
         "TOOL_WEB_HINT": "Das Modell kann das Web für aktuelle Informationen nutzen (langsamer, höherer API-Verbrauch).",
         "TOOL_IMAGE_HINT": "Das Modell kann Bilder erzeugen; kann mehr kosten und länger dauern.",
         "TOOL_MCP_HINT": "Verbindet einen auf dem Backend konfigurierten MCP-Server (openai.mcp.*).",
+        "TOOL_MCP_DISABLED_HINT": "MCP nicht verfügbar: Es ist noch kein MCP-Server konfiguriert.",
         "NEW_THREAD_HINT": "Löscht Verlauf und Entwurf in diesem Tab für eine neue Unterhaltung.",
         "SEND_HINT": "Sendet Ihre Nachricht (und ein ggf. angehängtes Bild) mit den oben aktivierten Optionen an den Assistenten.",
         "IMAGE_ATTACH": "Bild",

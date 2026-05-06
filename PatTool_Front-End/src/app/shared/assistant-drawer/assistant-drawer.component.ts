@@ -75,6 +75,13 @@ export class AssistantDrawerComponent
   @ViewChild('imageFileInput') imageFileInputEl?: ElementRef<HTMLInputElement>;
   @ViewChild('assistantWhatsappShareModal') assistantWhatsappShareModal!: TemplateRef<unknown>;
   @ViewChild('assistantInsertImageInEventModal') assistantInsertImageInEventModal!: TemplateRef<unknown>;
+  /**
+   * Modal de choix de compression d'image (réutilise les clés i18n
+   * `EVENTELEM.IMAGE_COMPRESSION_*` déjà utilisées dans `update-evenement`).
+   * Affiché uniquement lorsque l'image insérée dans un évènement dépasse
+   * {@link AssistantDrawerComponent.INSERT_IMAGE_COMPRESSION_THRESHOLD_BYTES}.
+   */
+  @ViewChild('imageCompressionModal') imageCompressionModal!: TemplateRef<unknown>;
   /** Référence à l'instance du slideshow partagé (même viewer que pour les évènements). */
   @ViewChild('slideshowModalComponent') slideshowModalComponent?: SlideshowModalComponent;
 
@@ -174,6 +181,24 @@ export class AssistantDrawerComponent
   private static readonly INSERT_IMAGE_FEEDBACK_AUTO_CLOSE_MS = 1800;
 
   private static readonly WA_ME_SAFE_CHARS = 6000;
+
+  /**
+   * Seuil au-dessus duquel le modal de compression image s'ouvre lorsque
+   * l'utilisateur insère une image générée dans un évènement (cohérent avec
+   * la cible "~300KB" annoncée dans les libellés UI et avec le seuil utilisé
+   * dans la compression côté chat de discussion).
+   */
+  private static readonly INSERT_IMAGE_COMPRESSION_THRESHOLD_BYTES = 300 * 1024;
+
+  /**
+   * État du modal de compression image (ouvert uniquement quand l'image
+   * dépasse le seuil). `compressInsertImage` est lié au switch dans le
+   * template et reflète le choix utilisateur (true = compresser).
+   */
+  compressInsertImage = true;
+  /** Taille (en Ko, arrondie) affichée dans le modal pour informer l'utilisateur. */
+  insertImageSizeKb = 0;
+  private imageCompressionModalRef: NgbModalRef | null = null;
 
   /** Juste sous la bande bleue `.pat-title` (ou minimum sous navbar + tickers). */
   fabTopPx = 72;
@@ -632,6 +657,14 @@ export class AssistantDrawerComponent
         /* ignore */
       }
       this.insertImageModalRef = null;
+    }
+    if (this.imageCompressionModalRef) {
+      try {
+        this.imageCompressionModalRef.dismiss();
+      } catch {
+        /* ignore */
+      }
+      this.imageCompressionModalRef = null;
     }
     this.revokeSlideshowBlobUrls();
     if (this.assistantImageCopyFeedbackTimer) {
@@ -1842,9 +1875,25 @@ export class AssistantDrawerComponent
       return;
     }
 
+    /**
+     * Au-delà du seuil "~300KB", on demande à l'utilisateur s'il veut
+     * compresser l'image (même UX que `update-evenement`). En dessous,
+     * on envoie tel quel (allowOriginal=true) sans pop-up.
+     */
+    let allowOriginal = true;
+    if (file.size > AssistantDrawerComponent.INSERT_IMAGE_COMPRESSION_THRESHOLD_BYTES) {
+      const choice = await this.askForInsertImageCompression(file.size);
+      if (choice == null) {
+        // Modal fermé/annulé : on annule l'insertion silencieusement.
+        return;
+      }
+      // choice === true → compresser ; allowOriginal est l'inverse.
+      allowOriginal = !choice;
+    }
+
     const formData = new FormData();
     formData.append('file', file, file.name);
-    formData.append('allowOriginal', 'true');
+    formData.append('allowOriginal', allowOriginal ? 'true' : 'false');
 
     const uploadUrl = `${environment.API_URL4FILE}/${user.id}/${ev.id}`;
 
@@ -1944,6 +1993,66 @@ export class AssistantDrawerComponent
           });
         }
       });
+  }
+
+  /**
+   * Ouvre le modal "Compresser l'image ?" lorsque l'image générée à insérer
+   * dépasse le seuil. Réutilise les libellés `EVENTELEM.IMAGE_COMPRESSION_*`
+   * déjà traduits pour le formulaire d'évènement, afin de ne pas dupliquer
+   * de chaînes.
+   *
+   * Retourne :
+   *  - `true`  → l'utilisateur souhaite compresser (allowOriginal=false)
+   *  - `false` → l'utilisateur veut envoyer en taille originale
+   *  - `null`  → modal fermé/annulé : appelant doit interrompre l'envoi
+   */
+  private askForInsertImageCompression(fileSizeBytes: number): Promise<boolean | null> {
+    return new Promise((resolve) => {
+      this.compressInsertImage = true; // valeur par défaut : compression activée
+      this.insertImageSizeKb = Math.max(1, Math.round(fileSizeBytes / 1024));
+
+      if (!this.imageCompressionModal) {
+        // Repli si pour une raison quelconque le template n'est pas dispo.
+        const ok = window.confirm(
+          this.translate.instant('EVENTELEM.IMAGE_COMPRESSION_QUESTION', { count: 1 })
+        );
+        resolve(ok);
+        return;
+      }
+
+      this.imageCompressionModalRef = this.modalService.open(this.imageCompressionModal, {
+        centered: true,
+        backdrop: 'static',
+        keyboard: false,
+        size: 'md',
+        windowClass: 'compression-quality-modal'
+      });
+
+      this.imageCompressionModalRef.result.then(
+        (result: boolean) => {
+          this.imageCompressionModalRef = null;
+          resolve(result);
+        },
+        () => {
+          this.imageCompressionModalRef = null;
+          resolve(null);
+        }
+      );
+    });
+  }
+
+  /** Confirme le choix de compression (lié au bouton "Confirmer" du modal). */
+  confirmInsertImageCompression(): void {
+    if (this.imageCompressionModalRef) {
+      this.imageCompressionModalRef.close(this.compressInsertImage);
+    }
+  }
+
+  /** Annule le modal de compression (croix / bouton "Annuler"). */
+  cancelInsertImageCompression(): void {
+    if (this.imageCompressionModalRef) {
+      this.imageCompressionModalRef.dismiss();
+    }
   }
 
   private scheduleInsertModalAutoClose(): void {
