@@ -47,6 +47,7 @@ import {
 } from '../slideshow-modal/slideshow-modal.component';
 import { EvenementsService, StreamedEvent } from '../../services/evenements.service';
 import { FileService } from '../../services/file.service';
+import { UploadConfigService } from '../../services/upload-config.service';
 import { MembersService } from '../../services/members.service';
 import { Evenement } from '../../model/evenement';
 import { Commentary } from '../../model/commentary';
@@ -183,21 +184,21 @@ export class AssistantDrawerComponent
   private static readonly WA_ME_SAFE_CHARS = 6000;
 
   /**
-   * Seuil au-dessus duquel le modal de compression image s'ouvre lorsque
-   * l'utilisateur insère une image générée dans un évènement (cohérent avec
-   * la cible "~300KB" annoncée dans les libellés UI et avec le seuil utilisé
-   * dans la compression côté chat de discussion).
-   */
-  private static readonly INSERT_IMAGE_COMPRESSION_THRESHOLD_BYTES = 300 * 1024;
-
-  /**
-   * État du modal de compression image (ouvert uniquement quand l'image
-   * dépasse le seuil). `compressInsertImage` est lié au switch dans le
-   * template et reflète le choix utilisateur (true = compresser).
+   * État du modal de compression image. `compressInsertImage` est lié au
+   * switch dans le template et reflète le choix utilisateur (true =
+   * compresser). `insertImageCompressionMode` détermine le rendu :
+   *  - 'normal'   : modal classique avec switch (image > seuil
+   *                 `app.imagemaxsizekb` côté backend).
+   *  - 'allUnder' : image déjà ≤ au seuil → message info-only, pas de
+   *                 switch ; envoi en `allowOriginal=true` à la
+   *                 confirmation.
    */
   compressInsertImage = true;
-  /** Taille (en Ko, arrondie) affichée dans le modal pour informer l'utilisateur. */
+  insertImageCompressionMode: 'normal' | 'allUnder' = 'normal';
+  /** Taille (en KB, arrondie) affichée dans le modal pour informer l'utilisateur. */
   insertImageSizeKb = 0;
+  /** Seuil (KB) lu sur le backend ; affiché dans le message info-only. */
+  insertImageMaxSizeKb = 0;
   private imageCompressionModalRef: NgbModalRef | null = null;
 
   /** Juste sous la bande bleue `.pat-title` (ou minimum sous navbar + tickers). */
@@ -277,9 +278,15 @@ export class AssistantDrawerComponent
     private modalService: NgbModal,
     private evenementsService: EvenementsService,
     private fileService: FileService,
+    private uploadConfigService: UploadConfigService,
     private membersService: MembersService,
     private hostRef: ElementRef<HTMLElement>
-  ) {}
+  ) {
+    // Pré-charge `app.imagemaxsizekb` dès l'instanciation du drawer pour
+    // que le modal de compression puisse adapter son rendu (info-only ou
+    // switch) dès la première insertion d'image dans un évènement.
+    this.uploadConfigService.preload();
+  }
 
   /** Ligne « fournisseur · modèle » issue de application.properties (GET /assistant/config). */
   clientConfigMetaLine = '';
@@ -320,7 +327,12 @@ export class AssistantDrawerComponent
     }
 
     this.assistantLaunchSub = this.assistantLaunch.launches$.subscribe((p) => {
-      if (!this.isAuthenticated() || !p.draft?.trim()) {
+      if (!this.isAuthenticated()) {
+        return;
+      }
+      const draftTrim = p.draft?.trim() ?? '';
+      const hasImage = !!p.attachedImage;
+      if (!draftTrim && !hasImage) {
         return;
       }
       if (p.newConversation) {
@@ -328,7 +340,15 @@ export class AssistantDrawerComponent
         this.loading = false;
         this.messages = [];
       }
-      this.draft = p.draft.trim();
+      if (hasImage && p.attachedImage) {
+        this.pendingImage = {
+          mimeType: p.attachedImage.mimeType,
+          base64: p.attachedImage.base64,
+          dataUrl: p.attachedImage.dataUrl
+        };
+        this.imageAttachError = null;
+      }
+      this.draft = draftTrim;
       if (p.toolFlags) {
         const tf = p.toolFlags;
         if (tf.webSearch !== undefined) {
@@ -347,6 +367,8 @@ export class AssistantDrawerComponent
       this.persistSession();
       this.scheduleFabAnchorUpdate();
       this.cdr.detectChanges();
+      this.syncAppRootAriaWithAssistantOverModal();
+      this.scheduleFocusComposeArea();
       queueMicrotask(() => this.requestAlignLastQuestionTop());
     });
   }
@@ -622,6 +644,10 @@ export class AssistantDrawerComponent
   }
 
   ngOnDestroy(): void {
+    const appRoot = document.querySelector('app-root');
+    if (appRoot && document.querySelector('.modal.show')) {
+      appRoot.setAttribute('aria-hidden', 'true');
+    }
     this.persistSession();
     this.loading = false;
     if (this.draftPersistTimer !== undefined) {
@@ -1155,8 +1181,11 @@ export class AssistantDrawerComponent
       if (this.messages.length > 0) {
         queueMicrotask(() => this.requestAlignLastQuestionTop());
       }
+      this.syncAppRootAriaWithAssistantOverModal();
+      this.scheduleFocusComposeArea();
     } else {
       this.creditsBannerOpen = false;
+      this.syncAppRootAriaWithAssistantOverModal();
     }
   }
 
@@ -1165,6 +1194,47 @@ export class AssistantDrawerComponent
     this.isOpen = false;
     this.fullscreen = false;
     this.creditsBannerOpen = false;
+    this.syncAppRootAriaWithAssistantOverModal();
+  }
+
+  /**
+   * Avec une modale Ngb/Bootstrap ouverte, app-root reçoit aria-hidden=true (accessibilité) alors que
+   * le tiroir assistant est peint au-dessus (z-index) mais reste dans app-root — cela peut bloquer
+   * focus/saisie. On retire l'attribut tant que le chat est ouvert par-dessus une modale, puis on le
+   * rétablit à la fermeture du chat si la modale est toujours là.
+   */
+  private syncAppRootAriaWithAssistantOverModal(): void {
+    const appRoot = document.querySelector('app-root');
+    if (!appRoot) {
+      return;
+    }
+    const anyModal = !!document.querySelector('.modal.show');
+    if (this.isOpen && anyModal) {
+      appRoot.removeAttribute('aria-hidden');
+    } else if (!this.isOpen && anyModal) {
+      appRoot.setAttribute('aria-hidden', 'true');
+    }
+  }
+
+  /** Focus la zone de saisie après ouverture (diaporama + modale : focus sinon reste dans le viewer). */
+  private scheduleFocusComposeArea(): void {
+    queueMicrotask(() => {
+      requestAnimationFrame(() => {
+        if (!this.isOpen) {
+          return;
+        }
+        const el = this.draftInputEl?.nativeElement;
+        if (el) {
+          el.focus({ preventScroll: true });
+          try {
+            const len = el.value.length;
+            el.setSelectionRange(len, len);
+          } catch {
+            /* IE / edge cases */
+          }
+        }
+      });
+    });
   }
 
   toggleFullscreen(): void {
@@ -1876,20 +1946,20 @@ export class AssistantDrawerComponent
     }
 
     /**
-     * Au-delà du seuil "~300KB", on demande à l'utilisateur s'il veut
-     * compresser l'image (même UX que `update-evenement`). En dessous,
-     * on envoie tel quel (allowOriginal=true) sans pop-up.
+     * On affiche toujours le modal de compression :
+     *  - Si l'image est ≤ `app.imagemaxsizekb` (lu côté backend), le modal
+     *    est en mode "info-only" : pas de switch, juste un message
+     *    expliquant qu'aucune compression ne sera appliquée. Confirmation
+     *    → `allowOriginal=true`.
+     *  - Sinon, modal classique avec switch.
      */
-    let allowOriginal = true;
-    if (file.size > AssistantDrawerComponent.INSERT_IMAGE_COMPRESSION_THRESHOLD_BYTES) {
-      const choice = await this.askForInsertImageCompression(file.size);
-      if (choice == null) {
-        // Modal fermé/annulé : on annule l'insertion silencieusement.
-        return;
-      }
-      // choice === true → compresser ; allowOriginal est l'inverse.
-      allowOriginal = !choice;
+    const choice = await this.askForInsertImageCompression(file.size);
+    if (choice == null) {
+      // Modal fermé/annulé : on annule l'insertion silencieusement.
+      return;
     }
+    // choice === true → compresser ; allowOriginal est l'inverse.
+    const allowOriginal = !choice;
 
     const formData = new FormData();
     formData.append('file', file, file.name);
@@ -1996,23 +2066,39 @@ export class AssistantDrawerComponent
   }
 
   /**
-   * Ouvre le modal "Compresser l'image ?" lorsque l'image générée à insérer
-   * dépasse le seuil. Réutilise les libellés `EVENTELEM.IMAGE_COMPRESSION_*`
-   * déjà traduits pour le formulaire d'évènement, afin de ne pas dupliquer
-   * de chaînes.
+   * Ouvre le modal "Compresser l'image ?" pour une image générée que l'on
+   * souhaite insérer dans un évènement. Réutilise les libellés
+   * `EVENTELEM.IMAGE_COMPRESSION_*` déjà traduits pour le formulaire
+   * d'évènement, afin de ne pas dupliquer de chaînes.
+   *
+   * Comportement :
+   *  - Si `fileSizeBytes` ≤ `app.imagemaxsizekb` (paramètre backend lu via
+   *    `UploadConfigService`), le modal est en mode "info-only" : pas de
+   *    switch, juste un message expliquant qu'aucune compression ne sera
+   *    appliquée et pourquoi. La résolution se fait via le bouton OK qui
+   *    renvoie `false` (= ne pas compresser → `allowOriginal=true`).
+   *  - Sinon, modal classique avec switch (mode 'normal').
    *
    * Retourne :
    *  - `true`  → l'utilisateur souhaite compresser (allowOriginal=false)
    *  - `false` → l'utilisateur veut envoyer en taille originale
    *  - `null`  → modal fermé/annulé : appelant doit interrompre l'envoi
    */
-  private askForInsertImageCompression(fileSizeBytes: number): Promise<boolean | null> {
-    return new Promise((resolve) => {
-      this.compressInsertImage = true; // valeur par défaut : compression activée
-      this.insertImageSizeKb = Math.max(1, Math.round(fileSizeBytes / 1024));
+  private async askForInsertImageCompression(fileSizeBytes: number): Promise<boolean | null> {
+    const thresholdKb = await this.uploadConfigService.resolveImageMaxSizeKb();
+    this.compressInsertImage = true;
+    this.insertImageSizeKb = Math.max(1, Math.round(fileSizeBytes / 1024));
+    this.insertImageMaxSizeKb = thresholdKb;
+    const thresholdBytes = thresholdKb * 1024;
+    this.insertImageCompressionMode =
+      Number.isFinite(fileSizeBytes) && fileSizeBytes <= thresholdBytes ? 'allUnder' : 'normal';
 
+    return await new Promise<boolean | null>((resolve) => {
       if (!this.imageCompressionModal) {
-        // Repli si pour une raison quelconque le template n'est pas dispo.
+        if (this.insertImageCompressionMode === 'allUnder') {
+          resolve(false);
+          return;
+        }
         const ok = window.confirm(
           this.translate.instant('EVENTELEM.IMAGE_COMPRESSION_QUESTION', { count: 1 })
         );
@@ -2041,10 +2127,20 @@ export class AssistantDrawerComponent
     });
   }
 
-  /** Confirme le choix de compression (lié au bouton "Confirmer" du modal). */
+  /** Confirme le choix de compression (bouton "Confirmer" du mode normal). */
   confirmInsertImageCompression(): void {
     if (this.imageCompressionModalRef) {
       this.imageCompressionModalRef.close(this.compressInsertImage);
+    }
+  }
+
+  /**
+   * Bouton « OK » du mode info-only (image déjà ≤ `app.imagemaxsizekb`) :
+   * ferme avec « ne pas compresser » → `allowOriginal=true` côté backend.
+   */
+  confirmInsertImageCompressionInfoOnly(): void {
+    if (this.imageCompressionModalRef) {
+      this.imageCompressionModalRef.close(false);
     }
   }
 

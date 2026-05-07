@@ -7,6 +7,8 @@ import { DomSanitizer, SafeResourceUrl, SafeHtml } from '@angular/platform-brows
 import { NgbModule, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { FileService } from '../../services/file.service';
+import { AssistantLaunchService } from '../../services/assistant-launch.service';
+import { KeycloakService } from '../../keycloak/keycloak.service';
 import { Observable, Subscription, Subject } from 'rxjs';
 import { map, takeUntil, finalize } from 'rxjs/operators';
 // Note: panzoom library is available but we'll keep using custom implementation for now
@@ -63,6 +65,10 @@ interface PatMetadata {
   ]
 })
 export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy {
+  /** Limite alignée sur l’assistant (vision) — même plafond que `AssistantDrawerComponent`. */
+  private static readonly ASSISTANT_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+  private static readonly ASSISTANT_IMAGE_MIME_RE = /^image\/(jpeg|png|gif|webp)$/i;
+
   @Input() images: SlideshowImageSource[] = [];
   @Input() eventName: string = '';
   @Input() loadFromFileService: boolean = false; // If true, use fileId to load images via FileService
@@ -92,6 +98,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public isSlideshowActive: boolean = false;
   public slideshowInterval: any;
   public isFullscreen: boolean = false;
+  /** Évite les doubles envois vers l’assistant pendant la lecture blob/DataURL. */
+  public sendToAssistantInProgress = false;
+  /** Évite double-clic sur le bouton téléchargement du diaporama. */
+  public downloadSlideshowInProgress = false;
   private modalRef?: NgbModalRef;
 
   /** Counter UI only — not derived live in template (avoids NG0100 when index/length change mid-CD). */
@@ -151,7 +161,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Cached current image URL to avoid multiple calls to getCurrentSlideshowImage()
   public currentSlideshowImageUrl: string = '';
-  
+  /** True until main image element has loaded+decoded for currentSlideshowImageUrl (blob ready is too early). */
+  private mainImageDecodePending = false;
+
   // Flag to track when switching variants (same image, different quality)
   // Used to skip expensive background color recalculation
   private isSwitchingVariant: boolean = false;
@@ -354,6 +366,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public showFileIdLoadingSpinner = false;
   /** Cached for *ngIf "no images" block (template ~line 98); set sync in open(), updated in setTimeout(0) in addImages() */
   public showSlideshowEmptyState = true;
+  /** First slide load+decode done this session; hides fullscreen loading overlay until then. */
+  private initialMainSlidePainted = false;
   /** Cached for img *ngIf (template ~line 33); updated only in setTimeout(0) to avoid NG0100 */
   public showMainSlideshowImage = false;
 
@@ -363,7 +377,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     private modalService: NgbModal,
     private translateService: TranslateService,
     private fileService: FileService,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private assistantLaunch: AssistantLaunchService,
+    private keycloak: KeycloakService
   ) {}
   
   ngOnInit(): void {
@@ -419,9 +435,23 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.deferredSlideshowTemplateFlagsScheduled = true;
     setTimeout(() => {
       this.deferredSlideshowTemplateFlagsScheduled = false;
+      this.refreshSlideshowEmptyState();
       this.updateShowMainSlideshowImage();
       this.updateFileIdLoadingSpinner();
     }, 0);
+  }
+
+  /**
+   * Grand overlay « chargement » (template ~98) : reste tant qu’aucune diapositive n’est rendue après chargement+décodage
+   * (Les entrées pré-allouées "" font que length est déjà > 0 avant la première image.)
+   */
+  private refreshSlideshowEmptyState(): void {
+    if (this.slideshowImages.length === 0) {
+      this.showSlideshowEmptyState = true;
+      return;
+    }
+    this.showSlideshowEmptyState = !this.initialMainSlidePainted;
+    this.cdr.markForCheck();
   }
   
   // Centralized method to clean up all memory used by the slideshow
@@ -611,6 +641,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.currentSlideshowIndex = 0;
     this.pendingStartIndex = null;
     this.currentSlideshowImageUrl = ''; // Explicitly clear cached current image URL
+    this.mainImageDecodePending = false;
+    this.initialMainSlidePainted = false;
     this.isSlideshowActive = false;
     this.resetSlideshowZoom();
     this.isSlideshowModalOpen = false;
@@ -689,6 +721,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.pendingStartIndex = (startIndex >= 0) ? startIndex : null;
     }
     this.currentSlideshowImageUrl = ''; // Explicitly clear cached current image URL
+    this.mainImageDecodePending = false;
+    this.initialMainSlidePainted = false;
     this.isSlideshowActive = false;
     this.currentImageFileName = '';
     this.resetSlideshowZoom();
@@ -723,11 +757,11 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     // Load images BEFORE opening modal so first CD sees stable slideshowImages.length (avoids NG0100 at template line 98)
     if (images.length > 0) {
       this.loadImages();
+      this.refreshSlideshowEmptyState();
       this.updateFileIdLoadingSpinner();
-      this.showSlideshowEmptyState = this.slideshowImages.length === 0;
       this.showMainSlideshowImage = this.slideshowImages.length > 0 && !!this.currentSlideshowImageUrl && (!this.showMapView || !this.currentMapUrl);
     } else {
-      this.showSlideshowEmptyState = true;
+      this.refreshSlideshowEmptyState();
       this.showMainSlideshowImage = false;
     }
     this.refreshSlideshowCounterDisplay();
@@ -1385,10 +1419,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.queueImageLoad(imageSource, imageIndex, priority);
       }
     });
-    // Defer empty-state update to avoid NG0100 (template line 98)
     setTimeout(() => {
-      this.showSlideshowEmptyState = this.slideshowImages.length === 0;
-      this.cdr.markForCheck();
+      this.refreshSlideshowEmptyState();
     }, 0);
     this.scheduleSlideshowCounterRefresh();
   }
@@ -1782,47 +1814,53 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Handle image load event
-  public onImageLoad(): void {
+  public onImageLoad(event?: Event): void {
     // Sortir vite du handler natif « load » (évite les violations perf Chrome / Zone sur gros fichiers)
     const wasSwitchingVariant = this.isSwitchingVariant;
     this.isSwitchingVariant = false;
 
-    this.ngZone.runOutsideAngular(() => {
-      requestAnimationFrame(() => {
-        this.ngZone.run(() => {
-          this.updateImageDimensions();
-          this.updateContainerDimensions();
-          this.slideshowBackgroundImageUrl = this.getCurrentSlideshowImage();
-          this.updateBackgroundImageStyle();
-          this.cdr.markForCheck();
+    const img = (event?.target as HTMLImageElement | undefined) ?? this.slideshowImgElRef?.nativeElement;
+
+    const runAfterMainImageReady = () => {
+      if (!img || !this.sameMainImageDisplayUrl(img.currentSrc || img.src, this.currentSlideshowImageUrl)) {
+        return;
+      }
+      this.mainImageDecodePending = false;
+      this.initialMainSlidePainted = true;
+      this.scheduleDeferredSlideshowTemplateFlags();
+
+      this.ngZone.runOutsideAngular(() => {
+        requestAnimationFrame(() => {
+          this.ngZone.run(() => {
+            this.updateImageDimensions();
+            this.updateContainerDimensions();
+            this.slideshowBackgroundImageUrl = this.getCurrentSlideshowImage();
+            this.updateBackgroundImageStyle();
+            this.cdr.markForCheck();
+          });
         });
       });
-    });
 
-    // Skip background color update if we're just switching variants (same image, different quality)
-    // This prevents expensive recalculation when it's not needed
-    
-    // Defer background color calculation completely outside requestAnimationFrame
-    // This expensive operation (canvas operations) should not block rendering
-    // Only update if not currently zooming and not switching variants
-    if (!this.isZooming && !wasSwitchingVariant) {
-      // Use requestIdleCallback if available (runs when browser is idle, truly non-blocking)
-      // Fallback to setTimeout with significant delay to ensure it doesn't block rendering
-      if (typeof (window as any).requestIdleCallback === 'function') {
-        (window as any).requestIdleCallback(() => {
-          this.updateAverageBackgroundColor();
-        }, { timeout: 2000 });
-      } else {
-        // Fallback: use setTimeout with longer delay to push way out
-        // This ensures the image renders completely before expensive operation
-        setTimeout(() => {
-          this.updateAverageBackgroundColor();
-        }, 500);
+      if (!this.isZooming && !wasSwitchingVariant) {
+        if (typeof (window as any).requestIdleCallback === 'function') {
+          (window as any).requestIdleCallback(() => {
+            this.updateAverageBackgroundColor();
+          }, { timeout: 2000 });
+        } else {
+          setTimeout(() => {
+            this.updateAverageBackgroundColor();
+          }, 500);
+        }
       }
-    }
 
-    // Déjà asynchrone via setTimeout(0) dans setupProgrammaticEventListeners ; évite d’empiler sur la pile du load
-    queueMicrotask(() => this.setupProgrammaticEventListeners());
+      queueMicrotask(() => this.setupProgrammaticEventListeners());
+    };
+
+    if (img && typeof img.decode === 'function') {
+      img.decode().then(() => this.ngZone.run(runAfterMainImageReady)).catch(() => this.ngZone.run(runAfterMainImageReady));
+    } else {
+      runAfterMainImageReady();
+    }
   }
 
   private updateAverageBackgroundColor(): void {
@@ -3666,6 +3704,14 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.removeKeyboardListener();
     
     this.keyboardListener = (event: KeyboardEvent) => {
+      const t = event.target as HTMLElement | null;
+      if (t?.closest('app-assistant-drawer')) {
+        return;
+      }
+      const ae = document.activeElement as HTMLElement | null;
+      if (ae?.closest('app-assistant-drawer')) {
+        return;
+      }
       // Vérifier d'abord si on est en plein écran et que Escape est pressé
       // Il faut le faire AVANT toutes les autres vérifications pour empêcher la propagation
       const isFullscreenActive = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || 
@@ -3971,12 +4017,34 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     return this.slideshowImages[this.currentSlideshowIndex] || '';
   }
   
+  /** Resolve blob/data URLs for comparison (browser may differ from bound string). */
+  private sameMainImageDisplayUrl(resolvedImgSrc: string | undefined | null, logicalUrl: string | undefined | null): boolean {
+    const a = (logicalUrl ?? '').trim();
+    const b = (resolvedImgSrc ?? '').trim();
+    if (!a || !b) {
+      return false;
+    }
+    try {
+      return new URL(a, document.baseURI).href === new URL(b, document.baseURI).href;
+    } catch {
+      return a === b;
+    }
+  }
+
   // Update cached current image URL - call this whenever currentSlideshowIndex changes
   private updateCurrentSlideshowImageUrl(): void {
+    const prevUrl = this.currentSlideshowImageUrl;
     if (this.slideshowImages.length === 0 || this.currentSlideshowIndex >= this.slideshowImages.length) {
       this.currentSlideshowImageUrl = '';
+      this.mainImageDecodePending = false;
     } else {
-      this.currentSlideshowImageUrl = this.slideshowImages[this.currentSlideshowIndex] || '';
+      const newUrl = this.slideshowImages[this.currentSlideshowIndex] || '';
+      this.currentSlideshowImageUrl = newUrl;
+      if (!newUrl.trim()) {
+        this.mainImageDecodePending = false;
+      } else if (newUrl !== prevUrl) {
+        this.mainImageDecodePending = true;
+      }
     }
     // Update blurred background image when URL changes
     this.updateBackgroundImageStyle();
@@ -3992,6 +4060,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     const currentImageUrl = this.getCurrentSlideshowImage();
     // If current image URL is empty, it's loading
     if (!currentImageUrl || currentImageUrl.trim() === '') {
+      return true;
+    }
+
+    if (this.mainImageDecodePending) {
       return true;
     }
     
@@ -4012,6 +4084,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   /** Update showFileIdLoadingSpinner from current state; call only from setTimeout(0) to avoid NG0100 */
   private updateFileIdLoadingSpinner(): void {
     this.showFileIdLoadingSpinner = this.slideshowImages.length > 0
+      && !this.showSlideshowEmptyState
       && this.isCurrentImageLoading()
       && !this.isCurrentFilesystemVariantLoading()
       && (!this.showMapView || !this.currentMapUrl);
@@ -5139,7 +5212,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       if (!navigator.share) {
         // Web Share API not available (typically on desktop)
         // Always download on desktop
-        this.downloadImage();
+        this.downloadSlideshowImageInternal();
         return;
       }
       
@@ -5157,14 +5230,14 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           }
         } catch (error) {
           // Fallback to download
-          this.downloadImage();
+          this.downloadSlideshowImageInternal();
           return;
         }
       }
       
       if (!blob) {
         // Fallback to download
-        this.downloadImage();
+        this.downloadSlideshowImageInternal();
         return;
       }
       
@@ -5265,7 +5338,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       }
       
       // If all sharing methods fail, fallback to download
-      this.downloadImage();
+      this.downloadSlideshowImageInternal();
       
     } catch (error: any) {
       // User cancelled sharing (AbortError) - don't show download dialog
@@ -5275,12 +5348,153 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       }
       
       // Other errors - fallback to download
-      this.downloadImage();
+      this.downloadSlideshowImageInternal();
+    }
+  }
+
+  /** Bouton « envoyer à l’assistant » : image visible (recadrée si zoom), comme le partage. */
+  public canSendCurrentImageToAssistant(): boolean {
+    if (this.slideshowImages.length === 0) {
+      return false;
+    }
+    if (this.showMapView && !!this.currentMapUrl) {
+      return false;
+    }
+    if (this.isCurrentImageLoading() || this.isCurrentFilesystemVariantLoading()) {
+      return false;
+    }
+    const url = this.getCurrentSlideshowImage();
+    return !!url && url.trim() !== '';
+  }
+
+  public async sendCurrentImageToAssistant(): Promise<void> {
+    if (!this.canSendCurrentImageToAssistant() || this.sendToAssistantInProgress) {
+      return;
+    }
+    if (!this.keycloak.isLoggedIn()) {
+      alert(this.translateService.instant('EVENTELEM.SEND_TO_ASSISTANT_ERROR_AUTH'));
+      return;
+    }
+
+    const currentImageUrl = this.getCurrentSlideshowImage();
+    if (!currentImageUrl) {
+      return;
+    }
+
+    this.sendToAssistantInProgress = true;
+    this.cdr.markForCheck();
+
+    try {
+      let blob = this.slideshowBlobs.get(currentImageUrl);
+
+      if (!blob) {
+        try {
+          const response = await fetch(currentImageUrl);
+          blob = await response.blob();
+          if (blob) {
+            this.slideshowBlobs.set(currentImageUrl, blob);
+          }
+        } catch {
+          alert(this.translateService.instant('EVENTELEM.SEND_TO_ASSISTANT_ERROR_FETCH'));
+          return;
+        }
+      }
+
+      if (!blob) {
+        alert(this.translateService.instant('EVENTELEM.SEND_TO_ASSISTANT_ERROR_FETCH'));
+        return;
+      }
+
+      const fileName = this.imageFileNames.get(currentImageUrl) || 'image.jpg';
+      let mimeType = blob.type || 'image/jpeg';
+      if (!mimeType.startsWith('image/')) {
+        const ext = fileName.toLowerCase().split('.').pop();
+        if (ext === 'png') {
+          mimeType = 'image/png';
+        } else if (ext === 'gif') {
+          mimeType = 'image/gif';
+        } else if (ext === 'webp') {
+          mimeType = 'image/webp';
+        } else {
+          mimeType = 'image/jpeg';
+        }
+      }
+
+      if (blob.type !== mimeType) {
+        blob = new Blob([blob], { type: mimeType });
+      }
+
+      // Aligné sur shareImage : envoyer la zone visible lorsque l’image est zoomée
+      const assistantVisibleBlob = await this.captureVisibleImagePortion(blob);
+      if (assistantVisibleBlob) {
+        blob = assistantVisibleBlob;
+        mimeType = blob.type || 'image/jpeg';
+        if (!mimeType.startsWith('image/')) {
+          mimeType = 'image/jpeg';
+        }
+        if (blob.type !== mimeType) {
+          blob = new Blob([blob], { type: mimeType });
+        }
+      }
+
+      if (!SlideshowModalComponent.ASSISTANT_IMAGE_MIME_RE.test(mimeType)) {
+        alert(this.translateService.instant('EVENTELEM.SEND_TO_ASSISTANT_ERROR_TYPE'));
+        return;
+      }
+
+      if (blob.size > SlideshowModalComponent.ASSISTANT_IMAGE_MAX_BYTES) {
+        alert(this.translateService.instant('EVENTELEM.SEND_TO_ASSISTANT_ERROR_SIZE'));
+        return;
+      }
+
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('read'));
+        reader.readAsDataURL(blob);
+      });
+
+      const comma = dataUrl.indexOf(',');
+      const base64 = comma >= 0 ? dataUrl.slice(comma + 1) : '';
+
+      this.assistantLaunch.openWithDraft('', {
+        attachedImage: {
+          mimeType,
+          base64,
+          dataUrl
+        },
+        toolFlags: { imageGeneration: true }
+      });
+    } catch {
+      alert(this.translateService.instant('EVENTELEM.SEND_TO_ASSISTANT_ERROR_FETCH'));
+    } finally {
+      this.sendToAssistantInProgress = false;
+      this.cdr.markForCheck();
     }
   }
   
-  // Download image as fallback when share is not available
-  private async downloadImage(): Promise<void> {
+  /** Même règles que l’envoi à l’assistant (pas en vue carte, image prête). */
+  public canDownloadSlideshowImage(): boolean {
+    return this.canSendCurrentImageToAssistant();
+  }
+
+  /** Télécharge l’image courante ; recadrage de la zone visible si zoom actif (comme le partage). */
+  public async downloadSlideshowImage(): Promise<void> {
+    if (!this.canDownloadSlideshowImage() || this.downloadSlideshowInProgress) {
+      return;
+    }
+    this.downloadSlideshowInProgress = true;
+    this.cdr.markForCheck();
+    try {
+      await this.downloadSlideshowImageInternal();
+    } finally {
+      this.downloadSlideshowInProgress = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  /** Téléchargement navigateur (blob), zone visible si zoom — utilisé par le bouton et en repli du partage. */
+  private async downloadSlideshowImageInternal(): Promise<void> {
     try {
       const currentImageUrl = this.getCurrentSlideshowImage();
       if (!currentImageUrl) {
@@ -5318,9 +5532,17 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         if (visibleBlob) {
           blob = visibleBlob;
         }
-        
+
+        let fileName = this.imageFileNames.get(currentImageUrl) || 'image.jpg';
+        if (visibleBlob) {
+          const dot = fileName.lastIndexOf('.');
+          const base = dot > 0 ? fileName.slice(0, dot) : fileName;
+          const ext =
+            blob.type?.includes('png') ? '.png' : blob.type?.includes('webp') ? '.webp' : '.jpg';
+          fileName = `${base}_zoom${ext}`;
+        }
+
         // Use blob to create download link
-        const fileName = this.imageFileNames.get(currentImageUrl) || 'image.jpg';
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;

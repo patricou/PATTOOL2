@@ -19,6 +19,29 @@
   --asst-title-grad: linear-gradient(118deg, #1e40af 0%, #2563eb 42%, #3b82f6 72%, #60a5fa 100%);
 }
 
+/*
+ * Diaporama (NgbModal, z-index 1055) : le chat doit pouvoir s’afficher par-dessus tout en
+ * gardant un z-index bas en usage normal (sous les autres modales).
+ * Les paires backdrop/fenêtre ouvertes *après* le diaporama restent au-dessus (insert image,
+ * WhatsApp, compression) — même z-index ng-bootstrap, donc même règle pour toutes.
+ */
+:host-context(body:has(.modal.slideshow-modal-wide.show)) {
+  z-index: 1060;
+}
+
+::ng-deep body:has(.modal.slideshow-modal-wide.show)
+  ngb-modal-window.modal.slideshow-modal-wide
+  ~ ngb-modal-backdrop.modal-backdrop {
+  z-index: 1062 !important;
+}
+
+::ng-deep body:has(.modal.slideshow-modal-wide.show)
+  ngb-modal-window.modal.slideshow-modal-wide
+  ~ ngb-modal-backdrop.modal-backdrop
+  ~ ngb-modal-window.modal {
+  z-index: 1065 !important;
+}
+
 .pat-assistant-fab {
   position: fixed;
   /* top = bas de `.pat-title` (+ marge), recalculé au scroll / navigation — voir TS */

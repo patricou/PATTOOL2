@@ -259,7 +259,7 @@
         [disabled]="loading"
         [placeholder]="
           pendingImage
-            ? ('ASSISTANT.PLACEHOLDER_WITH_IMAGE' | translate)
+            ? ('EVENTELEM.SEND_TO_ASSISTANT_PLACEHOLDER' | translate)
             : chatUserLabel()
               ? ('ASSISTANT.PLACEHOLDER_NAMED' | translate : { name: chatUserLabel() })
               : ('ASSISTANT.PLACEHOLDER' | translate)
@@ -549,16 +549,30 @@
 </ng-template>
 
 <!--
-  Modal "Compresser l'image ?" : ouvert uniquement quand l'image générée
-  à insérer dans un évènement dépasse ~300KB. Réutilise les libellés
-  `EVENTELEM.IMAGE_COMPRESSION_*` déjà utilisés par `update-evenement` pour
-  rester cohérent avec le reste de l'UI et éviter de dupliquer des chaînes.
+  Modal "Compresser l'image ?" : ouvert lorsque l'utilisateur insère une
+  image générée par l'assistant dans un évènement.
+
+  Deux modes (cf. `insertImageCompressionMode`) :
+   - `normal`   : image > `app.imagemaxsizekb` → switch on/off + détails.
+   - `allUnder` : image ≤ `app.imagemaxsizekb` → on n'affiche pas le switch,
+                  juste un message expliquant pourquoi aucune compression ne
+                  sera appliquée. Confirmation = envoi tel quel
+                  (`allowOriginal=true`).
+
+  Réutilise les libellés `EVENTELEM.IMAGE_COMPRESSION_*` déjà utilisés par
+  `element-evenement` / `details-evenement` pour rester cohérent avec le
+  reste de l'UI et éviter de dupliquer des chaînes.
 -->
 <ng-template #imageCompressionModal let-modal>
   <div class="modal-header bg-primary text-white">
     <h5 class="modal-title">
       <i class="fa fa-image me-2"></i>
-      {{ 'EVENTELEM.IMAGE_COMPRESSION_TITLE' | translate }}
+      <ng-container *ngIf="insertImageCompressionMode === 'allUnder'; else assistantCompressionTitleNormal">
+        {{ 'EVENTELEM.IMAGE_COMPRESSION_NOT_NEEDED_TITLE' | translate }}
+      </ng-container>
+      <ng-template #assistantCompressionTitleNormal>
+        {{ 'EVENTELEM.IMAGE_COMPRESSION_TITLE' | translate }}
+      </ng-template>
     </h5>
     <button
       type="button"
@@ -567,37 +581,52 @@
       [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
   </div>
   <div class="modal-body">
-    <p>{{ 'EVENTELEM.IMAGE_COMPRESSION_MESSAGE' | translate: {count: 1} }}</p>
-    <p class="small text-muted mb-3">
-      <i class="fa fa-info-circle me-1" aria-hidden="true"></i>
-      {{ 'EVENTELEM.EXIF_FILE_SIZE' | translate }}: {{ insertImageSizeKb }} KB
-    </p>
-    <div class="form-group mb-3">
-      <div class="form-check form-switch">
-        <input
-          class="form-check-input"
-          type="checkbox"
-          id="assistantCompressImagesSwitch"
-          [(ngModel)]="compressInsertImage" />
-        <label class="form-check-label" for="assistantCompressImagesSwitch">
-          {{ 'EVENTELEM.COMPRESS_IMAGES' | translate }}
-        </label>
+    <ng-container *ngIf="insertImageCompressionMode === 'allUnder'; else assistantCompressionBodyNormal">
+      <div class="alert alert-success small mb-0">
+        <i class="fa fa-check-circle me-2" aria-hidden="true"></i>
+        {{ 'EVENTELEM.IMAGE_COMPRESSION_NOT_NEEDED_SINGLE' | translate: {sizeKb: insertImageSizeKb, maxKb: insertImageMaxSizeKb} }}
       </div>
-    </div>
-    <div class="alert alert-info small mb-0">
-      <strong>{{ 'EVENTELEM.COMPRESS_IMAGES_ENABLED' | translate }}:</strong>
-      {{ 'EVENTELEM.COMPRESS_IMAGES_ENABLED_DETAILS' | translate }}<br />
-      <strong>{{ 'EVENTELEM.COMPRESS_IMAGES_DISABLED' | translate }}:</strong>
-      {{ 'EVENTELEM.COMPRESS_IMAGES_DISABLED_DETAILS' | translate }}
-    </div>
+    </ng-container>
+    <ng-template #assistantCompressionBodyNormal>
+      <p>{{ 'EVENTELEM.IMAGE_COMPRESSION_MESSAGE' | translate: {count: 1} }}</p>
+      <p class="small text-muted mb-3">
+        <i class="fa fa-info-circle me-1" aria-hidden="true"></i>
+        {{ 'EVENTELEM.EXIF_FILE_SIZE' | translate }}: {{ insertImageSizeKb }} KB
+      </p>
+      <div class="form-group mb-3">
+        <div class="form-check form-switch">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            id="assistantCompressImagesSwitch"
+            [(ngModel)]="compressInsertImage" />
+          <label class="form-check-label" for="assistantCompressImagesSwitch">
+            {{ 'EVENTELEM.COMPRESS_IMAGES' | translate }}
+          </label>
+        </div>
+      </div>
+      <div class="alert alert-info small mb-0">
+        <strong>{{ 'EVENTELEM.COMPRESS_IMAGES_ENABLED' | translate }}:</strong>
+        {{ 'EVENTELEM.COMPRESS_IMAGES_ENABLED_DETAILS' | translate }}<br />
+        <strong>{{ 'EVENTELEM.COMPRESS_IMAGES_DISABLED' | translate }}:</strong>
+        {{ 'EVENTELEM.COMPRESS_IMAGES_DISABLED_DETAILS' | translate }}
+      </div>
+    </ng-template>
   </div>
   <div class="modal-footer">
-    <button type="button" class="btn btn-secondary" (click)="cancelInsertImageCompression()">
-      {{ 'COMMUN.CANCEL' | translate }}
-    </button>
-    <button type="button" class="btn btn-primary" (click)="confirmInsertImageCompression()">
-      {{ 'COMMUN.CONFIRM' | translate }}
-    </button>
+    <ng-container *ngIf="insertImageCompressionMode === 'allUnder'; else assistantCompressionFooterNormal">
+      <button type="button" class="btn btn-primary" (click)="confirmInsertImageCompressionInfoOnly()">
+        {{ 'COMMUN.CONFIRM' | translate }}
+      </button>
+    </ng-container>
+    <ng-template #assistantCompressionFooterNormal>
+      <button type="button" class="btn btn-secondary" (click)="cancelInsertImageCompression()">
+        {{ 'COMMUN.CANCEL' | translate }}
+      </button>
+      <button type="button" class="btn btn-primary" (click)="confirmInsertImageCompression()">
+        {{ 'COMMUN.CONFIRM' | translate }}
+      </button>
+    </ng-template>
   </div>
 </ng-template>
 

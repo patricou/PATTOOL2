@@ -163,6 +163,22 @@ public class FileRestController {
                 .body("Error: " + e.getMessage());
         }
     }
+
+    /**
+     * Expose la configuration d'upload utilisée par le frontend pour décider
+     * si la modale de compression doit proposer un switch ou simplement
+     * informer l'utilisateur que l'image est déjà assez petite.
+     *
+     * Source: propriété {@code app.imagemaxsizekb} de application.properties.
+     */
+    @GetMapping(value = "/api/file/upload-config")
+    public ResponseEntity<Map<String, Object>> getUploadConfig() {
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("imageMaxSizeKb", imagemaxsizekb);
+        return ResponseEntity.ok()
+            .cacheControl(CacheControl.maxAge(5, TimeUnit.MINUTES))
+            .body(body);
+    }
     
     /**
      * Get upload logs (REST endpoint for polling)
@@ -944,20 +960,72 @@ public class FileRestController {
                 // Save the doc ( all type ) in  MongoDB
                 // Use try-with-resources to ensure InputStream is properly closed
                 String fieldId;
-                
-                // Safety threshold: skip in-memory compression to prevent OutOfMemoryError that crashes the JVM
-                // 1) Skip if file > 1/4 of available heap. 2) Skip if file > 3 MB (decoded image can use 4x+ memory)
+
+                // Safety threshold: skip in-memory compression to prevent OutOfMemoryError that crashes the JVM.
+                // We only skip when the *decoded* image (width*height*4 bytes for an RGB BufferedImage) plus a
+                // working copy plus the raw file bytes wouldn't safely fit in the available heap.
+                // We deliberately avoid using the raw file size as a gate: a 10+ MB JPEG of a normal photo
+                // (e.g. 24 MP, 6000x4000) decodes to ~96 MB and is perfectly fine to compress on a typical heap.
                 long availableHeap = rt.maxMemory() - rt.totalMemory() + rt.freeMemory();
-                final long threeMb = 3L * 1024 * 1024;
-                boolean fileTooLargeForCompression = fileSize > (availableHeap / 4) || fileSize > threeMb;
-                
-                if (fileTooLargeForCompression && imageCompressionService.isImageType(contentType) && !allowOriginal) {
-                    log.warn("File {} ({} MB) too large for in-memory compression (available heap: {} MB). Streaming directly to GridFS.",
-                            filedata.getOriginalFilename(), fileSize / (1024 * 1024), availableHeap / (1024 * 1024));
-                    if (finalSessionId != null) {
-                        addUploadLog(finalSessionId, String.format("⚠️ File too large (%d MB) for compression — saving original to avoid server crash",
-                                fileSize / (1024 * 1024)));
+                boolean fileTooLargeForCompression = false;
+                String tooLargeReason = null;
+                byte[] preReadImageBytes = null;
+                int[] preReadDimensions = null;
+                if (imageCompressionService.isImageType(contentType) && !allowOriginal) {
+                    // First defence: never load a file into memory that's already bigger than ~1/4 of the heap.
+                    if (fileSize > (availableHeap / 4)) {
+                        fileTooLargeForCompression = true;
+                        tooLargeReason = String.format("file %d MB > 1/4 of available heap (%d MB)",
+                                fileSize / (1024 * 1024), availableHeap / (1024 * 1024));
+                    } else {
+                        try {
+                            preReadImageBytes = filedata.getBytes();
+                            preReadDimensions = ImageCompressionService.getImageDimensions(preReadImageBytes);
+                            if (preReadDimensions != null) {
+                                long estimatedDecoded = (long) preReadDimensions[0] * preReadDimensions[1] * 4L;
+                                // Need ~2x estimatedDecoded (decoded image + a working copy/resize buffer) on top
+                                // of the file bytes we're already holding.
+                                long requiredHeap = estimatedDecoded * 2L + preReadImageBytes.length;
+                                if (requiredHeap > availableHeap) {
+                                    fileTooLargeForCompression = true;
+                                    tooLargeReason = String.format("decoded image ~%d MB (%dx%d) won't fit in available heap (%d MB)",
+                                            estimatedDecoded / (1024 * 1024), preReadDimensions[0], preReadDimensions[1],
+                                            availableHeap / (1024 * 1024));
+                                }
+                            } else {
+                                // Couldn't read dimensions cheaply — fall back to a conservative file-size heuristic
+                                // (decoded RGB + working copy is typically ~8x JPEG file size).
+                                if (fileSize * 8L > availableHeap) {
+                                    fileTooLargeForCompression = true;
+                                    tooLargeReason = String.format("dimensions unreadable, file %d MB * 8 > available heap (%d MB)",
+                                            fileSize / (1024 * 1024), availableHeap / (1024 * 1024));
+                                }
+                            }
+                        } catch (IOException e) {
+                            log.warn("Could not pre-read image bytes for safety check: {}. Will try compression anyway.", e.getMessage());
+                            preReadImageBytes = null;
+                            preReadDimensions = null;
+                        } catch (OutOfMemoryError oom) {
+                            log.warn("OOM while pre-reading bytes for {} — falling back to streaming original",
+                                    filedata.getOriginalFilename());
+                            preReadImageBytes = null;
+                            preReadDimensions = null;
+                            fileTooLargeForCompression = true;
+                            tooLargeReason = "OOM while reading file bytes";
+                            try { System.gc(); } catch (Throwable ignored) {}
+                        }
                     }
+                }
+
+                if (fileTooLargeForCompression && imageCompressionService.isImageType(contentType) && !allowOriginal) {
+                    log.warn("File {} too large for in-memory compression ({}). Streaming directly to GridFS.",
+                            filedata.getOriginalFilename(), tooLargeReason);
+                    if (finalSessionId != null) {
+                        addUploadLog(finalSessionId, String.format("⚠️ File too large for compression (%s) — saving original to avoid server crash",
+                                tooLargeReason));
+                    }
+                    // Drop any pre-read bytes we couldn't use, then stream from the multipart input
+                    preReadImageBytes = null;
                     try (java.io.InputStream inputStream = filedata.getInputStream()) {
                         fieldId = gridFsTemplate.store(inputStream, filedata.getOriginalFilename(), contentType, metaData).toString();
                         log.debug("[UPLOAD] GridFS store (stream, file too large for compression): fieldId={}, filename={}, bytes sent via stream",
@@ -975,9 +1043,10 @@ public class FileRestController {
                             filedata.getOriginalFilename(), fileSize / 1024, availableHeap / (1024 * 1024));
                     
                     try {
-                        // Read entire file into byte array (needed for both ImageIO and fallback)
-                        byte[] fileBytes = filedata.getBytes();
-                        
+                        // Reuse the bytes we already read for the safety check (avoid reading twice from the multipart).
+                        byte[] fileBytes = preReadImageBytes != null ? preReadImageBytes : filedata.getBytes();
+                        preReadImageBytes = null;
+
                         // Read the image from bytes
                         BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(fileBytes));
                         if (originalImage != null) {

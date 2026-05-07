@@ -13,6 +13,7 @@ import { PhotoTimelineService, TimelineResponse, TimelineGroup, TimelinePhoto, F
 import { EventCardOverlayComponent } from '../../shared/event-card-modal/event-card-overlay.component';
 import { MembersService } from '../../services/members.service';
 import { FileService } from '../../services/file.service';
+import { UploadConfigService } from '../../services/upload-config.service';
 import { FriendsService } from '../../services/friends.service';
 import { FriendGroup } from '../../model/friend';
 import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
@@ -159,6 +160,24 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     compressImages = true;
     /** Image compression modal: count shown in translated message (slideshow + mur). */
     imageCountForModal = 1;
+    /**
+     * Mode du modal de compression — voir
+     * `element-evenement.component.ts` pour la sémantique complète.
+     *  - 'normal'   : modal classique (switch on/off + détails)
+     *  - 'allUnder' : toutes les images sont déjà ≤ `app.imagemaxsizekb`
+     *                  → on remplace le switch par un message explicatif.
+     */
+    imageCompressionMode: 'normal' | 'allUnder' = 'normal';
+    /** Seuil (KB) lu sur le backend ; affiché dans le message du modal. */
+    imageMaxSizeKbForModal = 0;
+    /** Taille (KB) de l'image quand on n'en a qu'une (message « single »). */
+    imageSingleSizeKbForModal = 0;
+    /**
+     * Nombre d'images déjà ≤ seuil dans le lot — pour la note `partial`
+     * affichée dans le mode normal lorsque seulement certaines images sont
+     * concernées (0 si la note ne doit pas s'afficher).
+     */
+    imagesUnderThresholdForPartialNote = 0;
     isUploading = false;
     /** True while a multi-file wall upload (with progress modal) is running — overlay wording. */
     wallBulkFileUploadActive = false;
@@ -287,6 +306,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         private photoTimelineService: PhotoTimelineService,
         private membersService: MembersService,
         private fileService: FileService,
+        private uploadConfigService: UploadConfigService,
         private friendsService: FriendsService,
         private evenementsService: EvenementsService,
         private discussionService: DiscussionService,
@@ -303,7 +323,12 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         private videoUploadProcessingService: VideoUploadProcessingService,
         private todoListOverlay: TodoListDetailOverlayService,
         private assistantLaunch: AssistantLaunchService
-    ) {}
+    ) {
+        // Pré-charge `app.imagemaxsizekb` côté backend pour pouvoir adapter
+        // le modal de compression dès la première sélection / "Ajouter dans
+        // la DB" depuis le slideshow.
+        this.uploadConfigService.preload();
+    }
 
     ngOnInit(): void {
         this.waitForUser();
@@ -436,19 +461,44 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         }, 50);
     }
 
-    /**
-     * Writes wall thumbnail / video blob caches outside the Angular zone so Zone does not emit an
-     * extra ApplicationRef notification that races with dev-mode checkNoChanges (NG0100 on [src] /
-     * getThumbnailUrl). CD is then requested explicitly via {@link scheduleCdr}.
-     */
-    private commitWallMediaCachesAndScheduleCdr(fn: () => void): void {
+  /**
+   * Writes wall thumbnail / video blob caches outside the Angular zone so Zone does not emit an
+   * extra ApplicationRef notification that races with dev-mode checkNoChanges (NG0100 on [src] /
+   * getThumbnailUrl). CD is then requested explicitly via {@link scheduleCdr}.
+   *
+   * Double {@link setTimeout}(0) schedules past the synchronous CD + dev checkNoChanges pass; a
+   * single macrotask (or queueMicrotask) can still observe the thumbnail flip inside the same
+   * stabilization round-trip in recent Angular builds.
+   */
+  private commitWallMediaCachesAndScheduleCdr(fn: () => void): void {
+    if (this.destroyed) return;
+    setTimeout(() => {
+      if (this.destroyed) return;
+      setTimeout(() => {
         if (this.destroyed) return;
         this.ngZone.runOutsideAngular(() => {
-            if (this.destroyed) return;
-            fn();
+          if (this.destroyed) return;
+          fn();
         });
         if (this.destroyed) return;
         this.ngZone.run(() => this.scheduleCdr());
+      }, 0);
+    }, 0);
+  }
+
+    /**
+     * Defers GPX stats cache writes to the next macrotask so dev-mode checkNoChanges does not
+     * observe loading flip from true to false in the same synchronous CD pass (NG0100).
+     */
+    private scheduleWallTrackStatResult(gen: number, fn: () => void): void {
+        if (this.destroyed) return;
+        setTimeout(() => {
+            if (this.destroyed || gen !== this.timelineLoadGeneration) {
+                return;
+            }
+            fn();
+            this.scheduleCdr();
+        }, 0);
     }
 
     /**
@@ -785,8 +835,15 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.preloadThumbnailsForGroup(group);
         this.requestWallTrackStatsForGroup(group);
         if (this.visibleGroups.length === 1) {
-            this.isLoading = false;
-            setTimeout(() => { if (!this.destroyed) this.setupIntersectionObserver(); }, 50);
+            // Retarder pour éviter NG0100 sur *ngIf ligne « loading more » : dans la même synchro,
+            // fetchNext() pose isFetching=true ; si isLoading passerait à false tout de suite,
+            // (isFetching && !isLoading) flipperait avant checkNoChanges.
+            setTimeout(() => {
+                if (this.destroyed) return;
+                this.isLoading = false;
+                this.cdr.markForCheck();
+                setTimeout(() => { if (!this.destroyed) this.setupIntersectionObserver(); }, 50);
+            }, 0);
         }
 
         if (this.hasMore && this.bufferedGroups.length < BUFFER_AHEAD) this.fetchNext();
@@ -1648,24 +1705,40 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                     if (this.destroyed || gen !== this.timelineLoadGeneration) {
                         return;
                     }
-                    try {
-                        const text = new TextDecoder('utf-8').decode(buffer);
-                        const stats = computeTrackStatsFromFileContent(fileName, text);
-                        const dManual = (link.manualActivityDate || '').trim();
-                        const fileDateIso = dManual
-                            ? new Date(dManual.includes('T') ? dManual : `${dManual}T12:00:00`).toISOString()
-                            : stats.fileDateIso;
-                        this.wallTrackStats.set(id, {
-                            loading: false,
-                            distanceKm: this.isManualTrackDistanceSet(link)
-                                ? Number(link.manualDistanceKm)
-                                : stats.distanceKm,
-                            elevationGainM: this.isManualTrackElevationSet(link)
-                                ? Math.round(Number(link.manualElevationGainM))
-                                : stats.elevationGainM,
-                            fileDateIso
-                        });
-                    } catch {
+                    this.scheduleWallTrackStatResult(gen, () => {
+                        try {
+                            const text = new TextDecoder('utf-8').decode(buffer);
+                            const stats = computeTrackStatsFromFileContent(fileName, text);
+                            const dManual = (link.manualActivityDate || '').trim();
+                            const fileDateIso = dManual
+                                ? new Date(dManual.includes('T') ? dManual : `${dManual}T12:00:00`).toISOString()
+                                : stats.fileDateIso;
+                            this.wallTrackStats.set(id, {
+                                loading: false,
+                                distanceKm: this.isManualTrackDistanceSet(link)
+                                    ? Number(link.manualDistanceKm)
+                                    : stats.distanceKm,
+                                elevationGainM: this.isManualTrackElevationSet(link)
+                                    ? Math.round(Number(link.manualElevationGainM))
+                                    : stats.elevationGainM,
+                                fileDateIso
+                            });
+                        } catch {
+                            this.wallTrackStats.set(id, {
+                                loading: false,
+                                error: true,
+                                distanceKm: null,
+                                elevationGainM: null,
+                                fileDateIso: null
+                            });
+                        }
+                    });
+                },
+                error: () => {
+                    if (this.destroyed || gen !== this.timelineLoadGeneration) {
+                        return;
+                    }
+                    this.scheduleWallTrackStatResult(gen, () => {
                         this.wallTrackStats.set(id, {
                             loading: false,
                             error: true,
@@ -1673,21 +1746,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                             elevationGainM: null,
                             fileDateIso: null
                         });
-                    }
-                    this.scheduleCdr();
-                },
-                error: () => {
-                    if (this.destroyed || gen !== this.timelineLoadGeneration) {
-                        return;
-                    }
-                    this.wallTrackStats.set(id, {
-                        loading: false,
-                        error: true,
-                        distanceKm: null,
-                        elevationGainM: null,
-                        fileDateIso: null
                     });
-                    this.scheduleCdr();
                 }
             });
             this.subscriptions.push(sub);
@@ -1939,7 +1998,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     onAddToDb(event: SlideshowAddToDbEvent): void {
-        this.askForImageCompression(1).then(shouldCompress => {
+        this.askForImageCompression([event.blob]).then(shouldCompress => {
             if (shouldCompress === null) return;
             // Switch ON (compress) → shouldCompress=true → allowOriginal=false → backend compresses
             this.uploadImageToEvent(event.blob, event.fileName, event.eventId, !shouldCompress);
@@ -1993,7 +2052,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         const imageFiles = workingFiles.filter(f => this.isWallImageFileByMimeType(f));
         if (imageFiles.length > 0) {
             this.compressImages = true;
-            const shouldCompress = await this.askForImageCompression(imageFiles.length);
+            const shouldCompress = await this.askForImageCompression(imageFiles);
             if (shouldCompress === null) {
                 this.finishWallUploadCancelled(logsModal);
                 return;
@@ -2271,11 +2330,45 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         }
     }
 
-    private askForImageCompression(imageCount: number): Promise<boolean | null> {
-        return new Promise((resolve) => {
-            this.compressImages = true;
-            this.imageCountForModal = imageCount;
+    /**
+     * Modal de compression : adaptation automatique selon les tailles vs
+     * `app.imagemaxsizekb`. Voir doc dans `element-evenement.component.ts`.
+     */
+    private async askForImageCompression(filesOrCount: ReadonlyArray<File | Blob> | number): Promise<boolean | null> {
+        const thresholdKb = await this.uploadConfigService.resolveImageMaxSizeKb();
+        this.compressImages = true;
+        this.imageMaxSizeKbForModal = thresholdKb;
+        const thresholdBytes = thresholdKb * 1024;
 
+        let imageCount: number;
+        let sizes: number[] = [];
+        if (typeof filesOrCount === 'number') {
+            imageCount = Math.max(1, filesOrCount);
+        } else {
+            imageCount = filesOrCount.length;
+            sizes = filesOrCount.map(f => (f as { size?: number }).size ?? 0);
+        }
+        this.imageCountForModal = imageCount;
+
+        const knowSizes = sizes.length === imageCount && imageCount > 0;
+        const underCount = knowSizes ? sizes.filter(s => s > 0 && s <= thresholdBytes).length : 0;
+        const allUnder = knowSizes && underCount === imageCount;
+
+        if (allUnder) {
+            this.imageCompressionMode = 'allUnder';
+            this.imagesUnderThresholdForPartialNote = 0;
+            this.imageSingleSizeKbForModal = imageCount === 1
+                ? Math.max(1, Math.round(sizes[0] / 1024))
+                : 0;
+        } else {
+            this.imageCompressionMode = 'normal';
+            this.imagesUnderThresholdForPartialNote = (knowSizes && underCount > 0 && underCount < imageCount)
+                ? underCount
+                : 0;
+            this.imageSingleSizeKbForModal = 0;
+        }
+
+        return await new Promise<boolean | null>((resolve) => {
             if (this.imageCompressionModal) {
                 this.imageCompressionModalRef = this.modalService.open(this.imageCompressionModal, {
                     centered: true,
@@ -2296,6 +2389,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                     }
                 );
             } else {
+                if (allUnder) {
+                    resolve(false);
+                    return;
+                }
                 const choice = confirm(
                     this.translate.instant('EVENTELEM.IMAGE_COMPRESSION_MESSAGE', { count: imageCount })
                 );
@@ -2307,6 +2404,16 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     confirmImageCompression(): void {
         if (this.imageCompressionModalRef) {
             this.imageCompressionModalRef.close(this.compressImages);
+        }
+    }
+
+    /**
+     * Bouton « OK » du modal info-only : ferme avec « ne pas compresser »
+     * (équivaut à `allowOriginal=true` côté backend).
+     */
+    confirmImageCompressionInfoOnly(): void {
+        if (this.imageCompressionModalRef) {
+            this.imageCompressionModalRef.close(false);
         }
     }
 

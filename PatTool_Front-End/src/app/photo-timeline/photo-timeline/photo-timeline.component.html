@@ -48,14 +48,17 @@
                      (click)="openOnThisDaySlideshow(i)"
                      [attr.data-file-id]="photo.fileId"
                      [attr.data-file-type]="photo.fileType">
-                    <img *ngIf="getThumbnailUrl(photo)" 
-                         [src]="getThumbnailUrl(photo)" 
-                         [alt]="photo.fileName"
-                         loading="eager"
-                         decoding="async">
-                    <div class="otd-placeholder" *ngIf="!getThumbnailUrl(photo)">
-                        <i class="fa fa-image"></i>
-                    </div>
+                    <ng-container *ngIf="getThumbnailUrl(photo) as thumbUrl; else otdPhotoPlaceholder">
+                        <img [src]="thumbUrl"
+                             [alt]="photo.fileName"
+                             loading="eager"
+                             decoding="async">
+                    </ng-container>
+                    <ng-template #otdPhotoPlaceholder>
+                        <div class="otd-placeholder">
+                            <i class="fa fa-image"></i>
+                        </div>
+                    </ng-template>
                     <div class="otd-year-badge">{{ getYearFromDate(photo.eventDate) }}</div>
                 </div>
                 <div class="otd-caption">
@@ -300,17 +303,20 @@
                          [attr.data-file-type]="media.item.fileType"
                          (click)="openSlideshow(group, media.photoIndex ?? 0)">
                         <div class="photo-card">
-                            <img *ngIf="getThumbnailUrl(media.item)" 
-                                 [src]="getThumbnailUrl(media.item)" 
-                                 [alt]="media.item.fileName"
-                                 loading="lazy"
-                                 decoding="async"
-                                 class="photo-img">
-                            <div class="photo-placeholder" *ngIf="!getThumbnailUrl(media.item)">
-                                <div class="placeholder-spinner">
-                                    <div class="spinner-border spinner-border-sm text-light" role="status"></div>
+                            <ng-container *ngIf="getThumbnailUrl(media.item) as thumbUrl; else wallMasonryThumbPh">
+                                <img [src]="thumbUrl"
+                                     [alt]="media.item.fileName"
+                                     loading="lazy"
+                                     decoding="async"
+                                     class="photo-img">
+                            </ng-container>
+                            <ng-template #wallMasonryThumbPh>
+                                <div class="photo-placeholder">
+                                    <div class="placeholder-spinner">
+                                        <div class="spinner-border spinner-border-sm text-light" role="status"></div>
+                                    </div>
                                 </div>
-                            </div>
+                            </ng-template>
                             <div class="photo-overlay">
                                 <span class="photo-name">{{ media.item.fileName }}</span>
                             </div>
@@ -925,32 +931,61 @@
     <div class="modal-header bg-primary text-white">
         <h5 class="modal-title">
             <i class="fa fa-image me-2"></i>
-            {{ 'EVENTELEM.IMAGE_COMPRESSION_TITLE' | translate }}
+            <ng-container *ngIf="imageCompressionMode === 'allUnder'; else compressionTitleNormalTimeline">
+                {{ 'EVENTELEM.IMAGE_COMPRESSION_NOT_NEEDED_TITLE' | translate }}
+            </ng-container>
+            <ng-template #compressionTitleNormalTimeline>
+                {{ 'EVENTELEM.IMAGE_COMPRESSION_TITLE' | translate }}
+            </ng-template>
         </h5>
         <button type="button" class="btn-close btn-close-white" (click)="cancelImageCompression()" aria-label="Close"></button>
     </div>
     <div class="modal-body">
-        <p>{{ 'EVENTELEM.IMAGE_COMPRESSION_MESSAGE' | translate: {count: imageCountForModal} }}</p>
-        <div class="form-group mb-3">
-            <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" id="compressImagesSwitchTimeline" [(ngModel)]="compressImages">
-                <label class="form-check-label" for="compressImagesSwitchTimeline">
-                    {{ 'EVENTELEM.COMPRESS_IMAGES' | translate }}
-                </label>
+        <ng-container *ngIf="imageCompressionMode === 'allUnder'; else compressionBodyNormalTimeline">
+            <div class="alert alert-success small mb-0">
+                <i class="fa fa-check-circle me-2" aria-hidden="true"></i>
+                <ng-container *ngIf="imageCountForModal === 1; else compressionAllUnderMultiTimeline">
+                    {{ 'EVENTELEM.IMAGE_COMPRESSION_NOT_NEEDED_SINGLE' | translate: {sizeKb: imageSingleSizeKbForModal, maxKb: imageMaxSizeKbForModal} }}
+                </ng-container>
+                <ng-template #compressionAllUnderMultiTimeline>
+                    {{ 'EVENTELEM.IMAGE_COMPRESSION_NOT_NEEDED_MULTI' | translate: {count: imageCountForModal, maxKb: imageMaxSizeKbForModal} }}
+                </ng-template>
             </div>
-        </div>
-        <div class="alert alert-info small">
-            <strong>{{ 'EVENTELEM.COMPRESS_IMAGES_ENABLED' | translate }}:</strong> {{ 'EVENTELEM.COMPRESS_IMAGES_ENABLED_DETAILS' | translate }}<br>
-            <strong>{{ 'EVENTELEM.COMPRESS_IMAGES_DISABLED' | translate }}:</strong> {{ 'EVENTELEM.COMPRESS_IMAGES_DISABLED_DETAILS' | translate }}
-        </div>
+        </ng-container>
+        <ng-template #compressionBodyNormalTimeline>
+            <p>{{ 'EVENTELEM.IMAGE_COMPRESSION_MESSAGE' | translate: {count: imageCountForModal} }}</p>
+            <div *ngIf="imagesUnderThresholdForPartialNote > 0" class="alert alert-secondary small mb-3">
+                <i class="fa fa-info-circle me-1" aria-hidden="true"></i>
+                {{ 'EVENTELEM.IMAGE_COMPRESSION_NOT_NEEDED_PARTIAL' | translate: {count: imagesUnderThresholdForPartialNote, maxKb: imageMaxSizeKbForModal} }}
+            </div>
+            <div class="form-group mb-3">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="compressImagesSwitchTimeline" [(ngModel)]="compressImages">
+                    <label class="form-check-label" for="compressImagesSwitchTimeline">
+                        {{ 'EVENTELEM.COMPRESS_IMAGES' | translate }}
+                    </label>
+                </div>
+            </div>
+            <div class="alert alert-info small">
+                <strong>{{ 'EVENTELEM.COMPRESS_IMAGES_ENABLED' | translate }}:</strong> {{ 'EVENTELEM.COMPRESS_IMAGES_ENABLED_DETAILS' | translate }}<br>
+                <strong>{{ 'EVENTELEM.COMPRESS_IMAGES_DISABLED' | translate }}:</strong> {{ 'EVENTELEM.COMPRESS_IMAGES_DISABLED_DETAILS' | translate }}
+            </div>
+        </ng-template>
     </div>
     <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" (click)="cancelImageCompression()">
-            {{ 'EVENTELEM.CANCEL' | translate }}
-        </button>
-        <button type="button" class="btn btn-primary" (click)="confirmImageCompression()">
-            {{ 'EVENTELEM.CONFIRM' | translate }}
-        </button>
+        <ng-container *ngIf="imageCompressionMode === 'allUnder'; else compressionFooterNormalTimeline">
+            <button type="button" class="btn btn-primary" (click)="confirmImageCompressionInfoOnly()">
+                {{ 'COMMUN.CONFIRM' | translate }}
+            </button>
+        </ng-container>
+        <ng-template #compressionFooterNormalTimeline>
+            <button type="button" class="btn btn-secondary" (click)="cancelImageCompression()">
+                {{ 'EVENTELEM.CANCEL' | translate }}
+            </button>
+            <button type="button" class="btn btn-primary" (click)="confirmImageCompression()">
+                {{ 'EVENTELEM.CONFIRM' | translate }}
+            </button>
+        </ng-template>
     </div>
 </ng-template>
 

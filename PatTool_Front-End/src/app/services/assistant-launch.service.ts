@@ -7,12 +7,23 @@ export interface AssistantLaunchToolFlags {
   mcp?: boolean;
 }
 
+/** Image jointe au prochain message (vision) — ex. depuis le slideshow. */
+export interface AssistantLaunchAttachedImage {
+  mimeType: string;
+  base64: string;
+  dataUrl: string;
+}
+
 export interface AssistantLaunchPayload {
+  /** Texte du brouillon ; peut être vide si `attachedImage` est fourni (le champ reste vide, l’indication
+   *  est affichée dans le placeholder du textarea). */
   draft: string;
   /** Si true, l’historique du chat est effacé avant d’ouvrir (nouvelle discussion). */
   newConversation?: boolean;
   /** Si présent, met à jour les cases à cocher outils (recherche web, image, MCP). */
   toolFlags?: AssistantLaunchToolFlags;
+  /** Image à joindre (ex. depuis le slideshow) ; ouvre le panneau avec vision prête à envoyer. */
+  attachedImage?: AssistantLaunchAttachedImage;
 }
 
 /**
@@ -26,18 +37,25 @@ export class AssistantLaunchService {
 
   openWithDraft(
     text: string,
-    options?: { newConversation?: boolean; toolFlags?: AssistantLaunchToolFlags }
+    options?: {
+      newConversation?: boolean;
+      toolFlags?: AssistantLaunchToolFlags;
+      attachedImage?: AssistantLaunchAttachedImage;
+    }
   ): void {
     const draft = text?.trim() ?? '';
-    if (!draft.length) {
+    const hasImage = !!options?.attachedImage;
+    if (!draft.length && !hasImage) {
       return;
     }
     const newConversation = options?.newConversation === true;
     const toolFlags = options?.toolFlags;
+    const attachedImage = options?.attachedImage;
     this.launches.next({
       draft,
       newConversation,
-      ...(toolFlags != null ? { toolFlags } : {})
+      ...(toolFlags != null ? { toolFlags } : {}),
+      ...(attachedImage != null ? { attachedImage } : {})
     });
   }
 }

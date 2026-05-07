@@ -25,6 +25,7 @@ import { MembersService } from '../../services/members.service';
 import { AssistantLaunchService } from '../../services/assistant-launch.service';
 import { TodoListDetailOverlayService } from '../../todolists/todo-list-detail-overlay.service';
 import { FileService, ImageDownloadResult } from '../../services/file.service';
+import { UploadConfigService } from '../../services/upload-config.service';
 import { WindowRefService } from '../../services/window-ref.service';
 import { FriendsService } from '../../services/friends.service';
 import { VideoCompressionService, CompressionProgress } from '../../services/video-compression.service';
@@ -259,6 +260,25 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
   public imageCountForModal: number = 0;
   @ViewChild('imageCompressionModal') imageCompressionModal!: TemplateRef<any>;
   private imageCompressionModalRef: any = null;
+  /**
+   * Mode du modal de compression :
+   *  - 'normal'   : modal classique (switch on/off + détails)
+   *  - 'allUnder' : toutes les images sélectionnées sont déjà ≤ au seuil
+   *                 `app.imagemaxsizekb` du backend → on n'affiche pas le
+   *                 switch, juste un message expliquant pourquoi.
+   * La variante "partial" est juste une note ajoutée dans le mode `normal`
+   * quand certaines (mais pas toutes) images sont déjà sous le seuil.
+   */
+  public imageCompressionMode: 'normal' | 'allUnder' = 'normal';
+  /** Seuil (en KB) tel que renvoyé par le backend ; affiché dans le message. */
+  public imageMaxSizeKbForModal: number = 0;
+  /** Taille (KB) de l'image lorsque l'on n'en a qu'une (pour message « single »). */
+  public imageSingleSizeKbForModal: number = 0;
+  /**
+   * Nombre d'images déjà ≤ seuil dans le lot (pour la note `partial` du
+   * mode normal). Vaut 0 si la note ne doit pas s'afficher.
+   */
+  public imagesUnderThresholdForPartialNote: number = 0;
   private activeTimeouts = new Set<any>();
   private activeIntervals = new Set<any>();
   @ViewChild('logContent') logContent!: ElementRef;
@@ -314,6 +334,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     private evenementsService: EvenementsService,
     private membersService: MembersService,
     private fileService: FileService,
+    private uploadConfigService: UploadConfigService,
     private winRef: WindowRefService,
     private modalService: NgbModal,
     private friendsService: FriendsService,
@@ -330,6 +351,9 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     private todoListOverlay: TodoListDetailOverlayService
   ) {
     this.nativeWindow = winRef.getNativeWindow();
+    // Pré-charge `app.imagemaxsizekb` côté backend pour pouvoir adapter le
+    // modal de compression dès la première sélection de fichiers.
+    this.uploadConfigService.preload();
   }
 
   ngOnInit(): void {
@@ -6087,7 +6111,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     if (!event?.eventId || !event?.blob || !user?.id) {
       return;
     }
-    this.askForImageCompression(1).then(shouldCompress => {
+    this.askForImageCompression([event.blob]).then(shouldCompress => {
       if (shouldCompress === null || !user) return;
       this.addToDbLayer.showOverlay(this.translateService.instant('PHOTO_TIMELINE.UPLOADING'));
       this.cdr.markForCheck();
@@ -6217,7 +6241,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     if (imageFiles.length > 0) {
       this.imageCountForModal = imageFiles.length;
       this.compressImages = true; // Reset to default
-      const shouldCompress = await this.askForImageCompression(imageFiles.length);
+      const shouldCompress = await this.askForImageCompression(imageFiles);
       if (shouldCompress === null) {
         // User cancelled, stop upload
         this.isUploading = false;
@@ -6768,11 +6792,46 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
   
-  private askForImageCompression(imageCount: number): Promise<boolean | null> {
-    return new Promise((resolve) => {
-      this.compressImages = true; // Default to compression enabled
-      this.imageCountForModal = imageCount;
+  /**
+   * Ouvre le modal de compression d'images avec adaptation automatique
+   * selon la taille des images vs `app.imagemaxsizekb` (cf. doc dans
+   * `element-evenement.component.ts`).
+   */
+  private async askForImageCompression(filesOrCount: ReadonlyArray<File | Blob> | number): Promise<boolean | null> {
+    const thresholdKb = await this.uploadConfigService.resolveImageMaxSizeKb();
+    this.compressImages = true;
+    this.imageMaxSizeKbForModal = thresholdKb;
+    const thresholdBytes = thresholdKb * 1024;
 
+    let imageCount: number;
+    let sizes: number[] = [];
+    if (typeof filesOrCount === 'number') {
+      imageCount = Math.max(1, filesOrCount);
+    } else {
+      imageCount = filesOrCount.length;
+      sizes = filesOrCount.map(f => (f as { size?: number }).size ?? 0);
+    }
+    this.imageCountForModal = imageCount;
+
+    const knowSizes = sizes.length === imageCount && imageCount > 0;
+    const underCount = knowSizes ? sizes.filter(s => s > 0 && s <= thresholdBytes).length : 0;
+    const allUnder = knowSizes && underCount === imageCount;
+
+    if (allUnder) {
+      this.imageCompressionMode = 'allUnder';
+      this.imagesUnderThresholdForPartialNote = 0;
+      this.imageSingleSizeKbForModal = imageCount === 1
+        ? Math.max(1, Math.round(sizes[0] / 1024))
+        : 0;
+    } else {
+      this.imageCompressionMode = 'normal';
+      this.imagesUnderThresholdForPartialNote = (knowSizes && underCount > 0 && underCount < imageCount)
+        ? underCount
+        : 0;
+      this.imageSingleSizeKbForModal = 0;
+    }
+
+    return await new Promise<boolean | null>((resolve) => {
       if (this.imageCompressionModal) {
         this.imageCompressionModalRef = this.modalService.open(this.imageCompressionModal, {
           centered: true,
@@ -6789,11 +6848,14 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
           },
           () => {
             this.imageCompressionModalRef = null;
-            resolve(null); // dismissed
+            resolve(null);
           }
         );
       } else {
-        // Fallback
+        if (allUnder) {
+          resolve(false);
+          return;
+        }
         const choice = confirm(
           this.translateService.instant('EVENTELEM.IMAGE_COMPRESSION_QUESTION', { count: imageCount })
         );
@@ -6805,6 +6867,16 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
   public confirmImageCompression(): void {
     if (this.imageCompressionModalRef) {
       this.imageCompressionModalRef.close(this.compressImages);
+    }
+  }
+
+  /**
+   * Bouton « OK » du modal info-only : ferme avec « ne pas compresser »
+   * (équivaut à `allowOriginal=true` côté backend).
+   */
+  public confirmImageCompressionInfoOnly(): void {
+    if (this.imageCompressionModalRef) {
+      this.imageCompressionModalRef.close(false);
     }
   }
 

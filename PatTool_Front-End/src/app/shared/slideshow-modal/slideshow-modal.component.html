@@ -45,7 +45,7 @@
              (mouseup)="onSlideshowMouseUp($event)"
              (click)="onSlideshowImageClick($event)"
              (contextmenu)="$event.preventDefault()"
-             (load)="onImageLoad()"
+             (load)="onImageLoad($event)"
              [class.fullscreen-image]="isFullscreen"
              />
         <!-- Loading spinner for filesystem variants -->
@@ -246,6 +246,20 @@
               [disabled]="slideshowImages.length === 0">
         <i class="fa fa-share-alt me-1"></i>
         <span>{{ 'EVENTELEM.SHARE' | translate }}</span>
+      </button>
+      <button type="button" class="btn btn-outline-secondary"
+              (click)="downloadSlideshowImage()"
+              [disabled]="!canDownloadSlideshowImage() || downloadSlideshowInProgress"
+              [title]="'EVENTELEM.SLIDESHOW_DOWNLOAD_TOOLTIP' | translate">
+        <i class="fa me-1" [ngClass]="downloadSlideshowInProgress ? 'fa-spinner fa-spin' : 'fa-download'"></i>
+        <span>{{ 'EVENTELEM.SLIDESHOW_DOWNLOAD' | translate }}</span>
+      </button>
+      <button type="button" class="btn btn-primary"
+              (click)="sendCurrentImageToAssistant()"
+              [disabled]="!canSendCurrentImageToAssistant() || sendToAssistantInProgress"
+              [title]="'EVENTELEM.SEND_TO_ASSISTANT_TOOLTIP' | translate">
+        <i class="fa me-1" [ngClass]="sendToAssistantInProgress ? 'fa-spinner fa-spin' : 'fa-magic'"></i>
+        <span>{{ 'EVENTELEM.SEND_TO_ASSISTANT' | translate }}</span>
       </button>
       <button type="button" class="btn btn-info" 
               (click)="toggleInfoPanel()"

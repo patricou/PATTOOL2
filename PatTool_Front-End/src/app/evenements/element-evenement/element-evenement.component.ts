@@ -22,6 +22,7 @@ import { Commentary } from '../../model/commentary';
 import { environment } from '../../../environments/environment';
 import { WindowRefService } from '../../services/window-ref.service';
 import { FileService, ImageDownloadResult } from '../../services/file.service';
+import { UploadConfigService } from '../../services/upload-config.service';
 import { VideoCompressionService, CompressionProgress } from '../../services/video-compression.service';
 import { VideoUploadProcessingService } from '../../services/video-upload-processing.service';
 import { EvenementsService } from '../../services/evenements.service';
@@ -88,6 +89,27 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	public imageCountForModal: number = 0;
 	@ViewChild('imageCompressionModal') imageCompressionModal!: TemplateRef<any>;
 	private imageCompressionModalRef: any = null;
+	/**
+	 * Mode du modal de compression :
+	 *  - 'normal'     : modal classique (switch on/off + détails)
+	 *  - 'allUnder'   : toutes les images sélectionnées sont déjà ≤ au seuil
+	 *                   `app.imagemaxsizekb` du backend → on n'affiche pas le
+	 *                   switch, juste un message expliquant pourquoi.
+	 *
+	 * Variante `partial` n'est pas un mode séparé mais une note ajoutée dans
+	 * le mode `normal` quand certaines (mais pas toutes) images sont déjà
+	 * sous le seuil.
+	 */
+	public imageCompressionMode: 'normal' | 'allUnder' = 'normal';
+	/** Seuil (en KB) tel que renvoyé par le backend ; affiché dans le message. */
+	public imageMaxSizeKbForModal: number = 0;
+	/** Taille (KB) de l'image lorsque l'on n'en a qu'une (pour message « single »). */
+	public imageSingleSizeKbForModal: number = 0;
+	/**
+	 * Nombre d'images déjà ≤ seuil dans le lot (pour la note `partial` du
+	 * mode normal). Vaut 0 si la note ne doit pas s'afficher.
+	 */
+	public imagesUnderThresholdForPartialNote: number = 0;
 	// Evaluate rating
 	public currentRate: number = 0;
 	public safePhotosUrl: SafeUrl = {} as SafeUrl;
@@ -223,6 +245,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	private colorDetectionEndTime: number = 0;
 	/** Set in next tick to avoid NG0100 when *ngIf flips from false to true */
 	public showLoadTimeSection = false;
+	/** Snapshot pour le libellé « Load time » (ne pas lier getCurrentCardLoadTime() au template). */
+	public cardLoadTimeDisplayMs = 0;
+	/** Compteur badge téléchargement ; mis à jour en macrotache suivante pour éviter NG0100. */
+	public footerFileUploadedsDisplayCount = 0;
 	public loadingStats: {
 		componentInit: number;
 		thumbnailLoad: number;
@@ -368,6 +394,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		private modalService: NgbModal,
 		private ratingConfig: NgbRatingConfig,
 		private _fileService: FileService,
+		private uploadConfigService: UploadConfigService,
 		private winRef: WindowRefService,
 		private translateService: TranslateService,
 		private videoCompressionService: VideoCompressionService,
@@ -386,6 +413,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		this.ratingConfig.max = 10;
 		this.ratingConfig.readonly = true;
 		this.nativeWindow = winRef.getNativeWindow();
+		// Pré-charge `app.imagemaxsizekb` pour que la décision « image déjà
+		// ≤ seuil → ne pas proposer la compression » soit possible dès la
+		// première sélection de fichiers (sinon on retombera sur la valeur
+		// par défaut de `UploadConfigService`).
+		this.uploadConfigService.preload();
 	}
 
 	isAssistantUser(): boolean {
@@ -911,7 +943,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		if (!event?.eventId || !event?.blob || !this.user?.id) {
 			return;
 		}
-		this.askForImageCompression(1).then(shouldCompress => {
+		this.askForImageCompression([event.blob]).then(shouldCompress => {
 			if (shouldCompress === null) return;
 			this.addToDbMessage = '';
 			this.addToDbSuccess = false;
@@ -1584,6 +1616,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		
 		// Load fileUploadeds in background for author so "Gestion des fichiers" button shows correct count
 		this.scheduleFileCountLoad();
+		this.scheduleFooterFileCountSnapshot();
 	}
 	
 	/** Schedule loading file count for "Gestion des Fichiers" button (author only). Only when we don't know the count yet; 0 after load is valid. */
@@ -1599,7 +1632,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				return;
 			}
 			this._fileCountLoadTriggered = true;
-			const sub = this.ensureEventFilesLoaded().subscribe(() => this.cdr.detectChanges());
+			const sub = this.ensureEventFilesLoaded().subscribe(() => this.scheduleFooterFileCountSnapshot());
 			this.allSubscriptions.push(sub);
 		};
 		tryLoad();
@@ -1664,7 +1697,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			if (currentEvenement?.id && this._evenementsService) {
 				try {
 					if (this.isAuthor() && (!currentEvenement.fileUploadeds || currentEvenement.fileUploadeds.length === 0)) {
-						const sub = this.ensureEventFilesLoaded().subscribe(() => this.cdr.detectChanges());
+						const sub = this.ensureEventFilesLoaded().subscribe(() => this.scheduleFooterFileCountSnapshot());
 						this.allSubscriptions.push(sub);
 					}
 				} catch {
@@ -1687,12 +1720,13 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					// Files will be loaded on-demand when buttons are clicked
 				}
 			}
+			this.scheduleFooterFileCountSnapshot();
 		}
 		// When user becomes available (e.g. after auth), load file count for author so "Gestion des Fichiers" shows correct number
 		if (changes['user'] && this.evenement?.id && this._evenementsService && (!this.evenement.fileUploadeds || this.evenement.fileUploadeds.length === 0)) {
 			try {
 				if (this.isAuthor()) {
-					const sub = this.ensureEventFilesLoaded().subscribe(() => this.cdr.detectChanges());
+					const sub = this.ensureEventFilesLoaded().subscribe(() => this.scheduleFooterFileCountSnapshot());
 					this.allSubscriptions.push(sub);
 				}
 			} catch {
@@ -1910,7 +1944,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		if (imageFiles.length > 0) {
 			this.imageCountForModal = imageFiles.length;
 			this.compressImages = true; // Reset to default
-			const shouldCompress = await this.askForImageCompression(imageFiles.length);
+			const shouldCompress = await this.askForImageCompression(imageFiles);
 			if (shouldCompress === null) {
 				// User cancelled, stop upload
 				this.isUploading = false;
@@ -2256,11 +2290,62 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		}
 	}
 	
-	private askForImageCompression(imageCount: number): Promise<boolean | null> {
-		return new Promise((resolve) => {
-			this.compressImages = true; // Default to compression enabled
-			this.imageCountForModal = imageCount;
+	/**
+	 * Ouvre le modal de compression d'images.
+	 *
+	 * Accepte soit :
+	 *  - une liste de `File`/`Blob` (cas privilégié) : permet d'évaluer la
+	 *    taille de chaque image et d'adapter le modal :
+	 *      * Toutes les images ≤ `app.imagemaxsizekb` → modal "info-only"
+	 *        (pas de switch, message explicite, résolution avec
+	 *        `compressImages = false` afin d'envoyer en `allowOriginal=true`).
+	 *      * Sinon → modal classique avec switch (et note "partial" si une
+	 *        partie des images sont déjà sous le seuil).
+	 *  - un `number` (rétro-compatibilité) : on retombe sur le modal
+	 *    classique sans pouvoir détecter le cas "déjà petit".
+	 *
+	 * Résultat :
+	 *  - `true`  → l'utilisateur veut compresser (`allowOriginal=false`)
+	 *  - `false` → ne pas compresser (`allowOriginal=true`)
+	 *  - `null`  → modal annulé/dismiss → l'appelant doit interrompre l'envoi
+	 */
+	private async askForImageCompression(filesOrCount: ReadonlyArray<File | Blob> | number): Promise<boolean | null> {
+		const thresholdKb = await this.uploadConfigService.resolveImageMaxSizeKb();
+		this.compressImages = true; // Default to compression enabled
+		this.imageMaxSizeKbForModal = thresholdKb;
+		const thresholdBytes = thresholdKb * 1024;
 
+		// Normalise les paramètres : nombre d'images + tailles connues
+		let imageCount: number;
+		let sizes: number[] = [];
+		if (typeof filesOrCount === 'number') {
+			imageCount = Math.max(1, filesOrCount);
+		} else {
+			imageCount = filesOrCount.length;
+			sizes = filesOrCount.map(f => (f as { size?: number }).size ?? 0);
+		}
+		this.imageCountForModal = imageCount;
+
+		// Détection « toutes les images ≤ seuil » uniquement si on connaît les tailles.
+		const knowSizes = sizes.length === imageCount && imageCount > 0;
+		const underCount = knowSizes ? sizes.filter(s => s > 0 && s <= thresholdBytes).length : 0;
+		const allUnder = knowSizes && underCount === imageCount;
+
+		if (allUnder) {
+			this.imageCompressionMode = 'allUnder';
+			this.imagesUnderThresholdForPartialNote = 0;
+			this.imageSingleSizeKbForModal = imageCount === 1
+				? Math.max(1, Math.round(sizes[0] / 1024))
+				: 0;
+		} else {
+			this.imageCompressionMode = 'normal';
+			this.imagesUnderThresholdForPartialNote = (knowSizes && underCount > 0 && underCount < imageCount)
+				? underCount
+				: 0;
+			this.imageSingleSizeKbForModal = 0;
+		}
+
+		return await new Promise<boolean | null>((resolve) => {
 			if (this.imageCompressionModal) {
 				this.imageCompressionModalRef = this.modalService.open(this.imageCompressionModal, {
 					centered: true,
@@ -2281,13 +2366,27 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					}
 				);
 			} else {
-				// Fallback
+				if (allUnder) {
+					resolve(false);
+					return;
+				}
 				const choice = confirm(
 					this.translateService.instant('EVENTELEM.IMAGE_COMPRESSION_QUESTION', { count: imageCount })
 				);
 				resolve(choice);
 			}
 		});
+	}
+
+	/**
+	 * Bouton « OK » du modal info-only (mode `allUnder`) : ferme le modal en
+	 * indiquant explicitement « ne pas compresser » → `allowOriginal=true`
+	 * côté backend, donc envoi tel quel.
+	 */
+	public confirmImageCompressionInfoOnly(): void {
+		if (this.imageCompressionModalRef) {
+			this.imageCompressionModalRef.close(false);
+		}
 	}
 
 	public confirmImageCompression(): void {
@@ -4066,7 +4165,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			return;
 		}
 		this._fileCountLoadTriggered = true;
-		const sub = this.ensureEventFilesLoaded().subscribe(() => this.cdr.detectChanges());
+		const sub = this.ensureEventFilesLoaded().subscribe(() => this.scheduleFooterFileCountSnapshot());
 		this.allSubscriptions.push(sub);
 	}
 	
@@ -4154,6 +4253,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					// Update the local evenement with the response
 					this.evenement.fileUploadeds = evenementToUpdate.fileUploadeds;
 					this.updateFileUploaded.emit(this.evenement);
+					this.scheduleFooterFileCountSnapshot();
 				},
 				error: (error) => {
 					console.error('Error deleting file from MongoDB:', error);
@@ -4948,6 +5048,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		if (alreadyHasFiles) {
 			setTimeout(() => {
 				this.isLoadingFiles = false;
+				this.scheduleFooterFileCountSnapshot();
 				this.cdr.markForCheck();
 				// Load thumbnails for existing files
 				this.evenement.fileUploadeds.forEach(f => {
@@ -5015,7 +5116,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 							// Add file to the array immediately (Angular change detection will update the view)
 							this.evenement.fileUploadeds.push(file);
 							
-							// Defer change detection to next cycle to prevent ExpressionChangedAfterItHasBeenCheckedError
+							this.scheduleFooterFileCountSnapshot();
 							setTimeout(() => {
 								this.cdr.markForCheck();
 							}, 0);
@@ -5032,6 +5133,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						// All files have been streamed
 						setTimeout(() => {
 							this.isLoadingFiles = false;
+							this.scheduleFooterFileCountSnapshot();
 							this.cdr.markForCheck();
 						}, 0);
 						// Auto-expand types with less than 4 elements
@@ -5066,6 +5168,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					// Stream completed - ensure loading is hidden
 					setTimeout(() => {
 						this.isLoadingFiles = false;
+						this.scheduleFooterFileCountSnapshot();
 						this.cdr.markForCheck();
 					}, 0);
 					// Auto-expand types with less than 4 elements
@@ -5107,6 +5210,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 							this.loadVideoThumbnail(file);
 						}
 					});
+					
+					this.scheduleFooterFileCountSnapshot();
 					
 					// Defer change detection to next cycle to prevent ExpressionChangedAfterItHasBeenCheckedError
 					setTimeout(() => {
@@ -5366,6 +5471,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		if (loadTime && !loadTime.displayed) {
 			loadTime.end = performance.now();
 			loadTime.displayed = true;
+			this.scheduleUpdateShowLoadTime();
 		}
 	}
 
@@ -7338,7 +7444,18 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	private scheduleUpdateShowLoadTime(): void {
 		const t = setTimeout(() => {
 			if (this.componentDestroyed) return;
-			this.showLoadTimeSection = this.getCurrentCardLoadTime() > 0;
+			this.cardLoadTimeDisplayMs = this.getCurrentCardLoadTime();
+			this.showLoadTimeSection = this.cardLoadTimeDisplayMs > 0;
+			this.safeMarkForCheck();
+		}, 0);
+		this.activeTimeouts.add(t);
+	}
+
+	/** Met à jour le compteur du bouton fichiers après mutation de fileUploadeds (hors tour CD courant). */
+	private scheduleFooterFileCountSnapshot(): void {
+		const t = setTimeout(() => {
+			if (this.componentDestroyed) return;
+			this.footerFileUploadedsDisplayCount = this.getFileUploadedsLength();
 			this.safeMarkForCheck();
 		}, 0);
 		this.activeTimeouts.add(t);
