@@ -2295,6 +2295,15 @@ export class AssistantDrawerComponent
         if (line.length > 0) {
           body = body ? `${body}\n${line}` : line;
         }
+      } else if (m.role === 'assistant') {
+        const embeddedUrls = this.extractGeneratedImageDataUrls(body);
+        if (embeddedUrls.length > 0) {
+          body = this.stripGeneratedImagesFromContent(body).trim();
+          const line = photoInShare.trim();
+          if (line.length > 0) {
+            body = body ? `${body}\n${line}` : line;
+          }
+        }
       }
       chunks.push(`*${label}*\n${body || '—'}`);
     }
@@ -2606,13 +2615,32 @@ export class AssistantDrawerComponent
     }
 
     const imageFiles: File[] = [];
+    const seenImageDataUrls = new Set<string>();
     let imgIdx = 0;
     for (const m of this.messages) {
       if (m.role === 'user' && m.imageDataUrl?.trim()) {
-        const file = await this.dataUrlToFile(m.imageDataUrl.trim(), `pat-assistant-photo-${imgIdx}`);
+        const url = m.imageDataUrl.trim();
+        if (seenImageDataUrls.has(url)) {
+          continue;
+        }
+        seenImageDataUrls.add(url);
+        const file = await this.dataUrlToFile(url, `pat-assistant-photo-${imgIdx}`);
         imgIdx++;
         if (file) {
           imageFiles.push(file);
+        }
+      } else if (m.role === 'assistant') {
+        const content = typeof m.content === 'string' ? m.content : '';
+        for (const url of this.extractGeneratedImageDataUrls(content)) {
+          if (seenImageDataUrls.has(url)) {
+            continue;
+          }
+          seenImageDataUrls.add(url);
+          const file = await this.dataUrlToFile(url, `pat-assistant-generated-${imgIdx}`);
+          imgIdx++;
+          if (file) {
+            imageFiles.push(file);
+          }
         }
       }
     }
@@ -2628,13 +2656,17 @@ export class AssistantDrawerComponent
     if (typeof nav.share === 'function') {
       if (imageFiles.length > 0) {
         const withFiles: ShareData = { title, text: message, files: imageFiles };
-        try {
-          await nav.share(withFiles);
-          this.cancelAssistantWhatsAppShare();
-          return;
-        } catch (err: unknown) {
-          if (aborted(err)) {
+        const canShare =
+          typeof nav.canShare === 'function' ? nav.canShare(withFiles) : true;
+        if (canShare) {
+          try {
+            await nav.share(withFiles);
+            this.cancelAssistantWhatsAppShare();
             return;
+          } catch (err: unknown) {
+            if (aborted(err)) {
+              return;
+            }
           }
         }
       }

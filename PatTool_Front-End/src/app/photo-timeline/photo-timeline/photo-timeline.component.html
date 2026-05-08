@@ -293,7 +293,7 @@
                        accept="image/*,video/*,.mp4,.webm,.ogg,.ogv,.mov,.avi,.mkv,.flv,.wmv,.m4v,.3gp,.pdf,.doc,.docx,.xls,.xlsx,.ods,.odt,.txt,.zip,.rar,.gpx,.kml,.kmz,.gdb,.tcx" />
             </div>
 
-            <!-- Masonry Grid : photos et vidéos mélangés, vidéos en autoplay comme détail -->
+            <!-- Masonry Grid : photos et vidéos mélangés ; vidéos ne lisent que si la tuile est visible -->
             <div class="masonry-grid">
                 <ng-container *ngFor="let media of getGroupMedia(group); trackBy: trackByMediaId">
                     <!-- Photo -->
@@ -322,7 +322,7 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Vidéo : lecture auto (autoplay muted loop) comme dans détail -->
+                    <!-- Vidéo : lecture seulement lorsque la tuile est nettement visible (viewport) -->
                     <div class="masonry-item video-card-inline wall-video-file-host"
                          *ngIf="media.type === 'video'"
                          [attr.data-file-id]="media.item.fileId"
@@ -338,9 +338,11 @@
                                        [muted]="true"
                                        loop
                                        playsinline
-                                       preload="metadata"
+                                       preload="none"
                                        class="photo-img timeline-video"
-                                       [attr.alt]="media.item.fileName">
+                                       [attr.alt]="media.item.fileName"
+                                       (loadeddata)="onWallVideoLoadedData($event)"
+                                       (canplay)="onWallVideoLoadedData($event)">
                                     {{ 'EVENTELEM.VIDEO_NOT_SUPPORTED' | translate }}
                                 </video>
                             </ng-container>

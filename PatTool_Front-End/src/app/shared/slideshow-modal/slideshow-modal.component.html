@@ -254,12 +254,13 @@
         <i class="fa me-1" [ngClass]="downloadSlideshowInProgress ? 'fa-spinner fa-spin' : 'fa-download'"></i>
         <span>{{ 'EVENTELEM.SLIDESHOW_DOWNLOAD' | translate }}</span>
       </button>
-      <button type="button" class="btn btn-primary"
+      <button type="button" class="btn slideshow-footer-btn-ia"
               (click)="sendCurrentImageToAssistant()"
               [disabled]="!canSendCurrentImageToAssistant() || sendToAssistantInProgress"
-              [title]="'EVENTELEM.SEND_TO_ASSISTANT_TOOLTIP' | translate">
-        <i class="fa me-1" [ngClass]="sendToAssistantInProgress ? 'fa-spinner fa-spin' : 'fa-magic'"></i>
-        <span>{{ 'EVENTELEM.SEND_TO_ASSISTANT' | translate }}</span>
+              [title]="'EVENTELEM.SEND_TO_ASSISTANT_TOOLTIP' | translate"
+              [attr.aria-label]="'EVENTELEM.SEND_TO_ASSISTANT_TOOLTIP' | translate">
+        <i class="fa slideshow-footer-btn-ia-icon" [ngClass]="sendToAssistantInProgress ? 'fa-spinner fa-spin' : 'fa-magic'"></i>
+        <span class="slideshow-footer-btn-ia-label">{{ 'EVENTELEM.SEND_TO_ASSISTANT' | translate }}</span>
       </button>
       <button type="button" class="btn btn-info" 
               (click)="toggleInfoPanel()"

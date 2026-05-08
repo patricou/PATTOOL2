@@ -101,6 +101,14 @@ function getAdaptiveMaxParallel(): number {
 const WALL_PRELOAD_THUMBS_FIRST_SCREEN = 10;
 const WALL_PRELOAD_THUMBS_AFTER = 6;
 
+/**
+ * Fraction minimale de la tuile vidéo qui doit croiser le viewport pour autoriser la lecture
+ * auto sur le mur (évite le démarrage alors que la vidéo est à peine hors ligne de flottaison).
+ */
+const WALL_VIDEO_AUTOPLAY_MIN_VISIBLE_RATIO = 0.2;
+/** Seuils IO pour recevoir {@link IntersectionObserverEntry.intersectionRatio}. */
+const WALL_VIDEO_IO_THRESHOLDS: number[] = [0, 0.05, 0.1, 0.2, 0.35, 0.5, 0.75, 1];
+
 @Component({
     selector: 'app-photo-timeline',
     templateUrl: './photo-timeline.component.html',
@@ -232,6 +240,15 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     private intersectionObserver: IntersectionObserver | null = null;
     private wallVideoIntersectionObserver: IntersectionObserver | null = null;
     private wallVideoQuerySub: Subscription | null = null;
+    /** Met en pause les vidéos du mur quand l’onglet est en arrière-plan. */
+    private readonly onDocumentVisibilityChange = (): void => {
+        if (this.destroyed || typeof document === 'undefined') {
+            return;
+        }
+        if (document.hidden) {
+            this.pauseAllWallTimelineVideos();
+        }
+    };
     /** Loads masonry photos / videos only when near the viewport. */
     private wallMediaObserver: IntersectionObserver | null = null;
     private wallFetchActive = 0;
@@ -414,6 +431,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             this.wallVideoQuerySub.unsubscribe();
             this.wallVideoQuerySub = null;
         }
+        if (typeof document !== 'undefined') {
+            document.removeEventListener('visibilitychange', this.onDocumentVisibilityChange);
+        }
         if (this.wallMediaObserver) {
             this.wallMediaObserver.disconnect();
             this.wallMediaObserver = null;
@@ -427,17 +447,79 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 if (this.destroyed) return;
                 for (const entry of entries) {
                     const v = entry.target as HTMLVideoElement;
-                    if (entry.isIntersecting) {
+                    const visibleEnough =
+                        entry.isIntersecting &&
+                        entry.intersectionRatio >= WALL_VIDEO_AUTOPLAY_MIN_VISIBLE_RATIO;
+                    if (visibleEnough) {
                         v.play().catch(() => { /* autoplay / politiques navigateur */ });
                     } else if (document.fullscreenElement !== v && document.pictureInPictureElement !== v) {
                         v.pause();
                     }
                 }
             },
-            { root: null, rootMargin: '0px', threshold: 0.15 }
+            { root: null, rootMargin: '0px', threshold: WALL_VIDEO_IO_THRESHOLDS }
         );
         this.observeWallTimelineVideos();
         this.wallVideoQuerySub = this.wallTimelineVideos.changes.subscribe(() => this.observeWallTimelineVideos());
+        if (typeof document !== 'undefined') {
+            document.addEventListener('visibilitychange', this.onDocumentVisibilityChange);
+        }
+    }
+
+    /**
+     * La portion visible de la vidéo dans le viewport doit atteindre un minimum de superficie ;
+     * aligné sur {@link WALL_VIDEO_AUTOPLAY_MIN_VISIBLE_RATIO}.
+     */
+    private isWallVideoSubstantiallyVisible(video: HTMLVideoElement): boolean {
+        const r = video.getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0) {
+            return false;
+        }
+        const vw = typeof window !== 'undefined' ? window.innerWidth : 0;
+        const vh = typeof window !== 'undefined' ? window.innerHeight : 0;
+        const left = Math.max(r.left, 0);
+        const top = Math.max(r.top, 0);
+        const right = Math.min(r.right, vw);
+        const bottom = Math.min(r.bottom, vh);
+        const visibleW = Math.max(0, right - left);
+        const visibleH = Math.max(0, bottom - top);
+        const visibleArea = visibleW * visibleH;
+        const totalArea = r.width * r.height;
+        return visibleArea / totalArea >= WALL_VIDEO_AUTOPLAY_MIN_VISIBLE_RATIO - 1e-4;
+    }
+
+    /** Après chargement des métadonnées / données : empêche toute lecture si la tuile n’est pas visible. */
+    onWallVideoLoadedData(ev: Event): void {
+        if (this.destroyed) {
+            return;
+        }
+        const v = ev.target as HTMLVideoElement;
+        if (document.fullscreenElement === v || document.pictureInPictureElement === v) {
+            return;
+        }
+        if (!this.isWallVideoSubstantiallyVisible(v)) {
+            v.pause();
+        }
+    }
+
+    private pauseAllWallTimelineVideos(): void {
+        if (!this.wallTimelineVideos?.length) {
+            return;
+        }
+        for (const ref of this.wallTimelineVideos) {
+            const v = ref?.nativeElement;
+            if (!v) {
+                continue;
+            }
+            if (document.fullscreenElement === v || document.pictureInPictureElement === v) {
+                continue;
+            }
+            try {
+                v.pause();
+            } catch {
+                /* ignore */
+            }
+        }
     }
 
     /** Re-registers all wall videos with the observer (dynamic masonry list). */

@@ -1247,6 +1247,46 @@ body.slideshow-fullscreen-active .slideshow-footer {
     align-items: center;
 }
 
+/* Bouton IA (assistant) : disque, bordure et glyphe jaunes */
+.slideshow-footer .btn.slideshow-footer-btn-ia {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 0.05rem;
+    width: 3rem;
+    height: 3rem;
+    min-width: 3rem;
+    padding: 0.2rem !important;
+    border-radius: 50% !important;
+    border: 2px solid #ffeb3b !important;
+    color: #ffeb3b !important;
+    background-color: rgba(0, 0, 0, 0.28) !important;
+    line-height: 1.1;
+}
+
+.slideshow-footer .btn.slideshow-footer-btn-ia:hover:not(:disabled) {
+    background-color: rgba(255, 235, 59, 0.15) !important;
+    border-color: #fff176 !important;
+    color: #fff9c4 !important;
+}
+
+.slideshow-footer .btn.slideshow-footer-btn-ia:hover:not(:disabled) .slideshow-footer-btn-ia-icon,
+.slideshow-footer .btn.slideshow-footer-btn-ia:hover:not(:disabled) .slideshow-footer-btn-ia-label {
+    color: #fff9c4 !important;
+}
+
+.slideshow-footer .btn.slideshow-footer-btn-ia .slideshow-footer-btn-ia-icon {
+    margin-right: 0 !important;
+    font-size: 0.72rem;
+    color: #ffeb3b !important;
+}
+
+.slideshow-footer .btn.slideshow-footer-btn-ia .slideshow-footer-btn-ia-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #ffeb3b !important;
+}
 
 .slideshow-controls .btn:active {
     transform: scale(0.95);
