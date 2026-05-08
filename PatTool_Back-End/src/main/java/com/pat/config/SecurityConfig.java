@@ -238,7 +238,7 @@ public class SecurityConfig {
                 // Note: /iot is protected above and requires Iot role
                 .requestMatchers("/even", "/neweven", "/updeven/**", "/details-evenement/**", 
                                 "/results", "/maps", "/links", "/links-admin",
-                                "/friends", "/patgpt", "/system", "/calendrier").permitAll()
+                                "/friends", "/system", "/calendrier").permitAll()
                 
                 // ============================================
                 // DEFAULT - Permit for Angular SPA routing

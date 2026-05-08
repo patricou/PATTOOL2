@@ -1195,7 +1195,7 @@
     },
     "CALCULATOR": {
         "TITLE": "電卓",
-        "SUBTITLE": "四則演算 (+、−、×、÷)。パネルをクリックするか Tab でキーボード操作。",
+        "SUBTITLE": "四則演算（+、−、×、÷）。「関数電卓」を有効にすると sin、cos、√、対数、π などが使えます。",
         "C": "C",
         "CE": "CE",
         "BACKSPACE": "バックスペース",
@@ -1204,7 +1204,12 @@
         "KEYBOARD_HINT": "キーボード：数字；+ − * /；Enter または = で結果；Esc で全消去；バックスペースで末尾の桁を削除。",
         "TAPE_MODE_LABEL": "詳細表示（数字と演算子を1行ずつ）",
         "TAPE_ARIA": "計算の手順",
-        "TAPE_EMPTY": "数字と演算子がここに表示されます。"
+        "TAPE_EMPTY": "数字と演算子がここに表示されます。",
+        "SCIENTIFIC_MODE_LABEL": "関数電卓",
+        "SCIENTIFIC_ANGLES_HINT": "sin / cos / tan の角度は度単位です。",
+        "SCI_LOG10_TITLE": "常用対数（底が 10）",
+        "SCI_SQUARE_TITLE": "表示されている値の二乗",
+        "SCI_INV_TITLE": "逆数（1÷x）"
     },
     "ASSISTANT": {
         "TITLE": "PatTool アシスタント",

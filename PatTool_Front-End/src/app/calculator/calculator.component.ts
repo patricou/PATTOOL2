@@ -5,6 +5,15 @@ import { TranslateModule } from '@ngx-translate/core';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 
 type CalcOp = '+' | '-' | '*' | '/';
+type SciUnaryKind =
+  | 'sqrt'
+  | 'square'
+  | 'inv'
+  | 'sin'
+  | 'cos'
+  | 'tan'
+  | 'log10'
+  | 'ln';
 
 @Component({
   selector: 'app-calculator',
@@ -24,6 +33,9 @@ export class CalculatorComponent {
 
   /** Détail du calcul : affiché par défaut ; désactiver pour masquer la liste. */
   tapeMode = true;
+
+  /** Sin / cos / tan attendent une entrée en degrés ; autres fonctions classiques (√, ln, …). */
+  scientificMode = false;
 
   private buf = '0';
   private acc: number | null = null;
@@ -170,6 +182,106 @@ export class CalculatorComponent {
     this.tapePush(before);
     this.tapePush('%');
     this.tapePush(this.display);
+  }
+
+  insertConstant(which: 'pi' | 'e'): void {
+    if (this.display === 'Error') {
+      this.clearAll();
+      return;
+    }
+    const val = which === 'pi' ? Math.PI : Math.E;
+    const lbl = which === 'pi' ? 'π' : 'e';
+    const s = this.formatForDisplay(val);
+    if (this.tapeMode) {
+      this.tapePush(lbl);
+      this.tapePush(s);
+    }
+    this.buf = s;
+    this.display = this.buf;
+    this.fresh = true;
+  }
+
+  scientificUnary(kind: SciUnaryKind): void {
+    if (this.display === 'Error') {
+      return;
+    }
+    const beforeShown = (
+      !this.fresh ? this.buf : String(this.display).trim()
+    ).replace(',', '.');
+    const x = parseFloat(beforeShown);
+    if (!Number.isFinite(x)) {
+      return;
+    }
+
+    let r: number | null = null;
+
+    switch (kind) {
+      case 'sqrt':
+        r = x < 0 ? null : Math.sqrt(x);
+        break;
+      case 'square':
+        r = x * x;
+        break;
+      case 'inv':
+        r = x === 0 ? null : 1 / x;
+        break;
+      case 'sin': {
+        const rad = (x * Math.PI) / 180;
+        r = Math.sin(rad);
+        break;
+      }
+      case 'cos': {
+        const rad = (x * Math.PI) / 180;
+        r = Math.cos(rad);
+        break;
+      }
+      case 'tan': {
+        const rad = (x * Math.PI) / 180;
+        const cos = Math.cos(rad);
+        r = Math.abs(cos) < 1e-15 ? null : Math.tan(rad);
+        break;
+      }
+      case 'log10':
+        r = x <= 0 ? null : Math.log10(x);
+        break;
+      case 'ln':
+        r = x <= 0 ? null : Math.log(x);
+        break;
+      default:
+        return;
+    }
+
+    if (r === null || !Number.isFinite(r)) {
+      this.setError();
+      return;
+    }
+    const out = this.formatForDisplay(r);
+
+    if (this.tapeMode) {
+      const isTrig = kind === 'sin' || kind === 'cos' || kind === 'tan';
+      if (kind === 'sqrt') {
+        this.tapePush('√(' + beforeShown + ')');
+      } else if (kind === 'square') {
+        this.tapePush('(' + beforeShown + ')²');
+      } else if (kind === 'inv') {
+        this.tapePush('1÷(' + beforeShown + ')');
+      } else if (isTrig) {
+        const fn = kind === 'sin' ? 'sin' : kind === 'cos' ? 'cos' : 'tan';
+        this.tapePush(fn + '(' + beforeShown + '°)');
+      } else if (kind === 'log10') {
+        this.tapePush('log(' + beforeShown + ')');
+      } else if (kind === 'ln') {
+        this.tapePush('ln(' + beforeShown + ')');
+      }
+      this.tapePush('=');
+      this.tapePush(out);
+    }
+
+    this.acc = null;
+    this.pendingOp = null;
+    this.buf = out;
+    this.display = this.buf;
+    this.fresh = true;
   }
 
   onKeydown(ev: KeyboardEvent): void {

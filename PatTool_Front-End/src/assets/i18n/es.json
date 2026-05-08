@@ -1398,7 +1398,7 @@
     },
     "CALCULATOR": {
         "TITLE": "Calculadora",
-        "SUBTITLE": "Aritmética básica (+, −, ×, ÷). Pulse el panel o Tab para usar el teclado.",
+        "SUBTITLE": "Aritmética básica (+, −, ×, ÷). Active «calculadora científica» para sen, cos, √, logaritmos, π y más.",
         "C": "C",
         "CE": "CE",
         "BACKSPACE": "Retroceso",
@@ -1407,7 +1407,12 @@
         "KEYBOARD_HINT": "Teclado: dígitos; + − * /; Intro o = para el resultado; Esc borra todo; Retroceso borra el último dígito.",
         "TAPE_MODE_LABEL": "Vista detallada (números y operadores, una línea cada uno)",
         "TAPE_ARIA": "Pasos del cálculo",
-        "TAPE_EMPTY": "Cada número y operador aparecerá aquí."
+        "TAPE_EMPTY": "Cada número y operador aparecerá aquí.",
+        "SCIENTIFIC_MODE_LABEL": "Calculadora científica",
+        "SCIENTIFIC_ANGLES_HINT": "Los ángulos de sen / cos / tan están en grados.",
+        "SCI_LOG10_TITLE": "Logaritmo decimal (base 10)",
+        "SCI_SQUARE_TITLE": "Cuadrado del valor mostrado",
+        "SCI_INV_TITLE": "Recíproco (1 ÷ x)"
     },
     "ASSISTANT": {
         "TITLE": "Asistente PatTool",

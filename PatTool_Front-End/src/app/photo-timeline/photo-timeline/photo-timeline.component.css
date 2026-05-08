@@ -567,17 +567,54 @@
     box-shadow: 0 2px 8px rgba(13, 110, 253, 0.35);
 }
 
-.group-action-btn--assistant {
-    background: linear-gradient(145deg, #fde047 0%, #facc15 45%, #eab308 100%);
-    color: #422006;
-    border-color: rgba(180, 83, 9, 0.65);
+/*
+ * Bouton IA mur de photos : même principe que .slideshow-footer-btn-ia
+ * (slideshow-modal : rond, bordure et libellé jaunes). Le footer du modal
+ * n’existe pas ici : on duplique les règles avec un sélecteur dédié.
+ */
+.group-header-actions-fit-inner .btn.photo-wall-btn-ia {
+    flex-shrink: 0;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 0.05rem;
+    width: 3rem;
+    height: 3rem;
+    min-width: 3rem;
+    padding: 0.2rem !important;
+    border-radius: 50% !important;
+    border: 2px solid #ffeb3b !important;
+    color: #ffeb3b !important;
+    background-color: rgba(0, 0, 0, 0.28) !important;
+    line-height: 1.1;
 }
-.group-action-btn--assistant:hover {
-    background: linear-gradient(145deg, #facc15 0%, #eab308 50%, #ca8a04 100%);
-    color: #292524;
-    border-color: #a16207;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 10px rgba(234, 179, 8, 0.55);
+
+.group-header-actions-fit-inner .btn.photo-wall-btn-ia:hover:not(:disabled) {
+    background-color: rgba(255, 235, 59, 0.15) !important;
+    border-color: #fff176 !important;
+    color: #fff9c4 !important;
+}
+
+.group-header-actions-fit-inner .btn.photo-wall-btn-ia:hover:not(:disabled) .slideshow-footer-btn-ia-icon,
+.group-header-actions-fit-inner .btn.photo-wall-btn-ia:hover:not(:disabled) .slideshow-footer-btn-ia-label {
+    color: #fff9c4 !important;
+}
+
+.group-header-actions-fit-inner .btn.photo-wall-btn-ia .slideshow-footer-btn-ia-icon {
+    margin-right: 0 !important;
+    font-size: 0.72rem;
+    color: #ffeb3b !important;
+}
+
+.group-header-actions-fit-inner .btn.photo-wall-btn-ia .slideshow-footer-btn-ia-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #ffeb3b !important;
+}
+
+.group-header-actions-fit-inner .btn.photo-wall-btn-ia:active:not(:disabled) {
+    transform: scale(0.98);
 }
 
 .fs-slideshow-btn {

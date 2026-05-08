@@ -17,5 +17,15 @@ public record AssistantChatRequestDto(
         /** Recherche web, génération d’images, MCP — active l’API Responses avec outils. */
         AssistantToolFlagsDto tools,
         /** Image analysée avec le dernier tour « user » (vision). */
-        @Valid AssistantAttachedImageDto attachedImage
+        @Valid AssistantAttachedImageDto attachedImage,
+        /**
+         * Surcharge facultative du fournisseur pour ce tour : {@code openai}, {@code anthropic}, {@code claude}.
+         * Si absent, le serveur utilise {@code assistant.provider}.
+         */
+        @Size(max = 32) String provider,
+        /**
+         * Surcharge facultative du modèle pour ce tour (sinon {@code openai.assistant.model} ou
+         * {@code anthropic.model} selon le fournisseur effectif).
+         */
+        @Size(max = 160) String model
 ) {}

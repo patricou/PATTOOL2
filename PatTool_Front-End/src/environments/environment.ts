@@ -17,7 +17,6 @@ export const environment = {
     serviceBaseUrl: 'http://localhost:8080/database',
     // PatTool REST API (same port as Spring server.port — often 8000 in dev, see repo README)
     API_URL: "http://localhost:8000/api/",
-    URL4PATGPT: "http://localhost:8000/",
     API_URL4FILE: "http://localhost:8000/uploadfile",
     API_URL4FILEONDISK: "http://localhost:8000/api/fsphotos",
     API_URL4UPLOADFILEONDISK: "http://localhost:8000/uploadondisk",

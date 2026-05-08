@@ -1394,7 +1394,7 @@
     },
     "CALCULATOR": {
         "TITLE": "Calcolatrice",
-        "SUBTITLE": "Operazioni base (+, −, ×, ÷). Clicca il pannello o premi Tab per la tastiera.",
+        "SUBTITLE": "Operazioni fondamentali (+, −, ×, ÷). Attiva «calcolatrice scientifica» per sin, cos, √, logaritmi, π e altro.",
         "C": "C",
         "CE": "CE",
         "BACKSPACE": "Indietro",
@@ -1403,7 +1403,12 @@
         "KEYBOARD_HINT": "Tastiera: cifre; + − * /; Invio o = per il risultato; Esc cancella tutto; il tasto Indietro elimina l’ultima cifra.",
         "TAPE_MODE_LABEL": "Vista dettagliata (numeri e operatori, una riga ciascuno)",
         "TAPE_ARIA": "Passi del calcolo",
-        "TAPE_EMPTY": "Ogni numero e operatore comparirà qui."
+        "TAPE_EMPTY": "Ogni numero e operatore comparirà qui.",
+        "SCIENTIFIC_MODE_LABEL": "Calcolatrice scientifica",
+        "SCIENTIFIC_ANGLES_HINT": "Per sin / cos / tan gli angoli sono in gradi.",
+        "SCI_LOG10_TITLE": "Logaritmo decimale (base 10)",
+        "SCI_SQUARE_TITLE": "Quadrato del valore visualizzato",
+        "SCI_INV_TITLE": "Reciproco (1 ÷ x)"
     },
     "ASSISTANT": {
         "TITLE": "Assistente PatTool",

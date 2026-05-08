@@ -3,6 +3,7 @@ import { KeycloakService } from '../keycloak/keycloak.service';
 import {
   AssistantChatMeta,
   AssistantChatTurn,
+  AssistantRoutingStored,
   AssistantToolFlagsRequest
 } from './assistant.service';
 
@@ -10,6 +11,7 @@ interface StoredShape {
   messages?: unknown;
   draft?: string;
   toolFlags?: AssistantToolFlagsRequest;
+  routing?: AssistantRoutingStored;
 }
 
 /** Historique du panneau assistant par utilisateur, dans sessionStorage (onglet). */
@@ -52,6 +54,26 @@ export class AssistantSessionStore {
     return Object.keys(out).length ? out : undefined;
   }
 
+  private static sanitizeRouting(raw: unknown): AssistantRoutingStored | undefined {
+    if (raw == null || typeof raw !== 'object') {
+      return undefined;
+    }
+    const o = raw as Record<string, unknown>;
+    const p = o['provider'];
+    if (p !== 'openai' && p !== 'anthropic') {
+      return undefined;
+    }
+    const modelPreset =
+      typeof o['modelPreset'] === 'string' ? o['modelPreset'] : '__custom__';
+    const modelCustom =
+      typeof o['modelCustom'] === 'string' ? o['modelCustom'] : '';
+    return {
+      provider: p,
+      modelPreset,
+      modelCustom
+    };
+  }
+
   private static sanitizeToolFlags(
     raw: unknown
   ): AssistantToolFlagsRequest | undefined {
@@ -86,6 +108,7 @@ export class AssistantSessionStore {
     messages: AssistantChatTurn[];
     draft: string;
     toolFlags?: AssistantToolFlagsRequest;
+    routing?: AssistantRoutingStored;
   } | null {
     try {
       const raw = sessionStorage.getItem(this.key());
@@ -124,10 +147,12 @@ export class AssistantSessionStore {
       }
       const draft = typeof data.draft === 'string' ? data.draft : '';
       const toolFlags = AssistantSessionStore.sanitizeToolFlags(data.toolFlags);
+      const routing = AssistantSessionStore.sanitizeRouting(data.routing);
       return {
         messages,
         draft,
-        ...(toolFlags ? { toolFlags } : {})
+        ...(toolFlags ? { toolFlags } : {}),
+        ...(routing ? { routing } : {})
       };
     } catch {
       return null;
@@ -137,7 +162,8 @@ export class AssistantSessionStore {
   save(
     messages: AssistantChatTurn[],
     draft: string,
-    toolFlags?: AssistantToolFlagsRequest
+    toolFlags?: AssistantToolFlagsRequest,
+    routing?: AssistantRoutingStored
   ): void {
     try {
       const slim = messages.map((m) => {
@@ -161,6 +187,13 @@ export class AssistantSessionStore {
       const payload: Record<string, unknown> = { messages: slim, draft };
       if (toolFlags != null && Object.keys(toolFlags).length > 0) {
         payload['toolFlags'] = toolFlags;
+      }
+      if (routing != null) {
+        payload['routing'] = {
+          provider: routing.provider,
+          modelPreset: routing.modelPreset,
+          modelCustom: routing.modelCustom
+        };
       }
       sessionStorage.setItem(this.key(), JSON.stringify(payload));
     } catch {

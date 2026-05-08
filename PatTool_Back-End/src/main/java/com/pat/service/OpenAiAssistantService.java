@@ -2,11 +2,12 @@ package com.pat.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.pat.controller.dto.AssistantAttachedImageDto;
 import com.pat.controller.dto.AssistantChatRequestDto;
 import com.pat.controller.dto.AssistantChatResponseDto;
 import com.pat.controller.dto.AssistantToolFlagsDto;
 import com.pat.controller.dto.AssistantTurnDto;
+import com.pat.service.assistant.AssistantMessageSupport;
+import com.pat.service.assistant.AssistantMessageSupport.ResolvedImage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -18,7 +19,6 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -29,13 +29,6 @@ import java.util.Set;
 public class OpenAiAssistantService {
 
     private static final Logger log = LoggerFactory.getLogger(OpenAiAssistantService.class);
-
-    private static final int MAX_TURNS = 40;
-    private static final int MAX_CONTENT_CHARS = 120_000;
-    private static final int MAX_IMAGE_DECODED_BYTES = 8 * 1024 * 1024;
-
-    private static final Set<String> ALLOWED_IMAGE_MIMES =
-            Set.of("image/jpeg", "image/png", "image/gif", "image/webp");
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -92,12 +85,13 @@ public class OpenAiAssistantService {
                     "Assistant indisponible : configurez openai.key côté serveur (même clé que PatGPT si besoin).");
         }
 
-        List<AssistantTurnDto> turns = trimTurns(request.messages());
+        List<AssistantTurnDto> turns = AssistantMessageSupport.trimTurns(request.messages());
         if (turns.isEmpty()) {
             return AssistantChatResponseDto.err("Aucun message valide à envoyer.");
         }
 
-        ImageAttachResult imageAttach = resolveAttachedImage(request.attachedImage(), turns);
+        ResolvedImage imageAttach =
+                AssistantMessageSupport.resolveAttachedImage(request.attachedImage(), turns);
         if (imageAttach.error() != null) {
             return AssistantChatResponseDto.err(imageAttach.error());
         }
@@ -106,17 +100,19 @@ public class OpenAiAssistantService {
         if (request.system() != null && !request.system().isBlank()) {
             totalChars += request.system().trim().length();
         }
-        if (totalChars > MAX_CONTENT_CHARS) {
+        if (totalChars > AssistantMessageSupport.MAX_CONTENT_CHARS) {
             return AssistantChatResponseDto.err(
                     "Conversation trop longue pour un seul envoi. Effacez l’historique ou raccourcissez les messages.");
         }
+
+        String requestModel = resolveRequestModel(request);
 
         if (useResponsesTools(request)) {
             String mcpErr = validateMcpConfig(request.tools());
             if (mcpErr != null) {
                 return AssistantChatResponseDto.err(mcpErr);
             }
-            return completeWithResponses(request, turns, imageAttach.dataUrl());
+            return completeWithResponses(request, turns, imageAttach.dataUrl(), requestModel);
         }
 
         List<Object> chatMessages = new ArrayList<>();
@@ -145,7 +141,7 @@ public class OpenAiAssistantService {
         }
 
         Map<String, Object> body = new HashMap<>();
-        body.put("model", model);
+        body.put("model", requestModel);
         body.put("messages", chatMessages);
         body.put("max_completion_tokens", maxTokens);
 
@@ -159,7 +155,7 @@ public class OpenAiAssistantService {
             ResponseEntity<String> response =
                     restTemplate.exchange(apiUrl, HttpMethod.POST, entity, String.class);
             int elapsedMs = (int) Math.min((System.nanoTime() - startNs) / 1_000_000L, Integer.MAX_VALUE);
-            AssistantChatResponseDto parsed = parseOpenAiResponse(response.getBody());
+            AssistantChatResponseDto parsed = parseOpenAiResponse(response.getBody(), requestModel);
             if (parsed.error() != null) {
                 log.warn("OpenAI response carries error payload: {}", parsed.error());
                 return AssistantChatResponseDto.err(parsed.error());
@@ -194,78 +190,6 @@ public class OpenAiAssistantService {
             log.error("OpenAI assistant request failed", e);
             return AssistantChatResponseDto.err("Erreur technique lors de l’appel à l’assistant.");
         }
-    }
-
-    private record ImageAttachResult(String dataUrl, String error) {
-        static ImageAttachResult none() {
-            return new ImageAttachResult(null, null);
-        }
-
-        static ImageAttachResult ok(String dataUrl) {
-            return new ImageAttachResult(dataUrl, null);
-        }
-
-        static ImageAttachResult err(String message) {
-            return new ImageAttachResult(null, message);
-        }
-    }
-
-    private ImageAttachResult resolveAttachedImage(
-            AssistantAttachedImageDto attached, List<AssistantTurnDto> turns) {
-        if (attached == null) {
-            return ImageAttachResult.none();
-        }
-        if (turns.isEmpty() || !"user".equals(turns.get(turns.size() - 1).role())) {
-            return ImageAttachResult.err(
-                    "Une image ne peut être analysée qu’avec un message utilisateur en dernier.");
-        }
-        String mimeRaw = attached.mimeType();
-        String b64Raw = attached.base64();
-        if (mimeRaw == null || mimeRaw.isBlank() || b64Raw == null || b64Raw.isBlank()) {
-            return ImageAttachResult.err("Image jointe incomplète (mimeType ou base64 manquant).");
-        }
-        String mime = mimeRaw.trim().toLowerCase();
-        String b64 = b64Raw.strip().replaceAll("\\s+", "");
-        String useMime = mime;
-        if (b64.startsWith("data:")) {
-            int comma = b64.indexOf(',');
-            if (comma < 6) {
-                return ImageAttachResult.err("Image jointe : data URL invalide.");
-            }
-            String header = b64.substring(5, comma);
-            int semi = header.indexOf(';');
-            String declared =
-                    semi > 0 ? header.substring(0, semi).trim().toLowerCase() : header.trim().toLowerCase();
-            if (!declared.isEmpty() && ALLOWED_IMAGE_MIMES.contains(declared)) {
-                useMime = declared;
-            }
-            b64 = b64.substring(comma + 1).replaceAll("\\s+", "");
-        }
-        if (!ALLOWED_IMAGE_MIMES.contains(useMime)) {
-            return ImageAttachResult.err(
-                    "Format d’image non pris en charge. Utilisez JPEG, PNG, GIF ou WebP.");
-        }
-        byte[] decoded;
-        try {
-            decoded = Base64.getDecoder().decode(b64);
-        } catch (IllegalArgumentException e) {
-            return ImageAttachResult.err("Encodage base64 de l’image invalide.");
-        }
-        if (decoded.length == 0) {
-            return ImageAttachResult.err("Image jointe vide.");
-        }
-        if (decoded.length > MAX_IMAGE_DECODED_BYTES) {
-            return ImageAttachResult.err(
-                    "Image trop volumineuse (max "
-                            + (MAX_IMAGE_DECODED_BYTES / (1024 * 1024))
-                            + " Mo après décodage).");
-        }
-        String dataUrl =
-                "data:"
-                        + useMime
-                        + ";base64,"
-                        + Base64.getEncoder().encodeToString(decoded);
-        return ImageAttachResult.ok(dataUrl);
     }
 
     private static boolean useResponsesTools(AssistantChatRequestDto request) {
@@ -305,7 +229,7 @@ public class OpenAiAssistantService {
     }
 
     private AssistantChatResponseDto completeWithResponses(
-            AssistantChatRequestDto request, List<AssistantTurnDto> turns, String imageDataUrl) {
+            AssistantChatRequestDto request, List<AssistantTurnDto> turns, String imageDataUrl, String requestModel) {
         AssistantToolFlagsDto flags = request.tools();
         List<Map<String, Object>> tools = new ArrayList<>();
         List<String> include = new ArrayList<>();
@@ -346,7 +270,7 @@ public class OpenAiAssistantService {
         }
 
         Map<String, Object> body = new HashMap<>();
-        body.put("model", model);
+        body.put("model", requestModel);
         body.put("input", input);
         body.put("max_output_tokens", maxTokens);
         body.put("tool_choice", "auto");
@@ -372,7 +296,7 @@ public class OpenAiAssistantService {
                             resolveResponsesApiUrl(), HttpMethod.POST, entity, String.class);
             int elapsedMs =
                     (int) Math.min((System.nanoTime() - startNs) / 1_000_000L, Integer.MAX_VALUE);
-            AssistantChatResponseDto parsed = parseResponsesApiResponse(response.getBody());
+            AssistantChatResponseDto parsed = parseResponsesApiResponse(response.getBody(), requestModel);
             if (parsed.error() != null) {
                 log.warn("OpenAI Responses API carries error payload: {}", parsed.error());
                 return AssistantChatResponseDto.err(parsed.error());
@@ -407,7 +331,15 @@ public class OpenAiAssistantService {
         }
     }
 
-    private AssistantChatResponseDto parseResponsesApiResponse(String json) {
+    /** Modèle envoyé à l’API pour ce tour (priorité au champ {@code model} du corps de requête REST). */
+    private String resolveRequestModel(AssistantChatRequestDto request) {
+        if (request != null && request.model() != null && !request.model().isBlank()) {
+            return request.model().trim();
+        }
+        return model != null ? model.trim() : "";
+    }
+
+    private AssistantChatResponseDto parseResponsesApiResponse(String json, String modelFallback) {
         if (json == null || json.isBlank()) {
             return AssistantChatResponseDto.err("Réponse vide du fournisseur IA (Responses).");
         }
@@ -429,7 +361,7 @@ public class OpenAiAssistantService {
             }
 
             String id = root.path("id").asText("");
-            String modelUsed = root.path("model").asText(model);
+            String modelUsed = root.path("model").asText(modelFallback);
             Integer inTok = null;
             Integer outTok = null;
             JsonNode usage = root.get("usage");
@@ -531,28 +463,7 @@ public class OpenAiAssistantService {
         text.append("![Image générée](").append(dataUrl).append(")");
     }
 
-    private static List<AssistantTurnDto> trimTurns(List<AssistantTurnDto> messages) {
-        List<AssistantTurnDto> out = new ArrayList<>();
-        int from = Math.max(0, messages.size() - MAX_TURNS);
-        for (int i = from; i < messages.size(); i++) {
-            AssistantTurnDto t = messages.get(i);
-            if (t == null || t.role() == null || t.content() == null) {
-                continue;
-            }
-            String role = t.role().trim().toLowerCase();
-            if (!"user".equals(role) && !"assistant".equals(role)) {
-                continue;
-            }
-            String content = t.content().trim();
-            if (content.isEmpty()) {
-                continue;
-            }
-            out.add(new AssistantTurnDto(role, content));
-        }
-        return out;
-    }
-
-    private AssistantChatResponseDto parseOpenAiResponse(String json) {
+    private AssistantChatResponseDto parseOpenAiResponse(String json, String modelFallback) {
         if (json == null || json.isBlank()) {
             return AssistantChatResponseDto.err("Réponse vide du fournisseur IA.");
         }
@@ -575,7 +486,7 @@ public class OpenAiAssistantService {
             String content = message.path("content").asText("");
 
             String id = root.path("id").asText("");
-            String modelUsed = root.path("model").asText(model);
+            String modelUsed = root.path("model").asText(modelFallback);
             Integer inTok = null;
             Integer outTok = null;
             JsonNode usage = root.get("usage");

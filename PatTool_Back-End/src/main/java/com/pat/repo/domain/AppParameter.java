@@ -15,6 +15,7 @@ import java.util.Date;
  *
  * Designed to grow. Typical upcoming candidates:
  *  - {@code newsapi.requests.log}         - JSON array of ISO-8601 timestamps
+ *  - {@code assistant.routing.<keycloak_sub>} - JSON object (provider, modelPreset, modelCustom) for assistant
  *  - {@code ui.feature.flags}             - JSON map of feature toggles
  *  - {@code newsapi.last.error.code}      - last NewsAPI error, for diagnostics
  *  - {@code system.maintenance.message}   - banner string for all users

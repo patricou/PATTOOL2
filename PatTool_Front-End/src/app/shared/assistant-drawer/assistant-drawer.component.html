@@ -33,10 +33,46 @@
     <div class="pat-assistant-drawer-title">
       <i class="fa fa-magic me-2" aria-hidden="true"></i>
       <div class="pat-assistant-drawer-title-stack">
-        <span class="pat-assistant-drawer-title-main">{{ 'ASSISTANT.TITLE' | translate }}</span>
-        <span *ngIf="headerTitleMetaLine()" class="pat-assistant-drawer-title-meta">{{
-          headerTitleMetaLine()
-        }}</span>
+        <div class="pat-assistant-drawer-title-row">
+          <span class="pat-assistant-drawer-title-main">{{ 'ASSISTANT.TITLE' | translate }}</span>
+          <div
+            class="pat-assistant-routing"
+            role="group"
+            [attr.aria-label]="'ASSISTANT.ROUTING_GROUP' | translate">
+            <label class="visually-hidden" for="pat-asst-routing-provider">{{
+              'ASSISTANT.ROUTING_PROVIDER' | translate
+            }}</label>
+            <select
+              id="pat-asst-routing-provider"
+              class="form-select form-select-sm pat-assistant-routing-select"
+              [(ngModel)]="routingProvider"
+              (ngModelChange)="onAssistantRoutingProviderChange()"
+              [disabled]="loading">
+              <option value="openai">{{ 'ASSISTANT.PROVIDER_OPENAI' | translate }}</option>
+              <option value="anthropic">{{ 'ASSISTANT.PROVIDER_ANTHROPIC' | translate }}</option>
+            </select>
+            <label class="visually-hidden" for="pat-asst-routing-model">{{ 'ASSISTANT.ROUTING_MODEL' | translate }}</label>
+            <select
+              id="pat-asst-routing-model"
+              class="form-select form-select-sm pat-assistant-routing-select pat-assistant-routing-model"
+              [(ngModel)]="modelPreset"
+              (ngModelChange)="onAssistantModelPresetChange()"
+              [disabled]="loading">
+              <option *ngFor="let opt of routingModelOptions" [value]="opt">{{ opt }}</option>
+              <option [value]="MODEL_PRESET_CUSTOM">{{ 'ASSISTANT.MODEL_CUSTOM_OPTION' | translate }}</option>
+            </select>
+            <input
+              *ngIf="modelPreset === MODEL_PRESET_CUSTOM"
+              type="text"
+              class="form-control form-control-sm pat-assistant-routing-input"
+              [(ngModel)]="modelCustom"
+              (ngModelChange)="onAssistantModelCustomChange()"
+              [disabled]="loading"
+              [attr.placeholder]="'ASSISTANT.MODEL_CUSTOM_PLACEHOLDER' | translate"
+              spellcheck="false"
+              autocomplete="off" />
+          </div>
+        </div>
       </div>
     </div>
     <div class="pat-assistant-drawer-actions">
@@ -278,7 +314,7 @@
           id="pat-assistant-tool-web"
           [(ngModel)]="toolWebSearch"
           (change)="onToolFlagsChanged()"
-          [disabled]="loading"
+          [disabled]="loading || routingProvider !== 'openai'"
           [title]="'ASSISTANT.TOOL_WEB_HINT' | translate" />
         <label class="form-check-label"
                for="pat-assistant-tool-web"
@@ -291,7 +327,7 @@
           id="pat-assistant-tool-img"
           [(ngModel)]="toolImageGeneration"
           (change)="onToolFlagsChanged()"
-          [disabled]="loading"
+          [disabled]="loading || routingProvider !== 'openai'"
           [title]="'ASSISTANT.TOOL_IMAGE_HINT' | translate" />
         <label class="form-check-label"
                for="pat-assistant-tool-img"

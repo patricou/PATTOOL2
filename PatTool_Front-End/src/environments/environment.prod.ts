@@ -13,7 +13,6 @@ export const environment = {
     keykloakBaseUrl: 'https://www.patrickdeschamps.com:8543/auth',
     serviceBaseUrl: 'https://www.patrickdeschamps.com:8543/database',
     API_URL: "/api/",
-    URL4PATGPT: "/",
     API_URL4FILE: "/uploadfile",
     API_URL4FILEONDISK: "/api/fsphotos",
     API_URL4UPLOADFILEONDISK: "/uploadondisk",

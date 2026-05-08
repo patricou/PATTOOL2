@@ -3,7 +3,7 @@ import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { TranslateService } from '@ngx-translate/core';
 import { environment } from '../../environments/environment';
-import { Observable, from, throwError, of } from 'rxjs';
+import { Observable, from, throwError, of, EMPTY } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
 
 export interface AssistantChatMeta {
@@ -79,12 +79,28 @@ export interface AssistantOpenAiCredits {
   message?: string | null;
 }
 
-/** openai.provider + openai.assistant.model (backend application.properties). */
+/** Libellés + routage par défaut côté serveur (GET /assistant/config). */
 export interface AssistantClientConfig {
   provider?: string | null;
   model?: string | null;
+  /** openai | anthropic — valeur de assistant.provider côté Spring. */
+  routingDefault?: string | null;
+  /** Préférence persistée (Mongo appParameters), si l’utilisateur en a déjà enregistré une. */
+  persistedRouting?: AssistantRoutingStored | null;
 }
 
+/** Fournisseur + modèle effectifs pour un tour de chat (surcharge la config serveur). */
+export interface AssistantRoutingRequest {
+  provider: 'openai' | 'anthropic';
+  model: string;
+}
+
+/** Persistance du choix fournisseur / modèle dans l’assistant (sessionStorage + optionnellement Mongo via API). */
+export interface AssistantRoutingStored {
+  provider: 'openai' | 'anthropic';
+  modelPreset: string;
+  modelCustom: string;
+}
 
 export interface AssistantToolFlagsRequest {
   webSearch?: boolean;
@@ -103,6 +119,8 @@ export class AssistantService {
   private readonly apiUrl = environment.API_URL + 'assistant/chat';
   private readonly creditsUrl = environment.API_URL + 'assistant/openai/credits';
   private readonly configUrl = environment.API_URL + 'assistant/config';
+  private readonly routingPrefUrl =
+    environment.API_URL + 'assistant/routing-preference';
 
   constructor(
     private http: HttpClient,
@@ -126,7 +144,8 @@ export class AssistantService {
     messages: AssistantChatTurn[],
     system?: string,
     tools?: AssistantToolFlagsRequest,
-    attachedImage?: AssistantAttachedImageRequest
+    attachedImage?: AssistantAttachedImageRequest,
+    routing?: AssistantRoutingRequest
   ): Observable<AssistantChatResponse> {
     const slimMessages = messages.map((m) => ({
       role: m.role,
@@ -137,6 +156,8 @@ export class AssistantService {
       system?: string;
       tools?: AssistantToolFlagsRequest;
       attachedImage?: AssistantAttachedImageRequest;
+      provider?: string;
+      model?: string;
     } = { messages: slimMessages };
     if (system && system.trim()) {
       body.system = system.trim();
@@ -164,6 +185,12 @@ export class AssistantService {
         mimeType: attachedImage.mimeType.trim(),
         base64: attachedImage.base64.trim()
       };
+    }
+    if (routing?.provider === 'openai' || routing?.provider === 'anthropic') {
+      body.provider = routing.provider;
+    }
+    if (routing?.model?.trim()) {
+      body.model = routing.model.trim();
     }
     return this.authHeaders().pipe(
       switchMap((headers) =>
@@ -195,6 +222,21 @@ export class AssistantService {
           .pipe(catchError(() => of({})))
       ),
       catchError(() => of({}))
+    );
+  }
+
+  /** Enregistre le couple fournisseur / modèle pour l’utilisateur connecté (Mongo appParameters). */
+  saveAssistantRoutingPreference(r: AssistantRoutingStored): Observable<void> {
+    const body = {
+      provider: r.provider,
+      modelPreset: r.modelPreset,
+      modelCustom: r.modelCustom ?? ''
+    };
+    return this.authHeaders().pipe(
+      switchMap((headers) =>
+        this.http.put<void>(this.routingPrefUrl, body, { headers })
+      ),
+      catchError(() => EMPTY)
     );
   }
 

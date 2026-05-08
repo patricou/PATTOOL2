@@ -26,7 +26,9 @@ import {
   AssistantAttachedImageRequest,
   AssistantChatMeta,
   AssistantChatTurn,
+  AssistantClientConfig,
   AssistantOpenAiCredits,
+  AssistantRoutingStored,
   AssistantService,
   AssistantToolFlagsRequest,
   parseElapsedMsFromAssistantResponse
@@ -252,6 +254,9 @@ export class AssistantDrawerComponent
   private chatSendSub?: Subscription;
   private fabAnchorRaf = 0;
   private draftPersistTimer?: ReturnType<typeof setTimeout>;
+  /** Sauvegarde distante (Mongo) du fournisseur / modèle — debounced */
+  private routingRemotePersistTimer?: ReturnType<typeof setTimeout>;
+  private static readonly ROUTING_REMOTE_DEBOUNCE_MS = 500;
   private transientTimeouts: Array<ReturnType<typeof setTimeout>> = [];
   private readonly boundScheduleFabAnchor = (): void => this.scheduleFabAnchorUpdate();
 
@@ -260,6 +265,45 @@ export class AssistantDrawerComponent
     AssistantChatTurn,
     SafeHtml
   >();
+
+  private static readonly OPENAI_MODEL_PRESETS: readonly string[] = [
+    'gpt-5.5',
+    'gpt-5.2',
+    'gpt-4.1',
+    'gpt-4o',
+    'gpt-4o-mini',
+    'o4-mini',
+    'o3-mini'
+  ];
+  private static readonly ANTHROPIC_MODEL_PRESETS: readonly string[] = [
+    'claude-sonnet-4-6',
+    'claude-opus-4-7',
+    'claude-haiku-4-5-20251001'
+  ];
+
+  readonly MODEL_PRESET_CUSTOM = '__custom__';
+
+  /** Fournisseur effectif pour les requêtes (surcharge application.properties). */
+  routingProvider: 'openai' | 'anthropic' = 'openai';
+  /** Id de modèle parmi {@link routingModelOptions} ou {@link MODEL_PRESET_CUSTOM}. */
+  modelPreset = 'gpt-4o';
+  /** Saisie libre si {@link modelPreset} === {@link MODEL_PRESET_CUSTOM}. */
+  modelCustom = '';
+  routingModelOptions: string[] = [...AssistantDrawerComponent.OPENAI_MODEL_PRESETS];
+
+  /** Modèle issu du backend (GET /assistant/config), injecté dans les listes. */
+  serverDefaultModel = '';
+  /** Valeur de assistant.provider côté serveur. */
+  serverRoutingDefault: 'openai' | 'anthropic' = 'openai';
+  /**
+   * Routing préservé depuis sessionStorage, appliqué seulement après GET /assistant/config
+   * si aucune préférence Mongo (priorité : Mongo → session onglet → application.properties).
+   */
+  private pendingSessionRouting?: AssistantRoutingStored;
+  /** True si le routing vient de Mongo ou de la session onglet (pas des seuls défauts serveur). */
+  private routingRestoredFromSession = false;
+
+  private assistantClientConfigLoaded = false;
 
   constructor(
     private keycloak: KeycloakService,
@@ -287,10 +331,6 @@ export class AssistantDrawerComponent
     // switch) dès la première insertion d'image dans un évènement.
     this.uploadConfigService.preload();
   }
-
-  /** Ligne « fournisseur · modèle » issue de application.properties (GET /assistant/config). */
-  clientConfigMetaLine = '';
-  private assistantClientConfigLoaded = false;
 
   ngOnInit(): void {
     this.tickerLayoutSub = combineLatest([
@@ -322,7 +362,20 @@ export class AssistantDrawerComponent
           this.toolImageGeneration = tf.imageGeneration === true;
           this.toolMcp = tf.mcp === true;
         }
+        const r = saved.routing;
+        if (
+          r &&
+          (r.provider === 'openai' || r.provider === 'anthropic') &&
+          typeof r.modelPreset === 'string'
+        ) {
+          this.pendingSessionRouting = {
+            provider: r.provider,
+            modelPreset: r.modelPreset,
+            modelCustom: typeof r.modelCustom === 'string' ? r.modelCustom : ''
+          };
+        }
       }
+      this.rebuildModelOptionsList();
       this.loadAssistantClientConfig();
     }
 
@@ -495,47 +548,222 @@ export class AssistantDrawerComponent
       )
       .subscribe({
         next: (c) => {
-          const p = typeof c.provider === 'string' ? c.provider.trim() : '';
           const m = typeof c.model === 'string' ? c.model.trim() : '';
-          this.clientConfigMetaLine = [p, m]
-            .filter((x) => x.length > 0)
-            .join(' · ');
+          this.serverDefaultModel = m;
+          const rd =
+            typeof c.routingDefault === 'string'
+              ? c.routingDefault.trim().toLowerCase()
+              : '';
+          this.serverRoutingDefault = rd === 'anthropic' ? 'anthropic' : 'openai';
+
+          this.applyRoutingPreferenceResolution(c);
+          this.pendingSessionRouting = undefined;
+
+          if (!this.routingRestoredFromSession) {
+            this.routingProvider = this.serverRoutingDefault;
+          }
+          this.rebuildModelOptionsList();
+          if (!this.routingRestoredFromSession) {
+            this.syncModelPresetFromServer(m);
+          }
+          this.persistSession();
           this.assistantClientConfigLoaded = true;
           this.cdr.markForCheck();
         },
         error: () => {
+          this.serverDefaultModel = '';
+          this.serverRoutingDefault = 'openai';
+          this.applyRoutingPreferenceResolution({});
+          this.pendingSessionRouting = undefined;
+          if (!this.routingRestoredFromSession) {
+            this.routingProvider = this.serverRoutingDefault;
+          }
+          this.rebuildModelOptionsList();
+          if (!this.routingRestoredFromSession) {
+            this.syncModelPresetFromServer('');
+          }
+          this.persistSession();
           this.assistantClientConfigLoaded = true;
           this.cdr.markForCheck();
         }
       });
   }
 
-  /** Sous-titre du bandeau : config serveur en priorité, sinon dernière réponse. */
-  headerTitleMetaLine(): string {
-    if (this.clientConfigMetaLine) {
-      return this.clientConfigMetaLine;
+  /**
+   * Détermine fournisseur + modèle affichés : préférence Mongo ({@code persistedRouting}),
+   * sinon session de l’onglet, sinon les champs seront complétés via {@code routingDefault}
+   * et {@code model} (application.properties) par l’appelant.
+   */
+  private applyRoutingPreferenceResolution(c: AssistantClientConfig): void {
+    const pr = c.persistedRouting;
+    if (
+      pr &&
+      (pr.provider === 'openai' || pr.provider === 'anthropic') &&
+      typeof pr.modelPreset === 'string'
+    ) {
+      this.routingProvider = pr.provider;
+      this.modelPreset = pr.modelPreset;
+      this.modelCustom = typeof pr.modelCustom === 'string' ? pr.modelCustom : '';
+      this.routingRestoredFromSession = true;
+      return;
     }
-    return this.headerProviderModelLine();
+    const ps = this.pendingSessionRouting;
+    if (
+      ps &&
+      (ps.provider === 'openai' || ps.provider === 'anthropic') &&
+      typeof ps.modelPreset === 'string'
+    ) {
+      this.routingProvider = ps.provider;
+      this.modelPreset = ps.modelPreset;
+      this.modelCustom = typeof ps.modelCustom === 'string' ? ps.modelCustom : '';
+      this.routingRestoredFromSession = true;
+      return;
+    }
+    this.routingRestoredFromSession = false;
   }
 
-  /** Fournisseur · modèle affichés sous le titre du panneau (dernière réponse assistant). */
-  headerProviderModelLine(): string {
-    for (let i = this.messages.length - 1; i >= 0; i--) {
-      const m = this.messages[i];
-      if (m.role === 'assistant') {
-        const line = this.replyProviderModelLine(m);
-        if (line.length > 0) {
-          return line;
-        }
+  routingMetaSummary(): string {
+    const m = this.effectiveModelForRequest().trim();
+    if (!m) {
+      return '';
+    }
+    const lab =
+      this.routingProvider === 'anthropic'
+        ? this.translate.instant('ASSISTANT.PROVIDER_ANTHROPIC_SHORT')
+        : this.translate.instant('ASSISTANT.PROVIDER_OPENAI_SHORT');
+    return `${lab} · ${m}`;
+  }
+
+  effectiveModelForRequest(): string {
+    if (this.modelPreset === this.MODEL_PRESET_CUSTOM) {
+      const c = this.modelCustom.trim();
+      if (c) {
+        return c;
+      }
+    } else if (this.modelPreset && this.modelPreset !== this.MODEL_PRESET_CUSTOM) {
+      const x = this.modelPreset.trim();
+      if (x) {
+        return x;
       }
     }
-    return '';
+    const fb = this.serverDefaultModel.trim();
+    if (fb) {
+      return fb;
+    }
+    const defaults =
+      this.routingProvider === 'openai'
+        ? AssistantDrawerComponent.OPENAI_MODEL_PRESETS
+        : AssistantDrawerComponent.ANTHROPIC_MODEL_PRESETS;
+    return defaults[0] ?? 'gpt-4o';
+  }
+
+  onAssistantRoutingProviderChange(): void {
+    this.toolWebSearch = false;
+    this.toolImageGeneration = false;
+    this.toolMcp = false;
+    this.rebuildModelOptionsList();
+    const sm = this.serverDefaultModel.trim();
+    if (
+      this.routingProvider === this.serverRoutingDefault &&
+      sm &&
+      this.routingModelOptions.includes(sm)
+    ) {
+      this.modelPreset = sm;
+      this.modelCustom = '';
+    } else {
+      const first = this.routingModelOptions[0];
+      if (first) {
+        this.modelPreset = first;
+        this.modelCustom = '';
+      }
+    }
+    this.persistSession();
+    this.scheduleRoutingPreferenceRemotePersist();
+    this.cdr.markForCheck();
+  }
+
+  onAssistantModelPresetChange(): void {
+    if (this.modelPreset !== this.MODEL_PRESET_CUSTOM) {
+      this.modelCustom = '';
+    }
+    this.persistSession();
+    this.scheduleRoutingPreferenceRemotePersist();
+    this.cdr.markForCheck();
+  }
+
+  onAssistantModelCustomChange(): void {
+    this.rebuildModelOptionsList();
+    this.persistSession();
+    this.scheduleRoutingPreferenceRemotePersist();
+    this.cdr.markForCheck();
+  }
+
+  private rebuildModelOptionsList(): void {
+    const presets =
+      this.routingProvider === 'openai'
+        ? [...AssistantDrawerComponent.OPENAI_MODEL_PRESETS]
+        : [...AssistantDrawerComponent.ANTHROPIC_MODEL_PRESETS];
+    const srv = this.serverDefaultModel.trim();
+    if (srv && !presets.includes(srv)) {
+      presets.push(srv);
+    }
+    const cur = this.modelCustom.trim();
+    if (
+      this.modelPreset === this.MODEL_PRESET_CUSTOM &&
+      cur &&
+      !presets.includes(cur)
+    ) {
+      presets.push(cur);
+    }
+    this.routingModelOptions = presets;
+  }
+
+  private syncModelPresetFromServer(serverModel: string): void {
+    const sm = serverModel.trim();
+    if (!sm) {
+      const first = this.routingModelOptions[0];
+      this.modelPreset = first ?? this.MODEL_PRESET_CUSTOM;
+      this.modelCustom = '';
+      return;
+    }
+    if (this.routingModelOptions.includes(sm)) {
+      this.modelPreset = sm;
+      this.modelCustom = '';
+    } else {
+      this.modelPreset = this.MODEL_PRESET_CUSTOM;
+      this.modelCustom = sm;
+    }
+  }
+
+  private collectRoutingForSession(): AssistantRoutingStored {
+    return {
+      provider: this.routingProvider,
+      modelPreset: this.modelPreset,
+      modelCustom: this.modelCustom
+    };
+  }
+
+  private scheduleRoutingPreferenceRemotePersist(): void {
+    if (!this.isAuthenticated()) {
+      return;
+    }
+    if (this.routingRemotePersistTimer !== undefined) {
+      clearTimeout(this.routingRemotePersistTimer);
+    }
+    this.routingRemotePersistTimer = setTimeout(() => {
+      this.routingRemotePersistTimer = undefined;
+      const r = this.collectRoutingForSession();
+      this.assistant
+        .saveAssistantRoutingPreference(r)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe();
+    }, AssistantDrawerComponent.ROUTING_REMOTE_DEBOUNCE_MS);
   }
 
   /** Libellé accessibilité du panneau : titre + fournisseur/modèle si connus. */
   drawerAriaLabel(): string {
     const base = this.translate.instant('ASSISTANT.TITLE');
-    const meta = this.headerTitleMetaLine();
+    const meta = this.routingMetaSummary();
     return meta ? `${base} — ${meta}` : base;
   }
 
@@ -648,6 +876,10 @@ export class AssistantDrawerComponent
     if (appRoot && document.querySelector('.modal.show')) {
       appRoot.setAttribute('aria-hidden', 'true');
     }
+    if (this.routingRemotePersistTimer !== undefined) {
+      clearTimeout(this.routingRemotePersistTimer);
+      this.routingRemotePersistTimer = undefined;
+    }
     this.persistSession();
     this.loading = false;
     if (this.draftPersistTimer !== undefined) {
@@ -721,11 +953,15 @@ export class AssistantDrawerComponent
     this.assistantSession.save(
       this.messages,
       this.draft ?? '',
-      this.collectToolFlagsForSession()
+      this.collectToolFlagsForSession(),
+      this.collectRoutingForSession()
     );
   }
 
   private collectToolFlagsForSession(): AssistantToolFlagsRequest | undefined {
+    if (this.routingProvider === 'anthropic') {
+      return undefined;
+    }
     const o: AssistantToolFlagsRequest = {};
     if (this.toolWebSearch) {
       o.webSearch = true;
@@ -1389,7 +1625,11 @@ export class AssistantDrawerComponent
         payload,
         undefined,
         this.collectToolFlagsForSession(),
-        attached
+        attached,
+        {
+          provider: this.routingProvider,
+          model: this.effectiveModelForRequest()
+        }
       )
       .pipe(
         takeUntilDestroyed(this.destroyRef),

@@ -97,10 +97,6 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadChildren: () => import('./friends/friends.module').then(m => m.FriendsModule)
 			},
 			{ 
-				path: 'patgpt', 
-				loadChildren: () => import('./patgpt/patgpt.module').then(m => m.PatgptModule)
-			},
-			{ 
 				path: 'iot', 
 				loadComponent: () => import('./iothome/iothome.component').then(m => m.IothomeComponent)
 			},

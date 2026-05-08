@@ -1392,7 +1392,7 @@
     },
     "CALCULATOR": {
         "TITLE": "计算器",
-        "SUBTITLE": "基本四则运算 (+、−、×、÷)。点击区域或按 Tab 启用键盘。",
+        "SUBTITLE": "基本四则运算（+、−、×、÷）。开启「科学计算器」可使用 sin、cos、√、对数、π 等。",
         "C": "C",
         "CE": "CE",
         "BACKSPACE": "退格",
@@ -1401,7 +1401,12 @@
         "KEYBOARD_HINT": "键盘：数字；+ − * /；回车或 = 得出结果；Esc 全部清除；退格删除最后一位。",
         "TAPE_MODE_LABEL": "详细视图（数字与运算符各占一行）",
         "TAPE_ARIA": "计算步骤",
-        "TAPE_EMPTY": "每个数字和运算符将显示在此。"
+        "TAPE_EMPTY": "每个数字和运算符将显示在此。",
+        "SCIENTIFIC_MODE_LABEL": "科学计算器",
+        "SCIENTIFIC_ANGLES_HINT": "sin / cos / tan 的角度以度为单位。",
+        "SCI_LOG10_TITLE": "常用对数（底数为 10）",
+        "SCI_SQUARE_TITLE": "显示值的平方",
+        "SCI_INV_TITLE": "倒数（1 ÷ x）"
     },
     "ASSISTANT": {
         "TITLE": "PatTool 助手",

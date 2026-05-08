@@ -1,35 +1,60 @@
-<div class="pat-title">
-  <h2>
-    <i class="fa fa-calculator me-2" aria-hidden="true"></i>
-    {{ 'CALCULATOR.TITLE' | translate }}
-  </h2>
-  <p class="pat-title-subtitle mb-0">{{ 'CALCULATOR.SUBTITLE' | translate }}</p>
-</div>
+<div
+  class="calculator-viewport-root"
+  [class.calculator-layout--scientific]="scientificMode">
+  <div class="pat-title" [class.calculator-pat-title--compact]="scientificMode">
+    <h2>
+      {{ 'CALCULATOR.TITLE' | translate }}
+    </h2>
+    <p class="pat-title-subtitle mb-0" [class.d-none]="scientificMode">
+      {{ 'CALCULATOR.SUBTITLE' | translate }}
+    </p>
+  </div>
 
 <div
-  class="calculator-page container pb-4"
+  class="calculator-page container"
+  [class.pb-lg-4]="!scientificMode"
+  [class.calculator-page--scientific-inner]="scientificMode"
   tabindex="0"
   (keydown)="onKeydown($event)"
   [attr.aria-label]="'CALCULATOR.PANEL_ARIA' | translate">
-  <div class="row justify-content-center">
-    <div class="col-12 col-md-8 col-lg-6 col-xl-5">
-      <div class="card shadow-sm calculator-card">
-        <div class="card-body">
-          <div class="form-check form-switch mb-3 calculator-tape-toggle">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="calcTapeMode"
-              [(ngModel)]="tapeMode" />
-            <label class="form-check-label" for="calcTapeMode">{{
-              'CALCULATOR.TAPE_MODE_LABEL' | translate
-            }}</label>
+  <div class="row justify-content-center gx-2 calculator-page-row flex-grow-1 min-h-0">
+    <div class="col-12 col-lg-11 col-xxl-10 d-flex flex-column min-h-0">
+      <div class="card shadow-sm calculator-card flex-grow-1 min-h-0 d-flex flex-column">
+        <div
+          class="card-body calculator-card-inner d-flex flex-column min-h-0"
+          [class.calculator-card-inner--sci]="scientificMode">
+          <div
+            class="d-flex flex-wrap align-items-center calculator-toggle-row mb-2"
+            [class.gap-lg-4]="!scientificMode"
+            [class.gap-2]="scientificMode"
+            [class.mb-lg-3]="!scientificMode"
+            [class.mb-2]="scientificMode">
+            <div class="form-check form-switch calculator-tape-toggle mb-0">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="calcTapeMode"
+                [(ngModel)]="tapeMode" />
+              <label class="form-check-label" for="calcTapeMode">{{
+                'CALCULATOR.TAPE_MODE_LABEL' | translate
+              }}</label>
+            </div>
+            <div class="form-check form-switch calculator-tape-toggle mb-0">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="calcScientificMode"
+                [(ngModel)]="scientificMode" />
+              <label class="form-check-label" for="calcScientificMode">{{
+                'CALCULATOR.SCIENTIFIC_MODE_LABEL' | translate
+              }}</label>
+            </div>
           </div>
 
           <div
             *ngIf="tapeMode"
             #tapeScroll
-            class="calculator-tape mb-3"
+            class="calculator-tape calculator-tape--scroll shrink-0 mb-2"
             role="log"
             [attr.aria-label]="'CALCULATOR.TAPE_ARIA' | translate">
             <div *ngIf="tapeLines.length === 0" class="calculator-tape-placeholder text-muted">
@@ -39,15 +64,114 @@
           </div>
 
           <div
-            class="calculator-display mb-3"
+            class="calculator-display calculator-display--adapt shrink-0 mb-2"
             role="status"
             [attr.aria-live]="'polite'"
             [attr.aria-label]="'CALCULATOR.DISPLAY_ARIA' | translate">
             {{ display }}
           </div>
 
-          <div class="calculator-keys d-grid gap-2">
-            <div class="row g-2">
+          <div
+            *ngIf="scientificMode"
+            class="calculator-sci-keys d-grid gap-1 shrink-0 mb-2"
+            [attr.title]="'CALCULATOR.SCIENTIFIC_ANGLES_HINT' | translate">
+            <div class="row g-2 gx-2 gy-2 calculator-sci-key-row">
+              <div class="col-3">
+                <button
+                  type="button"
+                  class="btn btn-outline-info w-100 calculator-btn calculator-btn-sci"
+                  (click)="scientificUnary('sin')">
+                  sin
+                </button>
+              </div>
+              <div class="col-3">
+                <button
+                  type="button"
+                  class="btn btn-outline-info w-100 calculator-btn calculator-btn-sci"
+                  (click)="scientificUnary('cos')">
+                  cos
+                </button>
+              </div>
+              <div class="col-3">
+                <button
+                  type="button"
+                  class="btn btn-outline-info w-100 calculator-btn calculator-btn-sci"
+                  (click)="scientificUnary('tan')">
+                  tan
+                </button>
+              </div>
+              <div class="col-3">
+                <button
+                  type="button"
+                  class="btn btn-outline-info w-100 calculator-btn calculator-btn-sci"
+                  [attr.title]="'CALCULATOR.SCI_LOG10_TITLE' | translate"
+                  (click)="scientificUnary('log10')">
+                  log
+                </button>
+              </div>
+            </div>
+            <div class="row g-2 gx-2 gy-2 calculator-sci-key-row">
+              <div class="col-3">
+                <button
+                  type="button"
+                  class="btn btn-outline-info w-100 calculator-btn calculator-btn-sci"
+                  (click)="scientificUnary('ln')">
+                  ln
+                </button>
+              </div>
+              <div class="col-3">
+                <button
+                  type="button"
+                  class="btn btn-outline-info w-100 calculator-btn calculator-btn-sci"
+                  (click)="scientificUnary('sqrt')">
+                  √
+                </button>
+              </div>
+              <div class="col-3">
+                <button
+                  type="button"
+                  class="btn btn-outline-info w-100 calculator-btn calculator-btn-sci"
+                  [attr.title]="'CALCULATOR.SCI_SQUARE_TITLE' | translate"
+                  (click)="scientificUnary('square')">
+                  x²
+                </button>
+              </div>
+              <div class="col-3">
+                <button
+                  type="button"
+                  class="btn btn-outline-info w-100 calculator-btn calculator-btn-sci"
+                  [attr.title]="'CALCULATOR.SCI_INV_TITLE' | translate"
+                  (click)="scientificUnary('inv')">
+                  1/x
+                </button>
+              </div>
+            </div>
+            <div class="row g-2 gx-2 gy-2 calculator-sci-key-row calculator-sci-key-row--constants">
+              <div class="col-6">
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary w-100 calculator-btn calculator-btn-sci"
+                  (click)="insertConstant('pi')">
+                  π
+                </button>
+              </div>
+              <div class="col-6">
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary w-100 calculator-btn calculator-btn-sci"
+                  (click)="insertConstant('e')">
+                  e
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="calculator-keys d-grid flex-grow-1 min-h-0"
+            [class.gap-2]="!scientificMode"
+            [class.gap-1]="scientificMode"
+            [class.calculator-keys--sci]="scientificMode">
+            <div class="row g-2 calculator-key-row-main">
               <div class="col-3">
                 <button type="button" class="btn btn-outline-secondary w-100 calculator-btn" (click)="clearAll()">
                   {{ 'CALCULATOR.C' | translate }}
@@ -91,31 +215,36 @@
               <div class="col-3"><button type="button" class="btn btn-outline-warning w-100 calculator-btn" (click)="operator('+')">+</button></div>
             </div>
 
-            <div class="row g-2">
-              <div class="col-3">
+            <div class="d-flex gap-2 calculator-row-bottom">
+              <div class="flex-fill min-w-0">
                 <button type="button" class="btn btn-outline-secondary w-100 calculator-btn" (click)="toggleSign()">
                   ±
                 </button>
               </div>
-              <div class="col-3"><button type="button" class="btn btn-light border w-100 calculator-btn" (click)="digit('0')">0</button></div>
-              <div class="col-3"><button type="button" class="btn btn-light border w-100 calculator-btn" (click)="digit('.')">.</button></div>
-              <div class="col-3"><button type="button" class="btn btn-primary w-100 calculator-btn calculator-btn-eq" (click)="equals()">=</button></div>
-            </div>
-
-            <div class="row g-2">
-              <div class="col-6">
-                <button type="button" class="btn btn-outline-secondary w-100 calculator-btn" (click)="percent()">
-                  %
-                </button>
+              <div class="flex-fill min-w-0">
+                <button type="button" class="btn btn-light border w-100 calculator-btn" (click)="digit('0')">0</button>
+              </div>
+              <div class="flex-fill min-w-0">
+                <button type="button" class="btn btn-light border w-100 calculator-btn" (click)="digit('.')">.</button>
+              </div>
+              <div class="flex-fill min-w-0">
+                <button type="button" class="btn btn-primary w-100 calculator-btn calculator-btn-eq" (click)="equals()">=</button>
+              </div>
+              <div class="flex-fill min-w-0">
+                <button type="button" class="btn btn-outline-secondary w-100 calculator-btn" (click)="percent()">%</button>
               </div>
             </div>
           </div>
 
-          <p class="text-muted small mt-3 mb-0">{{ 'CALCULATOR.KEYBOARD_HINT' | translate }}</p>
+          <p class="text-muted small mb-0" [class.mt-3]="!scientificMode" [class.mt-2]="scientificMode" [class.d-none]="scientificMode">
+            {{ 'CALCULATOR.KEYBOARD_HINT' | translate }}
+          </p>
         </div>
       </div>
     </div>
   </div>
+</div>
+
 </div>
 
 <app-navigation-buttons></app-navigation-buttons>

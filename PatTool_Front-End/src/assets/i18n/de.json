@@ -1390,7 +1390,7 @@
     },
     "CALCULATOR": {
         "TITLE": "Taschenrechner",
-        "SUBTITLE": "Grundrechenarten (+, −, ×, ÷). Klicken Sie auf den Bereich oder drücken Sie Tab für Tastaturkürzel.",
+        "SUBTITLE": "Grundrechenarten (+, −, ×, ÷). Aktivieren Sie „wissenschaftlicher Rechner“ für sin, cos, √, Logarithmen, π und mehr.",
         "C": "C",
         "CE": "CE",
         "BACKSPACE": "Rücktaste",
@@ -1399,7 +1399,12 @@
         "KEYBOARD_HINT": "Tastatur: Ziffern; + − * /; Enter oder = für Ergebnis; Esc löscht alles; Rücktaste löscht die letzte Ziffer.",
         "TAPE_MODE_LABEL": "Detailansicht (Zahlen und Operatoren, je eine Zeile)",
         "TAPE_ARIA": "Rechenschritte",
-        "TAPE_EMPTY": "Jede Zahl und jeder Operator erscheint hier."
+        "TAPE_EMPTY": "Jede Zahl und jeder Operator erscheint hier.",
+        "SCIENTIFIC_MODE_LABEL": "Wissenschaftlicher Rechner",
+        "SCIENTIFIC_ANGLES_HINT": "Winkel bei sin / cos / tan sind in Grad.",
+        "SCI_LOG10_TITLE": "Briggscher Logarithmus (Basis 10)",
+        "SCI_SQUARE_TITLE": "Quadrat des angezeigten Werts",
+        "SCI_INV_TITLE": "Kehrwert (1 ÷ x)"
     },
     "ASSISTANT": {
         "TITLE": "PatTool Assistent",
