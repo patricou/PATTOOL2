@@ -30,52 +30,49 @@
   [attr.aria-hidden]="!isOpen"
   [attr.aria-label]="drawerAriaLabel()">
   <div class="pat-assistant-drawer-header">
-    <div class="pat-assistant-drawer-title">
-      <i class="fa fa-magic me-2" aria-hidden="true"></i>
-      <div class="pat-assistant-drawer-title-stack">
-        <div class="pat-assistant-drawer-title-row">
-          <span class="pat-assistant-drawer-title-main">{{ 'ASSISTANT.TITLE' | translate }}</span>
-          <div
-            class="pat-assistant-routing"
-            role="group"
-            [attr.aria-label]="'ASSISTANT.ROUTING_GROUP' | translate">
-            <label class="visually-hidden" for="pat-asst-routing-provider">{{
-              'ASSISTANT.ROUTING_PROVIDER' | translate
-            }}</label>
-            <select
-              id="pat-asst-routing-provider"
-              class="form-select form-select-sm pat-assistant-routing-select"
-              [(ngModel)]="routingProvider"
-              (ngModelChange)="onAssistantRoutingProviderChange()"
-              [disabled]="loading">
-              <option value="openai">{{ 'ASSISTANT.PROVIDER_OPENAI' | translate }}</option>
-              <option value="anthropic">{{ 'ASSISTANT.PROVIDER_ANTHROPIC' | translate }}</option>
-            </select>
-            <label class="visually-hidden" for="pat-asst-routing-model">{{ 'ASSISTANT.ROUTING_MODEL' | translate }}</label>
-            <select
-              id="pat-asst-routing-model"
-              class="form-select form-select-sm pat-assistant-routing-select pat-assistant-routing-model"
-              [(ngModel)]="modelPreset"
-              (ngModelChange)="onAssistantModelPresetChange()"
-              [disabled]="loading">
-              <option *ngFor="let opt of routingModelOptions" [value]="opt">{{ opt }}</option>
-              <option [value]="MODEL_PRESET_CUSTOM">{{ 'ASSISTANT.MODEL_CUSTOM_OPTION' | translate }}</option>
-            </select>
-            <input
-              *ngIf="modelPreset === MODEL_PRESET_CUSTOM"
-              type="text"
-              class="form-control form-control-sm pat-assistant-routing-input"
-              [(ngModel)]="modelCustom"
-              (ngModelChange)="onAssistantModelCustomChange()"
-              [disabled]="loading"
-              [attr.placeholder]="'ASSISTANT.MODEL_CUSTOM_PLACEHOLDER' | translate"
-              spellcheck="false"
-              autocomplete="off" />
-          </div>
-        </div>
+    <div class="pat-assistant-drawer-header-inner">
+      <div class="pat-assistant-drawer-brand">
+        <i class="fa fa-magic me-2" aria-hidden="true"></i>
+        <span class="pat-assistant-drawer-title-main">{{ 'ASSISTANT.TITLE' | translate }}</span>
       </div>
-    </div>
-    <div class="pat-assistant-drawer-actions">
+      <div
+        class="pat-assistant-routing"
+        role="group"
+        [attr.aria-label]="'ASSISTANT.ROUTING_GROUP' | translate">
+        <label class="visually-hidden" for="pat-asst-routing-provider">{{
+          'ASSISTANT.ROUTING_PROVIDER' | translate
+        }}</label>
+        <select
+          id="pat-asst-routing-provider"
+          class="form-select form-select-sm pat-assistant-routing-select"
+          [(ngModel)]="routingProvider"
+          (ngModelChange)="onAssistantRoutingProviderChange()"
+          [disabled]="loading">
+          <option value="openai">{{ 'ASSISTANT.PROVIDER_OPENAI' | translate }}</option>
+          <option value="anthropic">{{ 'ASSISTANT.PROVIDER_ANTHROPIC' | translate }}</option>
+        </select>
+        <label class="visually-hidden" for="pat-asst-routing-model">{{ 'ASSISTANT.ROUTING_MODEL' | translate }}</label>
+        <select
+          id="pat-asst-routing-model"
+          class="form-select form-select-sm pat-assistant-routing-select pat-assistant-routing-model"
+          [(ngModel)]="modelPreset"
+          (ngModelChange)="onAssistantModelPresetChange()"
+          [disabled]="loading">
+          <option *ngFor="let opt of routingModelOptions" [value]="opt">{{ opt }}</option>
+          <option [value]="MODEL_PRESET_CUSTOM">{{ 'ASSISTANT.MODEL_CUSTOM_OPTION' | translate }}</option>
+        </select>
+        <input
+          *ngIf="modelPreset === MODEL_PRESET_CUSTOM"
+          type="text"
+          class="form-control form-control-sm pat-assistant-routing-input"
+          [(ngModel)]="modelCustom"
+          (ngModelChange)="onAssistantModelCustomChange()"
+          [disabled]="loading"
+          [attr.placeholder]="'ASSISTANT.MODEL_CUSTOM_PLACEHOLDER' | translate"
+          spellcheck="false"
+          autocomplete="off" />
+      </div>
+      <div class="pat-assistant-drawer-actions">
       <button
         type="button"
         class="btn btn-sm btn-success pat-assistant-header-btn pat-assistant-header-whatsapp"
@@ -85,6 +82,16 @@
         [attr.aria-label]="'ASSISTANT.SHARE_WHATSAPP' | translate">
         <i class="fa fa-whatsapp me-1" aria-hidden="true"></i>
         <span class="pat-assistant-header-whatsapp-text">{{ 'ASSISTANT.SHARE_WHATSAPP' | translate }}</span>
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary pat-assistant-header-btn pat-assistant-header-pdf"
+        [disabled]="!canShareAssistantWhatsApp()"
+        (click)="exportAssistantThreadPdf($event)"
+        [title]="'ASSISTANT.EXPORT_PDF_HINT' | translate"
+        [attr.aria-label]="'ASSISTANT.EXPORT_PDF' | translate">
+        <i class="fa fa-file-pdf-o me-1" aria-hidden="true"></i>
+        <span class="pat-assistant-header-pdf-text">{{ 'ASSISTANT.EXPORT_PDF' | translate }}</span>
       </button>
       <button
         type="button"
@@ -115,6 +122,7 @@
         [attr.aria-label]="'ASSISTANT.CLOSE' | translate">
         <i class="fa fa-times" aria-hidden="true"></i>
       </button>
+    </div>
     </div>
   </div>
 
@@ -283,7 +291,7 @@
         [disabled]="loading || !hasAnythingToReset()"
         [title]="'ASSISTANT.NEW_THREAD_HINT' | translate"
         [attr.aria-label]="'ASSISTANT.NEW_CHAT_TITLE' | translate">
-        <i class="fa fa-plus" aria-hidden="true"></i>
+        <i class="fa fa-eraser" aria-hidden="true"></i>
       </button>
       <textarea
         #draftInput
@@ -382,6 +390,19 @@
       <i class="fa fa-paper-plane me-1" aria-hidden="true"></i>
       {{ 'ASSISTANT.SEND' | translate }}
     </button>
+  </div>
+
+  <div
+    *ngIf="pdfExporting"
+    class="pat-assistant-pdf-export-overlay"
+    role="status"
+    aria-live="polite"
+    aria-busy="true"
+    [attr.aria-label]="'ASSISTANT.EXPORT_PDF_LOADING' | translate">
+    <div class="pat-assistant-pdf-export-overlay-inner">
+      <i class="fa fa-spinner fa-spin pat-assistant-pdf-export-spinner" aria-hidden="true"></i>
+      <span class="pat-assistant-pdf-export-label">{{ 'ASSISTANT.EXPORT_PDF_LOADING' | translate }}</span>
+    </div>
   </div>
 </aside>
 

@@ -4,12 +4,19 @@ import com.pat.controller.dto.AssistantChatRequestDto;
 import com.pat.controller.dto.AssistantChatResponseDto;
 import com.pat.controller.dto.AssistantClientConfigDto;
 import com.pat.controller.dto.AssistantOpenAiCreditsDto;
+import com.pat.controller.dto.AssistantPdfExportRequestDto;
 import com.pat.controller.dto.AssistantRoutingPreferenceDto;
+import com.pat.service.AssistantPdfExportService;
 import com.pat.service.AssistantRoutingPreferenceService;
 import com.pat.service.OpenAiBillingService;
 import com.pat.service.RoutingAssistantService;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.security.core.Authentication;
@@ -17,22 +24,32 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+
 @RestController
 @RequestMapping("/api")
 @Validated
 public class AssistantController {
 
+    private static final Logger log = LoggerFactory.getLogger(AssistantController.class);
+
     private final RoutingAssistantService routingAssistantService;
     private final OpenAiBillingService openAiBillingService;
     private final AssistantRoutingPreferenceService assistantRoutingPreferenceService;
+    private final AssistantPdfExportService assistantPdfExportService;
 
     public AssistantController(
             RoutingAssistantService routingAssistantService,
             OpenAiBillingService openAiBillingService,
-            AssistantRoutingPreferenceService assistantRoutingPreferenceService) {
+            AssistantRoutingPreferenceService assistantRoutingPreferenceService,
+            AssistantPdfExportService assistantPdfExportService) {
         this.routingAssistantService = routingAssistantService;
         this.openAiBillingService = openAiBillingService;
         this.assistantRoutingPreferenceService = assistantRoutingPreferenceService;
+        this.assistantPdfExportService = assistantPdfExportService;
     }
 
     /**
@@ -95,6 +112,32 @@ public class AssistantController {
             return ResponseEntity.status(status).body(result);
         }
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Export PDF de la conversation affichée : HTML/Markdown rendus côté serveur (OpenHTMLToPDF).
+     * Les libellés et lignes de stats sont déjà localisés par le client.
+     */
+    @PostMapping(value = "/assistant/export-pdf", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<byte[]> exportPdf(@RequestBody @Valid AssistantPdfExportRequestDto body) {
+        try {
+            byte[] pdf = assistantPdfExportService.buildPdf(body);
+            String filename =
+                    "pat-assistant-"
+                            + DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
+                                    .withZone(ZoneId.systemDefault())
+                                    .format(Instant.now())
+                            + ".pdf";
+            ContentDisposition cd =
+                    ContentDisposition.attachment().filename(filename, StandardCharsets.UTF_8).build();
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, cd.toString())
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .body(pdf);
+        } catch (Exception e) {
+            log.warn("assistant export-pdf failed", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     /**

@@ -114,6 +114,24 @@ export interface AssistantAttachedImageRequest {
   base64: string;
 }
 
+/** Corps POST pour {@code /assistant/export-pdf} — libellés déjà traduits côté client. */
+export interface AssistantPdfExportTurn {
+  role: 'user' | 'assistant';
+  content?: string;
+  hasImage?: boolean;
+  imageDataUrl?: string | null;
+  providerModelLine?: string | null;
+  statsLine?: string | null;
+}
+
+export interface AssistantPdfExportRequest {
+  title?: string;
+  exportedAt?: string;
+  youLabel: string;
+  assistantLabel: string;
+  turns: AssistantPdfExportTurn[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class AssistantService {
   private readonly apiUrl = environment.API_URL + 'assistant/chat';
@@ -121,6 +139,8 @@ export class AssistantService {
   private readonly configUrl = environment.API_URL + 'assistant/config';
   private readonly routingPrefUrl =
     environment.API_URL + 'assistant/routing-preference';
+
+  private readonly exportPdfUrl = environment.API_URL + 'assistant/export-pdf';
 
   constructor(
     private http: HttpClient,
@@ -210,6 +230,57 @@ export class AssistantService {
             })
           )
       )
+    );
+  }
+
+  /**
+   * Export PDF de la conversation : rendu HTML/Markdown côté serveur (corps déjà traduit par l’UI).
+   */
+  exportThreadPdf(payload: AssistantPdfExportRequest): Observable<Blob> {
+    return this.authHeaders().pipe(
+      switchMap((headers) =>
+        this.http.post(this.exportPdfUrl, payload, {
+          headers: headers.set('Accept', 'application/pdf'),
+          responseType: 'blob',
+          observe: 'response'
+        })
+      ),
+      switchMap((res) => {
+        if (res.status === 200 && res.body) {
+          return of(res.body);
+        }
+        return from(res.body?.text() ?? Promise.resolve('')).pipe(
+          switchMap((txt) =>
+            throwError(
+              () =>
+                new HttpErrorResponse({
+                  status: res.status,
+                  statusText: res.statusText,
+                  url: res.url ?? undefined,
+                  error: txt || res.statusText
+                })
+            )
+          )
+        );
+      }),
+      catchError((err: HttpErrorResponse) => {
+        if (err.error instanceof Blob) {
+          return from(err.error.text()).pipe(
+            switchMap((txt) =>
+              throwError(
+                () =>
+                  new HttpErrorResponse({
+                    status: err.status,
+                    statusText: err.statusText,
+                    url: err.url ?? undefined,
+                    error: txt || err.message
+                  })
+              )
+            )
+          );
+        }
+        return throwError(() => err);
+      })
     );
   }
 

@@ -28,6 +28,8 @@ import {
   AssistantChatTurn,
   AssistantClientConfig,
   AssistantOpenAiCredits,
+  AssistantPdfExportRequest,
+  AssistantPdfExportTurn,
   AssistantRoutingStored,
   AssistantService,
   AssistantToolFlagsRequest,
@@ -210,6 +212,8 @@ export class AssistantDrawerComponent
   fullscreen = false;
   draft = '';
   loading = false;
+  /** true pendant la génération PDF (appel serveur). */
+  pdfExporting = false;
   messages: AssistantChatTurn[] = [];
   /** Outils OpenAI (API Responses) — envoyés avec le prochain message. */
   toolWebSearch = false;
@@ -1494,20 +1498,15 @@ export class AssistantDrawerComponent
 
   clearThread(): void {
     this.messages = [];
-    this.draft = '';
-    this.pendingImage = null;
     this.imageAttachError = null;
     this.fabUnreadReply = false;
     this.persistSession();
+    this.cdr.markForCheck();
   }
 
-  /** Réinitialisation possible s'il y a du contenu à effacer (historique ou brouillon). */
+  /** Bouton actif tant qu’il y a un historique de messages à effacer (le brouillon reste intact). */
   hasAnythingToReset(): boolean {
-    return (
-      this.messages.length > 0 ||
-      (!!this.draft && this.draft.trim().length > 0) ||
-      this.pendingImage != null
-    );
+    return this.messages.length > 0;
   }
 
   openImagePicker(): void {
@@ -1733,7 +1732,7 @@ export class AssistantDrawerComponent
 
   /** Ouvert uniquement avec au moins un message dans l’historique. */
   canShareAssistantWhatsApp(): boolean {
-    return this.messages.length > 0 && !this.loading;
+    return this.messages.length > 0 && !this.loading && !this.pdfExporting;
   }
 
   /**
@@ -1824,6 +1823,13 @@ export class AssistantDrawerComponent
     let message = `*${title}*`;
     if (promptWa.length > 0) {
       message += `\n\n*${promptLabel}*\n\n${promptWa}`;
+    }
+    const pm = this.replyProviderModelLine(m).trim();
+    if (pm.length > 0) {
+      const line = this.shareProviderModelLineForWhatsApp(pm);
+      if (line.length > 0) {
+        message += `\n\n${line}`;
+      }
     }
 
     const nav = navigator as Navigator & {
@@ -2466,6 +2472,114 @@ export class AssistantDrawerComponent
     return null;
   }
 
+  /**
+   * Exporte l’historique visible en PDF : génération côté serveur (OpenHTMLToPDF + Markdown).
+   */
+  exportAssistantThreadPdf(ev?: MouseEvent): void {
+    ev?.stopPropagation();
+    if (!this.canShareAssistantWhatsApp()) {
+      return;
+    }
+    this.runAssistantThreadPdfExport();
+  }
+
+  private runAssistantThreadPdfExport(): void {
+    this.pdfExporting = true;
+    this.cdr.markForCheck();
+    const payload = this.buildAssistantPdfExportRequest();
+    this.assistant
+      .exportThreadPdf(payload)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.pdfExporting = false;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
+        next: (blob) => {
+          const fname = this.buildAssistantPdfFilename();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fname;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        },
+        error: (err) => {
+          console.error('assistant PDF export', err);
+          window.alert(this.translate.instant('ASSISTANT.EXPORT_PDF_ERROR'));
+        }
+      });
+  }
+
+  private buildAssistantPdfFilename(): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const d = new Date();
+    return `pat-assistant-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(
+      d.getHours()
+    )}${pad(d.getMinutes())}.pdf`;
+  }
+
+  private buildAssistantPdfExportRequest(): AssistantPdfExportRequest {
+    const you = this.translate.instant('ASSISTANT.YOU');
+    const assistant = this.translate.instant('ASSISTANT.AI');
+    const turns: AssistantPdfExportTurn[] = [];
+    for (const m of this.messages) {
+      if (m.role === 'user') {
+        turns.push(this.buildUserTurnForPdfExport(m));
+      } else {
+        const pm = this.replyProviderModelLine(m).trim();
+        let providerModelLine: string | undefined;
+        if (pm.length > 0) {
+          const line = this.translate
+            .instant('ASSISTANT.SHARE_PROVIDER_MODEL_LINE', { providerModel: pm })
+            .trim();
+          if (line.length > 0) {
+            providerModelLine = line;
+          }
+        }
+        const stats = this.replyStatsLine(m).trim();
+        turns.push({
+          role: 'assistant',
+          content: typeof m.content === 'string' ? m.content : '',
+          ...(providerModelLine ? { providerModelLine } : {}),
+          ...(stats ? { statsLine: stats } : {})
+        });
+      }
+    }
+    return {
+      title: this.translate.instant('ASSISTANT.TITLE'),
+      exportedAt: new Date().toLocaleString(),
+      youLabel: you,
+      assistantLabel: assistant,
+      turns
+    };
+  }
+
+  private buildUserTurnForPdfExport(m: AssistantChatTurn): AssistantPdfExportTurn {
+    let body = typeof m.content === 'string' ? m.content.trim() : '';
+    const imageNote = this.translate.instant('ASSISTANT.IMAGE_SENT_NOTE');
+    const photoInShare = this.translate.instant('ASSISTANT.TRANSCRIPT_PHOTO_LINE');
+    if (m.role === 'user' && m.hasImage && !m.imageDataUrl) {
+      body = body ? `${body}\n${imageNote}` : imageNote;
+    } else if (m.role === 'user' && m.imageDataUrl?.trim()) {
+      const line = photoInShare.trim();
+      if (line.length > 0) {
+        body = body ? `${body}\n${line}` : line;
+      }
+    }
+    const img = m.imageDataUrl?.trim();
+    return {
+      role: 'user',
+      content: body,
+      ...(m.hasImage ? { hasImage: true } : {}),
+      ...(img ? { imageDataUrl: img } : {})
+    };
+  }
+
   openWhatsAppShareModal(): void {
     if (!this.canShareAssistantWhatsApp()) {
       return;
@@ -2511,6 +2625,21 @@ export class AssistantDrawerComponent
     return t;
   }
 
+  /** Ligne « fournisseur / modèle » pour partage WhatsApp : italique (`_…_`). */
+  private shareProviderModelLineForWhatsApp(providerModel: string): string {
+    const trimmed = (providerModel ?? '').trim();
+    if (!trimmed) {
+      return '';
+    }
+    const line = this.translate
+      .instant('ASSISTANT.SHARE_PROVIDER_MODEL_LINE', { providerModel: trimmed })
+      .trim();
+    if (!line) {
+      return '';
+    }
+    return `_${line}_`;
+  }
+
   /**
    * Corps du message de partage : tout l’historique visible (questions + réponses).
    * Les images sont envoyées en pièces jointes via {@link confirmAssistantWhatsAppShare} en parallèle.
@@ -2543,6 +2672,11 @@ export class AssistantDrawerComponent
           if (line.length > 0) {
             body = body ? `${body}\n${line}` : line;
           }
+        }
+        const pm = this.replyProviderModelLine(m).trim();
+        if (pm.length > 0) {
+          const suffix = this.shareProviderModelLineForWhatsApp(pm);
+          body = body ? `${body}\n\n${suffix}` : suffix;
         }
       }
       chunks.push(`*${label}*\n${body || '—'}`);

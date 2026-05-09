@@ -1085,7 +1085,7 @@ ngb-tooltip-window.vulnerability-desc-tooltip .tooltip-inner,
  *     CSS de composants (markdown-chat-content.css) ne s'appliquent pas
  *     aux <img> rendues dynamiquement.
  *  2. On veut un cap dur pour qu'aucune image ne déborde verticalement
- *     du chat (drawer assistant ou page PatGPT). Le composant calcule
+ *     du chat (drawer assistant). Le composant calcule
  *     ensuite par JS un `style.maxHeight` inline plus précis quand c'est
  *     possible — celui-ci a une priorité supérieure à la règle ci-dessous.
  */

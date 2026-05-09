@@ -28,8 +28,7 @@ import java.time.format.DateTimeFormatter;
 @EnableAsync
 @EnableScheduling
 @EnableMongoRepositories(basePackages = "com.pat.repo")
-// Exclude MongoDB repositories from JPA scanning to avoid warnings
-// Only ChatRequestRepository should be processed as a JPA repository
+// Exclude MongoDB repository interfaces from JPA scanning (they live under the same base package).
 @EnableJpaRepositories(
     basePackages = "com.pat.repo",
     excludeFilters = @ComponentScan.Filter(

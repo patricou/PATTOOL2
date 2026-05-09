@@ -45,12 +45,10 @@
 - **Live Chat**: Real-time chat functionality per event using Firebase
 - **URL Links**: Attach external website links to events
 
-### 2. **AI-Powered Chat (PatGPT)**
-- Integration with AI chat service (similar to ChatGPT)
-- Supports conversation history
-- Configurable historical context (last X questions)
-- Text-based query and response system
-- Session management with historical data deletion
+### 2. **PatTool AI assistant (sidebar)**
+- Multi-turn chat in the web app drawer, routed to OpenAI or Anthropic
+- Optional web search, image generation, vision (attached images)
+- API: `POST /api/assistant/chat` (see `AssistantController` / `OpenAiAssistantService`)
 
 ### 3. **Global Communication (Firebase Chat)**
 - Real-time global chat room using Firebase Realtime Database
@@ -185,12 +183,11 @@ The application follows Angular's modular architecture with lazy-loaded feature 
 1. **AppModule**: Root module with main routing and core services
 2. **EvenementsModule**: Events CRUD operations
 3. **HomeModule**: Landing page
-4. **ChatModule**: Firebase communication
+4. **ChatModule**: Discussions (MongoDB) and messaging UI
 5. **LinksModule**: URL management
-6. **PatgptModule**: AI chat interface
-7. **MapsModule**: About page
-8. **LinksAdminModule**: Admin interface
-9. **NavigationButtonsModule**: Shared navigation
+6. **MapsModule**: About page
+7. **LinksAdminModule**: Admin interface
+8. **NavigationButtonsModule**: Shared navigation
 
 ### Data Flow
 
@@ -223,7 +220,7 @@ PatTool_Back-End/
 │   │   │   ├── EvenementRestController.java
 │   │   │   ├── MemberRestController.java
 │   │   │   ├── FileRestController.java
-│   │   │   ├── ChatController.java
+│   │   │   ├── AssistantController.java
 │   │   │   ├── UrlLinkRestController.java
 │   │   │   ├── CategoryLinkRestController.java
 │   │   │   ├── HomeIOTController.java
@@ -232,16 +229,14 @@ PatTool_Back-End/
 │   │   │   ├── EvenementsRepository.java
 │   │   │   ├── MembersRepository.java
 │   │   │   ├── UrlLinkRepository.java
-│   │   │   └── ChatRequestRepository.java
 │   │   ├── repo/domain/              # Entity models
 │   │   │   ├── Evenement.java
 │   │   │   ├── Member.java
 │   │   │   ├── Commentary.java
 │   │   │   ├── FileUploaded.java
-│   │   │   ├── UrlEvent.java
-│   │   │   └── ChatRequest.java
+│   │   │   └── UrlEvent.java
 │   │   ├── service/                  # Business logic
-│   │   │   ├── ChatService.java
+│   │   │   ├── OpenAiAssistantService.java
 │   │   │   ├── HomeIOTService.java
 │   │   │   └── SmtpMailSender.java
 │   │   └── PatToolApplication.java   # Main application class
@@ -268,10 +263,9 @@ PatTool_Back-End/
    - User ID retrieval from MongoDB
    - Role management
 
-3. **PatgptService**:
-   - AI chat interaction
-   - Historical context management
-   - Chat session handling
+3. **Assistant / OpenAI**:
+   - `AssistantController`, `OpenAiAssistantService`, `RoutingAssistantService`
+   - Side panel chat and provider configuration
 
 4. **FileService**:
    - File upload to disk
@@ -350,11 +344,10 @@ Routes:
 - /neweven → CreateEvenementComponent
 - /updeven/:id → UpdateEvenementComponent
 - /details-evenement/:id → DetailsEvenementComponent
-- /results → ChatComponent (Firebase global chat)
+- /results → ChatComponent (discussions list)
 - /links → LinksComponent (Bookmarks)
 - /links-admin → LinksAdminComponent
 - /iot → IothomeComponent
-- /patgpt → PatgptComponent
 - /maps → AboutComponent
 ```
 
@@ -440,11 +433,9 @@ The backend exposes RESTful APIs through Spring Boot controllers:
 - File metadata management
 - File download functionality
 
-#### 4. **ChatController** (`/api/chat`)
-- AI chat request processing
-- Integration with OpenAI API
-- Historical context management
-- Session management (`/api/delchat/`)
+#### 4. **AssistantController** (`/api/assistant`)
+- AI chat for the PatTool sidebar (OpenAI / Anthropic routing)
+- Credits and routing preferences endpoints as applicable
 
 #### 5. **UrlLinkRestController** (`/api/urllink`)
 - CRUD operations for bookmarks
@@ -488,7 +479,7 @@ public class SecurityConfig {
 
 - **Repository Pattern**: Spring Data MongoDB repositories
 - **GridFS**: File storage in MongoDB
-- **Collections**: Separate collections for events, members, files, chat requests
+- **Collections**: Separate collections for events, members, files (the legacy JPA `ChatRequest` / PatGPT SQL table is removed)
 - **Indexing**: Optimized queries with proper indexing
 - **Connection**: Host-based or URI-based connection
 
@@ -514,17 +505,10 @@ Two storage mechanisms:
    - Maximum file size: 100MB
    - Maximum request size: 350MB
 
-### AI Chat Integration (PatGPT)
+### PatTool AI assistant (OpenAI / Anthropic)
 
-- **OpenAI API Integration**: Chat completion requests
-- **Configuration** (`application.properties`):
-  ```properties
-  openai.api=https://api.openai.com/v1/chat/completions
-  openai.key=sk-proj-...
-  app.maxContextSize=10000
-  ```
-- **Historical Context**: Manages conversation history
-- **Service Layer**: `ChatService` handles API communication
+- **Endpoints**: `POST /api/assistant/chat`, configuration under `openai.*` and `anthropic.*` in `application.properties`
+- **Service layer**: `OpenAiAssistantService`, `AnthropicAssistantService`, `RoutingAssistantService`
 
 ### Email Functionality
 
@@ -815,9 +799,8 @@ Required Keycloak realm:
 - `POST /uploadfile` - Upload to database
 - `POST /uploadondisk` - Upload to disk
 
-### Chat API
-- `POST /api/chat/{historical}/{lastx}` - Send AI chat message
-- `DELETE /api/delchat/` - Clear chat history
+### Assistant API
+- `POST /api/assistant/chat` - Sidebar assistant (multi-turn, provider/model in body)
 
 ### Links API
 - `GET /api/urllink` - Get user's links
@@ -873,7 +856,7 @@ Required Keycloak realm:
 ✅ **Events**: Full CRUD operations with rich metadata  
 ✅ **File Management**: Drag-and-drop uploads with thumbnails  
 ✅ **Real-time Chat**: Firebase global chat room  
-✅ **AI Integration**: PatGPT chat assistant  
+✅ **AI Integration**: PatTool sidebar assistant (`/api/assistant`)  
 ✅ **URL Management**: Personal bookmark system  
 ✅ **IoT Controls**: Home automation integration  
 ✅ **Multi-language**: 11 languages supported  

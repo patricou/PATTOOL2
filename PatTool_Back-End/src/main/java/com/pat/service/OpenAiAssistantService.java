@@ -412,13 +412,23 @@ public class OpenAiAssistantService {
 
     private void appendMessageOutput(JsonNode item, StringBuilder text, Set<String> citationUrls) {
         JsonNode content = item.get("content");
+        if (content != null && content.isTextual()) {
+            String plain = content.asText("").trim();
+            if (!plain.isEmpty()) {
+                if (!text.isEmpty()) {
+                    text.append("\n\n");
+                }
+                text.append(plain);
+            }
+            return;
+        }
         if (content == null || !content.isArray()) {
             return;
         }
         for (JsonNode part : content) {
             String pType = part.path("type").asText("");
-            if ("output_text".equals(pType)) {
-                String t = part.path("text").asText("");
+            if ("output_text".equals(pType) || "text".equals(pType)) {
+                String t = openAiTextNodeToPlain(part.get("text"));
                 if (!t.isEmpty()) {
                     if (!text.isEmpty()) {
                         text.append("\n\n");
@@ -483,7 +493,10 @@ public class OpenAiAssistantService {
 
             JsonNode message = choices.get(0).path("message");
             String role = message.path("role").asText("assistant");
-            String content = message.path("content").asText("");
+            String content = extractChatCompletionsAssistantText(message);
+            if (content.isBlank() && !choices.get(0).path("text").asText("").isBlank()) {
+                content = choices.get(0).path("text").asText("").trim();
+            }
 
             String id = root.path("id").asText("");
             String modelUsed = root.path("model").asText(modelFallback);
@@ -497,6 +510,14 @@ public class OpenAiAssistantService {
                 if (usage.has("completion_tokens")) {
                     outTok = usage.get("completion_tokens").asInt();
                 }
+            }
+
+            if ((content == null || content.isBlank())
+                    && outTok != null
+                    && outTok > 0) {
+                log.warn(
+                        "OpenAI Chat Completions: usage reports {} completion tokens but extracted assistant content is empty (check message.content shape for this model).",
+                        outTok);
             }
 
             return AssistantChatResponseDto.ok(
@@ -513,6 +534,104 @@ public class OpenAiAssistantService {
             log.warn("Failed to parse OpenAI JSON", e);
             return AssistantChatResponseDto.err("Impossible d’interpréter la réponse du fournisseur IA.");
         }
+    }
+
+    /**
+     * Texte affichable dans {@code choices[].message} pour Chat Completions.
+     * Quand {@code content} est un tableau de fragments ({@code type}/{@code text}), {@link JsonNode#asText()}
+     * renvoie une chaîne vide : les jetons comptent dans {@code usage} mais l’UI PatTool affichait « vide ».
+     */
+    private static String extractChatCompletionsAssistantText(JsonNode message) {
+        if (message == null || message.isNull()) {
+            return "";
+        }
+        JsonNode refusal = message.get("refusal");
+        if (refusal != null && refusal.isTextual()) {
+            String r = refusal.asText("").trim();
+            if (!r.isEmpty()) {
+                return r;
+            }
+        }
+        JsonNode contentNode = message.get("content");
+        if (contentNode == null || contentNode.isNull()) {
+            return "";
+        }
+        if (contentNode.isTextual()) {
+            return contentNode.asText("");
+        }
+        if (contentNode.isObject()) {
+            return extractOpenAiMessageContentPartText(contentNode);
+        }
+        if (contentNode.isArray()) {
+            StringBuilder sb = new StringBuilder();
+            for (JsonNode part : contentNode) {
+                String t = extractOpenAiMessageContentPartText(part);
+                if (t.isEmpty()) {
+                    continue;
+                }
+                if (!sb.isEmpty()) {
+                    sb.append("\n\n");
+                }
+                sb.append(t);
+            }
+            return sb.toString();
+        }
+        return contentNode.asText("");
+    }
+
+    /**
+     * Extrait le texte d’un fragment {@code content[]} du message assistant (Chat Completions).
+     * Le champ {@code text} peut être une chaîne ou un objet ({@code value}, etc.) selon les modèles / versions d’API.
+     */
+    private static String extractOpenAiMessageContentPartText(JsonNode part) {
+        if (part == null || part.isNull()) {
+            return "";
+        }
+        if (part.isTextual()) {
+            return part.asText("").trim();
+        }
+        String fromText = openAiTextNodeToPlain(part.get("text"));
+        if (!fromText.isEmpty()) {
+            return fromText;
+        }
+        return openAiTextNodeToPlain(part.get("content"));
+    }
+
+    /** Normalise le nœud {@code text} d’OpenAI (string ou objet) vers une chaîne affichable. */
+    private static String openAiTextNodeToPlain(JsonNode textNode) {
+        if (textNode == null || textNode.isNull()) {
+            return "";
+        }
+        if (textNode.isTextual()) {
+            return textNode.asText("").trim();
+        }
+        if (textNode.isNumber()) {
+            return textNode.asText().trim();
+        }
+        if (textNode.isObject()) {
+            String v = textNode.path("value").asText("").trim();
+            if (!v.isEmpty()) {
+                return v;
+            }
+            v = textNode.path("text").asText("").trim();
+            if (!v.isEmpty()) {
+                return v;
+            }
+        }
+        if (textNode.isArray()) {
+            StringBuilder sb = new StringBuilder();
+            for (JsonNode n : textNode) {
+                String t = openAiTextNodeToPlain(n);
+                if (!t.isEmpty()) {
+                    if (!sb.isEmpty()) {
+                        sb.append("\n\n");
+                    }
+                    sb.append(t);
+                }
+            }
+            return sb.toString().trim();
+        }
+        return "";
     }
 
     private String shortErrorHint(String responseBody) {

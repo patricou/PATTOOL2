@@ -57,7 +57,7 @@ export class MarkdownChatRenderService {
     return this.sanitizer.bypassSecurityTrustHtml(cleaned);
   }
 
-  /** Fallback PatGPT / affichage sûr sans lien automatique. */
+  /** Fallback affichage sûr sans lien automatique. */
   renderPlainFallback(content: string | null | undefined): SafeHtml {
     if (content == null || content === '') {
       return this.sanitizer.bypassSecurityTrustHtml('');
