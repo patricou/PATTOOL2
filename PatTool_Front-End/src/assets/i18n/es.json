@@ -1497,7 +1497,13 @@
         "IMAGE_LIGHTBOX_ALT": "Imagen a tamaño completo",
         "COPY_IMG_TITLE": "Copiar la imagen al portapapeles",
         "COPY_IMG_SUCCESS": "Imagen copiada al portapapeles",
-        "COPY_IMG_ERROR": "Error al copiar la imagen"
+        "COPY_IMG_ERROR": "Error al copiar la imagen",
+        "HISTORY_FILTER_LABEL": "Filtrar conversaciones",
+        "HISTORY_FILTER_PLACEHOLDER": "Buscar en el historial…",
+        "HISTORY_FILTER_EMPTY": "Ninguna conversación coincide con su búsqueda.",
+        "HISTORY_OWNER_LABEL": "Propietario",
+        "HISTORY_CREATED_LABEL": "Creada",
+        "HISTORY_UPDATED_LABEL": "Actualizada"
     },
     "ABOUT": {
         "DESIGNED_BY": "Diseñado y desarrollado por",

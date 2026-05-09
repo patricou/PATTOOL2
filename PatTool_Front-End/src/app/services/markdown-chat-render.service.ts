@@ -46,8 +46,16 @@ export class MarkdownChatRenderService {
       return null;
     }
     const wrapped = '<div class="pat-assistant-md">' + raw + '</div>';
-    /** Réponses avec image générée (data URL) : le sanitizer HTML supprime souvent les src data:. */
-    if (/<img[^>]*\ssrc=["']data:image\//i.test(wrapped)) {
+    /**
+     * Images dans la réponse modèle :
+     * - data URL (réponse live),
+     * - blob: (images rechargées depuis l’historique après GET des assets).
+     * Sinon {@link DomSanitizer.sanitize} vide souvent l’attribut {@code src} → cadre cassé + alt visible (« Generated »).
+     */
+    if (
+      /<img[^>]*\ssrc=["']data:image\//i.test(wrapped) ||
+      /<img[^>]*\ssrc=["']blob:/i.test(wrapped)
+    ) {
       return this.sanitizer.bypassSecurityTrustHtml(wrapped);
     }
     const cleaned = this.sanitizer.sanitize(SecurityContext.HTML, wrapped);

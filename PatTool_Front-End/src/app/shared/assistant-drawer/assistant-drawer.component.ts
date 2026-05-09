@@ -19,14 +19,40 @@ import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { DomSanitizer, SafeHtml, SafeUrl } from '@angular/platform-browser';
-import { combineLatest, filter, Subscription } from 'rxjs';
-import { finalize } from 'rxjs/operators';
+import {
+  combineLatest,
+  defer,
+  EMPTY,
+  filter,
+  firstValueFrom,
+  forkJoin,
+  from,
+  Observable,
+  of,
+  Subject,
+  Subscription,
+  throwError
+} from 'rxjs';
+import {
+  catchError,
+  debounceTime,
+  exhaustMap,
+  finalize,
+  map,
+  switchMap,
+  take,
+  tap
+} from 'rxjs/operators';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import {
   AssistantAttachedImageRequest,
   AssistantChatMeta,
   AssistantChatTurn,
   AssistantClientConfig,
+  AssistantConversationDetail,
+  AssistantConversationSaveBody,
+  AssistantConversationSummary,
+  AssistantConversationTurnPersist,
   AssistantOpenAiCredits,
   AssistantPdfExportRequest,
   AssistantPdfExportTurn,
@@ -87,6 +113,7 @@ export class AssistantDrawerComponent
    * {@link AssistantDrawerComponent.INSERT_IMAGE_COMPRESSION_THRESHOLD_BYTES}.
    */
   @ViewChild('imageCompressionModal') imageCompressionModal!: TemplateRef<unknown>;
+  @ViewChild('assistantHistoryModal') assistantHistoryModal!: TemplateRef<unknown>;
   /** Référence à l'instance du slideshow partagé (même viewer que pour les évènements). */
   @ViewChild('slideshowModalComponent') slideshowModalComponent?: SlideshowModalComponent;
 
@@ -98,6 +125,9 @@ export class AssistantDrawerComponent
    */
   private slideshowBlobUrls: string[] = [];
 
+  /** Object URLs créés pour ré-afficher les images générées chargées depuis l’historique (assets serveur). */
+  private assistantHydratedBlobUrls: string[] = [];
+
   /** Modal partage WhatsApp (même principe que mur de photos). */
   whatsappShareMessage = '';
   private whatsappShareModalRef: NgbModalRef | null = null;
@@ -108,6 +138,8 @@ export class AssistantDrawerComponent
   insertMode: 'image' | 'comment' | null = null;
   /** Data URL retenue pour l'insertion d'image (mode 'image'). */
   private insertImageDataUrl: string | null = null;
+  /** Object URL créée depuis un asset serveur seul ; révoquée à la fermeture du modal. */
+  private insertImagePickObjectUrl: string | null = null;
   /**
    * Contenu HTML du commentaire à insérer (mode 'comment') ; pré-rempli avec
    * la question utilisateur + la réponse assistant (markdown converti en HTML),
@@ -214,6 +246,18 @@ export class AssistantDrawerComponent
   loading = false;
   /** true pendant la génération PDF (appel serveur). */
   pdfExporting = false;
+  /** Conversation Mongo en cours ; null après « nouvelle discussion » ou chargement sans suite. */
+  persistedRemoteConversationId: string | null = null;
+  historyPersistErrorKey: string | null = null;
+  private readonly remotePersistTrigger = new Subject<void>();
+  historyLoading = false;
+  historyDetailLoading = false;
+  historyItems: AssistantConversationSummary[] = [];
+  /** Filtre plein texte dans la liste de l’historique (modal). */
+  historyConversationFilter = '';
+  historyErrorKey: string | null = null;
+  private historyListSub?: Subscription;
+  private assistantHistoryModalRef: NgbModalRef | null = null;
   messages: AssistantChatTurn[] = [];
   /** Outils OpenAI (API Responses) — envoyés avec le prochain message. */
   toolWebSearch = false;
@@ -334,6 +378,14 @@ export class AssistantDrawerComponent
     // que le modal de compression puisse adapter son rendu (info-only ou
     // switch) dès la première insertion d'image dans un évènement.
     this.uploadConfigService.preload();
+
+    this.remotePersistTrigger
+      .pipe(
+        debounceTime(900),
+        exhaustMap(() => this.persistRemoteConversationOnce()),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe();
   }
 
   ngOnInit(): void {
@@ -396,6 +448,7 @@ export class AssistantDrawerComponent
         this.chatSendSub?.unsubscribe();
         this.loading = false;
         this.messages = [];
+        this.persistedRemoteConversationId = null;
       }
       if (hasImage && p.attachedImage) {
         this.pendingImage = {
@@ -683,6 +736,7 @@ export class AssistantDrawerComponent
     }
     this.persistSession();
     this.scheduleRoutingPreferenceRemotePersist();
+    this.refreshCreditsBannerIfOpen();
     this.cdr.markForCheck();
   }
 
@@ -840,7 +894,53 @@ export class AssistantDrawerComponent
     ev?.stopPropagation();
     this.creditsBannerOpen = !this.creditsBannerOpen;
     if (this.creditsBannerOpen) {
+      if (this.routingProvider === 'openai') {
+        this.fetchOpenAiCredits();
+      } else {
+        this.creditsFetchSub?.unsubscribe();
+        this.creditsLoading = false;
+        this.credits = null;
+        this.cdr.markForCheck();
+      }
+    }
+  }
+
+  /** Infobulle du bouton solde / facturation selon le fournisseur. */
+  creditsBtnHint(): string {
+    return this.routingProvider === 'anthropic'
+      ? this.translate.instant('ASSISTANT.CREDITS_BTN_HINT_ANTHROPIC')
+      : this.translate.instant('ASSISTANT.CREDITS_BTN_HINT');
+  }
+
+  creditsToggleAria(): string {
+    return this.routingProvider === 'anthropic'
+      ? this.translate.instant('ASSISTANT.CREDITS_TOGGLE_ANTHROPIC')
+      : this.translate.instant('ASSISTANT.CREDITS_TOGGLE');
+  }
+
+  creditsBannerAriaLabel(): string {
+    return this.routingProvider === 'anthropic'
+      ? this.translate.instant('ASSISTANT.CREDITS_TITLE_ANTHROPIC')
+      : this.translate.instant('ASSISTANT.CREDITS_TITLE');
+  }
+
+  /** Texte + lien console Anthropic (URLs rendues par {@link linkRichContent}). */
+  anthropicBillingBannerHtml(): SafeHtml {
+    const line = this.translate.instant('ASSISTANT.CREDITS_ANTHROPIC_CONSOLE_LINE');
+    return this.linkRichContent(line);
+  }
+
+  private refreshCreditsBannerIfOpen(): void {
+    if (!this.creditsBannerOpen) {
+      return;
+    }
+    if (this.routingProvider === 'openai') {
       this.fetchOpenAiCredits();
+    } else {
+      this.creditsFetchSub?.unsubscribe();
+      this.creditsLoading = false;
+      this.credits = null;
+      this.cdr.markForCheck();
     }
   }
 
@@ -929,6 +1029,7 @@ export class AssistantDrawerComponent
       this.imageCompressionModalRef = null;
     }
     this.revokeSlideshowBlobUrls();
+    this.revokeAssistantHydratedBlobs();
     if (this.assistantImageCopyFeedbackTimer) {
       clearTimeout(this.assistantImageCopyFeedbackTimer);
       this.assistantImageCopyFeedbackTimer = undefined;
@@ -946,6 +1047,15 @@ export class AssistantDrawerComponent
     document.removeEventListener('scroll', this.boundScheduleFabAnchor, true);
     if (this.fabAnchorRaf) {
       cancelAnimationFrame(this.fabAnchorRaf);
+    }
+    this.historyListSub?.unsubscribe();
+    if (this.assistantHistoryModalRef) {
+      try {
+        this.assistantHistoryModalRef.dismiss();
+      } catch {
+        /* ignore */
+      }
+      this.assistantHistoryModalRef = null;
     }
   }
 
@@ -1250,11 +1360,27 @@ export class AssistantDrawerComponent
       return;
     }
     const dataUrls = this.extractGeneratedImageDataUrls(m.content);
-    if (dataUrls.length === 0) {
-      return;
+    let blob: Blob | null =
+      dataUrls.length > 0 ? this.dataUrlToBlob(dataUrls[0]) : null;
+    const blobUrls = this.extractGeneratedImageBlobUrls(m.content);
+    if (!blob && blobUrls.length > 0) {
+      try {
+        blob = await (await fetch(blobUrls[0].trim())).blob();
+      } catch {
+        blob = null;
+      }
     }
-    const blob = this.dataUrlToBlob(dataUrls[0]);
-    if (!blob) {
+    if (!blob && m.generatedImageAssetIds?.length) {
+      const id = m.generatedImageAssetIds.map((x) => x?.trim()).find(Boolean);
+      if (id) {
+        try {
+          blob = await firstValueFrom(this.assistant.getConversationAssetBlob(id));
+        } catch {
+          blob = null;
+        }
+      }
+    }
+    if (!blob || blob.size === 0) {
       this.showAssistantImageCopyFeedback(false);
       return;
     }
@@ -1343,20 +1469,31 @@ export class AssistantDrawerComponent
   assistantImageCopyFeedbackKey: string | null = null;
   assistantImageCopyFeedbackKind: 'success' | 'error' | null = null;
   private assistantImageCopyFeedbackTimer?: ReturnType<typeof setTimeout>;
-  private showAssistantImageCopyFeedback(success: boolean): void {
+
+  private showAssistantTransientBanner(
+    key: string,
+    kind: 'success' | 'error',
+    dismissMs: number
+  ): void {
     if (this.assistantImageCopyFeedbackTimer) {
       clearTimeout(this.assistantImageCopyFeedbackTimer);
     }
-    this.assistantImageCopyFeedbackKey = success
-      ? 'ASSISTANT.COPY_IMG_SUCCESS'
-      : 'ASSISTANT.COPY_IMG_ERROR';
-    this.assistantImageCopyFeedbackKind = success ? 'success' : 'error';
+    this.assistantImageCopyFeedbackKey = key;
+    this.assistantImageCopyFeedbackKind = kind;
     this.cdr.markForCheck();
     this.assistantImageCopyFeedbackTimer = setTimeout(() => {
       this.assistantImageCopyFeedbackKey = null;
       this.assistantImageCopyFeedbackKind = null;
       this.cdr.markForCheck();
-    }, 2200);
+    }, dismissMs);
+  }
+
+  private showAssistantImageCopyFeedback(success: boolean): void {
+    this.showAssistantTransientBanner(
+      success ? 'ASSISTANT.COPY_IMG_SUCCESS' : 'ASSISTANT.COPY_IMG_ERROR',
+      success ? 'success' : 'error',
+      2200
+    );
   }
 
   /** Recopie une question précédente dans le champ du bas (pour relancer ou modifier). */
@@ -1497,11 +1634,415 @@ export class AssistantDrawerComponent
   }
 
   clearThread(): void {
+    this.revokeAssistantHydratedBlobs();
     this.messages = [];
+    this.persistedRemoteConversationId = null;
     this.imageAttachError = null;
     this.fabUnreadReply = false;
     this.persistSession();
     this.cdr.markForCheck();
+  }
+
+  openAssistantHistoryModal(): void {
+    if (!this.isAuthenticated()) {
+      return;
+    }
+    this.historyConversationFilter = '';
+    this.historyErrorKey = null;
+    this.historyLoading = true;
+    this.historyItems = [];
+    this.historyListSub?.unsubscribe();
+    const ref = this.modalService.open(this.assistantHistoryModal, {
+      size: 'lg',
+      centered: true,
+      scrollable: true,
+      windowClass: 'assistant-history-modal'
+    });
+    this.assistantHistoryModalRef = ref;
+    const clearRef = (): void => {
+      this.assistantHistoryModalRef = null;
+      this.historyListSub?.unsubscribe();
+    };
+    ref.closed.subscribe(clearRef);
+    ref.dismissed.subscribe(clearRef);
+    this.historyListSub = this.assistant
+      .listConversations()
+      .pipe(
+        finalize(() => {
+          this.historyLoading = false;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
+        next: (rows) => {
+          this.historyItems = rows ?? [];
+        },
+        error: () => {
+          this.historyErrorKey = 'ASSISTANT.HISTORY_LOAD_ERR';
+        }
+      });
+    this.cdr.markForCheck();
+  }
+
+  /** Nom affiché du propriétaire dans la liste d'historique (preferred_username ou sub JWT). */
+  historyOwnerDisplay(row: AssistantConversationSummary): string {
+    const u = (row.ownerPreferredUsername ?? '').trim();
+    return u.length > 0 ? u : (row.ownerSubject ?? '').trim();
+  }
+
+  /** Liste historique filtrée selon {@link historyConversationFilter}. */
+  filteredAssistantHistoryItems(): AssistantConversationSummary[] {
+    const rows = this.historyItems;
+    const q = (this.historyConversationFilter ?? '').trim().toLowerCase();
+    if (!q) {
+      return rows;
+    }
+    return rows.filter((row) => {
+      const hay = [
+        row.preview,
+        row.providerLabel,
+        row.model,
+        row.routingProvider,
+        row.id,
+        row.createdAt,
+        row.updatedAt,
+        row.ownerSubject,
+        row.ownerPreferredUsername
+      ]
+        .map((x) => (typeof x === 'string' ? x : ''))
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }
+
+  loadConversationFromHistory(id: string): void {
+    if (!this.isAuthenticated()) {
+      return;
+    }
+    this.historyDetailLoading = true;
+    this.historyErrorKey = null;
+    this.assistant
+      .getConversation(id)
+      .pipe(
+        switchMap((detail) => this.hydrateAssistantConversationDetail(detail)),
+        finalize(() => {
+          this.historyDetailLoading = false;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
+        next: (detail) => {
+          this.applyLoadedAssistantConversation(detail);
+          this.assistantHistoryModalRef?.close();
+        },
+        error: () => {
+          this.historyErrorKey = 'ASSISTANT.HISTORY_DETAIL_ERR';
+        }
+      });
+  }
+
+  deleteAssistantConversationFromHistory(id: string, ev: Event): void {
+    ev.stopPropagation();
+    ev.preventDefault();
+    const msg = this.translate.instant('ASSISTANT.HISTORY_DELETE_CONFIRM');
+    if (!globalThis.confirm(msg)) {
+      return;
+    }
+    this.assistant
+      .deleteConversation(id)
+      .pipe(take(1))
+      .subscribe({
+        next: () => {
+          this.historyItems = this.historyItems.filter((h) => h.id !== id);
+          if (this.persistedRemoteConversationId === id) {
+            this.persistedRemoteConversationId = null;
+          }
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.historyErrorKey = 'ASSISTANT.HISTORY_DELETE_ERR';
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  private applyLoadedAssistantConversation(detail: AssistantConversationDetail): void {
+    this.persistedRemoteConversationId = detail.id;
+    if (detail.routingProvider === 'openai' || detail.routingProvider === 'anthropic') {
+      this.routingProvider = detail.routingProvider;
+    }
+    this.rebuildModelOptionsList();
+    /** Le Mongo historique garde l’id exact du modèle (ex. gpt-5.5-2026-04-23), absent des presets courts → éviter « personnalisé » si on peut l’aligner sur une entrée liste. */
+    const persistedModel = (detail.model ?? '').trim();
+    if (persistedModel && !this.routingModelOptions.includes(persistedModel)) {
+      this.routingModelOptions = [...this.routingModelOptions, persistedModel];
+    }
+    this.syncModelPresetFromServer(detail.model ?? '');
+    this.messages = detail.turns.map((t) => this.mapPersistedTurnToChatTurn(t));
+    this.fabUnreadReply = false;
+    this.persistSession();
+    this.requestAlignLastQuestionTop();
+    this.cdr.markForCheck();
+    queueMicrotask(() => this.fitGeneratedImagesInChat());
+  }
+
+  /**
+   * Reconstruit le markdown affichable pour les tours assistant dont les images
+   * sont stockées en assets (IDs), sans gonfler le JSON de conversation.
+   */
+  private hydrateAssistantConversationDetail(
+    detail: AssistantConversationDetail
+  ): Observable<AssistantConversationDetail> {
+    /** Libère les blobs de la conversation précédemment chargée ; pas après hydrate (sinon les URLs du détail courant sont mortes). */
+    this.revokeAssistantHydratedBlobs();
+    const turnObservables = detail.turns.map((t) => {
+      if (t.role !== 'assistant' || !t.generatedImageAssetIds?.length) {
+        return of(t);
+      }
+      const ids = t.generatedImageAssetIds;
+      return forkJoin(
+        ids.map((aid) =>
+          this.assistant.getConversationAssetBlob(aid).pipe(catchError(() => of(null)))
+        )
+      ).pipe(
+        map((blobs) => {
+          let content = typeof t.content === 'string' ? t.content : '';
+          for (const blob of blobs) {
+            if (!blob || blob.size === 0) {
+              continue;
+            }
+            const u = URL.createObjectURL(blob);
+            this.assistantHydratedBlobUrls.push(u);
+            content += `\n\n![Generated](${u})\n`;
+          }
+          return { ...t, content };
+        })
+      );
+    });
+    return forkJoin(turnObservables).pipe(map((turns) => ({ ...detail, turns })));
+  }
+
+  private mapPersistedTurnToChatTurn(t: AssistantConversationTurnPersist): AssistantChatTurn {
+    const base: AssistantChatTurn = {
+      role: t.role,
+      content: typeof t.content === 'string' ? t.content : ''
+    };
+    if (t.role === 'user' && t.hasImage === true) {
+      base.hasImage = true;
+    }
+    if (t.role === 'user' && t.imageDataUrl?.trim()) {
+      base.imageDataUrl = t.imageDataUrl.trim();
+    }
+    if (t.role === 'assistant' && t.generatedImageAssetIds?.length) {
+      base.generatedImageAssetIds = [...t.generatedImageAssetIds];
+    }
+    if (t.role === 'assistant' && t.meta) {
+      const m = t.meta;
+      const meta: AssistantChatMeta = {};
+      if (m.elapsedMs != null && Number.isFinite(m.elapsedMs)) {
+        meta.elapsedMs = Math.round(m.elapsedMs);
+      }
+      if (m.inputTokens != null) {
+        meta.inputTokens = m.inputTokens;
+      }
+      if (m.outputTokens != null) {
+        meta.outputTokens = m.outputTokens;
+      }
+      if (m.provider?.trim()) {
+        meta.provider = m.provider.trim();
+      }
+      if (m.model?.trim()) {
+        meta.model = m.model.trim();
+      }
+      if (Object.keys(meta).length) {
+        base.meta = meta;
+      }
+    }
+    return base;
+  }
+
+  private revokeAssistantHydratedBlobs(): void {
+    for (const u of this.assistantHydratedBlobUrls) {
+      try {
+        URL.revokeObjectURL(u);
+      } catch {
+        /* ignore */
+      }
+    }
+    this.assistantHydratedBlobUrls = [];
+  }
+
+  private prepareAssistantConversationSaveBodyWithAssets(): Observable<AssistantConversationSaveBody> {
+    const labels = this.conversationPersistLabels();
+    return forkJoin(this.messages.map((m) => this.messageToPersistTurn$(m))).pipe(
+      map((turns) => ({
+        routingProvider: this.routingProvider,
+        providerLabel: labels.providerLabel,
+        model: labels.model,
+        turns
+      }))
+    );
+  }
+
+  private messageToPersistTurn$(
+    m: AssistantChatTurn
+  ): Observable<AssistantConversationTurnPersist> {
+    if (m.role === 'user') {
+      return of(this.userMessageToPersistTurn(m));
+    }
+    const content = typeof m.content === 'string' ? m.content : '';
+    const persistText = this.persistableAssistantText(content);
+    const dataUrls = this.extractGeneratedImageDataUrls(content);
+    if (dataUrls.length > 0) {
+      return forkJoin(
+        dataUrls.map((u) => this.uploadGeneratedImageDataUrl$(u))
+      ).pipe(
+        map((ids) => this.assistantMessageToPersistTurn(m, ids, persistText))
+      );
+    }
+    const existingIds = m.generatedImageAssetIds?.filter((id) => id?.trim()) ?? [];
+    if (existingIds.length > 0) {
+      return of(this.assistantMessageToPersistTurn(m, existingIds, persistText));
+    }
+    return of(this.assistantMessageToPersistTurn(m, undefined, persistText));
+  }
+
+  private userMessageToPersistTurn(m: AssistantChatTurn): AssistantConversationTurnPersist {
+    const row: AssistantConversationTurnPersist = {
+      role: 'user',
+      content: typeof m.content === 'string' ? m.content : ''
+    };
+    if (m.hasImage === true) {
+      row.hasImage = true;
+    }
+    if (m.imageDataUrl?.trim()) {
+      row.imageDataUrl = m.imageDataUrl.trim();
+    }
+    return row;
+  }
+
+  private assistantMessageToPersistTurn(
+    m: AssistantChatTurn,
+    generatedImageAssetIds: string[] | undefined,
+    persistText: string
+  ): AssistantConversationTurnPersist {
+    const row: AssistantConversationTurnPersist = {
+      role: 'assistant',
+      content: persistText,
+      ...(generatedImageAssetIds?.length
+        ? { generatedImageAssetIds: [...generatedImageAssetIds] }
+        : {})
+    };
+    if (m.meta) {
+      row.meta = {
+        ...(m.meta.elapsedMs != null ? { elapsedMs: m.meta.elapsedMs } : {}),
+        ...(m.meta.inputTokens != null ? { inputTokens: m.meta.inputTokens } : {}),
+        ...(m.meta.outputTokens != null ? { outputTokens: m.meta.outputTokens } : {}),
+        ...(m.meta.provider?.trim() ? { provider: m.meta.provider.trim() } : {}),
+        ...(m.meta.model?.trim() ? { model: m.meta.model.trim() } : {})
+      };
+    }
+    return row;
+  }
+
+  private uploadGeneratedImageDataUrl$(dataUrl: string): Observable<string> {
+    const trimmed = dataUrl.trim();
+    const match = /^data:([^;]+);base64,(.+)$/is.exec(trimmed);
+    if (!match?.[1] || !match[2]) {
+      return throwError(() => new Error('invalid assistant generated image data URL'));
+    }
+    const mimeType = match[1].trim().toLowerCase();
+    const base64 = match[2].replace(/\s+/g, '');
+    return this.assistant
+      .uploadConversationAsset({ mimeType, base64 })
+      .pipe(map((r) => r.id));
+  }
+
+  /** Texte assistant persisté : sans data URLs ni blob URLs locales (images → assets séparés). */
+  private persistableAssistantText(raw: string): string {
+    const base = typeof raw === 'string' ? raw : '';
+    const withoutData = this.stripGeneratedImagesFromContent(base);
+    return this.stripBlobGeneratedImagesFromContent(withoutData).trim();
+  }
+
+  private stripBlobGeneratedImagesFromContent(content: string): string {
+    if (!content) {
+      return '';
+    }
+    let out = content.replace(/!\[[^\]]*\]\((blob:[^)\s]+)\)/g, '');
+    out = out.replace(/<img[^>]*\ssrc=["']blob:[^"']+["'][^>]*\/?>(\s*<\/img>)?/gi, '');
+    return out.replace(/\n{3,}/g, '\n\n').trim();
+  }
+
+  private conversationPersistLabels(): { providerLabel: string; model: string } {
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      const m = this.messages[i];
+      if (
+        m.role === 'assistant' &&
+        m.meta?.provider?.trim() &&
+        m.meta?.model?.trim()
+      ) {
+        return {
+          providerLabel: m.meta.provider.trim(),
+          model: m.meta.model.trim()
+        };
+      }
+    }
+    const fallbackProv =
+      this.routingProvider === 'openai'
+        ? this.translate.instant('ASSISTANT.PROVIDER_OPENAI_SHORT')
+        : this.translate.instant('ASSISTANT.PROVIDER_ANTHROPIC_SHORT');
+    return { providerLabel: fallbackProv, model: this.effectiveModelForRequest() };
+  }
+
+  private persistRemoteConversationOnce(): Observable<void> {
+    if (!this.isAuthenticated()) {
+      return EMPTY;
+    }
+    return defer(() =>
+      this.prepareAssistantConversationSaveBodyWithAssets().pipe(
+        switchMap((body) => {
+          if (!body.turns.length) {
+            return EMPTY;
+          }
+          const id = this.persistedRemoteConversationId;
+          if (id) {
+            return this.assistant.updateConversation(id, body).pipe(
+              tap(() => {
+                this.historyPersistErrorKey = null;
+              }),
+              catchError(() => {
+                this.historyPersistErrorKey = 'ASSISTANT.HISTORY_SAVE_ERR';
+                this.cdr.markForCheck();
+                return EMPTY;
+              })
+            );
+          }
+          return this.assistant.createConversation(body).pipe(
+            tap((res) => {
+              if (res?.id) {
+                this.persistedRemoteConversationId = res.id;
+              }
+              this.historyPersistErrorKey = null;
+            }),
+            catchError(() => {
+              this.historyPersistErrorKey = 'ASSISTANT.HISTORY_SAVE_ERR';
+              this.cdr.markForCheck();
+              return EMPTY;
+            }),
+            map(() => undefined)
+          );
+        })
+      )
+    );
+  }
+
+  private scheduleRemoteConversationPersist(): void {
+    if (!this.isAuthenticated()) {
+      return;
+    }
+    this.remotePersistTrigger.next();
   }
 
   /** Bouton actif tant qu’il y a un historique de messages à effacer (le brouillon reste intact). */
@@ -1723,6 +2264,7 @@ export class AssistantDrawerComponent
     }
     this.requestAlignLastQuestionTop();
     this.persistSession();
+    this.scheduleRemoteConversationPersist();
     this.cdr.detectChanges();
   }
 
@@ -1737,10 +2279,20 @@ export class AssistantDrawerComponent
 
   /**
    * Vrai si la bulle assistant contient au moins une image générée
-   * (insérée par le backend sous forme de Markdown `![…](data:image/…)` ou de balise `<img>`).
+   * (data URL, blob URL locale après rechargement historique, ou IDs d’assets serveur).
    */
   hasGeneratedImage(m: AssistantChatTurn): boolean {
-    return m.role === 'assistant' && this.extractGeneratedImageDataUrls(m.content).length > 0;
+    if (m.role !== 'assistant') {
+      return false;
+    }
+    if ((m.generatedImageAssetIds?.length ?? 0) > 0) {
+      return true;
+    }
+    const c = m.content ?? '';
+    return (
+      this.extractGeneratedImageDataUrls(c).length > 0 ||
+      this.extractGeneratedImageBlobUrls(c).length > 0
+    );
   }
 
   /**
@@ -1764,6 +2316,33 @@ export class AssistantDrawerComponent
       }
     }
     const imgRe = /<img[^>]*\ssrc=["'](data:image\/[a-zA-Z0-9.+-]+;base64,[^"']+)["']/gi;
+    while ((m = imgRe.exec(content)) !== null) {
+      const url = m[1];
+      if (url && !seen.has(url)) {
+        seen.add(url);
+        out.push(url);
+      }
+    }
+    return out;
+  }
+
+  /** URLs blob locales (`blob:`) provenant de l’hydratation des assets sauvegardés. */
+  private extractGeneratedImageBlobUrls(content: string | null | undefined): string[] {
+    if (content == null || content === '') {
+      return [];
+    }
+    const out: string[] = [];
+    const seen = new Set<string>();
+    const mdRe = /!\[[^\]]*\]\((blob:[^)\s]+)\)/g;
+    let m: RegExpExecArray | null;
+    while ((m = mdRe.exec(content)) !== null) {
+      const url = m[1];
+      if (url && !seen.has(url)) {
+        seen.add(url);
+        out.push(url);
+      }
+    }
+    const imgRe = /<img[^>]*\ssrc=["'](blob:[^"']+)["']/gi;
     while ((m = imgRe.exec(content)) !== null) {
       const url = m[1];
       if (url && !seen.has(url)) {
@@ -1803,10 +2382,10 @@ export class AssistantDrawerComponent
       return;
     }
 
-    const dataUrls = this.extractGeneratedImageDataUrls(m.content);
+    const dataUrlList = await this.assistantGeneratedImagesAsDataUrls(m);
     const files: File[] = [];
     let i = 0;
-    for (const url of dataUrls) {
+    for (const url of dataUrlList) {
       const f = await this.dataUrlToFile(url, `pat-assistant-generated-${i++}`);
       if (f) {
         files.push(f);
@@ -1832,6 +2411,17 @@ export class AssistantDrawerComponent
       }
     }
 
+    const replyPlain = this.persistableAssistantText(
+      typeof m.content === 'string' ? m.content : ''
+    ).trim();
+    if (replyPlain.length > 0) {
+      const max = 1200;
+      const excerpt =
+        replyPlain.length <= max ? replyPlain : `${replyPlain.slice(0, max)}…`;
+      const aiLabel = this.translate.instant('ASSISTANT.AI');
+      message += `\n\n*${aiLabel}*\n${excerpt}`;
+    }
+
     const nav = navigator as Navigator & {
       share?: (data: ShareData) => Promise<void>;
       canShare?: (data: ShareData) => boolean;
@@ -1845,16 +2435,26 @@ export class AssistantDrawerComponent
 
     if (typeof nav.share === 'function') {
       if (files.length > 0) {
-        const withFiles: ShareData = { title, text: message, files };
-        const canShare = typeof nav.canShare === 'function' ? nav.canShare(withFiles) : true;
-        if (canShare) {
-          try {
-            await nav.share(withFiles);
+        /**
+         * WhatsApp (entre autres) ignore souvent {@link ShareData.text} lorsqu’il y a des fichiers :
+         * on copie donc le bloc texte dans le presse-papiers pour collage manuel après envoi de l’image.
+         */
+        if (message.trim()) {
+          copyPlainTextToClipboard(message);
+        }
+        try {
+          await nav.share({ title, text: message, files });
+          if (message.trim()) {
+            this.showAssistantTransientBanner(
+              'ASSISTANT.SHARE_GENERATED_IMG_WHATSAPP_CAPTION_HINT',
+              'success',
+              6500
+            );
+          }
+          return;
+        } catch (err: unknown) {
+          if (aborted(err)) {
             return;
-          } catch (err: unknown) {
-            if (aborted(err)) {
-              return;
-            }
           }
         }
       }
@@ -1885,18 +2485,51 @@ export class AssistantDrawerComponent
    * de la bulle assistant cliquée. Charge la liste des évènements accessibles
    * à l'utilisateur courant via SSE (`streamEvents`) et affiche un picker filtrable.
    */
-  openInsertImageInEventModal(m: AssistantChatTurn, ev: Event): void {
+  async openInsertImageInEventModal(m: AssistantChatTurn, ev: Event): Promise<void> {
     ev.stopPropagation();
     ev.preventDefault();
     if (!this.hasGeneratedImage(m)) {
       return;
     }
+    this.revokeInsertImagePickObjectUrl();
     const dataUrls = this.extractGeneratedImageDataUrls(m.content);
-    if (dataUrls.length === 0) {
+    const blobUrls = this.extractGeneratedImageBlobUrls(m.content);
+    let picked = dataUrls[0]?.trim() || blobUrls[0]?.trim() || '';
+    if (!picked && m.generatedImageAssetIds?.length) {
+      const id = m.generatedImageAssetIds.map((x) => x?.trim()).find(Boolean);
+      if (id) {
+        try {
+          const b = await firstValueFrom(this.assistant.getConversationAssetBlob(id));
+          if (b && b.size > 0) {
+            picked = URL.createObjectURL(b);
+            this.insertImagePickObjectUrl = picked;
+          }
+        } catch {
+          picked = '';
+        }
+      }
+    }
+    if (!picked) {
       return;
     }
+    if (picked.startsWith('blob:')) {
+      const wasTrackedPick = this.insertImagePickObjectUrl === picked;
+      try {
+        const file = await this.blobUrlToFile(picked, 'pat-insert');
+        const du = await this.readBlobAsDataUrl(file);
+        if (du?.startsWith('data:image/')) {
+          if (wasTrackedPick && this.insertImagePickObjectUrl) {
+            URL.revokeObjectURL(this.insertImagePickObjectUrl);
+            this.insertImagePickObjectUrl = null;
+          }
+          picked = du;
+        }
+      } catch {
+        /* conserve blob: si conversion impossible */
+      }
+    }
     this.insertMode = 'image';
-    this.insertImageDataUrl = dataUrls[0];
+    this.insertImageDataUrl = picked;
     this.insertCommentText = '';
     this.openInsertEventModal();
   }
@@ -1912,10 +2545,22 @@ export class AssistantDrawerComponent
     if (m.role !== 'assistant') {
       return;
     }
+    void this.prepareInsertCommentInEventModal(m);
+  }
+
+  private async prepareInsertCommentInEventModal(m: AssistantChatTurn): Promise<void> {
+    this.revokeInsertImagePickObjectUrl();
     this.insertMode = 'comment';
     this.insertImageDataUrl = null;
-    this.insertCommentText = this.buildDefaultCommentText(m);
+    let imgs: string[] = [];
+    try {
+      imgs = await this.assistantGeneratedImagesAsDataUrls(m);
+    } catch {
+      imgs = [];
+    }
+    this.insertCommentText = this.buildDefaultCommentText(m, imgs);
     this.openInsertEventModal();
+    this.cdr.markForCheck();
   }
 
   /** Initialisation commune des deux modes (état du picker + ouverture NgbModal). */
@@ -1958,13 +2603,17 @@ export class AssistantDrawerComponent
    * `<p><img src="data:..."/></p>` — afin que la troncature du texte ne
    * casse jamais le base64 d'une image.
    *
+   * Les images sont passées en data URLs ({@code embeddedImageDataUrls}) pour éviter
+   * les `blob:` (souvent perdus par Quill ou par la chaîne de sauvegarde).
+   *
    * Compatible avec l'éditeur Quill et l'affichage HTML des commentaires.
    */
-  private buildDefaultCommentText(m: AssistantChatTurn): string {
+  private buildDefaultCommentText(m: AssistantChatTurn, embeddedImageDataUrls: string[]): string {
     const promptRaw = this.findPromptingUserText(m);
     const replyRaw = typeof m.content === 'string' ? m.content : '';
-    const imageDataUrls = this.extractGeneratedImageDataUrls(replyRaw);
-    const replyTextOnly = this.stripGeneratedImagesFromContent(replyRaw).trim();
+    const replyTextOnly = this.stripBlobGeneratedImagesFromContent(
+      this.stripGeneratedImagesFromContent(replyRaw)
+    ).trim();
 
     const prefixQ = this.translate.instant('ASSISTANT.INSERT_CMT_IN_EVENT_PROMPT_PREFIX');
     const prefixR = this.translate.instant('ASSISTANT.INSERT_CMT_IN_EVENT_REPLY_PREFIX');
@@ -1993,14 +2642,14 @@ export class AssistantDrawerComponent
       textHtml = textHtml.slice(0, Math.max(0, max - 1)) + '…';
     }
 
-    if (imageDataUrls.length > 0) {
+    if (embeddedImageDataUrls.length > 0) {
       /**
        * On encapsule chaque image dans un `<a target="_blank">` pointant vers
        * la même data URL : le rendu HTML du commentaire (commentary-editor)
        * la limite en taille (max-height en CSS), mais un click sur l'image
        * l'ouvre alors en plein dans un nouvel onglet du navigateur.
        */
-      const imagesHtml = imageDataUrls
+      const imagesHtml = embeddedImageDataUrls
         .map(
           (url) =>
             `<p><a href="${url}" target="_blank" rel="noopener noreferrer">` +
@@ -2432,7 +3081,20 @@ export class AssistantDrawerComponent
     }
   }
 
+  private revokeInsertImagePickObjectUrl(): void {
+    if (!this.insertImagePickObjectUrl) {
+      return;
+    }
+    try {
+      URL.revokeObjectURL(this.insertImagePickObjectUrl);
+    } catch {
+      /* ignore */
+    }
+    this.insertImagePickObjectUrl = null;
+  }
+
   private onInsertImageModalClosed(): void {
+    this.revokeInsertImagePickObjectUrl();
     this.insertImageEventsStreamSub?.unsubscribe();
     this.insertImageUploadSub?.unsubscribe();
     if (this.insertImageFeedbackTimer !== undefined) {
@@ -2486,10 +3148,9 @@ export class AssistantDrawerComponent
   private runAssistantThreadPdfExport(): void {
     this.pdfExporting = true;
     this.cdr.markForCheck();
-    const payload = this.buildAssistantPdfExportRequest();
-    this.assistant
-      .exportThreadPdf(payload)
+    this.buildAssistantPdfExportRequest$()
       .pipe(
+        switchMap((payload) => this.assistant.exportThreadPdf(payload)),
         takeUntilDestroyed(this.destroyRef),
         finalize(() => {
           this.pdfExporting = false;
@@ -2523,60 +3184,148 @@ export class AssistantDrawerComponent
     )}${pad(d.getMinutes())}.pdf`;
   }
 
-  private buildAssistantPdfExportRequest(): AssistantPdfExportRequest {
-    const you = this.translate.instant('ASSISTANT.YOU');
+  private buildAssistantPdfExportRequest$(): Observable<AssistantPdfExportRequest> {
+    const youRaw = (this.chatUserLabel() || '').trim();
+    const you = youRaw || this.translate.instant('ASSISTANT.YOU');
     const assistant = this.translate.instant('ASSISTANT.AI');
-    const turns: AssistantPdfExportTurn[] = [];
-    for (const m of this.messages) {
-      if (m.role === 'user') {
-        turns.push(this.buildUserTurnForPdfExport(m));
-      } else {
-        const pm = this.replyProviderModelLine(m).trim();
-        let providerModelLine: string | undefined;
-        if (pm.length > 0) {
-          const line = this.translate
-            .instant('ASSISTANT.SHARE_PROVIDER_MODEL_LINE', { providerModel: pm })
-            .trim();
-          if (line.length > 0) {
-            providerModelLine = line;
-          }
-        }
-        const stats = this.replyStatsLine(m).trim();
-        turns.push({
-          role: 'assistant',
-          content: typeof m.content === 'string' ? m.content : '',
-          ...(providerModelLine ? { providerModelLine } : {}),
-          ...(stats ? { statsLine: stats } : {})
-        });
+    return forkJoin(this.messages.map((m) => this.pdfExportTurn$(m))).pipe(
+      map((turns) => ({
+        title: this.translate.instant('ASSISTANT.TITLE'),
+        exportedAt: new Date().toLocaleString(),
+        youLabel: you,
+        assistantLabel: assistant,
+        turns
+      }))
+    );
+  }
+
+  private pdfBlobToDataUrl$(blob: Blob | null | undefined): Observable<string | null> {
+    return new Observable<string | null>((sub) => {
+      if (!blob || blob.size === 0) {
+        sub.next(null);
+        sub.complete();
+        return;
+      }
+      const fr = new FileReader();
+      fr.onload = () => {
+        sub.next(typeof fr.result === 'string' ? fr.result : null);
+        sub.complete();
+      };
+      fr.onerror = () => {
+        sub.next(null);
+        sub.complete();
+      };
+      fr.readAsDataURL(blob);
+    });
+  }
+
+  private pdfFetchBlobUrlAsDataUrl$(url: string): Observable<string | null> {
+    const u = url.trim();
+    if (!u.startsWith('blob:')) {
+      return of(null);
+    }
+    return from(fetch(u)).pipe(
+      switchMap((r) => (r.ok ? from(r.blob()) : of(null))),
+      switchMap((b) => this.pdfBlobToDataUrl$(b))
+    );
+  }
+
+  private pdfEmbeddedImagesForAssistantTurn$(m: AssistantChatTurn): Observable<string[]> {
+    const rawContent = typeof m.content === 'string' ? m.content : '';
+    const dataUrls = [...this.extractGeneratedImageDataUrls(rawContent)];
+    const blobUrls = [...this.extractGeneratedImageBlobUrls(rawContent)];
+    const assetIds = [...(m.generatedImageAssetIds ?? [])]
+      .map((id) => id?.trim())
+      .filter((id): id is string => !!id);
+
+    const tasks: Observable<string | null>[] = [];
+    for (const u of dataUrls) {
+      tasks.push(of(u));
+    }
+    for (const u of blobUrls) {
+      tasks.push(this.pdfFetchBlobUrlAsDataUrl$(u));
+    }
+    /** Même image deux fois : après hydratation le corps contient des blob: ET {@link generatedImageAssetIds} — ne pas refetch les assets. */
+    if (blobUrls.length === 0) {
+      for (const id of assetIds) {
+        tasks.push(
+          this.assistant.getConversationAssetBlob(id).pipe(
+            switchMap((b) => this.pdfBlobToDataUrl$(b)),
+            catchError(() => of(null))
+          )
+        );
       }
     }
-    return {
-      title: this.translate.instant('ASSISTANT.TITLE'),
-      exportedAt: new Date().toLocaleString(),
-      youLabel: you,
-      assistantLabel: assistant,
-      turns
-    };
+    if (tasks.length === 0) {
+      return of([]);
+    }
+    return forkJoin(tasks).pipe(
+      map((arr) =>
+        arr.filter((x): x is string => typeof x === 'string' && x.startsWith('data:image/'))
+      )
+    );
+  }
+
+  private pdfExportTurn$(m: AssistantChatTurn): Observable<AssistantPdfExportTurn> {
+    if (m.role === 'user') {
+      return of(this.buildUserTurnForPdfExport(m));
+    }
+    const pm = this.replyProviderModelLine(m).trim();
+    let providerModelLine: string | undefined;
+    if (pm.length > 0) {
+      const line = this.translate
+        .instant('ASSISTANT.SHARE_PROVIDER_MODEL_LINE', { providerModel: pm })
+        .trim();
+      if (line.length > 0) {
+        providerModelLine = line;
+      }
+    }
+    const stats = this.replyStatsLine(m).trim();
+    let assistantBody = typeof m.content === 'string' ? m.content : '';
+    const hasGenImg =
+      this.extractGeneratedImageDataUrls(assistantBody).length > 0 ||
+      this.extractGeneratedImageBlobUrls(assistantBody).length > 0 ||
+      (m.generatedImageAssetIds?.length ?? 0) > 0;
+    if (hasGenImg) {
+      assistantBody = this.persistableAssistantText(assistantBody);
+    }
+
+    return this.pdfEmbeddedImagesForAssistantTurn$(m).pipe(
+      map((embedded) => {
+        let content = assistantBody;
+        if (hasGenImg && embedded.length === 0) {
+          const photoLine = this.translate.instant('ASSISTANT.TRANSCRIPT_PHOTO_LINE').trim();
+          if (photoLine.length > 0) {
+            content = content ? `${content}\n${photoLine}` : photoLine;
+          }
+        }
+        const row: AssistantPdfExportTurn = {
+          role: 'assistant',
+          content,
+          ...(providerModelLine ? { providerModelLine } : {}),
+          ...(stats ? { statsLine: stats } : {}),
+          ...(embedded.length > 0 ? { embeddedImageDataUrls: embedded } : {})
+        };
+        return row;
+      })
+    );
   }
 
   private buildUserTurnForPdfExport(m: AssistantChatTurn): AssistantPdfExportTurn {
     let body = typeof m.content === 'string' ? m.content.trim() : '';
-    const imageNote = this.translate.instant('ASSISTANT.IMAGE_SENT_NOTE');
-    const photoInShare = this.translate.instant('ASSISTANT.TRANSCRIPT_PHOTO_LINE');
-    if (m.role === 'user' && m.hasImage && !m.imageDataUrl) {
-      body = body ? `${body}\n${imageNote}` : imageNote;
-    } else if (m.role === 'user' && m.imageDataUrl?.trim()) {
-      const line = photoInShare.trim();
-      if (line.length > 0) {
-        body = body ? `${body}\n${line}` : line;
-      }
+    const embedded: string[] = [];
+    if (m.imageDataUrl?.trim()) {
+      embedded.push(m.imageDataUrl.trim());
     }
-    const img = m.imageDataUrl?.trim();
+    if (m.hasImage && embedded.length === 0) {
+      const imageNote = this.translate.instant('ASSISTANT.IMAGE_SENT_NOTE');
+      body = body ? `${body}\n${imageNote}` : imageNote;
+    }
     return {
       role: 'user',
       content: body,
       ...(m.hasImage ? { hasImage: true } : {}),
-      ...(img ? { imageDataUrl: img } : {})
+      ...(embedded.length > 0 ? { embeddedImageDataUrls: embedded } : {})
     };
   }
 
@@ -2665,9 +3414,14 @@ export class AssistantDrawerComponent
           body = body ? `${body}\n${line}` : line;
         }
       } else if (m.role === 'assistant') {
-        const embeddedUrls = this.extractGeneratedImageDataUrls(body);
-        if (embeddedUrls.length > 0) {
-          body = this.stripGeneratedImagesFromContent(body).trim();
+        const hasEmbedded =
+          this.extractGeneratedImageDataUrls(body).length > 0 ||
+          this.extractGeneratedImageBlobUrls(body).length > 0 ||
+          (m.generatedImageAssetIds?.length ?? 0) > 0;
+        if (hasEmbedded) {
+          body = this.stripBlobGeneratedImagesFromContent(
+            this.stripGeneratedImagesFromContent(body)
+          ).trim();
           const line = photoInShare.trim();
           if (line.length > 0) {
             body = body ? `${body}\n${line}` : line;
@@ -2796,8 +3550,13 @@ export class AssistantDrawerComponent
     const seen = new Set<string>();
     for (const m of this.messages) {
       if (m.role === 'assistant') {
-        const urls = this.extractGeneratedImageDataUrls(m.content);
-        for (const u of urls) {
+        for (const u of this.extractGeneratedImageDataUrls(m.content)) {
+          if (!seen.has(u)) {
+            seen.add(u);
+            out.push(u);
+          }
+        }
+        for (const u of this.extractGeneratedImageBlobUrls(m.content)) {
           if (!seen.has(u)) {
             seen.add(u);
             out.push(u);
@@ -2930,6 +3689,24 @@ export class AssistantDrawerComponent
     return base64.length ? { mime, base64 } : null;
   }
 
+  private async blobUrlToFile(blobUrl: string, fileName: string): Promise<File | null> {
+    const u = blobUrl.trim();
+    if (!u.startsWith('blob:')) {
+      return null;
+    }
+    try {
+      const resp = await fetch(u);
+      const blob = await resp.blob();
+      const type =
+        blob.type && blob.type !== 'application/octet-stream'
+          ? blob.type
+          : 'image/png';
+      return new File([blob], fileName, { type });
+    } catch {
+      return null;
+    }
+  }
+
   private async dataUrlToFile(dataUrl: string, fileName: string): Promise<File | null> {
     const parsed = this.parseDataUrlBase64(dataUrl);
     if (!parsed) {
@@ -2966,6 +3743,71 @@ export class AssistantDrawerComponent
     }
   }
 
+  /** Blob → data URL (fiable pour HTML commentaire / fichiers {@link File}). */
+  private readBlobAsDataUrl(blob: Blob | null | undefined): Promise<string | null> {
+    return new Promise((resolve) => {
+      if (!blob || blob.size === 0) {
+        resolve(null);
+        return;
+      }
+      const fr = new FileReader();
+      fr.onload = () => resolve(typeof fr.result === 'string' ? fr.result : null);
+      fr.onerror = () => resolve(null);
+      fr.readAsDataURL(blob);
+    });
+  }
+
+  /**
+   * Images générées d’un tour assistant en data URLs (WhatsApp, évènement, commentaire).
+   * Si le markdown contient des blob: (historique hydraté), on ne refetch pas les assets (doublon).
+   */
+  private async assistantGeneratedImagesAsDataUrls(m: AssistantChatTurn): Promise<string[]> {
+    if (m.role !== 'assistant') {
+      return [];
+    }
+    const raw = typeof m.content === 'string' ? m.content : '';
+    const out: string[] = [];
+    const seen = new Set<string>();
+    const add = (du: string | null | undefined): void => {
+      const t = (du ?? '').trim();
+      if (!t.startsWith('data:image/') || seen.has(t)) {
+        return;
+      }
+      seen.add(t);
+      out.push(t);
+    };
+
+    for (const u of this.extractGeneratedImageDataUrls(raw)) {
+      add(u);
+    }
+
+    const blobUrls = this.extractGeneratedImageBlobUrls(raw);
+    for (const u of blobUrls) {
+      const file = await this.blobUrlToFile(u.trim(), 'pat-asst-img');
+      if (!file) {
+        continue;
+      }
+      add(await this.readBlobAsDataUrl(file));
+    }
+
+    if (blobUrls.length === 0) {
+      for (const aid of m.generatedImageAssetIds ?? []) {
+        const id = aid?.trim();
+        if (!id) {
+          continue;
+        }
+        try {
+          const blob = await firstValueFrom(this.assistant.getConversationAssetBlob(id));
+          add(await this.readBlobAsDataUrl(blob));
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+
+    return out;
+  }
+
   /** Web Share ({@code text} ± {@code files}) puis repli {@code wa.me}, comme mur + slideshow. */
   async confirmAssistantWhatsAppShare(): Promise<void> {
     const title = this.translate.instant('ASSISTANT.TITLE');
@@ -2989,29 +3831,27 @@ export class AssistantDrawerComponent
     }
 
     const imageFiles: File[] = [];
-    const seenImageDataUrls = new Set<string>();
+    const seenImageKeys = new Set<string>();
     let imgIdx = 0;
     for (const m of this.messages) {
       if (m.role === 'user' && m.imageDataUrl?.trim()) {
         const url = m.imageDataUrl.trim();
-        if (seenImageDataUrls.has(url)) {
+        if (seenImageKeys.has(url)) {
           continue;
         }
-        seenImageDataUrls.add(url);
-        const file = await this.dataUrlToFile(url, `pat-assistant-photo-${imgIdx}`);
-        imgIdx++;
+        seenImageKeys.add(url);
+        const file = await this.dataUrlToFile(url, `pat-assistant-photo-${imgIdx++}`);
         if (file) {
           imageFiles.push(file);
         }
       } else if (m.role === 'assistant') {
-        const content = typeof m.content === 'string' ? m.content : '';
-        for (const url of this.extractGeneratedImageDataUrls(content)) {
-          if (seenImageDataUrls.has(url)) {
+        const urls = await this.assistantGeneratedImagesAsDataUrls(m);
+        for (const url of urls) {
+          if (seenImageKeys.has(url)) {
             continue;
           }
-          seenImageDataUrls.add(url);
-          const file = await this.dataUrlToFile(url, `pat-assistant-generated-${imgIdx}`);
-          imgIdx++;
+          seenImageKeys.add(url);
+          const file = await this.dataUrlToFile(url, `pat-assistant-generated-${imgIdx++}`);
           if (file) {
             imageFiles.push(file);
           }
@@ -3029,18 +3869,13 @@ export class AssistantDrawerComponent
 
     if (typeof nav.share === 'function') {
       if (imageFiles.length > 0) {
-        const withFiles: ShareData = { title, text: message, files: imageFiles };
-        const canShare =
-          typeof nav.canShare === 'function' ? nav.canShare(withFiles) : true;
-        if (canShare) {
-          try {
-            await nav.share(withFiles);
-            this.cancelAssistantWhatsAppShare();
+        try {
+          await nav.share({ title, text: message, files: imageFiles });
+          this.cancelAssistantWhatsAppShare();
+          return;
+        } catch (err: unknown) {
+          if (aborted(err)) {
             return;
-          } catch (err: unknown) {
-            if (aborted(err)) {
-              return;
-            }
           }
         }
       }

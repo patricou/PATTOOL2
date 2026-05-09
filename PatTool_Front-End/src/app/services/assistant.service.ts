@@ -24,6 +24,8 @@ export interface AssistantChatTurn {
   hasImage?: boolean;
   /** Aperçu local (data URL) ; non sérialisé en session. */
   imageDataUrl?: string;
+  /** Images générées référencées côté serveur (historique rechargé sans data URL). */
+  generatedImageAssetIds?: string[];
 }
 
 export interface AssistantChatResponse {
@@ -119,7 +121,10 @@ export interface AssistantPdfExportTurn {
   role: 'user' | 'assistant';
   content?: string;
   hasImage?: boolean;
+  /** @deprecated Préférer {@link embeddedImageDataUrls} ; encore accepté côté serveur si la liste est vide. */
   imageDataUrl?: string | null;
+  /** Images à intégrer au PDF (data:image/...), ordre conservé (utilisateur + réponses avec images générées). */
+  embeddedImageDataUrls?: string[];
   providerModelLine?: string | null;
   statsLine?: string | null;
 }
@@ -132,6 +137,50 @@ export interface AssistantPdfExportRequest {
   turns: AssistantPdfExportTurn[];
 }
 
+/**
+ * Tour persisté (Mongo) — images utilisateur en data URL ;
+ * images générées assistant via {@link generatedImageAssetIds} (fichiers dédiés), pas dans {@code content}.
+ */
+export interface AssistantConversationTurnPersist {
+  role: 'user' | 'assistant';
+  content: string;
+  hasImage?: boolean;
+  imageDataUrl?: string | null;
+  generatedImageAssetIds?: string[];
+  meta?: {
+    elapsedMs?: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    provider?: string;
+    model?: string;
+  };
+}
+
+export interface AssistantConversationSaveBody {
+  routingProvider: 'openai' | 'anthropic';
+  providerLabel: string;
+  model: string;
+  turns: AssistantConversationTurnPersist[];
+}
+
+export interface AssistantConversationSummary {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  routingProvider: string;
+  providerLabel: string;
+  model: string;
+  preview: string;
+  /** JWT Keycloak `sub` du propriétaire de la conversation */
+  ownerSubject?: string | null;
+  /** `preferred_username` du JWT à la création (peut être vide pour les anciennes entrées). */
+  ownerPreferredUsername?: string | null;
+}
+
+export interface AssistantConversationDetail extends AssistantConversationSummary {
+  turns: AssistantConversationTurnPersist[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class AssistantService {
   private readonly apiUrl = environment.API_URL + 'assistant/chat';
@@ -141,6 +190,11 @@ export class AssistantService {
     environment.API_URL + 'assistant/routing-preference';
 
   private readonly exportPdfUrl = environment.API_URL + 'assistant/export-pdf';
+  private readonly conversationsUrl =
+    environment.API_URL + 'assistant/conversations';
+
+  private readonly conversationAssetsUrl =
+    environment.API_URL + 'assistant/conversation-assets';
 
   constructor(
     private http: HttpClient,
@@ -393,5 +447,82 @@ export class AssistantService {
       totalUsedUsd: (o['totalUsedUsd'] ?? undefined) as number | null | undefined,
       message: (o['message'] ?? undefined) as string | null | undefined
     };
+  }
+
+  listConversations(): Observable<AssistantConversationSummary[]> {
+    return this.authHeaders().pipe(
+      switchMap((headers) =>
+        this.http.get<AssistantConversationSummary[]>(this.conversationsUrl, {
+          headers
+        })
+      )
+    );
+  }
+
+  getConversation(id: string): Observable<AssistantConversationDetail> {
+    const url = `${this.conversationsUrl}/${encodeURIComponent(id)}`;
+    return this.authHeaders().pipe(
+      switchMap((headers) =>
+        this.http.get<AssistantConversationDetail>(url, { headers })
+      )
+    );
+  }
+
+  createConversation(
+    body: AssistantConversationSaveBody
+  ): Observable<{ id: string }> {
+    return this.authHeaders().pipe(
+      switchMap((headers) =>
+        this.http.post<{ id: string }>(this.conversationsUrl, body, {
+          headers
+        })
+      )
+    );
+  }
+
+  updateConversation(
+    id: string,
+    body: AssistantConversationSaveBody
+  ): Observable<void> {
+    const url = `${this.conversationsUrl}/${encodeURIComponent(id)}`;
+    return this.authHeaders().pipe(
+      switchMap((headers) =>
+        this.http.put<void>(url, body, { headers, observe: 'body' })
+      )
+    );
+  }
+
+  deleteConversation(id: string): Observable<void> {
+    const url = `${this.conversationsUrl}/${encodeURIComponent(id)}`;
+    return this.authHeaders().pipe(
+      switchMap((headers) =>
+        this.http.delete<void>(url, { headers, observe: 'body' })
+      )
+    );
+  }
+
+  uploadConversationAsset(body: {
+    mimeType: string;
+    base64: string;
+  }): Observable<{ id: string }> {
+    return this.authHeaders().pipe(
+      switchMap((headers) =>
+        this.http.post<{ id: string }>(this.conversationAssetsUrl, body, {
+          headers
+        })
+      )
+    );
+  }
+
+  getConversationAssetBlob(id: string): Observable<Blob> {
+    const url = `${this.conversationAssetsUrl}/${encodeURIComponent(id)}`;
+    return this.authHeaders().pipe(
+      switchMap((headers) =>
+        this.http.get(url, {
+          headers: headers.set('Accept', 'image/*,*/*'),
+          responseType: 'blob'
+        })
+      )
+    );
   }
 }

@@ -1293,7 +1293,13 @@
         "IMAGE_LIGHTBOX_ALT": "Εικόνα σε πλήρες μέγεθος",
         "COPY_IMG_TITLE": "Αντιγραφή της εικόνας στο πρόχειρο",
         "COPY_IMG_SUCCESS": "Η εικόνα αντιγράφηκε στο πρόχειρο",
-        "COPY_IMG_ERROR": "Αποτυχία αντιγραφής της εικόνας"
+        "COPY_IMG_ERROR": "Αποτυχία αντιγραφής της εικόνας",
+        "HISTORY_FILTER_LABEL": "Φιλτράρισμα συνομιλιών",
+        "HISTORY_FILTER_PLACEHOLDER": "Αναζήτηση στο ιστορικό…",
+        "HISTORY_FILTER_EMPTY": "Καμία συνομιλία δεν ταιριάζει με την αναζήτησή σας.",
+        "HISTORY_OWNER_LABEL": "Ιδιοκτήτης",
+        "HISTORY_CREATED_LABEL": "Δημιουργία",
+        "HISTORY_UPDATED_LABEL": "Ενημέρωση"
     },
     "ABOUT": {
         "DESIGNED_BY": "Σχεδιασμένο και αναπτυγμένο από",

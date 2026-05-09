@@ -1492,7 +1492,13 @@
         "IMAGE_LIGHTBOX_ALT": "תמונה בגודל מלא",
         "COPY_IMG_TITLE": "העתק את התמונה ללוח",
         "COPY_IMG_SUCCESS": "התמונה הועתקה ללוח",
-        "COPY_IMG_ERROR": "העתקת התמונה נכשלה"
+        "COPY_IMG_ERROR": "העתקת התמונה נכשלה",
+        "HISTORY_FILTER_LABEL": "סינון שיחות",
+        "HISTORY_FILTER_PLACEHOLDER": "חיפוש בהיסטוריה…",
+        "HISTORY_FILTER_EMPTY": "אין שיחות התואמות לחיפוש.",
+        "HISTORY_OWNER_LABEL": "בעלים",
+        "HISTORY_CREATED_LABEL": "נוצר",
+        "HISTORY_UPDATED_LABEL": "עודכן"
     },
     "ABOUT": {
         "DESIGNED_BY": "עוצב ופותח על ידי",

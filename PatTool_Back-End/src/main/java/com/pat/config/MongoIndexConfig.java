@@ -175,8 +175,25 @@ public class MongoIndexConfig {
 
             // IoT LAN proxy targets: list by owner sorted by creation date
             createIotProxyTargetIndexes();
+
+            createAssistantConversationIndexes();
         } catch (Exception e) {
             log.error("Error creating MongoDB indexes", e);
+        }
+    }
+
+    /** Assistant : liste par propriétaire JWT ({@code ownerSubject}) triée par {@code updatedAt}. */
+    private void createAssistantConversationIndexes() {
+        try {
+            log.debug("Creating MongoDB indexes for assistant_conversations");
+            createCompoundIndexIfNotExists(
+                    "assistant_conversations",
+                    new String[] {"ownerSubject", "updatedAt"},
+                    new Sort.Direction[] {Sort.Direction.ASC, Sort.Direction.DESC},
+                    "Assistant conversations: by owner, newest first");
+            log.debug("MongoDB indexes for assistant_conversations done");
+        } catch (Exception e) {
+            log.error("Error creating assistant_conversations MongoDB indexes", e);
         }
     }
 

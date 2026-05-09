@@ -1491,7 +1491,13 @@
         "IMAGE_LIGHTBOX_ALT": "صورة بالحجم الكامل",
         "COPY_IMG_TITLE": "نسخ الصورة إلى الحافظة",
         "COPY_IMG_SUCCESS": "تم نسخ الصورة إلى الحافظة",
-        "COPY_IMG_ERROR": "فشل نسخ الصورة"
+        "COPY_IMG_ERROR": "فشل نسخ الصورة",
+        "HISTORY_FILTER_LABEL": "تصفية المحادثات",
+        "HISTORY_FILTER_PLACEHOLDER": "البحث في السجل…",
+        "HISTORY_FILTER_EMPTY": "لا توجد محادثات تطابق بحثك.",
+        "HISTORY_OWNER_LABEL": "المالك",
+        "HISTORY_CREATED_LABEL": "تاريخ الإنشاء",
+        "HISTORY_UPDATED_LABEL": "آخر تحديث"
     },
     "ABOUT": {
         "DESIGNED_BY": "مصمم ومطور بواسطة",

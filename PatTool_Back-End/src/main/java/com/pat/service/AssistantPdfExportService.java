@@ -14,6 +14,7 @@ import org.springframework.web.util.HtmlUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.util.List;
+import java.util.List;
 
 /**
  * Export PDF de l’historique assistant : Markdown (réponses) et texte brut (utilisateur),
@@ -64,15 +65,21 @@ public class AssistantPdfExportService {
         }
 
         for (AssistantPdfExportTurnDto turn : req.turns()) {
-            body.append("<div class=\"turn\">");
-            if ("user".equals(turn.role())) {
-                body.append("<div class=\"turn-label\">").append(you).append("</div>");
+            boolean user = "user".equals(turn.role());
+            body.append("<div class=\"conv-bubble conv-bubble--").append(user ? "user" : "assistant").append("\">");
+            body.append("<div class=\"conv-bubble-head\">");
+            body.append("<span class=\"conv-badge conv-badge--").append(user ? "user" : "assistant").append("\">");
+            body.append(user ? "U" : "A");
+            body.append("</span>");
+            body.append("<span class=\"conv-bubble-label\">").append(user ? you : assistant).append("</span>");
+            body.append("</div>");
+            body.append("<div class=\"conv-bubble-body\">");
+            if (user) {
                 appendUserTurn(body, turn);
             } else {
-                body.append("<div class=\"turn-label\">").append(assistant).append("</div>");
                 appendAssistantTurn(body, turn);
             }
-            body.append("</div>");
+            body.append("</div></div>");
         }
 
         return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
@@ -93,16 +100,53 @@ public class AssistantPdfExportService {
         String trimmed = c.trim();
         if (!trimmed.isEmpty()) {
             body.append("<p class=\"user-text\">").append(HtmlUtils.htmlEscape(c)).append("</p>");
-        } else if (turn.imageDataUrl() == null || turn.imageDataUrl().isBlank()) {
+        } else if (!hasRenderableUserImage(turn)) {
             body.append("<p class=\"user-text\">—</p>");
         }
-        String img = sanitizeImageDataUrl(turn.imageDataUrl());
-        if (img != null) {
-            body.append("<img class=\"user-img\" src=\"")
-                    .append(img)
-                    .append("\" alt=\"\" />");
-        }
+        appendPdfEmbeddedImages(body, turn, true);
         body.append("</div>");
+    }
+
+    private boolean hasRenderableUserImage(AssistantPdfExportTurnDto turn) {
+        List<String> embedded = turn.embeddedImageDataUrls();
+        if (embedded != null) {
+            for (String raw : embedded) {
+                if (sanitizeImageDataUrl(raw) != null) {
+                    return true;
+                }
+            }
+        }
+        return sanitizeImageDataUrl(turn.imageDataUrl()) != null;
+    }
+
+    /** Ajoute les images d’un tour : liste {@code embeddedImageDataUrls}, sinon repli {@code imageDataUrl}. */
+    private void appendPdfEmbeddedImages(StringBuilder body, AssistantPdfExportTurnDto turn, boolean userTurn) {
+        String imgClass = userTurn ? "pdf-msg-img pdf-msg-img--user" : "pdf-msg-img pdf-msg-img--assistant";
+        boolean usedEmbedded = false;
+        List<String> embedded = turn.embeddedImageDataUrls();
+        if (embedded != null) {
+            for (String raw : embedded) {
+                String img = sanitizeImageDataUrl(raw);
+                if (img != null) {
+                    body.append("<img class=\"")
+                            .append(imgClass)
+                            .append("\" src=\"")
+                            .append(img)
+                            .append("\" alt=\"\" />");
+                    usedEmbedded = true;
+                }
+            }
+        }
+        if (!usedEmbedded) {
+            String legacy = sanitizeImageDataUrl(turn.imageDataUrl());
+            if (legacy != null) {
+                body.append("<img class=\"")
+                        .append(imgClass)
+                        .append("\" src=\"")
+                        .append(legacy)
+                        .append("\" alt=\"\" />");
+            }
+        }
     }
 
     private void appendAssistantTurn(StringBuilder body, AssistantPdfExportTurnDto turn) {
@@ -117,6 +161,7 @@ public class AssistantPdfExportService {
                     .append("</p>");
         }
         body.append("<div class=\"md\">").append(markdownToHtmlFragment(turn.content())).append("</div>");
+        appendPdfEmbeddedImages(body, turn, false);
     }
 
     private String markdownToHtmlFragment(String md) {
@@ -173,19 +218,58 @@ public class AssistantPdfExportService {
               border-bottom: 1.5pt solid rgba(37,99,235,.25);
             }
             p.doc-meta { font-size: 8.5pt; color: #64748b; margin: 0 0 10pt 0; }
-            div.turn { margin: 0 0 10pt 0; }
-            div.turn-label {
+            div.conv-bubble {
+              border-radius: 10px;
+              padding: 8pt 10pt;
+              margin: 0 0 10pt 0;
+              border: 1px solid #e2e8f0;
+              page-break-inside: avoid;
+            }
+            div.conv-bubble--user {
+              background: #eff6ff;
+              border-color: #93c5fd;
+            }
+            div.conv-bubble--assistant {
+              background: #ffffff;
+              border-color: #cbd5e1;
+            }
+            div.conv-bubble-head {
+              margin: 0 0 5pt 0;
+              padding: 0;
+            }
+            span.conv-badge {
+              display: inline-block;
+              width: 12pt;
+              height: 12pt;
+              line-height: 12pt;
+              text-align: center;
+              border-radius: 50%;
+              font-size: 6.5pt;
+              font-weight: 700;
+              color: #ffffff;
+              margin-right: 5pt;
+              vertical-align: middle;
+            }
+            span.conv-badge--user { background: #2563eb; }
+            span.conv-badge--assistant { background: #475569; }
+            span.conv-bubble-label {
               font-size: 9.5pt;
               font-weight: 700;
               color: #0f172a;
-              margin: 8pt 0 3pt 0;
+              vertical-align: middle;
             }
-            div.turn:first-of-type div.turn-label { margin-top: 0; }
+            div.conv-bubble-body { margin: 0; padding: 0; }
             p.provider { font-size: 8.8pt; color: #374151; margin: 0 0 2pt 0; font-weight: 500; }
             p.stats { font-size: 8.2pt; color: #64748b; margin: 0 0 5pt 0; }
             div.user-block { margin-top: 2pt; }
             p.user-text { white-space: pre-wrap; margin: 0 0 5pt 0; }
-            img.user-img { max-width: 100%; height: auto; display: block; margin: 5pt 0 0 0; border-radius: 3pt; }
+            img.pdf-msg-img {
+              max-width: 100%;
+              height: auto;
+              display: block;
+              margin: 6pt 0 0 0;
+              border-radius: 4pt;
+            }
             div.md { font-size: 10pt; }
             div.md > :first-child { margin-top: 0; }
             div.md p { margin: 0 0 5pt 0; orphans: 2; widows: 2; }

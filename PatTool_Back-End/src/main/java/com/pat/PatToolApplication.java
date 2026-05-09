@@ -35,6 +35,8 @@ import java.time.format.DateTimeFormatter;
         type = FilterType.ASSIGNABLE_TYPE,
         classes = {
             com.pat.repo.AppParameterRepository.class,
+            com.pat.repo.AssistantConversationAssetRepository.class,
+            com.pat.repo.AssistantConversationRepository.class,
             com.pat.repo.CalendarAppointmentRepository.class,
             com.pat.repo.CameraRepository.class,
             com.pat.repo.CategoryLinkRepository.class,

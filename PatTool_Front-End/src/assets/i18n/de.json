@@ -1490,7 +1490,13 @@
         "IMAGE_LIGHTBOX_ALT": "Bild in Originalgröße",
         "COPY_IMG_TITLE": "Bild in die Zwischenablage kopieren",
         "COPY_IMG_SUCCESS": "Bild in die Zwischenablage kopiert",
-        "COPY_IMG_ERROR": "Fehler beim Kopieren des Bildes"
+        "COPY_IMG_ERROR": "Fehler beim Kopieren des Bildes",
+        "HISTORY_FILTER_LABEL": "Unterhaltungen filtern",
+        "HISTORY_FILTER_PLACEHOLDER": "Verlauf durchsuchen…",
+        "HISTORY_FILTER_EMPTY": "Keine Unterhaltung entspricht Ihrer Suche.",
+        "HISTORY_OWNER_LABEL": "Besitzer",
+        "HISTORY_CREATED_LABEL": "Erstellt",
+        "HISTORY_UPDATED_LABEL": "Aktualisiert"
     },
     "ABOUT": {
         "DESIGNED_BY": "Entworfen und entwickelt von",

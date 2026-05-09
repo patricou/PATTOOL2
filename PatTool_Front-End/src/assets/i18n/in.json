@@ -1462,7 +1462,13 @@
         "IMAGE_LIGHTBOX_ALT": "पूर्ण-आकार छवि",
         "COPY_IMG_TITLE": "छवि क्लिपबोर्ड पर कॉपी करें",
         "COPY_IMG_SUCCESS": "छवि क्लिपबोर्ड पर कॉपी की गई",
-        "COPY_IMG_ERROR": "छवि कॉपी करने में विफल"
+        "COPY_IMG_ERROR": "छवि कॉपी करने में विफल",
+        "HISTORY_FILTER_LABEL": "बातचीत फ़िल्टर करें",
+        "HISTORY_FILTER_PLACEHOLDER": "इतिहास में खोजें…",
+        "HISTORY_FILTER_EMPTY": "आपकी खोज से कोई बातचीत मेल नहीं खाती।",
+        "HISTORY_OWNER_LABEL": "स्वामी",
+        "HISTORY_CREATED_LABEL": "बनाई गई",
+        "HISTORY_UPDATED_LABEL": "अद्यतन"
     },
     "ABOUT": {
         "DESIGNED_BY": "डिजाइन और विकसित किया गया",

@@ -354,6 +354,13 @@
   letter-spacing: 0.01em;
 }
 
+.pat-assistant-header-history-text {
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+
 .pat-assistant-credits-banner {
   flex-shrink: 0;
   padding: 0.5rem 0.95rem;
@@ -1139,7 +1146,8 @@
   .pat-assistant-insert-img-evt-text,
   .pat-assistant-insert-cmt-evt-text,
   .pat-assistant-header-whatsapp-text,
-  .pat-assistant-header-pdf-text {
+  .pat-assistant-header-pdf-text,
+  .pat-assistant-header-history-text {
     display: none;
   }
 
@@ -1151,12 +1159,21 @@
     margin-right: 0 !important;
   }
 
+  .pat-assistant-header-history .fa-history {
+    margin-right: 0 !important;
+  }
+
   .pat-assistant-share-img-wa,
   .pat-assistant-insert-img-evt,
   .pat-assistant-insert-cmt-evt {
     padding-right: 0.35rem;
     gap: 0;
   }
+}
+
+.pat-assistant-history-list {
+  max-height: min(60vh, 440px);
+  overflow-y: auto;
 }
 
 ::ng-deep .whatsapp-share-modal .whatsapp-share-preview-stack {

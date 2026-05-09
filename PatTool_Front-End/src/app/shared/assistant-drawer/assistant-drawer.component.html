@@ -95,11 +95,21 @@
       </button>
       <button
         type="button"
+        class="btn btn-sm btn-outline-secondary pat-assistant-header-btn pat-assistant-header-history"
+        (click)="openAssistantHistoryModal()"
+        [disabled]="loading"
+        [title]="'ASSISTANT.HISTORY_HINT' | translate"
+        [attr.aria-label]="'ASSISTANT.HISTORY_TITLE' | translate">
+        <i class="fa fa-history me-1" aria-hidden="true"></i>
+        <span class="pat-assistant-header-history-text">{{ 'ASSISTANT.HISTORY_TITLE' | translate }}</span>
+      </button>
+      <button
+        type="button"
         class="btn btn-sm btn-outline-secondary pat-assistant-header-btn pat-assistant-header-credits"
         (click)="toggleCreditsBanner($event)"
         [class.active]="creditsBannerOpen"
-        [title]="'ASSISTANT.CREDITS_BTN_HINT' | translate"
-        [attr.aria-label]="'ASSISTANT.CREDITS_TOGGLE' | translate"
+        [title]="creditsBtnHint()"
+        [attr.aria-label]="creditsToggleAria()"
         [attr.aria-expanded]="creditsBannerOpen">
         <i class="fa fa-line-chart me-1" aria-hidden="true"></i>
         <span *ngIf="credits && credits.ok === true && credits.totalAvailableUsd != null" class="pat-assistant-credits-btn-value">
@@ -126,28 +136,35 @@
     </div>
   </div>
 
-  <div *ngIf="creditsBannerOpen" class="pat-assistant-credits-banner" role="region" [attr.aria-label]="'ASSISTANT.CREDITS_TITLE' | translate">
+  <div *ngIf="creditsBannerOpen" class="pat-assistant-credits-banner" role="region" [attr.aria-label]="creditsBannerAriaLabel()">
     <div class="pat-assistant-credits-inner">
-      <p *ngIf="creditsLoading" class="pat-assistant-credits-line mb-0">{{ 'ASSISTANT.CREDITS_LOADING' | translate }}</p>
-      <ng-container *ngIf="!creditsLoading && credits">
-        <ng-container *ngIf="credits.ok === true">
-          <p *ngIf="credits.totalAvailableUsd != null" class="pat-assistant-credits-line mb-1">
-            <strong>{{ 'ASSISTANT.CREDITS_AVAILABLE' | translate }}</strong><span>:
-              USD&nbsp;{{ credits.totalAvailableUsd | number:'1.2-4' }}</span>
-          </p>
-          <div class="pat-assistant-credits-sub text-muted">
-            <span *ngIf="credits.totalGrantedUsd != null"
-              >{{ 'ASSISTANT.CREDITS_GRANTED' | translate }}:&nbsp;{{ credits.totalGrantedUsd | number:'1.2-4' }}</span
-            >
-            <span *ngIf="credits.totalGrantedUsd != null && credits.totalUsedUsd != null">&nbsp;·&nbsp;</span>
-            <span *ngIf="credits.totalUsedUsd != null"
-              >{{ 'ASSISTANT.CREDITS_USED' | translate }}:&nbsp;{{ credits.totalUsedUsd | number:'1.2-4' }}</span
-            >
-          </div>
+      <ng-container *ngIf="routingProvider === 'anthropic'">
+        <p
+          class="pat-assistant-credits-line mb-0 pat-assistant-rich-text"
+          [innerHTML]="anthropicBillingBannerHtml()"></p>
+      </ng-container>
+      <ng-container *ngIf="routingProvider === 'openai'">
+        <p *ngIf="creditsLoading" class="pat-assistant-credits-line mb-0">{{ 'ASSISTANT.CREDITS_LOADING' | translate }}</p>
+        <ng-container *ngIf="!creditsLoading && credits">
+          <ng-container *ngIf="credits.ok === true">
+            <p *ngIf="credits.totalAvailableUsd != null" class="pat-assistant-credits-line mb-1">
+              <strong>{{ 'ASSISTANT.CREDITS_AVAILABLE' | translate }}</strong><span>:
+                USD&nbsp;{{ credits.totalAvailableUsd | number:'1.2-4' }}</span>
+            </p>
+            <div class="pat-assistant-credits-sub text-muted">
+              <span *ngIf="credits.totalGrantedUsd != null"
+                >{{ 'ASSISTANT.CREDITS_GRANTED' | translate }}:&nbsp;{{ credits.totalGrantedUsd | number:'1.2-4' }}</span
+              >
+              <span *ngIf="credits.totalGrantedUsd != null && credits.totalUsedUsd != null">&nbsp;·&nbsp;</span>
+              <span *ngIf="credits.totalUsedUsd != null"
+                >{{ 'ASSISTANT.CREDITS_USED' | translate }}:&nbsp;{{ credits.totalUsedUsd | number:'1.2-4' }}</span
+              >
+            </div>
+          </ng-container>
+          <p *ngIf="credits.ok !== true && credits.message"
+             class="pat-assistant-credits-line pat-assistant-credits-err mb-0 pat-assistant-rich-text"
+             [innerHTML]="linkRichContent(credits.message)"></p>
         </ng-container>
-        <p *ngIf="credits.ok !== true && credits.message"
-           class="pat-assistant-credits-line pat-assistant-credits-err mb-0 pat-assistant-rich-text"
-           [innerHTML]="linkRichContent(credits.message)"></p>
       </ng-container>
     </div>
   </div>
@@ -276,6 +293,9 @@
   </div>
 
   <div class="pat-assistant-compose">
+    <p *ngIf="historyPersistErrorKey" class="text-danger small mb-2 mb-md-1">
+      {{ historyPersistErrorKey | translate }}
+    </p>
     <input
       #imageFileInput
       type="file"
@@ -405,6 +425,86 @@
     </div>
   </div>
 </aside>
+
+<ng-template #assistantHistoryModal let-modal>
+  <div class="modal-header">
+    <h5 class="modal-title">
+      <i class="fa fa-history me-2" aria-hidden="true"></i>
+      {{ 'ASSISTANT.HISTORY_TITLE' | translate }}
+    </h5>
+    <button
+      type="button"
+      class="btn-close"
+      (click)="modal.dismiss()"
+      [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+  </div>
+  <div class="modal-body">
+    <p class="text-muted small">{{ 'ASSISTANT.HISTORY_MODAL_INTRO' | translate }}</p>
+    <div *ngIf="historyLoading" class="text-muted py-2">{{ 'ASSISTANT.HISTORY_LOADING_LIST' | translate }}</div>
+    <p *ngIf="historyErrorKey" class="text-danger small">{{ historyErrorKey | translate }}</p>
+    <div *ngIf="historyDetailLoading" class="text-muted small">{{ 'ASSISTANT.HISTORY_LOADING_DETAIL' | translate }}</div>
+    <div *ngIf="!historyLoading && historyItems.length > 0" class="mb-2">
+      <label class="visually-hidden" for="assistantHistoryFilter">{{ 'ASSISTANT.HISTORY_FILTER_LABEL' | translate }}</label>
+      <input
+        id="assistantHistoryFilter"
+        type="search"
+        class="form-control form-control-sm"
+        [(ngModel)]="historyConversationFilter"
+        [placeholder]="'ASSISTANT.HISTORY_FILTER_PLACEHOLDER' | translate"
+        autocomplete="off"
+        [attr.aria-label]="'ASSISTANT.HISTORY_FILTER_LABEL' | translate" />
+    </div>
+    <ul
+      class="list-group list-group-flush pat-assistant-history-list border rounded overflow-hidden"
+      *ngIf="!historyLoading && historyItems.length > 0 && filteredAssistantHistoryItems().length > 0">
+      <li
+        class="list-group-item pat-assistant-history-item d-flex flex-column flex-md-row gap-2 align-items-md-center justify-content-between"
+        *ngFor="let row of filteredAssistantHistoryItems()">
+        <div class="flex-grow-1 min-w-0">
+          <div class="fw-semibold text-break">{{ row.preview || ('ASSISTANT.HISTORY_NO_PREVIEW' | translate) }}</div>
+          <div class="small text-muted">
+            {{ 'ASSISTANT.HISTORY_OWNER_LABEL' | translate }}: {{ historyOwnerDisplay(row) }}
+            · {{ 'ASSISTANT.HISTORY_CREATED_LABEL' | translate }}:
+            {{ row.createdAt | date : 'short' }}
+            · {{ 'ASSISTANT.HISTORY_UPDATED_LABEL' | translate }}:
+            {{ row.updatedAt | date : 'short' }}
+            · {{ row.providerLabel }} · {{ row.model }}
+          </div>
+        </div>
+        <div class="d-flex gap-1 flex-shrink-0">
+          <button
+            type="button"
+            class="btn btn-sm btn-primary"
+            (click)="loadConversationFromHistory(row.id)"
+            [disabled]="historyDetailLoading">
+            {{ 'ASSISTANT.HISTORY_OPEN' | translate }}
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-danger"
+            (click)="deleteAssistantConversationFromHistory(row.id, $event)"
+            [disabled]="historyDetailLoading"
+            [title]="'ASSISTANT.HISTORY_DELETE_HINT' | translate">
+            {{ 'ASSISTANT.HISTORY_DELETE' | translate }}
+          </button>
+        </div>
+      </li>
+    </ul>
+    <p
+      *ngIf="
+        !historyLoading &&
+        historyItems.length > 0 &&
+        filteredAssistantHistoryItems().length === 0 &&
+        historyConversationFilter.trim()
+      "
+      class="text-muted mb-0">
+      {{ 'ASSISTANT.HISTORY_FILTER_EMPTY' | translate }}
+    </p>
+    <p *ngIf="!historyLoading && historyItems.length === 0 && !historyErrorKey" class="text-muted mb-0">
+      {{ 'ASSISTANT.HISTORY_EMPTY' | translate }}
+    </p>
+  </div>
+</ng-template>
 
 <ng-template #assistantWhatsappShareModal let-modal>
   <div class="modal-header bg-success text-white">

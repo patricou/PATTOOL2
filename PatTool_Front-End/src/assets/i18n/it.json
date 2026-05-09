@@ -1493,7 +1493,13 @@
         "IMAGE_LIGHTBOX_ALT": "Immagine a dimensione reale",
         "COPY_IMG_TITLE": "Copia l’immagine negli appunti",
         "COPY_IMG_SUCCESS": "Immagine copiata negli appunti",
-        "COPY_IMG_ERROR": "Errore durante la copia dell’immagine"
+        "COPY_IMG_ERROR": "Errore durante la copia dell’immagine",
+        "HISTORY_FILTER_LABEL": "Filtra le conversazioni",
+        "HISTORY_FILTER_PLACEHOLDER": "Cerca nella cronologia…",
+        "HISTORY_FILTER_EMPTY": "Nessuna conversazione corrisponde alla ricerca.",
+        "HISTORY_OWNER_LABEL": "Proprietario",
+        "HISTORY_CREATED_LABEL": "Creata",
+        "HISTORY_UPDATED_LABEL": "Aggiornata"
     },
     "ABOUT": {
         "DESIGNED_BY": "Progettato e sviluppato da",

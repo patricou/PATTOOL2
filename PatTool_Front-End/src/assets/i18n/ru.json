@@ -1485,7 +1485,13 @@
         "IMAGE_LIGHTBOX_ALT": "Изображение в полный размер",
         "COPY_IMG_TITLE": "Скопировать изображение в буфер обмена",
         "COPY_IMG_SUCCESS": "Изображение скопировано в буфер обмена",
-        "COPY_IMG_ERROR": "Не удалось скопировать изображение"
+        "COPY_IMG_ERROR": "Не удалось скопировать изображение",
+        "HISTORY_FILTER_LABEL": "Фильтровать беседы",
+        "HISTORY_FILTER_PLACEHOLDER": "Поиск в истории…",
+        "HISTORY_FILTER_EMPTY": "Нет бесед, соответствующих запросу.",
+        "HISTORY_OWNER_LABEL": "Владелец",
+        "HISTORY_CREATED_LABEL": "Создана",
+        "HISTORY_UPDATED_LABEL": "Обновлена"
     },
     "ABOUT": {
         "DESIGNED_BY": "Разработано и создано",

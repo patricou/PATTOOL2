@@ -3,9 +3,17 @@ package com.pat.controller;
 import com.pat.controller.dto.AssistantChatRequestDto;
 import com.pat.controller.dto.AssistantChatResponseDto;
 import com.pat.controller.dto.AssistantClientConfigDto;
+import com.pat.controller.dto.AssistantConversationAssetCreatedDto;
+import com.pat.controller.dto.AssistantConversationAssetUploadDto;
+import com.pat.controller.dto.AssistantConversationCreatedDto;
+import com.pat.controller.dto.AssistantConversationDetailDto;
+import com.pat.controller.dto.AssistantConversationSaveRequestDto;
+import com.pat.controller.dto.AssistantConversationSummaryDto;
 import com.pat.controller.dto.AssistantOpenAiCreditsDto;
 import com.pat.controller.dto.AssistantPdfExportRequestDto;
 import com.pat.controller.dto.AssistantRoutingPreferenceDto;
+import com.pat.service.AssistantConversationAssetService;
+import com.pat.service.AssistantConversationService;
 import com.pat.service.AssistantPdfExportService;
 import com.pat.service.AssistantRoutingPreferenceService;
 import com.pat.service.OpenAiBillingService;
@@ -20,6 +28,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -28,6 +37,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api")
@@ -40,16 +51,22 @@ public class AssistantController {
     private final OpenAiBillingService openAiBillingService;
     private final AssistantRoutingPreferenceService assistantRoutingPreferenceService;
     private final AssistantPdfExportService assistantPdfExportService;
+    private final AssistantConversationService assistantConversationService;
+    private final AssistantConversationAssetService assistantConversationAssetService;
 
     public AssistantController(
             RoutingAssistantService routingAssistantService,
             OpenAiBillingService openAiBillingService,
             AssistantRoutingPreferenceService assistantRoutingPreferenceService,
-            AssistantPdfExportService assistantPdfExportService) {
+            AssistantPdfExportService assistantPdfExportService,
+            AssistantConversationService assistantConversationService,
+            AssistantConversationAssetService assistantConversationAssetService) {
         this.routingAssistantService = routingAssistantService;
         this.openAiBillingService = openAiBillingService;
         this.assistantRoutingPreferenceService = assistantRoutingPreferenceService;
         this.assistantPdfExportService = assistantPdfExportService;
+        this.assistantConversationService = assistantConversationService;
+        this.assistantConversationAssetService = assistantConversationAssetService;
     }
 
     /**
@@ -87,12 +104,144 @@ public class AssistantController {
         return ResponseEntity.noContent().build();
     }
 
-    private static String currentJwtSubject() {
+    private static Jwt jwtPrincipal() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !(auth.getPrincipal() instanceof Jwt jwt)) {
             return null;
         }
-        return jwt.getSubject();
+        return jwt;
+    }
+
+    private static String currentJwtSubject() {
+        Jwt jwt = jwtPrincipal();
+        return jwt != null ? jwt.getSubject() : null;
+    }
+
+    /**
+     * Rôle realm ou client Keycloak {@code Admin} / {@code admin}, exposé comme {@code ROLE_*} par
+     * {@link com.pat.config.SecurityConfig}.
+     */
+    private static boolean assistantAdmin() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getAuthorities() == null) {
+            return false;
+        }
+        for (GrantedAuthority ga : auth.getAuthorities()) {
+            String a = ga.getAuthority();
+            if (a != null && a.length() > 5 && a.regionMatches(true, 0, "ROLE_", 0, 5)) {
+                if ("admin".equalsIgnoreCase(a.substring(5))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static String preferredUsernameFromJwt() {
+        Jwt jwt = jwtPrincipal();
+        if (jwt == null) {
+            return null;
+        }
+        String u = jwt.getClaimAsString("preferred_username");
+        return u != null && !u.isBlank() ? u.strip() : null;
+    }
+
+    /**
+     * Upload d’une image générée par le modèle (stockage Mongo séparé — évite les payloads conversation énormes).
+     */
+    @PostMapping("/assistant/conversation-assets")
+    public ResponseEntity<AssistantConversationAssetCreatedDto> uploadConversationAsset(
+            @RequestBody @Valid AssistantConversationAssetUploadDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String assetId = assistantConversationAssetService.saveForOwner(sub, body);
+        return ResponseEntity.status(HttpStatus.CREATED).body(new AssistantConversationAssetCreatedDto(assetId));
+    }
+
+    @GetMapping("/assistant/conversation-assets/{id}")
+    public ResponseEntity<byte[]> getConversationAsset(@PathVariable String id) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        Optional<byte[]> bytes =
+                assistantConversationAssetService.readBytesIfOwned(sub, id, assistantAdmin());
+        if (bytes.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        MediaType mt = MediaType.APPLICATION_OCTET_STREAM;
+        try {
+            Optional<String> mime = assistantConversationAssetService.findMimeIfOwned(sub, id, assistantAdmin());
+            if (mime.isPresent() && mime.get() != null && !mime.get().isBlank()) {
+                mt = MediaType.parseMediaType(mime.get());
+            }
+        } catch (Exception e) {
+            log.debug("assistant conversation-asset mime: {}", e.getMessage());
+        }
+        return ResponseEntity.ok().contentType(mt).body(bytes.get());
+    }
+
+    /** Liste des conversations enregistrées (résumés) : les siennes, ou toutes (100 dernières) si rôle {@code Admin}. */
+    @GetMapping("/assistant/conversations")
+    public ResponseEntity<List<AssistantConversationSummaryDto>> listConversations() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(assistantConversationService.listSummaries(sub, assistantAdmin()));
+    }
+
+    /** Détail d’une conversation (tours + images) : propriétaire ou administrateur PatTool ({@code Admin}). */
+    @GetMapping("/assistant/conversations/{id}")
+    public ResponseEntity<AssistantConversationDetailDto> getConversation(@PathVariable String id) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return assistantConversationService
+                .getDetail(sub, id, assistantAdmin())
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /** Crée une nouvelle conversation persistée (historique). */
+    @PostMapping("/assistant/conversations")
+    public ResponseEntity<AssistantConversationCreatedDto> createConversation(
+            @RequestBody @Valid AssistantConversationSaveRequestDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        AssistantConversationCreatedDto created =
+                assistantConversationService.create(sub, preferredUsernameFromJwt(), body);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    /** Remplace le contenu d’une conversation existante (autosauvegarde). */
+    @PutMapping("/assistant/conversations/{id}")
+    public ResponseEntity<Void> updateConversation(
+            @PathVariable String id, @RequestBody @Valid AssistantConversationSaveRequestDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        assistantConversationService.update(sub, id, body, assistantAdmin());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Supprime une conversation du propriétaire. */
+    @DeleteMapping("/assistant/conversations/{id}")
+    public ResponseEntity<Void> deleteConversation(@PathVariable String id) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (!assistantConversationService.delete(sub, id, assistantAdmin())) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.noContent().build();
     }
 
     /**

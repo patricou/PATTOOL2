@@ -1295,7 +1295,13 @@
         "IMAGE_LIGHTBOX_ALT": "原寸大画像",
         "COPY_IMG_TITLE": "画像をクリップボードにコピー",
         "COPY_IMG_SUCCESS": "画像をクリップボードにコピーしました",
-        "COPY_IMG_ERROR": "画像のコピーに失敗しました"
+        "COPY_IMG_ERROR": "画像のコピーに失敗しました",
+        "HISTORY_FILTER_LABEL": "会話を絞り込む",
+        "HISTORY_FILTER_PLACEHOLDER": "履歴を検索…",
+        "HISTORY_FILTER_EMPTY": "検索に一致する会話はありません。",
+        "HISTORY_OWNER_LABEL": "所有者",
+        "HISTORY_CREATED_LABEL": "作成",
+        "HISTORY_UPDATED_LABEL": "更新"
     },
     "ABOUT": {
         "DESIGNED_BY": "デザイン・開発者",
