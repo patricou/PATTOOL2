@@ -568,9 +568,7 @@
 }
 
 /*
- * Bouton IA mur de photos : même principe que .slideshow-footer-btn-ia
- * (slideshow-modal : rond, bordure et libellé jaunes). Le footer du modal
- * n’existe pas ici : on duplique les règles avec un sélecteur dédié.
+ * Bouton IA mur de photos : rond, fond noir, bordure et glyphe jaunes.
  */
 .group-header-actions-fit-inner .btn.photo-wall-btn-ia {
     flex-shrink: 0;
@@ -585,7 +583,9 @@
     border-radius: 50% !important;
     border: 2px solid #ffeb3b !important;
     color: #ffeb3b !important;
-    background-color: rgba(0, 0, 0, 0.28) !important;
+    background-color: #000 !important;
+    background-image: none !important;
+    box-shadow: none !important;
     line-height: 1.1;
 }
 

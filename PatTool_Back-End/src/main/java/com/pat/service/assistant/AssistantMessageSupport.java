@@ -116,6 +116,12 @@ public final class AssistantMessageSupport {
         if (decoded.length == 0) {
             return ResolvedImage.err("Image jointe vide.");
         }
+        if ("image/jpeg".equals(useMime)) {
+            byte[] normalized = AssistantImageOrientationNormalizer.normalizeJpegPixelOrientation(decoded);
+            if (normalized != null && normalized.length > 0) {
+                decoded = normalized;
+            }
+        }
         if (decoded.length > MAX_IMAGE_DECODED_BYTES) {
             return ResolvedImage.err(
                     "Image trop volumineuse (max "
