@@ -454,6 +454,9 @@ export class AssistantDrawerComponent
             modelCustom: typeof r.modelCustom === 'string' ? r.modelCustom : ''
           };
         }
+        if (saved.fabUnread === true) {
+          this.fabUnreadReply = true;
+        }
       }
       this.rebuildModelOptionsList();
       this.loadAssistantClientConfig();
@@ -1167,7 +1170,8 @@ export class AssistantDrawerComponent
       this.messages,
       this.draft ?? '',
       this.collectToolFlagsForSession(),
-      this.collectRoutingForSession()
+      this.collectRoutingForSession(),
+      this.fabUnreadReply
     );
   }
 
@@ -1702,6 +1706,7 @@ export class AssistantDrawerComponent
     } else {
       this.syncAppRootAriaWithAssistantOverModal();
     }
+    this.persistSession();
   }
 
   close(): void {

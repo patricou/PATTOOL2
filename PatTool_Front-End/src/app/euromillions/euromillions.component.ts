@@ -380,6 +380,137 @@ export class EuromillionsComponent implements OnInit {
     }));
   }
 
+  /**
+   * Seuils de date (jour de tirage ISO yyyy-MM-dd) pour séparer les périodes des étoiles EuroMillions
+   * (boules toujours 5/50 côté historique utilisé dans PatTool).
+   */
+  private static readonly EUROM_STAR_PERIOD_CUTS = ['2011-05-10', '2016-09-27'] as const;
+
+  private euromStarPeriodIndex(drawDateIso: string): 0 | 1 | 2 {
+    const d = (drawDateIso ?? '').substring(0, 10);
+    if (d < EuromillionsComponent.EUROM_STAR_PERIOD_CUTS[0]) {
+      return 0;
+    }
+    if (d < EuromillionsComponent.EUROM_STAR_PERIOD_CUTS[1]) {
+      return 1;
+    }
+    return 2;
+  }
+
+  /** χ² Pearson naïf (uniformité sur les catégories, effectifs agrégés côté app — hypothèse simplifiatrice). */
+  private chi2UniformCats(counts: number[], draws: number, drawsPerSamples: number): number {
+    const k = counts.length;
+    if (k <= 0 || draws <= 0) {
+      return 0;
+    }
+    const exp = (draws * drawsPerSamples) / k;
+    if (exp <= 0) {
+      return 0;
+    }
+    let s = 0;
+    for (const o of counts) {
+      const d = o - exp;
+      s += (d * d) / exp;
+    }
+    return Math.round(s * 1000) / 1000;
+  }
+
+  /**
+   * Données **légères** pour l’assistant : marges pré-comptées par période + petit suffixe chronologique.
+   * Remplace le JSON « une ligne par tirage » qui saturait la fenêtre et produisait des réponses très courtes.
+   */
+  private buildEuromAiAssistantStatsPayload(lastTailPairs: number): {
+    schema: 'pat-eurom-ai-v2';
+    note: string;
+    c: number;
+    dateFirst: string;
+    dateLast: string;
+    periodCuts: string[];
+    periods: Array<{
+      id: string;
+      starMax: number;
+      n: number;
+      chi2MainNaive: number;
+      chi2StarsNaive: number;
+      mf: number[];
+      sf: number[];
+    }>;
+    tail: [string, number[], number[]][];
+  } {
+    const rows = this.euromDrawsChronologicalForAi();
+    const c = rows.length;
+    const dateFirst = c ? rows[0].drawDate.substring(0, 10) : '';
+    const dateLast = c ? rows[c - 1].drawDate.substring(0, 10) : '';
+
+    type P = {
+      id: string;
+      starMax: number;
+      n: number;
+      mf: number[];
+      sf: number[];
+    };
+    const periods: P[] = [
+      { id: 'P1', starMax: 9, n: 0, mf: new Array(51).fill(0), sf: new Array(13).fill(0) },
+      { id: 'P2', starMax: 11, n: 0, mf: new Array(51).fill(0), sf: new Array(13).fill(0) },
+      { id: 'P3', starMax: 12, n: 0, mf: new Array(51).fill(0), sf: new Array(13).fill(0) }
+    ];
+
+    for (const r of rows) {
+      const pi = this.euromStarPeriodIndex(r.drawDate);
+      const p = periods[pi];
+      p.n++;
+      for (const b of r.numbers ?? []) {
+        if (b >= 1 && b <= 50) {
+          p.mf[b]++;
+        }
+      }
+      for (const s of r.stars ?? []) {
+        if (s >= 1 && s <= 12) {
+          p.sf[s]++;
+        }
+      }
+    }
+
+    const outPeriods = periods.map((p) => {
+      const mf = p.mf.slice(1);
+      const sfFull = p.sf.slice(1);
+      const sf = sfFull.slice(0, p.starMax);
+      const chi2MainNaive = this.chi2UniformCats(mf, p.n, 5);
+      const chi2StarsNaive = this.chi2UniformCats(sf, p.n, 2);
+      return {
+        id: p.id,
+        starMax: p.starMax,
+        n: p.n,
+        chi2MainNaive,
+        chi2StarsNaive,
+        mf,
+        sf
+      };
+    });
+
+    const lim = Math.max(0, Math.min(lastTailPairs, rows.length));
+    const tailSlice = rows.slice(-lim);
+    const tail = tailSlice.map(
+      (r) =>
+        [this.toAiYyyymmdd(r.drawDate), [...(r.numbers ?? [])], [...(r.stars ?? [])]] as [
+          string,
+          number[],
+          number[]
+        ]
+    );
+
+    return {
+      schema: 'pat-eurom-ai-v2',
+      note: 'mf[k]=boule k occurrences (slots 5*n); sf[j]=étoile j occurrences (slots 2*n, j<=starMax taille théorie). tail=dernier sous-ensemble chronologique compact.',
+      c,
+      dateFirst,
+      dateLast,
+      periodCuts: [...EuromillionsComponent.EUROM_STAR_PERIOD_CUTS],
+      periods: outPeriods,
+      tail
+    };
+  }
+
   private buildEuromAiJsonPayload(): {
     recordCount: number;
     draws: Array<{ drawDate: string; numbers: number[]; stars: number[] }>;
@@ -423,15 +554,11 @@ export class EuromillionsComponent implements OnInit {
     if (!this.canSendEuromAiPrompt) {
       return;
     }
-    const payloadVerbose = this.buildEuromAiJsonPayload();
-    const payloadCompact = this.buildEuromAiJsonPayloadCompact();
-    const intro = this.translate.instant('EUROMILLIONS.AI_MESSAGE_1');
-    const recordLine = this.translate.instant('EUROMILLIONS.AI_RECORD_COUNT_LINE', {
-      n: payloadVerbose.recordCount
-    });
-    const jsonIntro = this.translate.instant('EUROMILLIONS.AI_JSON_BLOCK_INTRO');
-    const jsonBlock = JSON.stringify(payloadCompact);
-    const body = `${intro}\n\n${recordLine}\n\n${jsonIntro}\n\n${jsonBlock}`;
+    const statsPayload = this.buildEuromAiAssistantStatsPayload(48);
+    const prompt = this.translate.instant('EUROMILLIONS.AI_PROMPT_FROM_SCRATCH', { n: statsPayload.c });
+    const jsonIntro = this.translate.instant('EUROMILLIONS.AI_STATS_PAYLOAD_INTRO');
+    const jsonBlock = JSON.stringify(statsPayload);
+    const body = `${prompt}\n\n${jsonIntro}\n\n${jsonBlock}`;
     this.assistantLaunch.openWithDraft(body, {
       newConversation: true,
       autoSend: false,

@@ -520,6 +520,77 @@ export class LotoComponent implements OnInit {
     }));
   }
 
+  private buildLotoAiAssistantStatsPayload(lastTailPairs: number): {
+    schema: 'pat-loto-ai-v2';
+    note: string;
+    c: number;
+    dateFirst: string;
+    dateLast: string;
+    chi2MainNaive: number;
+    chi2ChanceNaive: number;
+    mf: number[];
+    cf: number[];
+    tail: [string, number[], number][];
+  } {
+    const rows = this.lotoDrawsChronologicalForAi();
+    const c = rows.length;
+    const dateFirst = c ? rows[0].drawDate.substring(0, 10) : '';
+    const dateLast = c ? rows[c - 1].drawDate.substring(0, 10) : '';
+    const mf = new Array(50).fill(0);
+    const cf = new Array(11).fill(0);
+    for (const r of rows) {
+      for (const b of r.numbers ?? []) {
+        if (b >= 1 && b <= 49) {
+          mf[b]++;
+        }
+      }
+      const ch = r.chance;
+      if (ch >= 1 && ch <= 10) {
+        cf[ch]++;
+      }
+    }
+    const mf49 = mf.slice(1);
+    const cf10 = cf.slice(1);
+    const chi2MainNaive = this.chi2UniformCats(mf49, c, 5);
+    const chi2ChanceNaive = this.chi2UniformCats(cf10, c, 1);
+
+    const lim = Math.max(0, Math.min(lastTailPairs, rows.length));
+    const tail = rows.slice(-lim).map(
+      (r) => [this.toAiYyyymmdd(r.drawDate), [...(r.numbers ?? [])], r.chance] as [string, number[], number]
+    );
+
+    return {
+      schema: 'pat-loto-ai-v2',
+      note: 'mf[k]=numéro k occurrences (slots 5*n); cf[j]=Chance j occurrences (n tirages); tail=même tuples compacts récents.',
+      c,
+      dateFirst,
+      dateLast,
+      chi2MainNaive,
+      chi2ChanceNaive,
+      mf: mf49,
+      cf: cf10,
+      tail
+    };
+  }
+
+  /** χ² Pearson naïf (uniformité discrete, agrégés). */
+  private chi2UniformCats(counts: number[], draws: number, samplesPerDraw: number): number {
+    const k = counts.length;
+    if (k <= 0 || draws <= 0) {
+      return 0;
+    }
+    const exp = (draws * samplesPerDraw) / k;
+    if (exp <= 0) {
+      return 0;
+    }
+    let s = 0;
+    for (const o of counts) {
+      const d = o - exp;
+      s += (d * d) / exp;
+    }
+    return Math.round(s * 1000) / 1000;
+  }
+
   /** Objet JSON pour l’IA : nombre de tirages + tableau chronologique. */
   private buildLotoAiJsonPayload(): {
     recordCount: number;
@@ -564,13 +635,11 @@ export class LotoComponent implements OnInit {
     if (!this.canSendLotoAiPrompt) {
       return;
     }
-    const payloadVerbose = this.buildLotoAiJsonPayload();
-    const payloadCompact = this.buildLotoAiJsonPayloadCompact();
-    const intro = this.translate.instant('LOTTO.AI_MESSAGE_1');
-    const recordLine = this.translate.instant('LOTTO.AI_RECORD_COUNT_LINE', { n: payloadVerbose.recordCount });
-    const jsonIntro = this.translate.instant('LOTTO.AI_JSON_BLOCK_INTRO');
-    const jsonBlock = JSON.stringify(payloadCompact);
-    const body = `${intro}\n\n${recordLine}\n\n${jsonIntro}\n\n${jsonBlock}`;
+    const statsPayload = this.buildLotoAiAssistantStatsPayload(48);
+    const prompt = this.translate.instant('LOTTO.AI_PROMPT_FROM_SCRATCH', { n: statsPayload.c });
+    const jsonIntro = this.translate.instant('LOTTO.AI_STATS_PAYLOAD_INTRO');
+    const jsonBlock = JSON.stringify(statsPayload);
+    const body = `${prompt}\n\n${jsonIntro}\n\n${jsonBlock}`;
     this.assistantLaunch.openWithDraft(body, {
       newConversation: true,
       autoSend: false,

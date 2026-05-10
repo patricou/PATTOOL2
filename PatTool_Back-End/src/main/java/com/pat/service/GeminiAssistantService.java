@@ -59,7 +59,7 @@ public class GeminiAssistantService {
     @Value("${gemini.model:gemini-2.0-flash}")
     private String model;
 
-    @Value("${gemini.max-output-tokens:8192}")
+    @Value("${gemini.max-output-tokens:16384}")
     private int maxOutputTokens;
 
     @Value("${gemini.provider-label:Google}")
@@ -76,6 +76,15 @@ public class GeminiAssistantService {
      */
     @Value("${gemini.web-search-legacy-model-prefixes:gemini-1.5,gemini-1.0}")
     private String webSearchLegacyModelPrefixesRaw;
+
+    /**
+     * Gemini 2.5+ peut réserver une part du budget à une phase « pensée » ; un budget trop strict sur
+     * {@link #maxOutputTokens} laisse très peu voire aucun jeton au texte affiché. Valeur&nbsp;{@code -1}&nbsp;= ne pas envoyer {@code thinkingConfig}.
+     *
+     * @see #applyThinkingBudgetIfApplicable(Map, String)
+     */
+    @Value("${gemini.thinking-budget:0}")
+    private int geminiThinkingBudget;
 
     public GeminiAssistantService(
             @Qualifier("openAiRestTemplate") RestTemplate restTemplate,
@@ -170,6 +179,7 @@ public class GeminiAssistantService {
         }
         Map<String, Object> genCfg = new HashMap<>();
         genCfg.put("maxOutputTokens", maxOutputTokens);
+        applyThinkingBudgetIfApplicable(genCfg, effectiveModel);
         if (wantImage) {
             genCfg.put("responseModalities", List.of("TEXT", "IMAGE"));
         }
@@ -362,6 +372,36 @@ public class GeminiAssistantService {
         return chatModel != null ? chatModel : "";
     }
 
+    /**
+     * Les modèles Gemini « thinking » peuvent être bridés&nbsp;: sans {@code thinkingBudget=0}, le même
+     * plafond {@code maxOutputTokens} sert souvent aussi au raisonnement interne et le texte affiché se
+     * retrouve tronqué après très peu de jetons. Une valeur&nbsp;{@code -1}&nbsp;désactive l’envoi de
+     * {@code thinkingConfig} (laisser le comportement Google par défaut).
+     */
+    private void applyThinkingBudgetIfApplicable(Map<String, Object> genCfg, String effectiveModel) {
+        if (geminiThinkingBudget < 0 || genCfg == null || effectiveModel == null || effectiveModel.isBlank()) {
+            return;
+        }
+        if (!geminiModelLikelySupportsThinkingBudget(effectiveModel.trim())) {
+            return;
+        }
+        genCfg.put("thinkingConfig", Map.of("thinkingBudget", geminiThinkingBudget));
+    }
+
+    /** Heuristique : famille 2.5+/3 où le paramètre est documenté dans l’API Google. */
+    private static boolean geminiModelLikelySupportsThinkingBudget(String modelId) {
+        String m = modelId.trim().replace('_', '-').toLowerCase(Locale.ROOT);
+        // retirer préfixe "models/" au cas où
+        if (m.startsWith("models/")) {
+            m = m.substring("models/".length());
+        }
+        return m.contains("gemini-2.5")
+                || m.contains("gemini-3")
+                || m.contains("gemini-2-6")
+                || m.contains("2.5-flash")
+                || m.contains("2.5-pro");
+    }
+
     private AssistantChatResponseDto parseGeminiResponse(String json, String modelFallback) {
         if (json == null || json.isBlank()) {
             return AssistantChatResponseDto.err("Réponse vide du fournisseur IA (Gemini).");
@@ -399,6 +439,7 @@ public class GeminiAssistantService {
 
             Integer inTok = null;
             Integer outTok = null;
+            Integer thoughtsTok = null;
             JsonNode usage = root.get("usageMetadata");
             if (usage != null && !usage.isNull()) {
                 if (usage.has("promptTokenCount")) {
@@ -406,6 +447,9 @@ public class GeminiAssistantService {
                 }
                 if (usage.has("candidatesTokenCount")) {
                     outTok = usage.get("candidatesTokenCount").asInt();
+                }
+                if (usage.has("thoughtsTokenCount")) {
+                    thoughtsTok = usage.get("thoughtsTokenCount").asInt();
                 }
             }
 
@@ -435,11 +479,31 @@ public class GeminiAssistantService {
                     return AssistantChatResponseDto.err(
                             "Réponse Gemini vide ou tronquée (finishReason="
                                     + finish
-                                    + "). Augmentez gemini.max-output-tokens si besoin.");
+                                    + "). Augmentez gemini.max-output-tokens sur le serveur ; pour Gemini"
+                                    + " 2.5+, conservez gemini.thinking-budget=0 (défaut) afin de réserver le"
+                                    + " budget au texte affiché.");
                 }
                 return AssistantChatResponseDto.err(
                         "Réponse Gemini sans texte exploitable"
                                 + (finish.isEmpty() ? "." : " (finishReason=" + finish + ")."));
+            }
+
+            String trimmed = text.toString().trim();
+            if ("MAX_TOKENS".equals(finish)) {
+                log.warn(
+                        "Gemini MAX_TOKENS with non-empty text (truncated): candidatesTokenCount={}"
+                                + " thoughtsTokenCount={} promptTokenCount={} maxOutputTokens={} model={}",
+                        outTok,
+                        thoughtsTok,
+                        inTok,
+                        maxOutputTokens,
+                        modelFallback);
+                trimmed =
+                        trimmed
+                                + "\n\n---\n*Réponse **tronquée** (`finishReason=MAX_TOKENS`). Côté serveur :"
+                                + " augmentez `gemini.max-output-tokens`. Avec Gemini **2.5+**, laissez"
+                                + " `gemini.thinking-budget=0` (défaut `PatTool`) pour limiter la phase"
+                                + " « pensée » et libérer des jetons pour le texte visible.*";
             }
 
             String prov =
@@ -452,7 +516,7 @@ public class GeminiAssistantService {
                     modelUsed,
                     prov,
                     "assistant",
-                    text.toString().trim(),
+                    trimmed,
                     inTok,
                     outTok);
         } catch (Exception e) {

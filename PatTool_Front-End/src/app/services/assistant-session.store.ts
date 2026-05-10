@@ -12,6 +12,8 @@ interface StoredShape {
   draft?: string;
   toolFlags?: AssistantToolFlagsRequest;
   routing?: AssistantRoutingStored;
+  /** True si une réponse assistant est arrivée pendant que le panneau était fermé (pastille FAB). */
+  fabUnread?: boolean;
 }
 
 /** Historique du panneau assistant par utilisateur, dans sessionStorage (onglet). */
@@ -109,6 +111,7 @@ export class AssistantSessionStore {
     draft: string;
     toolFlags?: AssistantToolFlagsRequest;
     routing?: AssistantRoutingStored;
+    fabUnread?: boolean;
   } | null {
     try {
       const raw = sessionStorage.getItem(this.key());
@@ -148,11 +151,13 @@ export class AssistantSessionStore {
       const draft = typeof data.draft === 'string' ? data.draft : '';
       const toolFlags = AssistantSessionStore.sanitizeToolFlags(data.toolFlags);
       const routing = AssistantSessionStore.sanitizeRouting(data.routing);
+      const fabUnread = data.fabUnread === true;
       return {
         messages,
         draft,
         ...(toolFlags ? { toolFlags } : {}),
-        ...(routing ? { routing } : {})
+        ...(routing ? { routing } : {}),
+        ...(fabUnread ? { fabUnread: true } : {})
       };
     } catch {
       return null;
@@ -163,7 +168,8 @@ export class AssistantSessionStore {
     messages: AssistantChatTurn[],
     draft: string,
     toolFlags?: AssistantToolFlagsRequest,
-    routing?: AssistantRoutingStored
+    routing?: AssistantRoutingStored,
+    fabUnreadReply?: boolean
   ): void {
     try {
       const slim = messages.map((m) => {
@@ -194,6 +200,9 @@ export class AssistantSessionStore {
           modelPreset: routing.modelPreset,
           modelCustom: routing.modelCustom
         };
+      }
+      if (fabUnreadReply === true) {
+        payload['fabUnread'] = true;
       }
       sessionStorage.setItem(this.key(), JSON.stringify(payload));
     } catch {
