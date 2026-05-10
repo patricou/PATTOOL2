@@ -19,16 +19,18 @@ public class OpenWeatherService {
 
     private final RestTemplate restTemplate;
     private final GeocodeService geocodeService;
+    private final String openWeatherApiBaseUrl;
+    private final String openWeatherApiKey;
 
-    @Value("${openweathermap.api.base.url:https://api.openweathermap.org/data/2.5}")
-    private String openWeatherApiBaseUrl;
-
-    @Value("${openweathermap.api.key:}")
-    private String openWeatherApiKey;
-
-    public OpenWeatherService(RestTemplate restTemplate, GeocodeService geocodeService) {
+    public OpenWeatherService(
+            RestTemplate restTemplate,
+            GeocodeService geocodeService,
+            @Value("${openweathermap.api.base.url:https://api.openweathermap.org/data/2.5}") String openWeatherApiBaseUrl,
+            @Value("${openweathermap.api.key:}") String openWeatherApiKey) {
         this.restTemplate = restTemplate;
         this.geocodeService = geocodeService;
+        this.openWeatherApiBaseUrl = openWeatherApiBaseUrl;
+        this.openWeatherApiKey = openWeatherApiKey;
         // Log API key status (only first 4 chars for security)
         if (openWeatherApiKey != null && !openWeatherApiKey.trim().isEmpty()) {
             log.info("OpenWeatherMap API key loaded (length: {}, starts with: {})", 
