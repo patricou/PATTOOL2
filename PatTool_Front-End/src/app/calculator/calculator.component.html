@@ -1,12 +1,13 @@
+<!-- Même structure que currency-converter / openweathermap : .pat-title plein cadre global, puis contenu -->
+<div class="pat-title">
+  <h2>
+    {{ 'CALCULATOR.TITLE' | translate }}
+  </h2>
+</div>
+
 <div
   class="calculator-viewport-root calculator-theme-dark"
   [class.calculator-layout--scientific]="scientificMode">
-  <div class="pat-title" [class.calculator-pat-title--compact]="scientificMode">
-    <h2>
-      {{ 'CALCULATOR.TITLE' | translate }}
-    </h2>
-  </div>
-
 <div
   #calcPanel
   class="calculator-page container"
@@ -395,7 +396,3 @@
     </div>
   </div>
 </div>
-
-</div>
-
-<app-navigation-buttons></app-navigation-buttons>

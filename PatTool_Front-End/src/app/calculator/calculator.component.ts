@@ -2,7 +2,6 @@ import { AfterViewInit, Component, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
-import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 
 type CalcOp = '+' | '-' | '*' | '/' | '^' | 'mod';
 type SciUnaryKind =
@@ -31,7 +30,7 @@ type SciUnaryKind =
 @Component({
   selector: 'app-calculator',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NavigationButtonsModule],
+  imports: [CommonModule, FormsModule, TranslateModule],
   templateUrl: './calculator.component.html',
   styleUrls: ['./calculator.component.css']
 })
