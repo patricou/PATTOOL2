@@ -97,6 +97,12 @@ public final class AssistantMessageSupport {
             }
             b64 = b64.substring(comma + 1).replaceAll("\\s+", "");
         }
+        if (useMime.indexOf(';') >= 0) {
+            useMime = useMime.substring(0, useMime.indexOf(';')).trim().toLowerCase();
+        }
+        if ("image/jpg".equals(useMime) || "image/pjpeg".equals(useMime)) {
+            useMime = "image/jpeg";
+        }
         if (!ALLOWED_IMAGE_MIMES.contains(useMime)) {
             return ResolvedImage.err(
                     "Format d’image non pris en charge. Utilisez JPEG, PNG, GIF ou WebP.");

@@ -67,7 +67,72 @@ interface PatMetadata {
 export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Limite alignée sur l’assistant (vision) — même plafond que `AssistantDrawerComponent`. */
   private static readonly ASSISTANT_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
-  private static readonly ASSISTANT_IMAGE_MIME_RE = /^image\/(jpeg|png|gif|webp)$/i;
+  private static readonly ASSISTANT_IMAGE_MIME_RE = /^image\/(jpe?g|png|gif|webp)$/i;
+
+  /**
+   * Prépare le type MIME pour l’assistant : enlève les paramètres (;charset=…),
+   * normalise les alias JPEG (jpg, pjpeg, …), et se rabat sur l’extension si le serveur ment.
+   */
+  private static mimeForAssistantFromBlob(blobType: string, fileName: string): string {
+    let base = (blobType || '').trim().split(';')[0].trim().toLowerCase();
+    const jpegAliases = new Set([
+      'image/jpg',
+      'image/pjpeg',
+      'image/x-jpeg',
+      'image/x-citrix-jpeg'
+    ]);
+    if (jpegAliases.has(base)) {
+      return 'image/jpeg';
+    }
+    const ext = (fileName.toLowerCase().split('.').pop() || '').trim();
+    if (!base.startsWith('image/')) {
+      if (ext === 'png') {
+        return 'image/png';
+      }
+      if (ext === 'gif') {
+        return 'image/gif';
+      }
+      if (ext === 'webp') {
+        return 'image/webp';
+      }
+      if (ext === 'jpg' || ext === 'jpeg' || ext === 'jpe') {
+        return 'image/jpeg';
+      }
+      return base || 'image/jpeg';
+    }
+    if (!SlideshowModalComponent.ASSISTANT_IMAGE_MIME_RE.test(base)) {
+      if (ext === 'png') {
+        return 'image/png';
+      }
+      if (ext === 'gif') {
+        return 'image/gif';
+      }
+      if (ext === 'webp') {
+        return 'image/webp';
+      }
+      if (ext === 'jpg' || ext === 'jpeg' || ext === 'jpe') {
+        return 'image/jpeg';
+      }
+    }
+    return base;
+  }
+
+  /** Dernier segment de chemin dans une URL (ex. photo.jpg depuis l’API fichier) quand le map des noms est vide. */
+  private static fileNameHintFromImageUrl(url: string): string {
+    const s = (url || '').trim();
+    if (!s || s.startsWith('blob:')) {
+      return '';
+    }
+    try {
+      const u = new URL(s, document.baseURI);
+      const seg = decodeURIComponent(u.pathname.split('/').pop() || '');
+      return seg.includes('.') ? seg : '';
+    } catch {
+      const noQuery = s.split('?')[0];
+      const seg = noQuery.split('/').pop() || '';
+      return seg.includes('.') ? seg : '';
+    }
+  }
 
   @Input() images: SlideshowImageSource[] = [];
   @Input() eventName: string = '';
@@ -5405,21 +5470,16 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         return;
       }
 
-      const fileName = this.imageFileNames.get(currentImageUrl) || 'image.jpg';
-      let mimeType = blob.type || 'image/jpeg';
-      if (!mimeType.startsWith('image/')) {
-        const ext = fileName.toLowerCase().split('.').pop();
-        if (ext === 'png') {
-          mimeType = 'image/png';
-        } else if (ext === 'gif') {
-          mimeType = 'image/gif';
-        } else if (ext === 'webp') {
-          mimeType = 'image/webp';
-        } else {
-          mimeType = 'image/jpeg';
-        }
-      }
-
+      const imageSource =
+        this.images?.length > this.currentSlideshowIndex
+          ? this.images[this.currentSlideshowIndex]
+          : undefined;
+      const fileName =
+        this.imageFileNames.get(currentImageUrl) ||
+        imageSource?.fileName ||
+        SlideshowModalComponent.fileNameHintFromImageUrl(currentImageUrl) ||
+        'image.jpg';
+      let mimeType = SlideshowModalComponent.mimeForAssistantFromBlob(blob.type || 'image/jpeg', fileName);
       if (blob.type !== mimeType) {
         blob = new Blob([blob], { type: mimeType });
       }
@@ -5428,10 +5488,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       const assistantVisibleBlob = await this.captureVisibleImagePortion(blob);
       if (assistantVisibleBlob) {
         blob = assistantVisibleBlob;
-        mimeType = blob.type || 'image/jpeg';
-        if (!mimeType.startsWith('image/')) {
-          mimeType = 'image/jpeg';
-        }
+        mimeType = SlideshowModalComponent.mimeForAssistantFromBlob(blob.type || 'image/jpeg', fileName);
         if (blob.type !== mimeType) {
           blob = new Blob([blob], { type: mimeType });
         }

@@ -275,7 +275,7 @@ export class AssistantDrawerComponent
   imageAttachError: string | null = null;
 
   private static readonly IMAGE_MAX_BYTES = 8 * 1024 * 1024;
-  private static readonly IMAGE_ACCEPT_RE = /^image\/(jpeg|png|gif|webp)$/i;
+  private static readonly IMAGE_ACCEPT_RE = /^image\/(jpe?g|png|gif|webp)$/i;
   /** Réponse (ou erreur) reçue alors que le panneau était fermé — pastille sur le FAB jusqu’à réouverture. */
   fabUnreadReply = false;
   private shouldAlignLastQuestionTop = false;
@@ -2330,8 +2330,12 @@ export class AssistantDrawerComponent
           this.cdr.markForCheck();
           return;
         }
+        let storedMime = m[1].trim().toLowerCase();
+        if (storedMime === 'image/jpg') {
+          storedMime = 'image/jpeg';
+        }
         this.pendingImage = {
-          mimeType: m[1].trim().toLowerCase(),
+          mimeType: storedMime,
           base64: m[2].replace(/\s+/g, ''),
           dataUrl
         };
