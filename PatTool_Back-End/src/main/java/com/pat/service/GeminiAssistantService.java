@@ -29,14 +29,18 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
 /**
  * Assistant via l’API REST {@code generateContent} de Google Gemini
  * (<a href="https://ai.google.dev/api/rest">docs</a>).
- * Recherche web : outil {@code google_search} ; images : modèle dédié (voir {@code gemini.image-generation-model})
- * et {@code responseModalities}. MCP reste réservé au fournisseur OpenAI.
+ * Recherche web : outil {@code google_search} (modèles récents) avec repli automatique sur
+ * {@code google_search_retrieval} pour les modèles type Gemini&nbsp;1.5 (voir
+ * {@code gemini.web-search-legacy-model-prefixes}) ou si l’API renvoie une erreur 400 incitant à l’ancien outil.
+ * Images : modèle dédié (voir {@code gemini.image-generation-model}) et {@code responseModalities}.
+ * MCP reste réservé au fournisseur OpenAI.
  */
 @Service
 public class GeminiAssistantService {
@@ -65,6 +69,14 @@ public class GeminiAssistantService {
     @Value("${gemini.image-generation-model:gemini-2.5-flash-image}")
     private String imageGenerationModel;
 
+    /**
+     * Préfixes de {@code model} (insensible à la casse) pour lesquels on envoie directement
+     * {@code google_search_retrieval} au lieu de {@code google_search}, afin d’éviter un 400 inutile
+     * sur les modèles Gemini&nbsp;1.5 / 1.0.
+     */
+    @Value("${gemini.web-search-legacy-model-prefixes:gemini-1.5,gemini-1.0}")
+    private String webSearchLegacyModelPrefixesRaw;
+
     public GeminiAssistantService(
             @Qualifier("openAiRestTemplate") RestTemplate restTemplate,
             ObjectMapper objectMapper) {
@@ -82,9 +94,14 @@ public class GeminiAssistantService {
         return model != null ? model.trim() : "";
     }
 
+    /** {@code gemini.image-generation-model} pour l’UI (non sensible). */
+    public String getImageGenerationModel() {
+        return imageGenerationModel != null ? imageGenerationModel.trim() : "";
+    }
+
     public AssistantChatResponseDto complete(AssistantChatRequestDto request) {
         if (apiKey == null || apiKey.isBlank()) {
-            log.warn("Gemini API key is not configured (gemini.key).");
+            log.error("Gemini API key is not configured (gemini.key).");
             return AssistantChatResponseDto.err(
                     "Assistant indisponible : configurez gemini.key côté serveur.");
         }
@@ -159,54 +176,146 @@ public class GeminiAssistantService {
         body.put("generationConfig", genCfg);
 
         if (wantWeb) {
-            body.put("tools", List.of(Map.of("google_search", Map.of())));
+            applyGeminiWebSearchTools(body, effectiveModel);
         }
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        try {
-            long startNs = System.nanoTime();
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
-            ResponseEntity<String> response =
-                    restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
-            int elapsedMs = (int) Math.min((System.nanoTime() - startNs) / 1_000_000L, Integer.MAX_VALUE);
-            AssistantChatResponseDto parsed = parseGeminiResponse(response.getBody(), effectiveModel);
-            if (parsed.error() != null) {
-                log.warn("Gemini response carries error payload: {}", parsed.error());
-                return AssistantChatResponseDto.err(parsed.error());
-            }
-            return AssistantChatResponseDto.okTimed(
-                    parsed.id(),
-                    parsed.model(),
-                    parsed.provider(),
-                    parsed.role(),
-                    parsed.content(),
-                    parsed.inputTokens(),
-                    parsed.outputTokens(),
-                    elapsedMs);
-        } catch (HttpStatusCodeException e) {
-            log.warn("Gemini API error: {} — {}", e.getStatusCode(), e.getResponseBodyAsString());
-            String msg = AssistantHttpErrorParser.providerMessageOrNull(objectMapper, e.getResponseBodyAsString());
-            if (msg != null && !msg.isBlank()) {
-                return AssistantChatResponseDto.err(msg);
-            }
-            return AssistantChatResponseDto.err(
-                    "Erreur du fournisseur IA (" + e.getStatusCode().value() + ").");
-        } catch (ResourceAccessException e) {
-            log.warn("Gemini API I/O error: {}", e.getMessage());
-            Throwable cause = e.getCause();
-            if (cause instanceof java.net.SocketTimeoutException) {
+        for (int attempt = 0; attempt < 2; attempt++) {
+            try {
+                long startNs = System.nanoTime();
+                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+                ResponseEntity<String> response =
+                        restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+                int elapsedMs = (int) Math.min((System.nanoTime() - startNs) / 1_000_000L, Integer.MAX_VALUE);
+                AssistantChatResponseDto parsed = parseGeminiResponse(response.getBody(), effectiveModel);
+                if (parsed.error() != null) {
+                    log.debug("Gemini response carries error payload: {}", parsed.error());
+                    return AssistantChatResponseDto.err(parsed.error());
+                }
+                return AssistantChatResponseDto.okTimed(
+                        parsed.id(),
+                        parsed.model(),
+                        parsed.provider(),
+                        parsed.role(),
+                        parsed.content(),
+                        parsed.inputTokens(),
+                        parsed.outputTokens(),
+                        elapsedMs);
+            } catch (HttpStatusCodeException e) {
+                String errBody = e.getResponseBodyAsString();
+                if (wantWeb
+                        && attempt == 0
+                        && e.getStatusCode().value() == 400
+                        && bodyUsesModernGoogleSearchTool(body)
+                        && shouldFallbackToGoogleSearchRetrieval(errBody)) {
+                    body.put("tools", List.of(legacyGoogleSearchRetrievalTool()));
+                    log.debug("Gemini web search: retry with google_search_retrieval after API 400");
+                    continue;
+                }
+                log.debug("Gemini API error: {} — {}", e.getStatusCode(), errBody);
+                String msg = AssistantHttpErrorParser.providerMessageOrNull(objectMapper, errBody);
+                if (msg != null && !msg.isBlank()) {
+                    return AssistantChatResponseDto.err(msg);
+                }
                 return AssistantChatResponseDto.err(
-                        "Délai d’attente dépassé en lisant la réponse Gemini. "
-                                + "Augmentez openai.http.read-timeout-seconds si besoin. Réessayez.");
+                        "Erreur du fournisseur IA (" + e.getStatusCode().value() + ").");
+            } catch (ResourceAccessException e) {
+                log.debug("Gemini API I/O error: {}", e.getMessage());
+                Throwable cause = e.getCause();
+                if (cause instanceof java.net.SocketTimeoutException) {
+                    return AssistantChatResponseDto.err(
+                            "Délai d’attente dépassé en lisant la réponse Gemini. "
+                                    + "Augmentez openai.http.read-timeout-seconds si besoin. Réessayez.");
+                }
+                return AssistantChatResponseDto.err(
+                        "Impossible de joindre le fournisseur IA (Gemini). Réessayez plus tard.");
+            } catch (Exception e) {
+                log.error("Gemini assistant request failed", e);
+                return AssistantChatResponseDto.err("Erreur technique lors de l’appel à l’assistant (Gemini).");
             }
-            return AssistantChatResponseDto.err(
-                    "Impossible de joindre le fournisseur IA (Gemini). Réessayez plus tard.");
-        } catch (Exception e) {
-            log.error("Gemini assistant request failed", e);
-            return AssistantChatResponseDto.err("Erreur technique lors de l’appel à l’assistant (Gemini).");
         }
+        return AssistantChatResponseDto.err("Erreur technique lors de l’appel à l’assistant (Gemini).");
+    }
+
+    private void applyGeminiWebSearchTools(Map<String, Object> body, String effectiveModel) {
+        if (webSearchUsesLegacyModel(effectiveModel)) {
+            body.put("tools", List.of(legacyGoogleSearchRetrievalTool()));
+        } else {
+            body.put("tools", List.of(Map.of("google_search", Map.of())));
+        }
+    }
+
+    private boolean webSearchUsesLegacyModel(String modelId) {
+        String raw = webSearchLegacyModelPrefixesRaw;
+        if (raw == null || raw.isBlank()) {
+            return false;
+        }
+        String m = modelId != null ? modelId.trim().toLowerCase(Locale.ROOT) : "";
+        if (m.isEmpty()) {
+            return false;
+        }
+        for (String part : raw.split(",")) {
+            String prefix = part.trim().toLowerCase(Locale.ROOT);
+            if (!prefix.isEmpty() && m.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Outil grounding des modèles Gemini&nbsp;1.5 (et assimilés) : {@code dynamic_retrieval_config.mode}
+     * {@code MODE_DYNAMIC} correspond au comportement « recherche si pertinent » côté API.
+     */
+    private static Map<String, Object> legacyGoogleSearchRetrievalTool() {
+        Map<String, Object> dynamicCfg = new HashMap<>();
+        dynamicCfg.put("mode", "MODE_DYNAMIC");
+        Map<String, Object> retrieval = new HashMap<>();
+        retrieval.put("dynamic_retrieval_config", dynamicCfg);
+        return Map.of("google_search_retrieval", retrieval);
+    }
+
+    private static boolean bodyUsesModernGoogleSearchTool(Map<String, Object> body) {
+        Object toolsObj = body.get("tools");
+        if (!(toolsObj instanceof List<?> list) || list.isEmpty()) {
+            return false;
+        }
+        Object first = list.get(0);
+        if (!(first instanceof Map<?, ?> m)) {
+            return false;
+        }
+        return m.containsKey("google_search");
+    }
+
+    /**
+     * Détecte les réponses 400 indiquant que l’API attend {@code google_search_retrieval} plutôt que
+     * {@code google_search} (ex. certains modèles 1.x), en évitant le faux positif
+     * « Please use google_search … instead of google_search_retrieval » (cas inverse, modèles 2.x).
+     */
+    private static boolean shouldFallbackToGoogleSearchRetrieval(String responseBody) {
+        if (responseBody == null || responseBody.isBlank()) {
+            return false;
+        }
+        String s = responseBody.toLowerCase(Locale.ROOT);
+        if (s.contains("please use google_search field instead of google_search_retrieval")) {
+            return false;
+        }
+        if (s.contains("use google_search field instead of google_search_retrieval")) {
+            return false;
+        }
+        if (s.contains("please use google_search_retrieval")) {
+            return true;
+        }
+        if (s.contains("google_search_retrieval field instead of google_search")) {
+            return true;
+        }
+        if (s.contains("use google_search_retrieval instead")) {
+            return true;
+        }
+        // Corps d'erreur JSON parfois du type Unknown name "google_search" dans tools (modèles legacy)
+        return s.contains("unknown name \"google_search\"") && s.contains("tools");
     }
 
     private String buildGenerateContentUrl(String modelId) {
@@ -347,7 +456,7 @@ public class GeminiAssistantService {
                     inTok,
                     outTok);
         } catch (Exception e) {
-            log.warn("Failed to parse Gemini JSON", e);
+            log.error("Failed to parse Gemini JSON", e);
             return AssistantChatResponseDto.err(
                     "Impossible d’interpréter la réponse du fournisseur IA (Gemini).");
         }

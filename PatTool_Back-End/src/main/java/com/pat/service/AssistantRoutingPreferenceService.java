@@ -59,7 +59,7 @@ public class AssistantRoutingPreferenceService {
                     dto.modelPreset(),
                     dto.modelCustom() != null ? dto.modelCustom() : ""));
         } catch (JsonProcessingException e) {
-            log.warn("assistant.routing JSON illisible pour clé {}: {}", key, e.getMessage());
+            log.debug("assistant.routing JSON illisible pour clé {}: {}", key, e.getMessage());
             return Optional.empty();
         }
     }

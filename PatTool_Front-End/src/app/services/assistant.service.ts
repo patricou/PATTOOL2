@@ -99,6 +99,8 @@ export interface AssistantClientConfig {
   billingAnthropicUrl?: string | null;
   billingGeminiRateLimitUrl?: string | null;
   billingGeminiApiKeysUrl?: string | null;
+  /** gemini.image-generation-model côté serveur (non sensible). */
+  geminiImageGenerationModel?: string | null;
 }
 
 /** Fournisseur + modèle effectifs pour un tour de chat (surcharge la config serveur). */

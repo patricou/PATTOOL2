@@ -219,7 +219,12 @@ body .modal.show.assistant-history-modal .modal-dialog > .modal-content,
 body .modal.fade.show.assistant-history-modal .modal-dialog > .modal-content,
 body .modal.assistant-history-modal.show .modal-dialog > .modal-content,
 body ngb-modal-window.modal.show.assistant-history-modal .modal-dialog > .modal-content,
-body ngb-modal-window.modal.assistant-history-modal.show .modal-dialog > .modal-content {
+body ngb-modal-window.modal.assistant-history-modal.show .modal-dialog > .modal-content,
+body .modal.show.assistant-tools-help-modal .modal-dialog > .modal-content,
+body .modal.fade.show.assistant-tools-help-modal .modal-dialog > .modal-content,
+body .modal.assistant-tools-help-modal.show .modal-dialog > .modal-content,
+body ngb-modal-window.modal.show.assistant-tools-help-modal .modal-dialog > .modal-content,
+body ngb-modal-window.modal.assistant-tools-help-modal.show .modal-dialog > .modal-content {
     font-size: 0.8125rem;
     border: 4px solid #ffffff !important;
     border-radius: 8px !important;
@@ -230,7 +235,11 @@ body ngb-modal-window.modal.assistant-history-modal.show .modal-dialog > .modal-
 body .modal.show.assistant-history-modal .pat-assistant-history-modal-header,
 body .modal.assistant-history-modal.show .pat-assistant-history-modal-header,
 body ngb-modal-window.modal.show.assistant-history-modal .pat-assistant-history-modal-header,
-body ngb-modal-window.modal.assistant-history-modal.show .pat-assistant-history-modal-header {
+body ngb-modal-window.modal.assistant-history-modal.show .pat-assistant-history-modal-header,
+body .modal.show.assistant-tools-help-modal .pat-assistant-history-modal-header,
+body .modal.assistant-tools-help-modal.show .pat-assistant-history-modal-header,
+body ngb-modal-window.modal.show.assistant-tools-help-modal .pat-assistant-history-modal-header,
+body ngb-modal-window.modal.assistant-tools-help-modal.show .pat-assistant-history-modal-header {
     padding: 0.65rem 0.85rem !important;
     background: linear-gradient(135deg, #007bff 0%, #0056b3 50%, #004085 100%) !important;
     color: #ffffff !important;
@@ -240,7 +249,11 @@ body ngb-modal-window.modal.assistant-history-modal.show .pat-assistant-history-
 body .modal.show.assistant-history-modal .pat-assistant-history-modal-title,
 body .modal.assistant-history-modal.show .pat-assistant-history-modal-title,
 body ngb-modal-window.modal.show.assistant-history-modal .pat-assistant-history-modal-title,
-body ngb-modal-window.modal.assistant-history-modal.show .pat-assistant-history-modal-title {
+body ngb-modal-window.modal.assistant-history-modal.show .pat-assistant-history-modal-title,
+body .modal.show.assistant-tools-help-modal .pat-assistant-history-modal-title,
+body .modal.assistant-tools-help-modal.show .pat-assistant-history-modal-title,
+body ngb-modal-window.modal.show.assistant-tools-help-modal .pat-assistant-history-modal-title,
+body ngb-modal-window.modal.assistant-tools-help-modal.show .pat-assistant-history-modal-title {
     font-size: 0.95rem !important;
     font-weight: 600 !important;
     color: #ffffff !important;
@@ -249,7 +262,11 @@ body ngb-modal-window.modal.assistant-history-modal.show .pat-assistant-history-
 body .modal.show.assistant-history-modal .pat-assistant-history-modal-title .fa,
 body .modal.assistant-history-modal.show .pat-assistant-history-modal-title .fa,
 body ngb-modal-window.modal.show.assistant-history-modal .pat-assistant-history-modal-title .fa,
-body ngb-modal-window.modal.assistant-history-modal.show .pat-assistant-history-modal-title .fa {
+body ngb-modal-window.modal.assistant-history-modal.show .pat-assistant-history-modal-title .fa,
+body .modal.show.assistant-tools-help-modal .pat-assistant-history-modal-title .fa,
+body .modal.assistant-tools-help-modal.show .pat-assistant-history-modal-title .fa,
+body ngb-modal-window.modal.show.assistant-tools-help-modal .pat-assistant-history-modal-title .fa,
+body ngb-modal-window.modal.assistant-tools-help-modal.show .pat-assistant-history-modal-title .fa {
     font-size: 0.88em !important;
     color: #ffffff !important;
 }
@@ -257,9 +274,35 @@ body ngb-modal-window.modal.assistant-history-modal.show .pat-assistant-history-
 body .modal.show.assistant-history-modal .pat-assistant-history-modal-header .btn-close,
 body .modal.assistant-history-modal.show .pat-assistant-history-modal-header .btn-close,
 body ngb-modal-window.modal.show.assistant-history-modal .pat-assistant-history-modal-header .btn-close,
-body ngb-modal-window.modal.assistant-history-modal.show .pat-assistant-history-modal-header .btn-close {
+body ngb-modal-window.modal.assistant-history-modal.show .pat-assistant-history-modal-header .btn-close,
+body .modal.show.assistant-tools-help-modal .pat-assistant-history-modal-header .btn-close,
+body .modal.assistant-tools-help-modal.show .pat-assistant-history-modal-header .btn-close,
+body ngb-modal-window.modal.show.assistant-tools-help-modal .pat-assistant-history-modal-header .btn-close,
+body ngb-modal-window.modal.assistant-tools-help-modal.show .pat-assistant-history-modal-header .btn-close {
     padding: 0.35rem !important;
     opacity: 1 !important;
+}
+
+/* Plein écran à gauche du bouton fermer (ordre explicite, LTR / héritages flex). */
+body .modal.show.assistant-tools-help-modal .pat-assistant-tools-help-header-actions,
+body .modal.assistant-tools-help-modal.show .pat-assistant-tools-help-header-actions,
+body ngb-modal-window.modal.show.assistant-tools-help-modal .pat-assistant-tools-help-header-actions,
+body ngb-modal-window.modal.assistant-tools-help-modal.show .pat-assistant-tools-help-header-actions {
+    flex-direction: row !important;
+}
+
+body .modal.show.assistant-tools-help-modal .pat-assistant-tools-help-fs-btn,
+body .modal.assistant-tools-help-modal.show .pat-assistant-tools-help-fs-btn,
+body ngb-modal-window.modal.show.assistant-tools-help-modal .pat-assistant-tools-help-fs-btn,
+body ngb-modal-window.modal.assistant-tools-help-modal.show .pat-assistant-tools-help-fs-btn {
+    order: 1 !important;
+}
+
+body .modal.show.assistant-tools-help-modal .pat-assistant-tools-help-header-actions .btn-close,
+body .modal.assistant-tools-help-modal.show .pat-assistant-tools-help-header-actions .btn-close,
+body ngb-modal-window.modal.show.assistant-tools-help-modal .pat-assistant-tools-help-header-actions .btn-close,
+body ngb-modal-window.modal.assistant-tools-help-modal.show .pat-assistant-tools-help-header-actions .btn-close {
+    order: 2 !important;
 }
 
 body .modal.show.assistant-history-modal .pat-assistant-history-modal-body,
@@ -1400,6 +1443,12 @@ input#message {
 /* Todo list create/edit — dialog width (ng-bootstrap attaches modal under body). */
 .modal.todolists-modal .modal-dialog.modal-lg.todolists-editor-dialog {
     max-width: min(40rem, calc(100vw - 1rem)) !important;
+    width: 100%;
+}
+
+/* Assistant — tools help (providers × tools table); wider than default modal-xl. */
+.modal.assistant-tools-help-modal .modal-dialog:not(.modal-fullscreen) {
+    max-width: min(1320px, calc(100vw - 1.5rem)) !important;
     width: 100%;
 }
 

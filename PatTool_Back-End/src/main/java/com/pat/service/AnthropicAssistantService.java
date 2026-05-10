@@ -90,7 +90,7 @@ public class AnthropicAssistantService {
 
     public AssistantChatResponseDto complete(AssistantChatRequestDto request) {
         if (apiKey == null || apiKey.isBlank()) {
-            log.warn("Anthropic API key is not configured (anthropic.key).");
+            log.error("Anthropic API key is not configured (anthropic.key).");
             return AssistantChatResponseDto.err(
                     "Assistant indisponible : configurez anthropic.key côté serveur.");
         }
@@ -176,7 +176,7 @@ public class AnthropicAssistantService {
             int elapsedMs = (int) Math.min((System.nanoTime() - startNs) / 1_000_000L, Integer.MAX_VALUE);
             AssistantChatResponseDto parsed = parseAnthropicResponse(response.getBody(), requestModel);
             if (parsed.error() != null) {
-                log.warn("Anthropic response carries error payload: {}", parsed.error());
+                log.debug("Anthropic response carries error payload: {}", parsed.error());
                 return AssistantChatResponseDto.err(parsed.error());
             }
             return AssistantChatResponseDto.okTimed(
@@ -189,7 +189,7 @@ public class AnthropicAssistantService {
                     parsed.outputTokens(),
                     elapsedMs);
         } catch (HttpStatusCodeException e) {
-            log.warn("Anthropic API error: {} — {}", e.getStatusCode(), e.getResponseBodyAsString());
+            log.debug("Anthropic API error: {} — {}", e.getStatusCode(), e.getResponseBodyAsString());
             String msg = AssistantHttpErrorParser.providerMessageOrNull(objectMapper, e.getResponseBodyAsString());
             if (msg != null && !msg.isBlank()) {
                 return AssistantChatResponseDto.err(msg);
@@ -197,7 +197,7 @@ public class AnthropicAssistantService {
             return AssistantChatResponseDto.err(
                     "Erreur du fournisseur IA (" + e.getStatusCode().value() + ").");
         } catch (ResourceAccessException e) {
-            log.warn("Anthropic API I/O error: {}", e.getMessage());
+            log.debug("Anthropic API I/O error: {}", e.getMessage());
             Throwable cause = e.getCause();
             if (cause instanceof java.net.SocketTimeoutException) {
                 return AssistantChatResponseDto.err(
@@ -361,7 +361,7 @@ public class AnthropicAssistantService {
                             outTok);
             return ok;
         } catch (Exception e) {
-            log.warn("Failed to parse Anthropic JSON", e);
+            log.error("Failed to parse Anthropic JSON", e);
             return AssistantChatResponseDto.err(
                     "Impossible d’interpréter la réponse du fournisseur IA (Anthropic).");
         }

@@ -346,6 +346,15 @@
                for="pat-assistant-tool-mcp"
                [title]="'ASSISTANT.TOOL_MCP_HINT' | translate">{{ 'ASSISTANT.TOOL_MCP' | translate }}</label>
       </div>
+      <button
+        type="button"
+        class="btn btn-sm btn-link text-muted p-0 align-baseline pat-assistant-tools-help-btn"
+        (click)="openAssistantToolsHelpModal()"
+        [title]="'ASSISTANT.TOOLS_HELP_BTN_HINT' | translate"
+        [attr.aria-label]="'ASSISTANT.TOOLS_HELP_BTN' | translate">
+        <i class="fa fa-info-circle" aria-hidden="true"></i>
+        <span class="visually-hidden">{{ 'ASSISTANT.TOOLS_HELP_BTN' | translate }}</span>
+      </button>
       <span class="pat-assistant-tool-flags-image-gap" aria-hidden="true"></span>
       <button
         type="button"
@@ -397,6 +406,139 @@
     </div>
   </div>
 </aside>
+
+<ng-template #assistantToolsHelpModal let-modal>
+  <div class="modal-header pat-assistant-history-modal-header">
+    <h5 class="modal-title pat-assistant-history-modal-title mb-0" id="assistant-tools-help-title">
+      <i class="fa fa-info-circle me-2" aria-hidden="true"></i>
+      {{ 'ASSISTANT.TOOLS_HELP_TITLE' | translate }}
+    </h5>
+    <div
+      class="pat-assistant-tools-help-header-actions d-flex align-items-center gap-1 ms-auto flex-shrink-0 flex-row">
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-light pat-assistant-tools-help-fs-btn"
+        (click)="toggleAssistantToolsHelpFullscreen()"
+        [title]="
+          assistantToolsHelpFullscreen
+            ? ('ASSISTANT.EXIT_FULLSCREEN_HINT' | translate)
+            : ('ASSISTANT.FULLSCREEN_HINT' | translate)
+        "
+        [attr.aria-pressed]="assistantToolsHelpFullscreen"
+        [attr.aria-label]="
+          assistantToolsHelpFullscreen
+            ? ('ASSISTANT.EXIT_FULLSCREEN' | translate)
+            : ('ASSISTANT.FULLSCREEN' | translate)
+        ">
+        <i class="fa" [ngClass]="assistantToolsHelpFullscreen ? 'fa-compress' : 'fa-expand'" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        class="btn-close btn-close-white"
+        (click)="modal.dismiss()"
+        [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+    </div>
+  </div>
+  <div class="modal-body pat-assistant-tools-help-body" [attr.aria-labelledby]="'assistant-tools-help-title'">
+    <p class="mb-2 text-body-secondary">{{ 'ASSISTANT.TOOLS_HELP_INTRO' | translate }}</p>
+    <p class="text-body-secondary small mb-2">{{ 'ASSISTANT.TOOLS_HELP_MODELS_NOTE' | translate }}</p>
+    <h6 class="fw-semibold mb-2">{{ 'ASSISTANT.TOOLS_HELP_TABLE_HEADING' | translate }}</h6>
+    <div class="table-responsive">
+      <table
+        class="table table-sm table-bordered align-middle mb-0 pat-assistant-tools-help-table">
+        <caption class="visually-hidden">{{ 'ASSISTANT.TOOLS_HELP_TABLE_CAPTION' | translate }}</caption>
+        <thead class="table-light">
+          <tr>
+            <th scope="col">{{ 'ASSISTANT.TOOLS_HELP_TABLE_COL_MODEL' | translate }}</th>
+            <th scope="col" class="text-center">
+              {{ 'ASSISTANT.TOOLS_HELP_TABLE_COL_WEB' | translate }}
+            </th>
+            <th scope="col" class="text-center text-nowrap">
+              {{ 'ASSISTANT.TOOL_IMAGE' | translate }}
+            </th>
+            <th scope="col" class="text-center text-nowrap">{{ 'ASSISTANT.TOOL_MCP' | translate }}</th>
+            <th scope="col" class="text-center">
+              {{ 'ASSISTANT.TOOLS_HELP_TABLE_COL_VISION' | translate }}
+            </th>
+            <th scope="col" class="text-start text-wrap pat-assistant-tools-help-col-vendor-gap">
+              {{ 'ASSISTANT.TOOLS_HELP_TABLE_COL_VENDOR_GAP' | translate }}
+            </th>
+          </tr>
+        </thead>
+        <tbody class="text-center">
+          <ng-container *ngFor="let sec of toolsHelpSections">
+            <tr class="table-light">
+              <th scope="colgroup" colspan="6" class="text-start py-2">
+                <span class="fw-semibold" [ngSwitch]="sec.provider">
+                  <ng-container *ngSwitchCase="'openai'">{{
+                    'ASSISTANT.PROVIDER_OPENAI' | translate
+                  }}</ng-container>
+                  <ng-container *ngSwitchCase="'anthropic'">{{
+                    'ASSISTANT.PROVIDER_ANTHROPIC' | translate
+                  }}</ng-container>
+                  <ng-container *ngSwitchCase="'gemini'">{{
+                    'ASSISTANT.PROVIDER_GEMINI' | translate
+                  }}</ng-container>
+                </span>
+              </th>
+            </tr>
+            <tr *ngFor="let r of sec.rows">
+              <th scope="row" class="text-start">
+                <code>{{ r.modelId }}</code>
+                <span
+                  *ngIf="isToolsHelpServerDefault(r.provider, r.modelId)"
+                  class="badge text-bg-secondary ms-1 align-middle"
+                  >{{ 'ASSISTANT.TOOLS_HELP_TABLE_SERVER_DEFAULT' | translate }}</span
+                >
+              </th>
+              <td
+                class="align-middle"
+                [class.pat-assistant-tools-help-partial]="r.web === 'partial'"
+                [attr.title]="toolsHelpCellTitle(r, 'web') ?? null">
+                {{ toolsHelpMarkKey(r.web) | translate }}
+              </td>
+              <td
+                class="align-middle"
+                [class.pat-assistant-tools-help-partial]="r.imageGen === 'partial'"
+                [attr.title]="toolsHelpCellTitle(r, 'imageGen') ?? null">
+                {{ toolsHelpMarkKey(r.imageGen) | translate }}
+              </td>
+              <td
+                class="align-middle"
+                [class.pat-assistant-tools-help-partial]="r.mcp === 'partial'"
+                [attr.title]="toolsHelpCellTitle(r, 'mcp') ?? null">
+                {{ toolsHelpMarkKey(r.mcp) | translate }}
+              </td>
+              <td
+                class="align-middle"
+                [class.pat-assistant-tools-help-partial]="r.vision === 'partial'"
+                [attr.title]="toolsHelpCellTitle(r, 'vision') ?? null">
+                {{ toolsHelpMarkKey(r.vision) | translate }}
+              </td>
+              <td class="text-start small pat-assistant-tools-help-gap-td">
+                {{ toolsHelpVendorToolsGapTranslateKey(r) | translate }}
+              </td>
+            </tr>
+            <tr *ngIf="sec.provider === 'gemini' && serverGeminiImageGenerationModel" class="text-start">
+              <td colspan="6" class="small text-body-secondary border-top-0 pt-0 pb-2">
+                {{
+                  'ASSISTANT.TOOLS_HELP_TABLE_GEMINI_IMAGE_MODEL'
+                    | translate : { model: serverGeminiImageGenerationModel }
+                }}
+              </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-body-secondary small fst-italic mt-2 mb-0">{{ 'ASSISTANT.TOOLS_HELP_TABLE_FOOTNOTE' | translate }}</p>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-primary" (click)="modal.close()">
+      {{ 'COMMUN.CLOSE' | translate }}
+    </button>
+  </div>
+</ng-template>
 
 <ng-template #assistantHistoryModal let-modal>
   <div class="modal-header pat-assistant-history-modal-header">

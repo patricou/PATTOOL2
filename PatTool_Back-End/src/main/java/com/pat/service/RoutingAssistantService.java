@@ -83,6 +83,11 @@ public class RoutingAssistantService {
         };
     }
 
+    /** {@code gemini.image-generation-model} (non sensible, UI modale outils). */
+    public String getGeminiImageGenerationModel() {
+        return geminiAssistantService.getImageGenerationModel();
+    }
+
     private String resolveEffectiveSlug(AssistantChatRequestDto request) {
         String fromReq = normalizeRoutingSlug(request != null ? request.provider() : null);
         if (fromReq != null) {

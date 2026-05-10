@@ -91,6 +91,7 @@ public class AssistantController {
         String oai = routingAssistantService.getDefaultModelForRoutingSlug("openai");
         String ant = routingAssistantService.getDefaultModelForRoutingSlug("anthropic");
         String gem = routingAssistantService.getDefaultModelForRoutingSlug("gemini");
+        String gemImg = routingAssistantService.getGeminiImageGenerationModel();
         return ResponseEntity.ok(new AssistantClientConfigDto(
                 p.isEmpty() ? null : p,
                 m.isEmpty() ? null : m,
@@ -103,7 +104,8 @@ public class AssistantController {
                 emptyToNull(assistantBillingLinks.getOpenaiUsageUrl()),
                 emptyToNull(assistantBillingLinks.getAnthropicUrl()),
                 emptyToNull(assistantBillingLinks.getGeminiRateLimitUrl()),
-                emptyToNull(assistantBillingLinks.getGeminiApiKeysUrl())));
+                emptyToNull(assistantBillingLinks.getGeminiApiKeysUrl()),
+                gemImg.isEmpty() ? null : gemImg));
     }
 
     private static String emptyToNull(String s) {
@@ -310,7 +312,7 @@ public class AssistantController {
                     .contentType(MediaType.APPLICATION_PDF)
                     .body(pdf);
         } catch (Exception e) {
-            log.warn("assistant export-pdf failed", e);
+            log.error("assistant export-pdf failed", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

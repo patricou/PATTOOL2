@@ -81,6 +81,16 @@ import { MembersService } from '../../services/members.service';
 import { Evenement } from '../../model/evenement';
 import { Commentary } from '../../model/commentary';
 import { environment } from '../../../environments/environment';
+import {
+  ASSISTANT_ANTHROPIC_MODEL_PRESETS,
+  ASSISTANT_GEMINI_MODEL_PRESETS,
+  ASSISTANT_OPENAI_MODEL_PRESETS
+} from './assistant-model-presets';
+import {
+  assistantToolsHelpSections,
+  type AssistantToolsHelpModelRow,
+  type ToolsHelpLevel
+} from './assistant-tools-help-matrix';
 
 @Component({
   selector: 'app-assistant-drawer',
@@ -112,6 +122,7 @@ export class AssistantDrawerComponent
    * {@link AssistantDrawerComponent.INSERT_IMAGE_COMPRESSION_THRESHOLD_BYTES}.
    */
   @ViewChild('imageCompressionModal') imageCompressionModal!: TemplateRef<unknown>;
+  @ViewChild('assistantToolsHelpModal') assistantToolsHelpModal!: TemplateRef<unknown>;
   @ViewChild('assistantHistoryModal') assistantHistoryModal!: TemplateRef<unknown>;
   /** Référence à l'instance du slideshow partagé (même viewer que pour les évènements). */
   @ViewChild('slideshowModalComponent') slideshowModalComponent?: SlideshowModalComponent;
@@ -235,6 +246,9 @@ export class AssistantDrawerComponent
   /** Seuil (KB) lu sur le backend ; affiché dans le message info-only. */
   insertImageMaxSizeKb = 0;
   private imageCompressionModalRef: NgbModalRef | null = null;
+  /** Modale aide « outils × fournisseurs » (toggle plein écran). */
+  private toolsHelpModalRef: NgbModalRef | null = null;
+  assistantToolsHelpFullscreen = false;
 
   /** Juste sous la bande bleue `.pat-title` (ou minimum sous navbar + tickers). */
   fabTopPx = 72;
@@ -308,26 +322,6 @@ export class AssistantDrawerComponent
     SafeHtml
   >();
 
-  private static readonly OPENAI_MODEL_PRESETS: readonly string[] = [
-    'gpt-5.5',
-    'gpt-5.2',
-    'gpt-4.1',
-    'gpt-4o',
-    'gpt-4o-mini',
-    'o4-mini',
-    'o3-mini'
-  ];
-  private static readonly ANTHROPIC_MODEL_PRESETS: readonly string[] = [
-    'claude-sonnet-4-6',
-    'claude-opus-4-7',
-    'claude-haiku-4-5-20251001'
-  ];
-  private static readonly GEMINI_MODEL_PRESETS: readonly string[] = [
-    'gemini-2.5-flash',
-    'gemini-2.5-pro',
-    'gemini-2.0-flash'
-  ];
-
   /** Valeurs si le backend ne renvoie pas encore d’URL (alignées sur les défauts Java). */
   private static readonly DEFAULT_BILLING_OPENAI_BILLING =
     'https://platform.openai.com/settings/organization/billing';
@@ -345,7 +339,7 @@ export class AssistantDrawerComponent
   modelPreset = 'gpt-4o';
   /** Saisie libre si {@link modelPreset} === {@link MODEL_PRESET_CUSTOM}. */
   modelCustom = '';
-  routingModelOptions: string[] = [...AssistantDrawerComponent.OPENAI_MODEL_PRESETS];
+  routingModelOptions: string[] = [...ASSISTANT_OPENAI_MODEL_PRESETS];
 
   /** Modèle du fournisseur par défaut serveur (legacy, = celui de {@code routingDefault}). */
   serverDefaultModel = '';
@@ -353,6 +347,10 @@ export class AssistantDrawerComponent
   serverOpenaiDefault = '';
   serverAnthropicDefault = '';
   serverGeminiDefault = '';
+  /** {@code gemini.image-generation-model} renvoyé par GET /assistant/config. */
+  serverGeminiImageGenerationModel = '';
+  /** Sections fournisseur → lignes modèle pour la modale d’aide (alignées sur le sélecteur). */
+  readonly toolsHelpSections = assistantToolsHelpSections();
   /** URLs du bandeau facturation (GET /assistant/config, assistant.billing.*). */
   billingOpenaiBillingUrl = '';
   billingOpenaiUsageUrl = '';
@@ -639,6 +637,11 @@ export class AssistantDrawerComponent
             typeof c.anthropicDefaultModel === 'string' ? c.anthropicDefaultModel.trim() : '';
           this.serverGeminiDefault =
             typeof c.geminiDefaultModel === 'string' ? c.geminiDefaultModel.trim() : '';
+          const gimg =
+            typeof c.geminiImageGenerationModel === 'string'
+              ? c.geminiImageGenerationModel.trim()
+              : '';
+          this.serverGeminiImageGenerationModel = gimg;
           this.billingOpenaiBillingUrl =
             typeof c.billingOpenaiBillingUrl === 'string' ? c.billingOpenaiBillingUrl.trim() : '';
           this.billingOpenaiUsageUrl =
@@ -682,6 +685,7 @@ export class AssistantDrawerComponent
           this.serverOpenaiDefault = '';
           this.serverAnthropicDefault = '';
           this.serverGeminiDefault = '';
+          this.serverGeminiImageGenerationModel = '';
           this.billingOpenaiBillingUrl = '';
           this.billingOpenaiUsageUrl = '';
           this.billingAnthropicUrl = '';
@@ -778,10 +782,10 @@ export class AssistantDrawerComponent
     }
     const defaults =
       this.routingProvider === 'openai'
-        ? AssistantDrawerComponent.OPENAI_MODEL_PRESETS
+        ? ASSISTANT_OPENAI_MODEL_PRESETS
         : this.routingProvider === 'gemini'
-          ? AssistantDrawerComponent.GEMINI_MODEL_PRESETS
-          : AssistantDrawerComponent.ANTHROPIC_MODEL_PRESETS;
+          ? ASSISTANT_GEMINI_MODEL_PRESETS
+          : ASSISTANT_ANTHROPIC_MODEL_PRESETS;
     return defaults[0] ?? 'gpt-4o';
   }
 
@@ -831,12 +835,12 @@ export class AssistantDrawerComponent
   }
 
   private rebuildModelOptionsList(): void {
-    const presets =
+    const presets: string[] =
       this.routingProvider === 'openai'
-        ? [...AssistantDrawerComponent.OPENAI_MODEL_PRESETS]
+        ? [...ASSISTANT_OPENAI_MODEL_PRESETS]
         : this.routingProvider === 'gemini'
-          ? [...AssistantDrawerComponent.GEMINI_MODEL_PRESETS]
-          : [...AssistantDrawerComponent.ANTHROPIC_MODEL_PRESETS];
+          ? [...ASSISTANT_GEMINI_MODEL_PRESETS]
+          : [...ASSISTANT_ANTHROPIC_MODEL_PRESETS];
     const srv = this.serverDefaultForActiveProvider().trim();
     if (srv && !presets.includes(srv)) {
       presets.push(srv);
@@ -1752,6 +1756,78 @@ export class AssistantDrawerComponent
     this.fabUnreadReply = false;
     this.persistSession();
     this.cdr.markForCheck();
+  }
+
+  openAssistantToolsHelpModal(): void {
+    this.assistantToolsHelpFullscreen = false;
+    const ref = this.modalService.open(this.assistantToolsHelpModal, {
+      centered: true,
+      scrollable: true,
+      size: 'xl',
+      windowClass: 'assistant-tools-help-modal',
+      fullscreen: false
+    });
+    this.toolsHelpModalRef = ref;
+    void ref.result.finally(() => {
+      this.toolsHelpModalRef = null;
+      this.assistantToolsHelpFullscreen = false;
+    });
+  }
+
+  toggleAssistantToolsHelpFullscreen(): void {
+    if (!this.toolsHelpModalRef) {
+      return;
+    }
+    this.assistantToolsHelpFullscreen = !this.assistantToolsHelpFullscreen;
+    this.toolsHelpModalRef.update({ fullscreen: this.assistantToolsHelpFullscreen });
+  }
+
+  /** Badge « défaut serveur » dans la modale aide outils (application.properties). */
+  isToolsHelpServerDefault(
+    provider: 'openai' | 'anthropic' | 'gemini',
+    model: string
+  ): boolean {
+    if (!model) {
+      return false;
+    }
+    const d =
+      provider === 'openai'
+        ? this.serverOpenaiDefault
+        : provider === 'anthropic'
+          ? this.serverAnthropicDefault
+          : this.serverGeminiDefault;
+    return !!d && d === model;
+  }
+
+  toolsHelpMarkKey(level: ToolsHelpLevel): string {
+    switch (level) {
+      case 'yes':
+        return 'ASSISTANT.TOOLS_HELP_MARK_YES';
+      case 'no':
+        return 'ASSISTANT.TOOLS_HELP_MARK_NO';
+      default:
+        return 'ASSISTANT.TOOLS_HELP_MARK_PARTIAL';
+    }
+  }
+
+  toolsHelpCellTitle(
+    row: AssistantToolsHelpModelRow,
+    col: 'web' | 'imageGen' | 'mcp' | 'vision'
+  ): string | null {
+    if (row[col] !== 'partial') {
+      return null;
+    }
+    const keys: Record<typeof col, string> = {
+      web: 'ASSISTANT.TOOLS_HELP_PARTIAL_WEB',
+      imageGen: 'ASSISTANT.TOOLS_HELP_PARTIAL_IMAGEGEN',
+      mcp: 'ASSISTANT.TOOLS_HELP_PARTIAL_MCP',
+      vision: 'ASSISTANT.TOOLS_HELP_PARTIAL_VISION'
+    };
+    return this.translate.instant(keys[col]);
+  }
+
+  toolsHelpVendorToolsGapTranslateKey(row: AssistantToolsHelpModelRow): string {
+    return `ASSISTANT.${row.vendorToolsNotInPatToolKey}`;
   }
 
   openAssistantHistoryModal(): void {

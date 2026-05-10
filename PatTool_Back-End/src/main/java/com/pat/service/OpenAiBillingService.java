@@ -86,19 +86,19 @@ public class OpenAiBillingService {
             String responseBody = e.getResponseBodyAsString();
             if (e.getStatusCode().value() == 403
                     && isCreditGrantsForbiddenForSecretKey(responseBody)) {
-                log.info(
+                log.debug(
                         "OpenAI credit_grants: 403 for secret API key (OpenAI requires a browser session key for this endpoint).");
                 return AssistantOpenAiCreditsDto.failure(
                         "Solde non synchronisable avec une clé API secrète (serveur). Consultez votre facturation sur https://platform.openai.com/account/billing");
             }
-            log.warn("OpenAI credit_grants HTTP {} — {}", e.getStatusCode(),
+            log.debug("OpenAI credit_grants HTTP {} — {}", e.getStatusCode(),
                     shorten(responseBody, 400));
             String hint = this.shortErrorHint(responseBody);
             return AssistantOpenAiCreditsDto.failure(
                     "Crédits indisponibles (" + e.getStatusCode().value() + ")"
                             + (hint != null ? " : " + hint : "."));
         } catch (Exception e) {
-            log.warn("Failed to fetch OpenAI credits", e);
+            log.error("Failed to fetch OpenAI credits", e);
             return AssistantOpenAiCreditsDto.failure(
                     "Impossible de joindre l’API des crédits OpenAI.");
         }

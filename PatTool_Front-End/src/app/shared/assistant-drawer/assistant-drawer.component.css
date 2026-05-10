@@ -1075,6 +1075,10 @@
   background: var(--asst-border);
 }
 
+.pat-assistant-tools-help-btn {
+  flex: 0 0 auto;
+}
+
 .pat-assistant-attach-btn {
   flex: 0 0 auto;
 }
@@ -1086,6 +1090,41 @@
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid var(--asst-border);
+}
+
+.pat-assistant-tools-help-modelhint {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  margin-top: 0.25rem;
+}
+
+.pat-assistant-tools-help-model-list {
+  list-style: disc;
+  padding-left: 1.2rem;
+  margin-bottom: 0;
+}
+
+.pat-assistant-tools-help-model-list li {
+  margin-bottom: 0.2rem;
+}
+
+.pat-assistant-tools-help-table th[scope='row'] {
+  min-width: 8.5rem;
+}
+
+.pat-assistant-tools-help-col-vendor-gap {
+  min-width: 12rem;
+  max-width: 22rem;
+}
+
+.pat-assistant-tools-help-gap-td {
+  vertical-align: middle;
+}
+
+.pat-assistant-tools-help-partial {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-underline-offset: 0.12em;
 }
 
 .pat-assistant-pending-img {

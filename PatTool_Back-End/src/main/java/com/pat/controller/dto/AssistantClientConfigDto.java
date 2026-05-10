@@ -31,4 +31,6 @@ public record AssistantClientConfigDto(
         /** {@code assistant.billing.gemini-rate-limit-url} — quotas / consommation. */
         String billingGeminiRateLimitUrl,
         /** {@code assistant.billing.gemini-api-keys-url}. */
-        String billingGeminiApiKeysUrl) {}
+        String billingGeminiApiKeysUrl,
+        /** {@code gemini.image-generation-model} (non sensible). */
+        String geminiImageGenerationModel) {}

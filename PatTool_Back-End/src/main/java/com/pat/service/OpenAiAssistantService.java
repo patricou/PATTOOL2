@@ -81,7 +81,7 @@ public class OpenAiAssistantService {
 
     public AssistantChatResponseDto complete(AssistantChatRequestDto request) {
         if (apiKey == null || apiKey.isBlank()) {
-            log.warn("OpenAI API key is not configured for assistant (openai.key).");
+            log.error("OpenAI API key is not configured for assistant (openai.key).");
             return AssistantChatResponseDto.err(
                     "Assistant indisponible : configurez openai.key côté serveur (même clé que PatGPT si besoin).");
         }
@@ -158,7 +158,7 @@ public class OpenAiAssistantService {
             int elapsedMs = (int) Math.min((System.nanoTime() - startNs) / 1_000_000L, Integer.MAX_VALUE);
             AssistantChatResponseDto parsed = parseOpenAiResponse(response.getBody(), requestModel);
             if (parsed.error() != null) {
-                log.warn("OpenAI response carries error payload: {}", parsed.error());
+                log.debug("OpenAI response carries error payload: {}", parsed.error());
                 return AssistantChatResponseDto.err(parsed.error());
             }
             return AssistantChatResponseDto.okTimed(
@@ -171,7 +171,7 @@ public class OpenAiAssistantService {
                     parsed.outputTokens(),
                     elapsedMs);
         } catch (HttpStatusCodeException e) {
-            log.warn("OpenAI API error: {} — {}", e.getStatusCode(), e.getResponseBodyAsString());
+            log.debug("OpenAI API error: {} — {}", e.getStatusCode(), e.getResponseBodyAsString());
             String msg = AssistantHttpErrorParser.providerMessageOrNull(objectMapper, e.getResponseBodyAsString());
             if (msg != null && !msg.isBlank()) {
                 return AssistantChatResponseDto.err(msg);
@@ -179,7 +179,7 @@ public class OpenAiAssistantService {
             return AssistantChatResponseDto.err(
                     "Erreur du fournisseur IA (" + e.getStatusCode().value() + ").");
         } catch (ResourceAccessException e) {
-            log.warn("OpenAI API I/O error: {}", e.getMessage());
+            log.debug("OpenAI API I/O error: {}", e.getMessage());
             Throwable cause = e.getCause();
             if (cause instanceof java.net.SocketTimeoutException) {
                 return AssistantChatResponseDto.err(
@@ -301,7 +301,7 @@ public class OpenAiAssistantService {
                     (int) Math.min((System.nanoTime() - startNs) / 1_000_000L, Integer.MAX_VALUE);
             AssistantChatResponseDto parsed = parseResponsesApiResponse(response.getBody(), requestModel);
             if (parsed.error() != null) {
-                log.warn("OpenAI Responses API carries error payload: {}", parsed.error());
+                log.debug("OpenAI Responses API carries error payload: {}", parsed.error());
                 return AssistantChatResponseDto.err(parsed.error());
             }
             return AssistantChatResponseDto.okTimed(
@@ -314,7 +314,7 @@ public class OpenAiAssistantService {
                     parsed.outputTokens(),
                     elapsedMs);
         } catch (HttpStatusCodeException e) {
-            log.warn("OpenAI Responses API error: {} — {}", e.getStatusCode(), e.getResponseBodyAsString());
+            log.debug("OpenAI Responses API error: {} — {}", e.getStatusCode(), e.getResponseBodyAsString());
             String msg = AssistantHttpErrorParser.providerMessageOrNull(objectMapper, e.getResponseBodyAsString());
             if (msg != null && !msg.isBlank()) {
                 return AssistantChatResponseDto.err(msg);
@@ -322,7 +322,7 @@ public class OpenAiAssistantService {
             return AssistantChatResponseDto.err(
                     "Erreur du fournisseur IA (Responses, " + e.getStatusCode().value() + ").");
         } catch (ResourceAccessException e) {
-            log.warn("OpenAI Responses API I/O error: {}", e.getMessage());
+            log.debug("OpenAI Responses API I/O error: {}", e.getMessage());
             Throwable cause = e.getCause();
             if (cause instanceof java.net.SocketTimeoutException) {
                 return AssistantChatResponseDto.err(
@@ -410,7 +410,7 @@ public class OpenAiAssistantService {
             return AssistantChatResponseDto.ok(
                     id, modelUsed, prov, "assistant", text.toString().trim(), inTok, outTok);
         } catch (Exception e) {
-            log.warn("Failed to parse OpenAI Responses JSON", e);
+            log.error("Failed to parse OpenAI Responses JSON", e);
             return AssistantChatResponseDto.err("Impossible d’interpréter la réponse Responses.");
         }
     }
@@ -520,7 +520,7 @@ public class OpenAiAssistantService {
             if ((content == null || content.isBlank())
                     && outTok != null
                     && outTok > 0) {
-                log.warn(
+                log.debug(
                         "OpenAI Chat Completions: usage reports {} completion tokens but extracted assistant content is empty (check message.content shape for this model).",
                         outTok);
             }
@@ -536,7 +536,7 @@ public class OpenAiAssistantService {
                     inTok,
                     outTok);
         } catch (Exception e) {
-            log.warn("Failed to parse OpenAI JSON", e);
+            log.error("Failed to parse OpenAI JSON", e);
             return AssistantChatResponseDto.err("Impossible d’interpréter la réponse du fournisseur IA.");
         }
     }
