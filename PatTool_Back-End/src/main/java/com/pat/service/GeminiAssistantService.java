@@ -6,6 +6,7 @@ import com.pat.controller.dto.AssistantChatRequestDto;
 import com.pat.controller.dto.AssistantChatResponseDto;
 import com.pat.controller.dto.AssistantToolFlagsDto;
 import com.pat.controller.dto.AssistantTurnDto;
+import com.pat.service.assistant.AssistantHttpErrorParser;
 import com.pat.service.assistant.AssistantMessageSupport;
 import com.pat.service.assistant.AssistantMessageSupport.DecodedImage;
 import com.pat.service.assistant.AssistantMessageSupport.ResolvedImage;
@@ -26,14 +27,16 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Assistant via l’API REST {@code generateContent} de Google Gemini
  * (<a href="https://ai.google.dev/api/rest">docs</a>).
- * Pas d’équivalent Responses (recherche web / MCP côté serveur OpenAI) : désactivez ces options ou
- * utilisez {@code assistant.provider=openai}.
+ * Recherche web : outil {@code google_search} ; images : modèle dédié (voir {@code gemini.image-generation-model})
+ * et {@code responseModalities}. MCP reste réservé au fournisseur OpenAI.
  */
 @Service
 public class GeminiAssistantService {
@@ -57,6 +60,10 @@ public class GeminiAssistantService {
 
     @Value("${gemini.provider-label:Google}")
     private String assistantProviderLabel;
+
+    /** Modèle utilisé lorsque la génération d’images est demandée (texte + image). */
+    @Value("${gemini.image-generation-model:gemini-2.5-flash-image}")
+    private String imageGenerationModel;
 
     public GeminiAssistantService(
             @Qualifier("openAiRestTemplate") RestTemplate restTemplate,
@@ -82,11 +89,11 @@ public class GeminiAssistantService {
                     "Assistant indisponible : configurez gemini.key côté serveur.");
         }
 
-        if (hasOpenAiOnlyTools(request)) {
+        AssistantToolFlagsDto tf = request.tools();
+        if (tf != null && Boolean.TRUE.equals(tf.mcp())) {
             return AssistantChatResponseDto.err(
-                    "La recherche web, la génération d’images pilotée par Responses et MCP ne sont disponibles "
-                            + "qu’avec le fournisseur OpenAI (assistant.provider=openai). "
-                            + "Décochez ces options ou basculez vers OpenAI.");
+                    "L’accès MCP (API Responses OpenAI) n’est disponible qu’avec le fournisseur OpenAI "
+                            + "(assistant.provider=openai). Décochez MCP ou changez de fournisseur.");
         }
 
         List<AssistantTurnDto> turns = AssistantMessageSupport.trimTurns(request.messages());
@@ -109,8 +116,12 @@ public class GeminiAssistantService {
                     "Conversation trop longue pour un seul envoi. Effacez l’historique ou raccourcissez les messages.");
         }
 
+        boolean wantWeb = tf != null && Boolean.TRUE.equals(tf.webSearch());
+        boolean wantImage = tf != null && Boolean.TRUE.equals(tf.imageGeneration());
+
         String requestModel = resolveRequestModel(request);
-        String url = buildGenerateContentUrl(requestModel);
+        String effectiveModel = resolveEffectiveModel(requestModel, wantImage);
+        String url = buildGenerateContentUrl(effectiveModel);
 
         List<Map<String, Object>> contents = new ArrayList<>();
         int lastIdx = turns.size() - 1;
@@ -142,7 +153,14 @@ public class GeminiAssistantService {
         }
         Map<String, Object> genCfg = new HashMap<>();
         genCfg.put("maxOutputTokens", maxOutputTokens);
+        if (wantImage) {
+            genCfg.put("responseModalities", List.of("TEXT", "IMAGE"));
+        }
         body.put("generationConfig", genCfg);
+
+        if (wantWeb) {
+            body.put("tools", List.of(Map.of("google_search", Map.of())));
+        }
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -153,7 +171,7 @@ public class GeminiAssistantService {
             ResponseEntity<String> response =
                     restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
             int elapsedMs = (int) Math.min((System.nanoTime() - startNs) / 1_000_000L, Integer.MAX_VALUE);
-            AssistantChatResponseDto parsed = parseGeminiResponse(response.getBody(), requestModel);
+            AssistantChatResponseDto parsed = parseGeminiResponse(response.getBody(), effectiveModel);
             if (parsed.error() != null) {
                 log.warn("Gemini response carries error payload: {}", parsed.error());
                 return AssistantChatResponseDto.err(parsed.error());
@@ -169,10 +187,12 @@ public class GeminiAssistantService {
                     elapsedMs);
         } catch (HttpStatusCodeException e) {
             log.warn("Gemini API error: {} — {}", e.getStatusCode(), e.getResponseBodyAsString());
-            String hint = shortErrorHint(e.getResponseBodyAsString());
+            String msg = AssistantHttpErrorParser.providerMessageOrNull(objectMapper, e.getResponseBodyAsString());
+            if (msg != null && !msg.isBlank()) {
+                return AssistantChatResponseDto.err(msg);
+            }
             return AssistantChatResponseDto.err(
-                    "Erreur du fournisseur IA (" + e.getStatusCode().value() + ")"
-                            + (hint != null ? ": " + hint : "."));
+                    "Erreur du fournisseur IA (" + e.getStatusCode().value() + ").");
         } catch (ResourceAccessException e) {
             log.warn("Gemini API I/O error: {}", e.getMessage());
             Throwable cause = e.getCause();
@@ -212,21 +232,25 @@ public class GeminiAssistantService {
         return parts;
     }
 
-    private static boolean hasOpenAiOnlyTools(AssistantChatRequestDto request) {
-        AssistantToolFlagsDto t = request.tools();
-        if (t == null) {
-            return false;
-        }
-        return Boolean.TRUE.equals(t.webSearch())
-                || Boolean.TRUE.equals(t.imageGeneration())
-                || Boolean.TRUE.equals(t.mcp());
-    }
-
     private String resolveRequestModel(AssistantChatRequestDto request) {
         if (request != null && request.model() != null && !request.model().isBlank()) {
             return request.model().trim();
         }
         return model != null ? model.trim() : "";
+    }
+
+    /**
+     * Pour la génération d’images, utilise {@link #imageGenerationModel} ; sinon le modèle conversation.
+     */
+    private String resolveEffectiveModel(String chatModel, boolean wantImage) {
+        if (!wantImage) {
+            return chatModel;
+        }
+        String img = imageGenerationModel != null ? imageGenerationModel.trim() : "";
+        if (!img.isEmpty()) {
+            return img;
+        }
+        return chatModel != null ? chatModel : "";
     }
 
     private AssistantChatResponseDto parseGeminiResponse(String json, String modelFallback) {
@@ -289,9 +313,13 @@ public class GeminiAssistantService {
                             }
                             text.append(txt);
                         }
+                    } else {
+                        appendGeminiInlineImageMarkdown(part, text);
                     }
                 }
             }
+
+            appendGeminiGroundingSources(first, text);
 
             if (text.isEmpty()) {
                 if ("MAX_TOKENS".equals(finish) || "OTHER".equals(finish)) {
@@ -325,19 +353,66 @@ public class GeminiAssistantService {
         }
     }
 
-    private String shortErrorHint(String responseBody) {
-        if (responseBody == null || responseBody.length() > 2000) {
-            return null;
+    /** Inline image in {@code generateContent} (REST camelCase ou snake_case). */
+    private static void appendGeminiInlineImageMarkdown(JsonNode part, StringBuilder text) {
+        JsonNode inline = part.get("inlineData");
+        if (inline == null || inline.isNull()) {
+            inline = part.get("inline_data");
         }
-        try {
-            JsonNode root = objectMapper.readTree(responseBody);
-            JsonNode err = root.get("error");
-            if (err != null && err.has("message")) {
-                return err.get("message").asText(null);
-            }
-        } catch (Exception ignored) {
-            // ignore
+        if (inline == null || inline.isNull()) {
+            return;
         }
-        return null;
+        String mime = inline.path("mimeType").asText("");
+        if (mime.isEmpty()) {
+            mime = inline.path("mime_type").asText("");
+        }
+        if (mime.isEmpty()) {
+            mime = "image/png";
+        }
+        String b64 = inline.path("data").asText("");
+        if (b64.isEmpty()) {
+            return;
+        }
+        if (!text.isEmpty()) {
+            text.append("\n\n");
+        }
+        text.append("![Generated](")
+                .append("data:")
+                .append(mime)
+                .append(";base64,")
+                .append(b64)
+                .append(")");
     }
+
+    private static void appendGeminiGroundingSources(JsonNode candidate, StringBuilder text) {
+        JsonNode gm = candidate.get("groundingMetadata");
+        if (gm == null || gm.isNull()) {
+            return;
+        }
+        JsonNode chunks = gm.get("groundingChunks");
+        if (chunks == null || !chunks.isArray()) {
+            return;
+        }
+        Set<String> urls = new LinkedHashSet<>();
+        for (JsonNode ch : chunks) {
+            JsonNode web = ch.get("web");
+            if (web != null && !web.isNull()) {
+                String uri = web.path("uri").asText("").trim();
+                if (!uri.isEmpty()) {
+                    urls.add(uri);
+                }
+            }
+        }
+        if (urls.isEmpty()) {
+            return;
+        }
+        if (!text.isEmpty()) {
+            text.append("\n\n");
+        }
+        text.append("**Sources :**\n");
+        for (String u : urls) {
+            text.append("- ").append(u).append('\n');
+        }
+    }
+
 }

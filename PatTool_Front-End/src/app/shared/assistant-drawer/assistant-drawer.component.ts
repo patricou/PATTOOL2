@@ -53,7 +53,6 @@ import {
   AssistantConversationSaveBody,
   AssistantConversationSummary,
   AssistantConversationTurnPersist,
-  AssistantOpenAiCredits,
   AssistantPdfExportRequest,
   AssistantPdfExportTurn,
   AssistantRoutingStored,
@@ -281,11 +280,6 @@ export class AssistantDrawerComponent
   fabUnreadReply = false;
   private shouldAlignLastQuestionTop = false;
 
-  /** Détail du solde crédits API (bouton titre). */
-  creditsBannerOpen = false;
-  creditsLoading = false;
-  credits: AssistantOpenAiCredits | null = null;
-
   /** Dernier pixel de la navbar PatTool (~ --navbar-height). */
   private static readonly NAV_BOTTOM_PX = 60;
   private static readonly FAB_GAP_PX = 12;
@@ -295,8 +289,6 @@ export class AssistantDrawerComponent
   private tickerLayoutSub?: Subscription;
   private routerSub?: Subscription;
   private assistantLaunchSub?: Subscription;
-  /** Annulation si nouvelle requête crédits avant la fin de la précédente. */
-  private creditsFetchSub?: Subscription;
   /** Une seule requête config à la fois ; HTTP annulé si le composant est détruit. */
   private assistantConfigSub?: Subscription;
   private assistantConfigLoading = false;
@@ -336,6 +328,15 @@ export class AssistantDrawerComponent
     'gemini-2.0-flash'
   ];
 
+  /** Valeurs si le backend ne renvoie pas encore d’URL (alignées sur les défauts Java). */
+  private static readonly DEFAULT_BILLING_OPENAI_BILLING =
+    'https://platform.openai.com/settings/organization/billing';
+  private static readonly DEFAULT_BILLING_OPENAI_USAGE = 'https://platform.openai.com/usage';
+  private static readonly DEFAULT_BILLING_ANTHROPIC = 'https://console.anthropic.com/settings/plans';
+  private static readonly DEFAULT_BILLING_GEMINI_RATE =
+    'https://aistudio.google.com/rate-limit?timeRange=last-28-days&hl=fr&project=gen-lang-client-0509711942';
+  private static readonly DEFAULT_BILLING_GEMINI_KEYS = 'https://aistudio.google.com/app/apikey';
+
   readonly MODEL_PRESET_CUSTOM = '__custom__';
 
   /** Fournisseur effectif pour les requêtes (surcharge application.properties). */
@@ -346,8 +347,18 @@ export class AssistantDrawerComponent
   modelCustom = '';
   routingModelOptions: string[] = [...AssistantDrawerComponent.OPENAI_MODEL_PRESETS];
 
-  /** Modèle issu du backend (GET /assistant/config), injecté dans les listes. */
+  /** Modèle du fournisseur par défaut serveur (legacy, = celui de {@code routingDefault}). */
   serverDefaultModel = '';
+  /** Modèle configuré côté serveur pour chaque fournisseur (GET /assistant/config). */
+  serverOpenaiDefault = '';
+  serverAnthropicDefault = '';
+  serverGeminiDefault = '';
+  /** URLs du bandeau facturation (GET /assistant/config, assistant.billing.*). */
+  billingOpenaiBillingUrl = '';
+  billingOpenaiUsageUrl = '';
+  billingAnthropicUrl = '';
+  billingGeminiRateLimitUrl = '';
+  billingGeminiApiKeysUrl = '';
   /** Valeur de assistant.provider côté serveur. */
   serverRoutingDefault: 'openai' | 'anthropic' | 'gemini' = 'openai';
   /**
@@ -622,6 +633,22 @@ export class AssistantDrawerComponent
         next: (c) => {
           const m = typeof c.model === 'string' ? c.model.trim() : '';
           this.serverDefaultModel = m;
+          this.serverOpenaiDefault =
+            typeof c.openaiDefaultModel === 'string' ? c.openaiDefaultModel.trim() : '';
+          this.serverAnthropicDefault =
+            typeof c.anthropicDefaultModel === 'string' ? c.anthropicDefaultModel.trim() : '';
+          this.serverGeminiDefault =
+            typeof c.geminiDefaultModel === 'string' ? c.geminiDefaultModel.trim() : '';
+          this.billingOpenaiBillingUrl =
+            typeof c.billingOpenaiBillingUrl === 'string' ? c.billingOpenaiBillingUrl.trim() : '';
+          this.billingOpenaiUsageUrl =
+            typeof c.billingOpenaiUsageUrl === 'string' ? c.billingOpenaiUsageUrl.trim() : '';
+          this.billingAnthropicUrl =
+            typeof c.billingAnthropicUrl === 'string' ? c.billingAnthropicUrl.trim() : '';
+          this.billingGeminiRateLimitUrl =
+            typeof c.billingGeminiRateLimitUrl === 'string' ? c.billingGeminiRateLimitUrl.trim() : '';
+          this.billingGeminiApiKeysUrl =
+            typeof c.billingGeminiApiKeysUrl === 'string' ? c.billingGeminiApiKeysUrl.trim() : '';
           const rd =
             typeof c.routingDefault === 'string'
               ? c.routingDefault.trim().toLowerCase()
@@ -652,6 +679,14 @@ export class AssistantDrawerComponent
         },
         error: () => {
           this.serverDefaultModel = '';
+          this.serverOpenaiDefault = '';
+          this.serverAnthropicDefault = '';
+          this.serverGeminiDefault = '';
+          this.billingOpenaiBillingUrl = '';
+          this.billingOpenaiUsageUrl = '';
+          this.billingAnthropicUrl = '';
+          this.billingGeminiRateLimitUrl = '';
+          this.billingGeminiApiKeysUrl = '';
           this.serverRoutingDefault = 'openai';
           this.applyRoutingPreferenceResolution({});
           this.pendingSessionRouting = undefined;
@@ -737,7 +772,7 @@ export class AssistantDrawerComponent
         return x;
       }
     }
-    const fb = this.serverDefaultModel.trim();
+    const fb = this.serverDefaultForActiveProvider().trim();
     if (fb) {
       return fb;
     }
@@ -752,11 +787,14 @@ export class AssistantDrawerComponent
 
   onAssistantRoutingProviderChange(): void {
     this.routingProviderLockedAgainstConfigDefault = true;
-    this.toolWebSearch = false;
-    this.toolImageGeneration = false;
-    this.toolMcp = false;
+    if (this.routingProvider !== 'openai') {
+      this.toolMcp = false;
+    }
+    if (this.routingProvider === 'anthropic') {
+      this.toolImageGeneration = false;
+    }
     this.rebuildModelOptionsList();
-    const sm = this.serverDefaultModel.trim();
+    const sm = this.serverDefaultForActiveProvider().trim();
     if (
       this.routingProvider === this.serverRoutingDefault &&
       sm &&
@@ -773,7 +811,6 @@ export class AssistantDrawerComponent
     }
     this.persistSession();
     this.scheduleRoutingPreferenceRemotePersist();
-    this.refreshCreditsBannerIfOpen();
     this.cdr.markForCheck();
   }
 
@@ -800,7 +837,7 @@ export class AssistantDrawerComponent
         : this.routingProvider === 'gemini'
           ? [...AssistantDrawerComponent.GEMINI_MODEL_PRESETS]
           : [...AssistantDrawerComponent.ANTHROPIC_MODEL_PRESETS];
-    const srv = this.serverDefaultModel.trim();
+    const srv = this.serverDefaultForActiveProvider().trim();
     if (srv && !presets.includes(srv)) {
       presets.push(srv);
     }
@@ -813,6 +850,50 @@ export class AssistantDrawerComponent
       presets.push(cur);
     }
     this.routingModelOptions = presets;
+    this.clampModelPresetToOptions();
+  }
+
+  /**
+   * Modèle « serveur » applicable au fournisseur actuellement sélectionné (pas le modèle OpenAI global pour tous).
+   */
+  private serverDefaultForActiveProvider(): string {
+    if (this.routingProvider === 'openai') {
+      if (this.serverOpenaiDefault) {
+        return this.serverOpenaiDefault;
+      }
+      return this.serverRoutingDefault === 'openai' ? this.serverDefaultModel : '';
+    }
+    if (this.routingProvider === 'anthropic') {
+      if (this.serverAnthropicDefault) {
+        return this.serverAnthropicDefault;
+      }
+      return this.serverRoutingDefault === 'anthropic' ? this.serverDefaultModel : '';
+    }
+    if (this.serverGeminiDefault) {
+      return this.serverGeminiDefault;
+    }
+    return this.serverRoutingDefault === 'gemini' ? this.serverDefaultModel : '';
+  }
+
+  /** Si la valeur courante n’existe pas dans {@link routingModelOptions} (ex. gpt après changement vers Claude). */
+  private clampModelPresetToOptions(): void {
+    if (this.modelPreset === this.MODEL_PRESET_CUSTOM) {
+      return;
+    }
+    if (this.modelPreset && this.routingModelOptions.includes(this.modelPreset)) {
+      return;
+    }
+    const srv = this.serverDefaultForActiveProvider().trim();
+    if (srv && this.routingModelOptions.includes(srv)) {
+      this.modelPreset = srv;
+      this.modelCustom = '';
+      return;
+    }
+    const first = this.routingModelOptions[0];
+    if (first) {
+      this.modelPreset = first;
+      this.modelCustom = '';
+    }
   }
 
   private syncModelPresetFromServer(serverModel: string): void {
@@ -929,22 +1010,16 @@ export class AssistantDrawerComponent
     return '';
   }
 
-  toggleCreditsBanner(ev?: MouseEvent): void {
+  openProviderBillingSite(ev?: MouseEvent): void {
     ev?.stopPropagation();
-    this.creditsBannerOpen = !this.creditsBannerOpen;
-    if (this.creditsBannerOpen) {
-      if (this.routingProvider === 'openai') {
-        this.fetchOpenAiCredits();
-      } else {
-        this.creditsFetchSub?.unsubscribe();
-        this.creditsLoading = false;
-        this.credits = null;
-        this.cdr.markForCheck();
-      }
+    const url = this.primaryBillingUrlForRoutingProvider();
+    if (!url) {
+      return;
     }
+    window.open(url, '_blank', 'noopener,noreferrer');
   }
 
-  /** Infobulle du bouton solde / facturation selon le fournisseur. */
+  /** Infobulle : ouverture du site facturation / usage du fournisseur. */
   creditsBtnHint(): string {
     if (this.routingProvider === 'anthropic') {
       return this.translate.instant('ASSISTANT.CREDITS_BTN_HINT_ANTHROPIC');
@@ -965,71 +1040,32 @@ export class AssistantDrawerComponent
     return this.translate.instant('ASSISTANT.CREDITS_TOGGLE');
   }
 
-  creditsBannerAriaLabel(): string {
+  private resolveAssistantBillingUrl(configured: string, fallback: string): string {
+    const t = (configured ?? '').trim();
+    return t.length > 0 ? t : fallback;
+  }
+
+  /**
+   * URL ouverte par le bouton graphique : usage OpenAI, console Anthropic, quotas Gemini
+   * (voir {@code assistant.billing.*}).
+   */
+  private primaryBillingUrlForRoutingProvider(): string {
     if (this.routingProvider === 'anthropic') {
-      return this.translate.instant('ASSISTANT.CREDITS_TITLE_ANTHROPIC');
+      return this.resolveAssistantBillingUrl(
+        this.billingAnthropicUrl,
+        AssistantDrawerComponent.DEFAULT_BILLING_ANTHROPIC
+      );
     }
     if (this.routingProvider === 'gemini') {
-      return this.translate.instant('ASSISTANT.CREDITS_TITLE_GEMINI');
+      return this.resolveAssistantBillingUrl(
+        this.billingGeminiRateLimitUrl,
+        AssistantDrawerComponent.DEFAULT_BILLING_GEMINI_RATE
+      );
     }
-    return this.translate.instant('ASSISTANT.CREDITS_TITLE');
-  }
-
-  /** Texte + lien console Anthropic (URLs rendues par {@link linkRichContent}). */
-  anthropicBillingBannerHtml(): SafeHtml {
-    const line = this.translate.instant('ASSISTANT.CREDITS_ANTHROPIC_CONSOLE_LINE');
-    return this.linkRichContent(line);
-  }
-
-  /** Texte + lien Google AI Studio (URLs rendues par {@link linkRichContent}). */
-  geminiBillingBannerHtml(): SafeHtml {
-    const line = this.translate.instant('ASSISTANT.CREDITS_GEMINI_CONSOLE_LINE');
-    return this.linkRichContent(line);
-  }
-
-  private refreshCreditsBannerIfOpen(): void {
-    if (!this.creditsBannerOpen) {
-      return;
-    }
-    if (this.routingProvider === 'openai') {
-      this.fetchOpenAiCredits();
-    } else {
-      this.creditsFetchSub?.unsubscribe();
-      this.creditsLoading = false;
-      this.credits = null;
-      this.cdr.markForCheck();
-    }
-  }
-
-  fetchOpenAiCredits(): void {
-    if (!this.isAuthenticated()) {
-      return;
-    }
-    this.creditsLoading = true;
-    this.cdr.detectChanges();
-    this.creditsFetchSub?.unsubscribe();
-    this.creditsFetchSub = this.assistant
-      .getOpenAiCredits()
-      .pipe(
-        takeUntilDestroyed(this.destroyRef),
-        finalize(() => {
-          this.creditsLoading = false;
-          this.cdr.markForCheck();
-        })
-      )
-      .subscribe({
-        next: (c) => {
-          this.credits = c;
-          this.cdr.detectChanges();
-        },
-        error: () => {
-          this.credits = {
-            ok: false,
-            message: this.translate.instant('ASSISTANT.CREDITS_NETWORK_ERROR')
-          };
-          this.cdr.detectChanges();
-        }
-      });
+    return this.resolveAssistantBillingUrl(
+      this.billingOpenaiUsageUrl,
+      AssistantDrawerComponent.DEFAULT_BILLING_OPENAI_USAGE
+    );
   }
 
   ngOnDestroy(): void {
@@ -1053,7 +1089,6 @@ export class AssistantDrawerComponent
     this.tickerLayoutSub?.unsubscribe();
     this.routerSub?.unsubscribe();
     this.assistantLaunchSub?.unsubscribe();
-    this.creditsFetchSub?.unsubscribe();
     this.assistantConfigSub?.unsubscribe();
     this.chatSendSub?.unsubscribe();
     this.insertImageEventsStreamSub?.unsubscribe();
@@ -1130,9 +1165,6 @@ export class AssistantDrawerComponent
   }
 
   private collectToolFlagsForSession(): AssistantToolFlagsRequest | undefined {
-    if (this.routingProvider === 'anthropic' || this.routingProvider === 'gemini') {
-      return undefined;
-    }
     const o: AssistantToolFlagsRequest = {};
     if (this.toolWebSearch) {
       o.webSearch = true;
@@ -1140,7 +1172,7 @@ export class AssistantDrawerComponent
     if (this.toolImageGeneration) {
       o.imageGeneration = true;
     }
-    if (this.toolMcp) {
+    if (this.routingProvider === 'openai' && this.toolMcp) {
       o.mcp = true;
     }
     return Object.keys(o).length > 0 ? o : undefined;
@@ -1642,7 +1674,6 @@ export class AssistantDrawerComponent
       this.syncAppRootAriaWithAssistantOverModal();
       this.scheduleFocusComposeArea();
     } else {
-      this.creditsBannerOpen = false;
       this.syncAppRootAriaWithAssistantOverModal();
     }
   }
@@ -1651,7 +1682,6 @@ export class AssistantDrawerComponent
     this.persistSession();
     this.isOpen = false;
     this.fullscreen = false;
-    this.creditsBannerOpen = false;
     this.syncAppRootAriaWithAssistantOverModal();
   }
 

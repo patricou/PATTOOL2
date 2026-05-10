@@ -67,6 +67,22 @@ public class RoutingAssistantService {
         return configuredServerSlug();
     }
 
+    /**
+     * Modèle configuré dans {@code application.properties} pour le fournisseur donné
+     * (indépendamment de {@code assistant.provider}).
+     */
+    public String getDefaultModelForRoutingSlug(String slug) {
+        String s = normalizeRoutingSlug(slug);
+        if (s == null) {
+            s = "openai";
+        }
+        return switch (s) {
+            case "anthropic" -> anthropicAssistantService.getConfiguredModel();
+            case "gemini" -> geminiAssistantService.getConfiguredModel();
+            default -> openAiAssistantService.getConfiguredModel();
+        };
+    }
+
     private String resolveEffectiveSlug(AssistantChatRequestDto request) {
         String fromReq = normalizeRoutingSlug(request != null ? request.provider() : null);
         if (fromReq != null) {

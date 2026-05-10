@@ -6,6 +6,7 @@ import com.pat.controller.dto.AssistantChatRequestDto;
 import com.pat.controller.dto.AssistantChatResponseDto;
 import com.pat.controller.dto.AssistantToolFlagsDto;
 import com.pat.controller.dto.AssistantTurnDto;
+import com.pat.service.assistant.AssistantHttpErrorParser;
 import com.pat.service.assistant.AssistantMessageSupport;
 import com.pat.service.assistant.AssistantMessageSupport.ResolvedImage;
 import org.slf4j.Logger;
@@ -171,10 +172,12 @@ public class OpenAiAssistantService {
                     elapsedMs);
         } catch (HttpStatusCodeException e) {
             log.warn("OpenAI API error: {} — {}", e.getStatusCode(), e.getResponseBodyAsString());
-            String hint = shortErrorHint(e.getResponseBodyAsString());
+            String msg = AssistantHttpErrorParser.providerMessageOrNull(objectMapper, e.getResponseBodyAsString());
+            if (msg != null && !msg.isBlank()) {
+                return AssistantChatResponseDto.err(msg);
+            }
             return AssistantChatResponseDto.err(
-                    "Erreur du fournisseur IA (" + e.getStatusCode().value() + ")"
-                            + (hint != null ? ": " + hint : "."));
+                    "Erreur du fournisseur IA (" + e.getStatusCode().value() + ").");
         } catch (ResourceAccessException e) {
             log.warn("OpenAI API I/O error: {}", e.getMessage());
             Throwable cause = e.getCause();
@@ -312,10 +315,12 @@ public class OpenAiAssistantService {
                     elapsedMs);
         } catch (HttpStatusCodeException e) {
             log.warn("OpenAI Responses API error: {} — {}", e.getStatusCode(), e.getResponseBodyAsString());
-            String hint = shortErrorHint(e.getResponseBodyAsString());
+            String msg = AssistantHttpErrorParser.providerMessageOrNull(objectMapper, e.getResponseBodyAsString());
+            if (msg != null && !msg.isBlank()) {
+                return AssistantChatResponseDto.err(msg);
+            }
             return AssistantChatResponseDto.err(
-                    "Erreur du fournisseur IA (Responses, " + e.getStatusCode().value() + ")"
-                            + (hint != null ? ": " + hint : "."));
+                    "Erreur du fournisseur IA (Responses, " + e.getStatusCode().value() + ").");
         } catch (ResourceAccessException e) {
             log.warn("OpenAI Responses API I/O error: {}", e.getMessage());
             Throwable cause = e.getCause();
@@ -632,21 +637,5 @@ public class OpenAiAssistantService {
             return sb.toString().trim();
         }
         return "";
-    }
-
-    private String shortErrorHint(String responseBody) {
-        if (responseBody == null || responseBody.length() > 2000) {
-            return null;
-        }
-        try {
-            JsonNode root = objectMapper.readTree(responseBody);
-            JsonNode err = root.get("error");
-            if (err != null && err.has("message")) {
-                return err.get("message").asText(null);
-            }
-        } catch (Exception ignored) {
-            // ignore
-        }
-        return null;
     }
 }

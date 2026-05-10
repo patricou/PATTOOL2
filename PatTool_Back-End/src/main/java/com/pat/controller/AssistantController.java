@@ -1,5 +1,6 @@
 package com.pat.controller;
 
+import com.pat.config.AssistantBillingLinksProperties;
 import com.pat.controller.dto.AssistantChatRequestDto;
 import com.pat.controller.dto.AssistantChatResponseDto;
 import com.pat.controller.dto.AssistantClientConfigDto;
@@ -53,6 +54,7 @@ public class AssistantController {
     private final AssistantPdfExportService assistantPdfExportService;
     private final AssistantConversationService assistantConversationService;
     private final AssistantConversationAssetService assistantConversationAssetService;
+    private final AssistantBillingLinksProperties assistantBillingLinks;
 
     public AssistantController(
             RoutingAssistantService routingAssistantService,
@@ -60,13 +62,15 @@ public class AssistantController {
             AssistantRoutingPreferenceService assistantRoutingPreferenceService,
             AssistantPdfExportService assistantPdfExportService,
             AssistantConversationService assistantConversationService,
-            AssistantConversationAssetService assistantConversationAssetService) {
+            AssistantConversationAssetService assistantConversationAssetService,
+            AssistantBillingLinksProperties assistantBillingLinks) {
         this.routingAssistantService = routingAssistantService;
         this.openAiBillingService = openAiBillingService;
         this.assistantRoutingPreferenceService = assistantRoutingPreferenceService;
         this.assistantPdfExportService = assistantPdfExportService;
         this.assistantConversationService = assistantConversationService;
         this.assistantConversationAssetService = assistantConversationAssetService;
+        this.assistantBillingLinks = assistantBillingLinks;
     }
 
     /**
@@ -84,11 +88,29 @@ public class AssistantController {
                 sub != null
                         ? assistantRoutingPreferenceService.findForSubject(sub).orElse(null)
                         : null;
+        String oai = routingAssistantService.getDefaultModelForRoutingSlug("openai");
+        String ant = routingAssistantService.getDefaultModelForRoutingSlug("anthropic");
+        String gem = routingAssistantService.getDefaultModelForRoutingSlug("gemini");
         return ResponseEntity.ok(new AssistantClientConfigDto(
                 p.isEmpty() ? null : p,
                 m.isEmpty() ? null : m,
                 routing.isEmpty() ? null : routing,
-                persisted));
+                persisted,
+                oai.isEmpty() ? null : oai,
+                ant.isEmpty() ? null : ant,
+                gem.isEmpty() ? null : gem,
+                emptyToNull(assistantBillingLinks.getOpenaiBillingUrl()),
+                emptyToNull(assistantBillingLinks.getOpenaiUsageUrl()),
+                emptyToNull(assistantBillingLinks.getAnthropicUrl()),
+                emptyToNull(assistantBillingLinks.getGeminiRateLimitUrl()),
+                emptyToNull(assistantBillingLinks.getGeminiApiKeysUrl())));
+    }
+
+    private static String emptyToNull(String s) {
+        if (s == null || s.isBlank()) {
+            return null;
+        }
+        return s.trim();
     }
 
     /**

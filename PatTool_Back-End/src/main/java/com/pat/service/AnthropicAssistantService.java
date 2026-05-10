@@ -6,6 +6,7 @@ import com.pat.controller.dto.AssistantChatRequestDto;
 import com.pat.controller.dto.AssistantChatResponseDto;
 import com.pat.controller.dto.AssistantToolFlagsDto;
 import com.pat.controller.dto.AssistantTurnDto;
+import com.pat.service.assistant.AssistantHttpErrorParser;
 import com.pat.service.assistant.AssistantMessageSupport;
 import com.pat.service.assistant.AssistantMessageSupport.DecodedImage;
 import com.pat.service.assistant.AssistantMessageSupport.ResolvedImage;
@@ -26,13 +27,15 @@ import org.springframework.web.client.RestTemplate;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
- * Assistant latéral via l’API Messages Anthropic (<a href="https://docs.anthropic.com/">docs</a>).
- * Pas d’équivalent à l’API Responses OpenAI (recherche web / image MCP côté serveur) :
- * désactivez ces options dans l’UI ou utilisez {@code assistant.provider=openai}.
+ * Assistant via l’API Messages Anthropic (<a href="https://docs.anthropic.com/">docs</a>).
+ * Recherche web : outil serveur {@code web_search} (voir {@code anthropic.web-search-tool-type}).
+ * MCP et génération d’images type Responses restent réservés au fournisseur OpenAI.
  */
 @Service
 public class AnthropicAssistantService {
@@ -60,6 +63,14 @@ public class AnthropicAssistantService {
     @Value("${anthropic.version:2023-06-01}")
     private String anthropicVersion;
 
+    /** ex. {@code web_search_20250305} ou {@code web_search_20260209} */
+    @Value("${anthropic.web-search-tool-type:web_search_20250305}")
+    private String webSearchToolType;
+
+    /** 0 = laisser l’API appliquer sa valeur par défaut */
+    @Value("${anthropic.web-search-max-uses:0}")
+    private int webSearchMaxUses;
+
     public AnthropicAssistantService(
             @Qualifier("openAiRestTemplate") RestTemplate restTemplate,
             ObjectMapper objectMapper) {
@@ -84,11 +95,16 @@ public class AnthropicAssistantService {
                     "Assistant indisponible : configurez anthropic.key côté serveur.");
         }
 
-        if (hasOpenAiOnlyTools(request)) {
+        AssistantToolFlagsDto tf = request.tools();
+        if (tf != null && Boolean.TRUE.equals(tf.mcp())) {
             return AssistantChatResponseDto.err(
-                    "La recherche web, la génération d’images pilotée par Responses et MCP ne sont disponibles "
-                            + "qu’avec le fournisseur OpenAI (assistant.provider=openai). "
-                            + "Décochez ces options ou basculez vers OpenAI.");
+                    "L’accès MCP (API Responses OpenAI) n’est disponible qu’avec le fournisseur OpenAI "
+                            + "(assistant.provider=openai). Décochez MCP ou changez de fournisseur.");
+        }
+        if (tf != null && Boolean.TRUE.equals(tf.imageGeneration())) {
+            return AssistantChatResponseDto.err(
+                    "La génération d’images pilotée par PatTool (API Responses) n’est pas disponible "
+                            + "avec Anthropic. Utilisez OpenAI ou Gemini, ou décochez l’option.");
         }
 
         List<AssistantTurnDto> turns = AssistantMessageSupport.trimTurns(request.messages());
@@ -136,6 +152,17 @@ public class AnthropicAssistantService {
             body.put("system", request.system().trim());
         }
 
+        if (tf != null && Boolean.TRUE.equals(tf.webSearch())) {
+            Map<String, Object> webTool = new HashMap<>();
+            String wstype = webSearchToolType != null ? webSearchToolType.trim() : "web_search_20250305";
+            webTool.put("type", wstype.isEmpty() ? "web_search_20250305" : wstype);
+            webTool.put("name", "web_search");
+            if (webSearchMaxUses > 0) {
+                webTool.put("max_uses", webSearchMaxUses);
+            }
+            body.put("tools", List.of(webTool));
+        }
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("x-api-key", apiKey.trim());
@@ -163,10 +190,12 @@ public class AnthropicAssistantService {
                     elapsedMs);
         } catch (HttpStatusCodeException e) {
             log.warn("Anthropic API error: {} — {}", e.getStatusCode(), e.getResponseBodyAsString());
-            String hint = shortErrorHint(e.getResponseBodyAsString());
+            String msg = AssistantHttpErrorParser.providerMessageOrNull(objectMapper, e.getResponseBodyAsString());
+            if (msg != null && !msg.isBlank()) {
+                return AssistantChatResponseDto.err(msg);
+            }
             return AssistantChatResponseDto.err(
-                    "Erreur du fournisseur IA (" + e.getStatusCode().value() + ")"
-                            + (hint != null ? ": " + hint : "."));
+                    "Erreur du fournisseur IA (" + e.getStatusCode().value() + ").");
         } catch (ResourceAccessException e) {
             log.warn("Anthropic API I/O error: {}", e.getMessage());
             Throwable cause = e.getCause();
@@ -200,16 +229,6 @@ public class AnthropicAssistantService {
                         userText != null ? userText : ""));
     }
 
-    private static boolean hasOpenAiOnlyTools(AssistantChatRequestDto request) {
-        AssistantToolFlagsDto t = request.tools();
-        if (t == null) {
-            return false;
-        }
-        return Boolean.TRUE.equals(t.webSearch())
-                || Boolean.TRUE.equals(t.imageGeneration())
-                || Boolean.TRUE.equals(t.mcp());
-    }
-
     private String resolveRequestModel(AssistantChatRequestDto request) {
         if (request != null && request.model() != null && !request.model().isBlank()) {
             return request.model().trim();
@@ -240,7 +259,11 @@ public class AnthropicAssistantService {
                 return AssistantChatResponseDto.err(msg);
             }
 
-            JsonNode stopReason = root.get("stop_reason");
+            JsonNode stopReasonNode = root.get("stop_reason");
+            String stopReason =
+                    stopReasonNode != null && !stopReasonNode.isNull()
+                            ? stopReasonNode.asText("")
+                            : "";
 
             String id = root.path("id").asText("");
             String modelUsed = root.path("model").asText(modelFallback);
@@ -257,6 +280,7 @@ public class AnthropicAssistantService {
             }
 
             StringBuilder text = new StringBuilder();
+            Set<String> extraCitationUrls = new LinkedHashSet<>();
             JsonNode content = root.get("content");
             if (content != null && content.isArray()) {
                 for (JsonNode block : content) {
@@ -268,6 +292,15 @@ public class AnthropicAssistantService {
                                 text.append("\n\n");
                             }
                             text.append(txt);
+                        }
+                        JsonNode cites = block.get("citations");
+                        if (cites != null && cites.isArray()) {
+                            for (JsonNode c : cites) {
+                                String url = c.path("url").asText("").trim();
+                                if (!url.isEmpty()) {
+                                    extraCitationUrls.add(url);
+                                }
+                            }
                         }
                     } else if ("tool_use".equals(bType)) {
                         String name = block.path("name").asText("outil");
@@ -281,15 +314,27 @@ public class AnthropicAssistantService {
                         }
                         text.append(" — non exécuté côté PatTool]");
                     }
-                    //thinking, etc. : ignorés pour l’affichage brut
+                    // server_tool_use / web_search_tool_result : exécution côté Anthropic, pas affichées
+                }
+            }
+
+            if (!extraCitationUrls.isEmpty()) {
+                if (!text.isEmpty()) {
+                    text.append("\n\n");
+                }
+                text.append("**Sources :**\n");
+                for (String u : extraCitationUrls) {
+                    text.append("- ").append(u).append('\n');
                 }
             }
 
             if (text.isEmpty()) {
-                String reason =
-                        stopReason != null && !stopReason.isNull()
-                                ? stopReason.asText("")
-                                : "";
+                String reason = stopReason;
+                if ("pause_turn".equals(reason)) {
+                    return AssistantChatResponseDto.err(
+                            "La réponse Anthropic est en pause (recherche web — stop_reason=pause_turn). "
+                                    + "Réessayez ; si le problème persiste, consultez la doc « server tools » Anthropic.");
+                }
                 if ("max_tokens".equals(reason)) {
                     return AssistantChatResponseDto.err(
                             "Réponse Anthropic vide (probable limite max_tokens="
@@ -320,25 +365,5 @@ public class AnthropicAssistantService {
             return AssistantChatResponseDto.err(
                     "Impossible d’interpréter la réponse du fournisseur IA (Anthropic).");
         }
-    }
-
-    private String shortErrorHint(String responseBody) {
-        if (responseBody == null || responseBody.length() > 2000) {
-            return null;
-        }
-        try {
-            JsonNode root = objectMapper.readTree(responseBody);
-            JsonNode errNode = root.get("error");
-            if (errNode != null && errNode.has("message")) {
-                return errNode.get("message").asText(null);
-            }
-            JsonNode errObj = root.path("error");
-            if (!errObj.isMissingNode() && errObj.has("message")) {
-                return errObj.get("message").asText(null);
-            }
-        } catch (Exception ignored) {
-            // ignore
-        }
-        return null;
     }
 }

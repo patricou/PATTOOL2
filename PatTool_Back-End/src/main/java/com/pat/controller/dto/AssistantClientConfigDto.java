@@ -13,4 +13,22 @@ public record AssistantClientConfigDto(
         /** {@code openai}, {@code anthropic} ou {@code gemini} — état configuré dans application.properties. */
         String routingDefault,
         /** Préférence utilisateur persistée (Mongo {@code appParameters}) ; absent si jamais enregistrée. */
-        AssistantRoutingPreferenceDto persistedRouting) {}
+        AssistantRoutingPreferenceDto persistedRouting,
+        /** Valeur {@code openai.assistant.model} (non sensible). */
+        String openaiDefaultModel,
+        /** Valeur {@code anthropic.model} (non sensible). */
+        String anthropicDefaultModel,
+        /** Valeur {@code gemini.model} (non sensible). */
+        String geminiDefaultModel,
+        /**
+         * Liens du bandeau assistant (voir {@code assistant.billing.openai-billing-url},
+         * {@code assistant.billing.openai-usage-url}).
+         */
+        String billingOpenaiBillingUrl,
+        String billingOpenaiUsageUrl,
+        /** {@code assistant.billing.anthropic-url}. */
+        String billingAnthropicUrl,
+        /** {@code assistant.billing.gemini-rate-limit-url} — quotas / consommation. */
+        String billingGeminiRateLimitUrl,
+        /** {@code assistant.billing.gemini-api-keys-url}. */
+        String billingGeminiApiKeysUrl) {}

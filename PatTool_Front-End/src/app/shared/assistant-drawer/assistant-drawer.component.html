@@ -107,15 +107,10 @@
       <button
         type="button"
         class="btn btn-sm btn-outline-secondary pat-assistant-header-btn pat-assistant-header-credits"
-        (click)="toggleCreditsBanner($event)"
-        [class.active]="creditsBannerOpen"
+        (click)="openProviderBillingSite($event)"
         [title]="creditsBtnHint()"
-        [attr.aria-label]="creditsToggleAria()"
-        [attr.aria-expanded]="creditsBannerOpen">
+        [attr.aria-label]="creditsToggleAria()">
         <i class="fa fa-line-chart me-1" aria-hidden="true"></i>
-        <span *ngIf="credits && credits.ok === true && credits.totalAvailableUsd != null" class="pat-assistant-credits-btn-value">
-          USD&nbsp;{{ credits.totalAvailableUsd | number:'1.2-2' }}</span
-        >
       </button>
       <button
         type="button"
@@ -134,44 +129,6 @@
         <i class="fa fa-times" aria-hidden="true"></i>
       </button>
     </div>
-    </div>
-  </div>
-
-  <div *ngIf="creditsBannerOpen" class="pat-assistant-credits-banner" role="region" [attr.aria-label]="creditsBannerAriaLabel()">
-    <div class="pat-assistant-credits-inner">
-      <ng-container *ngIf="routingProvider === 'anthropic'">
-        <p
-          class="pat-assistant-credits-line mb-0 pat-assistant-rich-text"
-          [innerHTML]="anthropicBillingBannerHtml()"></p>
-      </ng-container>
-      <ng-container *ngIf="routingProvider === 'gemini'">
-        <p
-          class="pat-assistant-credits-line mb-0 pat-assistant-rich-text"
-          [innerHTML]="geminiBillingBannerHtml()"></p>
-      </ng-container>
-      <ng-container *ngIf="routingProvider === 'openai'">
-        <p *ngIf="creditsLoading" class="pat-assistant-credits-line mb-0">{{ 'ASSISTANT.CREDITS_LOADING' | translate }}</p>
-        <ng-container *ngIf="!creditsLoading && credits">
-          <ng-container *ngIf="credits.ok === true">
-            <p *ngIf="credits.totalAvailableUsd != null" class="pat-assistant-credits-line mb-1">
-              <strong>{{ 'ASSISTANT.CREDITS_AVAILABLE' | translate }}</strong><span>:
-                USD&nbsp;{{ credits.totalAvailableUsd | number:'1.2-4' }}</span>
-            </p>
-            <div class="pat-assistant-credits-sub text-muted">
-              <span *ngIf="credits.totalGrantedUsd != null"
-                >{{ 'ASSISTANT.CREDITS_GRANTED' | translate }}:&nbsp;{{ credits.totalGrantedUsd | number:'1.2-4' }}</span
-              >
-              <span *ngIf="credits.totalGrantedUsd != null && credits.totalUsedUsd != null">&nbsp;·&nbsp;</span>
-              <span *ngIf="credits.totalUsedUsd != null"
-                >{{ 'ASSISTANT.CREDITS_USED' | translate }}:&nbsp;{{ credits.totalUsedUsd | number:'1.2-4' }}</span
-              >
-            </div>
-          </ng-container>
-          <p *ngIf="credits.ok !== true && credits.message"
-             class="pat-assistant-credits-line pat-assistant-credits-err mb-0 pat-assistant-rich-text"
-             [innerHTML]="linkRichContent(credits.message)"></p>
-        </ng-container>
-      </ng-container>
     </div>
   </div>
 
@@ -357,7 +314,7 @@
           id="pat-assistant-tool-web"
           [(ngModel)]="toolWebSearch"
           (change)="onToolFlagsChanged()"
-          [disabled]="loading || routingProvider !== 'openai'"
+          [disabled]="loading || (routingProvider !== 'openai' && routingProvider !== 'anthropic' && routingProvider !== 'gemini')"
           [title]="'ASSISTANT.TOOL_WEB_HINT' | translate" />
         <label class="form-check-label"
                for="pat-assistant-tool-web"
@@ -370,7 +327,7 @@
           id="pat-assistant-tool-img"
           [(ngModel)]="toolImageGeneration"
           (change)="onToolFlagsChanged()"
-          [disabled]="loading || routingProvider !== 'openai'"
+          [disabled]="loading || (routingProvider !== 'openai' && routingProvider !== 'gemini')"
           [title]="'ASSISTANT.TOOL_IMAGE_HINT' | translate" />
         <label class="form-check-label"
                for="pat-assistant-tool-img"
@@ -383,7 +340,7 @@
           id="pat-assistant-tool-mcp"
           [(ngModel)]="toolMcp"
           (change)="onToolFlagsChanged()"
-          [disabled]="true"
+          [disabled]="loading || routingProvider !== 'openai'"
           [title]="'ASSISTANT.TOOL_MCP_HINT' | translate" />
         <label class="form-check-label"
                for="pat-assistant-tool-mcp"

@@ -89,6 +89,16 @@ export interface AssistantClientConfig {
   routingDefault?: string | null;
   /** Préférence persistée (Mongo appParameters), si l’utilisateur en a déjà enregistré une. */
   persistedRouting?: AssistantRoutingStored | null;
+  /** Modèles par défaut dans application.properties (un par fournisseur). */
+  openaiDefaultModel?: string | null;
+  anthropicDefaultModel?: string | null;
+  geminiDefaultModel?: string | null;
+  /** Liens bandeau facturation / usage (assistant.billing.* côté serveur). */
+  billingOpenaiBillingUrl?: string | null;
+  billingOpenaiUsageUrl?: string | null;
+  billingAnthropicUrl?: string | null;
+  billingGeminiRateLimitUrl?: string | null;
+  billingGeminiApiKeysUrl?: string | null;
 }
 
 /** Fournisseur + modèle effectifs pour un tour de chat (surcharge la config serveur). */
