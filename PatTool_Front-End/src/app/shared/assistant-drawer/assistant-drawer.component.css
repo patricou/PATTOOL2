@@ -415,10 +415,18 @@
   font-variant-numeric: tabular-nums;
 }
 
+.pat-assistant-thread-wrap {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
 .pat-assistant-thread {
   flex: 1;
   overflow-y: auto;
-  padding: 1rem 1rem 1.25rem;
+  padding: 1rem 2.85rem 1.25rem 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -428,8 +436,51 @@
   background: #ffffff;
 }
 
+.pat-assistant-thread-jump {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  pointer-events: none;
+}
+
+.pat-assistant-thread-jump-btn {
+  pointer-events: auto;
+  width: 2.2rem;
+  height: 2.2rem;
+  padding: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border: 1px solid var(--asst-border);
+  color: var(--asst-blue);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  line-height: 1;
+}
+
+.pat-assistant-thread-jump-btn:hover {
+  background: var(--asst-user-bg);
+  border-color: #93c5fd;
+  color: #1e40af;
+}
+
+.pat-assistant-thread-jump-btn:focus-visible {
+  outline: 2px solid var(--asst-blue);
+  outline-offset: 2px;
+}
+
+.pat-assistant-thread-jump-btn i {
+  font-size: 0.95rem;
+}
+
 .pat-assistant-drawer--fullscreen .pat-assistant-thread {
-  padding: 1.25rem 1.5rem 1.5rem;
+  padding: 1.25rem 3rem 1.5rem 1.5rem;
 }
 
 .pat-assistant-drawer--fullscreen .pat-assistant-compose {

@@ -24,6 +24,8 @@ export interface AssistantLaunchPayload {
   toolFlags?: AssistantLaunchToolFlags;
   /** Image à joindre (ex. depuis le slideshow) ; ouvre le panneau avec vision prête à envoyer. */
   attachedImage?: AssistantLaunchAttachedImage;
+  /** Si true, envoie le message immédiatement après ouverture du panneau (texte non vide requis). */
+  autoSend?: boolean;
 }
 
 /**
@@ -41,6 +43,7 @@ export class AssistantLaunchService {
       newConversation?: boolean;
       toolFlags?: AssistantLaunchToolFlags;
       attachedImage?: AssistantLaunchAttachedImage;
+      autoSend?: boolean;
     }
   ): void {
     const draft = text?.trim() ?? '';
@@ -51,9 +54,11 @@ export class AssistantLaunchService {
     const newConversation = options?.newConversation === true;
     const toolFlags = options?.toolFlags;
     const attachedImage = options?.attachedImage;
+    const autoSend = options?.autoSend === true;
     this.launches.next({
       draft,
       newConversation,
+      ...(autoSend ? { autoSend: true } : {}),
       ...(toolFlags != null ? { toolFlags } : {}),
       ...(attachedImage != null ? { attachedImage } : {})
     });

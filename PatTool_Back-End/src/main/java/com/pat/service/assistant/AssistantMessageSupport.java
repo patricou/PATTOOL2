@@ -12,7 +12,8 @@ import java.util.Set;
 public final class AssistantMessageSupport {
 
     public static final int MAX_TURNS = 40;
-    public static final int MAX_CONTENT_CHARS = 120_000;
+    /** Plafond total caractères (tous tours + system) pour l’envoi à un fournisseur LLM ; aligné sur la limite par tour du DTO. */
+    public static final int MAX_CONTENT_CHARS = 500_000;
     public static final int MAX_IMAGE_DECODED_BYTES = 8 * 1024 * 1024;
 
     public static final Set<String> ALLOWED_IMAGE_MIMES =

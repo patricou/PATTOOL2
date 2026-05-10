@@ -1,0 +1,298 @@
+<div class="pat-title loto-title-plain">
+  <h2>{{ 'LOTTO.TITLE' | translate }}</h2>
+</div>
+
+<div class="container py-3 lotto-page">
+  <p class="text-muted">{{ 'LOTTO.INTRO' | translate }}</p>
+
+  <div class="row g-2 align-items-end mb-2 loto-range-row">
+    <div class="col-auto">
+      <span class="form-label small mb-0 d-block" id="lotoStartPeriodLabel">{{ 'LOTTO.PERIOD_START' | translate }}</span>
+      <div class="d-flex flex-wrap gap-1 align-items-center" role="group" [attr.aria-labelledby]="'lotoStartPeriodLabel'">
+        <select
+          id="lotoStartYear"
+          class="form-select form-select-sm loto-year-select"
+          [ngModel]="startYear"
+          (ngModelChange)="onStartYearChange($event)"
+          [disabled]="syncing">
+          <option *ngFor="let y of startYearOptions" [ngValue]="y">{{ y }}</option>
+        </select>
+        <select
+          id="lotoStartMonth"
+          class="form-select form-select-sm loto-month-select"
+          [ngModel]="startMonth"
+          (ngModelChange)="onStartMonthChange($event)"
+          [disabled]="syncing">
+          <option *ngFor="let m of startMonthOptions" [ngValue]="m">{{ monthOptionLabel(m) }}</option>
+        </select>
+      </div>
+    </div>
+    <div class="col-auto">
+      <span class="form-label small mb-0 d-block" id="lotoEndPeriodLabel">{{ 'LOTTO.PERIOD_END' | translate }}</span>
+      <div class="d-flex flex-wrap gap-1 align-items-center" role="group" [attr.aria-labelledby]="'lotoEndPeriodLabel'">
+        <select
+          id="lotoEndYear"
+          class="form-select form-select-sm loto-year-select"
+          [ngModel]="endYear"
+          (ngModelChange)="onEndYearChange($event)"
+          [disabled]="syncing">
+          <option *ngFor="let y of endYearOptions" [ngValue]="y">{{ y }}</option>
+        </select>
+        <select
+          id="lotoEndMonth"
+          class="form-select form-select-sm loto-month-select"
+          [ngModel]="endMonth"
+          (ngModelChange)="onEndMonthChange($event)"
+          [disabled]="syncing">
+          <option *ngFor="let m of endMonthOptions" [ngValue]="m">{{ monthOptionLabel(m) }}</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex flex-wrap align-items-center gap-1 mb-2">
+    <button
+      type="button"
+      class="btn btn-sm btn-primary"
+      [disabled]="syncing || !canRunSync"
+      [attr.title]="!canRunSync ? ('LOTTO.SYNC_ADMIN_TOOLTIP' | translate) : null"
+      (click)="syncArchive()">
+      <span *ngIf="syncing" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+      {{ 'LOTTO.SYNC_BUTTON' | translate }}
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="loading || syncing" (click)="refreshTable()">
+      {{ 'LOTTO.REFRESH' | translate }}
+    </button>
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-primary"
+      [disabled]="loading || syncing || draws.length === 0"
+      (click)="openExportJsonModal(lotoJsonModal)"
+      [attr.title]="'LOTTO.JSON_AI_TOOLTIP' | translate"
+      [attr.aria-label]="'LOTTO.JSON_AI_OPEN' | translate">
+      <i class="fa fa-code me-1" aria-hidden="true"></i>
+      {{ 'LOTTO.JSON_AI_OPEN' | translate }}
+    </button>
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-success"
+      [disabled]="loading || syncing || draws.length === 0"
+      (click)="openChartModal(lotoChartModal)">
+      {{ 'LOTTO.CHART_BUTTON' | translate }}
+    </button>
+    <button
+      type="button"
+      class="btn loto-assistant-ai-btn btn-sm"
+      [disabled]="!canSendLotoAiPrompt"
+      (click)="sendLotoAiPrompt1($event)"
+      [attr.title]="'LOTTO.AI_FAB_TOOLTIP' | translate"
+      [attr.aria-label]="'LOTTO.AI_FAB_LABEL' | translate">
+      <i class="fa fa-magic loto-assistant-ai-btn__icon" aria-hidden="true"></i>
+    </button>
+    <button
+      *ngIf="canEditDrawDates"
+      type="button"
+      class="btn btn-sm btn-outline-dark"
+      [disabled]="loading || syncing || draws.length === 0 || savingDrawId !== null"
+      [class.active]="dateEditMode"
+      (click)="toggleDateEditMode()"
+      [attr.title]="'LOTTO.DATE_EDIT_TOOLTIP' | translate">
+      {{ (dateEditMode ? 'LOTTO.DATE_EDIT_DONE' : 'LOTTO.DATE_EDIT_START') | translate }}
+    </button>
+  </div>
+
+  <div *ngIf="syncMessage" class="alert" [class.alert-info]="!lastSyncResult?.httpErrors" [class.alert-warning]="lastSyncResult?.httpErrors">
+    {{ syncMessage }}
+  </div>
+  <ul *ngIf="lastSyncResult?.messages?.length" class="small text-muted">
+    <li *ngFor="let m of lastSyncResult!.messages">{{ m }}</li>
+  </ul>
+
+  <div *ngIf="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
+
+  <div class="card shadow-sm">
+    <div class="card-body p-0">
+      <div *ngIf="loading" class="p-4 text-center text-muted">
+        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+        {{ 'LOTTO.LOADING' | translate }}
+      </div>
+      <div *ngIf="!loading && tableLoaded && draws.length === 0" class="p-4 text-center text-muted">
+        {{ 'LOTTO.EMPTY' | translate }}
+      </div>
+      <div *ngIf="!loading && draws.length > 0">
+        <div class="border-bottom px-3 py-2 bg-body-secondary loto-result-filters-wrap">
+          <div class="row g-2 align-items-end">
+            <div class="col-auto">
+              <label class="form-label small mb-0 d-block" for="lotoFilterFrom">{{ 'LOTTO.FILTER_DATE_FROM' | translate }}</label>
+              <input
+                id="lotoFilterFrom"
+                type="date"
+                class="form-control form-control-sm loto-filter-date"
+                [(ngModel)]="resultFilterDateFrom"
+                [disabled]="syncing" />
+            </div>
+            <div class="col-auto">
+              <label class="form-label small mb-0 d-block" for="lotoFilterTo">{{ 'LOTTO.FILTER_DATE_TO' | translate }}</label>
+              <input
+                id="lotoFilterTo"
+                type="date"
+                class="form-control form-control-sm loto-filter-date"
+                [(ngModel)]="resultFilterDateTo"
+                [disabled]="syncing" />
+            </div>
+            <div class="col-auto">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary"
+                (click)="clearResultDateFilters()"
+                [disabled]="syncing || (!resultFilterDateFrom && !resultFilterDateTo)">
+                {{ 'LOTTO.FILTER_RESET' | translate }}
+              </button>
+            </div>
+            <div class="col-auto">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-primary"
+                [disabled]="loading || syncing || draws.length === 0"
+                (click)="openExportJsonModal(lotoJsonModal)"
+                [attr.title]="'LOTTO.JSON_AI_TOOLTIP' | translate"
+                [attr.aria-label]="'LOTTO.JSON_AI_OPEN' | translate">
+                <i class="fa fa-code me-1" aria-hidden="true"></i>
+                {{ 'LOTTO.JSON_AI_OPEN' | translate }}
+              </button>
+            </div>
+            <div class="col-12 col-sm-auto ms-sm-auto small text-muted d-flex align-items-center">
+              {{ 'LOTTO.FILTER_COUNT' | translate: { shown: displayedDraws.length, total: draws.length } }}
+            </div>
+          </div>
+        </div>
+        <div class="table-responsive">
+        <table class="table table-striped table-hover table-sm mb-0 lotto-table">
+          <thead class="table-light">
+            <tr>
+              <th
+                scope="col"
+                class="loto-sortable"
+                [class.loto-sortable--active]="sortColumn === 'date'"
+                role="button"
+                (click)="toggleSort('date')">
+                {{ 'LOTTO.COL_DATE' | translate }}
+                <i [ngClass]="sortIconClass('date')" aria-hidden="true"></i>
+              </th>
+              <th
+                scope="col"
+                class="loto-sortable"
+                [class.loto-sortable--active]="sortColumn === 'combo'"
+                role="button"
+                (click)="toggleSort('combo')">
+                {{ 'LOTTO.COL_COMBINATION' | translate }}
+                <i [ngClass]="sortIconClass('combo')" aria-hidden="true"></i>
+              </th>
+              <th
+                scope="col"
+                class="loto-sortable"
+                [class.loto-sortable--active]="sortColumn === 'gain'"
+                role="button"
+                (click)="toggleSort('gain')">
+                {{ 'LOTTO.COL_GAIN' | translate }}
+                <i [ngClass]="sortIconClass('gain')" aria-hidden="true"></i>
+              </th>
+              <th
+                scope="col"
+                class="d-none d-md-table-cell loto-sortable"
+                [class.loto-sortable--active]="sortColumn === 'link'"
+                role="button"
+                (click)="toggleSort('link')">
+                {{ 'LOTTO.COL_LINK' | translate }}
+                <i [ngClass]="sortIconClass('link')" aria-hidden="true"></i>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="displayedDraws.length === 0">
+              <td colspan="4" class="text-center text-muted py-4">{{ 'LOTTO.FILTER_EMPTY' | translate }}</td>
+            </tr>
+            <tr *ngFor="let row of displayedDraws">
+              <td>
+                <ng-container *ngIf="canEditDrawDates && dateEditMode && row.detailUrl; else lotoDateReadonly">
+                  <div class="d-flex flex-wrap gap-1 align-items-center">
+                    <input
+                      type="date"
+                      class="form-control form-control-sm loto-date-edit"
+                      [ngModel]="dateDrafts[row.detailUrl]"
+                      (ngModelChange)="onDateDraftChange(row.detailUrl, $event)"
+                      [disabled]="savingDrawId === row.detailUrl" />
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-primary text-nowrap"
+                      [disabled]="savingDrawId === row.detailUrl || isDateDraftUnchanged(row)"
+                      (click)="saveDrawDate(row)">
+                      {{ 'LOTTO.SAVE_DATE' | translate }}
+                    </button>
+                  </div>
+                </ng-container>
+                <ng-template #lotoDateReadonly>{{ row.drawDate }}</ng-template>
+              </td>
+              <td>
+                <div class="loto-balls" [attr.aria-label]="numbersLine(row)">
+                  <span *ngFor="let n of row.numbers" class="loto-ball">{{ n }}</span>
+                  <span class="loto-ball loto-ball--chance" [attr.title]="'LOTTO.CHANCE_BALL_HINT' | translate">{{ row.chance }}</span>
+                </div>
+              </td>
+              <td>{{ row.gainDisplay || '—' }}</td>
+              <td class="d-none d-md-table-cell small">
+                <a *ngIf="row.detailUrl" [href]="row.detailUrl" target="_blank" rel="noopener noreferrer">{{ 'LOTTO.DETAIL' | translate }}</a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="small text-muted mt-3 mb-0">{{ 'LOTTO.SOURCE_NOTE' | translate }}</p>
+</div>
+
+<ng-template #lotoJsonModal let-modal>
+  <div class="modal-header">
+    <h4 class="modal-title">{{ 'LOTTO.EXPORT_JSON_IA_MODAL_TITLE' | translate }}</h4>
+    <button type="button" class="btn-close" [attr.aria-label]="'LOTTO.CHART_CLOSE' | translate" (click)="modal.dismiss()"></button>
+  </div>
+  <div class="modal-body">
+    <p class="text-muted small mb-2">{{ 'LOTTO.JSON_AI_MODAL_HINT' | translate }}</p>
+    <pre class="loto-json-pre mb-0" tabindex="0"><code>{{ jsonExportText }}</code></pre>
+  </div>
+  <div class="modal-footer d-flex flex-wrap gap-1 justify-content-between align-items-center">
+    <div class="d-flex flex-wrap gap-1">
+      <button type="button" class="btn btn-primary btn-sm" (click)="downloadExportJsonFile()">
+        {{ 'LOTTO.EXPORT_JSON' | translate }}
+      </button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="copyExportJson()">
+        {{ 'LOTTO.EXPORT_JSON_COPY' | translate }}
+      </button>
+    </div>
+    <button type="button" class="btn btn-secondary btn-sm" (click)="modal.close()">
+      {{ 'LOTTO.CHART_CLOSE' | translate }}
+    </button>
+  </div>
+</ng-template>
+
+<ng-template #lotoChartModal let-modal>
+  <div class="modal-header">
+    <h4 class="modal-title">{{ 'LOTTO.CHART_MODAL_TITLE' | translate }}</h4>
+    <button type="button" class="btn-close" [attr.aria-label]="'LOTTO.CHART_CLOSE' | translate" (click)="modal.dismiss()"></button>
+  </div>
+  <div class="modal-body">
+    <p class="text-muted small mb-3">{{ 'LOTTO.CHART_MODAL_HELP' | translate }}</p>
+    <div *ngIf="chartHasData" class="loto-chart-wrap">
+      <canvas
+        baseChart
+        [type]="'line'"
+        [data]="monthlyChartData"
+        [options]="monthlyChartOptions">
+      </canvas>
+    </div>
+    <p *ngIf="!chartHasData" class="text-muted mb-0">{{ 'LOTTO.CHART_EMPTY' | translate }}</p>
+  </div>
+</ng-template>

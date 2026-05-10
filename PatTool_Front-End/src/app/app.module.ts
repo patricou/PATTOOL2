@@ -141,6 +141,14 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./stock-exchange/stock-exchange.component').then(m => m.StockExchangeComponent)
 			},
 			{
+				path: 'tools/loto',
+				loadComponent: () => import('./loto/loto.component').then(m => m.LotoComponent)
+			},
+			{
+				path: 'tools/euromillions',
+				loadComponent: () => import('./euromillions/euromillions.component').then(m => m.EuromillionsComponent)
+			},
+			{
 				path: 'tools/calculator',
 				loadComponent: () => import('./calculator/calculator.component').then(m => m.CalculatorComponent)
 			},

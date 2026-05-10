@@ -132,7 +132,8 @@
     </div>
   </div>
 
-  <div class="pat-assistant-thread" #threadEl>
+  <div class="pat-assistant-thread-wrap">
+    <div class="pat-assistant-thread" #threadEl>
     <p *ngIf="messages.length === 0" class="pat-assistant-empty text-muted mb-0">
       {{ 'ASSISTANT.EMPTY' | translate }}
     </p>
@@ -237,6 +238,30 @@
     <div *ngIf="loading" class="pat-assistant-loading">
       <img src="assets/images/sablier.gif" alt="" width="36" height="36" />
       <span>{{ 'ASSISTANT.LOADING' | translate }}</span>
+    </div>
+    </div>
+
+    <div
+      *ngIf="messages.length > 0"
+      class="pat-assistant-thread-jump"
+      role="toolbar"
+      [attr.aria-label]="'ASSISTANT.THREAD_SCROLL_GROUP' | translate">
+      <button
+        type="button"
+        class="btn pat-assistant-thread-jump-btn"
+        (click)="scrollAssistantThreadToTop()"
+        [title]="'ASSISTANT.SCROLL_THREAD_TOP_HINT' | translate"
+        [attr.aria-label]="'ASSISTANT.SCROLL_THREAD_TOP_HINT' | translate">
+        <i class="fa fa-arrow-up" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        class="btn pat-assistant-thread-jump-btn"
+        (click)="scrollAssistantThreadToBottom()"
+        [title]="'ASSISTANT.SCROLL_THREAD_BOTTOM_HINT' | translate"
+        [attr.aria-label]="'ASSISTANT.SCROLL_THREAD_BOTTOM_HINT' | translate">
+        <i class="fa fa-arrow-down" aria-hidden="true"></i>
+      </button>
     </div>
   </div>
 

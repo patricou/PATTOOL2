@@ -212,7 +212,17 @@ public class SecurityConfig {
                 // sans auth (la clé API est côté serveur, aucun secret n'est exposé).
                 .requestMatchers(HttpMethod.GET, "/api/external/stock/**").permitAll()
                 .requestMatchers(HttpMethod.DELETE, "/api/external/stock/quote/cached").permitAll()
-                
+                // Tirages Loto importés (lecture seule, données publiques d'archive)
+                .requestMatchers(HttpMethod.GET, "/api/loto/**").permitAll()
+                // Sync Loto (scraping) — réservé aux administrateurs
+                .requestMatchers(HttpMethod.POST, "/api/loto/sync").hasAnyRole("Admin", "admin")
+                // Correction manuelle de la date de tirage en base — administrateurs
+                .requestMatchers(HttpMethod.PATCH, "/api/loto/draws").hasAnyRole("Admin", "admin")
+                // Tirages EuroMillions (CSV → Mongo ; lecture sans auth ; import / correction admin)
+                .requestMatchers(HttpMethod.GET, "/api/euromillions/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/euromillions/sync").hasAnyRole("Admin", "admin")
+                .requestMatchers(HttpMethod.PATCH, "/api/euromillions/draws").hasAnyRole("Admin", "admin")
+
                 // Stream event files (SSE): require authentication so SecurityContext has user and getCurrentUserId() works
                 .requestMatchers(HttpMethod.GET, "/api/even/*/files/stream").authenticated()
                 

@@ -504,6 +504,9 @@ export class AssistantDrawerComponent
       this.syncAppRootAriaWithAssistantOverModal();
       this.scheduleFocusComposeArea();
       queueMicrotask(() => this.requestAlignLastQuestionTop());
+      if (p.autoSend === true) {
+        this.tryAutoSendAfterLaunchFromPayload();
+      }
     });
   }
 
@@ -1638,6 +1641,25 @@ export class AssistantDrawerComponent
     this.putQuestionTextInAssistantDraft(text);
   }
 
+  /** Défile le fil de conversation tout en haut. */
+  scrollAssistantThreadToTop(): void {
+    const el = this.threadEl?.nativeElement;
+    if (!el) {
+      return;
+    }
+    el.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /** Défile le fil de conversation tout en bas (dernière réponse / zone de saisie). */
+  scrollAssistantThreadToBottom(): void {
+    const el = this.threadEl?.nativeElement;
+    if (!el) {
+      return;
+    }
+    const maxTop = Math.max(0, el.scrollHeight - el.clientHeight);
+    el.scrollTo({ top: maxTop, behavior: 'smooth' });
+  }
+
   ngAfterViewChecked(): void {
     if (this.shouldAlignLastQuestionTop && this.threadEl) {
       const wrap = this.threadEl.nativeElement;
@@ -2431,6 +2453,26 @@ export class AssistantDrawerComponent
 
   trustedImageSrc(url: string): SafeUrl {
     return this.sanitizer.bypassSecurityTrustUrl(url);
+  }
+
+  /**
+   * Après un lancement avec {@link AssistantLaunchPayload.autoSend}, envoie le brouillon
+   * comme un message utilisateur (nouvelle conversation déjà préparée par le subscriber).
+   */
+  private tryAutoSendAfterLaunchFromPayload(): void {
+    queueMicrotask(() => {
+      if (this.loading || !this.isAuthenticated()) {
+        return;
+      }
+      const t = this.draft?.trim() ?? '';
+      if (!t) {
+        return;
+      }
+      if (this.pendingImage != null) {
+        return;
+      }
+      this.send();
+    });
   }
 
   send(): void {

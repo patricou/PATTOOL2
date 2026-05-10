@@ -193,6 +193,37 @@
                 </ul>
             </li>
 
+            <!-- Math (Loto, Calculatrice dans le menu déroulant) -->
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle"
+                   href="#"
+                   id="mathDropdown"
+                   role="button"
+                   (click)="toggleMathDropdown($event)"
+                   [attr.aria-expanded]="showMathDropdown">
+                    <i class="fa fa-graduation-cap"></i> {{ 'MENU.MATH' | translate }}
+                </a>
+                <ul class="dropdown-menu"
+                    [class.show]="showMathDropdown"
+                    aria-labelledby="mathDropdown">
+                    <li><a class="dropdown-item"
+                           [routerLink]="['tools/loto']"
+                           (click)="closeMenu()">
+                        <i class="fa fa-trophy"></i> {{ 'MENU.LOTTO' | translate }}
+                    </a></li>
+                    <li><a class="dropdown-item"
+                           [routerLink]="['tools/euromillions']"
+                           (click)="closeMenu()">
+                        <i class="fa fa-star"></i> {{ 'MENU.EUROMILLIONS' | translate }}
+                    </a></li>
+                    <li><a class="dropdown-item"
+                           [routerLink]="['tools/calculator']"
+                           (click)="closeMenu()">
+                        <i class="fa fa-calculator"></i> {{ 'MENU.CALCULATOR' | translate }}
+                    </a></li>
+                </ul>
+            </li>
+
             <!-- Tools Dropdown -->
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" 
@@ -299,7 +330,7 @@
                 </ul>
             </li>
 
-            <!-- Calculator: icône ronde uniquement (après Outils) -->
+            <!-- Calculatrice : icône ronde à droite d’Outils -->
             <li class="nav-item d-flex align-items-center ms-1">
                 <a class="nav-link nav-link-calculator-fab px-1 py-1"
                    [routerLink]="['tools/calculator']"

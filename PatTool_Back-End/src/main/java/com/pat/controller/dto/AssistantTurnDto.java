@@ -7,5 +7,6 @@ import jakarta.validation.constraints.Size;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record AssistantTurnDto(
         @NotBlank String role,
-        @NotBlank @Size(max = 48000) String content
+        /** Contenu du message ; plafond élevé pour autoriser des jeux de données joints (ex. export JSON volumineux). */
+        @NotBlank @Size(max = 500_000) String content
 ) {}

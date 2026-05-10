@@ -1494,3 +1494,8 @@ ngb-tooltip-window.vulnerability-desc-tooltip .tooltip-inner,
     transform: scale(1.005);
     box-shadow: 0 6px 18px rgba(15, 23, 42, 0.16);
 }
+
+/* Loto — fenêtre modale JSON IA (ng-bootstrap, rendu sous body) */
+::ng-deep .loto-ai-json-modal .modal-dialog {
+  max-width: min(960px, 98vw);
+}

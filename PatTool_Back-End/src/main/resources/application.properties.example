@@ -1,0 +1,70 @@
+# -----------------------------------------------------------------------------
+# PatTool — local configuration template
+#
+# Copy this file to application.properties and adjust values.
+# (application.properties is gitignored so secrets and LAN IPs are not committed.)
+#
+# If your application.properties was overwritten: in the IDE, right-click the file
+# → Local History to restore an earlier version.
+#
+# AI assistant: see also application-assistant.example.properties to merge if needed.
+# -----------------------------------------------------------------------------
+
+spring.application.name=PATTOOL
+server.port=8000
+
+# --- MongoDB (adjust host / database for your environment) ---
+spring.data.mongodb.host=localhost
+spring.data.mongodb.port=27017
+spring.data.mongodb.database=rando
+# Alternative: spring.data.mongodb.uri=mongodb://user:pass@host:27017/rando
+
+# --- Files / multipart ---
+spring.servlet.multipart.max-file-size=100MB
+spring.servlet.multipart.max-request-size=350MB
+app.uploaddir=C:\\temp
+file.storage.base-path=C:\\temp\\pattool-disk-images
+
+app.imagemaxsizekb=500
+
+# --- Keycloak (required for security) ---
+keycloak.realm=pat-realm
+keycloak.auth-server-url=http://localhost:8080/auth
+keycloak.resource=tutorial-frontend
+keycloak.credentials.secret=change-me-in-local-config
+keycloak.bearer-only=true
+keycloak.client-id=tutorial-frontend
+
+# Allowed CORS origins for the API (browser)
+app.cors.allowed-origins=http://localhost:4200,http://127.0.0.1:4200,http://localhost:8000,http://127.0.0.1:8000
+
+# --- App mail (MailController requires these keys) ---
+app.mailsentfrom=
+app.mailsentto=
+app.sendmail=false
+
+# --- OpenAI assistant (HTTP timeouts required for openAiRestTemplate) ---
+openai.api=https://api.openai.com/v1/chat/completions
+openai.key=
+openai.assistant.model=gpt-4o-mini
+openai.assistant.max-tokens=8192
+openai.http.connect-timeout-seconds=30
+openai.http.read-timeout-seconds=120
+openai.billing.credit-grants-url=https://api.openai.com/v1/dashboard/billing/credit_grants
+
+# --- IoT gate / ESP (HomeIOTService beans: no defaults in code) ---
+app.arduino.ip=192.168.1.65
+app.esp32.1.ip=192.168.1.71
+
+# --- Weather (optional) ---
+openweathermap.api.key=
+
+# --- Loto import (draw archives) ---
+loto.archive.base-url=https://www.lesbonsnumeros.com
+
+# EuroMillions : répertoire sur le SERVEUR contenant les CSV FDJ (*.csv à importer via POST /api/euromillions/sync).
+# exemple Windows : euromillions.import.directory=C:/Users/desch/Downloads/euromillions
+euromillions.import.directory=
+
+# --- Image cache (PatToolApplication) ---
+app.cache.persistence.restore-on-startup=true

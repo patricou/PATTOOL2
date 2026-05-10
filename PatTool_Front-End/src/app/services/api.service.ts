@@ -490,6 +490,58 @@ export class ApiService {
       { params }
     );
   }
+
+  // ===================================================================
+  // Loto — archives (scraping LesBonsNumeros côté serveur)
+  // ===================================================================
+
+  /** Tirages en base (GET public). */
+  getLotoDraws(): Observable<LotoDrawRow[]> {
+    return this._http.get<LotoDrawRow[]>(this.API_URL + 'loto/draws');
+  }
+
+  /** Import avec plage yyyy-MM (corps JSON, JWT admin). */
+  syncLotoArchive(body: LotoSyncRequest): Observable<LotoSyncResult> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.post<LotoSyncResult>(this.API_URL + 'loto/sync', body, { headers })
+      )
+    );
+  }
+
+  /** Correction de la date de tirage (Mongo), JWT admin. */
+  patchLotoDrawDate(body: LotoDrawDatePatch): Observable<LotoDrawRow> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.patch<LotoDrawRow>(this.API_URL + 'loto/draws', body, { headers })
+      )
+    );
+  }
+
+  // ===================================================================
+  // EuroMillions — CSV import côté serveur (répertoire configuré)
+  // ===================================================================
+
+  getEuromillionsDraws(): Observable<EuromillionsDrawRow[]> {
+    return this._http.get<EuromillionsDrawRow[]>(this.API_URL + 'euromillions/draws');
+  }
+
+  /** Import : lit tous les *.csv du dossier serveur (JWT admin). */
+  syncEuromillionsFromCsv(): Observable<EuromillionsSyncResult> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.post<EuromillionsSyncResult>(this.API_URL + 'euromillions/sync', {}, { headers })
+      )
+    );
+  }
+
+  patchEuromillionsDrawDate(body: EuromillionsDrawDatePatch): Observable<EuromillionsDrawRow> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.patch<EuromillionsDrawRow>(this.API_URL + 'euromillions/draws', body, { headers })
+      )
+    );
+  }
 }
 
 /** Frankfurter /latest and /historical response shape. */
@@ -592,4 +644,57 @@ export interface StockSymbolSearchResult {
   instrument_type?: string;
   country?: string;
   currency?: string;
+}
+
+/** Tirage Loto importé (API PatTool /api/loto/draws). */
+export interface LotoDrawRow {
+  drawDate: string;
+  numbers: number[];
+  chance: number;
+  gainDisplay?: string;
+  detailUrl?: string;
+}
+
+/** Corps PATCH /api/loto/draws ({@code id} = URL fiche = clé Mongo). */
+export interface LotoDrawDatePatch {
+  id: string;
+  drawDate: string;
+}
+
+/** Requête POST /api/loto/sync. */
+export interface LotoSyncRequest {
+  startYearMonth: string;
+  endYearMonth: string;
+}
+
+/** Résultat du POST /api/loto/sync (import archives LesBonsNumeros). */
+export interface LotoSyncResult {
+  monthsProcessed: number;
+  drawsUpserted: number;
+  httpErrors: number;
+  messages?: string[];
+}
+
+/** Tirage EuroMillions (Mongo, /api/euromillions/draws). */
+export interface EuromillionsDrawRow {
+  drawDate: string;
+  numbers: number[];
+  stars: number[];
+  gainDisplay?: string;
+  drawCode: string;
+}
+
+/** PATCH /api/euromillions/draws : id = code tirage FDJ = clé Mongo. */
+export interface EuromillionsDrawDatePatch {
+  id: string;
+  drawDate: string;
+}
+
+/** POST /api/euromillions/sync. */
+export interface EuromillionsSyncResult {
+  filesProcessed: number;
+  drawsUpserted: number;
+  rowsSkipped: number;
+  httpErrors: number;
+  messages?: string[];
 }
