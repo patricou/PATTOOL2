@@ -217,29 +217,49 @@ body .modal.assistant-history-modal.show .modal-dialog {
 
 body .modal.show.assistant-history-modal .modal-dialog > .modal-content,
 body .modal.fade.show.assistant-history-modal .modal-dialog > .modal-content,
-body .modal.assistant-history-modal.show .modal-dialog > .modal-content {
+body .modal.assistant-history-modal.show .modal-dialog > .modal-content,
+body ngb-modal-window.modal.show.assistant-history-modal .modal-dialog > .modal-content,
+body ngb-modal-window.modal.assistant-history-modal.show .modal-dialog > .modal-content {
     font-size: 0.8125rem;
+    border: 4px solid #ffffff !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
 }
 
 body .modal.show.assistant-history-modal .pat-assistant-history-modal-header,
-body .modal.assistant-history-modal.show .pat-assistant-history-modal-header {
-    padding: 0.45rem 0.65rem !important;
+body .modal.assistant-history-modal.show .pat-assistant-history-modal-header,
+body ngb-modal-window.modal.show.assistant-history-modal .pat-assistant-history-modal-header,
+body ngb-modal-window.modal.assistant-history-modal.show .pat-assistant-history-modal-header {
+    padding: 0.65rem 0.85rem !important;
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 50%, #004085 100%) !important;
+    color: #ffffff !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.12) !important;
 }
 
 body .modal.show.assistant-history-modal .pat-assistant-history-modal-title,
-body .modal.assistant-history-modal.show .pat-assistant-history-modal-title {
+body .modal.assistant-history-modal.show .pat-assistant-history-modal-title,
+body ngb-modal-window.modal.show.assistant-history-modal .pat-assistant-history-modal-title,
+body ngb-modal-window.modal.assistant-history-modal.show .pat-assistant-history-modal-title {
     font-size: 0.95rem !important;
     font-weight: 600 !important;
+    color: #ffffff !important;
 }
 
 body .modal.show.assistant-history-modal .pat-assistant-history-modal-title .fa,
-body .modal.assistant-history-modal.show .pat-assistant-history-modal-title .fa {
+body .modal.assistant-history-modal.show .pat-assistant-history-modal-title .fa,
+body ngb-modal-window.modal.show.assistant-history-modal .pat-assistant-history-modal-title .fa,
+body ngb-modal-window.modal.assistant-history-modal.show .pat-assistant-history-modal-title .fa {
     font-size: 0.88em !important;
+    color: #ffffff !important;
 }
 
 body .modal.show.assistant-history-modal .pat-assistant-history-modal-header .btn-close,
-body .modal.assistant-history-modal.show .pat-assistant-history-modal-header .btn-close {
+body .modal.assistant-history-modal.show .pat-assistant-history-modal-header .btn-close,
+body ngb-modal-window.modal.show.assistant-history-modal .pat-assistant-history-modal-header .btn-close,
+body ngb-modal-window.modal.assistant-history-modal.show .pat-assistant-history-modal-header .btn-close {
     padding: 0.35rem !important;
+    opacity: 1 !important;
 }
 
 body .modal.show.assistant-history-modal .pat-assistant-history-modal-body,
@@ -389,6 +409,135 @@ body .modal.show.assistant-history-modal .pat-assistant-history-item-actions .bt
 body .modal.assistant-history-modal.show .pat-assistant-history-item-actions .btn {
     font-size: 0.72rem !important;
     line-height: 1.25 !important;
+}
+
+/*
+ * Assistant — insérer image / commentaire dans un évènement : typo & boutons alignés sur la modale historique.
+ */
+body .modal.show.assistant-insert-image-modal .modal-dialog > .modal-content,
+body .modal.assistant-insert-image-modal.show .modal-dialog > .modal-content,
+body ngb-modal-window.modal.show.assistant-insert-image-modal .modal-dialog > .modal-content,
+body ngb-modal-window.modal.assistant-insert-image-modal.show .modal-dialog > .modal-content {
+    font-size: 0.8125rem !important;
+}
+
+body .modal.show.assistant-insert-image-modal .modal-header .modal-title,
+body .modal.assistant-insert-image-modal.show .modal-header .modal-title,
+body ngb-modal-window.modal.show.assistant-insert-image-modal .modal-header .modal-title,
+body ngb-modal-window.modal.assistant-insert-image-modal.show .modal-header .modal-title {
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+}
+
+body .modal.show.assistant-insert-image-modal .modal-header .modal-title .fa,
+body .modal.assistant-insert-image-modal.show .modal-header .modal-title .fa,
+body ngb-modal-window.modal.show.assistant-insert-image-modal .modal-header .modal-title .fa,
+body ngb-modal-window.modal.assistant-insert-image-modal.show .modal-header .modal-title .fa {
+    font-size: 0.88em !important;
+}
+
+body .modal.show.assistant-insert-image-modal .modal-body .text-muted.small,
+body .modal.assistant-insert-image-modal.show .modal-body .text-muted.small,
+body ngb-modal-window.modal.show.assistant-insert-image-modal .modal-body .text-muted.small,
+body ngb-modal-window.modal.assistant-insert-image-modal.show .modal-body .text-muted.small {
+    font-size: 0.72rem !important;
+    line-height: 1.35 !important;
+}
+
+body .modal.show.assistant-insert-image-modal .modal-body .form-label.small,
+body .modal.assistant-insert-image-modal.show .modal-body .form-label.small,
+body ngb-modal-window.modal.show.assistant-insert-image-modal .modal-body .form-label.small,
+body ngb-modal-window.modal.assistant-insert-image-modal.show .modal-body .form-label.small {
+    font-size: 0.72rem !important;
+}
+
+body .modal.show.assistant-insert-image-modal .modal-body .form-control,
+body .modal.show.assistant-insert-image-modal .modal-body .form-select,
+body .modal.assistant-insert-image-modal.show .modal-body .form-control,
+body .modal.assistant-insert-image-modal.show .modal-body .form-select,
+body ngb-modal-window.modal.show.assistant-insert-image-modal .modal-body .form-control,
+body ngb-modal-window.modal.show.assistant-insert-image-modal .modal-body .form-select,
+body ngb-modal-window.modal.assistant-insert-image-modal.show .modal-body .form-control,
+body ngb-modal-window.modal.assistant-insert-image-modal.show .modal-body .form-select {
+    font-size: 0.75rem !important;
+    padding: 0.2rem 0.45rem !important;
+    min-height: calc(1.35em + 0.35rem + 2px) !important;
+}
+
+body .modal.show.assistant-insert-image-modal .modal-body .input-group-text,
+body .modal.assistant-insert-image-modal.show .modal-body .input-group-text,
+body ngb-modal-window.modal.show.assistant-insert-image-modal .modal-body .input-group-text,
+body ngb-modal-window.modal.assistant-insert-image-modal.show .modal-body .input-group-text {
+    font-size: 0.75rem !important;
+    padding: 0.2rem 0.45rem !important;
+}
+
+body .modal.show.assistant-insert-image-modal .modal-body .alert.small,
+body .modal.assistant-insert-image-modal.show .modal-body .alert.small,
+body ngb-modal-window.modal.show.assistant-insert-image-modal .modal-body .alert.small,
+body ngb-modal-window.modal.assistant-insert-image-modal.show .modal-body .alert.small {
+    font-size: 0.72rem !important;
+}
+
+body .modal.show.assistant-insert-image-modal .pat-assistant-insert-evt-name,
+body .modal.assistant-insert-image-modal.show .pat-assistant-insert-evt-name,
+body ngb-modal-window.modal.show.assistant-insert-image-modal .pat-assistant-insert-evt-name,
+body ngb-modal-window.modal.assistant-insert-image-modal.show .pat-assistant-insert-evt-name {
+    font-size: 0.78rem !important;
+    font-weight: 600 !important;
+    line-height: 1.35 !important;
+}
+
+body .modal.show.assistant-insert-image-modal .pat-assistant-insert-evt-meta,
+body .modal.assistant-insert-image-modal.show .pat-assistant-insert-evt-meta,
+body ngb-modal-window.modal.show.assistant-insert-image-modal .pat-assistant-insert-evt-meta,
+body ngb-modal-window.modal.assistant-insert-image-modal.show .pat-assistant-insert-evt-meta {
+    font-size: 0.68rem !important;
+    line-height: 1.35 !important;
+    font-style: italic !important;
+}
+
+body .modal.show.assistant-insert-image-modal .pat-assistant-insert-evt-item,
+body .modal.assistant-insert-image-modal.show .pat-assistant-insert-evt-item,
+body ngb-modal-window.modal.show.assistant-insert-image-modal .pat-assistant-insert-evt-item,
+body ngb-modal-window.modal.assistant-insert-image-modal.show .pat-assistant-insert-evt-item {
+    padding: 0.35rem 0.45rem !important;
+    gap: 0.35rem !important;
+}
+
+body .modal.show.assistant-insert-image-modal .pat-assistant-insert-evt-pick.btn,
+body .modal.assistant-insert-image-modal.show .pat-assistant-insert-evt-pick.btn,
+body ngb-modal-window.modal.show.assistant-insert-image-modal .pat-assistant-insert-evt-pick.btn,
+body ngb-modal-window.modal.assistant-insert-image-modal.show .pat-assistant-insert-evt-pick.btn {
+    font-size: 0.72rem !important;
+    line-height: 1.25 !important;
+}
+
+body .modal.show.assistant-insert-image-modal .modal-footer .btn,
+body .modal.assistant-insert-image-modal.show .modal-footer .btn,
+body ngb-modal-window.modal.show.assistant-insert-image-modal .modal-footer .btn,
+body ngb-modal-window.modal.assistant-insert-image-modal.show .modal-footer .btn {
+    font-size: 0.72rem !important;
+    line-height: 1.25 !important;
+}
+
+body .modal.show.assistant-insert-image-modal .pat-assistant-insert-cmt-quill .ql-container,
+body .modal.show.assistant-insert-image-modal .pat-assistant-insert-cmt-quill .ql-editor,
+body .modal.assistant-insert-image-modal.show .pat-assistant-insert-cmt-quill .ql-container,
+body .modal.assistant-insert-image-modal.show .pat-assistant-insert-cmt-quill .ql-editor,
+body ngb-modal-window.modal.show.assistant-insert-image-modal .pat-assistant-insert-cmt-quill .ql-container,
+body ngb-modal-window.modal.show.assistant-insert-image-modal .pat-assistant-insert-cmt-quill .ql-editor,
+body ngb-modal-window.modal.assistant-insert-image-modal.show .pat-assistant-insert-cmt-quill .ql-container,
+body ngb-modal-window.modal.assistant-insert-image-modal.show .pat-assistant-insert-cmt-quill .ql-editor {
+    font-size: 0.8125rem !important;
+    line-height: 1.45 !important;
+}
+
+body .modal.show.assistant-insert-image-modal .pat-assistant-insert-cmt-quill .ql-toolbar,
+body .modal.assistant-insert-image-modal.show .pat-assistant-insert-cmt-quill .ql-toolbar,
+body ngb-modal-window.modal.show.assistant-insert-image-modal .pat-assistant-insert-cmt-quill .ql-toolbar,
+body ngb-modal-window.modal.assistant-insert-image-modal.show .pat-assistant-insert-cmt-quill .ql-toolbar {
+    font-size: 0.72rem !important;
 }
 
 /* Global style for discussion modal with white border */

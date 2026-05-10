@@ -406,7 +406,7 @@
     </h5>
     <button
       type="button"
-      class="btn-close"
+      class="btn-close btn-close-white"
       (click)="modal.dismiss()"
       [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
   </div>
@@ -585,7 +585,7 @@
         <span class="input-group-text"><i class="fa fa-search" aria-hidden="true"></i></span>
         <input
           type="text"
-          class="form-control"
+          class="form-control form-control-sm"
           [(ngModel)]="insertImageEventsFilter"
           [disabled]="insertImageUploadingEventId != null"
           [placeholder]="'ASSISTANT.INSERT_IMG_IN_EVENT_SEARCH_PLACEHOLDER' | translate"
@@ -594,7 +594,7 @@
       <div class="input-group pat-assistant-insert-evt-filter-type">
         <span class="input-group-text"><i class="fa fa-filter" aria-hidden="true"></i></span>
         <select
-          class="form-select"
+          class="form-select form-select-sm"
           [(ngModel)]="insertImageEventsTypeFilter"
           [disabled]="insertImageUploadingEventId != null"
           [attr.aria-label]="'ASSISTANT.INSERT_IMG_IN_EVENT_TYPE_FILTER_LABEL' | translate">
@@ -680,7 +680,7 @@
   <div class="modal-footer">
     <button
       type="button"
-      class="btn btn-secondary"
+      class="btn btn-sm btn-secondary"
       [disabled]="insertImageUploadingEventId != null"
       (click)="cancelInsertImageInEventModal()">
       {{ 'EVENTELEM.CANCEL' | translate }}
