@@ -5522,6 +5522,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         },
         toolFlags: { imageGeneration: true }
       });
+      this.onSlideshowClose();
     } catch {
       alert(this.translateService.instant('EVENTELEM.SEND_TO_ASSISTANT_ERROR_FETCH'));
     } finally {
