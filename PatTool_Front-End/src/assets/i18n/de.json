@@ -1496,7 +1496,8 @@
         "HISTORY_FILTER_EMPTY": "Keine Unterhaltung entspricht Ihrer Suche.",
         "HISTORY_OWNER_LABEL": "Besitzer",
         "HISTORY_CREATED_LABEL": "Erstellt",
-        "HISTORY_UPDATED_LABEL": "Aktualisiert"
+        "HISTORY_UPDATED_LABEL": "Aktualisiert",
+        "HISTORY_OWNER_UNKNOWN": "(Login nicht gespeichert)"
     },
     "ABOUT": {
         "DESIGNED_BY": "Entworfen und entwickelt von",

@@ -1497,7 +1497,8 @@
         "HISTORY_FILTER_EMPTY": "لا توجد محادثات تطابق بحثك.",
         "HISTORY_OWNER_LABEL": "المالك",
         "HISTORY_CREATED_LABEL": "تاريخ الإنشاء",
-        "HISTORY_UPDATED_LABEL": "آخر تحديث"
+        "HISTORY_UPDATED_LABEL": "آخر تحديث",
+        "HISTORY_OWNER_UNKNOWN": "(لم يُحفظ اسم الدخول)"
     },
     "ABOUT": {
         "DESIGNED_BY": "مصمم ومطور بواسطة",

@@ -1468,7 +1468,8 @@
         "HISTORY_FILTER_EMPTY": "आपकी खोज से कोई बातचीत मेल नहीं खाती।",
         "HISTORY_OWNER_LABEL": "स्वामी",
         "HISTORY_CREATED_LABEL": "बनाई गई",
-        "HISTORY_UPDATED_LABEL": "अद्यतन"
+        "HISTORY_UPDATED_LABEL": "अद्यतन",
+        "HISTORY_OWNER_UNKNOWN": "(लॉगिन सहेजा नहीं गया)"
     },
     "ABOUT": {
         "DESIGNED_BY": "डिजाइन और विकसित किया गया",

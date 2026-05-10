@@ -49,7 +49,9 @@ public class AssistantRoutingPreferenceService {
             if (dto == null || dto.provider() == null || dto.modelPreset() == null) {
                 return Optional.empty();
             }
-            if (!"openai".equals(dto.provider()) && !"anthropic".equals(dto.provider())) {
+            if (!"openai".equals(dto.provider())
+                    && !"anthropic".equals(dto.provider())
+                    && !"gemini".equals(dto.provider())) {
                 return Optional.empty();
             }
             return Optional.of(new AssistantRoutingPreferenceDto(

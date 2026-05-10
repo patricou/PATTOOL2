@@ -2,73 +2,105 @@ package com.pat.service;
 
 import com.pat.controller.dto.AssistantChatRequestDto;
 import com.pat.controller.dto.AssistantChatResponseDto;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
  * Routage de l’assistant latéral selon {@code assistant.provider} ({@code openai} par défaut,
- * {@code anthropic} pour Claude).
+ * {@code anthropic} pour Claude, {@code gemini} pour Google Gemini).
  */
 @Service
 public class RoutingAssistantService {
+
+    private static final Logger log = LoggerFactory.getLogger(RoutingAssistantService.class);
 
     @Value("${assistant.provider:openai}")
     private String assistantProvider;
 
     private final OpenAiAssistantService openAiAssistantService;
     private final AnthropicAssistantService anthropicAssistantService;
+    private final GeminiAssistantService geminiAssistantService;
 
     public RoutingAssistantService(
             OpenAiAssistantService openAiAssistantService,
-            AnthropicAssistantService anthropicAssistantService) {
+            AnthropicAssistantService anthropicAssistantService,
+            GeminiAssistantService geminiAssistantService) {
         this.openAiAssistantService = openAiAssistantService;
         this.anthropicAssistantService = anthropicAssistantService;
+        this.geminiAssistantService = geminiAssistantService;
     }
 
     public AssistantChatResponseDto complete(AssistantChatRequestDto request) {
-        if (effectiveAnthropic(request)) {
-            return anthropicAssistantService.complete(request);
-        }
-        return openAiAssistantService.complete(request);
+        String slug = resolveEffectiveSlug(request);
+        log.debug(
+                "Assistant chat routing: effectiveSlug={} requestProvider={} serverPropertyAssistantProvider={}",
+                slug,
+                request != null ? request.provider() : null,
+                assistantProvider);
+        return switch (slug) {
+            case "anthropic" -> anthropicAssistantService.complete(request);
+            case "gemini" -> geminiAssistantService.complete(request);
+            default -> openAiAssistantService.complete(request);
+        };
     }
 
     public String getConfiguredProviderLabel() {
-        if (configuredAnthropic()) {
-            return anthropicAssistantService.getConfiguredProviderLabel();
-        }
-        return openAiAssistantService.getConfiguredProviderLabel();
+        return switch (configuredServerSlug()) {
+            case "anthropic" -> anthropicAssistantService.getConfiguredProviderLabel();
+            case "gemini" -> geminiAssistantService.getConfiguredProviderLabel();
+            default -> openAiAssistantService.getConfiguredProviderLabel();
+        };
     }
 
     public String getConfiguredModel() {
-        if (configuredAnthropic()) {
-            return anthropicAssistantService.getConfiguredModel();
-        }
-        return openAiAssistantService.getConfiguredModel();
+        return switch (configuredServerSlug()) {
+            case "anthropic" -> anthropicAssistantService.getConfiguredModel();
+            case "gemini" -> geminiAssistantService.getConfiguredModel();
+            default -> openAiAssistantService.getConfiguredModel();
+        };
     }
 
-    /** {@code openai} ou {@code anthropic}, jamais vide (défaut {@code openai}). */
+    /** {@code openai}, {@code anthropic} ou {@code gemini}, jamais vide (défaut {@code openai}). */
     public String getConfiguredRoutingSlug() {
-        return configuredAnthropic() ? "anthropic" : "openai";
+        return configuredServerSlug();
     }
 
-    private boolean effectiveAnthropic(AssistantChatRequestDto request) {
-        String slug = normalizeRoutingSlug(request != null ? request.provider() : null);
-        if ("openai".equals(slug)) {
-            return false;
+    private String resolveEffectiveSlug(AssistantChatRequestDto request) {
+        String fromReq = normalizeRoutingSlug(request != null ? request.provider() : null);
+        if (fromReq != null) {
+            return fromReq;
         }
-        if ("anthropic".equals(slug)) {
-            return true;
-        }
-        return configuredAnthropic();
+        return configuredServerSlug();
     }
 
-    private boolean configuredAnthropic() {
-        return isAnthropicProperty(assistantProvider);
+    private String configuredServerSlug() {
+        return normalizeAssistantProviderProperty(assistantProvider);
+    }
+
+    /**
+     * Valeur de {@code assistant.provider} : {@code openai} (défaut), {@code anthropic}/{@code claude},
+     * {@code gemini}/{@code google}.
+     */
+    static String normalizeAssistantProviderProperty(String assistantProvider) {
+        if (assistantProvider == null || assistantProvider.isBlank()) {
+            return "openai";
+        }
+        String p = assistantProvider.trim().toLowerCase();
+        if ("anthropic".equals(p) || "claude".equals(p)) {
+            return "anthropic";
+        }
+        if ("gemini".equals(p) || "google".equals(p)) {
+            return "gemini";
+        }
+        return "openai";
     }
 
     /**
      * Valeur reconnue pour le corps de requête : {@code openai}, {@code anthropic}, {@code claude}
-     * (alias). Toute autre valeur est ignorée pour retomber sur la config serveur.
+     * (alias), {@code gemini}, {@code google} (alias). Toute autre valeur est ignorée pour retomber sur
+     * la config serveur.
      */
     static String normalizeRoutingSlug(String provider) {
         if (provider == null || provider.isBlank()) {
@@ -78,17 +110,12 @@ public class RoutingAssistantService {
         if ("claude".equals(p) || "anthropic".equals(p)) {
             return "anthropic";
         }
+        if ("gemini".equals(p) || "google".equals(p)) {
+            return "gemini";
+        }
         if ("openai".equals(p)) {
             return "openai";
         }
         return null;
-    }
-
-    static boolean isAnthropicProperty(String assistantProvider) {
-        if (assistantProvider == null) {
-            return false;
-        }
-        String p = assistantProvider.trim();
-        return p.equalsIgnoreCase("anthropic") || p.equalsIgnoreCase("claude");
     }
 }

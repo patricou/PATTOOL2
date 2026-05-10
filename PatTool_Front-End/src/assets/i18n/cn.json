@@ -1498,7 +1498,8 @@
         "HISTORY_FILTER_EMPTY": "没有与您搜索匹配的对话。",
         "HISTORY_OWNER_LABEL": "所有者",
         "HISTORY_CREATED_LABEL": "创建",
-        "HISTORY_UPDATED_LABEL": "更新"
+        "HISTORY_UPDATED_LABEL": "更新",
+        "HISTORY_OWNER_UNKNOWN": "(未保存用户名)"
     },
     "ABOUT": {
         "DESIGNED_BY": "设计与开发者",

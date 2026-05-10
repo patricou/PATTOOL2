@@ -1491,7 +1491,8 @@
         "HISTORY_FILTER_EMPTY": "Нет бесед, соответствующих запросу.",
         "HISTORY_OWNER_LABEL": "Владелец",
         "HISTORY_CREATED_LABEL": "Создана",
-        "HISTORY_UPDATED_LABEL": "Обновлена"
+        "HISTORY_UPDATED_LABEL": "Обновлена",
+        "HISTORY_OWNER_UNKNOWN": "(логин не сохранён)"
     },
     "ABOUT": {
         "DESIGNED_BY": "Разработано и создано",

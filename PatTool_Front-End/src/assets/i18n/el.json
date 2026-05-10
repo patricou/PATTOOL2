@@ -1299,7 +1299,8 @@
         "HISTORY_FILTER_EMPTY": "Καμία συνομιλία δεν ταιριάζει με την αναζήτησή σας.",
         "HISTORY_OWNER_LABEL": "Ιδιοκτήτης",
         "HISTORY_CREATED_LABEL": "Δημιουργία",
-        "HISTORY_UPDATED_LABEL": "Ενημέρωση"
+        "HISTORY_UPDATED_LABEL": "Ενημέρωση",
+        "HISTORY_OWNER_UNKNOWN": "(δεν αποθηκεύτηκε όνομα χρήστη)"
     },
     "ABOUT": {
         "DESIGNED_BY": "Σχεδιασμένο και αναπτυγμένο από",

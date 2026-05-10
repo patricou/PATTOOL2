@@ -1,6 +1,7 @@
 package com.pat.controller.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
@@ -19,9 +20,11 @@ public record AssistantChatRequestDto(
         /** Image analysée avec le dernier tour « user » (vision). */
         @Valid AssistantAttachedImageDto attachedImage,
         /**
-         * Surcharge facultative du fournisseur pour ce tour : {@code openai}, {@code anthropic}, {@code claude}.
+         * Surcharge facultative du fournisseur pour ce tour : {@code openai}, {@code anthropic}, {@code claude},
+         * {@code gemini}, {@code google}.
          * Si absent, le serveur utilise {@code assistant.provider}.
          */
+        @JsonProperty("provider")
         @Size(max = 32) String provider,
         /**
          * Surcharge facultative du modèle pour ce tour (sinon {@code openai.assistant.model} ou

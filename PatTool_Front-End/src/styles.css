@@ -203,6 +203,194 @@ body .modal.show.whatsapp-share-modal .whatsapp-share-preview-empty {
     color: var(--bs-secondary-color, #6c757d);
 }
 
+/*
+ * Assistant — historique des discussions : styles globaux (modal rendue sur body).
+ * Les règles du composant (::ng-deep) ne s’y appliquent pas ; même approche que WhatsApp ci-dessus.
+ */
+body .modal.show.assistant-history-modal .modal-dialog,
+body .modal.fade.show.assistant-history-modal .modal-dialog,
+body .modal.assistant-history-modal.show .modal-dialog {
+    max-width: min(720px, 96vw) !important;
+    width: 100% !important;
+    margin: 0.75rem auto !important;
+}
+
+body .modal.show.assistant-history-modal .modal-dialog > .modal-content,
+body .modal.fade.show.assistant-history-modal .modal-dialog > .modal-content,
+body .modal.assistant-history-modal.show .modal-dialog > .modal-content {
+    font-size: 0.8125rem;
+}
+
+body .modal.show.assistant-history-modal .pat-assistant-history-modal-header,
+body .modal.assistant-history-modal.show .pat-assistant-history-modal-header {
+    padding: 0.45rem 0.65rem !important;
+}
+
+body .modal.show.assistant-history-modal .pat-assistant-history-modal-title,
+body .modal.assistant-history-modal.show .pat-assistant-history-modal-title {
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+}
+
+body .modal.show.assistant-history-modal .pat-assistant-history-modal-title .fa,
+body .modal.assistant-history-modal.show .pat-assistant-history-modal-title .fa {
+    font-size: 0.88em !important;
+}
+
+body .modal.show.assistant-history-modal .pat-assistant-history-modal-header .btn-close,
+body .modal.assistant-history-modal.show .pat-assistant-history-modal-header .btn-close {
+    padding: 0.35rem !important;
+}
+
+body .modal.show.assistant-history-modal .pat-assistant-history-modal-body,
+body .modal.assistant-history-modal.show .pat-assistant-history-modal-body {
+    padding: 0.45rem 0.65rem 0.55rem !important;
+}
+
+body .modal.show.assistant-history-modal .pat-assistant-history-modal-intro,
+body .modal.assistant-history-modal.show .pat-assistant-history-modal-intro {
+    font-size: 0.72rem !important;
+    line-height: 1.35 !important;
+    margin-bottom: 0.35rem !important;
+}
+
+body .modal.show.assistant-history-modal .pat-assistant-history-modal-body .form-control-sm,
+body .modal.assistant-history-modal.show .pat-assistant-history-modal-body .form-control-sm {
+    font-size: 0.75rem !important;
+    padding: 0.2rem 0.45rem !important;
+    min-height: calc(1.35em + 0.35rem + 2px) !important;
+}
+
+body .modal.show.assistant-history-modal .pat-assistant-history-modal-body .text-muted,
+body .modal.show.assistant-history-modal .pat-assistant-history-modal-body .text-danger,
+body .modal.assistant-history-modal.show .pat-assistant-history-modal-body .text-muted,
+body .modal.assistant-history-modal.show .pat-assistant-history-modal-body .text-danger {
+    font-size: 0.72rem !important;
+}
+
+body .modal.show.assistant-history-modal .pat-assistant-history-list,
+body .modal.assistant-history-modal.show .pat-assistant-history-list {
+    max-height: min(58vh, 440px) !important;
+    overflow-x: hidden !important;
+    overflow-y: scroll !important;
+    scrollbar-gutter: stable !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(100, 116, 139, 0.55) rgba(241, 245, 249, 0.95) !important;
+    -webkit-overflow-scrolling: touch !important;
+}
+
+/*
+ * Hors téléphone : .modal-dialog occupe la hauteur utile + align-items:center pour centrer la boîte ;
+ * la hauteur fixe est sur .modal-content (liste en flex à l’intérieur).
+ */
+@media (min-width: 576px) {
+    body .modal.show.assistant-history-modal .modal-dialog.modal-dialog-centered,
+    body .modal.fade.show.assistant-history-modal .modal-dialog.modal-dialog-centered,
+    body .modal.assistant-history-modal.show .modal-dialog.modal-dialog-centered,
+    body ngb-modal-window.modal.show.assistant-history-modal .modal-dialog.modal-dialog-centered,
+    body ngb-modal-window.modal.assistant-history-modal.show .modal-dialog.modal-dialog-centered {
+        width: min(1280px, 96vw) !important;
+        max-width: min(1280px, 96vw) !important;
+        min-height: calc(100vh - 2rem) !important;
+        min-height: calc(100dvh - 2rem) !important;
+        margin: 1rem auto !important;
+        align-items: center !important;
+        justify-content: center !important;
+        display: flex !important;
+        box-sizing: border-box !important;
+    }
+
+    body .modal.show.assistant-history-modal .modal-dialog > .modal-content,
+    body .modal.fade.show.assistant-history-modal .modal-dialog > .modal-content,
+    body .modal.assistant-history-modal.show .modal-dialog > .modal-content,
+    body ngb-modal-window.modal.show.assistant-history-modal .modal-dialog > .modal-content,
+    body ngb-modal-window.modal.assistant-history-modal.show .modal-dialog > .modal-content {
+        flex: 0 1 auto !important;
+        width: 100% !important;
+        height: min(83.2vh, 736px) !important;
+        max-height: min(83.2vh, 736px) !important;
+        height: min(83.2dvh, 736px) !important;
+        max-height: min(83.2dvh, 736px) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body .modal.show.assistant-history-modal .pat-assistant-history-modal-header,
+    body .modal.assistant-history-modal.show .pat-assistant-history-modal-header {
+        flex-shrink: 0 !important;
+    }
+
+    body .modal.show.assistant-history-modal .pat-assistant-history-modal-body,
+    body .modal.assistant-history-modal.show .pat-assistant-history-modal-body {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    body .modal.show.assistant-history-modal .pat-assistant-history-modal-body > *:not(.pat-assistant-history-list),
+    body .modal.assistant-history-modal.show .pat-assistant-history-modal-body > *:not(.pat-assistant-history-list) {
+        flex-shrink: 0 !important;
+    }
+
+    body .modal.show.assistant-history-modal .pat-assistant-history-list,
+    body .modal.assistant-history-modal.show .pat-assistant-history-list {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+    }
+}
+
+body .modal.show.assistant-history-modal .pat-assistant-history-list::-webkit-scrollbar,
+body .modal.assistant-history-modal.show .pat-assistant-history-list::-webkit-scrollbar {
+    width: 8px !important;
+}
+
+body .modal.show.assistant-history-modal .pat-assistant-history-list::-webkit-scrollbar-thumb,
+body .modal.assistant-history-modal.show .pat-assistant-history-list::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.45) !important;
+    border-radius: 6px !important;
+}
+
+body .modal.show.assistant-history-modal .pat-assistant-history-list::-webkit-scrollbar-track,
+body .modal.assistant-history-modal.show .pat-assistant-history-list::-webkit-scrollbar-track {
+    background: rgba(241, 245, 249, 0.9) !important;
+    border-radius: 6px !important;
+}
+
+body .modal.show.assistant-history-modal .pat-assistant-history-item,
+body .modal.assistant-history-modal.show .pat-assistant-history-item {
+    padding: 0.35rem 0.45rem !important;
+    gap: 0.35rem !important;
+}
+
+body .modal.show.assistant-history-modal .pat-assistant-history-preview,
+body .modal.assistant-history-modal.show .pat-assistant-history-preview {
+    font-size: 0.78rem !important;
+    font-weight: 600 !important;
+    font-style: normal !important;
+    line-height: 1.35 !important;
+}
+
+body .modal.show.assistant-history-modal .pat-assistant-history-meta,
+body .modal.assistant-history-modal.show .pat-assistant-history-meta {
+    font-size: 0.68rem !important;
+    line-height: 1.35 !important;
+    margin-top: 0.15rem !important;
+    font-style: italic !important;
+}
+
+body .modal.show.assistant-history-modal .pat-assistant-history-item-actions .btn,
+body .modal.assistant-history-modal.show .pat-assistant-history-item-actions .btn {
+    font-size: 0.72rem !important;
+    line-height: 1.25 !important;
+}
+
 /* Global style for discussion modal with white border */
 ::ng-deep .discussion-modal-window .modal-content,
 ::ng-deep .modal-dialog.discussion-modal-window .modal-content,

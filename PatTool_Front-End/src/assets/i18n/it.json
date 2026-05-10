@@ -1499,7 +1499,8 @@
         "HISTORY_FILTER_EMPTY": "Nessuna conversazione corrisponde alla ricerca.",
         "HISTORY_OWNER_LABEL": "Proprietario",
         "HISTORY_CREATED_LABEL": "Creata",
-        "HISTORY_UPDATED_LABEL": "Aggiornata"
+        "HISTORY_UPDATED_LABEL": "Aggiornata",
+        "HISTORY_OWNER_UNKNOWN": "(login non salvato)"
     },
     "ABOUT": {
         "DESIGNED_BY": "Progettato e sviluppato da",

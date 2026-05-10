@@ -316,6 +316,34 @@ export class KeycloakService {
     return this.hasRole('Admin') || this.hasRole('admin');
   }
 
+  /** JWT Keycloak `sub` (identifiant opaque). */
+  getJwtSubject(): string | null {
+    const s = KeycloakService.auth.authz?.subject;
+    return typeof s === 'string' && s.trim().length > 0 ? s.trim() : null;
+  }
+
+  /** Claim `preferred_username` du token courant. */
+  getPreferredUsername(): string | null {
+    const u = KeycloakService.auth.authz?.tokenParsed?.preferred_username;
+    return typeof u === 'string' && u.trim().length > 0 ? u.trim() : null;
+  }
+
+  /**
+   * Libellé utilisateur lisible : login Keycloak, sinon partie locale de l’email du token.
+   */
+  getUsernameForDisplay(): string | null {
+    const pref = this.getPreferredUsername();
+    if (pref) {
+      return pref;
+    }
+    const email = KeycloakService.auth.authz?.tokenParsed?.email;
+    if (typeof email === 'string' && email.includes('@')) {
+      const local = email.split('@')[0].trim();
+      return local.length > 0 ? local : null;
+    }
+    return null;
+  }
+
   /**
    * Check if the current user has FileSystem role
    * @returns true if user has FileSystem role, false otherwise

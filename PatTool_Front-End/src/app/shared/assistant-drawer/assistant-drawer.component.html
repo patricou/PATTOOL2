@@ -50,6 +50,7 @@
           [disabled]="loading">
           <option value="openai">{{ 'ASSISTANT.PROVIDER_OPENAI' | translate }}</option>
           <option value="anthropic">{{ 'ASSISTANT.PROVIDER_ANTHROPIC' | translate }}</option>
+          <option value="gemini">{{ 'ASSISTANT.PROVIDER_GEMINI' | translate }}</option>
         </select>
         <label class="visually-hidden" for="pat-asst-routing-model">{{ 'ASSISTANT.ROUTING_MODEL' | translate }}</label>
         <select
@@ -142,6 +143,11 @@
         <p
           class="pat-assistant-credits-line mb-0 pat-assistant-rich-text"
           [innerHTML]="anthropicBillingBannerHtml()"></p>
+      </ng-container>
+      <ng-container *ngIf="routingProvider === 'gemini'">
+        <p
+          class="pat-assistant-credits-line mb-0 pat-assistant-rich-text"
+          [innerHTML]="geminiBillingBannerHtml()"></p>
       </ng-container>
       <ng-container *ngIf="routingProvider === 'openai'">
         <p *ngIf="creditsLoading" class="pat-assistant-credits-line mb-0">{{ 'ASSISTANT.CREDITS_LOADING' | translate }}</p>
@@ -328,6 +334,15 @@
               ? ('ASSISTANT.PLACEHOLDER_NAMED' | translate : { name: chatUserLabel() })
               : ('ASSISTANT.PLACEHOLDER' | translate)
         "></textarea>
+      <button
+        type="button"
+        class="pat-assistant-clear-draft-btn"
+        (click)="clearDraftOnly()"
+        [disabled]="loading || !draft.trim()"
+        [title]="'ASSISTANT.CLEAR_DRAFT_HINT' | translate"
+        [attr.aria-label]="'ASSISTANT.CLEAR_DRAFT' | translate">
+        <i class="fa fa-times" aria-hidden="true"></i>
+      </button>
     </div>
     <p *ngIf="imageAttachError" class="pat-assistant-image-err text-danger small mb-0">
       {{ imageAttachError | translate }}
@@ -427,8 +442,8 @@
 </aside>
 
 <ng-template #assistantHistoryModal let-modal>
-  <div class="modal-header">
-    <h5 class="modal-title">
+  <div class="modal-header pat-assistant-history-modal-header">
+    <h5 class="modal-title pat-assistant-history-modal-title">
       <i class="fa fa-history me-2" aria-hidden="true"></i>
       {{ 'ASSISTANT.HISTORY_TITLE' | translate }}
     </h5>
@@ -438,8 +453,8 @@
       (click)="modal.dismiss()"
       [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
   </div>
-  <div class="modal-body">
-    <p class="text-muted small">{{ 'ASSISTANT.HISTORY_MODAL_INTRO' | translate }}</p>
+  <div class="modal-body pat-assistant-history-modal-body">
+    <p class="text-muted pat-assistant-history-modal-intro mb-2">{{ 'ASSISTANT.HISTORY_MODAL_INTRO' | translate }}</p>
     <div *ngIf="historyLoading" class="text-muted py-2">{{ 'ASSISTANT.HISTORY_LOADING_LIST' | translate }}</div>
     <p *ngIf="historyErrorKey" class="text-danger small">{{ historyErrorKey | translate }}</p>
     <div *ngIf="historyDetailLoading" class="text-muted small">{{ 'ASSISTANT.HISTORY_LOADING_DETAIL' | translate }}</div>
@@ -455,14 +470,14 @@
         [attr.aria-label]="'ASSISTANT.HISTORY_FILTER_LABEL' | translate" />
     </div>
     <ul
-      class="list-group list-group-flush pat-assistant-history-list border rounded overflow-hidden"
+      class="list-group list-group-flush pat-assistant-history-list border rounded"
       *ngIf="!historyLoading && historyItems.length > 0 && filteredAssistantHistoryItems().length > 0">
       <li
         class="list-group-item pat-assistant-history-item d-flex flex-column flex-md-row gap-2 align-items-md-center justify-content-between"
         *ngFor="let row of filteredAssistantHistoryItems()">
         <div class="flex-grow-1 min-w-0">
-          <div class="fw-semibold text-break">{{ row.preview || ('ASSISTANT.HISTORY_NO_PREVIEW' | translate) }}</div>
-          <div class="small text-muted">
+          <div class="pat-assistant-history-preview text-break">{{ row.preview || ('ASSISTANT.HISTORY_NO_PREVIEW' | translate) }}</div>
+          <div class="pat-assistant-history-meta text-muted fst-italic">
             {{ 'ASSISTANT.HISTORY_OWNER_LABEL' | translate }}: {{ historyOwnerDisplay(row) }}
             · {{ 'ASSISTANT.HISTORY_CREATED_LABEL' | translate }}:
             {{ row.createdAt | date : 'short' }}
@@ -471,17 +486,28 @@
             · {{ row.providerLabel }} · {{ row.model }}
           </div>
         </div>
-        <div class="d-flex gap-1 flex-shrink-0">
+        <div class="d-flex gap-1 flex-shrink-0 pat-assistant-history-item-actions">
           <button
             type="button"
-            class="btn btn-sm btn-primary"
+            class="btn btn-sm btn-outline-secondary py-0 px-2"
+            (click)="copyAssistantHistoryQuestion(row, $event)"
+            [disabled]="assistantHistoryCopyingId === row.id"
+            [ngbTooltip]="'ASSISTANT.HISTORY_COPY_QUESTION_TOOLTIP' | translate"
+            placement="top"
+            container="body"
+            [attr.aria-label]="'ASSISTANT.HISTORY_COPY_QUESTION' | translate">
+            <i class="fa fa-copy" aria-hidden="true"></i>
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-primary py-0 px-2"
             (click)="loadConversationFromHistory(row.id)"
             [disabled]="historyDetailLoading">
             {{ 'ASSISTANT.HISTORY_OPEN' | translate }}
           </button>
           <button
             type="button"
-            class="btn btn-sm btn-outline-danger"
+            class="btn btn-sm btn-outline-danger py-0 px-2"
             (click)="deleteAssistantConversationFromHistory(row.id, $event)"
             [disabled]="historyDetailLoading"
             [title]="'ASSISTANT.HISTORY_DELETE_HINT' | translate">

@@ -1301,7 +1301,8 @@
         "HISTORY_FILTER_EMPTY": "検索に一致する会話はありません。",
         "HISTORY_OWNER_LABEL": "所有者",
         "HISTORY_CREATED_LABEL": "作成",
-        "HISTORY_UPDATED_LABEL": "更新"
+        "HISTORY_UPDATED_LABEL": "更新",
+        "HISTORY_OWNER_UNKNOWN": "(ユーザー名未保存)"
     },
     "ABOUT": {
         "DESIGNED_BY": "デザイン・開発者",

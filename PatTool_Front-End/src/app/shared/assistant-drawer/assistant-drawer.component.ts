@@ -253,6 +253,8 @@ export class AssistantDrawerComponent
   historyLoading = false;
   historyDetailLoading = false;
   historyItems: AssistantConversationSummary[] = [];
+  /** Copie question en cours : id conversation (GET détail pour texte complet). */
+  assistantHistoryCopyingId: string | null = null;
   /** Filtre plein texte dans la liste de l’historique (modal). */
   historyConversationFilter = '';
   historyErrorKey: string | null = null;
@@ -328,11 +330,16 @@ export class AssistantDrawerComponent
     'claude-opus-4-7',
     'claude-haiku-4-5-20251001'
   ];
+  private static readonly GEMINI_MODEL_PRESETS: readonly string[] = [
+    'gemini-2.5-flash',
+    'gemini-2.5-pro',
+    'gemini-2.0-flash'
+  ];
 
   readonly MODEL_PRESET_CUSTOM = '__custom__';
 
   /** Fournisseur effectif pour les requêtes (surcharge application.properties). */
-  routingProvider: 'openai' | 'anthropic' = 'openai';
+  routingProvider: 'openai' | 'anthropic' | 'gemini' = 'openai';
   /** Id de modèle parmi {@link routingModelOptions} ou {@link MODEL_PRESET_CUSTOM}. */
   modelPreset = 'gpt-4o';
   /** Saisie libre si {@link modelPreset} === {@link MODEL_PRESET_CUSTOM}. */
@@ -342,7 +349,7 @@ export class AssistantDrawerComponent
   /** Modèle issu du backend (GET /assistant/config), injecté dans les listes. */
   serverDefaultModel = '';
   /** Valeur de assistant.provider côté serveur. */
-  serverRoutingDefault: 'openai' | 'anthropic' = 'openai';
+  serverRoutingDefault: 'openai' | 'anthropic' | 'gemini' = 'openai';
   /**
    * Routing préservé depuis sessionStorage, appliqué seulement après GET /assistant/config
    * si aucune préférence Mongo (priorité : Mongo → session onglet → application.properties).
@@ -350,6 +357,12 @@ export class AssistantDrawerComponent
   private pendingSessionRouting?: AssistantRoutingStored;
   /** True si le routing vient de Mongo ou de la session onglet (pas des seuls défauts serveur). */
   private routingRestoredFromSession = false;
+  /**
+   * True si l’utilisateur a changé le fournisseur dans la liste, ou si une conversation chargée impose
+   * le fournisseur — évite qu’un GET /assistant/config tardif réécrase le choix (ex. Gemini) par le défaut
+   * serveur.
+   */
+  private routingProviderLockedAgainstConfigDefault = false;
 
   private assistantClientConfigLoaded = false;
 
@@ -421,7 +434,9 @@ export class AssistantDrawerComponent
         const r = saved.routing;
         if (
           r &&
-          (r.provider === 'openai' || r.provider === 'anthropic') &&
+          (r.provider === 'openai' ||
+            r.provider === 'anthropic' ||
+            r.provider === 'gemini') &&
           typeof r.modelPreset === 'string'
         ) {
           this.pendingSessionRouting = {
@@ -611,12 +626,20 @@ export class AssistantDrawerComponent
             typeof c.routingDefault === 'string'
               ? c.routingDefault.trim().toLowerCase()
               : '';
-          this.serverRoutingDefault = rd === 'anthropic' ? 'anthropic' : 'openai';
+          this.serverRoutingDefault =
+            rd === 'anthropic'
+              ? 'anthropic'
+              : rd === 'gemini'
+                ? 'gemini'
+                : 'openai';
 
           this.applyRoutingPreferenceResolution(c);
           this.pendingSessionRouting = undefined;
 
-          if (!this.routingRestoredFromSession) {
+          if (
+            !this.routingRestoredFromSession &&
+            !this.routingProviderLockedAgainstConfigDefault
+          ) {
             this.routingProvider = this.serverRoutingDefault;
           }
           this.rebuildModelOptionsList();
@@ -632,7 +655,10 @@ export class AssistantDrawerComponent
           this.serverRoutingDefault = 'openai';
           this.applyRoutingPreferenceResolution({});
           this.pendingSessionRouting = undefined;
-          if (!this.routingRestoredFromSession) {
+          if (
+            !this.routingRestoredFromSession &&
+            !this.routingProviderLockedAgainstConfigDefault
+          ) {
             this.routingProvider = this.serverRoutingDefault;
           }
           this.rebuildModelOptionsList();
@@ -655,7 +681,9 @@ export class AssistantDrawerComponent
     const pr = c.persistedRouting;
     if (
       pr &&
-      (pr.provider === 'openai' || pr.provider === 'anthropic') &&
+      (pr.provider === 'openai' ||
+        pr.provider === 'anthropic' ||
+        pr.provider === 'gemini') &&
       typeof pr.modelPreset === 'string'
     ) {
       this.routingProvider = pr.provider;
@@ -667,7 +695,9 @@ export class AssistantDrawerComponent
     const ps = this.pendingSessionRouting;
     if (
       ps &&
-      (ps.provider === 'openai' || ps.provider === 'anthropic') &&
+      (ps.provider === 'openai' ||
+        ps.provider === 'anthropic' ||
+        ps.provider === 'gemini') &&
       typeof ps.modelPreset === 'string'
     ) {
       this.routingProvider = ps.provider;
@@ -684,10 +714,14 @@ export class AssistantDrawerComponent
     if (!m) {
       return '';
     }
-    const lab =
-      this.routingProvider === 'anthropic'
-        ? this.translate.instant('ASSISTANT.PROVIDER_ANTHROPIC_SHORT')
-        : this.translate.instant('ASSISTANT.PROVIDER_OPENAI_SHORT');
+    let lab: string;
+    if (this.routingProvider === 'anthropic') {
+      lab = this.translate.instant('ASSISTANT.PROVIDER_ANTHROPIC_SHORT');
+    } else if (this.routingProvider === 'gemini') {
+      lab = this.translate.instant('ASSISTANT.PROVIDER_GEMINI_SHORT');
+    } else {
+      lab = this.translate.instant('ASSISTANT.PROVIDER_OPENAI_SHORT');
+    }
     return `${lab} · ${m}`;
   }
 
@@ -710,11 +744,14 @@ export class AssistantDrawerComponent
     const defaults =
       this.routingProvider === 'openai'
         ? AssistantDrawerComponent.OPENAI_MODEL_PRESETS
-        : AssistantDrawerComponent.ANTHROPIC_MODEL_PRESETS;
+        : this.routingProvider === 'gemini'
+          ? AssistantDrawerComponent.GEMINI_MODEL_PRESETS
+          : AssistantDrawerComponent.ANTHROPIC_MODEL_PRESETS;
     return defaults[0] ?? 'gpt-4o';
   }
 
   onAssistantRoutingProviderChange(): void {
+    this.routingProviderLockedAgainstConfigDefault = true;
     this.toolWebSearch = false;
     this.toolImageGeneration = false;
     this.toolMcp = false;
@@ -760,7 +797,9 @@ export class AssistantDrawerComponent
     const presets =
       this.routingProvider === 'openai'
         ? [...AssistantDrawerComponent.OPENAI_MODEL_PRESETS]
-        : [...AssistantDrawerComponent.ANTHROPIC_MODEL_PRESETS];
+        : this.routingProvider === 'gemini'
+          ? [...AssistantDrawerComponent.GEMINI_MODEL_PRESETS]
+          : [...AssistantDrawerComponent.ANTHROPIC_MODEL_PRESETS];
     const srv = this.serverDefaultModel.trim();
     if (srv && !presets.includes(srv)) {
       presets.push(srv);
@@ -907,26 +946,44 @@ export class AssistantDrawerComponent
 
   /** Infobulle du bouton solde / facturation selon le fournisseur. */
   creditsBtnHint(): string {
-    return this.routingProvider === 'anthropic'
-      ? this.translate.instant('ASSISTANT.CREDITS_BTN_HINT_ANTHROPIC')
-      : this.translate.instant('ASSISTANT.CREDITS_BTN_HINT');
+    if (this.routingProvider === 'anthropic') {
+      return this.translate.instant('ASSISTANT.CREDITS_BTN_HINT_ANTHROPIC');
+    }
+    if (this.routingProvider === 'gemini') {
+      return this.translate.instant('ASSISTANT.CREDITS_BTN_HINT_GEMINI');
+    }
+    return this.translate.instant('ASSISTANT.CREDITS_BTN_HINT');
   }
 
   creditsToggleAria(): string {
-    return this.routingProvider === 'anthropic'
-      ? this.translate.instant('ASSISTANT.CREDITS_TOGGLE_ANTHROPIC')
-      : this.translate.instant('ASSISTANT.CREDITS_TOGGLE');
+    if (this.routingProvider === 'anthropic') {
+      return this.translate.instant('ASSISTANT.CREDITS_TOGGLE_ANTHROPIC');
+    }
+    if (this.routingProvider === 'gemini') {
+      return this.translate.instant('ASSISTANT.CREDITS_TOGGLE_GEMINI');
+    }
+    return this.translate.instant('ASSISTANT.CREDITS_TOGGLE');
   }
 
   creditsBannerAriaLabel(): string {
-    return this.routingProvider === 'anthropic'
-      ? this.translate.instant('ASSISTANT.CREDITS_TITLE_ANTHROPIC')
-      : this.translate.instant('ASSISTANT.CREDITS_TITLE');
+    if (this.routingProvider === 'anthropic') {
+      return this.translate.instant('ASSISTANT.CREDITS_TITLE_ANTHROPIC');
+    }
+    if (this.routingProvider === 'gemini') {
+      return this.translate.instant('ASSISTANT.CREDITS_TITLE_GEMINI');
+    }
+    return this.translate.instant('ASSISTANT.CREDITS_TITLE');
   }
 
   /** Texte + lien console Anthropic (URLs rendues par {@link linkRichContent}). */
   anthropicBillingBannerHtml(): SafeHtml {
     const line = this.translate.instant('ASSISTANT.CREDITS_ANTHROPIC_CONSOLE_LINE');
+    return this.linkRichContent(line);
+  }
+
+  /** Texte + lien Google AI Studio (URLs rendues par {@link linkRichContent}). */
+  geminiBillingBannerHtml(): SafeHtml {
+    const line = this.translate.instant('ASSISTANT.CREDITS_GEMINI_CONSOLE_LINE');
     return this.linkRichContent(line);
   }
 
@@ -1073,7 +1130,7 @@ export class AssistantDrawerComponent
   }
 
   private collectToolFlagsForSession(): AssistantToolFlagsRequest | undefined {
-    if (this.routingProvider === 'anthropic') {
+    if (this.routingProvider === 'anthropic' || this.routingProvider === 'gemini') {
       return undefined;
     }
     const o: AssistantToolFlagsRequest = {};
@@ -1496,14 +1553,27 @@ export class AssistantDrawerComponent
     );
   }
 
-  /** Recopie une question précédente dans le champ du bas (pour relancer ou modifier). */
-  copyQuestionIntoDraft(content: string, ev: MouseEvent): void {
-    ev.stopPropagation();
-    ev.preventDefault();
-    const text = typeof content === 'string' ? content : '';
+  /** Vide uniquement le champ de saisie (sans effacer le fil de discussion). */
+  clearDraftOnly(): void {
     if (this.loading) {
       return;
     }
+    this.draft = '';
+    if (this.draftPersistTimer !== undefined) {
+      clearTimeout(this.draftPersistTimer);
+      this.draftPersistTimer = undefined;
+    }
+    this.persistSession();
+    this.cdr.markForCheck();
+    queueMicrotask(() => {
+      this.draftInputEl?.nativeElement?.focus();
+    });
+  }
+
+  /**
+   * Place le texte dans le champ de composition de l’assistant et positionne le curseur à la fin.
+   */
+  private putQuestionTextInAssistantDraft(text: string): void {
     this.draft = text;
     if (this.draftPersistTimer !== undefined) {
       clearTimeout(this.draftPersistTimer);
@@ -1519,6 +1589,17 @@ export class AssistantDrawerComponent
         el.setSelectionRange(len, len);
       }
     });
+  }
+
+  /** Recopie une question précédente dans le champ du bas (pour relancer ou modifier). */
+  copyQuestionIntoDraft(content: string, ev: MouseEvent): void {
+    ev.stopPropagation();
+    ev.preventDefault();
+    if (this.loading) {
+      return;
+    }
+    const text = typeof content === 'string' ? content : '';
+    this.putQuestionTextInAssistantDraft(text);
   }
 
   ngAfterViewChecked(): void {
@@ -1653,9 +1734,8 @@ export class AssistantDrawerComponent
     this.historyItems = [];
     this.historyListSub?.unsubscribe();
     const ref = this.modalService.open(this.assistantHistoryModal, {
-      size: 'lg',
       centered: true,
-      scrollable: true,
+      scrollable: false,
       windowClass: 'assistant-history-modal'
     });
     this.assistantHistoryModalRef = ref;
@@ -1684,10 +1764,36 @@ export class AssistantDrawerComponent
     this.cdr.markForCheck();
   }
 
-  /** Nom affiché du propriétaire dans la liste d'historique (preferred_username ou sub JWT). */
+  /** Nom affiché du propriétaire : login stocké / JWT (ses lignes), sans retomber sur le `sub` opaque si possible. */
   historyOwnerDisplay(row: AssistantConversationSummary): string {
-    const u = (row.ownerPreferredUsername ?? '').trim();
-    return u.length > 0 ? u : (row.ownerSubject ?? '').trim();
+    const fromApi = (row.ownerPreferredUsername ?? '').trim();
+    if (fromApi.length > 0) {
+      return fromApi;
+    }
+    const ownerSub = (row.ownerSubject ?? '').trim();
+    const mySub = this.keycloak.getJwtSubject();
+    const isMine = !!(mySub && ownerSub === mySub);
+    if (isMine) {
+      const selfLabel = (this.keycloak.getUsernameForDisplay() ?? '').trim();
+      if (selfLabel.length > 0) {
+        return selfLabel;
+      }
+    }
+    if (!isMine && ownerSub.length > 0 && this.looksLikeOpaqueSubjectId(ownerSub)) {
+      return this.translate.instant('ASSISTANT.HISTORY_OWNER_UNKNOWN');
+    }
+    return ownerSub;
+  }
+
+  /** Évite d’afficher un UUID Keycloak (ou id opaque) comme « nom » pour les conversations des autres. */
+  private looksLikeOpaqueSubjectId(sub: string): boolean {
+    const t = sub.trim();
+    if (
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t)
+    ) {
+      return true;
+    }
+    return /^\d{16,}$/.test(t);
   }
 
   /** Liste historique filtrée selon {@link historyConversationFilter}. */
@@ -1767,10 +1873,112 @@ export class AssistantDrawerComponent
       });
   }
 
+  /**
+   * Copie la première question utilisateur dans le presse-papiers et dans le champ de composition ;
+   * ferme la modale d’historique. Texte complet via le détail (l’aperçu liste est tronqué côté serveur).
+   */
+  copyAssistantHistoryQuestion(row: AssistantConversationSummary, ev: MouseEvent): void {
+    ev.stopPropagation();
+    ev.preventDefault();
+    if (this.assistantHistoryCopyingId != null) {
+      return;
+    }
+    this.assistantHistoryCopyingId = row.id;
+    this.cdr.markForCheck();
+    this.assistant
+      .getConversation(row.id)
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.assistantHistoryCopyingId = null;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
+        next: (detail) => {
+          const text = this.extractFirstUserQuestionFromConversationDetail(detail);
+          if (text) {
+            copyPlainTextToClipboard(text);
+            this.putQuestionTextInAssistantDraft(text);
+            this.assistantHistoryModalRef?.close();
+            this.showAssistantTransientBanner(
+              'ASSISTANT.HISTORY_COPY_QUESTION_OK',
+              'success',
+              2200
+            );
+            return;
+          }
+          const fallback = this.previewPlainFallback(row.preview);
+          if (fallback) {
+            copyPlainTextToClipboard(fallback);
+            this.putQuestionTextInAssistantDraft(fallback);
+            this.assistantHistoryModalRef?.close();
+            this.showAssistantTransientBanner(
+              'ASSISTANT.HISTORY_COPY_QUESTION_OK',
+              'success',
+              2200
+            );
+          } else {
+            this.showAssistantTransientBanner(
+              'ASSISTANT.HISTORY_COPY_QUESTION_EMPTY',
+              'error',
+              2800
+            );
+          }
+        },
+        error: () => {
+          const fallback = this.previewPlainFallback(row.preview);
+          if (fallback) {
+            copyPlainTextToClipboard(fallback);
+            this.putQuestionTextInAssistantDraft(fallback);
+            this.assistantHistoryModalRef?.close();
+            this.showAssistantTransientBanner(
+              'ASSISTANT.HISTORY_COPY_QUESTION_OK',
+              'success',
+              2200
+            );
+          } else {
+            this.showAssistantTransientBanner(
+              'ASSISTANT.HISTORY_COPY_QUESTION_ERR',
+              'error',
+              2800
+            );
+          }
+        }
+      });
+  }
+
+  private extractFirstUserQuestionFromConversationDetail(
+    detail: AssistantConversationDetail
+  ): string {
+    for (const t of detail.turns ?? []) {
+      if (t.role === 'user' && typeof t.content === 'string') {
+        const c = t.content.trim();
+        if (c) {
+          return c;
+        }
+      }
+    }
+    return '';
+  }
+
+  private previewPlainFallback(preview: string | null | undefined): string {
+    const s = typeof preview === 'string' ? preview.trim() : '';
+    if (!s) {
+      return '';
+    }
+    return s.replace(/\u2026\s*$/, '').replace(/\.\.\.\s*$/, '').trim();
+  }
+
   private applyLoadedAssistantConversation(detail: AssistantConversationDetail): void {
     this.persistedRemoteConversationId = detail.id;
-    if (detail.routingProvider === 'openai' || detail.routingProvider === 'anthropic') {
+    if (
+      detail.routingProvider === 'openai' ||
+      detail.routingProvider === 'anthropic' ||
+      detail.routingProvider === 'gemini'
+    ) {
       this.routingProvider = detail.routingProvider;
+      this.routingProviderLockedAgainstConfigDefault = true;
     }
     this.rebuildModelOptionsList();
     /** Le Mongo historique garde l’id exact du modèle (ex. gpt-5.5-2026-04-23), absent des presets courts → éviter « personnalisé » si on peut l’aligner sur une entrée liste. */
@@ -1992,7 +2200,9 @@ export class AssistantDrawerComponent
     const fallbackProv =
       this.routingProvider === 'openai'
         ? this.translate.instant('ASSISTANT.PROVIDER_OPENAI_SHORT')
-        : this.translate.instant('ASSISTANT.PROVIDER_ANTHROPIC_SHORT');
+        : this.routingProvider === 'gemini'
+          ? this.translate.instant('ASSISTANT.PROVIDER_GEMINI_SHORT')
+          : this.translate.instant('ASSISTANT.PROVIDER_ANTHROPIC_SHORT');
     return { providerLabel: fallbackProv, model: this.effectiveModelForRequest() };
   }
 

@@ -26,7 +26,7 @@ public class AssistantConversation {
     private Instant createdAt;
     private Instant updatedAt;
 
-    /** {@code openai} ou {@code anthropic} */
+    /** {@code openai}, {@code anthropic} ou {@code gemini} */
     private String routingProvider;
 
     /** Libellé fournisseur (réponse API ou défaut UI) */

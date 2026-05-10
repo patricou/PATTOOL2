@@ -71,7 +71,8 @@ public class AssistantController {
 
     /**
      * Fournisseur et modèle configurés pour l’UI (OpenAI : {@code openai.provider} / {@code openai.assistant.model},
-     * Anthropic : {@code anthropic.provider-label} / {@code anthropic.model}).
+     * Anthropic : {@code anthropic.provider-label} / {@code anthropic.model}, Gemini : {@code gemini.provider-label} /
+     * {@code gemini.model}).
      */
     @GetMapping("/assistant/config")
     public ResponseEntity<AssistantClientConfigDto> assistantClientConfig() {
@@ -190,7 +191,8 @@ public class AssistantController {
         if (sub == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        return ResponseEntity.ok(assistantConversationService.listSummaries(sub, assistantAdmin()));
+        return ResponseEntity.ok(
+                assistantConversationService.listSummaries(sub, preferredUsernameFromJwt(), assistantAdmin()));
     }
 
     /** Détail d’une conversation (tours + images) : propriétaire ou administrateur PatTool ({@code Admin}). */
@@ -227,7 +229,7 @@ public class AssistantController {
         if (sub == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        assistantConversationService.update(sub, id, body, assistantAdmin());
+        assistantConversationService.update(sub, id, body, assistantAdmin(), preferredUsernameFromJwt());
         return ResponseEntity.noContent().build();
     }
 
@@ -245,8 +247,8 @@ public class AssistantController {
     }
 
     /**
-     * Assistant latéral multi-tours : OpenAI (Chat Completions / Responses) ou Anthropic (Messages)
-     * selon {@code assistant.provider}.
+     * Assistant latéral multi-tours : OpenAI, Anthropic (Messages) ou Google Gemini ({@code generateContent})
+     * selon {@code assistant.provider} (ou surcharge {@code provider} dans le corps).
      */
     @PostMapping("/assistant/chat")
     public ResponseEntity<AssistantChatResponseDto> chat(@RequestBody @Valid AssistantChatRequestDto body) {
@@ -256,7 +258,9 @@ public class AssistantController {
                     result.error().contains("openai.key")
                             || result.error().contains("configurez openai.key")
                             || result.error().contains("anthropic.key")
-                            || result.error().contains("configurez anthropic.key");
+                            || result.error().contains("configurez anthropic.key")
+                            || result.error().contains("gemini.key")
+                            || result.error().contains("configurez gemini.key");
             HttpStatus status = configMissingKey ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.BAD_GATEWAY;
             return ResponseEntity.status(status).body(result);
         }

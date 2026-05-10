@@ -41,15 +41,22 @@ public class AssistantConversationService {
         this.assetService = assetService;
     }
 
-    public List<AssistantConversationSummaryDto> listSummaries(String ownerSubject, boolean assistantAdmin) {
-        if (ownerSubject == null || ownerSubject.isBlank()) {
+    /**
+     * @param viewerSubject {@code sub} JWT de l’utilisateur qui consulte la liste
+     * @param viewerPreferredUsername {@code preferred_username} du JWT (pour afficher un login là où Mongo ne l’a pas encore)
+     */
+    public List<AssistantConversationSummaryDto> listSummaries(
+            String viewerSubject, String viewerPreferredUsername, boolean assistantAdmin) {
+        if (viewerSubject == null || viewerSubject.isBlank()) {
             return List.of();
         }
         List<AssistantConversation> rows =
                 assistantAdmin
                         ? repository.findTop100ByOrderByUpdatedAtDesc()
-                        : repository.findTop100ByOwnerSubjectOrderByUpdatedAtDesc(ownerSubject);
-        return rows.stream().map(this::toSummary).toList();
+                        : repository.findTop100ByOwnerSubjectOrderByUpdatedAtDesc(viewerSubject);
+        return rows.stream()
+                .map(doc -> toSummary(doc, viewerSubject, viewerPreferredUsername))
+                .toList();
     }
 
     public Optional<AssistantConversationDetailDto> getDetail(String ownerSubject, String id, boolean assistantAdmin) {
@@ -81,7 +88,12 @@ public class AssistantConversationService {
         return new AssistantConversationCreatedDto(saved.getId());
     }
 
-    public void update(String ownerSubject, String id, AssistantConversationSaveRequestDto req, boolean assistantAdmin) {
+    public void update(
+            String ownerSubject,
+            String id,
+            AssistantConversationSaveRequestDto req,
+            boolean assistantAdmin,
+            String jwtPreferredUsername) {
         validate(ownerSubject, req, assistantAdmin);
         if (id == null || id.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "id required");
@@ -98,6 +110,12 @@ public class AssistantConversationService {
         doc.setProviderLabel(trimOrEmpty(req.providerLabel()));
         doc.setModel(req.model().trim());
         doc.setTurns(mapIncomingTurns(req.turns()));
+        if ((doc.getOwnerPreferredUsername() == null || doc.getOwnerPreferredUsername().isBlank())
+                && jwtPreferredUsername != null
+                && !jwtPreferredUsername.isBlank()
+                && ownerSubject.equals(doc.getOwnerSubject())) {
+            doc.setOwnerPreferredUsername(jwtPreferredUsername.strip());
+        }
         repository.save(doc);
         Set<String> kept = new HashSet<>(collectGeneratedAssetIds(doc.getTurns()));
         for (String aid : previousAssets) {
@@ -165,8 +183,9 @@ public class AssistantConversationService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
         }
         String rp = req.routingProvider().trim().toLowerCase();
-        if (!"openai".equals(rp) && !"anthropic".equals(rp)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "routingProvider must be openai or anthropic");
+        if (!"openai".equals(rp) && !"anthropic".equals(rp) && !"gemini".equals(rp)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "routingProvider must be openai, anthropic or gemini");
         }
         if (req.turns().size() > MAX_TURNS) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Too many turns");
@@ -277,7 +296,17 @@ public class AssistantConversationService {
         return out;
     }
 
-    private AssistantConversationSummaryDto toSummary(AssistantConversation doc) {
+    private AssistantConversationSummaryDto toSummary(
+            AssistantConversation doc, String viewerSubject, String viewerPreferredUsername) {
+        String stored = doc.getOwnerPreferredUsername();
+        String preferredForApi = stored;
+        if ((preferredForApi == null || preferredForApi.isBlank())
+                && viewerSubject != null
+                && viewerSubject.equals(doc.getOwnerSubject())
+                && viewerPreferredUsername != null
+                && !viewerPreferredUsername.isBlank()) {
+            preferredForApi = viewerPreferredUsername.strip();
+        }
         return new AssistantConversationSummaryDto(
                 doc.getId(),
                 doc.getCreatedAt(),
@@ -287,7 +316,7 @@ public class AssistantConversationService {
                 doc.getModel(),
                 previewFrom(doc),
                 doc.getOwnerSubject(),
-                doc.getOwnerPreferredUsername());
+                preferredForApi);
     }
 
     private String previewFrom(AssistantConversation doc) {

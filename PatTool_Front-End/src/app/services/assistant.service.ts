@@ -85,7 +85,7 @@ export interface AssistantOpenAiCredits {
 export interface AssistantClientConfig {
   provider?: string | null;
   model?: string | null;
-  /** openai | anthropic — valeur de assistant.provider côté Spring. */
+  /** openai | anthropic | gemini — valeur de assistant.provider côté Spring. */
   routingDefault?: string | null;
   /** Préférence persistée (Mongo appParameters), si l’utilisateur en a déjà enregistré une. */
   persistedRouting?: AssistantRoutingStored | null;
@@ -93,13 +93,13 @@ export interface AssistantClientConfig {
 
 /** Fournisseur + modèle effectifs pour un tour de chat (surcharge la config serveur). */
 export interface AssistantRoutingRequest {
-  provider: 'openai' | 'anthropic';
+  provider: 'openai' | 'anthropic' | 'gemini';
   model: string;
 }
 
 /** Persistance du choix fournisseur / modèle dans l’assistant (sessionStorage + optionnellement Mongo via API). */
 export interface AssistantRoutingStored {
-  provider: 'openai' | 'anthropic';
+  provider: 'openai' | 'anthropic' | 'gemini';
   modelPreset: string;
   modelCustom: string;
 }
@@ -157,7 +157,7 @@ export interface AssistantConversationTurnPersist {
 }
 
 export interface AssistantConversationSaveBody {
-  routingProvider: 'openai' | 'anthropic';
+  routingProvider: 'openai' | 'anthropic' | 'gemini';
   providerLabel: string;
   model: string;
   turns: AssistantConversationTurnPersist[];
@@ -260,7 +260,11 @@ export class AssistantService {
         base64: attachedImage.base64.trim()
       };
     }
-    if (routing?.provider === 'openai' || routing?.provider === 'anthropic') {
+    if (
+      routing?.provider === 'openai' ||
+      routing?.provider === 'anthropic' ||
+      routing?.provider === 'gemini'
+    ) {
       body.provider = routing.provider;
     }
     if (routing?.model?.trim()) {

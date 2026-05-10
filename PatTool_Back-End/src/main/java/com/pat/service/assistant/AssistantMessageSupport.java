@@ -8,7 +8,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Set;
 
-/** Logique partagée entre fournisseurs (OpenAI, Anthropic) pour l’assistant latéral. */
+/** Logique partagée entre fournisseurs (OpenAI, Anthropic, Gemini) pour l’assistant latéral. */
 public final class AssistantMessageSupport {
 
     public static final int MAX_TURNS = 40;

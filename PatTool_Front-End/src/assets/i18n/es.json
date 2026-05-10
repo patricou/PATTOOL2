@@ -1503,7 +1503,8 @@
         "HISTORY_FILTER_EMPTY": "Ninguna conversación coincide con su búsqueda.",
         "HISTORY_OWNER_LABEL": "Propietario",
         "HISTORY_CREATED_LABEL": "Creada",
-        "HISTORY_UPDATED_LABEL": "Actualizada"
+        "HISTORY_UPDATED_LABEL": "Actualizada",
+        "HISTORY_OWNER_UNKNOWN": "(usuario sin login guardado)"
     },
     "ABOUT": {
         "DESIGNED_BY": "Diseñado y desarrollado por",

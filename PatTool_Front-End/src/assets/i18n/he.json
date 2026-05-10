@@ -1498,7 +1498,8 @@
         "HISTORY_FILTER_EMPTY": "אין שיחות התואמות לחיפוש.",
         "HISTORY_OWNER_LABEL": "בעלים",
         "HISTORY_CREATED_LABEL": "נוצר",
-        "HISTORY_UPDATED_LABEL": "עודכן"
+        "HISTORY_UPDATED_LABEL": "עודכן",
+        "HISTORY_OWNER_UNKNOWN": "(שם משתמש לא נשמר)"
     },
     "ABOUT": {
         "DESIGNED_BY": "עוצב ופותח על ידי",
