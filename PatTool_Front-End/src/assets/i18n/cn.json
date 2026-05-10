@@ -1374,10 +1374,20 @@
         "TAPE_ARIA": "计算步骤",
         "TAPE_EMPTY": "每个数字和运算符将显示在此。",
         "SCIENTIFIC_MODE_LABEL": "科学计算器",
-        "SCIENTIFIC_ANGLES_HINT": "sin / cos / tan 的角度以度为单位。",
+        "SCIENTIFIC_ANGLES_HINT": "使用开关：三角函数与反三角函数以度或弧度计算。",
         "SCI_LOG10_TITLE": "常用对数（底数为 10）",
         "SCI_SQUARE_TITLE": "显示值的平方",
-        "SCI_INV_TITLE": "倒数（1 ÷ x）"
+        "SCI_INV_TITLE": "倒数（1 ÷ x）",
+        "SCI_DEGREES_TOGGLE": "角度为度（关闭=弧度）",
+        "SCI_TITLE_EXP": "e 的 x 次幂",
+        "SCI_TITLE_EXP10": "10 的 x 次幂",
+        "SCI_TITLE_ABS": "绝对值",
+        "SCI_TITLE_FACT": "阶乘 n!（0–170 的整数）",
+        "SCI_TITLE_CUBE": "立方（x³）",
+        "SCI_TITLE_CBRT": "立方根",
+        "SCI_TITLE_LOG2": "以 2 为底的对数",
+        "SCI_TITLE_POW": "幂 x^y：输入指数后按 =",
+        "SCI_TITLE_MOD": "取模（除法余数）"
     },
     "ASSISTANT": {
         "TITLE": "PatTool 助手",

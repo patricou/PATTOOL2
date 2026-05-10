@@ -1375,10 +1375,20 @@
         "TAPE_ARIA": "Passi del calcolo",
         "TAPE_EMPTY": "Ogni numero e operatore comparirà qui.",
         "SCIENTIFIC_MODE_LABEL": "Calcolatrice scientifica",
-        "SCIENTIFIC_ANGLES_HINT": "Per sin / cos / tan gli angoli sono in gradi.",
+        "SCIENTIFIC_ANGLES_HINT": "Interruttore: trigonometria e funzioni inverse in gradi o radianti.",
         "SCI_LOG10_TITLE": "Logaritmo decimale (base 10)",
         "SCI_SQUARE_TITLE": "Quadrato del valore visualizzato",
-        "SCI_INV_TITLE": "Reciproco (1 ÷ x)"
+        "SCI_INV_TITLE": "Reciproco (1 ÷ x)",
+        "SCI_DEGREES_TOGGLE": "Angoli in gradi (spento = radianti)",
+        "SCI_TITLE_EXP": "e elevato a x",
+        "SCI_TITLE_EXP10": "10 elevato a x",
+        "SCI_TITLE_ABS": "Valore assoluto",
+        "SCI_TITLE_FACT": "Fattoriale n! (intero da 0 a 170)",
+        "SCI_TITLE_CUBE": "Cubo (x³)",
+        "SCI_TITLE_CBRT": "Radice cubica",
+        "SCI_TITLE_LOG2": "Logaritmo in base 2",
+        "SCI_TITLE_POW": "Potenza x^y: esponente, poi =",
+        "SCI_TITLE_MOD": "Modulo (resto della divisione)"
     },
     "ASSISTANT": {
         "TITLE": "Assistente PatTool",

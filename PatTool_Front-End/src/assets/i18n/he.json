@@ -1374,10 +1374,20 @@
         "TAPE_ARIA": "שלבי החישוב",
         "TAPE_EMPTY": "כל מספר ופעולה יוצגו כאן.",
         "SCIENTIFIC_MODE_LABEL": "מחשבון מדעי",
-        "SCIENTIFIC_ANGLES_HINT": "זוויות עבור sin / cos / tan מוחזקות במעלות.",
+        "SCIENTIFIC_ANGLES_HINT": "החלף: טריגונומטריה ופונקציות הפוכות במעלות או ברדיאנים.",
         "SCI_LOG10_TITLE": "לוגריתם עשרוני (בסיס 10)",
         "SCI_SQUARE_TITLE": "ריבוע הערך המוצג",
-        "SCI_INV_TITLE": "מספר הפוך (1 ÷ x)"
+        "SCI_INV_TITLE": "מספר הפוך (1 ÷ x)",
+        "SCI_DEGREES_TOGGLE": "Degrees for trig (off = radians)",
+        "SCI_TITLE_EXP": "e raised to the power of x",
+        "SCI_TITLE_EXP10": "10 raised to the power of x",
+        "SCI_TITLE_ABS": "Absolute value",
+        "SCI_TITLE_FACT": "Factorial n! (whole number from 0 to 170)",
+        "SCI_TITLE_CUBE": "Cube (x³)",
+        "SCI_TITLE_CBRT": "Cube root",
+        "SCI_TITLE_LOG2": "Binary logarithm (base 2)",
+        "SCI_TITLE_POW": "Power x^y: enter exponent, then =",
+        "SCI_TITLE_MOD": "Modulo (remainder after division)"
     },
     "ASSISTANT": {
         "TITLE": "עוזר PatTool",

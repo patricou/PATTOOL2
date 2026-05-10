@@ -1373,10 +1373,20 @@
         "TAPE_ARIA": "خطوات الحساب",
         "TAPE_EMPTY": "يُعرض هنا كل رقم وعملية.",
         "SCIENTIFIC_MODE_LABEL": "آلة حاسبة علمية",
-        "SCIENTIFIC_ANGLES_HINT": "زوايا sin و cos و tan بالدرجات.",
+        "SCIENTIFIC_ANGLES_HINT": "استخدم المفتاح: المثلثات والدوال العكسية بالدرجات أو الراديان.",
         "SCI_LOG10_TITLE": "لوغاريتم شائع (الأساس 10)",
         "SCI_SQUARE_TITLE": "مربع القيمة المعروضة",
-        "SCI_INV_TITLE": "المقلوب (1 ÷ x)"
+        "SCI_INV_TITLE": "المقلوب (1 ÷ x)",
+        "SCI_DEGREES_TOGGLE": "Degrees for trig (off = radians)",
+        "SCI_TITLE_EXP": "e raised to the power of x",
+        "SCI_TITLE_EXP10": "10 raised to the power of x",
+        "SCI_TITLE_ABS": "Absolute value",
+        "SCI_TITLE_FACT": "Factorial n! (whole number from 0 to 170)",
+        "SCI_TITLE_CUBE": "Cube (x³)",
+        "SCI_TITLE_CBRT": "Cube root",
+        "SCI_TITLE_LOG2": "Binary logarithm (base 2)",
+        "SCI_TITLE_POW": "Power x^y: enter exponent, then =",
+        "SCI_TITLE_MOD": "Modulo (remainder after division)"
     },
     "ASSISTANT": {
         "TITLE": "مساعد PatTool",

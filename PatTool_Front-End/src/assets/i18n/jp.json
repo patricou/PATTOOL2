@@ -1177,10 +1177,20 @@
         "TAPE_ARIA": "計算の手順",
         "TAPE_EMPTY": "数字と演算子がここに表示されます。",
         "SCIENTIFIC_MODE_LABEL": "関数電卓",
-        "SCIENTIFIC_ANGLES_HINT": "sin / cos / tan の角度は度単位です。",
+        "SCIENTIFIC_ANGLES_HINT": "スイッチで度・ラジアンの三角関数・逆関数を切り替え。",
         "SCI_LOG10_TITLE": "常用対数（底が 10）",
         "SCI_SQUARE_TITLE": "表示されている値の二乗",
-        "SCI_INV_TITLE": "逆数（1÷x）"
+        "SCI_INV_TITLE": "逆数（1÷x）",
+        "SCI_DEGREES_TOGGLE": "三角関数は度（オフ＝ラジアン）",
+        "SCI_TITLE_EXP": "e の x 乗",
+        "SCI_TITLE_EXP10": "10 の x 乗",
+        "SCI_TITLE_ABS": "絶対値",
+        "SCI_TITLE_FACT": "階乗 n!（0～170 の整数）",
+        "SCI_TITLE_CUBE": "3 乗（x³）",
+        "SCI_TITLE_CBRT": "3 乗根",
+        "SCI_TITLE_LOG2": "二進対数（底 2）",
+        "SCI_TITLE_POW": "べき x^y：指数入力後 =",
+        "SCI_TITLE_MOD": "剰余（除算の余り）"
     },
     "ASSISTANT": {
         "TITLE": "PatTool アシスタント",

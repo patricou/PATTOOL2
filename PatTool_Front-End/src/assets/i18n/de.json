@@ -1372,10 +1372,20 @@
         "TAPE_ARIA": "Rechenschritte",
         "TAPE_EMPTY": "Jede Zahl und jeder Operator erscheint hier.",
         "SCIENTIFIC_MODE_LABEL": "Wissenschaftlicher Rechner",
-        "SCIENTIFIC_ANGLES_HINT": "Winkel bei sin / cos / tan sind in Grad.",
+        "SCIENTIFIC_ANGLES_HINT": "Schalter: Trigonometrie und Arkusfunktionen in Grad oder Radiant.",
         "SCI_LOG10_TITLE": "Briggscher Logarithmus (Basis 10)",
         "SCI_SQUARE_TITLE": "Quadrat des angezeigten Werts",
-        "SCI_INV_TITLE": "Kehrwert (1 ÷ x)"
+        "SCI_INV_TITLE": "Kehrwert (1 ÷ x)",
+        "SCI_DEGREES_TOGGLE": "Winkel in Grad (aus = Radiant)",
+        "SCI_TITLE_EXP": "e hoch x",
+        "SCI_TITLE_EXP10": "10 hoch x",
+        "SCI_TITLE_ABS": "Absolutwert",
+        "SCI_TITLE_FACT": "Fakultät n! (ganze Zahl 0–170)",
+        "SCI_TITLE_CUBE": "Kubus (x³)",
+        "SCI_TITLE_CBRT": "Kubikwurzel",
+        "SCI_TITLE_LOG2": "Logarithmus zur Basis 2",
+        "SCI_TITLE_POW": "Potenz x^y: Exponent eingeben, dann =",
+        "SCI_TITLE_MOD": "Modulo (Divisionsrest)"
     },
     "ASSISTANT": {
         "TITLE": "PatTool Assistent",

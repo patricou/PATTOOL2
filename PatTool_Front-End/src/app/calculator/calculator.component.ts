@@ -1,19 +1,32 @@
-import { Component, ElementRef, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 
-type CalcOp = '+' | '-' | '*' | '/';
+type CalcOp = '+' | '-' | '*' | '/' | '^' | 'mod';
 type SciUnaryKind =
   | 'sqrt'
   | 'square'
+  | 'cube'
+  | 'cbrt'
   | 'inv'
   | 'sin'
   | 'cos'
   | 'tan'
+  | 'asin'
+  | 'acos'
+  | 'atan'
+  | 'sinh'
+  | 'cosh'
+  | 'tanh'
   | 'log10'
-  | 'ln';
+  | 'ln'
+  | 'log2'
+  | 'exp'
+  | 'exp10'
+  | 'abs'
+  | 'fact';
 
 @Component({
   selector: 'app-calculator',
@@ -22,8 +35,9 @@ type SciUnaryKind =
   templateUrl: './calculator.component.html',
   styleUrls: ['./calculator.component.css']
 })
-export class CalculatorComponent {
+export class CalculatorComponent implements AfterViewInit {
   @ViewChild('tapeScroll') tapeScroll?: ElementRef<HTMLDivElement>;
+  @ViewChild('calcPanel') calcPanel?: ElementRef<HTMLElement>;
 
   /** Chaîne affichée (nombre courant ou résultat). */
   display = '0';
@@ -34,8 +48,11 @@ export class CalculatorComponent {
   /** Détail du calcul : affiché par défaut ; désactiver pour masquer la liste. */
   tapeMode = true;
 
-  /** Sin / cos / tan attendent une entrée en degrés ; autres fonctions classiques (√, ln, …). */
+  /** Mode scientifique : panneau de fonctions avancées. */
   scientificMode = false;
+
+  /** Sin / cos / tan : entrée en degrés si true, en radians si false. Même logique pour le résultat des arcs. */
+  sciUseDegrees = true;
 
   private buf = '0';
   private acc: number | null = null;
@@ -44,6 +61,37 @@ export class CalculatorComponent {
   private fresh = true;
 
   private static readonly TAPE_MAX_LINES = 220;
+
+  ngAfterViewInit(): void {
+    this.refocusKeyboardPanel();
+  }
+
+  /** Reprend le focus sur le panneau (bandeau calcul / affichage) pour saisir au clavier. */
+  refocusKeyboardPanel(): void {
+    const el = this.calcPanel?.nativeElement;
+    el?.focus({ preventScroll: true });
+  }
+
+  /**
+   * Chiffre depuis la touche physique (Digit0–9, Numpad0–9) pour les claviers où `key` n’est pas un chiffre (ex. AZERTY).
+   */
+  private digitFromPhysicalKey(ev: KeyboardEvent): string | null {
+    const { code, key } = ev;
+    // AZERTY : la touche « 6 » produit « - » sans Shift ; le moins doit rester une opération.
+    if (code === 'Digit6' && key === '-') {
+      return null;
+    }
+    if (code.startsWith('Digit') && code.length === 6) {
+      return code.slice(5);
+    }
+    if (code.startsWith('Numpad') && code.length === 7) {
+      const d = code.slice(6);
+      if (/^[0-9]$/.test(d)) {
+        return d;
+      }
+    }
+    return null;
+  }
 
   digit(d: string): void {
     if (this.display === 'Error') {
@@ -140,13 +188,24 @@ export class CalculatorComponent {
   }
 
   backspace(): void {
-    if (this.display === 'Error' || this.fresh) {
+    if (this.display === 'Error') {
+      return;
+    }
+    // Après un opérateur : on attend un nouveau nombre (buf encore à « 0 ») — ne pas effacer l’accumulateur affiché.
+    if (this.pendingOp !== null && this.fresh && this.buf === '0') {
       return;
     }
     if (this.buf.length <= 1) {
       this.buf = '0';
+      this.fresh = true;
     } else {
       this.buf = this.buf.slice(0, -1);
+      if (this.buf === '-') {
+        this.buf = '0';
+        this.fresh = true;
+      } else {
+        this.fresh = this.buf === '0';
+      }
     }
     this.display = this.buf;
   }
@@ -222,30 +281,92 @@ export class CalculatorComponent {
       case 'square':
         r = x * x;
         break;
+      case 'cube':
+        r = x * x * x;
+        break;
+      case 'cbrt':
+        r = Math.cbrt(x);
+        break;
       case 'inv':
         r = x === 0 ? null : 1 / x;
         break;
       case 'sin': {
-        const rad = (x * Math.PI) / 180;
+        const rad = this.sciUseDegrees ? (x * Math.PI) / 180 : x;
         r = Math.sin(rad);
         break;
       }
       case 'cos': {
-        const rad = (x * Math.PI) / 180;
+        const rad = this.sciUseDegrees ? (x * Math.PI) / 180 : x;
         r = Math.cos(rad);
         break;
       }
       case 'tan': {
-        const rad = (x * Math.PI) / 180;
+        const rad = this.sciUseDegrees ? (x * Math.PI) / 180 : x;
         const cos = Math.cos(rad);
         r = Math.abs(cos) < 1e-15 ? null : Math.tan(rad);
         break;
       }
+      case 'asin': {
+        if (x < -1 || x > 1) {
+          r = null;
+          break;
+        }
+        let v = Math.asin(x);
+        if (this.sciUseDegrees) {
+          v = (v * 180) / Math.PI;
+        }
+        r = v;
+        break;
+      }
+      case 'acos': {
+        if (x < -1 || x > 1) {
+          r = null;
+          break;
+        }
+        let v = Math.acos(x);
+        if (this.sciUseDegrees) {
+          v = (v * 180) / Math.PI;
+        }
+        r = v;
+        break;
+      }
+      case 'atan': {
+        let v = Math.atan(x);
+        if (this.sciUseDegrees) {
+          v = (v * 180) / Math.PI;
+        }
+        r = v;
+        break;
+      }
+      case 'sinh':
+        r = Math.sinh(x);
+        break;
+      case 'cosh':
+        r = Math.cosh(x);
+        break;
+      case 'tanh':
+        r = Math.tanh(x);
+        break;
       case 'log10':
         r = x <= 0 ? null : Math.log10(x);
         break;
       case 'ln':
         r = x <= 0 ? null : Math.log(x);
+        break;
+      case 'log2':
+        r = x <= 0 ? null : Math.log2(x);
+        break;
+      case 'exp':
+        r = Math.exp(x);
+        break;
+      case 'exp10':
+        r = Math.pow(10, x);
+        break;
+      case 'abs':
+        r = Math.abs(x);
+        break;
+      case 'fact':
+        r = this.factorialInt(x);
         break;
       default:
         return;
@@ -258,21 +379,7 @@ export class CalculatorComponent {
     const out = this.formatForDisplay(r);
 
     if (this.tapeMode) {
-      const isTrig = kind === 'sin' || kind === 'cos' || kind === 'tan';
-      if (kind === 'sqrt') {
-        this.tapePush('√(' + beforeShown + ')');
-      } else if (kind === 'square') {
-        this.tapePush('(' + beforeShown + ')²');
-      } else if (kind === 'inv') {
-        this.tapePush('1÷(' + beforeShown + ')');
-      } else if (isTrig) {
-        const fn = kind === 'sin' ? 'sin' : kind === 'cos' ? 'cos' : 'tan';
-        this.tapePush(fn + '(' + beforeShown + '°)');
-      } else if (kind === 'log10') {
-        this.tapePush('log(' + beforeShown + ')');
-      } else if (kind === 'ln') {
-        this.tapePush('ln(' + beforeShown + ')');
-      }
+      this.tapePush(this.sciUnaryTapeExpr(kind, beforeShown));
       this.tapePush('=');
       this.tapePush(out);
     }
@@ -284,6 +391,78 @@ export class CalculatorComponent {
     this.fresh = true;
   }
 
+  private factorialInt(x: number): number | null {
+    if (!Number.isFinite(x)) {
+      return null;
+    }
+    const n = Math.round(x);
+    if (Math.abs(x - n) > 1e-9 || n < 0 || n > 170) {
+      return null;
+    }
+    if (n === 0 || n === 1) {
+      return 1;
+    }
+    let p = 1;
+    for (let i = 2; i <= n; i++) {
+      p *= i;
+      if (!Number.isFinite(p)) {
+        return null;
+      }
+    }
+    return p;
+  }
+
+  private sciUnaryTapeExpr(kind: SciUnaryKind, before: string): string {
+    const deg = this.sciUseDegrees;
+    const trigIn = deg ? '°' : ' rad';
+    switch (kind) {
+      case 'sqrt':
+        return '√(' + before + ')';
+      case 'square':
+        return '(' + before + ')²';
+      case 'cube':
+        return '(' + before + ')³';
+      case 'cbrt':
+        return '∛(' + before + ')';
+      case 'inv':
+        return '1÷(' + before + ')';
+      case 'sin':
+        return 'sin(' + before + trigIn + ')';
+      case 'cos':
+        return 'cos(' + before + trigIn + ')';
+      case 'tan':
+        return 'tan(' + before + trigIn + ')';
+      case 'asin':
+        return 'asin(' + before + ')' + (deg ? ' → °' : ' → rad');
+      case 'acos':
+        return 'acos(' + before + ')' + (deg ? ' → °' : ' → rad');
+      case 'atan':
+        return 'atan(' + before + ')' + (deg ? ' → °' : ' → rad');
+      case 'sinh':
+        return 'sinh(' + before + ')';
+      case 'cosh':
+        return 'cosh(' + before + ')';
+      case 'tanh':
+        return 'tanh(' + before + ')';
+      case 'log10':
+        return 'log(' + before + ')';
+      case 'ln':
+        return 'ln(' + before + ')';
+      case 'log2':
+        return 'log₂(' + before + ')';
+      case 'exp':
+        return 'exp(' + before + ')';
+      case 'exp10':
+        return '10^(' + before + ')';
+      case 'abs':
+        return '|' + before + '|';
+      case 'fact':
+        return '(' + before + ')!';
+      default:
+        return String(kind);
+    }
+  }
+
   onKeydown(ev: KeyboardEvent): void {
     const k = ev.key;
     if (/^[0-9]$/.test(k)) {
@@ -291,25 +470,38 @@ export class CalculatorComponent {
       this.digit(k);
       return;
     }
-    if (k === '.' || k === ',') {
+    const physicalDigit = this.digitFromPhysicalKey(ev);
+    if (physicalDigit !== null) {
+      ev.preventDefault();
+      this.digit(physicalDigit);
+      return;
+    }
+    if (k === '.' || k === ',' || ev.code === 'NumpadDecimal') {
       ev.preventDefault();
       this.digit('.');
       return;
     }
-    if (k === '+' || k === '-') {
+    if (k === '+' || k === '-' || ev.code === 'NumpadAdd' || ev.code === 'NumpadSubtract') {
       ev.preventDefault();
-      this.operator(k as CalcOp);
+      const op: CalcOp =
+        k === '+' || ev.code === 'NumpadAdd' ? '+' : '-';
+      this.operator(op);
       return;
     }
-    if (k === '*') {
+    if (k === '*' || ev.code === 'NumpadMultiply') {
       ev.preventDefault();
       this.operator('*');
       return;
     }
-    if (k === '/') {
+    if (k === '/' || ev.code === 'NumpadDivide') {
       ev.preventDefault();
       ev.stopPropagation();
       this.operator('/');
+      return;
+    }
+    if (this.scientificMode && k === '^') {
+      ev.preventDefault();
+      this.operator('^');
       return;
     }
     if (k === 'Enter' || k === '=') {
@@ -322,9 +514,14 @@ export class CalculatorComponent {
       this.clearAll();
       return;
     }
-    if (k === 'Backspace') {
+    if (k === 'Backspace' || ev.code === 'NumpadBackspace') {
       ev.preventDefault();
       this.backspace();
+      return;
+    }
+    if (k === 'Delete') {
+      ev.preventDefault();
+      this.clearEntry();
     }
   }
 
@@ -341,8 +538,17 @@ export class CalculatorComponent {
           return null;
         }
         return a / b;
+      case '^': {
+        const r = Math.pow(a, b);
+        return Number.isFinite(r) ? r : null;
+      }
+      case 'mod':
+        if (b === 0) {
+          return null;
+        }
+        return ((a % b) + b) % b;
       default:
-        return b;
+        return null;
     }
   }
 
@@ -381,6 +587,10 @@ export class CalculatorComponent {
         return '×';
       case '/':
         return '÷';
+      case '^':
+        return '^';
+      case 'mod':
+        return 'mod';
       default:
         return String(op);
     }

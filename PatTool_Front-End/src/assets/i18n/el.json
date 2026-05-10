@@ -1175,10 +1175,20 @@
         "TAPE_ARIA": "Βήματα υπολογισμού",
         "TAPE_EMPTY": "Κάθε αριθμός και τελεστής θα εμφανίζεται εδώ.",
         "SCIENTIFIC_MODE_LABEL": "Επιστημονική αριθμομηχανή",
-        "SCIENTIFIC_ANGLES_HINT": "Οι γωνίες για sin / cos / tan είναι σε μοίρες.",
+        "SCIENTIFIC_ANGLES_HINT": "Διακόπτης: τριγωνομετρία και αντίστροφες συναρτήσεις σε μοίρες ή ακτίνια.",
         "SCI_LOG10_TITLE": "Δεκαδικός λογάριθμος (βάση 10)",
         "SCI_SQUARE_TITLE": "Τετράγωνο της εμφανιζόμενης τιμής",
-        "SCI_INV_TITLE": "Αντίστροφος (1 ÷ x)"
+        "SCI_INV_TITLE": "Αντίστροφος (1 ÷ x)",
+        "SCI_DEGREES_TOGGLE": "Degrees for trig (off = radians)",
+        "SCI_TITLE_EXP": "e raised to the power of x",
+        "SCI_TITLE_EXP10": "10 raised to the power of x",
+        "SCI_TITLE_ABS": "Absolute value",
+        "SCI_TITLE_FACT": "Factorial n! (whole number from 0 to 170)",
+        "SCI_TITLE_CUBE": "Cube (x³)",
+        "SCI_TITLE_CBRT": "Cube root",
+        "SCI_TITLE_LOG2": "Binary logarithm (base 2)",
+        "SCI_TITLE_POW": "Power x^y: enter exponent, then =",
+        "SCI_TITLE_MOD": "Modulo (remainder after division)"
     },
     "ASSISTANT": {
         "TITLE": "Βοηθός PatTool",

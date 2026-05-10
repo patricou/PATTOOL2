@@ -1367,10 +1367,20 @@
         "TAPE_ARIA": "Шаги вычисления",
         "TAPE_EMPTY": "Здесь будут показаны каждое число и оператор.",
         "SCIENTIFIC_MODE_LABEL": "Инженерный калькулятор",
-        "SCIENTIFIC_ANGLES_HINT": "Углы для sin / cos / tan задаются в градусах.",
+        "SCIENTIFIC_ANGLES_HINT": "Переключатель: тригонометрия и обратные функции в градусах или радианах.",
         "SCI_LOG10_TITLE": "Десятичный логарифм (основание 10)",
         "SCI_SQUARE_TITLE": "Квадрат отображаемого значения",
-        "SCI_INV_TITLE": "Обратное значение (1 ÷ x)"
+        "SCI_INV_TITLE": "Обратное значение (1 ÷ x)",
+        "SCI_DEGREES_TOGGLE": "Углы в градусах (выкл. = радианы)",
+        "SCI_TITLE_EXP": "e в степени x",
+        "SCI_TITLE_EXP10": "10 в степени x",
+        "SCI_TITLE_ABS": "Абсолютное значение",
+        "SCI_TITLE_FACT": "Факториал n! (целое от 0 до 170)",
+        "SCI_TITLE_CUBE": "Куб (x³)",
+        "SCI_TITLE_CBRT": "Кубический корень",
+        "SCI_TITLE_LOG2": "Логарифм по основанию 2",
+        "SCI_TITLE_POW": "Степень x^y: введите показатель, затем =",
+        "SCI_TITLE_MOD": "Остаток от деления (mod)"
     },
     "ASSISTANT": {
         "TITLE": "Помощник PatTool",

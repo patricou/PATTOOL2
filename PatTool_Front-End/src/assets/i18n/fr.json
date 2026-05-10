@@ -1425,10 +1425,20 @@
         "TAPE_ARIA": "Étapes du calcul",
         "TAPE_EMPTY": "Chaque nombre et opération s’affichera ici.",
         "SCIENTIFIC_MODE_LABEL": "Calculatrice scientifique",
-        "SCIENTIFIC_ANGLES_HINT": "Angles pour sin / cos / tan exprimés en degrés.",
+        "SCIENTIFIC_ANGLES_HINT": "Utilisez l’interrupteur : trigonométrie et fonctions réciproques en degrés ou en radians.",
         "SCI_LOG10_TITLE": "Logarithme décimal (base 10)",
         "SCI_SQUARE_TITLE": "Carré du nombre affiché",
-        "SCI_INV_TITLE": "Inverse (1 ÷ nombre)"
+        "SCI_INV_TITLE": "Inverse (1 ÷ nombre)",
+        "SCI_DEGREES_TOGGLE": "Angles en degrés (désactivé = radians)",
+        "SCI_TITLE_EXP": "e puissance x",
+        "SCI_TITLE_EXP10": "10 puissance x",
+        "SCI_TITLE_ABS": "Valeur absolue",
+        "SCI_TITLE_FACT": "Factorielle n! (entier de 0 à 170)",
+        "SCI_TITLE_CUBE": "Cube (x³)",
+        "SCI_TITLE_CBRT": "Racine cubique",
+        "SCI_TITLE_LOG2": "Logarithme binaire (base 2)",
+        "SCI_TITLE_POW": "Puissance x^y : saisir l’exposant, puis =",
+        "SCI_TITLE_MOD": "Modulo (reste de la division)"
     },
     "ASSISTANT": {
         "TITLE": "Assistant PatTool",

@@ -1344,10 +1344,20 @@
         "TAPE_ARIA": "गणना के चरण",
         "TAPE_EMPTY": "प्रत्येक संख्या और संक्रिया यहाँ दिखाई देगी।",
         "SCIENTIFIC_MODE_LABEL": "वैज्ञानिक कैलकुलेटर",
-        "SCIENTIFIC_ANGLES_HINT": "sin / cos / tan के लिए कोण डिग्री में हैं।",
+        "SCIENTIFIC_ANGLES_HINT": "स्विच: डिग्री या रेडियन में त्रिकोणमिति और व्युत्क्रम फलन।",
         "SCI_LOG10_TITLE": "दशमलव लघुगणक (आधार 10)",
         "SCI_SQUARE_TITLE": "दिखाए गए मान का वर्ग",
-        "SCI_INV_TITLE": "प्रतिलोम (1 ÷ x)"
+        "SCI_INV_TITLE": "प्रतिलोम (1 ÷ x)",
+        "SCI_DEGREES_TOGGLE": "Degrees for trig (off = radians)",
+        "SCI_TITLE_EXP": "e raised to the power of x",
+        "SCI_TITLE_EXP10": "10 raised to the power of x",
+        "SCI_TITLE_ABS": "Absolute value",
+        "SCI_TITLE_FACT": "Factorial n! (whole number from 0 to 170)",
+        "SCI_TITLE_CUBE": "Cube (x³)",
+        "SCI_TITLE_CBRT": "Cube root",
+        "SCI_TITLE_LOG2": "Binary logarithm (base 2)",
+        "SCI_TITLE_POW": "Power x^y: enter exponent, then =",
+        "SCI_TITLE_MOD": "Modulo (remainder after division)"
     },
     "ASSISTANT": {
         "TITLE": "PatTool सहायक",
