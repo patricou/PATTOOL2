@@ -1019,10 +1019,10 @@ public class MemberRestController {
 
     /**
      * Whether connection email should not be sent for this user.
-     * Currently, connection emails are sent for all users.
+     * Aligns with {@link UserConnectionLogPolicy} ({@code app.connection-logs.excluded-users}, default {@code patricou}).
      */
     private boolean isConnectionEmailExcludedForUser(Member member) {
-        return false;
+        return !userConnectionLogPolicy.shouldLog(member);
     }
 
     /**

@@ -526,6 +526,11 @@ export class ApiService {
     return this._http.get<EuromillionsDrawRow[]>(this.API_URL + 'euromillions/draws');
   }
 
+  /** GET /api/euromillions/client-settings — date min des tirages pour le JSON assistant (application.properties). */
+  getEuromillionsClientSettings(): Observable<EuromillionsClientSettings> {
+    return this._http.get<EuromillionsClientSettings>(this.API_URL + 'euromillions/client-settings');
+  }
+
   /** Import : lit tous les *.csv du dossier serveur (JWT admin). */
   syncEuromillionsFromCsv(): Observable<EuromillionsSyncResult> {
     return this.getHeaderWithToken().pipe(
@@ -673,6 +678,11 @@ export interface LotoSyncResult {
   drawsUpserted: number;
   httpErrors: number;
   messages?: string[];
+}
+
+/** GET /api/euromillions/client-settings */
+export interface EuromillionsClientSettings {
+  minDrawDateIso: string;
 }
 
 /** Tirage EuroMillions (Mongo, /api/euromillions/draws). */

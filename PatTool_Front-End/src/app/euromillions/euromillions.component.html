@@ -23,7 +23,7 @@
       class="btn btn-sm btn-outline-primary"
       [disabled]="loading || syncing || draws.length === 0"
       (click)="openExportJsonModal(euromJsonModal)"
-      [attr.title]="'EUROMILLIONS.JSON_AI_TOOLTIP' | translate"
+      [attr.title]="'EUROMILLIONS.JSON_AI_TOOLTIP' | translate: { since: euromAiMinDrawDateIso }"
       [attr.aria-label]="'EUROMILLIONS.JSON_AI_OPEN' | translate">
       <i class="fa fa-code me-1" aria-hidden="true"></i>
       {{ 'EUROMILLIONS.JSON_AI_OPEN' | translate }}
@@ -40,7 +40,7 @@
       class="btn eurom-assistant-ai-btn btn-sm"
       [disabled]="!canSendEuromAiPrompt"
       (click)="sendEuromAiPrompt1($event)"
-      [attr.title]="'EUROMILLIONS.AI_FAB_TOOLTIP' | translate"
+      [attr.title]="'EUROMILLIONS.AI_FAB_TOOLTIP' | translate: { since: euromAiMinDrawDateIso }"
       [attr.aria-label]="'EUROMILLIONS.AI_FAB_LABEL' | translate">
       <i class="fa fa-magic eurom-assistant-ai-btn__icon" aria-hidden="true"></i>
     </button>
@@ -110,7 +110,7 @@
                 class="btn btn-sm btn-outline-primary"
                 [disabled]="loading || syncing || draws.length === 0"
                 (click)="openExportJsonModal(euromJsonModal)"
-                [attr.title]="'EUROMILLIONS.JSON_AI_TOOLTIP' | translate"
+                [attr.title]="'EUROMILLIONS.JSON_AI_TOOLTIP' | translate: { since: euromAiMinDrawDateIso }"
                 [attr.aria-label]="'EUROMILLIONS.JSON_AI_OPEN' | translate">
                 <i class="fa fa-code me-1" aria-hidden="true"></i>
                 {{ 'EUROMILLIONS.JSON_AI_OPEN' | translate }}
@@ -216,7 +216,7 @@
     <button type="button" class="btn-close" [attr.aria-label]="'EUROMILLIONS.CHART_CLOSE' | translate" (click)="modal.dismiss()"></button>
   </div>
   <div class="modal-body">
-    <p class="text-muted small mb-2">{{ 'EUROMILLIONS.JSON_AI_MODAL_HINT' | translate }}</p>
+    <p class="text-muted small mb-2">{{ 'EUROMILLIONS.JSON_AI_MODAL_HINT' | translate: { since: euromAiMinDrawDateIso } }}</p>
     <pre class="eurom-json-pre mb-0" tabindex="0"><code>{{ jsonExportText }}</code></pre>
   </div>
   <div class="modal-footer d-flex flex-wrap gap-1 justify-content-between align-items-center">

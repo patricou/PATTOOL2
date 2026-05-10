@@ -87,6 +87,12 @@ export class EuromillionsComponent implements OnInit {
   resultFilterDateFrom = '';
   resultFilterDateTo = '';
 
+  /**
+   * Borne basse inclusive (yyyy-MM-dd) des tirages dans le JSON assistant, lue depuis le serveur
+   * ({@code euromillions.ai.min-draw-date}) ; défaut 2020-01-01 tant que la réponse n’arrive pas.
+   */
+  euromAiMinDrawDateIso = '2020-01-01';
+
   constructor(
     private api: ApiService,
     private keycloak: KeycloakService,
@@ -99,7 +105,21 @@ export class EuromillionsComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.loadEuromAiClientSettings();
     this.refreshTable();
+  }
+
+  private loadEuromAiClientSettings(): void {
+    this.api.getEuromillionsClientSettings().subscribe({
+      next: (s) => {
+        const iso = (s?.minDrawDateIso ?? '').trim().substring(0, 10);
+        if (iso.length === 10 && iso.charAt(4) === '-' && iso.charAt(7) === '-') {
+          this.euromAiMinDrawDateIso = iso;
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => undefined
+    });
   }
 
   private applyChartAxisTitles(): void {
@@ -380,6 +400,18 @@ export class EuromillionsComponent implements OnInit {
     }));
   }
 
+  /** Tirages chronologiques pour le payload assistant : depuis {@link euromAiMinDrawDateIso} inclus. */
+  private euromDrawsChronologicalForAssistantAi(): Array<{
+    drawDate: string;
+    numbers: number[];
+    stars: number[];
+  }> {
+    const min = this.euromAiMinDrawDateIso.substring(0, 10);
+    return this.euromDrawsChronologicalForAi().filter(
+      (r) => (r.drawDate ?? '').substring(0, 10) >= min
+    );
+  }
+
   /**
    * Seuils de date (jour de tirage ISO yyyy-MM-dd) pour séparer les périodes des étoiles EuroMillions
    * (boules toujours 5/50 côté historique utilisé dans PatTool).
@@ -416,12 +448,13 @@ export class EuromillionsComponent implements OnInit {
   }
 
   /**
-   * Données **légères** pour l’assistant : marges pré-comptées par période + petit suffixe chronologique.
-   * Remplace le JSON « une ligne par tirage » qui saturait la fenêtre et produisait des réponses très courtes.
+   * JSON assistant : marges par période réglementaire (tirages dont la date ≥ réglage serveur
+   * {@code euromillions.ai.min-draw-date}) + liste chronologique complète de ces tirages dans {@code tail}.
    */
-  private buildEuromAiAssistantStatsPayload(lastTailPairs: number): {
+  private buildEuromAiAssistantStatsPayload(): {
     schema: 'pat-eurom-ai-v2';
     note: string;
+    sinceInclusive: string;
     c: number;
     dateFirst: string;
     dateLast: string;
@@ -437,7 +470,8 @@ export class EuromillionsComponent implements OnInit {
     }>;
     tail: [string, number[], number[]][];
   } {
-    const rows = this.euromDrawsChronologicalForAi();
+    const sinceInclusive = this.euromAiMinDrawDateIso.substring(0, 10);
+    const rows = this.euromDrawsChronologicalForAssistantAi();
     const c = rows.length;
     const dateFirst = c ? rows[0].drawDate.substring(0, 10) : '';
     const dateLast = c ? rows[c - 1].drawDate.substring(0, 10) : '';
@@ -488,9 +522,7 @@ export class EuromillionsComponent implements OnInit {
       };
     });
 
-    const lim = Math.max(0, Math.min(lastTailPairs, rows.length));
-    const tailSlice = rows.slice(-lim);
-    const tail = tailSlice.map(
+    const tail = rows.map(
       (r) =>
         [this.toAiYyyymmdd(r.drawDate), [...(r.numbers ?? [])], [...(r.stars ?? [])]] as [
           string,
@@ -501,7 +533,9 @@ export class EuromillionsComponent implements OnInit {
 
     return {
       schema: 'pat-eurom-ai-v2',
-      note: 'mf[k]=boule k occurrences (slots 5*n); sf[j]=étoile j occurrences (slots 2*n, j<=starMax taille théorie). tail=dernier sous-ensemble chronologique compact.',
+      note:
+        'Périmètre : tirages dont drawDate >= sinceInclusive. mf/sf et chi² : ces tirages seulement. tail = liste chronologique complète de ce périmètre ; tail.length = c.',
+      sinceInclusive,
       c,
       dateFirst,
       dateLast,
@@ -554,9 +588,14 @@ export class EuromillionsComponent implements OnInit {
     if (!this.canSendEuromAiPrompt) {
       return;
     }
-    const statsPayload = this.buildEuromAiAssistantStatsPayload(48);
-    const prompt = this.translate.instant('EUROMILLIONS.AI_PROMPT_FROM_SCRATCH', { n: statsPayload.c });
-    const jsonIntro = this.translate.instant('EUROMILLIONS.AI_STATS_PAYLOAD_INTRO');
+    const statsPayload = this.buildEuromAiAssistantStatsPayload();
+    const prompt = this.translate.instant('EUROMILLIONS.AI_PROMPT_FROM_SCRATCH', {
+      n: statsPayload.c,
+      since: statsPayload.sinceInclusive
+    });
+    const jsonIntro = this.translate.instant('EUROMILLIONS.AI_STATS_PAYLOAD_INTRO', {
+      since: statsPayload.sinceInclusive
+    });
     const jsonBlock = JSON.stringify(statsPayload);
     const body = `${prompt}\n\n${jsonIntro}\n\n${jsonBlock}`;
     this.assistantLaunch.openWithDraft(body, {

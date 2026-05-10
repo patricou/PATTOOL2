@@ -65,6 +65,8 @@ loto.archive.base-url=https://www.lesbonsnumeros.com
 # EuroMillions : répertoire sur le SERVEUR contenant les CSV FDJ (*.csv à importer via POST /api/euromillions/sync).
 # exemple Windows : euromillions.import.directory=C:/Users/desch/Downloads/euromillions
 euromillions.import.directory=
+# Borne basse (incluse, ISO yyyy-MM-dd) des tirages dans le JSON assistant pat-eurom-ai-v2 ; exposée au front via GET /api/euromillions/client-settings.
+euromillions.ai.min-draw-date=2020-01-01
 
 # --- Image cache (PatToolApplication) ---
 app.cache.persistence.restore-on-startup=true
