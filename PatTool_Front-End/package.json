@@ -47,6 +47,7 @@
     "jszip": "^3.10.1",
     "leaflet": "^1.9.4",
     "marked": "^18.0.3",
+    "mathjs": "^15.2.0",
     "ng2-charts": "^8.0.0",
     "ng2-file-upload": "^1.4.0",
     "ngx-mydatepicker": "^2.4.11",

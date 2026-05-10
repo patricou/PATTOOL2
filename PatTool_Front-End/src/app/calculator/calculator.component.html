@@ -7,7 +7,8 @@
 
 <div
   class="calculator-viewport-root calculator-theme-dark"
-  [class.calculator-layout--scientific]="scientificMode">
+  [class.calculator-layout--scientific]="scientificMode"
+  [class.calculator-layout--formula]="formulaMode">
 <div
   #calcPanel
   class="calculator-page container"
@@ -47,6 +48,131 @@
               <label class="form-check-label" for="calcScientificMode">{{
                 'CALCULATOR.SCIENTIFIC_MODE_LABEL' | translate
               }}</label>
+            </div>
+            <div class="form-check form-switch calculator-tape-toggle mb-0">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="calcFormulaMode"
+                [(ngModel)]="formulaMode" />
+              <label class="form-check-label" for="calcFormulaMode">{{
+                'CALCULATOR.FORMULA_MODE_LABEL' | translate
+              }}</label>
+            </div>
+          </div>
+
+          <div *ngIf="formulaMode" class="calculator-formula-panel shrink-0 mb-2">
+            <label class="form-label small text-muted mb-1" for="calcFormulaExpr">{{
+              'CALCULATOR.FORMULA_EXPR_LABEL' | translate
+            }}</label>
+            <textarea
+              id="calcFormulaExpr"
+              class="form-control form-control-sm calculator-formula-textarea mb-2"
+              rows="2"
+              spellcheck="false"
+              autocomplete="off"
+              [(ngModel)]="formulaExpr"
+              [attr.aria-label]="'CALCULATOR.FORMULA_EXPR_ARIA' | translate"></textarea>
+
+            <div class="calculator-formula-presets mb-2" role="group" [attr.aria-label]="'CALCULATOR.FORMULA_PRESETS_LABEL' | translate">
+              <div class="small text-muted mb-1">{{ 'CALCULATOR.FORMULA_PRESETS_LABEL' | translate }}</div>
+              <div class="d-flex flex-wrap gap-1">
+                <button
+                  *ngFor="let p of formulaPresets"
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary calculator-formula-preset-btn"
+                  [title]="p.expr"
+                  (click)="applyFormulaPreset(p)">
+                  {{ p.labelKey | translate }}
+                </button>
+              </div>
+            </div>
+
+            <p class="text-muted small mb-2 mb-lg-3">{{ 'CALCULATOR.FORMULA_HINT' | translate }}</p>
+
+            <div class="row g-2 align-items-end mb-2">
+              <div class="col-6 col-md-3">
+                <label class="form-label small mb-0" for="calcFormulaX">{{
+                  'CALCULATOR.FORMULA_X_LABEL' | translate
+                }}</label>
+                <input
+                  id="calcFormulaX"
+                  type="number"
+                  class="form-control form-control-sm"
+                  step="any"
+                  [(ngModel)]="formulaEvalX"
+                  [attr.aria-label]="'CALCULATOR.FORMULA_X_ARIA' | translate" />
+              </div>
+              <div class="col-6 col-md-auto">
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-primary"
+                  (click)="evaluateFormulaScalar()">
+                  {{ 'CALCULATOR.FORMULA_EVAL_BTN' | translate }}
+                </button>
+              </div>
+              <div class="col-12 col-md text-md-end" *ngIf="formulaScalarResult">
+                <span class="small text-muted">{{ 'CALCULATOR.FORMULA_RESULT_LABEL' | translate }}</span>
+                <span class="ms-1 font-monospace">{{ formulaScalarResult }}</span>
+              </div>
+            </div>
+
+            <div class="row g-2 align-items-end mb-2">
+              <div class="col-4 col-md-2">
+                <label class="form-label small mb-0" for="calcPlotMin">{{
+                  'CALCULATOR.FORMULA_XMIN' | translate
+                }}</label>
+                <input
+                  id="calcPlotMin"
+                  type="number"
+                  class="form-control form-control-sm"
+                  step="any"
+                  [(ngModel)]="plotXMin"
+                  [attr.aria-label]="'CALCULATOR.FORMULA_XMIN' | translate" />
+              </div>
+              <div class="col-4 col-md-2">
+                <label class="form-label small mb-0" for="calcPlotMax">{{
+                  'CALCULATOR.FORMULA_XMAX' | translate
+                }}</label>
+                <input
+                  id="calcPlotMax"
+                  type="number"
+                  class="form-control form-control-sm"
+                  step="any"
+                  [(ngModel)]="plotXMax"
+                  [attr.aria-label]="'CALCULATOR.FORMULA_XMAX' | translate" />
+              </div>
+              <div class="col-4 col-md-2">
+                <label class="form-label small mb-0" for="calcPlotSamples">{{
+                  'CALCULATOR.FORMULA_SAMPLES' | translate
+                }}</label>
+                <input
+                  id="calcPlotSamples"
+                  type="number"
+                  class="form-control form-control-sm"
+                  min="48"
+                  max="450"
+                  step="1"
+                  [(ngModel)]="plotSamples"
+                  [attr.aria-label]="'CALCULATOR.FORMULA_SAMPLES' | translate" />
+              </div>
+              <div class="col-12 col-md-auto">
+                <button type="button" class="btn btn-sm btn-primary" (click)="plotFormulaCurve()">
+                  {{ 'CALCULATOR.FORMULA_PLOT_BTN' | translate }}
+                </button>
+              </div>
+            </div>
+
+            <div *ngIf="formulaError" class="alert alert-warning py-2 px-3 small mb-2" role="alert">
+              {{ formulaError | translate }}
+            </div>
+
+            <div class="calculator-formula-chart-wrap">
+              <canvas
+                baseChart
+                [data]="chartData"
+                [options]="chartOptions"
+                [type]="chartType"></canvas>
             </div>
           </div>
 

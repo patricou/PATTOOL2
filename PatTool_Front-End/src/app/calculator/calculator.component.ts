@@ -2,6 +2,20 @@ import { AfterViewInit, Component, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
+import { BaseChartDirective } from 'ng2-charts';
+import { Chart, ChartConfiguration, ChartOptions, registerables } from 'chart.js';
+import { compile } from 'mathjs';
+
+Chart.register(...registerables);
+
+/** Préréglage formule + bornes de graphe + x pour évaluation ponctuelle. */
+interface FormulaPreset {
+  readonly expr: string;
+  readonly labelKey: string;
+  readonly plotXMin: number;
+  readonly plotXMax: number;
+  readonly formulaEvalX: number;
+}
 
 type CalcOp = '+' | '-' | '*' | '/' | '^' | 'mod';
 type SciUnaryKind =
@@ -30,13 +44,14 @@ type SciUnaryKind =
 @Component({
   selector: 'app-calculator',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule],
+  imports: [CommonModule, FormsModule, TranslateModule, BaseChartDirective],
   templateUrl: './calculator.component.html',
   styleUrls: ['./calculator.component.css']
 })
 export class CalculatorComponent implements AfterViewInit {
   @ViewChild('tapeScroll') tapeScroll?: ElementRef<HTMLDivElement>;
   @ViewChild('calcPanel') calcPanel?: ElementRef<HTMLElement>;
+  @ViewChild(BaseChartDirective) formulaChart?: BaseChartDirective;
 
   /** Chaîne affichée (nombre courant ou résultat). */
   display = '0';
@@ -53,6 +68,134 @@ export class CalculatorComponent implements AfterViewInit {
   /** Sin / cos / tan : entrée en degrés si true, en radians si false. Même logique pour le résultat des arcs. */
   sciUseDegrees = true;
 
+  /** Mode formule f(x) + tracé de courbe (mathjs). */
+  formulaMode = false;
+
+  /** Expression avec variable libre `x` (ex. sin(x), x^2 + 3*x - 1, sqrt(abs(x))). */
+  formulaExpr = 'sin(x)';
+
+  /** Évaluation ponctuelle : abscisse pour « Calculer f(x) ». */
+  formulaEvalX = 0;
+
+  /** Résultat numérique ou chaîne vide. */
+  formulaScalarResult = '';
+
+  /** Message d’erreur de syntaxe ou de domaine. */
+  formulaError = '';
+
+  /** Bornes du graphe. */
+  plotXMin = -6.28;
+  plotXMax = 6.28;
+
+  /** Nombre d’échantillons (approximation de la courbe). */
+  plotSamples = 180;
+
+  /** Boutons d’exemples : expr mathjs valides (variable x). */
+  readonly formulaPresets: readonly FormulaPreset[] = [
+    {
+      expr: 'sin(x)',
+      labelKey: 'CALCULATOR.FORMULA_PRESET_SIN',
+      plotXMin: -6.28,
+      plotXMax: 6.28,
+      formulaEvalX: 1
+    },
+    {
+      expr: 'cos(x)',
+      labelKey: 'CALCULATOR.FORMULA_PRESET_COS',
+      plotXMin: -6.28,
+      plotXMax: 6.28,
+      formulaEvalX: 0
+    },
+    {
+      expr: 'tan(x)',
+      labelKey: 'CALCULATOR.FORMULA_PRESET_TAN',
+      plotXMin: -1.3,
+      plotXMax: 1.3,
+      formulaEvalX: 0.5
+    },
+    {
+      expr: 'x^2',
+      labelKey: 'CALCULATOR.FORMULA_PRESET_SQ',
+      plotXMin: -5,
+      plotXMax: 5,
+      formulaEvalX: 2
+    },
+    {
+      expr: 'x^3 - x',
+      labelKey: 'CALCULATOR.FORMULA_PRESET_CUBE_POLY',
+      plotXMin: -2,
+      plotXMax: 2,
+      formulaEvalX: 1
+    },
+    {
+      expr: 'exp(-x^2)',
+      labelKey: 'CALCULATOR.FORMULA_PRESET_GAUSS',
+      plotXMin: -4,
+      plotXMax: 4,
+      formulaEvalX: 0
+    },
+    {
+      expr: 'sqrt(abs(x))',
+      labelKey: 'CALCULATOR.FORMULA_PRESET_SQRT_ABS',
+      plotXMin: -6,
+      plotXMax: 6,
+      formulaEvalX: 4
+    },
+    {
+      expr: 'exp(x)',
+      labelKey: 'CALCULATOR.FORMULA_PRESET_EXP',
+      plotXMin: -3,
+      plotXMax: 3,
+      formulaEvalX: 1
+    },
+    {
+      expr: 'ln(x)',
+      labelKey: 'CALCULATOR.FORMULA_PRESET_LN',
+      plotXMin: 0.05,
+      plotXMax: 10,
+      formulaEvalX: 2
+    }
+  ];
+
+  chartType: 'line' = 'line';
+  chartData: ChartConfiguration<'line'>['data'] = { datasets: [] };
+  chartOptions: ChartOptions<'line'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'nearest', intersect: false, axis: 'x' },
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top',
+        labels: { color: '#cbd5e1', boxWidth: 12 }
+      },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => {
+            const pt = ctx.raw as { x: number; y: number };
+            if (!pt || typeof pt.x !== 'number' || typeof pt.y !== 'number') {
+              return '';
+            }
+            return `x=${pt.x.toPrecision(6)}, f(x)=${pt.y.toPrecision(6)}`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        type: 'linear',
+        title: { display: true, text: 'x', color: '#94a3b8' },
+        ticks: { color: '#94a3b8' },
+        grid: { color: 'rgba(148, 163, 184, 0.15)' }
+      },
+      y: {
+        title: { display: true, text: 'f(x)', color: '#94a3b8' },
+        ticks: { color: '#94a3b8' },
+        grid: { color: 'rgba(148, 163, 184, 0.15)' }
+      }
+    }
+  };
+
   private buf = '0';
   private acc: number | null = null;
   private pendingOp: CalcOp | null = null;
@@ -63,6 +206,126 @@ export class CalculatorComponent implements AfterViewInit {
 
   ngAfterViewInit(): void {
     this.refocusKeyboardPanel();
+  }
+
+  /** Valeur réelle finie ; rejette complexes hors axe réel. */
+  private static toFiniteReal(value: unknown): number | null {
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : null;
+    }
+    if (value && typeof value === 'object' && 're' in value) {
+      const re = (value as { re: unknown }).re;
+      const im = (value as { im?: unknown }).im;
+      if (typeof re !== 'number') {
+        return null;
+      }
+      if (typeof im === 'number' && Math.abs(im) > 1e-9) {
+        return null;
+      }
+      return Number.isFinite(re) ? re : null;
+    }
+    return null;
+  }
+
+  /** Calcule f(formulaEvalX) ; les trigonométriques suivent les radians (voir libellé i18n). */
+  evaluateFormulaScalar(): void {
+    this.formulaError = '';
+    this.formulaScalarResult = '';
+    const expr = this.formulaExpr.trim();
+    if (!expr) {
+      this.formulaError = 'CALCULATOR.FORMULA_ERR_EMPTY';
+      return;
+    }
+    try {
+      const code = compile(expr);
+      const raw = code.evaluate({ x: this.formulaEvalX });
+      const y = CalculatorComponent.toFiniteReal(raw);
+      if (y === null) {
+        this.formulaError = 'CALCULATOR.FORMULA_ERR_NONREAL';
+        return;
+      }
+      this.formulaScalarResult = this.formatForDisplay(y);
+      if (this.tapeMode) {
+        this.tapePush(`f(${this.formulaEvalX})`);
+        this.tapePush('=');
+        this.tapePush(this.formulaScalarResult);
+      }
+    } catch {
+      this.formulaError = 'CALCULATOR.FORMULA_ERR_SYNTAX';
+    }
+  }
+
+  /** Échantillonne y = f(x) sur [plotXMin, plotXMax] et met à jour le graphique. */
+  plotFormulaCurve(): void {
+    this.formulaError = '';
+    const expr = this.formulaExpr.trim();
+    if (!expr) {
+      this.formulaError = 'CALCULATOR.FORMULA_ERR_EMPTY';
+      return;
+    }
+    const xmin = Number(this.plotXMin);
+    const xmax = Number(this.plotXMax);
+    if (!Number.isFinite(xmin) || !Number.isFinite(xmax) || xmax <= xmin) {
+      this.formulaError = 'CALCULATOR.FORMULA_ERR_RANGE';
+      return;
+    }
+    let code;
+    try {
+      code = compile(expr);
+    } catch {
+      this.formulaError = 'CALCULATOR.FORMULA_ERR_SYNTAX';
+      return;
+    }
+    const cap = 450;
+    const n = Math.min(cap, Math.max(48, Math.round(this.plotSamples)));
+    const pts: { x: number; y: number }[] = [];
+    for (let i = 0; i <= n; i++) {
+      const x = xmin + ((xmax - xmin) * i) / n;
+      try {
+        const raw = code.evaluate({ x });
+        const y = CalculatorComponent.toFiniteReal(raw);
+        if (y !== null) {
+          pts.push({ x, y });
+        }
+      } catch {
+        /* point hors domaine : on saute */
+      }
+    }
+    if (pts.length === 0) {
+      this.formulaError = 'CALCULATOR.FORMULA_ERR_NOPOINTS';
+      this.chartData = { datasets: [] };
+      queueMicrotask(() => this.formulaChart?.update());
+      return;
+    }
+    const label =
+      expr.length > 42 ? expr.slice(0, 39).trimEnd() + '…' : expr;
+    this.chartData = {
+      datasets: [
+        {
+          label,
+          data: pts,
+          parsing: false,
+          borderColor: '#2dd4bf',
+          backgroundColor: 'rgba(45, 212, 191, 0.08)',
+          tension: 0.12,
+          spanGaps: false,
+          pointRadius: 0,
+          borderWidth: 2
+        }
+      ]
+    };
+    queueMicrotask(() => this.formulaChart?.update());
+  }
+
+  /** Applique un exemple (expression + fenêtre x + trace auto). */
+  applyFormulaPreset(p: FormulaPreset): void {
+    this.formulaExpr = p.expr;
+    this.plotXMin = p.plotXMin;
+    this.plotXMax = p.plotXMax;
+    this.formulaEvalX = p.formulaEvalX;
+    this.formulaError = '';
+    this.formulaScalarResult = '';
+    queueMicrotask(() => this.plotFormulaCurve());
   }
 
   /** Reprend le focus sur le panneau (bandeau calcul / affichage) pour saisir au clavier. */
@@ -463,6 +726,10 @@ export class CalculatorComponent implements AfterViewInit {
   }
 
   onKeydown(ev: KeyboardEvent): void {
+    const tgt = ev.target as HTMLElement | null;
+    if (tgt?.closest('.calculator-formula-panel')) {
+      return;
+    }
     const k = ev.key;
     if (/^[0-9]$/.test(k)) {
       ev.preventDefault();

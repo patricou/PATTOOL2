@@ -39,7 +39,8 @@
   border-color: #0f766e;
 }
 
-.calculator-viewport-root.calculator-layout--scientific {
+.calculator-viewport-root.calculator-layout--scientific,
+.calculator-viewport-root.calculator-layout--formula {
   box-sizing: border-box;
   max-height: min(1180px, calc(100dvh - clamp(5.75rem, 14vh, 12.5rem)));
   display: flex;
@@ -151,7 +152,8 @@
 }
 
 @media (max-width: 768px) {
-  .calculator-viewport-root.calculator-layout--scientific {
+  .calculator-viewport-root.calculator-layout--scientific,
+  .calculator-viewport-root.calculator-layout--formula {
     max-height: min(980px, calc(100dvh - clamp(4.75rem, 13vh, 10rem)));
   }
 
@@ -366,4 +368,37 @@
 .calculator-theme-dark .calculator-card-inner .text-muted,
 .calculator-theme-dark .calculator-tape-placeholder {
   color: #4b5563 !important;
+}
+
+.calculator-theme-dark .calculator-formula-panel .form-label {
+  color: #94a3b8;
+}
+
+.calculator-theme-dark .calculator-formula-panel .form-control {
+  background: #1a1a1a;
+  border-color: #444;
+  color: #e2e8f0;
+}
+
+.calculator-formula-textarea {
+  resize: vertical;
+  min-height: 3rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875rem;
+}
+
+.calculator-formula-chart-wrap {
+  position: relative;
+  height: 220px;
+  width: 100%;
+}
+
+.calculator-formula-presets {
+  padding-top: 0.15rem;
+}
+
+.calculator-formula-preset-btn {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.45rem;
 }
