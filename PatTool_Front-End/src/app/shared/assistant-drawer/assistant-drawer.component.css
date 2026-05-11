@@ -513,7 +513,11 @@
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
-.pat-assistant-drawer--fullscreen .pat-assistant-bubble {
+.pat-assistant-drawer--fullscreen .pat-assistant-bubble--assistant {
+  max-width: 80vw;
+}
+
+.pat-assistant-drawer--fullscreen .pat-assistant-bubble--user {
   max-width: min(920px, 92%);
 }
 
