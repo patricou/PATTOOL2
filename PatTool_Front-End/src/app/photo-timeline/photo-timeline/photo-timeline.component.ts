@@ -20,7 +20,7 @@ import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { VideoCompressionService } from '../../services/video-compression.service';
 import { VideoUploadProcessingService } from '../../services/video-upload-processing.service';
 import { forkJoin, of, Subscription } from 'rxjs';
-import { map, distinctUntilChanged, catchError, take, switchMap, finalize } from 'rxjs/operators';
+import { map, distinctUntilChanged, catchError, take, switchMap, finalize, timeout } from 'rxjs/operators';
 import { DomSanitizer, SafeUrl, SafeStyle } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
 import { EvenementsService } from '../../services/evenements.service';
@@ -111,6 +111,10 @@ const WALL_PRELOAD_THUMBS_PER_GROUP_CAP = 300;
 const WALL_VIDEO_AUTOPLAY_MIN_VISIBLE_RATIO = 0.2;
 /** Seuils IO pour recevoir {@link IntersectionObserverEntry.intersectionRatio}. */
 const WALL_VIDEO_IO_THRESHOLDS: number[] = [0, 0.05, 0.1, 0.2, 0.35, 0.5, 0.75, 1];
+/** Mur : téléchargement du fichier vidéo complet ; coupe les requêtes bloquées (sinon spinner infini + slot HS). */
+const WALL_VIDEO_FETCH_TIMEOUT_MS = 180_000;
+/** Tentatives auto après erreur / timeout avant bouton « réessayer » (évite de boucler sur une 404). */
+const WALL_VIDEO_FETCH_MAX_AUTO_RETRIES = 5;
 
 @Component({
     selector: 'app-photo-timeline',
@@ -235,6 +239,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     videoUrlCache: Map<string, string> = new Map();
     videoSafeUrlCache: Map<string, SafeUrl> = new Map(); // same SafeUrl instance to avoid reloads
     loadingVideos: Set<string> = new Set();
+    /** Compteur d'échecs réseau / timeout par fichier ; réinitialisé après succès ou reload timeline. */
+    private wallVideoFetchAttemptCount = new Map<string, number>();
+    /** Après {@link WALL_VIDEO_FETCH_MAX_AUTO_RETRIES} échecs : spinner remplacé par un bouton réessayer. */
+    private wallVideoHardFailedIds = new Set<string>();
 
     userId = '';
     private nextPage = 0;
@@ -719,6 +727,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.videoSafeUrlCache.clear();
         this.loadingThumbnails.clear();
         this.loadingVideos.clear();
+        this.wallVideoFetchAttemptCount.clear();
+        this.wallVideoHardFailedIds.clear();
         requestAnimationFrame(() => {
             this.revokeBlobUrlsInMap(prevThumbUrls);
             this.revokeBlobUrlsInMap(prevVideoUrls);
@@ -1136,6 +1146,49 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         return this.videoSafeUrlCache.get(video.fileId) ?? null;
     }
 
+    isWallVideoHardFailed(video: TimelinePhoto): boolean {
+        return video?.fileId ? this.wallVideoHardFailedIds.has(video.fileId) : false;
+    }
+
+    /** Réessaie après échecs répétés (bouton sur la tuile). */
+    retryWallVideoLoad(video: TimelinePhoto): void {
+        const id = video?.fileId?.trim();
+        if (!id || this.destroyed) return;
+        this.wallVideoHardFailedIds.delete(id);
+        this.wallVideoFetchAttemptCount.delete(id);
+        this.clearWallVideoHostObservationFlags(id);
+        setTimeout(() => {
+            if (!this.destroyed) this.scanWallMediaHosts();
+        }, 0);
+        this.cdr.markForCheck();
+    }
+
+    private clearWallVideoHostObservationFlags(fileId: string): void {
+        if (typeof document === 'undefined' || !fileId) return;
+        document.querySelectorAll('.wall-video-file-host[data-file-id]').forEach(el => {
+            if (el.getAttribute('data-file-id') === fileId) {
+                el.removeAttribute('data-wall-media-observed');
+            }
+        });
+    }
+
+    /**
+     * Une fois la tuile vue une fois, elle garde `data-wall-media-observed` : sans cette remise à zéro,
+     * une erreur HTTP ou un timeout laisse le spinner sans aucune nouvelle tentative.
+     */
+    private onWallVideoFetchTransientFailure(fileId: string): void {
+        const n = (this.wallVideoFetchAttemptCount.get(fileId) ?? 0) + 1;
+        this.wallVideoFetchAttemptCount.set(fileId, n);
+        if (n >= WALL_VIDEO_FETCH_MAX_AUTO_RETRIES) {
+            this.wallVideoHardFailedIds.add(fileId);
+            return;
+        }
+        this.clearWallVideoHostObservationFlags(fileId);
+        setTimeout(() => {
+            if (!this.destroyed) this.scanWallMediaHosts();
+        }, 0);
+    }
+
     private acquireWallFetchSlot(job: () => void): void {
         if (this.destroyed) return;
         if (this.wallFetchActive < getAdaptiveMaxParallel()) {
@@ -1162,19 +1215,25 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
     private loadVideoUrl(video: TimelinePhoto): void {
         const id = video.fileId;
-        if (this.videoUrlCache.has(id) || this.loadingVideos.has(id)) {
+        if (!id || this.wallVideoHardFailedIds.has(id) || this.videoUrlCache.has(id) || this.loadingVideos.has(id)) {
             return;
         }
         this.loadingVideos.add(id);
         this.acquireWallFetchSlot(() => {
             const gen = this.timelineLoadGeneration;
             const sub = this.fileService.getFile(id).pipe(
+                timeout(WALL_VIDEO_FETCH_TIMEOUT_MS),
                 finalize(() => this.releaseWallFetchSlot())
             ).subscribe({
                 next: (data: ArrayBuffer) => {
                     this.commitWallMediaCachesAndScheduleCdr(() => {
                         if (this.destroyed || gen !== this.timelineLoadGeneration) {
                             this.loadingVideos.delete(id);
+                            return;
+                        }
+                        if (!data || data.byteLength === 0) {
+                            this.loadingVideos.delete(id);
+                            this.onWallVideoFetchTransientFailure(id);
                             return;
                         }
                         if (this.videoUrlCache.has(id)) {
@@ -1187,12 +1246,18 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                         const safe = this.sanitizer.bypassSecurityTrustUrl(url);
                         this.videoSafeUrlCache.set(id, safe);
                         this.loadingVideos.delete(id);
+                        this.wallVideoFetchAttemptCount.delete(id);
+                        this.wallVideoHardFailedIds.delete(id);
                     });
                 },
                 error: () => {
                     this.commitWallMediaCachesAndScheduleCdr(() => {
-                        if (this.destroyed) return;
+                        if (this.destroyed || gen !== this.timelineLoadGeneration) {
+                            this.loadingVideos.delete(id);
+                            return;
+                        }
                         this.loadingVideos.delete(id);
+                        this.onWallVideoFetchTransientFailure(id);
                     });
                 }
             });
