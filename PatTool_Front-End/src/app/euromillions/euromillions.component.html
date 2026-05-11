@@ -5,55 +5,114 @@
 <div class="container py-3 eurom-page">
   <p class="text-muted">{{ 'EUROMILLIONS.INTRO' | translate }}</p>
 
-  <div class="d-flex flex-wrap align-items-center gap-1 mb-2">
-    <button
-      type="button"
-      class="btn btn-sm btn-primary"
-      [disabled]="syncing || !canRunSync"
-      [attr.title]="!canRunSync ? ('EUROMILLIONS.SYNC_ADMIN_TOOLTIP' | translate) : null"
-      (click)="syncCsvFromServer()">
-      <span *ngIf="syncing" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-      {{ 'EUROMILLIONS.SYNC_BUTTON' | translate }}
-    </button>
-    <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="loading || syncing" (click)="refreshTable()">
-      {{ 'EUROMILLIONS.REFRESH' | translate }}
-    </button>
-    <button
-      type="button"
-      class="btn btn-sm btn-outline-primary"
-      [disabled]="loading || syncing || draws.length === 0"
-      (click)="openExportJsonModal(euromJsonModal)"
-      [attr.title]="'EUROMILLIONS.JSON_AI_TOOLTIP' | translate: { since: euromAiMinDrawDateIso }"
-      [attr.aria-label]="'EUROMILLIONS.JSON_AI_OPEN' | translate">
-      <i class="fa fa-code me-1" aria-hidden="true"></i>
-      {{ 'EUROMILLIONS.JSON_AI_OPEN' | translate }}
-    </button>
-    <button
-      type="button"
-      class="btn btn-sm btn-outline-success"
-      [disabled]="loading || syncing || draws.length === 0"
-      (click)="openChartModal(euromChartModal)">
-      {{ 'EUROMILLIONS.CHART_BUTTON' | translate }}
-    </button>
-    <button
-      type="button"
-      class="btn eurom-assistant-ai-btn btn-sm"
-      [disabled]="!canSendEuromAiPrompt"
-      (click)="sendEuromAiPrompt1($event)"
-      [attr.title]="'EUROMILLIONS.AI_FAB_TOOLTIP' | translate: { since: euromAiMinDrawDateIso }"
-      [attr.aria-label]="'EUROMILLIONS.AI_FAB_LABEL' | translate">
-      <i class="fa fa-magic eurom-assistant-ai-btn__icon" aria-hidden="true"></i>
-    </button>
-    <button
-      *ngIf="canEditDrawDates"
-      type="button"
-      class="btn btn-sm btn-outline-dark"
-      [disabled]="loading || syncing || draws.length === 0 || savingDrawId !== null"
-      [class.active]="dateEditMode"
-      (click)="toggleDateEditMode()"
-      [attr.title]="'EUROMILLIONS.DATE_EDIT_TOOLTIP' | translate">
-      {{ (dateEditMode ? 'EUROMILLIONS.DATE_EDIT_DONE' : 'EUROMILLIONS.DATE_EDIT_START') | translate }}
-    </button>
+  <div *ngIf="canRunSync" class="card border-secondary-subtle shadow-sm mb-3">
+    <div class="card-body py-3">
+      <div class="row g-2 align-items-end flex-wrap">
+        <div class="col-auto">
+          <label class="form-label small mb-1" for="euromAiMinDrawDate">{{ 'EUROMILLIONS.AI_MIN_DATE_LABEL' | translate }}</label>
+          <input
+            id="euromAiMinDrawDate"
+            type="date"
+            class="form-control form-control-sm eurom-filter-date"
+            [(ngModel)]="euromAiMinDrawDateDraft"
+            [disabled]="euromAiMinDateSaving || syncing" />
+        </div>
+        <div class="col-auto">
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary"
+            [disabled]="euromAiMinDateSaving || syncing || euromAiMinDrawDateDraft === euromAiMinDrawDateIso"
+            (click)="saveEuromAiMinDrawDateSetting()">
+            <span *ngIf="euromAiMinDateSaving" class="spinner-border spinner-border-sm me-1" role="status"></span>
+            {{ 'EUROMILLIONS.AI_MIN_DATE_SAVE' | translate }}
+          </button>
+        </div>
+        <div class="col-12 col-md-auto small text-muted d-flex align-items-center">
+          <span *ngIf="euromAiMinDrawEffectiveFromMongo">{{ 'EUROMILLIONS.AI_MIN_DATE_SOURCE_MONGO' | translate }}</span>
+          <span *ngIf="!euromAiMinDrawEffectiveFromMongo">{{ 'EUROMILLIONS.AI_MIN_DATE_SOURCE_PROPERTIES' | translate }}</span>
+        </div>
+      </div>
+      <p *ngIf="euromAiMinDateFeedback" class="small mb-0 mt-2" [class.text-danger]="euromAiMinDateFeedbackKind === 'err'" [class.text-success]="euromAiMinDateFeedbackKind === 'ok'">
+        {{ euromAiMinDateFeedback }}
+      </p>
+    </div>
+  </div>
+
+  <div class="eurom-toolbar-stack mb-2">
+    <div class="eurom-toolbar-stack__ai d-flex justify-content-center mb-2">
+      <button
+        type="button"
+        class="btn eurom-assistant-ai-btn eurom-assistant-ai-btn--prominent text-nowrap"
+        [disabled]="!canSendEuromAiPrompt"
+        (click)="sendEuromAiPrompt1($event)"
+        [attr.title]="'EUROMILLIONS.AI_FAB_TOOLTIP' | translate: { since: euromAiMinDrawDateIso }"
+        [attr.aria-label]="'EUROMILLIONS.AI_FAB_LABEL' | translate">
+        <i class="fa fa-magic eurom-assistant-ai-btn__icon" aria-hidden="true"></i>
+        <span>{{ 'EUROMILLIONS.AI_WINNING_NEXT_BTN' | translate }}</span>
+      </button>
+    </div>
+    <div class="eurom-toolbar-stack__actions">
+      <button
+        type="button"
+        class="btn btn-sm btn-primary"
+        [disabled]="syncing || !canRunSync"
+        [attr.title]="!canRunSync ? ('EUROMILLIONS.SYNC_ADMIN_TOOLTIP' | translate) : ('EUROMILLIONS.FDJ_ARCHIVE_TOOLTIP' | translate)"
+        (click)="fetchFdjArchiveAndImport()">
+        <span *ngIf="syncing" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+        {{ 'EUROMILLIONS.FDJ_ARCHIVE_BUTTON' | translate }}
+      </button>
+      <a
+        class="btn btn-sm btn-outline-info"
+        [href]="fdjEuromMyMillionHistoriqueUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+        role="button"
+        [attr.aria-label]="'EUROMILLIONS.FDJ_HISTORIQUE_SITE_BUTTON' | translate"
+        [attr.title]="'EUROMILLIONS.FDJ_HISTORIQUE_SITE_TOOLTIP' | translate">
+        <i class="fa fa-external-link me-1" aria-hidden="true"></i>
+        {{ 'EUROMILLIONS.FDJ_HISTORIQUE_SITE_BUTTON' | translate }}
+      </a>
+      <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="loading || syncing" (click)="refreshTable()">
+        {{ 'EUROMILLIONS.REFRESH' | translate }}
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-primary"
+        [disabled]="loading || syncing || draws.length === 0"
+        (click)="openExportJsonModal(euromJsonModal)"
+        [attr.title]="'EUROMILLIONS.JSON_AI_TOOLTIP' | translate: { since: euromAiMinDrawDateIso }"
+        [attr.aria-label]="'EUROMILLIONS.JSON_AI_OPEN' | translate">
+        <i class="fa fa-code me-1" aria-hidden="true"></i>
+        {{ 'EUROMILLIONS.JSON_AI_OPEN' | translate }}
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-success"
+        [disabled]="loading || syncing || draws.length === 0"
+        (click)="openChartModal(euromChartModal)">
+        {{ 'EUROMILLIONS.CHART_BUTTON' | translate }}
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        [disabled]="loading || syncing || draws.length === 0"
+        (click)="openMonthlyCountModal(euromMonthlyCountModal)"
+        [attr.title]="'EUROMILLIONS.MONTH_COUNT_MODAL_HELP' | translate"
+        [attr.aria-label]="'EUROMILLIONS.MONTH_COUNT_BUTTON' | translate">
+        <i class="fa fa-calendar me-1" aria-hidden="true"></i>
+        {{ 'EUROMILLIONS.MONTH_COUNT_BUTTON' | translate }}
+      </button>
+      <button
+        *ngIf="canEditDrawDates"
+        type="button"
+        class="btn btn-sm btn-outline-dark"
+        [disabled]="loading || syncing || draws.length === 0 || savingDrawId !== null"
+        [class.active]="dateEditMode"
+        (click)="toggleDateEditMode()"
+        [attr.title]="'EUROMILLIONS.DATE_EDIT_TOOLTIP' | translate">
+        {{ (dateEditMode ? 'EUROMILLIONS.DATE_EDIT_DONE' : 'EUROMILLIONS.DATE_EDIT_START') | translate }}
+      </button>
+    </div>
   </div>
 
   <div *ngIf="syncMessage" class="alert" [ngClass]="lastSyncResult ? 'alert-info' : 'alert-warning'">
@@ -114,6 +173,18 @@
                 [attr.aria-label]="'EUROMILLIONS.JSON_AI_OPEN' | translate">
                 <i class="fa fa-code me-1" aria-hidden="true"></i>
                 {{ 'EUROMILLIONS.JSON_AI_OPEN' | translate }}
+              </button>
+            </div>
+            <div class="col-auto">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary"
+                [disabled]="loading || syncing || draws.length === 0"
+                (click)="openMonthlyCountModal(euromMonthlyCountModal)"
+                [attr.title]="'EUROMILLIONS.MONTH_COUNT_MODAL_HELP' | translate"
+                [attr.aria-label]="'EUROMILLIONS.MONTH_COUNT_BUTTON' | translate">
+                <i class="fa fa-calendar me-1" aria-hidden="true"></i>
+                {{ 'EUROMILLIONS.MONTH_COUNT_BUTTON' | translate }}
               </button>
             </div>
             <div class="col-12 col-sm-auto ms-sm-auto small text-muted d-flex align-items-center">
@@ -250,5 +321,70 @@
       </canvas>
     </div>
     <p *ngIf="!chartHasData" class="text-muted mb-0">{{ 'EUROMILLIONS.CHART_EMPTY' | translate }}</p>
+  </div>
+</ng-template>
+
+<ng-template #euromMonthlyCountModal let-modal>
+  <div class="modal-header">
+    <h4 class="modal-title">{{ 'EUROMILLIONS.MONTH_COUNT_MODAL_TITLE' | translate }}</h4>
+    <button type="button" class="btn-close" [attr.aria-label]="'EUROMILLIONS.CHART_CLOSE' | translate" (click)="modal.dismiss()"></button>
+  </div>
+  <div class="modal-body">
+    <p class="text-muted small mb-2">
+      {{ 'EUROMILLIONS.MONTH_COUNT_MODAL_HELP' | translate: { since: euromAiMinInclusiveDay } }}
+    </p>
+    <p class="small text-muted mb-3">
+      {{
+        'EUROMILLIONS.MONTH_COUNT_SUMMARY'
+          | translate: {
+              draws: euromMonthlyDrawsAttributed,
+              since: euromAiMinInclusiveDay,
+              skipped: euromMonthlyDrawsSkipped,
+              beforeBound: euromMonthlyDrawsBeforeBound,
+              years: euromMonthlyCountYears.length,
+              pairs: euromMonthlyDistinctYmCount
+            }
+      }}
+    </p>
+    <div *ngIf="euromMonthlyCountYears.length" class="table-responsive eurom-month-matrix-scroll mb-2">
+      <table class="table table-sm table-striped table-hover mb-0 eurom-month-matrix">
+        <thead class="table-light">
+          <tr>
+            <th scope="col" class="eurom-month-matrix__sticky text-nowrap">{{ 'EUROMILLIONS.MONTH_COUNT_ROW_AXIS' | translate }}</th>
+            <th *ngFor="let y of euromMonthlyCountYears" scope="col" class="text-end text-nowrap">{{ y }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let label of euromMonthlyCountMonthRowLabels; index as mi">
+            <th scope="row" class="eurom-month-matrix__sticky fw-normal text-nowrap">{{ label }}</th>
+            <td *ngFor="let cnt of euromMonthlyCountMatrix[mi]" class="text-end">{{ cnt }}</td>
+          </tr>
+        </tbody>
+        <tfoot class="table-group-divider fw-semibold">
+          <tr>
+            <th scope="row" class="eurom-month-matrix__sticky">{{ 'EUROMILLIONS.MONTH_COUNT_FOOT_YEAR_TOTALS' | translate }}</th>
+            <td *ngFor="let t of euromMonthlyCountYearTotals" class="text-end">{{ t }}</td>
+          </tr>
+          <tr>
+            <th scope="row" class="eurom-month-matrix__sticky">{{ 'EUROMILLIONS.MONTH_COUNT_FOOT_ALL_DRAWS' | translate }}</th>
+            <td [attr.colspan]="euromMonthlyCountYears.length" class="text-end">{{ euromMonthlyDrawsAttributed }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <p *ngIf="!euromMonthlyCountYears.length && draws.length === 0" class="text-muted mb-0">{{ 'EUROMILLIONS.EMPTY' | translate }}</p>
+    <p *ngIf="!euromMonthlyCountYears.length && draws.length > 0 && euromMonthlyDrawsSkipped > 0" class="text-muted mb-0">
+      {{ 'EUROMILLIONS.MONTH_COUNT_EMPTY' | translate }}
+    </p>
+    <p
+      *ngIf="!euromMonthlyCountYears.length && draws.length > 0 && euromMonthlyDrawsSkipped === 0 && euromMonthlyDrawsBeforeBound > 0"
+      class="text-muted mb-0">
+      {{ 'EUROMILLIONS.MONTH_COUNT_ALL_BEFORE_BOUND' | translate: { since: euromAiMinInclusiveDay } }}
+    </p>
+  </div>
+  <div class="modal-footer py-2">
+    <button type="button" class="btn btn-secondary btn-sm" (click)="modal.close()">
+      {{ 'EUROMILLIONS.CHART_CLOSE' | translate }}
+    </button>
   </div>
 </ng-template>

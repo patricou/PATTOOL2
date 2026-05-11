@@ -221,6 +221,9 @@ public class SecurityConfig {
                 // Tirages EuroMillions (CSV → Mongo ; lecture sans auth ; import / correction admin)
                 .requestMatchers(HttpMethod.GET, "/api/euromillions/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/euromillions/sync").hasAnyRole("Admin", "admin")
+                .requestMatchers(HttpMethod.POST, "/api/euromillions/fdj-archive/import")
+                .hasAnyRole("Admin", "admin")
+                .requestMatchers(HttpMethod.PATCH, "/api/euromillions/client-settings").hasAnyRole("Admin", "admin")
                 .requestMatchers(HttpMethod.PATCH, "/api/euromillions/draws").hasAnyRole("Admin", "admin")
 
                 // Stream event files (SSE): require authentication so SecurityContext has user and getCurrentUserId() works

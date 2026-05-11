@@ -247,9 +247,9 @@ export class LotoComponent implements OnInit {
     return this.keycloak.hasAdminRole();
   }
 
-  /** Correction des dates en base : même périmètre que l’import (Admin). */
+  /** Correction des dates en base — uniquement rôle Admin Keycloak (+ session connectée). */
   get canEditDrawDates(): boolean {
-    return this.keycloak.hasAdminRole();
+    return this.keycloak.isLoggedIn() && this.keycloak.hasAdminRole();
   }
 
   /** Envoi du message « analyse n°1 » + JSON à l’assistant : connecté et données chargées. */
@@ -399,6 +399,11 @@ export class LotoComponent implements OnInit {
     if (this.savingDrawId) {
       return;
     }
+    if (!this.keycloak.isLoggedIn() || !this.keycloak.hasAdminRole()) {
+      this.dateEditMode = false;
+      this.cdr.markForCheck();
+      return;
+    }
     this.dateEditMode = !this.dateEditMode;
     this.rebuildDateDrafts();
     this.cdr.markForCheck();
@@ -406,7 +411,7 @@ export class LotoComponent implements OnInit {
 
   saveDrawDate(row: LotoDrawRow): void {
     const id = row.detailUrl;
-    if (!id || !this.canEditDrawDates || !this.dateEditMode) {
+    if (!id || !this.keycloak.hasAdminRole() || !this.dateEditMode) {
       return;
     }
     const drawDate = this.dateDrafts[id];

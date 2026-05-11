@@ -19,6 +19,7 @@ import java.util.Date;
  *  - {@code ui.feature.flags}             - JSON map of feature toggles
  *  - {@code newsapi.last.error.code}      - last NewsAPI error, for diagnostics
  *  - {@code system.maintenance.message}   - banner string for all users
+ *  - {@code euromillions.ai.min-draw-date} — inclusive lower bound ISO date for assistant JSON (EuroMillions)
  *
  * {@link #valueType} is a hint for callers that want to deserialize
  * {@link #paramValue} consistently:

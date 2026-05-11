@@ -8,7 +8,7 @@ import { BaseChartDirective } from 'ng2-charts';
 import { Chart, ChartConfiguration, ChartOptions, registerables } from 'chart.js';
 import { NgbModal, NgbModule } from '@ng-bootstrap/ng-bootstrap';
 
-import { ApiService, EuromillionsDrawRow, EuromillionsSyncResult } from '../services/api.service';
+import { ApiService, EuromillionsClientSettings, EuromillionsDrawRow, EuromillionsSyncResult } from '../services/api.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { AssistantLaunchService } from '../services/assistant-launch.service';
 
@@ -32,6 +32,13 @@ export class EuromillionsComponent implements OnInit {
   errorMessage = '';
   syncMessage = '';
   lastSyncResult: EuromillionsSyncResult | null = null;
+
+  /**
+   * Page FDJ où se trouve l’historique EuroMillions & My Million (téléchargement d’archive) :
+   * même URL par défaut que {@code euromillions.fdj.historique-url} dans le backend.
+   */
+  readonly fdjEuromMyMillionHistoriqueUrl =
+    'https://www.fdj.fr/jeux-de-tirage/euromillions-my-million/historique';
 
   sortColumn: EuromSortColumn = 'date';
   sortAsc = false;
@@ -77,6 +84,17 @@ export class EuromillionsComponent implements OnInit {
   };
   chartHasData = false;
 
+  /** Comptages modale « tirages par mois » : lignes = 12 mois, colonnes = années (abscisse). */
+  euromMonthlyCountYears: number[] = [];
+  euromMonthlyCountMatrix: number[][] = [];
+  euromMonthlyCountMonthRowLabels: string[] = [];
+  euromMonthlyCountYearTotals: number[] = [];
+  euromMonthlyDistinctYmCount = 0;
+  euromMonthlyDrawsAttributed = 0;
+  euromMonthlyDrawsSkipped = 0;
+  /** Tirages avec date jour valide mais strictement avant la borne basse assistant (hors matrice). */
+  euromMonthlyDrawsBeforeBound = 0;
+
   jsonExportText = '';
   private jsonExportStamp = '';
 
@@ -88,10 +106,21 @@ export class EuromillionsComponent implements OnInit {
   resultFilterDateTo = '';
 
   /**
-   * Borne basse inclusive (yyyy-MM-dd) des tirages dans le JSON assistant, lue depuis le serveur
-   * ({@code euromillions.ai.min-draw-date}) ; défaut 2020-01-01 tant que la réponse n’arrive pas.
+   * Borne basse inclusive (yyyy-MM-dd) des tirages dans le JSON assistant : lue via GET/PATCH {@code client-settings}.
    */
   euromAiMinDrawDateIso = '2020-01-01';
+  /** Champ formulaire admin (yyyy-MM-dd) — synchronisé au chargement. */
+  euromAiMinDrawDateDraft = '2020-01-01';
+  /** Indicateur réponse serveur : valeur persistée Mongo {@code appParameters}. */
+  euromAiMinDrawEffectiveFromMongo = false;
+  euromAiMinDateSaving = false;
+  euromAiMinDateFeedback = '';
+  euromAiMinDateFeedbackKind: 'ok' | 'err' | '' = '';
+
+  /** Jour ISO yyyy-MM-dd de la borne basse assistant (affichage i18n / matrice tirages par mois). */
+  get euromAiMinInclusiveDay(): string {
+    return this.euromAiMinDrawDateIso.trim().substring(0, 10);
+  }
 
   constructor(
     private api: ApiService,
@@ -109,17 +138,65 @@ export class EuromillionsComponent implements OnInit {
     this.refreshTable();
   }
 
+  private applyEuromClientSettings(settings: EuromillionsClientSettings | null): void {
+    const iso = (settings?.minDrawDateIso ?? '').trim().substring(0, 10);
+    const ok = iso.length === 10 && iso.charAt(4) === '-' && iso.charAt(7) === '-';
+    if (!ok) {
+      return;
+    }
+    this.euromAiMinDrawDateIso = iso;
+    this.euromAiMinDrawDateDraft = iso;
+    this.euromAiMinDrawEffectiveFromMongo =
+      !!(settings?.minDrawDateFromMongoDatabase);
+    this.cdr.markForCheck();
+  }
+
   private loadEuromAiClientSettings(): void {
     this.api.getEuromillionsClientSettings().subscribe({
-      next: (s) => {
-        const iso = (s?.minDrawDateIso ?? '').trim().substring(0, 10);
-        if (iso.length === 10 && iso.charAt(4) === '-' && iso.charAt(7) === '-') {
-          this.euromAiMinDrawDateIso = iso;
-        }
-        this.cdr.markForCheck();
-      },
+      next: (s) => this.applyEuromClientSettings(s ?? null),
       error: () => undefined
     });
+  }
+
+  saveEuromAiMinDrawDateSetting(): void {
+    if (!this.canRunSync) {
+      return;
+    }
+    const iso = this.euromAiMinDrawDateDraft?.trim().substring(0, 10) ?? '';
+    if (iso.length !== 10 || iso.charAt(4) !== '-' || iso.charAt(7) !== '-') {
+      return;
+    }
+    this.euromAiMinDateFeedback = '';
+    this.euromAiMinDateFeedbackKind = '';
+    this.euromAiMinDateSaving = true;
+    this.api
+      .patchEuromillionsClientSettings({ minDrawDateIso: iso })
+      .pipe(
+        catchError((err) => {
+          if (err?.status === 403) {
+            this.euromAiMinDateFeedback = this.translate.instant('EUROMILLIONS.AI_MIN_DATE_SAVE_FORBIDDEN');
+            this.euromAiMinDateFeedbackKind = 'err';
+            return of(null);
+          }
+          const detail = this.euromSyncErrorDetail(err);
+          this.euromAiMinDateFeedback = this.translate.instant('EUROMILLIONS.AI_MIN_DATE_SAVE_ERROR', {
+            detail
+          });
+          this.euromAiMinDateFeedbackKind = 'err';
+          return of(null);
+        }),
+        finalize(() => {
+          this.euromAiMinDateSaving = false;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe((res) => {
+        if (res) {
+          this.applyEuromClientSettings(res);
+          this.euromAiMinDateFeedback = this.translate.instant('EUROMILLIONS.AI_MIN_DATE_SAVED');
+          this.euromAiMinDateFeedbackKind = 'ok';
+        }
+      });
   }
 
   private applyChartAxisTitles(): void {
@@ -141,8 +218,9 @@ export class EuromillionsComponent implements OnInit {
     return this.keycloak.hasAdminRole();
   }
 
+  /** Édition des dates en base réservée au rôle realm/client Admin Keycloak (+ session connectée). */
   get canEditDrawDates(): boolean {
-    return this.keycloak.hasAdminRole();
+    return this.keycloak.isLoggedIn() && this.keycloak.hasAdminRole();
   }
 
   get canSendEuromAiPrompt(): boolean {
@@ -289,6 +367,11 @@ export class EuromillionsComponent implements OnInit {
     if (this.savingDrawId) {
       return;
     }
+    if (!this.keycloak.isLoggedIn() || !this.keycloak.hasAdminRole()) {
+      this.dateEditMode = false;
+      this.cdr.markForCheck();
+      return;
+    }
     this.dateEditMode = !this.dateEditMode;
     this.rebuildDateDrafts();
     this.cdr.markForCheck();
@@ -296,7 +379,7 @@ export class EuromillionsComponent implements OnInit {
 
   saveDrawDate(row: EuromillionsDrawRow): void {
     const id = row.drawCode;
-    if (!id || !this.canEditDrawDates || !this.dateEditMode) {
+    if (!id || !this.keycloak.hasAdminRole() || !this.dateEditMode) {
       return;
     }
     const drawDate = this.dateDrafts[id];
@@ -338,7 +421,7 @@ export class EuromillionsComponent implements OnInit {
       });
   }
 
-  syncCsvFromServer(): void {
+  fetchFdjArchiveAndImport(): void {
     if (!this.canRunSync) {
       this.syncMessage = this.translate.instant('EUROMILLIONS.SYNC_ADMIN_ONLY');
       return;
@@ -347,7 +430,7 @@ export class EuromillionsComponent implements OnInit {
     this.lastSyncResult = null;
     this.syncing = true;
     this.api
-      .syncEuromillionsFromCsv()
+      .fetchEuromillionsFdjArchiveAndImport()
       .pipe(
         timeout(300000),
         catchError((err) => {
@@ -355,10 +438,7 @@ export class EuromillionsComponent implements OnInit {
             this.syncMessage = this.translate.instant('EUROMILLIONS.SYNC_ADMIN_ONLY');
             return of(null);
           }
-          const apiMsg =
-            (typeof err?.error === 'object' && err?.error?.message) ||
-            err?.message ||
-            String(err);
+          const apiMsg = this.euromSyncErrorDetail(err);
           this.syncMessage = this.translate.instant('EUROMILLIONS.SYNC_FAILED', { detail: apiMsg });
           return of(null);
         }),
@@ -378,6 +458,26 @@ export class EuromillionsComponent implements OnInit {
           this.refreshTable();
         }
       });
+  }
+
+  private euromSyncErrorDetail(err: unknown): string {
+    if (typeof err === 'object' && err !== null) {
+      const body = (err as { error?: unknown }).error;
+      if (typeof body === 'object' && body !== null) {
+        const b = body as { message?: string; detail?: string };
+        if (typeof b.detail === 'string' && b.detail.trim()) {
+          return b.detail;
+        }
+        if (typeof b.message === 'string' && b.message.trim()) {
+          return b.message;
+        }
+      }
+      const msg = (err as { message?: string }).message;
+      if (typeof msg === 'string' && msg.trim()) {
+        return msg;
+      }
+    }
+    return String(err);
   }
 
   numbersLine(row: EuromillionsDrawRow): string {
@@ -603,6 +703,122 @@ export class EuromillionsComponent implements OnInit {
       autoSend: false,
       toolFlags: { webSearch: false, imageGeneration: false, mcp: false }
     });
+  }
+
+  openMonthlyCountModal(content: TemplateRef<unknown>): void {
+    this.computeMonthlyDrawCounts();
+    this.modalService.open(content, {
+      size: 'xl',
+      scrollable: true,
+      centered: true
+    });
+    this.cdr.markForCheck();
+  }
+
+  private computeMonthlyDrawCounts(): void {
+    const byYm = new Map<string, number>();
+    let skipped = 0;
+    let beforeBound = 0;
+    const minBound = this.euromAiMinInclusiveDay;
+
+    for (const row of this.draws) {
+      const dayKey = this.euromIsoDayPrefixOrNull(row.drawDate);
+      if (!dayKey) {
+        skipped++;
+        continue;
+      }
+      if (dayKey < minBound) {
+        beforeBound++;
+        continue;
+      }
+      const ym = this.parseDrawYearMonthKey(row.drawDate);
+      if (!ym) {
+        skipped++;
+        continue;
+      }
+      byYm.set(ym, (byYm.get(ym) ?? 0) + 1);
+    }
+
+    this.euromMonthlyDrawsSkipped = skipped;
+    this.euromMonthlyDrawsBeforeBound = beforeBound;
+    this.euromMonthlyDistinctYmCount = byYm.size;
+
+    let sumAll = 0;
+    const yearsSet = new Set<number>();
+    for (const [k, v] of byYm.entries()) {
+      sumAll += v;
+      yearsSet.add(Number(k.slice(0, 4)));
+    }
+    this.euromMonthlyDrawsAttributed = sumAll;
+
+    const years = [...yearsSet].sort((a, b) => a - b);
+    this.euromMonthlyCountYears = years;
+
+    if (years.length === 0) {
+      this.euromMonthlyCountMatrix = [];
+      this.euromMonthlyCountMonthRowLabels = [];
+      this.euromMonthlyCountYearTotals = [];
+      return;
+    }
+
+    const matrix: number[][] = [];
+    for (let m = 1; m <= 12; m++) {
+      const row: number[] = [];
+      const mm = String(m).padStart(2, '0');
+      for (const y of years) {
+        const key = `${y}-${mm}`;
+        row.push(byYm.get(key) ?? 0);
+      }
+      matrix.push(row);
+    }
+    this.euromMonthlyCountMatrix = matrix;
+    this.euromMonthlyCountMonthRowLabels = this.buildEuromCalendarMonthLabels();
+    this.euromMonthlyCountYearTotals = years.map((_, ci) =>
+      matrix.reduce((acc, r) => acc + (r[ci] ?? 0), 0)
+    );
+  }
+
+  private buildEuromCalendarMonthLabels(): string[] {
+    const loc = this.translate.currentLang?.replace('_', '-') || 'fr-FR';
+    const out: string[] = [];
+    for (let m = 0; m < 12; m++) {
+      const anchor = new Date(2001, m, 1);
+      try {
+        const s = anchor.toLocaleDateString(loc, { month: 'long' });
+        out.push(s ? s.charAt(0).toUpperCase() + s.slice(1) : String(m + 1));
+      } catch {
+        out.push(String(m + 1));
+      }
+    }
+    return out;
+  }
+
+  /** Retourne {@code yyyy-MM} si le début de {@code raw} est une année/mois plausible, sinon {@code null}. */
+  private parseDrawYearMonthKey(raw: string | undefined): string | null {
+    const d = raw?.trim() ?? '';
+    if (d.length < 7) {
+      return null;
+    }
+    const head = d.slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(head)) {
+      return null;
+    }
+    const month = Number(head.slice(5, 7));
+    if (!Number.isInteger(month) || month < 1 || month > 12) {
+      return null;
+    }
+    const year = Number(head.slice(0, 4));
+    if (!Number.isInteger(year) || year < 1900 || year > 2100) {
+      return null;
+    }
+    return head;
+  }
+
+  /** Préfixe {@code yyyy-MM-dd} si les 10 premiers caractères forment une date ISO jour, sinon {@code null}. */
+  private euromIsoDayPrefixOrNull(raw: string | undefined): string | null {
+    const t = (raw ?? '').trim();
+    const h = t.length >= 10 ? t.slice(0, 10) : '';
+    return /^\d{4}-\d{2}-\d{2}$/.test(h) ? h : null;
   }
 
   openExportJsonModal(content: TemplateRef<unknown>): void {

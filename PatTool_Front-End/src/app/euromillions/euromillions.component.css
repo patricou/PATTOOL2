@@ -103,6 +103,29 @@
   border-color: var(--bs-border-color-translucent, rgba(0, 0, 0, 0.08)) !important;
 }
 
+.eurom-toolbar-stack__ai {
+  width: 100%;
+}
+
+.eurom-toolbar-stack__actions {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+  padding-bottom: 2px;
+}
+
+.eurom-toolbar-stack__actions > .btn,
+.eurom-toolbar-stack__actions > a.btn {
+  flex: 0 0 auto;
+}
+
 .btn.eurom-assistant-ai-btn {
   width: 2.75rem;
   height: 2.75rem;
@@ -120,6 +143,21 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
+.btn.eurom-assistant-ai-btn.eurom-assistant-ai-btn--prominent {
+  width: auto;
+  height: auto;
+  min-height: 3.35rem;
+  min-width: unset;
+  padding: 0.55rem 1.35rem;
+  padding-left: 1.25rem;
+  padding-right: 1.35rem;
+  border-radius: 9999px;
+  gap: 0.55rem;
+  font-weight: 700;
+  font-size: 1.0625rem;
+  letter-spacing: 0.01em;
+}
+
 .btn.eurom-assistant-ai-btn:hover:not(:disabled) {
   background-color: #fff176;
   border-color: #f9a825;
@@ -134,4 +172,33 @@
 .btn.eurom-assistant-ai-btn .eurom-assistant-ai-btn__icon {
   margin: 0;
   font-size: 0.95rem;
+}
+
+.btn.eurom-assistant-ai-btn.eurom-assistant-ai-btn--prominent .eurom-assistant-ai-btn__icon {
+  font-size: 1.2rem;
+}
+
+.eurom-month-matrix-scroll {
+  max-width: 100%;
+}
+
+.eurom-month-matrix {
+  min-width: max-content;
+}
+
+/* Tirages par mois : première colonne (mois) figée lors du défilement horizontal */
+.eurom-month-matrix .eurom-month-matrix__sticky {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background-color: var(--bs-body-bg, #fff);
+  box-shadow: 1px 0 0 var(--bs-border-color, #dee2e6);
+}
+
+.eurom-month-matrix thead.table-light .eurom-month-matrix__sticky {
+  background-color: var(--bs-table-bg, #f8f9fa);
+}
+
+.eurom-month-matrix tfoot .eurom-month-matrix__sticky {
+  background-color: var(--bs-body-bg, #fff);
 }

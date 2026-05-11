@@ -76,7 +76,10 @@ public class EuromillionsCsvImportService {
         return toDto(repository.save(entity));
     }
 
-    public EuromillionsSyncResultDto importFromConfiguredDirectory() {
+    /**
+     * Répertoire {@code euromillions.import.directory} normalisé, ou exception si absent / pas un dossier.
+     */
+    public Path configuredImportDirectory() {
         if (importDirectoryRaw.isBlank()) {
             throw new IllegalArgumentException(
                     "Propriété euromillions.import.directory non configurée (répertoire des CSV sur le serveur).");
@@ -85,6 +88,11 @@ public class EuromillionsCsvImportService {
         if (!Files.isDirectory(dir)) {
             throw new IllegalArgumentException("Répertoire introuvable : " + dir.toAbsolutePath());
         }
+        return dir;
+    }
+
+    public EuromillionsSyncResultDto importFromConfiguredDirectory() {
+        Path dir = configuredImportDirectory();
 
         List<Path> csvFiles;
         try (Stream<Path> stream = Files.list(dir)) {

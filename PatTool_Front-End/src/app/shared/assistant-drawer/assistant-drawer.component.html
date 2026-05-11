@@ -312,6 +312,15 @@
         "></textarea>
       <button
         type="button"
+        class="pat-assistant-copy-draft-btn"
+        (click)="copyAssistantDraftToClipboard()"
+        [disabled]="loading || !draft.trim()"
+        [title]="'ASSISTANT.COPY_QUESTION_HINT' | translate"
+        [attr.aria-label]="'ASSISTANT.COPY_QUESTION' | translate">
+        <i class="fa fa-copy" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
         class="pat-assistant-clear-draft-btn"
         (click)="clearDraftOnly()"
         [disabled]="loading || !draft.trim()"

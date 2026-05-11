@@ -252,20 +252,26 @@ export class KeycloakService {
     
     // Check resource roles (client roles) using hasResourceRole method
     if (authz.hasResourceRole && typeof authz.hasResourceRole === 'function') {
-      // Try with explicit clientId
-      if (authz.hasResourceRole(role, 'tutorial-frontend')) {
-        return true;
+      const clientIdsToTry = new Set<string>();
+      if (typeof authz.clientId === 'string' && authz.clientId.trim().length > 0) {
+        clientIdsToTry.add(authz.clientId.trim());
       }
-      // Try without clientId (uses default)
+      clientIdsToTry.add('tutorial-frontend');
+      for (const cid of clientIdsToTry) {
+        if (authz.hasResourceRole(role, cid)) {
+          return true;
+        }
+      }
+      // Try default client (library-dependent)
       if (authz.hasResourceRole(role)) {
         return true;
       }
     }
-    
+
     // Fallback: Check token directly if methods don't work
     if (authz.tokenParsed) {
       const tokenParsed = authz.tokenParsed;
-      
+
       // Check realm_access.roles (case-insensitive comparison)
       if (tokenParsed.realm_access && tokenParsed.realm_access.roles) {
         const realmRoles = tokenParsed.realm_access.roles;
@@ -277,24 +283,29 @@ export class KeycloakService {
           }
         }
       }
-      
-      // Check resource_access.{clientId}.roles (case-insensitive comparison)
-      if (tokenParsed.resource_access) {
-        const clientId = authz.clientId || 'tutorial-frontend';
-        const clientAccess = tokenParsed.resource_access[clientId];
-        if (clientAccess && clientAccess.roles) {
-          const clientRoles = clientAccess.roles;
-          if (Array.isArray(clientRoles)) {
-            for (const clientRole of clientRoles) {
-              if (clientRole && clientRole.toLowerCase() === role.toLowerCase()) {
-                return true;
-              }
+
+      // Tous les clients du token — le rôle Admin peut être défini hors tutorial-frontend
+      if (tokenParsed.resource_access && typeof tokenParsed.resource_access === 'object') {
+        const ra = tokenParsed.resource_access as Record<string, { roles?: unknown }>;
+        const roleLc = role.toLowerCase();
+        for (const key of Object.keys(ra)) {
+          const cr = ra[key]?.roles;
+          if (!Array.isArray(cr)) {
+            continue;
+          }
+          for (const clientRole of cr) {
+            if (
+              typeof clientRole === 'string' &&
+              clientRole.length > 0 &&
+              clientRole.toLowerCase() === roleLc
+            ) {
+              return true;
             }
           }
         }
       }
     }
-    
+
     return false;
   }
 

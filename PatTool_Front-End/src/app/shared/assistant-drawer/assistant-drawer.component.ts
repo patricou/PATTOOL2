@@ -1751,6 +1751,20 @@ export class AssistantDrawerComponent
     );
   }
 
+  /** Copie le texte du champ de composition vers le presse-papiers. */
+  copyAssistantDraftToClipboard(): void {
+    if (this.loading) {
+      return;
+    }
+    const text = this.draft ?? '';
+    if (!text.trim()) {
+      return;
+    }
+    copyPlainTextToClipboard(text);
+    this.showAssistantTransientBanner('ASSISTANT.COPY_QUESTION_SUCCESS', 'success', 1800);
+    this.cdr.markForCheck();
+  }
+
   /** Vide uniquement le champ de saisie (sans effacer le fil de discussion). */
   clearDraftOnly(): void {
     if (this.loading) {

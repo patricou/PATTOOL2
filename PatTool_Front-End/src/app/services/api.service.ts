@@ -526,16 +526,33 @@ export class ApiService {
     return this._http.get<EuromillionsDrawRow[]>(this.API_URL + 'euromillions/draws');
   }
 
-  /** GET /api/euromillions/client-settings — date min des tirages pour le JSON assistant (application.properties). */
+  /** GET /api/euromillions/client-settings — date min assistant (Mongo appParameters sinon application.properties). */
   getEuromillionsClientSettings(): Observable<EuromillionsClientSettings> {
     return this._http.get<EuromillionsClientSettings>(this.API_URL + 'euromillions/client-settings');
   }
 
-  /** Import : lit tous les *.csv du dossier serveur (JWT admin). */
-  syncEuromillionsFromCsv(): Observable<EuromillionsSyncResult> {
+  /** PATCH /api/euromillions/client-settings — persiste euromillions.ai.min-draw-date (JWT admin). */
+  patchEuromillionsClientSettings(body: EuromillionsClientSettingsPatch): Observable<EuromillionsClientSettings> {
     return this.getHeaderWithToken().pipe(
       switchMap((headers) =>
-        this._http.post<EuromillionsSyncResult>(this.API_URL + 'euromillions/sync', {}, { headers })
+        this._http.patch<EuromillionsClientSettings>(
+          this.API_URL + 'euromillions/client-settings',
+          body,
+          { headers }
+        )
+      )
+    );
+  }
+
+  /** ZIP fdj.fr (archive février 2020+) → dossier configuré puis import Mongo (JWT admin). */
+  fetchEuromillionsFdjArchiveAndImport(): Observable<EuromillionsSyncResult> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.post<EuromillionsSyncResult>(
+          this.API_URL + 'euromillions/fdj-archive/import',
+          {},
+          { headers }
+        )
       )
     );
   }
@@ -680,8 +697,15 @@ export interface LotoSyncResult {
   messages?: string[];
 }
 
-/** GET /api/euromillions/client-settings */
+/** GET/PATCH /api/euromillions/client-settings */
 export interface EuromillionsClientSettings {
+  minDrawDateIso: string;
+  /** Vrai lorsque {@code minDrawDateIso} provient du document Mongo {@code appParameters}. */
+  minDrawDateFromMongoDatabase?: boolean;
+}
+
+/** Corps PATCH /api/euromillions/client-settings */
+export interface EuromillionsClientSettingsPatch {
   minDrawDateIso: string;
 }
 
