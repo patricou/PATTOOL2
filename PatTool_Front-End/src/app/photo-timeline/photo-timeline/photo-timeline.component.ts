@@ -97,9 +97,12 @@ function getAdaptiveMaxParallel(): number {
     if (conn.effectiveType === '3g') return 6;
     return WALL_MEDIA_MAX_PARALLEL;
 }
-/** First-screen thumbnail preload per group (rest via IntersectionObserver, like home-evenements lazy batches). */
-const WALL_PRELOAD_THUMBS_FIRST_SCREEN = 10;
-const WALL_PRELOAD_THUMBS_AFTER = 6;
+/**
+ * Queue wall preview fetches for every photo in a revealed group so late items in `fileUploadeds`
+ * do not wait for scroll. Capped to avoid enqueuing thousands of jobs for one event; beyond this,
+ * IntersectionObserver still loads as the user scrolls. Parallelism stays limited by WALL_MEDIA_MAX_PARALLEL.
+ */
+const WALL_PRELOAD_THUMBS_PER_GROUP_CAP = 300;
 
 /**
  * Fraction minimale de la tuile vidéo qui doit croiser le viewport pour autoriser la lecture
@@ -1255,7 +1258,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                     }
                 }, 0);
             },
-            { root: null, rootMargin: '500px', threshold: 0.01 }
+            { root: null, rootMargin: '1200px', threshold: 0.01 }
         );
     }
 
@@ -1307,17 +1310,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     /**
-     * Starts thumbnail fetching immediately for revealed groups, without waiting for IntersectionObserver
-     * (otherwise there is a one-frame delay + observer callback before the first HTTP request).
+     * Starts thumbnail fetching for revealed groups (all photos up to {@link WALL_PRELOAD_THUMBS_PER_GROUP_CAP})
+     * without waiting for IntersectionObserver, so same-event tiles at the end of the list still load promptly.
      * Videos remain loaded on demand (observer) to avoid downloading large files outside the viewport.
      */
     private preloadThumbnailsForGroup(group: TimelineGroup): void {
         const photos = group.photos || [];
-        const isFirstScreen = this.visibleGroups.length <= INITIAL_VISIBLE_GROUPS;
-        // Few immediate requests: the rest go through IntersectionObserver (like home cards).
-        const limit = isFirstScreen
-            ? Math.min(photos.length, WALL_PRELOAD_THUMBS_FIRST_SCREEN)
-            : Math.min(photos.length, WALL_PRELOAD_THUMBS_AFTER);
+        const limit = Math.min(photos.length, WALL_PRELOAD_THUMBS_PER_GROUP_CAP);
         for (let i = 0; i < limit; i++) {
             this.loadThumbnail(photos[i]);
         }

@@ -57,6 +57,7 @@
           id="pat-asst-routing-model"
           class="form-select form-select-sm pat-assistant-routing-select pat-assistant-routing-model"
           [(ngModel)]="modelPreset"
+          [compareWith]="compareAssistantModelIds"
           (ngModelChange)="onAssistantModelPresetChange()"
           [disabled]="loading">
           <option *ngFor="let opt of routingModelOptions" [value]="opt">{{ opt }}</option>
@@ -284,13 +285,6 @@
     <p *ngIf="historyPersistErrorKey" class="text-danger small mb-2 mb-md-1">
       {{ historyPersistErrorKey | translate }}
     </p>
-    <input
-      #imageFileInput
-      type="file"
-      class="d-none"
-      accept="image/jpeg,image/png,image/gif,image/webp"
-      (change)="onImageFileChange($event)"
-      aria-hidden="true" />
     <div class="pat-assistant-compose-input-row">
       <button
         type="button"
@@ -381,16 +375,44 @@
         <span class="visually-hidden">{{ 'ASSISTANT.TOOLS_HELP_BTN' | translate }}</span>
       </button>
       <span class="pat-assistant-tool-flags-image-gap" aria-hidden="true"></span>
-      <button
-        type="button"
-        class="btn btn-sm btn-outline-secondary pat-assistant-attach-btn"
-        (click)="openImagePicker()"
-        [disabled]="loading"
-        [title]="'ASSISTANT.IMAGE_ATTACH_HINT' | translate"
-        [attr.aria-label]="'ASSISTANT.IMAGE_ATTACH' | translate">
-        <i class="fa fa-picture-o me-1" aria-hidden="true"></i>
-        {{ 'ASSISTANT.IMAGE_ATTACH' | translate }}
-      </button>
+      <!-- Deux entrées distinctes : sur Android/Chrome sans capture ouvre souvent Photos sans accès évident à la caméra. -->
+      <span class="pat-assistant-attach-buttons d-inline-flex flex-wrap gap-1 align-items-center mb-0">
+        <label
+          class="btn btn-sm btn-outline-secondary pat-assistant-attach-btn pat-assistant-attach-file-label mb-0"
+          [class.disabled]="loading"
+          [title]="'ASSISTANT.IMAGE_ATTACH_CAMERA_HINT' | translate">
+          <input
+            type="file"
+            class="pat-assistant-attach-file-input"
+            accept="image/*"
+            capture="environment"
+            [disabled]="loading"
+            (change)="onImageFileChange($event)"
+            tabindex="-1" />
+          <span class="pat-assistant-attach-file-label-text">
+            <span class="visually-hidden d-sm-none">{{ 'ASSISTANT.IMAGE_ATTACH_CAMERA' | translate }}</span>
+            <i class="fa fa-camera me-sm-1" aria-hidden="true"></i>
+            <span class="d-none d-sm-inline">{{ 'ASSISTANT.IMAGE_ATTACH_CAMERA' | translate }}</span>
+          </span>
+        </label>
+        <label
+          class="btn btn-sm btn-outline-secondary pat-assistant-attach-btn pat-assistant-attach-file-label mb-0"
+          [class.disabled]="loading"
+          [title]="'ASSISTANT.IMAGE_ATTACH_FILES_HINT' | translate">
+          <input
+            type="file"
+            class="pat-assistant-attach-file-input"
+            accept="image/*"
+            [disabled]="loading"
+            (change)="onImageFileChange($event)"
+            tabindex="-1" />
+          <span class="pat-assistant-attach-file-label-text">
+            <span class="visually-hidden d-sm-none">{{ 'ASSISTANT.IMAGE_ATTACH_FILES' | translate }}</span>
+            <i class="fa fa-picture-o me-sm-1" aria-hidden="true"></i>
+            <span class="d-none d-sm-inline">{{ 'ASSISTANT.IMAGE_ATTACH_FILES' | translate }}</span>
+          </span>
+        </label>
+      </span>
       <div *ngIf="pendingImage" class="pat-assistant-pending-img-wrap">
         <img
           [src]="trustedImageSrc(pendingImage.dataUrl)"
@@ -467,6 +489,9 @@
   <div class="modal-body pat-assistant-tools-help-body" [attr.aria-labelledby]="'assistant-tools-help-title'">
     <p class="mb-2 text-body-secondary">{{ 'ASSISTANT.TOOLS_HELP_INTRO' | translate }}</p>
     <p class="text-body-secondary small mb-2">{{ 'ASSISTANT.TOOLS_HELP_MODELS_NOTE' | translate }}</p>
+    <p *ngIf="toolsHelpCatalogLoading" class="small text-muted mb-2 pat-assistant-tools-help-loading">
+      <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'ASSISTANT.TOOLS_HELP_CATALOG_LOADING' | translate }}
+    </p>
     <h6 class="fw-semibold mb-2">{{ 'ASSISTANT.TOOLS_HELP_TABLE_HEADING' | translate }}</h6>
     <div class="table-responsive">
       <table
@@ -475,6 +500,9 @@
         <thead class="table-light">
           <tr>
             <th scope="col">{{ 'ASSISTANT.TOOLS_HELP_TABLE_COL_MODEL' | translate }}</th>
+            <th scope="col" class="text-start pat-assistant-tools-help-col-role">
+              {{ 'ASSISTANT.TOOLS_HELP_TABLE_COL_ROLE' | translate }}
+            </th>
             <th scope="col" class="text-center">
               {{ 'ASSISTANT.TOOLS_HELP_TABLE_COL_WEB' | translate }}
             </th>
@@ -491,9 +519,9 @@
           </tr>
         </thead>
         <tbody class="text-center">
-          <ng-container *ngFor="let sec of toolsHelpSections">
+          <ng-container *ngFor="let sec of toolsHelpSectionsForModal">
             <tr class="table-light">
-              <th scope="colgroup" colspan="6" class="text-start py-2">
+              <th scope="colgroup" colspan="7" class="text-start py-2">
                 <span class="fw-semibold" [ngSwitch]="sec.provider">
                   <ng-container *ngSwitchCase="'openai'">{{
                     'ASSISTANT.PROVIDER_OPENAI' | translate
@@ -508,7 +536,7 @@
               </th>
             </tr>
             <tr *ngFor="let r of sec.rows">
-              <th scope="row" class="text-start">
+              <th scope="row" class="text-start text-nowrap">
                 <code>{{ r.modelId }}</code>
                 <span
                   *ngIf="isToolsHelpServerDefault(r.provider, r.modelId)"
@@ -516,6 +544,16 @@
                   >{{ 'ASSISTANT.TOOLS_HELP_TABLE_SERVER_DEFAULT' | translate }}</span
                 >
               </th>
+              <td class="text-start small pat-assistant-tools-help-role-td">
+                <p class="mb-1 text-body-secondary">{{ toolsHelpModelRoleText(r) }}</p>
+                <a
+                  class="link-secondary text-break"
+                  [href]="toolsHelpVendorModelsDocUrl(r.provider)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >{{ 'ASSISTANT.TOOLS_HELP_MODEL_DOC_HUB' | translate }}</a
+                >
+              </td>
               <td
                 class="align-middle"
                 [class.pat-assistant-tools-help-partial]="r.web === 'partial'"
@@ -545,7 +583,7 @@
               </td>
             </tr>
             <tr *ngIf="sec.provider === 'gemini' && serverGeminiImageGenerationModel" class="text-start">
-              <td colspan="6" class="small text-body-secondary border-top-0 pt-0 pb-2">
+              <td colspan="7" class="small text-body-secondary border-top-0 pt-0 pb-2">
                 {{
                   'ASSISTANT.TOOLS_HELP_TABLE_GEMINI_IMAGE_MODEL'
                     | translate : { model: serverGeminiImageGenerationModel }

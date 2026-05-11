@@ -3,8 +3,8 @@ package com.pat.repo;
 import com.pat.repo.domain.Evenement;
 import com.pat.repo.domain.Friend;
 import com.pat.repo.domain.FriendGroup;
-import com.pat.repo.domain.Member;
-import com.pat.repo.FriendGroupRepository;
+import com.pat.service.AgendaSocialGraphCache;
+import com.pat.service.MemberSocialEdges;
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -32,13 +32,7 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 	private final MongoTemplate mongoTemplate;
 	
 	@Autowired
-	private FriendRepository friendRepository;
-	
-	@Autowired
-	private MembersRepository membersRepository;
-	
-	@Autowired
-	private FriendGroupRepository friendGroupRepository;
+	private AgendaSocialGraphCache agendaSocialGraphCache;
 
 	private static final Map<String, String> TYPE_ALIAS_LOOKUP = new HashMap<>();
 	private static final Map<String, List<String>> TYPE_KEYWORDS = buildTypeKeywords();
@@ -99,7 +93,17 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 		query.addCriteria(buildAccessCriteria(userId));
 		query.addCriteria(Criteria.where("beginEventDate").lte(rangeEnd));
 		query.addCriteria(Criteria.where("endEventDate").gte(rangeStart));
-		query.fields().exclude("fileUploadeds");
+		// Agenda: strip DBRefs / large arrays — avoids resolving author, members, files per row.
+		query.fields()
+				.include("_id")
+				.include("evenementName")
+				.include("beginEventDate")
+				.include("endEventDate")
+				.include("comments")
+				.include("thumbnail")
+				.include("visibility")
+				.include("friendGroupId")
+				.include("friendGroupIds");
 		List<Evenement> events = mongoTemplate.find(query, Evenement.class);
 		events.sort(Comparator
 				.comparing(Evenement::getBeginEventDate, Comparator.nullsLast(Comparator.naturalOrder()))
@@ -155,13 +159,12 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 
 		if (StringUtils.hasText(userId)) {
 			accessCriteria.add(buildAuthorCriteria(userId));
-			// Add friends visibility criteria
-			Criteria friendsCriteria = buildFriendsVisibilityCriteria(userId);
+			MemberSocialEdges edges = agendaSocialGraphCache.getEdges(userId);
+			Criteria friendsCriteria = buildFriendsVisibilityCriteria(userId, edges.friendships());
 			if (friendsCriteria != null) {
 				accessCriteria.add(friendsCriteria);
 			}
-			// Add friend group visibility criteria
-			Criteria friendGroupCriteria = buildFriendGroupVisibilityCriteria(userId);
+			Criteria friendGroupCriteria = buildFriendGroupVisibilityCriteria(userId, edges.friendGroups());
 			if (friendGroupCriteria != null) {
 				accessCriteria.add(friendGroupCriteria);
 			}
@@ -174,18 +177,9 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 		return new Criteria().orOperator(accessCriteria.toArray(new Criteria[0]));
 	}
 	
-	private Criteria buildFriendsVisibilityCriteria(String userId) {
+	private Criteria buildFriendsVisibilityCriteria(String userId, List<Friend> friendships) {
 		try {
-			// Get current user
-			Member currentUser = membersRepository.findById(userId).orElse(null);
-			if (currentUser == null) {
-				return null;
-			}
-			
-			// Get all friends of current user
-			List<Friend> friendships = friendRepository.findByUser1OrUser2(currentUser, currentUser);
-			if (friendships.isEmpty()) {
-				// No friends, so no friends visibility events should be shown
+			if (friendships == null || friendships.isEmpty()) {
 				return null;
 			}
 			
@@ -230,69 +224,53 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 		}
 	}
 
-	private Criteria buildFriendGroupVisibilityCriteria(String userId) {
+	private Criteria buildFriendGroupVisibilityCriteria(String userId, List<FriendGroup> userFriendGroups) {
 		try {
-			// Get current user
-			Member currentUser = membersRepository.findById(userId).orElse(null);
-			if (currentUser == null) {
+			if (userFriendGroups == null || userFriendGroups.isEmpty()) {
 				return null;
 			}
-			
-			// Get all friend groups where the user is a member
-			List<FriendGroup> userFriendGroups = friendGroupRepository.findByMembersContaining(currentUser);
-			if (userFriendGroups.isEmpty()) {
-				// User is not a member of any friend group, so no friend group visibility events should be shown
-				return null;
-			}
-			
-			// Collect all friend group IDs where the user is a member
-			List<String> friendGroupIds = new ArrayList<>();
+
+			List<String> groupIds = new ArrayList<>();
 			for (FriendGroup group : userFriendGroups) {
 				if (group.getId() != null) {
-					friendGroupIds.add(group.getId());
+					groupIds.add(group.getId());
 				}
 			}
-			
-			if (friendGroupIds.isEmpty()) {
+			if (groupIds.isEmpty()) {
 				return null;
 			}
-			
-			// Build criteria: visibility is NOT "public", "private", or "friends" 
-			// AND friendGroupId is in the list of groups where user is a member
-			// OR visibility matches the friend group name (for backward compatibility)
-			List<Criteria> friendGroupCriteriaList = new ArrayList<>();
-			
-			// Match by friendGroupId
-			for (String groupId : friendGroupIds) {
+
+			// Align with CalendarAppointmentRepositoryImpl: legacy single-group / group-name visibility,
+			// plus visibility=friendGroups with friendGroupIds overlap (multi-group activities).
+			List<Criteria> legacyMatches = new ArrayList<>();
+			for (String groupId : groupIds) {
 				try {
-					friendGroupCriteriaList.add(Criteria.where("friendGroupId").is(groupId));
+					legacyMatches.add(Criteria.where("friendGroupId").is(groupId));
 				} catch (Exception ex) {
 					// Skip invalid group ID
 				}
 			}
-			
-			// Also match by visibility matching the group name (for backward compatibility)
 			for (FriendGroup group : userFriendGroups) {
 				if (group.getName() != null && !group.getName().trim().isEmpty()) {
-					friendGroupCriteriaList.add(
-						Criteria.where("visibility").is(group.getName())
-					);
+					legacyMatches.add(Criteria.where("visibility").is(group.getName()));
 				}
 			}
-			
-			if (friendGroupCriteriaList.isEmpty()) {
+			if (legacyMatches.isEmpty()) {
 				return null;
 			}
-			
-			Criteria friendGroupMatch = new Criteria().orOperator(friendGroupCriteriaList.toArray(new Criteria[0]));
-			
-			// Visibility should not be "public", "private", or "friends" (it should be the group name)
-			return new Criteria().andOperator(
-				Criteria.where("visibility").nin("public", "private", "friends"),
-				friendGroupMatch
+			Criteria legacyMatch = new Criteria().orOperator(legacyMatches.toArray(new Criteria[0]));
+			Criteria legacyBranch = new Criteria().andOperator(
+				Criteria.where("visibility").nin("public", "private", "friends", "friendGroups"),
+				legacyMatch
 			);
+
+			Criteria friendGroupsBranch = new Criteria().andOperator(
+				Criteria.where("visibility").is("friendGroups"),
+				Criteria.where("friendGroupIds").in(groupIds)
+			);
+
+			return new Criteria().orOperator(legacyBranch, friendGroupsBranch);
 		} catch (Exception e) {
-			// If any error occurs, return null (don't include friend group visibility)
 			return null;
 		}
 	}

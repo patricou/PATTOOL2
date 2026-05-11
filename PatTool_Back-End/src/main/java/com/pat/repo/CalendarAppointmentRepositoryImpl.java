@@ -3,7 +3,8 @@ package com.pat.repo;
 import com.pat.repo.domain.CalendarAppointment;
 import com.pat.repo.domain.Friend;
 import com.pat.repo.domain.FriendGroup;
-import com.pat.repo.domain.Member;
+import com.pat.service.AgendaSocialGraphCache;
+import com.pat.service.MemberSocialEdges;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -23,13 +24,7 @@ public class CalendarAppointmentRepositoryImpl implements CalendarAppointmentRep
     private final MongoTemplate mongoTemplate;
 
     @Autowired
-    private FriendRepository friendRepository;
-
-    @Autowired
-    private MembersRepository membersRepository;
-
-    @Autowired
-    private FriendGroupRepository friendGroupRepository;
+    private AgendaSocialGraphCache agendaSocialGraphCache;
 
     @Autowired
     public CalendarAppointmentRepositoryImpl(MongoTemplate mongoTemplate) {
@@ -45,6 +40,17 @@ public class CalendarAppointmentRepositoryImpl implements CalendarAppointmentRep
         query.addCriteria(buildAccessCriteria(userId));
         query.addCriteria(Criteria.where("startDate").lte(rangeEnd));
         query.addCriteria(Criteria.where("endDate").gte(rangeStart));
+        query.fields()
+                .include("_id")
+                .include("ownerMemberId")
+                .include("title")
+                .include("notes")
+                .include("startDate")
+                .include("endDate")
+                .include("visibility")
+                .include("friendGroupId")
+                .include("friendGroupIds")
+                .include("createdAt");
         List<CalendarAppointment> list = mongoTemplate.find(query, CalendarAppointment.class);
         list.sort(Comparator
                 .comparing(CalendarAppointment::getStartDate, Comparator.nullsLast(Comparator.naturalOrder()))
@@ -70,11 +76,12 @@ public class CalendarAppointmentRepositoryImpl implements CalendarAppointmentRep
 
         if (StringUtils.hasText(userId)) {
             accessCriteria.add(Criteria.where("ownerMemberId").is(userId));
-            Criteria friendsCriteria = buildFriendsVisibilityCriteria(userId);
+            MemberSocialEdges edges = agendaSocialGraphCache.getEdges(userId);
+            Criteria friendsCriteria = buildFriendsVisibilityCriteria(userId, edges.friendships());
             if (friendsCriteria != null) {
                 accessCriteria.add(friendsCriteria);
             }
-            Criteria friendGroupCriteria = buildFriendGroupVisibilityCriteria(userId);
+            Criteria friendGroupCriteria = buildFriendGroupVisibilityCriteria(userId, edges.friendGroups());
             if (friendGroupCriteria != null) {
                 accessCriteria.add(friendGroupCriteria);
             }
@@ -86,14 +93,9 @@ public class CalendarAppointmentRepositoryImpl implements CalendarAppointmentRep
         return new Criteria().orOperator(accessCriteria.toArray(new Criteria[0]));
     }
 
-    private Criteria buildFriendsVisibilityCriteria(String userId) {
+    private Criteria buildFriendsVisibilityCriteria(String userId, List<Friend> friendships) {
         try {
-            Member currentUser = membersRepository.findById(userId).orElse(null);
-            if (currentUser == null) {
-                return null;
-            }
-            List<Friend> friendships = friendRepository.findByUser1OrUser2(currentUser, currentUser);
-            if (friendships.isEmpty()) {
+            if (friendships == null || friendships.isEmpty()) {
                 return null;
             }
             List<String> friendIds = new ArrayList<>();
@@ -125,14 +127,9 @@ public class CalendarAppointmentRepositoryImpl implements CalendarAppointmentRep
         }
     }
 
-    private Criteria buildFriendGroupVisibilityCriteria(String userId) {
+    private Criteria buildFriendGroupVisibilityCriteria(String userId, List<FriendGroup> userFriendGroups) {
         try {
-            Member currentUser = membersRepository.findById(userId).orElse(null);
-            if (currentUser == null) {
-                return null;
-            }
-            List<FriendGroup> userFriendGroups = friendGroupRepository.findByMembersContaining(currentUser);
-            if (userFriendGroups.isEmpty()) {
+            if (userFriendGroups == null || userFriendGroups.isEmpty()) {
                 return null;
             }
             List<String> groupIds = new ArrayList<>();

@@ -1,6 +1,6 @@
 /**
- * Modèles proposés dans le sélecteur PatTool (sélecteur assistant).
- * Mettre à jour en même temps que les exemples backend / documentation.
+ * Modèles « courts » affichés en tête du sélecteur (fallback hors-ligne).
+ * La liste complète est chargée via GET /api/assistant/models?provider=… (clés API côté serveur).
  */
 export const ASSISTANT_OPENAI_MODEL_PRESETS = [
   'gpt-5.5',

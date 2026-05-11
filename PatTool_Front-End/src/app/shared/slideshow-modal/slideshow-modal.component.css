@@ -1681,7 +1681,8 @@ body.slideshow-fullscreen-active .slideshow-footer {
     width: 100%;
     display: block;
     flex-shrink: 0;
-    scroll-behavior: smooth;
+    /* auto : "smooth" se bat avec CDK pendant le reorder + ascenseurs */
+    scroll-behavior: auto;
     -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
 }
 
@@ -1763,6 +1764,10 @@ body:has(:-ms-fullscreen) .thumbnails-strip {
     width: max-content; /* Ensure container can be wider than parent for scrolling */
 }
 
+.thumbnails-container.cdk-drop-list-dragging .thumbnail-item:not(.cdk-drag-placeholder) {
+    transition: transform 160ms cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
 .thumbnail-item {
     flex-shrink: 0;
     width: 80px;
@@ -1772,14 +1777,18 @@ body:has(:-ms-fullscreen) .thumbnails-strip {
     border-radius: 4px;
     overflow: hidden;
     background: rgba(255, 255, 255, 0.1);
-    transition: all 0.2s ease;
+    /* Ne pas animer « all » ni transform : ça lutte contre les translations CDK */
+    transition: border-color 0.15s ease,
+        border-width 0.15s ease,
+        box-shadow 0.15s ease,
+        opacity 0.15s ease;
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-.thumbnail-item:hover {
+.thumbnails-container:not(.cdk-drop-list-dragging) .thumbnail-item:hover {
     border-color: rgba(0, 0, 0, 0.8); /* Bords noirs plus opaques au survol */
     transform: scale(1.05);
     z-index: 10;
@@ -1789,6 +1798,29 @@ body:has(:-ms-fullscreen) .thumbnails-strip {
     border-color: #28a745; /* Bord vert pour l'élément actif */
     border-width: 3px;
     box-shadow: 0 0 10px rgba(40, 167, 69, 0.5); /* Ombre verte */
+}
+
+.thumbnail-item.cdk-drag:not(.cdk-drag-disabled) {
+    cursor: grab;
+}
+
+.thumbnail-item.cdk-drag.cdk-drag-dragging {
+    cursor: grabbing;
+}
+
+.thumbnail-item.cdk-drag-preview {
+    box-sizing: border-box;
+    border-radius: 4px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    will-change: transform;
+}
+
+.thumbnail-item.cdk-drag-placeholder {
+    opacity: 0.35;
+}
+
+.thumbnail-item.cdk-drag-animating {
+    transition: transform 160ms cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .thumbnail-image-wrapper {

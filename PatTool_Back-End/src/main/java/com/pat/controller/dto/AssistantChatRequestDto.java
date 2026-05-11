@@ -30,5 +30,6 @@ public record AssistantChatRequestDto(
          * Surcharge facultative du modèle pour ce tour (sinon {@code openai.assistant.model} ou
          * {@code anthropic.model} selon le fournisseur effectif).
          */
+        @JsonProperty("model")
         @Size(max = 160) String model
 ) {}

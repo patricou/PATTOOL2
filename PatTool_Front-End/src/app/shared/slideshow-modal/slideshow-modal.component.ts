@@ -6,6 +6,7 @@ import { HttpHeaders } from '@angular/common/http';
 import { DomSanitizer, SafeResourceUrl, SafeHtml } from '@angular/platform-browser';
 import { NgbModule, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { FileService } from '../../services/file.service';
 import { AssistantLaunchService } from '../../services/assistant-launch.service';
 import { KeycloakService } from '../../keycloak/keycloak.service';
@@ -61,7 +62,8 @@ interface PatMetadata {
     FormsModule,
     NgbModule,
     TranslateModule,
-    WheelNonPassiveDirective
+    WheelNonPassiveDirective,
+    DragDropModule
   ]
 })
 export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -239,6 +241,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   // Thumbnails strip visibility
   public showThumbnails: boolean = true;
   private userToggledThumbnails: boolean = false;
+  /** Court pour un drag réactif ; le clic utilise toujours le délai CDK avant prise du drag. */
+  public readonly thumbnailsDragDelayMs = 120;
   
   private hasDraggedSlideshow: boolean = false;
   private dragStartX: number = 0;
@@ -1216,10 +1220,83 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     setTimeout(() => this.applyImageLoaded(objectUrl, blob, imageIndex, metadata), 0);
   }
 
+  /** Diapositive (index bandeau / ordre de lecture) où afficher `images[imageIndex]` selon la carte courante. */
+  private slideshowSlideIndexForSourceImage(imageIndex: number): number {
+    const n = this.slideshowImages.length;
+    for (let s = 0; s < n; s++) {
+      if (this.slideshowIndexToImageIndex.get(s) === imageIndex) {
+        return s;
+      }
+    }
+    return -1;
+  }
+
+  private snapshotSlideOrderFromMap(): number[] {
+    const n = this.slideshowImages.length;
+    const order: number[] = [];
+    for (let s = 0; s < n; s++) {
+      order.push(this.slideshowIndexToImageIndex.get(s) ?? s);
+    }
+    return order;
+  }
+
+  private writeSlideOrderToMap(order: number[]): void {
+    this.slideshowIndexToImageIndex.clear();
+    order.forEach((imageIdx, slideIdx) => {
+      this.slideshowIndexToImageIndex.set(slideIdx, imageIdx);
+    });
+  }
+
+  private static adjustSlideIndexAfterMove(selected: number, from: number, to: number): number {
+    if (selected === from) {
+      return to;
+    }
+    if (from < to) {
+      if (selected > from && selected <= to) {
+        return selected - 1;
+      }
+    } else if (from > to) {
+      if (selected >= to && selected < from) {
+        return selected + 1;
+      }
+    }
+    return selected;
+  }
+
+  /** Réordonne les diapositives (bandeau + ordre next/prev) par glisser-déposer sur les miniatures. */
+  public onThumbnailsStripDropped(event: CdkDragDrop<void>): void {
+    if (event.previousIndex === event.currentIndex) {
+      return;
+    }
+    const prev = event.previousIndex;
+    const cur = event.currentIndex;
+    const len = this.slideshowImages.length;
+    if (prev < 0 || cur < 0 || prev >= len || cur >= len) {
+      return;
+    }
+
+    moveItemInArray(this.slideshowImages, prev, cur);
+    const sourceOrder = this.snapshotSlideOrderFromMap();
+    moveItemInArray(sourceOrder, prev, cur);
+    this.writeSlideOrderToMap(sourceOrder);
+
+    this.currentSlideshowIndex = SlideshowModalComponent.adjustSlideIndexAfterMove(
+      this.currentSlideshowIndex,
+      prev,
+      cur
+    );
+
+    this.updateCurrentSlideshowImageUrl();
+    this.refreshSlideshowCounterDisplay();
+    setTimeout(() => this.updateFileIdLoadingSpinner(), 0);
+    this.cdr.markForCheck();
+    setTimeout(() => this.scrollToActiveThumbnail(), 80);
+  }
+
   private applyImageLoaded(objectUrl: string, blob: Blob | null, imageIndex: number, metadata?: PatMetadata): void {
     this.loadingImageIndices.delete(imageIndex);
-    // Insert image at its correct position in the sorted order (imageIndex)
-    const slideshowIndex = imageIndex;
+    const mapped = this.slideshowSlideIndexForSourceImage(imageIndex);
+    const slideshowIndex = mapped >= 0 ? mapped : imageIndex;
     if (slideshowIndex < this.slideshowImages.length) {
       this.slideshowImages[slideshowIndex] = objectUrl;
     } else {
@@ -1278,7 +1355,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
 
     if (blob) {
       const preloadExifSoon =
-        imageIndex === this.currentSlideshowIndex ||
+        slideshowIndex === this.currentSlideshowIndex ||
         (this.pendingStartIndex !== null && imageIndex === this.pendingStartIndex);
       if (preloadExifSoon) {
         this.preloadExifData(objectUrl, blob).catch(() => {});
@@ -1305,23 +1382,24 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       }, 0);
     }
 
-    if (imageIndex === this.currentSlideshowIndex) {
+    if (slideshowIndex === this.currentSlideshowIndex) {
       this.updateCurrentSlideshowImageUrl();
     }
 
     if (this.pendingStartIndex !== null && imageIndex === this.pendingStartIndex) {
-      const startIdx = this.pendingStartIndex;
+      const targetImageIndex = this.pendingStartIndex;
       this.pendingStartIndex = null;
       // Defer index jump so it does not run in the same CD turn as progressive load (avoids NG0100 on counter)
       setTimeout(() => {
-        this.currentSlideshowIndex = startIdx;
+        const slideForTarget = this.slideshowSlideIndexForSourceImage(targetImageIndex);
+        this.currentSlideshowIndex = slideForTarget >= 0 ? slideForTarget : targetImageIndex;
         this.updateCurrentSlideshowImageUrl();
         this.refreshSlideshowCounterDisplay();
         this.cdr.markForCheck();
       }, 0);
     }
 
-    if (loadedImagesCount === 1 && imageIndex === this.currentSlideshowIndex) {
+    if (loadedImagesCount === 1 && slideshowIndex === this.currentSlideshowIndex) {
       requestAnimationFrame(() => {
         this.resetSlideshowZoom();
         this.updateContainerDimensions();
@@ -5520,7 +5598,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           base64,
           dataUrl
         },
-        toolFlags: { imageGeneration: true }
+        toolFlags: { imageGeneration: false }
       });
       this.onSlideshowClose();
     } catch {

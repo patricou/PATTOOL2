@@ -191,10 +191,17 @@
            appWheelNonPassive
            (wheelEvent)="onThumbnailsWheel($event)"
            #thumbnailsStrip>
-        <div class="thumbnails-container">
-          <div *ngFor="let image of slideshowImages; let i = index" 
+        <div class="thumbnails-container"
+             cdkDropList
+             cdkDropListOrientation="horizontal"
+             (cdkDropListDropped)="onThumbnailsStripDropped($event)">
+          <div *ngFor="let image of slideshowImages; let i = index"
                class="thumbnail-item"
                [class.active]="isCurrentThumbnail(i)"
+               cdkDrag
+               cdkDragLockAxis="x"
+               [cdkDragStartDelay]="thumbnailsDragDelayMs"
+               [cdkDragDisabled]="slideshowImages.length < 2"
                (click)="onThumbnailClick(i)">
             <div *ngIf="getThumbnailUrl(i)" class="thumbnail-image-wrapper">
               <img [src]="getThumbnailUrl(i)" 

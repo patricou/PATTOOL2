@@ -1136,6 +1136,37 @@
   flex: 0 0 auto;
 }
 
+/* input[type=file] : éviter display:none + .click() (iOS Safari) ; overlay sur le libellé. */
+.pat-assistant-attach-file-label {
+  position: relative;
+  cursor: pointer;
+  align-items: center;
+}
+
+.pat-assistant-attach-file-label.disabled {
+  cursor: not-allowed;
+}
+
+.pat-assistant-attach-file-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+  font-size: 0;
+}
+
+.pat-assistant-attach-file-label.disabled .pat-assistant-attach-file-input {
+  cursor: not-allowed;
+}
+
+.pat-assistant-attach-file-label-text {
+  pointer-events: none;
+}
+
 .pat-assistant-pending-img-wrap {
   position: relative;
   flex: 0 0 auto;
@@ -1172,6 +1203,16 @@
 
 .pat-assistant-tools-help-gap-td {
   vertical-align: middle;
+}
+
+.pat-assistant-tools-help-col-role {
+  min-width: 12rem;
+  max-width: 22rem;
+}
+
+.pat-assistant-tools-help-role-td {
+  vertical-align: top;
+  max-width: 24rem;
 }
 
 .pat-assistant-tools-help-partial {

@@ -4,6 +4,7 @@ import com.pat.config.AssistantBillingLinksProperties;
 import com.pat.controller.dto.AssistantChatRequestDto;
 import com.pat.controller.dto.AssistantChatResponseDto;
 import com.pat.controller.dto.AssistantClientConfigDto;
+import com.pat.controller.dto.AssistantModelIdsDto;
 import com.pat.controller.dto.AssistantConversationAssetCreatedDto;
 import com.pat.controller.dto.AssistantConversationAssetUploadDto;
 import com.pat.controller.dto.AssistantConversationCreatedDto;
@@ -15,6 +16,7 @@ import com.pat.controller.dto.AssistantPdfExportRequestDto;
 import com.pat.controller.dto.AssistantRoutingPreferenceDto;
 import com.pat.service.AssistantConversationAssetService;
 import com.pat.service.AssistantConversationService;
+import com.pat.service.AssistantModelsCatalogService;
 import com.pat.service.AssistantPdfExportService;
 import com.pat.service.AssistantRoutingPreferenceService;
 import com.pat.service.OpenAiBillingService;
@@ -39,6 +41,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 @RestController
@@ -55,6 +58,7 @@ public class AssistantController {
     private final AssistantConversationService assistantConversationService;
     private final AssistantConversationAssetService assistantConversationAssetService;
     private final AssistantBillingLinksProperties assistantBillingLinks;
+    private final AssistantModelsCatalogService assistantModelsCatalogService;
 
     public AssistantController(
             RoutingAssistantService routingAssistantService,
@@ -63,7 +67,8 @@ public class AssistantController {
             AssistantPdfExportService assistantPdfExportService,
             AssistantConversationService assistantConversationService,
             AssistantConversationAssetService assistantConversationAssetService,
-            AssistantBillingLinksProperties assistantBillingLinks) {
+            AssistantBillingLinksProperties assistantBillingLinks,
+            AssistantModelsCatalogService assistantModelsCatalogService) {
         this.routingAssistantService = routingAssistantService;
         this.openAiBillingService = openAiBillingService;
         this.assistantRoutingPreferenceService = assistantRoutingPreferenceService;
@@ -71,6 +76,7 @@ public class AssistantController {
         this.assistantConversationService = assistantConversationService;
         this.assistantConversationAssetService = assistantConversationAssetService;
         this.assistantBillingLinks = assistantBillingLinks;
+        this.assistantModelsCatalogService = assistantModelsCatalogService;
     }
 
     /**
@@ -106,6 +112,21 @@ public class AssistantController {
                 emptyToNull(assistantBillingLinks.getGeminiRateLimitUrl()),
                 emptyToNull(assistantBillingLinks.getGeminiApiKeysUrl()),
                 gemImg.isEmpty() ? null : gemImg));
+    }
+
+    /**
+     * Liste des identifiants de modèles connus du fournisseur (API liste-modèles côté clé serveur).
+     * Le client fusionne avec ses presets locaux ; si la clé est absente ou l’appel échoue, la liste peut être vide.
+     */
+    @GetMapping("/assistant/models")
+    public ResponseEntity<AssistantModelIdsDto> assistantModelCatalog(
+            @RequestParam("provider") String provider) {
+        String p = provider == null ? "" : provider.trim().toLowerCase(Locale.ROOT);
+        if (!"openai".equals(p) && !"anthropic".equals(p) && !"gemini".equals(p)) {
+            return ResponseEntity.badRequest().build();
+        }
+        return ResponseEntity.ok(
+                new AssistantModelIdsDto(assistantModelsCatalogService.listModelIds(p)));
     }
 
     private static String emptyToNull(String s) {

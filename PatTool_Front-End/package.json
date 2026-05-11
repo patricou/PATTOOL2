@@ -16,6 +16,7 @@
   "private": true,
   "dependencies": {
     "@angular/animations": "^21.0.3",
+    "@angular/cdk": "^21.2.10",
     "@angular/common": "^21.0.3",
     "@angular/compiler": "^21.0.3",
     "@angular/core": "^21.0.3",
@@ -43,6 +44,7 @@
     "chartjs-plugin-zoom": "^2.2.0",
     "core-js": "^3.36.0",
     "exif-js": "^2.3.0",
+    "heic2any": "^0.0.4",
     "jquery": "^3.7.0",
     "jszip": "^3.10.1",
     "leaflet": "^1.9.4",

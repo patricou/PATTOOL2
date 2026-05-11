@@ -88,9 +88,16 @@ import {
 } from './assistant-model-presets';
 import {
   assistantToolsHelpSections,
+  buildToolsHelpSectionsFromCatalog,
   type AssistantToolsHelpModelRow,
+  type AssistantToolsHelpSection,
   type ToolsHelpLevel
 } from './assistant-tools-help-matrix';
+import {
+  type ToolsHelpModelProvider,
+  assistantToolsHelpVendorModelsDocUrlForLang,
+  resolveAssistantToolsHelpModelRoleCopy
+} from './assistant-tools-help-model-copy';
 
 @Component({
   selector: 'app-assistant-drawer',
@@ -112,7 +119,6 @@ export class AssistantDrawerComponent
 
   @ViewChild('threadEl') threadEl?: ElementRef<HTMLDivElement>;
   @ViewChild('draftInput') draftInputEl?: ElementRef<HTMLTextAreaElement>;
-  @ViewChild('imageFileInput') imageFileInputEl?: ElementRef<HTMLInputElement>;
   @ViewChild('assistantWhatsappShareModal') assistantWhatsappShareModal!: TemplateRef<unknown>;
   @ViewChild('assistantInsertImageInEventModal') assistantInsertImageInEventModal!: TemplateRef<unknown>;
   /**
@@ -290,6 +296,49 @@ export class AssistantDrawerComponent
 
   private static readonly IMAGE_MAX_BYTES = 8 * 1024 * 1024;
   private static readonly IMAGE_ACCEPT_RE = /^image\/(jpe?g|png|gif|webp)$/i;
+  private static readonly JPEG_MIME_ALIASES = new Set([
+    'image/jpg',
+    'image/pjpeg',
+    'image/x-jpeg',
+    'image/x-citrix-jpeg'
+  ]);
+
+  /**
+   * MIME cohérent avec le backend (vision) — sur mobile {@link File.type} est souvent vide :
+   * on se rabat sur l’extension ; HEIC/HEIF déclenchera une conversion JPEG côté client.
+   */
+  private static normalizePickMime(file: File): string {
+    let base = (file.type || '').trim().split(';')[0].trim().toLowerCase();
+    if (AssistantDrawerComponent.JPEG_MIME_ALIASES.has(base) || base === 'image/jpg') {
+      return 'image/jpeg';
+    }
+    if (base === 'image/heic' || base === 'image/heif') {
+      return base;
+    }
+    const ext = (file.name.toLowerCase().split('.').pop() || '').trim();
+    if (base.startsWith('image/') && AssistantDrawerComponent.IMAGE_ACCEPT_RE.test(base)) {
+      return base;
+    }
+    if (ext === 'png') {
+      return 'image/png';
+    }
+    if (ext === 'gif') {
+      return 'image/gif';
+    }
+    if (ext === 'webp') {
+      return 'image/webp';
+    }
+    if (ext === 'jpg' || ext === 'jpeg' || ext === 'jpe') {
+      return 'image/jpeg';
+    }
+    if (ext === 'heic' || ext === 'heif' || ext === 'heics') {
+      return 'image/heic';
+    }
+    if (base.startsWith('image/')) {
+      return base;
+    }
+    return '';
+  }
   /** Réponse (ou erreur) reçue alors que le panneau était fermé — pastille sur le FAB jusqu’à réouverture. */
   fabUnreadReply = false;
   private shouldAlignLastQuestionTop = false;
@@ -341,6 +390,9 @@ export class AssistantDrawerComponent
   modelCustom = '';
   routingModelOptions: string[] = [...ASSISTANT_OPENAI_MODEL_PRESETS];
 
+  /** Complets / à jour : renseigné par GET /api/assistant/models pour le {@link routingProvider} courant. */
+  private remoteCatalogModelIds: string[] = [];
+
   /** Modèle du fournisseur par défaut serveur (legacy, = celui de {@code routingDefault}). */
   serverDefaultModel = '';
   /** Modèle configuré côté serveur pour chaque fournisseur (GET /assistant/config). */
@@ -349,8 +401,11 @@ export class AssistantDrawerComponent
   serverGeminiDefault = '';
   /** {@code gemini.image-generation-model} renvoyé par GET /assistant/config. */
   serverGeminiImageGenerationModel = '';
-  /** Sections fournisseur → lignes modèle pour la modale d’aide (alignées sur le sélecteur). */
-  readonly toolsHelpSections = assistantToolsHelpSections();
+  /** Sections modale « Outils » : préréglages puis fusion avec GET /assistant/models. */
+  toolsHelpSectionsForModal: AssistantToolsHelpSection[] = assistantToolsHelpSections();
+  /** Chargement du catalogue complet pour la modale d’aide. */
+  toolsHelpCatalogLoading = false;
+  private toolsHelpCatalogSub?: Subscription;
   /** URLs du bandeau facturation (GET /assistant/config, assistant.billing.*). */
   billingOpenaiBillingUrl = '';
   billingOpenaiUsageUrl = '';
@@ -498,6 +553,9 @@ export class AssistantDrawerComponent
           this.toolMcp = tf.mcp;
         }
       }
+      if (hasImage) {
+        this.toolImageGeneration = false;
+      }
       this.isOpen = true;
       this.fabUnreadReply = false;
       this.fullscreen = false;
@@ -635,6 +693,7 @@ export class AssistantDrawerComponent
       )
       .subscribe({
         next: (c) => {
+          const providerBefore = this.routingProvider;
           const m = typeof c.model === 'string' ? c.model.trim() : '';
           this.serverDefaultModel = m;
           this.serverOpenaiDefault =
@@ -678,15 +737,20 @@ export class AssistantDrawerComponent
           ) {
             this.routingProvider = this.serverRoutingDefault;
           }
+          if (providerBefore !== this.routingProvider) {
+            this.remoteCatalogModelIds = [];
+          }
           this.rebuildModelOptionsList();
           if (!this.routingRestoredFromSession) {
             this.syncModelPresetFromServer(m);
           }
           this.persistSession();
           this.assistantClientConfigLoaded = true;
+          this.refreshProviderModelCatalog();
           this.cdr.markForCheck();
         },
         error: () => {
+          const providerBefore = this.routingProvider;
           this.serverDefaultModel = '';
           this.serverOpenaiDefault = '';
           this.serverAnthropicDefault = '';
@@ -706,12 +770,16 @@ export class AssistantDrawerComponent
           ) {
             this.routingProvider = this.serverRoutingDefault;
           }
+          if (providerBefore !== this.routingProvider) {
+            this.remoteCatalogModelIds = [];
+          }
           this.rebuildModelOptionsList();
           if (!this.routingRestoredFromSession) {
             this.syncModelPresetFromServer('');
           }
           this.persistSession();
           this.assistantClientConfigLoaded = true;
+          this.refreshProviderModelCatalog();
           this.cdr.markForCheck();
         }
       });
@@ -795,6 +863,29 @@ export class AssistantDrawerComponent
     return defaults[0] ?? 'gpt-4o';
   }
 
+  /**
+   * Id non vide pour POST /assistant/chat et pour l’en-tête de persistance : évite tout fallback serveur silencieux.
+   */
+  private resolvedModelIdForNextChatRequest(): string {
+    const m = this.effectiveModelForRequest().trim();
+    if (m.length > 0) {
+      return m;
+    }
+    return (
+      this.serverDefaultForActiveProvider().trim() ||
+      (this.routingProvider === 'openai'
+        ? ASSISTANT_OPENAI_MODEL_PRESETS[0] ?? 'gpt-4o'
+        : this.routingProvider === 'gemini'
+          ? ASSISTANT_GEMINI_MODEL_PRESETS[0] ?? 'gemini-2.0-flash'
+          : ASSISTANT_ANTHROPIC_MODEL_PRESETS[0] ?? 'claude-sonnet-4-6')
+    );
+  }
+
+  /** Évite que le &lt;select&gt; se désynchronise quand {@link routingModelOptions} est recréé (liste catalogue API). */
+  compareAssistantModelIds(a: string, b: string): boolean {
+    return (a ?? '') === (b ?? '');
+  }
+
   onAssistantRoutingProviderChange(): void {
     this.routingProviderLockedAgainstConfigDefault = true;
     if (this.routingProvider !== 'openai') {
@@ -803,6 +894,7 @@ export class AssistantDrawerComponent
     if (this.routingProvider === 'anthropic') {
       this.toolImageGeneration = false;
     }
+    this.remoteCatalogModelIds = [];
     this.rebuildModelOptionsList();
     const sm = this.serverDefaultForActiveProvider().trim();
     if (
@@ -821,6 +913,7 @@ export class AssistantDrawerComponent
     }
     this.persistSession();
     this.scheduleRoutingPreferenceRemotePersist();
+    this.refreshProviderModelCatalog();
     this.cdr.markForCheck();
   }
 
@@ -828,6 +921,7 @@ export class AssistantDrawerComponent
     if (this.modelPreset !== this.MODEL_PRESET_CUSTOM) {
       this.modelCustom = '';
     }
+    this.rebuildModelOptionsList();
     this.persistSession();
     this.scheduleRoutingPreferenceRemotePersist();
     this.cdr.markForCheck();
@@ -841,26 +935,87 @@ export class AssistantDrawerComponent
   }
 
   private rebuildModelOptionsList(): void {
-    const presets: string[] =
+    const basePresets: string[] =
       this.routingProvider === 'openai'
         ? [...ASSISTANT_OPENAI_MODEL_PRESETS]
         : this.routingProvider === 'gemini'
           ? [...ASSISTANT_GEMINI_MODEL_PRESETS]
           : [...ASSISTANT_ANTHROPIC_MODEL_PRESETS];
+    const merged = new Set<string>();
+    for (const x of basePresets) {
+      merged.add(x);
+    }
     const srv = this.serverDefaultForActiveProvider().trim();
-    if (srv && !presets.includes(srv)) {
-      presets.push(srv);
+    if (srv) {
+      merged.add(srv);
     }
     const cur = this.modelCustom.trim();
+    if (this.modelPreset === this.MODEL_PRESET_CUSTOM && cur) {
+      merged.add(cur);
+    } else if (this.modelPreset !== this.MODEL_PRESET_CUSTOM) {
+      const presetId = (this.modelPreset ?? '').trim();
+      if (presetId) {
+        merged.add(presetId);
+      }
+    }
+    for (const id of this.remoteCatalogModelIds) {
+      const t = (id ?? '').trim();
+      if (t) {
+        merged.add(t);
+      }
+    }
+    const ordered: string[] = [];
+    for (const p of basePresets) {
+      if (merged.has(p)) {
+        ordered.push(p);
+      }
+    }
+    if (srv && merged.has(srv) && !ordered.includes(srv)) {
+      ordered.push(srv);
+    }
     if (
       this.modelPreset === this.MODEL_PRESET_CUSTOM &&
       cur &&
-      !presets.includes(cur)
+      merged.has(cur) &&
+      !ordered.includes(cur)
     ) {
-      presets.push(cur);
+      ordered.push(cur);
     }
-    this.routingModelOptions = presets;
+    const selectedPreset =
+      this.modelPreset !== this.MODEL_PRESET_CUSTOM
+        ? (this.modelPreset ?? '').trim()
+        : '';
+    if (
+      selectedPreset &&
+      merged.has(selectedPreset) &&
+      !ordered.includes(selectedPreset)
+    ) {
+      ordered.push(selectedPreset);
+    }
+    const tail = [...merged]
+      .filter((id) => !ordered.includes(id))
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    this.routingModelOptions = [...ordered, ...tail];
     this.clampModelPresetToOptions();
+  }
+
+  /** Catalogue distant pour le fournisseur courant (authentifié uniquement). */
+  private refreshProviderModelCatalog(): void {
+    if (!this.isAuthenticated()) {
+      return;
+    }
+    const p = this.routingProvider;
+    this.assistant
+      .getAssistantModels(p)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((ids) => {
+        if (p !== this.routingProvider) {
+          return;
+        }
+        this.remoteCatalogModelIds = ids;
+        this.rebuildModelOptionsList();
+        this.cdr.markForCheck();
+      });
   }
 
   /**
@@ -1787,6 +1942,8 @@ export class AssistantDrawerComponent
 
   openAssistantToolsHelpModal(): void {
     this.assistantToolsHelpFullscreen = false;
+    this.toolsHelpSectionsForModal = assistantToolsHelpSections();
+    this.toolsHelpCatalogLoading = this.isAuthenticated();
     const ref = this.modalService.open(this.assistantToolsHelpModal, {
       centered: true,
       scrollable: true,
@@ -1798,7 +1955,34 @@ export class AssistantDrawerComponent
     void ref.result.finally(() => {
       this.toolsHelpModalRef = null;
       this.assistantToolsHelpFullscreen = false;
+      this.toolsHelpCatalogSub?.unsubscribe();
+      this.toolsHelpCatalogSub = undefined;
     });
+
+    if (this.isAuthenticated()) {
+      this.toolsHelpCatalogSub?.unsubscribe();
+      this.toolsHelpCatalogSub = forkJoin({
+        o: this.assistant.getAssistantModels('openai'),
+        a: this.assistant.getAssistantModels('anthropic'),
+        g: this.assistant.getAssistantModels('gemini')
+      })
+        .pipe(
+          takeUntilDestroyed(this.destroyRef),
+          catchError(() =>
+            of({ o: [] as string[], a: [] as string[], g: [] as string[] })
+          ),
+          finalize(() => {
+            this.toolsHelpCatalogLoading = false;
+            this.cdr.markForCheck();
+          })
+        )
+        .subscribe(({ o, a, g }) => {
+          this.toolsHelpSectionsForModal = buildToolsHelpSectionsFromCatalog(o, a, g);
+          this.cdr.markForCheck();
+        });
+    } else {
+      this.toolsHelpCatalogLoading = false;
+    }
   }
 
   toggleAssistantToolsHelpFullscreen(): void {
@@ -1855,6 +2039,24 @@ export class AssistantDrawerComponent
 
   toolsHelpVendorToolsGapTranslateKey(row: AssistantToolsHelpModelRow): string {
     return `ASSISTANT.${row.vendorToolsNotInPatToolKey}`;
+  }
+
+  /** Rôle du modèle (FR/EN suivant la langue courante), texte basé sur les docs fournisseur. */
+  toolsHelpModelRoleText(row: AssistantToolsHelpModelRow): string {
+    const copy = resolveAssistantToolsHelpModelRoleCopy(row.provider, row.modelId);
+    const lang = (this.translate.currentLang || 'en').toLowerCase();
+    const text = lang.startsWith('fr') ? copy.fr : copy.en;
+    if (text?.trim()) {
+      return text.trim();
+    }
+    return this.translate.instant('ASSISTANT.TOOLS_HELP_MODEL_ROLE_FALLBACK');
+  }
+
+  toolsHelpVendorModelsDocUrl(provider: ToolsHelpModelProvider): string {
+    return assistantToolsHelpVendorModelsDocUrlForLang(
+      provider,
+      (this.translate.currentLang || 'en').toLowerCase()
+    );
   }
 
   openAssistantHistoryModal(): void {
@@ -2105,6 +2307,7 @@ export class AssistantDrawerComponent
 
   private applyLoadedAssistantConversation(detail: AssistantConversationDetail): void {
     this.persistedRemoteConversationId = detail.id;
+    const providerBefore = this.routingProvider;
     if (
       detail.routingProvider === 'openai' ||
       detail.routingProvider === 'anthropic' ||
@@ -2113,6 +2316,9 @@ export class AssistantDrawerComponent
       this.routingProvider = detail.routingProvider;
       this.routingProviderLockedAgainstConfigDefault = true;
     }
+    if (providerBefore !== this.routingProvider) {
+      this.remoteCatalogModelIds = [];
+    }
     this.rebuildModelOptionsList();
     /** Le Mongo historique garde l’id exact du modèle (ex. gpt-5.5-2026-04-23), absent des presets courts → éviter « personnalisé » si on peut l’aligner sur une entrée liste. */
     const persistedModel = (detail.model ?? '').trim();
@@ -2120,6 +2326,7 @@ export class AssistantDrawerComponent
       this.routingModelOptions = [...this.routingModelOptions, persistedModel];
     }
     this.syncModelPresetFromServer(detail.model ?? '');
+    this.refreshProviderModelCatalog();
     this.messages = detail.turns.map((t) => this.mapPersistedTurnToChatTurn(t));
     this.fabUnreadReply = false;
     this.persistSession();
@@ -2317,16 +2524,13 @@ export class AssistantDrawerComponent
   }
 
   private conversationPersistLabels(): { providerLabel: string; model: string } {
+    const model = this.resolvedModelIdForNextChatRequest();
     for (let i = this.messages.length - 1; i >= 0; i--) {
       const m = this.messages[i];
-      if (
-        m.role === 'assistant' &&
-        m.meta?.provider?.trim() &&
-        m.meta?.model?.trim()
-      ) {
+      if (m.role === 'assistant' && m.meta?.provider?.trim()) {
         return {
-          providerLabel: m.meta.provider.trim(),
-          model: m.meta.model.trim()
+          providerLabel: m.meta.provider!.trim(),
+          model
         };
       }
     }
@@ -2336,7 +2540,7 @@ export class AssistantDrawerComponent
         : this.routingProvider === 'gemini'
           ? this.translate.instant('ASSISTANT.PROVIDER_GEMINI_SHORT')
           : this.translate.instant('ASSISTANT.PROVIDER_ANTHROPIC_SHORT');
-    return { providerLabel: fallbackProv, model: this.effectiveModelForRequest() };
+    return { providerLabel: fallbackProv, model };
   }
 
   private persistRemoteConversationOnce(): Observable<void> {
@@ -2393,18 +2597,13 @@ export class AssistantDrawerComponent
     return this.messages.length > 0;
   }
 
-  openImagePicker(): void {
-    this.imageAttachError = null;
-    this.imageFileInputEl?.nativeElement?.click();
-  }
-
   clearPendingImage(): void {
     this.pendingImage = null;
     this.imageAttachError = null;
     this.cdr.markForCheck();
   }
 
-  onImageFileChange(ev: Event): void {
+  async onImageFileChange(ev: Event): Promise<void> {
     const input = ev.target as HTMLInputElement;
     const file = input.files?.[0];
     input.value = '';
@@ -2412,12 +2611,42 @@ export class AssistantDrawerComponent
     if (!file) {
       return;
     }
-    if (!AssistantDrawerComponent.IMAGE_ACCEPT_RE.test(file.type)) {
+    let fileForRead: File = file;
+    const mimeNorm = AssistantDrawerComponent.normalizePickMime(file);
+    const isHeic =
+      mimeNorm === 'image/heic' ||
+      mimeNorm === 'image/heif' ||
+      /\.hei[cfs]?$/i.test(file.name);
+    if (isHeic) {
+      try {
+        const { default: heic2any } = await import('heic2any');
+        const converted = await heic2any({
+          blob: file,
+          toType: 'image/jpeg',
+          quality: 0.92
+        });
+        const blob = Array.isArray(converted) ? converted[0] : converted;
+        if (!blob?.size) {
+          throw new Error('empty');
+        }
+        const baseName = file.name.replace(/\.(heic|heif|heics)$/i, '') || 'image';
+        fileForRead = new File([blob], `${baseName}.jpg`, { type: 'image/jpeg' });
+      } catch {
+        this.ngZone.run(() => {
+          this.imageAttachError = 'ASSISTANT.IMAGE_READ_ERROR';
+          this.pendingImage = null;
+          this.cdr.markForCheck();
+        });
+        return;
+      }
+    }
+    const effectiveMime = AssistantDrawerComponent.normalizePickMime(fileForRead);
+    if (!AssistantDrawerComponent.IMAGE_ACCEPT_RE.test(effectiveMime)) {
       this.imageAttachError = 'ASSISTANT.IMAGE_TYPE_REJECTED';
       this.cdr.markForCheck();
       return;
     }
-    if (file.size > AssistantDrawerComponent.IMAGE_MAX_BYTES) {
+    if (fileForRead.size > AssistantDrawerComponent.IMAGE_MAX_BYTES) {
       this.imageAttachError = 'ASSISTANT.IMAGE_TOO_LARGE';
       this.cdr.markForCheck();
       return;
@@ -2433,9 +2662,18 @@ export class AssistantDrawerComponent
           this.cdr.markForCheck();
           return;
         }
-        let storedMime = m[1].trim().toLowerCase();
+        let storedMime = m[1].trim().toLowerCase().split(';')[0].trim();
         if (storedMime === 'image/jpg') {
           storedMime = 'image/jpeg';
+        }
+        if (!AssistantDrawerComponent.IMAGE_ACCEPT_RE.test(storedMime)) {
+          storedMime = effectiveMime;
+        }
+        if (!AssistantDrawerComponent.IMAGE_ACCEPT_RE.test(storedMime)) {
+          this.imageAttachError = 'ASSISTANT.IMAGE_TYPE_REJECTED';
+          this.pendingImage = null;
+          this.cdr.markForCheck();
+          return;
         }
         this.pendingImage = {
           mimeType: storedMime,
@@ -2453,7 +2691,7 @@ export class AssistantDrawerComponent
         this.cdr.markForCheck();
       });
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(fileForRead);
   }
 
   trustedImageSrc(url: string): SafeUrl {
@@ -2535,7 +2773,7 @@ export class AssistantDrawerComponent
         attached,
         {
           provider: this.routingProvider,
-          model: this.effectiveModelForRequest()
+          model: this.resolvedModelIdForNextChatRequest()
         }
       )
       .pipe(

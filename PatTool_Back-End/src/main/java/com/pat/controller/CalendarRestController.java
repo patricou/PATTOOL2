@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -75,16 +76,58 @@ public class CalendarRestController {
 
         List<CalendarEntryDTO> out = new ArrayList<>();
 
-        List<Evenement> events = evenementsRepository.findAccessibleOverlappingRange(from, to, effectiveUserIdForEvents);
-        List<String> eventIds = events.stream().map(Evenement::getId).filter(StringUtils::hasText).distinct().toList();
-        Map<String, String> eventIdToTodoListId = new HashMap<>();
-        if (!eventIds.isEmpty()) {
-            for (TodoList tl : todoListRepository.findByEvenementIdIn(eventIds)) {
-                if (tl != null && StringUtils.hasText(tl.getEvenementId()) && StringUtils.hasText(tl.getId())) {
-                    eventIdToTodoListId.putIfAbsent(tl.getEvenementId(), tl.getId());
-                }
-            }
+        String appointmentAccessUserId = null;
+        if (loggedIn && StringUtils.hasText(userId)) {
+            appointmentAccessUserId = userId;
         }
+
+        final boolean loadAppointments = appointmentAccessUserId != null || !loggedIn;
+        final String appointmentAccessUserIdFinal = appointmentAccessUserId;
+
+        CompletableFuture<List<Evenement>> eventsFuture = CompletableFuture.supplyAsync(() ->
+                evenementsRepository.findAccessibleOverlappingRange(from, to, effectiveUserIdForEvents));
+
+        CompletableFuture<List<CalendarAppointment>> appointmentsFuture = loadAppointments
+                ? CompletableFuture.supplyAsync(() ->
+                        calendarAppointmentRepository.findAccessibleOverlappingRange(from, to, appointmentAccessUserIdFinal))
+                : CompletableFuture.completedFuture(List.of());
+
+        List<Evenement> events = eventsFuture.join();
+        List<CalendarAppointment> appointments = appointmentsFuture.join();
+
+        List<String> eventIds = events.stream().map(Evenement::getId).filter(StringUtils::hasText).distinct().toList();
+        List<String> appointmentIds = loadAppointments
+                ? appointments.stream().map(CalendarAppointment::getId).filter(StringUtils::hasText).distinct().toList()
+                : List.of();
+
+        CompletableFuture<Map<String, String>> eventTodosFuture = eventIds.isEmpty()
+                ? CompletableFuture.completedFuture(new HashMap<>())
+                : CompletableFuture.supplyAsync(() -> {
+                    Map<String, String> map = new HashMap<>();
+                    for (TodoList tl : todoListRepository.findByEvenementIdIn(eventIds)) {
+                        if (tl != null && StringUtils.hasText(tl.getEvenementId()) && StringUtils.hasText(tl.getId())) {
+                            map.putIfAbsent(tl.getEvenementId(), tl.getId());
+                        }
+                    }
+                    return map;
+                });
+
+        CompletableFuture<Map<String, String>> appointmentTodosFuture = appointmentIds.isEmpty()
+                ? CompletableFuture.completedFuture(new HashMap<>())
+                : CompletableFuture.supplyAsync(() -> {
+                    Map<String, String> map = new HashMap<>();
+                    for (TodoList tl : todoListRepository.findByCalendarAppointmentIdIn(appointmentIds)) {
+                        if (tl != null && StringUtils.hasText(tl.getCalendarAppointmentId())
+                                && StringUtils.hasText(tl.getId())) {
+                            map.putIfAbsent(tl.getCalendarAppointmentId(), tl.getId());
+                        }
+                    }
+                    return map;
+                });
+
+        Map<String, String> eventIdToTodoListId = eventTodosFuture.join();
+        Map<String, String> appointmentIdToTodoListId = appointmentTodosFuture.join();
+
         for (Evenement ev : events) {
             CalendarEntryDTO row = new CalendarEntryDTO();
             row.setKind(CalendarEntryDTO.KIND_ACTIVITY);
@@ -101,28 +144,7 @@ public class CalendarRestController {
             out.add(row);
         }
 
-        String appointmentAccessUserId = null;
-        if (loggedIn && StringUtils.hasText(userId)) {
-            appointmentAccessUserId = userId;
-        } else if (!loggedIn) {
-            appointmentAccessUserId = null;
-        }
-        if (appointmentAccessUserId != null || !loggedIn) {
-            List<CalendarAppointment> appointments = calendarAppointmentRepository
-                    .findAccessibleOverlappingRange(from, to, appointmentAccessUserId);
-            List<String> appointmentIds = appointments.stream()
-                    .map(CalendarAppointment::getId)
-                    .filter(StringUtils::hasText)
-                    .distinct()
-                    .toList();
-            Map<String, String> appointmentIdToTodoListId = new HashMap<>();
-            if (!appointmentIds.isEmpty()) {
-                for (TodoList tl : todoListRepository.findByCalendarAppointmentIdIn(appointmentIds)) {
-                    if (tl != null && StringUtils.hasText(tl.getCalendarAppointmentId()) && StringUtils.hasText(tl.getId())) {
-                        appointmentIdToTodoListId.putIfAbsent(tl.getCalendarAppointmentId(), tl.getId());
-                    }
-                }
-            }
+        if (loadAppointments) {
             for (CalendarAppointment a : appointments) {
                 CalendarEntryDTO row = new CalendarEntryDTO();
                 row.setKind(CalendarEntryDTO.KIND_APPOINTMENT);

@@ -306,7 +306,7 @@
                             <ng-container *ngIf="getThumbnailUrl(media.item) as thumbUrl; else wallMasonryThumbPh">
                                 <img [src]="thumbUrl"
                                      [alt]="media.item.fileName"
-                                     loading="lazy"
+                                     loading="eager"
                                      decoding="async"
                                      class="photo-img">
                             </ng-container>

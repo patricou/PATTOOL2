@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, from, forkJoin, switchMap, map } from 'rxjs';
+import { Observable, from, forkJoin, of } from 'rxjs';
+import { map, switchMap, tap, take } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { MembersService } from '../services/members.service';
@@ -52,6 +53,12 @@ export interface CalendarAppointmentPayload {
 @Injectable({ providedIn: 'root' })
 export class CalendarService {
 
+    /** Réduit les appels forkJoin + token lors des changements de vue FullCalendar successifs (~TTL alignée au cache graphe serveur). */
+    private static readonly HEADERS_CACHE_MS = 25_000;
+
+    private cachedHeaders: HttpHeaders | null = null;
+    private headersCacheExpiryMs = 0;
+
     constructor(
         private http: HttpClient,
         private keycloak: KeycloakService,
@@ -59,6 +66,10 @@ export class CalendarService {
     ) { }
 
     private withUserHeaders(): Observable<HttpHeaders> {
+        const now = Date.now();
+        if (this.cachedHeaders && now < this.headersCacheExpiryMs) {
+            return of(this.cachedHeaders);
+        }
         return forkJoin({
             member: this.membersService.getUserId({ skipGeolocation: true }),
             token: from(this.keycloak.getToken())
@@ -73,7 +84,12 @@ export class CalendarService {
                     h = h.set('Authorization', 'Bearer ' + token);
                 }
                 return h;
-            })
+            }),
+            tap(h => {
+                this.cachedHeaders = h;
+                this.headersCacheExpiryMs = Date.now() + CalendarService.HEADERS_CACHE_MS;
+            }),
+            take(1)
         );
     }
 

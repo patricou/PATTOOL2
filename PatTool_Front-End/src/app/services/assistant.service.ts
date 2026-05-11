@@ -278,9 +278,10 @@ export class AssistantService {
       routing?.provider === 'gemini'
     ) {
       body.provider = routing.provider;
-    }
-    if (routing?.model?.trim()) {
-      body.model = routing.model.trim();
+      const modelTrimmed = routing.model?.trim();
+      if (modelTrimmed) {
+        body.model = modelTrimmed;
+      }
     }
     return this.authHeaders().pipe(
       switchMap((headers) =>
@@ -363,6 +364,39 @@ export class AssistantService {
           .pipe(catchError(() => of({})))
       ),
       catchError(() => of({}))
+    );
+  }
+
+  /**
+   * Modèles renvoyés par l’API du fournisseur (clé configurée côté serveur), pour le sélecteur de l’assistant.
+   * Retourne une liste vide si l’appel échoue ; le client garde alors ses presets locaux.
+   */
+  getAssistantModels(
+    provider: 'openai' | 'anthropic' | 'gemini'
+  ): Observable<string[]> {
+    const url =
+      environment.API_URL +
+      'assistant/models?provider=' +
+      encodeURIComponent(provider);
+    return this.authHeaders().pipe(
+      switchMap((headers) =>
+        this.http
+          .get<{ models?: string[] | null }>(url, { headers })
+          .pipe(
+            map((body) => {
+              const m = body?.models;
+              if (!Array.isArray(m)) {
+                return [];
+              }
+              return m.filter(
+                (x): x is string =>
+                  typeof x === 'string' && x.trim().length > 0
+              );
+            }),
+            catchError(() => of([] as string[]))
+          )
+      ),
+      catchError(() => of([] as string[]))
     );
   }
 
