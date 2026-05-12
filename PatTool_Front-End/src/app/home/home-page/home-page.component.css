@@ -17,18 +17,25 @@
     z-index: 5;
 }
 
-#pat-bg-video  {
-    top: 54px;
-    left: 0px;
-    position: fixed;
-    width: 100%;
-    z-index: -2;
-    overflow: hidden;
+/*
+ * Décalage blanc sous le menu fixe : le shell (pat-div ~80px) pousse la home
+ * en dessous alors que la navbar ne réserve pas d’espace — le corps de page
+ * se voyait quelques dizaines / quelques px. Vidéo ancrée au viewport sous
+ * le menu (navbar ~1030) pour tapisser jusqu’à top: 0.
+ */
+:host {
+    display: block;
 }
 
 .pat-display {
+    position: relative;
+    min-height: 100vh;
+}
 
-    height: 100%;    ;
+.pat-display > div:last-child {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
 }
 
 .pat-banner {
@@ -43,11 +50,19 @@
     font-size: small;
   }
   
-  .fullscreen-video {
+.fullscreen-video {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
     width: 100vw;
+    max-width: 100%;
     height: 100vh;
+    height: 100dvh;
     object-fit: cover;
     overflow: hidden;
+    z-index: 0;
+    pointer-events: none;
 }
 
 .center-vertically {
