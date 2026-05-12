@@ -86,18 +86,7 @@ import {
   ASSISTANT_GEMINI_MODEL_PRESETS,
   ASSISTANT_OPENAI_MODEL_PRESETS
 } from './assistant-model-presets';
-import {
-  assistantToolsHelpSections,
-  buildToolsHelpSectionsFromCatalog,
-  type AssistantToolsHelpModelRow,
-  type AssistantToolsHelpSection,
-  type ToolsHelpLevel
-} from './assistant-tools-help-matrix';
-import {
-  type ToolsHelpModelProvider,
-  assistantToolsHelpVendorModelsDocUrlForLang,
-  resolveAssistantToolsHelpModelRoleCopy
-} from './assistant-tools-help-model-copy';
+import { ASSISTANT_MODEL_RANKING_ROWS } from './assistant-model-ranking-table';
 
 @Component({
   selector: 'app-assistant-drawer',
@@ -393,6 +382,9 @@ export class AssistantDrawerComponent
   /** Complets / à jour : renseigné par GET /api/assistant/models pour le {@link routingProvider} courant. */
   private remoteCatalogModelIds: string[] = [];
 
+  /** Catalogue modèle / tâche pour la modale d’aide « ℹ︎ » à côté de MCP. */
+  readonly assistantModelRankingRows = ASSISTANT_MODEL_RANKING_ROWS;
+
   /** Modèle du fournisseur par défaut serveur (legacy, = celui de {@code routingDefault}). */
   serverDefaultModel = '';
   /** Modèle configuré côté serveur pour chaque fournisseur (GET /assistant/config). */
@@ -401,11 +393,6 @@ export class AssistantDrawerComponent
   serverGeminiDefault = '';
   /** {@code gemini.image-generation-model} renvoyé par GET /assistant/config. */
   serverGeminiImageGenerationModel = '';
-  /** Sections modale « Outils » : préréglages puis fusion avec GET /assistant/models. */
-  toolsHelpSectionsForModal: AssistantToolsHelpSection[] = assistantToolsHelpSections();
-  /** Chargement du catalogue complet pour la modale d’aide. */
-  toolsHelpCatalogLoading = false;
-  private toolsHelpCatalogSub?: Subscription;
   /** URLs du bandeau facturation (GET /assistant/config, assistant.billing.*). */
   billingOpenaiBillingUrl = '';
   billingOpenaiUsageUrl = '';
@@ -1956,8 +1943,6 @@ export class AssistantDrawerComponent
 
   openAssistantToolsHelpModal(): void {
     this.assistantToolsHelpFullscreen = false;
-    this.toolsHelpSectionsForModal = assistantToolsHelpSections();
-    this.toolsHelpCatalogLoading = this.isAuthenticated();
     const ref = this.modalService.open(this.assistantToolsHelpModal, {
       centered: true,
       scrollable: true,
@@ -1969,34 +1954,7 @@ export class AssistantDrawerComponent
     void ref.result.finally(() => {
       this.toolsHelpModalRef = null;
       this.assistantToolsHelpFullscreen = false;
-      this.toolsHelpCatalogSub?.unsubscribe();
-      this.toolsHelpCatalogSub = undefined;
     });
-
-    if (this.isAuthenticated()) {
-      this.toolsHelpCatalogSub?.unsubscribe();
-      this.toolsHelpCatalogSub = forkJoin({
-        o: this.assistant.getAssistantModels('openai'),
-        a: this.assistant.getAssistantModels('anthropic'),
-        g: this.assistant.getAssistantModels('gemini')
-      })
-        .pipe(
-          takeUntilDestroyed(this.destroyRef),
-          catchError(() =>
-            of({ o: [] as string[], a: [] as string[], g: [] as string[] })
-          ),
-          finalize(() => {
-            this.toolsHelpCatalogLoading = false;
-            this.cdr.markForCheck();
-          })
-        )
-        .subscribe(({ o, a, g }) => {
-          this.toolsHelpSectionsForModal = buildToolsHelpSectionsFromCatalog(o, a, g);
-          this.cdr.markForCheck();
-        });
-    } else {
-      this.toolsHelpCatalogLoading = false;
-    }
   }
 
   toggleAssistantToolsHelpFullscreen(): void {
@@ -2005,72 +1963,6 @@ export class AssistantDrawerComponent
     }
     this.assistantToolsHelpFullscreen = !this.assistantToolsHelpFullscreen;
     this.toolsHelpModalRef.update({ fullscreen: this.assistantToolsHelpFullscreen });
-  }
-
-  /** Badge « défaut serveur » dans la modale aide outils (application.properties). */
-  isToolsHelpServerDefault(
-    provider: 'openai' | 'anthropic' | 'gemini',
-    model: string
-  ): boolean {
-    if (!model) {
-      return false;
-    }
-    const d =
-      provider === 'openai'
-        ? this.serverOpenaiDefault
-        : provider === 'anthropic'
-          ? this.serverAnthropicDefault
-          : this.serverGeminiDefault;
-    return !!d && d === model;
-  }
-
-  toolsHelpMarkKey(level: ToolsHelpLevel): string {
-    switch (level) {
-      case 'yes':
-        return 'ASSISTANT.TOOLS_HELP_MARK_YES';
-      case 'no':
-        return 'ASSISTANT.TOOLS_HELP_MARK_NO';
-      default:
-        return 'ASSISTANT.TOOLS_HELP_MARK_PARTIAL';
-    }
-  }
-
-  toolsHelpCellTitle(
-    row: AssistantToolsHelpModelRow,
-    col: 'web' | 'imageGen' | 'mcp' | 'vision'
-  ): string | null {
-    if (row[col] !== 'partial') {
-      return null;
-    }
-    const keys: Record<typeof col, string> = {
-      web: 'ASSISTANT.TOOLS_HELP_PARTIAL_WEB',
-      imageGen: 'ASSISTANT.TOOLS_HELP_PARTIAL_IMAGEGEN',
-      mcp: 'ASSISTANT.TOOLS_HELP_PARTIAL_MCP',
-      vision: 'ASSISTANT.TOOLS_HELP_PARTIAL_VISION'
-    };
-    return this.translate.instant(keys[col]);
-  }
-
-  toolsHelpVendorToolsGapTranslateKey(row: AssistantToolsHelpModelRow): string {
-    return `ASSISTANT.${row.vendorToolsNotInPatToolKey}`;
-  }
-
-  /** Rôle du modèle (FR/EN suivant la langue courante), texte basé sur les docs fournisseur. */
-  toolsHelpModelRoleText(row: AssistantToolsHelpModelRow): string {
-    const copy = resolveAssistantToolsHelpModelRoleCopy(row.provider, row.modelId);
-    const lang = (this.translate.currentLang || 'en').toLowerCase();
-    const text = lang.startsWith('fr') ? copy.fr : copy.en;
-    if (text?.trim()) {
-      return text.trim();
-    }
-    return this.translate.instant('ASSISTANT.TOOLS_HELP_MODEL_ROLE_FALLBACK');
-  }
-
-  toolsHelpVendorModelsDocUrl(provider: ToolsHelpModelProvider): string {
-    return assistantToolsHelpVendorModelsDocUrlForLang(
-      provider,
-      (this.translate.currentLang || 'en').toLowerCase()
-    );
   }
 
   openAssistantHistoryModal(): void {

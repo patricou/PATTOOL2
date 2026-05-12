@@ -77,6 +77,24 @@
       <div class="pat-assistant-drawer-actions">
       <button
         type="button"
+        class="pat-assistant-info-in-circle"
+        (click)="openAssistantToolsHelpModal()"
+        [title]="'ASSISTANT.TOOLS_HELP_BTN_HINT' | translate"
+        [attr.aria-label]="'ASSISTANT.TOOLS_HELP_BTN' | translate">
+        <i class="fa fa-info" aria-hidden="true"></i>
+        <span class="visually-hidden">{{ 'ASSISTANT.TOOLS_HELP_BTN' | translate }}</span>
+      </button>
+      <a
+        href="https://search.brave.com/"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="btn btn-sm btn-outline-secondary pat-assistant-header-btn pat-assistant-brave-search"
+        [title]="'ASSISTANT.BRAVE_SEARCH_HINT' | translate"
+        [attr.aria-label]="'ASSISTANT.BRAVE_SEARCH' | translate">
+        <i class="fa fa-search" aria-hidden="true"></i>
+      </a>
+      <button
+        type="button"
         class="btn btn-sm btn-success pat-assistant-header-btn pat-assistant-header-whatsapp"
         [disabled]="!canShareAssistantWhatsApp()"
         (click)="openWhatsAppShareModal(); $event.stopPropagation()"
@@ -374,15 +392,6 @@
                for="pat-assistant-tool-mcp"
                [title]="'ASSISTANT.TOOL_MCP_HINT' | translate">{{ 'ASSISTANT.TOOL_MCP' | translate }}</label>
       </div>
-      <button
-        type="button"
-        class="btn btn-sm btn-link text-muted p-0 align-baseline pat-assistant-tools-help-btn"
-        (click)="openAssistantToolsHelpModal()"
-        [title]="'ASSISTANT.TOOLS_HELP_BTN_HINT' | translate"
-        [attr.aria-label]="'ASSISTANT.TOOLS_HELP_BTN' | translate">
-        <i class="fa fa-info-circle" aria-hidden="true"></i>
-        <span class="visually-hidden">{{ 'ASSISTANT.TOOLS_HELP_BTN' | translate }}</span>
-      </button>
       <span class="pat-assistant-tool-flags-image-gap" aria-hidden="true"></span>
       <!-- Deux entrées distinctes : sur Android/Chrome sans capture ouvre souvent Photos sans accès évident à la caméra. -->
       <span class="pat-assistant-attach-buttons d-inline-flex flex-wrap gap-1 align-items-center mb-0">
@@ -496,114 +505,38 @@
     </div>
   </div>
   <div class="modal-body pat-assistant-tools-help-body" [attr.aria-labelledby]="'assistant-tools-help-title'">
-    <p class="mb-2 text-body-secondary">{{ 'ASSISTANT.TOOLS_HELP_INTRO' | translate }}</p>
-    <p class="text-body-secondary small mb-2">{{ 'ASSISTANT.TOOLS_HELP_MODELS_NOTE' | translate }}</p>
-    <p *ngIf="toolsHelpCatalogLoading" class="small text-muted mb-2 pat-assistant-tools-help-loading">
-      <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'ASSISTANT.TOOLS_HELP_CATALOG_LOADING' | translate }}
-    </p>
-    <h6 class="fw-semibold mb-2">{{ 'ASSISTANT.TOOLS_HELP_TABLE_HEADING' | translate }}</h6>
     <div class="table-responsive">
-      <table
-        class="table table-sm table-bordered align-middle mb-0 pat-assistant-tools-help-table">
-        <caption class="visually-hidden">{{ 'ASSISTANT.TOOLS_HELP_TABLE_CAPTION' | translate }}</caption>
+      <table class="table table-sm table-bordered align-middle mb-0 pat-assistant-tools-help-table">
+        <caption class="visually-hidden">{{ 'ASSISTANT.TOOLS_HELP_RANK_TABLE_CAPTION' | translate }}</caption>
         <thead class="table-light">
           <tr>
-            <th scope="col">{{ 'ASSISTANT.TOOLS_HELP_TABLE_COL_MODEL' | translate }}</th>
-            <th scope="col" class="text-start pat-assistant-tools-help-col-role">
-              {{ 'ASSISTANT.TOOLS_HELP_TABLE_COL_ROLE' | translate }}
+            <th scope="col">{{ 'ASSISTANT.TOOLS_HELP_RANK_COL_TASK' | translate }}</th>
+            <th scope="col" class="text-center text-nowrap pat-assistant-model-ranking-col-medal">
+              {{ 'ASSISTANT.TOOLS_HELP_RANK_COL_GOLD' | translate }}
             </th>
-            <th scope="col" class="text-center">
-              {{ 'ASSISTANT.TOOLS_HELP_TABLE_COL_WEB' | translate }}
+            <th scope="col" class="text-center text-nowrap pat-assistant-model-ranking-col-medal">
+              {{ 'ASSISTANT.TOOLS_HELP_RANK_COL_SILVER' | translate }}
             </th>
-            <th scope="col" class="text-center text-nowrap">
-              {{ 'ASSISTANT.TOOL_IMAGE' | translate }}
-            </th>
-            <th scope="col" class="text-center text-nowrap">{{ 'ASSISTANT.TOOL_MCP' | translate }}</th>
-            <th scope="col" class="text-center">
-              {{ 'ASSISTANT.TOOLS_HELP_TABLE_COL_VISION' | translate }}
-            </th>
-            <th scope="col" class="text-start text-wrap pat-assistant-tools-help-col-vendor-gap">
-              {{ 'ASSISTANT.TOOLS_HELP_TABLE_COL_VENDOR_GAP' | translate }}
+            <th scope="col" class="text-center text-nowrap pat-assistant-model-ranking-col-medal">
+              {{ 'ASSISTANT.TOOLS_HELP_RANK_COL_BRONZE' | translate }}
             </th>
           </tr>
         </thead>
-        <tbody class="text-center">
-          <ng-container *ngFor="let sec of toolsHelpSectionsForModal">
-            <tr class="table-light">
-              <th scope="colgroup" colspan="7" class="text-start py-2">
-                <span class="fw-semibold" [ngSwitch]="sec.provider">
-                  <ng-container *ngSwitchCase="'openai'">{{
-                    'ASSISTANT.PROVIDER_OPENAI' | translate
-                  }}</ng-container>
-                  <ng-container *ngSwitchCase="'anthropic'">{{
-                    'ASSISTANT.PROVIDER_ANTHROPIC' | translate
-                  }}</ng-container>
-                  <ng-container *ngSwitchCase="'gemini'">{{
-                    'ASSISTANT.PROVIDER_GEMINI' | translate
-                  }}</ng-container>
-                </span>
-              </th>
-            </tr>
-            <tr *ngFor="let r of sec.rows">
-              <th scope="row" class="text-start text-nowrap">
-                <code>{{ r.modelId }}</code>
-                <span
-                  *ngIf="isToolsHelpServerDefault(r.provider, r.modelId)"
-                  class="badge text-bg-secondary ms-1 align-middle"
-                  >{{ 'ASSISTANT.TOOLS_HELP_TABLE_SERVER_DEFAULT' | translate }}</span
-                >
-              </th>
-              <td class="text-start small pat-assistant-tools-help-role-td">
-                <p class="mb-1 text-body-secondary">{{ toolsHelpModelRoleText(r) }}</p>
-                <a
-                  class="link-secondary text-break"
-                  [href]="toolsHelpVendorModelsDocUrl(r.provider)"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  >{{ 'ASSISTANT.TOOLS_HELP_MODEL_DOC_HUB' | translate }}</a
-                >
-              </td>
-              <td
-                class="align-middle"
-                [class.pat-assistant-tools-help-partial]="r.web === 'partial'"
-                [attr.title]="toolsHelpCellTitle(r, 'web') ?? null">
-                {{ toolsHelpMarkKey(r.web) | translate }}
-              </td>
-              <td
-                class="align-middle"
-                [class.pat-assistant-tools-help-partial]="r.imageGen === 'partial'"
-                [attr.title]="toolsHelpCellTitle(r, 'imageGen') ?? null">
-                {{ toolsHelpMarkKey(r.imageGen) | translate }}
-              </td>
-              <td
-                class="align-middle"
-                [class.pat-assistant-tools-help-partial]="r.mcp === 'partial'"
-                [attr.title]="toolsHelpCellTitle(r, 'mcp') ?? null">
-                {{ toolsHelpMarkKey(r.mcp) | translate }}
-              </td>
-              <td
-                class="align-middle"
-                [class.pat-assistant-tools-help-partial]="r.vision === 'partial'"
-                [attr.title]="toolsHelpCellTitle(r, 'vision') ?? null">
-                {{ toolsHelpMarkKey(r.vision) | translate }}
-              </td>
-              <td class="text-start small pat-assistant-tools-help-gap-td">
-                {{ toolsHelpVendorToolsGapTranslateKey(r) | translate }}
-              </td>
-            </tr>
-            <tr *ngIf="sec.provider === 'gemini' && serverGeminiImageGenerationModel" class="text-start">
-              <td colspan="7" class="small text-body-secondary border-top-0 pt-0 pb-2">
-                {{
-                  'ASSISTANT.TOOLS_HELP_TABLE_GEMINI_IMAGE_MODEL'
-                    | translate : { model: serverGeminiImageGenerationModel }
-                }}
-              </td>
-            </tr>
-          </ng-container>
+        <tbody>
+          <tr *ngFor="let row of assistantModelRankingRows">
+            <th scope="row" class="text-start fw-normal">{{ row.taskKey | translate }}</th>
+            <td class="text-center small">{{ row.goldKey | translate }}</td>
+            <td class="text-center small text-muted">
+              {{ row.silverKey ? (row.silverKey | translate) : '—' }}
+            </td>
+            <td class="text-center small text-muted">
+              {{ row.bronzeKey ? (row.bronzeKey | translate) : '—' }}
+            </td>
+          </tr>
         </tbody>
       </table>
     </div>
-    <p class="text-body-secondary small fst-italic mt-2 mb-0">{{ 'ASSISTANT.TOOLS_HELP_TABLE_FOOTNOTE' | translate }}</p>
+    <p class="text-body-secondary small mt-2 mb-0">{{ 'ASSISTANT.TOOLS_HELP_RANK_FOOTNOTE' | translate }}</p>
   </div>
   <div class="modal-footer">
     <button type="button" class="btn btn-primary" (click)="modal.close()">

@@ -311,9 +311,67 @@
 
 .pat-assistant-drawer-actions {
   display: flex;
+  align-items: center;
   gap: 0.4rem;
   flex-shrink: 0;
   margin-left: auto;
+}
+
+/* Petit cercle avec « i » (aide modales) — pas le style bouton plein comme Brave */
+button.pat-assistant-info-in-circle {
+  width: 1.625rem;
+  height: 1.625rem;
+  padding: 0;
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.95);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  line-height: 1;
+  box-shadow: none;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+button.pat-assistant-info-in-circle:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.75);
+}
+
+button.pat-assistant-info-in-circle:focus-visible {
+  outline: 2px solid rgba(191, 219, 254, 0.95);
+  outline-offset: 2px;
+}
+
+button.pat-assistant-info-in-circle .fa {
+  margin: 0;
+  padding: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+/* Bouton rond : Brave Search (nouvel onglet) */
+a.pat-assistant-brave-search.pat-assistant-header-btn {
+  width: 2.125rem;
+  height: 2.125rem;
+  padding: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+a.pat-assistant-brave-search.pat-assistant-header-btn .fa {
+  margin: 0;
+  font-size: 0.85rem;
 }
 
 .pat-assistant-header-btn.btn-outline-secondary {
@@ -1190,9 +1248,6 @@
   background: var(--asst-border);
 }
 
-.pat-assistant-tools-help-btn {
-  flex: 0 0 auto;
-}
 
 .pat-assistant-attach-btn {
   flex: 0 0 auto;

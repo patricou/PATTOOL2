@@ -1,10 +1,17 @@
-import { AfterViewInit, Component, ElementRef, ViewChild } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  HostListener,
+  OnDestroy,
+  ViewChild
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { BaseChartDirective } from 'ng2-charts';
 import { Chart, ChartConfiguration, ChartOptions, registerables } from 'chart.js';
-import { compile } from 'mathjs';
+import { compile, type EvalFunction } from 'mathjs';
 
 Chart.register(...registerables);
 
@@ -15,6 +22,12 @@ interface FormulaPreset {
   readonly plotXMin: number;
   readonly plotXMax: number;
   readonly formulaEvalX: number;
+}
+
+/** Pastille plein écran : insertion dans l’expression (mathjs). */
+interface FormulaMathChip {
+  readonly expr: string;
+  readonly label: string;
 }
 
 type CalcOp = '+' | '-' | '*' | '/' | '^' | 'mod';
@@ -48,10 +61,18 @@ type SciUnaryKind =
   templateUrl: './calculator.component.html',
   styleUrls: ['./calculator.component.css']
 })
-export class CalculatorComponent implements AfterViewInit {
+export class CalculatorComponent implements AfterViewInit, OnDestroy {
+  constructor(private readonly translate: TranslateService) {}
+
   @ViewChild('tapeScroll') tapeScroll?: ElementRef<HTMLDivElement>;
   @ViewChild('calcPanel') calcPanel?: ElementRef<HTMLElement>;
+  @ViewChild('formulaChartHost') formulaChartHost?: ElementRef<HTMLElement>;
+  @ViewChild('formulaExprMain') formulaExprMain?: ElementRef<HTMLTextAreaElement>;
+  @ViewChild('formulaExprFs') formulaExprFs?: ElementRef<HTMLTextAreaElement>;
   @ViewChild(BaseChartDirective) formulaChart?: BaseChartDirective;
+
+  /** Plein écran natif pour la zone du graphique f(x). */
+  formulaChartFullscreen = false;
 
   /** Chaîne affichée (nombre courant ou résultat). */
   display = '0';
@@ -80,6 +101,13 @@ export class CalculatorComponent implements AfterViewInit {
   /** Résultat numérique ou chaîne vide. */
   formulaScalarResult = '';
 
+  /** Intégrale définie ∫ₐᵇ f(x) dx (méthode de Simpson, nombre pair de sous-intervalles). */
+  formulaIntegralA = 0;
+  formulaIntegralB = 1;
+  /** Nombre de sous-intervalles sur [a, b] ; doit être pair (≥ 4), ajusté automatiquement si besoin. */
+  formulaIntegralPanels = 256;
+  formulaIntegralResult = '';
+
   /** Message d’erreur de syntaxe ou de domaine. */
   formulaError = '';
 
@@ -89,6 +117,109 @@ export class CalculatorComponent implements AfterViewInit {
 
   /** Nombre d’échantillons (approximation de la courbe). */
   plotSamples = 180;
+
+  /** Si true, trace aussi ∫ depuis x min jusqu’à x (trapèzes sur la grille). */
+  formulaPlotIntegralCurve = false;
+
+  /** Texte sous le graphe : fonction représentée par la courbe ∫ cumulée (vide sinon). */
+  formulaIntegralCurveCaption = '';
+
+  /** Pastilles « fonctions » en bas du graphe plein écran (tap = insertion au curseur). */
+  readonly formulaFullscreenMathChips: readonly FormulaMathChip[] = [
+    { expr: 'x', label: 'x' },
+    { expr: 'pi', label: 'π' },
+    { expr: 'e', label: 'e' },
+    { expr: '(', label: '(' },
+    { expr: ')', label: ')' },
+    { expr: '+', label: '+' },
+    { expr: '-', label: '−' },
+    { expr: '*', label: '×' },
+    { expr: '/', label: '/' },
+    { expr: '^', label: '^' },
+    { expr: ',', label: ',' },
+    { expr: '0', label: '0' },
+    { expr: '1', label: '1' },
+    { expr: '2', label: '2' },
+    { expr: '3', label: '3' },
+    { expr: '4', label: '4' },
+    { expr: '5', label: '5' },
+    { expr: '6', label: '6' },
+    { expr: '7', label: '7' },
+    { expr: '8', label: '8' },
+    { expr: '9', label: '9' },
+    { expr: '.', label: '.' },
+    { expr: 'sin(x)', label: 'sin' },
+    { expr: 'cos(x)', label: 'cos' },
+    { expr: 'tan(x)', label: 'tan' },
+    { expr: '1/tan(x)', label: 'cot' },
+    { expr: '1/cos(x)', label: 'sec' },
+    { expr: '1/sin(x)', label: 'csc' },
+    { expr: 'asin(x)', label: 'asin' },
+    { expr: 'acos(x)', label: 'acos' },
+    { expr: 'atan(x)', label: 'atan' },
+    { expr: 'sinh(x)', label: 'sinh' },
+    { expr: 'cosh(x)', label: 'cosh' },
+    { expr: 'tanh(x)', label: 'tanh' },
+    { expr: 'asinh(x)', label: 'asinh' },
+    { expr: 'acosh(x)', label: 'acosh' },
+    { expr: 'atanh(x)', label: 'atanh' },
+    { expr: 'exp(x)', label: 'exp' },
+    { expr: 'exp(-x)', label: 'e⁻ˣ' },
+    { expr: 'exp(-x^2)', label: 'e⁻ˣ²' },
+    { expr: 'log(x)', label: 'ln' },
+    { expr: 'log10(x)', label: 'log₁₀' },
+    { expr: 'log2(x)', label: 'log₂' },
+    { expr: 'log(x, 3)', label: 'log₃' },
+    { expr: 'sqrt(x)', label: '√' },
+    { expr: 'sqrt(abs(x))', label: '√|x|' },
+    { expr: 'cbrt(x)', label: '∛' },
+    { expr: 'abs(x)', label: '|x|' },
+    { expr: 'sign(x)', label: 'sign' },
+    { expr: 'floor(x)', label: '⌊x⌋' },
+    { expr: 'ceil(x)', label: '⌈x⌉' },
+    { expr: 'round(x)', label: 'rnd' },
+    { expr: 'x^2', label: 'x²' },
+    { expr: 'x^3', label: 'x³' },
+    { expr: 'x^4', label: 'x⁴' },
+    { expr: '1/x', label: '1/x' },
+    { expr: 'x^2 + 1', label: 'x²+1' },
+    { expr: 'x^3 - x', label: 'x³−x' },
+    { expr: '2^x', label: '2ˣ' },
+    { expr: '10^x', label: '10ˣ' },
+    { expr: 'mod(x, 1)', label: '{x}' },
+    { expr: 'log(x^2 + 1)', label: 'ln(x²+1)' },
+    { expr: 'sqrt(x^2 + 1)', label: '√(x²+1)' },
+    { expr: 'sin(x)*cos(x)', label: 'sin·cos' },
+    { expr: 'sin(x)^2', label: 'sin²' },
+    { expr: 'cos(x)^2', label: 'cos²' },
+    { expr: 'max(x, 0)', label: 'max(x,0)' },
+    { expr: 'min(x, 1)', label: 'min(x,1)' },
+    { expr: 'hypot(x, 1)', label: 'hypot' },
+    { expr: 'nthRoot(x, 3)', label: '³√·' },
+    { expr: 'gcd(round(x), 6)', label: 'gcd' },
+    { expr: 'combinations(round(abs(x)), 2)', label: 'C(n,2)' },
+    { expr: 'factorial(min(round(abs(x)), 12))', label: 'n!' },
+    { expr: 'gamma(x + 1)', label: 'Γ' },
+    { expr: 'erf(x)', label: 'erf' },
+    { expr: 'sin(pi * x)', label: 'sin(πx)' },
+    { expr: 'cos(2*pi*x)', label: 'cos(2πx)' },
+    { expr: 'sinc(x)', label: 'sinc' },
+    { expr: 'x * exp(-x)', label: 'xe⁻ˣ' },
+    { expr: '(x^2 - 1)/(x^2 + 1)', label: 'rats' },
+    { expr: 'atan(1/x)', label: 'atan(1/x)' },
+    { expr: 'sqrt(1 - x^2)', label: '√(1−x²)' },
+    { expr: 'log(abs(x) + 1)', label: 'ln(|x|+1)' },
+    { expr: 'x * log(abs(x) + 1)', label: 'x·ln(|x|+1)' },
+    { expr: 'x*sin(x)', label: 'x·sin' },
+    { expr: 'x*cos(x)', label: 'x·cos' },
+    { expr: 'exp(x)/(1 + exp(x))', label: 'σ(x)' },
+    { expr: 'abs(x - 1)', label: '|x−1|' },
+    { expr: 'square(x)', label: 'square' },
+    { expr: 'cube(x)', label: 'cube' },
+    { expr: 'pow(x, 5)', label: 'x⁵' },
+    { expr: 'norm([-2, x, 3])', label: '‖·‖' },
+    { expr: 'distance([x, 0], [0, 1])', label: 'dist' }
+  ];
 
   /** Boutons d’exemples : expr mathjs valides (variable x). */
   readonly formulaPresets: readonly FormulaPreset[] = [
@@ -149,10 +280,87 @@ export class CalculatorComponent implements AfterViewInit {
       formulaEvalX: 1
     },
     {
-      expr: 'ln(x)',
+      expr: 'log(x)',
       labelKey: 'CALCULATOR.FORMULA_PRESET_LN',
       plotXMin: 0.05,
       plotXMax: 10,
+      formulaEvalX: 2
+    },
+    {
+      expr: 'log10(x)',
+      labelKey: 'CALCULATOR.FORMULA_PRESET_LOG10',
+      plotXMin: 0.05,
+      plotXMax: 12,
+      formulaEvalX: 100
+    },
+    {
+      expr: 'log2(x)',
+      labelKey: 'CALCULATOR.FORMULA_PRESET_LOG2',
+      plotXMin: 0.05,
+      plotXMax: 16,
+      formulaEvalX: 8
+    },
+    {
+      expr: 'log(x, 5)',
+      labelKey: 'CALCULATOR.FORMULA_PRESET_LOG_BASE',
+      plotXMin: 0.05,
+      plotXMax: 30,
+      formulaEvalX: 25
+    },
+    {
+      expr: 'log(x^2 + 1)',
+      labelKey: 'CALCULATOR.FORMULA_PRESET_LOG_NAT_POLY',
+      plotXMin: -6,
+      plotXMax: 6,
+      formulaEvalX: 2
+    },
+    {
+      expr: 'log(x + 1)',
+      labelKey: 'CALCULATOR.FORMULA_PRESET_LOG_NAT_SHIFT',
+      plotXMin: -0.9,
+      plotXMax: 10,
+      formulaEvalX: 3
+    },
+    {
+      expr: 'x^2 / 2',
+      labelKey: 'CALCULATOR.FORMULA_PRESET_INT_X',
+      plotXMin: -4,
+      plotXMax: 4,
+      formulaEvalX: 2
+    },
+    {
+      expr: '-cos(x)',
+      labelKey: 'CALCULATOR.FORMULA_PRESET_INT_SIN',
+      plotXMin: -6.28,
+      plotXMax: 6.28,
+      formulaEvalX: 1
+    },
+    {
+      expr: 'sin(x)',
+      labelKey: 'CALCULATOR.FORMULA_PRESET_INT_COS',
+      plotXMin: -6.28,
+      plotXMax: 6.28,
+      formulaEvalX: 1
+    },
+    {
+      expr: 'exp(x)',
+      labelKey: 'CALCULATOR.FORMULA_PRESET_INT_EXP',
+      plotXMin: -3,
+      plotXMax: 3,
+      formulaEvalX: 1
+    },
+    {
+      expr: 'atan(x)',
+      labelKey: 'CALCULATOR.FORMULA_PRESET_INT_ARCTAN',
+      plotXMin: -6,
+      plotXMax: 6,
+      formulaEvalX: 1
+    },
+    {
+      expr: 'x * log(x) - x',
+      labelKey: 'CALCULATOR.FORMULA_PRESET_INT_LOGX',
+      plotXMin: 0.05,
+      plotXMax: 8,
       formulaEvalX: 2
     }
   ];
@@ -204,8 +412,149 @@ export class CalculatorComponent implements AfterViewInit {
 
   private static readonly TAPE_MAX_LINES = 220;
 
+  /** Pastilles insérées telles quelles au curseur (pas de composition avec la formule affichée). */
+  private static readonly FORMULA_CHIP_ATOMIC_EXPR = new Set([
+    'x',
+    'pi',
+    'e',
+    '(',
+    ')',
+    '+',
+    '-',
+    '*',
+    '/',
+    '^',
+    ',',
+    '0',
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+    '.'
+  ]);
+
+  private static formulaChipIsAtomic(chipExpr: string): boolean {
+    return CalculatorComponent.FORMULA_CHIP_ATOMIC_EXPR.has(chipExpr);
+  }
+
   ngAfterViewInit(): void {
     this.refocusKeyboardPanel();
+  }
+
+  ngOnDestroy(): void {
+    void this.exitFormulaChartFullscreenIfActive();
+  }
+
+  @HostListener('document:fullscreenchange')
+  @HostListener('document:webkitfullscreenchange')
+  @HostListener('document:mozfullscreenchange')
+  onDocumentFullscreenChange(): void {
+    this.syncFormulaChartFullscreenState();
+  }
+
+  /** Quitte le plein écran du graphe si le mode formule est désactivé (évite un état incohérent). */
+  onFormulaModeChange(enabled: boolean): void {
+    if (!enabled) {
+      void this.exitFormulaChartFullscreenIfActive();
+    }
+  }
+
+  toggleFormulaChartFullscreen(): void {
+    const host = this.formulaChartHost?.nativeElement;
+    if (!host) {
+      return;
+    }
+    if (CalculatorComponent.getFullscreenElement() === host) {
+      void CalculatorComponent.exitFullscreenDocument().then(() =>
+        this.refreshFormulaChartLayout()
+      );
+    } else {
+      void CalculatorComponent.requestFullscreenElement(host)
+        .then(() => this.refreshFormulaChartLayout())
+        .catch(() => {
+          /* navigateur ou politique refuse le plein écran */
+        });
+    }
+  }
+
+  private syncFormulaChartFullscreenState(): void {
+    const host = this.formulaChartHost?.nativeElement;
+    this.formulaChartFullscreen =
+      !!host && CalculatorComponent.getFullscreenElement() === host;
+    this.refreshFormulaChartLayout();
+  }
+
+  private refreshFormulaChartLayout(): void {
+    queueMicrotask(() => {
+      this.formulaChart?.chart?.resize();
+      this.formulaChart?.update();
+    });
+  }
+
+  private exitFormulaChartFullscreenIfActive(): Promise<void> {
+    const host = this.formulaChartHost?.nativeElement;
+    if (!host || CalculatorComponent.getFullscreenElement() !== host) {
+      return Promise.resolve();
+    }
+    return CalculatorComponent.exitFullscreenDocument().then(() =>
+      this.refreshFormulaChartLayout()
+    );
+  }
+
+  private static getFullscreenElement(): Element | null {
+    const doc = document as Document & {
+      webkitFullscreenElement?: Element | null;
+      mozFullScreenElement?: Element | null;
+    };
+    return (
+      doc.fullscreenElement ??
+      doc.webkitFullscreenElement ??
+      doc.mozFullScreenElement ??
+      null
+    );
+  }
+
+  private static requestFullscreenElement(el: HTMLElement): Promise<void> {
+    const anyEl = el as HTMLElement & {
+      webkitRequestFullscreen?: () => void;
+      mozRequestFullScreen?: () => void;
+    };
+    if (typeof el.requestFullscreen === 'function') {
+      return el.requestFullscreen();
+    }
+    if (typeof anyEl.webkitRequestFullscreen === 'function') {
+      anyEl.webkitRequestFullscreen();
+      return Promise.resolve();
+    }
+    if (typeof anyEl.mozRequestFullScreen === 'function') {
+      anyEl.mozRequestFullScreen();
+      return Promise.resolve();
+    }
+    return Promise.reject(new Error('fullscreen unsupported'));
+  }
+
+  private static exitFullscreenDocument(): Promise<void> {
+    const doc = document as Document & {
+      webkitExitFullscreen?: () => void;
+      mozCancelFullScreen?: () => void;
+    };
+    if (typeof document.exitFullscreen === 'function') {
+      return document.exitFullscreen();
+    }
+    if (typeof doc.webkitExitFullscreen === 'function') {
+      doc.webkitExitFullscreen();
+      return Promise.resolve();
+    }
+    if (typeof doc.mozCancelFullScreen === 'function') {
+      doc.mozCancelFullScreen();
+      return Promise.resolve();
+    }
+    return Promise.resolve();
   }
 
   /** Valeur réelle finie ; rejette complexes hors axe réel. */
@@ -227,9 +576,187 @@ export class CalculatorComponent implements AfterViewInit {
     return null;
   }
 
+  /** Évalue une expression compilée en x ; null si non réel ou hors domaine. */
+  private static evaluateCompiledAt(code: EvalFunction, x: number): number | null {
+    try {
+      return CalculatorComponent.toFiniteReal(code.evaluate({ x }));
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * ∫_{segment}^x f approximée par trapèzes sur la même grille que la courbe ;
+   * si f est indéfinie sur un pas, la cumul redémarre à 0 au prochain segment valide.
+   */
+  private static cumulativeIntegralUniformTrapezoid(
+    code: EvalFunction,
+    xmin: number,
+    xmax: number,
+    n: number
+  ): { x: number; y: number }[] {
+    const out: { x: number; y: number }[] = [];
+    let acc = 0;
+    let prevX: number | null = null;
+    let prevY: number | null = null;
+    for (let i = 0; i <= n; i++) {
+      const x = xmin + ((xmax - xmin) * i) / n;
+      const y = CalculatorComponent.evaluateCompiledAt(code, x);
+      if (y === null) {
+        prevX = null;
+        prevY = null;
+        acc = 0;
+        continue;
+      }
+      if (prevX === null || prevY === null) {
+        out.push({ x, y: 0 });
+        prevX = x;
+        prevY = y;
+        continue;
+      }
+      acc += ((x - prevX) * (prevY + y)) / 2;
+      out.push({ x, y: acc });
+      prevX = x;
+      prevY = y;
+    }
+    return out;
+  }
+
+  /** Configure axe(s) Y et infobulle selon présence de la courbe ∫ f. */
+  private configureFormulaChartScales(integralCurveActive: boolean): void {
+    const tickMain = '#94a3b8';
+    const gridMain = 'rgba(148, 163, 184, 0.15)';
+    const scaleX = {
+      type: 'linear' as const,
+      title: { display: true, text: 'x', color: tickMain },
+      ticks: { color: tickMain },
+      grid: { color: gridMain }
+    };
+    const scaleY = {
+      type: 'linear' as const,
+      position: 'left' as const,
+      title: { display: true, text: 'f(x)', color: tickMain },
+      ticks: { color: tickMain },
+      grid: { color: gridMain }
+    };
+    if (integralCurveActive) {
+      const tickInt = '#c4b5fd';
+      this.chartOptions.scales = {
+        x: scaleX,
+        y: scaleY,
+        y1: {
+          type: 'linear',
+          position: 'right',
+          title: {
+            display: true,
+            text: this.translate.instant('CALCULATOR.FORMULA_YAXIS_INTEGRAL'),
+            color: tickInt
+          },
+          ticks: { color: tickInt },
+          grid: {
+            drawOnChartArea: false,
+            color: 'rgba(167, 139, 250, 0.14)'
+          }
+        }
+      };
+    } else {
+      this.chartOptions.scales = {
+        x: scaleX,
+        y: scaleY
+      };
+    }
+    const plugins = this.chartOptions.plugins ?? {};
+    this.chartOptions.plugins = {
+      ...plugins,
+      tooltip: {
+        ...plugins.tooltip,
+        callbacks: {
+          ...plugins.tooltip?.callbacks,
+          label: (ctx) => {
+            const pt = ctx.raw as { x: number; y: number };
+            if (!pt || typeof pt.x !== 'number' || typeof pt.y !== 'number') {
+              return '';
+            }
+            const xs = pt.x.toPrecision(6);
+            const ys = pt.y.toPrecision(6);
+            if (ctx.datasetIndex === 0) {
+              return `x=${xs}, f(x)=${ys}`;
+            }
+            return `x=${xs}, ∫≈${ys}`;
+          }
+        }
+      }
+    };
+  }
+
+  /** Recalcule la courbe après activation/désactivation du tracé ∫ f. */
+  onFormulaPlotIntegralCurveChange(): void {
+    queueMicrotask(() => this.plotFormulaCurve());
+  }
+
+  /** Pastille : littéraux / opérateurs au curseur ; les modèles avec x composent avec la formule (ou la portion sélectionnée). */
+  insertFormulaMathChip(expr: string): void {
+    const ta =
+      (this.formulaChartFullscreen ? this.formulaExprFs : this.formulaExprMain)?.nativeElement ?? null;
+    const cur = this.formulaExpr ?? '';
+
+    if (!ta) {
+      const trimmed = cur.trim();
+      if (
+        !CalculatorComponent.formulaChipIsAtomic(expr) &&
+        trimmed.length > 0 &&
+        /\bx\b/.test(expr)
+      ) {
+        this.formulaExpr = expr.replace(/\bx\b/g, `(${trimmed})`);
+      } else {
+        this.formulaExpr = cur + expr;
+      }
+      return;
+    }
+
+    const start = ta.selectionStart ?? cur.length;
+    const end = ta.selectionEnd ?? start;
+    const rawSel = start !== end ? cur.slice(start, end) : '';
+    const inner = (rawSel.trim() || cur.trim()) || '';
+
+    const insertAtCursor = (insertion: string, selStart: number, selEnd: number) => {
+      const next = cur.slice(0, selStart) + insertion + cur.slice(selEnd);
+      this.formulaExpr = next;
+      const pos = selStart + insertion.length;
+      queueMicrotask(() => {
+        ta.focus();
+        ta.setSelectionRange(pos, pos);
+      });
+    };
+
+    if (CalculatorComponent.formulaChipIsAtomic(expr)) {
+      insertAtCursor(expr, start, end);
+      return;
+    }
+
+    if (inner.length === 0 || !/\bx\b/.test(expr)) {
+      insertAtCursor(expr, start, end);
+      return;
+    }
+
+    const composed = expr.replace(/\bx\b/g, `(${inner})`);
+
+    if (rawSel.trim().length > 0) {
+      insertAtCursor(composed, start, end);
+      return;
+    }
+
+    this.formulaExpr = composed;
+    queueMicrotask(() => {
+      ta.focus();
+      ta.setSelectionRange(composed.length, composed.length);
+    });
+  }
+
   /** Calcule f(formulaEvalX) ; les trigonométriques suivent les radians (voir libellé i18n). */
   evaluateFormulaScalar(): void {
     this.formulaError = '';
+    this.formulaIntegralResult = '';
     this.formulaScalarResult = '';
     const expr = this.formulaExpr.trim();
     if (!expr) {
@@ -238,8 +765,7 @@ export class CalculatorComponent implements AfterViewInit {
     }
     try {
       const code = compile(expr);
-      const raw = code.evaluate({ x: this.formulaEvalX });
-      const y = CalculatorComponent.toFiniteReal(raw);
+      const y = CalculatorComponent.evaluateCompiledAt(code, this.formulaEvalX);
       if (y === null) {
         this.formulaError = 'CALCULATOR.FORMULA_ERR_NONREAL';
         return;
@@ -255,9 +781,74 @@ export class CalculatorComponent implements AfterViewInit {
     }
   }
 
+  /** ∫ₐᵇ f(x) dx par Simpson composite (nombre pair de sous-intervalles). */
+  evaluateFormulaIntegral(): void {
+    this.formulaError = '';
+    this.formulaScalarResult = '';
+    this.formulaIntegralResult = '';
+    const expr = this.formulaExpr.trim();
+    if (!expr) {
+      this.formulaError = 'CALCULATOR.FORMULA_ERR_EMPTY';
+      return;
+    }
+    const a = Number(this.formulaIntegralA);
+    const b = Number(this.formulaIntegralB);
+    if (!Number.isFinite(a) || !Number.isFinite(b) || b <= a) {
+      this.formulaError = 'CALCULATOR.FORMULA_ERR_INTEGRAL_RANGE';
+      return;
+    }
+    let n = Math.round(Number(this.formulaIntegralPanels));
+    if (!Number.isFinite(n) || n < 4) {
+      n = 256;
+    }
+    if (n % 2 !== 0) {
+      n += 1;
+    }
+    const cap = 20000;
+    if (n > cap) {
+      n = cap - (cap % 2);
+    }
+    let code: EvalFunction;
+    try {
+      code = compile(expr);
+    } catch {
+      this.formulaError = 'CALCULATOR.FORMULA_ERR_SYNTAX';
+      return;
+    }
+    const h = (b - a) / n;
+    const y0 = CalculatorComponent.evaluateCompiledAt(code, a);
+    const yn = CalculatorComponent.evaluateCompiledAt(code, b);
+    if (y0 === null || yn === null) {
+      this.formulaError = 'CALCULATOR.FORMULA_ERR_INTEGRAL_FAIL';
+      return;
+    }
+    let sum = y0 + yn;
+    for (let i = 1; i < n; i++) {
+      const x = a + i * h;
+      const yi = CalculatorComponent.evaluateCompiledAt(code, x);
+      if (yi === null) {
+        this.formulaError = 'CALCULATOR.FORMULA_ERR_INTEGRAL_FAIL';
+        return;
+      }
+      sum += (i % 2 === 0 ? 2 : 4) * yi;
+    }
+    const integral = (h / 3) * sum;
+    if (!Number.isFinite(integral)) {
+      this.formulaError = 'CALCULATOR.FORMULA_ERR_INTEGRAL_FAIL';
+      return;
+    }
+    this.formulaIntegralResult = this.formatForDisplay(integral);
+    if (this.tapeMode) {
+      this.tapePush(`∫_${a}^{${b}}`);
+      this.tapePush('=');
+      this.tapePush(this.formulaIntegralResult);
+    }
+  }
+
   /** Échantillonne y = f(x) sur [plotXMin, plotXMax] et met à jour le graphique. */
   plotFormulaCurve(): void {
     this.formulaError = '';
+    this.formulaIntegralCurveCaption = '';
     const expr = this.formulaExpr.trim();
     if (!expr) {
       this.formulaError = 'CALCULATOR.FORMULA_ERR_EMPTY';
@@ -269,7 +860,7 @@ export class CalculatorComponent implements AfterViewInit {
       this.formulaError = 'CALCULATOR.FORMULA_ERR_RANGE';
       return;
     }
-    let code;
+    let code: EvalFunction;
     try {
       code = compile(expr);
     } catch {
@@ -281,39 +872,79 @@ export class CalculatorComponent implements AfterViewInit {
     const pts: { x: number; y: number }[] = [];
     for (let i = 0; i <= n; i++) {
       const x = xmin + ((xmax - xmin) * i) / n;
-      try {
-        const raw = code.evaluate({ x });
-        const y = CalculatorComponent.toFiniteReal(raw);
-        if (y !== null) {
-          pts.push({ x, y });
-        }
-      } catch {
-        /* point hors domaine : on saute */
+      const y = CalculatorComponent.evaluateCompiledAt(code, x);
+      if (y !== null) {
+        pts.push({ x, y });
       }
     }
     if (pts.length === 0) {
       this.formulaError = 'CALCULATOR.FORMULA_ERR_NOPOINTS';
+      this.configureFormulaChartScales(false);
       this.chartData = { datasets: [] };
       queueMicrotask(() => this.formulaChart?.update());
       return;
     }
+
+    let integralPts: { x: number; y: number }[] = [];
+    if (this.formulaPlotIntegralCurve) {
+      integralPts = CalculatorComponent.cumulativeIntegralUniformTrapezoid(
+        code,
+        xmin,
+        xmax,
+        n
+      );
+    }
+
+    const dualAxis =
+      this.formulaPlotIntegralCurve && integralPts.length >= 2;
+    this.configureFormulaChartScales(dualAxis);
+
     const label =
       expr.length > 42 ? expr.slice(0, 39).trimEnd() + '…' : expr;
-    this.chartData = {
-      datasets: [
-        {
-          label,
-          data: pts,
-          parsing: false,
-          borderColor: '#2dd4bf',
-          backgroundColor: 'rgba(45, 212, 191, 0.08)',
-          tension: 0.12,
-          spanGaps: false,
-          pointRadius: 0,
-          borderWidth: 2
-        }
-      ]
-    };
+    const xminDisp = this.formatForDisplay(xmin);
+    if (dualAxis) {
+      this.formulaIntegralCurveCaption = this.translate.instant(
+        'CALCULATOR.FORMULA_INTEGRAL_CURVE_CAPTION',
+        { xmin: xminDisp, expr: label }
+      );
+    }
+
+    const datasets: NonNullable<
+      ChartConfiguration<'line'>['data']['datasets']
+    > = [
+      {
+        label,
+        data: pts,
+        ...(dualAxis ? { yAxisID: 'y' as const } : {}),
+        parsing: false,
+        borderColor: '#2dd4bf',
+        backgroundColor: 'rgba(45, 212, 191, 0.08)',
+        tension: 0.12,
+        spanGaps: false,
+        pointRadius: 0,
+        borderWidth: 2
+      }
+    ];
+
+    if (dualAxis) {
+      datasets.push({
+        label: this.translate.instant('CALCULATOR.FORMULA_LEGEND_INTEGRAL_CURVE_DETAIL', {
+          xmin: xminDisp,
+          expr: label
+        }),
+        data: integralPts,
+        yAxisID: 'y1',
+        parsing: false,
+        borderColor: '#a78bfa',
+        backgroundColor: 'rgba(167, 139, 250, 0.06)',
+        tension: 0.12,
+        spanGaps: false,
+        pointRadius: 0,
+        borderWidth: 2
+      });
+    }
+
+    this.chartData = { datasets };
     queueMicrotask(() => this.formulaChart?.update());
   }
 
@@ -325,6 +956,7 @@ export class CalculatorComponent implements AfterViewInit {
     this.formulaEvalX = p.formulaEvalX;
     this.formulaError = '';
     this.formulaScalarResult = '';
+    this.formulaIntegralResult = '';
     queueMicrotask(() => this.plotFormulaCurve());
   }
 
