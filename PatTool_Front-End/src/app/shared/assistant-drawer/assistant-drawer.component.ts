@@ -141,6 +141,8 @@ export class AssistantDrawerComponent
 
   /** Modal partage WhatsApp (même principe que mur de photos). */
   whatsappShareMessage = '';
+  /** Contenu du récap : tout le fil utilisateur + assistant, ou uniquement les réponses de l’assistant. */
+  whatsappShareTranscriptMode: 'full' | 'assistant_only' = 'full';
   private whatsappShareModalRef: NgbModalRef | null = null;
 
   /** Modal « Insérer dans un évènement » (image générée OU commentaire texte). */
@@ -1922,8 +1924,29 @@ export class AssistantDrawerComponent
     el.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  /** Défile le fil de conversation tout en bas (dernière réponse / zone de saisie). */
+  /** Aligne le début de la dernière réponse de l’assistant en haut de la zone visible. */
   scrollAssistantThreadToBottom(): void {
+    const el = this.threadEl?.nativeElement;
+    if (!el) {
+      return;
+    }
+    const anchor = el.querySelector(
+      '.pat-assistant-bubble--anchor-last-assistant'
+    ) as HTMLElement | null;
+    if (anchor) {
+      const desiredTop =
+        anchor.getBoundingClientRect().top -
+        el.getBoundingClientRect().top +
+        el.scrollTop;
+      el.scrollTo({ top: Math.max(0, desiredTop - 4), behavior: 'smooth' });
+      return;
+    }
+    const maxTop = Math.max(0, el.scrollHeight - el.clientHeight);
+    el.scrollTo({ top: maxTop, behavior: 'smooth' });
+  }
+
+  /** Tout en bas du fil (après la dernière bulle / indicateur de chargement). */
+  scrollAssistantThreadToEnd(): void {
     const el = this.threadEl?.nativeElement;
     if (!el) {
       return;
@@ -4210,6 +4233,7 @@ export class AssistantDrawerComponent
       return;
     }
     this.whatsappShareMessage = '';
+    this.whatsappShareTranscriptMode = 'full';
     this.whatsappShareModalRef = this.modalService.open(this.assistantWhatsappShareModal, {
       size: 'lg',
       centered: true,
@@ -4266,20 +4290,23 @@ export class AssistantDrawerComponent
   }
 
   /**
-   * Corps du message de partage : tout l’historique visible (questions + réponses).
+   * Corps du message de partage : historique selon {@link whatsappShareTranscriptMode}.
    * Les images sont envoyées en pièces jointes via {@link confirmAssistantWhatsAppShare} en parallèle.
    */
   private suggestWhatsAppShareBodyRaw(): string {
-    return this.buildAssistantTranscriptPlain();
+    return this.buildAssistantTranscriptPlain(this.whatsappShareTranscriptMode === 'full');
   }
 
-  private buildAssistantTranscriptPlain(): string {
+  private buildAssistantTranscriptPlain(includeUserMessages: boolean): string {
     const you = this.translate.instant('ASSISTANT.YOU');
     const ai = this.translate.instant('ASSISTANT.AI');
     const imageNote = this.translate.instant('ASSISTANT.IMAGE_SENT_NOTE');
     const photoInShare = this.translate.instant('ASSISTANT.TRANSCRIPT_PHOTO_LINE');
     const chunks: string[] = [];
     for (const m of this.messages) {
+      if (!includeUserMessages && m.role === 'user') {
+        continue;
+      }
       const label = m.role === 'user' ? you : ai;
       let body = typeof m.content === 'string' ? m.content.trim() : '';
       if (m.role === 'user' && m.hasImage && !m.imageDataUrl) {
@@ -4388,6 +4415,7 @@ export class AssistantDrawerComponent
 
   cancelAssistantWhatsAppShare(): void {
     this.whatsappShareMessage = '';
+    this.whatsappShareTranscriptMode = 'full';
     if (this.whatsappShareModalRef) {
       this.whatsappShareModalRef.close();
       this.whatsappShareModalRef = null;
@@ -4706,11 +4734,12 @@ export class AssistantDrawerComponent
       message += `\n\n*${recapTitleEsc}*\n\n${recapFormatted}`;
     }
 
+    const includeUserContent = this.whatsappShareTranscriptMode === 'full';
     const imageFiles: File[] = [];
     const seenImageKeys = new Set<string>();
     let imgIdx = 0;
     for (const m of this.messages) {
-      if (m.role === 'user' && m.imageDataUrl?.trim()) {
+      if (m.role === 'user' && includeUserContent && m.imageDataUrl?.trim()) {
         const url = m.imageDataUrl.trim();
         if (seenImageKeys.has(url)) {
           continue;
@@ -4772,6 +4801,7 @@ export class AssistantDrawerComponent
       this.whatsappShareModalRef = null;
     }
     this.whatsappShareMessage = '';
+    this.whatsappShareTranscriptMode = 'full';
     window.open(`https://wa.me/?text=${encodeURIComponent(waText)}`, '_blank');
     this.cdr.markForCheck();
   }

@@ -293,6 +293,14 @@
         [attr.aria-label]="'ASSISTANT.SCROLL_THREAD_BOTTOM_HINT' | translate">
         <i class="fa fa-arrow-down" aria-hidden="true"></i>
       </button>
+      <button
+        type="button"
+        class="btn pat-assistant-thread-jump-btn"
+        (click)="scrollAssistantThreadToEnd()"
+        [title]="'ASSISTANT.SCROLL_THREAD_END_HINT' | translate"
+        [attr.aria-label]="'ASSISTANT.SCROLL_THREAD_END_HINT' | translate">
+        <i class="fa fa-angle-double-down" aria-hidden="true"></i>
+      </button>
     </div>
   </div>
 
@@ -828,6 +836,35 @@
           {{ 'ASSISTANT.TITLE' | translate }}
         </h4>
       </div>
+      <fieldset class="mb-3 border rounded px-3 py-2">
+        <legend class="float-none w-auto fs-6 fw-semibold px-1 mb-2">
+          {{ 'ASSISTANT.SHARE_WHATSAPP_SCOPE_LABEL' | translate }}
+        </legend>
+        <div class="form-check">
+          <input
+            class="form-check-input"
+            type="radio"
+            name="assistantWaShareScope"
+            id="assistantWaShareScopeFull"
+            value="full"
+            [(ngModel)]="whatsappShareTranscriptMode" />
+          <label class="form-check-label" for="assistantWaShareScopeFull">
+            {{ 'ASSISTANT.SHARE_WHATSAPP_SCOPE_FULL' | translate }}
+          </label>
+        </div>
+        <div class="form-check mb-0">
+          <input
+            class="form-check-input"
+            type="radio"
+            name="assistantWaShareScope"
+            id="assistantWaShareScopeAssistantOnly"
+            value="assistant_only"
+            [(ngModel)]="whatsappShareTranscriptMode" />
+          <label class="form-check-label" for="assistantWaShareScopeAssistantOnly">
+            {{ 'ASSISTANT.SHARE_WHATSAPP_SCOPE_ASSISTANT_ONLY' | translate }}
+          </label>
+        </div>
+      </fieldset>
       <div class="mb-3">
         <textarea
           id="assistantWaMsg"
