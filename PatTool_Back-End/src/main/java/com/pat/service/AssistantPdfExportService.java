@@ -14,7 +14,6 @@ import org.springframework.web.util.HtmlUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.util.List;
-import java.util.List;
 
 /**
  * Export PDF de l’historique assistant : Markdown (réponses) et texte brut (utilisateur),
@@ -186,18 +185,23 @@ public class AssistantPdfExportService {
         if (t.length() > 16_000_000 || !t.startsWith("data:image/")) {
             return null;
         }
-        if (t.contains("\"") || t.contains("<") || t.contains(">") || t.contains("\n") || t.contains("\r")) {
-            return null;
-        }
         int comma = t.indexOf(',');
         if (comma < 12 || comma > 120) {
             return null;
         }
         String meta = t.substring(5, comma);
-        if (!meta.contains(";base64")) {
+        if (!meta.toLowerCase().contains(";base64")) {
             return null;
         }
-        return t;
+        String payload = t.substring(comma + 1).replaceAll("\\s+", "");
+        if (payload.isEmpty()) {
+            return null;
+        }
+        String rebuilt = t.substring(0, comma + 1) + payload;
+        if (rebuilt.contains("\"") || rebuilt.contains("<") || rebuilt.contains(">")) {
+            return null;
+        }
+        return rebuilt;
     }
 
     private static final String PDF_STYLES = """

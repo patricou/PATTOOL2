@@ -224,7 +224,12 @@ body .modal.show.assistant-tools-help-modal .modal-dialog > .modal-content,
 body .modal.fade.show.assistant-tools-help-modal .modal-dialog > .modal-content,
 body .modal.assistant-tools-help-modal.show .modal-dialog > .modal-content,
 body ngb-modal-window.modal.show.assistant-tools-help-modal .modal-dialog > .modal-content,
-body ngb-modal-window.modal.assistant-tools-help-modal.show .modal-dialog > .modal-content {
+body ngb-modal-window.modal.assistant-tools-help-modal.show .modal-dialog > .modal-content,
+body .modal.show.assistant-draft-expand-modal .modal-dialog > .modal-content,
+body .modal.fade.show.assistant-draft-expand-modal .modal-dialog > .modal-content,
+body .modal.assistant-draft-expand-modal.show .modal-dialog > .modal-content,
+body ngb-modal-window.modal.show.assistant-draft-expand-modal .modal-dialog > .modal-content,
+body ngb-modal-window.modal.assistant-draft-expand-modal.show .modal-dialog > .modal-content {
     font-size: 0.8125rem;
     border: 4px solid #ffffff !important;
     border-radius: 8px !important;
@@ -239,7 +244,11 @@ body ngb-modal-window.modal.assistant-history-modal.show .pat-assistant-history-
 body .modal.show.assistant-tools-help-modal .pat-assistant-history-modal-header,
 body .modal.assistant-tools-help-modal.show .pat-assistant-history-modal-header,
 body ngb-modal-window.modal.show.assistant-tools-help-modal .pat-assistant-history-modal-header,
-body ngb-modal-window.modal.assistant-tools-help-modal.show .pat-assistant-history-modal-header {
+body ngb-modal-window.modal.assistant-tools-help-modal.show .pat-assistant-history-modal-header,
+body .modal.show.assistant-draft-expand-modal .pat-assistant-history-modal-header,
+body .modal.assistant-draft-expand-modal.show .pat-assistant-history-modal-header,
+body ngb-modal-window.modal.show.assistant-draft-expand-modal .pat-assistant-history-modal-header,
+body ngb-modal-window.modal.assistant-draft-expand-modal.show .pat-assistant-history-modal-header {
     padding: 0.65rem 0.85rem !important;
     background: linear-gradient(135deg, #007bff 0%, #0056b3 50%, #004085 100%) !important;
     color: #ffffff !important;
@@ -253,7 +262,11 @@ body ngb-modal-window.modal.assistant-history-modal.show .pat-assistant-history-
 body .modal.show.assistant-tools-help-modal .pat-assistant-history-modal-title,
 body .modal.assistant-tools-help-modal.show .pat-assistant-history-modal-title,
 body ngb-modal-window.modal.show.assistant-tools-help-modal .pat-assistant-history-modal-title,
-body ngb-modal-window.modal.assistant-tools-help-modal.show .pat-assistant-history-modal-title {
+body ngb-modal-window.modal.assistant-tools-help-modal.show .pat-assistant-history-modal-title,
+body .modal.show.assistant-draft-expand-modal .pat-assistant-history-modal-title,
+body .modal.assistant-draft-expand-modal.show .pat-assistant-history-modal-title,
+body ngb-modal-window.modal.show.assistant-draft-expand-modal .pat-assistant-history-modal-title,
+body ngb-modal-window.modal.assistant-draft-expand-modal.show .pat-assistant-history-modal-title {
     font-size: 0.95rem !important;
     font-weight: 600 !important;
     color: #ffffff !important;
@@ -266,7 +279,11 @@ body ngb-modal-window.modal.assistant-history-modal.show .pat-assistant-history-
 body .modal.show.assistant-tools-help-modal .pat-assistant-history-modal-title .fa,
 body .modal.assistant-tools-help-modal.show .pat-assistant-history-modal-title .fa,
 body ngb-modal-window.modal.show.assistant-tools-help-modal .pat-assistant-history-modal-title .fa,
-body ngb-modal-window.modal.assistant-tools-help-modal.show .pat-assistant-history-modal-title .fa {
+body ngb-modal-window.modal.assistant-tools-help-modal.show .pat-assistant-history-modal-title .fa,
+body .modal.show.assistant-draft-expand-modal .pat-assistant-history-modal-title .fa,
+body .modal.assistant-draft-expand-modal.show .pat-assistant-history-modal-title .fa,
+body ngb-modal-window.modal.show.assistant-draft-expand-modal .pat-assistant-history-modal-title .fa,
+body ngb-modal-window.modal.assistant-draft-expand-modal.show .pat-assistant-history-modal-title .fa {
     font-size: 0.88em !important;
     color: #ffffff !important;
 }
@@ -278,7 +295,11 @@ body ngb-modal-window.modal.assistant-history-modal.show .pat-assistant-history-
 body .modal.show.assistant-tools-help-modal .pat-assistant-history-modal-header .btn-close,
 body .modal.assistant-tools-help-modal.show .pat-assistant-history-modal-header .btn-close,
 body ngb-modal-window.modal.show.assistant-tools-help-modal .pat-assistant-history-modal-header .btn-close,
-body ngb-modal-window.modal.assistant-tools-help-modal.show .pat-assistant-history-modal-header .btn-close {
+body ngb-modal-window.modal.assistant-tools-help-modal.show .pat-assistant-history-modal-header .btn-close,
+body .modal.show.assistant-draft-expand-modal .pat-assistant-history-modal-header .btn-close,
+body .modal.assistant-draft-expand-modal.show .pat-assistant-history-modal-header .btn-close,
+body ngb-modal-window.modal.show.assistant-draft-expand-modal .pat-assistant-history-modal-header .btn-close,
+body ngb-modal-window.modal.assistant-draft-expand-modal.show .pat-assistant-history-modal-header .btn-close {
     padding: 0.35rem !important;
     opacity: 1 !important;
 }

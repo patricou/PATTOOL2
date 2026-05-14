@@ -47,13 +47,16 @@ public class EuromillionsCsvImportService {
     private static final DateTimeFormatter FMT_UUUUMMDD = DateTimeFormatter.ofPattern("uuuuMMdd", Locale.ROOT);
 
     private final EuromillionsDrawRepository repository;
+    private final EuromillionsMethodAnalyticsService methodAnalyticsService;
     /** Répertoire contenant les CSV (ex. {@code C:/Users/.../Downloads/euromillions}). */
     private final String importDirectoryRaw;
 
     public EuromillionsCsvImportService(
             EuromillionsDrawRepository repository,
+            EuromillionsMethodAnalyticsService methodAnalyticsService,
             @Value("${euromillions.import.directory:}") String importDirectoryRaw) {
         this.repository = repository;
+        this.methodAnalyticsService = methodAnalyticsService;
         this.importDirectoryRaw = importDirectoryRaw == null ? "" : importDirectoryRaw.trim();
     }
 
@@ -73,7 +76,9 @@ public class EuromillionsCsvImportService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "EuroMillions draw not found"));
         entity.setDrawDate(newDate);
         entity.setSyncedAt(Instant.now());
-        return toDto(repository.save(entity));
+        EuromillionsDrawDto dto = toDto(repository.save(entity));
+        methodAnalyticsService.refreshSnapshotBestEffort();
+        return dto;
     }
 
     /**
@@ -143,6 +148,7 @@ public class EuromillionsCsvImportService {
         out.setDrawsUpserted(upsert);
         out.setRowsSkipped(skipped);
         log.info("EuroMillions CSV import terminé — {} fichier(s), {} upserts, {} ignorés", csvFiles.size(), upsert, skipped);
+        methodAnalyticsService.refreshSnapshotBestEffort();
         return out;
     }
 

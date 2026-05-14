@@ -48,6 +48,7 @@ import java.time.format.DateTimeFormatter;
             com.pat.repo.GoveeThermometerHistoryRepository.class,
             com.pat.repo.IotProxyTargetRepository.class,
             com.pat.repo.EuromillionsDrawRepository.class,
+            com.pat.repo.EuromillionsMethodAnalyticsRepository.class,
             com.pat.repo.LotoDrawRepository.class,
             com.pat.repo.MacVendorMappingRepository.class,
             com.pat.repo.MembersRepository.class,

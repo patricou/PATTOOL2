@@ -1,7 +1,8 @@
-import { ChangeDetectorRef, Component, OnInit, TemplateRef } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, inject, OnInit, TemplateRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize, timeout, catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { BaseChartDirective } from 'ng2-charts';
@@ -10,9 +11,36 @@ import { NgbModal, NgbModule } from '@ng-bootstrap/ng-bootstrap';
 
 import { ApiService, EuromillionsClientSettings, EuromillionsDrawRow, EuromillionsSyncResult } from '../services/api.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
-import { AssistantLaunchService } from '../services/assistant-launch.service';
+import { AssistantLaunchService, type AssistantLaunchRouting } from '../services/assistant-launch.service';
 
 Chart.register(...registerables);
+
+/** Display order — aligned with server {@code EuromillionsMethodIds.ORDERED}. */
+export const EUROM_METHOD_OPTION_IDS = [
+  'chi2_gof_uniform',
+  'entropy_normalized',
+  'gap_recurrence',
+  'sum_correlation',
+  'monte_carlo_maxfreq'
+] as const;
+
+/**
+ * PatTool 1–5 hint on method cards (yellow stars): indicative usefulness to guide choice,
+ * not an absolute statistical ranking or a predictive claim.
+ */
+const EUROM_METHOD_USEFULNESS_STARS: Record<(typeof EUROM_METHOD_OPTION_IDS)[number], number> = {
+  chi2_gof_uniform: 5,
+  entropy_normalized: 4,
+  monte_carlo_maxfreq: 4,
+  gap_recurrence: 3,
+  sum_correlation: 2
+};
+
+/** Assistant launch from EuroMillions: Anthropic + `claude-opus-4-7`, matching the recommended UI selector. */
+const EUROM_AI_LAUNCH_ROUTING: AssistantLaunchRouting = {
+  provider: 'anthropic',
+  modelPreset: 'claude-opus-4-7'
+};
 
 export type EuromSortColumn = 'date' | 'combo' | 'gain' | 'code';
 
@@ -25,6 +53,8 @@ export type EuromSortColumn = 'date' | 'combo' | 'gain' | 'code';
 })
 export class EuromillionsComponent implements OnInit {
 
+  private readonly destroyRef = inject(DestroyRef);
+
   draws: EuromillionsDrawRow[] = [];
   tableLoaded = false;
   loading = true;
@@ -34,8 +64,8 @@ export class EuromillionsComponent implements OnInit {
   lastSyncResult: EuromillionsSyncResult | null = null;
 
   /**
-   * Page FDJ où se trouve l’historique EuroMillions & My Million (téléchargement d’archive) :
-   * même URL par défaut que {@code euromillions.fdj.historique-url} dans le backend.
+   * FDJ page for EuroMillions & My Million history (archive download):
+   * same default URL as {@code euromillions.fdj.historique-url} in the backend.
    */
   readonly fdjEuromMyMillionHistoriqueUrl =
     'https://www.fdj.fr/jeux-de-tirage/euromillions-my-million/historique';
@@ -84,7 +114,7 @@ export class EuromillionsComponent implements OnInit {
   };
   chartHasData = false;
 
-  /** Comptages modale « tirages par mois » : lignes = 12 mois, colonnes = années (abscisse). */
+  /** "Draws per month" modal counts: rows = 12 months, columns = years (horizontal axis). */
   euromMonthlyCountYears: number[] = [];
   euromMonthlyCountMatrix: number[][] = [];
   euromMonthlyCountMonthRowLabels: string[] = [];
@@ -92,7 +122,7 @@ export class EuromillionsComponent implements OnInit {
   euromMonthlyDistinctYmCount = 0;
   euromMonthlyDrawsAttributed = 0;
   euromMonthlyDrawsSkipped = 0;
-  /** Tirages avec date jour valide mais strictement avant la borne basse assistant (hors matrice). */
+  /** Draws with a valid day date but strictly before the assistant lower bound (excluded from matrix). */
   euromMonthlyDrawsBeforeBound = 0;
 
   jsonExportText = '';
@@ -106,20 +136,50 @@ export class EuromillionsComponent implements OnInit {
   resultFilterDateTo = '';
 
   /**
-   * Borne basse inclusive (yyyy-MM-dd) des tirages dans le JSON assistant : lue via GET/PATCH {@code client-settings}.
+   * Inclusive lower bound (yyyy-MM-dd) for draws in the assistant JSON: read via GET/PATCH {@code client-settings}.
    */
   euromAiMinDrawDateIso = '2020-01-01';
-  /** Champ formulaire admin (yyyy-MM-dd) — synchronisé au chargement. */
+  /** Admin form field (yyyy-MM-dd) — synced on load. */
   euromAiMinDrawDateDraft = '2020-01-01';
-  /** Indicateur réponse serveur : valeur persistée Mongo {@code appParameters}. */
+  /** Server flag: value persisted in Mongo {@code appParameters}. */
   euromAiMinDrawEffectiveFromMongo = false;
   euromAiMinDateSaving = false;
   euromAiMinDateFeedback = '';
   euromAiMinDateFeedbackKind: 'ok' | 'err' | '' = '';
 
-  /** Jour ISO yyyy-MM-dd de la borne basse assistant (affichage i18n / matrice tirages par mois). */
+  /** Selected analysis method id (instruction for the AI) — default is first option. */
+  selectedEuromMethodId: string = EUROM_METHOD_OPTION_IDS[0];
+
+  /**
+   * When true, the assistant draft uses multi-method synthesis and attaches specs for methods checked below.
+   * When false, only the radio-selected method is sent (standard scratch prompt).
+   */
+  euromAiMultiSynthesis = false;
+
+  /**
+   * "Include in assistant draft" checkboxes: subset of methods whose specs are attached to the JSON.
+   * By default the last two entries in {@link EUROM_METHOD_OPTION_IDS} are unchecked.
+   * Used only when {@link euromAiMultiSynthesis} is true; at least one must remain checked then for the assistant button.
+   */
+  readonly euromAiInclude: Record<string, boolean> = (() => {
+    const excludedDefault = new Set(EUROM_METHOD_OPTION_IDS.slice(-2));
+    return Object.fromEntries(
+      EUROM_METHOD_OPTION_IDS.map((id) => [id, !excludedDefault.has(id)]),
+    ) as Record<string, boolean>;
+  })();
+
+  /** yyyy-MM-dd lower-bound day for assistant display (i18n / draws-per-month matrix). */
   get euromAiMinInclusiveDay(): string {
     return this.euromAiMinDrawDateIso.trim().substring(0, 10);
+  }
+
+  /** Ordered list of offered methods (fixed order, i18n labels). */
+  get euromMethodOrderedIds(): string[] {
+    return [...EUROM_METHOD_OPTION_IDS];
+  }
+
+  euromMethodRadioDomId(methodId: string): string {
+    return `eurom-calc-${methodId.replace(/[^a-z0-9_-]/gi, '-')}`;
   }
 
   constructor(
@@ -152,7 +212,7 @@ export class EuromillionsComponent implements OnInit {
   }
 
   private loadEuromAiClientSettings(): void {
-    this.api.getEuromillionsClientSettings().subscribe({
+    this.api.getEuromillionsClientSettings().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (s) => this.applyEuromClientSettings(s ?? null),
       error: () => undefined
     });
@@ -188,7 +248,8 @@ export class EuromillionsComponent implements OnInit {
         finalize(() => {
           this.euromAiMinDateSaving = false;
           this.cdr.markForCheck();
-        })
+        }),
+        takeUntilDestroyed(this.destroyRef)
       )
       .subscribe((res) => {
         if (res) {
@@ -218,13 +279,52 @@ export class EuromillionsComponent implements OnInit {
     return this.keycloak.hasAdminRole();
   }
 
-  /** Édition des dates en base réservée au rôle realm/client Admin Keycloak (+ session connectée). */
+  /** In-database date editing restricted to Keycloak realm/client Admin role (+ signed-in session). */
   get canEditDrawDates(): boolean {
     return this.keycloak.isLoggedIn() && this.keycloak.hasAdminRole();
   }
 
   get canSendEuromAiPrompt(): boolean {
-    return this.keycloak.isLoggedIn() && !this.loading && !this.syncing && this.draws.length > 0;
+    const base =
+      this.keycloak.isLoggedIn() &&
+      !this.loading &&
+      !this.syncing &&
+      this.draws.length > 0;
+    if (!base) {
+      return false;
+    }
+    if (this.euromAiMultiSynthesis) {
+      return this.euromAiIncludedOrderedIds().length > 0;
+    }
+    return EUROM_METHOD_OPTION_IDS.includes(
+      this.selectedEuromMethodId as (typeof EUROM_METHOD_OPTION_IDS)[number]
+    );
+  }
+
+  /** Methods checked for the assistant JSON, in canonical card order. */
+  euromAiIncludedOrderedIds(): string[] {
+    return EUROM_METHOD_OPTION_IDS.filter((id) => this.euromAiInclude[id]);
+  }
+
+  euromAiIncludeDomId(methodId: string): string {
+    return `eurom-ai-inc-${methodId.replace(/[^a-z0-9_-]/gi, '-')}`;
+  }
+
+  onEuromAiIncludeChange(methodId: string, ev: Event): void {
+    const t = ev.target;
+    if (!(t instanceof HTMLInputElement)) {
+      return;
+    }
+    const checked = !!t.checked;
+    if (!EUROM_METHOD_OPTION_IDS.includes(methodId as (typeof EUROM_METHOD_OPTION_IDS)[number])) {
+      return;
+    }
+    if (!checked && this.euromAiIncludedOrderedIds().length <= 1 && this.euromAiInclude[methodId]) {
+      t.checked = true;
+      return;
+    }
+    this.euromAiInclude[methodId] = checked;
+    this.cdr.markForCheck();
   }
 
   get sortedDraws(): EuromillionsDrawRow[] {
@@ -286,6 +386,7 @@ export class EuromillionsComponent implements OnInit {
     this.loading = true;
     this.errorMessage = '';
     this.api.getEuromillionsDraws().pipe(
+      takeUntilDestroyed(this.destroyRef),
       finalize(() => {
         this.loading = false;
         this.tableLoaded = true;
@@ -328,6 +429,24 @@ export class EuromillionsComponent implements OnInit {
     this.resultFilterDateFrom = '';
     this.resultFilterDateTo = '';
     this.cdr.markForCheck();
+  }
+
+  euromMethodTranslationKey(id: string, kind: 'TITLE' | 'DESC' | 'SUMMARY'): string {
+    return `EUROMILLIONS.METHOD_${id.toUpperCase()}_${kind}`;
+  }
+
+  /** Normative spec sent to the AI for the selected method (long i18n text). */
+  euromMethodAiSpecKey(id: string): string {
+    return `EUROMILLIONS.METHOD_${id.toUpperCase()}_AI_SPEC`;
+  }
+
+  /** Slots 1..5 for star icons on method cards. */
+  readonly euromMethodStarSlots: readonly number[] = [1, 2, 3, 4, 5];
+
+  /** PatTool 1–5 hint shown as yellow stars on the card (see {@link EUROM_METHOD_USEFULNESS_STARS}). */
+  euromMethodUsefulnessStars(methodId: string): number {
+    const k = methodId as keyof typeof EUROM_METHOD_USEFULNESS_STARS;
+    return EUROM_METHOD_USEFULNESS_STARS[k] ?? 3;
   }
 
   private isoDateOnly(raw: string | undefined): string {
@@ -394,7 +513,8 @@ export class EuromillionsComponent implements OnInit {
         finalize(() => {
           this.savingDrawId = null;
           this.cdr.markForCheck();
-        })
+        }),
+        takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (updated) => {
@@ -445,7 +565,8 @@ export class EuromillionsComponent implements OnInit {
         finalize(() => {
           this.syncing = false;
           this.cdr.markForCheck();
-        })
+        }),
+        takeUntilDestroyed(this.destroyRef)
       )
       .subscribe((res) => {
         if (res) {
@@ -500,7 +621,7 @@ export class EuromillionsComponent implements OnInit {
     }));
   }
 
-  /** Tirages chronologiques pour le payload assistant : depuis {@link euromAiMinDrawDateIso} inclus. */
+  /** Chronological draws for assistant payload: from {@link euromAiMinDrawDateIso} inclusive. */
   private euromDrawsChronologicalForAssistantAi(): Array<{
     drawDate: string;
     numbers: number[];
@@ -513,8 +634,8 @@ export class EuromillionsComponent implements OnInit {
   }
 
   /**
-   * Seuils de date (jour de tirage ISO yyyy-MM-dd) pour séparer les périodes des étoiles EuroMillions
-   * (boules toujours 5/50 côté historique utilisé dans PatTool).
+   * Draw-date thresholds (ISO yyyy-MM-dd day) separating EuroMillions star eras
+   * (main balls always 5/50 in PatTool history).
    */
   private static readonly EUROM_STAR_PERIOD_CUTS = ['2011-05-10', '2016-09-27'] as const;
 
@@ -529,7 +650,7 @@ export class EuromillionsComponent implements OnInit {
     return 2;
   }
 
-  /** χ² Pearson naïf (uniformité sur les catégories, effectifs agrégés côté app — hypothèse simplifiatrice). */
+  /** Naive Pearson χ² (uniformity across categories, app-side pooled counts — simplifying assumption). */
   private chi2UniformCats(counts: number[], draws: number, drawsPerSamples: number): number {
     const k = counts.length;
     if (k <= 0 || draws <= 0) {
@@ -548,8 +669,8 @@ export class EuromillionsComponent implements OnInit {
   }
 
   /**
-   * JSON assistant : marges par période réglementaire (tirages dont la date ≥ réglage serveur
-   * {@code euromillions.ai.min-draw-date}) + liste chronologique complète de ces tirages dans {@code tail}.
+   * Assistant JSON: margins per regulatory era (draws with date ≥ server setting
+   * {@code euromillions.ai.min-draw-date}) + full chronological list of those draws in {@code tail}.
    */
   private buildEuromAiAssistantStatsPayload(): {
     schema: 'pat-eurom-ai-v2';
@@ -634,7 +755,7 @@ export class EuromillionsComponent implements OnInit {
     return {
       schema: 'pat-eurom-ai-v2',
       note:
-        'Périmètre : tirages dont drawDate >= sinceInclusive. mf/sf et chi² : ces tirages seulement. tail = liste chronologique complète de ce périmètre ; tail.length = c.',
+        'Scope: draws with drawDate >= sinceInclusive. mf/sf and χ² use only those draws. tail = full chronological list for this scope; tail.length = c.',
       sinceInclusive,
       c,
       dateFirst,
@@ -654,8 +775,8 @@ export class EuromillionsComponent implements OnInit {
   }
 
   /**
-   * JSON minimal pour l’assistant : {@code c} = nombre de lignes ;
-   * {@code d} = {@code [ "YYYYMMDD", [5 boules], [étoile1, étoile2] ]} par tirage, ordre chronologique.
+   * Minimal JSON for assistant: {@code c} = row count;
+   * {@code d} = {@code [ "YYYYMMDD", [5 mains], [star1, star2] ]} per draw, chronological order.
    */
   private buildEuromAiJsonPayloadCompact(): { c: number; d: [string, number[], number[]][] } {
     const rows = this.euromDrawsChronologicalForAi();
@@ -688,27 +809,129 @@ export class EuromillionsComponent implements OnInit {
     if (!this.canSendEuromAiPrompt) {
       return;
     }
+    const mode = this.euromAiMultiSynthesis ? 'synthesis' : 'standard';
+    const includedIds = this.euromAiMultiSynthesis
+      ? this.euromAiIncludedOrderedIds()
+      : [this.selectedEuromMethodId];
+    this.openEuromAiDraft(mode, includedIds);
+  }
+
+  private euromPrimaryIncludedMethodId(includedIds: string[]): string {
+    if (includedIds.includes(this.selectedEuromMethodId)) {
+      return this.selectedEuromMethodId;
+    }
+    return includedIds[0];
+  }
+
+  private buildEuromMethodRowsForAi(ids: string[]): Array<{
+    id: string;
+    calculationMethodLabel: string;
+    calculationMethodSummary: string;
+    calculationMethodSpec: string;
+  }> {
+    return ids.map((id) => ({
+      id,
+      calculationMethodLabel: this.translate.instant(this.euromMethodTranslationKey(id, 'TITLE')),
+      calculationMethodSummary: this.translate.instant(this.euromMethodTranslationKey(id, 'DESC')),
+      calculationMethodSpec: this.translate.instant(this.euromMethodAiSpecKey(id))
+    }));
+  }
+
+  private fillEuromAiEnvelope(
+    statsPayload: ReturnType<EuromillionsComponent['buildEuromAiAssistantStatsPayload']>,
+    includedIds: string[]
+  ): Record<string, unknown> {
+    const rows = this.buildEuromMethodRowsForAi(includedIds);
+    const primaryId = this.euromPrimaryIncludedMethodId(includedIds);
+    const primary = rows.find((r) => r.id === primaryId)!;
+    const envelope: Record<string, unknown> = {
+      ...statsPayload,
+      calculationMethodId: primary.id,
+      calculationMethodLabel: primary.calculationMethodLabel,
+      calculationMethodSummary: primary.calculationMethodSummary,
+      calculationMethodSpec: primary.calculationMethodSpec
+    };
+    if (includedIds.length > 1) {
+      envelope['calculationMethods'] = rows;
+    }
+    return envelope;
+  }
+
+  private buildEuromAiMethodHints(
+    mode: 'standard' | 'synthesis',
+    includedIds: string[],
+    primaryId: string
+  ): string {
+    const primaryLabel = this.translate.instant(this.euromMethodTranslationKey(primaryId, 'TITLE'));
+    const primarySummary = this.translate.instant(this.euromMethodTranslationKey(primaryId, 'DESC'));
+    if (mode === 'synthesis') {
+      return this.translate.instant('EUROMILLIONS.AI_MULTI_SYNTHESIS_HINT', {
+        n: includedIds.length,
+        primaryId,
+        primaryLabel
+      });
+    }
+    if (includedIds.length === 1) {
+      return this.translate.instant('EUROMILLIONS.AI_SELECTED_METHOD_HINT', {
+        id: primaryId,
+        label: primaryLabel,
+        summary: primarySummary
+      });
+    }
+    const labels = includedIds
+      .map((id) => this.translate.instant(this.euromMethodTranslationKey(id, 'TITLE')))
+      .join(', ');
+    return this.translate.instant('EUROMILLIONS.AI_MULTI_METHOD_HINT', {
+      primaryId,
+      primaryLabel,
+      labels
+    });
+  }
+
+  /** Assistant draft: stats + selected method(s); synthesis vs standard prompt per {@code mode}. */
+  private openEuromAiDraft(mode: 'standard' | 'synthesis', includedIds: string[]): void {
+    if (!this.canSendEuromAiPrompt || includedIds.length === 0) {
+      return;
+    }
     const statsPayload = this.buildEuromAiAssistantStatsPayload();
-    const prompt = this.translate.instant('EUROMILLIONS.AI_PROMPT_FROM_SCRATCH', {
+    const primaryId = this.euromPrimaryIncludedMethodId(includedIds);
+    const envelope = this.fillEuromAiEnvelope(statsPayload, includedIds);
+    const promptKey =
+      mode === 'synthesis'
+        ? 'EUROMILLIONS.AI_PROMPT_MULTI_SYNTHESIS'
+        : 'EUROMILLIONS.AI_PROMPT_FROM_SCRATCH';
+    const prompt = this.translate.instant(promptKey, {
       n: statsPayload.c,
       since: statsPayload.sinceInclusive
     });
+    const methodHint = this.buildEuromAiMethodHints(mode, includedIds, primaryId);
     const jsonIntro = this.translate.instant('EUROMILLIONS.AI_STATS_PAYLOAD_INTRO', {
       since: statsPayload.sinceInclusive
     });
-    const jsonBlock = JSON.stringify(statsPayload);
-    const body = `${prompt}\n\n${jsonIntro}\n\n${jsonBlock}`;
+    const jsonBlock = JSON.stringify(envelope);
+    const body = `${prompt}\n\n${methodHint}\n\n${jsonIntro}\n\n${jsonBlock}`;
     this.assistantLaunch.openWithDraft(body, {
       newConversation: true,
       autoSend: false,
-      toolFlags: { webSearch: false, imageGeneration: false, mcp: false }
+      toolFlags: { webSearch: false, imageGeneration: false, mcp: false },
+      routing: EUROM_AI_LAUNCH_ROUTING
     });
+    this.cdr.markForCheck();
   }
 
   openMonthlyCountModal(content: TemplateRef<unknown>): void {
     this.computeMonthlyDrawCounts();
     this.modalService.open(content, {
       size: 'xl',
+      scrollable: true,
+      centered: true
+    });
+    this.cdr.markForCheck();
+  }
+
+  openEuromAiFlowInfoModal(content: TemplateRef<unknown>): void {
+    this.modalService.open(content, {
+      size: 'lg',
       scrollable: true,
       centered: true
     });
@@ -793,7 +1016,7 @@ export class EuromillionsComponent implements OnInit {
     return out;
   }
 
-  /** Retourne {@code yyyy-MM} si le début de {@code raw} est une année/mois plausible, sinon {@code null}. */
+  /** Returns {@code yyyy-MM} if the start of {@code raw} is a plausible year/month, otherwise {@code null}. */
   private parseDrawYearMonthKey(raw: string | undefined): string | null {
     const d = raw?.trim() ?? '';
     if (d.length < 7) {
@@ -814,7 +1037,7 @@ export class EuromillionsComponent implements OnInit {
     return head;
   }
 
-  /** Préfixe {@code yyyy-MM-dd} si les 10 premiers caractères forment une date ISO jour, sinon {@code null}. */
+  /** {@code yyyy-MM-dd} prefix if the first 10 characters form an ISO calendar day, otherwise {@code null}. */
   private euromIsoDayPrefixOrNull(raw: string | undefined): string | null {
     const t = (raw ?? '').trim();
     const h = t.length >= 10 ? t.slice(0, 10) : '';

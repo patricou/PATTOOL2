@@ -225,6 +225,8 @@ public class SecurityConfig {
                 .hasAnyRole("Admin", "admin")
                 .requestMatchers(HttpMethod.PATCH, "/api/euromillions/client-settings").hasAnyRole("Admin", "admin")
                 .requestMatchers(HttpMethod.PATCH, "/api/euromillions/draws").hasAnyRole("Admin", "admin")
+                .requestMatchers(HttpMethod.POST, "/api/euromillions/method-analytics/recompute")
+                .hasAnyRole("Admin", "admin")
 
                 // Stream event files (SSE): require authentication so SecurityContext has user and getCurrentUserId() works
                 .requestMatchers(HttpMethod.GET, "/api/even/*/files/stream").authenticated()

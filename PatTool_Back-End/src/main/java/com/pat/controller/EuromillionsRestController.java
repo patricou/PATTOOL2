@@ -4,10 +4,12 @@ import com.pat.controller.dto.EuromillionsClientSettingsDto;
 import com.pat.controller.dto.EuromillionsClientSettingsPatchDto;
 import com.pat.controller.dto.EuromillionsDrawDateUpdateDto;
 import com.pat.controller.dto.EuromillionsDrawDto;
+import com.pat.controller.dto.EuromillionsMethodAnalyticsDto;
 import com.pat.controller.dto.EuromillionsSyncResultDto;
 import com.pat.service.EuromillionsAiSettingsService;
 import com.pat.service.EuromillionsCsvImportService;
 import com.pat.service.EuromillionsFdjArchiveService;
+import com.pat.service.EuromillionsMethodAnalyticsService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -27,14 +29,17 @@ public class EuromillionsRestController {
     private final EuromillionsCsvImportService csvImportService;
     private final EuromillionsFdjArchiveService fdjArchiveService;
     private final EuromillionsAiSettingsService aiSettingsService;
+    private final EuromillionsMethodAnalyticsService methodAnalyticsService;
 
     public EuromillionsRestController(
             EuromillionsCsvImportService csvImportService,
             EuromillionsFdjArchiveService fdjArchiveService,
-            EuromillionsAiSettingsService aiSettingsService) {
+            EuromillionsAiSettingsService aiSettingsService,
+            EuromillionsMethodAnalyticsService methodAnalyticsService) {
         this.csvImportService = csvImportService;
         this.fdjArchiveService = fdjArchiveService;
         this.aiSettingsService = aiSettingsService;
+        this.methodAnalyticsService = methodAnalyticsService;
     }
 
     /**
@@ -70,6 +75,21 @@ public class EuromillionsRestController {
     @GetMapping("/draws")
     public List<EuromillionsDrawDto> listDraws() {
         return csvImportService.listDrawsOrderedByDateDesc();
+    }
+
+    /**
+     * Métriques statistiques pré-calculées (Mongo {@code euromillions_method_analytics}), alignées sur
+     * {@code euromillions.ai.min-draw-date}. Recalcul automatique si le nombre de tirages dans la fenêtre a changé.
+     */
+    @GetMapping("/method-analytics")
+    public EuromillionsMethodAnalyticsDto methodAnalytics() {
+        return methodAnalyticsService.getSnapshot(false);
+    }
+
+    /** Admin : force le recalcul et la mise à jour Mongo des cinq méthodes. */
+    @PostMapping("/method-analytics/recompute")
+    public EuromillionsMethodAnalyticsDto recomputeMethodAnalytics() {
+        return methodAnalyticsService.getSnapshot(true);
     }
 
     /** Lit tous les {@code *.csv} du dossier configuré puis fusion MongoDB. */

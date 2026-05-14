@@ -935,6 +935,18 @@ a.pat-assistant-brave-search.pat-assistant-header-btn .fa {
   padding-left: 0.25rem;
 }
 
+.pat-assistant-loading-label {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.pat-assistant-loading-ms {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.9;
+}
+
 .pat-assistant-pdf-export-overlay {
   position: absolute;
   inset: 0;
@@ -1001,7 +1013,7 @@ a.pat-assistant-brave-search.pat-assistant-header-btn .fa {
   min-width: 0;
 }
 
-/* Effacer l’historique : pastille ronde discrète (sans style bouton Bootstrap) */
+/* Effacer l’historique : icône seule en très étroit, libellé explicite à partir de sm. */
 .pat-assistant-new-thread-btn {
   flex: 0 0 auto;
   align-self: flex-start;
@@ -1022,6 +1034,7 @@ a.pat-assistant-brave-search.pat-assistant-header-btn .fa {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.35rem;
   font-size: 0.85rem;
   transition:
     background 0.15s ease,
@@ -1033,8 +1046,32 @@ a.pat-assistant-brave-search.pat-assistant-header-btn .fa {
   appearance: none;
 }
 
-.pat-assistant-new-thread-btn .fa {
+@media (min-width: 576px) {
+  .pat-assistant-new-thread-btn {
+    width: auto;
+    height: auto;
+    min-height: 2.25rem;
+    padding: 0.3rem 0.55rem;
+    border-radius: 9999px;
+    justify-content: flex-start;
+    max-width: min(11rem, 34vw);
+  }
+
+  .pat-assistant-new-thread-btn-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    line-height: 1.15;
+    text-align: left;
+    hyphens: auto;
+    overflow-wrap: anywhere;
+    pointer-events: none;
+  }
+}
+
+.pat-assistant-new-thread-btn .fa,
+.pat-assistant-new-thread-btn-icon {
   pointer-events: none;
+  flex-shrink: 0;
 }
 
 .pat-assistant-new-thread-btn:hover:not(:disabled) {
@@ -1117,7 +1154,73 @@ a.pat-assistant-brave-search.pat-assistant-header-btn .fa {
   box-shadow: none;
 }
 
-/* Copier la question vers le presse-papiers (à droite du champ). */
+/* Agrandir la zone de saisie (modal) · copier la question (à droite du champ). */
+.pat-assistant-expand-draft-btn {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  margin-top: 6px;
+  box-sizing: border-box;
+  width: 2.25rem;
+  height: 2.25rem;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  padding: 0;
+  margin-inline-end: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 50%;
+  background: #f9fafb;
+  color: #4338ca;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.12s ease;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.pat-assistant-expand-draft-btn .fa {
+  pointer-events: none;
+}
+
+.pat-assistant-expand-draft-btn:hover:not(:disabled) {
+  background: #eef2ff;
+  border-color: #a5b4fc;
+  color: #3730a3;
+  box-shadow: 0 1px 4px rgba(67, 56, 202, 0.15);
+}
+
+.pat-assistant-expand-draft-btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.pat-assistant-expand-draft-btn:focus-visible {
+  outline: 2px solid var(--asst-blue);
+  outline-offset: 2px;
+}
+
+.pat-assistant-expand-draft-btn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.pat-assistant-draft-expand-body {
+  padding-top: 0.75rem;
+}
+
+.pat-assistant-draft-expand-textarea {
+  min-height: min(50vh, 28rem);
+  resize: vertical;
+}
+
 .pat-assistant-copy-draft-btn {
   flex: 0 0 auto;
   align-self: flex-start;

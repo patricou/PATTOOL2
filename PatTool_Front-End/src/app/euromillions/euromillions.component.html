@@ -3,10 +3,42 @@
 </div>
 
 <div class="container py-3 eurom-page">
-  <p class="text-muted">{{ 'EUROMILLIONS.INTRO' | translate }}</p>
+  <p class="text-muted">{{ 'EUROMILLIONS.INTRO' | translate: { since: euromAiMinDrawDateIso } }}</p>
 
-  <div *ngIf="canRunSync" class="card border-secondary-subtle shadow-sm mb-3">
-    <div class="card-body py-3">
+  <div class="eurom-toolbar-stack__ai d-flex flex-wrap justify-content-center align-items-center gap-3 mb-2">
+    <button
+      type="button"
+      class="btn eurom-assistant-ai-btn eurom-assistant-ai-btn--labeled eurom-assistant-ai-btn--prominent text-nowrap"
+      [disabled]="!canSendEuromAiPrompt"
+      (click)="sendEuromAiPrompt1($event)"
+      [attr.title]="'EUROMILLIONS.AI_FAB_TOOLTIP' | translate: { since: euromAiMinDrawDateIso }"
+      [attr.aria-label]="'EUROMILLIONS.AI_FAB_LABEL' | translate">
+      <i class="fa fa-magic eurom-assistant-ai-btn__icon" aria-hidden="true"></i>
+      <span>{{ 'EUROMILLIONS.AI_WINNING_NEXT_BTN' | translate }}</span>
+    </button>
+    <div class="form-check mb-0 eurom-ai-multi-synthesis-check">
+      <input
+        class="form-check-input"
+        type="checkbox"
+        id="euromAiMultiSynthesis"
+        [(ngModel)]="euromAiMultiSynthesis"
+        [disabled]="loading || syncing" />
+      <label class="form-check-label small" for="euromAiMultiSynthesis" [attr.title]="'EUROMILLIONS.AI_SYNTHESIS_TOOLTIP' | translate">{{
+        'EUROMILLIONS.AI_SYNTHESIS_BTN' | translate
+      }}</label>
+    </div>
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-secondary eurom-ai-flow-info-btn"
+      (click)="openEuromAiFlowInfoModal(euromAiFlowInfoModal)"
+      [attr.title]="'EUROMILLIONS.AI_FLOW_INFO_BTN_TOOLTIP' | translate"
+      [attr.aria-label]="'EUROMILLIONS.AI_FLOW_INFO_BTN_ARIA' | translate">
+      <i class="fa fa-info-circle" aria-hidden="true"></i>
+    </button>
+  </div>
+
+  <div *ngIf="canRunSync" class="card border-secondary-subtle shadow-sm mb-2">
+    <div class="card-body py-2">
       <div class="row g-2 align-items-end flex-wrap">
         <div class="col-auto">
           <label class="form-label small mb-1" for="euromAiMinDrawDate">{{ 'EUROMILLIONS.AI_MIN_DATE_LABEL' | translate }}</label>
@@ -39,24 +71,74 @@
   </div>
 
   <div class="eurom-toolbar-stack mb-2">
-    <div class="eurom-toolbar-stack__ai d-flex justify-content-center mb-2">
-      <button
-        type="button"
-        class="btn eurom-assistant-ai-btn eurom-assistant-ai-btn--prominent text-nowrap"
-        [disabled]="!canSendEuromAiPrompt"
-        (click)="sendEuromAiPrompt1($event)"
-        [attr.title]="'EUROMILLIONS.AI_FAB_TOOLTIP' | translate: { since: euromAiMinDrawDateIso }"
-        [attr.aria-label]="'EUROMILLIONS.AI_FAB_LABEL' | translate">
-        <i class="fa fa-magic eurom-assistant-ai-btn__icon" aria-hidden="true"></i>
-        <span>{{ 'EUROMILLIONS.AI_WINNING_NEXT_BTN' | translate }}</span>
-      </button>
+    <div *ngIf="draws.length > 0" class="eurom-method-block eurom-method-block--compact mb-2">
+      <div class="eurom-method-section-label mb-1">{{ 'EUROMILLIONS.METHOD_SECTION_TITLE' | translate }}</div>
+      <p class="small text-muted mb-2">{{ 'EUROMILLIONS.METHOD_AI_INCLUDE_HELP' | translate }}</p>
+      <div
+        class="eurom-method-cards-row"
+        role="radiogroup"
+        [attr.aria-label]="'EUROMILLIONS.METHOD_SECTION_TITLE' | translate">
+        <div
+          *ngFor="let mid of euromMethodOrderedIds"
+          class="eurom-method-card"
+          [class.eurom-method-card--checked]="selectedEuromMethodId === mid">
+          <div class="eurom-method-card__body">
+            <div class="form-check eurom-method-card__check mb-0">
+              <input
+                class="form-check-input eurom-method-card__input"
+                type="radio"
+                name="euromCalcMethod"
+                [id]="euromMethodRadioDomId(mid)"
+                [value]="mid"
+                [(ngModel)]="selectedEuromMethodId"
+                [disabled]="loading || syncing" />
+              <label
+                class="form-check-label eurom-method-card__label mb-0"
+                [for]="euromMethodRadioDomId(mid)"
+                [attr.title]="euromMethodTranslationKey(mid, 'DESC') | translate">
+                <div class="eurom-method-card__header">
+                  <div
+                    class="eurom-method-card__stars"
+                    role="img"
+                    [attr.aria-label]="
+                      'EUROMILLIONS.METHOD_RATING_ARIA' | translate: { score: euromMethodUsefulnessStars(mid), max: 5 }
+                    ">
+                    <i
+                      *ngFor="let s of euromMethodStarSlots"
+                      class="fa eurom-method-card__star-icon"
+                      [class.fa-star]="s <= euromMethodUsefulnessStars(mid)"
+                      [class.fa-star-o]="s > euromMethodUsefulnessStars(mid)"
+                      aria-hidden="true"></i>
+                  </div>
+                </div>
+                <span class="eurom-method-card__title">{{ euromMethodTranslationKey(mid, 'TITLE') | translate }}</span>
+                <span class="eurom-method-card__summary">{{ euromMethodTranslationKey(mid, 'SUMMARY') | translate }}</span>
+              </label>
+            </div>
+          </div>
+          <footer class="eurom-method-card__footer">
+            <div class="eurom-method-card__ai-include form-check">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                [id]="euromAiIncludeDomId(mid)"
+                [checked]="euromAiInclude[mid]"
+                (change)="onEuromAiIncludeChange(mid, $event)"
+                [disabled]="loading || syncing || !euromAiMultiSynthesis" />
+              <label class="form-check-label eurom-method-card__ai-include-label" [for]="euromAiIncludeDomId(mid)">{{
+                'EUROMILLIONS.METHOD_AI_INCLUDE_LABEL' | translate
+              }}</label>
+            </div>
+          </footer>
+        </div>
+      </div>
     </div>
     <div class="eurom-toolbar-stack__actions">
       <button
         type="button"
         class="btn btn-sm btn-primary"
         [disabled]="syncing || !canRunSync"
-        [attr.title]="!canRunSync ? ('EUROMILLIONS.SYNC_ADMIN_TOOLTIP' | translate) : ('EUROMILLIONS.FDJ_ARCHIVE_TOOLTIP' | translate)"
+        [attr.title]="!canRunSync ? ('EUROMILLIONS.SYNC_ADMIN_TOOLTIP' | translate) : ('EUROMILLIONS.FDJ_ARCHIVE_TOOLTIP' | translate: { since: euromAiMinDrawDateIso })"
         (click)="fetchFdjArchiveAndImport()">
         <span *ngIf="syncing" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
         {{ 'EUROMILLIONS.FDJ_ARCHIVE_BUTTON' | translate }}
@@ -280,6 +362,38 @@
 
   <p class="small text-muted mt-3 mb-0">{{ 'EUROMILLIONS.SOURCE_NOTE' | translate }}</p>
 </div>
+
+<ng-template #euromAiFlowInfoModal let-modal>
+  <div class="modal-header">
+    <h4 class="modal-title">{{ 'EUROMILLIONS.AI_FLOW_INFO_MODAL_TITLE' | translate }}</h4>
+    <button type="button" class="btn-close" [attr.aria-label]="'EUROMILLIONS.CHART_CLOSE' | translate" (click)="modal.dismiss()"></button>
+  </div>
+  <div class="modal-body eurom-ai-flow-info-modal-body">
+    <p class="small text-muted mb-3">{{ 'EUROMILLIONS.AI_FLOW_INFO_LEAD' | translate }}</p>
+    <section class="mb-3">
+      <h5 class="h6 fw-semibold">{{ 'EUROMILLIONS.AI_FLOW_INFO_S1_TITLE' | translate }}</h5>
+      <p class="small mb-0">{{ 'EUROMILLIONS.AI_FLOW_INFO_S1_BODY' | translate }}</p>
+    </section>
+    <section class="mb-3">
+      <h5 class="h6 fw-semibold">{{ 'EUROMILLIONS.AI_FLOW_INFO_S2_TITLE' | translate }}</h5>
+      <p class="small mb-0">{{ 'EUROMILLIONS.AI_FLOW_INFO_S2_BODY' | translate }}</p>
+    </section>
+    <section class="mb-3">
+      <h5 class="h6 fw-semibold">{{ 'EUROMILLIONS.AI_FLOW_INFO_S3_TITLE' | translate }}</h5>
+      <p class="small mb-0">{{ 'EUROMILLIONS.AI_FLOW_INFO_S3_BODY' | translate }}</p>
+    </section>
+    <section class="mb-3">
+      <h5 class="h6 fw-semibold">{{ 'EUROMILLIONS.AI_FLOW_INFO_S4_TITLE' | translate }}</h5>
+      <p class="small mb-0">{{ 'EUROMILLIONS.AI_FLOW_INFO_S4_BODY' | translate }}</p>
+    </section>
+    <p class="small text-muted mb-0 border-top pt-3">{{ 'EUROMILLIONS.AI_FLOW_INFO_NOTE' | translate: { since: euromAiMinDrawDateIso } }}</p>
+  </div>
+  <div class="modal-footer py-2">
+    <button type="button" class="btn btn-secondary btn-sm" (click)="modal.close()">
+      {{ 'EUROMILLIONS.CHART_CLOSE' | translate }}
+    </button>
+  </div>
+</ng-template>
 
 <ng-template #euromJsonModal let-modal>
   <div class="modal-header">

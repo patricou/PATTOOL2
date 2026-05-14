@@ -8,7 +8,10 @@ import { NgbModule, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { FileService } from '../../services/file.service';
-import { AssistantLaunchService } from '../../services/assistant-launch.service';
+import {
+  AssistantLaunchService,
+  ASSISTANT_VISION_IMAGE_LAUNCH_ROUTING
+} from '../../services/assistant-launch.service';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { Observable, Subscription, Subject } from 'rxjs';
 import { map, takeUntil, finalize } from 'rxjs/operators';
@@ -5598,7 +5601,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           base64,
           dataUrl
         },
-        toolFlags: { imageGeneration: false }
+        toolFlags: { webSearch: false, imageGeneration: false, mcp: false },
+        routing: ASSISTANT_VISION_IMAGE_LAUNCH_ROUTING
       });
       this.onSlideshowClose();
     } catch {

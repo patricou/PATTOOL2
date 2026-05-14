@@ -8,7 +8,7 @@ import { debounceTime } from 'rxjs/operators';
 
 import { ApiService } from '../services/api.service';
 import { NewsTickerService } from '../services/news-ticker.service';
-import { AssistantLaunchService } from '../services/assistant-launch.service';
+import { AssistantLaunchService, ASSISTANT_NEWS_LAUNCH_ROUTING } from '../services/assistant-launch.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 import { environment } from '../../environments/environment';
@@ -513,7 +513,8 @@ export class NewsComponent implements OnInit, OnDestroy {
         webSearch: true,
         imageGeneration: false,
         mcp: false
-      }
+      },
+      routing: ASSISTANT_NEWS_LAUNCH_ROUTING
     });
   }
 

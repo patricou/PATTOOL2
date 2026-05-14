@@ -61,7 +61,11 @@ import {
   parseElapsedMsFromAssistantResponse
 } from '../../services/assistant.service';
 import { AssistantSessionStore } from '../../services/assistant-session.store';
-import { AssistantLaunchService } from '../../services/assistant-launch.service';
+import {
+  AssistantLaunchService,
+  ASSISTANT_VISION_IMAGE_LAUNCH_ROUTING,
+  type AssistantLaunchRouting
+} from '../../services/assistant-launch.service';
 import { MarkdownChatRenderService } from '../../services/markdown-chat-render.service';
 import { NewsTickerService } from '../../services/news-ticker.service';
 import { CurrencyTickerService } from '../../services/currency-ticker.service';
@@ -118,6 +122,7 @@ export class AssistantDrawerComponent
    */
   @ViewChild('imageCompressionModal') imageCompressionModal!: TemplateRef<unknown>;
   @ViewChild('assistantToolsHelpModal') assistantToolsHelpModal!: TemplateRef<unknown>;
+  @ViewChild('assistantDraftExpandModal') assistantDraftExpandModal!: TemplateRef<unknown>;
   @ViewChild('assistantHistoryModal') assistantHistoryModal!: TemplateRef<unknown>;
   /** Référence à l'instance du slideshow partagé (même viewer que pour les évènements). */
   @ViewChild('slideshowModalComponent') slideshowModalComponent?: SlideshowModalComponent;
@@ -252,6 +257,10 @@ export class AssistantDrawerComponent
   fullscreen = false;
   draft = '';
   loading = false;
+  /** Temps écoulé pendant l’attente de réponse (rafraîchi pendant {@link loading}). */
+  loadingElapsedMs = 0;
+  private loadingElapsedIntervalId: ReturnType<typeof setInterval> | null = null;
+  private loadingElapsedStartMs = 0;
   /** true pendant la génération PDF (appel serveur). */
   pdfExporting = false;
   /** Conversation Mongo en cours ; null après « nouvelle discussion » ou chargement sans suite. */
@@ -515,6 +524,7 @@ export class AssistantDrawerComponent
       }
       if (p.newConversation) {
         this.chatSendSub?.unsubscribe();
+        this.stopLoadingElapsedTimer();
         this.loading = false;
         this.messages = [];
         this.persistedRemoteConversationId = null;
@@ -540,8 +550,15 @@ export class AssistantDrawerComponent
           this.toolMcp = tf.mcp;
         }
       }
+      if (p.routing) {
+        this.applyAssistantLaunchRouting(p.routing);
+      } else if (hasImage) {
+        this.applyAssistantLaunchRouting(ASSISTANT_VISION_IMAGE_LAUNCH_ROUTING);
+      }
       if (hasImage) {
+        this.toolWebSearch = false;
         this.toolImageGeneration = false;
+        this.toolMcp = false;
       }
       this.isOpen = true;
       this.fabUnreadReply = false;
@@ -654,6 +671,25 @@ export class AssistantDrawerComponent
   private readonly boundFitGeneratedImagesInChat = (): void => {
     this.fitGeneratedImagesInChat();
   };
+
+  private startLoadingElapsedTimer(): void {
+    this.stopLoadingElapsedTimer();
+    this.loadingElapsedStartMs = Date.now();
+    this.loadingElapsedMs = 0;
+    this.loadingElapsedIntervalId = setInterval(() => {
+      this.ngZone.run(() => {
+        this.loadingElapsedMs = Date.now() - this.loadingElapsedStartMs;
+        this.cdr.markForCheck();
+      });
+    }, 100);
+  }
+
+  private stopLoadingElapsedTimer(): void {
+    if (this.loadingElapsedIntervalId != null) {
+      clearInterval(this.loadingElapsedIntervalId);
+      this.loadingElapsedIntervalId = null;
+    }
+  }
 
   /** Timeouts annulés au destroy pour éviter callbacks après destruction. */
   private scheduleTransient(fn: () => void, ms: number): void {
@@ -902,6 +938,43 @@ export class AssistantDrawerComponent
     this.scheduleRoutingPreferenceRemotePersist();
     this.refreshProviderModelCatalog();
     this.cdr.markForCheck();
+  }
+
+  /**
+   * Forces provider + model when opening from another page (`routing` on the launch payload).
+   * Does not run deferred Mongo persistence so the saved DB preference is not overwritten.
+   */
+  private applyAssistantLaunchRouting(r: AssistantLaunchRouting): void {
+    if (
+      r.provider !== 'openai' &&
+      r.provider !== 'anthropic' &&
+      r.provider !== 'gemini'
+    ) {
+      return;
+    }
+    this.routingProviderLockedAgainstConfigDefault = true;
+    this.routingProvider = r.provider;
+    if (this.routingProvider !== 'openai') {
+      this.toolMcp = false;
+    }
+    if (this.routingProvider === 'anthropic') {
+      this.toolImageGeneration = false;
+    }
+    const preset = typeof r.modelPreset === 'string' ? r.modelPreset.trim() : '';
+    const custom = typeof r.modelCustom === 'string' ? r.modelCustom.trim() : '';
+    if (preset === this.MODEL_PRESET_CUSTOM && custom.length > 0) {
+      this.modelPreset = this.MODEL_PRESET_CUSTOM;
+      this.modelCustom = custom;
+    } else if (preset.length > 0 && preset !== this.MODEL_PRESET_CUSTOM) {
+      this.modelPreset = preset;
+      this.modelCustom = '';
+    } else if (custom.length > 0) {
+      this.modelPreset = this.MODEL_PRESET_CUSTOM;
+      this.modelCustom = custom;
+    }
+    this.remoteCatalogModelIds = [];
+    this.rebuildModelOptionsList();
+    this.refreshProviderModelCatalog();
   }
 
   onAssistantModelPresetChange(): void {
@@ -1230,6 +1303,7 @@ export class AssistantDrawerComponent
       this.routingRemotePersistTimer = undefined;
     }
     this.persistSession();
+    this.stopLoadingElapsedTimer();
     this.loading = false;
     if (this.draftPersistTimer !== undefined) {
       clearTimeout(this.draftPersistTimer);
@@ -1957,6 +2031,23 @@ export class AssistantDrawerComponent
     });
   }
 
+  openAssistantDraftExpandModal(): void {
+    if (this.loading) {
+      return;
+    }
+    const ref = this.modalService.open(this.assistantDraftExpandModal, {
+      centered: true,
+      scrollable: true,
+      size: 'lg',
+      windowClass: 'assistant-draft-expand-modal'
+    });
+    void ref.result.finally(() => {
+      this.onDraftDebouncedPersist();
+      this.cdr.markForCheck();
+      queueMicrotask(() => this.draftInputEl?.nativeElement?.focus());
+    });
+  }
+
   toggleAssistantToolsHelpFullscreen(): void {
     if (!this.toolsHelpModalRef) {
       return;
@@ -2587,6 +2678,10 @@ export class AssistantDrawerComponent
           dataUrl
         };
         this.imageAttachError = null;
+        this.toolWebSearch = false;
+        this.toolImageGeneration = false;
+        this.toolMcp = false;
+        this.applyAssistantLaunchRouting(ASSISTANT_VISION_IMAGE_LAUNCH_ROUTING);
         this.cdr.markForCheck();
       });
     };
@@ -2664,6 +2759,7 @@ export class AssistantDrawerComponent
     this.persistSession();
     this.requestAlignLastQuestionTop();
     this.loading = true;
+    this.startLoadingElapsedTimer();
 
     const payload = this.messages.map((m) => ({
       role: m.role,
@@ -2687,6 +2783,7 @@ export class AssistantDrawerComponent
         finalize(() => {
           // Évite NG0100 si la réponse arrive de façon synchrone : finalize sinon dans le même tick que detectChanges() du next.
           queueMicrotask(() => {
+            this.stopLoadingElapsedTimer();
             this.loading = false;
             this.cdr.markForCheck();
           });
@@ -3710,71 +3807,11 @@ export class AssistantDrawerComponent
     );
   }
 
-  private pdfBlobToDataUrl$(blob: Blob | null | undefined): Observable<string | null> {
-    return new Observable<string | null>((sub) => {
-      if (!blob || blob.size === 0) {
-        sub.next(null);
-        sub.complete();
-        return;
-      }
-      const fr = new FileReader();
-      fr.onload = () => {
-        sub.next(typeof fr.result === 'string' ? fr.result : null);
-        sub.complete();
-      };
-      fr.onerror = () => {
-        sub.next(null);
-        sub.complete();
-      };
-      fr.readAsDataURL(blob);
-    });
-  }
-
-  private pdfFetchBlobUrlAsDataUrl$(url: string): Observable<string | null> {
-    const u = url.trim();
-    if (!u.startsWith('blob:')) {
-      return of(null);
-    }
-    return from(fetch(u)).pipe(
-      switchMap((r) => (r.ok ? from(r.blob()) : of(null))),
-      switchMap((b) => this.pdfBlobToDataUrl$(b))
-    );
-  }
-
+  /**
+   * Même chaîne que WhatsApp / insertion évènement : garantit les images (blob + assets serveur).
+   */
   private pdfEmbeddedImagesForAssistantTurn$(m: AssistantChatTurn): Observable<string[]> {
-    const rawContent = typeof m.content === 'string' ? m.content : '';
-    const dataUrls = [...this.extractGeneratedImageDataUrls(rawContent)];
-    const blobUrls = [...this.extractGeneratedImageBlobUrls(rawContent)];
-    const assetIds = [...(m.generatedImageAssetIds ?? [])]
-      .map((id) => id?.trim())
-      .filter((id): id is string => !!id);
-
-    const tasks: Observable<string | null>[] = [];
-    for (const u of dataUrls) {
-      tasks.push(of(u));
-    }
-    for (const u of blobUrls) {
-      tasks.push(this.pdfFetchBlobUrlAsDataUrl$(u));
-    }
-    /** Même image deux fois : après hydratation le corps contient des blob: ET {@link generatedImageAssetIds} — ne pas refetch les assets. */
-    if (blobUrls.length === 0) {
-      for (const id of assetIds) {
-        tasks.push(
-          this.assistant.getConversationAssetBlob(id).pipe(
-            switchMap((b) => this.pdfBlobToDataUrl$(b)),
-            catchError(() => of(null))
-          )
-        );
-      }
-    }
-    if (tasks.length === 0) {
-      return of([]);
-    }
-    return forkJoin(tasks).pipe(
-      map((arr) =>
-        arr.filter((x): x is string => typeof x === 'string' && x.startsWith('data:image/'))
-      )
-    );
+    return defer(() => from(this.assistantGeneratedImagesAsDataUrls(m)));
   }
 
   private pdfExportTurn$(m: AssistantChatTurn): Observable<AssistantPdfExportTurn> {
@@ -4269,8 +4306,10 @@ export class AssistantDrawerComponent
   }
 
   /**
-   * Images générées d’un tour assistant en data URLs (WhatsApp, évènement, commentaire).
-   * Si le markdown contient des blob: (historique hydraté), on ne refetch pas les assets (doublon).
+   * Images générées d’un tour assistant en data URLs (WhatsApp, PDF, évènement, commentaire).
+   * Ordre : data URLs dans le markdown → conversion des blob: locaux → **toujours** les assets
+   * serveur ({@link generatedImageAssetIds}) en complément / secours (blob révoqué ou fetch raté).
+   * Déduplication par chaîne data URL complète.
    */
   private async assistantGeneratedImagesAsDataUrls(m: AssistantChatTurn): Promise<string[]> {
     if (m.role !== 'assistant') {
@@ -4301,18 +4340,16 @@ export class AssistantDrawerComponent
       add(await this.readBlobAsDataUrl(file));
     }
 
-    if (blobUrls.length === 0) {
-      for (const aid of m.generatedImageAssetIds ?? []) {
-        const id = aid?.trim();
-        if (!id) {
-          continue;
-        }
-        try {
-          const blob = await firstValueFrom(this.assistant.getConversationAssetBlob(id));
-          add(await this.readBlobAsDataUrl(blob));
-        } catch {
-          /* ignore */
-        }
+    for (const aid of m.generatedImageAssetIds ?? []) {
+      const id = aid?.trim();
+      if (!id) {
+        continue;
+      }
+      try {
+        const blob = await firstValueFrom(this.assistant.getConversationAssetBlob(id));
+        add(await this.readBlobAsDataUrl(blob));
+      } catch {
+        /* ignore */
       }
     }
 

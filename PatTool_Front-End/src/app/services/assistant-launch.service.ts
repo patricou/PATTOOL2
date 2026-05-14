@@ -7,29 +7,61 @@ export interface AssistantLaunchToolFlags {
   mcp?: boolean;
 }
 
-/** Image jointe au prochain message (vision) — ex. depuis le slideshow. */
+/** Provider and model applied when opening the drawer (no deferred Mongo persistence). */
+export interface AssistantLaunchRouting {
+  provider: 'openai' | 'anthropic' | 'gemini';
+  /** Preset id (assistant catalogue) or special UI "custom" value. */
+  modelPreset: string;
+  modelCustom?: string;
+}
+
+/** Image attached to the next message (vision), e.g. from slideshow. */
 export interface AssistantLaunchAttachedImage {
   mimeType: string;
   base64: string;
   dataUrl: string;
 }
 
+/**
+ * Photo / vision: slideshow, camera, or gallery/file picker → Google Gemini image-capable flash preview.
+ * Keep in sync with models enabled on the backend / {@code GET /api/assistant/models?provider=gemini}.
+ */
+export const ASSISTANT_VISION_GEMINI_MODEL_ID = 'gemini-3.1-flash-image-preview';
+
+export const ASSISTANT_VISION_IMAGE_LAUNCH_ROUTING: AssistantLaunchRouting = {
+  provider: 'gemini',
+  modelPreset: ASSISTANT_VISION_GEMINI_MODEL_ID
+};
+
+/**
+ * News article card → assistant: Google Gemini 3.1 Pro class model (UI: "Gemini 3.1 Pro (Search)").
+ * Web search is enabled via {@link AssistantLaunchToolFlags.webSearch}; server uses Gemini grounding tools.
+ * Model id must match {@code GET /api/assistant/models?provider=gemini} / Google AI API naming.
+ */
+export const ASSISTANT_NEWS_GEMINI_MODEL_ID = 'gemini-3.1-pro-preview';
+
+export const ASSISTANT_NEWS_LAUNCH_ROUTING: AssistantLaunchRouting = {
+  provider: 'gemini',
+  modelPreset: ASSISTANT_NEWS_GEMINI_MODEL_ID
+};
+
 export interface AssistantLaunchPayload {
-  /** Texte du brouillon ; peut être vide si `attachedImage` est fourni (le champ reste vide, l’indication
-   *  est affichée dans le placeholder du textarea). */
+  /** Draft text; may be empty when `attachedImage` is set (field stays empty; hint shown in textarea placeholder). */
   draft: string;
-  /** Si true, l’historique du chat est effacé avant d’ouvrir (nouvelle discussion). */
+  /** If true, chat history is cleared before opening (new conversation). */
   newConversation?: boolean;
-  /** Si présent, met à jour les cases à cocher outils (recherche web, image, MCP). */
+  /** When set, updates tool checkboxes (web search, image, MCP). */
   toolFlags?: AssistantLaunchToolFlags;
-  /** Image à joindre (ex. depuis le slideshow) ; ouvre le panneau avec vision prête à envoyer. */
+  /** When set, fixes provider + model before opening (session only). */
+  routing?: AssistantLaunchRouting;
+  /** Image to attach (e.g. slideshow); opens panel ready for vision send. */
   attachedImage?: AssistantLaunchAttachedImage;
-  /** Si true, envoie le message immédiatement après ouverture du panneau (texte non vide requis). */
+  /** If true, sends the message immediately after opening (non-empty text required). */
   autoSend?: boolean;
 }
 
 /**
- * Ouverture du panneau assistant depuis une autre page (pré-remplissage du message).
+ * Opens the assistant drawer from another page (prefilled message).
  */
 @Injectable({ providedIn: 'root' })
 export class AssistantLaunchService {
@@ -42,6 +74,7 @@ export class AssistantLaunchService {
     options?: {
       newConversation?: boolean;
       toolFlags?: AssistantLaunchToolFlags;
+      routing?: AssistantLaunchRouting;
       attachedImage?: AssistantLaunchAttachedImage;
       autoSend?: boolean;
     }
@@ -53,6 +86,7 @@ export class AssistantLaunchService {
     }
     const newConversation = options?.newConversation === true;
     const toolFlags = options?.toolFlags;
+    const routing = options?.routing;
     const attachedImage = options?.attachedImage;
     const autoSend = options?.autoSend === true;
     this.launches.next({
@@ -60,6 +94,7 @@ export class AssistantLaunchService {
       newConversation,
       ...(autoSend ? { autoSend: true } : {}),
       ...(toolFlags != null ? { toolFlags } : {}),
+      ...(routing != null ? { routing } : {}),
       ...(attachedImage != null ? { attachedImage } : {})
     });
   }

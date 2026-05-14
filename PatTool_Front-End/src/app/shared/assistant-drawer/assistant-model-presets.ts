@@ -1,6 +1,6 @@
 /**
- * Modèles « courts » affichés en tête du sélecteur (fallback hors-ligne).
- * La liste complète est chargée via GET /api/assistant/models?provider=… (clés API côté serveur).
+ * Short preset models shown at the top of the selector (offline fallback).
+ * The full list is loaded via GET /api/assistant/models?provider=… (API keys on the server).
  */
 export const ASSISTANT_OPENAI_MODEL_PRESETS = [
   'gpt-5.5',
@@ -19,7 +19,10 @@ export const ASSISTANT_ANTHROPIC_MODEL_PRESETS = [
 ] as const;
 
 export const ASSISTANT_GEMINI_MODEL_PRESETS = [
+  'gemini-3.1-pro-preview',
+  'gemini-3.1-flash-image-preview',
   'gemini-2.5-flash',
   'gemini-2.5-pro',
-  'gemini-2.0-flash'
+  'gemini-2.0-flash',
+  'gemini-1.5-flash'
 ] as const;

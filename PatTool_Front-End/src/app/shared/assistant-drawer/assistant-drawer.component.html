@@ -256,7 +256,10 @@
       </div>
     <div *ngIf="loading" class="pat-assistant-loading">
       <img src="assets/images/sablier.gif" alt="" width="36" height="36" />
-      <span>{{ 'ASSISTANT.LOADING' | translate }}</span>
+      <span class="pat-assistant-loading-label">
+        {{ 'ASSISTANT.LOADING' | translate }}
+        <span class="pat-assistant-loading-ms">{{ loadingElapsedMs }} ms</span>
+      </span>
     </div>
     </div>
 
@@ -311,7 +314,10 @@
         [disabled]="loading || !hasAnythingToReset()"
         [title]="'ASSISTANT.NEW_THREAD_HINT' | translate"
         [attr.aria-label]="'ASSISTANT.NEW_CHAT_TITLE' | translate">
-        <i class="fa fa-eraser" aria-hidden="true"></i>
+        <i class="fa fa-eraser pat-assistant-new-thread-btn-icon" aria-hidden="true"></i>
+        <span class="pat-assistant-new-thread-btn-label d-none d-sm-inline">{{
+          'ASSISTANT.NEW_CHAT' | translate
+        }}</span>
       </button>
       <textarea
         #draftInput
@@ -328,6 +334,15 @@
               ? ('ASSISTANT.PLACEHOLDER_NAMED' | translate : { name: chatUserLabel() })
               : ('ASSISTANT.PLACEHOLDER' | translate)
         "></textarea>
+      <button
+        type="button"
+        class="pat-assistant-expand-draft-btn"
+        (click)="openAssistantDraftExpandModal()"
+        [disabled]="loading"
+        [title]="'ASSISTANT.DRAFT_EXPAND_HINT' | translate"
+        [attr.aria-label]="'ASSISTANT.DRAFT_EXPAND_ARIA' | translate">
+        <i class="fa fa-expand" aria-hidden="true"></i>
+      </button>
       <button
         type="button"
         class="pat-assistant-copy-draft-btn"
@@ -471,6 +486,40 @@
     </div>
   </div>
 </aside>
+
+<ng-template #assistantDraftExpandModal let-modal>
+  <div class="modal-header pat-assistant-history-modal-header">
+    <h5 class="modal-title pat-assistant-history-modal-title mb-0" id="assistant-draft-expand-title">
+      <i class="fa fa-expand me-2" aria-hidden="true"></i>
+      {{ 'ASSISTANT.DRAFT_EXPAND_TITLE' | translate }}
+    </h5>
+    <button
+      type="button"
+      class="btn-close btn-close-white"
+      (click)="modal.dismiss()"
+      [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+  </div>
+  <div class="modal-body pat-assistant-draft-expand-body" [attr.aria-labelledby]="'assistant-draft-expand-title'">
+    <textarea
+      class="form-control pat-assistant-draft-expand-textarea"
+      rows="14"
+      [(ngModel)]="draft"
+      (ngModelChange)="onDraftDebouncedPersist()"
+      [disabled]="loading"
+      [placeholder]="
+        pendingImage
+          ? ('EVENTELEM.SEND_TO_ASSISTANT_PLACEHOLDER' | translate)
+          : chatUserLabel()
+            ? ('ASSISTANT.PLACEHOLDER_NAMED' | translate : { name: chatUserLabel() })
+            : ('ASSISTANT.PLACEHOLDER' | translate)
+      "></textarea>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-primary" (click)="modal.close()">
+      {{ 'ASSISTANT.DRAFT_EXPAND_DONE' | translate }}
+    </button>
+  </div>
+</ng-template>
 
 <ng-template #assistantToolsHelpModal let-modal>
   <div class="modal-header pat-assistant-history-modal-header">
