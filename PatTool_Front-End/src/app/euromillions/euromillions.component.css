@@ -1,5 +1,44 @@
+:host {
+  display: block;
+}
+
+/** Évite le défilement horizontal du bandeau full-bleed ; ne pas mettre sur :host (coupe la compensation navbar). */
+.eurom-overflow-x-guard {
+  overflow-x: hidden;
+}
+
 .eurom-page {
   max-width: 1200px;
+}
+
+/** Tuile 231×66 px : répétition horizontale sans étirement ; fond bleu pour éviter les joints clairs entre tuiles. */
+.eurom-hero-banner--tile {
+  line-height: 0;
+  height: 66px;
+  background-color: #082442;
+  background-image: url('../../assets/euromillions/eurom-banner-tile.png');
+  background-repeat: repeat-x;
+  background-position: 0 0;
+  background-size: 231px 66px;
+}
+
+.eurom-hero-banner--fullwidth {
+  width: 100vw;
+  max-width: none;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  /* Colle au titre malgré anti-alias / filets résiduels */
+  margin-top: -1px;
+}
+
+.pat-title.eurom-title-plain {
+  /* offsets navbar / tickers : styles.css (margin-top + padding-top sur ce bloc). */
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  margin-bottom: 0 !important;
+  padding-bottom: 1rem;
+  border-bottom: none !important;
+  box-shadow: none !important;
 }
 
 .pat-title.eurom-title-plain h2 {
@@ -63,6 +102,45 @@
   background-color: rgba(13, 110, 253, 0.08);
 }
 
+/* One visual line per draw on narrow screens (balls stay inline; table scrolls horizontally if needed). */
+@media (max-width: 767.98px) {
+  .eurom-balls {
+    flex-wrap: nowrap;
+    gap: 0.22rem;
+  }
+
+  .eurom-ball {
+    min-width: 1.45rem;
+    height: 1.45rem;
+    padding: 0 0.12rem;
+    font-size: 0.65rem;
+  }
+
+  .eurom-table tbody td:nth-child(1) {
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+
+  .eurom-table tbody td:nth-child(2) {
+    white-space: nowrap;
+    max-width: min(72vw, 320px);
+    overflow-x: auto;
+    overflow-y: hidden;
+    vertical-align: middle;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .eurom-date-edit-row {
+    flex-wrap: nowrap !important;
+  }
+
+  .eurom-date-edit {
+    min-width: 6.5rem;
+    max-width: 7.75rem;
+    font-size: 0.75rem;
+  }
+}
+
 .eurom-chart-wrap {
   position: relative;
   height: min(55vh, 440px);
@@ -103,16 +181,11 @@
   border-color: var(--bs-border-color-translucent, rgba(0, 0, 0, 0.08)) !important;
 }
 
-.eurom-toolbar-stack__ai {
-  width: 100%;
-  align-items: center;
-}
-
-.eurom-toolbar-stack__actions {
+/** Une seule ligne : défilement horizontal si la largeur manque (actions, admin, filtires). Bloc assistant = colonne. */
+.eurom-toolbar-stack__actions,
+.eurom-one-line-toolbar {
   display: flex;
   flex-flow: row nowrap;
-  align-items: center;
-  gap: 0.35rem;
   width: 100%;
   min-width: 0;
   overflow-x: auto;
@@ -122,8 +195,48 @@
   padding-bottom: 2px;
 }
 
+.eurom-toolbar-stack__ai {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: visible;
+  padding-bottom: 2px;
+}
+
+.eurom-toolbar-stack__ai-row {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.eurom-toolbar-stack__actions {
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.eurom-one-line-toolbar {
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.eurom-toolbar-stack__ai > *,
+.eurom-toolbar-stack__ai-row > *,
 .eurom-toolbar-stack__actions > .btn,
-.eurom-toolbar-stack__actions > a.btn {
+.eurom-toolbar-stack__actions > a.btn,
+.eurom-one-line-toolbar > * {
   flex: 0 0 auto;
 }
 

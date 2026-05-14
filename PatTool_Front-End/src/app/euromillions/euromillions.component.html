@@ -1,11 +1,32 @@
 <div class="pat-title eurom-title-plain">
   <h2>{{ 'EUROMILLIONS.TITLE' | translate }}</h2>
 </div>
+<div class="eurom-overflow-x-guard">
+<div class="eurom-hero-banner eurom-hero-banner--tile eurom-hero-banner--fullwidth mb-0" aria-hidden="true"></div>
 
 <div class="container py-3 eurom-page">
-  <p class="text-muted">{{ 'EUROMILLIONS.INTRO' | translate: { since: euromAiMinDrawDateIso } }}</p>
-
-  <div class="eurom-toolbar-stack__ai d-flex flex-wrap justify-content-center align-items-center gap-3 mb-2">
+  <div class="eurom-toolbar-stack__ai mb-2">
+    <div class="eurom-toolbar-stack__ai-row">
+      <div class="form-check mb-0 eurom-ai-multi-synthesis-check">
+        <input
+          class="form-check-input"
+          type="checkbox"
+          id="euromAiMultiSynthesis"
+          [(ngModel)]="euromAiMultiSynthesis"
+          [disabled]="loading || syncing" />
+        <label class="form-check-label small" for="euromAiMultiSynthesis" [attr.title]="'EUROMILLIONS.AI_SYNTHESIS_TOOLTIP' | translate">{{
+          'EUROMILLIONS.AI_SYNTHESIS_BTN' | translate
+        }}</label>
+      </div>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary eurom-ai-flow-info-btn"
+        (click)="openEuromAiFlowInfoModal(euromAiFlowInfoModal)"
+        [attr.title]="'EUROMILLIONS.AI_FLOW_INFO_BTN_TOOLTIP' | translate"
+        [attr.aria-label]="'EUROMILLIONS.AI_FLOW_INFO_BTN_ARIA' | translate">
+        <i class="fa fa-info-circle" aria-hidden="true"></i>
+      </button>
+    </div>
     <button
       type="button"
       class="btn eurom-assistant-ai-btn eurom-assistant-ai-btn--labeled eurom-assistant-ai-btn--prominent text-nowrap"
@@ -16,58 +37,6 @@
       <i class="fa fa-magic eurom-assistant-ai-btn__icon" aria-hidden="true"></i>
       <span>{{ 'EUROMILLIONS.AI_WINNING_NEXT_BTN' | translate }}</span>
     </button>
-    <div class="form-check mb-0 eurom-ai-multi-synthesis-check">
-      <input
-        class="form-check-input"
-        type="checkbox"
-        id="euromAiMultiSynthesis"
-        [(ngModel)]="euromAiMultiSynthesis"
-        [disabled]="loading || syncing" />
-      <label class="form-check-label small" for="euromAiMultiSynthesis" [attr.title]="'EUROMILLIONS.AI_SYNTHESIS_TOOLTIP' | translate">{{
-        'EUROMILLIONS.AI_SYNTHESIS_BTN' | translate
-      }}</label>
-    </div>
-    <button
-      type="button"
-      class="btn btn-sm btn-outline-secondary eurom-ai-flow-info-btn"
-      (click)="openEuromAiFlowInfoModal(euromAiFlowInfoModal)"
-      [attr.title]="'EUROMILLIONS.AI_FLOW_INFO_BTN_TOOLTIP' | translate"
-      [attr.aria-label]="'EUROMILLIONS.AI_FLOW_INFO_BTN_ARIA' | translate">
-      <i class="fa fa-info-circle" aria-hidden="true"></i>
-    </button>
-  </div>
-
-  <div *ngIf="canRunSync" class="card border-secondary-subtle shadow-sm mb-2">
-    <div class="card-body py-2">
-      <div class="row g-2 align-items-end flex-wrap">
-        <div class="col-auto">
-          <label class="form-label small mb-1" for="euromAiMinDrawDate">{{ 'EUROMILLIONS.AI_MIN_DATE_LABEL' | translate }}</label>
-          <input
-            id="euromAiMinDrawDate"
-            type="date"
-            class="form-control form-control-sm eurom-filter-date"
-            [(ngModel)]="euromAiMinDrawDateDraft"
-            [disabled]="euromAiMinDateSaving || syncing" />
-        </div>
-        <div class="col-auto">
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-primary"
-            [disabled]="euromAiMinDateSaving || syncing || euromAiMinDrawDateDraft === euromAiMinDrawDateIso"
-            (click)="saveEuromAiMinDrawDateSetting()">
-            <span *ngIf="euromAiMinDateSaving" class="spinner-border spinner-border-sm me-1" role="status"></span>
-            {{ 'EUROMILLIONS.AI_MIN_DATE_SAVE' | translate }}
-          </button>
-        </div>
-        <div class="col-12 col-md-auto small text-muted d-flex align-items-center">
-          <span *ngIf="euromAiMinDrawEffectiveFromMongo">{{ 'EUROMILLIONS.AI_MIN_DATE_SOURCE_MONGO' | translate }}</span>
-          <span *ngIf="!euromAiMinDrawEffectiveFromMongo">{{ 'EUROMILLIONS.AI_MIN_DATE_SOURCE_PROPERTIES' | translate }}</span>
-        </div>
-      </div>
-      <p *ngIf="euromAiMinDateFeedback" class="small mb-0 mt-2" [class.text-danger]="euromAiMinDateFeedbackKind === 'err'" [class.text-success]="euromAiMinDateFeedbackKind === 'ok'">
-        {{ euromAiMinDateFeedback }}
-      </p>
-    </div>
   </div>
 
   <div class="eurom-toolbar-stack mb-2">
@@ -206,6 +175,39 @@
 
   <div *ngIf="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
 
+  <div *ngIf="canRunSync" class="card border-secondary-subtle shadow-sm mb-2">
+    <div class="card-body py-2">
+      <div class="eurom-one-line-toolbar">
+        <div>
+          <label class="form-label small mb-1" for="euromAiMinDrawDate">{{ 'EUROMILLIONS.AI_MIN_DATE_LABEL' | translate }}</label>
+          <input
+            id="euromAiMinDrawDate"
+            type="date"
+            class="form-control form-control-sm eurom-filter-date"
+            [(ngModel)]="euromAiMinDrawDateDraft"
+            [disabled]="euromAiMinDateSaving || syncing" />
+        </div>
+        <div>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary"
+            [disabled]="euromAiMinDateSaving || syncing || euromAiMinDrawDateDraft === euromAiMinDrawDateIso"
+            (click)="saveEuromAiMinDrawDateSetting()">
+            <span *ngIf="euromAiMinDateSaving" class="spinner-border spinner-border-sm me-1" role="status"></span>
+            {{ 'EUROMILLIONS.AI_MIN_DATE_SAVE' | translate }}
+          </button>
+        </div>
+        <div class="small text-muted d-flex align-items-center text-nowrap">
+          <span *ngIf="euromAiMinDrawEffectiveFromMongo">{{ 'EUROMILLIONS.AI_MIN_DATE_SOURCE_MONGO' | translate }}</span>
+          <span *ngIf="!euromAiMinDrawEffectiveFromMongo">{{ 'EUROMILLIONS.AI_MIN_DATE_SOURCE_PROPERTIES' | translate }}</span>
+        </div>
+      </div>
+      <p *ngIf="euromAiMinDateFeedback" class="small mb-0 mt-2" [class.text-danger]="euromAiMinDateFeedbackKind === 'err'" [class.text-success]="euromAiMinDateFeedbackKind === 'ok'">
+        {{ euromAiMinDateFeedback }}
+      </p>
+    </div>
+  </div>
+
   <div class="card shadow-sm">
     <div class="card-body p-0">
       <div *ngIf="loading" class="p-4 text-center text-muted">
@@ -217,8 +219,8 @@
       </div>
       <div *ngIf="!loading && draws.length > 0">
         <div class="border-bottom px-3 py-2 bg-body-secondary eurom-result-filters-wrap">
-          <div class="row g-2 align-items-end">
-            <div class="col-auto">
+          <div class="eurom-one-line-toolbar">
+            <div>
               <label class="form-label small mb-0 d-block" for="euromFilterFrom">{{ 'EUROMILLIONS.FILTER_DATE_FROM' | translate }}</label>
               <input
                 id="euromFilterFrom"
@@ -227,7 +229,7 @@
                 [(ngModel)]="resultFilterDateFrom"
                 [disabled]="syncing" />
             </div>
-            <div class="col-auto">
+            <div>
               <label class="form-label small mb-0 d-block" for="euromFilterTo">{{ 'EUROMILLIONS.FILTER_DATE_TO' | translate }}</label>
               <input
                 id="euromFilterTo"
@@ -236,7 +238,7 @@
                 [(ngModel)]="resultFilterDateTo"
                 [disabled]="syncing" />
             </div>
-            <div class="col-auto">
+            <div>
               <button
                 type="button"
                 class="btn btn-sm btn-outline-secondary"
@@ -245,7 +247,7 @@
                 {{ 'EUROMILLIONS.FILTER_RESET' | translate }}
               </button>
             </div>
-            <div class="col-auto">
+            <div>
               <button
                 type="button"
                 class="btn btn-sm btn-outline-primary"
@@ -257,7 +259,7 @@
                 {{ 'EUROMILLIONS.JSON_AI_OPEN' | translate }}
               </button>
             </div>
-            <div class="col-auto">
+            <div>
               <button
                 type="button"
                 class="btn btn-sm btn-outline-secondary"
@@ -269,7 +271,7 @@
                 {{ 'EUROMILLIONS.MONTH_COUNT_BUTTON' | translate }}
               </button>
             </div>
-            <div class="col-12 col-sm-auto ms-sm-auto small text-muted d-flex align-items-center">
+            <div class="small text-muted d-flex align-items-center text-nowrap ms-auto">
               {{ 'EUROMILLIONS.FILTER_COUNT' | translate: { shown: displayedDraws.length, total: draws.length } }}
             </div>
           </div>
@@ -298,7 +300,7 @@
                 </th>
                 <th
                   scope="col"
-                  class="eurom-sortable"
+                  class="d-none d-md-table-cell eurom-sortable"
                   [class.eurom-sortable--active]="sortColumn === 'gain'"
                   role="button"
                   (click)="toggleSort('gain')">
@@ -323,7 +325,7 @@
               <tr *ngFor="let row of displayedDraws">
                 <td>
                   <ng-container *ngIf="canEditDrawDates && dateEditMode && row.drawCode; else euromDateReadonly">
-                    <div class="d-flex flex-wrap gap-1 align-items-center">
+                    <div class="d-flex flex-wrap gap-1 align-items-center eurom-date-edit-row">
                       <input
                         type="date"
                         class="form-control form-control-sm eurom-date-edit"
@@ -350,7 +352,7 @@
                       [attr.title]="'EUROMILLIONS.STAR_BALL_HINT' | translate">{{ s }}</span>
                   </div>
                 </td>
-                <td>{{ row.gainDisplay || '—' }}</td>
+                <td class="d-none d-md-table-cell">{{ row.gainDisplay || '—' }}</td>
                 <td class="d-none d-md-table-cell small"><code>{{ row.drawCode }}</code></td>
               </tr>
             </tbody>
@@ -361,6 +363,7 @@
   </div>
 
   <p class="small text-muted mt-3 mb-0">{{ 'EUROMILLIONS.SOURCE_NOTE' | translate }}</p>
+</div>
 </div>
 
 <ng-template #euromAiFlowInfoModal let-modal>

@@ -1520,3 +1520,66 @@ ngb-tooltip-window.vulnerability-desc-tooltip .tooltip-inner,
 ::ng-deep .loto-ai-json-modal .modal-dialog {
   max-width: min(960px, 98vw);
 }
+
+/**
+ * EuroMillions — bande blanche sous la chrome fixe : aligné sur le margin-bottom de .pat-div.
+ * La marge négative ne doit pas être sur le host (sinon tout le bloc passe sous la navbar fixe
+ * et le titre disparaît) : on la met sur .pat-title avec padding-top pour garder le texte lisible.
+ * overflow-x:hidden ne doit pas être sur :host — voir eurom-overflow-x-guard dans le template.
+ */
+body app-euromillions {
+  display: block;
+}
+
+body app-euromillions .pat-title.eurom-title-plain {
+  --eurom-pat-div-gap: 80px;
+  margin-top: calc(-1 * var(--eurom-pat-div-gap)) !important;
+  padding-top: calc(1rem + var(--eurom-pat-div-gap)) !important;
+}
+
+body.pat-has-news-ticker:not(.pat-has-currency-ticker):not(.pat-has-stock-ticker)
+  app-euromillions
+  .pat-title.eurom-title-plain {
+  --eurom-pat-div-gap: 124px;
+}
+
+body:not(.pat-has-news-ticker).pat-has-currency-ticker:not(.pat-has-stock-ticker)
+  app-euromillions
+  .pat-title.eurom-title-plain {
+  --eurom-pat-div-gap: 108px;
+}
+
+body:not(.pat-has-news-ticker):not(.pat-has-currency-ticker).pat-has-stock-ticker
+  app-euromillions
+  .pat-title.eurom-title-plain {
+  --eurom-pat-div-gap: 108px;
+}
+
+body.pat-has-news-ticker.pat-has-currency-ticker:not(.pat-has-stock-ticker)
+  app-euromillions
+  .pat-title.eurom-title-plain {
+  --eurom-pat-div-gap: 164px;
+}
+
+body.pat-has-news-ticker:not(.pat-has-currency-ticker).pat-has-stock-ticker
+  app-euromillions
+  .pat-title.eurom-title-plain {
+  --eurom-pat-div-gap: 164px;
+}
+
+body:not(.pat-has-news-ticker).pat-has-currency-ticker.pat-has-stock-ticker
+  app-euromillions
+  .pat-title.eurom-title-plain {
+  --eurom-pat-div-gap: 148px;
+}
+
+body.pat-has-news-ticker.pat-has-currency-ticker.pat-has-stock-ticker
+  app-euromillions
+  .pat-title.eurom-title-plain {
+  --eurom-pat-div-gap: 204px;
+}
+
+body:has(.friend-requests-app-banner) app-euromillions .pat-title.eurom-title-plain {
+  margin-top: 0 !important;
+  padding-top: 1rem !important;
+}

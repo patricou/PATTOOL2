@@ -1588,6 +1588,7 @@
         "IMAGE_ATTACH_CAMERA_HINT": "Foto mit der Kamera aufnehmen.",
         "IMAGE_ATTACH_FILES": "Galerie & Dateien",
         "IMAGE_ATTACH_FILES_HINT": "Vorhandenes Bild aus Galerie oder Dateiauswahl (JPEG, PNG, GIF, WebP, max. 8 MB).",
+        "IMAGE_ATTACH_LOADING": "Bild wird geladen…",
         "IMAGE_REMOVE": "Bild entfernen",
         "IMAGE_PREVIEW_ALT": "An Ihrer Nachricht angehängtes Bild",
         "IMAGE_NEED_QUESTION": "Bitte geben Sie Ihre Frage zum Bild vor dem Senden im Textfeld ein.",
@@ -2497,7 +2498,7 @@
     },
     "EUROMILLIONS": {
         "TITLE": "EuroMillions (FDJ) — Ziehungen",
-        "INTRO": "Die angezeigten Ziehungen liegen in MongoDB auf dem Server. Administratoren verwenden „FDJ-ZIP herunterladen + importieren“: Das Backend lädt von fdj.fr das offizielle FDJ-Ziehungsarchiv-ZIP, entpackt die CSV-Dateien in euromillions.import.directory auf dem Server und führt die Ziehungen mit dem FDJ-Ziehungscode als Schlüssel zusammen. Untere Assistenten-Grenze (einschließlich): {{since}}. Sie können die Tabelle jederzeit neu laden. Die Spalten zu Auszahlungen / Gewinnern der Gewinnklasse 1 werden aus der CSV übernommen, sofern vorhanden.",
+        "INTRO": "Ziehungen liegen in MongoDB auf dem Server. Admins importieren das offizielle FDJ-ZIP („FDJ-ZIP herunterladen + importieren“: Download von fdj.fr, CSV auf dem Server entpackt, Zusammenführung per FDJ-Ziehungscode). Assistent: Ziehungen ab {{since}} einschließlich. Tabelle jederzeit neu laden; Auszahlungen und GK1 aus der CSV, wenn vorhanden.",
         "SYNC_BUTTON": "CSV importieren (Serverordner)",
         "REFRESH": "Tabelle neu laden",
         "FILTER_DATE_FROM": "Von (einschließlich)",

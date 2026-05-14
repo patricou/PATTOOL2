@@ -1498,7 +1498,7 @@
     },
     "EUROMILLIONS": {
         "TITLE": "EuroMillions (FDJ) — draws",
-        "INTRO": "Draws come from the server MongoDB. Admins use “Download FDJ ZIP + import”: the backend downloads the official FDJ draw archive ZIP from fdj.fr into euromillions.import.directory on the server, extracts the CSV files, and merges draws into MongoDB (FDJ draw code as key). Assistant lower bound (inclusive): {{since}}. Reload the table anytime. Ranking #1 payouts are summed from CSV columns where available.",
+        "INTRO": "Draws are stored in server MongoDB. Admins import the official FDJ ZIP (“Download FDJ ZIP + import”: download from fdj.fr, CSV extracted on the server, merged by FDJ draw code). Assistant uses draws from {{since}} inclusive. Reload the table anytime; payout and rank-1 columns follow the CSV when present.",
         "SYNC_BUTTON": "Import CSV folder (server)",
         "REFRESH": "Reload table",
         "FILTER_DATE_FROM": "From (inclusive)",
@@ -1884,6 +1884,7 @@
         "IMAGE_ATTACH_CAMERA_HINT": "Take a new photo with the camera.",
         "IMAGE_ATTACH_FILES": "Gallery & files",
         "IMAGE_ATTACH_FILES_HINT": "Choose an existing image from gallery, Google Photos / Files picker, etc. (JPEG, PNG, GIF, WebP, max 8 MB).",
+        "IMAGE_ATTACH_LOADING": "Loading image…",
         "IMAGE_REMOVE": "Remove image",
         "IMAGE_PREVIEW_ALT": "Image attached to your message",
         "IMAGE_NEED_QUESTION": "Type your question about the image in the message box before sending.",

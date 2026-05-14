@@ -28,7 +28,7 @@ import { ElementEvenementComponent } from '../element-evenement/element-evenemen
 import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { FriendsService } from '../../services/friends.service';
-import { AssistantLaunchService } from '../../services/assistant-launch.service';
+import { AssistantLaunchService, ASSISTANT_EVENT_ELEMENT_LAUNCH_ROUTING } from '../../services/assistant-launch.service';
 import { FriendGroup } from '../../model/friend';
 
 interface EventColorUpdate {
@@ -3609,7 +3609,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		if (!name || !this.isAssistantAuthenticated()) {
 			return;
 		}
-		this._assistantLaunch.openWithDraft(name, { newConversation: true });
+		this._assistantLaunch.openWithDraft(name, {
+			newConversation: true,
+			routing: ASSISTANT_EVENT_ELEMENT_LAUNCH_ROUTING
+		});
 	}
 
 	public openUserModal(user: Member): void {

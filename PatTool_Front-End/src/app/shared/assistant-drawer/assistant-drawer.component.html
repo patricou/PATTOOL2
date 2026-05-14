@@ -412,14 +412,14 @@
       <span class="pat-assistant-attach-buttons d-inline-flex flex-wrap gap-1 align-items-center mb-0">
         <label
           class="btn btn-sm btn-outline-secondary pat-assistant-attach-btn pat-assistant-attach-file-label mb-0"
-          [class.disabled]="loading"
+          [class.disabled]="loading || imageAttachProcessing"
           [title]="'ASSISTANT.IMAGE_ATTACH_CAMERA_HINT' | translate">
           <input
             type="file"
             class="pat-assistant-attach-file-input"
             accept="image/*"
             capture="environment"
-            [disabled]="loading"
+            [disabled]="loading || imageAttachProcessing"
             (change)="onImageFileChange($event)"
             tabindex="-1" />
           <span class="pat-assistant-attach-file-label-text">
@@ -430,13 +430,13 @@
         </label>
         <label
           class="btn btn-sm btn-outline-secondary pat-assistant-attach-btn pat-assistant-attach-file-label mb-0"
-          [class.disabled]="loading"
+          [class.disabled]="loading || imageAttachProcessing"
           [title]="'ASSISTANT.IMAGE_ATTACH_FILES_HINT' | translate">
           <input
             type="file"
             class="pat-assistant-attach-file-input"
             accept="image/*"
-            [disabled]="loading"
+            [disabled]="loading || imageAttachProcessing"
             (change)="onImageFileChange($event)"
             tabindex="-1" />
           <span class="pat-assistant-attach-file-label-text">
@@ -446,6 +446,15 @@
           </span>
         </label>
       </span>
+      <div
+        *ngIf="imageAttachProcessing"
+        class="pat-assistant-image-attach-loading w-100 mt-1"
+        role="status"
+        aria-live="polite"
+        aria-busy="true">
+        <i class="fa fa-spinner fa-spin pat-assistant-image-attach-loading__icon" aria-hidden="true"></i>
+        <span>{{ 'ASSISTANT.IMAGE_ATTACH_LOADING' | translate }}</span>
+      </div>
       <div *ngIf="pendingImage" class="pat-assistant-pending-img-wrap">
         <img
           [src]="trustedImageSrc(pendingImage.dataUrl)"
@@ -465,7 +474,7 @@
       type="button"
       class="btn pat-assistant-send w-100"
       (click)="send()"
-      [disabled]="loading || !draft.trim()"
+      [disabled]="loading || imageAttachProcessing || !draft.trim()"
       [title]="'ASSISTANT.SEND_HINT' | translate"
       [attr.aria-label]="'ASSISTANT.SEND' | translate">
       <i class="fa fa-paper-plane me-1" aria-hidden="true"></i>

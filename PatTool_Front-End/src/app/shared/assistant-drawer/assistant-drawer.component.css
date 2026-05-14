@@ -1387,6 +1387,20 @@ a.pat-assistant-brave-search.pat-assistant-header-btn .fa {
   pointer-events: none;
 }
 
+.pat-assistant-image-attach-loading {
+  display: flex;
+  flex: 1 0 100%;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.15rem;
+  font-size: 0.8125rem;
+  color: var(--bs-secondary-color, #6c757d);
+}
+
+.pat-assistant-image-attach-loading__icon {
+  flex-shrink: 0;
+}
+
 .pat-assistant-pending-img-wrap {
   position: relative;
   flex: 0 0 auto;

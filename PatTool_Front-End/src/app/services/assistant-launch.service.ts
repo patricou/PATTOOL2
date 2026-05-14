@@ -45,6 +45,14 @@ export const ASSISTANT_NEWS_LAUNCH_ROUTING: AssistantLaunchRouting = {
   modelPreset: ASSISTANT_NEWS_GEMINI_MODEL_ID
 };
 
+/**
+ * Activities / events UI ({@code element-evenement}, home list, detail page) → Anthropic Claude Opus 4.7.
+ */
+export const ASSISTANT_EVENT_ELEMENT_LAUNCH_ROUTING: AssistantLaunchRouting = {
+  provider: 'anthropic',
+  modelPreset: 'claude-opus-4-7'
+};
+
 export interface AssistantLaunchPayload {
   /** Draft text; may be empty when `attachedImage` is set (field stays empty; hint shown in textarea placeholder). */
   draft: string;

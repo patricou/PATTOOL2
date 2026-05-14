@@ -1393,6 +1393,7 @@
         "IMAGE_ATTACH_CAMERA_HINT": "カメラで写真を撮ります。",
         "IMAGE_ATTACH_FILES": "ギャラリー・ファイル",
         "IMAGE_ATTACH_FILES_HINT": "ギャラリーなどから既存の画像を選びます（JPEG、PNG、GIF、WebP、最大 8 MB）。",
+        "IMAGE_ATTACH_LOADING": "画像を読み込み中…",
         "IMAGE_REMOVE": "画像を削除",
         "IMAGE_PREVIEW_ALT": "メッセージに添付された画像",
         "IMAGE_NEED_QUESTION": "送信する前に、メッセージ欄へ画像についての質問を入力してください。",
@@ -2504,7 +2505,7 @@
     },
     "EUROMILLIONS": {
         "TITLE": "EuroMillions（FDJ）— 抽選",
-        "INTRO": "表示されている抽選はサーバー上のMongoDBにあります。管理者は「FDJのZIPをダウンロード＋取り込み」を使います：バックエンドがfdj.frから公式の「2020年2月以降」アーカイブを取得し、サーバーのeuromillions.import.directoryにCSVを展開してFDJ抽選コードをキーにMongoDBへ統合します。いつでも表を再読み込みしてください。1等の払い戻し／当選者の列はCSVに値がある場合に反映されます。",
+        "INTRO": "抽選はサーバーの MongoDB に保存されています。管理者は「FDJのZIPをダウンロード＋取り込み」で公式 ZIP を取り込みます（fdj.fr からダウンロード、サーバーで CSV を展開、FDJ 抽選コードで統合）。アシスタントは {{since}} 以降（該当日を含む）の抽選を使用。いつでも表を再読み込みできます。1 等の払い戻し／当選者は CSV に値がある場合に反映されます。",
         "SYNC_BUTTON": "CSVを取り込む（サーバーフォルダ）",
         "REFRESH": "表を再読み込み",
         "FILTER_DATE_FROM": "開始（含む）",

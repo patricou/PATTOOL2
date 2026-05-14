@@ -1591,6 +1591,7 @@
         "IMAGE_ATTACH_CAMERA_HINT": "Scatta una foto con la fotocamera.",
         "IMAGE_ATTACH_FILES": "Galleria e file",
         "IMAGE_ATTACH_FILES_HINT": "Scegli un’immagine già salvata (galleria, Google Foto, file…) (JPEG, PNG, GIF, WebP, max 8 MB).",
+        "IMAGE_ATTACH_LOADING": "Caricamento immagine…",
         "IMAGE_REMOVE": "Rimuovi immagine",
         "IMAGE_PREVIEW_ALT": "Immagine allegata al messaggio",
         "IMAGE_NEED_QUESTION": "Scrivi la tua domanda sull’immagine nel campo di testo prima di inviare.",
@@ -2500,7 +2501,7 @@
     },
     "EUROMILLIONS": {
         "TITLE": "EuroMillions (FDJ) — estrazioni",
-        "INTRO": "Le estrazioni mostrate sono in MongoDB sul server. Gli amministratori usano «Scarica ZIP FDJ + importa»: il backend scarica da fdj.fr l’archivio ZIP ufficiale delle estrazioni, estrae i CSV in euromillions.import.directory sul server e unisce le estrazioni in database con il codice estrazione FDJ come chiave. Limite inferiore dell’assistente (incluso): {{since}}. Aggiornare la tabella in qualsiasi momento. Le colonne su premi / vincitori di categoria 1 provengono dal CSV quando disponibili.",
+        "INTRO": "Estrazioni in MongoDB sul server. Gli amministratori importano lo ZIP ufficiale FDJ («Scarica ZIP FDJ + importa»: scarico da fdj.fr, CSV estratti sul server, fusione per codice estrazione). Assistente: estrazioni dal {{since}} incluso. Aggiorna la tabella quando vuoi; premi e categoria 1 dal CSV se presenti.",
         "SYNC_BUTTON": "Importa CSV (cartella server)",
         "REFRESH": "Aggiorna tabella",
         "FILTER_DATE_FROM": "Da (incluso)",

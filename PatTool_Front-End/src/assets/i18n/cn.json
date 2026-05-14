@@ -1590,6 +1590,7 @@
         "IMAGE_ATTACH_CAMERA_HINT": "使用相机拍摄新照片。",
         "IMAGE_ATTACH_FILES": "相册与文件",
         "IMAGE_ATTACH_FILES_HINT": "从相册或文件选择已有图片（JPEG、PNG、GIF、WebP，最大 8 MB）。",
+        "IMAGE_ATTACH_LOADING": "正在加载图片…",
         "IMAGE_REMOVE": "移除图片",
         "IMAGE_PREVIEW_ALT": "附在消息中的图片",
         "IMAGE_NEED_QUESTION": "发送前请在消息框中输入有关此图片的问题。",
@@ -2499,7 +2500,7 @@
     },
     "EUROMILLIONS": {
         "TITLE": "EuroMillions（FDJ）— 开奖记录",
-        "INTRO": "列表中的开奖数据保存在服务器的 MongoDB 中。管理员使用「下载 FDJ ZIP + 导入」：后端从 fdj.fr 获取官方「2020 年 2 月起」压缩包，将 CSV 解压到服务器上的 euromillions.import.directory，并以 FDJ 开奖代码为键合并到数据库。可随时刷新表格。头奖奖金／中奖者列在 CSV 提供时填充。",
+        "INTRO": "开奖数据保存在服务器 MongoDB。管理员通过「下载 FDJ ZIP + 导入」导入官方压缩包（从 fdj.fr 下载，服务器解压 CSV，按 FDJ 开奖代码合并）。助手：从 {{since}}（含）起的开奖。可随时刷新表格；头奖奖金与中奖者列依 CSV。",
         "SYNC_BUTTON": "导入 CSV（服务器目录）",
         "REFRESH": "重新加载表格",
         "FILTER_DATE_FROM": "开始日期（含）",

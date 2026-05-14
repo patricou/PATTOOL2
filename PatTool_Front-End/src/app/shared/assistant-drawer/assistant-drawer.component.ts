@@ -291,6 +291,8 @@ export class AssistantDrawerComponent
   } | null = null;
   /** Clé i18n ou message d’erreur après sélection de fichier. */
   imageAttachError: string | null = null;
+  /** Conversion HEIC ou lecture fichier après caméra / galerie. */
+  imageAttachProcessing = false;
 
   private static readonly IMAGE_MAX_BYTES = 8 * 1024 * 1024;
   private static readonly IMAGE_ACCEPT_RE = /^image\/(jpe?g|png|gif|webp)$/i;
@@ -2600,6 +2602,11 @@ export class AssistantDrawerComponent
     this.cdr.markForCheck();
   }
 
+  private endImageAttachSpinner(): void {
+    this.imageAttachProcessing = false;
+    this.cdr.markForCheck();
+  }
+
   async onImageFileChange(ev: Event): Promise<void> {
     const input = ev.target as HTMLInputElement;
     const file = input.files?.[0];
@@ -2608,6 +2615,9 @@ export class AssistantDrawerComponent
     if (!file) {
       return;
     }
+    this.imageAttachProcessing = true;
+    this.cdr.markForCheck();
+
     let fileForRead: File = file;
     const mimeNorm = AssistantDrawerComponent.normalizePickMime(file);
     const isHeic =
@@ -2632,7 +2642,7 @@ export class AssistantDrawerComponent
         this.ngZone.run(() => {
           this.imageAttachError = 'ASSISTANT.IMAGE_READ_ERROR';
           this.pendingImage = null;
-          this.cdr.markForCheck();
+          this.endImageAttachSpinner();
         });
         return;
       }
@@ -2640,56 +2650,60 @@ export class AssistantDrawerComponent
     const effectiveMime = AssistantDrawerComponent.normalizePickMime(fileForRead);
     if (!AssistantDrawerComponent.IMAGE_ACCEPT_RE.test(effectiveMime)) {
       this.imageAttachError = 'ASSISTANT.IMAGE_TYPE_REJECTED';
-      this.cdr.markForCheck();
+      this.endImageAttachSpinner();
       return;
     }
     if (fileForRead.size > AssistantDrawerComponent.IMAGE_MAX_BYTES) {
       this.imageAttachError = 'ASSISTANT.IMAGE_TOO_LARGE';
-      this.cdr.markForCheck();
+      this.endImageAttachSpinner();
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
       this.ngZone.run(() => {
-        const dataUrl = reader.result as string;
-        const m = /^data:([^;]+);base64,(.+)$/s.exec(dataUrl);
-        if (!m?.[1] || !m[2]) {
-          this.imageAttachError = 'ASSISTANT.IMAGE_READ_ERROR';
-          this.pendingImage = null;
-          this.cdr.markForCheck();
-          return;
+        try {
+          const dataUrl = reader.result as string;
+          const m = /^data:([^;]+);base64,(.+)$/s.exec(dataUrl);
+          if (!m?.[1] || !m[2]) {
+            this.imageAttachError = 'ASSISTANT.IMAGE_READ_ERROR';
+            this.pendingImage = null;
+            return;
+          }
+          let storedMime = m[1].trim().toLowerCase().split(';')[0].trim();
+          if (storedMime === 'image/jpg') {
+            storedMime = 'image/jpeg';
+          }
+          if (!AssistantDrawerComponent.IMAGE_ACCEPT_RE.test(storedMime)) {
+            storedMime = effectiveMime;
+          }
+          if (!AssistantDrawerComponent.IMAGE_ACCEPT_RE.test(storedMime)) {
+            this.imageAttachError = 'ASSISTANT.IMAGE_TYPE_REJECTED';
+            this.pendingImage = null;
+            return;
+          }
+          this.pendingImage = {
+            mimeType: storedMime,
+            base64: m[2].replace(/\s+/g, ''),
+            dataUrl
+          };
+          this.imageAttachError = null;
+          this.toolWebSearch = false;
+          this.toolImageGeneration = false;
+          this.toolMcp = false;
+          this.applyAssistantLaunchRouting(ASSISTANT_VISION_IMAGE_LAUNCH_ROUTING);
+        } finally {
+          this.endImageAttachSpinner();
         }
-        let storedMime = m[1].trim().toLowerCase().split(';')[0].trim();
-        if (storedMime === 'image/jpg') {
-          storedMime = 'image/jpeg';
-        }
-        if (!AssistantDrawerComponent.IMAGE_ACCEPT_RE.test(storedMime)) {
-          storedMime = effectiveMime;
-        }
-        if (!AssistantDrawerComponent.IMAGE_ACCEPT_RE.test(storedMime)) {
-          this.imageAttachError = 'ASSISTANT.IMAGE_TYPE_REJECTED';
-          this.pendingImage = null;
-          this.cdr.markForCheck();
-          return;
-        }
-        this.pendingImage = {
-          mimeType: storedMime,
-          base64: m[2].replace(/\s+/g, ''),
-          dataUrl
-        };
-        this.imageAttachError = null;
-        this.toolWebSearch = false;
-        this.toolImageGeneration = false;
-        this.toolMcp = false;
-        this.applyAssistantLaunchRouting(ASSISTANT_VISION_IMAGE_LAUNCH_ROUTING);
-        this.cdr.markForCheck();
       });
     };
     reader.onerror = () => {
       this.ngZone.run(() => {
-        this.imageAttachError = 'ASSISTANT.IMAGE_READ_ERROR';
-        this.pendingImage = null;
-        this.cdr.markForCheck();
+        try {
+          this.imageAttachError = 'ASSISTANT.IMAGE_READ_ERROR';
+          this.pendingImage = null;
+        } finally {
+          this.endImageAttachSpinner();
+        }
       });
     };
     reader.readAsDataURL(fileForRead);
@@ -2720,7 +2734,7 @@ export class AssistantDrawerComponent
   }
 
   send(): void {
-    if (this.loading || !this.isAuthenticated()) {
+    if (this.loading || this.imageAttachProcessing || !this.isAuthenticated()) {
       return;
     }
     const hasImage = this.pendingImage != null;

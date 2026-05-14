@@ -22,7 +22,7 @@ import { Commentary } from '../../model/commentary';
 import { DiscussionService, DiscussionMessage } from '../../services/discussion.service';
 import { EvenementsService } from '../../services/evenements.service';
 import { MembersService } from '../../services/members.service';
-import { AssistantLaunchService } from '../../services/assistant-launch.service';
+import { AssistantLaunchService, ASSISTANT_EVENT_ELEMENT_LAUNCH_ROUTING } from '../../services/assistant-launch.service';
 import { TodoListDetailOverlayService } from '../../todolists/todo-list-detail-overlay.service';
 import { FileService, ImageDownloadResult } from '../../services/file.service';
 import { UploadConfigService } from '../../services/upload-config.service';
@@ -3567,7 +3567,10 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     if (!name || !this.isAssistantUser()) {
       return;
     }
-    this.assistantLaunch.openWithDraft(name, { newConversation: true });
+    this.assistantLaunch.openWithDraft(name, {
+      newConversation: true,
+      routing: ASSISTANT_EVENT_ELEMENT_LAUNCH_ROUTING
+    });
   }
 
   /** Liste de tâches liée à l’activité (id non vide après trim). */

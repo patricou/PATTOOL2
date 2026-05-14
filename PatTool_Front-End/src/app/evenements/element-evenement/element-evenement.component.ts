@@ -34,7 +34,7 @@ import { EventColorService } from '../../services/event-color.service';
 import { AddToDbLayerService } from '../../services/add-to-db-layer.service';
 import { CommentaryEditor } from '../../commentary-editor/commentary-editor';
 import { KeycloakService } from '../../keycloak/keycloak.service';
-import { AssistantLaunchService } from '../../services/assistant-launch.service';
+import { AssistantLaunchService, ASSISTANT_EVENT_ELEMENT_LAUNCH_ROUTING } from '../../services/assistant-launch.service';
 import { computeTrackStatsFromFileContent } from '../../photo-timeline/track-route-stats.util';
 import { getEventTypeFaIconSuffix } from '../../shared/event-type-icon.util';
 import { TodoListDetailOverlayService } from '../../todolists/todo-list-detail-overlay.service';
@@ -431,7 +431,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		if (!name || !this.isAssistantUser()) {
 			return;
 		}
-		this.assistantLaunch.openWithDraft(name, { newConversation: true });
+		this.assistantLaunch.openWithDraft(name, {
+			newConversation: true,
+			routing: ASSISTANT_EVENT_ELEMENT_LAUNCH_ROUTING
+		});
 	}
 
 	/** Call markForCheck only if the view is not destroyed (avoids errors when closing modal). */

@@ -1482,7 +1482,7 @@
     },
     "EUROMILLIONS": {
         "TITLE": "EuroMillions (FDJ) — tirages",
-        "INTRO": "Les tirages affichés sont en MongoDB côté serveur. Les administrateurs utilisent « Télécharger ZIP FDJ + importer » : le backend télécharge depuis fdj.fr l’archive ZIP officielle des tirages, extrait les CSV dans euromillions.import.directory sur le serveur, puis fusionne en base avec le code tirage FDJ comme clé. Borne basse assistant (inclus) : {{since}}. Rafraîchissez le tableau à tout moment. Les colonnes rapport / gagnants du rang 1 nourrissent l’extrait lorsqu’elles existent.",
+        "INTRO": "Tirages en MongoDB sur le serveur. Les administrateurs importent l’archive officielle FDJ (« Télécharger ZIP FDJ + importer » : téléchargement fdj.fr, CSV extraits sur le serveur, fusion par code tirage). Assistant : tirages depuis le {{since}} inclus. Rafraîchissez le tableau à tout moment ; rapport et rang 1 selon le CSV.",
         "SYNC_BUTTON": "Importer les CSV (dossier serveur)",
         "REFRESH": "Rafraîchir le tableau",
         "FILTER_DATE_FROM": "Date du (inclus)",
@@ -1865,6 +1865,7 @@
         "IMAGE_ATTACH_CAMERA_HINT": "Prendre une photo avec la caméra.",
         "IMAGE_ATTACH_FILES": "Galerie / fichiers",
         "IMAGE_ATTACH_FILES_HINT": "Choisir une image existante via la galerie, Google Photos, Fichiers, etc. (JPEG, PNG, GIF, WebP, max 8 Mo).",
+        "IMAGE_ATTACH_LOADING": "Chargement de l’image…",
         "IMAGE_REMOVE": "Retirer l’image",
         "IMAGE_PREVIEW_ALT": "Image jointe au message",
         "IMAGE_NEED_QUESTION": "Saisissez votre question sur l’image dans le champ de message avant d’envoyer.",
