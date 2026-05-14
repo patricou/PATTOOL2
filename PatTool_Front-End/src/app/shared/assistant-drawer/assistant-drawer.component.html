@@ -152,6 +152,14 @@
   </div>
 
   <div class="pat-assistant-thread-wrap">
+    <div
+      *ngIf="historyDetailLoading"
+      class="pat-assistant-history-thread-loading"
+      role="status"
+      aria-live="polite">
+      <span class="spinner-border text-primary pat-assistant-history-spinner" aria-hidden="true"></span>
+      <span class="pat-assistant-history-thread-loading-label">{{ 'ASSISTANT.HISTORY_LOADING_DETAIL' | translate }}</span>
+    </div>
     <div class="pat-assistant-thread" #threadEl>
     <p *ngIf="messages.length === 0" class="pat-assistant-empty text-muted mb-0">
       {{ 'ASSISTANT.EMPTY' | translate }}
@@ -161,7 +169,8 @@
       class="pat-assistant-bubble"
       [class.pat-assistant-bubble--user]="m.role === 'user'"
       [class.pat-assistant-bubble--assistant]="m.role === 'assistant'"
-      [class.pat-assistant-bubble--anchor-last-q]="m.role === 'user' && i === lastUserMessageIndex()">
+      [class.pat-assistant-bubble--anchor-last-q]="m.role === 'user' && i === lastUserMessageIndex()"
+      [class.pat-assistant-bubble--anchor-last-assistant]="m.role === 'assistant' && i === lastAssistantMessageIndex()">
         <div class="pat-assistant-bubble-head">
           <span class="pat-assistant-bubble-label">{{
             m.role === 'user'
@@ -706,9 +715,23 @@
   </div>
   <div class="modal-body pat-assistant-history-modal-body">
     <p class="text-muted pat-assistant-history-modal-intro mb-2">{{ 'ASSISTANT.HISTORY_MODAL_INTRO' | translate }}</p>
-    <div *ngIf="historyLoading" class="text-muted py-2">{{ 'ASSISTANT.HISTORY_LOADING_LIST' | translate }}</div>
+    <div
+      *ngIf="historyLoading"
+      class="d-flex align-items-center gap-2 text-muted py-3 pat-assistant-history-loading-row"
+      role="status"
+      aria-live="polite">
+      <span class="spinner-border pat-assistant-history-spinner" aria-hidden="true"></span>
+      <span>{{ 'ASSISTANT.HISTORY_LOADING_LIST' | translate }}</span>
+    </div>
     <p *ngIf="historyErrorKey" class="text-danger small">{{ historyErrorKey | translate }}</p>
-    <div *ngIf="historyDetailLoading" class="text-muted small">{{ 'ASSISTANT.HISTORY_LOADING_DETAIL' | translate }}</div>
+    <div
+      *ngIf="historyDetailLoading"
+      class="d-flex align-items-center gap-2 text-muted small py-2 pat-assistant-history-loading-row"
+      role="status"
+      aria-live="polite">
+      <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+      <span>{{ 'ASSISTANT.HISTORY_LOADING_DETAIL' | translate }}</span>
+    </div>
     <div *ngIf="!historyLoading && historyItems.length > 0" class="mb-2">
       <label class="visually-hidden" for="assistantHistoryFilter">{{ 'ASSISTANT.HISTORY_FILTER_LABEL' | translate }}</label>
       <input

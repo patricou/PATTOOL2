@@ -1492,6 +1492,7 @@
         "FILTER_DRAW_COUNT_AI_SCOPE": "{{count}} tirage(s) avec date ≥ {{since}} (borne basse assistant)",
         "FILTER_EMPTY": "Aucun tirage ne correspond à cette plage de dates.",
         "LOADING": "Chargement…",
+        "LOADING_DRAWS": "Chargement des tirages…",
         "EMPTY": "Aucun tirage en base : un administrateur doit importer les CSV depuis le dossier configuré.",
         "LOAD_ERROR": "Impossible de charger les tirages depuis le serveur.",
         "SYNC_ADMIN_ONLY": "L’import depuis les fichiers CSV est réservé au rôle Administrateur (Admin).",

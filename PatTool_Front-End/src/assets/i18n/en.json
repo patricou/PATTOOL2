@@ -1508,6 +1508,7 @@
         "FILTER_DRAW_COUNT_AI_SCOPE": "{{count}} draw(s) with date ≥ {{since}} (assistant lower bound)",
         "FILTER_EMPTY": "No draws match this date range.",
         "LOADING": "Loading…",
+        "LOADING_DRAWS": "Loading draws…",
         "EMPTY": "No draws stored yet — an administrator must import the CSV bundle from the configured directory.",
         "LOAD_ERROR": "Could not load draws from the server.",
         "SYNC_ADMIN_ONLY": "CSV import is restricted to accounts with the Administrator (Admin) role.",

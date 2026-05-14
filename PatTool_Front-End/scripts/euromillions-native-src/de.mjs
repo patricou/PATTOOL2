@@ -10,6 +10,7 @@ export default {
   FILTER_COUNT: '{{shown}} von {{total}} Ziehungen angezeigt',
   FILTER_EMPTY: 'Keine Ziehungen passen zu diesem Datumsbereich.',
   LOADING: 'Wird geladen…',
+  LOADING_DRAWS: 'Ziehungen werden geladen…',
   EMPTY:
     'Noch keine Ziehungen gespeichert — ein Administrator muss das CSV-Paket aus dem konfigurierten Verzeichnis importieren.',
   LOAD_ERROR: 'Ziehungen konnten nicht vom Server geladen werden.',

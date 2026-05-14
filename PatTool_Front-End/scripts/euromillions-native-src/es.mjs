@@ -10,6 +10,7 @@ export default {
   FILTER_COUNT: '{{shown}} de {{total}} sorteos mostrados',
   FILTER_EMPTY: 'Ningún sorteo coincide con este intervalo de fechas.',
   LOADING: 'Cargando…',
+  LOADING_DRAWS: 'Cargando sorteos…',
   EMPTY:
     'Aún no hay sorteos en base: un administrador debe importar el paquete CSV del directorio configurado.',
   LOAD_ERROR: 'No se pudieron cargar los sorteos desde el servidor.',

@@ -359,6 +359,7 @@ export class AssistantDrawerComponent
   /** Réponse (ou erreur) reçue alors que le panneau était fermé — pastille sur le FAB jusqu’à réouverture. */
   fabUnreadReply = false;
   private shouldAlignLastQuestionTop = false;
+  private shouldAlignLastAssistantTop = false;
 
   /** Dernier pixel de la navbar PatTool (~ --navbar-height). */
   private static readonly NAV_BOTTOM_PX = 60;
@@ -1609,6 +1610,16 @@ export class AssistantDrawerComponent
     return -1;
   }
 
+  /** Index du dernier message assistant (réponse la plus récente). */
+  lastAssistantMessageIndex(): number {
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      if (this.messages[i].role === 'assistant') {
+        return i;
+      }
+    }
+    return -1;
+  }
+
   /**
    * Corps de bulle : Markdown assistant (mis en cache par objet tour), liens + sauts de ligne pour l’utilisateur.
    */
@@ -1922,6 +1933,20 @@ export class AssistantDrawerComponent
   }
 
   ngAfterViewChecked(): void {
+    if (this.shouldAlignLastAssistantTop && this.threadEl) {
+      const wrap = this.threadEl.nativeElement;
+      const anchor = wrap.querySelector(
+        '.pat-assistant-bubble--anchor-last-assistant'
+      ) as HTMLElement | null;
+      if (anchor) {
+        const desiredTop =
+          anchor.getBoundingClientRect().top -
+          wrap.getBoundingClientRect().top +
+          wrap.scrollTop;
+        wrap.scrollTop = Math.max(0, desiredTop - 4);
+      }
+      this.shouldAlignLastAssistantTop = false;
+    }
     if (this.shouldAlignLastQuestionTop && this.threadEl) {
       const wrap = this.threadEl.nativeElement;
       const anchor = wrap.querySelector(
@@ -2609,7 +2634,11 @@ export class AssistantDrawerComponent
     this.messages = detail.turns.map((t) => this.mapPersistedTurnToChatTurn(t));
     this.fabUnreadReply = false;
     this.persistSession();
-    this.requestAlignLastQuestionTop();
+    if (this.lastAssistantMessageIndex() >= 0) {
+      this.requestAlignLastAssistantTop();
+    } else {
+      this.requestAlignLastQuestionTop();
+    }
     this.cdr.markForCheck();
     queueMicrotask(() => this.fitGeneratedImagesInChat());
   }
@@ -3164,7 +3193,7 @@ export class AssistantDrawerComponent
     if (!this.isOpen) {
       this.fabUnreadReply = true;
     }
-    this.requestAlignLastQuestionTop();
+    this.requestAlignLastAssistantTop();
     this.persistSession();
     this.scheduleRemoteConversationPersist();
     this.cdr.detectChanges();
@@ -3172,6 +3201,11 @@ export class AssistantDrawerComponent
 
   private requestAlignLastQuestionTop(): void {
     this.shouldAlignLastQuestionTop = true;
+  }
+
+  /** Place le haut de la dernière bulle assistant dans la zone visible du fil (après réception de la réponse). */
+  private requestAlignLastAssistantTop(): void {
+    this.shouldAlignLastAssistantTop = true;
   }
 
   /** Ouvert uniquement avec au moins un message dans l’historique. */

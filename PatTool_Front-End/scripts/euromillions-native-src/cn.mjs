@@ -10,6 +10,7 @@ export default {
   FILTER_COUNT: '显示 {{shown}} / {{total}} 条开奖',
   FILTER_EMPTY: '该日期范围内没有匹配的开奖。',
   LOADING: '加载中…',
+  LOADING_DRAWS: '正在加载开奖记录…',
   EMPTY:
     '尚无开奖记录 — 需要管理员从配置的目录导入 CSV 数据包。',
   LOAD_ERROR: '无法从服务器加载开奖数据。',

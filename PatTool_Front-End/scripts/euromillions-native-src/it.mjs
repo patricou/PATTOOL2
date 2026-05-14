@@ -10,6 +10,7 @@ export default {
   FILTER_COUNT: '{{shown}} di {{total}} estrazioni mostrate',
   FILTER_EMPTY: 'Nessuna estrazione corrisponde a questo intervallo di date.',
   LOADING: 'Caricamento…',
+  LOADING_DRAWS: 'Caricamento estrazioni…',
   EMPTY:
     'Nessuna estrazione in archivio: un amministratore deve importare il pacchetto CSV dalla directory configurata.',
   LOAD_ERROR: 'Impossibile caricare le estrazioni dal server.',

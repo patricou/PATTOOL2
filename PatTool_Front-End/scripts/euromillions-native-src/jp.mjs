@@ -10,6 +10,7 @@ export default {
   FILTER_COUNT: '{{total}}件中{{shown}}件を表示',
   FILTER_EMPTY: 'この期間に該当する抽選はありません。',
   LOADING: '読み込み中…',
+  LOADING_DRAWS: '抽選を読み込み中…',
   EMPTY:
     'まだ抽選がありません。管理者が設定フォルダからCSV一式を取り込む必要があります。',
   LOAD_ERROR: 'サーバーから抽選を読み込めませんでした。',
