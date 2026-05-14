@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize, timeout, catchError } from 'rxjs/operators';
-import { of } from 'rxjs';
+import { firstValueFrom, forkJoin, of } from 'rxjs';
 import { BaseChartDirective } from 'ng2-charts';
 import { Chart, ChartConfiguration, ChartOptions, registerables } from 'chart.js';
 import { NgbModal, NgbModule } from '@ng-bootstrap/ng-bootstrap';
@@ -72,6 +72,9 @@ export class EuromillionsComponent implements OnInit {
 
   sortColumn: EuromSortColumn = 'date';
   sortAsc = false;
+
+  private euromEurIntl: Intl.NumberFormat | null = null;
+  private euromEurIntlLang = '';
 
   monthlyChartData: ChartConfiguration<'line'>['data'] = { labels: [], datasets: [] };
   monthlyChartOptions: ChartOptions<'line'> = {
@@ -171,6 +174,22 @@ export class EuromillionsComponent implements OnInit {
   /** yyyy-MM-dd lower-bound day for assistant display (i18n / draws-per-month matrix). */
   get euromAiMinInclusiveDay(): string {
     return this.euromAiMinDrawDateIso.trim().substring(0, 10);
+  }
+
+  /** Nombre de tirages chargés dont la date est ≥ {@link euromAiMinInclusiveDay} (même périmètre que l’assistant). */
+  get euromDrawCountSinceAssistantBound(): number {
+    const min = this.euromAiMinInclusiveDay;
+    if (min.length !== 10) {
+      return this.draws.length;
+    }
+    let n = 0;
+    for (const r of this.draws) {
+      const day = this.isoDateOnly(r.drawDate);
+      if (day.length === 10 && day >= min) {
+        n++;
+      }
+    }
+    return n;
   }
 
   /** Ordered list of offered methods (fixed order, i18n labels). */
@@ -357,12 +376,112 @@ export class EuromillionsComponent implements OnInit {
 
   private gainSortKey(row: EuromillionsDrawRow): string {
     const g = row.gainDisplay || '';
+    const amt = this.euromParseRank1EuroAmount(row);
+    if (amt != null && amt > 0) {
+      return String(Math.round(amt)).padStart(16, '0');
+    }
     const letters = g.replace(/[0-9\s.,]/g, '').toLowerCase();
     const digits = g.replace(/\D/g, '');
     if (digits.length > 0) {
       return digits.padStart(14, '0') + letters;
     }
     return g.toLowerCase();
+  }
+
+  /** Libellé « Rang1 » + montant EUR formaté lorsque le rapport numérique est lisible ; sinon texte brut. */
+  euromFormattedGainDisplay(row: EuromillionsDrawRow): string {
+    const raw = row.gainDisplay?.trim();
+    if (!raw) {
+      return '—';
+    }
+    const amt = this.euromParseRank1EuroAmount(row);
+    const sufIdx = raw.indexOf(' — ');
+    const suffix = sufIdx >= 0 ? raw.slice(sufIdx) : '';
+    if (amt != null && amt > 0) {
+      return `Rang1 ${this.formatEuromEuros0(amt)}${suffix}`;
+    }
+    return raw;
+  }
+
+  private setEuromDrawsFromServer(rows: EuromillionsDrawRow[]): void {
+    this.draws = rows;
+  }
+
+  private euromEuropeanNumberLocale(): string {
+    return this.translate.currentLang?.replace('_', '-') || 'fr-FR';
+  }
+
+  private formatEuromEuros0(value: number): string {
+    const lang = this.euromEuropeanNumberLocale();
+    if (!this.euromEurIntl || this.euromEurIntlLang !== lang) {
+      this.euromEurIntlLang = lang;
+      this.euromEurIntl = new Intl.NumberFormat(lang, {
+        style: 'currency',
+        currency: 'EUR',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      });
+    }
+    return this.euromEurIntl.format(value);
+  }
+
+  /**
+   * Montant Rang1 en euros extrait de {@link EuromillionsDrawRow.gainDisplay}
+   * (segment « Rang1 … € »), ou null.
+   */
+  private euromParseRank1EuroAmount(row: EuromillionsDrawRow): number | null {
+    const raw = row.gainDisplay?.trim();
+    if (!raw) {
+      return null;
+    }
+    const m = raw.match(/rang1\s+(.+?)\s*€/i);
+    if (!m?.[1]) {
+      return null;
+    }
+    return this.euromParseFrenchMoneyAmount(m[1].trim());
+  }
+
+  private euromParseFrenchMoneyAmount(segment: string): number | null {
+    if (!segment) {
+      return null;
+    }
+    const s = segment.replace(/\u00a0/g, ' ').trim();
+    const low = s.toLowerCase();
+    const million = low.match(/^([\d\s.,\u202f]+)\s*(million|millions)\b/);
+    if (million) {
+      const base = this.euromParseFrenchDecimalNumber(million[1]);
+      return base != null ? base * 1e6 : null;
+    }
+    const milliard = low.match(/^([\d\s.,\u202f]+)\s*(milliard|milliards)\b/);
+    if (milliard) {
+      const base = this.euromParseFrenchDecimalNumber(milliard[1]);
+      return base != null ? base * 1e9 : null;
+    }
+    return this.euromParseFrenchDecimalNumber(s);
+  }
+
+  /** Nombre à la française : espaces / NBSP / fine insécable en séparateurs de milliers, virgule décimale. */
+  private euromParseFrenchDecimalNumber(numPart: string): number | null {
+    const t = numPart.replace(/\u00a0/g, ' ').replace(/\u202f/g, ' ').trim();
+    if (!t) {
+      return null;
+    }
+    const noSpace = t.replace(/\s/g, '');
+    const lastComma = noSpace.lastIndexOf(',');
+    const lastDot = noSpace.lastIndexOf('.');
+    let normalized = noSpace;
+    if (lastComma > lastDot) {
+      normalized = normalized.replace(/\./g, '').replace(',', '.');
+    } else if (lastDot > lastComma) {
+      normalized = normalized.replace(/,/g, '');
+    } else if (lastComma >= 0) {
+      normalized = normalized.replace(/\./g, '').replace(',', '.');
+    }
+    const n = Number(normalized);
+    if (!Number.isFinite(n) || n < 0) {
+      return null;
+    }
+    return n;
   }
 
   toggleSort(column: EuromSortColumn): void {
@@ -394,7 +513,7 @@ export class EuromillionsComponent implements OnInit {
       })
     ).subscribe({
       next: (rows) => {
-        this.draws = rows ?? [];
+        this.setEuromDrawsFromServer(rows ?? []);
         this.rebuildDateDrafts();
       },
       error: () => {
@@ -627,10 +746,14 @@ export class EuromillionsComponent implements OnInit {
     numbers: number[];
     stars: number[];
   }> {
-    const min = this.euromAiMinDrawDateIso.substring(0, 10);
-    return this.euromDrawsChronologicalForAi().filter(
-      (r) => (r.drawDate ?? '').substring(0, 10) >= min
-    );
+    const min = this.euromAiMinDrawDateIso.trim().substring(0, 10);
+    if (min.length !== 10) {
+      return this.euromDrawsChronologicalForAi();
+    }
+    return this.euromDrawsChronologicalForAi().filter((r) => {
+      const day = this.isoDateOnly(r.drawDate);
+      return day.length === 10 && day >= min;
+    });
   }
 
   /**
@@ -691,7 +814,7 @@ export class EuromillionsComponent implements OnInit {
     }>;
     tail: [string, number[], number[]][];
   } {
-    const sinceInclusive = this.euromAiMinDrawDateIso.substring(0, 10);
+    const sinceInclusive = this.euromAiMinDrawDateIso.trim().substring(0, 10);
     const rows = this.euromDrawsChronologicalForAssistantAi();
     const c = rows.length;
     const dateFirst = c ? rows[0].drawDate.substring(0, 10) : '';
@@ -888,8 +1011,37 @@ export class EuromillionsComponent implements OnInit {
     });
   }
 
-  /** Assistant draft: stats + selected method(s); synthesis vs standard prompt per {@code mode}. */
+  /**
+   * Assistant draft: stats + méthode(s) — la borne basse et la liste des tirages sont
+   * resynchronisées avec l’API avant construction du JSON, pour éviter d’exclure des
+   * tirages lorsque {@code client-settings} arrive après le premier chargement de la page.
+   */
   private openEuromAiDraft(mode: 'standard' | 'synthesis', includedIds: string[]): void {
+    if (!this.canSendEuromAiPrompt || includedIds.length === 0) {
+      return;
+    }
+    void firstValueFrom(
+      forkJoin({
+        settings: this.api.getEuromillionsClientSettings().pipe(catchError(() => of(null))),
+        draws: this.api.getEuromillionsDraws().pipe(catchError(() => of(null)))
+      }).pipe(timeout(120_000))
+    )
+      .then((pair) => {
+        if (pair.settings) {
+          this.applyEuromClientSettings(pair.settings);
+        }
+        if (Array.isArray(pair.draws)) {
+          this.setEuromDrawsFromServer(pair.draws);
+          this.rebuildDateDrafts();
+        }
+        this.finalizeEuromAiDraft(mode, includedIds);
+      })
+      .catch(() => {
+        this.finalizeEuromAiDraft(mode, includedIds);
+      });
+  }
+
+  private finalizeEuromAiDraft(mode: 'standard' | 'synthesis', includedIds: string[]): void {
     if (!this.canSendEuromAiPrompt || includedIds.length === 0) {
       return;
     }

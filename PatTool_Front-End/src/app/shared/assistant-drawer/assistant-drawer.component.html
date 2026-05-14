@@ -338,7 +338,6 @@
         type="button"
         class="pat-assistant-expand-draft-btn"
         (click)="openAssistantDraftExpandModal()"
-        [disabled]="loading"
         [title]="'ASSISTANT.DRAFT_EXPAND_HINT' | translate"
         [attr.aria-label]="'ASSISTANT.DRAFT_EXPAND_ARIA' | translate">
         <i class="fa fa-expand" aria-hidden="true"></i>
@@ -509,22 +508,112 @@
       [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
   </div>
   <div class="modal-body pat-assistant-draft-expand-body" [attr.aria-labelledby]="'assistant-draft-expand-title'">
-    <textarea
-      class="form-control pat-assistant-draft-expand-textarea"
-      rows="14"
-      [(ngModel)]="draft"
-      (ngModelChange)="onDraftDebouncedPersist()"
-      [disabled]="loading"
-      [placeholder]="
-        pendingImage
-          ? ('EVENTELEM.SEND_TO_ASSISTANT_PLACEHOLDER' | translate)
-          : chatUserLabel()
-            ? ('ASSISTANT.PLACEHOLDER_NAMED' | translate : { name: chatUserLabel() })
-            : ('ASSISTANT.PLACEHOLDER' | translate)
-      "></textarea>
+    <div class="pat-assistant-draft-expand-editor">
+      <div
+        #draftExpandGutter
+        class="pat-assistant-draft-expand-gutter"
+        aria-hidden="true">{{ draftExpandLineNumbersText }}</div>
+      <textarea
+        #draftExpandTextarea
+        class="form-control pat-assistant-draft-expand-textarea pat-assistant-draft-expand-textarea--modal"
+        rows="22"
+        [(ngModel)]="draft"
+        (ngModelChange)="onDraftExpandContentChange()"
+        (scroll)="onDraftExpandTextareaScroll(draftExpandGutter, $event)"
+        [placeholder]="
+          pendingImage
+            ? ('EVENTELEM.SEND_TO_ASSISTANT_PLACEHOLDER' | translate)
+            : chatUserLabel()
+              ? ('ASSISTANT.PLACEHOLDER_NAMED' | translate : { name: chatUserLabel() })
+              : ('ASSISTANT.PLACEHOLDER' | translate)
+        "></textarea>
+    </div>
   </div>
-  <div class="modal-footer">
-    <button type="button" class="btn btn-primary" (click)="modal.close()">
+  <div
+    class="modal-footer pat-assistant-draft-expand-footer d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <div class="d-flex flex-column flex-grow-1 gap-2 min-w-0" style="min-width: min(100%, 280px)">
+      <div
+        class="small text-muted pat-assistant-draft-expand-foot-lines"
+        [attr.aria-live]="'polite'">
+        {{
+          'ASSISTANT.DRAFT_EXPAND_FOOT_LINES'
+            | translate : { logical: draftExpandLogicalLineCount, wrapped: draftExpandWrappedLineCountForFooter }
+        }}
+      </div>
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <label class="visually-hidden" for="assistant-draft-expand-find-input">{{
+          'ASSISTANT.DRAFT_EXPAND_SEARCH_LABEL' | translate
+        }}</label>
+        <div class="input-group input-group-sm pat-assistant-draft-expand-search-group">
+          <span class="input-group-text" aria-hidden="true"><i class="fa fa-search"></i></span>
+          <input
+            id="assistant-draft-expand-find-input"
+            type="search"
+            autocomplete="off"
+            class="form-control"
+            [(ngModel)]="draftExpandSearchPattern"
+            (ngModelChange)="onDraftExpandSearchControlsChange()"
+            (keydown.enter)="draftExpandSearchNext($event)"
+            [placeholder]="'ASSISTANT.DRAFT_EXPAND_SEARCH_PLACEHOLDER' | translate" />
+        </div>
+        <div class="btn-group btn-group-sm" role="group" [attr.aria-label]="'ASSISTANT.DRAFT_EXPAND_SEARCH_LABEL' | translate">
+          <input
+            type="checkbox"
+            class="btn-check"
+            id="assistant-draft-expand-search-regex"
+            [(ngModel)]="draftExpandSearchAsRegex"
+            (ngModelChange)="onDraftExpandSearchControlsChange()" />
+          <label class="btn btn-outline-secondary mb-0" for="assistant-draft-expand-search-regex">{{
+            'ASSISTANT.DRAFT_EXPAND_SEARCH_REGEX' | translate
+          }}</label>
+          <input
+            type="checkbox"
+            class="btn-check"
+            id="assistant-draft-expand-search-ignorecase"
+            [(ngModel)]="draftExpandSearchIgnoreCase"
+            (ngModelChange)="onDraftExpandSearchControlsChange()" />
+          <label class="btn btn-outline-secondary mb-0" for="assistant-draft-expand-search-ignorecase">{{
+            'ASSISTANT.DRAFT_EXPAND_SEARCH_IGNORE_CASE' | translate
+          }}</label>
+        </div>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          [disabled]="draftExpandSearchInvalid || draftExpandSearchMatchCount === 0"
+          (click)="draftExpandSearchPrev($event)"
+          [title]="'ASSISTANT.DRAFT_EXPAND_SEARCH_PREV' | translate"
+          [attr.aria-label]="'ASSISTANT.DRAFT_EXPAND_SEARCH_PREV' | translate">
+          <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          [disabled]="draftExpandSearchInvalid || draftExpandSearchMatchCount === 0"
+          (click)="draftExpandSearchNext($event)"
+          [title]="'ASSISTANT.DRAFT_EXPAND_SEARCH_NEXT' | translate"
+          [attr.aria-label]="'ASSISTANT.DRAFT_EXPAND_SEARCH_NEXT' | translate">
+          <i class="fa fa-chevron-right" aria-hidden="true"></i>
+        </button>
+        <span
+          class="small text-muted text-nowrap pat-assistant-draft-expand-search-meta"
+          *ngIf="
+            draftExpandSearchPattern.trim() &&
+            !draftExpandSearchInvalid &&
+            draftExpandSearchMatchCount === 0
+          ">
+          {{ 'ASSISTANT.DRAFT_EXPAND_SEARCH_NO_MATCHES' | translate }}
+        </span>
+        <span
+          class="small text-muted text-nowrap pat-assistant-draft-expand-search-meta"
+          *ngIf="draftExpandSearchInvalid">
+          {{ 'ASSISTANT.DRAFT_EXPAND_SEARCH_INVALID' | translate }}
+        </span>
+        <span
+          class="small text-muted text-nowrap pat-assistant-draft-expand-search-meta font-monospace"
+          *ngIf="draftExpandSearchPositionLabel">{{ draftExpandSearchPositionLabel }}</span>
+      </div>
+    </div>
+    <button type="button" class="btn btn-primary flex-shrink-0" (click)="modal.close()">
       {{ 'ASSISTANT.DRAFT_EXPAND_DONE' | translate }}
     </button>
   </div>

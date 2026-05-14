@@ -1216,9 +1216,118 @@ a.pat-assistant-brave-search.pat-assistant-header-btn .fa {
   padding-top: 0.75rem;
 }
 
-.pat-assistant-draft-expand-textarea {
-  min-height: min(50vh, 28rem);
+/* Conteneur gouttière + textarea ; numeros = lignes logiques (\n) ; avec retour automatique la hauteur de ligne visuelle peut différer du gutter. */
+.pat-assistant-draft-expand-editor {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  width: 100%;
+  min-height: min(72vh, 42rem);
+  border: 1px solid var(--bs-border-color, #ced4da);
+  border-radius: 0.375rem;
+  overflow: hidden;
+  background: var(--bs-body-bg);
+  box-sizing: border-box;
+}
+
+.pat-assistant-draft-expand-gutter {
+  flex: 0 0 auto;
+  width: min(7ch, max(13vw, 2.85rem));
+  min-width: 2.85rem;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0.5625rem 0.375rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  white-space: pre;
+  tab-size: var(--assistant-draft-tab-size, 2);
+  text-align: right;
+  vertical-align: top;
+  border: none;
+  border-right: 1px solid var(--bs-border-color-translucent, rgba(33, 37, 41, 0.15));
+  background: rgba(248, 249, 250, 0.95);
+  color: rgba(106, 105, 111, 0.95);
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    'Liberation Mono',
+    'Courier New',
+    monospace;
+  font-size: 0.875rem;
+  line-height: 1.5715;
+  user-select: none;
+  caret-color: transparent;
+}
+
+.pat-assistant-draft-expand-gutter::-webkit-scrollbar {
+  display: none;
+}
+
+.pat-assistant-draft-expand-textarea.pat-assistant-draft-expand-textarea--modal {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: auto;
+  align-self: stretch;
   resize: vertical;
+  min-height: min(72vh, 42rem);
+  padding: 0.5625rem 0.75rem;
+  border: none;
+  border-radius: 0;
+  caret-color: var(--bs-body-color);
+  opacity: 1;
+  pointer-events: auto;
+  tab-size: var(--assistant-draft-tab-size, 2);
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    'Liberation Mono',
+    'Courier New',
+    monospace;
+  font-size: 0.875rem;
+  line-height: 1.5715;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  overflow-x: hidden;
+}
+
+.pat-assistant-draft-expand-textarea.pat-assistant-draft-expand-textarea--modal:focus {
+  box-shadow: inset 0 0 0 1px var(--bs-primary, #86b7fe);
+  outline: none;
+}
+
+.pat-assistant-draft-expand-footer {
+  border-top: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+.pat-assistant-draft-expand-search-group {
+  min-width: min(11rem, 100%);
+  flex: 1 1 auto;
+  max-width: min(100%, 28rem);
+}
+
+.pat-assistant-draft-expand-foot-lines {
+  line-height: 1.35;
+}
+
+.pat-assistant-draft-expand-search-meta.font-monospace {
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    'Liberation Mono',
+    'Courier New',
+    monospace;
 }
 
 .pat-assistant-copy-draft-btn {

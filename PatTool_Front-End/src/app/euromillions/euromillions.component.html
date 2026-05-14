@@ -271,8 +271,14 @@
                 {{ 'EUROMILLIONS.MONTH_COUNT_BUTTON' | translate }}
               </button>
             </div>
-            <div class="small text-muted d-flex align-items-center text-nowrap ms-auto">
-              {{ 'EUROMILLIONS.FILTER_COUNT' | translate: { shown: displayedDraws.length, total: draws.length } }}
+            <div class="small text-muted d-flex flex-column align-items-end gap-1 text-nowrap ms-auto">
+              <span>{{
+                'EUROMILLIONS.FILTER_COUNT' | translate: { shown: displayedDraws.length, total: draws.length }
+              }}</span>
+              <span>{{
+                'EUROMILLIONS.FILTER_DRAW_COUNT_AI_SCOPE'
+                  | translate: { count: euromDrawCountSinceAssistantBound, since: euromAiMinInclusiveDay }
+              }}</span>
             </div>
           </div>
         </div>
@@ -322,7 +328,8 @@
               <tr *ngIf="displayedDraws.length === 0">
                 <td colspan="4" class="text-center text-muted py-4">{{ 'EUROMILLIONS.FILTER_EMPTY' | translate }}</td>
               </tr>
-              <tr *ngFor="let row of displayedDraws">
+              <tr
+                *ngFor="let row of displayedDraws">
                 <td>
                   <ng-container *ngIf="canEditDrawDates && dateEditMode && row.drawCode; else euromDateReadonly">
                     <div class="d-flex flex-wrap gap-1 align-items-center eurom-date-edit-row">
@@ -352,7 +359,7 @@
                       [attr.title]="'EUROMILLIONS.STAR_BALL_HINT' | translate">{{ s }}</span>
                   </div>
                 </td>
-                <td class="d-none d-md-table-cell">{{ row.gainDisplay || '—' }}</td>
+                <td class="d-none d-md-table-cell eurom-gain-cell">{{ euromFormattedGainDisplay(row) }}</td>
                 <td class="d-none d-md-table-cell small"><code>{{ row.drawCode }}</code></td>
               </tr>
             </tbody>

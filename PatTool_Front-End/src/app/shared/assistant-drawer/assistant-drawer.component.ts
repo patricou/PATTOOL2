@@ -123,6 +123,7 @@ export class AssistantDrawerComponent
   @ViewChild('imageCompressionModal') imageCompressionModal!: TemplateRef<unknown>;
   @ViewChild('assistantToolsHelpModal') assistantToolsHelpModal!: TemplateRef<unknown>;
   @ViewChild('assistantDraftExpandModal') assistantDraftExpandModal!: TemplateRef<unknown>;
+  @ViewChild('draftExpandTextarea') draftExpandTextareaModalEl?: ElementRef<HTMLTextAreaElement>;
   @ViewChild('assistantHistoryModal') assistantHistoryModal!: TemplateRef<unknown>;
   /** Référence à l'instance du slideshow partagé (même viewer que pour les évènements). */
   @ViewChild('slideshowModalComponent') slideshowModalComponent?: SlideshowModalComponent;
@@ -256,6 +257,22 @@ export class AssistantDrawerComponent
   isOpen = false;
   fullscreen = false;
   draft = '';
+  /** Nombre de lignes visuelles (retours automatiques inclus) pour la gouttière de la modale « Rédiger ». */
+  draftExpandVisualLineCount = 0;
+  /** True tant que la modale d’édition du brouillon est ouverte (recalcul gouttière au resize fenêtre). */
+  private draftExpandModalOpen = false;
+  /** Div hors écran pour mesurer la hauteur du texte avec le même wrapping que le textarea. */
+  private draftExpandMeasureDiv: HTMLDivElement | null = null;
+  private draftExpandGutterResizeRaf: number | null = null;
+  /** Pied de modale « Rédiger » : recherche dans le brouillon. */
+  draftExpandSearchPattern = '';
+  draftExpandSearchAsRegex = false;
+  draftExpandSearchIgnoreCase = true;
+  draftExpandSearchMatchCount = 0;
+  draftExpandSearchInvalid = false;
+  /** Index dans {@link draftExpandSearchMatches}; -1 = aucune occurrence sélectionnée. */
+  draftExpandSearchActiveIdx = -1;
+  draftExpandSearchMatches: Array<{ start: number; end: number }> = [];
   loading = false;
   /** Temps écoulé pendant l’attente de réponse (rafraîchi pendant {@link loading}). */
   loadingElapsedMs = 0;
@@ -1377,6 +1394,14 @@ export class AssistantDrawerComponent
       }
       this.assistantHistoryModalRef = null;
     }
+    if (this.draftExpandGutterResizeRaf !== null) {
+      cancelAnimationFrame(this.draftExpandGutterResizeRaf);
+      this.draftExpandGutterResizeRaf = null;
+    }
+    if (this.draftExpandMeasureDiv) {
+      this.draftExpandMeasureDiv.remove();
+      this.draftExpandMeasureDiv = null;
+    }
   }
 
   /** sessionStorage pour cet utilisateur jusqu’à fermeture de l’onglet. */
@@ -2007,6 +2032,14 @@ export class AssistantDrawerComponent
     this.close();
   }
 
+  @HostListener('window:resize')
+  onWindowResizeDraftExpandGutter(): void {
+    if (!this.draftExpandModalOpen) {
+      return;
+    }
+    this.scheduleRefreshDraftExpandVisualLineCount();
+  }
+
   clearThread(): void {
     this.revokeAssistantHydratedBlobs();
     this.messages = [];
@@ -2034,20 +2067,267 @@ export class AssistantDrawerComponent
   }
 
   openAssistantDraftExpandModal(): void {
-    if (this.loading) {
-      return;
-    }
+    this.resetDraftExpandSearchUi();
+    this.draftExpandModalOpen = true;
+    this.draftExpandVisualLineCount = 0;
     const ref = this.modalService.open(this.assistantDraftExpandModal, {
       centered: true,
       scrollable: true,
-      size: 'lg',
+      size: 'xl',
       windowClass: 'assistant-draft-expand-modal'
     });
     void ref.result.finally(() => {
+      this.draftExpandModalOpen = false;
+      this.draftExpandVisualLineCount = 0;
       this.onDraftDebouncedPersist();
       this.cdr.markForCheck();
       queueMicrotask(() => this.draftInputEl?.nativeElement?.focus());
     });
+    queueMicrotask(() =>
+      setTimeout(() => {
+        this.draftExpandTextareaModalEl?.nativeElement?.focus();
+        this.scheduleRefreshDraftExpandVisualLineCount();
+      }, 120)
+    );
+    setTimeout(() => this.scheduleRefreshDraftExpandVisualLineCount(), 400);
+  }
+
+  /** Saisie dans la modale : persistance + numéros de lignes (wrapping). */
+  onDraftExpandContentChange(): void {
+    this.onDraftDebouncedPersist();
+    this.scheduleRefreshDraftExpandVisualLineCount();
+    this.rebuildDraftExpandSearchMatches();
+  }
+
+  private resetDraftExpandSearchUi(): void {
+    this.draftExpandSearchPattern = '';
+    this.draftExpandSearchAsRegex = false;
+    this.draftExpandSearchIgnoreCase = true;
+    this.draftExpandSearchMatches = [];
+    this.draftExpandSearchMatchCount = 0;
+    this.draftExpandSearchActiveIdx = -1;
+    this.draftExpandSearchInvalid = false;
+  }
+
+  onDraftExpandSearchControlsChange(): void {
+    this.rebuildDraftExpandSearchMatches();
+    this.cdr.markForCheck();
+  }
+
+  private escapeDraftExpandRegExpChars(s: string): string {
+    return s.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+  }
+
+  private rebuildDraftExpandSearchMatches(): void {
+    const raw = typeof this.draft === 'string' ? this.draft : '';
+    const trimmed = this.draftExpandSearchPattern.trim();
+    this.draftExpandSearchMatches = [];
+    this.draftExpandSearchActiveIdx = -1;
+    this.draftExpandSearchInvalid = false;
+    if (!trimmed) {
+      this.draftExpandSearchMatchCount = 0;
+      return;
+    }
+    try {
+      const flags = `g${this.draftExpandSearchIgnoreCase ? 'i' : ''}`;
+      const re = this.draftExpandSearchAsRegex
+        ? new RegExp(trimmed, flags)
+        : new RegExp(this.escapeDraftExpandRegExpChars(trimmed), flags);
+      let guard = 0;
+      const maxIter = 500_000;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(raw)) !== null && guard < maxIter) {
+        guard++;
+        const start = m.index;
+        const len = m[0].length;
+        if (len === 0) {
+          const bump = start + 1;
+          if (bump > raw.length) {
+            break;
+          }
+          re.lastIndex = bump;
+          continue;
+        }
+        this.draftExpandSearchMatches.push({ start, end: start + len });
+      }
+      this.draftExpandSearchMatchCount = this.draftExpandSearchMatches.length;
+    } catch {
+      this.draftExpandSearchInvalid = true;
+      this.draftExpandSearchMatchCount = 0;
+      this.draftExpandSearchMatches = [];
+    }
+  }
+
+  draftExpandSearchNext(ev?: Event): void {
+    ev?.preventDefault();
+    const hits = this.draftExpandSearchMatches;
+    if (!hits.length || this.draftExpandSearchInvalid) {
+      return;
+    }
+    const next =
+      this.draftExpandSearchActiveIdx < 0
+        ? 0
+        : (this.draftExpandSearchActiveIdx + 1) % hits.length;
+    this.draftExpandSearchActiveIdx = next;
+    this.draftExpandApplySearchHit(next);
+  }
+
+  draftExpandSearchPrev(ev?: Event): void {
+    ev?.preventDefault();
+    const hits = this.draftExpandSearchMatches;
+    if (!hits.length || this.draftExpandSearchInvalid) {
+      return;
+    }
+    const prev =
+      this.draftExpandSearchActiveIdx <= 0
+        ? hits.length - 1
+        : this.draftExpandSearchActiveIdx - 1;
+    this.draftExpandSearchActiveIdx = prev;
+    this.draftExpandApplySearchHit(prev);
+  }
+
+  /** @param gutterEl passer le bloc gouttière si connu pour synchroniser le scroll (évite drift). */
+  private draftExpandScrollToHitWithGutter(
+    ta: HTMLTextAreaElement,
+    gutterEl: HTMLElement | null,
+    hit: { start: number; end: number }
+  ): void {
+    const before = ta.value.slice(0, hit.start);
+    const lh = this.resolveTextareaLineHeightPx(ta);
+    const lineStarts = before.split(/\n/).length - 1;
+    const rough = Math.max(0, lineStarts * lh * 0.85 - ta.clientHeight * 0.35);
+    ta.scrollTop = Math.min(rough, Math.max(0, ta.scrollHeight - ta.clientHeight));
+    try {
+      ta.setSelectionRange(hit.start, hit.end);
+    } catch {
+      /* ignore */
+    }
+    if (gutterEl) {
+      gutterEl.scrollTop = ta.scrollTop;
+    }
+  }
+
+  private draftExpandApplySearchHit(idx: number): void {
+    const hit = this.draftExpandSearchMatches[idx];
+    const ta = this.draftExpandTextareaModalEl?.nativeElement;
+    if (!hit || !ta) {
+      return;
+    }
+    const gutter = ta.closest('.pat-assistant-draft-expand-editor')?.querySelector(
+      '.pat-assistant-draft-expand-gutter'
+    ) as HTMLElement | null;
+    ta.focus({ preventScroll: false });
+    queueMicrotask(() => this.draftExpandScrollToHitWithGutter(ta, gutter, hit));
+  }
+
+  private scheduleRefreshDraftExpandVisualLineCount(): void {
+    if (this.draftExpandGutterResizeRaf !== null) {
+      cancelAnimationFrame(this.draftExpandGutterResizeRaf);
+    }
+    this.draftExpandGutterResizeRaf = requestAnimationFrame(() => {
+      this.draftExpandGutterResizeRaf = null;
+      this.refreshDraftExpandVisualLineCount();
+      requestAnimationFrame(() => this.refreshDraftExpandVisualLineCount());
+    });
+  }
+
+  private resolveTextareaLineHeightPx(el: HTMLTextAreaElement): number {
+    const lhStr = getComputedStyle(el).lineHeight;
+    if (lhStr === 'normal') {
+      const fz = parseFloat(getComputedStyle(el).fontSize) || 14;
+      return fz * 1.5715;
+    }
+    const lh = parseFloat(lhStr);
+    const fz = parseFloat(getComputedStyle(el).fontSize) || 14;
+    return Number.isFinite(lh) && lh > 0 ? lh : fz * 1.5715;
+  }
+
+  private getOrCreateDraftExpandMeasureDiv(): HTMLDivElement {
+    if (this.draftExpandMeasureDiv) {
+      return this.draftExpandMeasureDiv;
+    }
+    const d = document.createElement('div');
+    d.setAttribute('aria-hidden', 'true');
+    d.style.cssText =
+      'position:absolute;left:-99999px;top:0;visibility:hidden;pointer-events:none;overflow:hidden;height:auto;';
+    document.body.appendChild(d);
+    this.draftExpandMeasureDiv = d;
+    return d;
+  }
+
+  /** Met à jour {@link draftExpandVisualLineCount} (lignes après retour automatique dans le textarea). */
+  private refreshDraftExpandVisualLineCount(): void {
+    const ta = this.draftExpandTextareaModalEl?.nativeElement;
+    if (!ta) {
+      return;
+    }
+    const d = this.getOrCreateDraftExpandMeasureDiv();
+    const cs = getComputedStyle(ta);
+    d.style.width = `${ta.clientWidth}px`;
+    d.style.boxSizing = cs.boxSizing;
+    d.style.fontFamily = cs.fontFamily;
+    d.style.fontSize = cs.fontSize;
+    d.style.fontWeight = cs.fontWeight;
+    d.style.fontStyle = cs.fontStyle;
+    d.style.letterSpacing = cs.letterSpacing;
+    d.style.textTransform = cs.textTransform;
+    d.style.lineHeight = cs.lineHeight;
+    d.style.padding = cs.padding;
+    d.style.border = cs.border;
+    d.style.whiteSpace = 'pre-wrap';
+    d.style.overflowWrap = cs.overflowWrap;
+    d.style.wordBreak = cs.wordBreak;
+    d.style.tabSize = cs.tabSize || '2';
+    d.textContent = ta.value;
+    const lh = this.resolveTextareaLineHeightPx(ta);
+    const h = Math.max(lh, d.scrollHeight);
+    const n = Math.max(1, Math.ceil(h / lh - 1e-9));
+    if (this.draftExpandVisualLineCount !== n) {
+      this.draftExpandVisualLineCount = n;
+      this.cdr.markForCheck();
+    }
+  }
+
+  onDraftExpandTextareaScroll(gutterEl: HTMLElement, ev: Event): void {
+    const ta = ev.target;
+    if (gutterEl && ta instanceof HTMLTextAreaElement) {
+      gutterEl.scrollTop = ta.scrollTop;
+    }
+  }
+
+  /** Texte lignes « 1 », « 2 », … : max(lignes `\n`, lignes visuelles mesurées avec wrapping). */
+  get draftExpandLineNumbersText(): string {
+    const text = typeof this.draft === 'string' ? this.draft : '';
+    const logicalLines = Math.max(1, text.split('\n').length);
+    const n = Math.max(logicalLines, this.draftExpandVisualLineCount);
+    return Array.from({ length: n }, (_, i) => String(i + 1)).join('\n');
+  }
+
+  /** Nombre de lignes délimitées par des sauts de ligne (affichage pied de modale). */
+  get draftExpandLogicalLineCount(): number {
+    const t = typeof this.draft === 'string' ? this.draft : '';
+    return Math.max(1, t.split('\n').length);
+  }
+
+  /** Lignes à l’écran (après wrap), pour le pied de modale ; si pas encore mesuré (0), on retombe sur les lignes logiques. */
+  get draftExpandWrappedLineCountForFooter(): number {
+    const logical = this.draftExpandLogicalLineCount;
+    const vis = this.draftExpandVisualLineCount;
+    return vis > 0 ? Math.max(logical, vis) : logical;
+  }
+
+  get draftExpandSearchPositionLabel(): string {
+    if (this.draftExpandSearchInvalid || !this.draftExpandSearchPattern.trim()) {
+      return '';
+    }
+    const total = this.draftExpandSearchMatchCount;
+    if (total <= 0) {
+      return '';
+    }
+    if (this.draftExpandSearchActiveIdx >= 0) {
+      return `${this.draftExpandSearchActiveIdx + 1} / ${total}`;
+    }
+    return `— / ${total}`;
   }
 
   toggleAssistantToolsHelpFullscreen(): void {

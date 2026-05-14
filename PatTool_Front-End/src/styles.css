@@ -215,6 +215,17 @@ body .modal.assistant-history-modal.show .modal-dialog {
     margin: 0.75rem auto !important;
 }
 
+/* Modale « Rédiger la question » (assistant) : plus large que lg/xl Bootstrap seul. */
+body .modal.show.assistant-draft-expand-modal .modal-dialog,
+body .modal.fade.show.assistant-draft-expand-modal .modal-dialog,
+body .modal.assistant-draft-expand-modal.show .modal-dialog,
+body ngb-modal-window.modal.show.assistant-draft-expand-modal .modal-dialog,
+body ngb-modal-window.modal.assistant-draft-expand-modal.show .modal-dialog {
+    max-width: min(1320px, 98vw) !important;
+    width: 100% !important;
+    margin: 0.75rem auto !important;
+}
+
 body .modal.show.assistant-history-modal .modal-dialog > .modal-content,
 body .modal.fade.show.assistant-history-modal .modal-dialog > .modal-content,
 body .modal.assistant-history-modal.show .modal-dialog > .modal-content,

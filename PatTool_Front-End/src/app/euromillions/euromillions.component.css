@@ -51,6 +51,13 @@
   vertical-align: middle;
 }
 
+.eurom-gain-cell {
+  font-variant-numeric: tabular-nums;
+  white-space: normal;
+  word-break: break-word;
+  max-width: 16rem;
+}
+
 .eurom-balls {
   display: flex;
   flex-wrap: wrap;
