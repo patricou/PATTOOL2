@@ -135,6 +135,13 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     /** Évite double ouverture si {@code select} et {@code dateClick} se déclenchent de près (mobile). */
     private lastNewAppointmentModalOpenedAt = 0;
 
+    /**
+     * Couche de chargement sur la grille : les deux {@code eventSources} FullCalendar (entrées + fériés)
+     * doivent avoir terminé avant de masquer le spinner.
+     */
+    calendarGridLoading = true;
+    private calendarSourceFetchDepth = 0;
+
     calendarOptions!: CalendarOptions;
     errorMessage = '';
     reminderMailSuccessMessage = '';
@@ -905,7 +912,10 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
              */
             eventSources: [
                 (info, successCallback, failureCallback) => {
-                    this.calendarService.getEntries(info.start, info.end).subscribe({
+                    this.onCalendarSourceFetchStart();
+                    this.calendarService.getEntries(info.start, info.end).pipe(
+                        finalize(() => this.onCalendarSourceFetchEnd())
+                    ).subscribe({
                         next: entries => {
                             this.errorMessage = '';
                             this.applyThumbnailNeededIdsFromEntries(entries);
@@ -921,9 +931,12 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
                     });
                 },
                 (info, successCallback, _failureCallback) => {
+                    this.onCalendarSourceFetchStart();
                     const rawCc = (this.holidayCountryCode || 'FR').trim().toUpperCase();
                     const cc = /^[A-Z]{2}$/.test(rawCc) ? rawCc : 'FR';
-                    this.holidaysForCalendarRange$(info.start, info.end).subscribe({
+                    this.holidaysForCalendarRange$(info.start, info.end).pipe(
+                        finalize(() => this.onCalendarSourceFetchEnd())
+                    ).subscribe({
                         next: holidays => {
                             successCallback(this.mapPublicHolidaysToEvents(holidays, cc));
                             this.cdr.markForCheck();
@@ -1700,6 +1713,23 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
             this.thumbUiRafId = null;
             this.cdr.markForCheck();
         });
+    }
+
+    private onCalendarSourceFetchStart(): void {
+        const wasIdle = this.calendarSourceFetchDepth === 0;
+        this.calendarSourceFetchDepth++;
+        if (wasIdle) {
+            this.calendarGridLoading = true;
+        }
+        this.cdr.markForCheck();
+    }
+
+    private onCalendarSourceFetchEnd(): void {
+        this.calendarSourceFetchDepth = Math.max(0, this.calendarSourceFetchDepth - 1);
+        if (this.calendarSourceFetchDepth === 0) {
+            this.calendarGridLoading = false;
+        }
+        this.cdr.markForCheck();
     }
 
     private loadFriendGroupsForCalendar(): void {

@@ -31,7 +31,9 @@ public class AssistantModelsCatalogService {
 
     private static final Logger log = LoggerFactory.getLogger(AssistantModelsCatalogService.class);
 
-    private final RestTemplate restTemplate;
+    private final RestTemplate openAiRestTemplate;
+    private final RestTemplate anthropicRestTemplate;
+    private final RestTemplate geminiRestTemplate;
     private final ObjectMapper objectMapper;
 
     @Value("${openai.key:}")
@@ -56,9 +58,13 @@ public class AssistantModelsCatalogService {
     private String geminiApiBase;
 
     public AssistantModelsCatalogService(
-            @Qualifier("openAiRestTemplate") RestTemplate restTemplate,
+            @Qualifier("openAiRestTemplate") RestTemplate openAiRestTemplate,
+            @Qualifier("anthropicRestTemplate") RestTemplate anthropicRestTemplate,
+            @Qualifier("geminiRestTemplate") RestTemplate geminiRestTemplate,
             ObjectMapper objectMapper) {
-        this.restTemplate = restTemplate;
+        this.openAiRestTemplate = openAiRestTemplate;
+        this.anthropicRestTemplate = anthropicRestTemplate;
+        this.geminiRestTemplate = geminiRestTemplate;
         this.objectMapper = objectMapper;
     }
 
@@ -81,7 +87,7 @@ public class AssistantModelsCatalogService {
             HttpHeaders headers = new HttpHeaders();
             headers.setBearerAuth(openaiKey.trim());
             ResponseEntity<String> res =
-                    restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+                    openAiRestTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), String.class);
             if (!res.getStatusCode().is2xxSuccessful() || res.getBody() == null) {
                 return List.of();
             }
@@ -198,7 +204,7 @@ public class AssistantModelsCatalogService {
                 headers.set("x-api-key", anthropicKey.trim());
                 headers.set("anthropic-version", anthropicVersion != null ? anthropicVersion.trim() : "2023-06-01");
                 ResponseEntity<String> res =
-                        restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+                        anthropicRestTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), String.class);
                 if (!res.getStatusCode().is2xxSuccessful() || res.getBody() == null) {
                     break;
                 }
@@ -262,7 +268,7 @@ public class AssistantModelsCatalogService {
                     ub.queryParam("pageToken", pageToken);
                 }
                 String url = ub.build().encode().toUriString();
-                ResponseEntity<String> res = restTemplate.exchange(url, HttpMethod.GET, HttpEntity.EMPTY, String.class);
+                ResponseEntity<String> res = geminiRestTemplate.exchange(url, HttpMethod.GET, HttpEntity.EMPTY, String.class);
                 if (!res.getStatusCode().is2xxSuccessful() || res.getBody() == null) {
                     break;
                 }

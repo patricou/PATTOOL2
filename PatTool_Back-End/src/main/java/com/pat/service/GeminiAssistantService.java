@@ -87,7 +87,7 @@ public class GeminiAssistantService {
     private int geminiThinkingBudget;
 
     public GeminiAssistantService(
-            @Qualifier("openAiRestTemplate") RestTemplate restTemplate,
+            @Qualifier("geminiRestTemplate") RestTemplate restTemplate,
             ObjectMapper objectMapper) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
@@ -237,7 +237,7 @@ public class GeminiAssistantService {
                 if (cause instanceof java.net.SocketTimeoutException) {
                     return AssistantChatResponseDto.err(
                             "Délai d’attente dépassé en lisant la réponse Gemini. "
-                                    + "Augmentez openai.http.read-timeout-seconds si besoin. Réessayez.");
+                                    + "Augmentez gemini.http.read-timeout-seconds si besoin. Réessayez.");
                 }
                 return AssistantChatResponseDto.err(
                         "Impossible de joindre le fournisseur IA (Gemini). Réessayez plus tard.");

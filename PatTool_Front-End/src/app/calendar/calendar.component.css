@@ -116,8 +116,26 @@
 }
 
 .calendar-fc-wrap {
+    position: relative;
     max-width: 1400px;
     margin: 0 auto;
+}
+
+.pat-cal-grid-loading-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgb(255 255 255 / 0.72);
+    backdrop-filter: blur(1px);
+    pointer-events: all;
+}
+
+.pat-cal-grid-loading-spinner {
+    width: 2.75rem;
+    height: 2.75rem;
 }
 
 .pat-cal-holidays-bar {

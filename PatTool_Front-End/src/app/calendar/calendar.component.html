@@ -17,6 +17,10 @@
   <div *ngIf="errorMessage" class="alert alert-danger py-2 mb-2">{{ errorMessage | translate }}</div>
 
   <div class="calendar-fc-wrap">
+    <div *ngIf="calendarGridLoading" class="pat-cal-grid-loading-overlay" role="status" aria-live="polite">
+      <div class="spinner-border text-primary pat-cal-grid-loading-spinner" aria-hidden="true"></div>
+      <span class="visually-hidden">{{ 'COMMUN.LOADING' | translate }}</span>
+    </div>
     <full-calendar #fc [options]="calendarOptions">
       <ng-template #eventContent let-arg>
         @let ext = $any(arg.event.extendedProps);

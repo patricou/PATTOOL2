@@ -43,14 +43,21 @@ app.mailsentfrom=
 app.mailsentto=
 app.sendmail=false
 
-# --- OpenAI assistant (HTTP timeouts required for openAiRestTemplate) ---
+# --- OpenAI assistant ---
 openai.api=https://api.openai.com/v1/chat/completions
 openai.key=
 openai.assistant.model=gpt-4o-mini
 openai.assistant.max-tokens=8192
-openai.http.connect-timeout-seconds=30
-openai.http.read-timeout-seconds=120
+# Délais connexion et lecture HTTP vers l’API OpenAI (billing, liste modèles, chat assistant).
+openai.http.connect-timeout-seconds=300
+openai.http.read-timeout-seconds=300
 openai.billing.credit-grants-url=https://api.openai.com/v1/dashboard/billing/credit_grants
+
+# --- Assistant Anthropic & Google Gemini (timeouts HTTP dédiés côté serveur ; voir application-assistant.example.properties pour les clés API) ---
+anthropic.http.connect-timeout-seconds=300
+anthropic.http.read-timeout-seconds=300
+gemini.http.connect-timeout-seconds=300
+gemini.http.read-timeout-seconds=300
 
 # --- IoT gate / ESP (HomeIOTService beans: no defaults in code) ---
 app.arduino.ip=192.168.1.65

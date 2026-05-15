@@ -195,6 +195,7 @@ public class SecurityConfig {
                 
                 // Geo: geocode and altitudes (no sensitive data, allow without login for address/map tools)
                 .requestMatchers(HttpMethod.GET, "/api/external/geocode/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/globe/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/weather/altitudes").permitAll()
 
                 // News image proxy: <img src> tags cannot send a JWT. The proxy

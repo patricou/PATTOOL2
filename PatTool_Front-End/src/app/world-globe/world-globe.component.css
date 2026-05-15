@@ -1,0 +1,99 @@
+.world-globe-page {
+  max-width: 1650px;
+  margin-inline: auto;
+}
+
+.world-globe-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: stretch;
+  background: radial-gradient(120% 100% at 50% 0%, #141b3a 0%, #020510 72%);
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  min-height: min(74vh, 780px);
+  position: relative;
+}
+
+@media (min-width: 992px) {
+  .world-globe-shell {
+    flex-direction: row;
+  }
+}
+
+.world-globe-shell--fs {
+  min-height: 100%;
+  border-radius: 0;
+}
+
+.world-globe-panel {
+  background: rgba(255, 255, 255, 0.97);
+}
+
+@media (min-width: 992px) {
+  .world-globe-panel {
+    width: min(305px, 36vw);
+  }
+}
+
+.world-globe-canvas-column {
+  position: relative;
+}
+
+.world-globe-canvas-host {
+  min-height: min(62vh, 640px);
+  background: radial-gradient(circle at 50% 40%, rgba(40, 60, 120, 0.35), transparent 60%);
+  outline: none;
+}
+
+.world-globe-canvas-host canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 0.35rem;
+  vertical-align: top;
+}
+
+.world-globe-fab-hide {
+  position: absolute;
+  top: 0.35rem;
+  left: 0.35rem;
+  opacity: 0.88;
+}
+
+.world-globe-shell--fs .world-globe-canvas-host {
+  min-height: calc(100vh - 140px);
+}
+
+.world-globe-shell--fs .world-globe-canvas-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.world-globe-detail-map-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  align-items: flex-end;
+  justify-content: stretch;
+  pointer-events: none;
+  padding: 0.35rem;
+}
+
+.world-globe-detail-map-card {
+  pointer-events: auto;
+  width: 100%;
+  max-height: min(56vh, 600px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.world-globe-detail-map-host {
+  height: min(48vh, 500px);
+  min-height: 220px;
+  width: 100%;
+  background: #e8eef2;
+}

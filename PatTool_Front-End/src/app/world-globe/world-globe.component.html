@@ -1,0 +1,187 @@
+<div class="pat-title px-3">
+  <h2>{{ 'WORLD_GLOBE.TITLE' | translate }}</h2>
+</div>
+
+<div class="world-globe-page container-fluid px-3 px-lg-4 pb-4">
+  <p class="text-secondary small mb-3">{{ 'WORLD_GLOBE.SUBTITLE' | translate }}</p>
+
+  <div class="alert alert-warning mb-3 py-2 small" role="alert" *ngIf="textureLoadError">
+    <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+    {{ 'WORLD_GLOBE.TEXTURE_LOAD_ERROR' | translate }}
+  </div>
+
+  <p class="text-muted small mb-2">
+    <i class="fa fa-arrows me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.HINT_DRAG' | translate }}
+  </p>
+
+  <div #globeShell class="world-globe-shell" [class.world-globe-shell--fs]="fullscreen">
+    <aside class="world-globe-panel card shadow-sm border-0 flex-shrink-0" *ngIf="showOptionsPanel">
+      <div class="card-body py-3">
+        <h3 class="h6 fw-semibold mb-3">{{ 'WORLD_GLOBE.PANEL_TOGGLE' | translate }}</h3>
+        <div class="form-check form-switch mb-2">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            id="wgSat"
+            [(ngModel)]="basemapSatellite"
+            (ngModelChange)="onBasemapChange()" />
+          <label class="form-check-label" for="wgSat">{{ 'WORLD_GLOBE.BASEMAP_SATELLITE' | translate }}</label>
+        </div>
+        <div class="form-check form-switch mb-2">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            id="wgDayNight"
+            [(ngModel)]="realTimeTerminator"
+            (ngModelChange)="onGlobeLightingModeChange()" />
+          <label
+            class="form-check-label"
+            for="wgDayNight"
+            [attr.title]="'WORLD_GLOBE.LIGHT_REALISTIC_HINT' | translate">
+            {{ 'WORLD_GLOBE.LIGHT_REALISTIC_DAY_NIGHT' | translate }}</label>
+        </div>
+        <div class="form-check form-switch mb-2">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            id="wgWxSat"
+            [(ngModel)]="weatherImageryEnabled"
+            (ngModelChange)="onWeatherImageryToggle()"
+            [disabled]="weatherImageryLoading" />
+          <label class="form-check-label" for="wgWxSat">{{ 'WORLD_GLOBE.LAYER_WEATHER_VIIRS' | translate }}</label>
+        </div>
+        <div class="small text-muted mb-2" *ngIf="weatherImageryLoading">{{ 'WORLD_GLOBE.WEATHER_LOADING' | translate }}</div>
+        <div class="alert alert-warning py-1 px-2 small mb-2" *ngIf="weatherImageryFailed">{{ 'WORLD_GLOBE.WEATHER_FAILED' | translate }}</div>
+
+        <div class="form-check form-switch mb-2">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            id="wgActLay"
+            [(ngModel)]="activityLayerVisible"
+            (ngModelChange)="onActivityLayerToggle()" />
+          <label class="form-check-label" for="wgActLay">{{ 'WORLD_GLOBE.LAYER_ACTIVITY_TRACE' | translate }}</label>
+        </div>
+        <button
+          type="button"
+          class="btn btn-outline-success btn-sm mb-2 w-100 text-start"
+          (click)="loadActivitiesOnGlobe()"
+          [disabled]="activitiesLoading">
+          <span *ngIf="!activitiesLoading">{{ 'WORLD_GLOBE.LOAD_ACTIVITIES' | translate }}</span>
+          <span *ngIf="activitiesLoading">{{ 'WORLD_GLOBE.ACTIVITIES_LOADING' | translate }}</span>
+        </button>
+        <p class="small text-secondary mb-2" *ngIf="activitiesBanner === 'login'">{{ 'WORLD_GLOBE.ACTIVITIES_NEED_LOGIN' | translate }}</p>
+        <p class="small text-secondary mb-2" *ngIf="activitiesBanner === 'none'">{{ 'WORLD_GLOBE.ACTIVITIES_NONE' | translate }}</p>
+        <p class="small text-success mb-2" *ngIf="activitiesBanner === 'done'">
+          {{
+            'WORLD_GLOBE.ACTIVITIES_DONE'
+              | translate : { placed: activitiesPlaced, skipped: activitiesSkipped }
+          }}
+        </p>
+        <p class="small text-danger mb-2" *ngIf="activitiesBanner === 'error'">{{ 'WORLD_GLOBE.ACTIVITIES_ERROR' | translate }}</p>
+
+        <div class="form-check form-switch mb-2">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            id="wgClouds"
+            [(ngModel)]="cloudsEnabled"
+            (ngModelChange)="onCloudsToggle()" />
+          <label class="form-check-label" for="wgClouds">{{ 'WORLD_GLOBE.LAYER_CLOUDS' | translate }}</label>
+        </div>
+        <div class="form-check form-switch mb-2">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            id="wgStars"
+            [(ngModel)]="starsEnabled"
+            (ngModelChange)="onStarsToggle()" />
+          <label class="form-check-label" for="wgStars">{{ 'WORLD_GLOBE.LAYER_STARS' | translate }}</label>
+        </div>
+        <div class="form-check form-switch mb-2">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            id="wgMarkers"
+            [(ngModel)]="demoMarkersEnabled"
+            (ngModelChange)="onMarkersToggle()" />
+          <label class="form-check-label" for="wgMarkers">{{ 'WORLD_GLOBE.DEMO_MARKERS' | translate }}</label>
+        </div>
+        <div class="form-check form-switch mb-3">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            id="wgAuto"
+            [(ngModel)]="autoRotate"
+            (ngModelChange)="onAutoRotateToggle()" />
+          <label class="form-check-label" for="wgAuto">{{ 'WORLD_GLOBE.AUTO_ROTATE' | translate }}</label>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="resetCamera()">
+            {{ 'WORLD_GLOBE.RESET_VIEW' | translate }}
+          </button>
+          <button type="button" class="btn btn-outline-primary btn-sm" (click)="toggleFullscreen()">
+            <ng-container *ngIf="!fullscreen">{{ 'WORLD_GLOBE.FULLSCREEN_ENTER' | translate }}</ng-container>
+            <ng-container *ngIf="fullscreen">{{ 'WORLD_GLOBE.FULLSCREEN_EXIT' | translate }}</ng-container>
+          </button>
+        </div>
+        <button
+          type="button"
+          class="btn btn-outline-info btn-sm mb-2 w-100 text-start"
+          (click)="openDetailMapOverlay()"
+          [disabled]="!globeSurfaceReady">
+          {{ 'WORLD_GLOBE.DETAIL_MAP_OPEN' | translate }}
+        </button>
+        <p class="small text-danger mb-2" *ngIf="detailMapPickFailed">{{ 'WORLD_GLOBE.DETAIL_MAP_PICK_FAIL' | translate }}</p>
+        <p class="small text-muted mb-3">{{ 'WORLD_GLOBE.DETAIL_MAP_HINT' | translate }}</p>
+
+        <p class="small text-secondary mb-0">{{ 'WORLD_GLOBE.DATA_VIA_BACKEND' | translate }}</p>
+        <ul class="small text-secondary mt-2 mb-0 ps-3">
+          <li>{{ 'WORLD_GLOBE.MARKER_PARIS' | translate }}</li>
+          <li>{{ 'WORLD_GLOBE.MARKER_NYC' | translate }}</li>
+          <li>{{ 'WORLD_GLOBE.MARKER_TOKYO' | translate }}</li>
+        </ul>
+      </div>
+    </aside>
+
+    <div class="world-globe-canvas-column flex-grow-1 min-h-0 d-flex flex-column position-relative">
+      <div class="world-globe-canvas-toolbar d-flex justify-content-end mb-1 gap-2" *ngIf="!showOptionsPanel">
+        <button type="button" class="btn btn-outline-secondary btn-sm py-0" (click)="toggleOptionsPanel()">
+          {{ 'WORLD_GLOBE.SHOW_PANEL' | translate }}
+        </button>
+        <button type="button" class="btn btn-outline-info btn-sm py-0" (click)="openDetailMapOverlay()" [disabled]="!globeSurfaceReady">
+          {{ 'WORLD_GLOBE.DETAIL_MAP_OPEN_SHORT' | translate }}
+        </button>
+        <button type="button" class="btn btn-outline-primary btn-sm py-0" (click)="toggleFullscreen()">
+          <ng-container *ngIf="!fullscreen">{{ 'WORLD_GLOBE.FULLSCREEN_ENTER' | translate }}</ng-container>
+          <ng-container *ngIf="fullscreen">{{ 'WORLD_GLOBE.FULLSCREEN_EXIT' | translate }}</ng-container>
+        </button>
+      </div>
+
+      <div #globeCanvasHost class="world-globe-canvas-host flex-grow-1 w-100 position-relative rounded"></div>
+
+      <div class="world-globe-detail-map-layer" *ngIf="detailMapOpen" role="dialog" [attr.aria-label]="'WORLD_GLOBE.DETAIL_MAP_TITLE' | translate">
+        <div class="world-globe-detail-map-card card shadow-lg border-0">
+          <div class="card-header py-2 px-3 d-flex align-items-center justify-content-between gap-2 border-0 bg-light">
+            <span class="small fw-semibold">{{ 'WORLD_GLOBE.DETAIL_MAP_TITLE' | translate }}</span>
+            <button type="button" class="btn-close" (click)="closeDetailMapOverlay()" [attr.aria-label]="'WORLD_GLOBE.DETAIL_MAP_CLOSE' | translate"></button>
+          </div>
+          <div class="card-body p-0">
+            <p class="small text-muted px-3 pt-2 mb-2">{{ 'WORLD_GLOBE.DETAIL_MAP_OSM_NOTE' | translate }}</p>
+            <div #detailMapHost class="world-globe-detail-map-host"></div>
+          </div>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        class="btn btn-sm btn-light world-globe-fab-hide border shadow-sm"
+        *ngIf="showOptionsPanel"
+        (click)="toggleOptionsPanel()"
+        title="{{ 'WORLD_GLOBE.HIDE_PANEL' | translate }}">
+        <i class="fa fa-angle-double-left"></i>
+      </button>
+    </div>
+  </div>
+</div>

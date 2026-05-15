@@ -25,15 +25,41 @@ public class RestTemplateConfig {
     }
 
     /**
-     * Client HTTP OpenAI : connect / read timeouts (secondes) depuis
-     * {@code openai.http.connect-timeout-seconds} et {@code openai.http.read-timeout-seconds}
-     * dans {@code application.properties} (aucune valeur par défaut dans le code).
+     * Client HTTP réservé aux appels assistant OpenAI (chat, billing liste crédits, etc.).
      */
     @Bean("openAiRestTemplate")
     public RestTemplate openAiRestTemplate(
             RestTemplateBuilder builder,
-            @Value("${openai.http.connect-timeout-seconds}") int connectSeconds,
-            @Value("${openai.http.read-timeout-seconds}") int readSeconds) {
+            @Value("${openai.http.connect-timeout-seconds:300}") int connectSeconds,
+            @Value("${openai.http.read-timeout-seconds:300}") int readSeconds) {
+        return builder
+                .setConnectTimeout(Duration.ofSeconds(connectSeconds))
+                .setReadTimeout(Duration.ofSeconds(readSeconds))
+                .build();
+    }
+
+    /**
+     * Client HTTP réservé aux appels Anthropic Messages (assistant + liste des modèles).
+     */
+    @Bean("anthropicRestTemplate")
+    public RestTemplate anthropicRestTemplate(
+            RestTemplateBuilder builder,
+            @Value("${anthropic.http.connect-timeout-seconds:300}") int connectSeconds,
+            @Value("${anthropic.http.read-timeout-seconds:300}") int readSeconds) {
+        return builder
+                .setConnectTimeout(Duration.ofSeconds(connectSeconds))
+                .setReadTimeout(Duration.ofSeconds(readSeconds))
+                .build();
+    }
+
+    /**
+     * Client HTTP réservé aux appels Google Gemini generateContent / liste modèles.
+     */
+    @Bean("geminiRestTemplate")
+    public RestTemplate geminiRestTemplate(
+            RestTemplateBuilder builder,
+            @Value("${gemini.http.connect-timeout-seconds:300}") int connectSeconds,
+            @Value("${gemini.http.read-timeout-seconds:300}") int readSeconds) {
         return builder
                 .setConnectTimeout(Duration.ofSeconds(connectSeconds))
                 .setReadTimeout(Duration.ofSeconds(readSeconds))

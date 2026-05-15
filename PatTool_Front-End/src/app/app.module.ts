@@ -157,6 +157,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./solar-system/solar-system.component').then(m => m.SolarSystemComponent)
 			},
 			{
+				path: 'tools/world-globe',
+				loadComponent: () => import('./world-globe/world-globe.component').then(m => m.WorldGlobeComponent)
+			},
+			{
 				path: 'calendrier',
 				loadComponent: () => import('./calendar/calendar.component').then(m => m.CalendarComponent)
 			},

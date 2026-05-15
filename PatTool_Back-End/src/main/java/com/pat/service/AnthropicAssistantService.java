@@ -72,7 +72,7 @@ public class AnthropicAssistantService {
     private int webSearchMaxUses;
 
     public AnthropicAssistantService(
-            @Qualifier("openAiRestTemplate") RestTemplate restTemplate,
+            @Qualifier("anthropicRestTemplate") RestTemplate restTemplate,
             ObjectMapper objectMapper) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
@@ -202,7 +202,7 @@ public class AnthropicAssistantService {
             if (cause instanceof java.net.SocketTimeoutException) {
                 return AssistantChatResponseDto.err(
                         "Délai d’attente dépassé en lisant la réponse Anthropic. "
-                                + "Augmentez openai.http.read-timeout-seconds si besoin. Réessayez.");
+                                + "Augmentez anthropic.http.read-timeout-seconds si besoin. Réessayez.");
             }
             return AssistantChatResponseDto.err(
                     "Impossible de joindre le fournisseur IA (Anthropic). Réessayez plus tard.");
