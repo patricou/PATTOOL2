@@ -1,0 +1,311 @@
+<div class="pat-title solar-page-title px-3">
+  <h2>{{ 'SOLAR_SYSTEM.TITLE' | translate }}</h2>
+</div>
+
+<div class="solar-system-root container-fluid px-3 px-lg-4 pb-4">
+  <p class="text-secondary small mb-3">{{ 'SOLAR_SYSTEM.SUBTITLE' | translate }}</p>
+
+  <div
+    #mapShell
+    class="solar-map-fs-root solar-map-shell w-100"
+    [class.solar-fs-2d-chart-centered]="chartFullscreen && !viewMode3d">
+    <div class="row g-3 solar-map-shell-row flex-grow-1 min-h-0">
+    <div class="flex-shrink-0" [ngClass]="solarControlsPanelExpanded ? 'col-lg-4' : 'col-auto'">
+      <div class="card shadow-sm border-0 solar-panel h-100">
+        <div class="card-body" *ngIf="solarControlsPanelExpanded">
+          <div class="mb-3">
+            <label class="form-label fw-semibold small mb-1" for="refPlanet">{{
+              'SOLAR_SYSTEM.REF_LABEL' | translate
+            }}</label>
+            <select
+              id="refPlanet"
+              class="form-select form-select-sm"
+              [compareWith]="compareBodies"
+              [(ngModel)]="referenceBody"
+              (ngModelChange)="onReferenceBodyChange()">
+              <option *ngFor="let b of bodies" [ngValue]="b.body">
+                {{ b.labelKey | translate }}
+              </option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold small mb-1" for="simDt">{{
+              'SOLAR_SYSTEM.DATE_LABEL' | translate
+            }}</label>
+            <input
+              id="simDt"
+              type="datetime-local"
+              class="form-control form-control-sm"
+              [(ngModel)]="datetimeLocalValue"
+              (ngModelChange)="onDatetimeLocalChange($event)" />
+          </div>
+
+          <div class="mb-3 solar-timeline">
+            <label class="form-label fw-semibold small mb-1" for="simTimeline">{{
+              'SOLAR_SYSTEM.TIMELINE_TITLE' | translate
+            }}</label>
+            <input
+              id="simTimeline"
+              type="range"
+              class="form-range"
+              min="0"
+              max="100"
+              step="0.05"
+              [ngModel]="timelineSliderPct"
+              (ngModelChange)="onTimelineSliderChange($event)" />
+            <div class="d-flex justify-content-between small text-secondary solar-timeline-edges mb-2">
+              <span>{{ formatTimelineEdge(timelineStartMs) }}</span>
+              <span>{{ formatTimelineEdge(timelineEndMs) }}</span>
+            </div>
+            <label class="form-label fw-semibold small mb-1" for="timelineSpan">{{
+              'SOLAR_SYSTEM.TIMELINE_SPAN' | translate
+            }}</label>
+            <select
+              id="timelineSpan"
+              class="form-select form-select-sm"
+              [ngModel]="timelineSpanDays"
+              (ngModelChange)="onTimelineSpanChange($event)">
+              <option *ngFor="let d of timelineSpanOptions" [ngValue]="d">{{ spanLabelKey(d) | translate }}</option>
+            </select>
+            <p class="small text-secondary mb-0 mt-2">{{ 'SOLAR_SYSTEM.TIMELINE_HINT' | translate }}</p>
+          </div>
+
+          <div class="d-flex flex-wrap gap-1 mb-3 solar-step-btns">
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="setNow()">
+              {{ 'SOLAR_SYSTEM.NOW_BTN' | translate }}
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="stepDays(-365)">
+              −365j
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="stepDays(-30)">
+              −30j
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="stepDays(-7)">
+              −7j
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="stepDays(-1)">
+              −1j
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="stepDays(1)">
+              +1j
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="stepDays(7)">
+              +7j
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="stepDays(30)">
+              +30j
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="stepDays(365)">
+              +365j
+            </button>
+          </div>
+
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+            <button
+              type="button"
+              class="btn btn-sm"
+              [class.btn-primary]="playing"
+              [class.btn-outline-primary]="!playing"
+              (click)="togglePlay()">
+              <i class="fa" [class.fa-play]="!playing" [class.fa-pause]="playing"></i>
+              {{ (playing ? 'SOLAR_SYSTEM.PAUSE' : 'SOLAR_SYSTEM.PLAY') | translate }}
+            </button>
+            <label class="small mb-0 text-secondary">{{ 'SOLAR_SYSTEM.SPEED' | translate }}</label>
+            <p class="small text-secondary mb-1 mt-0">{{ 'SOLAR_SYSTEM.SPEED_HINT' | translate }}</p>
+            <select
+              class="form-select form-select-sm solar-speed-select"
+              [(ngModel)]="playbackSpeedDaysPerSec"
+              [compareWith]="comparePlaybackSpeed">
+              <option *ngFor="let p of playbackSpeedPresets" [ngValue]="p.daysPerSec">
+                {{ p.labelKey | translate }}
+              </option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <div class="form-check form-switch">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="logScale"
+                [(ngModel)]="logRadialScale"
+                (change)="redrawPublic()" />
+              <label class="form-check-label small" for="logScale">{{ 'SOLAR_SYSTEM.LOG_SCALE' | translate }}</label>
+            </div>
+            <div class="form-check form-switch mt-2">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="rotationAxes"
+                [(ngModel)]="showRotationAxes"
+                (change)="redrawPublic()" />
+              <label class="form-check-label small" for="rotationAxes">{{
+                'SOLAR_SYSTEM.SHOW_ROTATION_AXES' | translate
+              }}</label>
+            </div>
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label fw-semibold small mb-1">{{ 'SOLAR_SYSTEM.ZOOM' | translate }}</label>
+            <input
+              type="range"
+              class="form-range"
+              min="0.5"
+              max="2.5"
+              step="0.05"
+              [(ngModel)]="zoom"
+              (input)="redrawPublic()" />
+            <button type="button" class="btn btn-link btn-sm p-0" (click)="resetZoom()">
+              {{ 'SOLAR_SYSTEM.RESET_ZOOM' | translate }}
+            </button>
+          </div>
+
+          <hr class="border-secondary opacity-25 my-3" />
+
+          <div class="mb-2">
+            <label class="form-label fw-semibold small mb-1">{{ 'SOLAR_SYSTEM.TRAIL_LABEL' | translate }}</label>
+            <select class="form-select form-select-sm mb-2" [(ngModel)]="trailBody" (ngModelChange)="redrawPublic()">
+              <option [ngValue]="''">{{ 'SOLAR_SYSTEM.TRAIL_OFF' | translate }}</option>
+              <option *ngFor="let b of bodies" [ngValue]="b.body">{{ b.labelKey | translate }}</option>
+            </select>
+            <select class="form-select form-select-sm" [(ngModel)]="trailDays" (ngModelChange)="redrawPublic()">
+              <option [ngValue]="30">30 {{ 'SOLAR_SYSTEM.DAYS' | translate }}</option>
+              <option [ngValue]="90">90 {{ 'SOLAR_SYSTEM.DAYS' | translate }}</option>
+              <option [ngValue]="365">365 {{ 'SOLAR_SYSTEM.DAYS' | translate }}</option>
+            </select>
+          </div>
+
+          <p class="small text-secondary mb-0 mt-3">{{ 'SOLAR_SYSTEM.VIEW_HINT' | translate }}</p>
+          <p class="small text-secondary mb-0">{{ 'SOLAR_SYSTEM.KM_NOTE' | translate }}</p>
+
+          <div *ngIf="moonIllum as mi" class="alert alert-dark border-secondary mt-3 mb-0 py-2 small solar-moon-card">
+            <div class="fw-semibold mb-1">{{ 'SOLAR_SYSTEM.MOON_FROM_EARTH' | translate }}</div>
+            <div>{{ 'SOLAR_SYSTEM.PHASE_ANGLE' | translate }}: {{ mi.phase_angle | number: '1.1-1' }}°</div>
+            <div>{{ 'SOLAR_SYSTEM.ILLUMINATION' | translate }}: {{ mi.phase_fraction * 100 | number: '1.0-1' }}%</div>
+            <div>{{ 'SOLAR_SYSTEM.MAGNITUDE' | translate }}: {{ mi.mag | number: '1.1-1' }}</div>
+          </div>
+        </div>
+
+        <div *ngIf="!solarControlsPanelExpanded" class="card-body py-3 px-2 solar-controls-collapsed-rail">
+          <button
+            type="button"
+            class="btn btn-outline-secondary btn-sm w-100"
+            (click)="toggleSolarControlsPanel()"
+            [attr.title]="'SOLAR_SYSTEM.SHOW_MAP_ACTIONS' | translate"
+            [attr.aria-label]="'SOLAR_SYSTEM.SHOW_MAP_ACTIONS' | translate">
+            <i class="fa fa-chevron-right" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="min-w-0 solar-chart-column" [ngClass]="solarControlsPanelExpanded ? 'col-lg-8' : 'col'">
+      <div class="card shadow-sm border-0 solar-canvas-card">
+        <div
+          class="card-header solar-map-card-header py-2 px-3 d-flex justify-content-between align-items-center gap-2 border-bottom border-secondary border-opacity-25 flex-wrap">
+          <div class="d-flex flex-column gap-1 min-w-0 flex-grow-1">
+            <span class="small solar-chart-subtitle">{{ 'SOLAR_SYSTEM.CHART_TITLE' | translate }}</span>
+            <span *ngIf="viewMode3d" class="small solar-chart-hint mb-0">{{
+              'SOLAR_SYSTEM.VIEW_3D_HINT' | translate
+            }}</span>
+          </div>
+          <div class="d-flex gap-1 align-items-center flex-shrink-0">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-light solar-map-tools-toggle"
+              (click)="toggleSolarControlsPanel()"
+              [attr.aria-expanded]="solarControlsPanelExpanded"
+              [attr.title]="
+                (solarControlsPanelExpanded ? 'SOLAR_SYSTEM.HIDE_MAP_ACTIONS' : 'SOLAR_SYSTEM.SHOW_MAP_ACTIONS')
+                  | translate
+              ">
+              <i
+                class="fa"
+                [class.fa-chevron-left]="solarControlsPanelExpanded"
+                [class.fa-chevron-right]="!solarControlsPanelExpanded"></i>
+              <span class="d-none d-md-inline ms-1">{{
+                (solarControlsPanelExpanded ? 'SOLAR_SYSTEM.HIDE_MAP_ACTIONS' : 'SOLAR_SYSTEM.SHOW_MAP_ACTIONS')
+                  | translate
+              }}</span>
+            </button>
+            <div class="d-flex gap-1 align-items-center solar-map-header-tools">
+              <button
+                *ngIf="viewMode3d"
+                type="button"
+                class="btn btn-sm btn-outline-light solar-labels-toggle"
+                (click)="toggleThreeLabels()"
+                [attr.aria-pressed]="showThreeLabels"
+                [attr.title]="
+                  (showThreeLabels ? 'SOLAR_SYSTEM.HIDE_LABELS' : 'SOLAR_SYSTEM.SHOW_LABELS') | translate
+                ">
+                <i class="fa" [class.fa-eye-slash]="showThreeLabels" [class.fa-eye]="!showThreeLabels"></i>
+                <span class="d-none d-md-inline ms-1">{{
+                  (showThreeLabels ? 'SOLAR_SYSTEM.HIDE_LABELS' : 'SOLAR_SYSTEM.SHOW_LABELS') | translate
+                }}</span>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-light solar-3d-toggle"
+                (click)="toggleView3d()"
+                [attr.aria-pressed]="viewMode3d">
+                <i class="fa fa-cube me-1"></i>
+                <span>{{ (viewMode3d ? 'SOLAR_SYSTEM.VIEW_2D' : 'SOLAR_SYSTEM.VIEW_3D') | translate }}</span>
+              </button>
+            </div>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-light solar-fs-btn"
+              (click)="toggleChartFullscreen()"
+              [attr.aria-pressed]="chartFullscreen"
+              [attr.title]="
+                (chartFullscreen ? 'SOLAR_SYSTEM.FULLSCREEN_EXIT' : 'SOLAR_SYSTEM.FULLSCREEN_ENTER') | translate
+              ">
+              <i class="fa" [class.fa-expand]="!chartFullscreen" [class.fa-compress]="chartFullscreen"></i>
+              <span class="d-none d-sm-inline ms-1">{{
+                (chartFullscreen ? 'SOLAR_SYSTEM.FULLSCREEN_EXIT' : 'SOLAR_SYSTEM.FULLSCREEN_ENTER') | translate
+              }}</span>
+            </button>
+          </div>
+        </div>
+        <div #canvasWrap class="card-body p-0 solar-canvas-wrap" [class.solar-3d-bg]="viewMode3d">
+          <canvas *ngIf="!viewMode3d" #orbitCanvas class="solar-canvas d-block w-100"></canvas>
+          <canvas *ngIf="viewMode3d" #threeCanvas class="solar-canvas solar-three-canvas d-block w-100"></canvas>
+        </div>
+      </div>
+
+      <div *ngIf="!chartFullscreen" class="table-responsive mt-3 solar-table-wrap">
+        <table class="table table-sm table-dark table-hover align-middle mb-0 solar-table">
+          <thead>
+            <tr>
+              <th>{{ 'SOLAR_SYSTEM.COL_BODY' | translate }}</th>
+              <th class="text-end">{{ 'SOLAR_SYSTEM.COL_DIST_AU' | translate }}</th>
+              <th class="text-end">{{ 'SOLAR_SYSTEM.COL_DIST_KM' | translate }}</th>
+              <th class="text-end">{{ 'SOLAR_SYSTEM.COL_ECLIPTIC_X' | translate }}</th>
+              <th class="text-end">{{ 'SOLAR_SYSTEM.COL_ECLIPTIC_Y' | translate }}</th>
+              <th class="text-end">{{ 'SOLAR_SYSTEM.COL_PHASE_LUNAR' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let p of planets; trackBy: trackBody" [class.table-active]="p.isReference">
+              <td>
+                <span class="solar-swatch me-2" [style.background]="p.color"></span>
+                {{ p.labelKey | translate }}
+                <span *ngIf="p.isReference" class="badge text-bg-info ms-1">{{ 'SOLAR_SYSTEM.REF_BADGE' | translate }}</span>
+              </td>
+              <td class="text-end font-monospace">{{ p.distAu | number: '1.2-4' }}</td>
+              <td class="text-end font-monospace">{{ p.distAu * KM_PER_AU | number: '1.0-0' }}</td>
+              <td class="text-end font-monospace">{{ p.xAu | number: '1.2-4' }}</td>
+              <td class="text-end font-monospace">{{ p.yAu | number: '1.2-4' }}</td>
+              <td class="text-end font-monospace">
+                <span *ngIf="p.phaseDeg != null">{{ p.phaseDeg | number: '1.1-1' }}°</span>
+                <span *ngIf="p.phaseDeg == null">—</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>

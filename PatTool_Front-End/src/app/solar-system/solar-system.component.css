@@ -1,0 +1,347 @@
+/* Pleine largeur du viewport (hors marges Bootstrap du fluid). */
+.solar-system-root {
+  max-width: none;
+  width: 100%;
+  box-sizing: border-box;
+  color: #e9eef9;
+}
+
+.solar-page-title h2 {
+  color: #fff !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.solar-system-root .text-secondary {
+  color: #c8d6ec !important;
+}
+
+.solar-system-root .form-label,
+.solar-system-root .form-check-label {
+  color: #f2f6ff;
+}
+
+.solar-system-root .form-control,
+.solar-system-root .form-select {
+  background-color: rgba(16, 20, 36, 0.92);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #f5f8ff;
+}
+
+.solar-system-root .form-control:focus,
+.solar-system-root .form-select:focus {
+  border-color: rgba(126, 200, 255, 0.65);
+  box-shadow: 0 0 0 0.15rem rgba(126, 200, 255, 0.22);
+  color: #fff;
+}
+
+.solar-panel .btn-outline-secondary {
+  color: #eaf0ff;
+  border-color: rgba(255, 255, 255, 0.42);
+}
+
+.solar-panel .btn-outline-secondary:hover {
+  color: #0d1528;
+  background-color: rgba(230, 238, 255, 0.92);
+  border-color: rgba(230, 238, 255, 0.95);
+}
+
+.solar-system-root .btn-link {
+  color: #8fd0ff !important;
+}
+
+.solar-system-root .btn-link:hover {
+  color: #bce6ff !important;
+}
+
+.solar-system-root hr.border-secondary {
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  opacity: 1;
+}
+
+.solar-chart-subtitle,
+.solar-chart-hint {
+  color: rgba(238, 244, 255, 0.94) !important;
+}
+
+.solar-chart-hint {
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.solar-panel {
+  background: linear-gradient(165deg, rgba(22, 32, 58, 0.35), rgba(12, 14, 26, 0.65));
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+.solar-canvas-card {
+  background: rgba(8, 10, 18, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  overflow: hidden;
+}
+
+.solar-map-shell {
+  /* Ancrage historique ; le plein écran cible `.solar-map-fs-root`. */
+  min-height: 0;
+}
+
+.solar-map-fs-root {
+  min-height: 0;
+}
+
+.solar-map-fs-root:fullscreen,
+.solar-map-fs-root:-webkit-full-screen,
+.solar-map-fs-root:-moz-full-screen {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  margin: 0 !important;
+  padding: 0.6rem 0.85rem;
+  box-sizing: border-box;
+  background: #05070f;
+  overflow: hidden;
+  border-radius: 0 !important;
+}
+
+.solar-map-fs-root:fullscreen .solar-map-shell-row,
+.solar-map-fs-root:-webkit-full-screen .solar-map-shell-row,
+.solar-map-fs-root:-moz-full-screen .solar-map-shell-row {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.solar-map-fs-root:fullscreen .col-lg-4,
+.solar-map-fs-root:-webkit-full-screen .col-lg-4,
+.solar-map-fs-root:-moz-full-screen .col-lg-4,
+.solar-map-fs-root:fullscreen .solar-map-shell-row > .flex-shrink-0.col-auto,
+.solar-map-fs-root:-webkit-full-screen .solar-map-shell-row > .flex-shrink-0.col-auto,
+.solar-map-fs-root:-moz-full-screen .solar-map-shell-row > .flex-shrink-0.col-auto {
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: 100%;
+}
+
+.solar-map-fs-root:fullscreen .solar-chart-column,
+.solar-map-fs-root:-webkit-full-screen .solar-chart-column,
+.solar-map-fs-root:-moz-full-screen .solar-chart-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.solar-map-fs-root:fullscreen .solar-canvas-card,
+.solar-map-fs-root:-webkit-full-screen .solar-canvas-card,
+.solar-map-fs-root:-moz-full-screen .solar-canvas-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.solar-map-fs-root:fullscreen .solar-table-wrap,
+.solar-map-fs-root:-webkit-full-screen .solar-table-wrap,
+.solar-map-fs-root:-moz-full-screen .solar-table-wrap {
+  display: none !important;
+}
+
+.solar-map-fs-root:fullscreen .solar-canvas-wrap,
+.solar-map-fs-root:-webkit-full-screen .solar-canvas-wrap,
+.solar-map-fs-root:-moz-full-screen .solar-canvas-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.solar-map-fs-root:fullscreen .solar-canvas-wrap canvas,
+.solar-map-fs-root:-webkit-full-screen .solar-canvas-wrap canvas,
+.solar-map-fs-root:-moz-full-screen .solar-canvas-wrap canvas {
+  flex: 1;
+  min-height: 0;
+  width: 100% !important;
+}
+
+.solar-map-fs-root:fullscreen .solar-map-card-header,
+.solar-map-fs-root:-webkit-full-screen .solar-map-card-header,
+.solar-map-fs-root:-moz-full-screen .solar-map-card-header {
+  flex-shrink: 0;
+}
+
+/* Plein écran + carte 2D : carte centrée dans la zone utile (panneau à gauche inchangé). */
+.solar-map-fs-root.solar-fs-2d-chart-centered:fullscreen .solar-map-shell-row,
+.solar-map-fs-root.solar-fs-2d-chart-centered:-webkit-full-screen .solar-map-shell-row,
+.solar-map-fs-root.solar-fs-2d-chart-centered:-moz-full-screen .solar-map-shell-row {
+  align-items: center;
+}
+
+.solar-map-fs-root.solar-fs-2d-chart-centered:fullscreen .solar-chart-column,
+.solar-map-fs-root.solar-fs-2d-chart-centered:-webkit-full-screen .solar-chart-column,
+.solar-map-fs-root.solar-fs-2d-chart-centered:-moz-full-screen .solar-chart-column {
+  justify-content: center;
+  align-items: center;
+}
+
+.solar-map-fs-root.solar-fs-2d-chart-centered:fullscreen .solar-chart-column > .solar-canvas-card,
+.solar-map-fs-root.solar-fs-2d-chart-centered:-webkit-full-screen .solar-chart-column > .solar-canvas-card,
+.solar-map-fs-root.solar-fs-2d-chart-centered:-moz-full-screen .solar-chart-column > .solar-canvas-card {
+  flex: 1 1 auto;
+  width: min(1040px, 82vw);
+  max-width: min(1040px, 82vw);
+  min-height: 0;
+}
+
+.solar-map-card-header {
+  background: rgba(12, 16, 28, 0.96);
+  flex-shrink: 0;
+}
+
+.solar-fs-btn {
+  white-space: nowrap;
+}
+
+.solar-timeline-edges {
+  font-size: 0.72rem;
+  color: #bdd4f0 !important;
+}
+
+.solar-canvas-wrap {
+  position: relative;
+  min-height: 320px;
+}
+
+/* Fond 3D sous canvas WebGL transparent (plus de nuage THREE.Points qui pouvait masquer les sphères). */
+.solar-canvas-wrap.solar-3d-bg {
+  background-color: #060914;
+  background-image:
+    radial-gradient(1.5px 1.5px at 8% 14%, rgba(255, 255, 255, 0.55), transparent),
+    radial-gradient(1px 1px at 22% 38%, rgba(220, 230, 255, 0.45), transparent),
+    radial-gradient(1px 1px at 41% 72%, rgba(255, 255, 255, 0.35), transparent),
+    radial-gradient(1.5px 1.5px at 63% 21%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 78% 56%, rgba(200, 215, 255, 0.4), transparent),
+    radial-gradient(1px 1px at 91% 88%, rgba(255, 255, 255, 0.42), transparent),
+    radial-gradient(1px 1px at 15% 91%, rgba(255, 255, 255, 0.32), transparent),
+    radial-gradient(1px 1px at 52% 48%, rgba(230, 238, 255, 0.38), transparent),
+    radial-gradient(1px 1px at 35% 12%, rgba(255, 255, 255, 0.36), transparent),
+    radial-gradient(1px 1px at 72% 93%, rgba(255, 255, 255, 0.34), transparent);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+
+.solar-canvas {
+  touch-action: pinch-zoom;
+}
+
+.solar-three-canvas {
+  cursor: grab;
+  touch-action: none;
+  position: relative;
+  z-index: 1;
+  /* Pas de fond forcé : la scène Three définit déjà le bleu nuit ; évite tout artefact navigateur sur WebGL. */
+  background-color: #060914;
+}
+
+/* Couche CSS2D et étiquettes : créées en JS hors template → styles via ::ng-deep pour contourner l’encapsulation. */
+:host ::ng-deep .solar-css2d-layer {
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  overflow: visible;
+  z-index: 2;
+}
+
+:host ::ng-deep .solar-3d-label {
+  box-sizing: border-box;
+  display: inline-block;
+  color: #eaf1ff !important;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(10, 14, 28, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+:host ::ng-deep .solar-3d-label.solar-3d-label--ref {
+  color: #d8f6ff !important;
+  border-color: rgba(140, 210, 255, 0.45);
+  background: rgba(16, 36, 52, 0.94);
+}
+
+.solar-three-canvas:active {
+  cursor: grabbing;
+}
+
+.solar-3d-toggle {
+  white-space: nowrap;
+}
+
+.solar-labels-toggle {
+  white-space: nowrap;
+}
+
+.solar-map-tools-toggle {
+  white-space: nowrap;
+}
+
+.solar-controls-collapsed-rail {
+  min-width: 2.75rem;
+  max-width: 3.25rem;
+}
+
+.solar-step-btns .btn {
+  flex: 0 0 auto;
+}
+
+.solar-speed-select {
+  width: 11rem;
+  max-width: 100%;
+}
+
+.solar-table-wrap {
+  border-radius: 0.375rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.solar-table {
+  --bs-table-bg: rgba(14, 18, 32, 0.95);
+  --bs-table-striped-bg: rgba(255, 255, 255, 0.02);
+  margin-bottom: 0;
+}
+
+.solar-table thead th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(200, 215, 255, 0.55);
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+
+.solar-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  vertical-align: middle;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.solar-moon-card {
+  background: rgba(20, 26, 46, 0.85) !important;
+}
+
+@media (max-width: 991.98px) {
+  .solar-speed-select {
+    width: 100%;
+  }
+}

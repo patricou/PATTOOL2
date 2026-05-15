@@ -36,21 +36,13 @@
                 <ul class="dropdown-menu" 
                     [class.show]="showEventsDropdown" 
                     aria-labelledby="eventsDropdown">
-                    <li><a class="dropdown-item" 
-                           [routerLink]="['even']" 
+                    <li *ngFor="let item of sortedNavEvents">
+                        <a class="dropdown-item"
+                           [routerLink]="item.routerLink"
                            (click)="closeMenu()">
-                        <i class="fa fa-list"></i> {{ 'MENU.EVENTSLIST' | translate }}
-                    </a></li>
-                    <li><a class="dropdown-item" 
-                           [routerLink]="['neweven']" 
-                           (click)="closeMenu()">
-                        <i class="fa fa-plus"></i> {{ 'MENU.EVENTSCREATION' | translate }}
-                    </a></li>
-                    <li><a class="dropdown-item" 
-                           [routerLink]="['photos']" 
-                           (click)="closeMenu()">
-                        <i class="fa fa-picture-o"></i> {{ 'MENU.PHOTOS' | translate }}
-                    </a></li>
+                            <i [class]="item.icon"></i> {{ item.labelKey | translate }}
+                        </a>
+                    </li>
                 </ul>
             </li>
 
@@ -67,16 +59,13 @@
                 <ul class="dropdown-menu" 
                     [class.show]="showLinksDropdown" 
                     aria-labelledby="linksDropdown">
-                    <li><a class="dropdown-item" 
-                           [routerLink]="['links']" 
+                    <li *ngFor="let item of sortedNavLinks">
+                        <a class="dropdown-item"
+                           [routerLink]="item.routerLink"
                            (click)="closeMenu()">
-                        <i class="fa fa-link"></i> {{ 'MENU.LINKS' | translate }}
-                    </a></li>
-                    <li><a class="dropdown-item" 
-                           [routerLink]="['links-admin']" 
-                           (click)="closeMenu()">
-                        <i class="fa fa-cog"></i> {{ 'MENU.LINKS_ADMINISTRATION' | translate }}
-                    </a></li>
+                            <i [class]="item.icon"></i> {{ item.labelKey | translate }}
+                        </a>
+                    </li>
                 </ul>
             </li>
 
@@ -102,16 +91,13 @@
                 <ul class="dropdown-menu"
                     [class.show]="showOrganisationDropdown"
                     aria-labelledby="organisationDropdown">
-                    <li><a class="dropdown-item"
-                           [routerLink]="['calendrier']"
+                    <li *ngFor="let item of sortedNavOrganisation">
+                        <a class="dropdown-item"
+                           [routerLink]="item.routerLink"
                            (click)="closeMenu()">
-                        <i class="fa fa-calendar-check-o"></i> {{ 'MENU.CALENDAR' | translate }}
-                    </a></li>
-                    <li><a class="dropdown-item"
-                           [routerLink]="['todolists']"
-                           (click)="closeMenu()">
-                        <i class="fa fa-tasks"></i> {{ 'MENU.TODOLISTS' | translate }}
-                    </a></li>
+                            <i [class]="item.icon"></i> {{ item.labelKey | translate }}
+                        </a>
+                    </li>
                 </ul>
             </li>
 
@@ -128,31 +114,13 @@
                 <ul class="dropdown-menu" 
                     [class.show]="showApiDropdown" 
                     aria-labelledby="apiDropdown">
-                    <li><a class="dropdown-item" 
-                           [routerLink]="['api/openweathermap']" 
+                    <li *ngFor="let item of sortedNavGeo">
+                        <a class="dropdown-item"
+                           [routerLink]="item.routerLink"
                            (click)="closeMenu()">
-                        <i class="fa fa-cloud"></i> {{ 'MENU.POSITION_METEO' | translate }}
-                    </a></li>
-                    <li><a class="dropdown-item" 
-                           [routerLink]="['api/address-geocode']" 
-                           (click)="closeMenu()">
-                        <i class="fa fa-map-marker"></i> {{ 'MENU.ADDRESS_TO_MAP' | translate }}
-                    </a></li>
-                    <li><a class="dropdown-item"
-                           [routerLink]="['api/news']"
-                           (click)="closeMenu()">
-                        <i class="fa fa-newspaper-o"></i> {{ 'MENU.NEWS' | translate }}
-                    </a></li>
-                    <li><a class="dropdown-item"
-                           [routerLink]="['api/currency-converter']"
-                           (click)="closeMenu()">
-                        <i class="fa fa-money"></i> {{ 'MENU.CURRENCY_CONVERTER' | translate }}
-                    </a></li>
-                    <li><a class="dropdown-item"
-                           [routerLink]="['api/stock-exchange']"
-                           (click)="closeMenu()">
-                        <i class="fa fa-line-chart"></i> {{ 'MENU.STOCK_EXCHANGE' | translate }}
-                    </a></li>
+                            <i [class]="item.icon"></i> {{ item.labelKey | translate }}
+                        </a>
+                    </li>
                 </ul>
             </li>
 
@@ -170,26 +138,13 @@
                     [class.show]="showIotDropdown" 
                     aria-labelledby="iotDropdown"
                     (click)="$event.stopPropagation()">
-                    <li><a class="dropdown-item" 
-                           [routerLink]="['iot']" 
+                    <li *ngFor="let item of sortedNavIot">
+                        <a class="dropdown-item"
+                           [routerLink]="item.routerLink"
                            (click)="closeMenu()">
-                        <i class="fa fa-home"></i> {{ 'MENU.IOT_HOME' | translate }}
-                    </a></li>
-                    <li *ngIf="hasAdminRole()"><a class="dropdown-item" 
-                           [routerLink]="['iot/local-network']" 
-                           (click)="closeMenu()">
-                        <i class="fa fa-sitemap"></i> {{ 'MENU.LOCAL_NETWORK' | translate }}
-                    </a></li>
-                    <li><a class="dropdown-item"
-                           [routerLink]="['iot/cameras']"
-                           (click)="closeMenu()">
-                        <i class="fa fa-video-camera"></i> {{ 'MENU.CAMERAS' | translate }}
-                    </a></li>
-                    <li><a class="dropdown-item"
-                           [routerLink]="['iot/proxy']"
-                           (click)="closeMenu()">
-                        <i class="fa fa-random"></i> {{ 'MENU.IOT_PROXY' | translate }}
-                    </a></li>
+                            <i [class]="item.icon"></i> {{ item.labelKey | translate }}
+                        </a>
+                    </li>
                 </ul>
             </li>
 
@@ -206,21 +161,13 @@
                 <ul class="dropdown-menu"
                     [class.show]="showMathDropdown"
                     aria-labelledby="mathDropdown">
-                    <li><a class="dropdown-item"
-                           [routerLink]="['tools/loto']"
+                    <li *ngFor="let item of sortedNavMath">
+                        <a class="dropdown-item"
+                           [routerLink]="item.routerLink"
                            (click)="closeMenu()">
-                        <i class="fa fa-trophy"></i> {{ 'MENU.LOTTO' | translate }}
-                    </a></li>
-                    <li><a class="dropdown-item"
-                           [routerLink]="['tools/euromillions']"
-                           (click)="closeMenu()">
-                        <i class="fa fa-star"></i> {{ 'MENU.EUROMILLIONS' | translate }}
-                    </a></li>
-                    <li><a class="dropdown-item"
-                           [routerLink]="['tools/calculator']"
-                           (click)="closeMenu()">
-                        <i class="fa fa-calculator"></i> {{ 'MENU.CALCULATOR' | translate }}
-                    </a></li>
+                            <i [class]="item.icon"></i> {{ item.labelKey | translate }}
+                        </a>
+                    </li>
                 </ul>
             </li>
 
@@ -239,94 +186,88 @@
                     aria-labelledby="toolsDropdown"
                     (mouseenter)="showToolsDropdown = true"
                     (mouseleave)="onToolsMenuLeave($event)">
-                    <li><a class="dropdown-item" 
-                           [routerLink]="['results']" 
-                           (click)="closeMenu()">
-                        <i class="fa fa-comments"></i> {{ 'MENU.RESULTS' | translate }}
-                    </a></li>
-                    <li [hidden]="!isAuthenticated()"><a class="dropdown-item" 
-                           [routerLink]="['system']" 
-                           (click)="closeMenu()">
-                        <i class="fa fa-cog"></i> System
-                    </a></li>
-                    <li><a class="dropdown-item" 
-                           [routerLink]="['maps']" 
-                           (click)="closeMenu()">
-                        <i class="fa fa-map"></i> {{ 'MENU.MAPS' | translate }}
-                    </a></li>
-                    <li [hidden]="!isAuthenticated()"><a class="dropdown-item" 
-                           (click)="open(uploadfilecontent); closeMenu(); $event.preventDefault()">
-                        <i class="fa fa-cloud-upload"></i> {{ "UPLOADFILE.MENU" | translate }}
-                    </a></li>
-                    <li [hidden]="!isAuthenticated()"><a class="dropdown-item" 
-                           (click)="open(sharefilecontent); closeMenu(); $event.preventDefault()">
-                        <i class="fa fa-share-alt"></i> {{ "SHAREFILE.MENU" | translate }}
-                    </a></li>
-                    <li class="dropdown-submenu" 
-                        #documentationSubmenuItem
-                        (mouseenter)="showDocumentationSubmenu = true; showToolsDropdown = true; showLanguageSubmenu = false; positionDocumentationSubmenu()"
-                        (mouseleave)="checkCloseDocumentationSubmenu($event)">
-                        <a class="dropdown-item documentation-toggle" 
-                           href="#" 
-                           id="documentationSubmenu"
-                           (click)="toggleDocumentationSubmenuOnClick($event)">
-                            <i class="fa fa-book"></i> {{ 'MENU.DOCUMENTATION' | translate }}
-                        </a>
-                        <ul class="dropdown-menu documentation-submenu-list" 
-                            #documentationSubmenu
-                            [class.show]="showDocumentationSubmenu"
-                            [style.display]="showDocumentationSubmenu ? 'block' : 'none'"
-                            [style.opacity]="showDocumentationSubmenu ? '1' : '0'"
-                            [style.visibility]="showDocumentationSubmenu ? 'visible' : 'hidden'"
-                            aria-labelledby="documentationSubmenu"
-                            (mouseenter)="showDocumentationSubmenu = true; showToolsDropdown = true; showLanguageSubmenu = false"
+                    <ng-container *ngFor="let row of sortedToolsMenuRows">
+                        <li *ngIf="row.kind === 'route'">
+                            <a class="dropdown-item"
+                               [routerLink]="$any(row).routerLink"
+                               (click)="closeMenu()">
+                                <i [class]="$any(row).icon"></i> {{ $any(row).labelKey | translate }}
+                            </a>
+                        </li>
+                        <li *ngIf="row.kind === 'upload'">
+                            <a class="dropdown-item"
+                               (click)="open(uploadfilecontent); closeMenu(); $event.preventDefault()">
+                                <i [class]="$any(row).icon"></i> {{ $any(row).labelKey | translate }}
+                            </a>
+                        </li>
+                        <li *ngIf="row.kind === 'share'">
+                            <a class="dropdown-item"
+                               (click)="open(sharefilecontent); closeMenu(); $event.preventDefault()">
+                                <i [class]="$any(row).icon"></i> {{ $any(row).labelKey | translate }}
+                            </a>
+                        </li>
+                        <li *ngIf="row.kind === 'doc-submenu'"
+                            class="dropdown-submenu"
+                            #documentationSubmenuItem
+                            (mouseenter)="showDocumentationSubmenu = true; showToolsDropdown = true; showLanguageSubmenu = false; positionDocumentationSubmenu()"
                             (mouseleave)="checkCloseDocumentationSubmenu($event)">
-                            <li>
-                                <a class="dropdown-item" 
-                                   (click)="openSlideshowDocumentation(); showDocumentationSubmenu = false; closeMenu(); $event.preventDefault()">
-                                    <i class="fa fa-picture-o"></i> {{ 'MENU.SLIDESHOW_DOCUMENTATION' | translate }}
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" 
-                                   (click)="openRecentFeaturesDocumentation(); showDocumentationSubmenu = false; closeMenu(); $event.preventDefault()">
-                                    <i class="fa fa-file-text-o"></i> Recent Features Documentation
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
-                    <li class="dropdown-submenu" 
-                        #languageSubmenuItem
-                        (mouseenter)="showLanguageSubmenu = true; showToolsDropdown = true; showDocumentationSubmenu = false; positionLanguageSubmenu()"
-                        (mouseleave)="checkCloseLanguageSubmenu($event)">
-                        <a class="dropdown-item language-toggle" 
-                           href="#" 
-                           id="languageSubmenu"
-                           (click)="toggleLanguageSubmenuOnClick($event)">
-                            <i class="fa fa-language"></i> {{ 'MENU.LANG' | translate }}
-                        </a>
-                        <ul class="dropdown-menu language-submenu-list" 
-                            #languageSubmenu
-                            [class.show]="showLanguageSubmenu"
-                            [style.display]="showLanguageSubmenu ? 'block' : 'none'"
-                            [style.opacity]="showLanguageSubmenu ? '1' : '0'"
-                            [style.visibility]="showLanguageSubmenu ? 'visible' : 'hidden'"
-                            aria-labelledby="languageSubmenu"
-                            (mouseenter)="showLanguageSubmenu = true; showToolsDropdown = true; showDocumentationSubmenu = false"
+                            <a class="dropdown-item documentation-toggle"
+                               href="#"
+                               id="documentationSubmenu"
+                               (click)="toggleDocumentationSubmenuOnClick($event)">
+                                <i class="fa fa-book"></i> {{ 'MENU.DOCUMENTATION' | translate }}
+                            </a>
+                            <ul class="dropdown-menu documentation-submenu-list"
+                                #documentationSubmenu
+                                [class.show]="showDocumentationSubmenu"
+                                [style.display]="showDocumentationSubmenu ? 'block' : 'none'"
+                                [style.opacity]="showDocumentationSubmenu ? '1' : '0'"
+                                [style.visibility]="showDocumentationSubmenu ? 'visible' : 'hidden'"
+                                aria-labelledby="documentationSubmenu"
+                                (mouseenter)="showDocumentationSubmenu = true; showToolsDropdown = true; showLanguageSubmenu = false"
+                                (mouseleave)="checkCloseDocumentationSubmenu($event)">
+                                <li *ngFor="let doc of sortedDocumentationItems">
+                                    <a class="dropdown-item"
+                                       (click)="onDocMenuItemClick(doc, $event)">
+                                        <i [class]="doc.icon"></i> {{ doc.labelKey | translate }}
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                        <li *ngIf="row.kind === 'lang-submenu'"
+                            class="dropdown-submenu"
+                            #languageSubmenuItem
+                            (mouseenter)="showLanguageSubmenu = true; showToolsDropdown = true; showDocumentationSubmenu = false; positionLanguageSubmenu()"
                             (mouseleave)="checkCloseLanguageSubmenu($event)">
-                            <li *ngFor="let lang of _translate.getLangs()">
-                                <a class="dropdown-item" 
-                                   (click)="_translate.use(lang); closeMenu()"
-                                   [class.active]="lang === _translate.currentLang">
-                                    <i class="fa language-check" [class.fa-check]="lang === _translate.currentLang" [class.fa-circle-o]="lang !== _translate.currentLang"></i>
-                                    {{ 'LANGUAGE.' + lang.toUpperCase() | translate }}
-                                    <span class="flag-wrapper">
-                                        <span class="fi fi-{{getCountryCode(lang)}}"></span>
-                                    </span>
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
+                            <a class="dropdown-item language-toggle"
+                               href="#"
+                               id="languageSubmenu"
+                               (click)="toggleLanguageSubmenuOnClick($event)">
+                                <i class="fa fa-language"></i> {{ 'MENU.LANG' | translate }}
+                            </a>
+                            <ul class="dropdown-menu language-submenu-list"
+                                #languageSubmenu
+                                [class.show]="showLanguageSubmenu"
+                                [style.display]="showLanguageSubmenu ? 'block' : 'none'"
+                                [style.opacity]="showLanguageSubmenu ? '1' : '0'"
+                                [style.visibility]="showLanguageSubmenu ? 'visible' : 'hidden'"
+                                aria-labelledby="languageSubmenu"
+                                (mouseenter)="showLanguageSubmenu = true; showToolsDropdown = true; showDocumentationSubmenu = false"
+                                (mouseleave)="checkCloseLanguageSubmenu($event)">
+                                <li *ngFor="let lang of sortedLangCodes">
+                                    <a class="dropdown-item"
+                                       (click)="_translate.use(lang); closeMenu()"
+                                       [class.active]="lang === _translate.currentLang">
+                                        <i class="fa language-check" [class.fa-check]="lang === _translate.currentLang" [class.fa-circle-o]="lang !== _translate.currentLang"></i>
+                                        {{ 'LANGUAGE.' + lang.toUpperCase() | translate }}
+                                        <span class="flag-wrapper">
+                                            <span class="fi fi-{{getCountryCode(lang)}}"></span>
+                                        </span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                    </ng-container>
                 </ul>
             </li>
 

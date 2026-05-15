@@ -23,6 +23,27 @@ import { StockTickerComponent } from './stock-exchange/stock-ticker/stock-ticker
 import { StockTickerService } from './services/stock-ticker.service';
 import { AssistantDrawerComponent } from './shared/assistant-drawer/assistant-drawer.component';
 
+interface NavRouteMenuItem {
+  routerLink: unknown[];
+  icon: string;
+  labelKey: string;
+  authOnly?: boolean;
+  adminOnly?: boolean;
+}
+
+interface NavDocMenuItem {
+  docAction: 'slideshow' | 'recent';
+  icon: string;
+  labelKey: string;
+}
+
+type ToolsMenuRow =
+  | ({ kind: 'route' } & NavRouteMenuItem)
+  | { kind: 'upload'; icon: string; labelKey: string }
+  | { kind: 'share'; icon: string; labelKey: string }
+  | { kind: 'doc-submenu' }
+  | { kind: 'lang-submenu' };
+
 @Component({
     selector: 'app-root',
     templateUrl: './app.component.html',
@@ -99,6 +120,53 @@ export class AppComponent implements OnInit {
     /** True while the global stock-quote ticker banner is visible (pushed by StockTickerService). */
     public stockTickerEnabled: boolean = false;
 
+    /** Menus déroulants : entrées dans un ordre arbitraire, affichage trié par libellé traduit. */
+    readonly navEventsRaw: NavRouteMenuItem[] = [
+        { routerLink: ['even'], icon: 'fa fa-list', labelKey: 'MENU.EVENTSLIST' },
+        { routerLink: ['neweven'], icon: 'fa fa-plus', labelKey: 'MENU.EVENTSCREATION' },
+        { routerLink: ['photos'], icon: 'fa fa-picture-o', labelKey: 'MENU.PHOTOS' }
+    ];
+    readonly navLinksRaw: NavRouteMenuItem[] = [
+        { routerLink: ['links'], icon: 'fa fa-link', labelKey: 'MENU.LINKS' },
+        { routerLink: ['links-admin'], icon: 'fa fa-cog', labelKey: 'MENU.LINKS_ADMINISTRATION' }
+    ];
+    readonly navOrganisationRaw: NavRouteMenuItem[] = [
+        { routerLink: ['calendrier'], icon: 'fa fa-calendar-check-o', labelKey: 'MENU.CALENDAR' },
+        { routerLink: ['todolists'], icon: 'fa fa-tasks', labelKey: 'MENU.TODOLISTS' }
+    ];
+    readonly navGeoRaw: NavRouteMenuItem[] = [
+        { routerLink: ['api/openweathermap'], icon: 'fa fa-cloud', labelKey: 'MENU.POSITION_METEO' },
+        { routerLink: ['api/address-geocode'], icon: 'fa fa-map-marker', labelKey: 'MENU.ADDRESS_TO_MAP' },
+        { routerLink: ['api/news'], icon: 'fa fa-newspaper-o', labelKey: 'MENU.NEWS' },
+        { routerLink: ['api/currency-converter'], icon: 'fa fa-money', labelKey: 'MENU.CURRENCY_CONVERTER' },
+        { routerLink: ['api/stock-exchange'], icon: 'fa fa-line-chart', labelKey: 'MENU.STOCK_EXCHANGE' }
+    ];
+    readonly navIotRaw: NavRouteMenuItem[] = [
+        { routerLink: ['iot'], icon: 'fa fa-home', labelKey: 'MENU.IOT_HOME' },
+        { routerLink: ['iot/local-network'], icon: 'fa fa-sitemap', labelKey: 'MENU.LOCAL_NETWORK', adminOnly: true },
+        { routerLink: ['iot/cameras'], icon: 'fa fa-video-camera', labelKey: 'MENU.CAMERAS' },
+        { routerLink: ['iot/proxy'], icon: 'fa fa-random', labelKey: 'MENU.IOT_PROXY' }
+    ];
+    readonly navMathRaw: NavRouteMenuItem[] = [
+        { routerLink: ['tools/loto'], icon: 'fa fa-trophy', labelKey: 'MENU.LOTTO' },
+        { routerLink: ['tools/euromillions'], icon: 'fa fa-star', labelKey: 'MENU.EUROMILLIONS' },
+        { routerLink: ['tools/calculator'], icon: 'fa fa-calculator', labelKey: 'MENU.CALCULATOR' },
+        { routerLink: ['tools/solar-system'], icon: 'fa fa-globe', labelKey: 'MENU.SOLAR_SYSTEM' }
+    ];
+    readonly toolsMenuRowsRaw: ToolsMenuRow[] = [
+        { kind: 'route', routerLink: ['results'], icon: 'fa fa-comments', labelKey: 'MENU.RESULTS' },
+        { kind: 'route', routerLink: ['system'], icon: 'fa fa-cog', labelKey: 'MENU.SYSTEM', authOnly: true },
+        { kind: 'route', routerLink: ['maps'], icon: 'fa fa-map', labelKey: 'MENU.MAPS' },
+        { kind: 'upload', icon: 'fa fa-cloud-upload', labelKey: 'UPLOADFILE.MENU' },
+        { kind: 'share', icon: 'fa fa-share-alt', labelKey: 'SHAREFILE.MENU' },
+        { kind: 'doc-submenu' },
+        { kind: 'lang-submenu' }
+    ];
+    readonly navDocumentationItemsRaw: NavDocMenuItem[] = [
+        { docAction: 'slideshow', icon: 'fa fa-picture-o', labelKey: 'MENU.SLIDESHOW_DOCUMENTATION' },
+        { docAction: 'recent', icon: 'fa fa-file-text-o', labelKey: 'MENU.RECENT_FEATURES_DOCUMENTATION' }
+    ];
+
     constructor(public _translate: TranslateService,
         public _kc: KeycloakService,
         public _membersService: MembersService,
@@ -153,6 +221,7 @@ export class AppComponent implements OnInit {
         this._translate.use(this._commonValuesServices.getLang());
         this._translate.onLangChange.subscribe((event: LangChangeEvent) => {
             this._commonValuesServices.setLang(event.lang);
+            this.cdr.markForCheck();
         });
         this.getUserInfo();
         this.checkIotRole();
@@ -178,6 +247,119 @@ export class AppComponent implements OnInit {
         return this._kc.hasAdminRole();
     }
 
+    /** Tri alphabétique des libellés pour la langue courante (insensible à la casse, chiffres). */
+    private sortMenuByLabel<T extends { labelKey: string }>(items: readonly T[]): T[] {
+        const lang = this._translate.currentLang || this._translate.getDefaultLang();
+        return [...items].sort((a, b) =>
+            this._translate.instant(a.labelKey).localeCompare(this._translate.instant(b.labelKey), lang, {
+                sensitivity: 'base',
+                numeric: true
+            })
+        );
+    }
+
+    private filterRouteItems(items: readonly NavRouteMenuItem[]): NavRouteMenuItem[] {
+        return items.filter(
+            (i) =>
+                (!i.authOnly || this.isAuthenticated()) && (!i.adminOnly || this.hasAdminRole())
+        );
+    }
+
+    get sortedNavEvents(): NavRouteMenuItem[] {
+        return this.sortMenuByLabel(this.navEventsRaw);
+    }
+
+    get sortedNavLinks(): NavRouteMenuItem[] {
+        return this.sortMenuByLabel(this.navLinksRaw);
+    }
+
+    get sortedNavOrganisation(): NavRouteMenuItem[] {
+        return this.sortMenuByLabel(this.navOrganisationRaw);
+    }
+
+    get sortedNavGeo(): NavRouteMenuItem[] {
+        return this.sortMenuByLabel(this.navGeoRaw);
+    }
+
+    get sortedNavIot(): NavRouteMenuItem[] {
+        return this.sortMenuByLabel(this.filterRouteItems(this.navIotRaw));
+    }
+
+    get sortedNavMath(): NavRouteMenuItem[] {
+        return this.sortMenuByLabel(this.navMathRaw);
+    }
+
+    private toolsRowSortKey(row: ToolsMenuRow): string {
+        switch (row.kind) {
+            case 'route':
+            case 'upload':
+            case 'share':
+                return row.labelKey;
+            case 'doc-submenu':
+                return 'MENU.DOCUMENTATION';
+            case 'lang-submenu':
+                return 'MENU.LANG';
+        }
+    }
+
+    private toolsRowVisible(row: ToolsMenuRow): boolean {
+        switch (row.kind) {
+            case 'route':
+                if (row.authOnly && !this.isAuthenticated()) {
+                    return false;
+                }
+                if (row.adminOnly && !this.hasAdminRole()) {
+                    return false;
+                }
+                return true;
+            case 'upload':
+            case 'share':
+                return this.isAuthenticated();
+            default:
+                return true;
+        }
+    }
+
+    get sortedToolsMenuRows(): ToolsMenuRow[] {
+        const lang = this._translate.currentLang || this._translate.getDefaultLang();
+        return [...this.toolsMenuRowsRaw]
+            .filter((r) => this.toolsRowVisible(r))
+            .sort((a, b) =>
+                this._translate.instant(this.toolsRowSortKey(a)).localeCompare(
+                    this._translate.instant(this.toolsRowSortKey(b)),
+                    lang,
+                    { sensitivity: 'base', numeric: true }
+                )
+            );
+    }
+
+    get sortedDocumentationItems(): NavDocMenuItem[] {
+        return this.sortMenuByLabel(this.navDocumentationItemsRaw);
+    }
+
+    get sortedLangCodes(): string[] {
+        const lang = this._translate.currentLang || this._translate.getDefaultLang();
+        const langs = this._translate.getLangs();
+        return [...langs].sort((a, b) =>
+            this._translate.instant('LANGUAGE.' + a.toUpperCase()).localeCompare(
+                this._translate.instant('LANGUAGE.' + b.toUpperCase()),
+                lang,
+                { sensitivity: 'base', numeric: true }
+            )
+        );
+    }
+
+    onDocMenuItemClick(doc: NavDocMenuItem, event: Event): void {
+        event.preventDefault();
+        if (doc.docAction === 'slideshow') {
+            this.openSlideshowDocumentation();
+        } else {
+            this.openRecentFeaturesDocumentation();
+        }
+        this.showDocumentationSubmenu = false;
+        this.closeMenu();
+    }
+
     logout() {
         // this.member = undefined;
         this._kc.logout();
@@ -185,7 +367,7 @@ export class AppComponent implements OnInit {
 
     navigateToHome(event: Event): void {
         // Only navigate if no dropdowns are open and it's not a dropdown trigger
-        if (!this.showEventsDropdown && !this.showToolsDropdown && !this.showIotDropdown && !this.showApiDropdown && !this.showOrganisationDropdown && !this.showMathDropdown) {
+        if (!this.showEventsDropdown && !this.showToolsDropdown && !this.showIotDropdown && !this.showApiDropdown && !this.showOrganisationDropdown && !this.showMathDropdown && !this.showLinksDropdown) {
             event.preventDefault();
             event.stopPropagation();
             this.router.navigate(['']);
