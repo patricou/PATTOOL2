@@ -18,8 +18,10 @@ interface TraceViewerSource {
 	fileName: string;
 	/** Optional title in the modal header (e.g. user description); falls back to fileName. */
 	titleLabel?: string;
-	location?: { lat: number; lng: number; label?: string };
+	location?: { lat: number; lng: number; label?: string; zoom?: number };
 	positions?: Array<{ lat: number; lng: number; type?: string; datetime?: Date; label?: string }>;
+	/** When set (e.g. globe embed), selects this base layer id after layers are created. */
+	initialBaseLayerId?: string;
 }
 
 interface TraceStatistics {
@@ -97,10 +99,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private readonly destroy$ = new Subject<void>();
 	private modalRef?: NgbModalRef;
+	/** Si défini avant `open()`, remplace les options NgbModal par défaut (ex. montage dans le div du globe). */
+	private nextModalOptionsOverride: NgbModalOptions | null = null;
 	private map?: L.Map;
 	private overlayLayer?: L.LayerGroup;
 	private pendingTrackPoints: L.LatLngTuple[] | null = null;
-	private pendingLocation: { lat: number; lng: number; label?: string } | null = null;
+	private pendingLocation: { lat: number; lng: number; label?: string; zoom?: number } | null = null;
 	private pendingPositions: Array<{ lat: number; lng: number; type?: string; datetime?: Date; label?: string }> | null = null;
 	private lastRenderedPosition: { lat: number; lng: number } | null = null; // Store the most recent position after rendering
 	private selectionMode: boolean = false;
@@ -136,6 +140,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public isFullscreenInfoVisible = false;
 	private trackBounds: L.LatLngBounds | null = null;
 	private trackBoundsRefitTimeouts: ReturnType<typeof setTimeout>[] = [];
+	/** Suit le redimensionnement du conteneur (flex/modale/embed) pour corriger carte noire Leaflet. */
+	private mapLayoutResizeObserver?: ResizeObserver;
+	private mapLayoutResizeDebouncer: ReturnType<typeof setTimeout> | null = null;
+	private mapInitVisibilityAttempts = 0;
 	private rightMouseZoomActive = false;
 	private rightMouseStartLatLng?: L.LatLng;
 	private rightMouseRectangle?: L.Rectangle;
@@ -277,6 +285,47 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.open({ blob, fileName });
 	}
 
+	/**
+	 * Ouvre le trace viewer dans un élément donné (sans backdrop plein écran),
+	 * pour l’embed sur le globe 3D ou tout autre panneau.
+	 */
+	public openAtLocationEmbedded(
+		container: HTMLElement,
+		lat: number,
+		lng: number,
+		options?: { locationZoom?: number; label?: string; initialBaseLayerId?: string }
+	): void {
+		if (!container || Number.isNaN(lat) || Number.isNaN(lng)) {
+			return;
+		}
+
+		const fallback = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+		const fileName =
+			options?.label != null && String(options.label).trim().length > 0
+				? String(options.label).trim()
+				: fallback;
+
+		this.eventColor = null;
+		this.selectionMode = false;
+		this.simpleShareMode = false;
+
+		this.nextModalOptionsOverride = {
+			container,
+			backdrop: false,
+			centered: false,
+			scrollable: true,
+			keyboard: true,
+			windowClass: 'modal-smooth-animation world-globe-trace-embed',
+			modalDialogClass: 'modal-dialog-globe-embed'
+		};
+
+		this.open({
+			fileName,
+			location: { lat, lng, label: options?.label, zoom: options?.locationZoom },
+			initialBaseLayerId: options?.initialBaseLayerId
+		});
+	}
+
 	public openAtLocation(lat: number, lng: number, label?: string, eventColor?: { r: number; g: number; b: number }, enableSelection: boolean = false, simpleShare: boolean = false): void {
 		if (Number.isNaN(lat) || Number.isNaN(lng)) {
 			return;
@@ -342,6 +391,89 @@ export class TraceViewerModalComponent implements OnDestroy {
 			fileName,
 			positions: validPositions
 		});
+	}
+
+	public refreshMapLayout(): void {
+		if (!this.map) {
+			return;
+		}
+		this.map.invalidateSize({ animate: false });
+		this.redrawActiveBaseLayerTiles();
+		queueMicrotask(() => {
+			this.map?.invalidateSize({ animate: false });
+			this.redrawActiveBaseLayerTiles();
+		});
+		window.setTimeout(() => {
+			this.map?.invalidateSize({ animate: false });
+			this.redrawActiveBaseLayerTiles();
+		}, 80);
+		window.setTimeout(() => {
+			this.map?.invalidateSize({ animate: false });
+			this.redrawActiveBaseLayerTiles();
+		}, 320);
+		window.setTimeout(() => {
+			this.map?.invalidateSize({ animate: false });
+			this.redrawActiveBaseLayerTiles();
+		}, 750);
+	}
+
+	private teardownMapLayoutObserver(): void {
+		if (this.mapLayoutResizeDebouncer != null) {
+			clearTimeout(this.mapLayoutResizeDebouncer);
+			this.mapLayoutResizeDebouncer = null;
+		}
+		this.mapLayoutResizeObserver?.disconnect();
+		this.mapLayoutResizeObserver = undefined;
+	}
+
+	private setupMapLayoutObserver(container: HTMLElement): void {
+		this.teardownMapLayoutObserver();
+		if (typeof ResizeObserver === 'undefined') {
+			return;
+		}
+		this.mapLayoutResizeObserver = new ResizeObserver(() => {
+			if (!this.map) {
+				return;
+			}
+			if (this.mapLayoutResizeDebouncer != null) {
+				clearTimeout(this.mapLayoutResizeDebouncer);
+			}
+			this.mapLayoutResizeDebouncer = setTimeout(() => {
+				this.mapLayoutResizeDebouncer = null;
+				this.touchMapAfterContainerResize();
+			}, 48);
+		});
+		try {
+			this.mapLayoutResizeObserver.observe(container);
+		} catch {
+			/* ignore */
+		}
+	}
+
+	/** Après changement de taille du conteneur : recalcul Leaflet + rechargement des tuiles. */
+	private touchMapAfterContainerResize(): void {
+		if (!this.map) {
+			return;
+		}
+		this.map.invalidateSize({ animate: false });
+		this.redrawActiveBaseLayerTiles();
+		this.tryRenderPendingTrack();
+		this.tryRenderPendingPositions();
+		this.tryRenderPendingLocation();
+	}
+
+	private redrawActiveBaseLayerTiles(): void {
+		if (!this.map || !this.activeBaseLayer) {
+			return;
+		}
+		const walk = (ly: L.Layer): void => {
+			if (ly instanceof L.TileLayer) {
+				ly.redraw();
+			} else if (ly instanceof L.LayerGroup) {
+				ly.eachLayer((child) => walk(child));
+			}
+		};
+		walk(this.activeBaseLayer);
 	}
 
 	public close(): void {
@@ -493,6 +625,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const label = source.titleLabel != null && source.titleLabel.trim().length > 0 ? source.titleLabel.trim() : '';
 		this.trackFileName = label.length > 0 ? label : source.fileName;
 		this.initializeBaseLayers();
+		if (source.initialBaseLayerId && this.baseLayers[source.initialBaseLayerId]) {
+			this.selectedBaseLayerId = source.initialBaseLayerId;
+		}
 		this.pendingLocation = source.location ?? null;
 		this.pendingPositions = source.positions ?? null;
 		if (this.pendingLocation) {
@@ -505,14 +640,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.trackStats = null;
 		}
 
-		this.modalRef = this.modalService.open(this.traceViewerModal, {
+		const defaultModalOpts: NgbModalOptions = {
 			size: 'xl',
 			centered: true,
 			backdrop: 'static',
 			keyboard: true,
 			windowClass: 'slideshow-modal-wide modal-smooth-animation',
 			modalDialogClass: 'modal-xl'
-		});
+		};
+		const modalOpts = this.nextModalOptionsOverride ?? defaultModalOpts;
+		this.nextModalOptionsOverride = null;
+		this.modalRef = this.modalService.open(this.traceViewerModal, modalOpts);
 		this.hasEmittedClosed = false;
 
 		const finalizeModal = () => {
@@ -770,10 +908,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 			container.offsetHeight > 0;
 
 		if (!isContainerVisible) {
-			// Wait a bit more for the container to become visible
-			setTimeout(() => this.initializeMap(), 100);
-			return;
+			this.mapInitVisibilityAttempts += 1;
+			if (this.mapInitVisibilityAttempts < 100) {
+				setTimeout(() => this.initializeMap(), 100);
+				return;
+			}
+			/* Après plusieurs essais : le conteneur peut rester à 0×0 (flex/embed) ; on crée quand même la carte
+			 * et ResizeObserver + invalidateSize rétablissent les tuiles dès que la taille est connue. */
 		}
+		this.mapInitVisibilityAttempts = 0;
 
 		container.innerHTML = '';
 
@@ -790,6 +933,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.releaseLeafletControlPassiveTouchPatch();
 			throw e;
 		}
+
+		this.setupMapLayoutObserver(container);
 
 		// Force crosshair cursor on map container
 		this.forceCrosshairCursor();
@@ -810,18 +955,21 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.cdr.detectChanges();
 
 		const invalidate = () => {
+			this.map?.invalidateSize({ animate: false });
+			this.redrawActiveBaseLayerTiles();
 			this.tryRenderPendingTrack();
 			this.tryRenderPendingPositions();
 			this.tryRenderPendingLocation();
-			// Force multiple invalidateSize calls to ensure proper rendering
 			setTimeout(() => {
-				this.map?.invalidateSize();
+				this.map?.invalidateSize({ animate: false });
+				this.redrawActiveBaseLayerTiles();
 				this.tryRenderPendingTrack();
 				this.tryRenderPendingPositions();
 				this.tryRenderPendingLocation();
 			}, 50);
 			setTimeout(() => {
-				this.map?.invalidateSize();
+				this.map?.invalidateSize({ animate: false });
+				this.redrawActiveBaseLayerTiles();
 				this.tryRenderPendingTrack();
 				this.tryRenderPendingPositions();
 				this.tryRenderPendingLocation();
@@ -854,20 +1002,25 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.registerAddressClickHandler();
 			// Additional invalidateSize after map is ready
 			setTimeout(() => {
-				this.map?.invalidateSize();
+				this.map?.invalidateSize({ animate: false });
+				this.redrawActiveBaseLayerTiles();
 			}, 100);
 		});
 
-		// Ensure base layer is loaded before invalidating
-		if (this.baseLayers['osm-standard']) {
-			this.baseLayers['osm-standard'].once('load', () => {
-				invalidate();
-			});
+		const hookTileLayerLoadRecursive = (layer: L.Layer, fn: () => void): void => {
+			if (layer instanceof L.TileLayer) {
+				layer.once('load', fn);
+			} else if (layer instanceof L.LayerGroup) {
+				layer.eachLayer((child) => hookTileLayerLoadRecursive(child, fn));
+			}
+		};
+		if (this.activeBaseLayer) {
+			hookTileLayerLoadRecursive(this.activeBaseLayer, () => invalidate());
 		}
 
-		// Force invalidateSize after a short delay to ensure container is fully rendered
 		setTimeout(() => {
-			this.map?.invalidateSize();
+			this.map?.invalidateSize({ animate: false });
+			this.redrawActiveBaseLayerTiles();
 		}, 200);
 	}
 
@@ -1203,6 +1356,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 
 		const { lat, lng, label } = this.pendingLocation;
+		const rawZ = this.pendingLocation.zoom;
+		const viewZoom =
+			rawZ != null && !Number.isNaN(rawZ) ? Math.min(19, Math.max(2, Math.round(rawZ))) : 14;
 
 		// Store the location for share functionality
 		this.lastRenderedPosition = { lat, lng };
@@ -1212,7 +1368,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (this.selectionMode) {
 			// Just set the view and keep pendingLocation for registerLocationSelection
 			this.trackBounds = L.latLngBounds([lat, lng], [lat, lng]);
-			this.map.setView([lat, lng], 14);
+			this.map.setView([lat, lng], viewZoom);
 			return;
 		}
 
@@ -1237,7 +1393,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		marker.addTo(this.overlayLayer);
 
 		this.trackBounds = L.latLngBounds([lat, lng], [lat, lng]);
-		this.map.setView([lat, lng], 14);
+		this.map.setView([lat, lng], viewZoom);
 
 		// Show address automatically for initial location if address display is enabled
 		if (this.showAddress) {
@@ -1459,6 +1615,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private destroyMap(): void {
+		this.teardownMapLayoutObserver();
+		this.mapInitVisibilityAttempts = 0;
 		this.isMapReady = false;
 		this.clearTrackBoundsRefitTimeouts();
 		if (this.map) {
@@ -1915,21 +2073,18 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.activeBaseLayer = nextLayer;
 
 			// Force map to redraw and invalidate size
-			this.map.invalidateSize();
+			this.map.invalidateSize({ animate: false });
 
-			// Additional invalidateSize calls with delays to ensure tiles load properly
 			setTimeout(() => {
-				this.map?.invalidateSize();
+				this.map?.invalidateSize({ animate: false });
 			}, 50);
 			setTimeout(() => {
-				this.map?.invalidateSize();
+				this.map?.invalidateSize({ animate: false });
 			}, 200);
 
-			// Force redraw of the layer to ensure all tiles are visible
 			if (nextLayer instanceof L.TileLayer) {
 				nextLayer.redraw();
 			} else if (nextLayer instanceof L.LayerGroup) {
-				// For layer groups (like OSM France hybrid), redraw all tile layers inside
 				nextLayer.eachLayer((layer) => {
 					if (layer instanceof L.TileLayer) {
 						layer.redraw();
@@ -1937,23 +2092,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 				});
 			}
 
-
-			// Force tile loading by changing zoom level (most reliable method)
-			// This works at all zoom levels, including high zoom where micro-zoom fails
 			setTimeout(() => {
-				if (this.map) {
-					const currentZoom = this.map.getZoom();
-					// Zoom out by 1 level, then back to force complete tile reload
-					this.map.setZoom(currentZoom - 1, { animate: false });
-					setTimeout(() => {
-						this.map?.setZoom(currentZoom, { animate: false });
-						// Final invalidateSize to ensure rendering
-						setTimeout(() => {
-							this.map?.invalidateSize();
-						}, 150);
-					}, 150);
-				}
-			}, 100);
+				this.touchMapAfterContainerResize();
+			}, 140);
 		}
 		this.applyHikingTrailsOverlay();
 		this.applyCyclingTrailsOverlay();

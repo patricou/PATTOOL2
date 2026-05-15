@@ -539,6 +539,10 @@ function computeElevationGainM(points: ParsedTrackPoint[]): number | null {
     return elevationGainPairwiseRaw(points, 3);
 }
 
+export function parseTrackFileToLatLonPoints(fileName: string, text: string): ParsedTrackPoint[] {
+    return parseTrackPointsAndDate(fileName, text).points;
+}
+
 export function computeTrackStatsFromFileContent(fileName: string, text: string): TrackRouteStats {
     const { points, fileDateIso } = parseTrackPointsAndDate(fileName, text);
     return {

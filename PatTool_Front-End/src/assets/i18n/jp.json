@@ -36,6 +36,7 @@
         "IOT_PROXY": "LANプロキシ",
         "IA": "AI",
         "GEO": "世界",
+        "GEO_WORLD_VIEWS": "地球と宇宙",
         "POSITION_METEO": "位置/天気",
         "ADDRESS_TO_MAP": "住所/GPSを地図に",
         "NEWS": "ニュース",

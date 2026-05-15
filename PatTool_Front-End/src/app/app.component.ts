@@ -134,12 +134,17 @@ export class AppComponent implements OnInit {
         { routerLink: ['calendrier'], icon: 'fa fa-calendar-check-o', labelKey: 'MENU.CALENDAR' },
         { routerLink: ['todolists'], icon: 'fa fa-tasks', labelKey: 'MENU.TODOLISTS' }
     ];
-    readonly navGeoRaw: NavRouteMenuItem[] = [
+    readonly navGeoLocalRaw: NavRouteMenuItem[] = [
         { routerLink: ['api/openweathermap'], icon: 'fa fa-cloud', labelKey: 'MENU.POSITION_METEO' },
         { routerLink: ['api/address-geocode'], icon: 'fa fa-map-marker', labelKey: 'MENU.ADDRESS_TO_MAP' },
         { routerLink: ['api/news'], icon: 'fa fa-newspaper-o', labelKey: 'MENU.NEWS' },
         { routerLink: ['api/currency-converter'], icon: 'fa fa-money', labelKey: 'MENU.CURRENCY_CONVERTER' },
         { routerLink: ['api/stock-exchange'], icon: 'fa fa-line-chart', labelKey: 'MENU.STOCK_EXCHANGE' }
+    ];
+    /** Globe 3D et carte du système solaire (sous-section du menu Monde). */
+    readonly navGeoWorldRaw: NavRouteMenuItem[] = [
+        { routerLink: ['tools/world-globe'], icon: 'fa fa-map', labelKey: 'MENU.WORLD_GLOBE' },
+        { routerLink: ['tools/solar-system'], icon: 'fa fa-globe', labelKey: 'MENU.SOLAR_SYSTEM' }
     ];
     readonly navIotRaw: NavRouteMenuItem[] = [
         { routerLink: ['iot'], icon: 'fa fa-home', labelKey: 'MENU.IOT_HOME' },
@@ -150,9 +155,7 @@ export class AppComponent implements OnInit {
     readonly navMathRaw: NavRouteMenuItem[] = [
         { routerLink: ['tools/loto'], icon: 'fa fa-trophy', labelKey: 'MENU.LOTTO' },
         { routerLink: ['tools/euromillions'], icon: 'fa fa-star', labelKey: 'MENU.EUROMILLIONS' },
-        { routerLink: ['tools/calculator'], icon: 'fa fa-calculator', labelKey: 'MENU.CALCULATOR' },
-        { routerLink: ['tools/world-globe'], icon: 'fa fa-map', labelKey: 'MENU.WORLD_GLOBE' },
-        { routerLink: ['tools/solar-system'], icon: 'fa fa-globe', labelKey: 'MENU.SOLAR_SYSTEM' }
+        { routerLink: ['tools/calculator'], icon: 'fa fa-calculator', labelKey: 'MENU.CALCULATOR' }
     ];
     readonly toolsMenuRowsRaw: ToolsMenuRow[] = [
         { kind: 'route', routerLink: ['results'], icon: 'fa fa-comments', labelKey: 'MENU.RESULTS' },
@@ -278,8 +281,12 @@ export class AppComponent implements OnInit {
         return this.sortMenuByLabel(this.navOrganisationRaw);
     }
 
-    get sortedNavGeo(): NavRouteMenuItem[] {
-        return this.sortMenuByLabel(this.navGeoRaw);
+    get sortedNavGeoLocal(): NavRouteMenuItem[] {
+        return this.sortMenuByLabel(this.navGeoLocalRaw);
+    }
+
+    get sortedNavGeoWorld(): NavRouteMenuItem[] {
+        return this.sortMenuByLabel(this.navGeoWorldRaw);
     }
 
     get sortedNavIot(): NavRouteMenuItem[] {

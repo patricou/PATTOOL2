@@ -101,7 +101,7 @@
                 </ul>
             </li>
 
-            <!-- Geo Dropdown (position, weather, map) -->
+            <!-- Monde / API + Globe & système solaire -->
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" 
                    href="#" 
@@ -114,7 +114,16 @@
                 <ul class="dropdown-menu" 
                     [class.show]="showApiDropdown" 
                     aria-labelledby="apiDropdown">
-                    <li *ngFor="let item of sortedNavGeo">
+                    <li *ngFor="let item of sortedNavGeoLocal">
+                        <a class="dropdown-item"
+                           [routerLink]="item.routerLink"
+                           (click)="closeMenu()">
+                            <i [class]="item.icon"></i> {{ item.labelKey | translate }}
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><h6 class="dropdown-header">{{ 'MENU.GEO_WORLD_VIEWS' | translate }}</h6></li>
+                    <li *ngFor="let item of sortedNavGeoWorld">
                         <a class="dropdown-item"
                            [routerLink]="item.routerLink"
                            (click)="closeMenu()">
@@ -148,7 +157,7 @@
                 </ul>
             </li>
 
-            <!-- Math (Loto, Calculatrice dans le menu déroulant) -->
+            <!-- Math / jeux & calculatrice -->
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle"
                    href="#"

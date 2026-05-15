@@ -3,16 +3,10 @@
 </div>
 
 <div class="world-globe-page container-fluid px-3 px-lg-4 pb-4">
-  <p class="text-secondary small mb-3">{{ 'WORLD_GLOBE.SUBTITLE' | translate }}</p>
-
   <div class="alert alert-warning mb-3 py-2 small" role="alert" *ngIf="textureLoadError">
     <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
     {{ 'WORLD_GLOBE.TEXTURE_LOAD_ERROR' | translate }}
   </div>
-
-  <p class="text-muted small mb-2">
-    <i class="fa fa-arrows me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.HINT_DRAG' | translate }}
-  </p>
 
   <div #globeShell class="world-globe-shell" [class.world-globe-shell--fs]="fullscreen">
     <aside class="world-globe-panel card shadow-sm border-0 flex-shrink-0" *ngIf="showOptionsPanel">
@@ -44,6 +38,34 @@
           <input
             class="form-check-input"
             type="checkbox"
+            id="wgUserLight"
+            [(ngModel)]="lightFromMyLocationEnabled"
+            (ngModelChange)="onLightFromMyLocationChange()"
+            [disabled]="realTimeTerminator" />
+          <label
+            class="form-check-label"
+            for="wgUserLight"
+            [attr.title]="'WORLD_GLOBE.LIGHT_FROM_USER_HINT' | translate">
+            {{ 'WORLD_GLOBE.LIGHT_FROM_USER' | translate }}
+          </label>
+        </div>
+        <button
+          type="button"
+          class="btn btn-outline-secondary btn-sm mb-1 w-100 text-start"
+          (click)="refreshUserGeolocationForLighting()"
+          [disabled]="
+            realTimeTerminator || !lightFromMyLocationEnabled || userGeoLightingLoading || !userLightingGeoApiAvailable
+          ">
+          <span *ngIf="!userGeoLightingLoading">{{ 'WORLD_GLOBE.LIGHT_FROM_USER_REFRESH' | translate }}</span>
+          <span *ngIf="userGeoLightingLoading">{{ 'WORLD_GLOBE.LIGHT_FROM_USER_REFRESHING' | translate }}</span>
+        </button>
+        <p class="small text-muted mb-2" *ngIf="realTimeTerminator">{{ 'WORLD_GLOBE.LIGHT_FROM_USER_DISABLED_BY_SUN' | translate }}</p>
+        <p class="small text-muted mb-2" *ngIf="lightFromMyLocationEnabled && !userLightingGeoApiAvailable">{{ 'WORLD_GLOBE.LIGHT_FROM_USER_NO_API' | translate }}</p>
+        <p class="small text-muted mb-2" *ngIf="lightFromMyLocationEnabled && userLightingGeoApiAvailable && !userLightingGeoOk && !userGeoLightingLoading && !realTimeTerminator">{{ 'WORLD_GLOBE.LIGHT_FROM_USER_FALLBACK' | translate }}</p>
+        <div class="form-check form-switch mb-2">
+          <input
+            class="form-check-input"
+            type="checkbox"
             id="wgWxSat"
             [(ngModel)]="weatherImageryEnabled"
             (ngModelChange)="onWeatherImageryToggle()"
@@ -66,7 +88,7 @@
           type="button"
           class="btn btn-outline-success btn-sm mb-2 w-100 text-start"
           (click)="loadActivitiesOnGlobe()"
-          [disabled]="activitiesLoading">
+          [disabled]="activitiesLoading || applyingGlobeActivities">
           <span *ngIf="!activitiesLoading">{{ 'WORLD_GLOBE.LOAD_ACTIVITIES' | translate }}</span>
           <span *ngIf="activitiesLoading">{{ 'WORLD_GLOBE.ACTIVITIES_LOADING' | translate }}</span>
         </button>
@@ -79,6 +101,48 @@
           }}
         </p>
         <p class="small text-danger mb-2" *ngIf="activitiesBanner === 'error'">{{ 'WORLD_GLOBE.ACTIVITIES_ERROR' | translate }}</p>
+
+        <div
+          class="border rounded px-2 py-2 mb-2 small bg-light bg-opacity-25"
+          *ngIf="activitiesPickerOpen">
+          <p class="mb-2 fw-semibold">{{ 'WORLD_GLOBE.ACTIVITY_PICKER_TITLE' | translate }}</p>
+          <p class="text-secondary mb-2">{{ 'WORLD_GLOBE.ACTIVITY_PICKER_HINT' | translate }}</p>
+          <div class="world-globe-activity-list mb-2">
+            <div class="form-check py-1 border-bottom border-light" *ngFor="let row of globeActivityPickerRows">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                [id]="'wgActPick' + row.event.id"
+                [(ngModel)]="row.selected" />
+              <label class="form-check-label w-100" [for]="'wgActPick' + row.event.id">
+                <span class="me-1">{{ globeActivityShortLabel(row.event) }}</span>
+                <span
+                  class="badge bg-info text-dark"
+                  *ngIf="globeActivityRowTrackCount(row) > 0"
+                  [attr.title]="'WORLD_GLOBE.ACTIVITY_TRACK_BADGE_HINT' | translate">
+                  {{ 'WORLD_GLOBE.ACTIVITY_TRACK_BADGE' | translate : { n: globeActivityRowTrackCount(row) } }}
+                </span>
+              </label>
+            </div>
+          </div>
+          <div class="d-flex flex-column gap-1">
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              (click)="selectGlobeActivitiesWithTracksOnly()"
+              [disabled]="applyingGlobeActivities">
+              {{ 'WORLD_GLOBE.ACTIVITY_SELECT_TRACKS_ONLY' | translate }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-success btn-sm"
+              (click)="applySelectedActivitiesOnGlobe()"
+              [disabled]="applyingGlobeActivities || activitiesLoading">
+              <span *ngIf="!applyingGlobeActivities">{{ 'WORLD_GLOBE.ACTIVITY_APPLY_GLOBE' | translate }}</span>
+              <span *ngIf="applyingGlobeActivities">{{ 'WORLD_GLOBE.ACTIVITIES_APPLYING' | translate }}</span>
+            </button>
+          </div>
+        </div>
 
         <div class="form-check form-switch mb-2">
           <input
@@ -130,18 +194,11 @@
           type="button"
           class="btn btn-outline-info btn-sm mb-2 w-100 text-start"
           (click)="openDetailMapOverlay()"
-          [disabled]="!globeSurfaceReady">
+          [disabled]="!globeSurfaceReady || detailMapOpen">
           {{ 'WORLD_GLOBE.DETAIL_MAP_OPEN' | translate }}
         </button>
         <p class="small text-danger mb-2" *ngIf="detailMapPickFailed">{{ 'WORLD_GLOBE.DETAIL_MAP_PICK_FAIL' | translate }}</p>
-        <p class="small text-muted mb-3">{{ 'WORLD_GLOBE.DETAIL_MAP_HINT' | translate }}</p>
-
-        <p class="small text-secondary mb-0">{{ 'WORLD_GLOBE.DATA_VIA_BACKEND' | translate }}</p>
-        <ul class="small text-secondary mt-2 mb-0 ps-3">
-          <li>{{ 'WORLD_GLOBE.MARKER_PARIS' | translate }}</li>
-          <li>{{ 'WORLD_GLOBE.MARKER_NYC' | translate }}</li>
-          <li>{{ 'WORLD_GLOBE.MARKER_TOKYO' | translate }}</li>
-        </ul>
+        <p class="small text-muted mb-0">{{ 'WORLD_GLOBE.DETAIL_MAP_HINT' | translate }}</p>
       </div>
     </aside>
 
@@ -150,7 +207,7 @@
         <button type="button" class="btn btn-outline-secondary btn-sm py-0" (click)="toggleOptionsPanel()">
           {{ 'WORLD_GLOBE.SHOW_PANEL' | translate }}
         </button>
-        <button type="button" class="btn btn-outline-info btn-sm py-0" (click)="openDetailMapOverlay()" [disabled]="!globeSurfaceReady">
+        <button type="button" class="btn btn-outline-info btn-sm py-0" (click)="openDetailMapOverlay()" [disabled]="!globeSurfaceReady || detailMapOpen">
           {{ 'WORLD_GLOBE.DETAIL_MAP_OPEN_SHORT' | translate }}
         </button>
         <button type="button" class="btn btn-outline-primary btn-sm py-0" (click)="toggleFullscreen()">
@@ -161,16 +218,13 @@
 
       <div #globeCanvasHost class="world-globe-canvas-host flex-grow-1 w-100 position-relative rounded"></div>
 
-      <div class="world-globe-detail-map-layer" *ngIf="detailMapOpen" role="dialog" [attr.aria-label]="'WORLD_GLOBE.DETAIL_MAP_TITLE' | translate">
-        <div class="world-globe-detail-map-card card shadow-lg border-0">
-          <div class="card-header py-2 px-3 d-flex align-items-center justify-content-between gap-2 border-0 bg-light">
-            <span class="small fw-semibold">{{ 'WORLD_GLOBE.DETAIL_MAP_TITLE' | translate }}</span>
-            <button type="button" class="btn-close" (click)="closeDetailMapOverlay()" [attr.aria-label]="'WORLD_GLOBE.DETAIL_MAP_CLOSE' | translate"></button>
-          </div>
-          <div class="card-body p-0">
-            <p class="small text-muted px-3 pt-2 mb-2">{{ 'WORLD_GLOBE.DETAIL_MAP_OSM_NOTE' | translate }}</p>
-            <div #detailMapHost class="world-globe-detail-map-host"></div>
-          </div>
+      <div
+        class="world-globe-trace-layer"
+        *ngIf="detailMapOpen"
+        role="dialog"
+        [attr.aria-label]="'WORLD_GLOBE.DETAIL_MAP_TITLE' | translate">
+        <div class="world-globe-trace-shell">
+          <div #globeTraceMount class="world-globe-trace-mount"></div>
         </div>
       </div>
 
@@ -184,4 +238,8 @@
       </button>
     </div>
   </div>
+
+  <app-trace-viewer-modal
+    #globeTraceViewer
+    (closed)="onGlobeTraceViewerClosed()"></app-trace-viewer-modal>
 </div>

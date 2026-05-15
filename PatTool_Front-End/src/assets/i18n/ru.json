@@ -440,6 +440,7 @@
         "IOT_PROXY": "LAN-прокси",
         "IA": "ИИ",
         "GEO": "Мир",
+        "GEO_WORLD_VIEWS": "Земля и космос",
         "POSITION_METEO": "Позиция/Погода",
         "ADDRESS_TO_MAP": "Адрес/GPS на карте",
         "NEWS": "Новости",

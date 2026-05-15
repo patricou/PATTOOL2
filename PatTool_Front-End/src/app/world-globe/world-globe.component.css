@@ -71,29 +71,158 @@
   z-index: 2;
 }
 
-.world-globe-detail-map-layer {
-  position: absolute;
+/* Zone plein viewport : même principe de centrage qu’une NgbModal (trace viewer / slideshow). */
+.world-globe-trace-layer {
+  position: fixed;
   inset: 0;
-  z-index: 6;
+  z-index: 1056;
   display: flex;
-  align-items: flex-end;
-  justify-content: stretch;
-  pointer-events: none;
-  padding: 0.35rem;
+  align-items: center;
+  justify-content: center;
+  padding: 1.75rem 1rem;
+  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.42);
 }
 
-.world-globe-detail-map-card {
-  pointer-events: auto;
-  width: 100%;
-  max-height: min(56vh, 600px);
+.world-globe-trace-shell {
+  position: relative;
+  width: 65vw;
+  max-width: 65vw;
+  max-height: 90vh;
+  height: auto;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
-.world-globe-detail-map-host {
-  height: min(48vh, 500px);
-  min-height: 220px;
+.world-globe-trace-mount {
+  flex: 1 1 auto;
+  min-height: 0;
   width: 100%;
-  background: #e8eef2;
+  max-height: 90vh;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .world-globe-trace-layer {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .world-globe-trace-shell {
+    width: 100vw;
+    max-width: 100vw;
+    max-height: 100vh;
+    height: 100vh;
+    min-height: 100vh;
+  }
+
+  .world-globe-trace-mount {
+    max-height: none;
+    height: 100%;
+    flex: 1;
+  }
+
+  @supports (height: 100dvh) {
+    .world-globe-trace-shell {
+      max-height: 100dvh;
+      height: 100dvh;
+      min-height: 100dvh;
+    }
+  }
+
+  :host ::ng-deep .world-globe-trace-embed .trace-viewer-body {
+    min-height: 0 !important;
+  }
+
+  :host ::ng-deep .world-globe-trace-embed .map-wrapper {
+    min-height: 0 !important;
+    height: 100% !important;
+    flex: 1 1 auto !important;
+  }
+
+  :host ::ng-deep .world-globe-trace-mount .modal.world-globe-trace-embed.show .modal-content {
+    max-height: 100vh !important;
+  }
+
+  @supports (height: 100dvh) {
+    :host ::ng-deep .world-globe-trace-mount .modal.world-globe-trace-embed.show .modal-content {
+      max-height: 100dvh !important;
+    }
+  }
+}
+
+/*
+ * Contenu modale Trace Viewer dans le cadre globe : même cible que slideshow (65vw / 90vh)
+ * puis hauteur interne carte 60vh + min-height 420px comme trace-viewer-modal.component.css.
+ */
+:host ::ng-deep .world-globe-trace-mount .modal.world-globe-trace-embed {
+  position: static !important;
+  display: flex !important;
+  flex: 1;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  height: 100% !important;
+}
+
+:host ::ng-deep .world-globe-trace-mount .modal.world-globe-trace-embed.show .modal-dialog,
+:host ::ng-deep .world-globe-trace-mount .modal.fade.world-globe-trace-embed .modal-dialog,
+:host ::ng-deep .world-globe-trace-embed .modal-dialog-globe-embed.modal-dialog {
+  margin: 0 !important;
+  max-width: none !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  align-items: stretch !important;
+  justify-content: stretch !important;
+}
+
+:host ::ng-deep .world-globe-trace-mount .modal.world-globe-trace-embed.show .modal-content,
+:host ::ng-deep .world-globe-trace-mount .modal.fade.world-globe-trace-embed .modal-content {
+  max-width: 100% !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 90vh !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+:host ::ng-deep .world-globe-trace-embed .slideshow-header {
+  flex-shrink: 0 !important;
+}
+
+:host ::ng-deep .world-globe-trace-embed .modal-body.slideshow-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+:host ::ng-deep .world-globe-trace-embed .trace-viewer-body {
+  min-height: 60vh !important;
+  height: auto !important;
+  flex: 1 1 auto !important;
+}
+
+:host ::ng-deep .world-globe-trace-embed .map-wrapper {
+  height: 60vh !important;
+  min-height: 420px !important;
+  flex: 1 1 auto !important;
+}
+
+:host ::ng-deep .world-globe-trace-embed .slideshow-footer {
+  flex-shrink: 0 !important;
+}
+
+.world-globe-activity-list {
+  max-height: min(42vh, 280px);
+  overflow-y: auto;
 }
