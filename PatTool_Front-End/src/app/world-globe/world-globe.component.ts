@@ -11,7 +11,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { Subscription, firstValueFrom, timeout } from 'rxjs';
 import { finalize } from 'rxjs/operators';
@@ -186,6 +186,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   issOverlayEnabled = true;
   /** Secondes entre deux rafraîchissements ISS (5–600, défaut 30). */
   issPollIntervalSec = GLOBE_ISS_POLL_DEFAULT_SEC;
+  /**
+   * Secondes restantes avant le prochain appel API (0 si inactif).
+   * Mis à jour explicitement (pas via getter + {@link Date.now}) pour éviter NG0100 dans le même cycle de détection.
+   */
+  issSecondsUntilNextRefresh = 0;
   bordersOverlayLoading = false;
   bordersOverlayFailed = false;
   coastlinesOverlayLoading = false;
@@ -412,6 +417,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.routeQuerySub = this.route.queryParamMap.subscribe((params) => {
+      this.applyDeepLinkAutoRotatePreference(params);
       const latStr = params.get('lat');
       const lonStr = params.get('lon') ?? params.get('lng');
       if (!latStr || !lonStr) {
@@ -868,14 +874,6 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.startIssPolling();
     }
     this.cdr.markForCheck();
-  }
-
-  /** Secondes restantes avant le prochain appel API (0 si inactif). */
-  get issSecondsUntilNextRefresh(): number {
-    if (!this.issOverlayEnabled || this.issNextRefreshEpochMs <= 0) {
-      return 0;
-    }
-    return Math.max(0, Math.ceil((this.issNextRefreshEpochMs - Date.now()) / 1000));
   }
 
   /** Décompte : mm:ss à partir de 60 s, sinon secondes. */
@@ -1486,9 +1484,27 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private clearGlobeDeepLinkQueryParams(): void {
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: { lat: null, lon: null, lng: null, z: null, zoom: null },
+      queryParams: { lat: null, lon: null, lng: null, z: null, zoom: null, autoRotate: null },
       replaceUrl: true
     });
+  }
+
+  /** Trace viewer et liens profonds : `autoRotate=0` / `ar=0` désactive la rotation avant init OrbitControls. */
+  private applyDeepLinkAutoRotatePreference(params: ParamMap): void {
+    const raw = params.get('autoRotate') ?? params.get('ar');
+    if (raw == null || raw === '') {
+      return;
+    }
+    const off = raw === '0' || raw === 'false';
+    const on = raw === '1' || raw === 'true';
+    if (!off && !on) {
+      return;
+    }
+    this.autoRotate = on;
+    if (this.controls) {
+      this.controls.autoRotate = this.autoRotate;
+    }
+    this.cdr.markForCheck();
   }
 
   private ensureGeocodeMarkerMesh(): void {
@@ -2256,6 +2272,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.issCountdownInterval = null;
     }
     this.issNextRefreshEpochMs = 0;
+    this.refreshIssCountdownSnapshot();
   }
 
   private startIssPolling(): void {
@@ -2265,7 +2282,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
     const ms = this.issPollIntervalMs();
     this.issNextRefreshEpochMs = Date.now() + ms;
-    this.issCountdownInterval = window.setInterval(() => this.cdr.markForCheck(), 1000);
+    this.refreshIssCountdownSnapshot();
+    this.issCountdownInterval = window.setInterval(() => {
+      this.refreshIssCountdownSnapshot();
+      this.cdr.markForCheck();
+    }, 1000);
     this.scheduleIssRefreshChain(ms);
   }
 
@@ -2278,9 +2299,18 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
         }
         const ms = this.issPollIntervalMs();
         this.issNextRefreshEpochMs = Date.now() + ms;
+        this.refreshIssCountdownSnapshot();
         this.scheduleIssRefreshChain(ms);
       });
     }, delayMs);
+  }
+
+  private refreshIssCountdownSnapshot(): void {
+    if (!this.issOverlayEnabled || this.issNextRefreshEpochMs <= 0) {
+      this.issSecondsUntilNextRefresh = 0;
+      return;
+    }
+    this.issSecondsUntilNextRefresh = Math.max(0, Math.ceil((this.issNextRefreshEpochMs - Date.now()) / 1000));
   }
 
   private async refreshIssNow(): Promise<void> {

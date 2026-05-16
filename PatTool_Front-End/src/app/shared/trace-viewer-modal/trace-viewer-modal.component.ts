@@ -2177,9 +2177,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 			queryParams: {
 				lat: Math.round(c.lat * 1e7) / 1e7,
 				lon: Math.round(c.lng * 1e7) / 1e7,
-				z: Math.round(z * 100) / 100
+				z: Math.round(z * 100) / 100,
+				/** Évite la rotation automatique au centre du parcours (lecture plus stable). */
+				autoRotate: '0'
 			}
 		});
+		this.close();
 	}
 
 	/** Active/désactive le suivi de la position GPS de l'appareil (recentrage carte toutes les 10 s). */
