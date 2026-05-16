@@ -175,8 +175,8 @@ public class SecurityConfig {
                 // ============================================
                 // ROLE-BASED API ENDPOINTS - Require specific roles
                 // ============================================
-                // IoT endpoints - require Iot role
-                .requestMatchers("/iot", "/api/testarduino", "/api/opcl").hasRole("Iot")
+                // IoT endpoints - require Iot role (hasAnyRole matches realm/client "Iot" / "iot")
+                .requestMatchers("/iot", "/api/testarduino", "/api/opcl").hasAnyRole("Iot", "iot")
 
                 // IoT Cameras CRUD - protected: only users with Iot role can list,
                 // view, create, update or delete cameras. Case-insensitive match
@@ -188,6 +188,10 @@ public class SecurityConfig {
                     // Forms and XHR on the proxied SPA use POST/PUT etc. — they must reach the controller without a PatTool JWT.
                 .requestMatchers("/api/iot-proxies/forward/**").permitAll()
                 .requestMatchers("/api/iot-proxies/**").hasAnyRole("Iot", "iot")
+
+                // Home IoT relay (GET) — must not fall through to /api/** authenticated() only
+                .requestMatchers("/api/relais1status", "/api/relais1statuson", "/api/relais1statusoff").hasAnyRole("Iot", "iot")
+                .requestMatchers("/api/govee/**").hasAnyRole("Iot", "iot")
                 
                 // GET event details by ID: allow anonymous so controller can return 403 (no access) instead of 401
                 // This way the frontend can show "ask owner for access" instead of redirecting to login

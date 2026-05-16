@@ -30,6 +30,7 @@ import { LinksAdminModule } from './admin/links-admin/links-admin.module';
 import { LinksAdminComponent } from './admin/links-admin/links-admin.component';
 import { HashLocationStrategy, LocationStrategy, IMAGE_CONFIG } from '@angular/common';
 import { UnsavedChangesGuard } from './guards/unsaved-changes.guard';
+import { IotRoleGuard } from './guards/iot-role.guard';
 import { IotService } from './services/iot.service';
 import { LocalNetworkService } from './services/local-network.service';
 import { NavigationButtonsModule } from './shared/navigation-buttons/navigation-buttons.module';
@@ -98,19 +99,23 @@ export function HttpLoaderFactory(http: HttpClient) {
 			},
 			{ 
 				path: 'iot', 
-				loadComponent: () => import('./iothome/iothome.component').then(m => m.IothomeComponent)
+				loadComponent: () => import('./iothome/iothome.component').then(m => m.IothomeComponent),
+				canActivate: [IotRoleGuard]
 			},
 			{ 
 				path: 'iot/local-network', 
-				loadComponent: () => import('./local-network/local-network.component').then(m => m.LocalNetworkComponent)
+				loadComponent: () => import('./local-network/local-network.component').then(m => m.LocalNetworkComponent),
+				canActivate: [IotRoleGuard]
 			},
 			{
 				path: 'iot/cameras',
-				loadComponent: () => import('./iot-cameras/iot-cameras.component').then(m => m.IotCamerasComponent)
+				loadComponent: () => import('./iot-cameras/iot-cameras.component').then(m => m.IotCamerasComponent),
+				canActivate: [IotRoleGuard]
 			},
 			{
 				path: 'iot/proxy',
-				loadComponent: () => import('./iot-proxy/iot-proxy.component').then(m => m.IotProxyComponent)
+				loadComponent: () => import('./iot-proxy/iot-proxy.component').then(m => m.IotProxyComponent),
+				canActivate: [IotRoleGuard]
 			},
 			{ 
 				path: 'photos', 

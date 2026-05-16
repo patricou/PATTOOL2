@@ -7,7 +7,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -66,18 +68,33 @@ public class HomeIOTController {
     }
 
     @GetMapping(value = "/relais1statuson", produces = { "application/json"})
-    public String setValueOfRelais1On(){
-        return homeIOTService.setStatusOfRelais1ToOn();
+    public ResponseEntity<?> setValueOfRelais1On() {
+        if (!hasIotRole()) {
+            Map<String, Object> body = new HashMap<>();
+            body.put("Unauthorized", "Iot role required.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+        }
+        return ResponseEntity.ok(homeIOTService.setStatusOfRelais1ToOn());
     }
 
     @GetMapping(value = "/relais1statusoff", produces = { "application/json"})
-    public String setValueOfRelais1Off(){
-        return homeIOTService.setStatusOfRelais1ToOff();
+    public ResponseEntity<?> setValueOfRelais1Off() {
+        if (!hasIotRole()) {
+            Map<String, Object> body = new HashMap<>();
+            body.put("Unauthorized", "Iot role required.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+        }
+        return ResponseEntity.ok(homeIOTService.setStatusOfRelais1ToOff());
     }
 
     @GetMapping(value = "/relais1status", produces = { "application/json"})
-    public String getValueOfRelais1(){
-        return homeIOTService.getStatusOfRelais1();
+    public ResponseEntity<?> getValueOfRelais1() {
+        if (!hasIotRole()) {
+            Map<String, Object> body = new HashMap<>();
+            body.put("Unauthorized", "Iot role required.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+        }
+        return ResponseEntity.ok(homeIOTService.getStatusOfRelais1());
     }
 
 }
