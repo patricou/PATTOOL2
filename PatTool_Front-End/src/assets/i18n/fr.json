@@ -178,7 +178,7 @@
         "ISS_REFRESH_NOW_HINT": "Demander tout de suite la position ISS au serveur ; le décompte repart pour l’intervalle configuré.",
         "ISS_SECONDS_ABBR": "s",
         "ISS_KEEP_EARTH_CENTERED": "Centrer le globe sur l’ISS",
-        "ISS_KEEP_EARTH_CENTERED_HINT": "Recadre en continu la vue sur le sous-point de l’ISS (le zoom est conservé). Désactive temporairement la rotation lente tant que l’option est cochée.",
+        "ISS_KEEP_EARTH_CENTERED_HINT": "Recadre en continu la vue sur le sous-point de l’ISS (le zoom est conservé). Désactive temporairement la rotation lente tant que l’option est cochée. Maintenez Maj et faites glisser avec le bouton gauche pour orbiter librement ; relâchez Maj ou la souris pour reprendre le suivi.",
         "BORDERS_LOADING": "Chargement des frontières…",
         "BORDERS_FAILED": "Couche frontières indisponible (erreur amont ou GeoJSON).",
         "ISS_FETCH_FAILED": "Position ISS indisponible (erreur amont ou données invalides).",

@@ -175,7 +175,7 @@
         "BORDERS_FAILED": "No se pudo cargar la capa de fronteras.",
         "ISS_FETCH_FAILED": "Posición ISS no disponible.",
         "ISS_KEEP_EARTH_CENTERED": "Mantener el globo centrado en la ISS",
-        "ISS_KEEP_EARTH_CENTERED_HINT": "Reencuadra la vista sobre el subsátelite de la ISS en cada fotograma (se conserva el zoom). Desactiva temporalmente la rotación automática lenta.",
+        "ISS_KEEP_EARTH_CENTERED_HINT": "Reencuadra la vista sobre el subsátelite de la ISS en cada fotograma (se conserva el zoom). Desactiva temporalmente la rotación automática lenta. Mantén Mayús y arrastra con el botón izquierdo para orbitar libremente; suelta Mayús o el ratón para volver al seguimiento.",
         "BORDERS_ATTRIBUTION": "Natural Earth · fronteras 110 m · dominio público",
         "LAYER_COASTLINES": "Costas (Natural Earth, proxy)",
         "LAYER_COASTLINES_HINT": "Perfil costero océano–tierra de Natural Earth (dominio público), vía /api/external/globe/geojson/ne-110m-coastline.",

@@ -8,9 +8,31 @@
 /* Bloc titre + globe en vrai plein écran navigateur (API Fullscreen) */
 .wg-fs-root:fullscreen,
 .wg-fs-root:-webkit-full-screen {
+  height: 100vh;
+  height: 100dvh;
   min-height: 100vh;
   min-height: 100dvh;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  /* Évite une bande « vide » (souvent noire) si un enfant ne remplit pas encore la hauteur */
+  background: radial-gradient(115% 95% at 50% -8%, #1c2749 0%, #070b16 58%, #02040a 100%);
+}
+
+.wg-fs-root:-moz-full-screen {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(115% 95% at 50% -8%, #1c2749 0%, #070b16 58%, #02040a 100%);
+}
+
+.wg-fs-root:-moz-full-screen > .wg-shell {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .wg-title {
@@ -53,9 +75,41 @@
 }
 
 .wg-shell--fs {
-  min-height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
   border-radius: 0;
   border: none;
+}
+
+/**
+ * Plein écran + panneau options masqué : barre du haut en overlay pour que le canvas occupe toute la zone
+ * (globe centré visuellement au milieu de l’écran).
+ */
+.wg-shell--fs.wg-shell--fs-hide-sidebar .wg-overlay-toolbar {
+  position: absolute;
+  top: max(0.45rem, env(safe-area-inset-top, 0px));
+  right: max(0.45rem, env(safe-area-inset-right, 0px));
+  left: auto;
+  margin-bottom: 0 !important;
+  z-index: 5;
+  padding: 0.2rem 0.35rem;
+  border-radius: 0.35rem;
+  background: rgba(8, 12, 22, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+}
+
+/** En plein écran : la colonne du globe remplit la hauteur disponible (sidebar ou pas). */
+.wg-shell--fs .wg-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.wg-shell--fs .wg-canvas-host {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .wg-sidebar {
@@ -209,10 +263,6 @@
   left: 0.35rem;
   opacity: 0.9;
   z-index: 3;
-}
-
-.wg-shell--fs .wg-canvas-host {
-  min-height: calc(100vh - 140px);
 }
 
 .wg-shell--fs .wg-overlay-toolbar {
@@ -662,16 +712,6 @@
   .wg-overlay-toolbar {
     gap: 0.35rem !important;
     margin-bottom: 0.35rem !important;
-  }
-
-  .wg-shell--fs .wg-canvas-host {
-    min-height: calc(100vh - 128px);
-  }
-
-  @supports (height: 100dvh) {
-    .wg-shell--fs .wg-canvas-host {
-      min-height: calc(100dvh - 128px);
-    }
   }
 
   .wg-picker.border {

@@ -175,7 +175,7 @@
         "BORDERS_FAILED": "Boundaries layer could not be loaded (upstream or GeoJSON error).",
         "ISS_FETCH_FAILED": "ISS position unavailable (upstream or parsing error).",
         "ISS_KEEP_EARTH_CENTERED": "Keep globe centered on ISS",
-        "ISS_KEEP_EARTH_CENTERED_HINT": "Recenters the view on the ISS ground track each frame (your zoom is kept). Temporarily disables slow auto-rotate while active.",
+        "ISS_KEEP_EARTH_CENTERED_HINT": "Recenters the view on the ISS ground track each frame (your zoom is kept). Temporarily disables slow auto-rotate while active. Hold Shift and drag with the left mouse button to orbit freely; release Shift or the mouse button to resume tracking.",
         "BORDERS_ATTRIBUTION": "Natural Earth · public domain boundaries (110m)",
         "LAYER_COASTLINES": "Coastlines (Natural Earth, proxied)",
         "LAYER_COASTLINES_HINT": "Ocean–land shoreline from Natural Earth (public domain). Fetched via /api/external/globe/geojson/ne-110m-coastline.",

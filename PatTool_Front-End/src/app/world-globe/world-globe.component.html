@@ -9,7 +9,11 @@
       <i class="fa fa-exclamation-triangle me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.TEXTURE_LOAD_ERROR' | translate }}
     </div>
 
-    <div #globeShell class="wg-shell" [class.wg-shell--fs]="fullscreen">
+    <div
+      #globeShell
+      class="wg-shell"
+      [class.wg-shell--fs]="fullscreen"
+      [class.wg-shell--fs-hide-sidebar]="fullscreen && !showOptionsPanel">
     <aside class="wg-sidebar flex-shrink-0" *ngIf="showOptionsPanel">
       <div class="wg-sidebar-inner">
         <div class="wg-geocode-block mb-2">

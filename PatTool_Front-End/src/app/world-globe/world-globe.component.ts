@@ -391,7 +391,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     return `url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}") 14 14, crosshair`;
   })();
 
-  private globePickPointerDown: { x: number; y: number; id: number } | null = null;
+  private globePickPointerDown: { x: number; y: number; id: number; skipEarthPick?: boolean } | null = null;
+  /**
+   * ISS centré actif : tant que ce pointerId correspond au bouton gauche avec Shift, on n’applique pas le réalignement caméra.
+   */
+  private issShiftManualOrbitPointerId: number | null = null;
   /** Identifiant du timer navigateur (évite TS node DOM : number vs Timeout). */
   private globePickCursorResetTimer: number | null = null;
 
@@ -402,16 +406,52 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (ev.pointerType === 'mouse' && ev.button !== 0) {
       return;
     }
-    this.globePickPointerDown = { x: ev.clientX, y: ev.clientY, id: ev.pointerId };
+    const skipEarthPick =
+      ev.pointerType === 'mouse' &&
+      ev.button === 0 &&
+      ev.shiftKey &&
+      this.isIssEarthCenteredTrackingActive();
+    if (skipEarthPick) {
+      this.issShiftManualOrbitPointerId = ev.pointerId;
+    }
+    this.globePickPointerDown = {
+      x: ev.clientX,
+      y: ev.clientY,
+      id: ev.pointerId,
+      skipEarthPick
+    };
+  };
+
+  private readonly onGlobePointerMove = (ev: PointerEvent): void => {
+    if (!this.isIssEarthCenteredTrackingActive() || ev.pointerType !== 'mouse') {
+      return;
+    }
+    if ((ev.buttons & 1) === 0) {
+      if (this.issShiftManualOrbitPointerId === ev.pointerId) {
+        this.issShiftManualOrbitPointerId = null;
+      }
+      return;
+    }
+    if (ev.shiftKey) {
+      this.issShiftManualOrbitPointerId = ev.pointerId;
+    } else if (this.issShiftManualOrbitPointerId === ev.pointerId) {
+      this.issShiftManualOrbitPointerId = null;
+    }
   };
 
   private readonly onGlobePointerUp = (ev: PointerEvent): void => {
+    if (ev.pointerType === 'mouse' && this.issShiftManualOrbitPointerId === ev.pointerId) {
+      this.issShiftManualOrbitPointerId = null;
+    }
     const start = this.globePickPointerDown;
     this.globePickPointerDown = null;
     if (this.detailMapOpen || !this.globeSurfaceReady || !start || start.id !== ev.pointerId) {
       return;
     }
     if (ev.pointerType === 'mouse' && ev.button !== 0) {
+      return;
+    }
+    if (start.skipEarthPick) {
       return;
     }
     const dx = ev.clientX - start.x;
@@ -435,6 +475,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private readonly onGlobePointerCancel = (ev: PointerEvent): void => {
     if (this.globePickPointerDown?.id === ev.pointerId) {
       this.globePickPointerDown = null;
+    }
+    if (ev.pointerType === 'mouse' && this.issShiftManualOrbitPointerId === ev.pointerId) {
+      this.issShiftManualOrbitPointerId = null;
     }
   };
 
@@ -498,6 +541,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (canvasUnd) {
       canvasUnd.style.cursor = '';
       canvasUnd.removeEventListener('pointerdown', this.onGlobePointerDown);
+      canvasUnd.removeEventListener('pointermove', this.onGlobePointerMove);
       canvasUnd.removeEventListener('pointerup', this.onGlobePointerUp);
       canvasUnd.removeEventListener('pointercancel', this.onGlobePointerCancel);
     }
@@ -886,6 +930,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     } else {
       this.issKeepEarthCentered = false;
       this.issCameraCenterSmoothPrevMs = 0;
+      this.issShiftManualOrbitPointerId = null;
       this.issGroundSpeedKmh = null;
       this.issSpeedSampleLat = null;
       this.issSpeedSampleLon = null;
@@ -908,6 +953,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   onIssKeepEarthCenteredToggle(): void {
     if (this.issKeepEarthCentered) {
       this.issCameraCenterSmoothPrevMs = 0;
+    } else {
+      this.issShiftManualOrbitPointerId = null;
     }
     if (!this.issKeepEarthCentered && this.controls) {
       this.controls.autoRotate = this.autoRotate;
@@ -1844,6 +1891,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
 
     const canvasEl = renderer.domElement;
     canvasEl.addEventListener('pointerdown', this.onGlobePointerDown);
+    canvasEl.addEventListener('pointermove', this.onGlobePointerMove);
     canvasEl.addEventListener('pointerup', this.onGlobePointerUp);
     canvasEl.addEventListener('pointercancel', this.onGlobePointerCancel);
 
@@ -2361,7 +2409,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       const issEarthCentered = this.isIssEarthCenteredTrackingActive();
       controls.autoRotate = issEarthCentered ? false : this.autoRotate;
       controls.update();
-      if (issEarthCentered) {
+      if (issEarthCentered && this.issShiftManualOrbitPointerId == null) {
         this.applyIssEarthCenteredCameraIfNeeded();
       }
       this.updateCountryLabelsScaleForZoom();

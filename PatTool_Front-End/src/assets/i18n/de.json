@@ -181,7 +181,7 @@
         "ISS_REFRESH_NOW_HINT": "ISS-Position sofort vom Server laden; die Countdown-Anzeige startet neu.",
         "ISS_SECONDS_ABBR": "s",
         "ISS_KEEP_EARTH_CENTERED": "Globus auf ISS zentrieren",
-        "ISS_KEEP_EARTH_CENTERED_HINT": "Richtet die Ansicht fortlaufend auf den ISS-Bodenpunkt aus (Zoom bleibt erhalten). Schaltet die langsame Auto-Rotation vorübergehend aus.",
+        "ISS_KEEP_EARTH_CENTERED_HINT": "Richtet die Ansicht fortlaufend auf den ISS-Bodenpunkt aus (Zoom bleibt erhalten). Schaltet die langsame Auto-Rotation vorübergehend aus. Mit Umschalt + linker Maustaste ziehen, um frei zu orbieren; loslassen, um wieder zu folgen.",
         "BORDERS_ATTRIBUTION": "Natural Earth · Public-Domain-Grenzen (110 m)",
         "LAYER_COASTLINES": "Küstenlinien (Natural Earth, über Proxy)",
         "LAYER_COASTLINES_HINT": "Ozean–Festland-Küste von Natural Earth (Public Domain), geladen über /api/external/globe/geojson/ne-110m-coastline.",
