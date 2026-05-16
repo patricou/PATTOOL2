@@ -310,6 +310,30 @@
                 <ng-template #issCountdownLongOrMm>{{ formatIssCountdown() }}</ng-template>
               </span>
             </div>
+            <div class="form-check form-switch wg-switch wg-switches-grid__full mb-0">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="wgIssKeepCenter"
+                [(ngModel)]="issKeepEarthCentered"
+                (ngModelChange)="onIssKeepEarthCenteredToggle()"
+                [disabled]="!globeSurfaceReady" />
+              <label
+                class="form-check-label"
+                for="wgIssKeepCenter"
+                [attr.title]="'WORLD_GLOBE.ISS_KEEP_EARTH_CENTERED_HINT' | translate">
+                {{ 'WORLD_GLOBE.ISS_KEEP_EARTH_CENTERED' | translate }}</label>
+            </div>
+            <div
+              class="wg-switches-grid__full wg-iss-meta-line d-flex flex-wrap align-items-baseline column-gap-2 row-gap-1 mt-1 mb-0 text-monospace lh-sm text-info"
+              *ngIf="globeIssLat != null && globeIssLon != null">
+              <span class="text-nowrap">
+                ISS:
+                {{ globeIssLat | number : '1.2-4' }}° /
+                {{ globeIssLon | number : '1.2-4' }}°</span>
+              <span *ngIf="issGroundSpeedKmh != null" class="text-nowrap" aria-live="polite">
+                {{ issGroundSpeedKmh | number : '1.0-0' }} km/h</span>
+            </div>
           </ng-container>
         </div>
         <div class="wg-switches-grid__full wg-banner small mt-1 text-secondary lh-sm mb-1" *ngIf="countryBordersEnabled">
@@ -329,10 +353,6 @@
             timeZonesEnabled
           ">
           {{ 'WORLD_GLOBE.NATURAL_EARTH_VECTOR_EXTRA_ATTRIBUTION' | translate }}</div>
-        <div class="wg-switches-grid__full wg-banner small mt-1 text-monospace lh-sm text-info" *ngIf="issOverlayEnabled && globeIssLat != null && globeIssLon != null">
-          ISS:
-          {{ globeIssLat | number : '1.2-4' }}° /
-          {{ globeIssLon | number : '1.2-4' }}°</div>
         <div class="form-check form-switch wg-switch">
           <input class="form-check-input" type="checkbox" id="wgClouds" [(ngModel)]="cloudsEnabled" (ngModelChange)="onCloudsToggle()" />
           <label class="form-check-label" for="wgClouds">{{ 'WORLD_GLOBE.LAYER_CLOUDS' | translate }}</label>
@@ -356,8 +376,22 @@
           <label class="form-check-label" for="wgRotAxis">{{ 'WORLD_GLOBE.LAYER_ROTATION_AXIS' | translate }}</label>
         </div>
         <div class="form-check form-switch wg-switch">
-          <input class="form-check-input" type="checkbox" id="wgAuto" [(ngModel)]="autoRotate" (ngModelChange)="onAutoRotateToggle()" />
-          <label class="form-check-label" for="wgAuto">{{ 'WORLD_GLOBE.AUTO_ROTATE' | translate }}</label>
+          <input
+            class="form-check-input"
+            type="checkbox"
+            id="wgAuto"
+            [(ngModel)]="autoRotate"
+            (ngModelChange)="onAutoRotateToggle()"
+            [disabled]="issKeepEarthCentered"
+            [attr.title]="
+              issKeepEarthCentered ? ('WORLD_GLOBE.AUTO_ROTATE_DISABLED_WHILE_ISS_CENTERED' | translate) : null
+            " />
+          <label
+            class="form-check-label"
+            for="wgAuto"
+            [attr.title]="
+              issKeepEarthCentered ? ('WORLD_GLOBE.AUTO_ROTATE_DISABLED_WHILE_ISS_CENTERED' | translate) : null
+            ">{{ 'WORLD_GLOBE.AUTO_ROTATE' | translate }}</label>
         </div>
         </div>
 

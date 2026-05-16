@@ -91,6 +91,8 @@ const GLOBE_ISS_TRAIL_ARC_SEGMENTS = 14;
 const GLOBE_ISS_POLL_DEFAULT_SEC = 30;
 const GLOBE_ISS_POLL_MIN_SEC = 5;
 const GLOBE_ISS_POLL_MAX_SEC = 600;
+/** Demi-vie du recadrage caméra vers l’ISS (mode « centré sur l’ISS ») ; mouvement fluide, peu dépendant du framerate. */
+const GLOBE_ISS_CAMERA_CENTER_HALF_LIFE_SEC = 0.34;
 
 /** Fuseaux horaires (Natural Earth 10m ; pas de jeu 110m dédié). */
 const GLOBE_TIMEZONE_FILL_RADIUS = 1.00506;
@@ -161,7 +163,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   /** Fond pseudo-satellite (NASA BMNG) vs texture Three.js classique avec relief/spec ; BMNG activé par défaut. */
   basemapSatellite = true;
   /** Couche indicative type « météo » : précipitations estimées (NASA GIBS, dernier jour UTC). */
-  weatherImageryEnabled = false;
+  weatherImageryEnabled = true;
   weatherImageryLoading = false;
   weatherImageryFailed = false;
   countryBordersEnabled = true;
@@ -184,6 +186,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   /** Fuseaux horaires remplis (NE 10m). */
   timeZonesEnabled = false;
   issOverlayEnabled = true;
+  /**
+   * Garde le sous-point ISS au centre du globe (caméra réalignée à chaque frame ; le zoom est conservé).
+   * Désactive temporairement la rotation automatique tant que l’option est active et qu’une position ISS est connue.
+   */
+  issKeepEarthCentered = false;
   /** Secondes entre deux rafraîchissements ISS (5–600, défaut 30). */
   issPollIntervalSec = GLOBE_ISS_POLL_DEFAULT_SEC;
   /**
@@ -215,6 +222,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   issOverlayFailed = false;
   globeIssLat: number | null = null;
   globeIssLon: number | null = null;
+  /**
+   * Vitesse estimée du sous-point ISS (km/h), à partir de deux relevés API consécutifs.
+   * Reste null jusqu’au second échantillon exploitable.
+   */
+  issGroundSpeedKmh: number | null = null;
   /** Éclairage uniforme sur tout le globe (ambiance + hémisphère). Activé par défaut. Coupé tant que le jour/nuit réel est actif. */
   globeLightingUniform = true;
   /**
@@ -305,10 +317,19 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private issTrailLine?: THREE.LineSegments;
   private readonly issTrailPoints: { lat: number; lon: number }[] = [];
   private readonly issMarkerWorldScratch = new THREE.Vector3();
+  /** Suivi ISS centré : lissage temporel de la direction caméra (slerp). */
+  private issCameraCenterSmoothPrevMs = 0;
+  private readonly issCameraCenterDirA = new THREE.Vector3();
+  private readonly issCameraCenterDirB = new THREE.Vector3();
+  private readonly issCameraCenterDirOut = new THREE.Vector3();
   /** Prochain rafraîchissement ISS planifié (`performance.now`-aligné via `Date.now`). */
   private issNextRefreshEpochMs = 0;
   /** Chaîne de `setTimeout` pour respecter l’intervalle courant après chaque réponse. */
   private issRefreshTimeout: number | null = null;
+  /** Dernier échantillon lat/lon pour estimer la vitesse au sol entre deux réponses API. */
+  private issSpeedSampleLat: number | null = null;
+  private issSpeedSampleLon: number | null = null;
+  private issSpeedSampleEpochMs = 0;
   /** Tic 1 s pour mettre à jour le décompte affiché. */
   private issCountdownInterval: number | null = null;
   /** Évite doubles chargements parallèle des GeoJSON frontières. */
@@ -863,6 +884,15 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.clearIssTrail();
       this.syncGlobeDecorationsAfterEarthReady();
     } else {
+      this.issKeepEarthCentered = false;
+      this.issCameraCenterSmoothPrevMs = 0;
+      this.issGroundSpeedKmh = null;
+      this.issSpeedSampleLat = null;
+      this.issSpeedSampleLon = null;
+      this.issSpeedSampleEpochMs = 0;
+      if (this.controls) {
+        this.controls.autoRotate = this.autoRotate;
+      }
       this.issManualRefreshInFlight = false;
       this.stopIssPolling();
       this.disposeIssMarkerMesh();
@@ -872,6 +902,83 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.globeIssLon = null;
       this.cdr.markForCheck();
     }
+  }
+
+  /** Suit le sous-point ISS vers le centre de la vue (voir {@link issKeepEarthCentered}). */
+  onIssKeepEarthCenteredToggle(): void {
+    if (this.issKeepEarthCentered) {
+      this.issCameraCenterSmoothPrevMs = 0;
+    }
+    if (!this.issKeepEarthCentered && this.controls) {
+      this.controls.autoRotate = this.autoRotate;
+      this.issCameraCenterSmoothPrevMs = 0;
+    }
+    if (this.isIssEarthCenteredTrackingActive() && this.globeCameraAnimFrameId == null) {
+      this.applyIssEarthCenteredCameraIfNeeded();
+    }
+    this.cdr.markForCheck();
+  }
+
+  private isIssEarthCenteredTrackingActive(): boolean {
+    return (
+      this.issKeepEarthCentered &&
+      this.issOverlayEnabled &&
+      this.globeSurfaceReady &&
+      this.globeIssLat != null &&
+      this.globeIssLon != null
+    );
+  }
+
+  /** Recentre progressivement la caméra sur le sous-point ISS (conserve le zoom). */
+  private applyIssEarthCenteredCameraIfNeeded(): void {
+    if (!this.isIssEarthCenteredTrackingActive() || this.globeCameraAnimFrameId != null) {
+      return;
+    }
+    const camera = this.camera;
+    const controls = this.controls;
+    if (!camera || !controls || this.globeIssLat == null || this.globeIssLon == null) {
+      return;
+    }
+    const dist = THREE.MathUtils.clamp(
+      camera.position.distanceTo(controls.target),
+      controls.minDistance,
+      controls.maxDistance
+    );
+    const endPos = this.computeCameraPositionForLatLon(this.globeIssLat, this.globeIssLon, dist, 0);
+    if (!endPos) {
+      return;
+    }
+
+    const now = performance.now();
+    let dtSec =
+      this.issCameraCenterSmoothPrevMs > 0 ? (now - this.issCameraCenterSmoothPrevMs) / 1000 : 1 / 60;
+    dtSec = THREE.MathUtils.clamp(dtSec, 1 / 240, 0.08);
+    this.issCameraCenterSmoothPrevMs = now;
+
+    const blend = 1 - Math.pow(0.5, dtSec / GLOBE_ISS_CAMERA_CENTER_HALF_LIFE_SEC);
+
+    const curLenSq = camera.position.lengthSq();
+    if (curLenSq < 1e-12) {
+      camera.position.copy(endPos);
+    } else {
+      this.issCameraCenterDirA.copy(camera.position).multiplyScalar(1 / Math.sqrt(curLenSq));
+      this.issCameraCenterDirB.copy(endPos).normalize();
+      const dot = THREE.MathUtils.clamp(this.issCameraCenterDirA.dot(this.issCameraCenterDirB), -1, 1);
+      if (dot > 1 - 1e-6) {
+        camera.position.copy(endPos);
+      } else {
+        WorldGlobeComponent.slerpUnitVectors(
+          this.issCameraCenterDirA,
+          this.issCameraCenterDirB,
+          blend,
+          this.issCameraCenterDirOut
+        );
+        camera.position.copy(this.issCameraCenterDirOut.multiplyScalar(dist));
+      }
+    }
+
+    controls.target.set(0, 0, 0);
+    controls.update();
   }
 
   onIssPollIntervalCommitted(): void {
@@ -2001,6 +2108,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       void this.refreshIssNow();
       this.startIssPolling();
     }
+    if (this.weatherImageryEnabled) {
+      this.ensureWeatherOverlayTexture();
+    }
   }
 
   private applyBasemapMode(): void {
@@ -2161,6 +2271,20 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     return new THREE.Vector3(x, y, z);
   }
 
+  /** Distance orthodromique au sol (km) entre deux points ° (WGS84 sphère R≈6371 km). */
+  private static haversineGreatCircleKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371;
+    const p1 = (lat1 * Math.PI) / 180;
+    const p2 = (lat2 * Math.PI) / 180;
+    const dPhi = ((lat2 - lat1) * Math.PI) / 180;
+    const dLambda = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dPhi / 2) * Math.sin(dPhi / 2) +
+      Math.cos(p1) * Math.cos(p2) * Math.sin(dLambda / 2) * Math.sin(dLambda / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a)));
+    return R * c;
+  }
+
   private makeStarField(): THREE.Points {
     const n = 1800;
     const positions = new Float32Array(n * 3);
@@ -2234,7 +2358,12 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
         this.updateIssMarkerWorldPosition();
       }
       this.syncOrbitControlsSensitivity();
+      const issEarthCentered = this.isIssEarthCenteredTrackingActive();
+      controls.autoRotate = issEarthCentered ? false : this.autoRotate;
       controls.update();
+      if (issEarthCentered) {
+        this.applyIssEarthCenteredCameraIfNeeded();
+      }
       this.updateCountryLabelsScaleForZoom();
       renderer.render(scene, camera);
     };
@@ -2365,6 +2494,30 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       if (!this.issOverlayEnabled) {
         return;
       }
+      const now = Date.now();
+      if (
+        this.issSpeedSampleLat != null &&
+        this.issSpeedSampleLon != null &&
+        this.issSpeedSampleEpochMs > 0
+      ) {
+        const dtRaw = (now - this.issSpeedSampleEpochMs) / 1000;
+        if (dtRaw >= 0.35 && dtRaw <= 180) {
+          const dKm = WorldGlobeComponent.haversineGreatCircleKm(
+            this.issSpeedSampleLat,
+            this.issSpeedSampleLon,
+            lat,
+            lon
+          );
+          const vKmh = (dKm / dtRaw) * 3600;
+          if (Number.isFinite(vKmh) && vKmh >= 1500 && vKmh <= 42000) {
+            this.issGroundSpeedKmh = vKmh;
+          }
+        }
+      }
+      this.issSpeedSampleLat = lat;
+      this.issSpeedSampleLon = lon;
+      this.issSpeedSampleEpochMs = now;
+
       this.globeIssLat = lat;
       this.globeIssLon = lon;
       this.issOverlayFailed = false;

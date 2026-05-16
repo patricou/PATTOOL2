@@ -135,6 +135,12 @@
   min-width: 1.75rem;
 }
 
+.wg-iss-toolbar .wg-iss-meta-line {
+  /* Moyenne entre l’ancienne coordonnée (~0.875rem via Bootstrap `small`) et la vitesse (×0.72 sur --wg-label). */
+  font-size: calc(0.4375rem + var(--wg-label, 0.66rem) * 0.36);
+  line-height: 1.25;
+}
+
 .wg-btn-stack {
   display: flex;
   flex-direction: column;
