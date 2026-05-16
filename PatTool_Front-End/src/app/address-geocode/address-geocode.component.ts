@@ -1,4 +1,5 @@
 import { Component, ViewChild, NgZone, ChangeDetectorRef, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -27,6 +28,8 @@ export interface GeocodeResult {
 	]
 })
 export class AddressGeocodeComponent implements OnInit {
+
+	private static readonly GLOBE_NAV_LEAFLET_ZOOM = 13;
 
 	@ViewChild(TraceViewerModalComponent) traceViewerModalComponent?: TraceViewerModalComponent;
 
@@ -70,8 +73,47 @@ export class AddressGeocodeComponent implements OnInit {
 		private readonly translateService: TranslateService,
 		private readonly apiService: ApiService,
 		private readonly ngZone: NgZone,
-		private readonly cdr: ChangeDetectorRef
+		private readonly cdr: ChangeDetectorRef,
+		private readonly router: Router
 	) {}
+
+	/** Open Earth globe centered on the point (`?lat=&lon=&z=&autoRotate=0`, same convention as trace viewer). */
+	openPositionOnGlobe(lat: number, lon: number, leafletZoom = AddressGeocodeComponent.GLOBE_NAV_LEAFLET_ZOOM): void {
+		if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+			return;
+		}
+		void this.router.navigate(['tools', 'world-globe'], {
+			queryParams: {
+				lat: Math.round(lat * 1e7) / 1e7,
+				lon: Math.round(lon * 1e7) / 1e7,
+				z: Math.round(leafletZoom * 100) / 100,
+				autoRotate: '0'
+			}
+		});
+	}
+
+	showMyPositionOnGlobe(): void {
+		if (this.myPositionLat == null || this.myPositionLon == null) {
+			return;
+		}
+		this.openPositionOnGlobe(this.myPositionLat, this.myPositionLon);
+	}
+
+	showSelectedResultOnGlobe(): void {
+		if (!this.selectedResult) {
+			this.errorMessage = this.translateService.instant('ADDRESS_GEOCODE.SELECT_BEFORE_GLOBE');
+			return;
+		}
+		this.errorMessage = '';
+		this.openPositionOnGlobe(this.selectedResult.lat, this.selectedResult.lon);
+	}
+
+	showReverseCoordinatesOnGlobe(): void {
+		if (this.reverseLat == null || this.reverseLon == null) {
+			return;
+		}
+		this.openPositionOnGlobe(this.reverseLat, this.reverseLon);
+	}
 
 	ngOnInit(): void {
 		// Récupérer la position automatiquement à l'arrivée sur la page (le bouton "Ma position" reste disponible pour rafraîchir)

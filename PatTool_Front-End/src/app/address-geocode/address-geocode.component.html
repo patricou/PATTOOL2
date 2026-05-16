@@ -103,6 +103,15 @@
                                     <i class="fa fa-map me-1"></i>
                                     <span class="d-none d-sm-inline">{{ 'ADDRESS_GEOCODE.SHOW_ON_MAP' | translate }}</span>
                                 </button>
+                                <button type="button"
+                                    class="btn btn-outline-primary"
+                                    (click)="showMyPositionOnGlobe()"
+                                    [title]="'ADDRESS_GEOCODE.SHOW_ON_GLOBE_HINT' | translate"
+                                    [attr.aria-label]="'ADDRESS_GEOCODE.SHOW_ON_GLOBE' | translate">
+                                    <i class="fa fa-globe me-1" aria-hidden="true"></i>
+                                    <span class="d-none d-md-inline">{{ 'ADDRESS_GEOCODE.SHOW_ON_GLOBE' | translate }}</span>
+                                    <span class="d-inline d-md-none">{{ 'ADDRESS_GEOCODE.SHOW_ON_GLOBE_SHORT' | translate }}</span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -160,6 +169,14 @@
                                                 [title]="'ADDRESS_GEOCODE.SHOW_ON_MAP' | translate">
                                             <i class="fa fa-map"></i>
                                             <span class="d-none d-sm-inline ms-1">{{ 'ADDRESS_GEOCODE.SHOW_ON_MAP' | translate }}</span>
+                                        </button>
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-secondary"
+                                                (click)="selectResult(result); openPositionOnGlobe(result.lat, result.lon); $event.stopPropagation()"
+                                                [title]="'ADDRESS_GEOCODE.SHOW_ON_GLOBE_HINT' | translate"
+                                                [attr.aria-label]="'ADDRESS_GEOCODE.SHOW_ON_GLOBE' | translate">
+                                            <i class="fa fa-globe" aria-hidden="true"></i>
+                                            <span class="d-none d-xl-inline ms-1">{{ 'ADDRESS_GEOCODE.SHOW_ON_GLOBE' | translate }}</span>
                                         </button>
                                     </div>
                                 </div>
@@ -234,6 +251,15 @@
                                 <span class="d-none d-sm-inline">{{ 'ADDRESS_GEOCODE.SHOW_ON_MAP' | translate }}</span>
                                 <span class="d-inline d-sm-none">{{ 'ADDRESS_GEOCODE.SHOW_ON_MAP_SHORT' | translate }}</span>
                             </button>
+                                <button type="button"
+                                    class="btn btn-outline-primary"
+                                    (click)="showSelectedResultOnGlobe()"
+                                    [title]="'ADDRESS_GEOCODE.SHOW_ON_GLOBE_HINT' | translate"
+                                    [attr.aria-label]="'ADDRESS_GEOCODE.SHOW_ON_GLOBE' | translate">
+                                    <i class="fa fa-globe me-1" aria-hidden="true"></i>
+                                    <span class="d-none d-md-inline">{{ 'ADDRESS_GEOCODE.SHOW_ON_GLOBE' | translate }}</span>
+                                    <span class="d-inline d-md-none">{{ 'ADDRESS_GEOCODE.SHOW_ON_GLOBE_SHORT' | translate }}</span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -335,6 +361,15 @@
                                 <i class="fa fa-map me-1"></i>
                                 <span class="d-none d-sm-inline">{{ 'ADDRESS_GEOCODE.SHOW_ON_MAP' | translate }}</span>
                             </button>
+                                <button type="button"
+                                    class="btn btn-outline-primary"
+                                    (click)="showReverseCoordinatesOnGlobe()"
+                                    [title]="'ADDRESS_GEOCODE.SHOW_ON_GLOBE_HINT' | translate"
+                                    [attr.aria-label]="'ADDRESS_GEOCODE.SHOW_ON_GLOBE' | translate">
+                                    <i class="fa fa-globe me-1" aria-hidden="true"></i>
+                                    <span class="d-none d-md-inline">{{ 'ADDRESS_GEOCODE.SHOW_ON_GLOBE' | translate }}</span>
+                                    <span class="d-inline d-md-none">{{ 'ADDRESS_GEOCODE.SHOW_ON_GLOBE_SHORT' | translate }}</span>
+                                </button>
                             </div>
                         </div>
                     </div>

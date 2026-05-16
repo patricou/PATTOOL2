@@ -381,8 +381,10 @@
   flex: 1 1 auto !important;
 }
 
-:host ::ng-deep .world-globe-trace-embed .slideshow-footer {
-  flex-shrink: 0 !important;
+:host ::ng-deep .world-globe-trace-embed .slideshow-footer.trace-viewer-footer-toolbar {
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
 }
 
 /* Recherche lieu (géocodage Nominatim) */

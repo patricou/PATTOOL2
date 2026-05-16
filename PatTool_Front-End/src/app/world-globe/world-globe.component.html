@@ -258,19 +258,32 @@
             {{ 'WORLD_GLOBE.LAYER_TIME_ZONES' | translate }}</label>
         </div>
         <div class="wg-switches-grid__full wg-iss-toolbar d-flex flex-wrap align-items-center gap-2">
-          <div class="form-check form-switch wg-switch mb-0">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="wgIss"
-              [(ngModel)]="issOverlayEnabled"
-              (ngModelChange)="onIssOverlayToggle()"
-              [disabled]="!globeSurfaceReady" />
-            <label
-              class="form-check-label"
-              for="wgIss"
-              [attr.title]="'WORLD_GLOBE.LAYER_ISS_HINT' | translate">
-              {{ 'WORLD_GLOBE.LAYER_ISS_POSITION' | translate }}</label>
+          <div class="d-flex align-items-center gap-1 flex-nowrap">
+            <div class="form-check form-switch wg-switch mb-0">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="wgIss"
+                [(ngModel)]="issOverlayEnabled"
+                (ngModelChange)="onIssOverlayToggle()"
+                [disabled]="!globeSurfaceReady" />
+              <label
+                class="form-check-label"
+                for="wgIss"
+                [attr.title]="'WORLD_GLOBE.LAYER_ISS_HINT' | translate">
+                {{ 'WORLD_GLOBE.LAYER_ISS_POSITION' | translate }}</label>
+            </div>
+            <button
+              *ngIf="issOverlayEnabled"
+              type="button"
+              class="btn btn-sm btn-outline-light border-secondary wg-iss-refresh-btn py-0 px-2"
+              (click)="onIssRefreshNowClick()"
+              [disabled]="!globeSurfaceReady || issManualRefreshInFlight"
+              [attr.title]="'WORLD_GLOBE.ISS_REFRESH_NOW_HINT' | translate"
+              [attr.aria-label]="'WORLD_GLOBE.ISS_REFRESH_NOW' | translate">
+              <span class="visually-hidden">{{ 'WORLD_GLOBE.ISS_REFRESH_NOW' | translate }}</span>
+              <i class="fa fa-refresh" aria-hidden="true" [class.fa-spin]="issManualRefreshInFlight"></i>
+            </button>
           </div>
           <ng-container *ngIf="issOverlayEnabled">
             <div class="d-flex align-items-center gap-1 flex-wrap">

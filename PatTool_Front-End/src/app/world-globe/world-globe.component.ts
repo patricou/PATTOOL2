@@ -191,6 +191,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
    * Mis à jour explicitement (pas via getter + {@link Date.now}) pour éviter NG0100 dans le même cycle de détection.
    */
   issSecondsUntilNextRefresh = 0;
+  /** Pendant un fetch manuel (« rafraîchir maintenant ») pour désactiver le bouton et montrer l’icône en rotation. */
+  issManualRefreshInFlight = false;
   bordersOverlayLoading = false;
   bordersOverlayFailed = false;
   coastlinesOverlayLoading = false;
@@ -542,11 +544,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   }
 
   onGlobeTraceViewerClosed(): void {
-    this.detailMapOpen = false;
     const host = this.globeTraceMount?.nativeElement;
     if (host?.childNodes?.length) {
       host.innerHTML = '';
     }
+    this.detailMapOpen = false;
     this.cdr.markForCheck();
   }
 
@@ -566,9 +568,14 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       locationZoom: Math.round(this.pendingDetailZoom),
       initialBaseLayerId: 'osm-standard'
     });
-    window.setTimeout(() => viewer.refreshMapLayout(), 120);
-    window.setTimeout(() => viewer.refreshMapLayout(), 450);
-    window.setTimeout(() => viewer.refreshMapLayout(), 950);
+    queueMicrotask(() => {
+      requestAnimationFrame(() => {
+        viewer.refreshMapLayout();
+        requestAnimationFrame(() => viewer.refreshMapLayout());
+      });
+    });
+    window.setTimeout(() => viewer.refreshMapLayout(), 420);
+    window.setTimeout(() => viewer.refreshMapLayout(), 900);
   }
 
   /** Carte détaillée : point cliqué s’il existe, sinon centre de la vue. */
@@ -856,6 +863,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.clearIssTrail();
       this.syncGlobeDecorationsAfterEarthReady();
     } else {
+      this.issManualRefreshInFlight = false;
       this.stopIssPolling();
       this.disposeIssMarkerMesh();
       this.clearIssTrail();
@@ -874,6 +882,31 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.startIssPolling();
     }
     this.cdr.markForCheck();
+  }
+
+  /** Position ISS tout de suite ; le prochain tirage automatique est recalculé à partir de maintenant. */
+  onIssRefreshNowClick(): void {
+    if (!this.issOverlayEnabled || !this.globeSurfaceReady || this.issManualRefreshInFlight) {
+      return;
+    }
+    this.issManualRefreshInFlight = true;
+    this.cdr.markForCheck();
+    if (this.issRefreshTimeout != null) {
+      clearTimeout(this.issRefreshTimeout);
+      this.issRefreshTimeout = null;
+    }
+    void this.refreshIssNow().finally(() => {
+      this.issManualRefreshInFlight = false;
+      if (!this.issOverlayEnabled || !this.globeSurfaceReady) {
+        this.cdr.markForCheck();
+        return;
+      }
+      const ms = this.issPollIntervalMs();
+      this.issNextRefreshEpochMs = Date.now() + ms;
+      this.refreshIssCountdownSnapshot();
+      this.scheduleIssRefreshChain(ms);
+      this.cdr.markForCheck();
+    });
   }
 
   /** Décompte : mm:ss à partir de 60 s, sinon secondes. */

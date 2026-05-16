@@ -75,19 +75,19 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public clickedWeatherLng: number = 0;
 	public clickedWeatherAlt: number | null = null;
 	public clickedWeatherAddress: string = '';
-	/** Afficher les sentiers randonnée (Waymarked Trails) par-dessus le fond de carte. */
+	/** Show hiking trails overlay (Waymarked Trails) above the base map. */
 	public showHikingTrailsOverlay: boolean = false;
 	private hikingTrailsOverlay?: L.TileLayer;
-	/** Afficher les pistes cyclables (Waymarked Trails) par-dessus le fond de carte. */
+	/** Show cycling trails overlay (Waymarked Trails) above the base map. */
 	public showCyclingTrailsOverlay: boolean = false;
 	private cyclingTrailsOverlay?: L.TileLayer;
 
-	/** Suivre la position GPS de l'appareil : recentrage carte toutes les 10 s. */
+	/** Follow device GPS: recenter the map every 10 s. */
 	public followDeviceLocation: boolean = false;
-	/** Compteur visible (secondes restantes avant prochaine mise à jour), 0 = en cours de mise à jour. */
+	/** Visible countdown (seconds until next update); 0 while an update is in progress. */
 	public deviceLocationCountdown: number = 0;
 	private deviceLocationCountdownId: ReturnType<typeof setInterval> | null = null;
-	/** Marqueur affiché sur la carte pour la position GPS de l'appareil quand « Suivre ma position » est actif. */
+	/** Map marker shown for device GPS when “Follow my position” is enabled. */
 	private deviceLocationMarker?: L.Marker;
 
 	// Event color for styling
@@ -100,7 +100,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private readonly destroy$ = new Subject<void>();
 	private modalRef?: NgbModalRef;
-	/** Si défini avant `open()`, remplace les options NgbModal par défaut (ex. montage dans le div du globe). */
+	/** When set before `open()`, overrides default `NgbModal` options (e.g. attach into the globe div). */
 	private nextModalOptionsOverride: NgbModalOptions | null = null;
 	private map?: L.Map;
 	private overlayLayer?: L.LayerGroup;
@@ -117,7 +117,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private static leafletIconsConfigured = false;
 	private static leafletPassiveTouchRoots = new Set<HTMLElement>();
 	private static leafletControlPassiveTouchOriginal: typeof HTMLElement.prototype.addEventListener | null = null;
-	/** Conteneur enregistré pour ce patch (désinscription au destroy). */
+	/** Container registered for this patch (unregister on destroy). */
 	private leafletMapPassivePatchContainer: HTMLElement | null = null;
 	private fullscreenChangeHandler?: () => void;
 	private orientationMediaQuery: MediaQueryList | null = null;
@@ -125,14 +125,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private baseLayers: Record<string, L.TileLayer | L.LayerGroup> = {};
 	public availableBaseLayers: Array<{ id: string; label: string; labelKey?: string }> = [];
 	public selectedBaseLayerId: string = '';
-	/** Dernier fond de carte affiché avant d’ouvrir « Toutes les cartes IGN » depuis la liste (pas le bouton IGN). */
+	/** Last base map before opening “All IGN maps” from the list (not the IGN shortcut button). */
 	private lastBaseLayerBeforeCartesGouv: string = 'opentopomap';
 	private activeBaseLayer?: L.TileLayer | L.LayerGroup;
-	/** Niveau de zoom actuel de la carte (affiché dans un coin). */
+	/** Current map zoom level (shown in the UI corner). */
 	public currentZoom: number = 6;
-	/** True une fois la carte initialisée (pour afficher l’overlay zoom). */
+	/** True after the map is initialized (enables zoom overlay). */
 	public isMapReady = false;
-	/** URL d’embed cartes.gouv.fr (position + zoom) pour la modale iframe. */
+	/** cartes.gouv.fr iframe embed URL (center + zoom) for that modal. */
 	public cartesGouvEmbedUrl: SafeResourceUrl | null = null;
 	private cartesGouvModalRef?: NgbModalRef;
 	public cartesGouvFullscreen = false;
@@ -140,11 +140,16 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private thunderforestApiKey: string = '';
 	public isFullscreenInfoVisible = false;
 	private trackBounds: L.LatLngBounds | null = null;
-	private trackBoundsRefitTimeouts: ReturnType<typeof setTimeout>[] = [];
-	/** Suit le redimensionnement du conteneur (flex/modale/embed) pour corriger carte noire Leaflet. */
+	private trackBoundsRefitTimeouts: number[] = [];
+	/** Tracks container resize (flex / modal / embed) to recover Leaflet black-map issues. */
 	private mapLayoutResizeObserver?: ResizeObserver;
-	private mapLayoutResizeDebouncer: ReturnType<typeof setTimeout> | null = null;
+	private mapLayoutSyncDebouncer: number | null = null;
+	private mapResizeObservedDims = { w: -1, h: -1 };
+	private mapContainerHadLayout = false;
 	private mapInitVisibilityAttempts = 0;
+	/** `NgbModal` `container` host for embedding (globe): resolve `.map-container` under this root (avoid global IDs). */
+	private mapEmbedHostRoot?: HTMLElement;
+	private embeddedModalMapKickToken = 0;
 	private rightMouseZoomActive = false;
 	private rightMouseStartLatLng?: L.LatLng;
 	private rightMouseRectangle?: L.Rectangle;
@@ -288,8 +293,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	/**
-	 * Ouvre le trace viewer dans un élément donné (sans backdrop plein écran),
-	 * pour l’embed sur le globe 3D ou tout autre panneau.
+	 * Open the trace viewer inside a host element (no full-window backdrop),
+	 * e.g. embed on the 3D globe or another panel.
 	 */
 	public openAtLocationEmbedded(
 		container: HTMLElement,
@@ -395,73 +400,85 @@ export class TraceViewerModalComponent implements OnDestroy {
 		});
 	}
 
+	private clearMapLayoutSyncDebouncer(): void {
+		if (this.mapLayoutSyncDebouncer != null) {
+			clearTimeout(this.mapLayoutSyncDebouncer);
+			this.mapLayoutSyncDebouncer = null;
+		}
+	}
+
+	/**
+	 * After resize / open: single invalidate + tile redraw (avoids flicker).
+	 * When the container goes from 0 px to a valid size, re-apply overlays / pending renders (black map edge case).
+	 */
+	private syncMapLayoutCore(): void {
+		if (!this.map) {
+			return;
+		}
+		const el = this.map.getContainer();
+		const w = el.offsetWidth;
+		const h = el.offsetHeight;
+		const ok = w >= 2 && h >= 2;
+		this.map.invalidateSize({ animate: false });
+		if (ok && this.activeBaseLayer) {
+			this.redrawActiveBaseLayerTiles();
+		}
+		const hadLayout = this.mapContainerHadLayout;
+		this.mapContainerHadLayout = ok;
+		if (ok && !hadLayout) {
+			this.tryRenderPendingTrack();
+			this.tryRenderPendingPositions();
+			this.tryRenderPendingLocation();
+			if (this.trackBounds?.isValid()) {
+				this.fitMapToTrackBounds(this.trackBounds);
+			}
+		}
+	}
+
+	/** Coalesces rapid repeated calls (globe overlay, ResizeObserver, legacy timeouts). */
 	public refreshMapLayout(): void {
 		if (!this.map) {
 			return;
 		}
-		this.map.invalidateSize({ animate: false });
-		this.redrawActiveBaseLayerTiles();
-		queueMicrotask(() => {
-			this.map?.invalidateSize({ animate: false });
-			this.redrawActiveBaseLayerTiles();
-		});
-		window.setTimeout(() => {
-			this.map?.invalidateSize({ animate: false });
-			this.redrawActiveBaseLayerTiles();
-		}, 80);
-		window.setTimeout(() => {
-			this.map?.invalidateSize({ animate: false });
-			this.redrawActiveBaseLayerTiles();
-		}, 320);
-		window.setTimeout(() => {
-			this.map?.invalidateSize({ animate: false });
-			this.redrawActiveBaseLayerTiles();
-		}, 750);
+		this.clearMapLayoutSyncDebouncer();
+		this.mapLayoutSyncDebouncer = window.setTimeout(() => {
+			this.mapLayoutSyncDebouncer = null;
+			this.syncMapLayoutCore();
+		}, 72);
 	}
 
 	private teardownMapLayoutObserver(): void {
-		if (this.mapLayoutResizeDebouncer != null) {
-			clearTimeout(this.mapLayoutResizeDebouncer);
-			this.mapLayoutResizeDebouncer = null;
-		}
+		this.clearMapLayoutSyncDebouncer();
 		this.mapLayoutResizeObserver?.disconnect();
 		this.mapLayoutResizeObserver = undefined;
 	}
 
-	private setupMapLayoutObserver(container: HTMLElement): void {
+	private setupMapLayoutObserver(observedEl: HTMLElement): void {
 		this.teardownMapLayoutObserver();
 		if (typeof ResizeObserver === 'undefined') {
 			return;
 		}
-		this.mapLayoutResizeObserver = new ResizeObserver(() => {
-			if (!this.map) {
+		this.mapLayoutResizeObserver = new ResizeObserver((entries) => {
+			if (!this.map || !entries.length) {
 				return;
 			}
-			if (this.mapLayoutResizeDebouncer != null) {
-				clearTimeout(this.mapLayoutResizeDebouncer);
+			const cr = entries[0].contentRect;
+			const bw = Math.round(cr.width);
+			const bh = Math.round(cr.height);
+			if (bw < 2 || bh < 2) {
+				return;
 			}
-			this.mapLayoutResizeDebouncer = setTimeout(() => {
-				this.mapLayoutResizeDebouncer = null;
-				this.touchMapAfterContainerResize();
-			}, 48);
+			if (bw === this.mapResizeObservedDims.w && bh === this.mapResizeObservedDims.h) {
+				return;
+			}
+			this.mapResizeObservedDims = { w: bw, h: bh };
+			this.refreshMapLayout();
 		});
 		try {
-			this.mapLayoutResizeObserver.observe(container);
+			this.mapLayoutResizeObserver.observe(observedEl);
 		} catch {
 			/* ignore */
 		}
-	}
-
-	/** Après changement de taille du conteneur : recalcul Leaflet + rechargement des tuiles. */
-	private touchMapAfterContainerResize(): void {
-		if (!this.map) {
-			return;
-		}
-		this.map.invalidateSize({ animate: false });
-		this.redrawActiveBaseLayerTiles();
-		this.tryRenderPendingTrack();
-		this.tryRenderPendingPositions();
-		this.tryRenderPendingLocation();
 	}
 
 	private redrawActiveBaseLayerTiles(): void {
@@ -492,7 +509,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.closeModalInstance();
 	}
 
-	/** Ouvre la modale cartes.gouv.fr en embed avec la position et le zoom actuels de la carte. */
+	/** Open cartes.gouv.fr in an embed modal at the current map center and zoom. */
 	public openCartesGouvEmbed(): void {
 		let lng: number;
 		let lat: number;
@@ -529,7 +546,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		});
 	}
 
-	/** Ne réapplique le fond que si l’utilisateur avait choisi « cartes.gouv » dans la liste (sinon le bouton IGN ne doit pas modifier la carte). */
+	/** Restore previous base layer only when the active layer was cartes-gouv from the picker (Ign button must not mutate the map alone). */
 	private restoreBaseLayerAfterCartesGouvIfNeeded(): void {
 		if (this.selectedBaseLayerId !== 'cartes-gouv') {
 			return;
@@ -538,7 +555,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.applySelectedBaseLayer();
 	}
 
-	/** Met à jour l’URL d’embed cartes.gouv.fr (position + zoom). Utilisé à l’ouverture et quand « Suivre ma position » recentre. */
+	/** Update cartes.gouv.fr iframe URL from center+zoom (open + “follow my location” recenters). */
 	private updateCartesGouvEmbedUrl(lat: number, lng: number, z: number): void {
 		const c = `${lng.toFixed(6)},${lat.toFixed(6)}`;
 		const embedUrl = `https://cartes.gouv.fr/explorer-les-cartes/embed?c=${encodeURIComponent(c)}&z=${z}&l=GEOGRAPHICALGRIDSYSTEMS.MAPS$GEOPORTAIL:OGC:WMTS(1;1;1;0)&permalinkShare=yes`;
@@ -615,8 +632,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const wrapper = this.getFullscreenWrapper();
 		if (wrapper && wrapper.requestFullscreen) {
 			wrapper.requestFullscreen().then(() => {
-				this.map?.invalidateSize();
+				this.syncMapLayoutCore();
 				this.tryRenderPendingTrack();
+				this.tryRenderPendingPositions();
 				this.tryRenderPendingLocation();
 			}).catch(() => { });
 		}
@@ -652,6 +670,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		};
 		const modalOpts = this.nextModalOptionsOverride ?? defaultModalOpts;
 		this.nextModalOptionsOverride = null;
+		const hostOpt = modalOpts.container;
+		this.mapEmbedHostRoot =
+			typeof HTMLElement !== 'undefined' && hostOpt instanceof HTMLElement ? hostOpt : undefined;
 		this.modalRef = this.modalService.open(this.traceViewerModal, modalOpts);
 		this.hasEmittedClosed = false;
 
@@ -662,6 +683,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.modalRef.closed.pipe(take(1)).subscribe(() => finalizeModal());
 		this.modalRef.dismissed.pipe(take(1)).subscribe(() => finalizeModal());
 		this.subscribeToModalVisibility();
+		this.scheduleEmbeddedModalMapKick();
 		this.registerFullscreenListener();
 		this.registerOrientationListener();
 		this.registerEscapeKeydownListener();
@@ -675,21 +697,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.resetTraceViewerColors();
 		}
 
-		if (this.pendingPositions) {
-			this.scheduleMapInitialization();
-		} else if (this.pendingLocation) {
-			this.scheduleMapInitialization();
-		}
-
 		if (source.blob) {
 			this.readFromBlob(source.blob, source.fileName);
 		} else if (source.fileId) {
 			this.loadFromFileId(source.fileId, source.fileName);
 		} else if (source.positions && source.positions.length > 0) {
-			this.ensureMapInitialization();
 			this.tryRenderPendingPositions();
 		} else if (source.location) {
-			this.ensureMapInitialization();
 			this.tryRenderPendingLocation();
 		} else {
 			this.setError(this.translate('EVENTELEM.TRACK_NO_SOURCE'));
@@ -707,7 +721,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.onModalShown();
 			});
 		} else {
-			this.scheduleMapInitialization();
+			const tick = (): void => {
+				this.cdr.detectChanges();
+				this.initMapLayersAfterModalMounted();
+				this.refreshMapLayout();
+			};
+			queueMicrotask(() => tick());
+			window.setTimeout(() => tick(), 400);
 		}
 
 		if (hidden$?.pipe) {
@@ -716,6 +736,38 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.destroyMap();
 			});
 		}
+	}
+
+	/** Create / refresh overlays once the Leaflet container exists (`shown.bs.modal`). */
+	private initMapLayersAfterModalMounted(): void {
+		this.initializeMap();
+		this.ensureMapInitialization();
+		this.tryRenderPendingTrack();
+		this.tryRenderPendingPositions();
+		this.tryRenderPendingLocation();
+	}
+
+	/**
+	 * Globe embed can hit a race where `shown` emits before our `shown.subscribe` attaches (warm cache / faster 2nd open).
+	 * Re-run the same bootstrap on microtasks / animation frames / short delays until the overlay has a sized container.
+	 */
+	private scheduleEmbeddedModalMapKick(): void {
+		if (!this.mapEmbedHostRoot) {
+			return;
+		}
+		const token = ++this.embeddedModalMapKickToken;
+		const run = (): void => {
+			if (!this.modalRef || !this.mapEmbedHostRoot || token !== this.embeddedModalMapKickToken) {
+				return;
+			}
+			this.cdr.detectChanges();
+			this.initMapLayersAfterModalMounted();
+		};
+		queueMicrotask(run);
+		requestAnimationFrame(run);
+		window.setTimeout(run, 0);
+		window.setTimeout(run, 140);
+		window.setTimeout(run, 420);
 	}
 
 	private forceCrosshairCursor(): void {
@@ -734,81 +786,29 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private onModalShown(): void {
 		this.cdr.detectChanges();
-		this.initializeMap();
-		this.ensureMapInitialization();
-		this.tryRenderPendingTrack();
-		this.tryRenderPendingPositions();
-		this.tryRenderPendingLocation();
-		// Register location selection if in selection mode - wait longer for map to be ready
+		this.initMapLayersAfterModalMounted();
 		if (this.selectionMode) {
 			setTimeout(() => {
 				this.registerLocationSelection();
 			}, 500);
 		}
 
-		// Apply event color after modal is fully shown
 		if (this.eventColor) {
 			setTimeout(() => {
 				this.applyEventColorToTraceViewer();
 			}, 150);
 		}
 
-		// Force multiple invalidateSize calls to ensure map renders correctly
-		// This is necessary because Leaflet needs the container to be visible to calculate size
-		setTimeout(() => {
-			this.map?.invalidateSize();
-			this.tryRenderPendingTrack();
-			this.tryRenderPendingPositions();
-			this.tryRenderPendingLocation();
-		}, 50);
-
-		setTimeout(() => {
-			this.map?.invalidateSize();
-			this.tryRenderPendingTrack();
-			this.tryRenderPendingPositions();
-			this.tryRenderPendingLocation();
-		}, 150);
-
-		setTimeout(() => {
-			this.map?.invalidateSize();
-			this.tryRenderPendingTrack();
-			this.tryRenderPendingPositions();
-			this.tryRenderPendingLocation();
-		}, 300);
-	}
-
-	private scheduleMapInitialization(): void {
-		const attempt = (delay: number) => {
-			setTimeout(() => {
-				this.cdr.detectChanges();
-				this.initializeMap();
-				this.ensureMapInitialization();
-				this.tryRenderPendingTrack();
-				this.tryRenderPendingPositions();
-				this.tryRenderPendingLocation();
-				// Force invalidateSize after each attempt
-				if (this.map) {
-					setTimeout(() => {
-						this.map?.invalidateSize();
-						this.tryRenderPendingTrack();
-						this.tryRenderPendingPositions();
-						this.tryRenderPendingLocation();
-					}, 50);
-				}
-			}, delay);
-		};
-
-		attempt(0);
-		attempt(100);
-		attempt(250);
-		attempt(400);
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => this.refreshMapLayout());
+		});
+		window.setTimeout(() => this.refreshMapLayout(), 320);
 	}
 
 	/**
-	 * Leaflet enregistre touchstart avec { passive: false } sur les barres de contrôle (zoom, etc.)
-	 * via DomEvent.disableClickPropagation — ce n’est utile que pour stopPropagation, pas pour
-	 * preventDefault, donc passive: true suffit et supprime l’avertissement Chrome.
-	 * On ne touche pas au fond de carte (drag / pinch) ni au wheel (zoom molette → preventDefault).
+	 * Leaflet registers touchstart as { passive: false } on control bars via DomEvent.disableClickPropagation —
+	 * only stopPropagation matters, not preventDefault, so passive: true removes the Chrome warning.
+	 * We do not alter map drag/pinch or wheel (wheel zoom still uses preventDefault).
 	 */
 	private holdLeafletControlPassiveTouchPatch(container: HTMLElement): void {
 		if (this.leafletMapPassivePatchContainer === container) {
@@ -895,7 +895,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 
-		const container = this.mapContainerRef?.nativeElement ?? this.findMapContainerElement();
+		const container = this.resolveMapContainerElement();
 		if (!container) {
 			setTimeout(() => this.initializeMap(), 50);
 			return;
@@ -915,8 +915,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 				setTimeout(() => this.initializeMap(), 100);
 				return;
 			}
-			/* Après plusieurs essais : le conteneur peut rester à 0×0 (flex/embed) ; on crée quand même la carte
-			 * et ResizeObserver + invalidateSize rétablissent les tuiles dès que la taille est connue. */
+			/*
+			 * After many retries the container may stay 0×0 (flex/embed); still create the map — ResizeObserver +
+			 * invalidateSize will fix tiles once size is known.
+			 */
 		}
 		this.mapInitVisibilityAttempts = 0;
 
@@ -936,7 +938,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			throw e;
 		}
 
-		this.setupMapLayoutObserver(container);
+		this.setupMapLayoutObserver((container.closest('.map-wrapper') ?? container) as HTMLElement);
 
 		// Force crosshair cursor on map container
 		this.forceCrosshairCursor();
@@ -956,32 +958,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.currentZoom = this.map.getZoom();
 		this.cdr.detectChanges();
 
-		const invalidate = () => {
-			this.map?.invalidateSize({ animate: false });
-			this.redrawActiveBaseLayerTiles();
-			this.tryRenderPendingTrack();
-			this.tryRenderPendingPositions();
-			this.tryRenderPendingLocation();
-			setTimeout(() => {
-				this.map?.invalidateSize({ animate: false });
-				this.redrawActiveBaseLayerTiles();
-				this.tryRenderPendingTrack();
-				this.tryRenderPendingPositions();
-				this.tryRenderPendingLocation();
-			}, 50);
-			setTimeout(() => {
-				this.map?.invalidateSize({ animate: false });
-				this.redrawActiveBaseLayerTiles();
-				this.tryRenderPendingTrack();
-				this.tryRenderPendingPositions();
-				this.tryRenderPendingLocation();
-			}, 150);
-		};
-
 		this.map.whenReady(() => {
 			this.isMapReady = true;
 			this.cdr.detectChanges();
-			invalidate();
+			/* Flex/embed layouts often omit a useful size on the first layout pass — retry pending renders below. */
+			this.tryRenderPendingTrack();
+			this.tryRenderPendingPositions();
+			this.tryRenderPendingLocation();
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => this.refreshMapLayout());
+			});
+			window.setTimeout(() => this.refreshMapLayout(), 380);
 			// Register location selection if in selection mode
 			if (this.selectionMode) {
 				setTimeout(() => {
@@ -1002,28 +989,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 			// Register address click handler (always active, but only updates if switch is enabled)
 			this.registerAddressClickHandler();
-			// Additional invalidateSize after map is ready
-			setTimeout(() => {
-				this.map?.invalidateSize({ animate: false });
-				this.redrawActiveBaseLayerTiles();
-			}, 100);
 		});
-
-		const hookTileLayerLoadRecursive = (layer: L.Layer, fn: () => void): void => {
-			if (layer instanceof L.TileLayer) {
-				layer.once('load', fn);
-			} else if (layer instanceof L.LayerGroup) {
-				layer.eachLayer((child) => hookTileLayerLoadRecursive(child, fn));
-			}
-		};
-		if (this.activeBaseLayer) {
-			hookTileLayerLoadRecursive(this.activeBaseLayer, () => invalidate());
-		}
-
-		setTimeout(() => {
-			this.map?.invalidateSize({ animate: false });
-			this.redrawActiveBaseLayerTiles();
-		}, 200);
 	}
 
 	private ensureMapInitialization(): void {
@@ -1031,7 +997,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 
-		if (this.mapContainerRef || this.findMapContainerElement()) {
+		if (this.resolveMapContainerElement()) {
 			this.initializeMap();
 			return;
 		}
@@ -1084,14 +1050,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.hasError = false;
 		this.pendingTrackPoints = points;
 		this.ensureMapInitialization();
-		// Si la carte vient d’être créée, recentrer tout de suite sur les points en attente
+		// If the map was just created, recenter immediately on pending points.
 		if (this.map && this.overlayLayer) {
 			this.applyInitialMapViewForPendingTrackData();
 		}
 		this.tryRenderPendingTrack();
 	}
 
-	/** Vue par défaut France, ou emprise de la trace déjà chargée (évite d’afficher la France puis la trace). */
+	/** Default France view, or bounding box when a track is already loaded (avoids flashing France before the trace). */
 	private applyInitialMapViewForPendingTrackData(): void {
 		if (!this.map) {
 			return;
@@ -1108,7 +1074,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.fitMapToTrackBounds(bounds);
 	}
 
-	/** Ajuste la vue sur l’emprise ; gère le cas d’un seul point. */
+	/** Fit bounds; handles degenerate single-point tracks. */
 	private fitMapToTrackBounds(bounds: L.LatLngBounds): void {
 		if (!this.map || !bounds.isValid()) {
 			return;
@@ -1135,22 +1101,24 @@ export class TraceViewerModalComponent implements OnDestroy {
 	 */
 	private scheduleTrackBoundsRefit(bounds: L.LatLngBounds): void {
 		this.clearTrackBoundsRefitTimeouts();
-		const delays = [120, 350, 750];
-		for (const d of delays) {
-			this.trackBoundsRefitTimeouts.push(
-				setTimeout(() => {
-					if (!this.map || !bounds.isValid()) {
-						return;
-					}
-					this.map.invalidateSize();
-					this.fitMapToTrackBounds(bounds);
-				}, d)
-			);
-		}
+		this.trackBoundsRefitTimeouts.push(
+			window.setTimeout(() => {
+				if (!this.map || !bounds.isValid()) {
+					return;
+				}
+				this.syncMapLayoutCore();
+				this.fitMapToTrackBounds(bounds);
+			}, 280)
+		);
 	}
 
 	private tryRenderPendingTrack(): void {
 		if (!this.map || !this.overlayLayer || !this.pendingTrackPoints) {
+			return;
+		}
+
+		const el = this.map.getContainer();
+		if (el.offsetWidth < 2 || el.offsetHeight < 2) {
 			return;
 		}
 
@@ -1189,27 +1157,21 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.fitMapToTrackBounds(bounds);
 		this.scheduleTrackBoundsRefit(bounds);
 
-		// Force multiple invalidateSize calls to ensure map renders correctly
-		this.map.invalidateSize();
-		setTimeout(() => {
-			this.map?.invalidateSize();
-		}, 50);
-		setTimeout(() => {
-			this.map?.invalidateSize();
-		}, 150);
-		setTimeout(() => {
-			this.map?.invalidateSize();
-		}, 300);
-
 		this.trackStats = {
 			points: points.length,
 			distanceKm: this.computeDistance(points)
 		};
+		this.refreshMapLayout();
 		this.cdr.detectChanges();
 	}
 
 	private tryRenderPendingPositions(): void {
 		if (!this.map || !this.overlayLayer || !this.pendingPositions || this.pendingPositions.length === 0) {
+			return;
+		}
+
+		const el = this.map.getContainer();
+		if (el.offsetWidth < 2 || el.offsetHeight < 2) {
 			return;
 		}
 
@@ -1334,26 +1296,21 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		// Calculate statistics
 		this.trackStats = {
-			points: points.length,
+			points: positions.length,
 			distanceKm: points.length > 1 ? this.computeDistance(points) : null
 		};
 
-		this.map.invalidateSize();
-		setTimeout(() => {
-			this.map?.invalidateSize();
-		}, 50);
-		setTimeout(() => {
-			this.map?.invalidateSize();
-		}, 150);
-		setTimeout(() => {
-			this.map?.invalidateSize();
-		}, 300);
-
+		this.refreshMapLayout();
 		this.cdr.detectChanges();
 	}
 
 	private tryRenderPendingLocation(): void {
 		if (!this.map || !this.overlayLayer || !this.pendingLocation) {
+			return;
+		}
+
+		const el = this.map.getContainer();
+		if (el.offsetWidth < 2 || el.offsetHeight < 2) {
 			return;
 		}
 
@@ -1368,9 +1325,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		// In selection mode, don't create the standard marker (will be created by registerLocationSelection)
 		// and keep pendingLocation so registerLocationSelection can use it
 		if (this.selectionMode) {
-			// Just set the view and keep pendingLocation for registerLocationSelection
 			this.trackBounds = L.latLngBounds([lat, lng], [lat, lng]);
 			this.map.setView([lat, lng], viewZoom);
+			this.refreshMapLayout();
 			return;
 		}
 
@@ -1381,14 +1338,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		const marker = L.marker([lat, lng]);
 		if (label && label.trim().length > 0) {
-			// Update switches on click - no popup needed
 			marker.on('click', (e: L.LeafletMouseEvent) => {
 				e.originalEvent?.stopPropagation();
 				L.DomEvent.stopPropagation(e);
 				if (e.originalEvent) {
 					L.DomEvent.preventDefault(e.originalEvent);
 				}
-				// Update all switches independently
 				this.updateSwitchesForPoint(lat, lng);
 			});
 		}
@@ -1397,22 +1352,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.trackBounds = L.latLngBounds([lat, lng], [lat, lng]);
 		this.map.setView([lat, lng], viewZoom);
 
-		// Show address automatically for initial location if address display is enabled
 		if (this.showAddress) {
 			this.showAddressInOverlay(lat, lng);
 		}
-
-		// Force multiple invalidateSize calls to ensure map renders correctly
-		this.map.invalidateSize();
-		setTimeout(() => {
-			this.map?.invalidateSize();
-		}, 50);
-		setTimeout(() => {
-			this.map?.invalidateSize();
-		}, 150);
-		setTimeout(() => {
-			this.map?.invalidateSize();
-		}, 300);
 
 		if (label && label.trim().length > 0) {
 			setTimeout(() => {
@@ -1425,6 +1367,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 
 		this.trackStats = null;
+		this.refreshMapLayout();
 		this.cdr.detectChanges();
 	}
 
@@ -1619,6 +1562,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private destroyMap(): void {
 		this.teardownMapLayoutObserver();
 		this.mapInitVisibilityAttempts = 0;
+		this.mapResizeObservedDims = { w: -1, h: -1 };
+		this.mapContainerHadLayout = false;
 		this.isMapReady = false;
 		this.clearTrackBoundsRefitTimeouts();
 		if (this.map) {
@@ -1732,7 +1677,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			}
 			this.cdr.detectChanges();
 			setTimeout(() => {
-				this.map?.invalidateSize();
+				this.syncMapLayoutCore();
 				this.tryRenderPendingTrack();
 				this.tryRenderPendingPositions();
 				this.tryRenderPendingLocation();
@@ -1782,7 +1727,38 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 	}
 
+	/**
+	 * Resolves the live `.map-container` element. Globe embed clears `#globeTraceMount` with `innerHTML` on close;
+	 * `ViewChild` can keep a stale detached node — always query the embed subtree when mounted in the globe shell.
+	 */
+	private resolveMapContainerElement(): HTMLDivElement | null {
+		if (this.mapEmbedHostRoot) {
+			return this.findMapContainerElement();
+		}
+		const refEl = this.mapContainerRef?.nativeElement;
+		if (refEl?.isConnected) {
+			return refEl;
+		}
+		return this.findMapContainerElement();
+	}
+
 	private findMapContainerElement(): HTMLDivElement | null {
+		const root = this.mapEmbedHostRoot;
+		if (root) {
+			const scoped =
+				(root.querySelector('.modal-body.slideshow-body .trace-viewer-body .map-wrapper .map-container') as
+					HTMLDivElement | null) ??
+				(root.querySelector('.modal-body .trace-viewer-body .map-container') as HTMLDivElement | null) ??
+				(root.querySelector('.trace-viewer-body .map-container') as HTMLDivElement | null) ??
+				(root.querySelector('.map-wrapper .map-container') as HTMLDivElement | null) ??
+				(root.querySelector('.map-container') as HTMLDivElement | null);
+			if (scoped) {
+				return scoped;
+			}
+			// Fenêtre peut ne pas être encore sous le mont : éviter getElementById global (multiplié sur plusieurs routes).
+			return null;
+		}
+
 		let element = this.document.getElementById('trace-viewer-map-container') as HTMLDivElement | null;
 		if (!element) {
 			const dialog = this.document.querySelector('.trace-viewer-dialog .map-container') as HTMLDivElement | null;
@@ -1793,7 +1769,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private getFullscreenWrapper(): HTMLElement | null {
-		const container = this.mapContainerRef?.nativeElement ?? this.findMapContainerElement();
+		const container = this.resolveMapContainerElement();
 		return container?.closest('.map-wrapper') ?? container?.parentElement ?? null;
 	}
 
@@ -1806,7 +1782,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (!fs) {
 			return undefined;
 		}
-		const mapEl = this.mapContainerRef?.nativeElement ?? this.findMapContainerElement();
+		const mapEl = this.resolveMapContainerElement();
 		if (mapEl && fs.contains(mapEl)) {
 			return fs;
 		}
@@ -2074,16 +2050,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 			nextLayer.addTo(this.map);
 			this.activeBaseLayer = nextLayer;
 
-			// Force map to redraw and invalidate size
-			this.map.invalidateSize({ animate: false });
-
-			setTimeout(() => {
-				this.map?.invalidateSize({ animate: false });
-			}, 50);
-			setTimeout(() => {
-				this.map?.invalidateSize({ animate: false });
-			}, 200);
-
 			if (nextLayer instanceof L.TileLayer) {
 				nextLayer.redraw();
 			} else if (nextLayer instanceof L.LayerGroup) {
@@ -2093,10 +2059,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 					}
 				});
 			}
-
-			setTimeout(() => {
-				this.touchMapAfterContainerResize();
-			}, 140);
+			this.refreshMapLayout();
 		}
 		this.applyHikingTrailsOverlay();
 		this.applyCyclingTrailsOverlay();
@@ -2803,6 +2766,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private resetModalState(): void {
+		this.mapEmbedHostRoot = undefined;
 		this.removeEscapeKeydownListener();
 		this.isFullscreen = false;
 		this.isFullscreenInfoVisible = false;
