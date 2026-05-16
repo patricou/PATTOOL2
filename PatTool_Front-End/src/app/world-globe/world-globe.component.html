@@ -1,11 +1,13 @@
 <div class="wg-root container-fluid px-2 px-lg-3 pb-3 pt-2">
-  <h1 class="wg-title mb-2">{{ 'WORLD_GLOBE.TITLE' | translate }}</h1>
+  <!-- Bloc passé en vrai plein écran navigateur (API Fullscreen) : titre + globe ; la modale trace reste en dehors pour l’overlay. -->
+  <div #globeFsRoot class="wg-fs-root">
+    <h1 class="wg-title mb-2">{{ 'WORLD_GLOBE.TITLE' | translate }}</h1>
 
-  <div class="alert alert-warning wg-alert py-1 px-2 mb-2 small" role="alert" *ngIf="textureLoadError">
-    <i class="fa fa-exclamation-triangle me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.TEXTURE_LOAD_ERROR' | translate }}
-  </div>
+    <div class="alert alert-warning wg-alert py-1 px-2 mb-2 small" role="alert" *ngIf="textureLoadError">
+      <i class="fa fa-exclamation-triangle me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.TEXTURE_LOAD_ERROR' | translate }}
+    </div>
 
-  <div #globeShell class="wg-shell" [class.wg-shell--fs]="fullscreen">
+    <div #globeShell class="wg-shell" [class.wg-shell--fs]="fullscreen">
     <aside class="wg-sidebar flex-shrink-0" *ngIf="showOptionsPanel">
       <div class="wg-sidebar-inner">
         <div class="wg-geocode-block mb-2">
@@ -14,13 +16,23 @@
           }}</label>
           <div class="input-group input-group-sm wg-geocode-input-group">
             <input
-              type="search"
+              type="text"
               class="form-control wg-geocode-input"
               id="wgGlobePlace"
               [(ngModel)]="globePlaceQuery"
               [disabled]="!globeSurfaceReady || globeGeocodeLoading"
               [placeholder]="'ADDRESS_GEOCODE.ADDRESS_PLACEHOLDER' | translate"
-              (keydown.enter)="searchGlobePlace()" />
+              [attr.aria-controls]="globeGeocodeResults.length > 1 ? 'wg-globe-geocode-list' : null"
+              [attr.aria-activedescendant]="
+                globeGeocodeListActiveIndex != null ? 'wg-globe-geocode-opt-' + globeGeocodeListActiveIndex : null
+              "
+              inputmode="search"
+              enterkeyhint="search"
+              spellcheck="false"
+              autocorrect="off"
+              autocapitalize="off"
+              autocomplete="off"
+            />
             <button
               type="button"
               class="btn btn-outline-primary wg-geocode-btn"
@@ -32,10 +44,16 @@
           </div>
           <div class="wg-geocode-error small text-danger mt-1" *ngIf="globeGeocodeError">{{ globeGeocodeError }}</div>
           <div class="wg-geocode-results small mt-1" *ngIf="globeGeocodeResults.length > 1">
-            <div class="text-muted mb-1">{{ 'WORLD_GLOBE.GEOCODE_PICK_HINT' | translate }}</div>
-            <ul class="list-unstyled mb-0 wg-geocode-result-list">
-              <li *ngFor="let r of globeGeocodeResults">
-                <button type="button" class="btn btn-link btn-sm text-start p-0 py-1 w-100 wg-geocode-result-item" (click)="flyGlobeToGeocodeResult(r)">
+            <ul class="list-unstyled mb-0 wg-geocode-result-list" role="listbox" id="wg-globe-geocode-list">
+              <li *ngFor="let r of globeGeocodeResults; let i = index" role="none">
+                <button
+                  type="button"
+                  role="option"
+                  class="btn btn-link btn-sm text-start p-0 py-1 w-100 wg-geocode-result-item"
+                  [class.wg-geocode-result-item--active]="globeGeocodeListActiveIndex === i"
+                  [id]="'wg-globe-geocode-opt-' + i"
+                  [attr.aria-selected]="globeGeocodeListActiveIndex === i"
+                  (click)="flyGlobeToGeocodeResult(r)">
                   {{ r.displayName || (r.lat.toFixed(4) + ', ' + r.lon.toFixed(4)) }}
                 </button>
               </li>
@@ -65,9 +83,9 @@
             'WORLD_GLOBE.LIGHT_REALISTIC_DAY_NIGHT' | translate
           }}</label>
         </div>
-        <div class="wg-banner small text-muted wg-switch mb-1" *ngIf="realTimeTerminator">{{ 'WORLD_GLOBE.LIGHT_TERMINATOR_NOTE' | translate }}</div>
+        <div class="wg-banner wg-terminator-hint small mb-1" *ngIf="realTimeTerminator">{{ 'WORLD_GLOBE.LIGHT_TERMINATOR_NOTE' | translate }}</div>
         <div class="wg-light-boost mb-2">
-          <label class="wg-light-boost-label small text-muted d-flex justify-content-between align-items-center mb-1" for="wgLightBoost">
+          <label class="wg-light-boost-label small d-flex justify-content-between align-items-center mb-1" for="wgLightBoost">
             <span [attr.title]="'WORLD_GLOBE.LIGHT_BOOST_HINT' | translate">{{ 'WORLD_GLOBE.LIGHT_BOOST' | translate }}</span>
             <span class="wg-light-boost-val text-nowrap ms-1">×{{ globeLightingBoost | number : '1.2-2' }}</span>
           </label>
@@ -121,6 +139,15 @@
             [(ngModel)]="starsEnabled"
             (ngModelChange)="onStarsToggle($event)" />
           <label class="form-check-label" for="wgStars">{{ 'WORLD_GLOBE.LAYER_STARS' | translate }}</label>
+        </div>
+        <div class="form-check form-switch wg-switch">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            id="wgRotAxis"
+            [(ngModel)]="showEarthRotationAxis"
+            (ngModelChange)="onEarthRotationAxisToggle()" />
+          <label class="form-check-label" for="wgRotAxis">{{ 'WORLD_GLOBE.LAYER_ROTATION_AXIS' | translate }}</label>
         </div>
         <div class="form-check form-switch wg-switch">
           <input class="form-check-input" type="checkbox" id="wgAuto" [(ngModel)]="autoRotate" (ngModelChange)="onAutoRotateToggle()" />
@@ -227,6 +254,7 @@
         <i class="fa fa-angle-double-left"></i>
       </button>
     </div>
+  </div>
   </div>
 
   <app-trace-viewer-modal #globeTraceViewer (closed)="onGlobeTraceViewerClosed()"></app-trace-viewer-modal>

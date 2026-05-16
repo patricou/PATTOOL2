@@ -11,6 +11,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription, firstValueFrom, timeout } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { ApiService } from '../services/api.service';
@@ -23,7 +24,7 @@ import { parseTrackFileToLatLonPoints } from '../photo-timeline/track-route-stat
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { environment } from '../../environments/environment';
-import { Body, GeoVector, VectorObserver } from 'astronomy-engine';
+import { Body, Equator, Observer, SiderealTime } from 'astronomy-engine';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 
 /** Ligne utilisée après chargement SSE : sélection puis affichage trace / géocode. */
@@ -56,7 +57,7 @@ const GLOBE_GEOCODE_ANIM_MS = 1700;
 
 /** Sphère repère géocodage : rayon monde, légèrement au-dessus du maillage Terre (rayon 1). */
 const GLOBE_GEOCODE_MARKER_SURFACE_OFFSET = 1.003;
-const GLOBE_GEOCODE_MARKER_RADIUS = 0.006;
+const GLOBE_GEOCODE_MARKER_RADIUS = 0.0022;
 
 /** Multiplicateur d’éclairage utilisateur (potentiomètre) ; ×1 = réglage de base du mode actif. */
 const GLOBE_LIGHTING_BOOST_DEFAULT = 1;
@@ -86,15 +87,21 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private readonly membersService = inject(MembersService);
   private readonly translate = inject(TranslateService);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   @ViewChild('globeCanvasHost') globeCanvasHost?: ElementRef<HTMLElement>;
   @ViewChild('globeShell') globeShell?: ElementRef<HTMLElement>;
+  /** Titre + panneau globe : cible préférée pour l’API Fullscreen (vrai plein écran navigateur). */
+  @ViewChild('globeFsRoot') globeFsRoot?: ElementRef<HTMLElement>;
   @ViewChild('globeTraceMount') globeTraceMount?: ElementRef<HTMLElement>;
   @ViewChild('globeTraceViewer') globeTraceViewer?: TraceViewerModalComponent;
 
   showOptionsPanel = true;
   cloudsEnabled = false;
   starsEnabled = true;
+  /** Axe de rotation (ligne pôles) enfant du maillage Terre. */
+  showEarthRotationAxis = false;
   autoRotate = false;
   /** Fond pseudo-satellite (NASA BMNG) vs texture Three.js classique avec relief/spec ; BMNG activé par défaut. */
   basemapSatellite = true;
@@ -104,13 +111,13 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   weatherImageryFailed = false;
   /** Points + polyligne d’activités géocodées. */
   activityLayerVisible = false;
-  /** Éclairage uniforme sur tout le globe (ambiance + hémisphère). Coupé tant que le jour/nuit réel est actif. */
-  globeLightingUniform = false;
+  /** Éclairage uniforme sur tout le globe (ambiance + hémisphère). Activé par défaut. Coupé tant que le jour/nuit réel est actif. */
+  globeLightingUniform = true;
   /**
    * Terminateur jour/nuit selon la position réelle du Soleil (horloge du navigateur / UTC).
-   * Prioritaire sur l’éclairage uniforme lorsqu’il est activé ; activé par défaut.
+   * Prioritaire sur l’éclairage uniforme lorsqu’il est activé ; désactivé par défaut (éclairage globe).
    */
-  realTimeTerminator = true;
+  realTimeTerminator = false;
 
   /**
    * Intensité globale des lumières et de l’exposition tone-mapping (curseur latéral).
@@ -132,6 +139,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   detailMapOpen = false;
   detailMapPickFailed = false;
   fullscreen = false;
+  /**
+   * True si le dernier plein écran a utilisé `document.documentElement` (repli quand le conteneur refuse l’API).
+   * Permet de détecter la sortie et de garder le libellé du bouton cohérent.
+   */
+  private globeDocumentFullscreenFallback = false;
   textureLoadError = false;
 
   activitiesLoading = false;
@@ -153,6 +165,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     displayName: string;
     boundingBox: number[] | null;
   }> = [];
+  /** Résultats multiples : ligne surlignée pour flèches haut/bas + Entrée. */
+  globeGeocodeListActiveIndex: number | null = null;
   /** Repère visuel géocodage : même lat/lon que le vol caméra tant que l’utilisateur ne clique pas ailleurs sur la Terre. */
   globeGeocodeMarkerLat: number | null = null;
   globeGeocodeMarkerLon: number | null = null;
@@ -162,6 +176,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private camera?: THREE.PerspectiveCamera;
   private controls?: OrbitControls;
   private earthMesh?: THREE.Mesh;
+  /** Groupe Three.js : ligne suivant l’axe local Y (pôles). */
+  private earthRotationAxisGroup?: THREE.Group;
   /** Point rouge au sol (résultat géocode ville / pays). */
   private geocodeMarkerMesh?: THREE.Mesh;
   /** Textures utilisées dans le fond « carte » avant bascule satellite. */
@@ -181,12 +197,20 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private sunLight?: THREE.DirectionalLight;
   /** Distance fictive du soleil directionnel (rayons quasi parallèles). */
   private static readonly SUN_LIGHT_DISTANCE = 50;
+  /**
+   * Point de référence pour {@link Equator}(Sun) : géocodage proche équateur ;
+   * parallaxe Soleil négligeable. Coordonnées of-date + GAST ({@link SiderealTime}) restent cohérents.
+   */
+  private static readonly SUN_EQUATOR_OBSERVER = new Observer(0, 0, 0);
 
   private rafId: number | null = null;
   private resizeObs?: ResizeObserver;
   /** Rotation lente nuages vs sol (effet léger façon couches atmosphériques). */
   private cloudsDriftRad = 0;
   private eventsStreamSub?: Subscription;
+  private routeQuerySub?: Subscription;
+  /** Vol caméra depuis le trace viewer (query lat/lon/z) avant que la Terre soit prête. */
+  private pendingGlobeDeepLink: { lat: number; lon: number; mapZoom?: number } | null = null;
   private activitiesStreamFinalizeTimer: ReturnType<typeof setTimeout> | null = null;
   /** Vol caméra programmatique (géocodage) : annulation au destroy ou nouvelle cible. */
   private globeCameraAnimFrameId: number | null = null;
@@ -264,10 +288,33 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   };
 
   ngAfterViewInit(): void {
+    this.routeQuerySub = this.route.queryParamMap.subscribe((params) => {
+      const latStr = params.get('lat');
+      const lonStr = params.get('lon') ?? params.get('lng');
+      if (!latStr || !lonStr) {
+        return;
+      }
+      const lat = parseFloat(latStr);
+      const lon = parseFloat(lonStr);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+        return;
+      }
+      let mapZoom: number | undefined;
+      const zStr = params.get('z') ?? params.get('zoom');
+      if (zStr != null && zStr !== '') {
+        const z = parseFloat(zStr);
+        if (Number.isFinite(z) && z >= 1 && z <= 22) {
+          mapZoom = z;
+        }
+      }
+      this.queueOrApplyGlobeDeepLink({ lat, lon, mapZoom });
+    });
     queueMicrotask(() => this.bootstrapThree());
   }
 
   ngOnDestroy(): void {
+    this.routeQuerySub?.unsubscribe();
+    this.routeQuerySub = undefined;
     this.globeTraceViewer?.close();
     this.stopGlobeCameraAnimation();
     if (this.globePickCursorResetTimer != null) {
@@ -292,11 +339,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       canvasUnd.removeEventListener('pointercancel', this.onGlobePointerCancel);
     }
     this.controls?.dispose();
-    const canvas = this.renderer?.domElement;
-    if (canvas?.parentElement) {
-      canvas.parentElement.removeChild(canvas);
-    }
+    this.renderer?.domElement?.remove();
     this.disposeSceneHierarchy();
+    this.earthRotationAxisGroup = undefined;
     this.renderer?.dispose();
     this.renderer = undefined;
     this.scene = undefined;
@@ -306,9 +351,12 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
 
   @HostListener('document:fullscreenchange')
   @HostListener('document:webkitfullscreenchange')
+  @HostListener('document:mozfullscreenchange')
   @HostListener('document:MSFullscreenChange')
   onFullscreenDoc(): void {
     this.syncFullscreenFromDocument();
+    this.cdr.markForCheck();
+    requestAnimationFrame(() => this.resizeRendererToHost());
   }
 
   @HostListener('window:resize')
@@ -477,43 +525,115 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     return THREE.MathUtils.clamp(Math.round(raw * 4) / 4, 3, 17);
   }
 
-  toggleFullscreen(): void {
-    const shell = this.globeShell?.nativeElement;
-    if (!shell) {
+  /** Inverse de {@link leafletZoomForOrbitDistance} : zoom carte Leaflet → distance d’orbite sur le globe. */
+  private static orbitDistanceFromLeafletZoom(leafletZoom: number): number {
+    const z = THREE.MathUtils.clamp(leafletZoom, 3, 17);
+    const margin = Math.pow(2, 16.35 - z) / 88;
+    return 1 + Math.max(margin, 0.015);
+  }
+
+  private static async requestFullscreenCompat(el: Element): Promise<void> {
+    const anyEl = el as HTMLElement & {
+      requestFullscreen?: () => Promise<void>;
+      webkitRequestFullscreen?: () => Promise<void> | void;
+      mozRequestFullScreen?: () => Promise<void> | void;
+      msRequestFullscreen?: () => Promise<void> | void;
+    };
+    if (anyEl.requestFullscreen) {
+      await anyEl.requestFullscreen();
+      return;
+    }
+    if (anyEl.webkitRequestFullscreen) {
+      await Promise.resolve(anyEl.webkitRequestFullscreen());
+      return;
+    }
+    if (anyEl.mozRequestFullScreen) {
+      await Promise.resolve(anyEl.mozRequestFullScreen());
+      return;
+    }
+    if (anyEl.msRequestFullscreen) {
+      await Promise.resolve(anyEl.msRequestFullscreen());
+      return;
+    }
+    throw new Error('Fullscreen API unavailable');
+  }
+
+  private static async exitFullscreenCompat(
+    doc: Document & {
+      webkitExitFullscreen?: () => Promise<void>;
+      mozCancelFullScreen?: () => Promise<void>;
+      msExitFullscreen?: () => Promise<void>;
+    }
+  ): Promise<void> {
+    if (document.exitFullscreen) {
+      await document.exitFullscreen();
+      return;
+    }
+    if (doc.webkitExitFullscreen) {
+      await doc.webkitExitFullscreen();
+      return;
+    }
+    if (doc.mozCancelFullScreen) {
+      await doc.mozCancelFullScreen();
+      return;
+    }
+    if (doc.msExitFullscreen) {
+      await doc.msExitFullscreen();
+      return;
+    }
+    throw new Error('Exit fullscreen unavailable');
+  }
+
+  async toggleFullscreen(): Promise<void> {
+    const region = this.globeFsRoot?.nativeElement ?? this.globeShell?.nativeElement;
+    if (!region) {
       return;
     }
     const doc = document as Document & {
       webkitFullscreenElement?: Element | null;
-      msFullscreenElement?: Element | null;
       webkitExitFullscreen?: () => Promise<void>;
+      mozFullScreenElement?: Element | null;
+      mozCancelFullScreen?: () => Promise<void>;
+      msFullscreenElement?: Element | null;
       msExitFullscreen?: () => Promise<void>;
     };
     const fsEl =
-      document.fullscreenElement ?? doc.webkitFullscreenElement ?? doc.msFullscreenElement ?? null;
-    if (fsEl === shell) {
-      void (
-        document.exitFullscreen?.bind(document) ??
-        doc.webkitExitFullscreen?.bind(document) ??
-        doc.msExitFullscreen?.bind(document)
-      )?.();
-    } else {
-      void (
-        shell.requestFullscreen?.bind(shell) ??
-        (
-          shell as HTMLElement & {
-            webkitRequestFullscreen?: () => Promise<void> | void;
-            msRequestFullscreen?: () => Promise<void> | void;
-          }
-        ).webkitRequestFullscreen?.bind(shell) ??
-        (
-          shell as HTMLElement & {
-            webkitRequestFullscreen?: () => Promise<void> | void;
-            msRequestFullscreen?: () => Promise<void> | void;
-          }
-        ).msRequestFullscreen?.bind(shell)
-      )?.();
+      document.fullscreenElement ??
+      doc.webkitFullscreenElement ??
+      doc.mozFullScreenElement ??
+      doc.msFullscreenElement ??
+      null;
+
+    const inOurRegion = !!(fsEl && (fsEl === region || region.contains(fsEl)));
+    const inDocFallback =
+      this.globeDocumentFullscreenFallback && fsEl === document.documentElement;
+
+    if (inOurRegion || inDocFallback) {
+      try {
+        await WorldGlobeComponent.exitFullscreenCompat(doc);
+      } catch {
+        /* ignore */
+      }
+      this.globeDocumentFullscreenFallback = false;
+      this.syncFullscreenFromDocument();
+      this.cdr.markForCheck();
+      requestAnimationFrame(() => this.resizeRendererToHost());
+      return;
+    }
+
+    try {
+      await WorldGlobeComponent.requestFullscreenCompat(region);
+      this.globeDocumentFullscreenFallback = false;
+    } catch {
+      try {
+        await WorldGlobeComponent.requestFullscreenCompat(document.documentElement);
+        this.globeDocumentFullscreenFallback = true;
+      } catch {
+        /* navigateur refuse (iOS, politique, etc.) */
+      }
     }
     this.syncFullscreenFromDocument();
+    this.cdr.markForCheck();
     requestAnimationFrame(() => this.resizeRendererToHost());
   }
 
@@ -548,6 +668,13 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   onStarsToggle(enabled: boolean): void {
     if (this.starsPoints) {
       this.starsPoints.visible = enabled;
+    }
+    this.cdr.markForCheck();
+  }
+
+  onEarthRotationAxisToggle(): void {
+    if (this.earthRotationAxisGroup) {
+      this.earthRotationAxisGroup.visible = this.showEarthRotationAxis;
     }
     this.cdr.markForCheck();
   }
@@ -736,15 +863,14 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Cadre la Terre pour que (lat°, lon°) soit au centre du globe.
-   * Légère élévation de la caméra pour garder une lecture lisible du relief/textures.
-   * Prend en compte la rotation du maillage Terre (texture π) ou, avant chargement, la même orientation attendue.
+   * Cadre la Terre pour que (lat°, lon°) soit au centre du globe à l’écran.
+   * @param verticalLift léger décalage vertical (défaut : relief lisible). La recherche géocode utilise `verticalLift = 0` pour centrer le point rouge.
    */
-  private frameCameraOnLatLon(latDeg: number, lonDeg: number, distance: number): void {
+  private frameCameraOnLatLon(latDeg: number, lonDeg: number, distance: number, verticalLift = 0.22): void {
     if (!this.camera || !this.controls) {
       return;
     }
-    const pos = this.computeCameraPositionForLatLon(latDeg, lonDeg, distance);
+    const pos = this.computeCameraPositionForLatLon(latDeg, lonDeg, distance, verticalLift);
     if (!pos) {
       return;
     }
@@ -753,8 +879,16 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.controls.update();
   }
 
-  /** Position caméra pour capter (lat, lon) au centre (repère monde, Terre à l’origine). */
-  private computeCameraPositionForLatLon(latDeg: number, lonDeg: number, distance: number): THREE.Vector3 | null {
+  /**
+   * Position caméra pour regarder le lieu (lat, lon) : cible OrbitControls à l’origine.
+   * @param verticalLift Décalage Y monde (lecture du relief par défaut). Mettre 0 pour centrer le lieu au milieu de la fenêtre (recherche géocode).
+   */
+  private computeCameraPositionForLatLon(
+    latDeg: number,
+    lonDeg: number,
+    distance: number,
+    verticalLift = 0.22
+  ): THREE.Vector3 | null {
     const radial = WorldGlobeComponent.latLonToVector3(latDeg, lonDeg, 1);
     const earth = this.earthMesh;
     if (earth) {
@@ -768,8 +902,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       return null;
     }
     radial.multiplyScalar(distance / len);
-    const yLift = 0.22;
-    return new THREE.Vector3(radial.x, radial.y + yLift, radial.z);
+    return new THREE.Vector3(radial.x, radial.y + verticalLift, radial.z);
   }
 
   /**
@@ -833,13 +966,20 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
    * Déplace la caméra vers le lieu en suivant un arc de grand cercle (rotation fluide),
    * au lieu d’un saut instantané.
    */
-  private animateCameraToLatLon(latDeg: number, lonDeg: number, distance: number, durationMs = GLOBE_GEOCODE_ANIM_MS): void {
+  private animateCameraToLatLon(
+    latDeg: number,
+    lonDeg: number,
+    distance: number,
+    durationMs = GLOBE_GEOCODE_ANIM_MS,
+    /** 0 = lieu exactement au centre de la fenêtre (axe caméra → centre du globe). */
+    verticalLift = 0
+  ): void {
     const camera = this.camera;
     const controls = this.controls;
     if (!camera || !controls) {
       return;
     }
-    const endPos = this.computeCameraPositionForLatLon(latDeg, lonDeg, distance);
+    const endPos = this.computeCameraPositionForLatLon(latDeg, lonDeg, distance, verticalLift);
     if (!endPos) {
       return;
     }
@@ -929,11 +1069,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
    * Centre la caméra sur le lieu avec un vol fluide ; un seul résultat : animation directe ; plusieurs : liste cliquable.
    */
   searchGlobePlace(): void {
-    (document.activeElement as HTMLElement | null)?.blur();
     const query = this.globePlaceQuery?.trim();
     if (!query) {
       this.globeGeocodeError = this.translate.instant('ADDRESS_GEOCODE.ADDRESS_REQUIRED');
       this.globeGeocodeResults = [];
+      this.globeGeocodeListActiveIndex = null;
       this.cdr.markForCheck();
       return;
     }
@@ -944,6 +1084,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
     this.globeGeocodeError = '';
     this.globeGeocodeResults = [];
+    this.globeGeocodeListActiveIndex = null;
     this.globeGeocodeLoading = true;
     this.apiService
       .geocodeSearch(query)
@@ -984,6 +1125,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
                 Math.abs(r.lon) <= 180
             );
           this.globeGeocodeResults = results;
+          this.globeGeocodeListActiveIndex = null;
           if (results.length === 0) {
             this.globeGeocodeError = this.translate.instant('ADDRESS_GEOCODE.NO_RESULTS');
           } else if (results.length === 1) {
@@ -995,6 +1137,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
           const msg = err instanceof Error ? err.message : String(err);
           this.globeGeocodeError = this.translate.instant('ADDRESS_GEOCODE.ERROR') + ': ' + msg;
           this.globeGeocodeResults = [];
+          this.globeGeocodeListActiveIndex = null;
           this.cdr.markForCheck();
         }
       });
@@ -1018,8 +1161,138 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.globePickedLat = result.lat;
     this.globePickedLon = result.lon;
     this.globeGeocodeResults = [];
+    this.globeGeocodeListActiveIndex = null;
     this.globeGeocodeError = '';
     this.cdr.markForCheck();
+  }
+
+  /** Champ lieu : Entrée = lancer recherche ou valider une ligne de la liste ; flèches / Échap si plusieurs résultats. */
+  onGlobeGeocodeInputKeydown(ev: KeyboardEvent): void {
+    const down = ev.key === 'ArrowDown' || ev.code === 'ArrowDown';
+    const up = ev.key === 'ArrowUp' || ev.code === 'ArrowUp';
+    const n = this.globeGeocodeResults.length;
+    if (n > 1) {
+      if (down) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const next =
+          this.globeGeocodeListActiveIndex == null
+            ? 0
+            : Math.min(this.globeGeocodeListActiveIndex + 1, n - 1);
+        this.globeGeocodeListActiveIndex = next;
+        this.scrollGlobeGeocodeHighlightIntoView();
+        this.cdr.markForCheck();
+        return;
+      }
+      if (up) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const prev =
+          this.globeGeocodeListActiveIndex == null
+            ? n - 1
+            : Math.max(this.globeGeocodeListActiveIndex - 1, 0);
+        this.globeGeocodeListActiveIndex = prev;
+        this.scrollGlobeGeocodeHighlightIntoView();
+        this.cdr.markForCheck();
+        return;
+      }
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const idx = this.globeGeocodeListActiveIndex ?? 0;
+        this.flyGlobeToGeocodeResult(this.globeGeocodeResults[idx]);
+        return;
+      }
+      if (ev.key === 'Escape') {
+        ev.preventDefault();
+        ev.stopPropagation();
+        this.globeGeocodeResults = [];
+        this.globeGeocodeListActiveIndex = null;
+        this.cdr.markForCheck();
+        return;
+      }
+    }
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      this.searchGlobePlace();
+    }
+  }
+
+  private scrollGlobeGeocodeHighlightIntoView(): void {
+    const i = this.globeGeocodeListActiveIndex;
+    if (i == null) {
+      return;
+    }
+    queueMicrotask(() => {
+      document.getElementById(`wg-globe-geocode-opt-${i}`)?.scrollIntoView({ block: 'nearest' });
+    });
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onGlobeGeocodeDocumentKeydown(ev: KeyboardEvent): void {
+    const t = ev.target;
+    if (!(t instanceof HTMLInputElement) || t.id !== 'wgGlobePlace' || t.disabled) {
+      return;
+    }
+    this.onGlobeGeocodeInputKeydown(ev);
+  }
+
+  /**
+   * Trace viewer → navigation avec `?lat=&lon=&z=` : applique le vol quand la Terre est prête,
+   * puis retire les paramètres de l’URL.
+   */
+  private queueOrApplyGlobeDeepLink(payload: { lat: number; lon: number; mapZoom?: number }): void {
+    if (!Number.isFinite(payload.lat) || !Number.isFinite(payload.lon)) {
+      return;
+    }
+    if (this.globeSurfaceReady && this.camera && this.controls && this.earthMesh) {
+      this.executeGlobeDeepLinkFly(payload);
+      this.clearGlobeDeepLinkQueryParams();
+    } else {
+      this.pendingGlobeDeepLink = payload;
+    }
+  }
+
+  private tryFlushPendingGlobeDeepLink(): void {
+    if (!this.pendingGlobeDeepLink || !this.globeSurfaceReady || !this.camera || !this.controls || !this.earthMesh) {
+      return;
+    }
+    const p = this.pendingGlobeDeepLink;
+    this.pendingGlobeDeepLink = null;
+    this.executeGlobeDeepLinkFly(p);
+    this.clearGlobeDeepLinkQueryParams();
+  }
+
+  private executeGlobeDeepLinkFly(p: { lat: number; lon: number; mapZoom?: number }): void {
+    const minD = this.controls?.minDistance ?? 1.02;
+    const maxD = this.controls?.maxDistance ?? 7;
+    const dist =
+      p.mapZoom != null
+        ? THREE.MathUtils.clamp(
+            WorldGlobeComponent.orbitDistanceFromLeafletZoom(p.mapZoom),
+            minD + 0.02,
+            maxD * 0.98
+          )
+        : GLOBE_GEOCODE_ORBIT_FALLBACK;
+    this.animateCameraToLatLon(p.lat, p.lon, dist, GLOBE_GEOCODE_ANIM_MS, 0);
+    this.globeGeocodeMarkerLat = p.lat;
+    this.globeGeocodeMarkerLon = p.lon;
+    this.ensureGeocodeMarkerMesh();
+    this.updateGeocodeMarkerWorldPosition();
+    this.globePickedLat = p.lat;
+    this.globePickedLon = p.lon;
+    this.globeGeocodeResults = [];
+    this.globeGeocodeListActiveIndex = null;
+    this.globeGeocodeError = '';
+    this.cdr.markForCheck();
+  }
+
+  private clearGlobeDeepLinkQueryParams(): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { lat: null, lon: null, lng: null, z: null, zoom: null },
+      replaceUrl: true
+    });
   }
 
   private ensureGeocodeMarkerMesh(): void {
@@ -1075,14 +1348,27 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   }
 
   private syncFullscreenFromDocument(): void {
-    const shell = this.globeShell?.nativeElement;
+    const region = this.globeFsRoot?.nativeElement ?? this.globeShell?.nativeElement;
     const doc = document as Document & {
       webkitFullscreenElement?: Element | null;
+      mozFullScreenElement?: Element | null;
       msFullscreenElement?: Element | null;
     };
     const fsEl =
-      document.fullscreenElement ?? doc.webkitFullscreenElement ?? doc.msFullscreenElement ?? null;
-    this.fullscreen = !!(shell && fsEl === shell);
+      document.fullscreenElement ??
+      doc.webkitFullscreenElement ??
+      doc.mozFullScreenElement ??
+      doc.msFullscreenElement ??
+      null;
+    if (!fsEl) {
+      this.fullscreen = false;
+      this.globeDocumentFullscreenFallback = false;
+      return;
+    }
+    const inRegion = !!(region && (fsEl === region || region.contains(fsEl)));
+    const docFallback =
+      this.globeDocumentFullscreenFallback && fsEl === document.documentElement;
+    this.fullscreen = inRegion || docFallback;
   }
 
   /** Éclairage : jour/nuit réel, uniforme, ou tamisé. */
@@ -1160,10 +1446,18 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (!sun || !earth) {
       return;
     }
-    const gv = GeoVector(Body.Sun, date, true);
-    const obs = VectorObserver(gv, false);
+    const eq = Equator(Body.Sun, date, WorldGlobeComponent.SUN_EQUATOR_OBSERVER, true, true);
+    const gst = SiderealTime(date);
+    let lonDeg = (eq.ra - gst) * 15;
+    while (lonDeg <= -180) {
+      lonDeg += 360;
+    }
+    while (lonDeg > 180) {
+      lonDeg -= 360;
+    }
+    const latDeg = eq.dec;
     earth.updateMatrixWorld(true);
-    this.subsolarWorldScratch.copy(WorldGlobeComponent.latLonToVector3(obs.latitude, obs.longitude, 1));
+    this.subsolarWorldScratch.copy(WorldGlobeComponent.latLonToVector3(latDeg, lonDeg, 1));
     this.subsolarWorldScratch.applyMatrix4(earth.matrixWorld).normalize();
     const k = WorldGlobeComponent.SUN_LIGHT_DISTANCE;
     sun.position.copy(this.subsolarWorldScratch.multiplyScalar(k));
@@ -1283,7 +1577,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.globeSurfaceReady = true;
       this.standardEarthTextures = { map: earthMap, spec: specMap, bump: bumpMap };
       this.applyBasemapMode();
+      this.attachRotationAxisToEarth(earth);
       this.frameCameraOnLatLon(GLOBE_INITIAL_FRANCE_LAT, GLOBE_INITIAL_FRANCE_LON, GLOBE_INITIAL_ORBIT_DISTANCE);
+      this.tryFlushPendingGlobeDeepLink();
     };
 
     loader.load(
@@ -1332,7 +1628,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
         this.earthMesh = earth;
         this.globeSurfaceReady = true;
         this.standardEarthTextures = null;
+        this.attachRotationAxisToEarth(earth);
         this.frameCameraOnLatLon(GLOBE_INITIAL_FRANCE_LAT, GLOBE_INITIAL_FRANCE_LON, GLOBE_INITIAL_ORBIT_DISTANCE);
+        this.tryFlushPendingGlobeDeepLink();
       }
     );
 
@@ -1360,10 +1658,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.globeSurfaceReady = true;
     this.standardEarthTextures = { map: earthMap, spec: null, bump: null };
     this.applyBasemapMode();
+    this.attachRotationAxisToEarth(earth);
     this.frameCameraOnLatLon(GLOBE_INITIAL_FRANCE_LAT, GLOBE_INITIAL_FRANCE_LON, GLOBE_INITIAL_ORBIT_DISTANCE);
+    this.tryFlushPendingGlobeDeepLink();
   }
-
-  /** Toutes les images du globe passent par le backend PatTool ({@code /api/external/globe/...}). */
   private globePlanetTextureUrl(asset: 'atmos' | 'specular' | 'normal' | 'clouds'): string {
     return `${environment.API_URL}external/globe/texture/planets/${asset}`;
   }
@@ -1896,6 +2194,53 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       cancelAnimationFrame(this.rafId);
       this.rafId = null;
     }
+  }
+
+  private disposeEarthRotationAxisGroup(): void {
+    const g = this.earthRotationAxisGroup;
+    if (!g) {
+      return;
+    }
+    g.parent?.remove(g);
+    g.traverse((o) => {
+      if (o instanceof THREE.Line) {
+        o.geometry.dispose();
+        const m = o.material;
+        if (Array.isArray(m)) {
+          m.forEach((x) => x.dispose());
+        } else if (m instanceof THREE.Material) {
+          m.dispose();
+        }
+      }
+    });
+    this.earthRotationAxisGroup = undefined;
+  }
+
+  /**
+   * Ligne le long de l’axe local Y du maillage Terre (pôles ≈ axe de rotation sidéral).
+   */
+  private attachRotationAxisToEarth(earth: THREE.Mesh): void {
+    this.disposeEarthRotationAxisGroup();
+    const len = 1.34;
+    const geom = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, -len, 0),
+      new THREE.Vector3(0, len, 0)
+    ]);
+    const mat = new THREE.LineDashedMaterial({
+      color: 0xffe033,
+      transparent: true,
+      opacity: 0.95,
+      dashSize: 0.03,
+      gapSize: 0.022
+    });
+    const line = new THREE.Line(geom, mat);
+    line.computeLineDistances();
+    const group = new THREE.Group();
+    group.name = 'EarthRotationAxis';
+    group.add(line);
+    group.visible = this.showEarthRotationAxis;
+    earth.add(group);
+    this.earthRotationAxisGroup = group;
   }
 
   private disposeSceneHierarchy(): void {

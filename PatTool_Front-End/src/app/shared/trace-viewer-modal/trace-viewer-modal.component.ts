@@ -4,6 +4,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { NgbModule, NgbModal, NgbModalOptions, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { Router } from '@angular/router';
 import { FileService } from '../../services/file.service';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { ApiService } from '../../services/api.service';
@@ -222,6 +223,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		private readonly keycloakService: KeycloakService,
 		private readonly apiService: ApiService,
 		private readonly sanitizer: DomSanitizer,
+		private readonly router: Router,
 		@Inject(DOCUMENT) private readonly document: Document
 	) {
 		this.configureLeafletIcons();
@@ -2162,6 +2164,22 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 		this.fitMapToTrackBounds(this.trackBounds);
+	}
+
+	/** Centre du viewport carte Leaflet → page Globe 3D (zoom corrélé au niveau de zoom carte). */
+	public openWorldGlobeAtMapCenter(): void {
+		if (!this.map) {
+			return;
+		}
+		const c = this.map.getCenter();
+		const z = this.map.getZoom();
+		void this.router.navigate(['tools', 'world-globe'], {
+			queryParams: {
+				lat: Math.round(c.lat * 1e7) / 1e7,
+				lon: Math.round(c.lng * 1e7) / 1e7,
+				z: Math.round(z * 100) / 100
+			}
+		});
 	}
 
 	/** Active/désactive le suivi de la position GPS de l'appareil (recentrage carte toutes les 10 s). */
