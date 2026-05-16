@@ -59,6 +59,10 @@ anthropic.http.read-timeout-seconds=300
 gemini.http.connect-timeout-seconds=300
 gemini.http.read-timeout-seconds=300
 
+# Globe proxy (/api/external/globe) — téléchargements images / GeoJSON / ISS (délais plus longs que le RestTemplate générique).
+globe.proxy.http.connect-timeout-seconds=10
+globe.proxy.http.read-timeout-seconds=90
+
 # --- IoT gate / ESP (HomeIOTService beans: no defaults in code) ---
 app.arduino.ip=192.168.1.65
 app.esp32.1.ip=192.168.1.71

@@ -64,7 +64,7 @@
 
 @media (min-width: 992px) {
   .wg-sidebar {
-    width: min(246px, 32vw);
+    width: min(492px, 64vw);
   }
 }
 
@@ -75,6 +75,23 @@
   border-radius: 0.4rem;
   padding: 0.55rem 0.6rem;
   color: #c8d4ec;
+}
+
+/* Interrupteurs du panneau globe : deux colonnes (pleine largeur via __full). */
+.wg-switches-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 0.55rem;
+  row-gap: 0.32rem;
+  align-items: start;
+}
+
+.wg-switches-grid__full {
+  grid-column: 1 / -1;
+}
+
+.wg-switches-grid > .wg-switch {
+  margin-bottom: 0 !important;
 }
 
 .wg-switch {
@@ -95,10 +112,50 @@
   color: #b9c7e8;
 }
 
+.wg-iss-toolbar .wg-iss-interval-input {
+  box-sizing: border-box;
+  /* 5–600 s : 3 chiffres ; largeur en « ch » pour rester lisible avec une police réduite */
+  width: 5.25ch;
+  min-width: 5ch;
+  max-width: 6ch;
+  padding: 0.08rem 0.2rem;
+  font-size: calc(var(--wg-label, 0.66rem) * 0.92);
+  line-height: 1.15;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+
+.wg-iss-toolbar .wg-iss-interval-input::-webkit-outer-spin-button,
+.wg-iss-toolbar .wg-iss-interval-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.wg-iss-toolbar .wg-iss-countdown {
+  min-width: 1.75rem;
+}
+
 .wg-btn-stack {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
+}
+
+.wg-globe-action-stack {
+  position: absolute;
+  top: max(0.45rem, env(safe-area-inset-top, 0px));
+  right: max(0.45rem, env(safe-area-inset-right, 0px));
+  z-index: 5;
+  width: max-content;
+  max-width: min(15rem, 46vw);
+  margin-top: 0 !important;
+  pointer-events: auto;
+}
+
+.wg-globe-action-stack .wg-btn {
+  text-align: center;
+  white-space: normal;
+  line-height: 1.2;
 }
 
 .wg-picker {
@@ -160,9 +217,9 @@
 
 .wg-coords {
   position: absolute;
-  top: 0.45rem;
+  top: auto;
+  bottom: 0.45rem;
   right: 0.45rem;
-  bottom: auto;
   z-index: 4;
   padding: 0.28rem 0.45rem;
   border-radius: 0.3rem;
@@ -175,7 +232,8 @@
 }
 
 .wg-shell--fs .wg-coords {
-  top: max(0.45rem, env(safe-area-inset-top, 0px));
+  top: auto;
+  bottom: max(0.45rem, env(safe-area-inset-bottom, 0px));
   right: max(0.45rem, env(safe-area-inset-right, 0px));
 }
 
@@ -197,6 +255,7 @@
   width: 65vw;
   max-width: 65vw;
   max-height: 90vh;
+  min-height: min(56vh, 620px);
   height: auto;
   flex: 0 0 auto;
   display: flex;
@@ -326,11 +385,6 @@
   flex-shrink: 0 !important;
 }
 
-.world-globe-activity-list {
-  max-height: min(42vh, 240px);
-  overflow-y: auto;
-}
-
 /* Recherche lieu (géocodage Nominatim) */
 .wg-geocode-block {
   padding-bottom: 0.35rem;
@@ -435,8 +489,17 @@
     border-radius: 0.35rem;
   }
 
+  .wg-switches-grid {
+    column-gap: 0.42rem;
+    row-gap: 0.26rem;
+  }
+
   .wg-switch {
     margin-bottom: 0.22rem !important;
+  }
+
+  .wg-switches-grid > .wg-switch {
+    margin-bottom: 0 !important;
   }
 
   .wg-switch .form-check-input {
@@ -462,6 +525,10 @@
   .wg-btn-stack {
     gap: 0.22rem;
     margin-top: 0.35rem !important;
+  }
+
+  .wg-globe-action-stack.wg-btn-stack {
+    margin-top: 0 !important;
   }
 
   .wg-banner {
@@ -562,12 +629,19 @@
   .wg-coords {
     font-size: 0.52rem;
     padding: 0.2rem 0.32rem;
-    top: max(0.32rem, env(safe-area-inset-top, 0px));
+    top: auto;
+    bottom: max(0.32rem, env(safe-area-inset-bottom, 0px));
     right: max(0.32rem, env(safe-area-inset-right, 0px));
     max-width: min(92vw, 14rem);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .wg-globe-action-stack {
+    top: max(0.32rem, env(safe-area-inset-top, 0px));
+    right: max(0.32rem, env(safe-area-inset-right, 0px));
+    max-width: min(11.5rem, 56vw);
   }
 
   .wg-fab-hide {
@@ -580,10 +654,6 @@
   .wg-overlay-toolbar {
     gap: 0.35rem !important;
     margin-bottom: 0.35rem !important;
-  }
-
-  .world-globe-activity-list {
-    max-height: min(34vh, 200px);
   }
 
   .wg-shell--fs .wg-canvas-host {

@@ -18,7 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.concurrent.TimeUnit;
 
 /**
- * PatTool HTTP proxy for Earth globe textures and NASA imagery (no direct browser calls to third parties).
+ * PatTool HTTP proxy for Earth globe textures, NASA imagery, Natural Earth boundaries, and ISS position
+ * (browser does not call third-party hosts directly).
  */
 @RestController
 @RequestMapping("/api/external/globe")
@@ -75,6 +76,156 @@ public class GlobeProxyController {
             log.debug("GIBS VIIRS overlay failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
         }
+    }
+
+    @GetMapping("/geojson/ne-110m-boundaries-land")
+    public ResponseEntity<byte[]> naturalEarth110mLandBoundaries() {
+        try {
+            byte[] body = globeProxyService.fetchNaturalEarth110mLandBoundaryGeoJson();
+            MediaType geoJson =
+                    MediaType.parseMediaType("application/geo+json; charset=UTF-8");
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(7, TimeUnit.DAYS).cachePublic())
+                    .contentType(geoJson)
+                    .body(body);
+        } catch (Exception e) {
+            log.debug("Natural Earth boundaries GeoJSON failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
+    }
+
+    @GetMapping("/geojson/ne-110m-coastline")
+    public ResponseEntity<byte[]> naturalEarth110mCoastline() {
+        try {
+            byte[] body = globeProxyService.fetchNaturalEarth110mCoastlineGeoJson();
+            MediaType geoJson =
+                    MediaType.parseMediaType("application/geo+json; charset=UTF-8");
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(7, TimeUnit.DAYS).cachePublic())
+                    .contentType(geoJson)
+                    .body(body);
+        } catch (Exception e) {
+            log.debug("Natural Earth coastline GeoJSON failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
+    }
+
+    @GetMapping("/geojson/ne-110m-admin-0-countries")
+    public ResponseEntity<byte[]> naturalEarth110mAdmin0Countries() {
+        try {
+            byte[] body = globeProxyService.fetchNaturalEarth110mAdmin0CountriesGeoJson();
+            MediaType geoJson =
+                    MediaType.parseMediaType("application/geo+json; charset=UTF-8");
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(7, TimeUnit.DAYS).cachePublic())
+                    .contentType(geoJson)
+                    .body(body);
+        } catch (Exception e) {
+            log.debug("Natural Earth admin-0 countries GeoJSON failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
+    }
+
+    @GetMapping("/geojson/ne-110m-geographic-lines")
+    public ResponseEntity<byte[]> naturalEarth110mGeographicLines() {
+        try {
+            return cacheableGeoJson7d(globeProxyService.fetchNaturalEarth110mGeographicLinesGeoJson());
+        } catch (Exception e) {
+            log.debug("Natural Earth geographic lines GeoJSON failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
+    }
+
+    @GetMapping("/geojson/ne-110m-rivers-lake-centerlines")
+    public ResponseEntity<byte[]> naturalEarth110mRiversLakeCenterlines() {
+        try {
+            return cacheableGeoJson7d(globeProxyService.fetchNaturalEarth110mRiversLakeCenterlinesGeoJson());
+        } catch (Exception e) {
+            log.debug("Natural Earth rivers/lakes centerlines GeoJSON failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
+    }
+
+    @GetMapping("/geojson/ne-50m-rivers-lake-centerlines")
+    public ResponseEntity<byte[]> naturalEarth50mRiversLakeCenterlines() {
+        try {
+            return cacheableGeoJson7d(globeProxyService.fetchNaturalEarth50mRiversLakeCenterlinesGeoJson());
+        } catch (Exception e) {
+            log.debug("Natural Earth 50m rivers/lakes centerlines GeoJSON failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
+    }
+
+    @GetMapping("/geojson/ne-110m-lakes")
+    public ResponseEntity<byte[]> naturalEarth110mLakes() {
+        try {
+            return cacheableGeoJson7d(globeProxyService.fetchNaturalEarth110mLakesGeoJson());
+        } catch (Exception e) {
+            log.debug("Natural Earth lakes GeoJSON failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
+    }
+
+    @GetMapping("/geojson/ne-10m-lakes")
+    public ResponseEntity<byte[]> naturalEarth10mLakes() {
+        try {
+            return cacheableGeoJson7d(globeProxyService.fetchNaturalEarth10mLakesGeoJson());
+        } catch (Exception e) {
+            log.debug("Natural Earth 10m lakes GeoJSON failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
+    }
+
+    @GetMapping("/geojson/ne-110m-glaciated-areas")
+    public ResponseEntity<byte[]> naturalEarth110mGlaciatedAreas() {
+        try {
+            return cacheableGeoJson7d(globeProxyService.fetchNaturalEarth110mGlaciatedAreasGeoJson());
+        } catch (Exception e) {
+            log.debug("Natural Earth glaciated areas GeoJSON failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
+    }
+
+    @GetMapping("/geojson/ne-110m-populated-places-simple")
+    public ResponseEntity<byte[]> naturalEarth110mPopulatedPlacesSimple() {
+        try {
+            return cacheableGeoJson7d(globeProxyService.fetchNaturalEarth110mPopulatedPlacesSimpleGeoJson());
+        } catch (Exception e) {
+            log.debug("Natural Earth populated places GeoJSON failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
+    }
+
+    @GetMapping("/geojson/ne-10m-time-zones")
+    public ResponseEntity<byte[]> naturalEarth10mTimeZones() {
+        try {
+            return cacheableGeoJson7d(globeProxyService.fetchNaturalEarth10mTimeZonesGeoJson());
+        } catch (Exception e) {
+            log.debug("Natural Earth time zones GeoJSON failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
+    }
+
+    @GetMapping("/iss/now")
+    public ResponseEntity<byte[]> issNowOpenNotify() {
+        try {
+            byte[] body = globeProxyService.fetchOpenNotifyIssNow();
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(30, TimeUnit.SECONDS).cachePublic())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body);
+        } catch (Exception e) {
+            log.debug("Open Notify ISS now failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
+    }
+
+    private static ResponseEntity<byte[]> cacheableGeoJson7d(byte[] body) {
+        MediaType geoJson = MediaType.parseMediaType("application/geo+json; charset=UTF-8");
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(7, TimeUnit.DAYS).cachePublic())
+                .contentType(geoJson)
+                .body(body);
     }
 
     private static ResponseEntity<byte[]> cacheableImage(FetchedImage img) {

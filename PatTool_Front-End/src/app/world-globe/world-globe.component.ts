@@ -12,26 +12,21 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { Subscription, firstValueFrom, timeout } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { ApiService } from '../services/api.service';
-import { EvenementsService, StreamedEvent } from '../services/evenements.service';
-import { FileService } from '../services/file.service';
-import { MembersService } from '../services/members.service';
-import { Evenement } from '../model/evenement';
-import { UploadedFile } from '../model/uploadedfile';
-import { parseTrackFileToLatLonPoints } from '../photo-timeline/track-route-stats.util';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { environment } from '../../environments/environment';
 import { Body, Equator, Observer, SiderealTime } from 'astronomy-engine';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
+import earcut from 'earcut';
 
-/** Ligne utilisée après chargement SSE : sélection puis affichage trace / géocode. */
-export interface GlobeActivityPickerRow {
-  readonly event: Evenement;
-  selected: boolean;
-  readonly trackFiles: UploadedFile[];
+/** Réponse proxifiée Open Notify (/api/external/globe/iss/now). */
+interface GlobeOpenNotifyIssResponse {
+  message?: string;
+  iss_position?: { latitude?: string; longitude?: string };
 }
 
 /** Plus de subdivisions pour des courbes lisibles très zoomées (sans tuiles HR). */
@@ -59,14 +54,77 @@ const GLOBE_GEOCODE_ANIM_MS = 1700;
 const GLOBE_GEOCODE_MARKER_SURFACE_OFFSET = 1.003;
 const GLOBE_GEOCODE_MARKER_RADIUS = 0.0022;
 
-/** Multiplicateur d’éclairage utilisateur (potentiomètre) ; ×1 = réglage de base du mode actif. */
-const GLOBE_LIGHTING_BOOST_DEFAULT = 1;
+/** Trait de frontière au-dessus du sol (Terre rayon 1), sous les nuages (~1.025). */
+const GLOBE_BORDERS_LINE_RADIUS = 1.009;
+const MAX_BORDER_LINE_SEGMENTS = 220_000;
+/** Ligne de rivage Natural Earth (~110 m). */
+const GLOBE_COASTLINE_LINE_RADIUS = 1.008;
+const MAX_COASTLINE_LINE_SEGMENTS = 120_000;
+/** Remplissage « carte » politique pastel (polygones Natural Earth pays 110 m, au-dessus du basemap). */
+const GLOBE_POLITICAL_FILL_RADIUS = 1.0054;
+/** Étiquettes noms pays Natural Earth (`LABEL_X` / `LABEL_Y`). */
+const GLOBE_COUNTRY_LABEL_RADIUS = 1.015;
+const GLOBE_ADMIN0_MAX_FAN_TRIANGLES = 72_000;
+/** Sous-échantillonnage des anneaux (lon/lat) avant earcut ; budget triangles global ci-dessous. */
+const GLOBE_ADMIN0_RING_MAX_VERTS = 200;
+/** Hauteur monde approximative d’une carte pastille étiquette (multipliée par `updateCountryLabelsScaleForZoom`). */
+const GLOBE_COUNTRY_LABEL_SPRITE_WORLD_H = 0.028;
+/** Plus la caméra est proche, plus les étiquettes sont réduites (interpolation sur la plage OrbitControls). */
+const GLOBE_COUNTRY_LABEL_ZOOM_MIN_MUL = 0.34;
+const GLOBE_COUNTRY_LABEL_ZOOM_GAMMA = 0.72;
+/** Graticule géographique léger sous les autres surcouches. */
+const GLOBE_GRATICULE_RADIUS = 1.0048;
+const GLOBE_GRATICULE_STEP_DEG = 15;
+const GLOBE_GRATICULE_MERIDIAN_LAT_STEP = 3;
+const GLOBE_GRATICULE_PARALLEL_LON_STEP = 12;
+const MAX_GRATICULE_LINE_SEGMENTS = 70_000;
+/** ~420 km (sphère R_earth = 6371 km). */
+const GLOBE_ISS_ORBIT_RADIUS = 1 + 420 / 6371;
+/** Traînée ISS : légèrement sous le marqueur pour limiter le z-fighting. */
+const GLOBE_ISS_TRAIL_RADIUS = GLOBE_ISS_ORBIT_RADIUS * 0.997;
+const GLOBE_ISS_MARKER_RADIUS = 0.006;
+/** Historique de positions pour la traînée (une entrée par rafraîchissement utile). */
+const GLOBE_ISS_TRAIL_MAX_POINTS = 96;
+/** Segments par segment de traînée (grand cercle entre deux relevés). */
+const GLOBE_ISS_TRAIL_ARC_SEGMENTS = 14;
+/** Intervalle par défaut entre deux appels Open Notify (secondes). */
+const GLOBE_ISS_POLL_DEFAULT_SEC = 30;
+const GLOBE_ISS_POLL_MIN_SEC = 5;
+const GLOBE_ISS_POLL_MAX_SEC = 600;
+
+/** Fuseaux horaires (Natural Earth 10m ; pas de jeu 110m dédié). */
+const GLOBE_TIMEZONE_FILL_RADIUS = 1.00506;
+const GLOBE_TIMEZONE_MAX_FAN_TRIANGLES = 280_000;
+/** Anneaux NE 10m complexes : sous-échantillonnage trop agressif casse earcut ; aligné ~ lacs. */
+const GLOBE_TIMEZONE_RING_MAX_VERTS = 300;
+const GLOBE_LAKES_FILL_RADIUS = 1.00518;
+/** Lacs 10 m : beaucoup de polygones — budget triangles et sommets par anneau relevés. */
+const GLOBE_LAKES_MAX_FAN_TRIANGLES = 150_000;
+const GLOBE_LAKES_RING_MAX_VERTS = 320;
+const GLOBE_GLACIER_FILL_RADIUS = 1.00528;
+const GLOBE_GLACIER_MAX_FAN_TRIANGLES = 45_000;
+const GLOBE_GEOGRAPHIC_LINES_RADIUS = 1.0065;
+const MAX_GEOGRAPHIC_LINE_SEGMENTS = 30_000;
+const GLOBE_RIVERS_LINE_RADIUS = 1.00665;
+/** 50 m Natural Earth hydro : plus de géométrie ; rester sous budget WebGL. */
+const MAX_RIVERS_LINE_SEGMENTS = 200_000;
+const GLOBE_CITIES_POINTS_RADIUS = 1.0076;
+const GLOBE_TIMEZONE_HEX_PALETTE = [0xc9ddf0, 0xa8c4e8, 0x8ab0dc, 0x6c9cd0, 0x5a8cc4, 0x4a7cb8];
+
+/** Multiplicateur d’éclairage utilisateur (potentiomètre) ; ×1 = réglage de base du mode actif ; défaut UI ≈ ×1,26. */
+const GLOBE_LIGHTING_BOOST_DEFAULT = 1.26;
 const GLOBE_LIGHTING_BOOST_MIN = 0.48;
 const GLOBE_LIGHTING_BOOST_MAX = 2.08;
 
 /** À zoom fort (caméra proche), rotation / panoramique / molette trop nerveux sans ce facteur. */
 const ORBIT_SENS_U_MIN_ROTATE_PAN = 0.13;
 const ORBIT_SENS_U_MIN_ZOOM = 0.48;
+
+/** Pastels utilisés pour distinguer pays (priorité attribus Natural Earth `MAPCOLOR*`). */
+const GLOBE_POLITICAL_HEX_PALETTE = [
+  0x7eb6d9, 0xa8dab5, 0xf8c8dc, 0xffe6a8, 0xc8b8e9, 0xf4a688, 0xc9dcf4, 0xd9efb2, 0xf2c6f5,
+  0xc5e9f8, 0xffd09e, 0xb8dfc4, 0xe6c9a9, 0xd2c9ff, 0xffe4f5, 0xa9e9de, 0xf5d76e, 0xc6d4e9
+];
 
 function globePixelRatioCap(): number {
   return Math.min(window.devicePixelRatio, 3);
@@ -77,14 +135,11 @@ function globePixelRatioCap(): number {
   standalone: true,
   imports: [CommonModule, FormsModule, TranslateModule, TraceViewerModalComponent],
   templateUrl: './world-globe.component.html',
-  styleUrls: ['./world-globe.component.css'],
-  providers: [EvenementsService]
+  styleUrls: ['./world-globe.component.css']
 })
 export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private readonly apiService = inject(ApiService);
-  private readonly evenementsService = inject(EvenementsService);
-  private readonly fileService = inject(FileService);
-  private readonly membersService = inject(MembersService);
+  private readonly http = inject(HttpClient);
   private readonly translate = inject(TranslateService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly router = inject(Router);
@@ -101,16 +156,58 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   cloudsEnabled = false;
   starsEnabled = true;
   /** Axe de rotation (ligne pôles) enfant du maillage Terre. */
-  showEarthRotationAxis = false;
-  autoRotate = false;
+  showEarthRotationAxis = true;
+  autoRotate = true;
   /** Fond pseudo-satellite (NASA BMNG) vs texture Three.js classique avec relief/spec ; BMNG activé par défaut. */
   basemapSatellite = true;
   /** Couche indicative type « météo » : précipitations estimées (NASA GIBS, dernier jour UTC). */
   weatherImageryEnabled = false;
   weatherImageryLoading = false;
   weatherImageryFailed = false;
-  /** Points + polyligne d’activités géocodées. */
-  activityLayerVisible = false;
+  countryBordersEnabled = true;
+  coastlinesEnabled = false;
+  graticuleEnabled = true;
+  /** Carte politique semi-transparente (polygones admin-0, Natural Earth 110 m, proxifié). */
+  politicalMapEnabled = false;
+  /** Noms pays (Sprite) aux positions officielles Natural Earth. */
+  countryLabelsEnabled = false;
+  /** Équateur, tropiques, cercles polaires (NE 110m). */
+  geographicLinesEnabled = true;
+  /** Fleuves / axes lacs (NE 110m). */
+  riversEnabled = false;
+  /** Surfaces lacustres (NE 110m). */
+  lakesEnabled = false;
+  /** Glaciers / calottes (NE 110m). */
+  glaciersEnabled = false;
+  /** Villes (points, NE 110m simplified). */
+  citiesEnabled = false;
+  /** Fuseaux horaires remplis (NE 10m). */
+  timeZonesEnabled = false;
+  issOverlayEnabled = true;
+  /** Secondes entre deux rafraîchissements ISS (5–600, défaut 30). */
+  issPollIntervalSec = GLOBE_ISS_POLL_DEFAULT_SEC;
+  bordersOverlayLoading = false;
+  bordersOverlayFailed = false;
+  coastlinesOverlayLoading = false;
+  coastlinesOverlayFailed = false;
+  /** Chargement partagé du GeoJSON `ne_110m_admin_0_countries`. */
+  admin0CountriesOverlayLoading = false;
+  admin0CountriesOverlayFailed = false;
+  geographicLinesLoading = false;
+  geographicLinesFailed = false;
+  riversOverlayLoading = false;
+  riversOverlayFailed = false;
+  lakesOverlayLoading = false;
+  lakesOverlayFailed = false;
+  glaciersOverlayLoading = false;
+  glaciersOverlayFailed = false;
+  citiesOverlayLoading = false;
+  citiesOverlayFailed = false;
+  timeZonesOverlayLoading = false;
+  timeZonesOverlayFailed = false;
+  issOverlayFailed = false;
+  globeIssLat: number | null = null;
+  globeIssLon: number | null = null;
   /** Éclairage uniforme sur tout le globe (ambiance + hémisphère). Activé par défaut. Coupé tant que le jour/nuit réel est actif. */
   globeLightingUniform = true;
   /**
@@ -145,15 +242,6 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
    */
   private globeDocumentFullscreenFallback = false;
   textureLoadError = false;
-
-  activitiesLoading = false;
-  activitiesPlaced = 0;
-  activitiesSkipped = 0;
-  activitiesBanner: 'idle' | 'loading' | 'done' | 'none' | 'login' | 'error' = 'idle';
-  /** Après réception du flux : liste à cocher avant dessin sur le globe. */
-  activitiesPickerOpen = false;
-  globeActivityPickerRows: GlobeActivityPickerRow[] = [];
-  applyingGlobeActivities = false;
 
   /** Recherche de lieu (Nominatim via backend), comme la page Adresse / GPS. */
   globePlaceQuery = '';
@@ -191,7 +279,43 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private starsPoints?: THREE.Points;
   private weatherOverlayMesh?: THREE.Mesh;
   private weatherOverlayTexture: THREE.Texture | null = null;
-  private activityRoot?: THREE.Group;
+  /** Groupe enfants du maillage Terre : frontières puis côtes. */
+  private bordersOverlayGroup?: THREE.Group;
+  private coastlinesOverlayGroup?: THREE.Group;
+  /** Méridiens / parallèles (isolignes géographiques synthétiques). */
+  private graticuleOverlayGroup?: THREE.Group;
+  /** Remplissage pays pastel (« carte ») sur une seule géométrie fusionnée. */
+  private politicalMapMesh?: THREE.Mesh;
+  private countryLabelsGroup?: THREE.Group;
+  private geographicLinesOverlayGroup?: THREE.Group;
+  private riversOverlayGroup?: THREE.Group;
+  private lakesMesh?: THREE.Mesh;
+  private glaciersMesh?: THREE.Mesh;
+  private citiesPoints?: THREE.Points;
+  private timeZonesMesh?: THREE.Mesh;
+  private issMarkerMesh?: THREE.Mesh;
+  /** Positions successives (lat/lon) pour la traînée ; enfant du maillage Terre. */
+  private issTrailLine?: THREE.LineSegments;
+  private readonly issTrailPoints: { lat: number; lon: number }[] = [];
+  private readonly issMarkerWorldScratch = new THREE.Vector3();
+  /** Prochain rafraîchissement ISS planifié (`performance.now`-aligné via `Date.now`). */
+  private issNextRefreshEpochMs = 0;
+  /** Chaîne de `setTimeout` pour respecter l’intervalle courant après chaque réponse. */
+  private issRefreshTimeout: number | null = null;
+  /** Tic 1 s pour mettre à jour le décompte affiché. */
+  private issCountdownInterval: number | null = null;
+  /** Évite doubles chargements parallèle des GeoJSON frontières. */
+  private bordersBuildInFlight = false;
+  private coastlinesBuildInFlight = false;
+  private geographicLinesBuildInFlight = false;
+  private riversBuildInFlight = false;
+  private lakesBuildInFlight = false;
+  private glaciersBuildInFlight = false;
+  private citiesBuildInFlight = false;
+  private timeZonesBuildInFlight = false;
+  /** Mémo après premier GET réussi `/geojson/ne-110m-admin-0-countries`. */
+  private admin0CountriesParsed: unknown | null = null;
+  private admin0CountriesLoadPromise: Promise<boolean> | null = null;
   private ambientLight?: THREE.AmbientLight;
   private hemisphereLight?: THREE.HemisphereLight;
   private sunLight?: THREE.DirectionalLight;
@@ -207,11 +331,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private resizeObs?: ResizeObserver;
   /** Rotation lente nuages vs sol (effet léger façon couches atmosphériques). */
   private cloudsDriftRad = 0;
-  private eventsStreamSub?: Subscription;
   private routeQuerySub?: Subscription;
+  private translateLangSub?: Subscription;
   /** Vol caméra depuis le trace viewer (query lat/lon/z) avant que la Terre soit prête. */
   private pendingGlobeDeepLink: { lat: number; lon: number; mapZoom?: number } | null = null;
-  private activitiesStreamFinalizeTimer: ReturnType<typeof setTimeout> | null = null;
   /** Vol caméra programmatique (géocodage) : annulation au destroy ou nouvelle cible. */
   private globeCameraAnimFrameId: number | null = null;
   private globeCameraAnimPrevDamping: boolean | null = null;
@@ -309,12 +432,28 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       }
       this.queueOrApplyGlobeDeepLink({ lat, lon, mapZoom });
     });
+    this.translateLangSub = this.translate.onLangChange.subscribe(() => this.onTranslateLangChangedForGlobeCountryLabels());
     queueMicrotask(() => this.bootstrapThree());
   }
 
   ngOnDestroy(): void {
+    this.stopIssPolling();
+    this.disposeCountryBordersOverlay();
+    this.disposeCoastlinesOverlay();
+    this.disposeGraticuleOverlay();
+    this.disposePoliticalMapOverlay();
+    this.disposeCountryLabelsOverlay();
+    this.disposeGeographicLinesOverlay();
+    this.disposeRiversOverlay();
+    this.disposeLakesMesh();
+    this.disposeGlaciersMesh();
+    this.disposeCitiesPoints();
+    this.disposeTimeZonesMesh();
+    this.disposeIssMarkerMesh();
     this.routeQuerySub?.unsubscribe();
     this.routeQuerySub = undefined;
+    this.translateLangSub?.unsubscribe();
+    this.translateLangSub = undefined;
     this.globeTraceViewer?.close();
     this.stopGlobeCameraAnimation();
     if (this.globePickCursorResetTimer != null) {
@@ -322,11 +461,6 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.globePickCursorResetTimer = null;
     }
     this.globeSurfaceReady = false;
-    if (this.activitiesStreamFinalizeTimer != null) {
-      clearTimeout(this.activitiesStreamFinalizeTimer);
-      this.activitiesStreamFinalizeTimer = null;
-    }
-    this.eventsStreamSub?.unsubscribe();
     this.disposeWeatherOverlayMesh();
     this.stopLoop();
     this.disposeGeocodeMarkerMesh();
@@ -390,8 +524,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.pendingDetailZoom = WorldGlobeComponent.leafletZoomForOrbitDistance(dist);
     this.detailMapOpen = true;
     this.cdr.markForCheck();
+    /** Nécessaire pour créer le host `#globeTraceMount` (*ngIf) avant d’ouvrir le trace viewer — sinon montage sans conteneur → carte noire. */
+    this.cdr.detectChanges();
     queueMicrotask(() => {
-      requestAnimationFrame(() => this.mountGlobeTraceViewer());
+      requestAnimationFrame(() => this.mountGlobeTraceViewer(0));
     });
   }
 
@@ -408,18 +544,25 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  private mountGlobeTraceViewer(): void {
+  private mountGlobeTraceViewer(retry = 0): void {
     const host = this.globeTraceMount?.nativeElement;
     const viewer = this.globeTraceViewer;
-    if (!host || !viewer || !this.detailMapOpen) {
+    if (!this.detailMapOpen || !viewer) {
+      return;
+    }
+    if (!host) {
+      if (retry < 30) {
+        setTimeout(() => this.mountGlobeTraceViewer(retry + 1), 45);
+      }
       return;
     }
     viewer.openAtLocationEmbedded(host, this.pendingDetailLat, this.pendingDetailLon, {
       locationZoom: Math.round(this.pendingDetailZoom),
       initialBaseLayerId: 'osm-standard'
     });
-    window.setTimeout(() => viewer.refreshMapLayout(), 350);
-    window.setTimeout(() => viewer.refreshMapLayout(), 900);
+    window.setTimeout(() => viewer.refreshMapLayout(), 120);
+    window.setTimeout(() => viewer.refreshMapLayout(), 450);
+    window.setTimeout(() => viewer.refreshMapLayout(), 950);
   }
 
   /** Carte détaillée : point cliqué s’il existe, sinon centre de la vue. */
@@ -691,169 +834,186 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  onActivityLayerToggle(): void {
-    if (this.activityRoot) {
-      this.activityRoot.visible = this.activityLayerVisible;
-    }
-  }
-
-  loadActivitiesOnGlobe(): void {
-    const user = this.membersService.getUser();
-    if (!user?.id?.trim()) {
-      this.activitiesBanner = 'login';
-      return;
-    }
-    this.activitiesLoading = true;
-    this.activitiesBanner = 'loading';
-    this.activitiesPlaced = 0;
-    this.activitiesSkipped = 0;
-    this.activitiesPickerOpen = false;
-    this.globeActivityPickerRows = [];
-    this.cdr.markForCheck();
-    this.eventsStreamSub?.unsubscribe();
-    if (this.activitiesStreamFinalizeTimer != null) {
-      clearTimeout(this.activitiesStreamFinalizeTimer);
-      this.activitiesStreamFinalizeTimer = null;
-    }
-
-    const bucket: Evenement[] = [];
-    const mergeEvent = (e: Evenement) => {
-      const ix = bucket.findIndex((x) => x.id === e.id);
-      if (ix >= 0) {
-        bucket[ix] = e;
-      } else {
-        bucket.push(e);
-      }
-    };
-
-    let streamFinalized = false;
-    const finalizeStream = () => {
-      if (streamFinalized) {
-        return;
-      }
-      streamFinalized = true;
-      if (this.activitiesStreamFinalizeTimer != null) {
-        clearTimeout(this.activitiesStreamFinalizeTimer);
-        this.activitiesStreamFinalizeTimer = null;
-      }
-      this.activitiesLoading = false;
-      this.eventsStreamSub?.unsubscribe();
-      this.eventsStreamSub = undefined;
-      if (!bucket.length) {
-        this.activitiesBanner = this.activitiesBanner === 'error' ? 'error' : 'none';
-      } else {
-        this.prepareActivityPicker(bucket);
-      }
+  onCountryBordersToggle(): void {
+    if (this.countryBordersEnabled) {
+      this.syncGlobeDecorationsAfterEarthReady();
+    } else {
+      this.disposeCountryBordersOverlay();
+      this.bordersOverlayFailed = false;
+      this.bordersOverlayLoading = false;
       this.cdr.markForCheck();
-    };
-
-    this.eventsStreamSub = this.evenementsService.streamEvents('', user.id, 'all', false).subscribe({
-      next: (evt: StreamedEvent) => {
-        if (evt.type === 'event' && evt.data && typeof evt.data === 'object' && 'id' in (evt.data as object)) {
-          mergeEvent(evt.data as Evenement);
-        }
-        if (evt.type === 'complete') {
-          finalizeStream();
-        }
-      },
-      error: () => {
-        this.activitiesBanner = bucket.length ? 'idle' : 'error';
-        finalizeStream();
-      },
-      complete: () => finalizeStream()
-    });
-
-    this.activitiesStreamFinalizeTimer = setTimeout(() => finalizeStream(), 16000);
-  }
-
-  globeActivityShortLabel(ev: Evenement): string {
-    const name = (ev.evenementName || '').trim();
-    return name || ev.id || '—';
-  }
-
-  /** Fichiers traçables côté parseur (GPX/KML/TCX/GeoJSON…) — même esprit que le détail événement, sans KMZ/GDB zip. */
-  private getGlobeTrackFiles(ev: Evenement): UploadedFile[] {
-    if (!ev.fileUploadeds?.length) {
-      return [];
     }
-    return ev.fileUploadeds.filter((file) => {
-      const t = (file.fileType || '').toUpperCase();
-      if (t === 'TRACK' || t === 'GPX' || t === 'TRACE' || t === 'TCX' || t === 'KML') {
-        return true;
-      }
-      const fn = (file.fileName || '').toLowerCase();
-      return (
-        fn.endsWith('.gpx') ||
-        fn.endsWith('.kml') ||
-        fn.endsWith('.tcx') ||
-        fn.endsWith('.geojson') ||
-        (fn.endsWith('.json') && (fn.includes('track') || fn.includes('geo') || fn.includes('route')))
-      );
-    });
   }
 
-  private sortTrackFilesForGlobe(files: UploadedFile[]): UploadedFile[] {
-    const rank = (f: UploadedFile) => {
-      const n = (f.fileName || '').toLowerCase();
-      if (n.endsWith('.gpx')) {
-        return 0;
-      }
-      if (n.endsWith('.tcx')) {
-        return 1;
-      }
-      if (n.endsWith('.kml')) {
-        return 2;
-      }
-      return 3;
-    };
-    return [...files].sort((a, b) => rank(a) - rank(b));
-  }
-
-  private prepareActivityPicker(events: Evenement[]): void {
-    const byId = new Map<string, Evenement>();
-    for (const e of events) {
-      if (e?.id) {
-        byId.set(e.id, e);
-      }
+  onIssOverlayToggle(): void {
+    if (this.issOverlayEnabled) {
+      this.clearIssTrail();
+      this.syncGlobeDecorationsAfterEarthReady();
+    } else {
+      this.stopIssPolling();
+      this.disposeIssMarkerMesh();
+      this.clearIssTrail();
+      this.issOverlayFailed = false;
+      this.globeIssLat = null;
+      this.globeIssLon = null;
+      this.cdr.markForCheck();
     }
-    const list = [...byId.values()].sort(
-      (a, b) =>
-        new Date(b.beginEventDate as unknown as string).getTime() -
-        new Date(a.beginEventDate as unknown as string).getTime()
+  }
+
+  onIssPollIntervalCommitted(): void {
+    this.issPollIntervalSec = this.clampIssPollIntervalSec(
+      typeof this.issPollIntervalSec === 'number' ? this.issPollIntervalSec : GLOBE_ISS_POLL_DEFAULT_SEC
     );
-    const cap = 400;
-    this.globeActivityPickerRows = list.slice(0, cap).map((ev) => {
-      const trackFiles = this.sortTrackFilesForGlobe(this.getGlobeTrackFiles(ev));
-      const hasLoc = !!(ev.startLocation && ev.startLocation.trim());
-      return {
-        event: ev,
-        selected: trackFiles.length > 0 || hasLoc,
-        trackFiles
-      };
-    });
-    this.activitiesPickerOpen = this.globeActivityPickerRows.length > 0;
-    this.activitiesBanner = this.globeActivityPickerRows.length ? 'idle' : 'none';
-  }
-
-  globeActivityRowTrackCount(row: GlobeActivityPickerRow): number {
-    return row.trackFiles.length;
-  }
-
-  selectGlobeActivitiesWithTracksOnly(): void {
-    for (const row of this.globeActivityPickerRows) {
-      row.selected = row.trackFiles.length > 0;
+    if (this.issOverlayEnabled && this.globeSurfaceReady) {
+      this.startIssPolling();
     }
     this.cdr.markForCheck();
   }
 
-  async applySelectedActivitiesOnGlobe(): Promise<void> {
-    const selected = this.globeActivityPickerRows.filter((r) => r.selected).map((r) => r.event);
-    if (!selected.length) {
-      this.activitiesBanner = 'none';
-      this.cdr.markForCheck();
-      return;
+  /** Secondes restantes avant le prochain appel API (0 si inactif). */
+  get issSecondsUntilNextRefresh(): number {
+    if (!this.issOverlayEnabled || this.issNextRefreshEpochMs <= 0) {
+      return 0;
     }
-    await this.fetchTracksAndGeocodeActivities(selected);
+    return Math.max(0, Math.ceil((this.issNextRefreshEpochMs - Date.now()) / 1000));
+  }
+
+  /** Décompte : mm:ss à partir de 60 s, sinon secondes. */
+  formatIssCountdown(): string {
+    const s = this.issSecondsUntilNextRefresh;
+    if (s <= 0) {
+      return '0';
+    }
+    if (s >= 60) {
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      return `${m}:${r.toString().padStart(2, '0')}`;
+    }
+    return String(s);
+  }
+
+  private clampIssPollIntervalSec(raw: number): number {
+    if (!Number.isFinite(raw)) {
+      return GLOBE_ISS_POLL_DEFAULT_SEC;
+    }
+    const n = Math.round(raw);
+    return Math.min(GLOBE_ISS_POLL_MAX_SEC, Math.max(GLOBE_ISS_POLL_MIN_SEC, n));
+  }
+
+  private issPollIntervalMs(): number {
+    return this.clampIssPollIntervalSec(this.issPollIntervalSec) * 1000;
+  }
+
+  onCoastlinesToggle(): void {
+    if (this.coastlinesEnabled) {
+      this.syncGlobeDecorationsAfterEarthReady();
+    } else {
+      this.disposeCoastlinesOverlay();
+      this.coastlinesOverlayFailed = false;
+      this.coastlinesOverlayLoading = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  onGraticuleToggle(): void {
+    if (this.graticuleEnabled) {
+      this.syncGlobeDecorationsAfterEarthReady();
+    } else {
+      this.disposeGraticuleOverlay();
+      this.cdr.markForCheck();
+    }
+  }
+
+  onPoliticalMapToggle(): void {
+    if (this.politicalMapEnabled) {
+      this.syncGlobeDecorationsAfterEarthReady();
+    } else {
+      this.disposePoliticalMapOverlay();
+      if (!this.countryLabelsEnabled) {
+        this.admin0CountriesOverlayFailed = false;
+        this.admin0CountriesOverlayLoading = false;
+      }
+      this.cdr.markForCheck();
+    }
+  }
+
+  onCountryLabelsToggle(): void {
+    if (this.countryLabelsEnabled) {
+      this.syncGlobeDecorationsAfterEarthReady();
+    } else {
+      this.disposeCountryLabelsOverlay();
+      if (!this.politicalMapEnabled) {
+        this.admin0CountriesOverlayFailed = false;
+        this.admin0CountriesOverlayLoading = false;
+      }
+      this.cdr.markForCheck();
+    }
+  }
+
+  onGeographicLinesToggle(): void {
+    if (this.geographicLinesEnabled) {
+      this.syncGlobeDecorationsAfterEarthReady();
+    } else {
+      this.disposeGeographicLinesOverlay();
+      this.geographicLinesFailed = false;
+      this.geographicLinesLoading = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  onRiversToggle(): void {
+    if (this.riversEnabled) {
+      this.syncGlobeDecorationsAfterEarthReady();
+    } else {
+      this.disposeRiversOverlay();
+      this.riversOverlayFailed = false;
+      this.riversOverlayLoading = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  onLakesToggle(): void {
+    if (this.lakesEnabled) {
+      this.syncGlobeDecorationsAfterEarthReady();
+    } else {
+      this.disposeLakesMesh();
+      this.lakesOverlayFailed = false;
+      this.lakesOverlayLoading = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  onGlaciersToggle(): void {
+    if (this.glaciersEnabled) {
+      this.syncGlobeDecorationsAfterEarthReady();
+    } else {
+      this.disposeGlaciersMesh();
+      this.glaciersOverlayFailed = false;
+      this.glaciersOverlayLoading = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  onCitiesToggle(): void {
+    if (this.citiesEnabled) {
+      this.syncGlobeDecorationsAfterEarthReady();
+    } else {
+      this.disposeCitiesPoints();
+      this.citiesOverlayFailed = false;
+      this.citiesOverlayLoading = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  onTimeZonesToggle(): void {
+    if (this.timeZonesEnabled) {
+      this.syncGlobeDecorationsAfterEarthReady();
+    } else {
+      this.disposeTimeZonesMesh();
+      this.timeZonesOverlayFailed = false;
+      this.timeZonesOverlayLoading = false;
+      this.cdr.markForCheck();
+    }
   }
 
   onAutoRotateToggle(): void {
@@ -1046,6 +1206,42 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     controls.rotateSpeed = THREE.MathUtils.lerp(ORBIT_SENS_U_MIN_ROTATE_PAN, 1, u);
     controls.panSpeed = THREE.MathUtils.lerp(ORBIT_SENS_U_MIN_ROTATE_PAN, 1, u);
     controls.zoomSpeed = THREE.MathUtils.lerp(ORBIT_SENS_U_MIN_ZOOM, 1, u);
+  }
+
+  /**
+   * Réduit l’échelle des noms de pays quand la caméra se rapproche (OrbitControls), pour éviter
+   * des étiquettes disproportionnées à fort zoom.
+   */
+  private updateCountryLabelsScaleForZoom(): void {
+    const group = this.countryLabelsGroup;
+    if (!group || !this.countryLabelsEnabled) {
+      return;
+    }
+    const controls = this.controls;
+    const camera = this.camera;
+    if (!controls || !camera) {
+      return;
+    }
+    const d = camera.position.distanceTo(controls.target);
+    const lo = controls.minDistance;
+    const hi = controls.maxDistance;
+    const span = hi - lo;
+    const u = span > 1e-8 ? THREE.MathUtils.clamp((d - lo) / span, 0, 1) : 1;
+    const mul = THREE.MathUtils.lerp(
+      GLOBE_COUNTRY_LABEL_ZOOM_MIN_MUL,
+      1,
+      Math.pow(u, GLOBE_COUNTRY_LABEL_ZOOM_GAMMA)
+    );
+    group.traverse((child) => {
+      if (!(child instanceof THREE.Sprite)) {
+        return;
+      }
+      const base = child.userData['countryLabelBase'] as { w: number; h: number } | undefined;
+      if (!base) {
+        return;
+      }
+      child.scale.set(base.w * mul, base.h * mul, 1);
+    });
   }
 
   resetCamera(): void {
@@ -1580,6 +1776,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.attachRotationAxisToEarth(earth);
       this.frameCameraOnLatLon(GLOBE_INITIAL_FRANCE_LAT, GLOBE_INITIAL_FRANCE_LON, GLOBE_INITIAL_ORBIT_DISTANCE);
       this.tryFlushPendingGlobeDeepLink();
+      this.syncGlobeDecorationsAfterEarthReady();
     };
 
     loader.load(
@@ -1631,6 +1828,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
         this.attachRotationAxisToEarth(earth);
         this.frameCameraOnLatLon(GLOBE_INITIAL_FRANCE_LAT, GLOBE_INITIAL_FRANCE_LON, GLOBE_INITIAL_ORBIT_DISTANCE);
         this.tryFlushPendingGlobeDeepLink();
+        this.syncGlobeDecorationsAfterEarthReady();
       }
     );
 
@@ -1661,6 +1859,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.attachRotationAxisToEarth(earth);
     this.frameCameraOnLatLon(GLOBE_INITIAL_FRANCE_LAT, GLOBE_INITIAL_FRANCE_LON, GLOBE_INITIAL_ORBIT_DISTANCE);
     this.tryFlushPendingGlobeDeepLink();
+    this.syncGlobeDecorationsAfterEarthReady();
   }
   private globePlanetTextureUrl(asset: 'atmos' | 'specular' | 'normal' | 'clouds'): string {
     return `${environment.API_URL}external/globe/texture/planets/${asset}`;
@@ -1672,6 +1871,87 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
 
   private globeGibsViirsUrl(): string {
     return `${environment.API_URL}external/globe/overlay/gibs/viirs`;
+  }
+
+  private globeNe110BoundariesLandUrl(): string {
+    return `${environment.API_URL}external/globe/geojson/ne-110m-boundaries-land`;
+  }
+
+  private globeNe110CoastlineUrl(): string {
+    return `${environment.API_URL}external/globe/geojson/ne-110m-coastline`;
+  }
+
+  private globeNe110Admin0CountriesUrl(): string {
+    return `${environment.API_URL}external/globe/geojson/ne-110m-admin-0-countries`;
+  }
+
+  private globeNe110GeographicLinesUrl(): string {
+    return `${environment.API_URL}external/globe/geojson/ne-110m-geographic-lines`;
+  }
+
+  private globeNe50mRiversLakeCenterlinesUrl(): string {
+    return `${environment.API_URL}external/globe/geojson/ne-50m-rivers-lake-centerlines`;
+  }
+
+  private globeNe10mLakesUrl(): string {
+    return `${environment.API_URL}external/globe/geojson/ne-10m-lakes`;
+  }
+
+  private globeNe110GlaciatedAreasUrl(): string {
+    return `${environment.API_URL}external/globe/geojson/ne-110m-glaciated-areas`;
+  }
+
+  private globeNe110PopulatedPlacesSimpleUrl(): string {
+    return `${environment.API_URL}external/globe/geojson/ne-110m-populated-places-simple`;
+  }
+
+  private globeNe10mTimeZonesUrl(): string {
+    return `${environment.API_URL}external/globe/geojson/ne-10m-time-zones`;
+  }
+
+  private globeIssNowUrl(): string {
+    return `${environment.API_URL}external/globe/iss/now`;
+  }
+
+  /** Après création Terre ou si l'utilisateur active une couche avant que le maillage soit prêt. */
+  private syncGlobeDecorationsAfterEarthReady(): void {
+    if (!this.globeSurfaceReady || !this.earthMesh || !this.scene) {
+      return;
+    }
+    if (this.countryBordersEnabled) {
+      void this.ensureCountryBordersLoaded();
+    }
+    if (this.coastlinesEnabled) {
+      void this.ensureCoastlinesLoaded();
+    }
+    if (this.graticuleEnabled) {
+      this.ensureGraticuleOverlayBuilt();
+    }
+    if (this.politicalMapEnabled || this.countryLabelsEnabled) {
+      void this.ensureAdmin0CountryLayersLoadedAndBuilt();
+    }
+    if (this.geographicLinesEnabled) {
+      void this.ensureGeographicLinesLoaded();
+    }
+    if (this.riversEnabled) {
+      void this.ensureRiversLoaded();
+    }
+    if (this.lakesEnabled) {
+      void this.ensureLakesLoaded();
+    }
+    if (this.glaciersEnabled) {
+      void this.ensureGlaciersLoaded();
+    }
+    if (this.citiesEnabled) {
+      void this.ensureCitiesLoaded();
+    }
+    if (this.timeZonesEnabled) {
+      void this.ensureTimeZonesLoaded();
+    }
+    if (this.issOverlayEnabled) {
+      void this.refreshIssNow();
+      this.startIssPolling();
+    }
   }
 
   private applyBasemapMode(): void {
@@ -1792,283 +2072,6 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     );
   }
 
-  private static decimateLatLon(
-    pts: readonly { lat: number; lon: number }[],
-    maxPoints: number
-  ): { lat: number; lon: number }[] {
-    if (pts.length <= maxPoints) {
-      return pts.map((p) => ({ lat: p.lat, lon: p.lon }));
-    }
-    const step = Math.ceil(pts.length / maxPoints);
-    const out: { lat: number; lon: number }[] = [];
-    for (let i = 0; i < pts.length; i += step) {
-      out.push({ lat: pts[i].lat, lon: pts[i].lon });
-    }
-    if (out.length < 2 && pts.length >= 2) {
-      out.push({ lat: pts[pts.length - 1].lat, lon: pts[pts.length - 1].lon });
-    }
-    return out;
-  }
-
-  private static hashColorForId(id: string): number {
-    let h = 2166136261;
-    for (let i = 0; i < id.length; i++) {
-      h ^= id.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    const hue = ((h >>> 0) % 360) / 360;
-    return new THREE.Color().setHSL(hue, 0.62, 0.52).getHex();
-  }
-
-  private disposeActivityScene(scene: THREE.Scene): void {
-    if (!this.activityRoot) {
-      return;
-    }
-    scene.remove(this.activityRoot);
-    this.activityRoot.traverse((o) => {
-      if (o instanceof THREE.Line || o instanceof THREE.LineSegments) {
-        o.geometry.dispose();
-        (o.material as THREE.Material).dispose();
-      }
-      if (o instanceof THREE.InstancedMesh) {
-        o.geometry.dispose();
-        (o.material as THREE.Material).dispose();
-      }
-    });
-    this.activityRoot = undefined;
-  }
-
-  private async fetchTracksAndGeocodeActivities(events: Evenement[]): Promise<void> {
-    if (!this.scene) {
-      return;
-    }
-    if (!events.length) {
-      this.activitiesBanner = 'none';
-      this.cdr.markForCheck();
-      return;
-    }
-    this.applyingGlobeActivities = true;
-    this.activitiesPlaced = 0;
-    this.activitiesSkipped = 0;
-    this.cdr.markForCheck();
-    const segments: Array<{ pts: { lat: number; lon: number }[]; color: number }> = [];
-    const loneMarkers: { lat: number; lon: number }[] = [];
-    let skipped = 0;
-    const maxSegments = 64;
-    const decoder = new TextDecoder('utf-8', { fatal: false });
-
-    try {
-      outer: for (const ev of events) {
-        if (segments.length >= maxSegments) {
-          break;
-        }
-        const trackFiles = this.sortTrackFilesForGlobe(this.getGlobeTrackFiles(ev));
-        let handled = false;
-
-        for (const tf of trackFiles) {
-          if (!tf?.fieldId?.trim()) {
-            continue;
-          }
-          try {
-            const buf = await firstValueFrom(
-              this.fileService.getFile(tf.fieldId).pipe(timeout(90000))
-            );
-            const rawBuf = buf instanceof ArrayBuffer ? buf : (buf as ArrayBuffer);
-            const text = decoder.decode(new Uint8Array(rawBuf));
-            const parsed = parseTrackFileToLatLonPoints(tf.fileName || 'track.gpx', text).map((p) => ({
-              lat: p.lat,
-              lon: p.lon
-            }));
-            const pts = WorldGlobeComponent.decimateLatLon(parsed, 900);
-            if (pts.length >= 2) {
-              segments.push({
-                pts,
-                color: WorldGlobeComponent.hashColorForId(ev.id || tf.fieldId)
-              });
-              handled = true;
-              break;
-            }
-            if (pts.length === 1) {
-              loneMarkers.push({ lat: pts[0].lat, lon: pts[0].lon });
-              handled = true;
-              break;
-            }
-          } catch {
-            /* essayer un autre fichier trace */
-          }
-        }
-
-        if (!handled && ev.startLocation?.trim()) {
-          const geo = await this.geocodeSingleStartLocation(ev);
-          if (geo) {
-            loneMarkers.push(geo);
-          } else {
-            skipped++;
-          }
-          await WorldGlobeComponent.delayMs(420);
-          continue outer;
-        }
-        if (!handled) {
-          skipped++;
-        }
-      }
-
-      this.buildActivityOverlayExtended(this.scene, segments, loneMarkers);
-      const placedCount = segments.length + loneMarkers.length;
-      this.activitiesPlaced = placedCount;
-      this.activitiesSkipped = skipped;
-      this.activitiesBanner = placedCount > 0 ? 'done' : 'none';
-    } catch {
-      this.activitiesBanner = 'error';
-    } finally {
-      this.applyingGlobeActivities = false;
-      this.cdr.markForCheck();
-    }
-  }
-
-  private async geocodeSingleStartLocation(ev: Evenement): Promise<{ lat: number; lon: number } | null> {
-    const loc = ev.startLocation?.trim();
-    if (!loc) {
-      return null;
-    }
-    const parsed = WorldGlobeComponent.tryParseLatLon(loc);
-    if (parsed) {
-      return { lat: parsed.lat, lon: parsed.lon };
-    }
-    try {
-      const res = await firstValueFrom(this.apiService.geocodeSearch(loc).pipe(timeout(15000)));
-      const first = res?.[0] as { lat?: number; lon?: number } | undefined;
-      if (
-        first &&
-        typeof first.lat === 'number' &&
-        typeof first.lon === 'number' &&
-        Number.isFinite(first.lat) &&
-        Number.isFinite(first.lon)
-      ) {
-        return { lat: first.lat, lon: first.lon };
-      }
-    } catch {
-      /* ignore */
-    }
-    return null;
-  }
-
-  private buildActivityOverlayExtended(
-    scene: THREE.Scene,
-    segments: readonly { pts: readonly { lat: number; lon: number }[]; color: number }[],
-    markers: readonly { lat: number; lon: number }[]
-  ): void {
-    this.disposeActivityScene(scene);
-    const group = new THREE.Group();
-    const rLine = 1.027;
-
-    for (const seg of segments) {
-      if (seg.pts.length < 2) {
-        continue;
-      }
-      const vertices: number[] = [];
-      for (let i = 0; i < seg.pts.length - 1; i++) {
-        const a = WorldGlobeComponent.latLonToVector3(seg.pts[i].lat, seg.pts[i].lon, rLine);
-        const b = WorldGlobeComponent.latLonToVector3(seg.pts[i + 1].lat, seg.pts[i + 1].lon, rLine);
-        const arc = WorldGlobeComponent.greatCircleArc(a, b, rLine, 28);
-        for (let j = 0; j < arc.length - 1; j++) {
-          vertices.push(arc[j].x, arc[j].y, arc[j].z, arc[j + 1].x, arc[j + 1].y, arc[j + 1].z);
-        }
-      }
-      if (vertices.length > 0) {
-        const g = new THREE.BufferGeometry();
-        g.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-        const line = new THREE.LineSegments(
-          g,
-          new THREE.LineBasicMaterial({
-            color: seg.color,
-            transparent: true,
-            opacity: 0.58,
-            depthWrite: false
-          })
-        );
-        group.add(line);
-      }
-    }
-
-    const markerPts: { lat: number; lon: number }[] = markers.map((p) => ({ lat: p.lat, lon: p.lon }));
-    for (const seg of segments) {
-      if (seg.pts.length) {
-        markerPts.push({ lat: seg.pts[0].lat, lon: seg.pts[0].lon });
-      }
-    }
-
-    if (markerPts.length > 0) {
-      const surfaceR = 1.022;
-      const alongN = 0.0035;
-      const ringGeo = new THREE.RingGeometry(0.005, 0.009, 48);
-      const ringMat = new THREE.MeshBasicMaterial({
-        color: 0x7ae8c0,
-        transparent: true,
-        opacity: 0.72,
-        side: THREE.DoubleSide,
-        depthWrite: false,
-        polygonOffset: true,
-        polygonOffsetFactor: -2,
-        polygonOffsetUnits: -2
-      });
-      const dotGeo = new THREE.CircleGeometry(0.0022, 28);
-      const dotMat = new THREE.MeshBasicMaterial({
-        color: 0xb8ffd9,
-        transparent: true,
-        opacity: 0.88,
-        side: THREE.DoubleSide,
-        depthWrite: false,
-        polygonOffset: true,
-        polygonOffsetFactor: -2,
-        polygonOffsetUnits: -2
-      });
-      const ringInst = new THREE.InstancedMesh(ringGeo, ringMat, markerPts.length);
-      const dotInst = new THREE.InstancedMesh(dotGeo, dotMat, markerPts.length);
-      const m4 = new THREE.Matrix4();
-      const v = new THREE.Vector3();
-      const n = new THREE.Vector3();
-      const q = new THREE.Quaternion();
-      const zAxis = new THREE.Vector3(0, 0, 1);
-      markerPts.forEach((p, i) => {
-        v.copy(WorldGlobeComponent.latLonToVector3(p.lat, p.lon, surfaceR));
-        n.copy(v).normalize();
-        v.addScaledVector(n, alongN);
-        q.setFromUnitVectors(zAxis, n);
-        m4.compose(v, q, new THREE.Vector3(1, 1, 1));
-        ringInst.setMatrixAt(i, m4);
-        dotInst.setMatrixAt(i, m4);
-      });
-      ringInst.instanceMatrix.needsUpdate = true;
-      dotInst.instanceMatrix.needsUpdate = true;
-      group.add(ringInst);
-      group.add(dotInst);
-    }
-
-    group.visible = this.activityLayerVisible;
-    scene.add(group);
-    this.activityRoot = group;
-  }
-
-  private static tryParseLatLon(text: string): { lat: number; lon: number } | null {
-    const t = text.trim();
-    const m =
-      t.match(/^([-+]?\d+(?:\.\d+)?)\s*,\s*([-+]?\d+(?:\.\d+)?)/) ??
-      t.match(/^([-+]?\d+(?:\.\d+)?)\s+([-+]?\d+(?:\.\d+)?)\s*$/);
-    if (!m) {
-      return null;
-    }
-    const lat = parseFloat(m[1]);
-    const lon = parseFloat(m[2]);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-      return null;
-    }
-    if (Math.abs(lat) > 90 || Math.abs(lon) > 180) {
-      return null;
-    }
-    return { lat, lon };
-  }
-
   /**
    * Arc du grand cercle sur la sphère (sommets espacés le long du plus court passage).
    * @param aSurf position sur la sphère (rayon quelconque, non nulle)
@@ -2097,10 +2100,6 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       out.push(a.clone().multiplyScalar(s0).addScaledVector(b, s1).normalize().multiplyScalar(radius));
     }
     return out;
-  }
-
-  private static delayMs(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /** Position sur sphère Y-haut ; cohérent avec texture équirectangular (Three.js planets). */
@@ -2182,8 +2181,12 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       if (this.globeGeocodeMarkerLat != null && this.globeGeocodeMarkerLon != null) {
         this.updateGeocodeMarkerWorldPosition();
       }
+      if (this.issOverlayEnabled && this.globeIssLat != null && this.globeIssLon != null) {
+        this.updateIssMarkerWorldPosition();
+      }
       this.syncOrbitControlsSensitivity();
       controls.update();
+      this.updateCountryLabelsScaleForZoom();
       renderer.render(scene, camera);
     };
     this.rafId = requestAnimationFrame(loop);
@@ -2243,6 +2246,1847 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.earthRotationAxisGroup = group;
   }
 
+  private stopIssPolling(): void {
+    if (this.issRefreshTimeout != null) {
+      clearTimeout(this.issRefreshTimeout);
+      this.issRefreshTimeout = null;
+    }
+    if (this.issCountdownInterval != null) {
+      clearInterval(this.issCountdownInterval);
+      this.issCountdownInterval = null;
+    }
+    this.issNextRefreshEpochMs = 0;
+  }
+
+  private startIssPolling(): void {
+    this.stopIssPolling();
+    if (!this.issOverlayEnabled) {
+      return;
+    }
+    const ms = this.issPollIntervalMs();
+    this.issNextRefreshEpochMs = Date.now() + ms;
+    this.issCountdownInterval = window.setInterval(() => this.cdr.markForCheck(), 1000);
+    this.scheduleIssRefreshChain(ms);
+  }
+
+  private scheduleIssRefreshChain(delayMs: number): void {
+    this.issRefreshTimeout = window.setTimeout(() => {
+      this.issRefreshTimeout = null;
+      void this.refreshIssNow().finally(() => {
+        if (!this.issOverlayEnabled) {
+          return;
+        }
+        const ms = this.issPollIntervalMs();
+        this.issNextRefreshEpochMs = Date.now() + ms;
+        this.scheduleIssRefreshChain(ms);
+      });
+    }, delayMs);
+  }
+
+  private async refreshIssNow(): Promise<void> {
+    if (!this.issOverlayEnabled || !this.scene || !this.earthMesh) {
+      return;
+    }
+    try {
+      const data = await firstValueFrom(this.http.get<GlobeOpenNotifyIssResponse>(this.globeIssNowUrl()));
+      const latStr = data?.iss_position?.latitude;
+      const lonStr = data?.iss_position?.longitude;
+      if (latStr == null || lonStr == null) {
+        throw new Error('ISS payload missing coordinates');
+      }
+      const lat = parseFloat(latStr);
+      const lon = parseFloat(lonStr);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+        throw new Error('ISS coordinates invalid');
+      }
+      if (!this.issOverlayEnabled) {
+        return;
+      }
+      this.globeIssLat = lat;
+      this.globeIssLon = lon;
+      this.issOverlayFailed = false;
+      this.ensureIssMarkerMesh();
+      this.updateIssMarkerWorldPosition();
+      this.recordIssTrailSample(lat, lon);
+    } catch {
+      this.issOverlayFailed = true;
+    }
+    this.cdr.markForCheck();
+  }
+
+  private ensureIssMarkerMesh(): void {
+    const sceneRef = this.scene;
+    if (!sceneRef || this.issMarkerMesh) {
+      return;
+    }
+    const geo = new THREE.SphereGeometry(GLOBE_ISS_MARKER_RADIUS, 16, 16);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0xffea00,
+      depthTest: true,
+      depthWrite: true,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1
+    });
+    mat.toneMapped = false;
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.renderOrder = 6;
+    sceneRef.add(mesh);
+    this.issMarkerMesh = mesh;
+  }
+
+  private updateIssMarkerWorldPosition(): void {
+    const lat = this.globeIssLat;
+    const lon = this.globeIssLon;
+    const earth = this.earthMesh;
+    const mesh = this.issMarkerMesh;
+    if (lat == null || lon == null || !earth || !mesh) {
+      return;
+    }
+    this.issMarkerWorldScratch
+      .copy(WorldGlobeComponent.latLonToVector3(lat, lon, GLOBE_ISS_ORBIT_RADIUS));
+    earth.updateMatrixWorld(true);
+    this.issMarkerWorldScratch.applyMatrix4(earth.matrixWorld);
+    mesh.position.copy(this.issMarkerWorldScratch);
+  }
+
+  private disposeIssMarkerMesh(): void {
+    const mesh = this.issMarkerMesh;
+    const sceneRef = this.scene;
+    if (!mesh) {
+      return;
+    }
+    sceneRef?.remove(mesh);
+    mesh.geometry.dispose();
+    const mat = mesh.material;
+    if (!Array.isArray(mat) && mat instanceof THREE.Material) {
+      mat.dispose();
+    }
+    this.issMarkerMesh = undefined;
+  }
+
+  /**
+   * Ajoute un point à la traînée dès qu’on a au moins deux relevés (direction du mouvement).
+   * Ignore les doublons API (même position).
+   */
+  private recordIssTrailSample(lat: number, lon: number): void {
+    const prev = this.issTrailPoints[this.issTrailPoints.length - 1];
+    if (
+      prev &&
+      Math.abs(prev.lat - lat) < 2e-5 &&
+      Math.abs(prev.lon - lon) < 2e-5
+    ) {
+      return;
+    }
+    this.issTrailPoints.push({ lat, lon });
+    while (this.issTrailPoints.length > GLOBE_ISS_TRAIL_MAX_POINTS) {
+      this.issTrailPoints.shift();
+    }
+    this.rebuildIssTrailGeometry();
+  }
+
+  private rebuildIssTrailGeometry(): void {
+    const earth = this.earthMesh;
+    const pts = this.issTrailPoints;
+    if (!earth || pts.length < 2) {
+      if (this.issTrailLine) {
+        this.issTrailLine.visible = false;
+      }
+      return;
+    }
+    const r = GLOBE_ISS_TRAIL_RADIUS;
+    const vertices: number[] = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = WorldGlobeComponent.latLonToVector3(pts[i].lat, pts[i].lon, r);
+      const b = WorldGlobeComponent.latLonToVector3(pts[i + 1].lat, pts[i + 1].lon, r);
+      const arc = WorldGlobeComponent.greatCircleArc(a, b, r, GLOBE_ISS_TRAIL_ARC_SEGMENTS);
+      for (let j = 0; j < arc.length - 1; j++) {
+        vertices.push(arc[j].x, arc[j].y, arc[j].z, arc[j + 1].x, arc[j + 1].y, arc[j + 1].z);
+      }
+    }
+    if (vertices.length === 0) {
+      return;
+    }
+    if (!this.issTrailLine) {
+      const mat = new THREE.LineBasicMaterial({
+        color: 0xffa040,
+        transparent: true,
+        opacity: 0.82,
+        depthWrite: false
+      });
+      mat.toneMapped = false;
+      const line = new THREE.LineSegments(new THREE.BufferGeometry(), mat);
+      line.renderOrder = 5;
+      earth.add(line);
+      this.issTrailLine = line;
+    }
+    const line = this.issTrailLine;
+    const oldGeo = line.geometry;
+    line.geometry = new THREE.BufferGeometry();
+    oldGeo.dispose();
+    line.geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    line.visible = true;
+  }
+
+  private clearIssTrail(): void {
+    this.issTrailPoints.length = 0;
+    const line = this.issTrailLine;
+    this.issTrailLine = undefined;
+    if (!line) {
+      return;
+    }
+    this.earthMesh?.remove(line);
+    line.geometry.dispose();
+    const m = line.material;
+    if (!Array.isArray(m) && m instanceof THREE.Material) {
+      m.dispose();
+    }
+  }
+
+  private disposeCountryBordersOverlay(): void {
+    const g = this.bordersOverlayGroup;
+    const earth = this.earthMesh;
+    if (!g) {
+      return;
+    }
+    earth?.remove(g);
+    this.bordersOverlayGroup = undefined;
+    g.traverse((o) => {
+      if (o instanceof THREE.Line) {
+        o.geometry.dispose();
+        const mat = o.material;
+        if (!Array.isArray(mat) && mat instanceof THREE.Material) {
+          mat.dispose();
+        }
+      }
+    });
+  }
+
+  private disposeCoastlinesOverlay(): void {
+    const g = this.coastlinesOverlayGroup;
+    const earth = this.earthMesh;
+    if (!g) {
+      return;
+    }
+    earth?.remove(g);
+    this.coastlinesOverlayGroup = undefined;
+    g.traverse((o) => {
+      if (o instanceof THREE.Line) {
+        o.geometry.dispose();
+        const mat = o.material;
+        if (!Array.isArray(mat) && mat instanceof THREE.Material) {
+          mat.dispose();
+        }
+      }
+    });
+  }
+
+  private disposeGraticuleOverlay(): void {
+    const g = this.graticuleOverlayGroup;
+    const earth = this.earthMesh;
+    if (!g) {
+      return;
+    }
+    earth?.remove(g);
+    this.graticuleOverlayGroup = undefined;
+    g.traverse((o) => {
+      if (o instanceof THREE.Line) {
+        o.geometry.dispose();
+        const mat = o.material;
+        if (!Array.isArray(mat) && mat instanceof THREE.Material) {
+          mat.dispose();
+        }
+      }
+    });
+  }
+
+  private disposePoliticalMapOverlay(): void {
+    const mesh = this.politicalMapMesh;
+    const earth = this.earthMesh;
+    if (!mesh) {
+      return;
+    }
+    earth?.remove(mesh);
+    this.politicalMapMesh = undefined;
+    mesh.geometry.dispose();
+    const mat = mesh.material;
+    if (!Array.isArray(mat) && mat instanceof THREE.Material) {
+      mat.dispose();
+    }
+  }
+
+  private disposeCountryLabelsOverlay(): void {
+    const g = this.countryLabelsGroup;
+    const earth = this.earthMesh;
+    if (!g) {
+      return;
+    }
+    earth?.remove(g);
+    this.countryLabelsGroup = undefined;
+    g.traverse((child) => {
+      if (!(child instanceof THREE.Sprite)) {
+        return;
+      }
+      const sm = child.material;
+      if (sm instanceof THREE.SpriteMaterial) {
+        sm.map?.dispose?.();
+        sm.dispose();
+      }
+    });
+  }
+
+  private disposeGeographicLinesOverlay(): void {
+    const g = this.geographicLinesOverlayGroup;
+    const earth = this.earthMesh;
+    if (!g) {
+      return;
+    }
+    earth?.remove(g);
+    this.geographicLinesOverlayGroup = undefined;
+    g.traverse((o) => {
+      if (o instanceof THREE.Line) {
+        o.geometry.dispose();
+        const mat = o.material;
+        if (!Array.isArray(mat) && mat instanceof THREE.Material) {
+          mat.dispose();
+        }
+      }
+    });
+  }
+
+  private disposeRiversOverlay(): void {
+    const g = this.riversOverlayGroup;
+    const earth = this.earthMesh;
+    if (!g) {
+      return;
+    }
+    earth?.remove(g);
+    this.riversOverlayGroup = undefined;
+    g.traverse((o) => {
+      if (o instanceof THREE.Line) {
+        o.geometry.dispose();
+        const mat = o.material;
+        if (!Array.isArray(mat) && mat instanceof THREE.Material) {
+          mat.dispose();
+        }
+      }
+    });
+  }
+
+  private disposeLakesMesh(): void {
+    const mesh = this.lakesMesh;
+    const earth = this.earthMesh;
+    if (!mesh) {
+      return;
+    }
+    earth?.remove(mesh);
+    this.lakesMesh = undefined;
+    mesh.geometry.dispose();
+    const mat = mesh.material;
+    if (!Array.isArray(mat) && mat instanceof THREE.Material) {
+      mat.dispose();
+    }
+  }
+
+  private disposeGlaciersMesh(): void {
+    const mesh = this.glaciersMesh;
+    const earth = this.earthMesh;
+    if (!mesh) {
+      return;
+    }
+    earth?.remove(mesh);
+    this.glaciersMesh = undefined;
+    mesh.geometry.dispose();
+    const mat = mesh.material;
+    if (!Array.isArray(mat) && mat instanceof THREE.Material) {
+      mat.dispose();
+    }
+  }
+
+  private disposeTimeZonesMesh(): void {
+    const mesh = this.timeZonesMesh;
+    const earth = this.earthMesh;
+    if (!mesh) {
+      return;
+    }
+    earth?.remove(mesh);
+    this.timeZonesMesh = undefined;
+    mesh.geometry.dispose();
+    const mat = mesh.material;
+    if (!Array.isArray(mat) && mat instanceof THREE.Material) {
+      mat.dispose();
+    }
+  }
+
+  private disposeCitiesPoints(): void {
+    const pts = this.citiesPoints;
+    const earth = this.earthMesh;
+    if (!pts) {
+      return;
+    }
+    earth?.remove(pts);
+    this.citiesPoints = undefined;
+    pts.geometry.dispose();
+    if (pts.material instanceof THREE.Material) {
+      pts.material.dispose();
+    }
+  }
+
+  private onTranslateLangChangedForGlobeCountryLabels(): void {
+    if (!this.countryLabelsEnabled || !this.globeSurfaceReady || !this.earthMesh || !this.admin0CountriesParsed) {
+      return;
+    }
+    this.rebuildCountryLabelsFromParsed(this.admin0CountriesParsed);
+  }
+
+  /** GeoJSON pays (110 m) mutualisé carte + étiquettes. */
+  private loadNe110Admin0CountriesParsedOnce(): Promise<boolean> {
+    if (this.admin0CountriesParsed) {
+      return Promise.resolve(true);
+    }
+    if (this.admin0CountriesLoadPromise) {
+      return this.admin0CountriesLoadPromise;
+    }
+    this.admin0CountriesOverlayLoading = true;
+    this.admin0CountriesOverlayFailed = false;
+    this.cdr.markForCheck();
+    const inflight = (async (): Promise<boolean> => {
+      try {
+        const text = await firstValueFrom(
+          this.http.get(this.globeNe110Admin0CountriesUrl(), { responseType: 'text' }).pipe(timeout(120000))
+        );
+        this.admin0CountriesParsed = JSON.parse(text as string) as unknown;
+        this.admin0CountriesOverlayFailed = false;
+        return true;
+      } catch {
+        this.admin0CountriesOverlayFailed = true;
+        return false;
+      } finally {
+        this.admin0CountriesOverlayLoading = false;
+        this.admin0CountriesLoadPromise = null;
+        this.cdr.markForCheck();
+      }
+    })();
+    this.admin0CountriesLoadPromise = inflight;
+    return inflight;
+  }
+
+  private async ensureAdmin0CountryLayersLoadedAndBuilt(): Promise<void> {
+    if ((!this.politicalMapEnabled && !this.countryLabelsEnabled) || !this.globeSurfaceReady || !this.earthMesh) {
+      return;
+    }
+    const ok = await this.loadNe110Admin0CountriesParsedOnce();
+    if (!ok || !this.admin0CountriesParsed || !this.earthMesh) {
+      return;
+    }
+    if (this.politicalMapEnabled && !this.politicalMapMesh) {
+      this.rebuildPoliticalMapFromParsed(this.admin0CountriesParsed);
+    }
+    if (this.countryLabelsEnabled && !this.countryLabelsGroup) {
+      this.rebuildCountryLabelsFromParsed(this.admin0CountriesParsed);
+    }
+  }
+
+  private rebuildPoliticalMapFromParsed(data: unknown): void {
+    const earth = this.earthMesh;
+    this.disposePoliticalMapOverlay();
+    if (!this.politicalMapEnabled || !earth || !WorldGlobeComponent.isGeoJsonFeatureCollectionLike(data)) {
+      return;
+    }
+    const feats = WorldGlobeComponent.readGeoJsonFeaturesArray(data.features);
+    const positions: number[] = [];
+    const colors: number[] = [];
+    const triBudget = { n: 0 };
+    for (const f of feats) {
+      if (triBudget.n >= GLOBE_ADMIN0_MAX_FAN_TRIANGLES) {
+        break;
+      }
+      if (!WorldGlobeComponent.isGeoJsonFeatureLike(f)) {
+        continue;
+      }
+      const geom = (f as { geometry?: unknown }).geometry;
+      if (!geom || typeof geom !== 'object') {
+        continue;
+      }
+      const propsRaw = (f as { properties?: unknown }).properties;
+      const props =
+        propsRaw !== null && typeof propsRaw === 'object' ? (propsRaw as Record<string, unknown>) : null;
+      const fill = props ? WorldGlobeComponent.inferPoliticalRgb(props) : new THREE.Color(0xb8bdc6);
+      WorldGlobeComponent.appendPoliticalFansForGeometry(
+        geom as { type?: string; coordinates?: unknown; geometries?: unknown[] },
+        GLOBE_POLITICAL_FILL_RADIUS,
+        fill,
+        positions,
+        colors,
+        triBudget,
+        GLOBE_ADMIN0_MAX_FAN_TRIANGLES
+      );
+    }
+    if (positions.length < 9) {
+      return;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(positions), 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(colors), 3));
+    geo.computeBoundingSphere();
+    const mat = new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.44,
+      depthWrite: false,
+      depthTest: true,
+      polygonOffset: true,
+      polygonOffsetFactor: -4,
+      polygonOffsetUnits: -4,
+      side: THREE.DoubleSide
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.name = 'PoliticalMapAdmin0110';
+    mesh.renderOrder = 1;
+    earth.add(mesh);
+    this.politicalMapMesh = mesh;
+  }
+
+  private rebuildCountryLabelsFromParsed(data: unknown): void {
+    const earth = this.earthMesh;
+    this.disposeCountryLabelsOverlay();
+    if (!this.countryLabelsEnabled || !earth || !WorldGlobeComponent.isGeoJsonFeatureCollectionLike(data)) {
+      return;
+    }
+    const feats = WorldGlobeComponent.readGeoJsonFeaturesArray(data.features);
+    const group = new THREE.Group();
+    group.name = 'CountryLabelsAdmin0110';
+    for (const f of feats) {
+      if (!WorldGlobeComponent.isGeoJsonFeatureLike(f)) {
+        continue;
+      }
+      const propsRaw = (f as { properties?: unknown }).properties;
+      const props =
+        propsRaw !== null && typeof propsRaw === 'object' ? (propsRaw as Record<string, unknown>) : null;
+      if (!props) {
+        continue;
+      }
+      const lon = Number(props['LABEL_X']);
+      const lat = Number(props['LABEL_Y']);
+      if (!Number.isFinite(lon) || !Number.isFinite(lat) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+        continue;
+      }
+      const name = this.pickLocalizedCountryName(props);
+      const sprite = WorldGlobeComponent.createCountryLabelSprite(name);
+      if (!sprite) {
+        continue;
+      }
+      sprite.renderOrder = 4;
+      const p = WorldGlobeComponent.latLonToVector3(lat, lon, GLOBE_COUNTRY_LABEL_RADIUS);
+      sprite.position.copy(p);
+      group.add(sprite);
+    }
+    if (!group.children.length) {
+      return;
+    }
+    earth.add(group);
+    this.countryLabelsGroup = group;
+  }
+
+  private pickLocalizedCountryName(properties: Record<string, unknown>): string {
+    const rawLang = (
+      ((this.translate.currentLang || this.translate.defaultLang || 'en') ?? 'en') as string
+    ).toLowerCase();
+    const lc = (rawLang.split(/[-_]/)[0] ?? 'en').toLowerCase();
+    const NAME_KEY_SPECIAL: Record<string, string> = {
+      zh: 'NAME_ZH',
+      tw: 'NAME_ZHT',
+      cn: 'NAME_ZH',
+      jp: 'NAME_JA',
+      ja: 'NAME_JA',
+      ko: 'NAME_KO',
+      in: 'NAME_HI'
+    };
+    const primaryKey = NAME_KEY_SPECIAL[lc] ?? `NAME_${lc.toUpperCase()}`;
+    const cand = properties[primaryKey];
+    const fromLocalized = cand != null ? String(cand).trim() : '';
+    if (fromLocalized.length > 0) {
+      return fromLocalized;
+    }
+    const en = properties['NAME_EN'];
+    const fromEn = en != null ? String(en).trim() : '';
+    if (fromEn.length > 0) {
+      return fromEn;
+    }
+    const admin = properties['ADMIN'] ?? properties['NAME'] ?? properties['BRK_NAME'] ?? '';
+    return String(admin).trim();
+  }
+
+  private static truncateCountryLabel(raw: string, maxChars: number): string {
+    const t = raw.trim().replace(/\s+/g, ' ');
+    if (t.length <= maxChars) {
+      return t;
+    }
+    if (maxChars <= 1) {
+      return '…';
+    }
+    return t.slice(0, maxChars - 1).trimEnd() + '…';
+  }
+
+  /** Pastilles texte billboard ; retour null si environnement Canvas indisponible. */
+  private static createCountryLabelSprite(displayRaw: string): THREE.Sprite | null {
+    const display = WorldGlobeComponent.truncateCountryLabel(displayRaw, 44);
+    if (!display) {
+      return null;
+    }
+    const canvas = document.createElement('canvas');
+    const scaleCss = Math.min(Math.max(Math.floor(window.devicePixelRatio || 1), 1), 2);
+    const ctxMaybe = canvas.getContext('2d');
+    if (!ctxMaybe) {
+      return null;
+    }
+    const ctx = ctxMaybe;
+    const fontPx = Math.round(20 * scaleCss);
+    ctx.font = `600 ${fontPx}px Segoe UI,Roboto,Helvetica,Arial,sans-serif`;
+    const maxTextPx = Math.floor(492 * scaleCss);
+    let text = display;
+    while (text.length > 2 && ctx.measureText(text).width > maxTextPx) {
+      text = WorldGlobeComponent.truncateCountryLabel(text, text.length - 2);
+    }
+    const measured = ctx.measureText(text).width + Math.floor(22 * scaleCss);
+    canvas.width = Math.max(96, Math.min(Math.ceil(measured), 640 * scaleCss));
+    canvas.height = Math.ceil(42 * scaleCss);
+    ctx.font = `600 ${fontPx}px Segoe UI,Roboto,Helvetica,Arial,sans-serif`;
+    ctx.fillStyle = 'rgba(6,22,52,0.58)';
+    const rPx = Math.floor(11 * scaleCss);
+    ctx.beginPath();
+    ctx.moveTo(rPx, 0);
+    ctx.lineTo(canvas.width - rPx, 0);
+    ctx.quadraticCurveTo(canvas.width, 0, canvas.width, rPx);
+    ctx.lineTo(canvas.width, canvas.height - rPx);
+    ctx.quadraticCurveTo(canvas.width, canvas.height, canvas.width - rPx, canvas.height);
+    ctx.lineTo(rPx, canvas.height);
+    ctx.quadraticCurveTo(0, canvas.height, 0, canvas.height - rPx);
+    ctx.lineTo(0, rPx);
+    ctx.quadraticCurveTo(0, 0, rPx, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(200,226,255,0.22)';
+    ctx.lineWidth = Math.max(1, scaleCss);
+    ctx.stroke();
+    ctx.fillStyle = '#e9f5ff';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, Math.floor(12 * scaleCss), canvas.height / 2);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    tex.needsUpdate = true;
+    const mat = new THREE.SpriteMaterial({
+      map: tex,
+      transparent: true,
+      depthWrite: false,
+      depthTest: true,
+      opacity: 0.94
+    });
+    const sprite = new THREE.Sprite(mat);
+    const h = GLOBE_COUNTRY_LABEL_SPRITE_WORLD_H;
+    sprite.center.set(0.5, 0.45);
+    const aspect = canvas.width / canvas.height;
+    sprite.scale.set(aspect * h, h, 1);
+    sprite.userData['countryLabelBase'] = { w: aspect * h, h };
+    return sprite;
+  }
+
+  private static inferPoliticalRgb(properties: Record<string, unknown>): THREE.Color {
+    const rawMc =
+      Number(properties['MAPCOLOR13']) ||
+      Number(properties['MAPCOLOR9']) ||
+      Number(properties['MAPCOLOR8']) ||
+      Number(properties['MAPCOLOR7']);
+    let idx: number;
+    if (Number.isFinite(rawMc) && rawMc !== 0) {
+      idx = Math.abs(Math.floor(rawMc));
+    } else {
+      let h = 0;
+      const tag = String(properties['ADM0_A3'] ?? properties['ISO_A3'] ?? properties['ADM0_ISO'] ?? 'zz');
+      for (let i = 0; i < tag.length; i++) {
+        h = (((h << 5) - h + tag.charCodeAt(i)) | 0) >>> 0;
+      }
+      idx = h >>> 0;
+    }
+    const hex = GLOBE_POLITICAL_HEX_PALETTE[idx % GLOBE_POLITICAL_HEX_PALETTE.length] ?? 0x9bbbd4;
+    return new THREE.Color(hex);
+  }
+
+  private static lonLatOuterRingSubs(lonLatRing: number[][], maxCorners: number): [number, number][] {
+    if (!lonLatRing?.length || maxCorners < 3) {
+      return [];
+    }
+    let upto = lonLatRing.length;
+    const first = lonLatRing[0];
+    const last = lonLatRing[upto - 1];
+    if (
+      upto > 3 &&
+      first &&
+      last &&
+      first.length >= 2 &&
+      last.length >= 2 &&
+      first[0] === last[0] &&
+      first[1] === last[1]
+    ) {
+      upto--;
+    }
+    if (upto < 3) {
+      return [];
+    }
+    const stride = Math.max(1, Math.ceil(upto / maxCorners));
+    const out: [number, number][] = [];
+    for (let i = 0; i < upto && out.length < maxCorners; i += stride) {
+      const pt = lonLatRing[i];
+      if (!pt || pt.length < 2) {
+        continue;
+      }
+      const lon = pt[0];
+      const lat = pt[1];
+      if (![lon, lat].every((x) => Number.isFinite(x)) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+        continue;
+      }
+      out.push([lon, lat]);
+    }
+    if (out.length < 3) {
+      return [];
+    }
+    return out;
+  }
+
+  /** Ramène une longitude (°) dans ]−180, 180] après triangulation sur meridians « déroulés ». */
+  private static wrapLongitudeDegrees(lonDeg: number): number {
+    if (!Number.isFinite(lonDeg)) {
+      return 0;
+    }
+    let x = lonDeg;
+    while (x > 180) x -= 360;
+    while (x < -180) x += 360;
+    return x;
+  }
+
+  /**
+   * Dérive les longitudes le long d’un anneau pour qu’elles varient de façon continue (sans saut fictif
+   * de 360°). Indispensable près de l’antméridien : sinon earcut voit une barre de 358° de large.
+   */
+  private static unwrapLonAlongRing(ring: number[][]): number[][] {
+    if (!ring?.length) {
+      return [];
+    }
+    const out: number[][] = [];
+    let prevLon = ring[0][0];
+    out.push([prevLon, ring[0][1]]);
+    for (let i = 1; i < ring.length; i++) {
+      const pt = ring[i];
+      if (!pt || pt.length < 2) {
+        continue;
+      }
+      let lon = pt[0];
+      const lat = pt[1];
+      while (lon - prevLon > 180) lon -= 360;
+      while (lon - prevLon < -180) lon += 360;
+      out.push([lon, lat]);
+      prevLon = lon;
+    }
+    return out;
+  }
+
+  /**
+   * Anneaux GeoJSON (lon, lat) → plat + indices de trous pour earcut.
+   * Premier anneau = extérieur, suivants = trous (lacs, etc.).
+   */
+  private static flattenLonLatRingsForEarcut(rings: number[][][]): { vertices: number[]; holeIndices: number[] } {
+    const vertices: number[] = [];
+    const holeIndices: number[] = [];
+    for (let r = 0; r < rings.length; r++) {
+      const ring = rings[r];
+      if (!ring?.length) {
+        continue;
+      }
+      if (r > 0) {
+        holeIndices.push(vertices.length / 2);
+      }
+      let n = ring.length;
+      while (
+        n > 1 &&
+        ring[0][0] === ring[n - 1][0] &&
+        ring[0][1] === ring[n - 1][1]
+      ) {
+        n--;
+      }
+      for (let j = 0; j < n; j++) {
+        vertices.push(ring[j][0], ring[j][1]);
+      }
+    }
+    return { vertices, holeIndices };
+  }
+
+  /**
+   * Même enchaînement que {@link flattenLonLatRingsForEarcut}, mais chaque sommet est projeté dans le plan
+   * tangent à la sphère (base orthonormée au « centre de masse » de l’anneau extérieur). Earcut sur (u,v)
+   * évite l’étirement extrême du plan équirectangulaire aux pôles (artefacts en étoile / faux triangles).
+   * Retourne des positions monde déjà à rayon {@link sphereR} alignées sur les indices earcut.
+   */
+  private static flattenLonLatRingsForTangentPlaneEarcut(
+    ringsPlanar: number[][][],
+    sphereR: number
+  ): { vertices: number[]; holeIndices: number[]; xyz: number[] } | null {
+    if (!ringsPlanar?.length) {
+      return null;
+    }
+    const outer = ringsPlanar[0];
+    if (!outer?.length) {
+      return null;
+    }
+    let sx = 0;
+    let sy = 0;
+    let sz = 0;
+    for (const pt of outer) {
+      if (!pt || pt.length < 2) {
+        continue;
+      }
+      const lon = WorldGlobeComponent.wrapLongitudeDegrees(pt[0]);
+      const lat = pt[1];
+      if (!Number.isFinite(lat) || Math.abs(lat) > 90) {
+        continue;
+      }
+      const p = WorldGlobeComponent.latLonToVector3(lat, lon, 1);
+      sx += p.x;
+      sy += p.y;
+      sz += p.z;
+    }
+    const cent = new THREE.Vector3(sx, sy, sz);
+    if (cent.lengthSq() < 1e-14) {
+      return null;
+    }
+    cent.normalize();
+    const refUp = Math.abs(cent.y) > 0.92 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
+    const e1 = new THREE.Vector3().crossVectors(refUp, cent);
+    if (e1.lengthSq() < 1e-14) {
+      e1.crossVectors(new THREE.Vector3(0, 0, 1), cent);
+    }
+    e1.normalize();
+    const e2 = new THREE.Vector3().crossVectors(cent, e1).normalize();
+
+    const vertices: number[] = [];
+    const holeIndices: number[] = [];
+    const xyz: number[] = [];
+
+    for (let r = 0; r < ringsPlanar.length; r++) {
+      const ring = ringsPlanar[r];
+      if (!ring?.length) {
+        continue;
+      }
+      if (r > 0) {
+        holeIndices.push(vertices.length / 2);
+      }
+      let n = ring.length;
+      while (
+        n > 1 &&
+        ring[0][0] === ring[n - 1][0] &&
+        ring[0][1] === ring[n - 1][1]
+      ) {
+        n--;
+      }
+      for (let j = 0; j < n; j++) {
+        const lon = WorldGlobeComponent.wrapLongitudeDegrees(ring[j][0]);
+        const lat = ring[j][1];
+        if (!Number.isFinite(lat) || Math.abs(lat) > 90) {
+          return null;
+        }
+        const pu = WorldGlobeComponent.latLonToVector3(lat, lon, 1);
+        const u = pu.dot(e1);
+        const v = pu.dot(e2);
+        vertices.push(u, v);
+        xyz.push(pu.x * sphereR, pu.y * sphereR, pu.z * sphereR);
+      }
+    }
+    if (vertices.length < 6) {
+      return null;
+    }
+    return { vertices, holeIndices, xyz };
+  }
+
+  /** Remplissage pays / lacs / fuseaux : triangulation 2D (lon/lat) puis projection sphère — évite les éventails invalides. */
+  private static appendPoliticalEarcutForPolygonRings(
+    ringsRaw: number[][][],
+    sphereR: number,
+    fillRgb: THREE.Color,
+    positionsOut: number[],
+    colorsOut: number[],
+    triBudget: { n: number },
+    triangleCap: number,
+    ringMaxCorners: number,
+    triangulation: 'lonlat' | 'tangentPlane' = 'lonlat'
+  ): void {
+    if (triBudget.n >= triangleCap || !ringsRaw?.length) {
+      return;
+    }
+    const ringsSub: number[][][] = [];
+    for (let ri = 0; ri < ringsRaw.length; ri++) {
+      const subs = WorldGlobeComponent.lonLatOuterRingSubs(ringsRaw[ri], ringMaxCorners);
+      if (subs.length >= 3) {
+        ringsSub.push(subs.map((p) => [p[0], p[1]]));
+      } else if (ri === 0) {
+        return;
+      }
+    }
+    if (!ringsSub.length) {
+      return;
+    }
+    const ringsPlanar = ringsSub.map((ring) => WorldGlobeComponent.unwrapLonAlongRing(ring));
+    const rC = fillRgb.r;
+    const gC = fillRgb.g;
+    const bC = fillRgb.b;
+
+    if (triangulation === 'tangentPlane') {
+      const tang = WorldGlobeComponent.flattenLonLatRingsForTangentPlaneEarcut(ringsPlanar, sphereR);
+      if (tang && tang.vertices.length >= 6) {
+        const tri = earcut(tang.vertices, tang.holeIndices.length > 0 ? tang.holeIndices : undefined, 2);
+        if (tri.length) {
+          const xyz = tang.xyz;
+          for (let t = 0; t < tri.length && triBudget.n < triangleCap; t += 3) {
+            for (let k = 0; k < 3; k++) {
+              const vi = tri[t + k] * 3;
+              positionsOut.push(xyz[vi], xyz[vi + 1], xyz[vi + 2]);
+              colorsOut.push(rC, gC, bC);
+            }
+            triBudget.n++;
+          }
+          return;
+        }
+      }
+    }
+
+    const { vertices, holeIndices } = WorldGlobeComponent.flattenLonLatRingsForEarcut(ringsPlanar);
+    if (vertices.length < 6) {
+      return;
+    }
+    const triangles = earcut(vertices, holeIndices.length > 0 ? holeIndices : undefined, 2);
+    if (!triangles.length) {
+      return;
+    }
+    for (let t = 0; t < triangles.length && triBudget.n < triangleCap; t += 3) {
+      const ia = triangles[t] * 2;
+      const ib = triangles[t + 1] * 2;
+      const ic = triangles[t + 2] * 2;
+      const latA = vertices[ia + 1];
+      const latB = vertices[ib + 1];
+      const latC = vertices[ic + 1];
+      const va = WorldGlobeComponent.latLonToVector3(
+        latA,
+        WorldGlobeComponent.wrapLongitudeDegrees(vertices[ia]),
+        sphereR
+      );
+      const vb = WorldGlobeComponent.latLonToVector3(
+        latB,
+        WorldGlobeComponent.wrapLongitudeDegrees(vertices[ib]),
+        sphereR
+      );
+      const vc = WorldGlobeComponent.latLonToVector3(
+        latC,
+        WorldGlobeComponent.wrapLongitudeDegrees(vertices[ic]),
+        sphereR
+      );
+      for (const p of [va, vb, vc]) {
+        positionsOut.push(p.x, p.y, p.z);
+        colorsOut.push(rC, gC, bC);
+      }
+      triBudget.n++;
+    }
+  }
+
+  private static appendPoliticalFansForGeometry(
+    geometry: { type?: string; coordinates?: unknown; geometries?: unknown[] },
+    sphereRadius: number,
+    fillRgb: THREE.Color,
+    positionsOut: number[],
+    colorsOut: number[],
+    triBudget: { n: number },
+    triangleCap: number,
+    ringMaxCorners: number = GLOBE_ADMIN0_RING_MAX_VERTS,
+    triangulation: 'lonlat' | 'tangentPlane' = 'lonlat'
+  ): void {
+    if (triBudget.n >= triangleCap) {
+      return;
+    }
+    const type = geometry.type;
+    switch (type) {
+      case 'Polygon': {
+        const polys = geometry.coordinates as number[][][] | undefined;
+        if (!polys?.length) {
+          break;
+        }
+        WorldGlobeComponent.appendPoliticalEarcutForPolygonRings(
+          polys,
+          sphereRadius,
+          fillRgb,
+          positionsOut,
+          colorsOut,
+          triBudget,
+          triangleCap,
+          ringMaxCorners,
+          triangulation
+        );
+        break;
+      }
+      case 'MultiPolygon':
+        for (const poly of (geometry.coordinates as number[][][][] | undefined) ?? []) {
+          if (triBudget.n >= triangleCap) {
+            break;
+          }
+          if (poly?.length) {
+            WorldGlobeComponent.appendPoliticalEarcutForPolygonRings(
+              poly,
+              sphereRadius,
+              fillRgb,
+              positionsOut,
+              colorsOut,
+              triBudget,
+              triangleCap,
+              ringMaxCorners,
+              triangulation
+            );
+          }
+        }
+        break;
+      case 'GeometryCollection':
+        for (const child of geometry.geometries ?? []) {
+          if (triBudget.n >= triangleCap) {
+            break;
+          }
+          if (!child || typeof child !== 'object') {
+            continue;
+          }
+          WorldGlobeComponent.appendPoliticalFansForGeometry(
+            child as { type?: string; coordinates?: unknown; geometries?: unknown[] },
+            sphereRadius,
+            fillRgb,
+            positionsOut,
+            colorsOut,
+            triBudget,
+            triangleCap,
+            ringMaxCorners,
+            triangulation
+          );
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+  private static inferTimeZoneRgb(properties: Record<string, unknown>): THREE.Color {
+    const raw = Number(properties['map_color6'] ?? properties['map_color8']);
+    const idx =
+      Number.isFinite(raw) && raw !== 0
+        ? Math.abs(Math.floor(raw)) % GLOBE_TIMEZONE_HEX_PALETTE.length
+        : 0;
+    return new THREE.Color(GLOBE_TIMEZONE_HEX_PALETTE[idx] ?? 0xc9ddf0);
+  }
+
+  private buildNeTintFanMeshFromData(
+    data: unknown,
+    sphereR: number,
+    fillRgb: THREE.Color,
+    triCap: number,
+    meshName: string,
+    layerOpacity: number,
+    ringMaxCorners: number = GLOBE_ADMIN0_RING_MAX_VERTS
+  ): THREE.Mesh | null {
+    if (!WorldGlobeComponent.isGeoJsonFeatureCollectionLike(data)) {
+      return null;
+    }
+    const positions: number[] = [];
+    const colors: number[] = [];
+    const triBudget = { n: 0 };
+    const feats = WorldGlobeComponent.readGeoJsonFeaturesArray(data.features);
+    for (const f of feats) {
+      if (triBudget.n >= triCap) {
+        break;
+      }
+      if (!WorldGlobeComponent.isGeoJsonFeatureLike(f)) {
+        continue;
+      }
+      const geom = (f as { geometry?: unknown }).geometry;
+      if (!geom || typeof geom !== 'object') {
+        continue;
+      }
+      WorldGlobeComponent.appendPoliticalFansForGeometry(
+        geom as { type?: string; coordinates?: unknown; geometries?: unknown[] },
+        sphereR,
+        fillRgb,
+        positions,
+        colors,
+        triBudget,
+        triCap,
+        ringMaxCorners
+      );
+    }
+    if (positions.length < 9) {
+      return null;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(positions), 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(colors), 3));
+    geo.computeBoundingSphere();
+    const mat = new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: layerOpacity,
+      depthWrite: false,
+      depthTest: true,
+      polygonOffset: true,
+      polygonOffsetFactor: -3,
+      polygonOffsetUnits: -3,
+      side: THREE.DoubleSide
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.name = meshName;
+    mesh.renderOrder = 0;
+    return mesh;
+  }
+
+  private buildTimeZonesMeshFromData(data: unknown): THREE.Mesh | null {
+    if (!WorldGlobeComponent.isGeoJsonFeatureCollectionLike(data)) {
+      return null;
+    }
+    const positions: number[] = [];
+    const colors: number[] = [];
+    const triBudget = { n: 0 };
+    const feats = WorldGlobeComponent.readGeoJsonFeaturesArray(data.features);
+    for (const f of feats) {
+      if (triBudget.n >= GLOBE_TIMEZONE_MAX_FAN_TRIANGLES) {
+        break;
+      }
+      if (!WorldGlobeComponent.isGeoJsonFeatureLike(f)) {
+        continue;
+      }
+      const propsRaw = (f as { properties?: unknown }).properties;
+      const props =
+        propsRaw && typeof propsRaw === 'object' ? (propsRaw as Record<string, unknown>) : {};
+      const fill = WorldGlobeComponent.inferTimeZoneRgb(props);
+      const geom = (f as { geometry?: unknown }).geometry;
+      if (!geom || typeof geom !== 'object') {
+        continue;
+      }
+      WorldGlobeComponent.appendPoliticalFansForGeometry(
+        geom as { type?: string; coordinates?: unknown; geometries?: unknown[] },
+        GLOBE_TIMEZONE_FILL_RADIUS,
+        fill,
+        positions,
+        colors,
+        triBudget,
+        GLOBE_TIMEZONE_MAX_FAN_TRIANGLES,
+        GLOBE_TIMEZONE_RING_MAX_VERTS,
+        'tangentPlane'
+      );
+    }
+    if (positions.length < 9) {
+      return null;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(positions), 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(colors), 3));
+    geo.computeBoundingSphere();
+    const mat = new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.36,
+      depthWrite: false,
+      depthTest: true,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+      side: THREE.DoubleSide
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.name = 'TimeZonesNe10m';
+    return mesh;
+  }
+
+  private buildCitiesPointsFromData(data: unknown): THREE.Points | null {
+    if (!WorldGlobeComponent.isGeoJsonFeatureCollectionLike(data)) {
+      return null;
+    }
+    const positions: number[] = [];
+    const feats = WorldGlobeComponent.readGeoJsonFeaturesArray(data.features);
+    for (const f of feats) {
+      if (!WorldGlobeComponent.isGeoJsonFeatureLike(f)) {
+        continue;
+      }
+      const g = (f as { geometry?: { type?: string; coordinates?: unknown } }).geometry;
+      if (!g || g.type !== 'Point' || !Array.isArray(g.coordinates)) {
+        continue;
+      }
+      const c = g.coordinates as number[];
+      if (c.length < 2) {
+        continue;
+      }
+      const lon = c[0];
+      const lat = c[1];
+      if (![lon, lat].every((x) => Number.isFinite(x)) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+        continue;
+      }
+      const v = WorldGlobeComponent.latLonToVector3(lat, lon, GLOBE_CITIES_POINTS_RADIUS);
+      positions.push(v.x, v.y, v.z);
+    }
+    if (!positions.length) {
+      return null;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(positions), 3));
+    const mat = new THREE.PointsMaterial({
+      color: 0xffd060,
+      size: 0.016,
+      transparent: true,
+      opacity: 0.9,
+      depthWrite: false,
+      sizeAttenuation: true
+    });
+    const pts = new THREE.Points(geo, mat);
+    pts.name = 'PopulatedPlacesNe110Simple';
+    return pts;
+  }
+
+  private async ensureGeographicLinesLoaded(): Promise<void> {
+    if (!this.geographicLinesEnabled || !this.earthMesh || !this.scene) {
+      return;
+    }
+    if (this.geographicLinesOverlayGroup) {
+      return;
+    }
+    if (this.geographicLinesBuildInFlight) {
+      return;
+    }
+    this.geographicLinesBuildInFlight = true;
+    this.geographicLinesLoading = true;
+    this.geographicLinesFailed = false;
+    this.cdr.markForCheck();
+    try {
+      const text = await firstValueFrom(
+        this.http.get(this.globeNe110GeographicLinesUrl(), { responseType: 'text' }).pipe(timeout(120000))
+      );
+      const parsed: unknown = JSON.parse(text as string);
+      if (!this.geographicLinesEnabled || !this.earthMesh) {
+        return;
+      }
+      const group = this.createGeoJsonLineSegmentsGroupFromData(
+        parsed,
+        GLOBE_GEOGRAPHIC_LINES_RADIUS,
+        MAX_GEOGRAPHIC_LINE_SEGMENTS,
+        0xf0d878,
+        0.78,
+        'GeographicLinesNe110'
+      );
+      const ok = !!(group && this.geographicLinesEnabled && this.earthMesh);
+      this.geographicLinesFailed = !ok;
+      if (ok && group) {
+        this.earthMesh.add(group);
+        this.geographicLinesOverlayGroup = group;
+      }
+    } catch {
+      this.geographicLinesFailed = true;
+    } finally {
+      this.geographicLinesLoading = false;
+      this.geographicLinesBuildInFlight = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  private async ensureRiversLoaded(): Promise<void> {
+    if (!this.riversEnabled || !this.earthMesh || !this.scene) {
+      return;
+    }
+    if (this.riversOverlayGroup) {
+      return;
+    }
+    if (this.riversBuildInFlight) {
+      return;
+    }
+    this.riversBuildInFlight = true;
+    this.riversOverlayLoading = true;
+    this.riversOverlayFailed = false;
+    this.cdr.markForCheck();
+    try {
+      const text = await firstValueFrom(
+        this.http.get(this.globeNe50mRiversLakeCenterlinesUrl(), { responseType: 'text' }).pipe(timeout(120000))
+      );
+      const parsed: unknown = JSON.parse(text as string);
+      if (!this.riversEnabled || !this.earthMesh) {
+        return;
+      }
+      const group = this.createGeoJsonLineSegmentsGroupFromData(
+        parsed,
+        GLOBE_RIVERS_LINE_RADIUS,
+        MAX_RIVERS_LINE_SEGMENTS,
+        0x6ec8ff,
+        0.72,
+        'RiversLakeCenterlinesNe50'
+      );
+      const ok = !!(group && this.riversEnabled && this.earthMesh);
+      this.riversOverlayFailed = !ok;
+      if (ok && group) {
+        this.earthMesh.add(group);
+        this.riversOverlayGroup = group;
+      }
+    } catch {
+      this.riversOverlayFailed = true;
+    } finally {
+      this.riversOverlayLoading = false;
+      this.riversBuildInFlight = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  private async ensureLakesLoaded(): Promise<void> {
+    if (!this.lakesEnabled || !this.earthMesh || !this.scene) {
+      return;
+    }
+    if (this.lakesMesh) {
+      return;
+    }
+    if (this.lakesBuildInFlight) {
+      return;
+    }
+    this.lakesBuildInFlight = true;
+    this.lakesOverlayLoading = true;
+    this.lakesOverlayFailed = false;
+    this.cdr.markForCheck();
+    try {
+      const text = await firstValueFrom(
+        this.http.get(this.globeNe10mLakesUrl(), { responseType: 'text' }).pipe(timeout(120000))
+      );
+      const parsed: unknown = JSON.parse(text as string);
+      if (!this.lakesEnabled || !this.earthMesh) {
+        return;
+      }
+      this.disposeLakesMesh();
+      const mesh = this.buildNeTintFanMeshFromData(
+        parsed,
+        GLOBE_LAKES_FILL_RADIUS,
+        new THREE.Color(0x3d7ea8),
+        GLOBE_LAKES_MAX_FAN_TRIANGLES,
+        'LakesNe10',
+        0.52,
+        GLOBE_LAKES_RING_MAX_VERTS
+      );
+      const ok = !!(mesh && this.lakesEnabled && this.earthMesh);
+      this.lakesOverlayFailed = !ok;
+      if (ok && mesh) {
+        this.earthMesh.add(mesh);
+        this.lakesMesh = mesh;
+      }
+    } catch {
+      this.lakesOverlayFailed = true;
+    } finally {
+      this.lakesOverlayLoading = false;
+      this.lakesBuildInFlight = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  private async ensureGlaciersLoaded(): Promise<void> {
+    if (!this.glaciersEnabled || !this.earthMesh || !this.scene) {
+      return;
+    }
+    if (this.glaciersMesh) {
+      return;
+    }
+    if (this.glaciersBuildInFlight) {
+      return;
+    }
+    this.glaciersBuildInFlight = true;
+    this.glaciersOverlayLoading = true;
+    this.glaciersOverlayFailed = false;
+    this.cdr.markForCheck();
+    try {
+      const text = await firstValueFrom(
+        this.http.get(this.globeNe110GlaciatedAreasUrl(), { responseType: 'text' }).pipe(timeout(120000))
+      );
+      const parsed: unknown = JSON.parse(text as string);
+      if (!this.glaciersEnabled || !this.earthMesh) {
+        return;
+      }
+      this.disposeGlaciersMesh();
+      const mesh = this.buildNeTintFanMeshFromData(
+        parsed,
+        GLOBE_GLACIER_FILL_RADIUS,
+        new THREE.Color(0xe8fbff),
+        GLOBE_GLACIER_MAX_FAN_TRIANGLES,
+        'GlaciersNe110',
+        0.58
+      );
+      const ok = !!(mesh && this.glaciersEnabled && this.earthMesh);
+      this.glaciersOverlayFailed = !ok;
+      if (ok && mesh) {
+        this.earthMesh.add(mesh);
+        this.glaciersMesh = mesh;
+      }
+    } catch {
+      this.glaciersOverlayFailed = true;
+    } finally {
+      this.glaciersOverlayLoading = false;
+      this.glaciersBuildInFlight = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  private async ensureCitiesLoaded(): Promise<void> {
+    if (!this.citiesEnabled || !this.earthMesh || !this.scene) {
+      return;
+    }
+    if (this.citiesPoints) {
+      return;
+    }
+    if (this.citiesBuildInFlight) {
+      return;
+    }
+    this.citiesBuildInFlight = true;
+    this.citiesOverlayLoading = true;
+    this.citiesOverlayFailed = false;
+    this.cdr.markForCheck();
+    try {
+      const text = await firstValueFrom(
+        this.http.get(this.globeNe110PopulatedPlacesSimpleUrl(), { responseType: 'text' }).pipe(timeout(120000))
+      );
+      const parsed: unknown = JSON.parse(text as string);
+      if (!this.citiesEnabled || !this.earthMesh) {
+        return;
+      }
+      this.disposeCitiesPoints();
+      const pts = this.buildCitiesPointsFromData(parsed);
+      const ok = !!(pts && this.citiesEnabled && this.earthMesh);
+      this.citiesOverlayFailed = !ok;
+      if (ok && pts) {
+        this.earthMesh.add(pts);
+        this.citiesPoints = pts;
+      }
+    } catch {
+      this.citiesOverlayFailed = true;
+    } finally {
+      this.citiesOverlayLoading = false;
+      this.citiesBuildInFlight = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  private async ensureTimeZonesLoaded(): Promise<void> {
+    if (!this.timeZonesEnabled || !this.earthMesh || !this.scene) {
+      return;
+    }
+    if (this.timeZonesMesh) {
+      return;
+    }
+    if (this.timeZonesBuildInFlight) {
+      return;
+    }
+    this.timeZonesBuildInFlight = true;
+    this.timeZonesOverlayLoading = true;
+    this.timeZonesOverlayFailed = false;
+    this.cdr.markForCheck();
+    try {
+      const text = await firstValueFrom(
+        this.http.get(this.globeNe10mTimeZonesUrl(), { responseType: 'text' }).pipe(timeout(120000))
+      );
+      const parsed: unknown = JSON.parse(text as string);
+      if (!this.timeZonesEnabled || !this.earthMesh) {
+        return;
+      }
+      this.disposeTimeZonesMesh();
+      const mesh = this.buildTimeZonesMeshFromData(parsed);
+      const ok = !!(mesh && this.timeZonesEnabled && this.earthMesh);
+      this.timeZonesOverlayFailed = !ok;
+      if (ok && mesh) {
+        this.earthMesh.add(mesh);
+        this.timeZonesMesh = mesh;
+      }
+    } catch {
+      this.timeZonesOverlayFailed = true;
+    } finally {
+      this.timeZonesOverlayLoading = false;
+      this.timeZonesBuildInFlight = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  private async ensureCountryBordersLoaded(): Promise<void> {
+    if (!this.countryBordersEnabled || !this.earthMesh || !this.scene) {
+      return;
+    }
+    if (this.bordersOverlayGroup) {
+      return;
+    }
+    if (this.bordersBuildInFlight) {
+      return;
+    }
+    this.bordersBuildInFlight = true;
+    this.bordersOverlayLoading = true;
+    this.bordersOverlayFailed = false;
+    this.cdr.markForCheck();
+    try {
+      const text = await firstValueFrom(
+        this.http.get(this.globeNe110BoundariesLandUrl(), { responseType: 'text' }).pipe(timeout(120000))
+      );
+      const parsed: unknown = JSON.parse(text as string);
+      if (!this.countryBordersEnabled || !this.earthMesh) {
+        return;
+      }
+      const builtOk = this.buildCountryBordersFromParsedGeo(parsed);
+      this.bordersOverlayFailed = !builtOk;
+    } catch {
+      this.bordersOverlayFailed = true;
+    } finally {
+      this.bordersOverlayLoading = false;
+      this.bordersBuildInFlight = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  private createGeoJsonLineSegmentsGroupFromData(
+    data: unknown,
+    rLine: number,
+    maxSegs: number,
+    color: number,
+    opacity: number,
+    groupName: string
+  ): THREE.Group | null {
+    let features: unknown[] = [];
+    if (WorldGlobeComponent.isGeoJsonFeatureCollectionLike(data)) {
+      features = WorldGlobeComponent.readGeoJsonFeaturesArray(data.features);
+    } else if (WorldGlobeComponent.isGeoJsonFeatureLike(data)) {
+      features = [data];
+    }
+    const verts: number[] = [];
+    const counter = { n: 0 };
+
+    for (const f of features) {
+      if (counter.n >= maxSegs) {
+        break;
+      }
+      if (!WorldGlobeComponent.isGeoJsonFeatureLike(f)) {
+        continue;
+      }
+      const geom = (f as { geometry?: unknown }).geometry;
+      if (geom != null && typeof geom === 'object') {
+        WorldGlobeComponent.appendBorderSegmentsForGeometry(
+          geom as { type?: string; coordinates?: unknown; geometries?: unknown[] },
+          rLine,
+          verts,
+          counter,
+          maxSegs
+        );
+      }
+    }
+
+    if (!verts.length) {
+      return null;
+    }
+    const group = new THREE.Group();
+    group.name = groupName;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(verts), 3));
+    const mat = new THREE.LineBasicMaterial({
+      color,
+      transparent: true,
+      opacity,
+      depthWrite: false
+    });
+    group.add(new THREE.LineSegments(geo, mat));
+    return group;
+  }
+
+  private buildCountryBordersFromParsedGeo(data: unknown): boolean {
+    if (!this.countryBordersEnabled || !this.earthMesh) {
+      return false;
+    }
+    this.disposeCountryBordersOverlay();
+    const group = this.createGeoJsonLineSegmentsGroupFromData(
+      data,
+      GLOBE_BORDERS_LINE_RADIUS,
+      MAX_BORDER_LINE_SEGMENTS,
+      0xe8eefc,
+      0.72,
+      'CountryBordersOverlay'
+    );
+    if (!group || !this.countryBordersEnabled || !this.earthMesh) {
+      return false;
+    }
+    this.earthMesh.add(group);
+    this.bordersOverlayGroup = group;
+    return true;
+  }
+
+  private async ensureCoastlinesLoaded(): Promise<void> {
+    if (!this.coastlinesEnabled || !this.earthMesh || !this.scene) {
+      return;
+    }
+    if (this.coastlinesOverlayGroup) {
+      return;
+    }
+    if (this.coastlinesBuildInFlight) {
+      return;
+    }
+    this.coastlinesBuildInFlight = true;
+    this.coastlinesOverlayLoading = true;
+    this.coastlinesOverlayFailed = false;
+    this.cdr.markForCheck();
+    try {
+      const text = await firstValueFrom(
+        this.http.get(this.globeNe110CoastlineUrl(), { responseType: 'text' }).pipe(timeout(120000))
+      );
+      const parsed: unknown = JSON.parse(text as string);
+      if (!this.coastlinesEnabled || !this.earthMesh) {
+        return;
+      }
+      const builtOk = this.buildCoastlinesFromParsedGeo(parsed);
+      this.coastlinesOverlayFailed = !builtOk;
+    } catch {
+      this.coastlinesOverlayFailed = true;
+    } finally {
+      this.coastlinesOverlayLoading = false;
+      this.coastlinesBuildInFlight = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  private buildCoastlinesFromParsedGeo(data: unknown): boolean {
+    if (!this.coastlinesEnabled || !this.earthMesh) {
+      return false;
+    }
+    this.disposeCoastlinesOverlay();
+    const group = this.createGeoJsonLineSegmentsGroupFromData(
+      data,
+      GLOBE_COASTLINE_LINE_RADIUS,
+      MAX_COASTLINE_LINE_SEGMENTS,
+      0x7ee3fa,
+      0.62,
+      'CoastlineOverlay110m'
+    );
+    if (!group || !this.coastlinesEnabled || !this.earthMesh) {
+      return false;
+    }
+    this.earthMesh.add(group);
+    this.coastlinesOverlayGroup = group;
+    return true;
+  }
+
+  /** Grille ° géographiques (pas de téléchargement : isolignes approximées). */
+  private ensureGraticuleOverlayBuilt(): void {
+    if (!this.graticuleEnabled || !this.earthMesh) {
+      return;
+    }
+    if (this.graticuleOverlayGroup) {
+      return;
+    }
+    const group = WorldGlobeComponent.createGraticuleOverlayLineGroup(
+      GLOBE_GRATICULE_RADIUS,
+      GLOBE_GRATICULE_STEP_DEG,
+      GLOBE_GRATICULE_MERIDIAN_LAT_STEP,
+      GLOBE_GRATICULE_PARALLEL_LON_STEP,
+      MAX_GRATICULE_LINE_SEGMENTS
+    );
+    this.earthMesh.add(group);
+    this.graticuleOverlayGroup = group;
+  }
+
+  private static createGraticuleOverlayLineGroup(
+    r: number,
+    isoStepDeg: number,
+    meridianLatStep: number,
+    parallelLonStep: number,
+    maxSegs: number
+  ): THREE.Group {
+    const verts: number[] = [];
+    const c = { n: 0 };
+    for (let lon = -180; lon < 180 && c.n < maxSegs; lon += isoStepDeg) {
+      for (let lat = -87; lat < 87 && c.n < maxSegs; lat += meridianLatStep) {
+        const latTo = Math.min(87, lat + meridianLatStep);
+        WorldGlobeComponent.pushLonLatBorderSegment(lon, lat, lon, latTo, r, verts, c, maxSegs);
+      }
+    }
+    for (let lat = -90 + isoStepDeg; lat <= 90 - isoStepDeg && c.n < maxSegs; lat += isoStepDeg) {
+      for (let lon = -180; lon < 180 - parallelLonStep && c.n < maxSegs; lon += parallelLonStep) {
+        WorldGlobeComponent.pushLonLatBorderSegment(lon, lat, lon + parallelLonStep, lat, r, verts, c, maxSegs);
+      }
+    }
+    const group = new THREE.Group();
+    group.name = 'GeographicGraticule';
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(verts), 3));
+    const mat = new THREE.LineBasicMaterial({
+      color: 0x4a9bdc,
+      transparent: true,
+      opacity: 0.42,
+      depthWrite: false
+    });
+    group.add(new THREE.LineSegments(geo, mat));
+    return group;
+  }
+
+  private static isGeoJsonFeatureCollectionLike(data: unknown): data is { features?: unknown } {
+    return typeof data === 'object' && data !== null && (data as { type?: unknown }).type === 'FeatureCollection';
+  }
+
+  private static isGeoJsonFeatureLike(data: unknown): data is Record<string, unknown> {
+    return typeof data === 'object' && data !== null && (data as { type?: unknown }).type === 'Feature';
+  }
+
+  private static readGeoJsonFeaturesArray(features: unknown): unknown[] {
+    if (!Array.isArray(features)) {
+      return [];
+    }
+    return features;
+  }
+
+  private static appendBorderSegmentsForGeometry(
+    geometry: { type?: string; coordinates?: unknown; geometries?: unknown[] },
+    r: number,
+    verts: number[],
+    counter: { n: number },
+    maxSegs: number
+  ): void {
+    const type = geometry.type;
+    switch (type) {
+      case 'LineString':
+        WorldGlobeComponent.pushLineStringBorderCoords(
+          geometry.coordinates as number[][] | undefined,
+          r,
+          verts,
+          counter,
+          maxSegs
+        );
+        break;
+      case 'MultiLineString':
+        for (const line of (geometry.coordinates as number[][][]) ?? []) {
+          WorldGlobeComponent.pushLineStringBorderCoords(line, r, verts, counter, maxSegs);
+          if (counter.n >= maxSegs) break;
+        }
+        break;
+      case 'Polygon':
+        for (const ring of (geometry.coordinates as number[][][]) ?? []) {
+          WorldGlobeComponent.pushPolygonRingCoords(ring, r, verts, counter, maxSegs);
+          if (counter.n >= maxSegs) break;
+        }
+        break;
+      case 'MultiPolygon':
+        for (const poly of (geometry.coordinates as number[][][][]) ?? []) {
+          if (counter.n >= maxSegs) break;
+          for (const ring of poly) {
+            WorldGlobeComponent.pushPolygonRingCoords(ring, r, verts, counter, maxSegs);
+          }
+        }
+        break;
+      case 'GeometryCollection':
+        for (const child of geometry.geometries ?? []) {
+          if (counter.n >= maxSegs) break;
+          if (!child || typeof child !== 'object') continue;
+          WorldGlobeComponent.appendBorderSegmentsForGeometry(
+            child as { type?: string; coordinates?: unknown; geometries?: unknown[] },
+            r,
+            verts,
+            counter,
+            maxSegs
+          );
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+  private static pushLineStringBorderCoords(
+    coords: number[][] | undefined,
+    r: number,
+    verts: number[],
+    counter: { n: number },
+    maxSegs: number
+  ): void {
+    if (!coords?.length) {
+      return;
+    }
+    for (let i = 0; i < coords.length - 1 && counter.n < maxSegs; i++) {
+      const a = coords[i];
+      const b = coords[i + 1];
+      if (!Array.isArray(a) || !Array.isArray(b) || a.length < 2 || b.length < 2) {
+        continue;
+      }
+      WorldGlobeComponent.pushLonLatBorderSegment(a[0], a[1], b[0], b[1], r, verts, counter, maxSegs);
+    }
+  }
+
+  private static pushPolygonRingCoords(
+    ring: number[][] | undefined,
+    r: number,
+    verts: number[],
+    counter: { n: number },
+    maxSegs: number
+  ): void {
+    if (!ring?.length || ring.length < 2) {
+      return;
+    }
+    const n = ring.length;
+    let upto = n;
+    const first = ring[0];
+    const last = ring[n - 1];
+    if (
+      Array.isArray(first) &&
+      Array.isArray(last) &&
+      first.length >= 2 &&
+      last.length >= 2 &&
+      first[0] === last[0] &&
+      first[1] === last[1]
+    ) {
+      upto = n - 1;
+    }
+    for (let i = 0; i < upto - 1 && counter.n < maxSegs; i++) {
+      const a = ring[i];
+      const b = ring[i + 1];
+      if (!a || !b || a.length < 2 || b.length < 2) {
+        continue;
+      }
+      WorldGlobeComponent.pushLonLatBorderSegment(a[0], a[1], b[0], b[1], r, verts, counter, maxSegs);
+    }
+  }
+
+  /** Plus court séparateur longitudinal (0…180 °). */
+  private static shortestLonSeparationDegrees(lonA: number, lonB: number): number {
+    const delta = ((((lonB - lonA + 540) % 360) + 360) % 360) - 180;
+    return Math.abs(delta);
+  }
+
+  private static pushLonLatBorderSegment(
+    lonA: number,
+    latA: number,
+    lonB: number,
+    latB: number,
+    r: number,
+    verts: number[],
+    counter: { n: number },
+    maxSegs: number
+  ): void {
+    if (counter.n >= maxSegs) {
+      return;
+    }
+    if (![lonA, latA, lonB, latB].every((x) => Number.isFinite(x))) {
+      return;
+    }
+    if (Math.abs(latA) > 90 || Math.abs(latB) > 90) {
+      return;
+    }
+    const dLon = WorldGlobeComponent.shortestLonSeparationDegrees(lonA, lonB);
+    if (dLon > 88) {
+      return;
+    }
+    if (Math.abs(latB - latA) > 170) {
+      return;
+    }
+    const va = WorldGlobeComponent.latLonToVector3(latA, lonA, r);
+    const vb = WorldGlobeComponent.latLonToVector3(latB, lonB, r);
+    verts.push(va.x, va.y, va.z, vb.x, vb.y, vb.z);
+    counter.n++;
+  }
+
   private disposeSceneHierarchy(): void {
     if (!this.scene) {
       return;
@@ -2279,6 +4123,12 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
           mat.forEach((m) => m.dispose());
         } else if (mat) {
           mat.dispose();
+        }
+      } else if (obj instanceof THREE.Sprite) {
+        const sm = obj.material;
+        if (sm instanceof THREE.SpriteMaterial) {
+          sm.map?.dispose?.();
+          sm.dispose();
         }
       } else if (obj instanceof THREE.Points) {
         obj.geometry.dispose();

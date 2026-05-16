@@ -12,6 +12,10 @@ import java.time.Duration;
 @Configuration
 public class RestTemplateConfig {
 
+    /** Longer timeouts: globe proxy may hit large JPEGs/WMS payloads and flaky public ISS APIs. */
+    public static final String GLOBE_PROXY_REST_TEMPLATE = "globeProxyRestTemplate";
+
+
     /**
      * Client HTTP court pour proxies et API externes (échec rapide si indisponible).
      */
@@ -21,6 +25,17 @@ public class RestTemplateConfig {
         return builder
                 .setConnectTimeout(Duration.ofSeconds(2))
                 .setReadTimeout(Duration.ofSeconds(3))
+                .build();
+    }
+
+    @Bean(GLOBE_PROXY_REST_TEMPLATE)
+    public RestTemplate globeProxyRestTemplate(
+            RestTemplateBuilder builder,
+            @Value("${globe.proxy.http.connect-timeout-seconds:10}") int connectSeconds,
+            @Value("${globe.proxy.http.read-timeout-seconds:90}") int readSeconds) {
+        return builder
+                .setConnectTimeout(Duration.ofSeconds(Math.max(connectSeconds, 1)))
+                .setReadTimeout(Duration.ofSeconds(Math.max(readSeconds, 1)))
                 .build();
     }
 

@@ -1,7 +1,12 @@
 package com.pat.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.pat.config.RestTemplateConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -11,21 +16,26 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.EnumMap;
+import java.util.Locale;
 import java.util.Map;
 
 /**
- * Proxies fixed allow-listed globe imagery URLs (Three.js sample textures, NASA BMNG, NASA GIBS WMS)
- * so the browser talks only to PatTool and not to third-party hosts.
+ * Proxies fixed allow-listed globe imagery URLs (Three.js sample textures, NASA BMNG, NASA GIBS WMS),
+ * optional Natural Earth boundary GeoJSON and ISS position feeds —
+ * browsers call PatTool only, not upstream hosts directly.
  */
 @Service
 public class GlobeProxyService {
 
     private static final Logger log = LoggerFactory.getLogger(GlobeProxyService.class);
     private static final int MAX_BYTES_TEXTURE = 14 * 1024 * 1024;
+    private static final int MAX_BYTES_GEOJSON = 5 * 1024 * 1024;
+    private static final int MAX_BYTES_ISS_FEED = 32 * 1024;
     private static final String UA = "PATTOOL-GlobeProxy/1.0";
 
     private static final Map<PlanetTextureAsset, String> THREE_JS_PLANET_URLS;
@@ -42,10 +52,63 @@ public class GlobeProxyService {
     private static final String NASA_BMNG_JPG =
             "https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/73909/world.topo.bathy.200412.3x5400x2700.jpg";
 
-    private final RestTemplate restTemplate;
+    /** Public-domain land-boundary linework (Natural Earth 110m). */
+    private static final String NATURAL_EARTH_110M_BOUNDARIES_LAND_GEOJSON =
+            "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_110m_admin_0_boundary_lines_land.geojson";
 
-    public GlobeProxyService(RestTemplate restTemplate) {
-        this.restTemplate = restTemplate;
+    /** Shoreline linework coast / land-ocean boundary (Natural Earth 110m). */
+    private static final String NATURAL_EARTH_110M_COASTLINE_GEOJSON =
+            "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_110m_coastline.geojson";
+
+    /** Admin-0 country polygons with {@code LABEL_X}/{@code LABEL_Y} and multilingual names (Natural Earth 110m). */
+    private static final String NATURAL_EARTH_110M_ADMIN_0_COUNTRIES_GEOJSON =
+            "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_110m_admin_0_countries.geojson";
+
+    /** Equator, tropics, polar circles (Natural Earth 110m). */
+    private static final String NATURAL_EARTH_110M_GEOGRAPHIC_LINES_GEOJSON =
+            "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_110m_geographic_lines.geojson";
+
+    /** Rivers / lake centerlines (Natural Earth 110m). */
+    private static final String NATURAL_EARTH_110M_RIVERS_LAKE_CENTERLINES_GEOJSON =
+            "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_110m_rivers_lake_centerlines.geojson";
+
+    /** Rivers / lake centerlines (Natural Earth 50m; much richer than 110m, under {@link #MAX_BYTES_GEOJSON}). */
+    private static final String NATURAL_EARTH_50M_RIVERS_LAKE_CENTERLINES_GEOJSON =
+            "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_50m_rivers_lake_centerlines.geojson";
+
+    /** Lake polygons (Natural Earth 110m). */
+    private static final String NATURAL_EARTH_110M_LAKES_GEOJSON =
+            "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_110m_lakes.geojson";
+
+    /** Lake polygons (Natural Earth 10m; incl. Léman et lacs régionaux — sous {@link #MAX_BYTES_GEOJSON}). */
+    private static final String NATURAL_EARTH_10M_LAKES_GEOJSON =
+            "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_10m_lakes.geojson";
+
+    /** Glaciers / ice sheets (Natural Earth 110m). */
+    private static final String NATURAL_EARTH_110M_GLACIATED_AREAS_GEOJSON =
+            "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_110m_glaciated_areas.geojson";
+
+    /** City / town points (Natural Earth 110m simplified). */
+    private static final String NATURAL_EARTH_110M_POPULATED_PLACES_SIMPLE_GEOJSON =
+            "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_110m_populated_places_simple.geojson";
+
+    /** No IANA 110m release : use 10m time zones (under {@link #MAX_BYTES_GEOJSON}). */
+    private static final String NATURAL_EARTH_10M_TIME_ZONES_GEOJSON =
+            "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_10m_time_zones.geojson";
+
+    private static final String OPEN_NOTIFY_ISS_NOW_JSON = "https://api.open-notify.org/iss-now.json";
+
+    /** NORAD 25544 = ISS ; JSON with {@code latitude} / {@code longitude} (degrees). */
+    private static final String WHERE_THE_ISS_AT_ISS_JSON = "https://api.wheretheiss.at/v1/satellites/25544";
+
+    private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
+
+    public GlobeProxyService(
+            @Qualifier(RestTemplateConfig.GLOBE_PROXY_REST_TEMPLATE) RestTemplate globeProxyRestTemplate,
+            ObjectMapper objectMapper) {
+        this.restTemplate = globeProxyRestTemplate;
+        this.objectMapper = objectMapper;
     }
 
     public enum PlanetTextureAsset {
@@ -118,6 +181,99 @@ public class GlobeProxyService {
                 + "&TIME=" + time;
         byte[] bytes = fetchBytes(url, MAX_BYTES_TEXTURE);
         return new FetchedImage(bytes, MediaType.IMAGE_JPEG);
+    }
+
+    /** Natural Earth 110m administrative boundary lines (land), UTF-8 GeoJSON. */
+    public byte[] fetchNaturalEarth110mLandBoundaryGeoJson() {
+        return fetchBytes(NATURAL_EARTH_110M_BOUNDARIES_LAND_GEOJSON, MAX_BYTES_GEOJSON);
+    }
+
+    /** Natural Earth 110m coastline (land-ocean boundary), UTF-8 GeoJSON. */
+    public byte[] fetchNaturalEarth110mCoastlineGeoJson() {
+        return fetchBytes(NATURAL_EARTH_110M_COASTLINE_GEOJSON, MAX_BYTES_GEOJSON);
+    }
+
+    /** Natural Earth admin-0 countries polygons with label coordinates; UTF-8 GeoJSON (under proxy size cap). */
+    public byte[] fetchNaturalEarth110mAdmin0CountriesGeoJson() {
+        return fetchBytes(NATURAL_EARTH_110M_ADMIN_0_COUNTRIES_GEOJSON, MAX_BYTES_GEOJSON);
+    }
+
+    public byte[] fetchNaturalEarth110mGeographicLinesGeoJson() {
+        return fetchBytes(NATURAL_EARTH_110M_GEOGRAPHIC_LINES_GEOJSON, MAX_BYTES_GEOJSON);
+    }
+
+    public byte[] fetchNaturalEarth110mRiversLakeCenterlinesGeoJson() {
+        return fetchBytes(NATURAL_EARTH_110M_RIVERS_LAKE_CENTERLINES_GEOJSON, MAX_BYTES_GEOJSON);
+    }
+
+    /** Hydrology linework at 1:50m scale (many more rivers than 110m). */
+    public byte[] fetchNaturalEarth50mRiversLakeCenterlinesGeoJson() {
+        return fetchBytes(NATURAL_EARTH_50M_RIVERS_LAKE_CENTERLINES_GEOJSON, MAX_BYTES_GEOJSON);
+    }
+
+    public byte[] fetchNaturalEarth110mLakesGeoJson() {
+        return fetchBytes(NATURAL_EARTH_110M_LAKES_GEOJSON, MAX_BYTES_GEOJSON);
+    }
+
+    public byte[] fetchNaturalEarth10mLakesGeoJson() {
+        return fetchBytes(NATURAL_EARTH_10M_LAKES_GEOJSON, MAX_BYTES_GEOJSON);
+    }
+
+    public byte[] fetchNaturalEarth110mGlaciatedAreasGeoJson() {
+        return fetchBytes(NATURAL_EARTH_110M_GLACIATED_AREAS_GEOJSON, MAX_BYTES_GEOJSON);
+    }
+
+    public byte[] fetchNaturalEarth110mPopulatedPlacesSimpleGeoJson() {
+        return fetchBytes(NATURAL_EARTH_110M_POPULATED_PLACES_SIMPLE_GEOJSON, MAX_BYTES_GEOJSON);
+    }
+
+    public byte[] fetchNaturalEarth10mTimeZonesGeoJson() {
+        return fetchBytes(NATURAL_EARTH_10M_TIME_ZONES_GEOJSON, MAX_BYTES_GEOJSON);
+    }
+
+    /**
+     * JSON compatible with Open Notify {@code iss-now} ({@code message}, {@code iss_position}, {@code timestamp}).
+     * Tries Open Notify first ; if it fails, uses Where The ISS At and maps the payload to the same shape.
+     */
+    public byte[] fetchOpenNotifyIssNow() {
+        try {
+            return fetchBytes(OPEN_NOTIFY_ISS_NOW_JSON, MAX_BYTES_ISS_FEED);
+        } catch (IllegalStateException primary) {
+            log.info("Globe ISS: Open Notify failed ({}); trying wheretheiss.at fallback.", primary.getMessage());
+            try {
+                byte[] wtia = fetchBytes(WHERE_THE_ISS_AT_ISS_JSON, MAX_BYTES_ISS_FEED);
+                return mapWhereTheIssAtToOpenNotifyCompatibleJson(wtia);
+            } catch (IllegalStateException secondary) {
+                log.warn("Globe ISS: wheretheiss.at fallback failed ({})", secondary.getMessage());
+                throw primary;
+            }
+        }
+    }
+
+    private byte[] mapWhereTheIssAtToOpenNotifyCompatibleJson(byte[] wtiaPayload) {
+        try {
+            JsonNode root = objectMapper.readTree(wtiaPayload);
+            if (!root.has("latitude") || !root.has("longitude")) {
+                throw new IllegalStateException("WhereTheISS.at JSON missing latitude/longitude");
+            }
+            double lat = root.get("latitude").asDouble(Double.NaN);
+            double lon = root.get("longitude").asDouble(Double.NaN);
+            if (!Double.isFinite(lat) || !Double.isFinite(lon) || Math.abs(lat) > 90.0 || Math.abs(lon) > 180.0) {
+                throw new IllegalStateException("WhereTheISS.at invalid coordinates: " + lat + ", " + lon);
+            }
+            ObjectNode out = objectMapper.createObjectNode();
+            out.put("message", "success");
+            ObjectNode pos = objectMapper.createObjectNode();
+            pos.put("latitude", String.format(Locale.US, "%.6f", lat));
+            pos.put("longitude", String.format(Locale.US, "%.6f", lon));
+            out.set("iss_position", pos);
+            out.put("timestamp", Instant.now().getEpochSecond());
+            return objectMapper.writeValueAsBytes(out);
+        } catch (IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("ISS fallback JSON mapping failed: " + e.getMessage(), e);
+        }
     }
 
     private static LocalDate parseOrYesterday(String dateIso) {
