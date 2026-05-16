@@ -46,6 +46,17 @@ export class LocalNetworkService {
   }
 
   /**
+   * WLAN networks visible from PatTool backend host (server radio, not browser).
+   */
+  scanNearbyWifi(): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get(this.API_URL + "network/wifi-scan", { headers: headers })
+      )
+    );
+  }
+
+  /**
    * Stream network scan results using Server-Sent Events (SSE)
    * Returns an Observable that emits events as devices are found
    * @param useExternalVendorAPI If true, use external API for vendor detection (OUI lookup)

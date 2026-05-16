@@ -11,6 +11,37 @@ import { IotProxyService } from '../services/iot-proxy.service';
 import { IotProxyTarget } from '../model/iot-proxy-target';
 import { MembersService } from '../services/members.service';
 import { Member } from '../model/member';
+import type { VisibleWifiPayload } from '../model/wifi-visible.types';
+import {
+  CapacitorWifiScanService,
+  type PhoneWifiFrontendMode,
+  type PhoneWifiScanOutcome,
+} from '../services/capacitor-wifi-scan.service';
+
+/** Estimates from the Browser Network Information API (no neighbouring SSIDs). */
+export interface WifiBrowserHints {
+  hasNetworkInformationApi: boolean;
+  effectiveType?: string;
+  downlinkMbps?: number;
+  rttMs?: number;
+  saveData?: boolean;
+  /** Deprecated field; surfaced by some browsers. */
+  legacyLinkType?: string;
+  downlinkMaxMbps?: number;
+  collectedAtIso: string;
+  online?: boolean;
+  secureContext?: boolean;
+}
+
+/** Subset of Navigator.connection — some TS lib setups omit DOM `NetworkInformation`. */
+interface NavigatorConnectionLike extends EventTarget {
+  effectiveType?: string;
+  downlink?: number;
+  rtt?: number;
+  saveData?: boolean;
+  type?: string;
+  downlinkMax?: number;
+}
 
 export interface NetworkDevice {
   ipAddress: string;
@@ -193,6 +224,33 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   inventoryPreviewError: string = '';
   isLoadingInventoryPreview: boolean = false;
 
+  /** Nearby Wi‑Fi (PatTool backend host radio). */
+  @ViewChild('wifiScanModal') wifiScanModal!: TemplateRef<any>;
+  private wifiScanModalRef?: NgbModalRef;
+  wifiNetworks: VisibleWifiPayload[] = [];
+  wifiScanLoading = false;
+  wifiScanError = '';
+  wifiScanHostName = '';
+  wifiScanCapturedAtIso: string | null = null;
+  wifiScanExplanationEn = '';
+  wifiScanExplanationFr = '';
+  wifiScanBackendWarning = '';
+  wifiScanPlatform = '';
+
+  /** true = BSSIDs via PatTool backend; false = browser Network Information hints only */
+  wifiScanUseBackend = true;
+
+  wifiBrowserHints: WifiBrowserHints | null = null;
+
+  /** When not using backend: raw Network Information vs Capacitor native scan (Android / iOS). */
+  wifiPhoneScanMode: PhoneWifiFrontendMode | null = null;
+  /** User-facing line from native scan path (translated). */
+  wifiNativeInfoText = '';
+
+  private static readonly STORAGE_WIFI_SCAN_MODE = 'pat.localNetwork.wifiScan.mode';
+
+  private wifiConnListenerCleanup?: () => void;
+
   constructor(
     private router: Router,
     public keycloakService: KeycloakService,
@@ -202,7 +260,8 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private ngZone: NgZone,
     private modalService: NgbModal,
-    private translateService: TranslateService
+    private translateService: TranslateService,
+    private capacitorWifiScan: CapacitorWifiScanService
   ) { }
 
   ngOnInit() {
@@ -310,6 +369,7 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
       this.scanSubscription.unsubscribe();
       this.scanSubscription = null;
     }
+    this.cleanupWifiConnListener();
   }
 
   private handleScanEvent(event: any): void {
@@ -931,6 +991,278 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     }
     
     return 'device-header-safe'; // Green (default)
+  }
+
+  openWifiScanModal(): void {
+    const saved =
+      typeof sessionStorage !== 'undefined'
+        ? sessionStorage.getItem(LocalNetworkComponent.STORAGE_WIFI_SCAN_MODE)
+        : null;
+    if (saved === 'frontend' || saved === 'backend') {
+      this.wifiScanUseBackend = saved === 'backend';
+    }
+
+    this.wifiScanError = '';
+    this.wifiNetworks = [];
+    this.wifiScanBackendWarning = '';
+    this.wifiScanPlatform = '';
+    this.wifiBrowserHints = null;
+    this.wifiPhoneScanMode = null;
+    this.wifiNativeInfoText = '';
+
+    if (!this.wifiScanModal) {
+      return;
+    }
+
+    this.wifiScanModalRef = this.modalService.open(this.wifiScanModal, {
+      size: 'lg',
+      scrollable: true,
+      backdrop: 'static',
+      keyboard: true
+    });
+
+    this.runWifiScanAccordingToMode();
+  }
+
+  closeWifiScanModal(): void {
+    this.cleanupWifiConnListener();
+    this.wifiScanModalRef?.dismiss('close');
+    this.wifiScanModalRef = undefined;
+  }
+
+  onWifiScanBackendToggleChange(): void {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem(
+        LocalNetworkComponent.STORAGE_WIFI_SCAN_MODE,
+        this.wifiScanUseBackend ? 'backend' : 'frontend'
+      );
+    }
+    this.cleanupWifiConnListener();
+    this.runWifiScanAccordingToMode();
+  }
+
+  refreshWifiNetworks(): void {
+    this.runWifiScanAccordingToMode();
+  }
+
+  private cleanupWifiConnListener(): void {
+    this.wifiConnListenerCleanup?.();
+    this.wifiConnListenerCleanup = undefined;
+  }
+
+  private resetBackendWifiPresentation(): void {
+    this.wifiNetworks = [];
+    this.wifiScanHostName = '';
+    this.wifiScanCapturedAtIso = null;
+    this.wifiScanExplanationEn = '';
+    this.wifiScanExplanationFr = '';
+    this.wifiScanBackendWarning = '';
+    this.wifiScanPlatform = '';
+    this.wifiScanError = '';
+    this.wifiPhoneScanMode = null;
+    this.wifiNativeInfoText = '';
+  }
+
+  private runWifiScanAccordingToMode(): void {
+    if (this.wifiScanUseBackend) {
+      this.fetchWifiNetworks();
+    } else {
+      this.resetBackendWifiPresentation();
+      this.runFrontendWifiCombined();
+    }
+  }
+
+  /**
+   * Frontend path: Capacitor native Wi‑Fi (packaged Android/iOS build) → else browser Network Information.
+   */
+  private runFrontendWifiCombined(): void {
+    this.cleanupWifiConnListener();
+    this.wifiPhoneScanMode = null;
+    this.wifiNativeInfoText = '';
+    this.wifiBrowserHints = null;
+    this.wifiNetworks = [];
+    this.wifiScanError = '';
+    this.wifiScanLoading = true;
+
+    void this.capacitorWifiScan
+      .scanFromNativeShellIfApplicable()
+      .then((outcome) => {
+        this.ngZone.run(() => {
+          this.wifiPhoneScanMode = outcome.mode;
+
+          const nativeRowsReady =
+            outcome.mode !== 'web_network_info' && outcome.networks.length > 0;
+
+          if (nativeRowsReady) {
+            this.wifiNetworks = outcome.networks;
+            this.wifiNativeInfoText = this.composeWifiNativeNotes(outcome, true);
+            this.wifiScanLoading = false;
+            this.cdr.detectChanges();
+            return;
+          }
+
+          this.wifiNetworks = outcome.networks;
+          this.wifiNativeInfoText = this.composeWifiNativeNotes(outcome, false);
+          this.captureBrowserWifiHints();
+        });
+      })
+      .catch(() => {
+        this.ngZone.run(() => {
+          this.wifiPhoneScanMode = 'web_network_info';
+          this.wifiNetworks = [];
+          this.wifiNativeInfoText = this.translateService.instant('LOCAL_NETWORK.WIFI_NATIVE_GENERIC', {
+            detail: 'promise_rejected',
+          });
+          this.captureBrowserWifiHints();
+        });
+      });
+  }
+
+  private composeWifiNativeNotes(outcome: PhoneWifiScanOutcome, hasRows: boolean): string {
+    if (outcome.mode === 'web_network_info') {
+      return '';
+    }
+    if (hasRows) {
+      if (outcome.mode === 'capacitor_android') {
+        return this.translateService.instant('LOCAL_NETWORK.WIFI_NATIVE_ANDROID_LIST_INTRO');
+      }
+      return this.translateService.instant('LOCAL_NETWORK.WIFI_NATIVE_IOS_LIST_INTRO');
+    }
+
+    if (outcome.message === 'permission_denied') {
+      return this.translateService.instant('LOCAL_NETWORK.WIFI_NATIVE_PERM_DENIED');
+    }
+    if (outcome.message === 'scan_empty_or_throttled') {
+      return this.translateService.instant('LOCAL_NETWORK.WIFI_NATIVE_ANDROID_EMPTY');
+    }
+
+    const ign = outcome.message === 'not_native' || outcome.message === 'unsupported_native_platform';
+    if (outcome.message && !ign) {
+      return this.translateService.instant('LOCAL_NETWORK.WIFI_NATIVE_GENERIC', { detail: outcome.message });
+    }
+    return outcome.mode === 'capacitor_ios_single'
+      ? this.translateService.instant('LOCAL_NETWORK.WIFI_NATIVE_IOS_NO_DATA')
+      : '';
+  }
+
+  /** Show Network Information supplemental table while on pure web builds or native scan returned nothing. */
+  wifiFrontendShowNiPanel(): boolean {
+    if (this.wifiScanUseBackend) {
+      return false;
+    }
+    if (!this.wifiBrowserHints) {
+      return false;
+    }
+    return (
+      this.wifiPhoneScanMode === null ||
+      this.wifiPhoneScanMode === 'web_network_info' ||
+      this.wifiNetworks.length === 0
+    );
+  }
+
+  /**
+   * Uses the Navigator Network Information API — web/PWA fallback when no Capacitor native Wi‑Fi list.
+   */
+  private captureBrowserWifiHints(updateOnly = false): void {
+    if (!updateOnly) {
+      this.cleanupWifiConnListener();
+      this.wifiScanLoading = true;
+      this.wifiScanError = '';
+    }
+
+    this.ngZone.run(() => {
+      try {
+        const nav = navigator as Navigator & {
+          connection?: NavigatorConnectionLike;
+          mozConnection?: NavigatorConnectionLike;
+          webkitConnection?: NavigatorConnectionLike;
+        };
+        const c: NavigatorConnectionLike | undefined =
+          nav.connection || nav.mozConnection || nav.webkitConnection;
+
+        this.wifiBrowserHints = {
+          hasNetworkInformationApi: !!c,
+          effectiveType: c?.effectiveType,
+          downlinkMbps: c?.downlink,
+          rttMs: c?.rtt,
+          saveData: c?.saveData,
+          legacyLinkType: typeof c?.type === 'string' ? c.type : undefined,
+          downlinkMaxMbps: typeof c?.downlinkMax === 'number' ? c.downlinkMax : undefined,
+          collectedAtIso: new Date().toISOString(),
+          online: navigator.onLine,
+          secureContext: window.isSecureContext,
+        };
+
+        if (!updateOnly && c) {
+          const et = c;
+          const handler = (): void =>
+            this.ngZone.run(() => this.captureBrowserWifiHints(true));
+
+          et.addEventListener('change', handler);
+          this.wifiConnListenerCleanup = () => {
+            try {
+              et.removeEventListener('change', handler);
+            } catch {
+              // swallow
+            }
+          };
+        }
+      } finally {
+        this.wifiScanLoading = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  private fetchWifiNetworks(): void {
+    this.cleanupWifiConnListener();
+    this.wifiBrowserHints = null;
+    this.wifiPhoneScanMode = null;
+    this.wifiNativeInfoText = '';
+
+    this.wifiScanLoading = true;
+    this.wifiScanError = '';
+    this.localNetworkService.scanNearbyWifi().subscribe({
+      next: (payload: Record<string, unknown>) => {
+        this.wifiScanLoading = false;
+        const nets = payload['networks'];
+        if (Array.isArray(nets)) {
+          this.wifiNetworks = nets as VisibleWifiPayload[];
+        } else {
+          this.wifiNetworks = [];
+        }
+        const host = typeof payload['hostName'] === 'string' ? (payload['hostName'] as string) : '';
+        this.wifiScanHostName =
+          typeof payload['captureHostLabel'] === 'string' && (payload['captureHostLabel'] as string).trim().length > 0
+            ? String(payload['captureHostLabel']).trim()
+            : host.trim();
+        const scanned = payload['scannedAt'];
+        this.wifiScanCapturedAtIso = typeof scanned === 'string' ? scanned : null;
+        this.wifiScanExplanationEn =
+          typeof payload['captureSourceExplanationEn'] === 'string' ? String(payload['captureSourceExplanationEn']) : '';
+        this.wifiScanExplanationFr =
+          typeof payload['captureSourceExplanationFr'] === 'string' ? String(payload['captureSourceExplanationFr']) : '';
+        this.wifiScanBackendWarning =
+          typeof payload['warning'] === 'string' ? String(payload['warning']) : '';
+        this.wifiScanPlatform =
+          typeof payload['platformDescription'] === 'string'
+            ? String(payload['platformDescription'])
+            : (typeof payload['platformKey'] === 'string' ? String(payload['platformKey']) : '');
+
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        this.wifiScanLoading = false;
+        if (error?.status === 403) {
+          this.wifiScanError = this.translateService.instant('LOCAL_NETWORK.WIFI_SCAN_FORBIDDEN');
+        } else if (error?.error?.message) {
+          this.wifiScanError = String(error.error.message);
+        } else {
+          this.wifiScanError = this.translateService.instant('LOCAL_NETWORK.WIFI_SCAN_GENERIC_ERROR');
+        }
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   /**

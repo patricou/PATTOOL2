@@ -1,52 +1,124 @@
-.world-globe-page {
-  max-width: 1650px;
+.wg-root {
+  max-width: 1680px;
   margin-inline: auto;
+  --wg-font: 0.68rem;
+  --wg-label: 0.66rem;
 }
 
-.world-globe-shell {
+.wg-title {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #e8eefc;
+}
+
+.wg-alert {
+  font-size: 0.68rem !important;
+}
+
+.wg-root .wg-btn,
+.wg-root .btn {
+  --bs-btn-font-size: 0.68rem;
+  --bs-btn-padding-y: 0.22rem;
+  --bs-btn-padding-x: 0.45rem;
+}
+
+.wg-shell {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.65rem;
   align-items: stretch;
-  background: radial-gradient(120% 100% at 50% 0%, #141b3a 0%, #020510 72%);
-  border-radius: 0.375rem;
-  padding: 0.75rem;
+  background: radial-gradient(115% 95% at 50% -8%, #1c2749 0%, #070b16 58%, #02040a 100%);
+  border-radius: 0.5rem;
+  padding: 0.55rem;
   min-height: min(74vh, 780px);
   position: relative;
+  border: 1px solid rgba(120, 140, 200, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 @media (min-width: 992px) {
-  .world-globe-shell {
+  .wg-shell {
     flex-direction: row;
   }
 }
 
-.world-globe-shell--fs {
+.wg-shell--fs {
   min-height: 100%;
   border-radius: 0;
+  border: none;
 }
 
-.world-globe-panel {
-  background: rgba(255, 255, 255, 0.97);
+.wg-sidebar {
+  width: 100%;
 }
 
 @media (min-width: 992px) {
-  .world-globe-panel {
-    width: min(305px, 36vw);
+  .wg-sidebar {
+    width: min(246px, 32vw);
   }
 }
 
-.world-globe-canvas-column {
+.wg-sidebar-inner {
+  background: rgba(10, 14, 26, 0.72);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.4rem;
+  padding: 0.55rem 0.6rem;
+  color: #c8d4ec;
+}
+
+.wg-switch {
+  margin-bottom: 0.28rem !important;
+}
+
+.wg-switch .form-check-input {
+  width: 1.85em;
+  height: 0.95em;
+  margin-top: 0.2em;
+  cursor: pointer;
+}
+
+.wg-switch .form-check-label {
+  font-size: var(--wg-label);
+  line-height: 1.25;
+  cursor: pointer;
+  color: #b9c7e8;
+}
+
+.wg-btn-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.wg-picker {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.wg-picker-title {
+  font-size: 0.68rem;
+}
+
+.wg-banner {
+  font-size: 0.65rem !important;
+  line-height: 1.3;
+}
+
+.wg-stage {
   position: relative;
 }
 
-.world-globe-canvas-host {
+.wg-canvas-host {
   min-height: min(62vh, 640px);
-  background: radial-gradient(circle at 50% 40%, rgba(40, 60, 120, 0.35), transparent 60%);
+  background: radial-gradient(circle at 50% 38%, rgba(45, 70, 130, 0.25), transparent 62%);
   outline: none;
+  border: 1px solid rgba(80, 100, 160, 0.15);
+  border-radius: 0.4rem;
 }
 
-.world-globe-canvas-host canvas {
+.wg-canvas-host canvas {
   display: block;
   width: 100%;
   height: 100%;
@@ -54,25 +126,47 @@
   vertical-align: top;
 }
 
-.world-globe-fab-hide {
+.wg-fab-hide {
   position: absolute;
   top: 0.35rem;
   left: 0.35rem;
-  opacity: 0.88;
+  opacity: 0.9;
+  z-index: 3;
 }
 
-.world-globe-shell--fs .world-globe-canvas-host {
+.wg-shell--fs .wg-canvas-host {
   min-height: calc(100vh - 140px);
 }
 
-.world-globe-shell--fs .world-globe-canvas-toolbar {
+.wg-shell--fs .wg-overlay-toolbar {
   position: sticky;
   top: 0;
   z-index: 2;
 }
 
-/* Zone plein viewport : même principe de centrage qu’une NgbModal (trace viewer / slideshow). */
-.world-globe-trace-layer {
+.wg-coords {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  bottom: auto;
+  z-index: 4;
+  padding: 0.28rem 0.45rem;
+  border-radius: 0.3rem;
+  background: rgba(8, 12, 22, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.62rem;
+  color: #bfe8c8;
+  letter-spacing: 0.03em;
+  pointer-events: none;
+}
+
+.wg-shell--fs .wg-coords {
+  top: max(0.45rem, env(safe-area-inset-top, 0px));
+  right: max(0.45rem, env(safe-area-inset-right, 0px));
+}
+
+/* Trace viewer overlay — classes historiques conservées pour ::ng-deep */
+.wg-trace-layer.world-globe-trace-layer {
   position: fixed;
   inset: 0;
   z-index: 1056;
@@ -81,10 +175,10 @@
   justify-content: center;
   padding: 1.75rem 1rem;
   pointer-events: auto;
-  background: rgba(0, 0, 0, 0.42);
+  background: rgba(0, 0, 0, 0.48);
 }
 
-.world-globe-trace-shell {
+.wg-trace-shell.world-globe-trace-shell {
   position: relative;
   width: 65vw;
   max-width: 65vw;
@@ -95,7 +189,7 @@
   flex-direction: column;
 }
 
-.world-globe-trace-mount {
+.wg-trace-mount.world-globe-trace-mount {
   flex: 1 1 auto;
   min-height: 0;
   width: 100%;
@@ -108,12 +202,12 @@
 }
 
 @media (max-width: 768px) {
-  .world-globe-trace-layer {
+  .wg-trace-layer.world-globe-trace-layer {
     padding: 0;
     align-items: stretch;
   }
 
-  .world-globe-trace-shell {
+  .wg-trace-shell.world-globe-trace-shell {
     width: 100vw;
     max-width: 100vw;
     max-height: 100vh;
@@ -121,14 +215,14 @@
     min-height: 100vh;
   }
 
-  .world-globe-trace-mount {
+  .wg-trace-mount.world-globe-trace-mount {
     max-height: none;
     height: 100%;
     flex: 1;
   }
 
   @supports (height: 100dvh) {
-    .world-globe-trace-shell {
+    .wg-trace-shell.world-globe-trace-shell {
       max-height: 100dvh;
       height: 100dvh;
       min-height: 100dvh;
@@ -156,10 +250,6 @@
   }
 }
 
-/*
- * Contenu modale Trace Viewer dans le cadre globe : même cible que slideshow (65vw / 90vh)
- * puis hauteur interne carte 60vh + min-height 420px comme trace-viewer-modal.component.css.
- */
 :host ::ng-deep .world-globe-trace-mount .modal.world-globe-trace-embed {
   position: static !important;
   display: flex !important;
@@ -223,6 +313,287 @@
 }
 
 .world-globe-activity-list {
-  max-height: min(42vh, 280px);
+  max-height: min(42vh, 240px);
   overflow-y: auto;
+}
+
+/* Recherche lieu (géocodage Nominatim) */
+.wg-geocode-block {
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.wg-geocode-label {
+  font-size: var(--wg-label, 0.66rem);
+}
+
+.wg-geocode-input-group .form-control {
+  font-size: var(--wg-font, 0.68rem);
+}
+
+.wg-geocode-btn {
+  min-width: 2.5rem;
+}
+
+.wg-geocode-result-list {
+  max-height: min(36vh, 200px);
+  overflow-y: auto;
+}
+
+.wg-geocode-result-item {
+  color: #9ec5ff !important;
+  text-decoration: none !important;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.wg-geocode-result-item:hover {
+  color: #cfe4ff !important;
+  text-decoration: underline !important;
+}
+
+.wg-light-boost-label {
+  font-size: var(--wg-label, 0.66rem);
+}
+
+.wg-light-boost-val {
+  font-variant-numeric: tabular-nums;
+  color: #b8cce8;
+}
+
+.wg-light-range {
+  height: 0.45rem;
+  cursor: pointer;
+}
+
+.wg-light-range::-webkit-slider-thumb {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.wg-light-range::-moz-range-thumb {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Mobile : textes / boutons plus compacts, globe prioritaire, safe areas      */
+/* -------------------------------------------------------------------------- */
+@media (max-width: 767.98px) {
+  .wg-root {
+    --wg-font: 0.58rem;
+    --wg-label: 0.56rem;
+    padding-left: max(0.3rem, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(0.3rem, env(safe-area-inset-right, 0px)) !important;
+    padding-top: max(0.25rem, env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: max(0.4rem, env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .wg-title {
+    font-size: 0.78rem;
+    line-height: 1.25;
+    margin-bottom: 0.35rem !important;
+  }
+
+  .wg-alert {
+    font-size: 0.58rem !important;
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.35rem !important;
+    margin-bottom: 0.35rem !important;
+  }
+
+  .wg-shell {
+    padding: 0.38rem;
+    gap: 0.4rem;
+    min-height: min(62vh, 640px);
+    border-radius: 0.4rem;
+  }
+
+  .wg-sidebar-inner {
+    padding: 0.38rem 0.42rem;
+    border-radius: 0.35rem;
+  }
+
+  .wg-switch {
+    margin-bottom: 0.22rem !important;
+  }
+
+  .wg-switch .form-check-input {
+    width: 1.62em;
+    height: 0.88em;
+    margin-top: 0.18em;
+  }
+
+  .wg-switch .form-check-label {
+    font-size: var(--wg-label);
+    line-height: 1.2;
+  }
+
+  .wg-root .wg-btn,
+  .wg-root .btn {
+    --bs-btn-font-size: 0.58rem;
+    --bs-btn-padding-y: 0.16rem;
+    --bs-btn-padding-x: 0.34rem;
+    line-height: 1.2;
+    touch-action: manipulation;
+  }
+
+  .wg-btn-stack {
+    gap: 0.22rem;
+    margin-top: 0.35rem !important;
+  }
+
+  .wg-banner {
+    font-size: 0.56rem !important;
+    line-height: 1.28;
+    margin-top: 0.35rem !important;
+  }
+
+  .wg-picker-title {
+    font-size: 0.58rem;
+    margin-bottom: 0.35rem !important;
+  }
+
+  .wg-geocode-block {
+    padding-bottom: 0.28rem;
+    margin-bottom: 0.35rem !important;
+  }
+
+  .wg-geocode-label {
+    font-size: var(--wg-label);
+    margin-bottom: 0.25rem !important;
+  }
+
+  /* iOS : éviter le zoom automatique au focus (min 16px) tout en gardant l’UI compacte ailleurs */
+  .wg-geocode-input-group .form-control {
+    font-size: max(16px, var(--wg-font));
+    padding-top: 0.28rem;
+    padding-bottom: 0.28rem;
+  }
+
+  .wg-geocode-btn {
+    min-width: 2.15rem;
+  }
+
+  .wg-geocode-result-list {
+    max-height: min(28vh, 160px);
+  }
+
+  .wg-geocode-result-item {
+    font-size: var(--wg-font);
+    padding-top: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
+  }
+
+  .wg-light-boost {
+    margin-bottom: 0.35rem !important;
+  }
+
+  .wg-light-boost-label {
+    font-size: var(--wg-label);
+    margin-bottom: 0.25rem !important;
+  }
+
+  .wg-light-boost-val {
+    font-size: 0.58rem;
+  }
+
+  /* Curseur plus facile à attraper au doigt */
+  .wg-light-range {
+    display: block;
+    width: 100%;
+    height: 1.75rem;
+    margin: 0;
+    padding: 0.4rem 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .wg-light-range::-webkit-slider-runnable-track {
+    height: 0.32rem;
+    border-radius: 0.16rem;
+  }
+
+  .wg-light-range::-webkit-slider-thumb {
+    width: 1.1rem;
+    height: 1.1rem;
+    margin-top: -0.36rem;
+    border-radius: 50%;
+  }
+
+  .wg-light-range::-moz-range-track {
+    height: 0.32rem;
+    border-radius: 0.16rem;
+  }
+
+  .wg-light-range::-moz-range-thumb {
+    width: 1.1rem;
+    height: 1.1rem;
+    border: none;
+    border-radius: 50%;
+  }
+
+  .wg-canvas-host {
+    min-height: min(48vh, 420px);
+    border-radius: 0.35rem;
+  }
+
+  .wg-coords {
+    font-size: 0.52rem;
+    padding: 0.2rem 0.32rem;
+    top: max(0.32rem, env(safe-area-inset-top, 0px));
+    right: max(0.32rem, env(safe-area-inset-right, 0px));
+    max-width: min(92vw, 14rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .wg-fab-hide {
+    top: max(0.32rem, env(safe-area-inset-top, 0px));
+    left: max(0.32rem, env(safe-area-inset-left, 0px));
+    padding: 0.18rem 0.35rem;
+    font-size: 0.65rem;
+  }
+
+  .wg-overlay-toolbar {
+    gap: 0.35rem !important;
+    margin-bottom: 0.35rem !important;
+  }
+
+  .world-globe-activity-list {
+    max-height: min(34vh, 200px);
+  }
+
+  .wg-shell--fs .wg-canvas-host {
+    min-height: calc(100vh - 128px);
+  }
+
+  @supports (height: 100dvh) {
+    .wg-shell--fs .wg-canvas-host {
+      min-height: calc(100dvh - 128px);
+    }
+  }
+
+  .wg-picker.border {
+    padding: 0.45rem 0.5rem !important;
+    margin-top: 0.4rem !important;
+  }
+
+  .wg-picker .form-check-label {
+    font-size: var(--wg-font);
+  }
+}
+
+@media (max-width: 575.98px) {
+  .wg-root {
+    --wg-font: 0.54rem;
+    --wg-label: 0.52rem;
+  }
+
+  .wg-title {
+    font-size: 0.72rem;
+  }
+
+  .wg-canvas-host {
+    min-height: min(44vh, 400px);
+  }
 }

@@ -26,9 +26,33 @@
 
 .scan-buttons {
     display: flex;
-    gap: 0.5rem;
+    flex-wrap: nowrap;
+    gap: 0.38rem;
     align-items: center;
-    flex-wrap: wrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    padding-bottom: 2px;
+    font-size: 0.8rem;
+}
+
+.scan-buttons > .btn,
+.scan-buttons > .form-check {
+    flex-shrink: 0;
+}
+
+.scan-buttons .btn {
+    white-space: nowrap;
+}
+
+.scan-buttons .form-check {
+    margin-left: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+.scan-buttons .form-check-label {
+    font-size: 0.75rem !important;
 }
 
 
@@ -1118,7 +1142,6 @@
     color: #ff6b6b !important;
 }
 
-/* Text colors in slideshow body */
 ::ng-deep .slideshow-body .text-white,
 ::ng-deep .slideshow-body p,
 ::ng-deep .slideshow-body div:not(.alert) {
@@ -1131,6 +1154,43 @@
 
 ::ng-deep .slideshow-body small {
     color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/*
+ * Alerts (must appear AFTER slideshow-body-wide `p` / `small` rules above):
+ * those rules use !important and would repaint warning/secondary paragraphs white on pale backgrounds.
+ */
+::ng-deep .slideshow-body .alert,
+::ng-deep .slideshow-body .alert * {
+    color: inherit !important;
+}
+
+::ng-deep .slideshow-body .alert-warning,
+::ng-deep .slideshow-body .alert-warning p,
+::ng-deep .slideshow-body .alert-warning small {
+    background-color: #fff3cd !important;
+    border-color: #ffecb5 !important;
+    color: #664d03 !important;
+}
+
+::ng-deep .slideshow-body .alert-warning strong {
+    color: #533f03 !important;
+}
+
+::ng-deep .slideshow-body .alert-warning .text-muted {
+    color: rgba(81, 62, 21, 0.78) !important;
+}
+
+::ng-deep .slideshow-body .alert-secondary,
+::ng-deep .slideshow-body .alert-secondary p,
+::ng-deep .slideshow-body .alert-secondary small {
+    background-color: #e2e3e5 !important;
+    border-color: #cbccce !important;
+    color: #41464b !important;
+}
+
+::ng-deep .slideshow-body .alert-secondary strong {
+    color: #373b3f !important;
 }
 
 /* Buttons in slideshow header - match slideshow styles exactly */

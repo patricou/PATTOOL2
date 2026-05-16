@@ -25,7 +25,7 @@
                             </button>
                             
                             <!-- External Vendor API Switch -->
-                            <div class="form-check form-switch d-flex align-items-center" style="margin-left: 1rem;">
+                            <div class="form-check form-switch d-flex align-items-center">
                                 <input class="form-check-input" 
                                        type="checkbox" 
                                        role="switch"
@@ -43,7 +43,7 @@
                             </div>
                             
                             <!-- Scan Scheduler Switch -->
-                            <div class="form-check form-switch d-flex align-items-center" style="margin-left: 1rem;">
+                            <div class="form-check form-switch d-flex align-items-center">
                                 <input class="form-check-input" 
                                        type="checkbox" 
                                        role="switch"
@@ -73,6 +73,14 @@
                                     [title]="'LOCAL_NETWORK.OPEN_ROUTER_TOOLTIP' | translate">
                                 <i class="fa fa-wifi"></i>
                                 {{ "LOCAL_NETWORK.OPEN_ROUTER" | translate }}
+                            </button>
+                            <button (click)="openWifiScanModal()" 
+                                    class="btn btn-outline-secondary btn-sm"
+                                    type="button"
+                                    [disabled]="wifiScanLoading && wifiScanUseBackend"
+                                    [title]="'LOCAL_NETWORK.WIFI_SCAN_BTN_TOOLTIP' | translate">
+                                <i class="fa" [ngClass]="(wifiScanLoading && wifiScanUseBackend) ? 'fa-spinner fa-spin' : 'fa-wifi'"></i>
+                                {{ "LOCAL_NETWORK.WIFI_SCAN_BTN" | translate }}
                             </button>
                             <button (click)="openDeviceMappingsModal()" 
                                     class="btn btn-info btn-sm"
@@ -639,6 +647,200 @@
         </div>
     </div>
 </div>
+
+<!-- Nearby Wi‑Fi (backend host WLAN) Modal -->
+<ng-template #wifiScanModal let-c="close" let-d="dismiss">
+    <div class="modal-header slideshow-header">
+        <h5 class="modal-title">
+            <i class="fa fa-wifi"></i> {{ "LOCAL_NETWORK.WIFI_SCAN_TITLE" | translate }}
+        </h5>
+        <div class="d-flex align-items-center gap-2 ms-auto">
+            <button type="button"
+                    class="btn btn-outline-light btn-sm"
+                    [disabled]="wifiScanLoading && wifiScanUseBackend"
+                    (click)="refreshWifiNetworks()"
+                    [title]="'LOCAL_NETWORK.WIFI_SCAN_REFRESH' | translate">
+                <i class="fa fa-refresh" [class.fa-spin]="wifiScanLoading && wifiScanUseBackend"></i>
+                <span class="d-none d-sm-inline ms-1">{{ "LOCAL_NETWORK.WIFI_SCAN_REFRESH" | translate }}</span>
+            </button>
+            <button type="button"
+                    class="btn btn-outline-light btn-sm rounded-circle"
+                    (click)="closeWifiScanModal()"
+                    [attr.aria-label]="'COMMUN.CLOSE' | translate"
+                    style="min-width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; padding: 0;">
+                <i class="fa fa-times"></i>
+            </button>
+        </div>
+    </div>
+    <div class="modal-body slideshow-body" style="padding: 20px; overflow-y: auto;">
+        <div class="d-flex flex-wrap align-items-center gap-3 mb-3 wifi-scan-source-toggle">
+            <span class="text-white small text-nowrap">{{ "LOCAL_NETWORK.WIFI_SCAN_SOURCE_FRONTEND" | translate }}</span>
+            <div class="form-check form-switch mb-0 d-flex align-items-center">
+                <input class="form-check-input wifi-scan-backend-switch"
+                       type="checkbox"
+                       role="switch"
+                       id="wifiScanPreferBackendSwitch"
+                       name="wifiScanPreferBackendSwitch"
+                       [(ngModel)]="wifiScanUseBackend"
+                       (change)="onWifiScanBackendToggleChange()"
+                       title="{{ 'LOCAL_NETWORK.WIFI_SCAN_TOGGLE_TITLE' | translate }}">
+                <label class="form-check-label ms-2 text-white small text-nowrap" for="wifiScanPreferBackendSwitch">
+                    {{ "LOCAL_NETWORK.WIFI_SCAN_SOURCE_BACKEND_PATOOL" | translate }}
+                </label>
+            </div>
+        </div>
+        <p class="small text-white-50 mb-3">{{ "LOCAL_NETWORK.WIFI_SCAN_SOURCE_HINT" | translate }}</p>
+
+        <div class="alert alert-warning mb-3" *ngIf="!wifiScanUseBackend">
+            <strong>{{ "LOCAL_NETWORK.WIFI_BROWSER_LIMIT_TITLE" | translate }}</strong>
+            <p class="mb-2 small">{{ "LOCAL_NETWORK.WIFI_BROWSER_LIMIT_BODY" | translate }}</p>
+            <p class="mb-2 small">{{ "LOCAL_NETWORK.WIFI_BROWSER_NATIVE_OPTION" | translate }}</p>
+            <p class="mb-0 small text-muted">{{ "LOCAL_NETWORK.WIFI_CAPACITOR_PACKAGING_HINT" | translate }}</p>
+        </div>
+
+        <div *ngIf="!wifiScanUseBackend && wifiNativeInfoText" class="alert alert-info small mb-3">
+            {{ wifiNativeInfoText }}
+        </div>
+
+        <div class="alert alert-info mb-3" *ngIf="wifiScanUseBackend && wifiScanHostName">
+            <p class="mb-2">{{ "LOCAL_NETWORK.WIFI_SCAN_NOTICE" | translate: { host: wifiScanHostName } }}</p>
+            <small class="d-block opacity-85" lang="en" *ngIf="wifiScanExplanationEn">{{ wifiScanExplanationEn }}</small>
+            <small class="d-block opacity-85 mt-1" lang="fr" *ngIf="wifiScanExplanationFr">{{ wifiScanExplanationFr }}</small>
+        </div>
+
+        <p class="small text-white-50 mb-2" *ngIf="wifiScanUseBackend && (wifiScanPlatform || wifiScanCapturedAtIso)">
+            <span *ngIf="wifiScanPlatform">{{ "LOCAL_NETWORK.WIFI_SCAN_BACKEND_OS" | translate }}: {{ wifiScanPlatform }}</span>
+            <span *ngIf="wifiScanPlatform && wifiScanCapturedAtIso">&nbsp; — &nbsp;</span>
+            <span *ngIf="wifiScanCapturedAtIso">{{ wifiScanCapturedAtIso | date:'medium' }}</span>
+        </p>
+
+        <div *ngIf="wifiScanUseBackend && wifiScanBackendWarning && !wifiScanLoading" class="alert alert-warning small mb-3">
+            {{ wifiScanBackendWarning }}
+        </div>
+
+        <div *ngIf="wifiScanUseBackend && wifiScanLoading" class="text-center text-white py-4">
+            <i class="fa fa-spinner fa-spin fa-2x"></i>
+            <p class="mt-2 mb-0">{{ "LOCAL_NETWORK.WIFI_SCAN_LOADING" | translate }}</p>
+        </div>
+
+        <div *ngIf="!wifiScanUseBackend && wifiScanLoading" class="text-center text-white py-2">
+            <i class="fa fa-spinner fa-spin"></i>
+        </div>
+
+        <div *ngIf="wifiScanError && !(wifiScanUseBackend && wifiScanLoading)" class="alert alert-danger">
+            {{ wifiScanError }}
+        </div>
+
+        <div *ngIf="!wifiScanUseBackend && !wifiScanLoading && wifiNetworks.length > 0" class="table-responsive mb-3">
+            <table class="table table-sm table-striped table-bordered text-dark bg-white">
+                <thead class="table-light">
+                    <tr>
+                        <th>{{ "LOCAL_NETWORK.WIFI_SCAN_COL_SSID" | translate }}</th>
+                        <th>{{ "LOCAL_NETWORK.WIFI_SCAN_COL_BSSID" | translate }}</th>
+                        <th class="text-end">{{ "LOCAL_NETWORK.WIFI_SCAN_COL_SIGNAL" | translate }}</th>
+                        <th class="text-end">{{ "LOCAL_NETWORK.WIFI_SCAN_COL_DBM" | translate }}</th>
+                        <th>{{ "LOCAL_NETWORK.WIFI_SCAN_COL_SECURITY" | translate }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let net of wifiNetworks">
+                        <td>{{ net.ssid }}</td>
+                        <td><code>{{ net.bssid }}</code></td>
+                        <td class="text-end">{{ net.signalPercent != null ? (net.signalPercent + '%') : '—' }}</td>
+                        <td class="text-end">{{ net.signalDbm != null ? net.signalDbm : '—' }}</td>
+                        <td class="small">{{ net.authentication ?? '—' }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <ng-container *ngIf="wifiScanUseBackend">
+            <div *ngIf="!wifiScanLoading && !wifiScanError && wifiNetworks.length === 0" class="alert alert-secondary">
+                {{ "LOCAL_NETWORK.WIFI_SCAN_EMPTY" | translate }}
+            </div>
+
+            <div *ngIf="!wifiScanLoading && wifiNetworks.length > 0" class="table-responsive">
+            <table class="table table-sm table-striped table-bordered text-dark bg-white">
+                <thead class="table-light">
+                    <tr>
+                        <th>{{ "LOCAL_NETWORK.WIFI_SCAN_COL_SSID" | translate }}</th>
+                        <th>{{ "LOCAL_NETWORK.WIFI_SCAN_COL_BSSID" | translate }}</th>
+                        <th class="text-end">{{ "LOCAL_NETWORK.WIFI_SCAN_COL_SIGNAL" | translate }}</th>
+                        <th class="text-end">{{ "LOCAL_NETWORK.WIFI_SCAN_COL_DBM" | translate }}</th>
+                        <th>{{ "LOCAL_NETWORK.WIFI_SCAN_COL_SECURITY" | translate }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let net of wifiNetworks">
+                        <td>{{ net.ssid }}</td>
+                        <td><code>{{ net.bssid }}</code></td>
+                        <td class="text-end">{{ net.signalPercent != null ? (net.signalPercent + '%') : '—' }}</td>
+                        <td class="text-end">{{ net.signalDbm != null ? net.signalDbm : '—' }}</td>
+                        <td class="small">{{ net.authentication ?? '—' }}</td>
+                    </tr>
+                </tbody>
+            </table>
+            </div>
+        </ng-container>
+
+        <ng-container *ngIf="!wifiScanUseBackend">
+            <div *ngIf="wifiBrowserHints && !wifiBrowserHints.hasNetworkInformationApi && !wifiScanLoading && wifiFrontendShowNiPanel()"
+                 class="alert alert-secondary small">
+                {{ "LOCAL_NETWORK.WIFI_BROWSER_NO_NI_API" | translate }}
+            </div>
+
+            <div *ngIf="wifiBrowserHints && wifiBrowserHints.hasNetworkInformationApi && wifiFrontendShowNiPanel()" class="table-responsive">
+                <table class="table table-sm table-bordered text-dark bg-white">
+                    <thead class="table-light">
+                        <tr>
+                            <th>{{ "LOCAL_NETWORK.WIFI_BROWSER_COL_PROP" | translate }}</th>
+                            <th>{{ "LOCAL_NETWORK.WIFI_BROWSER_COL_VALUE" | translate }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>{{ "LOCAL_NETWORK.WIFI_BROWSER_EFFECTIVE_TYPE" | translate }}</td>
+                            <td>{{ wifiBrowserHints.effectiveType || '—' }}</td>
+                        </tr>
+                        <tr>
+                            <td>{{ "LOCAL_NETWORK.WIFI_BROWSER_DOWNLINK" | translate }}</td>
+                            <td>{{ wifiBrowserHints.downlinkMbps != null ? (wifiBrowserHints.downlinkMbps | number:'1.0-3') + ' Mb/s' : '—' }}</td>
+                        </tr>
+                        <tr>
+                            <td>{{ "LOCAL_NETWORK.WIFI_BROWSER_RTT" | translate }}</td>
+                            <td>{{ wifiBrowserHints.rttMs != null ? (wifiBrowserHints.rttMs | number:'1.0-0') + ' ms' : '—' }}</td>
+                        </tr>
+                        <tr>
+                            <td>{{ "LOCAL_NETWORK.WIFI_BROWSER_SAVE_DATA" | translate }}</td>
+                            <td>{{ wifiBrowserHints.saveData != null ? (wifiBrowserHints.saveData ? ('COMMUN.YES' | translate) : ('COMMUN.NO' | translate)) : '—' }}</td>
+                        </tr>
+                        <tr>
+                            <td>{{ "LOCAL_NETWORK.WIFI_BROWSER_LINK_TYPE_LEGACY" | translate }}</td>
+                            <td>{{ wifiBrowserHints.legacyLinkType || '—' }}</td>
+                        </tr>
+                        <tr>
+                            <td>{{ "LOCAL_NETWORK.WIFI_BROWSER_DOWNLINK_MAX" | translate }}</td>
+                            <td>{{ wifiBrowserHints.downlinkMaxMbps != null ? (wifiBrowserHints.downlinkMaxMbps | number:'1.0-3') + ' Mb/s' : '—' }}</td>
+                        </tr>
+                        <tr>
+                            <td>{{ "LOCAL_NETWORK.WIFI_BROWSER_ONLINE" | translate }}</td>
+                            <td>{{ wifiBrowserHints.online ? ('COMMUN.YES' | translate) : ('COMMUN.NO' | translate) }}</td>
+                        </tr>
+                        <tr>
+                            <td>{{ "LOCAL_NETWORK.WIFI_BROWSER_SECURE_CONTEXT" | translate }}</td>
+                            <td>{{ wifiBrowserHints.secureContext ? ('COMMUN.YES' | translate) : ('COMMUN.NO' | translate) }}</td>
+                        </tr>
+                        <tr>
+                            <td>{{ "LOCAL_NETWORK.WIFI_BROWSER_COLLECTED_AT" | translate }}</td>
+                            <td>{{ wifiBrowserHints.collectedAtIso | date:'medium' }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p class="small text-white-50">{{ "LOCAL_NETWORK.WIFI_BROWSER_REFRESH_HINT" | translate }}</p>
+            </div>
+        </ng-container>
+    </div>
+</ng-template>
 
 <!-- Device Mappings Modal -->
 <ng-template #deviceMappingsModal let-c="close" let-d="dismiss">

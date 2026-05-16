@@ -10,8 +10,9 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Subscription, firstValueFrom, timeout } from 'rxjs';
+import { finalize } from 'rxjs/operators';
 import { ApiService } from '../services/api.service';
 import { EvenementsService, StreamedEvent } from '../services/evenements.service';
 import { FileService } from '../services/file.service';
@@ -22,14 +23,8 @@ import { parseTrackFileToLatLonPoints } from '../photo-timeline/track-route-stat
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { environment } from '../../environments/environment';
-import { Body, GeoVector, KM_PER_AU, Vector, VectorObserver } from 'astronomy-engine';
+import { Body, GeoVector, VectorObserver } from 'astronomy-engine';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
-
-export interface WorldGlobeMarker {
-  readonly latDeg: number;
-  readonly lonDeg: number;
-  readonly labelKey: string;
-}
 
 /** Ligne utilisée après chargement SSE : sélection puis affichage trace / géocode. */
 export interface GlobeActivityPickerRow {
@@ -47,6 +42,30 @@ const GLOBE_OVERLAY_SEGMENTS = 192;
 const GLOBE_INITIAL_FRANCE_LAT = 46.4;
 const GLOBE_INITIAL_FRANCE_LON = 2.2;
 const GLOBE_INITIAL_ORBIT_DISTANCE = 2.62;
+/** Distance caméra : fallback si pas de bbox Nominatim. */
+const GLOBE_GEOCODE_ORBIT_FALLBACK = 1.3;
+/** Zoom « ville » (petite bbox, en degrés). */
+const GLOBE_GEOCODE_ORBIT_MIN = 1.06;
+/** Zoom « grand pays / région » (bbox large). */
+const GLOBE_GEOCODE_ORBIT_MAX = 3.02;
+/** Étendue angulaire min/max (°) pour interpoler entre ORBIT_MIN et ORBIT_MAX. */
+const GLOBE_GEOCODE_SPAN_REF_LO = 0.04;
+const GLOBE_GEOCODE_SPAN_REF_HI = 36;
+/** Durée du vol caméra après recherche de lieu (arc de grand cercle). */
+const GLOBE_GEOCODE_ANIM_MS = 1700;
+
+/** Sphère repère géocodage : rayon monde, légèrement au-dessus du maillage Terre (rayon 1). */
+const GLOBE_GEOCODE_MARKER_SURFACE_OFFSET = 1.003;
+const GLOBE_GEOCODE_MARKER_RADIUS = 0.006;
+
+/** Multiplicateur d’éclairage utilisateur (potentiomètre) ; ×1 = réglage de base du mode actif. */
+const GLOBE_LIGHTING_BOOST_DEFAULT = 1;
+const GLOBE_LIGHTING_BOOST_MIN = 0.48;
+const GLOBE_LIGHTING_BOOST_MAX = 2.08;
+
+/** À zoom fort (caméra proche), rotation / panoramique / molette trop nerveux sans ce facteur. */
+const ORBIT_SENS_U_MIN_ROTATE_PAN = 0.13;
+const ORBIT_SENS_U_MIN_ZOOM = 0.48;
 
 function globePixelRatioCap(): number {
   return Math.min(window.devicePixelRatio, 3);
@@ -65,6 +84,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private readonly evenementsService = inject(EvenementsService);
   private readonly fileService = inject(FileService);
   private readonly membersService = inject(MembersService);
+  private readonly translate = inject(TranslateService);
   private readonly cdr = inject(ChangeDetectorRef);
 
   @ViewChild('globeCanvasHost') globeCanvasHost?: ElementRef<HTMLElement>;
@@ -73,35 +93,41 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   @ViewChild('globeTraceViewer') globeTraceViewer?: TraceViewerModalComponent;
 
   showOptionsPanel = true;
-  cloudsEnabled = true;
+  cloudsEnabled = false;
   starsEnabled = true;
   autoRotate = false;
-  demoMarkersEnabled = true;
-  /** Fond pseudo-satellite (NASA BMNG) vs texture Three.js classique avec relief/spec. */
-  basemapSatellite = false;
+  /** Fond pseudo-satellite (NASA BMNG) vs texture Three.js classique avec relief/spec ; BMNG activé par défaut. */
+  basemapSatellite = true;
   /** Couche indicative type « météo » : précipitations estimées (NASA GIBS, dernier jour UTC). */
   weatherImageryEnabled = false;
   weatherImageryLoading = false;
   weatherImageryFailed = false;
   /** Points + polyligne d’activités géocodées. */
-  activityLayerVisible = true;
+  activityLayerVisible = false;
+  /** Éclairage uniforme sur tout le globe (ambiance + hémisphère). Coupé tant que le jour/nuit réel est actif. */
+  globeLightingUniform = false;
   /**
-   * Terminateur jour/nuit selon la position réelle du Soleil (UTC, horloge du navigateur).
-   * À false : éclairage uniforme (pas de limite jour/nuit).
+   * Terminateur jour/nuit selon la position réelle du Soleil (horloge du navigateur / UTC).
+   * Prioritaire sur l’éclairage uniforme lorsqu’il est activé ; activé par défaut.
    */
-  realTimeTerminator = false;
+  realTimeTerminator = true;
+
   /**
-   * Soleil directionnel aligné sur la position géographique de l’utilisateur (géolocalisation).
-   * Activé par défaut ; désactivé implicitement lorsque « jour/nuit réaliste » est actif.
+   * Intensité globale des lumières et de l’exposition tone-mapping (curseur latéral).
+   * @see GLOBE_LIGHTING_BOOST_DEFAULT
    */
-  lightFromMyLocationEnabled = true;
-  /** Géoloc en cours pour le bouton Actualiser */
-  userGeoLightingLoading = false;
-  /** Dernière géolocalisation réussie (sinon fallback France jusqu’à succès). */
-  userLightingGeoOk = false;
+  globeLightingBoost = GLOBE_LIGHTING_BOOST_DEFAULT;
+
+  readonly globeLightingBoostMin = GLOBE_LIGHTING_BOOST_MIN;
+  readonly globeLightingBoostMax = GLOBE_LIGHTING_BOOST_MAX;
 
   /** Terre visible (rayon / clic carte OSM disponible). */
   globeSurfaceReady = false;
+  /**
+   * Dernier clic sur la surface Terre : position « courante » pour la carte 2D et affichage des coordonnées.
+   */
+  globePickedLat: number | null = null;
+  globePickedLon: number | null = null;
   /** Panneau Trace Viewer — mêmes dimensions que depuis le slideshow (65vw × max 90vh), centré. */
   detailMapOpen = false;
   detailMapPickFailed = false;
@@ -117,22 +143,27 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   globeActivityPickerRows: GlobeActivityPickerRow[] = [];
   applyingGlobeActivities = false;
 
-  readonly demoMarkers: WorldGlobeMarker[] = [
-    { latDeg: 48.8566, lonDeg: 2.3522, labelKey: 'WORLD_GLOBE.MARKER_PARIS' },
-    { latDeg: 40.7128, lonDeg: -74.006, labelKey: 'WORLD_GLOBE.MARKER_NYC' },
-    { latDeg: 35.6762, lonDeg: 139.6503, labelKey: 'WORLD_GLOBE.MARKER_TOKYO' }
-  ];
-
-  /** Pour le template : navigateur sans Geolocation API. */
-  get userLightingGeoApiAvailable(): boolean {
-    return typeof navigator !== 'undefined' && !!navigator.geolocation;
-  }
+  /** Recherche de lieu (Nominatim via backend), comme la page Adresse / GPS. */
+  globePlaceQuery = '';
+  globeGeocodeLoading = false;
+  globeGeocodeError = '';
+  globeGeocodeResults: Array<{
+    lat: number;
+    lon: number;
+    displayName: string;
+    boundingBox: number[] | null;
+  }> = [];
+  /** Repère visuel géocodage : même lat/lon que le vol caméra tant que l’utilisateur ne clique pas ailleurs sur la Terre. */
+  globeGeocodeMarkerLat: number | null = null;
+  globeGeocodeMarkerLon: number | null = null;
 
   private renderer?: THREE.WebGLRenderer;
   private scene?: THREE.Scene;
   private camera?: THREE.PerspectiveCamera;
   private controls?: OrbitControls;
   private earthMesh?: THREE.Mesh;
+  /** Point rouge au sol (résultat géocode ville / pays). */
+  private geocodeMarkerMesh?: THREE.Mesh;
   /** Textures utilisées dans le fond « carte » avant bascule satellite. */
   private standardEarthTextures: {
     readonly map: THREE.Texture;
@@ -142,16 +173,14 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private satelliteTexture: THREE.Texture | null = null;
   private cloudsMesh?: THREE.Mesh;
   private starsPoints?: THREE.Points;
-  /** Exemple Paris / NYC / Tokyo. */
-  private markersRoot?: THREE.Group;
   private weatherOverlayMesh?: THREE.Mesh;
   private weatherOverlayTexture: THREE.Texture | null = null;
   private activityRoot?: THREE.Group;
   private ambientLight?: THREE.AmbientLight;
+  private hemisphereLight?: THREE.HemisphereLight;
   private sunLight?: THREE.DirectionalLight;
-  /** Distance fictive du soleil directionnel (les rayons restent parallèles). */
+  /** Distance fictive du soleil directionnel (rayons quasi parallèles). */
   private static readonly SUN_LIGHT_DISTANCE = 50;
-  private static readonly EARTH_MEAN_RADIUS_KM = 6371;
 
   private rafId: number | null = null;
   private resizeObs?: ResizeObserver;
@@ -159,10 +188,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private cloudsDriftRad = 0;
   private eventsStreamSub?: Subscription;
   private activitiesStreamFinalizeTimer: ReturnType<typeof setTimeout> | null = null;
-
-  /** Dernière position navigateur pour l’éclairage « depuis ma position » ; null avant succès ou si refus. */
-  private userLightingLat: number | null = null;
-  private userLightingLon: number | null = null;
+  /** Vol caméra programmatique (géocodage) : annulation au destroy ou nouvelle cible. */
+  private globeCameraAnimFrameId: number | null = null;
+  private globeCameraAnimPrevDamping: boolean | null = null;
 
   private pendingDetailLat = 0;
   private pendingDetailLon = 0;
@@ -170,16 +198,82 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
 
   private readonly raycasterNd = new THREE.Raycaster();
   private readonly ndcCenter = new THREE.Vector2(0, 0);
+  private readonly ndcPointer = new THREE.Vector2();
   private readonly earthInvScratch = new THREE.Matrix4();
   private readonly localScratch = new THREE.Vector3();
+  /** Direction sous-point solaire dans le repère monde (pour la directionnelle jour/nuit). */
+  private readonly subsolarWorldScratch = new THREE.Vector3();
+  /** Position monde du point rouge géocode (suit la Terre). */
+  private readonly geocodeMarkerWorldScratch = new THREE.Vector3();
+
+  /** Pas un glissement d’orbit : clic court vs drag OrbitControls. */
+  private static readonly GLOBE_PICK_DRAG_THRESHOLD_PX = 8;
+  /** Curseur « croix rouge » après clic sur la Terre (data URI SVG). */
+  private static readonly GLOBE_PICK_CROSS_CURSOR = ((): string => {
+    const svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">' +
+      '<path stroke="#e53935" stroke-width="3" stroke-linecap="round" d="M14 5v18M5 14h18"/></svg>';
+    return `url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}") 14 14, crosshair`;
+  })();
+
+  private globePickPointerDown: { x: number; y: number; id: number } | null = null;
+  /** Identifiant du timer navigateur (évite TS node DOM : number vs Timeout). */
+  private globePickCursorResetTimer: number | null = null;
+
+  private readonly onGlobePointerDown = (ev: PointerEvent): void => {
+    if (this.detailMapOpen || !this.globeSurfaceReady) {
+      return;
+    }
+    if (ev.pointerType === 'mouse' && ev.button !== 0) {
+      return;
+    }
+    this.globePickPointerDown = { x: ev.clientX, y: ev.clientY, id: ev.pointerId };
+  };
+
+  private readonly onGlobePointerUp = (ev: PointerEvent): void => {
+    const start = this.globePickPointerDown;
+    this.globePickPointerDown = null;
+    if (this.detailMapOpen || !this.globeSurfaceReady || !start || start.id !== ev.pointerId) {
+      return;
+    }
+    if (ev.pointerType === 'mouse' && ev.button !== 0) {
+      return;
+    }
+    const dx = ev.clientX - start.x;
+    const dy = ev.clientY - start.y;
+    if (dx * dx + dy * dy > WorldGlobeComponent.GLOBE_PICK_DRAG_THRESHOLD_PX ** 2) {
+      return;
+    }
+    const pick = this.pickGlobeAtClient(ev.clientX, ev.clientY);
+    if (!pick) {
+      return;
+    }
+    this.globePickedLat = pick.lat;
+    this.globePickedLon = pick.lon;
+    this.clearGeocodeMarker();
+    if (ev.pointerType === 'mouse') {
+      this.flashGlobePickCrossCursor();
+    }
+    this.cdr.markForCheck();
+  };
+
+  private readonly onGlobePointerCancel = (ev: PointerEvent): void => {
+    if (this.globePickPointerDown?.id === ev.pointerId) {
+      this.globePickPointerDown = null;
+    }
+  };
 
   ngAfterViewInit(): void {
     queueMicrotask(() => this.bootstrapThree());
-    this.requestInitialUserLightingGeolocation();
   }
 
   ngOnDestroy(): void {
     this.globeTraceViewer?.close();
+    this.stopGlobeCameraAnimation();
+    if (this.globePickCursorResetTimer != null) {
+      clearTimeout(this.globePickCursorResetTimer);
+      this.globePickCursorResetTimer = null;
+    }
     this.globeSurfaceReady = false;
     if (this.activitiesStreamFinalizeTimer != null) {
       clearTimeout(this.activitiesStreamFinalizeTimer);
@@ -188,7 +282,15 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.eventsStreamSub?.unsubscribe();
     this.disposeWeatherOverlayMesh();
     this.stopLoop();
+    this.disposeGeocodeMarkerMesh();
     this.resizeObs?.disconnect();
+    const canvasUnd = this.renderer?.domElement;
+    if (canvasUnd) {
+      canvasUnd.style.cursor = '';
+      canvasUnd.removeEventListener('pointerdown', this.onGlobePointerDown);
+      canvasUnd.removeEventListener('pointerup', this.onGlobePointerUp);
+      canvasUnd.removeEventListener('pointercancel', this.onGlobePointerCancel);
+    }
     this.controls?.dispose();
     const canvas = this.renderer?.domElement;
     if (canvas?.parentElement) {
@@ -224,7 +326,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (this.detailMapOpen) {
       return;
     }
-    const pick = this.pickGlobeCenterLatLon();
+    const pick = this.pickDetailMapAnchorLatLon();
     if (!pick) {
       this.detailMapPickFailed = true;
       this.cdr.markForCheck();
@@ -272,6 +374,19 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     window.setTimeout(() => viewer.refreshMapLayout(), 900);
   }
 
+  /** Carte détaillée : point cliqué s’il existe, sinon centre de la vue. */
+  private pickDetailMapAnchorLatLon(): { lat: number; lon: number } | null {
+    if (
+      this.globePickedLat != null &&
+      this.globePickedLon != null &&
+      Number.isFinite(this.globePickedLat) &&
+      Number.isFinite(this.globePickedLon)
+    ) {
+      return { lat: this.globePickedLat, lon: this.globePickedLon };
+    }
+    return this.pickGlobeCenterLatLon();
+  }
+
   /** Rayon au centre du canvas → intersect Terre → lat/lon. */
   private pickGlobeCenterLatLon(): { lat: number; lon: number } | null {
     if (!this.camera || !this.renderer || !this.earthMesh) {
@@ -283,8 +398,30 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
     this.ndcCenter.set(0, 0);
     this.raycasterNd.setFromCamera(this.ndcCenter, this.camera);
-    const hits = this.raycasterNd.intersectObject(this.earthMesh, false);
-    if (!hits.length) {
+    return this.pickFromRayEarthIntersections(this.raycasterNd.intersectObject(this.earthMesh, false));
+  }
+
+  /** Clic à l’écran → intersect Terre → lat/lon. */
+  private pickGlobeAtClient(clientX: number, clientY: number): { lat: number; lon: number } | null {
+    if (!this.camera || !this.renderer || !this.earthMesh) {
+      return null;
+    }
+    const canvasEl = this.renderer.domElement;
+    const rect = canvasEl.getBoundingClientRect();
+    if (rect.width < 2 || rect.height < 2) {
+      return null;
+    }
+    const nx = ((clientX - rect.left) / rect.width) * 2 - 1;
+    const ny = -((clientY - rect.top) / rect.height) * 2 + 1;
+    this.ndcPointer.set(nx, ny);
+    this.raycasterNd.setFromCamera(this.ndcPointer, this.camera);
+    return this.pickFromRayEarthIntersections(this.raycasterNd.intersectObject(this.earthMesh, false));
+  }
+
+  private pickFromRayEarthIntersections(
+    hits: THREE.Intersection[]
+  ): { lat: number; lon: number } | null {
+    if (!this.earthMesh || !hits.length) {
       return null;
     }
     const geo = WorldGlobeComponent.worldGlobeHitToLatLon(
@@ -294,6 +431,26 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.localScratch
     );
     return { lat: geo.lat, lon: geo.lon };
+  }
+
+  /** Feedback visuel au lieu de l’épingle 3D : croix rouge sur le canvas pendant 1 s. */
+  private flashGlobePickCrossCursor(): void {
+    const canvas = this.renderer?.domElement;
+    if (!canvas) {
+      return;
+    }
+    if (this.globePickCursorResetTimer != null) {
+      clearTimeout(this.globePickCursorResetTimer);
+      this.globePickCursorResetTimer = null;
+    }
+    canvas.style.cursor = WorldGlobeComponent.GLOBE_PICK_CROSS_CURSOR;
+    this.globePickCursorResetTimer = window.setTimeout(() => {
+      this.globePickCursorResetTimer = null;
+      const el = this.renderer?.domElement;
+      if (el) {
+        el.style.cursor = '';
+      }
+    }, 1000);
   }
 
   /** Repère géographique cohérent avec latLonToVector3 et la rotation du maillage Terre. */
@@ -371,98 +528,28 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  onGlobeLightingModeChange(): void {
-    if (!this.realTimeTerminator && this.lightFromMyLocationEnabled && !this.userLightingGeoOk && typeof navigator !== 'undefined' && navigator.geolocation) {
-      this.fetchUserLightingPosition(false);
+  onGlobeLightingToggle(): void {
+    if (this.globeLightingUniform) {
+      this.realTimeTerminator = false;
     }
     this.syncGlobeLighting();
   }
 
-  onLightFromMyLocationChange(): void {
-    if (this.lightFromMyLocationEnabled && !this.realTimeTerminator) {
-      this.syncGlobeLighting();
-      if (!this.userLightingGeoOk && typeof navigator !== 'undefined' && navigator.geolocation) {
-        this.fetchUserLightingPosition(false);
-      }
+  onRealTimeTerminatorToggle(): void {
+    if (this.realTimeTerminator) {
+      this.globeLightingUniform = false;
     } else {
-      this.syncGlobeLighting();
+      this.globeLightingUniform = true;
     }
+    this.syncGlobeLighting();
+    this.cdr.markForCheck();
   }
 
-  /** Bouton : relance la géolocalisation pour repositionner le soleil directionnel. */
-  refreshUserGeolocationForLighting(): void {
-    if (this.realTimeTerminator || !this.lightFromMyLocationEnabled) {
-      return;
-    }
-    this.fetchUserLightingPosition(false);
-  }
-
-  private requestInitialUserLightingGeolocation(): void {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      this.userLightingGeoOk = false;
-      this.cdr.markForCheck();
-      return;
-    }
-    this.fetchUserLightingPosition(true);
-  }
-
-  /**
-   * @param silentInitial si vrai (premier chargement), ne pas afficher l’état « chargement » sur le bouton.
-   */
-  private fetchUserLightingPosition(silentInitial: boolean): void {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      this.userLightingGeoOk = false;
-      this.syncGlobeLighting();
-      this.cdr.markForCheck();
-      return;
-    }
-    if (!silentInitial) {
-      this.userGeoLightingLoading = true;
-      this.cdr.markForCheck();
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        this.userGeoLightingLoading = false;
-        const lat = pos.coords.latitude;
-        const lon = pos.coords.longitude;
-        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-          this.userLightingGeoOk = false;
-          this.userLightingLat = null;
-          this.userLightingLon = null;
-        } else {
-          this.userLightingLat = lat;
-          this.userLightingLon = lon;
-          this.userLightingGeoOk = true;
-        }
-        if (!this.realTimeTerminator) {
-          this.syncGlobeLighting();
-        }
-        this.cdr.markForCheck();
-      },
-      () => {
-        this.userGeoLightingLoading = false;
-        this.userLightingGeoOk = false;
-        this.userLightingLat = null;
-        this.userLightingLon = null;
-        if (!this.realTimeTerminator) {
-          this.syncGlobeLighting();
-        }
-        this.cdr.markForCheck();
-      },
-      { maximumAge: 120_000, timeout: 14_000, enableHighAccuracy: false }
-    );
-  }
-
-  onStarsToggle(): void {
+  onStarsToggle(enabled: boolean): void {
     if (this.starsPoints) {
-      this.starsPoints.visible = this.starsEnabled;
+      this.starsPoints.visible = enabled;
     }
-  }
-
-  onMarkersToggle(): void {
-    if (this.markersRoot) {
-      this.markersRoot.visible = this.demoMarkersEnabled;
-    }
+    this.cdr.markForCheck();
   }
 
   onBasemapChange(): void {
@@ -651,27 +738,182 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   /**
    * Cadre la Terre pour que (lat°, lon°) soit au centre du globe.
    * Légère élévation de la caméra pour garder une lecture lisible du relief/textures.
+   * Prend en compte la rotation du maillage Terre (texture π) ou, avant chargement, la même orientation attendue.
    */
   private frameCameraOnLatLon(latDeg: number, lonDeg: number, distance: number): void {
     if (!this.camera || !this.controls) {
       return;
     }
+    const pos = this.computeCameraPositionForLatLon(latDeg, lonDeg, distance);
+    if (!pos) {
+      return;
+    }
+    this.camera.position.copy(pos);
+    this.controls.target.set(0, 0, 0);
+    this.controls.update();
+  }
+
+  /** Position caméra pour capter (lat, lon) au centre (repère monde, Terre à l’origine). */
+  private computeCameraPositionForLatLon(latDeg: number, lonDeg: number, distance: number): THREE.Vector3 | null {
     const radial = WorldGlobeComponent.latLonToVector3(latDeg, lonDeg, 1);
+    const earth = this.earthMesh;
+    if (earth) {
+      earth.updateMatrixWorld(true);
+      radial.applyMatrix4(earth.matrixWorld);
+    } else {
+      radial.applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+    }
     const len = radial.length();
     if (len < 1e-12) {
-      return;
+      return null;
     }
     radial.multiplyScalar(distance / len);
     const yLift = 0.22;
-    this.camera.position.set(radial.x, radial.y + yLift, radial.z);
-    this.controls.target.set(0, 0, 0);
-    this.controls.update();
+    return new THREE.Vector3(radial.x, radial.y + yLift, radial.z);
+  }
+
+  /**
+   * Distance d’orbite pour cadrer le lieu : bbox Nominatim étroite → zoom ville ; large → pays / région.
+   */
+  private orbitDistanceForGeocodeBBox(bbox: number[] | null | undefined): number {
+    if (!bbox || bbox.length < 4) {
+      return GLOBE_GEOCODE_ORBIT_FALLBACK;
+    }
+    const south = bbox[0];
+    const north = bbox[1];
+    const west = bbox[2];
+    const east = bbox[3];
+    if (![south, north, west, east].every((n) => Number.isFinite(n))) {
+      return GLOBE_GEOCODE_ORBIT_FALLBACK;
+    }
+    const latSpan = Math.abs(north - south);
+    let lonSpan = Math.abs(east - west);
+    if (lonSpan > 180) {
+      lonSpan = 360 - lonSpan;
+    }
+    const spanDeg = Math.max(latSpan, lonSpan, 1e-6);
+    const u = THREE.MathUtils.clamp(
+      (spanDeg - GLOBE_GEOCODE_SPAN_REF_LO) / (GLOBE_GEOCODE_SPAN_REF_HI - GLOBE_GEOCODE_SPAN_REF_LO),
+      0,
+      1
+    );
+    const d = THREE.MathUtils.lerp(GLOBE_GEOCODE_ORBIT_MIN, GLOBE_GEOCODE_ORBIT_MAX, u);
+    const minD = this.controls?.minDistance ?? 1.02;
+    const maxD = this.controls?.maxDistance ?? 7;
+    return THREE.MathUtils.clamp(d, minD + 0.02, maxD * 0.98);
+  }
+
+  /** Interpolation sphérique entre deux directions unitaires (arc de grand cercle). */
+  private static slerpUnitVectors(a: THREE.Vector3, b: THREE.Vector3, t: number, out: THREE.Vector3): void {
+    let dot = a.x * b.x + a.y * b.y + a.z * b.z;
+    dot = THREE.MathUtils.clamp(dot, -1, 1);
+    const omega = Math.acos(dot);
+    if (omega < 1e-5) {
+      out.copy(a).lerp(b, t).normalize();
+      return;
+    }
+    const sinOm = Math.sin(omega);
+    const s0 = Math.sin((1 - t) * omega) / sinOm;
+    const s1 = Math.sin(t * omega) / sinOm;
+    out.set(a.x * s0 + b.x * s1, a.y * s0 + b.y * s1, a.z * s0 + b.z * s1).normalize();
+  }
+
+  private stopGlobeCameraAnimation(): void {
+    if (this.globeCameraAnimFrameId != null) {
+      cancelAnimationFrame(this.globeCameraAnimFrameId);
+      this.globeCameraAnimFrameId = null;
+    }
+    if (this.controls && this.globeCameraAnimPrevDamping !== null) {
+      this.controls.enableDamping = this.globeCameraAnimPrevDamping;
+      this.globeCameraAnimPrevDamping = null;
+    }
+  }
+
+  /**
+   * Déplace la caméra vers le lieu en suivant un arc de grand cercle (rotation fluide),
+   * au lieu d’un saut instantané.
+   */
+  private animateCameraToLatLon(latDeg: number, lonDeg: number, distance: number, durationMs = GLOBE_GEOCODE_ANIM_MS): void {
+    const camera = this.camera;
+    const controls = this.controls;
+    if (!camera || !controls) {
+      return;
+    }
+    const endPos = this.computeCameraPositionForLatLon(latDeg, lonDeg, distance);
+    if (!endPos) {
+      return;
+    }
+    this.stopGlobeCameraAnimation();
+    this.globeCameraAnimPrevDamping = controls.enableDamping;
+    controls.enableDamping = false;
+
+    const startPos = camera.position.clone();
+    const startLen = startPos.length();
+    const endLen = endPos.length();
+    if (startLen < 1e-8) {
+      camera.position.copy(endPos);
+      controls.target.set(0, 0, 0);
+      controls.enableDamping = this.globeCameraAnimPrevDamping;
+      this.globeCameraAnimPrevDamping = null;
+      controls.update();
+      return;
+    }
+    const startN = startPos.clone().divideScalar(startLen);
+    const endN = endPos.clone().normalize();
+    const dirScratch = new THREE.Vector3();
+    const started = performance.now();
+    const easeInOutCubic = (u: number): number =>
+      u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+
+    const step = (now: number): void => {
+      const elapsed = now - started;
+      const u = Math.min(1, elapsed / durationMs);
+      const t = easeInOutCubic(u);
+      WorldGlobeComponent.slerpUnitVectors(startN, endN, t, dirScratch);
+      const dist = THREE.MathUtils.lerp(startLen, endLen, t);
+      camera.position.copy(dirScratch.multiplyScalar(dist));
+      controls.target.set(0, 0, 0);
+      controls.update();
+      if (u < 1) {
+        this.globeCameraAnimFrameId = requestAnimationFrame(step);
+      } else {
+        this.globeCameraAnimFrameId = null;
+        camera.position.copy(endPos);
+        controls.target.set(0, 0, 0);
+        controls.enableDamping = this.globeCameraAnimPrevDamping ?? true;
+        this.globeCameraAnimPrevDamping = null;
+        controls.update();
+      }
+    };
+
+    this.globeCameraAnimFrameId = requestAnimationFrame(step);
+  }
+
+  /**
+   * Adapte rotate / pan / zoom aux distances OrbitControls : plus la caméra est proche du globe,
+   * plus les gestes souris restent précis (sans changer le réglage utilisateur entre deux zooms).
+   */
+  private syncOrbitControlsSensitivity(): void {
+    const controls = this.controls;
+    const camera = this.camera;
+    if (!controls || !camera) {
+      return;
+    }
+    const d = camera.position.distanceTo(controls.target);
+    const lo = controls.minDistance;
+    const hi = controls.maxDistance;
+    const u = hi > lo ? THREE.MathUtils.clamp((d - lo) / (hi - lo), 0, 1) : 1;
+    controls.rotateSpeed = THREE.MathUtils.lerp(ORBIT_SENS_U_MIN_ROTATE_PAN, 1, u);
+    controls.panSpeed = THREE.MathUtils.lerp(ORBIT_SENS_U_MIN_ROTATE_PAN, 1, u);
+    controls.zoomSpeed = THREE.MathUtils.lerp(ORBIT_SENS_U_MIN_ZOOM, 1, u);
   }
 
   resetCamera(): void {
     if (!this.camera || !this.controls) {
       return;
     }
+    this.stopGlobeCameraAnimation();
+    this.clearGeocodeMarker();
     this.frameCameraOnLatLon(GLOBE_INITIAL_FRANCE_LAT, GLOBE_INITIAL_FRANCE_LON, GLOBE_INITIAL_ORBIT_DISTANCE);
     if (this.earthMesh) {
       this.earthMesh.rotation.set(0, Math.PI, 0);
@@ -680,6 +922,156 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (this.cloudsMesh) {
       this.cloudsMesh.rotation.y = Math.PI + this.cloudsDriftRad;
     }
+  }
+
+  /**
+   * Géocodage d’adresse / lieu (backend Nominatim), identique à la page Adresse / GPS.
+   * Centre la caméra sur le lieu avec un vol fluide ; un seul résultat : animation directe ; plusieurs : liste cliquable.
+   */
+  searchGlobePlace(): void {
+    (document.activeElement as HTMLElement | null)?.blur();
+    const query = this.globePlaceQuery?.trim();
+    if (!query) {
+      this.globeGeocodeError = this.translate.instant('ADDRESS_GEOCODE.ADDRESS_REQUIRED');
+      this.globeGeocodeResults = [];
+      this.cdr.markForCheck();
+      return;
+    }
+    if (!this.globeSurfaceReady || !this.camera || !this.controls) {
+      this.globeGeocodeError = this.translate.instant('WORLD_GLOBE.GEOCODE_GLOBE_NOT_READY');
+      this.cdr.markForCheck();
+      return;
+    }
+    this.globeGeocodeError = '';
+    this.globeGeocodeResults = [];
+    this.globeGeocodeLoading = true;
+    this.apiService
+      .geocodeSearch(query)
+      .pipe(
+        finalize(() => {
+          this.globeGeocodeLoading = false;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
+        next: (data: unknown) => {
+          const raw = Array.isArray(data) ? data : [];
+          const results = raw
+            .map((item: Record<string, unknown>) => {
+              const la = item['lat'];
+              const lo = item['lon'];
+              const dn = item['displayName'] ?? item['display_name'];
+              const bb = item['boundingBox'] ?? item['boundingbox'];
+              let boundingBox: number[] | null = null;
+              if (Array.isArray(bb) && bb.length >= 4) {
+                const nums = bb.slice(0, 4).map((x) => parseFloat(String(x)));
+                if (nums.every((n) => Number.isFinite(n))) {
+                  boundingBox = nums;
+                }
+              }
+              return {
+                lat: typeof la === 'number' ? la : parseFloat(String(la ?? '')),
+                lon: typeof lo === 'number' ? lo : parseFloat(String(lo ?? '')),
+                displayName: String(dn ?? '').trim(),
+                boundingBox
+              };
+            })
+            .filter(
+              (r) =>
+                Number.isFinite(r.lat) &&
+                Number.isFinite(r.lon) &&
+                Math.abs(r.lat) <= 90 &&
+                Math.abs(r.lon) <= 180
+            );
+          this.globeGeocodeResults = results;
+          if (results.length === 0) {
+            this.globeGeocodeError = this.translate.instant('ADDRESS_GEOCODE.NO_RESULTS');
+          } else if (results.length === 1) {
+            this.flyGlobeToGeocodeResult(results[0]);
+          }
+          this.cdr.markForCheck();
+        },
+        error: (err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          this.globeGeocodeError = this.translate.instant('ADDRESS_GEOCODE.ERROR') + ': ' + msg;
+          this.globeGeocodeResults = [];
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  flyGlobeToGeocodeResult(result: {
+    lat: number;
+    lon: number;
+    displayName: string;
+    boundingBox?: number[] | null;
+  }): void {
+    if (!this.camera || !this.controls) {
+      return;
+    }
+    const dist = this.orbitDistanceForGeocodeBBox(result.boundingBox ?? null);
+    this.animateCameraToLatLon(result.lat, result.lon, dist);
+    this.globeGeocodeMarkerLat = result.lat;
+    this.globeGeocodeMarkerLon = result.lon;
+    this.ensureGeocodeMarkerMesh();
+    this.updateGeocodeMarkerWorldPosition();
+    this.globePickedLat = result.lat;
+    this.globePickedLon = result.lon;
+    this.globeGeocodeResults = [];
+    this.globeGeocodeError = '';
+    this.cdr.markForCheck();
+  }
+
+  private ensureGeocodeMarkerMesh(): void {
+    const sceneRef = this.scene;
+    if (!sceneRef || this.geocodeMarkerMesh) {
+      return;
+    }
+    const geo = new THREE.SphereGeometry(GLOBE_GEOCODE_MARKER_RADIUS, 12, 12);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xe53935, depthTest: true, depthWrite: true });
+    mat.toneMapped = false;
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.renderOrder = 4;
+    sceneRef.add(mesh);
+    this.geocodeMarkerMesh = mesh;
+  }
+
+  private updateGeocodeMarkerWorldPosition(): void {
+    const lat = this.globeGeocodeMarkerLat;
+    const lon = this.globeGeocodeMarkerLon;
+    const earth = this.earthMesh;
+    const mesh = this.geocodeMarkerMesh;
+    if (lat == null || lon == null || !earth || !mesh) {
+      return;
+    }
+    this.geocodeMarkerWorldScratch
+      .copy(WorldGlobeComponent.latLonToVector3(lat, lon, GLOBE_GEOCODE_MARKER_SURFACE_OFFSET));
+    earth.updateMatrixWorld(true);
+    this.geocodeMarkerWorldScratch.applyMatrix4(earth.matrixWorld);
+    mesh.position.copy(this.geocodeMarkerWorldScratch);
+  }
+
+  /** Retire le point rouge (clic sur la Terre, réinitialisation vue, destroy). */
+  private clearGeocodeMarker(): void {
+    this.disposeGeocodeMarkerMesh();
+    this.cdr.markForCheck();
+  }
+
+  private disposeGeocodeMarkerMesh(): void {
+    const sceneRef = this.scene;
+    const mesh = this.geocodeMarkerMesh;
+    this.globeGeocodeMarkerLat = null;
+    this.globeGeocodeMarkerLon = null;
+    if (!mesh) {
+      return;
+    }
+    sceneRef?.remove(mesh);
+    mesh.geometry.dispose();
+    const mat = mesh.material;
+    if (!Array.isArray(mat) && mat) {
+      mat.dispose();
+    }
+    this.geocodeMarkerMesh = undefined;
   }
 
   private syncFullscreenFromDocument(): void {
@@ -693,74 +1085,89 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.fullscreen = !!(shell && fsEl === shell);
   }
 
-  /** Ambiant fort + soleil léger sans terminateur ; jour/nuit astronomique ; ou éclairage depuis la position utilisateur. */
+  /** Éclairage : jour/nuit réel, uniforme, ou tamisé. */
   private syncGlobeLighting(): void {
     const amb = this.ambientLight;
+    const hemi = this.hemisphereLight;
     const sun = this.sunLight;
-    if (!amb || !sun) {
+    if (!amb || !hemi || !sun) {
       return;
     }
+
     if (this.realTimeTerminator) {
-      amb.intensity = 0.18;
-      sun.intensity = 2.85;
+      amb.color.setHex(0xffffff);
+      hemi.color.setHex(0xb8c8f0);
+      hemi.groundColor.setHex(0x070a12);
+      sun.color.setHex(0xfff7ec);
+      this.applyGlobeLightingLevels(0.19, 0.1, 3.05, 1.2);
       this.updateSunDirectionFromTime(new Date());
       return;
     }
-    if (this.lightFromMyLocationEnabled) {
-      amb.intensity = 0.18;
-      sun.intensity = 2.85;
-      const { lat, lon } = this.getUserLightingLatLonOrFallback();
-      this.updateSunDirectionFromUserLatLon(lat, lon);
+
+    if (this.globeLightingUniform) {
+      amb.color.setHex(0xffffff);
+      hemi.color.setHex(0xffffff);
+      hemi.groundColor.setHex(0x6c7888);
+      sun.color.setHex(0xffffff);
+      sun.position.set(2.6, 4.2, 3);
+      this.applyGlobeLightingLevels(1.0, 0.93, 0.3, 1.36);
       return;
     }
-    amb.intensity = 0.92;
-    sun.intensity = 0.32;
-    sun.position.set(4, 0.6, 2);
-  }
 
-  /** Tant que la géoloc n’a pas réussi : France (même centre que la vue initiale). */
-  private getUserLightingLatLonOrFallback(): { lat: number; lon: number } {
-    if (
-      this.userLightingLat != null &&
-      this.userLightingLon != null &&
-      Number.isFinite(this.userLightingLat) &&
-      Number.isFinite(this.userLightingLon)
-    ) {
-      return { lat: this.userLightingLat, lon: this.userLightingLon };
-    }
-    return { lat: GLOBE_INITIAL_FRANCE_LAT, lon: GLOBE_INITIAL_FRANCE_LON };
-  }
-
-  /** Soleil « au zénith » au-dessus du point (lat, lon) sur le globe (comme le jour/nuit réaliste). */
-  private updateSunDirectionFromUserLatLon(latDeg: number, lonDeg: number): void {
-    const sun = this.sunLight;
-    if (!sun) {
-      return;
-    }
-    const k = WorldGlobeComponent.SUN_LIGHT_DISTANCE;
-    const v = WorldGlobeComponent.latLonToVector3(latDeg, lonDeg, k);
-    sun.position.set(v.x, v.y, v.z);
+    amb.color.setHex(0xffffff);
+    hemi.color.setHex(0x8899bb);
+    hemi.groundColor.setHex(0x0c1018);
+    this.applyGlobeLightingLevels(0.09, 0.11, 0, 1.06);
   }
 
   /**
-   * Aligne la lumière avec le sous-point solaire (limite jour/nuit cohérente avec la texture géographique).
+   * Applique les intensités de base puis le réglage « potentiomètre » {@link globeLightingBoost}.
+   */
+  private applyGlobeLightingLevels(
+    ambBase: number,
+    hemiBase: number,
+    sunBase: number,
+    exposureBase: number
+  ): void {
+    const amb = this.ambientLight;
+    const hemi = this.hemisphereLight;
+    const sun = this.sunLight;
+    const r = this.renderer;
+    if (!amb || !hemi || !sun) {
+      return;
+    }
+    const m = THREE.MathUtils.clamp(this.globeLightingBoost, GLOBE_LIGHTING_BOOST_MIN, GLOBE_LIGHTING_BOOST_MAX);
+    amb.intensity = ambBase * m;
+    hemi.intensity = hemiBase * m;
+    sun.intensity = sunBase * m;
+    if (r) {
+      r.toneMappingExposure = THREE.MathUtils.clamp(exposureBase * m, 0.45, 2.75);
+    }
+  }
+
+  onGlobeLightingBoostChange(): void {
+    this.syncGlobeLighting();
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Aligne la directionnelle avec le sous-point solaire : même repère que latLonToVector3 +
+   * matrixWorld du maillage Terre (rotation texture π), puis soleil loin dans cette direction.
    */
   private updateSunDirectionFromTime(date: Date): void {
     const sun = this.sunLight;
-    if (!sun) {
+    const earth = this.earthMesh;
+    if (!sun || !earth) {
       return;
     }
     const gv = GeoVector(Body.Sun, date, true);
-    const d = Math.hypot(gv.x, gv.y, gv.z);
-    if (d < 1e-14) {
-      return;
-    }
-    const rAu = WorldGlobeComponent.EARTH_MEAN_RADIUS_KM / KM_PER_AU;
-    const surf = new Vector((gv.x / d) * rAu, (gv.y / d) * rAu, (gv.z / d) * rAu, gv.t);
-    const obs = VectorObserver(surf, false);
-    const toSun = WorldGlobeComponent.latLonToVector3(obs.latitude, obs.longitude, 1);
+    const obs = VectorObserver(gv, false);
+    earth.updateMatrixWorld(true);
+    this.subsolarWorldScratch.copy(WorldGlobeComponent.latLonToVector3(obs.latitude, obs.longitude, 1));
+    this.subsolarWorldScratch.applyMatrix4(earth.matrixWorld).normalize();
     const k = WorldGlobeComponent.SUN_LIGHT_DISTANCE;
-    sun.position.set(toSun.x * k, toSun.y * k, toSun.z * k);
+    sun.position.copy(this.subsolarWorldScratch.multiplyScalar(k));
+    sun.target.position.set(0, 0, 0);
   }
 
   private bootstrapThree(): void {
@@ -789,6 +1196,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       borderRadius: '0.35rem'
     });
 
+    const canvasEl = renderer.domElement;
+    canvasEl.addEventListener('pointerdown', this.onGlobePointerDown);
+    canvasEl.addEventListener('pointerup', this.onGlobePointerUp);
+    canvasEl.addEventListener('pointercancel', this.onGlobePointerCancel);
+
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
@@ -798,12 +1210,16 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     controls.autoRotate = this.autoRotate;
     controls.autoRotateSpeed = 0.35;
 
-    const ambient = new THREE.AmbientLight(0xffffff, 0.18);
+    const ambient = new THREE.AmbientLight(0xffffff, 0.08);
     scene.add(ambient);
     this.ambientLight = ambient;
-    const sunLight = new THREE.DirectionalLight(0xffffff, 2.85);
-    sunLight.position.set(4, 0.6, 2);
+    const hemi = new THREE.HemisphereLight(0x8899bb, 0x0c1018, 0.1);
+    scene.add(hemi);
+    this.hemisphereLight = hemi;
+    const sunLight = new THREE.DirectionalLight(0xffffff, 0);
+    sunLight.position.set(2.4, 3.8, 2.6);
     scene.add(sunLight);
+    scene.add(sunLight.target);
 
     this.scene = scene;
     this.camera = camera;
@@ -838,10 +1254,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
           clouds.visible = this.cloudsEnabled;
           scene.add(clouds);
           this.cloudsMesh = clouds;
-          this.buildMarkers(scene);
         },
         undefined,
-        () => this.buildMarkers(scene)
+        () => {
+          /* nuages optionnels */
+        }
       );
     };
 
@@ -866,6 +1283,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.globeSurfaceReady = true;
       this.standardEarthTextures = { map: earthMap, spec: specMap, bump: bumpMap };
       this.applyBasemapMode();
+      this.frameCameraOnLatLon(GLOBE_INITIAL_FRANCE_LAT, GLOBE_INITIAL_FRANCE_LON, GLOBE_INITIAL_ORBIT_DISTANCE);
     };
 
     loader.load(
@@ -909,11 +1327,12 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
           wireframe: false
         });
         const earth = new THREE.Mesh(g, m);
+        earth.rotation.y = Math.PI;
         scene.add(earth);
         this.earthMesh = earth;
         this.globeSurfaceReady = true;
         this.standardEarthTextures = null;
-        this.buildMarkers(scene);
+        this.frameCameraOnLatLon(GLOBE_INITIAL_FRANCE_LAT, GLOBE_INITIAL_FRANCE_LON, GLOBE_INITIAL_ORBIT_DISTANCE);
       }
     );
 
@@ -941,6 +1360,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.globeSurfaceReady = true;
     this.standardEarthTextures = { map: earthMap, spec: null, bump: null };
     this.applyBasemapMode();
+    this.frameCameraOnLatLon(GLOBE_INITIAL_FRANCE_LAT, GLOBE_INITIAL_FRANCE_LON, GLOBE_INITIAL_ORBIT_DISTANCE);
   }
 
   /** Toutes les images du globe passent par le backend PatTool ({@code /api/external/globe/...}). */
@@ -1196,7 +1616,6 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       }
 
       this.buildActivityOverlayExtended(this.scene, segments, loneMarkers);
-      this.activityLayerVisible = true;
       const placedCount = segments.length + loneMarkers.length;
       this.activitiesPlaced = placedCount;
       this.activitiesSkipped = skipped;
@@ -1396,79 +1815,6 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     return new THREE.Vector3(x, y, z);
   }
 
-  private disposeMarkersRoot(scene: THREE.Scene): void {
-    if (!this.markersRoot) {
-      return;
-    }
-    scene.remove(this.markersRoot);
-    this.markersRoot.traverse((o) => {
-      if (o instanceof THREE.InstancedMesh) {
-        o.geometry.dispose();
-        (o.material as THREE.Material).dispose();
-      }
-    });
-    this.markersRoot = undefined;
-  }
-
-  private buildMarkers(scene: THREE.Scene): void {
-    this.disposeMarkersRoot(scene);
-    const surfaceR = 1.021;
-    const alongNormal = 0.004;
-
-    /** Anneau fin + point central, tons froids ; plus discret que les grosses sphères rouges. */
-    const ringGeo = new THREE.RingGeometry(0.0065, 0.0105, 56);
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: 0xb8e8f5,
-      transparent: true,
-      opacity: 0.78,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-      polygonOffset: true,
-      polygonOffsetFactor: -2,
-      polygonOffsetUnits: -2
-    });
-    const ringInst = new THREE.InstancedMesh(ringGeo, ringMat, this.demoMarkers.length);
-
-    const dotGeo = new THREE.CircleGeometry(0.0028, 32);
-    const dotMat = new THREE.MeshBasicMaterial({
-      color: 0xeaf8fc,
-      transparent: true,
-      opacity: 0.88,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-      polygonOffset: true,
-      polygonOffsetFactor: -2,
-      polygonOffsetUnits: -2
-    });
-    const dotInst = new THREE.InstancedMesh(dotGeo, dotMat, this.demoMarkers.length);
-
-    const m4 = new THREE.Matrix4();
-    const v = new THREE.Vector3();
-    const n = new THREE.Vector3();
-    const q = new THREE.Quaternion();
-    const zAxis = new THREE.Vector3(0, 0, 1);
-    const unitScale = new THREE.Vector3(1, 1, 1);
-
-    this.demoMarkers.forEach((dm, i) => {
-      v.copy(WorldGlobeComponent.latLonToVector3(dm.latDeg, dm.lonDeg, surfaceR));
-      n.copy(v).normalize();
-      v.addScaledVector(n, alongNormal);
-      q.setFromUnitVectors(zAxis, n);
-      m4.compose(v, q, unitScale);
-      ringInst.setMatrixAt(i, m4);
-      dotInst.setMatrixAt(i, m4);
-    });
-    ringInst.instanceMatrix.needsUpdate = true;
-    dotInst.instanceMatrix.needsUpdate = true;
-
-    const grp = new THREE.Group();
-    grp.add(ringInst);
-    grp.add(dotInst);
-    grp.visible = this.demoMarkersEnabled;
-    scene.add(grp);
-    this.markersRoot = grp;
-  }
-
   private makeStarField(): THREE.Points {
     const n = 1800;
     const positions = new Float32Array(n * 3);
@@ -1491,10 +1837,12 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     const mat = new THREE.PointsMaterial({
       color: 0xdde8ff,
-      size: 0.045,
+      size: 0.065,
       depthWrite: false,
-      opacity: 0.85,
-      transparent: true
+      opacity: 0.92,
+      transparent: true,
+      fog: false,
+      sizeAttenuation: true
     });
     const pts = new THREE.Points(geo, mat);
     pts.visible = this.starsEnabled;
@@ -1533,6 +1881,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       if (this.realTimeTerminator) {
         this.updateSunDirectionFromTime(new Date());
       }
+      if (this.globeGeocodeMarkerLat != null && this.globeGeocodeMarkerLon != null) {
+        this.updateGeocodeMarkerWorldPosition();
+      }
+      this.syncOrbitControlsSensitivity();
       controls.update();
       renderer.render(scene, camera);
     };

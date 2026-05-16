@@ -3,8 +3,10 @@ package com.pat.controller;
 import com.pat.repo.NetworkDeviceMappingRepository;
 import com.pat.repo.MacVendorMappingRepository;
 import com.pat.repo.NewDeviceHistoryRepository;
+import com.pat.dto.WifiScanResult;
 import com.pat.service.LocalNetworkService;
 import com.pat.service.NetworkScanScheduler;
+import com.pat.service.WifiScanService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,14 +40,16 @@ public class LocalNetworkController {
     private final MacVendorMappingRepository macVendorMappingRepository;
     private final NewDeviceHistoryRepository newDeviceHistoryRepository;
     private final NetworkScanScheduler networkScanScheduler;
+    private final WifiScanService wifiScanService;
 
     @Autowired
-    public LocalNetworkController(LocalNetworkService localNetworkService, NetworkDeviceMappingRepository deviceMappingRepository, MacVendorMappingRepository macVendorMappingRepository, NewDeviceHistoryRepository newDeviceHistoryRepository, NetworkScanScheduler networkScanScheduler) {
+    public LocalNetworkController(LocalNetworkService localNetworkService, NetworkDeviceMappingRepository deviceMappingRepository, MacVendorMappingRepository macVendorMappingRepository, NewDeviceHistoryRepository newDeviceHistoryRepository, NetworkScanScheduler networkScanScheduler, WifiScanService wifiScanService) {
         this.localNetworkService = localNetworkService;
         this.deviceMappingRepository = deviceMappingRepository;
         this.macVendorMappingRepository = macVendorMappingRepository;
         this.newDeviceHistoryRepository = newDeviceHistoryRepository;
         this.networkScanScheduler = networkScanScheduler;
+        this.wifiScanService = wifiScanService;
     }
 
     /**
@@ -80,6 +84,29 @@ public class LocalNetworkController {
             log.debug("Error scanning network", e);
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", "Scan failed");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    /**
+     * WLAN networks visible from the PatTool backend host (not client browser): Windows netsh, Linux nmcli, macOS airport.
+     */
+    @GetMapping(value = "/wifi-scan", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> scanNearbyWifi() {
+        if (!hasAdminRole()) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Unauthorized");
+            errorResponse.put("message", "Admin role required for Wi‑Fi vicinity scan");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+        }
+        try {
+            WifiScanResult result = wifiScanService.scanVisibleNetworks();
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.warn("Wi-Fi scan endpoint error", e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Wi-Fi scan failed");
             errorResponse.put("message", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }

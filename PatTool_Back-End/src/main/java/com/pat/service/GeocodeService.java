@@ -90,6 +90,9 @@ public class GeocodeService {
                 out.put("lon", parseDouble(m.get("lon")));
                 out.put("displayName", m.get("display_name") != null ? m.get("display_name").toString() : "");
                 out.put("address", m.get("address") != null ? m.get("address") : Collections.emptyMap());
+                if (m.get("boundingbox") != null) {
+                    out.put("boundingBox", m.get("boundingbox"));
+                }
                 results.add(out);
             }
             log.debug("Geocode search for '{}' returned {} results", query, results.size());
