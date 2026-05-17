@@ -16,13 +16,24 @@
 ::ng-deep .modal.show .modal-dialog .modal-content:has(.trace-viewer-body),
 ::ng-deep .modal.show:has(.trace-viewer-body) .modal-content,
 ::ng-deep .modal.show .modal-content:has(.slideshow-header):has(.trace-viewer-body),
-::ng-deep .modal-smooth-animation .modal-content:has(.trace-viewer-body) {
+::ng-deep .modal-smooth-animation .modal-content:has(.trace-viewer-body),
+::ng-deep ngb-modal-window.trace-viewer-leaflet-modal .modal-content:has(.trace-viewer-body),
+::ng-deep .modal.trace-viewer-leaflet-modal .modal-content:has(.trace-viewer-body) {
 	border: 4px solid var(--slideshow-border, white) !important;
 	border-radius: 8px;
 	overflow: hidden;
 }
 
-/* Align trace viewer modal sizing with slideshow modal */
+/*
+ * Classe dédiée trace-viewer-leaflet-modal (sans modal-smooth-animation) : sécurise tout de même
+ * transform/animation sur .modal-dialog (Bootstrap .fade, thèmes globaux).
+ */
+::ng-deep ngb-modal-window.trace-viewer-leaflet-modal .modal-dialog,
+::ng-deep .modal.trace-viewer-leaflet-modal .modal-dialog,
+::ng-deep .trace-viewer-leaflet-modal .modal-dialog {
+	transform: none !important;
+}
+
 ::ng-deep .modal.show:has(.trace-viewer-body) .modal-dialog,
 ::ng-deep .modal.show .modal-dialog:has(.trace-viewer-body),
 ::ng-deep .modal.show .modal-xl.modal-dialog:has(.trace-viewer-body),

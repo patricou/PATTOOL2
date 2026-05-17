@@ -263,7 +263,7 @@
       </span>
     </div>
     <div class="trace-stats" *ngIf="isMapReady">
-      <span class="zoom-footer-label"><i class="fa fa-search me-1" aria-hidden="true"></i>Zoom {{ currentZoom }}</span>
+      <span class="zoom-footer-label"><i class="fa fa-search me-1" aria-hidden="true"></i>Zoom {{ currentZoom | number:'1.1-2' }}</span>
     </div>
     <div class="d-flex gap-1 align-items-center flex-nowrap trace-viewer-footer-actions">
       <div class="form-check form-switch d-flex align-items-center flex-shrink-0">
