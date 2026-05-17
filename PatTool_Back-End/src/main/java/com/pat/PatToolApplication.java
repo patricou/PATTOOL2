@@ -13,6 +13,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.env.Environment;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.scheduling.annotation.EnableAsync;
@@ -21,6 +22,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 
 import java.net.InetAddress;
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -96,7 +98,7 @@ public class PatToolApplication implements CommandLineRunner {
     }
     
     @EventListener(ApplicationReadyEvent.class)
-    public void onApplicationReady() {
+    public void onApplicationReady(ApplicationReadyEvent event) {
         // Load cache from file system on startup (if enabled)
         if (restoreCacheOnStartup != null && restoreCacheOnStartup && cachePersistenceService != null) {
             log.info("Application is ready. Checking cache file existence...");
@@ -124,7 +126,12 @@ public class PatToolApplication implements CommandLineRunner {
         }
         
         log.info("Application is ready. Preparing startup notification email...");
-        
+
+        if (shouldSkipStartupNotificationMail(event.getApplicationContext().getEnvironment())) {
+            log.info("Startup email notification skipped (local / dev; see PatToolApplication).");
+            return;
+        }
+
         if (sendmail != null && sendmail && smtpMailSender != null && 
             mailSentFrom != null && !mailSentFrom.isEmpty() && 
             mailSentTo != null && !mailSentTo.isEmpty()) {
@@ -164,6 +171,53 @@ public class PatToolApplication implements CommandLineRunner {
             }
         } else {
             log.info("Startup email notification skipped - email sending is disabled or not configured");
+        }
+    }
+
+    /**
+     * Avoid startup alert emails when the API is run on a developer machine.
+     * Heuristics: Spring profile dev/local, explicit loopback {@code server.address}, or
+     * {@code keycloak.auth-server-url} pointing at this machine (e.g. http://localhost:8080/auth).
+     */
+    private static boolean shouldSkipStartupNotificationMail(Environment env) {
+        if (env == null) {
+            return false;
+        }
+        for (String p : env.getActiveProfiles()) {
+            if (p == null) {
+                continue;
+            }
+            String pl = p.toLowerCase();
+            if ("local".equals(pl) || "dev".equals(pl) || "development".equals(pl)) {
+                return true;
+            }
+        }
+        String serverAddress = env.getProperty("server.address", "");
+        if (serverAddress != null && !serverAddress.isBlank()) {
+            String a = serverAddress.trim().toLowerCase();
+            if ("127.0.0.1".equals(a) || "localhost".equals(a) || "::1".equals(a)
+                    || "0:0:0:0:0:0:0:1".equals(a)) {
+                return true;
+            }
+        }
+        return keycloakAuthServerUrlIsLocalhost(env.getProperty("keycloak.auth-server-url", ""));
+    }
+
+    private static boolean keycloakAuthServerUrlIsLocalhost(String url) {
+        if (url == null || url.isBlank()) {
+            return false;
+        }
+        try {
+            URI uri = URI.create(url.trim());
+            String host = uri.getHost();
+            if (host == null) {
+                return false;
+            }
+            host = host.toLowerCase();
+            return "localhost".equals(host) || "127.0.0.1".equals(host)
+                    || "::1".equals(host) || "0:0:0:0:0:0:0:1".equals(host);
+        } catch (IllegalArgumentException e) {
+            return false;
         }
     }
 

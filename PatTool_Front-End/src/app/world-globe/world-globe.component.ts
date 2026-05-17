@@ -167,7 +167,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   weatherImageryLoading = false;
   weatherImageryFailed = false;
   countryBordersEnabled = true;
-  coastlinesEnabled = false;
+  coastlinesEnabled = true;
   graticuleEnabled = true;
   /** Carte politique semi-transparente (polygones admin-0, Natural Earth 110 m, proxifié). */
   politicalMapEnabled = false;
