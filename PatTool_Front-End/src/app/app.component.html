@@ -133,8 +133,8 @@
                 </ul>
             </li>
 
-            <!-- IoT Dropdown (only visible if user has Iot role) -->
-            <li class="nav-item dropdown" *ngIf="hasIotRole">
+            <!-- Maison / IoT (+ scan sécurité pour tout utilisateur connecté) -->
+            <li class="nav-item dropdown" *ngIf="sortedNavIot.length > 0">
                 <a class="nav-link dropdown-toggle" 
                    href="#"
                    id="iotDropdown" 

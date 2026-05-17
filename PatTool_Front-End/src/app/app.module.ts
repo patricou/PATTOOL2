@@ -71,6 +71,8 @@ export function HttpLoaderFactory(http: HttpClient) {
 		TraceViewerModalModule,
 		AgGridModule,
 		TranslateModule.forRoot({
+			defaultLanguage: 'en',
+			useDefaultLang: true,
 			loader: {
 				provide: TranslateLoader,
 				useFactory: HttpLoaderFactory,
@@ -164,6 +166,11 @@ export function HttpLoaderFactory(http: HttpClient) {
 			{
 				path: 'tools/world-globe',
 				loadComponent: () => import('./world-globe/world-globe.component').then(m => m.WorldGlobeComponent)
+			},
+			{
+				path: 'tools/security-scan',
+				loadComponent: () =>
+					import('./world-security-scan/world-security-scan.component').then(m => m.WorldSecurityScanComponent)
 			},
 			{
 				path: 'calendrier',

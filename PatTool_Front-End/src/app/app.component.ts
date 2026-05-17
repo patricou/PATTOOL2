@@ -24,11 +24,13 @@ import { StockTickerService } from './services/stock-ticker.service';
 import { AssistantDrawerComponent } from './shared/assistant-drawer/assistant-drawer.component';
 
 interface NavRouteMenuItem {
-  routerLink: unknown[];
-  icon: string;
-  labelKey: string;
-  authOnly?: boolean;
-  adminOnly?: boolean;
+    routerLink: unknown[];
+    icon: string;
+    labelKey: string;
+    authOnly?: boolean;
+    adminOnly?: boolean;
+    /** Entrée visible sans rôle IoT (ex. scan sécurité), tant que les autres filtres passent. */
+    visibleWithoutIotRole?: boolean;
 }
 
 interface NavDocMenuItem {
@@ -150,7 +152,14 @@ export class AppComponent implements OnInit {
         { routerLink: ['iot'], icon: 'fa fa-home', labelKey: 'MENU.IOT_HOME' },
         { routerLink: ['iot/local-network'], icon: 'fa fa-sitemap', labelKey: 'MENU.LOCAL_NETWORK', adminOnly: true },
         { routerLink: ['iot/cameras'], icon: 'fa fa-video-camera', labelKey: 'MENU.CAMERAS' },
-        { routerLink: ['iot/proxy'], icon: 'fa fa-random', labelKey: 'MENU.IOT_PROXY' }
+        { routerLink: ['iot/proxy'], icon: 'fa fa-random', labelKey: 'MENU.IOT_PROXY' },
+        {
+            routerLink: ['tools/security-scan'],
+            icon: 'fa fa-shield',
+            labelKey: 'MENU.WORLD_SECURITY_SCAN',
+            authOnly: true,
+            visibleWithoutIotRole: true
+        }
     ];
     readonly navMathRaw: NavRouteMenuItem[] = [
         { routerLink: ['tools/loto'], icon: 'fa fa-trophy', labelKey: 'MENU.LOTTO' },
@@ -269,6 +278,19 @@ export class AppComponent implements OnInit {
         );
     }
 
+    /** Menu Maison : entrées IoT réservées au rôle IoT, sauf celles marquées {@link NavRouteMenuItem.visibleWithoutIotRole}. */
+    private filterIotMenuItems(items: readonly NavRouteMenuItem[]): NavRouteMenuItem[] {
+        return items.filter((i) => {
+            if ((i.authOnly && !this.isAuthenticated()) || (i.adminOnly && !this.hasAdminRole())) {
+                return false;
+            }
+            if (i.visibleWithoutIotRole) {
+                return true;
+            }
+            return this.hasIotRole;
+        });
+    }
+
     get sortedNavEvents(): NavRouteMenuItem[] {
         return this.sortMenuByLabel(this.navEventsRaw);
     }
@@ -290,7 +312,7 @@ export class AppComponent implements OnInit {
     }
 
     get sortedNavIot(): NavRouteMenuItem[] {
-        return this.sortMenuByLabel(this.filterRouteItems(this.navIotRaw));
+        return this.sortMenuByLabel(this.filterIotMenuItems(this.navIotRaw));
     }
 
     get sortedNavMath(): NavRouteMenuItem[] {

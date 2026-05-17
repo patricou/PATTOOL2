@@ -564,6 +564,52 @@ export class ApiService {
       )
     );
   }
+
+  /** Liens optionnels (scanner interne, runbook) — JWT ; configurés dans pat.security-awareness.* */
+  getSecurityAwarenessLinks(): Observable<SecurityAwarenessLinksDto> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<SecurityAwarenessLinksDto>(this.API_URL + 'config/security-awareness-links', {
+          headers
+        })
+      )
+    );
+  }
+
+  /** Sonde HTTP — JWT ; champ optionnel {@code includeActiveChecks} côté corps JSON. */
+  passiveSiteProbe(body: PassiveProbeRequest): Observable<PassiveProbeResponse> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.post<PassiveProbeResponse>(this.API_URL + 'security-scan/passive-probe', body, { headers })
+      )
+    );
+  }
+}
+
+/** POST /api/security-scan/passive-probe */
+export interface PassiveProbeRequest {
+  targetUrl: string;
+  authorizationConfirmed: boolean;
+  includeActiveChecks?: boolean;
+}
+
+export interface PassiveProbeResponse {
+  requestedUrl: string;
+  finalUrl: string | null;
+  statusCode: number | null;
+  checks: PassiveCheckRow[];
+}
+
+export interface PassiveCheckRow {
+  id: string;
+  severity: string;
+  detail?: string | null;
+}
+
+/** GET /api/config/security-awareness-links */
+export interface SecurityAwarenessLinksDto {
+  scannerDashboardUrl?: string | null;
+  internalRunbookUrl?: string | null;
 }
 
 /** Frankfurter /latest and /historical response shape. */

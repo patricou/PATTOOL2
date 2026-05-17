@@ -1979,11 +1979,15 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     const nextDeviceNumber = this.getNextDeviceNumber();
     
     if (deviceData) {
-      // Pre-populate form with device data
+      const macCand =
+        deviceData.macAddress ||
+        deviceData.macAddressARP ||
+        deviceData.macAddressMongoDB;
+      // Pre-populate form with device data (MAC editable: user can fix or fill if scan gave none)
       this.mappingForm = {
         ipAddress: deviceData.ipAddress || '',
         deviceName: deviceData.hostname || deviceData.ipAddress || '',
-        macAddress: deviceData.macAddress || '',
+        macAddress: macCand ? String(macCand).trim() : '',
         deviceNumber: nextDeviceNumber,
         deviceType: deviceData.deviceType || '',
         deviceDescription: ''

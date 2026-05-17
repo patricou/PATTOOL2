@@ -38,6 +38,18 @@ keycloak.client-id=tutorial-frontend
 # Allowed CORS origins for the API (browser)
 app.cors.allowed-origins=http://localhost:4200,http://127.0.0.1:4200,http://localhost:8000,http://127.0.0.1:8000
 
+# --- Page « Monde → Sécurité / périmètre » : liens optionnels (JWT requis pour lecture API)
+# Tableau de bord scanner interne (ZAP/Burp/etc.), vide si non utilisé.
+pat.security-awareness.scanner-dashboard-url=
+# Runbook ou wiki sécurité interne.
+pat.security-awareness.internal-runbook-url=
+
+# --- Sonde HTTP passive (Monde/Maison → scan sécurité, onglet tests)
+pat.passive-probe.allow-private-targets=false
+pat.passive-probe.max-redirects=5
+pat.passive-probe.connect-timeout-seconds=5
+pat.passive-probe.request-timeout-seconds=15
+
 # --- App mail (MailController requires these keys) ---
 app.mailsentfrom=
 app.mailsentto=

@@ -243,31 +243,38 @@
   </div>
 
   <div class="modal-footer slideshow-footer trace-viewer-footer-toolbar">
-    <div class="trace-stats" *ngIf="availableBaseLayers.length > 0 && !isFullscreen">
-      <select id="trace-base-layer" class="form-select form-select-sm"
-              [ngModel]="selectedBaseLayerId"
-              (ngModelChange)="onBaseLayerChange($event)"
-              [attr.aria-label]="'EVENTELEM.TRACK_BASEMAP' | translate">
-        <option *ngFor="let layer of availableBaseLayers" [value]="layer.id">{{ layer.labelKey ? (layer.labelKey | translate) : layer.label }}</option>
-      </select>
+    <div class="trace-viewer-footer-row trace-viewer-footer-row--primary w-100 d-flex flex-wrap align-items-center gap-2">
+      <div class="trace-viewer-footer-basemap-slot flex-shrink-0"
+           *ngIf="availableBaseLayers.length > 0 && !isFullscreen">
+        <div class="trace-stats">
+          <select id="trace-base-layer" class="form-select form-select-sm"
+                  [ngModel]="selectedBaseLayerId"
+                  (ngModelChange)="onBaseLayerChange($event)"
+                  [attr.aria-label]="'EVENTELEM.TRACK_BASEMAP' | translate">
+            <option *ngFor="let layer of availableBaseLayers" [value]="layer.id">{{ layer.labelKey ? (layer.labelKey | translate) : layer.label }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="trace-viewer-footer-stats-inline d-flex flex-wrap align-items-center justify-content-end gap-2 flex-grow-1 ms-auto min-w-0">
+        <div class="trace-stats" *ngIf="trackStats && !hasError">
+          <span>
+            <i class="fa fa-map-marker me-1" aria-hidden="true"></i>
+            {{ 'EVENTELEM.TRACK_POINTS' | translate:{ count: trackStats.points } }}
+          </span>
+          <span *ngIf="trackStats.distanceKm !== null">
+            <i class="fa fa-arrows-h me-1" aria-hidden="true"></i>
+            {{ 'EVENTELEM.TRACK_DISTANCE' | translate:{ km: trackStats.distanceKm } }}
+          </span>
+        </div>
+        <div class="trace-stats" *ngIf="isMapReady">
+          <span class="zoom-footer-label"><i class="fa fa-search me-1" aria-hidden="true"></i>{{ 'EVENTELEM.TRACK_FOOTER_ZOOM_SHORT' | translate }} {{ currentZoom | number:'1.1-2' }}</span>
+        </div>
+      </div>
     </div>
-
-    <div class="trace-stats" *ngIf="trackStats && !hasError">
-      <span>
-        <i class="fa fa-map-marker me-1" aria-hidden="true"></i>
-        {{ 'EVENTELEM.TRACK_POINTS' | translate:{ count: trackStats.points } }}
-      </span>
-      <span *ngIf="trackStats.distanceKm !== null">
-        <i class="fa fa-arrows-h me-1" aria-hidden="true"></i>
-        {{ 'EVENTELEM.TRACK_DISTANCE' | translate:{ km: trackStats.distanceKm } }}
-      </span>
-    </div>
-    <div class="trace-stats" *ngIf="isMapReady">
-      <span class="zoom-footer-label"><i class="fa fa-search me-1" aria-hidden="true"></i>Zoom {{ currentZoom | number:'1.1-2' }}</span>
-    </div>
-    <div class="d-flex gap-1 align-items-center flex-nowrap trace-viewer-footer-actions">
+    <div class="trace-viewer-footer-row trace-viewer-footer-row--bottom w-100 d-flex">
+    <div class="d-flex gap-1 align-items-center trace-viewer-footer-actions">
       <div class="form-check form-switch d-flex align-items-center flex-shrink-0">
-        <input class="form-check-input" type="checkbox" id="show-address-switch" 
+        <input class="form-check-input" type="checkbox" id="show-address-switch"
                [(ngModel)]="showAddress"
                (change)="onShowAddressChange()">
         <label class="form-check-label ms-1 ms-sm-2 gps-switch-label" for="show-address-switch" title="{{ 'EVENTELEM.SHOW_ADDRESS' | translate }}">
@@ -275,7 +282,7 @@
         </label>
       </div>
       <div class="form-check form-switch d-flex align-items-center flex-shrink-0">
-        <input class="form-check-input" type="checkbox" id="show-weather-switch" 
+        <input class="form-check-input" type="checkbox" id="show-weather-switch"
                [(ngModel)]="showWeather"
                (change)="onShowWeatherChange()">
         <label class="form-check-label ms-1 ms-sm-2 gps-switch-label" for="show-weather-switch" [title]="'EVENTELEM.SHOW_WEATHER' | translate">
@@ -283,7 +290,7 @@
         </label>
       </div>
       <div class="form-check form-switch d-flex align-items-center flex-shrink-0">
-        <input class="form-check-input" type="checkbox" id="show-hiking-overlay-switch" 
+        <input class="form-check-input" type="checkbox" id="show-hiking-overlay-switch"
                [(ngModel)]="showHikingTrailsOverlay"
                (ngModelChange)="onHikingTrailsOverlayChange()">
         <label class="form-check-label ms-1 ms-sm-2 gps-switch-label" for="show-hiking-overlay-switch" [title]="'EVENTELEM.TRACK_FOOTER_HIKING_HINT' | translate">
@@ -291,7 +298,7 @@
         </label>
       </div>
       <div class="form-check form-switch d-flex align-items-center flex-shrink-0">
-        <input class="form-check-input" type="checkbox" id="show-cycling-overlay-switch" 
+        <input class="form-check-input" type="checkbox" id="show-cycling-overlay-switch"
                [(ngModel)]="showCyclingTrailsOverlay"
                (ngModelChange)="onCyclingTrailsOverlayChange()">
         <label class="form-check-label ms-1 ms-sm-2 gps-switch-label" for="show-cycling-overlay-switch" [title]="'EVENTELEM.TRACK_FOOTER_CYCLING_HINT' | translate">
@@ -299,7 +306,7 @@
         </label>
       </div>
       <div class="form-check form-switch d-flex align-items-center flex-shrink-0">
-        <input class="form-check-input" type="checkbox" id="follow-device-location-switch" 
+        <input class="form-check-input" type="checkbox" id="follow-device-location-switch"
                [(ngModel)]="followDeviceLocation"
                (ngModelChange)="onFollowDeviceLocationChange()">
         <label class="form-check-label ms-1 ms-sm-2 gps-switch-label" for="follow-device-location-switch" [title]="'EVENTELEM.TRACK_FOLLOW_DEVICE' | translate">
@@ -353,6 +360,7 @@
         <i class="fa fa-times me-1" aria-hidden="true"></i>
         <span class="trace-viewer-footer-btn-text">{{ 'COMMUN.CLOSE' | translate }}</span>
       </button>
+    </div>
     </div>
   </div>
 </ng-template>

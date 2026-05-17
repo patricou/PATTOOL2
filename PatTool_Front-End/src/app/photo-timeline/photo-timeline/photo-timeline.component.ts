@@ -19,8 +19,8 @@ import { FriendGroup } from '../../model/friend';
 import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { VideoCompressionService } from '../../services/video-compression.service';
 import { VideoUploadProcessingService } from '../../services/video-upload-processing.service';
-import { forkJoin, of, Subscription } from 'rxjs';
-import { map, distinctUntilChanged, catchError, take, switchMap, finalize, timeout } from 'rxjs/operators';
+import { asyncScheduler, forkJoin, of, Subscription } from 'rxjs';
+import { map, distinctUntilChanged, catchError, take, switchMap, finalize, observeOn, timeout } from 'rxjs/operators';
 import { DomSanitizer, SafeUrl, SafeStyle } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
 import { EvenementsService } from '../../services/evenements.service';
@@ -554,30 +554,32 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         }, 50);
     }
 
-  /**
-   * Writes wall thumbnail / video blob caches outside the Angular zone so Zone does not emit an
-   * extra ApplicationRef notification that races with dev-mode checkNoChanges (NG0100 on [src] /
-   * getThumbnailUrl). CD is then requested explicitly via {@link scheduleCdr}.
-   *
-   * Double {@link setTimeout}(0) schedules past the synchronous CD + dev checkNoChanges pass; a
-   * single macrotask (or queueMicrotask) can still observe the thumbnail flip inside the same
-   * stabilization round-trip in recent Angular builds.
-   */
-  private commitWallMediaCachesAndScheduleCdr(fn: () => void): void {
-    if (this.destroyed) return;
-    setTimeout(() => {
-      if (this.destroyed) return;
-      setTimeout(() => {
-        if (this.destroyed) return;
-        this.ngZone.runOutsideAngular(() => {
-          if (this.destroyed) return;
-          fn();
-        });
-        if (this.destroyed) return;
-        this.ngZone.run(() => this.scheduleCdr());
-      }, 0);
-    }, 0);
-  }
+	/**
+	 * Writes wall thumbnail / video blob caches outside the Angular zone so Zone does not emit an
+	 * extra ApplicationRef notification that races with dev-mode checkNoChanges (NG0100 on [src] /
+	 * getThumbnailUrl). CD is then requested explicitly via {@link scheduleCdr}.
+	 *
+	 * Triple {@link setTimeout}(0) + {@link observeOn}({@link asyncScheduler}) on wall-fetch streams
+	 * avoids NG0100 in Angular 21 dev mode (thumbnail / video URL flips before verifyNoChanges completes).
+	 */
+	private commitWallMediaCachesAndScheduleCdr(fn: () => void): void {
+		if (this.destroyed) return;
+		setTimeout(() => {
+			if (this.destroyed) return;
+			setTimeout(() => {
+				if (this.destroyed) return;
+				setTimeout(() => {
+					if (this.destroyed) return;
+					this.ngZone.runOutsideAngular(() => {
+						if (this.destroyed) return;
+						fn();
+					});
+					if (this.destroyed) return;
+					this.ngZone.run(() => this.scheduleCdr());
+				}, 0);
+			}, 0);
+		}, 0);
+	}
 
     /**
      * Defers GPX stats cache writes to the next macrotask so dev-mode checkNoChanges does not
@@ -1222,6 +1224,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.acquireWallFetchSlot(() => {
             const gen = this.timelineLoadGeneration;
             const sub = this.fileService.getFile(id).pipe(
+                observeOn(asyncScheduler),
                 timeout(WALL_VIDEO_FETCH_TIMEOUT_MS),
                 finalize(() => this.releaseWallFetchSlot())
             ).subscribe({
@@ -1273,6 +1276,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.acquireWallFetchSlot(() => {
             const gen = this.timelineLoadGeneration;
             const sub = this.fileService.getFileWallPreview(photo.fileId, getAdaptiveThumbMaxEdge()).pipe(
+                observeOn(asyncScheduler),
                 finalize(() => this.releaseWallFetchSlot())
             ).subscribe({
                 next: (data: ArrayBuffer) => {

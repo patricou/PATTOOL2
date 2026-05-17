@@ -1,0 +1,244 @@
+<div class="pat-title wss-page-title px-3">
+  <h2>{{ 'WORLD_SECURITY_SCAN.TITLE' | translate }}</h2>
+</div>
+
+<div class="wss-root container-fluid px-3 px-lg-4 pb-5">
+  <p class="text-secondary small mb-3">{{ 'WORLD_SECURITY_SCAN.SUBTITLE' | translate }}</p>
+
+  <div class="alert alert-warning border-0 shadow-sm mb-4" role="alert">
+    <strong>{{ 'WORLD_SECURITY_SCAN.DISCLAIMER_TITLE' | translate }}</strong>
+    {{ 'WORLD_SECURITY_SCAN.DISCLAIMER_BODY' | translate }}
+  </div>
+
+  <ul class="nav nav-tabs nav-fill flex-column flex-sm-row gap-1 mb-3 wss-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button
+        type="button"
+        class="nav-link"
+        [class.active]="activeTab === 'pattool'"
+        (click)="setTab('pattool')"
+        role="tab"
+        [attr.aria-selected]="activeTab === 'pattool'">
+        {{ 'WORLD_SECURITY_SCAN.TAB_PATTOOL' | translate }}
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button
+        type="button"
+        class="nav-link"
+        [class.active]="activeTab === 'edu'"
+        (click)="setTab('edu')"
+        role="tab"
+        [attr.aria-selected]="activeTab === 'edu'">
+        {{ 'WORLD_SECURITY_SCAN.TAB_EDU' | translate }}
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button
+        type="button"
+        class="nav-link"
+        [class.active]="activeTab === 'scope'"
+        (click)="setTab('scope')"
+        role="tab"
+        [attr.aria-selected]="activeTab === 'scope'">
+        {{ 'WORLD_SECURITY_SCAN.TAB_SCOPE' | translate }}
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button
+        type="button"
+        class="nav-link"
+        [class.active]="activeTab === 'probe'"
+        (click)="setTab('probe')"
+        role="tab"
+        [attr.aria-selected]="activeTab === 'probe'">
+        {{ 'WORLD_SECURITY_SCAN.TAB_PROBE' | translate }}
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content card shadow-sm border-0">
+    <div class="card-body" *ngIf="activeTab === 'pattool'" role="tabpanel">
+      <p>{{ 'WORLD_SECURITY_SCAN.PATTOOL_INTRO' | translate }}</p>
+      <h6 class="fw-semibold mt-3">{{ 'WORLD_SECURITY_SCAN.PATTOOL_ARCH_TITLE' | translate }}</h6>
+      <ul class="small">
+        <li>{{ 'WORLD_SECURITY_SCAN.PATTOOL_ARCH_1' | translate }}</li>
+        <li>{{ 'WORLD_SECURITY_SCAN.PATTOOL_ARCH_2' | translate }}</li>
+        <li>{{ 'WORLD_SECURITY_SCAN.PATTOOL_ARCH_3' | translate }}</li>
+        <li>{{ 'WORLD_SECURITY_SCAN.PATTOOL_ARCH_4' | translate }}</li>
+        <li>{{ 'WORLD_SECURITY_SCAN.PATTOOL_ARCH_5' | translate }}</li>
+      </ul>
+      <h6 class="fw-semibold mt-3">{{ 'WORLD_SECURITY_SCAN.PATTOOL_OPS_TITLE' | translate }}</h6>
+      <ul class="small">
+        <li>{{ 'WORLD_SECURITY_SCAN.PATTOOL_OPS_1' | translate }}</li>
+        <li>{{ 'WORLD_SECURITY_SCAN.PATTOOL_OPS_2' | translate }}</li>
+        <li>{{ 'WORLD_SECURITY_SCAN.PATTOOL_OPS_3' | translate }}</li>
+        <li>{{ 'WORLD_SECURITY_SCAN.PATTOOL_OPS_4' | translate }}</li>
+        <li>{{ 'WORLD_SECURITY_SCAN.PATTOOL_OPS_5' | translate }}</li>
+      </ul>
+    </div>
+
+    <div class="card-body" *ngIf="activeTab === 'edu'" role="tabpanel">
+      <p>{{ 'WORLD_SECURITY_SCAN.EDU_INTRO' | translate }}</p>
+      <p class="small mb-2">
+        <a
+          href="https://owasp.org/www-project-top-ten/"
+          target="_blank"
+          rel="noopener noreferrer"
+          >{{ 'WORLD_SECURITY_SCAN.EDU_OWASP_LINK' | translate }}</a
+        >
+      </p>
+      <h6 class="fw-semibold mt-3">{{ 'WORLD_SECURITY_SCAN.EDU_RESP_TITLE' | translate }}</h6>
+      <ul class="small">
+        <li>{{ 'WORLD_SECURITY_SCAN.EDU_RESP_1' | translate }}</li>
+        <li>{{ 'WORLD_SECURITY_SCAN.EDU_RESP_2' | translate }}</li>
+        <li>{{ 'WORLD_SECURITY_SCAN.EDU_RESP_3' | translate }}</li>
+      </ul>
+      <p class="small text-secondary mb-0">{{ 'WORLD_SECURITY_SCAN.EDU_LEGAL' | translate }}</p>
+    </div>
+
+    <div class="card-body" *ngIf="activeTab === 'scope'" role="tabpanel">
+      <p class="small">{{ 'WORLD_SECURITY_SCAN.SCOPE_INTRO' | translate }}</p>
+
+      <div class="small text-secondary mb-3" *ngIf="linksLoading">{{ 'WORLD_SECURITY_SCAN.LINKS_LOADING' | translate }}</div>
+      <div class="alert alert-danger py-2 small mb-3" *ngIf="linksError && !linksLoading">
+        {{ 'WORLD_SECURITY_SCAN.SCOPE_FETCH_ERROR' | translate }}
+      </div>
+
+      <div class="d-flex flex-wrap gap-2 mb-4" *ngIf="!linksLoading && !linksError">
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-primary"
+          *ngIf="serverLinks?.scannerDashboardUrl"
+          (click)="openExternal(serverLinks!.scannerDashboardUrl!)">
+          {{ 'WORLD_SECURITY_SCAN.SCOPE_OPEN_SCANNER' | translate }}
+        </button>
+        <span class="small text-secondary align-self-center" *ngIf="!serverLinks?.scannerDashboardUrl">
+          {{ 'WORLD_SECURITY_SCAN.SCOPE_NO_SCANNER' | translate }}
+        </span>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          *ngIf="serverLinks?.internalRunbookUrl"
+          (click)="openExternal(serverLinks!.internalRunbookUrl!)">
+          {{ 'WORLD_SECURITY_SCAN.SCOPE_OPEN_RUNBOOK' | translate }}
+        </button>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label small fw-semibold" for="wssOrg">{{ 'WORLD_SECURITY_SCAN.SCOPE_ORG' | translate }}</label>
+          <input id="wssOrg" class="form-control form-control-sm" [(ngModel)]="scopeOrganization" />
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small fw-semibold" for="wssContact">{{
+            'WORLD_SECURITY_SCAN.SCOPE_CONTACT' | translate
+          }}</label>
+          <input id="wssContact" type="email" class="form-control form-control-sm" [(ngModel)]="scopeContact" />
+        </div>
+        <div class="col-12">
+          <label class="form-label small fw-semibold" for="wssDomains">{{ 'WORLD_SECURITY_SCAN.SCOPE_DOMAINS' | translate }}</label>
+          <textarea id="wssDomains" class="form-control form-control-sm" rows="3" [(ngModel)]="scopeDomains"></textarea>
+          <div class="form-text">{{ 'WORLD_SECURITY_SCAN.SCOPE_DOMAINS_HINT' | translate }}</div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small fw-semibold" for="wssUntil">{{ 'WORLD_SECURITY_SCAN.SCOPE_UNTIL' | translate }}</label>
+          <input id="wssUntil" type="date" class="form-control form-control-sm" [(ngModel)]="scopeValidUntil" />
+        </div>
+        <div class="col-12">
+          <label class="form-label small fw-semibold" for="wssNotes">{{ 'WORLD_SECURITY_SCAN.SCOPE_NOTES' | translate }}</label>
+          <textarea id="wssNotes" class="form-control form-control-sm" rows="3" [(ngModel)]="scopeNotes"></textarea>
+        </div>
+        <div class="col-12">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="wssAuth" [(ngModel)]="scopeAuthorized" />
+            <label class="form-check-label small" for="wssAuth">{{ 'WORLD_SECURITY_SCAN.SCOPE_CONFIRM' | translate }}</label>
+          </div>
+        </div>
+        <div class="col-12 d-flex flex-wrap gap-2 align-items-center">
+          <button type="button" class="btn btn-primary btn-sm" (click)="copyManifest()">
+            {{ 'WORLD_SECURITY_SCAN.SCOPE_COPY' | translate }}
+          </button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="resetScopeForm()">
+            {{ 'WORLD_SECURITY_SCAN.SCOPE_RESET' | translate }}
+          </button>
+          <span class="small text-success" *ngIf="copyFeedback === 'ok'">{{ 'WORLD_SECURITY_SCAN.COPY_OK' | translate }}</span>
+          <span class="small text-danger" *ngIf="copyFeedback === 'fail'">{{ 'WORLD_SECURITY_SCAN.COPY_FAIL' | translate }}</span>
+        </div>
+      </div>
+
+      <p class="small text-secondary mt-4 mb-0">{{ 'WORLD_SECURITY_SCAN.SCOPE_STORAGE_NOTE' | translate }}</p>
+    </div>
+
+    <div class="card-body" *ngIf="activeTab === 'probe'" role="tabpanel">
+      <p class="small">{{ 'WORLD_SECURITY_SCAN.PROBE_INTRO' | translate }}</p>
+
+      <div class="row g-3 align-items-end mb-3">
+        <div class="col-12 col-lg">
+          <label class="form-label small fw-semibold" for="wssProbeUrl">{{ 'WORLD_SECURITY_SCAN.PROBE_URL_LABEL' | translate }}</label>
+          <input
+            id="wssProbeUrl"
+            type="url"
+            class="form-control form-control-sm"
+            [placeholder]="'WORLD_SECURITY_SCAN.PROBE_URL_PLACEHOLDER' | translate"
+            [(ngModel)]="probeTargetUrl"
+            autocomplete="off"
+            spellcheck="false" />
+        </div>
+        <div class="col-12 col-lg-auto d-flex flex-wrap gap-2 align-items-center">
+          <div class="d-flex flex-column gap-1">
+            <div class="form-check mb-0">
+              <input class="form-check-input" type="checkbox" id="wssProbeAuth" [(ngModel)]="probeAuthConfirmed" />
+              <label class="form-check-label small" for="wssProbeAuth">{{ 'WORLD_SECURITY_SCAN.PROBE_AUTH_CHECK' | translate }}</label>
+            </div>
+            <div class="form-check mb-0">
+              <input class="form-check-input" type="checkbox" id="wssProbeActive" [(ngModel)]="probeIncludeActive" />
+              <label class="form-check-label small" for="wssProbeActive">{{
+                'WORLD_SECURITY_SCAN.PROBE_ACTIVE_CHECKS' | translate
+              }}</label>
+            </div>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" [disabled]="probeRunning" (click)="runPassiveProbe()">
+            <span *ngIf="probeRunning" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+            {{ probeRunning ? ('WORLD_SECURITY_SCAN.PROBE_RUNNING' | translate) : ('WORLD_SECURITY_SCAN.PROBE_RUN' | translate) }}
+          </button>
+        </div>
+      </div>
+
+      <p class="small text-secondary mb-3">{{ 'WORLD_SECURITY_SCAN.PROBE_ACTIVE_HINT' | translate }}</p>
+      <div class="alert alert-danger py-2 small mb-3" *ngIf="probeErrorMsg">{{ probeErrorMsg }}</div>
+
+      <div class="small text-secondary mb-2" *ngIf="probeResult">
+        <span class="me-3"
+          ><strong>{{ 'WORLD_SECURITY_SCAN.PROBE_SUMMARY' | translate }}:</strong>
+          {{ probeResult.finalUrl || probeResult.requestedUrl }}</span
+        >
+        <span *ngIf="probeResult.statusCode != null"
+          ><strong>{{ 'WORLD_SECURITY_SCAN.PROBE_STATUS_CODE' | translate }}:</strong> {{ probeResult.statusCode }}</span
+        >
+      </div>
+
+      <div class="table-responsive wss-probe-table-wrap" *ngIf="probeResult?.checks?.length">
+        <table class="table table-sm table-striped align-middle mb-0">
+          <thead>
+            <tr>
+              <th scope="col">{{ 'WORLD_SECURITY_SCAN.PROBE_COL_TEST' | translate }}</th>
+              <th scope="col">{{ 'WORLD_SECURITY_SCAN.PROBE_COL_RESULT' | translate }}</th>
+              <th scope="col">{{ 'WORLD_SECURITY_SCAN.PROBE_COL_DETAIL' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of probeResult!.checks">
+              <td>{{ checkLabel(row) }}</td>
+              <td><span [class]="severityBadgeClass(row.severity)">{{ severityLabel(row.severity) }}</span></td>
+              <td class="small font-monospace">{{ row.detail }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="small text-secondary mb-0" *ngIf="!probeRunning && !probeResult?.checks?.length && !probeErrorMsg">
+        {{ 'WORLD_SECURITY_SCAN.PROBE_NO_ROWS' | translate }}
+      </p>
+    </div>
+  </div>
+</div>

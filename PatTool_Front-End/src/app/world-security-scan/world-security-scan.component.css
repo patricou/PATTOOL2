@@ -1,0 +1,119 @@
+.wss-root {
+  max-width: 960px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  color: #e9eef9;
+}
+
+.wss-page-title h2 {
+  color: #fff !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.wss-root .text-secondary {
+  color: #c8d6ec !important;
+}
+
+.wss-tabs .nav-link {
+  color: #dce6fb;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.375rem;
+  background: rgba(16, 20, 36, 0.55);
+}
+
+.wss-tabs .nav-link:hover {
+  color: #fff;
+  border-color: rgba(126, 200, 255, 0.45);
+}
+
+.wss-tabs .nav-link.active {
+  color: #0b1224;
+  background: linear-gradient(180deg, #cfe6ff 0%, #a8d4ff 100%);
+  border-color: rgba(126, 200, 255, 0.85);
+  font-weight: 600;
+}
+
+.wss-root .card {
+  background: rgba(18, 22, 38, 0.92);
+  color: #f2f6ff;
+}
+
+.wss-root .card a {
+  color: #9bdcff;
+}
+
+.wss-root .form-label,
+.wss-root .form-check-label {
+  color: #f2f6ff;
+}
+
+.wss-root .form-control {
+  background-color: rgba(16, 20, 36, 0.92);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #f5f8ff;
+}
+
+.wss-root .form-control:focus {
+  border-color: rgba(126, 200, 255, 0.65);
+  box-shadow: 0 0 0 0.15rem rgba(126, 200, 255, 0.22);
+  color: #fff;
+}
+
+.wss-root .form-text {
+  color: #aabbd6 !important;
+}
+
+.wss-root .alert-warning {
+  background: rgba(255, 214, 138, 0.95);
+  color: #3b2f14;
+}
+
+.wss-root .alert-danger {
+  background: rgba(220, 53, 69, 0.18);
+  color: #ffb4bd;
+  border: 1px solid rgba(220, 53, 69, 0.35);
+}
+
+.wss-root .btn-outline-primary {
+  color: #9bdcff;
+  border-color: rgba(126, 200, 255, 0.55);
+}
+
+.wss-root .btn-outline-primary:hover {
+  color: #0b1224;
+  background: #9bdcff;
+  border-color: #9bdcff;
+}
+
+.wss-root .btn-outline-secondary {
+  color: #eaf0ff;
+  border-color: rgba(255, 255, 255, 0.42);
+}
+
+.wss-root .btn-primary {
+  background: linear-gradient(180deg, #5eb8ff 0%, #3a8fd9 100%);
+  border-color: rgba(126, 200, 255, 0.85);
+}
+
+.wss-probe-table-wrap {
+  border-radius: 0.375rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+}
+
+.wss-probe-table-wrap .table {
+  --bs-table-bg: transparent;
+  --bs-table-striped-bg: rgba(255, 255, 255, 0.04);
+  color: #f2f6ff;
+  margin-bottom: 0;
+}
+
+.wss-probe-table-wrap .table thead th {
+  border-bottom-color: rgba(255, 255, 255, 0.2);
+  color: #dce6fb;
+  font-weight: 600;
+}
+
+.wss-probe-table-wrap .table td {
+  border-color: rgba(255, 255, 255, 0.12);
+}

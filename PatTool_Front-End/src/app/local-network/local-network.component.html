@@ -935,18 +935,15 @@
                         </div>
                         <div class="mb-3">
                             <label for="mappingMacAddress" class="form-label">{{ "LOCAL_NETWORK.MAC_ADDRESS" | translate }}</label>
-                            <input type="text" 
-                                   class="form-control" 
+                            <input type="text"
+                                   class="form-control"
                                    id="mappingMacAddress"
                                    [(ngModel)]="mappingForm.macAddress"
                                    name="macAddress"
                                    placeholder="00:11:22:33:44:55"
-                                   readonly
-                                   tabindex="-1"
-                                   (keydown)="$event.preventDefault()"
-                                   (paste)="$event.preventDefault()"
-                                   (input)="$event.preventDefault()"
-                                   style="background-color: #e9ecef; cursor: not-allowed; user-select: none;">
+                                   autocomplete="off"
+                                   autocorrect="off"
+                                   spellcheck="false">
                         </div>
                         <div class="mb-3">
                             <label for="mappingDeviceType" class="form-label">{{ "LOCAL_NETWORK.DEVICE_TYPE" | translate }}</label>
