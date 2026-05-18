@@ -156,6 +156,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private mapEmbedHostRoot?: HTMLElement;
 	private embeddedModalMapKickToken = 0;
 	private static readonly TRACE_VIEWER_MODAL_WINDOW_CLASS = 'slideshow-modal-wide trace-viewer-leaflet-modal';
+	private static readonly SWISSTOPO_BASEMAP_IDS = new Set<string>(['swisstopo-pixelkarte', 'swisstopo-swissimage']);
+	private static readonly SWISSTOPO_ATTRIBUTION =
+		'&copy; <a href="https://www.swisstopo.admin.ch/" target="_blank" rel="noopener noreferrer">swisstopo</a> — <a href="https://www.geo.admin.ch/" target="_blank" rel="noopener noreferrer">geo.admin.ch</a>';
 	private rightMouseZoomActive = false;
 	private rightMouseStartLatLng?: L.LatLng;
 	private rightMouseRectangle?: L.Rectangle;
@@ -420,9 +423,46 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.lastMapHardViewResetAtMs = performance.now();
 		const c = this.map.getCenter();
 		this.lastHardViewResetCenter = { lat: c.lat, lng: c.lng };
-		this.lastHardViewResetZoom = this.map.getZoom();
+		this.lastHardViewResetZoom = Math.round(this.map.getZoom());
 		const sz = this.map.getSize();
 		this.lastHardViewResetPixelSize = { w: sz.x, h: sz.y };
+	}
+
+	private isSwisstopoBasemap(layerId: string): boolean {
+		return TraceViewerModalComponent.SWISSTOPO_BASEMAP_IDS.has(layerId);
+	}
+
+	private createSwisstopoLayer(layerId: string): L.TileLayer {
+		const isImage = layerId === 'swisstopo-swissimage';
+		return L.tileLayer(
+			isImage
+				? 'https://wmts{s}.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg'
+				: 'https://wmts{s}.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg',
+			{
+				subdomains: '0123456789',
+				maxZoom: isImage ? 19 : 18,
+				minZoom: 2,
+				attribution: TraceViewerModalComponent.SWISSTOPO_ATTRIBUTION
+			}
+		);
+	}
+
+	/** WMTS Swisstopo : zoom entier obligatoire (zoomSnap 0 → 14,8 ne charge pas les tuiles). */
+	private snapSwisstopoTiles(): void {
+		if (!this.map || !this.isSwisstopoBasemap(this.selectedBaseLayerId)) {
+			return;
+		}
+		this.map.invalidateSize({ animate: false });
+		const c = this.map.getCenter();
+		const zInt = Math.min(
+			this.map.getMaxZoom(),
+			Math.max(this.map.getMinZoom(), Math.round(this.map.getZoom()))
+		);
+		this.map.setView(c, zInt, { animate: false, reset: true } as L.ZoomPanOptions & { reset?: boolean });
+		this.recordTileGridHardReset();
+		this.redrawActiveBaseLayerTiles();
+		this.currentZoom = zInt;
+		this.cdr.detectChanges();
 	}
 
 	/**
@@ -443,31 +483,35 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const ok = w >= 2 && h >= 2;
 		this.map.invalidateSize({ animate: false });
 		if (ok && this.activeBaseLayer) {
-			const c = this.map.getCenter();
-			const z = this.map.getZoom();
-			const sz = this.map.getSize();
-			const msSinceHard = performance.now() - this.lastMapHardViewResetAtMs;
-			// Ne pas sauter un reset si la carte a bougé — ex. France puis point photo — ou si la taille pixel a changé
-			// (fin d’animation modale) : sinon tuiles grises jusqu’au prochain vrai reset.
-			const recentHard = msSinceHard >= 0 && msSinceHard < 480;
-			const sameView =
-				this.lastHardViewResetCenter != null &&
-				this.lastHardViewResetZoom != null &&
-				Math.abs(c.lat - this.lastHardViewResetCenter.lat) < 1e-7 &&
-				Math.abs(c.lng - this.lastHardViewResetCenter.lng) < 1e-7 &&
-				z === this.lastHardViewResetZoom;
-			const samePixelSize =
-				this.lastHardViewResetPixelSize != null &&
-				sz.x === this.lastHardViewResetPixelSize.w &&
-				sz.y === this.lastHardViewResetPixelSize.h;
-			const skipDuplicateHardReset = recentHard && sameView && samePixelSize;
-			// Même centre + même zoom : Leaflet utilise _tryAnimatedPan → panBy(0) → moveend **sans** _resetView.
-			// Les nouvelles couches / tuiles ne se peignent pas (fond gris) jusqu'à un vrai zoom. `reset: true` force _resetView.
-			if (!skipDuplicateHardReset) {
-				this.map.setView(c, z, { animate: false, reset: true } as L.ZoomPanOptions & { reset?: boolean });
-				this.recordTileGridHardReset();
+			if (this.isSwisstopoBasemap(this.selectedBaseLayerId)) {
+				this.snapSwisstopoTiles();
+			} else {
+				const c = this.map.getCenter();
+				const z = this.map.getZoom();
+				const zInt = Math.min(
+					this.map.getMaxZoom(),
+					Math.max(this.map.getMinZoom(), Math.round(z))
+				);
+				const sz = this.map.getSize();
+				const msSinceHard = performance.now() - this.lastMapHardViewResetAtMs;
+				const recentHard = msSinceHard >= 0 && msSinceHard < 480;
+				const sameView =
+					this.lastHardViewResetCenter != null &&
+					this.lastHardViewResetZoom != null &&
+					Math.abs(c.lat - this.lastHardViewResetCenter.lat) < 1e-7 &&
+					Math.abs(c.lng - this.lastHardViewResetCenter.lng) < 1e-7 &&
+					zInt === this.lastHardViewResetZoom;
+				const samePixelSize =
+					this.lastHardViewResetPixelSize != null &&
+					sz.x === this.lastHardViewResetPixelSize.w &&
+					sz.y === this.lastHardViewResetPixelSize.h;
+				const skipDuplicateHardReset = recentHard && sameView && samePixelSize;
+				if (!skipDuplicateHardReset) {
+					this.map.setView(c, zInt, { animate: false, reset: true } as L.ZoomPanOptions & { reset?: boolean });
+					this.recordTileGridHardReset();
+				}
+				this.redrawActiveBaseLayerTiles();
 			}
-			this.redrawActiveBaseLayerTiles();
 		}
 		const hadLayout = this.mapContainerHadLayout;
 		this.mapContainerHadLayout = ok;
@@ -1022,6 +1066,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.map.on('moveend', () => this.forceCrosshairCursor());
 		this.map.on('zoomend', () => {
 			this.forceCrosshairCursor();
+			if (this.isSwisstopoBasemap(this.selectedBaseLayerId) && this.map) {
+				const rounded = Math.round(this.map.getZoom());
+				if (Math.abs(this.map.getZoom() - rounded) > 0.01) {
+					this.snapSwisstopoTiles();
+					return;
+				}
+			}
 			this.currentZoom = this.map!.getZoom();
 			this.applyLeafletZoomDeltaForLevel(this.currentZoom);
 			this.cdr.detectChanges();
@@ -1171,6 +1222,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.recordTileGridHardReset();
 		} else {
 			this.map.setView(c, zInt, { animate: false });
+		}
+		if (this.isSwisstopoBasemap(this.selectedBaseLayerId)) {
+			this.snapSwisstopoTiles();
 		}
 	}
 
@@ -2065,22 +2119,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 				attribution: '&copy; <a href="https://www.cyclosm.org">CyclOSM</a> | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 			}),
 			// Suisse — WMTS Web Mercator (EPSG:3857), voir https://wmts.geo.admin.ch/
-			'swisstopo-pixelkarte': L.tileLayer(
-				'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg',
-				{
-					maxZoom: 19,
-					attribution:
-						'&copy; <a href="https://www.swisstopo.admin.ch/" target="_blank" rel="noopener noreferrer">swisstopo</a> — <a href="https://www.geo.admin.ch/" target="_blank" rel="noopener noreferrer">geo.admin.ch</a>'
-				}
-			),
-			'swisstopo-swissimage': L.tileLayer(
-				'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg',
-				{
-					maxZoom: 20,
-					attribution:
-						'&copy; <a href="https://www.swisstopo.admin.ch/" target="_blank" rel="noopener noreferrer">swisstopo</a> — <a href="https://www.geo.admin.ch/" target="_blank" rel="noopener noreferrer">geo.admin.ch</a>'
-				}
-			)
+			'swisstopo-pixelkarte': L.layerGroup(),
+			'swisstopo-swissimage': L.layerGroup()
 		};
 
 		this.availableBaseLayers = [
@@ -2132,11 +2172,24 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.map.removeLayer(this.activeBaseLayer);
 		}
 
-		const nextLayer = this.baseLayers[this.selectedBaseLayerId] ?? this.baseLayers['osm-standard'];
-		if (nextLayer) {
-			nextLayer.addTo(this.map);
-			this.activeBaseLayer = nextLayer;
+		const isSwiss = this.isSwisstopoBasemap(this.selectedBaseLayerId);
+		const nextLayer: L.TileLayer | L.LayerGroup = isSwiss
+			? this.createSwisstopoLayer(this.selectedBaseLayerId)
+			: (this.baseLayers[this.selectedBaseLayerId] ?? this.baseLayers['osm-standard']);
 
+		if (!nextLayer) {
+			return;
+		}
+
+		nextLayer.addTo(this.map);
+		if (nextLayer instanceof L.TileLayer) {
+			nextLayer.bringToBack();
+		}
+		this.activeBaseLayer = nextLayer;
+
+		if (isSwiss) {
+			this.snapSwisstopoTiles();
+		} else {
 			if (nextLayer instanceof L.TileLayer) {
 				nextLayer.redraw();
 			} else if (nextLayer instanceof L.LayerGroup) {
@@ -2149,6 +2202,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.clearMapLayoutSyncDebouncer();
 			this.syncMapLayoutCore();
 		}
+
 		this.applyHikingTrailsOverlay();
 		this.applyCyclingTrailsOverlay();
 	}
