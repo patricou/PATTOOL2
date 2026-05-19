@@ -53,6 +53,7 @@
         "EUROMILLIONS": "EuroMillions",
         "SOLAR_SYSTEM": "Solar system",
         "WORLD_GLOBE": "地球三维球体",
+        "PDF_CONVERTER": "PDF 转换器",
         "SYSTEM": "System",
         "RECENT_FEATURES_DOCUMENTATION": "Recent Features Documentation"
     },
@@ -1565,6 +1566,25 @@
         "EMAIL_SUBJECT": "分享 {{count}} 个文件",
         "EMAIL_BODY": "要分享的文件: {{files}}",
         "EMAIL_OPENED": "已打开邮件客户端"
+    },
+    "PDF_CONVERTER": {
+        "TITLE": "PDF 转换器",
+        "INTRO": "输入文字并添加图片，然后生成 PDF 文档（与助手 PDF 导出使用相同引擎）。",
+        "FILENAME_LABEL": "PDF 文件名",
+        "FILENAME_PLACEHOLDER": "my-document",
+        "FILENAME_HINT": "无需扩展名 — 将自动添加 .pdf。",
+        "TEXT_LABEL": "文字",
+        "TEXT_PLACEHOLDER": "在此输入文档内容…",
+        "IMAGES_LABEL": "图片",
+        "ADD_IMAGES": "添加图片",
+        "IMAGES_HINT": "支持的图片格式（JPEG、PNG、GIF、WebP 等），可多选。",
+        "REMOVE_IMAGE": "删除图片",
+        "GENERATE_BTN": "生成 PDF",
+        "CLEAR_BTN": "全部清除",
+        "CONTENT_LABEL": "内容",
+        "ERR_FILENAME_REQUIRED": "请输入 PDF 文件名。",
+        "ERR_CONTENT_REQUIRED": "请添加文字或至少一张图片。",
+        "ERR_EXPORT": "PDF 生成失败，请重试。"
     },
     "LOTTO": {
         "TITLE": "法国乐透（FDJ）— 开奖",

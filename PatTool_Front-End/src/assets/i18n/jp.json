@@ -53,6 +53,7 @@
         "EUROMILLIONS": "EuroMillions",
         "SOLAR_SYSTEM": "Solar system",
         "WORLD_GLOBE": "地球グローブ",
+        "PDF_CONVERTER": "PDFコンバーター",
         "SYSTEM": "System",
         "RECENT_FEATURES_DOCUMENTATION": "Recent Features Documentation"
     },
@@ -1326,6 +1327,25 @@
         "EMAIL_SUBJECT": "{{count}} ファイルを共有",
         "EMAIL_BODY": "共有するファイル: {{files}}",
         "EMAIL_OPENED": "メールクライアントが開かれました"
+    },
+    "PDF_CONVERTER": {
+        "TITLE": "PDFコンバーター",
+        "INTRO": "テキストを入力し画像を追加して PDF を生成します（アシスタントの PDF エクスポートと同じエンジン）。",
+        "FILENAME_LABEL": "PDF ファイル名",
+        "FILENAME_PLACEHOLDER": "my-document",
+        "FILENAME_HINT": "拡張子不要 — .pdf が自動で付きます。",
+        "TEXT_LABEL": "テキスト",
+        "TEXT_PLACEHOLDER": "ここに文書の内容を入力…",
+        "IMAGES_LABEL": "画像",
+        "ADD_IMAGES": "画像を追加",
+        "IMAGES_HINT": "対応形式（JPEG、PNG、GIF、WebP など）。複数選択可。",
+        "REMOVE_IMAGE": "画像を削除",
+        "GENERATE_BTN": "PDF を生成",
+        "CLEAR_BTN": "すべてクリア",
+        "CONTENT_LABEL": "内容",
+        "ERR_FILENAME_REQUIRED": "PDF ファイル名を入力してください。",
+        "ERR_CONTENT_REQUIRED": "テキストまたは画像を 1 枚以上追加してください。",
+        "ERR_EXPORT": "PDF の生成に失敗しました。もう一度お試しください。"
     },
     "LOTTO": {
         "TITLE": "フランス式ロト（FDJ）— 抽選",

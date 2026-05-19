@@ -54,6 +54,7 @@
         "SOLAR_SYSTEM": "Système solaire",
         "WORLD_GLOBE": "Globe Terre",
         "WORLD_SECURITY_SCAN": "Scan sécurité (mandat)",
+        "PDF_CONVERTER": "Convertisseur PDF",
         "SYSTEM": "Système",
         "RECENT_FEATURES_DOCUMENTATION": "Documentation — nouvelles fonctionnalités"
     },
@@ -1755,6 +1756,25 @@
         "EMAIL_SUBJECT": "Partage de {{count}} fichier(s)",
         "EMAIL_BODY": "Fichiers à partager: {{files}}",
         "EMAIL_OPENED": "Client email ouvert"
+    },
+    "PDF_CONVERTER": {
+        "TITLE": "Convertisseur PDF",
+        "INTRO": "Saisissez du texte et ajoutez des images, puis générez un document PDF (même moteur que l’export PDF de l’assistant).",
+        "FILENAME_LABEL": "Nom du fichier PDF",
+        "FILENAME_PLACEHOLDER": "mon-document",
+        "FILENAME_HINT": "Sans extension : .pdf sera ajouté automatiquement.",
+        "TEXT_LABEL": "Texte",
+        "TEXT_PLACEHOLDER": "Saisissez ici le contenu de votre document…",
+        "IMAGES_LABEL": "Images",
+        "ADD_IMAGES": "Ajouter des images",
+        "IMAGES_HINT": "Formats image acceptés (JPEG, PNG, GIF, WebP…). Plusieurs fichiers possibles.",
+        "REMOVE_IMAGE": "Supprimer l’image",
+        "GENERATE_BTN": "Générer le PDF",
+        "CLEAR_BTN": "Tout effacer",
+        "CONTENT_LABEL": "Contenu",
+        "ERR_FILENAME_REQUIRED": "Indiquez un nom de fichier PDF.",
+        "ERR_CONTENT_REQUIRED": "Ajoutez du texte ou au moins une image.",
+        "ERR_EXPORT": "Échec de la génération du PDF. Réessayez."
     },
     "LOTTO": {
         "TITLE": "Loto (FDJ) — tirages",

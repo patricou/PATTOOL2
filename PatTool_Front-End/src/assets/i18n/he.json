@@ -53,6 +53,7 @@
         "EUROMILLIONS": "EuroMillions",
         "SOLAR_SYSTEM": "Solar system",
         "WORLD_GLOBE": "גלובוס כדור הארץ",
+        "PDF_CONVERTER": "ממיר PDF",
         "SYSTEM": "System",
         "RECENT_FEATURES_DOCUMENTATION": "Recent Features Documentation"
     },
@@ -1565,6 +1566,25 @@
         "EMAIL_SUBJECT": "שיתוף {{count}} קובץ/ים",
         "EMAIL_BODY": "קבצים לשיתוף: {{files}}",
         "EMAIL_OPENED": "לקוח דוא\"ל נפתח"
+    },
+    "PDF_CONVERTER": {
+        "TITLE": "ממיר PDF",
+        "INTRO": "הזינו טקסט והוסיפו תמונות, ולאחר מכן צרו מסמך PDF (אותו מנוע כמו ייצוא PDF של העוזר).",
+        "FILENAME_LABEL": "שם קובץ PDF",
+        "FILENAME_PLACEHOLDER": "my-document",
+        "FILENAME_HINT": "ללא סיומת — .pdf יתווסף אוטומטית.",
+        "TEXT_LABEL": "טקסט",
+        "TEXT_PLACEHOLDER": "הזינו כאן את תוכן המסמך…",
+        "IMAGES_LABEL": "תמונות",
+        "ADD_IMAGES": "הוספת תמונות",
+        "IMAGES_HINT": "פורמטים נתמכים (JPEG, PNG, GIF, WebP…). ניתן לבחור מספר קבצים.",
+        "REMOVE_IMAGE": "הסרת תמונה",
+        "GENERATE_BTN": "יצירת PDF",
+        "CLEAR_BTN": "ניקוי הכל",
+        "CONTENT_LABEL": "תוכן",
+        "ERR_FILENAME_REQUIRED": "יש להזין שם קובץ PDF.",
+        "ERR_CONTENT_REQUIRED": "הוסיפו טקסט או לפחות תמונה אחת.",
+        "ERR_EXPORT": "יצירת PDF נכשלה. נסו שוב."
     },
     "LOTTO": {
         "TITLE": "לוטו צרפתי (FDJ) — הגרלות",

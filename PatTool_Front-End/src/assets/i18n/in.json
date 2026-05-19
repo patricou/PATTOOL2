@@ -458,6 +458,7 @@
         "EUROMILLIONS": "EuroMillions",
         "SOLAR_SYSTEM": "Solar system",
         "WORLD_GLOBE": "पृथ्वी ग्लोब",
+        "PDF_CONVERTER": "PDF कनवर्टर",
         "SYSTEM": "System",
         "RECENT_FEATURES_DOCUMENTATION": "Recent Features Documentation"
     },
@@ -1535,6 +1536,25 @@
         "EMAIL_SUBJECT": "{{count}} फ़ाइल/फ़ाइलें साझा करें",
         "EMAIL_BODY": "साझा करने के लिए फ़ाइलें: {{files}}",
         "EMAIL_OPENED": "ईमेल क्लाइंट खोला गया"
+    },
+    "PDF_CONVERTER": {
+        "TITLE": "PDF कनवर्टर",
+        "INTRO": "टेक्स्ट दर्ज करें और चित्र जोड़ें, फिर PDF बनाएं (असिस्टेंट PDF निर्यात जैसा ही इंजन)।",
+        "FILENAME_LABEL": "PDF फ़ाइल नाम",
+        "FILENAME_PLACEHOLDER": "my-document",
+        "FILENAME_HINT": "बिना एक्सटेंशन — .pdf स्वतः जोड़ा जाएगा।",
+        "TEXT_LABEL": "टेक्स्ट",
+        "TEXT_PLACEHOLDER": "यहाँ दस्तावेज़ की सामग्री दर्ज करें…",
+        "IMAGES_LABEL": "चित्र",
+        "ADD_IMAGES": "चित्र जोड़ें",
+        "IMAGES_HINT": "JPEG, PNG, GIF, WebP… कई फ़ाइलें चुन सकते हैं।",
+        "REMOVE_IMAGE": "चित्र हटाएँ",
+        "GENERATE_BTN": "PDF बनाएं",
+        "CLEAR_BTN": "सब साफ़ करें",
+        "CONTENT_LABEL": "सामग्री",
+        "ERR_FILENAME_REQUIRED": "PDF फ़ाइल नाम दर्ज करें।",
+        "ERR_CONTENT_REQUIRED": "टेक्स्ट या कम से कम एक चित्र जोड़ें।",
+        "ERR_EXPORT": "PDF बनाना विफल। पुनः प्रयास करें।"
     },
     "LOTTO": {
         "TITLE": "फ्रेंच लोटो (FDJ) — ड्रॉ",

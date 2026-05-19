@@ -54,6 +54,7 @@
         "SOLAR_SYSTEM": "Solar system",
         "WORLD_GLOBE": "Earth globe",
         "WORLD_SECURITY_SCAN": "Security scan (authorized scope)",
+        "PDF_CONVERTER": "PDF converter",
         "SYSTEM": "System",
         "RECENT_FEATURES_DOCUMENTATION": "Recent Features Documentation"
     },
@@ -1771,6 +1772,25 @@
         "EMAIL_SUBJECT": "Sharing {{count}} file(s)",
         "EMAIL_BODY": "Files to share: {{files}}",
         "EMAIL_OPENED": "Email client opened"
+    },
+    "PDF_CONVERTER": {
+        "TITLE": "PDF converter",
+        "INTRO": "Enter text and add images, then generate a PDF document (same engine as the assistant PDF export).",
+        "FILENAME_LABEL": "PDF file name",
+        "FILENAME_PLACEHOLDER": "my-document",
+        "FILENAME_HINT": "Without extension — .pdf will be added automatically.",
+        "TEXT_LABEL": "Text",
+        "TEXT_PLACEHOLDER": "Enter your document content here…",
+        "IMAGES_LABEL": "Images",
+        "ADD_IMAGES": "Add images",
+        "IMAGES_HINT": "Accepted image formats (JPEG, PNG, GIF, WebP…). Multiple files allowed.",
+        "REMOVE_IMAGE": "Remove image",
+        "GENERATE_BTN": "Generate PDF",
+        "CLEAR_BTN": "Clear all",
+        "CONTENT_LABEL": "Content",
+        "ERR_FILENAME_REQUIRED": "Please enter a PDF file name.",
+        "ERR_CONTENT_REQUIRED": "Add text or at least one image.",
+        "ERR_EXPORT": "PDF generation failed. Please try again."
     },
     "LOTTO": {
         "TITLE": "French Loto (FDJ) draws",

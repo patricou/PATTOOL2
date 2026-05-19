@@ -53,6 +53,7 @@
         "EUROMILLIONS": "EuroMillions",
         "SOLAR_SYSTEM": "Solar system",
         "WORLD_GLOBE": "الكرة الأرضية",
+        "PDF_CONVERTER": "محول PDF",
         "SYSTEM": "System",
         "RECENT_FEATURES_DOCUMENTATION": "Recent Features Documentation"
     },
@@ -1564,6 +1565,25 @@
         "EMAIL_SUBJECT": "مشاركة {{count}} ملف",
         "EMAIL_BODY": "الملفات للمشاركة: {{files}}",
         "EMAIL_OPENED": "تم فتح عميل البريد الإلكتروني"
+    },
+    "PDF_CONVERTER": {
+        "TITLE": "محول PDF",
+        "INTRO": "أدخل نصًا وأضف صورًا، ثم أنشئ مستند PDF (نفس محرك تصدير PDF للمساعد).",
+        "FILENAME_LABEL": "اسم ملف PDF",
+        "FILENAME_PLACEHOLDER": "my-document",
+        "FILENAME_HINT": "بدون امتداد — سيتم إضافة .pdf تلقائيًا.",
+        "TEXT_LABEL": "النص",
+        "TEXT_PLACEHOLDER": "أدخل محتوى المستند هنا…",
+        "IMAGES_LABEL": "الصور",
+        "ADD_IMAGES": "إضافة صور",
+        "IMAGES_HINT": "صيغ مقبولة (JPEG, PNG, GIF, WebP…). يمكن اختيار عدة ملفات.",
+        "REMOVE_IMAGE": "حذف الصورة",
+        "GENERATE_BTN": "إنشاء PDF",
+        "CLEAR_BTN": "مسح الكل",
+        "CONTENT_LABEL": "المحتوى",
+        "ERR_FILENAME_REQUIRED": "يرجى إدخال اسم ملف PDF.",
+        "ERR_CONTENT_REQUIRED": "أضف نصًا أو صورة واحدة على الأقل.",
+        "ERR_EXPORT": "فشل إنشاء PDF. حاول مرة أخرى."
     },
     "LOTTO": {
         "TITLE": "اللوتو الفرنسي (FDJ) — السحوبات",

@@ -52,6 +52,7 @@
         "EUROMILLIONS": "EuroMillions",
         "SOLAR_SYSTEM": "Solar system",
         "WORLD_GLOBE": "Globo terrestre",
+        "PDF_CONVERTER": "Convertitore PDF",
         "SYSTEM": "System",
         "RECENT_FEATURES_DOCUMENTATION": "Recent Features Documentation"
     },
@@ -1567,6 +1568,25 @@
         "EMAIL_SUBJECT": "Condivisione di {{count}} file",
         "EMAIL_BODY": "File da condividere: {{files}}",
         "EMAIL_OPENED": "Client email aperto"
+    },
+    "PDF_CONVERTER": {
+        "TITLE": "Convertitore PDF",
+        "INTRO": "Inserisci testo e aggiungi immagini, poi genera un documento PDF (stesso motore dell’export PDF dell’assistente).",
+        "FILENAME_LABEL": "Nome file PDF",
+        "FILENAME_PLACEHOLDER": "mio-documento",
+        "FILENAME_HINT": "Senza estensione — .pdf verrà aggiunto automaticamente.",
+        "TEXT_LABEL": "Testo",
+        "TEXT_PLACEHOLDER": "Inserisci qui il contenuto del documento…",
+        "IMAGES_LABEL": "Immagini",
+        "ADD_IMAGES": "Aggiungi immagini",
+        "IMAGES_HINT": "Formati accettati (JPEG, PNG, GIF, WebP…). Più file consentiti.",
+        "REMOVE_IMAGE": "Rimuovi immagine",
+        "GENERATE_BTN": "Genera PDF",
+        "CLEAR_BTN": "Cancella tutto",
+        "CONTENT_LABEL": "Contenuto",
+        "ERR_FILENAME_REQUIRED": "Indica un nome file PDF.",
+        "ERR_CONTENT_REQUIRED": "Aggiungi testo o almeno un’immagine.",
+        "ERR_EXPORT": "Generazione PDF non riuscita. Riprova."
     },
     "LOTTO": {
         "TITLE": "Lotto (FDJ) — estrazioni",

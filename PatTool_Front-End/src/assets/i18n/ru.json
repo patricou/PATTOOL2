@@ -459,6 +459,7 @@
         "EUROMILLIONS": "EuroMillions",
         "SOLAR_SYSTEM": "Solar system",
         "WORLD_GLOBE": "Глобус Земли",
+        "PDF_CONVERTER": "Конвертер PDF",
         "SYSTEM": "System",
         "RECENT_FEATURES_DOCUMENTATION": "Recent Features Documentation"
     },
@@ -1558,6 +1559,25 @@
         "EMAIL_SUBJECT": "Поделиться {{count}} файлом(ами)",
         "EMAIL_BODY": "Файлы для отправки: {{files}}",
         "EMAIL_OPENED": "Почтовый клиент открыт"
+    },
+    "PDF_CONVERTER": {
+        "TITLE": "Конвертер PDF",
+        "INTRO": "Введите текст и добавьте изображения, затем создайте PDF (тот же движок, что и экспорт PDF ассистента).",
+        "FILENAME_LABEL": "Имя PDF-файла",
+        "FILENAME_PLACEHOLDER": "moy-dokument",
+        "FILENAME_HINT": "Без расширения — .pdf будет добавлено автоматически.",
+        "TEXT_LABEL": "Текст",
+        "TEXT_PLACEHOLDER": "Введите содержимое документа…",
+        "IMAGES_LABEL": "Изображения",
+        "ADD_IMAGES": "Добавить изображения",
+        "IMAGES_HINT": "Форматы JPEG, PNG, GIF, WebP… Можно выбрать несколько файлов.",
+        "REMOVE_IMAGE": "Удалить изображение",
+        "GENERATE_BTN": "Создать PDF",
+        "CLEAR_BTN": "Очистить всё",
+        "CONTENT_LABEL": "Содержимое",
+        "ERR_FILENAME_REQUIRED": "Укажите имя PDF-файла.",
+        "ERR_CONTENT_REQUIRED": "Добавьте текст или хотя бы одно изображение.",
+        "ERR_EXPORT": "Не удалось создать PDF. Попробуйте снова."
     },
     "LOTTO": {
         "TITLE": "Французское лото (FDJ) — тиражи",

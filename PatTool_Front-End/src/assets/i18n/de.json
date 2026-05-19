@@ -53,6 +53,7 @@
         "EUROMILLIONS": "EuroMillions",
         "SOLAR_SYSTEM": "Solar system",
         "WORLD_GLOBE": "Erdkugel",
+        "PDF_CONVERTER": "PDF-Konverter",
         "SYSTEM": "System",
         "RECENT_FEATURES_DOCUMENTATION": "Recent Features Documentation"
     },
@@ -1603,6 +1604,25 @@
         "EMAIL_SUBJECT": "{{count}} Datei(en) teilen",
         "EMAIL_BODY": "Zu teilende Dateien: {{files}}",
         "EMAIL_OPENED": "E-Mail-Client geöffnet"
+    },
+    "PDF_CONVERTER": {
+        "TITLE": "PDF-Konverter",
+        "INTRO": "Text eingeben und Bilder hinzufügen, dann ein PDF-Dokument erzeugen (gleiche Engine wie der PDF-Export des Assistenten).",
+        "FILENAME_LABEL": "PDF-Dateiname",
+        "FILENAME_PLACEHOLDER": "mein-dokument",
+        "FILENAME_HINT": "Ohne Erweiterung — .pdf wird automatisch hinzugefügt.",
+        "TEXT_LABEL": "Text",
+        "TEXT_PLACEHOLDER": "Dokumentinhalt hier eingeben…",
+        "IMAGES_LABEL": "Bilder",
+        "ADD_IMAGES": "Bilder hinzufügen",
+        "IMAGES_HINT": "Akzeptierte Bildformate (JPEG, PNG, GIF, WebP…). Mehrere Dateien möglich.",
+        "REMOVE_IMAGE": "Bild entfernen",
+        "GENERATE_BTN": "PDF erzeugen",
+        "CLEAR_BTN": "Alles löschen",
+        "CONTENT_LABEL": "Inhalt",
+        "ERR_FILENAME_REQUIRED": "Bitte einen PDF-Dateinamen angeben.",
+        "ERR_CONTENT_REQUIRED": "Text oder mindestens ein Bild hinzufügen.",
+        "ERR_EXPORT": "PDF-Erzeugung fehlgeschlagen. Bitte erneut versuchen."
     },
     "LOTTO": {
         "TITLE": "Loto (FDJ) — Ziehungen",

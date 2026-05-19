@@ -1,0 +1,112 @@
+<div class="pat-title">
+  <h2>{{ 'PDF_CONVERTER.TITLE' | translate }}</h2>
+</div>
+
+<div class="container py-3 pdf-converter-page">
+  <p class="text-muted">{{ 'PDF_CONVERTER.INTRO' | translate }}</p>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <div class="mb-3">
+        <label class="form-label" for="pdfFileName">{{
+          'PDF_CONVERTER.FILENAME_LABEL' | translate
+        }}</label>
+        <div class="input-group">
+          <input
+            id="pdfFileName"
+            type="text"
+            class="form-control"
+            [(ngModel)]="pdfFileName"
+            [placeholder]="'PDF_CONVERTER.FILENAME_PLACEHOLDER' | translate"
+            [attr.aria-describedby]="'pdfFileNameHint'"
+            maxlength="180"
+            autocomplete="off"
+            spellcheck="false" />
+          <span class="input-group-text">.pdf</span>
+        </div>
+        <div id="pdfFileNameHint" class="form-text">
+          {{ 'PDF_CONVERTER.FILENAME_HINT' | translate }}
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" for="pdfTextContent">{{
+          'PDF_CONVERTER.TEXT_LABEL' | translate
+        }}</label>
+        <textarea
+          id="pdfTextContent"
+          class="form-control pdf-converter-textarea"
+          rows="10"
+          [(ngModel)]="textContent"
+          [placeholder]="'PDF_CONVERTER.TEXT_PLACEHOLDER' | translate"
+          spellcheck="true"></textarea>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label d-block">{{
+          'PDF_CONVERTER.IMAGES_LABEL' | translate
+        }}</label>
+        <input
+          #imageInput
+          type="file"
+          class="d-none"
+          accept="image/*"
+          multiple
+          (change)="onImagesSelected($event)" />
+        <button
+          type="button"
+          class="btn btn-outline-secondary btn-sm"
+          (click)="triggerImagePicker()">
+          <i class="fa fa-image me-1" aria-hidden="true"></i>
+          {{ 'PDF_CONVERTER.ADD_IMAGES' | translate }}
+        </button>
+        <div class="form-text">{{ 'PDF_CONVERTER.IMAGES_HINT' | translate }}</div>
+
+        <div *ngIf="images.length > 0" class="pdf-converter-images mt-3">
+          <div
+            *ngFor="let img of images"
+            class="pdf-converter-image-item">
+            <img [src]="img.previewUrl" [alt]="img.name" class="pdf-converter-thumb" />
+            <div class="pdf-converter-image-meta">
+              <span class="small text-truncate d-block" [title]="img.name">{{ img.name }}</span>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-danger mt-1"
+                (click)="removeImage(img.id)"
+                [attr.aria-label]="'PDF_CONVERTER.REMOVE_IMAGE' | translate">
+                <i class="fa fa-trash" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="errorKey" class="alert alert-danger py-2 px-3 small" role="alert">
+        {{ errorKey | translate }}
+      </div>
+
+      <div class="d-flex flex-wrap gap-2">
+        <button
+          type="button"
+          class="btn btn-primary"
+          [disabled]="!canGenerate"
+          (click)="generatePdf()">
+          <span
+            *ngIf="exporting"
+            class="spinner-border spinner-border-sm me-1"
+            role="status"
+            aria-hidden="true"></span>
+          <i *ngIf="!exporting" class="fa fa-file-pdf-o me-1" aria-hidden="true"></i>
+          {{ 'PDF_CONVERTER.GENERATE_BTN' | translate }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-outline-secondary"
+          [disabled]="exporting"
+          (click)="clearAll()">
+          {{ 'PDF_CONVERTER.CLEAR_BTN' | translate }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

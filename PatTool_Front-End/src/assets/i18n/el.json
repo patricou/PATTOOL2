@@ -53,6 +53,7 @@
         "EUROMILLIONS": "EuroMillions",
         "SOLAR_SYSTEM": "Solar system",
         "WORLD_GLOBE": "Υδρόγειος σφαίρα",
+        "PDF_CONVERTER": "Μετατροπέας PDF",
         "SYSTEM": "System",
         "RECENT_FEATURES_DOCUMENTATION": "Recent Features Documentation"
     },
@@ -1324,6 +1325,25 @@
         "EMAIL_SUBJECT": "Κοινοποίηση {{count}} αρχείου/ων",
         "EMAIL_BODY": "Αρχεία προς κοινοποίηση: {{files}}",
         "EMAIL_OPENED": "Άνοιξε το πρόγραμμα email"
+    },
+    "PDF_CONVERTER": {
+        "TITLE": "Μετατροπέας PDF",
+        "INTRO": "Εισάγετε κείμενο και προσθέστε εικόνες, στη συνέχεια δημιουργήστε PDF (ίδια μηχανή με την εξαγωγή PDF του βοηθού).",
+        "FILENAME_LABEL": "Όνομα αρχείου PDF",
+        "FILENAME_PLACEHOLDER": "to-eggrafo-mou",
+        "FILENAME_HINT": "Χωρίς επέκταση — θα προστεθεί αυτόματα .pdf.",
+        "TEXT_LABEL": "Κείμενο",
+        "TEXT_PLACEHOLDER": "Εισάγετε εδώ το περιεχόμενο…",
+        "IMAGES_LABEL": "Εικόνες",
+        "ADD_IMAGES": "Προσθήκη εικόνων",
+        "IMAGES_HINT": "Αποδεκτές μορφές (JPEG, PNG, GIF, WebP…). Πολλαπλά αρχεία.",
+        "REMOVE_IMAGE": "Αφαίρεση εικόνας",
+        "GENERATE_BTN": "Δημιουργία PDF",
+        "CLEAR_BTN": "Εκκαθάριση",
+        "CONTENT_LABEL": "Περιεχόμενο",
+        "ERR_FILENAME_REQUIRED": "Δώστε όνομα αρχείου PDF.",
+        "ERR_CONTENT_REQUIRED": "Προσθέστε κείμενο ή τουλάχιστον μία εικόνα.",
+        "ERR_EXPORT": "Αποτυχία δημιουργίας PDF. Δοκιμάστε ξανά."
     },
     "LOTTO": {
         "TITLE": "Λότο (FDJ) — κληρώσεις",

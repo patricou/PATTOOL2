@@ -173,6 +173,11 @@ export function HttpLoaderFactory(http: HttpClient) {
 					import('./world-security-scan/world-security-scan.component').then(m => m.WorldSecurityScanComponent)
 			},
 			{
+				path: 'tools/pdf-converter',
+				loadComponent: () =>
+					import('./pdf-converter/pdf-converter.component').then(m => m.PdfConverterComponent)
+			},
+			{
 				path: 'calendrier',
 				loadComponent: () => import('./calendar/calendar.component').then(m => m.CalendarComponent)
 			},
