@@ -921,13 +921,14 @@
                             [style.cursor]="isImageFile(uploadedFile.fileName) ? 'pointer' : 'default'"
                             [title]="isImageFile(uploadedFile.fileName) ? ('EVENTELEM.CLICK_TO_VIEW' | translate) : ''" />
                         <span class="badge"
-                            [class.bg-secondary]="!isImageFile(uploadedFile.fileName) && !isPdfFile(uploadedFile.fileName)"
+                            [class.bg-secondary]="!isImageFile(uploadedFile.fileName) && !isPdfFile(uploadedFile.fileName) && !isOdsFile(uploadedFile.fileName)"
                             [class.bg-info]="isImageFile(uploadedFile.fileName)"
                             [class.bg-danger]="isPdfFile(uploadedFile.fileName)"
-                            [class.badge-clickable]="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)"
+                            [class.bg-success]="isOdsFile(uploadedFile.fileName)"
+                            [class.badge-clickable]="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isOdsFile(uploadedFile.fileName)"
                             [title]="uploadedFile.fileName" ngbTooltip="{{uploadedFile.fileName}}" placement="top"
-                            (click)="(isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)) && handleFileClick(uploadedFile, selectedEventName)"
-                            [style.cursor]="(isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)) ? 'pointer' : 'default'">
+                            (click)="(isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isOdsFile(uploadedFile.fileName)) && handleFileClick(uploadedFile, selectedEventName)"
+                            [style.cursor]="(isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isOdsFile(uploadedFile.fileName)) ? 'pointer' : 'default'">
                             {{getTruncatedFileName(uploadedFile.fileName)}}
                         </span>
                         <small class="text-muted ms-2 clickable-user"
@@ -939,7 +940,7 @@
                     <div class="file-actions">
                         <button class="btn btn-sm btn-outline-primary me-2" placement="left"
                             [ngbTooltip]="getFileTooltip(uploadedFile.fileName)"
-                            *ngIf="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)"
+                            *ngIf="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isOdsFile(uploadedFile.fileName)"
                             (click)="handleFileClick(uploadedFile, selectedEventName)">
                             <i class="fa fa-eye" aria-hidden="true"></i>
                         </button>

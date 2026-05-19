@@ -73,6 +73,11 @@ public class PhotoTimelineRestController {
         return Criteria.where("fileUploadeds.fileName").regex(".*\\.pdf$", "i");
     }
 
+    /** ODS spreadsheets in {@code fileUploadeds} — aligned with {@link #extractFsPhotoLinks}. */
+    private static Criteria criteriaUploadedOdsSignal() {
+        return Criteria.where("fileUploadeds.fileName").regex(".*\\.ods$", "i");
+    }
+
     /** GPX/KML/… in {@code fileUploadeds} (aligned with {@link #isUploadedTrackFileName}). */
     private static Criteria criteriaUploadedTrackSignal() {
         return new Criteria().orOperator(
@@ -93,6 +98,7 @@ public class PhotoTimelineRestController {
                 criteriaFsPhotoLinkWithNonemptyLink(),
                 criteriaThumbnailImageSignal(),
                 criteriaUploadedPdfSignal(),
+                criteriaUploadedOdsSignal(),
                 criteriaUploadedTrackSignal());
     }
 
@@ -566,8 +572,8 @@ public class PhotoTimelineRestController {
      * Links displayed in the wall footer: {@code urlEvents} + track files ({@link FileUploaded} GPX/KML/…)
      * + PDF files in {@code fileUploadeds} (GridFS, type {@code PDF}) + legacy {@code photosUrl} entries
      * + the {@code map} field when it contains an http(s) URL.
-     * Deduplication is done by normalized URL or by {@code fieldId} for track / PDF files.
-     * Only PHOTOFROMFS is a server-side disk path; TRACK opens the track viewer; PDF opens the blob viewer; all others open a URL.
+     * Deduplication is done by normalized URL or by {@code fieldId} for track / PDF / ODS files.
+     * Only PHOTOFROMFS is a server-side disk path; TRACK opens the track viewer; PDF opens a new tab; ODS opens the Calc editor; all others open a URL.
      */
     private List<FsPhotoLink> extractFsPhotoLinks(Evenement e) {
         List<FsPhotoLink> links = new ArrayList<>();
@@ -642,6 +648,35 @@ public class PhotoTimelineRestController {
                     : fileNameDisplay;
                 FsPhotoLink f = new FsPhotoLink(fileNameDisplay, linkDescription);
                 f.setTypeUrl("PDF");
+                f.setFieldId(file.getFieldId().trim());
+                if (file.getUploaderMember() != null && file.getUploaderMember().getUserName() != null) {
+                    String un = file.getUploaderMember().getUserName().trim();
+                    if (!un.isEmpty()) {
+                        f.setUploaderUserName(un);
+                    }
+                }
+                links.add(f);
+            }
+            // ODS spreadsheets in fileUploadeds (GridFS) — photo wall table like tracks / PDF
+            for (FileUploaded file : e.getFileUploadeds()) {
+                if (file == null || file.getFieldId() == null || file.getFieldId().trim().isEmpty()) {
+                    continue;
+                }
+                String fn = file.getFileName();
+                if (fn == null || !fn.toLowerCase(Locale.ROOT).endsWith(".ods")) {
+                    continue;
+                }
+                String dedupKey = "ods:" + file.getFieldId().trim().toLowerCase(Locale.ROOT);
+                if (!seenUrls.add(dedupKey)) {
+                    continue;
+                }
+                String fileNameDisplay = fn.trim();
+                String custom = file.getDisplayName();
+                String linkDescription = (custom != null && !custom.trim().isEmpty())
+                    ? custom.trim()
+                    : fileNameDisplay;
+                FsPhotoLink f = new FsPhotoLink(fileNameDisplay, linkDescription);
+                f.setTypeUrl("ODS");
                 f.setFieldId(file.getFieldId().trim());
                 if (file.getUploaderMember() != null && file.getUploaderMember().getUserName() != null) {
                     String un = file.getUploaderMember().getUserName().trim();

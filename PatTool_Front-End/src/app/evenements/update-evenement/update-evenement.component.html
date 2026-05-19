@@ -775,7 +775,7 @@
                                         <!-- View/Open Button -->
                                         <button type="button" 
                                                 class="btn btn-outline-primary btn-sm"
-                                                *ngIf="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isVideoFile(uploadedFile.fileName)"
+                                                *ngIf="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isOdsFile(uploadedFile.fileName) || isVideoFile(uploadedFile.fileName)"
                                                 (click)="isImageFile(uploadedFile.fileName) ? openFileImageModal(uploadedFile.fieldId, uploadedFile.fileName) : (isVideoFile(uploadedFile.fileName) ? openVideoFile(uploadedFile.fieldId, uploadedFile.fileName) : openPdfFile(uploadedFile.fieldId, uploadedFile.fileName))"
                                                 [title]="isImageFile(uploadedFile.fileName) ? ('EVENTELEM.CLICK_TO_VIEW' | translate) : (isVideoFile(uploadedFile.fileName) ? ('EVENTELEM.CLICK_TO_VIEW' | translate) : ('EVENTELEM.CLICK_TO_OPEN_PDF' | translate))">
                                             <i class="fa fa-eye"></i>

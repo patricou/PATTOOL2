@@ -169,6 +169,7 @@ export class AppComponent implements OnInit {
     readonly toolsMenuRowsRaw: ToolsMenuRow[] = [
         { kind: 'route', routerLink: ['results'], icon: 'fa fa-comments', labelKey: 'MENU.RESULTS' },
         { kind: 'route', routerLink: ['tools/pdf-converter'], icon: 'fa fa-file-pdf-o', labelKey: 'MENU.PDF_CONVERTER' },
+        { kind: 'route', routerLink: ['tools/ods-editor'], icon: 'fa fa-table', labelKey: 'MENU.ODS_EDITOR' },
         { kind: 'route', routerLink: ['system'], icon: 'fa fa-cog', labelKey: 'MENU.SYSTEM', authOnly: true },
         { kind: 'route', routerLink: ['maps'], icon: 'fa fa-map', labelKey: 'MENU.MAPS' },
         { kind: 'upload', icon: 'fa fa-cloud-upload', labelKey: 'UPLOADFILE.MENU' },

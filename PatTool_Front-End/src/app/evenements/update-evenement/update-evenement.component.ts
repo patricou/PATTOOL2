@@ -29,6 +29,8 @@ import { VideoCompressionService, CompressionProgress } from '../../services/vid
 import { CommentaryEditor } from '../../commentary-editor/commentary-editor';
 import { EventColorService } from '../../services/event-color.service';
 import { computeTrackStatsFromFileContent } from '../../photo-timeline/track-route-stats.util';
+import { isOdsFile as isOdsSpreadsheetFile } from '../../shared/uploaded-file-types';
+import { OdsEditorLaunchService } from '../../ods-editor/ods-editor-launch.service';
 
 @Component({
 	selector: 'update-evenement',
@@ -211,7 +213,8 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 	private eventColorService: EventColorService,
 	private cdr: ChangeDetectorRef,
 	private ngZone: NgZone,
-	private sanitizer: DomSanitizer
+	private sanitizer: DomSanitizer,
+	private odsEditorLaunch: OdsEditorLaunchService
 	) { }
 
 	ngOnInit() {
@@ -1201,6 +1204,10 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 		return fileName.toLowerCase().endsWith('.pdf');
 	}
 
+	public isOdsFile(fileName: string): boolean {
+		return isOdsSpreadsheetFile(fileName);
+	}
+
 	/** GPS / trace files (same extensions as event file upload + geojson). */
 	public isTrackFile(fileName: string): boolean {
 		if (!fileName) {
@@ -1789,9 +1796,15 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 			this.openFileImageModal(fileId, fileName);
 		} else if (this.isPdfFile(fileName)) {
 			this.openPdfFile(fileId, fileName);
+		} else if (this.isOdsFile(fileName)) {
+			this.openOdsFile(fileId, fileName);
 		} else if (this.isVideoFile(fileName)) {
 			this.openVideoFile(fileId, fileName);
 		}
+	}
+
+	public openOdsFile(fileId: string, fileName: string): void {
+		this.odsEditorLaunch.openEventFile(fileId, fileName);
 	}
 
 	public downloadFile(fileId: string, fileName: string): void {

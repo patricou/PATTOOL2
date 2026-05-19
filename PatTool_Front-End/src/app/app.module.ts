@@ -178,6 +178,11 @@ export function HttpLoaderFactory(http: HttpClient) {
 					import('./pdf-converter/pdf-converter.component').then(m => m.PdfConverterComponent)
 			},
 			{
+				path: 'tools/ods-editor',
+				loadComponent: () =>
+					import('./ods-editor/ods-editor.component').then(m => m.OdsEditorComponent)
+			},
+			{
 				path: 'calendrier',
 				loadComponent: () => import('./calendar/calendar.component').then(m => m.CalendarComponent)
 			},

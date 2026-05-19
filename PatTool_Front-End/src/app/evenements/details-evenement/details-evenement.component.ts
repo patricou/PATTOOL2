@@ -38,6 +38,8 @@ import { KeycloakService } from '../../keycloak/keycloak.service';
 import { CommentaryEditor } from '../../commentary-editor/commentary-editor';
 import { EventCardOverlayComponent } from '../../shared/event-card-modal/event-card-overlay.component';
 import { getEventTypeFaIconSuffix } from '../../shared/event-type-icon.util';
+import { isOdsFile as isOdsSpreadsheetFile } from '../../shared/uploaded-file-types';
+import { OdsEditorLaunchService } from '../../ods-editor/ods-editor-launch.service';
 
 @Component({
   selector: 'app-details-evenement',
@@ -348,7 +350,8 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     private eventVideoPreloadService: EventVideoPreloadService,
     private addToDbLayer: AddToDbLayerService,
     private assistantLaunch: AssistantLaunchService,
-    private todoListOverlay: TodoListDetailOverlayService
+    private todoListOverlay: TodoListDetailOverlayService,
+    private odsEditorLaunch: OdsEditorLaunchService
   ) {
     this.nativeWindow = winRef.getNativeWindow();
     // Pré-charge `app.imagemaxsizekb` côté backend pour pouvoir adapter le
@@ -3368,6 +3371,10 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     return lowerFileName.endsWith('.pdf');
   }
 
+  public isOdsFile(fileName: string): boolean {
+    return isOdsSpreadsheetFile(fileName);
+  }
+
   // Download file
   public downloadFile(fileId: string, fileName: string): void {
     const subscription = this.getFileBlobUrl(fileId).subscribe({
@@ -3444,10 +3451,16 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
       this.openSingleImageInSlideshow(uploadedFile.fieldId, uploadedFile.fileName);
     } else if (this.isPdfFile(uploadedFile.fileName)) {
       this.openPdfFile(uploadedFile.fieldId, uploadedFile.fileName);
+    } else if (this.isOdsFile(uploadedFile.fileName)) {
+      this.openOdsFile(uploadedFile.fieldId, uploadedFile.fileName);
     } else {
       // For other files, download them
       this.downloadFile(uploadedFile.fieldId, uploadedFile.fileName);
     }
+  }
+
+  public openOdsFile(fileId: string, fileName: string): void {
+    this.odsEditorLaunch.openEventFile(fileId, fileName);
   }
 
   // Open image modal

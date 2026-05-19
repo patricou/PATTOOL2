@@ -70,6 +70,7 @@
     "rxjs": "^7.8.0",
     "sockjs-client": "^1.6.1",
     "three": "^0.174.0",
+    "xlsx": "^0.18.5",
     "zone.js": "^0.15.0"
   },
   "devDependencies": {

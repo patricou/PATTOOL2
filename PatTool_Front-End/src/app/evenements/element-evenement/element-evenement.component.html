@@ -256,8 +256,16 @@
             <li class="card-info-item">
                 {{"EVENTELEM.STARTLOCATION" | translate }} : {{evenement.startLocation}}
             </li>
-            <li class="card-info-item">
-                {{"EVENTELEM.BEGINDT" | translate }} : {{formatEventDateTime(evenement.beginEventDate, evenement.startHour)}}
+            <li class="card-info-item card-info-item-begin-dt">
+                <div>
+                    {{"EVENTELEM.BEGINDT" | translate }} : {{formatEventDateTime(evenement.beginEventDate, evenement.startHour)}}
+                </div>
+                <div *ngIf="getDaysUntilEventStart() as daysUntilStart" class="event-days-until-start">
+                    {{
+                        (daysUntilStart === 1 ? 'EVENTELEM.DAYS_UNTIL_START_ONE' : 'EVENTELEM.DAYS_UNTIL_START_MANY')
+                            | translate: { count: daysUntilStart }
+                    }}
+                </div>
             </li>
         </ul>
     </div>
@@ -681,7 +689,7 @@
                             </ng-template>
                         </ng-container>
                         <span class="badge"
-                              [class.badge-clickable]="isImageFile(uploadedFile.fileName) || isVideoFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isTrackFile(uploadedFile.fileName)"
+                              [class.badge-clickable]="isImageFile(uploadedFile.fileName) || isVideoFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isOdsFile(uploadedFile.fileName) || isTrackFile(uploadedFile.fileName)"
                               [style.background-color]="getFileBadgeColor(uploadedFile.fileName)"
                               [style.border-color]="getInverseTextColor()"
                               [style.color]="getInverseTextColor()"
@@ -689,8 +697,8 @@
                               ngbTooltip="{{uploadedFile.fileName}}" 
                               placement="top"
                               (mouseleave)="onTooltipMouseLeave($event)"
-                              (click)="(isImageFile(uploadedFile.fileName) || isVideoFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isTrackFile(uploadedFile.fileName)) && handleFileClick(uploadedFile)"
-                              [style.cursor]="(isImageFile(uploadedFile.fileName) || isVideoFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isTrackFile(uploadedFile.fileName)) ? 'pointer' : 'default'">
+                              (click)="(isImageFile(uploadedFile.fileName) || isVideoFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isOdsFile(uploadedFile.fileName) || isTrackFile(uploadedFile.fileName)) && handleFileClick(uploadedFile)"
+                              [style.cursor]="(isImageFile(uploadedFile.fileName) || isVideoFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isOdsFile(uploadedFile.fileName) || isTrackFile(uploadedFile.fileName)) ? 'pointer' : 'default'">
                             {{getTruncatedFileName(uploadedFile.fileName)}}
                         </span>
                         <input *ngIf="isTrackFile(uploadedFile.fileName) && isAuthor()"
@@ -791,6 +799,16 @@
                                 [style.color]="getInverseTextColor()"
                                 (mouseleave)="onTooltipMouseLeave($event)">
                             <i class="fa fa-eye" aria-hidden="true"></i>
+                        </button>
+                        <button class="btn btn-sm btn-primary me-2"
+                                *ngIf="isOdsFile(uploadedFile.fileName)"
+                                ngbTooltip="{{ 'EVENTELEM.CLICK_TO_OPEN_ODS' | translate }}"
+                                (click)="openOdsFile(uploadedFile.fieldId, uploadedFile.fileName)"
+                                [style.background-color]="getFileActionButtonGradient()"
+                                [style.border-color]="getInverseTextColor()"
+                                [style.color]="getInverseTextColor()"
+                                (mouseleave)="onTooltipMouseLeave($event)">
+                            <i class="fa fa-table" aria-hidden="true"></i>
                         </button>
                         <button class="btn btn-sm btn-primary me-2" placement="left"
                             ngbTooltip="{{ 'COMMUN.DOWNLOAD' | translate }}"

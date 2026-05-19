@@ -460,6 +460,7 @@
         "SOLAR_SYSTEM": "Solar system",
         "WORLD_GLOBE": "Глобус Земли",
         "PDF_CONVERTER": "Конвертер PDF",
+        "ODS_EDITOR": "Таблица Calc (.ods)",
         "SYSTEM": "System",
         "RECENT_FEATURES_DOCUMENTATION": "Recent Features Documentation"
     },

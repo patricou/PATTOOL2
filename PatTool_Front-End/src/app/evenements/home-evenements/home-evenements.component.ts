@@ -30,6 +30,8 @@ import { KeycloakService } from '../../keycloak/keycloak.service';
 import { FriendsService } from '../../services/friends.service';
 import { AssistantLaunchService, ASSISTANT_EVENT_ELEMENT_LAUNCH_ROUTING } from '../../services/assistant-launch.service';
 import { FriendGroup } from '../../model/friend';
+import { isOdsFile as isOdsSpreadsheetFile } from '../../shared/uploaded-file-types';
+import { OdsEditorLaunchService } from '../../ods-editor/ods-editor-launch.service';
 
 interface EventColorUpdate {
 	eventId: string;
@@ -204,7 +206,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		private _http: HttpClient,
 		private _keycloakService: KeycloakService,
 		private _videoPreloadService: EventVideoPreloadService,
-		private _assistantLaunch: AssistantLaunchService) {
+		private _assistantLaunch: AssistantLaunchService,
+		private odsEditorLaunch: OdsEditorLaunchService) {
 		this.nativeWindow = winRef.getNativeWindow();
 		this.averageColor = this.defaultAverageColor;
 		this.averageTextColor = this.defaultAverageTextColor;
@@ -3907,6 +3910,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		const lowerFileName = fileName.toLowerCase();
 		return lowerFileName.endsWith('.pdf');
 	}
+
+	public isOdsFile(fileName: string): boolean {
+		return isOdsSpreadsheetFile(fileName);
+	}
 	
 	// Handle file click based on file type
 	public handleFileClick(uploadedFile: any, eventName: string = ''): void {
@@ -3914,7 +3921,13 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			this.openSingleImageInSlideshow(uploadedFile.fieldId, uploadedFile.fileName, eventName);
 		} else if (this.isPdfFile(uploadedFile.fileName)) {
 			this.openPdfFile(uploadedFile.fieldId, uploadedFile.fileName);
+		} else if (this.isOdsFile(uploadedFile.fileName)) {
+			this.openOdsFile(uploadedFile.fieldId, uploadedFile.fileName);
 		}
+	}
+
+	public openOdsFile(fileId: string, fileName: string): void {
+		this.odsEditorLaunch.openEventFile(fileId, fileName);
 	}
 	
 	// Open PDF file in new tab
@@ -3999,6 +4012,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			return this.translateService.instant('EVENTELEM.CLICK_TO_VIEW');
 		} else if (this.isPdfFile(fileName)) {
 			return this.translateService.instant('EVENTELEM.CLICK_TO_OPEN_PDF');
+		} else if (this.isOdsFile(fileName)) {
+			return this.translateService.instant('EVENTELEM.CLICK_TO_OPEN_ODS');
 		}
 		return null;
 	}

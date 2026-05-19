@@ -38,6 +38,8 @@ import { AssistantLaunchService, ASSISTANT_EVENT_ELEMENT_LAUNCH_ROUTING } from '
 import { computeTrackStatsFromFileContent } from '../../photo-timeline/track-route-stats.util';
 import { getEventTypeFaIconSuffix } from '../../shared/event-type-icon.util';
 import { TodoListDetailOverlayService } from '../../todolists/todo-list-detail-overlay.service';
+import { isOdsFile as isOdsSpreadsheetFile } from '../../shared/uploaded-file-types';
+import { OdsEditorLaunchService } from '../../ods-editor/ods-editor-launch.service';
 
 @Component({
 	selector: 'element-evenement',
@@ -407,7 +409,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		private cdr: ChangeDetectorRef,
 		private ngZone: NgZone,
 		private addToDbLayer: AddToDbLayerService,
-		private todoListOverlay: TodoListDetailOverlayService
+			private todoListOverlay: TodoListDetailOverlayService,
+		private odsEditorLaunch: OdsEditorLaunchService
 	) {
 		// Rating config 
 		this.ratingConfig.max = 10;
@@ -3640,7 +3643,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return this.getSolidColor(0.9);
 	}
 
-	private getFileTypeKey(fileName: string): 'image' | 'video' | 'pdf' | 'track' | 'other' {
+	private getFileTypeKey(fileName: string): 'image' | 'video' | 'pdf' | 'ods' | 'track' | 'other' {
 		if (this.isImageFile(fileName)) {
 			return 'image';
 		}
@@ -3649,6 +3652,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		}
 		if (this.isPdfFile(fileName)) {
 			return 'pdf';
+		}
+		if (this.isOdsFile(fileName)) {
+			return 'ods';
 		}
 		if (this.isTrackFile(fileName)) {
 			return 'track';
@@ -3683,6 +3689,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				r = this.adjustColorComponent(r, -50);
 				g = this.adjustColorComponent(g, -50);
 				b = this.adjustColorComponent(b, -50);
+				break;
+			case 'ods':
+				r = this.adjustColorComponent(r, -30);
+				g = this.adjustColorComponent(g, 35);
+				b = this.adjustColorComponent(b, -20);
 				break;
 			default:
 				r = this.adjustColorComponent(r, 10);
@@ -6185,7 +6196,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	// Get sorted file type keys for consistent display order
 	public getSortedFileTypeKeys(): string[] {
 		const grouped = this.getGroupedFiles();
-		const typeOrder = ['image', 'video', 'pdf', 'track', 'other'];
+		const typeOrder = ['image', 'video', 'pdf', 'ods', 'track', 'other'];
 		return typeOrder.filter(type => grouped[type] && grouped[type].length > 0);
 	}
 
@@ -6195,6 +6206,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			'image': 'EVENTELEM.FILE_TYPE_IMAGE',
 			'video': 'EVENTELEM.FILE_TYPE_VIDEO',
 			'pdf': 'EVENTELEM.FILE_TYPE_PDF',
+			'ods': 'EVENTELEM.FILE_TYPE_ODS',
 			'track': 'EVENTELEM.FILE_TYPE_TRACK',
 			'other': 'EVENTELEM.FILE_TYPE_OTHER'
 		};
@@ -6364,6 +6376,40 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		});
 	}
 
+	/** Jours calendaires avant le début si la date/heure de début est dans le futur ; sinon `null`. */
+	getDaysUntilEventStart(): number | null {
+		const start = this.getEventStartDateTime();
+		if (!start) {
+			return null;
+		}
+		const now = new Date();
+		if (start.getTime() <= now.getTime()) {
+			return null;
+		}
+		const startDay = new Date(start);
+		startDay.setHours(0, 0, 0, 0);
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		const diffDays = Math.round((startDay.getTime() - today.getTime()) / 86_400_000);
+		return diffDays > 0 ? diffDays : null;
+	}
+
+	private getEventStartDateTime(): Date | null {
+		if (!this.evenement?.beginEventDate) {
+			return null;
+		}
+		const start = new Date(this.evenement.beginEventDate);
+		if (Number.isNaN(start.getTime())) {
+			return null;
+		}
+		const hour = (this.evenement.startHour || '').trim();
+		const match = /^(\d{1,2}):(\d{2})/.exec(hour);
+		if (match) {
+			start.setHours(parseInt(match[1], 10), parseInt(match[2], 10), 0, 0);
+		}
+		return start;
+	}
+
 	// Format event date with time for card view
 	public formatEventDateTime(date: Date, time: string): string {
 		if (!date) return '';
@@ -6486,6 +6532,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return lowerFileName.endsWith('.pdf');
 	}
 
+	public isOdsFile(fileName: string): boolean {
+		return isOdsSpreadsheetFile(fileName);
+	}
+
 	// Check if file is a GPS track (same extensions as update-evenement / upload)
 	public isTrackFile(fileName: string): boolean {
 		if (!fileName) {
@@ -6514,6 +6564,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			this.openSingleVideoInVideoshow(uploadedFile.fieldId, uploadedFile.fileName);
 		} else if (this.isPdfFile(uploadedFile.fileName)) {
 			this.openPdfFile(uploadedFile.fieldId, uploadedFile.fileName);
+		} else if (this.isOdsFile(uploadedFile.fileName)) {
+			this.openOdsFile(uploadedFile.fieldId, uploadedFile.fileName);
 		} else if (this.isTrackFile(uploadedFile.fileName)) {
 			this.openTrackFile(uploadedFile);
 		}
@@ -6527,6 +6579,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			return this.translateService.instant('EVENTELEM.CLICK_TO_VIEW_VIDEO') || 'Click to view video';
 		} else if (this.isPdfFile(fileName)) {
 			return this.translateService.instant('EVENTELEM.CLICK_TO_OPEN_PDF');
+		} else if (this.isOdsFile(fileName)) {
+			return this.translateService.instant('EVENTELEM.CLICK_TO_OPEN_ODS');
 		} else if (this.isTrackFile(fileName)) {
 			return this.translateService.instant('EVENTELEM.VIEW_TRACK');
 		}
@@ -6777,6 +6831,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		} else {
 			console.warn('Track viewer modal component is not available');
 		}
+	}
+
+	public openOdsFile(fileId: string, fileName: string): void {
+		this.odsEditorLaunch.openEventFile(fileId, fileName);
 	}
 
 	// Open PDF file in new tab

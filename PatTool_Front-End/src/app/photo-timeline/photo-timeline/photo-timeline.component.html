@@ -623,6 +623,104 @@
                     </table>
                 </div>
             </div>
+
+            <!-- Tableurs ODS (fichiers GridFS) : même principe que traces / PDF -->
+            <div class="photo-wall-tracks-wrap mt-2"
+                 *ngIf="getGroupWallOdsLinks(group).length > 0">
+                <div class="photo-wall-tracks-title-row d-flex flex-wrap align-items-center justify-content-between gap-2 mb-1">
+                    <div class="photo-wall-tracks-title small mb-0">
+                        <i class="fa fa-table me-1" aria-hidden="true"></i>
+                        {{ 'PHOTO_TIMELINE.ODS_WALL_TABLE_TITLE' | translate }}
+                        <span *ngIf="wallOdsTableHasMultipleRows(group)" class="text-muted ms-1">({{ getGroupWallOdsLinks(group).length }})</span>
+                    </div>
+                    <button *ngIf="wallOdsTableHasMultipleRows(group)"
+                            type="button"
+                            class="btn btn-sm btn-outline-secondary photo-wall-tracks-expand-btn py-0 px-2"
+                            [attr.aria-expanded]="isWallOdsTableExpanded(group)"
+                            [attr.aria-label]="(isWallOdsTableExpanded(group) ? 'PHOTO_TIMELINE.TRACK_TABLE_SHOW_LESS' : 'PHOTO_TIMELINE.TRACK_TABLE_SHOW_ALL') | translate"
+                            (click)="onWallOdsTableToggleExpand(group, $event)">
+                        <i class="fa me-sm-1" [ngClass]="isWallOdsTableExpanded(group) ? 'fa-chevron-up' : 'fa-chevron-down'" aria-hidden="true"></i>
+                        <span class="d-none d-sm-inline">{{ (isWallOdsTableExpanded(group) ? 'PHOTO_TIMELINE.TRACK_TABLE_SHOW_LESS' : 'PHOTO_TIMELINE.TRACK_TABLE_SHOW_ALL') | translate }}</span>
+                    </button>
+                </div>
+                <div class="table-responsive photo-wall-tracks-table-responsive">
+                    <table class="table table-sm table-striped photo-wall-tracks-table mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th scope="col"
+                                    class="photo-wall-tracks-th-sort"
+                                    role="button"
+                                    tabindex="0"
+                                    (click)="onWallOdsSortClick(group, 'name', $event)"
+                                    (keydown.enter)="onWallOdsSortClick(group, 'name', $event)"
+                                    (keydown.space)="$event.preventDefault(); onWallOdsSortClick(group, 'name', $event)">
+                                    <span>{{ 'PHOTO_TIMELINE.TRACK_TABLE_NAME' | translate }}</span>
+                                    <i [ngClass]="wallOdsSortIconClass(group, 'name')" aria-hidden="true"></i>
+                                </th>
+                                <th scope="col"
+                                    class="photo-wall-tracks-th-sort d-none d-md-table-cell"
+                                    role="button"
+                                    tabindex="0"
+                                    (click)="onWallOdsSortClick(group, 'file', $event)"
+                                    (keydown.enter)="onWallOdsSortClick(group, 'file', $event)"
+                                    (keydown.space)="$event.preventDefault(); onWallOdsSortClick(group, 'file', $event)">
+                                    <span>{{ 'PHOTO_TIMELINE.TRACK_TABLE_FILE_NAME' | translate }}</span>
+                                    <i [ngClass]="wallOdsSortIconClass(group, 'file')" aria-hidden="true"></i>
+                                </th>
+                                <th scope="col"
+                                    class="photo-wall-tracks-th-sort d-none d-md-table-cell"
+                                    role="button"
+                                    tabindex="0"
+                                    (click)="onWallOdsSortClick(group, 'owner', $event)"
+                                    (keydown.enter)="onWallOdsSortClick(group, 'owner', $event)"
+                                    (keydown.space)="$event.preventDefault(); onWallOdsSortClick(group, 'owner', $event)">
+                                    <span>{{ 'PHOTO_TIMELINE.TRACK_TABLE_OWNER' | translate }}</span>
+                                    <i [ngClass]="wallOdsSortIconClass(group, 'owner')" aria-hidden="true"></i>
+                                </th>
+                                <th scope="col" class="text-end photo-wall-tracks-col-open">{{ 'PHOTO_TIMELINE.TRACK_TABLE_OPEN' | translate }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let ods of getDisplayedWallOdsLinks(group); trackBy: trackByTrackFieldId">
+                                <td class="text-wrap photo-wall-tracks-col-name">
+                                    <div class="d-flex align-items-center gap-1 min-w-0">
+                                        <span class="flex-grow-1 min-w-0">{{ ods.description || ods.path }}</span>
+                                        <button *ngIf="ods.fieldId"
+                                                type="button"
+                                                class="btn btn-outline-secondary btn-sm py-0 px-1 photo-wall-tracks-download-btn d-md-none flex-shrink-0"
+                                                (click)="onWallOdsFileDownloadClick(ods, $event)"
+                                                [title]="'PHOTO_TIMELINE.ODS_TABLE_DOWNLOAD' | translate">
+                                            <i class="fa fa-download" aria-hidden="true"></i>
+                                            <span class="visually-hidden">{{ 'PHOTO_TIMELINE.ODS_TABLE_DOWNLOAD' | translate }}</span>
+                                        </button>
+                                    </div>
+                                </td>
+                                <td class="text-wrap photo-wall-tracks-col-file d-none d-md-table-cell">
+                                    <div class="d-flex align-items-center gap-1 min-w-0">
+                                        <span class="flex-grow-1 min-w-0 text-break">{{ ods.path || '—' }}</span>
+                                        <button *ngIf="ods.fieldId"
+                                                type="button"
+                                                class="btn btn-outline-secondary btn-sm py-0 px-1 photo-wall-tracks-download-btn flex-shrink-0"
+                                                (click)="onWallOdsFileDownloadClick(ods, $event)"
+                                                [title]="'PHOTO_TIMELINE.ODS_TABLE_DOWNLOAD' | translate">
+                                            <i class="fa fa-download" aria-hidden="true"></i>
+                                            <span class="visually-hidden">{{ 'PHOTO_TIMELINE.ODS_TABLE_DOWNLOAD' | translate }}</span>
+                                        </button>
+                                    </div>
+                                </td>
+                                <td class="text-wrap photo-wall-tracks-col-owner d-none d-md-table-cell">{{ ods.uploaderUserName || '—' }}</td>
+                                <td class="text-end photo-wall-tracks-col-open">
+                                    <button type="button"
+                                            class="btn btn-outline-primary btn-sm py-0 px-2 photo-wall-tracks-open-btn"
+                                            (click)="onPhotoWallFooterLinkClick(ods, group); $event.stopPropagation()">
+                                        {{ 'PHOTO_TIMELINE.TRACK_TABLE_OPEN' | translate }}
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 

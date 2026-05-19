@@ -1,0 +1,189 @@
+<div class="pat-title">
+  <h2>{{ 'ODS_EDITOR.TITLE' | translate }}</h2>
+</div>
+
+<div class="container-fluid py-3 ods-editor-page">
+  <p class="text-muted">{{ 'ODS_EDITOR.INTRO' | translate }}</p>
+
+  <input
+    #fileInput
+    type="file"
+    class="d-none"
+    accept=".ods,application/vnd.oasis.opendocument.spreadsheet"
+    (change)="onFileSelected($event)" />
+
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+        <button
+          type="button"
+          class="btn btn-primary btn-sm"
+          [disabled]="loading"
+          (click)="triggerOpenFile()">
+          <i class="fa fa-folder-open-o me-1" aria-hidden="true"></i>
+          {{ 'ODS_EDITOR.OPEN_BTN' | translate }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-outline-secondary btn-sm"
+          [disabled]="loading"
+          (click)="newWorkbook()">
+          <i class="fa fa-file-o me-1" aria-hidden="true"></i>
+          {{ 'ODS_EDITOR.NEW_BTN' | translate }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-success btn-sm"
+          [disabled]="!canSave"
+          (click)="saveOds()">
+          <span
+            *ngIf="saving"
+            class="spinner-border spinner-border-sm me-1"
+            role="status"
+            aria-hidden="true"></span>
+          <i *ngIf="!saving" class="fa fa-download me-1" aria-hidden="true"></i>
+          {{ 'ODS_EDITOR.SAVE_BTN' | translate }}
+        </button>
+        <span *ngIf="dirty && hasWorkbook" class="badge text-bg-warning">
+          {{ 'ODS_EDITOR.UNSAVED' | translate }}
+        </span>
+        <span *ngIf="loading" class="small text-muted ms-2">
+          <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+          …
+        </span>
+      </div>
+
+      <p class="form-text mb-0">{{ 'ODS_EDITOR.ACCEPT_HINT' | translate }}</p>
+      <p *ngIf="preservesOriginalFormatting" class="form-text text-success mb-0 mt-1">
+        <i class="fa fa-paint-brush me-1" aria-hidden="true"></i>
+        {{ 'ODS_EDITOR.FORMAT_PRESERVED' | translate }}
+      </p>
+
+      <div *ngIf="errorKey" class="alert alert-danger py-2 px-3 small mt-3" role="alert">
+        {{ errorKey | translate }}
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="hasWorkbook" class="card shadow-sm ods-editor-grid-card">
+    <div class="card-header py-2">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-5">
+          <label class="form-label small mb-0" for="odsFileName">{{
+            'ODS_EDITOR.FILE_LABEL' | translate
+          }}</label>
+          <div class="input-group input-group-sm">
+            <input
+              id="odsFileName"
+              type="text"
+              class="form-control"
+              [ngModel]="workbook?.fileName"
+              (ngModelChange)="onFileNameChange($event)"
+              maxlength="180"
+              autocomplete="off"
+              spellcheck="false" />
+            <span class="input-group-text">.ods</span>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small mb-0" for="odsSheetName">{{
+            'ODS_EDITOR.SHEET_LABEL' | translate
+          }}</label>
+          <input
+            id="odsSheetName"
+            type="text"
+            class="form-control form-control-sm"
+            [ngModel]="activeSheetName"
+            (ngModelChange)="onSheetNameChange($event)"
+            maxlength="31"
+            autocomplete="off" />
+        </div>
+        <div class="col-12 col-lg-auto">
+          <label class="form-label small mb-0" for="odsFontSize">{{
+            'ODS_EDITOR.FONT_SIZE' | translate
+          }}</label>
+          <div class="d-flex align-items-center gap-1 ods-editor-font-toolbar">
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm px-2"
+              [disabled]="displayFontSizePx <= fontSizeMin"
+              [attr.aria-label]="'ODS_EDITOR.FONT_SIZE_DECREASE' | translate"
+              (click)="decreaseFontSize()">
+              A−
+            </button>
+            <input
+              id="odsFontSize"
+              type="range"
+              class="form-range ods-editor-font-range flex-grow-1"
+              [min]="fontSizeMin"
+              [max]="fontSizeMax"
+              [(ngModel)]="displayFontSizePx"
+              (ngModelChange)="onFontSizeChange()" />
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm px-2"
+              [disabled]="displayFontSizePx >= fontSizeMax"
+              [attr.aria-label]="'ODS_EDITOR.FONT_SIZE_INCREASE' | translate"
+              (click)="increaseFontSize()">
+              A+
+            </button>
+            <span class="small text-muted ods-editor-font-value text-nowrap"
+              >{{ displayFontSizePx }} px</span
+            >
+          </div>
+        </div>
+        <div class="col-md-3 d-flex flex-wrap gap-1 justify-content-md-end">
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="addRow()">
+            {{ 'ODS_EDITOR.ADD_ROW' | translate }}
+          </button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="addColumn()">
+            {{ 'ODS_EDITOR.ADD_COLUMN' | translate }}
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline-secondary btn-sm"
+            [disabled]="!canAddSheet"
+            [title]="!canAddSheet ? ('ODS_EDITOR.ADD_SHEET_DISABLED' | translate) : ''"
+            (click)="addSheet()">
+            <i class="fa fa-plus me-1" aria-hidden="true"></i>
+            {{ 'ODS_EDITOR.ADD_SHEET' | translate }}
+          </button>
+        </div>
+      </div>
+
+      <ul *ngIf="workbook && workbook.sheets.length > 1" class="nav nav-tabs mt-2 ods-editor-tabs">
+        <li *ngFor="let sheet of workbook.sheets; let i = index" class="nav-item">
+          <button
+            type="button"
+            class="nav-link"
+            [class.active]="i === activeSheetIndex"
+            (click)="selectSheet(i)">
+            {{ sheet.name }}
+          </button>
+        </li>
+      </ul>
+    </div>
+
+    <div class="card-body p-0 ods-editor-grid-body">
+      <ag-grid-angular
+        theme="legacy"
+        class="ag-theme-alpine ods-editor-grid"
+        [style.--ag-font-size.px]="displayFontSizePx"
+        [columnDefs]="columnDefs"
+        [rowData]="rowData"
+        [rowHeight]="gridRowHeight"
+        [defaultColDef]="{ resizable: true, sortable: false, filter: false }"
+        [singleClickEdit]="true"
+        [stopEditingWhenCellsLoseFocus]="true"
+        [suppressMovableColumns]="false"
+        [alwaysShowHorizontalScroll]="true"
+        [alwaysShowVerticalScroll]="true"
+        (gridReady)="onGridReady($event)"
+        (cellValueChanged)="onCellValueChanged($event)" />
+    </div>
+  </div>
+
+  <p *ngIf="!hasWorkbook && !loading" class="text-muted mt-4">
+    {{ 'ODS_EDITOR.NO_FILE' | translate }}
+  </p>
+</div>

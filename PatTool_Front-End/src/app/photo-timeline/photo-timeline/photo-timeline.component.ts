@@ -37,6 +37,8 @@ import { computeTrackStatsFromFileContent } from '../track-route-stats.util';
 import { getEventTypeFaIconSuffix } from '../../shared/event-type-icon.util';
 import { TodoListDetailOverlayService } from '../../todolists/todo-list-detail-overlay.service';
 import { AssistantLaunchService } from '../../services/assistant-launch.service';
+import { OdsEditorLaunchService } from '../../ods-editor/ods-editor-launch.service';
+import { isOdsFile as isOdsSpreadsheetFile } from '../../shared/uploaded-file-types';
 
 const BUFFER_AHEAD = 3;
 /** Number of groups (activities) to load per API request. */
@@ -235,6 +237,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }>();
     /** Tableau PDF : déplié = toutes les lignes ; sinon une seule (clé = eventId). */
     private wallPdfTableExpanded = new Map<string, boolean>();
+    /** Tri du tableau des ODS (clé = eventId). */
+    private wallOdsTableSort = new Map<string, {
+        col: 'name' | 'file' | 'owner';
+        asc: boolean;
+    }>();
+    /** Tableau ODS : déplié = toutes les lignes ; sinon une seule (clé = eventId). */
+    private wallOdsTableExpanded = new Map<string, boolean>();
     loadingThumbnails: Set<string> = new Set();
     videoUrlCache: Map<string, string> = new Map();
     videoSafeUrlCache: Map<string, SafeUrl> = new Map(); // same SafeUrl instance to avoid reloads
@@ -350,7 +359,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         private videoCompressionService: VideoCompressionService,
         private videoUploadProcessingService: VideoUploadProcessingService,
         private todoListOverlay: TodoListDetailOverlayService,
-        private assistantLaunch: AssistantLaunchService
+        private assistantLaunch: AssistantLaunchService,
+        private odsEditorLaunch: OdsEditorLaunchService
     ) {
         // Pré-charge `app.imagemaxsizekb` côté backend pour pouvoir adapter
         // le modal de compression dès la première sélection / "Ajouter dans
@@ -725,6 +735,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.wallTrackTableExpanded.clear();
         this.wallPdfTableSort.clear();
         this.wallPdfTableExpanded.clear();
+        this.wallOdsTableSort.clear();
+        this.wallOdsTableExpanded.clear();
         this.videoUrlCache.clear();
         this.videoSafeUrlCache.clear();
         this.loadingThumbnails.clear();
@@ -1478,6 +1490,19 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         return true;
     }
 
+    /** Tableur ODS (GridFS) : tableau mur, pas badge. */
+    isMongoWallOdsLink(link: FsPhotoLink): boolean {
+        const id = (link.fieldId || '').trim();
+        if (!id) {
+            return false;
+        }
+        const t = (link.typeUrl || '').trim().toUpperCase();
+        if (t === 'ODS') {
+            return true;
+        }
+        return isOdsSpreadsheetFile(link.path);
+    }
+
     getGroupMongoTrackLinks(group: TimelineGroup): FsPhotoLink[] {
         if (!group?.fsPhotoLinks?.length) {
             return [];
@@ -1490,6 +1515,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             return [];
         }
         return group.fsPhotoLinks.filter(l => this.isMongoWallPdfLink(l));
+    }
+
+    getGroupWallOdsLinks(group: TimelineGroup): FsPhotoLink[] {
+        if (!group?.fsPhotoLinks?.length) {
+            return [];
+        }
+        return group.fsPhotoLinks.filter(l => this.isMongoWallOdsLink(l));
     }
 
     /** PDF triés pour le tableau (état par événement). */
@@ -1560,6 +1592,79 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
     wallPdfSortIconClass(group: TimelineGroup, col: 'name' | 'file' | 'owner'): string {
         const s = this.getWallPdfTableSort(group);
+        if (s.col !== col) {
+            return 'fa fa-sort opacity-50';
+        }
+        return s.asc ? 'fa fa-sort-asc' : 'fa fa-sort-desc';
+    }
+
+    getSortedWallOdsLinks(group: TimelineGroup): FsPhotoLink[] {
+        const list = this.getGroupWallOdsLinks(group);
+        if (list.length <= 1) {
+            return list;
+        }
+        const evId = group?.eventId || '';
+        const cur = this.wallOdsTableSort.get(evId) ?? { col: 'name' as const, asc: true };
+        const mul = cur.asc ? 1 : -1;
+        const copy = [...list];
+        copy.sort((a, b) => {
+            const c = mul * this.compareWallPdfRows(a, b, cur.col);
+            if (c !== 0) {
+                return c;
+            }
+            return (a.fieldId || '').localeCompare(b.fieldId || '');
+        });
+        return copy;
+    }
+
+    getDisplayedWallOdsLinks(group: TimelineGroup): FsPhotoLink[] {
+        const sorted = this.getSortedWallOdsLinks(group);
+        if (sorted.length <= 1) {
+            return sorted;
+        }
+        if (this.isWallOdsTableExpanded(group)) {
+            return sorted;
+        }
+        return sorted.slice(0, 1);
+    }
+
+    isWallOdsTableExpanded(group: TimelineGroup): boolean {
+        return this.wallOdsTableExpanded.get(group?.eventId || '') === true;
+    }
+
+    wallOdsTableHasMultipleRows(group: TimelineGroup): boolean {
+        return this.getGroupWallOdsLinks(group).length > 1;
+    }
+
+    onWallOdsTableToggleExpand(group: TimelineGroup, ev?: Event): void {
+        ev?.stopPropagation();
+        const id = group?.eventId || '';
+        if (!id) {
+            return;
+        }
+        const next = !this.isWallOdsTableExpanded(group);
+        this.wallOdsTableExpanded.set(id, next);
+        this.scheduleCdr();
+    }
+
+    getWallOdsTableSort(group: TimelineGroup): {
+        col: 'name' | 'file' | 'owner';
+        asc: boolean;
+    } {
+        return this.wallOdsTableSort.get(group?.eventId || '') ?? { col: 'name', asc: true };
+    }
+
+    onWallOdsSortClick(group: TimelineGroup, col: 'name' | 'file' | 'owner', ev?: Event): void {
+        ev?.stopPropagation();
+        const id = group?.eventId || '';
+        const prev = this.wallOdsTableSort.get(id) ?? { col: 'name' as const, asc: true };
+        const asc = prev.col === col ? !prev.asc : true;
+        this.wallOdsTableSort.set(id, { col, asc });
+        this.scheduleCdr();
+    }
+
+    wallOdsSortIconClass(group: TimelineGroup, col: 'name' | 'file' | 'owner'): string {
+        const s = this.getWallOdsTableSort(group);
         if (s.col !== col) {
             return 'fa fa-sort opacity-50';
         }
@@ -1741,7 +1846,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         if (!group?.fsPhotoLinks?.length) {
             return [];
         }
-        return group.fsPhotoLinks.filter(l => !this.isMongoTrackLink(l) && !this.isMongoWallPdfLink(l));
+        return group.fsPhotoLinks.filter(
+            l => !this.isMongoTrackLink(l) && !this.isMongoWallPdfLink(l) && !this.isMongoWallOdsLink(l)
+        );
     }
 
     trackByTrackFieldId(_index: number, link: FsPhotoLink): string {
@@ -1911,6 +2018,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         }
         const t = (link.typeUrl || '').trim().toUpperCase() || 'OTHER';
         if (t === 'PDF') return 'fa-file-pdf-o';
+        if (t === 'ODS') return 'fa-table';
         if (t === 'MAP' || t === 'CARTE') return 'fa-map-marker';
         if (t === 'WEBSITE' || t === 'SITE' || t === 'WEB') return 'fa-globe';
         if (t === 'DOCUMENTATION' || t === 'DOC' || t === 'FICHE') return 'fa-file-text';
@@ -1932,6 +2040,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         const path = (link.path || '').trim().toLowerCase();
         if (t === 'PDF') {
             return 'PHOTO_TIMELINE.LINK_ACTION_OPEN_PDF';
+        }
+        if (t === 'ODS') {
+            return 'PHOTO_TIMELINE.LINK_ACTION_OPEN_ODS';
         }
         if (t === 'TRACK' || t === 'TRACE' || t === 'GPX') {
             return 'PHOTO_TIMELINE.LINK_ACTION_OPEN_TRACE';
@@ -1957,6 +2068,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         if (path.endsWith('.pdf')) {
             return 'PHOTO_TIMELINE.LINK_ACTION_OPEN_PDF';
         }
+        if (path.endsWith('.ods')) {
+            return 'PHOTO_TIMELINE.LINK_ACTION_OPEN_ODS';
+        }
         if (path.startsWith('http://') || path.startsWith('https://')) {
             return 'PHOTO_TIMELINE.LINK_ACTION_OPEN_LINK';
         }
@@ -1968,6 +2082,11 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         const t = (fsLink.typeUrl || '').trim().toUpperCase();
         if (t === 'PDF' && (fsLink.fieldId || '').trim()) {
             this.openWallPdfInNewTab(fsLink);
+            return;
+        }
+        if (this.isMongoWallOdsLink(fsLink)) {
+            const fileName = (fsLink.path || '').trim() || (fsLink.description || '').trim() || 'document.ods';
+            this.odsEditorLaunch.openEventFile(fsLink.fieldId!, fileName);
             return;
         }
         if ((t === 'TRACK' || t === 'TRACE' || t === 'GPX') && fsLink.fieldId) {
@@ -2019,6 +2138,37 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 console.error('Wall PDF load failed', err);
                 alert(this.translate.instant('EVENTELEM.ERROR_LOADING_PDF'));
             }
+        });
+        this.subscriptions.push(sub);
+    }
+
+    /** Télécharge un ODS lié au mur (GridFS). */
+    onWallOdsFileDownloadClick(ods: FsPhotoLink, ev?: Event): void {
+        ev?.stopPropagation();
+        const id = (ods.fieldId || '').trim();
+        if (!id) {
+            return;
+        }
+        const fileName = (ods.path || '').trim() || 'document.ods';
+        const sub = this.fileService.getFile(id).subscribe({
+            next: (buffer: ArrayBuffer) => {
+                const blob = new Blob([buffer], {
+                    type: 'application/vnd.oasis.opendocument.spreadsheet'
+                });
+                if ((navigator as any).msSaveBlob) {
+                    (navigator as any).msSaveBlob(blob, fileName);
+                    return;
+                }
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = fileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+            },
+            error: (err) => console.error('Wall ODS download failed', err)
         });
         this.subscriptions.push(sub);
     }

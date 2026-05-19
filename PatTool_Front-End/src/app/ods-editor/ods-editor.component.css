@@ -1,0 +1,69 @@
+.ods-editor-page {
+  max-width: 100%;
+}
+
+.ods-editor-grid-card {
+  min-height: 420px;
+}
+
+.ods-editor-grid-body {
+  min-height: 360px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.ods-editor-grid {
+  width: 100%;
+  min-width: 100%;
+  height: min(70vh, 720px);
+}
+
+/* Barre de défilement horizontale toujours visible (ag-grid). */
+.ods-editor-grid .ag-body-horizontal-scroll,
+.ods-editor-grid .ag-body-horizontal-scroll-viewport {
+  overflow-x: auto;
+}
+
+.ods-editor-grid .ag-body-horizontal-scroll {
+  min-height: 14px;
+}
+
+.ods-editor-font-toolbar {
+  min-width: 12rem;
+  max-width: 20rem;
+}
+
+.ods-editor-font-range {
+  width: 5.5rem;
+  min-width: 4rem;
+  margin: 0;
+}
+
+.ods-editor-font-value {
+  min-width: 2.5rem;
+  text-align: right;
+}
+
+/* Laisser passer couleurs / polices définies par cellStyle (ODS). */
+.ods-editor-grid .ag-cell {
+  line-height: 1.3;
+}
+
+.ods-editor-grid .ag-header-cell-label {
+  line-height: 1.25;
+}
+
+.ods-editor-grid .ag-cell-focus {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: -2px;
+}
+
+.ods-editor-tabs .nav-link {
+  cursor: pointer;
+  border: none;
+  background: transparent;
+}
+
+.ods-editor-tabs .nav-link.active {
+  font-weight: 600;
+}
