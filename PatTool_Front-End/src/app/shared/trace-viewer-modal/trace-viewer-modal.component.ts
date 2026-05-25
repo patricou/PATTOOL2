@@ -84,6 +84,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	/** Follow device GPS: recenter the map every 5 s. */
 	public followDeviceLocation: boolean = false;
+	/** Keep the device screen on while the trace viewer is open (mobile). */
+	public keepScreenAwake = false;
+	private screenWakeLock: WakeLockSentinel | null = null;
+	private screenWakeLockReleaseHandler?: () => void;
+	private visibilityChangeHandler?: () => void;
 	private static readonly DEVICE_LOCATION_FOLLOW_INTERVAL_S = 5;
 	/** Visible countdown (seconds until next update); 0 while an update is in progress. */
 	public deviceLocationCountdown: number = 0;
@@ -147,6 +152,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	/** Tracks container resize (flex / modal / embed) to recover Leaflet black-map issues. */
 	private mapLayoutResizeObserver?: ResizeObserver;
 	private mapLayoutSyncDebouncer: number | null = null;
+	private traceViewerCdrTimer: number | null = null;
 	private mapResizeObservedDims = { w: -1, h: -1 };
 	/** After `fitMapToTrackBounds` / `setView(..., reset)`, skip another full tile-grid reset in `syncMapLayoutCore` (avoids double blink). */
 	private lastMapHardViewResetAtMs = 0;
@@ -247,7 +253,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	ngOnDestroy(): void {
+		if (this.traceViewerCdrTimer != null) {
+			clearTimeout(this.traceViewerCdrTimer);
+			this.traceViewerCdrTimer = null;
+		}
 		this.stopFollowDeviceLocation();
+		void this.releaseScreenWakeLock();
+		this.cleanupVisibilityChangeListener();
 		this.destroy$.next();
 		this.destroy$.complete();
 		this.close();
@@ -491,10 +503,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 			} else {
 				const c = this.map.getCenter();
 				const z = this.map.getZoom();
-				const zInt = Math.min(
-					this.map.getMaxZoom(),
-					Math.max(this.map.getMinZoom(), Math.round(z))
-				);
 				const sz = this.map.getSize();
 				const msSinceHard = performance.now() - this.lastMapHardViewResetAtMs;
 				const recentHard = msSinceHard >= 0 && msSinceHard < 480;
@@ -503,14 +511,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 					this.lastHardViewResetZoom != null &&
 					Math.abs(c.lat - this.lastHardViewResetCenter.lat) < 1e-7 &&
 					Math.abs(c.lng - this.lastHardViewResetCenter.lng) < 1e-7 &&
-					zInt === this.lastHardViewResetZoom;
+					z === this.lastHardViewResetZoom;
 				const samePixelSize =
 					this.lastHardViewResetPixelSize != null &&
 					sz.x === this.lastHardViewResetPixelSize.w &&
 					sz.y === this.lastHardViewResetPixelSize.h;
 				const skipDuplicateHardReset = recentHard && sameView && samePixelSize;
 				if (!skipDuplicateHardReset) {
-					this.map.setView(c, zInt, { animate: false, reset: true } as L.ZoomPanOptions & { reset?: boolean });
+					this.map.setView(c, z, { animate: false, reset: true } as L.ZoomPanOptions & { reset?: boolean });
 					this.recordTileGridHardReset();
 				}
 				this.redrawActiveBaseLayerTiles();
@@ -593,6 +601,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	public close(): void {
 		this.stopFollowDeviceLocation();
+		void this.releaseScreenWakeLock();
 		if (this.document.fullscreenElement) {
 			const exitResult = this.document.exitFullscreen();
 			if (exitResult && typeof exitResult.then === 'function') {
@@ -783,6 +792,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.scheduleEmbeddedModalMapKick();
 		this.registerFullscreenListener();
 		this.registerOrientationListener();
+		this.registerVisibilityChangeListener();
 		this.registerEscapeKeydownListener();
 
 		// Apply event color after modal is rendered
@@ -883,6 +893,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 				(pane as HTMLElement).style.cursor = redCrosshairCursor;
 			});
 		}
+	}
+
+	/** markForCheck au tick suivant — évite NG0100 sur PhotoTimelineComponent (parent) en dev mode. */
+	private scheduleTraceViewerCdr(): void {
+		if (this.traceViewerCdrTimer != null) {
+			clearTimeout(this.traceViewerCdrTimer);
+		}
+		this.traceViewerCdrTimer = window.setTimeout(() => {
+			this.traceViewerCdrTimer = null;
+			this.cdr.markForCheck();
+		}, 0);
 	}
 
 	private onModalShown(): void {
@@ -987,21 +1008,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 	}
 
-	/** Boutons +/- et clavier : pas Leaflet plus grand aux zooms élevés (la molette utilise wheelPxPerZoomLevel). */
-	private applyLeafletZoomDeltaForLevel(z?: number): void {
-		if (!this.map) {
-			return;
-		}
-		const level = z ?? this.map.getZoom();
-		if (level >= 18) {
-			this.map.options.zoomDelta = 3;
-		} else if (level >= 16) {
-			this.map.options.zoomDelta = 2;
-		} else {
-			this.map.options.zoomDelta = 1.5;
-		}
-	}
-
 	private initializeMap(): void {
 		if (this.map) {
 			return;
@@ -1042,13 +1048,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 				zoomControl: true,
 				attributionControl: true,
 				zoomDelta: 1.5,
-				// 0 = zoom fractionnaire : la molette suit le delta sans arrondir par paliers (évite les à-coups type « x0,5 »).
-				zoomSnap: 0,
-				scrollWheelZoom: true,
-				// Plus haut = molette plus douce (19 encore trop nerveux ; défaut Leaflet 60).
-				wheelPxPerZoomLevel: 38,
-				// Plus long = moins de zooms successifs saccadés en fin de geste (défaut Leaflet 40).
-				wheelDebounceTime: 48
+				zoomSnap: 0.5,
+				scrollWheelZoom: true
 			});
 		} catch (e) {
 			this.releaseLeafletControlPassiveTouchPatch();
@@ -1077,16 +1078,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 				}
 			}
 			this.currentZoom = this.map!.getZoom();
-			this.applyLeafletZoomDeltaForLevel(this.currentZoom);
-			this.cdr.detectChanges();
+			this.scheduleTraceViewerCdr();
 		});
 		this.currentZoom = this.map.getZoom();
-		this.applyLeafletZoomDeltaForLevel(this.currentZoom);
-		this.cdr.detectChanges();
+		this.scheduleTraceViewerCdr();
 
 		this.map.whenReady(() => {
 			this.isMapReady = true;
-			this.cdr.detectChanges();
+			this.scheduleTraceViewerCdr();
 			/* Flex/embed layouts often omit a useful size on the first layout pass — retry pending renders below. */
 			this.tryRenderPendingTrack();
 			this.tryRenderPendingPositions();
@@ -1697,6 +1696,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.showCyclingTrailsOverlay = false;
 		this.stopFollowDeviceLocation();
 		this.followDeviceLocation = this.isMobileViewport();
+		this.keepScreenAwake = false;
+		void this.releaseScreenWakeLock();
 		this.cleanupMapMoveHandler();
 		this.cleanupMapMouseMoveHandler();
 		this.cleanupAddressClickHandler();
@@ -1847,11 +1848,82 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 	}
 
-	private isMobileViewport(): boolean {
+	public isMobileViewport(): boolean {
 		return this.document.defaultView != null && (
 			this.document.defaultView.innerHeight <= 500 ||
 			this.document.defaultView.innerWidth <= 768
 		);
+	}
+
+	public get screenWakeLockAvailable(): boolean {
+		return typeof navigator !== 'undefined' && 'wakeLock' in navigator;
+	}
+
+	/** Active/désactive le verrouillage d'écran (empêche la mise en veille du smartphone). */
+	public onKeepScreenAwakeChange(): void {
+		if (this.keepScreenAwake) {
+			void this.acquireScreenWakeLock();
+		} else {
+			void this.releaseScreenWakeLock();
+		}
+	}
+
+	private async acquireScreenWakeLock(): Promise<void> {
+		if (!this.screenWakeLockAvailable || !this.keepScreenAwake || this.document.visibilityState !== 'visible') {
+			return;
+		}
+		if (this.screenWakeLock && !this.screenWakeLock.released) {
+			return;
+		}
+		try {
+			this.screenWakeLock = await navigator.wakeLock.request('screen');
+			this.screenWakeLockReleaseHandler = () => {
+				this.screenWakeLock = null;
+				if (this.keepScreenAwake && this.document.visibilityState === 'visible') {
+					void this.acquireScreenWakeLock();
+				}
+				this.cdr.markForCheck();
+			};
+			this.screenWakeLock.addEventListener('release', this.screenWakeLockReleaseHandler);
+		} catch {
+			this.keepScreenAwake = false;
+			this.cdr.markForCheck();
+		}
+	}
+
+	private async releaseScreenWakeLock(): Promise<void> {
+		if (!this.screenWakeLock) {
+			return;
+		}
+		if (this.screenWakeLockReleaseHandler) {
+			this.screenWakeLock.removeEventListener('release', this.screenWakeLockReleaseHandler);
+			this.screenWakeLockReleaseHandler = undefined;
+		}
+		if (!this.screenWakeLock.released) {
+			try {
+				await this.screenWakeLock.release();
+			} catch {
+				// ignore
+			}
+		}
+		this.screenWakeLock = null;
+	}
+
+	private registerVisibilityChangeListener(): void {
+		this.cleanupVisibilityChangeListener();
+		this.visibilityChangeHandler = () => {
+			if (this.document.visibilityState === 'visible' && this.keepScreenAwake) {
+				void this.acquireScreenWakeLock();
+			}
+		};
+		this.document.addEventListener('visibilitychange', this.visibilityChangeHandler);
+	}
+
+	private cleanupVisibilityChangeListener(): void {
+		if (this.visibilityChangeHandler) {
+			this.document.removeEventListener('visibilitychange', this.visibilityChangeHandler);
+			this.visibilityChangeHandler = undefined;
+		}
 	}
 
 	private registerOrientationListener(): void {
@@ -2935,6 +3007,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.destroyMap();
 		this.cleanupFullscreenListener();
 		this.cleanupOrientationListener();
+		this.cleanupVisibilityChangeListener();
+		void this.releaseScreenWakeLock();
 		this.resetTraceViewerColors();
 		if (this.document.fullscreenElement) {
 			this.document.exitFullscreen().catch(() => { });
@@ -3640,7 +3714,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 						this.clickedAlt = altitude;
 						this.clickedWeatherAlt = altitude; // Also update weather altitude
 					}
-					this.cdr.detectChanges();
+					this.scheduleTraceViewerCdr();
 				}
 			},
 			error: (error) => {

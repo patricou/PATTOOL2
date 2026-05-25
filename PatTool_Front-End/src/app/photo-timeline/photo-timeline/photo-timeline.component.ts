@@ -567,26 +567,26 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 	/**
 	 * Writes wall thumbnail / video blob caches outside the Angular zone so Zone does not emit an
 	 * extra ApplicationRef notification that races with dev-mode checkNoChanges (NG0100 on [src] /
-	 * getThumbnailUrl). CD is then requested explicitly via {@link scheduleCdr}.
-	 *
-	 * Triple {@link setTimeout}(0) + {@link observeOn}({@link asyncScheduler}) on wall-fetch streams
-	 * avoids NG0100 in Angular 21 dev mode (thumbnail / video URL flips before verifyNoChanges completes).
+	 * getThumbnailUrl). CD is deferred to the next macrotask after the cache write.
 	 */
 	private commitWallMediaCachesAndScheduleCdr(fn: () => void): void {
-		if (this.destroyed) return;
+		if (this.destroyed) {
+			return;
+		}
 		setTimeout(() => {
-			if (this.destroyed) return;
+			if (this.destroyed) {
+				return;
+			}
+			this.ngZone.runOutsideAngular(() => {
+				if (this.destroyed) {
+					return;
+				}
+				fn();
+			});
 			setTimeout(() => {
-				if (this.destroyed) return;
-				setTimeout(() => {
-					if (this.destroyed) return;
-					this.ngZone.runOutsideAngular(() => {
-						if (this.destroyed) return;
-						fn();
-					});
-					if (this.destroyed) return;
-					this.ngZone.run(() => this.scheduleCdr());
-				}, 0);
+				if (!this.destroyed) {
+					this.cdr.markForCheck();
+				}
 			}, 0);
 		}, 0);
 	}
@@ -1153,6 +1153,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
     getThumbnailUrl(photo: TimelinePhoto): string | null {
         return this.thumbnailCache.get(photo.fileId) ?? null;
+    }
+
+    hasWallThumbnail(fileId: string): boolean {
+        return this.thumbnailCache.has(fileId);
     }
 
     /** Read-only: safe URL is always written with blob URL in {@link loadVideoUrl} (no lazy fill here — avoids NG0100). */

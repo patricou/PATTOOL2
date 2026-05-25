@@ -1255,6 +1255,8 @@
         "TRACK_VIEW_ON_GLOBE": "Globe 3D",
         "TRACK_VIEW_ON_GLOBE_HINT": "打开地球页面并居中到地图中心",
         "TRACK_SHARE_LOCATION": "分享位置",
+        "TRACK_KEEP_SCREEN_AWAKE": "保持屏幕常亮",
+        "TRACK_FOOTER_KEEP_AWAKE_SHORT": "屏幕",
         "CARTES_GOUV_FR": "所有 IGN 地图",
         "CARTES_GOUV_FR_TITLE": "在新标签页中打开公共地图服务",
         "SWISSSTOPO_PIXELKARTE": "瑞士国家地图（swisstopo）",

@@ -373,6 +373,8 @@
         "TRACK_VIEW_ON_GLOBE": "Globe 3D",
         "TRACK_VIEW_ON_GLOBE_HINT": "मानचित्र के केंद्र पर ज़ूम के साथ ग्लोब पृष्ठ खोलें",
         "TRACK_SHARE_LOCATION": "स्थान साझा करें",
+        "TRACK_KEEP_SCREEN_AWAKE": "स्क्रीन चालू रखें",
+        "TRACK_FOOTER_KEEP_AWAKE_SHORT": "स्क्रीन",
         "CARTES_GOUV_FR": "सभी IGN मानचित्र",
         "CARTES_GOUV_FR_TITLE": "नए टैब में सार्वजनिक मानचित्र सेवा खोलें",
         "SWISSSTOPO_PIXELKARTE": "स्विस राष्ट्रीय मानचित्र (swisstopo)",

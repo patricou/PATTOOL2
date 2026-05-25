@@ -1354,6 +1354,8 @@
         "TRACK_VIEW_ON_GLOBE": "Globe 3D",
         "TRACK_VIEW_ON_GLOBE_HINT": "פתח את הגלובוס ממורכז על מרכז המפה",
         "TRACK_SHARE_LOCATION": "שתף מיקום",
+        "TRACK_KEEP_SCREEN_AWAKE": "השאר מסך דולק",
+        "TRACK_FOOTER_KEEP_AWAKE_SHORT": "מסך",
         "CARTES_GOUV_FR": "כל מפות IGN",
         "CARTES_GOUV_FR_TITLE": "פתח את שירות המפות הציבורי בטאב חדש",
         "SWISSSTOPO_PIXELKARTE": "מפה לאומית שווייצרית (swisstopo)",

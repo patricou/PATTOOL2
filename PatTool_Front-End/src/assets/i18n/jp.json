@@ -1016,6 +1016,8 @@
         "TRACK_VIEW_ON_GLOBE": "Globe 3D",
         "TRACK_VIEW_ON_GLOBE_HINT": "地図の中心に合わせた地球儀ページを開く",
         "TRACK_SHARE_LOCATION": "位置を共有",
+        "TRACK_KEEP_SCREEN_AWAKE": "画面を点灯したままにする",
+        "TRACK_FOOTER_KEEP_AWAKE_SHORT": "画面",
         "CARTES_GOUV_FR": "すべての IGN 地図",
         "CARTES_GOUV_FR_TITLE": "新しいタブで公式地図サービスを開く",
         "SWISSSTOPO_PIXELKARTE": "スイス国土地図（swisstopo）",

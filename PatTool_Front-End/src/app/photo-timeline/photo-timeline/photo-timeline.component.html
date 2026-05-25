@@ -48,8 +48,8 @@
                      (click)="openOnThisDaySlideshow(i)"
                      [attr.data-file-id]="photo.fileId"
                      [attr.data-file-type]="photo.fileType">
-                    <ng-container *ngIf="getThumbnailUrl(photo) as thumbUrl; else otdPhotoPlaceholder">
-                        <img [src]="thumbUrl"
+                    <ng-container *ngIf="hasWallThumbnail(photo.fileId); else otdPhotoPlaceholder">
+                        <img [src]="getThumbnailUrl(photo)!"
                              [alt]="photo.fileName"
                              loading="eager"
                              decoding="async">
@@ -303,8 +303,8 @@
                          [attr.data-file-type]="media.item.fileType"
                          (click)="openSlideshow(group, media.photoIndex ?? 0)">
                         <div class="photo-card">
-                            <ng-container *ngIf="getThumbnailUrl(media.item) as thumbUrl; else wallMasonryThumbPh">
-                                <img [src]="thumbUrl"
+                            <ng-container *ngIf="hasWallThumbnail(media.item.fileId); else wallMasonryThumbPh">
+                                <img [src]="getThumbnailUrl(media.item)!"
                                      [alt]="media.item.fileName"
                                      loading="eager"
                                      decoding="async"

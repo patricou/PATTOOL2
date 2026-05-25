@@ -1257,6 +1257,8 @@
         "TRACK_VIEW_ON_GLOBE": "Globe 3D",
         "TRACK_VIEW_ON_GLOBE_HINT": "Apri il globo centrato sul centro della mappa",
         "TRACK_SHARE_LOCATION": "Condividi Posizione",
+        "TRACK_KEEP_SCREEN_AWAKE": "Mantieni schermo acceso",
+        "TRACK_FOOTER_KEEP_AWAKE_SHORT": "Schermo",
         "CARTES_GOUV_FR": "Tutte le carte IGN",
         "CARTES_GOUV_FR_TITLE": "Apri il servizio cartografico pubblico in una nuova scheda",
         "SWISSSTOPO_PIXELKARTE": "Carta nazionale svizzera (swisstopo)",

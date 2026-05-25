@@ -468,6 +468,30 @@
 		border-color: #e74c3c !important;
 	}
 
+	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-keep-awake-switch .gps-switch-label,
+	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-keep-awake-switch .gps-switch-label i {
+		color: #3498db !important;
+	}
+
+	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-keep-awake-switch .form-check-input:checked {
+		background-color: #3498db;
+		border-color: #3498db;
+	}
+
+	.fullscreen-selector .trace-viewer-keep-awake-switch .gps-switch-label,
+	.fullscreen-selector .trace-viewer-keep-awake-switch .gps-switch-label i {
+		color: #3498db !important;
+	}
+
+	.fullscreen-selector .trace-viewer-keep-awake-switch .form-check-input:checked {
+		background-color: #3498db !important;
+		border-color: #3498db !important;
+	}
+
+	.trace-viewer-footer-switches-group {
+		gap: 0.28rem 0.45rem;
+	}
+
 	.fullscreen-selector {
 		padding: 0.25rem 0.35rem !important;
 		min-width: 200px !important;
@@ -784,11 +808,22 @@
 	z-index: 1;
 }
 
-::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-actions-row--secondary .trace-viewer-follow-switch {
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-actions-row--secondary .trace-viewer-footer-switches-group {
 	grid-column: 1;
 	grid-row: 1;
 	justify-self: center;
+	display: flex;
+	flex-wrap: nowrap;
+	align-items: center;
+	gap: 0.28rem 0.45rem;
 	z-index: 0;
+}
+
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-actions-row--secondary .trace-viewer-follow-switch {
+	grid-column: auto;
+	grid-row: auto;
+	justify-self: auto;
+	z-index: auto;
 }
 
 @media (min-width: 769px) {
@@ -812,6 +847,11 @@
 
 	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-actions-row-start {
 		display: contents;
+	}
+
+	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-actions-row--secondary .trace-viewer-footer-switches-group {
+		justify-self: auto;
+		z-index: auto;
 	}
 
 	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-actions-row--secondary .trace-viewer-follow-switch {
@@ -907,6 +947,26 @@
 	.fullscreen-selector .trace-viewer-follow-switch .form-check-input:checked {
 		background-color: #e74c3c !important;
 		border-color: #e74c3c !important;
+	}
+
+	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-keep-awake-switch .gps-switch-label,
+	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-keep-awake-switch .gps-switch-label i {
+		color: #3498db !important;
+	}
+
+	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-keep-awake-switch .form-check-input:checked {
+		background-color: #3498db;
+		border-color: #3498db;
+	}
+
+	.fullscreen-selector .trace-viewer-keep-awake-switch .gps-switch-label,
+	.fullscreen-selector .trace-viewer-keep-awake-switch .gps-switch-label i {
+		color: #3498db !important;
+	}
+
+	.fullscreen-selector .trace-viewer-keep-awake-switch .form-check-input:checked {
+		background-color: #3498db !important;
+		border-color: #3498db !important;
 	}
 }
 

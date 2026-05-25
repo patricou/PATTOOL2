@@ -1461,6 +1461,8 @@
         "TRACK_VIEW_ON_GLOBE_HINT": "Open the Earth globe zoomed on the center of this map",
         "TRACK_SHARE_LOCATION": "Share",
         "TRACK_FOLLOW_DEVICE": "Follow my position",
+        "TRACK_KEEP_SCREEN_AWAKE": "Keep screen on",
+        "TRACK_FOOTER_KEEP_AWAKE_SHORT": "Screen",
         "CARTES_GOUV_FR": "All IGN maps",
         "CARTES_GOUV_FR_TITLE": "Open the public map service in a new tab",
         "SWISSSTOPO_PIXELKARTE": "Swiss national map (swisstopo)",

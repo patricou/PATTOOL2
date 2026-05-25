@@ -1015,6 +1015,8 @@
         "TRACK_VIEW_ON_GLOBE": "Globe 3D",
         "TRACK_VIEW_ON_GLOBE_HINT": "Ανοίγει την υδρόγειο κεντραρισμένη στο κέντρο του χάρτη",
         "TRACK_SHARE_LOCATION": "Κοινοποίηση Τοποθεσίας",
+        "TRACK_KEEP_SCREEN_AWAKE": "Διατήρηση οθόνης ενεργής",
+        "TRACK_FOOTER_KEEP_AWAKE_SHORT": "Οθόνη",
         "CARTES_GOUV_FR": "Όλοι οι χάρτες IGN",
         "CARTES_GOUV_FR_TITLE": "Άνοιγμα της δημόσιας υπηρεσίας χαρτών σε νέα καρτέλα",
         "SWISSSTOPO_PIXELKARTE": "Εθνικός χάρτης Ελβετίας (swisstopo)",

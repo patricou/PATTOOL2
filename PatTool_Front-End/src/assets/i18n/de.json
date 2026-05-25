@@ -1291,6 +1291,8 @@
         "TRACK_FOOTER_FOLLOW_SHORT": "Folgen",
         "TRACK_FOOTER_ZOOM_SHORT": "Zoom",
         "TRACK_FOLLOW_DEVICE": "Meiner Position folgen",
+        "TRACK_KEEP_SCREEN_AWAKE": "Bildschirm anlassen",
+        "TRACK_FOOTER_KEEP_AWAKE_SHORT": "Bildschirm",
         "TRACK_VIEW_ON_GLOBE": "Globe 3D",
         "TRACK_VIEW_ON_GLOBE_HINT": "Eröffnet den Erglobus, zentriert auf die Kartenmitte",
         "TRACK_SHARE_LOCATION": "Position teilen",
