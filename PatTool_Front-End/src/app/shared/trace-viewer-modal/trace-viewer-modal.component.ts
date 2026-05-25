@@ -153,6 +153,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private mapLayoutResizeObserver?: ResizeObserver;
 	private mapLayoutSyncDebouncer: number | null = null;
 	private traceViewerCdrTimer: number | null = null;
+	/** Molette carte : delta accumulé + 1 mise à jour / frame. */
+	private traceMapWheelHandler?: (event: WheelEvent) => void;
+	private traceMapWheelAccum = 0;
+	private traceMapWheelRafId: number | null = null;
+	private traceMapWheelPoint = { x: 0, y: 0 };
 	private mapResizeObservedDims = { w: -1, h: -1 };
 	/** After `fitMapToTrackBounds` / `setView(..., reset)`, skip another full tile-grid reset in `syncMapLayoutCore` (avoids double blink). */
 	private lastMapHardViewResetAtMs = 0;
@@ -480,13 +485,45 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.cdr.detectChanges();
 	}
 
+	/** Force Leaflet à recréer la grille de tuiles (évite le fond gris après changement de fond de carte). */
+	private forceMapTileGridReset(skipIfRecentDuplicate = false): void {
+		if (!this.map || !this.activeBaseLayer) {
+			return;
+		}
+		this.map.invalidateSize({ animate: false });
+		if (this.isSwisstopoBasemap(this.selectedBaseLayerId)) {
+			this.snapSwisstopoTiles();
+			return;
+		}
+		const c = this.map.getCenter();
+		const z = this.map.getZoom();
+		if (skipIfRecentDuplicate) {
+			const sz = this.map.getSize();
+			const msSinceHard = performance.now() - this.lastMapHardViewResetAtMs;
+			const recentHard = msSinceHard >= 0 && msSinceHard < 480;
+			const sameView =
+				this.lastHardViewResetCenter != null &&
+				this.lastHardViewResetZoom != null &&
+				Math.abs(c.lat - this.lastHardViewResetCenter.lat) < 1e-7 &&
+				Math.abs(c.lng - this.lastHardViewResetCenter.lng) < 1e-7 &&
+				z === this.lastHardViewResetZoom;
+			const samePixelSize =
+				this.lastHardViewResetPixelSize != null &&
+				sz.x === this.lastHardViewResetPixelSize.w &&
+				sz.y === this.lastHardViewResetPixelSize.h;
+			if (recentHard && sameView && samePixelSize) {
+				this.redrawActiveBaseLayerTiles();
+				return;
+			}
+		}
+		this.map.setView(c, z, { animate: false, reset: true } as L.ZoomPanOptions & { reset?: boolean });
+		this.recordTileGridHardReset();
+		this.redrawActiveBaseLayerTiles();
+	}
+
 	/**
 	 * After resize / open: single invalidate + tile redraw (avoids flicker).
 	 * When the container goes from 0 px to a valid size, re-apply overlays / pending renders (black map edge case).
-	 *
-	 * Leaflet `invalidateSize` no-ops when the cached pixel size matches (`offset` 0), so the tile grid can stay
-	 * empty (gray `--tv-map-canvas-bg`) until a zoom forces `setView` / `_resetView`. We always nudge `setView`
-	 * when a base layer is active so WMTS/raster tiles load after modal open + fitBounds.
 	 */
 	private syncMapLayoutCore(): void {
 		if (!this.map) {
@@ -496,33 +533,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const w = el.offsetWidth;
 		const h = el.offsetHeight;
 		const ok = w >= 2 && h >= 2;
-		this.map.invalidateSize({ animate: false });
 		if (ok && this.activeBaseLayer) {
-			if (this.isSwisstopoBasemap(this.selectedBaseLayerId)) {
-				this.snapSwisstopoTiles();
-			} else {
-				const c = this.map.getCenter();
-				const z = this.map.getZoom();
-				const sz = this.map.getSize();
-				const msSinceHard = performance.now() - this.lastMapHardViewResetAtMs;
-				const recentHard = msSinceHard >= 0 && msSinceHard < 480;
-				const sameView =
-					this.lastHardViewResetCenter != null &&
-					this.lastHardViewResetZoom != null &&
-					Math.abs(c.lat - this.lastHardViewResetCenter.lat) < 1e-7 &&
-					Math.abs(c.lng - this.lastHardViewResetCenter.lng) < 1e-7 &&
-					z === this.lastHardViewResetZoom;
-				const samePixelSize =
-					this.lastHardViewResetPixelSize != null &&
-					sz.x === this.lastHardViewResetPixelSize.w &&
-					sz.y === this.lastHardViewResetPixelSize.h;
-				const skipDuplicateHardReset = recentHard && sameView && samePixelSize;
-				if (!skipDuplicateHardReset) {
-					this.map.setView(c, z, { animate: false, reset: true } as L.ZoomPanOptions & { reset?: boolean });
-					this.recordTileGridHardReset();
-				}
-				this.redrawActiveBaseLayerTiles();
-			}
+			this.forceMapTileGridReset(true);
+		} else {
+			this.map.invalidateSize({ animate: false });
 		}
 		const hadLayout = this.mapContainerHadLayout;
 		this.mapContainerHadLayout = ok;
@@ -926,7 +940,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	/**
 	 * Leaflet registers touchstart as { passive: false } on control bars via DomEvent.disableClickPropagation —
 	 * only stopPropagation matters, not preventDefault, so passive: true removes the Chrome warning.
-	 * We do not alter map drag/pinch or wheel (wheel zoom still uses preventDefault).
+	 * We do not alter map drag/pinch ; le zoom molette est géré en custom (comme le slideshow).
 	 */
 	private holdLeafletControlPassiveTouchPatch(container: HTMLElement): void {
 		if (this.leafletMapPassivePatchContainer === container) {
@@ -1044,17 +1058,20 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		this.holdLeafletControlPassiveTouchPatch(container);
 		try {
+			// zoomSnap 0 = niveaux fractionnels ; molette = handler custom (slideshow).
 			this.map = L.map(container, {
 				zoomControl: true,
 				attributionControl: true,
-				zoomDelta: 1.5,
-				zoomSnap: 0.5,
-				scrollWheelZoom: true
+				zoomDelta: 1,
+				zoomSnap: 0,
+				scrollWheelZoom: false
 			});
 		} catch (e) {
 			this.releaseLeafletControlPassiveTouchPatch();
 			throw e;
 		}
+
+		this.registerTraceMapWheelZoom();
 
 		this.setupMapLayoutObserver((container.closest('.map-wrapper') ?? container) as HTMLElement);
 
@@ -1116,6 +1133,109 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.startFollowDeviceLocation();
 			}
 		});
+	}
+
+	private normalizeTraceMapWheelDelta(event: WheelEvent): number {
+		if (event.deltaMode === 0) {
+			return event.deltaY / 80;
+		}
+		if (event.deltaMode === 1) {
+			return event.deltaY / 2.5;
+		}
+		return event.deltaY / 0.45;
+	}
+
+	/** Pas dynamique (inspiré slideshow), appliqué sur le delta accumulé par frame. */
+	private applyMapWheelZoomFromDelta(delta: number, current: number, minZoom: number, maxZoom: number): number {
+		const baseStep = 1.15;
+		const multiplier = 0.18;
+		const dynamicStep = baseStep * (1 + current * multiplier);
+		const minStep = 0.55;
+		const maxStep = 5.5;
+		const step = Math.max(minStep, Math.min(maxStep, dynamicStep));
+
+		let next = current - delta * step;
+		if (next < minZoom) {
+			next = minZoom;
+		}
+		if (next > maxZoom) {
+			next = maxZoom;
+		}
+		return parseFloat(next.toFixed(3));
+	}
+
+	private onTraceMapWheel(event: WheelEvent): void {
+		if (!this.map) {
+			return;
+		}
+		event.preventDefault();
+
+		const container = this.map.getContainer();
+		const rect = container.getBoundingClientRect();
+		if (rect.width > 0 && rect.height > 0) {
+			this.traceMapWheelPoint.x = event.clientX - rect.left;
+			this.traceMapWheelPoint.y = event.clientY - rect.top;
+		}
+
+		this.traceMapWheelAccum += this.normalizeTraceMapWheelDelta(event);
+		if (this.traceMapWheelRafId != null) {
+			return;
+		}
+		this.traceMapWheelRafId = requestAnimationFrame(() => this.flushTraceMapWheelZoom());
+	}
+
+	private flushTraceMapWheelZoom(): void {
+		this.traceMapWheelRafId = null;
+		const delta = this.traceMapWheelAccum;
+		this.traceMapWheelAccum = 0;
+		if (!this.map || Math.abs(delta) < 0.0001) {
+			return;
+		}
+
+		const minZoom = this.map.getMinZoom();
+		const maxZoom = this.map.getMaxZoom();
+		const oldZoom = this.map.getZoom();
+		const newZoom = this.applyMapWheelZoomFromDelta(delta, oldZoom, minZoom, maxZoom);
+		if (Math.abs(newZoom - oldZoom) < 0.0005) {
+			return;
+		}
+
+		const { x, y } = this.traceMapWheelPoint;
+		const container = this.map.getContainer();
+		const rect = container.getBoundingClientRect();
+		if (rect.width > 0 && rect.height > 0) {
+			const latlng = this.map.containerPointToLatLng(L.point(x, y));
+			this.map.setZoomAround(latlng, newZoom);
+		} else {
+			this.map.setZoom(newZoom);
+		}
+		this.currentZoom = newZoom;
+		this.scheduleTraceViewerCdr();
+	}
+
+	private registerTraceMapWheelZoom(): void {
+		if (!this.map || this.traceMapWheelHandler) {
+			return;
+		}
+		const container = this.map.getContainer();
+		this.traceMapWheelHandler = (e: WheelEvent) => this.onTraceMapWheel(e);
+		container.addEventListener('wheel', this.traceMapWheelHandler, { passive: false });
+	}
+
+	private unregisterTraceMapWheelZoom(): void {
+		if (this.traceMapWheelRafId != null) {
+			cancelAnimationFrame(this.traceMapWheelRafId);
+			this.traceMapWheelRafId = null;
+		}
+		this.traceMapWheelAccum = 0;
+		if (this.traceMapWheelHandler && this.map) {
+			try {
+				this.map.getContainer().removeEventListener('wheel', this.traceMapWheelHandler);
+			} catch {
+				/* map container may already be gone */
+			}
+		}
+		this.traceMapWheelHandler = undefined;
 	}
 
 	private ensureMapInitialization(): void {
@@ -1713,6 +1833,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.mapContainerHadLayout = false;
 		this.isMapReady = false;
 		this.clearTrackBoundsRefitTimeouts();
+		this.unregisterTraceMapWheelZoom();
 		if (this.map) {
 			this.cleanupRightClickZoom();
 			this.cleanupLocationSelection();
@@ -2277,22 +2398,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 			nextLayer.bringToBack();
 		}
 		this.activeBaseLayer = nextLayer;
-
-		if (isSwiss) {
-			this.snapSwisstopoTiles();
-		} else {
-			if (nextLayer instanceof L.TileLayer) {
-				nextLayer.redraw();
-			} else if (nextLayer instanceof L.LayerGroup) {
-				nextLayer.eachLayer((layer) => {
-					if (layer instanceof L.TileLayer) {
-						layer.redraw();
-					}
-				});
+		requestAnimationFrame(() => {
+			if (this.map && this.activeBaseLayer === nextLayer) {
+				this.forceMapTileGridReset(false);
 			}
-			this.clearMapLayoutSyncDebouncer();
-			this.syncMapLayoutCore();
-		}
+		});
 
 		this.applyHikingTrailsOverlay();
 		this.applyCyclingTrailsOverlay();
