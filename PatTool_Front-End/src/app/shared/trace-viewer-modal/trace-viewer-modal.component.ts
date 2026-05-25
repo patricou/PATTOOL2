@@ -82,8 +82,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public showCyclingTrailsOverlay: boolean = false;
 	private cyclingTrailsOverlay?: L.TileLayer;
 
-	/** Follow device GPS: recenter the map every 10 s. */
+	/** Follow device GPS: recenter the map every 5 s. */
 	public followDeviceLocation: boolean = false;
+	private static readonly DEVICE_LOCATION_FOLLOW_INTERVAL_S = 5;
 	/** Visible countdown (seconds until next update); 0 while an update is in progress. */
 	public deviceLocationCountdown: number = 0;
 	private deviceLocationCountdownId: ReturnType<typeof setInterval> | null = null;
@@ -139,6 +140,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private cartesGouvFullscreenChangeListener?: () => void;
 	private thunderforestApiKey: string = '';
 	public isFullscreenInfoVisible = false;
+	/** Fullscreen options panel (basemap, switches, actions) — collapsed by default. */
+	public isFullscreenOptionsExpanded = false;
 	private trackBounds: L.LatLngBounds | null = null;
 	private trackBoundsRefitTimeouts: number[] = [];
 	/** Tracks container resize (flex / modal / embed) to recover Leaflet black-map issues. */
@@ -1109,6 +1112,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 			// Register address click handler (always active, but only updates if switch is enabled)
 			this.registerAddressClickHandler();
+
+			if (this.followDeviceLocation) {
+				this.startFollowDeviceLocation();
+			}
 		});
 	}
 
@@ -1688,6 +1695,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.showAddress = false;
 		this.showHikingTrailsOverlay = false;
 		this.showCyclingTrailsOverlay = false;
+		this.stopFollowDeviceLocation();
+		this.followDeviceLocation = this.isMobileViewport();
 		this.cleanupMapMoveHandler();
 		this.cleanupMapMouseMoveHandler();
 		this.cleanupAddressClickHandler();
@@ -1813,8 +1822,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.fullscreenChangeHandler = () => {
 			const isActive = !!this.document.fullscreenElement;
 			this.isFullscreen = isActive;
-			if (!isActive) {
+			if (isActive) {
+				this.isFullscreenOptionsExpanded = false;
+			} else {
 				this.isFullscreenInfoVisible = false;
+				this.isFullscreenOptionsExpanded = false;
 			}
 			this.cdr.detectChanges();
 			setTimeout(() => {
@@ -2160,6 +2172,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.isFullscreenInfoVisible = !this.isFullscreenInfoVisible;
 	}
 
+	public toggleFullscreenOptions(): void {
+		if (!this.isFullscreen) {
+			return;
+		}
+		this.isFullscreenOptionsExpanded = !this.isFullscreenOptionsExpanded;
+	}
+
 	private applySelectedBaseLayer(): void {
 		if (!this.map) {
 			return;
@@ -2290,7 +2309,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.close();
 	}
 
-	/** Active/désactive le suivi de la position GPS de l'appareil (recentrage carte toutes les 10 s). */
+	/** Active/désactive le suivi de la position GPS de l'appareil (recentrage carte toutes les 5 s). */
 	public onFollowDeviceLocationChange(): void {
 		if (this.followDeviceLocation) {
 			this.startFollowDeviceLocation();
@@ -2306,14 +2325,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.cdr.markForCheck();
 			return;
 		}
-		this.deviceLocationCountdown = 10;
+		this.deviceLocationCountdown = TraceViewerModalComponent.DEVICE_LOCATION_FOLLOW_INTERVAL_S;
 		this.fetchDevicePositionAndRecenter();
 		this.deviceLocationCountdownId = setInterval(() => {
 			this.deviceLocationCountdown = Math.max(0, this.deviceLocationCountdown - 1);
 			this.cdr.markForCheck();
 			if (this.deviceLocationCountdown === 0) {
 				this.fetchDevicePositionAndRecenter();
-				this.deviceLocationCountdown = 10;
+				this.deviceLocationCountdown = TraceViewerModalComponent.DEVICE_LOCATION_FOLLOW_INTERVAL_S;
 			}
 		}, 1000);
 		this.cdr.markForCheck();
@@ -2912,6 +2931,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.removeEscapeKeydownListener();
 		this.isFullscreen = false;
 		this.isFullscreenInfoVisible = false;
+		this.isFullscreenOptionsExpanded = false;
 		this.destroyMap();
 		this.cleanupFullscreenListener();
 		this.cleanupOrientationListener();

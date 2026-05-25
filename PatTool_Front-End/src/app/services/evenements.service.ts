@@ -22,6 +22,7 @@ export interface StreamedFile {
 export class EvenementsService {
 
 	private API_URL: string = environment.API_URL;
+	private streamAbortController: AbortController | null = null;
 
 	constructor(private _http: HttpClient, private _keycloakService: KeycloakService) {
 	}
@@ -299,6 +300,10 @@ export class EvenementsService {
 
 	// Stream events using Server-Sent Events (SSE)
 	streamEvents(name: string, userId: string, visibilityFilter?: string, adminOverride?: boolean): Observable<StreamedEvent> {
+		this.streamAbortController?.abort();
+		const abortController = new AbortController();
+		this.streamAbortController = abortController;
+
 		const subject = new Subject<StreamedEvent>();
 		
 		// Donner plus de temps au token (déjà demandé en avance dans ngOnInit home-evenements)
@@ -313,20 +318,34 @@ export class EvenementsService {
 			})
 		).subscribe({
 			next: (headers) => {
+				if (abortController.signal.aborted) {
+					return;
+				}
 				const token = headers.get('Authorization') || '';
 				const url = this.API_URL + "even/stream/" + encodeURIComponent(name);
 				
 				// Use fetch API since EventSource doesn't support custom headers
-				this.streamWithFetch(url, token, userId, subject, visibilityFilter, adminOverride).catch(err => {
+				this.streamWithFetch(url, token, userId, subject, visibilityFilter, adminOverride, abortController.signal).catch(err => {
+					if (abortController.signal.aborted) {
+						return;
+					}
 					subject.error(err);
 				});
 			},
 			error: (err) => {
-				subject.error(err);
+				if (!abortController.signal.aborted) {
+					subject.error(err);
+				}
 			}
 		});
-		
-		return subject.asObservable();
+
+		return new Observable<StreamedEvent>((subscriber) => {
+			const subscription = subject.subscribe(subscriber);
+			return () => {
+				abortController.abort();
+				subscription.unsubscribe();
+			};
+		});
 	}
 
 	private async streamWithFetch(
@@ -335,7 +354,8 @@ export class EvenementsService {
 		userId: string,
 		subject: Subject<StreamedEvent>,
 		visibilityFilter?: string,
-		adminOverride?: boolean
+		adminOverride?: boolean,
+		signal?: AbortSignal
 	): Promise<void> {
 		try {
 			const headers: { [key: string]: string } = {
@@ -356,7 +376,8 @@ export class EvenementsService {
 			
 			const response = await fetch(url, {
 				headers: headers,
-				cache: 'no-cache'
+				cache: 'no-cache',
+				signal
 			});
 
 			if (!response.ok) {
@@ -423,6 +444,9 @@ export class EvenementsService {
 				}
 			}
 		} catch (error) {
+			if (error instanceof DOMException && error.name === 'AbortError') {
+				return;
+			}
 			subject.error(error);
 		}
 	}

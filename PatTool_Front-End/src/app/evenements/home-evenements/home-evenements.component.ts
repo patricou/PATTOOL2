@@ -999,6 +999,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 							// New event received - add it to the buffer
 							const newEvent = streamedEvent.data as Evenement;
 							const newEventId = newEvent.id || this.getEventKey(newEvent);
+							const isActiveSearch = (this.dataFIlter ?? '').trim() !== '';
 							
 							// Check if event already exists in buffer
 							const existingIndex = this.allStreamedEvents.findIndex(e => {
@@ -1026,9 +1027,14 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 							
 							// Always update hasMoreEvents during streaming
 							this.hasMoreEvents = this.evenements.length < this.allStreamedEvents.length;
+
+							// During search, show results immediately (no batch delay)
+							if (isActiveSearch && this.isLoading) {
+								this.isLoading = false;
+							}
 							
 							// If we already have 8 events displayed, update immediately (no batching needed)
-							if (this.evenements.length >= this.CARDS_PER_PAGE) {
+							if (this.evenements.length >= this.CARDS_PER_PAGE || isActiveSearch) {
 								// Already have enough cards, just update the buffer
 								// Clear any pending batch timeout
 								if (this.sseEventBatchTimeout) {

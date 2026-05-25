@@ -168,6 +168,8 @@ public class EvenementRestController {
     }
 
     private static final int STREAM_TODO_LINK_BATCH = 8;
+    /** Smaller batch when filtering: send first matches immediately instead of waiting for 8. */
+    private static final int STREAM_TODO_LINK_BATCH_SEARCH = 1;
 
     private static void resolveStreamEventDbRefs(Evenement event) {
         if (event == null) {
@@ -371,7 +373,8 @@ public class EvenementRestController {
                 // The events are still sent immediately as they're processed, maintaining reactive streaming
                 // Larger batch size reduces the number of round trips to MongoDB, which is especially important
                 // when there are delays between certain documents (e.g., between 4th and 5th event)
-                query.cursorBatchSize(8);
+                // Use batch size 1 during search so the first matching document is fetched immediately.
+                query.cursorBatchSize(normalizedFilter.isEmpty() ? 8 : 1);
                 
                 AtomicInteger sentCount = new AtomicInteger(0);
                 AtomicInteger totalCount = new AtomicInteger(0);
@@ -381,7 +384,10 @@ public class EvenementRestController {
                 // Limit size to prevent excessive memory usage (max 1000 null-dated events)
                 List<Evenement> nullDateEvents = new java.util.ArrayList<>(1000);
                 Map<String, Boolean> streamTodoListAccessCache = new HashMap<>();
-                List<Evenement> streamDatedTodoBuffer = new ArrayList<>(STREAM_TODO_LINK_BATCH);
+                int streamTodoBatchSize = normalizedFilter.isEmpty()
+                        ? STREAM_TODO_LINK_BATCH
+                        : STREAM_TODO_LINK_BATCH_SEARCH;
+                List<Evenement> streamDatedTodoBuffer = new ArrayList<>(streamTodoBatchSize);
                 String streamMemberId = StringUtils.hasText(userId) ? userId.trim() : "";
                 
                 
@@ -438,7 +444,7 @@ public class EvenementRestController {
                                         return;
                                     }
                                     streamDatedTodoBuffer.add(event);
-                                    if (streamDatedTodoBuffer.size() >= STREAM_TODO_LINK_BATCH) {
+                                    if (streamDatedTodoBuffer.size() >= streamTodoBatchSize) {
                                         try {
                                             flushStreamDatedTodoBatch(
                                                     streamDatedTodoBuffer,

@@ -137,7 +137,35 @@
           <span class="ms-2">{{ 'EVENTELEM.TRACK_LOADING' | translate }}</span>
         </div>
 
-        <div *ngIf="isFullscreen" class="fullscreen-selector">
+        <div *ngIf="isFullscreen"
+             class="fullscreen-selector"
+             [class.fullscreen-selector--collapsed]="!isFullscreenOptionsExpanded">
+          <button *ngIf="!isFullscreenOptionsExpanded"
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary fullscreen-selector-expand-btn"
+                  (click)="toggleFullscreenOptions()"
+                  [title]="'COMMUN.EXPAND' | translate"
+                  [attr.aria-label]="'COMMUN.OPTIONS' | translate"
+                  [attr.aria-expanded]="false">
+            <i class="fa fa-sliders me-1" aria-hidden="true"></i>
+            <span>{{ 'COMMUN.OPTIONS' | translate }}</span>
+            <i class="fa fa-chevron-up ms-1" aria-hidden="true"></i>
+          </button>
+          <ng-container *ngIf="isFullscreenOptionsExpanded">
+            <div class="fullscreen-selector-header">
+              <span class="fullscreen-selector-title">
+                <i class="fa fa-sliders me-1" aria-hidden="true"></i>{{ 'COMMUN.OPTIONS' | translate }}
+              </span>
+              <button type="button"
+                      class="btn btn-sm btn-outline-secondary fullscreen-selector-collapse-btn"
+                      (click)="toggleFullscreenOptions()"
+                      [title]="'COMMUN.COLLAPSE' | translate"
+                      [attr.aria-label]="'COMMUN.COLLAPSE' | translate"
+                      [attr.aria-expanded]="true">
+                <i class="fa fa-chevron-down" aria-hidden="true"></i>
+              </button>
+            </div>
+            <div class="fullscreen-selector-body">
           <select class="form-select form-select-sm"
                   [ngModel]="selectedBaseLayerId"
                   (ngModelChange)="onBaseLayerChange($event)"
@@ -176,7 +204,7 @@
               <i class="fa fa-bicycle"></i> Pistes vélo
             </label>
           </div>
-          <div class="form-check form-switch mt-2">
+          <div class="form-check form-switch mt-2 trace-viewer-follow-switch">
             <input class="form-check-input" type="checkbox" id="follow-device-location-fullscreen" 
                    [(ngModel)]="followDeviceLocation"
                    (ngModelChange)="onFollowDeviceLocationChange()">
@@ -209,6 +237,8 @@
                   [attr.aria-label]="'EVENTELEM.TRACK_VIEW_ON_GLOBE' | translate">
             <i class="fa fa-globe me-1" aria-hidden="true"></i>3D
           </button>
+            </div>
+          </ng-container>
         </div>
 
         <button *ngIf="isFullscreen"
@@ -273,6 +303,7 @@
     </div>
     <div class="trace-viewer-footer-row trace-viewer-footer-row--bottom w-100 d-flex">
     <div class="d-flex gap-1 align-items-center trace-viewer-footer-actions">
+      <div class="trace-viewer-footer-actions-row trace-viewer-footer-actions-row--primary">
       <div class="form-check form-switch d-flex align-items-center flex-shrink-0">
         <input class="form-check-input" type="checkbox" id="show-address-switch"
                [(ngModel)]="showAddress"
@@ -305,15 +336,6 @@
           <i class="fa fa-bicycle" aria-hidden="true"></i><span class="switch-text-short">{{ 'EVENTELEM.TRACK_FOOTER_CYCLING_SHORT' | translate }}</span>
         </label>
       </div>
-      <div class="form-check form-switch d-flex align-items-center flex-shrink-0">
-        <input class="form-check-input" type="checkbox" id="follow-device-location-switch"
-               [(ngModel)]="followDeviceLocation"
-               (ngModelChange)="onFollowDeviceLocationChange()">
-        <label class="form-check-label ms-1 ms-sm-2 gps-switch-label" for="follow-device-location-switch" [title]="'EVENTELEM.TRACK_FOLLOW_DEVICE' | translate">
-          <i class="fa fa-location-arrow" aria-hidden="true"></i><span class="switch-text-short">{{ 'EVENTELEM.TRACK_FOOTER_FOLLOW_SHORT' | translate }}</span>
-          <span *ngIf="followDeviceLocation" class="ms-1 device-countdown">({{ deviceLocationCountdown }} s)</span>
-        </label>
-      </div>
       <button type="button"
               class="btn btn-outline-secondary flex-shrink-0"
               *ngIf="!isFullscreen"
@@ -344,6 +366,9 @@
               [attr.aria-label]="'EVENTELEM.TRACK_VIEW_ON_GLOBE' | translate">
         <i class="fa fa-globe me-1" aria-hidden="true"></i>3D
       </button>
+      </div>
+      <div class="trace-viewer-footer-actions-row trace-viewer-footer-actions-row--secondary">
+      <div class="trace-viewer-footer-actions-row-start">
       <button type="button"
               class="btn btn-secondary flex-shrink-0"
               (click)="toggleFullscreen()"
@@ -360,6 +385,17 @@
         <i class="fa fa-times me-1" aria-hidden="true"></i>
         <span class="trace-viewer-footer-btn-text">{{ 'COMMUN.CLOSE' | translate }}</span>
       </button>
+      </div>
+      <div class="form-check form-switch d-flex align-items-center flex-shrink-0 trace-viewer-follow-switch">
+        <input class="form-check-input" type="checkbox" id="follow-device-location-switch"
+               [(ngModel)]="followDeviceLocation"
+               (ngModelChange)="onFollowDeviceLocationChange()">
+        <label class="form-check-label ms-1 ms-sm-2 gps-switch-label" for="follow-device-location-switch" [title]="'EVENTELEM.TRACK_FOLLOW_DEVICE' | translate">
+          <i class="fa fa-location-arrow" aria-hidden="true"></i><span class="switch-text-short">{{ 'EVENTELEM.TRACK_FOOTER_FOLLOW_SHORT' | translate }}</span>
+          <span *ngIf="followDeviceLocation" class="ms-1 device-countdown">({{ deviceLocationCountdown }} s)</span>
+        </label>
+      </div>
+      </div>
     </div>
     </div>
   </div>
