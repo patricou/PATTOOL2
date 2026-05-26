@@ -35,6 +35,7 @@ import { Member } from '../../model/member';
 import { ScaleRowToFitDirective } from './scale-row-to-fit.directive';
 import { computeTrackStatsFromFileContent } from '../track-route-stats.util';
 import { getEventTypeFaIconSuffix } from '../../shared/event-type-icon.util';
+import { formatDaysUntilLcd, getDaysUntilEventStart, getDaysUntilLcdDigits } from '../../shared/event-days-lcd.util';
 import { TodoListDetailOverlayService } from '../../todolists/todo-list-detail-overlay.service';
 import { AssistantLaunchService } from '../../services/assistant-launch.service';
 import { OdsEditorLaunchService } from '../../ods-editor/ods-editor-launch.service';
@@ -2795,6 +2796,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             month: 'long',
             day: 'numeric'
         });
+    }
+
+    formatDaysUntilLcd = formatDaysUntilLcd;
+    getDaysUntilLcdDigits = getDaysUntilLcdDigits;
+
+    getDaysUntilWallEventStart(group: TimelineGroup): number | null {
+        return getDaysUntilEventStart(group?.eventDate);
     }
 
     getYearFromDate(dateStr: string): number {

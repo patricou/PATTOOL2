@@ -37,6 +37,7 @@ import { KeycloakService } from '../../keycloak/keycloak.service';
 import { AssistantLaunchService, ASSISTANT_EVENT_ELEMENT_LAUNCH_ROUTING } from '../../services/assistant-launch.service';
 import { computeTrackStatsFromFileContent } from '../../photo-timeline/track-route-stats.util';
 import { getEventTypeFaIconSuffix } from '../../shared/event-type-icon.util';
+import { formatDaysUntilLcd, getDaysUntilEventStart, getDaysUntilLcdDigits } from '../../shared/event-days-lcd.util';
 import { TodoListDetailOverlayService } from '../../todolists/todo-list-detail-overlay.service';
 import { isOdsFile as isOdsSpreadsheetFile } from '../../shared/uploaded-file-types';
 import { OdsEditorLaunchService } from '../../ods-editor/ods-editor-launch.service';
@@ -6376,38 +6377,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		});
 	}
 
+	formatDaysUntilLcd = formatDaysUntilLcd;
+	getDaysUntilLcdDigits = getDaysUntilLcdDigits;
+
 	/** Jours calendaires avant le début si la date/heure de début est dans le futur ; sinon `null`. */
 	getDaysUntilEventStart(): number | null {
-		const start = this.getEventStartDateTime();
-		if (!start) {
-			return null;
-		}
-		const now = new Date();
-		if (start.getTime() <= now.getTime()) {
-			return null;
-		}
-		const startDay = new Date(start);
-		startDay.setHours(0, 0, 0, 0);
-		const today = new Date();
-		today.setHours(0, 0, 0, 0);
-		const diffDays = Math.round((startDay.getTime() - today.getTime()) / 86_400_000);
-		return diffDays > 0 ? diffDays : null;
-	}
-
-	private getEventStartDateTime(): Date | null {
-		if (!this.evenement?.beginEventDate) {
-			return null;
-		}
-		const start = new Date(this.evenement.beginEventDate);
-		if (Number.isNaN(start.getTime())) {
-			return null;
-		}
-		const hour = (this.evenement.startHour || '').trim();
-		const match = /^(\d{1,2}):(\d{2})/.exec(hour);
-		if (match) {
-			start.setHours(parseInt(match[1], 10), parseInt(match[2], 10), 0, 0);
-		}
-		return start;
+		return getDaysUntilEventStart(this.evenement?.beginEventDate, this.evenement?.startHour);
 	}
 
 	// Format event date with time for card view

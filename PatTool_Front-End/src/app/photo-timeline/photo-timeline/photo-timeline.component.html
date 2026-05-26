@@ -241,6 +241,20 @@
                         <i class="fa fa-user me-1"></i>{{ 'PHOTO_TIMELINE.OWNER' | translate }}: {{ getOwnerDisplay(group) }}
                     </span>
                     <span class="group-date">{{ formatEventDate(group.eventDate) }}</span>
+                    <div *ngIf="getDaysUntilWallEventStart(group) as daysUntilStart"
+                         class="event-days-until-start event-days-until-start--inline event-days-until-start--compact">
+                        <div class="event-days-lcd"
+                             role="status"
+                             [attr.aria-label]="(daysUntilStart === 1 ? 'EVENTELEM.DAYS_UNTIL_START_ONE' : 'EVENTELEM.DAYS_UNTIL_START_MANY') | translate: { count: daysUntilStart }">
+                            <div class="event-days-lcd-screen" aria-hidden="true">
+                                <span class="event-days-lcd-digit" *ngFor="let digit of getDaysUntilLcdDigits(daysUntilStart)">
+                                    <span class="event-days-lcd-ghost">8</span>
+                                    <span class="event-days-lcd-lit">{{ digit }}</span>
+                                </span>
+                            </div>
+                            <span class="event-days-lcd-label" aria-hidden="true">{{ 'EVENTELEM.DAYS_LCD_LABEL' | translate }}</span>
+                        </div>
+                    </div>
                     <span class="group-count">
                         <i class="fa fa-picture-o"></i> {{ (group.photos.length || 0) + ((group.videos?.length) ?? 0) }}
                     </span>

@@ -1071,6 +1071,7 @@
         "BEGINDT": "Begin Activity Date/Time",
         "DAYS_UNTIL_START_ONE": "In {{count}} day",
         "DAYS_UNTIL_START_MANY": "In {{count}} days",
+        "DAYS_LCD_LABEL": "DAYS",
         "ENDDT": "End Activity Date",
         "ENDDATETIME": "End Activity Date/Time",
         "STATUS": "Status",

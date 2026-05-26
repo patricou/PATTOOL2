@@ -1,5 +1,7 @@
 @import "~leaflet/dist/leaflet.css";
 @import "~quill/dist/quill.snow.css";
+@import "~@fontsource/dseg7-classic/index.css";
+@import "assets/css/event-days-lcd.css";
 
 /* You can add global styles to this file, and also import other style files */
 

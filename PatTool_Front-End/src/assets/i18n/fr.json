@@ -1150,6 +1150,7 @@
         "BEGINDT": "Date/Heure de début",
         "DAYS_UNTIL_START_ONE": "Dans {{count}} jour",
         "DAYS_UNTIL_START_MANY": "Dans {{count}} jours",
+        "DAYS_LCD_LABEL": "JOURS",
         "ENDDT": "Date de fin",
         "ENDDATETIME": "Date/Heure de fin",
         "STATUS": "Statut",
