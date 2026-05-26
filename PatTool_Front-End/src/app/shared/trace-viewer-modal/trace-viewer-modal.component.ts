@@ -148,22 +148,19 @@ export class TraceViewerModalComponent implements OnDestroy {
 	/** Fullscreen options panel (basemap, switches, actions) — collapsed by default. */
 	public isFullscreenOptionsExpanded = false;
 	private trackBounds: L.LatLngBounds | null = null;
-	private trackBoundsRefitTimeouts: number[] = [];
 	/** Tracks container resize (flex / modal / embed) to recover Leaflet black-map issues. */
 	private mapLayoutResizeObserver?: ResizeObserver;
 	private mapLayoutSyncDebouncer: number | null = null;
 	private traceViewerCdrTimer: number | null = null;
-	/** Molette carte : delta accumulé + 1 mise à jour / frame. */
+	private mapResizeObservedDims = { w: -1, h: -1 };
+	/** Bloque le scroll de la page derrière la modale. */
+	private modalWindowWheelHandler?: (event: Event) => void;
+	private modalWindowWheelListenEl?: HTMLElement;
+	/** Molette carte : delta accumulé + 1 mise à jour / frame (comme slideshow). */
 	private traceMapWheelHandler?: (event: WheelEvent) => void;
 	private traceMapWheelAccum = 0;
 	private traceMapWheelRafId: number | null = null;
 	private traceMapWheelPoint = { x: 0, y: 0 };
-	private mapResizeObservedDims = { w: -1, h: -1 };
-	/** After `fitMapToTrackBounds` / `setView(..., reset)`, skip another full tile-grid reset in `syncMapLayoutCore` (avoids double blink). */
-	private lastMapHardViewResetAtMs = 0;
-	private lastHardViewResetCenter: { lat: number; lng: number } | null = null;
-	private lastHardViewResetZoom: number | null = null;
-	private lastHardViewResetPixelSize: { w: number; h: number } | null = null;
 	private mapContainerHadLayout = false;
 	private mapInitVisibilityAttempts = 0;
 	/** `NgbModal` `container` host for embedding (globe): resolve `.map-container` under this root (avoid global IDs). */
@@ -436,18 +433,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 	}
 
-	private recordTileGridHardReset(): void {
-		if (!this.map) {
-			return;
-		}
-		this.lastMapHardViewResetAtMs = performance.now();
-		const c = this.map.getCenter();
-		this.lastHardViewResetCenter = { lat: c.lat, lng: c.lng };
-		this.lastHardViewResetZoom = Math.round(this.map.getZoom());
-		const sz = this.map.getSize();
-		this.lastHardViewResetPixelSize = { w: sz.x, h: sz.y };
-	}
-
 	private isSwisstopoBasemap(layerId: string): boolean {
 		return TraceViewerModalComponent.SWISSTOPO_BASEMAP_IDS.has(layerId);
 	}
@@ -467,90 +452,80 @@ export class TraceViewerModalComponent implements OnDestroy {
 		);
 	}
 
-	/** WMTS Swisstopo : zoom entier obligatoire (zoomSnap 0 → 14,8 ne charge pas les tuiles). */
-	private snapSwisstopoTiles(): void {
-		if (!this.map || !this.isSwisstopoBasemap(this.selectedBaseLayerId)) {
-			return;
-		}
-		this.map.invalidateSize({ animate: false });
-		const c = this.map.getCenter();
-		const zInt = Math.min(
-			this.map.getMaxZoom(),
-			Math.max(this.map.getMinZoom(), Math.round(this.map.getZoom()))
-		);
-		this.map.setView(c, zInt, { animate: false, reset: true } as L.ZoomPanOptions & { reset?: boolean });
-		this.recordTileGridHardReset();
-		this.redrawActiveBaseLayerTiles();
-		this.currentZoom = zInt;
-		this.cdr.detectChanges();
-	}
-
-	/** Force Leaflet à recréer la grille de tuiles (évite le fond gris après changement de fond de carte). */
-	private forceMapTileGridReset(skipIfRecentDuplicate = false): void {
-		if (!this.map || !this.activeBaseLayer) {
-			return;
-		}
-		this.map.invalidateSize({ animate: false });
-		if (this.isSwisstopoBasemap(this.selectedBaseLayerId)) {
-			this.snapSwisstopoTiles();
-			return;
-		}
-		const c = this.map.getCenter();
-		const z = this.map.getZoom();
-		if (skipIfRecentDuplicate) {
-			const sz = this.map.getSize();
-			const msSinceHard = performance.now() - this.lastMapHardViewResetAtMs;
-			const recentHard = msSinceHard >= 0 && msSinceHard < 480;
-			const sameView =
-				this.lastHardViewResetCenter != null &&
-				this.lastHardViewResetZoom != null &&
-				Math.abs(c.lat - this.lastHardViewResetCenter.lat) < 1e-7 &&
-				Math.abs(c.lng - this.lastHardViewResetCenter.lng) < 1e-7 &&
-				z === this.lastHardViewResetZoom;
-			const samePixelSize =
-				this.lastHardViewResetPixelSize != null &&
-				sz.x === this.lastHardViewResetPixelSize.w &&
-				sz.y === this.lastHardViewResetPixelSize.h;
-			if (recentHard && sameView && samePixelSize) {
-				this.redrawActiveBaseLayerTiles();
-				return;
-			}
-		}
-		this.map.setView(c, z, { animate: false, reset: true } as L.ZoomPanOptions & { reset?: boolean });
-		this.recordTileGridHardReset();
-		this.redrawActiveBaseLayerTiles();
-	}
-
-	/**
-	 * After resize / open: single invalidate + tile redraw (avoids flicker).
-	 * When the container goes from 0 px to a valid size, re-apply overlays / pending renders (black map edge case).
-	 */
+	/** Après resize / ouverture modale : invalidateSize ; premier layout → trace + fitBounds. */
 	private syncMapLayoutCore(): void {
 		if (!this.map) {
 			return;
 		}
 		const el = this.map.getContainer();
-		const w = el.offsetWidth;
-		const h = el.offsetHeight;
-		const ok = w >= 2 && h >= 2;
-		if (ok && this.activeBaseLayer) {
-			this.forceMapTileGridReset(true);
-		} else {
-			this.map.invalidateSize({ animate: false });
-		}
+		const ok = el.offsetWidth >= 2 && el.offsetHeight >= 2;
+		this.map.invalidateSize({ animate: false });
 		const hadLayout = this.mapContainerHadLayout;
 		this.mapContainerHadLayout = ok;
-		if (ok && !hadLayout) {
+		if (!ok) {
+			return;
+		}
+		if (!hadLayout) {
 			this.tryRenderPendingTrack();
 			this.tryRenderPendingPositions();
 			this.tryRenderPendingLocation();
 			if (this.trackBounds?.isValid()) {
-				const tb = this.trackBounds;
-				const singularPoint = tb.getNorthEast().equals(tb.getSouthWest());
-				// Point photo : `tryRenderPendingLocation` fait déjà un reset dur ; second `fit` = ajustement zoom sans regriller.
-				this.fitMapToTrackBounds(tb, { tileHardReset: !singularPoint });
+				this.map.fitBounds(this.trackBounds, { padding: [24, 24] });
 			}
 		}
+	}
+
+	private getModalWindowElement(): HTMLElement | null {
+		const modalRefAny = this.modalRef as { _windowCmptRef?: { location?: { nativeElement?: HTMLElement } } } | undefined;
+		return modalRefAny?._windowCmptRef?.location?.nativeElement ?? null;
+	}
+
+	private static isPointInClientRect(x: number, y: number, rect: DOMRect): boolean {
+		return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+	}
+
+	/** Empêche le scroll de la page ; sur la carte, laisse Leaflet gérer le zoom (sans stopPropagation). */
+	private setupModalWheelTrap(): void {
+		this.teardownModalWheelTrap();
+		const modalWin = this.getModalWindowElement();
+		if (!modalWin) {
+			window.setTimeout(() => this.setupModalWheelTrap(), 50);
+			return;
+		}
+		this.modalWindowWheelListenEl = modalWin;
+		this.modalWindowWheelHandler = (event: Event) => {
+			const wheelEvent = event as WheelEvent;
+			const mapContainer = this.map?.getContainer();
+			const mapRect = mapContainer?.getBoundingClientRect();
+			const isOverMap =
+				!!mapContainer &&
+				(mapContainer.contains(wheelEvent.target as Node) ||
+					(!!mapRect &&
+						TraceViewerModalComponent.isPointInClientRect(
+							wheelEvent.clientX,
+							wheelEvent.clientY,
+							mapRect
+						)));
+			wheelEvent.preventDefault();
+			if (!isOverMap) {
+				wheelEvent.stopPropagation();
+			}
+		};
+		modalWin.addEventListener('wheel', this.modalWindowWheelHandler, { passive: false, capture: true });
+	}
+
+	private teardownModalWheelTrap(): void {
+		if (this.modalWindowWheelHandler && this.modalWindowWheelListenEl) {
+			try {
+				this.modalWindowWheelListenEl.removeEventListener('wheel', this.modalWindowWheelHandler, {
+					capture: true
+				});
+			} catch {
+				/* ignore */
+			}
+		}
+		this.modalWindowWheelHandler = undefined;
+		this.modalWindowWheelListenEl = undefined;
 	}
 
 	/** Coalesces rapid repeated calls (globe overlay, ResizeObserver, legacy timeouts). */
@@ -760,6 +735,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private open(source: TraceViewerSource): void {
+		this.dismissTraceViewerModalIfOpen();
 		this.resetState();
 		const label = source.titleLabel != null && source.titleLabel.trim().length > 0 ? source.titleLabel.trim() : '';
 		this.trackFileName = label.length > 0 ? label : source.fileName;
@@ -843,6 +819,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			});
 		} else {
 			const tick = (): void => {
+				this.setupModalWheelTrap();
 				this.cdr.detectChanges();
 				this.initMapLayersAfterModalMounted();
 				if (this.map) {
@@ -921,6 +898,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private onModalShown(): void {
+		this.setupModalWheelTrap();
 		this.cdr.detectChanges();
 		this.initMapLayersAfterModalMounted();
 		// Un seul `refreshMapLayout` au `map.whenReady` (évite 2× setView reset d’affilée).
@@ -940,7 +918,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	/**
 	 * Leaflet registers touchstart as { passive: false } on control bars via DomEvent.disableClickPropagation —
 	 * only stopPropagation matters, not preventDefault, so passive: true removes the Chrome warning.
-	 * We do not alter map drag/pinch ; le zoom molette est géré en custom (comme le slideshow).
+	 * We do not alter map drag/pinch ; molette = handler custom type slideshow (1 RAF / frame).
 	 */
 	private holdLeafletControlPassiveTouchPatch(container: HTMLElement): void {
 		if (this.leafletMapPassivePatchContainer === container) {
@@ -1058,7 +1036,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		this.holdLeafletControlPassiveTouchPatch(container);
 		try {
-			// zoomSnap 0 = niveaux fractionnels ; molette = handler custom (slideshow).
+			// zoomSnap 0 = zoom fluide ; molette custom (slideshow), pas scrollWheelZoom Leaflet (clignote).
 			this.map = L.map(container, {
 				zoomControl: true,
 				attributionControl: true,
@@ -1072,7 +1050,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 
 		this.registerTraceMapWheelZoom();
-
 		this.setupMapLayoutObserver((container.closest('.map-wrapper') ?? container) as HTMLElement);
 
 		// Force crosshair cursor on map container
@@ -1145,7 +1122,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		return event.deltaY / 0.45;
 	}
 
-	/** Pas dynamique (inspiré slideshow), appliqué sur le delta accumulé par frame. */
+	/** Pas dynamique (slideshow), appliqué sur le delta accumulé par frame. */
 	private applyMapWheelZoomFromDelta(delta: number, current: number, minZoom: number, maxZoom: number): number {
 		const baseStep = 1.15;
 		const multiplier = 0.18;
@@ -1238,6 +1215,21 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.traceMapWheelHandler = undefined;
 	}
 
+	/** WMTS Swisstopo : zoom entier obligatoire (zoomSnap 0 → 14,8 ne charge pas les tuiles). */
+	private snapSwisstopoTiles(): void {
+		if (!this.map || !this.isSwisstopoBasemap(this.selectedBaseLayerId)) {
+			return;
+		}
+		const c = this.map.getCenter();
+		const zInt = Math.min(
+			this.map.getMaxZoom(),
+			Math.max(this.map.getMinZoom(), Math.round(this.map.getZoom()))
+		);
+		this.map.setView(c, zInt, { animate: false });
+		this.currentZoom = zInt;
+		this.scheduleTraceViewerCdr();
+	}
+
 	private ensureMapInitialization(): void {
 		if (this.map) {
 			return;
@@ -1296,85 +1288,35 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.hasError = false;
 		this.pendingTrackPoints = points;
 		this.ensureMapInitialization();
-		// If the map was just created, recenter immediately on pending points.
-		if (this.map && this.overlayLayer) {
-			this.applyInitialMapViewForPendingTrackData();
-		}
 		this.tryRenderPendingTrack();
 	}
 
-	/** Default France view, or bounding box when a track is already loaded (avoids flashing France before the trace). */
+	/** Centrage trace (comme mars 2026) : fitBounds simple, sans reset de grille. */
+	private fitMapToTrackBounds(bounds: L.LatLngBounds): void {
+		if (!this.map || !bounds.isValid()) {
+			return;
+		}
+		this.map.fitBounds(bounds, { padding: [24, 24] });
+		this.currentZoom = this.map.getZoom();
+	}
+
+	private scheduleMapInvalidateAfterFit(): void {
+		if (!this.map) {
+			return;
+		}
+		this.map.invalidateSize();
+		window.setTimeout(() => this.map?.invalidateSize(), 50);
+		window.setTimeout(() => this.map?.invalidateSize(), 150);
+	}
+
+	/** Default France view when no track loaded yet. */
 	private applyInitialMapViewForPendingTrackData(): void {
 		if (!this.map) {
 			return;
 		}
-		if (!this.pendingTrackPoints?.length) {
+		if (!this.pendingTrackPoints?.length && !this.trackBounds?.isValid()) {
 			this.map.setView([46.2, 2.2], 6);
-			return;
 		}
-		const bounds = L.latLngBounds(this.pendingTrackPoints);
-		if (!bounds.isValid()) {
-			this.map.setView([46.2, 2.2], 6);
-			return;
-		}
-		this.fitMapToTrackBounds(bounds);
-	}
-
-	/** Fit bounds; handles degenerate single-point tracks. */
-	private fitMapToTrackBounds(
-		bounds: L.LatLngBounds,
-		opts?: { tileHardReset?: boolean }
-	): void {
-		if (!this.map || !bounds.isValid()) {
-			return;
-		}
-		const tileHardReset = opts?.tileHardReset !== false;
-		const ne = bounds.getNorthEast();
-		const sw = bounds.getSouthWest();
-		if (ne.equals(sw)) {
-			this.map.setView(bounds.getCenter(), Math.min(this.map.getMaxZoom(), 15));
-		} else {
-			this.map.fitBounds(bounds, { padding: [32, 32], maxZoom: 18 });
-		}
-		// Même chemin que openAtLocation (slideshow / photo) : zoom entier. fitBounds donne un niveau fractionnel
-		// (ex. 14,79) et la grille de tuiles peut rester vide jusqu’au premier zoom utilisateur.
-		const c = this.map.getCenter();
-		const zInt = Math.min(
-			this.map.getMaxZoom(),
-			Math.max(this.map.getMinZoom(), Math.round(this.map.getZoom()))
-		);
-		if (tileHardReset) {
-			this.map.setView(c, zInt, { animate: false, reset: true } as L.ZoomPanOptions & { reset?: boolean });
-			this.recordTileGridHardReset();
-		} else {
-			this.map.setView(c, zInt, { animate: false });
-		}
-		if (this.isSwisstopoBasemap(this.selectedBaseLayerId)) {
-			this.snapSwisstopoTiles();
-		}
-	}
-
-	private clearTrackBoundsRefitTimeouts(): void {
-		for (const t of this.trackBoundsRefitTimeouts) {
-			clearTimeout(t);
-		}
-		this.trackBoundsRefitTimeouts = [];
-	}
-
-	/**
-	 * Après ouverture modale / tuiles, le conteneur change de taille : fitBounds trop tôt reste incorrect.
-	 * Re-fit quelques fois pour verrouiller la trace au centre.
-	 */
-	private scheduleTrackBoundsRefit(bounds: L.LatLngBounds): void {
-		this.clearTrackBoundsRefitTimeouts();
-		this.trackBoundsRefitTimeouts.push(
-			window.setTimeout(() => {
-				if (!this.map || !bounds.isValid()) {
-					return;
-				}
-				this.fitMapToTrackBounds(bounds, { tileHardReset: false });
-			}, 280)
-		);
 	}
 
 	private tryRenderPendingTrack(): void {
@@ -1420,7 +1362,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const bounds = polyline.getBounds();
 		this.trackBounds = bounds;
 		this.fitMapToTrackBounds(bounds);
-		this.scheduleTrackBoundsRefit(bounds);
+		this.scheduleMapInvalidateAfterFit();
 
 		this.trackStats = {
 			points: points.length,
@@ -1556,6 +1498,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			const bounds = L.latLngBounds(points);
 			this.trackBounds = bounds;
 			this.fitMapToTrackBounds(bounds);
+			this.scheduleMapInvalidateAfterFit();
 		}
 
 		// Calculate statistics
@@ -1613,8 +1556,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		marker.addTo(this.overlayLayer);
 
 		this.trackBounds = L.latLngBounds([lat, lng], [lat, lng]);
-		this.map.setView([lat, lng], viewZoom, { animate: false, reset: true } as L.ZoomPanOptions & { reset?: boolean });
-		this.recordTileGridHardReset();
+		this.map.setView([lat, lng], viewZoom, { animate: false });
+		this.currentZoom = viewZoom;
 
 		if (this.showAddress) {
 			this.showAddressInOverlay(lat, lng);
@@ -1792,7 +1735,25 @@ export class TraceViewerModalComponent implements OnDestroy {
 		return Math.round((distanceMeters / 1000) * 100) / 100;
 	}
 
+	private dismissTraceViewerModalIfOpen(): void {
+		const ref = this.modalRef;
+		if (!ref) {
+			return;
+		}
+		try {
+			ref.dismiss('reopen');
+		} catch {
+			try {
+				ref.close('reopen');
+			} catch {
+				/* ignore */
+			}
+		}
+		this.modalRef = undefined;
+	}
+
 	private resetState(): void {
+		this.trackBounds = null;
 		this.hasError = false;
 		this.errorMessage = '';
 		this.isLoading = false;
@@ -1832,7 +1793,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.mapResizeObservedDims = { w: -1, h: -1 };
 		this.mapContainerHadLayout = false;
 		this.isMapReady = false;
-		this.clearTrackBoundsRefitTimeouts();
+		this.trackBounds = null;
+		this.teardownModalWheelTrap();
 		this.unregisterTraceMapWheelZoom();
 		if (this.map) {
 			this.cleanupRightClickZoom();
@@ -1849,10 +1811,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.removeDeviceLocationMarker();
 		this.pendingTrackPoints = null;
 		this.pendingLocation = null;
-		this.lastMapHardViewResetAtMs = 0;
-		this.lastHardViewResetCenter = null;
-		this.lastHardViewResetZoom = null;
-		this.lastHardViewResetPixelSize = null;
 		this.selectionMarker = undefined;
 		this.clickMarker = undefined;
 		this.locationSelectionClickHandler = undefined;
@@ -2398,14 +2356,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 			nextLayer.bringToBack();
 		}
 		this.activeBaseLayer = nextLayer;
-		requestAnimationFrame(() => {
-			if (this.map && this.activeBaseLayer === nextLayer) {
-				this.forceMapTileGridReset(false);
-			}
-		});
 
 		this.applyHikingTrailsOverlay();
 		this.applyCyclingTrailsOverlay();
+
+		requestAnimationFrame(() => {
+			if (this.map && this.activeBaseLayer === nextLayer) {
+				this.map.invalidateSize();
+			}
+		});
 	}
 
 	/**
@@ -3109,6 +3068,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private resetModalState(): void {
+		this.teardownModalWheelTrap();
 		this.mapEmbedHostRoot = undefined;
 		this.removeEscapeKeydownListener();
 		this.isFullscreen = false;
