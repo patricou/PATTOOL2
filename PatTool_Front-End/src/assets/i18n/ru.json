@@ -242,6 +242,7 @@
         "IMAGE_COMPRESSION_NOT_NEEDED_MULTI": "Все {{count}} выбранных изображений ≤ настроенного лимита ({{maxKb}} KB, бэкенд-свойство app.imagemaxsizekb). Поэтому переключатель сжатия не предлагается: они будут загружены как есть, без сжатия.",
         "IMAGE_COMPRESSION_NOT_NEEDED_PARTIAL": "Примечание: {{count}} изображение(й) уже ≤ {{maxKb}} KB (лимит app.imagemaxsizekb) и не будут повторно сжаты независимо от выбранного варианта.",
         "EXIF": "EXIF",
+        "SHORTCUTS": "Клавиши",
         "ORIGINAL_PHOTO": "Оригинал",
         "COMPRESSED_PHOTO": "Сжато",
         "SHOW_EXIF_INFO": "Показать информацию EXIF",

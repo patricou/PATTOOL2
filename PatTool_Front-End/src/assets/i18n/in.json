@@ -241,6 +241,7 @@
         "IMAGE_COMPRESSION_NOT_NEEDED_MULTI": "चुनी गई {{count}} छवि(याँ) सभी ≤ कॉन्फ़िगर की गई सीमा ({{maxKb}} KB, बैकएंड प्रॉपर्टी app.imagemaxsizekb) हैं। इसलिए संपीड़न स्विच नहीं दिखाया जाता: वे बिना संपीड़न के अपलोड की जाएंगी।",
         "IMAGE_COMPRESSION_NOT_NEEDED_PARTIAL": "नोट: {{count}} छवि(याँ) पहले से ही ≤ {{maxKb}} KB (सीमा app.imagemaxsizekb) हैं और चुने गए विकल्प के बावजूद पुनः संपीड़ित नहीं की जाएंगी।",
         "EXIF": "EXIF",
+        "SHORTCUTS": "शॉर्टकट",
         "ORIGINAL_PHOTO": "मूल",
         "COMPRESSED_PHOTO": "संपी.",
         "SHOW_EXIF_INFO": "EXIF जानकारी दिखाएं",

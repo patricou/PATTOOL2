@@ -884,6 +884,7 @@
         "IMAGE_COMPRESSION_NOT_NEEDED_MULTI": "選択された {{count}} 枚の画像はすべて設定された制限（{{maxKb}} KB、バックエンドプロパティ app.imagemaxsizekb）以下です。そのため圧縮スイッチは表示されません：それらはそのまま、圧縮せずにアップロードされます。",
         "IMAGE_COMPRESSION_NOT_NEEDED_PARTIAL": "注：{{count}} 枚の画像はすでに {{maxKb}} KB（app.imagemaxsizekb 制限）以下であり、選択したオプションに関係なく再圧縮されません。",
         "EXIF": "EXIF",
+        "SHORTCUTS": "ショートカット",
         "ORIGINAL_PHOTO": "原本",
         "COMPRESSED_PHOTO": "圧縮",
         "SHOW_EXIF_INFO": "EXIF情報を表示",

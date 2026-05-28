@@ -6,6 +6,7 @@ import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { NgbModule, NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
+import { isValidGeoCoordinate } from '../../shared/geo-coordinates.util';
 import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
 import { Observable, Subscription, fromEvent, firstValueFrom, forkJoin, of, Subject, from } from 'rxjs';
@@ -3829,7 +3830,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	/** Opens the trace viewer at the photo location when user clicks "Open in trace" from the slideshow (e.g. from photo wall). */
 	public onSlideshowLocationInTrace(event: SlideshowLocationEvent): void {
-		if (!event || typeof event.lat !== 'number' || typeof event.lng !== 'number') {
+		if (!event || !isValidGeoCoordinate(event.lat, event.lng)) {
 			return;
 		}
 		const label = event.label && event.label.trim().length > 0

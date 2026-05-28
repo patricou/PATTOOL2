@@ -7,6 +7,7 @@ import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigat
 import { SlideshowModalModule } from '../../shared/slideshow-modal/slideshow-modal.module';
 import { SlideshowModalComponent, SlideshowImageSource, SlideshowAddToDbEvent, SlideshowLocationEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
+import { isValidGeoCoordinate } from '../../shared/geo-coordinates.util';
 import { VideoshowModalModule } from '../../shared/videoshow-modal/videoshow-modal.module';
 import { VideoshowModalComponent, VideoshowVideoSource } from '../../shared/videoshow-modal/videoshow-modal.component';
 import { PhotoTimelineService, TimelineResponse, TimelineGroup, TimelinePhoto, FsPhotoLink } from '../../services/photo-timeline.service';
@@ -160,6 +161,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     @ViewChildren('wallTimelineVideo', { read: ElementRef }) wallTimelineVideos!: QueryList<ElementRef<HTMLVideoElement>>;
 
     visibleGroups: TimelineGroup[] = [];
+    /** True while revealInitialBatch runs — skips per-item observer setup (avoids NG0100 on count). */
+    private revealingInitialBatch = false;
     bufferedGroups: TimelineGroup[] = [];
     bufferedVideoGroups: TimelineGroup[] = [];
     onThisDay: TimelinePhoto[] = [];
@@ -911,9 +914,27 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
      * to display several activities immediately on open (same as home-evenements).
      */
     private revealInitialBatch(): void {
-        while (this.visibleGroups.length < INITIAL_VISIBLE_GROUPS &&
-               (this.bufferedGroups.length > 0 || this.bufferedVideoGroups.length > 0)) {
-            this.revealMore();
+        if (this.bufferedGroups.length === 0 && this.bufferedVideoGroups.length === 0) {
+            return;
+        }
+        this.revealingInitialBatch = true;
+        try {
+            while (this.visibleGroups.length < INITIAL_VISIBLE_GROUPS &&
+                   (this.bufferedGroups.length > 0 || this.bufferedVideoGroups.length > 0)) {
+                this.revealMore();
+            }
+        } finally {
+            this.revealingInitialBatch = false;
+            // One deferred pass: avoid observe() firing revealMore() during the same CD cycle as the batch.
+            setTimeout(() => {
+                if (this.destroyed) return;
+                if (this.isLoading && this.visibleGroups.length > 0) {
+                    this.isLoading = false;
+                }
+                this.setupIntersectionObserver();
+                this.scanWallMediaHosts();
+                this.cdr.markForCheck();
+            }, 0);
         }
     }
 
@@ -944,6 +965,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.visibleGroups.push(group);
         this.preloadThumbnailsForGroup(group);
         this.requestWallTrackStatsForGroup(group);
+
+        if (this.revealingInitialBatch) {
+            if (this.hasMore && this.bufferedGroups.length < BUFFER_AHEAD) this.fetchNext();
+            if (this.hasMoreVideos && this.bufferedVideoGroups.length < BUFFER_AHEAD) this.fetchNextVideos();
+            return;
+        }
+
         if (this.visibleGroups.length === 1) {
             // Retarder pour éviter NG0100 sur *ngIf ligne « loading more » : dans la même synchro,
             // fetchNext() pose isFetching=true ; si isLoading passerait à false tout de suite,
@@ -2284,7 +2312,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
     /** Opens the trace viewer at the photo location when user clicks "Open in trace" from the slideshow. */
     onSlideshowLocationInTrace(event: SlideshowLocationEvent): void {
-        if (!event || typeof event.lat !== 'number' || typeof event.lng !== 'number') return;
+        if (!event || !isValidGeoCoordinate(event.lat, event.lng)) return;
         const label = event.label?.trim()
             ? event.label
             : this.translate.instant('EVENTELEM.SEE_LOCATION');

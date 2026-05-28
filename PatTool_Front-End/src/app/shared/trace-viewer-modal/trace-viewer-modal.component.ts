@@ -11,6 +11,7 @@ import { ApiService } from '../../services/api.service';
 import { Subject } from 'rxjs';
 import { take, takeUntil } from 'rxjs/operators';
 import * as L from 'leaflet';
+import { isValidGeoCoordinate } from '../geo-coordinates.util';
 
 interface TraceViewerSource {
 	fileId?: string;
@@ -62,6 +63,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public currentLat: number = 0;
 	public currentLng: number = 0;
 	public currentAlt: number | null = null;
+
+	/** Template helper: altitude overlay only when value is a finite number (not NaN). */
+	public isFiniteAltitude(alt: number | null | undefined): alt is number {
+		return typeof alt === 'number' && Number.isFinite(alt);
+	}
 	public clickedAddress: string = '';
 	public clickedLat: number = 0;
 	public clickedLng: number = 0;
@@ -328,7 +334,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		lng: number,
 		options?: { locationZoom?: number; label?: string; initialBaseLayerId?: string }
 	): void {
-		if (!container || Number.isNaN(lat) || Number.isNaN(lng)) {
+		if (!container || !isValidGeoCoordinate(lat, lng)) {
 			return;
 		}
 
@@ -360,7 +366,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	public openAtLocation(lat: number, lng: number, label?: string, eventColor?: { r: number; g: number; b: number }, enableSelection: boolean = false, simpleShare: boolean = false): void {
-		if (Number.isNaN(lat) || Number.isNaN(lng)) {
+		if (!isValidGeoCoordinate(lat, lng)) {
 			return;
 		}
 
@@ -402,10 +408,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 
 		// Validate positions
-		const validPositions = positions.filter(p =>
-			p.lat != null && p.lng != null &&
-			!Number.isNaN(p.lat) && !Number.isNaN(p.lng)
-		);
+		const validPositions = positions.filter(p => isValidGeoCoordinate(p.lat, p.lng));
 
 		if (validPositions.length === 0) {
 			console.warn('No valid positions provided');
@@ -743,7 +746,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (source.initialBaseLayerId && this.baseLayers[source.initialBaseLayerId]) {
 			this.selectedBaseLayerId = source.initialBaseLayerId;
 		}
-		this.pendingLocation = source.location ?? null;
+		const loc = source.location;
+		this.pendingLocation =
+			loc != null && isValidGeoCoordinate(loc.lat, loc.lng) ? loc : null;
 		this.pendingPositions = source.positions ?? null;
 		if (this.pendingLocation) {
 			this.pendingTrackPoints = null;
@@ -800,7 +805,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.loadFromFileId(source.fileId, source.fileName);
 		} else if (source.positions && source.positions.length > 0) {
 			this.tryRenderPendingPositions();
-		} else if (source.location) {
+		} else if (this.pendingLocation) {
 			this.tryRenderPendingLocation();
 		} else {
 			this.setError(this.translate('EVENTELEM.TRACK_NO_SOURCE'));
@@ -1521,6 +1526,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 
 		const { lat, lng, label } = this.pendingLocation;
+		if (!isValidGeoCoordinate(lat, lng)) {
+			this.pendingLocation = null;
+			return;
+		}
 		const rawZ = this.pendingLocation.zoom;
 		const viewZoom =
 			rawZ != null && !Number.isNaN(rawZ) ? Math.min(19, Math.max(2, Math.round(rawZ))) : 14;
@@ -3486,7 +3495,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				// Update clicked coordinates for display
 				this.clickedLat = lat;
 				this.clickedLng = lng;
-				this.clickedAlt = alt;
+				this.clickedAlt = this.isFiniteAltitude(alt) ? alt : null;
 				this.clickedAddress = 'Loading address...';
 				this.cdr.detectChanges();
 
@@ -3778,11 +3787,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 				if (response.altitudes && Array.isArray(response.altitudes) && response.altitudes.length > 0) {
 					// Use the first altitude (highest priority)
 					const altitude = response.altitudes[0].altitude;
+					const finiteAlt = typeof altitude === 'number' && Number.isFinite(altitude) ? altitude : null;
 					if (type === 'current') {
-						this.currentAlt = altitude;
+						this.currentAlt = finiteAlt;
 					} else {
-						this.clickedAlt = altitude;
-						this.clickedWeatherAlt = altitude; // Also update weather altitude
+						this.clickedAlt = finiteAlt;
+						this.clickedWeatherAlt = finiteAlt; // Also update weather altitude
 					}
 					this.scheduleTraceViewerCdr();
 				}

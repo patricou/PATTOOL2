@@ -1153,6 +1153,7 @@
         "IMAGE_COMPRESSION_NOT_NEEDED_MULTI": "Die {{count}} ausgewählten Bilder sind alle ≤ der konfigurierten Grenze ({{maxKb}} KB, Backend-Eigenschaft app.imagemaxsizekb). Der Komprimierungsschalter wird daher nicht angeboten: Sie werden unverändert hochgeladen, ohne Komprimierung.",
         "IMAGE_COMPRESSION_NOT_NEEDED_PARTIAL": "Hinweis: {{count}} Bild(er) sind bereits ≤ {{maxKb}} KB (Grenze app.imagemaxsizekb) und werden unabhängig von der gewählten Option nicht erneut komprimiert.",
         "EXIF": "EXIF",
+        "SHORTCUTS": "Tastenkürzel",
         "ORIGINAL_PHOTO": "Original",
         "COMPRESSED_PHOTO": "Kompr.",
         "SHOW_EXIF_INFO": "EXIF-Informationen anzeigen",

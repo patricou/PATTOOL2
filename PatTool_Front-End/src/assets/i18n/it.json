@@ -1125,6 +1125,7 @@
         "IMAGE_COMPRESSION_NOT_NEEDED_MULTI": "Le {{count}} immagine/i selezionate pesano tutte ≤ al limite configurato ({{maxKb}} KB, proprietà backend app.imagemaxsizekb). L'interruttore di compressione non viene quindi proposto: verranno caricate così come sono, senza compressione.",
         "IMAGE_COMPRESSION_NOT_NEEDED_PARTIAL": "Nota: {{count}} immagine/i sono già ≤ {{maxKb}} KB (limite app.imagemaxsizekb) e non verranno ricompresse, indipendentemente dall'opzione scelta.",
         "EXIF": "EXIF",
+        "SHORTCUTS": "Scorciatoie",
         "ORIGINAL_PHOTO": "Originale",
         "COMPRESSED_PHOTO": "Compr.",
         "SHOW_EXIF_INFO": "Mostra informazioni EXIF",

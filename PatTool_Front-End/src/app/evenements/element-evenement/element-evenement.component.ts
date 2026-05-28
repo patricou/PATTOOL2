@@ -6,6 +6,7 @@ import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { NgbModule, NgbModal, NgbRatingConfig } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent, SlideshowAddToDbEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
+import { isValidGeoCoordinate } from '../../shared/geo-coordinates.util';
 import { VideoshowModalComponent, VideoshowVideoSource } from '../../shared/videoshow-modal/videoshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
 import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
@@ -1068,7 +1069,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 
 	public onSlideshowLocationInTrace(event: SlideshowLocationEvent): void {
-		if (!event || typeof event.lat !== 'number' || typeof event.lng !== 'number') {
+		if (!event || !isValidGeoCoordinate(event.lat, event.lng)) {
 			return;
 		}
 

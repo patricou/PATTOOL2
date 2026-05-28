@@ -1222,6 +1222,7 @@
         "IMAGE_COMPRESSION_NOT_NEEDED_MULTI": "כל {{count}} התמונות שנבחרו ≤ למגבלה המוגדרת ({{maxKb}} KB, מאפיין שרת app.imagemaxsizekb). לכן מתג הדחיסה אינו מוצג: הן יועלו כפי שהן, ללא דחיסה.",
         "IMAGE_COMPRESSION_NOT_NEEDED_PARTIAL": "הערה: {{count}} תמונה/ות כבר ≤ {{maxKb}} KB (מגבלת app.imagemaxsizekb) ולא יידחסו מחדש ללא קשר לאפשרות שנבחרה.",
         "EXIF": "EXIF",
+        "SHORTCUTS": "קיצורים",
         "ORIGINAL_PHOTO": "מקור",
         "COMPRESSED_PHOTO": "דחוס",
         "SHOW_EXIF_INFO": "הצג מידע EXIF",

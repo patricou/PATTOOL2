@@ -621,6 +621,7 @@
     font-weight: bold;
     margin-bottom: 6px;
     font-size: 0.85rem;
+    color: #fff;
 }
 
 .slideshow-zoom-info .exif-loading {
@@ -628,6 +629,7 @@
     padding: 8px;
     font-size: 0.75rem;
     opacity: 0.8;
+    color: #fff;
 }
 
 .slideshow-zoom-info .exif-data {
@@ -643,6 +645,12 @@
     font-size: 0.85rem;
     line-height: 1.3;
     opacity: 0.9;
+    color: #fff;
+}
+
+.slideshow-zoom-info .exif-item strong {
+    color: #fff;
+    font-weight: 600;
 }
 
 .slideshow-zoom-info .exif-empty {
@@ -755,7 +763,17 @@
     font-size: 0.8rem;
 }
 
-
+@media (max-width: 768px) {
+    .shortcuts-section {
+        bottom: 72px;
+        left: 12px;
+        right: 12px;
+        max-width: none;
+        max-height: 42vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
 
 .info-panel-indicator i {
     font-size: 0.75rem;
@@ -1611,7 +1629,7 @@ body.slideshow-fullscreen-active .slideshow-footer {
     border-bottom: none;
 }
 
-.exif-item strong {
+.exif-info-container .exif-item strong {
     color: #000000; /* label in black */
     min-width: 200px;
     max-width: 250px;
@@ -1621,8 +1639,8 @@ body.slideshow-fullscreen-active .slideshow-footer {
     padding-right: 10px;
 }
 
-.exif-item span {
-    color: #ffffff; /* value in white */
+.exif-info-container .exif-item span {
+    color: #212529;
     text-align: right;
     word-break: break-word;
     flex: 1;
@@ -1643,7 +1661,7 @@ body.slideshow-fullscreen-active .slideshow-footer {
         padding: 8px 10px;
     }
     
-    .exif-item strong {
+    .exif-info-container .exif-item strong {
         min-width: auto;
         max-width: none;
         margin-right: 0;
@@ -1652,7 +1670,7 @@ body.slideshow-fullscreen-active .slideshow-footer {
         font-weight: 600;
     }
     
-    .exif-item span {
+    .exif-info-container .exif-item span {
         text-align: left;
         word-break: break-word;
         overflow-wrap: break-word;
@@ -1681,6 +1699,7 @@ body.slideshow-fullscreen-active .slideshow-footer {
     width: 100%;
     display: block;
     flex-shrink: 0;
+    box-sizing: border-box;
     /* auto : "smooth" se bat avec CDK pendant le reorder + ascenseurs */
     scroll-behavior: auto;
     -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
@@ -1761,7 +1780,7 @@ body:has(:-ms-fullscreen) .thumbnails-strip {
     justify-content: flex-start;
     min-width: min-content;
     padding: 0 5px;
-    width: max-content; /* Ensure container can be wider than parent for scrolling */
+    width: max-content; /* Plus large que le parent → scroll horizontal sur .thumbnails-strip */
 }
 
 .thumbnails-container.cdk-drop-list-dragging .thumbnail-item:not(.cdk-drag-placeholder) {

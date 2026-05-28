@@ -883,6 +883,7 @@
         "IMAGE_COMPRESSION_NOT_NEEDED_MULTI": "Όλες οι {{count}} επιλεγμένες εικόνες είναι ≤ από το διαμορφωμένο όριο ({{maxKb}} KB, ιδιότητα backend app.imagemaxsizekb). Επομένως ο διακόπτης συμπίεσης δεν προσφέρεται: θα μεταφορτωθούν ως έχουν, χωρίς συμπίεση.",
         "IMAGE_COMPRESSION_NOT_NEEDED_PARTIAL": "Σημείωση: {{count}} εικόνα/ες είναι ήδη ≤ {{maxKb}} KB (όριο app.imagemaxsizekb) και δεν θα συμπιεστούν ξανά, ανεξάρτητα από την επιλεγμένη επιλογή.",
         "EXIF": "EXIF",
+        "SHORTCUTS": "Συντομεύσεις",
         "ORIGINAL_PHOTO": "Αρχικό",
         "COMPRESSED_PHOTO": "Συμπ.",
         "SHOW_EXIF_INFO": "Εμφάνιση πληροφοριών EXIF",

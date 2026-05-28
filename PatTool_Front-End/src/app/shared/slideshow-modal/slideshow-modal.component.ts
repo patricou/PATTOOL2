@@ -6,7 +6,8 @@ import { HttpHeaders } from '@angular/common/http';
 import { DomSanitizer, SafeResourceUrl, SafeHtml } from '@angular/platform-browser';
 import { NgbModule, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
+import { DragDropModule, CdkDragDrop, CdkDragMove, CdkDragStart, moveItemInArray } from '@angular/cdk/drag-drop';
+import { ScrollingModule } from '@angular/cdk/scrolling';
 import { FileService } from '../../services/file.service';
 import {
   AssistantLaunchService,
@@ -15,6 +16,7 @@ import {
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { Observable, Subscription, Subject } from 'rxjs';
 import { map, takeUntil, finalize } from 'rxjs/operators';
+import { isValidGeoCoordinate } from '../geo-coordinates.util';
 // Note: panzoom library is available but we'll keep using custom implementation for now
 // import panzoom from 'panzoom';
 declare var EXIF: {
@@ -66,7 +68,8 @@ interface PatMetadata {
     NgbModule,
     TranslateModule,
     WheelNonPassiveDirective,
-    DragDropModule
+    DragDropModule,
+    ScrollingModule
   ]
 })
 export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -224,6 +227,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Info panel visibility
   public showInfoPanel: boolean = false;
+  public showShortcutsPanel: boolean = false;
   
   // Background color derived from current image average color
   public slideshowBackgroundColor: string = 'black';
@@ -246,7 +250,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   private userToggledThumbnails: boolean = false;
   /** Court pour un drag réactif ; le clic utilise toujours le délai CDK avant prise du drag. */
   public readonly thumbnailsDragDelayMs = 120;
-  
+  private thumbnailDragPointerX = 0;
+  private thumbnailDragAutoScrollRaf: number | null = null;
+  private thumbnailDragPointerListener?: (e: PointerEvent) => void;
+  private static readonly THUMBNAIL_DRAG_SCROLL_EDGE_PX = 80;
+  private static readonly THUMBNAIL_DRAG_SCROLL_MAX_STEP = 28;
+
   private hasDraggedSlideshow: boolean = false;
   private dragStartX: number = 0;
   private dragStartY: number = 0;
@@ -529,9 +538,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   // Centralized method to clean up all memory used by the slideshow
   // This method is idempotent - safe to call multiple times
   private cleanupAllMemory(): void {
+    this.stopThumbnailStripAutoScroll();
     // Remove fullscreen class from body
     document.body.classList.remove('slideshow-fullscreen-active');
-    
+
     // Remove selection listeners
     this.removeSelectionListeners();
     // Remove drag listeners
@@ -702,6 +712,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     
     // Reset info panel state
     this.showInfoPanel = false;
+    this.showShortcutsPanel = false;
     this.showThumbnails = true;
     this.userToggledThumbnails = false;
     this.exifData = [];
@@ -1250,22 +1261,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     });
   }
 
-  private static adjustSlideIndexAfterMove(selected: number, from: number, to: number): number {
-    if (selected === from) {
-      return to;
-    }
-    if (from < to) {
-      if (selected > from && selected <= to) {
-        return selected - 1;
-      }
-    } else if (from > to) {
-      if (selected >= to && selected < from) {
-        return selected + 1;
-      }
-    }
-    return selected;
-  }
-
   /** Réordonne les diapositives (bandeau + ordre next/prev) par glisser-déposer sur les miniatures. */
   public onThumbnailsStripDropped(event: CdkDragDrop<void>): void {
     if (event.previousIndex === event.currentIndex) {
@@ -1283,17 +1278,103 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     moveItemInArray(sourceOrder, prev, cur);
     this.writeSlideOrderToMap(sourceOrder);
 
-    this.currentSlideshowIndex = SlideshowModalComponent.adjustSlideIndexAfterMove(
-      this.currentSlideshowIndex,
-      prev,
-      cur
-    );
+    this.currentSlideshowIndex = cur;
 
     this.updateCurrentSlideshowImageUrl();
+    this.updateCurrentImageLocation();
     this.refreshSlideshowCounterDisplay();
     setTimeout(() => this.updateFileIdLoadingSpinner(), 0);
     this.cdr.markForCheck();
     setTimeout(() => this.scrollToActiveThumbnail(), 80);
+  }
+
+  public onThumbnailDragStarted(event: CdkDragStart, index: number): void {
+    const ev = event.event;
+    if (ev instanceof TouchEvent && ev.touches.length > 0) {
+      this.thumbnailDragPointerX = ev.touches[0].clientX;
+    } else if (ev instanceof MouseEvent) {
+      this.thumbnailDragPointerX = ev.clientX;
+    }
+    if (index >= 0 && index < this.slideshowImages.length && index !== this.currentSlideshowIndex) {
+      this.onThumbnailClick(index);
+    }
+    this.bindThumbnailDragPointerTracking();
+    this.startThumbnailStripAutoScrollLoop();
+  }
+
+  public onThumbnailDragEnded(): void {
+    this.stopThumbnailStripAutoScroll();
+  }
+
+  public onThumbnailDragMoved(event: CdkDragMove): void {
+    this.thumbnailDragPointerX = event.pointerPosition.x;
+  }
+
+  private bindThumbnailDragPointerTracking(): void {
+    this.unbindThumbnailDragPointerTracking();
+    this.thumbnailDragPointerListener = (e: PointerEvent) => {
+      this.thumbnailDragPointerX = e.clientX;
+    };
+    document.addEventListener('pointermove', this.thumbnailDragPointerListener, { passive: true });
+  }
+
+  private unbindThumbnailDragPointerTracking(): void {
+    if (this.thumbnailDragPointerListener) {
+      document.removeEventListener('pointermove', this.thumbnailDragPointerListener);
+      this.thumbnailDragPointerListener = undefined;
+    }
+  }
+
+  private startThumbnailStripAutoScrollLoop(): void {
+    if (this.thumbnailDragAutoScrollRaf != null) {
+      cancelAnimationFrame(this.thumbnailDragAutoScrollRaf);
+      this.thumbnailDragAutoScrollRaf = null;
+    }
+    const tick = (): void => {
+      if (!this.thumbnailDragPointerListener) {
+        this.thumbnailDragAutoScrollRaf = null;
+        return;
+      }
+      this.scrollThumbnailsStripForDragPointer(this.thumbnailDragPointerX);
+      this.thumbnailDragAutoScrollRaf = requestAnimationFrame(tick);
+    };
+    this.thumbnailDragAutoScrollRaf = requestAnimationFrame(tick);
+  }
+
+  private stopThumbnailStripAutoScroll(): void {
+    this.unbindThumbnailDragPointerTracking();
+    if (this.thumbnailDragAutoScrollRaf != null) {
+      cancelAnimationFrame(this.thumbnailDragAutoScrollRaf);
+      this.thumbnailDragAutoScrollRaf = null;
+    }
+  }
+
+  /** Défile la bande (.thumbnails-strip) quand le curseur approche les bords de la fenêtre pendant un drag. */
+  private scrollThumbnailsStripForDragPointer(pointerX: number): void {
+    const strip = this.getThumbnailsScrollElement();
+    if (!strip || strip.scrollWidth <= strip.clientWidth + 1) {
+      return;
+    }
+    const edge = SlideshowModalComponent.THUMBNAIL_DRAG_SCROLL_EDGE_PX;
+    const maxStep = SlideshowModalComponent.THUMBNAIL_DRAG_SCROLL_MAX_STEP;
+    const viewportW = window.innerWidth;
+    let delta = 0;
+    if (pointerX < edge) {
+      delta = -maxStep * Math.min(1, (edge - pointerX) / edge);
+    } else if (pointerX > viewportW - edge) {
+      delta = maxStep * Math.min(1, (pointerX - (viewportW - edge)) / edge);
+    }
+    if (delta === 0) {
+      return;
+    }
+    const maxScroll = Math.max(0, strip.scrollWidth - strip.clientWidth);
+    const rtl = getComputedStyle(strip).direction === 'rtl';
+    const next = strip.scrollLeft + (rtl ? -delta : delta);
+    strip.scrollLeft = Math.min(maxScroll, Math.max(0, next));
+  }
+
+  private getThumbnailsScrollElement(): HTMLElement | null {
+    return this.thumbnailsStripRef?.nativeElement ?? null;
   }
 
   private applyImageLoaded(objectUrl: string, blob: Blob | null, imageIndex: number, metadata?: PatMetadata): void {
@@ -4583,17 +4664,18 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.fsQueue = [];
   }
   
-  // Toggle info panel visibility
+  // Toggle EXIF info panel visibility
   public toggleInfoPanel(): void {
     this.showInfoPanel = !this.showInfoPanel;
-    
-    // Force immediate change detection for instant response
     this.cdr.detectChanges();
-    
-    // If showing the panel, load EXIF data if not already cached
     if (this.showInfoPanel) {
       this.loadExifDataForInfoPanel();
     }
+  }
+
+  public toggleShortcutsPanel(): void {
+    this.showShortcutsPanel = !this.showShortcutsPanel;
+    this.cdr.detectChanges();
   }
   
   // Check if device is mobile
@@ -4674,6 +4756,14 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     return -this.slideshowTranslateY / this.slideshowZoom;
   }
   
+  /** GPS from EXIF available for map / trace viewer (excludes NaN coordinates). */
+  public hasValidImageLocation(): boolean {
+    return (
+      this.currentImageLocation != null &&
+      isValidGeoCoordinate(this.currentImageLocation.lat, this.currentImageLocation.lng)
+    );
+  }
+
   public getLocationButtonLabel(): string {
     if (this.locationViewMode === 'trace') {
       return this.translateService.instant('EVENTELEM.OPEN_TRACE_VIEWER');
@@ -4721,7 +4811,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       event.stopPropagation();
       event.stopImmediatePropagation();
     }
-    if (!this.currentImageLocation) {
+    if (!this.hasValidImageLocation()) {
       return;
     }
     if (this.locationViewMode === 'trace') {
@@ -4748,7 +4838,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
 
   public toggleMapView(): void {
-    if (!this.currentImageLocation) {
+    if (!this.hasValidImageLocation()) {
       this.showMapView = false;
       this.cdr.detectChanges();
       return;
@@ -6507,18 +6597,20 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     if (Array.isArray(exifData.GPSLatitude) && Array.isArray(exifData.GPSLongitude)) {
       const lat = this.convertDMSToDD(exifData.GPSLatitude, exifData.GPSLatitudeRef);
       const lon = this.convertDMSToDD(exifData.GPSLongitude, exifData.GPSLongitudeRef);
-      const gpsLabel = this.translateService.instant('EVENTELEM.EXIF_GPS');
-      const gpsValue = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
-      
-      if (!targetArray.some(item => item.label === gpsLabel)) {
-        targetArray.push({
-          label: gpsLabel,
-          value: gpsValue
-        });
-      }
-      
-      if (imageUrlToUse) {
-        this.setImageLocation(imageUrlToUse, lat, lon);
+      if (isValidGeoCoordinate(lat, lon)) {
+        const gpsLabel = this.translateService.instant('EVENTELEM.EXIF_GPS');
+        const gpsValue = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+
+        if (!targetArray.some(item => item.label === gpsLabel)) {
+          targetArray.push({
+            label: gpsLabel,
+            value: gpsValue
+          });
+        }
+
+        if (imageUrlToUse) {
+          this.setImageLocation(imageUrlToUse, lat, lon);
+        }
       }
     }
     
@@ -6537,17 +6629,19 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         altitudeMeters = parseFloat(exifData.GPSAltitude);
       }
       
-      // GPSAltitudeRef: 0 = above sea level, 1 = below sea level
-      const isBelowSeaLevel = exifData.GPSAltitudeRef === 1;
-      const altitudeValue = isBelowSeaLevel 
-        ? `-${altitudeMeters.toFixed(2)} m`
-        : `${altitudeMeters.toFixed(2)} m`;
-      
-      if (!targetArray.some(item => item.label === altitudeLabel)) {
-        targetArray.push({
-          label: altitudeLabel,
-          value: altitudeValue
-        });
+      if (Number.isFinite(altitudeMeters)) {
+        // GPSAltitudeRef: 0 = above sea level, 1 = below sea level
+        const isBelowSeaLevel = exifData.GPSAltitudeRef === 1;
+        const altitudeValue = isBelowSeaLevel
+          ? `-${altitudeMeters.toFixed(2)} m`
+          : `${altitudeMeters.toFixed(2)} m`;
+
+        if (!targetArray.some(item => item.label === altitudeLabel)) {
+          targetArray.push({
+            label: altitudeLabel,
+            value: altitudeValue
+          });
+        }
       }
     }
     
@@ -6597,10 +6691,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   private setImageLocation(imageUrl: string, lat: number, lng: number): void {
-    if (!imageUrl) {
+    if (!imageUrl || !isValidGeoCoordinate(lat, lng)) {
       return;
     }
-    
+
     const location = { lat, lng };
     this.imageLocations.set(imageUrl, location);
     
@@ -6628,6 +6722,19 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     const currentImageUrl = this.getCurrentSlideshowImage();
     if (currentImageUrl && this.imageLocations.has(currentImageUrl)) {
       const location = this.imageLocations.get(currentImageUrl)!;
+      if (!isValidGeoCoordinate(location.lat, location.lng)) {
+        this.imageLocations.delete(currentImageUrl);
+        this.currentImageLocation = null;
+        this.currentMapUrl = null;
+        if (this.showMapView) {
+          this.showMapView = false;
+        }
+        if (this.locationViewMode === 'trace') {
+          this.locationViewMode = 'google';
+        }
+        this.cdr.markForCheck();
+        return;
+      }
       this.currentImageLocation = { ...location };
       if (!this.mapUrlCache.has(currentImageUrl)) {
         this.mapUrlCache.set(currentImageUrl, this.buildMapUrl(location.lat, location.lng));
@@ -7093,25 +7200,23 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       // Try ViewChild first, then fallback to DOM query
       let scrollableContainer: HTMLElement | null = null;
       let thumbnailsContainer: HTMLElement | null = null;
-      
-      if (this.thumbnailsStripRef && this.thumbnailsStripRef.nativeElement) {
+
+      if (this.thumbnailsStripRef?.nativeElement) {
         scrollableContainer = this.thumbnailsStripRef.nativeElement;
         thumbnailsContainer = scrollableContainer.querySelector('.thumbnails-container');
       } else {
-        // Fallback: query DOM directly
         const thumbnailsStrip = document.querySelector('.thumbnails-strip') as HTMLElement;
         if (thumbnailsStrip) {
           scrollableContainer = thumbnailsStrip;
           thumbnailsContainer = thumbnailsStrip.querySelector('.thumbnails-container') as HTMLElement;
         }
       }
-      
+
       if (!scrollableContainer || !thumbnailsContainer) {
-        // Retry after a longer delay if container not found
         setTimeout(() => this.scrollToActiveThumbnail(), 100);
         return;
       }
-      
+
       const thumbnailItems = thumbnailsContainer.querySelectorAll('.thumbnail-item');
       
       if (thumbnailItems.length === 0 || this.currentSlideshowIndex < 0 || this.currentSlideshowIndex >= thumbnailItems.length) {
@@ -7127,11 +7232,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       const scrollableWidth = scrollableContainer.clientWidth;
       const scrollableScrollWidth = scrollableContainer.scrollWidth;
       
-      // Get thumbnail position - offsetLeft is relative to thumbnails-container
-      // But we need position relative to scrollable container (thumbnails-strip)
-      // Get the position of thumbnails-container relative to scrollable container
       const containerRect = scrollableContainer.getBoundingClientRect();
-      const thumbnailsContainerRect = thumbnailsContainer.getBoundingClientRect();
       const activeThumbnailRect = activeThumbnail.getBoundingClientRect();
       
       // Calculate thumbnail position relative to scrollable container

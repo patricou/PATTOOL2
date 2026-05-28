@@ -1312,6 +1312,7 @@
         "IMAGE_COMPRESSION_NOT_NEEDED_MULTI": "All {{count}} selected image(s) are ≤ the configured limit ({{maxKb}} KB, backend property app.imagemaxsizekb). The compression toggle is therefore not offered: they will be uploaded as-is, without compression.",
         "IMAGE_COMPRESSION_NOT_NEEDED_PARTIAL": "Note: {{count}} image(s) are already ≤ {{maxKb}} KB (app.imagemaxsizekb limit) and will not be recompressed regardless of the chosen option.",
         "EXIF": "EXIF",
+        "SHORTCUTS": "Shortcuts",
         "ORIGINAL_PHOTO": "Original",
         "COMPRESSED_PHOTO": "Compressed",
         "SHOW_EXIF_INFO": "Show EXIF information",

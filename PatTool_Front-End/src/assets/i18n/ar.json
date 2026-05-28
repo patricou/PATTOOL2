@@ -1122,6 +1122,7 @@
         "IMAGE_COMPRESSION_NOT_NEEDED_MULTI": "جميع الصور المحددة ({{count}}) ≤ الحد المُعَدّ ({{maxKb}} KB، خاصية الخادم app.imagemaxsizekb). لذلك لا يُعرض مفتاح الضغط: سيتم رفعها كما هي، دون ضغط.",
         "IMAGE_COMPRESSION_NOT_NEEDED_PARTIAL": "ملاحظة: {{count}} صورة بالفعل ≤ {{maxKb}} KB (الحد app.imagemaxsizekb) ولن يُعاد ضغطها بصرف النظر عن الخيار المختار.",
         "EXIF": "EXIF",
+        "SHORTCUTS": "اختصارات",
         "ORIGINAL_PHOTO": "أصلي",
         "COMPRESSED_PHOTO": "مضغوط",
         "SHOW_EXIF_INFO": "عرض معلومات EXIF",

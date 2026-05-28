@@ -8,6 +8,7 @@ import { NgbModule, NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { Observable, Subscription, of, EMPTY } from 'rxjs';
 import { map, catchError, take } from 'rxjs/operators';
 import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent, SlideshowAddToDbEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
+import { isValidGeoCoordinate } from '../../shared/geo-coordinates.util';
 import { AddToDbLayerService } from '../../services/add-to-db-layer.service';
 import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { DiscussionModalComponent } from '../../communications/discussion-modal/discussion-modal.component';
@@ -6093,7 +6094,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   public onSlideshowLocationInTrace(event: SlideshowLocationEvent): void {
-    if (!event || typeof event.lat !== 'number' || typeof event.lng !== 'number') {
+    if (!event || !isValidGeoCoordinate(event.lat, event.lng)) {
       return;
     }
 

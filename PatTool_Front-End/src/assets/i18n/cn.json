@@ -1123,6 +1123,7 @@
         "IMAGE_COMPRESSION_NOT_NEEDED_MULTI": "选中的 {{count}} 张图片都 ≤ 配置的限制（{{maxKb}} KB，后端属性 app.imagemaxsizekb）。因此不显示压缩开关：它们将原样上传，不进行压缩。",
         "IMAGE_COMPRESSION_NOT_NEEDED_PARTIAL": "说明：{{count}} 张图片已经 ≤ {{maxKb}} KB（限制 app.imagemaxsizekb），无论选择何种选项都不会重新压缩。",
         "EXIF": "EXIF",
+        "SHORTCUTS": "快捷键",
         "ORIGINAL_PHOTO": "原图",
         "COMPRESSED_PHOTO": "压缩",
         "SHOW_EXIF_INFO": "显示EXIF信息",
