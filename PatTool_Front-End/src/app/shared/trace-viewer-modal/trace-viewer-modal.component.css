@@ -796,6 +796,20 @@
 	width: 100%;
 }
 
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-buttons-group {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.28rem 0.45rem;
+}
+
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-switches-group {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.28rem 0.45rem;
+}
+
 ::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-actions-row-start {
 	grid-column: 1;
 	grid-row: 1;
@@ -809,21 +823,7 @@
 }
 
 ::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-actions-row--secondary .trace-viewer-footer-switches-group {
-	grid-column: 1;
-	grid-row: 1;
-	justify-self: center;
-	display: flex;
-	flex-wrap: nowrap;
-	align-items: center;
-	gap: 0.28rem 0.45rem;
-	z-index: 0;
-}
-
-::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-actions-row--secondary .trace-viewer-follow-switch {
-	grid-column: auto;
-	grid-row: auto;
-	justify-self: auto;
-	z-index: auto;
+	display: none;
 }
 
 @media (min-width: 769px) {
@@ -832,29 +832,63 @@
 	}
 
 	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-row--bottom .trace-viewer-footer-actions {
-		flex: 0 0 auto;
+		flex: 1 1 auto;
 		flex-direction: row;
 		flex-wrap: nowrap;
-		width: max-content;
-		max-width: none;
-		min-width: min-content;
+		align-items: center;
+		justify-content: flex-start;
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		gap: 0.45rem;
+	}
+
+	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-actions-row--primary {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: nowrap;
+		align-items: center;
+		flex: 1 1 auto;
+		min-width: 0;
+		gap: 0.45rem;
+	}
+
+	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-switches-group {
+		display: flex;
+		flex-wrap: nowrap;
+		align-items: center;
+		flex: 0 1 auto;
 		gap: 0.28rem 0.45rem;
 	}
 
+	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-buttons-group {
+		display: flex;
+		flex-wrap: nowrap;
+		align-items: center;
+		flex: 0 0 auto;
+		margin-left: auto;
+		gap: 0.28rem 0.45rem;
+	}
+
+	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-actions-row--secondary {
+		display: flex;
+		flex: 0 0 auto;
+		width: auto;
+		margin-left: 0.35rem;
+	}
+
 	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-actions-row {
-		display: contents;
+		width: auto;
 	}
 
 	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-actions-row-start {
-		display: contents;
-	}
-
-	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-actions-row--secondary .trace-viewer-footer-switches-group {
-		justify-self: auto;
-		z-index: auto;
-	}
-
-	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-actions-row--secondary .trace-viewer-follow-switch {
+		display: flex;
+		flex-wrap: nowrap;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 0.28rem 0.45rem;
+		grid-column: auto;
+		grid-row: auto;
 		justify-self: auto;
 		z-index: auto;
 	}

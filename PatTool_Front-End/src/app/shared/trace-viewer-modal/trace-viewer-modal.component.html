@@ -314,6 +314,7 @@
     <div class="trace-viewer-footer-row trace-viewer-footer-row--bottom w-100 d-flex">
     <div class="d-flex gap-1 align-items-center trace-viewer-footer-actions">
       <div class="trace-viewer-footer-actions-row trace-viewer-footer-actions-row--primary">
+      <div class="trace-viewer-footer-switches-group d-flex align-items-center flex-wrap">
       <div class="form-check form-switch d-flex align-items-center flex-shrink-0">
         <input class="form-check-input" type="checkbox" id="show-address-switch"
                [(ngModel)]="showAddress"
@@ -346,6 +347,25 @@
           <i class="fa fa-bicycle" aria-hidden="true"></i><span class="switch-text-short">{{ 'EVENTELEM.TRACK_FOOTER_CYCLING_SHORT' | translate }}</span>
         </label>
       </div>
+      <div class="form-check form-switch d-flex align-items-center flex-shrink-0 trace-viewer-follow-switch">
+        <input class="form-check-input" type="checkbox" id="follow-device-location-switch"
+               [(ngModel)]="followDeviceLocation"
+               (ngModelChange)="onFollowDeviceLocationChange()">
+        <label class="form-check-label ms-1 ms-sm-2 gps-switch-label" for="follow-device-location-switch" [title]="'EVENTELEM.TRACK_FOLLOW_DEVICE' | translate">
+          <i class="fa fa-location-arrow" aria-hidden="true"></i><span class="switch-text-short">{{ 'EVENTELEM.TRACK_FOOTER_FOLLOW_SHORT' | translate }}</span>
+          <span *ngIf="followDeviceLocation" class="ms-1 device-countdown">({{ deviceLocationCountdown }} s)</span>
+        </label>
+      </div>
+      <div *ngIf="isMobileViewport() && screenWakeLockAvailable" class="form-check form-switch d-flex align-items-center flex-shrink-0 trace-viewer-keep-awake-switch">
+        <input class="form-check-input" type="checkbox" id="keep-screen-awake-switch"
+               [(ngModel)]="keepScreenAwake"
+               (ngModelChange)="onKeepScreenAwakeChange()">
+        <label class="form-check-label ms-1 ms-sm-2 gps-switch-label" for="keep-screen-awake-switch" [title]="'EVENTELEM.TRACK_KEEP_SCREEN_AWAKE' | translate">
+          <i class="fa fa-lightbulb-o" aria-hidden="true"></i><span class="switch-text-short">{{ 'EVENTELEM.TRACK_FOOTER_KEEP_AWAKE_SHORT' | translate }}</span>
+        </label>
+      </div>
+      </div>
+      <div class="trace-viewer-footer-buttons-group d-flex align-items-center flex-wrap">
       <button type="button"
               class="btn btn-outline-secondary flex-shrink-0"
               *ngIf="!isFullscreen"
@@ -377,6 +397,7 @@
         <i class="fa fa-globe me-1" aria-hidden="true"></i>3D
       </button>
       </div>
+      </div>
       <div class="trace-viewer-footer-actions-row trace-viewer-footer-actions-row--secondary">
       <div class="trace-viewer-footer-actions-row-start">
       <button type="button"
@@ -395,25 +416,6 @@
         <i class="fa fa-times me-1" aria-hidden="true"></i>
         <span class="trace-viewer-footer-btn-text">{{ 'COMMUN.CLOSE' | translate }}</span>
       </button>
-      </div>
-      <div class="trace-viewer-footer-switches-group d-flex align-items-center flex-shrink-0">
-      <div class="form-check form-switch d-flex align-items-center flex-shrink-0 trace-viewer-follow-switch">
-        <input class="form-check-input" type="checkbox" id="follow-device-location-switch"
-               [(ngModel)]="followDeviceLocation"
-               (ngModelChange)="onFollowDeviceLocationChange()">
-        <label class="form-check-label ms-1 ms-sm-2 gps-switch-label" for="follow-device-location-switch" [title]="'EVENTELEM.TRACK_FOLLOW_DEVICE' | translate">
-          <i class="fa fa-location-arrow" aria-hidden="true"></i><span class="switch-text-short">{{ 'EVENTELEM.TRACK_FOOTER_FOLLOW_SHORT' | translate }}</span>
-          <span *ngIf="followDeviceLocation" class="ms-1 device-countdown">({{ deviceLocationCountdown }} s)</span>
-        </label>
-      </div>
-      <div *ngIf="isMobileViewport() && screenWakeLockAvailable" class="form-check form-switch d-flex align-items-center flex-shrink-0 trace-viewer-keep-awake-switch">
-        <input class="form-check-input" type="checkbox" id="keep-screen-awake-switch"
-               [(ngModel)]="keepScreenAwake"
-               (ngModelChange)="onKeepScreenAwakeChange()">
-        <label class="form-check-label ms-1 ms-sm-2 gps-switch-label" for="keep-screen-awake-switch" [title]="'EVENTELEM.TRACK_KEEP_SCREEN_AWAKE' | translate">
-          <i class="fa fa-lightbulb-o" aria-hidden="true"></i><span class="switch-text-short">{{ 'EVENTELEM.TRACK_FOOTER_KEEP_AWAKE_SHORT' | translate }}</span>
-        </label>
-      </div>
       </div>
       </div>
     </div>

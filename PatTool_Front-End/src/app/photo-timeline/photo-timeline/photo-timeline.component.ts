@@ -279,6 +279,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     private wallFetchQueue: Array<() => void> = [];
     /** Debounce handle: batches rapid markForCheck() calls from thumbnail/video load callbacks into one CD cycle. */
     private cdrScheduleId: ReturnType<typeof setTimeout> | null = null;
+    /** Coalesces scroll / IO revealMore calls into the next animation frame (avoids NG0100). */
+    private revealMoreScheduled = false;
     /** WeakMap cache so getGroupMedia() does not rebuild arrays on every Angular CD cycle. */
     private groupMediaCache = new WeakMap<TimelineGroup, GroupMediaItem[]>();
     private imageCompressionModalRef: NgbModalRef | null = null;
@@ -569,30 +571,40 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
 	/**
-	 * Writes wall thumbnail / video blob caches outside the Angular zone so Zone does not emit an
-	 * extra ApplicationRef notification that races with dev-mode checkNoChanges (NG0100 on [src] /
-	 * getThumbnailUrl). CD is deferred to the next macrotask after the cache write.
+	 * Writes wall thumbnail / video blob caches after the current CD pass (double rAF) so dev-mode
+	 * checkNoChanges does not see hasWallThumbnail / getVideoUrl flip in the same cycle (NG0100).
 	 */
 	private commitWallMediaCachesAndScheduleCdr(fn: () => void): void {
 		if (this.destroyed) {
 			return;
 		}
-		setTimeout(() => {
-			if (this.destroyed) {
-				return;
-			}
-			this.ngZone.runOutsideAngular(() => {
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
 				if (this.destroyed) {
 					return;
 				}
 				fn();
+				this.scheduleCdr();
 			});
-			setTimeout(() => {
-				if (!this.destroyed) {
-					this.cdr.markForCheck();
+		});
+	}
+
+	/** Defers revealMore past the current CD / checkNoChanges pass (scroll sentinel, window scroll). */
+	private queueRevealMore(): void {
+		if (this.revealMoreScheduled) {
+			return;
+		}
+		this.revealMoreScheduled = true;
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				this.revealMoreScheduled = false;
+				if (this.destroyed) {
+					return;
 				}
-			}, 0);
-		}, 0);
+				this.revealMore();
+				this.scheduleCdr();
+			});
+		});
 	}
 
     /**
@@ -963,8 +975,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         }
 
         this.visibleGroups.push(group);
-        this.preloadThumbnailsForGroup(group);
         this.requestWallTrackStatsForGroup(group);
+        requestAnimationFrame(() => {
+            if (this.destroyed) {
+                return;
+            }
+            this.preloadThumbnailsForGroup(group);
+        });
 
         if (this.revealingInitialBatch) {
             if (this.hasMore && this.bufferedGroups.length < BUFFER_AHEAD) this.fetchNext();
@@ -1000,13 +1017,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
         this.intersectionObserver = new IntersectionObserver(
             (entries) => {
-                // Defer: observe() can call this synchronously; revealMore → preload → Http can emit sync → NG0100.
-                setTimeout(() => {
-                    if (this.destroyed) return;
-                    if (entries[0].isIntersecting && (this.bufferedGroups.length > 0 || this.hasMore || this.bufferedVideoGroups.length > 0 || this.hasMoreVideos)) {
-                        this.revealMore();
-                    }
-                }, 0);
+                if (entries[0].isIntersecting && (this.bufferedGroups.length > 0 || this.hasMore || this.bufferedVideoGroups.length > 0 || this.hasMoreVideos)) {
+                    this.queueRevealMore();
+                }
             },
             { rootMargin: `${SCROLL_THRESHOLD_PX}px` }
         );
@@ -1022,11 +1035,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         const documentHeight = document.documentElement.scrollHeight;
 
         if (documentHeight - scrollPosition < SCROLL_THRESHOLD_PX) {
-            setTimeout(() => {
-                if (this.destroyed) return;
-                if (this.bufferedGroups.length === 0 && !this.hasMore && this.bufferedVideoGroups.length === 0 && !this.hasMoreVideos) return;
-                this.revealMore();
-            }, 0);
+            this.queueRevealMore();
         }
     }
 
@@ -1101,11 +1110,15 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                         updated,
                         ...this.visibleGroups.slice(idx + 1)
                     ];
-                    this.preloadThumbnailsForGroup(updated);
+                    requestAnimationFrame(() => {
+                        if (!this.destroyed) {
+                            this.preloadThumbnailsForGroup(updated);
+                        }
+                    });
                     this.requestWallTrackStatsForGroup(updated);
                 }
                 this.refreshingGroupEventIds.delete(eventId);
-                this.cdr.markForCheck();
+                this.scheduleCdr();
             },
             error: () => {
                 if (this.destroyed) return;
