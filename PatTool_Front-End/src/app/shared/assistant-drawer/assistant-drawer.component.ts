@@ -1533,16 +1533,46 @@ export class AssistantDrawerComponent
     const title = AssistantDrawerComponent.resolvePatTitleForFabAnchor();
     let next = minTop;
     if (title) {
-      const bottom = title.getBoundingClientRect().bottom;
+      let anchorBottom = title.getBoundingClientRect().bottom;
+      const issTicker = AssistantDrawerComponent.resolveIssTickerBelowTitle(title);
+      if (issTicker) {
+        anchorBottom = Math.max(anchorBottom, issTicker.getBoundingClientRect().bottom);
+      }
       next = Math.max(
         minTop,
-        Math.round(bottom + AssistantDrawerComponent.FAB_UNDER_TITLE_GAP_PX)
+        Math.round(anchorBottom + AssistantDrawerComponent.FAB_UNDER_TITLE_GAP_PX)
       );
     }
     if (next !== this.fabTopPx) {
       this.fabTopPx = next;
       this.cdr.markForCheck();
     }
+  }
+
+  /** Bandeau ISS du globe (sous `.pat-title`) : le FAB doit s’ancrer en dessous, pas sur le ticker. */
+  private static resolveIssTickerBelowTitle(title: HTMLElement): HTMLElement | null {
+    const host = title.parentElement;
+    if (!host) {
+      return null;
+    }
+    const ticker = host.querySelector<HTMLElement>('.wg-iss-ticker');
+    if (!ticker) {
+      return null;
+    }
+    let cs: CSSStyleDeclaration | null = null;
+    try {
+      cs = getComputedStyle(ticker);
+    } catch {
+      return null;
+    }
+    if (cs != null && (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0')) {
+      return null;
+    }
+    const r = ticker.getBoundingClientRect();
+    if (r.height < 3 || r.width < 3) {
+      return null;
+    }
+    return ticker;
   }
 
   /** Même empilement que les CSS news/currency/stock ticker (anchors à 56px). */

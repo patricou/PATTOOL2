@@ -1,10 +1,60 @@
-<div class="pat-title">
-  <h2>{{ 'WORLD_GLOBE.TITLE' | translate }}</h2>
-</div>
+<!-- Titre (hors plein écran) + bandeau ISS + globe : en FS le titre est masqué, le bandeau reste. -->
+<div
+  #globeFsRoot
+  class="wg-fs-root"
+  [class.wg-fs-root--viewport-locked]="globeViewportLocked"
+  [class.wg-fs-root--presentation]="globePresentationMode">
+  <div class="pat-title wg-page-title wg-title-plain" *ngIf="!globePresentationMode">
+    <h2>{{ 'WORLD_GLOBE.TITLE' | translate }}</h2>
+  </div>
 
-<div class="wg-root container-fluid px-2 px-lg-3 pb-3">
-  <!-- Bloc passé en vrai plein écran navigateur (API Fullscreen) : globe ; la modale trace reste en dehors pour l’overlay. -->
-  <div #globeFsRoot class="wg-fs-root">
+  <div class="wg-iss-ticker" *ngIf="issTickerEnabled" role="marquee" [attr.aria-label]="'WORLD_GLOBE.ISS_TICKER_ARIA' | translate">
+    <div class="wg-iss-ticker__label" aria-hidden="true">
+      <i class="fa fa-globe"></i>
+      <span>{{ 'WORLD_GLOBE.ISS_TICKER_LABEL' | translate }}</span>
+    </div>
+    <div class="wg-iss-ticker__rows">
+      <div class="wg-iss-ticker__loading" *ngIf="!issTickerHasLiveData()">
+        <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+        <span>{{ 'WORLD_GLOBE.ISS_TICKER_LOADING' | translate }}</span>
+      </div>
+      <div class="wg-iss-ticker__row" *ngIf="issTickerHasLiveData()">
+        <div class="wg-iss-ticker__track">
+          <div class="wg-iss-ticker__loop-half">
+            <ng-container *ngFor="let _ of issTickerMarqueeRepeats">
+              <ng-container *ngTemplateOutlet="issTickerItemsTpl"></ng-container>
+            </ng-container>
+          </div>
+          <div class="wg-iss-ticker__loop-half" aria-hidden="true">
+            <ng-container *ngFor="let _ of issTickerMarqueeRepeats">
+              <ng-container *ngTemplateOutlet="issTickerItemsTpl"></ng-container>
+            </ng-container>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ng-template #issTickerItemsTpl>
+    <span class="wg-iss-ticker__item">
+      <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_LAT' | translate }}</span>
+      <span class="wg-iss-ticker__val">{{ globeIssLat | number : '1.4-4' }}°</span>
+    </span>
+    <span class="wg-iss-ticker__item">
+      <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_LON' | translate }}</span>
+      <span class="wg-iss-ticker__val">{{ globeIssLon | number : '1.4-4' }}°</span>
+    </span>
+    <span class="wg-iss-ticker__item" *ngIf="globeIssAltKm != null">
+      <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_ALT' | translate }}</span>
+      <span class="wg-iss-ticker__val">{{ globeIssAltKm | number : '1.0-1' }} km</span>
+    </span>
+    <span class="wg-iss-ticker__item" *ngIf="issGroundSpeedKmh != null">
+      <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_SPEED' | translate }}</span>
+      <span class="wg-iss-ticker__val">{{ issGroundSpeedKmh | number : '1.0-0' }} km/h</span>
+    </span>
+  </ng-template>
+
+  <div class="wg-root container-fluid px-2 px-lg-3 pb-3">
     <div class="alert alert-warning wg-alert py-1 px-2 mb-2 small" role="alert" *ngIf="textureLoadError">
       <i class="fa fa-exclamation-triangle me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.TEXTURE_LOAD_ERROR' | translate }}
     </div>
@@ -13,7 +63,8 @@
       #globeShell
       class="wg-shell"
       [class.wg-shell--fs]="fullscreen"
-      [class.wg-shell--fs-hide-sidebar]="fullscreen && !showOptionsPanel">
+      [class.wg-shell--fs-hide-sidebar]="fullscreen && !showOptionsPanel"
+      [class.wg-shell--fs-has-iss-pip]="issFsSplitLayout">
     <aside class="wg-sidebar flex-shrink-0" *ngIf="showOptionsPanel">
       <div class="wg-sidebar-inner">
         <div class="wg-geocode-block mb-2">
@@ -71,23 +122,23 @@
           <input
             class="form-check-input"
             type="checkbox"
-            id="wgLit"
-            [(ngModel)]="globeLightingUniform"
-            [disabled]="realTimeTerminator"
-            (ngModelChange)="onGlobeLightingToggle()" />
-          <label class="form-check-label" for="wgLit" [attr.title]="'WORLD_GLOBE.LIGHT_UNIFORM_HINT' | translate">{{
-            'WORLD_GLOBE.LIGHT_UNIFORM' | translate
+            id="wgDayNight"
+            [(ngModel)]="realTimeTerminator"
+            (ngModelChange)="onRealTimeTerminatorToggle()" />
+          <label class="form-check-label" for="wgDayNight" [attr.title]="'WORLD_GLOBE.LIGHT_REALISTIC_HINT' | translate">{{
+            'WORLD_GLOBE.LIGHT_REALISTIC_DAY_NIGHT' | translate
           }}</label>
         </div>
         <div class="form-check form-switch wg-switch">
           <input
             class="form-check-input"
             type="checkbox"
-            id="wgDayNight"
-            [(ngModel)]="realTimeTerminator"
-            (ngModelChange)="onRealTimeTerminatorToggle()" />
-          <label class="form-check-label" for="wgDayNight" [attr.title]="'WORLD_GLOBE.LIGHT_REALISTIC_HINT' | translate">{{
-            'WORLD_GLOBE.LIGHT_REALISTIC_DAY_NIGHT' | translate
+            id="wgLit"
+            [(ngModel)]="globeLightingUniform"
+            [disabled]="realTimeTerminator"
+            (ngModelChange)="onGlobeLightingToggle()" />
+          <label class="form-check-label" for="wgLit" [attr.title]="'WORLD_GLOBE.LIGHT_UNIFORM_HINT' | translate">{{
+            'WORLD_GLOBE.LIGHT_UNIFORM' | translate
           }}</label>
         </div>
         <div class="wg-switches-grid__full wg-banner wg-terminator-hint small mb-1" *ngIf="realTimeTerminator">{{ 'WORLD_GLOBE.LIGHT_TERMINATOR_NOTE' | translate }}</div>
@@ -335,10 +386,71 @@
                 ISS:
                 {{ globeIssLat | number : '1.2-4' }}° /
                 {{ globeIssLon | number : '1.2-4' }}°</span>
+              <span *ngIf="globeIssAltKm != null" class="text-nowrap" aria-live="polite">
+                {{ globeIssAltKm | number : '1.0-1' }} km</span>
               <span *ngIf="issGroundSpeedKmh != null" class="text-nowrap" aria-live="polite">
                 {{ issGroundSpeedKmh | number : '1.0-0' }} km/h</span>
             </div>
           </ng-container>
+          <div class="form-check form-switch wg-switch wg-switches-grid__full mb-0">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="wgIssTicker"
+              [(ngModel)]="issTickerEnabled"
+              (ngModelChange)="onIssTickerToggle()" />
+            <label
+              class="form-check-label"
+              for="wgIssTicker"
+              [attr.title]="'WORLD_GLOBE.ISS_TICKER_ENABLED_HINT' | translate">
+              {{ 'WORLD_GLOBE.ISS_TICKER_ENABLED' | translate }}</label>
+          </div>
+          <div class="form-check form-switch wg-switch wg-switches-grid__full mb-0">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="wgIssLivePip"
+              [(ngModel)]="issLiveEmbedEnabled"
+              (ngModelChange)="onIssLiveEmbedPanelToggle()" />
+            <label
+              class="form-check-label"
+              for="wgIssLivePip"
+              [attr.title]="'WORLD_GLOBE.ISS_LIVE_PIP_ENABLED_HINT' | translate">
+              {{ 'WORLD_GLOBE.ISS_LIVE_PIP_ENABLED' | translate }}</label>
+          </div>
+          <div class="form-check form-switch wg-switch wg-switches-grid__full mb-0">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="wgIssLiveHdPip"
+              [(ngModel)]="issLiveHdEmbedEnabled"
+              (ngModelChange)="onIssLiveHdEmbedPanelToggle()" />
+            <label
+              class="form-check-label"
+              for="wgIssLiveHdPip"
+              [attr.title]="'WORLD_GLOBE.ISS_LIVE_PIP_HD_ENABLED_HINT' | translate">
+              {{ 'WORLD_GLOBE.ISS_LIVE_PIP_HD_ENABLED' | translate }}</label>
+          </div>
+          <div class="wg-switches-grid__full wg-iss-live-links d-flex flex-wrap gap-1 mt-1">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-info py-0 px-2"
+              (click)="openIssLiveFromDestinationOrbite()"
+              [attr.title]="'WORLD_GLOBE.ISS_LIVE_STANDARD_HINT' | translate"
+              [attr.aria-label]="'WORLD_GLOBE.ISS_LIVE_STANDARD_HINT' | translate">
+              <i class="fa fa-video-camera me-1" aria-hidden="true"></i>
+              {{ 'WORLD_GLOBE.ISS_LIVE_STANDARD' | translate }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-info py-0 px-2"
+              (click)="openIssLiveHdFromDestinationOrbite()"
+              [attr.title]="'WORLD_GLOBE.ISS_LIVE_HD_HINT' | translate"
+              [attr.aria-label]="'WORLD_GLOBE.ISS_LIVE_HD_HINT' | translate">
+              <i class="fa fa-video-camera me-1" aria-hidden="true"></i>
+              {{ 'WORLD_GLOBE.ISS_LIVE_HD' | translate }}
+            </button>
+          </div>
         </div>
         <div class="wg-switches-grid__full wg-banner small mt-1 text-secondary lh-sm mb-1" *ngIf="countryBordersEnabled">
           {{ 'WORLD_GLOBE.BORDERS_ATTRIBUTION' | translate }}</div>
@@ -434,33 +546,19 @@
       </div>
     </aside>
 
-    <div class="wg-stage flex-grow-1 min-h-0 d-flex flex-column position-relative">
-      <!-- Pile d’actions sur le globe : uniquement quand le panneau options est visible (évite doublon avec wg-overlay-toolbar). -->
-      <div class="wg-globe-action-stack wg-btn-stack" *ngIf="showOptionsPanel">
-        <button type="button" class="btn btn-outline-secondary btn-sm wg-btn" (click)="resetCamera()">
-          {{ 'WORLD_GLOBE.RESET_VIEW' | translate }}
-        </button>
-        <button type="button" class="btn btn-outline-primary btn-sm wg-btn" (click)="toggleFullscreen()">
-          <ng-container *ngIf="!fullscreen">{{ 'WORLD_GLOBE.FULLSCREEN_ENTER' | translate }}</ng-container>
-          <ng-container *ngIf="fullscreen">{{ 'WORLD_GLOBE.FULLSCREEN_EXIT' | translate }}</ng-container>
-        </button>
-        <button
-          type="button"
-          class="btn btn-outline-info btn-sm wg-btn"
-          (click)="openDetailMapOverlay()"
-          [disabled]="!globeSurfaceReady || detailMapOpen">
-          {{ 'WORLD_GLOBE.DETAIL_MAP_OPEN_SHORT' | translate }}
-        </button>
-      </div>
-
+    <div
+      class="wg-stage flex-grow-1 min-h-0 d-flex flex-column position-relative"
+      [class.wg-stage--iss-pip]="issLiveEmbedEnabled"
+      [class.wg-stage--iss-pip-hd]="issLiveHdEmbedEnabled"
+      [class.wg-stage--fs-iss-split]="issFsSplitLayout">
       <div class="wg-coords font-monospace" *ngIf="globePickedLat != null && globePickedLon != null">
         {{ globePickedLat | number : '1.5-5' }}°, {{ globePickedLon | number : '1.5-5' }}°
       </div>
 
-      <!-- Panneau options masqué : une seule barre d’actions (évite chevauchement avec la pile absolue). -->
-      <div class="wg-overlay-toolbar d-flex justify-content-end align-items-center mb-1 gap-2 flex-wrap" *ngIf="!showOptionsPanel">
+      <div class="wg-globe-bottom-toolbar d-flex align-items-center gap-2 flex-wrap">
         <button type="button" class="btn btn-outline-secondary btn-sm py-0 wg-btn" (click)="toggleOptionsPanel()">
-          {{ 'WORLD_GLOBE.SHOW_PANEL' | translate }}
+          <ng-container *ngIf="!showOptionsPanel">{{ 'WORLD_GLOBE.SHOW_PANEL' | translate }}</ng-container>
+          <ng-container *ngIf="showOptionsPanel">{{ 'WORLD_GLOBE.HIDE_PANEL' | translate }}</ng-container>
         </button>
         <button type="button" class="btn btn-outline-secondary btn-sm py-0 wg-btn" (click)="resetCamera()">
           {{ 'WORLD_GLOBE.RESET_VIEW' | translate }}
@@ -469,9 +567,220 @@
           <ng-container *ngIf="!fullscreen">{{ 'WORLD_GLOBE.FULLSCREEN_ENTER' | translate }}</ng-container>
           <ng-container *ngIf="fullscreen">{{ 'WORLD_GLOBE.FULLSCREEN_EXIT' | translate }}</ng-container>
         </button>
-        <button type="button" class="btn btn-outline-info btn-sm py-0 wg-btn" (click)="openDetailMapOverlay()" [disabled]="!globeSurfaceReady || detailMapOpen">
+        <button
+          type="button"
+          class="btn btn-outline-info btn-sm py-0 wg-btn"
+          (click)="openDetailMapOverlay()"
+          [disabled]="!globeSurfaceReady || detailMapOpen">
           {{ 'WORLD_GLOBE.DETAIL_MAP_OPEN_SHORT' | translate }}
         </button>
+      </div>
+
+      <div
+        class="wg-iss-pip-dock"
+        [class.wg-iss-pip-dock--fs-split]="issFsSplitLayout"
+        *ngIf="issLiveEmbedEnabled || issLiveHdEmbedEnabled">
+      <div
+        *ngIf="issLiveEmbedEnabled"
+        #issLivePiP
+        class="wg-iss-live-pip shadow"
+        [class.wg-iss-live-pip--panel-fs]="issLivePiPFullscreen"
+        role="region"
+        [attr.aria-label]="'WORLD_GLOBE.ISS_LIVE_PIP_TITLE' | translate">
+        <div class="wg-iss-live-pip__bar d-flex align-items-center gap-1 px-1 py-1">
+          <button
+            *ngIf="!issLivePiPFullscreen"
+            type="button"
+            class="wg-iss-live-pip__resize-handle flex-shrink-0"
+            (mousedown)="onIssPiPResizeStart($event, 'standard')"
+            [attr.title]="'WORLD_GLOBE.ISS_LIVE_PIP_RESIZE_HINT' | translate"
+            [attr.aria-label]="'WORLD_GLOBE.ISS_LIVE_PIP_RESIZE_HINT' | translate">
+            <i class="fa fa-arrows-alt" aria-hidden="true"></i>
+          </button>
+          <span class="wg-iss-live-pip__title small text-truncate flex-grow-1 mb-0">
+            {{ 'WORLD_GLOBE.ISS_LIVE_PIP_TITLE' | translate }}
+          </span>
+          <button
+            type="button"
+            class="btn btn-sm btn-dark py-0 px-1 border-secondary"
+            (click)="copyIssPiPScreenshotToClipboard('standard')"
+            [disabled]="issPiPImageBusy != null"
+            [attr.title]="'WORLD_GLOBE.ISS_LIVE_PIP_COPY_SCREENSHOT_HINT' | translate"
+            [attr.aria-label]="'WORLD_GLOBE.ISS_LIVE_PIP_COPY_SCREENSHOT' | translate">
+            <i
+              class="fa"
+              aria-hidden="true"
+              [class.fa-spinner]="issPiPImageBusy?.variant === 'standard' && issPiPImageBusy?.action === 'copy'"
+              [class.fa-spin]="issPiPImageBusy?.variant === 'standard' && issPiPImageBusy?.action === 'copy'"
+              [class.fa-check]="issPiPCopyFlash?.variant === 'standard' && issPiPCopyFlash?.ok"
+              [class.fa-times]="issPiPCopyFlash?.variant === 'standard' && issPiPCopyFlash && !issPiPCopyFlash.ok"
+              [class.fa-clipboard]="!(issPiPImageBusy?.variant === 'standard' && issPiPImageBusy?.action === 'copy') && !(issPiPCopyFlash?.variant === 'standard')"></i>
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-dark py-0 px-1 border-secondary wg-iss-live-pip__btn-wa"
+            (click)="shareIssPiPScreenshotOnWhatsApp('standard')"
+            [disabled]="issPiPImageBusy != null"
+            [attr.title]="'WORLD_GLOBE.ISS_LIVE_PIP_SHARE_WHATSAPP_HINT' | translate"
+            [attr.aria-label]="'WORLD_GLOBE.ISS_LIVE_PIP_SHARE_WHATSAPP' | translate">
+            <i
+              class="fa"
+              aria-hidden="true"
+              [class.fa-spinner]="issPiPImageBusy?.variant === 'standard' && issPiPImageBusy?.action === 'whatsapp'"
+              [class.fa-spin]="issPiPImageBusy?.variant === 'standard' && issPiPImageBusy?.action === 'whatsapp'"
+              [class.fa-check]="issPiPWhatsAppFlash?.variant === 'standard' && issPiPWhatsAppFlash?.ok"
+              [class.fa-times]="issPiPWhatsAppFlash?.variant === 'standard' && issPiPWhatsAppFlash && !issPiPWhatsAppFlash.ok"
+              [class.fa-whatsapp]="!(issPiPImageBusy?.variant === 'standard' && issPiPImageBusy?.action === 'whatsapp') && !(issPiPWhatsAppFlash?.variant === 'standard')"></i>
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-dark py-0 px-1 border-secondary"
+            (click)="toggleIssLivePiPFullscreen()"
+            [attr.title]="
+              issLivePiPFullscreen
+                ? ('WORLD_GLOBE.ISS_LIVE_PIP_FULLSCREEN_EXIT' | translate)
+                : ('WORLD_GLOBE.ISS_LIVE_PIP_FULLSCREEN' | translate)
+            "
+            [attr.aria-label]="
+              issLivePiPFullscreen
+                ? ('WORLD_GLOBE.ISS_LIVE_PIP_FULLSCREEN_EXIT' | translate)
+                : ('WORLD_GLOBE.ISS_LIVE_PIP_FULLSCREEN' | translate)
+            ">
+            <i
+              class="fa"
+              aria-hidden="true"
+              [class.fa-expand]="!issLivePiPFullscreen"
+              [class.fa-compress]="issLivePiPFullscreen"></i>
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-dark py-0 px-1 border-secondary"
+            (click)="openIssLiveFromDestinationOrbite()"
+            [attr.title]="'WORLD_GLOBE.ISS_LIVE_STANDARD_HINT' | translate"
+            [attr.aria-label]="'WORLD_GLOBE.ISS_LIVE_STANDARD_HINT' | translate">
+            <i class="fa fa-external-link" aria-hidden="true"></i>
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-dark py-0 px-1 border-secondary wg-iss-live-pip__btn-close"
+            (click)="closeIssLivePiP('standard')"
+            [attr.title]="'WORLD_GLOBE.ISS_LIVE_PIP_CLOSE_HINT' | translate"
+            [attr.aria-label]="'WORLD_GLOBE.ISS_LIVE_PIP_CLOSE' | translate">
+            <i class="fa fa-times" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div class="wg-iss-live-pip__frame">
+          <iframe
+            class="wg-iss-live-pip__iframe"
+            [src]="issLiveEmbedSafeUrl"
+            title="{{ 'WORLD_GLOBE.ISS_LIVE_PIP_TITLE' | translate }}"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen
+            referrerpolicy="strict-origin-when-cross-origin"
+            loading="lazy"></iframe>
+        </div>
+      </div>
+
+      <div
+        *ngIf="issLiveHdEmbedEnabled"
+        #issLiveHdPiP
+        class="wg-iss-live-pip wg-iss-live-pip--hd shadow"
+        [class.wg-iss-live-pip--panel-fs]="issLiveHdPiPFullscreen"
+        role="region"
+        [attr.aria-label]="'WORLD_GLOBE.ISS_LIVE_PIP_HD_TITLE' | translate">
+        <div class="wg-iss-live-pip__bar d-flex align-items-center gap-1 px-1 py-1">
+          <button
+            *ngIf="!issLiveHdPiPFullscreen"
+            type="button"
+            class="wg-iss-live-pip__resize-handle flex-shrink-0"
+            (mousedown)="onIssPiPResizeStart($event, 'hd')"
+            [attr.title]="'WORLD_GLOBE.ISS_LIVE_PIP_RESIZE_HINT' | translate"
+            [attr.aria-label]="'WORLD_GLOBE.ISS_LIVE_PIP_RESIZE_HINT' | translate">
+            <i class="fa fa-arrows-alt" aria-hidden="true"></i>
+          </button>
+          <span class="wg-iss-live-pip__title small text-truncate flex-grow-1 mb-0">
+            {{ 'WORLD_GLOBE.ISS_LIVE_PIP_HD_TITLE' | translate }}
+          </span>
+          <button
+            type="button"
+            class="btn btn-sm btn-dark py-0 px-1 border-secondary"
+            (click)="copyIssPiPScreenshotToClipboard('hd')"
+            [disabled]="issPiPImageBusy != null"
+            [attr.title]="'WORLD_GLOBE.ISS_LIVE_PIP_COPY_SCREENSHOT_HINT' | translate"
+            [attr.aria-label]="'WORLD_GLOBE.ISS_LIVE_PIP_COPY_SCREENSHOT' | translate">
+            <i
+              class="fa"
+              aria-hidden="true"
+              [class.fa-spinner]="issPiPImageBusy?.variant === 'hd' && issPiPImageBusy?.action === 'copy'"
+              [class.fa-spin]="issPiPImageBusy?.variant === 'hd' && issPiPImageBusy?.action === 'copy'"
+              [class.fa-check]="issPiPCopyFlash?.variant === 'hd' && issPiPCopyFlash?.ok"
+              [class.fa-times]="issPiPCopyFlash?.variant === 'hd' && issPiPCopyFlash && !issPiPCopyFlash.ok"
+              [class.fa-clipboard]="!(issPiPImageBusy?.variant === 'hd' && issPiPImageBusy?.action === 'copy') && !(issPiPCopyFlash?.variant === 'hd')"></i>
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-dark py-0 px-1 border-secondary wg-iss-live-pip__btn-wa"
+            (click)="shareIssPiPScreenshotOnWhatsApp('hd')"
+            [disabled]="issPiPImageBusy != null"
+            [attr.title]="'WORLD_GLOBE.ISS_LIVE_PIP_SHARE_WHATSAPP_HINT' | translate"
+            [attr.aria-label]="'WORLD_GLOBE.ISS_LIVE_PIP_SHARE_WHATSAPP' | translate">
+            <i
+              class="fa"
+              aria-hidden="true"
+              [class.fa-spinner]="issPiPImageBusy?.variant === 'hd' && issPiPImageBusy?.action === 'whatsapp'"
+              [class.fa-spin]="issPiPImageBusy?.variant === 'hd' && issPiPImageBusy?.action === 'whatsapp'"
+              [class.fa-check]="issPiPWhatsAppFlash?.variant === 'hd' && issPiPWhatsAppFlash?.ok"
+              [class.fa-times]="issPiPWhatsAppFlash?.variant === 'hd' && issPiPWhatsAppFlash && !issPiPWhatsAppFlash.ok"
+              [class.fa-whatsapp]="!(issPiPImageBusy?.variant === 'hd' && issPiPImageBusy?.action === 'whatsapp') && !(issPiPWhatsAppFlash?.variant === 'hd')"></i>
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-dark py-0 px-1 border-secondary"
+            (click)="toggleIssLiveHdPiPFullscreen()"
+            [attr.title]="
+              issLiveHdPiPFullscreen
+                ? ('WORLD_GLOBE.ISS_LIVE_PIP_FULLSCREEN_EXIT' | translate)
+                : ('WORLD_GLOBE.ISS_LIVE_PIP_FULLSCREEN' | translate)
+            "
+            [attr.aria-label]="
+              issLiveHdPiPFullscreen
+                ? ('WORLD_GLOBE.ISS_LIVE_PIP_FULLSCREEN_EXIT' | translate)
+                : ('WORLD_GLOBE.ISS_LIVE_PIP_FULLSCREEN' | translate)
+            ">
+            <i
+              class="fa"
+              aria-hidden="true"
+              [class.fa-expand]="!issLiveHdPiPFullscreen"
+              [class.fa-compress]="issLiveHdPiPFullscreen"></i>
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-dark py-0 px-1 border-secondary"
+            (click)="openIssLiveHdFromDestinationOrbite()"
+            [attr.title]="'WORLD_GLOBE.ISS_LIVE_HD_HINT' | translate"
+            [attr.aria-label]="'WORLD_GLOBE.ISS_LIVE_HD_HINT' | translate">
+            <i class="fa fa-external-link" aria-hidden="true"></i>
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-dark py-0 px-1 border-secondary wg-iss-live-pip__btn-close"
+            (click)="closeIssLivePiP('hd')"
+            [attr.title]="'WORLD_GLOBE.ISS_LIVE_PIP_CLOSE_HINT' | translate"
+            [attr.aria-label]="'WORLD_GLOBE.ISS_LIVE_PIP_CLOSE' | translate">
+            <i class="fa fa-times" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div class="wg-iss-live-pip__frame">
+          <iframe
+            class="wg-iss-live-pip__iframe"
+            [src]="issLiveHdEmbedSafeUrl"
+            title="{{ 'WORLD_GLOBE.ISS_LIVE_PIP_HD_TITLE' | translate }}"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen
+            referrerpolicy="strict-origin-when-cross-origin"
+            loading="lazy"></iframe>
+        </div>
+      </div>
       </div>
 
       <div #globeCanvasHost class="wg-canvas-host flex-grow-1 w-100 position-relative rounded"></div>
@@ -482,17 +791,8 @@
         </div>
       </div>
 
-      <button
-        type="button"
-        class="btn btn-sm btn-light wg-fab-hide border shadow-sm"
-        *ngIf="showOptionsPanel"
-        (click)="toggleOptionsPanel()"
-        [attr.title]="'WORLD_GLOBE.HIDE_PANEL' | translate">
-        <i class="fa fa-angle-double-left"></i>
-      </button>
     </div>
   </div>
-  </div>
-
-  <app-trace-viewer-modal #globeTraceViewer (closed)="onGlobeTraceViewerClosed()"></app-trace-viewer-modal>
 </div>
+
+<app-trace-viewer-modal #globeTraceViewer (closed)="onGlobeTraceViewerClosed()"></app-trace-viewer-modal>

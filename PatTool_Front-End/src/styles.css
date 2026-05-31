@@ -1596,3 +1596,67 @@ body:has(.friend-requests-app-banner) app-euromillions .pat-title.eurom-title-pl
   margin-top: 0 !important;
   padding-top: 1rem !important;
 }
+
+/**
+ * World Globe — même compensation .pat-div qu’EuroMillions / Bourse (titre + bandeau ISS en flux).
+ */
+body app-world-globe {
+  display: block;
+}
+
+body app-world-globe .pat-title.wg-title-plain {
+  --wg-pat-div-gap: 80px;
+  margin-top: calc(-1 * var(--wg-pat-div-gap)) !important;
+  padding-top: calc(1rem + var(--wg-pat-div-gap)) !important;
+}
+
+body app-world-globe .pat-title.wg-title-plain::before {
+  display: none;
+}
+
+body.pat-has-news-ticker:not(.pat-has-currency-ticker):not(.pat-has-stock-ticker)
+  app-world-globe
+  .pat-title.wg-title-plain {
+  --wg-pat-div-gap: 124px;
+}
+
+body:not(.pat-has-news-ticker).pat-has-currency-ticker:not(.pat-has-stock-ticker)
+  app-world-globe
+  .pat-title.wg-title-plain {
+  --wg-pat-div-gap: 108px;
+}
+
+body:not(.pat-has-news-ticker):not(.pat-has-currency-ticker).pat-has-stock-ticker
+  app-world-globe
+  .pat-title.wg-title-plain {
+  --wg-pat-div-gap: 108px;
+}
+
+body.pat-has-news-ticker.pat-has-currency-ticker:not(.pat-has-stock-ticker)
+  app-world-globe
+  .pat-title.wg-title-plain {
+  --wg-pat-div-gap: 164px;
+}
+
+body.pat-has-news-ticker:not(.pat-has-currency-ticker).pat-has-stock-ticker
+  app-world-globe
+  .pat-title.wg-title-plain {
+  --wg-pat-div-gap: 164px;
+}
+
+body:not(.pat-has-news-ticker).pat-has-currency-ticker.pat-has-stock-ticker
+  app-world-globe
+  .pat-title.wg-title-plain {
+  --wg-pat-div-gap: 148px;
+}
+
+body.pat-has-news-ticker.pat-has-currency-ticker.pat-has-stock-ticker
+  app-world-globe
+  .pat-title.wg-title-plain {
+  --wg-pat-div-gap: 204px;
+}
+
+body:has(.friend-requests-app-banner) app-world-globe .pat-title.wg-title-plain {
+  margin-top: 0 !important;
+  padding-top: 1rem !important;
+}

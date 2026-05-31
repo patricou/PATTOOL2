@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
@@ -23,10 +24,15 @@ import { Body, Equator, Observer, SiderealTime } from 'astronomy-engine';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 import earcut from 'earcut';
 
-/** Réponse proxifiée Open Notify (/api/external/globe/iss/now). */
+/** Réponse proxifiée ISS (/api/external/globe/iss/now). */
 interface GlobeOpenNotifyIssResponse {
   message?: string;
-  iss_position?: { latitude?: string; longitude?: string };
+  iss_position?: {
+    latitude?: string;
+    longitude?: string;
+    altitude_km?: string;
+    velocity_kmh?: string;
+  };
 }
 
 /** Plus de subdivisions pour des courbes lisibles très zoomées (sans tuiles HR). */
@@ -49,6 +55,21 @@ const GLOBE_GEOCODE_SPAN_REF_LO = 0.04;
 const GLOBE_GEOCODE_SPAN_REF_HI = 36;
 /** Durée du vol caméra après recherche de lieu (arc de grand cercle). */
 const GLOBE_GEOCODE_ANIM_MS = 1700;
+
+/** Flux ISS en direct (Destination Orbite) — nouvel onglet navigateur. */
+const ISS_LIVE_DESTINATION_ORBITE_URL =
+	'https://destination-orbite.net/exploration/direct/en-direct-depuis-la-station-spatiale';
+const ISS_LIVE_HD_DESTINATION_ORBITE_URL =
+	'https://destination-orbite.net/exploration/direct/en-direct-hd-depuis-l-iss';
+/**
+ * IDs YouTube embarqués par Destination Orbite (balise lite-youtube sur leurs pages direct).
+ * Standard : flux NASA officiel — https://www.youtube.com/watch?v=uwXgcTc8oY8
+ * HD : https://www.youtube.com/watch?v=FuuC4dpSQ1M
+ */
+/** Page standard Destination Orbite → lite-youtube `uwXgcTc8oY8` (NASA officiel). */
+const ISS_LIVE_YOUTUBE_VIDEO_ID = 'uwXgcTc8oY8';
+/** Page HD Destination Orbite → lite-youtube `FuuC4dpSQ1M`. */
+const ISS_LIVE_HD_YOUTUBE_VIDEO_ID = 'FuuC4dpSQ1M';
 
 /** Sphère repère géocodage : rayon monde, légèrement au-dessus du maillage Terre (rayon 1). */
 const GLOBE_GEOCODE_MARKER_SURFACE_OFFSET = 1.003;
@@ -88,7 +109,7 @@ const GLOBE_ISS_TRAIL_MAX_POINTS = 96;
 /** Segments par segment de traînée (grand cercle entre deux relevés). */
 const GLOBE_ISS_TRAIL_ARC_SEGMENTS = 14;
 /** Intervalle par défaut entre deux appels Open Notify (secondes). */
-const GLOBE_ISS_POLL_DEFAULT_SEC = 30;
+const GLOBE_ISS_POLL_DEFAULT_SEC = 5;
 const GLOBE_ISS_POLL_MIN_SEC = 5;
 const GLOBE_ISS_POLL_MAX_SEC = 600;
 /** Demi-vie du recadrage caméra vers l’ISS (mode « centré sur l’ISS ») ; mouvement fluide, peu dépendant du framerate. */
@@ -118,6 +139,14 @@ const GLOBE_LIGHTING_BOOST_DEFAULT = 1.26;
 const GLOBE_LIGHTING_BOOST_MIN = 0.48;
 const GLOBE_LIGHTING_BOOST_MAX = 2.08;
 
+/** Calque sombre nuit (au-dessus du sol, sous nuages) pour accentuer le terminateur. */
+const GLOBE_TERMINATOR_NIGHT_RADIUS = 1.011;
+/** Éclairage terminateur : nuit plus sombre, jour plus lumineux (avant globeLightingBoost). */
+const GLOBE_TERMINATOR_AMB_BASE = 0.05;
+const GLOBE_TERMINATOR_HEMI_BASE = 0.03;
+const GLOBE_TERMINATOR_SUN_BASE = 4.4;
+const GLOBE_TERMINATOR_EXPOSURE_BASE = 1.06;
+
 /** À zoom fort (caméra proche), rotation / panoramique / molette trop nerveux sans ce facteur. */
 const ORBIT_SENS_U_MIN_ROTATE_PAN = 0.13;
 const ORBIT_SENS_U_MIN_ZOOM = 0.48;
@@ -146,6 +175,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly sanitizer = inject(DomSanitizer);
 
   @ViewChild('globeCanvasHost') globeCanvasHost?: ElementRef<HTMLElement>;
   @ViewChild('globeShell') globeShell?: ElementRef<HTMLElement>;
@@ -153,6 +183,23 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   @ViewChild('globeFsRoot') globeFsRoot?: ElementRef<HTMLElement>;
   @ViewChild('globeTraceMount') globeTraceMount?: ElementRef<HTMLElement>;
   @ViewChild('globeTraceViewer') globeTraceViewer?: TraceViewerModalComponent;
+  @ViewChild('issLivePiP') issLivePiP?: ElementRef<HTMLElement>;
+  @ViewChild('issLiveHdPiP') issLiveHdPiP?: ElementRef<HTMLElement>;
+
+  /** Mini-fenêtre ISS en direct (embed YouTube, même source que Destination Orbite). */
+  issLiveEmbedEnabled = false;
+  issLivePiPFullscreen = false;
+  readonly issLiveEmbedSafeUrl: SafeResourceUrl = this.buildIssLiveEmbedSafeUrl(ISS_LIVE_YOUTUBE_VIDEO_ID);
+  /** Mini-fenêtre ISS HD (activée par défaut). */
+  issLiveHdEmbedEnabled = true;
+  issLiveHdPiPFullscreen = false;
+  readonly issLiveHdEmbedSafeUrl: SafeResourceUrl = this.buildIssLiveEmbedSafeUrl(ISS_LIVE_HD_YOUTUBE_VIDEO_ID);
+  /** Capture image ISS en cours (copie ou partage WhatsApp, une fenêtre à la fois). */
+  issPiPImageBusy: { variant: 'standard' | 'hd'; action: 'copy' | 'whatsapp' } | null = null;
+  issPiPCopyFlash: { variant: 'standard' | 'hd'; ok: boolean } | null = null;
+  issPiPWhatsAppFlash: { variant: 'standard' | 'hd'; ok: boolean } | null = null;
+  private issPiPCopyFlashTimer: ReturnType<typeof setTimeout> | null = null;
+  private issPiPWhatsAppFlashTimer: ReturnType<typeof setTimeout> | null = null;
 
   showOptionsPanel = true;
   cloudsEnabled = false;
@@ -186,12 +233,16 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   /** Fuseaux horaires remplis (NE 10m). */
   timeZonesEnabled = false;
   issOverlayEnabled = true;
+  /** Bandeau défilant lat/lon/altitude/vitesse ISS (page globe). */
+  issTickerEnabled = true;
+  /** Répétitions lat/lon/alt/vitesse par demi-piste (boucle marquee sans trou). */
+  readonly issTickerMarqueeRepeats = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
   /**
    * Garde le sous-point ISS au centre du globe (caméra réalignée à chaque frame ; le zoom est conservé).
    * Désactive temporairement la rotation automatique tant que l’option est active et qu’une position ISS est connue.
    */
-  issKeepEarthCentered = false;
-  /** Secondes entre deux rafraîchissements ISS (5–600, défaut 30). */
+  issKeepEarthCentered = true;
+  /** Secondes entre deux rafraîchissements ISS (5–600, défaut 5). */
   issPollIntervalSec = GLOBE_ISS_POLL_DEFAULT_SEC;
   /**
    * Secondes restantes avant le prochain appel API (0 si inactif).
@@ -222,18 +273,19 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   issOverlayFailed = false;
   globeIssLat: number | null = null;
   globeIssLon: number | null = null;
+  /** Altitude ISS (km), fournie par wheretheiss.at lorsque disponible. */
+  globeIssAltKm: number | null = null;
   /**
-   * Vitesse estimée du sous-point ISS (km/h), à partir de deux relevés API consécutifs.
-   * Reste null jusqu’au second échantillon exploitable.
+   * Vitesse du sous-point ISS (km/h) : priorité à l’API, sinon estimation entre deux relevés.
    */
   issGroundSpeedKmh: number | null = null;
-  /** Éclairage uniforme sur tout le globe (ambiance + hémisphère). Activé par défaut. Coupé tant que le jour/nuit réel est actif. */
-  globeLightingUniform = true;
+  /** Éclairage uniforme sur tout le globe (ambiance + hémisphère). Coupé tant que le jour/nuit réel est actif. */
+  globeLightingUniform = false;
   /**
    * Terminateur jour/nuit selon la position réelle du Soleil (horloge du navigateur / UTC).
-   * Prioritaire sur l’éclairage uniforme lorsqu’il est activé ; désactivé par défaut (éclairage globe).
+   * Activé par défaut ; prioritaire sur l’éclairage uniforme.
    */
-  realTimeTerminator = false;
+  realTimeTerminator = true;
 
   /**
    * Intensité globale des lumières et de l’exposition tone-mapping (curseur latéral).
@@ -255,11 +307,22 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   detailMapOpen = false;
   detailMapPickFailed = false;
   fullscreen = false;
+
+  /** Plein écran navigateur ou repli viewport : masquer le titre, garder le bandeau ISS. */
+  get globePresentationMode(): boolean {
+    return this.fullscreen || this.globeViewportLocked;
+  }
+
+  /** Plein écran navigateur + au moins une fenêtre ISS : globe à gauche, flux à droite. */
+  get issFsSplitLayout(): boolean {
+    return this.fullscreen && (this.issLiveEmbedEnabled || this.issLiveHdEmbedEnabled);
+  }
   /**
    * True si le dernier plein écran a utilisé `document.documentElement` (repli quand le conteneur refuse l’API).
    * Permet de détecter la sortie et de garder le libellé du bouton cohérent.
    */
-  private globeDocumentFullscreenFallback = false;
+  /** Repli si l’API Fullscreen refuse l’élément : occupe tout le viewport en position fixe. */
+  globeViewportLocked = false;
   textureLoadError = false;
 
   /** Recherche de lieu (Nominatim via backend), comme la page Adresse / GPS. */
@@ -347,6 +410,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private ambientLight?: THREE.AmbientLight;
   private hemisphereLight?: THREE.HemisphereLight;
   private sunLight?: THREE.DirectionalLight;
+  /** Voile bleu nuit sur l’hémisphère non éclairé (enfant du maillage Terre). */
+  private terminatorNightOverlay?: THREE.Mesh;
+  private readonly terminatorSunDirUniform = { value: new THREE.Vector3(1, 0, 0) };
   /** Distance fictive du soleil directionnel (rayons quasi parallèles). */
   private static readonly SUN_LIGHT_DISTANCE = 50;
   /**
@@ -357,6 +423,20 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
 
   private rafId: number | null = null;
   private resizeObs?: ResizeObserver;
+  private issLivePiPResizeObs?: ResizeObserver;
+  private issLivePiPResizeSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Évite d’écraser les tailles ISS mémorisées pendant un reflow (panneau options, etc.). */
+  private issPiPSuppressSizePersist = false;
+  private issPiPResizeDrag: {
+    panel: HTMLElement;
+    variant: keyof typeof WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY;
+    startX: number;
+    startY: number;
+    startW: number;
+    startH: number;
+  } | null = null;
+  private readonly issPiPResizeMoveHandler = (event: MouseEvent) => this.onIssPiPResizeMove(event);
+  private readonly issPiPResizeUpHandler = () => this.endIssPiPResizeDrag();
   /** Rotation lente nuages vs sol (effet léger façon couches atmosphériques). */
   private cloudsDriftRad = 0;
   private routeQuerySub?: Subscription;
@@ -506,6 +586,13 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     });
     this.translateLangSub = this.translate.onLangChange.subscribe(() => this.onTranslateLangChangedForGlobeCountryLabels());
     queueMicrotask(() => this.bootstrapThree());
+    queueMicrotask(() => this.refreshIssLivePiPPanelsLayout());
+    if (this.issTickerEnabled) {
+      queueMicrotask(() => {
+        this.startIssPolling();
+        void this.refreshIssNow();
+      });
+    }
   }
 
   ngOnDestroy(): void {
@@ -533,10 +620,20 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.globePickCursorResetTimer = null;
     }
     this.globeSurfaceReady = false;
+    this.terminatorNightOverlay = undefined;
     this.disposeWeatherOverlayMesh();
     this.stopLoop();
     this.disposeGeocodeMarkerMesh();
     this.resizeObs?.disconnect();
+    this.disposeIssLivePiPResizeObservers();
+    if (this.issPiPCopyFlashTimer != null) {
+      clearTimeout(this.issPiPCopyFlashTimer);
+      this.issPiPCopyFlashTimer = null;
+    }
+    if (this.issPiPWhatsAppFlashTimer != null) {
+      clearTimeout(this.issPiPWhatsAppFlashTimer);
+      this.issPiPWhatsAppFlashTimer = null;
+    }
     const canvasUnd = this.renderer?.domElement;
     if (canvasUnd) {
       canvasUnd.style.cursor = '';
@@ -562,8 +659,12 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   @HostListener('document:MSFullscreenChange')
   onFullscreenDoc(): void {
     this.syncFullscreenFromDocument();
+    this.syncIssLivePiPFullscreenFromDocument();
     this.cdr.markForCheck();
-    requestAnimationFrame(() => this.resizeRendererToHost());
+    requestAnimationFrame(() => {
+      this.resizeRendererToHost();
+      this.refreshIssLivePiPPanelsLayout();
+    });
   }
 
   @HostListener('window:resize')
@@ -760,8 +861,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       mozRequestFullScreen?: () => Promise<void> | void;
       msRequestFullscreen?: () => Promise<void> | void;
     };
+    const opts: FullscreenOptions = { navigationUI: 'hide' };
     if (anyEl.requestFullscreen) {
-      await anyEl.requestFullscreen();
+      await anyEl.requestFullscreen(opts);
       return;
     }
     if (anyEl.webkitRequestFullscreen) {
@@ -826,41 +928,58 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       null;
 
     const inOurRegion = !!(fsEl && (fsEl === region || region.contains(fsEl)));
-    const inDocFallback =
-      this.globeDocumentFullscreenFallback && fsEl === document.documentElement;
 
-    if (inOurRegion || inDocFallback) {
-      try {
-        await WorldGlobeComponent.exitFullscreenCompat(doc);
-      } catch {
-        /* ignore */
+    if (inOurRegion || this.globeViewportLocked) {
+      if (inOurRegion) {
+        try {
+          await WorldGlobeComponent.exitFullscreenCompat(doc);
+        } catch {
+          /* ignore */
+        }
       }
-      this.globeDocumentFullscreenFallback = false;
+      this.globeViewportLocked = false;
       this.syncFullscreenFromDocument();
-      this.cdr.markForCheck();
-      requestAnimationFrame(() => this.resizeRendererToHost());
+      this.scheduleGlobeViewAfterLayoutChange();
       return;
     }
 
     try {
       await WorldGlobeComponent.requestFullscreenCompat(region);
-      this.globeDocumentFullscreenFallback = false;
+      this.globeViewportLocked = false;
     } catch {
-      try {
-        await WorldGlobeComponent.requestFullscreenCompat(document.documentElement);
-        this.globeDocumentFullscreenFallback = true;
-      } catch {
-        /* navigateur refuse (iOS, politique, etc.) */
-      }
+      this.globeViewportLocked = true;
     }
     this.syncFullscreenFromDocument();
-    this.cdr.markForCheck();
-    requestAnimationFrame(() => this.resizeRendererToHost());
+    this.scheduleGlobeViewAfterLayoutChange();
+  }
+
+  /** Évite NG0100 : mises à jour de bindings après le cycle de détection en cours. */
+  private scheduleGlobeViewAfterLayoutChange(): void {
+    queueMicrotask(() => {
+      this.cdr.markForCheck();
+      requestAnimationFrame(() => {
+        this.resizeRendererToHost();
+        this.refreshIssLivePiPPanelsLayout();
+      });
+    });
   }
 
   toggleOptionsPanel(): void {
+    const snap = this.snapshotIssPiPPanelSizes();
     this.showOptionsPanel = !this.showOptionsPanel;
-    requestAnimationFrame(() => this.resizeRendererToHost());
+    this.issPiPSuppressSizePersist = true;
+    queueMicrotask(() => {
+      requestAnimationFrame(() => {
+        this.restoreIssPiPPanelSizes(snap);
+        this.syncIssStandardPiPSizeWithHd();
+        this.syncIssLivePiPStackOffset();
+        this.resizeRendererToHost();
+        requestAnimationFrame(() => this.resizeRendererToHost());
+        window.setTimeout(() => {
+          this.issPiPSuppressSizePersist = false;
+        }, 450);
+      });
+    });
   }
 
   onCloudsToggle(): void {
@@ -931,22 +1050,50 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.issKeepEarthCentered = false;
       this.issCameraCenterSmoothPrevMs = 0;
       this.issShiftManualOrbitPointerId = null;
-      this.issGroundSpeedKmh = null;
-      this.issSpeedSampleLat = null;
-      this.issSpeedSampleLon = null;
-      this.issSpeedSampleEpochMs = 0;
       if (this.controls) {
         this.controls.autoRotate = this.autoRotate;
       }
       this.issManualRefreshInFlight = false;
-      this.stopIssPolling();
       this.disposeIssMarkerMesh();
       this.clearIssTrail();
       this.issOverlayFailed = false;
-      this.globeIssLat = null;
-      this.globeIssLon = null;
+      if (!this.issTickerEnabled) {
+        this.clearIssPositionFeedState();
+        this.stopIssPolling();
+      } else {
+        this.startIssPolling();
+      }
       this.cdr.markForCheck();
     }
+  }
+
+  onIssTickerToggle(): void {
+    if (this.issTickerEnabled) {
+      this.startIssPolling();
+      void this.refreshIssNow();
+    } else if (!this.issOverlayEnabled) {
+      this.stopIssPolling();
+      this.clearIssPositionFeedState();
+    }
+    this.cdr.markForCheck();
+  }
+
+  issTickerHasLiveData(): boolean {
+    return this.globeIssLat != null && this.globeIssLon != null;
+  }
+
+  private issPositionFeedActive(): boolean {
+    return this.issOverlayEnabled || this.issTickerEnabled;
+  }
+
+  private clearIssPositionFeedState(): void {
+    this.issGroundSpeedKmh = null;
+    this.globeIssAltKm = null;
+    this.issSpeedSampleLat = null;
+    this.issSpeedSampleLon = null;
+    this.issSpeedSampleEpochMs = 0;
+    this.globeIssLat = null;
+    this.globeIssLon = null;
   }
 
   /** Suit le sous-point ISS vers le centre de la vue (voir {@link issKeepEarthCentered}). */
@@ -1033,9 +1180,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       typeof this.issPollIntervalSec === 'number' ? this.issPollIntervalSec : GLOBE_ISS_POLL_DEFAULT_SEC
     );
     if (this.issOverlayEnabled && this.globeSurfaceReady) {
-      this.startIssPolling();
+      queueMicrotask(() => this.startIssPolling());
     }
-    this.cdr.markForCheck();
+    queueMicrotask(() => this.cdr.markForCheck());
   }
 
   /** Position ISS tout de suite ; le prochain tirage automatique est recalculé à partir de maintenant. */
@@ -1061,6 +1208,874 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.scheduleIssRefreshChain(ms);
       this.cdr.markForCheck();
     });
+  }
+
+  private static readonly ISS_PIP_SIZE_STORAGE_KEY = {
+    standard: 'pat.world-globe.iss-pip.size.standard',
+    hd: 'pat.world-globe.iss-pip.size.hd'
+  } as const;
+
+  private static readonly ISS_PIP_SIZE_MIN = { w: 160, h: 120 };
+  private static readonly ISS_PIP_SIZE_MAX_RATIO = { w: 0.96, h: 0.85 };
+  /** Plafond fixe à la restauration (évite de rétrécir quand le panneau options se masque). */
+  private static readonly ISS_PIP_SIZE_ABSOLUTE_MAX = { w: 1400, h: 900 };
+  private static readonly ISS_PIP_STACK_GAP_PX = 6;
+
+  onIssLiveEmbedPanelToggle(): void {
+    queueMicrotask(() => this.refreshIssLivePiPPanelsLayout());
+  }
+
+  onIssLiveHdEmbedPanelToggle(): void {
+    queueMicrotask(() => this.refreshIssLivePiPPanelsLayout());
+  }
+
+  /** Ferme la mini-fenêtre ISS (désactive le flux + quitte le plein écran vidéo si actif). */
+  closeIssLivePiP(variant: 'standard' | 'hd'): void {
+    if (variant === 'standard') {
+      if (this.issLivePiPFullscreen) {
+        void this.toggleIssLivePiPFullscreen();
+      }
+      if (!this.issLiveEmbedEnabled) {
+        return;
+      }
+      this.issLiveEmbedEnabled = false;
+      this.onIssLiveEmbedPanelToggle();
+      return;
+    }
+    if (this.issLiveHdPiPFullscreen) {
+      void this.toggleIssLiveHdPiPFullscreen();
+    }
+    if (!this.issLiveHdEmbedEnabled) {
+      return;
+    }
+    this.issLiveHdEmbedEnabled = false;
+    this.onIssLiveHdEmbedPanelToggle();
+  }
+
+  private disposeIssLivePiPResizeObservers(): void {
+    this.endIssPiPResizeDrag();
+    this.issLivePiPResizeObs?.disconnect();
+    this.issLivePiPResizeObs = undefined;
+    if (this.issLivePiPResizeSaveTimer != null) {
+      clearTimeout(this.issLivePiPResizeSaveTimer);
+      this.issLivePiPResizeSaveTimer = null;
+    }
+  }
+
+  /** Poignée en haut à gauche : la fenêtre reste ancrée en bas à droite. */
+  onIssPiPResizeStart(event: MouseEvent, variant: keyof typeof WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY): void {
+    if (variant === 'standard' && this.issLivePiPFullscreen) {
+      return;
+    }
+    if (variant === 'hd' && this.issLiveHdPiPFullscreen) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const panel =
+      variant === 'standard' ? this.issLivePiP?.nativeElement : this.issLiveHdPiP?.nativeElement;
+    if (!panel) {
+      return;
+    }
+    this.issPiPResizeDrag = {
+      panel,
+      variant,
+      startX: event.clientX,
+      startY: event.clientY,
+      startW: panel.offsetWidth,
+      startH: panel.offsetHeight
+    };
+    panel.classList.add('wg-iss-live-pip--resizing');
+    document.addEventListener('mousemove', this.issPiPResizeMoveHandler);
+    document.addEventListener('mouseup', this.issPiPResizeUpHandler);
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'nwse-resize';
+  }
+
+  private onIssPiPResizeMove(event: MouseEvent): void {
+    const drag = this.issPiPResizeDrag;
+    if (!drag) {
+      return;
+    }
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    const { w, h } = this.clampIssPiPSize(drag.startW - dx, drag.startH - dy);
+    drag.panel.style.width = `${w}px`;
+    drag.panel.style.height = `${h}px`;
+    drag.panel.style.maxWidth = `${w}px`;
+    drag.panel.style.maxHeight = `${h}px`;
+    this.syncIssLivePiPStackOffset();
+  }
+
+  private endIssPiPResizeDrag(): void {
+    const drag = this.issPiPResizeDrag;
+    if (!drag) {
+      return;
+    }
+    const { panel, variant } = drag;
+    this.issPiPResizeDrag = null;
+    document.removeEventListener('mousemove', this.issPiPResizeMoveHandler);
+    document.removeEventListener('mouseup', this.issPiPResizeUpHandler);
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+    panel.classList.remove('wg-iss-live-pip--resizing');
+    this.saveIssPiPSize(panel, variant);
+    this.syncIssLivePiPStackOffset();
+  }
+
+  private refreshIssLivePiPPanelsLayout(): void {
+    this.applyIssPiPStoredSize(this.issLiveHdPiP?.nativeElement, 'hd');
+    this.applyIssPiPStoredSize(this.issLivePiP?.nativeElement, 'standard');
+    this.syncIssStandardPiPSizeWithHd();
+    this.syncIssLivePiPStackOffset();
+    this.setupIssLivePiPResizeObservers();
+    if (this.issLiveEmbedEnabled) {
+      requestAnimationFrame(() => {
+        this.syncIssStandardPiPSizeWithHd();
+        this.syncIssLivePiPStackOffset();
+      });
+    }
+  }
+
+  private setupIssLivePiPResizeObservers(): void {
+    this.disposeIssLivePiPResizeObservers();
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    const panels: HTMLElement[] = [];
+    const standard = this.issLivePiP?.nativeElement;
+    const hd = this.issLiveHdPiP?.nativeElement;
+    if (this.issLiveEmbedEnabled && standard) {
+      panels.push(standard);
+    }
+    if (this.issLiveHdEmbedEnabled && hd) {
+      panels.push(hd);
+    }
+    if (!panels.length) {
+      return;
+    }
+    this.issLivePiPResizeObs = new ResizeObserver(() => {
+      this.syncIssLivePiPStackOffset();
+      this.scheduleIssPiPSizePersist();
+    });
+    for (const panel of panels) {
+      this.issLivePiPResizeObs.observe(panel);
+    }
+  }
+
+  private scheduleIssPiPSizePersist(): void {
+    if (this.issPiPSuppressSizePersist) {
+      return;
+    }
+    if (this.issLivePiPResizeSaveTimer != null) {
+      clearTimeout(this.issLivePiPResizeSaveTimer);
+    }
+    this.issLivePiPResizeSaveTimer = setTimeout(() => {
+      this.issLivePiPResizeSaveTimer = null;
+      this.persistIssPiPPanelSizes();
+    }, 280);
+  }
+
+  private persistIssPiPPanelSizes(): void {
+    if (this.issLiveEmbedEnabled) {
+      this.saveIssPiPSize(this.issLivePiP?.nativeElement, 'standard');
+    }
+    if (this.issLiveHdEmbedEnabled) {
+      this.saveIssPiPSize(this.issLiveHdPiP?.nativeElement, 'hd');
+    }
+  }
+
+  /** Taille de référence de la fenêtre HD (affichée ou stockée). */
+  private resolveIssHdPiPReferenceSize(): { w: number; h: number } | null {
+    const hd = this.issLiveHdPiP?.nativeElement;
+    if (this.issLiveHdEmbedEnabled && hd) {
+      const fromEl = this.readIssPiPPanelSizeFromElement(hd);
+      if (fromEl) {
+        return fromEl;
+      }
+    }
+    try {
+      const raw = localStorage.getItem(WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY.hd);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { w?: number; h?: number };
+        const w = typeof parsed.w === 'number' ? parsed.w : 0;
+        const h = typeof parsed.h === 'number' ? parsed.h : 0;
+        if (w > 0 && h > 0) {
+          return { w, h };
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    return null;
+  }
+
+  /** Aligne « ISS en direct » sur la largeur et la hauteur de « ISS en direct HD ». */
+  private syncIssStandardPiPSizeWithHd(): void {
+    if (!this.issLiveEmbedEnabled) {
+      return;
+    }
+    const standard = this.issLivePiP?.nativeElement;
+    if (!standard) {
+      return;
+    }
+    const ref = this.resolveIssHdPiPReferenceSize();
+    if (!ref) {
+      return;
+    }
+    const clamped = this.clampIssPiPSize(ref.w, ref.h);
+    this.applyIssPiPPanelSize(standard, clamped.w, clamped.h);
+    this.saveIssPiPSize(standard, 'standard');
+  }
+
+  private snapshotIssPiPPanelSizes(): Partial<
+    Record<keyof typeof WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY, { w: number; h: number }>
+  > {
+    const out: Partial<
+      Record<keyof typeof WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY, { w: number; h: number }>
+    > = {};
+    if (this.issLiveEmbedEnabled) {
+      const panel = this.issLivePiP?.nativeElement;
+      const size = this.readIssPiPPanelSizeFromElement(panel);
+      if (size) {
+        out.standard = size;
+      }
+    }
+    if (this.issLiveHdEmbedEnabled) {
+      const panel = this.issLiveHdPiP?.nativeElement;
+      const size = this.readIssPiPPanelSizeFromElement(panel);
+      if (size) {
+        out.hd = size;
+      }
+    }
+    return out;
+  }
+
+  private restoreIssPiPPanelSizes(
+    snap: Partial<Record<keyof typeof WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY, { w: number; h: number }>>
+  ): void {
+    if (snap.standard && this.issLiveEmbedEnabled) {
+      this.applyIssPiPPanelSize(this.issLivePiP?.nativeElement, snap.standard.w, snap.standard.h);
+    }
+    if (snap.hd && this.issLiveHdEmbedEnabled) {
+      this.applyIssPiPPanelSize(this.issLiveHdPiP?.nativeElement, snap.hd.w, snap.hd.h);
+    }
+  }
+
+  private readIssPiPPanelSizeFromElement(panel: HTMLElement | undefined): { w: number; h: number } | null {
+    if (!panel) {
+      return null;
+    }
+    const styleW = parseFloat(panel.style.width);
+    const styleH = parseFloat(panel.style.height);
+    const w =
+      Number.isFinite(styleW) && styleW > 0
+        ? styleW
+        : panel.offsetWidth > 0
+          ? panel.offsetWidth
+          : 0;
+    const h =
+      Number.isFinite(styleH) && styleH > 0
+        ? styleH
+        : panel.offsetHeight > 0
+          ? panel.offsetHeight
+          : 0;
+    if (w < 1 || h < 1) {
+      return null;
+    }
+    return { w, h };
+  }
+
+  private applyIssPiPPanelSize(panel: HTMLElement | undefined, w: number, h: number): void {
+    if (!panel || w < 1 || h < 1) {
+      return;
+    }
+    const clamped = this.clampIssPiPStoredSize(w, h);
+    panel.style.width = `${clamped.w}px`;
+    panel.style.maxWidth = `${clamped.w}px`;
+    panel.style.height = `${clamped.h}px`;
+    panel.style.maxHeight = `${clamped.h}px`;
+  }
+
+  private applyIssPiPStoredSize(panel: HTMLElement | undefined, variant: keyof typeof WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY): void {
+    if (!panel) {
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY[variant]);
+      if (!raw) {
+        return;
+      }
+      const parsed = JSON.parse(raw) as { w?: number; h?: number };
+      const w = typeof parsed.w === 'number' ? parsed.w : 0;
+      const h = typeof parsed.h === 'number' ? parsed.h : 0;
+      this.applyIssPiPPanelSize(panel, w, h);
+    } catch {
+      /* ignore corrupt storage */
+    }
+  }
+
+  private saveIssPiPSize(panel: HTMLElement | undefined, variant: keyof typeof WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY): void {
+    if (!panel || panel.offsetWidth < 1 || panel.offsetHeight < 1) {
+      return;
+    }
+    try {
+      const payload = {
+        w: panel.offsetWidth,
+        h: panel.offsetHeight
+      };
+      localStorage.setItem(WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY[variant], JSON.stringify(payload));
+    } catch {
+      /* quota / private mode */
+    }
+  }
+
+  private getGlobeStageElement(): HTMLElement | null {
+    return this.globeShell?.nativeElement?.querySelector<HTMLElement>('.wg-stage') ?? null;
+  }
+
+  private clampIssPiPStoredSize(w: number, h: number): { w: number; h: number } {
+    const min = WorldGlobeComponent.ISS_PIP_SIZE_MIN;
+    const max = WorldGlobeComponent.ISS_PIP_SIZE_ABSOLUTE_MAX;
+    return {
+      w: w > 0 ? Math.min(max.w, Math.max(min.w, Math.round(w))) : 0,
+      h: h > 0 ? Math.min(max.h, Math.max(min.h, Math.round(h))) : 0
+    };
+  }
+
+  private clampIssPiPSize(w: number, h: number): { w: number; h: number } {
+    const stage = this.getGlobeStageElement();
+    const dock = stage?.querySelector<HTMLElement>('.wg-iss-pip-dock--fs-split');
+    const widthRef =
+      this.issFsSplitLayout && dock && dock.clientWidth > 0
+        ? dock.clientWidth
+        : stage?.clientWidth ?? 0;
+    const heightRef = stage?.clientHeight ?? 0;
+    const maxW = widthRef > 0 ? Math.floor(widthRef * WorldGlobeComponent.ISS_PIP_SIZE_MAX_RATIO.w) : 900;
+    const maxH = heightRef > 0 ? Math.floor(heightRef * WorldGlobeComponent.ISS_PIP_SIZE_MAX_RATIO.h) : 700;
+    const min = WorldGlobeComponent.ISS_PIP_SIZE_MIN;
+    return {
+      w: Math.min(maxW, Math.max(min.w, Math.round(w))),
+      h: Math.min(maxH, Math.max(min.h, Math.round(h)))
+    };
+  }
+
+  /** Décale la fenêtre HD au-dessus de la hauteur réelle de la fenêtre standard. */
+  private syncIssLivePiPStackOffset(): void {
+    const hd = this.issLiveHdPiP?.nativeElement;
+    if (!hd) {
+      return;
+    }
+    if (this.issFsSplitLayout) {
+      hd.style.removeProperty('--wg-iss-pip-stack-offset');
+      return;
+    }
+    if (!this.issLiveEmbedEnabled || !this.issLiveHdEmbedEnabled) {
+      hd.style.removeProperty('--wg-iss-pip-stack-offset');
+      return;
+    }
+    const standard = this.issLivePiP?.nativeElement;
+    const stackPx =
+      (standard?.offsetHeight ?? 0) > 0
+        ? standard!.offsetHeight + WorldGlobeComponent.ISS_PIP_STACK_GAP_PX
+        : 180;
+    hd.style.setProperty('--wg-iss-pip-stack-offset', `${stackPx}px`);
+  }
+
+  private buildIssLiveEmbedSafeUrl(videoId: string): SafeResourceUrl {
+    const params = new URLSearchParams({
+      autoplay: '1',
+      mute: '1',
+      playsinline: '1',
+      rel: '0',
+      modestbranding: '1',
+      enablejsapi: '0'
+    });
+    return this.sanitizer.bypassSecurityTrustResourceUrl(
+      `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`
+    );
+  }
+
+  private getDocumentFullscreenElement(): Element | null {
+    const doc = document as Document & {
+      webkitFullscreenElement?: Element | null;
+      mozFullScreenElement?: Element | null;
+      msFullscreenElement?: Element | null;
+    };
+    return (
+      document.fullscreenElement ??
+      doc.webkitFullscreenElement ??
+      doc.mozFullScreenElement ??
+      doc.msFullscreenElement ??
+      null
+    );
+  }
+
+  private isPiPPanelFullscreen(panel: HTMLElement | null | undefined): boolean {
+    if (!panel) {
+      return false;
+    }
+    const fsEl = this.getDocumentFullscreenElement();
+    return !!(fsEl && (fsEl === panel || panel.contains(fsEl)));
+  }
+
+  private syncIssLivePiPFullscreenFromDocument(): void {
+    this.issLivePiPFullscreen = this.isPiPPanelFullscreen(this.issLivePiP?.nativeElement);
+    this.issLiveHdPiPFullscreen = this.isPiPPanelFullscreen(this.issLiveHdPiP?.nativeElement);
+  }
+
+  private async togglePiPPanelFullscreen(panel: HTMLElement | undefined): Promise<void> {
+    if (!panel) {
+      return;
+    }
+    const doc = document as Document & {
+      webkitExitFullscreen?: () => Promise<void>;
+      mozCancelFullScreen?: () => Promise<void>;
+      msExitFullscreen?: () => Promise<void>;
+    };
+    if (this.isPiPPanelFullscreen(panel)) {
+      try {
+        await WorldGlobeComponent.exitFullscreenCompat(doc);
+      } catch {
+        /* ignore */
+      }
+      this.syncIssLivePiPFullscreenFromDocument();
+      this.cdr.markForCheck();
+      return;
+    }
+    const req =
+      panel.requestFullscreen?.bind(panel) ??
+      (panel as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen?.bind(panel) ??
+      (panel as HTMLElement & { msRequestFullscreen?: () => Promise<void> }).msRequestFullscreen?.bind(panel);
+    if (!req) {
+      return;
+    }
+    try {
+      await req();
+      this.syncIssLivePiPFullscreenFromDocument();
+      this.cdr.markForCheck();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async toggleIssLivePiPFullscreen(): Promise<void> {
+    await this.togglePiPPanelFullscreen(this.issLivePiP?.nativeElement);
+  }
+
+  async toggleIssLiveHdPiPFullscreen(): Promise<void> {
+    await this.togglePiPPanelFullscreen(this.issLiveHdPiP?.nativeElement);
+  }
+
+  /** Direct ISS (Destination Orbite) dans un nouvel onglet. */
+  openIssLiveFromDestinationOrbite(): void {
+    window.open(ISS_LIVE_DESTINATION_ORBITE_URL, '_blank', 'noopener,noreferrer');
+  }
+
+  /** Direct ISS HD (Destination Orbite) dans un nouvel onglet. */
+  openIssLiveHdFromDestinationOrbite(): void {
+    window.open(ISS_LIVE_HD_DESTINATION_ORBITE_URL, '_blank', 'noopener,noreferrer');
+  }
+
+  /** Copie une capture de la mini-fenêtre ISS (PNG) dans le presse-papiers. */
+  async copyIssPiPScreenshotToClipboard(variant: 'standard' | 'hd'): Promise<void> {
+    if (this.issPiPImageBusy != null) {
+      return;
+    }
+    const capture = this.resolveIssPiPCapture(variant);
+    if (!capture) {
+      this.flashIssPiPCopyFeedback(variant, false);
+      return;
+    }
+    this.issPiPImageBusy = { variant, action: 'copy' };
+    this.cdr.markForCheck();
+    try {
+      const blob = await this.captureIssPiPFrameToPngBlob(capture.frame, capture.videoId);
+      if (!blob) {
+        this.flashIssPiPCopyFeedback(variant, false);
+        return;
+      }
+      const ok = await this.writeIssPiPPngToClipboard(blob);
+      this.flashIssPiPCopyFeedback(variant, ok);
+    } catch (err: unknown) {
+      const name = err instanceof DOMException || err instanceof Error ? err.name : '';
+      if (name === 'NotAllowedError' || name === 'AbortError') {
+        return;
+      }
+      this.flashIssPiPCopyFeedback(variant, false);
+    } finally {
+      this.issPiPImageBusy = null;
+      this.cdr.markForCheck();
+    }
+  }
+
+  /** Partage une capture de la mini-fenêtre ISS sur WhatsApp (Web Share ou wa.me). */
+  async shareIssPiPScreenshotOnWhatsApp(variant: 'standard' | 'hd'): Promise<void> {
+    if (this.issPiPImageBusy != null) {
+      return;
+    }
+    const capture = this.resolveIssPiPCapture(variant);
+    if (!capture) {
+      this.flashIssPiPWhatsAppFeedback(variant, false);
+      return;
+    }
+    this.issPiPImageBusy = { variant, action: 'whatsapp' };
+    this.cdr.markForCheck();
+    try {
+      const blob = await this.captureIssPiPFrameToPngBlob(capture.frame, capture.videoId);
+      if (!blob) {
+        this.flashIssPiPWhatsAppFeedback(variant, false);
+        return;
+      }
+      const ok = await this.shareIssPiPPngOnWhatsApp(blob, variant);
+      this.flashIssPiPWhatsAppFeedback(variant, ok);
+    } catch (err: unknown) {
+      const name = err instanceof DOMException || err instanceof Error ? err.name : '';
+      if (name === 'NotAllowedError' || name === 'AbortError') {
+        return;
+      }
+      this.flashIssPiPWhatsAppFeedback(variant, false);
+    } finally {
+      this.issPiPImageBusy = null;
+      this.cdr.markForCheck();
+    }
+  }
+
+  private resolveIssPiPCapture(
+    variant: 'standard' | 'hd'
+  ): { frame: HTMLElement; videoId: string } | null {
+    const panel =
+      variant === 'standard' ? this.issLivePiP?.nativeElement : this.issLiveHdPiP?.nativeElement;
+    if (!panel || !this.isIssPiPVisibleForCapture(panel)) {
+      return null;
+    }
+    const frame = panel.querySelector<HTMLElement>('.wg-iss-live-pip__frame');
+    if (!frame || !this.isIssPiPVisibleForCapture(frame)) {
+      return null;
+    }
+    const videoId = variant === 'standard' ? ISS_LIVE_YOUTUBE_VIDEO_ID : ISS_LIVE_HD_YOUTUBE_VIDEO_ID;
+    return { frame, videoId };
+  }
+
+  private buildIssPiPWhatsAppMessage(variant: 'standard' | 'hd'): string {
+    const titleKey =
+      variant === 'standard' ? 'WORLD_GLOBE.ISS_LIVE_PIP_TITLE' : 'WORLD_GLOBE.ISS_LIVE_PIP_HD_TITLE';
+    const url =
+      variant === 'standard' ? ISS_LIVE_DESTINATION_ORBITE_URL : ISS_LIVE_HD_DESTINATION_ORBITE_URL;
+    const title = this.translate.instant(titleKey);
+    return this.translate.instant('WORLD_GLOBE.ISS_LIVE_PIP_WHATSAPP_MESSAGE', { title, url });
+  }
+
+  private async shareIssPiPPngOnWhatsApp(blob: Blob, variant: 'standard' | 'hd'): Promise<boolean> {
+    const titleKey =
+      variant === 'standard' ? 'WORLD_GLOBE.ISS_LIVE_PIP_TITLE' : 'WORLD_GLOBE.ISS_LIVE_PIP_HD_TITLE';
+    const title = this.translate.instant(titleKey);
+    const message = this.buildIssPiPWhatsAppMessage(variant);
+    const file = new File([blob], `iss-live-${variant}.png`, { type: 'image/png' });
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent
+    );
+
+    if (navigator.share) {
+      const fileShare: ShareData = { title, text: message, files: [file] };
+      try {
+        if (isMobile || !navigator.canShare || navigator.canShare({ files: [file], text: message })) {
+          await navigator.share(fileShare);
+          return true;
+        }
+      } catch (err: unknown) {
+        const name = err instanceof DOMException || err instanceof Error ? err.name : '';
+        if (name === 'AbortError') {
+          throw err;
+        }
+      }
+      try {
+        const textShare: ShareData = { title, text: message };
+        if (!navigator.canShare || navigator.canShare(textShare)) {
+          await navigator.share(textShare);
+          return true;
+        }
+      } catch (err: unknown) {
+        const name = err instanceof DOMException || err instanceof Error ? err.name : '';
+        if (name === 'AbortError') {
+          throw err;
+        }
+      }
+    }
+
+    const copied = await this.writeIssPiPPngToClipboard(blob);
+    let waText = message;
+    if (copied) {
+      waText += `\n\n${this.translate.instant('WORLD_GLOBE.ISS_LIVE_PIP_WHATSAPP_PASTE_IMAGE')}`;
+    }
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(waText)}`;
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+    return true;
+  }
+
+  private isIssPiPVisibleForCapture(panel: HTMLElement): boolean {
+    const rect = panel.getBoundingClientRect();
+    if (rect.width < 8 || rect.height < 8) {
+      return false;
+    }
+    const style = getComputedStyle(panel);
+    return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+  }
+
+  /**
+   * Capture uniquement la zone vidéo de la fenêtre PiP (`.wg-iss-live-pip__frame`),
+   * sans barre titre/boutons ni le reste de la page.
+   */
+  private async captureIssPiPFrameToPngBlob(frame: HTMLElement, videoId: string): Promise<Blob | null> {
+    if (typeof navigator.mediaDevices?.getDisplayMedia === 'function') {
+      try {
+        const captured = await this.captureIssPiPFrameViaTabCapture(frame);
+        if (captured) {
+          return captured;
+        }
+      } catch (err: unknown) {
+        const name = err instanceof DOMException || err instanceof Error ? err.name : '';
+        if (name === 'NotAllowedError' || name === 'AbortError') {
+          throw err;
+        }
+      }
+    }
+    return this.captureIssPiPFrameCanvas(frame, videoId);
+  }
+
+  /** Recadrage Region Capture sur la zone iframe uniquement (flux live visible). */
+  private async captureIssPiPFrameViaTabCapture(frame: HTMLElement): Promise<Blob | null> {
+    const win = window as Window & {
+      CropTarget?: { fromElement: (el: Element) => Promise<unknown> };
+    };
+    let cropTarget: unknown | null = null;
+    if (typeof win.CropTarget?.fromElement === 'function') {
+      try {
+        cropTarget = await win.CropTarget.fromElement(frame);
+      } catch {
+        cropTarget = null;
+      }
+    }
+
+    const displayOpts = {
+      video: true,
+      audio: false,
+      preferCurrentTab: true,
+      selfBrowserSurface: 'include'
+    } as DisplayMediaStreamOptions;
+
+    const stream = await navigator.mediaDevices.getDisplayMedia(displayOpts);
+    try {
+      const [track] = stream.getVideoTracks();
+      if (!track) {
+        return null;
+      }
+      const browserTrack = track as MediaStreamTrack & { cropTo?: (target: unknown) => Promise<void> };
+      let cropped = false;
+      if (cropTarget != null && typeof browserTrack.cropTo === 'function') {
+        try {
+          await browserTrack.cropTo(cropTarget);
+          cropped = true;
+        } catch {
+          cropped = false;
+        }
+      }
+      return this.grabPngBlobFromMediaTrack(
+        track,
+        cropped ? undefined : frame.getBoundingClientRect()
+      );
+    } finally {
+      stream.getTracks().forEach((t) => t.stop());
+    }
+  }
+
+  private grabPngBlobFromMediaTrack(track: MediaStreamTrack, cropRect?: DOMRect): Promise<Blob | null> {
+    const stream = new MediaStream([track]);
+    const video = document.createElement('video');
+    video.muted = true;
+    video.playsInline = true;
+    video.srcObject = stream;
+    return video.play().then(
+      () =>
+        new Promise<Blob | null>((resolve) => {
+          const capture = (): void => {
+            const vw = video.videoWidth;
+            const vh = video.videoHeight;
+            if (vw < 1 || vh < 1) {
+              resolve(null);
+              return;
+            }
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              resolve(null);
+              return;
+            }
+            if (!cropRect || cropRect.width < 1 || cropRect.height < 1) {
+              canvas.width = vw;
+              canvas.height = vh;
+              ctx.drawImage(video, 0, 0);
+            } else {
+              const sx = vw / window.innerWidth;
+              const sy = vh / window.innerHeight;
+              const sw = Math.max(1, Math.round(cropRect.width * sx));
+              const sh = Math.max(1, Math.round(cropRect.height * sy));
+              const sx0 = Math.max(0, Math.round(cropRect.left * sx));
+              const sy0 = Math.max(0, Math.round(cropRect.top * sy));
+              canvas.width = sw;
+              canvas.height = sh;
+              ctx.drawImage(video, sx0, sy0, sw, sh, 0, 0, sw, sh);
+            }
+            canvas.toBlob((b) => resolve(b), 'image/png');
+          };
+          if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+            requestAnimationFrame(() => requestAnimationFrame(capture));
+          } else {
+            video.addEventListener('loadeddata', () => requestAnimationFrame(capture), { once: true });
+            setTimeout(capture, 450);
+          }
+        })
+    );
+  }
+
+  /** Repli : image de la zone vidéo seule (vignette YouTube du flux). */
+  private async captureIssPiPFrameCanvas(frame: HTMLElement, videoId: string): Promise<Blob | null> {
+    const w = Math.max(1, Math.round(frame.clientWidth));
+    const h = Math.max(1, Math.round(frame.clientHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return null;
+    }
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, w, h);
+
+    const thumbUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    let thumb = await this.loadIssPiPCaptureImage(thumbUrl);
+    if (!thumb) {
+      thumb = await this.loadIssPiPCaptureImage(`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`);
+    }
+    if (thumb) {
+      this.drawIssPiPImageCover(ctx, thumb, w, h);
+    }
+
+    return new Promise<Blob | null>((resolve) => {
+      canvas.toBlob((b) => resolve(b), 'image/png');
+    });
+  }
+
+  private drawIssPiPImageCover(
+    ctx: CanvasRenderingContext2D,
+    img: HTMLImageElement,
+    w: number,
+    h: number
+  ): void {
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    if (iw < 1 || ih < 1) {
+      return;
+    }
+    const scale = Math.max(w / iw, h / ih);
+    const dw = iw * scale;
+    const dh = ih * scale;
+    const dx = (w - dw) / 2;
+    const dy = (h - dh) / 2;
+    ctx.drawImage(img, dx, dy, dw, dh);
+  }
+
+  private loadIssPiPCaptureImage(url: string): Promise<HTMLImageElement | null> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  }
+
+  private async writeIssPiPPngToClipboard(blob: Blob): Promise<boolean> {
+    let pngBlob = blob;
+    if (blob.type !== 'image/png') {
+      const reencoded = await this.encodeIssPiPBlobAsPng(blob);
+      if (!reencoded) {
+        return false;
+      }
+      pngBlob = reencoded;
+    }
+    const win = window as Window & {
+      ClipboardItem?: new (items: Record<string, Blob>) => ClipboardItem;
+    };
+    if (!navigator.clipboard?.write || typeof win.ClipboardItem !== 'function') {
+      return false;
+    }
+    try {
+      await navigator.clipboard.write([new win.ClipboardItem!({ 'image/png': pngBlob })]);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private encodeIssPiPBlobAsPng(blob: Blob): Promise<Blob | null> {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      const cleanup = (): void => URL.revokeObjectURL(url);
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width || 1;
+          canvas.height = img.naturalHeight || img.height || 1;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            cleanup();
+            resolve(null);
+            return;
+          }
+          ctx.drawImage(img, 0, 0);
+          canvas.toBlob((out) => {
+            cleanup();
+            resolve(out);
+          }, 'image/png');
+        } catch {
+          cleanup();
+          resolve(null);
+        }
+      };
+      img.onerror = () => {
+        cleanup();
+        resolve(null);
+      };
+      img.src = url;
+    });
+  }
+
+  private flashIssPiPCopyFeedback(variant: 'standard' | 'hd', ok: boolean): void {
+    if (this.issPiPCopyFlashTimer != null) {
+      clearTimeout(this.issPiPCopyFlashTimer);
+    }
+    this.issPiPCopyFlash = { variant, ok };
+    this.cdr.markForCheck();
+    this.issPiPCopyFlashTimer = setTimeout(() => {
+      this.issPiPCopyFlash = null;
+      this.issPiPCopyFlashTimer = null;
+      this.cdr.markForCheck();
+    }, 2200);
+  }
+
+  private flashIssPiPWhatsAppFeedback(variant: 'standard' | 'hd', ok: boolean): void {
+    if (this.issPiPWhatsAppFlashTimer != null) {
+      clearTimeout(this.issPiPWhatsAppFlashTimer);
+    }
+    this.issPiPWhatsAppFlash = { variant, ok };
+    this.cdr.markForCheck();
+    this.issPiPWhatsAppFlashTimer = setTimeout(() => {
+      this.issPiPWhatsAppFlash = null;
+      this.issPiPWhatsAppFlashTimer = null;
+      this.cdr.markForCheck();
+    }, 2200);
   }
 
   /** Décompte : mm:ss à partir de 60 s, sinon secondes. */
@@ -1760,14 +2775,14 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       doc.msFullscreenElement ??
       null;
     if (!fsEl) {
-      this.fullscreen = false;
-      this.globeDocumentFullscreenFallback = false;
+      this.fullscreen = this.globeViewportLocked;
       return;
     }
     const inRegion = !!(region && (fsEl === region || region.contains(fsEl)));
-    const docFallback =
-      this.globeDocumentFullscreenFallback && fsEl === document.documentElement;
-    this.fullscreen = inRegion || docFallback;
+    this.fullscreen = inRegion || this.globeViewportLocked;
+    if (inRegion) {
+      this.globeViewportLocked = false;
+    }
   }
 
   /** Éclairage : jour/nuit réel, uniforme, ou tamisé. */
@@ -1861,6 +2876,60 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     const k = WorldGlobeComponent.SUN_LIGHT_DISTANCE;
     sun.position.copy(this.subsolarWorldScratch.multiplyScalar(k));
     sun.target.position.set(0, 0, 0);
+    this.syncTerminatorNightOverlay();
+  }
+
+  /** Calque shader nuit : renforce le contraste du terminateur (suit la rotation Terre). */
+  private attachTerminatorNightOverlay(earth: THREE.Mesh): void {
+    if (this.terminatorNightOverlay) {
+      return;
+    }
+    const geo = new THREE.SphereGeometry(GLOBE_TERMINATOR_NIGHT_RADIUS, 96, 96);
+    const mat = new THREE.ShaderMaterial({
+      uniforms: { uSunDir: this.terminatorSunDirUniform },
+      vertexShader: `
+        varying vec3 vWorldNormal;
+        void main() {
+          vec4 worldPos = modelMatrix * vec4(position, 1.0);
+          vWorldNormal = normalize(mat3(modelMatrix) * normal);
+          gl_Position = projectionMatrix * viewMatrix * worldPos;
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vWorldNormal;
+        uniform vec3 uSunDir;
+        void main() {
+          float ndl = dot(normalize(vWorldNormal), normalize(uSunDir));
+          float night = 1.0 - smoothstep(-0.1, 0.28, ndl);
+          float twilight = smoothstep(-0.38, 0.02, ndl);
+          vec3 col = mix(vec3(0.006, 0.01, 0.04), vec3(0.03, 0.06, 0.16), twilight);
+          gl_FragColor = vec4(col, night * 0.82);
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.NormalBlending,
+      side: THREE.FrontSide
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.name = 'wg-terminator-night';
+    mesh.renderOrder = 2;
+    mesh.visible = this.realTimeTerminator;
+    earth.add(mesh);
+    this.terminatorNightOverlay = mesh;
+    this.syncTerminatorNightOverlay();
+  }
+
+  private syncTerminatorNightOverlay(): void {
+    const mesh = this.terminatorNightOverlay;
+    const sun = this.sunLight;
+    if (!mesh) {
+      return;
+    }
+    mesh.visible = this.realTimeTerminator;
+    if (this.realTimeTerminator && sun) {
+      this.terminatorSunDirUniform.value.copy(sun.position).normalize();
+    }
   }
 
   private bootstrapThree(): void {
@@ -2122,6 +3191,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (!this.globeSurfaceReady || !this.earthMesh || !this.scene) {
       return;
     }
+    this.attachTerminatorNightOverlay(this.earthMesh);
     if (this.countryBordersEnabled) {
       void this.ensureCountryBordersLoaded();
     }
@@ -2152,7 +3222,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (this.timeZonesEnabled) {
       void this.ensureTimeZonesLoaded();
     }
-    if (this.issOverlayEnabled) {
+    if (this.issPositionFeedActive()) {
       void this.refreshIssNow();
       this.startIssPolling();
     }
@@ -2487,24 +3557,27 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
 
   private startIssPolling(): void {
     this.stopIssPolling();
-    if (!this.issOverlayEnabled) {
+    if (!this.issPositionFeedActive()) {
       return;
     }
     const ms = this.issPollIntervalMs();
     this.issNextRefreshEpochMs = Date.now() + ms;
-    this.refreshIssCountdownSnapshot();
     this.issCountdownInterval = window.setInterval(() => {
       this.refreshIssCountdownSnapshot();
       this.cdr.markForCheck();
     }, 1000);
     this.scheduleIssRefreshChain(ms);
+    queueMicrotask(() => {
+      this.refreshIssCountdownSnapshot();
+      this.cdr.markForCheck();
+    });
   }
 
   private scheduleIssRefreshChain(delayMs: number): void {
     this.issRefreshTimeout = window.setTimeout(() => {
       this.issRefreshTimeout = null;
       void this.refreshIssNow().finally(() => {
-        if (!this.issOverlayEnabled) {
+        if (!this.issPositionFeedActive()) {
           return;
         }
         const ms = this.issPollIntervalMs();
@@ -2524,7 +3597,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   }
 
   private async refreshIssNow(): Promise<void> {
-    if (!this.issOverlayEnabled || !this.scene || !this.earthMesh) {
+    if (!this.issPositionFeedActive()) {
       return;
     }
     try {
@@ -2539,11 +3612,32 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
         throw new Error('ISS coordinates invalid');
       }
-      if (!this.issOverlayEnabled) {
+      if (!this.issPositionFeedActive()) {
         return;
       }
+
+      const altStr = data?.iss_position?.altitude_km;
+      if (altStr != null && altStr !== '') {
+        const altKm = parseFloat(altStr);
+        this.globeIssAltKm =
+          Number.isFinite(altKm) && altKm >= 0 && altKm <= 2000 ? altKm : null;
+      } else {
+        this.globeIssAltKm = null;
+      }
+
+      const velStr = data?.iss_position?.velocity_kmh;
+      let apiVelKmh: number | null = null;
+      if (velStr != null && velStr !== '') {
+        const v = parseFloat(velStr);
+        if (Number.isFinite(v) && v >= 0 && v <= 50000) {
+          apiVelKmh = v;
+        }
+      }
+
       const now = Date.now();
-      if (
+      if (apiVelKmh != null) {
+        this.issGroundSpeedKmh = apiVelKmh;
+      } else if (
         this.issSpeedSampleLat != null &&
         this.issSpeedSampleLon != null &&
         this.issSpeedSampleEpochMs > 0
@@ -2568,12 +3662,18 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
 
       this.globeIssLat = lat;
       this.globeIssLon = lon;
-      this.issOverlayFailed = false;
-      this.ensureIssMarkerMesh();
-      this.updateIssMarkerWorldPosition();
-      this.recordIssTrailSample(lat, lon);
+      if (this.issOverlayEnabled) {
+        this.issOverlayFailed = false;
+      }
+      if (this.issOverlayEnabled && this.scene && this.earthMesh) {
+        this.ensureIssMarkerMesh();
+        this.updateIssMarkerWorldPosition();
+        this.recordIssTrailSample(lat, lon);
+      }
     } catch {
-      this.issOverlayFailed = true;
+      if (this.issOverlayEnabled) {
+        this.issOverlayFailed = true;
+      }
     }
     this.cdr.markForCheck();
   }

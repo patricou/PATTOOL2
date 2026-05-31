@@ -237,14 +237,14 @@ public class GlobeProxyService {
      */
     public byte[] fetchOpenNotifyIssNow() {
         try {
-            return fetchBytes(OPEN_NOTIFY_ISS_NOW_JSON, MAX_BYTES_ISS_FEED);
+            byte[] wtia = fetchBytes(WHERE_THE_ISS_AT_ISS_JSON, MAX_BYTES_ISS_FEED);
+            return mapWhereTheIssAtToOpenNotifyCompatibleJson(wtia);
         } catch (IllegalStateException primary) {
-            log.info("Globe ISS: Open Notify failed ({}); trying wheretheiss.at fallback.", primary.getMessage());
+            log.info("Globe ISS: wheretheiss.at failed ({}); trying Open Notify.", primary.getMessage());
             try {
-                byte[] wtia = fetchBytes(WHERE_THE_ISS_AT_ISS_JSON, MAX_BYTES_ISS_FEED);
-                return mapWhereTheIssAtToOpenNotifyCompatibleJson(wtia);
+                return fetchBytes(OPEN_NOTIFY_ISS_NOW_JSON, MAX_BYTES_ISS_FEED);
             } catch (IllegalStateException secondary) {
-                log.warn("Globe ISS: wheretheiss.at fallback failed ({})", secondary.getMessage());
+                log.warn("Globe ISS: Open Notify fallback failed ({})", secondary.getMessage());
                 throw primary;
             }
         }
@@ -266,6 +266,18 @@ public class GlobeProxyService {
             ObjectNode pos = objectMapper.createObjectNode();
             pos.put("latitude", String.format(Locale.US, "%.6f", lat));
             pos.put("longitude", String.format(Locale.US, "%.6f", lon));
+            if (root.has("altitude")) {
+                double altKm = root.get("altitude").asDouble(Double.NaN);
+                if (Double.isFinite(altKm) && altKm >= 0.0 && altKm <= 2000.0) {
+                    pos.put("altitude_km", String.format(Locale.US, "%.2f", altKm));
+                }
+            }
+            if (root.has("velocity")) {
+                double velKmh = root.get("velocity").asDouble(Double.NaN);
+                if (Double.isFinite(velKmh) && velKmh >= 0.0 && velKmh <= 50000.0) {
+                    pos.put("velocity_kmh", String.format(Locale.US, "%.1f", velKmh));
+                }
+            }
             out.set("iss_position", pos);
             out.put("timestamp", Instant.now().getEpochSecond());
             return objectMapper.writeValueAsBytes(out);
