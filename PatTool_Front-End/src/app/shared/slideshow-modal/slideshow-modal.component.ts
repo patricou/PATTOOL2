@@ -17,6 +17,7 @@ import { KeycloakService } from '../../keycloak/keycloak.service';
 import { Observable, Subscription, Subject } from 'rxjs';
 import { map, takeUntil, finalize } from 'rxjs/operators';
 import { isValidGeoCoordinate } from '../geo-coordinates.util';
+import { applyMultiplicativeWheelScale, normalizeWheelDeltaPixels } from '../wheel-zoom.util';
 // Note: panzoom library is available but we'll keep using custom implementation for now
 // import panzoom from 'panzoom';
 declare var EXIF: {
@@ -2756,44 +2757,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Apply wheel zoom with dynamic step based on current zoom level
-  // Small step for small zoom, large step for large zoom
+  /** Molette : zoom multiplicatif (même principe que Leaflet / visionneuses photo). */
   private applyWheelZoom(event: WheelEvent, current: number, minZoom: number, maxZoom: number = 100): number {
-    // preventDefault() est déjà fait dans onWheelSlideshow, pas besoin de le refaire ici
-    // Ne pas faire stopPropagation() ici pour éviter de bloquer d'autres handlers
-    
-    // Utiliser deltaY avec une normalisation plus précise
-    // deltaMode: 0 = pixels, 1 = lines, 2 = pages
-    let delta = 0;
-    if (event.deltaMode === 0) {
-      // Pixels mode - utiliser directement avec un facteur de normalisation
-      delta = event.deltaY / 100; // Facteur réduit pour un zoom plus fluide
-    } else if (event.deltaMode === 1) {
-      // Lines mode - multiplier par un facteur
-      delta = event.deltaY / 3; // Environ 3 lignes = 1 unité de zoom
-    } else {
-      // Pages mode - multiplier par un facteur plus grand
-      delta = event.deltaY / 0.5; // 0.5 page = 1 unité de zoom
-    }
-    
-    // Dynamic step: proportionnel au niveau de zoom actuel
-    // Plus le zoom est élevé, plus le pas est grand (plus rapide)
-    // Formule: step = baseStep * (1 + current * multiplier)
-    // Cela donne: petit pas à zoom faible, grand pas à zoom élevé
-    const baseStep = 0.5; // Pas de base augmenté pour zoom plus réactif
-    const multiplier = 0.1; // Multiplicateur réduit pour un zoom plus progressif
-    const dynamicStep = baseStep * (1 + current * multiplier);
-    
-    // Limiter le pas entre minStep et maxStep pour éviter des valeurs trop extrêmes
-    const minStep = 0.3; // Pas minimum pour zoom visible
-    const maxStep = 3.0; // Pas maximum réduit pour éviter les sauts trop grands
-    const step = Math.max(minStep, Math.min(maxStep, dynamicStep));
-    
-    // Calculer le nouveau zoom avec le delta et le step
-    let next = current - delta * step; // wheel up (deltaY négatif) -> zoom in, wheel down (deltaY positif) -> zoom out
-    if (next < minZoom) next = minZoom;
-    if (next > maxZoom) next = maxZoom;
-    return parseFloat(next.toFixed(2));
+    const deltaPx = normalizeWheelDeltaPixels(event);
+    return applyMultiplicativeWheelScale(current, deltaPx, minZoom, maxZoom);
   }
   
   public onWheelSlideshow(event: WheelEvent): void {

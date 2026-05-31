@@ -1047,7 +1047,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 				attributionControl: true,
 				zoomDelta: 1,
 				zoomSnap: 0,
-				scrollWheelZoom: false
+				scrollWheelZoom: false,
+				doubleClickZoom: false
 			});
 		} catch (e) {
 			this.releaseLeafletControlPassiveTouchPatch();
@@ -2801,7 +2802,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		// Clean up any existing handler first
 		if (this.locationSelectionClickHandler) {
-			this.map.off('click', this.locationSelectionClickHandler);
+			this.map.off('dblclick', this.locationSelectionClickHandler);
 		}
 
 		// Create initial marker at current location if pendingLocation exists (blue marker for initial position)
@@ -2813,14 +2814,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 			}
 		}
 
-		// Register click handler for location selection
+		// Double-clic pour placer la position (simple clic = déplacement carte uniquement)
 		this.locationSelectionClickHandler = (e: L.LeafletMouseEvent) => {
 			const lat = e.latlng.lat;
 			const lng = e.latlng.lng;
 
-			// Stop event propagation to prevent mapClickHandler from also firing
-			e.originalEvent?.stopPropagation();
-			L.DomEvent.stopPropagation(e);
+			L.DomEvent.stop(e);
 
 			// Create selection marker (will remove previous one if exists)
 			this.createSelectionMarker(lat, lng);
@@ -2829,13 +2828,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 			// This allows coordinates to be sent to openweathermap when closing, even if address display is off
 			this.finalSelectedCoordinates = { lat, lng };
 
-			// Show address in overlay if enabled
-			if (this.showAddress) {
-				this.showAddressInOverlay(lat, lng);
-			}
+			this.updateSwitchesForPoint(lat, lng);
 		};
 
-		this.map.on('click', this.locationSelectionClickHandler);
+		this.map.on('dblclick', this.locationSelectionClickHandler);
 	}
 
 	/**
@@ -2991,7 +2987,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		// Remove specific click handler if it exists
 		if (this.locationSelectionClickHandler) {
-			this.map.off('click', this.locationSelectionClickHandler);
+			this.map.off('dblclick', this.locationSelectionClickHandler);
 			this.locationSelectionClickHandler = undefined;
 		}
 		if (this.selectionMarker) {
@@ -3307,8 +3303,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		// Clean up existing handlers first to avoid duplicates
 		this.cleanupMapMouseMoveHandler();
 
-		// Update coordinates when user clicks on the map (for GPS coordinates display)
-		// Only update if GPS switch is enabled
+		// Aperçu GPS sous le curseur (pas de « placement » au simple clic)
 		this.mapMouseMoveHandler = (e: L.LeafletMouseEvent) => {
 			if (this.showGpsCoordinates) {
 				this.currentLat = e.latlng.lat;
@@ -3318,7 +3313,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			}
 		};
 
-		this.map.on('click', this.mapMouseMoveHandler);
+		this.map.on('mousemove', this.mapMouseMoveHandler);
 
 		// Initialize with center coordinates
 		this.updateGpsCoordinatesFromCenter();
@@ -3330,7 +3325,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 
 		if (this.mapMouseMoveHandler) {
-			this.map.off('click', this.mapMouseMoveHandler);
+			this.map.off('mousemove', this.mapMouseMoveHandler);
 			this.mapMouseMoveHandler = undefined;
 		}
 
@@ -3341,28 +3336,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	/**
-	 * Register click handler for address display (independent of GPS coordinates)
+	 * Adresse / météo au double-clic : via registerMapClickHandler ou registerLocationSelection.
 	 */
 	private registerAddressClickHandler(): void {
-		if (!this.map) {
-			return;
-		}
-
-		// Clean up existing handler first to avoid duplicates
 		this.cleanupAddressClickHandler();
-
-		// Register click handler for address and weather display
-		// This handler works independently - each switch updates only if enabled
-		// Note: marker creation is handled by registerMapClickHandler() which is always active
-		this.addressClickHandler = (e: L.LeafletMouseEvent) => {
-			const lat = e.latlng.lat;
-			const lng = e.latlng.lng;
-
-			// Update all switches independently
-			this.updateSwitchesForPoint(lat, lng);
-		};
-
-		this.map.on('click', this.addressClickHandler);
 	}
 
 	/**
@@ -3374,7 +3351,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 
 		if (this.addressClickHandler) {
-			this.map.off('click', this.addressClickHandler);
+			this.map.off('dblclick', this.addressClickHandler);
 			this.addressClickHandler = undefined;
 		}
 	}
@@ -3417,19 +3394,19 @@ export class TraceViewerModalComponent implements OnDestroy {
 		// Clean up existing handler first to avoid duplicates
 		this.cleanupMapClickHandler();
 
-		// Register click handler for marker creation
-		// This handler works independently of showAddress and selectionMode
+		// Double-clic : marqueur + infos (simple clic ne place rien)
 		this.mapClickHandler = (e: L.LeafletMouseEvent) => {
+			if (this.selectionMode) {
+				return;
+			}
+			L.DomEvent.stop(e);
 			const lat = e.latlng.lat;
 			const lng = e.latlng.lng;
-
-			// Create click marker at clicked position (only if not in selection mode, as selectionMarker handles that)
-			if (!this.selectionMode) {
-				this.createClickMarker(lat, lng);
-			}
+			this.createClickMarker(lat, lng);
+			this.updateSwitchesForPoint(lat, lng);
 		};
 
-		this.map.on('click', this.mapClickHandler);
+		this.map.on('dblclick', this.mapClickHandler);
 	}
 
 	/**
@@ -3441,7 +3418,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 
 		if (this.mapClickHandler) {
-			this.map.off('click', this.mapClickHandler);
+			this.map.off('dblclick', this.mapClickHandler);
 			this.mapClickHandler = undefined;
 		}
 	}

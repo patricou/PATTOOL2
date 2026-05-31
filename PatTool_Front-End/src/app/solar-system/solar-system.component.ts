@@ -23,6 +23,7 @@ import {
   Vector
 } from 'astronomy-engine';
 import * as THREE from 'three';
+import { normalizeWheelDeltaPixels, wheelScaleFactor } from '../shared/wheel-zoom.util';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 
@@ -1572,15 +1573,9 @@ export class SolarSystemComponent implements OnInit, AfterViewInit, OnDestroy {
     const cx = this.chartDiagCx;
     const cy = this.chartDiagCy;
 
-    let dy = ev.deltaY;
-    if (ev.deltaMode === 1) {
-      dy *= 16;
-    } else if (ev.deltaMode === 2) {
-      dy *= rect.height;
-    }
-    const zoomIntensity = 0.0012;
-    const factor = Math.exp(-dy * zoomIntensity);
     const prevMag = this.chartViewMagnify;
+    const deltaPx = normalizeWheelDeltaPixels(ev, 16);
+    const factor = wheelScaleFactor(deltaPx);
     const newMag = Math.min(48, Math.max(0.06, prevMag * factor));
     if (Math.abs(newMag - prevMag) < 1e-6) {
       return;

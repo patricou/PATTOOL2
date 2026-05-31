@@ -7,6 +7,7 @@ import { NgbModule, NgbModal, NgbRatingConfig } from '@ng-bootstrap/ng-bootstrap
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent, SlideshowAddToDbEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { isValidGeoCoordinate } from '../../shared/geo-coordinates.util';
+import { applyMultiplicativeWheelScale, normalizeWheelDeltaPixels } from '../../shared/wheel-zoom.util';
 import { VideoshowModalComponent, VideoshowVideoSource } from '../../shared/videoshow-modal/videoshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
 import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
@@ -1335,13 +1336,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 
 	private applyWheelZoom(event: WheelEvent, current: number, minZoom: number, maxZoom: number = 5): number {
 		event.preventDefault();
-		// Use actual deltaY value for linear zoom (normalized to reasonable scale)
-		const delta = event.deltaY / 50; // Normalize to make scroll speed reasonable (faster zoom)
-		const step = 0.08; // Step for faster zoom while maintaining linearity
-		let next = current - delta * step; // wheel up -> zoom in
-		if (next < minZoom) next = minZoom;
-		if (next > maxZoom) next = maxZoom;
-		return parseFloat(next.toFixed(2));
+		return applyMultiplicativeWheelScale(current, normalizeWheelDeltaPixels(event), minZoom, maxZoom);
 	}
 
 	public onWheelSlideshow(event: WheelEvent): void {
