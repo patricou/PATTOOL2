@@ -2410,6 +2410,8 @@
         "ACTIONS": "操作",
         "DEVICE_NUMBER": "デバイス番号",
         "NEW_DEVICE_DETECTED": "新しいデバイスが検出されました",
+        "NO_MAC_DEVICE_NOTICE": "MACアドレスを取得できません — このデバイスにはアラートメールは送信されません。",
+        "NO_MAC_NO_EMAIL": "アラートメールなし",
         "ADD_TO_MONGODB": "MongoDBに追加",
         "ADD_TO_MONGODB_TOOLTIP": "このデバイスをMongoDBデータベースに追加",
         "USE_EXTERNAL_VENDOR_API": "外部ベンダーAPI",

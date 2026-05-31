@@ -151,9 +151,9 @@ public class NetworkScanScheduler {
                 if (device != null && !device.isEmpty()) {
                     foundDevices.add(device);
                     
-                    // Check if device is new (by MAC address)
+                    // Check if device is new (by MAC address only; skip devices without a valid MAC)
                     String macAddress = (String) device.get("macAddress");
-                    if (macAddress != null && !macAddress.trim().isEmpty()) {
+                    if (localNetworkService.hasUsableMacAddress(macAddress)) {
                         String normalizedMac = normalizeMacAddress(macAddress);
                         if (!knownMacAddresses.contains(normalizedMac)) {
                             // This is a new device
@@ -195,8 +195,7 @@ public class NetworkScanScheduler {
             for (Map<String, Object> device : newDevices) {
                 String macAddress = (String) device.get("macAddress");
                 
-                // Skip if no MAC address
-                if (macAddress == null || macAddress.trim().isEmpty()) {
+                if (!localNetworkService.hasUsableMacAddress(macAddress)) {
                     continue;
                 }
                 
@@ -238,14 +237,22 @@ public class NetworkScanScheduler {
      */
     private void sendNewDeviceNotificationEmail(List<Map<String, Object>> newDevices) {
         try {
+            List<Map<String, Object>> devicesWithMac = newDevices.stream()
+                    .filter(d -> localNetworkService.hasUsableMacAddress((String) d.get("macAddress")))
+                    .collect(Collectors.toList());
+            if (devicesWithMac.isEmpty()) {
+                log.debug("No new devices with MAC address - email notification skipped");
+                return;
+            }
+
             String subject = "[PatTool] Nouveaux appareils détectés sur le réseau - " + 
-                            newDevices.size() + " appareil(s)";
+                            devicesWithMac.size() + " appareil(s)";
             
-            String body = generateNewDeviceEmailHtml(newDevices);
+            String body = generateNewDeviceEmailHtml(devicesWithMac);
             
             mailController.sendMail(subject, body, true); // true = HTML format
             
-            log.debug("Email notification sent successfully for {} new device(s)", newDevices.size());
+            log.debug("Email notification sent successfully for {} new device(s)", devicesWithMac.size());
         } catch (Exception e) {
             log.error("Failed to send email notification for new devices: {}", e.getMessage(), e);
         }

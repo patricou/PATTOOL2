@@ -3852,7 +3852,7 @@ public class LocalNetworkService {
             List<Map<String, Object>> newDevices = new ArrayList<>();
             for (Map<String, Object> device : foundDevices) {
                 String macAddress = (String) device.get("macAddress");
-                if (macAddress != null && !macAddress.trim().isEmpty()) {
+                if (hasUsableMacAddress(macAddress)) {
                     String normalizedMac = normalizeMacAddress(macAddress);
                     if (!knownMacAddresses.contains(normalizedMac)) {
                         // This is a new device
@@ -3883,8 +3883,7 @@ public class LocalNetworkService {
             for (Map<String, Object> device : newDevices) {
                 String macAddress = (String) device.get("macAddress");
                 
-                // Skip if no MAC address
-                if (macAddress == null || macAddress.trim().isEmpty()) {
+                if (!hasUsableMacAddress(macAddress)) {
                     continue;
                 }
                 
@@ -3919,6 +3918,17 @@ public class LocalNetworkService {
         } catch (Exception e) {
             log.error("Error saving new devices to history: {}", e.getMessage(), e);
         }
+    }
+
+    /**
+     * True when the device has a non-empty, valid 48-bit MAC (12 hex digits after normalization).
+     */
+    public boolean hasUsableMacAddress(String macAddress) {
+        if (macAddress == null || macAddress.trim().isEmpty()) {
+            return false;
+        }
+        String normalized = normalizeMacAddress(macAddress);
+        return normalized.length() == 12 && normalized.matches("[0-9A-F]{12}");
     }
 
     /**

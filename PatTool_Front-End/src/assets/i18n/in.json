@@ -1106,6 +1106,8 @@
         "ACTIONS": "कार्रवाई",
         "DEVICE_NUMBER": "डिवाइस नंबर",
         "NEW_DEVICE_DETECTED": "नया डिवाइस पाया गया",
+        "NO_MAC_DEVICE_NOTICE": "MAC पता उपलब्ध नहीं — इस डिवाइस के लिए कोई अलर्ट ईमेल नहीं भेजा जाता।",
+        "NO_MAC_NO_EMAIL": "कोई अलर्ट ईमेल नहीं",
         "ADD_TO_MONGODB": "MongoDB में जोड़ें",
         "ADD_TO_MONGODB_TOOLTIP": "इस डिवाइस को MongoDB डेटाबेस में जोड़ें",
         "USE_EXTERNAL_VENDOR_API": "निर्माता के लिए बाहरी API",

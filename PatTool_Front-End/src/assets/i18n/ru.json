@@ -1128,6 +1128,8 @@
         "ACTIONS": "Действия",
         "DEVICE_NUMBER": "Номер устройства",
         "NEW_DEVICE_DETECTED": "Обнаружено новое устройство",
+        "NO_MAC_DEVICE_NOTICE": "MAC-адрес недоступен — для этого устройства не отправляется оповещение по e-mail.",
+        "NO_MAC_NO_EMAIL": "без e-mail-оповещения",
         "ADD_TO_MONGODB": "Добавить в MongoDB",
         "ADD_TO_MONGODB_TOOLTIP": "Добавить это устройство в базу данных MongoDB",
         "USE_EXTERNAL_VENDOR_API": "Внешний API для производителя",

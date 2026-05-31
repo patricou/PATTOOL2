@@ -716,6 +716,8 @@
         "ACTIONS": "פעולות",
         "DEVICE_NUMBER": "מספר מכשיר",
         "NEW_DEVICE_DETECTED": "התגלה מכשיר חדש",
+        "NO_MAC_DEVICE_NOTICE": "כתובת MAC לא זמינה — לא נשלחת הודעת דוא\"ל התראה עבור מכשיר זה.",
+        "NO_MAC_NO_EMAIL": "ללא דוא\"ל התראה",
         "ADD_TO_MONGODB": "הוסף ל-MongoDB",
         "ADD_TO_MONGODB_TOOLTIP": "הוסף מכשיר זה למסד הנתונים MongoDB",
         "USE_EXTERNAL_VENDOR_API": "API חיצוני ליצרן",

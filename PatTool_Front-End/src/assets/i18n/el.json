@@ -2408,6 +2408,8 @@
         "ACTIONS": "Ενέργειες",
         "DEVICE_NUMBER": "Αριθμός συσκευής",
         "NEW_DEVICE_DETECTED": "Εντοπίστηκε νέα συσκευή",
+        "NO_MAC_DEVICE_NOTICE": "Η διεύθυνση MAC δεν είναι διαθέσιμη — δεν αποστέλλεται email ειδοποίησης για αυτή τη συσκευή.",
+        "NO_MAC_NO_EMAIL": "χωρίς email ειδοποίησης",
         "ADD_TO_MONGODB": "Προσθήκη στο MongoDB",
         "ADD_TO_MONGODB_TOOLTIP": "Προσθήκη αυτής της συσκευής στη βάση δεδομένων MongoDB",
         "USE_EXTERNAL_VENDOR_API": "Εξωτερικό API για κατασκευαστή",

@@ -716,6 +716,8 @@
         "ACTIONS": "操作",
         "DEVICE_NUMBER": "设备编号",
         "NEW_DEVICE_DETECTED": "检测到新设备",
+        "NO_MAC_DEVICE_NOTICE": "MAC 地址不可用 — 不会为此设备发送提醒邮件。",
+        "NO_MAC_NO_EMAIL": "不发送提醒邮件",
         "ADD_TO_MONGODB": "添加到MongoDB",
         "ADD_TO_MONGODB_TOOLTIP": "将此设备添加到MongoDB数据库",
         "USE_EXTERNAL_VENDOR_API": "外部制造商API",

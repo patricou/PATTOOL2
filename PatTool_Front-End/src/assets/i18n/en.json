@@ -893,6 +893,8 @@
         "ACTIONS": "Actions",
         "DEVICE_NUMBER": "Device Number",
         "NEW_DEVICE_DETECTED": "New device detected",
+        "NO_MAC_DEVICE_NOTICE": "MAC address unavailable — no alert email is sent for this device.",
+        "NO_MAC_NO_EMAIL": "no alert email",
         "ADD_TO_MONGODB": "Add to MongoDB",
         "ADD_TO_MONGODB_TOOLTIP": "Add this device to MongoDB database",
         "USE_EXTERNAL_VENDOR_API": "Vendor API",

@@ -918,9 +918,11 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
    * Get icon based on device type
    */
   getDeviceIcon(device: NetworkDevice): string {
-    // Show new device icon if device is new
     if (this.isNewDevice(device)) {
       return 'fa-star';
+    }
+    if (this.isDeviceWithoutMac(device)) {
+      return 'fa-question-circle';
     }
     
     if (!device.deviceType) {
@@ -968,6 +970,9 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
    * High vulnerability → red, Low vulnerability → orange, No vulnerability → green
    */
   getDeviceHeaderClass(device: NetworkDevice): string {
+    if (this.isDeviceWithoutMac(device)) {
+      return 'device-header-no-mac';
+    }
     if (!device.vulnerabilities || device.vulnerabilities.length === 0) {
       return 'device-header-safe'; // Green (default)
     }
@@ -1869,31 +1874,43 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * True when MAC is present and normalizes to 12 hex digits (aligned with backend hasUsableMacAddress).
+   */
+  hasUsableMacAddress(macAddress?: string | null): boolean {
+    if (!macAddress?.trim()) {
+      return false;
+    }
+    const normalized = macAddress.trim().toUpperCase().replace(/[:-]/g, '').replace(/\s/g, '');
+    return normalized.length === 12 && /^[0-9A-F]{12}$/.test(normalized);
+  }
+
+  /** Device visible on scan but without a resolvable MAC (no alert email). */
+  isDeviceWithoutMac(device: NetworkDevice): boolean {
+    return !this.hasUsableMacAddress(device.macAddress);
+  }
+
+  /**
    * Check if a device is new (not in MongoDB inventories).
    * Primary rule: MAC not present in mappings and source indicates discovery (ARP/local), not DB.
-   * If there is no MAC (common when ARP fails during a heavy parallel scan), treat as new when this IP has no mapping
-   * and mappings have already been loaded.
+   * Devices without a MAC are never treated as new (ARP may fail during parallel scan).
    */
   isNewDevice(device: NetworkDevice): boolean {
-    const ipMapped = !!(this.deviceMappings?.length &&
-      this.deviceMappings.some(m => m.ipAddress === device.ipAddress));
-
-    // No MAC (ARP missed under parallel scan load, segmented LAN, etc.): flag as new when IP is absent from mappings.
-    if (!device.macAddress) {
-      return ipMapped === false && (this.deviceMappings?.length ?? 0) > 0;
+    const macAddress = device.macAddress?.trim();
+    if (!macAddress || !this.hasUsableMacAddress(macAddress)) {
+      return false;
     }
-    
+
     // If macAddressSource is 'mongodb', the device is definitely in MongoDB (not new)
     if (device.macAddressSource === 'mongodb') {
       return false;
     }
-    
+
     // Normalize MAC address for comparison (uppercase, remove separators)
     const normalizeMac = (mac: string): string => {
       return mac.trim().toUpperCase().replace(/[:-]/g, '').replace(/\s/g, '');
     };
-    
-    const deviceMac = normalizeMac(device.macAddress);
+
+    const deviceMac = normalizeMac(macAddress);
     
     // Check if macAddressMongoDB exists and matches the device MAC
     // This means there's a MongoDB mapping for this IP with this MAC

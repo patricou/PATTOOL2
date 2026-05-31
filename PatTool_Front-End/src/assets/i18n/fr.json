@@ -872,6 +872,8 @@
         "ACTIONS": "Actions",
         "DEVICE_NUMBER": "Numéro d'appareil",
         "NEW_DEVICE_DETECTED": "Nouvel appareil détecté",
+        "NO_MAC_DEVICE_NOTICE": "Adresse MAC indisponible — aucun e-mail d'alerte n'est envoyé pour cet appareil.",
+        "NO_MAC_NO_EMAIL": "aucun e-mail d'alerte",
         "ADD_TO_MONGODB": "Ajouter à MongoDB",
         "ADD_TO_MONGODB_TOOLTIP": "Ajouter cet appareil à la base de données MongoDB",
         "USE_EXTERNAL_VENDOR_API": "API fabricant",

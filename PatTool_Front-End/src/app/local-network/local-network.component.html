@@ -272,7 +272,8 @@
                     <div class="device-card" 
                          [ngClass]="{
                            'new-device': isNewDevice(device),
-                           'different-ip': hasDifferentIPInMongoDB(device)
+                           'different-ip': hasDifferentIPInMongoDB(device),
+                           'device-no-mac': isDeviceWithoutMac(device)
                          }" 
                          *ngFor="let device of getSortedDevices(); let i = index">
                     <div class="device-header" [ngClass]="getDeviceHeaderClass(device)">
@@ -409,7 +410,7 @@
                                         </button>
                                     </div>
                                     <!-- No conflict: Single MAC address with source color -->
-                                    <div *ngIf="!hasMacConflict(device) && device.macAddress" class="mt-1">
+                                    <div *ngIf="!hasMacConflict(device) && !isDeviceWithoutMac(device)" class="mt-1">
                                         <code [style.color]="getMacAddressColor(device)" style="font-weight: bold; font-size: 0.9em;" [title]="getMacAddressSourceTooltip(device)">
                                             {{ device.macAddress }}
                                         </code>
@@ -417,7 +418,10 @@
                                         <span [style.color]="getMacAddressColor(device)" style="font-size: 0.85em; margin-left: 5px;" *ngIf="device.macAddressSource === 'arp'">(ARP)</span>
                                         <span [style.color]="getMacAddressColor(device)" style="font-size: 0.85em; margin-left: 5px;" *ngIf="device.macAddressSource === 'local'">(Local)</span>
                                     </div>
-                                    <span *ngIf="!device.macAddress && !device.macAddressARP" class="text-muted mt-1 d-block">{{ "LOCAL_NETWORK.NOT_AVAILABLE" | translate }}</span>
+                                    <span *ngIf="isDeviceWithoutMac(device)" class="device-no-mac-mac-hint mt-1 d-block">
+                                        {{ "LOCAL_NETWORK.NOT_AVAILABLE" | translate }}
+                                        <span class="device-no-mac-mail-hint"> — {{ "LOCAL_NETWORK.NO_MAC_NO_EMAIL" | translate }}</span>
+                                    </span>
                                     <!-- Vendor Info Button -->
                                     <button *ngIf="device.macAddress" 
                                             (click)="openVendorInfoModal(device.macAddress)"
@@ -442,6 +446,13 @@
                                 <div class="device-new-banner-inner">
                                     <i class="fa fa-star device-new-banner-icon" aria-hidden="true"></i>
                                     <strong class="device-new-banner-text">{{ "LOCAL_NETWORK.NEW_DEVICE_DETECTED" | translate }}</strong>
+                                </div>
+                            </div>
+
+                            <div class="info-item device-no-mac-banner" *ngIf="isDeviceWithoutMac(device)">
+                                <div class="device-no-mac-banner-inner">
+                                    <i class="fa fa-envelope-o device-no-mac-banner-icon" aria-hidden="true"></i>
+                                    <strong class="device-no-mac-banner-text">{{ "LOCAL_NETWORK.NO_MAC_DEVICE_NOTICE" | translate }}</strong>
                                 </div>
                             </div>
                             

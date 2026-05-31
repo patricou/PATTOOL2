@@ -719,6 +719,8 @@
         "ACTIONS": "Acciones",
         "DEVICE_NUMBER": "Número de dispositivo",
         "NEW_DEVICE_DETECTED": "Nuevo dispositivo detectado",
+        "NO_MAC_DEVICE_NOTICE": "Dirección MAC no disponible — no se envía correo de alerta para este dispositivo.",
+        "NO_MAC_NO_EMAIL": "sin correo de alerta",
         "ADD_TO_MONGODB": "Agregar a MongoDB",
         "ADD_TO_MONGODB_TOOLTIP": "Agregar este dispositivo a la base de datos MongoDB",
         "USE_EXTERNAL_VENDOR_API": "API externa para fabricante",
