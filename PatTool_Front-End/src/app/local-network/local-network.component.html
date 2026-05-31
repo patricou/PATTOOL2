@@ -273,7 +273,7 @@
                          [ngClass]="{
                            'new-device': isNewDevice(device),
                            'different-ip': hasDifferentIPInMongoDB(device),
-                           'device-no-mac': isDeviceWithoutMac(device)
+                           'device-no-mac': isDeviceNoAlert(device)
                          }" 
                          *ngFor="let device of getSortedDevices(); let i = index">
                     <div class="device-header" [ngClass]="getDeviceHeaderClass(device)">
@@ -302,35 +302,19 @@
                     </div>
                     
                     <div class="device-body">
-                        <!-- Vulnerabilities Section (shown first when present) -->
-                        <div *ngIf="device.vulnerabilities && device.vulnerabilities.length > 0" class="vulnerabilities-section vulnerabilities-section--first mb-3">
-                            <h5><i class="fa fa-shield"></i> {{ "LOCAL_NETWORK.VULNERABILITIES" | translate }} <span class="vuln-section-count">({{ device.vulnerabilities.length }})</span></h5>
-                            <div class="vulnerability-item" *ngFor="let vuln of device.vulnerabilities">
-                                <div class="vulnerability-header vulnerability-header--tooltip"
-                                     [ngbTooltip]="getVulnerabilityTooltipText(vuln)"
-                                     tooltipClass="vulnerability-desc-tooltip"
-                                     container="body"
-                                     placement="top"
-                                     triggers="mouseenter:mouseleave"
-                                     [openDelay]="150"
-                                     [closeDelay]="0">
-                                    <span class="badge" [ngClass]="getSeverityClass(vuln.severity)">
-                                        {{ getSeverityLabel(vuln.severity) }}
-                                    </span>
-                                    <strong>{{ getVulnerabilityTypeLabel(vuln.type) }}</strong>
-                                    <span *ngIf="vuln.port" class="text-muted ms-1">
-                                        ({{ "LOCAL_NETWORK.PORT" | translate }}: {{ vuln.port }})
-                                    </span>
-                                    <span class="vulnerability-tooltip-hint text-muted ms-1"
-                                          [attr.aria-label]="('LOCAL_NETWORK.VULN_DESCRIPTION_HINT' | translate)">
-                                        <i class="fa fa-info-circle" aria-hidden="true"></i>
-                                    </span>
+                        <!-- Core fields: always visible -->
+                        <div class="device-info-grid device-info-grid--core">
+                            <div class="info-item device-desc-callout" *ngIf="getDeviceMapping(device)?.deviceDescription">
+                                <div class="device-desc-callout-inner">
+                                    <i class="fa fa-file-text-o device-desc-callout-icon" aria-hidden="true"></i>
+                                    <div class="device-desc-callout-body">
+                                        <strong class="device-desc-callout-title">{{ "LOCAL_NETWORK.DEVICE_DESCRIPTION" | translate }}</strong>
+                                        <div class="device-desc-callout-text">
+                                            {{ getDeviceMapping(device).deviceDescription }}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- Basic Information -->
-                        <div class="device-info-grid">
                             <div class="info-item" *ngIf="device.hostname && device.hostname !== device.ipAddress">
                                 <i class="fa fa-tag"></i>
                                 <div>
@@ -360,17 +344,6 @@
                                                 {{ (device.deviceType && device.deviceType !== 'null' && device.deviceType !== 'undefined' && device.deviceType !== 'Unknown Device') ? device.deviceType : ("LOCAL_NETWORK.UNKNOWN_DEVICE" | translate) }}
                                             </ng-template>
                                         </span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="info-item device-desc-callout" *ngIf="getDeviceMapping(device)?.deviceDescription">
-                                <div class="device-desc-callout-inner">
-                                    <i class="fa fa-file-text-o device-desc-callout-icon" aria-hidden="true"></i>
-                                    <div class="device-desc-callout-body">
-                                        <strong class="device-desc-callout-title">{{ "LOCAL_NETWORK.DEVICE_DESCRIPTION" | translate }}</strong>
-                                        <div class="device-desc-callout-text">
-                                            {{ getDeviceMapping(device).deviceDescription }}
-                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -441,7 +414,52 @@
                                     </button>
                                 </div>
                             </div>
-                            
+                        </div>
+
+                        <div class="device-details-toggle-wrap" *ngIf="hasDeviceCollapsibleDetails(device)">
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-secondary w-100 device-details-toggle"
+                                    (click)="toggleDeviceDetails(device)"
+                                    [attr.aria-expanded]="isDeviceDetailsExpanded(device)"
+                                    [title]="'LOCAL_NETWORK.DEVICE_DETAILS_TOGGLE_TOOLTIP' | translate">
+                                <i class="fa me-1"
+                                   [ngClass]="isDeviceDetailsExpanded(device) ? 'fa-chevron-up' : 'fa-chevron-down'"
+                                   aria-hidden="true"></i>
+                                <ng-container *ngIf="!isDeviceDetailsExpanded(device)">{{ "LOCAL_NETWORK.DEVICE_DETAILS_EXPAND" | translate }}</ng-container>
+                                <ng-container *ngIf="isDeviceDetailsExpanded(device)">{{ "LOCAL_NETWORK.DEVICE_DETAILS_COLLAPSE" | translate }}</ng-container>
+                            </button>
+                        </div>
+
+                        <div class="device-details-collapsible"
+                             *ngIf="!hasDeviceCollapsibleDetails(device) || isDeviceDetailsExpanded(device)">
+                            <div *ngIf="device.vulnerabilities && device.vulnerabilities.length > 0"
+                                 class="vulnerabilities-section vulnerabilities-section--first mb-3">
+                                <h5><i class="fa fa-shield"></i> {{ "LOCAL_NETWORK.VULNERABILITIES" | translate }} <span class="vuln-section-count">({{ device.vulnerabilities.length }})</span></h5>
+                                <div class="vulnerability-item" *ngFor="let vuln of device.vulnerabilities">
+                                    <div class="vulnerability-header vulnerability-header--tooltip"
+                                         [ngbTooltip]="getVulnerabilityTooltipText(vuln)"
+                                         tooltipClass="vulnerability-desc-tooltip"
+                                         container="body"
+                                         placement="top"
+                                         triggers="mouseenter:mouseleave"
+                                         [openDelay]="150"
+                                         [closeDelay]="0">
+                                        <span class="badge" [ngClass]="getSeverityClass(vuln.severity)">
+                                            {{ getSeverityLabel(vuln.severity) }}
+                                        </span>
+                                        <strong>{{ getVulnerabilityTypeLabel(vuln.type) }}</strong>
+                                        <span *ngIf="vuln.port" class="text-muted ms-1">
+                                            ({{ "LOCAL_NETWORK.PORT" | translate }}: {{ vuln.port }})
+                                        </span>
+                                        <span class="vulnerability-tooltip-hint text-muted ms-1"
+                                              [attr.aria-label]="('LOCAL_NETWORK.VULN_DESCRIPTION_HINT' | translate)">
+                                            <i class="fa fa-info-circle" aria-hidden="true"></i>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="device-info-grid device-info-grid--extra">
                             <div class="info-item device-new-banner" *ngIf="isNewDevice(device)">
                                 <div class="device-new-banner-inner">
                                     <i class="fa fa-star device-new-banner-icon" aria-hidden="true"></i>
@@ -449,13 +467,16 @@
                                 </div>
                             </div>
 
-                            <div class="info-item device-no-mac-banner" *ngIf="isDeviceWithoutMac(device)">
+                            <div class="info-item device-no-mac-banner" *ngIf="isDeviceNoAlert(device)">
                                 <div class="device-no-mac-banner-inner">
                                     <i class="fa fa-envelope-o device-no-mac-banner-icon" aria-hidden="true"></i>
-                                    <strong class="device-no-mac-banner-text">{{ "LOCAL_NETWORK.NO_MAC_DEVICE_NOTICE" | translate }}</strong>
+                                    <strong class="device-no-mac-banner-text">
+                                        <ng-container *ngIf="isEspressifVendor(device)">{{ "LOCAL_NETWORK.ESPRESSIF_NO_EMAIL_NOTICE" | translate }}</ng-container>
+                                        <ng-container *ngIf="!isEspressifVendor(device)">{{ "LOCAL_NETWORK.NO_MAC_DEVICE_NOTICE" | translate }}</ng-container>
+                                    </strong>
                                 </div>
                             </div>
-                            
+
                             <div class="info-item device-vendor-item" *ngIf="device.vendor">
                                 <div class="device-vendor-block">
                                     <div class="device-vendor-header">
@@ -478,21 +499,6 @@
                                 </div>
                             </div>
 
-                            <div class="device-extra-details-toggle-wrap" *ngIf="hasDeviceExtraDetails(device)">
-                                <button type="button"
-                                        class="btn btn-sm btn-outline-secondary w-100 device-extra-details-toggle"
-                                        (click)="toggleDeviceExtraDetails(device)"
-                                        [attr.aria-expanded]="isDeviceExtraDetailsExpanded(device)"
-                                        [title]="'LOCAL_NETWORK.EXTRA_INFO_TOGGLE_TOOLTIP' | translate">
-                                    <i class="fa me-1"
-                                       [ngClass]="isDeviceExtraDetailsExpanded(device) ? 'fa-chevron-up' : 'fa-chevron-down'"
-                                       aria-hidden="true"></i>
-                                    <ng-container *ngIf="!isDeviceExtraDetailsExpanded(device)">{{ "LOCAL_NETWORK.EXTRA_INFO_EXPAND" | translate }}</ng-container>
-                                    <ng-container *ngIf="isDeviceExtraDetailsExpanded(device)">{{ "LOCAL_NETWORK.EXTRA_INFO_COLLAPSE" | translate }}</ng-container>
-                                </button>
-                            </div>
-
-                            <ng-container *ngIf="hasDeviceExtraDetails(device) && isDeviceExtraDetailsExpanded(device)">
                             <div class="info-item" *ngIf="device.os">
                                 <i class="fa fa-laptop"></i>
                                 <div>
@@ -543,8 +549,7 @@
                                     <div>{{ device.lastSeen | date:'short' }}</div>
                                 </div>
                             </div>
-                            </ng-container>
-                        </div>
+                            </div>
 
                         <!-- Services and Ports Details -->
                         <div class="services-section mt-3">
@@ -613,6 +618,7 @@
                                     </a>
                                 </div>
                             </div>
+                        </div>
                         </div>
 
                     </div>

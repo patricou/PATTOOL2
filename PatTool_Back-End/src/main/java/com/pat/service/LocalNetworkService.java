@@ -3851,15 +3851,15 @@ public class LocalNetworkService {
             // Find new devices (by MAC address)
             List<Map<String, Object>> newDevices = new ArrayList<>();
             for (Map<String, Object> device : foundDevices) {
+                if (!isEligibleForNewDeviceAlert(device)) {
+                    continue;
+                }
                 String macAddress = (String) device.get("macAddress");
-                if (hasUsableMacAddress(macAddress)) {
-                    String normalizedMac = normalizeMacAddress(macAddress);
-                    if (!knownMacAddresses.contains(normalizedMac)) {
-                        // This is a new device
-                        newDevices.add(device);
-                        log.debug("New device detected: IP={}, MAC={}, Hostname={}", 
-                                device.get("ipAddress"), macAddress, device.get("hostname"));
-                    }
+                String normalizedMac = normalizeMacAddress(macAddress);
+                if (!knownMacAddresses.contains(normalizedMac)) {
+                    newDevices.add(device);
+                    log.debug("New device detected: IP={}, MAC={}, Hostname={}", 
+                            device.get("ipAddress"), macAddress, device.get("hostname"));
                 }
             }
 
@@ -3881,11 +3881,10 @@ public class LocalNetworkService {
     private void saveNewDevicesToHistory(List<Map<String, Object>> newDevices) {
         try {
             for (Map<String, Object> device : newDevices) {
-                String macAddress = (String) device.get("macAddress");
-                
-                if (!hasUsableMacAddress(macAddress)) {
+                if (!isEligibleForNewDeviceAlert(device)) {
                     continue;
                 }
+                String macAddress = (String) device.get("macAddress");
                 
                 // Always add a new entry to history, even if device already exists (to track detection times)
                 // Save MAC address with ":" format (e.g., AA:BB:CC:DD:EE:FF) for better readability in MongoDB
@@ -3918,6 +3917,49 @@ public class LocalNetworkService {
         } catch (Exception e) {
             log.error("Error saving new devices to history: {}", e.getMessage(), e);
         }
+    }
+
+    /**
+     * Hostname of the machine running PatTool (network scan / email source).
+     */
+    public String getPatToolHostIdentifier() {
+        try {
+            String host = InetAddress.getLocalHost().getHostName();
+            if (host != null && !host.isBlank()) {
+                return host.trim();
+            }
+        } catch (Exception ignored) {
+            // fall through
+        }
+        String env = System.getenv("COMPUTERNAME");
+        if (env != null && !env.isBlank()) {
+            return env.trim();
+        }
+        env = System.getenv("HOSTNAME");
+        if (env != null && !env.isBlank()) {
+            return env.trim();
+        }
+        return "PatTool-backend";
+    }
+
+    /** Vendor excluded from new-device history and alert emails (ESP32 / ESP8266 modules). */
+    public static final String VENDOR_EXCLUDED_FROM_ALERTS = "Espressif Inc.";
+
+    public boolean isEspressifVendor(String vendor) {
+        return vendor != null && vendor.trim().equalsIgnoreCase(VENDOR_EXCLUDED_FROM_ALERTS);
+    }
+
+    /**
+     * New-device history and emails only for devices with a valid MAC and a non-excluded vendor.
+     */
+    public boolean isEligibleForNewDeviceAlert(Map<String, Object> device) {
+        if (device == null) {
+            return false;
+        }
+        if (!hasUsableMacAddress((String) device.get("macAddress"))) {
+            return false;
+        }
+        return !isEspressifVendor((String) device.get("vendor"));
     }
 
     /**

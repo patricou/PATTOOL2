@@ -719,12 +719,23 @@
 }
 
 /* Entre bloc fabricant et Services : replier OS / web / … (replié par défaut) */
+.device-details-toggle-wrap,
 .device-extra-details-toggle-wrap {
     grid-column: 1 / -1;
     padding: 0.25rem 0 0.35rem;
     margin-top: 0.15rem;
 }
 
+.device-details-collapsible {
+    margin-top: 0.35rem;
+}
+
+.device-details-toggle-wrap {
+    margin-top: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.device-details-toggle-wrap .device-details-toggle,
 .device-extra-details-toggle-wrap .device-extra-details-toggle {
     font-size: 0.72rem;
     font-weight: 600;

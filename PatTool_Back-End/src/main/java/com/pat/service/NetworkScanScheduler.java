@@ -151,16 +151,15 @@ public class NetworkScanScheduler {
                 if (device != null && !device.isEmpty()) {
                     foundDevices.add(device);
                     
-                    // Check if device is new (by MAC address only; skip devices without a valid MAC)
+                    if (!localNetworkService.isEligibleForNewDeviceAlert(device)) {
+                        return;
+                    }
                     String macAddress = (String) device.get("macAddress");
-                    if (localNetworkService.hasUsableMacAddress(macAddress)) {
-                        String normalizedMac = normalizeMacAddress(macAddress);
-                        if (!knownMacAddresses.contains(normalizedMac)) {
-                            // This is a new device
-                            newDevices.add(device);
-                            log.debug("New device detected: IP={}, MAC={}, Hostname={}", 
-                                    device.get("ipAddress"), macAddress, device.get("hostname"));
-                        }
+                    String normalizedMac = normalizeMacAddress(macAddress);
+                    if (!knownMacAddresses.contains(normalizedMac)) {
+                        newDevices.add(device);
+                        log.debug("New device detected: IP={}, MAC={}, Hostname={}", 
+                                device.get("ipAddress"), macAddress, device.get("hostname"));
                     }
                 }
             });
@@ -195,10 +194,10 @@ public class NetworkScanScheduler {
             for (Map<String, Object> device : newDevices) {
                 String macAddress = (String) device.get("macAddress");
                 
-                if (!localNetworkService.hasUsableMacAddress(macAddress)) {
+                if (!localNetworkService.isEligibleForNewDeviceAlert(device)) {
                     continue;
                 }
-                
+
                 // Always add a new entry to history, even if device already exists (to track detection times)
                 // Save MAC address with ":" format (e.g., AA:BB:CC:DD:EE:FF) for better readability in MongoDB
                 String formattedMac = formatMacAddressWithColons(macAddress);
@@ -238,21 +237,22 @@ public class NetworkScanScheduler {
     private void sendNewDeviceNotificationEmail(List<Map<String, Object>> newDevices) {
         try {
             List<Map<String, Object>> devicesWithMac = newDevices.stream()
-                    .filter(d -> localNetworkService.hasUsableMacAddress((String) d.get("macAddress")))
+                    .filter(localNetworkService::isEligibleForNewDeviceAlert)
                     .collect(Collectors.toList());
             if (devicesWithMac.isEmpty()) {
-                log.debug("No new devices with MAC address - email notification skipped");
+                log.debug("No eligible new devices for email - notification skipped");
                 return;
             }
 
-            String subject = "[PatTool] Nouveaux appareils détectés sur le réseau - " + 
+            String scanHost = localNetworkService.getPatToolHostIdentifier();
+            String subject = "[PatTool] Nouveaux appareils détectés (" + scanHost + ") - " +
                             devicesWithMac.size() + " appareil(s)";
-            
-            String body = generateNewDeviceEmailHtml(devicesWithMac);
+
+            String body = generateNewDeviceEmailHtml(devicesWithMac, scanHost);
             
             mailController.sendMail(subject, body, true); // true = HTML format
             
-            log.debug("Email notification sent successfully for {} new device(s)", devicesWithMac.size());
+            log.debug("Email notification sent successfully for {} new device(s) from host {}", devicesWithMac.size(), scanHost);
         } catch (Exception e) {
             log.error("Failed to send email notification for new devices: {}", e.getMessage(), e);
         }
@@ -262,7 +262,7 @@ public class NetworkScanScheduler {
      * Generate HTML email body for new device notification
      * Style similar to other emails in the application
      */
-    private String generateNewDeviceEmailHtml(List<Map<String, Object>> newDevices) {
+    private String generateNewDeviceEmailHtml(List<Map<String, Object>> newDevices, String scanHost) {
         StringBuilder bodyBuilder = new StringBuilder();
         bodyBuilder.append("<!DOCTYPE html><html><head><meta charset='UTF-8'>");
         bodyBuilder.append("<style>");
@@ -289,8 +289,11 @@ public class NetworkScanScheduler {
         
         bodyBuilder.append("<div class='content'>");
         bodyBuilder.append("<div class='message'>");
+        bodyBuilder.append("<p>Scan réseau effectué depuis l'hôte PatTool&nbsp;: <strong>")
+                .append(escapeHtml(scanHost != null ? scanHost : "PatTool-backend"))
+                .append("</strong></p>");
         bodyBuilder.append("<p><strong>").append(newDevices.size()).append(" nouveau(x) appareil(s)</strong> ");
-        bodyBuilder.append("ont été détecté(s) sur votre réseau local. Ces appareils n'étaient pas présents dans la base de données des appareils connus.</p>");
+        bodyBuilder.append("ont été détecté(s) sur le réseau local de cet hôte. Ces appareils n'étaient pas présents dans la base de données des appareils connus.</p>");
         bodyBuilder.append("<p>Veuillez vérifier ces appareils et les ajouter à la base de données si nécessaire.</p>");
         bodyBuilder.append("</div>");
         
@@ -322,6 +325,9 @@ public class NetworkScanScheduler {
         
         bodyBuilder.append("<div class='footer'>");
         bodyBuilder.append("<p>Cet email a été envoyé automatiquement par PatTool.</p>");
+        bodyBuilder.append("<p>Hôte PatTool&nbsp;: <strong>")
+                .append(escapeHtml(scanHost != null ? scanHost : "PatTool-backend"))
+                .append("</strong></p>");
         bodyBuilder.append("<p>Scanné le: ").append(escapeHtml(LocalDateTime.now().format(
                 DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss")))).append("</p>");
         bodyBuilder.append("</div>");

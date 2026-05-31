@@ -1785,7 +1785,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.showHikingTrailsOverlay = false;
 		this.showCyclingTrailsOverlay = false;
 		this.stopFollowDeviceLocation();
-		this.followDeviceLocation = this.isMobileViewport();
+		this.followDeviceLocation = false;
 		this.keepScreenAwake = false;
 		void this.releaseScreenWakeLock();
 		this.cleanupMapMoveHandler();

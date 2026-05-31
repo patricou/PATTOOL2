@@ -314,7 +314,7 @@
     <div class="trace-viewer-footer-row trace-viewer-footer-row--bottom w-100 d-flex">
     <div class="d-flex gap-1 align-items-center trace-viewer-footer-actions">
       <div class="trace-viewer-footer-actions-row trace-viewer-footer-actions-row--primary">
-      <div class="trace-viewer-footer-switches-group d-flex align-items-center flex-wrap">
+      <div class="trace-viewer-footer-switches-group d-flex align-items-center flex-nowrap">
       <div class="form-check form-switch d-flex align-items-center flex-shrink-0">
         <input class="form-check-input" type="checkbox" id="show-address-switch"
                [(ngModel)]="showAddress"
@@ -365,7 +365,7 @@
         </label>
       </div>
       </div>
-      <div class="trace-viewer-footer-buttons-group d-flex align-items-center flex-wrap">
+      <div class="trace-viewer-footer-buttons-group d-flex align-items-center flex-nowrap">
       <button type="button"
               class="btn btn-outline-secondary flex-shrink-0"
               *ngIf="!isFullscreen"
@@ -396,10 +396,6 @@
               [attr.aria-label]="'EVENTELEM.TRACK_VIEW_ON_GLOBE' | translate">
         <i class="fa fa-globe me-1" aria-hidden="true"></i>3D
       </button>
-      </div>
-      </div>
-      <div class="trace-viewer-footer-actions-row trace-viewer-footer-actions-row--secondary">
-      <div class="trace-viewer-footer-actions-row-start">
       <button type="button"
               class="btn btn-secondary flex-shrink-0"
               (click)="toggleFullscreen()"

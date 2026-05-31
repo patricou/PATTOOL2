@@ -733,14 +733,14 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     this.router.navigate(['/iot/proxy'], { queryParams: qp }).catch((err) => console.error(err));
   }
 
-  /** OS / web / DB / etc. between vendor block and Services — collapsed by default (per device). */
-  private readonly deviceExtraDetailsExpandedIds = new Set<string>();
+  /** Vulnerabilities, vendor, services, etc. — collapsed by default (hostname/IP/MAC/type/description stay visible). */
+  private readonly deviceDetailsExpandedIds = new Set<string>();
 
-  private deviceExtraDetailsKey(device: NetworkDevice): string {
+  private deviceDetailsKey(device: NetworkDevice): string {
     return `${device.ipAddress}\u001f${device.macAddress ?? ''}`;
   }
 
-  hasDeviceExtraDetails(device: NetworkDevice): boolean {
+  hasDeviceScanExtraDetails(device: NetworkDevice): boolean {
     const ra = device.remoteAccess?.trim();
     return !!(
       device.os ||
@@ -752,16 +752,28 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     );
   }
 
-  isDeviceExtraDetailsExpanded(device: NetworkDevice): boolean {
-    return this.deviceExtraDetailsExpandedIds.has(this.deviceExtraDetailsKey(device));
+  hasDeviceCollapsibleDetails(device: NetworkDevice): boolean {
+    return !!(
+      (device.vulnerabilities && device.vulnerabilities.length > 0) ||
+      this.isNewDevice(device) ||
+      this.isDeviceNoAlert(device) ||
+      device.vendor ||
+      this.hasDeviceScanExtraDetails(device) ||
+      this.hasServices(device.services) ||
+      (device.openPorts && device.openPorts.length > 0)
+    );
   }
 
-  toggleDeviceExtraDetails(device: NetworkDevice): void {
-    const k = this.deviceExtraDetailsKey(device);
-    if (this.deviceExtraDetailsExpandedIds.has(k)) {
-      this.deviceExtraDetailsExpandedIds.delete(k);
+  isDeviceDetailsExpanded(device: NetworkDevice): boolean {
+    return this.deviceDetailsExpandedIds.has(this.deviceDetailsKey(device));
+  }
+
+  toggleDeviceDetails(device: NetworkDevice): void {
+    const k = this.deviceDetailsKey(device);
+    if (this.deviceDetailsExpandedIds.has(k)) {
+      this.deviceDetailsExpandedIds.delete(k);
     } else {
-      this.deviceExtraDetailsExpandedIds.add(k);
+      this.deviceDetailsExpandedIds.add(k);
     }
     this.cdr.markForCheck();
   }
@@ -921,7 +933,7 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     if (this.isNewDevice(device)) {
       return 'fa-star';
     }
-    if (this.isDeviceWithoutMac(device)) {
+    if (this.isDeviceNoAlert(device)) {
       return 'fa-question-circle';
     }
     
@@ -970,7 +982,7 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
    * High vulnerability → red, Low vulnerability → orange, No vulnerability → green
    */
   getDeviceHeaderClass(device: NetworkDevice): string {
-    if (this.isDeviceWithoutMac(device)) {
+    if (this.isDeviceNoAlert(device)) {
       return 'device-header-no-mac';
     }
     if (!device.vulnerabilities || device.vulnerabilities.length === 0) {
@@ -1884,17 +1896,32 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     return normalized.length === 12 && /^[0-9A-F]{12}$/.test(normalized);
   }
 
-  /** Device visible on scan but without a resolvable MAC (no alert email). */
+  private static readonly VENDOR_NO_ALERT = 'Espressif Inc.';
+
+  /** Device visible on scan but without a resolvable MAC. */
   isDeviceWithoutMac(device: NetworkDevice): boolean {
     return !this.hasUsableMacAddress(device.macAddress);
+  }
+
+  isEspressifVendor(device: NetworkDevice): boolean {
+    const v = device.vendor?.trim();
+    return !!v && v.localeCompare(LocalNetworkComponent.VENDOR_NO_ALERT, undefined, { sensitivity: 'accent' }) === 0;
+  }
+
+  /** Grey card styling and no alert email (no MAC or Espressif IoT modules). */
+  isDeviceNoAlert(device: NetworkDevice): boolean {
+    return this.isDeviceWithoutMac(device) || this.isEspressifVendor(device);
   }
 
   /**
    * Check if a device is new (not in MongoDB inventories).
    * Primary rule: MAC not present in mappings and source indicates discovery (ARP/local), not DB.
-   * Devices without a MAC are never treated as new (ARP may fail during parallel scan).
+   * Devices without a MAC or Espressif vendor are never treated as new.
    */
   isNewDevice(device: NetworkDevice): boolean {
+    if (this.isDeviceNoAlert(device)) {
+      return false;
+    }
     const macAddress = device.macAddress?.trim();
     if (!macAddress || !this.hasUsableMacAddress(macAddress)) {
       return false;
