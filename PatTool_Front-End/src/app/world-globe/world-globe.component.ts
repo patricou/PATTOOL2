@@ -280,12 +280,12 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
    */
   issGroundSpeedKmh: number | null = null;
   /** Éclairage uniforme sur tout le globe (ambiance + hémisphère). Coupé tant que le jour/nuit réel est actif. */
-  globeLightingUniform = false;
+  globeLightingUniform = true;
   /**
    * Terminateur jour/nuit selon la position réelle du Soleil (horloge du navigateur / UTC).
-   * Activé par défaut ; prioritaire sur l’éclairage uniforme.
+   * Désactivé par défaut ; prioritaire sur l’éclairage uniforme quand activé.
    */
-  realTimeTerminator = true;
+  realTimeTerminator = false;
 
   /**
    * Intensité globale des lumières et de l’exposition tone-mapping (curseur latéral).
@@ -321,7 +321,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   /** Largeur colonne flux ISS en plein écran scindé (poignée entre globe et vidéos). */
   issFsSplitIssWidthPx = 320;
 
-  /** False tant que l’utilisateur n’a pas déplacé le séparateur (largeur = 50 % / 50 %). */
+  /** False tant que l’utilisateur n’a pas déplacé le séparateur (largeur ISS = 40 % de l’écran). */
   private issFsSplitIssWidthManual = false;
 
   issFsSplitDragging = false;
@@ -342,7 +342,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     return this.getEffectiveIssFsSplitIssWidthPx();
   }
 
-  /** Largeur colonne ISS affichée (50 % par défaut ; valeur manuelle après glisser le séparateur). */
+  /** Largeur colonne ISS affichée (40 % de l’écran par défaut ; valeur manuelle après glisser le séparateur). */
   private getEffectiveIssFsSplitIssWidthPx(): number {
     if (this.issFsSplitIssWidthManual) {
       return this.issFsSplitIssWidthPx;
@@ -471,6 +471,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private readonly issPiPResizeUpHandler = () => this.endIssPiPResizeDrag();
   private static readonly ISS_FS_SPLIT_WIDTH_STORAGE_KEY = 'pat.world-globe.iss-fs-split.iss-width-px';
   private static readonly ISS_FS_SPLIT_HANDLE_PX = 6;
+  /** Part plein écran de la colonne flux ISS (panneau droit) ; le globe prend le reste. */
+  private static readonly ISS_FS_SPLIT_ISS_WIDTH_RATIO = 0.4;
   private static readonly ISS_FS_SPLIT_ISS_MIN_PX = 176;
   private static readonly ISS_FS_SPLIT_GLOBE_MIN_PX = 220;
   private issFsSplitResizeDrag: {
@@ -988,6 +990,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
 
     this.setGlobeTrueFullscreenBodyClass(false);
+    const wasPresentation = this.globePresentationMode;
     try {
       await WorldGlobeComponent.requestFullscreenCompat(region);
       this.globeViewportLocked = false;
@@ -1002,9 +1005,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       }
     }
     this.syncFullscreenFromDocument();
-    if (this.issFsSplitLayout) {
-      this.applyIssFsSplitDefaultSplit();
-    }
+    this.applyIssEmbedPanelsOnPresentationChange(wasPresentation);
     this.scheduleGlobeViewAfterLayoutChange();
   }
 
@@ -1279,16 +1280,12 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private static readonly ISS_PIP_SIZE_ABSOLUTE_MAX = { w: 1400, h: 900 };
   private static readonly ISS_PIP_STACK_GAP_PX = 6;
 
-  /** Hors plein écran : aucune fenêtre ISS ; en plein écran : conserver l’état (pas d’activation auto). */
+  /** Hors plein écran : aucune fenêtre ISS ; en plein écran : ouvrir les deux flux automatiquement. */
   private applyIssEmbedPanelsOnPresentationChange(wasPresentation: boolean): void {
     const isPresentation = this.globePresentationMode;
     if (isPresentation && !wasPresentation) {
       this.showOptionsPanel = false;
-      if (this.issFsSplitLayout) {
-        this.applyIssFsSplitDefaultSplit();
-      }
-      queueMicrotask(() => this.refreshIssLivePiPPanelsLayout());
-      this.cdr.markForCheck();
+      this.enableBothIssEmbedPanelsForFullscreen();
       return;
     }
     if (!isPresentation && wasPresentation) {
@@ -1299,6 +1296,15 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.endIssFsSplitResizeDrag();
       this.issFsSplitIssWidthManual = false;
     }
+  }
+
+  private enableBothIssEmbedPanelsForFullscreen(): void {
+    this.issLiveEmbedEnabled = true;
+    this.issLiveHdEmbedEnabled = true;
+    this.issFsSplitIssWidthManual = false;
+    this.applyIssFsSplitDefaultSplit();
+    queueMicrotask(() => this.refreshIssLivePiPPanelsLayout());
+    this.cdr.markForCheck();
   }
 
   private disableAllIssEmbedPanels(): void {
@@ -1464,17 +1470,17 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  /** Largeur colonne ISS pour un partage 50 % / 50 % (globe | ISS). */
+  /** Largeur colonne ISS : 40 % de la largeur du stage (plein écran scindé). */
   private getCenterIssFsSplitIssWidthPx(stageWidth?: number): number {
     const stageW = stageWidth ?? this.getGlobeStageElement()?.clientWidth ?? 0;
     if (stageW <= 0) {
       return Math.max(WorldGlobeComponent.ISS_FS_SPLIT_ISS_MIN_PX, this.issFsSplitIssWidthPx);
     }
-    const half = (stageW - WorldGlobeComponent.ISS_FS_SPLIT_HANDLE_PX) / 2;
-    return this.clampIssFsSplitIssWidth(half, stageW);
+    const target = stageW * WorldGlobeComponent.ISS_FS_SPLIT_ISS_WIDTH_RATIO;
+    return this.clampIssFsSplitIssWidth(target, stageW);
   }
 
-  /** Colonne flux ISS centrée (sauf si l’utilisateur a déplacé le séparateur). */
+  /** Colonne flux ISS à 40 % (sauf si l’utilisateur a déplacé le séparateur). */
   private syncIssFsSplitIssColumnWidth(): void {
     if (!this.issFsSplitLayout || this.issFsSplitIssWidthManual) {
       return;
@@ -1485,7 +1491,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  /** À l’entrée en plein écran scindé : séparateur au milieu. */
+  /** À l’entrée en plein écran scindé : colonne ISS à 40 % de la largeur. */
   private applyIssFsSplitDefaultSplit(): void {
     this.issFsSplitIssWidthManual = false;
     const apply = () => {

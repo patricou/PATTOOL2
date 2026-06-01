@@ -1613,7 +1613,8 @@ body app-world-globe .pat-title.wg-title-plain {
   margin-left: calc(50% - 50vw) !important;
   margin-right: calc(50% - 50vw) !important;
   padding-top: calc(1rem + var(--wg-pat-div-gap)) !important;
-  padding-bottom: 0 !important;
+  padding-bottom: 1rem !important;
+  min-height: 80px;
   border-bottom: none !important;
   /* Annule .pat-title global (margin-bottom 20px, border #e9ecef) */
 }
@@ -1667,6 +1668,7 @@ body.pat-has-news-ticker.pat-has-currency-ticker.pat-has-stock-ticker
 body:has(.friend-requests-app-banner) app-world-globe .pat-title.wg-title-plain {
   margin-top: 0 !important;
   padding-top: 1rem !important;
+  padding-bottom: 1rem !important;
 }
 
 /**
