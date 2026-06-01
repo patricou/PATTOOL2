@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "Французский",
         "EN": "Английский",
@@ -565,6 +565,13 @@
         "PANEL_TOGGLE": "Слои и вид",
         "SHOW_PANEL": "Показать параметры",
         "HIDE_PANEL": "Скрыть параметры",
+        "OPT_SECTION_LIGHT": "Lighting",
+        "OPT_SECTION_BASE": "Basemap & sky",
+        "OPT_SECTION_MAP": "Map & borders",
+        "OPT_SECTION_GEO": "Terrain & water",
+        "OPT_SECTION_ISS": "ISS",
+        "OPT_SECTION_VIEW": "Globe view",
+        "OPT_SECTION_CREDITS": "Data sources",
         "BASEMAP_SATELLITE": "Спутниковая подложка NASA BMNG (через прокси)",
         "LIGHT_REALISTIC_DAY_NIGHT": "Граница день/ночь в реальном времени (Солнце, UTC)",
         "LIGHT_REALISTIC_HINT": "Выкл.: ровное освещение, без терминатора. Вкл.: солнечный свет следует за реальным Солнцем (часы); граница движется в реальном времени.",
@@ -873,6 +880,12 @@
         "HOLIDAY_TYPE_HELP_BANK": "Банковский выходной: закрыты банки; остальное зависит от места.",
         "HOLIDAY_SCOPE_GLOBAL": "По всей стране.",
         "HOLIDAY_SCOPE_REGIONS": "Регионы / кантоны: {{list}}",
+        "SAINT_SEARCH_LABEL": "Святой — поиск",
+        "SAINT_SEARCH_PLACEHOLDER": "Найти святого…",
+        "SAINT_SEARCH_NO_RESULTS": "Святой не найден",
+        "SAINT_CALENDAR_LABEL": "Календарь святых",
+        "SAINT_CALENDAR_LITURGICAL": "Римский литургический",
+        "SAINT_CALENDAR_TRADITIONAL": "Французский традиционный",
         "HOLIDAYS_COUNTRY_LABEL": "Государственные праздники — страна",
         "ACTIVITY_OPEN_HINT": "Подсказка: дважды щёлкните по активности, чтобы открыть фотовитрину.",
         "HOLIDAY_NAMES_SWITCH_LABEL": "Названия праздников:",

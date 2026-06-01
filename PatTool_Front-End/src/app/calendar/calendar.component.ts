@@ -17,7 +17,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NgbActiveModal, NgbModal, NgbModalModule } from '@ng-bootstrap/ng-bootstrap';
 import { TodoListDetailOverlayService } from '../todolists/todo-list-detail-overlay.service';
 import { FullCalendarComponent, FullCalendarModule } from '@fullcalendar/angular';
-import { CalendarOptions, DateSelectArg, EventClickArg, EventInput, LocaleInput } from '@fullcalendar/core';
+import { CalendarOptions, DateSelectArg, DayCellContentArg, EventClickArg, EventInput, LocaleInput } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
@@ -51,6 +51,7 @@ import {
 } from './calendar.service';
 import { CALENDAR_HELP_TEXT_EN, CALENDAR_HELP_TEXT_FR } from './calendar-help-text';
 import { NagerPublicHoliday, PublicHolidayService } from './public-holiday.service';
+import { SaintCalendarId, SaintDayOption, SaintOfDayService, SAINT_CALENDAR_STORAGE } from './saint-of-day.service';
 import { TodoList, TodoListService } from '../todolists/todolist.service';
 
 const HOLIDAY_COUNTRY_STORAGE = 'pat-tool-calendar-holiday-country';
@@ -122,6 +123,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     private evenementsService = inject(EvenementsService);
     private todoListService = inject(TodoListService);
     private todoListOverlay = inject(TodoListDetailOverlayService);
+    private saintOfDayService = inject(SaintOfDayService);
 
     private thumbnailBlobUrls = new Map<string, string>();
     private thumbnailLoadsInFlight = new Set<string>();
@@ -189,6 +191,16 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
      */
     holidayNamesUseCountryLanguage = false;
 
+    /** Recherche de saint → navigation directe vers le jour correspondant. */
+    saintSearchQuery = '';
+    saintSearchOpen = false;
+    filteredSaintOptions: SaintDayOption[] = [];
+    saintSearchActiveIndex: number | null = null;
+    private saintSearchCloseTimer?: ReturnType<typeof setTimeout>;
+
+    /** Calendrier des saints : liturgique romain ou traditionnel français. */
+    saintCalendarId: SaintCalendarId = 'traditional';
+
     /** Largeur ≤768px : pastille titre sur 2 lignes max à partir du libellé complet. */
     calendarMobileUi = false;
 
@@ -221,16 +233,22 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         } catch {
             /* ignore */
         }
+        this.saintCalendarId = this.saintOfDayService.readStoredCalendarId();
         this.calendarOptions = this.buildCalendarOptions();
         this.calendarMobileUi = this.isCalendarMobileViewport();
         this.loadFriendGroupsForCalendar();
+        this.reloadSaintCalendarData();
         this.langChangeSub = this.translate.onLangChange.subscribe(() => {
-            const api = this.fullCalendar?.getApi();
-            if (api) {
-                api.setOption('locale', this.pickLocale());
-                api.refetchEvents();
-            }
-            this.cdr.markForCheck();
+            this.saintSearchQuery = '';
+            this.saintSearchOpen = false;
+            this.saintSearchActiveIndex = null;
+            this.reloadSaintCalendarData(() => {
+                const api = this.fullCalendar?.getApi();
+                if (api) {
+                    api.setOption('locale', this.pickLocale());
+                    api.refetchEvents();
+                }
+            });
         });
         this.publicHolidayService.getAvailableCountries().subscribe(list => {
             const valid = [...list].filter(c => c.key && /^[A-Za-z]{2}$/.test(c.key));
@@ -370,6 +388,128 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         }, 150);
     }
 
+    @HostListener('document:click', ['$event'])
+    onSaintSearchDocumentClick(event: MouseEvent): void {
+        const target = event.target;
+        if (!(target instanceof Element) || target.closest('.pat-cal-saint-search')) {
+            return;
+        }
+        if (this.saintSearchOpen) {
+            this.saintSearchOpen = false;
+            this.saintSearchActiveIndex = null;
+            this.cdr.markForCheck();
+        }
+    }
+
+    refreshSaintSearchOptions(): void {
+        this.filteredSaintOptions = this.saintOfDayService.filterOptions(this.saintSearchQuery);
+    }
+
+    onSaintCalendarChange(): void {
+        try {
+            localStorage.setItem(SAINT_CALENDAR_STORAGE, this.saintCalendarId);
+        } catch {
+            /* ignore */
+        }
+        this.saintSearchQuery = '';
+        this.saintSearchOpen = false;
+        this.saintSearchActiveIndex = null;
+        this.reloadSaintCalendarData();
+    }
+
+    private reloadSaintCalendarData(afterRender?: () => void): void {
+        this.saintOfDayService.load(this.saintCalendarId).subscribe(() => {
+            this.refreshSaintSearchOptions();
+            this.fullCalendar?.getApi()?.render();
+            afterRender?.();
+            this.cdr.markForCheck();
+        });
+    }
+
+    onSaintSearchQueryChange(): void {
+        this.saintSearchOpen = true;
+        this.saintSearchActiveIndex = null;
+        this.refreshSaintSearchOptions();
+    }
+
+    onSaintSearchFocus(): void {
+        if (this.saintSearchCloseTimer !== undefined) {
+            clearTimeout(this.saintSearchCloseTimer);
+            this.saintSearchCloseTimer = undefined;
+        }
+        this.saintSearchOpen = true;
+        this.refreshSaintSearchOptions();
+    }
+
+    onSaintSearchBlur(): void {
+        this.saintSearchCloseTimer = setTimeout(() => {
+            this.saintSearchOpen = false;
+            this.saintSearchActiveIndex = null;
+            this.cdr.markForCheck();
+        }, 160);
+    }
+
+    goToSaintDay(opt: SaintDayOption): void {
+        const api = this.fullCalendar?.getApi();
+        if (!api) {
+            return;
+        }
+        const year = api.getDate().getFullYear();
+        const date = this.saintOfDayService.dateFromOption(opt, year);
+        api.gotoDate(date);
+        if (api.view.type !== 'dayGridMonth') {
+            api.changeView('dayGridMonth');
+        }
+        this.saintSearchQuery = opt.name;
+        this.saintSearchOpen = false;
+        this.saintSearchActiveIndex = null;
+        this.cdr.markForCheck();
+    }
+
+    onSaintSearchKeydown(event: KeyboardEvent): void {
+        if (!this.saintSearchOpen) {
+            return;
+        }
+        const count = this.filteredSaintOptions.length;
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            if (!count) {
+                return;
+            }
+            this.saintSearchActiveIndex = this.saintSearchActiveIndex === null
+                ? 0
+                : Math.min(this.saintSearchActiveIndex + 1, count - 1);
+            this.cdr.markForCheck();
+            return;
+        }
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            if (!count) {
+                return;
+            }
+            this.saintSearchActiveIndex = this.saintSearchActiveIndex === null
+                ? count - 1
+                : Math.max(this.saintSearchActiveIndex - 1, 0);
+            this.cdr.markForCheck();
+            return;
+        }
+        if (event.key === 'Enter') {
+            const pick = this.saintSearchActiveIndex !== null
+                ? this.filteredSaintOptions[this.saintSearchActiveIndex]
+                : (count === 1 ? this.filteredSaintOptions[0] : undefined);
+            if (pick) {
+                event.preventDefault();
+                this.goToSaintDay(pick);
+            }
+            return;
+        }
+        if (event.key === 'Escape') {
+            this.saintSearchOpen = false;
+            this.saintSearchActiveIndex = null;
+            this.cdr.markForCheck();
+        }
+    }
+
     /** Largeur ≤ 768px : même logique que les media queries du template agenda. */
     private isCalendarMobileViewport(): boolean {
         if (typeof window === 'undefined') {
@@ -395,6 +535,10 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         if (this.layoutResizeTimer !== undefined) {
             clearTimeout(this.layoutResizeTimer);
             this.layoutResizeTimer = undefined;
+        }
+        if (this.saintSearchCloseTimer !== undefined) {
+            clearTimeout(this.saintSearchCloseTimer);
+            this.saintSearchCloseTimer = undefined;
         }
         if (this.thumbUiRafId !== null && typeof cancelAnimationFrame !== 'undefined') {
             cancelAnimationFrame(this.thumbUiRafId);
@@ -904,7 +1048,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
             slotMaxTime: '22:00:00',
             scrollTime: '08:00:00',
             height: 'auto',
-            contentHeight: this.isCalendarMobileViewport() ? undefined : 640,
+            contentHeight: undefined,
             allDaySlot: true,
             /*
              * Deux sources : les entrées API s’affichent dès qu’elles arrivent (sans attendre Nager),
@@ -948,10 +1092,37 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
                     });
                 }
             ],
+            dayCellContent: (arg: DayCellContentArg) => this.formatDayCellContent(arg),
             eventClick: (arg: EventClickArg) => this.onEventClick(arg),
             select: (arg: DateSelectArg) => this.onCalendarSelect(arg),
             dateClick: (arg) => this.onCalendarDateClick(arg)
         };
+    }
+
+    private formatDayCellContent(arg: DayCellContentArg): { html: string } {
+        const num = arg.dayNumberText;
+        const badgeClass = `pat-cal-day-num badge${arg.isToday ? ' pat-cal-day-num--today' : ''}`;
+        if (arg.view.type !== 'dayGridMonth') {
+            return { html: num };
+        }
+        const saint = this.saintOfDayService.getName(arg.date);
+        if (!saint) {
+            return {
+                html: `<div class="pat-cal-day-header pat-cal-day-header--solo"><span class="${badgeClass} pat-cal-day-num--solo">${num}</span></div>`
+            };
+        }
+        const safe = this.escapeHtml(saint);
+        return {
+            html: `<div class="pat-cal-day-header"><em class="pat-cal-saint" title="${safe}">${safe}</em><span class="${badgeClass}">${num}</span></div>`
+        };
+    }
+
+    private escapeHtml(text: string): string {
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
     /**

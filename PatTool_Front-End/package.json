@@ -12,6 +12,7 @@
     "lint": "ng lint",
     "e2e": "ng e2e",
     "postinstall": "patch-package",
+    "generate-saints": "node scripts/generate-saints.mjs",
     "cap:sync": "npm run build && npx cap sync",
     "cap:add:android": "npx cap add android",
     "cap:add:ios": "npx cap add ios",
@@ -80,6 +81,8 @@
     "@angular/cli": "^21.0.3",
     "@angular/compiler-cli": "^21.0.3",
     "@capacitor/cli": "^8.3.4",
+    "@romcal/calendar.france": "^3.0.0-dev.125",
+    "@romcal/calendar.general-roman": "^3.0.0-dev.125",
     "@types/earcut": "^3.0.0",
     "@types/jasmine": "^5.1.0",
     "@types/jquery": "^3.5.0",
@@ -97,6 +100,7 @@
     "karma-jasmine-html-reporter": "^2.1.0",
     "patch-package": "^8.0.1",
     "postinstall-postinstall": "^2.1.0",
+    "romcal": "^3.0.0-dev.125",
     "typescript": "~5.9.0"
   }
 }

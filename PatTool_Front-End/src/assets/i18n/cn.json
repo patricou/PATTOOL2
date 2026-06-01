@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "法语",
         "EN": "英语",
@@ -153,6 +153,13 @@
         "PANEL_TOGGLE": "图层与视图",
         "SHOW_PANEL": "显示选项",
         "HIDE_PANEL": "隐藏选项",
+        "OPT_SECTION_LIGHT": "Lighting",
+        "OPT_SECTION_BASE": "Basemap & sky",
+        "OPT_SECTION_MAP": "Map & borders",
+        "OPT_SECTION_GEO": "Terrain & water",
+        "OPT_SECTION_ISS": "ISS",
+        "OPT_SECTION_VIEW": "Globe view",
+        "OPT_SECTION_CREDITS": "Data sources",
         "BASEMAP_SATELLITE": "NASA BMNG 卫星底图（代理）",
         "LIGHT_REALISTIC_DAY_NIGHT": "实时昼夜分界线（太阳实时，UTC）",
         "LIGHT_REALISTIC_HINT": "关闭：均匀照明，无晨昏线。开启：阳光随真实太阳（系统时间）移动，分界线实时变化。",
@@ -461,6 +468,12 @@
         "HOLIDAY_TYPE_HELP_BANK": "银行假日：银行休息；其他规则因地而异。",
         "HOLIDAY_SCOPE_GLOBAL": "全国适用。",
         "HOLIDAY_SCOPE_REGIONS": "地区 / 州：{{list}}",
+        "SAINT_SEARCH_LABEL": "圣人 — 搜索",
+        "SAINT_SEARCH_PLACEHOLDER": "搜索圣人…",
+        "SAINT_SEARCH_NO_RESULTS": "未找到圣人",
+        "SAINT_CALENDAR_LABEL": "圣人日历",
+        "SAINT_CALENDAR_LITURGICAL": "罗马礼仪",
+        "SAINT_CALENDAR_TRADITIONAL": "法国传统",
         "HOLIDAYS_COUNTRY_LABEL": "公共假日 — 国家/地区",
         "ACTIVITY_OPEN_HINT": "提示：双击某条活动即可打开照片墙。",
         "HOLIDAY_NAMES_SWITCH_LABEL": "公共假日名称：",

@@ -12,6 +12,42 @@
     min-width: 0;
 }
 
+.pat-title.title-with-photo-wall-btn .pat-title-saint-slot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    position: relative;
+    z-index: 3;
+}
+
+.pat-title.title-with-photo-wall-btn .pat-title-saint-slot .pat-cal-saint-search {
+    width: min(100%, 13rem);
+    min-width: 0;
+}
+
+.pat-title.title-with-photo-wall-btn .pat-title-saint-slot .pat-cal-saint-search-input {
+    font-size: 0.8125rem;
+    line-height: 1.25;
+    padding-top: 0.2rem;
+    padding-bottom: 0.2rem;
+    padding-left: 0.45rem;
+}
+
+.pat-title.title-with-photo-wall-btn .pat-title-saint-slot .pat-cal-saint-search-list {
+    position: absolute;
+    z-index: 1060;
+    top: calc(100% + 0.15rem);
+    left: 0;
+    width: max(100%, 14rem);
+    max-width: min(22rem, 92vw);
+    max-height: 14rem;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 0.35rem;
+    box-shadow: 0 0.35rem 0.75rem rgba(0, 0, 0, 0.12);
+}
+
 .pat-title.title-with-photo-wall-btn h2 {
     flex: 0 0 auto !important;
     white-space: nowrap;
@@ -44,6 +80,15 @@
         flex-direction: row !important;
         flex-wrap: nowrap !important;
         align-items: center !important;
+    }
+
+    .pat-title.title-with-photo-wall-btn .pat-title-saint-slot .pat-cal-saint-search {
+        width: min(100%, 7.5rem);
+    }
+
+    .pat-title.title-with-photo-wall-btn .pat-title-saint-slot .pat-cal-saint-search-input {
+        font-size: 0.75rem;
+        padding-left: 0.35rem;
     }
 }
 
@@ -112,13 +157,31 @@
 }
 
 .calendar-page {
-    min-height: calc(100vh - 120px);
+    overflow: visible;
+    padding-bottom: 1.5rem;
+}
+
+:host {
+    display: block;
+    overflow: visible;
 }
 
 .calendar-fc-wrap {
     position: relative;
     max-width: 1400px;
     margin: 0 auto;
+    overflow: visible;
+}
+
+/* Vue mois : pas de scroll interne — la page défile normalement */
+:host ::ng-deep .calendar-fc-wrap .fc .fc-scroller,
+:host ::ng-deep .calendar-fc-wrap .fc .fc-scroller-harness,
+:host ::ng-deep .calendar-fc-wrap .fc .fc-scroller-harness-liquid {
+    overflow: visible !important;
+}
+
+:host ::ng-deep .calendar-fc-wrap .fc .fc-scroller-liquid-absolute {
+    position: static !important;
 }
 
 .pat-cal-grid-loading-overlay {
@@ -142,11 +205,14 @@
     max-width: 1400px;
     margin-left: auto;
     margin-right: auto;
+    position: relative;
+    z-index: 2;
 }
 
 .pat-cal-holidays-label {
-    font-size: 0.72rem;
+    font-size: 0.8125rem;
     line-height: 1.2;
+    font-weight: 600;
 }
 
 .pat-cal-holiday-select {
@@ -156,6 +222,23 @@
     padding-top: 0.12rem;
     padding-bottom: 0.12rem;
     padding-left: 0.35rem;
+}
+
+.pat-cal-saint-search-item {
+    display: block;
+    padding: 0.25rem 0.45rem;
+    color: #212529;
+    text-decoration: none;
+    line-height: 1.25;
+    border-radius: 0;
+}
+
+.pat-cal-saint-search-item:hover,
+.pat-cal-saint-search-item:focus-visible,
+.pat-cal-saint-search-item.active {
+    background: rgba(13, 110, 253, 0.1);
+    color: #0d6efd;
+    outline: none;
 }
 
 .pat-cal-holidays-switch {
@@ -427,6 +510,91 @@
         white-space: normal;
         overflow: visible;
         line-height: 1.25;
+    }
+}
+
+/* Numéro du jour (badge à droite) + saint du jour (à gauche) — vue mois */
+:host ::ng-deep .calendar-fc-wrap .fc .fc-daygrid-day-top {
+    display: block !important;
+    width: 100% !important;
+    padding-bottom: 0.1rem;
+}
+
+:host ::ng-deep .calendar-fc-wrap .fc .fc-daygrid-day-top .fc-daygrid-day-number,
+:host ::ng-deep .calendar-fc-wrap .fc .fc-daygrid-day-number {
+    float: none !important;
+    margin: 0 !important;
+    width: 100% !important;
+    display: block !important;
+}
+
+:host ::ng-deep .calendar-fc-wrap .fc .pat-cal-day-header {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto;
+    align-items: start;
+    column-gap: 0.25rem;
+    width: 100%;
+    min-width: 0;
+}
+
+:host ::ng-deep .calendar-fc-wrap .fc .pat-cal-day-header--solo {
+    display: flex;
+    justify-content: flex-end;
+}
+
+:host ::ng-deep .calendar-fc-wrap .fc .pat-cal-saint {
+    grid-column: 1;
+    min-width: 0;
+    font-style: italic;
+    font-size: 0.62em;
+    line-height: 1.25;
+    color: #6c757d;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 400;
+    text-align: left;
+    padding-top: 0.12rem;
+}
+
+:host ::ng-deep .calendar-fc-wrap .fc .pat-cal-day-num {
+    grid-column: 2;
+    justify-self: end;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.35rem;
+    padding: 0.15rem 0.4rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1;
+    border-radius: 0.35rem;
+    background-color: #e9ecef;
+    color: #495057;
+}
+
+:host ::ng-deep .calendar-fc-wrap .fc .pat-cal-day-header--solo .pat-cal-day-num {
+    grid-column: auto;
+    justify-self: auto;
+    margin-left: auto;
+}
+
+:host ::ng-deep .calendar-fc-wrap .fc .pat-cal-day-num--today {
+    background-color: #0d6efd;
+    color: #fff;
+}
+
+:host ::ng-deep .calendar-fc-wrap .fc .fc-day-other .pat-cal-day-num:not(.pat-cal-day-num--today) {
+    background-color: #f1f3f5;
+    color: #adb5bd;
+}
+
+@media (max-width: 576px) {
+    :host ::ng-deep .calendar-fc-wrap .fc .pat-cal-saint {
+        font-size: 0.55em;
     }
 }
 

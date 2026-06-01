@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "फ्रेंच",
         "EN": "अंग्रेजी",
@@ -564,6 +564,13 @@
         "PANEL_TOGGLE": "परतें और दृश्य",
         "SHOW_PANEL": "विकल्प दिखाएँ",
         "HIDE_PANEL": "विकल्प छिपाएँ",
+        "OPT_SECTION_LIGHT": "Lighting",
+        "OPT_SECTION_BASE": "Basemap & sky",
+        "OPT_SECTION_MAP": "Map & borders",
+        "OPT_SECTION_GEO": "Terrain & water",
+        "OPT_SECTION_ISS": "ISS",
+        "OPT_SECTION_VIEW": "Globe view",
+        "OPT_SECTION_CREDITS": "Data sources",
         "BASEMAP_SATELLITE": "NASA BMNG उपग्रह बेसमैप (प्रॉक्सी)",
         "LIGHT_REALISTIC_DAY_NIGHT": "लाइव दिन/रात सीमा (सूर्य वास्तविक समय में, UTC)",
         "LIGHT_REALISTIC_HINT": "बंद: समान रोशनी, कोई टर्मिनेटर नहीं। चालू: सूर्य का प्रकाश वास्तविक सूर्य (घड़ी) के साथ चलता है; सीमा वास्तविक समय में बदलती है।",
@@ -872,6 +879,12 @@
         "HOLIDAY_TYPE_HELP_BANK": "बैंक अवकाश: बैंक बंद; बाकी भिन्न।",
         "HOLIDAY_SCOPE_GLOBAL": "पूरे देश में।",
         "HOLIDAY_SCOPE_REGIONS": "क्षेत्रीय / कैंटन: {{list}}",
+        "SAINT_SEARCH_LABEL": "संत — खोज",
+        "SAINT_SEARCH_PLACEHOLDER": "संत खोजें…",
+        "SAINT_SEARCH_NO_RESULTS": "कोई संत नहीं मिला",
+        "SAINT_CALENDAR_LABEL": "संत कैलेंडर",
+        "SAINT_CALENDAR_LITURGICAL": "रोमन लिटर्जिकल",
+        "SAINT_CALENDAR_TRADITIONAL": "फ़्रांसीसी पारंपरिक",
         "HOLIDAYS_COUNTRY_LABEL": "सार्वजनिक अवकाश — देश",
         "ACTIVITY_OPEN_HINT": "संकेत: फोटो वॉल खोलने के लिए किसी गतिविधि पर दो बार क्लिक करें।",
         "HOLIDAY_NAMES_SWITCH_LABEL": "छुट्टियों के नाम:",

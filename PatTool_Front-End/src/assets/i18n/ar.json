@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "الفرنسية",
         "EN": "الإنجليزية",
@@ -153,6 +153,13 @@
         "PANEL_TOGGLE": "الطبقات والعرض",
         "SHOW_PANEL": "إظهار الخيارات",
         "HIDE_PANEL": "إخفاء الخيارات",
+        "OPT_SECTION_LIGHT": "Lighting",
+        "OPT_SECTION_BASE": "Basemap & sky",
+        "OPT_SECTION_MAP": "Map & borders",
+        "OPT_SECTION_GEO": "Terrain & water",
+        "OPT_SECTION_ISS": "ISS",
+        "OPT_SECTION_VIEW": "Globe view",
+        "OPT_SECTION_CREDITS": "Data sources",
         "BASEMAP_SATELLITE": "خريطة أساس أقمار NASA BMNG (عبر وكيل)",
         "LIGHT_REALISTIC_DAY_NIGHT": "حد النهار/الليل المباشر (الشمس في الوقت الفعلي، UTC)",
         "LIGHT_REALISTIC_HINT": "عند الإيقاف: إضاءة متساوية، دون خط فاصل. عند التشغيل: يتبع ضوء الشمس الشمس الحقيقية (الساعة) ويتحرك الخط في الوقت الفعلي.",
@@ -461,6 +468,12 @@
         "HOLIDAY_TYPE_HELP_BANK": "عطلة بنكية: إغلاق البنوك؛ غير ذلك يختلف.",
         "HOLIDAY_SCOPE_GLOBAL": "على مستوى البلاد بالكامل.",
         "HOLIDAY_SCOPE_REGIONS": "إقليمي / كانتونات: {{list}}",
+        "SAINT_SEARCH_LABEL": "قديس — بحث",
+        "SAINT_SEARCH_PLACEHOLDER": "ابحث عن قديس…",
+        "SAINT_SEARCH_NO_RESULTS": "لم يُعثر على قديس",
+        "SAINT_CALENDAR_LABEL": "تقويم القديسين",
+        "SAINT_CALENDAR_LITURGICAL": "ليتургي رومي",
+        "SAINT_CALENDAR_TRADITIONAL": "فرنسي تقليدي",
         "HOLIDAYS_COUNTRY_LABEL": "العطل الرسمية — البلد",
         "ACTIVITY_OPEN_HINT": "نصيحة: انقر نقرًا مزدوجًا على نشاط لفتح جدار الصور.",
         "HOLIDAY_NAMES_SWITCH_LABEL": "أسماء العطل:",

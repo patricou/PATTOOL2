@@ -142,10 +142,10 @@ const GLOBE_LIGHTING_BOOST_MAX = 2.08;
 /** Calque sombre nuit (au-dessus du sol, sous nuages) pour accentuer le terminateur. */
 const GLOBE_TERMINATOR_NIGHT_RADIUS = 1.011;
 /** Éclairage terminateur : nuit plus sombre, jour plus lumineux (avant globeLightingBoost). */
-const GLOBE_TERMINATOR_AMB_BASE = 0.05;
-const GLOBE_TERMINATOR_HEMI_BASE = 0.03;
-const GLOBE_TERMINATOR_SUN_BASE = 4.4;
-const GLOBE_TERMINATOR_EXPOSURE_BASE = 1.06;
+const GLOBE_TERMINATOR_AMB_BASE = 0.02;
+const GLOBE_TERMINATOR_HEMI_BASE = 0.012;
+const GLOBE_TERMINATOR_SUN_BASE = 5.8;
+const GLOBE_TERMINATOR_EXPOSURE_BASE = 1.14;
 
 /** À zoom fort (caméra proche), rotation / panoramique / molette trop nerveux sans ce facteur. */
 const ORBIT_SENS_U_MIN_ROTATE_PAN = 0.13;
@@ -190,8 +190,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   issLiveEmbedEnabled = false;
   issLivePiPFullscreen = false;
   readonly issLiveEmbedSafeUrl: SafeResourceUrl = this.buildIssLiveEmbedSafeUrl(ISS_LIVE_YOUTUBE_VIDEO_ID);
-  /** Mini-fenêtre ISS HD (activée par défaut). */
-  issLiveHdEmbedEnabled = true;
+  /** Mini-fenêtre ISS HD — activée avec le flux standard en plein écran uniquement. */
+  issLiveHdEmbedEnabled = false;
   issLiveHdPiPFullscreen = false;
   readonly issLiveHdEmbedSafeUrl: SafeResourceUrl = this.buildIssLiveEmbedSafeUrl(ISS_LIVE_HD_YOUTUBE_VIDEO_ID);
   /** Capture image ISS en cours (copie ou partage WhatsApp, une fenêtre à la fois). */
@@ -317,6 +317,38 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   get issFsSplitLayout(): boolean {
     return this.fullscreen && (this.issLiveEmbedEnabled || this.issLiveHdEmbedEnabled);
   }
+
+  /** Largeur colonne flux ISS en plein écran scindé (poignée entre globe et vidéos). */
+  issFsSplitIssWidthPx = 320;
+
+  /** False tant que l’utilisateur n’a pas déplacé le séparateur (largeur = 50 % / 50 %). */
+  private issFsSplitIssWidthManual = false;
+
+  issFsSplitDragging = false;
+
+  /** Style inline pour la grille plein écran scindé (variable CSS largeur ISS). */
+  get issFsSplitStageStyle(): Record<string, string> | null {
+    if (!this.issFsSplitLayout) {
+      return null;
+    }
+    return {
+      '--wg-fs-iss-split-width': `${this.getEffectiveIssFsSplitIssWidthPx()}px`,
+      '--wg-fs-split-handle-px': `${WorldGlobeComponent.ISS_FS_SPLIT_HANDLE_PX}px`
+    };
+  }
+
+  /** Largeur colonne flux ISS (template / ARIA). */
+  get issFsSplitIssColumnWidthPx(): number {
+    return this.getEffectiveIssFsSplitIssWidthPx();
+  }
+
+  /** Largeur colonne ISS affichée (50 % par défaut ; valeur manuelle après glisser le séparateur). */
+  private getEffectiveIssFsSplitIssWidthPx(): number {
+    if (this.issFsSplitIssWidthManual) {
+      return this.issFsSplitIssWidthPx;
+    }
+    return this.getCenterIssFsSplitIssWidthPx();
+  }
   /**
    * True si le dernier plein écran a utilisé `document.documentElement` (repli quand le conteneur refuse l’API).
    * Permet de détecter la sortie et de garder le libellé du bouton cohérent.
@@ -437,6 +469,20 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   } | null = null;
   private readonly issPiPResizeMoveHandler = (event: MouseEvent) => this.onIssPiPResizeMove(event);
   private readonly issPiPResizeUpHandler = () => this.endIssPiPResizeDrag();
+  private static readonly ISS_FS_SPLIT_WIDTH_STORAGE_KEY = 'pat.world-globe.iss-fs-split.iss-width-px';
+  private static readonly ISS_FS_SPLIT_HANDLE_PX = 6;
+  private static readonly ISS_FS_SPLIT_ISS_MIN_PX = 176;
+  private static readonly ISS_FS_SPLIT_GLOBE_MIN_PX = 220;
+  private issFsSplitResizeDrag: {
+    startX: number;
+    startWidth: number;
+    handle: HTMLElement;
+    pointerId: number;
+  } | null = null;
+  private readonly issFsSplitResizeMoveHandler = (event: PointerEvent) => this.onIssFsSplitResizeMove(event);
+  private readonly issFsSplitResizeUpHandler = (event: PointerEvent) => this.endIssFsSplitResizeDrag(event);
+  /** Plein écran document + masquage chrome app (repli si FS sur #globeFsRoot refusé). */
+  private static readonly WG_TRUE_FS_BODY_CLASS = 'pat-wg-true-fullscreen';
   /** Rotation lente nuages vs sol (effet léger façon couches atmosphériques). */
   private cloudsDriftRad = 0;
   private routeQuerySub?: Subscription;
@@ -596,6 +642,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.endIssFsSplitResizeDrag();
+    void this.exitGlobeFullscreenIfActive();
     this.stopIssPolling();
     this.disposeCountryBordersOverlay();
     this.disposeCoastlinesOverlay();
@@ -658,17 +706,32 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   @HostListener('document:mozfullscreenchange')
   @HostListener('document:MSFullscreenChange')
   onFullscreenDoc(): void {
+    const wasPresentation = this.globePresentationMode;
     this.syncFullscreenFromDocument();
     this.syncIssLivePiPFullscreenFromDocument();
+    this.applyIssEmbedPanelsOnPresentationChange(wasPresentation);
     this.cdr.markForCheck();
     requestAnimationFrame(() => {
       this.resizeRendererToHost();
       this.refreshIssLivePiPPanelsLayout();
+      if (this.issFsSplitLayout) {
+        this.syncIssFsSplitIssColumnWidth();
+        if (this.issFsSplitIssWidthManual) {
+          this.issFsSplitIssWidthPx = this.clampIssFsSplitIssWidth(this.issFsSplitIssWidthPx);
+        }
+        this.cdr.markForCheck();
+      }
     });
   }
 
   @HostListener('window:resize')
   onWindowResize(): void {
+    if (this.issFsSplitLayout) {
+      this.syncIssFsSplitIssColumnWidth();
+      if (this.issFsSplitIssWidthManual) {
+        this.issFsSplitIssWidthPx = this.clampIssFsSplitIssWidth(this.issFsSplitIssWidthPx);
+      }
+    }
     this.resizeRendererToHost();
     if (this.detailMapOpen) {
       this.globeTraceViewer?.refreshMapLayout();
@@ -908,48 +971,40 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   }
 
   async toggleFullscreen(): Promise<void> {
-    const region = this.globeFsRoot?.nativeElement ?? this.globeShell?.nativeElement;
+    const region = this.getGlobeFullscreenRegion();
     if (!region) {
       return;
     }
-    const doc = document as Document & {
-      webkitFullscreenElement?: Element | null;
-      webkitExitFullscreen?: () => Promise<void>;
-      mozFullScreenElement?: Element | null;
-      mozCancelFullScreen?: () => Promise<void>;
-      msFullscreenElement?: Element | null;
-      msExitFullscreen?: () => Promise<void>;
-    };
-    const fsEl =
-      document.fullscreenElement ??
-      doc.webkitFullscreenElement ??
-      doc.mozFullScreenElement ??
-      doc.msFullscreenElement ??
-      null;
+    const fsEl = this.getDocumentFullscreenElement();
 
-    const inOurRegion = !!(fsEl && (fsEl === region || region.contains(fsEl)));
-
-    if (inOurRegion || this.globeViewportLocked) {
-      if (inOurRegion) {
-        try {
-          await WorldGlobeComponent.exitFullscreenCompat(doc);
-        } catch {
-          /* ignore */
-        }
-      }
+    if (this.isGlobeFullscreenElement(fsEl) || this.globeViewportLocked) {
+      const wasPresentation = this.globePresentationMode;
+      await this.exitGlobeFullscreenIfActive();
       this.globeViewportLocked = false;
       this.syncFullscreenFromDocument();
+      this.applyIssEmbedPanelsOnPresentationChange(wasPresentation);
       this.scheduleGlobeViewAfterLayoutChange();
       return;
     }
 
+    this.setGlobeTrueFullscreenBodyClass(false);
     try {
       await WorldGlobeComponent.requestFullscreenCompat(region);
       this.globeViewportLocked = false;
     } catch {
-      this.globeViewportLocked = true;
+      try {
+        this.setGlobeTrueFullscreenBodyClass(true);
+        await WorldGlobeComponent.requestFullscreenCompat(document.documentElement);
+        this.globeViewportLocked = false;
+      } catch {
+        this.setGlobeTrueFullscreenBodyClass(false);
+        this.globeViewportLocked = true;
+      }
     }
     this.syncFullscreenFromDocument();
+    if (this.issFsSplitLayout) {
+      this.applyIssFsSplitDefaultSplit();
+    }
     this.scheduleGlobeViewAfterLayoutChange();
   }
 
@@ -1216,17 +1271,81 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   } as const;
 
   private static readonly ISS_PIP_SIZE_MIN = { w: 160, h: 120 };
+  /** Hors plein écran : largeur des mini-fenêtres à l’ouverture (% de la fenêtre navigateur). */
+  private static readonly ISS_PIP_WINDOWED_WIDTH_RATIO = 0.25;
+  private static readonly ISS_PIP_WINDOWED_BAR_PX = 36;
   private static readonly ISS_PIP_SIZE_MAX_RATIO = { w: 0.96, h: 0.85 };
   /** Plafond fixe à la restauration (évite de rétrécir quand le panneau options se masque). */
   private static readonly ISS_PIP_SIZE_ABSOLUTE_MAX = { w: 1400, h: 900 };
   private static readonly ISS_PIP_STACK_GAP_PX = 6;
 
-  onIssLiveEmbedPanelToggle(): void {
+  /** Hors plein écran : aucune fenêtre ISS ; en plein écran : conserver l’état (pas d’activation auto). */
+  private applyIssEmbedPanelsOnPresentationChange(wasPresentation: boolean): void {
+    const isPresentation = this.globePresentationMode;
+    if (isPresentation && !wasPresentation) {
+      this.showOptionsPanel = false;
+      if (this.issFsSplitLayout) {
+        this.applyIssFsSplitDefaultSplit();
+      }
+      queueMicrotask(() => this.refreshIssLivePiPPanelsLayout());
+      this.cdr.markForCheck();
+      return;
+    }
+    if (!isPresentation && wasPresentation) {
+      this.disableAllIssEmbedPanels();
+      return;
+    }
+    if (!isPresentation) {
+      this.endIssFsSplitResizeDrag();
+      this.issFsSplitIssWidthManual = false;
+    }
+  }
+
+  private disableAllIssEmbedPanels(): void {
+    if (this.issLivePiPFullscreen) {
+      void this.toggleIssLivePiPFullscreen();
+    }
+    if (this.issLiveHdPiPFullscreen) {
+      void this.toggleIssLiveHdPiPFullscreen();
+    }
+    this.issLiveEmbedEnabled = false;
+    this.issLiveHdEmbedEnabled = false;
+    this.endIssFsSplitResizeDrag();
+    this.issFsSplitIssWidthManual = false;
     queueMicrotask(() => this.refreshIssLivePiPPanelsLayout());
+    this.cdr.markForCheck();
+  }
+
+  onIssLiveEmbedPanelToggle(): void {
+    queueMicrotask(() => {
+      if (this.issFsSplitLayout && !this.issFsSplitIssWidthManual) {
+        this.applyIssFsSplitDefaultSplit();
+      }
+      const applyWindowedDefault =
+        !this.globePresentationMode && !this.isIssMobileStackLayout() && this.issLiveEmbedEnabled;
+      this.refreshIssLivePiPPanelsLayout();
+      if (applyWindowedDefault) {
+        this.applyIssPiPDefaultWindowedSize(this.issLivePiP?.nativeElement, 'standard');
+        this.syncIssStandardPiPSizeWithHd();
+        this.syncIssLivePiPStackOffset();
+      }
+    });
   }
 
   onIssLiveHdEmbedPanelToggle(): void {
-    queueMicrotask(() => this.refreshIssLivePiPPanelsLayout());
+    queueMicrotask(() => {
+      if (this.issFsSplitLayout && !this.issFsSplitIssWidthManual) {
+        this.applyIssFsSplitDefaultSplit();
+      }
+      const applyWindowedDefault =
+        !this.globePresentationMode && !this.isIssMobileStackLayout() && this.issLiveHdEmbedEnabled;
+      this.refreshIssLivePiPPanelsLayout();
+      if (applyWindowedDefault) {
+        this.applyIssPiPDefaultWindowedSize(this.issLiveHdPiP?.nativeElement, 'hd');
+        this.syncIssStandardPiPSizeWithHd();
+        this.syncIssLivePiPStackOffset();
+      }
+    });
   }
 
   /** Ferme la mini-fenêtre ISS (désactive le flux + quitte le plein écran vidéo si actif). */
@@ -1262,8 +1381,164 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  private isIssMobileStackLayout(): boolean {
+    return typeof window !== 'undefined' && window.matchMedia('(max-width: 767.98px)').matches;
+  }
+
+  /** Poignée verticale plein écran : largeur colonne flux ISS vs globe (clic gauche maintenu). */
+  onIssFsSplitResizeStart(event: PointerEvent): void {
+    if (!this.issFsSplitLayout || event.button !== 0 || this.isIssMobileStackLayout()) {
+      return;
+    }
+    const handle = event.currentTarget;
+    if (!(handle instanceof HTMLElement)) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    this.issFsSplitIssWidthManual = true;
+    this.issFsSplitIssWidthPx = this.getEffectiveIssFsSplitIssWidthPx();
+    try {
+      handle.setPointerCapture(event.pointerId);
+    } catch {
+      /* navigateurs anciens */
+    }
+    this.issFsSplitResizeDrag = {
+      startX: event.clientX,
+      startWidth: this.issFsSplitIssWidthPx,
+      handle,
+      pointerId: event.pointerId
+    };
+    this.issFsSplitDragging = true;
+    document.addEventListener('pointermove', this.issFsSplitResizeMoveHandler, { capture: true });
+    document.addEventListener('pointerup', this.issFsSplitResizeUpHandler, { capture: true });
+    document.addEventListener('pointercancel', this.issFsSplitResizeUpHandler, { capture: true });
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+  }
+
+  private onIssFsSplitResizeMove(event: PointerEvent): void {
+    const drag = this.issFsSplitResizeDrag;
+    if (!drag) {
+      return;
+    }
+    if ((event.buttons & 1) === 0) {
+      this.endIssFsSplitResizeDrag(event);
+      return;
+    }
+    event.preventDefault();
+    // Poignée entre globe (gauche) et ISS (droite) : tirer à droite rétrécit la colonne flux.
+    const next = this.clampIssFsSplitIssWidth(drag.startWidth - (event.clientX - drag.startX));
+    if (next === this.issFsSplitIssWidthPx) {
+      return;
+    }
+    this.issFsSplitIssWidthPx = next;
+    this.resizeRendererToHost();
+    this.cdr.markForCheck();
+  }
+
+  private endIssFsSplitResizeDrag(event?: PointerEvent): void {
+    const drag = this.issFsSplitResizeDrag;
+    if (!drag) {
+      return;
+    }
+    try {
+      if (drag.handle.hasPointerCapture(drag.pointerId)) {
+        drag.handle.releasePointerCapture(drag.pointerId);
+      }
+    } catch {
+      /* ignore */
+    }
+    this.issFsSplitResizeDrag = null;
+    this.issFsSplitDragging = false;
+    document.removeEventListener('pointermove', this.issFsSplitResizeMoveHandler, { capture: true });
+    document.removeEventListener('pointerup', this.issFsSplitResizeUpHandler, { capture: true });
+    document.removeEventListener('pointercancel', this.issFsSplitResizeUpHandler, { capture: true });
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+    if (event?.type === 'pointerup' || event?.type === 'pointercancel') {
+      this.saveIssFsSplitWidthToStorage();
+    }
+    this.resizeRendererToHost();
+    this.refreshIssLivePiPPanelsLayout();
+    this.cdr.markForCheck();
+  }
+
+  /** Largeur colonne ISS pour un partage 50 % / 50 % (globe | ISS). */
+  private getCenterIssFsSplitIssWidthPx(stageWidth?: number): number {
+    const stageW = stageWidth ?? this.getGlobeStageElement()?.clientWidth ?? 0;
+    if (stageW <= 0) {
+      return Math.max(WorldGlobeComponent.ISS_FS_SPLIT_ISS_MIN_PX, this.issFsSplitIssWidthPx);
+    }
+    const half = (stageW - WorldGlobeComponent.ISS_FS_SPLIT_HANDLE_PX) / 2;
+    return this.clampIssFsSplitIssWidth(half, stageW);
+  }
+
+  /** Colonne flux ISS centrée (sauf si l’utilisateur a déplacé le séparateur). */
+  private syncIssFsSplitIssColumnWidth(): void {
+    if (!this.issFsSplitLayout || this.issFsSplitIssWidthManual) {
+      return;
+    }
+    const next = this.getCenterIssFsSplitIssWidthPx();
+    if (next !== this.issFsSplitIssWidthPx) {
+      this.issFsSplitIssWidthPx = next;
+    }
+  }
+
+  /** À l’entrée en plein écran scindé : séparateur au milieu. */
+  private applyIssFsSplitDefaultSplit(): void {
+    this.issFsSplitIssWidthManual = false;
+    const apply = () => {
+      if (!this.issFsSplitLayout) {
+        return;
+      }
+      const next = this.getCenterIssFsSplitIssWidthPx();
+      if (next > 0) {
+        this.issFsSplitIssWidthPx = next;
+        this.cdr.markForCheck();
+        this.resizeRendererToHost();
+      }
+    };
+    apply();
+    requestAnimationFrame(() => requestAnimationFrame(apply));
+  }
+
+  private clampIssFsSplitIssWidth(px: number, stageWidth?: number): number {
+    const stageW = stageWidth ?? this.getGlobeStageElement()?.clientWidth ?? 0;
+    if (stageW <= 0) {
+      return Math.max(WorldGlobeComponent.ISS_FS_SPLIT_ISS_MIN_PX, Math.round(px));
+    }
+    const maxIss =
+      stageW -
+      WorldGlobeComponent.ISS_FS_SPLIT_GLOBE_MIN_PX -
+      WorldGlobeComponent.ISS_FS_SPLIT_HANDLE_PX;
+    return Math.round(
+      Math.min(
+        Math.max(WorldGlobeComponent.ISS_FS_SPLIT_ISS_MIN_PX, maxIss),
+        Math.max(WorldGlobeComponent.ISS_FS_SPLIT_ISS_MIN_PX, px)
+      )
+    );
+  }
+
+  private saveIssFsSplitWidthToStorage(): void {
+    if (!this.issFsSplitIssWidthManual) {
+      return;
+    }
+    try {
+      localStorage.setItem(
+        WorldGlobeComponent.ISS_FS_SPLIT_WIDTH_STORAGE_KEY,
+        JSON.stringify(this.issFsSplitIssWidthPx)
+      );
+    } catch {
+      /* quota / private mode */
+    }
+  }
+
   /** Poignée en haut à gauche : la fenêtre reste ancrée en bas à droite. */
   onIssPiPResizeStart(event: MouseEvent, variant: keyof typeof WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY): void {
+    if (this.issFsSplitLayout) {
+      return;
+    }
     if (variant === 'standard' && this.issLivePiPFullscreen) {
       return;
     }
@@ -1323,9 +1598,25 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.syncIssLivePiPStackOffset();
   }
 
+  private clearIssPiPPanelInlineSize(panel: HTMLElement | undefined): void {
+    if (!panel) {
+      return;
+    }
+    panel.style.removeProperty('width');
+    panel.style.removeProperty('max-width');
+    panel.style.removeProperty('height');
+    panel.style.removeProperty('max-height');
+  }
+
   private refreshIssLivePiPPanelsLayout(): void {
-    this.applyIssPiPStoredSize(this.issLiveHdPiP?.nativeElement, 'hd');
-    this.applyIssPiPStoredSize(this.issLivePiP?.nativeElement, 'standard');
+    if (this.issFsSplitLayout) {
+      this.clearIssPiPPanelInlineSize(this.issLivePiP?.nativeElement);
+      this.clearIssPiPPanelInlineSize(this.issLiveHdPiP?.nativeElement);
+      this.syncIssFsSplitIssColumnWidth();
+    } else {
+      this.applyIssPiPStoredSize(this.issLiveHdPiP?.nativeElement, 'hd');
+      this.applyIssPiPStoredSize(this.issLivePiP?.nativeElement, 'standard');
+    }
     this.syncIssStandardPiPSizeWithHd();
     this.syncIssLivePiPStackOffset();
     this.setupIssLivePiPResizeObservers();
@@ -1407,12 +1698,15 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     } catch {
       /* ignore */
     }
+    if (!this.globePresentationMode && !this.isIssMobileStackLayout()) {
+      return this.getIssPiPDefaultWindowedSize();
+    }
     return null;
   }
 
   /** Aligne « ISS en direct » sur la largeur et la hauteur de « ISS en direct HD ». */
   private syncIssStandardPiPSizeWithHd(): void {
-    if (!this.issLiveEmbedEnabled) {
+    if (this.issFsSplitLayout || !this.issLiveEmbedEnabled) {
       return;
     }
     const standard = this.issLivePiP?.nativeElement;
@@ -1497,6 +1791,33 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     panel.style.maxHeight = `${clamped.h}px`;
   }
 
+  private getIssPiPWindowWidthRefPx(): number {
+    if (typeof window !== 'undefined' && window.innerWidth > 0) {
+      return window.innerWidth;
+    }
+    return this.getGlobeStageElement()?.clientWidth ?? 0;
+  }
+
+  /** Taille par défaut hors plein écran : 25 % de la largeur de la fenêtre navigateur. */
+  private getIssPiPDefaultWindowedSize(): { w: number; h: number } {
+    const winW = this.getIssPiPWindowWidthRefPx();
+    const w = Math.round(winW * WorldGlobeComponent.ISS_PIP_WINDOWED_WIDTH_RATIO);
+    const frameH = Math.round((w * 9) / 16);
+    const h = frameH + WorldGlobeComponent.ISS_PIP_WINDOWED_BAR_PX;
+    return this.clampIssPiPSize(w, h);
+  }
+
+  private applyIssPiPDefaultWindowedSize(
+    panel: HTMLElement | undefined,
+    _variant: keyof typeof WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY
+  ): void {
+    if (!panel || this.globePresentationMode || this.isIssMobileStackLayout()) {
+      return;
+    }
+    const { w, h } = this.getIssPiPDefaultWindowedSize();
+    this.applyIssPiPPanelSize(panel, w, h);
+  }
+
   private applyIssPiPStoredSize(panel: HTMLElement | undefined, variant: keyof typeof WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY): void {
     if (!panel) {
       return;
@@ -1504,14 +1825,19 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     try {
       const raw = localStorage.getItem(WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY[variant]);
       if (!raw) {
+        this.applyIssPiPDefaultWindowedSize(panel, variant);
         return;
       }
       const parsed = JSON.parse(raw) as { w?: number; h?: number };
       const w = typeof parsed.w === 'number' ? parsed.w : 0;
       const h = typeof parsed.h === 'number' ? parsed.h : 0;
-      this.applyIssPiPPanelSize(panel, w, h);
+      if (w > 0 && h > 0) {
+        this.applyIssPiPPanelSize(panel, w, h);
+        return;
+      }
+      this.applyIssPiPDefaultWindowedSize(panel, variant);
     } catch {
-      /* ignore corrupt storage */
+      this.applyIssPiPDefaultWindowedSize(panel, variant);
     }
   }
 
@@ -1609,6 +1935,46 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       doc.msFullscreenElement ??
       null
     );
+  }
+
+  private getGlobeFullscreenRegion(): HTMLElement | null {
+    return this.globeFsRoot?.nativeElement ?? this.globeShell?.nativeElement ?? null;
+  }
+
+  private isGlobeFullscreenElement(fsEl: Element | null): boolean {
+    if (!fsEl) {
+      return false;
+    }
+    const region = this.getGlobeFullscreenRegion();
+    if (region && (fsEl === region || region.contains(fsEl))) {
+      return true;
+    }
+    return (
+      fsEl === document.documentElement &&
+      document.body.classList.contains(WorldGlobeComponent.WG_TRUE_FS_BODY_CLASS)
+    );
+  }
+
+  private setGlobeTrueFullscreenBodyClass(enabled: boolean): void {
+    document.body.classList.toggle(WorldGlobeComponent.WG_TRUE_FS_BODY_CLASS, enabled);
+  }
+
+  private async exitGlobeFullscreenIfActive(): Promise<void> {
+    this.setGlobeTrueFullscreenBodyClass(false);
+    const fsEl = this.getDocumentFullscreenElement();
+    if (!fsEl) {
+      return;
+    }
+    const doc = document as Document & {
+      webkitExitFullscreen?: () => Promise<void>;
+      mozCancelFullScreen?: () => Promise<void>;
+      msExitFullscreen?: () => Promise<void>;
+    };
+    try {
+      await WorldGlobeComponent.exitFullscreenCompat(doc);
+    } catch {
+      /* ignore */
+    }
   }
 
   private isPiPPanelFullscreen(panel: HTMLElement | null | undefined): boolean {
@@ -2762,26 +3128,18 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   }
 
   private syncFullscreenFromDocument(): void {
-    const region = this.globeFsRoot?.nativeElement ?? this.globeShell?.nativeElement;
-    const doc = document as Document & {
-      webkitFullscreenElement?: Element | null;
-      mozFullScreenElement?: Element | null;
-      msFullscreenElement?: Element | null;
-    };
-    const fsEl =
-      document.fullscreenElement ??
-      doc.webkitFullscreenElement ??
-      doc.mozFullScreenElement ??
-      doc.msFullscreenElement ??
-      null;
+    const fsEl = this.getDocumentFullscreenElement();
     if (!fsEl) {
+      this.setGlobeTrueFullscreenBodyClass(false);
       this.fullscreen = this.globeViewportLocked;
       return;
     }
-    const inRegion = !!(region && (fsEl === region || region.contains(fsEl)));
-    this.fullscreen = inRegion || this.globeViewportLocked;
-    if (inRegion) {
+    const inOurs = this.isGlobeFullscreenElement(fsEl);
+    this.fullscreen = inOurs || this.globeViewportLocked;
+    if (inOurs) {
       this.globeViewportLocked = false;
+    } else {
+      this.setGlobeTrueFullscreenBodyClass(false);
     }
   }
 
@@ -2796,11 +3154,17 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
 
     if (this.realTimeTerminator) {
       amb.color.setHex(0xffffff);
-      hemi.color.setHex(0xb8c8f0);
-      hemi.groundColor.setHex(0x070a12);
-      sun.color.setHex(0xfff7ec);
-      this.applyGlobeLightingLevels(0.19, 0.1, 3.05, 1.2);
+      hemi.color.setHex(0xa8bce8);
+      hemi.groundColor.setHex(0x010208);
+      sun.color.setHex(0xfff0dc);
+      this.applyGlobeLightingLevels(
+        GLOBE_TERMINATOR_AMB_BASE,
+        GLOBE_TERMINATOR_HEMI_BASE,
+        GLOBE_TERMINATOR_SUN_BASE,
+        GLOBE_TERMINATOR_EXPOSURE_BASE
+      );
       this.updateSunDirectionFromTime(new Date());
+      this.syncTerminatorNightOverlay();
       return;
     }
 
@@ -2811,6 +3175,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       sun.color.setHex(0xffffff);
       sun.position.set(2.6, 4.2, 3);
       this.applyGlobeLightingLevels(1.0, 0.93, 0.3, 1.36);
+      this.syncTerminatorNightOverlay();
       return;
     }
 
@@ -2818,6 +3183,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     hemi.color.setHex(0x8899bb);
     hemi.groundColor.setHex(0x0c1018);
     this.applyGlobeLightingLevels(0.09, 0.11, 0, 1.06);
+    this.syncTerminatorNightOverlay();
   }
 
   /**
@@ -2900,10 +3266,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
         uniform vec3 uSunDir;
         void main() {
           float ndl = dot(normalize(vWorldNormal), normalize(uSunDir));
-          float night = 1.0 - smoothstep(-0.1, 0.28, ndl);
-          float twilight = smoothstep(-0.38, 0.02, ndl);
-          vec3 col = mix(vec3(0.006, 0.01, 0.04), vec3(0.03, 0.06, 0.16), twilight);
-          gl_FragColor = vec4(col, night * 0.82);
+          float night = 1.0 - smoothstep(-0.02, 0.14, ndl);
+          float twilight = smoothstep(-0.42, -0.04, ndl);
+          vec3 col = mix(vec3(0.001, 0.002, 0.012), vec3(0.02, 0.035, 0.1), twilight);
+          gl_FragColor = vec4(col, night * 0.94);
         }
       `,
       transparent: true,

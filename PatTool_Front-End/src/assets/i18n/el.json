@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "Γαλλικά",
         "EN": "Αγγλικά",
@@ -153,6 +153,13 @@
         "PANEL_TOGGLE": "Επίπεδα και προβολή",
         "SHOW_PANEL": "Εμφάνιση επιλογών",
         "HIDE_PANEL": "Απόκρυψη επιλογών",
+        "OPT_SECTION_LIGHT": "Lighting",
+        "OPT_SECTION_BASE": "Basemap & sky",
+        "OPT_SECTION_MAP": "Map & borders",
+        "OPT_SECTION_GEO": "Terrain & water",
+        "OPT_SECTION_ISS": "ISS",
+        "OPT_SECTION_VIEW": "Globe view",
+        "OPT_SECTION_CREDITS": "Data sources",
         "BASEMAP_SATELLITE": "Δορυφορικό υπόβαθρο NASA BMNG (διαμεσολαβημένο)",
         "LIGHT_REALISTIC_DAY_NIGHT": "Όριο μέρας/νύχτας σε πραγματικό χρόνο (Ήλιος, UTC)",
         "LIGHT_REALISTIC_HINT": "Απενεργοποιημένο: ομοιόμορφος φωτισμός, χωρίς τερματογραμμή. Ενεργό: το φως του ήλιου ακολουθεί τον πραγματικό Ήλιο (ρολόι)· το όριο κινείται σε πραγματικό χρόνο.",
@@ -461,6 +468,12 @@
         "HOLIDAY_TYPE_HELP_BANK": "Τραπεζική αργία: κλειστές τράπεζες· τα υπόλοιπα ποικίλλουν.",
         "HOLIDAY_SCOPE_GLOBAL": "Σε όλη τη χώρα.",
         "HOLIDAY_SCOPE_REGIONS": "Περιφερειακά / καντόνια: {{list}}",
+        "SAINT_SEARCH_LABEL": "Άγιος — αναζήτηση",
+        "SAINT_SEARCH_PLACEHOLDER": "Αναζήτηση αγίου…",
+        "SAINT_SEARCH_NO_RESULTS": "Δεν βρέθηκε άγιος",
+        "SAINT_CALENDAR_LABEL": "Ημερολόγιο αγίων",
+        "SAINT_CALENDAR_LITURGICAL": "Ρωμαιοκαθολικό λειτουργικό",
+        "SAINT_CALENDAR_TRADITIONAL": "Γαλλικό παραδοσιακό",
         "HOLIDAYS_COUNTRY_LABEL": "Αργίες — χώρα",
         "ACTIVITY_OPEN_HINT": "Συμβουλή: διπλό κλικ σε μια δραστηριότητα για να ανοίξετε τον τοίχο φωτογραφιών.",
         "HOLIDAY_NAMES_SWITCH_LABEL": "Ονόματα αργιών:",

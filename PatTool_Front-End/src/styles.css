@@ -1602,12 +1602,20 @@ body:has(.friend-requests-app-banner) app-euromillions .pat-title.eurom-title-pl
  */
 body app-world-globe {
   display: block;
+  width: 100%;
+  max-width: none;
 }
 
 body app-world-globe .pat-title.wg-title-plain {
   --wg-pat-div-gap: 80px;
   margin-top: calc(-1 * var(--wg-pat-div-gap)) !important;
+  margin-bottom: 0 !important;
+  margin-left: calc(50% - 50vw) !important;
+  margin-right: calc(50% - 50vw) !important;
   padding-top: calc(1rem + var(--wg-pat-div-gap)) !important;
+  padding-bottom: 0 !important;
+  border-bottom: none !important;
+  /* Annule .pat-title global (margin-bottom 20px, border #e9ecef) */
 }
 
 body app-world-globe .pat-title.wg-title-plain::before {
@@ -1659,4 +1667,67 @@ body.pat-has-news-ticker.pat-has-currency-ticker.pat-has-stock-ticker
 body:has(.friend-requests-app-banner) app-world-globe .pat-title.wg-title-plain {
   margin-top: 0 !important;
   padding-top: 1rem !important;
+}
+
+/**
+ * World Globe — vrai plein écran navigateur (API Fullscreen + repli documentElement).
+ */
+.wg-fs-root:fullscreen,
+.wg-fs-root:-webkit-full-screen,
+.wg-fs-root:-moz-full-screen {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-width: none !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  background: radial-gradient(115% 95% at 50% -8%, #1c2749 0%, #070b16 58%, #02040a 100%) !important;
+}
+
+body.pat-wg-true-fullscreen {
+  overflow: hidden !important;
+}
+
+body.pat-wg-true-fullscreen app-root > nav.navbar,
+body.pat-wg-true-fullscreen app-root > app-news-ticker,
+body.pat-wg-true-fullscreen app-root > app-currency-ticker,
+body.pat-wg-true-fullscreen app-root > app-stock-ticker,
+body.pat-wg-true-fullscreen app-root > .pat-div,
+body.pat-wg-true-fullscreen app-root > .friend-requests-app-banner {
+  display: none !important;
+}
+
+body.pat-wg-true-fullscreen app-world-globe {
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 1 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+body.pat-wg-true-fullscreen app-world-globe .wg-fs-root {
+  width: 100vw !important;
+  max-width: none !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  flex: 1 1 auto !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }

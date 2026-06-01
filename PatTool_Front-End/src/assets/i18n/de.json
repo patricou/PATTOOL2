@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "Französisch",
         "EN": "Englisch",
@@ -153,6 +153,13 @@
         "PANEL_TOGGLE": "Ebenen & Ansicht",
         "SHOW_PANEL": "Optionen anzeigen",
         "HIDE_PANEL": "Optionen ausblenden",
+        "OPT_SECTION_LIGHT": "Beleuchtung",
+        "OPT_SECTION_BASE": "Kartengrund & Himmel",
+        "OPT_SECTION_MAP": "Karte & Grenzen",
+        "OPT_SECTION_GEO": "Relief & Gewässer",
+        "OPT_SECTION_ISS": "ISS",
+        "OPT_SECTION_VIEW": "Globusansicht",
+        "OPT_SECTION_CREDITS": "Datenquellen",
         "BASEMAP_SATELLITE": "NASA BMNG-Satelliten-Hintergrund (proxied)",
         "LIGHT_REALISTIC_DAY_NIGHT": "Tag-/Nachtgrenze in Echtzeit (Sonne, UTC)",
         "LIGHT_REALISTIC_HINT": "Aus: gleichmäßige Beleuchtung, kein Terminator. Ein: Sonnenlicht folgt der echten Sonne (Uhrzeit); die Grenze bewegt sich in Echtzeit.",
@@ -492,6 +499,12 @@
         "HOLIDAY_TYPE_HELP_BANK": "Bankfeiertag: Banken geschlossen; weiteres variiert.",
         "HOLIDAY_SCOPE_GLOBAL": "Landesweit.",
         "HOLIDAY_SCOPE_REGIONS": "Regional / Kantone: {{list}}",
+        "SAINT_SEARCH_LABEL": "Heiliger — Suche",
+        "SAINT_SEARCH_PLACEHOLDER": "Heiligen suchen…",
+        "SAINT_SEARCH_NO_RESULTS": "Kein Heiliger gefunden",
+        "SAINT_CALENDAR_LABEL": "Heiligenkalender",
+        "SAINT_CALENDAR_LITURGICAL": "Römisch-liturgisch",
+        "SAINT_CALENDAR_TRADITIONAL": "Französisch traditionell",
         "HOLIDAYS_COUNTRY_LABEL": "Feiertage — Land",
         "ACTIVITY_OPEN_HINT": "Tipp: Doppelklick auf eine Aktivität öffnet die Fotowand.",
         "HOLIDAY_NAMES_SWITCH_LABEL": "Feiertagsnamen:",

@@ -3,6 +3,8 @@
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
   /* overflow-x sur .wg-fs-root, pas sur :host (sinon coupe la marge négative du titre) */
   overflow: visible;
   /* Sous la barre fixe de l’app (~pat-div 80px) : une seule page sans scroll vertical */
@@ -18,14 +20,33 @@
 }
 
 /* Plein écran (API ou repli viewport) : occuper tout l’écran, pas de scroll page */
+:host-context(body.pat-wg-true-fullscreen) {
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
 :host:has(.wg-fs-root--presentation),
 :host:has(.wg-fs-root:fullscreen),
 :host:has(.wg-fs-root:-webkit-full-screen),
 :host:has(.wg-fs-root:-moz-full-screen),
 :host:has(.wg-fs-root.wg-fs-root--viewport-locked) {
+  display: block !important;
+  width: 100% !important;
+  max-width: none !important;
   height: 100dvh;
   max-height: 100dvh;
+  margin: 0 !important;
+  padding: 0 !important;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 html:has(.wg-fs-root--presentation),
@@ -33,6 +54,7 @@ html:has(.wg-fs-root:fullscreen),
 html:has(.wg-fs-root:-webkit-full-screen),
 html:has(.wg-fs-root:-moz-full-screen),
 html:has(.wg-fs-root.wg-fs-root--viewport-locked),
+body.pat-wg-true-fullscreen,
 body:has(.wg-fs-root--presentation),
 body:has(.wg-fs-root:fullscreen),
 body:has(.wg-fs-root:-webkit-full-screen),
@@ -45,6 +67,8 @@ body:has(.wg-fs-root.wg-fs-root--viewport-locked) {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
+  width: 100%;
+  max-width: 100%;
   min-height: 0;
   overflow: visible;
 }
@@ -61,7 +85,8 @@ body:has(.wg-fs-root.wg-fs-root--viewport-locked) {
   margin-bottom: 0 !important;
   padding-left: 1.25rem !important;
   padding-right: 1.25rem !important;
-  padding-bottom: 0.65rem !important;
+  padding-bottom: 0 !important;
+  border-bottom: none !important;
   min-height: 0 !important;
   border: none !important;
   border-radius: 0;
@@ -112,7 +137,7 @@ body:has(.wg-fs-root.wg-fs-root--viewport-locked) {
   flex-shrink: 0;
   width: 100vw;
   max-width: 100vw;
-  margin: -1px 0 0.35rem;
+  margin: 0;
   margin-left: calc(50% - 50vw);
   margin-right: calc(50% - 50vw);
   height: 40px;
@@ -225,19 +250,44 @@ body:has(.wg-fs-root.wg-fs-root--viewport-locked) {
   }
 }
 
+/* Pleine largeur viewport (couvre le fond blanc latéral de la page) */
 .wg-root {
-  max-width: 1680px;
-  margin-inline: auto;
+  width: 100vw;
+  max-width: 100vw;
+  margin-left: calc(50% - 50vw) !important;
+  margin-right: calc(50% - 50vw) !important;
+  margin-top: 0 !important;
+  margin-inline: 0;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  padding-bottom: 0 !important;
+  box-sizing: border-box;
+  background: #070b16;
   --wg-font: 0.68rem;
   --wg-label: 0.66rem;
-  padding-bottom: 0.35rem !important;
+  --bs-gutter-x: 0;
+}
+
+.wg-root.container-fluid {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* Mode présentation (plein écran API, repli document ou viewport) */
+.wg-fs-root.wg-fs-root--presentation {
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 0;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box;
 }
 
 /* Plein écran navigateur (API Fullscreen) */
 .wg-fs-root:fullscreen,
 .wg-fs-root:-webkit-full-screen,
 .wg-fs-root:-moz-full-screen {
-  width: 100% !important;
+  width: 100vw !important;
   max-width: none !important;
   height: 100% !important;
   max-height: 100dvh !important;
@@ -255,7 +305,7 @@ body:has(.wg-fs-root.wg-fs-root--viewport-locked) {
 .wg-fs-root.wg-fs-root--viewport-locked {
   position: fixed;
   inset: 0;
-  z-index: 1100;
+  z-index: 10000;
   width: 100vw;
   max-width: none;
   height: 100vh;
@@ -280,9 +330,7 @@ body:has(.wg-fs-root.wg-fs-root--viewport-locked) {
   z-index: 30;
   width: 100%;
   max-width: none;
-  margin-left: 0;
-  margin-right: 0;
-  margin-bottom: 0.25rem;
+  margin: 0;
   border-radius: 0;
 }
 
@@ -307,7 +355,10 @@ body:has(.wg-fs-root.wg-fs-root--viewport-locked) {
 .wg-fs-root:-webkit-full-screen .wg-shell--fs,
 .wg-fs-root:-moz-full-screen .wg-shell--fs,
 .wg-fs-root.wg-fs-root--viewport-locked .wg-shell--fs {
+  position: relative;
   flex: 1 1 auto;
+  width: 100% !important;
+  max-width: none !important;
   min-height: 0 !important;
   height: auto !important;
   max-height: 100% !important;
@@ -316,6 +367,35 @@ body:has(.wg-fs-root.wg-fs-root--viewport-locked) {
   border: none !important;
   padding: 0 !important;
   gap: 0 !important;
+}
+
+/* Panneau options en surimpression : le globe occupe toute la largeur */
+.wg-fs-root.wg-fs-root--presentation .wg-shell--fs .wg-sidebar,
+.wg-fs-root:fullscreen .wg-shell--fs .wg-sidebar,
+.wg-fs-root:-webkit-full-screen .wg-shell--fs .wg-sidebar,
+.wg-fs-root:-moz-full-screen .wg-shell--fs .wg-sidebar,
+.wg-fs-root.wg-fs-root--viewport-locked .wg-shell--fs .wg-sidebar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 12;
+  width: min(400px, 92vw);
+  max-width: min(400px, 92vw);
+  flex: 0 0 auto;
+  pointer-events: auto;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.45);
+}
+
+.wg-fs-root.wg-fs-root--presentation .wg-shell--fs .wg-stage,
+.wg-fs-root:fullscreen .wg-shell--fs .wg-stage,
+.wg-fs-root:-webkit-full-screen .wg-shell--fs .wg-stage,
+.wg-fs-root:-moz-full-screen .wg-shell--fs .wg-stage,
+.wg-fs-root.wg-fs-root--viewport-locked .wg-shell--fs .wg-stage {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
 }
 
 .wg-fs-root:fullscreen .wg-sidebar,
@@ -340,13 +420,18 @@ body:has(.wg-fs-root.wg-fs-root--viewport-locked) {
   scrollbar-gutter: stable;
 }
 
-.wg-fs-root:fullscreen .wg-switches-grid,
-.wg-fs-root:-webkit-full-screen .wg-switches-grid,
-.wg-fs-root:-moz-full-screen .wg-switches-grid,
-.wg-fs-root.wg-fs-root--viewport-locked .wg-switches-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  column-gap: 0.34rem;
-  row-gap: 0.16rem;
+.wg-fs-root:fullscreen .wg-opt-panel,
+.wg-fs-root:-webkit-full-screen .wg-opt-panel,
+.wg-fs-root:-moz-full-screen .wg-opt-panel,
+.wg-fs-root.wg-fs-root--viewport-locked .wg-opt-panel {
+  gap: 0.2rem;
+}
+
+.wg-fs-root:fullscreen .wg-opt-section__body,
+.wg-fs-root:-webkit-full-screen .wg-opt-section__body,
+.wg-fs-root:-moz-full-screen .wg-opt-section__body,
+.wg-fs-root.wg-fs-root--viewport-locked .wg-opt-section__body {
+  gap: 0.08rem;
 }
 
 .wg-fs-root:fullscreen .wg-shell--fs .wg-stage,
@@ -403,10 +488,10 @@ body:has(.wg-fs-root--viewport-locked) {
   max-height: 100%;
   overflow: hidden;
   background: radial-gradient(115% 95% at 50% -8%, #1c2749 0%, #070b16 58%, #02040a 100%);
-  border-radius: 0.5rem;
+  border-radius: 0;
   padding: 0.45rem;
   position: relative;
-  border: 1px solid rgba(120, 140, 200, 0.12);
+  border: none;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
@@ -427,8 +512,8 @@ body:has(.wg-fs-root--viewport-locked) {
   border: none;
 }
 
-/** Plein écran sans sidebar : barre d’actions globe au-dessus du canvas (bas gauche). */
-.wg-shell--fs.wg-shell--fs-hide-sidebar .wg-globe-bottom-toolbar {
+/** Plein écran sans sidebar : barre d’actions globe au-dessus du canvas (haut gauche). */
+.wg-shell--fs.wg-shell--fs-hide-sidebar .wg-globe-stage-toolbar {
   z-index: 5;
 }
 
@@ -454,7 +539,7 @@ body:has(.wg-fs-root--viewport-locked) {
 
 @media (min-width: 992px) {
   .wg-sidebar {
-    width: min(468px, 42vw);
+    width: min(400px, 36vw);
     flex: 0 0 auto;
   }
 }
@@ -473,54 +558,225 @@ body:has(.wg-fs-root--viewport-locked) {
   scrollbar-gutter: stable;
 }
 
-/* Interrupteurs du panneau globe : 3 colonnes desktop, 2 sur écran étroit. */
-.wg-switches-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 0.45rem;
-  row-gap: 0.24rem;
-  align-items: start;
+/* Panneau options : sections repliables, lignes compactes label | switch */
+.wg-opt-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
 }
 
-@media (min-width: 992px) {
-  .wg-switches-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    column-gap: 0.38rem;
-    row-gap: 0.2rem;
-  }
+.wg-opt-section {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 0.35rem;
+  background: rgba(0, 0, 0, 0.18);
+  overflow: hidden;
 }
 
-.wg-switches-grid__full {
-  grid-column: 1 / -1;
+.wg-opt-section__head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.28rem 0.42rem;
+  font-size: calc(var(--wg-label, 0.66rem) * 1.05);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #d8e4fc;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
 }
 
-.wg-switches-grid > .wg-switch {
-  margin-bottom: 0 !important;
+.wg-opt-section__head::-webkit-details-marker {
+  display: none;
 }
 
-.wg-switch {
-  margin-bottom: 0.2rem !important;
+.wg-opt-section__head::after {
+  content: '\f107';
+  font-family: FontAwesome;
+  margin-left: auto;
+  font-size: 0.75rem;
+  opacity: 0.55;
+  transition: transform 0.15s ease;
 }
 
-.wg-switch .form-check-label {
-  line-height: 1.15;
+.wg-opt-section[open] > .wg-opt-section__head::after {
+  transform: rotate(-180deg);
 }
 
-.wg-switch .form-check-input {
-  width: 1.85em;
-  height: 0.95em;
-  margin-top: 0.2em;
+.wg-opt-section__icon {
+  width: 0.95rem;
+  text-align: center;
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
+.wg-opt-section__body {
+  padding: 0 0.42rem 0.32rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
+.wg-opt-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  min-height: 1.35rem;
+}
+
+.wg-opt-row__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--wg-label, 0.66rem);
+  line-height: 1.2;
+  color: #b9c7e8;
   cursor: pointer;
 }
 
-.wg-switch .form-check-label {
-  font-size: var(--wg-label);
+.wg-opt-switch .form-check-input {
+  width: 1.55em;
+  height: 0.82em;
+  margin: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.wg-opt-row--tools .wg-opt-row__tools {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.wg-opt-icon-btn {
+  padding: 0.1rem 0.35rem;
+  line-height: 1;
+  color: #c8d8f4;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 0.25rem;
+}
+
+.wg-opt-icon-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.wg-opt-hint {
+  margin: 0 0 0.15rem;
+  font-size: calc(var(--wg-label, 0.66rem) * 0.92);
   line-height: 1.25;
-  cursor: pointer;
+  color: #8fa3c8;
+}
+
+.wg-opt-slider {
+  margin-top: 0.1rem;
+}
+
+.wg-opt-slider__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.12rem;
+  font-size: var(--wg-label, 0.66rem);
   color: #b9c7e8;
 }
 
-.wg-iss-toolbar .wg-iss-interval-input {
+.wg-opt-slider__val {
+  font-variant-numeric: tabular-nums;
+  color: #7eb8ff;
+}
+
+.wg-opt-inline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.45rem;
+  padding: 0.08rem 0;
+  font-size: var(--wg-label, 0.66rem);
+}
+
+.wg-opt-inline__lbl {
+  margin: 0;
+  color: #9eb0d4;
+  flex: 1 1 100%;
+}
+
+.wg-opt-inline .wg-iss-interval-input {
+  box-sizing: border-box;
+  width: 5.25ch;
+  min-width: 5ch;
+  max-width: 6ch;
+  padding: 0.08rem 0.2rem;
+  font-size: calc(var(--wg-label, 0.66rem) * 0.92);
+  line-height: 1.15;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+
+.wg-opt-inline .wg-iss-interval-input::-webkit-outer-spin-button,
+.wg-opt-inline .wg-iss-interval-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.wg-opt-inline__cd {
+  font-size: calc(var(--wg-label, 0.66rem) * 0.95);
+}
+
+.wg-opt-iss-meta {
+  font-size: calc(var(--wg-label, 0.66rem) * 0.9);
+  line-height: 1.3;
+  padding: 0.1rem 0;
+}
+
+.wg-opt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+  margin-top: 0.15rem;
+}
+
+.wg-opt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.14rem 0.45rem;
+  font-size: calc(var(--wg-label, 0.66rem) * 0.95);
+  line-height: 1.2;
+  color: #b8e4ff;
+  border: 1px solid rgba(56, 148, 220, 0.45);
+  background: rgba(30, 90, 150, 0.22);
+  border-radius: 0.3rem;
+}
+
+.wg-opt-chip:hover {
+  background: rgba(40, 110, 180, 0.38);
+  color: #fff;
+  border-color: rgba(100, 180, 255, 0.55);
+}
+
+.wg-opt-chip--hd {
+  border-color: rgba(120, 180, 255, 0.35);
+}
+
+.wg-opt-section--credits .wg-opt-credits p {
+  font-size: calc(var(--wg-label, 0.66rem) * 0.88);
+  line-height: 1.3;
+  color: #7f92b4;
+  margin: 0;
+}
+
+/* Compat. anciennes classes si présentes ailleurs */
+.wg-switch .form-check-label {
+  font-size: var(--wg-label);
+  color: #b9c7e8;
+}
+
+.wg-iss-toolbar .wg-iss-interval-input,
+.wg-opt-inline .wg-iss-interval-input {
   box-sizing: border-box;
   /* 5–600 s : 3 chiffres ; largeur en « ch » pour rester lisible avec une police réduite */
   width: 5.25ch;
@@ -534,7 +790,9 @@ body:has(.wg-fs-root--viewport-locked) {
 }
 
 .wg-iss-toolbar .wg-iss-interval-input::-webkit-outer-spin-button,
-.wg-iss-toolbar .wg-iss-interval-input::-webkit-inner-spin-button {
+.wg-iss-toolbar .wg-iss-interval-input::-webkit-inner-spin-button,
+.wg-opt-inline .wg-iss-interval-input::-webkit-outer-spin-button,
+.wg-opt-inline .wg-iss-interval-input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
@@ -560,9 +818,9 @@ body:has(.wg-fs-root--viewport-locked) {
   gap: 0.3rem;
 }
 
-.wg-globe-bottom-toolbar {
+.wg-globe-stage-toolbar {
   position: absolute;
-  bottom: max(0.45rem, env(safe-area-inset-bottom, 0px));
+  top: max(0.45rem, env(safe-area-inset-top, 0px));
   left: max(0.45rem, env(safe-area-inset-left, 0px));
   z-index: 5;
   max-width: min(96vw, 42rem);
@@ -596,11 +854,11 @@ body:has(.wg-fs-root--viewport-locked) {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  width: min(18rem, 42vw);
-  height: 12.75rem;
+  width: 25vw;
+  height: calc(25vw * 9 / 16 + 2.25rem);
   min-width: 10rem;
   min-height: 7.5rem;
-  max-width: min(96vw, 56rem);
+  max-width: 25vw;
   max-height: min(85vh, 42rem);
   border-radius: 0.35rem;
   overflow: hidden;
@@ -654,7 +912,6 @@ body:has(.wg-fs-root--viewport-locked) {
 .wg-stage.wg-stage--iss-pip-hd .wg-coords {
   right: auto;
   left: max(0.45rem, env(safe-area-inset-left, 0px));
-  bottom: calc(max(0.45rem, env(safe-area-inset-bottom, 0px)) + var(--wg-bottom-toolbar-stack, 2.65rem));
 }
 
 /**
@@ -662,27 +919,65 @@ body:has(.wg-fs-root--viewport-locked) {
  */
 .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split {
   display: grid !important;
-  grid-template-columns: minmax(0, 1fr) minmax(11rem, min(30rem, 44vw));
-  column-gap: 0.65rem;
+  grid-template-columns:
+    minmax(0, 1fr)
+    var(--wg-fs-split-handle-px, 6px)
+    minmax(11rem, var(--wg-fs-iss-split-width, 22rem));
+  column-gap: 0;
   align-items: stretch;
 }
 
 .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-canvas-host,
 .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-coords,
-.wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-globe-bottom-toolbar,
+.wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-globe-stage-toolbar,
 .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-trace-layer {
   grid-column: 1;
   grid-row: 1;
   min-width: 0;
 }
 
+.wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-fs-split-handle {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: stretch;
+  justify-self: stretch;
+  position: relative;
+  box-sizing: content-box;
+  width: var(--wg-fs-split-handle-px, 6px);
+  min-width: var(--wg-fs-split-handle-px, 6px);
+  margin: 0 -10px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 0;
+  background: rgba(120, 150, 220, 0.22);
+  background-clip: content-box;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 20;
+  pointer-events: auto;
+  transition: background 0.12s ease;
+}
+
+.wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-fs-split-handle:hover,
+.wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-fs-split-handle:focus-visible,
+.wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split.wg-stage--fs-iss-split-dragging > .wg-fs-split-handle {
+  background-color: rgba(100, 170, 255, 0.55);
+  outline: none;
+}
+
+.wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split.wg-stage--fs-iss-split-dragging,
+.wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split.wg-stage--fs-iss-split-dragging * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
 .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-iss-pip-dock.wg-iss-pip-dock--fs-split {
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  align-items: flex-end;
+  justify-content: stretch;
+  align-items: stretch;
   gap: 0.5rem;
-  grid-column: 2;
+  grid-column: 3;
   grid-row: 1;
   position: relative;
   inset: auto;
@@ -703,11 +998,18 @@ body:has(.wg-fs-root--viewport-locked) {
   bottom: auto;
   right: auto;
   left: auto;
-  flex: 0 0 auto;
-  align-self: flex-end;
-  width: min(18rem, 100%);
+  flex: 1 1 0;
+  align-self: stretch;
+  width: 100%;
   max-width: 100%;
+  min-width: 0;
+  min-height: 7.5rem;
+  max-height: none;
   pointer-events: auto;
+}
+
+.wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-iss-pip-dock--fs-split .wg-iss-live-pip__resize-handle {
+  display: none;
 }
 
 .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-iss-pip-dock--fs-split .wg-iss-live-pip--hd {
@@ -719,7 +1021,43 @@ body:has(.wg-fs-root--viewport-locked) {
 .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split.wg-stage--iss-pip-hd .wg-coords {
   left: max(0.45rem, env(safe-area-inset-left, 0px));
   right: auto;
-  bottom: calc(max(0.45rem, env(safe-area-inset-bottom, 0px)) + var(--wg-bottom-toolbar-stack, 2.65rem));
+}
+
+/* Mobile : globe au-dessus, flux ISS en dessous (plein écran scindé). */
+@media (max-width: 767.98px) {
+  .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-canvas-host,
+  .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-coords,
+  .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-globe-stage-toolbar,
+  .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-trace-layer {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-fs-split-handle {
+    display: none;
+  }
+
+  .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-iss-pip-dock.wg-iss-pip-dock--fs-split {
+    grid-column: 1;
+    grid-row: 2;
+    max-height: min(46vh, 22rem);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0.35rem max(0.32rem, env(safe-area-inset-right, 0px))
+      max(0.32rem, env(safe-area-inset-bottom, 0px)) max(0.32rem, env(safe-area-inset-left, 0px));
+  }
+
+  .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-iss-pip-dock--fs-split .wg-iss-live-pip {
+    flex: 0 0 auto;
+    min-height: 8.5rem;
+    max-height: none;
+    aspect-ratio: 16 / 9;
+  }
 }
 
 .wg-iss-live-pip__bar .btn .fa-check {
@@ -785,7 +1123,7 @@ body:has(.wg-fs-root--viewport-locked) {
   min-height: 0;
 }
 
-.wg-globe-bottom-toolbar .wg-btn {
+.wg-globe-stage-toolbar .wg-btn {
   white-space: nowrap;
   line-height: 1.2;
 }
@@ -837,8 +1175,8 @@ body:has(.wg-fs-root--viewport-locked) {
   vertical-align: top;
 }
 
-.wg-shell--fs .wg-globe-bottom-toolbar {
-  bottom: max(0.45rem, env(safe-area-inset-bottom, 0px));
+.wg-shell--fs .wg-globe-stage-toolbar {
+  top: max(0.45rem, env(safe-area-inset-top, 0px));
   left: max(0.45rem, env(safe-area-inset-left, 0px));
 }
 
@@ -1126,28 +1464,12 @@ body:has(.wg-fs-root--viewport-locked) {
     border-radius: 0.35rem;
   }
 
-  .wg-switches-grid {
-    column-gap: 0.42rem;
-    row-gap: 0.26rem;
+  .wg-opt-section__head {
+    padding: 0.24rem 0.38rem;
   }
 
-  .wg-switch {
-    margin-bottom: 0.22rem !important;
-  }
-
-  .wg-switches-grid > .wg-switch {
-    margin-bottom: 0 !important;
-  }
-
-  .wg-switch .form-check-input {
-    width: 1.62em;
-    height: 0.88em;
-    margin-top: 0.18em;
-  }
-
-  .wg-switch .form-check-label {
-    font-size: var(--wg-label);
-    line-height: 1.2;
+  .wg-opt-row {
+    min-height: 1.45rem;
   }
 
   .wg-root .wg-btn,
@@ -1272,17 +1594,71 @@ body:has(.wg-fs-root--viewport-locked) {
     white-space: nowrap;
   }
 
-  .wg-globe-bottom-toolbar {
-    bottom: max(0.32rem, env(safe-area-inset-bottom, 0px));
+  .wg-globe-stage-toolbar {
+    top: max(0.32rem, env(safe-area-inset-top, 0px));
     left: max(0.32rem, env(safe-area-inset-left, 0px));
     max-width: min(96vw, 36rem);
     gap: 0.35rem !important;
     padding: 0.18rem 0.3rem;
   }
 
+  /* Hors plein écran : flux ISS sous le globe (plus de PiP en bas à droite). */
+  .wg-stage.wg-stage--iss-pip .wg-canvas-host,
+  .wg-stage.wg-stage--iss-pip-hd .wg-canvas-host {
+    order: 1;
+    flex: 1 1 auto;
+    min-height: min(42vh, 320px);
+  }
+
+  .wg-stage.wg-stage--iss-pip .wg-iss-pip-dock:not(.wg-iss-pip-dock--fs-split),
+  .wg-stage.wg-stage--iss-pip-hd .wg-iss-pip-dock:not(.wg-iss-pip-dock--fs-split) {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4rem;
+    order: 2;
+    flex: 0 1 auto;
+    width: 100%;
+    max-height: min(46vh, 22rem);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0.35rem 0 0;
+    pointer-events: none;
+  }
+
+  .wg-stage.wg-stage--iss-pip .wg-iss-pip-dock:not(.wg-iss-pip-dock--fs-split) .wg-iss-live-pip,
+  .wg-stage.wg-stage--iss-pip-hd .wg-iss-pip-dock:not(.wg-iss-pip-dock--fs-split) .wg-iss-live-pip {
+    position: relative;
+    top: auto;
+    bottom: auto;
+    right: auto;
+    left: auto;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    min-height: 8.5rem;
+    max-height: none;
+    aspect-ratio: 16 / 9;
+    flex: 0 0 auto;
+    pointer-events: auto;
+  }
+
+  .wg-stage.wg-stage--iss-pip.wg-stage--iss-pip-hd
+    .wg-iss-pip-dock:not(.wg-iss-pip-dock--fs-split)
+    .wg-iss-live-pip--hd {
+    bottom: auto;
+  }
+
+  .wg-stage.wg-stage--iss-pip .wg-iss-pip-dock:not(.wg-iss-pip-dock--fs-split) .wg-iss-live-pip__resize-handle,
+  .wg-stage.wg-stage--iss-pip-hd .wg-iss-pip-dock:not(.wg-iss-pip-dock--fs-split) .wg-iss-live-pip__resize-handle {
+    display: none;
+  }
+
   .wg-stage.wg-stage--iss-pip .wg-coords,
   .wg-stage.wg-stage--iss-pip-hd .wg-coords {
-    bottom: calc(max(0.32rem, env(safe-area-inset-bottom, 0px)) + var(--wg-bottom-toolbar-stack, 2.5rem));
+    left: max(0.32rem, env(safe-area-inset-left, 0px));
+    right: auto;
+    bottom: max(0.32rem, env(safe-area-inset-bottom, 0px));
   }
 
   .wg-picker.border {

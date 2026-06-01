@@ -1120,21 +1120,21 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private normalizeTraceMapWheelDelta(event: WheelEvent): number {
 		if (event.deltaMode === 0) {
-			return event.deltaY / 80;
+			return event.deltaY / 160;
 		}
 		if (event.deltaMode === 1) {
-			return event.deltaY / 2.5;
+			return event.deltaY / 5;
 		}
-		return event.deltaY / 0.45;
+		return event.deltaY / 0.9;
 	}
 
 	/** Pas dynamique (slideshow), appliqué sur le delta accumulé par frame. */
 	private applyMapWheelZoomFromDelta(delta: number, current: number, minZoom: number, maxZoom: number): number {
-		const baseStep = 1.15;
-		const multiplier = 0.18;
+		const baseStep = 0.55;
+		const multiplier = 0.1;
 		const dynamicStep = baseStep * (1 + current * multiplier);
-		const minStep = 0.55;
-		const maxStep = 5.5;
+		const minStep = 0.28;
+		const maxStep = 2.6;
 		const step = Math.max(minStep, Math.min(maxStep, dynamicStep));
 
 		let next = current - delta * step;

@@ -1,4 +1,4 @@
-<!-- Titre (hors plein écran) + bandeau ISS + globe : en FS le titre est masqué, le bandeau reste. -->
+﻿<!-- Titre (hors plein écran) + bandeau ISS + globe : en FS le titre est masqué, le bandeau reste. -->
 <div
   #globeFsRoot
   class="wg-fs-root"
@@ -54,7 +54,7 @@
     </span>
   </ng-template>
 
-  <div class="wg-root container-fluid px-2 px-lg-3 pb-3">
+  <div class="wg-root container-fluid">
     <div class="alert alert-warning wg-alert py-1 px-2 mb-2 small" role="alert" *ngIf="textureLoadError">
       <i class="fa fa-exclamation-triangle me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.TEXTURE_LOAD_ERROR' | translate }}
     </div>
@@ -117,399 +117,259 @@
             </ul>
           </div>
         </div>
-        <div class="wg-switches-grid">
-        <div class="form-check form-switch wg-switch">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="wgDayNight"
-            [(ngModel)]="realTimeTerminator"
-            (ngModelChange)="onRealTimeTerminatorToggle()" />
-          <label class="form-check-label" for="wgDayNight" [attr.title]="'WORLD_GLOBE.LIGHT_REALISTIC_HINT' | translate">{{
-            'WORLD_GLOBE.LIGHT_REALISTIC_DAY_NIGHT' | translate
-          }}</label>
-        </div>
-        <div class="form-check form-switch wg-switch">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="wgLit"
-            [(ngModel)]="globeLightingUniform"
-            [disabled]="realTimeTerminator"
-            (ngModelChange)="onGlobeLightingToggle()" />
-          <label class="form-check-label" for="wgLit" [attr.title]="'WORLD_GLOBE.LIGHT_UNIFORM_HINT' | translate">{{
-            'WORLD_GLOBE.LIGHT_UNIFORM' | translate
-          }}</label>
-        </div>
-        <div class="wg-switches-grid__full wg-banner wg-terminator-hint small mb-1" *ngIf="realTimeTerminator">{{ 'WORLD_GLOBE.LIGHT_TERMINATOR_NOTE' | translate }}</div>
-        <div class="wg-switches-grid__full wg-light-boost mb-2">
-          <label class="wg-light-boost-label small d-flex justify-content-between align-items-center mb-1" for="wgLightBoost">
-            <span [attr.title]="'WORLD_GLOBE.LIGHT_BOOST_HINT' | translate">{{ 'WORLD_GLOBE.LIGHT_BOOST' | translate }}</span>
-            <span class="wg-light-boost-val text-nowrap ms-1">×{{ globeLightingBoost | number : '1.2-2' }}</span>
-          </label>
-          <input
-            type="range"
-            class="form-range wg-light-range"
-            id="wgLightBoost"
-            [min]="globeLightingBoostMin"
-            [max]="globeLightingBoostMax"
-            step="0.02"
-            [(ngModel)]="globeLightingBoost"
-            (ngModelChange)="onGlobeLightingBoostChange()" />
-        </div>
-        <div class="form-check form-switch wg-switch">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="wgSat"
-            [(ngModel)]="basemapSatellite"
-            (ngModelChange)="onBasemapChange()" />
-          <label class="form-check-label" for="wgSat">{{ 'WORLD_GLOBE.BASEMAP_SATELLITE' | translate }}</label>
-        </div>
-        <div class="form-check form-switch wg-switch">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="wgWxSat"
-            [(ngModel)]="weatherImageryEnabled"
-            (ngModelChange)="onWeatherImageryToggle()"
-            [disabled]="weatherImageryLoading" />
-          <label class="form-check-label" for="wgWxSat">{{ 'WORLD_GLOBE.LAYER_WEATHER_VIIRS' | translate }}</label>
-        </div>
-        <div class="form-check form-switch wg-switch">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="wgBorders"
-            [(ngModel)]="countryBordersEnabled"
-            (ngModelChange)="onCountryBordersToggle()"
-            [disabled]="bordersOverlayLoading || !globeSurfaceReady" />
-          <label
-            class="form-check-label"
-            for="wgBorders"
-            [attr.title]="'WORLD_GLOBE.LAYER_COUNTRY_BORDERS_HINT' | translate">
-            {{ 'WORLD_GLOBE.LAYER_COUNTRY_BORDERS' | translate }}</label>
-        </div>
-        <div class="form-check form-switch wg-switch">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="wgCoast"
-            [(ngModel)]="coastlinesEnabled"
-            (ngModelChange)="onCoastlinesToggle()"
-            [disabled]="coastlinesOverlayLoading || !globeSurfaceReady" />
-          <label
-            class="form-check-label"
-            for="wgCoast"
-            [attr.title]="'WORLD_GLOBE.LAYER_COASTLINES_HINT' | translate">
-            {{ 'WORLD_GLOBE.LAYER_COASTLINES' | translate }}</label>
-        </div>
-        <div class="form-check form-switch wg-switch">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="wgGraticule"
-            [(ngModel)]="graticuleEnabled"
-            (ngModelChange)="onGraticuleToggle()"
-            [disabled]="!globeSurfaceReady" />
-          <label
-            class="form-check-label"
-            for="wgGraticule"
-            [attr.title]="'WORLD_GLOBE.LAYER_GRATICULE_HINT' | translate">
-            {{ 'WORLD_GLOBE.LAYER_GRATICULE' | translate }}</label>
-        </div>
-        <div class="form-check form-switch wg-switch">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="wgPolitical"
-            [(ngModel)]="politicalMapEnabled"
-            (ngModelChange)="onPoliticalMapToggle()"
-            [disabled]="admin0CountriesOverlayLoading || !globeSurfaceReady" />
-          <label
-            class="form-check-label"
-            for="wgPolitical"
-            [attr.title]="'WORLD_GLOBE.LAYER_POLITICAL_MAP_HINT' | translate">
-            {{ 'WORLD_GLOBE.LAYER_POLITICAL_MAP' | translate }}</label>
-        </div>
-        <div class="form-check form-switch wg-switch">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="wgCountryLabels"
-            [(ngModel)]="countryLabelsEnabled"
-            (ngModelChange)="onCountryLabelsToggle()"
-            [disabled]="admin0CountriesOverlayLoading || !globeSurfaceReady" />
-          <label
-            class="form-check-label"
-            for="wgCountryLabels"
-            [attr.title]="'WORLD_GLOBE.LAYER_COUNTRY_LABELS_HINT' | translate">
-            {{ 'WORLD_GLOBE.LAYER_COUNTRY_LABELS' | translate }}</label>
-        </div>
-        <div class="form-check form-switch wg-switch">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="wgGeoLines"
-            [(ngModel)]="geographicLinesEnabled"
-            (ngModelChange)="onGeographicLinesToggle()"
-            [disabled]="geographicLinesLoading || !globeSurfaceReady" />
-          <label class="form-check-label" for="wgGeoLines" [attr.title]="'WORLD_GLOBE.LAYER_GEOGRAPHIC_LINES_HINT' | translate">
-            {{ 'WORLD_GLOBE.LAYER_GEOGRAPHIC_LINES' | translate }}</label>
-        </div>
-        <div class="form-check form-switch wg-switch">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="wgRivers"
-            [(ngModel)]="riversEnabled"
-            (ngModelChange)="onRiversToggle()"
-            [disabled]="riversOverlayLoading || !globeSurfaceReady" />
-          <label class="form-check-label" for="wgRivers" [attr.title]="'WORLD_GLOBE.LAYER_RIVERS_HINT' | translate">
-            {{ 'WORLD_GLOBE.LAYER_RIVERS' | translate }}</label>
-        </div>
-        <div class="form-check form-switch wg-switch">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="wgLakes"
-            [(ngModel)]="lakesEnabled"
-            (ngModelChange)="onLakesToggle()"
-            [disabled]="lakesOverlayLoading || !globeSurfaceReady" />
-          <label class="form-check-label" for="wgLakes" [attr.title]="'WORLD_GLOBE.LAYER_LAKES_HINT' | translate">
-            {{ 'WORLD_GLOBE.LAYER_LAKES' | translate }}</label>
-        </div>
-        <div class="form-check form-switch wg-switch">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="wgGlaciers"
-            [(ngModel)]="glaciersEnabled"
-            (ngModelChange)="onGlaciersToggle()"
-            [disabled]="glaciersOverlayLoading || !globeSurfaceReady" />
-          <label class="form-check-label" for="wgGlaciers" [attr.title]="'WORLD_GLOBE.LAYER_GLACIERS_HINT' | translate">
-            {{ 'WORLD_GLOBE.LAYER_GLACIERS' | translate }}</label>
-        </div>
-        <div class="form-check form-switch wg-switch">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="wgCities"
-            [(ngModel)]="citiesEnabled"
-            (ngModelChange)="onCitiesToggle()"
-            [disabled]="citiesOverlayLoading || !globeSurfaceReady" />
-          <label class="form-check-label" for="wgCities" [attr.title]="'WORLD_GLOBE.LAYER_CITIES_HINT' | translate">
-            {{ 'WORLD_GLOBE.LAYER_CITIES' | translate }}</label>
-        </div>
-        <div class="form-check form-switch wg-switch">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="wgTz"
-            [(ngModel)]="timeZonesEnabled"
-            (ngModelChange)="onTimeZonesToggle()"
-            [disabled]="timeZonesOverlayLoading || !globeSurfaceReady" />
-          <label class="form-check-label" for="wgTz" [attr.title]="'WORLD_GLOBE.LAYER_TIME_ZONES_HINT' | translate">
-            {{ 'WORLD_GLOBE.LAYER_TIME_ZONES' | translate }}</label>
-        </div>
-        <div class="wg-switches-grid__full wg-iss-toolbar d-flex flex-wrap align-items-center gap-2">
-          <div class="d-flex align-items-center gap-1 flex-nowrap">
-            <div class="form-check form-switch wg-switch mb-0">
-              <input
-                class="form-check-input"
-                type="checkbox"
-                id="wgIss"
-                [(ngModel)]="issOverlayEnabled"
-                (ngModelChange)="onIssOverlayToggle()"
-                [disabled]="!globeSurfaceReady" />
-              <label
-                class="form-check-label"
-                for="wgIss"
-                [attr.title]="'WORLD_GLOBE.LAYER_ISS_HINT' | translate">
-                {{ 'WORLD_GLOBE.LAYER_ISS_POSITION' | translate }}</label>
+        <nav class="wg-opt-panel" [attr.aria-label]="'WORLD_GLOBE.PANEL_TOGGLE' | translate">
+
+          <details class="wg-opt-section">
+            <summary class="wg-opt-section__head">
+              <i class="fa fa-sun-o wg-opt-section__icon" aria-hidden="true"></i>
+              <span>{{ 'WORLD_GLOBE.OPT_SECTION_LIGHT' | translate }}</span>
+            </summary>
+            <div class="wg-opt-section__body">
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgDayNight" [attr.title]="'WORLD_GLOBE.LIGHT_REALISTIC_HINT' | translate">{{
+                  'WORLD_GLOBE.LIGHT_REALISTIC_DAY_NIGHT' | translate
+                }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgDayNight" [(ngModel)]="realTimeTerminator" (ngModelChange)="onRealTimeTerminatorToggle()" />
+                </div>
+              </div>
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgLit" [attr.title]="'WORLD_GLOBE.LIGHT_UNIFORM_HINT' | translate">{{
+                  'WORLD_GLOBE.LIGHT_UNIFORM' | translate
+                }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgLit" [(ngModel)]="globeLightingUniform" [disabled]="realTimeTerminator" (ngModelChange)="onGlobeLightingToggle()" />
+                </div>
+              </div>
+              <p class="wg-opt-hint" *ngIf="realTimeTerminator">{{ 'WORLD_GLOBE.LIGHT_TERMINATOR_NOTE' | translate }}</p>
+              <div class="wg-opt-slider">
+                <label class="wg-opt-slider__head" for="wgLightBoost">
+                  <span [attr.title]="'WORLD_GLOBE.LIGHT_BOOST_HINT' | translate">{{ 'WORLD_GLOBE.LIGHT_BOOST' | translate }}</span>
+                  <span class="wg-opt-slider__val">×{{ globeLightingBoost | number : '1.2-2' }}</span>
+                </label>
+                <input type="range" class="form-range wg-light-range" id="wgLightBoost" [min]="globeLightingBoostMin" [max]="globeLightingBoostMax" step="0.02" [(ngModel)]="globeLightingBoost" (ngModelChange)="onGlobeLightingBoostChange()" />
+              </div>
             </div>
-            <button
-              *ngIf="issOverlayEnabled"
-              type="button"
-              class="btn btn-sm btn-outline-light border-secondary wg-iss-refresh-btn py-0 px-2"
-              (click)="onIssRefreshNowClick()"
-              [disabled]="!globeSurfaceReady || issManualRefreshInFlight"
-              [attr.title]="'WORLD_GLOBE.ISS_REFRESH_NOW_HINT' | translate"
-              [attr.aria-label]="'WORLD_GLOBE.ISS_REFRESH_NOW' | translate">
-              <span class="visually-hidden">{{ 'WORLD_GLOBE.ISS_REFRESH_NOW' | translate }}</span>
-              <i class="fa fa-refresh" aria-hidden="true" [class.fa-spin]="issManualRefreshInFlight"></i>
-            </button>
-          </div>
-          <ng-container *ngIf="issOverlayEnabled">
-            <div class="d-flex align-items-center gap-1 flex-wrap">
-              <label class="visually-hidden" for="wgIssInterval">{{ 'WORLD_GLOBE.ISS_POLL_INTERVAL_LABEL' | translate }}</label>
-              <input
-                id="wgIssInterval"
-                type="number"
-                class="form-control form-control-sm wg-iss-interval-input"
-                [(ngModel)]="issPollIntervalSec"
-                (blur)="onIssPollIntervalCommitted()"
-                (change)="onIssPollIntervalCommitted()"
-                [min]="5"
-                [max]="600"
-                [step]="1"
-                [disabled]="!globeSurfaceReady"
-                [attr.title]="'WORLD_GLOBE.ISS_POLL_INTERVAL_HINT' | translate"
-                [attr.aria-label]="'WORLD_GLOBE.ISS_POLL_INTERVAL_LABEL' | translate" />
-              <span
-                class="text-info text-monospace small wg-iss-countdown"
-                [attr.title]="'WORLD_GLOBE.ISS_COUNTDOWN_HINT' | translate"
-                aria-live="polite">
-                <ng-container *ngIf="issSecondsUntilNextRefresh > 0 && issSecondsUntilNextRefresh < 60; else issCountdownLongOrMm">
-                  {{ formatIssCountdown() }} {{ 'WORLD_GLOBE.ISS_SECONDS_ABBR' | translate }}</ng-container>
-                <ng-template #issCountdownLongOrMm>{{ formatIssCountdown() }}</ng-template>
-              </span>
+          </details>
+
+          <details class="wg-opt-section">
+            <summary class="wg-opt-section__head">
+              <i class="fa fa-globe wg-opt-section__icon" aria-hidden="true"></i>
+              <span>{{ 'WORLD_GLOBE.OPT_SECTION_BASE' | translate }}</span>
+            </summary>
+            <div class="wg-opt-section__body">
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgSat">{{ 'WORLD_GLOBE.BASEMAP_SATELLITE' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgSat" [(ngModel)]="basemapSatellite" (ngModelChange)="onBasemapChange()" />
+                </div>
+              </div>
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgWxSat">{{ 'WORLD_GLOBE.LAYER_WEATHER_VIIRS' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgWxSat" [(ngModel)]="weatherImageryEnabled" (ngModelChange)="onWeatherImageryToggle()" [disabled]="weatherImageryLoading" />
+                </div>
+              </div>
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgClouds">{{ 'WORLD_GLOBE.LAYER_CLOUDS' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgClouds" [(ngModel)]="cloudsEnabled" (ngModelChange)="onCloudsToggle()" />
+                </div>
+              </div>
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgStars">{{ 'WORLD_GLOBE.LAYER_STARS' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgStars" [(ngModel)]="starsEnabled" (ngModelChange)="onStarsToggle($event)" />
+                </div>
+              </div>
             </div>
-            <div class="form-check form-switch wg-switch wg-switches-grid__full mb-0">
-              <input
-                class="form-check-input"
-                type="checkbox"
-                id="wgIssKeepCenter"
-                [(ngModel)]="issKeepEarthCentered"
-                (ngModelChange)="onIssKeepEarthCenteredToggle()"
-                [disabled]="!globeSurfaceReady" />
-              <label
-                class="form-check-label"
-                for="wgIssKeepCenter"
-                [attr.title]="'WORLD_GLOBE.ISS_KEEP_EARTH_CENTERED_HINT' | translate">
-                {{ 'WORLD_GLOBE.ISS_KEEP_EARTH_CENTERED' | translate }}</label>
+          </details>
+
+          <details class="wg-opt-section">
+            <summary class="wg-opt-section__head">
+              <i class="fa fa-map-o wg-opt-section__icon" aria-hidden="true"></i>
+              <span>{{ 'WORLD_GLOBE.OPT_SECTION_MAP' | translate }}</span>
+            </summary>
+            <div class="wg-opt-section__body">
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgBorders" [attr.title]="'WORLD_GLOBE.LAYER_COUNTRY_BORDERS_HINT' | translate">{{ 'WORLD_GLOBE.LAYER_COUNTRY_BORDERS' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgBorders" [(ngModel)]="countryBordersEnabled" (ngModelChange)="onCountryBordersToggle()" [disabled]="bordersOverlayLoading || !globeSurfaceReady" />
+                </div>
+              </div>
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgCoast" [attr.title]="'WORLD_GLOBE.LAYER_COASTLINES_HINT' | translate">{{ 'WORLD_GLOBE.LAYER_COASTLINES' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgCoast" [(ngModel)]="coastlinesEnabled" (ngModelChange)="onCoastlinesToggle()" [disabled]="coastlinesOverlayLoading || !globeSurfaceReady" />
+                </div>
+              </div>
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgGraticule" [attr.title]="'WORLD_GLOBE.LAYER_GRATICULE_HINT' | translate">{{ 'WORLD_GLOBE.LAYER_GRATICULE' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgGraticule" [(ngModel)]="graticuleEnabled" (ngModelChange)="onGraticuleToggle()" [disabled]="!globeSurfaceReady" />
+                </div>
+              </div>
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgPolitical" [attr.title]="'WORLD_GLOBE.LAYER_POLITICAL_MAP_HINT' | translate">{{ 'WORLD_GLOBE.LAYER_POLITICAL_MAP' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgPolitical" [(ngModel)]="politicalMapEnabled" (ngModelChange)="onPoliticalMapToggle()" [disabled]="admin0CountriesOverlayLoading || !globeSurfaceReady" />
+                </div>
+              </div>
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgCountryLabels" [attr.title]="'WORLD_GLOBE.LAYER_COUNTRY_LABELS_HINT' | translate">{{ 'WORLD_GLOBE.LAYER_COUNTRY_LABELS' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgCountryLabels" [(ngModel)]="countryLabelsEnabled" (ngModelChange)="onCountryLabelsToggle()" [disabled]="admin0CountriesOverlayLoading || !globeSurfaceReady" />
+                </div>
+              </div>
             </div>
-            <div
-              class="wg-switches-grid__full wg-iss-meta-line d-flex flex-wrap align-items-baseline column-gap-2 row-gap-1 mt-1 mb-0 text-monospace lh-sm text-info"
-              *ngIf="globeIssLat != null && globeIssLon != null">
-              <span class="text-nowrap">
-                ISS:
-                {{ globeIssLat | number : '1.2-4' }}° /
-                {{ globeIssLon | number : '1.2-4' }}°</span>
-              <span *ngIf="globeIssAltKm != null" class="text-nowrap" aria-live="polite">
-                {{ globeIssAltKm | number : '1.0-1' }} km</span>
-              <span *ngIf="issGroundSpeedKmh != null" class="text-nowrap" aria-live="polite">
-                {{ issGroundSpeedKmh | number : '1.0-0' }} km/h</span>
+          </details>
+
+          <details class="wg-opt-section">
+            <summary class="wg-opt-section__head">
+              <i class="fa fa-tint wg-opt-section__icon" aria-hidden="true"></i>
+              <span>{{ 'WORLD_GLOBE.OPT_SECTION_GEO' | translate }}</span>
+            </summary>
+            <div class="wg-opt-section__body">
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgGeoLines" [attr.title]="'WORLD_GLOBE.LAYER_GEOGRAPHIC_LINES_HINT' | translate">{{ 'WORLD_GLOBE.LAYER_GEOGRAPHIC_LINES' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgGeoLines" [(ngModel)]="geographicLinesEnabled" (ngModelChange)="onGeographicLinesToggle()" [disabled]="geographicLinesLoading || !globeSurfaceReady" />
+                </div>
+              </div>
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgRivers" [attr.title]="'WORLD_GLOBE.LAYER_RIVERS_HINT' | translate">{{ 'WORLD_GLOBE.LAYER_RIVERS' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgRivers" [(ngModel)]="riversEnabled" (ngModelChange)="onRiversToggle()" [disabled]="riversOverlayLoading || !globeSurfaceReady" />
+                </div>
+              </div>
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgLakes" [attr.title]="'WORLD_GLOBE.LAYER_LAKES_HINT' | translate">{{ 'WORLD_GLOBE.LAYER_LAKES' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgLakes" [(ngModel)]="lakesEnabled" (ngModelChange)="onLakesToggle()" [disabled]="lakesOverlayLoading || !globeSurfaceReady" />
+                </div>
+              </div>
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgGlaciers" [attr.title]="'WORLD_GLOBE.LAYER_GLACIERS_HINT' | translate">{{ 'WORLD_GLOBE.LAYER_GLACIERS' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgGlaciers" [(ngModel)]="glaciersEnabled" (ngModelChange)="onGlaciersToggle()" [disabled]="glaciersOverlayLoading || !globeSurfaceReady" />
+                </div>
+              </div>
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgCities" [attr.title]="'WORLD_GLOBE.LAYER_CITIES_HINT' | translate">{{ 'WORLD_GLOBE.LAYER_CITIES' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgCities" [(ngModel)]="citiesEnabled" (ngModelChange)="onCitiesToggle()" [disabled]="citiesOverlayLoading || !globeSurfaceReady" />
+                </div>
+              </div>
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgTz" [attr.title]="'WORLD_GLOBE.LAYER_TIME_ZONES_HINT' | translate">{{ 'WORLD_GLOBE.LAYER_TIME_ZONES' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgTz" [(ngModel)]="timeZonesEnabled" (ngModelChange)="onTimeZonesToggle()" [disabled]="timeZonesOverlayLoading || !globeSurfaceReady" />
+                </div>
+              </div>
             </div>
-          </ng-container>
-          <div class="form-check form-switch wg-switch wg-switches-grid__full mb-0">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="wgIssTicker"
-              [(ngModel)]="issTickerEnabled"
-              (ngModelChange)="onIssTickerToggle()" />
-            <label
-              class="form-check-label"
-              for="wgIssTicker"
-              [attr.title]="'WORLD_GLOBE.ISS_TICKER_ENABLED_HINT' | translate">
-              {{ 'WORLD_GLOBE.ISS_TICKER_ENABLED' | translate }}</label>
-          </div>
-          <div class="form-check form-switch wg-switch wg-switches-grid__full mb-0">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="wgIssLivePip"
-              [(ngModel)]="issLiveEmbedEnabled"
-              (ngModelChange)="onIssLiveEmbedPanelToggle()" />
-            <label
-              class="form-check-label"
-              for="wgIssLivePip"
-              [attr.title]="'WORLD_GLOBE.ISS_LIVE_PIP_ENABLED_HINT' | translate">
-              {{ 'WORLD_GLOBE.ISS_LIVE_PIP_ENABLED' | translate }}</label>
-          </div>
-          <div class="form-check form-switch wg-switch wg-switches-grid__full mb-0">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="wgIssLiveHdPip"
-              [(ngModel)]="issLiveHdEmbedEnabled"
-              (ngModelChange)="onIssLiveHdEmbedPanelToggle()" />
-            <label
-              class="form-check-label"
-              for="wgIssLiveHdPip"
-              [attr.title]="'WORLD_GLOBE.ISS_LIVE_PIP_HD_ENABLED_HINT' | translate">
-              {{ 'WORLD_GLOBE.ISS_LIVE_PIP_HD_ENABLED' | translate }}</label>
-          </div>
-          <div class="wg-switches-grid__full wg-iss-live-links d-flex flex-wrap gap-1 mt-1">
-            <button
-              type="button"
-              class="btn btn-sm btn-outline-info py-0 px-2"
-              (click)="openIssLiveFromDestinationOrbite()"
-              [attr.title]="'WORLD_GLOBE.ISS_LIVE_STANDARD_HINT' | translate"
-              [attr.aria-label]="'WORLD_GLOBE.ISS_LIVE_STANDARD_HINT' | translate">
-              <i class="fa fa-video-camera me-1" aria-hidden="true"></i>
-              {{ 'WORLD_GLOBE.ISS_LIVE_STANDARD' | translate }}
-            </button>
-            <button
-              type="button"
-              class="btn btn-sm btn-outline-info py-0 px-2"
-              (click)="openIssLiveHdFromDestinationOrbite()"
-              [attr.title]="'WORLD_GLOBE.ISS_LIVE_HD_HINT' | translate"
-              [attr.aria-label]="'WORLD_GLOBE.ISS_LIVE_HD_HINT' | translate">
-              <i class="fa fa-video-camera me-1" aria-hidden="true"></i>
-              {{ 'WORLD_GLOBE.ISS_LIVE_HD' | translate }}
-            </button>
-          </div>
-        </div>
-        <div class="wg-switches-grid__full wg-banner small mt-1 text-secondary lh-sm mb-1" *ngIf="countryBordersEnabled">
-          {{ 'WORLD_GLOBE.BORDERS_ATTRIBUTION' | translate }}</div>
-        <div class="wg-switches-grid__full wg-banner small mt-1 text-secondary lh-sm mb-1" *ngIf="coastlinesEnabled">
-          {{ 'WORLD_GLOBE.COASTLINE_ATTRIBUTION' | translate }}</div>
-        <div class="wg-switches-grid__full wg-banner small mt-1 text-secondary lh-sm mb-1" *ngIf="politicalMapEnabled || countryLabelsEnabled">
-          {{ 'WORLD_GLOBE.ADMIN0_ATTRIBUTION' | translate }}</div>
-        <div
-          class="wg-switches-grid__full wg-banner small mt-1 text-secondary lh-sm mb-1"
-          *ngIf="
-            geographicLinesEnabled ||
-            riversEnabled ||
-            lakesEnabled ||
-            glaciersEnabled ||
-            citiesEnabled ||
-            timeZonesEnabled
-          ">
-          {{ 'WORLD_GLOBE.NATURAL_EARTH_VECTOR_EXTRA_ATTRIBUTION' | translate }}</div>
-        <div class="form-check form-switch wg-switch">
-          <input class="form-check-input" type="checkbox" id="wgClouds" [(ngModel)]="cloudsEnabled" (ngModelChange)="onCloudsToggle()" />
-          <label class="form-check-label" for="wgClouds">{{ 'WORLD_GLOBE.LAYER_CLOUDS' | translate }}</label>
-        </div>
-        <div class="form-check form-switch wg-switch">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="wgStars"
-            [(ngModel)]="starsEnabled"
-            (ngModelChange)="onStarsToggle($event)" />
-          <label class="form-check-label" for="wgStars">{{ 'WORLD_GLOBE.LAYER_STARS' | translate }}</label>
-        </div>
-        <div class="form-check form-switch wg-switch">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="wgRotAxis"
-            [(ngModel)]="showEarthRotationAxis"
-            (ngModelChange)="onEarthRotationAxisToggle()" />
-          <label class="form-check-label" for="wgRotAxis">{{ 'WORLD_GLOBE.LAYER_ROTATION_AXIS' | translate }}</label>
-        </div>
-        <div class="form-check form-switch wg-switch">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="wgAuto"
-            [(ngModel)]="autoRotate"
-            (ngModelChange)="onAutoRotateToggle()"
-            [disabled]="issKeepEarthCentered"
-            [attr.title]="
-              issKeepEarthCentered ? ('WORLD_GLOBE.AUTO_ROTATE_DISABLED_WHILE_ISS_CENTERED' | translate) : null
-            " />
-          <label
-            class="form-check-label"
-            for="wgAuto"
-            [attr.title]="
-              issKeepEarthCentered ? ('WORLD_GLOBE.AUTO_ROTATE_DISABLED_WHILE_ISS_CENTERED' | translate) : null
-            ">{{ 'WORLD_GLOBE.AUTO_ROTATE' | translate }}</label>
-        </div>
-        </div>
+          </details>
+
+          <details class="wg-opt-section">
+            <summary class="wg-opt-section__head">
+              <i class="fa fa-space-shuttle wg-opt-section__icon" aria-hidden="true"></i>
+              <span>{{ 'WORLD_GLOBE.OPT_SECTION_ISS' | translate }}</span>
+            </summary>
+            <div class="wg-opt-section__body">
+              <div class="wg-opt-row wg-opt-row--tools">
+                <label class="wg-opt-row__label" for="wgIss" [attr.title]="'WORLD_GLOBE.LAYER_ISS_HINT' | translate">{{ 'WORLD_GLOBE.LAYER_ISS_POSITION' | translate }}</label>
+                <div class="wg-opt-row__tools">
+                  <div class="form-check form-switch wg-opt-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="wgIss" [(ngModel)]="issOverlayEnabled" (ngModelChange)="onIssOverlayToggle()" [disabled]="!globeSurfaceReady" />
+                  </div>
+                  <button *ngIf="issOverlayEnabled" type="button" class="btn btn-sm wg-opt-icon-btn" (click)="onIssRefreshNowClick()" [disabled]="!globeSurfaceReady || issManualRefreshInFlight" [attr.title]="'WORLD_GLOBE.ISS_REFRESH_NOW_HINT' | translate" [attr.aria-label]="'WORLD_GLOBE.ISS_REFRESH_NOW' | translate">
+                    <i class="fa fa-refresh" aria-hidden="true" [class.fa-spin]="issManualRefreshInFlight"></i>
+                  </button>
+                </div>
+              </div>
+              <ng-container *ngIf="issOverlayEnabled">
+                <div class="wg-opt-inline">
+                  <label class="wg-opt-inline__lbl" for="wgIssInterval">{{ 'WORLD_GLOBE.ISS_POLL_INTERVAL_LABEL' | translate }}</label>
+                  <input id="wgIssInterval" type="number" class="form-control form-control-sm wg-iss-interval-input" [(ngModel)]="issPollIntervalSec" (blur)="onIssPollIntervalCommitted()" (change)="onIssPollIntervalCommitted()" [min]="5" [max]="600" [step]="1" [disabled]="!globeSurfaceReady" [attr.title]="'WORLD_GLOBE.ISS_POLL_INTERVAL_HINT' | translate" />
+                  <span class="wg-opt-inline__cd text-info text-monospace" [attr.title]="'WORLD_GLOBE.ISS_COUNTDOWN_HINT' | translate" aria-live="polite">
+                    <ng-container *ngIf="issSecondsUntilNextRefresh > 0 && issSecondsUntilNextRefresh < 60; else issCountdownLongOrMm">{{ formatIssCountdown() }} {{ 'WORLD_GLOBE.ISS_SECONDS_ABBR' | translate }}</ng-container>
+                    <ng-template #issCountdownLongOrMm>{{ formatIssCountdown() }}</ng-template>
+                  </span>
+                </div>
+                <div class="wg-opt-row">
+                  <label class="wg-opt-row__label" for="wgIssKeepCenter" [attr.title]="'WORLD_GLOBE.ISS_KEEP_EARTH_CENTERED_HINT' | translate">{{ 'WORLD_GLOBE.ISS_KEEP_EARTH_CENTERED' | translate }}</label>
+                  <div class="form-check form-switch wg-opt-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="wgIssKeepCenter" [(ngModel)]="issKeepEarthCentered" (ngModelChange)="onIssKeepEarthCenteredToggle()" [disabled]="!globeSurfaceReady" />
+                  </div>
+                </div>
+                <p class="wg-opt-iss-meta text-monospace text-info mb-0" *ngIf="globeIssLat != null && globeIssLon != null" aria-live="polite">
+                  <span class="text-nowrap">ISS {{ globeIssLat | number : '1.2-4' }}° / {{ globeIssLon | number : '1.2-4' }}°</span>
+                  <span *ngIf="globeIssAltKm != null" class="text-nowrap"> · {{ globeIssAltKm | number : '1.0-1' }} km</span>
+                  <span *ngIf="issGroundSpeedKmh != null" class="text-nowrap"> · {{ issGroundSpeedKmh | number : '1.0-0' }} km/h</span>
+                </p>
+              </ng-container>
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgIssTicker" [attr.title]="'WORLD_GLOBE.ISS_TICKER_ENABLED_HINT' | translate">{{ 'WORLD_GLOBE.ISS_TICKER_ENABLED' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgIssTicker" [(ngModel)]="issTickerEnabled" (ngModelChange)="onIssTickerToggle()" />
+                </div>
+              </div>
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgIssLivePip" [attr.title]="'WORLD_GLOBE.ISS_LIVE_PIP_ENABLED_HINT' | translate">{{ 'WORLD_GLOBE.ISS_LIVE_PIP_ENABLED' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgIssLivePip" [(ngModel)]="issLiveEmbedEnabled" (ngModelChange)="onIssLiveEmbedPanelToggle()" />
+                </div>
+              </div>
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgIssLiveHdPip" [attr.title]="'WORLD_GLOBE.ISS_LIVE_PIP_HD_ENABLED_HINT' | translate">{{ 'WORLD_GLOBE.ISS_LIVE_PIP_HD_ENABLED' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgIssLiveHdPip" [(ngModel)]="issLiveHdEmbedEnabled" (ngModelChange)="onIssLiveHdEmbedPanelToggle()" />
+                </div>
+              </div>
+              <div class="wg-opt-chips" role="group" [attr.aria-label]="'WORLD_GLOBE.OPT_SECTION_ISS' | translate">
+                <button type="button" class="btn btn-sm wg-opt-chip" (click)="openIssLiveFromDestinationOrbite()" [attr.title]="'WORLD_GLOBE.ISS_LIVE_STANDARD_HINT' | translate">
+                  <i class="fa fa-video-camera" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_LIVE_STANDARD' | translate }}
+                </button>
+                <button type="button" class="btn btn-sm wg-opt-chip wg-opt-chip--hd" (click)="openIssLiveHdFromDestinationOrbite()" [attr.title]="'WORLD_GLOBE.ISS_LIVE_HD_HINT' | translate">
+                  <i class="fa fa-video-camera" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_LIVE_HD' | translate }}
+                </button>
+              </div>
+            </div>
+          </details>
+
+          <details class="wg-opt-section">
+            <summary class="wg-opt-section__head">
+              <i class="fa fa-compass wg-opt-section__icon" aria-hidden="true"></i>
+              <span>{{ 'WORLD_GLOBE.OPT_SECTION_VIEW' | translate }}</span>
+            </summary>
+            <div class="wg-opt-section__body">
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgRotAxis">{{ 'WORLD_GLOBE.LAYER_ROTATION_AXIS' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgRotAxis" [(ngModel)]="showEarthRotationAxis" (ngModelChange)="onEarthRotationAxisToggle()" />
+                </div>
+              </div>
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgAuto" [attr.title]="issKeepEarthCentered ? ('WORLD_GLOBE.AUTO_ROTATE_DISABLED_WHILE_ISS_CENTERED' | translate) : null">{{ 'WORLD_GLOBE.AUTO_ROTATE' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgAuto" [(ngModel)]="autoRotate" (ngModelChange)="onAutoRotateToggle()" [disabled]="issKeepEarthCentered" />
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="wg-opt-section wg-opt-section--credits" *ngIf="countryBordersEnabled || coastlinesEnabled || politicalMapEnabled || countryLabelsEnabled || geographicLinesEnabled || riversEnabled || lakesEnabled || glaciersEnabled || citiesEnabled || timeZonesEnabled">
+            <summary class="wg-opt-section__head">
+              <i class="fa fa-info-circle wg-opt-section__icon" aria-hidden="true"></i>
+              <span>{{ 'WORLD_GLOBE.OPT_SECTION_CREDITS' | translate }}</span>
+            </summary>
+            <div class="wg-opt-section__body wg-opt-credits">
+              <p class="mb-1" *ngIf="countryBordersEnabled">{{ 'WORLD_GLOBE.BORDERS_ATTRIBUTION' | translate }}</p>
+              <p class="mb-1" *ngIf="coastlinesEnabled">{{ 'WORLD_GLOBE.COASTLINE_ATTRIBUTION' | translate }}</p>
+              <p class="mb-1" *ngIf="politicalMapEnabled || countryLabelsEnabled">{{ 'WORLD_GLOBE.ADMIN0_ATTRIBUTION' | translate }}</p>
+              <p class="mb-0" *ngIf="geographicLinesEnabled || riversEnabled || lakesEnabled || glaciersEnabled || citiesEnabled || timeZonesEnabled">{{ 'WORLD_GLOBE.NATURAL_EARTH_VECTOR_EXTRA_ATTRIBUTION' | translate }}</p>
+            </div>
+          </details>
+        </nav>
 
         <div class="wg-banner small mt-2 text-danger" *ngIf="detailMapPickFailed">{{ 'WORLD_GLOBE.DETAIL_MAP_PICK_FAIL' | translate }}</div>
         <div class="wg-banner small mt-1 text-secondary" *ngIf="weatherImageryLoading">{{ 'WORLD_GLOBE.WEATHER_LOADING' | translate }}</div>
@@ -550,12 +410,10 @@
       class="wg-stage flex-grow-1 min-h-0 d-flex flex-column position-relative"
       [class.wg-stage--iss-pip]="issLiveEmbedEnabled"
       [class.wg-stage--iss-pip-hd]="issLiveHdEmbedEnabled"
-      [class.wg-stage--fs-iss-split]="issFsSplitLayout">
-      <div class="wg-coords font-monospace" *ngIf="globePickedLat != null && globePickedLon != null">
-        {{ globePickedLat | number : '1.5-5' }}°, {{ globePickedLon | number : '1.5-5' }}°
-      </div>
-
-      <div class="wg-globe-bottom-toolbar d-flex align-items-center gap-2 flex-wrap">
+      [class.wg-stage--fs-iss-split]="issFsSplitLayout"
+      [class.wg-stage--fs-iss-split-dragging]="issFsSplitDragging"
+      [ngStyle]="issFsSplitStageStyle">
+      <div class="wg-globe-stage-toolbar d-flex align-items-center gap-2 flex-wrap">
         <button type="button" class="btn btn-outline-secondary btn-sm py-0 wg-btn" (click)="toggleOptionsPanel()">
           <ng-container *ngIf="!showOptionsPanel">{{ 'WORLD_GLOBE.SHOW_PANEL' | translate }}</ng-container>
           <ng-container *ngIf="showOptionsPanel">{{ 'WORLD_GLOBE.HIDE_PANEL' | translate }}</ng-container>
@@ -574,6 +432,10 @@
           [disabled]="!globeSurfaceReady || detailMapOpen">
           {{ 'WORLD_GLOBE.DETAIL_MAP_OPEN_SHORT' | translate }}
         </button>
+      </div>
+
+      <div class="wg-coords font-monospace" *ngIf="globePickedLat != null && globePickedLon != null">
+        {{ globePickedLat | number : '1.5-5' }}°, {{ globePickedLon | number : '1.5-5' }}°
       </div>
 
       <div
@@ -782,6 +644,18 @@
         </div>
       </div>
       </div>
+
+      <div
+        class="wg-fs-split-handle"
+        *ngIf="issFsSplitLayout"
+        role="separator"
+        aria-orientation="vertical"
+        tabindex="0"
+        [attr.aria-label]="'WORLD_GLOBE.ISS_FS_SPLIT_RESIZE' | translate"
+        [attr.title]="'WORLD_GLOBE.ISS_FS_SPLIT_RESIZE_HINT' | translate"
+        [attr.aria-valuenow]="issFsSplitIssColumnWidthPx"
+        [attr.aria-valuemin]="176"
+        (pointerdown)="onIssFsSplitResizeStart($event)"></div>
 
       <div #globeCanvasHost class="wg-canvas-host flex-grow-1 w-100 position-relative rounded"></div>
 

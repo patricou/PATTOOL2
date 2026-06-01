@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "צרפתית",
         "EN": "אנגלית",
@@ -153,6 +153,13 @@
         "PANEL_TOGGLE": "שכבות ותצוגה",
         "SHOW_PANEL": "הצג אפשרויות",
         "HIDE_PANEL": "הסתר אפשרויות",
+        "OPT_SECTION_LIGHT": "Lighting",
+        "OPT_SECTION_BASE": "Basemap & sky",
+        "OPT_SECTION_MAP": "Map & borders",
+        "OPT_SECTION_GEO": "Terrain & water",
+        "OPT_SECTION_ISS": "ISS",
+        "OPT_SECTION_VIEW": "Globe view",
+        "OPT_SECTION_CREDITS": "Data sources",
         "BASEMAP_SATELLITE": "מפת בסיס לוויין NASA BMNG (פרוקסי)",
         "LIGHT_REALISTIC_DAY_NIGHT": "גבול יום/לילה חי (השמש בזמן אמת, UTC)",
         "LIGHT_REALISTIC_HINT": "כבוי: תאורה אחידה, בלי קו מפריד. מופעל: אור השמש עוקב אחרי השמש האמיתית (שעון); הגבול נע בזמן אמת.",
@@ -461,6 +468,12 @@
         "HOLIDAY_TYPE_HELP_BANK": "חג בנקאות: סגירת בנקים; השאר משתנה.",
         "HOLIDAY_SCOPE_GLOBAL": "ברמה ארצית.",
         "HOLIDAY_SCOPE_REGIONS": "אזורי / קנטונים: {{list}}",
+        "SAINT_SEARCH_LABEL": "קדוש — חיפוש",
+        "SAINT_SEARCH_PLACEHOLDER": "חפש קדוש…",
+        "SAINT_SEARCH_NO_RESULTS": "לא נמצא קדוש",
+        "SAINT_CALENDAR_LABEL": "לוח קדושים",
+        "SAINT_CALENDAR_LITURGICAL": "ליטургי רומי",
+        "SAINT_CALENDAR_TRADITIONAL": "צרפתי מסורתי",
         "HOLIDAYS_COUNTRY_LABEL": "חגים רשמיים — מדינה",
         "ACTIVITY_OPEN_HINT": "טיפ: לחיצה כפולה על פעילות פותחת את קיר התמונות.",
         "HOLIDAY_NAMES_SWITCH_LABEL": "שמות חגים:",

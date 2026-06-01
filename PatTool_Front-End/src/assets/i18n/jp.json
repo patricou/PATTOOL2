@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "フランス語",
         "EN": "英語",
@@ -153,6 +153,13 @@
         "PANEL_TOGGLE": "レイヤーと表示",
         "SHOW_PANEL": "オプションを表示",
         "HIDE_PANEL": "オプションを隠す",
+        "OPT_SECTION_LIGHT": "Lighting",
+        "OPT_SECTION_BASE": "Basemap & sky",
+        "OPT_SECTION_MAP": "Map & borders",
+        "OPT_SECTION_GEO": "Terrain & water",
+        "OPT_SECTION_ISS": "ISS",
+        "OPT_SECTION_VIEW": "Globe view",
+        "OPT_SECTION_CREDITS": "Data sources",
         "BASEMAP_SATELLITE": "NASA BMNG 衛星ベースマップ（プロキシ）",
         "LIGHT_REALISTIC_DAY_NIGHT": "昼夜境界のリアルタイム表示（太陽・UTC）",
         "LIGHT_REALISTIC_HINT": "オフ：均一照明、明暗境界なし。オン：太陽光が実際の太陽（時計）に追従し、境界がリアルタイムで動きます。",
@@ -461,6 +468,12 @@
         "HOLIDAY_TYPE_HELP_BANK": "銀行休業日：銀行は休み。それ以外は地域により異なります。",
         "HOLIDAY_SCOPE_GLOBAL": "全国で該当。",
         "HOLIDAY_SCOPE_REGIONS": "地域 / カントン：{{list}}",
+        "SAINT_SEARCH_LABEL": "聖人 — 検索",
+        "SAINT_SEARCH_PLACEHOLDER": "聖人を検索…",
+        "SAINT_SEARCH_NO_RESULTS": "聖人が見つかりません",
+        "SAINT_CALENDAR_LABEL": "聖人カレンダー",
+        "SAINT_CALENDAR_LITURGICAL": "ローマ典礼",
+        "SAINT_CALENDAR_TRADITIONAL": "フランス伝統",
         "HOLIDAYS_COUNTRY_LABEL": "祝日・休日 — 国/地域",
         "ACTIVITY_OPEN_HINT": "ヒント：活動をダブルクリックすると写真の壁が開きます。",
         "HOLIDAY_NAMES_SWITCH_LABEL": "祝日の名称：",
