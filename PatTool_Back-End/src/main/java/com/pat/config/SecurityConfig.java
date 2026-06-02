@@ -109,22 +109,22 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .headers(headers -> headers
                 // Content Security Policy - restrict resource loading
-                // frame-src: Keycloak, Firebase, cartes.gouv.fr, ISS live YouTube embeds (world-globe PiP)
-                // script-src: Allow Bootstrap CDN, Firebase, and inline scripts
+                // frame-src: Keycloak, cartes.gouv.fr, ISS live YouTube embeds (world-globe PiP)
+                // script-src: Allow Bootstrap CDN and inline scripts
                 // style-src: Allow Google Fonts, Bootstrap CDN, Font Awesome, Flag Icons
                 // font-src: Allow Google Fonts (fonts.gstatic.com) and Font Awesome (maxcdn.bootstrapcdn.com)
                 // img-src: Allow blob: for Angular image handling
                 // media-src: Allow blob: for video compression and playback
-                // connect-src: Allow source maps, Firebase, Keycloak, Nominatim (OpenStreetMap), and OpenElevation API connections
+                // connect-src: Allow source maps, Keycloak, Nominatim (OpenStreetMap), and OpenElevation API connections
                 .contentSecurityPolicy(csp -> csp
                     .policyDirectives("default-src 'self'; " +
-                        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://sportpat-5e155.firebaseio.com https://*.firebaseio.com https://apis.google.com https://*.googleapis.com https://*.gstatic.com https://www.gstatic.com https://www.googleapis.com; " +
+                        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://apis.google.com https://*.googleapis.com https://*.gstatic.com https://www.gstatic.com https://www.googleapis.com; " +
                         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://maxcdn.bootstrapcdn.com https://cdn.jsdelivr.net; " +
                         "img-src 'self' data: https: blob:; " +
                         "media-src 'self' data: https: blob:; " +
                         "font-src 'self' data: https://fonts.gstatic.com https://maxcdn.bootstrapcdn.com; " +
-                        "connect-src 'self' blob: http://localhost:8080 http://localhost:8000 https://www.patrickdeschamps.com:8543 https://cdn.jsdelivr.net https://sportpat-5e155.firebaseio.com https://*.firebaseio.com https://sportpat-5e155.firebaseapp.com https://*.firebaseapp.com https://*.googleapis.com https://www.googleapis.com https://*.gstatic.com https://www.gstatic.com https://nominatim.openstreetmap.org https://api.open-elevation.com wss://sportpat-5e155.firebaseio.com wss://*.firebaseio.com ws://localhost:8000 http://localhost:8000/ws; " +
-                        "frame-src 'self' https://www.patrickdeschamps.com:8543 http://localhost:8080 https://*.firebaseio.com https://sportpat-5e155.firebaseio.com https://www.google.com https://maps.google.com https://*.google.com https://cartes.gouv.fr https://www.youtube.com https://www.youtube-nocookie.com;")
+                        "connect-src 'self' blob: http://localhost:8080 http://localhost:8000 https://www.patrickdeschamps.com:8543 https://cdn.jsdelivr.net https://*.googleapis.com https://www.googleapis.com https://*.gstatic.com https://www.gstatic.com https://nominatim.openstreetmap.org https://api.open-elevation.com ws://localhost:8000 http://localhost:8000/ws; " +
+                        "frame-src 'self' https://www.patrickdeschamps.com:8543 http://localhost:8080 https://www.google.com https://maps.google.com https://*.google.com https://cartes.gouv.fr https://www.youtube.com https://www.youtube-nocookie.com;")
                 )
                 // Note: frameOptions is not set to allow Keycloak iframes
                 // Security is handled by CSP frame-src directive above

@@ -1038,24 +1038,14 @@ export class TodolistsComponent implements OnInit, OnDestroy {
         const { mime, base64 } = parsed;
         let blob: Blob | null = null;
         try {
-            const resp = await fetch(dataUrl.trim());
-            const b = await resp.blob();
-            const t = b.type && b.type !== 'application/octet-stream' ? b.type : mime;
-            blob = t === b.type ? b : new Blob([await b.arrayBuffer()], { type: t });
-        } catch {
-            blob = null;
-        }
-        if (!blob) {
-            try {
-                const binary = atob(base64);
-                const bytes = new Uint8Array(binary.length);
-                for (let i = 0; i < binary.length; i++) {
-                    bytes[i] = binary.charCodeAt(i);
-                }
-                blob = new Blob([bytes], { type: mime });
-            } catch {
-                return null;
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
             }
+            blob = new Blob([bytes], { type: mime });
+        } catch {
+            return null;
         }
         const ext = mime.includes('png') ? 'png'
                   : mime.includes('webp') ? 'webp'

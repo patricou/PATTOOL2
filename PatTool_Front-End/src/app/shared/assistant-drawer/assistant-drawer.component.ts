@@ -4646,28 +4646,11 @@ export class AssistantDrawerComponent
     if (!parsed) {
       return null;
     }
-    const { mime, base64 } = parsed;
-    let blob: Blob | null = null;
-    try {
-      const resp = await fetch(dataUrl.trim());
-      const b = await resp.blob();
-      const t = b.type && b.type !== 'application/octet-stream' ? b.type : mime;
-      blob = t === b.type ? b : new Blob([await b.arrayBuffer()], { type: t });
-    } catch {
-      blob = null;
-    }
+    const blob = this.dataUrlToBlob(dataUrl);
     if (!blob) {
-      try {
-        const binary = atob(base64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) {
-          bytes[i] = binary.charCodeAt(i);
-        }
-        blob = new Blob([bytes], { type: mime });
-      } catch {
-        return null;
-      }
+      return null;
     }
+    const { mime } = parsed;
     const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : mime.includes('gif') ? 'gif' : 'jpg';
     const type = blob.type || mime;
     try {
