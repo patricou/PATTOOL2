@@ -3108,7 +3108,8 @@
         "WALL_UPLOAD_BTN": "Add files to this activity (photos, videos, GPS tracks, PDF…)",
         "ASSISTANT_EVENT": "AI assistant",
         "WALL_UPLOADING": "Uploading files…",
-        "WALL_UPLOAD_LOG_WAITING": "Waiting for upload to start…"
+        "WALL_UPLOAD_LOG_WAITING": "Waiting for upload to start…",
+        "SHOW_MORE_GRID_PHOTOS": "Show more photos in the grid"
     },
     "NEWS": {
         "PAGE_TITLE": "News",

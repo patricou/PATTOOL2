@@ -17,7 +17,16 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NgbActiveModal, NgbModal, NgbModalModule } from '@ng-bootstrap/ng-bootstrap';
 import { TodoListDetailOverlayService } from '../todolists/todo-list-detail-overlay.service';
 import { FullCalendarComponent, FullCalendarModule } from '@fullcalendar/angular';
-import { CalendarOptions, DateSelectArg, DayCellContentArg, EventClickArg, EventInput, LocaleInput } from '@fullcalendar/core';
+import {
+    CalendarOptions,
+    DateSelectArg,
+    DayCellContentArg,
+    EventClickArg,
+    EventContentArg,
+    EventInput,
+    EventMountArg,
+    LocaleInput
+} from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
@@ -56,6 +65,9 @@ import { TodoList, TodoListService } from '../todolists/todolist.service';
 
 const HOLIDAY_COUNTRY_STORAGE = 'pat-tool-calendar-holiday-country';
 const HOLIDAY_NAMES_MODE_STORAGE = 'pat-tool-calendar-holiday-names-mode';
+/** Parallel thumbnail downloads (preview size) — faster than sequential stagger. */
+const CAL_THUMB_MAX_CONCURRENT = 12;
+const CAL_THUMB_PREVIEW_MAX_EDGE = 96;
 
 type AppointmentVisibilityPreset = 'private' | 'public' | 'friends' | 'friendGroups';
 
@@ -127,22 +139,26 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
 
     private thumbnailBlobUrls = new Map<string, string>();
     private thumbnailLoadsInFlight = new Set<string>();
+    private thumbnailLoadQueue: string[] = [];
+    private thumbnailLoadsActive = 0;
     /** File IDs still needed for the last merged calendar range (avoids revoking blobs during a refetch / render). */
     private thumbnailNeededIds = new Set<string>();
-    /** Regroupe les {@code markForCheck} après chargement de miniatures (évite N cycles Angular). */
-    private thumbUiRafId: number | null = null;
+    /** fileId → calendar event ids (O(1) thumb apply instead of scanning all events). */
+    private thumbFileIdToEventIds = new Map<string, string[]>();
     private langChangeSub?: Subscription;
     private layoutResizeTimer?: ReturnType<typeof setTimeout>;
 
     /** Évite double ouverture si {@code select} et {@code dateClick} se déclenchent de près (mobile). */
     private lastNewAppointmentModalOpenedAt = 0;
 
-    /**
-     * Couche de chargement sur la grille : les deux {@code eventSources} FullCalendar (entrées + fériés)
-     * doivent avoir terminé avant de masquer le spinner.
-     */
+    /** Spinner jusqu’à ce que FullCalendar ait peint les entrées agenda (pas seulement la réponse HTTP). */
     calendarGridLoading = true;
-    private calendarSourceFetchDepth = 0;
+    private pendingEntriesPaintToken = 0;
+    private entriesReadyPaintToken = 0;
+    private deferredThumbnailEntries: CalendarEntry[] | null = null;
+    /** Libellés pour le rendu DOM natif des pastilles (évite le template Angular par événement). */
+    calMongoEntryHint = '';
+    calTodoListBtnHint = '';
 
     calendarOptions!: CalendarOptions;
     errorMessage = '';
@@ -236,9 +252,14 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         this.saintCalendarId = this.saintOfDayService.readStoredCalendarId();
         this.calendarOptions = this.buildCalendarOptions();
         this.calendarMobileUi = this.isCalendarMobileViewport();
+        if (this.isAuthenticated()) {
+            this.calendarService.prewarmAuthHeaders();
+        }
+        this.refreshCalendarEventUiStrings();
         this.loadFriendGroupsForCalendar();
         this.reloadSaintCalendarData();
         this.langChangeSub = this.translate.onLangChange.subscribe(() => {
+            this.refreshCalendarEventUiStrings();
             this.saintSearchQuery = '';
             this.saintSearchOpen = false;
             this.saintSearchActiveIndex = null;
@@ -539,10 +560,6 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         if (this.saintSearchCloseTimer !== undefined) {
             clearTimeout(this.saintSearchCloseTimer);
             this.saintSearchCloseTimer = undefined;
-        }
-        if (this.thumbUiRafId !== null && typeof cancelAnimationFrame !== 'undefined') {
-            cancelAnimationFrame(this.thumbUiRafId);
-            this.thumbUiRafId = null;
         }
         this.langChangeSub?.unsubscribe();
         this.langChangeSub = undefined;
@@ -1054,20 +1071,29 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
              * Deux sources : les entrées API s’affichent dès qu’elles arrivent (sans attendre Nager),
              * les jours fériés se superposent ensuite. + cache des fériés côté PublicHolidayService.
              */
+            eventContent: (arg: EventContentArg) => this.renderCalendarEventContent(arg),
+            eventDidMount: (arg: EventMountArg) => this.onCalendarEventDidMount(arg),
+            eventsSet: () => this.onCalendarEventsSet(),
             eventSources: [
                 (info, successCallback, failureCallback) => {
-                    this.onCalendarSourceFetchStart();
-                    this.calendarService.getEntries(info.start, info.end).pipe(
-                        finalize(() => this.onCalendarSourceFetchEnd())
-                    ).subscribe({
+                    const fetchToken = this.onCalendarEntriesFetchStart();
+                    this.calendarService.getEntries(info.start, info.end).subscribe({
                         next: entries => {
+                            if (fetchToken !== this.pendingEntriesPaintToken) {
+                                return;
+                            }
                             this.errorMessage = '';
                             this.applyThumbnailNeededIdsFromEntries(entries);
-                            this.scheduleActivityThumbnailLoads(entries);
+                            this.rebuildThumbEventIndex(entries);
+                            this.deferredThumbnailEntries = entries;
+                            this.entriesReadyPaintToken = fetchToken;
                             successCallback(this.mapEntriesToEvents(entries));
                             this.cdr.markForCheck();
                         },
                         error: () => {
+                            if (fetchToken === this.pendingEntriesPaintToken) {
+                                this.onCalendarEntriesFetchFailed();
+                            }
                             this.errorMessage = 'CALENDAR.LOAD_ERROR';
                             this.cdr.markForCheck();
                             failureCallback(new Error('calendar entries'));
@@ -1075,12 +1101,9 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
                     });
                 },
                 (info, successCallback, _failureCallback) => {
-                    this.onCalendarSourceFetchStart();
                     const rawCc = (this.holidayCountryCode || 'FR').trim().toUpperCase();
                     const cc = /^[A-Z]{2}$/.test(rawCc) ? rawCc : 'FR';
-                    this.holidaysForCalendarRange$(info.start, info.end).pipe(
-                        finalize(() => this.onCalendarSourceFetchEnd())
-                    ).subscribe({
+                    this.holidaysForCalendarRange$(info.start, info.end).subscribe({
                         next: holidays => {
                             successCallback(this.mapPublicHolidaysToEvents(holidays, cc));
                             this.cdr.markForCheck();
@@ -1474,13 +1497,13 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     /** Plage horaire lisible pour l’infobulle (langue UI). */
-    private formatEventRangeForTooltip(startIso: string, endIso: string): string {
+    private formatEventRangeForTooltip(startIso: string, endIso: string, loc?: string): string {
         const s = new Date(startIso);
         const e = new Date(endIso);
         if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) {
             return '';
         }
-        const loc = (this.translate.currentLang || 'fr').replace('_', '-');
+        const locale = loc ?? (this.translate.currentLang || 'fr').replace('_', '-');
         try {
             const sameDay =
                 s.getFullYear() === e.getFullYear() &&
@@ -1493,13 +1516,13 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
                     month: 'short',
                     day: 'numeric'
                 };
-                const d = s.toLocaleDateString(loc, dateParts);
-                const t0 = s.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' });
-                const t1 = e.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' });
+                const d = s.toLocaleDateString(locale, dateParts);
+                const t0 = s.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+                const t1 = e.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
                 return `${d} · ${t0} – ${t1}`;
             }
             const both: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' };
-            return `${s.toLocaleString(loc, both)} — ${e.toLocaleString(loc, both)}`;
+            return `${s.toLocaleString(locale, both)} — ${e.toLocaleString(locale, both)}`;
         } catch {
             return `${s.toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })} — ${e.toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}`;
         }
@@ -1522,13 +1545,14 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     private mapEntriesToEvents(entries: CalendarEntry[]): EventInput[] {
         const kindAppointment = this.translate.instant('CALENDAR.KIND_APPOINTMENT');
         const kindActivity = this.translate.instant('CALENDAR.KIND_ACTIVITY');
+        const loc = (this.translate.currentLang || 'fr').replace('_', '-');
         return entries.map(e => {
             const colors =
                 e.kind === 'APPOINTMENT'
                     ? this.appointmentColorsFromSchedule(e.start, e.end)
                     : this.activityColorsFromSchedule(e.start, e.end);
             const titleLine = (e.title || '').trim() || '—';
-            const rangeLine = this.formatEventRangeForTooltip(e.start, e.end);
+            const rangeLine = this.formatEventRangeForTooltip(e.start, e.end, loc);
             const notesLine = (e.notes || '').trim();
             const kindLabel = e.kind === 'APPOINTMENT' ? kindAppointment : kindActivity;
             const eventTooltip = [kindLabel + ': ' + titleLine, rangeLine, notesLine].filter(s => s.length > 0).join('\n');
@@ -1645,6 +1669,13 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
                 .join('\n');
             const colors = this.holidayEventColors(h);
             const holidayKindKey = this.holidayShortKindI18nKey(h);
+            let holidayKindLabel = '';
+            if (holidayKindKey) {
+                const t = this.translate.instant(holidayKindKey).trim();
+                if (t.length > 0 && !t.startsWith('CALENDAR.')) {
+                    holidayKindLabel = t;
+                }
+            }
             out.push({
                 id: this.holidayStableEventId(cc, h),
                 title: baseTitle,
@@ -1659,6 +1690,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
                     cellTimeLabel: '',
                     enName: h.name,
                     eventTooltip,
+                    ...(holidayKindLabel ? { holidayKindLabel } : {}),
                     ...(holidayKindKey ? { holidayKindKey } : {})
                 },
                 backgroundColor: colors.bg,
@@ -1800,7 +1832,31 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         }
         this.thumbnailBlobUrls.clear();
         this.thumbnailLoadsInFlight.clear();
+        this.thumbnailLoadQueue = [];
+        this.thumbnailLoadsActive = 0;
         this.thumbnailNeededIds.clear();
+        this.thumbFileIdToEventIds.clear();
+    }
+
+    private rebuildThumbEventIndex(entries: CalendarEntry[]): void {
+        const map = new Map<string, string[]>();
+        for (const e of entries) {
+            if (e.kind !== 'ACTIVITY') {
+                continue;
+            }
+            const fid = (e.thumbnailFileId || '').trim();
+            const eid = (e.id || '').trim();
+            if (!fid || !eid) {
+                continue;
+            }
+            const list = map.get(fid);
+            if (list) {
+                list.push(eid);
+            } else {
+                map.set(fid, [eid]);
+            }
+        }
+        this.thumbFileIdToEventIds = map;
     }
 
     /** Drop blob URLs for thumbnails no longer in range; keep URLs still needed (prevents NG0100 when FC refetches during render). */
@@ -1812,6 +1868,9 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
             }
         }
         this.thumbnailNeededIds = needed;
+        if (this.thumbnailLoadQueue.length > 0) {
+            this.thumbnailLoadQueue = this.thumbnailLoadQueue.filter(id => needed.has(id));
+        }
         for (const id of [...this.thumbnailBlobUrls.keys()]) {
             if (!needed.has(id)) {
                 const url = this.thumbnailBlobUrls.get(id);
@@ -1827,21 +1886,38 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         if (!this.isAuthenticated()) {
             return;
         }
-        const ids = new Set<string>();
+        const pending = new Set<string>();
         for (const e of entries) {
             if (e.kind === 'ACTIVITY' && e.thumbnailFileId?.trim()) {
-                ids.add(e.thumbnailFileId.trim());
+                pending.add(e.thumbnailFileId.trim());
             }
         }
-        const list = [...ids];
-        const staggerMs = 28;
-        list.forEach((fileId, index) => {
-            if (index === 0) {
-                this.ensureThumbnailLoaded(fileId);
-            } else {
-                window.setTimeout(() => this.ensureThumbnailLoaded(fileId), index * staggerMs);
+        for (const fileId of pending) {
+            if (this.thumbnailBlobUrls.has(fileId) || this.thumbnailLoadsInFlight.has(fileId)) {
+                continue;
             }
-        });
+            if (!this.thumbnailLoadQueue.includes(fileId)) {
+                this.thumbnailLoadQueue.push(fileId);
+            }
+        }
+        this.drainThumbnailLoadQueue();
+    }
+
+    private drainThumbnailLoadQueue(): void {
+        while (
+            this.thumbnailLoadsActive < CAL_THUMB_MAX_CONCURRENT &&
+            this.thumbnailLoadQueue.length > 0
+        ) {
+            const fileId = this.thumbnailLoadQueue.shift()!;
+            if (
+                this.thumbnailBlobUrls.has(fileId) ||
+                this.thumbnailLoadsInFlight.has(fileId) ||
+                !this.thumbnailNeededIds.has(fileId)
+            ) {
+                continue;
+            }
+            this.ensureThumbnailLoaded(fileId);
+        }
     }
 
     private ensureThumbnailLoaded(fileId: string): void {
@@ -1849,58 +1925,233 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
             return;
         }
         this.thumbnailLoadsInFlight.add(fileId);
-        this.fileService.getFile(fileId).pipe(
+        this.thumbnailLoadsActive++;
+        this.fileService.getFileWallPreview(fileId, CAL_THUMB_PREVIEW_MAX_EDGE).pipe(
             catchError(() => of(null)),
-            finalize(() => this.thumbnailLoadsInFlight.delete(fileId))
+            finalize(() => {
+                this.thumbnailLoadsInFlight.delete(fileId);
+                this.thumbnailLoadsActive = Math.max(0, this.thumbnailLoadsActive - 1);
+                this.drainThumbnailLoadQueue();
+            })
         ).subscribe(res => {
             if (!res || !this.thumbnailNeededIds.has(fileId)) {
                 return;
             }
-            const blob = new Blob([res], { type: 'application/octet-stream' });
+            const blob = new Blob([res], { type: 'image/jpeg' });
             const url = URL.createObjectURL(blob);
             this.thumbnailBlobUrls.set(fileId, url);
-            const api = this.fullCalendar?.getApi();
-            if (api) {
-                for (const ev of api.getEvents()) {
-                    const tid = String(ev.extendedProps['thumbnailFileId'] ?? '').trim();
-                    if (tid === fileId) {
-                        ev.setExtendedProp('thumbSrc', url);
-                    }
+            this.applyThumbSrcToEvents(fileId, url);
+        });
+    }
+
+    private applyThumbSrcToEvents(fileId: string, url: string): void {
+        const api = this.fullCalendar?.getApi();
+        if (!api) {
+            return;
+        }
+        const eventIds = this.thumbFileIdToEventIds.get(fileId);
+        if (eventIds?.length) {
+            for (const id of eventIds) {
+                const ev = api.getEventById(id);
+                if (ev) {
+                    ev.setExtendedProp('thumbSrc', url);
                 }
             }
-            this.scheduleThumbnailUiRefresh();
-        });
-    }
-
-    private scheduleThumbnailUiRefresh(): void {
-        if (typeof requestAnimationFrame === 'undefined') {
-            this.cdr.markForCheck();
             return;
         }
-        if (this.thumbUiRafId !== null) {
-            return;
+        for (const ev of api.getEvents()) {
+            const tid = String(ev.extendedProps['thumbnailFileId'] ?? '').trim();
+            if (tid === fileId) {
+                ev.setExtendedProp('thumbSrc', url);
+            }
         }
-        this.thumbUiRafId = requestAnimationFrame(() => {
-            this.thumbUiRafId = null;
-            this.cdr.markForCheck();
-        });
     }
 
-    private onCalendarSourceFetchStart(): void {
-        const wasIdle = this.calendarSourceFetchDepth === 0;
-        this.calendarSourceFetchDepth++;
-        if (wasIdle) {
-            this.calendarGridLoading = true;
-        }
+    private refreshCalendarEventUiStrings(): void {
+        this.calMongoEntryHint = this.translate.instant('CALENDAR.MONGODB_ENTRY_HINT');
+        this.calTodoListBtnHint = this.translate.instant('EVENTELEM.TODO_LIST_BUTTON_HINT');
+    }
+
+    /** @returns token to match against {@link onCalendarEventsSet} after paint. */
+    private onCalendarEntriesFetchStart(): number {
+        const token = ++this.pendingEntriesPaintToken;
+        this.entriesReadyPaintToken = 0;
+        this.calendarGridLoading = true;
+        this.cdr.markForCheck();
+        return token;
+    }
+
+    private onCalendarEntriesFetchFailed(): void {
+        this.pendingEntriesPaintToken = 0;
+        this.entriesReadyPaintToken = 0;
+        this.deferredThumbnailEntries = null;
+        this.calendarGridLoading = false;
         this.cdr.markForCheck();
     }
 
-    private onCalendarSourceFetchEnd(): void {
-        this.calendarSourceFetchDepth = Math.max(0, this.calendarSourceFetchDepth - 1);
-        if (this.calendarSourceFetchDepth === 0) {
+    private onCalendarEventsSet(): void {
+        if (
+            this.pendingEntriesPaintToken === 0 ||
+            this.entriesReadyPaintToken !== this.pendingEntriesPaintToken
+        ) {
+            return;
+        }
+        this.pendingEntriesPaintToken = 0;
+        this.scheduleGridLoadingOffAfterPaint();
+    }
+
+    private scheduleGridLoadingOffAfterPaint(): void {
+        const finish = () => {
             this.calendarGridLoading = false;
+            this.flushDeferredThumbnailLoads();
+            this.cdr.markForCheck();
+        };
+        if (typeof requestAnimationFrame === 'undefined') {
+            finish();
+            return;
         }
-        this.cdr.markForCheck();
+        requestAnimationFrame(() => requestAnimationFrame(finish));
+    }
+
+    private flushDeferredThumbnailLoads(): void {
+        const entries = this.deferredThumbnailEntries;
+        this.deferredThumbnailEntries = null;
+        if (entries?.length) {
+            this.scheduleActivityThumbnailLoads(entries);
+        }
+    }
+
+    private renderCalendarEventContent(arg: EventContentArg): { domNodes: Node[] } {
+        const ev = arg.event;
+        const ext = ev.extendedProps as Record<string, unknown>;
+        const kind = String(ext['kind'] ?? '');
+
+        const root = document.createElement('div');
+        root.className =
+            'fc-event-custom pat-cal-event-root w-100 min-w-0 px-1 rounded-1 d-flex flex-row align-items-start gap-1';
+        const tooltip = String(ext['eventTooltip'] ?? ev.title ?? '').trim();
+        if (tooltip) {
+            root.title = tooltip;
+        }
+        root.style.backgroundColor = String(ext['calBg'] ?? 'transparent');
+        root.style.borderLeft = String(ext['displayBorderLeft'] ?? '3px solid transparent');
+
+        if (kind === 'APPOINTMENT') {
+            const mongoIcon = document.createElement('i');
+            mongoIcon.className = 'fa fa-exclamation-triangle fc-event-mongo-icon flex-shrink-0';
+            mongoIcon.setAttribute('role', 'img');
+            mongoIcon.title = this.calMongoEntryHint;
+            mongoIcon.setAttribute('aria-label', this.calMongoEntryHint);
+            root.appendChild(mongoIcon);
+        } else if (kind === 'PUBLIC_HOLIDAY') {
+            const flag = document.createElement('i');
+            flag.className = 'fa fa-flag fc-event-holiday-icon flex-shrink-0';
+            flag.setAttribute('aria-hidden', 'true');
+            root.appendChild(flag);
+        }
+
+        const thumbSrc = String(ext['thumbSrc'] ?? '').trim();
+        if (thumbSrc) {
+            const img = document.createElement('img');
+            img.src = thumbSrc;
+            img.className = 'fc-event-thumb flex-shrink-0';
+            img.alt = '';
+            img.loading = 'lazy';
+            img.decoding = 'async';
+            img.width = 22;
+            img.height = 22;
+            Object.assign(img.style, {
+                width: '22px',
+                height: '22px',
+                maxWidth: '22px',
+                maxHeight: '22px',
+                objectFit: 'cover',
+                flexShrink: '0'
+            });
+            root.appendChild(img);
+        } else if (kind === 'APPOINTMENT') {
+            const apptIcon = document.createElement('i');
+            apptIcon.className = 'fa fa-calendar-check-o fc-event-appointment-icon flex-shrink-0';
+            apptIcon.setAttribute('aria-hidden', 'true');
+            root.appendChild(apptIcon);
+        }
+
+        const stack = document.createElement('div');
+        stack.className = 'pat-cal-event-stack flex-grow-1 min-w-0';
+        const oneflow = document.createElement('div');
+        oneflow.className = 'pat-cal-event-oneflow';
+
+        const cellTime =
+            String(ext['cellTimeLabel'] ?? '').trim() || (arg.timeText || '').trim();
+        if (cellTime) {
+            const timeEl = document.createElement('span');
+            timeEl.className = 'fc-event-time text-nowrap fw-semibold';
+            timeEl.textContent = cellTime;
+            oneflow.appendChild(timeEl);
+        }
+
+        const body = document.createElement('span');
+        body.className =
+            kind === 'PUBLIC_HOLIDAY'
+                ? 'pat-cal-event-body lh-sm pat-cal-event-body--holiday'
+                : 'pat-cal-event-body lh-sm';
+        const titleLine = document.createElement('span');
+        titleLine.className = 'pat-cal-event-title-line';
+
+        if (kind === 'PUBLIC_HOLIDAY') {
+            const kindLabel = String(ext['holidayKindLabel'] ?? '').trim();
+            if (kindLabel) {
+                const prefix = document.createElement('span');
+                prefix.className = 'pat-cal-holiday-kind-prefix text-muted me-1';
+                prefix.textContent = kindLabel;
+                titleLine.appendChild(prefix);
+            }
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'pat-cal-event-holiday-name';
+            nameSpan.textContent = ev.title || '';
+            titleLine.appendChild(nameSpan);
+        } else {
+            titleLine.textContent = ev.title || '';
+        }
+        body.appendChild(titleLine);
+        oneflow.appendChild(body);
+        stack.appendChild(oneflow);
+        root.appendChild(stack);
+
+        const todoListId = String(ext['todoListId'] ?? '').trim();
+        if (this.isAuthenticated() && todoListId) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className =
+                'fc-event-todolist-link flex-shrink-0 ms-1 text-decoration-none bg-transparent border-0';
+            btn.title = this.calTodoListBtnHint;
+            btn.setAttribute('aria-label', this.calTodoListBtnHint);
+            btn.dataset['todoListId'] = todoListId;
+            const tasksIcon = document.createElement('i');
+            tasksIcon.className = 'fa fa-tasks';
+            tasksIcon.setAttribute('aria-hidden', 'true');
+            btn.appendChild(tasksIcon);
+            root.appendChild(btn);
+        }
+
+        return { domNodes: [root] };
+    }
+
+    private onCalendarEventDidMount(arg: EventMountArg): void {
+        const btn = arg.el.querySelector('.fc-event-todolist-link') as HTMLButtonElement | null;
+        if (!btn || btn.dataset['patBound'] === '1') {
+            return;
+        }
+        const listId = (btn.dataset['todoListId'] || '').trim();
+        if (!listId) {
+            return;
+        }
+        btn.dataset['patBound'] = '1';
+        btn.addEventListener('click', (e: MouseEvent) => {
+            e.stopPropagation();
+            e.preventDefault();
+            this.openTodoListOverlay(listId);
+        });
     }
 
     private loadFriendGroupsForCalendar(): void {

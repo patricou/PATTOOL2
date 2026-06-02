@@ -175,7 +175,7 @@
                           [options]="doughnutOptions"></canvas>
                 </div>
               </div>
-              <div class="col-12" *ngIf="collisionBubbleChartData.datasets?.[0]?.data?.length">
+              <div class="col-12" *ngIf="collisionBubbleChartData.datasets[0]?.data?.length">
                 <h6 class="small text-muted mb-1">{{ 'CERN.CHART_COLLISION_BUBBLE' | translate }}</h6>
                 <div class="cern-chart-box cern-chart-box--bubble">
                   <canvas baseChart #collisionBubbleChart
@@ -259,7 +259,7 @@
                          [innerHTML]="toSafeHtml(rec.abstractPreview)"></div>
                   </td>
                   <td class="small" [innerHTML]="toSafeHtml(rec.type)"></td>
-                  <td class="small" [innerHTML]="toSafeHtml(rec.experiments?.join(', '))"></td>
+                  <td class="small" [innerHTML]="toSafeHtml(rec.experiments.join(', '))"></td>
                 </tr>
               </tbody>
             </table>
@@ -275,7 +275,7 @@
               <p class="small text-muted mb-2">
                 <code>{{ selectedRecord.recid }}</code>
                 · <span [innerHTML]="toSafeHtml(selectedRecord.type)"></span>
-                · <span [innerHTML]="toSafeHtml(selectedRecord.experiments?.join(', '))"></span>
+                · <span [innerHTML]="toSafeHtml(selectedRecord.experiments.join(', '))"></span>
               </p>
               <div class="small cern-api-html" *ngIf="selectedRecord.abstractText"
                    [innerHTML]="toSafeHtml(selectedRecord.abstractText)"></div>
@@ -303,7 +303,7 @@
                 </div>
               </div>
 
-              <p class="small mb-2" *ngIf="selectedRecord.files?.length && !filesChartData.labels?.length">
+              <p class="small mb-2" *ngIf="selectedRecord.files.length && !(filesChartData.labels?.length)">
                 <strong>{{ 'CERN.FILES' | translate }}:</strong>
                 <span class="d-block" *ngFor="let f of selectedRecord.files" [innerHTML]="toSafeHtml(f.key)"></span>
               </p>

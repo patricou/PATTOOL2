@@ -101,65 +101,7 @@
       <div class="spinner-border text-primary pat-cal-grid-loading-spinner" aria-hidden="true"></div>
       <span class="visually-hidden">{{ 'COMMUN.LOADING' | translate }}</span>
     </div>
-    <full-calendar #fc [options]="calendarOptions">
-      <ng-template #eventContent let-arg>
-        @let ext = $any(arg.event.extendedProps);
-        <div
-          class="fc-event-custom pat-cal-event-root w-100 min-w-0 px-1 rounded-1 d-flex flex-row align-items-start gap-1"
-          [attr.title]="patCalTooltip(arg)"
-          [style.background-color]="ext['calBg'] || 'transparent'"
-          [style.border-left]="ext['displayBorderLeft'] || '3px solid transparent'">
-          <i
-            *ngIf="ext['kind'] === 'APPOINTMENT'"
-            class="fa fa-exclamation-triangle fc-event-mongo-icon flex-shrink-0"
-            role="img"
-            [attr.title]="'CALENDAR.MONGODB_ENTRY_HINT' | translate"
-            [attr.aria-label]="'CALENDAR.MONGODB_ENTRY_HINT' | translate"></i>
-          <i *ngIf="ext['kind'] === 'PUBLIC_HOLIDAY'" class="fa fa-flag fc-event-holiday-icon flex-shrink-0" aria-hidden="true"></i>
-          <img
-            *ngIf="ext['thumbSrc'] as src"
-            [src]="src"
-            class="fc-event-thumb flex-shrink-0"
-            alt=""
-            loading="lazy"
-            decoding="async" />
-          <i
-            *ngIf="ext['kind'] === 'APPOINTMENT' && !ext['thumbSrc']"
-            class="fa fa-calendar-check-o fc-event-appointment-icon flex-shrink-0"
-            aria-hidden="true"></i>
-          <div class="pat-cal-event-stack flex-grow-1 min-w-0">
-            <div class="pat-cal-event-oneflow">
-              @if (patCalCellTimeLabel(arg); as startLabel) {
-                <span class="fc-event-time text-nowrap fw-semibold">{{ startLabel }}</span>
-              }
-              <span
-                class="pat-cal-event-body lh-sm"
-                [class.pat-cal-event-body--holiday]="ext['kind'] === 'PUBLIC_HOLIDAY'">
-                <span class="pat-cal-event-title-line">
-                  <ng-container *ngIf="ext['kind'] === 'PUBLIC_HOLIDAY' && ext['holidayKindKey']">
-                    <span class="pat-cal-holiday-kind-prefix text-muted me-1">{{ ext['holidayKindKey'] | translate }}</span>
-                  </ng-container>
-                  @if (ext['kind'] === 'PUBLIC_HOLIDAY') {
-                    <span class="pat-cal-event-holiday-name">{{ arg.event.title }}</span>
-                  } @else {
-                    {{ arg.event.title }}
-                  }
-                </span>
-              </span>
-            </div>
-          </div>
-          <button
-            *ngIf="isAuthenticated() && ext['todoListId']"
-            type="button"
-            class="fc-event-todolist-link flex-shrink-0 ms-1 text-decoration-none bg-transparent border-0"
-            (click)="openTodoListOverlay(ext['todoListId']); $event.stopPropagation()"
-            [attr.title]="'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate"
-            [attr.aria-label]="'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate">
-            <i class="fa fa-tasks" aria-hidden="true"></i>
-          </button>
-        </div>
-      </ng-template>
-    </full-calendar>
+    <full-calendar #fc [options]="calendarOptions"></full-calendar>
   </div>
 
   <div *ngIf="!isAuthenticated()" class="alert alert-info mt-3 mb-0">

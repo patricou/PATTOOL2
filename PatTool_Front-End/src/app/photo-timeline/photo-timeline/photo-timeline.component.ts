@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ViewChildren, QueryList, ElementRef, HostListener, TemplateRef, ChangeDetectorRef, NgZone } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ViewChildren, QueryList, ElementRef, HostListener, TemplateRef, ChangeDetectorRef, NgZone, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -43,10 +43,22 @@ import { OdsEditorLaunchService } from '../../ods-editor/ods-editor-launch.servi
 import { isOdsFile as isOdsSpreadsheetFile } from '../../shared/uploaded-file-types';
 
 const BUFFER_AHEAD = 3;
-/** Number of groups (activities) to load per API request. */
+/** Smaller first API page for faster time-to-first-event. */
+const FIRST_PAGE_SIZE = 4;
+/** Number of groups (activities) to load per API request after the first page. */
 const PAGE_SIZE = 12;
-/** Number of activities shown on open (same as home-evenements showing 8 cards). */
-const INITIAL_VISIBLE_GROUPS = 8;
+/** Activities revealed on first paint before scroll loads more. */
+const INITIAL_VISIBLE_GROUPS = 1;
+/** Thumbnails eagerly queued per group after first paint (0 = viewport IO only at open). */
+const WALL_INITIAL_PRELOAD_THUMBS_PER_GROUP = 0;
+/** Max masonry tiles rendered per event until the user expands (reduces DOM + thumb queue). */
+const WALL_MASONRY_GRID_CAP = 28;
+/** Reveal up to this many buffered events from the first API page without extra round-trips. */
+const WALL_BUFFER_DRAIN_TARGET = 3;
+/** Delay before starting the parallel video-only timeline stream. */
+const VIDEO_TIMELINE_START_DELAY_MS = 5000;
+/** Delay before loading the on-this-day banner. */
+const ON_THIS_DAY_DELAY_MS = 4000;
 /** Approximate height of an event block (px) to preload 3 events ahead. */
 const EVENT_BLOCK_HEIGHT_PX = 500;
 const PREFETCH_EVENTS_AHEAD = 3;
@@ -58,7 +70,9 @@ export interface GroupMediaItem {
 }
 const SCROLL_THRESHOLD_PX = Math.max(400, PREFETCH_EVENTS_AHEAD * EVENT_BLOCK_HEIGHT_PX);
 /** Max longest side (px) for server wall previews; must stay in sync with API clamp in FileRestController / file.service. */
-const WALL_THUMB_MAX_EDGE_CAP = 2048;
+const WALL_THUMB_MAX_EDGE_CAP = 800;
+/** Lower resolution while the first events paint (faster JPEG generation + download). */
+const WALL_INITIAL_THUMB_MAX_EDGE = 420;
 /** Max concurrent wall media HTTP fetches (thumbs + inline videos) to avoid stampedes. */
 const WALL_MEDIA_MAX_PARALLEL = 12;
 
@@ -86,11 +100,15 @@ function getAdaptiveThumbMaxEdge(): number {
     }
 
     // Portrait / tall tiles: longest displayed side often ≈ column × aspect; bound by viewport height.
-    const tallTileGuess = Math.min(h * 0.82, columnCss * 3.6);
+    const tallTileGuess = Math.min(h * 0.55, columnCss * 2.2);
     const approxCssMaxEdge = Math.max(columnCss, tallTileGuess);
 
     const requested = Math.ceil(approxCssMaxEdge * dpr);
-    return Math.min(WALL_THUMB_MAX_EDGE_CAP, Math.max(480, requested));
+    return Math.min(WALL_THUMB_MAX_EDGE_CAP, Math.max(360, requested));
+}
+
+function getWallThumbMaxEdge(initialBatch: boolean): number {
+    return initialBatch ? WALL_INITIAL_THUMB_MAX_EDGE : getAdaptiveThumbMaxEdge();
 }
 
 /** Returns the max concurrent fetch parallelism adapted to the network connection quality. */
@@ -124,6 +142,7 @@ const WALL_VIDEO_FETCH_MAX_AUTO_RETRIES = 5;
     selector: 'app-photo-timeline',
     templateUrl: './photo-timeline.component.html',
     styleUrls: ['./photo-timeline.component.css'],
+    changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
     imports: [
         CommonModule,
@@ -283,6 +302,11 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     private revealMoreScheduled = false;
     /** WeakMap cache so getGroupMedia() does not rebuild arrays on every Angular CD cycle. */
     private groupMediaCache = new WeakMap<TimelineGroup, GroupMediaItem[]>();
+    private groupBadgeLinksCache = new WeakMap<TimelineGroup, FsPhotoLink[]>();
+    private groupTrackLinksCache = new WeakMap<TimelineGroup, FsPhotoLink[]>();
+    /** Events whose masonry grid shows all media (not capped at {@link WALL_MASONRY_GRID_CAP}). */
+    private wallMasonryExpandedEventIds = new Set<string>();
+    private wallBufferDrainScheduled = false;
     private imageCompressionModalRef: NgbModalRef | null = null;
     private currentFsSlideshowEventId = '';
     /** True when at least one photo was added to DB during the current slideshow session; used to refresh timeline on close */
@@ -635,7 +659,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         const user = this.membersService.getUser();
         if (user?.id) {
             this.userId = user.id;
-            this.loadFriendGroups();
+            this.scheduleLoadFriendGroups();
             this.startStreaming();
             return;
         }
@@ -650,7 +674,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                     return;
                 }
                 this.userId = member.id;
-                this.loadFriendGroups();
+                this.scheduleLoadFriendGroups();
                 this.startStreaming();
                 this.cdr.markForCheck();
             },
@@ -662,6 +686,14 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             }
         });
         this.subscriptions.push(sub);
+    }
+
+    /** Loads friend groups for the visibility filter after the wall has started (non-blocking). */
+    private scheduleLoadFriendGroups(): void {
+        setTimeout(() => {
+            if (this.destroyed) return;
+            this.loadFriendGroups();
+        }, 2500);
     }
 
     private loadFriendGroups(): void {
@@ -753,6 +785,11 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.wallPdfTableExpanded.clear();
         this.wallOdsTableSort.clear();
         this.wallOdsTableExpanded.clear();
+        this.groupMediaCache = new WeakMap();
+        this.groupBadgeLinksCache = new WeakMap();
+        this.groupTrackLinksCache = new WeakMap();
+        this.wallMasonryExpandedEventIds.clear();
+        this.wallBufferDrainScheduled = false;
         this.videoUrlCache.clear();
         this.videoSafeUrlCache.clear();
         this.loadingThumbnails.clear();
@@ -792,13 +829,16 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.fetchNext();
     }
 
-    /** Starts getVideoTimeline once the first photo page is received (or on photo error). */
+    /** Starts getVideoTimeline after a delay so the photo stream and thumbs are not competing at open. */
     private scheduleVideoTimelineFetchOnce(): void {
         if (this.destroyed || this.videoTimelineFetchStarted) {
             return;
         }
         this.videoTimelineFetchStarted = true;
-        this.fetchNextVideos();
+        setTimeout(() => {
+            if (this.destroyed) return;
+            this.fetchNextVideos();
+        }, VIDEO_TIMELINE_START_DELAY_MS);
     }
 
     private loadOnThisDay(): void {
@@ -834,37 +874,34 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         const search = this.searchFilter.trim() || undefined;
         const visibility = this.selectedVisibilityFilter.trim() !== 'all' ? this.selectedVisibilityFilter : undefined;
         const gen = this.timelineLoadGeneration;
-        const pageSize = PAGE_SIZE;
+        const pageSize = this.filterEventId
+            ? PAGE_SIZE
+            : (this.nextPage === 0 ? FIRST_PAGE_SIZE : PAGE_SIZE);
         const sub = this.photoTimelineService.getTimeline(this.userId, this.nextPage, pageSize, search, visibility, this.filterEventId).subscribe({
             next: (response: TimelineResponse) => {
-                // Defer state updates to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError (NG0100)
-                setTimeout(() => {
-                    if (this.destroyed || gen !== this.timelineLoadGeneration) return;
-                    this.isFetching = false;
-                    this.hasMore = response.hasMore;
-                    this.nextPage = response.page + 1;
-                    this.scheduleVideoTimelineFetchOnce();
+                if (this.destroyed || gen !== this.timelineLoadGeneration) return;
+                this.isFetching = false;
+                this.hasMore = response.hasMore;
+                this.nextPage = response.page + 1;
+                this.scheduleVideoTimelineFetchOnce();
 
-                    if (response.groups.length > 0) {
-                        response.groups.forEach(g => this.bufferedGroups.push(g));
-                        this.revealInitialBatch();
-                    } else if (this.isLoading && !response.hasMore && this.bufferedVideoGroups.length === 0) {
-                        this.isLoading = false;
-                        setTimeout(() => { if (!this.destroyed) this.setupIntersectionObserver(); }, 50);
-                    }
+                if (response.groups.length > 0) {
+                    response.groups.forEach(g => this.bufferedGroups.push(g));
+                    this.revealInitialBatch();
+                } else if (this.isLoading && !response.hasMore && this.bufferedVideoGroups.length === 0) {
+                    this.isLoading = false;
+                    setTimeout(() => { if (!this.destroyed) this.setupIntersectionObserver(); }, 50);
+                }
 
-                    if (this.hasMore && this.bufferedGroups.length < BUFFER_AHEAD) {
-                        this.fetchNext();
-                    }
-                    if (this.hasMoreVideos && this.bufferedVideoGroups.length < BUFFER_AHEAD) {
-                        this.fetchNextVideos();
-                    }
-                    if (!this.filterEventId && !this.onThisDayApiScheduled) {
-                        this.onThisDayApiScheduled = true;
+                this.scheduleTimelinePrefetchAfterInitialPaint();
+                if (!this.filterEventId && !this.onThisDayApiScheduled) {
+                    this.onThisDayApiScheduled = true;
+                    setTimeout(() => {
+                        if (this.destroyed || gen !== this.timelineLoadGeneration) return;
                         this.loadOnThisDay();
-                    }
-                    this.cdr.markForCheck();
-                }, 0);
+                    }, ON_THIS_DAY_DELAY_MS);
+                }
+                this.cdr.markForCheck();
             },
             error: (err) => {
                 console.error('Error loading photo timeline:', err);
@@ -890,25 +927,21 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         const search = this.searchFilter.trim() || undefined;
         const visibility = this.selectedVisibilityFilter.trim() !== 'all' ? this.selectedVisibilityFilter : undefined;
         const gen = this.timelineLoadGeneration;
-        const pageSize = PAGE_SIZE;
+        const pageSize = this.nextPageVideos === 0 ? FIRST_PAGE_SIZE : PAGE_SIZE;
         const sub = this.photoTimelineService.getVideoTimeline(this.userId, this.nextPageVideos, pageSize, search, visibility, this.filterEventId).subscribe({
             next: (response: TimelineResponse) => {
-                setTimeout(() => {
-                    if (this.destroyed || gen !== this.timelineLoadGeneration) return;
-                    this.isFetchingVideos = false;
-                    this.hasMoreVideos = response.hasMore;
-                    this.nextPageVideos = response.page + 1;
+                if (this.destroyed || gen !== this.timelineLoadGeneration) return;
+                this.isFetchingVideos = false;
+                this.hasMoreVideos = response.hasMore;
+                this.nextPageVideos = response.page + 1;
 
-                    if (response.groups.length > 0) {
-                        response.groups.forEach(g => this.bufferedVideoGroups.push(g));
-                        this.revealInitialBatch();
-                    }
+                if (response.groups.length > 0) {
+                    response.groups.forEach(g => this.bufferedVideoGroups.push(g));
+                    this.revealInitialBatch();
+                }
 
-                    if (this.hasMoreVideos && this.bufferedVideoGroups.length < BUFFER_AHEAD) {
-                        this.fetchNextVideos();
-                    }
-                    this.cdr.markForCheck();
-                }, 0);
+                this.scheduleTimelinePrefetchAfterInitialPaint();
+                this.cdr.markForCheck();
             },
             error: () => {
                 setTimeout(() => {
@@ -922,8 +955,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     /**
-     * Reveals groups up to INITIAL_VISIBLE_GROUPS on first load,
-     * to display several activities immediately on open (same as home-evenements).
+     * Reveals groups up to INITIAL_VISIBLE_GROUPS on first load.
+     * Clears {@link isLoading} as soon as the first activity is visible so the wall is not blank until the full batch finishes.
      */
     private revealInitialBatch(): void {
         if (this.bufferedGroups.length === 0 && this.bufferedVideoGroups.length === 0) {
@@ -934,6 +967,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             while (this.visibleGroups.length < INITIAL_VISIBLE_GROUPS &&
                    (this.bufferedGroups.length > 0 || this.bufferedVideoGroups.length > 0)) {
                 this.revealMore();
+                if (this.visibleGroups.length === 1 && this.isLoading) {
+                    this.isLoading = false;
+                    this.cdr.markForCheck();
+                }
             }
         } finally {
             this.revealingInitialBatch = false;
@@ -945,9 +982,66 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 }
                 this.setupIntersectionObserver();
                 this.scanWallMediaHosts();
+                this.scheduleTimelinePrefetchAfterInitialPaint();
+                this.scheduleBufferedGroupsDrain();
                 this.cdr.markForCheck();
             }, 0);
         }
+    }
+
+    /**
+     * Reveals more events already in {@link bufferedGroups} from the first API page (idle),
+     * so the user sees several activities without waiting for page 2.
+     */
+    private scheduleBufferedGroupsDrain(): void {
+        if (this.wallBufferDrainScheduled || this.filterEventId) {
+            return;
+        }
+        this.wallBufferDrainScheduled = true;
+        const drain = (): void => {
+            if (this.destroyed) {
+                return;
+            }
+            while (this.visibleGroups.length < WALL_BUFFER_DRAIN_TARGET &&
+                (this.bufferedGroups.length > 0 || this.bufferedVideoGroups.length > 0)) {
+                this.revealMore();
+            }
+            this.scanWallMediaHosts();
+            this.scheduleCdr();
+            if (this.visibleGroups.length < WALL_BUFFER_DRAIN_TARGET &&
+                (this.bufferedGroups.length > 0 || this.bufferedVideoGroups.length > 0)) {
+                const ric = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number })
+                    .requestIdleCallback;
+                if (ric) {
+                    ric(() => drain(), { timeout: 400 });
+                } else {
+                    setTimeout(() => drain(), 120);
+                }
+            }
+        };
+        const ric = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number })
+            .requestIdleCallback;
+        if (ric) {
+            ric(() => drain(), { timeout: 600 });
+        } else {
+            setTimeout(() => drain(), 200);
+        }
+    }
+
+    /** Prefetch next timeline pages after the first events are painted (avoids competing with thumbs at open). */
+    private scheduleTimelinePrefetchAfterInitialPaint(): void {
+        if (this.revealingInitialBatch || this.isLoading) {
+            return;
+        }
+        setTimeout(() => {
+            if (this.destroyed || this.revealingInitialBatch) return;
+            if (this.hasMore && this.bufferedGroups.length < BUFFER_AHEAD) {
+                this.fetchNext();
+            }
+            if (this.hasMoreVideos && this.bufferedVideoGroups.length < BUFFER_AHEAD) {
+                this.fetchNextVideos();
+            }
+        }, 350);
     }
 
     /**
@@ -975,17 +1069,23 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         }
 
         this.visibleGroups.push(group);
-        this.requestWallTrackStatsForGroup(group);
+        this.warmGroupDerivedCaches(group);
+        if (this.revealingInitialBatch) {
+            setTimeout(() => {
+                if (!this.destroyed) this.requestWallTrackStatsForGroup(group);
+            }, 2500);
+        } else {
+            this.requestWallTrackStatsForGroup(group);
+        }
+        const initialThumbBatch = this.revealingInitialBatch;
         requestAnimationFrame(() => {
             if (this.destroyed) {
                 return;
             }
-            this.preloadThumbnailsForGroup(group);
+            this.preloadThumbnailsForGroup(group, initialThumbBatch);
         });
 
         if (this.revealingInitialBatch) {
-            if (this.hasMore && this.bufferedGroups.length < BUFFER_AHEAD) this.fetchNext();
-            if (this.hasMoreVideos && this.bufferedVideoGroups.length < BUFFER_AHEAD) this.fetchNextVideos();
             return;
         }
 
@@ -1105,6 +1205,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 const idx = this.visibleGroups.findIndex(g => g.eventId === eventId);
                 if (idx >= 0) {
                     const updated = this.mergeRefetchedTimelineGroup(photos, videos, eventId, group);
+                    this.warmGroupDerivedCaches(updated);
+                    this.wallMasonryExpandedEventIds.add(eventId);
                     this.visibleGroups = [
                         ...this.visibleGroups.slice(0, idx),
                         updated,
@@ -1164,11 +1266,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         };
     }
 
-    /** Group media: photos and videos interleaved, not videos first. */
-    getGroupMedia(group: TimelineGroup): GroupMediaItem[] {
-        const cached = this.groupMediaCache.get(group);
-        if (cached) return cached;
-
+    private buildGroupMediaList(group: TimelineGroup): GroupMediaItem[] {
         const photos = group.photos || [];
         const videos = group.videos || [];
         const list: GroupMediaItem[] = [];
@@ -1182,8 +1280,52 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 list.push({ type: 'video', item: videos[i] });
             }
         }
-        this.groupMediaCache.set(group, list);
         return list;
+    }
+
+    private warmGroupDerivedCaches(group: TimelineGroup): void {
+        if (!this.groupMediaCache.has(group)) {
+            this.groupMediaCache.set(group, this.buildGroupMediaList(group));
+        }
+        if (!this.groupBadgeLinksCache.has(group)) {
+            this.groupBadgeLinksCache.set(group, this.computeGroupBadgeLinks(group));
+        }
+        if (!this.groupTrackLinksCache.has(group)) {
+            this.groupTrackLinksCache.set(group, this.computeGroupMongoTrackLinks(group));
+        }
+    }
+
+    /** Group media: photos and videos interleaved; capped in the grid until expanded. */
+    getGroupMedia(group: TimelineGroup): GroupMediaItem[] {
+        let full = this.groupMediaCache.get(group);
+        if (!full) {
+            full = this.buildGroupMediaList(group);
+            this.groupMediaCache.set(group, full);
+        }
+        const eventId = group.eventId || '';
+        if (!this.wallMasonryExpandedEventIds.has(eventId) && full.length > WALL_MASONRY_GRID_CAP) {
+            return full.slice(0, WALL_MASONRY_GRID_CAP);
+        }
+        return full;
+    }
+
+    isWallMasonryGridCapped(group: TimelineGroup): boolean {
+        const eventId = group.eventId || '';
+        if (this.wallMasonryExpandedEventIds.has(eventId)) {
+            return false;
+        }
+        const full = this.groupMediaCache.get(group);
+        return (full?.length ?? this.buildGroupMediaList(group).length) > WALL_MASONRY_GRID_CAP;
+    }
+
+    expandWallMasonryGrid(group: TimelineGroup): void {
+        const id = group.eventId?.trim();
+        if (!id) return;
+        this.wallMasonryExpandedEventIds.add(id);
+        setTimeout(() => {
+            if (!this.destroyed) this.scanWallMediaHosts();
+        }, 0);
+        this.cdr.markForCheck();
     }
 
     private isVideoFile(fileName: string): boolean {
@@ -1326,14 +1468,15 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         });
     }
 
-    private loadThumbnail(photo: TimelinePhoto): void {
+    private loadThumbnail(photo: TimelinePhoto, initialBatch = false): void {
         if (this.loadingThumbnails.has(photo.fileId) || this.thumbnailCache.has(photo.fileId)) {
             return;
         }
         this.loadingThumbnails.add(photo.fileId);
+        const maxEdge = getWallThumbMaxEdge(initialBatch);
         this.acquireWallFetchSlot(() => {
             const gen = this.timelineLoadGeneration;
-            const sub = this.fileService.getFileWallPreview(photo.fileId, getAdaptiveThumbMaxEdge()).pipe(
+            const sub = this.fileService.getFileWallPreview(photo.fileId, maxEdge).pipe(
                 observeOn(asyncScheduler),
                 finalize(() => this.releaseWallFetchSlot())
             ).subscribe({
@@ -1385,7 +1528,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                     }
                 }, 0);
             },
-            { root: null, rootMargin: '1200px', threshold: 0.01 }
+            { root: null, rootMargin: '480px', threshold: 0.01 }
         );
     }
 
@@ -1441,13 +1584,26 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
      * without waiting for IntersectionObserver, so same-event tiles at the end of the list still load promptly.
      * Videos remain loaded on demand (observer) to avoid downloading large files outside the viewport.
      */
-    private preloadThumbnailsForGroup(group: TimelineGroup): void {
+    private preloadThumbnailsForGroup(group: TimelineGroup, initialBatch = false): void {
         const photos = group.photos || [];
-        const limit = Math.min(photos.length, WALL_PRELOAD_THUMBS_PER_GROUP_CAP);
+        const cap = initialBatch ? WALL_INITIAL_PRELOAD_THUMBS_PER_GROUP : WALL_PRELOAD_THUMBS_PER_GROUP_CAP;
+        const limit = Math.min(photos.length, cap);
         for (let i = 0; i < limit; i++) {
-            this.loadThumbnail(photos[i]);
+            this.loadThumbnail(photos[i], initialBatch);
         }
         setTimeout(() => { if (!this.destroyed) this.scanWallMediaHosts(); }, 0);
+    }
+
+    /** Media count badge (photos + videos), including totals when the API capped the lists. */
+    getGroupMediaCountLabel(group: TimelineGroup): string {
+        const photos = group.totalPhotosInEvent ?? group.photos?.length ?? 0;
+        const videos = group.totalVideosInEvent ?? group.videos?.length ?? 0;
+        const shown = (group.photos?.length ?? 0) + (group.videos?.length ?? 0);
+        const total = photos + videos;
+        if (total > shown) {
+            return `${shown}/${total}`;
+        }
+        return String(shown);
     }
 
     /** Returns the first photo's thumbnail URL for the group, or null. Used as background image for the group container. */
@@ -1466,6 +1622,26 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
     openSlideshow(group: TimelineGroup, startIndex: number): void {
         if (!this.slideshowModalComponent) return;
+        if (group.photosTruncated && group.eventId) {
+            const visibility = this.selectedVisibilityFilter.trim() !== 'all' ? this.selectedVisibilityFilter : undefined;
+            const sub = this.photoTimelineService
+                .getTimeline(this.userId, 0, 200, this.searchFilter.trim() || undefined, visibility, group.eventId)
+                .pipe(take(1))
+                .subscribe({
+                    next: (res) => {
+                        const full = res.groups?.find(g => g.eventId === group.eventId) ?? res.groups?.[0];
+                        this.openSlideshowWithGroup(full && full.photos?.length ? full : group, startIndex);
+                    },
+                    error: () => this.openSlideshowWithGroup(group, startIndex)
+                });
+            this.subscriptions.push(sub);
+            return;
+        }
+        this.openSlideshowWithGroup(group, startIndex);
+    }
+
+    private openSlideshowWithGroup(group: TimelineGroup, startIndex: number): void {
+        if (!this.slideshowModalComponent || !group.photos?.length) return;
         const images: SlideshowImageSource[] = group.photos.map(p => ({
             fileId: p.fileId,
             fileName: p.fileName
@@ -1549,11 +1725,19 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         return isOdsSpreadsheetFile(link.path);
     }
 
-    getGroupMongoTrackLinks(group: TimelineGroup): FsPhotoLink[] {
+    private computeGroupMongoTrackLinks(group: TimelineGroup): FsPhotoLink[] {
         if (!group?.fsPhotoLinks?.length) {
             return [];
         }
         return group.fsPhotoLinks.filter(l => this.isMongoTrackLink(l));
+    }
+
+    getGroupMongoTrackLinks(group: TimelineGroup): FsPhotoLink[] {
+        const cached = this.groupTrackLinksCache.get(group);
+        if (cached) return cached;
+        const links = this.computeGroupMongoTrackLinks(group);
+        this.groupTrackLinksCache.set(group, links);
+        return links;
     }
 
     getGroupWallPdfLinks(group: TimelineGroup): FsPhotoLink[] {
@@ -1887,14 +2071,22 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         return st.elevationGainM;
     }
 
-    /** Footer badges: all links except Mongo-backed tracks and PDFs (those use the tables). */
-    getGroupBadgeLinks(group: TimelineGroup): FsPhotoLink[] {
+    private computeGroupBadgeLinks(group: TimelineGroup): FsPhotoLink[] {
         if (!group?.fsPhotoLinks?.length) {
             return [];
         }
         return group.fsPhotoLinks.filter(
             l => !this.isMongoTrackLink(l) && !this.isMongoWallPdfLink(l) && !this.isMongoWallOdsLink(l)
         );
+    }
+
+    /** Footer badges: all links except Mongo-backed tracks and PDFs (those use the tables). */
+    getGroupBadgeLinks(group: TimelineGroup): FsPhotoLink[] {
+        const cached = this.groupBadgeLinksCache.get(group);
+        if (cached) return cached;
+        const links = this.computeGroupBadgeLinks(group);
+        this.groupBadgeLinksCache.set(group, links);
+        return links;
     }
 
     trackByTrackFieldId(_index: number, link: FsPhotoLink): string {

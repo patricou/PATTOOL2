@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpResponse } from '@angular/common/http';
 
 import { Observable, from } from 'rxjs';
-import { map, switchMap } from 'rxjs/operators';
+import { map, shareReplay, switchMap } from 'rxjs/operators';
 
 import { environment } from '../../environments/environment';
 import { KeycloakService } from '../keycloak/keycloak.service';
@@ -29,6 +29,10 @@ export class FileService {
     private API_URL4FILEONDISK: string = environment.API_URL4FILEONDISK;
     private API_URL4UPLOADFILEONDISK: string = environment.API_URL4UPLOADFILEONDISK;
     private user: Member = new Member("", "", "", "", "", [], "");
+    /** Reuse Bearer token briefly so wall thumbnail bursts do not call Keycloak per image. */
+    private minimalAuthHeaders$?: Observable<HttpHeaders>;
+    private minimalAuthHeadersAt = 0;
+    private static readonly MINIMAL_HEADERS_TTL_MS = 20_000;
 
     constructor(private _http: HttpClient, private _keycloakService: KeycloakService) {
     }
@@ -81,9 +85,16 @@ export class FileService {
 
     /** Minimal headers (Authorization only) to avoid 400 from Tomcat when header size is too large (e.g. big 'user' JSON). */
     private getHeaderWithTokenMinimal(): Observable<HttpHeaders> {
-        return from(this._keycloakService.getToken()).pipe(
-            map((token: string) => new HttpHeaders({ 'Authorization': 'Bearer ' + token }))
+        const now = Date.now();
+        if (this.minimalAuthHeaders$ && now - this.minimalAuthHeadersAt < FileService.MINIMAL_HEADERS_TTL_MS) {
+            return this.minimalAuthHeaders$;
+        }
+        this.minimalAuthHeadersAt = now;
+        this.minimalAuthHeaders$ = from(this._keycloakService.getToken()).pipe(
+            map((token: string) => new HttpHeaders({ 'Authorization': 'Bearer ' + token })),
+            shareReplay(1)
         );
+        return this.minimalAuthHeaders$;
     }
 
     // GET file - returns original file (minimal headers to avoid 400 + CORS block)

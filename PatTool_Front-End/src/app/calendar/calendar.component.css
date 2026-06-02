@@ -257,7 +257,10 @@
     padding-top: 0.05rem;
 }
 
-.fc-event-mongo-icon {
+/*
+ * Pastilles : rendu DOM natif (hors template Angular) → styles via ::ng-deep sous .calendar-fc-wrap.
+ */
+:host ::ng-deep .calendar-fc-wrap .fc-event-mongo-icon {
     width: 22px;
     height: 22px;
     display: inline-flex;
@@ -269,9 +272,10 @@
     background: rgba(255, 255, 255, 0.5);
     border-radius: 3px;
     border: 1px solid rgba(220, 53, 69, 0.35);
+    flex-shrink: 0;
 }
 
-.fc-event-holiday-icon {
+:host ::ng-deep .calendar-fc-wrap .fc-event-holiday-icon {
     width: 22px;
     height: 22px;
     display: inline-flex;
@@ -283,17 +287,23 @@
     background: rgba(255, 255, 255, 0.45);
     border-radius: 3px;
     border: 1px solid rgba(0, 0, 0, 0.1);
+    flex-shrink: 0;
 }
 
-.fc-event-thumb {
-    width: 22px;
-    height: 22px;
+:host ::ng-deep .calendar-fc-wrap .fc-event-thumb {
+    width: 22px !important;
+    height: 22px !important;
+    max-width: 22px !important;
+    max-height: 22px !important;
+    min-width: 0;
+    flex: 0 0 22px;
     object-fit: cover;
     border-radius: 3px;
     border: 1px solid rgba(0, 0, 0, 0.1);
+    flex-shrink: 0;
 }
 
-.fc-event-appointment-icon {
+:host ::ng-deep .calendar-fc-wrap .fc-event-appointment-icon {
     width: 22px;
     height: 22px;
     display: inline-flex;
@@ -305,11 +315,10 @@
     background: rgba(255, 255, 255, 0.42);
     border-radius: 3px;
     border: 1px solid rgba(0, 0, 0, 0.12);
+    flex-shrink: 0;
 }
 
-/* —— Pastille événement : desktop rangée compacte ; mobile texte intégral —— */
-
-.fc-event-custom {
+:host ::ng-deep .calendar-fc-wrap .fc-event-custom {
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
@@ -319,7 +328,7 @@
     line-height: 1.25;
 }
 
-.pat-cal-event-stack {
+:host ::ng-deep .calendar-fc-wrap .pat-cal-event-stack {
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
@@ -328,12 +337,11 @@
     min-width: 0;
 }
 
-/* Desktop : wrapper transparent pour garder heure + corps en flex sur la même ligne */
-.pat-cal-event-oneflow {
+:host ::ng-deep .calendar-fc-wrap .pat-cal-event-oneflow {
     display: contents;
 }
 
-.fc-event-time {
+:host ::ng-deep .calendar-fc-wrap .fc-event-time {
     flex: 0 0 auto;
     font-size: 0.72rem;
     opacity: 0.95;
@@ -341,63 +349,56 @@
     line-height: 1.2;
 }
 
-.pat-cal-event-body {
+:host ::ng-deep .calendar-fc-wrap .pat-cal-event-body {
     flex: 1 1 auto;
     min-width: 0;
 }
 
-.pat-cal-event-title-line {
-    /* break-word : coupure seulement si le mot dépasse ; pas anywhere (coupait au milieu des mots en colonnes étroites). */
+:host ::ng-deep .calendar-fc-wrap .pat-cal-event-title-line {
     overflow-wrap: break-word;
     word-break: normal;
     hyphens: none;
 }
 
-.pat-cal-event-body .pat-cal-event-title-line {
+:host ::ng-deep .calendar-fc-wrap .pat-cal-event-body .pat-cal-event-title-line {
     font-weight: 600;
 }
 
-/* Jours fériés Nager : férié / pas férié / banque… immédiatement avant le titre */
-.pat-cal-holiday-kind-prefix {
+:host ::ng-deep .calendar-fc-wrap .pat-cal-holiday-kind-prefix {
     font-size: 0.88em;
     font-weight: 600;
     line-height: inherit;
     white-space: nowrap;
 }
 
-/* Mobile : pas d’icônes ; heure + libellé sur 2 lignes max au total */
 @media (max-width: 767.98px) {
-    .fc-event-mongo-icon,
-    .fc-event-holiday-icon,
-    .fc-event-thumb,
-    .fc-event-appointment-icon {
+    :host ::ng-deep .calendar-fc-wrap .fc-event-mongo-icon,
+    :host ::ng-deep .calendar-fc-wrap .fc-event-holiday-icon,
+    :host ::ng-deep .calendar-fc-wrap .fc-event-thumb,
+    :host ::ng-deep .calendar-fc-wrap .fc-event-appointment-icon {
         display: none !important;
     }
 
-    .fc-event-custom {
+    :host ::ng-deep .calendar-fc-wrap .fc-event-custom {
         flex-direction: row;
         align-items: stretch;
         overflow: hidden !important;
         min-width: 0;
     }
 
-    .pat-cal-event-stack {
+    :host ::ng-deep .calendar-fc-wrap .pat-cal-event-stack {
         display: block;
         width: 100%;
         min-width: 0;
     }
 
-    /*
-     * Heure sur une ligne, titre en dessous sur toute la largeur : évite « 09 h D » + « ermat »
-     * (inline : il ne restait qu’une lettre de large pour le titre sur la 1re ligne).
-     */
-    .pat-cal-event-oneflow {
+    :host ::ng-deep .calendar-fc-wrap .pat-cal-event-oneflow {
         display: flex;
         flex-direction: column;
         align-items: stretch;
         gap: 0.08rem;
         line-height: 1.35;
-        max-height: 4.05em; /* ~3 lignes (heure + 2 pour le titre) */
+        max-height: 4.05em;
         overflow: hidden;
         word-break: normal;
         overflow-wrap: break-word;
@@ -406,7 +407,7 @@
         min-width: 0;
     }
 
-    .pat-cal-event-oneflow .fc-event-time {
+    :host ::ng-deep .calendar-fc-wrap .pat-cal-event-oneflow .fc-event-time {
         display: block;
         flex: 0 0 auto;
         width: 100%;
@@ -417,8 +418,8 @@
         text-overflow: ellipsis;
     }
 
-    .pat-cal-event-oneflow .pat-cal-event-body,
-    .pat-cal-event-oneflow .pat-cal-event-body--holiday {
+    :host ::ng-deep .calendar-fc-wrap .pat-cal-event-oneflow .pat-cal-event-body,
+    :host ::ng-deep .calendar-fc-wrap .pat-cal-event-oneflow .pat-cal-event-body--holiday {
         display: block;
         flex: 1 1 auto;
         width: 100%;
@@ -429,7 +430,7 @@
         line-height: inherit;
     }
 
-    .pat-cal-event-oneflow .pat-cal-event-title-line {
+    :host ::ng-deep .calendar-fc-wrap .pat-cal-event-oneflow .pat-cal-event-title-line {
         display: block;
         font-weight: 600;
         overflow: visible;
@@ -439,15 +440,14 @@
         hyphens: none;
     }
 
-    /* Jours fériés : préfixe (férié / banque / …) sur une ligne, nom sur toute la largeur en dessous — évite « Férié L » + « undi ». */
-    .pat-cal-event-oneflow .pat-cal-event-body--holiday .pat-cal-event-title-line {
+    :host ::ng-deep .calendar-fc-wrap .pat-cal-event-oneflow .pat-cal-event-body--holiday .pat-cal-event-title-line {
         display: flex;
         flex-direction: column;
         align-items: stretch;
         gap: 0.06rem;
     }
 
-    .pat-cal-event-oneflow .pat-cal-event-body--holiday .pat-cal-holiday-kind-prefix {
+    :host ::ng-deep .calendar-fc-wrap .pat-cal-event-oneflow .pat-cal-event-body--holiday .pat-cal-holiday-kind-prefix {
         display: block;
         width: 100%;
         margin-right: 0 !important;
@@ -459,7 +459,7 @@
         line-height: 1.25;
     }
 
-    .pat-cal-event-oneflow .pat-cal-event-body--holiday .pat-cal-event-holiday-name {
+    :host ::ng-deep .calendar-fc-wrap .pat-cal-event-oneflow .pat-cal-event-body--holiday .pat-cal-event-holiday-name {
         display: block;
         width: 100%;
         min-width: 0;
@@ -469,11 +469,11 @@
         line-height: 1.3;
     }
 
-    .pat-cal-event-oneflow:has(.pat-cal-event-body--holiday) {
-        max-height: 5.4em; /* préfixe + heure éventuelle + 2 lignes de nom */
+    :host ::ng-deep .calendar-fc-wrap .pat-cal-event-oneflow:has(.pat-cal-event-body--holiday) {
+        max-height: 5.4em;
     }
 
-    .pat-cal-event-root {
+    :host ::ng-deep .calendar-fc-wrap .pat-cal-event-root {
         overflow: hidden !important;
         min-width: 0;
     }
@@ -498,14 +498,13 @@
     }
 }
 
-/* Desktop / tablette : titre complet (retours à la ligne possibles) */
 @media (min-width: 768px) {
-    .fc-event-custom,
-    .pat-cal-event-root {
+    :host ::ng-deep .calendar-fc-wrap .fc-event-custom,
+    :host ::ng-deep .calendar-fc-wrap .pat-cal-event-root {
         overflow: visible;
     }
 
-    .pat-cal-event-title-line {
+    :host ::ng-deep .calendar-fc-wrap .pat-cal-event-title-line {
         display: block;
         white-space: normal;
         overflow: visible;
@@ -647,7 +646,7 @@
 }
 
 /* Lien « liste de tâches » sur les entrées agenda liées (icône à droite du titre) */
-.fc-event-todolist-link {
+:host ::ng-deep .calendar-fc-wrap .fc-event-todolist-link {
     color: inherit;
     opacity: 0.92;
     line-height: 1;
@@ -656,8 +655,8 @@
     border-radius: 0.2rem;
 }
 
-.fc-event-todolist-link:hover,
-.fc-event-todolist-link:focus-visible {
+:host ::ng-deep .calendar-fc-wrap .fc-event-todolist-link:hover,
+:host ::ng-deep .calendar-fc-wrap .fc-event-todolist-link:focus-visible {
     opacity: 1;
     background: rgba(255, 255, 255, 0.38);
     outline: none;

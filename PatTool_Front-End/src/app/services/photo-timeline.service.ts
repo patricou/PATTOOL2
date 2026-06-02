@@ -55,6 +55,12 @@ export interface TimelineGroup {
     ratingMinus?: number;
     /** Linked to-do list when the activity has one (from timeline API). */
     linkedTodoListId?: string | null;
+    /** Full image count when the paged wall caps {@link photos}. */
+    totalPhotosInEvent?: number;
+    /** Full video count when the paged wall caps {@link videos}. */
+    totalVideosInEvent?: number;
+    photosTruncated?: boolean;
+    videosTruncated?: boolean;
 }
 
 export interface TimelineResponse {

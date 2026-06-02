@@ -55,9 +55,13 @@ export class CalendarService {
 
     /** Réduit les appels forkJoin + token lors des changements de vue FullCalendar successifs (~TTL alignée au cache graphe serveur). */
     private static readonly HEADERS_CACHE_MS = 25_000;
+    private static readonly ENTRIES_CACHE_MS = 45_000;
 
     private cachedHeaders: HttpHeaders | null = null;
     private headersCacheExpiryMs = 0;
+    private entriesCacheKey = '';
+    private entriesCache: CalendarEntry[] | null = null;
+    private entriesCacheExpiryMs = 0;
 
     constructor(
         private http: HttpClient,
@@ -93,7 +97,17 @@ export class CalendarService {
         );
     }
 
+    /** Warms member id + JWT cache before the first FullCalendar range fetch. */
+    prewarmAuthHeaders(): void {
+        this.withUserHeaders().pipe(take(1)).subscribe({ error: () => undefined });
+    }
+
     getEntries(rangeStart: Date, rangeEnd: Date): Observable<CalendarEntry[]> {
+        const key = `${rangeStart.getTime()}|${rangeEnd.getTime()}`;
+        const now = Date.now();
+        if (this.entriesCacheKey === key && this.entriesCache && now < this.entriesCacheExpiryMs) {
+            return of(this.entriesCache);
+        }
         return this.withUserHeaders().pipe(
             switchMap(headers =>
                 this.http.get<CalendarEntry[]>(`${environment.API_URL}calendar/entries`, {
@@ -103,15 +117,27 @@ export class CalendarService {
                         to: rangeEnd.toISOString()
                     }
                 })
-            )
+            ),
+            tap(entries => {
+                this.entriesCacheKey = key;
+                this.entriesCache = entries;
+                this.entriesCacheExpiryMs = Date.now() + CalendarService.ENTRIES_CACHE_MS;
+            })
         );
+    }
+
+    invalidateEntriesCache(): void {
+        this.entriesCacheKey = '';
+        this.entriesCache = null;
+        this.entriesCacheExpiryMs = 0;
     }
 
     createAppointment(body: CalendarAppointmentPayload): Observable<{ id: string }> {
         return this.withUserHeaders().pipe(
             switchMap(headers =>
                 this.http.post<{ id: string }>(`${environment.API_URL}calendar/appointments`, body, { headers })
-            )
+            ),
+            tap(() => this.invalidateEntriesCache())
         );
     }
 
@@ -119,7 +145,8 @@ export class CalendarService {
         return this.withUserHeaders().pipe(
             switchMap(headers =>
                 this.http.put<{ id: string }>(`${environment.API_URL}calendar/appointments/${id}`, body, { headers })
-            )
+            ),
+            tap(() => this.invalidateEntriesCache())
         );
     }
 
@@ -127,7 +154,8 @@ export class CalendarService {
         return this.withUserHeaders().pipe(
             switchMap(headers =>
                 this.http.delete(`${environment.API_URL}calendar/appointments/${id}`, { headers })
-            )
+            ),
+            tap(() => this.invalidateEntriesCache())
         );
     }
 

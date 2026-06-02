@@ -37,6 +37,11 @@ public class PhotoTimelineRestController {
 
     private static final Logger log = LoggerFactory.getLogger(PhotoTimelineRestController.class);
     private static final long ACCESS_CACHE_TTL_MS = 2 * 60 * 1000;
+    /** Max photos/videos per event in paged wall JSON (full list when {@code eventId} is set). */
+    private static final int WALL_PHOTOS_PER_EVENT_CAP = 48;
+    private static final int WALL_VIDEOS_PER_EVENT_CAP = 8;
+    /** Max footer links (urlEvents + tracks + PDF + …) per event in paged listing. */
+    private static final int WALL_FS_LINKS_PER_EVENT_CAP = 16;
 
     /** Mongo regex (flag i) + Java {@link #looksLikeImageFileName}: image files when {@code fileType} is absent or incorrect. */
     private static final String IMAGE_FILENAME_MONGO_REGEX =
@@ -238,6 +243,12 @@ public class PhotoTimelineRestController {
         private Integer ratingMinus;
         /** Linked to-do list id when the activity has one (same as {@link Evenement#getLinkedTodoListId()}). */
         private String linkedTodoListId;
+        /** Full image count when {@link #photos} is capped for the paged wall. */
+        private Integer totalPhotosInEvent;
+        /** Full video count when {@link #videos} is capped for the paged wall. */
+        private Integer totalVideosInEvent;
+        private boolean photosTruncated;
+        private boolean videosTruncated;
 
         public TimelineGroup() {}
 
@@ -275,6 +286,14 @@ public class PhotoTimelineRestController {
         public void setRatingMinus(Integer ratingMinus) { this.ratingMinus = ratingMinus; }
         public String getLinkedTodoListId() { return linkedTodoListId; }
         public void setLinkedTodoListId(String linkedTodoListId) { this.linkedTodoListId = linkedTodoListId; }
+        public Integer getTotalPhotosInEvent() { return totalPhotosInEvent; }
+        public void setTotalPhotosInEvent(Integer totalPhotosInEvent) { this.totalPhotosInEvent = totalPhotosInEvent; }
+        public Integer getTotalVideosInEvent() { return totalVideosInEvent; }
+        public void setTotalVideosInEvent(Integer totalVideosInEvent) { this.totalVideosInEvent = totalVideosInEvent; }
+        public boolean isPhotosTruncated() { return photosTruncated; }
+        public void setPhotosTruncated(boolean photosTruncated) { this.photosTruncated = photosTruncated; }
+        public boolean isVideosTruncated() { return videosTruncated; }
+        public void setVideosTruncated(boolean videosTruncated) { this.videosTruncated = videosTruncated; }
     }
 
     public static class TimelineResponse {
@@ -305,6 +324,68 @@ public class PhotoTimelineRestController {
     }
 
     /**
+     * Slim projection for paged timeline queries: omit heavy {@code comments} and only the
+     * {@code fileUploadeds} / {@code urlEvents} fields needed to build the wall JSON.
+     */
+    private static void applyTimelinePagedEventFields(Query pagedQuery) {
+        pagedQuery.fields()
+                .include("id")
+                .include("evenementName")
+                .include("type")
+                .include("beginEventDate")
+                .include("ratingPlus")
+                .include("ratingMinus")
+                .include("fileUploadeds.fieldId")
+                .include("fileUploadeds.fileName")
+                .include("fileUploadeds.fileType")
+                .include("fileUploadeds.displayName")
+                .include("fileUploadeds.manualDistanceKm")
+                .include("fileUploadeds.manualElevationGainM")
+                .include("fileUploadeds.manualActivityDate")
+                // uploaderMember is a DBRef — not projectable field-by-field; names filled when ref is already populated
+                .include("thumbnail.fieldId")
+                .include("thumbnail.fileName")
+                .include("thumbnail.fileType")
+                .include("urlEvents.typeUrl")
+                .include("urlEvents.link")
+                .include("urlEvents.urlDescription")
+                .include("photosUrl")
+                .include("map")
+                .include("visibility")
+                .include("friendGroupId")
+                .include("friendGroupIds")
+                .include("author");
+    }
+
+    /**
+     * Limits photos/videos embedded in each paged wall group so huge albums do not block JSON parse / render.
+     * Single-event wall ({@code singleEventWall}) returns the full lists.
+     */
+    private static void applyWallListingMediaCaps(
+            TimelineGroup group,
+            List<TimelinePhoto> photos,
+            List<TimelinePhoto> videos,
+            boolean singleEventWall,
+            int photoTotal,
+            int videoTotal) {
+        List<TimelinePhoto> safePhotos = photos != null ? photos : Collections.emptyList();
+        List<TimelinePhoto> safeVideos = videos != null ? videos : Collections.emptyList();
+        group.setPhotos(safePhotos);
+        group.setVideos(safeVideos);
+        if (singleEventWall) {
+            return;
+        }
+        if (photoTotal > safePhotos.size()) {
+            group.setTotalPhotosInEvent(photoTotal);
+            group.setPhotosTruncated(true);
+        }
+        if (videoTotal > safeVideos.size()) {
+            group.setTotalVideosInEvent(videoTotal);
+            group.setVideosTruncated(true);
+        }
+    }
+
+    /**
      * Resolve event author (owner). With projection, DBRef is often not populated — load from repository if needed.
      * {@code authorCache} avoids N identical {@code findById} calls per timeline page.
      */
@@ -329,8 +410,9 @@ public class PhotoTimelineRestController {
             long start = System.currentTimeMillis();
 
             Criteria accessCriteria = getAccessCriteria(userId, visibility);
+            boolean singleEventWall = eventId != null && !eventId.trim().isEmpty();
             Criteria mainCriteria;
-            if (eventId != null && !eventId.trim().isEmpty()) {
+            if (singleEventWall) {
                 // Single-event wall: load by id + access only, then filter by photos in Java.
                 // This avoids missing events with one photo (e.g. regex/deserialization edge cases).
                 mainCriteria = new Criteria().andOperator(accessCriteria, eventIdCriteria(eventId.trim()));
@@ -347,23 +429,7 @@ public class PhotoTimelineRestController {
             pagedQuery.with(Sort.by(Sort.Direction.DESC, "beginEventDate"));
             pagedQuery.skip((long) page * size);
             pagedQuery.limit(size + 1);
-            pagedQuery.fields()
-                    .include("id")
-                    .include("evenementName")
-                    .include("type")
-                    .include("comments")
-                    .include("beginEventDate")
-                    .include("ratingPlus")
-                    .include("ratingMinus")
-                    .include("fileUploadeds")
-                    .include("thumbnail")
-                    .include("urlEvents")
-                    .include("photosUrl")
-                    .include("map")
-                    .include("visibility")
-                    .include("friendGroupId")
-                    .include("friendGroupIds")
-                    .include("author");
+            applyTimelinePagedEventFields(pagedQuery);
 
             List<Evenement> events = mongoTemplate.find(pagedQuery, Evenement.class);
 
@@ -380,9 +446,17 @@ public class PhotoTimelineRestController {
             Map<String, Member> authorCache = new HashMap<>();
 
             for (Evenement e : events) {
-                List<TimelinePhoto> photos = extractPhotos(e);
-                List<TimelinePhoto> videos = extractVideos(e);
-                List<FsPhotoLink> fsLinks = extractFsPhotoLinks(e);
+                int photoTotal = countTimelinePhotos(e);
+                int videoTotal = countTimelineVideos(e);
+                List<TimelinePhoto> photos = singleEventWall
+                        ? extractPhotos(e, 0)
+                        : extractPhotos(e, WALL_PHOTOS_PER_EVENT_CAP);
+                List<TimelinePhoto> videos = singleEventWall
+                        ? extractVideos(e, 0)
+                        : extractVideos(e, WALL_VIDEOS_PER_EVENT_CAP);
+                List<FsPhotoLink> fsLinks = singleEventWall
+                        ? extractFsPhotoLinks(e, 0)
+                        : extractFsPhotoLinks(e, WALL_FS_LINKS_PER_EVENT_CAP);
                 if (!photos.isEmpty() || !fsLinks.isEmpty()) {
                     TimelineGroup group = new TimelineGroup();
                     group.setEventId(e.getId());
@@ -394,8 +468,7 @@ public class PhotoTimelineRestController {
                     group.setFriendGroupId(e.getFriendGroupId());
                     group.setFriendGroupIds(e.getFriendGroupIds());
                     group.setLinkedTodoListId(e.getLinkedTodoListId());
-                    group.setPhotos(photos);
-                    group.setVideos(videos != null ? videos : Collections.emptyList());
+                    applyWallListingMediaCaps(group, photos, videos, singleEventWall, photoTotal, videoTotal);
                     group.setFsPhotoLinks(fsLinks);
                     group.setRatingPlus(e.getRatingPlus());
                     group.setRatingMinus(e.getRatingMinus());
@@ -406,7 +479,7 @@ public class PhotoTimelineRestController {
                         group.setOwnerUserName(owner.getUserName());
                     }
                     groups.add(group);
-                    totalPhotosInPage += photos.size();
+                    totalPhotosInPage += group.getPhotos().size();
                 }
             }
 
@@ -445,6 +518,7 @@ public class PhotoTimelineRestController {
         try {
             long start = System.currentTimeMillis();
             Criteria accessCriteria = getAccessCriteria(userId, visibility);
+            boolean singleEventWall = eventId != null && !eventId.trim().isEmpty();
 
             Criteria hasVideo = new Criteria().orOperator(
                     Criteria.where("fileUploadeds.fileType").regex("^video/"),
@@ -474,22 +548,7 @@ public class PhotoTimelineRestController {
             pagedQuery.with(Sort.by(Sort.Direction.DESC, "beginEventDate"));
             pagedQuery.skip((long) page * size);
             pagedQuery.limit(size + 1);
-            pagedQuery.fields()
-                    .include("id")
-                    .include("evenementName")
-                    .include("type")
-                    .include("comments")
-                    .include("beginEventDate")
-                    .include("ratingPlus")
-                    .include("ratingMinus")
-                    .include("fileUploadeds")
-                    .include("urlEvents")
-                    .include("photosUrl")
-                    .include("map")
-                    .include("visibility")
-                    .include("friendGroupId")
-                    .include("friendGroupIds")
-                    .include("author");
+            applyTimelinePagedEventFields(pagedQuery);
 
             List<Evenement> events = mongoTemplate.find(pagedQuery, Evenement.class);
 
@@ -518,7 +577,13 @@ public class PhotoTimelineRestController {
                     group.setFriendGroupId(e.getFriendGroupId());
                     group.setFriendGroupIds(e.getFriendGroupIds());
                     group.setLinkedTodoListId(e.getLinkedTodoListId());
-                    group.setPhotos(videos);
+                    if (!singleEventWall && videos.size() > WALL_VIDEOS_PER_EVENT_CAP) {
+                        group.setPhotos(new ArrayList<>(videos.subList(0, WALL_VIDEOS_PER_EVENT_CAP)));
+                        group.setTotalVideosInEvent(videos.size());
+                        group.setVideosTruncated(true);
+                    } else {
+                        group.setPhotos(videos);
+                    }
                     group.setFsPhotoLinks(extractFsPhotoLinks(e));
                     group.setRatingPlus(e.getRatingPlus());
                     group.setRatingMinus(e.getRatingMinus());
@@ -529,7 +594,7 @@ public class PhotoTimelineRestController {
                         group.setOwnerUserName(owner.getUserName());
                     }
                     groups.add(group);
-                    totalVideosInPage += videos.size();
+                    totalVideosInPage += group.getPhotos().size();
                 }
             }
 
@@ -576,6 +641,13 @@ public class PhotoTimelineRestController {
      * Only PHOTOFROMFS is a server-side disk path; TRACK opens the track viewer; PDF opens a new tab; ODS opens the Calc editor; all others open a URL.
      */
     private List<FsPhotoLink> extractFsPhotoLinks(Evenement e) {
+        return extractFsPhotoLinks(e, 0);
+    }
+
+    /**
+     * @param maxLinks 0 = no limit; otherwise stop once this many links are collected (paged wall).
+     */
+    private List<FsPhotoLink> extractFsPhotoLinks(Evenement e, int maxLinks) {
         List<FsPhotoLink> links = new ArrayList<>();
         Set<String> seenUrls = new LinkedHashSet<>();
 
@@ -593,11 +665,17 @@ public class PhotoTimelineRestController {
                 FsPhotoLink f = new FsPhotoLink(raw, urlEvent.getUrlDescription());
                 f.setTypeUrl(canonical);
                 links.add(f);
+                if (maxLinks > 0 && links.size() >= maxLinks) {
+                    return links;
+                }
             }
         }
         // Track files (GPX, KML, …) in fileUploadeds — same logic as the event map
         if (e.getFileUploadeds() != null) {
             for (FileUploaded file : e.getFileUploadeds()) {
+                if (maxLinks > 0 && links.size() >= maxLinks) {
+                    return links;
+                }
                 if (file == null || file.getFieldId() == null || file.getFieldId().trim().isEmpty()) {
                     continue;
                 }
@@ -627,9 +705,15 @@ public class PhotoTimelineRestController {
                     }
                 }
                 links.add(f);
+                if (maxLinks > 0 && links.size() >= maxLinks) {
+                    return links;
+                }
             }
             // PDF documents in fileUploadeds (GridFS) — shown in the photo wall table like tracks
             for (FileUploaded file : e.getFileUploadeds()) {
+                if (maxLinks > 0 && links.size() >= maxLinks) {
+                    return links;
+                }
                 if (file == null || file.getFieldId() == null || file.getFieldId().trim().isEmpty()) {
                     continue;
                 }
@@ -656,9 +740,15 @@ public class PhotoTimelineRestController {
                     }
                 }
                 links.add(f);
+                if (maxLinks > 0 && links.size() >= maxLinks) {
+                    return links;
+                }
             }
             // ODS spreadsheets in fileUploadeds (GridFS) — photo wall table like tracks / PDF
             for (FileUploaded file : e.getFileUploadeds()) {
+                if (maxLinks > 0 && links.size() >= maxLinks) {
+                    return links;
+                }
                 if (file == null || file.getFieldId() == null || file.getFieldId().trim().isEmpty()) {
                     continue;
                 }
@@ -685,10 +775,16 @@ public class PhotoTimelineRestController {
                     }
                 }
                 links.add(f);
+                if (maxLinks > 0 && links.size() >= maxLinks) {
+                    return links;
+                }
             }
         }
         if (e.getPhotosUrl() != null) {
             for (String url : e.getPhotosUrl()) {
+                if (maxLinks > 0 && links.size() >= maxLinks) {
+                    return links;
+                }
                 if (url == null || url.trim().isEmpty()) {
                     continue;
                 }
@@ -699,7 +795,13 @@ public class PhotoTimelineRestController {
                 FsPhotoLink f = new FsPhotoLink(raw, null);
                 f.setTypeUrl("PHOTOS");
                 links.add(f);
+                if (maxLinks > 0 && links.size() >= maxLinks) {
+                    return links;
+                }
             }
+        }
+        if (maxLinks > 0 && links.size() >= maxLinks) {
+            return links;
         }
         String mapField = e.getMap();
         if (mapField != null && !mapField.trim().isEmpty()) {
@@ -755,12 +857,20 @@ public class PhotoTimelineRestController {
     private static final String[] VIDEO_EXTENSIONS = { ".mp4", ".webm", ".ogg", ".ogv", ".mov", ".avi", ".mkv", ".m4v", ".3gp" };
 
     private List<TimelinePhoto> extractPhotos(Evenement e) {
+        return extractPhotos(e, 0);
+    }
+
+    /** @param maxPhotos 0 = no limit; otherwise stop after this many images (paged wall). */
+    private List<TimelinePhoto> extractPhotos(Evenement e, int maxPhotos) {
         List<TimelinePhoto> photos = new ArrayList<>();
         List<FileUploaded> files = e.getFileUploadeds();
         if (files != null) {
             for (FileUploaded file : files) {
                 if (isImageFile(file)) {
                     photos.add(buildTimelinePhoto(file, e));
+                    if (maxPhotos > 0 && photos.size() >= maxPhotos) {
+                        return photos;
+                    }
                 }
             }
         }
@@ -769,6 +879,22 @@ public class PhotoTimelineRestController {
             photos.add(buildTimelinePhoto(e.getThumbnail(), e));
         }
         return photos;
+    }
+
+    private static int countTimelinePhotos(Evenement e) {
+        int n = 0;
+        List<FileUploaded> files = e.getFileUploadeds();
+        if (files != null) {
+            for (FileUploaded file : files) {
+                if (isImageFile(file)) {
+                    n++;
+                }
+            }
+        }
+        if (n == 0 && e.getThumbnail() != null && isImageFile(e.getThumbnail())) {
+            n = 1;
+        }
+        return n;
     }
 
     private static boolean looksLikeImageFileName(String fileName) {
@@ -809,6 +935,11 @@ public class PhotoTimelineRestController {
     }
 
     private List<TimelinePhoto> extractVideos(Evenement e) {
+        return extractVideos(e, 0);
+    }
+
+    /** @param maxVideos 0 = no limit. */
+    private List<TimelinePhoto> extractVideos(Evenement e, int maxVideos) {
         List<TimelinePhoto> videos = new ArrayList<>();
         if (e.getFileUploadeds() == null) return videos;
         for (FileUploaded file : e.getFileUploadeds()) {
@@ -824,9 +955,23 @@ public class PhotoTimelineRestController {
                         e.getType(),
                         e.getBeginEventDate()
                 ));
+                if (maxVideos > 0 && videos.size() >= maxVideos) {
+                    return videos;
+                }
             }
         }
         return videos;
+    }
+
+    private int countTimelineVideos(Evenement e) {
+        if (e.getFileUploadeds() == null) return 0;
+        int n = 0;
+        for (FileUploaded file : e.getFileUploadeds()) {
+            if (file != null && isVideoFile(file)) {
+                n++;
+            }
+        }
+        return n;
     }
 
     /**
@@ -913,10 +1058,21 @@ public class PhotoTimelineRestController {
      * matching the behaviour of the home-evenements feed.
      */
     private Criteria getAccessCriteria(String userId, String visibility) {
-        if (visibility != null && !visibility.trim().isEmpty() && !"all".equals(visibility.trim())) {
-            return buildAccessCriteriaForVisibility(visibility.trim(), userId);
+        String visKey = (visibility == null || visibility.trim().isEmpty()) ? "all" : visibility.trim();
+        String uid = (userId == null || userId.isEmpty()) ? "" : userId.trim();
+        String cacheKey = uid + ":" + visKey;
+        CachedAccessCriteria cached = accessCriteriaCache.get(cacheKey);
+        if (cached != null && !cached.isExpired()) {
+            return cached.criteria;
         }
-        return buildAccessCriteria(userId);
+        Criteria built;
+        if (!"all".equals(visKey)) {
+            built = buildAccessCriteriaForVisibility(visKey, userId);
+        } else {
+            built = buildAccessCriteria(userId);
+        }
+        accessCriteriaCache.put(cacheKey, new CachedAccessCriteria(built));
+        return built;
     }
 
     /**
@@ -1042,8 +1198,12 @@ public class PhotoTimelineRestController {
                 .include("evenementName")
                 .include("type")
                 .include("beginEventDate")
-                .include("fileUploadeds")
-                .include("thumbnail");
+                .include("fileUploadeds.fieldId")
+                .include("fileUploadeds.fileName")
+                .include("fileUploadeds.fileType")
+                .include("thumbnail.fieldId")
+                .include("thumbnail.fileName")
+                .include("thumbnail.fileType");
 
         List<Evenement> events = mongoTemplate.find(query, Evenement.class);
 

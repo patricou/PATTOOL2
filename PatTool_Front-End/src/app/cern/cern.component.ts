@@ -399,7 +399,7 @@ export class CernComponent implements OnInit, OnDestroy {
       this.experimentPolarChartData.labels?.length ||
       this.collisionEnergyChartData.labels?.length ||
       this.collisionTypeChartData.labels?.length ||
-      this.collisionBubbleChartData.datasets?.[0]?.data?.length
+      this.collisionBubbleChartData.datasets[0]?.data?.length
     );
   }
 
@@ -589,7 +589,7 @@ export class CernComponent implements OnInit, OnDestroy {
       return;
     }
     const entries: ChartEntry[] = [];
-    if (rec.experiments?.length) {
+    if (rec.experiments.length) {
       entries.push({ label: this.translate.instant('CERN.COL_EXPERIMENT'), value: rec.experiments.length });
     }
     const tev = rec.collisionEnergy ? this.parseEnergyTeV(rec.collisionEnergy) : 0;

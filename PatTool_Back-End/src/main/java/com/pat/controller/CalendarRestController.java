@@ -92,39 +92,48 @@ public class CalendarRestController {
                         calendarAppointmentRepository.findAccessibleOverlappingRange(from, to, appointmentAccessUserIdFinal))
                 : CompletableFuture.completedFuture(List.of());
 
+        CompletableFuture<Map<String, String>> eventTodosFuture = eventsFuture.thenCompose(events -> {
+            List<String> eventIds = events.stream().map(Evenement::getId).filter(StringUtils::hasText).distinct().toList();
+            if (eventIds.isEmpty()) {
+                return CompletableFuture.completedFuture(new HashMap<String, String>());
+            }
+            return CompletableFuture.supplyAsync(() -> {
+                Map<String, String> map = new HashMap<>();
+                for (TodoList tl : todoListRepository.findByEvenementIdIn(eventIds)) {
+                    if (tl != null && StringUtils.hasText(tl.getEvenementId()) && StringUtils.hasText(tl.getId())) {
+                        map.putIfAbsent(tl.getEvenementId(), tl.getId());
+                    }
+                }
+                return map;
+            });
+        });
+
+        CompletableFuture<Map<String, String>> appointmentTodosFuture = appointmentsFuture.thenCompose(appointments -> {
+            if (!loadAppointments) {
+                return CompletableFuture.completedFuture(new HashMap<String, String>());
+            }
+            List<String> appointmentIds = appointments.stream()
+                    .map(CalendarAppointment::getId)
+                    .filter(StringUtils::hasText)
+                    .distinct()
+                    .toList();
+            if (appointmentIds.isEmpty()) {
+                return CompletableFuture.completedFuture(new HashMap<String, String>());
+            }
+            return CompletableFuture.supplyAsync(() -> {
+                Map<String, String> map = new HashMap<>();
+                for (TodoList tl : todoListRepository.findByCalendarAppointmentIdIn(appointmentIds)) {
+                    if (tl != null && StringUtils.hasText(tl.getCalendarAppointmentId())
+                            && StringUtils.hasText(tl.getId())) {
+                        map.putIfAbsent(tl.getCalendarAppointmentId(), tl.getId());
+                    }
+                }
+                return map;
+            });
+        });
+
         List<Evenement> events = eventsFuture.join();
         List<CalendarAppointment> appointments = appointmentsFuture.join();
-
-        List<String> eventIds = events.stream().map(Evenement::getId).filter(StringUtils::hasText).distinct().toList();
-        List<String> appointmentIds = loadAppointments
-                ? appointments.stream().map(CalendarAppointment::getId).filter(StringUtils::hasText).distinct().toList()
-                : List.of();
-
-        CompletableFuture<Map<String, String>> eventTodosFuture = eventIds.isEmpty()
-                ? CompletableFuture.completedFuture(new HashMap<>())
-                : CompletableFuture.supplyAsync(() -> {
-                    Map<String, String> map = new HashMap<>();
-                    for (TodoList tl : todoListRepository.findByEvenementIdIn(eventIds)) {
-                        if (tl != null && StringUtils.hasText(tl.getEvenementId()) && StringUtils.hasText(tl.getId())) {
-                            map.putIfAbsent(tl.getEvenementId(), tl.getId());
-                        }
-                    }
-                    return map;
-                });
-
-        CompletableFuture<Map<String, String>> appointmentTodosFuture = appointmentIds.isEmpty()
-                ? CompletableFuture.completedFuture(new HashMap<>())
-                : CompletableFuture.supplyAsync(() -> {
-                    Map<String, String> map = new HashMap<>();
-                    for (TodoList tl : todoListRepository.findByCalendarAppointmentIdIn(appointmentIds)) {
-                        if (tl != null && StringUtils.hasText(tl.getCalendarAppointmentId())
-                                && StringUtils.hasText(tl.getId())) {
-                            map.putIfAbsent(tl.getCalendarAppointmentId(), tl.getId());
-                        }
-                    }
-                    return map;
-                });
-
         Map<String, String> eventIdToTodoListId = eventTodosFuture.join();
         Map<String, String> appointmentIdToTodoListId = appointmentTodosFuture.join();
 

@@ -148,8 +148,8 @@
         <p>{{ 'PHOTO_TIMELINE.NO_PHOTOS_DESC' | translate }}</p>
     </div>
 
-    <!-- Photo Groups (displayed as they stream in) -->
-    <div class="timeline-groups" *ngIf="!isLoading && filteredGroups.length > 0">
+    <!-- Photo Groups (shown as soon as the first activity is revealed; skeleton covers empty initial state) -->
+    <div class="timeline-groups" *ngIf="filteredGroups.length > 0">
         <div class="timeline-group" *ngFor="let group of filteredGroups; trackBy: trackByGroupId">
 
             <!-- Rating tout en haut du bloc événement, centré horizontalement -->
@@ -256,7 +256,7 @@
                         </div>
                     </div>
                     <span class="group-count">
-                        <i class="fa fa-picture-o"></i> {{ (group.photos.length || 0) + ((group.videos?.length) ?? 0) }}
+                        <i class="fa fa-picture-o"></i> {{ getGroupMediaCountLabel(group) }}
                     </span>
                     <ng-container *ngIf="getVisibilityBadges(group) as visibilityBadges">
                         <span class="group-visibility-badges" *ngIf="visibilityBadges.length">
@@ -320,7 +320,7 @@
                             <ng-container *ngIf="hasWallThumbnail(media.item.fileId); else wallMasonryThumbPh">
                                 <img [src]="getThumbnailUrl(media.item)!"
                                      [alt]="media.item.fileName"
-                                     loading="eager"
+                                     loading="lazy"
                                      decoding="async"
                                      class="photo-img">
                             </ng-container>
@@ -372,8 +372,16 @@
                     </div>
                 </ng-container>
             </div>
+            <div class="text-center my-2" *ngIf="isWallMasonryGridCapped(group)">
+                <button type="button"
+                        class="btn btn-sm btn-outline-secondary"
+                        (click)="expandWallMasonryGrid(group); $event.stopPropagation()">
+                    {{ 'PHOTO_TIMELINE.SHOW_MORE_GRID_PHOTOS' | translate }}
+                </button>
+            </div>
 
             <!-- Tracés GPX/KML (fichiers GridFS) : stats calculées depuis le fichier -->
+            @defer (on viewport) {
             <div class="photo-wall-tracks-wrap mt-2"
                  *ngIf="getGroupMongoTrackLinks(group).length > 0">
                 <div class="photo-wall-tracks-title-row d-flex flex-wrap align-items-center justify-content-between gap-2 mb-1">
@@ -735,6 +743,9 @@
                     </table>
                 </div>
             </div>
+            } @placeholder {
+                <div class="wall-footer-defer-ph" aria-hidden="true"></div>
+            }
         </div>
     </div>
 

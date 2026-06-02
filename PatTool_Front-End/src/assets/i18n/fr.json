@@ -3112,7 +3112,8 @@
         "WALL_UPLOAD_BTN": "Ajouter des fichiers à cette activité (photos, vidéos, traces GPS, PDF…)",
         "ASSISTANT_EVENT": "Assistant IA",
         "WALL_UPLOADING": "Envoi des fichiers en cours…",
-        "WALL_UPLOAD_LOG_WAITING": "En attente du début de l'envoi…"
+        "WALL_UPLOAD_LOG_WAITING": "En attente du début de l'envoi…",
+        "SHOW_MORE_GRID_PHOTOS": "Afficher plus de photos dans la grille"
     },
     "NEWS": {
         "PAGE_TITLE": "Actualités",
