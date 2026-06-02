@@ -1,0 +1,500 @@
+<div class="pat-title">
+  <h2>
+    <i class="fa fa-flask me-2"></i>
+    {{ 'CERN.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="cern-page container-fluid py-3">
+  <p class="text-muted small mb-3">{{ 'CERN.SUBTITLE' | translate }}</p>
+
+  <div *ngIf="errorMessage" class="alert alert-warning d-flex align-items-center" role="alert">
+    <i class="fa fa-exclamation-triangle me-2"></i>
+    <span>{{ errorMessage | translate }}</span>
+  </div>
+
+  <!-- API catalog -->
+  <section class="card shadow-sm mb-4" aria-labelledby="cernCatalogHeading">
+    <div class="card-body">
+      <h5 id="cernCatalogHeading" class="card-title">
+        <i class="fa fa-plug me-1"></i>
+        {{ 'CERN.CATALOG_TITLE' | translate }}
+      </h5>
+      <p class="small text-muted mb-3">{{ 'CERN.CATALOG_INTRO' | translate }}</p>
+
+      <div *ngIf="isLoadingCatalog" class="text-muted small">
+        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+        {{ 'CERN.LOADING' | translate }}
+      </div>
+
+      <div class="row g-3" *ngIf="catalog">
+        <div class="col-12 col-md-4 col-lg-3" *ngIf="catalogChartData.labels?.length">
+          <h6 class="small text-muted">{{ 'CERN.CHART_API_STATUS' | translate }}</h6>
+          <div class="cern-chart-box cern-chart-box--sm">
+            <canvas baseChart #catalogChart
+                    [type]="'doughnut'"
+                    [data]="catalogChartData"
+                    [options]="doughnutOptions"></canvas>
+          </div>
+        </div>
+
+        <div class="col-12" [class.col-md-8]="catalogChartData.labels?.length" [class.col-lg-9]="catalogChartData.labels?.length">
+          <div class="row g-3">
+            <div class="col-12 col-lg-4" *ngFor="let source of catalog.sources">
+              <div class="border rounded p-3 h-100 cern-source-card">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                  <h6 class="mb-0" [innerHTML]="toSafeHtml(source.name)"></h6>
+                  <span class="badge" [ngClass]="statusClass(source.status)">
+                    {{ statusLabelKey(source.status) | translate }}
+                  </span>
+                </div>
+                <p class="small text-muted mb-2 cern-api-html" [innerHTML]="toSafeHtml(source.description)"></p>
+                <p class="small mb-2">
+                  <span class="text-muted">{{ 'CERN.UPSTREAM' | translate }}:</span>
+                  <a [href]="source.upstreamBaseUrl" target="_blank" rel="noopener noreferrer">{{ source.upstreamBaseUrl }}</a>
+                </p>
+                <p class="small mb-2">
+                  <a [href]="source.documentationUrl" target="_blank" rel="noopener noreferrer">
+                    {{ 'CERN.DOCUMENTATION' | translate }} <i class="fa fa-external-link"></i>
+                  </a>
+                </p>
+                <table class="table table-sm table-bordered mb-0 small">
+                  <thead>
+                    <tr>
+                      <th>{{ 'CERN.COL_METHOD' | translate }}</th>
+                      <th>{{ 'CERN.COL_UPSTREAM' | translate }}</th>
+                      <th>{{ 'CERN.COL_PATTOOL' | translate }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let ep of source.endpoints">
+                      <td><code>{{ ep.method }}</code></td>
+                      <td><code>{{ ep.upstreamPath }}</code></td>
+                      <td>
+                        <code *ngIf="ep.patToolPath">{{ ep.patToolPath }}</code>
+                        <span *ngIf="!ep.patToolPath" class="text-muted">—</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="catalog?.relatedApis?.length" class="mt-3">
+        <h6 class="small text-muted">{{ 'CERN.RELATED_APIS_TITLE' | translate }}</h6>
+        <ul class="list-unstyled small mb-0">
+          <li *ngFor="let api of (catalog?.relatedApis ?? [])" class="mb-2">
+            <strong [innerHTML]="toSafeHtml(api.name)"></strong>
+            <span *ngIf="api.upstreamBaseUrl"> — <a [href]="api.upstreamBaseUrl" target="_blank" rel="noopener noreferrer">{{ api.upstreamBaseUrl }}</a></span>
+            <span class="d-block text-muted cern-api-html" [innerHTML]="toSafeHtml(api.note)"></span>
+            <a [href]="api.documentationUrl" target="_blank" rel="noopener noreferrer">{{ 'CERN.DOCUMENTATION' | translate }}</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Open Data Portal -->
+  <section class="card shadow-sm mb-4" aria-labelledby="cernOpenDataHeading">
+    <div class="card-body">
+      <h5 id="cernOpenDataHeading" class="card-title">
+        <i class="fa fa-database me-1"></i>
+        {{ 'CERN.OPENDATA_TITLE' | translate }}
+      </h5>
+
+      <form class="row g-2 align-items-end mb-3" (ngSubmit)="searchOpenData()">
+        <div class="col-12 col-md-5">
+          <label class="form-label small" for="cernOpenDataQ">{{ 'CERN.SEARCH_QUERY' | translate }}</label>
+          <input id="cernOpenDataQ" type="search" class="form-control form-control-sm"
+                 [(ngModel)]="openDataQuery" name="openDataQuery" />
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label small" for="cernExperiment">{{ 'CERN.EXPERIMENT' | translate }}</label>
+          <select id="cernExperiment" class="form-select form-select-sm"
+                  [(ngModel)]="openDataExperiment" name="openDataExperiment">
+            <option *ngFor="let exp of experimentOptions" [value]="exp">
+              {{ exp || ('CERN.ALL_EXPERIMENTS' | translate) }}
+            </option>
+          </select>
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small" for="cernOpenDataPage">{{ 'CERN.PAGE' | translate }}</label>
+          <input id="cernOpenDataPage" type="number" min="1" class="form-control form-control-sm"
+                 [(ngModel)]="openDataPage" name="openDataPage" />
+        </div>
+        <div class="col-12 col-md-2">
+          <button type="submit" class="btn btn-primary btn-sm w-100" [disabled]="isLoadingOpenData">
+            <span *ngIf="isLoadingOpenData" class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+            {{ 'CERN.SEARCH' | translate }}
+          </button>
+        </div>
+      </form>
+
+      <div *ngIf="openDataResult" class="mb-3">
+        <p class="small text-muted mb-2">
+          {{ 'CERN.RESULTS_TOTAL' | translate:{ total: openDataResult.total } }}
+          <span class="ms-1">— {{ 'CERN.CHARTS_FROM_API' | translate }}</span>
+        </p>
+
+        <!-- LHC experiments & collisions -->
+        <div class="card border-info-subtle bg-light mb-3" *ngIf="hasLhcCharts() && !isLoadingOpenData">
+          <div class="card-body py-3">
+            <h6 class="card-title mb-1">
+              <i class="fa fa-circle-o-notch me-1"></i>
+              {{ 'CERN.LHC_SECTION' | translate }}
+            </h6>
+            <p class="small text-muted mb-3">{{ 'CERN.LHC_SECTION_INTRO' | translate }}</p>
+            <div class="row g-3">
+              <div class="col-12 col-md-6 col-xl-4" *ngIf="experimentPolarChartData.labels?.length">
+                <h6 class="small text-muted mb-1">{{ 'CERN.CHART_EXPERIMENTS_POLAR' | translate }}</h6>
+                <div class="cern-chart-box cern-chart-box--md">
+                  <canvas baseChart #experimentPolarChart
+                          [type]="'polarArea'"
+                          [data]="experimentPolarChartData"
+                          [options]="polarOptions"></canvas>
+                </div>
+              </div>
+              <div class="col-12 col-md-6 col-xl-4" *ngIf="collisionEnergyChartData.labels?.length">
+                <h6 class="small text-muted mb-1">{{ 'CERN.CHART_COLLISION_ENERGY' | translate }}</h6>
+                <div class="cern-chart-box cern-chart-box--md">
+                  <canvas baseChart #collisionEnergyChart
+                          [type]="'bar'"
+                          [data]="collisionEnergyChartData"
+                          [options]="barOptions"></canvas>
+                </div>
+              </div>
+              <div class="col-12 col-md-6 col-xl-4" *ngIf="collisionTypeChartData.labels?.length">
+                <h6 class="small text-muted mb-1">{{ 'CERN.CHART_COLLISION_TYPE' | translate }}</h6>
+                <div class="cern-chart-box cern-chart-box--md">
+                  <canvas baseChart #collisionTypeChart
+                          [type]="'doughnut'"
+                          [data]="collisionTypeChartData"
+                          [options]="doughnutOptions"></canvas>
+                </div>
+              </div>
+              <div class="col-12" *ngIf="collisionBubbleChartData.datasets?.[0]?.data?.length">
+                <h6 class="small text-muted mb-1">{{ 'CERN.CHART_COLLISION_BUBBLE' | translate }}</h6>
+                <div class="cern-chart-box cern-chart-box--bubble">
+                  <canvas baseChart #collisionBubbleChart
+                          [type]="'bubble'"
+                          [data]="collisionBubbleChartData"
+                          [options]="bubbleOptions"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Aggregations charts (API response) -->
+        <div class="row g-3 mb-3" *ngIf="hasOpenDataCharts() && !isLoadingOpenData">
+          <div class="col-12 col-lg-6" *ngIf="experimentChartData.labels?.length">
+            <h6 class="small text-muted mb-1">{{ 'CERN.CHART_EXPERIMENTS' | translate }}</h6>
+            <div class="cern-chart-box">
+              <canvas baseChart #experimentChart
+                      [type]="'bar'"
+                      [data]="experimentChartData"
+                      [options]="barOptions"></canvas>
+            </div>
+          </div>
+          <div class="col-12 col-lg-6" *ngIf="yearChartData.labels?.length">
+            <h6 class="small text-muted mb-1">{{ 'CERN.CHART_YEARS' | translate }}</h6>
+            <div class="cern-chart-box">
+              <canvas baseChart #yearChart
+                      [type]="'bar'"
+                      [data]="yearChartData"
+                      [options]="barVerticalOptions"></canvas>
+            </div>
+          </div>
+          <div class="col-12 col-md-6" *ngIf="typeChartData.labels?.length">
+            <h6 class="small text-muted mb-1">{{ 'CERN.CHART_TYPES' | translate }}</h6>
+            <div class="cern-chart-box cern-chart-box--md">
+              <canvas baseChart #typeChart
+                      [type]="'doughnut'"
+                      [data]="typeChartData"
+                      [options]="doughnutOptions"></canvas>
+            </div>
+          </div>
+          <div class="col-12 col-md-6" *ngIf="availabilityChartData.labels?.length">
+            <h6 class="small text-muted mb-1">{{ 'CERN.CHART_AVAILABILITY' | translate }}</h6>
+            <div class="cern-chart-box cern-chart-box--md">
+              <canvas baseChart #availabilityChart
+                      [type]="'doughnut'"
+                      [data]="availabilityChartData"
+                      [options]="doughnutOptions"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-12 col-lg-7">
+          <h6 class="small text-muted">{{ 'CERN.TABLE_RESULTS' | translate }}</h6>
+          <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>{{ 'CERN.COL_RECID' | translate }}</th>
+                  <th>{{ 'CERN.COL_TITLE' | translate }}</th>
+                  <th>{{ 'CERN.COL_TYPE' | translate }}</th>
+                  <th>{{ 'CERN.COL_EXPERIMENT' | translate }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngIf="isLoadingOpenData">
+                  <td colspan="4" class="text-muted text-center py-3">{{ 'CERN.LOADING' | translate }}</td>
+                </tr>
+                <tr *ngFor="let rec of openDataResult?.records"
+                    (click)="openRecord(rec)"
+                    class="cern-row-clickable"
+                    [class.table-active]="selectedRecid === rec.recid"
+                    tabindex="0"
+                    (keyup.enter)="openRecord(rec)">
+                  <td><code>{{ rec.recid }}</code></td>
+                  <td>
+                    <span [innerHTML]="toSafeHtml(rec.title)"></span>
+                    <div *ngIf="rec.abstractPreview" class="small text-muted mt-1 cern-api-html cern-api-html--preview"
+                         [innerHTML]="toSafeHtml(rec.abstractPreview)"></div>
+                  </td>
+                  <td class="small" [innerHTML]="toSafeHtml(rec.type)"></td>
+                  <td class="small" [innerHTML]="toSafeHtml(rec.experiments?.join(', '))"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="col-12 col-lg-5">
+          <h6 class="small text-muted">{{ 'CERN.RECORD_DETAIL' | translate }}</h6>
+          <div class="border rounded p-3 cern-detail-panel" *ngIf="selectedRecord || isLoadingRecord">
+            <div *ngIf="isLoadingRecord" class="text-muted small">{{ 'CERN.LOADING' | translate }}</div>
+            <ng-container *ngIf="selectedRecord && !isLoadingRecord">
+              <h6 [innerHTML]="toSafeHtml(selectedRecord.title)"></h6>
+              <p class="small text-muted mb-2">
+                <code>{{ selectedRecord.recid }}</code>
+                · <span [innerHTML]="toSafeHtml(selectedRecord.type)"></span>
+                · <span [innerHTML]="toSafeHtml(selectedRecord.experiments?.join(', '))"></span>
+              </p>
+              <div class="small cern-api-html" *ngIf="selectedRecord.abstractText"
+                   [innerHTML]="toSafeHtml(selectedRecord.abstractText)"></div>
+
+              <div *ngIf="hasRecordCollisionChart()" class="mb-3">
+                <h6 class="small text-muted mb-1">{{ 'CERN.RECORD_COLLISIONS' | translate }}</h6>
+                <p class="small text-muted mb-2" *ngIf="selectedRecord.accelerator">
+                  {{ 'CERN.ACCELERATOR' | translate }}: <strong [innerHTML]="toSafeHtml(selectedRecord.accelerator)"></strong>
+                </p>
+                <div class="cern-chart-box cern-chart-box--record-collision">
+                  <canvas baseChart #recordCollisionChart
+                          [type]="'bar'"
+                          [data]="recordCollisionChartData"
+                          [options]="recordCollisionBarOptions"></canvas>
+                </div>
+              </div>
+
+              <div *ngIf="filesChartData.labels?.length" class="mb-3">
+                <h6 class="small text-muted mb-1">{{ 'CERN.CHART_FILE_SIZES' | translate }}</h6>
+                <div class="cern-chart-box cern-chart-box--files">
+                  <canvas baseChart #filesChart
+                          [type]="'bar'"
+                          [data]="filesChartData"
+                          [options]="filesBarOptions"></canvas>
+                </div>
+              </div>
+
+              <p class="small mb-2" *ngIf="selectedRecord.files?.length && !filesChartData.labels?.length">
+                <strong>{{ 'CERN.FILES' | translate }}:</strong>
+                <span class="d-block" *ngFor="let f of selectedRecord.files" [innerHTML]="toSafeHtml(f.key)"></span>
+              </p>
+              <a class="btn btn-outline-primary btn-sm" [href]="selectedRecord.portalUrl" target="_blank" rel="noopener noreferrer">
+                {{ 'CERN.OPEN_ON_PORTAL' | translate }} <i class="fa fa-external-link"></i>
+              </a>
+            </ng-container>
+          </div>
+          <p *ngIf="!selectedRecord && !isLoadingRecord" class="small text-muted mb-0">
+            {{ 'CERN.SELECT_RECORD_HINT' | translate }}
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Zenodo -->
+  <section class="card shadow-sm mb-4" aria-labelledby="cernZenodoHeading">
+    <div class="card-body">
+      <h5 id="cernZenodoHeading" class="card-title">
+        <i class="fa fa-cloud me-1"></i>
+        {{ 'CERN.ZENODO_TITLE' | translate }}
+      </h5>
+
+      <form class="row g-2 align-items-end mb-3" (ngSubmit)="searchZenodo()">
+        <div class="col-12 col-md-8">
+          <label class="form-label small" for="cernZenodoQ">{{ 'CERN.SEARCH_QUERY' | translate }}</label>
+          <input id="cernZenodoQ" type="search" class="form-control form-control-sm"
+                 [(ngModel)]="zenodoQuery" name="zenodoQuery" />
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small" for="cernZenodoPage">{{ 'CERN.PAGE' | translate }}</label>
+          <input id="cernZenodoPage" type="number" min="1" class="form-control form-control-sm"
+                 [(ngModel)]="zenodoPage" name="zenodoPage" />
+        </div>
+        <div class="col-6 col-md-2">
+          <button type="submit" class="btn btn-primary btn-sm w-100" [disabled]="isLoadingZenodo">
+            <span *ngIf="isLoadingZenodo" class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+            {{ 'CERN.SEARCH' | translate }}
+          </button>
+        </div>
+      </form>
+
+      <div *ngIf="zenodoResult" class="mb-3">
+        <p class="small text-muted mb-2">
+          {{ 'CERN.RESULTS_TOTAL' | translate:{ total: zenodoResult.total } }}
+        </p>
+        <div class="row g-3 mb-3" *ngIf="hasZenodoCharts() && !isLoadingZenodo">
+          <div class="col-12 col-lg-6" *ngIf="zenodoSubjectChartData.labels?.length">
+            <h6 class="small text-muted mb-1">{{ 'CERN.CHART_SUBJECTS' | translate }}</h6>
+            <div class="cern-chart-box">
+              <canvas baseChart #zenodoSubjectChart [type]="'bar'" [data]="zenodoSubjectChartData" [options]="barOptions"></canvas>
+            </div>
+          </div>
+          <div class="col-12 col-lg-6" *ngIf="zenodoYearChartData.labels?.length">
+            <h6 class="small text-muted mb-1">{{ 'CERN.CHART_YEARS' | translate }}</h6>
+            <div class="cern-chart-box">
+              <canvas baseChart #zenodoYearChart [type]="'bar'" [data]="zenodoYearChartData" [options]="barVerticalOptions"></canvas>
+            </div>
+          </div>
+          <div class="col-12 col-md-6" *ngIf="zenodoTypeChartData.labels?.length">
+            <h6 class="small text-muted mb-1">{{ 'CERN.CHART_TYPES' | translate }}</h6>
+            <div class="cern-chart-box cern-chart-box--md">
+              <canvas baseChart #zenodoTypeChart [type]="'doughnut'" [data]="zenodoTypeChartData" [options]="doughnutOptions"></canvas>
+            </div>
+          </div>
+          <div class="col-12 col-md-6" *ngIf="zenodoAccessChartData.labels?.length">
+            <h6 class="small text-muted mb-1">{{ 'CERN.CHART_AVAILABILITY' | translate }}</h6>
+            <div class="cern-chart-box cern-chart-box--md">
+              <canvas baseChart #zenodoAccessChart [type]="'doughnut'" [data]="zenodoAccessChartData" [options]="doughnutOptions"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h6 class="small text-muted">{{ 'CERN.TABLE_RESULTS' | translate }}</h6>
+      <div class="table-responsive">
+        <table class="table table-sm table-striped mb-0">
+          <thead>
+            <tr>
+              <th>{{ 'CERN.COL_RECID' | translate }}</th>
+              <th>{{ 'CERN.COL_TITLE' | translate }}</th>
+              <th>{{ 'CERN.COL_TYPE' | translate }}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="isLoadingZenodo">
+              <td colspan="4" class="text-muted text-center py-3">{{ 'CERN.LOADING' | translate }}</td>
+            </tr>
+            <tr *ngFor="let rec of zenodoResult?.records">
+              <td><code>{{ rec.recid }}</code></td>
+              <td>
+                <span [innerHTML]="toSafeHtml(rec.title)"></span>
+                <div *ngIf="rec.abstractPreview" class="small text-muted mt-1 cern-api-html cern-api-html--preview"
+                     [innerHTML]="toSafeHtml(rec.abstractPreview)"></div>
+              </td>
+              <td class="small" [innerHTML]="toSafeHtml(rec.type)"></td>
+              <td>
+                <a class="btn btn-outline-secondary btn-sm" [href]="zenodoPortalUrl(rec.recid)" target="_blank" rel="noopener noreferrer">
+                  <i class="fa fa-external-link"></i>
+                </a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- CDS Repository -->
+  <section class="card shadow-sm mb-4" aria-labelledby="cernRepositoryHeading">
+    <div class="card-body">
+      <h5 id="cernRepositoryHeading" class="card-title">
+        <i class="fa fa-archive me-1"></i>
+        {{ 'CERN.REPOSITORY_TITLE' | translate }}
+      </h5>
+
+      <div class="btn-group btn-group-sm mb-3" role="group" aria-label="repository mode">
+        <button type="button" class="btn"
+                [class.btn-primary]="repositoryMode === 'records'"
+                [class.btn-outline-primary]="repositoryMode !== 'records'"
+                (click)="repositoryMode = 'records'">
+          {{ 'CERN.MODE_RECORDS' | translate }}
+        </button>
+        <button type="button" class="btn"
+                [class.btn-primary]="repositoryMode === 'communities'"
+                [class.btn-outline-primary]="repositoryMode !== 'communities'"
+                (click)="repositoryMode = 'communities'">
+          {{ 'CERN.MODE_COMMUNITIES' | translate }}
+        </button>
+      </div>
+
+      <form class="row g-2 align-items-end mb-3" (ngSubmit)="searchRepository()">
+        <div class="col-12 col-md-6" *ngIf="repositoryMode === 'records'">
+          <label class="form-label small" for="cernRepoQ">{{ 'CERN.SEARCH_QUERY' | translate }}</label>
+          <input id="cernRepoQ" type="search" class="form-control form-control-sm"
+                 [(ngModel)]="repositoryQuery" name="repositoryQuery" />
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small" for="cernRepoPage">{{ 'CERN.PAGE' | translate }}</label>
+          <input id="cernRepoPage" type="number" min="1" class="form-control form-control-sm"
+                 [(ngModel)]="repositoryPage" name="repositoryPage" />
+        </div>
+        <div class="col-6 col-md-2">
+          <button type="submit" class="btn btn-primary btn-sm w-100" [disabled]="isLoadingRepository">
+            <span *ngIf="isLoadingRepository" class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+            {{ 'CERN.SEARCH' | translate }}
+          </button>
+        </div>
+      </form>
+
+      <div *ngIf="repositoryResult" class="mb-3">
+        <p class="small text-muted mb-2">
+          {{ 'CERN.RESULTS_TOTAL' | translate:{ total: repositoryResult.total } }}
+        </p>
+        <div class="row g-3" *ngIf="repositoryChartData.labels?.length && !isLoadingRepository">
+          <div class="col-12 col-lg-6">
+            <h6 class="small text-muted mb-1">{{ 'CERN.CHART_REPOSITORY_PAGE' | translate }}</h6>
+            <div class="cern-chart-box">
+              <canvas baseChart #repositoryChart
+                      [type]="'bar'"
+                      [data]="repositoryChartData"
+                      [options]="barOptions"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h6 class="small text-muted">{{ 'CERN.TABLE_RESULTS' | translate }}</h6>
+      <div class="table-responsive">
+        <table class="table table-sm table-striped mb-0">
+          <thead>
+            <tr>
+              <th>{{ 'CERN.COL_ID' | translate }}</th>
+              <th>{{ 'CERN.COL_TITLE' | translate }}</th>
+              <th>{{ 'CERN.COL_TYPE' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="isLoadingRepository">
+              <td colspan="3" class="text-muted text-center py-3">{{ 'CERN.LOADING' | translate }}</td>
+            </tr>
+            <tr *ngFor="let rec of repositoryResult?.records">
+              <td class="small"><code>{{ rec.id }}</code></td>
+              <td [innerHTML]="toSafeHtml(rec.title)"></td>
+              <td class="small" [innerHTML]="toSafeHtml(rec.resourceType || rec.publicationDate)"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>

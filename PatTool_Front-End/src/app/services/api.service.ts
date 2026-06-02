@@ -492,6 +492,62 @@ export class ApiService {
   }
 
   // ===================================================================
+  // CERN — Open Data Portal & CDS Repository proxy
+  // Backend: /api/external/cern/* (no auth required — public data)
+  // ===================================================================
+
+  getCernCatalog(): Observable<CernApiCatalog> {
+    return this._http.get<CernApiCatalog>(this.API_URL + 'external/cern/catalog');
+  }
+
+  searchCernOpenData(
+    q?: string,
+    size = 10,
+    page = 1,
+    experiment?: string
+  ): Observable<CernOpenDataSearchResult> {
+    let params = new HttpParams().set('size', size).set('page', page);
+    if (q) params = params.set('q', q);
+    if (experiment) params = params.set('experiment', experiment);
+    return this._http.get<CernOpenDataSearchResult>(
+      this.API_URL + 'external/cern/opendata/records',
+      { params }
+    );
+  }
+
+  getCernOpenDataRecord(recid: number): Observable<CernOpenDataRecordDetail> {
+    return this._http.get<CernOpenDataRecordDetail>(
+      this.API_URL + 'external/cern/opendata/records/' + recid
+    );
+  }
+
+  searchCernRepository(q?: string, size = 10, page = 1): Observable<CernRepositorySearchResult> {
+    let params = new HttpParams().set('size', size).set('page', page);
+    if (q) params = params.set('q', q);
+    return this._http.get<CernRepositorySearchResult>(
+      this.API_URL + 'external/cern/repository/records',
+      { params }
+    );
+  }
+
+  getCernRepositoryCommunities(size = 10, page = 1): Observable<CernRepositorySearchResult> {
+    const params = new HttpParams().set('size', size).set('page', page);
+    return this._http.get<CernRepositorySearchResult>(
+      this.API_URL + 'external/cern/repository/communities',
+      { params }
+    );
+  }
+
+  searchCernZenodo(q?: string, size = 10, page = 1): Observable<CernOpenDataSearchResult> {
+    let params = new HttpParams().set('size', size).set('page', page);
+    if (q) params = params.set('q', q);
+    return this._http.get<CernOpenDataSearchResult>(
+      this.API_URL + 'external/cern/zenodo/records',
+      { params }
+    );
+  }
+
+  // ===================================================================
   // Loto — archives (scraping LesBonsNumeros côté serveur)
   // ===================================================================
 
@@ -777,4 +833,92 @@ export interface EuromillionsSyncResult {
   rowsSkipped: number;
   httpErrors: number;
   messages?: string[];
+}
+
+// ===================================================================
+// CERN — Open Data & CDS Repository
+// ===================================================================
+
+export interface CernApiCatalog {
+  sources: CernApiSource[];
+  relatedApis?: CernCatalogNote[];
+}
+
+export interface CernCatalogNote {
+  name: string;
+  upstreamBaseUrl: string | null;
+  documentationUrl: string;
+  note: string;
+}
+
+export interface CernApiSource {
+  id: string;
+  name: string;
+  description: string;
+  upstreamBaseUrl: string;
+  documentationUrl: string;
+  status: string;
+  endpoints: CernApiEndpoint[];
+}
+
+export interface CernApiEndpoint {
+  method: string;
+  upstreamPath: string;
+  patToolPath: string | null;
+  description: string;
+}
+
+export interface CernOpenDataSearchResult {
+  total: number;
+  page: number;
+  size: number;
+  records: CernOpenDataRecordSummary[];
+  experimentCounts: { [experiment: string]: number };
+  typeCounts?: { [type: string]: number };
+  yearCounts?: { [year: string]: number };
+  availabilityCounts?: { [availability: string]: number };
+  categoryCounts?: { [category: string]: number };
+  collisionEnergyCounts?: { [energy: string]: number };
+  collisionTypeCounts?: { [collisionType: string]: number };
+}
+
+export interface CernOpenDataRecordSummary {
+  recid: number;
+  title: string;
+  type: string;
+  experiments: string[];
+  datePublished: string;
+  availability: string;
+  abstractPreview: string;
+}
+
+export interface CernOpenDataRecordDetail {
+  recid: number;
+  title: string;
+  type: string;
+  experiments: string[];
+  accelerator: string;
+  datePublished: string;
+  availability: string;
+  abstractText: string;
+  keywords: string[];
+  files: { key?: string; size?: number; uri?: string; checksum?: string }[];
+  portalUrl: string;
+  collisionEnergy?: string;
+  collisionType?: string;
+  numberEvents?: string;
+}
+
+export interface CernRepositorySearchResult {
+  total: number;
+  page: number;
+  size: number;
+  records: CernRepositoryRecordSummary[];
+}
+
+export interface CernRepositoryRecordSummary {
+  id: string;
+  title: string;
+  publicationDate: string;
+  resourceType: string;
 }

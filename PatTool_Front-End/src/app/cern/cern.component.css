@@ -1,0 +1,67 @@
+.cern-page {
+  max-width: 1200px;
+}
+
+.cern-source-card code {
+  font-size: 0.75rem;
+  word-break: break-all;
+}
+
+.cern-row-clickable {
+  cursor: pointer;
+}
+
+.cern-row-clickable:hover {
+  background-color: rgba(0, 123, 255, 0.08);
+}
+
+.cern-detail-panel {
+  min-height: 12rem;
+  max-height: 36rem;
+  overflow-y: auto;
+}
+
+.cern-chart-box {
+  position: relative;
+  height: 220px;
+  width: 100%;
+}
+
+.cern-chart-box--sm {
+  height: 160px;
+}
+
+.cern-chart-box--md {
+  height: 200px;
+}
+
+.cern-chart-box--files {
+  height: 180px;
+}
+
+.cern-chart-box--bubble {
+  height: 260px;
+}
+
+.cern-chart-box--record-collision {
+  height: 140px;
+}
+
+/* API HTML bodies (Zenodo descriptions, abstracts, etc.) */
+.cern-api-html {
+  word-break: break-word;
+}
+
+.cern-api-html--preview {
+  max-height: 6rem;
+  overflow: hidden;
+}
+
+.cern-api-html :is(p, ul, ol) {
+  margin-bottom: 0.35rem;
+}
+
+.cern-api-html img {
+  max-width: 100%;
+  height: auto;
+}

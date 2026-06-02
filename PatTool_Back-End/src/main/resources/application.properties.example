@@ -95,5 +95,12 @@ euromillions.fdj.archive-download-attribute=euromillions_202002
 # Fallback si aucune entrée Mongo appParameters sous la même clé n’est définie (admin peut PATCH /api/euromillions/client-settings pour persister).
 euromillions.ai.min-draw-date=2020-01-01
 
+# --- CERN external APIs (proxy /api/external/cern/*) ---
+# Open Data: https://opendata.cern.ch/api
+# CDS Repository (InvenioRDM): https://repository.cern/api  — not repository.cern.ch
+# app.cern.opendata-api-base=https://opendata.cern.ch/api
+# app.cern.repository-api-base=https://repository.cern/api
+# app.cern.zenodo-api-base=https://zenodo.org/api
+
 # --- Image cache (PatToolApplication) ---
 app.cache.persistence.restore-on-startup=true

@@ -15,6 +15,9 @@ public class RestTemplateConfig {
     /** Longer timeouts: globe proxy may hit large JPEGs/WMS payloads and flaky public ISS APIs. */
     public static final String GLOBE_PROXY_REST_TEMPLATE = "globeProxyRestTemplate";
 
+    /** CERN Open Data / CDS Repository — responses can be large JSON payloads. */
+    public static final String CERN_REST_TEMPLATE = "cernRestTemplate";
+
 
     /**
      * Client HTTP court pour proxies et API externes (échec rapide si indisponible).
@@ -25,6 +28,14 @@ public class RestTemplateConfig {
         return builder
                 .setConnectTimeout(Duration.ofSeconds(2))
                 .setReadTimeout(Duration.ofSeconds(3))
+                .build();
+    }
+
+    @Bean(CERN_REST_TEMPLATE)
+    public RestTemplate cernRestTemplate(RestTemplateBuilder builder) {
+        return builder
+                .setConnectTimeout(Duration.ofSeconds(5))
+                .setReadTimeout(Duration.ofSeconds(20))
                 .build();
     }
 

@@ -160,6 +160,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./calculator/calculator.component').then(m => m.CalculatorComponent)
 			},
 			{
+				path: 'tools/cern',
+				loadComponent: () => import('./cern/cern.component').then(m => m.CernComponent)
+			},
+			{
 				path: 'tools/solar-system',
 				loadComponent: () => import('./solar-system/solar-system.component').then(m => m.SolarSystemComponent)
 			},
