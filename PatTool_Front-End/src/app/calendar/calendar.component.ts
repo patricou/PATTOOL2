@@ -155,7 +155,11 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     calendarGridLoading = true;
     private pendingEntriesPaintToken = 0;
     private entriesReadyPaintToken = 0;
-    private deferredThumbnailEntries: CalendarEntry[] | null = null;
+    /** Nombre d’activités + RDV attendus pour le fetch en cours (-1 = inconnu). */
+    private pendingExpectedAgendaCount = -1;
+    /** Miniatures activité encore à charger avant de masquer le spinner. */
+    private pendingThumbIdsForPaint = new Set<string>();
+    private gridLoadingOffTimer?: ReturnType<typeof setTimeout>;
     /** Libellés pour le rendu DOM natif des pastilles (évite le template Angular par événement). */
     calMongoEntryHint = '';
     calTodoListBtnHint = '';
@@ -556,6 +560,10 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         if (this.layoutResizeTimer !== undefined) {
             clearTimeout(this.layoutResizeTimer);
             this.layoutResizeTimer = undefined;
+        }
+        if (this.gridLoadingOffTimer !== undefined) {
+            clearTimeout(this.gridLoadingOffTimer);
+            this.gridLoadingOffTimer = undefined;
         }
         if (this.saintSearchCloseTimer !== undefined) {
             clearTimeout(this.saintSearchCloseTimer);
@@ -1085,9 +1093,12 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
                             this.errorMessage = '';
                             this.applyThumbnailNeededIdsFromEntries(entries);
                             this.rebuildThumbEventIndex(entries);
-                            this.deferredThumbnailEntries = entries;
+                            this.pendingExpectedAgendaCount = entries.length;
+                            this.rebuildPendingThumbIdsForPaint(entries);
                             this.entriesReadyPaintToken = fetchToken;
                             successCallback(this.mapEntriesToEvents(entries));
+                            this.scheduleActivityThumbnailLoads(entries);
+                            this.tryCompleteCalendarEntriesPaint();
                             this.cdr.markForCheck();
                         },
                         error: () => {
@@ -1931,6 +1942,8 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
             finalize(() => {
                 this.thumbnailLoadsInFlight.delete(fileId);
                 this.thumbnailLoadsActive = Math.max(0, this.thumbnailLoadsActive - 1);
+                this.pendingThumbIdsForPaint.delete(fileId);
+                this.tryCompleteCalendarEntriesPaint();
                 this.drainThumbnailLoadQueue();
             })
         ).subscribe(res => {
@@ -1974,26 +1987,80 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
 
     /** @returns token to match against {@link onCalendarEventsSet} after paint. */
     private onCalendarEntriesFetchStart(): number {
+        if (this.gridLoadingOffTimer !== undefined) {
+            clearTimeout(this.gridLoadingOffTimer);
+            this.gridLoadingOffTimer = undefined;
+        }
         const token = ++this.pendingEntriesPaintToken;
         this.entriesReadyPaintToken = 0;
+        this.pendingExpectedAgendaCount = -1;
+        this.pendingThumbIdsForPaint.clear();
         this.calendarGridLoading = true;
         this.cdr.markForCheck();
         return token;
     }
 
     private onCalendarEntriesFetchFailed(): void {
+        if (this.gridLoadingOffTimer !== undefined) {
+            clearTimeout(this.gridLoadingOffTimer);
+            this.gridLoadingOffTimer = undefined;
+        }
         this.pendingEntriesPaintToken = 0;
         this.entriesReadyPaintToken = 0;
-        this.deferredThumbnailEntries = null;
+        this.pendingExpectedAgendaCount = -1;
+        this.pendingThumbIdsForPaint.clear();
         this.calendarGridLoading = false;
         this.cdr.markForCheck();
     }
 
     private onCalendarEventsSet(): void {
-        if (
-            this.pendingEntriesPaintToken === 0 ||
-            this.entriesReadyPaintToken !== this.pendingEntriesPaintToken
-        ) {
+        this.tryCompleteCalendarEntriesPaint();
+    }
+
+    private rebuildPendingThumbIdsForPaint(entries: CalendarEntry[]): void {
+        this.pendingThumbIdsForPaint.clear();
+        if (!this.isAuthenticated()) {
+            return;
+        }
+        for (const e of entries) {
+            if (e.kind !== 'ACTIVITY') {
+                continue;
+            }
+            const fileId = (e.thumbnailFileId || '').trim();
+            if (!fileId || this.thumbnailBlobUrls.has(fileId)) {
+                continue;
+            }
+            this.pendingThumbIdsForPaint.add(fileId);
+        }
+    }
+
+    private countAgendaEventsInStore(): number {
+        const api = this.fullCalendar?.getApi();
+        if (!api) {
+            return 0;
+        }
+        return api.getEvents().filter(ev => {
+            const kind = String(ev.extendedProps['kind'] ?? '');
+            return kind === 'ACTIVITY' || kind === 'APPOINTMENT';
+        }).length;
+    }
+
+    /**
+     * Masque le spinner seulement quand toutes les activités + RDV sont dans FullCalendar
+     * et que les miniatures activité en attente sont chargées (ou absentes).
+     */
+    private tryCompleteCalendarEntriesPaint(): void {
+        const token = this.pendingEntriesPaintToken;
+        if (token === 0 || this.entriesReadyPaintToken !== token) {
+            return;
+        }
+        if (this.pendingExpectedAgendaCount < 0) {
+            return;
+        }
+        if (this.countAgendaEventsInStore() !== this.pendingExpectedAgendaCount) {
+            return;
+        }
+        if (this.pendingThumbIdsForPaint.size > 0) {
             return;
         }
         this.pendingEntriesPaintToken = 0;
@@ -2003,22 +2070,23 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     private scheduleGridLoadingOffAfterPaint(): void {
         const finish = () => {
             this.calendarGridLoading = false;
-            this.flushDeferredThumbnailLoads();
             this.cdr.markForCheck();
         };
         if (typeof requestAnimationFrame === 'undefined') {
             finish();
             return;
         }
-        requestAnimationFrame(() => requestAnimationFrame(finish));
-    }
-
-    private flushDeferredThumbnailLoads(): void {
-        const entries = this.deferredThumbnailEntries;
-        this.deferredThumbnailEntries = null;
-        if (entries?.length) {
-            this.scheduleActivityThumbnailLoads(entries);
-        }
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                if (this.gridLoadingOffTimer !== undefined) {
+                    clearTimeout(this.gridLoadingOffTimer);
+                }
+                this.gridLoadingOffTimer = setTimeout(() => {
+                    this.gridLoadingOffTimer = undefined;
+                    finish();
+                }, 0);
+            });
+        });
     }
 
     private renderCalendarEventContent(arg: EventContentArg): { domNodes: Node[] } {
@@ -2138,6 +2206,10 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     private onCalendarEventDidMount(arg: EventMountArg): void {
+        const kind = String(arg.event.extendedProps['kind'] ?? '');
+        if (kind === 'ACTIVITY' || kind === 'APPOINTMENT') {
+            this.tryCompleteCalendarEntriesPaint();
+        }
         const btn = arg.el.querySelector('.fc-event-todolist-link') as HTMLButtonElement | null;
         if (!btn || btn.dataset['patBound'] === '1') {
             return;
