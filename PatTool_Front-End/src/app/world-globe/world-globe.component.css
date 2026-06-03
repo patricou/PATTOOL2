@@ -907,6 +907,10 @@ body:has(.wg-fs-root--viewport-locked) {
   pointer-events: none;
 }
 
+.wg-iss-live-pip--user-sized {
+  aspect-ratio: auto;
+}
+
 .wg-iss-live-pip__resize-handle {
   width: 1.35rem;
   height: 1.35rem;
@@ -1040,6 +1044,12 @@ body:has(.wg-fs-root--viewport-locked) {
   display: none;
 }
 
+@media (max-width: 767.98px) {
+  .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-iss-pip-dock--fs-split .wg-iss-live-pip__resize-handle {
+    display: inline-flex;
+  }
+}
+
 .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-iss-pip-dock--fs-split .wg-iss-live-pip--hd {
   --wg-iss-pip-stack-offset: 0;
   bottom: auto;
@@ -1073,7 +1083,7 @@ body:has(.wg-fs-root--viewport-locked) {
   .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-iss-pip-dock.wg-iss-pip-dock--fs-split {
     grid-column: 1;
     grid-row: 2;
-    max-height: min(46vh, 22rem);
+    max-height: min(92vh, 44rem);
     overflow-y: auto;
     overflow-x: hidden;
     padding: 0.35rem max(0.32rem, env(safe-area-inset-right, 0px))
@@ -1082,9 +1092,9 @@ body:has(.wg-fs-root--viewport-locked) {
 
   .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-iss-pip-dock--fs-split .wg-iss-live-pip {
     flex: 0 0 auto;
-    min-height: 8.5rem;
+    min-height: 17rem;
     max-height: none;
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 8 / 9;
   }
 }
 
@@ -1647,7 +1657,7 @@ body:has(.wg-fs-root--viewport-locked) {
     order: 2;
     flex: 0 1 auto;
     width: 100%;
-    max-height: min(46vh, 22rem);
+    max-height: min(92vh, 44rem);
     overflow-y: auto;
     overflow-x: hidden;
     padding: 0.35rem 0 0;
@@ -1664,9 +1674,9 @@ body:has(.wg-fs-root--viewport-locked) {
     width: 100%;
     max-width: 100%;
     height: auto;
-    min-height: 8.5rem;
+    min-height: 17rem;
     max-height: none;
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 8 / 9;
     flex: 0 0 auto;
     pointer-events: auto;
   }
@@ -1678,8 +1688,13 @@ body:has(.wg-fs-root--viewport-locked) {
   }
 
   .wg-stage.wg-stage--iss-pip .wg-iss-pip-dock:not(.wg-iss-pip-dock--fs-split) .wg-iss-live-pip__resize-handle,
-  .wg-stage.wg-stage--iss-pip-hd .wg-iss-pip-dock:not(.wg-iss-pip-dock--fs-split) .wg-iss-live-pip__resize-handle {
-    display: none;
+  .wg-stage.wg-stage--iss-pip-hd .wg-iss-pip-dock:not(.wg-iss-pip-dock--fs-split) .wg-iss-live-pip__resize-handle,
+  .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-iss-pip-dock--fs-split .wg-iss-live-pip__resize-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.15rem;
+    height: 2.15rem;
   }
 
   .wg-stage.wg-stage--iss-pip .wg-coords,

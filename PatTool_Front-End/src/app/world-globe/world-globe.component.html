@@ -493,7 +493,7 @@
             *ngIf="!issLivePiPFullscreen"
             type="button"
             class="wg-iss-live-pip__resize-handle flex-shrink-0"
-            (mousedown)="onIssPiPResizeStart($event, 'standard')"
+            (pointerdown)="onIssPiPResizeStart($event, 'standard')"
             [attr.title]="'WORLD_GLOBE.ISS_LIVE_PIP_RESIZE_HINT' | translate"
             [attr.aria-label]="'WORLD_GLOBE.ISS_LIVE_PIP_RESIZE_HINT' | translate">
             <i class="fa fa-arrows-alt" aria-hidden="true"></i>
@@ -594,7 +594,7 @@
             *ngIf="!issLiveHdPiPFullscreen"
             type="button"
             class="wg-iss-live-pip__resize-handle flex-shrink-0"
-            (mousedown)="onIssPiPResizeStart($event, 'hd')"
+            (pointerdown)="onIssPiPResizeStart($event, 'hd')"
             [attr.title]="'WORLD_GLOBE.ISS_LIVE_PIP_RESIZE_HINT' | translate"
             [attr.aria-label]="'WORLD_GLOBE.ISS_LIVE_PIP_RESIZE_HINT' | translate">
             <i class="fa fa-arrows-alt" aria-hidden="true"></i>

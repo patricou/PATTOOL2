@@ -499,13 +499,15 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private issPiPResizeDrag: {
     panel: HTMLElement;
     variant: keyof typeof WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY;
+    handle: HTMLElement;
+    pointerId: number;
     startX: number;
     startY: number;
     startW: number;
     startH: number;
   } | null = null;
-  private readonly issPiPResizeMoveHandler = (event: MouseEvent) => this.onIssPiPResizeMove(event);
-  private readonly issPiPResizeUpHandler = () => this.endIssPiPResizeDrag();
+  private readonly issPiPResizeMoveHandler = (event: PointerEvent) => this.onIssPiPResizeMove(event);
+  private readonly issPiPResizeUpHandler = (event: PointerEvent) => this.endIssPiPResizeDrag(event);
   private static readonly ISS_FS_SPLIT_WIDTH_STORAGE_KEY = 'pat.world-globe.iss-fs-split.iss-width-px';
   private static readonly ISS_FS_SPLIT_HANDLE_PX = 6;
   /** Part plein écran de la colonne flux ISS (panneau droit) ; le globe prend le reste. */
@@ -1357,6 +1359,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     hd: 'pat.world-globe.iss-pip.size.hd'
   } as const;
 
+  private static readonly ISS_PIP_MOBILE_SIZE_STORAGE_KEY = {
+    standard: 'pat.world-globe.iss-pip.size.mobile.standard',
+    hd: 'pat.world-globe.iss-pip.size.mobile.hd'
+  } as const;
+
   private static readonly ISS_PIP_SIZE_MIN = { w: 160, h: 120 };
   /** Hors plein écran : largeur des mini-fenêtres à l’ouverture (% de la fenêtre navigateur). */
   private static readonly ISS_PIP_WINDOWED_WIDTH_RATIO = 0.25;
@@ -1626,9 +1633,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  /** Poignée en haut à gauche : la fenêtre reste ancrée en bas à droite. */
-  onIssPiPResizeStart(event: MouseEvent, variant: keyof typeof WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY): void {
-    if (this.issFsSplitLayout) {
+  /** Poignée en haut à gauche : la fenêtre reste ancrée en bas à droite (desktop) ; redimensionnable aussi en pile mobile. */
+  onIssPiPResizeStart(event: PointerEvent, variant: keyof typeof WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY): void {
+    if (this.issFsSplitLayout && !this.isIssMobileStackLayout()) {
       return;
     }
     if (variant === 'standard' && this.issLivePiPFullscreen) {
@@ -1639,50 +1646,71 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
     event.preventDefault();
     event.stopPropagation();
+    const handle = event.currentTarget;
+    if (!(handle instanceof HTMLElement)) {
+      return;
+    }
     const panel =
       variant === 'standard' ? this.issLivePiP?.nativeElement : this.issLiveHdPiP?.nativeElement;
     if (!panel) {
       return;
     }
+    try {
+      handle.setPointerCapture(event.pointerId);
+    } catch {
+      /* navigateurs anciens */
+    }
     this.issPiPResizeDrag = {
       panel,
       variant,
+      handle,
+      pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
       startW: panel.offsetWidth,
       startH: panel.offsetHeight
     };
     panel.classList.add('wg-iss-live-pip--resizing');
-    document.addEventListener('mousemove', this.issPiPResizeMoveHandler);
-    document.addEventListener('mouseup', this.issPiPResizeUpHandler);
+    document.addEventListener('pointermove', this.issPiPResizeMoveHandler, { capture: true });
+    document.addEventListener('pointerup', this.issPiPResizeUpHandler, { capture: true });
+    document.addEventListener('pointercancel', this.issPiPResizeUpHandler, { capture: true });
     document.body.style.userSelect = 'none';
     document.body.style.cursor = 'nwse-resize';
   }
 
-  private onIssPiPResizeMove(event: MouseEvent): void {
+  private onIssPiPResizeMove(event: PointerEvent): void {
     const drag = this.issPiPResizeDrag;
-    if (!drag) {
+    if (!drag || event.pointerId !== drag.pointerId) {
       return;
     }
+    event.preventDefault();
     const dx = event.clientX - drag.startX;
     const dy = event.clientY - drag.startY;
     const { w, h } = this.clampIssPiPSize(drag.startW - dx, drag.startH - dy);
-    drag.panel.style.width = `${w}px`;
-    drag.panel.style.height = `${h}px`;
-    drag.panel.style.maxWidth = `${w}px`;
-    drag.panel.style.maxHeight = `${h}px`;
+    this.applyIssPiPPanelSize(drag.panel, w, h);
     this.syncIssLivePiPStackOffset();
   }
 
-  private endIssPiPResizeDrag(): void {
+  private endIssPiPResizeDrag(event?: PointerEvent): void {
     const drag = this.issPiPResizeDrag;
     if (!drag) {
       return;
     }
-    const { panel, variant } = drag;
+    if (event != null && event.pointerId !== drag.pointerId) {
+      return;
+    }
+    const { panel, variant, handle, pointerId } = drag;
+    try {
+      if (handle.hasPointerCapture(pointerId)) {
+        handle.releasePointerCapture(pointerId);
+      }
+    } catch {
+      /* ignore */
+    }
     this.issPiPResizeDrag = null;
-    document.removeEventListener('mousemove', this.issPiPResizeMoveHandler);
-    document.removeEventListener('mouseup', this.issPiPResizeUpHandler);
+    document.removeEventListener('pointermove', this.issPiPResizeMoveHandler, { capture: true });
+    document.removeEventListener('pointerup', this.issPiPResizeUpHandler, { capture: true });
+    document.removeEventListener('pointercancel', this.issPiPResizeUpHandler, { capture: true });
     document.body.style.userSelect = '';
     document.body.style.cursor = '';
     panel.classList.remove('wg-iss-live-pip--resizing');
@@ -1694,6 +1722,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (!panel) {
       return;
     }
+    panel.classList.remove('wg-iss-live-pip--user-sized');
     panel.style.removeProperty('width');
     panel.style.removeProperty('max-width');
     panel.style.removeProperty('height');
@@ -1701,10 +1730,13 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   }
 
   private refreshIssLivePiPPanelsLayout(): void {
-    if (this.issFsSplitLayout) {
+    if (this.issFsSplitLayout && !this.isIssMobileStackLayout()) {
       this.clearIssPiPPanelInlineSize(this.issLivePiP?.nativeElement);
       this.clearIssPiPPanelInlineSize(this.issLiveHdPiP?.nativeElement);
       this.syncIssFsSplitIssColumnWidth();
+    } else if (this.isIssMobileStackLayout()) {
+      this.applyIssPiPStoredSize(this.issLiveHdPiP?.nativeElement, 'hd');
+      this.applyIssPiPStoredSize(this.issLivePiP?.nativeElement, 'standard');
     } else {
       this.applyIssPiPStoredSize(this.issLiveHdPiP?.nativeElement, 'hd');
       this.applyIssPiPStoredSize(this.issLivePiP?.nativeElement, 'standard');
@@ -1798,7 +1830,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
 
   /** Aligne « ISS en direct » sur la largeur et la hauteur de « ISS en direct HD ». */
   private syncIssStandardPiPSizeWithHd(): void {
-    if (this.issFsSplitLayout || !this.issLiveEmbedEnabled) {
+    if (this.issFsSplitLayout || this.isIssMobileStackLayout() || !this.issLiveEmbedEnabled) {
       return;
     }
     const standard = this.issLivePiP?.nativeElement;
@@ -1877,10 +1909,30 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       return;
     }
     const clamped = this.clampIssPiPStoredSize(w, h);
+    panel.classList.add('wg-iss-live-pip--user-sized');
     panel.style.width = `${clamped.w}px`;
     panel.style.maxWidth = `${clamped.w}px`;
     panel.style.height = `${clamped.h}px`;
     panel.style.maxHeight = `${clamped.h}px`;
+  }
+
+  private issPiPSizeStorageKey(variant: keyof typeof WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY): string {
+    return this.isIssMobileStackLayout()
+      ? WorldGlobeComponent.ISS_PIP_MOBILE_SIZE_STORAGE_KEY[variant]
+      : WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY[variant];
+  }
+
+  /** Taille par défaut mobile (pile sous le globe) : pleine largeur du dock, ratio 8/9 + barre. */
+  private getIssPiPMobileDefaultSize(): { w: number; h: number } {
+    const stage = this.getGlobeStageElement();
+    const dock =
+      stage?.querySelector<HTMLElement>('.wg-iss-pip-dock--fs-split') ??
+      stage?.querySelector<HTMLElement>('.wg-iss-pip-dock');
+    const widthRef = dock?.clientWidth ?? stage?.clientWidth ?? 0;
+    const w = widthRef > 0 ? Math.round(widthRef) : Math.round(window.innerWidth * 0.96);
+    const frameH = Math.round((w * 9) / 8);
+    const h = frameH + WorldGlobeComponent.ISS_PIP_WINDOWED_BAR_PX;
+    return this.clampIssPiPSize(w, h);
   }
 
   private getIssPiPWindowWidthRefPx(): number {
@@ -1901,9 +1953,14 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
 
   private applyIssPiPDefaultWindowedSize(
     panel: HTMLElement | undefined,
-    _variant: keyof typeof WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY
+    variant: keyof typeof WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY
   ): void {
-    if (!panel || this.globePresentationMode || this.isIssMobileStackLayout()) {
+    if (!panel || this.globePresentationMode) {
+      return;
+    }
+    if (this.isIssMobileStackLayout()) {
+      const { w, h } = this.getIssPiPMobileDefaultSize();
+      this.applyIssPiPPanelSize(panel, w, h);
       return;
     }
     const { w, h } = this.getIssPiPDefaultWindowedSize();
@@ -1915,7 +1972,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       return;
     }
     try {
-      const raw = localStorage.getItem(WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY[variant]);
+      const raw = localStorage.getItem(this.issPiPSizeStorageKey(variant));
       if (!raw) {
         this.applyIssPiPDefaultWindowedSize(panel, variant);
         return;
@@ -1942,7 +1999,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
         w: panel.offsetWidth,
         h: panel.offsetHeight
       };
-      localStorage.setItem(WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY[variant], JSON.stringify(payload));
+      localStorage.setItem(this.issPiPSizeStorageKey(variant), JSON.stringify(payload));
     } catch {
       /* quota / private mode */
     }
@@ -1963,15 +2020,21 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
 
   private clampIssPiPSize(w: number, h: number): { w: number; h: number } {
     const stage = this.getGlobeStageElement();
-    const dock = stage?.querySelector<HTMLElement>('.wg-iss-pip-dock--fs-split');
+    const dock =
+      stage?.querySelector<HTMLElement>('.wg-iss-pip-dock--fs-split') ??
+      stage?.querySelector<HTMLElement>('.wg-iss-pip-dock');
     const widthRef =
-      this.issFsSplitLayout && dock && dock.clientWidth > 0
+      this.issFsSplitLayout && !this.isIssMobileStackLayout() && dock && dock.clientWidth > 0
         ? dock.clientWidth
-        : stage?.clientWidth ?? 0;
+        : this.isIssMobileStackLayout() && dock && dock.clientWidth > 0
+          ? dock.clientWidth
+          : stage?.clientWidth ?? 0;
     const heightRef = stage?.clientHeight ?? 0;
     const maxW = widthRef > 0 ? Math.floor(widthRef * WorldGlobeComponent.ISS_PIP_SIZE_MAX_RATIO.w) : 900;
     const maxH = heightRef > 0 ? Math.floor(heightRef * WorldGlobeComponent.ISS_PIP_SIZE_MAX_RATIO.h) : 700;
-    const min = WorldGlobeComponent.ISS_PIP_SIZE_MIN;
+    const min = this.isIssMobileStackLayout()
+      ? { w: 120, h: 136 }
+      : WorldGlobeComponent.ISS_PIP_SIZE_MIN;
     return {
       w: Math.min(maxW, Math.max(min.w, Math.round(w))),
       h: Math.min(maxH, Math.max(min.h, Math.round(h)))
@@ -2952,6 +3015,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
     if (this.cloudsMesh) {
       this.cloudsMesh.rotation.y = Math.PI + this.cloudsDriftRad;
+    }
+    if (this.issHistoricalTraceEnabled) {
+      void this.loadIssHistoricalTrace();
     }
   }
 
