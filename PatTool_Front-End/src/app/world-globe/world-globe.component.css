@@ -650,6 +650,28 @@ body:has(.wg-fs-root--viewport-locked) {
   flex-shrink: 0;
 }
 
+.wg-opt-row--tools .wg-iss-tools-interval {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.wg-opt-row--tools .wg-iss-interval-input {
+  box-sizing: border-box;
+  width: 5.25ch;
+  min-width: 5.25ch;
+  padding: 0.12rem 0.2rem;
+  font-size: var(--wg-label, 0.66rem);
+  line-height: 1.2;
+  text-align: center;
+}
+
+.wg-opt-row--tools .wg-opt-inline__cd {
+  font-size: var(--wg-label, 0.66rem);
+  min-width: 1.75ch;
+}
+
 .wg-opt-icon-btn {
   padding: 0.1rem 0.35rem;
   line-height: 1;
@@ -662,6 +684,12 @@ body:has(.wg-fs-root--viewport-locked) {
 .wg-opt-icon-btn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
+}
+
+.wg-opt-icon-btn--danger:hover:not(:disabled) {
+  background: rgba(220, 80, 70, 0.22);
+  border-color: rgba(255, 140, 130, 0.35);
+  color: #ffc8c4;
 }
 
 .wg-opt-hint {

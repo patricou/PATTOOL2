@@ -33,6 +33,9 @@ public class MaintenanceTask {
     
     @Autowired
     private MongoTemplate mongoTemplate;
+
+    @Autowired(required = false)
+    private IssTraceService issTraceService;
     
     @Autowired(required = false)
     private MailController mailController;
@@ -64,6 +67,13 @@ public class MaintenanceTask {
                 goveeDeletedCount = goveeResult.getDeletedCount();
                 goveeRemainingCount = goveeResult.getRemainingCount();
                 goveeCleanupSuccess = goveeResult.isSuccess();
+            }
+
+            if (issTraceService != null) {
+                long issDeleted = issTraceService.purgeOlderThanRetention();
+                if (issDeleted > 0) {
+                    log.debug("ISS trace maintenance purge: {} point(s) removed", issDeleted);
+                }
             }
             
             // Send email notification with both cache and Govee cleanup results

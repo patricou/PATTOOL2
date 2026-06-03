@@ -75,6 +75,14 @@ gemini.http.read-timeout-seconds=300
 globe.proxy.http.connect-timeout-seconds=10
 globe.proxy.http.read-timeout-seconds=90
 
+# ISS ground track stored in MongoDB while the globe overlay is active (world-globe page).
+# Retention window for historical trace (default 30 days ≈ 1 month).
+globe.iss.trace.retention.days=30
+# Minimum seconds between two stored ISS samples (default 60 = 1 minute).
+globe.iss.trace.sample-interval.seconds=60
+# Max points returned to the globe for rendering (uniform decimation if more samples exist).
+globe.iss.trace.max-display-points=8000
+
 # --- IoT gate / ESP (HomeIOTService beans: no defaults in code) ---
 app.arduino.ip=192.168.1.65
 app.esp32.1.ip=192.168.1.71

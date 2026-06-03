@@ -281,20 +281,58 @@
                   <div class="form-check form-switch wg-opt-switch mb-0">
                     <input class="form-check-input" type="checkbox" id="wgIss" [(ngModel)]="issOverlayEnabled" (ngModelChange)="onIssOverlayToggle()" [disabled]="!globeSurfaceReady" />
                   </div>
-                  <button *ngIf="issOverlayEnabled" type="button" class="btn btn-sm wg-opt-icon-btn" (click)="onIssRefreshNowClick()" [disabled]="!globeSurfaceReady || issManualRefreshInFlight" [attr.title]="'WORLD_GLOBE.ISS_REFRESH_NOW_HINT' | translate" [attr.aria-label]="'WORLD_GLOBE.ISS_REFRESH_NOW' | translate">
-                    <i class="fa fa-refresh" aria-hidden="true" [class.fa-spin]="issManualRefreshInFlight"></i>
+                  <ng-container *ngIf="issOverlayEnabled">
+                    <span class="wg-iss-tools-interval" [attr.title]="'WORLD_GLOBE.ISS_POLL_INTERVAL_LABEL' | translate">
+                      <input
+                        id="wgIssInterval"
+                        type="number"
+                        class="form-control form-control-sm wg-iss-interval-input"
+                        [(ngModel)]="issPollIntervalSec"
+                        (blur)="onIssPollIntervalCommitted()"
+                        (change)="onIssPollIntervalCommitted()"
+                        [min]="5"
+                        [max]="600"
+                        [step]="1"
+                        [disabled]="!globeSurfaceReady"
+                        [attr.title]="'WORLD_GLOBE.ISS_POLL_INTERVAL_HINT' | translate"
+                        [attr.aria-label]="'WORLD_GLOBE.ISS_POLL_INTERVAL_LABEL' | translate" />
+                      <span class="wg-opt-inline__cd text-info text-monospace" [attr.title]="'WORLD_GLOBE.ISS_COUNTDOWN_HINT' | translate" aria-live="polite">
+                        <ng-container *ngIf="issSecondsUntilNextRefresh > 0 && issSecondsUntilNextRefresh < 60; else issCountdownLongOrMm">{{ formatIssCountdown() }} {{ 'WORLD_GLOBE.ISS_SECONDS_ABBR' | translate }}</ng-container>
+                        <ng-template #issCountdownLongOrMm>{{ formatIssCountdown() }}</ng-template>
+                      </span>
+                    </span>
+                    <button type="button" class="btn btn-sm wg-opt-icon-btn" (click)="onIssRefreshNowClick()" [disabled]="!globeSurfaceReady || issManualRefreshInFlight" [attr.title]="'WORLD_GLOBE.ISS_REFRESH_NOW_HINT' | translate" [attr.aria-label]="'WORLD_GLOBE.ISS_REFRESH_NOW' | translate">
+                      <i class="fa fa-refresh" aria-hidden="true" [class.fa-spin]="issManualRefreshInFlight"></i>
+                    </button>
+                  </ng-container>
+                </div>
+              </div>
+              <div class="wg-opt-row wg-opt-row--tools">
+                <label class="wg-opt-row__label" for="wgIssHistoricalTrace" [attr.title]="'WORLD_GLOBE.ISS_HISTORICAL_TRACE_HINT' | translate">{{ 'WORLD_GLOBE.ISS_HISTORICAL_TRACE' | translate }}</label>
+                <div class="wg-opt-row__tools">
+                  <div class="form-check form-switch wg-opt-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="wgIssHistoricalTrace" [(ngModel)]="issHistoricalTraceEnabled" (ngModelChange)="onIssHistoricalTraceToggle()" [disabled]="!globeSurfaceReady || issHistoricalTraceLoading" />
+                  </div>
+                  <button
+                    *ngIf="issHistoricalTraceEnabled"
+                    type="button"
+                    class="btn btn-sm wg-opt-icon-btn wg-opt-icon-btn--danger"
+                    (click)="onClearIssHistoricalTraceClick()"
+                    [disabled]="!globeSurfaceReady || issHistoricalTraceLoading || issHistoricalTraceClearInFlight"
+                    [attr.title]="'WORLD_GLOBE.ISS_HISTORICAL_TRACE_CLEAR_HINT' | translate"
+                    [attr.aria-label]="'WORLD_GLOBE.ISS_HISTORICAL_TRACE_CLEAR' | translate">
+                    <i class="fa" aria-hidden="true" [ngClass]="issHistoricalTraceClearInFlight ? 'fa-spinner fa-spin' : 'fa-trash'"></i>
                   </button>
                 </div>
               </div>
-              <ng-container *ngIf="issOverlayEnabled">
-                <div class="wg-opt-inline">
-                  <label class="wg-opt-inline__lbl" for="wgIssInterval">{{ 'WORLD_GLOBE.ISS_POLL_INTERVAL_LABEL' | translate }}</label>
-                  <input id="wgIssInterval" type="number" class="form-control form-control-sm wg-iss-interval-input" [(ngModel)]="issPollIntervalSec" (blur)="onIssPollIntervalCommitted()" (change)="onIssPollIntervalCommitted()" [min]="5" [max]="600" [step]="1" [disabled]="!globeSurfaceReady" [attr.title]="'WORLD_GLOBE.ISS_POLL_INTERVAL_HINT' | translate" />
-                  <span class="wg-opt-inline__cd text-info text-monospace" [attr.title]="'WORLD_GLOBE.ISS_COUNTDOWN_HINT' | translate" aria-live="polite">
-                    <ng-container *ngIf="issSecondsUntilNextRefresh > 0 && issSecondsUntilNextRefresh < 60; else issCountdownLongOrMm">{{ formatIssCountdown() }} {{ 'WORLD_GLOBE.ISS_SECONDS_ABBR' | translate }}</ng-container>
-                    <ng-template #issCountdownLongOrMm>{{ formatIssCountdown() }}</ng-template>
-                  </span>
+              <p class="wg-opt-iss-meta text-muted small mb-0" *ngIf="issHistoricalTraceLoading">{{ 'WORLD_GLOBE.ISS_HISTORICAL_TRACE_LOADING' | translate }}</p>
+              <div class="wg-opt-row" *ngIf="issHistoricalTraceEnabled">
+                <label class="wg-opt-row__label" for="wgIssHistoricalTraceDates" [attr.title]="'WORLD_GLOBE.ISS_HISTORICAL_TRACE_DATES_HINT' | translate">{{ 'WORLD_GLOBE.ISS_HISTORICAL_TRACE_DATES' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="wgIssHistoricalTraceDates" [(ngModel)]="issHistoricalTraceDatesEnabled" (ngModelChange)="onIssHistoricalTraceDatesToggle()" [disabled]="!globeSurfaceReady || issHistoricalTraceLoading" />
                 </div>
+              </div>
+              <ng-container *ngIf="issOverlayEnabled">
                 <div class="wg-opt-row">
                   <label class="wg-opt-row__label" for="wgIssKeepCenter" [attr.title]="'WORLD_GLOBE.ISS_KEEP_EARTH_CENTERED_HINT' | translate">{{ 'WORLD_GLOBE.ISS_KEEP_EARTH_CENTERED' | translate }}</label>
                   <div class="form-check form-switch wg-opt-switch mb-0">
@@ -377,6 +415,7 @@
         <div class="wg-banner small mt-1 text-secondary" *ngIf="bordersOverlayLoading">{{ 'WORLD_GLOBE.BORDERS_LOADING' | translate }}</div>
         <div class="wg-banner small mt-1 alert alert-warning py-1 px-2 mb-0" *ngIf="bordersOverlayFailed">{{ 'WORLD_GLOBE.BORDERS_FAILED' | translate }}</div>
         <div class="wg-banner small mt-1 alert alert-warning py-1 px-2 mb-0" *ngIf="issOverlayFailed && issOverlayEnabled">{{ 'WORLD_GLOBE.ISS_FETCH_FAILED' | translate }}</div>
+        <div class="wg-banner small mt-1 alert alert-warning py-1 px-2 mb-0" *ngIf="issHistoricalTraceFailed && issHistoricalTraceEnabled">{{ 'WORLD_GLOBE.ISS_HISTORICAL_TRACE_FAILED' | translate }}</div>
         <div class="wg-banner small mt-1 alert alert-warning py-1 px-2 mb-0" *ngIf="coastlinesOverlayFailed">{{ 'WORLD_GLOBE.COASTLINE_FAILED' | translate }}</div>
         <div class="wg-banner small mt-1 text-secondary" *ngIf="coastlinesOverlayLoading">{{ 'WORLD_GLOBE.COASTLINE_LOADING' | translate }}</div>
         <div class="wg-banner small mt-1 text-secondary" *ngIf="admin0CountriesOverlayLoading && (politicalMapEnabled || countryLabelsEnabled)">

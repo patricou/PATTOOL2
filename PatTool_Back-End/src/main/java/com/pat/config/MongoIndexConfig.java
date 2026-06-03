@@ -177,6 +177,8 @@ public class MongoIndexConfig {
             createIotProxyTargetIndexes();
 
             createAssistantConversationIndexes();
+
+            createIssTracePointIndexes();
         } catch (Exception e) {
             log.error("Error creating MongoDB indexes", e);
         }
@@ -211,6 +213,18 @@ public class MongoIndexConfig {
             log.debug("MongoDB indexes for iot_proxy_targets done");
         } catch (Exception e) {
             log.error("Error creating iot_proxy_targets MongoDB indexes", e);
+        }
+    }
+
+    /** ISS ground-track samples: purge and range queries by {@code recordedAt}. */
+    private void createIssTracePointIndexes() {
+        try {
+            log.debug("Creating MongoDB indexes for iss_trace_points");
+            createIndexIfNotExists("iss_trace_points", "recordedAt", Sort.Direction.ASC,
+                    "ISS trace: retention purge and chronological reads");
+            log.debug("MongoDB indexes for iss_trace_points done");
+        } catch (Exception e) {
+            log.error("Error creating iss_trace_points MongoDB indexes", e);
         }
     }
 

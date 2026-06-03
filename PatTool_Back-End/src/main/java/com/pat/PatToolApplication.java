@@ -48,6 +48,7 @@ import java.time.format.DateTimeFormatter;
             com.pat.repo.FriendRepository.class,
             com.pat.repo.FriendRequestRepository.class,
             com.pat.repo.GoveeThermometerHistoryRepository.class,
+            com.pat.repo.IssTracePointRepository.class,
             com.pat.repo.IotProxyTargetRepository.class,
             com.pat.repo.EuromillionsDrawRepository.class,
             com.pat.repo.EuromillionsMethodAnalyticsRepository.class,

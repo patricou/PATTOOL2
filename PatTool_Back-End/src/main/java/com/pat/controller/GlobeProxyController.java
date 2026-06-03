@@ -3,18 +3,25 @@ package com.pat.controller;
 import com.pat.service.GlobeProxyService;
 import com.pat.service.GlobeProxyService.FetchedImage;
 import com.pat.service.GlobeProxyService.PlanetTextureAsset;
+import com.pat.service.IssTraceService;
+import com.pat.service.IssTraceService.IssTracePointView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -28,9 +35,11 @@ public class GlobeProxyController {
     private static final Logger log = LoggerFactory.getLogger(GlobeProxyController.class);
 
     private final GlobeProxyService globeProxyService;
+    private final IssTraceService issTraceService;
 
-    public GlobeProxyController(GlobeProxyService globeProxyService) {
+    public GlobeProxyController(GlobeProxyService globeProxyService, IssTraceService issTraceService) {
         this.globeProxyService = globeProxyService;
+        this.issTraceService = issTraceService;
     }
 
     @GetMapping("/texture/planets/{name}")
@@ -218,6 +227,66 @@ public class GlobeProxyController {
             log.debug("Open Notify ISS now failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
         }
+    }
+
+    /** Historical ISS ground track stored in MongoDB (retention configured server-side). */
+    @GetMapping("/iss/trace")
+    public ResponseEntity<IssTraceResponse> issHistoricalTrace() {
+        try {
+            List<IssTracePointView> points = issTraceService.getTraceForDisplay();
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(60, TimeUnit.SECONDS).cachePublic())
+                    .body(new IssTraceResponse(
+                            points,
+                            issTraceService.getRetentionDays(),
+                            issTraceService.getSampleIntervalSeconds()));
+        } catch (Exception e) {
+            log.warn("ISS historical trace read failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /** Persist one ISS sample while the globe overlay is active (deduped server-side). */
+    @PostMapping("/iss/trace")
+    public ResponseEntity<Void> recordIssTracePoint(@RequestBody IssTraceRecordRequest body) {
+        if (body == null || body.latitude() == null || body.longitude() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            Instant at;
+            if (body.recordedAt() != null && !body.recordedAt().isBlank()) {
+                try {
+                    at = Instant.parse(body.recordedAt());
+                } catch (Exception parseEx) {
+                    return ResponseEntity.badRequest().build();
+                }
+            } else {
+                at = Instant.now();
+            }
+            issTraceService.recordPoint(body.latitude(), body.longitude(), at);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            log.warn("ISS trace record failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /** Delete all stored ISS trace samples. */
+    @DeleteMapping("/iss/trace")
+    public ResponseEntity<Void> clearIssHistoricalTrace() {
+        try {
+            issTraceService.clearAll();
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            log.warn("ISS trace clear failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    public record IssTraceRecordRequest(Double latitude, Double longitude, String recordedAt) {
+    }
+
+    public record IssTraceResponse(List<IssTracePointView> points, int retentionDays, int sampleIntervalSeconds) {
     }
 
     private static ResponseEntity<byte[]> cacheableGeoJson7d(byte[] body) {
