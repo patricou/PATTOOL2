@@ -494,6 +494,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private resizeObs?: ResizeObserver;
   private issLivePiPResizeObs?: ResizeObserver;
   private issLivePiPResizeSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  private globeCdrTimer: ReturnType<typeof setTimeout> | null = null;
   /** Évite d’écraser les tailles ISS mémorisées pendant un reflow (panneau options, etc.). */
   private issPiPSuppressSizePersist = false;
   private issPiPResizeDrag: {
@@ -727,6 +728,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (this.issPiPWhatsAppFlashTimer != null) {
       clearTimeout(this.issPiPWhatsAppFlashTimer);
       this.issPiPWhatsAppFlashTimer = null;
+    }
+    if (this.globeCdrTimer != null) {
+      clearTimeout(this.globeCdrTimer);
+      this.globeCdrTimer = null;
     }
     const canvasUnd = this.renderer?.domElement;
     if (canvasUnd) {
@@ -1056,12 +1061,23 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   /** Évite NG0100 : mises à jour de bindings après le cycle de détection en cours. */
   private scheduleGlobeViewAfterLayoutChange(): void {
     queueMicrotask(() => {
-      this.cdr.markForCheck();
+      this.scheduleWorldGlobeCdr();
       requestAnimationFrame(() => {
         this.resizeRendererToHost();
         this.refreshIssLivePiPPanelsLayout();
       });
     });
+  }
+
+  /** Diffère markForCheck (macrotask) pour éviter NG0100 sur composants frères (TraceViewerModal, etc.). */
+  private scheduleWorldGlobeCdr(): void {
+    if (this.globeCdrTimer != null) {
+      return;
+    }
+    this.globeCdrTimer = setTimeout(() => {
+      this.globeCdrTimer = null;
+      this.cdr.markForCheck();
+    }, 0);
   }
 
   toggleOptionsPanel(): void {
@@ -4136,12 +4152,12 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.issNextRefreshEpochMs = Date.now() + ms;
     this.issCountdownInterval = window.setInterval(() => {
       this.refreshIssCountdownSnapshot();
-      this.cdr.markForCheck();
+      this.scheduleWorldGlobeCdr();
     }, 1000);
     this.scheduleIssRefreshChain(ms);
     queueMicrotask(() => {
       this.refreshIssCountdownSnapshot();
-      this.cdr.markForCheck();
+      this.scheduleWorldGlobeCdr();
     });
   }
 
@@ -4248,7 +4264,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
         this.issOverlayFailed = true;
       }
     }
-    this.cdr.markForCheck();
+    this.scheduleWorldGlobeCdr();
   }
 
   private ensureIssMarkerMesh(): void {

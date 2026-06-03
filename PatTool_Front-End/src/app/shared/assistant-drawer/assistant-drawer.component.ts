@@ -1545,7 +1545,7 @@ export class AssistantDrawerComponent
     }
     if (next !== this.fabTopPx) {
       this.fabTopPx = next;
-      this.cdr.markForCheck();
+      window.setTimeout(() => this.cdr.markForCheck(), 0);
     }
   }
 

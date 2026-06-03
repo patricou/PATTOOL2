@@ -134,6 +134,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private fullscreenChangeHandler?: () => void;
 	private orientationMediaQuery: MediaQueryList | null = null;
 	private orientationChangeHandler?: () => void;
+	private mobileViewportResizeHandler?: () => void;
 	private baseLayers: Record<string, L.TileLayer | L.LayerGroup> = {};
 	public availableBaseLayers: Array<{ id: string; label: string; labelKey?: string }> = [];
 	public selectedBaseLayerId: string = '';
@@ -144,6 +145,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public currentZoom: number = 6;
 	/** True after the map is initialized (enables zoom overlay). */
 	public isMapReady = false;
+	/** Affiche l’interrupteur « garder l’écran actif » (mobile + Wake Lock API). */
+	public showKeepScreenAwakeSwitch = false;
+	readonly screenWakeLockAvailable =
+		typeof navigator !== 'undefined' && 'wakeLock' in navigator;
 	/** cartes.gouv.fr iframe embed URL (center + zoom) for that modal. */
 	public cartesGouvEmbedUrl: SafeResourceUrl | null = null;
 	private cartesGouvModalRef?: NgbModalRef;
@@ -776,6 +781,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 			typeof HTMLElement !== 'undefined' && hostOpt instanceof HTMLElement ? hostOpt : undefined;
 		this.modalRef = this.modalService.open(this.traceViewerModal, modalOpts);
 		this.hasEmittedClosed = false;
+		this.refreshTraceViewerViewportFlags();
+		this.registerMobileViewportListener();
 
 		const finalizeModal = () => {
 			this.resetModalState();
@@ -904,7 +911,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private onModalShown(): void {
 		this.setupModalWheelTrap();
-		this.cdr.detectChanges();
+		this.refreshTraceViewerViewportFlags();
+		this.scheduleTraceViewerCdr();
 		this.initMapLayersAfterModalMounted();
 		// Un seul `refreshMapLayout` au `map.whenReady` (évite 2× setView reset d’affilée).
 		if (this.selectionMode) {
@@ -1084,8 +1092,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.scheduleTraceViewerCdr();
 
 		this.map.whenReady(() => {
-			this.isMapReady = true;
-			this.scheduleTraceViewerCdr();
+			if (this.traceViewerCdrTimer != null) {
+				clearTimeout(this.traceViewerCdrTimer);
+				this.traceViewerCdrTimer = null;
+			}
+			this.traceViewerCdrTimer = window.setTimeout(() => {
+				this.traceViewerCdrTimer = null;
+				this.isMapReady = true;
+				this.cdr.markForCheck();
+			}, 0);
 			/* Flex/embed layouts often omit a useful size on the first layout pass — retry pending renders below. */
 			this.tryRenderPendingTrack();
 			this.tryRenderPendingPositions();
@@ -1938,14 +1953,43 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	public isMobileViewport(): boolean {
-		return this.document.defaultView != null && (
-			this.document.defaultView.innerHeight <= 500 ||
-			this.document.defaultView.innerWidth <= 768
+		return this.computeMobileViewport();
+	}
+
+	private computeMobileViewport(): boolean {
+		return (
+			this.document.defaultView != null &&
+			(this.document.defaultView.innerHeight <= 500 || this.document.defaultView.innerWidth <= 768)
 		);
 	}
 
-	public get screenWakeLockAvailable(): boolean {
-		return typeof navigator !== 'undefined' && 'wakeLock' in navigator;
+	private refreshTraceViewerViewportFlags(): void {
+		this.showKeepScreenAwakeSwitch = this.computeMobileViewport() && this.screenWakeLockAvailable;
+	}
+
+	private registerMobileViewportListener(): void {
+		this.cleanupMobileViewportListener();
+		const win = this.document.defaultView;
+		if (!win) {
+			return;
+		}
+		this.mobileViewportResizeHandler = () => {
+			const next = this.computeMobileViewport() && this.screenWakeLockAvailable;
+			if (next === this.showKeepScreenAwakeSwitch) {
+				return;
+			}
+			this.showKeepScreenAwakeSwitch = next;
+			this.scheduleTraceViewerCdr();
+		};
+		win.addEventListener('resize', this.mobileViewportResizeHandler, { passive: true });
+	}
+
+	private cleanupMobileViewportListener(): void {
+		const win = this.document.defaultView;
+		if (win && this.mobileViewportResizeHandler) {
+			win.removeEventListener('resize', this.mobileViewportResizeHandler);
+		}
+		this.mobileViewportResizeHandler = undefined;
 	}
 
 	/** Active/désactive le verrouillage d'écran (empêche la mise en veille du smartphone). */
@@ -3076,6 +3120,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.teardownModalWheelTrap();
 		this.mapEmbedHostRoot = undefined;
 		this.removeEscapeKeydownListener();
+		this.cleanupMobileViewportListener();
+		this.showKeepScreenAwakeSwitch = false;
 		this.isFullscreen = false;
 		this.isFullscreenInfoVisible = false;
 		this.isFullscreenOptionsExpanded = false;

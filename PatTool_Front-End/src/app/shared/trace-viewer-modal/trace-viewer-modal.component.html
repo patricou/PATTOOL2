@@ -214,7 +214,7 @@
               <span *ngIf="followDeviceLocation" class="ms-1 device-countdown">({{ deviceLocationCountdown }} s)</span>
             </label>
           </div>
-          <div *ngIf="isMobileViewport() && screenWakeLockAvailable" class="form-check form-switch mt-2 trace-viewer-keep-awake-switch">
+          <div *ngIf="showKeepScreenAwakeSwitch" class="form-check form-switch mt-2 trace-viewer-keep-awake-switch">
             <input class="form-check-input" type="checkbox" id="keep-screen-awake-fullscreen"
                    [(ngModel)]="keepScreenAwake"
                    (ngModelChange)="onKeepScreenAwakeChange()">
@@ -356,7 +356,7 @@
           <span *ngIf="followDeviceLocation" class="ms-1 device-countdown">({{ deviceLocationCountdown }} s)</span>
         </label>
       </div>
-      <div *ngIf="isMobileViewport() && screenWakeLockAvailable" class="form-check form-switch d-flex align-items-center flex-shrink-0 trace-viewer-keep-awake-switch">
+      <div *ngIf="showKeepScreenAwakeSwitch" class="form-check form-switch d-flex align-items-center flex-shrink-0 trace-viewer-keep-awake-switch">
         <input class="form-check-input" type="checkbox" id="keep-screen-awake-switch"
                [(ngModel)]="keepScreenAwake"
                (ngModelChange)="onKeepScreenAwakeChange()">
