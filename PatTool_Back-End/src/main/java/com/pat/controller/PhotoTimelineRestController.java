@@ -42,6 +42,11 @@ public class PhotoTimelineRestController {
     private static final int WALL_VIDEOS_PER_EVENT_CAP = 8;
     /** Max footer links (urlEvents + tracks + PDF + …) per event in paged listing. */
     private static final int WALL_FS_LINKS_PER_EVENT_CAP = 16;
+    /**
+     * Max Mongo events scanned per wall page. Many rows are dropped after load (no extractable media),
+     * so a fixed skip/limit on events would return empty pages and hide activities.
+     */
+    private static final int WALL_MAX_EVENTS_SCANNED_PER_REQUEST = 250;
 
     /** Mongo regex (flag i) + Java {@link #looksLikeImageFileName}: image files when {@code fileType} is absent or incorrect. */
     private static final String IMAGE_FILENAME_MONGO_REGEX =
@@ -303,6 +308,8 @@ public class PhotoTimelineRestController {
         private int page;
         private int pageSize;
         private boolean hasMore;
+        /** Mongo event offset for the next paged request (replaces page×size when the client sends {@code offset}). */
+        private long nextEventOffset;
         private List<TimelinePhoto> onThisDay;
 
         public TimelineResponse() {}
@@ -319,8 +326,30 @@ public class PhotoTimelineRestController {
         public void setPageSize(int pageSize) { this.pageSize = pageSize; }
         public boolean isHasMore() { return hasMore; }
         public void setHasMore(boolean hasMore) { this.hasMore = hasMore; }
+        public long getNextEventOffset() { return nextEventOffset; }
+        public void setNextEventOffset(long nextEventOffset) { this.nextEventOffset = nextEventOffset; }
         public List<TimelinePhoto> getOnThisDay() { return onThisDay; }
         public void setOnThisDay(List<TimelinePhoto> onThisDay) { this.onThisDay = onThisDay; }
+    }
+
+    @FunctionalInterface
+    private interface TimelineGroupBuilder {
+        /** @return a wall group for this event, or {@code null} if it should not appear in this stream */
+        TimelineGroup buildGroupOrNull(Evenement e, boolean singleEventWall, Map<String, Member> authorCache);
+    }
+
+    private static final class TimelinePageScanResult {
+        final List<TimelineGroup> groups;
+        final long nextEventOffset;
+        final boolean hasMore;
+        final int totalMediaInPage;
+
+        TimelinePageScanResult(List<TimelineGroup> groups, long nextEventOffset, boolean hasMore, int totalMediaInPage) {
+            this.groups = groups;
+            this.nextEventOffset = nextEventOffset;
+            this.hasMore = hasMore;
+            this.totalMediaInPage = totalMediaInPage;
+        }
     }
 
     /**
@@ -398,11 +427,130 @@ public class PhotoTimelineRestController {
         return authorCache.computeIfAbsent(id, k -> membersRepository.findById(k).orElse(null));
     }
 
+    /**
+     * Loads up to {@code targetGroupCount} wall groups by scanning Mongo events from {@code startEventOffset}.
+     * Events that match the query but yield no wall group (post-filter) are skipped without creating empty API pages.
+     */
+    private TimelinePageScanResult loadTimelineGroupsPage(
+            Criteria mainCriteria,
+            int targetGroupCount,
+            long startEventOffset,
+            boolean singleEventWall,
+            String userId,
+            TimelineGroupBuilder groupBuilder) {
+        List<TimelineGroup> groups = new ArrayList<>();
+        long eventOffset = startEventOffset;
+        int totalMediaInPage = 0;
+        boolean hasMore = false;
+        int eventsScannedThisRequest = 0;
+        boolean exhaustedDb = false;
+        String userIdTrimmed = StringUtils.hasText(userId) ? userId.trim() : "";
+        Map<String, Member> authorCache = new HashMap<>();
+
+        while (groups.size() < targetGroupCount && eventsScannedThisRequest < WALL_MAX_EVENTS_SCANNED_PER_REQUEST) {
+            int remainingBudget = WALL_MAX_EVENTS_SCANNED_PER_REQUEST - eventsScannedThisRequest;
+            int batchLimit = Math.min(Math.max(targetGroupCount * 4, targetGroupCount + 1), remainingBudget);
+
+            Query batchQuery = new Query(mainCriteria);
+            batchQuery.with(Sort.by(Sort.Direction.DESC, "beginEventDate"));
+            batchQuery.skip(eventOffset);
+            batchQuery.limit(batchLimit + 1);
+            applyTimelinePagedEventFields(batchQuery);
+
+            List<Evenement> batch = mongoTemplate.find(batchQuery, Evenement.class);
+            if (batch.isEmpty()) {
+                exhaustedDb = true;
+                hasMore = false;
+                break;
+            }
+
+            boolean dbHasMore = batch.size() > batchLimit;
+            if (dbHasMore) {
+                batch = batch.subList(0, batchLimit);
+            }
+
+            evenementTodoListLinkService.attachLinkedTodoListsForEvents(batch, userIdTrimmed);
+
+            boolean filledPage = false;
+            for (int i = 0; i < batch.size(); i++) {
+                Evenement e = batch.get(i);
+                eventOffset++;
+                eventsScannedThisRequest++;
+                TimelineGroup group = groupBuilder.buildGroupOrNull(e, singleEventWall, authorCache);
+                if (group == null) {
+                    continue;
+                }
+                groups.add(group);
+                totalMediaInPage += group.getPhotos() != null ? group.getPhotos().size() : 0;
+                if (groups.size() >= targetGroupCount) {
+                    hasMore = i < batch.size() - 1 || dbHasMore;
+                    filledPage = true;
+                    break;
+                }
+            }
+
+            if (filledPage) {
+                break;
+            }
+            if (!dbHasMore) {
+                exhaustedDb = true;
+                hasMore = false;
+                break;
+            }
+            hasMore = true;
+        }
+
+        if (groups.size() < targetGroupCount && !exhaustedDb) {
+            hasMore = true;
+        }
+
+        return new TimelinePageScanResult(groups, eventOffset, hasMore, totalMediaInPage);
+    }
+
+    private TimelineGroup buildPhotoTimelineGroup(Evenement e, boolean singleEventWall, Map<String, Member> authorCache) {
+        int photoTotal = countTimelinePhotos(e);
+        int videoTotal = countTimelineVideos(e);
+        List<TimelinePhoto> photos = singleEventWall
+                ? extractPhotos(e, 0)
+                : extractPhotos(e, WALL_PHOTOS_PER_EVENT_CAP);
+        List<TimelinePhoto> videos = singleEventWall
+                ? extractVideos(e, 0)
+                : extractVideos(e, WALL_VIDEOS_PER_EVENT_CAP);
+        List<FsPhotoLink> fsLinks = singleEventWall
+                ? extractFsPhotoLinks(e, 0)
+                : extractFsPhotoLinks(e, WALL_FS_LINKS_PER_EVENT_CAP);
+        if (photos.isEmpty() && fsLinks.isEmpty()) {
+            return null;
+        }
+        TimelineGroup group = new TimelineGroup();
+        group.setEventId(e.getId());
+        group.setEventName(e.getEvenementName());
+        group.setEventType(e.getType());
+        group.setEventDescription(e.getComments());
+        group.setEventDate(e.getBeginEventDate());
+        group.setVisibility(e.getVisibility());
+        group.setFriendGroupId(e.getFriendGroupId());
+        group.setFriendGroupIds(e.getFriendGroupIds());
+        group.setLinkedTodoListId(e.getLinkedTodoListId());
+        applyWallListingMediaCaps(group, photos, videos, singleEventWall, photoTotal, videoTotal);
+        group.setFsPhotoLinks(fsLinks);
+        group.setRatingPlus(e.getRatingPlus());
+        group.setRatingMinus(e.getRatingMinus());
+        Member owner = resolveEventAuthor(e, authorCache);
+        if (owner != null) {
+            group.setOwnerFirstName(owner.getFirstName());
+            group.setOwnerLastName(owner.getLastName());
+            group.setOwnerUserName(owner.getUserName());
+        }
+        return group;
+    }
+
     @GetMapping(value = "/timeline", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<TimelineResponse> getPhotoTimeline(
             @RequestHeader(value = "user-id", required = false) String userId,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "12") int size,
+            @RequestParam(value = "offset", required = false) Long offset,
             @RequestParam(value = "search", required = false) String search,
             @RequestParam(value = "visibility", required = false) String visibility,
             @RequestParam(value = "eventId", required = false) String eventId) {
@@ -424,77 +572,31 @@ public class PhotoTimelineRestController {
                 mainCriteria = new Criteria().andOperator(mainCriteria, buildSearchCriteria(search.trim()));
             }
 
-            log.debug("[PhotoTimeline] userId={} visibility={} page={} query={}", userId, visibility, page, mainCriteria.getCriteriaObject().toJson());
-            Query pagedQuery = new Query(mainCriteria);
-            pagedQuery.with(Sort.by(Sort.Direction.DESC, "beginEventDate"));
-            pagedQuery.skip((long) page * size);
-            pagedQuery.limit(size + 1);
-            applyTimelinePagedEventFields(pagedQuery);
+            long startEventOffset = offset != null ? Math.max(0L, offset) : (long) page * size;
+            log.debug("[PhotoTimeline] userId={} visibility={} page={} offset={} query={}",
+                    userId, visibility, page, startEventOffset, mainCriteria.getCriteriaObject().toJson());
 
-            List<Evenement> events = mongoTemplate.find(pagedQuery, Evenement.class);
-
-            boolean hasMore = events.size() > size;
-            if (hasMore) {
-                events = events.subList(0, size);
-            }
-
-            evenementTodoListLinkService.attachLinkedTodoListsForEvents(
-                    events, StringUtils.hasText(userId) ? userId.trim() : "");
-
-            List<TimelineGroup> groups = new ArrayList<>();
-            int totalPhotosInPage = 0;
-            Map<String, Member> authorCache = new HashMap<>();
-
-            for (Evenement e : events) {
-                int photoTotal = countTimelinePhotos(e);
-                int videoTotal = countTimelineVideos(e);
-                List<TimelinePhoto> photos = singleEventWall
-                        ? extractPhotos(e, 0)
-                        : extractPhotos(e, WALL_PHOTOS_PER_EVENT_CAP);
-                List<TimelinePhoto> videos = singleEventWall
-                        ? extractVideos(e, 0)
-                        : extractVideos(e, WALL_VIDEOS_PER_EVENT_CAP);
-                List<FsPhotoLink> fsLinks = singleEventWall
-                        ? extractFsPhotoLinks(e, 0)
-                        : extractFsPhotoLinks(e, WALL_FS_LINKS_PER_EVENT_CAP);
-                if (!photos.isEmpty() || !fsLinks.isEmpty()) {
-                    TimelineGroup group = new TimelineGroup();
-                    group.setEventId(e.getId());
-                    group.setEventName(e.getEvenementName());
-                    group.setEventType(e.getType());
-                    group.setEventDescription(e.getComments());
-                    group.setEventDate(e.getBeginEventDate());
-                    group.setVisibility(e.getVisibility());
-                    group.setFriendGroupId(e.getFriendGroupId());
-                    group.setFriendGroupIds(e.getFriendGroupIds());
-                    group.setLinkedTodoListId(e.getLinkedTodoListId());
-                    applyWallListingMediaCaps(group, photos, videos, singleEventWall, photoTotal, videoTotal);
-                    group.setFsPhotoLinks(fsLinks);
-                    group.setRatingPlus(e.getRatingPlus());
-                    group.setRatingMinus(e.getRatingMinus());
-                    Member owner = resolveEventAuthor(e, authorCache);
-                    if (owner != null) {
-                        group.setOwnerFirstName(owner.getFirstName());
-                        group.setOwnerLastName(owner.getLastName());
-                        group.setOwnerUserName(owner.getUserName());
-                    }
-                    groups.add(group);
-                    totalPhotosInPage += group.getPhotos().size();
-                }
-            }
+            TimelinePageScanResult scan = loadTimelineGroupsPage(
+                    mainCriteria,
+                    size,
+                    startEventOffset,
+                    singleEventWall,
+                    userId,
+                    this::buildPhotoTimelineGroup);
 
             TimelineResponse response = new TimelineResponse();
-            response.setGroups(groups);
-            response.setTotalPhotos(totalPhotosInPage);
+            response.setGroups(scan.groups);
+            response.setTotalPhotos(scan.totalMediaInPage);
             response.setTotalGroups(-1);
             response.setPage(page);
             response.setPageSize(size);
-            response.setHasMore(hasMore);
+            response.setHasMore(scan.hasMore);
+            response.setNextEventOffset(scan.nextEventOffset);
             response.setOnThisDay(Collections.emptyList());
 
             long elapsed = System.currentTimeMillis() - start;
-            log.debug("Photo timeline page {} ({} groups) served in {}ms for user {}",
-                    page, groups.size(), elapsed, userId);
+            log.debug("Photo timeline page {} offset {} ({} groups, nextOffset {}) served in {}ms for user {}",
+                    page, startEventOffset, scan.groups.size(), scan.nextEventOffset, elapsed, userId);
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -507,11 +609,46 @@ public class PhotoTimelineRestController {
      * Video timeline: events that have at least one video and NO photos (so they are not already in the main timeline).
      * This avoids showing the same event twice on the wall (once as video-only, once as photos+videos).
      */
+    private TimelineGroup buildVideoTimelineGroup(Evenement e, boolean singleEventWall, Map<String, Member> authorCache) {
+        List<TimelinePhoto> videos = extractVideos(e);
+        if (videos.isEmpty()) {
+            return null;
+        }
+        TimelineGroup group = new TimelineGroup();
+        group.setEventId(e.getId());
+        group.setEventName(e.getEvenementName());
+        group.setEventType(e.getType());
+        group.setEventDescription(e.getComments());
+        group.setEventDate(e.getBeginEventDate());
+        group.setVisibility(e.getVisibility());
+        group.setFriendGroupId(e.getFriendGroupId());
+        group.setFriendGroupIds(e.getFriendGroupIds());
+        group.setLinkedTodoListId(e.getLinkedTodoListId());
+        if (!singleEventWall && videos.size() > WALL_VIDEOS_PER_EVENT_CAP) {
+            group.setPhotos(new ArrayList<>(videos.subList(0, WALL_VIDEOS_PER_EVENT_CAP)));
+            group.setTotalVideosInEvent(videos.size());
+            group.setVideosTruncated(true);
+        } else {
+            group.setPhotos(videos);
+        }
+        group.setFsPhotoLinks(extractFsPhotoLinks(e));
+        group.setRatingPlus(e.getRatingPlus());
+        group.setRatingMinus(e.getRatingMinus());
+        Member owner = resolveEventAuthor(e, authorCache);
+        if (owner != null) {
+            group.setOwnerFirstName(owner.getFirstName());
+            group.setOwnerLastName(owner.getLastName());
+            group.setOwnerUserName(owner.getUserName());
+        }
+        return group;
+    }
+
     @GetMapping(value = "/timeline/videos", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<TimelineResponse> getVideoTimeline(
             @RequestHeader(value = "user-id", required = false) String userId,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "12") int size,
+            @RequestParam(value = "offset", required = false) Long offset,
             @RequestParam(value = "search", required = false) String search,
             @RequestParam(value = "visibility", required = false) String visibility,
             @RequestParam(value = "eventId", required = false) String eventId) {
@@ -544,71 +681,29 @@ public class PhotoTimelineRestController {
             if (search != null && !search.trim().isEmpty()) {
                 combined = new Criteria().andOperator(combined, buildSearchCriteria(search.trim()));
             }
-            Query pagedQuery = new Query(combined);
-            pagedQuery.with(Sort.by(Sort.Direction.DESC, "beginEventDate"));
-            pagedQuery.skip((long) page * size);
-            pagedQuery.limit(size + 1);
-            applyTimelinePagedEventFields(pagedQuery);
 
-            List<Evenement> events = mongoTemplate.find(pagedQuery, Evenement.class);
-
-            boolean hasMore = events.size() > size;
-            if (hasMore) {
-                events = events.subList(0, size);
-            }
-
-            evenementTodoListLinkService.attachLinkedTodoListsForEvents(
-                    events, StringUtils.hasText(userId) ? userId.trim() : "");
-
-            List<TimelineGroup> groups = new ArrayList<>();
-            int totalVideosInPage = 0;
-            Map<String, Member> authorCache = new HashMap<>();
-
-            for (Evenement e : events) {
-                List<TimelinePhoto> videos = extractVideos(e);
-                if (!videos.isEmpty()) {
-                    TimelineGroup group = new TimelineGroup();
-                    group.setEventId(e.getId());
-                    group.setEventName(e.getEvenementName());
-                    group.setEventType(e.getType());
-                    group.setEventDescription(e.getComments());
-                    group.setEventDate(e.getBeginEventDate());
-                    group.setVisibility(e.getVisibility());
-                    group.setFriendGroupId(e.getFriendGroupId());
-                    group.setFriendGroupIds(e.getFriendGroupIds());
-                    group.setLinkedTodoListId(e.getLinkedTodoListId());
-                    if (!singleEventWall && videos.size() > WALL_VIDEOS_PER_EVENT_CAP) {
-                        group.setPhotos(new ArrayList<>(videos.subList(0, WALL_VIDEOS_PER_EVENT_CAP)));
-                        group.setTotalVideosInEvent(videos.size());
-                        group.setVideosTruncated(true);
-                    } else {
-                        group.setPhotos(videos);
-                    }
-                    group.setFsPhotoLinks(extractFsPhotoLinks(e));
-                    group.setRatingPlus(e.getRatingPlus());
-                    group.setRatingMinus(e.getRatingMinus());
-                    Member owner = resolveEventAuthor(e, authorCache);
-                    if (owner != null) {
-                        group.setOwnerFirstName(owner.getFirstName());
-                        group.setOwnerLastName(owner.getLastName());
-                        group.setOwnerUserName(owner.getUserName());
-                    }
-                    groups.add(group);
-                    totalVideosInPage += group.getPhotos().size();
-                }
-            }
+            long startEventOffset = offset != null ? Math.max(0L, offset) : (long) page * size;
+            TimelinePageScanResult scan = loadTimelineGroupsPage(
+                    combined,
+                    size,
+                    startEventOffset,
+                    singleEventWall,
+                    userId,
+                    this::buildVideoTimelineGroup);
 
             TimelineResponse response = new TimelineResponse();
-            response.setGroups(groups);
-            response.setTotalPhotos(totalVideosInPage);
+            response.setGroups(scan.groups);
+            response.setTotalPhotos(scan.totalMediaInPage);
             response.setTotalGroups(-1);
             response.setPage(page);
             response.setPageSize(size);
-            response.setHasMore(hasMore);
+            response.setHasMore(scan.hasMore);
+            response.setNextEventOffset(scan.nextEventOffset);
             response.setOnThisDay(Collections.emptyList());
 
             long elapsed = System.currentTimeMillis() - start;
-            log.debug("Video timeline page {} ({} groups) served in {}ms for user {}", page, groups.size(), elapsed, userId);
+            log.debug("Video timeline page {} offset {} ({} groups, nextOffset {}) served in {}ms for user {}",
+                    page, startEventOffset, scan.groups.size(), scan.nextEventOffset, elapsed, userId);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             log.error("Error building video timeline", e);

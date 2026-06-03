@@ -70,6 +70,8 @@ export interface TimelineResponse {
     page: number;
     pageSize: number;
     hasMore: boolean;
+    /** Mongo event offset for the next request (when provided by the API). */
+    nextEventOffset?: number;
     onThisDay: TimelinePhoto[];
 }
 
@@ -92,11 +94,14 @@ export class PhotoTimelineService {
         );
     }
 
-    getTimeline(userId: string, page: number = 0, size: number = 12, search?: string, visibility?: string, eventId?: string): Observable<TimelineResponse> {
+    getTimeline(userId: string, page: number = 0, size: number = 12, search?: string, visibility?: string, eventId?: string, offset?: number): Observable<TimelineResponse> {
         return this.getHeaderWithToken().pipe(
             switchMap(headers => {
                 const h = headers.set('user-id', userId);
                 let url = `${this.API_URL}photos/timeline?page=${page}&size=${size}`;
+                if (offset != null && offset >= 0) {
+                    url += `&offset=${offset}`;
+                }
                 if (search != null && search.trim() !== '') {
                     url += '&search=' + encodeURIComponent(search.trim());
                 }
@@ -112,11 +117,14 @@ export class PhotoTimelineService {
     }
 
     /** Video timeline (separate stream for "mur de photos"). Same structure as getTimeline but for videos only. */
-    getVideoTimeline(userId: string, page: number = 0, size: number = 12, search?: string, visibility?: string, eventId?: string): Observable<TimelineResponse> {
+    getVideoTimeline(userId: string, page: number = 0, size: number = 12, search?: string, visibility?: string, eventId?: string, offset?: number): Observable<TimelineResponse> {
         return this.getHeaderWithToken().pipe(
             switchMap(headers => {
                 const h = headers.set('user-id', userId);
                 let url = `${this.API_URL}photos/timeline/videos?page=${page}&size=${size}`;
+                if (offset != null && offset >= 0) {
+                    url += `&offset=${offset}`;
+                }
                 if (search != null && search.trim() !== '') {
                     url += '&search=' + encodeURIComponent(search.trim());
                 }

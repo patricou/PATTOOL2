@@ -279,6 +279,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     userId = '';
     private nextPage = 0;
     private nextPageVideos = 0;
+    /** Mongo event offsets returned by the API (accurate after post-filter). */
+    private nextEventOffset = 0;
+    private nextVideoEventOffset = 0;
     private subscriptions: Subscription[] = [];
     private intersectionObserver: IntersectionObserver | null = null;
     private wallVideoIntersectionObserver: IntersectionObserver | null = null;
@@ -765,6 +768,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.errorMessage = '';
         this.nextPage = 0;
         this.nextPageVideos = 0;
+        this.nextEventOffset = 0;
+        this.nextVideoEventOffset = 0;
         this.visibleGroups = [];
         this.bufferedGroups = [];
         this.bufferedVideoGroups = [];
@@ -877,17 +882,25 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         const pageSize = this.filterEventId
             ? PAGE_SIZE
             : (this.nextPage === 0 ? FIRST_PAGE_SIZE : PAGE_SIZE);
-        const sub = this.photoTimelineService.getTimeline(this.userId, this.nextPage, pageSize, search, visibility, this.filterEventId).subscribe({
+        const sub = this.photoTimelineService.getTimeline(
+            this.userId, this.nextPage, pageSize, search, visibility, this.filterEventId, this.nextEventOffset
+        ).subscribe({
             next: (response: TimelineResponse) => {
                 if (this.destroyed || gen !== this.timelineLoadGeneration) return;
                 this.isFetching = false;
                 this.hasMore = response.hasMore;
                 this.nextPage = response.page + 1;
+                if (response.nextEventOffset != null && response.nextEventOffset >= 0) {
+                    this.nextEventOffset = response.nextEventOffset;
+                }
                 this.scheduleVideoTimelineFetchOnce();
 
                 if (response.groups.length > 0) {
                     response.groups.forEach(g => this.bufferedGroups.push(g));
                     this.revealInitialBatch();
+                } else if (response.hasMore) {
+                    // API page had no displayable groups but more events exist — fetch next slice immediately
+                    this.fetchNext();
                 } else if (this.isLoading && !response.hasMore && this.bufferedVideoGroups.length === 0) {
                     this.isLoading = false;
                     setTimeout(() => { if (!this.destroyed) this.setupIntersectionObserver(); }, 50);
@@ -928,16 +941,23 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         const visibility = this.selectedVisibilityFilter.trim() !== 'all' ? this.selectedVisibilityFilter : undefined;
         const gen = this.timelineLoadGeneration;
         const pageSize = this.nextPageVideos === 0 ? FIRST_PAGE_SIZE : PAGE_SIZE;
-        const sub = this.photoTimelineService.getVideoTimeline(this.userId, this.nextPageVideos, pageSize, search, visibility, this.filterEventId).subscribe({
+        const sub = this.photoTimelineService.getVideoTimeline(
+            this.userId, this.nextPageVideos, pageSize, search, visibility, this.filterEventId, this.nextVideoEventOffset
+        ).subscribe({
             next: (response: TimelineResponse) => {
                 if (this.destroyed || gen !== this.timelineLoadGeneration) return;
                 this.isFetchingVideos = false;
                 this.hasMoreVideos = response.hasMore;
                 this.nextPageVideos = response.page + 1;
+                if (response.nextEventOffset != null && response.nextEventOffset >= 0) {
+                    this.nextVideoEventOffset = response.nextEventOffset;
+                }
 
                 if (response.groups.length > 0) {
                     response.groups.forEach(g => this.bufferedVideoGroups.push(g));
                     this.revealInitialBatch();
+                } else if (response.hasMore) {
+                    this.fetchNextVideos();
                 }
 
                 this.scheduleTimelinePrefetchAfterInitialPaint();
@@ -1065,6 +1085,12 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             this.bufferedGroups.splice(0, 1);
             group = gPhoto;
         } else {
+            if (this.hasMore) {
+                this.fetchNext();
+            }
+            if (this.hasMoreVideos) {
+                this.fetchNextVideos();
+            }
             return;
         }
 
