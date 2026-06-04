@@ -49,9 +49,20 @@ public class IssTraceService {
      * @return {@code true} when a new document was stored
      */
     public boolean recordPoint(double latitude, double longitude, Instant recordedAt) {
+        return recordPoint(latitude, longitude, recordedAt, getSampleIntervalSeconds());
+    }
+
+    /**
+     * Append one sample when at least {@code minIntervalSeconds} elapsed since the last stored point.
+     *
+     * @param minIntervalSeconds minimum spacing between samples (e.g. 900 for 15-minute background sampling)
+     * @return {@code true} when a new document was stored
+     */
+    public boolean recordPoint(double latitude, double longitude, Instant recordedAt, int minIntervalSeconds) {
         if (!isValidCoordinate(latitude, longitude)) {
             return false;
         }
+        int minSec = Math.max(1, minIntervalSeconds);
         Instant at = recordedAt != null ? recordedAt : Instant.now();
         var lastOpt = repository.findTopByOrderByRecordedAtDesc();
         if (lastOpt.isPresent()) {
@@ -59,7 +70,7 @@ public class IssTraceService {
             Instant lastAt = last.getRecordedAt();
             if (lastAt != null) {
                 long elapsedSec = Duration.between(lastAt, at).getSeconds();
-                if (elapsedSec < getSampleIntervalSeconds()) {
+                if (elapsedSec < minSec) {
                     return false;
                 }
             }

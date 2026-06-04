@@ -189,6 +189,30 @@ export class ApiService {
    * ISS visible pass predictions for a place (geocode + Open Notify via backend).
    * @param index zero-based geocode candidate when the API returns status {@code ambiguous}.
    */
+  /** Server-side ISS trace background recording (MongoDB, every 15 min when enabled). */
+  getIssTraceBackgroundRecording(): Observable<{ enabled: boolean; intervalMinutes: number }> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<{ enabled: boolean; intervalMinutes: number }>(
+          this.API_URL + 'external/globe/iss/trace/background',
+          { headers }
+        )
+      )
+    );
+  }
+
+  setIssTraceBackgroundRecording(enabled: boolean): Observable<{ enabled: boolean; intervalMinutes: number }> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<{ enabled: boolean; intervalMinutes: number }>(
+          this.API_URL + 'external/globe/iss/trace/background',
+          { enabled },
+          { headers }
+        )
+      )
+    );
+  }
+
   getIssPassesByPlace(query: string, passCount = 5, index?: number): Observable<unknown> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers => {

@@ -82,6 +82,10 @@ globe.iss.trace.retention.days=30
 globe.iss.trace.sample-interval.seconds=60
 # Max points returned to the globe for rendering (uniform decimation if more samples exist).
 globe.iss.trace.max-display-points=8000
+# Background ISS sampling (server scheduler, no users on globe required). Flag persisted in MongoDB appParameters.
+globe.iss.trace.background.enabled-default=false
+globe.iss.trace.background.interval.seconds=900
+globe.iss.trace.background.fixed-rate-ms=900000
 
 # --- IoT gate / ESP (HomeIOTService beans: no defaults in code) ---
 app.arduino.ip=192.168.1.65

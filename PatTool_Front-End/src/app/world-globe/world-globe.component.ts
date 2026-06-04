@@ -324,6 +324,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   /** Dates/heures le long de la trace historique ISS (activé par défaut). */
   issHistoricalTraceDatesEnabled = true;
   issHistoricalTraceClearInFlight = false;
+  /** Server records ISS to MongoDB every 15 min even when no user has the globe open (persisted in MongoDB). */
+  issBackgroundTraceEnabled = false;
+  issBackgroundTraceIntervalMinutes = 15;
+  issBackgroundTraceLoading = false;
+  issBackgroundTraceSaving = false;
   /** Intervalle d’échantillonnage trace ISS côté serveur (s), lu depuis GET /iss/trace. */
   issTraceSampleIntervalSec = GLOBE_ISS_TRACE_SAMPLE_INTERVAL_SEC_DEFAULT;
   globeIssLat: number | null = null;
@@ -732,6 +737,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (this.issHistoricalTraceEnabled) {
       queueMicrotask(() => void this.loadIssHistoricalTrace());
     }
+    queueMicrotask(() => this.loadIssBackgroundTraceSetting());
   }
 
   ngOnDestroy(): void {
@@ -1256,6 +1262,57 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.clearIssPositionFeedState();
     }
     this.cdr.markForCheck();
+  }
+
+  loadIssBackgroundTraceSetting(): void {
+    this.issBackgroundTraceLoading = true;
+    this.apiService
+      .getIssTraceBackgroundRecording()
+      .pipe(
+        finalize(() => {
+          this.issBackgroundTraceLoading = false;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
+        next: (res) => {
+          this.issBackgroundTraceEnabled = !!res?.enabled;
+          if (typeof res?.intervalMinutes === 'number' && res.intervalMinutes > 0) {
+            this.issBackgroundTraceIntervalMinutes = res.intervalMinutes;
+          }
+        },
+        error: () => {
+          /* keep defaults */
+        }
+      });
+  }
+
+  onIssBackgroundTraceToggle(): void {
+    if (this.issBackgroundTraceSaving) {
+      return;
+    }
+    const next = this.issBackgroundTraceEnabled;
+    this.issBackgroundTraceSaving = true;
+    this.apiService
+      .setIssTraceBackgroundRecording(next)
+      .pipe(
+        finalize(() => {
+          this.issBackgroundTraceSaving = false;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
+        next: (res) => {
+          this.issBackgroundTraceEnabled = !!res?.enabled;
+          if (typeof res?.intervalMinutes === 'number' && res.intervalMinutes > 0) {
+            this.issBackgroundTraceIntervalMinutes = res.intervalMinutes;
+          }
+        },
+        error: () => {
+          this.issBackgroundTraceEnabled = !next;
+          this.cdr.markForCheck();
+        }
+      });
   }
 
   onIssHistoricalTraceToggle(): void {

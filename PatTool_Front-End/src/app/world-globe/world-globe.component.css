@@ -1459,10 +1459,17 @@ body:has(.wg-fs-root--viewport-locked) {
 }
 
 /* Recherche lieu (géocodage Nominatim) */
+.wg-iss-pass-section,
 .wg-iss-pass-block {
-  padding: 0.35rem 0 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0 0 0.35rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 0.5rem !important;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.wg-iss-pass-section__label {
+  font-size: var(--wg-label, 0.66rem);
+  color: #b9c7e8;
 }
 
 .wg-iss-pass-hint,
@@ -1684,11 +1691,13 @@ body:has(.wg-fs-root--viewport-locked) {
     margin-bottom: 0.35rem !important;
   }
 
+  .wg-iss-pass-section,
   .wg-geocode-block {
     padding-bottom: 0.28rem;
     margin-bottom: 0.35rem !important;
   }
 
+  .wg-iss-pass-section__label,
   .wg-geocode-label {
     font-size: var(--wg-label);
     margin-bottom: 0.25rem !important;

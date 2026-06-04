@@ -203,6 +203,7 @@ public class SecurityConfig {
                 // Geo: geocode and altitudes (no sensitive data, allow without login for address/map tools)
                 .requestMatchers(HttpMethod.GET, "/api/external/geocode/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/globe/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/globe/iss/trace/background").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/external/globe/iss/trace").permitAll()
                 .requestMatchers(HttpMethod.DELETE, "/api/external/globe/iss/trace").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/weather/altitudes").permitAll()

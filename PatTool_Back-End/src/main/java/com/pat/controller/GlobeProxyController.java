@@ -4,6 +4,7 @@ import com.pat.service.GlobeProxyService;
 import com.pat.service.GlobeProxyService.FetchedImage;
 import com.pat.service.GlobeProxyService.PlanetTextureAsset;
 import com.pat.service.IssPassLookupService;
+import com.pat.service.IssTraceBackgroundScheduler;
 import com.pat.service.IssTraceService;
 import com.pat.service.IssTraceService.IssTracePointView;
 import org.slf4j.Logger;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -38,14 +40,17 @@ public class GlobeProxyController {
     private final GlobeProxyService globeProxyService;
     private final IssTraceService issTraceService;
     private final IssPassLookupService issPassLookupService;
+    private final IssTraceBackgroundScheduler issTraceBackgroundScheduler;
 
     public GlobeProxyController(
             GlobeProxyService globeProxyService,
             IssTraceService issTraceService,
-            IssPassLookupService issPassLookupService) {
+            IssPassLookupService issPassLookupService,
+            IssTraceBackgroundScheduler issTraceBackgroundScheduler) {
         this.globeProxyService = globeProxyService;
         this.issTraceService = issTraceService;
         this.issPassLookupService = issPassLookupService;
+        this.issTraceBackgroundScheduler = issTraceBackgroundScheduler;
     }
 
     @GetMapping("/texture/planets/{name}")
@@ -317,6 +322,30 @@ public class GlobeProxyController {
         }
     }
 
+    /**
+     * Background ISS trace recording (server scheduler, MongoDB flag).
+     * When enabled, samples are stored every {@link IssTraceBackgroundScheduler#getBackgroundIntervalMinutes()} minutes
+     * even if no user has the globe page open.
+     */
+    @GetMapping("/iss/trace/background")
+    public ResponseEntity<IssTraceBackgroundStatusResponse> issTraceBackgroundStatus() {
+        return ResponseEntity.ok(new IssTraceBackgroundStatusResponse(
+                issTraceBackgroundScheduler.isBackgroundEnabled(),
+                issTraceBackgroundScheduler.getBackgroundIntervalMinutes()));
+    }
+
+    @PutMapping("/iss/trace/background")
+    public ResponseEntity<IssTraceBackgroundStatusResponse> setIssTraceBackground(
+            @RequestBody IssTraceBackgroundToggleRequest body) {
+        if (body == null || body.enabled() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        issTraceBackgroundScheduler.setBackgroundEnabled(body.enabled());
+        return ResponseEntity.ok(new IssTraceBackgroundStatusResponse(
+                issTraceBackgroundScheduler.isBackgroundEnabled(),
+                issTraceBackgroundScheduler.getBackgroundIntervalMinutes()));
+    }
+
     /** Delete all stored ISS trace samples. */
     @DeleteMapping("/iss/trace")
     public ResponseEntity<Void> clearIssHistoricalTrace() {
@@ -333,6 +362,12 @@ public class GlobeProxyController {
     }
 
     public record IssTraceResponse(List<IssTracePointView> points, int retentionDays, int sampleIntervalSeconds) {
+    }
+
+    public record IssTraceBackgroundStatusResponse(boolean enabled, int intervalMinutes) {
+    }
+
+    public record IssTraceBackgroundToggleRequest(Boolean enabled) {
     }
 
     private static ResponseEntity<byte[]> cacheableGeoJson7d(byte[] body) {
