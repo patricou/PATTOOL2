@@ -18,7 +18,7 @@ import { Subscription, firstValueFrom, timeout } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { ApiService } from '../services/api.service';
 import * as THREE from 'three';
-import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { environment } from '../../environments/environment';
 import { Body, Equator, Observer, SiderealTime } from 'astronomy-engine';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
@@ -173,14 +173,14 @@ const GLOBE_TERMINATOR_SUN_BASE = 5.8;
 const GLOBE_TERMINATOR_EXPOSURE_BASE = 1.14;
 
 /** À zoom fort (caméra proche), atténuer zoom / pan ; rotation garde un plancher lisible. */
-const ORBIT_SENS_U_MIN_ROTATE = 1.05;
+const ORBIT_SENS_U_MIN_ROTATE = 0.55;
 const ORBIT_SENS_U_MIN_PAN = 0.13;
 const ORBIT_SENS_U_MIN_ZOOM = 0.48;
-/** Vitesse Trackball : rotation au glisser sur le globe (max = vue éloignée). */
-const GLOBE_TRACKBALL_ROTATE_SPEED_MAX = 4.2;
-const GLOBE_TRACKBALL_PAN_SPEED_MAX = 0.45;
-const GLOBE_TRACKBALL_ZOOM_SPEED_MAX = 1.1;
-/** Vitesse rotation automatique (équivalent OrbitControls.autoRotateSpeed). */
+/** OrbitControls : glisser horizontal = tourner le globe, vertical = incliner (plus intuitif que Trackball). */
+const GLOBE_ORBIT_ROTATE_SPEED_MAX = 1.15;
+const GLOBE_ORBIT_PAN_SPEED_MAX = 0.55;
+const GLOBE_ORBIT_ZOOM_SPEED_MAX = 1.05;
+/** Vitesse rotation automatique (OrbitControls.autoRotateSpeed). */
 const GLOBE_AUTO_ROTATE_SPEED = 0.35;
 
 /** Pastels utilisés pour distinguer pays (priorité attribus Natural Earth `MAPCOLOR*`). */
@@ -440,7 +440,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private renderer?: THREE.WebGLRenderer;
   private scene?: THREE.Scene;
   private camera?: THREE.PerspectiveCamera;
-  private controls?: TrackballControls;
+  private controls?: OrbitControls;
   private earthMesh?: THREE.Mesh;
   /** Groupe Three.js : ligne suivant l’axe local Y (pôles). */
   private earthRotationAxisGroup?: THREE.Group;
@@ -579,11 +579,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private pendingGlobeDeepLink: { lat: number; lon: number; mapZoom?: number } | null = null;
   /** Vol caméra programmatique (géocodage) : annulation au destroy ou nouvelle cible. */
   private globeCameraAnimFrameId: number | null = null;
-  private globeCameraAnimPrevStaticMoving: boolean | null = null;
-  private globeLoopPrevMs = 0;
-  private readonly globeAutoRotateAxisScratch = new THREE.Vector3(0, 1, 0);
-  private readonly globeAutoRotateEyeScratch = new THREE.Vector3();
-  private readonly globeAutoRotateQuatScratch = new THREE.Quaternion();
+  private globeCameraAnimPrevEnableDamping: boolean | null = null;
 
   private pendingDetailLat = 0;
   private pendingDetailLon = 0;
@@ -3016,9 +3012,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     return camera.position.distanceTo(controls.target);
   }
 
-  /** TrackballControls définit `state` à l’exécution (absent des types three) ; NONE = -1. */
-  private isGlobeTrackballIdle(controls: TrackballControls): boolean {
-    return (controls as TrackballControls & { state: number }).state === -1;
+  /** OrbitControls : NONE = -1 (pas de geste en cours). */
+  private isGlobeOrbitIdle(controls: OrbitControls): boolean {
+    return (controls as OrbitControls & { state: number }).state === -1;
   }
 
   /**
@@ -3098,9 +3094,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       cancelAnimationFrame(this.globeCameraAnimFrameId);
       this.globeCameraAnimFrameId = null;
     }
-    if (this.controls && this.globeCameraAnimPrevStaticMoving !== null) {
-      this.controls.staticMoving = this.globeCameraAnimPrevStaticMoving;
-      this.globeCameraAnimPrevStaticMoving = null;
+    if (this.controls && this.globeCameraAnimPrevEnableDamping !== null) {
+      this.controls.enableDamping = this.globeCameraAnimPrevEnableDamping;
+      this.globeCameraAnimPrevEnableDamping = null;
     }
   }
 
@@ -3126,8 +3122,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       return;
     }
     this.stopGlobeCameraAnimation();
-    this.globeCameraAnimPrevStaticMoving = controls.staticMoving;
-    controls.staticMoving = true;
+    this.globeCameraAnimPrevEnableDamping = controls.enableDamping;
+    controls.enableDamping = false;
 
     const startPos = camera.position.clone();
     const startLen = startPos.length();
@@ -3136,8 +3132,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       camera.position.copy(endPos);
       controls.target.set(0, 0, 0);
       camera.up.set(0, 1, 0);
-      controls.staticMoving = this.globeCameraAnimPrevStaticMoving ?? false;
-      this.globeCameraAnimPrevStaticMoving = null;
+      controls.enableDamping = this.globeCameraAnimPrevEnableDamping ?? true;
+      this.globeCameraAnimPrevEnableDamping = null;
       controls.update();
       return;
     }
@@ -3164,8 +3160,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
         camera.position.copy(endPos);
         controls.target.set(0, 0, 0);
         camera.up.set(0, 1, 0);
-        controls.staticMoving = this.globeCameraAnimPrevStaticMoving ?? false;
-        this.globeCameraAnimPrevStaticMoving = null;
+        controls.enableDamping = this.globeCameraAnimPrevEnableDamping ?? true;
+        this.globeCameraAnimPrevEnableDamping = null;
         controls.update();
       }
     };
@@ -3187,34 +3183,19 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     const lo = controls.minDistance;
     const hi = controls.maxDistance;
     const u = hi > lo ? THREE.MathUtils.clamp((d - lo) / (hi - lo), 0, 1) : 1;
-    controls.rotateSpeed = THREE.MathUtils.lerp(ORBIT_SENS_U_MIN_ROTATE, GLOBE_TRACKBALL_ROTATE_SPEED_MAX, u);
-    controls.panSpeed = THREE.MathUtils.lerp(ORBIT_SENS_U_MIN_PAN, GLOBE_TRACKBALL_PAN_SPEED_MAX, u);
-    controls.zoomSpeed = THREE.MathUtils.lerp(ORBIT_SENS_U_MIN_ZOOM, GLOBE_TRACKBALL_ZOOM_SPEED_MAX, u);
+    controls.rotateSpeed = THREE.MathUtils.lerp(ORBIT_SENS_U_MIN_ROTATE, GLOBE_ORBIT_ROTATE_SPEED_MAX, u);
+    controls.panSpeed = THREE.MathUtils.lerp(ORBIT_SENS_U_MIN_PAN, GLOBE_ORBIT_PAN_SPEED_MAX, u);
+    controls.zoomSpeed = THREE.MathUtils.lerp(ORBIT_SENS_U_MIN_ZOOM, GLOBE_ORBIT_ZOOM_SPEED_MAX, u);
   }
 
-  /** Rotation lente autour de l’axe Y (Trackball n’a pas autoRotate intégré). */
-  private applyGlobeAutoRotate(controls: TrackballControls, nowMs: number): void {
-    const camera = this.camera;
-    if (!this.autoRotate || !camera) {
-      return;
-    }
-    if (this.globeCameraAnimFrameId != null) {
-      return;
-    }
-    if (this.isIssEarthCenteredTrackingActive() && !this.issGlobeFreeOrbit) {
-      return;
-    }
-    if (!this.isGlobeTrackballIdle(controls)) {
-      return;
-    }
-    let dtSec = this.globeLoopPrevMs > 0 ? (nowMs - this.globeLoopPrevMs) / 1000 : 1 / 60;
-    dtSec = THREE.MathUtils.clamp(dtSec, 1 / 240, 0.1);
-    const angle = ((Math.PI * 2) / 60) * GLOBE_AUTO_ROTATE_SPEED * dtSec;
-    this.globeAutoRotateEyeScratch.subVectors(camera.position, controls.target);
-    this.globeAutoRotateQuatScratch.setFromAxisAngle(this.globeAutoRotateAxisScratch, -angle);
-    this.globeAutoRotateEyeScratch.applyQuaternion(this.globeAutoRotateQuatScratch);
-    camera.position.copy(controls.target).add(this.globeAutoRotateEyeScratch);
-    camera.lookAt(controls.target);
+  private syncGlobeOrbitAutoRotate(controls: OrbitControls): void {
+    const shouldAuto =
+      this.autoRotate &&
+      this.globeCameraAnimFrameId == null &&
+      (!this.isIssEarthCenteredTrackingActive() || this.issGlobeFreeOrbit) &&
+      this.isGlobeOrbitIdle(controls);
+    controls.autoRotate = shouldAuto;
+    controls.autoRotateSpeed = GLOBE_AUTO_ROTATE_SPEED;
   }
 
   /**
@@ -3833,19 +3814,27 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     canvasEl.addEventListener('pointerup', this.onGlobePointerUp);
     canvasEl.addEventListener('pointercancel', this.onGlobePointerCancel);
 
-    const controls = new TrackballControls(camera, renderer.domElement);
-    controls.rotateSpeed = GLOBE_TRACKBALL_ROTATE_SPEED_MAX;
-    controls.zoomSpeed = GLOBE_TRACKBALL_ZOOM_SPEED_MAX;
-    controls.panSpeed = GLOBE_TRACKBALL_PAN_SPEED_MAX;
-    controls.staticMoving = false;
-    controls.dynamicDampingFactor = 0.12;
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.07;
+    controls.rotateSpeed = GLOBE_ORBIT_ROTATE_SPEED_MAX;
+    controls.zoomSpeed = GLOBE_ORBIT_ZOOM_SPEED_MAX;
+    controls.panSpeed = GLOBE_ORBIT_PAN_SPEED_MAX;
     controls.minDistance = 1.02;
     controls.maxDistance = 7;
-    controls.noRotate = false;
-    controls.noZoom = false;
-    controls.noPan = false;
+    controls.minPolarAngle = 0.04;
+    controls.maxPolarAngle = Math.PI - 0.04;
+    controls.screenSpacePanning = false;
+    controls.mouseButtons = {
+      LEFT: THREE.MOUSE.ROTATE,
+      MIDDLE: THREE.MOUSE.DOLLY,
+      RIGHT: THREE.MOUSE.PAN
+    };
+    controls.touches = {
+      ONE: THREE.TOUCH.ROTATE,
+      TWO: THREE.TOUCH.DOLLY_PAN
+    };
     controls.target.set(0, 0, 0);
-    controls.handleResize();
     controls.addEventListener('start', this.onGlobeOrbitControlsStart);
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.08);
@@ -4354,7 +4343,6 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     r.setSize(w, h, false);
     c.aspect = w / h;
     c.updateProjectionMatrix();
-    this.controls?.handleResize();
   }
 
   private startLoop(): void {
@@ -4382,15 +4370,12 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
         this.updateIssMarkerWorldPosition();
       }
       this.syncGlobeControlsSensitivity();
+      this.syncGlobeOrbitAutoRotate(controls);
       const issEarthCentered = this.isIssEarthCenteredTrackingActive();
-      if (!issEarthCentered || this.issGlobeFreeOrbit) {
-        this.applyGlobeAutoRotate(controls, nowMs);
-      }
       controls.update();
-      if (issEarthCentered && !this.issGlobeFreeOrbit && this.isGlobeTrackballIdle(controls)) {
+      if (issEarthCentered && !this.issGlobeFreeOrbit && this.isGlobeOrbitIdle(controls)) {
         this.applyIssEarthCenteredCameraIfNeeded();
       }
-      this.globeLoopPrevMs = nowMs;
       this.updateCountryLabelsScaleForZoom();
       renderer.render(scene, camera);
     };
