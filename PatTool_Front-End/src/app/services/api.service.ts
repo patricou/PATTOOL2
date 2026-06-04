@@ -185,6 +185,25 @@ export class ApiService {
    * Reverse geocode: (lat, lon) → full Nominatim response (display_name, address, extratags, etc.).
    * Uses backend proxy to Nominatim.
    */
+  /**
+   * ISS visible pass predictions for a place (geocode + Open Notify via backend).
+   * @param index zero-based geocode candidate when the API returns status {@code ambiguous}.
+   */
+  getIssPassesByPlace(query: string, passCount = 5, index?: number): Observable<unknown> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => {
+        let params = new HttpParams().set('q', query).set('n', String(passCount));
+        if (index != null && Number.isFinite(index)) {
+          params = params.set('index', String(index));
+        }
+        return this._http.get<unknown>(this.API_URL + 'external/globe/iss/passes-by-place', {
+          headers,
+          params
+        });
+      })
+    );
+  }
+
   geocodeReverse(lat: number, lon: number): Observable<any> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers => {

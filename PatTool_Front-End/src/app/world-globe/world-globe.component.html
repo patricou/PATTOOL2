@@ -68,7 +68,7 @@
     <aside class="wg-sidebar flex-shrink-0" *ngIf="showOptionsPanel">
       <div class="wg-sidebar-inner">
         <div class="wg-geocode-block mb-2">
-          <label class="wg-geocode-label small text-muted mb-1 d-block" for="wgGlobePlace">{{
+          <label class="wg-geocode-label small mb-1 d-block" for="wgGlobePlace">{{
             'WORLD_GLOBE.GEOCODE_PLACE_LABEL' | translate
           }}</label>
           <div class="input-group input-group-sm wg-geocode-input-group">
@@ -77,11 +77,11 @@
               class="form-control wg-geocode-input"
               id="wgGlobePlace"
               [(ngModel)]="globePlaceQuery"
-              [disabled]="!globeSurfaceReady || globeGeocodeLoading"
+              [disabled]="!globeSurfaceReady || issPassLoading"
               [placeholder]="'ADDRESS_GEOCODE.ADDRESS_PLACEHOLDER' | translate"
-              [attr.aria-controls]="globeGeocodeResults.length > 1 ? 'wg-globe-geocode-list' : null"
+              [attr.aria-controls]="issPassCandidates.length > 1 ? 'wg-iss-pass-candidate-list' : null"
               [attr.aria-activedescendant]="
-                globeGeocodeListActiveIndex != null ? 'wg-globe-geocode-opt-' + globeGeocodeListActiveIndex : null
+                globeGeocodeListActiveIndex != null ? 'wg-iss-pass-opt-' + globeGeocodeListActiveIndex : null
               "
               inputmode="search"
               enterkeyhint="search"
@@ -92,29 +92,45 @@
             />
             <button
               type="button"
-              class="btn btn-outline-primary wg-geocode-btn"
-              (click)="searchGlobePlace()"
-              [disabled]="!globeSurfaceReady || globeGeocodeLoading">
-              <span *ngIf="!globeGeocodeLoading">{{ 'ADDRESS_GEOCODE.FIND_GPS_SHORT' | translate }}</span>
-              <span *ngIf="globeGeocodeLoading" class="spinner-border spinner-border-sm" role="status"></span>
+              class="btn btn-outline-info wg-geocode-btn wg-iss-pass-btn"
+              (click)="searchIssPassOverPlace()"
+              [disabled]="!globeSurfaceReady || issPassLoading"
+              [attr.title]="'WORLD_GLOBE.ISS_PASS_BUTTON_HINT' | translate"
+              [attr.aria-label]="'WORLD_GLOBE.ISS_PASS_BUTTON' | translate">
+              <i class="fa fa-space-shuttle" aria-hidden="true"></i>
+              <span class="wg-iss-pass-btn__label" *ngIf="!issPassLoading">{{ 'WORLD_GLOBE.ISS_PASS_BUTTON_SHORT' | translate }}</span>
+              <span *ngIf="issPassLoading" class="spinner-border spinner-border-sm" role="status"></span>
             </button>
           </div>
-          <div class="wg-geocode-error small text-danger mt-1" *ngIf="globeGeocodeError">{{ globeGeocodeError }}</div>
-          <div class="wg-geocode-results small mt-1" *ngIf="globeGeocodeResults.length > 1">
-            <ul class="list-unstyled mb-0 wg-geocode-result-list" role="listbox" id="wg-globe-geocode-list">
-              <li *ngFor="let r of globeGeocodeResults; let i = index" role="none">
-                <button
-                  type="button"
-                  role="option"
-                  class="btn btn-link btn-sm text-start p-0 py-1 w-100 wg-geocode-result-item"
-                  [class.wg-geocode-result-item--active]="globeGeocodeListActiveIndex === i"
-                  [id]="'wg-globe-geocode-opt-' + i"
-                  [attr.aria-selected]="globeGeocodeListActiveIndex === i"
-                  (click)="flyGlobeToGeocodeResult(r)">
-                  {{ r.displayName || (r.lat.toFixed(4) + ', ' + r.lon.toFixed(4)) }}
-                </button>
-              </li>
-            </ul>
+          <div class="wg-iss-pass-block mt-1">
+            <p class="mb-1 mt-1 wg-iss-pass-hint">{{ 'WORLD_GLOBE.ISS_PASS_HINT' | translate }}</p>
+            <div class="wg-iss-pass-error text-danger" *ngIf="issPassError">{{ issPassError }}</div>
+            <div class="wg-iss-pass-results mt-1" *ngIf="issPassCandidates.length > 1">
+              <p class="mb-1 wg-iss-pass-ambiguous-hint">{{ 'WORLD_GLOBE.ISS_PASS_AMBIGUOUS_HINT' | translate }}</p>
+              <ul class="list-unstyled mb-0 wg-geocode-result-list" role="listbox" id="wg-iss-pass-candidate-list">
+                <li *ngFor="let c of issPassCandidates; let i = index" role="none">
+                  <button
+                    type="button"
+                    role="option"
+                    class="btn btn-link btn-sm text-start p-0 py-1 w-100 wg-geocode-result-item"
+                    [class.wg-geocode-result-item--active]="globeGeocodeListActiveIndex === i"
+                    [id]="'wg-iss-pass-opt-' + i"
+                    [attr.aria-selected]="globeGeocodeListActiveIndex === i"
+                    [disabled]="issPassLoading"
+                    (click)="selectIssPassCandidate(i)">
+                    {{ c.displayName || (c.lat.toFixed(4) + ', ' + c.lon.toFixed(4)) }}
+                  </button>
+                </li>
+              </ul>
+            </div>
+            <div class="wg-iss-pass-summary mt-2" *ngIf="issPassSummary" role="status">
+              <div class="wg-iss-pass-summary__place" *ngIf="issPassSummary.placeLabel">{{ issPassSummary.placeLabel }}</div>
+              <div class="wg-iss-pass-summary__coords" *ngIf="issPassSummary.coordsLine">{{ issPassSummary.coordsLine }}</div>
+              <div class="wg-iss-pass-summary__next">{{ issPassSummary.nextPassLine }}</div>
+              <ul class="list-unstyled mb-0 wg-iss-pass-upcoming" *ngIf="issPassSummary.upcomingLines.length > 1">
+                <li class="wg-iss-pass-summary__later" *ngFor="let line of issPassSummary.upcomingLines.slice(1)">{{ line }}</li>
+              </ul>
+            </div>
           </div>
         </div>
         <nav class="wg-opt-panel" [attr.aria-label]="'WORLD_GLOBE.PANEL_TOGGLE' | translate">
@@ -334,9 +350,9 @@
               </div>
               <ng-container *ngIf="issOverlayEnabled">
                 <div class="wg-opt-row">
-                  <label class="wg-opt-row__label" for="wgIssKeepCenter" [attr.title]="'WORLD_GLOBE.ISS_KEEP_EARTH_CENTERED_HINT' | translate">{{ 'WORLD_GLOBE.ISS_KEEP_EARTH_CENTERED' | translate }}</label>
+                  <label class="wg-opt-row__label" for="wgIssKeepCenter" [attr.title]="issKeepEarthCenteredControlTitle()">{{ 'WORLD_GLOBE.ISS_KEEP_EARTH_CENTERED' | translate }}</label>
                   <div class="form-check form-switch wg-opt-switch mb-0">
-                    <input class="form-check-input" type="checkbox" id="wgIssKeepCenter" [(ngModel)]="issKeepEarthCentered" (ngModelChange)="onIssKeepEarthCenteredToggle()" [disabled]="!globeSurfaceReady" />
+                    <input class="form-check-input" type="checkbox" id="wgIssKeepCenter" [(ngModel)]="issKeepEarthCentered" (ngModelChange)="onIssKeepEarthCenteredToggle()" [disabled]="!globeSurfaceReady || isGlobeFocusedOnPlace()" />
                   </div>
                 </div>
                 <p class="wg-opt-iss-meta text-monospace text-info mb-0" *ngIf="globeIssLat != null && globeIssLon != null" aria-live="polite">

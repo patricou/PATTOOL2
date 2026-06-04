@@ -3,6 +3,7 @@ package com.pat.controller;
 import com.pat.service.GlobeProxyService;
 import com.pat.service.GlobeProxyService.FetchedImage;
 import com.pat.service.GlobeProxyService.PlanetTextureAsset;
+import com.pat.service.IssPassLookupService;
 import com.pat.service.IssTraceService;
 import com.pat.service.IssTraceService.IssTracePointView;
 import org.slf4j.Logger;
@@ -36,10 +37,15 @@ public class GlobeProxyController {
 
     private final GlobeProxyService globeProxyService;
     private final IssTraceService issTraceService;
+    private final IssPassLookupService issPassLookupService;
 
-    public GlobeProxyController(GlobeProxyService globeProxyService, IssTraceService issTraceService) {
+    public GlobeProxyController(
+            GlobeProxyService globeProxyService,
+            IssTraceService issTraceService,
+            IssPassLookupService issPassLookupService) {
         this.globeProxyService = globeProxyService;
         this.issTraceService = issTraceService;
+        this.issPassLookupService = issPassLookupService;
     }
 
     @GetMapping("/texture/planets/{name}")
@@ -211,6 +217,46 @@ public class GlobeProxyController {
             return cacheableGeoJson7d(globeProxyService.fetchNaturalEarth10mTimeZonesGeoJson());
         } catch (Exception e) {
             log.debug("Natural Earth time zones GeoJSON failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
+    }
+
+    /**
+     * Next ISS visible passes for a place name (geocoded server-side via Nominatim, passes via Open Notify).
+     *
+     * @param index optional zero-based geocode candidate when several places match {@code q}
+     */
+    @GetMapping("/iss/passes-by-place")
+    public ResponseEntity<byte[]> issPassesByPlace(
+            @RequestParam("q") String placeQuery,
+            @RequestParam(value = "n", defaultValue = "5") int passCount,
+            @RequestParam(value = "index", required = false) Integer index) {
+        try {
+            byte[] body = issPassLookupService.lookupByPlace(placeQuery, passCount, index);
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(5, TimeUnit.MINUTES).cachePublic())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body);
+        } catch (Exception e) {
+            log.debug("ISS passes-by-place failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
+    }
+
+    /** ISS visible passes for explicit coordinates (Open Notify, proxied). */
+    @GetMapping("/iss/passes")
+    public ResponseEntity<byte[]> issPasses(
+            @RequestParam("lat") double lat,
+            @RequestParam("lon") double lon,
+            @RequestParam(value = "n", defaultValue = "5") int passCount) {
+        try {
+            byte[] body = issPassLookupService.lookupByCoordinates(lat, lon, passCount);
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(5, TimeUnit.MINUTES).cachePublic())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body);
+        } catch (Exception e) {
+            log.debug("ISS passes failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
         }
     }

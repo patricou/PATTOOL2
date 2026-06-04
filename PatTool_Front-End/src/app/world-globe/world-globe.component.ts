@@ -35,6 +35,20 @@ interface GlobeOpenNotifyIssResponse {
   };
 }
 
+/** Réponse /api/external/globe/iss/passes-by-place (géocode + Open Notify). */
+interface IssPassByPlaceResponse {
+  status?: string;
+  code?: string;
+  message?: string;
+  place?: { lat?: number; lon?: number; displayName?: string };
+  nextPass?: { risetime?: number; duration?: number };
+  passes?: {
+    message?: string;
+    response?: Array<{ risetime?: number; duration?: number }>;
+  };
+  candidates?: Array<{ lat: number; lon: number; displayName?: string }>;
+}
+
 /** Point ISS historique (MongoDB, GET /api/external/globe/iss/trace). */
 interface IssTracePointDto {
   latitude: number;
@@ -436,6 +450,18 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   /** Repère visuel géocodage : même lat/lon que le vol caméra tant que l’utilisateur ne clique pas ailleurs sur la Terre. */
   globeGeocodeMarkerLat: number | null = null;
   globeGeocodeMarkerLon: number | null = null;
+
+  /** Prochain passage ISS visible au-dessus du lieu saisi (Open Notify via backend). */
+  issPassLoading = false;
+  issPassError = '';
+  issPassCandidates: Array<{ lat: number; lon: number; displayName: string }> = [];
+  issPassSummary: {
+    placeLabel: string;
+    coordsLine: string;
+    nextPassLine: string;
+    upcomingLines: string[];
+  } | null = null;
+  private issPassPlaceQueryCache = '';
 
   private renderer?: THREE.WebGLRenderer;
   private scene?: THREE.Scene;
@@ -1314,9 +1340,32 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  /** Lieu fixé par géocodage (ville / pays) : le suivi caméra ISS est suspendu. */
+  isGlobeFocusedOnPlace(): boolean {
+    return this.globeGeocodeMarkerLat != null && this.globeGeocodeMarkerLon != null;
+  }
+
+  issKeepEarthCenteredControlTitle(): string {
+    if (this.isGlobeFocusedOnPlace()) {
+      return this.translate.instant('WORLD_GLOBE.ISS_KEEP_EARTH_CENTERED_DISABLED_PLACE');
+    }
+    return this.translate.instant('WORLD_GLOBE.ISS_KEEP_EARTH_CENTERED_HINT');
+  }
+
+  private disableIssKeepEarthCenteredForPlaceFocus(): void {
+    if (!this.issKeepEarthCentered) {
+      return;
+    }
+    this.issKeepEarthCentered = false;
+    this.issCameraCenterSmoothPrevMs = 0;
+    this.issGlobeFreeOrbit = false;
+    this.cdr.markForCheck();
+  }
+
   private isIssEarthCenteredTrackingActive(): boolean {
     return (
       this.issKeepEarthCentered &&
+      !this.isGlobeFocusedOnPlace() &&
       this.issOverlayEnabled &&
       this.globeSurfaceReady &&
       this.globeIssLat != null &&
@@ -3318,6 +3367,167 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
    * Géocodage d’adresse / lieu (backend Nominatim), identique à la page Adresse / GPS.
    * Centre la caméra sur le lieu avec un vol fluide ; un seul résultat : animation directe ; plusieurs : liste cliquable.
    */
+  /** Prochain passage ISS au-dessus du lieu (ville / pays) saisi dans le champ géocode. */
+  searchIssPassOverPlace(candidateIndex?: number): void {
+    const query = this.globePlaceQuery?.trim();
+    if (!query) {
+      this.issPassError = this.translate.instant('ADDRESS_GEOCODE.ADDRESS_REQUIRED');
+      this.issPassCandidates = [];
+      this.issPassSummary = null;
+      this.cdr.markForCheck();
+      return;
+    }
+    if (!this.globeSurfaceReady) {
+      this.issPassError = this.translate.instant('WORLD_GLOBE.GEOCODE_GLOBE_NOT_READY');
+      this.cdr.markForCheck();
+      return;
+    }
+    this.issPassPlaceQueryCache = query;
+    this.issPassError = '';
+    if (candidateIndex == null) {
+      this.issPassCandidates = [];
+      this.issPassSummary = null;
+    }
+    this.issPassLoading = true;
+    this.apiService
+      .getIssPassesByPlace(query, 5, candidateIndex)
+      .pipe(
+        finalize(() => {
+          this.issPassLoading = false;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
+        next: (data: unknown) => {
+          this.applyIssPassByPlaceResponse(data as IssPassByPlaceResponse, candidateIndex);
+        },
+        error: (err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          this.issPassError = this.translate.instant('WORLD_GLOBE.ISS_PASS_ERROR') + ': ' + msg;
+          this.issPassCandidates = [];
+          this.issPassSummary = null;
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  selectIssPassCandidate(index: number): void {
+    const c = this.issPassCandidates[index];
+    if (!c) {
+      return;
+    }
+    this.globePlaceQuery = c.displayName || this.issPassPlaceQueryCache;
+    this.flyGlobeToGeocodeResult({
+      lat: c.lat,
+      lon: c.lon,
+      displayName: c.displayName,
+      boundingBox: null
+    });
+    this.searchIssPassOverPlace(index);
+  }
+
+  private applyIssPassByPlaceResponse(body: IssPassByPlaceResponse, candidateIndex?: number): void {
+    const status = String(body?.status ?? '').toLowerCase();
+    if (status === 'ambiguous' && Array.isArray(body.candidates) && body.candidates.length > 0) {
+      this.issPassCandidates = body.candidates
+        .map((c) => ({
+          lat: typeof c.lat === 'number' ? c.lat : parseFloat(String(c.lat)),
+          lon: typeof c.lon === 'number' ? c.lon : parseFloat(String(c.lon)),
+          displayName: String(c.displayName ?? '').trim()
+        }))
+        .filter(
+          (c) =>
+            Number.isFinite(c.lat) &&
+            Number.isFinite(c.lon) &&
+            Math.abs(c.lat) <= 90 &&
+            Math.abs(c.lon) <= 180
+        );
+      this.issPassSummary = null;
+      this.globeGeocodeListActiveIndex = null;
+      if (this.issPassCandidates.length === 0) {
+        this.issPassError = this.translate.instant('ADDRESS_GEOCODE.NO_RESULTS');
+      }
+      this.cdr.markForCheck();
+      return;
+    }
+    if (status !== 'success') {
+      const code = body?.code ?? '';
+      if (code === 'no_geocode_results') {
+        this.issPassError = this.translate.instant('ADDRESS_GEOCODE.NO_RESULTS');
+      } else if (code === 'no_passes') {
+        this.issPassError = this.translate.instant('WORLD_GLOBE.ISS_PASS_NONE');
+      } else {
+        this.issPassError =
+          body?.message?.trim() || this.translate.instant('WORLD_GLOBE.ISS_PASS_ERROR');
+      }
+      this.issPassCandidates = [];
+      this.issPassSummary = null;
+      this.cdr.markForCheck();
+      return;
+    }
+    this.issPassCandidates = [];
+    const place = body.place;
+    const placeLabel =
+      place?.displayName?.trim() ||
+      (place?.lat != null && place?.lon != null
+        ? `${place.lat.toFixed(4)}, ${place.lon.toFixed(4)}`
+        : '');
+    const passes =
+      body.passes?.response ??
+      (body.nextPass ? [body.nextPass] : []);
+    const lines = passes
+      .map((p) => this.formatIssPassLine(p.risetime, p.duration))
+      .filter((l): l is string => !!l);
+    if (lines.length === 0) {
+      this.issPassError = this.translate.instant('WORLD_GLOBE.ISS_PASS_NONE');
+      this.issPassSummary = null;
+      this.cdr.markForCheck();
+      return;
+    }
+    this.issPassError = '';
+    const lat = place?.lat;
+    const lon = place?.lon;
+    const coordsLine =
+      lat != null && lon != null && Number.isFinite(lat) && Number.isFinite(lon)
+        ? this.translate.instant('WORLD_GLOBE.ISS_PASS_COORDS_USED', {
+            lat: lat.toFixed(5),
+            lon: lon.toFixed(5)
+          })
+        : '';
+    this.issPassSummary = {
+      placeLabel,
+      coordsLine,
+      nextPassLine: lines[0],
+      upcomingLines: lines
+    };
+    if (lat != null && lon != null) {
+      this.flyGlobeToGeocodeResult({
+        lat,
+        lon,
+        displayName: placeLabel,
+        boundingBox: null
+      });
+    }
+    this.cdr.markForCheck();
+  }
+
+  private formatIssPassLine(risetime?: number, durationSec?: number): string | null {
+    const t = typeof risetime === 'number' ? risetime : parseInt(String(risetime ?? ''), 10);
+    if (!Number.isFinite(t) || t <= 0) {
+      return null;
+    }
+    const when = new Date(t * 1000).toLocaleString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    });
+    const dur = typeof durationSec === 'number' ? durationSec : parseInt(String(durationSec ?? ''), 10);
+    const minutes = Number.isFinite(dur) && dur > 0 ? Math.max(1, Math.round(dur / 60)) : null;
+    if (minutes != null) {
+      return this.translate.instant('WORLD_GLOBE.ISS_PASS_LINE', { datetime: when, minutes });
+    }
+    return this.translate.instant('WORLD_GLOBE.ISS_PASS_LINE_NO_DURATION', { datetime: when });
+  }
+
   searchGlobePlace(): void {
     const query = this.globePlaceQuery?.trim();
     if (!query) {
@@ -3404,6 +3614,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
     const dist = this.orbitDistanceForGeocodeBBox(result.boundingBox ?? null);
     this.animateCameraToLatLon(result.lat, result.lon, dist);
+    this.disableIssKeepEarthCenteredForPlaceFocus();
     this.globeGeocodeMarkerLat = result.lat;
     this.globeGeocodeMarkerLon = result.lon;
     this.ensureGeocodeMarkerMesh();
@@ -3416,11 +3627,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  /** Champ lieu : Entrée = lancer recherche ou valider une ligne de la liste ; flèches / Échap si plusieurs résultats. */
+  /** Champ lieu : Entrée = recherche passage ISS ; flèches / Échap si plusieurs lieux ISS. */
   onGlobeGeocodeInputKeydown(ev: KeyboardEvent): void {
     const down = ev.key === 'ArrowDown' || ev.code === 'ArrowDown';
     const up = ev.key === 'ArrowUp' || ev.code === 'ArrowUp';
-    const n = this.globeGeocodeResults.length;
+    const n = this.issPassCandidates.length;
     if (n > 1) {
       if (down) {
         ev.preventDefault();
@@ -3430,7 +3641,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
             ? 0
             : Math.min(this.globeGeocodeListActiveIndex + 1, n - 1);
         this.globeGeocodeListActiveIndex = next;
-        this.scrollGlobeGeocodeHighlightIntoView();
+        this.scrollIssPassHighlightIntoView();
         this.cdr.markForCheck();
         return;
       }
@@ -3442,7 +3653,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
             ? n - 1
             : Math.max(this.globeGeocodeListActiveIndex - 1, 0);
         this.globeGeocodeListActiveIndex = prev;
-        this.scrollGlobeGeocodeHighlightIntoView();
+        this.scrollIssPassHighlightIntoView();
         this.cdr.markForCheck();
         return;
       }
@@ -3450,13 +3661,13 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
         ev.preventDefault();
         ev.stopPropagation();
         const idx = this.globeGeocodeListActiveIndex ?? 0;
-        this.flyGlobeToGeocodeResult(this.globeGeocodeResults[idx]);
+        this.selectIssPassCandidate(idx);
         return;
       }
       if (ev.key === 'Escape') {
         ev.preventDefault();
         ev.stopPropagation();
-        this.globeGeocodeResults = [];
+        this.issPassCandidates = [];
         this.globeGeocodeListActiveIndex = null;
         this.cdr.markForCheck();
         return;
@@ -3464,17 +3675,17 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
     if (ev.key === 'Enter') {
       ev.preventDefault();
-      this.searchGlobePlace();
+      this.searchIssPassOverPlace();
     }
   }
 
-  private scrollGlobeGeocodeHighlightIntoView(): void {
+  private scrollIssPassHighlightIntoView(): void {
     const i = this.globeGeocodeListActiveIndex;
     if (i == null) {
       return;
     }
     queueMicrotask(() => {
-      document.getElementById(`wg-globe-geocode-opt-${i}`)?.scrollIntoView({ block: 'nearest' });
+      document.getElementById(`wg-iss-pass-opt-${i}`)?.scrollIntoView({ block: 'nearest' });
     });
   }
 

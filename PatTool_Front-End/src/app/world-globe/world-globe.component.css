@@ -1459,6 +1459,72 @@ body:has(.wg-fs-root--viewport-locked) {
 }
 
 /* Recherche lieu (géocodage Nominatim) */
+.wg-iss-pass-block {
+  padding: 0.35rem 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.wg-iss-pass-hint,
+.wg-iss-pass-ambiguous-hint {
+  color: #b9c7e8;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+}
+
+.wg-iss-pass-error {
+  font-size: 0.72rem;
+  line-height: 1.4;
+  margin-top: 0.25rem;
+}
+
+.wg-iss-pass-summary {
+  padding: 0.45rem 0.5rem;
+  border-radius: 0.35rem;
+  background: rgba(12, 22, 48, 0.55);
+  border: 1px solid rgba(100, 160, 255, 0.18);
+  line-height: 1.4;
+}
+
+.wg-iss-pass-summary__place {
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #c8d8f5;
+  word-break: break-word;
+  margin-bottom: 0.25rem;
+}
+
+.wg-iss-pass-summary__coords {
+  font-size: 0.7rem;
+  font-family: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Consolas, monospace;
+  color: rgba(180, 210, 255, 0.85);
+  margin-bottom: 0.4rem;
+}
+
+.wg-iss-pass-summary__next {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #9ed4ff;
+  line-height: 1.45;
+}
+
+.wg-iss-pass-summary__later,
+.wg-iss-pass-upcoming li {
+  font-size: 0.76rem;
+  font-weight: 400;
+  color: rgba(220, 235, 255, 0.9);
+  line-height: 1.45;
+  padding-top: 0.28rem;
+}
+
+.wg-iss-pass-upcoming {
+  margin-top: 0.35rem;
+  padding-top: 0.3rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .wg-geocode-block {
   padding-bottom: 0.28rem;
   margin-bottom: 0.35rem !important;
@@ -1471,6 +1537,7 @@ body:has(.wg-fs-root--viewport-locked) {
 
 .wg-geocode-label {
   font-size: var(--wg-label, 0.66rem);
+  color: #b9c7e8;
 }
 
 .wg-geocode-input-group .form-control {
@@ -1479,6 +1546,22 @@ body:has(.wg-fs-root--viewport-locked) {
 
 .wg-geocode-btn {
   min-width: 2.5rem;
+}
+
+.wg-iss-pass-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+  padding-left: 0.45rem;
+  padding-right: 0.45rem;
+}
+
+.wg-iss-pass-btn__label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .wg-geocode-result-list {

@@ -2,6 +2,7 @@ package com.pat.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.pat.config.RestTemplateConfig;
 import org.slf4j.Logger;
@@ -97,6 +98,12 @@ public class GlobeProxyService {
             "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_10m_time_zones.geojson";
 
     private static final String OPEN_NOTIFY_ISS_NOW_JSON = "https://api.open-notify.org/iss-now.json";
+
+    /** Upcoming visible passes for a ground observer (lat/lon in degrees, alt in metres). */
+    private static final String OPEN_NOTIFY_ISS_PASS_JSON = "https://api.open-notify.org/iss-pass.json";
+
+    /** ISS pass predictions (often more reachable than Open Notify). */
+    private static final String CDN_SPACE_ISS_PASSES_JSON = "https://iss.cdnspace.ca/api/passes";
 
     /** NORAD 25544 = ISS ; JSON with {@code latitude} / {@code longitude} (degrees). */
     private static final String WHERE_THE_ISS_AT_ISS_JSON = "https://api.wheretheiss.at/v1/satellites/25544";
@@ -232,9 +239,142 @@ public class GlobeProxyService {
     }
 
     /**
-     * JSON compatible with Open Notify {@code iss-now} ({@code message}, {@code iss_position}, {@code timestamp}).
-     * Tries Open Notify first ; if it fails, uses Where The ISS At and maps the payload to the same shape.
+     * ISS pass predictions in Open Notify shape ({@code message}, {@code request}, {@code response[]}).
+     * Tries CDN Space first ; if it fails, Open Notify {@code iss-pass.json}.
+     *
+     * @param passCount number of passes requested (clamped 1–15)
+     * @param altitudeMeters observer altitude in metres (0 if unknown)
      */
+    public byte[] fetchOpenNotifyIssPasses(double lat, double lon, int passCount, double altitudeMeters) {
+        if (!Double.isFinite(lat) || Math.abs(lat) > 90.0) {
+            throw new IllegalArgumentException("Latitude out of range: " + lat);
+        }
+        if (!Double.isFinite(lon) || Math.abs(lon) > 180.0) {
+            throw new IllegalArgumentException("Longitude out of range: " + lon);
+        }
+        int n = Math.max(1, Math.min(passCount, 15));
+        double alt = altitudeMeters;
+        if (!Double.isFinite(alt) || alt < 0.0 || alt > 10_000.0) {
+            alt = 0.0;
+        }
+        try {
+            int days = Math.min(30, Math.max(5, n * 3));
+            String cdnUrl = CDN_SPACE_ISS_PASSES_JSON
+                    + "?lat=" + String.format(Locale.US, "%.6f", lat)
+                    + "&lon=" + String.format(Locale.US, "%.6f", lon)
+                    + "&alt=" + String.format(Locale.US, "%.0f", alt)
+                    + "&days=" + days;
+            byte[] cdnPayload = fetchBytes(cdnUrl, MAX_BYTES_ISS_FEED);
+            try {
+                return mapCdnSpacePassesToOpenNotifyJson(cdnPayload, lat, lon, n, alt);
+            } catch (IllegalStateException mapEx) {
+                throw mapEx;
+            } catch (Exception mapEx) {
+                throw new IllegalStateException("CDN Space passes mapping failed: " + mapEx.getMessage(), mapEx);
+            }
+        } catch (IllegalStateException primary) {
+            log.info("Globe ISS passes: cdnspace failed ({}); trying Open Notify.", primary.getMessage());
+            try {
+                String openNotifyUrl = OPEN_NOTIFY_ISS_PASS_JSON
+                        + "?lat=" + String.format(Locale.US, "%.6f", lat)
+                        + "&lon=" + String.format(Locale.US, "%.6f", lon)
+                        + "&alt=" + String.format(Locale.US, "%.0f", alt)
+                        + "&n=" + n;
+                return fetchBytes(openNotifyUrl, MAX_BYTES_ISS_FEED);
+            } catch (IllegalStateException secondary) {
+                log.warn("Globe ISS passes: Open Notify fallback failed ({})", secondary.getMessage());
+                throw primary;
+            }
+        }
+    }
+
+    private byte[] mapCdnSpacePassesToOpenNotifyJson(byte[] cdnPayload, double lat, double lon, int passCount, double alt)
+            throws Exception { // Jackson parse
+        JsonNode root = objectMapper.readTree(cdnPayload);
+        if (!root.isArray() || root.isEmpty()) {
+            throw new IllegalStateException("CDN Space passes JSON empty or not an array");
+        }
+        ObjectNode out = objectMapper.createObjectNode();
+        out.put("message", "success");
+        ObjectNode request = objectMapper.createObjectNode();
+        request.put("latitude", lat);
+        request.put("longitude", lon);
+        request.put("altitude", alt);
+        request.put("passes", passCount);
+        request.put("datetime", Instant.now().getEpochSecond());
+        out.set("request", request);
+        ArrayNode response = objectMapper.createArrayNode();
+        int added = 0;
+        for (JsonNode pass : root) {
+            if (added >= passCount) {
+                break;
+            }
+            long riseSec = passInstantUnixSeconds(pass, "riseTime", "risetime");
+            if (riseSec <= 0) {
+                continue;
+            }
+            long durationSec = passDurationSeconds(pass, riseSec);
+            if (durationSec <= 0) {
+                durationSec = 300;
+            }
+            ObjectNode item = objectMapper.createObjectNode();
+            item.put("risetime", riseSec);
+            item.put("duration", durationSec);
+            response.add(item);
+            added++;
+        }
+        if (added == 0) {
+            throw new IllegalStateException("CDN Space passes: no usable pass entries");
+        }
+        out.set("response", response);
+        return objectMapper.writeValueAsBytes(out);
+    }
+
+    private static long passInstantUnixSeconds(JsonNode pass, String... fieldNames) {
+        for (String name : fieldNames) {
+            if (!pass.has(name)) {
+                continue;
+            }
+            long raw = pass.get(name).asLong(0);
+            if (raw <= 0) {
+                continue;
+            }
+            return raw > 1_000_000_000_000L ? raw / 1000L : raw;
+        }
+        return 0;
+    }
+
+    private static long passDurationSeconds(JsonNode pass, long riseSec) {
+        if (pass.has("duration")) {
+            long d = pass.get("duration").asLong(0);
+            if (d > 0) {
+                return d > 1_000_000_000_000L ? d / 1000L : d;
+            }
+        }
+        long riseRaw = pass.has("riseTime") ? pass.get("riseTime").asLong(0) : 0;
+        long setRaw = pass.has("setTime") ? pass.get("setTime").asLong(0) : 0;
+        if (riseRaw > 0 && setRaw > riseRaw) {
+            long delta = setRaw - riseRaw;
+            return timestampsInMillis(riseRaw, setRaw) ? delta / 1000L : delta;
+        }
+        long maxRaw = pass.has("maxTime") ? pass.get("maxTime").asLong(0) : 0;
+        if (riseRaw > 0 && maxRaw > riseRaw) {
+            long span = maxRaw - riseRaw;
+            long total = timestampsInMillis(riseRaw, maxRaw) ? (span / 1000L) * 2 : span * 2;
+            return total > 0 ? total : 0;
+        }
+        return 0;
+    }
+
+    private static boolean timestampsInMillis(long... values) {
+        for (long v : values) {
+            if (v > 1_000_000_000_000L) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public byte[] fetchOpenNotifyIssNow() {
         try {
             byte[] wtia = fetchBytes(WHERE_THE_ISS_AT_ISS_JSON, MAX_BYTES_ISS_FEED);
