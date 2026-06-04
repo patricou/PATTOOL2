@@ -453,14 +453,33 @@
       [class.wg-stage--fs-iss-split-dragging]="issFsSplitDragging"
       [ngStyle]="issFsSplitStageStyle">
       <div class="wg-globe-stage-toolbar d-flex align-items-center gap-2 flex-wrap">
-        <button type="button" class="btn btn-outline-secondary btn-sm py-0 wg-btn" (click)="toggleOptionsPanel()">
+        <button
+          type="button"
+          class="btn btn-outline-secondary btn-sm py-0 wg-btn"
+          (click)="toggleOptionsPanel()"
+          [attr.title]="'WORLD_GLOBE.PANEL_TOGGLE' | translate"
+          [attr.aria-label]="'WORLD_GLOBE.PANEL_TOGGLE' | translate">
           <ng-container *ngIf="!showOptionsPanel">{{ 'WORLD_GLOBE.SHOW_PANEL' | translate }}</ng-container>
           <ng-container *ngIf="showOptionsPanel">{{ 'WORLD_GLOBE.HIDE_PANEL' | translate }}</ng-container>
         </button>
-        <button type="button" class="btn btn-outline-secondary btn-sm py-0 wg-btn" (click)="resetCamera()">
+        <button
+          type="button"
+          class="btn btn-outline-secondary btn-sm py-0 wg-btn"
+          (click)="resetCamera()"
+          [attr.title]="'WORLD_GLOBE.RESET_VIEW_TITLE' | translate"
+          [attr.aria-label]="'WORLD_GLOBE.RESET_VIEW_TITLE' | translate">
           {{ 'WORLD_GLOBE.RESET_VIEW' | translate }}
         </button>
-        <button type="button" class="btn btn-outline-primary btn-sm py-0 wg-btn" (click)="toggleFullscreen()">
+        <button
+          type="button"
+          class="btn btn-outline-primary btn-sm py-0 wg-btn"
+          (click)="toggleFullscreen()"
+          [attr.title]="
+            (fullscreen ? 'WORLD_GLOBE.FULLSCREEN_EXIT_TITLE' : 'WORLD_GLOBE.FULLSCREEN_ENTER_TITLE') | translate
+          "
+          [attr.aria-label]="
+            (fullscreen ? 'WORLD_GLOBE.FULLSCREEN_EXIT_TITLE' : 'WORLD_GLOBE.FULLSCREEN_ENTER_TITLE') | translate
+          ">
           <ng-container *ngIf="!fullscreen">{{ 'WORLD_GLOBE.FULLSCREEN_ENTER' | translate }}</ng-container>
           <ng-container *ngIf="fullscreen">{{ 'WORLD_GLOBE.FULLSCREEN_EXIT' | translate }}</ng-container>
         </button>
@@ -468,7 +487,9 @@
           type="button"
           class="btn btn-outline-info btn-sm py-0 wg-btn"
           (click)="openDetailMapOverlay()"
-          [disabled]="!globeSurfaceReady || detailMapOpen">
+          [disabled]="!globeSurfaceReady || detailMapOpen"
+          [attr.title]="'WORLD_GLOBE.DETAIL_MAP_OPEN' | translate"
+          [attr.aria-label]="'WORLD_GLOBE.DETAIL_MAP_OPEN' | translate">
           {{ 'WORLD_GLOBE.DETAIL_MAP_OPEN_SHORT' | translate }}
         </button>
       </div>

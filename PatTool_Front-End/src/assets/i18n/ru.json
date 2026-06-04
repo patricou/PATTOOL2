@@ -631,7 +631,7 @@
         "ISS_LIVE_PIP_WHATSAPP_MESSAGE": "*{{title}}*\n\nПрямой эфир МКС: {{url}}",
         "ISS_LIVE_PIP_WHATSAPP_PASTE_IMAGE": "Снимок скопирован в буфер — вставьте изображение в WhatsApp (Ctrl+V).",
         "ISS_KEEP_EARTH_CENTERED": "Keep globe centered on ISS",
-        "ISS_KEEP_EARTH_CENTERED_HINT": "Recenters the view on the ISS ground track each frame (your zoom is kept). Temporarily disables slow auto-rotate while active. Hold Shift and drag with the left mouse button to orbit freely; release Shift or the mouse button to resume tracking.",
+        "ISS_KEEP_EARTH_CENTERED_HINT": "Recenters the view on the ISS ground track each frame (your zoom is kept). Temporarily disables slow auto-rotate while active. Drag with the left mouse button to orbit freely in 3D; toggle this option off and on again or use Reset view to resume tracking.",
         "BORDERS_ATTRIBUTION": "Natural Earth · public domain boundaries (110m)",
         "LAYER_COASTLINES": "Coastlines (Natural Earth, proxied)",
         "LAYER_COASTLINES_HINT": "Ocean–land shoreline from Natural Earth (public domain). Fetched via /api/external/globe/geojson/ne-110m-coastline.",

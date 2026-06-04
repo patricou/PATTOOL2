@@ -18,7 +18,7 @@ import { Subscription, firstValueFrom, timeout } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { ApiService } from '../services/api.service';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls.js';
 import { environment } from '../../environments/environment';
 import { Body, Equator, Observer, SiderealTime } from 'astronomy-engine';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
@@ -126,6 +126,8 @@ const GLOBE_ISS_HISTORICAL_TRAIL_RADIUS = GLOBE_ISS_TRAIL_RADIUS * 0.995;
 const GLOBE_ISS_HISTORICAL_TRAIL_ARC_SEGMENTS = 8;
 /** Étiquettes date/heure le long de la trace historique ISS (1/min, plafond sécurité WebGL). */
 const GLOBE_ISS_TRACE_SAMPLE_INTERVAL_SEC_DEFAULT = 60;
+/** Ne pas relier deux points de la trace historique espacés de plus de 15 min (coupures de suivi). */
+const GLOBE_ISS_TRACE_MAX_SEGMENT_GAP_MS = 15 * 60 * 1000;
 const GLOBE_ISS_HISTORICAL_DATE_LABEL_MAX = 1440;
 const GLOBE_ISS_HISTORICAL_DATE_LABEL_SPRITE_WORLD_H = 0.022;
 const GLOBE_ISS_HISTORICAL_DATE_LABEL_RADIUS = GLOBE_ISS_HISTORICAL_TRAIL_RADIUS * 1.004;
@@ -170,9 +172,16 @@ const GLOBE_TERMINATOR_HEMI_BASE = 0.012;
 const GLOBE_TERMINATOR_SUN_BASE = 5.8;
 const GLOBE_TERMINATOR_EXPOSURE_BASE = 1.14;
 
-/** À zoom fort (caméra proche), rotation / panoramique / molette trop nerveux sans ce facteur. */
-const ORBIT_SENS_U_MIN_ROTATE_PAN = 0.13;
+/** À zoom fort (caméra proche), atténuer zoom / pan ; rotation garde un plancher lisible. */
+const ORBIT_SENS_U_MIN_ROTATE = 1.05;
+const ORBIT_SENS_U_MIN_PAN = 0.13;
 const ORBIT_SENS_U_MIN_ZOOM = 0.48;
+/** Vitesse Trackball : rotation au glisser sur le globe (max = vue éloignée). */
+const GLOBE_TRACKBALL_ROTATE_SPEED_MAX = 4.2;
+const GLOBE_TRACKBALL_PAN_SPEED_MAX = 0.45;
+const GLOBE_TRACKBALL_ZOOM_SPEED_MAX = 1.1;
+/** Vitesse rotation automatique (équivalent OrbitControls.autoRotateSpeed). */
+const GLOBE_AUTO_ROTATE_SPEED = 0.35;
 
 /** Pastels utilisés pour distinguer pays (priorité attribus Natural Earth `MAPCOLOR*`). */
 const GLOBE_POLITICAL_HEX_PALETTE = [
@@ -408,7 +417,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private renderer?: THREE.WebGLRenderer;
   private scene?: THREE.Scene;
   private camera?: THREE.PerspectiveCamera;
-  private controls?: OrbitControls;
+  private controls?: TrackballControls;
   private earthMesh?: THREE.Mesh;
   /** Groupe Three.js : ligne suivant l’axe local Y (pôles). */
   private earthRotationAxisGroup?: THREE.Group;
@@ -533,7 +542,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private pendingGlobeDeepLink: { lat: number; lon: number; mapZoom?: number } | null = null;
   /** Vol caméra programmatique (géocodage) : annulation au destroy ou nouvelle cible. */
   private globeCameraAnimFrameId: number | null = null;
-  private globeCameraAnimPrevDamping: boolean | null = null;
+  private globeCameraAnimPrevStaticMoving: boolean | null = null;
+  private globeLoopPrevMs = 0;
+  private readonly globeAutoRotateAxisScratch = new THREE.Vector3(0, 1, 0);
+  private readonly globeAutoRotateEyeScratch = new THREE.Vector3();
+  private readonly globeAutoRotateQuatScratch = new THREE.Quaternion();
 
   private pendingDetailLat = 0;
   private pendingDetailLon = 0;
@@ -559,11 +572,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     return `url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}") 14 14, crosshair`;
   })();
 
-  private globePickPointerDown: { x: number; y: number; id: number; skipEarthPick?: boolean } | null = null;
+  private globePickPointerDown: { x: number; y: number; id: number } | null = null;
   /**
-   * ISS centré actif : tant que ce pointerId correspond au bouton gauche avec Shift, on n’applique pas le réalignement caméra.
+   * L’utilisateur a manœuvré la caméra (OrbitControls) : on suspend le recentrage ISS jusqu’à réactivation de l’option ou reset vue.
    */
-  private issShiftManualOrbitPointerId: number | null = null;
+  private issGlobeFreeOrbit = false;
   /** Identifiant du timer navigateur (évite TS node DOM : number vs Timeout). */
   private globePickCursorResetTimer: number | null = null;
 
@@ -574,52 +587,23 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (ev.pointerType === 'mouse' && ev.button !== 0) {
       return;
     }
-    const skipEarthPick =
-      ev.pointerType === 'mouse' &&
-      ev.button === 0 &&
-      ev.shiftKey &&
-      this.isIssEarthCenteredTrackingActive();
-    if (skipEarthPick) {
-      this.issShiftManualOrbitPointerId = ev.pointerId;
+    if (ev.pointerType === 'mouse' && ev.button === 0 && this.isIssEarthCenteredTrackingActive()) {
+      this.issGlobeFreeOrbit = true;
     }
     this.globePickPointerDown = {
       x: ev.clientX,
       y: ev.clientY,
-      id: ev.pointerId,
-      skipEarthPick
+      id: ev.pointerId
     };
   };
 
-  private readonly onGlobePointerMove = (ev: PointerEvent): void => {
-    if (!this.isIssEarthCenteredTrackingActive() || ev.pointerType !== 'mouse') {
-      return;
-    }
-    if ((ev.buttons & 1) === 0) {
-      if (this.issShiftManualOrbitPointerId === ev.pointerId) {
-        this.issShiftManualOrbitPointerId = null;
-      }
-      return;
-    }
-    if (ev.shiftKey) {
-      this.issShiftManualOrbitPointerId = ev.pointerId;
-    } else if (this.issShiftManualOrbitPointerId === ev.pointerId) {
-      this.issShiftManualOrbitPointerId = null;
-    }
-  };
-
   private readonly onGlobePointerUp = (ev: PointerEvent): void => {
-    if (ev.pointerType === 'mouse' && this.issShiftManualOrbitPointerId === ev.pointerId) {
-      this.issShiftManualOrbitPointerId = null;
-    }
     const start = this.globePickPointerDown;
     this.globePickPointerDown = null;
     if (this.detailMapOpen || !this.globeSurfaceReady || !start || start.id !== ev.pointerId) {
       return;
     }
     if (ev.pointerType === 'mouse' && ev.button !== 0) {
-      return;
-    }
-    if (start.skipEarthPick) {
       return;
     }
     const dx = ev.clientX - start.x;
@@ -644,8 +628,12 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (this.globePickPointerDown?.id === ev.pointerId) {
       this.globePickPointerDown = null;
     }
-    if (ev.pointerType === 'mouse' && this.issShiftManualOrbitPointerId === ev.pointerId) {
-      this.issShiftManualOrbitPointerId = null;
+  };
+
+  /** Dès qu’on manipule le globe, le suivi ISS cesse de forcer la caméra (orbite 3D libre). */
+  private readonly onGlobeOrbitControlsStart = (): void => {
+    if (this.isIssEarthCenteredTrackingActive()) {
+      this.issGlobeFreeOrbit = true;
     }
   };
 
@@ -737,10 +725,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (canvasUnd) {
       canvasUnd.style.cursor = '';
       canvasUnd.removeEventListener('pointerdown', this.onGlobePointerDown);
-      canvasUnd.removeEventListener('pointermove', this.onGlobePointerMove);
       canvasUnd.removeEventListener('pointerup', this.onGlobePointerUp);
       canvasUnd.removeEventListener('pointercancel', this.onGlobePointerCancel);
     }
+    this.controls?.removeEventListener('start', this.onGlobeOrbitControlsStart);
     this.controls?.dispose();
     this.renderer?.domElement?.remove();
     this.disposeSceneHierarchy();
@@ -806,7 +794,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       }, 3800);
       return;
     }
-    const dist = this.controls?.getDistance() ?? 3;
+    const dist = this.globeOrbitDistance();
     this.pendingDetailLat = pick.lat;
     this.pendingDetailLon = pick.lon;
     this.pendingDetailZoom = WorldGlobeComponent.leafletZoomForOrbitDistance(dist);
@@ -1165,10 +1153,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     } else {
       this.issKeepEarthCentered = false;
       this.issCameraCenterSmoothPrevMs = 0;
-      this.issShiftManualOrbitPointerId = null;
-      if (this.controls) {
-        this.controls.autoRotate = this.autoRotate;
-      }
+      this.issGlobeFreeOrbit = false;
       this.issManualRefreshInFlight = false;
       this.disposeIssMarkerMesh();
       this.clearIssTrail();
@@ -1260,11 +1245,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   onIssKeepEarthCenteredToggle(): void {
     if (this.issKeepEarthCentered) {
       this.issCameraCenterSmoothPrevMs = 0;
+      this.issGlobeFreeOrbit = false;
     } else {
-      this.issShiftManualOrbitPointerId = null;
+      this.issGlobeFreeOrbit = false;
     }
-    if (!this.issKeepEarthCentered && this.controls) {
-      this.controls.autoRotate = this.autoRotate;
+    if (!this.issKeepEarthCentered) {
       this.issCameraCenterSmoothPrevMs = 0;
     }
     if (this.isIssEarthCenteredTrackingActive() && this.globeCameraAnimFrameId == null) {
@@ -1332,6 +1317,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
 
     controls.target.set(0, 0, 0);
+    camera.up.set(0, 1, 0);
     controls.update();
   }
 
@@ -2754,9 +2740,6 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   }
 
   onAutoRotateToggle(): void {
-    if (this.controls) {
-      this.controls.autoRotate = this.autoRotate;
-    }
   }
 
   /**
@@ -2772,8 +2755,23 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       return;
     }
     this.camera.position.copy(pos);
+    this.camera.up.set(0, 1, 0);
     this.controls.target.set(0, 0, 0);
     this.controls.update();
+  }
+
+  private globeOrbitDistance(): number {
+    const controls = this.controls;
+    const camera = this.camera;
+    if (!controls || !camera) {
+      return 3;
+    }
+    return camera.position.distanceTo(controls.target);
+  }
+
+  /** TrackballControls définit `state` à l’exécution (absent des types three) ; NONE = -1. */
+  private isGlobeTrackballIdle(controls: TrackballControls): boolean {
+    return (controls as TrackballControls & { state: number }).state === -1;
   }
 
   /**
@@ -2853,9 +2851,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       cancelAnimationFrame(this.globeCameraAnimFrameId);
       this.globeCameraAnimFrameId = null;
     }
-    if (this.controls && this.globeCameraAnimPrevDamping !== null) {
-      this.controls.enableDamping = this.globeCameraAnimPrevDamping;
-      this.globeCameraAnimPrevDamping = null;
+    if (this.controls && this.globeCameraAnimPrevStaticMoving !== null) {
+      this.controls.staticMoving = this.globeCameraAnimPrevStaticMoving;
+      this.globeCameraAnimPrevStaticMoving = null;
     }
   }
 
@@ -2881,8 +2879,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       return;
     }
     this.stopGlobeCameraAnimation();
-    this.globeCameraAnimPrevDamping = controls.enableDamping;
-    controls.enableDamping = false;
+    this.globeCameraAnimPrevStaticMoving = controls.staticMoving;
+    controls.staticMoving = true;
 
     const startPos = camera.position.clone();
     const startLen = startPos.length();
@@ -2890,8 +2888,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (startLen < 1e-8) {
       camera.position.copy(endPos);
       controls.target.set(0, 0, 0);
-      controls.enableDamping = this.globeCameraAnimPrevDamping;
-      this.globeCameraAnimPrevDamping = null;
+      camera.up.set(0, 1, 0);
+      controls.staticMoving = this.globeCameraAnimPrevStaticMoving ?? false;
+      this.globeCameraAnimPrevStaticMoving = null;
       controls.update();
       return;
     }
@@ -2917,8 +2916,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
         this.globeCameraAnimFrameId = null;
         camera.position.copy(endPos);
         controls.target.set(0, 0, 0);
-        controls.enableDamping = this.globeCameraAnimPrevDamping ?? true;
-        this.globeCameraAnimPrevDamping = null;
+        camera.up.set(0, 1, 0);
+        controls.staticMoving = this.globeCameraAnimPrevStaticMoving ?? false;
+        this.globeCameraAnimPrevStaticMoving = null;
         controls.update();
       }
     };
@@ -2927,10 +2927,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Adapte rotate / pan / zoom aux distances OrbitControls : plus la caméra est proche du globe,
+   * Adapte rotate / pan / zoom aux distances caméra : plus la caméra est proche du globe,
    * plus les gestes souris restent précis (sans changer le réglage utilisateur entre deux zooms).
    */
-  private syncOrbitControlsSensitivity(): void {
+  private syncGlobeControlsSensitivity(): void {
     const controls = this.controls;
     const camera = this.camera;
     if (!controls || !camera) {
@@ -2940,13 +2940,38 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     const lo = controls.minDistance;
     const hi = controls.maxDistance;
     const u = hi > lo ? THREE.MathUtils.clamp((d - lo) / (hi - lo), 0, 1) : 1;
-    controls.rotateSpeed = THREE.MathUtils.lerp(ORBIT_SENS_U_MIN_ROTATE_PAN, 1, u);
-    controls.panSpeed = THREE.MathUtils.lerp(ORBIT_SENS_U_MIN_ROTATE_PAN, 1, u);
-    controls.zoomSpeed = THREE.MathUtils.lerp(ORBIT_SENS_U_MIN_ZOOM, 1, u);
+    controls.rotateSpeed = THREE.MathUtils.lerp(ORBIT_SENS_U_MIN_ROTATE, GLOBE_TRACKBALL_ROTATE_SPEED_MAX, u);
+    controls.panSpeed = THREE.MathUtils.lerp(ORBIT_SENS_U_MIN_PAN, GLOBE_TRACKBALL_PAN_SPEED_MAX, u);
+    controls.zoomSpeed = THREE.MathUtils.lerp(ORBIT_SENS_U_MIN_ZOOM, GLOBE_TRACKBALL_ZOOM_SPEED_MAX, u);
+  }
+
+  /** Rotation lente autour de l’axe Y (Trackball n’a pas autoRotate intégré). */
+  private applyGlobeAutoRotate(controls: TrackballControls, nowMs: number): void {
+    const camera = this.camera;
+    if (!this.autoRotate || !camera) {
+      return;
+    }
+    if (this.globeCameraAnimFrameId != null) {
+      return;
+    }
+    if (this.isIssEarthCenteredTrackingActive() && !this.issGlobeFreeOrbit) {
+      return;
+    }
+    if (!this.isGlobeTrackballIdle(controls)) {
+      return;
+    }
+    let dtSec = this.globeLoopPrevMs > 0 ? (nowMs - this.globeLoopPrevMs) / 1000 : 1 / 60;
+    dtSec = THREE.MathUtils.clamp(dtSec, 1 / 240, 0.1);
+    const angle = ((Math.PI * 2) / 60) * GLOBE_AUTO_ROTATE_SPEED * dtSec;
+    this.globeAutoRotateEyeScratch.subVectors(camera.position, controls.target);
+    this.globeAutoRotateQuatScratch.setFromAxisAngle(this.globeAutoRotateAxisScratch, -angle);
+    this.globeAutoRotateEyeScratch.applyQuaternion(this.globeAutoRotateQuatScratch);
+    camera.position.copy(controls.target).add(this.globeAutoRotateEyeScratch);
+    camera.lookAt(controls.target);
   }
 
   /**
-   * Réduit l’échelle des noms de pays quand la caméra se rapproche (OrbitControls), pour éviter
+   * Réduit l’échelle des noms de pays quand la caméra se rapproche, pour éviter
    * des étiquettes disproportionnées à fort zoom.
    */
   private updateCountryLabelsScaleForZoom(): void {
@@ -3022,6 +3047,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (!this.camera || !this.controls) {
       return;
     }
+    this.issGlobeFreeOrbit = false;
     this.stopGlobeCameraAnimation();
     this.clearGeocodeMarker();
     this.frameCameraOnLatLon(GLOBE_INITIAL_FRANCE_LAT, GLOBE_INITIAL_FRANCE_LON, GLOBE_INITIAL_ORBIT_DISTANCE);
@@ -3280,9 +3306,6 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       return;
     }
     this.autoRotate = on;
-    if (this.controls) {
-      this.controls.autoRotate = this.autoRotate;
-    }
     this.cdr.markForCheck();
   }
 
@@ -3537,18 +3560,23 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
 
     const canvasEl = renderer.domElement;
     canvasEl.addEventListener('pointerdown', this.onGlobePointerDown);
-    canvasEl.addEventListener('pointermove', this.onGlobePointerMove);
     canvasEl.addEventListener('pointerup', this.onGlobePointerUp);
     canvasEl.addEventListener('pointercancel', this.onGlobePointerCancel);
 
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.06;
+    const controls = new TrackballControls(camera, renderer.domElement);
+    controls.rotateSpeed = GLOBE_TRACKBALL_ROTATE_SPEED_MAX;
+    controls.zoomSpeed = GLOBE_TRACKBALL_ZOOM_SPEED_MAX;
+    controls.panSpeed = GLOBE_TRACKBALL_PAN_SPEED_MAX;
+    controls.staticMoving = false;
+    controls.dynamicDampingFactor = 0.12;
     controls.minDistance = 1.02;
     controls.maxDistance = 7;
-    controls.enablePan = true;
-    controls.autoRotate = this.autoRotate;
-    controls.autoRotateSpeed = 0.35;
+    controls.noRotate = false;
+    controls.noZoom = false;
+    controls.noPan = false;
+    controls.target.set(0, 0, 0);
+    controls.handleResize();
+    controls.addEventListener('start', this.onGlobeOrbitControlsStart);
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.08);
     scene.add(ambient);
@@ -3977,6 +4005,24 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     return new THREE.Vector3(x, y, z);
   }
 
+  /** Relie deux points consécutifs de la trace historique si l’écart temporel est ≤ 15 min. */
+  private static issHistoricalTracePointsConnect(
+    a: { recordedAt?: string },
+    b: { recordedAt?: string }
+  ): boolean {
+    const rawA = a.recordedAt?.trim();
+    const rawB = b.recordedAt?.trim();
+    if (!rawA || !rawB) {
+      return true;
+    }
+    const tA = Date.parse(rawA);
+    const tB = Date.parse(rawB);
+    if (!Number.isFinite(tA) || !Number.isFinite(tB)) {
+      return true;
+    }
+    return Math.abs(tB - tA) <= GLOBE_ISS_TRACE_MAX_SEGMENT_GAP_MS;
+  }
+
   /** Distance orthodromique au sol (km) entre deux points ° (WGS84 sphère R≈6371 km). */
   private static haversineGreatCircleKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
     const R = 6371;
@@ -4038,6 +4084,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     r.setSize(w, h, false);
     c.aspect = w / h;
     c.updateProjectionMatrix();
+    this.controls?.handleResize();
   }
 
   private startLoop(): void {
@@ -4050,6 +4097,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       if (!controls || !renderer || !scene || !camera) {
         return;
       }
+      const nowMs = performance.now();
       if (this.cloudsMesh) {
         this.cloudsDriftRad += 0.00012;
         this.cloudsMesh.rotation.y = Math.PI + this.cloudsDriftRad;
@@ -4063,13 +4111,16 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       if (this.issOverlayEnabled && this.globeIssLat != null && this.globeIssLon != null) {
         this.updateIssMarkerWorldPosition();
       }
-      this.syncOrbitControlsSensitivity();
+      this.syncGlobeControlsSensitivity();
       const issEarthCentered = this.isIssEarthCenteredTrackingActive();
-      controls.autoRotate = issEarthCentered ? false : this.autoRotate;
+      if (!issEarthCentered || this.issGlobeFreeOrbit) {
+        this.applyGlobeAutoRotate(controls, nowMs);
+      }
       controls.update();
-      if (issEarthCentered && this.issShiftManualOrbitPointerId == null) {
+      if (issEarthCentered && !this.issGlobeFreeOrbit && this.isGlobeTrackballIdle(controls)) {
         this.applyIssEarthCenteredCameraIfNeeded();
       }
+      this.globeLoopPrevMs = nowMs;
       this.updateCountryLabelsScaleForZoom();
       renderer.render(scene, camera);
     };
@@ -4477,6 +4528,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     const r = GLOBE_ISS_HISTORICAL_TRAIL_RADIUS;
     const vertices: number[] = [];
     for (let i = 0; i < pts.length - 1; i++) {
+      if (!WorldGlobeComponent.issHistoricalTracePointsConnect(pts[i], pts[i + 1])) {
+        continue;
+      }
       const a = WorldGlobeComponent.latLonToVector3(pts[i].lat, pts[i].lon, r);
       const b = WorldGlobeComponent.latLonToVector3(pts[i + 1].lat, pts[i + 1].lon, r);
       const arc = WorldGlobeComponent.greatCircleArc(a, b, r, GLOBE_ISS_HISTORICAL_TRAIL_ARC_SEGMENTS);
