@@ -140,8 +140,8 @@ const GLOBE_ISS_HISTORICAL_TRAIL_RADIUS = GLOBE_ISS_TRAIL_RADIUS * 0.995;
 const GLOBE_ISS_HISTORICAL_TRAIL_ARC_SEGMENTS = 8;
 /** Étiquettes date/heure le long de la trace historique ISS (1/min, plafond sécurité WebGL). */
 const GLOBE_ISS_TRACE_SAMPLE_INTERVAL_SEC_DEFAULT = 60;
-/** Ne pas relier deux points de la trace historique espacés de plus de 15 min (coupures de suivi). */
-const GLOBE_ISS_TRACE_MAX_SEGMENT_GAP_MS = 15 * 60 * 1000;
+/** Do not connect two historical trace points more than 90 min apart (tracking gaps). */
+const GLOBE_ISS_TRACE_MAX_SEGMENT_GAP_MS = 90 * 60 * 1000;
 const GLOBE_ISS_HISTORICAL_DATE_LABEL_MAX = 1440;
 const GLOBE_ISS_HISTORICAL_DATE_LABEL_SPRITE_WORLD_H = 0.022;
 const GLOBE_ISS_HISTORICAL_DATE_LABEL_RADIUS = GLOBE_ISS_HISTORICAL_TRAIL_RADIUS * 1.004;
@@ -4475,7 +4475,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     return new THREE.Vector3(x, y, z);
   }
 
-  /** Relie deux points consécutifs de la trace historique si l’écart temporel est ≤ 15 min. */
+  /** Connect consecutive historical trace points when the time gap is ≤ 90 min. */
   private static issHistoricalTracePointsConnect(
     a: { recordedAt?: string },
     b: { recordedAt?: string }
