@@ -251,7 +251,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   /** Carte politique semi-transparente (polygones admin-0, Natural Earth 110 m, proxifié). */
   politicalMapEnabled = false;
   /** Noms pays (Sprite) aux positions officielles Natural Earth. */
-  countryLabelsEnabled = false;
+  countryLabelsEnabled = true;
   /** Équateur, tropiques, cercles polaires (NE 110m). */
   geographicLinesEnabled = true;
   /** Fleuves / axes lacs (NE 110m). */
@@ -307,8 +307,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   issHistoricalTraceEnabled = true;
   issHistoricalTraceLoading = false;
   issHistoricalTraceFailed = false;
-  /** Dates/heures le long de la trace historique ISS (désactivé par défaut). */
-  issHistoricalTraceDatesEnabled = false;
+  /** Dates/heures le long de la trace historique ISS (activé par défaut). */
+  issHistoricalTraceDatesEnabled = true;
   issHistoricalTraceClearInFlight = false;
   /** Intervalle d’échantillonnage trace ISS côté serveur (s), lu depuis GET /iss/trace. */
   issTraceSampleIntervalSec = GLOBE_ISS_TRACE_SAMPLE_INTERVAL_SEC_DEFAULT;
@@ -366,6 +366,29 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private issFsSplitIssWidthManual = false;
 
   issFsSplitDragging = false;
+
+  /** Hauteur du flux ISS du haut (standard) quand les deux vues sont empilées en plein écran. */
+  issFsPipStackTopPx = 200;
+
+  private issFsPipStackTopManual = false;
+
+  issFsPipStackDragging = false;
+
+  /** Plein écran + les deux flux ISS : séparateur vertical entre standard (haut) et HD (bas). */
+  get issFsPipStackSplitActive(): boolean {
+    return this.issFsSplitLayout && this.issLiveEmbedEnabled && this.issLiveHdEmbedEnabled;
+  }
+
+  /** Variables CSS pour la grille verticale des deux flux ISS. */
+  get issFsPipDockStyle(): Record<string, string> | null {
+    if (!this.issFsPipStackSplitActive) {
+      return null;
+    }
+    return {
+      '--wg-iss-pip-stack-top': `${this.getEffectiveIssFsPipStackTopPx()}px`,
+      '--wg-iss-pip-stack-handle-px': `${WorldGlobeComponent.ISS_FS_PIP_STACK_HANDLE_PX}px`
+    };
+  }
 
   /** Style inline pour la grille plein écran scindé (variable CSS largeur ISS). */
   get issFsSplitStageStyle(): Record<string, string> | null {
@@ -504,6 +527,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private issLivePiPResizeObs?: ResizeObserver;
   private issLivePiPResizeSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private globeCdrTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Mises à jour liées au template ISS différées (évite NG0100 sur le bandeau / panneau). */
+  private readonly globeViewSyncQueue: Array<() => void> = [];
   /** Évite d’écraser les tailles ISS mémorisées pendant un reflow (panneau options, etc.). */
   private issPiPSuppressSizePersist = false;
   private issPiPResizeDrag: {
@@ -519,7 +544,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private readonly issPiPResizeMoveHandler = (event: PointerEvent) => this.onIssPiPResizeMove(event);
   private readonly issPiPResizeUpHandler = (event: PointerEvent) => this.endIssPiPResizeDrag(event);
   private static readonly ISS_FS_SPLIT_WIDTH_STORAGE_KEY = 'pat.world-globe.iss-fs-split.iss-width-px';
+  private static readonly ISS_FS_PIP_STACK_TOP_STORAGE_KEY = 'pat.world-globe.iss-fs-pip-stack.top-px';
   private static readonly ISS_FS_SPLIT_HANDLE_PX = 6;
+  private static readonly ISS_FS_PIP_STACK_HANDLE_PX = 6;
+  private static readonly ISS_FS_PIP_STACK_TOP_MIN_PX = 120;
+  private static readonly ISS_FS_PIP_STACK_TOP_RATIO = 0.5;
   /** Part plein écran de la colonne flux ISS (panneau droit) ; le globe prend le reste. */
   private static readonly ISS_FS_SPLIT_ISS_WIDTH_RATIO = 0.4;
   private static readonly ISS_FS_SPLIT_ISS_MIN_PX = 176;
@@ -532,6 +561,14 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   } | null = null;
   private readonly issFsSplitResizeMoveHandler = (event: PointerEvent) => this.onIssFsSplitResizeMove(event);
   private readonly issFsSplitResizeUpHandler = (event: PointerEvent) => this.endIssFsSplitResizeDrag(event);
+  private issFsPipStackResizeDrag: {
+    startY: number;
+    startTop: number;
+    handle: HTMLElement;
+    pointerId: number;
+  } | null = null;
+  private readonly issFsPipStackResizeMoveHandler = (event: PointerEvent) => this.onIssFsPipStackResizeMove(event);
+  private readonly issFsPipStackResizeUpHandler = (event: PointerEvent) => this.endIssFsPipStackResizeDrag(event);
   /** Plein écran document + masquage chrome app (repli si FS sur #globeFsRoot refusé). */
   private static readonly WG_TRUE_FS_BODY_CLASS = 'pat-wg-true-fullscreen';
   /** Rotation lente nuages vs sol (effet léger façon couches atmosphériques). */
@@ -662,6 +699,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     });
     this.translateLangSub = this.translate.onLangChange.subscribe(() => this.onTranslateLangChangedForGlobeCountryLabels());
     queueMicrotask(() => this.bootstrapThree());
+    this.loadIssFsPipStackTopFromStorage();
     queueMicrotask(() => this.refreshIssLivePiPPanelsLayout());
     if (this.issTickerEnabled) {
       queueMicrotask(() => {
@@ -676,6 +714,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.endIssFsSplitResizeDrag();
+    this.endIssFsPipStackResizeDrag();
     void this.exitGlobeFullscreenIfActive();
     this.stopIssPolling();
     this.disposeCountryBordersOverlay();
@@ -721,6 +760,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       clearTimeout(this.globeCdrTimer);
       this.globeCdrTimer = null;
     }
+    this.globeViewSyncQueue.length = 0;
     const canvasUnd = this.renderer?.domElement;
     if (canvasUnd) {
       canvasUnd.style.cursor = '';
@@ -758,6 +798,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
         if (this.issFsSplitIssWidthManual) {
           this.issFsSplitIssWidthPx = this.clampIssFsSplitIssWidth(this.issFsSplitIssWidthPx);
         }
+        this.syncIssFsPipStackTop();
+        if (this.issFsPipStackTopManual) {
+          this.issFsPipStackTopPx = this.clampIssFsPipStackTop(this.issFsPipStackTopPx);
+        }
         this.cdr.markForCheck();
       }
     });
@@ -769,6 +813,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.syncIssFsSplitIssColumnWidth();
       if (this.issFsSplitIssWidthManual) {
         this.issFsSplitIssWidthPx = this.clampIssFsSplitIssWidth(this.issFsSplitIssWidthPx);
+      }
+      this.syncIssFsPipStackTop();
+      if (this.issFsPipStackTopManual) {
+        this.issFsPipStackTopPx = this.clampIssFsPipStackTop(this.issFsPipStackTopPx);
       }
     }
     this.resizeRendererToHost();
@@ -1058,12 +1106,21 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   }
 
   /** Diffère markForCheck (macrotask) pour éviter NG0100 sur composants frères (TraceViewerModal, etc.). */
-  private scheduleWorldGlobeCdr(): void {
+  private scheduleWorldGlobeCdr(viewSync?: () => void): void {
+    if (viewSync) {
+      this.globeViewSyncQueue.push(viewSync);
+    }
     if (this.globeCdrTimer != null) {
       return;
     }
     this.globeCdrTimer = setTimeout(() => {
       this.globeCdrTimer = null;
+      if (this.globeViewSyncQueue.length) {
+        for (const sync of this.globeViewSyncQueue) {
+          sync();
+        }
+        this.globeViewSyncQueue.length = 0;
+      }
       this.cdr.markForCheck();
     }, 0);
   }
@@ -1237,8 +1294,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.issSpeedSampleLat = null;
     this.issSpeedSampleLon = null;
     this.issSpeedSampleEpochMs = 0;
-    this.globeIssLat = null;
-    this.globeIssLon = null;
+    this.scheduleWorldGlobeCdr(() => {
+      this.globeIssLat = null;
+      this.globeIssLon = null;
+      this.issSecondsUntilNextRefresh = 0;
+    });
   }
 
   /** Suit le sous-point ISS vers le centre de la vue (voir {@link issKeepEarthCentered}). */
@@ -1389,6 +1449,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
     if (!isPresentation) {
       this.endIssFsSplitResizeDrag();
+      this.endIssFsPipStackResizeDrag();
       this.issFsSplitIssWidthManual = false;
     }
   }
@@ -1397,6 +1458,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.issLiveEmbedEnabled = true;
     this.issLiveHdEmbedEnabled = true;
     this.issFsSplitIssWidthManual = false;
+    if (!this.issFsPipStackTopManual) {
+      this.applyIssFsPipStackDefaultSplit();
+    }
     this.applyIssFsSplitDefaultSplit();
     queueMicrotask(() => this.refreshIssLivePiPPanelsLayout());
     this.cdr.markForCheck();
@@ -1412,6 +1476,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.issLiveEmbedEnabled = false;
     this.issLiveHdEmbedEnabled = false;
     this.endIssFsSplitResizeDrag();
+    this.endIssFsPipStackResizeDrag();
     this.issFsSplitIssWidthManual = false;
     queueMicrotask(() => this.refreshIssLivePiPPanelsLayout());
     this.cdr.markForCheck();
@@ -1421,6 +1486,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     queueMicrotask(() => {
       if (this.issFsSplitLayout && !this.issFsSplitIssWidthManual) {
         this.applyIssFsSplitDefaultSplit();
+      }
+      if (this.issFsPipStackSplitActive && !this.issFsPipStackTopManual) {
+        this.applyIssFsPipStackDefaultSplit();
       }
       const applyWindowedDefault =
         !this.globePresentationMode && !this.isIssMobileStackLayout() && this.issLiveEmbedEnabled;
@@ -1438,6 +1506,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       if (this.issFsSplitLayout && !this.issFsSplitIssWidthManual) {
         this.applyIssFsSplitDefaultSplit();
       }
+      if (this.issFsPipStackSplitActive && !this.issFsPipStackTopManual) {
+        this.applyIssFsPipStackDefaultSplit();
+      }
       const applyWindowedDefault =
         !this.globePresentationMode && !this.isIssMobileStackLayout() && this.issLiveHdEmbedEnabled;
       this.refreshIssLivePiPPanelsLayout();
@@ -1451,6 +1522,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
 
   /** Ferme la mini-fenêtre ISS (désactive le flux + quitte le plein écran vidéo si actif). */
   closeIssLivePiP(variant: 'standard' | 'hd'): void {
+    this.endIssFsPipStackResizeDrag();
     if (variant === 'standard') {
       if (this.issLivePiPFullscreen) {
         void this.toggleIssLivePiPFullscreen();
@@ -1635,6 +1707,174 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  /** Poignée horizontale entre flux standard (haut) et HD (bas) en colonne ISS plein écran. */
+  onIssFsPipStackResizeStart(event: PointerEvent): void {
+    if (!this.issFsPipStackSplitActive || event.button !== 0) {
+      return;
+    }
+    const handle = event.currentTarget;
+    if (!(handle instanceof HTMLElement)) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    this.issFsPipStackTopManual = true;
+    this.issFsPipStackTopPx = this.getEffectiveIssFsPipStackTopPx();
+    try {
+      handle.setPointerCapture(event.pointerId);
+    } catch {
+      /* navigateurs anciens */
+    }
+    this.issFsPipStackResizeDrag = {
+      startY: event.clientY,
+      startTop: this.issFsPipStackTopPx,
+      handle,
+      pointerId: event.pointerId
+    };
+    this.issFsPipStackDragging = true;
+    document.addEventListener('pointermove', this.issFsPipStackResizeMoveHandler, { capture: true });
+    document.addEventListener('pointerup', this.issFsPipStackResizeUpHandler, { capture: true });
+    document.addEventListener('pointercancel', this.issFsPipStackResizeUpHandler, { capture: true });
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'row-resize';
+  }
+
+  private onIssFsPipStackResizeMove(event: PointerEvent): void {
+    const drag = this.issFsPipStackResizeDrag;
+    if (!drag) {
+      return;
+    }
+    if ((event.buttons & 1) === 0) {
+      this.endIssFsPipStackResizeDrag(event);
+      return;
+    }
+    event.preventDefault();
+    const next = this.clampIssFsPipStackTop(drag.startTop + (event.clientY - drag.startY));
+    if (next === this.issFsPipStackTopPx) {
+      return;
+    }
+    this.issFsPipStackTopPx = next;
+    this.cdr.markForCheck();
+  }
+
+  private endIssFsPipStackResizeDrag(event?: PointerEvent): void {
+    const drag = this.issFsPipStackResizeDrag;
+    if (!drag) {
+      return;
+    }
+    try {
+      if (drag.handle.hasPointerCapture(drag.pointerId)) {
+        drag.handle.releasePointerCapture(drag.pointerId);
+      }
+    } catch {
+      /* ignore */
+    }
+    this.issFsPipStackResizeDrag = null;
+    this.issFsPipStackDragging = false;
+    document.removeEventListener('pointermove', this.issFsPipStackResizeMoveHandler, { capture: true });
+    document.removeEventListener('pointerup', this.issFsPipStackResizeUpHandler, { capture: true });
+    document.removeEventListener('pointercancel', this.issFsPipStackResizeUpHandler, { capture: true });
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+    if (event?.type === 'pointerup' || event?.type === 'pointercancel') {
+      this.saveIssFsPipStackTopToStorage();
+    }
+    this.refreshIssLivePiPPanelsLayout();
+    this.cdr.markForCheck();
+  }
+
+  private getIssFsPipDockElement(): HTMLElement | null {
+    return this.getGlobeStageElement()?.querySelector<HTMLElement>('.wg-iss-pip-dock--fs-split') ?? null;
+  }
+
+  private getEffectiveIssFsPipStackTopPx(): number {
+    if (this.issFsPipStackTopManual) {
+      return this.issFsPipStackTopPx;
+    }
+    return this.getCenterIssFsPipStackTopPx();
+  }
+
+  private getCenterIssFsPipStackTopPx(dockHeight?: number): number {
+    const dockH = dockHeight ?? this.getIssFsPipDockElement()?.clientHeight ?? 0;
+    if (dockH <= 0) {
+      return Math.max(WorldGlobeComponent.ISS_FS_PIP_STACK_TOP_MIN_PX, this.issFsPipStackTopPx);
+    }
+    const available = dockH - WorldGlobeComponent.ISS_FS_PIP_STACK_HANDLE_PX;
+    const target = available * WorldGlobeComponent.ISS_FS_PIP_STACK_TOP_RATIO;
+    return this.clampIssFsPipStackTop(target, dockH);
+  }
+
+  private syncIssFsPipStackTop(): void {
+    if (!this.issFsPipStackSplitActive || this.issFsPipStackTopManual) {
+      return;
+    }
+    const next = this.getCenterIssFsPipStackTopPx();
+    if (next !== this.issFsPipStackTopPx) {
+      this.issFsPipStackTopPx = next;
+    }
+  }
+
+  private applyIssFsPipStackDefaultSplit(): void {
+    this.issFsPipStackTopManual = false;
+    const apply = () => {
+      if (!this.issFsPipStackSplitActive) {
+        return;
+      }
+      const next = this.getCenterIssFsPipStackTopPx();
+      if (next > 0) {
+        this.issFsPipStackTopPx = next;
+        this.cdr.markForCheck();
+      }
+    };
+    apply();
+    requestAnimationFrame(() => requestAnimationFrame(apply));
+  }
+
+  private clampIssFsPipStackTop(px: number, dockHeight?: number): number {
+    const dockH = dockHeight ?? this.getIssFsPipDockElement()?.clientHeight ?? 0;
+    if (dockH <= 0) {
+      return Math.max(WorldGlobeComponent.ISS_FS_PIP_STACK_TOP_MIN_PX, Math.round(px));
+    }
+    const available = dockH - WorldGlobeComponent.ISS_FS_PIP_STACK_HANDLE_PX;
+    const maxTop = available - WorldGlobeComponent.ISS_FS_PIP_STACK_TOP_MIN_PX;
+    return Math.round(
+      Math.min(
+        Math.max(WorldGlobeComponent.ISS_FS_PIP_STACK_TOP_MIN_PX, maxTop),
+        Math.max(WorldGlobeComponent.ISS_FS_PIP_STACK_TOP_MIN_PX, px)
+      )
+    );
+  }
+
+  private loadIssFsPipStackTopFromStorage(): void {
+    try {
+      const raw = localStorage.getItem(WorldGlobeComponent.ISS_FS_PIP_STACK_TOP_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+      const parsed = JSON.parse(raw) as unknown;
+      if (typeof parsed === 'number' && Number.isFinite(parsed) && parsed > 0) {
+        this.issFsPipStackTopPx = Math.round(parsed);
+        this.issFsPipStackTopManual = true;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private saveIssFsPipStackTopToStorage(): void {
+    if (!this.issFsPipStackTopManual) {
+      return;
+    }
+    try {
+      localStorage.setItem(
+        WorldGlobeComponent.ISS_FS_PIP_STACK_TOP_STORAGE_KEY,
+        JSON.stringify(this.issFsPipStackTopPx)
+      );
+    } catch {
+      /* quota / private mode */
+    }
+  }
+
   /** Poignée en haut à gauche : la fenêtre reste ancrée en bas à droite (desktop) ; redimensionnable aussi en pile mobile. */
   onIssPiPResizeStart(event: PointerEvent, variant: keyof typeof WorldGlobeComponent.ISS_PIP_SIZE_STORAGE_KEY): void {
     if (this.issFsSplitLayout && !this.isIssMobileStackLayout()) {
@@ -1736,9 +1976,16 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.clearIssPiPPanelInlineSize(this.issLivePiP?.nativeElement);
       this.clearIssPiPPanelInlineSize(this.issLiveHdPiP?.nativeElement);
       this.syncIssFsSplitIssColumnWidth();
+      this.syncIssFsPipStackTop();
     } else if (this.isIssMobileStackLayout()) {
-      this.applyIssPiPStoredSize(this.issLiveHdPiP?.nativeElement, 'hd');
-      this.applyIssPiPStoredSize(this.issLivePiP?.nativeElement, 'standard');
+      this.syncIssFsPipStackTop();
+      if (this.issFsSplitLayout) {
+        this.clearIssPiPPanelInlineSize(this.issLivePiP?.nativeElement);
+        this.clearIssPiPPanelInlineSize(this.issLiveHdPiP?.nativeElement);
+      } else {
+        this.applyIssPiPStoredSize(this.issLiveHdPiP?.nativeElement, 'hd');
+        this.applyIssPiPStoredSize(this.issLivePiP?.nativeElement, 'standard');
+      }
     } else {
       this.applyIssPiPStoredSize(this.issLiveHdPiP?.nativeElement, 'hd');
       this.applyIssPiPStoredSize(this.issLivePiP?.nativeElement, 'standard');
@@ -3043,20 +3290,43 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  private isGlobeIssPositionKnown(): boolean {
+    const lat = this.globeIssLat;
+    const lon = this.globeIssLon;
+    return (
+      lat != null &&
+      lon != null &&
+      Number.isFinite(lat) &&
+      Number.isFinite(lon) &&
+      Math.abs(lat) <= 90 &&
+      Math.abs(lon) <= 180
+    );
+  }
+
   resetCamera(): void {
     if (!this.camera || !this.controls) {
       return;
     }
     this.issGlobeFreeOrbit = false;
+    this.issCameraCenterSmoothPrevMs = 0;
     this.stopGlobeCameraAnimation();
     this.clearGeocodeMarker();
-    this.frameCameraOnLatLon(GLOBE_INITIAL_FRANCE_LAT, GLOBE_INITIAL_FRANCE_LON, GLOBE_INITIAL_ORBIT_DISTANCE);
     if (this.earthMesh) {
       this.earthMesh.rotation.set(0, Math.PI, 0);
       this.cloudsDriftRad = 0;
     }
     if (this.cloudsMesh) {
       this.cloudsMesh.rotation.y = Math.PI + this.cloudsDriftRad;
+    }
+    if (this.isGlobeIssPositionKnown()) {
+      const dist = THREE.MathUtils.clamp(
+        this.globeOrbitDistance(),
+        this.controls.minDistance,
+        this.controls.maxDistance
+      );
+      this.frameCameraOnLatLon(this.globeIssLat!, this.globeIssLon!, dist, 0);
+    } else {
+      this.frameCameraOnLatLon(GLOBE_INITIAL_FRANCE_LAT, GLOBE_INITIAL_FRANCE_LON, GLOBE_INITIAL_ORBIT_DISTANCE);
     }
     if (this.issHistoricalTraceEnabled) {
       void this.loadIssHistoricalTrace();
@@ -4228,11 +4498,13 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   }
 
   private refreshIssCountdownSnapshot(): void {
-    if (!this.issOverlayEnabled || this.issNextRefreshEpochMs <= 0) {
-      this.issSecondsUntilNextRefresh = 0;
-      return;
+    let next = 0;
+    if (this.issOverlayEnabled && this.issNextRefreshEpochMs > 0) {
+      next = Math.max(0, Math.ceil((this.issNextRefreshEpochMs - Date.now()) / 1000));
     }
-    this.issSecondsUntilNextRefresh = Math.max(0, Math.ceil((this.issNextRefreshEpochMs - Date.now()) / 1000));
+    this.scheduleWorldGlobeCdr(() => {
+      this.issSecondsUntilNextRefresh = next;
+    });
   }
 
   private async refreshIssNow(): Promise<void> {
@@ -4256,12 +4528,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       }
 
       const altStr = data?.iss_position?.altitude_km;
+      let altKm: number | null = null;
       if (altStr != null && altStr !== '') {
-        const altKm = parseFloat(altStr);
-        this.globeIssAltKm =
-          Number.isFinite(altKm) && altKm >= 0 && altKm <= 2000 ? altKm : null;
-      } else {
-        this.globeIssAltKm = null;
+        const parsedAlt = parseFloat(altStr);
+        altKm =
+          Number.isFinite(parsedAlt) && parsedAlt >= 0 && parsedAlt <= 2000 ? parsedAlt : null;
       }
 
       const velStr = data?.iss_position?.velocity_kmh;
@@ -4274,8 +4545,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       }
 
       const now = Date.now();
+      let groundSpeedKmh = this.issGroundSpeedKmh;
       if (apiVelKmh != null) {
-        this.issGroundSpeedKmh = apiVelKmh;
+        groundSpeedKmh = apiVelKmh;
       } else if (
         this.issSpeedSampleLat != null &&
         this.issSpeedSampleLon != null &&
@@ -4291,7 +4563,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
           );
           const vKmh = (dKm / dtRaw) * 3600;
           if (Number.isFinite(vKmh) && vKmh >= 1500 && vKmh <= 42000) {
-            this.issGroundSpeedKmh = vKmh;
+            groundSpeedKmh = vKmh;
           }
         }
       }
@@ -4299,23 +4571,30 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.issSpeedSampleLon = lon;
       this.issSpeedSampleEpochMs = now;
 
-      this.globeIssLat = lat;
-      this.globeIssLon = lon;
-      if (this.issOverlayEnabled) {
-        this.issOverlayFailed = false;
-      }
       if (this.issOverlayEnabled && this.scene && this.earthMesh) {
         this.ensureIssMarkerMesh();
-        this.updateIssMarkerWorldPosition();
+        this.updateIssMarkerWorldPosition(lat, lon);
         this.recordIssTrailSample(lat, lon);
         this.persistIssTraceSample(lat, lon);
       }
+
+      const overlayFailed = false;
+      this.scheduleWorldGlobeCdr(() => {
+        this.globeIssLat = lat;
+        this.globeIssLon = lon;
+        this.globeIssAltKm = altKm;
+        this.issGroundSpeedKmh = groundSpeedKmh;
+        if (this.issOverlayEnabled) {
+          this.issOverlayFailed = overlayFailed;
+        }
+      });
     } catch {
       if (this.issOverlayEnabled) {
-        this.issOverlayFailed = true;
+        this.scheduleWorldGlobeCdr(() => {
+          this.issOverlayFailed = true;
+        });
       }
     }
-    this.scheduleWorldGlobeCdr();
   }
 
   private ensureIssMarkerMesh(): void {
@@ -4339,16 +4618,15 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.issMarkerMesh = mesh;
   }
 
-  private updateIssMarkerWorldPosition(): void {
-    const lat = this.globeIssLat;
-    const lon = this.globeIssLon;
+  private updateIssMarkerWorldPosition(lat?: number, lon?: number): void {
+    const la = lat ?? this.globeIssLat;
+    const lo = lon ?? this.globeIssLon;
     const earth = this.earthMesh;
     const mesh = this.issMarkerMesh;
-    if (lat == null || lon == null || !earth || !mesh) {
+    if (la == null || lo == null || !earth || !mesh) {
       return;
     }
-    this.issMarkerWorldScratch
-      .copy(WorldGlobeComponent.latLonToVector3(lat, lon, GLOBE_ISS_ORBIT_RADIUS));
+    this.issMarkerWorldScratch.copy(WorldGlobeComponent.latLonToVector3(la, lo, GLOBE_ISS_ORBIT_RADIUS));
     earth.updateMatrixWorld(true);
     this.issMarkerWorldScratch.applyMatrix4(earth.matrixWorld);
     mesh.position.copy(this.issMarkerWorldScratch);

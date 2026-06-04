@@ -501,6 +501,9 @@
       <div
         class="wg-iss-pip-dock"
         [class.wg-iss-pip-dock--fs-split]="issFsSplitLayout"
+        [class.wg-iss-pip-dock--stack-split]="issFsPipStackSplitActive"
+        [class.wg-iss-pip-dock--stack-split-dragging]="issFsPipStackDragging"
+        [ngStyle]="issFsPipDockStyle"
         *ngIf="issLiveEmbedEnabled || issLiveHdEmbedEnabled">
       <div
         *ngIf="issLiveEmbedEnabled"
@@ -602,6 +605,18 @@
             loading="lazy"></iframe>
         </div>
       </div>
+
+      <div
+        *ngIf="issFsPipStackSplitActive"
+        class="wg-iss-pip-stack-handle"
+        role="separator"
+        aria-orientation="horizontal"
+        tabindex="0"
+        [attr.aria-label]="'WORLD_GLOBE.ISS_PIP_STACK_RESIZE' | translate"
+        [attr.title]="'WORLD_GLOBE.ISS_PIP_STACK_RESIZE_HINT' | translate"
+        [attr.aria-valuenow]="issFsPipStackTopPx"
+        [attr.aria-valuemin]="120"
+        (pointerdown)="onIssFsPipStackResizeStart($event)"></div>
 
       <div
         *ngIf="issLiveHdEmbedEnabled"

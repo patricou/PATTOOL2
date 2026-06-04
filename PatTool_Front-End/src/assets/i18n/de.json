@@ -281,7 +281,19 @@
         "DATA_VIA_BACKEND": "Gelände, Wolken und Satellitenbilder werden über den Server (/api/external/globe) bezogen, nicht direkt vom Browser zu NASA oder Three.js.",
         "GEOCODE_PLACE_LABEL": "Zum Ort (Stadt, Land, Adresse …)",
         "GEOCODE_PICK_HINT": "Mehrere Treffer — tippen Sie einen, um den Globus zu zentrieren.",
-        "GEOCODE_GLOBE_NOT_READY": "Globus lädt noch. Bitte kurz warten und erneut versuchen."
+        "GEOCODE_GLOBE_NOT_READY": "Globus lädt noch. Bitte kurz warten und erneut versuchen.",
+        "ISS_HISTORICAL_TRACE": "Historische ISS-Spur",
+        "ISS_HISTORICAL_TRACE_HINT": "Zeigt die auf dem PatTool-Server (MongoDB) gespeicherte ISS-Bodenpur für die konfigurierte Aufbewahrungsdauer (Standard 1 Monat). Neue Punkte werden höchstens einmal pro Minute erfasst, solange die ISS-Positionsschicht aktiv ist.",
+        "ISS_HISTORICAL_TRACE_LOADING": "Historische ISS-Spur wird geladen…",
+        "ISS_HISTORICAL_TRACE_FAILED": "Historische ISS-Spur nicht verfügbar.",
+        "ISS_HISTORICAL_TRACE_DATES": "Daten auf der Spur am Globus",
+        "ISS_HISTORICAL_TRACE_DATES_HINT": "Zeigt Datums- und Uhrzeit-Etiketten entlang der historischen ISS-Spur, mindestens 1 Minute auseinander (entspricht der Server-Speicherung). Standardmäßig aktiv.",
+        "ISS_HISTORICAL_TRACE_CLEAR": "Historische ISS-Spur löschen",
+        "ISS_HISTORICAL_TRACE_CLEAR_HINT": "Löscht alle gespeicherten ISS-Spurpunkte auf dem Server und entfernt die Spur vom Globus.",
+        "ISS_FS_SPLIT_RESIZE": "Videospalte vergrößern/verkleinern",
+        "ISS_FS_SPLIT_RESIZE_HINT": "Horizontal ziehen, um die Breite der ISS-Streams gegenüber dem Globus anzupassen (Vollbild).",
+        "ISS_PIP_STACK_RESIZE": "Zwischen den Streams anpassen",
+        "ISS_PIP_STACK_RESIZE_HINT": "Vertikal ziehen, um die Höhe des oberen Streams gegenüber dem unteren anzupassen."
     },
     "IOT_PROXY": {
         "TITLE": "LAN-HTTP-Proxys",

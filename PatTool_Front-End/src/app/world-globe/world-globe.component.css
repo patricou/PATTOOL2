@@ -957,6 +957,8 @@ body:has(.wg-fs-root--viewport-locked) {
     minmax(11rem, var(--wg-fs-iss-split-width, 22rem));
   column-gap: 0;
   align-items: stretch;
+  min-height: 0;
+  height: 100%;
 }
 
 .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-canvas-host,
@@ -1015,6 +1017,7 @@ body:has(.wg-fs-root--viewport-locked) {
   inset: auto;
   align-self: stretch;
   width: 100%;
+  height: 100%;
   max-width: none;
   min-height: 0;
   min-width: 0;
@@ -1022,6 +1025,61 @@ body:has(.wg-fs-root--viewport-locked) {
     max(0.45rem, env(safe-area-inset-bottom, 0px)) 0;
   pointer-events: none;
   z-index: 6;
+  overflow: hidden;
+}
+
+.wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-iss-pip-dock--fs-split.wg-iss-pip-dock--stack-split {
+  display: grid;
+  grid-template-rows:
+    minmax(0, var(--wg-iss-pip-stack-top, 1fr))
+    var(--wg-iss-pip-stack-handle-px, 6px)
+    minmax(0, 1fr);
+  gap: 0;
+}
+
+.wg-iss-pip-stack-handle {
+  flex: 0 0 auto;
+  align-self: stretch;
+  box-sizing: content-box;
+  height: var(--wg-iss-pip-stack-handle-px, 6px);
+  min-height: var(--wg-iss-pip-stack-handle-px, 6px);
+  margin: -8px 0;
+  padding: 8px 0;
+  border: none;
+  border-radius: 0;
+  background: rgba(120, 150, 220, 0.22);
+  background-clip: content-box;
+  cursor: row-resize;
+  touch-action: none;
+  pointer-events: auto;
+  z-index: 8;
+  transition: background 0.12s ease;
+}
+
+.wg-iss-pip-stack-handle:hover,
+.wg-iss-pip-stack-handle:focus-visible,
+.wg-iss-pip-dock--stack-split-dragging .wg-iss-pip-stack-handle {
+  background-color: rgba(100, 170, 255, 0.55);
+  outline: none;
+}
+
+.wg-iss-pip-dock--stack-split-dragging,
+.wg-iss-pip-dock--stack-split-dragging * {
+  cursor: row-resize !important;
+  user-select: none !important;
+}
+
+.wg-iss-pip-dock--stack-split-dragging .wg-iss-live-pip__iframe {
+  pointer-events: none;
+}
+
+.wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-iss-pip-dock--fs-split.wg-iss-pip-dock--stack-split .wg-iss-live-pip {
+  flex: unset;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  max-width: none;
+  overflow: hidden;
 }
 
 .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-iss-pip-dock--fs-split .wg-iss-live-pip {
@@ -1033,11 +1091,17 @@ body:has(.wg-fs-root--viewport-locked) {
   flex: 1 1 0;
   align-self: stretch;
   width: 100%;
-  max-width: 100%;
+  height: 100%;
+  max-width: none;
   min-width: 0;
-  min-height: 7.5rem;
+  min-height: 0;
   max-height: none;
   pointer-events: auto;
+}
+
+.wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-iss-pip-dock--fs-split .wg-iss-live-pip__frame {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-iss-pip-dock--fs-split .wg-iss-live-pip__resize-handle {
@@ -1065,7 +1129,7 @@ body:has(.wg-fs-root--viewport-locked) {
 @media (max-width: 767.98px) {
   .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   }
 
   .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-canvas-host,
@@ -1083,18 +1147,19 @@ body:has(.wg-fs-root--viewport-locked) {
   .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-iss-pip-dock.wg-iss-pip-dock--fs-split {
     grid-column: 1;
     grid-row: 2;
-    max-height: min(92vh, 44rem);
-    overflow-y: auto;
-    overflow-x: hidden;
+    height: 100%;
+    max-height: none;
+    overflow: hidden;
     padding: 0.35rem max(0.32rem, env(safe-area-inset-right, 0px))
       max(0.32rem, env(safe-area-inset-bottom, 0px)) max(0.32rem, env(safe-area-inset-left, 0px));
   }
 
   .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-iss-pip-dock--fs-split .wg-iss-live-pip {
-    flex: 0 0 auto;
-    min-height: 17rem;
+    flex: 1 1 0;
+    height: 100%;
+    min-height: 0;
     max-height: none;
-    aspect-ratio: 8 / 9;
+    aspect-ratio: auto;
   }
 }
 
