@@ -18,6 +18,9 @@ public class RestTemplateConfig {
     /** CERN Open Data / CDS Repository — responses can be large JSON payloads. */
     public static final String CERN_REST_TEMPLATE = "cernRestTemplate";
 
+    /** PubChem PUG REST — name resolution + 3D records + PNG images can be slow. */
+    public static final String CHEM_REST_TEMPLATE = "chemRestTemplate";
+
 
     /**
      * Client HTTP court pour proxies et API externes (échec rapide si indisponible).
@@ -33,6 +36,14 @@ public class RestTemplateConfig {
 
     @Bean(CERN_REST_TEMPLATE)
     public RestTemplate cernRestTemplate(RestTemplateBuilder builder) {
+        return builder
+                .setConnectTimeout(Duration.ofSeconds(5))
+                .setReadTimeout(Duration.ofSeconds(20))
+                .build();
+    }
+
+    @Bean(CHEM_REST_TEMPLATE)
+    public RestTemplate chemRestTemplate(RestTemplateBuilder builder) {
         return builder
                 .setConnectTimeout(Duration.ofSeconds(5))
                 .setReadTimeout(Duration.ofSeconds(20))

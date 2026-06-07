@@ -352,6 +352,30 @@ public class GlobeProxyController {
     }
 
     /**
+     * Display point-count limit for the historical ISS trace (MongoDB flag).
+     * When enabled (default), {@link #issHistoricalTrace()} returns at most
+     * {@link IssTraceService#getLimitedDisplayPoints()} points; when disabled, every stored point is returned.
+     */
+    @GetMapping("/iss/trace/display-limit")
+    public ResponseEntity<IssTraceDisplayLimitResponse> issTraceDisplayLimitStatus() {
+        return ResponseEntity.ok(new IssTraceDisplayLimitResponse(
+                issTraceService.isDisplayLimitEnabled(),
+                issTraceService.getLimitedDisplayPoints()));
+    }
+
+    @PutMapping("/iss/trace/display-limit")
+    public ResponseEntity<IssTraceDisplayLimitResponse> setIssTraceDisplayLimit(
+            @RequestBody IssTraceDisplayLimitToggleRequest body) {
+        if (body == null || body.enabled() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        issTraceService.setDisplayLimitEnabled(body.enabled());
+        return ResponseEntity.ok(new IssTraceDisplayLimitResponse(
+                issTraceService.isDisplayLimitEnabled(),
+                issTraceService.getLimitedDisplayPoints()));
+    }
+
+    /**
      * Current ISS visible-pass e-mail alert configuration (place watched, recipient, quality threshold).
      */
     @GetMapping("/iss/alert")
@@ -411,6 +435,12 @@ public class GlobeProxyController {
     }
 
     public record IssTraceBackgroundToggleRequest(Boolean enabled) {
+    }
+
+    public record IssTraceDisplayLimitResponse(boolean enabled, int maxPoints) {
+    }
+
+    public record IssTraceDisplayLimitToggleRequest(Boolean enabled) {
     }
 
     public record IssAlertConfigRequest(Boolean enabled, String email, String place, String minQuality) {

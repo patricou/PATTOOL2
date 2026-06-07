@@ -1,0 +1,474 @@
+<div class="pat-title">
+  <h2>
+    <i class="fa fa-flask me-2"></i>
+    {{ 'CHIMIE.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="chimie-page container-fluid py-3">
+  <p class="text-muted small mb-3">{{ 'CHIMIE.SUBTITLE' | translate }}</p>
+
+  <ul class="nav nav-pills mb-3 gap-2">
+    <li class="nav-item">
+      <button class="nav-link" [class.active]="activeTab === 'table'" (click)="activeTab = 'table'">
+        <i class="fa fa-th me-1"></i> {{ 'CHIMIE.TAB_TABLE' | translate }}
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" [class.active]="activeTab === 'molecule'" (click)="activeTab = 'molecule'">
+        <i class="fa fa-cube me-1"></i> {{ 'CHIMIE.TAB_MOLECULE' | translate }}
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" [class.active]="activeTab === 'compare'" (click)="activeTab = 'compare'">
+        <i class="fa fa-columns me-1"></i> {{ 'CHIMIE.TAB_COMPARE' | translate }}
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" [class.active]="activeTab === 'reactions'" (click)="activeTab = 'reactions'">
+        <i class="fa fa-flask me-1"></i> {{ 'CHIMIE.TAB_REACTIONS' | translate }}
+      </button>
+    </li>
+  </ul>
+
+  <!-- ============================================================ -->
+  <!-- PERIODIC TABLE -->
+  <!-- ============================================================ -->
+  <section *ngIf="activeTab === 'table'">
+    <div *ngIf="elementsError" class="alert alert-warning d-flex align-items-center" role="alert">
+      <i class="fa fa-exclamation-triangle me-2"></i>
+      <span>{{ elementsError | translate }}</span>
+    </div>
+
+    <div *ngIf="isLoadingElements" class="text-muted small mb-3">
+      <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+      {{ 'CHIMIE.LOADING' | translate }}
+    </div>
+
+    <!-- Category legend / filter -->
+    <div class="d-flex flex-wrap gap-2 mb-3" *ngIf="elements.length">
+      <button type="button"
+              class="chimie-legend-chip"
+              *ngFor="let cat of categories"
+              [class.active]="categoryFilter === cat"
+              (click)="toggleCategory(cat)">
+        <span class="chimie-legend-swatch" [ngClass]="categoryClassByName(cat)"></span>
+        {{ 'CHIMIE.CATEGORY.' + cat | translate }}
+      </button>
+    </div>
+
+    <div class="chimie-table-scroll" *ngIf="elements.length">
+      <div class="chimie-table">
+        <button type="button"
+                class="chimie-cell"
+                *ngFor="let el of elements"
+                [ngClass]="categoryClass(el)"
+                [class.dimmed]="isDimmed(el)"
+                [class.selected]="selectedElement?.atomicNumber === el.atomicNumber"
+                [style.grid-column]="el.xpos"
+                [style.grid-row]="el.ypos"
+                (click)="selectElement(el)"
+                [attr.title]="el.name">
+          <span class="chimie-cell-num">{{ el.atomicNumber }}</span>
+          <span class="chimie-cell-sym">{{ el.symbol }}</span>
+          <span class="chimie-cell-name">{{ el.name }}</span>
+          <span class="chimie-cell-mass">{{ el.atomicMass }}</span>
+        </button>
+
+        <!-- f-block placeholders linking the main grid to the separated rows -->
+        <div class="chimie-cell chimie-cell-marker cat-lanthanide" [style.grid-column]="3" [style.grid-row]="6">57–71</div>
+        <div class="chimie-cell chimie-cell-marker cat-actinide" [style.grid-column]="3" [style.grid-row]="7">89–103</div>
+      </div>
+    </div>
+
+    <!-- Selected element detail -->
+    <div class="card shadow-sm mt-4 chimie-element-detail" *ngIf="selectedElement as el">
+      <div class="card-body">
+        <button type="button" class="btn-close float-end" aria-label="Close" (click)="closeElement()"></button>
+        <div class="row g-4">
+          <!-- Bohr model -->
+          <div class="col-12 col-lg-5">
+            <div class="chimie-bohr-wrap" [ngClass]="categoryClass(el)">
+              <svg viewBox="-170 -170 340 340" class="chimie-bohr" *ngIf="selectedBohr as bohr">
+                <circle *ngFor="let shell of bohr.shells" class="chimie-bohr-ring"
+                        cx="0" cy="0" [attr.r]="shell.radius"></circle>
+                <g class="chimie-bohr-nucleus">
+                  <circle cx="0" cy="0" r="26"></circle>
+                  <text x="0" y="-3" class="chimie-bohr-sym">{{ bohr.symbol }}</text>
+                  <text x="0" y="13" class="chimie-bohr-sub">{{ el.atomicNumber }}</text>
+                </g>
+                <g *ngFor="let shell of bohr.shells; let i = index" class="chimie-bohr-shell" [style.--shell]="i">
+                  <circle *ngFor="let e of shell.electrons" class="chimie-bohr-electron"
+                          [attr.cx]="e.x" [attr.cy]="e.y" r="5"></circle>
+                </g>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Properties -->
+          <div class="col-12 col-lg-7">
+            <div class="d-flex align-items-baseline gap-2 mb-1">
+              <h3 class="mb-0">{{ el.name }}</h3>
+              <span class="badge bg-secondary">{{ el.symbol }}</span>
+              <span class="text-muted small">Z = {{ el.atomicNumber }}</span>
+            </div>
+            <p class="small mb-3 d-flex align-items-center gap-2 flex-wrap">
+              <span class="badge" [ngClass]="categoryClass(el)">{{ 'CHIMIE.CATEGORY.' + el.groupBlock | translate }}</span>
+              <button type="button" class="btn btn-sm btn-outline-primary" (click)="viewElementAsMolecule(el)">
+                <i class="fa fa-cube me-1"></i> {{ 'CHIMIE.VIEW_AS_MOLECULE' | translate }}
+              </button>
+            </p>
+
+            <dl class="row chimie-props small mb-0">
+              <dt class="col-6 col-sm-5">{{ 'CHIMIE.PROP_MASS' | translate }}</dt>
+              <dd class="col-6 col-sm-7">{{ el.atomicMass || '—' }}</dd>
+
+              <dt class="col-6 col-sm-5">{{ 'CHIMIE.PROP_CONFIG' | translate }}</dt>
+              <dd class="col-6 col-sm-7">{{ el.electronConfiguration || '—' }}</dd>
+
+              <dt class="col-6 col-sm-5">{{ 'CHIMIE.PROP_PERIOD_GROUP' | translate }}</dt>
+              <dd class="col-6 col-sm-7">{{ el.period }} / {{ el.group || '—' }}</dd>
+
+              <dt class="col-6 col-sm-5">{{ 'CHIMIE.PROP_ELECTRONEG' | translate }}</dt>
+              <dd class="col-6 col-sm-7">{{ el.electronegativity || '—' }}</dd>
+
+              <dt class="col-6 col-sm-5">{{ 'CHIMIE.PROP_ATOMIC_RADIUS' | translate }}</dt>
+              <dd class="col-6 col-sm-7">{{ el.atomicRadius ? el.atomicRadius + ' pm' : '—' }}</dd>
+
+              <dt class="col-6 col-sm-5">{{ 'CHIMIE.PROP_IONIZATION' | translate }}</dt>
+              <dd class="col-6 col-sm-7">{{ el.ionizationEnergy ? el.ionizationEnergy + ' eV' : '—' }}</dd>
+
+              <dt class="col-6 col-sm-5">{{ 'CHIMIE.PROP_OXIDATION' | translate }}</dt>
+              <dd class="col-6 col-sm-7">{{ el.oxidationStates || '—' }}</dd>
+
+              <dt class="col-6 col-sm-5">{{ 'CHIMIE.PROP_STATE' | translate }}</dt>
+              <dd class="col-6 col-sm-7">{{ el.standardState || '—' }}</dd>
+
+              <dt class="col-6 col-sm-5">{{ 'CHIMIE.PROP_MELTING' | translate }}</dt>
+              <dd class="col-6 col-sm-7">{{ el.meltingPoint ? el.meltingPoint + ' K' : '—' }}</dd>
+
+              <dt class="col-6 col-sm-5">{{ 'CHIMIE.PROP_BOILING' | translate }}</dt>
+              <dd class="col-6 col-sm-7">{{ el.boilingPoint ? el.boilingPoint + ' K' : '—' }}</dd>
+
+              <dt class="col-6 col-sm-5">{{ 'CHIMIE.PROP_DENSITY' | translate }}</dt>
+              <dd class="col-6 col-sm-7">{{ el.density ? el.density + ' g/cm³' : '—' }}</dd>
+
+              <dt class="col-6 col-sm-5">{{ 'CHIMIE.PROP_DISCOVERED' | translate }}</dt>
+              <dd class="col-6 col-sm-7">{{ el.yearDiscovered || '—' }}</dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- MOLECULE EXPLORER -->
+  <!-- ============================================================ -->
+  <section *ngIf="activeTab === 'molecule'">
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <label class="form-label small fw-semibold">{{ 'CHIMIE.SEARCH_LABEL' | translate }}</label>
+        <div class="row g-2 align-items-start">
+          <div class="col-12 col-md-8 position-relative">
+            <div class="input-group">
+              <span class="input-group-text"><i class="fa fa-search"></i></span>
+              <input type="text"
+                     class="form-control"
+                     [(ngModel)]="moleculeQuery"
+                     (ngModelChange)="onQueryInput($event)"
+                     (keyup.enter)="searchMolecule()"
+                     [placeholder]="'CHIMIE.SEARCH_PLACEHOLDER' | translate"
+                     autocomplete="off">
+            </div>
+            <ul class="list-group chimie-suggestions shadow"
+                *ngIf="showSuggestions && suggestions.length">
+              <li class="list-group-item list-group-item-action"
+                  *ngFor="let s of suggestions"
+                  (click)="pickSuggestion(s)">
+                {{ s }}
+              </li>
+            </ul>
+          </div>
+          <div class="col-12 col-md-4 d-grid">
+            <button class="btn btn-primary" (click)="searchMolecule()" [disabled]="isLoadingMolecule">
+              <i class="fa fa-cube me-1"></i> {{ 'CHIMIE.SEARCH_BTN' | translate }}
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <span class="text-muted small me-2">{{ 'CHIMIE.FEATURED' | translate }}:</span>
+          <button type="button" class="badge chimie-chip me-1 mb-1"
+                  *ngFor="let m of featuredMolecules"
+                  (click)="pickFeatured(m)">{{ m }}</button>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="moleculeError" class="alert alert-warning d-flex align-items-center" role="alert">
+      <i class="fa fa-exclamation-triangle me-2"></i>
+      <span>{{ moleculeError | translate }}</span>
+    </div>
+
+    <div *ngIf="isLoadingMolecule" class="text-muted small mb-3">
+      <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+      {{ 'CHIMIE.LOADING_MOLECULE' | translate }}
+    </div>
+
+    <div class="row g-3" *ngIf="molecule as mol">
+      <!-- 3D viewer -->
+      <div class="col-12 col-lg-7">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <h5 class="card-title mb-2"><i class="fa fa-cube me-1"></i> {{ 'CHIMIE.VIEW_3D' | translate }}</h5>
+            <app-molecule-viewer-3d [molecule]="mol" height="420px"></app-molecule-viewer-3d>
+            <p class="text-muted x-small mt-2 mb-0">{{ 'CHIMIE.VIEW_3D_HINT' | translate }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Identity + 2D + properties -->
+      <div class="col-12 col-lg-5">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <h5 class="card-title mb-1">{{ mol.name || mol.iupacName || ('CHIMIE.MOLECULE' | translate) }}</h5>
+            <p class="small text-muted mb-3">CID {{ mol.cid }} · {{ mol.molecularFormula }}</p>
+
+            <div class="chimie-2d text-center mb-3" *ngIf="imageUrl">
+              <img [src]="imageUrl" [alt]="mol.name" loading="lazy" />
+            </div>
+
+            <dl class="row chimie-props small mb-0">
+              <dt class="col-5">{{ 'CHIMIE.M_FORMULA' | translate }}</dt>
+              <dd class="col-7" [innerHTML]="mol.molecularFormula"></dd>
+
+              <dt class="col-5">{{ 'CHIMIE.M_WEIGHT' | translate }}</dt>
+              <dd class="col-7">{{ mol.molecularWeight ? mol.molecularWeight + ' g/mol' : '—' }}</dd>
+
+              <dt class="col-5">{{ 'CHIMIE.M_IUPAC' | translate }}</dt>
+              <dd class="col-7">{{ mol.iupacName || '—' }}</dd>
+
+              <dt class="col-5">{{ 'CHIMIE.M_SMILES' | translate }}</dt>
+              <dd class="col-7"><code class="chimie-code">{{ mol.smiles || '—' }}</code></dd>
+
+              <dt class="col-5">{{ 'CHIMIE.M_INCHIKEY' | translate }}</dt>
+              <dd class="col-7"><code class="chimie-code">{{ mol.inchiKey || '—' }}</code></dd>
+
+              <dt class="col-5">{{ 'CHIMIE.M_XLOGP' | translate }}</dt>
+              <dd class="col-7">{{ mol.xlogp || '—' }}</dd>
+
+              <dt class="col-5">{{ 'CHIMIE.M_CHARGE' | translate }}</dt>
+              <dd class="col-7">{{ mol.charge || '—' }}</dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+
+      <!-- Description -->
+      <div class="col-12" *ngIf="mol.description">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <h6 class="card-title"><i class="fa fa-info-circle me-1"></i> {{ 'CHIMIE.ABOUT' | translate }}</h6>
+            <p class="small mb-1">{{ mol.description }}</p>
+            <p class="x-small text-muted mb-0" *ngIf="mol.descriptionSource">
+              {{ 'CHIMIE.SOURCE' | translate }}:
+              <a *ngIf="mol.descriptionUrl" [href]="mol.descriptionUrl" target="_blank" rel="noopener noreferrer">{{ mol.descriptionSource }}</a>
+              <span *ngIf="!mol.descriptionUrl">{{ mol.descriptionSource }}</span>
+              · PubChem
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- COMPARE TWO MOLECULES -->
+  <!-- ============================================================ -->
+  <section *ngIf="activeTab === 'compare'">
+    <p class="text-muted small mb-3">{{ 'CHIMIE.COMPARE_INTRO' | translate }}</p>
+    <div class="row g-3">
+      <!-- Slot A -->
+      <div class="col-12 col-lg-6">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="input-group mb-2">
+              <span class="input-group-text">A</span>
+              <input type="text" class="form-control"
+                     [(ngModel)]="queryA"
+                     (keyup.enter)="searchCompare('A')"
+                     [placeholder]="'CHIMIE.SEARCH_PLACEHOLDER' | translate"
+                     autocomplete="off">
+              <button class="btn btn-primary" (click)="searchCompare('A')" [disabled]="loadingA">
+                <i class="fa fa-search"></i>
+              </button>
+            </div>
+            <div *ngIf="loadingA" class="text-muted small">
+              <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+              {{ 'CHIMIE.LOADING_MOLECULE' | translate }}
+            </div>
+            <div *ngIf="errorA" class="alert alert-warning py-2 small">{{ errorA | translate }}</div>
+
+            <ng-container *ngIf="molA as a">
+              <h6 class="mb-1">{{ a.name || a.iupacName }}</h6>
+              <p class="small text-muted mb-2">CID {{ a.cid }} · {{ a.molecularFormula }}</p>
+              <app-molecule-viewer-3d [molecule]="a" height="300px"></app-molecule-viewer-3d>
+              <dl class="row chimie-props small mt-2 mb-0">
+                <dt class="col-6">{{ 'CHIMIE.M_WEIGHT' | translate }}</dt>
+                <dd class="col-6">{{ a.molecularWeight || '—' }}</dd>
+                <dt class="col-6">{{ 'CHIMIE.M_XLOGP' | translate }}</dt>
+                <dd class="col-6">{{ a.xlogp || '—' }}</dd>
+                <dt class="col-6">{{ 'CHIMIE.M_CHARGE' | translate }}</dt>
+                <dd class="col-6">{{ a.charge || '—' }}</dd>
+                <dt class="col-6">{{ 'CHIMIE.M_SMILES' | translate }}</dt>
+                <dd class="col-6"><code class="chimie-code">{{ a.smiles || '—' }}</code></dd>
+              </dl>
+            </ng-container>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slot B -->
+      <div class="col-12 col-lg-6">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="input-group mb-2">
+              <span class="input-group-text">B</span>
+              <input type="text" class="form-control"
+                     [(ngModel)]="queryB"
+                     (keyup.enter)="searchCompare('B')"
+                     [placeholder]="'CHIMIE.SEARCH_PLACEHOLDER' | translate"
+                     autocomplete="off">
+              <button class="btn btn-primary" (click)="searchCompare('B')" [disabled]="loadingB">
+                <i class="fa fa-search"></i>
+              </button>
+            </div>
+            <div *ngIf="loadingB" class="text-muted small">
+              <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+              {{ 'CHIMIE.LOADING_MOLECULE' | translate }}
+            </div>
+            <div *ngIf="errorB" class="alert alert-warning py-2 small">{{ errorB | translate }}</div>
+
+            <ng-container *ngIf="molB as b">
+              <h6 class="mb-1">{{ b.name || b.iupacName }}</h6>
+              <p class="small text-muted mb-2">CID {{ b.cid }} · {{ b.molecularFormula }}</p>
+              <app-molecule-viewer-3d [molecule]="b" height="300px"></app-molecule-viewer-3d>
+              <dl class="row chimie-props small mt-2 mb-0">
+                <dt class="col-6">{{ 'CHIMIE.M_WEIGHT' | translate }}</dt>
+                <dd class="col-6">{{ b.molecularWeight || '—' }}</dd>
+                <dt class="col-6">{{ 'CHIMIE.M_XLOGP' | translate }}</dt>
+                <dd class="col-6">{{ b.xlogp || '—' }}</dd>
+                <dt class="col-6">{{ 'CHIMIE.M_CHARGE' | translate }}</dt>
+                <dd class="col-6">{{ b.charge || '—' }}</dd>
+                <dt class="col-6">{{ 'CHIMIE.M_SMILES' | translate }}</dt>
+                <dd class="col-6"><code class="chimie-code">{{ b.smiles || '—' }}</code></dd>
+              </dl>
+            </ng-container>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- REACTIONS — equation balancer -->
+  <!-- ============================================================ -->
+  <section *ngIf="activeTab === 'reactions'">
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <label class="form-label small fw-semibold">{{ 'CHIMIE.RX_LABEL' | translate }}</label>
+        <div class="input-group">
+          <input type="text" class="form-control chimie-eq-input"
+                 [(ngModel)]="equationInput"
+                 (keyup.enter)="balanceEquation()"
+                 placeholder="2 H2 + O2 = 2 H2O"
+                 autocomplete="off">
+          <button class="btn btn-primary" (click)="balanceEquation()">
+            <i class="fa fa-balance-scale me-1"></i> {{ 'CHIMIE.RX_BALANCE' | translate }}
+          </button>
+        </div>
+        <p class="x-small text-muted mt-1 mb-2">{{ 'CHIMIE.RX_HINT' | translate }}</p>
+        <div>
+          <span class="text-muted small me-2">{{ 'CHIMIE.FEATURED' | translate }}:</span>
+          <button type="button" class="badge chimie-chip me-1 mb-1"
+                  *ngFor="let ex of exampleReactions"
+                  (click)="setEquation(ex)">{{ ex }}</button>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="reactionError" class="alert alert-warning d-flex align-items-center" role="alert">
+      <i class="fa fa-exclamation-triangle me-2"></i>
+      <span>{{ reactionError | translate }}</span>
+    </div>
+
+    <!-- Balanced equation -->
+    <div class="card shadow-sm mb-3" *ngIf="balancedTerms.length">
+      <div class="card-body">
+        <h6 class="card-title">{{ 'CHIMIE.RX_BALANCED' | translate }}</h6>
+        <div class="chimie-equation">
+          <ng-container *ngFor="let t of lhsTerms; let first = first">
+            <span *ngIf="!first" class="chimie-eq-op">+</span>
+            <span class="chimie-eq-term">
+              <span class="chimie-eq-coef" *ngIf="t.coef !== 1">{{ t.coef }}</span>{{ t.formula }}
+            </span>
+          </ng-container>
+          <span class="chimie-eq-arrow">→</span>
+          <ng-container *ngFor="let t of rhsTerms; let first = first">
+            <span *ngIf="!first" class="chimie-eq-op">+</span>
+            <span class="chimie-eq-term">
+              <span class="chimie-eq-coef" *ngIf="t.coef !== 1">{{ t.coef }}</span>{{ t.formula }}
+            </span>
+          </ng-container>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reactants / products visualization -->
+    <div class="row g-3" *ngIf="reactionSpecies.length">
+      <div class="col-12 col-lg-6">
+        <h6 class="text-muted small text-uppercase">{{ 'CHIMIE.RX_REACTANTS' | translate }}</h6>
+        <div class="row g-2">
+          <div class="col-12 col-sm-6" *ngFor="let sp of reactionSpecies">
+            <div class="card shadow-sm h-100" *ngIf="sp.side === 'L'">
+              <div class="card-body p-2 text-center">
+                <div class="fw-semibold mb-1">
+                  <span class="text-primary">{{ sp.coef }}</span> {{ sp.formula }}
+                </div>
+                <img *ngIf="sp.imageUrl" [src]="sp.imageUrl" class="chimie-rx-img" loading="lazy" [alt]="sp.formula" />
+                <div class="chimie-atoms">
+                  <span class="chimie-atom-badge" *ngFor="let c of sp.composition"
+                        [style.background]="atomColor(c.symbol)" [style.color]="atomTextColor(c.symbol)">
+                    {{ c.symbol }}<sub *ngIf="c.count > 1">{{ c.count }}</sub>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-lg-6">
+        <h6 class="text-muted small text-uppercase">{{ 'CHIMIE.RX_PRODUCTS' | translate }}</h6>
+        <div class="row g-2">
+          <div class="col-12 col-sm-6" *ngFor="let sp of reactionSpecies">
+            <div class="card shadow-sm h-100" *ngIf="sp.side === 'R'">
+              <div class="card-body p-2 text-center">
+                <div class="fw-semibold mb-1">
+                  <span class="text-success">{{ sp.coef }}</span> {{ sp.formula }}
+                </div>
+                <img *ngIf="sp.imageUrl" [src]="sp.imageUrl" class="chimie-rx-img" loading="lazy" [alt]="sp.formula" />
+                <div class="chimie-atoms">
+                  <span class="chimie-atom-badge" *ngFor="let c of sp.composition"
+                        [style.background]="atomColor(c.symbol)" [style.color]="atomTextColor(c.symbol)">
+                    {{ c.symbol }}<sub *ngIf="c.count > 1">{{ c.count }}</sub>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>

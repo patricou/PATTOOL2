@@ -164,6 +164,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./cern/cern.component').then(m => m.CernComponent)
 			},
 			{
+				path: 'tools/chimie',
+				loadComponent: () => import('./chimie/chimie.component').then(m => m.ChimieComponent)
+			},
+			{
 				path: 'tools/solar-system',
 				loadComponent: () => import('./solar-system/solar-system.component').then(m => m.SolarSystemComponent)
 			},

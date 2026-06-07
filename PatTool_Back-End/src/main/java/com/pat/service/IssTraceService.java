@@ -2,6 +2,7 @@ package com.pat.service;
 
 import com.pat.repo.IssTracePointRepository;
 import com.pat.repo.domain.IssTracePoint;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,7 +21,11 @@ public class IssTraceService {
 
     private static final Logger log = LoggerFactory.getLogger(IssTraceService.class);
 
+    /** MongoDB {@code appParameters} key for the display point-count limit toggle (survives restarts). */
+    public static final String PARAM_DISPLAY_LIMIT_ENABLED = "globe.iss.trace.display.limit.enabled";
+
     private final IssTracePointRepository repository;
+    private final AppParameterService appParameterService;
 
     @Value("${globe.iss.trace.retention.days:30}")
     private int retentionDays;
@@ -31,8 +36,25 @@ public class IssTraceService {
     @Value("${globe.iss.trace.sample-interval.seconds:60}")
     private int sampleIntervalSeconds;
 
-    public IssTraceService(IssTracePointRepository repository) {
+    /** Cap applied to the returned trace when the display limit toggle is ON. */
+    @Value("${globe.iss.trace.display.limit.points:1000}")
+    private int limitedDisplayPoints;
+
+    @Value("${globe.iss.trace.display.limit.enabled-default:true}")
+    private boolean displayLimitEnabledDefault;
+
+    /** When {@code true} the trace is decimated to {@link #limitedDisplayPoints}; otherwise every point is returned. */
+    private volatile boolean displayLimitEnabled;
+
+    public IssTraceService(IssTracePointRepository repository, AppParameterService appParameterService) {
         this.repository = repository;
+        this.appParameterService = appParameterService;
+    }
+
+    @PostConstruct
+    public void init() {
+        displayLimitEnabled = appParameterService.getBoolean(PARAM_DISPLAY_LIMIT_ENABLED, displayLimitEnabledDefault);
+        log.info("ISS trace display limit: enabled={}, maxPoints={}", displayLimitEnabled, getLimitedDisplayPoints());
     }
 
     public int getRetentionDays() {
@@ -41,6 +63,25 @@ public class IssTraceService {
 
     public int getSampleIntervalSeconds() {
         return Math.max(1, sampleIntervalSeconds);
+    }
+
+    public boolean isDisplayLimitEnabled() {
+        return displayLimitEnabled;
+    }
+
+    /** Effective cap used when the display limit is enabled (at least 100). */
+    public int getLimitedDisplayPoints() {
+        return Math.max(100, limitedDisplayPoints);
+    }
+
+    /** Persists the flag in MongoDB so it survives backend restarts. */
+    public void setDisplayLimitEnabled(boolean enabled) {
+        displayLimitEnabled = enabled;
+        appParameterService.setBoolean(
+                PARAM_DISPLAY_LIMIT_ENABLED,
+                enabled,
+                "Limit the ISS trace returned for globe display to a fixed number of points (otherwise return all stored points).");
+        log.info("ISS trace display limit {}", enabled ? "enabled" : "disabled");
     }
 
     /**
@@ -83,7 +124,10 @@ public class IssTraceService {
     public List<IssTracePointView> getTraceForDisplay() {
         Instant cutoff = Instant.now().minusSeconds(retentionDays * 86400L);
         List<IssTracePoint> raw = repository.findByRecordedAtAfterOrderByRecordedAtAsc(cutoff);
-        return decimateForDisplay(raw);
+        if (!displayLimitEnabled) {
+            return raw.stream().map(IssTracePointView::from).toList();
+        }
+        return decimateForDisplay(raw, getLimitedDisplayPoints());
     }
 
     public long purgeOlderThanRetention() {
@@ -105,11 +149,11 @@ public class IssTraceService {
         return count;
     }
 
-    private List<IssTracePointView> decimateForDisplay(List<IssTracePoint> raw) {
+    private List<IssTracePointView> decimateForDisplay(List<IssTracePoint> raw, int requestedCap) {
         if (raw == null || raw.isEmpty()) {
             return List.of();
         }
-        int cap = Math.max(100, maxDisplayPoints);
+        int cap = Math.min(Math.max(100, maxDisplayPoints), Math.max(100, requestedCap));
         if (raw.size() <= cap) {
             return raw.stream().map(IssTracePointView::from).toList();
         }

@@ -225,6 +225,30 @@ export class ApiService {
     );
   }
 
+  /** ISS trace display point-count limit (when enabled, server caps the returned trace to maxPoints). */
+  getIssTraceDisplayLimit(): Observable<{ enabled: boolean; maxPoints: number }> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<{ enabled: boolean; maxPoints: number }>(
+          this.API_URL + 'external/globe/iss/trace/display-limit',
+          { headers }
+        )
+      )
+    );
+  }
+
+  setIssTraceDisplayLimit(enabled: boolean): Observable<{ enabled: boolean; maxPoints: number }> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<{ enabled: boolean; maxPoints: number }>(
+          this.API_URL + 'external/globe/iss/trace/display-limit',
+          { enabled },
+          { headers }
+        )
+      )
+    );
+  }
+
   /** Current ISS visible-pass e-mail alert configuration (place watched, recipient, quality). */
   getIssAlertConfig(): Observable<IssAlertConfig> {
     return this.getHeaderWithToken().pipe(
@@ -636,6 +660,39 @@ export class ApiService {
   }
 
   // ===================================================================
+  // Chimie — PubChem proxy (periodic table, molecules, 2D/3D structures)
+  // Backend: /api/external/chem/* (no auth required — public data)
+  // ===================================================================
+
+  getChemElements(): Observable<ChemElement[]> {
+    return this._http.get<ChemElement[]>(this.API_URL + 'external/chem/elements');
+  }
+
+  getChemMoleculeByName(name: string): Observable<ChemMolecule> {
+    const params = new HttpParams().set('name', name);
+    return this._http.get<ChemMolecule>(this.API_URL + 'external/chem/molecule', { params });
+  }
+
+  getChemMoleculeByCid(cid: number): Observable<ChemMolecule> {
+    return this._http.get<ChemMolecule>(this.API_URL + 'external/chem/molecule/' + cid);
+  }
+
+  chemAutocomplete(q: string, limit = 10): Observable<ChemAutocomplete> {
+    const params = new HttpParams().set('q', q).set('limit', limit);
+    return this._http.get<ChemAutocomplete>(this.API_URL + 'external/chem/autocomplete', { params });
+  }
+
+  getChemCidByFormula(formula: string): Observable<{ cid: number }> {
+    const params = new HttpParams().set('value', formula);
+    return this._http.get<{ cid: number }>(this.API_URL + 'external/chem/formula', { params });
+  }
+
+  /** Absolute URL of the proxied 2D structure PNG (works in dev and prod via API_URL). */
+  chemImageUrl(cid: number): string {
+    return this.API_URL + 'external/chem/image/' + cid;
+  }
+
+  // ===================================================================
   // Loto — archives (scraping LesBonsNumeros côté serveur)
   // ===================================================================
 
@@ -1009,4 +1066,70 @@ export interface CernRepositoryRecordSummary {
   title: string;
   publicationDate: string;
   resourceType: string;
+}
+
+// ===================================================================
+// Chimie — PubChem
+// ===================================================================
+
+export interface ChemElement {
+  atomicNumber: number;
+  symbol: string;
+  name: string;
+  atomicMass: string;
+  cpkHexColor: string;
+  electronConfiguration: string;
+  electronegativity: string;
+  atomicRadius: string;
+  ionizationEnergy: string;
+  electronAffinity: string;
+  oxidationStates: string;
+  standardState: string;
+  meltingPoint: string;
+  boilingPoint: string;
+  density: string;
+  groupBlock: string;
+  yearDiscovered: string;
+  period: number;
+  group: number;
+  xpos: number;
+  ypos: number;
+}
+
+export interface ChemAtom {
+  atomicNumber: number;
+  symbol: string;
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface ChemBond {
+  from: number;
+  to: number;
+  order: number;
+}
+
+export interface ChemMolecule {
+  cid: number;
+  name: string;
+  molecularFormula: string;
+  molecularWeight: string;
+  iupacName: string;
+  smiles: string;
+  inchiKey: string;
+  xlogp: string;
+  charge: string;
+  description: string;
+  descriptionSource: string;
+  descriptionUrl: string;
+  imagePath: string;
+  has3d: boolean;
+  atoms: ChemAtom[];
+  bonds: ChemBond[];
+}
+
+export interface ChemAutocomplete {
+  query: string;
+  suggestions: string[];
 }

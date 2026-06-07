@@ -225,6 +225,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.DELETE, "/api/external/stock/quote/cached").permitAll()
                 // CERN Open Data & CDS Repository proxies — public read-only data
                 .requestMatchers(HttpMethod.GET, "/api/external/cern/**").permitAll()
+                // Chemistry proxy (PubChem) — public read-only data (periodic table, molecules, images)
+                .requestMatchers(HttpMethod.GET, "/api/external/chem/**").permitAll()
                 // Tirages Loto importés (lecture seule, données publiques d'archive)
                 .requestMatchers(HttpMethod.GET, "/api/loto/**").permitAll()
                 // Sync Loto (scraping) — réservé aux administrateurs

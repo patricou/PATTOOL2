@@ -2097,6 +2097,41 @@ body:has(.wg-fs-root--viewport-locked) {
   outline: none;
 }
 
+.wg-compass-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.wg-compass-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(120, 200, 255, 0.28);
+  background: rgba(80, 150, 255, 0.12);
+  color: #bfe0ff;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.wg-compass-refresh:hover:not(:disabled),
+.wg-compass-refresh:focus-visible {
+  background: rgba(80, 150, 255, 0.28);
+  border-color: rgba(120, 200, 255, 0.6);
+  color: #eaf4ff;
+  outline: none;
+}
+
+.wg-compass-refresh:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
 .wg-compass-body {
   display: flex;
   flex-direction: column;
@@ -2120,12 +2155,37 @@ body:has(.wg-fs-root--viewport-locked) {
   color: #ffd79a;
 }
 
+/* Instrument : cadran + jauge d'élévation côte à côte */
+.wg-compass-instrument {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0.7rem;
+  width: 100%;
+}
+
 /* Cadran */
 .wg-compass-dial {
   position: relative;
-  width: min(74vw, 17rem);
+  width: min(64vw, 15rem);
   aspect-ratio: 1 / 1;
-  margin: 0.25rem auto 0;
+  margin: 0.25rem 0 0;
+  flex: 0 1 auto;
+}
+
+/* Repère fixe (lubber line) : direction de visée appareil, en haut, hors rose */
+.wg-compass-lubber {
+  position: absolute;
+  top: -0.55rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 0.5rem solid transparent;
+  border-right: 0.5rem solid transparent;
+  border-top: 0.7rem solid #9ed4ff;
+  filter: drop-shadow(0 0 4px rgba(120, 200, 255, 0.6));
+  z-index: 3;
 }
 
 .wg-compass-rose {
@@ -2201,6 +2261,61 @@ body:has(.wg-fs-root--viewport-locked) {
   left: 9%;
 }
 
+/* Lettres intercardinales (NE/SE/SW/NW) */
+.wg-compass-inter {
+  position: absolute;
+  font-weight: 600;
+  font-size: 0.6rem;
+  letter-spacing: 0.02em;
+  color: #9fb6e0;
+  transform: translate(-50%, -50%);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.wg-compass-inter--ne {
+  top: 21.5%;
+  left: 78.5%;
+}
+
+.wg-compass-inter--se {
+  top: 78.5%;
+  left: 78.5%;
+}
+
+.wg-compass-inter--sw {
+  top: 78.5%;
+  left: 21.5%;
+}
+
+.wg-compass-inter--nw {
+  top: 21.5%;
+  left: 21.5%;
+}
+
+/* Graduations chiffrées (tous les 30°) sur le pourtour */
+.wg-compass-deg {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 0;
+  height: 50%;
+  transform-origin: bottom center;
+  margin-left: 0;
+  pointer-events: none;
+}
+
+.wg-compass-deg__txt {
+  position: absolute;
+  top: 17%;
+  left: 50%;
+  transform-origin: center;
+  translate: -50% 0;
+  font-size: 0.52rem;
+  font-weight: 600;
+  color: rgba(180, 200, 235, 0.75);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Aiguille ISS (pivote autour du centre, pointe vers le haut = direction ISS) */
 .wg-compass-needle {
   position: absolute;
@@ -2244,6 +2359,18 @@ body:has(.wg-fs-root--viewport-locked) {
   text-shadow: none;
 }
 
+.wg-compass-needle__tail {
+  position: absolute;
+  bottom: 11%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform: translate(-50%, 0);
+  border-left: 0.45rem solid transparent;
+  border-right: 0.45rem solid transparent;
+  border-top: 0.9rem solid rgba(160, 185, 225, 0.6);
+}
+
 .wg-compass-hub {
   position: absolute;
   top: 50%;
@@ -2254,6 +2381,121 @@ body:has(.wg-fs-root--viewport-locked) {
   border-radius: 50%;
   background: radial-gradient(circle, #ffd54a 0%, #b8860b 70%, #6b4e08 100%);
   box-shadow: 0 0 0 3px rgba(10, 18, 38, 0.9), 0 0 10px rgba(255, 196, 60, 0.5);
+  z-index: 2;
+}
+
+/* Azimut numérique au centre du cadran */
+.wg-compass-center {
+  position: absolute;
+  top: 64%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.wg-compass-center__az {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #eaf1ff;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+}
+
+.wg-compass-center__card {
+  margin-top: 0.12rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #9ed4ff;
+}
+
+/* Jauge d'élévation (0° horizon → 90° zénith) */
+.wg-compass-elev {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.2rem;
+  padding: 0.15rem 0;
+  flex: 0 0 auto;
+}
+
+.wg-compass-elev__zenith,
+.wg-compass-elev__horizon {
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: #8fa3c8;
+  font-variant-numeric: tabular-nums;
+}
+
+.wg-compass-elev__track {
+  position: relative;
+  flex: 1 1 auto;
+  width: 0.5rem;
+  min-height: 8rem;
+  border-radius: 0.4rem;
+  background: linear-gradient(to top, rgba(60, 90, 150, 0.25) 0%, rgba(40, 60, 110, 0.45) 100%);
+  border: 1px solid rgba(120, 160, 230, 0.3);
+  overflow: visible;
+}
+
+.wg-compass-elev__fill {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  border-radius: 0.4rem;
+  background: linear-gradient(to top, #4aa3ff 0%, #ffd54a 100%);
+  box-shadow: 0 0 8px rgba(120, 200, 255, 0.4);
+  transition: height 0.2s ease-out;
+}
+
+.wg-compass-elev--below .wg-compass-elev__fill {
+  background: rgba(138, 160, 200, 0.4);
+  box-shadow: none;
+}
+
+.wg-compass-elev__marker {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, 50%);
+  color: #ffd54a;
+  font-size: 0.8rem;
+  text-shadow: 0 0 6px rgba(255, 196, 60, 0.8);
+  transition: bottom 0.2s ease-out;
+}
+
+.wg-compass-elev--below .wg-compass-elev__marker {
+  color: #8aa0c8;
+  text-shadow: none;
+}
+
+/* Indicateur de fraîcheur des données */
+.wg-compass-fresh {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  color: #9fb2d8;
+}
+
+.wg-compass-fresh__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #5dd879;
+  box-shadow: 0 0 6px rgba(93, 216, 121, 0.7);
+}
+
+.wg-compass-fresh__dot--stale {
+  background: #ffb347;
+  box-shadow: 0 0 6px rgba(255, 179, 71, 0.7);
 }
 
 .wg-compass-turn {
@@ -2270,6 +2512,80 @@ body:has(.wg-fs-root--viewport-locked) {
 
 .wg-compass-turn .fa-check-circle {
   color: #5dd879;
+}
+
+/* Voyant « face à l'ISS » : badge lumineux pulsant */
+.wg-compass-turn--facing {
+  color: #c9ffd6;
+  font-weight: 700;
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  background: radial-gradient(circle at 50% 50%, rgba(93, 216, 121, 0.32) 0%, rgba(34, 197, 94, 0.14) 70%);
+  border: 1px solid rgba(93, 216, 121, 0.7);
+  text-shadow: 0 0 8px rgba(93, 216, 121, 0.9);
+  box-shadow: 0 0 16px rgba(93, 216, 121, 0.55), inset 0 0 10px rgba(93, 216, 121, 0.3);
+  animation: wg-compass-facing-pulse 1.25s ease-in-out infinite;
+}
+
+.wg-compass-turn--facing .fa-check-circle {
+  color: #8dffa6;
+  filter: drop-shadow(0 0 6px rgba(93, 216, 121, 0.95));
+}
+
+@keyframes wg-compass-facing-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 12px rgba(93, 216, 121, 0.4), inset 0 0 8px rgba(93, 216, 121, 0.25);
+    border-color: rgba(93, 216, 121, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 26px rgba(93, 216, 121, 0.85), inset 0 0 14px rgba(93, 216, 121, 0.45);
+    border-color: rgba(140, 255, 170, 0.95);
+  }
+}
+
+/* Cadran qui s'illumine en vert quand on est aligné sur l'ISS */
+.wg-compass-dial--facing .wg-compass-rose {
+  border-color: rgba(120, 255, 150, 0.85);
+  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.55), 0 0 24px rgba(93, 216, 121, 0.6);
+  animation: wg-compass-rose-glow 1.25s ease-in-out infinite;
+}
+
+@keyframes wg-compass-rose-glow {
+  0%,
+  100% {
+    box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.55), 0 0 16px rgba(93, 216, 121, 0.45);
+  }
+  50% {
+    box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.55), 0 0 34px rgba(93, 216, 121, 0.9);
+  }
+}
+
+.wg-compass-dial--facing .wg-compass-needle__arrow {
+  border-bottom-color: #8dffa6;
+  filter: drop-shadow(0 0 9px rgba(93, 216, 121, 0.95));
+}
+
+.wg-compass-dial--facing .wg-compass-needle__iss {
+  color: #8dffa6;
+  text-shadow: 0 0 12px rgba(93, 216, 121, 1);
+}
+
+.wg-compass-dial--facing .wg-compass-hub {
+  background: radial-gradient(circle, #8dffa6 0%, #2bb54a 70%, #0f6b29 100%);
+  box-shadow: 0 0 0 3px rgba(10, 18, 38, 0.9), 0 0 14px rgba(93, 216, 121, 0.85);
+}
+
+.wg-compass-dial--facing .wg-compass-center__az {
+  color: #c9ffd6;
+  text-shadow: 0 0 10px rgba(93, 216, 121, 0.8);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wg-compass-turn--facing,
+  .wg-compass-dial--facing .wg-compass-rose {
+    animation: none;
+  }
 }
 
 .wg-compass-hint {
@@ -2350,6 +2666,14 @@ body:has(.wg-fs-root--viewport-locked) {
   }
 
   .wg-compass-dial {
-    width: min(80vw, 16rem);
+    width: min(68vw, 14rem);
+  }
+
+  .wg-compass-instrument {
+    gap: 0.5rem;
+  }
+
+  .wg-compass-elev__track {
+    min-height: 7rem;
   }
 }

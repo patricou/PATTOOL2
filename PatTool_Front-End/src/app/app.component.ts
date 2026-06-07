@@ -165,7 +165,8 @@ export class AppComponent implements OnInit {
         { routerLink: ['tools/loto'], icon: 'fa fa-trophy', labelKey: 'MENU.LOTTO' },
         { routerLink: ['tools/euromillions'], icon: 'fa fa-star', labelKey: 'MENU.EUROMILLIONS' },
         { routerLink: ['tools/calculator'], icon: 'fa fa-calculator', labelKey: 'MENU.CALCULATOR' },
-        { routerLink: ['tools/cern'], icon: 'fa fa-flask', labelKey: 'MENU.CERN' }
+        { routerLink: ['tools/cern'], icon: 'fa fa-flask', labelKey: 'MENU.CERN' },
+        { routerLink: ['tools/chimie'], icon: 'fa fa-flask', labelKey: 'MENU.CHIMIE' }
     ];
     readonly toolsMenuRowsRaw: ToolsMenuRow[] = [
         { kind: 'route', routerLink: ['results'], icon: 'fa fa-comments', labelKey: 'MENU.RESULTS' },

@@ -114,5 +114,10 @@ euromillions.ai.min-draw-date=2020-01-01
 # app.cern.repository-api-base=https://repository.cern/api
 # app.cern.zenodo-api-base=https://zenodo.org/api
 
+# --- Chemistry external APIs (proxy /api/external/chem/*) ---
+# PubChem PUG REST (no API key required, public data): periodic table, molecules, 2D images, autocomplete
+# app.chem.pubchem-rest-base=https://pubchem.ncbi.nlm.nih.gov/rest/pug
+# app.chem.pubchem-autocomplete-base=https://pubchem.ncbi.nlm.nih.gov/rest/autocomplete
+
 # --- Image cache (PatToolApplication) ---
 app.cache.persistence.restore-on-startup=true

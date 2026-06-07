@@ -19,8 +19,8 @@
         <span>{{ 'WORLD_GLOBE.ISS_TICKER_LOADING' | translate }}</span>
       </div>
       <div class="wg-iss-ticker__row" *ngIf="issTickerHasLiveData()">
-        <div class="wg-iss-ticker__track">
-          <div class="wg-iss-ticker__loop-half">
+        <div class="wg-iss-ticker__track" [style.animationDuration.s]="issTickerDurationSec">
+          <div class="wg-iss-ticker__loop-half" #issTickerHalf>
             <ng-container *ngFor="let _ of issTickerMarqueeRepeats">
               <ng-container *ngTemplateOutlet="issTickerItemsTpl"></ng-container>
             </ng-container>
@@ -355,6 +355,24 @@
                 </div>
               </div>
               <p class="wg-opt-iss-meta text-muted small mb-0" *ngIf="issBackgroundTraceSaving">{{ 'WORLD_GLOBE.ISS_BACKGROUND_TRACE_SAVING' | translate }}</p>
+              <div class="wg-opt-row">
+                <label
+                  class="wg-opt-row__label"
+                  for="wgIssTraceDisplayLimit"
+                  [attr.title]="'WORLD_GLOBE.ISS_TRACE_DISPLAY_LIMIT_HINT' | translate : { points: issTraceDisplayLimitMaxPoints }">{{
+                  'WORLD_GLOBE.ISS_TRACE_DISPLAY_LIMIT' | translate : { points: issTraceDisplayLimitMaxPoints }
+                }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="wgIssTraceDisplayLimit"
+                    [(ngModel)]="issTraceDisplayLimitEnabled"
+                    (ngModelChange)="onIssTraceDisplayLimitToggle()"
+                    [disabled]="issTraceDisplayLimitLoading || issTraceDisplayLimitSaving" />
+                </div>
+              </div>
+              <p class="wg-opt-iss-meta text-muted small mb-0" *ngIf="issTraceDisplayLimitSaving">{{ 'WORLD_GLOBE.ISS_BACKGROUND_TRACE_SAVING' | translate }}</p>
               <ng-container *ngIf="issOverlayEnabled">
                 <div class="wg-opt-row">
                   <label class="wg-opt-row__label" for="wgIssTrace" [attr.title]="'WORLD_GLOBE.ISS_TRACE_SHOW_HINT' | translate">{{ 'WORLD_GLOBE.ISS_TRACE_SHOW' | translate }}</label>
@@ -934,14 +952,26 @@
             <h3 class="wg-compass-title mb-0">
               <i class="fa fa-space-shuttle me-2" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_TITLE' | translate }}
             </h3>
-            <button
-              type="button"
-              class="wg-compass-close"
-              (click)="closeIssCompass()"
-              [attr.title]="'WORLD_GLOBE.ISS_COMPASS_CLOSE' | translate"
-              [attr.aria-label]="'WORLD_GLOBE.ISS_COMPASS_CLOSE' | translate">
-              <i class="fa fa-times" aria-hidden="true"></i>
-            </button>
+            <div class="wg-compass-head-actions">
+              <button
+                type="button"
+                class="wg-compass-refresh"
+                [class.wg-compass-refresh--busy]="issCompassRefreshing"
+                (click)="refreshIssCompass()"
+                [disabled]="issCompassRefreshing"
+                [attr.title]="'WORLD_GLOBE.ISS_COMPASS_REFRESH' | translate"
+                [attr.aria-label]="'WORLD_GLOBE.ISS_COMPASS_REFRESH' | translate">
+                <i class="fa fa-sync-alt" [class.fa-spin]="issCompassRefreshing" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="wg-compass-close"
+                (click)="closeIssCompass()"
+                [attr.title]="'WORLD_GLOBE.ISS_COMPASS_CLOSE' | translate"
+                [attr.aria-label]="'WORLD_GLOBE.ISS_COMPASS_CLOSE' | translate">
+                <i class="fa fa-times" aria-hidden="true"></i>
+              </button>
+            </div>
           </div>
 
           <div class="wg-compass-body">
@@ -957,28 +987,75 @@
             </div>
 
             <ng-container *ngIf="issCompassAzimuthDeg != null">
-              <!-- Cadran boussole -->
-              <div
-                class="wg-compass-dial"
-                [class.wg-compass-dial--live]="issCompassHeadingActive"
-                [class.wg-compass-dial--below]="!issCompassIssAboveHorizon()">
-                <div class="wg-compass-rose" [style.transform]="'rotate(' + issCompassRoseRotationDeg() + 'deg)'">
-                  <span class="wg-compass-ticks" aria-hidden="true"></span>
-                  <span class="wg-compass-card-letter wg-compass-card-letter--n">{{ 'WORLD_GLOBE.COMPASS_DIR_N' | translate }}</span>
-                  <span class="wg-compass-card-letter wg-compass-card-letter--e">{{ 'WORLD_GLOBE.COMPASS_DIR_E' | translate }}</span>
-                  <span class="wg-compass-card-letter wg-compass-card-letter--s">{{ 'WORLD_GLOBE.COMPASS_DIR_S' | translate }}</span>
-                  <span class="wg-compass-card-letter wg-compass-card-letter--w">{{ 'WORLD_GLOBE.COMPASS_DIR_W' | translate }}</span>
+              <!-- Instrument : cadran boussole + jauge d'élévation -->
+              <div class="wg-compass-instrument">
+                <!-- Cadran boussole -->
+                <div
+                  class="wg-compass-dial"
+                  [class.wg-compass-dial--live]="issCompassHeadingActive"
+                  [class.wg-compass-dial--below]="!issCompassIssAboveHorizon()"
+                  [class.wg-compass-dial--facing]="issCompassIsFacing()">
+                  <!-- Repère fixe (lubber line) : direction vers laquelle l'appareil est pointé -->
+                  <span class="wg-compass-lubber" aria-hidden="true"></span>
+                  <div class="wg-compass-rose" [style.transform]="'rotate(' + issCompassRoseRotationDeg() + 'deg)'">
+                    <span class="wg-compass-ticks" aria-hidden="true"></span>
+                    <!-- Graduations chiffrées tous les 30° -->
+                    <span
+                      class="wg-compass-deg"
+                      *ngFor="let d of issCompassBezelDegrees"
+                      [style.transform]="'rotate(' + d + 'deg)'"
+                      aria-hidden="true">
+                      <span class="wg-compass-deg__txt" [style.transform]="'rotate(' + (-d) + 'deg)'">{{ d }}</span>
+                    </span>
+                    <!-- Lettres intercardinales -->
+                    <span class="wg-compass-inter wg-compass-inter--ne">{{ ('WORLD_GLOBE.COMPASS_DIR_N' | translate) + ('WORLD_GLOBE.COMPASS_DIR_E' | translate) }}</span>
+                    <span class="wg-compass-inter wg-compass-inter--se">{{ ('WORLD_GLOBE.COMPASS_DIR_S' | translate) + ('WORLD_GLOBE.COMPASS_DIR_E' | translate) }}</span>
+                    <span class="wg-compass-inter wg-compass-inter--sw">{{ ('WORLD_GLOBE.COMPASS_DIR_S' | translate) + ('WORLD_GLOBE.COMPASS_DIR_W' | translate) }}</span>
+                    <span class="wg-compass-inter wg-compass-inter--nw">{{ ('WORLD_GLOBE.COMPASS_DIR_N' | translate) + ('WORLD_GLOBE.COMPASS_DIR_W' | translate) }}</span>
+                    <!-- Lettres cardinales -->
+                    <span class="wg-compass-card-letter wg-compass-card-letter--n">{{ 'WORLD_GLOBE.COMPASS_DIR_N' | translate }}</span>
+                    <span class="wg-compass-card-letter wg-compass-card-letter--e">{{ 'WORLD_GLOBE.COMPASS_DIR_E' | translate }}</span>
+                    <span class="wg-compass-card-letter wg-compass-card-letter--s">{{ 'WORLD_GLOBE.COMPASS_DIR_S' | translate }}</span>
+                    <span class="wg-compass-card-letter wg-compass-card-letter--w">{{ 'WORLD_GLOBE.COMPASS_DIR_W' | translate }}</span>
+                  </div>
+                  <div class="wg-compass-needle" [style.transform]="'rotate(' + issCompassNeedleRotationDeg() + 'deg)'" aria-hidden="true">
+                    <span class="wg-compass-needle__arrow"></span>
+                    <span class="wg-compass-needle__tail"></span>
+                    <span class="wg-compass-needle__iss"><i class="fa fa-space-shuttle" aria-hidden="true"></i></span>
+                  </div>
+                  <div class="wg-compass-hub" aria-hidden="true"></div>
+                  <!-- Azimut numérique au centre -->
+                  <div class="wg-compass-center" aria-hidden="true">
+                    <span class="wg-compass-center__az">{{ issCompassAzimuthDeg | number : '1.0-1' }}°</span>
+                    <span class="wg-compass-center__card">{{ issCompassCardinalLabel() }}</span>
+                  </div>
                 </div>
-                <div class="wg-compass-needle" [style.transform]="'rotate(' + issCompassNeedleRotationDeg() + 'deg)'" aria-hidden="true">
-                  <span class="wg-compass-needle__arrow"></span>
-                  <span class="wg-compass-needle__iss"><i class="fa fa-space-shuttle" aria-hidden="true"></i></span>
+
+                <!-- Jauge d'élévation (0° horizon → 90° zénith) -->
+                <div
+                  class="wg-compass-elev"
+                  [class.wg-compass-elev--below]="!issCompassIssAboveHorizon()"
+                  [attr.aria-label]="'WORLD_GLOBE.ISS_COMPASS_ELEVATION' | translate">
+                  <span class="wg-compass-elev__zenith">90°</span>
+                  <div class="wg-compass-elev__track">
+                    <span class="wg-compass-elev__fill" [style.height.%]="issCompassElevationGaugePercent()"></span>
+                    <span class="wg-compass-elev__marker" [style.bottom.%]="issCompassElevationGaugePercent()">
+                      <i class="fa fa-space-shuttle" aria-hidden="true"></i>
+                    </span>
+                  </div>
+                  <span class="wg-compass-elev__horizon">0°</span>
                 </div>
-                <div class="wg-compass-hub" aria-hidden="true"></div>
+              </div>
+
+              <!-- Fraîcheur des données + rafraîchissement -->
+              <div class="wg-compass-fresh" *ngIf="issCompassUpdatedAgoLabel() as ago">
+                <span class="wg-compass-fresh__dot" [class.wg-compass-fresh__dot--stale]="issCompassDataStale()"></span>
+                <span class="wg-compass-fresh__txt">{{ 'WORLD_GLOBE.ISS_COMPASS_UPDATED' | translate }} {{ ago }}</span>
               </div>
 
               <!-- Consigne relative (cap appareil connu) -->
               <ng-container *ngIf="issCompassRelativeInstruction() as instr">
-                <div class="wg-compass-turn">
+                <div class="wg-compass-turn" [class.wg-compass-turn--facing]="instr.key === 'WORLD_GLOBE.COMPASS_FACING'">
                   <ng-container *ngIf="instr.key === 'WORLD_GLOBE.COMPASS_FACING'">
                     <i class="fa fa-check-circle me-2" aria-hidden="true"></i>{{ instr.key | translate }}
                   </ng-container>
@@ -996,22 +1073,37 @@
               <div class="wg-compass-readout">
                 <div class="wg-compass-readout__item">
                   <span class="wg-compass-readout__key">{{ 'WORLD_GLOBE.ISS_COMPASS_AZIMUTH' | translate }}</span>
-                  <span class="wg-compass-readout__val">{{ issCompassAzimuthDeg | number : '1.0-0' }}° · {{ issCompassCardinalLabel() }}</span>
+                  <span class="wg-compass-readout__val">{{ issCompassAzimuthDeg | number : '1.1-1' }}° · {{ issCompassCardinalLabel() }}</span>
                 </div>
                 <div class="wg-compass-readout__item">
                   <span class="wg-compass-readout__key">{{ 'WORLD_GLOBE.ISS_COMPASS_ELEVATION' | translate }}</span>
                   <span class="wg-compass-readout__val" [class.wg-compass-readout__val--warn]="!issCompassIssAboveHorizon()">
-                    {{ issCompassElevationDeg | number : '1.0-0' }}°
+                    {{ issCompassElevationDeg | number : '1.1-1' }}°
                     <span class="wg-compass-readout__note" *ngIf="!issCompassIssAboveHorizon()">· {{ 'WORLD_GLOBE.ISS_COMPASS_BELOW_HORIZON' | translate }}</span>
                   </span>
                 </div>
                 <div class="wg-compass-readout__item" *ngIf="issCompassSlantRangeKm != null">
                   <span class="wg-compass-readout__key">{{ 'WORLD_GLOBE.ISS_COMPASS_DISTANCE' | translate }}</span>
-                  <span class="wg-compass-readout__val">{{ issCompassSlantRangeKm | number : '1.0-0' }} km</span>
+                  <span class="wg-compass-readout__val">{{ issCompassSlantRangeKm | number : '1.0-1' }} km</span>
+                </div>
+                <div class="wg-compass-readout__item" *ngIf="issCompassGroundDistanceKm != null">
+                  <span class="wg-compass-readout__key">{{ 'WORLD_GLOBE.ISS_COMPASS_GROUND_DISTANCE' | translate }}</span>
+                  <span class="wg-compass-readout__val">{{ issCompassGroundDistanceKm | number : '1.0-1' }} km</span>
+                </div>
+                <div class="wg-compass-readout__item" *ngIf="issCompassAltitudeKm() != null">
+                  <span class="wg-compass-readout__key">{{ 'WORLD_GLOBE.ISS_COMPASS_ALTITUDE' | translate }}</span>
+                  <span class="wg-compass-readout__val">{{ issCompassAltitudeKm() | number : '1.0-1' }} km</span>
                 </div>
                 <div class="wg-compass-readout__item" *ngIf="issCompassHeadingActive && issCompassHeadingDeg != null">
                   <span class="wg-compass-readout__key">{{ 'WORLD_GLOBE.ISS_COMPASS_HEADING' | translate }}</span>
-                  <span class="wg-compass-readout__val">{{ issCompassHeadingDeg | number : '1.0-0' }}°</span>
+                  <span class="wg-compass-readout__val">
+                    {{ issCompassHeadingDeg | number : '1.0-1' }}°
+                    <span class="wg-compass-readout__note" *ngIf="issCompassHeadingAccuracyDeg != null">· ±{{ issCompassHeadingAccuracyDeg | number : '1.0-0' }}°</span>
+                  </span>
+                </div>
+                <div class="wg-compass-readout__item" *ngIf="issCompassUserAccuracyM != null">
+                  <span class="wg-compass-readout__key">{{ 'WORLD_GLOBE.ISS_COMPASS_GPS_ACCURACY' | translate }}</span>
+                  <span class="wg-compass-readout__val">±{{ issCompassUserAccuracyM | number : '1.0-0' }} m</span>
                 </div>
               </div>
 

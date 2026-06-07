@@ -237,6 +237,17 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   @ViewChild('issLivePiP') issLivePiP?: ElementRef<HTMLElement>;
   @ViewChild('issLiveHdPiP') issLiveHdPiP?: ElementRef<HTMLElement>;
 
+  /** Demi-piste du bandeau ISS : sert à mesurer la largeur réelle pour une vitesse constante. */
+  @ViewChild('issTickerHalf')
+  set issTickerHalfRef(ref: ElementRef<HTMLElement> | undefined) {
+    const el = ref?.nativeElement;
+    if (el === this.issTickerHalfEl) {
+      return;
+    }
+    this.issTickerHalfEl = el;
+    this.attachIssTickerSpeedObserver();
+  }
+
   /** Mini-fenêtre ISS en direct (embed YouTube, même source que Destination Orbite). Affichée par défaut. */
   issLiveEmbedEnabled = true;
   issLivePiPFullscreen = false;
@@ -294,6 +305,16 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   /** Répétitions lat/lon/alt/vitesse par demi-piste (boucle marquee sans trou). */
   readonly issTickerMarqueeRepeats = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
   /**
+   * Durée (s) d’un cycle du bandeau défilant. Recalculée dynamiquement à partir de la largeur
+   * réelle d’une demi-piste pour garder une vitesse de défilement CONSTANTE (px/s), quel que soit
+   * le nombre d’infos affichées (ex. ajout des infos boussole qui allongent la piste).
+   */
+  issTickerDurationSec = 90;
+  /** Vitesse de défilement cible du bandeau ISS, en pixels par seconde. */
+  private static readonly ISS_TICKER_SPEED_PX_PER_SEC = 90;
+  private issTickerHalfEl?: HTMLElement;
+  private issTickerResizeObs?: ResizeObserver;
+  /**
    * Garde le sous-point ISS au centre du globe (caméra réalignée à chaque frame ; le zoom est conservé).
    * Désactive temporairement la rotation automatique tant que l’option est active et qu’une position ISS est connue.
    */
@@ -339,6 +360,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   issBackgroundTraceIntervalMinutes = 15;
   issBackgroundTraceLoading = false;
   issBackgroundTraceSaving = false;
+  /** Limite l’affichage de la trace ISS à {@link issTraceDisplayLimitMaxPoints} points (activé par défaut, persisté serveur). */
+  issTraceDisplayLimitEnabled = true;
+  issTraceDisplayLimitMaxPoints = 1000;
+  issTraceDisplayLimitLoading = false;
+  issTraceDisplayLimitSaving = false;
   /** Intervalle d’échantillonnage trace ISS côté serveur (s), lu depuis GET /iss/trace. */
   issTraceSampleIntervalSec = GLOBE_ISS_TRACE_SAMPLE_INTERVAL_SEC_DEFAULT;
   globeIssLat: number | null = null;
@@ -390,6 +416,17 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private issCompassOrientationListening = false;
   private issCompassOrientationEventName: 'deviceorientationabsolute' | 'deviceorientation' | null = null;
   private issCompassHeadingLastPaintMs = 0;
+  /** Horodatage (epoch ms) de la dernière donnée ISS appliquée à la boussole. */
+  issCompassUpdatedAtMs: number | null = null;
+  /** Rafraîchissement manuel de la boussole en cours. */
+  issCompassRefreshing = false;
+  /** « Maintenant » mis en cache (epoch ms) pour calculer la fraîcheur des données sans recalcul permanent. */
+  issCompassNowMs = Date.now();
+  private issCompassFreshnessTimer: ReturnType<typeof setInterval> | null = null;
+  /** Graduations en degrés affichées sur le pourtour du cadran (tous les 30°). */
+  readonly issCompassBezelDegrees: ReadonlyArray<number> = [
+    0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330
+  ];
   /** Séquence des 16 directions (clés de lettres cardinales à concaténer). */
   private static readonly ISS_COMPASS_POINTS: ReadonlyArray<ReadonlyArray<'N' | 'E' | 'S' | 'W'>> = [
     ['N'], ['N', 'N', 'E'], ['N', 'E'], ['E', 'N', 'E'],
@@ -812,11 +849,13 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       queueMicrotask(() => void this.loadIssHistoricalTrace());
     }
     queueMicrotask(() => this.loadIssBackgroundTraceSetting());
+    queueMicrotask(() => this.loadIssTraceDisplayLimitSetting());
     queueMicrotask(() => this.loadIssAlertConfig());
   }
 
   ngOnDestroy(): void {
     this.stopIssCompassSensors();
+    this.stopIssCompassFreshnessTimer();
     this.endIssFsSplitResizeDrag();
     this.endIssFsPipStackResizeDrag();
     void this.exitGlobeFullscreenIfActive();
@@ -841,6 +880,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.translateLangSub = undefined;
     this.globeTraceViewer?.close();
     this.stopGlobeCameraAnimation();
+    this.issTickerResizeObs?.disconnect();
+    this.issTickerResizeObs = undefined;
     if (this.globePickCursorResetTimer != null) {
       clearTimeout(this.globePickCursorResetTimer);
       this.globePickCursorResetTimer = null;
@@ -1492,6 +1533,58 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
         },
         error: () => {
           this.issBackgroundTraceEnabled = !next;
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  loadIssTraceDisplayLimitSetting(): void {
+    this.issTraceDisplayLimitLoading = true;
+    this.apiService
+      .getIssTraceDisplayLimit()
+      .pipe(
+        finalize(() => {
+          this.issTraceDisplayLimitLoading = false;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
+        next: (res) => {
+          this.issTraceDisplayLimitEnabled = !!res?.enabled;
+          if (typeof res?.maxPoints === 'number' && res.maxPoints > 0) {
+            this.issTraceDisplayLimitMaxPoints = res.maxPoints;
+          }
+        },
+        error: () => {
+          /* keep defaults */
+        }
+      });
+  }
+
+  onIssTraceDisplayLimitToggle(): void {
+    if (this.issTraceDisplayLimitSaving) {
+      return;
+    }
+    const next = this.issTraceDisplayLimitEnabled;
+    this.issTraceDisplayLimitSaving = true;
+    this.apiService
+      .setIssTraceDisplayLimit(next)
+      .pipe(
+        finalize(() => {
+          this.issTraceDisplayLimitSaving = false;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
+        next: (res) => {
+          this.issTraceDisplayLimitEnabled = !!res?.enabled;
+          if (typeof res?.maxPoints === 'number' && res.maxPoints > 0) {
+            this.issTraceDisplayLimitMaxPoints = res.maxPoints;
+          }
+          void this.loadIssHistoricalTrace();
+        },
+        error: () => {
+          this.issTraceDisplayLimitEnabled = !next;
           this.cdr.markForCheck();
         }
       });
@@ -2498,6 +2591,40 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     });
     for (const panel of panels) {
       this.issLivePiPResizeObs.observe(panel);
+    }
+  }
+
+  /**
+   * Observe la largeur réelle d’une demi-piste du bandeau ISS et recalcule la durée d’animation
+   * pour garder une vitesse de défilement constante (px/s) quel que soit le nombre d’infos affichées.
+   */
+  private attachIssTickerSpeedObserver(): void {
+    this.issTickerResizeObs?.disconnect();
+    this.issTickerResizeObs = undefined;
+    const el = this.issTickerHalfEl;
+    if (!el) {
+      return;
+    }
+    if (typeof ResizeObserver === 'undefined') {
+      queueMicrotask(() => this.updateIssTickerDuration(el.getBoundingClientRect().width));
+      return;
+    }
+    this.issTickerResizeObs = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? el.getBoundingClientRect().width;
+      this.updateIssTickerDuration(width);
+    });
+    this.issTickerResizeObs.observe(el);
+  }
+
+  private updateIssTickerDuration(halfWidthPx: number): void {
+    if (!Number.isFinite(halfWidthPx) || halfWidthPx <= 0) {
+      return;
+    }
+    const sec = Math.max(30, halfWidthPx / WorldGlobeComponent.ISS_TICKER_SPEED_PX_PER_SEC);
+    const rounded = Math.round(sec);
+    if (rounded !== this.issTickerDurationSec) {
+      this.issTickerDurationSec = rounded;
+      this.cdr.markForCheck();
     }
   }
 
@@ -4966,7 +5093,76 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       void this.refreshIssNow();
     }
     this.recomputeIssCompass();
+    this.startIssCompassFreshnessTimer();
     this.cdr.markForCheck();
+  }
+
+  /** Tient à jour l’indicateur « il y a … » pendant que la modale est ouverte. */
+  private startIssCompassFreshnessTimer(): void {
+    this.stopIssCompassFreshnessTimer();
+    this.zone.runOutsideAngular(() => {
+      this.issCompassFreshnessTimer = setInterval(() => {
+        this.zone.run(() => {
+          this.issCompassNowMs = Date.now();
+          this.cdr.markForCheck();
+        });
+      }, 1000);
+    });
+  }
+
+  private stopIssCompassFreshnessTimer(): void {
+    if (this.issCompassFreshnessTimer != null) {
+      clearInterval(this.issCompassFreshnessTimer);
+      this.issCompassFreshnessTimer = null;
+    }
+  }
+
+  /**
+   * Rafraîchissement manuel depuis la boussole : redemande une position GPS ponctuelle de haute
+   * précision puis recharge la position ISS, et recalcule l’azimut / élévation.
+   */
+  async refreshIssCompass(): Promise<void> {
+    if (this.issCompassRefreshing) {
+      return;
+    }
+    this.issCompassRefreshing = true;
+    this.cdr.markForCheck();
+    // Tentative de relevé GPS ponctuel (en plus du watch), pour la position la plus fraîche possible.
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      try {
+        await new Promise<void>((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              this.zone.run(() => {
+                this.issCompassUserLat = pos.coords.latitude;
+                this.issCompassUserLon = pos.coords.longitude;
+                this.issCompassUserAccuracyM = Number.isFinite(pos.coords.accuracy)
+                  ? pos.coords.accuracy
+                  : null;
+                this.issCompassUserSource = 'gps';
+                if (this.issCompassStatus === 'locating' || this.issCompassStatus === 'no-geo') {
+                  this.issCompassStatus = 'ready';
+                }
+              });
+              resolve();
+            },
+            () => resolve(),
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 }
+          );
+        });
+      } catch {
+        /* ignore : on garde la position existante */
+      }
+    }
+    try {
+      await this.refreshIssNow();
+    } finally {
+      this.zone.run(() => {
+        this.recomputeIssCompass();
+        this.issCompassRefreshing = false;
+        this.cdr.markForCheck();
+      });
+    }
   }
 
   /** Ferme la modale boussole et coupe tous les capteurs. */
@@ -4976,6 +5172,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
     this.issCompassOpen = false;
     this.stopIssCompassSensors();
+    this.stopIssCompassFreshnessTimer();
     this.cdr.markForCheck();
   }
 
@@ -5192,6 +5389,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.issCompassElevationDeg = (elevationRad * 180) / Math.PI;
     this.issCompassGroundDistanceKm = groundKm;
     this.issCompassSlantRangeKm = slant;
+    this.issCompassUpdatedAtMs = Date.now();
+    this.issCompassNowMs = this.issCompassUpdatedAtMs;
   }
 
   /**
@@ -5327,6 +5526,51 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   /** ISS au-dessus de l’horizon (visible géométriquement) selon l’élévation calculée. */
   issCompassIssAboveHorizon(): boolean {
     return this.issCompassElevationDeg != null && this.issCompassElevationDeg >= 0;
+  }
+
+  /** L’appareil pointe vers l’ISS (cap connu et écart d’azimut faible) : déclenche le voyant lumineux. */
+  issCompassIsFacing(): boolean {
+    const instr = this.issCompassRelativeInstruction();
+    return instr != null && instr.key === 'WORLD_GLOBE.COMPASS_FACING';
+  }
+
+  /** Altitude de l’ISS (km) utilisée pour le calcul (valeur API ou repli 420 km). */
+  issCompassAltitudeKm(): number | null {
+    return this.globeIssAltKm != null && this.globeIssAltKm > 0 ? this.globeIssAltKm : null;
+  }
+
+  /** Hauteur (%) de la jauge d’élévation : 0° = horizon, 90° = zénith (élévations < 0 repliées à 0). */
+  issCompassElevationGaugePercent(): number {
+    const el = this.issCompassElevationDeg;
+    if (el == null) {
+      return 0;
+    }
+    const clamped = Math.max(0, Math.min(90, el));
+    return (clamped / 90) * 100;
+  }
+
+  /** Âge des données ISS, formaté « à l’instant / il y a Ns / il y a Nmin », sinon null. */
+  issCompassUpdatedAgoLabel(): string | null {
+    if (this.issCompassUpdatedAtMs == null) {
+      return null;
+    }
+    const diffSec = Math.max(0, Math.round((this.issCompassNowMs - this.issCompassUpdatedAtMs) / 1000));
+    if (diffSec < 3) {
+      return this.translate.instant('WORLD_GLOBE.ISS_COMPASS_UPDATED_NOW');
+    }
+    if (diffSec < 60) {
+      return this.translate.instant('WORLD_GLOBE.ISS_COMPASS_UPDATED_AGO_S', { s: diffSec });
+    }
+    const diffMin = Math.round(diffSec / 60);
+    return this.translate.instant('WORLD_GLOBE.ISS_COMPASS_UPDATED_AGO_M', { m: diffMin });
+  }
+
+  /** Indique si les données ISS sont périmées (> 30 s) et mériteraient un rafraîchissement. */
+  issCompassDataStale(): boolean {
+    if (this.issCompassUpdatedAtMs == null) {
+      return false;
+    }
+    return this.issCompassNowMs - this.issCompassUpdatedAtMs > 30000;
   }
 
   private makeStarField(): THREE.Points {
