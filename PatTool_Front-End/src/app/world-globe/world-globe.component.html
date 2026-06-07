@@ -37,6 +37,10 @@
 
   <ng-template #issTickerItemsTpl>
     <span class="wg-iss-ticker__item">
+      <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_NOW' | translate }}</span>
+      <span class="wg-iss-ticker__val">{{ currentDateTimeLabel() }}</span>
+    </span>
+    <span class="wg-iss-ticker__item">
       <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_LAT' | translate }}</span>
       <span class="wg-iss-ticker__val">{{ globeIssLat | number : '1.4-4' }}°</span>
     </span>
@@ -346,6 +350,39 @@
                   <input class="form-check-input" type="checkbox" id="wgIssHistoricalTraceDates" [(ngModel)]="issHistoricalTraceDatesEnabled" (ngModelChange)="onIssHistoricalTraceDatesToggle()" [disabled]="!globeSurfaceReady || issHistoricalTraceLoading" />
                 </div>
               </div>
+              <ng-container *ngIf="{ chars: oldestIssTraceLcdChars() } as oldestTrace">
+                <div
+                  class="wg-iss-oldest-trace"
+                  *ngIf="issHistoricalTraceEnabled && oldestTrace.chars.length"
+                  [attr.title]="'WORLD_GLOBE.ISS_OLDEST_TRACE_HINT' | translate">
+                  <span class="wg-iss-oldest-trace__label">{{ 'WORLD_GLOBE.ISS_OLDEST_TRACE' | translate }}</span>
+                  <div class="wg-iss-oldest-trace__row">
+                    <div
+                      class="event-days-lcd wg-iss-oldest-trace__lcd"
+                      role="status"
+                      [attr.aria-label]="('WORLD_GLOBE.ISS_OLDEST_TRACE' | translate) + ' ' + oldestIssTraceDateLabel()">
+                      <div class="event-days-lcd-screen" aria-hidden="true">
+                        <span class="event-days-lcd-digit" *ngFor="let ch of oldestTrace.chars">
+                          <span class="event-days-lcd-ghost">{{ ch.ghost }}</span>
+                          <span class="event-days-lcd-lit">{{ ch.lit }}</span>
+                        </span>
+                      </div>
+                    </div>
+                    <div
+                      class="event-days-lcd wg-iss-oldest-trace__lcd"
+                      role="status"
+                      [attr.aria-label]="'WORLD_GLOBE.ISS_TRACE_COUNT' | translate : { count: issHistoricalTraceCount }">
+                      <div class="event-days-lcd-screen" aria-hidden="true">
+                        <span class="event-days-lcd-digit" *ngFor="let ch of issHistoricalTraceCountLcdChars()">
+                          <span class="event-days-lcd-ghost">{{ ch.ghost }}</span>
+                          <span class="event-days-lcd-lit">{{ ch.lit }}</span>
+                        </span>
+                      </div>
+                    </div>
+                    <span class="wg-iss-oldest-trace__count">{{ 'WORLD_GLOBE.ISS_TRACE_COUNT_UNIT' | translate }}</span>
+                  </div>
+                </div>
+              </ng-container>
               <div class="wg-opt-row">
                 <label
                   class="wg-opt-row__label"
@@ -365,6 +402,12 @@
               </div>
               <p class="wg-opt-iss-meta text-muted small mb-0" *ngIf="issBackgroundTraceSaving">{{ 'WORLD_GLOBE.ISS_BACKGROUND_TRACE_SAVING' | translate }}</p>
               <ng-container *ngIf="issOverlayEnabled">
+                <div class="wg-opt-row">
+                  <label class="wg-opt-row__label" for="wgIssTrace" [attr.title]="'WORLD_GLOBE.ISS_TRACE_SHOW_HINT' | translate">{{ 'WORLD_GLOBE.ISS_TRACE_SHOW' | translate }}</label>
+                  <div class="form-check form-switch wg-opt-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="wgIssTrace" [(ngModel)]="issTraceVisible" (ngModelChange)="onIssTraceToggle()" [disabled]="!globeSurfaceReady" />
+                  </div>
+                </div>
                 <div class="wg-opt-row">
                   <label class="wg-opt-row__label" for="wgIssKeepCenter" [attr.title]="issKeepEarthCenteredControlTitle()">{{ 'WORLD_GLOBE.ISS_KEEP_EARTH_CENTERED' | translate }}</label>
                   <div class="form-check form-switch wg-opt-switch mb-0">

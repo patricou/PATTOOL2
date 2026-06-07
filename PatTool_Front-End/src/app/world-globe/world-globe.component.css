@@ -760,6 +760,56 @@ body:has(.wg-fs-root--viewport-locked) {
   padding: 0.1rem 0;
 }
 
+/* Trace ISS la plus ancienne : libellé au-dessus + afficheur LCD (date/heure) sur sa propre ligne. */
+.wg-iss-oldest-trace {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.22rem;
+  margin-top: 0.15rem;
+}
+
+.wg-iss-oldest-trace__label {
+  font-size: var(--wg-label, 0.66rem);
+  line-height: 1.2;
+  color: #b9c7e8;
+}
+
+.wg-iss-oldest-trace__row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.wg-iss-oldest-trace__count {
+  font-size: calc(var(--wg-label, 0.66rem) * 0.9);
+  line-height: 1.2;
+  color: #8aa0c8;
+  white-space: nowrap;
+}
+
+/* Cellules resserrées pour faire tenir « JJ-MM-AA HH:MM » dans la barre latérale. */
+.wg-iss-oldest-trace__lcd {
+  max-width: 100%;
+  padding: 0.12rem 0.2rem 0.1rem;
+}
+
+.wg-iss-oldest-trace__lcd .event-days-lcd-screen {
+  gap: 2px;
+  padding: 0.12rem 0.2rem;
+}
+
+.wg-iss-oldest-trace__lcd .event-days-lcd-digit {
+  width: 0.58em;
+  height: 0.76em;
+}
+
+.wg-iss-oldest-trace__lcd .event-days-lcd-ghost,
+.wg-iss-oldest-trace__lcd .event-days-lcd-lit {
+  font-size: 0.68rem;
+}
+
 .wg-opt-chips {
   display: flex;
   flex-wrap: wrap;

@@ -189,11 +189,11 @@ const GLOBE_TERMINATOR_EXPOSURE_BASE = 1.14;
 /** À zoom fort (caméra proche), atténuer zoom / pan ; rotation garde un plancher lisible. */
 const ORBIT_SENS_U_MIN_ROTATE = 0.55;
 const ORBIT_SENS_U_MIN_PAN = 0.13;
-const ORBIT_SENS_U_MIN_ZOOM = 0.48;
+const ORBIT_SENS_U_MIN_ZOOM = 0.38;
 /** OrbitControls : glisser horizontal = tourner le globe, vertical = incliner (plus intuitif que Trackball). */
 const GLOBE_ORBIT_ROTATE_SPEED_MAX = 1.15;
 const GLOBE_ORBIT_PAN_SPEED_MAX = 0.55;
-const GLOBE_ORBIT_ZOOM_SPEED_MAX = 1.05;
+const GLOBE_ORBIT_ZOOM_SPEED_MAX = 0.8;
 /** Vitesse rotation automatique (OrbitControls.autoRotateSpeed). */
 const GLOBE_AUTO_ROTATE_SPEED = 0.35;
 
@@ -279,6 +279,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   /** Fuseaux horaires remplis (NE 10m). */
   timeZonesEnabled = false;
   issOverlayEnabled = true;
+  /**
+   * Interrupteur maître d’affichage de la trace ISS : masque/affiche d’un coup la traînée temps réel
+   * ET la trace historique (mêmes lignes orange). Les données ne sont pas effacées, seulement cachées.
+   */
+  issTraceVisible = true;
   /** Bandeau défilant lat/lon/altitude/vitesse ISS (page globe). */
   issTickerEnabled = true;
   /** Répétitions lat/lon/alt/vitesse par demi-piste (boucle marquee sans trou). */
@@ -1262,6 +1267,112 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.clearIssPositionFeedState();
     }
     this.cdr.markForCheck();
+  }
+
+  /**
+   * Interrupteur maître : affiche/masque d’un coup la traînée ISS temps réel ET la trace historique.
+   * On ne supprime aucune donnée — on bascule seulement la visibilité des lignes/étiquettes.
+   */
+  onIssTraceToggle(): void {
+    if (this.issTraceVisible) {
+      this.rebuildIssTrailGeometry();
+      this.rebuildIssHistoricalTrailGeometry();
+    }
+    this.applyIssTraceVisibility();
+    this.cdr.markForCheck();
+  }
+
+  /** Horodatage (ms) du point de trace ISS le plus ancien connu, sinon `null`. */
+  private oldestIssTraceEpochMs(): number | null {
+    let oldest: number | null = null;
+    for (const p of this.issHistoricalTrailPoints) {
+      const raw = p.recordedAt?.trim();
+      if (!raw) {
+        continue;
+      }
+      const ms = new Date(raw).getTime();
+      if (Number.isNaN(ms)) {
+        continue;
+      }
+      if (oldest === null || ms < oldest) {
+        oldest = ms;
+      }
+    }
+    return oldest;
+  }
+
+  /** Date et heure locales actuelles (jj/mm/aa hh:mm:ss) pour le bandeau ISS défilant. */
+  currentDateTimeLabel(): string {
+    try {
+      const lang = (this.translate.currentLang || 'en').split('-')[0];
+      return new Intl.DateTimeFormat(lang, {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      }).format(new Date());
+    } catch {
+      return '';
+    }
+  }
+
+  /**
+   * Date/heure de la trace ISS la plus ancienne, décomposée en cellules pour l’afficheur LCD
+   * (police DSEG7). Format `JJ-MM-AA HH:MM` (séparateurs compatibles 7 segments). `[]` si aucune.
+   * `ghost` = couche « segments éteints » (8 pour les chiffres et le tiret, sinon le caractère lui-même).
+   */
+  oldestIssTraceLcdChars(): { lit: string; ghost: string }[] {
+    const oldest = this.oldestIssTraceEpochMs();
+    if (oldest === null) {
+      return [];
+    }
+    const d = new Date(oldest);
+    const p2 = (n: number) => String(n).padStart(2, '0');
+    const text = `${p2(d.getDate())}-${p2(d.getMonth() + 1)}-${p2(d.getFullYear() % 100)} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+    return Array.from(text).map((c) => ({
+      lit: c,
+      ghost: /[0-9]/.test(c) || c === '-' ? '8' : c
+    }));
+  }
+
+  /** Nombre de points de trace ISS historiques actuellement chargés. */
+  get issHistoricalTraceCount(): number {
+    return this.issHistoricalTrailPoints.length;
+  }
+
+  /** Nombre de points de trace décomposé en cellules pour l’afficheur LCD (mêmes conventions que la date). */
+  issHistoricalTraceCountLcdChars(): { lit: string; ghost: string }[] {
+    return Array.from(String(this.issHistoricalTraceCount)).map((c) => ({
+      lit: c,
+      ghost: /[0-9]/.test(c) || c === '-' ? '8' : c
+    }));
+  }
+
+  /** Date/heure formatée (jj/mm/aa hh:mm) de la trace ISS la plus ancienne ; '' si aucune. */
+  oldestIssTraceDateLabel(): string {
+    const oldest = this.oldestIssTraceEpochMs();
+    if (oldest === null) {
+      return '';
+    }
+    return this.formatIssTraceDateLabel(new Date(oldest).toISOString());
+  }
+
+  /** Applique l’état de {@link issTraceVisible} aux deux lignes orange et aux étiquettes de dates. */
+  private applyIssTraceVisibility(): void {
+    const visible = this.issTraceVisible;
+    if (this.issTrailLine) {
+      this.issTrailLine.visible = visible && this.issTrailPoints.length >= 2;
+    }
+    if (this.issHistoricalTrailLine) {
+      this.issHistoricalTrailLine.visible = visible && this.issHistoricalTraceEnabled;
+    }
+    if (this.issHistoricalTraceDateLabelsGroup) {
+      this.issHistoricalTraceDateLabelsGroup.visible =
+        visible && this.issHistoricalTraceEnabled && this.issHistoricalTraceDatesEnabled;
+    }
   }
 
   loadIssBackgroundTraceSetting(): void {
@@ -4917,7 +5028,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     while (this.issTrailPoints.length > GLOBE_ISS_TRAIL_MAX_POINTS) {
       this.issTrailPoints.shift();
     }
-    this.rebuildIssTrailGeometry();
+    if (this.issTraceVisible) {
+      this.rebuildIssTrailGeometry();
+    }
   }
 
   private rebuildIssTrailGeometry(): void {
@@ -4960,7 +5073,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     line.geometry = new THREE.BufferGeometry();
     oldGeo.dispose();
     line.geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-    line.visible = true;
+    line.visible = this.issTraceVisible;
   }
 
   private clearIssTrail(): void {
@@ -5095,7 +5208,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     line.geometry = new THREE.BufferGeometry();
     oldGeo.dispose();
     line.geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-    line.visible = true;
+    line.visible = this.issTraceVisible;
     if (this.issHistoricalTraceDatesEnabled) {
       this.rebuildIssHistoricalTraceDateLabels();
     } else {
@@ -5142,6 +5255,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (group.children.length === 0) {
       return;
     }
+    group.visible = this.issTraceVisible;
     earth.add(group);
     this.issHistoricalTraceDateLabelsGroup = group;
     this.updateIssHistoricalTraceDateLabelsScaleForZoom();
