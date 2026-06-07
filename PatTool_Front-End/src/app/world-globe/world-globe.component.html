@@ -961,7 +961,7 @@
                 [disabled]="issCompassRefreshing"
                 [attr.title]="'WORLD_GLOBE.ISS_COMPASS_REFRESH' | translate"
                 [attr.aria-label]="'WORLD_GLOBE.ISS_COMPASS_REFRESH' | translate">
-                <i class="fa fa-sync-alt" [class.fa-spin]="issCompassRefreshing" aria-hidden="true"></i>
+                <i class="fa fa-refresh" [class.fa-spin]="issCompassRefreshing" aria-hidden="true"></i>
               </button>
               <button
                 type="button"
@@ -1019,6 +1019,7 @@
                     <span class="wg-compass-card-letter wg-compass-card-letter--w">{{ 'WORLD_GLOBE.COMPASS_DIR_W' | translate }}</span>
                   </div>
                   <div class="wg-compass-needle" [style.transform]="'rotate(' + issCompassNeedleRotationDeg() + 'deg)'" aria-hidden="true">
+                    <span class="wg-compass-needle__shaft"></span>
                     <span class="wg-compass-needle__arrow"></span>
                     <span class="wg-compass-needle__tail"></span>
                     <span class="wg-compass-needle__iss"><i class="fa fa-space-shuttle" aria-hidden="true"></i></span>
@@ -1106,6 +1107,51 @@
                   <span class="wg-compass-readout__val">±{{ issCompassUserAccuracyM | number : '1.0-0' }} m</span>
                 </div>
               </div>
+
+              <!-- Diagnostic : valeurs brutes des capteurs d'orientation -->
+              <details class="wg-compass-sensors" *ngIf="issCompassHeadingActive">
+                <summary class="wg-compass-sensors__summary">
+                  <i class="fa fa-microchip me-2" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_SENSORS_TITLE' | translate }}
+                </summary>
+                <div class="wg-compass-readout wg-compass-readout--sensors">
+                  <div class="wg-compass-readout__item">
+                    <span class="wg-compass-readout__key">{{ 'WORLD_GLOBE.ISS_COMPASS_SENSOR_EVENT' | translate }}</span>
+                    <span class="wg-compass-readout__val">{{ issCompassSensorEventName() || '—' }}</span>
+                  </div>
+                  <div class="wg-compass-readout__item">
+                    <span class="wg-compass-readout__key">{{ 'WORLD_GLOBE.ISS_COMPASS_SENSOR_ABSOLUTE' | translate }}</span>
+                    <span class="wg-compass-readout__val">
+                      <ng-container *ngIf="issCompassSensorAbsolute === true">{{ 'WORLD_GLOBE.ISS_COMPASS_SENSOR_YES' | translate }}</ng-container>
+                      <ng-container *ngIf="issCompassSensorAbsolute === false">{{ 'WORLD_GLOBE.ISS_COMPASS_SENSOR_NO' | translate }}</ng-container>
+                      <ng-container *ngIf="issCompassSensorAbsolute == null">—</ng-container>
+                    </span>
+                  </div>
+                  <div class="wg-compass-readout__item">
+                    <span class="wg-compass-readout__key">{{ 'WORLD_GLOBE.ISS_COMPASS_SENSOR_ALPHA' | translate }}</span>
+                    <span class="wg-compass-readout__val">{{ issCompassSensorAlpha != null ? (issCompassSensorAlpha | number : '1.1-1') + '°' : '—' }}</span>
+                  </div>
+                  <div class="wg-compass-readout__item">
+                    <span class="wg-compass-readout__key">{{ 'WORLD_GLOBE.ISS_COMPASS_SENSOR_BETA' | translate }}</span>
+                    <span class="wg-compass-readout__val">{{ issCompassSensorBeta != null ? (issCompassSensorBeta | number : '1.1-1') + '°' : '—' }}</span>
+                  </div>
+                  <div class="wg-compass-readout__item">
+                    <span class="wg-compass-readout__key">{{ 'WORLD_GLOBE.ISS_COMPASS_SENSOR_GAMMA' | translate }}</span>
+                    <span class="wg-compass-readout__val">{{ issCompassSensorGamma != null ? (issCompassSensorGamma | number : '1.1-1') + '°' : '—' }}</span>
+                  </div>
+                  <div class="wg-compass-readout__item" *ngIf="issCompassScreenAngleDeg() != null">
+                    <span class="wg-compass-readout__key">{{ 'WORLD_GLOBE.ISS_COMPASS_SENSOR_SCREEN' | translate }}</span>
+                    <span class="wg-compass-readout__val">{{ issCompassScreenAngleDeg() | number : '1.0-0' }}°</span>
+                  </div>
+                  <div class="wg-compass-readout__item" *ngIf="issCompassSensorWebkitHeading != null">
+                    <span class="wg-compass-readout__key">{{ 'WORLD_GLOBE.ISS_COMPASS_SENSOR_WEBKIT_HEADING' | translate }}</span>
+                    <span class="wg-compass-readout__val">{{ issCompassSensorWebkitHeading | number : '1.1-1' }}°</span>
+                  </div>
+                  <div class="wg-compass-readout__item" *ngIf="issCompassSensorWebkitAccuracy != null">
+                    <span class="wg-compass-readout__key">{{ 'WORLD_GLOBE.ISS_COMPASS_SENSOR_WEBKIT_ACCURACY' | translate }}</span>
+                    <span class="wg-compass-readout__val">±{{ issCompassSensorWebkitAccuracy | number : '1.0-0' }}°</span>
+                  </div>
+                </div>
+              </details>
 
               <p class="wg-compass-source" *ngIf="issCompassUserSource === 'picked'">
                 <i class="fa fa-map-marker me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_USING_PICKED' | translate }}

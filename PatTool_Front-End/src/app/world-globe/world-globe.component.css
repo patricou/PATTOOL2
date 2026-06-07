@@ -2324,31 +2324,53 @@ body:has(.wg-fs-root--viewport-locked) {
   pointer-events: none;
 }
 
+/* Hampe épaisse reliant le centre à la pointe ISS */
+.wg-compass-needle__shaft {
+  position: absolute;
+  top: 16%;
+  bottom: 50%;
+  left: 50%;
+  width: 0.55rem;
+  transform: translateX(-50%);
+  border-radius: 0.3rem 0.3rem 0 0;
+  background: linear-gradient(to top, rgba(255, 196, 60, 0.55), #ffd54a);
+  filter: drop-shadow(0 0 6px rgba(255, 196, 60, 0.75));
+  z-index: 1;
+}
+
 .wg-compass-needle__arrow {
   position: absolute;
-  top: 11%;
+  top: 2%;
   left: 50%;
   width: 0;
   height: 0;
   transform: translate(-50%, 0);
-  border-left: 0.7rem solid transparent;
-  border-right: 0.7rem solid transparent;
-  border-bottom: 1.2rem solid #ffd54a;
-  filter: drop-shadow(0 0 5px rgba(255, 196, 60, 0.7));
+  border-left: 1.05rem solid transparent;
+  border-right: 1.05rem solid transparent;
+  border-bottom: 1.9rem solid #ffd54a;
+  filter: drop-shadow(0 0 8px rgba(255, 196, 60, 0.85));
+  z-index: 2;
 }
 
 .wg-compass-needle__iss {
   position: absolute;
-  top: 1%;
+  top: -7%;
   left: 50%;
   transform: translate(-50%, 0);
-  font-size: 1.05rem;
+  font-size: 1.35rem;
   color: #ffd54a;
-  text-shadow: 0 0 8px rgba(255, 196, 60, 0.8);
+  text-shadow: 0 0 10px rgba(255, 196, 60, 0.9);
+  z-index: 3;
 }
 
 .wg-compass-dial--below .wg-compass-needle__arrow {
   border-bottom-color: #8aa0c8;
+  filter: none;
+  opacity: 0.7;
+}
+
+.wg-compass-dial--below .wg-compass-needle__shaft {
+  background: linear-gradient(to top, rgba(138, 160, 200, 0.35), #8aa0c8);
   filter: none;
   opacity: 0.7;
 }
@@ -2566,6 +2588,11 @@ body:has(.wg-fs-root--viewport-locked) {
   filter: drop-shadow(0 0 9px rgba(93, 216, 121, 0.95));
 }
 
+.wg-compass-dial--facing .wg-compass-needle__shaft {
+  background: linear-gradient(to top, rgba(93, 216, 121, 0.5), #8dffa6);
+  filter: drop-shadow(0 0 9px rgba(93, 216, 121, 0.9));
+}
+
 .wg-compass-dial--facing .wg-compass-needle__iss {
   color: #8dffa6;
   text-shadow: 0 0 12px rgba(93, 216, 121, 1);
@@ -2613,6 +2640,45 @@ body:has(.wg-fs-root--viewport-locked) {
   justify-content: space-between;
   gap: 0.6rem;
   font-size: 0.82rem;
+}
+
+.wg-compass-sensors {
+  width: 100%;
+}
+
+.wg-compass-sensors__summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.35rem 0.2rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #9fb2d8;
+  user-select: none;
+}
+
+.wg-compass-sensors__summary::-webkit-details-marker {
+  display: none;
+}
+
+.wg-compass-sensors__summary::after {
+  content: '\025be';
+  margin-left: 0.4rem;
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+.wg-compass-sensors[open] .wg-compass-sensors__summary::after {
+  content: '\025b4';
+}
+
+.wg-compass-readout--sensors {
+  margin-top: 0.3rem;
+  background: rgba(8, 16, 36, 0.7);
+  border-style: dashed;
+}
+
+.wg-compass-readout--sensors .wg-compass-readout__val {
+  font-size: 0.78rem;
 }
 
 .wg-compass-readout__key {

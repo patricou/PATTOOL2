@@ -410,6 +410,16 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   issCompassHeadingAccuracyDeg: number | null = null;
   /** Les capteurs d’orientation envoient des données exploitables. */
   issCompassHeadingActive = false;
+  /** Valeurs brutes du dernier évènement d’orientation (diagnostic capteurs). */
+  issCompassSensorAlpha: number | null = null;
+  issCompassSensorBeta: number | null = null;
+  issCompassSensorGamma: number | null = null;
+  /** Orientation absolue (référencée au Nord) annoncée par l’évènement. */
+  issCompassSensorAbsolute: boolean | null = null;
+  /** Cap boussole iOS brut (webkitCompassHeading), si fourni par l’appareil. */
+  issCompassSensorWebkitHeading: number | null = null;
+  /** Précision boussole iOS brute (webkitCompassAccuracy), si fournie. */
+  issCompassSensorWebkitAccuracy: number | null = null;
   /** Statut courant de la modale boussole. */
   issCompassStatus: 'idle' | 'locating' | 'ready' | 'no-geo' | 'no-iss' | 'error' = 'idle';
   private issCompassGeoWatchId: number | null = null;
@@ -5086,6 +5096,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.issCompassHeadingActive = false;
     this.issCompassHeadingDeg = null;
     this.issCompassHeadingAccuracyDeg = null;
+    this.resetIssCompassSensorReadings();
     this.startIssCompassGeolocation();
     void this.startIssCompassOrientation();
     // Si l’ISS n’a pas encore de position connue, déclencher un rafraîchissement immédiat.
@@ -5197,8 +5208,29 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       );
     }
     this.issCompassOrientationListening = false;
-    this.issCompassOrientationEventName = null;
     this.issCompassHeadingActive = false;
+    this.resetIssCompassSensorReadings();
+    this.issCompassOrientationEventName = null;
+  }
+
+  /** Remet à zéro les valeurs brutes de capteurs affichées dans le diagnostic. */
+  private resetIssCompassSensorReadings(): void {
+    this.issCompassSensorAlpha = null;
+    this.issCompassSensorBeta = null;
+    this.issCompassSensorGamma = null;
+    this.issCompassSensorAbsolute = null;
+    this.issCompassSensorWebkitHeading = null;
+    this.issCompassSensorWebkitAccuracy = null;
+  }
+
+  /** Nom de l’évènement d’orientation effectivement écouté (diagnostic capteurs). */
+  issCompassSensorEventName(): string | null {
+    return this.issCompassOrientationEventName;
+  }
+
+  /** Angle de rotation de l’écran (degrés) utilisé pour corriger le cap. */
+  issCompassScreenAngleDeg(): number | null {
+    return this.issCompassHeadingActive ? this.currentScreenAngle() : null;
   }
 
   private startIssCompassGeolocation(): void {
@@ -5298,10 +5330,24 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       typeof anyE.webkitCompassAccuracy === 'number' && anyE.webkitCompassAccuracy >= 0
         ? anyE.webkitCompassAccuracy
         : null;
+    const webkitHeading =
+      typeof anyE.webkitCompassHeading === 'number' && Number.isFinite(anyE.webkitCompassHeading)
+        ? anyE.webkitCompassHeading
+        : null;
+    const isAbsolute =
+      typeof e.absolute === 'boolean'
+        ? e.absolute
+        : this.issCompassOrientationEventName === 'deviceorientationabsolute';
     this.zone.run(() => {
       this.issCompassHeadingDeg = heading;
       this.issCompassHeadingAccuracyDeg = acc;
       this.issCompassHeadingActive = true;
+      this.issCompassSensorAlpha = Number.isFinite(e.alpha as number) ? (e.alpha as number) : null;
+      this.issCompassSensorBeta = Number.isFinite(e.beta as number) ? (e.beta as number) : null;
+      this.issCompassSensorGamma = Number.isFinite(e.gamma as number) ? (e.gamma as number) : null;
+      this.issCompassSensorAbsolute = isAbsolute;
+      this.issCompassSensorWebkitHeading = webkitHeading;
+      this.issCompassSensorWebkitAccuracy = acc;
       this.cdr.markForCheck();
     });
   };
@@ -5321,10 +5367,59 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       Number.isFinite(e.alpha) &&
       (e.absolute || this.issCompassOrientationEventName === 'deviceorientationabsolute')
     ) {
-      const screenAngle = this.currentScreenAngle();
-      return this.normalizeDeg(360 - e.alpha + screenAngle);
+      // Android (et navigateurs sans webkitCompassHeading) : cap absolu fourni par
+      // le magnétomètre, mais alpha seul ne vaut que téléphone à plat. On compense
+      // l'inclinaison (beta/gamma) pour rester juste quand l'appareil est dressé.
+      const beta = Number.isFinite(e.beta as number) ? (e.beta as number) : 0;
+      const gamma = Number.isFinite(e.gamma as number) ? (e.gamma as number) : 0;
+      return this.tiltCompensatedHeadingDeg(e.alpha, beta, gamma, this.currentScreenAngle());
     }
     return null;
+  }
+
+  /**
+   * Cap (0 = Nord, sens horaire) compensé en inclinaison.
+   *
+   * Construit la matrice de rotation appareil → Terre (repère ENU : X = Est,
+   * Y = Nord, Z = Haut) à partir des angles W3C alpha/beta/gamma, puis projette
+   * sur le plan horizontal l'axe de visée le plus fiable selon la pose :
+   *  - téléphone à plat (écran vers le ciel) → bord supérieur (+Y appareil) ;
+   *  - téléphone dressé vers le ciel → dos de l'appareil (−Z appareil).
+   * Les deux donnent le même azimut dans la zone de transition, ce qui évite le
+   * saut de ~180° de la formule « alpha seul » quand on dépasse la verticale.
+   */
+  private tiltCompensatedHeadingDeg(
+    alphaDeg: number,
+    betaDeg: number,
+    gammaDeg: number,
+    screenAngleDeg: number
+  ): number {
+    const d2r = Math.PI / 180;
+    const a = alphaDeg * d2r;
+    const b = betaDeg * d2r;
+    const g = gammaDeg * d2r;
+    const cA = Math.cos(a);
+    const sA = Math.sin(a);
+    const cB = Math.cos(b);
+    const sB = Math.sin(b);
+    const cG = Math.cos(g);
+    const sG = Math.sin(g);
+
+    // Matrice R = Rz(alpha)·Rx(beta)·Ry(gamma) (spec W3C DeviceOrientation).
+    // Axe « bord supérieur » (+Y appareil) exprimé dans le repère Terre.
+    const topE = -cB * sA;
+    const topN = cA * cB;
+    // Axe « dos de l'appareil » (−Z appareil) exprimé dans le repère Terre.
+    const backE = -(cA * sG + cG * sA * sB);
+    const backN = -(sA * sG - cA * cG * sB);
+
+    // On garde l'axe dont la projection horizontale est la plus marquée.
+    const useTop = Math.hypot(topE, topN) >= Math.hypot(backE, backN);
+    const east = useTop ? topE : backE;
+    const north = useTop ? topN : backN;
+
+    const heading = (Math.atan2(east, north) * 180) / Math.PI + screenAngleDeg;
+    return this.normalizeDeg(heading);
   }
 
   private currentScreenAngle(): number {
