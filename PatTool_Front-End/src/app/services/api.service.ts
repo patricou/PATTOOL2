@@ -5,6 +5,18 @@ import { Observable, from } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
+/** ISS visible-pass e-mail alert configuration (GET/PUT /external/globe/iss/alert). */
+export interface IssAlertConfig {
+  enabled: boolean;
+  email: string;
+  place: string;
+  placeLabel: string;
+  lat: number | null;
+  lon: number | null;
+  minQuality: string;
+  leadMinutes: number;
+}
+
 @Injectable()
 export class ApiService {
 
@@ -207,6 +219,39 @@ export class ApiService {
         this._http.put<{ enabled: boolean; intervalMinutes: number }>(
           this.API_URL + 'external/globe/iss/trace/background',
           { enabled },
+          { headers }
+        )
+      )
+    );
+  }
+
+  /** Current ISS visible-pass e-mail alert configuration (place watched, recipient, quality). */
+  getIssAlertConfig(): Observable<IssAlertConfig> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<IssAlertConfig>(this.API_URL + 'external/globe/iss/alert', { headers })
+      )
+    );
+  }
+
+  /** Update the ISS alert configuration (place is geocoded server-side when it changes). */
+  setIssAlertConfig(
+    body: { enabled?: boolean; email?: string; place?: string; minQuality?: string }
+  ): Observable<IssAlertConfig> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<IssAlertConfig>(this.API_URL + 'external/globe/iss/alert', body, { headers })
+      )
+    );
+  }
+
+  /** Send a test alert e-mail for the next upcoming visible pass over the configured place. */
+  sendIssAlertTest(): Observable<{ ok: boolean; status: string }> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post<{ ok: boolean; status: string }>(
+          this.API_URL + 'external/globe/iss/alert/test',
+          {},
           { headers }
         )
       )

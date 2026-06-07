@@ -41,7 +41,8 @@ public class NetworkScanScheduler {
     @Autowired
     private MailController mailController;
 
-    @Value("${app.network.scan.scheduler.enabled:true}")
+    // Disabled by default: no automatic scan and therefore no new-device email unless enabled.
+    @Value("${app.network.scan.scheduler.enabled:false}")
     private boolean schedulerEnabledDefault;
 
     @Value("${app.network.scan.scheduler.cron:0 */10 * * * ?}")

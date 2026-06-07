@@ -4,6 +4,7 @@ import {
   Component,
   ElementRef,
   HostListener,
+  NgZone,
   OnDestroy,
   ViewChild,
   inject
@@ -16,7 +17,7 @@ import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { Subscription, firstValueFrom, timeout } from 'rxjs';
 import { finalize } from 'rxjs/operators';
-import { ApiService } from '../services/api.service';
+import { ApiService, IssAlertConfig } from '../services/api.service';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { environment } from '../../environments/environment';
@@ -151,6 +152,9 @@ const GLOBE_ISS_TRAIL_ARC_SEGMENTS = 14;
 const GLOBE_ISS_POLL_DEFAULT_SEC = 5;
 const GLOBE_ISS_POLL_MIN_SEC = 5;
 const GLOBE_ISS_POLL_MAX_SEC = 600;
+/** Throttle du reverse-geocoding « survol » ISS : intervalle mini et déplacement mini avant un nouvel appel Nominatim. */
+const GLOBE_ISS_OVER_MIN_INTERVAL_MS = 9000;
+const GLOBE_ISS_OVER_MIN_MOVE_DEG = 0.25;
 /** Demi-vie du recadrage caméra vers l’ISS (mode « centré sur l’ISS ») ; mouvement fluide, peu dépendant du framerate. */
 const GLOBE_ISS_CAMERA_CENTER_HALF_LIFE_SEC = 0.34;
 
@@ -219,6 +223,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly translate = inject(TranslateService);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly zone = inject(NgZone);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly sanitizer = inject(DomSanitizer);
@@ -232,12 +237,12 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   @ViewChild('issLivePiP') issLivePiP?: ElementRef<HTMLElement>;
   @ViewChild('issLiveHdPiP') issLiveHdPiP?: ElementRef<HTMLElement>;
 
-  /** Mini-fenêtre ISS en direct (embed YouTube, même source que Destination Orbite). */
-  issLiveEmbedEnabled = false;
+  /** Mini-fenêtre ISS en direct (embed YouTube, même source que Destination Orbite). Affichée par défaut. */
+  issLiveEmbedEnabled = true;
   issLivePiPFullscreen = false;
   readonly issLiveEmbedSafeUrl: SafeResourceUrl = this.buildIssLiveEmbedSafeUrl(ISS_LIVE_YOUTUBE_VIDEO_ID);
-  /** Mini-fenêtre ISS HD — activée avec le flux standard en plein écran uniquement. */
-  issLiveHdEmbedEnabled = false;
+  /** Mini-fenêtre ISS HD — affichée par défaut aux côtés du flux standard. */
+  issLiveHdEmbedEnabled = true;
   issLiveHdPiPFullscreen = false;
   readonly issLiveHdEmbedSafeUrl: SafeResourceUrl = this.buildIssLiveEmbedSafeUrl(ISS_LIVE_HD_YOUTUBE_VIDEO_ID);
   /** Capture image ISS en cours (copie ou partage WhatsApp, une fenêtre à la fois). */
@@ -344,6 +349,54 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
    * Vitesse du sous-point ISS (km/h) : priorité à l’API, sinon estimation entre deux relevés.
    */
   issGroundSpeedKmh: number | null = null;
+  /** Pays (ou océan) actuellement survolé par l’ISS, résolu par reverse-geocoding throttlé. */
+  issOverPlaceLabel: string | null = null;
+  /** Code pays ISO (minuscule) du survol courant, pour l’emoji drapeau ; null si océan / inconnu. */
+  issOverPlaceCountryCode: string | null = null;
+  private issOverLookupLat: number | null = null;
+  private issOverLookupLon: number | null = null;
+  private issOverLookupAtMs = 0;
+  private issOverLookupInFlight = false;
+
+  /* ----------------------------------------------------------------------- */
+  /* Boussole ISS : modale « où regarder pour voir l’ISS » (azimut + élévation) */
+  /* ----------------------------------------------------------------------- */
+  /** Modale boussole ISS ouverte. */
+  issCompassOpen = false;
+  /** Position de l’observateur (GPS navigateur, ou point cliqué sur le globe en repli). */
+  issCompassUserLat: number | null = null;
+  issCompassUserLon: number | null = null;
+  /** Précision GPS horizontale (m), si fournie. */
+  issCompassUserAccuracyM: number | null = null;
+  /** Source de la position observateur utilisée pour le calcul. */
+  issCompassUserSource: 'gps' | 'picked' | null = null;
+  /** Azimut vers le sous-point ISS (degrés, 0 = Nord, sens horaire). */
+  issCompassAzimuthDeg: number | null = null;
+  /** Angle d’élévation de l’ISS au-dessus de l’horizon (degrés ; < 0 = sous l’horizon). */
+  issCompassElevationDeg: number | null = null;
+  /** Distance orthodromique au sol jusqu’au sous-point ISS (km). */
+  issCompassGroundDistanceKm: number | null = null;
+  /** Distance directe observateur → ISS (km). */
+  issCompassSlantRangeKm: number | null = null;
+  /** Cap de l’appareil (degrés, 0 = Nord) issu des capteurs ; null si indisponible. */
+  issCompassHeadingDeg: number | null = null;
+  /** Précision de cap annoncée par iOS (degrés), si disponible. */
+  issCompassHeadingAccuracyDeg: number | null = null;
+  /** Les capteurs d’orientation envoient des données exploitables. */
+  issCompassHeadingActive = false;
+  /** Statut courant de la modale boussole. */
+  issCompassStatus: 'idle' | 'locating' | 'ready' | 'no-geo' | 'no-iss' | 'error' = 'idle';
+  private issCompassGeoWatchId: number | null = null;
+  private issCompassOrientationListening = false;
+  private issCompassOrientationEventName: 'deviceorientationabsolute' | 'deviceorientation' | null = null;
+  private issCompassHeadingLastPaintMs = 0;
+  /** Séquence des 16 directions (clés de lettres cardinales à concaténer). */
+  private static readonly ISS_COMPASS_POINTS: ReadonlyArray<ReadonlyArray<'N' | 'E' | 'S' | 'W'>> = [
+    ['N'], ['N', 'N', 'E'], ['N', 'E'], ['E', 'N', 'E'],
+    ['E'], ['E', 'S', 'E'], ['S', 'E'], ['S', 'S', 'E'],
+    ['S'], ['S', 'S', 'W'], ['S', 'W'], ['W', 'S', 'W'],
+    ['W'], ['W', 'N', 'W'], ['N', 'W'], ['N', 'N', 'W']
+  ];
   /** Éclairage uniforme sur tout le globe (ambiance + hémisphère). Coupé tant que le jour/nuit réel est actif. */
   globeLightingUniform = true;
   /**
@@ -472,6 +525,22 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     upcomingLines: string[];
   } | null = null;
   private issPassPlaceQueryCache = '';
+
+  /** Alerte e-mail « passage ISS visible » (config stockée côté serveur dans appParameters). */
+  issAlertEnabled = false;
+  issAlertEmail = '';
+  issAlertPlace = '';
+  issAlertPlaceLabel = '';
+  issAlertLat: number | null = null;
+  issAlertLon: number | null = null;
+  issAlertMinQuality = 'fair';
+  issAlertLeadMinutes = 30;
+  issAlertLoading = false;
+  issAlertSaving = false;
+  issAlertTesting = false;
+  issAlertError = '';
+  issAlertNotice = '';
+  private issAlertConfigLoaded = false;
 
   private renderer?: THREE.WebGLRenderer;
   private scene?: THREE.Scene;
@@ -743,9 +812,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       queueMicrotask(() => void this.loadIssHistoricalTrace());
     }
     queueMicrotask(() => this.loadIssBackgroundTraceSetting());
+    queueMicrotask(() => this.loadIssAlertConfig());
   }
 
   ngOnDestroy(): void {
+    this.stopIssCompassSensors();
     this.endIssFsSplitResizeDrag();
     this.endIssFsPipStackResizeDrag();
     void this.exitGlobeFullscreenIfActive();
@@ -1426,6 +1497,140 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       });
   }
 
+  loadIssAlertConfig(): void {
+    if (this.issAlertConfigLoaded || this.issAlertLoading) {
+      return;
+    }
+    this.issAlertLoading = true;
+    this.apiService
+      .getIssAlertConfig()
+      .pipe(
+        finalize(() => {
+          this.issAlertLoading = false;
+          this.issAlertConfigLoaded = true;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
+        next: (res) => this.applyIssAlertConfig(res),
+        error: () => {
+          /* keep defaults */
+        }
+      });
+  }
+
+  private applyIssAlertConfig(res: IssAlertConfig | null | undefined): void {
+    if (!res) {
+      return;
+    }
+    this.issAlertEnabled = !!res.enabled;
+    this.issAlertEmail = res.email || '';
+    this.issAlertPlace = res.place || '';
+    this.issAlertPlaceLabel = res.placeLabel || '';
+    this.issAlertLat = typeof res.lat === 'number' ? res.lat : null;
+    this.issAlertLon = typeof res.lon === 'number' ? res.lon : null;
+    this.issAlertMinQuality = res.minQuality || 'fair';
+    if (typeof res.leadMinutes === 'number' && res.leadMinutes > 0) {
+      this.issAlertLeadMinutes = res.leadMinutes;
+    }
+  }
+
+  onIssAlertEnabledToggle(): void {
+    if (this.issAlertSaving) {
+      return;
+    }
+    const next = this.issAlertEnabled;
+    this.issAlertError = '';
+    this.issAlertNotice = '';
+    this.issAlertSaving = true;
+    this.apiService
+      .setIssAlertConfig({ enabled: next })
+      .pipe(
+        finalize(() => {
+          this.issAlertSaving = false;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
+        next: (res) => this.applyIssAlertConfig(res),
+        error: () => {
+          this.issAlertEnabled = !next;
+          this.issAlertError = this.translate.instant('WORLD_GLOBE.ISS_ALERT_SAVE_ERROR');
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  saveIssAlertConfig(): void {
+    if (this.issAlertSaving) {
+      return;
+    }
+    this.issAlertError = '';
+    this.issAlertNotice = '';
+    this.issAlertSaving = true;
+    this.apiService
+      .setIssAlertConfig({
+        enabled: this.issAlertEnabled,
+        email: (this.issAlertEmail || '').trim(),
+        place: (this.issAlertPlace || '').trim(),
+        minQuality: this.issAlertMinQuality
+      })
+      .pipe(
+        finalize(() => {
+          this.issAlertSaving = false;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
+        next: (res) => {
+          this.applyIssAlertConfig(res);
+          this.issAlertNotice = this.translate.instant('WORLD_GLOBE.ISS_ALERT_SAVED');
+        },
+        error: (err) => {
+          const code = err?.error?.error;
+          this.issAlertError =
+            code === 'no_geocode_results'
+              ? this.translate.instant('ADDRESS_GEOCODE.NO_RESULTS')
+              : this.translate.instant('WORLD_GLOBE.ISS_ALERT_SAVE_ERROR');
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  sendIssAlertTest(): void {
+    if (this.issAlertTesting) {
+      return;
+    }
+    this.issAlertError = '';
+    this.issAlertNotice = '';
+    this.issAlertTesting = true;
+    this.apiService
+      .sendIssAlertTest()
+      .pipe(
+        finalize(() => {
+          this.issAlertTesting = false;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
+        next: (res) => {
+          if (res?.ok) {
+            this.issAlertNotice = this.translate.instant('WORLD_GLOBE.ISS_ALERT_TEST_SENT');
+          } else if (res?.status === 'no_pass') {
+            this.issAlertError = this.translate.instant('WORLD_GLOBE.ISS_ALERT_TEST_NO_PASS');
+          } else if (res?.status === 'no_place') {
+            this.issAlertError = this.translate.instant('WORLD_GLOBE.ISS_ALERT_TEST_NO_PLACE');
+          } else {
+            this.issAlertError = this.translate.instant('WORLD_GLOBE.ISS_ALERT_SAVE_ERROR');
+          }
+        },
+        error: () => {
+          this.issAlertError = this.translate.instant('WORLD_GLOBE.ISS_ALERT_SAVE_ERROR');
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
   onIssHistoricalTraceToggle(): void {
     if (this.issHistoricalTraceEnabled) {
       void this.loadIssHistoricalTrace();
@@ -1483,6 +1688,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.globeIssAltKm = null;
     this.issSpeedSampleLat = null;
     this.issSpeedSampleLon = null;
+    this.issOverPlaceLabel = null;
+    this.issOverPlaceCountryCode = null;
+    this.issOverLookupLat = null;
+    this.issOverLookupLon = null;
+    this.issOverLookupAtMs = 0;
     this.issSpeedSampleEpochMs = 0;
     this.scheduleWorldGlobeCdr(() => {
       this.globeIssLat = null;
@@ -1647,6 +1857,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   /** Plafond fixe à la restauration (évite de rétrécir quand le panneau options se masque). */
   private static readonly ISS_PIP_SIZE_ABSOLUTE_MAX = { w: 1400, h: 900 };
   private static readonly ISS_PIP_STACK_GAP_PX = 6;
+  /** Hors plein écran : marge entre le globe décalé à gauche et les flux ISS flottants à droite. */
+  private static readonly ISS_NON_FS_GLOBE_RESERVE_GAP_PX = 16;
+  /** Dernière largeur réservée à droite pour les flux ISS (px ; -1 = non initialisé). */
+  private issNonFsGlobeReservePx = -1;
 
   /** Hors plein écran : aucune fenêtre ISS ; en plein écran : ouvrir les deux flux automatiquement. */
   private applyIssEmbedPanelsOnPresentationChange(wasPresentation: boolean): void {
@@ -2206,12 +2420,58 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.syncIssStandardPiPSizeWithHd();
     this.syncIssLivePiPStackOffset();
     this.setupIssLivePiPResizeObservers();
+    this.updateNonFsGlobeShift();
+    requestAnimationFrame(() => this.updateNonFsGlobeShift());
     if (this.issLiveEmbedEnabled) {
       requestAnimationFrame(() => {
         this.syncIssStandardPiPSizeWithHd();
         this.syncIssLivePiPStackOffset();
       });
     }
+  }
+
+  /**
+   * Hors plein écran (et hors empilement mobile) : réserve à droite la largeur réelle des
+   * flux ISS flottants en posant `--wg-iss-pip-reserve` sur la scène, ce qui rétrécit le
+   * canvas du globe et recentre donc le globe vers la gauche (il n'est plus couvert par les vidéos).
+   */
+  private updateNonFsGlobeShift(): void {
+    const stage = this.getGlobeStageElement();
+    if (!stage) {
+      return;
+    }
+    let reserve = 0;
+    const floatingPiPVisible =
+      !this.fullscreen &&
+      !this.issFsSplitLayout &&
+      !this.isIssMobileStackLayout() &&
+      !this.issLivePiPFullscreen &&
+      !this.issLiveHdPiPFullscreen &&
+      (this.issLiveEmbedEnabled || this.issLiveHdEmbedEnabled);
+    if (floatingPiPVisible) {
+      let maxWidth = 0;
+      const standard = this.issLivePiP?.nativeElement;
+      const hd = this.issLiveHdPiP?.nativeElement;
+      if (this.issLiveEmbedEnabled && standard) {
+        maxWidth = Math.max(maxWidth, standard.offsetWidth);
+      }
+      if (this.issLiveHdEmbedEnabled && hd) {
+        maxWidth = Math.max(maxWidth, hd.offsetWidth);
+      }
+      if (maxWidth > 0) {
+        reserve = Math.round(maxWidth + WorldGlobeComponent.ISS_NON_FS_GLOBE_RESERVE_GAP_PX);
+      }
+    }
+    if (reserve === this.issNonFsGlobeReservePx) {
+      return;
+    }
+    this.issNonFsGlobeReservePx = reserve;
+    if (reserve > 0) {
+      stage.style.setProperty('--wg-iss-pip-reserve', `${reserve}px`);
+    } else {
+      stage.style.removeProperty('--wg-iss-pip-reserve');
+    }
+    requestAnimationFrame(() => this.resizeRendererToHost());
   }
 
   private setupIssLivePiPResizeObservers(): void {
@@ -2233,6 +2493,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
     this.issLivePiPResizeObs = new ResizeObserver(() => {
       this.syncIssLivePiPStackOffset();
+      this.updateNonFsGlobeShift();
       this.scheduleIssPiPSizePersist();
     });
     for (const panel of panels) {
@@ -3859,6 +4120,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
 
   @HostListener('document:keydown', ['$event'])
   onGlobeGeocodeDocumentKeydown(ev: KeyboardEvent): void {
+    if (ev.key === 'Escape' && this.issCompassOpen) {
+      ev.preventDefault();
+      this.closeIssCompass();
+      return;
+    }
     const t = ev.target;
     if (!(t instanceof HTMLInputElement) || t.id !== 'wgGlobePlace' || t.disabled) {
       return;
@@ -4349,7 +4615,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     );
 
     if (typeof ResizeObserver !== 'undefined') {
-      this.resizeObs = new ResizeObserver(() => this.resizeRendererToHost());
+      this.resizeObs = new ResizeObserver(() => {
+        this.resizeRendererToHost();
+        this.updateNonFsGlobeShift();
+      });
       this.resizeObs.observe(host);
     }
 
@@ -4675,6 +4944,391 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     return R * c;
   }
 
+  /* ======================================================================= */
+  /* Boussole ISS : capteurs (GPS + orientation) et calcul azimut / élévation */
+  /* ======================================================================= */
+
+  /** Ouvre la modale boussole et démarre les capteurs (GPS + orientation appareil). */
+  openIssCompass(): void {
+    if (this.issCompassOpen) {
+      return;
+    }
+    this.issCompassOpen = true;
+    this.issCompassStatus = 'locating';
+    this.issCompassUserSource = null;
+    this.issCompassHeadingActive = false;
+    this.issCompassHeadingDeg = null;
+    this.issCompassHeadingAccuracyDeg = null;
+    this.startIssCompassGeolocation();
+    void this.startIssCompassOrientation();
+    // Si l’ISS n’a pas encore de position connue, déclencher un rafraîchissement immédiat.
+    if (this.globeIssLat == null || this.globeIssLon == null) {
+      void this.refreshIssNow();
+    }
+    this.recomputeIssCompass();
+    this.cdr.markForCheck();
+  }
+
+  /** Ferme la modale boussole et coupe tous les capteurs. */
+  closeIssCompass(): void {
+    if (!this.issCompassOpen) {
+      return;
+    }
+    this.issCompassOpen = false;
+    this.stopIssCompassSensors();
+    this.cdr.markForCheck();
+  }
+
+  private stopIssCompassSensors(): void {
+    if (
+      this.issCompassGeoWatchId != null &&
+      typeof navigator !== 'undefined' &&
+      navigator.geolocation
+    ) {
+      try {
+        navigator.geolocation.clearWatch(this.issCompassGeoWatchId);
+      } catch {
+        /* ignore */
+      }
+    }
+    this.issCompassGeoWatchId = null;
+    if (this.issCompassOrientationListening && this.issCompassOrientationEventName) {
+      window.removeEventListener(
+        this.issCompassOrientationEventName,
+        this.handleIssCompassOrientation as EventListener,
+        true
+      );
+    }
+    this.issCompassOrientationListening = false;
+    this.issCompassOrientationEventName = null;
+    this.issCompassHeadingActive = false;
+  }
+
+  private startIssCompassGeolocation(): void {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      this.applyIssCompassGeoFallback();
+      return;
+    }
+    try {
+      this.issCompassGeoWatchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          this.zone.run(() => {
+            this.issCompassUserLat = pos.coords.latitude;
+            this.issCompassUserLon = pos.coords.longitude;
+            this.issCompassUserAccuracyM = Number.isFinite(pos.coords.accuracy)
+              ? pos.coords.accuracy
+              : null;
+            this.issCompassUserSource = 'gps';
+            if (this.issCompassStatus === 'locating' || this.issCompassStatus === 'no-geo') {
+              this.issCompassStatus = 'ready';
+            }
+            this.recomputeIssCompass();
+            this.cdr.markForCheck();
+          });
+        },
+        () => {
+          this.zone.run(() => {
+            this.applyIssCompassGeoFallback();
+            this.cdr.markForCheck();
+          });
+        },
+        { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 }
+      );
+    } catch {
+      this.applyIssCompassGeoFallback();
+    }
+  }
+
+  /** Repli si le GPS est refusé/indisponible : utiliser le point cliqué sur le globe s’il existe. */
+  private applyIssCompassGeoFallback(): void {
+    if (
+      this.issCompassUserSource !== 'gps' &&
+      this.globePickedLat != null &&
+      this.globePickedLon != null
+    ) {
+      this.issCompassUserLat = this.globePickedLat;
+      this.issCompassUserLon = this.globePickedLon;
+      this.issCompassUserAccuracyM = null;
+      this.issCompassUserSource = 'picked';
+      this.issCompassStatus = 'ready';
+      this.recomputeIssCompass();
+      return;
+    }
+    if (this.issCompassUserSource == null) {
+      this.issCompassStatus = 'no-geo';
+    }
+  }
+
+  /** Démarre l’écoute de l’orientation appareil (boussole magnétique / gyroscope). */
+  private async startIssCompassOrientation(): Promise<void> {
+    const doe: any =
+      typeof window !== 'undefined' ? (window as any).DeviceOrientationEvent : undefined;
+    if (!doe) {
+      return;
+    }
+    // iOS 13+ : permission explicite requise (appel depuis le geste d’ouverture).
+    if (typeof doe.requestPermission === 'function') {
+      try {
+        const res = await doe.requestPermission();
+        if (res !== 'granted') {
+          return;
+        }
+      } catch {
+        return;
+      }
+    }
+    const absolute = 'ondeviceorientationabsolute' in window;
+    this.issCompassOrientationEventName = absolute ? 'deviceorientationabsolute' : 'deviceorientation';
+    const evtName = this.issCompassOrientationEventName;
+    this.zone.runOutsideAngular(() => {
+      window.addEventListener(evtName, this.handleIssCompassOrientation as EventListener, true);
+    });
+    this.issCompassOrientationListening = true;
+  }
+
+  private handleIssCompassOrientation = (e: DeviceOrientationEvent): void => {
+    const heading = this.deviceHeadingFromEvent(e);
+    if (heading == null) {
+      return;
+    }
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (now - this.issCompassHeadingLastPaintMs < 80) {
+      return;
+    }
+    this.issCompassHeadingLastPaintMs = now;
+    const anyE = e as any;
+    const acc =
+      typeof anyE.webkitCompassAccuracy === 'number' && anyE.webkitCompassAccuracy >= 0
+        ? anyE.webkitCompassAccuracy
+        : null;
+    this.zone.run(() => {
+      this.issCompassHeadingDeg = heading;
+      this.issCompassHeadingAccuracyDeg = acc;
+      this.issCompassHeadingActive = true;
+      this.cdr.markForCheck();
+    });
+  };
+
+  /** Extrait un cap (0 = Nord, sens horaire) à partir d’un évènement d’orientation. */
+  private deviceHeadingFromEvent(e: DeviceOrientationEvent): number | null {
+    const anyE = e as any;
+    if (
+      typeof anyE.webkitCompassHeading === 'number' &&
+      Number.isFinite(anyE.webkitCompassHeading)
+    ) {
+      // iOS : cap boussole déjà corrigé (0 = Nord magnétique).
+      return this.normalizeDeg(anyE.webkitCompassHeading);
+    }
+    if (
+      e.alpha != null &&
+      Number.isFinite(e.alpha) &&
+      (e.absolute || this.issCompassOrientationEventName === 'deviceorientationabsolute')
+    ) {
+      const screenAngle = this.currentScreenAngle();
+      return this.normalizeDeg(360 - e.alpha + screenAngle);
+    }
+    return null;
+  }
+
+  private currentScreenAngle(): number {
+    try {
+      const so = (screen as any).orientation;
+      if (so && typeof so.angle === 'number') {
+        return so.angle;
+      }
+    } catch {
+      /* ignore */
+    }
+    const wo = (window as any).orientation;
+    return typeof wo === 'number' ? wo : 0;
+  }
+
+  private normalizeDeg(deg: number): number {
+    let d = deg % 360;
+    if (d < 0) {
+      d += 360;
+    }
+    return d;
+  }
+
+  /** Recalcule azimut, élévation et distances vers l’ISS depuis la position observateur. */
+  recomputeIssCompass(): void {
+    const uLat = this.issCompassUserLat;
+    const uLon = this.issCompassUserLon;
+    const sLat = this.globeIssLat;
+    const sLon = this.globeIssLon;
+    if (uLat == null || uLon == null) {
+      this.issCompassAzimuthDeg = null;
+      this.issCompassElevationDeg = null;
+      this.issCompassGroundDistanceKm = null;
+      this.issCompassSlantRangeKm = null;
+      return;
+    }
+    if (sLat == null || sLon == null) {
+      this.issCompassAzimuthDeg = null;
+      this.issCompassElevationDeg = null;
+      this.issCompassGroundDistanceKm = null;
+      this.issCompassSlantRangeKm = null;
+      if (this.issCompassStatus === 'ready') {
+        this.issCompassStatus = 'no-iss';
+      }
+      return;
+    }
+    if (this.issCompassStatus === 'no-iss') {
+      this.issCompassStatus = 'ready';
+    }
+    const Re = 6371;
+    const h = this.globeIssAltKm != null && this.globeIssAltKm > 0 ? this.globeIssAltKm : 420;
+    const groundKm = WorldGlobeComponent.haversineGreatCircleKm(uLat, uLon, sLat, sLon);
+    const gamma = groundKm / Re; // angle géocentrique (rad)
+    const azimuth = WorldGlobeComponent.initialBearingDeg(uLat, uLon, sLat, sLon);
+    // Élévation satellite (modèle sphérique) : el = atan2(cos γ − Re/(Re+h), sin γ)
+    const ratio = Re / (Re + h);
+    const elevationRad = Math.atan2(Math.cos(gamma) - ratio, Math.sin(gamma));
+    const slant = Math.sqrt(
+      Re * Re + (Re + h) * (Re + h) - 2 * Re * (Re + h) * Math.cos(gamma)
+    );
+    this.issCompassAzimuthDeg = azimuth;
+    this.issCompassElevationDeg = (elevationRad * 180) / Math.PI;
+    this.issCompassGroundDistanceKm = groundKm;
+    this.issCompassSlantRangeKm = slant;
+  }
+
+  /**
+   * Résout le pays (ou océan) survolé par l’ISS via reverse-geocoding, en throttlant les appels
+   * (intervalle mini + déplacement mini) pour rester respectueux de Nominatim. Sans pays renvoyé,
+   * on considère que l’ISS est au-dessus de l’océan / d’eaux internationales.
+   */
+  private maybeUpdateIssOverPlace(lat: number, lon: number): void {
+    if (this.issOverLookupInFlight) {
+      return;
+    }
+    const now = Date.now();
+    const firstLookup = this.issOverLookupLat == null || this.issOverLookupLon == null;
+    if (!firstLookup) {
+      const elapsed = now - this.issOverLookupAtMs;
+      const movedDeg = Math.max(
+        Math.abs(lat - (this.issOverLookupLat as number)),
+        Math.abs(lon - (this.issOverLookupLon as number))
+      );
+      if (elapsed < GLOBE_ISS_OVER_MIN_INTERVAL_MS && movedDeg < GLOBE_ISS_OVER_MIN_MOVE_DEG) {
+        return;
+      }
+    }
+    this.issOverLookupInFlight = true;
+    this.issOverLookupLat = lat;
+    this.issOverLookupLon = lon;
+    this.issOverLookupAtMs = now;
+    this.apiService
+      .geocodeReverse(lat, lon)
+      .pipe(timeout(8000))
+      .subscribe({
+        next: (res: any) => {
+          const addr = res?.address ?? null;
+          const country =
+            addr && typeof addr.country === 'string' && addr.country.trim().length > 0
+              ? addr.country.trim()
+              : null;
+          const code =
+            addr && typeof addr.country_code === 'string' && addr.country_code.trim().length > 0
+              ? addr.country_code.trim().toLowerCase()
+              : null;
+          this.scheduleWorldGlobeCdr(() => {
+            if (country) {
+              this.issOverPlaceLabel = country;
+              this.issOverPlaceCountryCode = code;
+            } else {
+              this.issOverPlaceLabel = this.translate.instant('WORLD_GLOBE.ISS_OVER_OCEAN');
+              this.issOverPlaceCountryCode = null;
+            }
+          });
+          this.issOverLookupInFlight = false;
+        },
+        error: () => {
+          this.issOverLookupInFlight = false;
+        }
+      });
+  }
+
+  /** Emoji drapeau (regional indicators) à partir d’un code pays ISO 3166-1 alpha-2. */
+  issOverFlagEmoji(): string {
+    const code = this.issOverPlaceCountryCode;
+    if (!code || code.length !== 2) {
+      return '';
+    }
+    const base = 0x1f1e6;
+    const a = code.toUpperCase().charCodeAt(0) - 65;
+    const b = code.toUpperCase().charCodeAt(1) - 65;
+    if (a < 0 || a > 25 || b < 0 || b > 25) {
+      return '';
+    }
+    return String.fromCodePoint(base + a) + String.fromCodePoint(base + b);
+  }
+
+  /** Azimut initial (cap orthodromique, 0 = Nord, sens horaire) de (lat1,lon1) vers (lat2,lon2). */
+  private static initialBearingDeg(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const phi1 = (lat1 * Math.PI) / 180;
+    const phi2 = (lat2 * Math.PI) / 180;
+    const dLambda = ((lon2 - lon1) * Math.PI) / 180;
+    const y = Math.sin(dLambda) * Math.cos(phi2);
+    const x =
+      Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLambda);
+    const theta = Math.atan2(y, x);
+    return ((theta * 180) / Math.PI + 360) % 360;
+  }
+
+  /** Rotation (deg) de la rose des vents : le Nord pointe vers le Nord réel selon le cap appareil. */
+  issCompassRoseRotationDeg(): number {
+    return this.issCompassHeadingActive && this.issCompassHeadingDeg != null
+      ? -this.issCompassHeadingDeg
+      : 0;
+  }
+
+  /** Rotation (deg) de l’aiguille ISS : pointe vers l’ISS, relative au haut de l’appareil. */
+  issCompassNeedleRotationDeg(): number {
+    const az = this.issCompassAzimuthDeg ?? 0;
+    if (this.issCompassHeadingActive && this.issCompassHeadingDeg != null) {
+      return this.normalizeDeg(az - this.issCompassHeadingDeg);
+    }
+    return az;
+  }
+
+  /** Libellé cardinal (16 points) de l’azimut courant, traduit. */
+  issCompassCardinalLabel(): string {
+    if (this.issCompassAzimuthDeg == null) {
+      return '';
+    }
+    const idx = ((Math.round(this.issCompassAzimuthDeg / 22.5) % 16) + 16) % 16;
+    const letters = WorldGlobeComponent.ISS_COMPASS_POINTS[idx];
+    return letters.map((l) => this.translate.instant('WORLD_GLOBE.COMPASS_DIR_' + l)).join('');
+  }
+
+  /** Consigne d’orientation relative quand le cap appareil est connu (+ droite, − gauche). */
+  issCompassRelativeInstruction(): { key: string; deg: number } | null {
+    if (
+      !this.issCompassHeadingActive ||
+      this.issCompassHeadingDeg == null ||
+      this.issCompassAzimuthDeg == null
+    ) {
+      return null;
+    }
+    let diff = this.issCompassAzimuthDeg - this.issCompassHeadingDeg;
+    diff = ((diff + 540) % 360) - 180;
+    const mag = Math.abs(diff);
+    if (mag <= 7) {
+      return { key: 'WORLD_GLOBE.COMPASS_FACING', deg: 0 };
+    }
+    return {
+      key: diff > 0 ? 'WORLD_GLOBE.COMPASS_TURN_RIGHT' : 'WORLD_GLOBE.COMPASS_TURN_LEFT',
+      deg: Math.round(mag)
+    };
+  }
+
+  /** ISS au-dessus de l’horizon (visible géométriquement) selon l’élévation calculée. */
+  issCompassIssAboveHorizon(): boolean {
+    return this.issCompassElevationDeg != null && this.issCompassElevationDeg >= 0;
+  }
+
   private makeStarField(): THREE.Points {
     const n = 1800;
     const positions = new Float32Array(n * 3);
@@ -4951,7 +5605,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
         if (this.issOverlayEnabled) {
           this.issOverlayFailed = overlayFailed;
         }
+        if (this.issCompassOpen || this.issCompassUserLat != null) {
+          this.recomputeIssCompass();
+        }
       });
+      this.maybeUpdateIssOverPlace(lat, lon);
     } catch {
       if (this.issOverlayEnabled) {
         this.scheduleWorldGlobeCdr(() => {

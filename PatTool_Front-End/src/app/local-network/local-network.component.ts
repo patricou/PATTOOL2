@@ -136,8 +136,8 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   // External API for vendor detection (OUI lookup)
   useExternalVendorAPI: boolean = false; // Default: false (use local database)
 
-  // Network scan scheduler enabled flag
-  scanSchedulerEnabled: boolean = true; // Default until loaded from API (matches server default)
+  // Network scan scheduler enabled flag (disabled by default, matches server default)
+  scanSchedulerEnabled: boolean = false; // Default until loaded from API (matches server default)
   isLoadingSchedulerStatus: boolean = false;
   scanIntervalMinutes: number = 10; // Default: 10 minutes
 
@@ -2858,7 +2858,7 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
             console.log('Scan scheduler status loaded:', response.enabled);
           } else {
             console.warn('Invalid response from getScanSchedulerEnabled:', response);
-            this.scanSchedulerEnabled = true;
+            this.scanSchedulerEnabled = false;
           }
           this.cdr.detectChanges();
         });
@@ -2867,7 +2867,7 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
         this.ngZone.run(() => {
           this.isLoadingSchedulerStatus = false;
           // Même valeur par défaut que le backend si l’API échoue
-          this.scanSchedulerEnabled = true;
+          this.scanSchedulerEnabled = false;
           console.error('Error loading scan scheduler status:', error);
           this.cdr.detectChanges();
         });

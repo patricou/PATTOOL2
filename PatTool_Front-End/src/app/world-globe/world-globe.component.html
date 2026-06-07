@@ -36,6 +36,10 @@
   </div>
 
   <ng-template #issTickerItemsTpl>
+    <span class="wg-iss-ticker__item wg-iss-ticker__item--over" *ngIf="issOverPlaceLabel">
+      <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_OVER' | translate }}</span>
+      <span class="wg-iss-ticker__val">{{ issOverFlagEmoji() }} {{ issOverPlaceLabel }}</span>
+    </span>
     <span class="wg-iss-ticker__item">
       <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_NOW' | translate }}</span>
       <span class="wg-iss-ticker__val">{{ currentDateTimeLabel() }}</span>
@@ -56,6 +60,20 @@
       <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_SPEED' | translate }}</span>
       <span class="wg-iss-ticker__val">{{ issGroundSpeedKmh | number : '1.0-0' }} km/h</span>
     </span>
+    <ng-container *ngIf="issCompassAzimuthDeg != null">
+      <span class="wg-iss-ticker__item">
+        <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_COMPASS_AZIMUTH' | translate }}</span>
+        <span class="wg-iss-ticker__val">{{ issCompassAzimuthDeg | number : '1.0-0' }}° · {{ issCompassCardinalLabel() }}</span>
+      </span>
+      <span class="wg-iss-ticker__item">
+        <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_COMPASS_ELEVATION' | translate }}</span>
+        <span class="wg-iss-ticker__val">{{ issCompassElevationDeg | number : '1.0-0' }}°<ng-container *ngIf="!issCompassIssAboveHorizon()"> · {{ 'WORLD_GLOBE.ISS_COMPASS_BELOW_HORIZON' | translate }}</ng-container></span>
+      </span>
+      <span class="wg-iss-ticker__item" *ngIf="issCompassSlantRangeKm != null">
+        <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_COMPASS_DISTANCE' | translate }}</span>
+        <span class="wg-iss-ticker__val">{{ issCompassSlantRangeKm | number : '1.0-0' }} km</span>
+      </span>
+    </ng-container>
   </ng-template>
 
   <div class="wg-root container-fluid">
@@ -229,70 +247,6 @@
               <span>{{ 'WORLD_GLOBE.OPT_SECTION_ISS' | translate }}</span>
             </summary>
             <div class="wg-opt-section__body">
-              <div class="wg-iss-pass-section mb-2">
-                <label class="wg-iss-pass-section__label small mb-1 d-block" for="wgGlobePlace">{{
-                  'WORLD_GLOBE.GEOCODE_PLACE_LABEL' | translate
-                }}</label>
-                <div class="input-group input-group-sm wg-geocode-input-group">
-                  <input
-                    type="text"
-                    class="form-control wg-geocode-input"
-                    id="wgGlobePlace"
-                    [(ngModel)]="globePlaceQuery"
-                    [disabled]="!globeSurfaceReady || issPassLoading"
-                    [placeholder]="'ADDRESS_GEOCODE.ADDRESS_PLACEHOLDER' | translate"
-                    [attr.aria-controls]="issPassCandidates.length > 1 ? 'wg-iss-pass-candidate-list' : null"
-                    [attr.aria-activedescendant]="
-                      globeGeocodeListActiveIndex != null ? 'wg-iss-pass-opt-' + globeGeocodeListActiveIndex : null
-                    "
-                    inputmode="search"
-                    enterkeyhint="search"
-                    spellcheck="false"
-                    autocorrect="off"
-                    autocapitalize="off"
-                    autocomplete="off"
-                  />
-                  <button
-                    type="button"
-                    class="btn btn-outline-info wg-geocode-btn wg-iss-pass-btn"
-                    (click)="searchIssPassOverPlace()"
-                    [disabled]="!globeSurfaceReady || issPassLoading"
-                    [attr.title]="'WORLD_GLOBE.ISS_PASS_BUTTON_HINT' | translate"
-                    [attr.aria-label]="'WORLD_GLOBE.ISS_PASS_BUTTON' | translate">
-                    <i class="fa fa-space-shuttle" aria-hidden="true"></i>
-                    <span class="wg-iss-pass-btn__label" *ngIf="!issPassLoading">{{ 'WORLD_GLOBE.ISS_PASS_BUTTON_SHORT' | translate }}</span>
-                    <span *ngIf="issPassLoading" class="spinner-border spinner-border-sm" role="status"></span>
-                  </button>
-                </div>
-                <p class="mb-1 mt-1 wg-iss-pass-hint">{{ 'WORLD_GLOBE.ISS_PASS_HINT' | translate }}</p>
-                <div class="wg-iss-pass-error text-danger" *ngIf="issPassError">{{ issPassError }}</div>
-                <div class="wg-iss-pass-results mt-1" *ngIf="issPassCandidates.length > 1">
-                  <p class="mb-1 wg-iss-pass-ambiguous-hint">{{ 'WORLD_GLOBE.ISS_PASS_AMBIGUOUS_HINT' | translate }}</p>
-                  <ul class="list-unstyled mb-0 wg-geocode-result-list" role="listbox" id="wg-iss-pass-candidate-list">
-                    <li *ngFor="let c of issPassCandidates; let i = index" role="none">
-                      <button
-                        type="button"
-                        role="option"
-                        class="btn btn-link btn-sm text-start p-0 py-1 w-100 wg-geocode-result-item"
-                        [class.wg-geocode-result-item--active]="globeGeocodeListActiveIndex === i"
-                        [id]="'wg-iss-pass-opt-' + i"
-                        [attr.aria-selected]="globeGeocodeListActiveIndex === i"
-                        [disabled]="issPassLoading"
-                        (click)="selectIssPassCandidate(i)">
-                        {{ c.displayName || (c.lat.toFixed(4) + ', ' + c.lon.toFixed(4)) }}
-                      </button>
-                    </li>
-                  </ul>
-                </div>
-                <div class="wg-iss-pass-summary mt-2" *ngIf="issPassSummary" role="status">
-                  <div class="wg-iss-pass-summary__place" *ngIf="issPassSummary.placeLabel">{{ issPassSummary.placeLabel }}</div>
-                  <div class="wg-iss-pass-summary__coords" *ngIf="issPassSummary.coordsLine">{{ issPassSummary.coordsLine }}</div>
-                  <div class="wg-iss-pass-summary__next">{{ issPassSummary.nextPassLine }}</div>
-                  <ul class="list-unstyled mb-0 wg-iss-pass-upcoming" *ngIf="issPassSummary.upcomingLines.length > 1">
-                    <li class="wg-iss-pass-summary__later" *ngFor="let line of issPassSummary.upcomingLines.slice(1)">{{ line }}</li>
-                  </ul>
-                </div>
-              </div>
               <div class="wg-opt-row wg-opt-row--tools">
                 <label class="wg-opt-row__label" for="wgIss" [attr.title]="'WORLD_GLOBE.LAYER_ISS_HINT' | translate">{{ 'WORLD_GLOBE.LAYER_ISS_POSITION' | translate }}</label>
                 <div class="wg-opt-row__tools">
@@ -446,6 +400,149 @@
                   <i class="fa fa-video-camera" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_LIVE_HD' | translate }}
                 </button>
               </div>
+
+              <div class="wg-iss-pass-section mb-2 mt-2">
+                <label class="wg-iss-pass-section__label small mb-1 d-block" for="wgGlobePlace">{{
+                  'WORLD_GLOBE.GEOCODE_PLACE_LABEL' | translate
+                }}</label>
+                <div class="input-group input-group-sm wg-geocode-input-group">
+                  <input
+                    type="text"
+                    class="form-control wg-geocode-input"
+                    id="wgGlobePlace"
+                    [(ngModel)]="globePlaceQuery"
+                    [disabled]="!globeSurfaceReady || issPassLoading"
+                    [placeholder]="'ADDRESS_GEOCODE.ADDRESS_PLACEHOLDER' | translate"
+                    [attr.aria-controls]="issPassCandidates.length > 1 ? 'wg-iss-pass-candidate-list' : null"
+                    [attr.aria-activedescendant]="
+                      globeGeocodeListActiveIndex != null ? 'wg-iss-pass-opt-' + globeGeocodeListActiveIndex : null
+                    "
+                    inputmode="search"
+                    enterkeyhint="search"
+                    spellcheck="false"
+                    autocorrect="off"
+                    autocapitalize="off"
+                    autocomplete="off"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-outline-info wg-geocode-btn wg-iss-pass-btn"
+                    (click)="searchIssPassOverPlace()"
+                    [disabled]="!globeSurfaceReady || issPassLoading"
+                    [attr.title]="'WORLD_GLOBE.ISS_PASS_BUTTON_HINT' | translate"
+                    [attr.aria-label]="'WORLD_GLOBE.ISS_PASS_BUTTON' | translate">
+                    <i class="fa fa-space-shuttle" aria-hidden="true"></i>
+                    <span class="wg-iss-pass-btn__label" *ngIf="!issPassLoading">{{ 'WORLD_GLOBE.ISS_PASS_BUTTON_SHORT' | translate }}</span>
+                    <span *ngIf="issPassLoading" class="spinner-border spinner-border-sm" role="status"></span>
+                  </button>
+                </div>
+                <p class="mb-1 mt-1 wg-iss-pass-hint">{{ 'WORLD_GLOBE.ISS_PASS_HINT' | translate }}</p>
+                <div class="wg-iss-pass-error text-danger" *ngIf="issPassError">{{ issPassError }}</div>
+                <div class="wg-iss-pass-results mt-1" *ngIf="issPassCandidates.length > 1">
+                  <p class="mb-1 wg-iss-pass-ambiguous-hint">{{ 'WORLD_GLOBE.ISS_PASS_AMBIGUOUS_HINT' | translate }}</p>
+                  <ul class="list-unstyled mb-0 wg-geocode-result-list" role="listbox" id="wg-iss-pass-candidate-list">
+                    <li *ngFor="let c of issPassCandidates; let i = index" role="none">
+                      <button
+                        type="button"
+                        role="option"
+                        class="btn btn-link btn-sm text-start p-0 py-1 w-100 wg-geocode-result-item"
+                        [class.wg-geocode-result-item--active]="globeGeocodeListActiveIndex === i"
+                        [id]="'wg-iss-pass-opt-' + i"
+                        [attr.aria-selected]="globeGeocodeListActiveIndex === i"
+                        [disabled]="issPassLoading"
+                        (click)="selectIssPassCandidate(i)">
+                        {{ c.displayName || (c.lat.toFixed(4) + ', ' + c.lon.toFixed(4)) }}
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+                <div class="wg-iss-pass-summary mt-2" *ngIf="issPassSummary" role="status">
+                  <div class="wg-iss-pass-summary__place" *ngIf="issPassSummary.placeLabel">{{ issPassSummary.placeLabel }}</div>
+                  <div class="wg-iss-pass-summary__coords" *ngIf="issPassSummary.coordsLine">{{ issPassSummary.coordsLine }}</div>
+                  <div class="wg-iss-pass-summary__next">{{ issPassSummary.nextPassLine }}</div>
+                  <ul class="list-unstyled mb-0 wg-iss-pass-upcoming" *ngIf="issPassSummary.upcomingLines.length > 1">
+                    <li class="wg-iss-pass-summary__later" *ngFor="let line of issPassSummary.upcomingLines.slice(1)">{{ line }}</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div class="wg-iss-alert-section mt-2">
+                <div class="wg-opt-row wg-opt-row--tools">
+                  <label class="wg-opt-row__label" for="wgIssAlertEnabled" [attr.title]="'WORLD_GLOBE.ISS_ALERT_HINT' | translate">
+                    <i class="fa fa-envelope-o me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_ALERT_ENABLED' | translate }}
+                  </label>
+                  <div class="form-check form-switch wg-opt-switch mb-0">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      id="wgIssAlertEnabled"
+                      [(ngModel)]="issAlertEnabled"
+                      (ngModelChange)="onIssAlertEnabledToggle()"
+                      [disabled]="issAlertLoading || issAlertSaving" />
+                  </div>
+                </div>
+
+                <ng-container *ngIf="issAlertEnabled">
+                  <label class="wg-iss-pass-section__label small mb-1 d-block" for="wgIssAlertPlace">{{ 'WORLD_GLOBE.ISS_ALERT_PLACE_LABEL' | translate }}</label>
+                  <input
+                    type="text"
+                    class="form-control form-control-sm mb-1"
+                    id="wgIssAlertPlace"
+                    [(ngModel)]="issAlertPlace"
+                    [disabled]="issAlertLoading || issAlertSaving"
+                    [placeholder]="'ADDRESS_GEOCODE.ADDRESS_PLACEHOLDER' | translate"
+                    spellcheck="false"
+                    autocomplete="off" />
+
+                  <label class="wg-iss-pass-section__label small mb-1 d-block" for="wgIssAlertEmail">{{ 'WORLD_GLOBE.ISS_ALERT_EMAIL_LABEL' | translate }}</label>
+                  <input
+                    type="email"
+                    class="form-control form-control-sm mb-1"
+                    id="wgIssAlertEmail"
+                    [(ngModel)]="issAlertEmail"
+                    [disabled]="issAlertLoading || issAlertSaving"
+                    placeholder="nom@exemple.com"
+                    spellcheck="false"
+                    autocomplete="off" />
+
+                  <label class="wg-iss-pass-section__label small mb-1 d-block" for="wgIssAlertQuality">{{ 'WORLD_GLOBE.ISS_ALERT_QUALITY_LABEL' | translate }}</label>
+                  <select
+                    class="form-select form-select-sm mb-2"
+                    id="wgIssAlertQuality"
+                    [(ngModel)]="issAlertMinQuality"
+                    [disabled]="issAlertLoading || issAlertSaving">
+                    <option value="good">{{ 'WORLD_GLOBE.ISS_ALERT_QUALITY_GOOD' | translate }}</option>
+                    <option value="fair">{{ 'WORLD_GLOBE.ISS_ALERT_QUALITY_FAIR' | translate }}</option>
+                    <option value="any">{{ 'WORLD_GLOBE.ISS_ALERT_QUALITY_ANY' | translate }}</option>
+                  </select>
+
+                  <div class="d-flex gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-info"
+                      (click)="saveIssAlertConfig()"
+                      [disabled]="issAlertLoading || issAlertSaving">
+                      <span *ngIf="!issAlertSaving"><i class="fa fa-save me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_ALERT_SAVE' | translate }}</span>
+                      <span *ngIf="issAlertSaving" class="spinner-border spinner-border-sm" role="status"></span>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary"
+                      (click)="sendIssAlertTest()"
+                      [disabled]="issAlertLoading || issAlertSaving || issAlertTesting || !issAlertLat || !issAlertLon">
+                      <span *ngIf="!issAlertTesting"><i class="fa fa-paper-plane me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_ALERT_TEST' | translate }}</span>
+                      <span *ngIf="issAlertTesting" class="spinner-border spinner-border-sm" role="status"></span>
+                    </button>
+                  </div>
+
+                  <p class="wg-opt-iss-meta text-info small mb-0 mt-1" *ngIf="issAlertPlaceLabel">
+                    <i class="fa fa-map-marker me-1" aria-hidden="true"></i>{{ issAlertPlaceLabel }}
+                  </p>
+                  <p class="wg-opt-iss-meta text-muted small mb-0 mt-1">{{ 'WORLD_GLOBE.ISS_ALERT_LEAD_NOTE' | translate : { minutes: issAlertLeadMinutes } }}</p>
+                  <div class="wg-iss-pass-error text-danger small mt-1" *ngIf="issAlertError">{{ issAlertError }}</div>
+                  <div class="text-success small mt-1" *ngIf="issAlertNotice">{{ issAlertNotice }}</div>
+                </ng-container>
+              </div>
             </div>
           </details>
 
@@ -566,6 +663,15 @@
           [attr.title]="'WORLD_GLOBE.DETAIL_MAP_OPEN' | translate"
           [attr.aria-label]="'WORLD_GLOBE.DETAIL_MAP_OPEN' | translate">
           {{ 'WORLD_GLOBE.DETAIL_MAP_OPEN_SHORT' | translate }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-outline-warning btn-sm py-0 wg-btn wg-compass-open-btn"
+          (click)="openIssCompass()"
+          [disabled]="issCompassOpen"
+          [attr.title]="'WORLD_GLOBE.ISS_COMPASS_OPEN_HINT' | translate"
+          [attr.aria-label]="'WORLD_GLOBE.ISS_COMPASS_OPEN' | translate">
+          <i class="fa fa-location-arrow me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_OPEN_SHORT' | translate }}
         </button>
       </div>
 
@@ -812,6 +918,109 @@
       <div class="wg-trace-layer world-globe-trace-layer" *ngIf="detailMapOpen" role="dialog" [attr.aria-label]="'WORLD_GLOBE.DETAIL_MAP_TITLE' | translate">
         <div class="wg-trace-shell world-globe-trace-shell">
           <div #globeTraceMount class="wg-trace-mount world-globe-trace-mount"></div>
+        </div>
+      </div>
+
+      <!-- Boussole ISS : où regarder pour voir l'ISS (azimut + élévation + orientation appareil). -->
+      <div
+        class="wg-compass-overlay"
+        *ngIf="issCompassOpen"
+        role="dialog"
+        aria-modal="true"
+        [attr.aria-label]="'WORLD_GLOBE.ISS_COMPASS_TITLE' | translate"
+        (click)="closeIssCompass()">
+        <div class="wg-compass-card" (click)="$event.stopPropagation()">
+          <div class="wg-compass-head">
+            <h3 class="wg-compass-title mb-0">
+              <i class="fa fa-space-shuttle me-2" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_TITLE' | translate }}
+            </h3>
+            <button
+              type="button"
+              class="wg-compass-close"
+              (click)="closeIssCompass()"
+              [attr.title]="'WORLD_GLOBE.ISS_COMPASS_CLOSE' | translate"
+              [attr.aria-label]="'WORLD_GLOBE.ISS_COMPASS_CLOSE' | translate">
+              <i class="fa fa-times" aria-hidden="true"></i>
+            </button>
+          </div>
+
+          <div class="wg-compass-body">
+            <!-- États : localisation / pas de GPS / pas d'ISS -->
+            <div class="wg-compass-status" *ngIf="issCompassStatus === 'locating'">
+              <i class="fa fa-spinner fa-spin me-2" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_LOCATING' | translate }}
+            </div>
+            <div class="wg-compass-status wg-compass-status--warn" *ngIf="issCompassStatus === 'no-geo'">
+              <i class="fa fa-exclamation-triangle me-2" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_NO_GEO' | translate }}
+            </div>
+            <div class="wg-compass-status wg-compass-status--warn" *ngIf="issCompassStatus === 'no-iss'">
+              <i class="fa fa-spinner fa-spin me-2" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_NO_ISS' | translate }}
+            </div>
+
+            <ng-container *ngIf="issCompassAzimuthDeg != null">
+              <!-- Cadran boussole -->
+              <div
+                class="wg-compass-dial"
+                [class.wg-compass-dial--live]="issCompassHeadingActive"
+                [class.wg-compass-dial--below]="!issCompassIssAboveHorizon()">
+                <div class="wg-compass-rose" [style.transform]="'rotate(' + issCompassRoseRotationDeg() + 'deg)'">
+                  <span class="wg-compass-ticks" aria-hidden="true"></span>
+                  <span class="wg-compass-card-letter wg-compass-card-letter--n">{{ 'WORLD_GLOBE.COMPASS_DIR_N' | translate }}</span>
+                  <span class="wg-compass-card-letter wg-compass-card-letter--e">{{ 'WORLD_GLOBE.COMPASS_DIR_E' | translate }}</span>
+                  <span class="wg-compass-card-letter wg-compass-card-letter--s">{{ 'WORLD_GLOBE.COMPASS_DIR_S' | translate }}</span>
+                  <span class="wg-compass-card-letter wg-compass-card-letter--w">{{ 'WORLD_GLOBE.COMPASS_DIR_W' | translate }}</span>
+                </div>
+                <div class="wg-compass-needle" [style.transform]="'rotate(' + issCompassNeedleRotationDeg() + 'deg)'" aria-hidden="true">
+                  <span class="wg-compass-needle__arrow"></span>
+                  <span class="wg-compass-needle__iss"><i class="fa fa-space-shuttle" aria-hidden="true"></i></span>
+                </div>
+                <div class="wg-compass-hub" aria-hidden="true"></div>
+              </div>
+
+              <!-- Consigne relative (cap appareil connu) -->
+              <ng-container *ngIf="issCompassRelativeInstruction() as instr">
+                <div class="wg-compass-turn">
+                  <ng-container *ngIf="instr.key === 'WORLD_GLOBE.COMPASS_FACING'">
+                    <i class="fa fa-check-circle me-2" aria-hidden="true"></i>{{ instr.key | translate }}
+                  </ng-container>
+                  <ng-container *ngIf="instr.key !== 'WORLD_GLOBE.COMPASS_FACING'">
+                    <i class="fa" [class.fa-arrow-left]="instr.key === 'WORLD_GLOBE.COMPASS_TURN_LEFT'" [class.fa-arrow-right]="instr.key === 'WORLD_GLOBE.COMPASS_TURN_RIGHT'" aria-hidden="true"></i>
+                    <span class="ms-2">{{ instr.key | translate : { deg: instr.deg } }}</span>
+                  </ng-container>
+                </div>
+              </ng-container>
+              <div class="wg-compass-hint" *ngIf="!issCompassHeadingActive">
+                <i class="fa fa-mobile me-2" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_NO_SENSOR' | translate }}
+              </div>
+
+              <!-- Valeurs détaillées -->
+              <div class="wg-compass-readout">
+                <div class="wg-compass-readout__item">
+                  <span class="wg-compass-readout__key">{{ 'WORLD_GLOBE.ISS_COMPASS_AZIMUTH' | translate }}</span>
+                  <span class="wg-compass-readout__val">{{ issCompassAzimuthDeg | number : '1.0-0' }}° · {{ issCompassCardinalLabel() }}</span>
+                </div>
+                <div class="wg-compass-readout__item">
+                  <span class="wg-compass-readout__key">{{ 'WORLD_GLOBE.ISS_COMPASS_ELEVATION' | translate }}</span>
+                  <span class="wg-compass-readout__val" [class.wg-compass-readout__val--warn]="!issCompassIssAboveHorizon()">
+                    {{ issCompassElevationDeg | number : '1.0-0' }}°
+                    <span class="wg-compass-readout__note" *ngIf="!issCompassIssAboveHorizon()">· {{ 'WORLD_GLOBE.ISS_COMPASS_BELOW_HORIZON' | translate }}</span>
+                  </span>
+                </div>
+                <div class="wg-compass-readout__item" *ngIf="issCompassSlantRangeKm != null">
+                  <span class="wg-compass-readout__key">{{ 'WORLD_GLOBE.ISS_COMPASS_DISTANCE' | translate }}</span>
+                  <span class="wg-compass-readout__val">{{ issCompassSlantRangeKm | number : '1.0-0' }} km</span>
+                </div>
+                <div class="wg-compass-readout__item" *ngIf="issCompassHeadingActive && issCompassHeadingDeg != null">
+                  <span class="wg-compass-readout__key">{{ 'WORLD_GLOBE.ISS_COMPASS_HEADING' | translate }}</span>
+                  <span class="wg-compass-readout__val">{{ issCompassHeadingDeg | number : '1.0-0' }}°</span>
+                </div>
+              </div>
+
+              <p class="wg-compass-source" *ngIf="issCompassUserSource === 'picked'">
+                <i class="fa fa-map-marker me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_USING_PICKED' | translate }}
+              </p>
+              <p class="wg-compass-explain">{{ 'WORLD_GLOBE.ISS_COMPASS_EXPLAIN' | translate }}</p>
+            </ng-container>
+          </div>
         </div>
       </div>
 

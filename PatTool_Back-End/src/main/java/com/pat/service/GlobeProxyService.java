@@ -288,6 +288,31 @@ public class GlobeProxyService {
         }
     }
 
+    /**
+     * Raw CDN Space visible-pass predictions for a ground observer (array of passes).
+     * Each entry carries {@code riseTime}/{@code maxTime}/{@code setTime} (epoch ms),
+     * {@code riseAzimuth}/{@code maxElevation}/{@code setAzimuth} (degrees), {@code magnitude} and {@code quality}.
+     * Unlike {@link #fetchOpenNotifyIssPasses}, the response is NOT reduced to risetime/duration, so callers
+     * can read direction and elevation (used by the ISS visible-pass e-mail alert).
+     *
+     * @param days prediction window in days (clamped 1–30)
+     */
+    public byte[] fetchIssVisiblePassesRaw(double lat, double lon, int days) {
+        if (!Double.isFinite(lat) || Math.abs(lat) > 90.0) {
+            throw new IllegalArgumentException("Latitude out of range: " + lat);
+        }
+        if (!Double.isFinite(lon) || Math.abs(lon) > 180.0) {
+            throw new IllegalArgumentException("Longitude out of range: " + lon);
+        }
+        int d = Math.min(30, Math.max(1, days));
+        String url = CDN_SPACE_ISS_PASSES_JSON
+                + "?lat=" + String.format(Locale.US, "%.6f", lat)
+                + "&lon=" + String.format(Locale.US, "%.6f", lon)
+                + "&alt=0"
+                + "&days=" + d;
+        return fetchBytes(url, MAX_BYTES_ISS_FEED);
+    }
+
     private byte[] mapCdnSpacePassesToOpenNotifyJson(byte[] cdnPayload, double lat, double lon, int passCount, double alt)
             throws Exception { // Jackson parse
         JsonNode root = objectMapper.readTree(cdnPayload);

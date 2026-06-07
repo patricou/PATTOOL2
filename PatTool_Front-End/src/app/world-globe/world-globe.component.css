@@ -997,6 +997,60 @@ body:has(.wg-fs-root--viewport-locked) {
 }
 
 /**
+ * Hors plein écran (desktop) + flux ISS flottants : on réserve à droite la largeur des vidéos
+ * pour que le canvas du globe rétrécisse et que le globe se recentre à gauche, sans recouvrement.
+ * La valeur exacte (--wg-iss-pip-reserve) est posée par le composant selon la taille réelle des flux.
+ */
+@media (min-width: 768px) {
+  .wg-stage.wg-stage--iss-pip:not(.wg-stage--fs-iss-split) .wg-canvas-host,
+  .wg-stage.wg-stage--iss-pip-hd:not(.wg-stage--fs-iss-split) .wg-canvas-host {
+    /* !important + spécificité élevée pour battre la classe Bootstrap .w-100 (width:100%!important). */
+    width: calc(100% - var(--wg-iss-pip-reserve, calc(25vw + 16px))) !important;
+    max-width: calc(100% - var(--wg-iss-pip-reserve, calc(25vw + 16px))) !important;
+    align-self: flex-start;
+  }
+}
+
+/**
+ * Hors plein écran (desktop) + LES DEUX flux ISS ouverts : colonne droite sur toute la hauteur de
+ * la scène, partagée 50/50 entre la vue standard (haut) et HD (bas). Le globe est décalé à gauche.
+ */
+@media (min-width: 768px) {
+  .wg-stage.wg-stage--iss-pip.wg-stage--iss-pip-hd:not(.wg-stage--fs-iss-split) .wg-iss-pip-dock {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    position: absolute;
+    top: max(0.45rem, env(safe-area-inset-top, 0px));
+    right: max(0.45rem, env(safe-area-inset-right, 0px));
+    bottom: max(0.45rem, env(safe-area-inset-bottom, 0px));
+    width: 25vw;
+    z-index: 6;
+    pointer-events: none;
+  }
+
+  .wg-stage.wg-stage--iss-pip.wg-stage--iss-pip-hd:not(.wg-stage--fs-iss-split) .wg-iss-pip-dock .wg-iss-live-pip {
+    position: relative !important;
+    top: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    flex: 1 1 0 !important;
+    pointer-events: auto;
+  }
+
+  /* Redimensionnement libre désactivé dans cette disposition pleine hauteur. */
+  .wg-stage.wg-stage--iss-pip.wg-stage--iss-pip-hd:not(.wg-stage--fs-iss-split) .wg-iss-pip-dock .wg-iss-live-pip__resize-handle {
+    display: none;
+  }
+}
+
+/**
  * Plein écran + fenêtres ISS : colonne globe (gauche) / colonne flux (droite), sans chevauchement.
  */
 .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split {
@@ -1645,6 +1699,37 @@ body:has(.wg-fs-root--viewport-locked) {
   border-radius: 0.2rem;
 }
 
+/* Alerte e-mail « passage ISS visible » — compacte, alignée sur la recherche de lieu */
+.wg-iss-alert-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.wg-iss-alert-section .wg-iss-pass-section__label {
+  margin-bottom: 0.1rem !important;
+}
+
+.wg-iss-alert-section .form-control,
+.wg-iss-alert-section .form-select {
+  font-size: var(--wg-font, 0.68rem);
+  padding: 0.18rem 0.4rem;
+  line-height: 1.25;
+  margin-bottom: 0.1rem !important;
+}
+
+.wg-iss-alert-section .btn {
+  font-size: calc(var(--wg-label, 0.66rem) * 0.95);
+  padding: 0.18rem 0.5rem;
+}
+
+.wg-iss-alert-section .wg-opt-iss-meta,
+.wg-iss-alert-section .text-success,
+.wg-iss-alert-section .wg-iss-pass-error {
+  font-size: calc(var(--wg-label, 0.66rem) * 0.92);
+  line-height: 1.25;
+}
+
 .wg-light-boost-label {
   font-size: var(--wg-label, 0.66rem);
   line-height: 1.25;
@@ -1754,7 +1839,9 @@ body:has(.wg-fs-root--viewport-locked) {
   }
 
   /* iOS : éviter le zoom automatique au focus (min 16px) tout en gardant l’UI compacte ailleurs */
-  .wg-geocode-input-group .form-control {
+  .wg-geocode-input-group .form-control,
+  .wg-iss-alert-section .form-control,
+  .wg-iss-alert-section .form-select {
     font-size: max(16px, var(--wg-font));
     padding-top: 0.28rem;
     padding-bottom: 0.28rem;
@@ -1933,5 +2020,336 @@ body:has(.wg-fs-root--viewport-locked) {
 
   .wg-canvas-host {
     min-height: 0;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Boussole ISS : modale « où regarder pour voir l'ISS »                       */
+/* -------------------------------------------------------------------------- */
+.wg-compass-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1058;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(2, 5, 12, 0.72);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.wg-compass-card {
+  box-sizing: border-box;
+  width: min(94vw, 24rem);
+  max-height: min(94vh, 44rem);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1rem 1.1rem 1.2rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(120, 150, 220, 0.4);
+  background: radial-gradient(120% 90% at 50% -10%, #1a2748 0%, #0c1326 60%, #070b16 100%);
+  color: #dce7fb;
+  box-shadow: 0 18px 56px rgba(0, 0, 0, 0.6);
+}
+
+.wg-compass-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.wg-compass-title {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #eaf1ff;
+}
+
+.wg-compass-title .fa-space-shuttle {
+  color: #ffd54a;
+}
+
+.wg-compass-close {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: #c8d8f4;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.wg-compass-close:hover,
+.wg-compass-close:focus-visible {
+  background: rgba(248, 113, 113, 0.18);
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #ffc8c4;
+  outline: none;
+}
+
+.wg-compass-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.wg-compass-status {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: #b9c7e8;
+  padding: 0.4rem 0.2rem;
+}
+
+.wg-compass-status--warn {
+  color: #ffd79a;
+}
+
+/* Cadran */
+.wg-compass-dial {
+  position: relative;
+  width: min(74vw, 17rem);
+  aspect-ratio: 1 / 1;
+  margin: 0.25rem auto 0;
+}
+
+.wg-compass-rose {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(130, 165, 235, 0.55);
+  background:
+    radial-gradient(circle at 50% 50%, rgba(20, 32, 60, 0.2) 0%, rgba(10, 18, 38, 0.9) 72%),
+    conic-gradient(
+      from 0deg,
+      rgba(255, 255, 255, 0.5) 0deg 0.6deg,
+      transparent 0.6deg 30deg,
+      rgba(255, 255, 255, 0.22) 30deg 30.5deg,
+      transparent 30.5deg 60deg,
+      rgba(255, 255, 255, 0.22) 60deg 60.5deg,
+      transparent 60.5deg 90deg,
+      rgba(255, 255, 255, 0.35) 90deg 90.6deg,
+      transparent 90.6deg 120deg,
+      rgba(255, 255, 255, 0.22) 120deg 120.5deg,
+      transparent 120.5deg 150deg,
+      rgba(255, 255, 255, 0.22) 150deg 150.5deg,
+      transparent 150.5deg 180deg,
+      rgba(255, 255, 255, 0.35) 180deg 180.6deg,
+      transparent 180.6deg 210deg,
+      rgba(255, 255, 255, 0.22) 210deg 210.5deg,
+      transparent 210.5deg 240deg,
+      rgba(255, 255, 255, 0.22) 240deg 240.5deg,
+      transparent 240.5deg 270deg,
+      rgba(255, 255, 255, 0.35) 270deg 270.6deg,
+      transparent 270.6deg 300deg,
+      rgba(255, 255, 255, 0.22) 300deg 300.5deg,
+      transparent 300.5deg 330deg,
+      rgba(255, 255, 255, 0.22) 330deg 330.5deg,
+      transparent 330.5deg 360deg
+    );
+  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.55);
+  transition: transform 0.16s ease-out;
+}
+
+.wg-compass-dial--live .wg-compass-rose {
+  border-color: rgba(120, 200, 255, 0.7);
+}
+
+.wg-compass-card-letter {
+  position: absolute;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  color: #cfe0ff;
+  transform: translate(-50%, -50%);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.wg-compass-card-letter--n {
+  top: 9%;
+  left: 50%;
+  color: #ff7a7a;
+}
+
+.wg-compass-card-letter--s {
+  top: 91%;
+  left: 50%;
+}
+
+.wg-compass-card-letter--e {
+  top: 50%;
+  left: 91%;
+}
+
+.wg-compass-card-letter--w {
+  top: 50%;
+  left: 9%;
+}
+
+/* Aiguille ISS (pivote autour du centre, pointe vers le haut = direction ISS) */
+.wg-compass-needle {
+  position: absolute;
+  inset: 0;
+  transition: transform 0.16s ease-out;
+  pointer-events: none;
+}
+
+.wg-compass-needle__arrow {
+  position: absolute;
+  top: 11%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform: translate(-50%, 0);
+  border-left: 0.7rem solid transparent;
+  border-right: 0.7rem solid transparent;
+  border-bottom: 1.2rem solid #ffd54a;
+  filter: drop-shadow(0 0 5px rgba(255, 196, 60, 0.7));
+}
+
+.wg-compass-needle__iss {
+  position: absolute;
+  top: 1%;
+  left: 50%;
+  transform: translate(-50%, 0);
+  font-size: 1.05rem;
+  color: #ffd54a;
+  text-shadow: 0 0 8px rgba(255, 196, 60, 0.8);
+}
+
+.wg-compass-dial--below .wg-compass-needle__arrow {
+  border-bottom-color: #8aa0c8;
+  filter: none;
+  opacity: 0.7;
+}
+
+.wg-compass-dial--below .wg-compass-needle__iss {
+  color: #8aa0c8;
+  opacity: 0.7;
+  text-shadow: none;
+}
+
+.wg-compass-hub {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.85rem;
+  height: 0.85rem;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffd54a 0%, #b8860b 70%, #6b4e08 100%);
+  box-shadow: 0 0 0 3px rgba(10, 18, 38, 0.9), 0 0 10px rgba(255, 196, 60, 0.5);
+}
+
+.wg-compass-turn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #9ed4ff;
+  text-align: center;
+  min-height: 1.5rem;
+}
+
+.wg-compass-turn .fa-check-circle {
+  color: #5dd879;
+}
+
+.wg-compass-hint {
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: #8fa3c8;
+  text-align: center;
+  padding: 0 0.5rem;
+}
+
+.wg-compass-readout {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: 0.5rem;
+  background: rgba(12, 22, 48, 0.6);
+  border: 1px solid rgba(100, 160, 255, 0.18);
+}
+
+.wg-compass-readout__item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+}
+
+.wg-compass-readout__key {
+  color: #9fb2d8;
+  flex: 0 0 auto;
+}
+
+.wg-compass-readout__val {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: #eaf1ff;
+  text-align: right;
+}
+
+.wg-compass-readout__val--warn {
+  color: #ffd79a;
+}
+
+.wg-compass-readout__note {
+  font-weight: 400;
+  font-size: 0.72rem;
+  color: #ffb868;
+}
+
+.wg-compass-source {
+  width: 100%;
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: #b9c7e8;
+  text-align: center;
+}
+
+.wg-compass-explain {
+  width: 100%;
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: #8298bd;
+  text-align: center;
+}
+
+@media (max-width: 575.98px) {
+  .wg-compass-card {
+    width: 96vw;
+    padding: 0.85rem 0.9rem 1rem;
+  }
+
+  .wg-compass-title {
+    font-size: 0.92rem;
+  }
+
+  .wg-compass-dial {
+    width: min(80vw, 16rem);
   }
 }

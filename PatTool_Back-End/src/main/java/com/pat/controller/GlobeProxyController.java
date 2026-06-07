@@ -3,6 +3,8 @@ package com.pat.controller;
 import com.pat.service.GlobeProxyService;
 import com.pat.service.GlobeProxyService.FetchedImage;
 import com.pat.service.GlobeProxyService.PlanetTextureAsset;
+import com.pat.service.IssPassAlertService;
+import com.pat.service.IssPassAlertService.AlertConfig;
 import com.pat.service.IssPassLookupService;
 import com.pat.service.IssTraceBackgroundScheduler;
 import com.pat.service.IssTraceService;
@@ -41,16 +43,19 @@ public class GlobeProxyController {
     private final IssTraceService issTraceService;
     private final IssPassLookupService issPassLookupService;
     private final IssTraceBackgroundScheduler issTraceBackgroundScheduler;
+    private final IssPassAlertService issPassAlertService;
 
     public GlobeProxyController(
             GlobeProxyService globeProxyService,
             IssTraceService issTraceService,
             IssPassLookupService issPassLookupService,
-            IssTraceBackgroundScheduler issTraceBackgroundScheduler) {
+            IssTraceBackgroundScheduler issTraceBackgroundScheduler,
+            IssPassAlertService issPassAlertService) {
         this.globeProxyService = globeProxyService;
         this.issTraceService = issTraceService;
         this.issPassLookupService = issPassLookupService;
         this.issTraceBackgroundScheduler = issTraceBackgroundScheduler;
+        this.issPassAlertService = issPassAlertService;
     }
 
     @GetMapping("/texture/planets/{name}")
@@ -346,6 +351,44 @@ public class GlobeProxyController {
                 issTraceBackgroundScheduler.getBackgroundIntervalMinutes()));
     }
 
+    /**
+     * Current ISS visible-pass e-mail alert configuration (place watched, recipient, quality threshold).
+     */
+    @GetMapping("/iss/alert")
+    public ResponseEntity<AlertConfig> issAlertConfig() {
+        return ResponseEntity.ok(issPassAlertService.getConfig());
+    }
+
+    /**
+     * Update the ISS alert configuration. When {@code place} changes it is geocoded server-side
+     * (Nominatim) and the resolved coordinates are stored.
+     */
+    @PutMapping("/iss/alert")
+    public ResponseEntity<?> setIssAlertConfig(@RequestBody IssAlertConfigRequest body) {
+        if (body == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            AlertConfig updated = issPassAlertService.updateConfig(
+                    body.enabled(), body.email(), body.place(), body.minQuality());
+            return ResponseEntity.ok(updated);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new IssAlertErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            log.warn("ISS alert config update failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new IssAlertErrorResponse("update_failed"));
+        }
+    }
+
+    /** Send a test alert e-mail for the next upcoming visible pass over the configured place. */
+    @PostMapping("/iss/alert/test")
+    public ResponseEntity<IssAlertTestResponse> sendIssAlertTest() {
+        String status = issPassAlertService.sendTestForNextPass();
+        boolean ok = "sent".equals(status);
+        return ResponseEntity.ok(new IssAlertTestResponse(ok, status));
+    }
+
     /** Delete all stored ISS trace samples. */
     @DeleteMapping("/iss/trace")
     public ResponseEntity<Void> clearIssHistoricalTrace() {
@@ -368,6 +411,15 @@ public class GlobeProxyController {
     }
 
     public record IssTraceBackgroundToggleRequest(Boolean enabled) {
+    }
+
+    public record IssAlertConfigRequest(Boolean enabled, String email, String place, String minQuality) {
+    }
+
+    public record IssAlertErrorResponse(String error) {
+    }
+
+    public record IssAlertTestResponse(boolean ok, String status) {
     }
 
     private static ResponseEntity<byte[]> cacheableGeoJson7d(byte[] body) {
