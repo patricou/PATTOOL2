@@ -410,6 +410,24 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   issCompassHeadingAccuracyDeg: number | null = null;
   /** Les capteurs d’orientation envoient des données exploitables. */
   issCompassHeadingActive = false;
+  /** Cap capteur brut (magnétique, compensé en inclinaison et lissé) avant correction Nord. */
+  issCompassHeadingRawDeg: number | null = null;
+  /** Correction (degrés) à ajouter au cap capteur pour obtenir le vrai Nord (calibration GPS). */
+  issCompassNorthOffsetDeg: number | null = null;
+  /** État de la calibration du Nord. */
+  issCompassCalStatus: 'uncalibrated' | 'calibrating' | 'calibrated' = 'uncalibrated';
+  /** Méthode de calibration choisie par l’utilisateur (null = à choisir). */
+  issCompassCalMethod: 'gps' | 'sun' | null = null;
+  /** Nombre d’échantillons de calibration déjà collectés pendant la marche. */
+  issCompassCalSamples = 0;
+  /** Nombre d’échantillons requis pour valider une calibration. */
+  readonly issCompassCalNeededSamples = 6;
+  /** Vitesse de déplacement GPS courante (m/s), pour guider la marche de calibration. */
+  issCompassWalkSpeedMps: number | null = null;
+  /** Différences circulaires (cap GPS − cap capteur) accumulées pendant la calibration. */
+  private issCompassCalAccum: number[] = [];
+  /** Vitesse mini (m/s) au-dessus de laquelle le cap GPS est jugé exploitable. */
+  private readonly issCompassCalMinSpeedMps = 0.7;
   /** Valeurs brutes du dernier évènement d’orientation (diagnostic capteurs). */
   issCompassSensorAlpha: number | null = null;
   issCompassSensorBeta: number | null = null;
@@ -433,6 +451,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   /** « Maintenant » mis en cache (epoch ms) pour calculer la fraîcheur des données sans recalcul permanent. */
   issCompassNowMs = Date.now();
   private issCompassFreshnessTimer: ReturnType<typeof setInterval> | null = null;
+  /** Horloge mise en cache (epoch ms), rafraîchie par les timers : évite NG0100 dans le template. */
+  private clockNowMs = Date.now();
   /** Graduations en degrés affichées sur le pourtour du cadran (tous les 30°). */
   readonly issCompassBezelDegrees: ReadonlyArray<number> = [
     0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330
@@ -1435,7 +1455,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
         minute: '2-digit',
         second: '2-digit',
         hour12: false
-      }).format(new Date());
+      }).format(new Date(this.clockNowMs));
     } catch {
       return '';
     }
@@ -5097,6 +5117,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.issCompassHeadingDeg = null;
     this.issCompassHeadingAccuracyDeg = null;
     this.resetIssCompassSensorReadings();
+    this.resetIssCompassCalibration();
     this.startIssCompassGeolocation();
     void this.startIssCompassOrientation();
     // Si l’ISS n’a pas encore de position connue, déclencher un rafraîchissement immédiat.
@@ -5115,6 +5136,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.issCompassFreshnessTimer = setInterval(() => {
         this.zone.run(() => {
           this.issCompassNowMs = Date.now();
+          this.clockNowMs = this.issCompassNowMs;
           this.cdr.markForCheck();
         });
       }, 1000);
@@ -5210,6 +5232,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.issCompassOrientationListening = false;
     this.issCompassHeadingActive = false;
     this.resetIssCompassSensorReadings();
+    this.resetIssCompassCalibration();
     this.issCompassOrientationEventName = null;
   }
 
@@ -5251,6 +5274,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
             if (this.issCompassStatus === 'locating' || this.issCompassStatus === 'no-geo') {
               this.issCompassStatus = 'ready';
             }
+            this.ingestIssCompassGpsCourse(pos.coords);
             this.recomputeIssCompass();
             this.cdr.markForCheck();
           });
@@ -5286,6 +5310,244 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (this.issCompassUserSource == null) {
       this.issCompassStatus = 'no-geo';
     }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Calibration du Nord par marche GPS (référence vrai Nord, fiable)    */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Exploite le cap de déplacement GPS (vrai Nord, indépendant du magnétomètre)
+   * pendant une marche pour caler la boussole. Quand l’utilisateur marche en
+   * ligne droite, le cap GPS donne la direction réelle ; on en déduit la
+   * correction à appliquer au cap capteur (magnétique + biais de calibration).
+   */
+  private ingestIssCompassGpsCourse(coords: GeolocationCoordinates): void {
+    const speed =
+      Number.isFinite(coords.speed as number) && (coords.speed as number) >= 0
+        ? (coords.speed as number)
+        : null;
+    this.issCompassWalkSpeedMps = speed;
+    if (this.issCompassCalStatus !== 'calibrating') {
+      return;
+    }
+    const course = Number.isFinite(coords.heading as number) ? (coords.heading as number) : null;
+    if (
+      course == null ||
+      speed == null ||
+      speed < this.issCompassCalMinSpeedMps ||
+      this.issCompassHeadingRawDeg == null
+    ) {
+      return;
+    }
+    // Correction = vrai Nord (cap GPS) − cap capteur (magnétique) au même instant.
+    this.issCompassCalAccum.push(this.normalizeDeg(course - this.issCompassHeadingRawDeg));
+    this.issCompassCalSamples = this.issCompassCalAccum.length;
+    if (this.issCompassCalSamples >= this.issCompassCalNeededSamples) {
+      this.issCompassNorthOffsetDeg = this.circularMeanDeg(this.issCompassCalAccum);
+      this.issCompassCalStatus = 'calibrated';
+      this.issCompassCalAccum = [];
+      this.applyIssCompassNorthOffset();
+    }
+  }
+
+  /** Choisit la méthode de calibration ; la marche GPS démarre immédiatement. */
+  chooseIssCompassCalMethod(method: 'gps' | 'sun'): void {
+    this.issCompassCalMethod = method;
+    if (method === 'gps') {
+      this.issCompassCalStatus = 'calibrating';
+      this.issCompassCalAccum = [];
+      this.issCompassCalSamples = 0;
+    } else {
+      // Méthode Soleil : on reste « non calé » jusqu’à confirmation de l’alignement.
+      this.issCompassCalStatus = 'uncalibrated';
+    }
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Confirme la calibration par le Soleil : l’utilisateur a aligné le haut de
+   * l’appareil avec le Soleil ; on cale le cap capteur sur l’azimut solaire réel.
+   */
+  confirmIssCompassSunCalibration(): void {
+    const az = this.issCompassSunAzimuthDeg();
+    if (az == null || this.issCompassHeadingRawDeg == null) {
+      return;
+    }
+    this.issCompassNorthOffsetDeg = this.normalizeDeg(az - this.issCompassHeadingRawDeg);
+    this.issCompassCalStatus = 'calibrated';
+    this.applyIssCompassNorthOffset();
+    this.cdr.markForCheck();
+  }
+
+  /** Annule la calibration en cours / le choix de méthode (revient à l’état précédent). */
+  cancelIssCompassCalibration(): void {
+    this.issCompassCalStatus = this.issCompassNorthOffsetDeg != null ? 'calibrated' : 'uncalibrated';
+    this.issCompassCalMethod = null;
+    this.issCompassCalAccum = [];
+    this.issCompassCalSamples = 0;
+    this.cdr.markForCheck();
+  }
+
+  /** Relance le choix de méthode pour recaler le Nord. */
+  restartIssCompassCalibration(): void {
+    this.issCompassCalStatus = 'uncalibrated';
+    this.issCompassCalMethod = null;
+    this.issCompassCalAccum = [];
+    this.issCompassCalSamples = 0;
+    this.cdr.markForCheck();
+  }
+
+  /** Remet la calibration du Nord à zéro (à l’ouverture/fermeture de la boussole). */
+  private resetIssCompassCalibration(): void {
+    this.issCompassHeadingRawDeg = null;
+    this.issCompassNorthOffsetDeg = null;
+    this.issCompassCalStatus = 'uncalibrated';
+    this.issCompassCalMethod = null;
+    this.issCompassCalAccum = [];
+    this.issCompassCalSamples = 0;
+    this.issCompassWalkSpeedMps = null;
+  }
+
+  /** Azimut du Soleil (degrés, 0 = Nord) pour la position observateur, ou null si indisponible/nuit. */
+  issCompassSunAzimuthDeg(): number | null {
+    if (this.issCompassUserLat == null || this.issCompassUserLon == null) {
+      return null;
+    }
+    // Instant mis en cache (rafraîchi à la seconde) : évite NG0100 dans le template.
+    const sun = WorldGlobeComponent.solarPosition(
+      this.issCompassUserLat,
+      this.issCompassUserLon,
+      new Date(this.issCompassNowMs)
+    );
+    // Soleil sous l’horizon : alignement impossible (nuit / crépuscule profond).
+    if (sun.elevationDeg < -1) {
+      return null;
+    }
+    return sun.azimuthDeg;
+  }
+
+  /** Élévation du Soleil (degrés) pour la position observateur, ou null si indisponible. */
+  issCompassSunElevationDeg(): number | null {
+    if (this.issCompassUserLat == null || this.issCompassUserLon == null) {
+      return null;
+    }
+    return WorldGlobeComponent.solarPosition(
+      this.issCompassUserLat,
+      this.issCompassUserLon,
+      new Date(this.issCompassNowMs)
+    ).elevationDeg;
+  }
+
+  /** Le Soleil est sous l’horizon (méthode Soleil indisponible). */
+  issCompassSunBelowHorizon(): boolean {
+    const el = this.issCompassSunElevationDeg();
+    return el != null && el < -1;
+  }
+
+  /**
+   * Position du Soleil (azimut depuis le Nord, sens horaire ; élévation au-dessus
+   * de l’horizon) pour une latitude/longitude et un instant donnés. Implémente
+   * l’algorithme solaire NOAA (précision ~0,1°, suffisante pour une boussole).
+   */
+  private static solarPosition(
+    latDeg: number,
+    lonDeg: number,
+    date: Date
+  ): { azimuthDeg: number; elevationDeg: number } {
+    const rad = Math.PI / 180;
+    const jd =
+      date.getTime() / 86400000 + 2440587.5; // ms epoch → jour julien
+    const T = (jd - 2451545.0) / 36525;
+
+    let L0 = (280.46646 + T * (36000.76983 + T * 0.0003032)) % 360;
+    if (L0 < 0) {
+      L0 += 360;
+    }
+    const M = 357.52911 + T * (35999.05029 - 0.0001537 * T);
+    const e = 0.016708634 - T * (0.000042037 + 0.0000001267 * T);
+    const Mrad = M * rad;
+    const C =
+      Math.sin(Mrad) * (1.914602 - T * (0.004817 + 0.000014 * T)) +
+      Math.sin(2 * Mrad) * (0.019993 - 0.000101 * T) +
+      Math.sin(3 * Mrad) * 0.000289;
+    const trueLong = L0 + C;
+    const omega = 125.04 - 1934.136 * T;
+    const lambda = trueLong - 0.00569 - 0.00478 * Math.sin(omega * rad);
+    const seconds = 21.448 - T * (46.815 + T * (0.00059 - T * 0.001813));
+    const e0 = 23 + (26 + seconds / 60) / 60;
+    const oblCorr = e0 + 0.00256 * Math.cos(omega * rad);
+    const declRad = Math.asin(Math.sin(oblCorr * rad) * Math.sin(lambda * rad));
+
+    const y = Math.tan((oblCorr / 2) * rad) * Math.tan((oblCorr / 2) * rad);
+    const L0rad = L0 * rad;
+    const eqTime =
+      (4 *
+        (y * Math.sin(2 * L0rad) -
+          2 * e * Math.sin(Mrad) +
+          4 * e * y * Math.sin(Mrad) * Math.cos(2 * L0rad) -
+          0.5 * y * y * Math.sin(4 * L0rad) -
+          1.25 * e * e * Math.sin(2 * Mrad))) /
+      rad; // minutes
+
+    const minutes =
+      date.getUTCHours() * 60 + date.getUTCMinutes() + date.getUTCSeconds() / 60;
+    let trueSolarTime = (minutes + eqTime + 4 * lonDeg) % 1440;
+    if (trueSolarTime < 0) {
+      trueSolarTime += 1440;
+    }
+    let ha = trueSolarTime / 4 - 180; // angle horaire (deg)
+
+    const latRad = latDeg * rad;
+    const haRad = ha * rad;
+    const zenithRad = Math.acos(
+      Math.min(
+        1,
+        Math.max(
+          -1,
+          Math.sin(latRad) * Math.sin(declRad) +
+            Math.cos(latRad) * Math.cos(declRad) * Math.cos(haRad)
+        )
+      )
+    );
+    const elevationDeg = 90 - zenithRad / rad;
+
+    let azimuthDeg: number;
+    const azDenom = Math.cos(latRad) * Math.sin(zenithRad);
+    if (Math.abs(azDenom) > 1e-6) {
+      let azRad =
+        (Math.sin(latRad) * Math.cos(zenithRad) - Math.sin(declRad)) / azDenom;
+      azRad = Math.min(1, Math.max(-1, azRad));
+      const az = Math.acos(azRad) / rad;
+      azimuthDeg = ha > 0 ? (az + 180) % 360 : (540 - az) % 360;
+    } else {
+      azimuthDeg = latDeg > 0 ? 180 : 0;
+    }
+    return { azimuthDeg, elevationDeg };
+  }
+
+  /** Le cap affiché n’est pas encore calé sur le vrai Nord (calibration conseillée). */
+  issCompassNeedsCalibration(): boolean {
+    return this.issCompassHeadingActive && this.issCompassCalStatus !== 'calibrated';
+  }
+
+  /** Le cap affiché est calé sur le vrai Nord via GPS. */
+  issCompassIsCalibrated(): boolean {
+    return this.issCompassCalStatus === 'calibrated';
+  }
+
+  /** Progression (%) de la calibration en cours. */
+  issCompassCalProgressPercent(): number {
+    if (this.issCompassCalNeededSamples <= 0) {
+      return 0;
+    }
+    const pct = (this.issCompassCalSamples / this.issCompassCalNeededSamples) * 100;
+    return Math.max(0, Math.min(100, Math.round(pct)));
+  }
+
+  /** L’utilisateur marche assez vite pour que le cap GPS soit exploitable. */
+  issCompassWalkingFastEnough(): boolean {
+    return this.issCompassWalkSpeedMps != null && this.issCompassWalkSpeedMps >= this.issCompassCalMinSpeedMps;
   }
 
   /** Démarre l’écoute de l’orientation appareil (boussole magnétique / gyroscope). */
@@ -5339,7 +5601,12 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
         ? e.absolute
         : this.issCompassOrientationEventName === 'deviceorientationabsolute';
     this.zone.run(() => {
-      this.issCompassHeadingDeg = heading;
+      // Lissage circulaire passe-bas pour atténuer le bruit du magnétomètre.
+      this.issCompassHeadingRawDeg =
+        this.issCompassHeadingRawDeg == null
+          ? heading
+          : this.circularLerpDeg(this.issCompassHeadingRawDeg, heading, 0.3);
+      this.applyIssCompassNorthOffset();
       this.issCompassHeadingAccuracyDeg = acc;
       this.issCompassHeadingActive = true;
       this.issCompassSensorAlpha = Number.isFinite(e.alpha as number) ? (e.alpha as number) : null;
@@ -5381,12 +5648,14 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
    * Cap (0 = Nord, sens horaire) compensé en inclinaison.
    *
    * Construit la matrice de rotation appareil → Terre (repère ENU : X = Est,
-   * Y = Nord, Z = Haut) à partir des angles W3C alpha/beta/gamma, puis projette
-   * sur le plan horizontal l'axe de visée le plus fiable selon la pose :
-   *  - téléphone à plat (écran vers le ciel) → bord supérieur (+Y appareil) ;
-   *  - téléphone dressé vers le ciel → dos de l'appareil (−Z appareil).
-   * Les deux donnent le même azimut dans la zone de transition, ce qui évite le
-   * saut de ~180° de la formule « alpha seul » quand on dépasse la verticale.
+   * Y = Nord, Z = Haut) à partir des angles W3C alpha/beta/gamma, puis combine
+   * les projections horizontales de deux axes de visée :
+   *  - le bord supérieur (+Y appareil) — fiable quand l'appareil est à plat ;
+   *  - le dos de l'appareil (−Z appareil) — fiable quand il est dressé vers le ciel.
+   * On les somme vectoriellement : chaque axe est naturellement pondéré par la
+   * longueur de sa projection horizontale (un axe presque vertical pèse peu).
+   * Résultat : pas de saut quand on passe d'une pose à l'autre (≈ verticale),
+   * contrairement à un basculement brutal entre les deux axes.
    */
   private tiltCompensatedHeadingDeg(
     alphaDeg: number,
@@ -5413,13 +5682,48 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     const backE = -(cA * sG + cG * sA * sB);
     const backN = -(sA * sG - cA * cG * sB);
 
-    // On garde l'axe dont la projection horizontale est la plus marquée.
-    const useTop = Math.hypot(topE, topN) >= Math.hypot(backE, backN);
-    const east = useTop ? topE : backE;
-    const north = useTop ? topN : backN;
+    // Somme vectorielle des projections horizontales (pondération implicite).
+    const east = topE + backE;
+    const north = topN + backN;
 
     const heading = (Math.atan2(east, north) * 180) / Math.PI + screenAngleDeg;
     return this.normalizeDeg(heading);
+  }
+
+  /** Interpolation circulaire (degrés) entre deux caps, sans saut au passage 0/360. */
+  private circularLerpDeg(fromDeg: number, toDeg: number, t: number): number {
+    const f = (fromDeg * Math.PI) / 180;
+    const to = (toDeg * Math.PI) / 180;
+    const x = Math.cos(f) * (1 - t) + Math.cos(to) * t;
+    const y = Math.sin(f) * (1 - t) + Math.sin(to) * t;
+    return this.normalizeDeg((Math.atan2(y, x) * 180) / Math.PI);
+  }
+
+  /** Moyenne circulaire (degrés) d’une liste de caps. */
+  private circularMeanDeg(degrees: ReadonlyArray<number>): number {
+    let x = 0;
+    let y = 0;
+    for (const d of degrees) {
+      const r = (d * Math.PI) / 180;
+      x += Math.cos(r);
+      y += Math.sin(r);
+    }
+    return this.normalizeDeg((Math.atan2(y, x) * 180) / Math.PI);
+  }
+
+  /** Écart signé (−180..180) entre deux caps en degrés. */
+  private circularDiffDeg(aDeg: number, bDeg: number): number {
+    return ((aDeg - bDeg + 540) % 360) - 180;
+  }
+
+  /** Recalcule le cap affiché (vrai Nord) = cap capteur lissé + correction de calibration. */
+  private applyIssCompassNorthOffset(): void {
+    if (this.issCompassHeadingRawDeg == null) {
+      this.issCompassHeadingDeg = null;
+      return;
+    }
+    const offset = this.issCompassNorthOffsetDeg ?? 0;
+    this.issCompassHeadingDeg = this.normalizeDeg(this.issCompassHeadingRawDeg + offset);
   }
 
   private currentScreenAngle(): number {
@@ -5829,6 +6133,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     const ms = this.issPollIntervalMs();
     this.issNextRefreshEpochMs = Date.now() + ms;
     this.issCountdownInterval = window.setInterval(() => {
+      this.clockNowMs = Date.now();
       this.refreshIssCountdownSnapshot();
       this.scheduleWorldGlobeCdr();
     }, 1000);

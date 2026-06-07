@@ -2623,6 +2623,137 @@ body:has(.wg-fs-root--viewport-locked) {
   padding: 0 0.5rem;
 }
 
+/* Calibration du Nord (marche GPS) */
+.wg-compass-cal {
+  width: 100%;
+  border-radius: 0.6rem;
+  padding: 0.7rem 0.8rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.wg-compass-cal--warn {
+  background: rgba(70, 52, 14, 0.5);
+  border: 1px solid rgba(255, 196, 60, 0.4);
+  color: #ffe2a8;
+}
+
+.wg-compass-cal--active {
+  background: rgba(14, 38, 70, 0.6);
+  border: 1px solid rgba(120, 200, 255, 0.45);
+  color: #cfe3ff;
+}
+
+.wg-compass-cal--ok {
+  background: rgba(16, 52, 30, 0.5);
+  border: 1px solid rgba(93, 216, 121, 0.45);
+  color: #c9ffd6;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wg-compass-cal__head {
+  font-weight: 700;
+}
+
+.wg-compass-cal__steps {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.wg-compass-cal__instr {
+  margin: 0;
+  font-weight: 600;
+}
+
+.wg-compass-cal__bar {
+  width: 100%;
+  height: 0.5rem;
+  border-radius: 0.4rem;
+  background: rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+}
+
+.wg-compass-cal__fill {
+  display: block;
+  height: 100%;
+  border-radius: 0.4rem;
+  background: linear-gradient(90deg, #5cc8ff, #8dffa6);
+  transition: width 0.3s ease-out;
+}
+
+.wg-compass-cal__count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: center;
+}
+
+.wg-compass-cal__okmsg {
+  font-weight: 600;
+}
+
+.wg-compass-cal__btn {
+  align-self: stretch;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.8rem;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  background: linear-gradient(90deg, #ffd54a, #ffb347);
+  color: #2a1e02;
+}
+
+.wg-compass-cal__btn--ghost {
+  align-self: center;
+  background: transparent;
+  border: 1px solid currentColor;
+  color: inherit;
+  padding: 0.4rem 0.9rem;
+}
+
+.wg-compass-cal__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.wg-compass-cal__btn--sun {
+  background: linear-gradient(90deg, #ffd54a, #ff8a3d);
+}
+
+.wg-compass-cal__methods {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.wg-compass-cal--sun {
+  background: rgba(60, 40, 10, 0.5);
+  border: 1px solid rgba(255, 160, 60, 0.45);
+  color: #ffdca6;
+}
+
+.wg-compass-cal__sundata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.wg-compass-cal__night {
+  margin: 0;
+  font-size: 0.74rem;
+  opacity: 0.85;
+}
+
 .wg-compass-readout {
   width: 100%;
   display: flex;
@@ -2701,6 +2832,11 @@ body:has(.wg-fs-root--viewport-locked) {
   font-weight: 400;
   font-size: 0.72rem;
   color: #ffb868;
+}
+
+.wg-compass-readout__note--warn {
+  color: #ff9d6b;
+  font-weight: 600;
 }
 
 .wg-compass-source {
