@@ -2754,6 +2754,47 @@ body:has(.wg-fs-root--viewport-locked) {
   opacity: 0.85;
 }
 
+/* Méthodes d'identification du Nord : capteurs (auto) / manuel */
+.wg-compass-cal__methods .wg-compass-cal__btn {
+  display: flex;
+  align-items: center;
+  text-align: left;
+  gap: 0.55rem;
+}
+
+.wg-compass-cal__btn--manual {
+  background: linear-gradient(90deg, #7ec8ff, #5c9dff);
+  color: #04203f;
+}
+
+.wg-compass-cal__btnlabel {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.wg-compass-cal__btntitle {
+  font-weight: 800;
+}
+
+.wg-compass-cal__btnhint {
+  font-weight: 600;
+  font-size: 0.72rem;
+  opacity: 0.8;
+}
+
+.wg-compass-cal--manual {
+  background: rgba(10, 30, 60, 0.55);
+  border: 1px solid rgba(90, 160, 255, 0.45);
+  color: #cfe4ff;
+}
+
+.wg-compass-cal__saved {
+  font-size: 0.74rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
 .wg-compass-readout {
   width: 100%;
   display: flex;

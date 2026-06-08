@@ -17,7 +17,7 @@ import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { Subscription, firstValueFrom, timeout } from 'rxjs';
 import { finalize } from 'rxjs/operators';
-import { ApiService, IssAlertConfig } from '../services/api.service';
+import { ApiService, IssAlertConfig, IssCompassCalibration } from '../services/api.service';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { environment } from '../../environments/environment';
@@ -412,15 +412,26 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   issCompassHeadingActive = false;
   /** Cap capteur brut (magnétique, compensé en inclinaison et lissé) avant correction Nord. */
   issCompassHeadingRawDeg: number | null = null;
-  /** Correction (degrés) à ajouter au cap capteur pour obtenir le vrai Nord (calibration GPS). */
+  /** Correction (degrés) à ajouter au cap capteur pour obtenir le vrai Nord. */
   issCompassNorthOffsetDeg: number | null = null;
-  /** État de la calibration du Nord. */
+  /** État du calage du Nord. */
   issCompassCalStatus: 'uncalibrated' | 'calibrating' | 'calibrated' = 'uncalibrated';
-  /** Méthode de calibration choisie par l’utilisateur (null = à choisir). */
-  issCompassCalMethod: 'gps' | 'sun' | null = null;
-  /** Nombre d’échantillons de calibration déjà collectés pendant la marche. */
+  /**
+   * Méthode d’identification du Nord choisie par l’utilisateur (null = à choisir) :
+   *  - 'sensor' : Nord entièrement géré par les capteurs du smartphone (offset nul) ;
+   *  - 'manual' : l’utilisateur oriente le haut du téléphone vers le Nord, puis valide
+   *    pour enregistrer cette direction comme étant le Nord ;
+   *  - 'gps'    : calage par marche GPS (cap réel de déplacement, vrai Nord) ;
+   *  - 'sun'    : calage en visant le Soleil (azimut solaire calculé).
+   */
+  issCompassCalMethod: 'sensor' | 'manual' | 'gps' | 'sun' | null = null;
+  /** Le calage affiché provient d’un enregistrement backend (mémorisé entre les sessions). */
+  issCompassCalPersisted = false;
+  /** Un enregistrement du calage vers le backend est en cours. */
+  issCompassCalSaving = false;
+  /** Nombre d’échantillons de calage déjà collectés pendant la marche GPS. */
   issCompassCalSamples = 0;
-  /** Nombre d’échantillons requis pour valider une calibration. */
+  /** Nombre d’échantillons requis pour valider une calibration par marche. */
   readonly issCompassCalNeededSamples = 6;
   /** Vitesse de déplacement GPS courante (m/s), pour guider la marche de calibration. */
   issCompassWalkSpeedMps: number | null = null;
@@ -5118,6 +5129,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.issCompassHeadingAccuracyDeg = null;
     this.resetIssCompassSensorReadings();
     this.resetIssCompassCalibration();
+    // Recharge le dernier calage du Nord enregistré : pas besoin de recaler à chaque ouverture.
+    this.loadIssCompassCalibration();
     this.startIssCompassGeolocation();
     void this.startIssCompassOrientation();
     // Si l’ISS n’a pas encore de position connue, déclencher un rafraîchissement immédiat.
@@ -5313,7 +5326,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   }
 
   /* ------------------------------------------------------------------ */
-  /* Calibration du Nord par marche GPS (référence vrai Nord, fiable)    */
+  /* Identification du Nord : 4 méthodes + mémorisation backend          */
+  /* (capteurs auto / manuel / marche GPS / Soleil)                      */
   /* ------------------------------------------------------------------ */
 
   /**
@@ -5344,25 +5358,65 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.issCompassCalAccum.push(this.normalizeDeg(course - this.issCompassHeadingRawDeg));
     this.issCompassCalSamples = this.issCompassCalAccum.length;
     if (this.issCompassCalSamples >= this.issCompassCalNeededSamples) {
-      this.issCompassNorthOffsetDeg = this.circularMeanDeg(this.issCompassCalAccum);
+      const offset = this.circularMeanDeg(this.issCompassCalAccum);
+      this.issCompassNorthOffsetDeg = offset;
       this.issCompassCalStatus = 'calibrated';
       this.issCompassCalAccum = [];
       this.applyIssCompassNorthOffset();
+      this.persistIssCompassCalibration('gps', offset);
     }
   }
 
-  /** Choisit la méthode de calibration ; la marche GPS démarre immédiatement. */
-  chooseIssCompassCalMethod(method: 'gps' | 'sun'): void {
+  /**
+   * Choisit la méthode d’identification du Nord (4 méthodes).
+   *  - 'sensor' : on fait entièrement confiance aux capteurs du smartphone
+   *    (boussole/magnétomètre absolu) ; le calage est immédiat (offset nul).
+   *  - 'manual' : mode « viser le Nord » ; l’utilisateur oriente le haut du
+   *    téléphone vers le Nord puis valide via {@link confirmIssCompassManualNorth}.
+   *  - 'gps'    : calage par marche GPS ; la collecte démarre immédiatement.
+   *  - 'sun'    : on vise le Soleil puis on valide via {@link confirmIssCompassSunCalibration}.
+   */
+  chooseIssCompassCalMethod(method: 'sensor' | 'manual' | 'gps' | 'sun'): void {
     this.issCompassCalMethod = method;
-    if (method === 'gps') {
+    if (method === 'sensor') {
+      // Nord géré par les capteurs : aucune correction à appliquer.
+      this.issCompassNorthOffsetDeg = 0;
+      this.issCompassCalStatus = 'calibrated';
+      this.applyIssCompassNorthOffset();
+      this.persistIssCompassCalibration('sensor', 0);
+    } else if (method === 'gps') {
+      // Marche GPS : on collecte des échantillons pendant le déplacement.
       this.issCompassCalStatus = 'calibrating';
       this.issCompassCalAccum = [];
       this.issCompassCalSamples = 0;
     } else {
-      // Méthode Soleil : on reste « non calé » jusqu’à confirmation de l’alignement.
+      // 'manual' / 'sun' : on reste « non calé » jusqu’à validation de l’orientation.
       this.issCompassCalStatus = 'uncalibrated';
     }
     this.cdr.markForCheck();
+  }
+
+  /**
+   * Valide le calage manuel : l’utilisateur a orienté le haut du téléphone vers le
+   * Nord ; on enregistre la direction actuelle de l’appareil comme étant le Nord.
+   * La correction = −cap capteur brut (pour que le cap affiché tombe à 0° = Nord).
+   */
+  confirmIssCompassManualNorth(): void {
+    if (this.issCompassHeadingRawDeg == null) {
+      return;
+    }
+    const offset = this.normalizeDeg(-this.issCompassHeadingRawDeg);
+    this.issCompassNorthOffsetDeg = offset;
+    this.issCompassCalMethod = 'manual';
+    this.issCompassCalStatus = 'calibrated';
+    this.applyIssCompassNorthOffset();
+    this.persistIssCompassCalibration('manual', offset);
+    this.cdr.markForCheck();
+  }
+
+  /** Le calage manuel est possible (les capteurs fournissent un cap exploitable). */
+  issCompassManualReady(): boolean {
+    return this.issCompassHeadingActive && this.issCompassHeadingRawDeg != null;
   }
 
   /**
@@ -5374,13 +5428,16 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (az == null || this.issCompassHeadingRawDeg == null) {
       return;
     }
-    this.issCompassNorthOffsetDeg = this.normalizeDeg(az - this.issCompassHeadingRawDeg);
+    const offset = this.normalizeDeg(az - this.issCompassHeadingRawDeg);
+    this.issCompassNorthOffsetDeg = offset;
+    this.issCompassCalMethod = 'sun';
     this.issCompassCalStatus = 'calibrated';
     this.applyIssCompassNorthOffset();
+    this.persistIssCompassCalibration('sun', offset);
     this.cdr.markForCheck();
   }
 
-  /** Annule la calibration en cours / le choix de méthode (revient à l’état précédent). */
+  /** Annule le choix de méthode en cours (revient à l’écran de choix ou au calage précédent). */
   cancelIssCompassCalibration(): void {
     this.issCompassCalStatus = this.issCompassNorthOffsetDeg != null ? 'calibrated' : 'uncalibrated';
     this.issCompassCalMethod = null;
@@ -5389,24 +5446,94 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  /** Relance le choix de méthode pour recaler le Nord. */
+  /** Relance le choix de méthode pour recaler le Nord (à la demande de l’utilisateur). */
   restartIssCompassCalibration(): void {
     this.issCompassCalStatus = 'uncalibrated';
     this.issCompassCalMethod = null;
+    this.issCompassCalPersisted = false;
     this.issCompassCalAccum = [];
     this.issCompassCalSamples = 0;
     this.cdr.markForCheck();
   }
 
-  /** Remet la calibration du Nord à zéro (à l’ouverture/fermeture de la boussole). */
+  /** Remet le calage du Nord à zéro en mémoire (à l’ouverture/fermeture de la boussole). */
   private resetIssCompassCalibration(): void {
     this.issCompassHeadingRawDeg = null;
     this.issCompassNorthOffsetDeg = null;
     this.issCompassCalStatus = 'uncalibrated';
     this.issCompassCalMethod = null;
+    this.issCompassCalPersisted = false;
+    this.issCompassCalSaving = false;
     this.issCompassCalAccum = [];
     this.issCompassCalSamples = 0;
     this.issCompassWalkSpeedMps = null;
+  }
+
+  /**
+   * Recharge le calage du Nord mémorisé côté backend pour l’utilisateur courant,
+   * afin de ne pas redemander de caler à chaque ouverture de la boussole.
+   * Sans enregistrement (ou utilisateur anonyme), la boussole reste « non calée ».
+   */
+  private loadIssCompassCalibration(): void {
+    this.apiService.getIssCompassCalibration().subscribe({
+      next: (cal: IssCompassCalibration | null) => {
+        if (!this.issCompassOpen || !cal || !this.isKnownCalMethod(cal.method)) {
+          return;
+        }
+        // Ne pas écraser un calage que l’utilisateur vient de refaire pendant le chargement.
+        if (this.issCompassCalStatus !== 'uncalibrated' || this.issCompassCalMethod != null) {
+          return;
+        }
+        const offset = Number.isFinite(cal.northOffsetDeg) ? this.normalizeDeg(cal.northOffsetDeg) : 0;
+        this.issCompassNorthOffsetDeg = offset;
+        this.issCompassCalMethod = cal.method;
+        this.issCompassCalStatus = 'calibrated';
+        this.issCompassCalPersisted = true;
+        this.applyIssCompassNorthOffset();
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        /* pas de calage mémorisé / hors-ligne : on garde l’état « non calé » */
+      },
+    });
+  }
+
+  /** Méthode de calage reconnue (une des 4 prises en charge). */
+  private isKnownCalMethod(
+    method: string | null | undefined
+  ): method is 'sensor' | 'manual' | 'gps' | 'sun' {
+    return method === 'sensor' || method === 'manual' || method === 'gps' || method === 'sun';
+  }
+
+  /** Enregistre le calage du Nord côté backend (mémorisé entre les sessions, pour les 4 méthodes). */
+  private persistIssCompassCalibration(
+    method: 'sensor' | 'manual' | 'gps' | 'sun',
+    northOffsetDeg: number
+  ): void {
+    this.issCompassCalSaving = true;
+    this.cdr.markForCheck();
+    this.apiService
+      .setIssCompassCalibration({
+        method,
+        northOffsetDeg: this.normalizeDeg(northOffsetDeg),
+        calibratedAt: new Date().toISOString(),
+      })
+      .subscribe({
+        next: () => {
+          this.zone.run(() => {
+            this.issCompassCalPersisted = true;
+            this.issCompassCalSaving = false;
+            this.cdr.markForCheck();
+          });
+        },
+        error: () => {
+          this.zone.run(() => {
+            this.issCompassCalPersisted = false;
+            this.issCompassCalSaving = false;
+            this.cdr.markForCheck();
+          });
+        },
+      });
   }
 
   /** Azimut du Soleil (degrés, 0 = Nord) pour la position observateur, ou null si indisponible/nuit. */
@@ -5526,17 +5653,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     return { azimuthDeg, elevationDeg };
   }
 
-  /** Le cap affiché n’est pas encore calé sur le vrai Nord (calibration conseillée). */
-  issCompassNeedsCalibration(): boolean {
-    return this.issCompassHeadingActive && this.issCompassCalStatus !== 'calibrated';
-  }
-
-  /** Le cap affiché est calé sur le vrai Nord via GPS. */
-  issCompassIsCalibrated(): boolean {
-    return this.issCompassCalStatus === 'calibrated';
-  }
-
-  /** Progression (%) de la calibration en cours. */
+  /** Progression (%) de la calibration par marche GPS en cours. */
   issCompassCalProgressPercent(): number {
     if (this.issCompassCalNeededSamples <= 0) {
       return 0;
@@ -5548,6 +5665,16 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   /** L’utilisateur marche assez vite pour que le cap GPS soit exploitable. */
   issCompassWalkingFastEnough(): boolean {
     return this.issCompassWalkSpeedMps != null && this.issCompassWalkSpeedMps >= this.issCompassCalMinSpeedMps;
+  }
+
+  /** Le cap affiché n’est pas encore calé sur le vrai Nord (calage conseillé). */
+  issCompassNeedsCalibration(): boolean {
+    return this.issCompassHeadingActive && this.issCompassCalStatus !== 'calibrated';
+  }
+
+  /** Le cap affiché est calé sur le vrai Nord. */
+  issCompassIsCalibrated(): boolean {
+    return this.issCompassCalStatus === 'calibrated';
   }
 
   /** Démarre l’écoute de l’orientation appareil (boussole magnétique / gyroscope). */

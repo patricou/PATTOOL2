@@ -1070,17 +1070,34 @@
                 <i class="fa fa-mobile me-2" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_NO_SENSOR' | translate }}
               </div>
 
-              <!-- Calibration du Nord -->
+              <!-- Identification du Nord : 4 méthodes (capteurs / manuel / marche GPS / Soleil) -->
               <ng-container *ngIf="issCompassHeadingActive">
-                <!-- À caler : invite + choix de méthode -->
-                <div class="wg-compass-cal wg-compass-cal--warn" *ngIf="issCompassCalStatus === 'uncalibrated' && issCompassCalMethod !== 'sun'">
+                <!-- À caler : invite + choix de méthode (4 boutons) -->
+                <div class="wg-compass-cal wg-compass-cal--warn" *ngIf="issCompassCalStatus === 'uncalibrated' && issCompassCalMethod == null">
                   <div class="wg-compass-cal__head">
                     <i class="fa fa-exclamation-triangle me-2" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_NEEDED' | translate }}
                   </div>
                   <p class="wg-compass-cal__instr">{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_CHOOSE' | translate }}</p>
                   <div class="wg-compass-cal__methods">
+                    <button type="button" class="wg-compass-cal__btn" (click)="chooseIssCompassCalMethod('sensor')">
+                      <i class="fa fa-magnet me-2" aria-hidden="true"></i>
+                      <span class="wg-compass-cal__btnlabel">
+                        <span class="wg-compass-cal__btntitle">{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_METHOD_AUTO' | translate }}</span>
+                        <span class="wg-compass-cal__btnhint">{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_METHOD_AUTO_HINT' | translate }}</span>
+                      </span>
+                    </button>
+                    <button type="button" class="wg-compass-cal__btn wg-compass-cal__btn--manual" (click)="chooseIssCompassCalMethod('manual')">
+                      <i class="fa fa-compass me-2" aria-hidden="true"></i>
+                      <span class="wg-compass-cal__btnlabel">
+                        <span class="wg-compass-cal__btntitle">{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_METHOD_MANUAL' | translate }}</span>
+                        <span class="wg-compass-cal__btnhint">{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_METHOD_MANUAL_HINT' | translate }}</span>
+                      </span>
+                    </button>
                     <button type="button" class="wg-compass-cal__btn" (click)="chooseIssCompassCalMethod('gps')">
-                      <i class="fa fa-location-arrow me-2" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_METHOD_GPS' | translate }}
+                      <i class="fa fa-location-arrow me-2" aria-hidden="true"></i>
+                      <span class="wg-compass-cal__btnlabel">
+                        <span class="wg-compass-cal__btntitle">{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_METHOD_GPS' | translate }}</span>
+                      </span>
                     </button>
                     <button
                       type="button"
@@ -1088,12 +1105,33 @@
                       (click)="chooseIssCompassCalMethod('sun')"
                       [disabled]="issCompassSunAzimuthDeg() == null"
                       [attr.title]="issCompassSunBelowHorizon() ? ('WORLD_GLOBE.ISS_COMPASS_CAL_SUN_NIGHT' | translate) : null">
-                      <i class="fa fa-sun-o me-2" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_METHOD_SUN' | translate }}
+                      <i class="fa fa-sun-o me-2" aria-hidden="true"></i>
+                      <span class="wg-compass-cal__btnlabel">
+                        <span class="wg-compass-cal__btntitle">{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_METHOD_SUN' | translate }}</span>
+                      </span>
                     </button>
                   </div>
                   <p class="wg-compass-cal__night" *ngIf="issCompassSunBelowHorizon()">
                     <i class="fa fa-moon-o me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_SUN_NIGHT' | translate }}
                   </p>
+                </div>
+
+                <!-- Méthode manuelle : orienter le haut du téléphone vers le Nord puis valider -->
+                <div class="wg-compass-cal wg-compass-cal--manual" *ngIf="issCompassCalStatus === 'uncalibrated' && issCompassCalMethod === 'manual'">
+                  <div class="wg-compass-cal__head">
+                    <i class="fa fa-compass me-2" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_MANUAL_TITLE' | translate }}
+                  </div>
+                  <ol class="wg-compass-cal__steps">
+                    <li>{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_MANUAL_STEP1' | translate }}</li>
+                    <li>{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_MANUAL_STEP2' | translate }}</li>
+                    <li>{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_MANUAL_STEP3' | translate }}</li>
+                  </ol>
+                  <button type="button" class="wg-compass-cal__btn" (click)="confirmIssCompassManualNorth()" [disabled]="!issCompassManualReady()">
+                    <i class="fa fa-check me-2" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_MANUAL_CONFIRM' | translate }}
+                  </button>
+                  <button type="button" class="wg-compass-cal__btn wg-compass-cal__btn--ghost" (click)="cancelIssCompassCalibration()">
+                    {{ 'WORLD_GLOBE.ISS_COMPASS_CAL_BACK' | translate }}
+                  </button>
                 </div>
 
                 <!-- Méthode Soleil : viser le Soleil puis confirmer -->
@@ -1145,12 +1183,19 @@
                   </button>
                 </div>
 
-                <!-- Calé : confirmation + recalibrage -->
+                <!-- Calé : confirmation + mémorisation + recalage à la demande -->
                 <div class="wg-compass-cal wg-compass-cal--ok" *ngIf="issCompassCalStatus === 'calibrated'">
                   <span class="wg-compass-cal__okmsg">
-                    <i class="fa fa-check-circle me-2" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_DONE' | translate }}
+                    <i class="fa fa-check-circle me-2" aria-hidden="true"></i>
+                    <ng-container *ngIf="issCompassCalMethod === 'manual'">{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_DONE_MANUAL' | translate }}</ng-container>
+                    <ng-container *ngIf="issCompassCalMethod === 'sun'">{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_DONE_SUN' | translate }}</ng-container>
+                    <ng-container *ngIf="issCompassCalMethod === 'gps'">{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_DONE' | translate }}</ng-container>
+                    <ng-container *ngIf="issCompassCalMethod === 'sensor' || issCompassCalMethod == null">{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_DONE_AUTO' | translate }}</ng-container>
                   </span>
-                  <button type="button" class="wg-compass-cal__btn wg-compass-cal__btn--ghost" (click)="restartIssCompassCalibration()">
+                  <span class="wg-compass-cal__saved" *ngIf="issCompassCalPersisted">
+                    <i class="fa fa-floppy-o me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_SAVED' | translate }}
+                  </span>
+                  <button type="button" class="wg-compass-cal__btn wg-compass-cal__btn--ghost" (click)="restartIssCompassCalibration()" [disabled]="issCompassCalSaving">
                     <i class="fa fa-refresh me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_REDO' | translate }}
                   </button>
                 </div>

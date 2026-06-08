@@ -1,5 +1,7 @@
 package com.pat.controller;
 
+import com.pat.controller.dto.CompassCalibrationDto;
+import com.pat.service.CompassCalibrationService;
 import com.pat.service.GlobeProxyService;
 import com.pat.service.GlobeProxyService.FetchedImage;
 import com.pat.service.GlobeProxyService.PlanetTextureAsset;
@@ -15,6 +17,9 @@ import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -44,18 +49,21 @@ public class GlobeProxyController {
     private final IssPassLookupService issPassLookupService;
     private final IssTraceBackgroundScheduler issTraceBackgroundScheduler;
     private final IssPassAlertService issPassAlertService;
+    private final CompassCalibrationService compassCalibrationService;
 
     public GlobeProxyController(
             GlobeProxyService globeProxyService,
             IssTraceService issTraceService,
             IssPassLookupService issPassLookupService,
             IssTraceBackgroundScheduler issTraceBackgroundScheduler,
-            IssPassAlertService issPassAlertService) {
+            IssPassAlertService issPassAlertService,
+            CompassCalibrationService compassCalibrationService) {
         this.globeProxyService = globeProxyService;
         this.issTraceService = issTraceService;
         this.issPassLookupService = issPassLookupService;
         this.issTraceBackgroundScheduler = issTraceBackgroundScheduler;
         this.issPassAlertService = issPassAlertService;
+        this.compassCalibrationService = compassCalibrationService;
     }
 
     @GetMapping("/texture/planets/{name}")
@@ -411,6 +419,66 @@ public class GlobeProxyController {
         String status = issPassAlertService.sendTestForNextPass();
         boolean ok = "sent".equals(status);
         return ResponseEntity.ok(new IssAlertTestResponse(ok, status));
+    }
+
+    /**
+     * Calage du Nord de la boussole ISS de l'utilisateur courant (par {@code sub} JWT).
+     * Renvoie 204 (No Content) si aucun calage n'est mémorisé ou si l'appel est anonyme :
+     * la boussole repart alors « non calée ».
+     */
+    @GetMapping("/iss/compass/calibration")
+    public ResponseEntity<CompassCalibrationDto> getCompassCalibration() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return compassCalibrationService.findForSubject(sub)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    /**
+     * Mémorise le calage du Nord choisi par l'utilisateur (méthode capteurs ou manuelle),
+     * de sorte qu'il n'ait pas à recaler à chaque ouverture de la boussole.
+     */
+    @PutMapping("/iss/compass/calibration")
+    public ResponseEntity<CompassCalibrationDto> setCompassCalibration(@RequestBody CompassCalibrationDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (body == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            CompassCalibrationDto saved = compassCalibrationService.saveForSubject(sub, body);
+            return ResponseEntity.ok(saved);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        } catch (Exception e) {
+            log.warn("Compass calibration save failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /** Oublie le calage du Nord mémorisé pour l'utilisateur courant. */
+    @DeleteMapping("/iss/compass/calibration")
+    public ResponseEntity<Void> deleteCompassCalibration() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        compassCalibrationService.deleteForSubject(sub);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Identifiant ({@code sub}) de l'utilisateur Keycloak courant, ou {@code null} si anonyme. */
+    private static String currentJwtSubject() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof Jwt jwt)) {
+            return null;
+        }
+        return jwt.getSubject();
     }
 
     /** Delete all stored ISS trace samples. */

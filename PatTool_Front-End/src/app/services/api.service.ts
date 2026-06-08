@@ -5,6 +5,20 @@ import { Observable, from } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
+/**
+ * Per-user North calibration of the ISS compass (GET/PUT /external/globe/iss/compass/calibration).
+ * Four identification methods are supported:
+ * - 'sensor': North handled by the device sensors (offset 0).
+ * - 'manual': user pointed the phone top to North; offset corrects the raw heading.
+ * - 'gps':    calibrated by walking (true GPS course).
+ * - 'sun':    calibrated by aiming at the Sun (computed solar azimuth).
+ */
+export interface IssCompassCalibration {
+  method: 'sensor' | 'manual' | 'gps' | 'sun';
+  northOffsetDeg: number;
+  calibratedAt?: string | null;
+}
+
 /** ISS visible-pass e-mail alert configuration (GET/PUT /external/globe/iss/alert). */
 export interface IssAlertConfig {
   enabled: boolean;
@@ -265,6 +279,34 @@ export class ApiService {
     return this.getHeaderWithToken().pipe(
       switchMap(headers =>
         this._http.put<IssAlertConfig>(this.API_URL + 'external/globe/iss/alert', body, { headers })
+      )
+    );
+  }
+
+  /**
+   * Saved North calibration of the ISS compass for the current user, or null when none is stored
+   * (backend answers 204 No Content, which HttpClient maps to a null body).
+   */
+  getIssCompassCalibration(): Observable<IssCompassCalibration | null> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<IssCompassCalibration | null>(
+          this.API_URL + 'external/globe/iss/compass/calibration',
+          { headers }
+        )
+      )
+    );
+  }
+
+  /** Persist the user's chosen North calibration so it is reused on every compass open. */
+  setIssCompassCalibration(body: IssCompassCalibration): Observable<IssCompassCalibration> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<IssCompassCalibration>(
+          this.API_URL + 'external/globe/iss/compass/calibration',
+          body,
+          { headers }
+        )
       )
     );
   }
