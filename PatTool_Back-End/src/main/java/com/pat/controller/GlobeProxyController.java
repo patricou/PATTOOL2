@@ -1,7 +1,13 @@
 package com.pat.controller;
 
 import com.pat.controller.dto.CompassCalibrationDto;
+import com.pat.controller.dto.FlightStateDto;
+import com.pat.controller.dto.FlightTrackDto;
+import com.pat.controller.dto.FlightTrackingPreferenceDto;
 import com.pat.service.CompassCalibrationService;
+import com.pat.service.FlightTrackingPreferenceService;
+import com.pat.service.OpenSkyService;
+import com.pat.service.OpenSkyUnavailableException;
 import com.pat.service.GlobeProxyService;
 import com.pat.service.GlobeProxyService.FetchedImage;
 import com.pat.service.GlobeProxyService.PlanetTextureAsset;
@@ -32,6 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -50,6 +57,8 @@ public class GlobeProxyController {
     private final IssTraceBackgroundScheduler issTraceBackgroundScheduler;
     private final IssPassAlertService issPassAlertService;
     private final CompassCalibrationService compassCalibrationService;
+    private final OpenSkyService openSkyService;
+    private final FlightTrackingPreferenceService flightTrackingPreferenceService;
 
     public GlobeProxyController(
             GlobeProxyService globeProxyService,
@@ -57,13 +66,17 @@ public class GlobeProxyController {
             IssPassLookupService issPassLookupService,
             IssTraceBackgroundScheduler issTraceBackgroundScheduler,
             IssPassAlertService issPassAlertService,
-            CompassCalibrationService compassCalibrationService) {
+            CompassCalibrationService compassCalibrationService,
+            OpenSkyService openSkyService,
+            FlightTrackingPreferenceService flightTrackingPreferenceService) {
         this.globeProxyService = globeProxyService;
         this.issTraceService = issTraceService;
         this.issPassLookupService = issPassLookupService;
         this.issTraceBackgroundScheduler = issTraceBackgroundScheduler;
         this.issPassAlertService = issPassAlertService;
         this.compassCalibrationService = compassCalibrationService;
+        this.openSkyService = openSkyService;
+        this.flightTrackingPreferenceService = flightTrackingPreferenceService;
     }
 
     @GetMapping("/texture/planets/{name}")
@@ -469,6 +482,122 @@ public class GlobeProxyController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         compassCalibrationService.deleteForSubject(sub);
+        return ResponseEntity.noContent().build();
+    }
+
+    /* ===================================================================== */
+    /* Flight tracking (OpenSky Network): current state + per-user preference. */
+    /* ===================================================================== */
+
+    /**
+     * Current flight state via OpenSky. {@code mode=callsign} (callsign / flight number) or
+     * {@code mode=icao24} (hex address). Returns 404 if the flight is not found / not reachable,
+     * 400 if the request is invalid.
+     */
+    @GetMapping("/flight/state")
+    public ResponseEntity<FlightStateDto> flightState(
+            @RequestParam("mode") String mode,
+            @RequestParam("q") String query) {
+        String normalizedMode = mode == null ? "" : mode.trim().toLowerCase(java.util.Locale.ROOT);
+        if (query == null || query.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        Optional<FlightStateDto> state;
+        switch (normalizedMode) {
+            case "icao24" -> {
+                if (!OpenSkyService.isValidIcao24(query)) {
+                    return ResponseEntity.badRequest().build();
+                }
+                try {
+                    state = openSkyService.fetchByIcao24(query);
+                } catch (OpenSkyUnavailableException e) {
+                    return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+                }
+            }
+            case "callsign" -> {
+                if (!OpenSkyService.isValidCallsign(query)) {
+                    return ResponseEntity.badRequest().build();
+                }
+                try {
+                    state = openSkyService.fetchByCallsign(query);
+                } catch (OpenSkyUnavailableException e) {
+                    return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+                }
+            }
+            default -> {
+                return ResponseEntity.badRequest().build();
+            }
+        }
+        return state
+                .map(dto -> ResponseEntity.ok()
+                        .cacheControl(CacheControl.noStore())
+                        .body(dto))
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Full flight trajectory (OpenSky {@code /tracks/all}) from departure to arrival.
+     * {@code time=0} (default): live track if the flight is in progress.
+     */
+    @GetMapping("/flight/track")
+    public ResponseEntity<FlightTrackDto> flightTrack(
+            @RequestParam("icao24") String icao24,
+            @RequestParam(value = "time", defaultValue = "0") long time) {
+        if (!OpenSkyService.isValidIcao24(icao24)) {
+            return ResponseEntity.badRequest().build();
+        }
+        return openSkyService.fetchTrackByIcao24(icao24, time)
+                .map(dto -> ResponseEntity.ok()
+                        .cacheControl(CacheControl.noStore())
+                        .body(dto))
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Last flight tracked by the current user (JWT {@code sub}).
+     * Returns 204 (No Content) if nothing is stored or the call is anonymous.
+     */
+    @GetMapping("/flight/tracking")
+    public ResponseEntity<FlightTrackingPreferenceDto> getFlightTracking() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return flightTrackingPreferenceService.findForSubject(sub)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    /** Stores the last tracked flight (mode + callsign/hex + interval) for the current user. */
+    @PutMapping("/flight/tracking")
+    public ResponseEntity<FlightTrackingPreferenceDto> setFlightTracking(
+            @RequestBody FlightTrackingPreferenceDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (body == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            FlightTrackingPreferenceDto saved = flightTrackingPreferenceService.saveForSubject(sub, body);
+            return ResponseEntity.ok(saved);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        } catch (Exception e) {
+            log.warn("Flight tracking save failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /** Clears the stored last tracked flight for the current user. */
+    @DeleteMapping("/flight/tracking")
+    public ResponseEntity<Void> deleteFlightTracking() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        flightTrackingPreferenceService.deleteForSubject(sub);
         return ResponseEntity.noContent().build();
     }
 

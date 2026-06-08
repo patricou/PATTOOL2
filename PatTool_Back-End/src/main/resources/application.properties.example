@@ -114,10 +114,33 @@ euromillions.ai.min-draw-date=2020-01-01
 # app.cern.repository-api-base=https://repository.cern/api
 # app.cern.zenodo-api-base=https://zenodo.org/api
 
+# --- Flight tracking (OpenSky Network, proxy /api/external/globe/flight/*) ---
+# OpenSky uses OAuth2 client credentials (strongly recommended — anonymous quota is very low).
+# Create an API client at https://opensky-network.org/my-opensky/account and set:
+# opensky.client-id=your-client-id
+# opensky.client-secret=your-client-secret
+# Without credentials, callsign search uses states/all (~1 request / 10 s) and may return 502 when rate-limited.
+# opensky.base-url=https://opensky-network.org/api
+# opensky.token-url=https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token
+opensky.client-id=
+opensky.client-secret=
+# Cache (s) for the full states/all snapshot used for callsign search (default 30, minimum 10).
+# opensky.all-states-cache-seconds=30
+# Reuse stale snapshot up to N seconds when OpenSky returns 429 (default 900 = 15 min).
+# opensky.all-states-stale-max-seconds=900
+
 # --- Chemistry external APIs (proxy /api/external/chem/*) ---
 # PubChem PUG REST (no API key required, public data): periodic table, molecules, 2D images, autocomplete
 # app.chem.pubchem-rest-base=https://pubchem.ncbi.nlm.nih.gov/rest/pug
 # app.chem.pubchem-autocomplete-base=https://pubchem.ncbi.nlm.nih.gov/rest/autocomplete
+
+# --- Stellarium Web (proxy /api/external/stellarium/*) ---
+# Sky map iframe + Noctua Sky catalogue (api.noctuasky.com), geolocation via backend only.
+# app.stellarium.web-base=https://stellarium-web.org
+# app.stellarium.noctuasky-api-base=https://api.noctuasky.com/api/v1
+# app.stellarium.freegeoip-base=https://freegeoip.stellarium.org
+# Optional override when behind a reverse proxy (public URL of the viewer endpoint):
+# app.stellarium.patool-viewer-base=https://www.example.com/api/external/stellarium/viewer
 
 # --- Image cache (PatToolApplication) ---
 app.cache.persistence.restore-on-startup=true

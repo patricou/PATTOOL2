@@ -1,0 +1,50 @@
+.ciel-page {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 0.5rem 2rem;
+}
+
+.ciel-viewer-card {
+  overflow: hidden;
+}
+
+.ciel-viewer-wrap {
+  position: relative;
+  min-height: min(72vh, 820px);
+  background: #000;
+}
+
+.ciel-viewer-iframe {
+  display: block;
+  width: 100%;
+  height: min(72vh, 820px);
+  border: 0;
+}
+
+.ciel-viewer-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: min(72vh, 820px);
+  color: #adb5bd;
+}
+
+.ciel-search-results {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.ciel-selected-source {
+  border-top: 1px solid var(--bs-border-color, #dee2e6);
+  padding-top: 0.75rem;
+}
+
+@media (max-width: 1199.98px) {
+  .ciel-viewer-wrap,
+  .ciel-viewer-iframe,
+  .ciel-viewer-loading {
+    min-height: 55vh;
+    height: 55vh;
+  }
+}

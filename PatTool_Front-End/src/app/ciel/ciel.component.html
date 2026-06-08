@@ -1,0 +1,126 @@
+<div class="pat-title">
+  <h2>
+    <i class="fa fa-star me-2"></i>
+    {{ 'CIEL.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="ciel-page">
+  <p class="text-muted small mb-3">
+    {{ 'CIEL.SUBTITLE' | translate }}
+  </p>
+
+  <div *ngIf="errorMessage" class="alert alert-warning d-flex align-items-center" role="alert">
+    <i class="fa fa-exclamation-triangle me-2"></i>
+    <span>{{ errorMessage | translate }}</span>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-xl-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <h5 class="card-title">
+            <i class="fa fa-map-marker me-1"></i>
+            {{ 'CIEL.LOCATION' | translate }}
+          </h5>
+
+          <p *ngIf="placeLabel" class="small text-muted mb-2">{{ placeLabel }}</p>
+
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label small">{{ 'CIEL.LAT' | translate }}</label>
+              <input type="number" class="form-control" step="any" min="-90" max="90"
+                     [(ngModel)]="lat" [disabled]="isLoadingConfig" />
+            </div>
+            <div class="col-6">
+              <label class="form-label small">{{ 'CIEL.LON' | translate }}</label>
+              <input type="number" class="form-control" step="any" min="-180" max="180"
+                     [(ngModel)]="lon" [disabled]="isLoadingConfig" />
+            </div>
+          </div>
+
+          <div class="d-flex flex-wrap gap-2 mb-3">
+            <button type="button" class="btn btn-primary btn-sm" (click)="applyLocation()" [disabled]="isLoadingConfig">
+              <i class="fa fa-refresh me-1" [class.fa-spin]="isLoadingConfig"></i>
+              {{ 'CIEL.APPLY_LOCATION' | translate }}
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="useMyLocation()" [disabled]="isLoadingConfig">
+              <i class="fa fa-crosshairs me-1"></i>
+              {{ 'CIEL.USE_MY_LOCATION' | translate }}
+            </button>
+          </div>
+
+          <h6 class="mb-2">
+            <i class="fa fa-search me-1"></i>
+            {{ 'CIEL.SEARCH' | translate }}
+          </h6>
+          <div class="input-group mb-2">
+            <input type="text" class="form-control"
+                   [(ngModel)]="searchQuery"
+                   (ngModelChange)="onSearchInput()"
+                   (keyup.enter)="searchNow()"
+                   [placeholder]="'CIEL.SEARCH_PLACEHOLDER' | translate"
+                   [disabled]="isSearching" />
+            <button type="button" class="btn btn-outline-primary" (click)="searchNow()" [disabled]="isSearching">
+              <i class="fa fa-search" [class.fa-spin]="isSearching"></i>
+            </button>
+          </div>
+
+          <ul *ngIf="searchResults.length > 0" class="list-group list-group-flush ciel-search-results">
+            <li *ngFor="let item of searchResults"
+                class="list-group-item list-group-item-action py-2"
+                (click)="selectResult(item)">
+              <strong>{{ item.short_name || item.match }}</strong>
+              <span *ngIf="item.types?.length" class="text-muted small ms-1">({{ item.types?.join(', ') }})</span>
+            </li>
+          </ul>
+
+          <div *ngIf="selectedSource" class="ciel-selected-source mt-3 small">
+            <div class="fw-semibold">{{ 'CIEL.SELECTED' | translate }}</div>
+            <div>{{ selectedSource.short_name || selectedSource.match }}</div>
+            <div *ngIf="selectedSource.model_data as md" class="text-muted">
+              <ng-container *ngIf="md.ra != null && md.de != null">
+                RA {{ md.ra | number:'1.4-4' }}° —
+                Dec {{ md.de | number:'1.4-4' }}°
+              </ng-container>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-xl-8">
+      <div class="card shadow-sm ciel-viewer-card">
+        <div class="card-header d-flex justify-content-between align-items-center py-2">
+          <span class="small text-muted">
+            <i class="fa fa-globe me-1"></i>
+            {{ 'CIEL.VIEWER_HINT' | translate }}
+          </span>
+          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="openFullscreen()" [disabled]="!viewerUrl">
+            <i class="fa fa-expand me-1"></i>
+            {{ 'CIEL.FULLSCREEN' | translate }}
+          </button>
+        </div>
+        <div class="card-body p-0 ciel-viewer-wrap">
+          <div *ngIf="isLoadingConfig && !viewerUrl" class="ciel-viewer-loading">
+            <i class="fa fa-spinner fa-spin fa-2x"></i>
+            <p class="mt-2 mb-0">{{ 'CIEL.LOADING' | translate }}</p>
+          </div>
+          <iframe *ngIf="viewerUrl"
+                  id="ciel-stellarium-frame"
+                  class="ciel-viewer-iframe"
+                  [src]="viewerUrl"
+                  title="Stellarium Web"
+                  allow="geolocation; fullscreen"
+                  loading="lazy"></iframe>
+        </div>
+      </div>
+      <p class="text-muted small mt-2 mb-0">
+        {{ 'CIEL.CREDIT' | translate }}
+        <a href="https://stellarium-web.org/" target="_blank" rel="noopener noreferrer">Stellarium Web</a>
+      </p>
+    </div>
+  </div>
+</div>
+
+<app-navigation-buttons></app-navigation-buttons>

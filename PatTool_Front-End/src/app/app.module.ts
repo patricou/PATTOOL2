@@ -172,6 +172,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./solar-system/solar-system.component').then(m => m.SolarSystemComponent)
 			},
 			{
+				path: 'tools/ciel',
+				loadComponent: () => import('./ciel/ciel.component').then(m => m.CielComponent)
+			},
+			{
 				path: 'tools/world-globe',
 				loadComponent: () => import('./world-globe/world-globe.component').then(m => m.WorldGlobeComponent)
 			},

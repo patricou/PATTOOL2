@@ -146,7 +146,8 @@ export class AppComponent implements OnInit {
     /** Globe 3D et carte du système solaire (sous-section du menu Monde). */
     readonly navGeoWorldRaw: NavRouteMenuItem[] = [
         { routerLink: ['tools/world-globe'], icon: 'fa fa-map', labelKey: 'MENU.WORLD_GLOBE' },
-        { routerLink: ['tools/solar-system'], icon: 'fa fa-globe', labelKey: 'MENU.SOLAR_SYSTEM' }
+        { routerLink: ['tools/solar-system'], icon: 'fa fa-globe', labelKey: 'MENU.SOLAR_SYSTEM' },
+        { routerLink: ['tools/ciel'], icon: 'fa fa-star', labelKey: 'MENU.SKY' }
     ];
     readonly navIotRaw: NavRouteMenuItem[] = [
         { routerLink: ['iot'], icon: 'fa fa-home', labelKey: 'MENU.IOT_HOME' },

@@ -91,8 +91,8 @@
       <div class="wg-sidebar-inner">
         <nav class="wg-opt-panel" [attr.aria-label]="'WORLD_GLOBE.PANEL_TOGGLE' | translate">
 
-          <details class="wg-opt-section">
-            <summary class="wg-opt-section__head">
+          <details class="wg-opt-section" [open]="openGlobeOptSectionId === 'light'">
+            <summary class="wg-opt-section__head" (click)="onGlobeOptSectionSummaryClick('light', $event)">
               <i class="fa fa-sun-o wg-opt-section__icon" aria-hidden="true"></i>
               <span>{{ 'WORLD_GLOBE.OPT_SECTION_LIGHT' | translate }}</span>
             </summary>
@@ -124,8 +124,8 @@
             </div>
           </details>
 
-          <details class="wg-opt-section">
-            <summary class="wg-opt-section__head">
+          <details class="wg-opt-section" [open]="openGlobeOptSectionId === 'sky'">
+            <summary class="wg-opt-section__head" (click)="onGlobeOptSectionSummaryClick('sky', $event)">
               <i class="fa fa-globe wg-opt-section__icon" aria-hidden="true"></i>
               <span>{{ 'WORLD_GLOBE.OPT_SECTION_BASE' | translate }}</span>
             </summary>
@@ -157,8 +157,8 @@
             </div>
           </details>
 
-          <details class="wg-opt-section">
-            <summary class="wg-opt-section__head">
+          <details class="wg-opt-section" [open]="openGlobeOptSectionId === 'map'">
+            <summary class="wg-opt-section__head" (click)="onGlobeOptSectionSummaryClick('map', $event)">
               <i class="fa fa-map-o wg-opt-section__icon" aria-hidden="true"></i>
               <span>{{ 'WORLD_GLOBE.OPT_SECTION_MAP' | translate }}</span>
             </summary>
@@ -196,8 +196,8 @@
             </div>
           </details>
 
-          <details class="wg-opt-section">
-            <summary class="wg-opt-section__head">
+          <details class="wg-opt-section" [open]="openGlobeOptSectionId === 'relief'">
+            <summary class="wg-opt-section__head" (click)="onGlobeOptSectionSummaryClick('relief', $event)">
               <i class="fa fa-tint wg-opt-section__icon" aria-hidden="true"></i>
               <span>{{ 'WORLD_GLOBE.OPT_SECTION_GEO' | translate }}</span>
             </summary>
@@ -241,8 +241,8 @@
             </div>
           </details>
 
-          <details class="wg-opt-section">
-            <summary class="wg-opt-section__head">
+          <details class="wg-opt-section" [open]="openGlobeOptSectionId === 'iss'">
+            <summary class="wg-opt-section__head" (click)="onGlobeOptSectionSummaryClick('iss', $event)">
               <i class="fa fa-space-shuttle wg-opt-section__icon" aria-hidden="true"></i>
               <span>{{ 'WORLD_GLOBE.OPT_SECTION_ISS' | translate }}</span>
             </summary>
@@ -377,13 +377,13 @@
                 <div class="wg-opt-row">
                   <label class="wg-opt-row__label" for="wgIssTrace" [attr.title]="'WORLD_GLOBE.ISS_TRACE_SHOW_HINT' | translate">{{ 'WORLD_GLOBE.ISS_TRACE_SHOW' | translate }}</label>
                   <div class="form-check form-switch wg-opt-switch mb-0">
-                    <input class="form-check-input" type="checkbox" id="wgIssTrace" [(ngModel)]="issTraceVisible" (ngModelChange)="onIssTraceToggle()" [disabled]="!globeSurfaceReady" />
+                    <input class="form-check-input" type="checkbox" id="wgIssTrace" [(ngModel)]="issTraceVisible" (ngModelChange)="onIssTraceToggle()" [disabled]="!globeSurfaceReady || flightTrackingActive" [attr.title]="flightTrackingActive ? ('WORLD_GLOBE.ISS_TRACE_DISABLED_FLIGHT' | translate) : null" />
                   </div>
                 </div>
                 <div class="wg-opt-row">
                   <label class="wg-opt-row__label" for="wgIssKeepCenter" [attr.title]="issKeepEarthCenteredControlTitle()">{{ 'WORLD_GLOBE.ISS_KEEP_EARTH_CENTERED' | translate }}</label>
                   <div class="form-check form-switch wg-opt-switch mb-0">
-                    <input class="form-check-input" type="checkbox" id="wgIssKeepCenter" [(ngModel)]="issKeepEarthCentered" (ngModelChange)="onIssKeepEarthCenteredToggle()" [disabled]="!globeSurfaceReady || isGlobeFocusedOnPlace()" />
+                    <input class="form-check-input" type="checkbox" id="wgIssKeepCenter" [(ngModel)]="issKeepEarthCentered" (ngModelChange)="onIssKeepEarthCenteredToggle()" [disabled]="!globeSurfaceReady || isGlobeFocusedOnPlace() || flightTrackingActive" [attr.title]="flightTrackingActive ? ('WORLD_GLOBE.ISS_CENTER_DISABLED_FLIGHT' | translate) : null" />
                   </div>
                 </div>
                 <p class="wg-opt-iss-meta text-monospace text-info mb-0" *ngIf="globeIssLat != null && globeIssLon != null" aria-live="polite">
@@ -564,8 +564,154 @@
             </div>
           </details>
 
-          <details class="wg-opt-section">
-            <summary class="wg-opt-section__head">
+          <details class="wg-opt-section" [open]="openGlobeOptSectionId === 'flight'">
+            <summary class="wg-opt-section__head" (click)="onGlobeOptSectionSummaryClick('flight', $event)">
+              <i class="fa fa-plane wg-opt-section__icon" aria-hidden="true"></i>
+              <span>{{ 'WORLD_GLOBE.OPT_SECTION_FLIGHT' | translate }}</span>
+            </summary>
+            <div class="wg-opt-section__body">
+              <p class="wg-opt-iss-meta text-muted small mb-1">{{ 'WORLD_GLOBE.FLIGHT_INTRO' | translate }}</p>
+              <form class="wg-flight-form" (ngSubmit)="startFlightTracking()">
+                <div class="wg-opt-row wg-opt-row--tools">
+                  <label class="wg-opt-row__label" for="wgFlightMode" [attr.title]="'WORLD_GLOBE.FLIGHT_MODE_HINT' | translate">{{ 'WORLD_GLOBE.FLIGHT_MODE' | translate }}</label>
+                  <div class="wg-opt-row__tools">
+                    <select
+                      id="wgFlightMode"
+                      class="form-select form-select-sm wg-flight-mode"
+                      name="flightMode"
+                      [(ngModel)]="flightMode"
+                      (ngModelChange)="onFlightModeChange()"
+                      [disabled]="!globeSurfaceReady">
+                      <option value="callsign">{{ 'WORLD_GLOBE.FLIGHT_MODE_CALLSIGN' | translate }}</option>
+                      <option value="icao24">{{ 'WORLD_GLOBE.FLIGHT_MODE_ICAO24' | translate }}</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="wg-opt-row wg-opt-row--tools wg-flight-query-row">
+                  <input
+                    type="text"
+                    class="form-control form-control-sm wg-flight-query"
+                    name="flightQuery"
+                    [(ngModel)]="flightQueryInput"
+                    [placeholder]="(flightMode === 'icao24' ? 'WORLD_GLOBE.FLIGHT_PLACEHOLDER_ICAO24' : 'WORLD_GLOBE.FLIGHT_PLACEHOLDER_CALLSIGN') | translate"
+                    [attr.aria-label]="'WORLD_GLOBE.FLIGHT_QUERY_LABEL' | translate"
+                    maxlength="16"
+                    autocomplete="off"
+                    spellcheck="false" />
+                  <button
+                    type="submit"
+                    class="btn btn-sm btn-primary wg-flight-track-btn"
+                    [disabled]="!globeSurfaceReady || !flightQueryValid()"
+                    [attr.title]="'WORLD_GLOBE.FLIGHT_TRACK_HINT' | translate">
+                    <i class="fa fa-crosshairs me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.FLIGHT_TRACK' | translate }}
+                  </button>
+                </div>
+              </form>
+
+              <ng-container *ngIf="flightTrackingActive">
+                <div class="wg-opt-row wg-opt-row--tools">
+                  <span class="wg-iss-tools-interval" [attr.title]="'WORLD_GLOBE.FLIGHT_POLL_INTERVAL_LABEL' | translate">
+                    <input
+                      id="wgFlightInterval"
+                      type="number"
+                      class="form-control form-control-sm wg-iss-interval-input"
+                      [(ngModel)]="flightPollIntervalSec"
+                      (blur)="onFlightPollIntervalChange()"
+                      (change)="onFlightPollIntervalChange()"
+                      [min]="10"
+                      [max]="600"
+                      [step]="1"
+                      [attr.title]="'WORLD_GLOBE.FLIGHT_POLL_INTERVAL_HINT' | translate"
+                      [attr.aria-label]="'WORLD_GLOBE.FLIGHT_POLL_INTERVAL_LABEL' | translate" />
+                    <span class="wg-opt-inline__cd text-info text-monospace" aria-live="polite">{{ flightSecondsUntilNextRefresh }} {{ 'WORLD_GLOBE.ISS_SECONDS_ABBR' | translate }}</span>
+                  </span>
+                  <button
+                    type="button"
+                    class="btn btn-sm wg-opt-icon-btn"
+                    (click)="onFlightRefreshNowClick()"
+                    [disabled]="flightManualRefreshInFlight"
+                    [attr.title]="'WORLD_GLOBE.FLIGHT_REFRESH_NOW' | translate"
+                    [attr.aria-label]="'WORLD_GLOBE.FLIGHT_REFRESH_NOW' | translate">
+                    <i class="fa fa-refresh" aria-hidden="true" [class.fa-spin]="flightManualRefreshInFlight"></i>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-sm wg-opt-icon-btn"
+                    (click)="stopFlightTracking()"
+                    [attr.title]="'WORLD_GLOBE.FLIGHT_STOP' | translate"
+                    [attr.aria-label]="'WORLD_GLOBE.FLIGHT_STOP' | translate">
+                    <i class="fa fa-stop" aria-hidden="true"></i>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-sm wg-opt-icon-btn wg-opt-icon-btn--danger"
+                    (click)="clearFlightTracking()"
+                    [attr.title]="'WORLD_GLOBE.FLIGHT_CLEAR_HINT' | translate"
+                    [attr.aria-label]="'WORLD_GLOBE.FLIGHT_CLEAR' | translate">
+                    <i class="fa fa-trash" aria-hidden="true"></i>
+                  </button>
+                </div>
+
+                <p class="wg-opt-iss-meta text-info small mb-0" *ngIf="flightStatus === 'loading'">{{ 'WORLD_GLOBE.FLIGHT_LOADING' | translate }}</p>
+                <p class="wg-opt-iss-meta text-warning small mb-0" *ngIf="flightStatus === 'notfound'">{{ 'WORLD_GLOBE.FLIGHT_NOT_FOUND' | translate }}</p>
+                <p class="wg-opt-iss-meta text-danger small mb-0" *ngIf="flightStatus === 'upstream'">{{ 'WORLD_GLOBE.FLIGHT_OPENSKY_UNAVAILABLE' | translate }}</p>
+                <p class="wg-opt-iss-meta text-danger small mb-0" *ngIf="flightStatus === 'error'">{{ 'WORLD_GLOBE.FLIGHT_ERROR' | translate }}</p>
+
+                <div class="wg-flight-info" *ngIf="flightStatus === 'tracking' && flightLat != null">
+                  <div class="wg-flight-info__row">
+                    <span class="wg-flight-info__k">{{ 'WORLD_GLOBE.FLIGHT_CALLSIGN' | translate }}</span>
+                    <strong class="wg-flight-info__v">{{ flightCallsign || '—' }}</strong>
+                  </div>
+                  <div class="wg-flight-info__row">
+                    <span class="wg-flight-info__k">{{ 'WORLD_GLOBE.FLIGHT_ICAO24' | translate }}</span>
+                    <strong class="wg-flight-info__v text-monospace">{{ flightIcao24 || '—' }}</strong>
+                  </div>
+                  <div class="wg-flight-info__row">
+                    <span class="wg-flight-info__k">{{ 'WORLD_GLOBE.FLIGHT_DEPARTURE_AIRPORT' | translate }}</span>
+                    <strong class="wg-flight-info__v text-monospace">{{ flightDepartureAirport || '—' }}</strong>
+                  </div>
+                  <div class="wg-flight-info__row">
+                    <span class="wg-flight-info__k">{{ 'WORLD_GLOBE.FLIGHT_ARRIVAL_AIRPORT' | translate }}</span>
+                    <strong class="wg-flight-info__v text-monospace">{{ flightArrivalAirport || '—' }}</strong>
+                  </div>
+                  <div class="wg-flight-info__row">
+                    <span class="wg-flight-info__k">{{ 'WORLD_GLOBE.FLIGHT_DEPARTURE_TIME' | translate }}</span>
+                    <strong class="wg-flight-info__v text-monospace">{{ formatFlightTimeEpoch(flightDepartureTimeEpoch) }}</strong>
+                  </div>
+                  <div class="wg-flight-info__row">
+                    <span class="wg-flight-info__k">{{ 'WORLD_GLOBE.FLIGHT_ARRIVAL_TIME' | translate }}</span>
+                    <strong class="wg-flight-info__v text-monospace">{{ formatFlightTimeEpoch(flightArrivalTimeEpoch) }}</strong>
+                  </div>
+                  <div class="wg-flight-info__row" *ngIf="flightOriginCountry">
+                    <span class="wg-flight-info__k">{{ 'WORLD_GLOBE.FLIGHT_ORIGIN_COUNTRY' | translate }}</span>
+                    <strong class="wg-flight-info__v">{{ flightOriginCountry }}</strong>
+                  </div>
+                  <div class="wg-flight-info__row">
+                    <span class="wg-flight-info__k">{{ 'WORLD_GLOBE.FLIGHT_POSITION' | translate }}</span>
+                    <strong class="wg-flight-info__v text-monospace">{{ flightLat | number : '1.2-2' }}°, {{ flightLon | number : '1.2-2' }}°</strong>
+                  </div>
+                  <div class="wg-flight-info__row">
+                    <span class="wg-flight-info__k">{{ 'WORLD_GLOBE.FLIGHT_ALTITUDE' | translate }}</span>
+                    <strong class="wg-flight-info__v">
+                      <ng-container *ngIf="flightOnGround === true; else flightAltVal">{{ 'WORLD_GLOBE.FLIGHT_ON_GROUND' | translate }}</ng-container>
+                      <ng-template #flightAltVal>{{ flightAltKm != null ? (flightAltKm | number : '1.1-1') + ' km' : '—' }}</ng-template>
+                    </strong>
+                  </div>
+                  <div class="wg-flight-info__row">
+                    <span class="wg-flight-info__k">{{ 'WORLD_GLOBE.FLIGHT_SPEED' | translate }}</span>
+                    <strong class="wg-flight-info__v">{{ flightSpeedKmh != null ? (flightSpeedKmh | number : '1.0-0') + ' km/h' : '—' }}</strong>
+                  </div>
+                  <div class="wg-flight-info__row">
+                    <span class="wg-flight-info__k">{{ 'WORLD_GLOBE.FLIGHT_HEADING' | translate }}</span>
+                    <strong class="wg-flight-info__v">{{ flightTrackDeg != null ? (flightTrackDeg | number : '1.0-0') + '°' : '—' }}</strong>
+                  </div>
+                </div>
+              </ng-container>
+            </div>
+          </details>
+
+          <details class="wg-opt-section" [open]="openGlobeOptSectionId === 'view'">
+            <summary class="wg-opt-section__head" (click)="onGlobeOptSectionSummaryClick('view', $event)">
               <i class="fa fa-compass wg-opt-section__icon" aria-hidden="true"></i>
               <span>{{ 'WORLD_GLOBE.OPT_SECTION_VIEW' | translate }}</span>
             </summary>
@@ -577,16 +723,16 @@
                 </div>
               </div>
               <div class="wg-opt-row">
-                <label class="wg-opt-row__label" for="wgAuto" [attr.title]="issKeepEarthCentered ? ('WORLD_GLOBE.AUTO_ROTATE_DISABLED_WHILE_ISS_CENTERED' | translate) : null">{{ 'WORLD_GLOBE.AUTO_ROTATE' | translate }}</label>
+                <label class="wg-opt-row__label" for="wgAuto" [attr.title]="issKeepEarthCentered ? ('WORLD_GLOBE.AUTO_ROTATE_DISABLED_WHILE_ISS_CENTERED' | translate) : (flightTrackingActive ? ('WORLD_GLOBE.AUTO_ROTATE_DISABLED_WHILE_FLIGHT' | translate) : null)">{{ 'WORLD_GLOBE.AUTO_ROTATE' | translate }}</label>
                 <div class="form-check form-switch wg-opt-switch mb-0">
-                  <input class="form-check-input" type="checkbox" id="wgAuto" [(ngModel)]="autoRotate" (ngModelChange)="onAutoRotateToggle()" [disabled]="issKeepEarthCentered" />
+                  <input class="form-check-input" type="checkbox" id="wgAuto" [(ngModel)]="autoRotate" (ngModelChange)="onAutoRotateToggle()" [disabled]="issKeepEarthCentered || flightTrackingActive" />
                 </div>
               </div>
             </div>
           </details>
 
-          <details class="wg-opt-section wg-opt-section--credits" *ngIf="countryBordersEnabled || coastlinesEnabled || politicalMapEnabled || countryLabelsEnabled || geographicLinesEnabled || riversEnabled || lakesEnabled || glaciersEnabled || citiesEnabled || timeZonesEnabled">
-            <summary class="wg-opt-section__head">
+          <details class="wg-opt-section wg-opt-section--credits" *ngIf="countryBordersEnabled || coastlinesEnabled || politicalMapEnabled || countryLabelsEnabled || geographicLinesEnabled || riversEnabled || lakesEnabled || glaciersEnabled || citiesEnabled || timeZonesEnabled" [open]="openGlobeOptSectionId === 'credits'">
+            <summary class="wg-opt-section__head" (click)="onGlobeOptSectionSummaryClick('credits', $event)">
               <i class="fa fa-info-circle wg-opt-section__icon" aria-hidden="true"></i>
               <span>{{ 'WORLD_GLOBE.OPT_SECTION_CREDITS' | translate }}</span>
             </summary>
@@ -1066,8 +1212,20 @@
                   </ng-container>
                 </div>
               </ng-container>
-              <div class="wg-compass-hint" *ngIf="!issCompassHeadingActive">
-                <i class="fa fa-mobile me-2" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_NO_SENSOR' | translate }}
+              <div class="wg-compass-hint wg-compass-hint--nosensor" *ngIf="!issCompassHeadingActive">
+                <div class="wg-compass-hint__head">
+                  <i class="fa fa-exclamation-triangle me-2" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_NO_SENSOR_TITLE' | translate }}
+                </div>
+                <p class="wg-compass-hint__intro">{{ 'WORLD_GLOBE.ISS_COMPASS_NO_SENSOR' | translate }}</p>
+                <ol class="wg-compass-hint__steps">
+                  <li>{{ 'WORLD_GLOBE.ISS_COMPASS_NO_SENSOR_STEP1' | translate }}</li>
+                  <li>{{ 'WORLD_GLOBE.ISS_COMPASS_NO_SENSOR_STEP2' | translate }}</li>
+                  <li>{{ 'WORLD_GLOBE.ISS_COMPASS_NO_SENSOR_STEP3' | translate }}</li>
+                  <li>{{ 'WORLD_GLOBE.ISS_COMPASS_NO_SENSOR_STEP4' | translate }}</li>
+                </ol>
+                <p class="wg-compass-hint__fallback">
+                  <i class="fa fa-compass me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_NO_SENSOR_FALLBACK' | translate }}
+                </p>
               </div>
 
               <!-- Identification du Nord : 4 méthodes (capteurs / manuel / marche GPS / Soleil) -->
@@ -1200,6 +1358,28 @@
                   </button>
                 </div>
               </ng-container>
+
+              <!-- Mode automatique : alpha / beta / gamma en direct -->
+              <div class="wg-compass-sensors-live" *ngIf="issCompassShowLiveSensorValues()">
+                <div class="wg-compass-sensors-live__head">
+                  <i class="fa fa-magnet me-2" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_SENSOR_LIVE_TITLE' | translate }}
+                </div>
+                <p class="wg-compass-sensors-live__hint">{{ 'WORLD_GLOBE.ISS_COMPASS_SENSOR_LIVE_HINT' | translate }}</p>
+                <div class="wg-compass-sensors-live__grid" aria-live="polite">
+                  <div class="wg-compass-sensors-live__item">
+                    <span class="wg-compass-sensors-live__key">{{ 'WORLD_GLOBE.ISS_COMPASS_SENSOR_ALPHA' | translate }}</span>
+                    <span class="wg-compass-sensors-live__val">{{ issCompassSensorAlpha != null ? (issCompassSensorAlpha | number : '1.1-1') + '°' : '—' }}</span>
+                  </div>
+                  <div class="wg-compass-sensors-live__item">
+                    <span class="wg-compass-sensors-live__key">{{ 'WORLD_GLOBE.ISS_COMPASS_SENSOR_BETA' | translate }}</span>
+                    <span class="wg-compass-sensors-live__val">{{ issCompassSensorBeta != null ? (issCompassSensorBeta | number : '1.1-1') + '°' : '—' }}</span>
+                  </div>
+                  <div class="wg-compass-sensors-live__item">
+                    <span class="wg-compass-sensors-live__key">{{ 'WORLD_GLOBE.ISS_COMPASS_SENSOR_GAMMA' | translate }}</span>
+                    <span class="wg-compass-sensors-live__val">{{ issCompassSensorGamma != null ? (issCompassSensorGamma | number : '1.1-1') + '°' : '—' }}</span>
+                  </div>
+                </div>
+              </div>
 
               <!-- Valeurs détaillées -->
               <div class="wg-compass-readout">

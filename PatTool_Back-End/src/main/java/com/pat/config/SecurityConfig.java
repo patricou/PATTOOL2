@@ -102,6 +102,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         String jwkSetUri = keycloakAuthServerUrl + "/realms/" + keycloakRealm + "/protocol/openid-connect/certs";
+        String frameAncestors = buildFrameAncestorsDirective();
         
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -109,7 +110,8 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .headers(headers -> headers
                 // Content Security Policy - restrict resource loading
-                // frame-src: Keycloak, cartes.gouv.fr, ISS live YouTube embeds (world-globe PiP)
+                // frame-ancestors: allow Angular dev/prod origins to embed backend pages (e.g. Stellarium viewer)
+                // frame-src: Keycloak, cartes.gouv.fr, ISS live YouTube embeds, Stellarium Web sky map
                 // script-src: Allow Bootstrap CDN and inline scripts
                 // style-src: Allow Google Fonts, Bootstrap CDN, Font Awesome, Flag Icons
                 // font-src: Allow Google Fonts (fonts.gstatic.com) and Font Awesome (maxcdn.bootstrapcdn.com)
@@ -118,16 +120,17 @@ public class SecurityConfig {
                 // connect-src: Allow source maps, Keycloak, Nominatim (OpenStreetMap), and OpenElevation API connections
                 .contentSecurityPolicy(csp -> csp
                     .policyDirectives("default-src 'self'; " +
+                        "frame-ancestors 'self' " + frameAncestors + "; " +
                         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://apis.google.com https://*.googleapis.com https://*.gstatic.com https://www.gstatic.com https://www.googleapis.com; " +
                         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://maxcdn.bootstrapcdn.com https://cdn.jsdelivr.net; " +
                         "img-src 'self' data: https: blob:; " +
                         "media-src 'self' data: https: blob:; " +
                         "font-src 'self' data: https://fonts.gstatic.com https://maxcdn.bootstrapcdn.com; " +
                         "connect-src 'self' blob: http://localhost:8080 http://localhost:8000 https://www.patrickdeschamps.com:8543 https://cdn.jsdelivr.net https://*.googleapis.com https://www.googleapis.com https://*.gstatic.com https://www.gstatic.com https://nominatim.openstreetmap.org https://api.open-elevation.com ws://localhost:8000 http://localhost:8000/ws; " +
-                        "frame-src 'self' https://www.patrickdeschamps.com:8543 http://localhost:8080 https://www.google.com https://maps.google.com https://*.google.com https://cartes.gouv.fr https://www.youtube.com https://www.youtube-nocookie.com;")
+                        "frame-src 'self' https://www.patrickdeschamps.com:8543 http://localhost:8080 https://www.google.com https://maps.google.com https://*.google.com https://cartes.gouv.fr https://www.youtube.com https://www.youtube-nocookie.com https://stellarium-web.org https://*.stellarium-web.org https://d3ufh70wg9uzo4.cloudfront.net;")
                 )
-                // Note: frameOptions is not set to allow Keycloak iframes
-                // Security is handled by CSP frame-src directive above
+                // Disable X-Frame-Options (defaults to DENY in Spring Security); framing is governed by CSP frame-ancestors.
+                .frameOptions(frame -> frame.disable())
                 // Prevent MIME type sniffing - enables nosniff header
                 .contentTypeOptions(contentType -> {})
                 // HTTP Strict Transport Security (HSTS) - only in production with HTTPS
@@ -227,6 +230,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/cern/**").permitAll()
                 // Chemistry proxy (PubChem) — public read-only data (periodic table, molecules, images)
                 .requestMatchers(HttpMethod.GET, "/api/external/chem/**").permitAll()
+                // Stellarium Web — sky map viewer + Noctua Sky catalogue proxy (read-only)
+                .requestMatchers(HttpMethod.GET, "/api/external/stellarium/**").permitAll()
                 // Tirages Loto importés (lecture seule, données publiques d'archive)
                 .requestMatchers(HttpMethod.GET, "/api/loto/**").permitAll()
                 // Sync Loto (scraping) — réservé aux administrateurs
@@ -346,5 +351,13 @@ public class SecurityConfig {
         );
         bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
         return bean;
+    }
+
+    /** CSP {@code frame-ancestors} sources derived from {@link #allowedOrigins}. */
+    private String buildFrameAncestorsDirective() {
+        return Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .collect(Collectors.joining(" "));
     }
 }

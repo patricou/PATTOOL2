@@ -133,7 +133,9 @@ const GLOBE_ISS_ORBIT_RADIUS = 1 + 420 / 6371;
 const GLOBE_ISS_TRAIL_RADIUS = GLOBE_ISS_ORBIT_RADIUS * 0.997;
 const GLOBE_ISS_TRAIL_COLOR = 0xffa040;
 const GLOBE_ISS_TRAIL_OPACITY = 0.82;
-const GLOBE_ISS_MARKER_RADIUS = 0.006;
+/** Taille monde de l’icône ISS (vue de dessus, panneaux solaires). */
+const GLOBE_ISS_ICON_WORLD_SIZE = 0.034;
+const GLOBE_ISS_MARKER_COLOR = 0xffea00;
 /** Historique de positions pour la traînée (une entrée par rafraîchissement utile). */
 const GLOBE_ISS_TRAIL_MAX_POINTS = 96;
 /** Traînée historique MongoDB : légèrement sous la traînée live. */
@@ -157,6 +159,26 @@ const GLOBE_ISS_OVER_MIN_INTERVAL_MS = 9000;
 const GLOBE_ISS_OVER_MIN_MOVE_DEG = 0.25;
 /** Demi-vie du recadrage caméra vers l’ISS (mode « centré sur l’ISS ») ; mouvement fluide, peu dépendant du framerate. */
 const GLOBE_ISS_CAMERA_CENTER_HALF_LIFE_SEC = 0.34;
+
+/* --- Flight tracking (OpenSky Network) --- */
+/** Fallback globe radius for the aircraft marker when altitude is unknown (just above the surface). */
+const GLOBE_FLIGHT_SURFACE_OFFSET = 1.0015;
+/** Earth radius (m) to convert geometric altitude into a globe radius factor. */
+const GLOBE_EARTH_RADIUS_M = 6_371_000;
+const GLOBE_FLIGHT_MARKER_COLOR = 0x35d0ff;
+/** World size of the aircraft icon (top-down view). */
+const GLOBE_FLIGHT_ICON_WORLD_SIZE = 0.044;
+/** Aircraft trail: slightly below the marker to reduce z-fighting. */
+const GLOBE_FLIGHT_TRAIL_RADIUS = GLOBE_FLIGHT_SURFACE_OFFSET * 0.9994;
+const GLOBE_FLIGHT_TRAIL_COLOR = 0x35d0ff;
+const GLOBE_FLIGHT_TRAIL_OPACITY = 0.82;
+const GLOBE_FLIGHT_TRAIL_ARC_SEGMENTS = 8;
+/** Default interval between OpenSky polls (s); conservative for anonymous quota. */
+const GLOBE_FLIGHT_POLL_DEFAULT_SEC = 30;
+const GLOBE_FLIGHT_POLL_MIN_SEC = 15;
+const GLOBE_FLIGHT_POLL_MAX_SEC = 600;
+/** Half-life of camera recentering toward the tracked aircraft (same as ISS). */
+const GLOBE_FLIGHT_CAMERA_CENTER_HALF_LIFE_SEC = 0.34;
 
 /** Fuseaux horaires (Natural Earth 10m ; pas de jeu 110m dédié). */
 const GLOBE_TIMEZONE_FILL_RADIUS = 1.00506;
@@ -264,6 +286,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private issPiPWhatsAppFlashTimer: ReturnType<typeof setTimeout> | null = null;
 
   showOptionsPanel = true;
+  /** Section ouverte dans le panneau options (accordéon). */
+  openGlobeOptSectionId: string | null = null;
   cloudsEnabled = false;
   starsEnabled = true;
   /** Axe de rotation (ligne pôles) enfant du maillage Terre. */
@@ -328,6 +352,43 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   issSecondsUntilNextRefresh = 0;
   /** Pendant un fetch manuel (« rafraîchir maintenant ») pour désactiver le bouton et montrer l’icône en rotation. */
   issManualRefreshInFlight = false;
+
+  /* --- Flight tracking (OpenSky Network) --- */
+  /** Flight search mode: callsign / flight number, or ICAO24 address (hex). */
+  flightMode: 'callsign' | 'icao24' = 'callsign';
+  /** User input (callsign or hex), bound to the options text field. */
+  flightQueryInput = '';
+  /** Active tracking (polling in progress) for the current flight. */
+  flightTrackingActive = false;
+  /** Validated query actually being tracked, distinct from in-progress editing. */
+  flightTrackedQuery: string | null = null;
+  flightTrackedMode: 'callsign' | 'icao24' = 'callsign';
+  /** Seconds between OpenSky refreshes (10–600). */
+  flightPollIntervalSec = GLOBE_FLIGHT_POLL_DEFAULT_SEC;
+  flightSecondsUntilNextRefresh = 0;
+  /** Flight tracking UI state. */
+  flightStatus: 'idle' | 'loading' | 'tracking' | 'notfound' | 'upstream' | 'error' = 'idle';
+  flightManualRefreshInFlight = false;
+  /** Last known flight state (info panel + banner). */
+  flightLat: number | null = null;
+  flightLon: number | null = null;
+  flightAltKm: number | null = null;
+  flightSpeedKmh: number | null = null;
+  flightTrackDeg: number | null = null;
+  flightVerticalRateMs: number | null = null;
+  flightOnGround: boolean | null = null;
+  flightCallsign: string | null = null;
+  flightIcao24: string | null = null;
+  flightOriginCountry: string | null = null;
+  flightLastContactEpoch: number | null = null;
+  /** ICAO airport codes for departure / arrival (OpenSky). */
+  flightDepartureAirport: string | null = null;
+  flightArrivalAirport: string | null = null;
+  /** Estimated departure / arrival times (UTC epoch seconds, OpenSky). */
+  flightDepartureTimeEpoch: number | null = null;
+  flightArrivalTimeEpoch: number | null = null;
+  /** While a flight is tracked: remembers ISS state (centering + trace) for restore on stop. */
+  private issStateBeforeFlight: { keepCentered: boolean; traceVisible: boolean } | null = null;
   bordersOverlayLoading = false;
   bordersOverlayFailed = false;
   coastlinesOverlayLoading = false;
@@ -375,6 +436,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
    * Vitesse du sous-point ISS (km/h) : priorité à l’API, sinon estimation entre deux relevés.
    */
   issGroundSpeedKmh: number | null = null;
+  /** Cap vrai ISS (0° = Nord) dérivé du mouvement entre deux relevés. */
+  issTrackDeg: number | null = null;
   /** Pays (ou océan) actuellement survolé par l’ISS, résolu par reverse-geocoding throttlé. */
   issOverPlaceLabel: string | null = null;
   /** Code pays ISO (minuscule) du survol courant, pour l’emoji drapeau ; null si océan / inconnu. */
@@ -462,6 +525,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   /** « Maintenant » mis en cache (epoch ms) pour calculer la fraîcheur des données sans recalcul permanent. */
   issCompassNowMs = Date.now();
   private issCompassFreshnessTimer: ReturnType<typeof setInterval> | null = null;
+  /** Chargement du calage mémorisé en cours (retarde l’application auto capteurs sur smartphone). */
+  private issCompassCalLoadPending = false;
   /** Horloge mise en cache (epoch ms), rafraîchie par les timers : évite NG0100 dans le template. */
   private clockNowMs = Date.now();
   /** Graduations en degrés affichées sur le pourtour du cadran (tous les 30°). */
@@ -661,7 +726,19 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private issHistoricalTrailLine?: THREE.LineSegments;
   private readonly issHistoricalTrailPoints: { lat: number; lon: number; recordedAt?: string }[] = [];
   private issHistoricalTraceDateLabelsGroup?: THREE.Group;
-  private readonly issMarkerWorldScratch = new THREE.Vector3();
+  /* --- Flight tracking (OpenSky): aircraft icon (Earth child) + full trajectory --- */
+  private flightMarkerMesh?: THREE.Mesh;
+  private flightTrailLine?: THREE.LineSegments;
+  /** OpenSky waypoints (departure → current position / arrival). */
+  private readonly flightTrackPoints: { lat: number; lon: number; radius: number }[] = [];
+  /** Current globe radius of the aircraft marker (depends on geometric altitude). */
+  private flightMarkerRadius = GLOBE_FLIGHT_SURFACE_OFFSET;
+  private flightNextRefreshEpochMs = 0;
+  private flightRefreshTimeout: number | null = null;
+  private flightCountdownInterval: number | null = null;
+  /** Camera recentering on tracked aircraft; released when the user moves the view. */
+  private flightGlobeFreeOrbit = false;
+  private flightCameraCenterSmoothPrevMs = 0;
   /** Suivi ISS centré : lissage temporel de la direction caméra (slerp). */
   private issCameraCenterSmoothPrevMs = 0;
   private readonly issCameraCenterDirA = new THREE.Vector3();
@@ -806,6 +883,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (ev.pointerType === 'mouse' && ev.button === 0 && this.isIssEarthCenteredTrackingActive()) {
       this.issGlobeFreeOrbit = true;
     }
+    if (ev.pointerType === 'mouse' && ev.button === 0 && this.isFlightEarthCenteredTrackingActive()) {
+      this.flightGlobeFreeOrbit = true;
+    }
     this.globePickPointerDown = {
       x: ev.clientX,
       y: ev.clientY,
@@ -892,6 +972,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     queueMicrotask(() => this.loadIssBackgroundTraceSetting());
     queueMicrotask(() => this.loadIssTraceDisplayLimitSetting());
     queueMicrotask(() => this.loadIssAlertConfig());
+    queueMicrotask(() => this.loadFlightTrackingPreference());
   }
 
   ngOnDestroy(): void {
@@ -901,6 +982,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.endIssFsPipStackResizeDrag();
     void this.exitGlobeFullscreenIfActive();
     this.stopIssPolling();
+    this.stopFlightPolling();
+    this.restoreFlightTrackingIssOverrides();
+    this.disposeFlightMarker();
+    this.disposeFlightTrail();
     this.disposeCountryBordersOverlay();
     this.disposeCoastlinesOverlay();
     this.disposeGraticuleOverlay();
@@ -1309,6 +1394,12 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       }
       this.cdr.markForCheck();
     }, 0);
+  }
+
+  /** Accordéon panneau options : une seule section ouverte ; clic sur l’en-tête ouvre ou replie. */
+  onGlobeOptSectionSummaryClick(sectionId: string, event: MouseEvent): void {
+    event.preventDefault();
+    this.openGlobeOptSectionId = this.openGlobeOptSectionId === sectionId ? null : sectionId;
   }
 
   toggleOptionsPanel(): void {
@@ -1819,6 +1910,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
 
   private clearIssPositionFeedState(): void {
     this.issGroundSpeedKmh = null;
+    this.issTrackDeg = null;
     this.globeIssAltKm = null;
     this.issSpeedSampleLat = null;
     this.issSpeedSampleLon = null;
@@ -1912,6 +2004,71 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.issCameraCenterSmoothPrevMs = now;
 
     const blend = 1 - Math.pow(0.5, dtSec / GLOBE_ISS_CAMERA_CENTER_HALF_LIFE_SEC);
+
+    const curLenSq = camera.position.lengthSq();
+    if (curLenSq < 1e-12) {
+      camera.position.copy(endPos);
+    } else {
+      this.issCameraCenterDirA.copy(camera.position).multiplyScalar(1 / Math.sqrt(curLenSq));
+      this.issCameraCenterDirB.copy(endPos).normalize();
+      const dot = THREE.MathUtils.clamp(this.issCameraCenterDirA.dot(this.issCameraCenterDirB), -1, 1);
+      if (dot > 1 - 1e-6) {
+        camera.position.copy(endPos);
+      } else {
+        WorldGlobeComponent.slerpUnitVectors(
+          this.issCameraCenterDirA,
+          this.issCameraCenterDirB,
+          blend,
+          this.issCameraCenterDirOut
+        );
+        camera.position.copy(this.issCameraCenterDirOut.multiplyScalar(dist));
+      }
+    }
+
+    controls.target.set(0, 0, 0);
+    camera.up.set(0, 1, 0);
+    controls.update();
+  }
+
+  private isFlightEarthCenteredTrackingActive(): boolean {
+    return (
+      this.flightTrackingActive &&
+      !this.isGlobeFocusedOnPlace() &&
+      this.globeSurfaceReady &&
+      this.flightLat != null &&
+      this.flightLon != null
+    );
+  }
+
+  /** Smoothly recenters the camera on the tracked aircraft (keeps zoom). */
+  private applyFlightEarthCenteredCameraIfNeeded(): void {
+    if (!this.isFlightEarthCenteredTrackingActive() || this.globeCameraAnimFrameId != null) {
+      return;
+    }
+    const camera = this.camera;
+    const controls = this.controls;
+    if (!camera || !controls || this.flightLat == null || this.flightLon == null) {
+      return;
+    }
+    const dist = THREE.MathUtils.clamp(
+      camera.position.distanceTo(controls.target),
+      controls.minDistance,
+      controls.maxDistance
+    );
+    const endPos = this.computeCameraPositionForLatLon(this.flightLat, this.flightLon, dist, 0);
+    if (!endPos) {
+      return;
+    }
+
+    const now = performance.now();
+    let dtSec =
+      this.flightCameraCenterSmoothPrevMs > 0
+        ? (now - this.flightCameraCenterSmoothPrevMs) / 1000
+        : 1 / 60;
+    dtSec = THREE.MathUtils.clamp(dtSec, 1 / 240, 0.08);
+    this.flightCameraCenterSmoothPrevMs = now;
+
+    const blend = 1 - Math.pow(0.5, dtSec / GLOBE_FLIGHT_CAMERA_CENTER_HALF_LIFE_SEC);
 
     const curLenSq = camera.position.lengthSq();
     if (curLenSq < 1e-12) {
@@ -3839,6 +3996,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.autoRotate &&
       this.globeCameraAnimFrameId == null &&
       (!this.isIssEarthCenteredTrackingActive() || this.issGlobeFreeOrbit) &&
+      (!this.isFlightEarthCenteredTrackingActive() || this.flightGlobeFreeOrbit) &&
       this.isGlobeOrbitIdle(controls);
     controls.autoRotate = shouldAuto;
     controls.autoRotateSpeed = GLOBE_AUTO_ROTATE_SPEED;
@@ -4920,6 +5078,12 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (this.weatherImageryEnabled) {
       this.ensureWeatherOverlayTexture();
     }
+    if (this.flightTrackingActive) {
+      this.syncFlightGlobeVisuals();
+      if (this.flightLat == null && this.flightTrackedQuery != null) {
+        void this.refreshFlightNow();
+      }
+    }
   }
 
   private applyBasemapMode(): void {
@@ -5464,6 +5628,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.issCompassCalMethod = null;
     this.issCompassCalPersisted = false;
     this.issCompassCalSaving = false;
+    this.issCompassCalLoadPending = false;
     this.issCompassCalAccum = [];
     this.issCompassCalSamples = 0;
     this.issCompassWalkSpeedMps = null;
@@ -5475,27 +5640,72 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
    * Sans enregistrement (ou utilisateur anonyme), la boussole reste « non calée ».
    */
   private loadIssCompassCalibration(): void {
+    this.issCompassCalLoadPending = true;
     this.apiService.getIssCompassCalibration().subscribe({
       next: (cal: IssCompassCalibration | null) => {
-        if (!this.issCompassOpen || !cal || !this.isKnownCalMethod(cal.method)) {
+        this.issCompassCalLoadPending = false;
+        if (!this.issCompassOpen) {
           return;
         }
-        // Ne pas écraser un calage que l’utilisateur vient de refaire pendant le chargement.
-        if (this.issCompassCalStatus !== 'uncalibrated' || this.issCompassCalMethod != null) {
-          return;
+        if (cal && this.isKnownCalMethod(cal.method)) {
+          // Ne pas écraser un calage que l’utilisateur vient de refaire pendant le chargement.
+          if (this.issCompassCalStatus === 'uncalibrated' && this.issCompassCalMethod == null) {
+            const offset = Number.isFinite(cal.northOffsetDeg) ? this.normalizeDeg(cal.northOffsetDeg) : 0;
+            this.issCompassNorthOffsetDeg = offset;
+            this.issCompassCalMethod = cal.method;
+            this.issCompassCalStatus = 'calibrated';
+            this.issCompassCalPersisted = true;
+            this.applyIssCompassNorthOffset();
+          }
         }
-        const offset = Number.isFinite(cal.northOffsetDeg) ? this.normalizeDeg(cal.northOffsetDeg) : 0;
-        this.issCompassNorthOffsetDeg = offset;
-        this.issCompassCalMethod = cal.method;
-        this.issCompassCalStatus = 'calibrated';
-        this.issCompassCalPersisted = true;
-        this.applyIssCompassNorthOffset();
+        this.maybeAutoApplyIssCompassSensorCal();
         this.cdr.markForCheck();
       },
       error: () => {
-        /* pas de calage mémorisé / hors-ligne : on garde l’état « non calé » */
+        this.issCompassCalLoadPending = false;
+        this.maybeAutoApplyIssCompassSensorCal();
+        this.cdr.markForCheck();
       },
     });
+  }
+
+  /** Smartphone / tablette tactile avec capteurs d’orientation (ex. Samsung Galaxy). */
+  private isIssCompassMobileDevice(): boolean {
+    if (typeof navigator === 'undefined') {
+      return false;
+    }
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  }
+
+  /**
+   * Le cap provient bien du magnétomètre (orientation absolue ou boussole iOS),
+   * pas d’un cap GPS ou d’une orientation relative arbitraire.
+   */
+  private hasIssCompassMagneticHeading(): boolean {
+    return (
+      this.issCompassHeadingActive &&
+      this.issCompassHeadingRawDeg != null &&
+      (this.issCompassOrientationEventName === 'deviceorientationabsolute' ||
+        this.issCompassSensorAbsolute === true ||
+        this.issCompassSensorWebkitHeading != null)
+    );
+  }
+
+  /**
+   * Sur smartphone, applique par défaut le mode « Automatique (capteurs) » dès que
+   * le magnétomètre fournit un cap absolu, sauf si un calage mémorisé existe déjà.
+   */
+  private maybeAutoApplyIssCompassSensorCal(): void {
+    if (
+      this.issCompassCalLoadPending ||
+      !this.isIssCompassMobileDevice() ||
+      !this.hasIssCompassMagneticHeading() ||
+      this.issCompassCalStatus !== 'uncalibrated' ||
+      this.issCompassCalMethod != null
+    ) {
+      return;
+    }
+    this.chooseIssCompassCalMethod('sensor');
   }
 
   /** Méthode de calage reconnue (une des 4 prises en charge). */
@@ -5677,6 +5887,23 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     return this.issCompassCalStatus === 'calibrated';
   }
 
+  /** Mode automatique (magnétomètre) actif. */
+  issCompassIsAutoSensorMode(): boolean {
+    return this.issCompassCalMethod === 'sensor';
+  }
+
+  /**
+   * Affiche alpha/beta/gamma en direct : mode auto actif, ou capteurs actifs sur
+   * smartphone en attente du calage auto.
+   */
+  issCompassShowLiveSensorValues(): boolean {
+    return (
+      this.issCompassHeadingActive &&
+      (this.issCompassIsAutoSensorMode() ||
+        (this.issCompassCalMethod == null && this.isIssCompassMobileDevice()))
+    );
+  }
+
   /** Démarre l’écoute de l’orientation appareil (boussole magnétique / gyroscope). */
   private async startIssCompassOrientation(): Promise<void> {
     const doe: any =
@@ -5742,6 +5969,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.issCompassSensorAbsolute = isAbsolute;
       this.issCompassSensorWebkitHeading = webkitHeading;
       this.issCompassSensorWebkitAccuracy = acc;
+      this.maybeAutoApplyIssCompassSensorCal();
       this.cdr.markForCheck();
     });
   };
@@ -6169,14 +6397,14 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       if (this.globeGeocodeMarkerLat != null && this.globeGeocodeMarkerLon != null) {
         this.updateGeocodeMarkerWorldPosition();
       }
-      if (this.issOverlayEnabled && this.globeIssLat != null && this.globeIssLon != null) {
-        this.updateIssMarkerWorldPosition();
-      }
       this.syncGlobeControlsSensitivity();
       this.syncGlobeOrbitAutoRotate(controls);
+      const flightEarthCentered = this.isFlightEarthCenteredTrackingActive();
       const issEarthCentered = this.isIssEarthCenteredTrackingActive();
       controls.update();
-      if (issEarthCentered && !this.issGlobeFreeOrbit && this.isGlobeOrbitIdle(controls)) {
+      if (flightEarthCentered && !this.flightGlobeFreeOrbit && this.isGlobeOrbitIdle(controls)) {
+        this.applyFlightEarthCenteredCameraIfNeeded();
+      } else if (issEarthCentered && !this.issGlobeFreeOrbit && this.isGlobeOrbitIdle(controls)) {
         this.applyIssEarthCenteredCameraIfNeeded();
       }
       this.updateCountryLabelsScaleForZoom();
@@ -6334,6 +6562,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       }
 
       const now = Date.now();
+      const prevSampleLat = this.issSpeedSampleLat;
+      const prevSampleLon = this.issSpeedSampleLon;
       let groundSpeedKmh = this.issGroundSpeedKmh;
       if (apiVelKmh != null) {
         groundSpeedKmh = apiVelKmh;
@@ -6356,16 +6586,19 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
           }
         }
       }
-      this.issSpeedSampleLat = lat;
-      this.issSpeedSampleLon = lon;
-      this.issSpeedSampleEpochMs = now;
 
       if (this.issOverlayEnabled && this.scene && this.earthMesh) {
         this.ensureIssMarkerMesh();
-        this.updateIssMarkerWorldPosition(lat, lon);
+        this.updateIssMarkerWorldPosition(lat, lon, prevSampleLat, prevSampleLon);
         this.recordIssTrailSample(lat, lon);
+        // Réaligne sur le dernier segment de traînée (cohérent avec la polyligne affichée).
+        this.updateIssMarkerWorldPosition(lat, lon);
         this.persistIssTraceSample(lat, lon);
       }
+
+      this.issSpeedSampleLat = lat;
+      this.issSpeedSampleLon = lon;
+      this.issSpeedSampleEpochMs = now;
 
       const overlayFailed = false;
       this.scheduleWorldGlobeCdr(() => {
@@ -6391,53 +6624,935 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   }
 
   private ensureIssMarkerMesh(): void {
-    const sceneRef = this.scene;
-    if (!sceneRef || this.issMarkerMesh) {
+    const earth = this.earthMesh;
+    if (!earth || this.issMarkerMesh) {
       return;
     }
-    const geo = new THREE.SphereGeometry(GLOBE_ISS_MARKER_RADIUS, 16, 16);
-    const mat = new THREE.MeshBasicMaterial({
-      color: 0xffea00,
-      depthTest: true,
-      depthWrite: true,
-      polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -1
-    });
-    mat.toneMapped = false;
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.renderOrder = 6;
-    sceneRef.add(mesh);
+    const mesh = WorldGlobeComponent.createIssIconMesh();
+    earth.add(mesh);
     this.issMarkerMesh = mesh;
   }
 
-  private updateIssMarkerWorldPosition(lat?: number, lon?: number): void {
+  /**
+   * Segment de traînée utilisé pour orienter l’icône ISS (panneaux ⊥ trajectoire).
+   * Priorité : relevé précédent du poll → dernier segment de la traînée live.
+   */
+  private resolveIssTrailSegment(
+    lat: number,
+    lon: number,
+    explicitPrevLat?: number | null,
+    explicitPrevLon?: number | null
+  ): { fromLat: number; fromLon: number; toLat: number; toLon: number } | null {
+    const pts = this.issTrailPoints;
+    if (
+      explicitPrevLat != null &&
+      explicitPrevLon != null &&
+      (Math.abs(explicitPrevLat - lat) > 1e-7 || Math.abs(explicitPrevLon - lon) > 1e-7)
+    ) {
+      return {
+        fromLat: explicitPrevLat,
+        fromLon: explicitPrevLon,
+        toLat: lat,
+        toLon: lon
+      };
+    }
+    if (pts.length >= 2) {
+      const to = pts[pts.length - 1];
+      const from = pts[pts.length - 2];
+      if (Math.abs(to.lat - lat) < 2e-5 && Math.abs(to.lon - lon) < 2e-5) {
+        return { fromLat: from.lat, fromLon: from.lon, toLat: to.lat, toLon: to.lon };
+      }
+      return { fromLat: to.lat, fromLon: to.lon, toLat: lat, toLon: lon };
+    }
+    if (pts.length === 1) {
+      const from = pts[0];
+      if (Math.abs(from.lat - lat) > 1e-7 || Math.abs(from.lon - lon) > 1e-7) {
+        return { fromLat: from.lat, fromLon: from.lon, toLat: lat, toLon: lon };
+      }
+    }
+    const hist = this.issHistoricalTrailPoints;
+    if (hist.length >= 2) {
+      const last = hist[hist.length - 1];
+      const prev = hist[hist.length - 2];
+      if (Math.abs(last.lat - lat) > 1e-7 || Math.abs(last.lon - lon) > 1e-7) {
+        return { fromLat: last.lat, fromLon: last.lon, toLat: lat, toLon: lon };
+      }
+      return { fromLat: prev.lat, fromLon: prev.lon, toLat: last.lat, toLon: last.lon };
+    }
+    return null;
+  }
+
+  private updateIssMarkerWorldPosition(
+    lat?: number,
+    lon?: number,
+    prevLat?: number | null,
+    prevLon?: number | null
+  ): void {
     const la = lat ?? this.globeIssLat;
     const lo = lon ?? this.globeIssLon;
-    const earth = this.earthMesh;
     const mesh = this.issMarkerMesh;
-    if (la == null || lo == null || !earth || !mesh) {
+    if (la == null || lo == null || !mesh) {
       return;
     }
-    this.issMarkerWorldScratch.copy(WorldGlobeComponent.latLonToVector3(la, lo, GLOBE_ISS_ORBIT_RADIUS));
-    earth.updateMatrixWorld(true);
-    this.issMarkerWorldScratch.applyMatrix4(earth.matrixWorld);
-    mesh.position.copy(this.issMarkerWorldScratch);
+    const segment = this.resolveIssTrailSegment(la, lo, prevLat, prevLon);
+    if (
+      segment &&
+      WorldGlobeComponent.orientIssIconMesh(
+        mesh,
+        segment.toLat,
+        segment.toLon,
+        segment.fromLat,
+        segment.fromLon,
+        GLOBE_ISS_ORBIT_RADIUS
+      )
+    ) {
+      this.issTrackDeg = WorldGlobeComponent.tangentHeadingDegAtLatLon(
+        segment.toLat,
+        segment.toLon,
+        segment.fromLat,
+        segment.fromLon
+      );
+      return;
+    }
+    WorldGlobeComponent.orientGlobeIconMesh(mesh, la, lo, GLOBE_ISS_ORBIT_RADIUS, this.issTrackDeg);
   }
 
   private disposeIssMarkerMesh(): void {
     const mesh = this.issMarkerMesh;
-    const sceneRef = this.scene;
     if (!mesh) {
       return;
     }
-    sceneRef?.remove(mesh);
+    this.earthMesh?.remove(mesh);
+    WorldGlobeComponent.disposeIconPlaneMesh(mesh);
+    this.issMarkerMesh = undefined;
+  }
+
+  /* ===================================================================== */
+  /* Flight tracking (OpenSky Network): input, polling, marker + trail.     */
+  /* ===================================================================== */
+
+  /** Normalizes input for the current mode; returns whether it is valid (callsign or hex). */
+  flightQueryValid(): boolean {
+    return this.normalizeFlightQuery(this.flightQueryInput, this.flightMode) != null;
+  }
+
+  /** Normalized callsign (2–8 alphanum.) or ICAO24 (6 hex), or null if invalid. */
+  private normalizeFlightQuery(raw: string, mode: 'callsign' | 'icao24'): string | null {
+    const v = (raw ?? '').trim();
+    if (mode === 'icao24') {
+      const hex = v.toLowerCase();
+      return /^[0-9a-f]{6}$/.test(hex) ? hex : null;
+    }
+    const cs = v.toUpperCase().replace(/\s+/g, '');
+    return /^[A-Z0-9]{2,8}$/.test(cs) ? cs : null;
+  }
+
+  /** Clears input when mode changes (avoids keeping an incompatible value). */
+  onFlightModeChange(): void {
+    this.flightStatus = this.flightTrackingActive ? this.flightStatus : 'idle';
+  }
+
+  /** Starts tracking the entered flight (validation, persistence, polling, first fetch). */
+  startFlightTracking(): void {
+    const query = this.normalizeFlightQuery(this.flightQueryInput, this.flightMode);
+    if (query == null) {
+      this.flightStatus = 'error';
+      return;
+    }
+    this.flightTrackedQuery = query;
+    this.flightTrackedMode = this.flightMode;
+    this.flightQueryInput = query;
+    this.flightTrackingActive = true;
+    this.flightStatus = 'loading';
+    this.flightGlobeFreeOrbit = false;
+    this.flightCameraCenterSmoothPrevMs = 0;
+    this.resetFlightStateValues();
+    this.flightTrackPoints.length = 0;
+    this.applyFlightTrackingIssOverrides();
+    this.persistFlightTrackingPreference();
+    this.startFlightPolling();
+    void this.refreshFlightNow();
+  }
+
+  /** Stops tracking (timers + marker + trail), keeps the stored preference. */
+  stopFlightTracking(): void {
+    this.stopFlightPolling();
+    this.flightTrackingActive = false;
+    this.flightStatus = 'idle';
+    this.flightGlobeFreeOrbit = false;
+    this.flightCameraCenterSmoothPrevMs = 0;
+    this.restoreFlightTrackingIssOverrides();
+    this.disposeFlightMarker();
+    this.disposeFlightTrail();
+    this.flightTrackPoints.length = 0;
+    this.resetFlightStateValues();
+    this.scheduleWorldGlobeCdr();
+  }
+
+  /** Stops tracking and clears the flight stored on the backend. */
+  clearFlightTracking(): void {
+    this.stopFlightTracking();
+    this.flightTrackedQuery = null;
+    this.flightQueryInput = '';
+    this.apiService.deleteFlightTracking().subscribe({ next: () => {}, error: () => {} });
+  }
+
+  /** Immediate manual refresh (button). */
+  onFlightRefreshNowClick(): void {
+    if (!this.flightTrackingActive || this.flightManualRefreshInFlight) {
+      return;
+    }
+    this.flightManualRefreshInFlight = true;
+    void this.refreshFlightNow().finally(() => {
+      this.scheduleWorldGlobeCdr(() => {
+        this.flightManualRefreshInFlight = false;
+      });
+    });
+  }
+
+  /** Applies the entered poll interval (clamped) and restarts scheduling. */
+  onFlightPollIntervalChange(): void {
+    this.flightPollIntervalSec = this.clampFlightPollIntervalSec(
+      typeof this.flightPollIntervalSec === 'number'
+        ? this.flightPollIntervalSec
+        : GLOBE_FLIGHT_POLL_DEFAULT_SEC
+    );
+    if (this.flightTrackingActive) {
+      this.persistFlightTrackingPreference();
+      queueMicrotask(() => this.startFlightPolling());
+    }
+  }
+
+  private clampFlightPollIntervalSec(n: number): number {
+    if (!Number.isFinite(n)) {
+      return GLOBE_FLIGHT_POLL_DEFAULT_SEC;
+    }
+    return Math.min(GLOBE_FLIGHT_POLL_MAX_SEC, Math.max(GLOBE_FLIGHT_POLL_MIN_SEC, Math.round(n)));
+  }
+
+  private flightPollIntervalMs(): number {
+    return this.clampFlightPollIntervalSec(this.flightPollIntervalSec) * 1000;
+  }
+
+  private resetFlightStateValues(): void {
+    this.flightLat = null;
+    this.flightLon = null;
+    this.flightAltKm = null;
+    this.flightSpeedKmh = null;
+    this.flightTrackDeg = null;
+    this.flightVerticalRateMs = null;
+    this.flightOnGround = null;
+    this.flightCallsign = null;
+    this.flightIcao24 = null;
+    this.flightOriginCountry = null;
+    this.flightLastContactEpoch = null;
+    this.flightDepartureAirport = null;
+    this.flightArrivalAirport = null;
+    this.flightDepartureTimeEpoch = null;
+    this.flightArrivalTimeEpoch = null;
+  }
+
+  /** Formats a flight time (UTC epoch seconds) for display, or « — » if missing. */
+  formatFlightTimeEpoch(epochSec: number | null | undefined): string {
+    if (epochSec == null || !Number.isFinite(epochSec) || epochSec <= 0) {
+      return '—';
+    }
+    return new Date(epochSec * 1000).toLocaleString(undefined, {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  private stopFlightPolling(): void {
+    if (this.flightRefreshTimeout != null) {
+      clearTimeout(this.flightRefreshTimeout);
+      this.flightRefreshTimeout = null;
+    }
+    if (this.flightCountdownInterval != null) {
+      clearInterval(this.flightCountdownInterval);
+      this.flightCountdownInterval = null;
+    }
+    this.flightNextRefreshEpochMs = 0;
+    this.refreshFlightCountdownSnapshot();
+  }
+
+  private startFlightPolling(): void {
+    this.stopFlightPolling();
+    if (!this.flightTrackingActive || this.flightTrackedQuery == null) {
+      return;
+    }
+    const ms = this.flightPollIntervalMs();
+    this.flightNextRefreshEpochMs = Date.now() + ms;
+    this.flightCountdownInterval = window.setInterval(() => {
+      this.refreshFlightCountdownSnapshot();
+      this.scheduleWorldGlobeCdr();
+    }, 1000);
+    this.scheduleFlightRefreshChain(ms);
+    queueMicrotask(() => {
+      this.refreshFlightCountdownSnapshot();
+      this.scheduleWorldGlobeCdr();
+    });
+  }
+
+  private scheduleFlightRefreshChain(delayMs: number): void {
+    this.flightRefreshTimeout = window.setTimeout(() => {
+      this.flightRefreshTimeout = null;
+      void this.refreshFlightNow().finally(() => {
+        if (!this.flightTrackingActive) {
+          return;
+        }
+        const ms = this.flightPollIntervalMs();
+        this.flightNextRefreshEpochMs = Date.now() + ms;
+        this.refreshFlightCountdownSnapshot();
+        this.scheduleFlightRefreshChain(ms);
+      });
+    }, delayMs);
+  }
+
+  private refreshFlightCountdownSnapshot(): void {
+    let next = 0;
+    if (this.flightTrackingActive && this.flightNextRefreshEpochMs > 0) {
+      next = Math.max(0, Math.ceil((this.flightNextRefreshEpochMs - Date.now()) / 1000));
+    }
+    this.scheduleWorldGlobeCdr(() => {
+      this.flightSecondsUntilNextRefresh = next;
+    });
+  }
+
+  private async refreshFlightNow(): Promise<void> {
+    if (!this.flightTrackingActive || this.flightTrackedQuery == null) {
+      return;
+    }
+    const mode = this.flightTrackedMode;
+    const query = this.flightTrackedQuery;
+    try {
+      const state = await firstValueFrom(this.apiService.getFlightState(mode, query));
+      if (!this.flightTrackingActive || this.flightTrackedQuery !== query) {
+        return;
+      }
+      if (state == null) {
+        this.scheduleWorldGlobeCdr(() => {
+          this.flightStatus = 'notfound';
+        });
+        return;
+      }
+      const lat = typeof state.latitude === 'number' ? state.latitude : null;
+      const lon = typeof state.longitude === 'number' ? state.longitude : null;
+      if (lat == null || lon == null || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+        this.scheduleWorldGlobeCdr(() => {
+          this.flightStatus = 'notfound';
+        });
+        return;
+      }
+
+      const geoAltM = typeof state.geoAltitudeM === 'number' ? state.geoAltitudeM : null;
+      const baroAltM = typeof state.baroAltitudeM === 'number' ? state.baroAltitudeM : null;
+      const altM = geoAltM ?? baroAltM;
+      const altKm = altM != null && altM >= 0 && altM <= 30000 ? altM / 1000 : null;
+      const radius = this.flightRadiusForAltitude(altM);
+      const velMs = typeof state.velocityMs === 'number' ? state.velocityMs : null;
+      const speedKmh = velMs != null && velMs >= 0 && velMs <= 1500 ? velMs * 3.6 : null;
+      const trackDeg = typeof state.trueTrackDeg === 'number' ? state.trueTrackDeg : null;
+      const vRate = typeof state.verticalRateMs === 'number' ? state.verticalRateMs : null;
+      const icao24 = state.icao24?.trim().toLowerCase() ?? null;
+
+      this.flightLat = lat;
+      this.flightLon = lon;
+      this.flightAltKm = altKm;
+      this.flightSpeedKmh = speedKmh;
+      this.flightTrackDeg = trackDeg;
+      this.flightVerticalRateMs = vRate;
+      this.flightOnGround = typeof state.onGround === 'boolean' ? state.onGround : null;
+      this.flightCallsign = state.callsign && state.callsign.trim() !== '' ? state.callsign.trim() : null;
+      this.flightIcao24 = icao24;
+      this.flightOriginCountry = state.originCountry ?? null;
+      this.flightLastContactEpoch = typeof state.lastContact === 'number' ? state.lastContact : null;
+      this.flightDepartureAirport =
+        state.departureAirport && state.departureAirport.trim() !== ''
+          ? state.departureAirport.trim().toUpperCase()
+          : null;
+      this.flightArrivalAirport =
+        state.arrivalAirport && state.arrivalAirport.trim() !== ''
+          ? state.arrivalAirport.trim().toUpperCase()
+          : null;
+      this.flightDepartureTimeEpoch =
+        typeof state.departureTimeEpoch === 'number' && state.departureTimeEpoch > 0
+          ? state.departureTimeEpoch
+          : null;
+      this.flightArrivalTimeEpoch =
+        typeof state.arrivalTimeEpoch === 'number' && state.arrivalTimeEpoch > 0
+          ? state.arrivalTimeEpoch
+          : null;
+      this.flightStatus = 'tracking';
+      this.flightMarkerRadius = radius;
+      this.syncFlightGlobeVisuals();
+
+      if (icao24) {
+        void this.loadFlightTrack(icao24);
+      }
+
+      this.scheduleWorldGlobeCdr();
+    } catch (err: unknown) {
+      const status = (err as { status?: number })?.status;
+      this.scheduleWorldGlobeCdr(() => {
+        this.flightStatus = status === 502 || status === 503 ? 'upstream' : 'error';
+      });
+    }
+  }
+
+  /** Loads the full OpenSky trajectory (departure → current position) and redraws the line. */
+  private async loadFlightTrack(icao24: string): Promise<void> {
+    if (!this.flightTrackingActive) {
+      return;
+    }
+    try {
+      const track = await firstValueFrom(this.apiService.getFlightTrack(icao24, 0));
+      if (!this.flightTrackingActive) {
+        return;
+      }
+      if (!track?.points?.length) {
+        return;
+      }
+      const pts: { lat: number; lon: number; radius: number }[] = [];
+      for (const wp of track.points) {
+        const la = typeof wp.latitude === 'number' ? wp.latitude : null;
+        const lo = typeof wp.longitude === 'number' ? wp.longitude : null;
+        if (la == null || lo == null || Math.abs(la) > 90 || Math.abs(lo) > 180) {
+          continue;
+        }
+        const altM = typeof wp.baroAltitudeM === 'number' ? wp.baroAltitudeM : null;
+        pts.push({ lat: la, lon: lo, radius: this.flightRadiusForAltitude(altM) });
+      }
+      if (pts.length < 2) {
+        return;
+      }
+      this.flightTrackPoints.length = 0;
+      this.flightTrackPoints.push(...pts);
+      this.rebuildFlightTrailGeometry();
+      if (track.callsign?.trim()) {
+        this.scheduleWorldGlobeCdr(() => {
+          if (!this.flightCallsign) {
+            this.flightCallsign = track.callsign!.trim();
+          }
+        });
+      }
+    } catch {
+      /* trajectory is optional: live position remains visible */
+    }
+  }
+
+  /**
+   * While tracking a flight: disables ISS centering and hides the ISS trace
+   * (as if the user had unchecked « trace » and « center on ISS »).
+   */
+  private applyFlightTrackingIssOverrides(): void {
+    if (!this.issStateBeforeFlight) {
+      this.issStateBeforeFlight = {
+        keepCentered: this.issKeepEarthCentered,
+        traceVisible: this.issTraceVisible
+      };
+    }
+    this.issKeepEarthCentered = false;
+    this.issCameraCenterSmoothPrevMs = 0;
+    this.issGlobeFreeOrbit = false;
+    this.flightGlobeFreeOrbit = false;
+    this.flightCameraCenterSmoothPrevMs = 0;
+    this.issTraceVisible = false;
+    this.applyIssTraceVisibility();
+    this.scheduleWorldGlobeCdr();
+  }
+
+  /** Restores ISS centering and trace as before flight tracking. */
+  private restoreFlightTrackingIssOverrides(): void {
+    const saved = this.issStateBeforeFlight;
+    if (!saved) {
+      return;
+    }
+    this.issKeepEarthCentered = saved.keepCentered;
+    this.issTraceVisible = saved.traceVisible;
+    this.issStateBeforeFlight = null;
+    this.applyIssTraceVisibility();
+    if (this.issTraceVisible) {
+      this.rebuildIssTrailGeometry();
+      this.rebuildIssHistoricalTrailGeometry();
+    }
+    this.scheduleWorldGlobeCdr();
+  }
+
+  /** Globe radius factor from altitude (m); fallback just above the surface. */
+  private flightRadiusForAltitude(altM: number | null): number {
+    if (altM == null || !Number.isFinite(altM) || altM <= 0) {
+      return GLOBE_FLIGHT_SURFACE_OFFSET;
+    }
+    return 1 + Math.min(altM, 30000) / GLOBE_EARTH_RADIUS_M;
+  }
+
+  /** Small aircraft silhouette (top-down, cyan) on a plane oriented by heading. */
+  private static createFlightIconMesh(): THREE.Mesh {
+    const tex = WorldGlobeComponent.createGlobeIconCanvasTexture((ctx, size) => {
+      WorldGlobeComponent.drawAirplaneTopViewIcon(ctx, size, '#35d0ff', '#ffffff');
+    });
+    return WorldGlobeComponent.createIconPlaneMesh(tex, GLOBE_FLIGHT_ICON_WORLD_SIZE);
+  }
+
+  /** Space station (top-down, yellow): central module + solar panels. */
+  private static createIssIconMesh(): THREE.Mesh {
+    const tex = WorldGlobeComponent.createGlobeIconCanvasTexture((ctx, size) => {
+      WorldGlobeComponent.drawIssTopViewIcon(ctx, size);
+    });
+    return WorldGlobeComponent.createIconPlaneMesh(tex, GLOBE_ISS_ICON_WORLD_SIZE);
+  }
+
+  private static createGlobeIconCanvasTexture(
+    draw: (ctx: CanvasRenderingContext2D, size: number) => void
+  ): THREE.CanvasTexture {
+    const size = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('Canvas 2D unavailable');
+    }
+    draw(ctx, size);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  private static createIconPlaneMesh(texture: THREE.CanvasTexture, worldSize: number): THREE.Mesh {
+    const mat = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      depthTest: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      toneMapped: false
+    });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(worldSize, worldSize), mat);
+    mesh.renderOrder = 6;
+    return mesh;
+  }
+
+  private static disposeIconPlaneMesh(mesh: THREE.Mesh): void {
     mesh.geometry.dispose();
     const mat = mesh.material;
+    if (!Array.isArray(mat) && mat instanceof THREE.MeshBasicMaterial) {
+      mat.map?.dispose();
+      mat.dispose();
+    }
+  }
+
+  /** Aircraft top-down (nose toward canvas top = heading 0° North), radar / aviation map style. */
+  private static drawAirplaneTopViewIcon(
+    ctx: CanvasRenderingContext2D,
+    size: number,
+    fill: string,
+    stroke: string
+  ): void {
+    const cx = size / 2;
+    const cy = size / 2;
+    const s = size;
+    ctx.clearRect(0, 0, s, s);
+
+    const outline = (path: () => void, color: string, lineW: number) => {
+      ctx.beginPath();
+      path();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineW;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    };
+
+    const fillPath = (path: () => void, color: string) => {
+      ctx.beginPath();
+      path();
+      ctx.fillStyle = color;
+      ctx.fill();
+    };
+
+    /** Jet silhouette (plan view): pointed nose, wide wings, T-tail. */
+    const jetBodyPath = (): void => {
+      ctx.moveTo(cx, cy - s * 0.43);
+      ctx.lineTo(cx + s * 0.055, cy - s * 0.18);
+      ctx.lineTo(cx + s * 0.085, cy - s * 0.04);
+      ctx.lineTo(cx + s * 0.47, cy + s * 0.03);
+      ctx.lineTo(cx + s * 0.48, cy + s * 0.07);
+      ctx.lineTo(cx + s * 0.12, cy + s * 0.11);
+      ctx.lineTo(cx + s * 0.09, cy + s * 0.24);
+      ctx.lineTo(cx + s * 0.22, cy + s * 0.29);
+      ctx.lineTo(cx + s * 0.22, cy + s * 0.33);
+      ctx.lineTo(cx + s * 0.07, cy + s * 0.33);
+      ctx.lineTo(cx + s * 0.05, cy + s * 0.27);
+      ctx.lineTo(cx, cy + s * 0.3);
+      ctx.lineTo(cx - s * 0.05, cy + s * 0.27);
+      ctx.lineTo(cx - s * 0.07, cy + s * 0.33);
+      ctx.lineTo(cx - s * 0.22, cy + s * 0.33);
+      ctx.lineTo(cx - s * 0.22, cy + s * 0.29);
+      ctx.lineTo(cx - s * 0.09, cy + s * 0.24);
+      ctx.lineTo(cx - s * 0.12, cy + s * 0.11);
+      ctx.lineTo(cx - s * 0.48, cy + s * 0.07);
+      ctx.lineTo(cx - s * 0.47, cy + s * 0.03);
+      ctx.lineTo(cx - s * 0.085, cy - s * 0.04);
+      ctx.lineTo(cx - s * 0.055, cy - s * 0.18);
+      ctx.closePath();
+    };
+
+    // Light drop shadow for relief on the globe.
+    ctx.save();
+    ctx.translate(s * 0.012, s * 0.014);
+    fillPath(jetBodyPath, 'rgba(0, 28, 48, 0.38)');
+    ctx.restore();
+
+    fillPath(jetBodyPath, fill);
+    outline(jetBodyPath, stroke, Math.max(2.5, s * 0.028));
+    outline(jetBodyPath, 'rgba(0, 55, 80, 0.55)', Math.max(1.5, s * 0.012));
+
+    // Engines under the wings (ellipses).
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    for (const dx of [0.19, -0.19]) {
+      ctx.beginPath();
+      ctx.ellipse(cx + s * dx, cy + s * 0.06, s * 0.038, s * 0.022, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Cockpit / canopy (nose).
+    ctx.fillStyle = 'rgba(255,255,255,0.88)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - s * 0.16, s * 0.038, s * 0.075, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Central fuselage line (detail).
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = Math.max(1, s * 0.008);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - s * 0.22);
+    ctx.lineTo(cx, cy + s * 0.22);
+    ctx.stroke();
+  }
+
+  /** ISS top-down: central truss + yellow solar panels. */
+  private static drawIssTopViewIcon(ctx: CanvasRenderingContext2D, size: number): void {
+    const cx = size / 2;
+    const cy = size / 2;
+    const s = size;
+    const yellow = '#ffea00';
+    const panel = '#ffd000';
+    const stroke = '#fff8b0';
+    ctx.clearRect(0, 0, s, s);
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = Math.max(1.5, s * 0.028);
+
+    // Solar panels (left / right)
+    ctx.fillStyle = panel;
+    ctx.strokeRect(cx - s * 0.44, cy - s * 0.13, s * 0.16, s * 0.26);
+    ctx.fillRect(cx - s * 0.44, cy - s * 0.13, s * 0.16, s * 0.26);
+    ctx.strokeRect(cx + s * 0.28, cy - s * 0.13, s * 0.16, s * 0.26);
+    ctx.fillRect(cx + s * 0.28, cy - s * 0.13, s * 0.16, s * 0.26);
+
+    // Panel grid
+    ctx.strokeStyle = 'rgba(255, 240, 160, 0.55)';
+    ctx.lineWidth = 1;
+    for (let i = 1; i <= 3; i++) {
+      const xL = cx - s * 0.44 + (s * 0.16 * i) / 4;
+      const xR = cx + s * 0.28 + (s * 0.16 * i) / 4;
+      ctx.beginPath();
+      ctx.moveTo(xL, cy - s * 0.13);
+      ctx.lineTo(xL, cy + s * 0.13);
+      ctx.moveTo(xR, cy - s * 0.13);
+      ctx.lineTo(xR, cy + s * 0.13);
+      ctx.stroke();
+    }
+
+    // Main truss (horizontal)
+    ctx.fillStyle = yellow;
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = Math.max(2, s * 0.03);
+    ctx.fillRect(cx - s * 0.3, cy - s * 0.028, s * 0.6, s * 0.056);
+    ctx.strokeRect(cx - s * 0.3, cy - s * 0.028, s * 0.6, s * 0.056);
+
+    // Modules (nodes)
+    ctx.beginPath();
+    ctx.arc(cx - s * 0.14, cy, s * 0.045, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx + s * 0.14, cy, s * 0.045, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Central module
+    ctx.fillRect(cx - s * 0.055, cy - s * 0.055, s * 0.11, s * 0.11);
+    ctx.strokeRect(cx - s * 0.055, cy - s * 0.055, s * 0.11, s * 0.11);
+  }
+
+  /**
+   * Cap vrai (0° = Nord, sens horaire) d’un vecteur tangent à la sphère, même repère que {@link orientGlobeIconMesh}.
+   */
+  private static tangentHeadingDegAtLatLon(
+    latDeg: number,
+    lonDeg: number,
+    fromLatDeg: number,
+    fromLonDeg: number
+  ): number {
+    const cur = WorldGlobeComponent.latLonToVector3(latDeg, lonDeg, 1);
+    const prev = WorldGlobeComponent.latLonToVector3(fromLatDeg, fromLonDeg, 1);
+    const normal = cur.clone().normalize();
+    const delta = cur.clone().sub(prev);
+    const tangent = delta.sub(normal.multiplyScalar(delta.dot(normal)));
+    if (tangent.lengthSq() < 1e-14) {
+      return 0;
+    }
+    tangent.normalize();
+
+    const worldUp = new THREE.Vector3(0, 1, 0);
+    let east = new THREE.Vector3().crossVectors(worldUp, normal);
+    if (east.lengthSq() < 1e-8) {
+      east.set(1, 0, 0);
+    } else {
+      east.normalize();
+    }
+    const northTan = new THREE.Vector3().crossVectors(normal, east).normalize();
+    const headingRad = Math.atan2(tangent.dot(east), tangent.dot(northTan));
+    return ((headingRad * 180) / Math.PI + 360) % 360;
+  }
+
+  /**
+   * ISS : panneaux solaires (axe +X du sprite) perpendiculaires à la trajectoire (+Y = sens du mouvement).
+   * Tangente au dernier segment du grand cercle (même géométrie que la traînée orange).
+   */
+  private static orientIssIconMesh(
+    mesh: THREE.Object3D,
+    toLat: number,
+    toLon: number,
+    fromLat: number,
+    fromLon: number,
+    radius: number
+  ): boolean {
+    const end = WorldGlobeComponent.latLonToVector3(toLat, toLon, radius);
+    const start = WorldGlobeComponent.latLonToVector3(fromLat, fromLon, radius);
+    const arc = WorldGlobeComponent.greatCircleArc(start, end, radius, GLOBE_ISS_TRAIL_ARC_SEGMENTS);
+    const cur = arc.length >= 2 ? arc[arc.length - 1] : end;
+    const prev = arc.length >= 2 ? arc[arc.length - 2] : start;
+    const normal = cur.clone().normalize();
+    mesh.position.copy(cur);
+
+    const delta = cur.clone().sub(prev);
+    const track = delta.sub(normal.clone().multiplyScalar(delta.dot(normal)));
+    if (track.lengthSq() < 1e-16) {
+      return false;
+    }
+    track.normalize();
+
+    const zAxis = normal;
+    const yAxis = track;
+    let xAxis = new THREE.Vector3().crossVectors(yAxis, zAxis);
+    if (xAxis.lengthSq() < 1e-12) {
+      const worldUp = new THREE.Vector3(0, 1, 0);
+      xAxis.crossVectors(worldUp, zAxis);
+      if (xAxis.lengthSq() < 1e-12) {
+        xAxis.set(1, 0, 0);
+      }
+    }
+    xAxis.normalize();
+    const yOrtho = new THREE.Vector3().crossVectors(zAxis, xAxis).normalize();
+    mesh.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xAxis, yOrtho, zAxis));
+    return true;
+  }
+
+  /**
+   * Places a flat icon tangent to the sphere; {@code headingDeg} = true track (0° = North, clockwise).
+   */
+  private static orientGlobeIconMesh(
+    mesh: THREE.Object3D,
+    latDeg: number,
+    lonDeg: number,
+    radius: number,
+    headingDeg?: number | null
+  ): void {
+    const localPos = WorldGlobeComponent.latLonToVector3(latDeg, lonDeg, radius);
+    const localNormal = localPos.clone().normalize();
+    mesh.position.copy(localPos);
+
+    const worldUp = new THREE.Vector3(0, 1, 0);
+    let east = new THREE.Vector3().crossVectors(worldUp, localNormal);
+    if (east.lengthSq() < 1e-8) {
+      east.set(1, 0, 0);
+    } else {
+      east.normalize();
+    }
+    const northTan = new THREE.Vector3().crossVectors(localNormal, east).normalize();
+
+    let forward = northTan;
+    if (headingDeg != null && Number.isFinite(headingDeg)) {
+      const hRad = (headingDeg * Math.PI) / 180;
+      forward = northTan
+        .clone()
+        .multiplyScalar(Math.cos(hRad))
+        .addScaledVector(east, Math.sin(hRad))
+        .normalize();
+    }
+
+    const zAxis = localNormal;
+    let yAxis = forward.clone();
+    let xAxis = new THREE.Vector3().crossVectors(yAxis, zAxis);
+    if (xAxis.lengthSq() < 1e-8) {
+      xAxis.copy(east);
+      yAxis = new THREE.Vector3().crossVectors(zAxis, xAxis).normalize();
+    } else {
+      xAxis.normalize();
+      yAxis = new THREE.Vector3().crossVectors(zAxis, xAxis).normalize();
+    }
+    mesh.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis));
+  }
+
+  private ensureFlightMarkerGroup(): void {
+    const earth = this.earthMesh;
+    if (!earth || this.flightMarkerMesh) {
+      return;
+    }
+    const mesh = WorldGlobeComponent.createFlightIconMesh();
+    earth.add(mesh);
+    this.flightMarkerMesh = mesh;
+  }
+
+  /** Affiche ou met à jour l’icône avion (+ trajectoire si disponible) dès qu’on a une position. */
+  private syncFlightGlobeVisuals(): void {
+    if (!this.flightTrackingActive || this.flightLat == null || this.flightLon == null || !this.earthMesh) {
+      return;
+    }
+    this.ensureFlightMarkerGroup();
+    this.updateFlightMarkerWorldPosition();
+    if (this.flightTrackPoints.length >= 2) {
+      this.rebuildFlightTrailGeometry();
+    }
+  }
+
+  private updateFlightMarkerWorldPosition(
+    lat?: number,
+    lon?: number,
+    radius?: number,
+    trackDeg?: number | null
+  ): void {
+    const la = lat ?? this.flightLat;
+    const lo = lon ?? this.flightLon;
+    const r = radius ?? this.flightMarkerRadius;
+    const mesh = this.flightMarkerMesh;
+    if (la == null || lo == null || !mesh) {
+      return;
+    }
+    WorldGlobeComponent.orientGlobeIconMesh(mesh, la, lo, r, trackDeg ?? this.flightTrackDeg);
+  }
+
+  private disposeFlightMarker(): void {
+    const mesh = this.flightMarkerMesh;
+    if (!mesh) {
+      return;
+    }
+    this.earthMesh?.remove(mesh);
+    WorldGlobeComponent.disposeIconPlaneMesh(mesh);
+    this.flightMarkerMesh = undefined;
+  }
+
+  private rebuildFlightTrailGeometry(): void {
+    const earth = this.earthMesh;
+    const pts = this.flightTrackPoints;
+    if (!earth || pts.length < 2) {
+      if (this.flightTrailLine) {
+        this.flightTrailLine.visible = false;
+      }
+      return;
+    }
+    const vertices: number[] = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const r = Math.max(GLOBE_FLIGHT_TRAIL_RADIUS, (pts[i].radius + pts[i + 1].radius) / 2 - 0.0006);
+      const a = WorldGlobeComponent.latLonToVector3(pts[i].lat, pts[i].lon, r);
+      const b = WorldGlobeComponent.latLonToVector3(pts[i + 1].lat, pts[i + 1].lon, r);
+      const arc = WorldGlobeComponent.greatCircleArc(a, b, r, GLOBE_FLIGHT_TRAIL_ARC_SEGMENTS);
+      for (let j = 0; j < arc.length - 1; j++) {
+        vertices.push(arc[j].x, arc[j].y, arc[j].z, arc[j + 1].x, arc[j + 1].y, arc[j + 1].z);
+      }
+    }
+    if (vertices.length === 0) {
+      return;
+    }
+    if (!this.flightTrailLine) {
+      const mat = new THREE.LineBasicMaterial({
+        color: GLOBE_FLIGHT_TRAIL_COLOR,
+        transparent: true,
+        opacity: GLOBE_FLIGHT_TRAIL_OPACITY,
+        depthWrite: false
+      });
+      mat.toneMapped = false;
+      const line = new THREE.LineSegments(new THREE.BufferGeometry(), mat);
+      line.renderOrder = 5;
+      earth.add(line);
+      this.flightTrailLine = line;
+    }
+    const line = this.flightTrailLine;
+    const oldGeo = line.geometry;
+    line.geometry = new THREE.BufferGeometry();
+    oldGeo.dispose();
+    line.geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    line.visible = true;
+  }
+
+  private disposeFlightTrail(): void {
+    const line = this.flightTrailLine;
+    this.flightTrailLine = undefined;
+    if (!line) {
+      return;
+    }
+    this.earthMesh?.remove(line);
+    line.geometry.dispose();
+    const mat = line.material;
     if (!Array.isArray(mat) && mat instanceof THREE.Material) {
       mat.dispose();
     }
-    this.issMarkerMesh = undefined;
+  }
+
+  /** Reloads the stored last tracked flight and automatically resumes tracking. */
+  private loadFlightTrackingPreference(): void {
+    this.apiService.getFlightTracking().subscribe({
+      next: pref => {
+        if (!pref || !pref.mode || !pref.query) {
+          return;
+        }
+        const query = this.normalizeFlightQuery(pref.query, pref.mode);
+        if (query == null) {
+          return;
+        }
+        this.flightMode = pref.mode;
+        this.flightQueryInput = query;
+        if (typeof pref.pollIntervalSec === 'number') {
+          this.flightPollIntervalSec = this.clampFlightPollIntervalSec(pref.pollIntervalSec);
+        }
+        // Do not start polling until the scene is ready: startFlightTracking handles it.
+        this.startFlightTracking();
+        this.scheduleWorldGlobeCdr();
+      },
+      error: () => {}
+    });
+  }
+
+  /** Persists the current tracked flight (silent when anonymous: backend returns 401). */
+  private persistFlightTrackingPreference(): void {
+    if (this.flightTrackedQuery == null) {
+      return;
+    }
+    this.apiService
+      .setFlightTracking({
+        mode: this.flightTrackedMode,
+        query: this.flightTrackedQuery,
+        pollIntervalSec: this.clampFlightPollIntervalSec(this.flightPollIntervalSec)
+      })
+      .subscribe({ next: () => {}, error: () => {} });
   }
 
   /**
@@ -6503,6 +7618,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     oldGeo.dispose();
     line.geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
     line.visible = this.issTraceVisible;
+    if (pts.length >= 2 && this.issMarkerMesh && this.globeIssLat != null && this.globeIssLon != null) {
+      this.updateIssMarkerWorldPosition(this.globeIssLat, this.globeIssLon);
+    }
   }
 
   private clearIssTrail(): void {
@@ -6642,6 +7760,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.rebuildIssHistoricalTraceDateLabels();
     } else {
       this.disposeIssHistoricalTraceDateLabels();
+    }
+    if (this.issMarkerMesh && this.globeIssLat != null && this.globeIssLon != null) {
+      this.updateIssMarkerWorldPosition(this.globeIssLat, this.globeIssLon);
     }
   }
 

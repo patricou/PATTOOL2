@@ -2623,6 +2623,96 @@ body:has(.wg-fs-root--viewport-locked) {
   padding: 0 0.5rem;
 }
 
+.wg-compass-hint--nosensor {
+  text-align: left;
+  width: 100%;
+  border-radius: 0.6rem;
+  padding: 0.75rem 0.85rem;
+  background: rgba(52, 38, 14, 0.45);
+  border: 1px solid rgba(255, 196, 60, 0.35);
+  color: #e8d4a8;
+}
+
+.wg-compass-hint__head {
+  font-weight: 700;
+  font-size: 0.82rem;
+  margin-bottom: 0.35rem;
+}
+
+.wg-compass-hint__intro {
+  margin: 0 0 0.5rem;
+  font-size: 0.76rem;
+}
+
+.wg-compass-hint__steps {
+  margin: 0 0 0.55rem;
+  padding-left: 1.2rem;
+  font-size: 0.74rem;
+}
+
+.wg-compass-hint__steps li + li {
+  margin-top: 0.3rem;
+}
+
+.wg-compass-hint__fallback {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #b8c8e8;
+  font-style: italic;
+}
+
+.wg-compass-sensors-live {
+  width: 100%;
+  border-radius: 0.6rem;
+  padding: 0.7rem 0.8rem;
+  background: rgba(14, 38, 70, 0.55);
+  border: 1px solid rgba(120, 200, 255, 0.4);
+  color: #cfe3ff;
+}
+
+.wg-compass-sensors-live__head {
+  font-weight: 700;
+  font-size: 0.82rem;
+  margin-bottom: 0.25rem;
+}
+
+.wg-compass-sensors-live__hint {
+  margin: 0 0 0.55rem;
+  font-size: 0.72rem;
+  color: #9eb8dc;
+}
+
+.wg-compass-sensors-live__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.45rem;
+}
+
+.wg-compass-sensors-live__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.45rem 0.3rem;
+  border-radius: 0.45rem;
+  background: rgba(8, 22, 44, 0.65);
+  border: 1px solid rgba(100, 160, 220, 0.25);
+}
+
+.wg-compass-sensors-live__key {
+  font-size: 0.68rem;
+  color: #8faed4;
+  text-align: center;
+}
+
+.wg-compass-sensors-live__val {
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #e8f4ff;
+  letter-spacing: 0.02em;
+}
+
 /* Calibration du Nord (marche GPS) */
 .wg-compass-cal {
   width: 100%;
@@ -2919,4 +3009,73 @@ body:has(.wg-fs-root--viewport-locked) {
   .wg-compass-elev__track {
     min-height: 7rem;
   }
+}
+
+/* --- Flight tracking (OpenSky) --- */
+.wg-flight-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.wg-flight-form .form-control,
+.wg-flight-form .form-select {
+  font-size: var(--wg-label, 0.66rem);
+  padding: 0.18rem 0.4rem;
+  line-height: 1.25;
+}
+
+.wg-flight-query-row {
+  gap: 0.4rem;
+}
+
+.wg-flight-mode {
+  max-width: 12rem;
+}
+
+.wg-flight-query {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.wg-flight-track-btn {
+  white-space: nowrap;
+  flex: 0 0 auto;
+  font-size: calc(var(--wg-label, 0.66rem) * 0.95);
+  padding: 0.18rem 0.5rem;
+}
+
+.wg-flight-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: 0.5rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: var(--wg-label, 0.66rem);
+  line-height: 1.35;
+}
+
+.wg-flight-info__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: inherit;
+}
+
+.wg-flight-info__k {
+  color: #b9c7e8;
+  flex: 0 0 auto;
+}
+
+.wg-flight-info__v {
+  text-align: right;
+  color: #35d0ff;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  word-break: break-word;
 }

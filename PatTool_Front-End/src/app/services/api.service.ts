@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { KeycloakService } from '../keycloak/keycloak.service';
-import { Observable, from } from 'rxjs';
+import { Observable, from, throwError } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
@@ -17,6 +17,56 @@ export interface IssCompassCalibration {
   method: 'sensor' | 'manual' | 'gps' | 'sun';
   northOffsetDeg: number;
   calibratedAt?: string | null;
+}
+
+/** Current state of a tracked flight (proxy GET /external/globe/flight/state, OpenSky Network). */
+export interface FlightState {
+  icao24?: string | null;
+  callsign?: string | null;
+  originCountry?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  baroAltitudeM?: number | null;
+  geoAltitudeM?: number | null;
+  velocityMs?: number | null;
+  trueTrackDeg?: number | null;
+  verticalRateMs?: number | null;
+  onGround?: boolean | null;
+  lastContact?: number | null;
+  /** ICAO code of estimated departure airport (OpenSky flights/aircraft). */
+  departureAirport?: string | null;
+  /** ICAO code of estimated arrival airport (OpenSky flights/aircraft). */
+  arrivalAirport?: string | null;
+  /** Estimated departure time (OpenSky firstSeen, Unix epoch seconds UTC). */
+  departureTimeEpoch?: number | null;
+  /** Estimated arrival time (OpenSky lastSeen, Unix epoch seconds UTC). */
+  arrivalTimeEpoch?: number | null;
+}
+
+/** Per-user last tracked flight (GET/PUT /external/globe/flight/tracking). */
+export interface FlightTrackingPreference {
+  mode: 'callsign' | 'icao24';
+  query: string;
+  pollIntervalSec?: number | null;
+}
+
+/** Waypoint of a full flight track (OpenSky /tracks/all). */
+export interface FlightTrackPoint {
+  time?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  baroAltitudeM?: number | null;
+  trueTrackDeg?: number | null;
+  onGround?: boolean | null;
+}
+
+/** Full flight trajectory from departure to arrival (or current position if in flight). */
+export interface FlightTrack {
+  icao24?: string | null;
+  callsign?: string | null;
+  startTime?: number | null;
+  endTime?: number | null;
+  points?: FlightTrackPoint[] | null;
 }
 
 /** ISS visible-pass e-mail alert configuration (GET/PUT /external/globe/iss/alert). */
@@ -305,6 +355,86 @@ export class ApiService {
         this._http.put<IssCompassCalibration>(
           this.API_URL + 'external/globe/iss/compass/calibration',
           body,
+          { headers }
+        )
+      )
+    );
+  }
+
+  /**
+   * Current state of a flight via the OpenSky proxy. {@code mode} is 'callsign' (radio call sign /
+   * flight number) or 'icao24' (24-bit hex address). Returns null when the flight is not found (404).
+   * Throws on upstream OpenSky failure (502).
+   */
+  getFlightState(mode: 'callsign' | 'icao24', query: string): Observable<FlightState | null> {
+    const params = new HttpParams().set('mode', mode).set('q', query);
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<FlightState>(
+          this.API_URL + 'external/globe/flight/state',
+          { headers, params }
+        )
+      ),
+      catchError((err: HttpErrorResponse) => {
+        if (err.status === 404) {
+          return from([null as FlightState | null]);
+        }
+        if (err.status === 502 || err.status === 503) {
+          return throwError(() => err);
+        }
+        return from([null as FlightState | null]);
+      })
+    );
+  }
+
+  /**
+   * Full flight track (departure → arrival) via OpenSky /tracks/all.
+   * {@code time=0} (default) returns the live track when the aircraft is in flight.
+   */
+  getFlightTrack(icao24: string, time = 0): Observable<FlightTrack | null> {
+    const params = new HttpParams().set('icao24', icao24).set('time', String(time));
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<FlightTrack>(
+          this.API_URL + 'external/globe/flight/track',
+          { headers, params }
+        )
+      ),
+      catchError(() => from([null as FlightTrack | null]))
+    );
+  }
+
+  /** Saved last tracked flight for the current user, or null when none is stored (204 → null body). */
+  getFlightTracking(): Observable<FlightTrackingPreference | null> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<FlightTrackingPreference | null>(
+          this.API_URL + 'external/globe/flight/tracking',
+          { headers }
+        )
+      )
+    );
+  }
+
+  /** Persist the user's last tracked flight so it is reused on the next visit. */
+  setFlightTracking(body: FlightTrackingPreference): Observable<FlightTrackingPreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<FlightTrackingPreference>(
+          this.API_URL + 'external/globe/flight/tracking',
+          body,
+          { headers }
+        )
+      )
+    );
+  }
+
+  /** Forget the user's stored tracked flight. */
+  deleteFlightTracking(): Observable<void> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.delete<void>(
+          this.API_URL + 'external/globe/flight/tracking',
           { headers }
         )
       )
@@ -642,6 +772,37 @@ export class ApiService {
     return this._http.get<StockTimeSeries>(
       this.API_URL + 'external/stock/timeseries',
       { params }
+    );
+  }
+
+  // ===================================================================
+  // Stellarium Web — sky map viewer + Noctua Sky catalogue proxy
+  // Backend: /api/external/stellarium/* (no auth required — public data)
+  // ===================================================================
+
+  getStellariumConfig(lat?: number, lon?: number): Observable<StellariumConfig> {
+    let params = new HttpParams();
+    if (lat != null && lon != null) {
+      params = params.set('lat', lat.toString()).set('lon', lon.toString());
+    }
+    return this._http.get<StellariumConfig>(
+      this.API_URL + 'external/stellarium/config',
+      { params }
+    );
+  }
+
+  searchStellariumSkySources(query: string): Observable<StellariumSkySource[]> {
+    const params = new HttpParams().set('q', query);
+    return this._http.get<StellariumSkySource[]>(
+      this.API_URL + 'external/stellarium/skysources',
+      { params }
+    );
+  }
+
+  getStellariumSkySourceByName(name: string): Observable<StellariumSkySource> {
+    const encoded = encodeURIComponent(name);
+    return this._http.get<StellariumSkySource>(
+      this.API_URL + 'external/stellarium/skysources/name/' + encoded
     );
   }
 
@@ -1174,4 +1335,30 @@ export interface ChemMolecule {
 export interface ChemAutocomplete {
   query: string;
   suggestions: string[];
+}
+
+/** Stellarium Web viewer config (backend-built embed URLs). */
+export interface StellariumConfig {
+  lat: number;
+  lon: number;
+  placeLabel?: string;
+  embedUrl: string;
+  viewerUrl: string;
+}
+
+/** Noctua Sky catalogue entry (Stellarium Web API). */
+export interface StellariumSkySource {
+  interest?: number;
+  match?: string;
+  model?: string;
+  model_data?: {
+    ra?: number;
+    de?: number;
+    Vmag?: number;
+    Bmag?: number;
+    [key: string]: unknown;
+  };
+  names?: string[];
+  short_name?: string;
+  types?: string[];
 }
