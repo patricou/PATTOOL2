@@ -998,6 +998,40 @@ export class ApiService {
       )
     );
   }
+
+  /** GET /api/admin/pattool-parameters — read-only application.properties snapshot (admin). */
+  getPatToolParameters(): Observable<PatToolParametersResponse> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<PatToolParametersResponse>(this.API_URL + 'admin/pattool-parameters', { headers })
+      )
+    );
+  }
+}
+
+/** GET /api/admin/pattool-parameters */
+export interface PatToolParameterItem {
+  key: string;
+  value: string;
+  description: string;
+  /** application_properties | environment | mongodb | code_default | required | not_configured */
+  origin: string;
+  /** Java @Value fallback when defined in code */
+  codeDefault?: string | null;
+  sensitive: boolean;
+  /** Plain-text hint from Java source analysis when curated i18n is missing */
+  descriptionInferred?: string | null;
+}
+
+export interface PatToolParameterSection {
+  id: string;
+  labelKey: string;
+  items: PatToolParameterItem[];
+}
+
+export interface PatToolParametersResponse {
+  sections: PatToolParameterSection[];
+  totalItems?: number;
 }
 
 /** POST /api/security-scan/passive-probe */

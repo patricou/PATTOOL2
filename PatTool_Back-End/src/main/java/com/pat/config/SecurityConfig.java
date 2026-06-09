@@ -247,6 +247,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PATCH, "/api/euromillions/draws").hasAnyRole("Admin", "admin")
                 .requestMatchers(HttpMethod.POST, "/api/euromillions/method-analytics/recompute")
                 .hasAnyRole("Admin", "admin")
+                // PATTOOL Parameters (read-only application.properties snapshot)
+                .requestMatchers("/api/admin/**").hasAnyRole("Admin", "admin")
 
                 // Stream event files (SSE): require authentication so SecurityContext has user and getCurrentUserId() works
                 .requestMatchers(HttpMethod.GET, "/api/even/*/files/stream").authenticated()
@@ -273,7 +275,8 @@ public class SecurityConfig {
                 // Note: /iot is protected above and requires Iot role
                 .requestMatchers("/even", "/neweven", "/updeven/**", "/details-evenement/**", 
                                 "/results", "/maps", "/links", "/links-admin",
-                                "/friends", "/system", "/calendrier").permitAll()
+                                "/friends", "/system", "/calendrier",
+                                "/tools/pattool-parameters").permitAll()
                 
                 // ============================================
                 // DEFAULT - Permit for Angular SPA routing

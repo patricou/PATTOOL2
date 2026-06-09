@@ -1,0 +1,259 @@
+<div class="pat-title">
+  <h2>
+    <i class="fa fa-sliders pp-title-icon" aria-hidden="true"></i>
+    {{ 'PATTOOL_PARAMS.TITLE' | translate }}
+  </h2>
+  <p class="pat-title-subtitle">{{ 'PATTOOL_PARAMS.SUBTITLE' | translate }}</p>
+</div>
+
+<div class="pp-page">
+  <div *ngIf="loading" class="pp-state pp-state--load">
+    <i class="fa fa-spinner fa-spin pp-state-icon" aria-hidden="true"></i>
+    <span>{{ 'PATTOOL_PARAMS.LOADING' | translate }}</span>
+  </div>
+
+  <div *ngIf="!loading && errorMessage" class="pp-state pp-state--error" role="alert">
+    <i class="fa fa-lock pp-state-icon" aria-hidden="true"></i>
+    <span>{{ errorMessage | translate }}</span>
+  </div>
+
+  <ng-container *ngIf="!loading && !errorMessage">
+    <div class="pp-kpi-row">
+      <button
+        *ngFor="let kpi of kpiCards"
+        type="button"
+        class="pp-kpi"
+        [class.pp-kpi--active]="originFilter === kpi.filter"
+        [ngClass]="kpi.tone"
+        (click)="setOriginFilter(kpi.filter)">
+        <span class="pp-kpi-top">
+          <i class="fa" [ngClass]="kpi.icon" aria-hidden="true"></i>
+          <span class="pp-kpi-num">{{ countByOrigin(kpi.filter) }}</span>
+        </span>
+        <span class="pp-kpi-label">{{ originFilterLabelKey(kpi.filter) | translate }}</span>
+      </button>
+    </div>
+
+    <div class="pp-card pp-toolbar">
+      <div class="pp-toolbar-main">
+        <label class="pp-search">
+          <i class="fa fa-search" aria-hidden="true"></i>
+          <input
+            type="search"
+            [(ngModel)]="searchText"
+            [placeholder]="'PATTOOL_PARAMS.FILTER.SEARCH_PLACEHOLDER' | translate"
+            autocomplete="off" />
+        </label>
+
+        <button
+          *ngIf="hasActiveFilters"
+          type="button"
+          class="pp-btn-reset"
+          (click)="clearFilters()">
+          <i class="fa fa-refresh" aria-hidden="true"></i>
+          {{ 'PATTOOL_PARAMS.FILTER.CLEAR' | translate }}
+        </button>
+
+        <button
+          type="button"
+          class="pp-btn-columns"
+          (click)="resetColumnWidths()"
+          [title]="'PATTOOL_PARAMS.RESET_COLUMNS' | translate">
+          <i class="fa fa-columns" aria-hidden="true"></i>
+          {{ 'PATTOOL_PARAMS.RESET_COLUMNS' | translate }}
+        </button>
+      </div>
+
+      <div class="pp-toolbar-meta">
+        <span class="pp-counter">
+          <i class="fa fa-filter" aria-hidden="true"></i>
+          {{ 'PATTOOL_PARAMS.FILTER.SHOWING' | translate }}
+          <strong>{{ displayRows.length }}</strong>
+          <span class="pp-counter-sep">/</span>
+          {{ totalItems || allRows.length }}
+        </span>
+        <div class="pp-mini-filters" role="group">
+          <button
+            *ngFor="let f of originFilters"
+            type="button"
+            class="pp-mini-pill"
+            [class.pp-mini-pill--on]="originFilter === f"
+            (click)="setOriginFilter(f)">
+            {{ originFilterLabelKey(f) | translate }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="pp-card pp-list-card"
+      [class.pp-list-card--resizing]="columnResizing"
+      [style.--pp-grid-cols]="gridTemplateColumns"
+      [style.--pp-grid-min-width.px]="gridMinWidth">
+      <div class="pp-list-head" role="row">
+        <div class="pp-h-cell">
+          <div class="pp-h-stack">
+            <button
+              type="button"
+              class="pp-h-btn"
+              [class.pp-h-btn--active]="isSortActive('section')"
+              (click)="toggleSort('section')">
+              {{ 'PATTOOL_PARAMS.COL_SECTION' | translate }}
+              <i class="fa" [ngClass]="sortIcon('section')" aria-hidden="true"></i>
+            </button>
+            <select
+              class="pp-h-filter"
+              [class.pp-h-filter--active]="sectionFilter !== 'all'"
+              [(ngModel)]="sectionFilter"
+              [attr.aria-label]="'PATTOOL_PARAMS.FILTER.COL_SECTION' | translate">
+              <option value="all">{{ 'PATTOOL_PARAMS.FILTER.ALL' | translate }}</option>
+              <option *ngFor="let section of sections" [value]="section.id">
+                {{ section.labelKey | translate }}
+              </option>
+            </select>
+          </div>
+          <span
+            class="pp-col-resizer"
+            role="separator"
+            [attr.aria-label]="'PATTOOL_PARAMS.RESIZE_COLUMN' | translate"
+            (mousedown)="startColumnResize($event, 'section')"></span>
+        </div>
+        <div class="pp-h-cell">
+          <div class="pp-h-stack">
+            <button
+              type="button"
+              class="pp-h-btn"
+              [class.pp-h-btn--active]="isSortActive('key')"
+              (click)="toggleSort('key')">
+              {{ 'PATTOOL_PARAMS.COL_KEY' | translate }}
+              <i class="fa" [ngClass]="sortIcon('key')" aria-hidden="true"></i>
+            </button>
+            <input
+              type="search"
+              class="pp-h-filter"
+              [class.pp-h-filter--active]="keyFilter.trim().length > 0"
+              [(ngModel)]="keyFilter"
+              [placeholder]="'PATTOOL_PARAMS.FILTER.COL_KEY' | translate"
+              autocomplete="off"
+              [attr.aria-label]="'PATTOOL_PARAMS.FILTER.COL_KEY' | translate" />
+          </div>
+          <span
+            class="pp-col-resizer"
+            role="separator"
+            [attr.aria-label]="'PATTOOL_PARAMS.RESIZE_COLUMN' | translate"
+            (mousedown)="startColumnResize($event, 'key')"></span>
+        </div>
+        <div class="pp-h-cell">
+          <div class="pp-h-stack">
+            <button
+              type="button"
+              class="pp-h-btn"
+              [class.pp-h-btn--active]="isSortActive('value')"
+              (click)="toggleSort('value')">
+              {{ 'PATTOOL_PARAMS.COL_VALUE' | translate }}
+              <i class="fa" [ngClass]="sortIcon('value')" aria-hidden="true"></i>
+            </button>
+            <input
+              type="search"
+              class="pp-h-filter"
+              [class.pp-h-filter--active]="valueFilter.trim().length > 0"
+              [(ngModel)]="valueFilter"
+              [placeholder]="'PATTOOL_PARAMS.FILTER.COL_VALUE' | translate"
+              autocomplete="off"
+              [attr.aria-label]="'PATTOOL_PARAMS.FILTER.COL_VALUE' | translate" />
+          </div>
+          <span
+            class="pp-col-resizer"
+            role="separator"
+            [attr.aria-label]="'PATTOOL_PARAMS.RESIZE_COLUMN' | translate"
+            (mousedown)="startColumnResize($event, 'value')"></span>
+        </div>
+        <div class="pp-h-cell">
+          <div class="pp-h-stack">
+            <button
+              type="button"
+              class="pp-h-btn"
+              [class.pp-h-btn--active]="isSortActive('origin')"
+              (click)="toggleSort('origin')">
+              {{ 'PATTOOL_PARAMS.COL_ORIGIN' | translate }}
+              <i class="fa" [ngClass]="sortIcon('origin')" aria-hidden="true"></i>
+            </button>
+            <select
+              class="pp-h-filter"
+              [class.pp-h-filter--active]="originFilter !== 'all'"
+              [(ngModel)]="originFilter"
+              [attr.aria-label]="'PATTOOL_PARAMS.FILTER.COL_ORIGIN' | translate">
+              <option *ngFor="let f of originFilters" [value]="f">
+                {{ originFilterLabelKey(f) | translate }}
+              </option>
+            </select>
+          </div>
+          <span
+            class="pp-col-resizer"
+            role="separator"
+            [attr.aria-label]="'PATTOOL_PARAMS.RESIZE_COLUMN' | translate"
+            (mousedown)="startColumnResize($event, 'origin')"></span>
+        </div>
+        <div class="pp-h-cell pp-h-cell--last">
+          <div class="pp-h-stack">
+            <button
+              type="button"
+              class="pp-h-btn"
+              [class.pp-h-btn--active]="isSortActive('codeDefault')"
+              (click)="toggleSort('codeDefault')">
+              {{ 'PATTOOL_PARAMS.COL_CODE_DEFAULT' | translate }}
+              <i class="fa" [ngClass]="sortIcon('codeDefault')" aria-hidden="true"></i>
+            </button>
+            <input
+              type="search"
+              class="pp-h-filter"
+              [class.pp-h-filter--active]="codeDefaultFilter.trim().length > 0"
+              [(ngModel)]="codeDefaultFilter"
+              [placeholder]="'PATTOOL_PARAMS.FILTER.COL_CODE_DEFAULT' | translate"
+              autocomplete="off"
+              [attr.aria-label]="'PATTOOL_PARAMS.FILTER.COL_CODE_DEFAULT' | translate" />
+          </div>
+          <span
+            class="pp-col-resizer"
+            role="separator"
+            [attr.aria-label]="'PATTOOL_PARAMS.RESIZE_COLUMN' | translate"
+            (mousedown)="startColumnResize($event, 'codeDefault')"></span>
+        </div>
+      </div>
+
+      <div class="pp-list-scroll">
+        <article
+          *ngFor="let row of displayRows; trackBy: trackByKey"
+          class="pp-item"
+          [class.pp-item--sensitive]="row.sensitive"
+          [class.pp-item--unset]="isUnsetValue(row.value)">
+          <p *ngIf="row.description || row.descriptionInferred" class="pp-item-desc">{{ descriptionText(row) }}</p>
+          <div class="pp-item-grid">
+            <span class="pp-sec-tag" [ngClass]="sectionTone(row.sectionId)" [title]="row.sectionLabelKey | translate">
+              {{ row.sectionLabelKey | translate }}
+            </span>
+            <code class="pp-key" [title]="row.key">{{ row.key }}</code>
+            <span class="pp-val" [class.pp-val--muted]="isUnsetValue(row.value)" [title]="row.value">{{ displayValue(row.value) }}</span>
+            <span class="pp-pill" [ngClass]="originBadgeClass(row.origin)">
+              <i class="fa" [ngClass]="originIcon(row.origin)" aria-hidden="true"></i>
+              <span class="pp-pill-text">{{ originLabelKey(row.origin) | translate }}</span>
+            </span>
+            <code
+              *ngIf="row.codeDefault"
+              class="pp-def"
+              [title]="row.codeDefault">{{ row.codeDefault }}</code>
+            <span *ngIf="!row.codeDefault" class="pp-def pp-def--empty">{{ 'PATTOOL_PARAMS.VALUE.EMPTY' | translate }}</span>
+          </div>
+        </article>
+
+        <div *ngIf="displayRows.length === 0" class="pp-empty">
+          <i class="fa fa-search pp-empty-icon" aria-hidden="true"></i>
+          <p>{{ 'PATTOOL_PARAMS.FILTER.NO_RESULTS' | translate }}</p>
+          <button type="button" class="pp-btn-reset" (click)="clearFilters()">
+            {{ 'PATTOOL_PARAMS.FILTER.CLEAR' | translate }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+</div>

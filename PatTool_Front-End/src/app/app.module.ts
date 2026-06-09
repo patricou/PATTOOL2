@@ -31,6 +31,7 @@ import { LinksAdminComponent } from './admin/links-admin/links-admin.component';
 import { HashLocationStrategy, LocationStrategy, IMAGE_CONFIG } from '@angular/common';
 import { UnsavedChangesGuard } from './guards/unsaved-changes.guard';
 import { IotRoleGuard } from './guards/iot-role.guard';
+import { AdminRoleGuard } from './guards/admin-role.guard';
 import { IotService } from './services/iot.service';
 import { LocalNetworkService } from './services/local-network.service';
 import { NavigationButtonsModule } from './shared/navigation-buttons/navigation-buttons.module';
@@ -126,6 +127,12 @@ export function HttpLoaderFactory(http: HttpClient) {
 			{ 
 				path: 'system', 
 				loadComponent: () => import('./system/system.component').then(m => m.SystemComponent)
+			},
+			{
+				path: 'tools/pattool-parameters',
+				loadComponent: () =>
+					import('./pattool-parameters/pattool-parameters.component').then(m => m.PattoolParametersComponent),
+				canActivate: [AdminRoleGuard]
 			},
 			{ 
 				path: 'api/openweathermap', 

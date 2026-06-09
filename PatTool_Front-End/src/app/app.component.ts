@@ -174,6 +174,7 @@ export class AppComponent implements OnInit {
         { kind: 'route', routerLink: ['tools/pdf-converter'], icon: 'fa fa-file-pdf-o', labelKey: 'MENU.PDF_CONVERTER' },
         { kind: 'route', routerLink: ['tools/ods-editor'], icon: 'fa fa-table', labelKey: 'MENU.ODS_EDITOR' },
         { kind: 'route', routerLink: ['system'], icon: 'fa fa-cog', labelKey: 'MENU.SYSTEM', authOnly: true },
+        { kind: 'route', routerLink: ['tools/pattool-parameters'], icon: 'fa fa-sliders', labelKey: 'MENU.PATTOOL_PARAMETERS', authOnly: true, adminOnly: true },
         { kind: 'route', routerLink: ['maps'], icon: 'fa fa-map', labelKey: 'MENU.MAPS' },
         { kind: 'upload', icon: 'fa fa-cloud-upload', labelKey: 'UPLOADFILE.MENU' },
         { kind: 'share', icon: 'fa fa-share-alt', labelKey: 'SHAREFILE.MENU' },
