@@ -22,6 +22,9 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Planned route lookup via the public <a href="https://www.adsbdb.com">adsbdb.com</a> API.
  * Used when OpenSky omits {@code estArrivalAirport} for an in-progress flight.
+ *
+ * <p>Flight numbers often serve different routes on different days; the destination is only
+ * accepted when adsbdb's origin ICAO matches the live OpenSky departure airport.</p>
  */
 @Service
 public class AdsbdFlightRouteService {
@@ -47,26 +50,55 @@ public class AdsbdFlightRouteService {
         this.baseUrl = baseUrl.replaceAll("/+$", "");
     }
 
-    /** Destination airport for a radio callsign / flight number (e.g. {@code RYR2DD}). */
-    public Optional<RouteAirport> destinationForCallsign(String callsign) {
+    /**
+     * Destination airport when adsbdb's planned origin matches {@code departureIcao}
+     * (or when no departure is known yet).
+     */
+    public Optional<RouteAirport> destinationMatchingDeparture(String callsign, String departureIcao) {
         if (!enabled || callsign == null || callsign.isBlank()) {
             return Optional.empty();
         }
         if (!OpenSkyService.isValidCallsign(callsign)) {
             return Optional.empty();
         }
-        String key = callsign.trim().toUpperCase(Locale.ROOT);
-        long now = System.currentTimeMillis();
-        CacheEntry cached = cache.get(key);
-        if (cached != null && (now - cached.atMs) < CACHE_TTL_MS) {
-            return cached.airport == null ? Optional.empty() : Optional.of(cached.airport);
+        Optional<PlannedRoute> route = plannedRouteForCallsign(callsign.trim().toUpperCase(Locale.ROOT));
+        if (route.isEmpty()) {
+            return Optional.empty();
         }
-        RouteAirport resolved = fetchDestination(key);
-        cache.put(key, new CacheEntry(now, resolved));
+        PlannedRoute planned = route.get();
+        if (planned.destination() == null) {
+            return Optional.empty();
+        }
+        String dep = normalizeIcao(departureIcao);
+        if (dep == null) {
+            log.debug("adsbdb: skip {} — no live departure airport to validate route", callsign);
+            return Optional.empty();
+        }
+        if (planned.origin() == null || planned.origin().icao() == null) {
+            log.debug("adsbdb: skip {} — planned route has no origin", callsign);
+            return Optional.empty();
+        }
+        if (!dep.equals(planned.origin().icao())) {
+            log.debug(
+                    "adsbdb: ignore route for {} — planned origin {} != live departure {}",
+                    callsign, planned.origin().icao(), dep);
+            return Optional.empty();
+        }
+        return Optional.of(planned.destination());
+    }
+
+    private Optional<PlannedRoute> plannedRouteForCallsign(String callsignUpper) {
+        long now = System.currentTimeMillis();
+        CacheEntry cached = cache.get(callsignUpper);
+        if (cached != null && (now - cached.atMs) < CACHE_TTL_MS) {
+            return cached.route == null ? Optional.empty() : Optional.of(cached.route);
+        }
+        PlannedRoute resolved = fetchPlannedRoute(callsignUpper);
+        cache.put(callsignUpper, new CacheEntry(now, resolved));
         return resolved == null ? Optional.empty() : Optional.of(resolved);
     }
 
-    private RouteAirport fetchDestination(String callsignUpper) {
+    private PlannedRoute fetchPlannedRoute(String callsignUpper) {
         String url = baseUrl + "/callsign/" + callsignUpper;
         HttpHeaders headers = new HttpHeaders();
         headers.set(HttpHeaders.USER_AGENT, "PATTOOL-GlobeProxy/1.0");
@@ -77,12 +109,16 @@ public class AdsbdFlightRouteService {
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
                 return null;
             }
-            JsonNode dest = objectMapper.readTree(response.getBody())
-                    .path("response").path("flightroute").path("destination");
-            if (dest.isMissingNode() || dest.isNull()) {
+            JsonNode routeNode = objectMapper.readTree(response.getBody()).path("response").path("flightroute");
+            if (routeNode.isMissingNode() || routeNode.isNull()) {
                 return null;
             }
-            return airportFromJson(dest);
+            RouteAirport origin = airportFromJson(routeNode.path("origin"));
+            RouteAirport destination = airportFromJson(routeNode.path("destination"));
+            if (destination == null) {
+                return null;
+            }
+            return new PlannedRoute(origin, destination);
         } catch (HttpClientErrorException e) {
             if (e.getStatusCode().value() == 404) {
                 log.debug("adsbdb: no route for callsign {}", callsignUpper);
@@ -97,7 +133,10 @@ public class AdsbdFlightRouteService {
     }
 
     private static RouteAirport airportFromJson(JsonNode node) {
-        String icao = textOrNull(node, "icao_code");
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return null;
+        }
+        String icao = normalizeIcao(textOrNull(node, "icao_code"));
         if (icao == null) {
             return null;
         }
@@ -105,7 +144,15 @@ public class AdsbdFlightRouteService {
                 icao,
                 textOrNull(node, "iata_code"),
                 textOrNull(node, "name"),
-                textOrNull(node, "municipality"));
+                textOrNull(node, "municipality"),
+                textOrNull(node, "country_name"));
+    }
+
+    private static String normalizeIcao(String icao) {
+        if (icao == null || icao.isBlank() || icao.length() != 4) {
+            return null;
+        }
+        return icao.trim().toUpperCase(Locale.ROOT);
     }
 
     private static String textOrNull(JsonNode node, String field) {
@@ -116,7 +163,9 @@ public class AdsbdFlightRouteService {
         return v.isEmpty() ? null : v;
     }
 
-    public record RouteAirport(String icao, String iata, String name, String city) {}
+    public record RouteAirport(String icao, String iata, String name, String city, String country) {}
 
-    private record CacheEntry(long atMs, RouteAirport airport) {}
+    public record PlannedRoute(RouteAirport origin, RouteAirport destination) {}
+
+    private record CacheEntry(long atMs, PlannedRoute route) {}
 }

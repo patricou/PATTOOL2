@@ -19,7 +19,6 @@ import { Subscription, firstValueFrom, timeout } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { ApiService, IssAlertConfig, IssCompassCalibration } from '../services/api.service';
 import { AirportIcaoEntry, AirportLookupService } from '../services/airport-lookup.service';
-import { FlightRouteLookupService } from '../services/flight-route-lookup.service';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { environment } from '../../environments/environment';
@@ -245,7 +244,6 @@ function globePixelRatioCap(): number {
 export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private readonly apiService = inject(ApiService);
   private readonly airportLookup = inject(AirportLookupService);
-  private readonly flightRouteLookup = inject(FlightRouteLookupService);
   private readonly http = inject(HttpClient);
   private readonly translate = inject(TranslateService);
   private readonly cdr = inject(ChangeDetectorRef);
@@ -395,6 +393,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   /** City / town for departure / arrival airports. */
   flightDepartureCity: string | null = null;
   flightArrivalCity: string | null = null;
+  flightArrivalCountry: string | null = null;
   private airportLookupMap: Map<string, AirportIcaoEntry> | null = null;
   /** Estimated departure / arrival times (UTC epoch seconds, OpenSky). */
   flightDepartureTimeEpoch: number | null = null;
@@ -6839,6 +6838,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.flightArrivalAirportIata = null;
     this.flightDepartureCity = null;
     this.flightArrivalCity = null;
+    this.flightArrivalCountry = null;
     this.flightDepartureTimeEpoch = null;
     this.flightArrivalTimeEpoch = null;
   }
@@ -6885,6 +6885,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     arrivalAirportIata?: string | null;
     departureCity?: string | null;
     arrivalCity?: string | null;
+    arrivalCountry?: string | null;
   }): void {
     const dep = this.mergeAirportDetails(
       this.flightDepartureAirport,
@@ -6896,7 +6897,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.flightArrivalAirport,
       state.arrivalAirportName,
       state.arrivalAirportIata,
-      state.arrivalCity
+      state.arrivalCity,
+      state.arrivalCountry
     );
     this.flightDepartureAirportName = dep.name;
     this.flightDepartureAirportIata = dep.iata;
@@ -6904,6 +6906,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.flightArrivalAirportName = arr.name;
     this.flightArrivalAirportIata = arr.iata;
     this.flightArrivalCity = arr.city;
+    this.flightArrivalCountry = arr.country;
   }
 
   private refreshFlightAirportLabelsFromLookup(): void {
@@ -6917,7 +6920,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.flightArrivalAirport,
       this.flightArrivalAirportName,
       this.flightArrivalAirportIata,
-      this.flightArrivalCity
+      this.flightArrivalCity,
+      this.flightArrivalCountry
     );
     this.flightDepartureAirportName = dep.name;
     this.flightDepartureAirportIata = dep.iata;
@@ -6925,14 +6929,16 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.flightArrivalAirportName = arr.name;
     this.flightArrivalAirportIata = arr.iata;
     this.flightArrivalCity = arr.city;
+    this.flightArrivalCountry = arr.country;
   }
 
   private mergeAirportDetails(
     icao: string | null,
     apiName?: string | null,
     apiIata?: string | null,
-    apiCity?: string | null
-  ): { name: string | null; iata: string | null; city: string | null } {
+    apiCity?: string | null,
+    apiCountry?: string | null
+  ): { name: string | null; iata: string | null; city: string | null; country: string | null } {
     const lookup =
       this.airportLookupMap != null
         ? this.airportLookup.resolveCached(icao, this.airportLookupMap)
@@ -6940,26 +6946,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     const name = apiName?.trim() || lookup?.name || null;
     const iata = apiIata?.trim().toUpperCase() || lookup?.iata || null;
     const city = apiCity?.trim() || lookup?.city || null;
-    return { name, iata, city };
-  }
-
-  /** adsbdb.com planned route when OpenSky omits estArrivalAirport (common in-flight). */
-  private async enrichMissingArrivalFromRouteDatabase(callsign: string | null | undefined): Promise<void> {
-    if (this.flightArrivalAirport || !callsign?.trim()) {
-      return;
-    }
-    const dest = await this.flightRouteLookup.destinationForCallsign(callsign);
-    if (!dest || !this.flightTrackingActive) {
-      return;
-    }
-    this.flightArrivalAirport = dest.icao;
-    this.flightArrivalAirportName = dest.name;
-    this.flightArrivalAirportIata = dest.iata;
-    this.flightArrivalCity = dest.city;
-    const lookup = this.mergeAirportDetails(dest.icao, dest.name, dest.iata, dest.city);
-    this.flightArrivalAirportName = lookup.name;
-    this.flightArrivalAirportIata = lookup.iata;
-    this.flightArrivalCity = lookup.city;
+    const country = apiCountry?.trim() || lookup?.country || null;
+    return { name, iata, city, country };
   }
 
   /** Formats a flight time (UTC epoch seconds) for display, or « — » if missing. */
@@ -7089,7 +7077,6 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
           ? state.arrivalAirport.trim().toUpperCase()
           : null;
       this.applyFlightAirportDetailsFromState(state);
-      await this.enrichMissingArrivalFromRouteDatabase(this.flightCallsign ?? query);
       this.flightDepartureTimeEpoch =
         typeof state.departureTimeEpoch === 'number' && state.departureTimeEpoch > 0
           ? state.departureTimeEpoch

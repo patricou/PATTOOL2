@@ -683,6 +683,10 @@
                     <strong class="wg-flight-info__v">{{ flightArrivalCity || '—' }}</strong>
                   </div>
                   <div class="wg-flight-info__row">
+                    <span class="wg-flight-info__k">{{ 'WORLD_GLOBE.FLIGHT_ARRIVAL_COUNTRY' | translate }}</span>
+                    <strong class="wg-flight-info__v">{{ flightArrivalCountry || '—' }}</strong>
+                  </div>
+                  <div class="wg-flight-info__row">
                     <span class="wg-flight-info__k">{{ 'WORLD_GLOBE.FLIGHT_DEPARTURE_TIME' | translate }}</span>
                     <strong class="wg-flight-info__v text-monospace">{{ formatFlightTimeEpoch(flightDepartureTimeEpoch) }}</strong>
                   </div>

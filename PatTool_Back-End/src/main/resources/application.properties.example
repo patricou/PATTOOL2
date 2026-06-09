@@ -130,7 +130,9 @@ opensky.client-secret=
 # opensky.all-states-stale-max-seconds=900
 
 # --- Flight route enrichment (adsbdb.com, no API key) ---
-# When OpenSky omits estArrivalAirport during a live flight, lookup planned destination by callsign.
+# When OpenSky omits estArrivalAirport during a live flight:
+# 1) retry OpenSky /flights/departure from the known departure airport + callsign
+# 2) fallback adsbdb only if its planned origin matches the live OpenSky departure
 # flight.adsbdb.enabled=true
 # flight.adsbdb.base-url=https://api.adsbdb.com/v0
 

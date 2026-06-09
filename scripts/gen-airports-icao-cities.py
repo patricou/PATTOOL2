@@ -34,6 +34,7 @@ def main() -> int:
                 continue
             name = parts[1].strip()
             city = parts[2].strip()
+            country = parts[3].strip()
             iata = parts[4].strip()
             icao = parts[5].strip()
             if not icao or icao == "\\N" or len(icao) != 4:
@@ -43,6 +44,8 @@ def main() -> int:
                 entry["n"] = name
             if city and city != "\\N":
                 entry["c"] = city
+            if country and country != "\\N":
+                entry["co"] = country
             if iata and iata != "\\N" and len(iata) == 3:
                 entry["i"] = iata
             if entry:

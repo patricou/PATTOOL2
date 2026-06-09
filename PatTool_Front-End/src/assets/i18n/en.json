@@ -482,6 +482,7 @@
         "FLIGHT_ARRIVAL_AIRPORT": "Arrival airport",
         "FLIGHT_DEPARTURE_CITY": "Departure city",
         "FLIGHT_ARRIVAL_CITY": "Arrival city",
+        "FLIGHT_ARRIVAL_COUNTRY": "Arrival country",
         "FLIGHT_DEPARTURE_TIME": "Est. departure time",
         "FLIGHT_ARRIVAL_TIME": "Est. arrival time",
         "FLIGHT_ICAO24": "ICAO24",

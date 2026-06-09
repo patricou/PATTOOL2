@@ -45,6 +45,8 @@ export interface FlightState {
   departureCity?: string | null;
   /** Municipality for arrival airport (ICAO lookup). */
   arrivalCity?: string | null;
+  /** Destination country (ICAO lookup or adsbdb). */
+  arrivalCountry?: string | null;
   /** Estimated departure time (OpenSky firstSeen, Unix epoch seconds UTC). */
   departureTimeEpoch?: number | null;
   /** Estimated arrival time (OpenSky lastSeen, Unix epoch seconds UTC). */

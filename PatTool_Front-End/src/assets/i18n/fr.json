@@ -482,6 +482,7 @@
         "FLIGHT_ARRIVAL_AIRPORT": "Aéroport d'arrivée",
         "FLIGHT_DEPARTURE_CITY": "Ville de départ",
         "FLIGHT_ARRIVAL_CITY": "Ville d'arrivée",
+        "FLIGHT_ARRIVAL_COUNTRY": "Pays d'arrivée",
         "FLIGHT_DEPARTURE_TIME": "Heure de départ (estim.)",
         "FLIGHT_ARRIVAL_TIME": "Heure d’arrivée (estim.)",
         "FLIGHT_ICAO24": "ICAO24",

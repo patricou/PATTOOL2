@@ -7,6 +7,7 @@ export interface AirportIcaoEntry {
   n?: string;
   c?: string;
   i?: string;
+  co?: string;
 }
 
 export interface ResolvedAirport {
@@ -14,6 +15,7 @@ export interface ResolvedAirport {
   name: string | null;
   city: string | null;
   iata: string | null;
+  country: string | null;
 }
 
 /**
@@ -34,13 +36,14 @@ export class AirportLookupService {
     }
     const entry = map.get(code);
     if (!entry) {
-      return { icao: code, name: null, city: null, iata: null };
+      return { icao: code, name: null, city: null, iata: null, country: null };
     }
     return {
       icao: code,
       name: entry.n?.trim() || null,
       city: entry.c?.trim() || null,
-      iata: entry.i?.trim() || null
+      iata: entry.i?.trim() || null,
+      country: entry.co?.trim() || null
     };
   }
 

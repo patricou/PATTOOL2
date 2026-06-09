@@ -53,12 +53,14 @@ public class AirportLookupService {
     public record AirportInfo(
             @JsonProperty("n") String name,
             @JsonProperty("c") String city,
-            @JsonProperty("i") String iata) {
+            @JsonProperty("i") String iata,
+            @JsonProperty("co") String country) {
 
         boolean isEmpty() {
             return (name == null || name.isBlank())
                     && (city == null || city.isBlank())
-                    && (iata == null || iata.isBlank());
+                    && (iata == null || iata.isBlank())
+                    && (country == null || country.isBlank());
         }
     }
 }
