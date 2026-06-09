@@ -129,6 +129,11 @@ opensky.client-secret=
 # Reuse stale snapshot up to N seconds when OpenSky returns 429 (default 900 = 15 min).
 # opensky.all-states-stale-max-seconds=900
 
+# --- Flight route enrichment (adsbdb.com, no API key) ---
+# When OpenSky omits estArrivalAirport during a live flight, lookup planned destination by callsign.
+# flight.adsbdb.enabled=true
+# flight.adsbdb.base-url=https://api.adsbdb.com/v0
+
 # --- Chemistry external APIs (proxy /api/external/chem/*) ---
 # PubChem PUG REST (no API key required, public data): periodic table, molecules, 2D images, autocomplete
 # app.chem.pubchem-rest-base=https://pubchem.ncbi.nlm.nih.gov/rest/pug

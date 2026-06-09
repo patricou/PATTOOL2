@@ -126,7 +126,7 @@ public class SecurityConfig {
                         "img-src 'self' data: https: blob:; " +
                         "media-src 'self' data: https: blob:; " +
                         "font-src 'self' data: https://fonts.gstatic.com https://maxcdn.bootstrapcdn.com; " +
-                        "connect-src 'self' blob: http://localhost:8080 http://localhost:8000 https://www.patrickdeschamps.com:8543 https://cdn.jsdelivr.net https://*.googleapis.com https://www.googleapis.com https://*.gstatic.com https://www.gstatic.com https://nominatim.openstreetmap.org https://api.open-elevation.com ws://localhost:8000 http://localhost:8000/ws; " +
+                        "connect-src 'self' blob: http://localhost:8080 http://localhost:8000 https://www.patrickdeschamps.com:8543 https://cdn.jsdelivr.net https://*.googleapis.com https://www.googleapis.com https://*.gstatic.com https://www.gstatic.com https://nominatim.openstreetmap.org https://api.open-elevation.com https://api.adsbdb.com ws://localhost:8000 http://localhost:8000/ws; " +
                         "frame-src 'self' https://www.patrickdeschamps.com:8543 http://localhost:8080 https://www.google.com https://maps.google.com https://*.google.com https://cartes.gouv.fr https://www.youtube.com https://www.youtube-nocookie.com https://stellarium-web.org https://*.stellarium-web.org https://d3ufh70wg9uzo4.cloudfront.net;")
                 )
                 // Disable X-Frame-Options (defaults to DENY in Spring Security); framing is governed by CSP frame-ancestors.

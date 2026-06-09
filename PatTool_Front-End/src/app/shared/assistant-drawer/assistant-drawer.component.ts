@@ -90,6 +90,7 @@ import {
   ASSISTANT_GEMINI_MODEL_PRESETS,
   ASSISTANT_OPENAI_MODEL_PRESETS
 } from './assistant-model-presets';
+import { ASSISTANT_ANTHROPIC_MODEL_GUIDE_ROWS } from './assistant-anthropic-model-guide';
 import { ASSISTANT_MODEL_RANKING_ROWS } from './assistant-model-ranking-table';
 
 @Component({
@@ -415,6 +416,8 @@ export class AssistantDrawerComponent
 
   /** Catalogue modèle / tâche pour la modale d’aide « ℹ︎ » à côté de MCP. */
   readonly assistantModelRankingRows = ASSISTANT_MODEL_RANKING_ROWS;
+  /** Guide Anthropic (Fable / Opus / Sonnet / Haiku) dans la même modale. */
+  readonly assistantAnthropicModelGuideRows = ASSISTANT_ANTHROPIC_MODEL_GUIDE_ROWS;
 
   /** Modèle du fournisseur par défaut serveur (legacy, = celui de {@code routingDefault}). */
   serverDefaultModel = '';

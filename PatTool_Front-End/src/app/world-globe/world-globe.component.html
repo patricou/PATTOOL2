@@ -668,11 +668,19 @@
                   </div>
                   <div class="wg-flight-info__row">
                     <span class="wg-flight-info__k">{{ 'WORLD_GLOBE.FLIGHT_DEPARTURE_AIRPORT' | translate }}</span>
-                    <strong class="wg-flight-info__v text-monospace">{{ flightDepartureAirport || '—' }}</strong>
+                    <strong class="wg-flight-info__v">{{ formatFlightAirport(flightDepartureAirportName, flightDepartureAirportIata, flightDepartureAirport) }}</strong>
+                  </div>
+                  <div class="wg-flight-info__row">
+                    <span class="wg-flight-info__k">{{ 'WORLD_GLOBE.FLIGHT_DEPARTURE_CITY' | translate }}</span>
+                    <strong class="wg-flight-info__v">{{ flightDepartureCity || '—' }}</strong>
                   </div>
                   <div class="wg-flight-info__row">
                     <span class="wg-flight-info__k">{{ 'WORLD_GLOBE.FLIGHT_ARRIVAL_AIRPORT' | translate }}</span>
-                    <strong class="wg-flight-info__v text-monospace">{{ flightArrivalAirport || '—' }}</strong>
+                    <strong class="wg-flight-info__v">{{ formatFlightAirport(flightArrivalAirportName, flightArrivalAirportIata, flightArrivalAirport) }}</strong>
+                  </div>
+                  <div class="wg-flight-info__row">
+                    <span class="wg-flight-info__k">{{ 'WORLD_GLOBE.FLIGHT_ARRIVAL_CITY' | translate }}</span>
+                    <strong class="wg-flight-info__v">{{ flightArrivalCity || '—' }}</strong>
                   </div>
                   <div class="wg-flight-info__row">
                     <span class="wg-flight-info__k">{{ 'WORLD_GLOBE.FLIGHT_DEPARTURE_TIME' | translate }}</span>
@@ -1229,7 +1237,7 @@
               </div>
 
               <!-- Identification du Nord : 4 méthodes (capteurs / manuel / marche GPS / Soleil) -->
-              <ng-container *ngIf="issCompassHeadingActive">
+              <ng-container>
                 <!-- À caler : invite + choix de méthode (4 boutons) -->
                 <div class="wg-compass-cal wg-compass-cal--warn" *ngIf="issCompassCalStatus === 'uncalibrated' && issCompassCalMethod == null">
                   <div class="wg-compass-cal__head">
@@ -1357,7 +1365,7 @@
                     <i class="fa fa-refresh me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_CAL_REDO' | translate }}
                   </button>
                 </div>
-              </ng-container>
+              </ng-container><!-- fin choix / suivi calage Nord -->
 
               <!-- Mode automatique : alpha / beta / gamma en direct -->
               <div class="wg-compass-sensors-live" *ngIf="issCompassShowLiveSensorValues()">

@@ -18,6 +18,8 @@ import { HttpClient } from '@angular/common/http';
 import { Subscription, firstValueFrom, timeout } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { ApiService, IssAlertConfig, IssCompassCalibration } from '../services/api.service';
+import { AirportIcaoEntry, AirportLookupService } from '../services/airport-lookup.service';
+import { FlightRouteLookupService } from '../services/flight-route-lookup.service';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { environment } from '../../environments/environment';
@@ -242,6 +244,8 @@ function globePixelRatioCap(): number {
 })
 export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private readonly apiService = inject(ApiService);
+  private readonly airportLookup = inject(AirportLookupService);
+  private readonly flightRouteLookup = inject(FlightRouteLookupService);
   private readonly http = inject(HttpClient);
   private readonly translate = inject(TranslateService);
   private readonly cdr = inject(ChangeDetectorRef);
@@ -384,6 +388,14 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   /** ICAO airport codes for departure / arrival (OpenSky). */
   flightDepartureAirport: string | null = null;
   flightArrivalAirport: string | null = null;
+  flightDepartureAirportName: string | null = null;
+  flightArrivalAirportName: string | null = null;
+  flightDepartureAirportIata: string | null = null;
+  flightArrivalAirportIata: string | null = null;
+  /** City / town for departure / arrival airports. */
+  flightDepartureCity: string | null = null;
+  flightArrivalCity: string | null = null;
+  private airportLookupMap: Map<string, AirportIcaoEntry> | null = null;
   /** Estimated departure / arrival times (UTC epoch seconds, OpenSky). */
   flightDepartureTimeEpoch: number | null = null;
   flightArrivalTimeEpoch: number | null = null;
@@ -934,6 +946,13 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   };
 
   ngAfterViewInit(): void {
+    void this.airportLookup.ensureLoaded().then((map) => {
+      this.airportLookupMap = map;
+      if (this.flightTrackingActive) {
+        this.refreshFlightAirportLabelsFromLookup();
+        this.scheduleWorldGlobeCdr();
+      }
+    });
     this.routeQuerySub = this.route.queryParamMap.subscribe((params) => {
       this.applyDeepLinkAutoRotatePreference(params);
       const latStr = params.get('lat');
@@ -5658,12 +5677,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
             this.applyIssCompassNorthOffset();
           }
         }
-        this.maybeAutoApplyIssCompassSensorCal();
         this.cdr.markForCheck();
       },
       error: () => {
         this.issCompassCalLoadPending = false;
-        this.maybeAutoApplyIssCompassSensorCal();
         this.cdr.markForCheck();
       },
     });
@@ -5675,37 +5692,6 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       return false;
     }
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  }
-
-  /**
-   * Le cap provient bien du magnétomètre (orientation absolue ou boussole iOS),
-   * pas d’un cap GPS ou d’une orientation relative arbitraire.
-   */
-  private hasIssCompassMagneticHeading(): boolean {
-    return (
-      this.issCompassHeadingActive &&
-      this.issCompassHeadingRawDeg != null &&
-      (this.issCompassOrientationEventName === 'deviceorientationabsolute' ||
-        this.issCompassSensorAbsolute === true ||
-        this.issCompassSensorWebkitHeading != null)
-    );
-  }
-
-  /**
-   * Sur smartphone, applique par défaut le mode « Automatique (capteurs) » dès que
-   * le magnétomètre fournit un cap absolu, sauf si un calage mémorisé existe déjà.
-   */
-  private maybeAutoApplyIssCompassSensorCal(): void {
-    if (
-      this.issCompassCalLoadPending ||
-      !this.isIssCompassMobileDevice() ||
-      !this.hasIssCompassMagneticHeading() ||
-      this.issCompassCalStatus !== 'uncalibrated' ||
-      this.issCompassCalMethod != null
-    ) {
-      return;
-    }
-    this.chooseIssCompassCalMethod('sensor');
   }
 
   /** Méthode de calage reconnue (une des 4 prises en charge). */
@@ -5969,7 +5955,6 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.issCompassSensorAbsolute = isAbsolute;
       this.issCompassSensorWebkitHeading = webkitHeading;
       this.issCompassSensorWebkitAccuracy = acc;
-      this.maybeAutoApplyIssCompassSensorCal();
       this.cdr.markForCheck();
     });
   };
@@ -6848,8 +6833,133 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.flightLastContactEpoch = null;
     this.flightDepartureAirport = null;
     this.flightArrivalAirport = null;
+    this.flightDepartureAirportName = null;
+    this.flightArrivalAirportName = null;
+    this.flightDepartureAirportIata = null;
+    this.flightArrivalAirportIata = null;
+    this.flightDepartureCity = null;
+    this.flightArrivalCity = null;
     this.flightDepartureTimeEpoch = null;
     this.flightArrivalTimeEpoch = null;
+  }
+
+  /** Formats airport for display: name with IATA / ICAO codes. */
+  formatFlightAirport(
+    name: string | null | undefined,
+    iata: string | null | undefined,
+    icao: string | null | undefined
+  ): string {
+    const airportName = name?.trim();
+    const iataCode = iata?.trim().toUpperCase();
+    const icaoCode = icao?.trim().toUpperCase();
+    if (airportName) {
+      if (iataCode && icaoCode) {
+        return `${airportName} (${iataCode} / ${icaoCode})`;
+      }
+      if (icaoCode) {
+        return `${airportName} (${icaoCode})`;
+      }
+      if (iataCode) {
+        return `${airportName} (${iataCode})`;
+      }
+      return airportName;
+    }
+    if (iataCode && icaoCode) {
+      return `${iataCode} / ${icaoCode}`;
+    }
+    if (icaoCode) {
+      return icaoCode;
+    }
+    if (iataCode) {
+      return iataCode;
+    }
+    return '—';
+  }
+
+  private applyFlightAirportDetailsFromState(state: {
+    departureAirport?: string | null;
+    arrivalAirport?: string | null;
+    departureAirportName?: string | null;
+    arrivalAirportName?: string | null;
+    departureAirportIata?: string | null;
+    arrivalAirportIata?: string | null;
+    departureCity?: string | null;
+    arrivalCity?: string | null;
+  }): void {
+    const dep = this.mergeAirportDetails(
+      this.flightDepartureAirport,
+      state.departureAirportName,
+      state.departureAirportIata,
+      state.departureCity
+    );
+    const arr = this.mergeAirportDetails(
+      this.flightArrivalAirport,
+      state.arrivalAirportName,
+      state.arrivalAirportIata,
+      state.arrivalCity
+    );
+    this.flightDepartureAirportName = dep.name;
+    this.flightDepartureAirportIata = dep.iata;
+    this.flightDepartureCity = dep.city;
+    this.flightArrivalAirportName = arr.name;
+    this.flightArrivalAirportIata = arr.iata;
+    this.flightArrivalCity = arr.city;
+  }
+
+  private refreshFlightAirportLabelsFromLookup(): void {
+    const dep = this.mergeAirportDetails(
+      this.flightDepartureAirport,
+      this.flightDepartureAirportName,
+      this.flightDepartureAirportIata,
+      this.flightDepartureCity
+    );
+    const arr = this.mergeAirportDetails(
+      this.flightArrivalAirport,
+      this.flightArrivalAirportName,
+      this.flightArrivalAirportIata,
+      this.flightArrivalCity
+    );
+    this.flightDepartureAirportName = dep.name;
+    this.flightDepartureAirportIata = dep.iata;
+    this.flightDepartureCity = dep.city;
+    this.flightArrivalAirportName = arr.name;
+    this.flightArrivalAirportIata = arr.iata;
+    this.flightArrivalCity = arr.city;
+  }
+
+  private mergeAirportDetails(
+    icao: string | null,
+    apiName?: string | null,
+    apiIata?: string | null,
+    apiCity?: string | null
+  ): { name: string | null; iata: string | null; city: string | null } {
+    const lookup =
+      this.airportLookupMap != null
+        ? this.airportLookup.resolveCached(icao, this.airportLookupMap)
+        : null;
+    const name = apiName?.trim() || lookup?.name || null;
+    const iata = apiIata?.trim().toUpperCase() || lookup?.iata || null;
+    const city = apiCity?.trim() || lookup?.city || null;
+    return { name, iata, city };
+  }
+
+  /** adsbdb.com planned route when OpenSky omits estArrivalAirport (common in-flight). */
+  private async enrichMissingArrivalFromRouteDatabase(callsign: string | null | undefined): Promise<void> {
+    if (this.flightArrivalAirport || !callsign?.trim()) {
+      return;
+    }
+    const dest = await this.flightRouteLookup.destinationForCallsign(callsign);
+    if (!dest || !this.flightTrackingActive) {
+      return;
+    }
+    this.flightArrivalAirport = dest.icao;
+    this.flightArrivalAirportName = dest.name;
+    this.flightArrivalAirportIata = dest.iata;
+    this.flightArrivalCity = dest.city;
+    const lookup = this.mergeAirportDetails(dest.icao, dest.name, dest.iata, dest.city);
+    this.flightArrivalAirportName = lookup.name;
+    this.flightArrivalAirportIata = lookup.iata;
+    this.flightArrivalCity = lookup.city;
   }
 
   /** Formats a flight time (UTC epoch seconds) for display, or « — » if missing. */
@@ -6978,6 +7088,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
         state.arrivalAirport && state.arrivalAirport.trim() !== ''
           ? state.arrivalAirport.trim().toUpperCase()
           : null;
+      this.applyFlightAirportDetailsFromState(state);
+      await this.enrichMissingArrivalFromRouteDatabase(this.flightCallsign ?? query);
       this.flightDepartureTimeEpoch =
         typeof state.departureTimeEpoch === 'number' && state.departureTimeEpoch > 0
           ? state.departureTimeEpoch

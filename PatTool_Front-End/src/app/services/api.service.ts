@@ -37,6 +37,14 @@ export interface FlightState {
   departureAirport?: string | null;
   /** ICAO code of estimated arrival airport (OpenSky flights/aircraft). */
   arrivalAirport?: string | null;
+  departureAirportName?: string | null;
+  arrivalAirportName?: string | null;
+  departureAirportIata?: string | null;
+  arrivalAirportIata?: string | null;
+  /** Municipality for departure airport (ICAO lookup). */
+  departureCity?: string | null;
+  /** Municipality for arrival airport (ICAO lookup). */
+  arrivalCity?: string | null;
   /** Estimated departure time (OpenSky firstSeen, Unix epoch seconds UTC). */
   departureTimeEpoch?: number | null;
   /** Estimated arrival time (OpenSky lastSeen, Unix epoch seconds UTC). */

@@ -46,11 +46,11 @@ export const ASSISTANT_NEWS_LAUNCH_ROUTING: AssistantLaunchRouting = {
 };
 
 /**
- * Activities / events UI ({@code element-evenement}, home list, detail page) → Anthropic Claude Opus 4.7.
+ * Activities / events UI ({@code element-evenement}, home list, detail page) → Anthropic Claude Opus 4.8.
  */
 export const ASSISTANT_EVENT_ELEMENT_LAUNCH_ROUTING: AssistantLaunchRouting = {
   provider: 'anthropic',
-  modelPreset: 'claude-opus-4-7'
+  modelPreset: 'claude-opus-4-8'
 };
 
 export interface AssistantLaunchPayload {

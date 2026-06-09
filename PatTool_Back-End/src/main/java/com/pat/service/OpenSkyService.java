@@ -27,6 +27,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -78,6 +79,8 @@ public class OpenSkyService {
     private final long allStatesCacheSeconds;
     /** Max age (s) of a stale states/all snapshot used when OpenSky is rate-limited. */
     private final long allStatesStaleMaxSeconds;
+    private final AirportLookupService airportLookup;
+    private final AdsbdFlightRouteService adsbdFlightRouteService;
 
     // Simple cache of the full snapshot (callsign search).
     private volatile JsonNode cachedAllStates;
@@ -92,6 +95,8 @@ public class OpenSkyService {
     public OpenSkyService(
             @Qualifier(RestTemplateConfig.GLOBE_PROXY_REST_TEMPLATE) RestTemplate globeProxyRestTemplate,
             ObjectMapper objectMapper,
+            AirportLookupService airportLookup,
+            AdsbdFlightRouteService adsbdFlightRouteService,
             @Value("${opensky.base-url:https://opensky-network.org/api}") String baseUrl,
             @Value("${opensky.token-url:https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token}") String tokenUrl,
             @Value("${opensky.client-id:}") String clientId,
@@ -100,6 +105,8 @@ public class OpenSkyService {
             @Value("${opensky.all-states-stale-max-seconds:900}") long allStatesStaleMaxSeconds) {
         this.restTemplate = globeProxyRestTemplate;
         this.objectMapper = objectMapper;
+        this.airportLookup = airportLookup;
+        this.adsbdFlightRouteService = adsbdFlightRouteService;
         this.baseUrl = baseUrl.replaceAll("/+$", "");
         this.tokenUrl = tokenUrl;
         this.clientId = clientId == null ? "" : clientId.trim();
@@ -290,14 +297,62 @@ public class OpenSkyService {
             return state;
         }
         return lookupFlightScheduleForAircraft(state.icao24(), state.callsign(), state.lastContact())
-                .map(h -> new FlightStateDto(
-                        state.icao24(), state.callsign(), state.originCountry(),
-                        state.latitude(), state.longitude(), state.baroAltitudeM(), state.geoAltitudeM(),
-                        state.velocityMs(), state.trueTrackDeg(), state.verticalRateMs(), state.onGround(),
-                        state.lastContact(),
-                        h.departureAirport(), h.arrivalAirport(),
-                        h.departureTimeEpoch(), h.arrivalTimeEpoch()))
+                .or(() -> lookupArrivalFromAdsbd(state.callsign(), null))
+                .map(h -> withAirportDetails(flightStateWithScheduleHint(state, h)))
                 .orElse(state);
+    }
+
+    private static FlightStateDto flightStateWithScheduleHint(FlightStateDto state, FlightScheduleHint h) {
+        return new FlightStateDto(
+                state.icao24(), state.callsign(), state.originCountry(),
+                state.latitude(), state.longitude(), state.baroAltitudeM(), state.geoAltitudeM(),
+                state.velocityMs(), state.trueTrackDeg(), state.verticalRateMs(), state.onGround(),
+                state.lastContact(),
+                h.departureAirport(), h.arrivalAirport(),
+                null, null, null, null, null, null,
+                h.departureTimeEpoch(), h.arrivalTimeEpoch());
+    }
+
+    private FlightStateDto withAirportDetails(FlightStateDto state) {
+        String depName = null;
+        String depIata = null;
+        String depCity = null;
+        String arrName = null;
+        String arrIata = null;
+        String arrCity = null;
+        var dep = airportLookup.forIcao(state.departureAirport());
+        if (dep.isPresent()) {
+            AirportLookupService.AirportInfo info = dep.get();
+            depName = blankToNull(info.name());
+            depIata = blankToNull(info.iata());
+            depCity = blankToNull(info.city());
+        }
+        var arr = airportLookup.forIcao(state.arrivalAirport());
+        if (arr.isPresent()) {
+            AirportLookupService.AirportInfo info = arr.get();
+            arrName = blankToNull(info.name());
+            arrIata = blankToNull(info.iata());
+            arrCity = blankToNull(info.city());
+        }
+        if (depName == null && depIata == null && depCity == null
+                && arrName == null && arrIata == null && arrCity == null) {
+            return state;
+        }
+        return new FlightStateDto(
+                state.icao24(), state.callsign(), state.originCountry(),
+                state.latitude(), state.longitude(), state.baroAltitudeM(), state.geoAltitudeM(),
+                state.velocityMs(), state.trueTrackDeg(), state.verticalRateMs(), state.onGround(),
+                state.lastContact(),
+                state.departureAirport(), state.arrivalAirport(),
+                depName, arrName, depIata, arrIata, depCity, arrCity,
+                state.departureTimeEpoch(), state.arrivalTimeEpoch());
+    }
+
+    private static String blankToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
     }
 
     /** OpenSky flight schedule hint for the most recent flight (24 h). */
@@ -344,10 +399,80 @@ public class OpenSkyService {
             best = selectBestFlightRecord(flights, null, lastContactEpoch);
         }
         if (best == null) {
-            return Optional.empty();
+            return lookupArrivalFromAdsbd(callsign, null);
         }
-        FlightScheduleHint hint = flightScheduleFromRecord(best);
+        FlightScheduleHint hint = supplementAirportsFromSiblingFlights(flights, wantedCs, best, flightScheduleFromRecord(best));
+        if (hint.arrivalAirport() == null) {
+            return lookupArrivalFromAdsbd(callsign, hint);
+        }
         return hint.hasAny() ? Optional.of(hint) : Optional.empty();
+    }
+
+    /** Fills missing arrival from adsbdb planned route (callsign → destination). */
+    private Optional<FlightScheduleHint> lookupArrivalFromAdsbd(String callsign, FlightScheduleHint base) {
+        if (base != null && base.arrivalAirport() != null) {
+            return base.hasAny() ? Optional.of(base) : Optional.empty();
+        }
+        if (callsign == null || callsign.isBlank()) {
+            return base != null && base.hasAny() ? Optional.of(base) : Optional.empty();
+        }
+        return adsbdFlightRouteService.destinationForCallsign(callsign)
+                .map(dest -> {
+                    FlightScheduleHint merged = base == null
+                            ? new FlightScheduleHint(null, dest.icao(), null, null)
+                            : new FlightScheduleHint(
+                                    base.departureAirport(),
+                                    dest.icao(),
+                                    base.departureTimeEpoch(),
+                                    base.arrivalTimeEpoch());
+                    return merged.hasAny() ? merged : null;
+                })
+                .filter(h -> h != null)
+                .or(() -> base != null && base.hasAny() ? Optional.of(base) : Optional.empty());
+    }
+
+    /**
+     * When the best OpenSky leg lacks arrival (common in-flight), reuse {@code estArrivalAirport}
+     * from another leg with the same callsign and overlapping schedule.
+     */
+    private static FlightScheduleHint supplementAirportsFromSiblingFlights(
+            JsonNode flights, String wantedCallsign, JsonNode best, FlightScheduleHint hint) {
+        if (hint.arrivalAirport() != null && hint.departureAirport() != null) {
+            return hint;
+        }
+        long bestFirst = best.path("firstSeen").asLong(0);
+        long bestLast = best.path("lastSeen").asLong(0);
+        String dep = hint.departureAirport();
+        String arr = hint.arrivalAirport();
+        for (JsonNode f : flights) {
+            if (f == null || !f.isObject() || !callsignMatches(f, wantedCallsign)) {
+                continue;
+            }
+            long firstSeen = f.path("firstSeen").asLong(0);
+            long lastSeen = f.path("lastSeen").asLong(0);
+            if (firstSeen <= 0 || lastSeen <= 0) {
+                continue;
+            }
+            if (bestFirst > 0 && Math.abs(firstSeen - bestFirst) > 7_200L) {
+                continue;
+            }
+            if (bestLast > 0 && lastSeen < bestFirst - 900L) {
+                continue;
+            }
+            if (dep == null) {
+                dep = airportCodeOrNull(f, "estDepartureAirport");
+            }
+            if (arr == null) {
+                arr = airportCodeOrNull(f, "estArrivalAirport");
+            }
+            if (dep != null && arr != null) {
+                break;
+            }
+        }
+        if (Objects.equals(dep, hint.departureAirport()) && Objects.equals(arr, hint.arrivalAirport())) {
+            return hint;
+        }
+        return new FlightScheduleHint(dep, arr, hint.departureTimeEpoch(), hint.arrivalTimeEpoch());
     }
 
     /** Picks the flight leg best matching the live state (prefer segment containing {@code lastContact}). */
@@ -364,6 +489,9 @@ public class OpenSkyService {
                 continue;
             }
             long score = lastSeen;
+            if (airportCodeOrNull(f, "estDepartureAirport") != null && airportCodeOrNull(f, "estArrivalAirport") != null) {
+                score += 50_000_000L;
+            }
             if (airportCodeOrNull(f, "estDepartureAirport") != null) {
                 score += 10_000L;
             }
@@ -449,6 +577,12 @@ public class OpenSkyService {
                 doubleAt(s, I_VERT_RATE),
                 boolAt(s, I_ON_GROUND),
                 longAt(s, I_LAST_CONTACT),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 null,
                 null,
                 null,
