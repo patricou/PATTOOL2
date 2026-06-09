@@ -74,6 +74,7 @@ export class PattoolParametersComponent implements OnInit {
   keyFilter = '';
   valueFilter = '';
   codeDefaultFilter = '';
+  descriptionFilter = '';
   sortColumn: SortColumn = 'key';
   sortDirection: SortDirection = 'asc';
   columnWidths: ColumnWidths = { ...PattoolParametersComponent.DEFAULT_COLUMN_WIDTHS };
@@ -157,6 +158,10 @@ export class PattoolParametersComponent implements OnInit {
     if (codeDefaultQ) {
       rows = rows.filter((r) => (r.codeDefault ?? '').toLowerCase().includes(codeDefaultQ));
     }
+    const descriptionQ = this.descriptionFilter.trim().toLowerCase();
+    if (descriptionQ) {
+      rows = rows.filter((r) => this.descriptionSearchText(r).includes(descriptionQ));
+    }
     const q = this.searchText.trim().toLowerCase();
     if (q) {
       rows = rows.filter(
@@ -172,13 +177,20 @@ export class PattoolParametersComponent implements OnInit {
 
   get gridTemplateColumns(): string {
     const w = this.columnWidths;
-    // minmax(..., fr) lets key/value/default columns grow to fill the card width.
-    return `${w.section}px minmax(${w.key}px, 2fr) minmax(${w.value}px, 2fr) ${w.origin}px minmax(${w.codeDefault}px, 1fr)`;
+    const min = PattoolParametersComponent.COLUMN_MIN;
+    // fr weights follow stored widths: resize changes proportions and still fills 100%.
+    return [
+      `minmax(${min.section}px, ${w.section}fr)`,
+      `minmax(${min.key}px, ${w.key}fr)`,
+      `minmax(${min.value}px, ${w.value}fr)`,
+      `minmax(${min.origin}px, ${w.origin}fr)`,
+      `minmax(${min.codeDefault}px, ${w.codeDefault}fr)`
+    ].join(' ');
   }
 
   get gridMinWidth(): number {
-    const w = this.columnWidths;
-    return w.section + w.key + w.value + w.origin + w.codeDefault + 32;
+    const min = PattoolParametersComponent.COLUMN_MIN;
+    return min.section + min.key + min.value + min.origin + min.codeDefault + 32;
   }
 
   get displayRows(): FlatParameterRow[] {
@@ -212,6 +224,7 @@ export class PattoolParametersComponent implements OnInit {
     this.keyFilter = '';
     this.valueFilter = '';
     this.codeDefaultFilter = '';
+    this.descriptionFilter = '';
   }
 
   toggleSort(column: SortColumn): void {
@@ -298,13 +311,17 @@ export class PattoolParametersComponent implements OnInit {
   }
 
   get hasActiveFilters(): boolean {
+    return this.searchText.trim().length > 0 || this.hasColumnFilters;
+  }
+
+  get hasColumnFilters(): boolean {
     return (
-      this.searchText.trim().length > 0
-      || this.originFilter !== 'all'
+      this.originFilter !== 'all'
       || this.sectionFilter !== 'all'
       || this.keyFilter.trim().length > 0
       || this.valueFilter.trim().length > 0
       || this.codeDefaultFilter.trim().length > 0
+      || this.descriptionFilter.trim().length > 0
     );
   }
 
@@ -364,26 +381,40 @@ export class PattoolParametersComponent implements OnInit {
   }
 
   descriptionText(row: FlatParameterRow): string {
-    const description = row.description;
-    if (!description && row.descriptionInferred) {
-      return row.descriptionInferred;
-    }
-    if (!description) {
-      return '';
-    }
+    const unknownLabel = this.translate.instant('PATTOOL_PARAMS.DESC.UNKNOWN');
+    const inferred = row.descriptionInferred?.trim();
+    const description = row.description?.trim() ?? '';
+
     if (description.startsWith('PATTOOL_PARAMS.')) {
       const translated = this.translate.instant(description);
-      if (translated !== description) {
+      const hasCuratedTranslation =
+        translated && translated !== description && translated !== unknownLabel;
+      if (hasCuratedTranslation) {
         return translated;
       }
-      if (row.descriptionInferred) {
-        return row.descriptionInferred;
+      if (inferred) {
+        return inferred;
       }
-      if (description.startsWith('PATTOOL_PARAMS.PARAM.')) {
-        return this.translate.instant('PATTOOL_PARAMS.DESC.UNKNOWN');
+      if (description.startsWith('PATTOOL_PARAMS.PARAM.') || description === 'PATTOOL_PARAMS.DESC.UNKNOWN') {
+        return unknownLabel;
       }
+      return translated || description;
     }
-    return description;
+
+    if (description) {
+      return description;
+    }
+    return inferred ?? '';
+  }
+
+  private descriptionSearchText(row: FlatParameterRow): string {
+    return [
+      this.descriptionText(row),
+      row.description ?? '',
+      row.descriptionInferred ?? ''
+    ]
+      .join(' ')
+      .toLowerCase();
   }
 
   private loadColumnWidths(): void {

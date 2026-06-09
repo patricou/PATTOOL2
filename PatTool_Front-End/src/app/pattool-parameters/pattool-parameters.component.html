@@ -62,6 +62,53 @@
           <i class="fa fa-columns" aria-hidden="true"></i>
           {{ 'PATTOOL_PARAMS.RESET_COLUMNS' | translate }}
         </button>
+
+        <details class="pp-adv-filters">
+          <summary class="pp-adv-filters-toggle">
+            <i class="fa fa-sliders" aria-hidden="true"></i>
+            {{ 'PATTOOL_PARAMS.FILTER.ADVANCED' | translate }}
+            <span *ngIf="hasColumnFilters" class="pp-adv-filters-badge" aria-hidden="true"></span>
+          </summary>
+          <div class="pp-adv-filters-body">
+            <label class="pp-adv-field">
+              <span>{{ 'PATTOOL_PARAMS.COL_SECTION' | translate }}</span>
+              <select [(ngModel)]="sectionFilter">
+                <option value="all">{{ 'PATTOOL_PARAMS.FILTER.ALL' | translate }}</option>
+                <option *ngFor="let section of sections" [value]="section.id">
+                  {{ section.labelKey | translate }}
+                </option>
+              </select>
+            </label>
+            <label class="pp-adv-field">
+              <span>{{ 'PATTOOL_PARAMS.COL_ORIGIN' | translate }}</span>
+              <select [(ngModel)]="originFilter">
+                <option *ngFor="let f of originFilters" [value]="f">
+                  {{ originFilterLabelKey(f) | translate }}
+                </option>
+              </select>
+            </label>
+            <label class="pp-adv-field">
+              <span>{{ 'PATTOOL_PARAMS.COL_KEY' | translate }}</span>
+              <input type="search" [(ngModel)]="keyFilter" autocomplete="off"
+                [placeholder]="'PATTOOL_PARAMS.FILTER.COL_KEY' | translate" />
+            </label>
+            <label class="pp-adv-field">
+              <span>{{ 'PATTOOL_PARAMS.COL_VALUE' | translate }}</span>
+              <input type="search" [(ngModel)]="valueFilter" autocomplete="off"
+                [placeholder]="'PATTOOL_PARAMS.FILTER.COL_VALUE' | translate" />
+            </label>
+            <label class="pp-adv-field">
+              <span>{{ 'PATTOOL_PARAMS.COL_CODE_DEFAULT' | translate }}</span>
+              <input type="search" [(ngModel)]="codeDefaultFilter" autocomplete="off"
+                [placeholder]="'PATTOOL_PARAMS.FILTER.COL_CODE_DEFAULT' | translate" />
+            </label>
+            <label class="pp-adv-field pp-adv-field--full">
+              <span>{{ 'PATTOOL_PARAMS.COL_DESCRIPTION' | translate }}</span>
+              <input type="search" [(ngModel)]="descriptionFilter" autocomplete="off"
+                [placeholder]="'PATTOOL_PARAMS.FILTER.COL_DESCRIPTION' | translate" />
+            </label>
+          </div>
+        </details>
       </div>
 
       <div class="pp-toolbar-meta">
@@ -90,6 +137,8 @@
       [class.pp-list-card--resizing]="columnResizing"
       [style.--pp-grid-cols]="gridTemplateColumns"
       [style.--pp-grid-min-width.px]="gridMinWidth">
+      <div class="pp-list-scroll">
+      <div class="pp-list-sticky-head">
       <div class="pp-list-head" role="row">
         <div class="pp-h-cell">
           <div class="pp-h-stack">
@@ -221,28 +270,86 @@
         </div>
       </div>
 
-      <div class="pp-list-scroll">
+      <div class="pp-list-desc-filter">
+        <label class="pp-desc-filter-label">
+          <span class="pp-desc-filter-title">{{ 'PATTOOL_PARAMS.COL_DESCRIPTION' | translate }}</span>
+          <input
+            type="search"
+            class="pp-h-filter pp-desc-filter-input"
+            [class.pp-h-filter--active]="descriptionFilter.trim().length > 0"
+            [(ngModel)]="descriptionFilter"
+            [placeholder]="'PATTOOL_PARAMS.FILTER.COL_DESCRIPTION' | translate"
+            autocomplete="off"
+            [attr.aria-label]="'PATTOOL_PARAMS.FILTER.COL_DESCRIPTION' | translate" />
+        </label>
+      </div>
+      </div>
+
         <article
           *ngFor="let row of displayRows; trackBy: trackByKey"
           class="pp-item"
           [class.pp-item--sensitive]="row.sensitive"
           [class.pp-item--unset]="isUnsetValue(row.value)">
-          <p *ngIf="row.description || row.descriptionInferred" class="pp-item-desc">{{ descriptionText(row) }}</p>
-          <div class="pp-item-grid">
-            <span class="pp-sec-tag" [ngClass]="sectionTone(row.sectionId)" [title]="row.sectionLabelKey | translate">
-              {{ row.sectionLabelKey | translate }}
-            </span>
-            <code class="pp-key" [title]="row.key">{{ row.key }}</code>
-            <span class="pp-val" [class.pp-val--muted]="isUnsetValue(row.value)" [title]="row.value">{{ displayValue(row.value) }}</span>
-            <span class="pp-pill" [ngClass]="originBadgeClass(row.origin)">
-              <i class="fa" [ngClass]="originIcon(row.origin)" aria-hidden="true"></i>
-              <span class="pp-pill-text">{{ originLabelKey(row.origin) | translate }}</span>
-            </span>
-            <code
-              *ngIf="row.codeDefault"
-              class="pp-def"
-              [title]="row.codeDefault">{{ row.codeDefault }}</code>
-            <span *ngIf="!row.codeDefault" class="pp-def pp-def--empty">{{ 'PATTOOL_PARAMS.VALUE.EMPTY' | translate }}</span>
+          <div class="pp-item-desktop">
+            <p *ngIf="row.description || row.descriptionInferred" class="pp-item-desc">{{ descriptionText(row) }}</p>
+            <div class="pp-item-grid">
+              <div class="pp-field pp-field--section">
+                <span class="pp-field-label">{{ 'PATTOOL_PARAMS.COL_SECTION' | translate }}</span>
+                <span class="pp-sec-tag" [ngClass]="sectionTone(row.sectionId)" [title]="row.sectionLabelKey | translate">
+                  {{ row.sectionLabelKey | translate }}
+                </span>
+              </div>
+              <div class="pp-field pp-field--key">
+                <span class="pp-field-label">{{ 'PATTOOL_PARAMS.COL_KEY' | translate }}</span>
+                <code class="pp-key" [title]="row.key">{{ row.key }}</code>
+              </div>
+              <div class="pp-field pp-field--value">
+                <span class="pp-field-label">{{ 'PATTOOL_PARAMS.COL_VALUE' | translate }}</span>
+                <span class="pp-val" [class.pp-val--muted]="isUnsetValue(row.value)" [title]="row.value">{{ displayValue(row.value) }}</span>
+              </div>
+              <div class="pp-field pp-field--origin">
+                <span class="pp-field-label">{{ 'PATTOOL_PARAMS.COL_ORIGIN' | translate }}</span>
+                <span class="pp-pill" [ngClass]="originBadgeClass(row.origin)">
+                  <i class="fa" [ngClass]="originIcon(row.origin)" aria-hidden="true"></i>
+                  <span class="pp-pill-text">{{ originLabelKey(row.origin) | translate }}</span>
+                </span>
+              </div>
+              <div class="pp-field pp-field--codeDefault" *ngIf="row.codeDefault">
+                <span class="pp-field-label">{{ 'PATTOOL_PARAMS.COL_CODE_DEFAULT' | translate }}</span>
+                <code class="pp-def" [title]="row.codeDefault">{{ row.codeDefault }}</code>
+              </div>
+              <div class="pp-field pp-field--codeDefault" *ngIf="!row.codeDefault">
+                <span class="pp-field-label">{{ 'PATTOOL_PARAMS.COL_CODE_DEFAULT' | translate }}</span>
+                <span class="pp-def pp-def--empty">{{ 'PATTOOL_PARAMS.VALUE.EMPTY' | translate }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="pp-item-mobile">
+            <p *ngIf="row.description || row.descriptionInferred" class="pp-m-desc-lead">{{ descriptionText(row) }}</p>
+            <div class="pp-m-head">
+              <span class="pp-sec-tag" [ngClass]="sectionTone(row.sectionId)">
+                {{ row.sectionLabelKey | translate }}
+              </span>
+              <span class="pp-pill" [ngClass]="originBadgeClass(row.origin)">
+                <i class="fa" [ngClass]="originIcon(row.origin)" aria-hidden="true"></i>
+                <span class="pp-pill-text">{{ originLabelKey(row.origin) | translate }}</span>
+              </span>
+            </div>
+            <dl class="pp-m-dl">
+              <div class="pp-m-row">
+                <dt>{{ 'PATTOOL_PARAMS.COL_KEY' | translate }}</dt>
+                <dd><code class="pp-key pp-m-key">{{ row.key }}</code></dd>
+              </div>
+              <div class="pp-m-row">
+                <dt>{{ 'PATTOOL_PARAMS.COL_VALUE' | translate }}</dt>
+                <dd class="pp-val" [class.pp-val--muted]="isUnsetValue(row.value)">{{ displayValue(row.value) }}</dd>
+              </div>
+              <div *ngIf="row.codeDefault" class="pp-m-row">
+                <dt>{{ 'PATTOOL_PARAMS.COL_CODE_DEFAULT' | translate }}</dt>
+                <dd><code class="pp-def">{{ row.codeDefault }}</code></dd>
+              </div>
+            </dl>
           </div>
         </article>
 

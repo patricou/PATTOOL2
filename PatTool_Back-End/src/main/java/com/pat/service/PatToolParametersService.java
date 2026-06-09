@@ -4,6 +4,7 @@ import com.pat.config.PatToolParameterCatalog;
 import com.pat.config.PatToolParameterCatalog.ParameterDef;
 import com.pat.config.PatToolParameterCatalog.SectionDef;
 import com.pat.config.PatToolParameterCodeDefaults;
+import com.pat.config.PatToolParameterI18nCatalog;
 import com.pat.controller.dto.PatToolParameterItemDto;
 import com.pat.controller.dto.PatToolParameterSectionDto;
 import com.pat.controller.dto.PatToolParametersResponseDto;
@@ -50,16 +51,19 @@ public class PatToolParametersService {
     private final AppParameterService appParameterService;
     private final AppParameterRepository appParameterRepository;
     private final PatToolParameterUsageIndexService usageIndexService;
+    private final PatToolParameterI18nCatalog i18nCatalog;
 
     public PatToolParametersService(
             Environment environment,
             AppParameterService appParameterService,
             AppParameterRepository appParameterRepository,
-            PatToolParameterUsageIndexService usageIndexService) {
+            PatToolParameterUsageIndexService usageIndexService,
+            PatToolParameterI18nCatalog i18nCatalog) {
         this.environment = environment;
         this.appParameterService = appParameterService;
         this.appParameterRepository = appParameterRepository;
         this.usageIndexService = usageIndexService;
+        this.i18nCatalog = i18nCatalog;
     }
 
     public PatToolParametersResponseDto buildSnapshot() {
@@ -84,7 +88,8 @@ public class PatToolParametersService {
         return resolveByKey(def.key(), def.description(), def.mongoOverride(), sensitive);
     }
 
-    private PatToolParameterItemDto resolveByKey(String key, String description, boolean mongoOverride, boolean sensitive) {
+    private PatToolParameterItemDto resolveByKey(String key, String descKey, boolean mongoOverride, boolean sensitive) {
+        String description = resolveDescription(key, descKey);
         Optional<String> codeDefault = PatToolParameterCodeDefaults.codeDefault(key);
 
         if (mongoOverride) {
@@ -94,7 +99,7 @@ public class PatToolParametersService {
                 return new PatToolParameterItemDto(
                         key, display, description, ORIGIN_MONGODB,
                         formatCodeDefaultHint(codeDefault.orElse(null), sensitive), sensitive,
-                        inferDescription(key));
+                        inferDescriptionHint(key, description));
             }
         }
 
@@ -115,10 +120,20 @@ public class PatToolParametersService {
         String codeDefaultHint = formatCodeDefaultHint(codeDefault.orElse(null), sensitive);
 
         return new PatToolParameterItemDto(
-                key, display, description, origin, codeDefaultHint, sensitive, inferDescription(key));
+                key, display, description, origin, codeDefaultHint, sensitive, inferDescriptionHint(key, description));
     }
 
-    private String inferDescription(String key) {
+    private String resolveDescription(String key, String descKey) {
+        if (i18nCatalog.hasCuratedDescription(key)) {
+            return descKey;
+        }
+        return usageIndexService.inferDescription(key).orElse(descKey);
+    }
+
+    private String inferDescriptionHint(String key, String resolvedDescription) {
+        if (resolvedDescription != null && !resolvedDescription.startsWith("PATTOOL_PARAMS.")) {
+            return null;
+        }
         return usageIndexService.inferDescription(key).orElse(null);
     }
 
@@ -207,9 +222,9 @@ public class PatToolParametersService {
         String display = formatMongoRuntimeValue(key, raw, entity.getValueType(), sensitive);
         String description = entity.getDescription() != null && !entity.getDescription().isBlank()
                 ? entity.getDescription()
-                : PatToolParameterCatalog.paramDescKey(key);
+                : resolveDescription(key, PatToolParameterCatalog.paramDescKey(key));
         return new PatToolParameterItemDto(
-                key, display, description, ORIGIN_MONGODB, null, sensitive, inferDescription(key));
+                key, display, description, ORIGIN_MONGODB, null, sensitive, inferDescriptionHint(key, description));
     }
 
     private PropertyBinding resolvePropertyBinding(String key) {

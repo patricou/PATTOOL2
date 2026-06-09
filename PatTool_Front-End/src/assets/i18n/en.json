@@ -99,7 +99,9 @@
             "COL_KEY": "Filter key…",
             "COL_VALUE": "Filter value…",
             "COL_ORIGIN": "Filter origin…",
-            "COL_CODE_DEFAULT": "Filter default…"
+            "COL_CODE_DEFAULT": "Filter default…",
+            "COL_DESCRIPTION": "Filter description…",
+            "ADVANCED": "Advanced filters"
         },
         "ORIGIN": {
             "MONGODB": "MongoDB",

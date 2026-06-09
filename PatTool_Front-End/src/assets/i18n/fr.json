@@ -99,7 +99,9 @@
             "COL_KEY": "Filtrer clé…",
             "COL_VALUE": "Filtrer valeur…",
             "COL_ORIGIN": "Filtrer origine…",
-            "COL_CODE_DEFAULT": "Filtrer défaut…"
+            "COL_CODE_DEFAULT": "Filtrer défaut…",
+            "COL_DESCRIPTION": "Filtrer description…",
+            "ADVANCED": "Filtres avancés"
         },
         "ORIGIN": {
             "MONGODB": "MongoDB",
