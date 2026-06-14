@@ -5,6 +5,43 @@
 <div class="container py-3 pdf-converter-page">
   <p class="text-muted">{{ 'PDF_CONVERTER.INTRO' | translate }}</p>
 
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <label class="form-label" for="pdfSavedDocs">{{
+        'PDF_CONVERTER.SAVED_DOCS_LABEL' | translate
+      }}</label>
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <select
+          id="pdfSavedDocs"
+          class="form-select pdf-converter-doc-select"
+          [disabled]="loadingDocuments"
+          [ngModel]="currentDocumentId || ''"
+          (ngModelChange)="onDocumentSelected($event)">
+          <option value="">{{ 'PDF_CONVERTER.NEW_DOC' | translate }}</option>
+          <option *ngFor="let doc of documents" [value]="doc.id ?? ''" [disabled]="!doc.id">
+            {{ formatDocumentLabel(doc) }}
+          </option>
+        </select>
+        <button
+          type="button"
+          class="btn btn-outline-primary btn-sm"
+          (click)="newDocument()"
+          [disabled]="loadingDocuments">
+          <i class="fa fa-plus me-1" aria-hidden="true"></i>
+          {{ 'PDF_CONVERTER.NEW_DOC' | translate }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-outline-danger btn-sm"
+          (click)="deleteDocument()"
+          [disabled]="!hasSavedDocument || saving || deleting">
+          <i class="fa fa-trash me-1" aria-hidden="true"></i>
+          {{ 'PDF_CONVERTER.DELETE_DOC' | translate }}
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="card shadow-sm">
     <div class="card-body">
       <div class="mb-3">
@@ -30,65 +67,90 @@
       </div>
 
       <div class="mb-3">
-        <label class="form-label" for="pdfTextContent">{{
+        <label class="form-label d-block">{{
           'PDF_CONVERTER.TEXT_LABEL' | translate
         }}</label>
-        <textarea
-          id="pdfTextContent"
-          class="form-control pdf-converter-textarea"
-          rows="10"
-          [(ngModel)]="textContent"
-          [placeholder]="'PDF_CONVERTER.TEXT_PLACEHOLDER' | translate"
-          spellcheck="true"></textarea>
-      </div>
-
-      <div class="mb-3">
-        <label class="form-label d-block">{{
-          'PDF_CONVERTER.IMAGES_LABEL' | translate
-        }}</label>
         <input
-          #imageInput
+          #quillImageInput
           type="file"
           class="d-none"
           accept="image/*"
-          multiple
-          (change)="onImagesSelected($event)" />
-        <button
-          type="button"
-          class="btn btn-outline-secondary btn-sm"
-          (click)="triggerImagePicker()">
-          <i class="fa fa-image me-1" aria-hidden="true"></i>
-          {{ 'PDF_CONVERTER.ADD_IMAGES' | translate }}
-        </button>
-        <div class="form-text">{{ 'PDF_CONVERTER.IMAGES_HINT' | translate }}</div>
-
-        <div *ngIf="images.length > 0" class="pdf-converter-images mt-3">
-          <div
-            *ngFor="let img of images"
-            class="pdf-converter-image-item">
-            <img [src]="img.previewUrl" [alt]="img.name" class="pdf-converter-thumb" />
-            <div class="pdf-converter-image-meta">
-              <span class="small text-truncate d-block" [title]="img.name">{{ img.name }}</span>
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-danger mt-1"
-                (click)="removeImage(img.id)"
-                [attr.aria-label]="'PDF_CONVERTER.REMOVE_IMAGE' | translate">
-                <i class="fa fa-trash" aria-hidden="true"></i>
-              </button>
-            </div>
-          </div>
+          (change)="onQuillImageSelected($event)" />
+        <div class="pdf-converter-image-actions mb-2 d-flex flex-wrap gap-2">
+          <button
+            type="button"
+            class="btn btn-outline-secondary btn-sm"
+            (click)="triggerQuillImagePicker()">
+            <i class="fa fa-image me-1" aria-hidden="true"></i>
+            {{ 'PDF_CONVERTER.ADD_IMAGES' | translate }}
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline-danger btn-sm"
+            [disabled]="!hasSelectedImage"
+            (click)="removeSelectedImage()">
+            <i class="fa fa-trash me-1" aria-hidden="true"></i>
+            {{ 'PDF_CONVERTER.REMOVE_IMAGE' | translate }}
+          </button>
         </div>
+        <div class="pdf-converter-editor-wrap">
+          <quill-editor
+            [(ngModel)]="htmlContent"
+            [modules]="quillModules"
+            [placeholder]="'PDF_CONVERTER.TEXT_PLACEHOLDER' | translate"
+            [styles]="{ minHeight: '320px' }"
+            (onEditorCreated)="onEditorCreated($event)"
+            class="pdf-converter-quill">
+          </quill-editor>
+        </div>
+        <div class="form-text">{{ 'PDF_CONVERTER.EDITOR_HINT' | translate }}</div>
       </div>
 
       <div *ngIf="errorKey" class="alert alert-danger py-2 px-3 small" role="alert">
         {{ errorKey | translate }}
       </div>
+      <div *ngIf="saveMessageKey" class="alert alert-success py-2 px-3 small" role="status">
+        {{ saveMessageKey | translate }}
+      </div>
+      <div *ngIf="shareMessageKey" class="alert alert-info py-2 px-3 small" role="status">
+        {{ shareMessageKey | translate }}
+      </div>
 
-      <div class="d-flex flex-wrap gap-2">
+      <div class="form-check form-switch mb-3">
+        <input
+          id="pdfShowFooter"
+          class="form-check-input"
+          type="checkbox"
+          role="switch"
+          [(ngModel)]="showPdfFooter"
+          [disabled]="isBusy" />
+        <label class="form-check-label" for="pdfShowFooter">
+          {{ 'PDF_CONVERTER.FOOTER_SWITCH' | translate }}
+        </label>
+      </div>
+
+      <div class="pdf-converter-actions d-flex gap-1 gap-sm-2">
         <button
           type="button"
-          class="btn btn-primary"
+          class="btn btn-success btn-sm pdf-converter-action-btn"
+          [disabled]="!canSave"
+          (click)="saveDocument()">
+          <span
+            *ngIf="saving"
+            class="spinner-border spinner-border-sm me-1"
+            role="status"
+            aria-hidden="true"></span>
+          <i *ngIf="!saving" class="fa fa-save me-1" aria-hidden="true"></i>
+          <span class="pdf-converter-action-label pdf-converter-action-label--long">{{
+            'PDF_CONVERTER.SAVE_BTN' | translate
+          }}</span>
+          <span class="pdf-converter-action-label pdf-converter-action-label--short">{{
+            'PDF_CONVERTER.SAVE_BTN_SHORT' | translate
+          }}</span>
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary btn-sm pdf-converter-action-btn"
           [disabled]="!canGenerate"
           (click)="generatePdf()">
           <span
@@ -97,14 +159,38 @@
             role="status"
             aria-hidden="true"></span>
           <i *ngIf="!exporting" class="fa fa-file-pdf-o me-1" aria-hidden="true"></i>
-          {{ 'PDF_CONVERTER.GENERATE_BTN' | translate }}
+          <span class="pdf-converter-action-label pdf-converter-action-label--long">{{
+            'PDF_CONVERTER.GENERATE_BTN' | translate
+          }}</span>
+          <span class="pdf-converter-action-label pdf-converter-action-label--short">{{
+            'PDF_CONVERTER.GENERATE_BTN_SHORT' | translate
+          }}</span>
         </button>
         <button
           type="button"
-          class="btn btn-outline-secondary"
-          [disabled]="exporting"
+          class="btn btn-success btn-sm pdf-converter-action-btn pdf-converter-whatsapp-btn"
+          [disabled]="!canGenerate"
+          [title]="'PDF_CONVERTER.SHARE_WHATSAPP_HINT' | translate"
+          (click)="sharePdfOnWhatsApp()">
+          <span
+            *ngIf="sharingWhatsApp"
+            class="spinner-border spinner-border-sm me-1"
+            role="status"
+            aria-hidden="true"></span>
+          <i *ngIf="!sharingWhatsApp" class="fa fa-whatsapp me-1" aria-hidden="true"></i>
+          {{ 'PDF_CONVERTER.SHARE_WHATSAPP_BTN' | translate }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-outline-secondary btn-sm pdf-converter-action-btn"
+          [disabled]="isBusy || saving"
           (click)="clearAll()">
-          {{ 'PDF_CONVERTER.CLEAR_BTN' | translate }}
+          <span class="pdf-converter-action-label pdf-converter-action-label--long">{{
+            'PDF_CONVERTER.CLEAR_BTN' | translate
+          }}</span>
+          <span class="pdf-converter-action-label pdf-converter-action-label--short">{{
+            'PDF_CONVERTER.CLEAR_BTN_SHORT' | translate
+          }}</span>
         </button>
       </div>
     </div>

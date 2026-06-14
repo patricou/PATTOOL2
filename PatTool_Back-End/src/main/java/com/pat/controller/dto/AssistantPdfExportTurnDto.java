@@ -10,14 +10,16 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record AssistantPdfExportTurnDto(
         @NotBlank @Pattern(regexp = "user|assistant") String role,
-        /** Texte utilisateur ou équivalent Markdown pour une réponse assistant. */
-        @Size(max = 500_000) String content,
+        /** User plain text or assistant Markdown body. */
+        @Size(max = 5_000_000) String content,
         Boolean hasImage,
-        /** Data URL image (data:image/...), ou null — utilisé si {@link #embeddedImageDataUrls} est vide / absent. */
+        /** Image data URL ({@code data:image/...}), or null — used when {@link #embeddedImageDataUrls} is empty or absent. */
         @Size(max = 16_000_000) String imageDataUrl,
-        /** Images à intégrer au PDF (data:image/...;base64,...), ordre conservé. */
+        /** Images embedded in the PDF ({@code data:image/...;base64,...}), order preserved. */
         List<String> embeddedImageDataUrls,
-        /** Ligne déjà localisée côté client (ex. « Modèle : OpenAI · gpt-4o »). */
+        /** Client-localized line (e.g. "Model: OpenAI · gpt-4o"). */
         @Size(max = 2000) String providerModelLine,
-        /** Ligne stats/jetons déjà localisée côté client. */
-        @Size(max = 2000) String statsLine) {}
+        /** Client-localized stats/tokens line. */
+        @Size(max = 2000) String statsLine,
+        /** When true, {@link #content} is Quill HTML (sanitized server-side) instead of plain text. */
+        Boolean contentHtml) {}

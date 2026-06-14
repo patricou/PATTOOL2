@@ -41,6 +41,7 @@
     "@fullcalendar/interaction": "^6.1.20",
     "@fullcalendar/list": "^6.1.20",
     "@fullcalendar/timegrid": "^6.1.20",
+    "@mgreminger/quill-image-resize-module": "^1.2.1",
     "@ng-bootstrap/ng-bootstrap": "^20.0.0",
     "@ngx-translate/core": "^15.0.0",
     "@ngx-translate/http-loader": "^8.0.0",

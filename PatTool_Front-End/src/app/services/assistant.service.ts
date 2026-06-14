@@ -128,24 +128,31 @@ export interface AssistantAttachedImageRequest {
   base64: string;
 }
 
-/** Corps POST pour {@code /assistant/export-pdf} — libellés déjà traduits côté client. */
+/** POST body for {@code /assistant/export-pdf} — labels already translated on the client. */
 export interface AssistantPdfExportTurn {
   role: 'user' | 'assistant';
   content?: string;
   hasImage?: boolean;
-  /** @deprecated Préférer {@link embeddedImageDataUrls} ; encore accepté côté serveur si la liste est vide. */
+  /** @deprecated Prefer {@link embeddedImageDataUrls}; still accepted server-side when the list is empty. */
   imageDataUrl?: string | null;
-  /** Images à intégrer au PDF (data:image/...), ordre conservé (utilisateur + réponses avec images générées). */
+  /** Images embedded in the PDF (data:image/...), order preserved (user + assistant generated images). */
   embeddedImageDataUrls?: string[];
   providerModelLine?: string | null;
   statsLine?: string | null;
+  /** When true, {@link content} is Quill HTML (sanitized server-side). */
+  contentHtml?: boolean;
 }
 
 export interface AssistantPdfExportRequest {
   title?: string;
   exportedAt?: string;
-  youLabel: string;
-  assistantLabel: string;
+  youLabel?: string;
+  assistantLabel?: string;
+  authorUserName?: string;
+  authorFirstName?: string;
+  authorLastName?: string;
+  /** When false, skip running footer (name, date, author); page numbers are still rendered. */
+  showFooter?: boolean;
   turns: AssistantPdfExportTurn[];
 }
 

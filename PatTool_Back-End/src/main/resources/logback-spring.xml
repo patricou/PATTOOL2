@@ -44,7 +44,9 @@
     <logger name="org.springframework.web.servlet.mvc.method.annotation" level="WARN"/>
     <logger name="org.apache.coyote" level="WARN"/>
     
-    <!-- Filter to suppress stack traces for connection abort exceptions -->
+    <!-- OpenHTMLToPDF uses java.util.logging; silenced in AssistantPdfExportService via XRLog -->
+    <logger name="com.openhtmltopdf" level="OFF"/>
+    
     <turboFilter class="ch.qos.logback.classic.turbo.DuplicateMessageFilter">
         <allowedRepetitions>1</allowedRepetitions>
     </turboFilter>
