@@ -336,10 +336,16 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
    * le nombre d’infos affichées (ex. ajout des infos boussole qui allongent la piste).
    */
   issTickerDurationSec = 90;
+  /** Horodatage affiché dans le bandeau (mis à jour au plus 1×/s pour limiter les reflows). */
+  issTickerNowLabel = '';
   /** Vitesse de défilement cible du bandeau ISS, en pixels par seconde. */
   private static readonly ISS_TICKER_SPEED_PX_PER_SEC = 90;
   private issTickerHalfEl?: HTMLElement;
   private issTickerResizeObs?: ResizeObserver;
+  private issTickerDurationRaf: number | null = null;
+  private pendingIssTickerHalfWidthPx = 0;
+  private dateTimeLabelFormatterLang = '';
+  private dateTimeLabelFormatter?: Intl.DateTimeFormat;
   /**
    * Garde le sous-point ISS au centre du globe (caméra réalignée à chaque frame ; le zoom est conservé).
    * Désactive temporairement la rotation automatique tant que l’option est active et qu’une position ISS est connue.
@@ -978,7 +984,14 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       }
       this.queueOrApplyGlobeDeepLink({ lat, lon, mapZoom });
     });
-    this.translateLangSub = this.translate.onLangChange.subscribe(() => this.onTranslateLangChangedForGlobeCountryLabels());
+    this.translateLangSub = this.translate.onLangChange.subscribe(() => {
+      this.invalidateDateTimeLabelFormatter();
+      if (this.issTickerEnabled) {
+        this.issTickerNowLabel = this.formatDateTimeLabel(Date.now());
+        this.scheduleWorldGlobeCdr();
+      }
+      this.onTranslateLangChangedForGlobeCountryLabels();
+    });
     queueMicrotask(() => this.bootstrapThree());
     this.loadIssFsPipStackTopFromStorage();
     queueMicrotask(() => this.refreshIssLivePiPPanelsLayout());
@@ -1030,6 +1043,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.stopGlobeCameraAnimation();
     this.issTickerResizeObs?.disconnect();
     this.issTickerResizeObs = undefined;
+    if (this.issTickerDurationRaf != null) {
+      cancelAnimationFrame(this.issTickerDurationRaf);
+      this.issTickerDurationRaf = null;
+    }
     if (this.globePickCursorResetTimer != null) {
       clearTimeout(this.globePickCursorResetTimer);
       this.globePickCursorResetTimer = null;
@@ -1569,20 +1586,33 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
 
   /** Date et heure locales actuelles (jj/mm/aa hh:mm:ss) pour le bandeau ISS défilant. */
   currentDateTimeLabel(): string {
+    return this.issTickerNowLabel || this.formatDateTimeLabel(Date.now());
+  }
+
+  private formatDateTimeLabel(ms: number): string {
     try {
       const lang = (this.translate.currentLang || 'en').split('-')[0];
-      return new Intl.DateTimeFormat(lang, {
-        day: '2-digit',
-        month: '2-digit',
-        year: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
-      }).format(new Date(this.clockNowMs));
+      if (lang !== this.dateTimeLabelFormatterLang || !this.dateTimeLabelFormatter) {
+        this.dateTimeLabelFormatterLang = lang;
+        this.dateTimeLabelFormatter = new Intl.DateTimeFormat(lang, {
+          day: '2-digit',
+          month: '2-digit',
+          year: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        });
+      }
+      return this.dateTimeLabelFormatter.format(new Date(ms));
     } catch {
       return '';
     }
+  }
+
+  private invalidateDateTimeLabelFormatter(): void {
+    this.dateTimeLabelFormatterLang = '';
+    this.dateTimeLabelFormatter = undefined;
   }
 
   /**
@@ -2820,10 +2850,23 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       return;
     }
     this.issTickerResizeObs = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width ?? el.getBoundingClientRect().width;
-      this.updateIssTickerDuration(width);
+      const width = entries[0]?.contentRect.width;
+      if (width != null && width > 0) {
+        this.scheduleIssTickerDurationUpdate(width);
+      }
     });
     this.issTickerResizeObs.observe(el);
+  }
+
+  private scheduleIssTickerDurationUpdate(halfWidthPx: number): void {
+    this.pendingIssTickerHalfWidthPx = halfWidthPx;
+    if (this.issTickerDurationRaf != null) {
+      return;
+    }
+    this.issTickerDurationRaf = requestAnimationFrame(() => {
+      this.issTickerDurationRaf = null;
+      this.updateIssTickerDuration(this.pendingIssTickerHalfWidthPx);
+    });
   }
 
   private updateIssTickerDuration(halfWidthPx: number): void {
@@ -6455,7 +6498,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.issCountdownInterval = null;
     }
     this.issNextRefreshEpochMs = 0;
-    this.refreshIssCountdownSnapshot();
+    this.refreshIssPollingUiSnapshot();
   }
 
   private startIssPolling(): void {
@@ -6463,16 +6506,12 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (!this.issPositionFeedActive()) {
       return;
     }
+    this.refreshIssPollingUiSnapshot(true);
     this.issCountdownInterval = window.setInterval(() => {
-      this.clockNowMs = Date.now();
-      this.refreshIssCountdownSnapshot();
-      this.scheduleWorldGlobeCdr();
+      this.refreshIssPollingUiSnapshot();
     }, 1000);
     this.scheduleIssRefreshChain(this.issPollIntervalMs());
-    queueMicrotask(() => {
-      this.refreshIssCountdownSnapshot();
-      this.scheduleWorldGlobeCdr();
-    });
+    queueMicrotask(() => this.refreshIssPollingUiSnapshot(true));
   }
 
   private scheduleIssRefreshChain(delayMs: number): void {
@@ -6482,7 +6521,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
     const fireAt = Date.now() + delayMs;
     this.issNextRefreshEpochMs = fireAt;
-    this.refreshIssCountdownSnapshot();
+    this.refreshIssPollingUiSnapshot();
 
     this.issRefreshTimeout = window.setTimeout(() => {
       this.issRefreshTimeout = null;
@@ -6495,14 +6534,37 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }, delayMs);
   }
 
-  private refreshIssCountdownSnapshot(): void {
+  /** Met à jour le décompte ISS et l’horloge du bandeau ; CDR uniquement si l’affichage change. */
+  private refreshIssPollingUiSnapshot(force = false): void {
+    let countdownChanged = false;
     let next = 0;
     if (this.issOverlayEnabled && this.issNextRefreshEpochMs > 0) {
       next = Math.max(0, Math.ceil((this.issNextRefreshEpochMs - Date.now()) / 1000));
     }
-    this.scheduleWorldGlobeCdr(() => {
+    if (next !== this.issSecondsUntilNextRefresh) {
+      countdownChanged = true;
+    }
+
+    let nowLabelChanged = false;
+    if (this.issTickerEnabled) {
+      const nowMs = Date.now();
+      this.clockNowMs = nowMs;
+      const label = this.formatDateTimeLabel(nowMs);
+      if (label !== this.issTickerNowLabel) {
+        this.issTickerNowLabel = label;
+        nowLabelChanged = true;
+      }
+    }
+
+    if (countdownChanged) {
       this.issSecondsUntilNextRefresh = next;
-    });
+    }
+
+    if (!force && !countdownChanged && !nowLabelChanged) {
+      return;
+    }
+
+    this.scheduleWorldGlobeCdr();
   }
 
   private async refreshIssNow(): Promise<void> {
