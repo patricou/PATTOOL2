@@ -179,6 +179,16 @@
               <i class="fa fa-link"></i> <span class="btn-text">{{ 'EVENTHOME.ADD_WEB_LINK' | translate }}</span>
             </button>
           </div>
+          <div class="edit-event-wrapper" *ngIf="canModifyEvent()">
+            <button type="button"
+                    class="btn-compact btn-compact--edit-event"
+                    [ngClass]="getEditButtonClass()"
+                    (click)="navigateToUpdateEvent(); $event.stopPropagation()"
+                    [title]="(isAdminEditingOthersEvent() ? 'EVENTELEM.UTE_ADMIN' : 'EVENTELEM.UTE') | translate">
+              <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
+              <span class="btn-text">{{ (isAdminEditingOthersEvent() ? 'EVENTELEM.UTE_ADMIN' : 'EVENTELEM.UTE') | translate }}</span>
+            </button>
+          </div>
           <div class="file-upload-wrapper me-1" *ngIf="user && evenement"
                placement="top"
                [ngbTooltip]="'EVENTELEM.UPLOAD' | translate">

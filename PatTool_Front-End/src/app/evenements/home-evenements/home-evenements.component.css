@@ -2830,6 +2830,20 @@
     overflow: visible;
 }
 
+/* Admin edit on someone else's event (compact list) */
+.compact-actions .btn-edit-event-admin {
+    background-color: #dc3545 !important;
+    border-color: #b02a37 !important;
+    color: #fff !important;
+}
+
+.compact-actions .btn-edit-event-admin:hover,
+.compact-actions .btn-edit-event-admin:focus {
+    background-color: #c82333 !important;
+    border-color: #a71d2a !important;
+    color: #fff !important;
+}
+
 @keyframes slideInLeft {
     from {
         opacity: 0;

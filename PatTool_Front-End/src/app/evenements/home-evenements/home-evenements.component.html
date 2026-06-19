@@ -502,8 +502,12 @@
                 </button>
 
                 <!-- Edit Button -->
-                <a class="btn btn-sm btn-warning me-1" [routerLink]="['/updeven', evenement.id]"
-                    ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}" placement="top" 
+                <a *ngIf="canModifyEvent(evenement)"
+                    class="btn btn-sm me-1"
+                    [ngClass]="getEditButtonClass(evenement)"
+                    [routerLink]="['/updeven', evenement.id]"
+                    [ngbTooltip]="(isAdminEditingOthersEvent(evenement) ? 'EVENTELEM.UTE_ADMIN' : 'EVENTELEM.UTE') | translate"
+                    placement="top"
                     (click)="storeEventIdForReturn(evenement.id); $event.stopPropagation()">
                     <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
                 </a>

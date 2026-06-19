@@ -317,43 +317,57 @@
   margin-left: auto;
 }
 
-/* Petit cercle avec « i » (aide modales) — pas le style bouton plein comme Brave */
-button.pat-assistant-info-in-circle {
-  width: 1.625rem;
-  height: 1.625rem;
-  padding: 0;
-  margin: 0;
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.95);
+.pat-assistant-routing-help-btn {
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  cursor: pointer;
-  line-height: 1;
-  box-shadow: none;
+  gap: 0.28rem;
+  padding: 0.22rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: #1e3a8a;
+  background: linear-gradient(180deg, #fefce8 0%, #fef08a 100%);
+  border: 1px solid #facc15;
+  border-radius: 999px;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
   transition:
-    background 0.12s ease,
-    border-color 0.12s ease;
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.12s ease;
 }
 
-button.pat-assistant-info-in-circle:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 255, 255, 0.75);
+.pat-assistant-routing-help-btn:hover:not(:disabled) {
+  color: #172554;
+  background: linear-gradient(180deg, #fef9c3 0%, #fde047 100%);
+  border-color: #eab308;
+  box-shadow:
+    0 2px 6px rgba(15, 23, 42, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  transform: translateY(-1px);
 }
 
-button.pat-assistant-info-in-circle:focus-visible {
-  outline: 2px solid rgba(191, 219, 254, 0.95);
+.pat-assistant-routing-help-btn:focus-visible {
+  outline: 2px solid #ffffff;
   outline-offset: 2px;
 }
 
-button.pat-assistant-info-in-circle .fa {
-  margin: 0;
-  padding: 0;
-  font-size: 0.62rem;
-  font-weight: 700;
+.pat-assistant-routing-help-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pat-assistant-routing-help-btn-icon {
+  font-size: 0.88rem;
+  line-height: 1;
+}
+
+.pat-assistant-routing-help-btn-text {
+  letter-spacing: 0.01em;
 }
 
 /* Bouton rond : Brave Search (nouvel onglet) */
@@ -1551,24 +1565,331 @@ a.pat-assistant-brave-search.pat-assistant-header-btn .fa {
   border: 1px solid var(--asst-border);
 }
 
-.pat-assistant-tools-help-modelhint {
+.pat-assistant-tools-help-body {
+  padding: 0.85rem 1rem 1rem;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 12rem);
+}
+
+.pat-assistant-tools-help-section-icon {
+  color: var(--asst-blue, #2563eb);
+  font-size: 0.88em;
+  opacity: 0.92;
+}
+
+.pat-assistant-tools-help-section-title,
+.pat-assistant-tools-help-providers-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: var(--asst-text, #111827);
+  letter-spacing: -0.01em;
+}
+
+.pat-assistant-tools-help-featured {
+  padding: 0.85rem 0.95rem 0.95rem;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #ffffff 0%, #f8fbff 55%, #eff6ff 100%);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 8px 24px rgba(37, 99, 235, 0.07);
+}
+
+.pat-assistant-tools-help-section-head {
+  margin-bottom: 0.55rem;
+}
+
+.pat-assistant-tools-help-intro-callout {
   font-size: 0.78rem;
+  line-height: 1.45;
+  color: #334155;
+  padding: 0.55rem 0.7rem;
+  margin-bottom: 0;
+  border-radius: 8px;
+  border-left: 3px solid var(--asst-blue, #2563eb);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.pat-assistant-tools-help-footnote {
+  margin-top: 0.65rem;
+  padding: 0.45rem 0.55rem;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: #64748b;
+  font-style: italic;
+  border-radius: 6px;
+  background: rgba(248, 250, 252, 0.85);
+}
+
+.pat-assistant-tools-help-providers-divider {
+  height: 1px;
+  margin: 0.15rem 0 1rem;
+  background: linear-gradient(90deg, transparent, #cbd5e1 12%, #cbd5e1 88%, transparent);
+}
+
+.pat-assistant-tools-help-providers-heading {
+  margin-bottom: 0.85rem !important;
+}
+
+.pat-assistant-tools-help-provider-block {
+  padding: 0.7rem 0.85rem 0.8rem;
+  border: 1px solid var(--asst-border, #e5e7eb);
+  border-radius: 10px;
+  background: #ffffff;
+  border-left-width: 4px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.pat-assistant-tools-help-provider-block[data-provider='openai'] {
+  border-left-color: #10a37f;
+}
+
+.pat-assistant-tools-help-provider-block[data-provider='anthropic'] {
+  border-left-color: #c96442;
+}
+
+.pat-assistant-tools-help-provider-block[data-provider='gemini'] {
+  border-left-color: #4285f4;
+}
+
+.pat-assistant-tools-help-provider-block[data-provider='mistral'] {
+  border-left-color: #ff7000;
+}
+
+.pat-assistant-tools-help-provider-title {
+  font-size: 0.86rem;
+  font-weight: 650;
+  color: var(--asst-text, #111827);
+}
+
+.pat-assistant-tools-help-modelhint {
+  font-size: 0.76rem;
+  line-height: 1.38;
+  color: var(--asst-muted, #64748b);
+}
+
+.pat-assistant-tools-help-table-wrap {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+.pat-assistant-tools-help-table-wrap--ranking {
+  border-color: #bfdbfe;
+}
+
+.pat-assistant-tools-help-table {
+  margin-bottom: 0;
+  --bs-table-bg: transparent;
+  --bs-table-striped-bg: rgba(248, 250, 252, 0.65);
+  --bs-table-hover-bg: rgba(239, 246, 255, 0.55);
+  --bs-table-border-color: #e2e8f0;
+}
+
+.pat-assistant-tools-help-table thead th {
+  font-size: 0.74rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #475569;
+  background: #f1f5f9;
+  border-bottom-width: 2px;
+  vertical-align: middle;
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
+}
+
+.pat-assistant-tools-help-table--ranking thead th.pat-assistant-rank-col-task {
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.76rem;
+}
+
+.pat-assistant-tools-help-table tbody th,
+.pat-assistant-tools-help-table tbody td {
+  padding-top: 0.42rem;
+  padding-bottom: 0.42rem;
+  vertical-align: middle;
+}
+
+.pat-assistant-tools-help-table tbody tr:hover {
+  background-color: var(--bs-table-hover-bg);
+}
+
+.pat-assistant-rank-col-task {
+  min-width: 9.5rem;
+}
+
+.pat-assistant-rank-task {
+  font-size: 0.78rem;
+  font-weight: 550 !important;
+  color: #1e293b;
+  min-width: 9.5rem;
   line-height: 1.35;
-  margin-top: 0.25rem;
+}
+
+.pat-assistant-rank-col {
+  width: 22%;
+  min-width: 7.5rem;
+  font-size: 0.76rem;
+}
+
+.pat-assistant-rank-col--gold {
+  background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
+}
+
+.pat-assistant-rank-col--silver {
+  background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+}
+
+.pat-assistant-rank-col--bronze {
+  background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+}
+
+.pat-assistant-tools-help-table--ranking thead .pat-assistant-rank-col--gold {
+  color: #92400e;
+  background: linear-gradient(180deg, #fef9c3 0%, #fde68a 100%);
+}
+
+.pat-assistant-tools-help-table--ranking thead .pat-assistant-rank-col--silver {
+  color: #334155;
+  background: linear-gradient(180deg, #f1f5f9 0%, #cbd5e1 100%);
+}
+
+.pat-assistant-tools-help-table--ranking thead .pat-assistant-rank-col--bronze {
+  color: #9a3412;
+  background: linear-gradient(180deg, #ffedd5 0%, #fdba74 100%);
+}
+
+.pat-assistant-tools-help-pick-hint {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-style: italic;
+}
+
+.pat-assistant-rank-pick-btn,
+.pat-assistant-help-model-select-btn {
+  border: none;
+  background: transparent;
+  padding: 0.12rem 0.35rem;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 999px;
+  line-height: 1.3;
+  font-weight: 520;
+  text-align: inherit;
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease,
+    color 0.15s ease;
+}
+
+.pat-assistant-rank-pick-btn:hover,
+.pat-assistant-help-model-select-btn:hover {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+  text-decoration: underline;
+  text-underline-offset: 0.14em;
+}
+
+.pat-assistant-rank-pick-btn:focus-visible,
+.pat-assistant-help-model-select-btn:focus-visible {
+  outline: 2px solid var(--asst-blue, #2563eb);
+  outline-offset: 2px;
+}
+
+.pat-assistant-rank-pick--static {
+  opacity: 0.88;
+}
+
+.pat-assistant-help-model-select-btn--id {
+  font-family: var(--bs-font-monospace, ui-monospace, monospace);
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.pat-assistant-help-model-select-btn--id:hover {
+  color: #1d4ed8;
+}
+
+.pat-assistant-tools-help-provider-row:hover {
+  background-color: rgba(239, 246, 255, 0.45);
+}
+
+.pat-assistant-rank-pick {
+  display: inline-block;
+  padding: 0.12rem 0.35rem;
+  border-radius: 999px;
+  line-height: 1.3;
+  font-weight: 520;
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.pat-assistant-rank-pick-btn {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.pat-assistant-rank-col--gold .pat-assistant-rank-pick {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.pat-assistant-rank-col--gold .pat-assistant-rank-pick-btn {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.pat-assistant-rank-empty {
+  color: #94a3b8;
+  font-weight: 400;
+  letter-spacing: 0.06em;
 }
 
 .pat-assistant-tools-help-model-list {
-  list-style: disc;
-  padding-left: 1.2rem;
+  list-style: none;
+  padding-left: 0;
   margin-bottom: 0;
 }
 
 .pat-assistant-tools-help-model-list li {
-  margin-bottom: 0.2rem;
+  position: relative;
+  padding-left: 0.85rem;
+  margin-bottom: 0.22rem;
+  line-height: 1.32;
 }
 
-.pat-assistant-tools-help-table th[scope='row'] {
+.pat-assistant-tools-help-model-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.48em;
+  width: 0.28rem;
+  height: 0.28rem;
+  border-radius: 50%;
+  background: var(--asst-blue, #2563eb);
+  opacity: 0.55;
+}
+
+.pat-assistant-tools-help-table th[scope='row'].pat-assistant-tools-help-model-name {
   min-width: 8.5rem;
+}
+
+.pat-assistant-tools-help-api-id {
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
+.pat-assistant-tools-help-model-badge {
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 0.18em 0.45em;
+  vertical-align: middle;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  color: #fff !important;
 }
 
 .pat-assistant-tools-help-col-vendor-gap {
@@ -1588,12 +1909,42 @@ a.pat-assistant-brave-search.pat-assistant-header-btn .fa {
 .pat-assistant-tools-help-role-td {
   vertical-align: top;
   max-width: 24rem;
+  color: #475569;
 }
 
 .pat-assistant-tools-help-partial {
   cursor: help;
   text-decoration: underline dotted;
   text-underline-offset: 0.12em;
+}
+
+.pat-assistant-tools-help-footer {
+  padding: 0.55rem 1rem;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+
+@media (max-width: 767.98px) {
+  .pat-assistant-tools-help-body {
+    padding: 0.65rem 0.7rem 0.75rem;
+  }
+
+  .pat-assistant-tools-help-featured {
+    padding: 0.65rem 0.7rem 0.75rem;
+  }
+
+  .pat-assistant-rank-col {
+    min-width: 5.5rem;
+    font-size: 0.72rem;
+  }
+
+  .pat-assistant-rank-pick {
+    padding: 0.08rem 0.2rem;
+  }
+
+  .pat-assistant-tools-help-provider-block {
+    padding: 0.55rem 0.6rem 0.65rem;
+  }
 }
 
 .pat-assistant-pending-img {
@@ -1709,8 +2060,21 @@ a.pat-assistant-brave-search.pat-assistant-header-btn .fa {
   .pat-assistant-insert-cmt-evt-text,
   .pat-assistant-header-whatsapp-text,
   .pat-assistant-header-pdf-text,
-  .pat-assistant-header-history-text {
+  .pat-assistant-header-history-text,
+  .pat-assistant-routing-help-btn-text {
     display: none;
+  }
+
+  .pat-assistant-routing-help-btn {
+    width: 1.85rem;
+    height: 1.85rem;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+  }
+
+  .pat-assistant-routing-help-btn-icon {
+    font-size: 0.95rem;
   }
 
   .pat-assistant-header-whatsapp .fa-whatsapp {

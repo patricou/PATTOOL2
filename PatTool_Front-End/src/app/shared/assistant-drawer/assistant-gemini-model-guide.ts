@@ -1,8 +1,8 @@
 import { AssistantModelGuideRow } from './assistant-model-guide.types';
 
 /**
- * Modale aide « Quel modèle pour quelle tâche ? » — guide Google Gemini.
- * Textes dans i18n (ASSISTANT.TOOLS_HELP_GEMINI_*).
+ * Tools help modal “Which model for which task?” — Google Gemini guide.
+ * Copy in i18n (ASSISTANT.TOOLS_HELP_GEMINI_*).
  */
 export const ASSISTANT_GEMINI_MODEL_GUIDE_ROWS: readonly AssistantModelGuideRow[] = [
   {

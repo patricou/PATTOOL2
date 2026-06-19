@@ -339,6 +339,31 @@ body ngb-modal-window.modal.assistant-tools-help-modal.show .pat-assistant-tools
     order: 2 !important;
 }
 
+body .modal.show.assistant-tools-help-modal .pat-assistant-tools-help-body,
+body .modal.assistant-tools-help-modal.show .pat-assistant-tools-help-body,
+body ngb-modal-window.modal.show.assistant-tools-help-modal .pat-assistant-tools-help-body,
+body ngb-modal-window.modal.assistant-tools-help-modal.show .pat-assistant-tools-help-body {
+    max-height: min(78vh, calc(100vh - 8rem));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+body .modal.show.assistant-tools-help-modal .pat-assistant-tools-help-footer,
+body .modal.assistant-tools-help-modal.show .pat-assistant-tools-help-footer,
+body ngb-modal-window.modal.show.assistant-tools-help-modal .pat-assistant-tools-help-footer,
+body ngb-modal-window.modal.assistant-tools-help-modal.show .pat-assistant-tools-help-footer {
+    padding: 0.55rem 1rem !important;
+    background: #f8fafc !important;
+    border-top: 1px solid #e2e8f0 !important;
+}
+
+body .modal.show.assistant-tools-help-modal.modal-fullscreen .pat-assistant-tools-help-body,
+body .modal.assistant-tools-help-modal.show.modal-fullscreen .pat-assistant-tools-help-body,
+body ngb-modal-window.modal.show.assistant-tools-help-modal.modal-fullscreen .pat-assistant-tools-help-body,
+body ngb-modal-window.modal.assistant-tools-help-modal.show.modal-fullscreen .pat-assistant-tools-help-body {
+    max-height: none;
+}
+
 body .modal.show.assistant-history-modal .pat-assistant-history-modal-body,
 body .modal.assistant-history-modal.show .pat-assistant-history-modal-body {
     padding: 0.45rem 0.65rem 0.55rem !important;

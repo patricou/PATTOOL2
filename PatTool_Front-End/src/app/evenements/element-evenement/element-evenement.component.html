@@ -472,12 +472,13 @@
             type="button">
         <i class="fa fa-list-alt" aria-hidden="true"></i>
     </button>
-    <a *ngIf="isAuthor()"
-       class="btn btn-sm btn-warning mb-1 me-1 dynamic-footer-btn" 
-       [ngStyle]="getFooterButtonStyles('edit')"
+    <a *ngIf="canModifyEvent()"
+       class="btn btn-sm mb-1 me-1"
+       [ngClass]="getEditButtonClass()"
+       [ngStyle]="getEditButtonNgStyle()"
        [routerLink]="['/updeven',evenement.id]"
        (click)="storeEventIdForReturn()"
-       ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}" 
+       [ngbTooltip]="(isAdminEditingOthersEvent() ? 'EVENTELEM.UTE_ADMIN' : 'EVENTELEM.UTE') | translate"
        placement="top"
        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></a>
     <!-- Admin delete button - only visible when admin override is enabled -->

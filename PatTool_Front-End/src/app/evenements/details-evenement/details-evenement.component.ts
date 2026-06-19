@@ -3617,7 +3617,17 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     return uu.length > 0 && au.length > 0 && uu === au;
   }
 
-  // Navigate to update event page
+  public canModifyEvent(): boolean {
+    return this.isEventOwner() || this.keycloakService.hasAdminRole();
+  }
+
+  public isAdminEditingOthersEvent(): boolean {
+    return this.keycloakService.hasAdminRole() && !this.isEventOwner();
+  }
+
+  public getEditButtonClass(): string {
+    return this.isAdminEditingOthersEvent() ? 'btn-edit-event-admin' : 'btn-edit-event-owner';
+  }
   public navigateToUpdateEvent(): void {
     if (this.evenement && this.evenement.id) {
       this.router.navigate(['/updeven', this.evenement.id]);

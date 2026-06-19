@@ -4887,6 +4887,25 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return this._keycloakService.hasAdminRole();
 	}
 
+	public canModifyEvent(): boolean {
+		return this.isAuthor() || this.isAdmin();
+	}
+
+	public isAdminEditingOthersEvent(): boolean {
+		return this.isAdmin() && !this.isAuthor();
+	}
+
+	public getEditButtonClass(): string {
+		return this.isAdminEditingOthersEvent() ? 'footer-btn-edit-admin' : 'btn-warning dynamic-footer-btn';
+	}
+
+	public getEditButtonNgStyle(): { [key: string]: string } | null {
+		if (this.isAdminEditingOthersEvent()) {
+			return null;
+		}
+		return this.getFooterButtonStyles('edit');
+	}
+
 	public isParticipant(): boolean {
 		let b: boolean = false;
 		this.evenement.members.forEach(member => {

@@ -827,6 +827,8 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 						alert(this.translate.instant('EVENTUPDT.FRIEND_GROUP_UNAUTHORIZED'));
 					} else if (errorType === 'PHOTOFROMFS_UNAUTHORIZED') {
 						alert(this.translate.instant('EVENTUPDT.PHOTOFROMFS_UNAUTHORIZED_UPDATE'));
+					} else if (errorType === 'EVENT_UPDATE_UNAUTHORIZED') {
+						alert(this.translate.instant('EVENTUPDT.EVENT_UPDATE_UNAUTHORIZED'));
 					} else {
 						// Default to PHOTOFROMFS message for backward compatibility
 						alert(this.translate.instant('EVENTUPDT.PHOTOFROMFS_UNAUTHORIZED_UPDATE'));
@@ -916,8 +918,11 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 		return this.user.userName.toLowerCase() === urlEvent.owner.toLowerCase();
 	}
 
-	// Check if user can edit URL event (only owner of the link)
+	// Check if user can edit URL event (link owner, event author, or admin)
 	public canEditUrlEvent(urlEvent: UrlEvent): boolean {
+		if (this.canEditEventFields()) {
+			return true;
+		}
 		return this.user.userName.toLowerCase() === urlEvent.owner.toLowerCase();
 	}
 
@@ -993,9 +998,20 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 		return eventColor;
 	}
 
-	// Check if user can edit event fields (only event author)
+	// Check if user can edit event fields (event author or admin)
 	public canEditEventFields(): boolean {
-		return this.user.userName.toLowerCase() === this.evenement.author.userName.toLowerCase();
+		if (!this.user?.userName || !this.evenement?.author?.userName) {
+			return false;
+		}
+		return this.user.userName.toLowerCase() === this.evenement.author.userName.toLowerCase()
+			|| this._keycloakService.hasAdminRole();
+	}
+
+	public isAdminEditingOthersEvent(): boolean {
+		if (!this._keycloakService.hasAdminRole() || !this.user?.userName || !this.evenement?.author?.userName) {
+			return false;
+		}
+		return this.user.userName.toLowerCase() !== this.evenement.author.userName.toLowerCase();
 	}
 
 	// Format date for display
@@ -1009,10 +1025,13 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 	private loadFriendGroups() {
 		this._friendsService.getFriendGroups().subscribe(
 			groups => {
-				// Filter to only show groups where user is owner or authorized (not just a member)
+				// Admins see all groups; others only groups where they are owner or authorized
 				this.friendGroups = groups.filter(group => {
 					if (!group || !this.user || !this.user.id) {
 						return false;
+					}
+					if (this._keycloakService.hasAdminRole()) {
+						return true;
 					}
 					// Check if user is owner
 					const isOwner = group.owner && group.owner.id === this.user.id;
@@ -1047,10 +1066,13 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 	private loadFriendGroupsAndSetSelection() {
 		this._friendsService.getFriendGroups().subscribe(
 			groups => {
-				// Filter to only show groups where user is owner or authorized (not just a member)
+				// Admins see all groups; others only groups where they are owner or authorized
 				this.friendGroups = groups.filter(group => {
 					if (!group || !this.user || !this.user.id) {
 						return false;
+					}
+					if (this._keycloakService.hasAdminRole()) {
+						return true;
 					}
 					// Check if user is owner
 					const isOwner = group.owner && group.owner.id === this.user.id;

@@ -1,8 +1,8 @@
 import { AssistantModelGuideRow } from './assistant-model-guide.types';
 
 /**
- * Modale aide « Quel modèle pour quelle tâche ? » — guide OpenAI.
- * Textes dans i18n (ASSISTANT.TOOLS_HELP_OPENAI_*).
+ * Tools help modal “Which model for which task?” — OpenAI guide.
+ * Copy in i18n (ASSISTANT.TOOLS_HELP_OPENAI_*).
  */
 export const ASSISTANT_OPENAI_MODEL_GUIDE_ROWS: readonly AssistantModelGuideRow[] = [
   {

@@ -1,8 +1,8 @@
 import { AssistantModelGuideRow } from './assistant-model-guide.types';
 
 /**
- * Modale aide « Quel modèle pour quelle tâche ? » — guide Anthropic (Claude).
- * Textes dans i18n (ASSISTANT.TOOLS_HELP_ANTHROPIC_*).
+ * Tools help modal “Which model for which task?” — Anthropic (Claude) guide.
+ * Copy in i18n (ASSISTANT.TOOLS_HELP_ANTHROPIC_*).
  */
 export type AssistantAnthropicModelGuideRow = AssistantModelGuideRow;
 

@@ -1755,7 +1755,22 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	// Méthodes pour les actions des événements dans la vue compacte
 	public isAuthor(evenement: Evenement): boolean {
-		return evenement.author.userName == this.user.userName;
+		if (!evenement?.author?.userName || !this.user?.userName) {
+			return false;
+		}
+		return evenement.author.userName.toLowerCase() === this.user.userName.toLowerCase();
+	}
+
+	public canModifyEvent(evenement: Evenement): boolean {
+		return this.isAuthor(evenement) || this.isAdmin();
+	}
+
+	public isAdminEditingOthersEvent(evenement: Evenement): boolean {
+		return this.isAdmin() && !this.isAuthor(evenement);
+	}
+
+	public getEditButtonClass(evenement: Evenement): string {
+		return this.isAdminEditingOthersEvent(evenement) ? 'btn-edit-event-admin' : 'btn-warning';
 	}
 
 	public isParticipant(evenement: Evenement): boolean {

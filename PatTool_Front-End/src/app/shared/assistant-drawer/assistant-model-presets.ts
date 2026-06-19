@@ -37,5 +37,5 @@ export const ASSISTANT_MISTRAL_MODEL_PRESETS = [
   'pixtral-large-latest'
 ] as const;
 
-/** Default Mistral model (align with {@code mistral.model} côté serveur). */
+/** Default Mistral model (align with server {@code mistral.model}). */
 export const ASSISTANT_MISTRAL_DEFAULT_MODEL = 'mistral-large-latest';

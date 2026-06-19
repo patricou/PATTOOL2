@@ -1,6 +1,6 @@
 /**
- * Modale aide (icône ℹ️ près du switch MCP) : classement indicateur par type de tâche.
- * Textes dans i18n (ASSISTANT.TOOLS_HELP_RANK_*).
+ * Tools help modal (ℹ️ near MCP switch): indicative ranking by task type.
+ * Copy in i18n (ASSISTANT.TOOLS_HELP_RANK_*).
  */
 export interface AssistantModelRankingRowDef {
   readonly taskKey: string;

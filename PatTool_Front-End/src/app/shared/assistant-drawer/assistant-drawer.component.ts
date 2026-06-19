@@ -99,6 +99,11 @@ import { AssistantProviderModelGuideSection } from './assistant-model-guide.type
 import { ASSISTANT_MISTRAL_MODEL_GUIDE_ROWS } from './assistant-mistral-model-guide';
 import { ASSISTANT_OPENAI_MODEL_GUIDE_ROWS } from './assistant-openai-model-guide';
 import { ASSISTANT_MODEL_RANKING_ROWS } from './assistant-model-ranking-table';
+import {
+  assistantModelPickRoutingForKey,
+  AssistantModelPickRouting,
+  isAssistantModelPickActionable
+} from './assistant-model-pick-routing';
 
 @Component({
   selector: 'app-assistant-drawer',
@@ -257,7 +262,7 @@ export class AssistantDrawerComponent
   /** Seuil (KB) lu sur le backend ; affiché dans le message info-only. */
   insertImageMaxSizeKb = 0;
   private imageCompressionModalRef: NgbModalRef | null = null;
-  /** Modale aide « outils × fournisseurs » (toggle plein écran). */
+  /** Tools help modal (providers × tools table) — fullscreen toggle. */
   private toolsHelpModalRef: NgbModalRef | null = null;
   assistantToolsHelpFullscreen = false;
 
@@ -422,9 +427,9 @@ export class AssistantDrawerComponent
   /** Complets / à jour : renseigné par GET /api/assistant/models pour le {@link routingProvider} courant. */
   private remoteCatalogModelIds: string[] = [];
 
-  /** Catalogue modèle / tâche pour la modale d’aide « ℹ︎ » à côté de MCP. */
+  /** Model / task catalogue for the tools help modal (ℹ️ next to MCP). */
   readonly assistantModelRankingRows = ASSISTANT_MODEL_RANKING_ROWS;
-  /** Guide Anthropic (Fable / Opus / Sonnet / Haiku) dans la même modale. */
+  /** Per-provider model guide sections in the same tools help modal. */
   readonly assistantProviderModelGuideSections: readonly AssistantProviderModelGuideSection[] = [
     {
       sectionId: 'openai',
@@ -2241,6 +2246,78 @@ export class AssistantDrawerComponent
       this.toolsHelpModalRef = null;
       this.assistantToolsHelpFullscreen = false;
     });
+  }
+
+  /** Tools help modal: click on a row in the cross-provider task ranking table. */
+  isAssistantHelpModelPickActionable(pickKey: string | undefined): boolean {
+    return isAssistantModelPickActionable(pickKey);
+  }
+
+  applyAssistantModelPickFromHelp(pickKey: string): void {
+    const routing = assistantModelPickRoutingForKey(pickKey);
+    if (!routing || routing.unavailable) {
+      return;
+    }
+    this.applyAssistantRoutingPick(routing);
+  }
+
+  /** Tools help modal: click on a row in a provider model guide table. */
+  applyAssistantModelPickFromHelpProvider(provider: string, apiModelId: string): void {
+    if (!AssistantDrawerComponent.isAssistantProvider(provider)) {
+      return;
+    }
+    const id = (apiModelId ?? '').trim();
+    if (!id) {
+      return;
+    }
+    this.applyAssistantRoutingPick({ provider, apiModelId: id });
+  }
+
+  private applyAssistantRoutingPick(routing: AssistantModelPickRouting): void {
+    const provider = routing.provider;
+    const apiModelId = routing.apiModelId.trim();
+    if (!apiModelId) {
+      return;
+    }
+
+    this.routingProviderLockedAgainstConfigDefault = true;
+    const providerChanged = this.routingProvider !== provider;
+    this.routingProvider = provider;
+
+    if (this.routingProvider !== 'openai') {
+      this.toolMcp = false;
+    }
+    if (this.providerDisablesImageGeneration(this.routingProvider)) {
+      this.toolImageGeneration = false;
+    }
+
+    const inPresetList = this.presetsForRoutingProvider(provider).some((p) => p === apiModelId);
+    if (inPresetList) {
+      this.modelPreset = apiModelId;
+      this.modelCustom = '';
+    } else {
+      this.modelPreset = this.MODEL_PRESET_CUSTOM;
+      this.modelCustom = apiModelId;
+    }
+
+    this.remoteCatalogModelIds = [];
+    this.rebuildModelOptionsList();
+
+    if (routing.enableWebSearch === true) {
+      this.toolWebSearch = true;
+    }
+    if (routing.enableImageGeneration === true && !this.providerDisablesImageGeneration(provider)) {
+      this.toolImageGeneration = true;
+    }
+
+    this.persistSession();
+    this.scheduleRoutingPreferenceRemotePersist();
+    if (providerChanged) {
+      this.refreshProviderModelCatalog();
+    }
+
+    this.toolsHelpModalRef?.close('model-pick');
+    this.cdr.markForCheck();
   }
 
   openAssistantDraftExpandModal(): void {

@@ -1,8 +1,8 @@
 import { AssistantModelGuideRow } from './assistant-model-guide.types';
 
 /**
- * Modale aide « Quel modèle pour quelle tâche ? » — guide Mistral AI.
- * Textes dans i18n (ASSISTANT.TOOLS_HELP_MISTRAL_*).
+ * Tools help modal “Which model for which task?” — Mistral AI guide.
+ * Copy in i18n (ASSISTANT.TOOLS_HELP_MISTRAL_*).
  */
 export type AssistantMistralModelGuideRow = AssistantModelGuideRow;
 

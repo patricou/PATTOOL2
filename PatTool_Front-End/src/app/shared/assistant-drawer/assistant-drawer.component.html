@@ -75,17 +75,18 @@
           [attr.placeholder]="'ASSISTANT.MODEL_CUSTOM_PLACEHOLDER' | translate"
           spellcheck="false"
           autocomplete="off" />
+        <button
+          type="button"
+          class="btn btn-sm pat-assistant-routing-help-btn"
+          (click)="openAssistantToolsHelpModal()"
+          [disabled]="loading"
+          [title]="'ASSISTANT.TOOLS_HELP_BTN_HINT' | translate"
+          [attr.aria-label]="'ASSISTANT.TOOLS_HELP_BTN' | translate">
+          <i class="fa fa-info-circle pat-assistant-routing-help-btn-icon" aria-hidden="true"></i>
+          <span class="pat-assistant-routing-help-btn-text">{{ 'ASSISTANT.TOOLS_HELP_BTN' | translate }}</span>
+        </button>
       </div>
       <div class="pat-assistant-drawer-actions">
-      <button
-        type="button"
-        class="pat-assistant-info-in-circle"
-        (click)="openAssistantToolsHelpModal()"
-        [title]="'ASSISTANT.TOOLS_HELP_BTN_HINT' | translate"
-        [attr.aria-label]="'ASSISTANT.TOOLS_HELP_BTN' | translate">
-        <i class="fa fa-info" aria-hidden="true"></i>
-        <span class="visually-hidden">{{ 'ASSISTANT.TOOLS_HELP_BTN' | translate }}</span>
-      </button>
       <a
         href="https://search.brave.com/"
         target="_blank"
@@ -672,19 +673,101 @@
   </div>
   <div class="modal-body pat-assistant-tools-help-body" [attr.aria-labelledby]="'assistant-tools-help-title'">
     <section
+      class="pat-assistant-tools-help-featured mb-4"
+      aria-labelledby="assistant-tools-help-by-task-title">
+      <div class="pat-assistant-tools-help-section-head">
+        <h6 id="assistant-tools-help-by-task-title" class="pat-assistant-tools-help-section-title mb-0">
+          <i class="fa fa-th-list pat-assistant-tools-help-section-icon" aria-hidden="true"></i>
+          {{ 'ASSISTANT.TOOLS_HELP_BY_TASK_SECTION_TITLE' | translate }}
+        </h6>
+      </div>
+      <p class="pat-assistant-tools-help-intro-callout mb-3">
+        {{ 'ASSISTANT.TOOLS_HELP_BY_TASK_SECTION_INTRO' | translate }}
+        <span class="pat-assistant-tools-help-pick-hint d-block mt-1">{{
+          'ASSISTANT.TOOLS_HELP_PICK_MODEL_HINT' | translate
+        }}</span>
+      </p>
+      <ng-template #assistantRankPickCell let-pickKey>
+        <button
+          *ngIf="pickKey && isAssistantHelpModelPickActionable(pickKey)"
+          type="button"
+          class="pat-assistant-rank-pick pat-assistant-rank-pick-btn"
+          (click)="applyAssistantModelPickFromHelp(pickKey)"
+          [title]="'ASSISTANT.TOOLS_HELP_PICK_MODEL_BTN' | translate"
+          [attr.aria-label]="('ASSISTANT.TOOLS_HELP_PICK_MODEL_BTN' | translate) + ': ' + (pickKey | translate)">
+          {{ pickKey | translate }}
+        </button>
+        <span
+          *ngIf="pickKey && !isAssistantHelpModelPickActionable(pickKey)"
+          class="pat-assistant-rank-pick pat-assistant-rank-pick--static">
+          {{ pickKey | translate }}
+        </span>
+        <span *ngIf="!pickKey" class="pat-assistant-rank-empty">—</span>
+      </ng-template>
+      <div class="table-responsive pat-assistant-tools-help-table-wrap pat-assistant-tools-help-table-wrap--ranking">
+        <table
+          class="table table-sm align-middle mb-0 pat-assistant-tools-help-table pat-assistant-tools-help-table--ranking">
+          <caption class="visually-hidden">{{ 'ASSISTANT.TOOLS_HELP_RANK_TABLE_CAPTION' | translate }}</caption>
+          <thead>
+            <tr>
+              <th scope="col" class="pat-assistant-rank-col-task">
+                {{ 'ASSISTANT.TOOLS_HELP_RANK_COL_TASK' | translate }}
+              </th>
+              <th scope="col" class="text-center text-nowrap pat-assistant-rank-col pat-assistant-rank-col--gold">
+                {{ 'ASSISTANT.TOOLS_HELP_RANK_COL_GOLD' | translate }}
+              </th>
+              <th scope="col" class="text-center text-nowrap pat-assistant-rank-col pat-assistant-rank-col--silver">
+                {{ 'ASSISTANT.TOOLS_HELP_RANK_COL_SILVER' | translate }}
+              </th>
+              <th scope="col" class="text-center text-nowrap pat-assistant-rank-col pat-assistant-rank-col--bronze">
+                {{ 'ASSISTANT.TOOLS_HELP_RANK_COL_BRONZE' | translate }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of assistantModelRankingRows">
+              <th scope="row" class="pat-assistant-rank-task">{{ row.taskKey | translate }}</th>
+              <td class="text-center pat-assistant-rank-col pat-assistant-rank-col--gold">
+                <ng-container
+                  *ngTemplateOutlet="assistantRankPickCell; context: { $implicit: row.goldKey }"></ng-container>
+              </td>
+              <td class="text-center pat-assistant-rank-col pat-assistant-rank-col--silver">
+                <ng-container
+                  *ngTemplateOutlet="assistantRankPickCell; context: { $implicit: row.silverKey }"></ng-container>
+              </td>
+              <td class="text-center pat-assistant-rank-col pat-assistant-rank-col--bronze">
+                <ng-container
+                  *ngTemplateOutlet="assistantRankPickCell; context: { $implicit: row.bronzeKey }"></ng-container>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="pat-assistant-tools-help-footnote mb-0">{{ 'ASSISTANT.TOOLS_HELP_RANK_FOOTNOTE' | translate }}</p>
+    </section>
+
+    <div class="pat-assistant-tools-help-providers-divider" aria-hidden="true"></div>
+
+    <h6 class="pat-assistant-tools-help-providers-heading mb-3">
+      <i class="fa fa-sitemap pat-assistant-tools-help-section-icon" aria-hidden="true"></i>
+      {{ 'ASSISTANT.TOOLS_HELP_PROVIDER_SECTIONS_TITLE' | translate }}
+    </h6>
+
+    <section
       *ngFor="let section of assistantProviderModelGuideSections"
-      class="mb-4"
+      class="pat-assistant-tools-help-provider-block mb-3"
+      [attr.data-provider]="section.sectionId"
       [attr.aria-labelledby]="'assistant-tools-help-' + section.sectionId + '-title'">
-      <h6 [id]="'assistant-tools-help-' + section.sectionId + '-title'" class="fw-semibold mb-1">
+      <h6 [id]="'assistant-tools-help-' + section.sectionId + '-title'" class="pat-assistant-tools-help-provider-title mb-1">
         {{ section.titleKey | translate }}
       </h6>
-      <p class="text-body-secondary small pat-assistant-tools-help-modelhint mb-2">
+      <p class="pat-assistant-tools-help-modelhint mb-2">
         {{ section.introKey | translate }}
       </p>
-      <div class="table-responsive">
-        <table class="table table-sm table-bordered align-middle mb-0 pat-assistant-tools-help-table">
+      <div class="table-responsive pat-assistant-tools-help-table-wrap">
+        <table class="table table-sm align-middle mb-0 pat-assistant-tools-help-table pat-assistant-tools-help-table--provider">
           <caption class="visually-hidden">{{ section.titleKey | translate }}</caption>
-          <thead class="table-light">
+          <thead>
             <tr>
               <th scope="col">{{ 'ASSISTANT.TOOLS_HELP_ANTHROPIC_COL_MODEL' | translate }}</th>
               <th scope="col" class="text-nowrap">{{ 'ASSISTANT.TOOLS_HELP_ANTHROPIC_COL_API_ID' | translate }}</th>
@@ -694,17 +777,39 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let row of section.rows">
-              <th scope="row" class="text-start fw-normal text-nowrap">
-                {{ row.modelNameKey | translate }}
-                <span
-                  *ngIf="row.badgeKey"
-                  class="badge text-bg-primary ms-1 align-middle"
-                  style="font-size: 0.65rem">
+            <tr *ngFor="let row of section.rows" class="pat-assistant-tools-help-provider-row">
+              <th scope="row" class="text-start fw-normal text-nowrap pat-assistant-tools-help-model-name">
+                <button
+                  type="button"
+                  class="pat-assistant-help-model-select-btn"
+                  (click)="applyAssistantModelPickFromHelpProvider(section.sectionId, row.apiModelId)"
+                  [title]="'ASSISTANT.TOOLS_HELP_PICK_MODEL_BTN' | translate"
+                  [attr.aria-label]="
+                    ('ASSISTANT.TOOLS_HELP_PICK_MODEL_BTN' | translate) +
+                    ': ' +
+                    (row.modelNameKey | translate) +
+                    ' (' +
+                    row.apiModelId +
+                    ')'
+                  ">
+                  {{ row.modelNameKey | translate }}
+                </button>
+                <span *ngIf="row.badgeKey" class="badge pat-assistant-tools-help-model-badge ms-1 align-middle">
                   {{ row.badgeKey | translate }}
                 </span>
               </th>
-              <td class="font-monospace small text-muted text-nowrap">{{ row.apiModelId }}</td>
+              <td class="font-monospace small pat-assistant-tools-help-api-id text-nowrap">
+                <button
+                  type="button"
+                  class="pat-assistant-help-model-select-btn pat-assistant-help-model-select-btn--id"
+                  (click)="applyAssistantModelPickFromHelpProvider(section.sectionId, row.apiModelId)"
+                  [title]="'ASSISTANT.TOOLS_HELP_PICK_MODEL_BTN' | translate"
+                  [attr.aria-label]="
+                    ('ASSISTANT.TOOLS_HELP_PICK_MODEL_BTN' | translate) + ': ' + row.apiModelId
+                  ">
+                  {{ row.apiModelId }}
+                </button>
+              </td>
               <td class="pat-assistant-tools-help-role-td small">
                 <ul class="pat-assistant-tools-help-model-list">
                   <li *ngFor="let useKey of row.useKeys">{{ useKey | translate }}</li>
@@ -715,42 +820,8 @@
         </table>
       </div>
     </section>
-
-    <h6 class="fw-semibold mb-2">{{ 'ASSISTANT.TOOLS_HELP_BY_TASK_SECTION_TITLE' | translate }}</h6>
-    <div class="table-responsive">
-      <table class="table table-sm table-bordered align-middle mb-0 pat-assistant-tools-help-table">
-        <caption class="visually-hidden">{{ 'ASSISTANT.TOOLS_HELP_RANK_TABLE_CAPTION' | translate }}</caption>
-        <thead class="table-light">
-          <tr>
-            <th scope="col">{{ 'ASSISTANT.TOOLS_HELP_RANK_COL_TASK' | translate }}</th>
-            <th scope="col" class="text-center text-nowrap pat-assistant-model-ranking-col-medal">
-              {{ 'ASSISTANT.TOOLS_HELP_RANK_COL_GOLD' | translate }}
-            </th>
-            <th scope="col" class="text-center text-nowrap pat-assistant-model-ranking-col-medal">
-              {{ 'ASSISTANT.TOOLS_HELP_RANK_COL_SILVER' | translate }}
-            </th>
-            <th scope="col" class="text-center text-nowrap pat-assistant-model-ranking-col-medal">
-              {{ 'ASSISTANT.TOOLS_HELP_RANK_COL_BRONZE' | translate }}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let row of assistantModelRankingRows">
-            <th scope="row" class="text-start fw-normal">{{ row.taskKey | translate }}</th>
-            <td class="text-center small">{{ row.goldKey | translate }}</td>
-            <td class="text-center small text-muted">
-              {{ row.silverKey ? (row.silverKey | translate) : '—' }}
-            </td>
-            <td class="text-center small text-muted">
-              {{ row.bronzeKey ? (row.bronzeKey | translate) : '—' }}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="text-body-secondary small mt-2 mb-0">{{ 'ASSISTANT.TOOLS_HELP_RANK_FOOTNOTE' | translate }}</p>
   </div>
-  <div class="modal-footer">
+  <div class="modal-footer pat-assistant-tools-help-footer">
     <button type="button" class="btn btn-primary" (click)="modal.close()">
       {{ 'COMMUN.CLOSE' | translate }}
     </button>

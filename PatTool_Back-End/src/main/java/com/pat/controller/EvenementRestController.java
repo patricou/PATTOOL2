@@ -139,6 +139,30 @@ public class EvenementRestController {
                                      authority.equalsIgnoreCase("ROLE_filesystem") ||
                                      authority.equalsIgnoreCase("ROLE_FileSystem"));
     }
+
+    /**
+     * True when the authenticated user is the event author or has the Admin role.
+     */
+    private boolean canCurrentUserModifyEvent(Evenement existingEvent) {
+        if (existingEvent == null) {
+            return false;
+        }
+        if (hasAdminRole()) {
+            return true;
+        }
+        Member author = existingEvent.getAuthor();
+        if (author == null) {
+            return false;
+        }
+        String currentUserId = getCurrentUserId();
+        if (currentUserId != null && author.getId() != null && currentUserId.equals(author.getId())) {
+            return true;
+        }
+        String currentUserName = getCurrentUserName();
+        return currentUserName != null
+                && author.getUserName() != null
+                && currentUserName.equalsIgnoreCase(author.getUserName().trim());
+    }
     
     // Use bounded thread pool to prevent memory leaks from unlimited thread creation
     // Max 50 threads, with 30 second keep-alive time for idle threads
@@ -1807,52 +1831,52 @@ public class EvenementRestController {
         // CRITICAL: Preserve fileUploadeds if they're missing or empty in the request
         // This prevents accidentally clearing files when updating other event fields
         Evenement existingEvent = null;
-        if (evenement.getId() != null) {
-            existingEvent = evenementsRepository.findById(evenement.getId()).orElse(null);
-            if (existingEvent != null) {
-                // If request has no files or empty files, but existing event has files, preserve them
-                if ((evenement.getFileUploadeds() == null || evenement.getFileUploadeds().isEmpty()) 
-                    && existingEvent.getFileUploadeds() != null && !existingEvent.getFileUploadeds().isEmpty()) {
-                    log.debug("Preserving {} existing files for event {} during update", 
-                        existingEvent.getFileUploadeds().size(), evenement.getId());
-                    evenement.setFileUploadeds(existingEvent.getFileUploadeds());
-                }
-                // Also preserve thumbnail if it's missing in the request
-                if (evenement.getThumbnail() == null && existingEvent.getThumbnail() != null) {
-                    evenement.setThumbnail(existingEvent.getThumbnail());
-                }
-                
-                // Handle discussionId: allow explicit clearing when set to null or empty string
-                // When discussionId is null or empty, it means we want to clear it (explicit clearing)
-                // We don't preserve it anymore to allow clearing when discussion is deleted
-                // If evenement.getDiscussionId() is not null and not empty, it will be saved as-is
-                
-                // Preserve original author to prevent ownership changes
-                // This ensures that only the original owner can make changes
-                if (existingEvent.getAuthor() != null) {
-                    evenement.setAuthor(existingEvent.getAuthor());
-                }
-                
-                // Validate ownership if status is being changed
-                // Only the owner of the event should be able to change its status
-                if (existingEvent.getStatus() != null && evenement.getStatus() != null 
-                    && !existingEvent.getStatus().equals(evenement.getStatus())) {
-                    // Status is being changed - verify ownership
-                    if (existingEvent.getAuthor() == null) {
-                        log.warn("Cannot validate status change ownership: existing author is null. Event ID: {}", evenement.getId());
-                        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-                    }
-                    
-                    // Since we preserve the original author above, any status change attempt must come from
-                    // a request that includes the correct author. The frontend validation ensures non-owners
-                    // cannot trigger status changes, and this backend validation ensures the author is preserved.
-                    // If someone tries to bypass the frontend and change both author and status, the author
-                    // preservation will prevent the author change, maintaining ownership integrity.
-                    log.debug("Status change validated for event {}: {} -> {} (author preserved: {})", 
-                        evenement.getId(), existingEvent.getStatus(), evenement.getStatus(), 
-                        existingEvent.getAuthor().getId());
-                }
+        if (evenement.getId() == null) {
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        }
+        existingEvent = evenementsRepository.findById(evenement.getId()).orElse(null);
+        if (existingEvent == null) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        if (!canCurrentUserModifyEvent(existingEvent)) {
+            log.warn("Unauthorized attempt to update event {} by non-owner non-admin user", evenement.getId());
+            java.util.Map<String, String> errorBody = new java.util.HashMap<>();
+            errorBody.put("error", "EVENT_UPDATE_UNAUTHORIZED");
+            errorBody.put("message", "You are not authorized to update this event. Only the owner or an administrator can modify it.");
+            return new ResponseEntity<>(errorBody, HttpStatus.FORBIDDEN);
+        }
+        // If request has no files or empty files, but existing event has files, preserve them
+        if ((evenement.getFileUploadeds() == null || evenement.getFileUploadeds().isEmpty()) 
+            && existingEvent.getFileUploadeds() != null && !existingEvent.getFileUploadeds().isEmpty()) {
+            log.debug("Preserving {} existing files for event {} during update", 
+                existingEvent.getFileUploadeds().size(), evenement.getId());
+            evenement.setFileUploadeds(existingEvent.getFileUploadeds());
+        }
+        // Also preserve thumbnail if it's missing in the request
+        if (evenement.getThumbnail() == null && existingEvent.getThumbnail() != null) {
+            evenement.setThumbnail(existingEvent.getThumbnail());
+        }
+        
+        // Handle discussionId: allow explicit clearing when set to null or empty string
+        // When discussionId is null or empty, it means we want to clear it (explicit clearing)
+        // We don't preserve it anymore to allow clearing when discussion is deleted
+        // If evenement.getDiscussionId() is not null and not empty, it will be saved as-is
+        
+        // Preserve original author to prevent ownership changes
+        if (existingEvent.getAuthor() != null) {
+            evenement.setAuthor(existingEvent.getAuthor());
+        }
+        
+        // Validate ownership if status is being changed
+        if (existingEvent.getStatus() != null && evenement.getStatus() != null 
+            && !existingEvent.getStatus().equals(evenement.getStatus())) {
+            if (existingEvent.getAuthor() == null) {
+                log.warn("Cannot validate status change ownership: existing author is null. Event ID: {}", evenement.getId());
+                return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
             }
+            log.debug("Status change validated for event {}: {} -> {} (author preserved: {})", 
+                evenement.getId(), existingEvent.getStatus(), evenement.getStatus(), 
+                existingEvent.getAuthor().getId());
         }
 
         // Check if event contains PHOTOFROMFS links and validate authorization

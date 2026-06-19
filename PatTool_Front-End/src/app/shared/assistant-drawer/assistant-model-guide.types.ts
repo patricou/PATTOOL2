@@ -1,7 +1,7 @@
-/** Ligne du guide « Quel modèle pour quelle tâche ? » (tous fournisseurs). */
+/** Row in the “Which model for which task?” guide (all providers). */
 export interface AssistantModelGuideRow {
   readonly modelNameKey: string;
-  /** Id affiché dans le sélecteur PatTool. */
+  /** Display label in the PatTool selector. */
   readonly apiModelId: string;
   readonly useKeys: readonly [string, string, string];
   readonly badgeKey?: string;
