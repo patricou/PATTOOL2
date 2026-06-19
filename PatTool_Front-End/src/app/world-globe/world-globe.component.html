@@ -60,6 +60,10 @@
       <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_SPEED' | translate }}</span>
       <span class="wg-iss-ticker__val">{{ issGroundSpeedKmh | number : '1.0-0' }} km/h</span>
     </span>
+    <span class="wg-iss-ticker__item" *ngIf="issLastStepGroundKm != null">
+      <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_STEP' | translate }}</span>
+      <span class="wg-iss-ticker__val">{{ issLastStepGroundKm | number : '1.0-1' }} km</span>
+    </span>
     <ng-container *ngIf="issCompassAzimuthDeg != null">
       <span class="wg-iss-ticker__item">
         <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_COMPASS_AZIMUTH' | translate }}</span>
@@ -262,7 +266,7 @@
                         [(ngModel)]="issPollIntervalSec"
                         (blur)="onIssPollIntervalCommitted()"
                         (change)="onIssPollIntervalCommitted()"
-                        [min]="5"
+                        [min]="2"
                         [max]="600"
                         [step]="1"
                         [disabled]="!globeSurfaceReady"

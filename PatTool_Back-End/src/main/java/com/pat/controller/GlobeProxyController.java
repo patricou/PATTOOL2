@@ -297,7 +297,7 @@ public class GlobeProxyController {
         try {
             byte[] body = globeProxyService.fetchOpenNotifyIssNow();
             return ResponseEntity.ok()
-                    .cacheControl(CacheControl.maxAge(30, TimeUnit.SECONDS).cachePublic())
+                    .cacheControl(CacheControl.noStore())
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body);
         } catch (Exception e) {

@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "Francese",
         "EN": "Inglese",
@@ -323,7 +323,7 @@
         "LAYER_COUNTRY_BORDERS": "Confini nazionali (Natural Earth, proxy)",
         "LAYER_COUNTRY_BORDERS_HINT": "Demarcazioni Natural Earth (public domain), via /api/external/globe/geojson/ne-110m-boundaries-land.",
         "LAYER_ISS_POSITION": "Posizione ISS (proxy)",
-        "LAYER_ISS_HINT": "Sottopunto ISS (Open Notify), proxy su /api/external/globe/iss/now (~5 s predefiniti mentre attivo).",
+        "LAYER_ISS_HINT": "Sottopunto ISS (Open Notify), proxy su /api/external/globe/iss/now (~2 s predefiniti mentre attivo).",
         "BORDERS_LOADING": "Carico confini?",
         "BORDERS_FAILED": "Impossibile caricare il layer confini.",
         "ISS_FETCH_FAILED": "Posizione ISS non disponibile.",
@@ -347,7 +347,8 @@
         "ISS_TICKER_LAT": "Lat.",
         "ISS_TICKER_LON": "Lon.",
         "ISS_TICKER_ALT": "Alt.",
-        "ISS_TICKER_SPEED": "Vel.",
+        "ISS_TICKER_SPEED": "Vel.",
+        "ISS_TICKER_STEP": "Spost.",
         "ISS_TICKER_NOW": "Ora",
         "ISS_TICKER_OVER": "Sopra",
         "ISS_OVER_OCEAN": "Oceano",
@@ -395,7 +396,7 @@
         "GEOCODE_PICK_HINT": "Pi risultati ? clicca uno per centrare il globo.",
         "GEOCODE_GLOBE_NOT_READY": "Il globo si sta ancora caricando. Riprova tra un attimo.",
         "ISS_POLL_INTERVAL_LABEL": "Intervallo aggiornamento ISS (secondi)",
-        "ISS_POLL_INTERVAL_HINT": "Secondi tra due richieste di posizione (5?600). Vale dopo aver lasciato il campo o premuto Invio.",
+        "ISS_POLL_INTERVAL_HINT": "Secondi tra due richieste di posizione (2?600). Vale dopo aver lasciato il campo o premuto Invio.",
         "ISS_COUNTDOWN_HINT": "Tempo alla prossima richiesta di posizione ISS.",
         "ISS_REFRESH_NOW": "Aggiorna posizione ISS ora",
         "ISS_REFRESH_NOW_HINT": "Richiede subito la posizione ISS; il conto alla rovescia riparte con l?intervallo configurato.",

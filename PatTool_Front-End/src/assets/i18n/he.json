@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "×¦×¨×¤×ª××ª",
         "EN": "×× ××××ª",
@@ -319,7 +319,7 @@
         "LAYER_COUNTRY_BORDERS": "Country borders (Natural Earth, proxied)",
         "LAYER_COUNTRY_BORDERS_HINT": "Land-boundary linework from Natural Earth (public domain). Fetched via /api/external/globe/geojson/ne-110m-boundaries-land.",
         "LAYER_ISS_POSITION": "ISS position (proxied)",
-        "LAYER_ISS_HINT": "International Space Station sub-point via Open Notify, proxied at /api/external/globe/iss/now (refreshes about every 5 s by default while enabled).",
+        "LAYER_ISS_HINT": "International Space Station sub-point via Open Notify, proxied at /api/external/globe/iss/now (refreshes about every 2 s by default while enabled).",
         "BORDERS_LOADING": "Loading boundariesâ¦",
         "BORDERS_FAILED": "Boundaries layer could not be loaded (upstream or GeoJSON error).",
         "ISS_FETCH_FAILED": "ISS position unavailable (upstream or parsing error).",
@@ -343,7 +343,8 @@
         "ISS_TICKER_LAT": "×¨×××",
         "ISS_TICKER_LON": "×××¨×",
         "ISS_TICKER_ALT": "××××",
-        "ISS_TICKER_SPEED": "××××¨××ª",
+        "ISS_TICKER_SPEED": "××××¨××ª",
+        "ISS_TICKER_STEP": "תזוזה",
         "ISS_TICKER_NOW": "×¢××©××",
         "ISS_TICKER_OVER": "××¢×",
         "ISS_OVER_OCEAN": "×××§××× ××¡",
@@ -394,7 +395,7 @@
         "FULLSCREEN_ENTER_TITLE": "××¡× ×××",
         "FULLSCREEN_EXIT_TITLE": "××¦××× ×××¡× ×××",
         "ISS_POLL_INTERVAL_LABEL": "××¨××× ×¨×¢× ×× ISS (×©× ×××ª)",
-        "ISS_POLL_INTERVAL_HINT": "×©× ×××ª ××× ×©×ª× ××§×©××ª ×××§×× (5â600). ×× ××××¨ ××¦××× ×××©×× ×× Enter.",
+        "ISS_POLL_INTERVAL_HINT": "×©× ×××ª ××× ×©×ª× ××§×©××ª ×××§×× (2â600). ×× ××××¨ ××¦××× ×××©×× ×× Enter.",
         "ISS_COUNTDOWN_HINT": "××× ×¢× ××§×©×ª ×××§×× ISS ××××.",
         "ISS_REFRESH_NOW": "×¨×¢× ×× ×××§×× ISS ×¢××©××",
         "ISS_REFRESH_NOW_HINT": "×××× ×××§×× ISS ×××; ××¡×¤××¨× ×××××¨ ××ª×××× ××××© ××¤× ×××¨×××.",

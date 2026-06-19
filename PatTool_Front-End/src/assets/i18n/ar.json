@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "Ø§ÙÙØ±ÙØ³ÙØ©",
         "EN": "Ø§ÙØ¥ÙØ¬ÙÙØ²ÙØ©",
@@ -319,7 +319,7 @@
         "LAYER_COUNTRY_BORDERS": "Country borders (Natural Earth, proxied)",
         "LAYER_COUNTRY_BORDERS_HINT": "Land-boundary linework from Natural Earth (public domain). Fetched via /api/external/globe/geojson/ne-110m-boundaries-land.",
         "LAYER_ISS_POSITION": "ISS position (proxied)",
-        "LAYER_ISS_HINT": "International Space Station sub-point via Open Notify, proxied at /api/external/globe/iss/now (refreshes about every 5 s by default while enabled).",
+        "LAYER_ISS_HINT": "International Space Station sub-point via Open Notify, proxied at /api/external/globe/iss/now (refreshes about every 2 s by default while enabled).",
         "BORDERS_LOADING": "Loading boundariesâ¦",
         "BORDERS_FAILED": "Boundaries layer could not be loaded (upstream or GeoJSON error).",
         "ISS_FETCH_FAILED": "ISS position unavailable (upstream or parsing error).",
@@ -343,7 +343,8 @@
         "ISS_TICKER_LAT": "Ø¹Ø±Ø¶",
         "ISS_TICKER_LON": "Ø·ÙÙ",
         "ISS_TICKER_ALT": "Ø§Ø±ØªÙØ§Ø¹",
-        "ISS_TICKER_SPEED": "Ø³Ø±Ø¹Ø©",
+        "ISS_TICKER_SPEED": "Ø³Ø±Ø¹Ø©",
+        "ISS_TICKER_STEP": "مسافة",
         "ISS_TICKER_NOW": "Ø§ÙØ¢Ù",
         "ISS_TICKER_OVER": "ÙÙÙ",
         "ISS_OVER_OCEAN": "Ø§ÙÙØ­ÙØ·",
@@ -394,7 +395,7 @@
         "FULLSCREEN_ENTER_TITLE": "Ø§ÙØ¯Ø®ÙÙ ÙÙ ÙØ¶Ø¹ ÙÙØ¡ Ø§ÙØ´Ø§Ø´Ø©",
         "FULLSCREEN_EXIT_TITLE": "Ø§ÙØ®Ø±ÙØ¬ ÙÙ ÙØ¶Ø¹ ÙÙØ¡ Ø§ÙØ´Ø§Ø´Ø©",
         "ISS_POLL_INTERVAL_LABEL": "ÙØªØ±Ø© ØªØ­Ø¯ÙØ« ISS (Ø«ÙØ§ÙÙ)",
-        "ISS_POLL_INTERVAL_HINT": "Ø«ÙØ§ÙÙ Ø¨ÙÙ Ø·ÙØ¨ÙÙ ÙÙÙÙÙØ¹ (5â600). ÙÙØ·Ø¨ÙÙÙ Ø¨Ø¹Ø¯ ÙØºØ§Ø¯Ø±Ø© Ø§ÙØ­ÙÙ Ø£Ù Enter.",
+        "ISS_POLL_INTERVAL_HINT": "Ø«ÙØ§ÙÙ Ø¨ÙÙ Ø·ÙØ¨ÙÙ ÙÙÙÙÙØ¹ (2â600). ÙÙØ·Ø¨ÙÙÙ Ø¨Ø¹Ø¯ ÙØºØ§Ø¯Ø±Ø© Ø§ÙØ­ÙÙ Ø£Ù Enter.",
         "ISS_COUNTDOWN_HINT": "Ø§ÙÙÙØª Ø§ÙÙØªØ¨ÙÙ ÙØ¨Ù Ø·ÙØ¨ ÙÙÙØ¹ ISS Ø§ÙØªØ§ÙÙ.",
         "ISS_REFRESH_NOW": "ØªØ­Ø¯ÙØ« ÙÙÙØ¹ ISS Ø§ÙØ¢Ù",
         "ISS_REFRESH_NOW_HINT": "Ø¬ÙØ¨ ÙÙÙØ¹ ISS ÙÙØ±ÙØ§Ø ÙÙØ¹Ø§Ø¯ ØªØ´ØºÙÙ Ø§ÙØ¹Ø¯ Ø§ÙØªÙØ§Ø²ÙÙ Ø­Ø³Ø¨ Ø§ÙÙØªØ±Ø© Ø§ÙÙÙØ¹Ø¯ÙØ©.",

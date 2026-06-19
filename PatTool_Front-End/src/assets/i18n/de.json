@@ -1,4 +1,4 @@
-{
+Ôªø{
 
     "LANGUAGE": {
 
@@ -652,7 +652,7 @@
 
         "LAYER_ISS_POSITION": "ISS-Position (?ber Proxy)",
 
-        "LAYER_ISS_HINT": "Bodenpunkt der ISS ?ber Open Notify, Proxy unter /api/external/globe/iss/now. Aktualisierung in einstellbarem Intervall (Standard 5 s), solange aktiviert; Zahlenfeld neben dem Schalter.",
+        "LAYER_ISS_HINT": "Bodenpunkt der ISS ?ber Open Notify, Proxy unter /api/external/globe/iss/now. Aktualisierung in einstellbarem Intervall (Standard 2 s), solange aktiviert; Zahlenfeld neben dem Schalter.",
 
         "BORDERS_LOADING": "Grenzen werden geladen ?",
 
@@ -701,6 +701,7 @@
         "ISS_TICKER_ALT": "H?he",
 
         "ISS_TICKER_SPEED": "Geschw.",
+        "ISS_TICKER_STEP": "Weg",
 
         "ISS_TICKER_NOW": "Jetzt",
 
@@ -736,7 +737,7 @@
 
         "ISS_POLL_INTERVAL_LABEL": "ISS-Aktualisierungsintervall (Sekunden)",
 
-        "ISS_POLL_INTERVAL_HINT": "Sekunden zwischen zwei Positionsabfragen (5?600). Gilt nach Verlassen des Felds oder Enter.",
+        "ISS_POLL_INTERVAL_HINT": "Sekunden zwischen zwei Positionsabfragen (2?600). Gilt nach Verlassen des Felds oder Enter.",
 
         "ISS_COUNTDOWN_HINT": "Zeit bis zur n?chsten ISS-Positionsabfrage.",
 
@@ -3751,7 +3752,7 @@
 
         "ERR_EXPORT": "PDF-Erzeugung fehlgeschlagen. Bitte erneut versuchen.",
 
-        "ERR_SHARE_WHATSAPP": "PDF konnte nicht ùber WhatsApp geteilt werden. Bitte erneut versuchen."
+        "ERR_SHARE_WHATSAPP": "PDF konnte nicht ÔøΩber WhatsApp geteilt werden. Bitte erneut versuchen."
 
     },
 

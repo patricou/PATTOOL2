@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "Francs",
         "EN": "Ingls",
@@ -325,7 +325,7 @@
         "LAYER_COUNTRY_BORDERS": "Fronteras de pases (Natural Earth, proxy)",
         "LAYER_COUNTRY_BORDERS_HINT": "Delimitaciones de Natural Earth (dominio pblico), va /api/external/globe/geojson/ne-110m-boundaries-land.",
         "LAYER_ISS_POSITION": "Posicin ISS (proxy)",
-        "LAYER_ISS_HINT": "Substelite de la EEI (Open Notify), proxy /api/external/globe/iss/now (actualizacin cada ~5 s por defecto).",
+        "LAYER_ISS_HINT": "Substelite de la EEI (Open Notify), proxy /api/external/globe/iss/now (actualizacin cada ~2 s por defecto).",
         "BORDERS_LOADING": "Cargando fronteras?",
         "BORDERS_FAILED": "No se pudo cargar la capa de fronteras.",
         "ISS_FETCH_FAILED": "Posicin ISS no disponible.",
@@ -349,7 +349,8 @@
         "ISS_TICKER_LAT": "Lat.",
         "ISS_TICKER_LON": "Lon.",
         "ISS_TICKER_ALT": "Alt.",
-        "ISS_TICKER_SPEED": "Vel.",
+        "ISS_TICKER_SPEED": "Vel.",
+        "ISS_TICKER_STEP": "Despl.",
         "ISS_TICKER_NOW": "Ahora",
         "ISS_TICKER_OVER": "Sobre",
         "ISS_OVER_OCEAN": "Ocano",
@@ -397,7 +398,7 @@
         "GEOCODE_PICK_HINT": "Varias coincidencias ? pulse una para centrar el globo.",
         "GEOCODE_GLOBE_NOT_READY": "El globo an se est cargando. Intntelo de nuevo en un momento.",
         "ISS_POLL_INTERVAL_LABEL": "Intervalo de actualizacin ISS (segundos)",
-        "ISS_POLL_INTERVAL_HINT": "Segundos entre dos solicitudes de posicin (5?600). Se aplica al salir del campo o pulsar Intro.",
+        "ISS_POLL_INTERVAL_HINT": "Segundos entre dos solicitudes de posicin (2?600). Se aplica al salir del campo o pulsar Intro.",
         "ISS_COUNTDOWN_HINT": "Tiempo hasta la prxima solicitud de posicin ISS.",
         "ISS_REFRESH_NOW": "Actualizar posicin ISS ahora",
         "ISS_REFRESH_NOW_HINT": "Solicitar la posicin ISS de inmediato; la cuenta atrs se reinicia con el intervalo configurado.",

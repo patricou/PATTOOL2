@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "Français",
         "EN": "Anglais",
@@ -775,9 +775,9 @@
         "LAYER_COUNTRY_BORDERS": "Frontières des pays (Natural Earth, proxy)",
         "LAYER_COUNTRY_BORDERS_HINT": "Traits de linéaire cotier / frontières (Natural Earth, domaine public). Téléchargement via /api/external/globe/geojson/ne-110m-boundaries-land.",
         "LAYER_ISS_POSITION": "Position ISS (proxy)",
-        "LAYER_ISS_HINT": "Position au sol via Open Notify, proxifiée sur /api/external/globe/iss/now. Rafraîchissement à intervalle réglable (défaut 5 s) tant que la couche est active ; champ numérique à côté du switch.",
+        "LAYER_ISS_HINT": "Position au sol via Open Notify, proxifiée sur /api/external/globe/iss/now. Rafraîchissement à intervalle réglable (défaut 2 s) tant que la couche est active ; champ numérique à côté du switch.",
         "ISS_POLL_INTERVAL_LABEL": "Intervalle de rafraîchissement ISS (secondes)",
-        "ISS_POLL_INTERVAL_HINT": "Secondes entre deux requêtes de position (5–600). Pris en compte en quittant le champ ou avec Entrée.",
+        "ISS_POLL_INTERVAL_HINT": "Secondes entre deux requêtes de position (2–600). Pris en compte en quittant le champ ou avec Entrée.",
         "ISS_COUNTDOWN_HINT": "Temps restant avant la prochaine requête de position ISS.",
         "ISS_REFRESH_NOW": "Rafraîchir la position ISS",
         "ISS_REFRESH_NOW_HINT": "Demander tout de suite la position ISS au serveur ; le décompte repart pour l’intervalle configuré.",
@@ -830,6 +830,7 @@
         "ISS_TICKER_LON": "Lon.",
         "ISS_TICKER_ALT": "Alt.",
         "ISS_TICKER_SPEED": "Vit.",
+        "ISS_TICKER_STEP": "Dépl.",
         "ISS_TICKER_NOW": "Maint.",
         "ISS_TICKER_OVER": "Survol",
         "ISS_OVER_OCEAN": "Océan",

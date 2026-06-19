@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "French",
         "EN": "English",
@@ -775,9 +775,9 @@
         "LAYER_COUNTRY_BORDERS": "Country borders (Natural Earth, proxied)",
         "LAYER_COUNTRY_BORDERS_HINT": "Land-boundary linework from Natural Earth (public domain). Fetched via /api/external/globe/geojson/ne-110m-boundaries-land.",
         "LAYER_ISS_POSITION": "ISS position (proxied)",
-        "LAYER_ISS_HINT": "International Space Station sub-point via Open Notify, proxied at /api/external/globe/iss/now. Refreshes on a configurable interval (default 5 s) while enabled; use the numeric field beside the switch.",
+        "LAYER_ISS_HINT": "International Space Station sub-point via Open Notify, proxied at /api/external/globe/iss/now. Refreshes on a configurable interval (default 2 s) while enabled; use the numeric field beside the switch.",
         "ISS_POLL_INTERVAL_LABEL": "ISS refresh interval (seconds)",
-        "ISS_POLL_INTERVAL_HINT": "Seconds between two ISS position requests (5–600). Applies after you leave the field or press Enter.",
+        "ISS_POLL_INTERVAL_HINT": "Seconds between two ISS position requests (2–600). Applies after you leave the field or press Enter.",
         "ISS_COUNTDOWN_HINT": "Time until the next ISS position request.",
         "ISS_REFRESH_NOW": "Refresh ISS position now",
         "ISS_REFRESH_NOW_HINT": "Fetch ISS position immediately; the countdown restarts using your configured interval.",
@@ -830,6 +830,7 @@
         "ISS_TICKER_LON": "Lon.",
         "ISS_TICKER_ALT": "Alt.",
         "ISS_TICKER_SPEED": "Speed",
+        "ISS_TICKER_STEP": "Moved",
         "ISS_TICKER_NOW": "Now",
         "ISS_TICKER_OVER": "Over",
         "ISS_OVER_OCEAN": "Ocean",

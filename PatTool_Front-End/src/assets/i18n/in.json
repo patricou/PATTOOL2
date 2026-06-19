@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "à¤«à¥à¤°à¥à¤à¤",
         "EN": "à¤à¤à¤à¥à¤°à¥à¤à¥",
@@ -730,7 +730,7 @@
         "LAYER_COUNTRY_BORDERS": "Country borders (Natural Earth, proxied)",
         "LAYER_COUNTRY_BORDERS_HINT": "Land-boundary linework from Natural Earth (public domain). Fetched via /api/external/globe/geojson/ne-110m-boundaries-land.",
         "LAYER_ISS_POSITION": "ISS position (proxied)",
-        "LAYER_ISS_HINT": "International Space Station sub-point via Open Notify, proxied at /api/external/globe/iss/now (refreshes about every 5 s by default while enabled).",
+        "LAYER_ISS_HINT": "International Space Station sub-point via Open Notify, proxied at /api/external/globe/iss/now (refreshes about every 2 s by default while enabled).",
         "BORDERS_LOADING": "Loading boundariesâ¦",
         "BORDERS_FAILED": "Boundaries layer could not be loaded (upstream or GeoJSON error).",
         "ISS_FETCH_FAILED": "ISS position unavailable (upstream or parsing error).",
@@ -754,7 +754,8 @@
         "ISS_TICKER_LAT": "à¤à¤à¥à¤·.",
         "ISS_TICKER_LON": "à¤¦à¥à¤¶.",
         "ISS_TICKER_ALT": "à¤à¤.",
-        "ISS_TICKER_SPEED": "à¤à¤¤à¤¿",
+        "ISS_TICKER_SPEED": "à¤à¤¤à¤¿",
+        "ISS_TICKER_STEP": "चाल",
         "ISS_TICKER_NOW": "à¤à¤­à¥",
         "ISS_TICKER_OVER": "à¤à¤ªà¤°",
         "ISS_OVER_OCEAN": "à¤®à¤¹à¤¾à¤¸à¤¾à¤à¤°",
@@ -805,7 +806,7 @@
         "FULLSCREEN_ENTER_TITLE": "à¤ªà¥à¤°à¥à¤£ à¤¸à¥à¤à¥à¤°à¥à¤¨",
         "FULLSCREEN_EXIT_TITLE": "à¤ªà¥à¤°à¥à¤£ à¤¸à¥à¤à¥à¤°à¥à¤¨ à¤¸à¥ à¤¬à¤¾à¤¹à¤°",
         "ISS_POLL_INTERVAL_LABEL": "ISS à¤°à¤¿à¤«à¥à¤°à¥à¤¶ à¤à¤à¤¤à¤°à¤¾à¤² (à¤¸à¥à¤à¤à¤¡)",
-        "ISS_POLL_INTERVAL_HINT": "à¤¦à¥ à¤¸à¥à¤¥à¤¿à¤¤à¤¿ à¤à¤¨à¥à¤°à¥à¤§à¥à¤ à¤à¥ à¤¬à¥à¤ à¤¸à¥à¤à¤à¤¡ (5â600)à¥¤ à¤«à¤¼à¥à¤²à¥à¤¡ à¤à¥à¤¡à¤¼à¤¨à¥ à¤¯à¤¾ Enter à¤à¥ à¤¬à¤¾à¤¦ à¤²à¤¾à¤à¥à¥¤",
+        "ISS_POLL_INTERVAL_HINT": "à¤¦à¥ à¤¸à¥à¤¥à¤¿à¤¤à¤¿ à¤à¤¨à¥à¤°à¥à¤§à¥à¤ à¤à¥ à¤¬à¥à¤ à¤¸à¥à¤à¤à¤¡ (2â600)à¥¤ à¤«à¤¼à¥à¤²à¥à¤¡ à¤à¥à¤¡à¤¼à¤¨à¥ à¤¯à¤¾ Enter à¤à¥ à¤¬à¤¾à¤¦ à¤²à¤¾à¤à¥à¥¤",
         "ISS_COUNTDOWN_HINT": "à¤à¤à¤²à¥ ISS à¤¸à¥à¤¥à¤¿à¤¤à¤¿ à¤à¤¨à¥à¤°à¥à¤§ à¤¤à¤ à¤à¤¾ à¤¸à¤®à¤¯à¥¤",
         "ISS_REFRESH_NOW": "ISS à¤¸à¥à¤¥à¤¿à¤¤à¤¿ à¤à¤­à¥ à¤°à¤¿à¤«à¥à¤°à¥à¤¶ à¤à¤°à¥à¤",
         "ISS_REFRESH_NOW_HINT": "à¤¤à¥à¤°à¤à¤¤ ISS à¤¸à¥à¤¥à¤¿à¤¤à¤¿ à¤ªà¥à¤°à¤¾à¤ªà¥à¤¤ à¤à¤°à¥à¤; à¤à¤¾à¤à¤à¤à¤¡à¤¾à¤à¤¨ à¤à¤ªà¤à¥ à¤à¤à¤¤à¤°à¤¾à¤² à¤¸à¥ à¤«à¤¿à¤° à¤¶à¥à¤°à¥ à¤¹à¥à¤¤à¤¾ à¤¹à¥à¥¤",

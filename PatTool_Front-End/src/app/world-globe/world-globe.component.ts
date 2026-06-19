@@ -152,8 +152,8 @@ const GLOBE_ISS_HISTORICAL_DATE_LABEL_RADIUS = GLOBE_ISS_HISTORICAL_TRAIL_RADIUS
 /** Segments par segment de traînée (grand cercle entre deux relevés). */
 const GLOBE_ISS_TRAIL_ARC_SEGMENTS = 14;
 /** Intervalle par défaut entre deux appels Open Notify (secondes). */
-const GLOBE_ISS_POLL_DEFAULT_SEC = 5;
-const GLOBE_ISS_POLL_MIN_SEC = 5;
+const GLOBE_ISS_POLL_DEFAULT_SEC = 2;
+const GLOBE_ISS_POLL_MIN_SEC = 2;
 const GLOBE_ISS_POLL_MAX_SEC = 600;
 /** Throttle du reverse-geocoding « survol » ISS : intervalle mini et déplacement mini avant un nouvel appel Nominatim. */
 const GLOBE_ISS_OVER_MIN_INTERVAL_MS = 9000;
@@ -345,7 +345,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
    * Désactive temporairement la rotation automatique tant que l’option est active et qu’une position ISS est connue.
    */
   issKeepEarthCentered = true;
-  /** Secondes entre deux rafraîchissements ISS (5–600, défaut 5). */
+  /** Secondes entre deux rafraîchissements ISS (2–600, défaut 2). */
   issPollIntervalSec = GLOBE_ISS_POLL_DEFAULT_SEC;
   /**
    * Secondes restantes avant le prochain appel API (0 si inactif).
@@ -447,6 +447,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
    * Vitesse du sous-point ISS (km/h) : priorité à l’API, sinon estimation entre deux relevés.
    */
   issGroundSpeedKmh: number | null = null;
+  /** Distance au sol (km) entre le relevé ISS précédent et le relevé courant (bandeau). */
+  issLastStepGroundKm: number | null = null;
   /** Cap vrai ISS (0° = Nord) dérivé du mouvement entre deux relevés. */
   issTrackDeg: number | null = null;
   /** Pays (ou océan) actuellement survolé par l’ISS, résolu par reverse-geocoding throttlé. */
@@ -757,8 +759,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private readonly issCameraCenterDirOut = new THREE.Vector3();
   /** Prochain rafraîchissement ISS planifié (`performance.now`-aligné via `Date.now`). */
   private issNextRefreshEpochMs = 0;
-  /** Chaîne de `setTimeout` pour respecter l’intervalle courant après chaque réponse. */
+  /** Chaîne de `setTimeout` sur intervalle fixe (indépendant de la durée des requêtes HTTP). */
   private issRefreshTimeout: number | null = null;
+  /** Ignore les réponses ISS obsolètes quand plusieurs requêtes sont en vol. */
+  private issRefreshRequestSeq = 0;
   /** Dernier échantillon lat/lon pour estimer la vitesse au sol entre deux réponses API. */
   private issSpeedSampleLat: number | null = null;
   private issSpeedSampleLon: number | null = null;
@@ -1928,6 +1932,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
 
   private clearIssPositionFeedState(): void {
     this.issGroundSpeedKmh = null;
+    this.issLastStepGroundKm = null;
     this.issTrackDeg = null;
     this.globeIssAltKm = null;
     this.issSpeedSampleLat = null;
@@ -2130,20 +2135,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
     this.issManualRefreshInFlight = true;
     this.cdr.markForCheck();
-    if (this.issRefreshTimeout != null) {
-      clearTimeout(this.issRefreshTimeout);
-      this.issRefreshTimeout = null;
-    }
+    this.scheduleIssRefreshChain(this.issPollIntervalMs());
     void this.refreshIssNow().finally(() => {
       this.issManualRefreshInFlight = false;
-      if (!this.issOverlayEnabled || !this.globeSurfaceReady) {
-        this.cdr.markForCheck();
-        return;
-      }
-      const ms = this.issPollIntervalMs();
-      this.issNextRefreshEpochMs = Date.now() + ms;
-      this.refreshIssCountdownSnapshot();
-      this.scheduleIssRefreshChain(ms);
       this.cdr.markForCheck();
     });
   }
@@ -6469,14 +6463,12 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (!this.issPositionFeedActive()) {
       return;
     }
-    const ms = this.issPollIntervalMs();
-    this.issNextRefreshEpochMs = Date.now() + ms;
     this.issCountdownInterval = window.setInterval(() => {
       this.clockNowMs = Date.now();
       this.refreshIssCountdownSnapshot();
       this.scheduleWorldGlobeCdr();
     }, 1000);
-    this.scheduleIssRefreshChain(ms);
+    this.scheduleIssRefreshChain(this.issPollIntervalMs());
     queueMicrotask(() => {
       this.refreshIssCountdownSnapshot();
       this.scheduleWorldGlobeCdr();
@@ -6484,17 +6476,22 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   }
 
   private scheduleIssRefreshChain(delayMs: number): void {
+    if (this.issRefreshTimeout != null) {
+      clearTimeout(this.issRefreshTimeout);
+      this.issRefreshTimeout = null;
+    }
+    const fireAt = Date.now() + delayMs;
+    this.issNextRefreshEpochMs = fireAt;
+    this.refreshIssCountdownSnapshot();
+
     this.issRefreshTimeout = window.setTimeout(() => {
       this.issRefreshTimeout = null;
-      void this.refreshIssNow().finally(() => {
-        if (!this.issPositionFeedActive()) {
-          return;
-        }
-        const ms = this.issPollIntervalMs();
-        this.issNextRefreshEpochMs = Date.now() + ms;
-        this.refreshIssCountdownSnapshot();
-        this.scheduleIssRefreshChain(ms);
-      });
+      if (!this.issPositionFeedActive()) {
+        return;
+      }
+      const ms = this.issPollIntervalMs();
+      void this.refreshIssNow();
+      this.scheduleIssRefreshChain(ms);
     }, delayMs);
   }
 
@@ -6512,8 +6509,16 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (!this.issPositionFeedActive()) {
       return;
     }
+    const seq = ++this.issRefreshRequestSeq;
     try {
-      const data = await firstValueFrom(this.http.get<GlobeOpenNotifyIssResponse>(this.globeIssNowUrl()));
+      const data = await firstValueFrom(
+        this.http.get<GlobeOpenNotifyIssResponse>(this.globeIssNowUrl(), {
+          params: { _t: String(Date.now()) }
+        })
+      );
+      if (seq !== this.issRefreshRequestSeq) {
+        return;
+      }
       const latStr = data?.iss_position?.latitude;
       const lonStr = data?.iss_position?.longitude;
       if (latStr == null || lonStr == null) {
@@ -6548,6 +6553,15 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       const now = Date.now();
       const prevSampleLat = this.issSpeedSampleLat;
       const prevSampleLon = this.issSpeedSampleLon;
+      let lastStepGroundKm: number | null = null;
+      if (prevSampleLat != null && prevSampleLon != null) {
+        lastStepGroundKm = WorldGlobeComponent.haversineGreatCircleKm(
+          prevSampleLat,
+          prevSampleLon,
+          lat,
+          lon
+        );
+      }
       let groundSpeedKmh = this.issGroundSpeedKmh;
       if (apiVelKmh != null) {
         groundSpeedKmh = apiVelKmh;
@@ -6590,6 +6604,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
         this.globeIssLon = lon;
         this.globeIssAltKm = altKm;
         this.issGroundSpeedKmh = groundSpeedKmh;
+        this.issLastStepGroundKm = lastStepGroundKm;
         if (this.issOverlayEnabled) {
           this.issOverlayFailed = overlayFailed;
         }
@@ -6599,6 +6614,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       });
       this.maybeUpdateIssOverPlace(lat, lon);
     } catch {
+      if (seq !== this.issRefreshRequestSeq) {
+        return;
+      }
       if (this.issOverlayEnabled) {
         this.scheduleWorldGlobeCdr(() => {
           this.issOverlayFailed = true;
