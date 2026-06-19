@@ -137,6 +137,24 @@ const GLOBE_ISS_TRAIL_OPACITY = 0.82;
 /** Taille monde de l’icône ISS (vue de dessus, panneaux solaires). */
 const GLOBE_ISS_ICON_WORLD_SIZE = 0.034;
 const GLOBE_ISS_MARKER_COLOR = 0xffea00;
+/**
+ * Zone au sol depuis laquelle l’ISS est visible (élévation ≥ seuil, sphère Re = 6371 km).
+ * Le rayon au sol = Re × γ avec γ résolu sur la courbure (pas de modèle plan).
+ */
+const GLOBE_ISS_VISIBILITY_MIN_ELEVATION_DEG = 10;
+const GLOBE_EARTH_RADIUS_KM = 6371;
+const GLOBE_ISS_VISIBILITY_FILL_RADIUS = 1.007;
+const GLOBE_ISS_VISIBILITY_CIRCLE_RADIUS = 1.0078;
+/** Dégradé radial de la calotte : opacité au sous-point ISS / au bord. */
+const GLOBE_ISS_VISIBILITY_FILL_OPACITY_CENTER = 0.55;
+const GLOBE_ISS_VISIBILITY_FILL_OPACITY_EDGE = 0.0;
+const GLOBE_ISS_VISIBILITY_FILL_INNER_COLOR = 0xffff66;
+const GLOBE_ISS_VISIBILITY_FILL_OUTER_COLOR = 0xff7700;
+const GLOBE_ISS_VISIBILITY_CIRCLE_COLOR = 0xffea00;
+const GLOBE_ISS_VISIBILITY_CIRCLE_OPACITY = 0.72;
+const GLOBE_ISS_VISIBILITY_CIRCLE_SEGMENTS = 96;
+/** Anneaux radiaux de la calotte (surface sphérique, pas cordes planes). */
+const GLOBE_ISS_VISIBILITY_CAP_RADIAL_RINGS = 12;
 /** Historique de positions pour la traînée (une entrée par rafraîchissement utile). */
 const GLOBE_ISS_TRAIL_MAX_POINTS = 96;
 /** Traînée historique MongoDB : légèrement sous la traînée live. */
@@ -739,6 +757,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private citiesPoints?: THREE.Points;
   private timeZonesMesh?: THREE.Mesh;
   private issMarkerMesh?: THREE.Mesh;
+  /** Petit cercle + calotte au sol : zone depuis laquelle l’ISS est visible. */
+  private issVisibilityCircleLine?: THREE.LineLoop;
+  private issVisibilityFillMesh?: THREE.Mesh;
+  /** Rayon au sol (km) de la zone de visibilité ISS affichée. */
+  globeIssVisibilityRadiusKm: number | null = null;
   /** Positions successives (lat/lon) pour la traînée ; enfant du maillage Terre. */
   private issTrailLine?: THREE.LineSegments;
   private readonly issTrailPoints: { lat: number; lon: number }[] = [];
@@ -1033,6 +1056,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.disposeCitiesPoints();
     this.disposeTimeZonesMesh();
     this.disposeIssMarkerMesh();
+    this.disposeIssVisibilityCircle();
     this.clearIssTrail();
     this.disposeIssHistoricalTrail();
     this.routeQuerySub?.unsubscribe();
@@ -1529,6 +1553,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.issGlobeFreeOrbit = false;
       this.issManualRefreshInFlight = false;
       this.disposeIssMarkerMesh();
+      this.disposeIssVisibilityCircle();
       this.clearIssTrail();
       this.issOverlayFailed = false;
       if (!this.issTickerEnabled) {
@@ -1965,6 +1990,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.issLastStepGroundKm = null;
     this.issTrackDeg = null;
     this.globeIssAltKm = null;
+    this.globeIssVisibilityRadiusKm = null;
     this.issSpeedSampleLat = null;
     this.issSpeedSampleLon = null;
     this.issOverPlaceLabel = null;
@@ -6149,17 +6175,13 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (this.issCompassStatus === 'no-iss') {
       this.issCompassStatus = 'ready';
     }
-    const Re = 6371;
+    const Re = GLOBE_EARTH_RADIUS_KM;
     const h = this.globeIssAltKm != null && this.globeIssAltKm > 0 ? this.globeIssAltKm : 420;
     const groundKm = WorldGlobeComponent.haversineGreatCircleKm(uLat, uLon, sLat, sLon);
-    const gamma = groundKm / Re; // angle géocentrique (rad)
+    const gamma = groundKm / Re; // angle géocentrique (rad) le long de la sphère
     const azimuth = WorldGlobeComponent.initialBearingDeg(uLat, uLon, sLat, sLon);
-    // Élévation satellite (modèle sphérique) : el = atan2(cos γ − Re/(Re+h), sin γ)
-    const ratio = Re / (Re + h);
-    const elevationRad = Math.atan2(Math.cos(gamma) - ratio, Math.sin(gamma));
-    const slant = Math.sqrt(
-      Re * Re + (Re + h) * (Re + h) - 2 * Re * (Re + h) * Math.cos(gamma)
-    );
+    const elevationRad = WorldGlobeComponent.satelliteElevationRadFromNadirCentralAngle(gamma, h);
+    const slant = WorldGlobeComponent.satelliteSlantRangeKmFromNadirCentralAngle(gamma, h);
     this.issCompassAzimuthDeg = azimuth;
     this.issCompassElevationDeg = (elevationRad * 180) / Math.PI;
     this.issCompassGroundDistanceKm = groundKm;
@@ -6650,6 +6672,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       if (this.issOverlayEnabled && this.scene && this.earthMesh) {
         this.ensureIssMarkerMesh();
         this.updateIssMarkerWorldPosition(lat, lon, prevSampleLat, prevSampleLon);
+        this.updateIssVisibilityCircle(lat, lon, altKm);
         this.recordIssTrailSample(lat, lon);
         // Réaligne sur le dernier segment de traînée (cohérent avec la polyligne affichée).
         this.updateIssMarkerWorldPosition(lat, lon);
@@ -6789,6 +6812,395 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.earthMesh?.remove(mesh);
     WorldGlobeComponent.disposeIconPlaneMesh(mesh);
     this.issMarkerMesh = undefined;
+  }
+
+  /**
+   * Élévation d’un satellite au-dessus de l’horizon local (rad), modèle sphérique à courbure.
+   * Observateur sur la surface à l’angle géocentrique {@code nadirCentralAngleRad} du sous-point ;
+   * satellite au-dessus du sous-point à l’altitude {@code altKm}.
+   * Dérivé du triangle centre Terre – observateur – satellite (OP = Re, OS = Re+h).
+   */
+  private static satelliteElevationRadFromNadirCentralAngle(
+    nadirCentralAngleRad: number,
+    altKm: number
+  ): number {
+    const ratio = GLOBE_EARTH_RADIUS_KM / (GLOBE_EARTH_RADIUS_KM + Math.max(0, altKm));
+    const g = nadirCentralAngleRad;
+    return Math.atan2(Math.cos(g) - ratio, Math.sin(g));
+  }
+
+  /** Distance oblique observateur → satellite (km), loi des cosinus sur la sphère. */
+  private static satelliteSlantRangeKmFromNadirCentralAngle(
+    nadirCentralAngleRad: number,
+    altKm: number
+  ): number {
+    const Re = GLOBE_EARTH_RADIUS_KM;
+    const R = Re + Math.max(0, altKm);
+    const g = nadirCentralAngleRad;
+    return Math.sqrt(Re * Re + R * R - 2 * Re * R * Math.cos(g));
+  }
+
+  /**
+   * Élévation (rad) via vecteurs 3D sur la sphère — contrôle indépendant du modèle méridien.
+   * Observateur et sous-point ISS à (lat, lon) ; altitude du satellite au-dessus du sous-point.
+   */
+  private static satelliteElevationRadFromLatLon(
+    observerLatDeg: number,
+    observerLonDeg: number,
+    nadirLatDeg: number,
+    nadirLonDeg: number,
+    altKm: number
+  ): number {
+    const Re = GLOBE_EARTH_RADIUS_KM;
+    const obs = WorldGlobeComponent.latLonToVector3(observerLatDeg, observerLonDeg, Re);
+    const sat = WorldGlobeComponent.latLonToVector3(nadirLatDeg, nadirLonDeg, Re + Math.max(0, altKm));
+    const toSat = sat.clone().sub(obs);
+    const range = toSat.length();
+    if (range < 1e-6) {
+      return Math.PI / 2;
+    }
+    const up = obs.clone().normalize();
+    return Math.asin(Math.min(1, Math.max(-1, toSat.dot(up) / range)));
+  }
+
+  /**
+   * Angle géocentrique (rad) depuis le sous-point ISS jusqu’à la limite de visibilité sur la sphère.
+   * Résout sin(γ) tan(el) + Re/(Re+h) = cos(γ) pour l’élévation seuil (courbure incluse).
+   */
+  private static issVisibilityCentralAngleRad(altKm: number, minElevationDeg: number): number {
+    const r = GLOBE_EARTH_RADIUS_KM / (GLOBE_EARTH_RADIUS_KM + Math.max(0, altKm));
+    const horizonGamma = Math.acos(Math.min(1, Math.max(-1, r)));
+    if (minElevationDeg <= 0) {
+      return horizonGamma;
+    }
+    const t = Math.tan((minElevationDeg * Math.PI) / 180);
+    const a = 1 + t * t;
+    const c = r * r - t * t;
+    const disc = 4 * r * r - 4 * a * c;
+    if (disc <= 0) {
+      return horizonGamma;
+    }
+    const sqrtDisc = Math.sqrt(disc);
+    const candidates = [(2 * r + sqrtDisc) / (2 * a), (2 * r - sqrtDisc) / (2 * a)];
+    const elMin = (minElevationDeg * Math.PI) / 180;
+    for (const cosGamma of candidates) {
+      if (cosGamma < r || cosGamma > 1) {
+        continue;
+      }
+      const gamma = Math.acos(cosGamma);
+      const elev = WorldGlobeComponent.satelliteElevationRadFromNadirCentralAngle(gamma, altKm);
+      if (Math.abs(elev - elMin) < 2e-4) {
+        return gamma;
+      }
+    }
+    let lo = 0;
+    let hi = horizonGamma;
+    for (let i = 0; i < 48; i++) {
+      const mid = (lo + hi) / 2;
+      const elev = WorldGlobeComponent.satelliteElevationRadFromNadirCentralAngle(mid, altKm);
+      if (elev > elMin) {
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+    }
+    return (lo + hi) / 2;
+  }
+
+  /** Distance orthodromique (km) le long de la surface sphérique (= Re × angle géocentrique). */
+  private static earthCentralAngleToGroundKm(centralAngleRad: number): number {
+    return GLOBE_EARTH_RADIUS_KM * centralAngleRad;
+  }
+
+  /** Base orthonormée (est, nord) tangente à la sphère au point (lat, lon). */
+  private static sphereTangentFrameAtLatLon(
+    latDeg: number,
+    lonDeg: number
+  ): { center: THREE.Vector3; east: THREE.Vector3; north: THREE.Vector3 } {
+    const center = WorldGlobeComponent.latLonToVector3(latDeg, lonDeg, 1).normalize();
+    const worldUp = new THREE.Vector3(0, 1, 0);
+    let east = new THREE.Vector3().crossVectors(worldUp, center);
+    if (east.lengthSq() < 1e-8) {
+      east.set(1, 0, 0);
+    } else {
+      east.normalize();
+    }
+    const north = new THREE.Vector3().crossVectors(center, east).normalize();
+    return { center, east, north };
+  }
+
+  /** Point sur la sphère à l’angle géocentrique {@code centralAngleRad} du sous-point (petit cercle). */
+  private static spherePointFromNadirOffset(
+    center: THREE.Vector3,
+    east: THREE.Vector3,
+    north: THREE.Vector3,
+    centralAngleRad: number,
+    azimuthRad: number,
+    radius: number
+  ): THREE.Vector3 {
+    const sinG = Math.sin(centralAngleRad);
+    const cosG = Math.cos(centralAngleRad);
+    const tangent = east
+      .clone()
+      .multiplyScalar(Math.cos(azimuthRad))
+      .addScaledVector(north, Math.sin(azimuthRad));
+    return center
+      .clone()
+      .multiplyScalar(cosG)
+      .addScaledVector(tangent, sinG)
+      .normalize()
+      .multiplyScalar(radius);
+  }
+
+  /** Sommets d’un petit cercle sphérique centré en (lat, lon) à l’angle géocentrique {@code centralAngleRad}. */
+  private static sphereSmallCirclePoints(
+    latDeg: number,
+    lonDeg: number,
+    centralAngleRad: number,
+    radius: number,
+    segments: number
+  ): THREE.Vector3[] {
+    const { center, east, north } = WorldGlobeComponent.sphereTangentFrameAtLatLon(latDeg, lonDeg);
+    const out: THREE.Vector3[] = [];
+    for (let i = 0; i <= segments; i++) {
+      const theta = (i / segments) * Math.PI * 2;
+      out.push(
+        WorldGlobeComponent.spherePointFromNadirOffset(
+          center,
+          east,
+          north,
+          centralAngleRad,
+          theta,
+          radius
+        )
+      );
+    }
+    return out;
+  }
+
+  /**
+   * Calotte sphérique : anneaux concentriques le long de la surface (courbure Terre),
+   * pas un éventail plan qui couperait à travers le globe.
+   */
+  private static buildIssVisibilityCapGeometry(
+    latDeg: number,
+    lonDeg: number,
+    centralAngleRad: number,
+    sphereRadius: number,
+    segments: number,
+    radialRings = GLOBE_ISS_VISIBILITY_CAP_RADIAL_RINGS
+  ): THREE.BufferGeometry {
+    const { center, east, north } = WorldGlobeComponent.sphereTangentFrameAtLatLon(latDeg, lonDeg);
+    const positions: number[] = [];
+    const indices: number[] = [];
+    const ringVertexStart: number[] = [];
+
+    for (let ri = 0; ri <= radialRings; ri++) {
+      ringVertexStart.push(positions.length / 3);
+      const angle = (centralAngleRad * ri) / radialRings;
+      if (ri === 0) {
+        const c = center.clone().multiplyScalar(sphereRadius);
+        positions.push(c.x, c.y, c.z);
+        continue;
+      }
+      for (let si = 0; si < segments; si++) {
+        const az = (si / segments) * Math.PI * 2;
+        const p = WorldGlobeComponent.spherePointFromNadirOffset(
+          center,
+          east,
+          north,
+          angle,
+          az,
+          sphereRadius
+        );
+        positions.push(p.x, p.y, p.z);
+      }
+    }
+
+    for (let ri = 0; ri < radialRings; ri++) {
+      if (ri === 0) {
+        const centerIdx = ringVertexStart[0];
+        const outerStart = ringVertexStart[1];
+        for (let si = 0; si < segments; si++) {
+          indices.push(centerIdx, outerStart + si, outerStart + ((si + 1) % segments));
+        }
+        continue;
+      }
+      const innerStart = ringVertexStart[ri];
+      const outerStart = ringVertexStart[ri + 1];
+      for (let si = 0; si < segments; si++) {
+        const si2 = (si + 1) % segments;
+        indices.push(
+          innerStart + si,
+          outerStart + si,
+          outerStart + si2,
+          innerStart + si,
+          outerStart + si2,
+          innerStart + si2
+        );
+      }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  /** Matériau calotte ISS : dégradé radial calculé en fragment (angle depuis le sous-point). */
+  private static createIssVisibilityFillMaterial(): THREE.ShaderMaterial {
+    const inner = new THREE.Color(GLOBE_ISS_VISIBILITY_FILL_INNER_COLOR);
+    const outer = new THREE.Color(GLOBE_ISS_VISIBILITY_FILL_OUTER_COLOR);
+    const mat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      depthTest: true,
+      blending: THREE.NormalBlending,
+      side: THREE.DoubleSide,
+      uniforms: {
+        uColorInner: { value: inner },
+        uColorOuter: { value: outer },
+        uOpacityCenter: { value: GLOBE_ISS_VISIBILITY_FILL_OPACITY_CENTER },
+        uOpacityEdge: { value: GLOBE_ISS_VISIBILITY_FILL_OPACITY_EDGE },
+        uNadirDir: { value: new THREE.Vector3(0, 1, 0) },
+        uGammaMax: { value: 0.22 }
+      },
+      vertexShader: `
+        varying vec3 vLocalDir;
+        void main() {
+          vLocalDir = normalize(position);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 uColorInner;
+        uniform vec3 uColorOuter;
+        uniform float uOpacityCenter;
+        uniform float uOpacityEdge;
+        uniform vec3 uNadirDir;
+        uniform float uGammaMax;
+        varying vec3 vLocalDir;
+        void main() {
+          float cosA = clamp(dot(vLocalDir, normalize(uNadirDir)), -1.0, 1.0);
+          float angle = acos(cosA);
+          float t = uGammaMax > 1e-5 ? clamp(angle / uGammaMax, 0.0, 1.0) : 0.0;
+          vec3 color = mix(uColorInner, uColorOuter, t);
+          float alpha = mix(uOpacityCenter, uOpacityEdge, t);
+          if (alpha < 0.004) {
+            discard;
+          }
+          gl_FragColor = vec4(color, alpha);
+        }
+      `
+    });
+    mat.toneMapped = false;
+    return mat;
+  }
+
+  private syncIssVisibilityFillShaderUniforms(lat: number, lon: number, gammaRad: number): void {
+    const fill = this.issVisibilityFillMesh;
+    if (!fill) {
+      return;
+    }
+    let mat = fill.material;
+    if (!(mat instanceof THREE.ShaderMaterial)) {
+      if (!Array.isArray(mat)) {
+        mat.dispose();
+      }
+      fill.material = WorldGlobeComponent.createIssVisibilityFillMaterial();
+      mat = fill.material;
+    }
+    const shader = mat as THREE.ShaderMaterial;
+    shader.uniforms['uNadirDir'].value
+      .copy(WorldGlobeComponent.latLonToVector3(lat, lon, 1))
+      .normalize();
+    shader.uniforms['uGammaMax'].value = Math.max(gammaRad, 1e-5);
+  }
+
+  /** Met à jour la zone de visibilité ISS (contour + remplissage semi-transparent). */
+  private updateIssVisibilityCircle(lat: number, lon: number, altKm: number | null): void {
+    const earth = this.earthMesh;
+    if (!earth || !this.issOverlayEnabled) {
+      return;
+    }
+    const h = altKm != null && altKm > 0 ? altKm : 420;
+    const gamma = WorldGlobeComponent.issVisibilityCentralAngleRad(
+      h,
+      GLOBE_ISS_VISIBILITY_MIN_ELEVATION_DEG
+    );
+    this.globeIssVisibilityRadiusKm = WorldGlobeComponent.earthCentralAngleToGroundKm(gamma);
+    const pts = WorldGlobeComponent.sphereSmallCirclePoints(
+      lat,
+      lon,
+      gamma,
+      GLOBE_ISS_VISIBILITY_CIRCLE_RADIUS,
+      GLOBE_ISS_VISIBILITY_CIRCLE_SEGMENTS
+    );
+    if (!this.issVisibilityCircleLine) {
+      const lineMat = new THREE.LineBasicMaterial({
+        color: GLOBE_ISS_VISIBILITY_CIRCLE_COLOR,
+        transparent: true,
+        opacity: GLOBE_ISS_VISIBILITY_CIRCLE_OPACITY,
+        depthWrite: false
+      });
+      lineMat.toneMapped = false;
+      const line = new THREE.LineLoop(new THREE.BufferGeometry(), lineMat);
+      line.renderOrder = 4;
+      earth.add(line);
+      this.issVisibilityCircleLine = line;
+    }
+    if (!this.issVisibilityFillMesh) {
+      const fill = new THREE.Mesh(
+        new THREE.BufferGeometry(),
+        WorldGlobeComponent.createIssVisibilityFillMaterial()
+      );
+      fill.renderOrder = 3;
+      earth.add(fill);
+      this.issVisibilityFillMesh = fill;
+    }
+    const line = this.issVisibilityCircleLine;
+    const oldLineGeo = line.geometry;
+    line.geometry = new THREE.BufferGeometry().setFromPoints(pts);
+    oldLineGeo.dispose();
+    line.visible = true;
+
+    const fill = this.issVisibilityFillMesh;
+    const oldFillGeo = fill.geometry;
+    fill.geometry = WorldGlobeComponent.buildIssVisibilityCapGeometry(
+      lat,
+      lon,
+      gamma,
+      GLOBE_ISS_VISIBILITY_FILL_RADIUS,
+      GLOBE_ISS_VISIBILITY_CIRCLE_SEGMENTS
+    );
+    oldFillGeo.dispose();
+    this.syncIssVisibilityFillShaderUniforms(lat, lon, gamma);
+    fill.visible = true;
+  }
+
+  private disposeIssVisibilityCircle(): void {
+    const line = this.issVisibilityCircleLine;
+    this.issVisibilityCircleLine = undefined;
+    if (line) {
+      this.earthMesh?.remove(line);
+      line.geometry.dispose();
+      const m = line.material;
+      if (!Array.isArray(m) && m instanceof THREE.Material) {
+        m.dispose();
+      }
+    }
+    const fill = this.issVisibilityFillMesh;
+    this.issVisibilityFillMesh = undefined;
+    this.globeIssVisibilityRadiusKm = null;
+    if (fill) {
+      this.earthMesh?.remove(fill);
+      fill.geometry.dispose();
+      const fm = fill.material;
+      if (!Array.isArray(fm) && fm instanceof THREE.Material) {
+        fm.dispose();
+      }
+    }
   }
 
   /* ===================================================================== */

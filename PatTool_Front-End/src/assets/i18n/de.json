@@ -4278,7 +4278,7 @@
 
         "TOOLS_OPTIONAL": "Werkzeuge:",
 
-        "TOOLS_GROUP": "OpenAI-Tooloptionen f?r diese Anfrage",
+        "TOOLS_GROUP": "Tooloptionen für diese Anfrage",
 
         "TOOL_WEB": "Websuche",
 
@@ -4286,11 +4286,13 @@
 
         "TOOL_MCP": "MCP",
 
-        "TOOLS_OPTIONAL_HINT": "Aktiviert zus?tzliche OpenAI-Funktionen: Websuche, Bilder, MCP-Server.",
+        "TOOLS_OPTIONAL_HINT": "Optional ? angezeigte Optionen hängen vom gewählten Anbieter ab (langsamer, höherer API-Verbrauch).",
 
-        "TOOL_WEB_HINT": "Das Modell kann das Web f?r aktuelle Informationen nutzen (langsamer, h?herer API-Verbrauch).",
+        "TOOL_WEB_HINT": "Durchsucht das Web nach aktuellen Infos (Nachrichten, Wetter, Kurse?). Langsamere Antwort.",
 
-        "TOOL_IMAGE_HINT": "Das Modell kann Bilder erzeugen; kann mehr kosten und l?nger dauern.",
+        "TOOL_IMAGE_HINT": "Das Modell kann Bilder in der Antwort erzeugen (OpenAI).",
+
+        "TOOL_IMAGE_HINT_GEMINI": "Das Modell kann Bilder erzeugen; Gemini kann auf das serverseitig konfigurierte Bildmodell wechseln.",
 
         "TOOL_MCP_HINT": "Verbindet einen auf dem Backend konfigurierten MCP-Server (openai.mcp.*).",
 

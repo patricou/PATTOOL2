@@ -18,6 +18,7 @@ import com.pat.service.AssistantConversationAssetService;
 import com.pat.service.AssistantConversationService;
 import com.pat.service.AssistantModelsCatalogService;
 import com.pat.service.AssistantPdfExportService;
+import com.pat.service.assistant.AssistantPdfFilenameSupport;
 import com.pat.service.AssistantRoutingPreferenceService;
 import com.pat.service.OpenAiBillingService;
 import com.pat.service.RoutingAssistantService;
@@ -37,9 +38,6 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -326,12 +324,7 @@ public class AssistantController {
     public ResponseEntity<byte[]> exportPdf(@RequestBody @Valid AssistantPdfExportRequestDto body) {
         try {
             byte[] pdf = assistantPdfExportService.buildPdf(body);
-            String filename =
-                    "pat-assistant-"
-                            + DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
-                                    .withZone(ZoneId.systemDefault())
-                                    .format(Instant.now())
-                            + ".pdf";
+            String filename = AssistantPdfFilenameSupport.buildFilename(body.turns());
             ContentDisposition cd =
                     ContentDisposition.attachment().filename(filename, StandardCharsets.UTF_8).build();
             return ResponseEntity.ok()

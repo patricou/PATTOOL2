@@ -84,6 +84,17 @@ export interface AssistantOpenAiCredits {
 /** Fournisseurs IA supportés par l’assistant PatTool. */
 export type AssistantProviderSlug = 'openai' | 'anthropic' | 'gemini' | 'mistral';
 
+export function isAssistantProviderSlug(
+  p: string | undefined | null
+): p is AssistantProviderSlug {
+  return (
+    p === 'openai' ||
+    p === 'anthropic' ||
+    p === 'gemini' ||
+    p === 'mistral'
+  );
+}
+
 /** Libellés + routage par défaut côté serveur (GET /assistant/config). */
 export interface AssistantClientConfig {
   provider?: string | null;
@@ -284,11 +295,7 @@ export class AssistantService {
         base64: attachedImage.base64.trim()
       };
     }
-    if (
-      routing?.provider === 'openai' ||
-      routing?.provider === 'anthropic' ||
-      routing?.provider === 'gemini'
-    ) {
+    if (routing && isAssistantProviderSlug(routing.provider)) {
       body.provider = routing.provider;
       const modelTrimmed = routing.model?.trim();
       if (modelTrimmed) {

@@ -97,6 +97,7 @@ import { ASSISTANT_ANTHROPIC_MODEL_GUIDE_ROWS } from './assistant-anthropic-mode
 import { ASSISTANT_GEMINI_MODEL_GUIDE_ROWS } from './assistant-gemini-model-guide';
 import { AssistantProviderModelGuideSection } from './assistant-model-guide.types';
 import { ASSISTANT_MISTRAL_MODEL_GUIDE_ROWS } from './assistant-mistral-model-guide';
+import { buildAssistantPdfDownloadFilename } from './assistant-pdf-filename.util';
 import { ASSISTANT_OPENAI_MODEL_GUIDE_ROWS } from './assistant-openai-model-guide';
 import { ASSISTANT_MODEL_RANKING_ROWS } from './assistant-model-ranking-table';
 import {
@@ -104,6 +105,7 @@ import {
   AssistantModelPickRouting,
   isAssistantModelPickActionable
 } from './assistant-model-pick-routing';
+import { ASSISTANT_TOOLS_HELP_PROVIDER_MATRIX } from './assistant-tools-help-matrix';
 
 @Component({
   selector: 'app-assistant-drawer',
@@ -429,6 +431,8 @@ export class AssistantDrawerComponent
 
   /** Model / task catalogue for the tools help modal (ℹ️ next to MCP). */
   readonly assistantModelRankingRows = ASSISTANT_MODEL_RANKING_ROWS;
+  /** Optional tool checkboxes × provider matrix (tools help modal). */
+  readonly assistantToolsHelpProviderMatrix = ASSISTANT_TOOLS_HELP_PROVIDER_MATRIX;
   /** Per-provider model guide sections in the same tools help modal. */
   readonly assistantProviderModelGuideSections: readonly AssistantProviderModelGuideSection[] = [
     {
@@ -563,6 +567,27 @@ export class AssistantDrawerComponent
 
   private providerDisablesImageGeneration(p: AssistantProviderSlug): boolean {
     return p === 'anthropic' || p === 'mistral';
+  }
+
+  /** Recherche web : tous les fournisseurs PatTool. */
+  providerSupportsWebSearch(): boolean {
+    return AssistantDrawerComponent.isAssistantProvider(this.routingProvider);
+  }
+
+  /** Génération d’images : OpenAI et Gemini uniquement. */
+  providerSupportsImageGeneration(): boolean {
+    return !this.providerDisablesImageGeneration(this.routingProvider);
+  }
+
+  /** MCP : OpenAI uniquement (API Responses). */
+  providerSupportsMcp(): boolean {
+    return this.routingProvider === 'openai';
+  }
+
+  toolImageHintKey(): string {
+    return this.routingProvider === 'gemini'
+      ? 'ASSISTANT.TOOL_IMAGE_HINT_GEMINI'
+      : 'ASSISTANT.TOOL_IMAGE_HINT';
   }
 
   private static readonly ROUTING_PROVIDER_ENTRIES: readonly {
@@ -4335,11 +4360,7 @@ export class AssistantDrawerComponent
   }
 
   private buildAssistantPdfFilename(): string {
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const d = new Date();
-    return `pat-assistant-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(
-      d.getHours()
-    )}${pad(d.getMinutes())}.pdf`;
+    return buildAssistantPdfDownloadFilename(this.messages);
   }
 
   private buildAssistantPdfExportRequest$(): Observable<AssistantPdfExportRequest> {

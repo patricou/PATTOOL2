@@ -1597,6 +1597,50 @@ a.pat-assistant-brave-search.pat-assistant-header-btn .fa {
     0 8px 24px rgba(37, 99, 235, 0.07);
 }
 
+.pat-assistant-tools-help-optional-tools {
+  padding: 0.85rem 0.95rem 0.95rem;
+  border: 1px solid #d1fae5;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #ffffff 0%, #f8fdfb 55%, #ecfdf5 100%);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 6px 20px rgba(16, 185, 129, 0.06);
+}
+
+.pat-assistant-tools-help-table--tools-matrix th,
+.pat-assistant-tools-help-table--tools-matrix td {
+  font-size: 0.78rem;
+}
+
+.pat-assistant-tools-help-tools-matrix-row[data-provider='openai'] th {
+  border-left: 3px solid #10a37f;
+  padding-left: 0.55rem;
+}
+
+.pat-assistant-tools-help-tools-matrix-row[data-provider='gemini'] th {
+  border-left: 3px solid #4285f4;
+  padding-left: 0.55rem;
+}
+
+.pat-assistant-tools-help-tools-matrix-row[data-provider='anthropic'] th {
+  border-left: 3px solid #d97757;
+  padding-left: 0.55rem;
+}
+
+.pat-assistant-tools-help-tools-matrix-row[data-provider='mistral'] th {
+  border-left: 3px solid #ff7000;
+  padding-left: 0.55rem;
+}
+
+.pat-assistant-tools-help-tools-yes {
+  color: #059669;
+  font-weight: 600;
+}
+
+.pat-assistant-tools-help-tools-no {
+  color: #94a3b8;
+}
+
 .pat-assistant-tools-help-section-head {
   margin-bottom: 0.55rem;
 }
