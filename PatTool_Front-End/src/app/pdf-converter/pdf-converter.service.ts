@@ -8,6 +8,8 @@ import { MembersService } from '../services/members.service';
 export interface PdfConverterDocument {
   id?: string;
   ownerMemberId?: string;
+  /** Populated for admin users when listing all documents. */
+  ownerDisplayName?: string | null;
   fileName: string;
   htmlContent?: string | null;
   createdAt?: string;

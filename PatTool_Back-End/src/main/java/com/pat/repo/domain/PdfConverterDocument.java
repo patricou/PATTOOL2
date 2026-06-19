@@ -2,6 +2,7 @@ package com.pat.repo.domain;
 
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.Date;
@@ -29,6 +30,10 @@ public class PdfConverterDocument {
     private Date createdAt;
 
     private Date updatedAt;
+
+    /** Resolved for admin list views only; not stored in MongoDB. */
+    @Transient
+    private String ownerDisplayName;
 
     public String getId() {
         return id;
@@ -76,5 +81,13 @@ public class PdfConverterDocument {
 
     public void setUpdatedAt(Date updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getOwnerDisplayName() {
+        return ownerDisplayName;
+    }
+
+    public void setOwnerDisplayName(String ownerDisplayName) {
+        this.ownerDisplayName = ownerDisplayName;
     }
 }

@@ -570,14 +570,16 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
 
   formatDocumentLabel(doc: PdfConverterDocument): string {
     const name = (doc.fileName || '').trim() || 'document';
+    const owner = (doc.ownerDisplayName || '').trim();
+    const titled = owner ? `${name} — ${owner}` : name;
     if (!doc.updatedAt) {
-      return name;
+      return titled;
     }
     try {
       const d = new Date(doc.updatedAt);
-      return `${name} (${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
+      return `${titled} (${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
     } catch {
-      return name;
+      return titled;
     }
   }
 
