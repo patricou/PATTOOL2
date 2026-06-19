@@ -347,6 +347,7 @@
         "ISS_TICKER_STEP": "移動",
         "ISS_TICKER_NOW": "ç¾å¨",
         "ISS_TICKER_OVER": "ä¸ç©º",
+        "ISS_TICKER_TRACE": "è»è·¡",
         "ISS_OVER_OCEAN": "æµ·æ´",
         "ISS_LIVE_PIP_RESIZE_HINT": "Drag the top-left handle to resize (window stays anchored at the bottom right).",
         "ISS_LIVE_PIP_CLOSE": "ã¦ã£ã³ãã¦ãéãã",

@@ -768,6 +768,7 @@
         <div class="wg-banner small mt-1 alert alert-warning py-1 px-2 mb-0" *ngIf="bordersOverlayFailed">{{ 'WORLD_GLOBE.BORDERS_FAILED' | translate }}</div>
         <div class="wg-banner small mt-1 alert alert-warning py-1 px-2 mb-0" *ngIf="issOverlayFailed && issOverlayEnabled">{{ 'WORLD_GLOBE.ISS_FETCH_FAILED' | translate }}</div>
         <div class="wg-banner small mt-1 alert alert-warning py-1 px-2 mb-0" *ngIf="issHistoricalTraceFailed && issHistoricalTraceEnabled">{{ 'WORLD_GLOBE.ISS_HISTORICAL_TRACE_FAILED' | translate }}</div>
+        <div class="wg-banner small mt-1 alert alert-info py-1 px-2 mb-0" *ngIf="issForecastTrailApproximate && issTraceVisible && issOverlayEnabled">{{ 'WORLD_GLOBE.ISS_FORECAST_TRAIL_APPROX' | translate }}</div>
         <div class="wg-banner small mt-1 alert alert-warning py-1 px-2 mb-0" *ngIf="coastlinesOverlayFailed">{{ 'WORLD_GLOBE.COASTLINE_FAILED' | translate }}</div>
         <div class="wg-banner small mt-1 text-secondary" *ngIf="coastlinesOverlayLoading">{{ 'WORLD_GLOBE.COASTLINE_LOADING' | translate }}</div>
         <div class="wg-banner small mt-1 text-secondary" *ngIf="admin0CountriesOverlayLoading && (politicalMapEnabled || countryLabelsEnabled)">
@@ -1093,7 +1094,18 @@
         [attr.aria-valuemin]="176"
         (pointerdown)="onIssFsSplitResizeStart($event)"></div>
 
-      <div #globeCanvasHost class="wg-canvas-host flex-grow-1 w-100 position-relative rounded"></div>
+      <div #globeCanvasHost class="wg-canvas-host flex-grow-1 w-100 position-relative rounded">
+        <div
+          class="wg-iss-trace-date-loupe"
+          *ngIf="issTraceDateLoupeLabel"
+          #issTraceDateLoupe
+          aria-hidden="true">
+          <div class="wg-iss-trace-date-loupe__glass">
+            <span class="wg-iss-trace-date-loupe__text">{{ issTraceDateLoupeLabel }}</span>
+          </div>
+          <div class="wg-iss-trace-date-loupe__handle" aria-hidden="true"></div>
+        </div>
+      </div>
 
       <div class="wg-trace-layer world-globe-trace-layer" *ngIf="detailMapOpen" role="dialog" [attr.aria-label]="'WORLD_GLOBE.DETAIL_MAP_TITLE' | translate">
         <div class="wg-trace-shell world-globe-trace-shell">

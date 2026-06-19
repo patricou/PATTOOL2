@@ -306,6 +306,23 @@ public class GlobeProxyController {
         }
     }
 
+    /** Predicted ISS ground track for the next hour (WhereTheISS.at SGP4, proxied). */
+    @GetMapping("/iss/forecast")
+    public ResponseEntity<byte[]> issForecast(
+            @RequestParam(value = "minutes", defaultValue = "60") int minutes,
+            @RequestParam(value = "stepSec", defaultValue = "120") int stepSec) {
+        try {
+            byte[] body = globeProxyService.fetchIssForecastPositions(minutes, stepSec);
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(90, TimeUnit.SECONDS).cachePublic())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body);
+        } catch (Exception e) {
+            log.debug("ISS forecast failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
+    }
+
     /** Historical ISS ground track stored in MongoDB (retention configured server-side). */
     @GetMapping("/iss/trace")
     public ResponseEntity<IssTraceResponse> issHistoricalTrace() {

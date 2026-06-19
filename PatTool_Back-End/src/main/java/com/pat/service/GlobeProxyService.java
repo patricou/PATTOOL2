@@ -21,7 +21,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -107,6 +109,10 @@ public class GlobeProxyService {
 
     /** NORAD 25544 = ISS ; JSON with {@code latitude} / {@code longitude} (degrees). */
     private static final String WHERE_THE_ISS_AT_ISS_JSON = "https://api.wheretheiss.at/v1/satellites/25544";
+
+    /** ISS ground-track forecast (SGP4 via WhereTheISS.at), up to 10 timestamps per request. */
+    private static final String WHERE_THE_ISS_AT_ISS_POSITIONS =
+            "https://api.wheretheiss.at/v1/satellites/25544/positions";
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -412,6 +418,70 @@ public class GlobeProxyService {
                 log.warn("Globe ISS: Open Notify fallback failed ({})", secondary.getMessage());
                 throw primary;
             }
+        }
+    }
+
+    /**
+     * Predicted ISS ground track from now through {@code minutesAhead} (WhereTheISS.at SGP4 positions).
+     * Timestamps are batched (10 per upstream request).
+     */
+    public byte[] fetchIssForecastPositions(int minutesAhead, int stepSec) {
+        int minutes = Math.min(120, Math.max(5, minutesAhead));
+        int step = Math.min(600, Math.max(30, stepSec));
+        long nowSec = Instant.now().getEpochSecond();
+        long endSec = nowSec + (long) minutes * 60L;
+        List<Long> timestamps = new ArrayList<>();
+        for (long t = nowSec; t <= endSec; t += step) {
+            timestamps.add(t);
+        }
+        if (timestamps.isEmpty()) {
+            timestamps.add(nowSec);
+        }
+        ArrayNode points = objectMapper.createArrayNode();
+        try {
+            for (int i = 0; i < timestamps.size(); i += 10) {
+                int endIdx = Math.min(i + 10, timestamps.size());
+                StringBuilder tsParam = new StringBuilder();
+                for (int j = i; j < endIdx; j++) {
+                    if (j > i) {
+                        tsParam.append(',');
+                    }
+                    tsParam.append(timestamps.get(j));
+                }
+                String url = WHERE_THE_ISS_AT_ISS_POSITIONS
+                        + "?timestamps=" + tsParam
+                        + "&units=kilometers";
+                byte[] raw = fetchBytes(url, MAX_BYTES_ISS_FEED);
+                JsonNode arr = objectMapper.readTree(raw);
+                if (!arr.isArray()) {
+                    throw new IllegalStateException("WhereTheISS.at positions response is not an array");
+                }
+                for (JsonNode node : arr) {
+                    if (!node.has("latitude") || !node.has("longitude") || !node.has("timestamp")) {
+                        continue;
+                    }
+                    double lat = node.get("latitude").asDouble(Double.NaN);
+                    double lon = node.get("longitude").asDouble(Double.NaN);
+                    long ts = node.get("timestamp").asLong(0);
+                    if (!Double.isFinite(lat) || !Double.isFinite(lon) || Math.abs(lat) > 90.0 || Math.abs(lon) > 180.0 || ts <= 0) {
+                        continue;
+                    }
+                    ObjectNode pt = objectMapper.createObjectNode();
+                    pt.put("latitude", lat);
+                    pt.put("longitude", lon);
+                    pt.put("timestamp", ts);
+                    points.add(pt);
+                }
+            }
+            ObjectNode out = objectMapper.createObjectNode();
+            out.put("minutes", minutes);
+            out.put("stepSec", step);
+            out.set("points", points);
+            return objectMapper.writeValueAsBytes(out);
+        } catch (IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("ISS forecast mapping failed: " + e.getMessage(), e);
         }
     }
 

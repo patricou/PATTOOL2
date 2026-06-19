@@ -64,6 +64,19 @@ interface IssTraceResponse {
   sampleIntervalSeconds: number;
 }
 
+/** Point ISS prédit (GET /api/external/globe/iss/forecast). */
+interface IssForecastPointDto {
+  latitude: number;
+  longitude: number;
+  timestamp: number;
+}
+
+interface IssForecastResponse {
+  minutes: number;
+  stepSec: number;
+  points: IssForecastPointDto[];
+}
+
 /** Plus de subdivisions pour des courbes lisibles très zoomées (sans tuiles HR). */
 const GLOBE_EARTH_SEGMENTS = 256;
 const GLOBE_CLOUDS_SEGMENTS = 192;
@@ -132,8 +145,13 @@ const MAX_GRATICULE_LINE_SEGMENTS = 70_000;
 const GLOBE_ISS_ORBIT_RADIUS = 1 + 420 / 6371;
 /** Traînée ISS : légèrement sous le marqueur pour limiter le z-fighting. */
 const GLOBE_ISS_TRAIL_RADIUS = GLOBE_ISS_ORBIT_RADIUS * 0.997;
-const GLOBE_ISS_TRAIL_COLOR = 0xffa040;
+/** Traînée live ISS (court passé récent) : jaune-or — pas rouge. */
+const GLOBE_ISS_LIVE_TRAIL_COLOR = 0xffcc66;
+const GLOBE_ISS_TRAIL_COLOR = GLOBE_ISS_LIVE_TRAIL_COLOR;
 const GLOBE_ISS_TRAIL_OPACITY = 0.82;
+/** Trace historique MongoDB : ambre — distincte de la prédiction rouge. */
+const GLOBE_ISS_HISTORICAL_TRAIL_COLOR = 0xf0a030;
+const GLOBE_ISS_HISTORICAL_TRAIL_OPACITY = 0.68;
 /** Taille monde de l’icône ISS (vue de dessus, panneaux solaires). */
 const GLOBE_ISS_ICON_WORLD_SIZE = 0.034;
 const GLOBE_ISS_MARKER_COLOR = 0xffea00;
@@ -169,6 +187,15 @@ const GLOBE_ISS_HISTORICAL_DATE_LABEL_SPRITE_WORLD_H = 0.022;
 const GLOBE_ISS_HISTORICAL_DATE_LABEL_RADIUS = GLOBE_ISS_HISTORICAL_TRAIL_RADIUS * 1.004;
 /** Segments par segment de traînée (grand cercle entre deux relevés). */
 const GLOBE_ISS_TRAIL_ARC_SEGMENTS = 14;
+/** Trace ISS anticipée (prédiction SGP4) : rouge, légèrement au-dessus de la traînée live. */
+const GLOBE_ISS_FORECAST_MINUTES = 60;
+const GLOBE_ISS_FORECAST_STEP_SEC = 120;
+const GLOBE_ISS_FORECAST_TRAIL_RADIUS = GLOBE_ISS_TRAIL_RADIUS * 1.003;
+const GLOBE_ISS_FORECAST_TRAIL_COLOR = 0xff2e2e;
+const GLOBE_ISS_FORECAST_TRAIL_OPACITY = 0.88;
+const GLOBE_ISS_FORECAST_TRAIL_ARC_SEGMENTS = 10;
+/** Rafraîchissement trace anticipée ( plusieurs requêtes upstream ). */
+const GLOBE_ISS_FORECAST_REFRESH_MIN_MS = 120_000;
 /** Intervalle par défaut entre deux appels Open Notify (secondes). */
 const GLOBE_ISS_POLL_DEFAULT_SEC = 2;
 const GLOBE_ISS_POLL_MIN_SEC = 2;
@@ -271,6 +298,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private readonly sanitizer = inject(DomSanitizer);
 
   @ViewChild('globeCanvasHost') globeCanvasHost?: ElementRef<HTMLElement>;
+  @ViewChild('issTraceDateLoupe') issTraceDateLoupe?: ElementRef<HTMLElement>;
   @ViewChild('globeShell') globeShell?: ElementRef<HTMLElement>;
   /** Titre + panneau globe : cible préférée pour l’API Fullscreen (vrai plein écran navigateur). */
   @ViewChild('globeFsRoot') globeFsRoot?: ElementRef<HTMLElement>;
@@ -356,6 +384,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   issTickerDurationSec = 90;
   /** Horodatage affiché dans le bandeau (mis à jour au plus 1×/s pour limiter les reflows). */
   issTickerNowLabel = '';
+  /** Date/heure agrandie (loupe) au survol d’une pastille trace ISS. */
+  issTraceDateLoupeLabel: string | null = null;
   /** Vitesse de défilement cible du bandeau ISS, en pixels par seconde. */
   private static readonly ISS_TICKER_SPEED_PX_PER_SEC = 90;
   private issTickerHalfEl?: HTMLElement;
@@ -767,6 +797,12 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private readonly issTrailPoints: { lat: number; lon: number }[] = [];
   private issHistoricalTrailLine?: THREE.LineSegments;
   private readonly issHistoricalTrailPoints: { lat: number; lon: number; recordedAt?: string }[] = [];
+  private issForecastTrailLine?: THREE.LineSegments;
+  private readonly issForecastTrailPoints: { lat: number; lon: number; atSec: number }[] = [];
+  private issForecastLastFetchMs = 0;
+  private issForecastRequestSeq = 0;
+  /** Trace rouge affichée mais extrapolée localement (API forecast indisponible). */
+  issForecastTrailApproximate = false;
   private issHistoricalTraceDateLabelsGroup?: THREE.Group;
   /* --- Flight tracking (OpenSky): aircraft icon (Earth child) + full trajectory --- */
   private flightMarkerMesh?: THREE.Mesh;
@@ -916,6 +952,21 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private issGlobeFreeOrbit = false;
   /** Identifiant du timer navigateur (évite TS node DOM : number vs Timeout). */
   private globePickCursorResetTimer: number | null = null;
+  /** recordedAt ISO du libellé date/heure trace ISS actuellement survolé (évite CDR inutiles). */
+  private issTraceDateLabelHoverRecordedAt: string | null = null;
+  private issTraceDateLabelHoverSprite?: THREE.Sprite;
+  private issTraceDateLoupePosRaf: number | null = null;
+  private issTraceDatePickRaf: number | null = null;
+  private pendingIssTraceDatePickX = 0;
+  private pendingIssTraceDatePickY = 0;
+  private pendingIssTraceDateLoupeX = 0;
+  private pendingIssTraceDateLoupeY = 0;
+  private readonly issTraceLoupeScreenScratch = new THREE.Vector3();
+  /** Évite un traverse des sprites pays à chaque frame si le zoom n’a pas bougé. */
+  private countryLabelZoomMulCached = Number.NaN;
+  /** Reconstruit la trace rouge au prochain frame utile (pas à chaque poll HTTP). */
+  private issForecastTrailGeometryDirty = false;
+  private issForecastTrailLastGeometryRebuildMs = 0;
 
   private readonly onGlobePointerDown = (ev: PointerEvent): void => {
     if (this.detailMapOpen || !this.globeSurfaceReady) {
@@ -968,6 +1019,37 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (this.globePickPointerDown?.id === ev.pointerId) {
       this.globePickPointerDown = null;
     }
+  };
+
+  private readonly onGlobePointerMove = (ev: PointerEvent): void => {
+    if (this.detailMapOpen || !this.globeSurfaceReady) {
+      return;
+    }
+    if (
+      !this.issHistoricalTraceDatesEnabled ||
+      !this.issHistoricalTraceEnabled ||
+      !this.issTraceVisible
+    ) {
+      if (this.issTraceDateLoupeLabel !== null) {
+        this.updateIssTraceDateLoupe(0, 0, null);
+      }
+      return;
+    }
+    this.pendingIssTraceDatePickX = ev.clientX;
+    this.pendingIssTraceDatePickY = ev.clientY;
+    if (this.issTraceDatePickRaf != null) {
+      return;
+    }
+    this.issTraceDatePickRaf = requestAnimationFrame(() => {
+      this.issTraceDatePickRaf = null;
+      const x = this.pendingIssTraceDatePickX;
+      const y = this.pendingIssTraceDatePickY;
+      this.updateIssTraceDateLoupe(x, y, this.pickIssTraceDateLabelAtClient(x, y));
+    });
+  };
+
+  private readonly onGlobePointerLeave = (): void => {
+    this.updateIssTraceDateLoupe(0, 0, null);
   };
 
   /** Dès qu’on manipule le globe, le suivi ISS cesse de forcer la caméra (orbite 3D libre). */
@@ -1058,6 +1140,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.disposeIssMarkerMesh();
     this.disposeIssVisibilityCircle();
     this.clearIssTrail();
+    this.disposeIssForecastTrail();
     this.disposeIssHistoricalTrail();
     this.routeQuerySub?.unsubscribe();
     this.routeQuerySub = undefined;
@@ -1101,6 +1184,17 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       canvasUnd.removeEventListener('pointerdown', this.onGlobePointerDown);
       canvasUnd.removeEventListener('pointerup', this.onGlobePointerUp);
       canvasUnd.removeEventListener('pointercancel', this.onGlobePointerCancel);
+      canvasUnd.removeEventListener('pointermove', this.onGlobePointerMove);
+      canvasUnd.removeEventListener('pointerleave', this.onGlobePointerLeave);
+    }
+    this.updateIssTraceDateLoupe(0, 0, null);
+    if (this.issTraceDateLoupePosRaf != null) {
+      cancelAnimationFrame(this.issTraceDateLoupePosRaf);
+      this.issTraceDateLoupePosRaf = null;
+    }
+    if (this.issTraceDatePickRaf != null) {
+      cancelAnimationFrame(this.issTraceDatePickRaf);
+      this.issTraceDatePickRaf = null;
     }
     this.controls?.removeEventListener('start', this.onGlobeOrbitControlsStart);
     this.controls?.dispose();
@@ -1270,6 +1364,134 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.ndcPointer.set(nx, ny);
     this.raycasterNd.setFromCamera(this.ndcPointer, this.camera);
     return this.pickFromRayEarthIntersections(this.raycasterNd.intersectObject(this.earthMesh, false));
+  }
+
+  /** Survol souris → pastille date/heure le long de la trace ISS historique (projection écran). */
+  private pickIssTraceDateLabelAtClient(
+    clientX: number,
+    clientY: number
+  ): { recordedAt: string; sprite: THREE.Sprite; screenX: number; screenY: number } | null {
+    const group = this.issHistoricalTraceDateLabelsGroup;
+    if (
+      !group?.visible ||
+      !this.issHistoricalTraceDatesEnabled ||
+      !this.issHistoricalTraceEnabled ||
+      !this.issTraceVisible ||
+      !this.camera ||
+      !this.renderer
+    ) {
+      return null;
+    }
+    const canvasEl = this.renderer.domElement;
+    const rect = canvasEl.getBoundingClientRect();
+    if (rect.width < 2 || rect.height < 2) {
+      return null;
+    }
+    const camera = this.camera;
+    const vFovRad = THREE.MathUtils.degToRad(camera.fov);
+    const pxPerWorldY = rect.height / (2 * Math.tan(vFovRad / 2));
+    let best: { distSq: number; recordedAt: string; sprite: THREE.Sprite; screenX: number; screenY: number } | null =
+      null;
+    group.updateWorldMatrix(true, false);
+    for (const child of group.children) {
+      if (!(child instanceof THREE.Sprite)) {
+        continue;
+      }
+      const recordedAt = child.userData['issTraceDateLabelRecordedAt'];
+      if (typeof recordedAt !== 'string' || !recordedAt.trim()) {
+        continue;
+      }
+      child.getWorldPosition(this.issTraceLoupeScreenScratch);
+      const distCam = Math.max(camera.position.distanceTo(this.issTraceLoupeScreenScratch), 0.35);
+      this.issTraceLoupeScreenScratch.project(camera);
+      if (this.issTraceLoupeScreenScratch.z > 1) {
+        continue;
+      }
+      const sx = rect.left + ((this.issTraceLoupeScreenScratch.x + 1) / 2) * rect.width;
+      const sy = rect.top + ((-this.issTraceLoupeScreenScratch.y + 1) / 2) * rect.height;
+      const base = child.userData['issTraceDateLabelBase'] as { w: number; h: number } | undefined;
+      const worldW = base?.w ?? child.scale.x;
+      const worldH = base?.h ?? child.scale.y;
+      const halfWPx = Math.max(4, ((worldW / 2) * pxPerWorldY) / distCam);
+      const halfHPx = Math.max(3, ((worldH / 2) * pxPerWorldY) / distCam);
+      const dx = (clientX - sx) / halfWPx;
+      const dy = (clientY - sy) / halfHPx;
+      if (dx * dx + dy * dy > 1) {
+        continue;
+      }
+      const pixelDistSq = (clientX - sx) ** 2 + (clientY - sy) ** 2;
+      if (!best || pixelDistSq < best.distSq) {
+        best = { distSq: pixelDistSq, recordedAt: recordedAt.trim(), sprite: child, screenX: sx, screenY: sy };
+      }
+    }
+    if (best === null) {
+      return null;
+    }
+    return { recordedAt: best.recordedAt, sprite: best.sprite, screenX: best.screenX, screenY: best.screenY };
+  }
+
+  private setIssTraceDateLabelHoverSprite(sprite: THREE.Sprite | null): void {
+    const prev = this.issTraceDateLabelHoverSprite;
+    if (prev && prev !== sprite) {
+      const base = prev.userData['issTraceDateLabelBaseScale'] as { x: number; y: number; z: number } | undefined;
+      if (base) {
+        prev.scale.set(base.x, base.y, base.z);
+      }
+    }
+    this.issTraceDateLabelHoverSprite = sprite ?? undefined;
+  }
+
+  private updateIssTraceDateLoupe(
+    clientX: number,
+    clientY: number,
+    hit: { recordedAt: string; sprite: THREE.Sprite; screenX: number; screenY: number } | null
+  ): void {
+    if (!hit) {
+      if (this.issTraceDateLoupeLabel !== null) {
+        this.issTraceDateLoupeLabel = null;
+        this.issTraceDateLabelHoverRecordedAt = null;
+        this.setIssTraceDateLabelHoverSprite(null);
+        this.scheduleWorldGlobeCdr();
+      }
+      return;
+    }
+
+    this.queueIssTraceDateLoupePosition(hit.screenX, hit.screenY - 6);
+    this.setIssTraceDateLabelHoverSprite(hit.sprite);
+
+    const labelChanged = hit.recordedAt !== this.issTraceDateLabelHoverRecordedAt;
+    const ms = new Date(hit.recordedAt).getTime();
+    const label = !Number.isNaN(ms) ? this.formatDateTimeLabel(ms) : null;
+    if (!labelChanged && label === this.issTraceDateLoupeLabel) {
+      return;
+    }
+    this.issTraceDateLabelHoverRecordedAt = hit.recordedAt;
+    this.issTraceDateLoupeLabel = label;
+    if (labelChanged) {
+      this.scheduleWorldGlobeCdr(() => {
+        this.syncIssTraceDateLoupePosition(this.pendingIssTraceDateLoupeX, this.pendingIssTraceDateLoupeY);
+      });
+    }
+  }
+
+  private queueIssTraceDateLoupePosition(clientX: number, clientY: number): void {
+    this.pendingIssTraceDateLoupeX = clientX;
+    this.pendingIssTraceDateLoupeY = clientY;
+    if (this.issTraceDateLoupePosRaf != null) {
+      return;
+    }
+    this.issTraceDateLoupePosRaf = requestAnimationFrame(() => {
+      this.issTraceDateLoupePosRaf = null;
+      this.syncIssTraceDateLoupePosition(this.pendingIssTraceDateLoupeX, this.pendingIssTraceDateLoupeY);
+    });
+  }
+
+  private syncIssTraceDateLoupePosition(clientX: number, clientY: number): void {
+    const el = this.issTraceDateLoupe?.nativeElement;
+    if (!el) {
+      return;
+    }
+    el.style.transform = `translate3d(${clientX}px, ${clientY}px, 0) translate(-50%, -100%)`;
   }
 
   private pickFromRayEarthIntersections(
@@ -1555,6 +1777,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.disposeIssMarkerMesh();
       this.disposeIssVisibilityCircle();
       this.clearIssTrail();
+      this.disposeIssForecastTrail();
       this.issOverlayFailed = false;
       if (!this.issTickerEnabled) {
         this.clearIssPositionFeedState();
@@ -1585,6 +1808,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (this.issTraceVisible) {
       this.rebuildIssTrailGeometry();
       this.rebuildIssHistoricalTrailGeometry();
+      this.rebuildIssForecastTrailGeometry();
     }
     this.applyIssTraceVisibility();
     this.cdr.markForCheck();
@@ -1689,6 +1913,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
     if (this.issHistoricalTrailLine) {
       this.issHistoricalTrailLine.visible = visible && this.issHistoricalTraceEnabled;
+    }
+    if (this.issForecastTrailLine) {
+      this.issForecastTrailLine.visible = visible && this.issForecastTrailPoints.length >= 1;
     }
     if (this.issHistoricalTraceDateLabelsGroup) {
       this.issHistoricalTraceDateLabelsGroup.visible =
@@ -4107,6 +4334,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       1,
       Math.pow(u, GLOBE_COUNTRY_LABEL_ZOOM_GAMMA)
     );
+    if (Math.abs(mul - this.countryLabelZoomMulCached) < 0.002) {
+      return;
+    }
+    this.countryLabelZoomMulCached = mul;
     group.traverse((child) => {
       if (!(child instanceof THREE.Sprite)) {
         return;
@@ -4862,9 +5093,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     });
 
     const canvasEl = renderer.domElement;
-    canvasEl.addEventListener('pointerdown', this.onGlobePointerDown);
-    canvasEl.addEventListener('pointerup', this.onGlobePointerUp);
-    canvasEl.addEventListener('pointercancel', this.onGlobePointerCancel);
+    canvasEl.addEventListener('pointerdown', this.onGlobePointerDown, { passive: true });
+    canvasEl.addEventListener('pointerup', this.onGlobePointerUp, { passive: true });
+    canvasEl.addEventListener('pointercancel', this.onGlobePointerCancel, { passive: true });
+    canvasEl.addEventListener('pointermove', this.onGlobePointerMove, { passive: true });
+    canvasEl.addEventListener('pointerleave', this.onGlobePointerLeave, { passive: true });
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -5107,6 +5340,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
 
   private globeIssTraceUrl(): string {
     return `${environment.API_URL}external/globe/iss/trace`;
+  }
+
+  private globeIssForecastUrl(): string {
+    return `${environment.API_URL}external/globe/iss/forecast`;
   }
 
   /** Après création Terre ou si l'utilisateur active une couche avant que le maillage soit prêt. */
@@ -5355,6 +5592,33 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       Math.cos(p1) * Math.cos(p2) * Math.sin(dLambda / 2) * Math.sin(dLambda / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a)));
     return R * c;
+  }
+
+  /** Point atteint depuis (lat, lon) après {@code distanceKm} km avec cap vrai {@code bearingDeg}. */
+  private static destinationLatLon(
+    latDeg: number,
+    lonDeg: number,
+    bearingDeg: number,
+    distanceKm: number
+  ): { lat: number; lon: number } {
+    const R = GLOBE_EARTH_RADIUS_KM;
+    const dRad = distanceKm / R;
+    const lat1 = THREE.MathUtils.degToRad(latDeg);
+    const lon1 = THREE.MathUtils.degToRad(lonDeg);
+    const brng = THREE.MathUtils.degToRad(bearingDeg);
+    const lat2 = Math.asin(
+      Math.sin(lat1) * Math.cos(dRad) + Math.cos(lat1) * Math.sin(dRad) * Math.cos(brng)
+    );
+    const lon2 =
+      lon1 +
+      Math.atan2(
+        Math.sin(brng) * Math.sin(dRad) * Math.cos(lat1),
+        Math.cos(dRad) - Math.sin(lat1) * Math.sin(lat2)
+      );
+    return {
+      lat: THREE.MathUtils.radToDeg(lat2),
+      lon: THREE.MathUtils.euclideanModulo(THREE.MathUtils.radToDeg(lon2) + 180, 360) - 180
+    };
   }
 
   /* ======================================================================= */
@@ -6447,9 +6711,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       controls.update();
       if (flightEarthCentered && !this.flightGlobeFreeOrbit && this.isGlobeOrbitIdle(controls)) {
         this.applyFlightEarthCenteredCameraIfNeeded();
-      } else if (issEarthCentered && !this.issGlobeFreeOrbit && this.isGlobeOrbitIdle(controls)) {
+      } else       if (issEarthCentered && !this.issGlobeFreeOrbit && this.isGlobeOrbitIdle(controls)) {
         this.applyIssEarthCenteredCameraIfNeeded();
       }
+      this.syncIssForecastTrailGeometryIfDirty();
       this.updateCountryLabelsScaleForZoom();
       renderer.render(scene, camera);
     };
@@ -6677,6 +6942,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
         // Réaligne sur le dernier segment de traînée (cohérent avec la polyligne affichée).
         this.updateIssMarkerWorldPosition(lat, lon);
         this.persistIssTraceSample(lat, lon);
+        this.maybeRefreshIssForecastTrail(lat, lon, prevSampleLat, prevSampleLon, groundSpeedKmh);
+        if (this.issTraceVisible && this.issForecastTrailPoints.length > 0) {
+          this.markIssForecastTrailGeometryDirty();
+        }
       }
 
       this.issSpeedSampleLat = lat;
@@ -7669,6 +7938,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (this.issTraceVisible) {
       this.rebuildIssTrailGeometry();
       this.rebuildIssHistoricalTrailGeometry();
+      this.rebuildIssForecastTrailGeometry();
     }
     this.scheduleWorldGlobeCdr();
   }
@@ -8192,18 +8462,24 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
     if (!this.issTrailLine) {
       const mat = new THREE.LineBasicMaterial({
-        color: GLOBE_ISS_TRAIL_COLOR,
+        color: GLOBE_ISS_LIVE_TRAIL_COLOR,
         transparent: true,
         opacity: GLOBE_ISS_TRAIL_OPACITY,
         depthWrite: false
       });
       mat.toneMapped = false;
       const line = new THREE.LineSegments(new THREE.BufferGeometry(), mat);
+      line.name = 'IssLiveTrail';
       line.renderOrder = 5;
       earth.add(line);
       this.issTrailLine = line;
     }
     const line = this.issTrailLine;
+    const liveMat = line.material;
+    if (!Array.isArray(liveMat) && liveMat instanceof THREE.LineBasicMaterial) {
+      liveMat.color.setHex(GLOBE_ISS_LIVE_TRAIL_COLOR);
+      liveMat.opacity = GLOBE_ISS_TRAIL_OPACITY;
+    }
     const oldGeo = line.geometry;
     line.geometry = new THREE.BufferGeometry();
     oldGeo.dispose();
@@ -8229,6 +8505,249 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  private maybeRefreshIssForecastTrail(
+    lat: number,
+    lon: number,
+    prevLat: number | null,
+    prevLon: number | null,
+    speedKmh: number | null
+  ): void {
+    if (!this.issOverlayEnabled || !this.issTraceVisible) {
+      return;
+    }
+    const nowMs = Date.now();
+    if (nowMs - this.issForecastLastFetchMs < GLOBE_ISS_FORECAST_REFRESH_MIN_MS) {
+      return;
+    }
+    void this.loadIssForecastTrail(lat, lon, prevLat, prevLon, speedKmh);
+  }
+
+  private async loadIssForecastTrail(
+    lat: number,
+    lon: number,
+    prevLat: number | null,
+    prevLon: number | null,
+    speedKmh: number | null
+  ): Promise<void> {
+    if (!this.issOverlayEnabled || !this.issTraceVisible || !this.earthMesh) {
+      return;
+    }
+    const seq = ++this.issForecastRequestSeq;
+    this.issForecastLastFetchMs = Date.now();
+    try {
+      const data = await firstValueFrom(
+        this.http
+          .get<IssForecastResponse>(this.globeIssForecastUrl(), {
+            params: {
+              minutes: String(GLOBE_ISS_FORECAST_MINUTES),
+              stepSec: String(GLOBE_ISS_FORECAST_STEP_SEC)
+            }
+          })
+          .pipe(timeout(45_000))
+      );
+      if (seq !== this.issForecastRequestSeq || !this.issOverlayEnabled || !this.issTraceVisible) {
+        return;
+      }
+      const raw = [...(data?.points ?? [])].sort((a, b) => a.timestamp - b.timestamp);
+      const nowSec = Math.floor(Date.now() / 1000);
+      const pts: { lat: number; lon: number; atSec: number }[] = [];
+      for (const p of raw) {
+        if (p?.timestamp <= nowSec) {
+          continue;
+        }
+        const plat = p?.latitude;
+        const plon = p?.longitude;
+        if (!Number.isFinite(plat) || !Number.isFinite(plon) || Math.abs(plat) > 90 || Math.abs(plon) > 180) {
+          continue;
+        }
+        pts.push({ lat: plat, lon: plon, atSec: p.timestamp });
+      }
+      if (pts.length === 0) {
+        throw new Error('ISS forecast returned no future points');
+      }
+      this.issForecastTrailPoints.length = 0;
+      this.issForecastTrailPoints.push(...pts);
+      this.issForecastTrailApproximate = false;
+      this.markIssForecastTrailGeometryDirty();
+      this.rebuildIssForecastTrailGeometry(lat, lon);
+      this.issForecastTrailLastGeometryRebuildMs = performance.now();
+      this.issForecastTrailGeometryDirty = false;
+    } catch {
+      if (seq !== this.issForecastRequestSeq || !this.issOverlayEnabled || !this.issTraceVisible) {
+        return;
+      }
+      const fallback = this.buildIssForecastFallbackPoints(lat, lon, prevLat, prevLon, speedKmh);
+      if (fallback.length > 0) {
+        this.issForecastTrailPoints.length = 0;
+        this.issForecastTrailPoints.push(...fallback);
+        this.issForecastTrailApproximate = true;
+        this.markIssForecastTrailGeometryDirty();
+        this.rebuildIssForecastTrailGeometry(lat, lon);
+        this.issForecastTrailLastGeometryRebuildMs = performance.now();
+        this.issForecastTrailGeometryDirty = false;
+      } else {
+        this.clearIssForecastTrail();
+        this.issForecastTrailApproximate = false;
+      }
+    }
+    this.cdr.markForCheck();
+  }
+
+  /** Extrapolation sphérique grossière si l’API forecast est indisponible. */
+  private buildIssForecastFallbackPoints(
+    lat: number,
+    lon: number,
+    prevLat: number | null,
+    prevLon: number | null,
+    speedKmh: number | null
+  ): { lat: number; lon: number; atSec: number }[] {
+    const segment = this.resolveIssTrailSegment(lat, lon, prevLat, prevLon);
+    if (!segment || speedKmh == null || !Number.isFinite(speedKmh) || speedKmh < 1000) {
+      return [];
+    }
+    const bearing = WorldGlobeComponent.tangentHeadingDegAtLatLon(
+      segment.toLat,
+      segment.toLon,
+      segment.fromLat,
+      segment.fromLon
+    );
+    const stepSec = GLOBE_ISS_FORECAST_STEP_SEC;
+    const steps = Math.floor((GLOBE_ISS_FORECAST_MINUTES * 60) / stepSec);
+    const orbitTurnDegPerStep = (360 / (92 * 60)) * stepSec;
+    const distKm = speedKmh * (stepSec / 3600);
+    const nowSec = Math.floor(Date.now() / 1000);
+    const pts: { lat: number; lon: number; atSec: number }[] = [];
+    let curLat = lat;
+    let curLon = lon;
+    let curBrng = bearing;
+    for (let i = 0; i < steps; i++) {
+      const next = WorldGlobeComponent.destinationLatLon(curLat, curLon, curBrng, distKm);
+      pts.push({ lat: next.lat, lon: next.lon, atSec: nowSec + (i + 1) * stepSec });
+      curLat = next.lat;
+      curLon = next.lon;
+      curBrng = (curBrng + orbitTurnDegPerStep + 360) % 360;
+    }
+    return pts;
+  }
+
+  /**
+   * Trace rouge = uniquement APRÈS l’ISS : ancrée sur la position courante, points strictement futurs.
+   */
+  private markIssForecastTrailGeometryDirty(): void {
+    this.issForecastTrailGeometryDirty = true;
+  }
+
+  /** Au plus ~4 reconstructions/s pendant le défilement ISS (évite des pics dans setTimeout / rAF). */
+  private syncIssForecastTrailGeometryIfDirty(): void {
+    if (
+      !this.issForecastTrailGeometryDirty ||
+      !this.issTraceVisible ||
+      this.issForecastTrailPoints.length === 0
+    ) {
+      return;
+    }
+    const nowMs = performance.now();
+    if (nowMs - this.issForecastTrailLastGeometryRebuildMs < 250) {
+      return;
+    }
+    this.rebuildIssForecastTrailGeometry();
+    this.issForecastTrailLastGeometryRebuildMs = nowMs;
+    this.issForecastTrailGeometryDirty = false;
+  }
+
+  private rebuildIssForecastTrailGeometry(issLat?: number | null, issLon?: number | null): void {
+    const earth = this.earthMesh;
+    const la = issLat ?? this.globeIssLat;
+    const lo = issLon ?? this.globeIssLon;
+    if (!earth || la == null || lo == null || !Number.isFinite(la) || !Number.isFinite(lo)) {
+      if (this.issForecastTrailLine) {
+        this.issForecastTrailLine.visible = false;
+      }
+      return;
+    }
+    const nowSec = Math.floor(Date.now() / 1000);
+    let write = 0;
+    for (let read = 0; read < this.issForecastTrailPoints.length; read++) {
+      const p = this.issForecastTrailPoints[read];
+      if (p.atSec > nowSec) {
+        this.issForecastTrailPoints[write++] = p;
+      }
+    }
+    this.issForecastTrailPoints.length = write;
+    const future = this.issForecastTrailPoints;
+    if (future.length === 0) {
+      if (this.issForecastTrailLine) {
+        this.issForecastTrailLine.visible = false;
+      }
+      return;
+    }
+    const chain: { lat: number; lon: number }[] = [{ lat: la, lon: lo }, ...future];
+    const r = GLOBE_ISS_FORECAST_TRAIL_RADIUS;
+    const vertices: number[] = [];
+    for (let i = 0; i < chain.length - 1; i++) {
+      const a = WorldGlobeComponent.latLonToVector3(chain[i].lat, chain[i].lon, r);
+      const b = WorldGlobeComponent.latLonToVector3(chain[i + 1].lat, chain[i + 1].lon, r);
+      const arc = WorldGlobeComponent.greatCircleArc(a, b, r, GLOBE_ISS_FORECAST_TRAIL_ARC_SEGMENTS);
+      for (let j = 0; j < arc.length - 1; j++) {
+        vertices.push(arc[j].x, arc[j].y, arc[j].z, arc[j + 1].x, arc[j + 1].y, arc[j + 1].z);
+      }
+    }
+    if (vertices.length === 0) {
+      if (this.issForecastTrailLine) {
+        this.issForecastTrailLine.visible = false;
+      }
+      return;
+    }
+    if (!this.issForecastTrailLine) {
+      const mat = new THREE.LineBasicMaterial({
+        color: GLOBE_ISS_FORECAST_TRAIL_COLOR,
+        transparent: true,
+        opacity: GLOBE_ISS_FORECAST_TRAIL_OPACITY,
+        depthWrite: false
+      });
+      mat.toneMapped = false;
+      const line = new THREE.LineSegments(new THREE.BufferGeometry(), mat);
+      line.name = 'IssForecastTrail';
+      line.renderOrder = 6;
+      earth.add(line);
+      this.issForecastTrailLine = line;
+    }
+    const line = this.issForecastTrailLine;
+    const forecastMat = line.material;
+    if (!Array.isArray(forecastMat) && forecastMat instanceof THREE.LineBasicMaterial) {
+      forecastMat.color.setHex(GLOBE_ISS_FORECAST_TRAIL_COLOR);
+      forecastMat.opacity = GLOBE_ISS_FORECAST_TRAIL_OPACITY;
+    }
+    const oldGeo = line.geometry;
+    line.geometry = new THREE.BufferGeometry();
+    oldGeo.dispose();
+    line.geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    line.visible = this.issTraceVisible;
+  }
+
+  private clearIssForecastTrail(): void {
+    this.issForecastTrailPoints.length = 0;
+    this.issForecastTrailGeometryDirty = false;
+    const line = this.issForecastTrailLine;
+    this.issForecastTrailLine = undefined;
+    if (!line) {
+      return;
+    }
+    this.earthMesh?.remove(line);
+    line.geometry.dispose();
+    const m = line.material;
+    if (!Array.isArray(m) && m instanceof THREE.Material) {
+      m.dispose();
+    }
+  }
+
+  private disposeIssForecastTrail(): void {
+    this.issForecastLastFetchMs = 0;
+    this.issForecastRequestSeq++;
+    this.issForecastTrailApproximate = false;
+    this.clearIssForecastTrail();
+  }
+
   /** Charge la trace ISS historique (MongoDB) et la dessine sur le globe. */
   private async loadIssHistoricalTrace(): Promise<void> {
     if (!this.issHistoricalTraceEnabled) {
@@ -8248,6 +8767,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
         this.issTraceSampleIntervalSec = data.sampleIntervalSeconds;
       }
       this.issHistoricalTrailPoints.length = 0;
+      const nowMs = Date.now();
       for (const p of data?.points ?? []) {
         const lat = p?.latitude;
         const lon = p?.longitude;
@@ -8260,6 +8780,13 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
           Math.abs(lon) > 180
         ) {
           continue;
+        }
+        const rawAt = p?.recordedAt?.trim();
+        if (rawAt) {
+          const atMs = Date.parse(rawAt);
+          if (Number.isFinite(atMs) && atMs > nowMs) {
+            continue;
+          }
         }
         this.issHistoricalTrailPoints.push({ lat, lon, recordedAt: p?.recordedAt });
       }
@@ -8308,8 +8835,16 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       return;
     }
     const r = GLOBE_ISS_HISTORICAL_TRAIL_RADIUS;
+    const nowMs = Date.now();
     const vertices: number[] = [];
     for (let i = 0; i < pts.length - 1; i++) {
+      const endAt = pts[i + 1].recordedAt?.trim();
+      if (endAt) {
+        const endMs = Date.parse(endAt);
+        if (Number.isFinite(endMs) && endMs > nowMs) {
+          continue;
+        }
+      }
       if (!WorldGlobeComponent.issHistoricalTracePointsConnect(pts[i], pts[i + 1])) {
         continue;
       }
@@ -8325,13 +8860,14 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
     if (!this.issHistoricalTrailLine) {
       const mat = new THREE.LineBasicMaterial({
-        color: GLOBE_ISS_TRAIL_COLOR,
+        color: GLOBE_ISS_HISTORICAL_TRAIL_COLOR,
         transparent: true,
-        opacity: GLOBE_ISS_TRAIL_OPACITY,
+        opacity: GLOBE_ISS_HISTORICAL_TRAIL_OPACITY,
         depthWrite: false
       });
       mat.toneMapped = false;
       const line = new THREE.LineSegments(new THREE.BufferGeometry(), mat);
+      line.name = 'IssHistoricalTrail';
       line.renderOrder = 4;
       earth.add(line);
       this.issHistoricalTrailLine = line;
@@ -8339,8 +8875,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     const line = this.issHistoricalTrailLine;
     const histMat = line.material;
     if (!Array.isArray(histMat) && histMat instanceof THREE.LineBasicMaterial) {
-      histMat.color.setHex(GLOBE_ISS_TRAIL_COLOR);
-      histMat.opacity = GLOBE_ISS_TRAIL_OPACITY;
+      histMat.color.setHex(GLOBE_ISS_HISTORICAL_TRAIL_COLOR);
+      histMat.opacity = GLOBE_ISS_HISTORICAL_TRAIL_OPACITY;
     }
     const oldGeo = line.geometry;
     line.geometry = new THREE.BufferGeometry();
@@ -8391,6 +8927,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       }
       sprite.position.copy(WorldGlobeComponent.latLonToVector3(pt.lat, pt.lon, r));
       sprite.renderOrder = 6;
+      sprite.userData['issTraceDateLabelRecordedAt'] = pt.recordedAt;
       group.add(sprite);
     }
     if (group.children.length === 0) {
@@ -8457,6 +8994,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     if (!g) {
       return;
     }
+    this.updateIssTraceDateLoupe(0, 0, null);
+    this.setIssTraceDateLabelHoverSprite(null);
     this.earthMesh?.remove(g);
     g.traverse((child) => {
       if (!(child instanceof THREE.Sprite)) {
@@ -8565,6 +9104,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private disposeCountryLabelsOverlay(): void {
     const g = this.countryLabelsGroup;
     const earth = this.earthMesh;
+    this.countryLabelZoomMulCached = Number.NaN;
     if (!g) {
       return;
     }

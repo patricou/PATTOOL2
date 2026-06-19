@@ -351,6 +351,7 @@
         "ISS_TICKER_STEP": "Spost.",
         "ISS_TICKER_NOW": "Ora",
         "ISS_TICKER_OVER": "Sopra",
+        "ISS_TICKER_TRACE": "Traccia",
         "ISS_OVER_OCEAN": "Oceano",
         "ISS_LIVE_PIP_RESIZE_HINT": "Trascina la maniglia in alto a sinistra (la finestra resta ancorata in basso a destra).",
         "ISS_LIVE_PIP_CLOSE": "Chiudi finestra",
