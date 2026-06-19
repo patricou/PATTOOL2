@@ -43,6 +43,9 @@ public class CalendarAppointment {
     /** When visibility is {@code friendGroups}, ids of groups that may see the appointment. */
     private List<String> friendGroupIds;
 
+    /** Optional link to a site activity ({@link Evenement#getId()}). */
+    private String evenementId;
+
     public String getId() {
         return id;
     }
@@ -121,5 +124,13 @@ public class CalendarAppointment {
 
     public void setFriendGroupIds(List<String> friendGroupIds) {
         this.friendGroupIds = friendGroupIds;
+    }
+
+    public String getEvenementId() {
+        return evenementId;
+    }
+
+    public void setEvenementId(String evenementId) {
+        this.evenementId = evenementId;
     }
 }

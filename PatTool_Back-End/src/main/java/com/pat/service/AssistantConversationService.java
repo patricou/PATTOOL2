@@ -183,9 +183,9 @@ public class AssistantConversationService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
         }
         String rp = req.routingProvider().trim().toLowerCase();
-        if (!"openai".equals(rp) && !"anthropic".equals(rp) && !"gemini".equals(rp)) {
+        if (!"openai".equals(rp) && !"anthropic".equals(rp) && !"gemini".equals(rp) && !"mistral".equals(rp)) {
             throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "routingProvider must be openai, anthropic or gemini");
+                    HttpStatus.BAD_REQUEST, "routingProvider must be openai, anthropic, gemini or mistral");
         }
         if (req.turns().size() > MAX_TURNS) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Too many turns");

@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Observable, Subject } from 'rxjs';
+import { AssistantProviderSlug } from './assistant.service';
 
 export interface AssistantLaunchToolFlags {
   webSearch?: boolean;
@@ -9,7 +10,7 @@ export interface AssistantLaunchToolFlags {
 
 /** Provider and model applied when opening the drawer (no deferred Mongo persistence). */
 export interface AssistantLaunchRouting {
-  provider: 'openai' | 'anthropic' | 'gemini';
+  provider: AssistantProviderSlug;
   /** Preset id (assistant catalogue) or special UI "custom" value. */
   modelPreset: string;
   modelCustom?: string;

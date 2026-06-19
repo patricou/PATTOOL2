@@ -50,6 +50,7 @@ import { FileService } from '../services/file.service';
 import { FriendsService } from '../services/friends.service';
 import { MembersService } from '../services/members.service';
 import { EvenementsService } from '../services/evenements.service';
+import { Evenement } from '../model/evenement';
 import { FriendGroup } from '../model/friend';
 import { Member } from '../model/member';
 import {
@@ -197,6 +198,13 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     /** Selected list id, or empty string for none. */
     appointmentLinkedTodoListId = '';
     appointmentLinkedTodoListIdInitial = '';
+
+    /** Accessible activities for linking a personal appointment to an event. */
+    appointmentLinkableEvents: Evenement[] = [];
+    appointmentEventsLoading = false;
+    /** Selected activity id, or empty string for none. */
+    appointmentLinkedEvenementId = '';
+    private appointmentEventsStreamSub?: Subscription;
 
     /** Pays pour les jours fériés (API Nager.Date), défaut France. */
     holidayCountryCode = 'FR';
@@ -571,6 +579,8 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         }
         this.langChangeSub?.unsubscribe();
         this.langChangeSub = undefined;
+        this.appointmentEventsStreamSub?.unsubscribe();
+        this.appointmentEventsStreamSub = undefined;
         this.revokeThumbnailBlobs();
     }
 
@@ -941,6 +951,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
             notes: this.formNotes.trim() || null,
             startDate: start.toISOString(),
             endDate: end.toISOString(),
+            evenementId: (this.appointmentLinkedEvenementId || '').trim() || null,
             ...vis
         };
         this.formEnd = this.toDatetimeLocal(end);
@@ -1028,6 +1039,108 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
                     this.cdr.markForCheck();
                 }
             });
+        this.loadAppointmentEventsForModal();
+    }
+
+    private loadAppointmentEventsForModal(): void {
+        this.appointmentEventsStreamSub?.unsubscribe();
+        if (!this.isAuthenticated() || !this.appointmentCanEdit) {
+            this.appointmentLinkableEvents = [];
+            this.appointmentEventsLoading = false;
+            this.cdr.markForCheck();
+            return;
+        }
+        this.appointmentEventsLoading = true;
+        this.appointmentLinkableEvents = [];
+        this.cdr.markForCheck();
+        const userId = (this.currentMemberId || this.membersService.getUser()?.id || '').trim();
+        if (!userId) {
+            this.membersService.getUserId({ skipGeolocation: true }).pipe(take(1)).subscribe({
+                next: m => {
+                    this.currentMemberId = (m.id || '').trim();
+                    this.startAppointmentEventsStream(this.currentMemberId);
+                },
+                error: () => {
+                    this.appointmentEventsLoading = false;
+                    this.cdr.markForCheck();
+                }
+            });
+            return;
+        }
+        this.startAppointmentEventsStream(userId);
+    }
+
+    private startAppointmentEventsStream(userId: string): void {
+        this.appointmentEventsStreamSub = this.evenementsService.streamEvents('*', userId).subscribe({
+            next: s => {
+                if (s.type === 'event' && s.data && typeof s.data === 'object' && 'id' in s.data) {
+                    const incoming = s.data as Evenement;
+                    if (!(incoming.id || '').trim()) {
+                        return;
+                    }
+                    const existsIdx = this.appointmentLinkableEvents.findIndex(e => e.id === incoming.id);
+                    if (existsIdx === -1) {
+                        this.appointmentLinkableEvents = [...this.appointmentLinkableEvents, incoming];
+                    }
+                    this.cdr.markForCheck();
+                } else if (s.type === 'complete') {
+                    this.appointmentEventsLoading = false;
+                    this.sortAppointmentLinkableEvents();
+                    this.cdr.markForCheck();
+                }
+            },
+            error: () => {
+                this.appointmentEventsLoading = false;
+                this.cdr.markForCheck();
+            },
+            complete: () => {
+                this.appointmentEventsLoading = false;
+                this.sortAppointmentLinkableEvents();
+                this.cdr.markForCheck();
+            }
+        });
+    }
+
+    private sortAppointmentLinkableEvents(): void {
+        this.appointmentLinkableEvents = [...this.appointmentLinkableEvents].sort((a, b) => {
+            const dA = a?.beginEventDate ? new Date(a.beginEventDate).getTime() : 0;
+            const dB = b?.beginEventDate ? new Date(b.beginEventDate).getTime() : 0;
+            return dB - dA;
+        });
+    }
+
+    formatAppointmentEventOptionLabel(ev: Evenement): string {
+        const name = (ev.evenementName || '').trim() || '—';
+        if (!ev.beginEventDate) {
+            return name;
+        }
+        try {
+            const d = new Date(ev.beginEventDate);
+            return `${name} (${d.toLocaleDateString()})`;
+        } catch {
+            return name;
+        }
+    }
+
+    openLinkedEventDetails(parentModal?: NgbActiveModal, closeParent: 'close' | 'dismiss' | 'none' = 'none'): void {
+        const id = (this.appointmentLinkedEvenementId || '').trim();
+        if (!id) {
+            return;
+        }
+        const go = (): void => {
+            void this.router.navigate(['/details-evenement', id]);
+        };
+        if (parentModal && closeParent === 'close') {
+            parentModal.close();
+            setTimeout(go, 0);
+            return;
+        }
+        if (parentModal && closeParent === 'dismiss') {
+            parentModal.dismiss();
+            setTimeout(go, 0);
+            return;
+        }
+        go();
     }
 
     deleteEditingAppointment(): void {
@@ -1181,6 +1294,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         this.formNotes = '';
         this.appointmentLinkedTodoListId = '';
         this.appointmentLinkedTodoListIdInitial = '';
+        this.appointmentLinkedEvenementId = '';
         this.resetAppointmentVisibilityForm();
         this.appointmentCanEdit = true;
         this.reminderMailSuccessMessage = '';
@@ -1434,6 +1548,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
                 const tl = String(ext['todoListId'] ?? '').trim();
                 this.appointmentLinkedTodoListId = tl;
                 this.appointmentLinkedTodoListIdInitial = tl;
+                this.appointmentLinkedEvenementId = String(ext['evenementId'] ?? '').trim();
                 this.appointmentCanEdit =
                     this.currentMemberId.length > 0 && owner.length > 0 && owner === this.currentMemberId;
                 this.loadAppointmentTodoListsForModal();
@@ -1455,6 +1570,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         this.formNotes = '';
         this.appointmentLinkedTodoListId = '';
         this.appointmentLinkedTodoListIdInitial = '';
+        this.appointmentLinkedEvenementId = '';
         this.resetAppointmentVisibilityForm();
         this.appointmentCanEdit = true;
         this.reminderMailSuccessMessage = '';
@@ -1592,6 +1708,11 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
                 ext['todoListId'] = (e.todoListId || '').trim();
             } else {
                 ext['todoListId'] = null;
+            }
+            if (e.kind === 'APPOINTMENT' && (e.evenementId || '').trim()) {
+                ext['evenementId'] = (e.evenementId || '').trim();
+            } else if (e.kind === 'APPOINTMENT') {
+                ext['evenementId'] = null;
             }
             return {
                 id: e.id,

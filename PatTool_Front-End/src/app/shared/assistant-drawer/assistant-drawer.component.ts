@@ -56,6 +56,7 @@ import {
   AssistantPdfExportRequest,
   AssistantPdfExportTurn,
   AssistantRoutingStored,
+  AssistantProviderSlug,
   AssistantService,
   AssistantToolFlagsRequest,
   parseElapsedMsFromAssistantResponse
@@ -88,9 +89,15 @@ import { environment } from '../../../environments/environment';
 import {
   ASSISTANT_ANTHROPIC_MODEL_PRESETS,
   ASSISTANT_GEMINI_MODEL_PRESETS,
+  ASSISTANT_MISTRAL_MODEL_PRESETS,
+  ASSISTANT_MISTRAL_DEFAULT_MODEL,
   ASSISTANT_OPENAI_MODEL_PRESETS
 } from './assistant-model-presets';
 import { ASSISTANT_ANTHROPIC_MODEL_GUIDE_ROWS } from './assistant-anthropic-model-guide';
+import { ASSISTANT_GEMINI_MODEL_GUIDE_ROWS } from './assistant-gemini-model-guide';
+import { AssistantProviderModelGuideSection } from './assistant-model-guide.types';
+import { ASSISTANT_MISTRAL_MODEL_GUIDE_ROWS } from './assistant-mistral-model-guide';
+import { ASSISTANT_OPENAI_MODEL_GUIDE_ROWS } from './assistant-openai-model-guide';
 import { ASSISTANT_MODEL_RANKING_ROWS } from './assistant-model-ranking-table';
 
 @Component({
@@ -400,11 +407,12 @@ export class AssistantDrawerComponent
   private static readonly DEFAULT_BILLING_GEMINI_RATE =
     'https://aistudio.google.com/rate-limit?timeRange=last-28-days&hl=fr&project=gen-lang-client-0509711942';
   private static readonly DEFAULT_BILLING_GEMINI_KEYS = 'https://aistudio.google.com/app/apikey';
+  private static readonly DEFAULT_BILLING_MISTRAL = 'https://console.mistral.ai/billing';
 
   readonly MODEL_PRESET_CUSTOM = '__custom__';
 
   /** Fournisseur effectif pour les requêtes (surcharge application.properties). */
-  routingProvider: 'openai' | 'anthropic' | 'gemini' = 'openai';
+  routingProvider: AssistantProviderSlug = 'openai';
   /** Id de modèle parmi {@link routingModelOptions} ou {@link MODEL_PRESET_CUSTOM}. */
   modelPreset = 'gpt-4o';
   /** Saisie libre si {@link modelPreset} === {@link MODEL_PRESET_CUSTOM}. */
@@ -417,7 +425,32 @@ export class AssistantDrawerComponent
   /** Catalogue modèle / tâche pour la modale d’aide « ℹ︎ » à côté de MCP. */
   readonly assistantModelRankingRows = ASSISTANT_MODEL_RANKING_ROWS;
   /** Guide Anthropic (Fable / Opus / Sonnet / Haiku) dans la même modale. */
-  readonly assistantAnthropicModelGuideRows = ASSISTANT_ANTHROPIC_MODEL_GUIDE_ROWS;
+  readonly assistantProviderModelGuideSections: readonly AssistantProviderModelGuideSection[] = [
+    {
+      sectionId: 'openai',
+      titleKey: 'ASSISTANT.TOOLS_HELP_OPENAI_SECTION_TITLE',
+      introKey: 'ASSISTANT.TOOLS_HELP_OPENAI_SECTION_INTRO',
+      rows: ASSISTANT_OPENAI_MODEL_GUIDE_ROWS
+    },
+    {
+      sectionId: 'anthropic',
+      titleKey: 'ASSISTANT.TOOLS_HELP_ANTHROPIC_SECTION_TITLE',
+      introKey: 'ASSISTANT.TOOLS_HELP_ANTHROPIC_SECTION_INTRO',
+      rows: ASSISTANT_ANTHROPIC_MODEL_GUIDE_ROWS
+    },
+    {
+      sectionId: 'gemini',
+      titleKey: 'ASSISTANT.TOOLS_HELP_GEMINI_SECTION_TITLE',
+      introKey: 'ASSISTANT.TOOLS_HELP_GEMINI_SECTION_INTRO',
+      rows: ASSISTANT_GEMINI_MODEL_GUIDE_ROWS
+    },
+    {
+      sectionId: 'mistral',
+      titleKey: 'ASSISTANT.TOOLS_HELP_MISTRAL_SECTION_TITLE',
+      introKey: 'ASSISTANT.TOOLS_HELP_MISTRAL_SECTION_INTRO',
+      rows: ASSISTANT_MISTRAL_MODEL_GUIDE_ROWS
+    }
+  ];
 
   /** Modèle du fournisseur par défaut serveur (legacy, = celui de {@code routingDefault}). */
   serverDefaultModel = '';
@@ -425,6 +458,7 @@ export class AssistantDrawerComponent
   serverOpenaiDefault = '';
   serverAnthropicDefault = '';
   serverGeminiDefault = '';
+  serverMistralDefault = '';
   /** {@code gemini.image-generation-model} renvoyé par GET /assistant/config. */
   serverGeminiImageGenerationModel = '';
   /** URLs du bandeau facturation (GET /assistant/config, assistant.billing.*). */
@@ -433,8 +467,9 @@ export class AssistantDrawerComponent
   billingAnthropicUrl = '';
   billingGeminiRateLimitUrl = '';
   billingGeminiApiKeysUrl = '';
+  billingMistralUrl = '';
   /** Valeur de assistant.provider côté serveur. */
-  serverRoutingDefault: 'openai' | 'anthropic' | 'gemini' = 'openai';
+  serverRoutingDefault: AssistantProviderSlug = 'openai';
   /**
    * Routing préservé depuis sessionStorage, appliqué seulement après GET /assistant/config
    * si aucune préférence Mongo (priorité : Mongo → session onglet → application.properties).
@@ -486,7 +521,81 @@ export class AssistantDrawerComponent
       .subscribe();
   }
 
+  private static isAssistantProvider(p: string): p is AssistantProviderSlug {
+    return (
+      p === 'openai' ||
+      p === 'anthropic' ||
+      p === 'gemini' ||
+      p === 'mistral'
+    );
+  }
+
+  private presetsForRoutingProvider(p: AssistantProviderSlug): readonly string[] {
+    switch (p) {
+      case 'openai':
+        return ASSISTANT_OPENAI_MODEL_PRESETS;
+      case 'gemini':
+        return ASSISTANT_GEMINI_MODEL_PRESETS;
+      case 'mistral':
+        return ASSISTANT_MISTRAL_MODEL_PRESETS;
+      default:
+        return ASSISTANT_ANTHROPIC_MODEL_PRESETS;
+    }
+  }
+
+  private providerShortLabel(p: AssistantProviderSlug): string {
+    switch (p) {
+      case 'anthropic':
+        return this.translate.instant('ASSISTANT.PROVIDER_ANTHROPIC_SHORT');
+      case 'gemini':
+        return this.translate.instant('ASSISTANT.PROVIDER_GEMINI_SHORT');
+      case 'mistral':
+        return this.translate.instant('ASSISTANT.PROVIDER_MISTRAL_SHORT');
+      default:
+        return this.translate.instant('ASSISTANT.PROVIDER_OPENAI_SHORT');
+    }
+  }
+
+  private providerDisablesImageGeneration(p: AssistantProviderSlug): boolean {
+    return p === 'anthropic' || p === 'mistral';
+  }
+
+  private static readonly ROUTING_PROVIDER_ENTRIES: readonly {
+    slug: AssistantProviderSlug;
+    labelKey: string;
+  }[] = [
+    { slug: 'anthropic', labelKey: 'ASSISTANT.PROVIDER_ANTHROPIC' },
+    { slug: 'gemini', labelKey: 'ASSISTANT.PROVIDER_GEMINI' },
+    { slug: 'mistral', labelKey: 'ASSISTANT.PROVIDER_MISTRAL' },
+    { slug: 'openai', labelKey: 'ASSISTANT.PROVIDER_OPENAI' }
+  ];
+
+  /** Provider dropdown entries, sorted alphabetically by translated label. */
+  routingProviderSelectOptions: {
+    slug: AssistantProviderSlug;
+    labelKey: string;
+  }[] = [];
+
+  private refreshRoutingProviderSelectOptions(): void {
+    this.routingProviderSelectOptions = [...AssistantDrawerComponent.ROUTING_PROVIDER_ENTRIES].sort(
+      (a, b) =>
+        this.translate
+          .instant(a.labelKey)
+          .localeCompare(this.translate.instant(b.labelKey), undefined, {
+            sensitivity: 'base'
+          })
+    );
+  }
+
   ngOnInit(): void {
+    this.refreshRoutingProviderSelectOptions();
+    this.translate.onLangChange
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.refreshRoutingProviderSelectOptions();
+        this.cdr.markForCheck();
+      });
+
     this.tickerLayoutSub = combineLatest([
       this.newsTicker.enabled$,
       this.currencyTicker.enabled$,
@@ -519,9 +628,7 @@ export class AssistantDrawerComponent
         const r = saved.routing;
         if (
           r &&
-          (r.provider === 'openai' ||
-            r.provider === 'anthropic' ||
-            r.provider === 'gemini') &&
+          AssistantDrawerComponent.isAssistantProvider(r.provider) &&
           typeof r.modelPreset === 'string'
         ) {
           this.pendingSessionRouting = {
@@ -750,6 +857,8 @@ export class AssistantDrawerComponent
             typeof c.anthropicDefaultModel === 'string' ? c.anthropicDefaultModel.trim() : '';
           this.serverGeminiDefault =
             typeof c.geminiDefaultModel === 'string' ? c.geminiDefaultModel.trim() : '';
+          this.serverMistralDefault =
+            typeof c.mistralDefaultModel === 'string' ? c.mistralDefaultModel.trim() : '';
           const gimg =
             typeof c.geminiImageGenerationModel === 'string'
               ? c.geminiImageGenerationModel.trim()
@@ -765,6 +874,8 @@ export class AssistantDrawerComponent
             typeof c.billingGeminiRateLimitUrl === 'string' ? c.billingGeminiRateLimitUrl.trim() : '';
           this.billingGeminiApiKeysUrl =
             typeof c.billingGeminiApiKeysUrl === 'string' ? c.billingGeminiApiKeysUrl.trim() : '';
+          this.billingMistralUrl =
+            typeof c.billingMistralUrl === 'string' ? c.billingMistralUrl.trim() : '';
           const rd =
             typeof c.routingDefault === 'string'
               ? c.routingDefault.trim().toLowerCase()
@@ -774,7 +885,9 @@ export class AssistantDrawerComponent
               ? 'anthropic'
               : rd === 'gemini'
                 ? 'gemini'
-                : 'openai';
+                : rd === 'mistral'
+                  ? 'mistral'
+                  : 'openai';
 
           this.applyRoutingPreferenceResolution(c);
           this.pendingSessionRouting = undefined;
@@ -803,12 +916,14 @@ export class AssistantDrawerComponent
           this.serverOpenaiDefault = '';
           this.serverAnthropicDefault = '';
           this.serverGeminiDefault = '';
+          this.serverMistralDefault = '';
           this.serverGeminiImageGenerationModel = '';
           this.billingOpenaiBillingUrl = '';
           this.billingOpenaiUsageUrl = '';
           this.billingAnthropicUrl = '';
           this.billingGeminiRateLimitUrl = '';
           this.billingGeminiApiKeysUrl = '';
+          this.billingMistralUrl = '';
           this.serverRoutingDefault = 'openai';
           this.applyRoutingPreferenceResolution({});
           this.pendingSessionRouting = undefined;
@@ -842,9 +957,7 @@ export class AssistantDrawerComponent
     const pr = c.persistedRouting;
     if (
       pr &&
-      (pr.provider === 'openai' ||
-        pr.provider === 'anthropic' ||
-        pr.provider === 'gemini') &&
+      AssistantDrawerComponent.isAssistantProvider(pr.provider) &&
       typeof pr.modelPreset === 'string'
     ) {
       this.routingProvider = pr.provider;
@@ -856,9 +969,7 @@ export class AssistantDrawerComponent
     const ps = this.pendingSessionRouting;
     if (
       ps &&
-      (ps.provider === 'openai' ||
-        ps.provider === 'anthropic' ||
-        ps.provider === 'gemini') &&
+      AssistantDrawerComponent.isAssistantProvider(ps.provider) &&
       typeof ps.modelPreset === 'string'
     ) {
       this.routingProvider = ps.provider;
@@ -875,15 +986,7 @@ export class AssistantDrawerComponent
     if (!m) {
       return '';
     }
-    let lab: string;
-    if (this.routingProvider === 'anthropic') {
-      lab = this.translate.instant('ASSISTANT.PROVIDER_ANTHROPIC_SHORT');
-    } else if (this.routingProvider === 'gemini') {
-      lab = this.translate.instant('ASSISTANT.PROVIDER_GEMINI_SHORT');
-    } else {
-      lab = this.translate.instant('ASSISTANT.PROVIDER_OPENAI_SHORT');
-    }
-    return `${lab} · ${m}`;
+    return `${this.providerShortLabel(this.routingProvider)} · ${m}`;
   }
 
   effectiveModelForRequest(): string {
@@ -902,13 +1005,7 @@ export class AssistantDrawerComponent
     if (fb) {
       return fb;
     }
-    const defaults =
-      this.routingProvider === 'openai'
-        ? ASSISTANT_OPENAI_MODEL_PRESETS
-        : this.routingProvider === 'gemini'
-          ? ASSISTANT_GEMINI_MODEL_PRESETS
-          : ASSISTANT_ANTHROPIC_MODEL_PRESETS;
-    return defaults[0] ?? 'gpt-4o';
+    return this.defaultPresetForProvider(this.routingProvider);
   }
 
   /**
@@ -921,11 +1018,7 @@ export class AssistantDrawerComponent
     }
     return (
       this.serverDefaultForActiveProvider().trim() ||
-      (this.routingProvider === 'openai'
-        ? ASSISTANT_OPENAI_MODEL_PRESETS[0] ?? 'gpt-4o'
-        : this.routingProvider === 'gemini'
-          ? ASSISTANT_GEMINI_MODEL_PRESETS[0] ?? 'gemini-2.0-flash'
-          : ASSISTANT_ANTHROPIC_MODEL_PRESETS[0] ?? 'claude-sonnet-4-6')
+      this.defaultPresetForProvider(this.routingProvider)
     );
   }
 
@@ -939,23 +1032,19 @@ export class AssistantDrawerComponent
     if (this.routingProvider !== 'openai') {
       this.toolMcp = false;
     }
-    if (this.routingProvider === 'anthropic') {
+    if (this.providerDisablesImageGeneration(this.routingProvider)) {
       this.toolImageGeneration = false;
     }
     this.remoteCatalogModelIds = [];
     this.rebuildModelOptionsList();
     const sm = this.serverDefaultForActiveProvider().trim();
-    if (
-      this.routingProvider === this.serverRoutingDefault &&
-      sm &&
-      this.routingModelOptions.includes(sm)
-    ) {
+    if (sm && this.routingModelOptions.includes(sm)) {
       this.modelPreset = sm;
       this.modelCustom = '';
     } else {
-      const first = this.routingModelOptions[0];
-      if (first) {
-        this.modelPreset = first;
+      const preferred = this.preferredModelOptionInList();
+      if (preferred) {
+        this.modelPreset = preferred;
         this.modelCustom = '';
       }
     }
@@ -970,11 +1059,7 @@ export class AssistantDrawerComponent
    * Does not run deferred Mongo persistence so the saved DB preference is not overwritten.
    */
   private applyAssistantLaunchRouting(r: AssistantLaunchRouting): void {
-    if (
-      r.provider !== 'openai' &&
-      r.provider !== 'anthropic' &&
-      r.provider !== 'gemini'
-    ) {
+    if (!AssistantDrawerComponent.isAssistantProvider(r.provider)) {
       return;
     }
     this.routingProviderLockedAgainstConfigDefault = true;
@@ -982,7 +1067,7 @@ export class AssistantDrawerComponent
     if (this.routingProvider !== 'openai') {
       this.toolMcp = false;
     }
-    if (this.routingProvider === 'anthropic') {
+    if (this.providerDisablesImageGeneration(this.routingProvider)) {
       this.toolImageGeneration = false;
     }
     const preset = typeof r.modelPreset === 'string' ? r.modelPreset.trim() : '';
@@ -1020,14 +1105,8 @@ export class AssistantDrawerComponent
   }
 
   private rebuildModelOptionsList(): void {
-    const basePresets: string[] =
-      this.routingProvider === 'openai'
-        ? [...ASSISTANT_OPENAI_MODEL_PRESETS]
-        : this.routingProvider === 'gemini'
-          ? [...ASSISTANT_GEMINI_MODEL_PRESETS]
-          : [...ASSISTANT_ANTHROPIC_MODEL_PRESETS];
     const merged = new Set<string>();
-    for (const x of basePresets) {
+    for (const x of this.presetsForRoutingProvider(this.routingProvider)) {
       merged.add(x);
     }
     const srv = this.serverDefaultForActiveProvider().trim();
@@ -1049,39 +1128,35 @@ export class AssistantDrawerComponent
         merged.add(t);
       }
     }
-    const ordered: string[] = [];
-    for (const p of basePresets) {
-      if (merged.has(p)) {
-        ordered.push(p);
+    this.routingModelOptions = [...merged].sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: 'base' })
+    );
+    this.clampModelPresetToOptions();
+  }
+
+  /** Server default, then provider default preset, then first catalogue preset, then first alphabetical entry. */
+  private preferredModelOptionInList(): string | undefined {
+    const srv = this.serverDefaultForActiveProvider().trim();
+    if (srv && this.routingModelOptions.includes(srv)) {
+      return srv;
+    }
+    const providerDefault = this.defaultPresetForProvider(this.routingProvider);
+    if (this.routingModelOptions.includes(providerDefault)) {
+      return providerDefault;
+    }
+    for (const p of this.presetsForRoutingProvider(this.routingProvider)) {
+      if (this.routingModelOptions.includes(p)) {
+        return p;
       }
     }
-    if (srv && merged.has(srv) && !ordered.includes(srv)) {
-      ordered.push(srv);
+    return this.routingModelOptions[0];
+  }
+
+  private defaultPresetForProvider(p: AssistantProviderSlug): string {
+    if (p === 'mistral') {
+      return ASSISTANT_MISTRAL_DEFAULT_MODEL;
     }
-    if (
-      this.modelPreset === this.MODEL_PRESET_CUSTOM &&
-      cur &&
-      merged.has(cur) &&
-      !ordered.includes(cur)
-    ) {
-      ordered.push(cur);
-    }
-    const selectedPreset =
-      this.modelPreset !== this.MODEL_PRESET_CUSTOM
-        ? (this.modelPreset ?? '').trim()
-        : '';
-    if (
-      selectedPreset &&
-      merged.has(selectedPreset) &&
-      !ordered.includes(selectedPreset)
-    ) {
-      ordered.push(selectedPreset);
-    }
-    const tail = [...merged]
-      .filter((id) => !ordered.includes(id))
-      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-    this.routingModelOptions = [...ordered, ...tail];
-    this.clampModelPresetToOptions();
+    return this.presetsForRoutingProvider(p)[0] ?? 'gpt-4o';
   }
 
   /** Catalogue distant pour le fournisseur courant (authentifié uniquement). */
@@ -1119,6 +1194,15 @@ export class AssistantDrawerComponent
       }
       return this.serverRoutingDefault === 'anthropic' ? this.serverDefaultModel : '';
     }
+    if (this.routingProvider === 'mistral') {
+      if (this.serverMistralDefault) {
+        return this.serverMistralDefault;
+      }
+      if (this.serverRoutingDefault === 'mistral') {
+        return this.serverDefaultModel;
+      }
+      return ASSISTANT_MISTRAL_DEFAULT_MODEL;
+    }
     if (this.serverGeminiDefault) {
       return this.serverGeminiDefault;
     }
@@ -1139,9 +1223,9 @@ export class AssistantDrawerComponent
       this.modelCustom = '';
       return;
     }
-    const first = this.routingModelOptions[0];
-    if (first) {
-      this.modelPreset = first;
+    const preferred = this.preferredModelOptionInList();
+    if (preferred) {
+      this.modelPreset = preferred;
       this.modelCustom = '';
     }
   }
@@ -1149,8 +1233,8 @@ export class AssistantDrawerComponent
   private syncModelPresetFromServer(serverModel: string): void {
     const sm = serverModel.trim();
     if (!sm) {
-      const first = this.routingModelOptions[0];
-      this.modelPreset = first ?? this.MODEL_PRESET_CUSTOM;
+      const preferred = this.preferredModelOptionInList();
+      this.modelPreset = preferred ?? this.MODEL_PRESET_CUSTOM;
       this.modelCustom = '';
       return;
     }
@@ -1277,6 +1361,9 @@ export class AssistantDrawerComponent
     if (this.routingProvider === 'gemini') {
       return this.translate.instant('ASSISTANT.CREDITS_BTN_HINT_GEMINI');
     }
+    if (this.routingProvider === 'mistral') {
+      return this.translate.instant('ASSISTANT.CREDITS_BTN_HINT_MISTRAL');
+    }
     return this.translate.instant('ASSISTANT.CREDITS_BTN_HINT');
   }
 
@@ -1286,6 +1373,9 @@ export class AssistantDrawerComponent
     }
     if (this.routingProvider === 'gemini') {
       return this.translate.instant('ASSISTANT.CREDITS_TOGGLE_GEMINI');
+    }
+    if (this.routingProvider === 'mistral') {
+      return this.translate.instant('ASSISTANT.CREDITS_TOGGLE_MISTRAL');
     }
     return this.translate.instant('ASSISTANT.CREDITS_TOGGLE');
   }
@@ -1310,6 +1400,12 @@ export class AssistantDrawerComponent
       return this.resolveAssistantBillingUrl(
         this.billingGeminiRateLimitUrl,
         AssistantDrawerComponent.DEFAULT_BILLING_GEMINI_RATE
+      );
+    }
+    if (this.routingProvider === 'mistral') {
+      return this.resolveAssistantBillingUrl(
+        this.billingMistralUrl,
+        AssistantDrawerComponent.DEFAULT_BILLING_MISTRAL
       );
     }
     return this.resolveAssistantBillingUrl(
@@ -2668,11 +2764,7 @@ export class AssistantDrawerComponent
   private applyLoadedAssistantConversation(detail: AssistantConversationDetail): void {
     this.persistedRemoteConversationId = detail.id;
     const providerBefore = this.routingProvider;
-    if (
-      detail.routingProvider === 'openai' ||
-      detail.routingProvider === 'anthropic' ||
-      detail.routingProvider === 'gemini'
-    ) {
+    if (AssistantDrawerComponent.isAssistantProvider(detail.routingProvider)) {
       this.routingProvider = detail.routingProvider;
       this.routingProviderLockedAgainstConfigDefault = true;
     }
@@ -2683,7 +2775,9 @@ export class AssistantDrawerComponent
     /** Le Mongo historique garde l’id exact du modèle (ex. gpt-5.5-2026-04-23), absent des presets courts → éviter « personnalisé » si on peut l’aligner sur une entrée liste. */
     const persistedModel = (detail.model ?? '').trim();
     if (persistedModel && !this.routingModelOptions.includes(persistedModel)) {
-      this.routingModelOptions = [...this.routingModelOptions, persistedModel];
+      this.routingModelOptions = [...this.routingModelOptions, persistedModel].sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: 'base' })
+      );
     }
     this.syncModelPresetFromServer(detail.model ?? '');
     this.refreshProviderModelCatalog();
@@ -2898,12 +2992,7 @@ export class AssistantDrawerComponent
         };
       }
     }
-    const fallbackProv =
-      this.routingProvider === 'openai'
-        ? this.translate.instant('ASSISTANT.PROVIDER_OPENAI_SHORT')
-        : this.routingProvider === 'gemini'
-          ? this.translate.instant('ASSISTANT.PROVIDER_GEMINI_SHORT')
-          : this.translate.instant('ASSISTANT.PROVIDER_ANTHROPIC_SHORT');
+    const fallbackProv = this.providerShortLabel(this.routingProvider);
     return { providerLabel: fallbackProv, model };
   }
 

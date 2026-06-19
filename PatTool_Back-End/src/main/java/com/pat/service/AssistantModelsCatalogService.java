@@ -34,6 +34,7 @@ public class AssistantModelsCatalogService {
     private final RestTemplate openAiRestTemplate;
     private final RestTemplate anthropicRestTemplate;
     private final RestTemplate geminiRestTemplate;
+    private final RestTemplate mistralRestTemplate;
     private final ObjectMapper objectMapper;
 
     @Value("${openai.key:}")
@@ -57,25 +58,45 @@ public class AssistantModelsCatalogService {
     @Value("${gemini.api:https://generativelanguage.googleapis.com/v1beta}")
     private String geminiApiBase;
 
+    @Value("${mistral.key:}")
+    private String mistralKey;
+
+    @Value("${mistral.api:https://api.mistral.ai/v1/chat/completions}")
+    private String mistralApiUrl;
+
     public AssistantModelsCatalogService(
             @Qualifier("openAiRestTemplate") RestTemplate openAiRestTemplate,
             @Qualifier("anthropicRestTemplate") RestTemplate anthropicRestTemplate,
             @Qualifier("geminiRestTemplate") RestTemplate geminiRestTemplate,
+            @Qualifier("mistralRestTemplate") RestTemplate mistralRestTemplate,
             ObjectMapper objectMapper) {
         this.openAiRestTemplate = openAiRestTemplate;
         this.anthropicRestTemplate = anthropicRestTemplate;
         this.geminiRestTemplate = geminiRestTemplate;
+        this.mistralRestTemplate = mistralRestTemplate;
         this.objectMapper = objectMapper;
     }
 
     public List<String> listModelIds(String providerSlug) {
         String p = providerSlug == null ? "" : providerSlug.trim().toLowerCase(Locale.ROOT);
-        return switch (p) {
-            case "openai" -> listOpenAiModelIds();
-            case "anthropic" -> listAnthropicModelIds();
-            case "gemini" -> listGeminiModelIds();
-            default -> List.of();
-        };
+        List<String> ids =
+                switch (p) {
+                    case "openai" -> listOpenAiModelIds();
+                    case "anthropic" -> listAnthropicModelIds();
+                    case "gemini" -> listGeminiModelIds();
+                    case "mistral" -> listMistralModelIds();
+                    default -> List.of();
+                };
+        return sortModelIds(ids);
+    }
+
+    private static List<String> sortModelIds(List<String> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        List<String> sorted = new ArrayList<>(ids);
+        sorted.sort(String.CASE_INSENSITIVE_ORDER);
+        return sorted;
     }
 
     private List<String> listOpenAiModelIds() {
@@ -319,5 +340,94 @@ public class AssistantModelsCatalogService {
             return false;
         }
         return true;
+    }
+
+    private List<String> listMistralModelIds() {
+        if (mistralKey == null || mistralKey.isBlank()) {
+            return List.of();
+        }
+        String url = mistralModelsEndpoint();
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(mistralKey.trim());
+            ResponseEntity<String> res =
+                    mistralRestTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            if (!res.getStatusCode().is2xxSuccessful() || res.getBody() == null) {
+                return List.of();
+            }
+            JsonNode root = objectMapper.readTree(res.getBody());
+            JsonNode data = root.get("data");
+            if (data == null || !data.isArray()) {
+                return List.of();
+            }
+            Set<String> ids = new LinkedHashSet<>();
+            for (JsonNode n : data) {
+                JsonNode idNode = n.get("id");
+                if (idNode == null || !idNode.isTextual()) {
+                    continue;
+                }
+                String id = idNode.asText().trim();
+                if (isMistralChatLikeModelId(id)) {
+                    ids.add(id);
+                }
+            }
+            return new ArrayList<>(ids);
+        } catch (RestClientException e) {
+            log.debug("Mistral models list failed: {}", e.getMessage());
+            return List.of();
+        } catch (Exception e) {
+            log.debug("Mistral models list parse failed: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    static boolean isMistralChatLikeModelId(String id) {
+        if (id == null || id.isBlank()) {
+            return false;
+        }
+        String s = id.trim().toLowerCase(Locale.ROOT);
+        if (s.contains("embed")) {
+            return false;
+        }
+        if (s.contains("moderation")) {
+            return false;
+        }
+        if (s.contains("ocr")) {
+            return false;
+        }
+        return s.startsWith("mistral-")
+                || s.startsWith("ministral-")
+                || s.startsWith("pixtral-")
+                || s.startsWith("codestral-")
+                || s.startsWith("devstral-")
+                || s.startsWith("voxtral-");
+    }
+
+    private String mistralModelsEndpoint() {
+        String u = mistralApiUrl == null ? "" : mistralApiUrl.trim();
+        if (u.isEmpty()) {
+            return "https://api.mistral.ai/v1/models";
+        }
+        try {
+            UriComponentsBuilder b = UriComponentsBuilder.fromHttpUrl(u);
+            String path = b.build().getPath();
+            if (path == null || path.isEmpty()) {
+                b.replacePath("/v1/models");
+            } else if (path.endsWith("/chat/completions")) {
+                b.replacePath(
+                        path.substring(0, path.length() - "/chat/completions".length()) + "/models");
+            } else if (!path.endsWith("/models")) {
+                int i = path.indexOf("/v1/");
+                if (i >= 0) {
+                    b.replacePath(path.substring(0, i + "/v1".length()) + "/models");
+                } else {
+                    b.replacePath("/v1/models");
+                }
+            }
+            return b.build().encode().toUriString();
+        } catch (Exception e) {
+            log.debug("mistral.api parse failed ({}), defaulting to /v1/models", e.getMessage());
+            return "https://api.mistral.ai/v1/models";
+        }
     }
 }

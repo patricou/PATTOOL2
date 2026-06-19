@@ -48,9 +48,11 @@
           [(ngModel)]="routingProvider"
           (ngModelChange)="onAssistantRoutingProviderChange()"
           [disabled]="loading">
-          <option value="openai">{{ 'ASSISTANT.PROVIDER_OPENAI' | translate }}</option>
-          <option value="anthropic">{{ 'ASSISTANT.PROVIDER_ANTHROPIC' | translate }}</option>
-          <option value="gemini">{{ 'ASSISTANT.PROVIDER_GEMINI' | translate }}</option>
+          <option
+            *ngFor="let opt of routingProviderSelectOptions"
+            [value]="opt.slug">
+            {{ opt.labelKey | translate }}
+          </option>
         </select>
         <label class="visually-hidden" for="pat-asst-routing-model">{{ 'ASSISTANT.ROUTING_MODEL' | translate }}</label>
         <select
@@ -391,7 +393,7 @@
           id="pat-assistant-tool-web"
           [(ngModel)]="toolWebSearch"
           (change)="onToolFlagsChanged()"
-          [disabled]="loading || (routingProvider !== 'openai' && routingProvider !== 'anthropic' && routingProvider !== 'gemini')"
+          [disabled]="loading || (routingProvider !== 'openai' && routingProvider !== 'anthropic' && routingProvider !== 'gemini' && routingProvider !== 'mistral')"
           [title]="'ASSISTANT.TOOL_WEB_HINT' | translate" />
         <label class="form-check-label"
                for="pat-assistant-tool-web"
@@ -669,18 +671,19 @@
     </div>
   </div>
   <div class="modal-body pat-assistant-tools-help-body" [attr.aria-labelledby]="'assistant-tools-help-title'">
-    <section class="mb-4" aria-labelledby="assistant-tools-help-anthropic-title">
-      <h6 id="assistant-tools-help-anthropic-title" class="fw-semibold mb-1">
-        {{ 'ASSISTANT.TOOLS_HELP_ANTHROPIC_SECTION_TITLE' | translate }}
+    <section
+      *ngFor="let section of assistantProviderModelGuideSections"
+      class="mb-4"
+      [attr.aria-labelledby]="'assistant-tools-help-' + section.sectionId + '-title'">
+      <h6 [id]="'assistant-tools-help-' + section.sectionId + '-title'" class="fw-semibold mb-1">
+        {{ section.titleKey | translate }}
       </h6>
       <p class="text-body-secondary small pat-assistant-tools-help-modelhint mb-2">
-        {{ 'ASSISTANT.TOOLS_HELP_ANTHROPIC_SECTION_INTRO' | translate }}
+        {{ section.introKey | translate }}
       </p>
       <div class="table-responsive">
         <table class="table table-sm table-bordered align-middle mb-0 pat-assistant-tools-help-table">
-          <caption class="visually-hidden">
-            {{ 'ASSISTANT.TOOLS_HELP_ANTHROPIC_SECTION_TITLE' | translate }}
-          </caption>
+          <caption class="visually-hidden">{{ section.titleKey | translate }}</caption>
           <thead class="table-light">
             <tr>
               <th scope="col">{{ 'ASSISTANT.TOOLS_HELP_ANTHROPIC_COL_MODEL' | translate }}</th>
@@ -691,7 +694,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let row of assistantAnthropicModelGuideRows">
+            <tr *ngFor="let row of section.rows">
               <th scope="row" class="text-start fw-normal text-nowrap">
                 {{ row.modelNameKey | translate }}
                 <span

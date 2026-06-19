@@ -75,7 +75,8 @@ public final class PatToolParameterCatalog {
                     def("assistant.billing.openai-usage-url", false),
                     def("assistant.billing.anthropic-url", false),
                     def("assistant.billing.gemini-rate-limit-url", false),
-                    def("assistant.billing.gemini-api-keys-url", false)
+                    def("assistant.billing.gemini-api-keys-url", false),
+                    def("assistant.billing.mistral-url", false)
             ),
             section("openai", "PATTOOL_PARAMS.SECTION.OPENAI",
                     def("openai.api", false),
@@ -114,6 +115,15 @@ public final class PatToolParameterCatalog {
                     def("gemini.web-search-legacy-model-prefixes", false),
                     def("gemini.http.connect-timeout-seconds", false),
                     def("gemini.http.read-timeout-seconds", false)
+            ),
+            section("mistral", "PATTOOL_PARAMS.SECTION.MISTRAL",
+                    defSensitive("mistral.key"),
+                    def("mistral.api", false),
+                    def("mistral.model", false),
+                    def("mistral.max-tokens", false),
+                    def("mistral.provider-label", false),
+                    def("mistral.http.connect-timeout-seconds", false),
+                    def("mistral.http.read-timeout-seconds", false)
             ),
             section("globe", "PATTOOL_PARAMS.SECTION.GLOBE",
                     def("globe.proxy.http.connect-timeout-seconds", false),

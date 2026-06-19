@@ -473,6 +473,32 @@
       </div>
     </div>
     <div class="mb-2" *ngIf="appointmentCanEdit && isAuthenticated()">
+      <label class="form-label small mb-1">{{ 'CALENDAR.LINKED_EVENT' | translate }}</label>
+      <select
+        class="form-select form-select-sm"
+        [(ngModel)]="appointmentLinkedEvenementId"
+        name="appointmentEvenement"
+        [disabled]="appointmentEventsLoading">
+        <option value="">{{ 'CALENDAR.LINKED_EVENT_NONE' | translate }}</option>
+        <option *ngFor="let ev of appointmentLinkableEvents" [value]="ev.id">
+          {{ formatAppointmentEventOptionLabel(ev) }}
+        </option>
+      </select>
+      <p *ngIf="appointmentEventsLoading" class="small text-muted mb-0 mt-1">
+        {{ 'CALENDAR.LINKED_EVENT_LOADING' | translate }}
+      </p>
+    </div>
+    <div class="mb-2" *ngIf="editingId && isAuthenticated() && (appointmentLinkedEvenementId || '').trim().length">
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-primary"
+        (click)="openLinkedEventDetails(modal, 'dismiss')"
+        [attr.title]="'CALENDAR.OPEN_LINKED_EVENT' | translate"
+        [attr.aria-label]="'CALENDAR.OPEN_LINKED_EVENT' | translate">
+        <i class="fa fa-calendar me-1" aria-hidden="true"></i>{{ 'CALENDAR.OPEN_LINKED_EVENT' | translate }}
+      </button>
+    </div>
+    <div class="mb-2" *ngIf="appointmentCanEdit && isAuthenticated()">
       <label class="form-label small mb-1">{{ 'CALENDAR.LINKED_TODO_LIST' | translate }}</label>
       <select
         class="form-select form-select-sm"

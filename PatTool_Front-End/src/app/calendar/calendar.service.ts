@@ -20,6 +20,8 @@ export interface CalendarEntry {
     friendGroupIds?: string[] | null;
     /** Linked to-do list id when the back-end attached one to this row. */
     todoListId?: string | null;
+    /** Linked activity id when this appointment references an event. */
+    evenementId?: string | null;
 }
 
 export interface CalendarReminderMailResult {
@@ -48,6 +50,7 @@ export interface CalendarAppointmentPayload {
     visibility?: string;
     friendGroupId?: string | null;
     friendGroupIds?: string[] | null;
+    evenementId?: string | null;
 }
 
 @Injectable({ providedIn: 'root' })

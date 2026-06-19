@@ -62,7 +62,7 @@ export class AssistantSessionStore {
     }
     const o = raw as Record<string, unknown>;
     const p = o['provider'];
-    if (p !== 'openai' && p !== 'anthropic' && p !== 'gemini') {
+    if (p !== 'openai' && p !== 'anthropic' && p !== 'gemini' && p !== 'mistral') {
       return undefined;
     }
     const modelPreset =

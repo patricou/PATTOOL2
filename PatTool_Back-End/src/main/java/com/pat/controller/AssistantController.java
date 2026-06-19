@@ -97,6 +97,7 @@ public class AssistantController {
         String oai = routingAssistantService.getDefaultModelForRoutingSlug("openai");
         String ant = routingAssistantService.getDefaultModelForRoutingSlug("anthropic");
         String gem = routingAssistantService.getDefaultModelForRoutingSlug("gemini");
+        String mis = routingAssistantService.getDefaultModelForRoutingSlug("mistral");
         String gemImg = routingAssistantService.getGeminiImageGenerationModel();
         return ResponseEntity.ok(new AssistantClientConfigDto(
                 p.isEmpty() ? null : p,
@@ -106,11 +107,13 @@ public class AssistantController {
                 oai.isEmpty() ? null : oai,
                 ant.isEmpty() ? null : ant,
                 gem.isEmpty() ? null : gem,
+                mis.isEmpty() ? null : mis,
                 emptyToNull(assistantBillingLinks.getOpenaiBillingUrl()),
                 emptyToNull(assistantBillingLinks.getOpenaiUsageUrl()),
                 emptyToNull(assistantBillingLinks.getAnthropicUrl()),
                 emptyToNull(assistantBillingLinks.getGeminiRateLimitUrl()),
                 emptyToNull(assistantBillingLinks.getGeminiApiKeysUrl()),
+                emptyToNull(assistantBillingLinks.getMistralUrl()),
                 gemImg.isEmpty() ? null : gemImg));
     }
 
@@ -122,7 +125,7 @@ public class AssistantController {
     public ResponseEntity<AssistantModelIdsDto> assistantModelCatalog(
             @RequestParam("provider") String provider) {
         String p = provider == null ? "" : provider.trim().toLowerCase(Locale.ROOT);
-        if (!"openai".equals(p) && !"anthropic".equals(p) && !"gemini".equals(p)) {
+        if (!"openai".equals(p) && !"anthropic".equals(p) && !"gemini".equals(p) && !"mistral".equals(p)) {
             return ResponseEntity.badRequest().build();
         }
         return ResponseEntity.ok(
@@ -292,8 +295,9 @@ public class AssistantController {
     }
 
     /**
-     * Assistant latéral multi-tours : OpenAI, Anthropic (Messages) ou Google Gemini ({@code generateContent})
-     * selon {@code assistant.provider} (ou surcharge {@code provider} dans le corps).
+     * Assistant latéral multi-tours : OpenAI, Anthropic (Messages), Google Gemini ({@code generateContent})
+     * ou Mistral AI ({@code chat/completions}) selon {@code assistant.provider}
+     * (ou surcharge {@code provider} dans le corps).
      */
     @PostMapping("/assistant/chat")
     public ResponseEntity<AssistantChatResponseDto> chat(@RequestBody @Valid AssistantChatRequestDto body) {
@@ -305,7 +309,9 @@ public class AssistantController {
                             || result.error().contains("anthropic.key")
                             || result.error().contains("configurez anthropic.key")
                             || result.error().contains("gemini.key")
-                            || result.error().contains("configurez gemini.key");
+                            || result.error().contains("configurez gemini.key")
+                            || result.error().contains("mistral.key")
+                            || result.error().contains("configurez mistral.key");
             HttpStatus status = configMissingKey ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.BAD_GATEWAY;
             return ResponseEntity.status(status).body(result);
         }

@@ -26,6 +26,9 @@ public class CalendarAppointmentRequest {
 
     private List<String> friendGroupIds;
 
+    /** Optional MongoDB id of an activity ({@code evenements}) linked to this appointment. */
+    private String evenementId;
+
     public String getTitle() {
         return title;
     }
@@ -80,5 +83,13 @@ public class CalendarAppointmentRequest {
 
     public void setFriendGroupIds(List<String> friendGroupIds) {
         this.friendGroupIds = friendGroupIds;
+    }
+
+    public String getEvenementId() {
+        return evenementId;
+    }
+
+    public void setEvenementId(String evenementId) {
+        this.evenementId = evenementId;
     }
 }

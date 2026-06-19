@@ -65,11 +65,13 @@ openai.http.connect-timeout-seconds=300
 openai.http.read-timeout-seconds=300
 openai.billing.credit-grants-url=https://api.openai.com/v1/dashboard/billing/credit_grants
 
-# --- Assistant Anthropic & Google Gemini (timeouts HTTP dédiés côté serveur ; voir application-assistant.example.properties pour les clés API) ---
+# --- Assistant Anthropic, Google Gemini & Mistral (timeouts HTTP dédiés côté serveur ; voir application-assistant.example.properties pour les clés API) ---
 anthropic.http.connect-timeout-seconds=300
 anthropic.http.read-timeout-seconds=300
 gemini.http.connect-timeout-seconds=300
 gemini.http.read-timeout-seconds=300
+mistral.http.connect-timeout-seconds=300
+mistral.http.read-timeout-seconds=300
 
 # Globe proxy (/api/external/globe) — téléchargements images / GeoJSON / ISS (délais plus longs que le RestTemplate générique).
 globe.proxy.http.connect-timeout-seconds=10

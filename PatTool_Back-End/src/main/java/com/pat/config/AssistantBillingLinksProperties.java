@@ -17,6 +17,7 @@ public class AssistantBillingLinksProperties {
     private String geminiRateLimitUrl =
             "https://aistudio.google.com/rate-limit?timeRange=last-28-days&hl=fr&project=gen-lang-client-0509711942";
     private String geminiApiKeysUrl = "https://aistudio.google.com/app/apikey";
+    private String mistralUrl = "https://console.mistral.ai/billing";
 
     public String getOpenaiBillingUrl() {
         return openaiBillingUrl;
@@ -56,5 +57,13 @@ public class AssistantBillingLinksProperties {
 
     public void setGeminiApiKeysUrl(String geminiApiKeysUrl) {
         this.geminiApiKeysUrl = geminiApiKeysUrl;
+    }
+
+    public String getMistralUrl() {
+        return mistralUrl;
+    }
+
+    public void setMistralUrl(String mistralUrl) {
+        this.mistralUrl = mistralUrl;
     }
 }

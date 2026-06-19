@@ -51,7 +51,8 @@ public class AssistantRoutingPreferenceService {
             }
             if (!"openai".equals(dto.provider())
                     && !"anthropic".equals(dto.provider())
-                    && !"gemini".equals(dto.provider())) {
+                    && !"gemini".equals(dto.provider())
+                    && !"mistral".equals(dto.provider())) {
                 return Optional.empty();
             }
             return Optional.of(new AssistantRoutingPreferenceDto(

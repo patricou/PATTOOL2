@@ -11,7 +11,7 @@ import jakarta.validation.constraints.Pattern;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record AssistantRoutingPreferenceDto(
         @NotBlank
-        @Pattern(regexp = "openai|anthropic|gemini")
+        @Pattern(regexp = "openai|anthropic|gemini|mistral")
         String provider,
         @NotBlank
         String modelPreset,

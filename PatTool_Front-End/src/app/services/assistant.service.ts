@@ -81,11 +81,14 @@ export interface AssistantOpenAiCredits {
   message?: string | null;
 }
 
+/** Fournisseurs IA supportés par l’assistant PatTool. */
+export type AssistantProviderSlug = 'openai' | 'anthropic' | 'gemini' | 'mistral';
+
 /** Libellés + routage par défaut côté serveur (GET /assistant/config). */
 export interface AssistantClientConfig {
   provider?: string | null;
   model?: string | null;
-  /** openai | anthropic | gemini — valeur de assistant.provider côté Spring. */
+  /** openai | anthropic | gemini | mistral — valeur de assistant.provider côté Spring. */
   routingDefault?: string | null;
   /** Préférence persistée (Mongo appParameters), si l’utilisateur en a déjà enregistré une. */
   persistedRouting?: AssistantRoutingStored | null;
@@ -93,25 +96,27 @@ export interface AssistantClientConfig {
   openaiDefaultModel?: string | null;
   anthropicDefaultModel?: string | null;
   geminiDefaultModel?: string | null;
+  mistralDefaultModel?: string | null;
   /** Liens bandeau facturation / usage (assistant.billing.* côté serveur). */
   billingOpenaiBillingUrl?: string | null;
   billingOpenaiUsageUrl?: string | null;
   billingAnthropicUrl?: string | null;
   billingGeminiRateLimitUrl?: string | null;
   billingGeminiApiKeysUrl?: string | null;
+  billingMistralUrl?: string | null;
   /** gemini.image-generation-model côté serveur (non sensible). */
   geminiImageGenerationModel?: string | null;
 }
 
 /** Fournisseur + modèle effectifs pour un tour de chat (surcharge la config serveur). */
 export interface AssistantRoutingRequest {
-  provider: 'openai' | 'anthropic' | 'gemini';
+  provider: AssistantProviderSlug;
   model: string;
 }
 
 /** Persistance du choix fournisseur / modèle dans l’assistant (sessionStorage + optionnellement Mongo via API). */
 export interface AssistantRoutingStored {
-  provider: 'openai' | 'anthropic' | 'gemini';
+  provider: AssistantProviderSlug;
   modelPreset: string;
   modelCustom: string;
 }
@@ -176,7 +181,7 @@ export interface AssistantConversationTurnPersist {
 }
 
 export interface AssistantConversationSaveBody {
-  routingProvider: 'openai' | 'anthropic' | 'gemini';
+  routingProvider: AssistantProviderSlug;
   providerLabel: string;
   model: string;
   turns: AssistantConversationTurnPersist[];
@@ -379,7 +384,7 @@ export class AssistantService {
    * Retourne une liste vide si l’appel échoue ; le client garde alors ses presets locaux.
    */
   getAssistantModels(
-    provider: 'openai' | 'anthropic' | 'gemini'
+    provider: AssistantProviderSlug
   ): Observable<string[]> {
     const url =
       environment.API_URL +

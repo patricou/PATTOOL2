@@ -13,6 +13,7 @@ import com.pat.repo.domain.Evenement;
 import com.pat.repo.domain.FileUploaded;
 import com.pat.repo.domain.TodoList;
 import com.pat.service.CalendarAppointmentReminderMailService;
+import com.pat.service.DiscussionService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -51,6 +52,9 @@ public class CalendarRestController {
 
     @Autowired
     private CalendarAppointmentReminderMailService calendarAppointmentReminderMailService;
+
+    @Autowired
+    private DiscussionService discussionService;
 
     @GetMapping("/entries")
     public ResponseEntity<List<CalendarEntryDTO>> entries(
@@ -168,6 +172,7 @@ public class CalendarRestController {
                 row.setFriendGroupId(a.getFriendGroupId());
                 row.setFriendGroupIds(a.getFriendGroupIds());
                 row.setTodoListId(appointmentIdToTodoListId.get(a.getId()));
+                row.setEvenementId(a.getEvenementId());
                 out.add(row);
             }
         }
@@ -196,6 +201,9 @@ public class CalendarRestController {
         a.setEndDate(body.getEndDate());
         a.setCreatedAt(new Date());
         applyAppointmentSharing(a, body);
+        if (!applyEvenementLink(a, body.getEvenementId(), userId)) {
+            return ResponseEntity.badRequest().build();
+        }
         CalendarAppointment saved = calendarAppointmentRepository.save(a);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
@@ -221,6 +229,9 @@ public class CalendarRestController {
         a.setStartDate(body.getStartDate());
         a.setEndDate(body.getEndDate());
         applyAppointmentSharing(a, body);
+        if (!applyEvenementLink(a, body.getEvenementId(), userId)) {
+            return ResponseEntity.badRequest().build();
+        }
         return ResponseEntity.ok(calendarAppointmentRepository.save(a));
     }
 
@@ -309,6 +320,27 @@ public class CalendarRestController {
 
     private void applyAppointmentSharing(CalendarAppointment entity, CalendarAppointmentRequest body) {
         applySharingFields(entity, body.getVisibility(), body.getFriendGroupId(), body.getFriendGroupIds());
+    }
+
+    /**
+     * Sets {@link CalendarAppointment#getEvenementId()} when the user may access the target activity.
+     *
+     * @return {@code false} when a non-empty id is invalid or forbidden
+     */
+    private boolean applyEvenementLink(CalendarAppointment entity, String evenementIdRaw, String userId) {
+        String evId = StringUtils.hasText(evenementIdRaw) ? evenementIdRaw.trim() : null;
+        if (evId == null) {
+            entity.setEvenementId(null);
+            return true;
+        }
+        if (evenementsRepository.findById(evId).isEmpty()) {
+            return false;
+        }
+        if (!discussionService.canUserAccessEventForDetail(evId, userId)) {
+            return false;
+        }
+        entity.setEvenementId(evId);
+        return true;
     }
 
     private void applySharingFields(CalendarAppointment entity, String visibilityRaw, String friendGroupIdRaw,

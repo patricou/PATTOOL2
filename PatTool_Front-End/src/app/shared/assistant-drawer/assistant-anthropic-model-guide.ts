@@ -1,14 +1,10 @@
+import { AssistantModelGuideRow } from './assistant-model-guide.types';
+
 /**
  * Modale aide « Quel modèle pour quelle tâche ? » — guide Anthropic (Claude).
  * Textes dans i18n (ASSISTANT.TOOLS_HELP_ANTHROPIC_*).
  */
-export interface AssistantAnthropicModelGuideRow {
-  readonly modelNameKey: string;
-  /** Valeur affichée dans le sélecteur PatTool (id API Messages). */
-  readonly apiModelId: string;
-  readonly useKeys: readonly [string, string, string];
-  readonly badgeKey?: string;
-}
+export type AssistantAnthropicModelGuideRow = AssistantModelGuideRow;
 
 export const ASSISTANT_ANTHROPIC_MODEL_GUIDE_ROWS: readonly AssistantAnthropicModelGuideRow[] = [
   {
