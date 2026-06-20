@@ -499,6 +499,43 @@ body .modal.assistant-history-modal.show .pat-assistant-history-preview {
     line-height: 1.35 !important;
 }
 
+body .modal.show.assistant-history-modal .pat-assistant-history-item-head,
+body .modal.assistant-history-modal.show .pat-assistant-history-item-head {
+    margin-bottom: 0.2rem !important;
+}
+
+body .modal.show.assistant-history-modal .pat-assistant-history-owner,
+body .modal.assistant-history-modal.show .pat-assistant-history-owner,
+body .modal.show.assistant-history-modal .pat-assistant-history-provider,
+body .modal.assistant-history-modal.show .pat-assistant-history-provider,
+body .modal.show.assistant-history-modal .pat-assistant-history-model,
+body .modal.assistant-history-modal.show .pat-assistant-history-model {
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    font-style: normal !important;
+    letter-spacing: 0.01em;
+    padding: 0.22rem 0.5rem !important;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+body .modal.show.assistant-history-modal .pat-assistant-history-provider,
+body .modal.assistant-history-modal.show .pat-assistant-history-provider,
+body .modal.show.assistant-history-modal .pat-assistant-history-model,
+body .modal.assistant-history-modal.show .pat-assistant-history-model {
+    font-size: 0.68rem !important;
+    font-weight: 600 !important;
+}
+
+body .modal.show.assistant-history-modal .pat-assistant-history-question-num,
+body .modal.assistant-history-modal.show .pat-assistant-history-question-num {
+    font-size: 0.65rem !important;
+    font-weight: 700 !important;
+    vertical-align: middle;
+}
+
 body .modal.show.assistant-history-modal .pat-assistant-history-meta,
 body .modal.assistant-history-modal.show .pat-assistant-history-meta {
     font-size: 0.68rem !important;

@@ -3065,6 +3065,8 @@
         "HISTORY_LOADING_DETAIL": "Loading conversation…",
         "HISTORY_EMPTY": "No saved conversations yet.",
         "HISTORY_NO_PREVIEW": "(No preview)",
+        "HISTORY_QUESTION_NUM": "#{{n}}",
+        "HISTORY_QUESTIONS_RANGE": "#{{from}}–{{to}}",
         "HISTORY_OPEN": "Open",
         "HISTORY_COPY_QUESTION": "Copy question",
         "HISTORY_COPY_QUESTION_TOOLTIP": "Copy the first user question to the clipboard and into the message field.",

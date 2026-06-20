@@ -3049,6 +3049,8 @@
         "HISTORY_LOADING_DETAIL": "Chargement de la conversation…",
         "HISTORY_EMPTY": "Aucune conversation enregistrée pour le moment.",
         "HISTORY_NO_PREVIEW": "(Pas d’aperçu)",
+        "HISTORY_QUESTION_NUM": "n°{{n}}",
+        "HISTORY_QUESTIONS_RANGE": "n°{{from}}–{{to}}",
         "HISTORY_OPEN": "Ouvrir",
         "HISTORY_COPY_QUESTION": "Copier la question",
         "HISTORY_COPY_QUESTION_TOOLTIP": "Copier la première question utilisateur : presse-papiers et champ de message.",

@@ -123,6 +123,55 @@ import { ASSISTANT_TOOLS_HELP_PROVIDER_MATRIX } from './assistant-tools-help-mat
 export class AssistantDrawerComponent
   implements AfterViewInit, AfterViewChecked, OnInit, OnDestroy
 {
+  private static readonly HISTORY_OWNER_BADGE_PALETTE: ReadonlyArray<{
+    bg: string;
+    text: string;
+    border: string;
+  }> = [
+    { bg: '#dbeafe', text: '#1e3a8a', border: '#93c5fd' },
+    { bg: '#dcfce7', text: '#166534', border: '#86efac' },
+    { bg: '#fce7f3', text: '#9d174d', border: '#f9a8d4' },
+    { bg: '#ede9fe', text: '#5b21b6', border: '#c4b5fd' },
+    { bg: '#ffedd5', text: '#9a3412', border: '#fdba74' },
+    { bg: '#ccfbf1', text: '#115e59', border: '#5eead4' },
+    { bg: '#e0e7ff', text: '#3730a3', border: '#a5b4fc' },
+    { bg: '#fef3c7', text: '#92400e', border: '#fcd34d' },
+    { bg: '#fecdd3', text: '#9f1239', border: '#fda4af' },
+    { bg: '#d1fae5', text: '#065f46', border: '#6ee7b7' },
+    { bg: '#fef9c3', text: '#854d0e', border: '#fde047' },
+    { bg: '#f3e8ff', text: '#6b21a8', border: '#d8b4fe' }
+  ];
+
+  /** Palette décalée pour les modèles (évite les collisions visuelles avec les badges utilisateur). */
+  private static readonly HISTORY_MODEL_BADGE_PALETTE: ReadonlyArray<{
+    bg: string;
+    text: string;
+    border: string;
+  }> = [
+    { bg: '#cffafe', text: '#155e75', border: '#67e8f9' },
+    { bg: '#e7e5e4', text: '#44403c', border: '#a8a29e' },
+    { bg: '#fef08a', text: '#713f12', border: '#facc15' },
+    { bg: '#bbf7d0', text: '#14532d', border: '#4ade80' },
+    { bg: '#ddd6fe', text: '#4c1d95', border: '#a78bfa' },
+    { bg: '#fed7aa', text: '#7c2d12', border: '#fb923c' },
+    { bg: '#fbcfe8', text: '#831843', border: '#f472b6' },
+    { bg: '#bfdbfe', text: '#1e40af', border: '#60a5fa' },
+    { bg: '#a7f3d0', text: '#064e3b', border: '#34d399' },
+    { bg: '#fde68a', text: '#78350f', border: '#fbbf24' },
+    { bg: '#c7d2fe', text: '#312e81', border: '#818cf8' },
+    { bg: '#fecaca', text: '#7f1d1d', border: '#f87171' }
+  ];
+
+  /** Couleurs fixes par fournisseur IA (même compagnie → même badge). */
+  private static readonly HISTORY_PROVIDER_BADGE_COLORS: Readonly<
+    Record<string, { bg: string; text: string; border: string }>
+  > = {
+    openai: { bg: '#d1fae5', text: '#065f46', border: '#6ee7b7' },
+    anthropic: { bg: '#ffedd5', text: '#9a3412', border: '#fdba74' },
+    gemini: { bg: '#dbeafe', text: '#1e40af', border: '#93c5fd' },
+    mistral: { bg: '#fef3c7', text: '#92400e', border: '#fcd34d' }
+  };
+
   private readonly destroyRef = inject(DestroyRef);
 
   @ViewChild('threadEl') threadEl?: ElementRef<HTMLDivElement>;
@@ -309,6 +358,22 @@ export class AssistantDrawerComponent
   /** Filtre plein texte dans la liste de l’historique (modal). */
   historyConversationFilter = '';
   historyErrorKey: string | null = null;
+  /** Numéros chronologiques des questions (1 = plus ancienne) par id de conversation. */
+  private historyQuestionRangeById = new Map<string, { from: number; to: number }>();
+  /** Clé couleur stable par conversation (même utilisateur Keycloak → même clé). */
+  private historyOwnerColorKeyByRowId = new Map<string, string>();
+  private historyOwnerBadgeStyleCache = new Map<
+    string,
+    { backgroundColor: string; color: string; border: string }
+  >();
+  private historyModelBadgeStyleCache = new Map<
+    string,
+    { backgroundColor: string; color: string; border: string }
+  >();
+  private historyProviderBadgeStyleCache = new Map<
+    string,
+    { backgroundColor: string; color: string; border: string }
+  >();
   private historyListSub?: Subscription;
   private assistantHistoryModalRef: NgbModalRef | null = null;
   messages: AssistantChatTurn[] = [];
@@ -2625,6 +2690,11 @@ export class AssistantDrawerComponent
     this.historyErrorKey = null;
     this.historyLoading = true;
     this.historyItems = [];
+    this.historyQuestionRangeById.clear();
+    this.historyOwnerColorKeyByRowId.clear();
+    this.historyOwnerBadgeStyleCache.clear();
+    this.historyModelBadgeStyleCache.clear();
+    this.historyProviderBadgeStyleCache.clear();
     this.historyListSub?.unsubscribe();
     const ref = this.modalService.open(this.assistantHistoryModal, {
       centered: true,
@@ -2649,6 +2719,7 @@ export class AssistantDrawerComponent
       .subscribe({
         next: (rows) => {
           this.historyItems = rows ?? [];
+          this.rebuildHistoryQuestionRanges();
         },
         error: () => {
           this.historyErrorKey = 'ASSISTANT.HISTORY_LOAD_ERR';
@@ -2664,10 +2735,16 @@ export class AssistantDrawerComponent
       return fromApi;
     }
     const ownerSub = (row.ownerSubject ?? '').trim();
+    if (ownerSub.length > 0) {
+      const fromSibling = this.historyStoredUsernameForSubject(ownerSub);
+      if (fromSibling) {
+        return fromSibling;
+      }
+    }
     const mySub = this.keycloak.getJwtSubject();
     const isMine = !!(mySub && ownerSub === mySub);
-    if (isMine) {
-      const selfLabel = (this.keycloak.getUsernameForDisplay() ?? '').trim();
+    if (isMine || (!ownerSub && this.historyItemsBelongToCurrentUserOnly())) {
+      const selfLabel = (this.chatUserLabel() || this.keycloak.getUsernameForDisplay() || '').trim();
       if (selfLabel.length > 0) {
         return selfLabel;
       }
@@ -2676,6 +2753,179 @@ export class AssistantDrawerComponent
       return this.translate.instant('ASSISTANT.HISTORY_OWNER_UNKNOWN');
     }
     return ownerSub;
+  }
+
+  /** Login stocké sur une autre conversation du même utilisateur (`ownerSubject`). */
+  private historyStoredUsernameForSubject(subject: string): string | null {
+    const target = subject.trim();
+    if (!target) {
+      return null;
+    }
+    for (const row of this.historyItems) {
+      if ((row.ownerSubject ?? '').trim() !== target) {
+        continue;
+      }
+      const user = (row.ownerPreferredUsername ?? '').trim();
+      if (user.length > 0) {
+        return user;
+      }
+    }
+    return null;
+  }
+
+  /** Historique limité au compte connecté (pas la vue admin multi-utilisateurs). */
+  private historyItemsBelongToCurrentUserOnly(): boolean {
+    const mySub = (this.keycloak.getJwtSubject() ?? '').trim();
+    if (!mySub) {
+      return false;
+    }
+    const subjects = new Set(
+      this.historyItems
+        .map((row) => (row.ownerSubject ?? '').trim())
+        .filter((s) => s.length > 0)
+    );
+    return subjects.size <= 1;
+  }
+
+  /** Couleurs de badge stables par utilisateur (même compte → même couleur sur toutes ses questions). */
+  historyOwnerBadgeStyle(row: AssistantConversationSummary): {
+    backgroundColor: string;
+    color: string;
+    border: string;
+  } {
+    let key = this.historyOwnerColorKeyByRowId.get(row.id);
+    if (!key) {
+      this.rebuildHistoryOwnerColorKeys();
+      key = this.historyOwnerColorKeyByRowId.get(row.id) ?? 'unknown';
+    }
+    let style = this.historyOwnerBadgeStyleCache.get(key);
+    if (!style) {
+      style = this.historyBadgeStyleFromKey(key, AssistantDrawerComponent.HISTORY_OWNER_BADGE_PALETTE);
+      this.historyOwnerBadgeStyleCache.set(key, style);
+    }
+    return style;
+  }
+
+  /** Couleurs de badge stables par modèle (même modèle → même couleur). */
+  historyModelBadgeStyle(row: AssistantConversationSummary): {
+    backgroundColor: string;
+    color: string;
+    border: string;
+  } {
+    const key = this.historyModelColorKey(row);
+    let style = this.historyModelBadgeStyleCache.get(key);
+    if (!style) {
+      style = this.historyBadgeStyleFromKey(key, AssistantDrawerComponent.HISTORY_MODEL_BADGE_PALETTE);
+      this.historyModelBadgeStyleCache.set(key, style);
+    }
+    return style;
+  }
+
+  /** Couleurs de badge stables par fournisseur (même compagnie → même couleur). */
+  historyProviderBadgeStyle(row: AssistantConversationSummary): {
+    backgroundColor: string;
+    color: string;
+    border: string;
+  } {
+    const key = this.historyProviderColorKey(row);
+    let style = this.historyProviderBadgeStyleCache.get(key);
+    if (!style) {
+      const slug = (row.routingProvider ?? '').trim().toLowerCase();
+      const fixed = AssistantDrawerComponent.HISTORY_PROVIDER_BADGE_COLORS[slug];
+      style = fixed
+        ? {
+            backgroundColor: fixed.bg,
+            color: fixed.text,
+            border: `1px solid ${fixed.border}`
+          }
+        : this.historyBadgeStyleFromKey(key, AssistantDrawerComponent.HISTORY_MODEL_BADGE_PALETTE);
+      this.historyProviderBadgeStyleCache.set(key, style);
+    }
+    return style;
+  }
+
+  historyProviderDisplay(row: AssistantConversationSummary): string | null {
+    const slug = (row.routingProvider ?? '').trim().toLowerCase();
+    if (AssistantDrawerComponent.isAssistantProvider(slug)) {
+      return this.providerShortLabel(slug);
+    }
+    const label = (row.providerLabel ?? '').trim();
+    return label.length > 0 ? label : null;
+  }
+
+  historyModelDisplay(row: AssistantConversationSummary): string | null {
+    const model = (row.model ?? '').trim();
+    return model.length > 0 ? model : null;
+  }
+
+  historyModelBadgeTitle(row: AssistantConversationSummary): string {
+    return (row.model ?? '').trim();
+  }
+
+  private historyProviderColorKey(row: AssistantConversationSummary): string {
+    const slug = (row.routingProvider ?? '').trim().toLowerCase();
+    if (slug) {
+      return `provider:${slug}`;
+    }
+    const label = (row.providerLabel ?? '').trim().toLowerCase();
+    return `provider:${label || 'unknown'}`;
+  }
+
+  private historyModelColorKey(row: AssistantConversationSummary): string {
+    return (row.model ?? '').trim().toLowerCase();
+  }
+
+  private isUnknownOwnerDisplayLabel(label: string): boolean {
+    const t = label.trim();
+    if (!t) {
+      return true;
+    }
+    if (t.startsWith('(')) {
+      return true;
+    }
+    const unknown = this.translate.instant('ASSISTANT.HISTORY_OWNER_UNKNOWN');
+    return t === unknown;
+  }
+
+  private rebuildHistoryOwnerColorKeys(): void {
+    this.historyOwnerColorKeyByRowId.clear();
+    this.historyOwnerBadgeStyleCache.clear();
+
+    const mySub = (this.keycloak.getJwtSubject() ?? '').trim().toLowerCase();
+
+    for (const row of this.historyItems) {
+      const display = this.historyOwnerDisplay(row).trim();
+      if (!this.isUnknownOwnerDisplayLabel(display)) {
+        this.historyOwnerColorKeyByRowId.set(row.id, `name:${display.toLowerCase()}`);
+        continue;
+      }
+      const sub = (row.ownerSubject ?? '').trim().toLowerCase();
+      this.historyOwnerColorKeyByRowId.set(row.id, sub || mySub || `unknown:${row.id}`);
+    }
+  }
+
+  private historyBadgeStyleFromKey(
+    key: string,
+    palette: ReadonlyArray<{ bg: string; text: string; border: string }>
+  ): { backgroundColor: string; color: string; border: string } {
+    const idx = this.hashStringToPaletteIndex(key, palette.length);
+    const c = palette[idx];
+    return {
+      backgroundColor: c.bg,
+      color: c.text,
+      border: `1px solid ${c.border}`
+    };
+  }
+
+  private hashStringToPaletteIndex(value: string, mod: number): number {
+    if (mod <= 0) {
+      return 0;
+    }
+    let h = 0;
+    for (let i = 0; i < value.length; i++) {
+      h = (h * 31 + value.charCodeAt(i)) >>> 0;
+    }
+    return h % mod;
   }
 
   /** Évite d’afficher un UUID Keycloak (ou id opaque) comme « nom » pour les conversations des autres. */
@@ -2697,6 +2947,8 @@ export class AssistantDrawerComponent
       return rows;
     }
     return rows.filter((row) => {
+      const questionLabel = this.assistantHistoryQuestionLabel(row) ?? '';
+      const providerLabel = this.historyProviderDisplay(row) ?? '';
       const hay = [
         row.preview,
         row.providerLabel,
@@ -2706,13 +2958,58 @@ export class AssistantDrawerComponent
         row.createdAt,
         row.updatedAt,
         row.ownerSubject,
-        row.ownerPreferredUsername
+        row.ownerPreferredUsername,
+        providerLabel,
+        questionLabel
       ]
         .map((x) => (typeof x === 'string' ? x : ''))
         .join(' ')
         .toLowerCase();
       return hay.includes(q);
     });
+  }
+
+  /** Libellé du numéro de question (1 = plus ancienne dans l’historique). */
+  assistantHistoryQuestionLabel(row: AssistantConversationSummary): string | null {
+    const range = this.historyQuestionRangeById.get(row.id);
+    if (!range) {
+      return null;
+    }
+    if (range.from === range.to) {
+      return this.translate.instant('ASSISTANT.HISTORY_QUESTION_NUM', { n: range.from });
+    }
+    return this.translate.instant('ASSISTANT.HISTORY_QUESTIONS_RANGE', {
+      from: range.from,
+      to: range.to
+    });
+  }
+
+  private rebuildHistoryQuestionRanges(): void {
+    this.historyQuestionRangeById.clear();
+    this.rebuildHistoryOwnerColorKeys();
+    const sorted = [...this.historyItems].sort((a, b) => {
+      const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
+      const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
+      if (ta !== tb) {
+        return ta - tb;
+      }
+      return a.id.localeCompare(b.id);
+    });
+    let next = 1;
+    for (const row of sorted) {
+      const raw = row.userQuestionCount;
+      const count =
+        typeof raw === 'number' && raw > 0
+          ? raw
+          : (row.preview ?? '').trim().length > 0
+            ? 1
+            : 0;
+      if (count <= 0) {
+        continue;
+      }
+      this.historyQuestionRangeById.set(row.id, { from: next, to: next + count - 1 });
+      next += count;
+    }
   }
 
   loadConversationFromHistory(id: string): void {
@@ -2754,6 +3051,7 @@ export class AssistantDrawerComponent
       .subscribe({
         next: () => {
           this.historyItems = this.historyItems.filter((h) => h.id !== id);
+          this.rebuildHistoryQuestionRanges();
           if (this.persistedRemoteConversationId === id) {
             this.persistedRemoteConversationId = null;
           }

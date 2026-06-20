@@ -316,7 +316,29 @@ public class AssistantConversationService {
                 doc.getModel(),
                 previewFrom(doc),
                 doc.getOwnerSubject(),
-                preferredForApi);
+                preferredForApi,
+                countUserQuestions(doc));
+    }
+
+    private int countUserQuestions(AssistantConversation doc) {
+        if (doc.getTurns() == null || doc.getTurns().isEmpty()) {
+            return 0;
+        }
+        int n = 0;
+        for (AssistantConversationTurn t : doc.getTurns()) {
+            if (!"user".equalsIgnoreCase(t.getRole())) {
+                continue;
+            }
+            String content = t.getContent();
+            boolean hasText = content != null && !content.trim().isEmpty();
+            boolean hasImage =
+                    Boolean.TRUE.equals(t.getHasImage())
+                            || (t.getImageDataUrl() != null && !t.getImageDataUrl().isBlank());
+            if (hasText || hasImage) {
+                n++;
+            }
+        }
+        return n;
     }
 
     private String previewFrom(AssistantConversation doc) {

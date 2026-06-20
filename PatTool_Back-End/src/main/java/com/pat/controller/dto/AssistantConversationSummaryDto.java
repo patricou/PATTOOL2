@@ -11,4 +11,5 @@ public record AssistantConversationSummaryDto(
         String model,
         String preview,
         String ownerSubject,
-        String ownerPreferredUsername) {}
+        String ownerPreferredUsername,
+        int userQuestionCount) {}

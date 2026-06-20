@@ -968,14 +968,41 @@
         class="list-group-item pat-assistant-history-item d-flex flex-column flex-md-row gap-2 align-items-md-center justify-content-between"
         *ngFor="let row of filteredAssistantHistoryItems()">
         <div class="flex-grow-1 min-w-0">
-          <div class="pat-assistant-history-preview text-break">{{ row.preview || ('ASSISTANT.HISTORY_NO_PREVIEW' | translate) }}</div>
+          <div class="pat-assistant-history-item-head d-flex align-items-center flex-wrap gap-1 mb-1">
+            <span
+              *ngIf="assistantHistoryQuestionLabel(row) as qLabel"
+              class="pat-assistant-history-question-num badge rounded-pill text-bg-secondary"
+              >{{ qLabel }}</span
+            >
+            <span
+              class="pat-assistant-history-owner badge rounded-pill"
+              [ngStyle]="historyOwnerBadgeStyle(row)"
+              [attr.title]="'ASSISTANT.HISTORY_OWNER_LABEL' | translate">
+              <i class="fa fa-user me-1" aria-hidden="true"></i>{{ historyOwnerDisplay(row) }}
+            </span>
+            <span
+              *ngIf="historyProviderDisplay(row) as providerLabel"
+              class="pat-assistant-history-provider badge rounded-pill"
+              [ngStyle]="historyProviderBadgeStyle(row)"
+              [attr.title]="'ASSISTANT.ROUTING_PROVIDER' | translate">
+              <i class="fa fa-building-o me-1" aria-hidden="true"></i>{{ providerLabel }}
+            </span>
+            <span
+              *ngIf="historyModelDisplay(row) as modelLabel"
+              class="pat-assistant-history-model badge rounded-pill"
+              [ngStyle]="historyModelBadgeStyle(row)"
+              [attr.title]="historyModelBadgeTitle(row)">
+              <i class="fa fa-microchip me-1" aria-hidden="true"></i>{{ modelLabel }}
+            </span>
+          </div>
+          <div class="pat-assistant-history-preview text-break">
+            {{ row.preview || ('ASSISTANT.HISTORY_NO_PREVIEW' | translate) }}
+          </div>
           <div class="pat-assistant-history-meta text-muted fst-italic">
-            {{ 'ASSISTANT.HISTORY_OWNER_LABEL' | translate }}: {{ historyOwnerDisplay(row) }}
-            · {{ 'ASSISTANT.HISTORY_CREATED_LABEL' | translate }}:
+            {{ 'ASSISTANT.HISTORY_CREATED_LABEL' | translate }}:
             {{ row.createdAt | date : 'short' }}
             · {{ 'ASSISTANT.HISTORY_UPDATED_LABEL' | translate }}:
             {{ row.updatedAt | date : 'short' }}
-            · {{ row.providerLabel }} · {{ row.model }}
           </div>
         </div>
         <div class="d-flex gap-1 flex-shrink-0 pat-assistant-history-item-actions">

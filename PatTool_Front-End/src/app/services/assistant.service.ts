@@ -210,6 +210,8 @@ export interface AssistantConversationSummary {
   ownerSubject?: string | null;
   /** `preferred_username` du JWT à la création (peut être vide pour les anciennes entrées). */
   ownerPreferredUsername?: string | null;
+  /** Nombre de tours utilisateur (questions) dans la conversation. */
+  userQuestionCount?: number;
 }
 
 export interface AssistantConversationDetail extends AssistantConversationSummary {
