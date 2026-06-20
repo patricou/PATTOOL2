@@ -153,3 +153,10 @@ opensky.client-secret=
 
 # --- Image cache (PatToolApplication) ---
 app.cache.persistence.restore-on-startup=true
+
+# --- CoinGecko (Cryptos page, proxy /api/external/crypto/*) ---
+# Demo (free): app.coingecko.plan=demo + header x-cg-demo-api-key
+# Pro (paid):  app.coingecko.plan=pro  → https://pro-api.coingecko.com/api/v3 + x-cg-pro-api-key
+# app.coingecko.api-base=https://api.coingecko.com/api/v3
+# app.coingecko.api-key=
+# app.coingecko.plan=demo

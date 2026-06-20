@@ -203,7 +203,10 @@ public final class PatToolParameterCatalog {
                     def("app.stellarium.freegeoip-base", false),
                     def("app.stellarium.patool-viewer-base", false),
                     def("app.twelvedata.api-base", false),
-                    defSensitive("app.twelvedata.api-key")
+                    defSensitive("app.twelvedata.api-key"),
+                    def("app.coingecko.api-base", false),
+                    defSensitive("app.coingecko.api-key"),
+                    def("app.coingecko.plan", false)
             ),
             section("news", "PATTOOL_PARAMS.SECTION.NEWS",
                     def("newsapi.api.base.url", false),

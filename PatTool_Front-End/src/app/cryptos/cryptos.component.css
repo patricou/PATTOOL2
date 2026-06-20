@@ -1,0 +1,121 @@
+.cryptos-page {
+    padding: 1rem 1.25rem;
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+.cryptos-vs-select {
+    width: auto;
+    min-width: 8rem;
+}
+
+.cryptos-card--btc .cryptos-price {
+    color: #f7931a;
+}
+
+.cryptos-card--eth .cryptos-price {
+    color: #627eea;
+}
+
+.cryptos-price {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    word-break: break-word;
+}
+
+.cryptos-currency {
+    font-size: 0.95rem;
+    font-weight: 500;
+    opacity: 0.85;
+    margin-left: 0.2rem;
+}
+
+.cryptos-change.result-change {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-top: 0.35rem;
+    padding: 0.1rem 0.6rem;
+    border-radius: 6px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.95rem;
+}
+
+.cryptos-change.result-change.chg-up,
+.cryptos-change-inline.chg-up {
+    background: rgba(40, 167, 69, 0.15);
+    color: #1b7e3b;
+}
+
+.cryptos-change.result-change.chg-down,
+.cryptos-change-inline.chg-down {
+    background: rgba(220, 53, 69, 0.12);
+    color: #b02a37;
+}
+
+.cryptos-change.result-change.chg-flat,
+.cryptos-change-inline.chg-flat {
+    background: rgba(108, 117, 125, 0.12);
+    color: #495057;
+}
+
+.cryptos-change-inline {
+    display: inline-block;
+    padding: 0.1rem 0.45rem;
+    border-radius: 4px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.85rem;
+}
+
+.cryptos-table th {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #6c757d;
+}
+
+.cryptos-table td {
+    vertical-align: middle;
+}
+
+.cryptos-card {
+    cursor: pointer;
+    transition: box-shadow 0.15s ease, outline-color 0.15s ease;
+}
+
+.cryptos-card--selected {
+    outline: 2px solid rgba(13, 110, 253, 0.45);
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.12);
+}
+
+.cryptos-table-row {
+    cursor: pointer;
+}
+
+.cryptos-table-row--selected {
+    background: rgba(13, 110, 253, 0.08);
+}
+
+.cryptos-chart-select {
+    min-width: 11rem;
+    max-width: 16rem;
+}
+
+.cryptos-chart-container {
+    position: relative;
+    min-height: 320px;
+    height: 360px;
+}
+
+.cryptos-chart-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.65);
+    z-index: 2;
+}

@@ -226,6 +226,8 @@ public class SecurityConfig {
                 // sans auth (la clé API est côté serveur, aucun secret n'est exposé).
                 .requestMatchers(HttpMethod.GET, "/api/external/stock/**").permitAll()
                 .requestMatchers(HttpMethod.DELETE, "/api/external/stock/quote/cached").permitAll()
+                // Crypto prices proxy (CoinGecko) — données publiques, sans auth
+                .requestMatchers(HttpMethod.GET, "/api/external/crypto/**").permitAll()
                 // CERN Open Data & CDS Repository proxies — public read-only data
                 .requestMatchers(HttpMethod.GET, "/api/external/cern/**").permitAll()
                 // Chemistry proxy (PubChem) — public read-only data (periodic table, molecules, images)

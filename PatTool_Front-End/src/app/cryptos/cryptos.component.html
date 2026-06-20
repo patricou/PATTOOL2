@@ -1,0 +1,216 @@
+<div class="pat-title">
+    <h2>
+        <i class="fa fa-bitcoin me-2"></i>
+        {{ 'CRYPTOS.TITLE' | translate }}
+    </h2>
+</div>
+
+<div class="cryptos-page">
+    <p class="text-muted small mb-4">
+        {{ 'CRYPTOS.SUBTITLE' | translate }}
+    </p>
+
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-4">
+        <label class="form-label small mb-0 me-1" for="cryptoVs">{{ 'CRYPTOS.CURRENCY' | translate }}</label>
+        <select id="cryptoVs"
+                class="form-select form-select-sm cryptos-vs-select"
+                [(ngModel)]="vs"
+                (ngModelChange)="onVsChange()">
+            <option value="eur">EUR (€)</option>
+            <option value="usd">USD ($)</option>
+        </select>
+        <button type="button"
+                class="btn btn-sm btn-outline-secondary ms-auto"
+                (click)="loadPrices()"
+                [disabled]="isLoading">
+            <i class="fa fa-refresh me-1" [class.fa-spin]="isLoading"></i>
+            {{ 'CRYPTOS.REFRESH' | translate }}
+        </button>
+    </div>
+
+    <div *ngIf="errorMessage" class="alert alert-warning d-flex align-items-start" role="alert">
+        <i class="fa fa-exclamation-triangle me-2 mt-1"></i>
+        <div>{{ errorMessage | translate }}</div>
+    </div>
+
+    <div *ngIf="isLoading && !data" class="text-muted small mb-3">
+        <i class="fa fa-spinner fa-spin me-1"></i>
+        {{ 'CRYPTOS.LOADING' | translate }}
+    </div>
+
+    <div class="row g-3 mb-4" *ngIf="data">
+        <div class="col-12 col-md-6">
+            <div class="card shadow-sm h-100 cryptos-card cryptos-card--btc"
+                 [class.cryptos-card--selected]="isChartCoin(data.btc?.id)"
+                 role="button"
+                 tabindex="0"
+                 (click)="setChartCoin('bitcoin')"
+                 (keydown.enter)="setChartCoin('bitcoin')">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fa fa-bitcoin me-1"></i>
+                        {{ 'CRYPTOS.BTC' | translate }}
+                    </h5>
+                    <ng-container *ngIf="data.btc as coin">
+                        <div class="cryptos-price" *ngIf="priceOf(coin) as p">
+                            {{ p | number:'1.0-2' }}
+                            <span class="cryptos-currency">{{ currencyLabel() }}</span>
+                        </div>
+                        <div class="cryptos-change result-change"
+                             *ngIf="changeOf(coin) as ch"
+                             [ngClass]="changeClass(ch)">
+                            <span class="change-arrow">{{ ch >= 0 ? '▲' : '▼' }}</span>
+                            <span>{{ ch | number:'1.2-2' }}%</span>
+                            <span class="change-pct">{{ 'CRYPTOS.CHANGE_24H' | translate }}</span>
+                        </div>
+                        <div class="small text-muted mt-2" *ngIf="formatMarketCap(coin) as cap">
+                            {{ 'CRYPTOS.MARKET_CAP' | translate }}: {{ cap }}
+                        </div>
+                    </ng-container>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6">
+            <div class="card shadow-sm h-100 cryptos-card cryptos-card--eth"
+                 [class.cryptos-card--selected]="isChartCoin(data.eth?.id)"
+                 role="button"
+                 tabindex="0"
+                 (click)="setChartCoin('ethereum')"
+                 (keydown.enter)="setChartCoin('ethereum')">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fa fa-circle me-1"></i>
+                        {{ 'CRYPTOS.ETH' | translate }}
+                    </h5>
+                    <ng-container *ngIf="data.eth as coin">
+                        <div class="cryptos-price" *ngIf="priceOf(coin) as p">
+                            {{ p | number:'1.0-2' }}
+                            <span class="cryptos-currency">{{ currencyLabel() }}</span>
+                        </div>
+                        <div class="cryptos-change result-change"
+                             *ngIf="changeOf(coin) as ch"
+                             [ngClass]="changeClass(ch)">
+                            <span class="change-arrow">{{ ch >= 0 ? '▲' : '▼' }}</span>
+                            <span>{{ ch | number:'1.2-2' }}%</span>
+                            <span class="change-pct">{{ 'CRYPTOS.CHANGE_24H' | translate }}</span>
+                        </div>
+                        <div class="small text-muted mt-2" *ngIf="formatMarketCap(coin) as cap">
+                            {{ 'CRYPTOS.MARKET_CAP' | translate }}: {{ cap }}
+                        </div>
+                    </ng-container>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm" *ngIf="data?.altcoins?.length">
+        <div class="card-body">
+            <h5 class="card-title mb-3">
+                <i class="fa fa-th-list me-1"></i>
+                {{ 'CRYPTOS.ALTCOINS' | translate }}
+            </h5>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover cryptos-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>{{ 'CRYPTOS.SYMBOL' | translate }}</th>
+                            <th>{{ 'CRYPTOS.NAME' | translate }}</th>
+                            <th class="text-end">{{ 'CRYPTOS.PRICE' | translate }}</th>
+                            <th class="text-end">{{ 'CRYPTOS.CHANGE_24H' | translate }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let coin of data!.altcoins"
+                            class="cryptos-table-row"
+                            [class.cryptos-table-row--selected]="isChartCoin(coin.id)"
+                            role="button"
+                            tabindex="0"
+                            (click)="setChartCoin(coin.id)"
+                            (keydown.enter)="setChartCoin(coin.id)">
+                            <td class="fw-semibold">{{ coin.symbol }}</td>
+                            <td class="text-muted">{{ coin.name }}</td>
+                            <td class="text-end font-monospace">
+                                <ng-container *ngIf="priceOf(coin) as p">
+                                    {{ p | number:'1.2-6' }} {{ currencyLabel() }}
+                                </ng-container>
+                            </td>
+                            <td class="text-end">
+                                <span *ngIf="changeOf(coin) as ch"
+                                      class="cryptos-change-inline"
+                                      [ngClass]="changeClass(ch)">
+                                    {{ ch >= 0 ? '+' : '' }}{{ ch | number:'1.2-2' }}%
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mt-4">
+        <div class="card-body d-flex flex-column">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                <h5 class="card-title mb-0">
+                    <i class="fa fa-area-chart me-1"></i>
+                    {{ 'CRYPTOS.HISTORY' | translate }}:
+                    <span class="text-primary">{{ chartCoinLabel() }}</span>
+                </h5>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <label class="visually-hidden" for="cryptoChartCoin">{{ 'CRYPTOS.CHART_COIN' | translate }}</label>
+                    <select id="cryptoChartCoin"
+                            class="form-select form-select-sm cryptos-chart-select"
+                            [ngModel]="chartCoinId"
+                            (ngModelChange)="setChartCoin($event)">
+                        <option *ngFor="let opt of chartCoinOptions" [value]="opt.id">
+                            {{ opt.symbol }} — {{ opt.name }}
+                        </option>
+                    </select>
+                    <div class="btn-group btn-group-sm" role="group" [attr.aria-label]="'CRYPTOS.HISTORY' | translate">
+                        <button type="button"
+                                class="btn btn-outline-secondary"
+                                [class.active]="rangeDays === 7"
+                                (click)="setRange(7)">7d</button>
+                        <button type="button"
+                                class="btn btn-outline-secondary"
+                                [class.active]="rangeDays === 30"
+                                (click)="setRange(30)">30d</button>
+                        <button type="button"
+                                class="btn btn-outline-secondary"
+                                [class.active]="rangeDays === 90"
+                                (click)="setRange(90)">90d</button>
+                        <button type="button"
+                                class="btn btn-outline-secondary"
+                                [class.active]="rangeDays === 365"
+                                (click)="setRange(365)">1y</button>
+                    </div>
+                </div>
+            </div>
+
+            <div *ngIf="historyError" class="alert py-2 small mb-2"
+                 [class.alert-warning]="historyStale"
+                 [class.alert-danger]="!historyStale">
+                {{ historyError | translate }}
+            </div>
+
+            <div class="cryptos-chart-container">
+                <div *ngIf="isLoadingHistory" class="cryptos-chart-overlay text-muted">
+                    <i class="fa fa-spinner fa-spin me-1"></i>
+                    {{ 'CRYPTOS.LOADING_HISTORY' | translate }}
+                </div>
+                <canvas baseChart
+                        [data]="chartData"
+                        [options]="chartOptions"
+                        [type]="chartType"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <p class="text-muted small mt-4 mb-0" *ngIf="lastUpdatedLabel">
+        {{ 'CRYPTOS.UPDATED' | translate }} {{ lastUpdatedLabel }}
+    </p>
+    <p class="text-muted small mt-1">
+        {{ 'CRYPTOS.SOURCE_NOTE' | translate }}
+    </p>
+</div>

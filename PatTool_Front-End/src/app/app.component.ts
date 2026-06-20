@@ -141,7 +141,8 @@ export class AppComponent implements OnInit {
         { routerLink: ['api/address-geocode'], icon: 'fa fa-map-marker', labelKey: 'MENU.ADDRESS_TO_MAP' },
         { routerLink: ['api/news'], icon: 'fa fa-newspaper-o', labelKey: 'MENU.NEWS' },
         { routerLink: ['api/currency-converter'], icon: 'fa fa-money', labelKey: 'MENU.CURRENCY_CONVERTER' },
-        { routerLink: ['api/stock-exchange'], icon: 'fa fa-line-chart', labelKey: 'MENU.STOCK_EXCHANGE' }
+        { routerLink: ['api/stock-exchange'], icon: 'fa fa-line-chart', labelKey: 'MENU.STOCK_EXCHANGE' },
+        { routerLink: ['api/cryptos'], icon: 'fa fa-bitcoin', labelKey: 'MENU.CRYPTOS' }
     ];
     /** Globe 3D et carte du système solaire (sous-section du menu Monde). */
     readonly navGeoWorldRaw: NavRouteMenuItem[] = [

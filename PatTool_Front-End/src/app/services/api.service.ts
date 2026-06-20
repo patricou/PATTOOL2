@@ -786,6 +786,28 @@ export class ApiService {
   }
 
   // ===================================================================
+  // CoinGecko — crypto prices proxy
+  // Backend: /api/external/crypto/* (no auth required — public data, server cache)
+  // ===================================================================
+
+  getCryptoPrices(): Observable<CryptoPricesResponse> {
+    return this._http.get<CryptoPricesResponse>(
+      this.API_URL + 'external/crypto/prices'
+    );
+  }
+
+  getCryptoMarketChart(id: string, vs: 'eur' | 'usd' = 'eur', days = 30): Observable<CryptoMarketChartResponse> {
+    const params = new HttpParams()
+      .set('id', id)
+      .set('vs', vs)
+      .set('days', String(days));
+    return this._http.get<CryptoMarketChartResponse>(
+      this.API_URL + 'external/crypto/market-chart',
+      { params }
+    );
+  }
+
+  // ===================================================================
   // Stellarium Web — sky map viewer + Noctua Sky catalogue proxy
   // Backend: /api/external/stellarium/* (no auth required — public data)
   // ===================================================================
@@ -1405,4 +1427,41 @@ export interface StellariumSkySource {
   names?: string[];
   short_name?: string;
   types?: string[];
+}
+
+/** CoinGecko proxy — one coin quote. */
+export interface CryptoCoinQuote {
+  id: string;
+  symbol: string;
+  name: string;
+  priceEur?: number | null;
+  priceUsd?: number | null;
+  change24hPctEur?: number | null;
+  change24hPctUsd?: number | null;
+  marketCapEur?: number | null;
+}
+
+/** GET /api/external/crypto/prices */
+export interface CryptoPricesResponse {
+  updatedAt?: string;
+  btc?: CryptoCoinQuote | null;
+  eth?: CryptoCoinQuote | null;
+  altcoins?: CryptoCoinQuote[];
+}
+
+/** GET /api/external/crypto/market-chart */
+export interface CryptoMarketChartPoint {
+  timestampMs: number;
+  price: number;
+}
+
+export interface CryptoMarketChartResponse {
+  id?: string;
+  symbol?: string;
+  name?: string;
+  vsCurrency?: string;
+  days?: number;
+  points?: CryptoMarketChartPoint[];
+  stale?: boolean;
+  fetchedAt?: string;
 }
