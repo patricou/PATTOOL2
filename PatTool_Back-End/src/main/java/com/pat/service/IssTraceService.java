@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Persists ISS ground-track samples and serves a decimated trace for globe display.
@@ -128,6 +129,11 @@ public class IssTraceService {
             return raw.stream().map(IssTracePointView::from).toList();
         }
         return decimateForDisplay(raw, getLimitedDisplayPoints());
+    }
+
+    /** Most recent stored sample (fast Mongo lookup for ISS-now fallback). */
+    public Optional<IssTracePointView> findLatestPoint() {
+        return repository.findTopByOrderByRecordedAtDesc().map(IssTracePointView::from);
     }
 
     public long purgeOlderThanRetention() {

@@ -710,7 +710,12 @@ body ngb-modal-window.modal.assistant-insert-image-modal.show .pat-assistant-ins
 ::ng-deep .modal.comments-modal.show .modal-content,
 ::ng-deep .modal.show.comments-modal .modal-dialog .modal-content,
 ::ng-deep .modal.comments-modal.show .modal-dialog .modal-content,
-::ng-deep .comments-modal .modal-content {
+::ng-deep .comments-modal .modal-content,
+::ng-deep .modal.wall-comments-modal .modal-content,
+::ng-deep .modal.wall-comments-modal.show .modal-content,
+::ng-deep .modal.show.wall-comments-modal .modal-dialog .modal-content,
+::ng-deep .modal.wall-comments-modal.show .modal-dialog .modal-content,
+::ng-deep .wall-comments-modal .modal-content {
     border: 4px solid #ffffff !important;
     border-width: 4px !important;
     border-style: solid !important;

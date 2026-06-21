@@ -862,7 +862,7 @@
         "SHARE_WHATSAPP_PREVIEW_TITLE": "Share screenshot",
         "SHARE_WHATSAPP_PREVIEW_HINT": "Check the preview, then “Share now”: pick WhatsApp from the system share menu.",
         "SHARE_WHATSAPP_PREVIEW_CANCEL": "Close",
-        "SHARE_WHATSAPP_NATIVE_NOTE": "On mobile: Share menu → WhatsApp. On PC: the image is copied — open WhatsApp Web and paste it in a chat (Ctrl+V).",
+        "SHARE_WHATSAPP_NATIVE_NOTE": "On mobile: one capture permission (this tab); the view may scroll across each ISS video, then Share → WhatsApp. On PC: image copied — WhatsApp Web, Ctrl+V.",
         "SHARE_WHATSAPP_PASTE_HINT": "Image copied — open WhatsApp (or WhatsApp Web), open a chat and paste the image (Ctrl+V).",
         "SHARE_WHATSAPP_OK": "Share started",
         "SHARE_WHATSAPP_ERROR": "Could not share — allow screen capture or share / clipboard in your browser.",

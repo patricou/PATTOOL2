@@ -248,6 +248,8 @@ public class PhotoTimelineRestController {
         private Integer ratingMinus;
         /** Linked to-do list id when the activity has one (same as {@link Evenement#getLinkedTodoListId()}). */
         private String linkedTodoListId;
+        /** Number of rich-text commentaries on the activity (same as {@link Evenement#getCommentaries()} size). */
+        private Integer commentariesCount;
         /** Full image count when {@link #photos} is capped for the paged wall. */
         private Integer totalPhotosInEvent;
         /** Full video count when {@link #videos} is capped for the paged wall. */
@@ -291,6 +293,8 @@ public class PhotoTimelineRestController {
         public void setRatingMinus(Integer ratingMinus) { this.ratingMinus = ratingMinus; }
         public String getLinkedTodoListId() { return linkedTodoListId; }
         public void setLinkedTodoListId(String linkedTodoListId) { this.linkedTodoListId = linkedTodoListId; }
+        public Integer getCommentariesCount() { return commentariesCount; }
+        public void setCommentariesCount(Integer commentariesCount) { this.commentariesCount = commentariesCount; }
         public Integer getTotalPhotosInEvent() { return totalPhotosInEvent; }
         public void setTotalPhotosInEvent(Integer totalPhotosInEvent) { this.totalPhotosInEvent = totalPhotosInEvent; }
         public Integer getTotalVideosInEvent() { return totalVideosInEvent; }
@@ -383,7 +387,8 @@ public class PhotoTimelineRestController {
                 .include("visibility")
                 .include("friendGroupId")
                 .include("friendGroupIds")
-                .include("author");
+                .include("author")
+                .include("commentaries.id");
     }
 
     /**
@@ -532,6 +537,7 @@ public class PhotoTimelineRestController {
         group.setFriendGroupId(e.getFriendGroupId());
         group.setFriendGroupIds(e.getFriendGroupIds());
         group.setLinkedTodoListId(e.getLinkedTodoListId());
+        group.setCommentariesCount(countCommentaries(e));
         applyWallListingMediaCaps(group, photos, videos, singleEventWall, photoTotal, videoTotal);
         group.setFsPhotoLinks(fsLinks);
         group.setRatingPlus(e.getRatingPlus());
@@ -624,6 +630,7 @@ public class PhotoTimelineRestController {
         group.setFriendGroupId(e.getFriendGroupId());
         group.setFriendGroupIds(e.getFriendGroupIds());
         group.setLinkedTodoListId(e.getLinkedTodoListId());
+        group.setCommentariesCount(countCommentaries(e));
         if (!singleEventWall && videos.size() > WALL_VIDEOS_PER_EVENT_CAP) {
             group.setPhotos(new ArrayList<>(videos.subList(0, WALL_VIDEOS_PER_EVENT_CAP)));
             group.setTotalVideosInEvent(videos.size());
@@ -974,6 +981,13 @@ public class PhotoTimelineRestController {
             photos.add(buildTimelinePhoto(e.getThumbnail(), e));
         }
         return photos;
+    }
+
+    private static int countCommentaries(Evenement e) {
+        if (e.getCommentaries() == null) {
+            return 0;
+        }
+        return e.getCommentaries().size();
     }
 
     private static int countTimelinePhotos(Evenement e) {

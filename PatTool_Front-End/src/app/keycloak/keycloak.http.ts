@@ -32,6 +32,13 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
             return next.handle(req);
         }
 
+        // Globe proxy (ISS, textures, GeoJSON…) is permitAll — skip Keycloak wait for faster ISS at open.
+        const isGlobePublicApiGet =
+            req.method === 'GET' && /\/api\/external\/globe\//i.test(req.url);
+        if (isGlobePublicApiGet) {
+            return next.handle(req);
+        }
+
         // If the caller already set Authorization (e.g. FileService.getHeaderWithToken()), pass through.
         // Avoids double getToken() and "Token retrieval failed" blocking uploads when token refresh is slow/fails.
         if (req.headers.has('Authorization')) {

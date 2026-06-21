@@ -210,6 +210,14 @@
                         <span class="group-action-btn-text">{{ 'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate }}</span>
                     </button>
                     <button type="button"
+                            class="btn btn-sm group-action-btn group-action-btn--commentaries"
+                            *ngIf="groupHasCommentaries(group)"
+                            (click)="openWallCommentary(group); $event.stopPropagation()"
+                            [title]="'EVENTHOME.COMMENTARIES' | translate">
+                        <i class="fa fa-comment"></i>
+                        <span class="group-action-btn-text">{{ 'EVENTHOME.COMMENTARIES' | translate }} ({{ getGroupCommentariesCount(group) }})</span>
+                    </button>
+                    <button type="button"
                             class="btn btn-sm group-action-btn group-action-btn--discussion"
                             *ngIf="group.eventId"
                             (click)="openWallDiscussion(group); $event.stopPropagation()"
@@ -1127,20 +1135,46 @@
     </div>
 </ng-template>
 
-<app-commentary-editor
-    *ngIf="wallCommentaryEvent"
-    #wallCommentaryEditor
-    [showAddButton]="false"
-    style="display: none;"
-    [commentaries]="wallCommentaryEvent.commentaries || []"
-    [currentUser]="getWallCommentaryCurrentUser()"
-    [eventId]="wallCommentaryEvent.id"
-    [eventColor]="getWallCommentaryEventColor()"
-    [useCalculatedColorsForModal]="true"
-    (commentaryAdded)="onWallCommentaryAdded($event)"
-    (commentaryUpdated)="onWallCommentaryUpdated($event)"
-    (commentaryDeleted)="onWallCommentaryDeleted($event)">
-</app-commentary-editor>
+<!-- Commentaires activité (mur de photos) -->
+<ng-template #wallCommentsModal let-close="close">
+    <div class="modal-header text-white selector-header rounded-top wall-comments-modal-header"
+         [ngStyle]="getWallCommentsModalHeaderStyle()"
+         [class.bg-primary]="!getWallCommentaryEventColor()">
+        <h5 class="modal-title">
+            <i class="fa fa-comment me-2"></i>
+            {{ 'EVENTHOME.COMMENTARIES' | translate }}
+            <ng-container *ngIf="getWallCommentsModalTitle()"> — {{ getWallCommentsModalTitle() }}</ng-container>
+        </h5>
+        <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto" (click)="close()" [attr.aria-label]="'COMMUN.CLOSE' | translate">
+            <i class="fa fa-times"></i>
+        </button>
+    </div>
+    <div class="modal-body selector-body wall-comments-modal-body">
+        <div *ngIf="wallCommentaryLoading" class="wall-comments-modal-loading" aria-busy="true">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">{{ 'COMMUN.LOADING' | translate }}</span>
+            </div>
+            <p class="text-muted mb-0">{{ 'COMMUN.LOADING' | translate }}...</p>
+        </div>
+        <div *ngIf="!wallCommentaryLoading && wallCommentaryEvent" class="wall-comments-modal-content">
+            <app-commentary-editor
+                [commentaries]="wallCommentaryEvent.commentaries || []"
+                [currentUser]="getWallCommentaryCurrentUser()"
+                [eventId]="wallCommentaryEvent.id"
+                [eventColor]="getWallCommentaryEventColor()"
+                [useCalculatedColorsForModal]="true"
+                (commentaryAdded)="onWallCommentaryAdded($event)"
+                (commentaryUpdated)="onWallCommentaryUpdated($event)"
+                (commentaryDeleted)="onWallCommentaryDeleted($event)">
+            </app-commentary-editor>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="close()">
+            <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
+        </button>
+    </div>
+</ng-template>
 
 <!-- Slideshow Modal Component (always available) -->
 <app-slideshow-modal #slideshowModalComponent 

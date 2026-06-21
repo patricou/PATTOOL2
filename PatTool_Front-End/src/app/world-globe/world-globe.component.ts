@@ -6,6 +6,7 @@ import {
   HostListener,
   NgZone,
   OnDestroy,
+  OnInit,
   ViewChild,
   inject
 } from '@angular/core';
@@ -18,6 +19,7 @@ import { HttpClient } from '@angular/common/http';
 import { Subscription, firstValueFrom, timeout } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { ApiService, IssAlertConfig, IssCompassCalibration } from '../services/api.service';
+import { GlobeIssNowService, GlobeIssNowSnapshot } from '../services/globe-iss-now.service';
 import { AirportIcaoEntry, AirportLookupService } from '../services/airport-lookup.service';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -82,9 +84,10 @@ const GLOBE_EARTH_SEGMENTS = 256;
 const GLOBE_CLOUDS_SEGMENTS = 192;
 
 const GLOBE_OVERLAY_SEGMENTS = 192;
-/** Vue par défaut : France métropolitaine (centroïde approximatif). */
+/** Fallback si la position ISS n’est pas disponible (centroïde France métropolitaine). */
 const GLOBE_INITIAL_FRANCE_LAT = 46.4;
 const GLOBE_INITIAL_FRANCE_LON = 2.2;
+/** Distance caméra par défaut (vue ISS ou fallback). */
 const GLOBE_INITIAL_ORBIT_DISTANCE = 2.62;
 /** Distance caméra : fallback si pas de bbox Nominatim. */
 const GLOBE_GEOCODE_ORBIT_FALLBACK = 1.3;
@@ -97,6 +100,8 @@ const GLOBE_GEOCODE_SPAN_REF_LO = 0.04;
 const GLOBE_GEOCODE_SPAN_REF_HI = 36;
 /** Durée du vol caméra après recherche de lieu (arc de grand cercle). */
 const GLOBE_GEOCODE_ANIM_MS = 1700;
+/** Durée du vol caméra initial vers l’ISS à l’ouverture du globe (réseau sans cache). */
+const GLOBE_INITIAL_ISS_ANIM_MS = 1200;
 
 /** Flux ISS en direct (Destination Orbite) — nouvel onglet navigateur. */
 const ISS_LIVE_DESTINATION_ORBITE_URL =
@@ -288,8 +293,9 @@ function globePixelRatioCap(): number {
   templateUrl: './world-globe.component.html',
   styleUrls: ['./world-globe.component.css']
 })
-export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
+export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly apiService = inject(ApiService);
+  private readonly issNowService = inject(GlobeIssNowService);
   private readonly airportLookup = inject(AirportLookupService);
   private readonly http = inject(HttpClient);
   private readonly translate = inject(TranslateService);
@@ -489,7 +495,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   timeZonesOverlayFailed = false;
   issOverlayFailed = false;
   /** Trace ISS historique (MongoDB) sur le globe ; activée par défaut à l’ouverture. */
-  issHistoricalTraceEnabled = true;
+  issHistoricalTraceEnabled = false;
   issHistoricalTraceLoading = false;
   issHistoricalTraceFailed = false;
   /** Dates/heures le long de la trace historique ISS (activé par défaut). */
@@ -933,6 +939,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   private translateLangSub?: Subscription;
   /** Vol caméra depuis le trace viewer (query lat/lon/z) avant que la Terre soit prête. */
   private pendingGlobeDeepLink: { lat: number; lon: number; mapZoom?: number } | null = null;
+  /** Premier cadrage ISS à l’ouverture (sans deep link ni lieu géocodé). */
+  private globeInitialIssCameraPending = true;
+  /** Évite les appels HTTP ISS en double au bootstrap (ngOnInit + AfterViewInit + Terre prête). */
+  private issBootstrapRefreshStarted = false;
   /** Vol caméra programmatique (géocodage) : annulation au destroy ou nouvelle cible. */
   private globeCameraAnimFrameId: number | null = null;
   private globeCameraAnimPrevEnableDamping: boolean | null = null;
@@ -1075,6 +1085,14 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
   };
 
+  ngOnInit(): void {
+    const cached = this.issNowService.getSnapshot();
+    if (cached) {
+      this.applyIssNowSnapshot(cached, true);
+    }
+    this.kickIssPositionRefreshOnce();
+  }
+
   ngAfterViewInit(): void {
     void this.airportLookup.ensureLoaded().then((map) => {
       this.airportLookupMap = map;
@@ -1116,10 +1134,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     queueMicrotask(() => this.bootstrapThree());
     this.loadIssFsPipStackTopFromStorage();
     queueMicrotask(() => this.refreshIssLivePiPPanelsLayout());
-    if (this.issTickerEnabled) {
+    if (this.issPositionFeedActive()) {
       queueMicrotask(() => {
         this.startIssPolling();
-        void this.refreshIssNow();
+        this.kickIssPositionRefreshOnce();
       });
     }
     if (this.issHistoricalTraceEnabled) {
@@ -3640,7 +3658,20 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
     this.cdr.markForCheck();
     try {
-      const blob = await this.captureGlobeShareToPngBlob();
+      const host = this.globeCanvasHost?.nativeElement;
+      let blob: Blob | null = null;
+      const mobileIss =
+        host != null &&
+        this.globeShareUseMobileCaptureFlow() &&
+        this.isGlobeShareIssVisible() &&
+        typeof navigator.mediaDevices?.getDisplayMedia === 'function';
+
+      if (mobileIss) {
+        blob = await this.captureGlobeShareMobileWithStream(host);
+      }
+      if (!blob) {
+        blob = await this.captureGlobeShareToPngBlob();
+      }
       if (!blob) {
         this.showGlobeShareError(this.translate.instant('WORLD_GLOBE.SHARE_WHATSAPP_ERROR'));
         this.flashGlobeWhatsAppFeedback(false);
@@ -3824,6 +3855,127 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       return this.captureGlobeShareCanvasComposite(host);
     }
     return null;
+  }
+
+  /**
+   * Mobile + ISS : {@link getDisplayMedia} immédiatement (geste utilisateur), puis composition
+   * globe WebGL + captures ISS depuis le même flux vidéo.
+   */
+  private async captureGlobeShareMobileWithStream(host: HTMLElement): Promise<Blob | null> {
+    const stage = this.getGlobeStageElement();
+    const dock = stage?.querySelector<HTMLElement>('.wg-iss-pip-dock:not(.wg-iss-pip-dock--fs-split)');
+    const restoreDock = dock ? this.applyGlobeShareExpandedIssDockStyles(dock) : () => undefined;
+
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia(
+        this.buildGlobeShareDisplayMediaOptions(true)
+      );
+      try {
+        const [track] = stream.getVideoTracks();
+        if (!track) {
+          return null;
+        }
+        return await this.captureGlobeShareMobileTrackComposite(host, track);
+      } finally {
+        stream.getTracks().forEach((t) => t.stop());
+      }
+    } finally {
+      restoreDock();
+    }
+  }
+
+  private applyGlobeShareExpandedIssDockStyles(dock: HTMLElement): () => void {
+    const prevMaxHeight = dock.style.maxHeight;
+    const prevOverflow = dock.style.overflow;
+    const prevOverflowY = dock.style.overflowY;
+    dock.style.maxHeight = 'none';
+    dock.style.overflow = 'visible';
+    dock.style.overflowY = 'visible';
+    return () => {
+      dock.style.maxHeight = prevMaxHeight;
+      dock.style.overflow = prevOverflow;
+      dock.style.overflowY = prevOverflowY;
+    };
+  }
+
+  private async captureGlobeShareMobileTrackComposite(
+    host: HTMLElement,
+    track: MediaStreamTrack
+  ): Promise<Blob | null> {
+    const grabMs = 14_000;
+    const stage = this.getGlobeStageElement();
+    const dock = stage?.querySelector<HTMLElement>('.wg-iss-pip-dock');
+    if (dock) {
+      dock.scrollTop = 0;
+    }
+    window.scrollTo(0, 0);
+    stage?.scrollIntoView({ block: 'start', inline: 'nearest' });
+
+    await this.waitForGlobeShareCaptureSettle(900);
+
+    const layout = this.resolveGlobeShareLayerLayout(host);
+    if (!layout || layout.issFrames.length === 0) {
+      return null;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = layout.width;
+    canvas.height = layout.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return null;
+    }
+    ctx.fillStyle = '#020508';
+    ctx.fillRect(0, 0, layout.width, layout.height);
+
+    if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
+      ctx.drawImage(
+        this.renderer.domElement,
+        layout.globe.x,
+        layout.globe.y,
+        layout.globe.w,
+        layout.globe.h
+      );
+    }
+
+    const restoreScroll = this.saveGlobeShareScrollState();
+    let issCaptured = 0;
+    try {
+      for (const issLayer of layout.issFrames) {
+        this.scrollIssVideoFrameForCapture(issLayer.frame);
+        await this.waitForGlobeShareCaptureSettle(900);
+
+        const liveRect = issLayer.frame.getBoundingClientRect();
+        if (liveRect.width < 8 || liveRect.height < 8) {
+          continue;
+        }
+
+        const painted = await this.paintGlobeShareViewportRegion(
+          ctx,
+          track,
+          liveRect,
+          issLayer.x,
+          issLayer.y,
+          issLayer.w,
+          issLayer.h,
+          grabMs
+        );
+        if (painted) {
+          issCaptured += 1;
+        }
+      }
+    } finally {
+      restoreScroll();
+    }
+
+    if (issCaptured === 0) {
+      return null;
+    }
+
+    return new Promise<Blob | null>((resolve) => {
+      canvas.toBlob((b) => resolve(b), 'image/png');
+    });
   }
 
   private async withGlobeShareExpandedIssDock<T>(fn: () => Promise<T>): Promise<T> {
@@ -4679,7 +4831,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
    * Capture uniquement la zone vidéo de la fenêtre PiP (`.wg-iss-live-pip__frame`),
    * sans barre titre/boutons ni le reste de la page.
    */
-  private async captureIssPiPFrameToPngBlob(frame: HTMLElement, videoId: string): Promise<Blob | null> {
+  private async captureIssPiPFrameToPngBlob(
+    frame: HTMLElement,
+    videoId: string,
+    allowThumbnailFallback = true
+  ): Promise<Blob | null> {
     if (typeof navigator.mediaDevices?.getDisplayMedia === 'function') {
       try {
         const captured = await this.captureIssPiPFrameViaTabCapture(frame);
@@ -4692,6 +4848,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
           throw err;
         }
       }
+    }
+    if (!allowThumbnailFallback) {
+      return null;
     }
     return this.captureIssPiPFrameCanvas(frame, videoId);
   }
@@ -4714,7 +4873,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       grabFrame: () => Promise<ImageBitmap>;
     };
     const ImageCaptureCtor = (window as unknown as { ImageCapture?: ImageCaptureGrabFrame }).ImageCapture;
-    if (ImageCaptureCtor) {
+    const useImageCapture = !this.globeShareUseMobileCaptureFlow() && ImageCaptureCtor;
+    if (useImageCapture) {
       return new ImageCaptureCtor(track)
         .grabFrame()
         .then(async (bitmap: ImageBitmap) => {
@@ -5426,6 +5586,122 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     );
   }
 
+  /** Cadrage initial : ISS si connue, sinon attente du flux ISS, sinon fallback France. */
+  private frameDefaultGlobeCamera(): void {
+    if (this.pendingGlobeDeepLink) {
+      return;
+    }
+    if (this.isGlobeIssPositionKnown()) {
+      this.applyInitialIssCameraCenterIfNeeded(this.globeIssLat!, this.globeIssLon!, true);
+      return;
+    }
+    if (this.issPositionFeedActive() && this.issKeepEarthCentered) {
+      if (this.camera && this.controls) {
+        this.camera.position.set(0, 0, GLOBE_INITIAL_ORBIT_DISTANCE);
+        this.camera.up.set(0, 1, 0);
+        this.controls.target.set(0, 0, 0);
+        this.controls.update();
+      }
+      return;
+    }
+    this.frameCameraOnLatLon(GLOBE_INITIAL_FRANCE_LAT, GLOBE_INITIAL_FRANCE_LON, GLOBE_INITIAL_ORBIT_DISTANCE);
+    this.globeInitialIssCameraPending = false;
+  }
+
+  /** Vol fluide ou snap immédiat vers l’ISS à la première position reçue (ouverture du globe). */
+  private applyInitialIssCameraCenterIfNeeded(lat: number, lon: number, instant = false): void {
+    if (!this.globeInitialIssCameraPending) {
+      return;
+    }
+    if (this.pendingGlobeDeepLink || this.isGlobeFocusedOnPlace()) {
+      return;
+    }
+    if (!this.issKeepEarthCentered || !this.camera || !this.controls) {
+      return;
+    }
+    this.issCameraCenterSmoothPrevMs = 0;
+    this.globeInitialIssCameraPending = false;
+    if (instant) {
+      this.frameCameraOnLatLon(lat, lon, GLOBE_INITIAL_ORBIT_DISTANCE, 0);
+      return;
+    }
+    this.animateCameraToLatLon(lat, lon, GLOBE_INITIAL_ORBIT_DISTANCE, GLOBE_INITIAL_ISS_ANIM_MS, 0);
+  }
+
+  /** Applique lat/lon ISS (cache prefetch, session ou réseau) et centre la vue si besoin. */
+  private applyIssNowSnapshot(snap: GlobeIssNowSnapshot, instantCamera: boolean): void {
+    const lat = snap.lat;
+    const lon = snap.lon;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+      return;
+    }
+    this.applyInitialIssCameraCenterIfNeeded(lat, lon, instantCamera);
+    this.syncIssOverlayFromSnapshot(snap);
+    this.scheduleWorldGlobeCdr(() => {
+      this.globeIssLat = lat;
+      this.globeIssLon = lon;
+      if (snap.altKm != null) {
+        this.globeIssAltKm = snap.altKm;
+      }
+      if (snap.velocityKmh != null) {
+        this.issGroundSpeedKmh = snap.velocityKmh;
+      }
+    });
+  }
+
+  /** Marqueur ISS, zone de visibilité et trace prévue dès que la Terre est prête. */
+  private syncIssOverlayFromSnapshot(snap: GlobeIssNowSnapshot): void {
+    if (!this.issOverlayEnabled || !this.earthMesh) {
+      return;
+    }
+    const lat = snap.lat;
+    const lon = snap.lon;
+    this.ensureIssMarkerMesh();
+    this.updateIssMarkerWorldPosition(lat, lon);
+    this.updateIssVisibilityCircle(lat, lon, snap.altKm ?? null);
+
+    if (!this.issTraceVisible) {
+      return;
+    }
+
+    const cachedForecast = this.issNowService.getForecastSnapshot();
+    if (cachedForecast && cachedForecast.points.length > 0) {
+      this.applyIssForecastPointsImmediate(cachedForecast.points, lat, lon, cachedForecast.approximate);
+    } else {
+      const approx = this.issNowService.buildApproximateForecast(snap);
+      if (approx) {
+        this.applyIssForecastPointsImmediate(approx.points, lat, lon, true);
+      }
+    }
+
+    void this.loadIssForecastTrail(
+      lat,
+      lon,
+      snap.prevLat ?? null,
+      snap.prevLon ?? null,
+      snap.velocityKmh ?? null,
+      true
+    );
+  }
+
+  private applyIssForecastPointsImmediate(
+    pts: { lat: number; lon: number; atSec: number }[],
+    issLat: number,
+    issLon: number,
+    approximate: boolean
+  ): void {
+    if (!this.issTraceVisible || pts.length === 0) {
+      return;
+    }
+    this.issForecastTrailPoints.length = 0;
+    this.issForecastTrailPoints.push(...pts);
+    this.issForecastTrailApproximate = approximate;
+    this.markIssForecastTrailGeometryDirty();
+    this.rebuildIssForecastTrailGeometry(issLat, issLon);
+    this.issForecastTrailLastGeometryRebuildMs = performance.now();
+    this.issForecastTrailGeometryDirty = false;
+  }
+
   resetCamera(): void {
     if (!this.camera || !this.controls) {
       return;
@@ -5823,6 +6099,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   }
 
   private executeGlobeDeepLinkFly(p: { lat: number; lon: number; mapZoom?: number }): void {
+    this.globeInitialIssCameraPending = false;
     const minD = this.controls?.minDistance ?? 1.02;
     const maxD = this.controls?.maxDistance ?? 7;
     const dist =
@@ -6165,7 +6442,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.controls = controls;
     this.sunLight = sunLight;
     this.syncGlobeLighting();
-    this.frameCameraOnLatLon(GLOBE_INITIAL_FRANCE_LAT, GLOBE_INITIAL_FRANCE_LON, GLOBE_INITIAL_ORBIT_DISTANCE);
+    this.frameDefaultGlobeCamera();
 
     this.starsPoints = this.makeStarField();
     scene.add(this.starsPoints);
@@ -6222,7 +6499,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.standardEarthTextures = { map: earthMap, spec: specMap, bump: bumpMap };
       this.applyBasemapMode();
       this.attachRotationAxisToEarth(earth);
-      this.frameCameraOnLatLon(GLOBE_INITIAL_FRANCE_LAT, GLOBE_INITIAL_FRANCE_LON, GLOBE_INITIAL_ORBIT_DISTANCE);
+      this.frameDefaultGlobeCamera();
       this.tryFlushPendingGlobeDeepLink();
       this.syncGlobeDecorationsAfterEarthReady();
     };
@@ -6274,7 +6551,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
         this.globeSurfaceReady = true;
         this.standardEarthTextures = null;
         this.attachRotationAxisToEarth(earth);
-        this.frameCameraOnLatLon(GLOBE_INITIAL_FRANCE_LAT, GLOBE_INITIAL_FRANCE_LON, GLOBE_INITIAL_ORBIT_DISTANCE);
+        this.frameDefaultGlobeCamera();
         this.tryFlushPendingGlobeDeepLink();
         this.syncGlobeDecorationsAfterEarthReady();
       }
@@ -6308,7 +6585,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.standardEarthTextures = { map: earthMap, spec: null, bump: null };
     this.applyBasemapMode();
     this.attachRotationAxisToEarth(earth);
-    this.frameCameraOnLatLon(GLOBE_INITIAL_FRANCE_LAT, GLOBE_INITIAL_FRANCE_LON, GLOBE_INITIAL_ORBIT_DISTANCE);
+    this.frameDefaultGlobeCamera();
     this.tryFlushPendingGlobeDeepLink();
     this.syncGlobeDecorationsAfterEarthReady();
   }
@@ -6409,8 +6686,14 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       void this.ensureTimeZonesLoaded();
     }
     if (this.issPositionFeedActive()) {
-      void this.refreshIssNow();
-      this.startIssPolling();
+      this.kickIssPositionRefreshOnce();
+      if (this.issCountdownInterval == null) {
+        this.startIssPolling();
+      }
+      const snap = this.buildIssSnapshotFromComponentState();
+      if (snap) {
+        this.syncIssOverlayFromSnapshot(snap);
+      }
     }
     if (this.issHistoricalTraceEnabled) {
       if (this.issHistoricalTrailPoints.length >= 2) {
@@ -7880,51 +8163,59 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.scheduleWorldGlobeCdr();
   }
 
+  private buildIssSnapshotFromComponentState(): GlobeIssNowSnapshot | null {
+    const cached = this.issNowService.getSnapshot();
+    if (cached) {
+      return cached;
+    }
+    if (!this.isGlobeIssPositionKnown()) {
+      return null;
+    }
+    return {
+      lat: this.globeIssLat!,
+      lon: this.globeIssLon!,
+      altKm: this.globeIssAltKm,
+      velocityKmh: this.issGroundSpeedKmh,
+      fetchedAtMs: Date.now()
+    };
+  }
+
+  private kickIssPositionRefreshOnce(): void {
+    if (this.issBootstrapRefreshStarted || !this.issPositionFeedActive()) {
+      return;
+    }
+    this.issBootstrapRefreshStarted = true;
+    void this.refreshIssNow();
+  }
+
   private async refreshIssNow(): Promise<void> {
     if (!this.issPositionFeedActive()) {
       return;
     }
     const seq = ++this.issRefreshRequestSeq;
+    const hadPosition = this.isGlobeIssPositionKnown();
     try {
-      const data = await firstValueFrom(
-        this.http.get<GlobeOpenNotifyIssResponse>(this.globeIssNowUrl(), {
-          params: { _t: String(Date.now()) }
-        })
-      );
-      if (seq !== this.issRefreshRequestSeq) {
+      const snap = await this.issNowService.refresh(true);
+      if (seq !== this.issRefreshRequestSeq || !snap) {
+        if (seq === this.issRefreshRequestSeq && !snap && !hadPosition) {
+          this.scheduleWorldGlobeCdr(() => {
+            if (this.issOverlayEnabled) {
+              this.issOverlayFailed = true;
+            }
+          });
+        }
         return;
       }
-      const latStr = data?.iss_position?.latitude;
-      const lonStr = data?.iss_position?.longitude;
-      if (latStr == null || lonStr == null) {
-        throw new Error('ISS payload missing coordinates');
-      }
-      const lat = parseFloat(latStr);
-      const lon = parseFloat(lonStr);
-      if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
-        throw new Error('ISS coordinates invalid');
-      }
+      const lat = snap.lat;
+      const lon = snap.lon;
       if (!this.issPositionFeedActive()) {
         return;
       }
+      const instantCamera = false;
+      this.applyIssNowSnapshot(snap, instantCamera);
 
-      const altStr = data?.iss_position?.altitude_km;
-      let altKm: number | null = null;
-      if (altStr != null && altStr !== '') {
-        const parsedAlt = parseFloat(altStr);
-        altKm =
-          Number.isFinite(parsedAlt) && parsedAlt >= 0 && parsedAlt <= 2000 ? parsedAlt : null;
-      }
-
-      const velStr = data?.iss_position?.velocity_kmh;
-      let apiVelKmh: number | null = null;
-      if (velStr != null && velStr !== '') {
-        const v = parseFloat(velStr);
-        if (Number.isFinite(v) && v >= 0 && v <= 50000) {
-          apiVelKmh = v;
-        }
-      }
-
+      const altKm = snap.altKm;
+      const apiVelKmh = snap.velocityKmh;
       const now = Date.now();
       const prevSampleLat = this.issSpeedSampleLat;
       const prevSampleLon = this.issSpeedSampleLon;
@@ -9536,16 +9827,17 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     lon: number,
     prevLat: number | null,
     prevLon: number | null,
-    speedKmh: number | null
+    speedKmh: number | null,
+    force = false
   ): void {
     if (!this.issOverlayEnabled || !this.issTraceVisible) {
       return;
     }
     const nowMs = Date.now();
-    if (nowMs - this.issForecastLastFetchMs < GLOBE_ISS_FORECAST_REFRESH_MIN_MS) {
+    if (!force && nowMs - this.issForecastLastFetchMs < GLOBE_ISS_FORECAST_REFRESH_MIN_MS) {
       return;
     }
-    void this.loadIssForecastTrail(lat, lon, prevLat, prevLon, speedKmh);
+    void this.loadIssForecastTrail(lat, lon, prevLat, prevLon, speedKmh, force);
   }
 
   private async loadIssForecastTrail(
@@ -9553,9 +9845,13 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     lon: number,
     prevLat: number | null,
     prevLon: number | null,
-    speedKmh: number | null
+    speedKmh: number | null,
+    force = false
   ): Promise<void> {
     if (!this.issOverlayEnabled || !this.issTraceVisible || !this.earthMesh) {
+      return;
+    }
+    if (!force && Date.now() - this.issForecastLastFetchMs < GLOBE_ISS_FORECAST_REFRESH_MIN_MS) {
       return;
     }
     const seq = ++this.issForecastRequestSeq;
@@ -9598,6 +9894,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       this.rebuildIssForecastTrailGeometry(lat, lon);
       this.issForecastTrailLastGeometryRebuildMs = performance.now();
       this.issForecastTrailGeometryDirty = false;
+      this.issNowService.storeForecastSnapshot({
+        points: pts,
+        approximate: false,
+        fetchedAtMs: Date.now()
+      });
     } catch {
       if (seq !== this.issForecastRequestSeq || !this.issOverlayEnabled || !this.issTraceVisible) {
         return;
@@ -9611,6 +9912,11 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
         this.rebuildIssForecastTrailGeometry(lat, lon);
         this.issForecastTrailLastGeometryRebuildMs = performance.now();
         this.issForecastTrailGeometryDirty = false;
+        this.issNowService.storeForecastSnapshot({
+          points: fallback,
+          approximate: true,
+          fetchedAtMs: Date.now()
+        });
       } else {
         this.clearIssForecastTrail();
         this.issForecastTrailApproximate = false;

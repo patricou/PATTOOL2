@@ -26,6 +26,11 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Proxies fixed allow-listed globe imagery URLs (Three.js sample textures, NASA BMNG, NASA GIBS WMS),
@@ -114,14 +119,27 @@ public class GlobeProxyService {
     private static final String WHERE_THE_ISS_AT_ISS_POSITIONS =
             "https://api.wheretheiss.at/v1/satellites/25544/positions";
 
+    private static final long ISS_NOW_MEMORY_CACHE_MS = 3_000L;
+    private static final long ISS_NOW_PARALLEL_WAIT_MS = 8_000L;
+
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final IssTraceService issTraceService;
+    private volatile IssNowMemoryCache issNowMemoryCache;
 
     public GlobeProxyService(
             @Qualifier(RestTemplateConfig.GLOBE_PROXY_REST_TEMPLATE) RestTemplate globeProxyRestTemplate,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            IssTraceService issTraceService) {
         this.restTemplate = globeProxyRestTemplate;
         this.objectMapper = objectMapper;
+        this.issTraceService = issTraceService;
+    }
+
+    private record IssNowMemoryCache(byte[] payload, long fetchedAtMs) {
+        boolean isFresh(long maxAgeMs) {
+            return fetchedAtMs > 0 && System.currentTimeMillis() - fetchedAtMs <= maxAgeMs;
+        }
     }
 
     public enum PlanetTextureAsset {
@@ -407,17 +425,80 @@ public class GlobeProxyService {
     }
 
     public byte[] fetchOpenNotifyIssNow() {
+        IssNowMemoryCache cached = issNowMemoryCache;
+        if (cached != null && cached.isFresh(ISS_NOW_MEMORY_CACHE_MS)) {
+            return cached.payload;
+        }
+
+        byte[] live = fetchOpenNotifyIssNowParallel();
+        if (live != null) {
+            storeIssNowMemoryCache(live);
+            return live;
+        }
+
+        Optional<IssTraceService.IssTracePointView> latest = issTraceService.findLatestPoint();
+        if (latest.isPresent()) {
+            byte[] fromTrace = buildOpenNotifyIssNowJsonFromCoordinates(latest.get());
+            storeIssNowMemoryCache(fromTrace);
+            log.info("Globe ISS: upstream unavailable; serving latest Mongo trace sample.");
+            return fromTrace;
+        }
+
+        throw new IllegalStateException("ISS position unavailable");
+    }
+
+    private void storeIssNowMemoryCache(byte[] payload) {
+        issNowMemoryCache = new IssNowMemoryCache(payload, System.currentTimeMillis());
+    }
+
+    /**
+     * Queries WhereTheISS.at and Open Notify in parallel; first successful response wins.
+     */
+    private byte[] fetchOpenNotifyIssNowParallel() {
+        AtomicReference<byte[]> winner = new AtomicReference<>();
+        CountDownLatch done = new CountDownLatch(1);
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            executor.submit(() -> {
+                try {
+                    byte[] raw = fetchBytes(WHERE_THE_ISS_AT_ISS_JSON, MAX_BYTES_ISS_FEED);
+                    byte[] mapped = mapWhereTheIssAtToOpenNotifyCompatibleJson(raw);
+                    if (winner.compareAndSet(null, mapped)) {
+                        done.countDown();
+                    }
+                } catch (Exception e) {
+                    log.debug("Globe ISS parallel: wheretheiss.at failed ({})", e.getMessage());
+                }
+            });
+            executor.submit(() -> {
+                try {
+                    byte[] body = fetchBytes(OPEN_NOTIFY_ISS_NOW_JSON, MAX_BYTES_ISS_FEED);
+                    if (winner.compareAndSet(null, body)) {
+                        done.countDown();
+                    }
+                } catch (Exception e) {
+                    log.debug("Globe ISS parallel: Open Notify failed ({})", e.getMessage());
+                }
+            });
+            done.await(ISS_NOW_PARALLEL_WAIT_MS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return winner.get();
+    }
+
+    private byte[] buildOpenNotifyIssNowJsonFromCoordinates(IssTraceService.IssTracePointView point) {
         try {
-            byte[] wtia = fetchBytes(WHERE_THE_ISS_AT_ISS_JSON, MAX_BYTES_ISS_FEED);
-            return mapWhereTheIssAtToOpenNotifyCompatibleJson(wtia);
-        } catch (IllegalStateException primary) {
-            log.info("Globe ISS: wheretheiss.at failed ({}); trying Open Notify.", primary.getMessage());
-            try {
-                return fetchBytes(OPEN_NOTIFY_ISS_NOW_JSON, MAX_BYTES_ISS_FEED);
-            } catch (IllegalStateException secondary) {
-                log.warn("Globe ISS: Open Notify fallback failed ({})", secondary.getMessage());
-                throw primary;
-            }
+            ObjectNode out = objectMapper.createObjectNode();
+            out.put("message", "success");
+            ObjectNode pos = objectMapper.createObjectNode();
+            pos.put("latitude", String.format(Locale.US, "%.6f", point.latitude()));
+            pos.put("longitude", String.format(Locale.US, "%.6f", point.longitude()));
+            out.set("iss_position", pos);
+            Instant at = point.recordedAt();
+            out.put("timestamp", at != null ? at.getEpochSecond() : Instant.now().getEpochSecond());
+            return objectMapper.writeValueAsBytes(out);
+        } catch (Exception e) {
+            throw new IllegalStateException("ISS trace fallback JSON failed: " + e.getMessage(), e);
         }
     }
 

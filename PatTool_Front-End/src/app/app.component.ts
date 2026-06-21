@@ -22,6 +22,7 @@ import { CurrencyTickerService } from './services/currency-ticker.service';
 import { StockTickerComponent } from './stock-exchange/stock-ticker/stock-ticker.component';
 import { StockTickerService } from './services/stock-ticker.service';
 import { AssistantDrawerComponent } from './shared/assistant-drawer/assistant-drawer.component';
+import { GlobeIssNowService } from './services/globe-iss-now.service';
 
 interface NavRouteMenuItem {
     routerLink: unknown[];
@@ -198,7 +199,8 @@ export class AppComponent implements OnInit {
         private cdr: ChangeDetectorRef,
         private _newsTicker: NewsTickerService,
         private _currencyTicker: CurrencyTickerService,
-        private _stockTicker: StockTickerService) {
+        private _stockTicker: StockTickerService,
+        private _globeIssNow: GlobeIssNowService) {
         this.selectedFiles = [];
         this._newsTicker.enabled$.subscribe((v) => {
             this.newsTickerEnabled = v;
@@ -245,6 +247,7 @@ export class AppComponent implements OnInit {
         });
         this.getUserInfo();
         this.checkIotRole();
+        this._globeIssNow.startBackgroundPrefetch();
     }
 
     /**

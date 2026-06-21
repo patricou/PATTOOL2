@@ -862,7 +862,7 @@
         "SHARE_WHATSAPP_PREVIEW_TITLE": "Partager la capture",
         "SHARE_WHATSAPP_PREVIEW_HINT": "Vérifiez l'aperçu puis « Partager maintenant » : choisissez WhatsApp dans le menu système.",
         "SHARE_WHATSAPP_PREVIEW_CANCEL": "Fermer",
-        "SHARE_WHATSAPP_NATIVE_NOTE": "Sur mobile : menu Partager → WhatsApp. Sur PC : l'image est copiée — ouvrez WhatsApp Web et collez-la dans une conversation (Ctrl+V).",
+        "SHARE_WHATSAPP_NATIVE_NOTE": "Sur mobile : une autorisation capture (cet onglet), l'écran peut défiler sur chaque vidéo ISS, puis menu Partager → WhatsApp. Sur PC : image copiée — WhatsApp Web, Ctrl+V.",
         "SHARE_WHATSAPP_PASTE_HINT": "Image copiée — ouvrez WhatsApp (ou WhatsApp Web), ouvrez une conversation et collez l'image (Ctrl+V).",
         "SHARE_WHATSAPP_OK": "Partage lancé",
         "SHARE_WHATSAPP_ERROR": "Impossible de partager — autorisez la capture d'écran ou le partage / presse-papiers dans votre navigateur.",

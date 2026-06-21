@@ -172,10 +172,14 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     @ViewChild('wallWhatsappShareModal') wallWhatsappShareModal!: TemplateRef<any>;
     @ViewChild('wallShareByEmailModal') wallShareByEmailModal!: TemplateRef<any>;
     @ViewChild('wallEventAccessUsersModal') wallEventAccessUsersModal!: TemplateRef<any>;
-    @ViewChild('wallCommentaryEditor') wallCommentaryEditor?: CommentaryEditor;
+    @ViewChild('wallCommentsModal') wallCommentsModal!: TemplateRef<any>;
 
     /** Loaded on demand when opening « Commentaires » from the wall (same editor as détail événement). */
     wallCommentaryEvent: Evenement | null = null;
+    wallCommentaryLoading = false;
+    wallCommentaryLoadingName = '';
+    private wallCommentaryLoadingEventId = '';
+    private wallCommentsModalRef: NgbModalRef | null = null;
     /** Masonry wall videos: playback only when visible in the viewport. */
     @ViewChildren('wallTimelineVideo', { read: ElementRef }) wallTimelineVideos!: QueryList<ElementRef<HTMLVideoElement>>;
 
@@ -3606,27 +3610,121 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         }
     }
 
-    /** Comments: loads the event then opens the same Quill modal as the event detail. */
+    /** Comments: opens the modal immediately, then loads the event (smooth UX). */
     openWallCommentary(group: TimelineGroup): void {
-        if (!group?.eventId) {
+        if (!group?.eventId || !this.groupHasCommentaries(group)) {
             return;
         }
+        this.wallCommentaryEvent = null;
+        this.wallCommentaryLoading = true;
+        this.wallCommentaryLoadingName = group.eventName || '';
+        this.wallCommentaryLoadingEventId = group.eventId;
+        this.openWallCommentsModal();
+        this.cdr.markForCheck();
+
         const sub = this.evenementsService.getEvenement(group.eventId).pipe(take(1)).subscribe({
             next: (ev) => {
                 this.wallCommentaryEvent = ev;
                 if (!ev.commentaries) {
                     ev.commentaries = [];
                 }
-                this.cdr.detectChanges();
-                setTimeout(() => this.wallCommentaryEditor?.openAddOrEditFirstOwned(), 0);
+                this.wallCommentaryLoading = false;
+                this.cdr.markForCheck();
             },
             error: (err) => {
                 console.error('Photo wall: load event for commentary', err);
+                this.wallCommentsModalRef?.dismiss();
                 const msg = err?.error?.message || err?.message || '';
                 alert(this.translate.instant('COMMUN.ERROR') + (msg ? ': ' + msg : ''));
             }
         });
         this.subscriptions.push(sub);
+    }
+
+    private openWallCommentsModal(): void {
+        if (this.wallCommentsModalRef) {
+            return;
+        }
+        const isMobile = typeof window !== 'undefined' && window.innerWidth <= 767.98;
+        const modalRef = this.modalService.open(this.wallCommentsModal, {
+            size: isMobile ? undefined : 'lg',
+            fullscreen: isMobile,
+            backdrop: 'static',
+            keyboard: true,
+            animation: true,
+            centered: !isMobile,
+            windowClass: 'modal-smooth-animation comments-modal wall-comments-modal'
+        });
+        this.wallCommentsModalRef = modalRef;
+        setTimeout(() => this.applyWallCommentsModalWhiteBorder(modalRef), 200);
+        modalRef.result.finally(() => {
+            if (this.wallCommentsModalRef === modalRef) {
+                this.wallCommentsModalRef = null;
+            }
+            this.wallCommentaryEvent = null;
+            this.wallCommentaryLoading = false;
+            this.wallCommentaryLoadingName = '';
+            this.wallCommentaryLoadingEventId = '';
+            this.cdr.markForCheck();
+        });
+    }
+
+    /** Bordure blanche 4px — même traitement que element-evenement / styles.css. */
+    private applyWallCommentsModalWhiteBorder(modalRef: NgbModalRef): void {
+        let modalElement = document.querySelector('.modal.wall-comments-modal.show .modal-content') as HTMLElement;
+        if (!modalElement) {
+            modalElement = document.querySelector('.wall-comments-modal.show .modal-content') as HTMLElement;
+        }
+        if (!modalElement) {
+            modalElement = document.querySelector('.modal.show .wall-comments-modal .modal-content') as HTMLElement;
+        }
+        if (!modalElement && modalRef) {
+            const fromRef = (modalRef as any).componentInstance?.elementRef?.nativeElement?.querySelector('.modal-content');
+            if (fromRef) {
+                modalElement = fromRef;
+            }
+        }
+        if (modalElement) {
+            modalElement.style.setProperty('border', '4px solid #ffffff', 'important');
+            modalElement.style.setProperty('border-width', '4px', 'important');
+            modalElement.style.setProperty('border-style', 'solid', 'important');
+            modalElement.style.setProperty('border-color', '#ffffff', 'important');
+            modalElement.style.setProperty('border-radius', '8px', 'important');
+            modalElement.style.setProperty('overflow', 'hidden', 'important');
+        }
+    }
+
+    getWallCommentsModalHeaderStyle(): { [key: string]: string } {
+        const c = this.getWallCommentaryEventColor();
+        if (c) {
+            return { 'background-color': `rgb(${c.r},${c.g},${c.b})` };
+        }
+        return {};
+    }
+
+    getWallCommentsModalTitle(): string {
+        return this.wallCommentaryEvent?.evenementName || this.wallCommentaryLoadingName || '';
+    }
+
+    groupHasCommentaries(group: TimelineGroup): boolean {
+        return this.getGroupCommentariesCount(group) > 0;
+    }
+
+    getGroupCommentariesCount(group: TimelineGroup): number {
+        return group?.commentariesCount ?? 0;
+    }
+
+    private syncWallGroupCommentariesCount(eventId: string, count: number): void {
+        const apply = (groups: TimelineGroup[]) => {
+            const g = groups.find(x => x.eventId === eventId);
+            if (g) {
+                g.commentariesCount = count;
+            }
+        };
+        apply(this.visibleGroups);
+        apply(this.bufferedGroups);
+        apply(this.bufferedVideoGroups);
+        this.cdr.markForCheck();
     }
 
     getWallCommentaryCurrentUser(): Member {
@@ -3635,11 +3733,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
     getWallCommentaryEventColor(): { r: number; g: number; b: number } | null {
         const ev = this.wallCommentaryEvent;
-        if (!ev) {
+        const eventId = ev?.id || this.wallCommentaryLoadingEventId || '';
+        const eventName = ev?.evenementName || this.wallCommentaryLoadingName || '';
+        if (!eventId && !eventName) {
             return null;
         }
-        return this.eventColorService.getEventColor(ev.id || '')
-            || this.eventColorService.getEventColor(ev.evenementName || '')
+        return this.eventColorService.getEventColor(eventId)
+            || this.eventColorService.getEventColor(eventName)
             || null;
     }
 
@@ -3652,6 +3752,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             next: (updated) => {
                 if (updated?.commentaries) {
                     ev.commentaries = updated.commentaries;
+                    this.syncWallGroupCommentariesCount(ev.id, updated.commentaries.length);
                 }
                 this.cdr.markForCheck();
             },
@@ -3669,6 +3770,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             next: (updated) => {
                 if (updated?.commentaries) {
                     ev.commentaries = updated.commentaries;
+                    this.syncWallGroupCommentariesCount(ev.id, updated.commentaries.length);
                 }
                 this.cdr.markForCheck();
             },
@@ -3686,6 +3788,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             next: (updated) => {
                 if (updated?.commentaries) {
                     ev.commentaries = updated.commentaries;
+                    this.syncWallGroupCommentariesCount(ev.id, updated.commentaries.length);
                 }
                 this.cdr.markForCheck();
             },
