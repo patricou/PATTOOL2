@@ -361,7 +361,13 @@
         "ISS_LIVE_PIP_SHARE_WHATSAPP_OK": "ØªÙ Ø¨Ø¯Ø¡ Ø§ÙÙØ´Ø§Ø±ÙØ© Ø¹ÙÙ ÙØ§ØªØ³Ø§Ø¨",
         "ISS_LIVE_PIP_SHARE_WHATSAPP_ERROR": "ØªØ¹Ø°Ø±Øª Ø§ÙÙØ´Ø§Ø±ÙØ© Ø¹ÙÙ ÙØ§ØªØ³Ø§Ø¨",
         "ISS_LIVE_PIP_WHATSAPP_MESSAGE": "*{{title}}*\n\nØ¨Ø« ISS ÙØ¨Ø§Ø´Ø±: {{url}}",
-        "ISS_LIVE_PIP_WHATSAPP_PASTE_IMAGE": "ØªÙ ÙØ³Ø® Ø§ÙÙÙØ·Ø© Ø¥ÙÙ Ø§ÙØ­Ø§ÙØ¸Ø© â Ø§ÙØµÙ Ø§ÙØµÙØ±Ø© ÙÙ ÙØ§ØªØ³Ø§Ø¨.",
+        "ISS_LIVE_PIP_WHATSAPP_PASTE_IMAGE": "تم نسخ اللقطة إلى الحافظة — الصق الصورة في واتساب.",
+        "SHARE_WHATSAPP": "WhatsApp",
+        "SHARE_WHATSAPP_HINT": "مشاركة لقطة للكرة الأرضية ورابط لإعادة فتح هذا العرض في PatTool.",
+        "SHARE_WHATSAPP_OK": "بدأت المشاركة عبر WhatsApp",
+        "SHARE_WHATSAPP_ERROR": "تعذرت المشاركة عبر WhatsApp",
+        "WHATSAPP_MESSAGE": "*{{title}}*\n\n{{coords}}{{url}}",
+        "WHATSAPP_COORDS": "العرض: {{lat}}°، {{lon}}°\n\n",
         "ISS_KEEP_EARTH_CENTERED": "Keep globe centered on ISS",
         "ISS_KEEP_EARTH_CENTERED_HINT": "Recenters the view on the ISS ground track each frame (your zoom is kept). Temporarily disables slow auto-rotate while active. Drag with the left mouse button to orbit freely in 3D; toggle this option off and on again or use Reset view to resume tracking.",
         "BORDERS_ATTRIBUTION": "Natural Earth Â· public domain boundaries (110m)",

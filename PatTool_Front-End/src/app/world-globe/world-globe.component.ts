@@ -269,6 +269,9 @@ const GLOBE_ORBIT_ZOOM_SPEED_MAX = 0.8;
 /** Vitesse rotation automatique (OrbitControls.autoRotateSpeed). */
 const GLOBE_AUTO_ROTATE_SPEED = 0.35;
 
+/** Fond ciel nocturne pour les captures partage (aligné brouillard Three.js). */
+const GLOBE_SHARE_NIGHT_BG = 0x020510;
+
 /** Pastels utilisés pour distinguer pays (priorité attribus Natural Earth `MAPCOLOR*`). */
 const GLOBE_POLITICAL_HEX_PALETTE = [
   0x7eb6d9, 0xa8dab5, 0xf8c8dc, 0xffe6a8, 0xc8b8e9, 0xf4a688, 0xc9dcf4, 0xd9efb2, 0xf2c6f5,
@@ -332,6 +335,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   issPiPWhatsAppFlash: { variant: 'standard' | 'hd'; ok: boolean } | null = null;
   private issPiPCopyFlashTimer: ReturnType<typeof setTimeout> | null = null;
   private issPiPWhatsAppFlashTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Capture / partage WhatsApp du globe 3D (barre d’outils). */
+  globeImageBusy: 'whatsapp' | null = null;
+  globeWhatsAppFlash: boolean | null = null;
+  private globeWhatsAppFlashTimer: ReturnType<typeof setTimeout> | null = null;
 
   showOptionsPanel = true;
   /** Section ouverte dans le panneau options (accordéon). */
@@ -479,7 +486,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   issHistoricalTraceLoading = false;
   issHistoricalTraceFailed = false;
   /** Dates/heures le long de la trace historique ISS (activé par défaut). */
-  issHistoricalTraceDatesEnabled = true;
+  issHistoricalTraceDatesEnabled = false;
   issHistoricalTraceClearInFlight = false;
   /** Server records ISS to MongoDB every 15 min even when no user has the globe open (persisted in MongoDB). */
   issBackgroundTraceEnabled = false;
@@ -706,6 +713,9 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
    */
   /** Repli si l’API Fullscreen refuse l’élément : occupe tout le viewport en position fixe. */
   globeViewportLocked = false;
+  /** Pendant un partage WhatsApp : ne pas quitter le mode présentation si le navigateur sort du FS. */
+  private globeSharePreservePresentation = false;
+  private globeShareFsRestoreCleanup: (() => void) | null = null;
   textureLoadError = false;
 
   /** Recherche de lieu (Nominatim via backend), comme la page Adresse / GPS. */
@@ -1116,6 +1126,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.clearGlobeShareFsRestoreSchedule();
     this.stopIssCompassSensors();
     this.stopIssCompassFreshnessTimer();
     this.endIssFsSplitResizeDrag();
@@ -1173,6 +1184,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       clearTimeout(this.issPiPWhatsAppFlashTimer);
       this.issPiPWhatsAppFlashTimer = null;
     }
+    if (this.globeWhatsAppFlashTimer != null) {
+      clearTimeout(this.globeWhatsAppFlashTimer);
+      this.globeWhatsAppFlashTimer = null;
+    }
     if (this.globeCdrTimer != null) {
       clearTimeout(this.globeCdrTimer);
       this.globeCdrTimer = null;
@@ -1216,6 +1231,27 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     const wasPresentation = this.globePresentationMode;
     this.syncFullscreenFromDocument();
     this.syncIssLivePiPFullscreenFromDocument();
+    if (this.globeSharePreservePresentation && wasPresentation) {
+      this.globeViewportLocked = true;
+      this.syncFullscreenFromDocument();
+      this.cdr.markForCheck();
+      requestAnimationFrame(() => {
+        this.resizeRendererToHost();
+        this.refreshIssLivePiPPanelsLayout();
+        if (this.issFsSplitLayout) {
+          this.syncIssFsSplitIssColumnWidth();
+          if (this.issFsSplitIssWidthManual) {
+            this.issFsSplitIssWidthPx = this.clampIssFsSplitIssWidth(this.issFsSplitIssWidthPx);
+          }
+          this.syncIssFsPipStackTop();
+          if (this.issFsPipStackTopManual) {
+            this.issFsPipStackTopPx = this.clampIssFsPipStackTop(this.issFsPipStackTopPx);
+          }
+          this.cdr.markForCheck();
+        }
+      });
+      return;
+    }
     this.applyIssEmbedPanelsOnPresentationChange(wasPresentation);
     this.cdr.markForCheck();
     requestAnimationFrame(() => {
@@ -3586,6 +3622,565 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  /** Partage une capture du globe 3D sur WhatsApp (Web Share ou wa.me). */
+  async shareGlobeOnWhatsApp(): Promise<void> {
+    if (this.globeImageBusy != null || !this.globeSurfaceReady) {
+      return;
+    }
+    const hadBrowserFullscreen = this.isGlobeFullscreenElement(this.getDocumentFullscreenElement());
+    this.globeImageBusy = 'whatsapp';
+    this.cdr.markForCheck();
+    try {
+      this.prepareGlobePresentationForShare();
+      const blob = await this.captureGlobeShareToPngBlob();
+      if (!blob) {
+        this.flashGlobeWhatsAppFeedback(false);
+        return;
+      }
+      const ok = await this.shareGlobePngOnWhatsApp(blob);
+      this.flashGlobeWhatsAppFeedback(ok);
+    } catch (err: unknown) {
+      const name = err instanceof DOMException || err instanceof Error ? err.name : '';
+      if (name === 'NotAllowedError' || name === 'AbortError') {
+        return;
+      }
+      this.flashGlobeWhatsAppFeedback(false);
+    } finally {
+      this.globeImageBusy = null;
+      this.cdr.markForCheck();
+      const restoreFs = hadBrowserFullscreen;
+      window.setTimeout(() => {
+        void (async () => {
+          try {
+            await this.finalizeGlobePresentationAfterShare(restoreFs);
+          } finally {
+            this.globeSharePreservePresentation = false;
+          }
+        })();
+      }, 450);
+    }
+  }
+
+  /**
+   * Marque le partage en cours : si le navigateur quitte le FS natif (WhatsApp, etc.),
+   * on garde le layout via viewport-locked sans fermer les flux ISS.
+   */
+  private prepareGlobePresentationForShare(): void {
+    if (!this.globePresentationMode) {
+      return;
+    }
+    this.globeSharePreservePresentation = true;
+  }
+
+  private async finalizeGlobePresentationAfterShare(hadBrowserFullscreen: boolean): Promise<void> {
+    if (!hadBrowserFullscreen) {
+      return;
+    }
+    const restored = await this.tryRestoreBrowserFullscreenAfterShare();
+    if (!restored && !this.isGlobeFullscreenElement(this.getDocumentFullscreenElement())) {
+      this.scheduleNativeBrowserFullscreenRestoreAfterShare();
+    }
+  }
+
+  /** Repasse en FS navigateur natif (F11) après partage ; repli viewport seulement si impossible. */
+  private async tryRestoreBrowserFullscreenAfterShare(): Promise<boolean> {
+    if (!this.globePresentationMode) {
+      return false;
+    }
+    if (this.isGlobeFullscreenElement(this.getDocumentFullscreenElement())) {
+      this.globeViewportLocked = false;
+      this.syncFullscreenFromDocument();
+      return true;
+    }
+    const region = this.getGlobeFullscreenRegion();
+    if (!region) {
+      return false;
+    }
+    this.setGlobeTrueFullscreenBodyClass(false);
+    try {
+      await WorldGlobeComponent.requestFullscreenCompat(region);
+      this.globeViewportLocked = false;
+      this.syncFullscreenFromDocument();
+      this.scheduleGlobeViewAfterLayoutChange();
+      return true;
+    } catch {
+      try {
+        this.setGlobeTrueFullscreenBodyClass(true);
+        await WorldGlobeComponent.requestFullscreenCompat(document.documentElement);
+        this.globeViewportLocked = false;
+        this.syncFullscreenFromDocument();
+        this.scheduleGlobeViewAfterLayoutChange();
+        return true;
+      } catch {
+        this.setGlobeTrueFullscreenBodyClass(false);
+        this.syncFullscreenFromDocument();
+        this.scheduleGlobeViewAfterLayoutChange();
+        return false;
+      }
+    }
+  }
+
+  /**
+   * Après ouverture de WhatsApp, le FS natif exige souvent un geste utilisateur :
+   * on réessaie au retour sur l’onglet ou au prochain clic.
+   */
+  private scheduleNativeBrowserFullscreenRestoreAfterShare(): void {
+    this.clearGlobeShareFsRestoreSchedule();
+    const attempt = (): void => {
+      if (!this.globePresentationMode) {
+        this.clearGlobeShareFsRestoreSchedule();
+        return;
+      }
+      if (this.isGlobeFullscreenElement(this.getDocumentFullscreenElement())) {
+        this.globeViewportLocked = false;
+        this.syncFullscreenFromDocument();
+        this.clearGlobeShareFsRestoreSchedule();
+        return;
+      }
+      void this.tryRestoreBrowserFullscreenAfterShare().then((ok) => {
+        if (ok) {
+          this.clearGlobeShareFsRestoreSchedule();
+        }
+      });
+    };
+    const onFocus = (): void => attempt();
+    const onVisibility = (): void => {
+      if (document.visibilityState === 'visible') {
+        attempt();
+      }
+    };
+    const onPointerDown = (ev: PointerEvent): void => {
+      if (this.globeImageBusy != null || this.globeSharePreservePresentation) {
+        return;
+      }
+      const target = ev.target;
+      if (target instanceof Element && target.closest('.wg-btn-wa')) {
+        return;
+      }
+      attempt();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    document.addEventListener('pointerdown', onPointerDown, { capture: true });
+    const timer = window.setTimeout(() => this.clearGlobeShareFsRestoreSchedule(), 60_000);
+    this.globeShareFsRestoreCleanup = (): void => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+      document.removeEventListener('pointerdown', onPointerDown, { capture: true });
+      clearTimeout(timer);
+      this.globeShareFsRestoreCleanup = null;
+    };
+  }
+
+  private clearGlobeShareFsRestoreSchedule(): void {
+    this.globeShareFsRestoreCleanup?.();
+  }
+
+  /** Capture globe (ciel nocturne + étoiles) et fenêtres ISS live visibles pour le partage. */
+  private async captureGlobeShareToPngBlob(): Promise<Blob | null> {
+    const host = this.globeCanvasHost?.nativeElement;
+    const renderer = this.renderer;
+    const scene = this.scene;
+    const camera = this.camera;
+    if (!host || !renderer || !scene || !camera || host.clientWidth < 2 || host.clientHeight < 2) {
+      return null;
+    }
+
+    const captureRect = this.resolveGlobeShareCaptureRect(host);
+    if (captureRect.width < 2 || captureRect.height < 2) {
+      return null;
+    }
+
+    const globeImg = await this.captureGlobeWebGLShareImage();
+    if (!globeImg) {
+      return null;
+    }
+
+    const dpr = globePixelRatioCap();
+    const outW = Math.max(1, Math.round(captureRect.width * dpr));
+    const outH = Math.max(1, Math.round(captureRect.height * dpr));
+    const canvas = document.createElement('canvas');
+    canvas.width = outW;
+    canvas.height = outH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return null;
+    }
+    ctx.scale(dpr, dpr);
+
+    this.paintGlobeShareNightBackground(ctx, captureRect.width, captureRect.height);
+
+    const hostRect = host.getBoundingClientRect();
+    const globeX = hostRect.left - captureRect.left;
+    const globeY = hostRect.top - captureRect.top;
+    ctx.drawImage(globeImg, globeX, globeY, hostRect.width, hostRect.height);
+
+    const issPanels = this.listIssSharePanels();
+    for (const panel of issPanels) {
+      await this.drawIssPiPSharePanelOnCanvas(ctx, panel.el, panel.variant, captureRect);
+    }
+
+    return new Promise<Blob | null>((resolve) => {
+      canvas.toBlob((b) => resolve(b), 'image/png');
+    });
+  }
+
+  /** Rendu WebGL avec fond nocturne opaque pour conserver étoiles + globe dans la capture. */
+  private async captureGlobeWebGLShareImage(): Promise<HTMLImageElement | null> {
+    const renderer = this.renderer;
+    const scene = this.scene;
+    const camera = this.camera;
+    if (!renderer || !scene || !camera) {
+      return null;
+    }
+
+    const prevClearColor = new THREE.Color();
+    const prevClearAlpha = renderer.getClearAlpha();
+    const prevBackground = scene.background;
+    renderer.getClearColor(prevClearColor);
+    renderer.setClearColor(GLOBE_SHARE_NIGHT_BG, 1);
+    scene.background = new THREE.Color(GLOBE_SHARE_NIGHT_BG);
+
+    this.controls?.update();
+    renderer.render(scene, camera);
+
+    const blob = await this.webglCanvasToPngBlob(renderer);
+
+    renderer.setClearColor(prevClearColor, prevClearAlpha);
+    scene.background = prevBackground;
+
+    if (!blob) {
+      return null;
+    }
+    return this.loadShareCaptureImage(blob);
+  }
+
+  private webglCanvasToPngBlob(renderer: THREE.WebGLRenderer): Promise<Blob | null> {
+    return new Promise((resolve) => {
+      const canvas = renderer.domElement;
+      let settled = false;
+      const finish = (blob: Blob | null): void => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        window.clearTimeout(timer);
+        resolve(blob);
+      };
+      const timer = window.setTimeout(() => {
+        void this.readWebGLCanvasToPngBlob(renderer).then(finish);
+      }, 2500);
+      canvas.toBlob((b) => {
+        if (b) {
+          finish(b);
+        } else {
+          void this.readWebGLCanvasToPngBlob(renderer).then(finish);
+        }
+      }, 'image/png');
+    });
+  }
+
+  /** Repli si {@link HTMLCanvasElement.toBlob} ne renvoie rien (WebGL sans preserveDrawingBuffer). */
+  private readWebGLCanvasToPngBlob(renderer: THREE.WebGLRenderer): Promise<Blob | null> {
+    const canvas = renderer.domElement;
+    const w = canvas.width;
+    const h = canvas.height;
+    if (w < 1 || h < 1) {
+      return Promise.resolve(null);
+    }
+    const gl = renderer.getContext();
+    const pixels = new Uint8Array(w * h * 4);
+    gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    const flipped = document.createElement('canvas');
+    flipped.width = w;
+    flipped.height = h;
+    const ctx = flipped.getContext('2d');
+    if (!ctx) {
+      return Promise.resolve(null);
+    }
+    const imageData = ctx.createImageData(w, h);
+    const row = w * 4;
+    for (let y = 0; y < h; y++) {
+      const srcOff = (h - 1 - y) * row;
+      imageData.data.set(pixels.subarray(srcOff, srcOff + row), y * row);
+    }
+    ctx.putImageData(imageData, 0, 0);
+    return new Promise((resolve) => {
+      flipped.toBlob((b) => resolve(b), 'image/png');
+    });
+  }
+
+  private resolveGlobeShareCaptureRect(host: HTMLElement): DOMRect {
+    const hostRect = host.getBoundingClientRect();
+    if (!this.issLiveEmbedEnabled && !this.issLiveHdEmbedEnabled) {
+      return hostRect;
+    }
+    if (this.issFsSplitLayout) {
+      const dock = host.parentElement?.querySelector<HTMLElement>('.wg-iss-pip-dock--fs-split');
+      if (dock && this.isIssPiPVisibleForCapture(dock)) {
+        return WorldGlobeComponent.unionDomRects(hostRect, dock.getBoundingClientRect());
+      }
+    }
+    return hostRect;
+  }
+
+  private listIssSharePanels(): { el: HTMLElement; variant: 'standard' | 'hd' }[] {
+    const panels: { el: HTMLElement; variant: 'standard' | 'hd' }[] = [];
+    const standard = this.issLivePiP?.nativeElement;
+    if (this.issLiveEmbedEnabled && standard && this.isIssPiPVisibleForCapture(standard)) {
+      panels.push({ el: standard, variant: 'standard' });
+    }
+    const hd = this.issLiveHdPiP?.nativeElement;
+    if (this.issLiveHdEmbedEnabled && hd && this.isIssPiPVisibleForCapture(hd)) {
+      panels.push({ el: hd, variant: 'hd' });
+    }
+    return panels;
+  }
+
+  private paintGlobeShareNightBackground(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number
+  ): void {
+    ctx.fillStyle = '#020510';
+    ctx.fillRect(0, 0, width, height);
+    const grad = ctx.createRadialGradient(width * 0.5, height * 0.38, 0, width * 0.5, height * 0.38, width * 0.62);
+    grad.addColorStop(0, 'rgba(45, 70, 130, 0.25)');
+    grad.addColorStop(1, 'rgba(2, 5, 16, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, height);
+  }
+
+  private async drawIssPiPSharePanelOnCanvas(
+    ctx: CanvasRenderingContext2D,
+    panel: HTMLElement,
+    variant: 'standard' | 'hd',
+    captureRect: DOMRect
+  ): Promise<void> {
+    const rect = panel.getBoundingClientRect();
+    const x = rect.left - captureRect.left;
+    const y = rect.top - captureRect.top;
+    const w = rect.width;
+    const h = rect.height;
+    if (w < 8 || h < 8) {
+      return;
+    }
+
+    const radius = 6;
+    ctx.save();
+    WorldGlobeComponent.roundRectPath(ctx, x, y, w, h, radius);
+    ctx.clip();
+    ctx.fillStyle = 'rgba(8, 14, 28, 0.92)';
+    ctx.fillRect(x, y, w, h);
+
+    const barH = Math.min(WorldGlobeComponent.ISS_PIP_WINDOWED_BAR_PX, Math.max(20, h * 0.18));
+    ctx.fillStyle = 'rgba(12, 20, 38, 0.95)';
+    ctx.fillRect(x, y, w, barH);
+
+    const titleKey =
+      variant === 'standard' ? 'WORLD_GLOBE.ISS_LIVE_PIP_TITLE' : 'WORLD_GLOBE.ISS_LIVE_PIP_HD_TITLE';
+    ctx.fillStyle = '#b9c7e8';
+    ctx.font = '600 11px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(this.translate.instant(titleKey), x + 28, y + barH / 2, w - 36);
+
+    const frame = panel.querySelector<HTMLElement>('.wg-iss-live-pip__frame');
+    const videoId = variant === 'standard' ? ISS_LIVE_YOUTUBE_VIDEO_ID : ISS_LIVE_HD_YOUTUBE_VIDEO_ID;
+    if (frame) {
+      const frameBlob = await this.captureIssPiPFrameToPngBlob(frame, videoId, { canvasOnly: true });
+      if (frameBlob) {
+        const frameImg = await this.loadShareCaptureImage(frameBlob);
+        if (frameImg) {
+          const frameRect = frame.getBoundingClientRect();
+          ctx.drawImage(
+            frameImg,
+            frameRect.left - captureRect.left,
+            frameRect.top - captureRect.top,
+            frameRect.width,
+            frameRect.height
+          );
+        }
+      }
+    }
+
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(120, 150, 220, 0.45)';
+    ctx.lineWidth = 1;
+    WorldGlobeComponent.roundRectPath(ctx, x + 0.5, y + 0.5, w - 1, h - 1, radius);
+    ctx.stroke();
+  }
+
+  private loadShareCaptureImage(blob: Blob): Promise<HTMLImageElement | null> {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      const cleanup = (): void => URL.revokeObjectURL(url);
+      img.onload = () => {
+        cleanup();
+        resolve(img);
+      };
+      img.onerror = () => {
+        cleanup();
+        resolve(null);
+      };
+      img.src = url;
+    });
+  }
+
+  private static unionDomRects(a: DOMRect, b: DOMRect): DOMRect {
+    const left = Math.min(a.left, b.left);
+    const top = Math.min(a.top, b.top);
+    const right = Math.max(a.right, b.right);
+    const bottom = Math.max(a.bottom, b.bottom);
+    return new DOMRect(left, top, right - left, bottom - top);
+  }
+
+  private static roundRectPath(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    r: number
+  ): void {
+    const radius = Math.max(0, Math.min(r, w / 2, h / 2));
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + w - radius, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+    ctx.lineTo(x + w, y + h - radius);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+    ctx.lineTo(x + radius, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+  }
+
+  private buildGlobeShareUrl(): string {
+    const anchor = this.pickDetailMapAnchorLatLon();
+    const queryParams: Record<string, string> = { autoRotate: '0' };
+    if (anchor) {
+      queryParams['lat'] = anchor.lat.toFixed(5);
+      queryParams['lon'] = anchor.lon.toFixed(5);
+      queryParams['z'] = String(
+        WorldGlobeComponent.leafletZoomForOrbitDistance(this.globeOrbitDistance())
+      );
+    }
+    const tree = this.router.createUrlTree(['/tools/world-globe'], { queryParams });
+    return `${window.location.origin}/#${this.router.serializeUrl(tree)}`;
+  }
+
+  private buildGlobeWhatsAppMessage(url: string): string {
+    const title = this.translate.instant('WORLD_GLOBE.TITLE');
+    const anchor = this.pickDetailMapAnchorLatLon();
+    const coords =
+      anchor != null
+        ? this.translate.instant('WORLD_GLOBE.WHATSAPP_COORDS', {
+            lat: anchor.lat.toFixed(5),
+            lon: anchor.lon.toFixed(5)
+          })
+        : '';
+    let message = this.translate.instant('WORLD_GLOBE.WHATSAPP_MESSAGE', { title, coords, url });
+    const issLines: string[] = [];
+    if (this.issLiveEmbedEnabled) {
+      issLines.push(
+        this.translate.instant('WORLD_GLOBE.ISS_LIVE_PIP_WHATSAPP_MESSAGE', {
+          title: this.translate.instant('WORLD_GLOBE.ISS_LIVE_PIP_TITLE'),
+          url: ISS_LIVE_DESTINATION_ORBITE_URL
+        })
+      );
+    }
+    if (this.issLiveHdEmbedEnabled) {
+      issLines.push(
+        this.translate.instant('WORLD_GLOBE.ISS_LIVE_PIP_WHATSAPP_MESSAGE', {
+          title: this.translate.instant('WORLD_GLOBE.ISS_LIVE_PIP_HD_TITLE'),
+          url: ISS_LIVE_HD_DESTINATION_ORBITE_URL
+        })
+      );
+    }
+    if (issLines.length > 0) {
+      message += `\n\n${issLines.join('\n\n')}`;
+    }
+    return message;
+  }
+
+  private async shareGlobePngOnWhatsApp(blob: Blob): Promise<boolean> {
+    const title = this.translate.instant('WORLD_GLOBE.TITLE');
+    const url = this.buildGlobeShareUrl();
+    const message = this.buildGlobeWhatsAppMessage(url);
+    const file = new File([blob], 'world-globe.png', { type: 'image/png' });
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent
+    );
+
+    if (isMobile && navigator.share) {
+      const fileShare: ShareData = { title, text: message, files: [file] };
+      try {
+        if (!navigator.canShare || navigator.canShare({ files: [file], text: message })) {
+          await navigator.share(fileShare);
+          return true;
+        }
+      } catch (err: unknown) {
+        const name = err instanceof DOMException || err instanceof Error ? err.name : '';
+        if (name === 'AbortError') {
+          throw err;
+        }
+      }
+      try {
+        const textShare: ShareData = { title, text: message, url };
+        if (!navigator.canShare || navigator.canShare(textShare)) {
+          await navigator.share(textShare);
+          return true;
+        }
+      } catch (err: unknown) {
+        const name = err instanceof DOMException || err instanceof Error ? err.name : '';
+        if (name === 'AbortError') {
+          throw err;
+        }
+      }
+    }
+
+    const copied = await this.writeIssPiPPngToClipboard(blob);
+    let waText = message;
+    if (copied) {
+      waText += `\n\n${this.translate.instant('WORLD_GLOBE.ISS_LIVE_PIP_WHATSAPP_PASTE_IMAGE')}`;
+    }
+    const opened = this.openWhatsAppShareUrl(waText);
+    return opened || copied;
+  }
+
+  /** Ouvre WhatsApp Web/app avec le texte prérempli ; repli lien si popup bloquée. */
+  private openWhatsAppShareUrl(text: string): boolean {
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    const popup = window.open(waUrl, '_blank', 'noopener,noreferrer');
+    if (popup) {
+      return true;
+    }
+    const link = document.createElement('a');
+    link.href = waUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    return true;
+  }
+
+  private flashGlobeWhatsAppFeedback(ok: boolean): void {
+    if (this.globeWhatsAppFlashTimer != null) {
+      clearTimeout(this.globeWhatsAppFlashTimer);
+    }
+    this.globeWhatsAppFlash = ok;
+    this.cdr.markForCheck();
+    this.globeWhatsAppFlashTimer = setTimeout(() => {
+      this.globeWhatsAppFlash = null;
+      this.globeWhatsAppFlashTimer = null;
+      this.cdr.markForCheck();
+    }, 2200);
+  }
+
   /** Partage une capture de la mini-fenêtre ISS sur WhatsApp (Web Share ou wa.me). */
   async shareIssPiPScreenshotOnWhatsApp(variant: 'standard' | 'hd'): Promise<void> {
     if (this.issPiPImageBusy != null) {
@@ -3702,9 +4297,14 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   /**
    * Capture uniquement la zone vidéo de la fenêtre PiP (`.wg-iss-live-pip__frame`),
    * sans barre titre/boutons ni le reste de la page.
+   * @param canvasOnly évite getDisplayMedia (quitte le plein écran) — utilisé pour le partage globe.
    */
-  private async captureIssPiPFrameToPngBlob(frame: HTMLElement, videoId: string): Promise<Blob | null> {
-    if (typeof navigator.mediaDevices?.getDisplayMedia === 'function') {
+  private async captureIssPiPFrameToPngBlob(
+    frame: HTMLElement,
+    videoId: string,
+    opts?: { canvasOnly?: boolean }
+  ): Promise<Blob | null> {
+    if (!opts?.canvasOnly && typeof navigator.mediaDevices?.getDisplayMedia === 'function') {
       try {
         const captured = await this.captureIssPiPFrameViaTabCapture(frame);
         if (captured) {

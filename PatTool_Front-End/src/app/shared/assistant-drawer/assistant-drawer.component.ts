@@ -105,6 +105,7 @@ import {
   AssistantModelPickRouting,
   isAssistantModelPickActionable
 } from './assistant-model-pick-routing';
+import { assistantModelPickChipCssVars } from './assistant-model-pick-colors';
 import { ASSISTANT_TOOLS_HELP_PROVIDER_MATRIX } from './assistant-tools-help-matrix';
 
 @Component({
@@ -2341,6 +2342,46 @@ export class AssistantDrawerComponent
   /** Tools help modal: click on a row in the cross-provider task ranking table. */
   isAssistantHelpModelPickActionable(pickKey: string | undefined): boolean {
     return isAssistantModelPickActionable(pickKey);
+  }
+
+  /** Couleur stable par modèle (provider + id API) dans la modale d’aide modèles. */
+  assistantHelpModelPickChipVarsFromPickKey(pickKey: string | undefined): Record<string, string> {
+    const routing = assistantModelPickRoutingForKey(pickKey);
+    if (!routing?.apiModelId?.trim()) {
+      return {};
+    }
+    return this.assistantHelpModelPickChipVars(routing.provider, routing.apiModelId);
+  }
+
+  assistantHelpModelProviderLabelKey(provider: string | undefined): string | null {
+    if (!provider || !AssistantDrawerComponent.isAssistantProvider(provider)) {
+      return null;
+    }
+    return (
+      AssistantDrawerComponent.ROUTING_PROVIDER_ENTRIES.find((e) => e.slug === provider)?.labelKey ?? null
+    );
+  }
+
+  assistantHelpModelProviderLabelKeyFromPickKey(pickKey: string | undefined): string | null {
+    const routing = assistantModelPickRoutingForKey(pickKey);
+    return routing ? this.assistantHelpModelProviderLabelKey(routing.provider) : null;
+  }
+
+  assistantHelpModelPickAriaPrefix(provider: string | undefined): string {
+    const key = this.assistantHelpModelProviderLabelKey(provider);
+    return key ? `${this.translate.instant(key)} · ` : '';
+  }
+
+  assistantHelpModelPickAriaPrefixFromPickKey(pickKey: string | undefined): string {
+    const key = this.assistantHelpModelProviderLabelKeyFromPickKey(pickKey);
+    return key ? `${this.translate.instant(key)} · ` : '';
+  }
+
+  assistantHelpModelPickChipVars(provider: string, apiModelId: string): Record<string, string> {
+    if (!AssistantDrawerComponent.isAssistantProvider(provider)) {
+      return {};
+    }
+    return assistantModelPickChipCssVars(provider, apiModelId);
   }
 
   applyAssistantModelPickFromHelp(pickKey: string): void {

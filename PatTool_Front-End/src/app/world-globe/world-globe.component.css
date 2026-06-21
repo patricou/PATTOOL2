@@ -1338,8 +1338,17 @@ body:has(.wg-fs-root--viewport-locked) {
   color: #f87171;
 }
 
-.wg-iss-live-pip__btn-wa .fa-whatsapp {
+.wg-iss-live-pip__btn-wa .fa-whatsapp,
+.wg-globe-stage-toolbar .wg-btn-wa .fa-whatsapp {
   color: #25d366;
+}
+
+.wg-globe-stage-toolbar .wg-btn-wa .fa-check {
+  color: #5dd879;
+}
+
+.wg-globe-stage-toolbar .wg-btn-wa .fa-times {
+  color: #f87171;
 }
 
 .wg-iss-live-pip__btn-close:hover,

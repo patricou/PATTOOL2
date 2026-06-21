@@ -735,6 +735,12 @@
         "ISS_LIVE_PIP_WHATSAPP_MESSAGE": "*{{title}}*\n\nDirecto ISS: {{url}}",
 
         "ISS_LIVE_PIP_WHATSAPP_PASTE_IMAGE": "Captura copiada al portapapeles: pegue la imagen en WhatsApp (Ctrl+V).",
+        "SHARE_WHATSAPP": "WhatsApp",
+        "SHARE_WHATSAPP_HINT": "Comparte una captura del globo y un enlace para reabrir esta vista en PatTool.",
+        "SHARE_WHATSAPP_OK": "Compartir en WhatsApp iniciado",
+        "SHARE_WHATSAPP_ERROR": "No se pudo compartir en WhatsApp",
+        "WHATSAPP_MESSAGE": "*{{title}}*\n\n{{coords}}{{url}}",
+        "WHATSAPP_COORDS": "Vista: {{lat}}°, {{lon}}°\n\n",
 
         "ISS_KEEP_EARTH_CENTERED": "Mantener el globo centrado en la ISS",
 

@@ -361,7 +361,13 @@
         "ISS_LIVE_PIP_SHARE_WHATSAPP_OK": "WhatsAppå±æãéå§ãã¾ãã",
         "ISS_LIVE_PIP_SHARE_WHATSAPP_ERROR": "WhatsAppã§å±æã§ãã¾ããã§ãã",
         "ISS_LIVE_PIP_WHATSAPP_MESSAGE": "*{{title}}*\n\nISSã©ã¤ãï¼{{url}}",
-        "ISS_LIVE_PIP_WHATSAPP_PASTE_IMAGE": "ã¹ã¯ãªã¼ã³ã·ã§ãããã¯ãªãããã¼ãã«ã³ãã¼ãã¾ãããWhatsAppã§ç»åãè²¼ãä»ãã¦ãã ããã",
+        "ISS_LIVE_PIP_WHATSAPP_PASTE_IMAGE": "スクリーンショットをクリップボードにコピーしました。WhatsAppで画像を貼り付けてください。",
+        "SHARE_WHATSAPP": "WhatsApp",
+        "SHARE_WHATSAPP_HINT": "地球儀のスクリーンショットとPatToolでこの表示を開くリンクを共有します。",
+        "SHARE_WHATSAPP_OK": "WhatsApp共有を開始しました",
+        "SHARE_WHATSAPP_ERROR": "WhatsAppで共有できませんでした",
+        "WHATSAPP_MESSAGE": "*{{title}}*\n\n{{coords}}{{url}}",
+        "WHATSAPP_COORDS": "表示: {{lat}}°, {{lon}}°\n\n",
         "ISS_KEEP_EARTH_CENTERED": "Keep globe centered on ISS",
         "ISS_KEEP_EARTH_CENTERED_HINT": "Recenters the view on the ISS ground track each frame (your zoom is kept). Temporarily disables slow auto-rotate while active. Drag with the left mouse button to orbit freely in 3D; toggle this option off and on again or use Reset view to resume tracking.",
         "BORDERS_ATTRIBUTION": "Natural Earth Â· public domain boundaries (110m)",

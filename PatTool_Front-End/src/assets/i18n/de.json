@@ -735,6 +735,12 @@
         "ISS_LIVE_PIP_WHATSAPP_MESSAGE": "*{{title}}*\n\nISS-Livestream: {{url}}",
 
         "ISS_LIVE_PIP_WHATSAPP_PASTE_IMAGE": "Screenshot in Zwischenablage kopiert ? Bild in WhatsApp einf?gen (Strg+V).",
+        "SHARE_WHATSAPP": "WhatsApp",
+        "SHARE_WHATSAPP_HINT": "Screenshot der aktuellen Globusansicht und Link zum erneuten Öffnen in PatTool teilen.",
+        "SHARE_WHATSAPP_OK": "WhatsApp-Freigabe gestartet",
+        "SHARE_WHATSAPP_ERROR": "Freigabe über WhatsApp nicht möglich",
+        "WHATSAPP_MESSAGE": "*{{title}}*\n\n{{coords}}{{url}}",
+        "WHATSAPP_COORDS": "Ansicht: {{lat}}°, {{lon}}°\n\n",
 
         "ISS_POLL_INTERVAL_LABEL": "ISS-Aktualisierungsintervall (Sekunden)",
 

@@ -854,6 +854,23 @@
           [attr.aria-label]="'WORLD_GLOBE.ISS_COMPASS_OPEN' | translate">
           <i class="fa fa-location-arrow me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_COMPASS_OPEN_SHORT' | translate }}
         </button>
+        <button
+          type="button"
+          class="btn btn-outline-success btn-sm py-0 wg-btn wg-btn-wa"
+          (click)="shareGlobeOnWhatsApp()"
+          [disabled]="!globeSurfaceReady || globeImageBusy != null"
+          [attr.title]="'WORLD_GLOBE.SHARE_WHATSAPP_HINT' | translate"
+          [attr.aria-label]="'WORLD_GLOBE.SHARE_WHATSAPP' | translate">
+          <i
+            class="fa"
+            aria-hidden="true"
+            [class.fa-spinner]="globeImageBusy === 'whatsapp'"
+            [class.fa-spin]="globeImageBusy === 'whatsapp'"
+            [class.fa-check]="globeWhatsAppFlash === true"
+            [class.fa-times]="globeWhatsAppFlash === false"
+            [class.fa-whatsapp]="globeImageBusy !== 'whatsapp' && globeWhatsAppFlash == null"></i>
+          <span class="ms-1">{{ 'WORLD_GLOBE.SHARE_WHATSAPP' | translate }}</span>
+        </button>
       </div>
 
       <div class="wg-coords font-monospace" *ngIf="globePickedLat != null && globePickedLon != null">

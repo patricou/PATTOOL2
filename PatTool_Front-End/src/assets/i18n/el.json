@@ -361,7 +361,13 @@
         "ISS_LIVE_PIP_SHARE_WHATSAPP_OK": "Î ÎºÎ¿Î¹Î½Î¿ÏÎ¿Î¯Î·ÏÎ· WhatsApp Î¾ÎµÎºÎ¯Î½Î·ÏÎµ",
         "ISS_LIVE_PIP_SHARE_WHATSAPP_ERROR": "ÎÏÎ¿ÏÏÏÎ¯Î± ÎºÎ¿Î¹Î½Î¿ÏÎ¿Î¯Î·ÏÎ·Ï ÏÏÎ¿ WhatsApp",
         "ISS_LIVE_PIP_WHATSAPP_MESSAGE": "*{{title}}*\n\nÎÏÎ½ÏÎ±Î½Î® ÏÎ¿Î® ISS: {{url}}",
-        "ISS_LIVE_PIP_WHATSAPP_PASTE_IMAGE": "Î¤Î¿ ÏÏÎ¹Î³Î¼Î¹ÏÏÏÏÎ¿ Î±Î½ÏÎ¹Î³ÏÎ¬ÏÎ·ÎºÎµ ÏÏÎ¿ ÏÏÏÏÎµÎ¹ÏÎ¿ â ÎµÏÎ¹ÎºÎ¿Î»Î»Î®ÏÏÎµ ÏÎ·Î½ ÎµÎ¹ÎºÏÎ½Î± ÏÏÎ¿ WhatsApp.",
+        "ISS_LIVE_PIP_WHATSAPP_PASTE_IMAGE": "Το στιγμιότυπο αντιγράφηκε στο πρόχειρο — επικολλήστε την εικόνα στο WhatsApp.",
+        "SHARE_WHATSAPP": "WhatsApp",
+        "SHARE_WHATSAPP_HINT": "Κοινοποιήστε στιγμιότυπο της υδρογείου και σύνδεσμο για άνοιγμα αυτής της προβολής στο PatTool.",
+        "SHARE_WHATSAPP_OK": "Η κοινοποίηση WhatsApp ξεκίνησε",
+        "SHARE_WHATSAPP_ERROR": "Αποτυχία κοινοποίησης στο WhatsApp",
+        "WHATSAPP_MESSAGE": "*{{title}}*\n\n{{coords}}{{url}}",
+        "WHATSAPP_COORDS": "Προβολή: {{lat}}°, {{lon}}°\n\n",
         "ISS_KEEP_EARTH_CENTERED": "Keep globe centered on ISS",
         "ISS_KEEP_EARTH_CENTERED_HINT": "Recenters the view on the ISS ground track each frame (your zoom is kept). Temporarily disables slow auto-rotate while active. Drag with the left mouse button to orbit freely in 3D; toggle this option off and on again or use Reset view to resume tracking.",
         "BORDERS_ATTRIBUTION": "Natural Earth Â· public domain boundaries (110m)",

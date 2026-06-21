@@ -692,15 +692,39 @@
           *ngIf="pickKey && isAssistantHelpModelPickActionable(pickKey)"
           type="button"
           class="pat-assistant-rank-pick pat-assistant-rank-pick-btn"
+          [ngStyle]="assistantHelpModelPickChipVarsFromPickKey(pickKey)"
           (click)="applyAssistantModelPickFromHelp(pickKey)"
           [title]="'ASSISTANT.TOOLS_HELP_PICK_MODEL_BTN' | translate"
-          [attr.aria-label]="('ASSISTANT.TOOLS_HELP_PICK_MODEL_BTN' | translate) + ': ' + (pickKey | translate)">
-          {{ pickKey | translate }}
+          [attr.aria-label]="
+            ('ASSISTANT.TOOLS_HELP_PICK_MODEL_BTN' | translate) +
+            ': ' +
+            assistantHelpModelPickAriaPrefixFromPickKey(pickKey) +
+            (pickKey | translate)
+          ">
+          <span class="pat-assistant-model-pick-chip">
+            <i class="fa fa-hand-pointer-o" aria-hidden="true"></i>
+            <span class="pat-assistant-model-pick-label">
+              <span
+                *ngIf="assistantHelpModelProviderLabelKeyFromPickKey(pickKey) as providerLabelKey"
+                class="pat-assistant-model-pick-provider">
+                {{ providerLabelKey | translate }}
+              </span>
+              <span class="pat-assistant-model-pick-name">{{ pickKey | translate }}</span>
+            </span>
+          </span>
         </button>
         <span
           *ngIf="pickKey && !isAssistantHelpModelPickActionable(pickKey)"
-          class="pat-assistant-rank-pick pat-assistant-rank-pick--static">
-          {{ pickKey | translate }}
+          class="pat-assistant-rank-pick pat-assistant-rank-pick--static"
+          [ngStyle]="assistantHelpModelPickChipVarsFromPickKey(pickKey)">
+          <span class="pat-assistant-model-pick-label">
+            <span
+              *ngIf="assistantHelpModelProviderLabelKeyFromPickKey(pickKey) as providerLabelKey"
+              class="pat-assistant-model-pick-provider">
+              {{ providerLabelKey | translate }}
+            </span>
+            <span class="pat-assistant-model-pick-name">{{ pickKey | translate }}</span>
+          </span>
         </span>
         <span *ngIf="!pickKey" class="pat-assistant-rank-empty">—</span>
       </ng-template>
@@ -873,17 +897,29 @@
                 <button
                   type="button"
                   class="pat-assistant-help-model-select-btn"
+                  [ngStyle]="assistantHelpModelPickChipVars(section.sectionId, row.apiModelId)"
                   (click)="applyAssistantModelPickFromHelpProvider(section.sectionId, row.apiModelId)"
                   [title]="'ASSISTANT.TOOLS_HELP_PICK_MODEL_BTN' | translate"
                   [attr.aria-label]="
                     ('ASSISTANT.TOOLS_HELP_PICK_MODEL_BTN' | translate) +
                     ': ' +
+                    assistantHelpModelPickAriaPrefix(section.sectionId) +
                     (row.modelNameKey | translate) +
                     ' (' +
                     row.apiModelId +
                     ')'
                   ">
-                  {{ row.modelNameKey | translate }}
+                  <span class="pat-assistant-model-pick-chip">
+                    <i class="fa fa-hand-pointer-o" aria-hidden="true"></i>
+                    <span class="pat-assistant-model-pick-label">
+                      <span
+                        *ngIf="assistantHelpModelProviderLabelKey(section.sectionId) as providerLabelKey"
+                        class="pat-assistant-model-pick-provider">
+                        {{ providerLabelKey | translate }}
+                      </span>
+                      <span class="pat-assistant-model-pick-name">{{ row.modelNameKey | translate }}</span>
+                    </span>
+                  </span>
                 </button>
                 <span *ngIf="row.badgeKey" class="badge pat-assistant-tools-help-model-badge ms-1 align-middle">
                   {{ row.badgeKey | translate }}
@@ -893,12 +929,26 @@
                 <button
                   type="button"
                   class="pat-assistant-help-model-select-btn pat-assistant-help-model-select-btn--id"
+                  [ngStyle]="assistantHelpModelPickChipVars(section.sectionId, row.apiModelId)"
                   (click)="applyAssistantModelPickFromHelpProvider(section.sectionId, row.apiModelId)"
                   [title]="'ASSISTANT.TOOLS_HELP_PICK_MODEL_BTN' | translate"
                   [attr.aria-label]="
-                    ('ASSISTANT.TOOLS_HELP_PICK_MODEL_BTN' | translate) + ': ' + row.apiModelId
+                    ('ASSISTANT.TOOLS_HELP_PICK_MODEL_BTN' | translate) +
+                    ': ' +
+                    assistantHelpModelPickAriaPrefix(section.sectionId) +
+                    row.apiModelId
                   ">
-                  {{ row.apiModelId }}
+                  <span class="pat-assistant-model-pick-chip pat-assistant-model-pick-chip--id">
+                    <i class="fa fa-code" aria-hidden="true"></i>
+                    <span class="pat-assistant-model-pick-label">
+                      <span
+                        *ngIf="assistantHelpModelProviderLabelKey(section.sectionId) as providerLabelKey"
+                        class="pat-assistant-model-pick-provider">
+                        {{ providerLabelKey | translate }}
+                      </span>
+                      <span class="pat-assistant-model-pick-name pat-assistant-model-pick-name--id">{{ row.apiModelId }}</span>
+                    </span>
+                  </span>
                 </button>
               </td>
               <td class="pat-assistant-tools-help-role-td small">

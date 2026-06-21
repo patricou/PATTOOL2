@@ -3148,8 +3148,32 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     getWallShareEventUrl(): string {
         const g = this.shareWallContextGroup;
         if (!g?.eventId) return '';
-        const id = encodeURIComponent(g.eventId.trim());
-        return `${window.location.origin}/#/photos?eventId=${id}`;
+        return this.buildPhotoWallDeepLink(g.eventId);
+    }
+
+    /** URL sans hash (#) pour que WhatsApp détecte un lien cliquable (cf. todolist-link.html). */
+    private buildPhotoWallDeepLink(eventId: string): string {
+        const u = new URL(window.location.href);
+        let path = u.pathname || '/';
+        if (path.length > 1 && path.endsWith('/')) {
+            path = path.slice(0, -1);
+        }
+        const marker = '/assets/photos-link.html';
+        const at = path.indexOf(marker);
+        let basePath: string;
+        if (at >= 0) {
+            basePath = path.substring(0, at);
+        } else if (path === '/') {
+            basePath = '';
+        } else if (path.endsWith('/index.html')) {
+            basePath = path.slice(0, -'/index.html'.length);
+            if (basePath === '/') {
+                basePath = '';
+            }
+        } else {
+            basePath = path;
+        }
+        return `${u.origin}${basePath}/assets/photos-link.html?eventId=${encodeURIComponent(eventId.trim())}`;
     }
 
     getWallShareMainImageUrl(): SafeUrl {
