@@ -3821,6 +3821,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.globeSharePreservePresentation = true;
     }
     this.cdr.markForCheck();
+    const restoreCaptureLayout = await this.prepareGlobeShareCaptureLayout();
     try {
       const host = this.globeCanvasHost?.nativeElement;
       let blob: Blob | null = null;
@@ -3834,7 +3835,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         blob = await this.captureGlobeShareMobileWithStream(host);
       }
       if (!blob) {
-        blob = await this.captureGlobeShareToPngBlob();
+        blob = await this.captureGlobeShareToPngBlob(mobileIss);
       }
       if (!blob) {
         this.showGlobeShareError(this.translate.instant('WORLD_GLOBE.SHARE_WHATSAPP_ERROR'));
@@ -3849,10 +3850,55 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.showGlobeShareError(this.translate.instant('WORLD_GLOBE.SHARE_WHATSAPP_ERROR'));
       this.flashGlobeWhatsAppFeedback(false);
     } finally {
+      restoreCaptureLayout();
       this.globeImageBusy = null;
       this.globeSharePreservePresentation = false;
       this.cdr.markForCheck();
     }
+  }
+
+  /**
+   * Avant capture partage : réactive les deux flux ISS, déplie le dock mobile et réduit la scène
+   * pour que globe + vues ISS tiennent dans le viewport (évite les zones hors écran).
+   */
+  private async prepareGlobeShareCaptureLayout(): Promise<() => void> {
+    const restores: Array<() => void> = [];
+    let issPanelsToggled = false;
+    if (!this.issLiveEmbedEnabled) {
+      this.issLiveEmbedEnabled = true;
+      issPanelsToggled = true;
+    }
+    if (!this.issLiveHdEmbedEnabled) {
+      this.issLiveHdEmbedEnabled = true;
+      issPanelsToggled = true;
+    }
+    if (issPanelsToggled) {
+      this.cdr.markForCheck();
+      this.cdr.detectChanges();
+      queueMicrotask(() => this.refreshIssLivePiPPanelsLayout());
+    }
+
+    const stage = this.getGlobeStageElement();
+    if (stage && this.isGlobeShareIssVisible()) {
+      const dock = stage.querySelector<HTMLElement>('.wg-iss-pip-dock:not(.wg-iss-pip-dock--fs-split)');
+      if (dock) {
+        dock.scrollTop = 0;
+        restores.push(this.applyGlobeShareExpandedIssDockStyles(dock));
+      }
+      window.scrollTo(0, 0);
+      stage.scrollIntoView({ block: 'start', inline: 'nearest' });
+      if (this.globeShareUseMobileCaptureFlow()) {
+        restores.push(this.hideGlobeShareCaptureUi(stage));
+        restores.push(this.applyGlobeShareViewportFitScale(stage));
+      }
+    }
+
+    await this.waitForGlobeShareCaptureSettle(this.globeShareUseMobileCaptureFlow() ? 280 : 120);
+    return () => {
+      for (let i = restores.length - 1; i >= 0; i--) {
+        restores[i]();
+      }
+    };
   }
 
   private openGlobeSharePreview(blob: Blob): void {
@@ -3996,13 +4042,13 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /** Capture d'écran réelle (onglet) : globe + colonne / fenêtres ISS live visibles. */
-  private async captureGlobeShareToPngBlob(): Promise<Blob | null> {
+  private async captureGlobeShareToPngBlob(skipDisplayMedia = false): Promise<Blob | null> {
     const host = this.globeCanvasHost?.nativeElement;
     if (!host || host.clientWidth < 2 || host.clientHeight < 2) {
       return null;
     }
 
-    if (typeof navigator.mediaDevices?.getDisplayMedia === 'function') {
+    if (!skipDisplayMedia && typeof navigator.mediaDevices?.getDisplayMedia === 'function') {
       try {
         const captured = await this.withTimeout(this.captureGlobeDisplayScreenshot(host), 30_000);
         if (captured) {
@@ -4026,10 +4072,6 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
    * globe WebGL + captures ISS depuis le même flux vidéo.
    */
   private async captureGlobeShareMobileWithStream(host: HTMLElement): Promise<Blob | null> {
-    const stage = this.getGlobeStageElement();
-    const dock = stage?.querySelector<HTMLElement>('.wg-iss-pip-dock:not(.wg-iss-pip-dock--fs-split)');
-    const restoreDock = dock ? this.applyGlobeShareExpandedIssDockStyles(dock) : () => undefined;
-
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia(
         this.buildGlobeShareDisplayMediaOptions(true)
@@ -4043,8 +4085,11 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       } finally {
         stream.getTracks().forEach((t) => t.stop());
       }
-    } finally {
-      restoreDock();
+    } catch (err: unknown) {
+      if (WorldGlobeComponent.isGlobeShareUserCancel(err)) {
+        throw err;
+      }
+      return null;
     }
   }
 
@@ -4110,27 +4155,20 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         this.scrollIssVideoFrameForCapture(issLayer.frame);
         await this.waitForGlobeShareCaptureSettle(900);
 
-        const liveRect = issLayer.frame.getBoundingClientRect();
-        if (liveRect.width < 8 || liveRect.height < 8) {
-          continue;
-        }
-
-        const painted = await this.paintGlobeShareViewportRegion(
-          ctx,
-          track,
-          liveRect,
-          issLayer.x,
-          issLayer.y,
-          issLayer.w,
-          issLayer.h,
-          grabMs
-        );
-        if (painted) {
+        if (await this.paintIssShareFrameOntoCanvas(ctx, issLayer, track, grabMs)) {
           issCaptured += 1;
         }
       }
     } finally {
       restoreScroll();
+    }
+
+    if (issCaptured === 0 && layout.issFrames.length > 0) {
+      for (const issLayer of layout.issFrames) {
+        if (await this.paintIssShareFrameOntoCanvas(ctx, issLayer)) {
+          issCaptured += 1;
+        }
+      }
     }
 
     if (issCaptured === 0) {
@@ -4195,39 +4233,68 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Repli mobile : globe WebGL dans la zone partagée (ISS live absent si capture écran impossible).
+   * Repli mobile : globe WebGL + vignettes des flux ISS (iframes souvent non capturables).
    */
   private async captureGlobeShareCanvasComposite(host: HTMLElement): Promise<Blob | null> {
-    const cropRect = this.resolveGlobeShareCaptureRect(host);
-    if (cropRect.width < 2 || cropRect.height < 2) {
-      return null;
+    const layout = this.resolveGlobeShareLayerLayout(host);
+    if (!layout) {
+      const cropRect = this.resolveGlobeShareCaptureRect(host);
+      if (cropRect.width < 2 || cropRect.height < 2) {
+        return null;
+      }
+      const w = Math.max(1, Math.round(cropRect.width));
+      const h = Math.max(1, Math.round(cropRect.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        return null;
+      }
+      ctx.fillStyle = '#020508';
+      ctx.fillRect(0, 0, w, h);
+      if (this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
+        const globeCanvas = this.renderer.domElement;
+        const globeRect = globeCanvas.getBoundingClientRect();
+        if (globeRect.width >= 1 && globeRect.height >= 1) {
+          ctx.drawImage(
+            globeCanvas,
+            globeRect.left - cropRect.left,
+            globeRect.top - cropRect.top,
+            globeRect.width,
+            globeRect.height
+          );
+        }
+      }
+      return new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((b) => resolve(b), 'image/png');
+      });
     }
 
-    const w = Math.max(1, Math.round(cropRect.width));
-    const h = Math.max(1, Math.round(cropRect.height));
     const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
+    canvas.width = layout.width;
+    canvas.height = layout.height;
     const ctx = canvas.getContext('2d');
     if (!ctx) {
       return null;
     }
     ctx.fillStyle = '#020508';
-    ctx.fillRect(0, 0, w, h);
+    ctx.fillRect(0, 0, layout.width, layout.height);
 
     if (this.renderer && this.scene && this.camera) {
       this.renderer.render(this.scene, this.camera);
-      const globeCanvas = this.renderer.domElement;
-      const globeRect = globeCanvas.getBoundingClientRect();
-      if (globeRect.width >= 1 && globeRect.height >= 1) {
-        ctx.drawImage(
-          globeCanvas,
-          globeRect.left - cropRect.left,
-          globeRect.top - cropRect.top,
-          globeRect.width,
-          globeRect.height
-        );
-      }
+      ctx.drawImage(
+        this.renderer.domElement,
+        layout.globe.x,
+        layout.globe.y,
+        layout.globe.w,
+        layout.globe.h
+      );
+    }
+
+    for (const issLayer of layout.issFrames) {
+      await this.paintIssShareFrameOntoCanvas(ctx, issLayer);
     }
 
     return new Promise<Blob | null>((resolve) => {
@@ -4539,27 +4606,20 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         this.scrollIssVideoFrameForCapture(iss.frame);
         await this.waitForGlobeShareCaptureSettle(1100);
 
-        const liveRect = iss.frame.getBoundingClientRect();
-        if (liveRect.width < 8 || liveRect.height < 8) {
-          continue;
-        }
-
-        const painted = await this.paintGlobeShareViewportRegion(
-          ctx,
-          track,
-          liveRect,
-          iss.x,
-          iss.y,
-          iss.w,
-          iss.h,
-          grabMs
-        );
-        if (painted) {
+        if (await this.paintIssShareFrameOntoCanvas(ctx, iss, track, grabMs)) {
           capturedIss += 1;
         }
       }
     } finally {
       restoreScroll();
+    }
+
+    if (capturedIss === 0 && layout.issFrames.length > 0) {
+      for (const iss of layout.issFrames) {
+        if (await this.paintIssShareFrameOntoCanvas(ctx, iss)) {
+          capturedIss += 1;
+        }
+      }
     }
 
     if (capturedIss === 0) {
@@ -4618,11 +4678,103 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     return true;
   }
 
+  private async paintIssShareFrameOntoCanvas(
+    ctx: CanvasRenderingContext2D,
+    iss: {
+      frame: HTMLElement;
+      variant: 'standard' | 'hd';
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+    },
+    track?: MediaStreamTrack,
+    grabMs = 14_000
+  ): Promise<boolean> {
+    if (track) {
+      const liveRect = iss.frame.getBoundingClientRect();
+      if (liveRect.width >= 8 && liveRect.height >= 8) {
+        const painted = await this.paintGlobeShareViewportRegion(
+          ctx,
+          track,
+          liveRect,
+          iss.x,
+          iss.y,
+          iss.w,
+          iss.h,
+          grabMs
+        );
+        if (painted) {
+          return true;
+        }
+      }
+    }
+    const videoId =
+      iss.variant === 'standard' ? ISS_LIVE_YOUTUBE_VIDEO_ID : ISS_LIVE_HD_YOUTUBE_VIDEO_ID;
+    return this.paintIssPiPThumbnailOntoCanvas(ctx, iss.x, iss.y, iss.w, iss.h, videoId);
+  }
+
+  /** Vignette YouTube du flux ISS (repli quand l’iframe n’apparaît pas dans la capture d’écran mobile). */
+  private async paintIssPiPThumbnailOntoCanvas(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    videoId: string
+  ): Promise<boolean> {
+    const thumbUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    let thumb = await this.loadIssPiPCaptureImage(thumbUrl);
+    if (!thumb) {
+      thumb = await this.loadIssPiPCaptureImage(`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`);
+    }
+    if (!thumb) {
+      return false;
+    }
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+    ctx.fillStyle = '#000';
+    ctx.fillRect(x, y, w, h);
+    this.drawIssPiPImageCoverInRect(ctx, thumb, x, y, w, h);
+    ctx.restore();
+    return true;
+  }
+
+  private drawIssPiPImageCoverInRect(
+    ctx: CanvasRenderingContext2D,
+    img: HTMLImageElement,
+    x: number,
+    y: number,
+    w: number,
+    h: number
+  ): void {
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    if (iw < 1 || ih < 1) {
+      return;
+    }
+    const scale = Math.max(w / iw, h / ih);
+    const dw = iw * scale;
+    const dh = ih * scale;
+    const dx = x + (w - dw) / 2;
+    const dy = y + (h - dh) / 2;
+    ctx.drawImage(img, dx, dy, dw, dh);
+  }
+
   private resolveGlobeShareLayerLayout(host: HTMLElement): {
     width: number;
     height: number;
     globe: { x: number; y: number; w: number; h: number };
-    issFrames: Array<{ frame: HTMLElement; x: number; y: number; w: number; h: number }>;
+    issFrames: Array<{
+      frame: HTMLElement;
+      variant: 'standard' | 'hd';
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+    }>;
   } | null {
     const stage = this.getGlobeStageElement();
     if (!stage) {
@@ -4634,7 +4786,14 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       return null;
     }
 
-    const issFrames: Array<{ frame: HTMLElement; x: number; y: number; w: number; h: number }> = [];
+    const issFrames: Array<{
+      frame: HTMLElement;
+      variant: 'standard' | 'hd';
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+    }> = [];
     for (const panel of this.listIssSharePanels()) {
       const capture = this.resolveIssPiPCapture(panel.variant);
       if (!capture) {
@@ -4644,7 +4803,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       if (rel.w < 8 || rel.h < 8) {
         continue;
       }
-      issFrames.push({ frame: capture.frame, ...rel });
+      issFrames.push({ frame: capture.frame, variant: panel.variant, ...rel });
     }
     if (issFrames.length === 0) {
       return null;
