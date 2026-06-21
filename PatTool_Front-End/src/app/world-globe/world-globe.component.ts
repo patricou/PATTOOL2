@@ -211,7 +211,9 @@ const GLOBE_ISS_POLL_MAX_SEC = 600;
 const GLOBE_ISS_OVER_MIN_INTERVAL_MS = 9000;
 const GLOBE_ISS_OVER_MIN_MOVE_DEG = 0.25;
 /** Demi-vie du recadrage caméra vers l’ISS (mode « centré sur l’ISS ») ; mouvement fluide, peu dépendant du framerate. */
-const GLOBE_ISS_CAMERA_CENTER_HALF_LIFE_SEC = 0.34;
+const GLOBE_ISS_CAMERA_CENTER_HALF_LIFE_SEC = 0.26;
+/** Au-delà de cet écart angulaire (rad), le recadrage ISS accélère pour rattraper le sous-point. */
+const GLOBE_ISS_CAMERA_CENTER_ERROR_BOOST_REF_RAD = 0.055;
 
 /* --- Flight tracking (OpenSky Network) --- */
 /** Fallback globe radius for the aircraft marker when altitude is unknown (just above the surface). */
@@ -2502,8 +2504,6 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     dtSec = THREE.MathUtils.clamp(dtSec, 1 / 240, 0.08);
     this.issCameraCenterSmoothPrevMs = now;
 
-    const blend = 1 - Math.pow(0.5, dtSec / GLOBE_ISS_CAMERA_CENTER_HALF_LIFE_SEC);
-
     const curLenSq = camera.position.lengthSq();
     if (curLenSq < 1e-12) {
       camera.position.copy(endPos);
@@ -2514,6 +2514,13 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       if (dot > 1 - 1e-6) {
         camera.position.copy(endPos);
       } else {
+        const angularErrorRad = Math.acos(dot);
+        const errorBoost = THREE.MathUtils.clamp(
+          angularErrorRad / GLOBE_ISS_CAMERA_CENTER_ERROR_BOOST_REF_RAD,
+          1,
+          5
+        );
+        const blend = 1 - Math.pow(0.5, dtSec / (GLOBE_ISS_CAMERA_CENTER_HALF_LIFE_SEC / errorBoost));
         WorldGlobeComponent.slerpUnitVectors(
           this.issCameraCenterDirA,
           this.issCameraCenterDirB,
@@ -2527,6 +2534,31 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     controls.target.set(0, 0, 0);
     camera.up.set(0, 1, 0);
     controls.update();
+  }
+
+  /**
+   * Position ISS utilisée par la boucle Three.js : mise à jour immédiate (pas via CDR différé),
+   * pour que le recentrage caméra suive chaque déplacement sans décalage sur le marqueur.
+   */
+  private commitGlobeIssPosition(lat: number, lon: number): void {
+    const moved =
+      this.globeIssLat == null ||
+      this.globeIssLon == null ||
+      Math.abs(this.globeIssLat - lat) > 1e-9 ||
+      Math.abs(this.globeIssLon - lon) > 1e-9;
+    this.globeIssLat = lat;
+    this.globeIssLon = lon;
+    if (!moved) {
+      return;
+    }
+    this.issCameraCenterSmoothPrevMs = 0;
+    if (
+      this.isIssEarthCenteredTrackingActive() &&
+      !this.issGlobeFreeOrbit &&
+      this.globeCameraAnimFrameId == null
+    ) {
+      this.applyIssEarthCenteredCameraIfNeeded();
+    }
   }
 
   private isFlightEarthCenteredTrackingActive(): boolean {
@@ -5769,9 +5801,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.applyInitialIssCameraCenterIfNeeded(lat, lon, instantCamera);
     this.syncIssOverlayFromSnapshot(snap);
+    this.commitGlobeIssPosition(lat, lon);
     this.scheduleWorldGlobeCdr(() => {
-      this.globeIssLat = lat;
-      this.globeIssLon = lon;
       if (snap.altKm != null) {
         this.globeIssAltKm = snap.altKm;
       }
@@ -8155,9 +8186,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       const flightEarthCentered = this.isFlightEarthCenteredTrackingActive();
       const issEarthCentered = this.isIssEarthCenteredTrackingActive();
       controls.update();
-      if (flightEarthCentered && !this.flightGlobeFreeOrbit && this.isGlobeOrbitIdle(controls)) {
+      if (flightEarthCentered && !this.flightGlobeFreeOrbit) {
         this.applyFlightEarthCenteredCameraIfNeeded();
-      } else       if (issEarthCentered && !this.issGlobeFreeOrbit && this.isGlobeOrbitIdle(controls)) {
+      } else if (issEarthCentered && !this.issGlobeFreeOrbit) {
         this.applyIssEarthCenteredCameraIfNeeded();
       }
       this.syncIssForecastTrailGeometryIfDirty();
@@ -8408,8 +8439,6 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
       const overlayFailed = false;
       this.scheduleWorldGlobeCdr(() => {
-        this.globeIssLat = lat;
-        this.globeIssLon = lon;
         this.globeIssAltKm = altKm;
         this.issGroundSpeedKmh = groundSpeedKmh;
         this.issLastStepGroundKm = lastStepGroundKm;
