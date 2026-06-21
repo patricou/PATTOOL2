@@ -1,4 +1,4 @@
-﻿{
+{
     "LANGUAGE": {
         "FR": "Francese",
         "EN": "Inglese",
@@ -1657,6 +1657,7 @@
         "TYPE.FAMILY": "Famiglia",
         "TYPE.CINEMA": "Cinema",
         "TYPE.MUSIQUE": "Musica",
+        "TYPE.CUISINE": "Ricetta di Cucina",
         "ISSUEDETAIL": "Problema durante il salvataggio dell'Attivit:",
         "ISSUEDELDETAIL": "Problema durante l'eliminazione dell'Attivit:",
         "VISIBILITY": "Visibilit",

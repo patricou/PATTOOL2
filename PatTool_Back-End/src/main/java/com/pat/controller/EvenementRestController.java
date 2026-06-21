@@ -1235,6 +1235,8 @@ public class EvenementRestController {
                 "18", "CINEMA", "CINÉMA", "EVENTCREATION.TYPE.CINEMA");
         registerType("19", new String[]{"music", "musique", "musiques", "musiquem", "musica", "musik", "concert", "музыка", "音楽", "音乐"},
                 "19", "MUSIQUE", "MUSIC", "EVENTCREATION.TYPE.MUSIQUE");
+        registerType("20", new String[]{"recette", "recette de cuisine", "cuisine", "cooking recipe", "recipe", "receta", "cocina", "receta de cocina", "kochrezept", "kochen", "rezept", "ricetta", "cucina", "ricetta di cucina", "طبخ", "وصفة", "食谱", "烹饪", "рецепт", "кулинария", "レシピ", "料理", "מתכון", "בישול", "συνταγή", "μαγειρική", "खाना", "पकाना"},
+                "20", "CUISINE", "RECETTE", "EVENTCREATION.TYPE.CUISINE");
     }
     
     private static void registerType(String canonicalKey, String[] keywords, String... aliases) {

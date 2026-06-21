@@ -1727,6 +1727,7 @@
         "TYPE.FAMILY": "Famille",
         "TYPE.CINEMA": "Cinéma",
         "TYPE.MUSIQUE": "Musique",
+        "TYPE.CUISINE": "Recette de Cuisine",
         "ISSUE": "Probleme",
         "ISSUEDETAIL": "Probléme en voulant enregistrer l'Activité : ",
         "ISSUEDELDETAIL": "Probléme en voulant supprimer l'Activité : ",

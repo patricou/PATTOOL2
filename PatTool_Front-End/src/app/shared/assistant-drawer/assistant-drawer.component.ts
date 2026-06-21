@@ -256,7 +256,7 @@ export class AssistantDrawerComponent
    */
   insertImageEventsTypeFilter = '';
   /**
-   * Options du filtre par type d'activité — IDs numériques (1..19) mappés vers les
+   * Options du filtre par type d'activité — IDs numériques (1..20) mappés vers les
    * mêmes clés i18n `EVENTCREATION.TYPE.*` que celles utilisées dans la création
    * et la mise à jour d'un évènement, pour rester cohérent avec le reste de l'UI.
    */
@@ -279,7 +279,8 @@ export class AssistantDrawerComponent
     { value: '16', labelKey: 'EVENTCREATION.TYPE.WORK' },
     { value: '17', labelKey: 'EVENTCREATION.TYPE.FAMILY' },
     { value: '18', labelKey: 'EVENTCREATION.TYPE.CINEMA' },
-    { value: '19', labelKey: 'EVENTCREATION.TYPE.MUSIQUE' }
+    { value: '19', labelKey: 'EVENTCREATION.TYPE.MUSIQUE' },
+    { value: '20', labelKey: 'EVENTCREATION.TYPE.CUISINE' }
   ];
   insertImageEventsLoading = false;
   insertImageEventsError = false;

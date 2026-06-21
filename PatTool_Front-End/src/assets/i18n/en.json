@@ -2195,6 +2195,7 @@
         "TYPE.FAMILY": "Family",
         "TYPE.CINEMA": "Cinema",
         "TYPE.MUSIQUE": "Music",
+        "TYPE.CUISINE": "Cooking Recipe",
         "ISSUEDETAIL": "Issue when save the evenement :",
         "ISSUEDELDETAIL": "Issue when deleting the evenement :",
         "VISIBILITY": "Visibilty",

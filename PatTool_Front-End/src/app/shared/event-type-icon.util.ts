@@ -1,5 +1,5 @@
 /**
- * Icônes Font Awesome 4.7 pour le type d’activité (codes `evenement.type` "1"…"19" ou libellés).
+ * Icônes Font Awesome 4.7 pour le type d’activité (codes `evenement.type` "1"…"20" ou libellés).
  * Retourne uniquement la classe de glyphe (ex. `fa-compass`) à combiner avec `class="fa"` sur un `<i>`.
  */
 export function getEventTypeFaIconSuffix(type: string | number | undefined | null): string {
@@ -26,7 +26,8 @@ export function getEventTypeFaIconSuffix(type: string | number | undefined | nul
         '16': 'fa-briefcase',
         '17': 'fa-home',
         '18': 'fa-film',
-        '19': 'fa-music'
+        '19': 'fa-music',
+        '20': 'fa-cutlery'
     };
     if (byId[raw]) {
         return byId[raw];
@@ -67,7 +68,10 @@ export function getEventTypeFaIconSuffix(type: string | number | undefined | nul
         famille: 'fa-home',
         fiche: 'fa-file-text-o',
         cinema: 'fa-film',
-        musique: 'fa-music'
+        musique: 'fa-music',
+        recette: 'fa-cutlery',
+        cuisine: 'fa-cutlery',
+        recipe: 'fa-cutlery'
     };
     return aliases[norm] || 'fa-thumb-tack';
 }

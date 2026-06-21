@@ -3648,8 +3648,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       }
       this.openGlobeSharePreview(blob);
     } catch (err: unknown) {
-      const name = err instanceof DOMException || err instanceof Error ? err.name : '';
-      if (name === 'NotAllowedError' || name === 'AbortError') {
+      if (WorldGlobeComponent.isGlobeShareUserCancel(err)) {
         return;
       }
       this.showGlobeShareError(this.translate.instant('WORLD_GLOBE.SHARE_WHATSAPP_ERROR'));
@@ -3697,8 +3696,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Comme l’assistant : Web Share ({@code files}) sur mobile, presse-papiers image sur bureau
-   * (sur Windows, {@link navigator.share} avec fichiers reste souvent bloqué sans menu).
+   * Comme l’assistant / PiP ISS : Web Share ({@code files}) sur mobile sans timeout,
+   * presse-papiers image sur bureau (Windows : {@link navigator.share} avec fichiers souvent bloqué).
    */
   async confirmGlobeWhatsAppShare(): Promise<void> {
     const blob = this.globeSharePreviewBlob;
@@ -3710,37 +3709,39 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
     try {
       const title = this.translate.instant('WORLD_GLOBE.TITLE');
-      const file = new File([blob], 'world-globe.png', { type: 'image/png' });
-      const nav = navigator as Navigator & {
-        share?: (data: ShareData) => Promise<void>;
-        canShare?: (data: ShareData) => boolean;
-      };
+      const file = new File([blob], 'world-globe.png', { type: 'image/png', lastModified: Date.now() });
 
-      if (this.globeSharePreferNativeFileShare() && typeof nav.share === 'function') {
-        const shareAttempts: ShareData[] = [{ title, files: [file] }, { title, text: title, files: [file] }];
-        for (const data of shareAttempts) {
-          if (nav.canShare && !nav.canShare(data)) {
-            continue;
-          }
-          const result = await this.shareGlobeCaptureWithTimeout(nav, data, 4000);
-          if (result === 'ok') {
-            this.flashGlobeWhatsAppFeedback(true);
-            this.closeGlobeSharePreview();
-            return;
-          }
-          if (result === 'abort') {
-            return;
-          }
+      if (this.globeSharePreferNativeFileShare()) {
+        const result = await this.shareGlobePngViaNativeShare(file, title);
+        if (result === 'ok') {
+          this.flashGlobeWhatsAppFeedback(true);
+          this.closeGlobeSharePreview();
+          return;
         }
+        if (result === 'abort') {
+          this.closeGlobeShareError();
+          return;
+        }
+        this.flashGlobeWhatsAppFeedback(false);
+        this.showGlobeShareError(this.translate.instant('WORLD_GLOBE.SHARE_WHATSAPP_ERROR'));
+        return;
       }
 
       const copied = await this.writeIssPiPPngToClipboard(blob);
       if (copied) {
+        this.closeGlobeShareError();
         this.globeSharePreviewPasteHint = true;
         this.flashGlobeWhatsAppFeedback(true);
         return;
       }
 
+      this.flashGlobeWhatsAppFeedback(false);
+      this.showGlobeShareError(this.translate.instant('WORLD_GLOBE.SHARE_WHATSAPP_ERROR'));
+    } catch (err: unknown) {
+      if (WorldGlobeComponent.isGlobeShareUserCancel(err)) {
+        this.closeGlobeShareError();
+        return;
+      }
       this.flashGlobeWhatsAppFeedback(false);
       this.showGlobeShareError(this.translate.instant('WORLD_GLOBE.SHARE_WHATSAPP_ERROR'));
     } finally {
@@ -3749,38 +3750,54 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  /** Mobile / tablette : menu Partager fiable ; bureau Windows : souvent bloqué avec fichiers. */
+  /** Mobile / tablette : menu Partager fiable ; bureau : presse-papiers. */
   private globeSharePreferNativeFileShare(): boolean {
-    return /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const ua = navigator.userAgent;
+    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)) {
+      return true;
+    }
+    // iPadOS 13+ se présente parfois comme MacIntel.
+    return navigator.maxTouchPoints > 1 && /Macintosh|MacIntel/i.test(ua);
   }
 
-  private shareGlobeCaptureWithTimeout(
-    nav: Navigator & { share?: (data: ShareData) => Promise<void> },
-    data: ShareData,
-    ms: number
+  /** Flux capture empilé (CSS) ou appareil tactile : composition ISS par calques. */
+  private globeShareUseMobileCaptureFlow(): boolean {
+    return this.globeSharePreferNativeFileShare() || this.isIssMobileStackLayout();
+  }
+
+  /** Même logique que {@link shareIssPiPPngOnWhatsApp} : pas de timeout, canShare contourné sur mobile. */
+  private async shareGlobePngViaNativeShare(
+    file: File,
+    title: string
   ): Promise<'ok' | 'abort' | 'fail'> {
-    if (typeof nav.share !== 'function') {
-      return Promise.resolve('fail');
+    if (typeof navigator.share !== 'function') {
+      return 'fail';
     }
-    return new Promise((resolve) => {
-      let settled = false;
-      const finish = (result: 'ok' | 'abort' | 'fail'): void => {
-        if (settled) {
-          return;
+    const nav = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
+    const isMobile = this.globeSharePreferNativeFileShare();
+    const attempts: ShareData[] = isMobile
+      ? [{ files: [file] }, { title, files: [file] }, { title, text: title, files: [file] }]
+      : [{ title, text: title, files: [file] }, { title, files: [file] }];
+
+    for (const data of attempts) {
+      try {
+        if (nav.canShare && !isMobile && !nav.canShare(data)) {
+          continue;
         }
-        settled = true;
-        window.clearTimeout(timer);
-        resolve(result);
-      };
-      const timer = window.setTimeout(() => finish('fail'), ms);
-      nav
-        .share!(data)
-        .then(() => finish('ok'))
-        .catch((err: unknown) => {
-          const name = err instanceof DOMException || err instanceof Error ? err.name : '';
-          finish(name === 'AbortError' ? 'abort' : 'fail');
-        });
-    });
+        await nav.share(data);
+        return 'ok';
+      } catch (err: unknown) {
+        if (WorldGlobeComponent.isGlobeShareUserCancel(err)) {
+          return 'abort';
+        }
+      }
+    }
+    return 'fail';
+  }
+
+  private static isGlobeShareUserCancel(err: unknown): boolean {
+    const name = err instanceof DOMException || err instanceof Error ? err.name : '';
+    return name === 'AbortError' || name === 'NotAllowedError';
   }
 
   /** Capture d'écran réelle (onglet) : globe + colonne / fenêtres ISS live visibles. */
@@ -3790,77 +3807,575 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       return null;
     }
 
-    if (typeof navigator.mediaDevices?.getDisplayMedia !== 'function') {
-      return null;
+    if (typeof navigator.mediaDevices?.getDisplayMedia === 'function') {
+      try {
+        const captured = await this.withTimeout(this.captureGlobeDisplayScreenshot(host), 30_000);
+        if (captured) {
+          return captured;
+        }
+      } catch (err: unknown) {
+        if (WorldGlobeComponent.isGlobeShareUserCancel(err)) {
+          throw err;
+        }
+      }
     }
 
+    if (this.globeShareUseMobileCaptureFlow()) {
+      return this.captureGlobeShareCanvasComposite(host);
+    }
+    return null;
+  }
+
+  private async withGlobeShareExpandedIssDock<T>(fn: () => Promise<T>): Promise<T> {
+    const stage = this.getGlobeStageElement();
+    const dock = stage?.querySelector<HTMLElement>('.wg-iss-pip-dock:not(.wg-iss-pip-dock--fs-split)');
+    if (!dock) {
+      return fn();
+    }
+    const prevMaxHeight = dock.style.maxHeight;
+    const prevOverflow = dock.style.overflow;
+    const prevOverflowY = dock.style.overflowY;
+    dock.style.maxHeight = 'none';
+    dock.style.overflow = 'visible';
+    dock.style.overflowY = 'visible';
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
     try {
-      return await this.withTimeout(this.captureGlobeDisplayScreenshot(host), 25_000);
-    } catch (err: unknown) {
-      const name = err instanceof DOMException || err instanceof Error ? err.name : '';
-      if (name === 'NotAllowedError' || name === 'AbortError') {
-        throw err;
-      }
-      return null;
+      return await fn();
+    } finally {
+      dock.style.maxHeight = prevMaxHeight;
+      dock.style.overflow = prevOverflow;
+      dock.style.overflowY = prevOverflowY;
     }
   }
 
+  private domOffsetInStage(el: HTMLElement, stage: HTMLElement): { x: number; y: number; w: number; h: number } {
+    const elRect = el.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
+    return {
+      x: elRect.left - stageRect.left,
+      y: elRect.top - stageRect.top,
+      w: elRect.width,
+      h: elRect.height
+    };
+  }
+
+  private scrollIssVideoFrameForCapture(frame: HTMLElement): void {
+    const panel = frame.closest<HTMLElement>('.wg-iss-live-pip');
+    const dock = frame.closest<HTMLElement>('.wg-iss-pip-dock');
+    if (panel && dock) {
+      dock.scrollTop = Math.max(0, panel.offsetTop - 4);
+    }
+    panel?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    frame.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
+
+  private isGlobeShareIssVisible(): boolean {
+    if (!this.issLiveEmbedEnabled && !this.issLiveHdEmbedEnabled) {
+      return false;
+    }
+    return this.listIssSharePanels().length > 0;
+  }
+
+  /**
+   * Repli mobile : globe WebGL dans la zone partagée (ISS live absent si capture écran impossible).
+   */
+  private async captureGlobeShareCanvasComposite(host: HTMLElement): Promise<Blob | null> {
+    const cropRect = this.resolveGlobeShareCaptureRect(host);
+    if (cropRect.width < 2 || cropRect.height < 2) {
+      return null;
+    }
+
+    const w = Math.max(1, Math.round(cropRect.width));
+    const h = Math.max(1, Math.round(cropRect.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return null;
+    }
+    ctx.fillStyle = '#020508';
+    ctx.fillRect(0, 0, w, h);
+
+    if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
+      const globeCanvas = this.renderer.domElement;
+      const globeRect = globeCanvas.getBoundingClientRect();
+      if (globeRect.width >= 1 && globeRect.height >= 1) {
+        ctx.drawImage(
+          globeCanvas,
+          globeRect.left - cropRect.left,
+          globeRect.top - cropRect.top,
+          globeRect.width,
+          globeRect.height
+        );
+      }
+    }
+
+    return new Promise<Blob | null>((resolve) => {
+      canvas.toBlob((b) => resolve(b), 'image/png');
+    });
+  }
+
+  private buildGlobeShareDisplayMediaOptions(isMobile: boolean): DisplayMediaStreamOptions {
+    if (isMobile) {
+      return {
+        video: true,
+        audio: false,
+        preferCurrentTab: true,
+        selfBrowserSurface: 'include'
+      } as DisplayMediaStreamOptions;
+    }
+    return {
+      video: true,
+      audio: false,
+      preferCurrentTab: true,
+      selfBrowserSurface: 'include'
+    } as DisplayMediaStreamOptions;
+  }
+
+  private async waitForGlobeShareCaptureSettle(ms: number): Promise<void> {
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+    await new Promise<void>((resolve) => setTimeout(resolve, ms));
+  }
+
   private withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const timer = window.setTimeout(() => resolve(null), ms);
       promise
         .then((value) => {
           clearTimeout(timer);
           resolve(value);
         })
-        .catch(() => {
+        .catch((err: unknown) => {
           clearTimeout(timer);
-          resolve(null);
+          if (WorldGlobeComponent.isGlobeShareUserCancel(err)) {
+            reject(err);
+          } else {
+            resolve(null);
+          }
         });
     });
   }
 
-  /** Capture onglet puis recadrage globe + ISS (repli plein écran si le crop direct échoue). */
+  /** Capture onglet puis recadrage globe + ISS ; mobile + ISS : rétrécissement puis une capture. */
   private async captureGlobeDisplayScreenshot(host: HTMLElement): Promise<Blob | null> {
     if (typeof navigator.mediaDevices?.getDisplayMedia !== 'function') {
       return null;
     }
 
-    const displayOpts = {
-      video: true,
-      audio: false,
-      preferCurrentTab: true,
-      selfBrowserSurface: 'include'
-    } as DisplayMediaStreamOptions;
+    const mobileFlow = this.globeShareUseMobileCaptureFlow();
+    const issVisible = this.isGlobeShareIssVisible();
+    const settleMs = issVisible ? (mobileFlow ? 1200 : 400) : mobileFlow ? 600 : 250;
+    const grabMs = mobileFlow ? 14_000 : 8000;
 
-    const stream = await navigator.mediaDevices.getDisplayMedia(displayOpts);
+    return this.withGlobeShareExpandedIssDock(async () => {
+      const stage = this.getGlobeStageElement();
+      const mobileIssFit = mobileFlow && issVisible && stage != null;
+      let restoreUi: () => void = () => undefined;
+      let restoreFit: () => void = () => undefined;
+
+      if (mobileIssFit && stage) {
+        restoreUi = this.hideGlobeShareCaptureUi(stage);
+        const dock = stage.querySelector<HTMLElement>('.wg-iss-pip-dock');
+        if (dock) {
+          dock.scrollTop = 0;
+        }
+        window.scrollTo(0, 0);
+        stage.scrollIntoView({ block: 'start', inline: 'nearest' });
+        await this.waitForGlobeShareCaptureSettle(250);
+        restoreFit = this.applyGlobeShareViewportFitScale(stage);
+        await this.waitForGlobeShareCaptureSettle(200);
+        this.cdr.markForCheck();
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia(
+          this.buildGlobeShareDisplayMediaOptions(mobileFlow)
+        );
+        try {
+          const [track] = stream.getVideoTracks();
+          if (!track) {
+            return null;
+          }
+
+          await this.waitForGlobeShareCaptureSettle(settleMs);
+
+          if (mobileIssFit && stage) {
+            const stageRect = stage.getBoundingClientRect();
+            if (stageRect.width >= 8 && stageRect.height >= 8) {
+              const fitBlob = await this.captureMediaTrackRegion(track, stageRect, grabMs);
+              if (fitBlob) {
+                return fitBlob;
+              }
+            }
+            const stitched = await this.captureGlobeShareMobileStitch(host, track, grabMs);
+            if (stitched) {
+              return stitched;
+            }
+          } else if (mobileFlow && issVisible) {
+            const stitched = await this.captureGlobeShareMobileStitch(host, track, grabMs);
+            if (stitched) {
+              return stitched;
+            }
+          }
+
+          let elementCropApplied = false;
+          if (!mobileFlow) {
+            const cropTargetEl = stage ?? host;
+            const win = window as Window & {
+              CropTarget?: { fromElement: (el: Element) => Promise<unknown> };
+            };
+            if (cropTargetEl && typeof win.CropTarget?.fromElement === 'function') {
+              try {
+                const cropTarget = await win.CropTarget.fromElement(cropTargetEl);
+                const browserTrack = track as MediaStreamTrack & { cropTo?: (target: unknown) => Promise<void> };
+                if (typeof browserTrack.cropTo === 'function') {
+                  await browserTrack.cropTo(cropTarget);
+                  elementCropApplied = true;
+                }
+              } catch {
+                elementCropApplied = false;
+              }
+            }
+          }
+
+          const cropRect = this.resolveGlobeShareCaptureRect(host);
+
+          if (elementCropApplied) {
+            const cropped = await this.grabPngBlobFromMediaTrack(track, undefined, grabMs);
+            if (cropped) {
+              return cropped;
+            }
+          }
+
+          if (cropRect.width >= 2 && cropRect.height >= 2) {
+            const blob = await this.captureMediaTrackRegion(track, cropRect, grabMs);
+            if (blob) {
+              return blob;
+            }
+          }
+
+          if (mobileFlow && !issVisible) {
+            return this.grabPngBlobFromMediaTrack(track, undefined, grabMs);
+          }
+          return null;
+        } finally {
+          stream.getTracks().forEach((t) => t.stop());
+        }
+      } finally {
+        restoreFit();
+        restoreUi();
+      }
+    });
+  }
+
+  private hideGlobeShareCaptureUi(stage: HTMLElement): () => void {
+    const toggled: Array<{ el: HTMLElement; visibility: string }> = [];
+    for (const selector of ['.wg-globe-stage-toolbar', '.wg-coords']) {
+      const el = stage.querySelector<HTMLElement>(selector);
+      if (!el) {
+        continue;
+      }
+      toggled.push({ el, visibility: el.style.visibility });
+      el.style.visibility = 'hidden';
+    }
+    return () => {
+      for (const item of toggled) {
+        item.el.style.visibility = item.visibility;
+      }
+    };
+  }
+
+  /**
+   * Réduit temporairement la scène pour que globe + flux ISS tiennent dans le viewport
+   * (une seule capture d'onglet suffit, sans scroll ni collage).
+   */
+  private applyGlobeShareViewportFitScale(stage: HTMLElement): () => void {
+    const host = this.globeCanvasHost?.nativeElement;
+    if (!host) {
+      return () => undefined;
+    }
+    const margin = 12;
+    const vp = window.visualViewport;
+    const viewW = Math.max(160, (vp?.width ?? window.innerWidth) - margin * 2);
+    const viewH = Math.max(160, (vp?.height ?? window.innerHeight) - margin * 2);
+
+    const canvasHost = stage.querySelector<HTMLElement>('.wg-canvas-host');
+    const prevCanvasMinHeight = canvasHost?.style.minHeight ?? '';
+    const prevCanvasFlex = canvasHost?.style.flex ?? '';
+    if (canvasHost && this.isIssMobileStackLayout()) {
+      canvasHost.style.minHeight = '0';
+      canvasHost.style.flex = '0 0 auto';
+    }
+
+    const naturalW = Math.max(stage.offsetWidth, stage.getBoundingClientRect().width);
+    const naturalH = Math.max(stage.scrollHeight, this.measureGlobeShareStageContentHeight(stage, host));
+    const prevTransform = stage.style.transform;
+    const prevTransformOrigin = stage.style.transformOrigin;
+    const prevTransition = stage.style.transition;
+    const prevWidth = stage.style.width;
+    const prevMaxHeight = stage.style.maxHeight;
+    const prevOverflow = stage.style.overflow;
+
+    stage.style.transition = 'none';
+    stage.style.width = `${naturalW}px`;
+    stage.style.maxHeight = 'none';
+    stage.style.overflow = 'visible';
+
+    const scale =
+      naturalW >= 2 && naturalH >= 2 ? Math.min(viewW / naturalW, viewH / naturalH, 1) : 1;
+    if (scale < 0.995) {
+      stage.style.transformOrigin = 'top center';
+      stage.style.transform = `scale(${scale})`;
+    }
+
+    return () => {
+      stage.style.transform = prevTransform;
+      stage.style.transformOrigin = prevTransformOrigin;
+      stage.style.transition = prevTransition;
+      stage.style.width = prevWidth;
+      stage.style.maxHeight = prevMaxHeight;
+      stage.style.overflow = prevOverflow;
+      if (canvasHost) {
+        canvasHost.style.minHeight = prevCanvasMinHeight;
+        canvasHost.style.flex = prevCanvasFlex;
+      }
+    };
+  }
+
+  private measureGlobeShareStageContentHeight(stage: HTMLElement, host: HTMLElement): number {
+    const stageTop = stage.getBoundingClientRect().top;
+    let bottom = host.getBoundingClientRect().bottom - stageTop;
+    for (const panel of this.listIssSharePanels()) {
+      bottom = Math.max(bottom, panel.el.getBoundingClientRect().bottom - stageTop);
+    }
+    return Math.ceil(bottom + 6);
+  }
+
+  private async captureMediaTrackRegion(
+    track: MediaStreamTrack,
+    region: DOMRect,
+    grabMs: number
+  ): Promise<Blob | null> {
+    let blob = await this.grabPngBlobFromMediaTrack(track, region, grabMs);
+    if (blob) {
+      return blob;
+    }
+    const full = await this.grabPngBlobFromMediaTrack(track, undefined, grabMs);
+    if (!full) {
+      return null;
+    }
+    return this.cropPngBlobToRect(full, region);
+  }
+
+  /**
+   * Mobile + ISS : repli — composition par calques si la capture « fit » échoue.
+   */
+  private async captureGlobeShareMobileStitch(
+    host: HTMLElement,
+    track: MediaStreamTrack,
+    grabMs: number
+  ): Promise<Blob | null> {
+    const stage = this.getGlobeStageElement();
+    const dock = stage?.querySelector<HTMLElement>('.wg-iss-pip-dock');
+    if (dock) {
+      dock.scrollTop = 0;
+    }
+    window.scrollTo(0, 0);
+    await this.waitForGlobeShareCaptureSettle(200);
+
+    const layout = this.resolveGlobeShareLayerLayout(host);
+    if (!layout || layout.issFrames.length === 0) {
+      return null;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = layout.width;
+    canvas.height = layout.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return null;
+    }
+    ctx.fillStyle = '#020508';
+    ctx.fillRect(0, 0, layout.width, layout.height);
+
+    if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
+      ctx.drawImage(
+        this.renderer.domElement,
+        layout.globe.x,
+        layout.globe.y,
+        layout.globe.w,
+        layout.globe.h
+      );
+    }
+
+    const restoreScroll = this.saveGlobeShareScrollState();
+    let capturedIss = 0;
     try {
-      const [track] = stream.getVideoTracks();
-      if (!track) {
-        return null;
-      }
+      await this.waitForGlobeShareCaptureSettle(400);
+      for (const iss of layout.issFrames) {
+        this.scrollIssVideoFrameForCapture(iss.frame);
+        await this.waitForGlobeShareCaptureSettle(1100);
 
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-      });
-      await new Promise<void>((resolve) => setTimeout(resolve, 300));
+        const liveRect = iss.frame.getBoundingClientRect();
+        if (liveRect.width < 8 || liveRect.height < 8) {
+          continue;
+        }
 
-      const cropRect = this.resolveGlobeShareCaptureRect(host);
-      if (cropRect.width < 2 || cropRect.height < 2) {
-        return null;
-      }
-
-      let blob = await this.grabPngBlobFromMediaTrack(track, cropRect);
-      if (!blob) {
-        const full = await this.grabPngBlobFromMediaTrack(track);
-        if (full) {
-          blob = await this.cropPngBlobToRect(full, cropRect);
+        const painted = await this.paintGlobeShareViewportRegion(
+          ctx,
+          track,
+          liveRect,
+          iss.x,
+          iss.y,
+          iss.w,
+          iss.h,
+          grabMs
+        );
+        if (painted) {
+          capturedIss += 1;
         }
       }
-      return blob;
     } finally {
-      stream.getTracks().forEach((t) => t.stop());
+      restoreScroll();
     }
+
+    if (capturedIss === 0) {
+      return null;
+    }
+    return new Promise<Blob | null>((resolve) => {
+      canvas.toBlob((b) => resolve(b), 'image/png');
+    });
+  }
+
+  /** Extrait une zone du viewport capturé et la pose sur le canvas composite. */
+  private async paintGlobeShareViewportRegion(
+    ctx: CanvasRenderingContext2D,
+    track: MediaStreamTrack,
+    viewportRect: DOMRect,
+    destX: number,
+    destY: number,
+    destW: number,
+    destH: number,
+    grabMs: number
+  ): Promise<boolean> {
+    const full = await this.grabPngBlobFromMediaTrack(track, undefined, grabMs);
+    if (!full) {
+      return false;
+    }
+    const img = await this.loadGlobeShareCaptureImage(full);
+    if (!img) {
+      return false;
+    }
+
+    const mapped = this.mapGlobeShareCropToCapture(viewportRect, img.naturalWidth, img.naturalHeight);
+    if (mapped) {
+      ctx.drawImage(
+        img,
+        mapped.sx0,
+        mapped.sy0,
+        mapped.sw,
+        mapped.sh,
+        destX,
+        destY,
+        destW,
+        destH
+      );
+      return true;
+    }
+
+    const cropped = await this.cropPngBlobToRect(full, viewportRect);
+    if (!cropped) {
+      return false;
+    }
+    const cropImg = await this.loadGlobeShareCaptureImage(cropped);
+    if (!cropImg) {
+      return false;
+    }
+    ctx.drawImage(cropImg, destX, destY, destW, destH);
+    return true;
+  }
+
+  private resolveGlobeShareLayerLayout(host: HTMLElement): {
+    width: number;
+    height: number;
+    globe: { x: number; y: number; w: number; h: number };
+    issFrames: Array<{ frame: HTMLElement; x: number; y: number; w: number; h: number }>;
+  } | null {
+    const stage = this.getGlobeStageElement();
+    if (!stage) {
+      return null;
+    }
+
+    const globe = this.domOffsetInStage(host, stage);
+    if (globe.w < 2 || globe.h < 2) {
+      return null;
+    }
+
+    const issFrames: Array<{ frame: HTMLElement; x: number; y: number; w: number; h: number }> = [];
+    for (const panel of this.listIssSharePanels()) {
+      const capture = this.resolveIssPiPCapture(panel.variant);
+      if (!capture) {
+        continue;
+      }
+      const rel = this.domOffsetInStage(capture.frame, stage);
+      if (rel.w < 8 || rel.h < 8) {
+        continue;
+      }
+      issFrames.push({ frame: capture.frame, ...rel });
+    }
+    if (issFrames.length === 0) {
+      return null;
+    }
+
+    let width = globe.x + globe.w;
+    let height = globe.y + globe.h;
+    for (const iss of issFrames) {
+      width = Math.max(width, iss.x + iss.w);
+      height = Math.max(height, iss.y + iss.h);
+    }
+
+    return {
+      width: Math.max(1, Math.round(width)),
+      height: Math.max(1, Math.round(height)),
+      globe,
+      issFrames
+    };
+  }
+
+  private saveGlobeShareScrollState(): () => void {
+    const stage = this.getGlobeStageElement();
+    const dock = stage?.querySelector<HTMLElement>('.wg-iss-pip-dock');
+    const dockScrollTop = dock?.scrollTop ?? 0;
+    const windowScrollX = window.scrollX;
+    const windowScrollY = window.scrollY;
+
+    return () => {
+      if (dock) {
+        dock.scrollTop = dockScrollTop;
+      }
+      window.scrollTo(windowScrollX, windowScrollY);
+    };
+  }
+
+  private loadGlobeShareCaptureImage(blob: Blob): Promise<HTMLImageElement | null> {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      const done = (result: HTMLImageElement | null): void => {
+        URL.revokeObjectURL(url);
+        resolve(result);
+      };
+      img.onload = () => done(img);
+      img.onerror = () => done(null);
+      img.src = url;
+    });
   }
 
   private cropPngBlobToRect(sourceBlob: Blob, cropRect: DOMRect): Promise<Blob | null> {
@@ -3899,11 +4414,24 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       return rect;
     }
 
+    const panels = this.listIssSharePanels();
+    if (panels.length === 0) {
+      return rect;
+    }
+
+    // Mobile empilé : union des fenêtres ISS (pas le dock scrollable entier).
+    if (this.isIssMobileStackLayout()) {
+      for (const panel of panels) {
+        rect = WorldGlobeComponent.unionDomRects(rect, panel.el.getBoundingClientRect());
+      }
+      return rect;
+    }
+
     const dock = stage.querySelector<HTMLElement>('.wg-iss-pip-dock:not(.wg-iss-pip-dock--fs-split)');
     if (dock && this.isIssPiPVisibleForCapture(dock)) {
       rect = WorldGlobeComponent.unionDomRects(rect, dock.getBoundingClientRect());
     } else {
-      for (const panel of this.listIssSharePanels()) {
+      for (const panel of panels) {
         rect = WorldGlobeComponent.unionDomRects(rect, panel.el.getBoundingClientRect());
       }
     }
@@ -4064,7 +4592,8 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
    */
   private async captureDomRegionViaDisplayMedia(
     cropTargetEl: HTMLElement | null,
-    cropRectOrFn: DOMRect | (() => DOMRect)
+    cropRectOrFn: DOMRect | (() => DOMRect),
+    postStreamSettleMs = 250
   ): Promise<Blob | null> {
     if (typeof navigator.mediaDevices?.getDisplayMedia !== 'function') {
       return null;
@@ -4109,17 +4638,38 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       await new Promise<void>((resolve) => {
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
       });
-      await new Promise<void>((resolve) => setTimeout(resolve, 250));
+      await new Promise<void>((resolve) => setTimeout(resolve, postStreamSettleMs));
 
       const cropRect = typeof cropRectOrFn === 'function' ? cropRectOrFn() : cropRectOrFn;
       if (!elementCropApplied && (cropRect.width < 2 || cropRect.height < 2)) {
         return null;
       }
 
-      return await this.grabPngBlobFromMediaTrack(
+      let blob = await this.grabPngBlobFromMediaTrack(
         track,
         elementCropApplied ? undefined : cropRect
       );
+      if (!blob && !elementCropApplied) {
+        const full = await this.grabPngBlobFromMediaTrack(track);
+        if (full) {
+          blob = await this.cropPngBlobToRect(full, cropRect);
+        }
+      }
+      if (!blob && postStreamSettleMs >= 400) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 350));
+        const retryRect = typeof cropRectOrFn === 'function' ? cropRectOrFn() : cropRectOrFn;
+        blob = await this.grabPngBlobFromMediaTrack(
+          track,
+          elementCropApplied ? undefined : retryRect
+        );
+        if (!blob && !elementCropApplied) {
+          const full = await this.grabPngBlobFromMediaTrack(track);
+          if (full) {
+            blob = await this.cropPngBlobToRect(full, retryRect);
+          }
+        }
+      }
+      return blob;
     } finally {
       stream.getTracks().forEach((t) => t.stop());
     }
@@ -4151,11 +4701,38 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     return this.captureDomRegionViaDisplayMedia(frame, frame.getBoundingClientRect());
   }
 
-  private grabPngBlobFromMediaTrack(track: MediaStreamTrack, cropRect?: DOMRect): Promise<Blob | null> {
-    return this.withTimeout(this.grabPngBlobFromMediaTrackInner(track, cropRect), 8000);
+  private grabPngBlobFromMediaTrack(
+    track: MediaStreamTrack,
+    cropRect?: DOMRect,
+    timeoutMs = 8000
+  ): Promise<Blob | null> {
+    return this.withTimeout(this.grabPngBlobFromMediaTrackInner(track, cropRect), timeoutMs);
   }
 
   private grabPngBlobFromMediaTrackInner(track: MediaStreamTrack, cropRect?: DOMRect): Promise<Blob | null> {
+    type ImageCaptureGrabFrame = new (track: MediaStreamTrack) => {
+      grabFrame: () => Promise<ImageBitmap>;
+    };
+    const ImageCaptureCtor = (window as unknown as { ImageCapture?: ImageCaptureGrabFrame }).ImageCapture;
+    if (ImageCaptureCtor) {
+      return new ImageCaptureCtor(track)
+        .grabFrame()
+        .then(async (bitmap: ImageBitmap) => {
+          try {
+            return await this.pngBlobFromVideoFrame(bitmap, bitmap.width, bitmap.height, cropRect);
+          } finally {
+            bitmap.close();
+          }
+        })
+        .catch(() => this.grabPngBlobFromMediaTrackViaVideo(track, cropRect));
+    }
+    return this.grabPngBlobFromMediaTrackViaVideo(track, cropRect);
+  }
+
+  private grabPngBlobFromMediaTrackViaVideo(
+    track: MediaStreamTrack,
+    cropRect?: DOMRect
+  ): Promise<Blob | null> {
     const stream = new MediaStream([track]);
     const video = document.createElement('video');
     video.muted = true;
@@ -4187,22 +4764,59 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       canvas.height = vh;
       ctx.drawImage(source, 0, 0);
     } else {
-      const sx = vw / window.innerWidth;
-      const sy = vh / window.innerHeight;
-      const sw = Math.max(1, Math.round(cropRect.width * sx));
-      const sh = Math.max(1, Math.round(cropRect.height * sy));
-      const sx0 = Math.max(0, Math.round(cropRect.left * sx));
-      const sy0 = Math.max(0, Math.round(cropRect.top * sy));
-      canvas.width = sw;
-      canvas.height = sh;
-      ctx.drawImage(source, sx0, sy0, sw, sh, 0, 0, sw, sh);
+      const mapped = this.mapGlobeShareCropToCapture(cropRect, vw, vh);
+      if (!mapped) {
+        canvas.width = vw;
+        canvas.height = vh;
+        ctx.drawImage(source, 0, 0);
+      } else {
+        canvas.width = mapped.sw;
+        canvas.height = mapped.sh;
+        ctx.drawImage(source, mapped.sx0, mapped.sy0, mapped.sw, mapped.sh, 0, 0, mapped.sw, mapped.sh);
+      }
     }
     return new Promise((resolve) => {
       canvas.toBlob((b) => resolve(b), 'image/png');
     });
   }
 
+  /** Recadrage viewport → pixels du flux capturé (plusieurs heuristiques mobile). */
+  private mapGlobeShareCropToCapture(
+    cropRect: DOMRect,
+    vw: number,
+    vh: number
+  ): { sx0: number; sy0: number; sw: number; sh: number } | null {
+    const attempts: Array<{ layoutW: number; layoutH: number; ox: number; oy: number }> = [];
+    const vp = window.visualViewport;
+    const docW = document.documentElement.clientWidth || window.innerWidth;
+    const docH = document.documentElement.clientHeight || window.innerHeight;
+    attempts.push({ layoutW: docW, layoutH: docH, ox: vp?.offsetLeft ?? 0, oy: vp?.offsetTop ?? 0 });
+    attempts.push({ layoutW: window.innerWidth, layoutH: window.innerHeight, ox: 0, oy: 0 });
+    if (vp && vp.width > 0 && vp.height > 0) {
+      attempts.push({ layoutW: vp.width, layoutH: vp.height, ox: vp.offsetLeft, oy: vp.offsetTop });
+    }
+    attempts.push({ layoutW: vw, layoutH: vh, ox: 0, oy: 0 });
+
+    for (const { layoutW, layoutH, ox, oy } of attempts) {
+      if (layoutW < 1 || layoutH < 1) {
+        continue;
+      }
+      const sx = vw / layoutW;
+      const sy = vh / layoutH;
+      const sw = Math.max(1, Math.round(cropRect.width * sx));
+      const sh = Math.max(1, Math.round(cropRect.height * sy));
+      const sx0 = Math.max(0, Math.round((cropRect.left - ox) * sx));
+      const sy0 = Math.max(0, Math.round((cropRect.top - oy) * sy));
+      if (sx0 + sw <= vw + 2 && sy0 + sh <= vh + 2) {
+        return { sx0, sy0, sw, sh };
+      }
+    }
+    return null;
+  }
+
   private pngBlobFromVideoElement(video: HTMLVideoElement, cropRect?: DOMRect): Promise<Blob | null> {
+    const maxAttempts = this.globeSharePreferNativeFileShare() ? 120 : 60;
+    const bootDelayMs = this.globeSharePreferNativeFileShare() ? 2200 : 1500;
     return new Promise<Blob | null>((resolve) => {
       let attempts = 0;
       const capture = (): void => {
@@ -4211,7 +4825,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
           void this.pngBlobFromVideoFrame(video, video.videoWidth, video.videoHeight, cropRect).then(resolve);
           return;
         }
-        if (attempts >= 60) {
+        if (attempts >= maxAttempts) {
           resolve(null);
           return;
         }
@@ -4219,7 +4833,7 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
       };
       video.addEventListener('loadeddata', capture, { once: true });
       video.addEventListener('playing', capture, { once: true });
-      window.setTimeout(capture, 1500);
+      window.setTimeout(capture, bootDelayMs);
       capture();
     });
   }
@@ -4299,7 +4913,10 @@ export class WorldGlobeComponent implements AfterViewInit, OnDestroy {
     try {
       await navigator.clipboard.write([new win.ClipboardItem!({ 'image/png': pngBlob })]);
       return true;
-    } catch {
+    } catch (err: unknown) {
+      if (WorldGlobeComponent.isGlobeShareUserCancel(err)) {
+        throw err;
+      }
       return false;
     }
   }

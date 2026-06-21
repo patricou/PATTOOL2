@@ -297,7 +297,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		'16': 'EVENTCREATION.TYPE.WORK',
 		'17': 'EVENTCREATION.TYPE.FAMILY',
 		'18': 'EVENTCREATION.TYPE.CINEMA',
-		'19': 'EVENTCREATION.TYPE.MUSIQUE'
+		'19': 'EVENTCREATION.TYPE.MUSIQUE',
+		'20': 'EVENTCREATION.TYPE.CUISINE'
 	};
 
 	@ViewChild('jsonModal')
@@ -8775,7 +8776,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			{ value: "16", label: this.eventTypeLabels['16'] },
 			{ value: "17", label: this.eventTypeLabels['17'] },
 			{ value: "18", label: this.eventTypeLabels['18'] },
-			{ value: "19", label: this.eventTypeLabels['19'] }
+			{ value: "19", label: this.eventTypeLabels['19'] },
+			{ value: "20", label: this.eventTypeLabels['20'] }
 		];
 		
 		// Sort by translated label
