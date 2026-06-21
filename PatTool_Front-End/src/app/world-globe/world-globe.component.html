@@ -869,7 +869,7 @@
             [class.fa-check]="globeWhatsAppFlash === true"
             [class.fa-times]="globeWhatsAppFlash === false"
             [class.fa-whatsapp]="globeImageBusy !== 'whatsapp' && globeWhatsAppFlash == null"></i>
-          <span class="ms-1">{{ 'WORLD_GLOBE.SHARE_WHATSAPP' | translate }}</span>
+          <span class="d-none d-md-inline ms-md-1">{{ 'WORLD_GLOBE.SHARE_WHATSAPP' | translate }}</span>
         </button>
       </div>
 
@@ -1520,6 +1520,89 @@
         </div>
       </div>
 
+    </div>
+  </div>
+</div>
+
+<div
+  class="wg-share-preview-overlay"
+  *ngIf="globeSharePreviewOpen"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="'WORLD_GLOBE.SHARE_WHATSAPP_PREVIEW_TITLE' | translate"
+  (click)="closeGlobeSharePreview()">
+  <div class="wg-share-preview-card" (click)="$event.stopPropagation()">
+    <div class="wg-share-preview-head">
+      <h3 class="wg-share-preview-title mb-0">
+        <i class="fa fa-whatsapp me-2" aria-hidden="true"></i>{{ 'WORLD_GLOBE.SHARE_WHATSAPP_PREVIEW_TITLE' | translate }}
+      </h3>
+      <button
+        type="button"
+        class="wg-share-preview-close btn btn-sm btn-dark border-secondary"
+        (click)="closeGlobeSharePreview()"
+        [attr.aria-label]="'WORLD_GLOBE.SHARE_WHATSAPP_PREVIEW_CANCEL' | translate">
+        <i class="fa fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    <img
+      class="wg-share-preview-img"
+      *ngIf="globeSharePreviewUrl"
+      [src]="globeSharePreviewUrl"
+      alt="" />
+    <p class="wg-share-preview-hint small text-muted mb-2" *ngIf="!globeSharePreviewPasteHint">
+      {{ 'WORLD_GLOBE.SHARE_WHATSAPP_PREVIEW_HINT' | translate }}
+    </p>
+    <p class="wg-share-preview-hint wg-share-preview-hint--ok small mb-2" *ngIf="globeSharePreviewPasteHint">
+      <i class="fa fa-check-circle me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.SHARE_WHATSAPP_PASTE_HINT' | translate }}
+    </p>
+    <div class="alert alert-info small mb-3 py-2" *ngIf="!globeSharePreviewPasteHint">
+      <i class="fa fa-info-circle me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.SHARE_WHATSAPP_NATIVE_NOTE' | translate }}
+    </div>
+    <div class="wg-share-preview-actions d-flex flex-wrap gap-2 justify-content-end">
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeGlobeSharePreview()">
+        {{ 'WORLD_GLOBE.SHARE_WHATSAPP_PREVIEW_CANCEL' | translate }}
+      </button>
+      <button
+        type="button"
+        class="btn btn-success btn-sm"
+        (click)="confirmGlobeWhatsAppShare()"
+        [disabled]="globeSharePreviewBusy">
+        <i
+          class="fa me-1"
+          aria-hidden="true"
+          [class.fa-spinner]="globeSharePreviewBusy"
+          [class.fa-spin]="globeSharePreviewBusy"
+          [class.fa-whatsapp]="!globeSharePreviewBusy"></i>
+        {{ 'EVENTELEM.SHARE_NOW' | translate }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<div
+  class="wg-share-preview-overlay wg-share-error-overlay"
+  *ngIf="globeShareErrorOpen"
+  role="alertdialog"
+  aria-modal="true"
+  (click)="closeGlobeShareError()">
+  <div class="wg-share-preview-card wg-share-error-card" (click)="$event.stopPropagation()">
+    <div class="wg-share-preview-head">
+      <h3 class="wg-share-preview-title mb-0 text-danger">
+        <i class="fa fa-exclamation-circle me-2" aria-hidden="true"></i>{{ 'WORLD_GLOBE.SHARE_WHATSAPP' | translate }}
+      </h3>
+      <button
+        type="button"
+        class="wg-share-preview-close btn btn-sm btn-dark border-secondary"
+        (click)="closeGlobeShareError()"
+        [attr.aria-label]="'WORLD_GLOBE.SHARE_WHATSAPP_PREVIEW_CANCEL' | translate">
+        <i class="fa fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    <p class="wg-share-preview-hint mb-3">{{ globeShareErrorMessage }}</p>
+    <div class="wg-share-preview-actions d-flex justify-content-end">
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closeGlobeShareError()">
+        {{ 'WORLD_GLOBE.SHARE_WHATSAPP_PREVIEW_CANCEL' | translate }}
+      </button>
     </div>
   </div>
 </div>

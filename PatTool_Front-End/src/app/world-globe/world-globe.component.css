@@ -3151,3 +3151,69 @@ body:has(.wg-fs-root--viewport-locked) {
   font-variant-numeric: tabular-nums;
   word-break: break-word;
 }
+
+/* Aperçu capture avant partage WhatsApp — au-dessus du mode présentation (z-index 10000). */
+.wg-share-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(2, 5, 12, 0.82);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.wg-share-preview-card {
+  box-sizing: border-box;
+  width: min(96vw, 42rem);
+  max-height: min(92vh, 52rem);
+  overflow: auto;
+  padding: 1rem 1.1rem 1.1rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(120, 150, 220, 0.35);
+  background: linear-gradient(165deg, rgba(12, 20, 38, 0.98), rgba(6, 10, 22, 0.98));
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+}
+
+.wg-share-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.wg-share-preview-title {
+  font-size: 1rem;
+  color: #e8eef8;
+}
+
+.wg-share-preview-img {
+  display: block;
+  width: 100%;
+  max-height: min(58vh, 36rem);
+  object-fit: contain;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(120, 150, 220, 0.25);
+  background: #020510;
+  margin-bottom: 0.75rem;
+}
+
+.wg-share-preview-hint {
+  color: #9fb0d4 !important;
+  line-height: 1.45;
+}
+
+.wg-share-preview-hint--ok {
+  color: #7dcea0 !important;
+}
+
+.wg-share-preview-card .alert-info {
+  background: rgba(13, 110, 253, 0.12);
+  border-color: rgba(120, 150, 220, 0.35);
+  color: #b9c7e8;
+}
+
