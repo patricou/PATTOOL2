@@ -1122,6 +1122,16 @@
           </div>
           <div class="wg-iss-trace-date-loupe__handle" aria-hidden="true"></div>
         </div>
+        <div
+          class="wg-country-label-loupe"
+          *ngIf="countryLabelLoupeLabel"
+          #countryLabelLoupe
+          aria-hidden="true">
+          <div class="wg-country-label-loupe__glass">
+            <span class="wg-country-label-loupe__text">{{ countryLabelLoupeLabel }}</span>
+          </div>
+          <div class="wg-country-label-loupe__handle" aria-hidden="true"></div>
+        </div>
       </div>
 
       <div class="wg-trace-layer world-globe-trace-layer" *ngIf="detailMapOpen" role="dialog" [attr.aria-label]="'WORLD_GLOBE.DETAIL_MAP_TITLE' | translate">

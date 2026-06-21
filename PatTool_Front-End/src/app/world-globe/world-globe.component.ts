@@ -307,6 +307,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @ViewChild('globeCanvasHost') globeCanvasHost?: ElementRef<HTMLElement>;
   @ViewChild('issTraceDateLoupe') issTraceDateLoupe?: ElementRef<HTMLElement>;
+  @ViewChild('countryLabelLoupe') countryLabelLoupe?: ElementRef<HTMLElement>;
   @ViewChild('globeShell') globeShell?: ElementRef<HTMLElement>;
   /** Titre + panneau globe : cible préférée pour l’API Fullscreen (vrai plein écran navigateur). */
   @ViewChild('globeFsRoot') globeFsRoot?: ElementRef<HTMLElement>;
@@ -406,6 +407,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   issTickerNowLabel = '';
   /** Date/heure agrandie (loupe) au survol d’une pastille trace ISS. */
   issTraceDateLoupeLabel: string | null = null;
+  /** Nom de pays agrandi (loupe) au survol d’une étiquette pays. */
+  countryLabelLoupeLabel: string | null = null;
   /** Vitesse de défilement cible du bandeau ISS, en pixels par seconde. */
   private static readonly ISS_TICKER_SPEED_PX_PER_SEC = 90;
   private issTickerHalfEl?: HTMLElement;
@@ -987,6 +990,11 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private pendingIssTraceDatePickY = 0;
   private pendingIssTraceDateLoupeX = 0;
   private pendingIssTraceDateLoupeY = 0;
+  /** Nom pays du libellé actuellement survolé (évite CDR inutiles). */
+  private countryLabelLoupeHoverName: string | null = null;
+  private countryLabelLoupePosRaf: number | null = null;
+  private pendingCountryLabelLoupeX = 0;
+  private pendingCountryLabelLoupeY = 0;
   private readonly issTraceLoupeScreenScratch = new THREE.Vector3();
   /** Évite un traverse des sprites pays à chaque frame si le zoom n’a pas bougé. */
   private countryLabelZoomMulCached = Number.NaN;
@@ -1051,13 +1059,17 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.detailMapOpen || !this.globeSurfaceReady) {
       return;
     }
-    if (
-      !this.issHistoricalTraceDatesEnabled ||
-      !this.issHistoricalTraceEnabled ||
-      !this.issTraceVisible
-    ) {
+    const canPickIssTraceDate =
+      this.issHistoricalTraceDatesEnabled &&
+      this.issHistoricalTraceEnabled &&
+      this.issTraceVisible;
+    const canPickCountryLabel = this.countryLabelsEnabled;
+    if (!canPickIssTraceDate && !canPickCountryLabel) {
       if (this.issTraceDateLoupeLabel !== null) {
         this.updateIssTraceDateLoupe(0, 0, null);
+      }
+      if (this.countryLabelLoupeLabel !== null) {
+        this.updateCountryLabelLoupe(0, 0, null);
       }
       return;
     }
@@ -1070,12 +1082,21 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.issTraceDatePickRaf = null;
       const x = this.pendingIssTraceDatePickX;
       const y = this.pendingIssTraceDatePickY;
-      this.updateIssTraceDateLoupe(x, y, this.pickIssTraceDateLabelAtClient(x, y));
+      const issHit = canPickIssTraceDate ? this.pickIssTraceDateLabelAtClient(x, y) : null;
+      if (issHit) {
+        this.updateCountryLabelLoupe(0, 0, null);
+        this.updateIssTraceDateLoupe(x, y, issHit);
+        return;
+      }
+      this.updateIssTraceDateLoupe(0, 0, null);
+      const countryHit = canPickCountryLabel ? this.pickCountryLabelAtClient(x, y) : null;
+      this.updateCountryLabelLoupe(x, y, countryHit);
     });
   };
 
   private readonly onGlobePointerLeave = (): void => {
     this.updateIssTraceDateLoupe(0, 0, null);
+    this.updateCountryLabelLoupe(0, 0, null);
   };
 
   /** Dès qu’on manipule le globe, le suivi ISS cesse de forcer la caméra (orbite 3D libre). */
@@ -1228,9 +1249,14 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       canvasUnd.removeEventListener('pointerleave', this.onGlobePointerLeave);
     }
     this.updateIssTraceDateLoupe(0, 0, null);
+    this.updateCountryLabelLoupe(0, 0, null);
     if (this.issTraceDateLoupePosRaf != null) {
       cancelAnimationFrame(this.issTraceDateLoupePosRaf);
       this.issTraceDateLoupePosRaf = null;
+    }
+    if (this.countryLabelLoupePosRaf != null) {
+      cancelAnimationFrame(this.countryLabelLoupePosRaf);
+      this.countryLabelLoupePosRaf = null;
     }
     if (this.issTraceDatePickRaf != null) {
       cancelAnimationFrame(this.issTraceDatePickRaf);
@@ -1549,6 +1575,110 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private syncIssTraceDateLoupePosition(clientX: number, clientY: number): void {
     const el = this.issTraceDateLoupe?.nativeElement;
+    if (!el) {
+      return;
+    }
+    el.style.transform = `translate3d(${clientX}px, ${clientY}px, 0) translate(-50%, -100%)`;
+  }
+
+  /** Survol souris → étiquette pays Natural Earth (projection écran). */
+  private pickCountryLabelAtClient(
+    clientX: number,
+    clientY: number
+  ): { name: string; screenX: number; screenY: number } | null {
+    const group = this.countryLabelsGroup;
+    if (!group?.visible || !this.countryLabelsEnabled || !this.camera || !this.renderer) {
+      return null;
+    }
+    const canvasEl = this.renderer.domElement;
+    const rect = canvasEl.getBoundingClientRect();
+    if (rect.width < 2 || rect.height < 2) {
+      return null;
+    }
+    const camera = this.camera;
+    const vFovRad = THREE.MathUtils.degToRad(camera.fov);
+    const pxPerWorldY = rect.height / (2 * Math.tan(vFovRad / 2));
+    let best: { distSq: number; name: string; screenX: number; screenY: number } | null = null;
+    group.updateWorldMatrix(true, false);
+    for (const child of group.children) {
+      if (!(child instanceof THREE.Sprite)) {
+        continue;
+      }
+      const name = child.userData['countryLabelName'];
+      if (typeof name !== 'string' || !name.trim()) {
+        continue;
+      }
+      child.getWorldPosition(this.issTraceLoupeScreenScratch);
+      const distCam = Math.max(camera.position.distanceTo(this.issTraceLoupeScreenScratch), 0.35);
+      this.issTraceLoupeScreenScratch.project(camera);
+      if (this.issTraceLoupeScreenScratch.z > 1) {
+        continue;
+      }
+      const sx = rect.left + ((this.issTraceLoupeScreenScratch.x + 1) / 2) * rect.width;
+      const sy = rect.top + ((-this.issTraceLoupeScreenScratch.y + 1) / 2) * rect.height;
+      const base = child.userData['countryLabelBase'] as { w: number; h: number } | undefined;
+      const worldW = base?.w ?? child.scale.x;
+      const worldH = base?.h ?? child.scale.y;
+      const halfWPx = Math.max(4, ((worldW / 2) * pxPerWorldY) / distCam);
+      const halfHPx = Math.max(3, ((worldH / 2) * pxPerWorldY) / distCam);
+      const dx = (clientX - sx) / halfWPx;
+      const dy = (clientY - sy) / halfHPx;
+      if (dx * dx + dy * dy > 1) {
+        continue;
+      }
+      const pixelDistSq = (clientX - sx) ** 2 + (clientY - sy) ** 2;
+      if (!best || pixelDistSq < best.distSq) {
+        best = { distSq: pixelDistSq, name: name.trim(), screenX: sx, screenY: sy };
+      }
+    }
+    if (best === null) {
+      return null;
+    }
+    return { name: best.name, screenX: best.screenX, screenY: best.screenY };
+  }
+
+  private updateCountryLabelLoupe(
+    clientX: number,
+    clientY: number,
+    hit: { name: string; screenX: number; screenY: number } | null
+  ): void {
+    if (!hit) {
+      if (this.countryLabelLoupeLabel !== null) {
+        this.countryLabelLoupeLabel = null;
+        this.countryLabelLoupeHoverName = null;
+        this.scheduleWorldGlobeCdr();
+      }
+      return;
+    }
+
+    this.queueCountryLabelLoupePosition(hit.screenX, hit.screenY - 6);
+    const labelChanged = hit.name !== this.countryLabelLoupeHoverName;
+    if (!labelChanged && hit.name === this.countryLabelLoupeLabel) {
+      return;
+    }
+    this.countryLabelLoupeHoverName = hit.name;
+    this.countryLabelLoupeLabel = hit.name;
+    if (labelChanged) {
+      this.scheduleWorldGlobeCdr(() => {
+        this.syncCountryLabelLoupePosition(this.pendingCountryLabelLoupeX, this.pendingCountryLabelLoupeY);
+      });
+    }
+  }
+
+  private queueCountryLabelLoupePosition(clientX: number, clientY: number): void {
+    this.pendingCountryLabelLoupeX = clientX;
+    this.pendingCountryLabelLoupeY = clientY;
+    if (this.countryLabelLoupePosRaf != null) {
+      return;
+    }
+    this.countryLabelLoupePosRaf = requestAnimationFrame(() => {
+      this.countryLabelLoupePosRaf = null;
+      this.syncCountryLabelLoupePosition(this.pendingCountryLabelLoupeX, this.pendingCountryLabelLoupeY);
+    });
+  }
+
+  private syncCountryLabelLoupePosition(clientX: number, clientY: number): void {
+    const el = this.countryLabelLoupe?.nativeElement;
     if (!el) {
       return;
     }
@@ -10437,6 +10567,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const g = this.countryLabelsGroup;
     const earth = this.earthMesh;
     this.countryLabelZoomMulCached = Number.NaN;
+    this.updateCountryLabelLoupe(0, 0, null);
     if (!g) {
       return;
     }
@@ -10695,6 +10826,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       if (!sprite) {
         continue;
       }
+      sprite.userData['countryLabelName'] = name;
       sprite.renderOrder = 4;
       const p = WorldGlobeComponent.latLonToVector3(lat, lon, GLOBE_COUNTRY_LABEL_RADIUS);
       sprite.position.copy(p);
