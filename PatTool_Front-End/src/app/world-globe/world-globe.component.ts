@@ -100,6 +100,8 @@ const GLOBE_GEOCODE_SPAN_REF_LO = 0.04;
 const GLOBE_GEOCODE_SPAN_REF_HI = 36;
 /** Durée du vol caméra après recherche de lieu (arc de grand cercle). */
 const GLOBE_GEOCODE_ANIM_MS = 1700;
+/** Durée du vol caméra après réinitialisation de la vue (bouton Réinit.). */
+const GLOBE_RESET_VIEW_ANIM_MS = 1500;
 /** Durée du vol caméra initial vers l’ISS à l’ouverture du globe (réseau sans cache). */
 const GLOBE_INITIAL_ISS_ANIM_MS = 1200;
 
@@ -5838,7 +5840,6 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.issGlobeFreeOrbit = false;
     this.issCameraCenterSmoothPrevMs = 0;
-    this.stopGlobeCameraAnimation();
     this.clearGeocodeMarker();
     if (this.earthMesh) {
       this.earthMesh.rotation.set(0, Math.PI, 0);
@@ -5853,9 +5854,15 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         this.controls.minDistance,
         this.controls.maxDistance
       );
-      this.frameCameraOnLatLon(this.globeIssLat!, this.globeIssLon!, dist, 0);
+      this.animateCameraToLatLon(this.globeIssLat!, this.globeIssLon!, dist, GLOBE_RESET_VIEW_ANIM_MS, 0);
     } else {
-      this.frameCameraOnLatLon(GLOBE_INITIAL_FRANCE_LAT, GLOBE_INITIAL_FRANCE_LON, GLOBE_INITIAL_ORBIT_DISTANCE);
+      this.animateCameraToLatLon(
+        GLOBE_INITIAL_FRANCE_LAT,
+        GLOBE_INITIAL_FRANCE_LON,
+        GLOBE_INITIAL_ORBIT_DISTANCE,
+        GLOBE_RESET_VIEW_ANIM_MS,
+        0.22
+      );
     }
     if (this.issHistoricalTraceEnabled) {
       void this.loadIssHistoricalTrace();
