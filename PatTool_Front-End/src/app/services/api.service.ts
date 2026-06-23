@@ -670,6 +670,41 @@ export class ApiService {
   }
 
   // ===================================================================
+  // IANA time zones — server-side conversion (java.time)
+  // Backend: /api/external/timezone/* (no auth required)
+  // ===================================================================
+
+  getTimezoneZones(at?: string, dateTime?: string, zone?: string): Observable<{ zones: TimezoneZone[] }> {
+    let params = new HttpParams();
+    if (at) params = params.set('at', at);
+    if (dateTime) params = params.set('dateTime', dateTime);
+    if (zone) params = params.set('zone', zone);
+    return this._http.get<{ zones: TimezoneZone[] }>(
+      this.API_URL + 'external/timezone/zones',
+      { params }
+    );
+  }
+
+  getTimezoneNow(zone: string): Observable<TimezoneInstant> {
+    const params = new HttpParams().set('zone', zone);
+    return this._http.get<TimezoneInstant>(
+      this.API_URL + 'external/timezone/now',
+      { params }
+    );
+  }
+
+  convertTimezone(dateTime: string, from: string, to: string): Observable<TimezoneConvertResponse> {
+    const params = new HttpParams()
+      .set('dateTime', dateTime)
+      .set('from', from)
+      .set('to', to);
+    return this._http.get<TimezoneConvertResponse>(
+      this.API_URL + 'external/timezone/convert',
+      { params }
+    );
+  }
+
+  // ===================================================================
   // Twelve Data — stock exchange proxy
   // Backend: /api/external/stock/* (no auth required — server-side API key)
   // ===================================================================
@@ -1097,6 +1132,32 @@ export interface FrankfurterTimeseries {
   start_date: string;
   end_date: string;
   rates: { [isoDate: string]: { [currency: string]: number } };
+}
+
+/** IANA zone entry from /api/external/timezone/zones. */
+export interface TimezoneZone {
+  id: string;
+  abbreviation: string;
+  offset: string;
+  offsetSeconds: number;
+  label: string;
+}
+
+/** Date-time in a specific zone. */
+export interface TimezoneInstant {
+  dateTime: string;
+  zone: string;
+  abbreviation: string;
+  iso: string;
+  offset: string;
+  dayDifference?: number | null;
+}
+
+/** Conversion result from /api/external/timezone/convert. */
+export interface TimezoneConvertResponse {
+  input: TimezoneInstant;
+  outputs: TimezoneInstant[];
+  instantUtc: string;
 }
 
 // ===================================================================

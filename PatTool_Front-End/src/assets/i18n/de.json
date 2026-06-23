@@ -84,6 +84,8 @@
 
         "CURRENCY_CONVERTER": "W?hrungsrechner",
 
+        "TIME_ZONES": "Zeitzonen",
+
         "STOCK_EXCHANGE": "B?rse",
 
         "PHOTOS": "Fotowand",
@@ -736,11 +738,11 @@
 
         "ISS_LIVE_PIP_WHATSAPP_PASTE_IMAGE": "Screenshot in Zwischenablage kopiert ? Bild in WhatsApp einf?gen (Strg+V).",
         "SHARE_WHATSAPP": "WhatsApp",
-        "SHARE_WHATSAPP_HINT": "Screenshot der aktuellen Globusansicht und Link zum erneuten Öffnen in PatTool teilen.",
+        "SHARE_WHATSAPP_HINT": "Screenshot der aktuellen Globusansicht und Link zum erneuten ï¿½ffnen in PatTool teilen.",
         "SHARE_WHATSAPP_OK": "WhatsApp-Freigabe gestartet",
-        "SHARE_WHATSAPP_ERROR": "Freigabe über WhatsApp nicht möglich",
+        "SHARE_WHATSAPP_ERROR": "Freigabe ï¿½ber WhatsApp nicht mï¿½glich",
         "WHATSAPP_MESSAGE": "*{{title}}*\n\n{{coords}}{{url}}",
-        "WHATSAPP_COORDS": "Ansicht: {{lat}}°, {{lon}}°\n\n",
+        "WHATSAPP_COORDS": "Ansicht: {{lat}}ï¿½, {{lon}}ï¿½\n\n",
 
         "ISS_POLL_INTERVAL_LABEL": "ISS-Aktualisierungsintervall (Sekunden)",
 
@@ -4286,7 +4288,7 @@
 
         "TOOLS_OPTIONAL": "Werkzeuge:",
 
-        "TOOLS_GROUP": "Tooloptionen für diese Anfrage",
+        "TOOLS_GROUP": "Tooloptionen fï¿½r diese Anfrage",
 
         "TOOL_WEB": "Websuche",
 
@@ -4294,7 +4296,7 @@
 
         "TOOL_MCP": "MCP",
 
-        "TOOLS_OPTIONAL_HINT": "Optional ? angezeigte Optionen hängen vom gewählten Anbieter ab (langsamer, höherer API-Verbrauch).",
+        "TOOLS_OPTIONAL_HINT": "Optional ? angezeigte Optionen hï¿½ngen vom gewï¿½hlten Anbieter ab (langsamer, hï¿½herer API-Verbrauch).",
 
         "TOOL_WEB_HINT": "Durchsucht das Web nach aktuellen Infos (Nachrichten, Wetter, Kurse?). Langsamere Antwort.",
 
