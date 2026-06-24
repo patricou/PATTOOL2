@@ -5,6 +5,43 @@
 <div class="container-fluid py-3 ods-editor-page">
   <p class="text-muted">{{ 'ODS_EDITOR.INTRO' | translate }}</p>
 
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <label class="form-label" for="odsSavedDocs">{{
+        'ODS_EDITOR.SAVED_DOCS_LABEL' | translate
+      }}</label>
+      <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+        <select
+          id="odsSavedDocs"
+          class="form-select ods-editor-doc-select"
+          [disabled]="loadingDocuments"
+          [ngModel]="currentDocumentId || ''"
+          (ngModelChange)="onDocumentSelected($event)">
+          <option value="">{{ 'ODS_EDITOR.NEW_DOC' | translate }}</option>
+          <option *ngFor="let doc of documents" [value]="doc.id ?? ''" [disabled]="!doc.id">
+            {{ formatDocumentLabel(doc) }}
+          </option>
+        </select>
+        <button
+          type="button"
+          class="btn btn-outline-primary btn-sm"
+          (click)="newWorkbook()"
+          [disabled]="loadingDocuments">
+          <i class="fa fa-plus me-1" aria-hidden="true"></i>
+          {{ 'ODS_EDITOR.NEW_DOC' | translate }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-outline-danger btn-sm"
+          (click)="deleteDocument()"
+          [disabled]="!hasSavedDocument || savingToCloud || deleting">
+          <i class="fa fa-trash me-1" aria-hidden="true"></i>
+          {{ 'ODS_EDITOR.DELETE_DOC' | translate }}
+        </button>
+      </div>
+    </div>
+  </div>
+
   <input
     #fileInput
     type="file"
@@ -34,6 +71,19 @@
         <button
           type="button"
           class="btn btn-success btn-sm"
+          [disabled]="!canSaveToCloud"
+          (click)="saveToCloud()">
+          <span
+            *ngIf="savingToCloud"
+            class="spinner-border spinner-border-sm me-1"
+            role="status"
+            aria-hidden="true"></span>
+          <i *ngIf="!savingToCloud" class="fa fa-cloud-upload me-1" aria-hidden="true"></i>
+          {{ 'ODS_EDITOR.SAVE_CLOUD_BTN' | translate }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-outline-success btn-sm"
           [disabled]="!canSave"
           (click)="saveOds()">
           <span
@@ -61,6 +111,9 @@
 
       <div *ngIf="errorKey" class="alert alert-danger py-2 px-3 small mt-3" role="alert">
         {{ errorKey | translate }}
+      </div>
+      <div *ngIf="saveMessageKey" class="alert alert-success py-2 px-3 small mt-3" role="status">
+        {{ saveMessageKey | translate }}
       </div>
     </div>
   </div>

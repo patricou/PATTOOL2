@@ -1,8 +1,18 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  ElementRef,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+  inject
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { finalize } from 'rxjs/operators';
 import { Subscription } from 'rxjs';
 import { AgGridAngular } from 'ag-grid-angular';
 import type {
@@ -25,6 +35,12 @@ import {
   workbookToOdsBlob
 } from './ods-editor-workbook.util';
 import { FileService } from '../services/file.service';
+import {
+  OdsEditorDocument,
+  OdsEditorService,
+  base64ToOdsFile,
+  blobToBase64
+} from './ods-editor.service';
 
 const FONT_SIZE_STORAGE_KEY = 'pat-ods-editor-font-size';
 const FONT_SIZE_MIN = 8;
@@ -45,6 +61,8 @@ export class OdsEditorComponent implements OnInit, OnDestroy {
 
   private readonly route = inject(ActivatedRoute);
   private readonly fileService = inject(FileService);
+  private readonly odsService = inject(OdsEditorService);
+  private readonly destroyRef = inject(DestroyRef);
   private routeSub?: Subscription;
 
   private gridApi: GridApi | null = null;
@@ -55,8 +73,14 @@ export class OdsEditorComponent implements OnInit, OnDestroy {
   rowData: Record<string, string>[] = [];
   loading = false;
   saving = false;
+  savingToCloud = false;
+  deleting = false;
   dirty = false;
   errorKey = '';
+  saveMessageKey = '';
+  documents: OdsEditorDocument[] = [];
+  currentDocumentId: string | null = null;
+  loadingDocuments = false;
   /** Chargement depuis une pièce jointe d’activité (query fileId). */
   loadingFromEvent = false;
 
@@ -67,6 +91,7 @@ export class OdsEditorComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.displayFontSizePx = this.loadStoredFontSize();
+    this.loadDocuments();
     this.routeSub = this.route.queryParamMap.subscribe((params) => {
       const fileId = params.get('fileId')?.trim();
       const fileName = params.get('fileName')?.trim() || 'document.ods';
@@ -98,7 +123,15 @@ export class OdsEditorComponent implements OnInit, OnDestroy {
   }
 
   get canSave(): boolean {
-    return !!this.workbook && !this.saving && !this.loading;
+    return !!this.workbook && !this.saving && !this.savingToCloud && !this.loading;
+  }
+
+  get canSaveToCloud(): boolean {
+    return this.canSave && !!(this.workbook?.fileName?.trim());
+  }
+
+  get hasSavedDocument(): boolean {
+    return this.currentDocumentId != null;
   }
 
   /** Nouvelle feuille impossible en mode « styles conservés » (structure XML fixe). */
@@ -141,11 +174,152 @@ export class OdsEditorComponent implements OnInit, OnDestroy {
   }
 
   newWorkbook(): void {
+    this.currentDocumentId = null;
     this.workbook = createEmptyWorkbook('nouveau-document');
     this.activeSheetIndex = 0;
     this.dirty = false;
     this.errorKey = '';
+    this.saveMessageKey = '';
     this.refreshGridFromActiveSheet();
+  }
+
+  loadDocuments(): void {
+    this.loadingDocuments = true;
+    this.odsService
+      .list()
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.loadingDocuments = false;
+        })
+      )
+      .subscribe({
+        next: (docs) => {
+          this.documents = docs ?? [];
+        },
+        error: (err) => console.error('ods-editor list', err)
+      });
+  }
+
+  onDocumentSelected(id: string): void {
+    if (!id) {
+      this.newWorkbook();
+      return;
+    }
+    this.errorKey = '';
+    this.saveMessageKey = '';
+    this.loading = true;
+    this.odsService
+      .getOne(id)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.loading = false;
+        })
+      )
+      .subscribe({
+        next: (doc) => {
+          const base64 = doc.odsContentBase64?.trim();
+          if (!base64) {
+            this.errorKey = 'ODS_EDITOR.ERR_LOAD';
+            return;
+          }
+          const file = base64ToOdsFile(base64, doc.fileName || 'document');
+          this.currentDocumentId = doc.id ?? id;
+          this.loadFile(file, { fromCloud: true });
+        },
+        error: (err) => {
+          console.error('ods-editor load', err);
+          this.errorKey = 'ODS_EDITOR.ERR_LOAD';
+        }
+      });
+  }
+
+  saveToCloud(): void {
+    if (!this.workbook) {
+      return;
+    }
+    const fileName = this.workbook.fileName.trim();
+    if (!fileName) {
+      this.errorKey = 'ODS_EDITOR.ERR_FILENAME_REQUIRED';
+      return;
+    }
+    this.errorKey = '';
+    this.saveMessageKey = '';
+    this.persistGridToActiveSheet();
+    this.savingToCloud = true;
+    workbookToOdsBlob(this.workbook)
+      .then((blob) => blobToBase64(blob))
+      .then((odsContentBase64) => {
+        const body: OdsEditorDocument = { fileName, odsContentBase64 };
+        const req$ = this.currentDocumentId
+          ? this.odsService.update(this.currentDocumentId, body)
+          : this.odsService.create(body);
+        return new Promise<OdsEditorDocument>((resolve, reject) => {
+          req$
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({ next: resolve, error: reject });
+        });
+      })
+      .then((saved) => {
+        this.currentDocumentId = saved.id ?? this.currentDocumentId;
+        this.workbook!.fileName = saved.fileName ?? fileName;
+        this.dirty = false;
+        this.saveMessageKey = 'ODS_EDITOR.SAVED';
+        this.loadDocuments();
+      })
+      .catch((err) => {
+        console.error('ods-editor save', err);
+        this.errorKey = 'ODS_EDITOR.ERR_SAVE_CLOUD';
+      })
+      .finally(() => {
+        this.savingToCloud = false;
+      });
+  }
+
+  deleteDocument(): void {
+    if (!this.currentDocumentId || this.deleting) {
+      return;
+    }
+    const id = this.currentDocumentId;
+    this.errorKey = '';
+    this.saveMessageKey = '';
+    this.deleting = true;
+    this.odsService
+      .delete(id)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.deleting = false;
+        })
+      )
+      .subscribe({
+        next: () => {
+          this.documents = this.documents.filter((d) => d.id !== id);
+          this.newWorkbook();
+          this.loadDocuments();
+          this.saveMessageKey = 'ODS_EDITOR.DELETED';
+        },
+        error: (err) => {
+          console.error('ods-editor delete', err);
+          this.errorKey = 'ODS_EDITOR.ERR_DELETE';
+        }
+      });
+  }
+
+  formatDocumentLabel(doc: OdsEditorDocument): string {
+    const name = (doc.fileName || '').trim() || 'document';
+    const owner = (doc.ownerDisplayName || '').trim();
+    const titled = owner ? `${name} — ${owner}` : name;
+    if (!doc.updatedAt) {
+      return titled;
+    }
+    try {
+      const d = new Date(doc.updatedAt);
+      return `${titled} (${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
+    } catch {
+      return titled;
+    }
   }
 
   selectSheet(index: number): void {
@@ -260,9 +434,13 @@ export class OdsEditorComponent implements OnInit, OnDestroy {
     });
   }
 
-  private loadFile(file: File): void {
+  private loadFile(file: File, opts?: { fromCloud?: boolean }): void {
     this.errorKey = '';
     this.loading = true;
+    if (!opts?.fromCloud) {
+      this.currentDocumentId = null;
+      this.saveMessageKey = '';
+    }
     loadOdsFromFile(file)
       .then((model) => {
         this.workbook = model;

@@ -2,6 +2,12 @@
   max-width: 100%;
 }
 
+.ods-editor-doc-select {
+  min-width: 220px;
+  max-width: 100%;
+  flex: 1 1 280px;
+}
+
 .ods-editor-grid-card {
   min-height: 420px;
 }
