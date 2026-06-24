@@ -35,7 +35,7 @@ interface NavRouteMenuItem {
 }
 
 interface NavDocMenuItem {
-  docAction: 'overview' | 'slideshow' | 'activities' | 'whatspat' | 'assistant';
+  docAction: 'overview' | 'slideshow' | 'activities' | 'whatspat' | 'assistant' | 'math' | 'maison' | 'monde' | 'outils';
   icon: string;
   labelKey: string;
 }
@@ -189,7 +189,11 @@ export class AppComponent implements OnInit {
         { docAction: 'activities', icon: 'fa fa-calendar-check-o', labelKey: 'MENU.DOC_ACTIVITIES' },
         { docAction: 'slideshow', icon: 'fa fa-picture-o', labelKey: 'MENU.SLIDESHOW_DOCUMENTATION' },
         { docAction: 'whatspat', icon: 'fa fa-comments', labelKey: 'MENU.DOC_WHATSPAT' },
-        { docAction: 'assistant', icon: 'fa fa-magic', labelKey: 'MENU.DOC_ASSISTANT' }
+        { docAction: 'assistant', icon: 'fa fa-magic', labelKey: 'MENU.DOC_ASSISTANT' },
+        { docAction: 'math', icon: 'fa fa-calculator', labelKey: 'MENU.DOC_MATH' },
+        { docAction: 'maison', icon: 'fa fa-home', labelKey: 'MENU.DOC_MAISON' },
+        { docAction: 'monde', icon: 'fa fa-globe', labelKey: 'MENU.DOC_MONDE' },
+        { docAction: 'outils', icon: 'fa fa-wrench', labelKey: 'MENU.DOC_OUTILS' }
     ];
 
     constructor(public _translate: TranslateService,

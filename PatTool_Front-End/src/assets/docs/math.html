@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PatTool — Math</title>
+    <link rel="stylesheet" href="/assets/css/pattool-doc.css">
+</head>
+<body>
+    <header class="doc-topbar">
+        <div class="doc-topbar-inner">
+            <h1 data-doc-lang="fr">Menu Math</h1>
+            <h1 data-doc-lang="en" hidden>Math menu</h1>
+            <p data-doc-lang="fr">Loto, EuroMillions, calculatrice, CERN, chimie</p>
+            <p data-doc-lang="en" hidden>Loto, EuroMillions, calculator, CERN, chemistry</p>
+        </div>
+    </header>
+
+    <div class="doc-toolbar">
+        <div class="doc-toolbar-inner">
+            <nav class="doc-nav-links" aria-label="Documentation">
+                <a href="/assets/docs/overview.html" data-doc-lang="fr">Guide</a>
+                <a href="/assets/docs/overview.html" data-doc-lang="en" hidden>Guide</a>
+                <a href="/assets/docs/activities.html" data-doc-lang="fr">Activités</a>
+                <a href="/assets/docs/activities.html" data-doc-lang="en" hidden>Activities</a>
+                <a href="/assets/docs/slideshow.html" data-doc-lang="fr">Diaporama</a>
+                <a href="/assets/docs/slideshow.html" data-doc-lang="en" hidden>Slideshow</a>
+                <a href="/assets/docs/whatspat.html">WhatsPat</a>
+                <a href="/assets/docs/assistant.html" data-doc-lang="fr">Assistant</a>
+                <a href="/assets/docs/assistant.html" data-doc-lang="en" hidden>Assistant</a>
+                <a href="/assets/docs/math.html" data-doc-lang="fr">Math</a>
+                <a href="/assets/docs/math.html" data-doc-lang="en" hidden>Math</a>
+                <a href="/assets/docs/maison.html" data-doc-lang="fr">Maison</a>
+                <a href="/assets/docs/maison.html" data-doc-lang="en" hidden>Home</a>
+                <a href="/assets/docs/monde.html" data-doc-lang="fr">Monde</a>
+                <a href="/assets/docs/monde.html" data-doc-lang="en" hidden>World</a>
+                <a href="/assets/docs/outils.html" data-doc-lang="fr">Outils</a>
+                <a href="/assets/docs/outils.html" data-doc-lang="en" hidden>Tools</a>
+            </nav>
+        </div>
+    </div>
+
+    <main class="doc-main">
+        <div data-doc-lang="fr">
+            <section class="doc-section">
+                <h2>Sommaire</h2>
+                <ul class="doc-toc">
+                    <li><a href="#loto-fr">Loto (FDJ)</a></li>
+                    <li><a href="#eurom-fr">EuroMillions</a></li>
+                    <li><a href="#calc-fr">Calculatrice</a></li>
+                    <li><a href="#cern-fr">CERN Open Data</a></li>
+                    <li><a href="#chimie-fr">Chimie</a></li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="loto-fr">
+                <h2>Loto (FDJ)</h2>
+                <p>Route : <code class="doc-code">#/tools/loto</code></p>
+                <ul>
+                    <li>Tableau des tirages stockés en <strong>MongoDB</strong> (archive oct. 2008 → présent)</li>
+                    <li>Filtres par date, tri, recherche dans le tableau</li>
+                    <li>Graphiques de fréquence des numéros et du numéro chance</li>
+                    <li>Export JSON (format IA) depuis une modale dédiée</li>
+                    <li><strong>Analyse IA</strong> : envoie un prompt + JSON des derniers tirages à l'assistant (nouvelle conversation)</li>
+                </ul>
+                <div class="doc-tip"><strong>Admin :</strong> import d'une plage de mois depuis l'archive FDJ, correction de date de tirage, rafraîchissement du tableau.</div>
+            </section>
+
+            <section class="doc-section" id="eurom-fr">
+                <h2>EuroMillions (Millionnaire)</h2>
+                <p>Route : <code class="doc-code">#/tools/euromillions</code></p>
+                <ul>
+                    <li>Historique des tirages, filtres, tri par date / combinaison / gain / code</li>
+                    <li><strong>Méthodes statistiques</strong> (χ², entropie, récurrence d'écart, corrélation des sommes, Monte Carlo) — cartes avec étoiles indicatives</li>
+                    <li>Graphiques : fréquences, évolution mensuelle, comparaison de méthodes</li>
+                    <li>Synchronisation des tirages (admin) et paramètre de date minimale pour l'IA</li>
+                    <li><strong>Analyse IA</strong> : prompt + enveloppe JSON (stats + méthodes cochées) → assistant avec <strong>Claude Opus 4.8</strong></li>
+                </ul>
+                <div class="doc-warn">Les étoiles et analyses sont <em>indicatives</em> — pas une prédiction garantie des tirages.</div>
+            </section>
+
+            <section class="doc-section" id="calc-fr">
+                <h2>Calculatrice</h2>
+                <p>Route : <code class="doc-code">#/tools/calculator</code> — également accessible via l'icône ronde à côté du menu Outils.</p>
+                <table class="doc-table">
+                    <thead><tr><th>Mode</th><th>Description</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>Standard</strong></td><td>Opérations de base, mémoire M+/M-/MR/MC</td></tr>
+                        <tr><td><strong>Ruban (tape)</strong></td><td>Historique des opérations défilant</td></tr>
+                        <tr><td><strong>Scientifique</strong></td><td>Trigonométrie, log, puissances, constantes π et e</td></tr>
+                        <tr><td><strong>Formules</strong></td><td>Saisie d'expressions algébriques évaluées pas à pas</td></tr>
+                    </tbody>
+                </table>
+                <p>Clavier : chiffres, opérateurs, Entrée (=), Échap (effacer), raccourcis documentés dans l'interface.</p>
+            </section>
+
+            <section class="doc-section" id="cern-fr">
+                <h2>CERN Open Data</h2>
+                <p>Route : <code class="doc-code">#/tools/cern</code></p>
+                <ul>
+                    <li>Catalogue des <strong>APIs Open Data</strong> du CERN (statut en ligne / dégradé)</li>
+                    <li>Graphiques : répartition des statuts, volumes de données par expérience</li>
+                    <li>Exploration par source (CMS, ATLAS, ALICE, LHCb…) avec liens vers la documentation officielle</li>
+                    <li>Requêtes d'exemple et visualisation des jeux de données récents</li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="chimie-fr">
+                <h2>Chimie</h2>
+                <p>Route : <code class="doc-code">#/tools/chimie</code></p>
+                <ul>
+                    <li><strong>Tableau périodique</strong> — filtre par catégorie, fiche élément (numéro, masse, configuration)</li>
+                    <li><strong>Molécule</strong> — visualisation 3D (structure, liaisons)</li>
+                    <li><strong>Comparer</strong> — deux éléments ou composés côte à côte</li>
+                    <li><strong>Réactions</strong> — équilibres et exemples commentés</li>
+                </ul>
+            </section>
+        </div>
+
+        <div data-doc-lang="en" hidden>
+            <section class="doc-section">
+                <h2>Contents</h2>
+                <ul class="doc-toc">
+                    <li><a href="#loto-en">Loto (French lottery)</a></li>
+                    <li><a href="#eurom-en">EuroMillions</a></li>
+                    <li><a href="#calc-en">Calculator</a></li>
+                    <li><a href="#cern-en">CERN Open Data</a></li>
+                    <li><a href="#chimie-en">Chemistry</a></li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="loto-en">
+                <h2>Loto (FDJ)</h2>
+                <p>Route: <code class="doc-code">#/tools/loto</code></p>
+                <ul>
+                    <li>Draw table from <strong>MongoDB</strong> (archive Oct 2008 → present)</li>
+                    <li>Date filters, sorting, in-table search</li>
+                    <li>Number and lucky-number frequency charts</li>
+                    <li>AI-format JSON export modal</li>
+                    <li><strong>AI analysis</strong>: sends prompt + recent draws JSON to the assistant (new thread)</li>
+                </ul>
+                <div class="doc-tip"><strong>Admin:</strong> import month range from FDJ archive, fix draw dates, refresh table.</div>
+            </section>
+
+            <section class="doc-section" id="eurom-en">
+                <h2>EuroMillions</h2>
+                <p>Route: <code class="doc-code">#/tools/euromillions</code></p>
+                <ul>
+                    <li>Draw history, filters, sort by date / combo / prize / code</li>
+                    <li><strong>Statistical methods</strong> (χ², entropy, gap recurrence, sum correlation, Monte Carlo)</li>
+                    <li>Charts: frequencies, monthly trends, method comparison</li>
+                    <li>Draw sync (admin) and minimum date setting for AI</li>
+                    <li><strong>AI analysis</strong>: prompt + JSON envelope → <strong>Claude Opus 4.8</strong></li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="calc-en">
+                <h2>Calculator</h2>
+                <p>Route: <code class="doc-code">#/tools/calculator</code> — also via the round icon next to Tools menu.</p>
+                <p>Modes: standard, tape history, scientific, formula/expression evaluator. Keyboard shortcuts supported.</p>
+            </section>
+
+            <section class="doc-section" id="cern-en">
+                <h2>CERN Open Data</h2>
+                <p>Route: <code class="doc-code">#/tools/cern</code> — CERN Open Data API catalog, status charts, per-experiment exploration.</p>
+            </section>
+
+            <section class="doc-section" id="chimie-en">
+                <h2>Chemistry</h2>
+                <p>Route: <code class="doc-code">#/tools/chimie</code> — periodic table, 3D molecules, compare, reactions tabs.</p>
+            </section>
+        </div>
+    </main>
+
+    <footer class="doc-footer"><p>PatTool — Math</p></footer>
+    <script src="/assets/js/pattool-doc.js"></script>
+</body>
+</html>

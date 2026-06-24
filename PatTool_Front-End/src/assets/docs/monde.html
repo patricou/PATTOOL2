@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PatTool — Monde</title>
+    <link rel="stylesheet" href="/assets/css/pattool-doc.css">
+</head>
+<body>
+    <header class="doc-topbar">
+        <div class="doc-topbar-inner">
+            <h1 data-doc-lang="fr">Menu Monde</h1>
+            <h1 data-doc-lang="en" hidden>World menu</h1>
+            <p data-doc-lang="fr">Liens, météo, actualités, finances, globe et astronomie</p>
+            <p data-doc-lang="en" hidden>Links, weather, news, finance, globe and astronomy</p>
+        </div>
+    </header>
+
+    <div class="doc-toolbar">
+        <div class="doc-toolbar-inner">
+            <nav class="doc-nav-links" aria-label="Documentation">
+                <a href="/assets/docs/overview.html" data-doc-lang="fr">Guide</a>
+                <a href="/assets/docs/overview.html" data-doc-lang="en" hidden>Guide</a>
+                <a href="/assets/docs/activities.html" data-doc-lang="fr">Activités</a>
+                <a href="/assets/docs/activities.html" data-doc-lang="en" hidden>Activities</a>
+                <a href="/assets/docs/slideshow.html" data-doc-lang="fr">Diaporama</a>
+                <a href="/assets/docs/slideshow.html" data-doc-lang="en" hidden>Slideshow</a>
+                <a href="/assets/docs/whatspat.html">WhatsPat</a>
+                <a href="/assets/docs/assistant.html" data-doc-lang="fr">Assistant</a>
+                <a href="/assets/docs/assistant.html" data-doc-lang="en" hidden>Assistant</a>
+                <a href="/assets/docs/math.html" data-doc-lang="fr">Math</a>
+                <a href="/assets/docs/math.html" data-doc-lang="en" hidden>Math</a>
+                <a href="/assets/docs/maison.html" data-doc-lang="fr">Maison</a>
+                <a href="/assets/docs/maison.html" data-doc-lang="en" hidden>Home</a>
+                <a href="/assets/docs/monde.html" data-doc-lang="fr">Monde</a>
+                <a href="/assets/docs/monde.html" data-doc-lang="en" hidden>World</a>
+                <a href="/assets/docs/outils.html" data-doc-lang="fr">Outils</a>
+                <a href="/assets/docs/outils.html" data-doc-lang="en" hidden>Tools</a>
+            </nav>
+        </div>
+    </div>
+
+    <main class="doc-main">
+        <div data-doc-lang="fr">
+            <section class="doc-section">
+                <h2>Sommaire</h2>
+                <ul class="doc-toc">
+                    <li><a href="#liens-fr">Liens</a></li>
+                    <li><a href="#geo-fr">Géolocalisation &amp; météo</a></li>
+                    <li><a href="#news-fr">Actualités</a></li>
+                    <li><a href="#finance-fr">Devises, bourse, cryptos</a></li>
+                    <li><a href="#terre-fr">Terre et espace</a></li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="liens-fr">
+                <h2>Liens</h2>
+                <table class="doc-table">
+                    <tr><th>Page</th><th>Route</th><th>Description</th></tr>
+                    <tr><td><strong>Liens</strong></td><td><code class="doc-code">#/links</code></td><td>Signets personnels et partagés, catégories, ouverture dans un nouvel onglet</td></tr>
+                    <tr><td><strong>Administration</strong></td><td><code class="doc-code">#/links-admin</code></td><td>Gestion des liens globaux (admin)</td></tr>
+                </table>
+            </section>
+
+            <section class="doc-section" id="geo-fr">
+                <h2>Géolocalisation &amp; météo</h2>
+                <table class="doc-table">
+                    <tr><th>Outil</th><th>Route</th><th>Usage</th></tr>
+                    <tr><td><strong>Position / Météo</strong></td><td><code class="doc-code">#/api/openweathermap</code></td><td>Géolocalisation ou ville saisie ; météo actuelle et prévisions ; carte ; baguette → assistant avec « ville, pays »</td></tr>
+                    <tr><td><strong>Adresse / GPS → carte</strong></td><td><code class="doc-code">#/api/address-geocode</code></td><td>Géocodage d'une adresse ou coordonnées → carte Leaflet</td></tr>
+                    <tr><td><strong>Fuseaux horaires</strong></td><td><code class="doc-code">#/api/timezone-converter</code></td><td>Conversion date/heure entre fuseaux, référence UTC</td></tr>
+                </table>
+            </section>
+
+            <section class="doc-section" id="news-fr">
+                <h2>Actualités</h2>
+                <p>Route : <code class="doc-code">#/api/news</code></p>
+                <ul>
+                    <li>Flux multi-fournisseurs (quota, délai et pays documentés par source)</li>
+                    <li>Filtres : pays, langue, catégorie, recherche texte</li>
+                    <li><strong>Bandeau défilant</strong> optionnel en haut de l'application (ticker)</li>
+                    <li>Bouton <strong>Assistant</strong> sur chaque article → titre + Gemini 3.1 Pro + recherche web</li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="finance-fr">
+                <h2>Devises, bourse, cryptos</h2>
+                <table class="doc-table">
+                    <tr><th>Outil</th><th>Route</th><th>Usage</th></tr>
+                    <tr><td><strong>Convertisseur de devises</strong></td><td><code class="doc-code">#/api/currency-converter</code></td><td>Taux en temps réel, conversion bidirectionnelle, ticker optionnel</td></tr>
+                    <tr><td><strong>Bourse</strong></td><td><code class="doc-code">#/api/stock-exchange</code></td><td>Cours d'actions, graphiques, ticker boursier global</td></tr>
+                    <tr><td><strong>Cryptos</strong></td><td><code class="doc-code">#/api/cryptos</code></td><td>Prix des principales cryptomonnaies, évolution</td></tr>
+                </table>
+            </section>
+
+            <section class="doc-section" id="terre-fr">
+                <h2>Terre et espace</h2>
+                <p>Sous-section <em>Terre et espace</em> du menu Monde :</p>
+                <table class="doc-table">
+                    <tr><th>Outil</th><th>Route</th><th>Usage</th></tr>
+                    <tr><td><strong>Globe Terre</strong></td><td><code class="doc-code">#/tools/world-globe</code></td><td>Globe 3D interactif, couches (relief, pays), position ISS en temps réel</td></tr>
+                    <tr><td><strong>Système solaire</strong></td><td><code class="doc-code">#/tools/solar-system</code></td><td>Carte des planètes, orbites, informations par corps céleste</td></tr>
+                    <tr><td><strong>Ciel</strong></td><td><code class="doc-code">#/tools/ciel</code></td><td>Carte du ciel, constellations, visibilité selon position et date</td></tr>
+                </table>
+            </section>
+        </div>
+
+        <div data-doc-lang="en" hidden>
+            <section class="doc-section">
+                <h2>Contents</h2>
+                <ul class="doc-toc">
+                    <li><a href="#links-en">Links</a></li>
+                    <li><a href="#geo-en">Geolocation &amp; weather</a></li>
+                    <li><a href="#news-en">News</a></li>
+                    <li><a href="#finance-en">Currency, stocks, crypto</a></li>
+                    <li><a href="#earth-en">Earth &amp; space</a></li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="links-en">
+                <h2>Links</h2>
+                <p><code class="doc-code">#/links</code> — personal/shared bookmarks. <code class="doc-code">#/links-admin</code> — global links (admin).</p>
+            </section>
+
+            <section class="doc-section" id="geo-en">
+                <h2>Geolocation &amp; weather</h2>
+                <p>Weather (<code class="doc-code">#/api/openweathermap</code>), geocoding map (<code class="doc-code">#/api/address-geocode</code>), time zones (<code class="doc-code">#/api/timezone-converter</code>).</p>
+            </section>
+
+            <section class="doc-section" id="news-en">
+                <h2>News</h2>
+                <p><code class="doc-code">#/api/news</code> — multi-provider feeds, filters, optional ticker, assistant per article.</p>
+            </section>
+
+            <section class="doc-section" id="finance-en">
+                <h2>Currency, stocks, crypto</h2>
+                <p>Currency converter, stock exchange (with ticker), cryptocurrencies pages under <code class="doc-code">#/api/…</code>.</p>
+            </section>
+
+            <section class="doc-section" id="earth-en">
+                <h2>Earth &amp; space</h2>
+                <p>3D globe + ISS, solar system map, sky chart (<code class="doc-code">#/tools/world-globe</code>, solar-system, ciel).</p>
+            </section>
+        </div>
+    </main>
+
+    <footer class="doc-footer"><p>PatTool — World</p></footer>
+    <script src="/assets/js/pattool-doc.js"></script>
+</body>
+</html>

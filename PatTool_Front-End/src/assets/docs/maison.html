@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PatTool — Maison</title>
+    <link rel="stylesheet" href="/assets/css/pattool-doc.css">
+</head>
+<body>
+    <header class="doc-topbar">
+        <div class="doc-topbar-inner">
+            <h1 data-doc-lang="fr">Menu Maison</h1>
+            <h1 data-doc-lang="en" hidden>Home menu</h1>
+            <p data-doc-lang="fr">Domotique, réseau local, caméras, proxies, scan sécurité</p>
+            <p data-doc-lang="en" hidden>Home automation, LAN, cameras, proxies, security scan</p>
+        </div>
+    </header>
+
+    <div class="doc-toolbar">
+        <div class="doc-toolbar-inner">
+            <nav class="doc-nav-links" aria-label="Documentation">
+                <a href="/assets/docs/overview.html" data-doc-lang="fr">Guide</a>
+                <a href="/assets/docs/overview.html" data-doc-lang="en" hidden>Guide</a>
+                <a href="/assets/docs/activities.html" data-doc-lang="fr">Activités</a>
+                <a href="/assets/docs/activities.html" data-doc-lang="en" hidden>Activities</a>
+                <a href="/assets/docs/slideshow.html" data-doc-lang="fr">Diaporama</a>
+                <a href="/assets/docs/slideshow.html" data-doc-lang="en" hidden>Slideshow</a>
+                <a href="/assets/docs/whatspat.html">WhatsPat</a>
+                <a href="/assets/docs/assistant.html" data-doc-lang="fr">Assistant</a>
+                <a href="/assets/docs/assistant.html" data-doc-lang="en" hidden>Assistant</a>
+                <a href="/assets/docs/math.html" data-doc-lang="fr">Math</a>
+                <a href="/assets/docs/math.html" data-doc-lang="en" hidden>Math</a>
+                <a href="/assets/docs/maison.html" data-doc-lang="fr">Maison</a>
+                <a href="/assets/docs/maison.html" data-doc-lang="en" hidden>Home</a>
+                <a href="/assets/docs/monde.html" data-doc-lang="fr">Monde</a>
+                <a href="/assets/docs/monde.html" data-doc-lang="en" hidden>World</a>
+                <a href="/assets/docs/outils.html" data-doc-lang="fr">Outils</a>
+                <a href="/assets/docs/outils.html" data-doc-lang="en" hidden>Tools</a>
+            </nav>
+        </div>
+    </div>
+
+    <main class="doc-main">
+        <div data-doc-lang="fr">
+            <section class="doc-section">
+                <h2>Accès</h2>
+                <p>La plupart des entrées du menu <strong>Maison</strong> nécessitent le rôle Keycloak <code class="doc-code">Iot</code>. Exception : <strong>Scan sécurité (mandat)</strong>, visible pour tout utilisateur <strong>connecté</strong>.</p>
+                <p><strong>Réseau local</strong> est réservé aux <strong>administrateurs</strong>.</p>
+            </section>
+
+            <section class="doc-section" id="domotique-fr">
+                <h2>Domotique</h2>
+                <p>Route : <code class="doc-code">#/iot</code></p>
+                <ul>
+                    <li><strong>Test Ethernet Shield</strong> — vérifie la liaison avec le microcontrôleur domotique</li>
+                    <li><strong>Portail</strong> — ouverture / fermeture du portail (commande distante via le serveur PatTool)</li>
+                    <li><strong>Volets / stores</strong> — commandes par zone si configurées côté serveur</li>
+                    <li>États et réponses affichés dans des cartes avec indicateur visuel</li>
+                </ul>
+                <div class="doc-tip">Les commandes passent par le backend PatTool qui dialogue avec le matériel sur le réseau local — pas de contrôle direct depuis le navigateur.</div>
+            </section>
+
+            <section class="doc-section" id="reseau-fr">
+                <h2>Réseau local</h2>
+                <p>Route : <code class="doc-code">#/iot/local-network</code> — <strong>admin uniquement</strong></p>
+                <ul>
+                    <li>Scan des appareils sur le LAN (adresses IP, noms, ports ouverts selon configuration)</li>
+                    <li>Tableau filtrable et export des résultats</li>
+                    <li>Utile pour diagnostiquer la connectivité domotique et caméras</li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="cameras-fr">
+                <h2>Caméras</h2>
+                <p>Route : <code class="doc-code">#/iot/cameras</code></p>
+                <ul>
+                    <li>Flux vidéo des caméras configurées sur le serveur (proxy MJPEG ou snapshot)</li>
+                    <li>Grille multi-caméras, rechargement manuel</li>
+                    <li>Accès protégé par authentification et rôle IoT</li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="proxy-fr">
+                <h2>Proxies LAN</h2>
+                <p>Route : <code class="doc-code">#/iot/proxy</code></p>
+                <ul>
+                    <li>Liste des proxys HTTP configurés pour atteindre des services internes (Arduino, caméras, etc.)</li>
+                    <li>Test de connectivité par proxy</li>
+                    <li>Documentation des URLs relais utilisées par le backend</li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="scan-fr">
+                <h2>Scan sécurité (mandat)</h2>
+                <p>Route : <code class="doc-code">#/tools/security-scan</code> — tout utilisateur connecté (sans rôle IoT)</p>
+                <ul>
+                    <li>Outil de sensibilisation : liens vers ressources officielles (ANSSI, CVE, bonnes pratiques)</li>
+                    <li>Périmètre d'évaluation documenté — pas un scan actif de votre machine</li>
+                    <li>Accessible depuis Maison pour rappeler les enjeux de sécurité des objets connectés</li>
+                </ul>
+            </section>
+        </div>
+
+        <div data-doc-lang="en" hidden>
+            <section class="doc-section">
+                <h2>Access</h2>
+                <p>Most <strong>Home</strong> menu entries require Keycloak role <code class="doc-code">Iot</code>. Exception: <strong>Security scan (mandate)</strong> for any <strong>logged-in</strong> user.</p>
+                <p><strong>Local network</strong> is admin-only.</p>
+            </section>
+
+            <section class="doc-section" id="domotique-en">
+                <h2>Home automation</h2>
+                <p>Route: <code class="doc-code">#/iot</code> — test Ethernet shield, gate open/close, shutters; commands via PatTool server.</p>
+            </section>
+
+            <section class="doc-section" id="reseau-en">
+                <h2>Local network</h2>
+                <p>Route: <code class="doc-code">#/iot/local-network</code> — admin LAN device scan and diagnostics.</p>
+            </section>
+
+            <section class="doc-section" id="cameras-en">
+                <h2>Cameras</h2>
+                <p>Route: <code class="doc-code">#/iot/cameras</code> — configured camera streams (MJPEG/snapshot grid).</p>
+            </section>
+
+            <section class="doc-section" id="proxy-en">
+                <h2>LAN proxies</h2>
+                <p>Route: <code class="doc-code">#/iot/proxy</code> — HTTP proxies to internal services, connectivity tests.</p>
+            </section>
+
+            <section class="doc-section" id="scan-en">
+                <h2>Security scan (mandate)</h2>
+                <p>Route: <code class="doc-code">#/tools/security-scan</code> — awareness links and documented assessment scope (no active machine scan).</p>
+            </section>
+        </div>
+    </main>
+
+    <footer class="doc-footer"><p>PatTool — Home</p></footer>
+    <script src="/assets/js/pattool-doc.js"></script>
+</body>
+</html>

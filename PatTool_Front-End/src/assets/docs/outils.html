@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PatTool — Outils</title>
+    <link rel="stylesheet" href="/assets/css/pattool-doc.css">
+</head>
+<body>
+    <header class="doc-topbar">
+        <div class="doc-topbar-inner">
+            <h1 data-doc-lang="fr">Menu Outils</h1>
+            <h1 data-doc-lang="en" hidden>Tools menu</h1>
+            <p data-doc-lang="fr">Éditeurs PDF et ODS, WhatsPat, système, téléversement, partage</p>
+            <p data-doc-lang="en" hidden>PDF and ODS editors, WhatsPat, system, upload, share</p>
+        </div>
+    </header>
+
+    <div class="doc-toolbar">
+        <div class="doc-toolbar-inner">
+            <nav class="doc-nav-links" aria-label="Documentation">
+                <a href="/assets/docs/overview.html" data-doc-lang="fr">Guide</a>
+                <a href="/assets/docs/overview.html" data-doc-lang="en" hidden>Guide</a>
+                <a href="/assets/docs/activities.html" data-doc-lang="fr">Activités</a>
+                <a href="/assets/docs/activities.html" data-doc-lang="en" hidden>Activities</a>
+                <a href="/assets/docs/slideshow.html" data-doc-lang="fr">Diaporama</a>
+                <a href="/assets/docs/slideshow.html" data-doc-lang="en" hidden>Slideshow</a>
+                <a href="/assets/docs/whatspat.html">WhatsPat</a>
+                <a href="/assets/docs/assistant.html" data-doc-lang="fr">Assistant</a>
+                <a href="/assets/docs/assistant.html" data-doc-lang="en" hidden>Assistant</a>
+                <a href="/assets/docs/math.html" data-doc-lang="fr">Math</a>
+                <a href="/assets/docs/math.html" data-doc-lang="en" hidden>Math</a>
+                <a href="/assets/docs/maison.html" data-doc-lang="fr">Maison</a>
+                <a href="/assets/docs/maison.html" data-doc-lang="en" hidden>Home</a>
+                <a href="/assets/docs/monde.html" data-doc-lang="fr">Monde</a>
+                <a href="/assets/docs/monde.html" data-doc-lang="en" hidden>World</a>
+                <a href="/assets/docs/outils.html" data-doc-lang="fr">Outils</a>
+                <a href="/assets/docs/outils.html" data-doc-lang="en" hidden>Tools</a>
+            </nav>
+        </div>
+    </div>
+
+    <main class="doc-main">
+        <div data-doc-lang="fr">
+            <section class="doc-section">
+                <h2>Sommaire</h2>
+                <ul class="doc-toc">
+                    <li><a href="#pdf-fr">Éditeur PDF</a></li>
+                    <li><a href="#ods-fr">Tableur Calc (.ods)</a></li>
+                    <li><a href="#whatspat-fr">WhatsPat</a></li>
+                    <li><a href="#autres-fr">Autres entrées du menu</a></li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="pdf-fr">
+                <h2>Éditeur PDF</h2>
+                <p>Route : <code class="doc-code">#/tools/pdf-converter</code> — connexion requise.</p>
+                <p>Rédigez un document riche (texte + images), enregistrez la mise en page sur le serveur, puis exportez un PDF identique ou partagez-le sur WhatsApp.</p>
+
+                <h3>Documents enregistrés</h3>
+                <ul>
+                    <li>Liste déroulante de vos documents <strong>MongoDB</strong> (un par utilisateur)</li>
+                    <li><strong>Nouveau document</strong> — brouillon vierge</li>
+                    <li><strong>Supprimer</strong> — suppression définitive du document cloud</li>
+                </ul>
+
+                <h3>Éditeur (Quill)</h3>
+                <ul>
+                    <li>Barre d'outils : titres, gras, italique, listes, liens, couleurs…</li>
+                    <li><strong>Insérer une image</strong> — depuis fichiers ; glisser-déposer dans le texte</li>
+                    <li><strong>Redimensionner</strong> — cliquer l'image, tirer les coins</li>
+                    <li><strong>Supprimer l'image sélectionnée</strong> — ou touche Suppr / Retour arrière</li>
+                    <li>Nom de fichier PDF (sans extension <code class="doc-code">.pdf</code>, max 180 caractères)</li>
+                </ul>
+
+                <h3>Actions</h3>
+                <table class="doc-table">
+                    <tr><th>Bouton</th><th>Effet</th></tr>
+                    <tr><td><strong>Enregistrer</strong></td><td>Sauvegarde HTML + nom + option pied de page dans MongoDB</td></tr>
+                    <tr><td><strong>Générer le PDF</strong></td><td>Télécharge le PDF (génération côté serveur via l'API assistant/export)</td></tr>
+                    <tr><td><strong>WhatsApp</strong></td><td>Génère le PDF puis ouvre le partage (mobile : menu système ; légende copiée si besoin)</td></tr>
+                    <tr><td><strong>Tout effacer</strong></td><td>Vide l'éditeur local (sans supprimer le document cloud sélectionné)</td></tr>
+                </table>
+
+                <p>Option <strong>pied de page</strong> : nom, date, auteur (le numéro de page reste affiché).</p>
+                <div class="doc-tip">Enregistrez avant de changer de document dans la liste pour ne pas perdre les modifications non sauvegardées.</div>
+            </section>
+
+            <section class="doc-section" id="ods-fr">
+                <h2>Tableur Calc (.ods)</h2>
+                <p>Route : <code class="doc-code">#/tools/ods-editor</code> — connexion requise.</p>
+                <p>Éditeur de feuilles de calcul <strong>OpenDocument</strong> dans le navigateur (compatible LibreOffice / OpenOffice Calc).</p>
+
+                <h3>Ouvrir et créer</h3>
+                <ul>
+                    <li><strong>Ouvrir un fichier .ods</strong> — depuis votre disque ; couleurs et formatage d'origine conservés à l'affichage</li>
+                    <li><strong>Nouveau classeur</strong> — grille vide</li>
+                    <li>Classeurs <strong>enregistrés sur le serveur</strong> — liste déroulante comme pour le PDF</li>
+                </ul>
+
+                <h3>Grille (AG Grid)</h3>
+                <ul>
+                    <li>Édition au clic dans les cellules</li>
+                    <li><strong>Ajouter une ligne / colonne</strong></li>
+                    <li><strong>Nouvelle feuille</strong> — désactivée si le formatage d'origine doit être préservé (structure fixe)</li>
+                    <li>Onglets pour basculer entre feuilles</li>
+                    <li>Curseur <strong>taille du texte</strong> (8–20 px, mémorisé localement)</li>
+                    <li>Nom du fichier et nom de la feuille active éditables</li>
+                    <li>Badge <em>Modifications non enregistrées</em> tant que le classeur est « sale »</li>
+                </ul>
+
+                <h3>Enregistrement</h3>
+                <table class="doc-table">
+                    <tr><th>Bouton</th><th>Effet</th></tr>
+                    <tr><td><strong>Enregistrer sur le serveur</strong></td><td>Blob .ods + métadonnées dans MongoDB (rechargement ultérieur)</td></tr>
+                    <tr><td><strong>Télécharger .ods</strong></td><td>Fichier OpenDocument sur votre machine</td></tr>
+                    <tr><td><strong>Supprimer</strong></td><td>Efface le classeur cloud sélectionné</td></tr>
+                </table>
+
+                <h3>Lancement depuis une activité</h3>
+                <p>Sur le mur de photos ou une fiche activité, un lien <strong>tableur ODS</strong> peut ouvrir l'éditeur avec le fichier déjà chargé (paramètre d'URL / service de lancement).</p>
+            </section>
+
+            <section class="doc-section" id="whatspat-fr">
+                <h2>WhatsPat</h2>
+                <p>Entrée <strong>WhatsPat</strong> du menu → <code class="doc-code">#/results</code></p>
+                <p>Messagerie temps réel entre amis (WebSocket + MongoDB). Guide détaillé : <a href="/assets/docs/whatspat.html">documentation WhatsPat</a>.</p>
+            </section>
+
+            <section class="doc-section" id="autres-fr">
+                <h2>Autres entrées du menu</h2>
+                <table class="doc-table">
+                    <thead><tr><th>Entrée</th><th>Route</th><th>Description</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>A Propos</strong></td><td><code class="doc-code">#/maps</code></td><td>Page « à propos » du projet, carte, crédits</td></tr>
+                        <tr><td><strong>Système</strong></td><td><code class="doc-code">#/system</code></td><td>État serveur, mémoire, threads — utilisateur connecté</td></tr>
+                        <tr><td><strong>Paramètres PATTOOL</strong></td><td><code class="doc-code">#/tools/pattool-parameters</code></td><td>Catalogue des propriétés serveur (lecture seule, secrets masqués) — <strong>admin</strong></td></tr>
+                        <tr><td><strong>Téléverser</strong></td><td>modale menu</td><td>Upload de fichiers vers GridFS / activités (images, PDF, vidéo…)</td></tr>
+                        <tr><td><strong>Partager des fichiers</strong></td><td>modale menu</td><td>Sélection locale, compression optionnelle, partage via API Web Share ou téléchargement</td></tr>
+                        <tr><td><strong>Documentation</strong></td><td>sous-menu</td><td>Ces pages d'aide (langue = langue de l'application)</td></tr>
+                        <tr><td><strong>Langue</strong></td><td>sous-menu</td><td>12 langues ; sélecteur déplaçable en bas à droite de l'écran</td></tr>
+                    </tbody>
+                </table>
+            </section>
+        </div>
+
+        <div data-doc-lang="en" hidden>
+            <section class="doc-section">
+                <h2>Contents</h2>
+                <ul class="doc-toc">
+                    <li><a href="#pdf-en">PDF editor</a></li>
+                    <li><a href="#ods-en">Calc spreadsheet (.ods)</a></li>
+                    <li><a href="#whatspat-en">WhatsPat</a></li>
+                    <li><a href="#other-en">Other menu entries</a></li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="pdf-en">
+                <h2>PDF editor</h2>
+                <p>Route: <code class="doc-code">#/tools/pdf-converter</code> — login required.</p>
+                <p>Rich text + images editor (Quill). Save layout to MongoDB, generate matching PDF, or share via WhatsApp.</p>
+                <ul>
+                    <li>Cloud document list, new, delete</li>
+                    <li>Insert/drag/resize images in text</li>
+                    <li><strong>Save</strong>, <strong>Generate PDF</strong>, <strong>WhatsApp</strong>, optional footer (name, date, author)</li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="ods-en">
+                <h2>Calc spreadsheet (.ods)</h2>
+                <p>Route: <code class="doc-code">#/tools/ods-editor</code> — OpenDocument editor (AG Grid), open local .ods or cloud workbooks.</p>
+                <ul>
+                    <li>Edit cells, add rows/columns/sheets (sheet add limited when preserving original formatting)</li>
+                    <li><strong>Save to server</strong> (MongoDB) or <strong>Download .ods</strong></li>
+                    <li>Font size slider, multi-sheet tabs, unsaved badge</li>
+                    <li>Can open from activity ODS links on photo wall or detail page</li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="whatspat-en">
+                <h2>WhatsPat</h2>
+                <p><code class="doc-code">#/results</code> — see <a href="/assets/docs/whatspat.html">WhatsPat documentation</a>.</p>
+            </section>
+
+            <section class="doc-section" id="other-en">
+                <h2>Other menu entries</h2>
+                <p>About (<code class="doc-code">#/maps</code>), System, PatTool parameters (admin), Upload modal, Share modal, Documentation submenu, Language submenu.</p>
+            </section>
+        </div>
+    </main>
+
+    <footer class="doc-footer"><p>PatTool — Tools</p></footer>
+    <script src="/assets/js/pattool-doc.js"></script>
+</body>
+</html>
