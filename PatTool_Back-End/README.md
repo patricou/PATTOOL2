@@ -15,7 +15,7 @@ This Web Application allows to everybody to create sportives events.
  - Swagger
 ### Persistence :
  - MongoDB <a href="https://mlab.com/welcome/" target="_blank">MLAB</a> ( for data and files )<br>
- - <a href="https://console.firebase.google.com/project/sportpat-5e155/overview" target="_blank">Firebase</a> ( for real time chats )
+ - WebSocket / STOMP ( real-time discussions — WhatsPat )
 
 ## Security :
  - KeyCloak ( Front and Back) <a href="https://182-193-28-81.ftth.cust.kwaoo.net:8543/auth/">Doc & Admin</a><br>

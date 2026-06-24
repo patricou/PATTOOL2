@@ -3089,6 +3089,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         return (plus / total) * 10;
     }
 
+    getGroupRatingTotal(group: TimelineGroup): number {
+        return (group.ratingPlus ?? 0) + (group.ratingMinus ?? 0);
+    }
+
     onTimelineRatePlus(group: TimelineGroup, ev: Event): void {
         ev.stopPropagation();
         this.rateTimelineEvent(group, true);

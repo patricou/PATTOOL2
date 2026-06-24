@@ -17,7 +17,11 @@
         "BRAND": "PATTOOL",
         "LANG": "Langue",
         "DOCUMENTATION": "Documentation",
-        "SLIDESHOW_DOCUMENTATION": "Documentation du Diaporama",
+        "SLIDESHOW_DOCUMENTATION": "Diaporama — guide",
+        "DOC_OVERVIEW": "Guide PatTool",
+        "DOC_ACTIVITIES": "Activités & photos",
+        "DOC_WHATSPAT": "WhatsPat",
+        "DOC_ASSISTANT": "Assistant IA",
         "EVENTS": "Activités",
         "EVENTSLIST": "Liste des Activités",
         "EVENTSCREATION": "Création d'une Activité",
@@ -63,7 +67,7 @@
         "ODS_EDITOR": "Tableur Calc (.ods)",
         "SYSTEM": "Système",
         "PATTOOL_PARAMETERS": "Paramètres PATTOOL",
-        "RECENT_FEATURES_DOCUMENTATION": "Documentation — nouvelles fonctionnalités"
+        "RECENT_FEATURES_DOCUMENTATION": "Guide PatTool"
     },
     "PATTOOL_PARAMS": {
         "TITLE": "Paramètres PATTOOL",

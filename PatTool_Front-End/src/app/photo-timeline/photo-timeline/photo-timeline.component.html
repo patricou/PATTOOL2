@@ -157,16 +157,23 @@
                 <span class="badge rounded-pill rating-badge"
                       (click)="onTimelineRateMinus(group, $event)"
                       [title]="'COMMUN.IDONTLIKE' | translate">
+                    <i class="fa fa-thumbs-down" aria-hidden="true"></i>
                     {{ group.ratingMinus || 0 }}
                 </span>
-                <ngb-rating class="ms-1 me-1"
-                            [rate]="getGroupCurrentRate(group)"
-                            [max]="10"
-                            [readonly]="true">
-                </ngb-rating>
+                <span class="group-rating-score"
+                      [attr.aria-label]="('COMMUN.RATINGS' | translate) + ': ' + (getGroupRatingTotal(group) ? (getGroupCurrentRate(group) | number:'1.0-1') + '/10' : '—')">
+                    <span class="group-rating-bar" aria-hidden="true">
+                        <span class="group-rating-bar-fill" [style.width.%]="getGroupCurrentRate(group) * 10"></span>
+                    </span>
+                    <span class="group-rating-value" *ngIf="getGroupRatingTotal(group) > 0">
+                        {{ getGroupCurrentRate(group) | number:'1.0-1' }}/10
+                    </span>
+                    <span class="group-rating-value text-muted" *ngIf="getGroupRatingTotal(group) === 0">—</span>
+                </span>
                 <span class="badge rounded-pill rating-badge"
                       (click)="onTimelineRatePlus(group, $event)"
                       [title]="'COMMUN.ILIKE' | translate">
+                    <i class="fa fa-thumbs-up" aria-hidden="true"></i>
                     {{ group.ratingPlus || 0 }}
                 </span>
             </div>

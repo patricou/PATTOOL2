@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PatTool — Assistant IA</title>
+    <link rel="stylesheet" href="/assets/css/pattool-doc.css">
+</head>
+<body>
+    <header class="doc-topbar">
+        <div class="doc-topbar-inner">
+            <h1 data-doc-lang="fr">Assistant PatTool</h1>
+            <h1 data-doc-lang="en" hidden>PatTool AI Assistant</h1>
+            <p data-doc-lang="fr">Guide complet du panneau latéral — fournisseurs, outils, historique, intégrations</p>
+            <p data-doc-lang="en" hidden>Complete side panel guide — providers, tools, history, integrations</p>
+        </div>
+    </header>
+
+    <div class="doc-toolbar">
+        <div class="doc-toolbar-inner">
+            <nav class="doc-nav-links">
+                <a href="/assets/docs/overview.html">Guide</a>
+                <a href="/assets/docs/activities.html" data-doc-lang="fr">Activités</a>
+                <a href="/assets/docs/activities.html" data-doc-lang="en" hidden>Activities</a>
+                <a href="/assets/docs/slideshow.html" data-doc-lang="fr">Diaporama</a>
+                <a href="/assets/docs/slideshow.html" data-doc-lang="en" hidden>Slideshow</a>
+                <a href="/assets/docs/whatspat.html">WhatsPat</a>
+                <a href="/assets/docs/assistant.html" data-doc-lang="fr">Assistant</a>
+                <a href="/assets/docs/assistant.html" data-doc-lang="en" hidden>Assistant</a>
+            </nav>
+        </div>
+    </div>
+
+    <main class="doc-main">
+        <!-- ==================== FRANÇAIS ==================== -->
+        <div data-doc-lang="fr">
+            <section class="doc-section">
+                <h2>Sommaire</h2>
+                <ul class="doc-toc">
+                    <li><a href="#fr-acces">Accès et prérequis</a></li>
+                    <li><a href="#fr-interface">Interface du panneau</a></li>
+                    <li><a href="#fr-fournisseurs">Fournisseur, modèle et guide</a></li>
+                    <li><a href="#fr-outils">Cases « Outils » (web, images, MCP)</a></li>
+                    <li><a href="#fr-messages">Envoyer un message</a></li>
+                    <li><a href="#fr-chargement">Pendant la génération</a></li>
+                    <li><a href="#fr-historique">Historique des conversations</a></li>
+                    <li><a href="#fr-reponses">Actions sur les réponses</a></li>
+                    <li><a href="#fr-partage">Partage WhatsApp et export PDF</a></li>
+                    <li><a href="#fr-lancements">Ouvertures depuis l'application</a></li>
+                    <li><a href="#fr-facturation">Crédits et facturation</a></li>
+                    <li><a href="#fr-conseils">Conseils d'utilisation</a></li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="fr-acces">
+                <h2>Accès et prérequis</h2>
+                <ul>
+                    <li><strong>Connexion obligatoire</strong> : l'assistant n'est visible que si vous êtes authentifié via Keycloak.</li>
+                    <li><strong>Bouton flottant</strong> (baguette magique) sur le bord droit de l'écran — présent sur presque toutes les pages.</li>
+                    <li>Un <strong>point de notification</strong> sur le bouton indique qu'une réponse est prête si le panneau était fermé pendant la génération.</li>
+                    <li>Cliquez en dehors du panneau (zone grisée) ou sur <span class="doc-kbd">×</span> pour fermer.</li>
+                </ul>
+                <div class="doc-tip">
+                    <strong>Sécurité :</strong> vos messages ne partent jamais directement du navigateur vers OpenAI, Anthropic, Google ou Mistral. Tout transite par le <strong>serveur PatTool</strong>, qui détient les clés API.
+                </div>
+            </section>
+
+            <section class="doc-section" id="fr-interface">
+                <h2>Interface du panneau</h2>
+                <table class="doc-table">
+                    <thead><tr><th>Élément</th><th>Rôle</th></tr></thead>
+                    <tbody>
+                        <tr><td>Sélecteur <strong>Fournisseur</strong></td><td>OpenAI, Anthropic (Claude), Google (Gemini), Mistral AI</td></tr>
+                        <tr><td>Sélecteur <strong>Modèle</strong></td><td>Liste des modèles du fournisseur + option « Modèle personnalisé… » (id API libre)</td></tr>
+                        <tr><td><strong>Guide modèles</strong> (ⓘ)</td><td>Tableaux « quel modèle pour quelle tâche » — cliquer un modèle l'applique dans le panneau</td></tr>
+                        <tr><td><strong>Brave Search</strong></td><td>Ouvre search.brave.com dans un nouvel onglet (recherche manuelle)</td></tr>
+                        <tr><td><strong>WhatsApp</strong></td><td>Exporte un récapitulatif de la conversation</td></tr>
+                        <tr><td><strong>PDF</strong></td><td>Télécharge la conversation en PDF (fournisseur/modèle par réponse)</td></tr>
+                        <tr><td><strong>Historique</strong></td><td>Conversations enregistrées sur le serveur pour votre compte</td></tr>
+                        <tr><td><strong>Graphique</strong></td><td>Ouvre la page facturation / usage du fournisseur sélectionné</td></tr>
+                        <tr><td><strong>Plein écran</strong></td><td>Agrandit le panneau sur tout l'écran</td></tr>
+                        <tr><td><strong>Gomme</strong> (sous le champ)</td><td>Efface les messages affichés dans cet onglet (nouvelle conversation locale)</td></tr>
+                        <tr><td>Flèches de défilement</td><td>Haut du fil, début de la dernière réponse, fin du fil</td></tr>
+                    </tbody>
+                </table>
+                <p>Sous chaque réponse de l'assistant : ligne <em>fournisseur / modèle</em> et statistiques (durée en ms, jetons entrée/sortie si disponibles).</p>
+            </section>
+
+            <section class="doc-section" id="fr-fournisseurs">
+                <h2>Fournisseur, modèle et guide</h2>
+                <h3>Les quatre fournisseurs</h3>
+                <div class="doc-cards">
+                    <div class="doc-card"><h4>OpenAI</h4><p>GPT-5.x, GPT-4.x, série « o » (raisonnement). Seul fournisseur avec <strong>MCP</strong> et génération d'images OpenAI.</p></div>
+                    <div class="doc-card"><h4>Anthropic</h4><p>Claude (Fable 5, Opus 4.8, Sonnet 4.6, Haiku 4.5). Recommandé pour les <strong>activités</strong> (lancement auto).</p></div>
+                    <div class="doc-card"><h4>Google Gemini</h4><p>Texte, long contexte, vision et génération d'images Gemini. Utilisé pour les <strong>photos</strong> et les <strong>actualités</strong>.</p></div>
+                    <div class="doc-card"><h4>Mistral AI</h4><p>Large, Small, Pixtral (vision), Codestral (code), Ministral (léger).</p></div>
+                </div>
+                <h3>Choisir un modèle</h3>
+                <ol>
+                    <li>Sélectionnez le fournisseur dans la liste déroulante.</li>
+                    <li>Choisissez un modèle dans la deuxième liste, ou « Modèle personnalisé… » et saisissez l'id API exact.</li>
+                    <li>Ouvrez le <strong>Guide modèles</strong> pour des tableaux par tâche (rédaction, code, vision, économique, recherche web…) et cliquez <em>Sélectionner ce modèle</em>.</li>
+                </ol>
+                <p>Votre choix fournisseur/modèle peut être <strong>mémorisé</strong> côté serveur pour votre compte (préférence de routage).</p>
+                <h3>Guide modèles (bouton ⓘ)</h3>
+                <p>Ouvre une fenêtre modale plein écran avec :</p>
+                <ul>
+                    <li><strong>Matrice outils</strong> — même tableau que ci-dessous (recherche web, images, MCP par fournisseur)</li>
+                    <li><strong>Classement par tâche</strong> — or / argent / bronze : quel modèle privilégier pour rédaction, code, vision, économique, etc.</li>
+                    <li><strong>Fiches par fournisseur</strong> — id API, forces, limites ; bouton <em>Sélectionner ce modèle</em> pour l'appliquer immédiatement</li>
+                </ul>
+                <h3>Ordre de priorité du routage</h3>
+                <ol>
+                    <li>Préférence enregistrée sur le serveur (MongoDB) pour votre compte</li>
+                    <li>Choix de la session navigateur (jusqu'à fermeture de l'onglet)</li>
+                    <li>Valeurs par défaut du serveur PatTool</li>
+                </ol>
+                <p>Un lancement depuis une activité ou un article peut <strong>écraser temporairement</strong> le fournisseur/modèle pour cette ouverture uniquement.</p>
+            </section>
+
+            <section class="doc-section" id="fr-outils">
+                <h2>Cases « Outils » (sous le champ de message)</h2>
+                <p>Options facultatives — ralentissent la réponse et consomment plus d'API. Seules les cases compatibles avec le fournisseur actif sont affichées.</p>
+                <table class="doc-table">
+                    <thead><tr><th>Outil</th><th>OpenAI</th><th>Gemini</th><th>Anthropic</th><th>Mistral</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>Recherche web</strong></td><td>Oui</td><td>Oui</td><td>Oui</td><td>Oui</td></tr>
+                        <tr><td><strong>Génération d'images</strong></td><td>Oui</td><td>Oui</td><td>Non</td><td>Non</td></tr>
+                        <tr><td><strong>MCP</strong></td><td>Oui*</td><td>Non</td><td>Non</td><td>Non</td></tr>
+                    </tbody>
+                </table>
+                <p class="doc-warn" style="margin-top:0.75rem;">* MCP : nécessite un serveur MCP configuré sur le backend (<code class="doc-code">openai.mcp.*</code>). Si aucun serveur n'est configuré, la case est grisée.</p>
+                <ul>
+                    <li><strong>Recherche web</strong> : actualités, météo du jour, cours boursiers, infos récentes. Idéal avec Gemini ou Claude + case cochée.</li>
+                    <li><strong>Génération d'images</strong> : demandez une illustration dans le message (« dessine… », « génère une image de… »). Gemini peut basculer sur un modèle image dédié côté serveur.</li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="fr-messages">
+                <h2>Envoyer un message</h2>
+                <h3>Saisie</h3>
+                <ul>
+                    <li><span class="doc-kbd">Entrée</span> — envoyer</li>
+                    <li><span class="doc-kbd">Maj + Entrée</span> — nouvelle ligne</li>
+                    <li>Bouton <strong>agrandir</strong> — éditeur de brouillon plein écran avec recherche dans le texte</li>
+                    <li>Bouton <strong>copier</strong> — copie le brouillon dans le presse-papiers</li>
+                    <li>Bouton <strong>×</strong> sur le champ — vide le brouillon sans effacer la conversation affichée</li>
+                </ul>
+                <h3>Joindre une image (vision)</h3>
+                <ul>
+                    <li>Bouton <strong>Image</strong> : appareil photo ou galerie/fichiers</li>
+                    <li>Formats : JPEG, PNG, GIF, WebP — max <strong>8 Mo</strong></li>
+                    <li>Avec une image jointe, saisissez obligatoirement votre question avant d'envoyer</li>
+                    <li>L'aperçu image dans le fil peut ne pas être conservé après rechargement de l'historique</li>
+                </ul>
+                <h3>Format des réponses</h3>
+                <p>Les réponses sont affichées en <strong>Markdown</strong> (titres, listes, tableaux, blocs de code). Les images générées par l'IA apparaissent dans la bulle ; vous pouvez les agrandir, les copier ou les rattacher à une activité.</p>
+            </section>
+
+            <section class="doc-section" id="fr-chargement">
+                <h2>Pendant la génération</h2>
+                <ul>
+                    <li>Indicateur <strong>sablier</strong> avec compteur de durée en millisecondes</li>
+                    <li>Champ de saisie, envoi, sélecteurs et historique <strong>désactivés</strong> jusqu'à la fin de la réponse</li>
+                    <li>Si vous fermez le panneau pendant l'attente, le <strong>point de notification</strong> sur le bouton flottant signale que la réponse est prête</li>
+                    <li>Pas d'annulation en cours de route : attendez la fin ou rechargez la page en dernier recours</li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="fr-historique">
+                <h2>Historique des conversations</h2>
+                <ul>
+                    <li>Bouton <strong>Historique</strong> en tête du panneau</li>
+                    <li>Enregistrement <strong>automatique</strong> sur le serveur (MongoDB) après chaque réponse, avec léger délai</li>
+                    <li>Filtre de recherche dans la liste des conversations</li>
+                    <li>Actions : <strong>Ouvrir</strong>, copier la première question, <strong>Effacer</strong> (suppression définitive côté serveur)</li>
+                    <li>La <strong>gomme</strong> sous le champ efface l'affichage local pour démarrer un nouveau fil ; l'historique serveur reste accessible</li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="fr-reponses">
+                <h2>Actions sur les réponses</h2>
+                <p>Sur chaque bulle de l'assistant :</p>
+                <table class="doc-table">
+                    <tr><th>Icône</th><th>Action</th></tr>
+                    <tr><td>Copier</td><td>Copie le texte de la réponse dans le presse-papiers</td></tr>
+                    <tr><td>Commentaire → Événement</td><td>Insère la réponse comme <strong>commentaire</strong> sur une activité choisie</td></tr>
+                    <tr><td>Image générée → WhatsApp</td><td>Partage l'image sur WhatsApp (avec le prompt utilisé)</td></tr>
+                    <tr><td>Image générée → Événement</td><td>Attache l'image comme <strong>fichier</strong> sur une activité (GridFS)</td></tr>
+                    <tr><td>Image générée → Copier</td><td>Copie l'image dans le presse-papiers</td></tr>
+                </table>
+                <p>Sur vos questions : bouton <strong>crayon</strong> pour recopier la question dans le champ de saisie.</p>
+            </section>
+
+            <section class="doc-section" id="fr-partage">
+                <h2>Partage WhatsApp et export PDF</h2>
+                <h3>WhatsApp (conversation entière)</h3>
+                <ul>
+                    <li>Choisir : question + réponse, ou <strong>réponse seulement</strong></li>
+                    <li>Sur mobile : menu de partage système → WhatsApp</li>
+                    <li>Texte très long : peut être tronqué ; complément optionnel dans le modal</li>
+                </ul>
+                <h3>Export PDF</h3>
+                <p>Télécharge un PDF de la conversation avec le détail fournisseur/modèle par tour. Nécessite au moins un échange dans le fil.</p>
+            </section>
+
+            <section class="doc-section" id="fr-lancements">
+                <h2>Ouvertures depuis l'application</h2>
+                <p>Plusieurs écrans ouvrent l'assistant avec un <strong>brouillon prérempli</strong> et parfois un fournisseur/modèle imposé pour la session :</p>
+                <table class="doc-table">
+                    <thead><tr><th>Depuis</th><th>Bouton</th><th>Comportement typique</th></tr></thead>
+                    <tbody>
+                        <tr><td>Carte activité (grille)</td><td><strong>IA</strong> / baguette</td><td>Titre de l'activité ; nouvelle conversation ; <strong>Anthropic Claude Opus 4.8</strong></td></tr>
+                        <tr><td>Fiche détail activité</td><td>Baguette en tête</td><td>Même routage Opus 4.8 + titre</td></tr>
+                        <tr><td>Vue compacte (titre seul)</td><td>Baguette sur la carte</td><td>Même logique (titre de l'activité)</td></tr>
+                        <tr><td>Vue liste activités</td><td>Baguette</td><td>Titre ; Opus 4.8</td></tr>
+                        <tr><td>Mur de photos</td><td>Baguette sur un bloc</td><td>Nom de l'activité ; nouvelle conversation ; <em>conserve votre routage habituel</em></td></tr>
+                        <tr><td>Diaporama</td><td>Envoyer à l'assistant</td><td>Image courante jointe ; champ vide + placeholder ; <strong>Gemini 3.1 Flash Image</strong> ; ferme le diaporama</td></tr>
+                        <tr><td>Actualités (menu Monde)</td><td>Assistant sur un article</td><td>Titre ; <strong>Gemini 3.1 Pro</strong> + recherche web cochée</td></tr>
+                        <tr><td>Météo (OpenWeatherMap)</td><td>Baguette sur une ville</td><td>Texte « ville, pays » prérempli</td></tr>
+                        <tr><td>Loto national</td><td>Analyse IA</td><td>Prompt i18n + JSON des tirages ; nouvelle conversation ; outils désactivés</td></tr>
+                        <tr><td>EuroMillions</td><td>Analyse IA</td><td>Stats + méthodes choisies en JSON ; <strong>Claude Opus 4.8</strong> ; outils désactivés</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="doc-section" id="fr-facturation">
+                <h2>Crédits et facturation</h2>
+                <ul>
+                    <li>Bouton <strong>graphique</strong> en tête : ouvre la console facturation du fournisseur sélectionné (URL configurée côté serveur)</li>
+                    <li><strong>OpenAI</strong> : PatTool peut afficher le solde prépayé (USD) si l'API billing est configurée</li>
+                    <li><strong>Anthropic, Gemini, Mistral</strong> : pas de solde dans PatTool — lien vers la console du fournisseur</li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="fr-conseils">
+                <h2>Conseils d'utilisation</h2>
+                <ul>
+                    <li><strong>Activité / rédaction</strong> : Claude Sonnet ou Opus, ou GPT-5.x — lancez depuis la carte activité pour un routage adapté</li>
+                    <li><strong>Photo / diaporama</strong> : Gemini Flash Image avec l'image déjà jointe</li>
+                    <li><strong>Actualité</strong> : Gemini + case Recherche web</li>
+                    <li><strong>Code</strong> : Codestral, o4-mini, ou Claude Opus</li>
+                    <li><strong>Rapide et pas cher</strong> : Haiku, GPT-4o mini, Mistral Small</li>
+                    <li><strong>Illustration</strong> : cocher Génération d'images + OpenAI ou Gemini</li>
+                    <li>Utilisez la <strong>gomme</strong> entre deux sujets différents pour éviter de mélanger les contextes</li>
+                    <li>Consultez le <strong>Guide modèles</strong> intégré pour le tableau comparatif par type de tâche</li>
+                </ul>
+            </section>
+        </div>
+
+        <!-- ==================== ENGLISH ==================== -->
+        <div data-doc-lang="en" hidden>
+            <section class="doc-section">
+                <h2>Contents</h2>
+                <ul class="doc-toc">
+                    <li><a href="#en-access">Access and requirements</a></li>
+                    <li><a href="#en-ui">Panel interface</a></li>
+                    <li><a href="#en-providers">Provider, model and guide</a></li>
+                    <li><a href="#en-tools">“Tools” checkboxes (web, images, MCP)</a></li>
+                    <li><a href="#en-messages">Sending a message</a></li>
+                    <li><a href="#en-loading">While generating</a></li>
+                    <li><a href="#en-history">Conversation history</a></li>
+                    <li><a href="#en-actions">Actions on replies</a></li>
+                    <li><a href="#en-share">WhatsApp share and PDF export</a></li>
+                    <li><a href="#en-launches">Opening from the app</a></li>
+                    <li><a href="#en-billing">Credits and billing</a></li>
+                    <li><a href="#en-tips">Usage tips</a></li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="en-access">
+                <h2>Access and requirements</h2>
+                <ul>
+                    <li><strong>Login required</strong>: the assistant is only available when authenticated via Keycloak.</li>
+                    <li><strong>Floating button</strong> (magic wand) on the right edge — on almost every page.</li>
+                    <li>A <strong>notification dot</strong> appears when a reply is ready while the panel was closed.</li>
+                    <li>Click the dimmed backdrop or <span class="doc-kbd">×</span> to close.</li>
+                </ul>
+                <div class="doc-tip">
+                    <strong>Security:</strong> messages never go directly from the browser to OpenAI, Anthropic, Google or Mistral. Everything goes through the <strong>PatTool server</strong>, which holds API keys.
+                </div>
+            </section>
+
+            <section class="doc-section" id="en-ui">
+                <h2>Panel interface</h2>
+                <table class="doc-table">
+                    <thead><tr><th>Element</th><th>Purpose</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>Provider</strong> selector</td><td>OpenAI, Anthropic (Claude), Google (Gemini), Mistral AI</td></tr>
+                        <tr><td><strong>Model</strong> selector</td><td>Provider models + “Custom model…” (free API id)</td></tr>
+                        <tr><td><strong>Model guide</strong> (ⓘ)</td><td>“Which model for which task” tables — click a model to apply it</td></tr>
+                        <tr><td><strong>Brave Search</strong></td><td>Opens search.brave.com in a new tab</td></tr>
+                        <tr><td><strong>WhatsApp</strong></td><td>Exports a conversation summary</td></tr>
+                        <tr><td><strong>PDF</strong></td><td>Downloads conversation as PDF (provider/model per reply)</td></tr>
+                        <tr><td><strong>History</strong></td><td>Server-stored conversations for your account</td></tr>
+                        <tr><td><strong>Chart</strong></td><td>Opens billing / usage page for selected provider</td></tr>
+                        <tr><td><strong>Fullscreen</strong></td><td>Expands panel to full screen</td></tr>
+                        <tr><td><strong>Eraser</strong> (below input)</td><td>Clears displayed messages in this tab (new local thread)</td></tr>
+                        <tr><td>Scroll arrows</td><td>Top, start of last reply, end of thread</td></tr>
+                    </tbody>
+                </table>
+                <p>Each assistant reply shows <em>provider / model</em> and stats (duration in ms, input/output tokens when available).</p>
+            </section>
+
+            <section class="doc-section" id="en-providers">
+                <h2>Provider, model and guide</h2>
+                <h3>Four providers</h3>
+                <div class="doc-cards">
+                    <div class="doc-card"><h4>OpenAI</h4><p>GPT-5.x, GPT-4.x, “o” series (reasoning). Only provider with <strong>MCP</strong> and OpenAI image generation.</p></div>
+                    <div class="doc-card"><h4>Anthropic</h4><p>Claude (Fable 5, Opus 4.8, Sonnet 4.6, Haiku 4.5). Default for <strong>activity</strong> launches.</p></div>
+                    <div class="doc-card"><h4>Google Gemini</h4><p>Text, long context, vision and Gemini images. Used for <strong>photos</strong> and <strong>news</strong>.</p></div>
+                    <div class="doc-card"><h4>Mistral AI</h4><p>Large, Small, Pixtral (vision), Codestral (code), Ministral (lightweight).</p></div>
+                </div>
+                <h3>Choosing a model</h3>
+                <ol>
+                    <li>Pick a provider in the first dropdown.</li>
+                    <li>Pick a model in the second list, or “Custom model…” and enter the exact API id.</li>
+                    <li>Open the <strong>Model guide</strong> for task-based tables and click <em>Select this model</em>.</li>
+                </ol>
+                <p>Your provider/model choice may be <strong>persisted</strong> on the server for your account.</p>
+                <h3>Model guide (ⓘ button)</h3>
+                <p>Opens a modal with: tools matrix, gold/silver/bronze ranking per task type, and per-provider model sheets with <em>Select this model</em>.</p>
+                <h3>Routing priority</h3>
+                <ol>
+                    <li>Server preference (MongoDB) for your account</li>
+                    <li>Browser session (until tab close)</li>
+                    <li>PatTool server defaults</li>
+                </ol>
+                <p>Launches from activities or news may <strong>override</strong> provider/model for that opening only.</p>
+            </section>
+
+            <section class="doc-section" id="en-tools">
+                <h2>“Tools” checkboxes (below the input)</h2>
+                <p>Optional — slower replies and higher API usage. Only compatible options are shown for the active provider.</p>
+                <table class="doc-table">
+                    <thead><tr><th>Tool</th><th>OpenAI</th><th>Gemini</th><th>Anthropic</th><th>Mistral</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>Web search</strong></td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+                        <tr><td><strong>Image generation</strong></td><td>Yes</td><td>Yes</td><td>No</td><td>No</td></tr>
+                        <tr><td><strong>MCP</strong></td><td>Yes*</td><td>No</td><td>No</td><td>No</td></tr>
+                    </tbody>
+                </table>
+                <p class="doc-warn" style="margin-top:0.75rem;">* MCP requires a server configured on the backend (<code class="doc-code">openai.mcp.*</code>). Checkbox is disabled if none is set up.</p>
+                <ul>
+                    <li><strong>Web search</strong>: news, weather, stocks, recent facts — ideal with Gemini or Claude + checkbox on</li>
+                    <li><strong>Image generation</strong>: ask for an illustration in the message; Gemini may switch to a dedicated image model server-side</li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="en-messages">
+                <h2>Sending a message</h2>
+                <ul>
+                    <li><span class="doc-kbd">Enter</span> — send</li>
+                    <li><span class="doc-kbd">Shift + Enter</span> — new line</li>
+                    <li><strong>Expand</strong> — full-screen draft editor with in-text search</li>
+                    <li><strong>Image</strong> button — camera or gallery (JPEG, PNG, GIF, WebP, max <strong>8 MB</strong>)</li>
+                    <li>With an attached image, you must type your question before sending</li>
+                </ul>
+                <h3>Reply format</h3>
+                <p>Replies are rendered as <strong>Markdown</strong> (headings, lists, tables, code blocks). Generated images appear in the bubble with copy / attach / WhatsApp actions.</p>
+            </section>
+
+            <section class="doc-section" id="en-loading">
+                <h2>While generating</h2>
+                <ul>
+                    <li><strong>Hourglass</strong> indicator with elapsed milliseconds</li>
+                    <li>Input, send, selectors and history <strong>disabled</strong> until the reply completes</li>
+                    <li>Closing the panel while waiting shows a <strong>notification dot</strong> on the floating button when ready</li>
+                    <li>No in-flight cancel — wait for completion or reload as last resort</li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="en-history">
+                <h2>Conversation history</h2>
+                <ul>
+                    <li><strong>History</strong> button in the header</li>
+                    <li><strong>Automatic</strong> server save (MongoDB) after each reply</li>
+                    <li>Search filter, open, copy first question, delete permanently</li>
+                    <li>The <strong>eraser</strong> clears the local display only; server history remains</li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="en-actions">
+                <h2>Actions on replies</h2>
+                <table class="doc-table">
+                    <tr><th>Action</th><th>Effect</th></tr>
+                    <tr><td>Copy</td><td>Copy reply text to clipboard</td></tr>
+                    <tr><td>Comment → Event</td><td>Insert reply as activity <strong>comment</strong></td></tr>
+                    <tr><td>Generated image → WhatsApp</td><td>Share image on WhatsApp</td></tr>
+                    <tr><td>Generated image → Event</td><td>Attach image as activity <strong>file</strong></td></tr>
+                    <tr><td>Generated image → Copy</td><td>Copy image to clipboard</td></tr>
+                </table>
+            </section>
+
+            <section class="doc-section" id="en-share">
+                <h2>WhatsApp share and PDF export</h2>
+                <ul>
+                    <li>WhatsApp: full Q&amp;A or <strong>assistant reply only</strong></li>
+                    <li>PDF: download thread with provider/model per turn</li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="en-launches">
+                <h2>Opening from the app</h2>
+                <table class="doc-table">
+                    <thead><tr><th>From</th><th>Button</th><th>Typical behavior</th></tr></thead>
+                    <tbody>
+                        <tr><td>Activity card (grid)</td><td><strong>AI</strong> / wand</td><td>Activity title; new thread; <strong>Anthropic Claude Opus 4.8</strong></td></tr>
+                        <tr><td>Activity detail page</td><td>Wand in header</td><td>Same Opus 4.8 routing + title</td></tr>
+                        <tr><td>Title-only compact view</td><td>Wand on card</td><td>Activity title</td></tr>
+                        <tr><td>Activity list view</td><td>Wand</td><td>Title; Opus 4.8</td></tr>
+                        <tr><td>Photo wall</td><td>Wand on block</td><td>Activity name; new thread; <em>keeps your usual routing</em></td></tr>
+                        <tr><td>Slideshow</td><td>Send to assistant</td><td>Current image attached; empty field + placeholder; <strong>Gemini 3.1 Flash Image</strong>; closes slideshow</td></tr>
+                        <tr><td>News (World menu)</td><td>Assistant on article</td><td>Title; <strong>Gemini 3.1 Pro</strong> + web search on</td></tr>
+                        <tr><td>Weather (OpenWeatherMap)</td><td>Wand on city</td><td>Prefilled “city, country” text</td></tr>
+                        <tr><td>National Loto</td><td>AI analysis</td><td>i18n prompt + draws JSON; new thread; tools off</td></tr>
+                        <tr><td>EuroMillions</td><td>AI analysis</td><td>Stats + selected methods as JSON; <strong>Claude Opus 4.8</strong>; tools off</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="doc-section" id="en-billing">
+                <h2>Credits and billing</h2>
+                <ul>
+                    <li><strong>Chart</strong> button opens the provider billing console (server-configured URL)</li>
+                    <li><strong>OpenAI</strong>: prepaid balance may show in PatTool when billing API is configured</li>
+                    <li><strong>Anthropic, Gemini, Mistral</strong>: balance not shown in PatTool — external console link</li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="en-tips">
+                <h2>Usage tips</h2>
+                <ul>
+                    <li><strong>Activities / writing</strong>: launch from activity card (Claude Opus routing)</li>
+                    <li><strong>Photos / slideshow</strong>: Gemini Flash Image with image attached</li>
+                    <li><strong>News</strong>: Gemini + web search checkbox</li>
+                    <li><strong>Code</strong>: Codestral, o4-mini, or Claude Opus</li>
+                    <li><strong>Fast / cheap</strong>: Haiku, GPT-4o mini, Mistral Small</li>
+                    <li><strong>Illustration</strong>: check Image generation + OpenAI or Gemini</li>
+                    <li>Use the <strong>eraser</strong> between unrelated topics</li>
+                    <li>Built-in <strong>Model guide</strong> for the full comparison table</li>
+                </ul>
+            </section>
+        </div>
+    </main>
+
+    <footer class="doc-footer"><p>PatTool — AI Assistant documentation</p></footer>
+    <script src="/assets/js/pattool-doc.js"></script>
+</body>
+</html>

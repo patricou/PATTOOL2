@@ -33,6 +33,8 @@ import { AssistantLaunchService, ASSISTANT_EVENT_ELEMENT_LAUNCH_ROUTING } from '
 import { FriendGroup } from '../../model/friend';
 import { isOdsFile as isOdsSpreadsheetFile } from '../../shared/uploaded-file-types';
 import { OdsEditorLaunchService } from '../../ods-editor/ods-editor-launch.service';
+import { DiscussionService } from '../../services/discussion.service';
+import { DiscussionModalComponent } from '../../communications/discussion-modal/discussion-modal.component';
 
 interface EventColorUpdate {
 	eventId: string;
@@ -64,7 +66,8 @@ interface LoadingEventInfo {
 	],
 	templateUrl: './home-evenements.component.html',
 	styleUrls: ['./home-evenements.component.css'],
-	changeDetection: ChangeDetectionStrategy.OnPush
+	changeDetection: ChangeDetectionStrategy.OnPush,
+	providers: [DiscussionService]
 })
 export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy {
 
@@ -96,8 +99,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public selectedImageUrl: SafeUrl | string = '';
 	public selectedImageAlt: string = '';
 	public selectedUser: Member | null = null;
-	public msgVal: string = '';
-	public items: Observable<any> = new Observable();
 	public selectedFiles: File[] = [];
 	public API_URL4FILE: string = environment.API_URL4FILE;
 	// Friend groups for visibility
@@ -131,14 +132,12 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	@ViewChild('imageModal') imageModal!: TemplateRef<any>;
 	@ViewChild('urlsModal') urlsModal!: TemplateRef<any>;
 	@ViewChild('visibilityModal') visibilityModal!: TemplateRef<any>;
-	@ViewChild('chatModal') chatModal!: TemplateRef<any>;
 	@ViewChild('jsonModal') jsonModal!: TemplateRef<any>;
 	@ViewChild('userModal') userModal!: TemplateRef<any>;
 	@ViewChild('commentsModal') commentsModal!: TemplateRef<any>;
 	@ViewChild('filesModal') filesModal!: TemplateRef<any>;
 	@ViewChild('uploadLogsModal') uploadLogsModal!: TemplateRef<any>;
 	@ViewChild('logContent') logContent: any;
-	@ViewChild('chatMessagesContainer') chatMessagesContainer!: ElementRef;
 	@ViewChild('photosSelectorModalComponent') photosSelectorModalComponent!: PhotosSelectorModalComponent;
 	@ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
 	@ViewChild('traceViewerModalComponent') traceViewerModalComponent!: TraceViewerModalComponent;
@@ -208,7 +207,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		private _keycloakService: KeycloakService,
 		private _videoPreloadService: EventVideoPreloadService,
 		private _assistantLaunch: AssistantLaunchService,
-		private odsEditorLaunch: OdsEditorLaunchService) {
+		private odsEditorLaunch: OdsEditorLaunchService,
+		private _discussionService: DiscussionService) {
 		this.nativeWindow = winRef.getNativeWindow();
 		this.averageColor = this.defaultAverageColor;
 		this.averageTextColor = this.defaultAverageTextColor;
@@ -3276,35 +3276,54 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		}
 	}
 
-	// Méthodes pour le chat - utilisant la même logique que element-evenement
-	public openChatModal(evenement: Evenement) {
-		// Chat functionality has been moved to MongoDB backend
-		// This method is kept for compatibility but no longer uses Firebase
-		console.warn('openChatModal: Firebase chat is no longer supported. Use discussion feature instead.');
+	// Open WhatsPat discussion for an event (compact view)
+	public openDiscussion(evenement: Evenement): void {
+		const discussionTitle = this.translateService.instant('DISCUSSION.TITLE') + ' - ' + evenement.evenementName;
+		const sub = this._discussionService.getOrCreateDiscussion(evenement.discussionId, discussionTitle).subscribe({
+			next: (discussion) => {
+				if (discussion.id && evenement.discussionId !== discussion.id) {
+					const oldDiscussionId = evenement.discussionId;
+					evenement.discussionId = discussion.id;
+					const putSub = this._evenementsService.putEvenement(evenement).subscribe({
+						error: () => {
+							evenement.discussionId = oldDiscussionId || undefined;
+						}
+					});
+					this.allSubscriptions.push(putSub);
+				}
+				if (discussion.id) {
+					this.openDiscussionModal(evenement, discussion.id);
+				}
+			},
+			error: (error) => {
+				console.error('Error opening discussion:', error);
+				alert(this.translateService.instant('EVENTELEM.ERROR_CREATING_DISCUSSION'));
+			}
+		});
+		this.allSubscriptions.push(sub);
 	}
 
-	public async Send() {
-		// Chat functionality has been moved to MongoDB backend
-		// This method is kept for compatibility but no longer uses Firebase
-		console.warn('Send: Firebase chat is no longer supported. Use discussion feature instead.');
-	}
-
-	private scrollToBottom(): void {
-		if (this.chatMessagesContainer) {
-			const element = this.chatMessagesContainer.nativeElement;
-			// Use requestAnimationFrame to batch scroll operations and avoid forced reflow
-			requestAnimationFrame(() => {
-				// Read scrollHeight (forces layout) then write scrollTop in same frame
-				const scrollHeight = element.scrollHeight;
-				element.scrollTop = scrollHeight;
+	private openDiscussionModal(evenement: Evenement, discussionId: string): void {
+		try {
+			const modalRef = this.modalService.open(DiscussionModalComponent, {
+				size: 'lg',
+				centered: true,
+				backdrop: 'static',
+				keyboard: true,
+				windowClass: 'discussion-modal-window'
 			});
+			if (modalRef?.componentInstance) {
+				modalRef.componentInstance.discussionId = discussionId;
+				modalRef.componentInstance.title = evenement.evenementName || 'Discussion';
+				const eventColor = evenement.id ? this.eventColors.get(evenement.id) : undefined;
+				if (eventColor) {
+					modalRef.componentInstance.eventColor = eventColor;
+				}
+			}
+		} catch (error) {
+			console.error('Error opening discussion modal:', error);
+			alert(this.translateService.instant('EVENTELEM.ERROR_OPENING_DISCUSSION'));
 		}
-	}
-
-	public async deleteMessage(item: any) {
-		// Chat functionality has been moved to MongoDB backend
-		// This method is kept for compatibility but no longer uses Firebase
-		console.warn('deleteMessage: Firebase chat is no longer supported. Use discussion feature instead.');
 	}
 
 	ngOnDestroy() {

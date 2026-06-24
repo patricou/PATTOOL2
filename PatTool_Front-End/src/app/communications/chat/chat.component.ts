@@ -1,4 +1,4 @@
-// Discussion Component - Replaced Firebase with MongoDB backend
+// WhatsPat — discussions list (MongoDB backend + WebSocket/STOMP)
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';

@@ -35,7 +35,7 @@ interface NavRouteMenuItem {
 }
 
 interface NavDocMenuItem {
-  docAction: 'slideshow' | 'recent';
+  docAction: 'overview' | 'slideshow' | 'activities' | 'whatspat' | 'assistant';
   icon: string;
   labelKey: string;
 }
@@ -185,8 +185,11 @@ export class AppComponent implements OnInit {
         { kind: 'lang-submenu' }
     ];
     readonly navDocumentationItemsRaw: NavDocMenuItem[] = [
+        { docAction: 'overview', icon: 'fa fa-book', labelKey: 'MENU.DOC_OVERVIEW' },
+        { docAction: 'activities', icon: 'fa fa-calendar-check-o', labelKey: 'MENU.DOC_ACTIVITIES' },
         { docAction: 'slideshow', icon: 'fa fa-picture-o', labelKey: 'MENU.SLIDESHOW_DOCUMENTATION' },
-        { docAction: 'recent', icon: 'fa fa-file-text-o', labelKey: 'MENU.RECENT_FEATURES_DOCUMENTATION' }
+        { docAction: 'whatspat', icon: 'fa fa-comments', labelKey: 'MENU.DOC_WHATSPAT' },
+        { docAction: 'assistant', icon: 'fa fa-magic', labelKey: 'MENU.DOC_ASSISTANT' }
     ];
 
     constructor(public _translate: TranslateService,
@@ -392,11 +395,7 @@ export class AppComponent implements OnInit {
 
     onDocMenuItemClick(doc: NavDocMenuItem, event: Event): void {
         event.preventDefault();
-        if (doc.docAction === 'slideshow') {
-            this.openSlideshowDocumentation();
-        } else {
-            this.openRecentFeaturesDocumentation();
-        }
+        this.openDocumentation(doc.docAction);
         this.showDocumentationSubmenu = false;
         this.closeMenu();
     }
@@ -1658,15 +1657,11 @@ export class AppComponent implements OnInit {
         this.closeDropdowns();
     }
 
-    openSlideshowDocumentation(): void {
-        // Open the slideshow documentation HTML file in a new window
-        const docUrl = '/assets/SLIDESHOW_DOCUMENTATION.html';
-        window.open(docUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes,toolbar=yes,menubar=yes');
-    }
-
-    openRecentFeaturesDocumentation(): void {
-        // Open the recent features documentation HTML file in a new window
-        const docUrl = '/assets/RECENT_FEATURES_DOCUMENTATION.html';
+    /** Opens a doc page in FR if app language is French, otherwise EN (?lang=). */
+    openDocumentation(page: string): void {
+        const lang = this._commonValuesServices.getLang();
+        const docLang = lang === 'fr' ? 'fr' : 'en';
+        const docUrl = `/assets/docs/${page}.html?lang=${docLang}`;
         window.open(docUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes,toolbar=yes,menubar=yes');
     }
 

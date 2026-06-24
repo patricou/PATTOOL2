@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PatTool — Activités</title>
+    <link rel="stylesheet" href="/assets/css/pattool-doc.css">
+</head>
+<body>
+    <header class="doc-topbar">
+        <div class="doc-topbar-inner">
+            <h1 data-doc-lang="fr">Activités &amp; mur de photos</h1>
+            <h1 data-doc-lang="en" hidden>Activities &amp; photo wall</h1>
+            <p data-doc-lang="fr">Créer, afficher et partager vos événements</p>
+            <p data-doc-lang="en" hidden>Create, browse and share your events</p>
+        </div>
+    </header>
+
+    <div class="doc-toolbar">
+        <div class="doc-toolbar-inner">
+            <nav class="doc-nav-links">
+                <a href="/assets/docs/overview.html">Guide</a>
+                <a href="/assets/docs/activities.html" data-doc-lang="fr">Activités</a>
+                <a href="/assets/docs/activities.html" data-doc-lang="en" hidden>Activities</a>
+                <a href="/assets/docs/slideshow.html" data-doc-lang="fr">Diaporama</a>
+                <a href="/assets/docs/slideshow.html" data-doc-lang="en" hidden>Slideshow</a>
+                <a href="/assets/docs/whatspat.html">WhatsPat</a>
+                <a href="/assets/docs/assistant.html" data-doc-lang="fr">Assistant</a>
+                <a href="/assets/docs/assistant.html" data-doc-lang="en" hidden>Assistant</a>
+            </nav>
+        </div>
+    </div>
+
+    <main class="doc-main">
+        <div data-doc-lang="fr">
+            <section class="doc-section">
+                <h2>Deux pages principales</h2>
+                <table class="doc-table">
+                    <tr><th>Mur de photos</th><td><code class="doc-code">/photos</code> — accueil par défaut, photos groupées par activité</td></tr>
+                    <tr><th>Liste des activités</th><td><code class="doc-code">/even</code> — toutes les activités accessibles, avec filtres</td></tr>
+                </table>
+            </section>
+
+            <section class="doc-section">
+                <h2>Liste des activités — affichages</h2>
+                <p>Trois réglages distincts (ne pas les confondre) :</p>
+                <table class="doc-table">
+                    <thead><tr><th>Contrôle</th><th>Effet</th></tr></thead>
+                    <tbody>
+                        <tr><td>Icône <strong>grille</strong></td><td>Cartes complètes (<code class="doc-code">element-evenement</code>) — affichage par défaut</td></tr>
+                        <tr><td>Icône <strong>liste</strong></td><td>Vue liste horizontale avec barre d'actions (upload, détail, etc.)</td></tr>
+                        <tr><td>Interrupteur <strong>Vue compacte</strong></td><td>Cartes simplifiées : image + bandeau titre (moins de boutons au pied de carte)</td></tr>
+                    </tbody>
+                </table>
+                <div class="doc-tip">La discussion WhatsPat sur une carte complète se trouve dans le pied de carte. En « vue compacte » (titre seul), ce pied est masqué.</div>
+            </section>
+
+            <section class="doc-section">
+                <h2>Créer et gérer une activité</h2>
+                <ol>
+                    <li><strong>Créer</strong> : menu Activités → nouvelle activité, ou <code class="doc-code">/neweven</code></li>
+                    <li><strong>Types</strong> : VTT, ski, rando, vin, famille, etc. (~20 types)</li>
+                    <li><strong>Visibilité</strong> : public, privé, amis, ou groupe d'amis</li>
+                    <li><strong>Participants</strong> : inscription / désinscription sur la carte</li>
+                    <li><strong>Fichiers</strong> : glisser-déposer ou bouton upload (images, PDF, vidéos, traces GPX…)</li>
+                    <li><strong>Liens</strong> : sites web, photos en ligne, dossiers serveur (PHOTOFROMFS — rôle FileSystem)</li>
+                    <li><strong>Commentaires</strong> : fil de commentaires classiques (≠ WhatsPat)</li>
+                </ol>
+            </section>
+
+            <section class="doc-section">
+                <h2>Mur de photos</h2>
+                <ul>
+                    <li>Grille masonry par activité, chargement progressif</li>
+                    <li>Filtre par nom, visibilité, groupe d'amis</li>
+                    <li>Notes 👍/👎 par activité (barre compacte en haut de bloc)</li>
+                    <li>Upload direct depuis le mur, traces GPS, lien todo list</li>
+                    <li>Bouton <strong>Assistant</strong> (baguette) pour interroger l'IA sur l'activité</li>
+                    <li>Traces GPX/KML : tableau distance, dénivelé, lien vers visionneuse carte</li>
+                    <li>Section « Un jour comme aujourd'hui » : photos d'années précédentes</li>
+                </ul>
+            </section>
+
+            <section class="doc-section">
+                <h2>PHOTOFROMFS et fichiers serveur</h2>
+                <p>Type de lien <strong>Photo depuis le système de fichiers</strong> : photos stockées sur le disque du serveur (pas en base). Nécessite le rôle <code class="doc-code">FileSystem</code>.</p>
+                <ul>
+                    <li>Ajout à la création ou modification d'activité (sélecteur de dossier)</li>
+                    <li>Visible dans le diaporama et le mur de photos comme les autres images</li>
+                    <li>Badges de liens sur le mur : PDF, tableur ODS, site web, carte, etc.</li>
+                </ul>
+            </section>
+
+            <section class="doc-section">
+                <h2>Fiche détail et liens transverses</h2>
+                <ul>
+                    <li><code class="doc-code">/details-evenement/:id</code> — vue complète : participants, commentaires, discussion, fichiers, trace GPS</li>
+                    <li>Lien vers <strong>todo list</strong> associée (si définie)</li>
+                    <li>Partage WhatsApp de l'activité ou du mur filtré</li>
+                    <li>Diaporama, visionneuse de trace, upload depuis la fiche ou le mur</li>
+                </ul>
+            </section>
+            <section class="doc-section">
+                <h2>Two main pages</h2>
+                <table class="doc-table">
+                    <tr><th>Photo wall</th><td><code class="doc-code">/photos</code> — default home, photos grouped by activity</td></tr>
+                    <tr><th>Activity list</th><td><code class="doc-code">/even</code> — all accessible activities with filters</td></tr>
+                </table>
+            </section>
+
+            <section class="doc-section">
+                <h2>Activity list — display modes</h2>
+                <p>Three separate controls (easy to mix up):</p>
+                <table class="doc-table">
+                    <thead><tr><th>Control</th><th>Effect</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>Grid</strong> icon</td><td>Full cards (<code class="doc-code">element-evenement</code>) — default</td></tr>
+                        <tr><td><strong>List</strong> icon</td><td>Horizontal list with action bar</td></tr>
+                        <tr><td><strong>Compact view</strong> toggle</td><td>Simplified cards: image + title bar (fewer footer buttons)</td></tr>
+                    </tbody>
+                </table>
+                <div class="doc-tip">WhatsPat on a full card is in the card footer. In title-only compact view, that footer is hidden.</div>
+            </section>
+
+            <section class="doc-section">
+                <h2>Create and manage an activity</h2>
+                <ol>
+                    <li><strong>Create</strong>: Activities menu → new, or <code class="doc-code">/neweven</code></li>
+                    <li><strong>Types</strong>: MTB, ski, hiking, wine, family, etc.</li>
+                    <li><strong>Visibility</strong>: public, private, friends, or friend group</li>
+                    <li><strong>Participants</strong>: join / leave on the card</li>
+                    <li><strong>Files</strong>: drag-and-drop or upload (images, PDF, video, GPX…)</li>
+                    <li><strong>Links</strong>: websites, online photos, server folders (PHOTOFROMFS — FileSystem role)</li>
+                    <li><strong>Comments</strong>: classic comment thread (≠ WhatsPat)</li>
+                </ol>
+            </section>
+
+            <section class="doc-section">
+                <h2>Photo wall</h2>
+                <ul>
+                    <li>Masonry grid per activity, progressive loading</li>
+                    <li>Filter by name, visibility, friend group</li>
+                    <li>👍/👎 ratings per activity (compact bar on each block)</li>
+                    <li>Direct upload, GPS tracks, todo list link</li>
+                    <li><strong>Assistant</strong> (wand) button to query AI about the activity</li>
+                    <li>GPX/KML tracks: distance, elevation, map viewer link</li>
+                    <li>« On this day » banner: photos from previous years</li>
+                </ul>
+            </section>
+
+            <section class="doc-section">
+                <h2>PHOTOFROMFS and server files</h2>
+                <p><strong>Photo from file system</strong> link type: photos on server disk (not GridFS). Requires <code class="doc-code">FileSystem</code> role.</p>
+                <ul>
+                    <li>Add when creating or editing an activity (folder picker)</li>
+                    <li>Shown in slideshow and photo wall like other images</li>
+                    <li>Link badges on the wall: PDF, ODS spreadsheet, website, map, etc.</li>
+                </ul>
+            </section>
+
+            <section class="doc-section">
+                <h2>Detail page and cross-links</h2>
+                <ul>
+                    <li><code class="doc-code">/details-evenement/:id</code> — full view: participants, comments, discussion, files, GPS trace</li>
+                    <li>Linked <strong>todo list</strong> when configured</li>
+                    <li>WhatsApp share for activity or filtered photo wall</li>
+                    <li>Slideshow, trace viewer, upload from detail or wall</li>
+                </ul>
+            </section>
+        </div>
+    </main>
+
+    <footer class="doc-footer"><p>PatTool — Activities</p></footer>
+    <script src="/assets/js/pattool-doc.js"></script>
+</body>
+</html>

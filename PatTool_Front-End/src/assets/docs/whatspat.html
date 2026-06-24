@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PatTool — WhatsPat</title>
+    <link rel="stylesheet" href="/assets/css/pattool-doc.css">
+</head>
+<body>
+    <header class="doc-topbar">
+        <div class="doc-topbar-inner">
+            <h1 data-doc-lang="fr">WhatsPat — discussions</h1>
+            <h1 data-doc-lang="en" hidden>WhatsPat — messaging</h1>
+            <p data-doc-lang="fr">Messagerie temps réel intégrée à PatTool</p>
+            <p data-doc-lang="en" hidden>Real-time messaging built into PatTool</p>
+        </div>
+    </header>
+
+    <div class="doc-toolbar">
+        <div class="doc-toolbar-inner">
+            <nav class="doc-nav-links">
+                <a href="/assets/docs/overview.html">Guide</a>
+                <a href="/assets/docs/activities.html" data-doc-lang="fr">Activités</a>
+                <a href="/assets/docs/activities.html" data-doc-lang="en" hidden>Activities</a>
+                <a href="/assets/docs/slideshow.html" data-doc-lang="fr">Diaporama</a>
+                <a href="/assets/docs/slideshow.html" data-doc-lang="en" hidden>Slideshow</a>
+                <a href="/assets/docs/whatspat.html">WhatsPat</a>
+                <a href="/assets/docs/assistant.html" data-doc-lang="fr">Assistant</a>
+                <a href="/assets/docs/assistant.html" data-doc-lang="en" hidden>Assistant</a>
+            </nav>
+        </div>
+    </div>
+
+    <main class="doc-main">
+        <div data-doc-lang="fr">
+            <section class="doc-section">
+                <h2>Qu'est-ce que WhatsPat ?</h2>
+                <p>WhatsPat remplace l'ancien chat Firebase. Les messages sont stockés dans <strong>MongoDB</strong> et mis à jour en direct via <strong>WebSocket/STOMP</strong>. L'accès est sécurisé par votre compte Keycloak.</p>
+            </section>
+
+            <section class="doc-section">
+                <h2>Types de discussions</h2>
+                <table class="doc-table">
+                    <tr><th>Générale</th><td>Salon global — page <code class="doc-code">/results</code></td></tr>
+                    <tr><th>Par activité</th><td>Une discussion liée à chaque événement (<code class="doc-code">discussionId</code>)</td></tr>
+                    <tr><th>Par groupe d'amis</th><td>Discussion de groupe depuis la page Amis</td></tr>
+                </table>
+            </section>
+
+            <section class="doc-section">
+                <h2>Comment y accéder</h2>
+                <ul>
+                    <li>Menu principal → entrée WhatsPat / Résultats → <code class="doc-code">/results</code></li>
+                    <li>Pied de carte d'une <strong>activité complète</strong> (vue grille)</li>
+                    <li>Fiche détail d'une activité</li>
+                    <li>Mur de photos — bouton discussion sur chaque bloc</li>
+                    <li>Groupes d'amis</li>
+                </ul>
+                <div class="doc-warn">En « vue compacte » (titre seul) sur la liste des activités, le pied de carte — donc le bouton discussion — n'est pas affiché.</div>
+            </section>
+
+            <section class="doc-section">
+                <h2>Fonctions</h2>
+                <ul>
+                    <li>Texte en temps réel, indicateur de connexion WebSocket</li>
+                    <li>Images et vidéos en pièce jointe dans les messages</li>
+                    <li>Page <code class="doc-code">/results</code> : liste des discussions (générale, activités, groupes) avec aperçu du dernier message</li>
+                    <li>Modale de discussion redimensionnable, défilement automatique</li>
+                    <li>Statistiques des discussions (admin) depuis la page Système</li>
+                </ul>
+            </section>
+
+            <section class="doc-section">
+                <h2>Utilisation</h2>
+                <ol>
+                    <li>Ouvrez une discussion (depuis <code class="doc-code">/results</code> ou une activité).</li>
+                    <li>Saisissez votre message en bas ; <span class="doc-kbd">Entrée</span> pour envoyer.</li>
+                    <li>Joignez une image ou une vidéo si le bouton pièce jointe est disponible.</li>
+                    <li>Les autres participants connectés voient les messages en direct.</li>
+                    <li>Sur une activité sans discussion : la première ouverture <strong>crée</strong> automatiquement le fil WhatsPat.</li>
+                </ol>
+                <div class="doc-tip">Les <strong>commentaires</strong> sur une activité (bouton commentaires) sont distincts de WhatsPat : fil classique, pas de temps réel WebSocket.</div>
+            </section>
+        </div>
+
+        <div data-doc-lang="en" hidden>
+            <section class="doc-section">
+                <h2>What is WhatsPat?</h2>
+                <p>WhatsPat replaced the legacy Firebase chat. Messages live in <strong>MongoDB</strong> and update live via <strong>WebSocket/STOMP</strong>. Access is tied to your Keycloak account.</p>
+            </section>
+
+            <section class="doc-section">
+                <h2>Discussion types</h2>
+                <table class="doc-table">
+                    <tr><th>General</th><td>Global room — <code class="doc-code">/results</code></td></tr>
+                    <tr><th>Per activity</th><td>One thread per event (<code class="doc-code">discussionId</code>)</td></tr>
+                    <tr><th>Friend group</th><td>Group chat from Friends page</td></tr>
+                </table>
+            </section>
+
+            <section class="doc-section">
+                <h2>How to open it</h2>
+                <ul>
+                    <li>Main menu → WhatsPat / Results → <code class="doc-code">/results</code></li>
+                    <li>Footer of a <strong>full activity card</strong> (grid view)</li>
+                    <li>Activity detail page</li>
+                    <li>Photo wall — discussion button on each block</li>
+                    <li>Friend groups</li>
+                </ul>
+                <div class="doc-warn">In title-only compact view on the activity list, the card footer (and discussion button) is hidden.</div>
+            </section>
+
+            <section class="doc-section">
+                <h2>Features</h2>
+                <ul>
+                    <li>Live text, WebSocket connection indicator</li>
+                    <li>Image and video attachments</li>
+                    <li><code class="doc-code">/results</code>: discussion list with last message preview</li>
+                    <li>Resizable discussion modal, auto-scroll</li>
+                    <li>Discussion statistics (admin) on System page</li>
+                </ul>
+            </section>
+
+            <section class="doc-section">
+                <h2>How to use it</h2>
+                <ol>
+                    <li>Open a thread (from <code class="doc-code">/results</code> or an activity).</li>
+                    <li>Type at the bottom; <span class="doc-kbd">Enter</span> to send.</li>
+                    <li>Attach image or video when the attach button is available.</li>
+                    <li>Other connected users see messages in real time.</li>
+                    <li>First open on an activity <strong>creates</strong> the WhatsPat thread if missing.</li>
+                </ol>
+                <div class="doc-tip">Activity <strong>comments</strong> are separate from WhatsPat (classic thread, not WebSocket).</div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="doc-footer"><p>PatTool — WhatsPat</p></footer>
+    <script src="/assets/js/pattool-doc.js"></script>
+</body>
+</html>

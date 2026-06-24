@@ -752,21 +752,54 @@
 
 .group-rating .rating-badge {
     cursor: pointer;
-    padding: 0.15rem 0.45rem;
+    padding: 0.15rem 0.5rem;
     border-radius: 999px;
     background: linear-gradient(135deg, #ffc107, #ff9800);
     color: #212529;
     border: 1px solid rgba(0, 0, 0, 0.15);
     min-width: 1.4rem;
     text-align: center;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.group-rating-score {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 4.5rem;
+    justify-content: center;
+}
+
+.group-rating-bar {
+    display: inline-block;
+    width: 3rem;
+    height: 0.35rem;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.group-rating-bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #ffc107, #ff9800);
+    min-width: 0;
+    transition: width 0.2s ease;
+}
+
+.group-rating-value {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #495057;
+    white-space: nowrap;
 }
 
 .group-rating .rating-badge:hover {
     filter: brightness(1.05);
-}
-
-.group-rating ngb-rating {
-    color: #ffc107;
 }
 
 .group-visibility-badges {

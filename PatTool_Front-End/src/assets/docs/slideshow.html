@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PatTool — Diaporama</title>
+    <link rel="stylesheet" href="/assets/css/pattool-doc.css">
+</head>
+<body>
+    <header class="doc-topbar">
+        <div class="doc-topbar-inner">
+            <h1 data-doc-lang="fr">Diaporama photos &amp; vidéos</h1>
+            <h1 data-doc-lang="en" hidden>Photo &amp; video slideshow</h1>
+            <p data-doc-lang="fr">Mode d'emploi — raccourcis et fonctions principales</p>
+            <p data-doc-lang="en" hidden>User guide — shortcuts and main features</p>
+        </div>
+    </header>
+
+    <div class="doc-toolbar">
+        <div class="doc-toolbar-inner">
+            <nav class="doc-nav-links">
+                <a href="/assets/docs/overview.html">Guide</a>
+                <a href="/assets/docs/activities.html" data-doc-lang="fr">Activités</a>
+                <a href="/assets/docs/activities.html" data-doc-lang="en" hidden>Activities</a>
+                <a href="/assets/docs/slideshow.html" data-doc-lang="fr">Diaporama</a>
+                <a href="/assets/docs/slideshow.html" data-doc-lang="en" hidden>Slideshow</a>
+                <a href="/assets/docs/whatspat.html">WhatsPat</a>
+                <a href="/assets/docs/assistant.html" data-doc-lang="fr">Assistant</a>
+                <a href="/assets/docs/assistant.html" data-doc-lang="en" hidden>Assistant</a>
+            </nav>
+        </div>
+    </div>
+
+    <main class="doc-main">
+        <div data-doc-lang="fr">
+            <section class="doc-section">
+                <h2>Ouvrir le diaporama</h2>
+                <ul>
+                    <li>Sur une <strong>carte activité</strong> : bouton photos / diaporama</li>
+                    <li>Sur le <strong>mur de photos</strong> : clic sur une miniature</li>
+                    <li>Sur la <strong>fiche détail</strong> d'une activité : boutons photos ou fichiers image</li>
+                    <li>Sources possibles : fichiers joints, liens photo, dossiers disque serveur (PHOTOFROMFS)</li>
+                </ul>
+            </section>
+
+            <section class="doc-section">
+                <h2>Fonctions utiles</h2>
+                <div class="doc-cards">
+                    <div class="doc-card"><h4>Zoom</h4><p>Clic pour zoomer, molette, clic droit + zone, double-clic pour dézoomer.</p></div>
+                    <div class="doc-card"><h4>Carte GPS</h4><p>Affiche la position EXIF ; bascule carte / photo avec <span class="doc-kbd">E</span>.</p></div>
+                    <div class="doc-card"><h4>EXIF</h4><p>Panneau métadonnées : <span class="doc-kbd">I</span>.</p></div>
+                    <div class="doc-card"><h4>Diaporama auto</h4><p>Lecture automatique : <span class="doc-kbd">S</span>.</p></div>
+                    <div class="doc-card"><h4>Téléchargement</h4><p>Bouton DL — image visible (y compris si zoomée).</p></div>
+                    <div class="doc-card"><h4>Vidéos</h4><p>Lecture intégrée ; <span class="doc-kbd">Espace</span> lecture/pause.</p></div>
+                </div>
+            </section>
+
+            <section class="doc-section">
+                <h2>Raccourcis clavier</h2>
+                <table class="doc-table">
+                    <thead><tr><th>Touche</th><th>Action</th></tr></thead>
+                    <tbody>
+                        <tr><td><span class="doc-kbd">←</span> <span class="doc-kbd">→</span></td><td>Image précédente / suivante</td></tr>
+                        <tr><td><span class="doc-kbd">S</span></td><td>Démarrer / arrêter le diaporama automatique</td></tr>
+                        <tr><td><span class="doc-kbd">F</span></td><td>Plein écran</td></tr>
+                        <tr><td><span class="doc-kbd">I</span></td><td>Panneau EXIF</td></tr>
+                        <tr><td><span class="doc-kbd">G</span></td><td>Grille</td></tr>
+                        <tr><td><span class="doc-kbd">H</span></td><td>Bandeau miniatures</td></tr>
+                        <tr><td><span class="doc-kbd">O</span></td><td>Original / compressé</td></tr>
+                        <tr><td><span class="doc-kbd">E</span></td><td>Carte / photo</td></tr>
+                        <tr><td><span class="doc-kbd">P</span></td><td>Partager l'image</td></tr>
+                        <tr><td><span class="doc-kbd">R</span> / <span class="doc-kbd">Home</span></td><td>Réinitialiser le zoom</td></tr>
+                        <tr><td><span class="doc-kbd">Échap</span></td><td>Quitter le plein écran ou réinitialiser le zoom</td></tr>
+                        <tr><td><span class="doc-kbd">C</span></td><td>Fermer le diaporama</td></tr>
+                        <tr><td><span class="doc-kbd">Espace</span></td><td>Lecture / pause vidéo</td></tr>
+                    </tbody>
+                </table>
+                <div class="doc-tip">Le panneau des raccourcis est aussi disponible dans le diaporama (icône ou liste intégrée).</div>
+            </section>
+
+            <section class="doc-section">
+                <h2>Documentation technique</h2>
+                <p>Pour l'architecture, le cache images et l'API composant :</p>
+                <p><a href="/assets/SLIDESHOW_DOCUMENTATION.html">SLIDESHOW_DOCUMENTATION.html</a> (anglais, orienté développeur)</p>
+            </section>
+        </div>
+
+        <div data-doc-lang="en" hidden>
+            <section class="doc-section">
+                <h2>Opening the slideshow</h2>
+                <ul>
+                    <li>On an <strong>activity card</strong>: photos / slideshow button</li>
+                    <li>On the <strong>photo wall</strong>: click a thumbnail</li>
+                    <li>On <strong>activity details</strong>: photo buttons or image files</li>
+                    <li>Sources: uploads, photo links, server disk folders (PHOTOFROMFS)</li>
+                </ul>
+            </section>
+
+            <section class="doc-section">
+                <h2>Main features</h2>
+                <div class="doc-cards">
+                    <div class="doc-card"><h4>Zoom</h4><p>Click to zoom, mouse wheel, right-drag area, double-click to zoom out.</p></div>
+                    <div class="doc-card"><h4>GPS map</h4><p>EXIF location; toggle map/photo with <span class="doc-kbd">E</span>.</p></div>
+                    <div class="doc-card"><h4>EXIF</h4><p>Metadata panel: <span class="doc-kbd">I</span>.</p></div>
+                    <div class="doc-card"><h4>Auto slideshow</h4><p>Auto advance: <span class="doc-kbd">S</span>.</p></div>
+                    <div class="doc-card"><h4>Download</h4><p>DL button — visible area (including zoom).</p></div>
+                    <div class="doc-card"><h4>Videos</h4><p>Inline playback; <span class="doc-kbd">Space</span> play/pause.</p></div>
+                </div>
+            </section>
+
+            <section class="doc-section">
+                <h2>Keyboard shortcuts</h2>
+                <table class="doc-table">
+                    <thead><tr><th>Key</th><th>Action</th></tr></thead>
+                    <tbody>
+                        <tr><td><span class="doc-kbd">←</span> <span class="doc-kbd">→</span></td><td>Previous / next image</td></tr>
+                        <tr><td><span class="doc-kbd">S</span></td><td>Start / stop auto slideshow</td></tr>
+                        <tr><td><span class="doc-kbd">F</span></td><td>Fullscreen</td></tr>
+                        <tr><td><span class="doc-kbd">I</span></td><td>EXIF panel</td></tr>
+                        <tr><td><span class="doc-kbd">G</span></td><td>Grid</td></tr>
+                        <tr><td><span class="doc-kbd">H</span></td><td>Thumbnails strip</td></tr>
+                        <tr><td><span class="doc-kbd">O</span></td><td>Original / compressed</td></tr>
+                        <tr><td><span class="doc-kbd">E</span></td><td>Map / photo</td></tr>
+                        <tr><td><span class="doc-kbd">P</span></td><td>Share image</td></tr>
+                        <tr><td><span class="doc-kbd">R</span> / <span class="doc-kbd">Home</span></td><td>Reset zoom</td></tr>
+                        <tr><td><span class="doc-kbd">Esc</span></td><td>Exit fullscreen or reset zoom</td></tr>
+                        <tr><td><span class="doc-kbd">C</span></td><td>Close slideshow</td></tr>
+                        <tr><td><span class="doc-kbd">Space</span></td><td>Video play / pause</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="doc-section">
+                <h2>Technical documentation</h2>
+                <p>Architecture, image cache, component API:</p>
+                <p><a href="/assets/SLIDESHOW_DOCUMENTATION.html">SLIDESHOW_DOCUMENTATION.html</a> (developer-oriented)</p>
+            </section>
+        </div>
+    </main>
+
+    <footer class="doc-footer"><p>PatTool — Slideshow guide</p></footer>
+    <script src="/assets/js/pattool-doc.js"></script>
+</body>
+</html>

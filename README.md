@@ -5,12 +5,13 @@
 **PATTOOL2** is a comprehensive full-stack web application that facilitates the creation, management, and organization of sportive events. The platform serves as a private social network for organizing activities with integrated features including AI-powered chat, IoT home automation controls, file management, and multi-language support.
 
 ### Architecture Overview
-- **Frontend**: Angular 17 application (TypeScript/JavaScript)
-- **Backend**: Spring Boot 3.3.0 REST API (Java 21)
+- **Frontend**: Angular 21 application (TypeScript)
+- **Backend**: Spring Boot 3.3 REST API (Java 21)
 - **Database**: MongoDB for data persistence
-- **Real-time Communication**: Firebase Realtime Database
+- **Real-time Communication**: WebSocket/STOMP (WhatsPat discussions stored in MongoDB)
 - **Authentication**: Keycloak SSO with JWT tokens
 - **File Storage**: MongoDB GridFS and local disk storage
+- **Mobile**: Capacitor 8 (Android/iOS wrapper)
 
 ## Table of Contents
 
@@ -42,35 +43,45 @@
 - **File Uploads**: Attach multiple files (images, PDFs, documents) to events
 - **Event Status Management**: Open, close, or cancel events
 - **Comments System**: Users can comment on events
-- **Live Chat**: Real-time chat functionality per event using Firebase
+- **Discussions (WhatsPat)**: Per-event, per-group and global discussions via MongoDB + WebSocket/STOMP
 - **URL Links**: Attach external website links to events
 
-### 2. **PatTool AI assistant (sidebar)**
-- Multi-turn chat in the web app drawer, routed to OpenAI or Anthropic
-- Optional web search, image generation, vision (attached images)
-- API: `POST /api/assistant/chat` (see `AssistantController` / `OpenAiAssistantService`)
+### 2. **PatTool AI Assistant (sidebar)**
+- Multi-turn chat in the web app drawer, routed to OpenAI, Anthropic, Gemini or Mistral
+- Optional web search, image generation, vision (attached images), PDF export
+- API: `POST /api/assistant/chat` (see `AssistantController`)
 
-### 3. **Global Communication (Firebase Chat)**
-- Real-time global chat room using Firebase Realtime Database
-- Anonymous authentication through Firebase
-- Message synchronization across all users
-- Message sorting by timestamp (newest first)
-- Delete messages functionality
+### 3. **WhatsPat — Discussions (`/results`)**
+- Real-time messaging stored in MongoDB (replaces legacy Firebase chat)
+- WebSocket/STOMP for live updates; media attachments supported
+- Discussion types: general, per-event, per-friend-group
+- Accessible from the events list, event details, friends groups and photo wall
 
-### 4. **URL Links Management**
+### 4. **Photo Wall (`/photos`)**
+- Default home page: timeline of photos from activities
+- Masonry layout, slideshow, video support, discussions integration
+
+### 5. **Organization**
+- **Calendar** (`/calendrier`): FullCalendar, personal appointments, linked activities, holidays, liturgical saints, e-mail reminders
+- **Todo lists** (`/todolists`): CRUD, priorities, sharing, visibility (friends/groups), links from activities
+
+### 6. **Friends & Social (`/friends`)**
+- Friend requests, friend groups, visibility settings, GPS/IP position history, group discussions
+
+### 7. **URL Links Management**
 - Personal bookmark system
 - Category-based organization
 - Public/private visibility controls
 - Admin interface for link management
 - Filter by user-specific links
 
-### 5. **IoT Home Automation**
+### 8. **IoT Home Automation (`/iot`)**
 - Automatic gate control (open/close)
 - Ethernet shield connectivity testing
 - Remote device control integration
 - Arduino-compatible communication
 
-### 6. **File Management**
+### 9. **File Management**
 - Drag-and-drop file upload
 - Multiple file types supported (images, PDFs, documents)
 - File uploads to both database and disk
@@ -78,8 +89,8 @@
 - PDF document viewing
 - File download capabilities
 
-### 7. **Multi-Language Support (i18n)**
-- Support for 11 languages: Arabic, Chinese, German, Greek, English, Spanish, French, Hebrew, Italian, Japanese, Russian
+### 10. **Multi-Language Support (i18n)**
+- Support for 12 languages: Arabic, Chinese, German, Greek, English, Spanish, French, Hebrew, Hindi, Italian, Japanese, Russian
 - Dynamic language switching
 - Localized content storage in JSON files
 - Translation using `@ngx-translate/core`
@@ -89,28 +100,28 @@
 ## Technology Stack
 
 ### Frontend Framework
-- **Angular 17.0.0**: Core framework
-- **TypeScript 5.4.0**: Programming language
-- **RxJS 7.8.0**: Reactive programming
-- **Zone.js 0.14.0**: Change detection
+- **Angular 21**: Core framework
+- **TypeScript 5.9**: Programming language
+- **RxJS 7.8**: Reactive programming
+- **Capacitor 8**: Mobile wrapper (Android/iOS)
 
 ### UI Libraries & Styles
-- **Bootstrap 5.3.0**: UI framework
-- **@ng-bootstrap/ng-bootstrap 16.0.0**: Angular Bootstrap components
-- **jQuery 3.7.0**: DOM manipulation
-- **ng2-file-upload 1.4.0**: File upload handling
-- **ngx-mydatepicker 2.4.11**: Date picker component
+- **Bootstrap 5.3**: UI framework
+- **@ng-bootstrap/ng-bootstrap 20**: Angular Bootstrap components
+- **FullCalendar 6**, **Leaflet**, **Three.js**, **Chart.js**, **ag-Grid**, **Quill**
+- **FFmpeg WASM**: Client-side video compression
 
 ### Authentication & Security
 - **Keycloak**: SSO and authentication provider
 - **JWT Tokens**: Bearer token authentication
 - **HTTP Interceptors**: Automatic token injection
-- **Role-based Access Control**: User roles management
+- **Role-based Access Control**: User roles management (Admin, IoT, FileSystem, etc.)
 
 ### Communication & Database
-- **Firebase 10.12.0**: Realtime Database for chat
-- **@angular/fire 17.0.0**: Angular Firebase integration
-- **REST API**: Backend communication (localhost:8000 in dev)
+- **MongoDB**: Primary data store (events, members, discussions, todos, calendar)
+- **WebSocket/STOMP** (`@stomp/stompjs`, SockJS): Real-time discussion updates
+- **SSE**: Streaming event list
+- **REST API**: Backend communication
 
 ### Internationalization
 - **@ngx-translate/core 15.0.0**: Translation framework
@@ -151,7 +162,7 @@ PATTOOL2/
 │   ├── src/
 │   │   ├── app/
 │   │   │   ├── admin/              # Admin panel for link management
-│   │   │   ├── communications/     # Firebase global chat module
+│   │   │   ├── communications/     # WhatsPat discussions module
 │   │   │   ├── evenements/         # Events management module
 │   │   │   │   ├── create-evenement/
 │   │   │   │   ├── update-evenement/
@@ -173,7 +184,7 @@ PATTOOL2/
 │   │   └── index.html
 │   ├── package.json
 │   └── angular.json
-└── [Backend/API]                  # REST API backend (separate repository)
+└── PatTool_Back-End/              # Spring Boot REST API backend
 ```
 
 ### Module Architecture
@@ -338,27 +349,33 @@ Public Client: true
 ### Routing Configuration
 
 ```typescript
-Routes:
-- / → HomePageComponent
+Routes (main):
+- /photos → Photo wall (default home)
 - /even → HomeEvenementsComponent (Event listing)
 - /neweven → CreateEvenementComponent
 - /updeven/:id → UpdateEvenementComponent
 - /details-evenement/:id → DetailsEvenementComponent
-- /results → ChatComponent (discussions list)
+- /results → ChatComponent (WhatsPat discussions)
+- /friends → Friends network
+- /calendrier → Calendar
+- /todolists → Todo lists
 - /links → LinksComponent (Bookmarks)
 - /links-admin → LinksAdminComponent
-- /iot → IothomeComponent
-- /maps → AboutComponent
+- /iot → IoT portal
+- /api/* → Embedded widgets (weather, news, finance…)
+- /tools/* → Loto, EuroMillions, PDF, ODS, globe, security scan…
+- /system → System monitoring (admin)
 ```
 
 Uses **HashLocationStrategy** to support deep linking and page refreshes in production.
 
-### Firestore Integration
+### Real-time Discussions (WhatsPat)
 
-- **Realtime Database**: Used for global chat messages
-- **Anonymous Auth**: Firebase anonymous authentication for chat
-- **Path**: `/globalMessages` in Firebase Realtime Database
-- **Message Structure**: Includes timestamp, user, message content, priority
+- **Storage**: MongoDB (`Discussion` / `DiscussionMessage` collections)
+- **Transport**: WebSocket/STOMP via SockJS endpoint
+- **Types**: General room, per-event, per-friend-group
+- **UI**: `/results` list, modals from events/friends/photo wall
+- **Auth**: Keycloak JWT (no anonymous Firebase auth)
 
 ### File Upload Mechanism
 
@@ -724,7 +741,7 @@ Production build creates optimized, minified bundle in `dist/PatTool_Front-End/`
 3. Set up reverse proxy for API: `/api/*` → `localhost:8000`
 4. Configure SSL certificates
 5. Set up Keycloak realm and client in production
-6. Configure Firebase project for realtime database
+6. Verify WebSocket endpoint for discussions (`/ws`)
 7. Test authentication flow
 8. Verify file upload functionality
 
@@ -819,23 +836,23 @@ Required Keycloak realm:
 ## Dependencies Summary
 
 ### Core Dependencies
-- Angular 17 (Core, Forms, Router, HTTP Client)
-- Bootstrap 5.3.0
-- RxJS 7.8.0
-- TypeScript 5.4.0
+- Angular 21 (Core, Forms, Router, HTTP Client)
+- Bootstrap 5.3
+- RxJS 7.8
+- TypeScript 5.9
+- Capacitor 8
 
 ### UI & UX
 - @ng-bootstrap/ng-bootstrap
-- jQuery
+- FullCalendar, Leaflet, Three.js, Chart.js
 - Font Awesome icons
-- Material Icons
 
 ### Authentication
 - Keycloak.js (custom)
 
 ### Communication
-- Firebase SDK
-- @angular/fire
+- @stomp/stompjs + SockJS (WebSocket discussions)
+- Server-Sent Events (event streaming)
 
 ### File Handling
 - ng2-file-upload
@@ -855,11 +872,11 @@ Required Keycloak realm:
 ✅ **User Management**: Keycloak SSO integration  
 ✅ **Events**: Full CRUD operations with rich metadata  
 ✅ **File Management**: Drag-and-drop uploads with thumbnails  
-✅ **Real-time Chat**: Firebase global chat room  
+✅ **Real-time Discussions**: WhatsPat (MongoDB + WebSocket/STOMP)  
 ✅ **AI Integration**: PatTool sidebar assistant (`/api/assistant`)  
 ✅ **URL Management**: Personal bookmark system  
 ✅ **IoT Controls**: Home automation integration  
-✅ **Multi-language**: 11 languages supported  
+✅ **Multi-language**: 12 languages supported  
 ✅ **Responsive Design**: Bootstrap-based mobile-friendly UI  
 ✅ **Security**: JWT tokens, role-based access control  
 
@@ -883,6 +900,7 @@ Email: Available through the application
 
 - [Angular Documentation](https://angular.io/docs)
 - [Keycloak Documentation](https://www.keycloak.org/documentation)
-- [Firebase Documentation](https://firebase.google.com/docs)
+- [Spring WebSocket Documentation](https://docs.spring.io/spring-framework/reference/web/websocket.html)
+- [MongoDB Documentation](https://www.mongodb.com/docs/)
 - [Bootstrap Documentation](https://getbootstrap.com/docs)
 

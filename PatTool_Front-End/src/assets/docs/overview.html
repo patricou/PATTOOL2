@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PatTool — Guide</title>
+    <link rel="stylesheet" href="/assets/css/pattool-doc.css">
+</head>
+<body>
+    <header class="doc-topbar">
+        <div class="doc-topbar-inner">
+            <h1 data-doc-lang="fr">Guide PatTool</h1>
+            <h1 data-doc-lang="en" hidden>PatTool Guide</h1>
+            <p data-doc-lang="fr">Vue d'ensemble de la plateforme — juin 2026</p>
+            <p data-doc-lang="en" hidden>Platform overview — June 2026</p>
+        </div>
+    </header>
+
+    <div class="doc-toolbar">
+        <div class="doc-toolbar-inner">
+            <nav class="doc-nav-links" aria-label="Documentation">
+                <a href="/assets/docs/overview.html" data-doc-lang="fr">Guide</a>
+                <a href="/assets/docs/overview.html" data-doc-lang="en" hidden>Guide</a>
+                <a href="/assets/docs/activities.html" data-doc-lang="fr">Activités</a>
+                <a href="/assets/docs/activities.html" data-doc-lang="en" hidden>Activities</a>
+                <a href="/assets/docs/slideshow.html" data-doc-lang="fr">Diaporama</a>
+                <a href="/assets/docs/slideshow.html" data-doc-lang="en" hidden>Slideshow</a>
+                <a href="/assets/docs/whatspat.html" data-doc-lang="fr">WhatsPat</a>
+                <a href="/assets/docs/whatspat.html" data-doc-lang="en" hidden>WhatsPat</a>
+                <a href="/assets/docs/assistant.html" data-doc-lang="fr">Assistant</a>
+                <a href="/assets/docs/assistant.html" data-doc-lang="en" hidden>Assistant</a>
+            </nav>
+        </div>
+    </div>
+
+    <main class="doc-main">
+        <!-- FR -->
+        <div data-doc-lang="fr">
+            <section class="doc-section" id="toc-fr">
+                <h2>Sommaire</h2>
+                <ul class="doc-toc">
+                    <li><a href="#quoi-fr">Qu'est-ce que PatTool ?</a></li>
+                    <li><a href="#menu-fr">Menus principaux</a></li>
+                    <li><a href="#roles-fr">Rôles et accès</a></li>
+                    <li><a href="#demarrage-fr">Premiers pas</a></li>
+                    <li><a href="#tech-fr">Technologies</a></li>
+                    <li><a href="#autres-fr">Autres guides</a></li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="quoi-fr">
+                <h2>Qu'est-ce que PatTool ?</h2>
+                <p>PatTool est une application web privée pour <strong>organiser des activités</strong> (sport, sorties, famille, voyages…) et partager photos, fichiers et discussions avec un cercle d'amis authentifié via <strong>Keycloak</strong>.</p>
+                <div class="doc-cards">
+                    <div class="doc-card"><h4>Mur de photos</h4><p>Page d'accueil par défaut — timeline des photos par activité.</p></div>
+                    <div class="doc-card"><h4>Activités</h4><p>Création, inscription, fichiers, visibilité fine.</p></div>
+                    <div class="doc-card"><h4>WhatsPat</h4><p>Messagerie temps réel (MongoDB + WebSocket).</p></div>
+                    <div class="doc-card"><h4>Organisation</h4><p>Agenda, listes de tâches, rappels e-mail.</p></div>
+                    <div class="doc-card"><h4>Assistant IA</h4><p>Chat latéral : OpenAI, Claude, Gemini, Mistral. Recherche web, vision, images, historique MongoDB, exports PDF/WhatsApp. <a href="/assets/docs/assistant.html">Guide complet →</a></p></div>
+                    <div class="doc-card"><h4>Outils</h4><p>IoT, météo, Loto, PDF, tableur ODS, globe 3D…</p></div>
+                </div>
+            </section>
+
+            <section class="doc-section" id="menu-fr">
+                <h2>Menus principaux</h2>
+                <table class="doc-table">
+                    <thead><tr><th>Menu</th><th>Contenu</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>Activités</strong></td><td>Liste <code class="doc-code">/even</code>, création, mur de photos <code class="doc-code">/photos</code></td></tr>
+                        <tr><td><strong>Amis</strong></td><td>Demandes d'amitié, groupes, visibilité</td></tr>
+                        <tr><td><strong>Organisation</strong></td><td>Agenda, todo lists</td></tr>
+                        <tr><td><strong>Maison</strong></td><td>Domotique, caméras, réseau local</td></tr>
+                        <tr><td><strong>Monde / Math</strong></td><td>Widgets (météo, bourse…), Loto, EuroMillions</td></tr>
+                        <tr><td><strong>Outils</strong></td><td>PDF, ODS, upload, partage, <em>Documentation</em></td></tr>
+                    </tbody>
+                </table>
+                <div class="doc-tip">12 langues d'interface : ar, cn, de, el, en, es, fr, he, in, it, jp, ru. Sélecteur de langue déplaçable en bas à droite.</div>
+            </section>
+
+            <section class="doc-section" id="roles-fr">
+                <h2>Rôles et accès</h2>
+                <p>Keycloak attribue des rôles qui débloquent certaines fonctions :</p>
+                <table class="doc-table">
+                    <tr><th>Rôle</th><th>Exemples</th></tr>
+                    <tr><td>Utilisateur connecté</td><td>Activités, amis, WhatsPat, assistant, mur de photos</td></tr>
+                    <tr><td><code class="doc-code">FileSystem</code></td><td>Liens photos sur disque serveur (PHOTOFROMFS)</td></tr>
+                    <tr><td><code class="doc-code">Iot</code></td><td>Menu Maison : domotique, caméras, scan réseau</td></tr>
+                    <tr><td><code class="doc-code">Admin</code></td><td>Administration liens, paramètres serveur, stats système</td></tr>
+                </table>
+                <p>La <strong>visibilité</strong> des activités (public, privé, amis, groupe) est gérée par l'auteur, indépendamment des rôles admin.</p>
+            </section>
+
+            <section class="doc-section" id="demarrage-fr">
+                <h2>Premiers pas</h2>
+                <ol>
+                    <li>Connectez-vous via Keycloak.</li>
+                    <li>Le <strong>mur de photos</strong> (<code class="doc-code">/photos</code>) s'affiche par défaut.</li>
+                    <li>Consultez vos activités dans <strong>Activités → Liste</strong> (<code class="doc-code">/even</code>).</li>
+                    <li>Ouvrez l'<strong>assistant</strong> (baguette à droite) pour poser une question.</li>
+                    <li>Menu <strong>Outils</strong> : upload global de fichiers, partage, documentation, PDF, tableur ODS.</li>
+                </ol>
+            </section>
+
+            <section class="doc-section" id="tech-fr">
+                <h2>Technologies (résumé)</h2>
+                <ul>
+                    <li><strong>Frontend</strong> : Angular 21, Bootstrap 5, Capacitor 8 (mobile)</li>
+                    <li><strong>Backend</strong> : Spring Boot 3.3, Java 21, MongoDB</li>
+                    <li><strong>Temps réel</strong> : WebSocket/STOMP pour WhatsPat ; SSE pour le flux d'activités</li>
+                    <li><strong>Fichiers</strong> : GridFS et disque serveur (photos PHOTOFROMFS, rôle FileSystem)</li>
+                </ul>
+                <div class="doc-warn"><strong>Note :</strong> l'ancien chat Firebase a été remplacé par WhatsPat. Il n'est plus utilisé.</div>
+            </section>
+
+            <section class="doc-section" id="autres-fr">
+                <h2>Autres guides</h2>
+                <ul>
+                    <li><a href="/assets/docs/activities.html">Activités &amp; mur de photos</a></li>
+                    <li><a href="/assets/docs/slideshow.html">Diaporama — mode d'emploi</a></li>
+                    <li><a href="/assets/docs/whatspat.html">WhatsPat — discussions</a></li>
+                    <li><a href="/assets/docs/assistant.html">Assistant IA</a></li>
+                    <li><a href="/assets/SLIDESHOW_DOCUMENTATION.html">Diaporama — documentation technique (développeurs)</a></li>
+                </ul>
+            </section>
+        </div>
+
+        <!-- EN -->
+        <div data-doc-lang="en" hidden>
+            <section class="doc-section" id="toc-en">
+                <h2>Contents</h2>
+                <ul class="doc-toc">
+                    <li><a href="#what-en">What is PatTool?</a></li>
+                    <li><a href="#menu-en">Main menus</a></li>
+                    <li><a href="#roles-en">Roles and access</a></li>
+                    <li><a href="#start-en">Getting started</a></li>
+                    <li><a href="#tech-en">Technology</a></li>
+                    <li><a href="#more-en">More guides</a></li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="what-en">
+                <h2>What is PatTool?</h2>
+                <p>PatTool is a private web app to <strong>organize activities</strong> (sports, outings, family, travel…) and share photos, files and discussions with friends, authenticated via <strong>Keycloak</strong>.</p>
+                <div class="doc-cards">
+                    <div class="doc-card"><h4>Photo wall</h4><p>Default home — photo timeline per activity.</p></div>
+                    <div class="doc-card"><h4>Activities</h4><p>Create, join, attach files, visibility rules.</p></div>
+                    <div class="doc-card"><h4>WhatsPat</h4><p>Real-time messaging (MongoDB + WebSocket).</p></div>
+                    <div class="doc-card"><h4>Organization</h4><p>Calendar, todo lists, e-mail reminders.</p></div>
+                    <div class="doc-card"><h4>AI assistant</h4><p>Side panel: OpenAI, Claude, Gemini, Mistral. Web search, vision, images, MongoDB history, PDF/WhatsApp export. <a href="/assets/docs/assistant.html">Full guide →</a></p></div>
+                    <div class="doc-card"><h4>Tools</h4><p>IoT, weather, lottery, PDF, ODS, 3D globe…</p></div>
+                </div>
+            </section>
+
+            <section class="doc-section" id="menu-en">
+                <h2>Main menus</h2>
+                <table class="doc-table">
+                    <thead><tr><th>Menu</th><th>Content</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>Activities</strong></td><td>List <code class="doc-code">/even</code>, create, photo wall <code class="doc-code">/photos</code></td></tr>
+                        <tr><td><strong>Friends</strong></td><td>Friend requests, groups, visibility</td></tr>
+                        <tr><td><strong>Organization</strong></td><td>Calendar, todo lists</td></tr>
+                        <tr><td><strong>Home</strong></td><td>IoT, cameras, local network</td></tr>
+                        <tr><td><strong>World / Math</strong></td><td>Widgets, Loto, EuroMillions</td></tr>
+                        <tr><td><strong>Tools</strong></td><td>PDF, ODS, upload, share, <em>Documentation</em></td></tr>
+                    </tbody>
+                </table>
+                <div class="doc-tip">12 UI languages. Draggable language selector at bottom right.</div>
+            </section>
+
+            <section class="doc-section" id="roles-en">
+                <h2>Roles and access</h2>
+                <table class="doc-table">
+                    <tr><th>Role</th><th>Examples</th></tr>
+                    <tr><td>Logged-in user</td><td>Activities, friends, WhatsPat, assistant, photo wall</td></tr>
+                    <tr><td><code class="doc-code">FileSystem</code></td><td>Server disk photo links (PHOTOFROMFS)</td></tr>
+                    <tr><td><code class="doc-code">Iot</code></td><td>Home menu: automation, cameras, network scan</td></tr>
+                    <tr><td><code class="doc-code">Admin</code></td><td>Links admin, server parameters, system stats</td></tr>
+                </table>
+            </section>
+
+            <section class="doc-section" id="start-en">
+                <h2>Getting started</h2>
+                <ol>
+                    <li>Sign in via Keycloak.</li>
+                    <li><strong>Photo wall</strong> (<code class="doc-code">/photos</code>) is the default home.</li>
+                    <li>Browse activities at <code class="doc-code">/even</code>.</li>
+                    <li>Open the <strong>assistant</strong> (wand button on the right).</li>
+                    <li><strong>Tools</strong> menu: global upload, share, documentation, PDF, ODS editor.</li>
+                </ol>
+            </section>
+
+            <section class="doc-section" id="tech-en">
+                <h2>Technology (summary)</h2>
+                <ul>
+                    <li><strong>Frontend</strong>: Angular 21, Bootstrap 5, Capacitor 8 (mobile)</li>
+                    <li><strong>Backend</strong>: Spring Boot 3.3, Java 21, MongoDB</li>
+                    <li><strong>Real-time</strong>: WebSocket/STOMP (WhatsPat); SSE (activity stream)</li>
+                    <li><strong>Files</strong>: GridFS and server disk (PHOTOFROMFS, FileSystem role)</li>
+                </ul>
+                <div class="doc-warn"><strong>Note:</strong> legacy Firebase chat was replaced by WhatsPat.</div>
+            </section>
+
+            <section class="doc-section" id="more-en">
+                <h2>More guides</h2>
+                <ul>
+                    <li><a href="/assets/docs/activities.html">Activities &amp; photo wall</a></li>
+                    <li><a href="/assets/docs/slideshow.html">Slideshow — user guide</a></li>
+                    <li><a href="/assets/docs/whatspat.html">WhatsPat — messaging</a></li>
+                    <li><a href="/assets/docs/assistant.html">AI assistant</a></li>
+                    <li><a href="/assets/SLIDESHOW_DOCUMENTATION.html">Slideshow — technical documentation (developers)</a></li>
+                </ul>
+            </section>
+        </div>
+    </main>
+
+    <footer class="doc-footer">
+        <p>PatTool — patrickdeschamps.com — <span data-doc-lang="fr">Documentation</span><span data-doc-lang="en" hidden>Documentation</span></p>
+    </footer>
+    <script src="/assets/js/pattool-doc.js"></script>
+</body>
+</html>
