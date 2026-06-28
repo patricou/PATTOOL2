@@ -187,6 +187,42 @@
                     <h6 class="group-title">
                         <a [routerLink]="['/details-evenement', group.eventId]">{{ group.eventName }}</a>
                     </h6>
+                    <div class="group-info group-header-meta">
+                        <span class="group-owner text-muted" *ngIf="group.ownerUserName">
+                            <i class="fa fa-user me-1"></i>{{ 'PHOTO_TIMELINE.OWNER' | translate }}: {{ getOwnerDisplay(group) }}
+                        </span>
+                        <span class="group-date">{{ formatEventDate(group.eventDate) }}</span>
+                        <div *ngIf="getDaysUntilWallEventStart(group) as daysUntilStart"
+                             class="event-days-until-start event-days-until-start--inline event-days-until-start--compact">
+                            <div class="event-days-lcd"
+                                 role="status"
+                                 [attr.aria-label]="(daysUntilStart === 1 ? 'EVENTELEM.DAYS_UNTIL_START_ONE' : 'EVENTELEM.DAYS_UNTIL_START_MANY') | translate: { count: daysUntilStart }">
+                                <div class="event-days-lcd-screen" aria-hidden="true">
+                                    <span class="event-days-lcd-digit" *ngFor="let digit of getDaysUntilLcdDigits(daysUntilStart)">
+                                        <span class="event-days-lcd-ghost">8</span>
+                                        <span class="event-days-lcd-lit">{{ digit }}</span>
+                                    </span>
+                                </div>
+                                <span class="event-days-lcd-label" aria-hidden="true">{{ 'EVENTELEM.DAYS_LCD_LABEL' | translate }}</span>
+                            </div>
+                        </div>
+                        <span class="group-count">
+                            <i class="fa fa-picture-o"></i> {{ getGroupMediaCountLabel(group) }}
+                        </span>
+                        <ng-container *ngIf="getVisibilityBadges(group) as visibilityBadges">
+                            <span class="group-visibility-badges" *ngIf="visibilityBadges.length">
+                                <span class="badge me-1 wall-visibility-badge-btn" *ngFor="let vb of visibilityBadges; let i = index; trackBy: trackByIndex"
+                                      [ngClass]="vb.badgeClass"
+                                      role="button"
+                                      tabindex="0"
+                                      (click)="wallShowEventAccessUsers(group, $event)"
+                                      (keydown.enter)="wallShowEventAccessUsers(group, $event)"
+                                      [title]="'EVENTELEM.USERS_WITH_ACCESS' | translate">
+                                    <i class="fa fa-eye me-1"></i><span class="group-action-btn-text">{{ vb.text }}</span>
+                                </span>
+                            </span>
+                        </ng-container>
+                    </div>
                 </div>
                 <div class="group-header-actions group-header-actions-fit">
                     <div class="group-header-actions-fit-inner" ptScaleRowToFit>
@@ -258,42 +294,6 @@
                         <span class="group-action-btn-text">{{ 'EVENTELEM.SHARE_WHATSAPP' | translate }}</span>
                     </button>
                     </div>
-                </div>
-                <div class="group-info group-header-meta">
-                    <span class="group-owner text-muted" *ngIf="group.ownerUserName">
-                        <i class="fa fa-user me-1"></i>{{ 'PHOTO_TIMELINE.OWNER' | translate }}: {{ getOwnerDisplay(group) }}
-                    </span>
-                    <span class="group-date">{{ formatEventDate(group.eventDate) }}</span>
-                    <div *ngIf="getDaysUntilWallEventStart(group) as daysUntilStart"
-                         class="event-days-until-start event-days-until-start--inline event-days-until-start--compact">
-                        <div class="event-days-lcd"
-                             role="status"
-                             [attr.aria-label]="(daysUntilStart === 1 ? 'EVENTELEM.DAYS_UNTIL_START_ONE' : 'EVENTELEM.DAYS_UNTIL_START_MANY') | translate: { count: daysUntilStart }">
-                            <div class="event-days-lcd-screen" aria-hidden="true">
-                                <span class="event-days-lcd-digit" *ngFor="let digit of getDaysUntilLcdDigits(daysUntilStart)">
-                                    <span class="event-days-lcd-ghost">8</span>
-                                    <span class="event-days-lcd-lit">{{ digit }}</span>
-                                </span>
-                            </div>
-                            <span class="event-days-lcd-label" aria-hidden="true">{{ 'EVENTELEM.DAYS_LCD_LABEL' | translate }}</span>
-                        </div>
-                    </div>
-                    <span class="group-count">
-                        <i class="fa fa-picture-o"></i> {{ getGroupMediaCountLabel(group) }}
-                    </span>
-                    <ng-container *ngIf="getVisibilityBadges(group) as visibilityBadges">
-                        <span class="group-visibility-badges" *ngIf="visibilityBadges.length">
-                            <span class="badge me-1 wall-visibility-badge-btn" *ngFor="let vb of visibilityBadges; let i = index; trackBy: trackByIndex"
-                                  [ngClass]="vb.badgeClass"
-                                  role="button"
-                                  tabindex="0"
-                                  (click)="wallShowEventAccessUsers(group, $event)"
-                                  (keydown.enter)="wallShowEventAccessUsers(group, $event)"
-                                  [title]="'EVENTELEM.USERS_WITH_ACCESS' | translate">
-                                <i class="fa fa-eye me-1"></i><span class="group-action-btn-text">{{ vb.text }}</span>
-                            </span>
-                        </span>
-                    </ng-container>
                 </div>
             </div>
 

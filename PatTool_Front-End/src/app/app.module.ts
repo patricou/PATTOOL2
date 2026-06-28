@@ -138,6 +138,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				path: 'api/openweathermap', 
 				loadComponent: () => import('./openweathermap/openweathermap.component').then(m => m.OpenWeatherMapComponent)
 			},
+			{
+				path: 'api/meteo-france',
+				loadComponent: () => import('./meteo-france/meteo-france.component').then(m => m.MeteoFranceComponent)
+			},
 			{ 
 				path: 'api/address-geocode', 
 				loadComponent: () => import('./address-geocode/address-geocode.component').then(m => m.AddressGeocodeComponent)

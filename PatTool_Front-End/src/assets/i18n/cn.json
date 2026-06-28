@@ -1,4 +1,4 @@
-﻿{
+{
     "LANGUAGE": {
         "FR": "æ³è¯­",
         "EN": "è±è¯­",
@@ -28,7 +28,7 @@
         "LOGOUT": "ç»åº",
         "LINKS": "é¾æ¥",
         "FRIENDS": "æå",
-        "TOOLS": "å·¥å·",
+        "FINANCE": "金融",        "TOOLS": "å·¥å·",
         "IOT": "å®¶åº­",
         "IOT_HOME": "å®¶åº­èªå¨å",
         "LOCAL_NETWORK": "æ¬å°ç½ç»",
@@ -38,6 +38,7 @@
         "GEO": "ä¸ç",
         "GEO_WORLD_VIEWS": "å°çä¸å¤ªç©º",
         "POSITION_METEO": "ä½ç½®/å¤©æ°",
+        "METEO_FRANCE": "Precision weather (MF radar)",
         "ADDRESS_TO_MAP": "å°å/GPSå°å°å¾",
         "NEWS": "æ°é»",
         "CURRENCY_CONVERTER": "è´§å¸è½¬æ¢å¨",

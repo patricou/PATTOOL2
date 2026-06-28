@@ -1,0 +1,194 @@
+.pat-subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.api-container {
+  background: #f8f9fa;
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.api-title {
+  color: #333;
+  margin-bottom: 10px;
+  font-size: 1rem;
+  border-bottom: 1px solid #007bff;
+  padding-bottom: 5px;
+  font-weight: 600;
+}
+
+.api-title i {
+  margin-right: 5px;
+}
+
+.meteo-france-tabs .nav-link {
+  cursor: pointer;
+  color: #495057;
+}
+
+.meteo-france-tabs .nav-link.active {
+  background-color: #007bff;
+  color: #fff;
+}
+
+.meteo-france-map {
+  width: 100%;
+  height: min(62vh, 520px);
+  min-height: 320px;
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
+  z-index: 0;
+}
+
+.radar-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+}
+
+.radar-control-item {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.radar-refresh-interval-input {
+  width: 4.5rem;
+  padding: 2px 6px;
+  text-align: center;
+}
+
+.radar-legend {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: #555;
+}
+
+.weather-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.button-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.weather-card {
+  background: #fff;
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.weather-condition-highlight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.weather-condition-highlight img {
+  width: 72px;
+  height: 72px;
+}
+
+.weather-condition-temp {
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+
+.weather-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.forecast-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.forecast-card {
+  background: #fff;
+  border-radius: 4px;
+  padding: 8px;
+  text-align: center;
+  font-size: 0.8rem;
+}
+
+.forecast-icon {
+  width: 48px;
+  height: 48px;
+}
+
+.forecast-temp {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.city-search-results {
+  margin-top: 4px;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  background: #fff;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.city-search-result-item {
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.city-search-result-item:hover {
+  background: #e9ecef;
+}
+
+.clim-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.clim-station-row {
+  max-width: 420px;
+}
+
+.clim-table-wrap {
+  overflow-x: auto;
+}
+
+.clim-table {
+  font-size: 0.8rem;
+  margin-bottom: 0;
+}
+
+.clim-table th {
+  white-space: nowrap;
+}
+
+.location-summary {
+  margin-top: 8px;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 576px) {
+  .meteo-france-map {
+    height: 50vh;
+    min-height: 260px;
+  }
+}

@@ -58,6 +58,8 @@
 
         "FRIENDS": "Freunde",
 
+        "FINANCE": "Finanzen",
+
         "TOOLS": "Werkzeuge",
 
         "IOT": "Zuhause",
@@ -77,6 +79,7 @@
         "GEO_WORLD_VIEWS": "Erde & Weltraum",
 
         "POSITION_METEO": "Position/Wetter",
+        "METEO_FRANCE": "Präzisionswetter (MF-Radar)",
 
         "ADDRESS_TO_MAP": "Adresse/GPS auf Karte",
 

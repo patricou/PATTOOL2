@@ -74,6 +74,7 @@ export class AppComponent implements OnInit {
     public showApiDropdown: boolean = false;
     public showOrganisationDropdown: boolean = false;
     public showMathDropdown: boolean = false;
+    public showFinanceDropdown: boolean = false;
     public showLanguageSubmenu: boolean = false;
     public showDocumentationSubmenu: boolean = false;
     public isDragOver: boolean = false;
@@ -138,11 +139,14 @@ export class AppComponent implements OnInit {
         { routerLink: ['todolists'], icon: 'fa fa-tasks', labelKey: 'MENU.TODOLISTS' }
     ];
     readonly navGeoLocalRaw: NavRouteMenuItem[] = [
+        { routerLink: ['api/meteo-france'], icon: 'fa fa-bolt', labelKey: 'MENU.METEO_FRANCE' },
         { routerLink: ['api/openweathermap'], icon: 'fa fa-cloud', labelKey: 'MENU.POSITION_METEO' },
         { routerLink: ['api/address-geocode'], icon: 'fa fa-map-marker', labelKey: 'MENU.ADDRESS_TO_MAP' },
         { routerLink: ['api/news'], icon: 'fa fa-newspaper-o', labelKey: 'MENU.NEWS' },
+        { routerLink: ['api/timezone-converter'], icon: 'fa fa-clock-o', labelKey: 'MENU.TIME_ZONES' }
+    ];
+    readonly navFinanceRaw: NavRouteMenuItem[] = [
         { routerLink: ['api/currency-converter'], icon: 'fa fa-money', labelKey: 'MENU.CURRENCY_CONVERTER' },
-        { routerLink: ['api/timezone-converter'], icon: 'fa fa-clock-o', labelKey: 'MENU.TIME_ZONES' },
         { routerLink: ['api/stock-exchange'], icon: 'fa fa-line-chart', labelKey: 'MENU.STOCK_EXCHANGE' },
         { routerLink: ['api/cryptos'], icon: 'fa fa-bitcoin', labelKey: 'MENU.CRYPTOS' }
     ];
@@ -173,6 +177,7 @@ export class AppComponent implements OnInit {
         { routerLink: ['tools/chimie'], icon: 'fa fa-flask', labelKey: 'MENU.CHIMIE' }
     ];
     readonly toolsMenuRowsRaw: ToolsMenuRow[] = [
+        { kind: 'route', routerLink: ['friends'], icon: 'fa fa-users', labelKey: 'MENU.FRIENDS' },
         { kind: 'route', routerLink: ['results'], icon: 'fa fa-comments', labelKey: 'MENU.RESULTS' },
         { kind: 'route', routerLink: ['tools/pdf-converter'], icon: 'fa fa-file-pdf-o', labelKey: 'MENU.PDF_CONVERTER' },
         { kind: 'route', routerLink: ['tools/ods-editor'], icon: 'fa fa-table', labelKey: 'MENU.ODS_EDITOR' },
@@ -329,6 +334,10 @@ export class AppComponent implements OnInit {
         return this.sortMenuByLabel(this.navGeoWorldRaw);
     }
 
+    get sortedNavFinance(): NavRouteMenuItem[] {
+        return this.sortMenuByLabel(this.navFinanceRaw);
+    }
+
     get sortedNavIot(): NavRouteMenuItem[] {
         return this.sortMenuByLabel(this.filterIotMenuItems(this.navIotRaw));
     }
@@ -411,7 +420,7 @@ export class AppComponent implements OnInit {
 
     navigateToHome(event: Event): void {
         // Only navigate if no dropdowns are open and it's not a dropdown trigger
-        if (!this.showEventsDropdown && !this.showToolsDropdown && !this.showIotDropdown && !this.showApiDropdown && !this.showOrganisationDropdown && !this.showMathDropdown && !this.showLinksDropdown) {
+        if (!this.showEventsDropdown && !this.showToolsDropdown && !this.showIotDropdown && !this.showApiDropdown && !this.showOrganisationDropdown && !this.showMathDropdown && !this.showFinanceDropdown && !this.showLinksDropdown) {
             event.preventDefault();
             event.stopPropagation();
             this.router.navigate(['']);
@@ -1312,6 +1321,7 @@ export class AppComponent implements OnInit {
         this.showApiDropdown = false; // Close other dropdown
         this.showOrganisationDropdown = false; // Close other dropdown
         this.showMathDropdown = false; // Close other dropdown
+        this.showFinanceDropdown = false; // Close other dropdown
     }
 
     toggleLinksDropdown(event: Event): void {
@@ -1324,6 +1334,7 @@ export class AppComponent implements OnInit {
         this.showApiDropdown = false; // Close other dropdown
         this.showOrganisationDropdown = false; // Close other dropdown
         this.showMathDropdown = false; // Close other dropdown
+        this.showFinanceDropdown = false; // Close other dropdown
     }
 
     toggleIotDropdown(event: Event): void {
@@ -1336,6 +1347,7 @@ export class AppComponent implements OnInit {
         this.showApiDropdown = false; // Close other dropdown
         this.showOrganisationDropdown = false; // Close other dropdown
         this.showMathDropdown = false; // Close other dropdown
+        this.showFinanceDropdown = false; // Close other dropdown
     }
 
     toggleApiDropdown(event: Event): void {
@@ -1348,6 +1360,7 @@ export class AppComponent implements OnInit {
         this.showIotDropdown = false; // Close other dropdown
         this.showOrganisationDropdown = false; // Close other dropdown
         this.showMathDropdown = false; // Close other dropdown
+        this.showFinanceDropdown = false; // Close other dropdown
     }
 
     toggleOrganisationDropdown(event: Event): void {
@@ -1360,6 +1373,7 @@ export class AppComponent implements OnInit {
         this.showIotDropdown = false; // Close other dropdown
         this.showApiDropdown = false; // Close other dropdown
         this.showMathDropdown = false; // Close other dropdown
+        this.showFinanceDropdown = false; // Close other dropdown
     }
 
     toggleMathDropdown(event: Event): void {
@@ -1372,8 +1386,22 @@ export class AppComponent implements OnInit {
         this.showIotDropdown = false;
         this.showApiDropdown = false;
         this.showOrganisationDropdown = false;
+        this.showFinanceDropdown = false;
         this.showLanguageSubmenu = false;
         this.showDocumentationSubmenu = false;
+    }
+
+    toggleFinanceDropdown(event: Event): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this.showFinanceDropdown = !this.showFinanceDropdown;
+        this.showEventsDropdown = false;
+        this.showToolsDropdown = false;
+        this.showLinksDropdown = false;
+        this.showIotDropdown = false;
+        this.showApiDropdown = false;
+        this.showOrganisationDropdown = false;
+        this.showMathDropdown = false;
     }
 
     toggleToolsDropdown(event: Event): void {
@@ -1386,6 +1414,7 @@ export class AppComponent implements OnInit {
         this.showApiDropdown = false; // Close other dropdown
         this.showOrganisationDropdown = false; // Close other dropdown
         this.showMathDropdown = false; // Close other dropdown
+        this.showFinanceDropdown = false; // Close other dropdown
         if (!this.showToolsDropdown) {
             this.showLanguageSubmenu = false; // Close language submenu when tools dropdown closes
             this.showDocumentationSubmenu = false; // Close documentation submenu when tools dropdown closes
@@ -1635,6 +1664,7 @@ export class AppComponent implements OnInit {
         this.showApiDropdown = false;
         this.showOrganisationDropdown = false;
         this.showMathDropdown = false;
+        this.showFinanceDropdown = false;
         this.showLanguageSubmenu = false;
         this.showDocumentationSubmenu = false;
     }
@@ -1647,6 +1677,7 @@ export class AppComponent implements OnInit {
         this.showApiDropdown = false;
         this.showOrganisationDropdown = false;
         this.showMathDropdown = false;
+        this.showFinanceDropdown = false;
         this.showLanguageSubmenu = false;
         this.showDocumentationSubmenu = false;
     }

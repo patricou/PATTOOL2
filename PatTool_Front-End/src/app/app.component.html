@@ -69,15 +69,6 @@
                 </ul>
             </li>
 
-            <!-- Friends -->
-            <li class="nav-item">
-                <a class="nav-link" 
-                   [routerLink]="['friends']" 
-                   (click)="closeMenu()">
-                    <i class="fa fa-users"></i> {{ 'MENU.FRIENDS' | translate }}
-                </a>
-            </li>
-
             <!-- Organisation Dropdown (Agenda + future tools) -->
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle"
@@ -124,6 +115,29 @@
                     <li><hr class="dropdown-divider"></li>
                     <li><h6 class="dropdown-header">{{ 'MENU.GEO_WORLD_VIEWS' | translate }}</h6></li>
                     <li *ngFor="let item of sortedNavGeoWorld">
+                        <a class="dropdown-item"
+                           [routerLink]="item.routerLink"
+                           (click)="closeMenu()">
+                            <i [class]="item.icon"></i> {{ item.labelKey | translate }}
+                        </a>
+                    </li>
+                </ul>
+            </li>
+
+            <!-- Finance -->
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle"
+                   href="#"
+                   id="financeDropdown"
+                   role="button"
+                   (click)="toggleFinanceDropdown($event)"
+                   [attr.aria-expanded]="showFinanceDropdown">
+                    <i class="fa fa-money"></i> {{ 'MENU.FINANCE' | translate }}
+                </a>
+                <ul class="dropdown-menu"
+                    [class.show]="showFinanceDropdown"
+                    aria-labelledby="financeDropdown">
+                    <li *ngFor="let item of sortedNavFinance">
                         <a class="dropdown-item"
                            [routerLink]="item.routerLink"
                            (click)="closeMenu()">

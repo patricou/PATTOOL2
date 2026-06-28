@@ -199,6 +199,115 @@ export class ApiService {
   }
 
 
+  /** Météo-France radar / DPRadar status. */
+  getMeteoFranceStatus(): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get(this.API_URL + 'external/meteofrance/status', { headers })
+      )
+    );
+  }
+
+  /** DPRadar observation metadata (validity_time). */
+  getMeteoFranceRadarObservationMeta(
+    zone = 'METROPOLE',
+    observation = 'REFLECTIVITE',
+    maille = 1000
+  ): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => {
+        const params = new HttpParams()
+          .set('zone', zone)
+          .set('observation', observation)
+          .set('maille', String(maille));
+        return this._http.get(this.API_URL + 'external/meteofrance/radar/observation', { headers, params });
+      })
+    );
+  }
+
+  /** Fetch radar mosaic image via backend (handles auth). */
+  fetchRadarMosaicBlob(url: string): Observable<Blob> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get(url, {
+          headers: headers.set('Accept', 'image/png,image/*,application/octet-stream,*/*'),
+          responseType: 'blob'
+        })
+      )
+    );
+  }
+
+  /** RainViewer tile metadata (host + frame paths), proxied by backend. */
+  getRainViewerMaps(): Observable<any> {
+    return this._http.get(this.API_URL + 'external/radar/rainviewer/maps');
+  }
+
+  /** Per-user radar auto-refresh interval (MongoDB appParameters). */
+  getMeteoFranceRadarPreferences(): Observable<MeteoFranceRadarPreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<MeteoFranceRadarPreference>(
+          this.API_URL + 'external/meteofrance/radar/preferences',
+          { headers }
+        )
+      )
+    );
+  }
+
+  saveMeteoFranceRadarPreferences(radarRefreshSeconds: number): Observable<MeteoFranceRadarPreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<MeteoFranceRadarPreference>(
+          this.API_URL + 'external/meteofrance/radar/preferences',
+          { radarRefreshSeconds },
+          { headers }
+        )
+      )
+    );
+  }
+
+  /** Nearest MF climatological station + archived data (DPClim, proxied). */
+  getMeteoFranceClimNearby(
+    lat: number,
+    lon: number,
+    days = 30,
+    frequency: 'quotidienne' | 'horaire' = 'quotidienne',
+    department?: string,
+    stationId?: string
+  ): Observable<any> {
+    let params = new HttpParams()
+      .set('lat', String(lat))
+      .set('lon', String(lon))
+      .set('days', String(days))
+      .set('frequency', frequency);
+    if (department) {
+      params = params.set('department', department);
+    }
+    if (stationId) {
+      params = params.set('stationId', stationId);
+    }
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get(this.API_URL + 'external/meteofrance/clim/nearby', { headers, params })
+      )
+    );
+  }
+
+  /** List climatological stations for a department. */
+  getMeteoFranceClimStations(
+    department: string,
+    frequency: 'quotidienne' | 'horaire' = 'quotidienne'
+  ): Observable<any> {
+    const params = new HttpParams()
+      .set('department', department)
+      .set('frequency', frequency);
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get(this.API_URL + 'external/meteofrance/clim/stations', { headers, params })
+      )
+    );
+  }
+
   /**
    * Get all available altitudes with sources for coordinates.
    * Tries with auth first; if that fails (e.g. not logged in), retries without token (backend allows anonymous GET).
@@ -1272,6 +1381,12 @@ export interface LotoSyncResult {
   drawsUpserted: number;
   httpErrors: number;
   messages?: string[];
+}
+
+/** GET/PUT /api/external/meteofrance/radar/preferences */
+export interface MeteoFranceRadarPreference {
+  radarRefreshSeconds: number;
+  persistedInMongo?: boolean;
 }
 
 /** GET/PATCH /api/euromillions/client-settings */

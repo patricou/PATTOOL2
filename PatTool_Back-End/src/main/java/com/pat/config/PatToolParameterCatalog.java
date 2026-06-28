@@ -20,7 +20,8 @@ public final class PatToolParameterCatalog {
     public static final Set<String> MONGO_USER_KEY_PREFIXES = Set.of(
             "assistant.routing.",
             "globe.flight.tracking.",
-            "globe.iss.compass.calibration."
+            "globe.iss.compass.calibration.",
+            "meteofrance.radar.refresh."
     );
 
     public static final List<SectionDef> SECTIONS = List.of(
@@ -167,6 +168,15 @@ public final class PatToolParameterCatalog {
             section("weather-maps", "PATTOOL_PARAMS.SECTION.WEATHER_MAPS",
                     defSensitive("openweathermap.api.key"),
                     def("openweathermap.api.base.url", false),
+                    defSensitive("meteofrance.api.token"),
+                    defSensitive("meteofrance.clim.api.token"),
+                    defSensitive("meteofrance.oauth.application-id"),
+                    def("meteofrance.radar.base.url", false),
+                    def("meteofrance.radar.wms.url", false),
+                    def("meteofrance.radar.wms.layer", false),
+                    def("meteofrance.radar.wms.enabled", false),
+                    defMongo("meteofrance.radar.refresh.seconds", false),
+                    def("meteofrance.clim.base.url", false),
                     defSensitive("thunderforest.api.key"),
                     defSensitive("ign.api.key")
             ),
@@ -303,6 +313,7 @@ public final class PatToolParameterCatalog {
                 || key.startsWith("newsapi.")
                 || key.startsWith("newsdata.")
                 || key.startsWith("openweathermap.")
+                || key.startsWith("meteofrance.")
                 || key.startsWith("thunderforest.")
                 || key.startsWith("ign.");
     }

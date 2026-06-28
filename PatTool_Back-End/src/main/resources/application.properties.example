@@ -95,6 +95,24 @@ app.esp32.1.ip=192.168.1.71
 
 # --- Weather (optional) ---
 openweathermap.api.key=
+# Météo-France DPRadar — https://portail-api.meteofrance.fr
+# 1) Subscribe to API « Données Publiques Radar » (not « Radar Package »)
+# 2) Configure the API → Token type « API Key » → Generate Token → paste below (NOT the consumer key/secret)
+# Jeton API Key pour DPRadar (API « Données Publiques Radar »)
+meteofrance.api.token=
+# Jeton API Key pour DPClim (API « Données Climatologiques ») — clé distincte du radar
+# meteofrance.clim.api.token=
+# Alternative: OAuth application id (Base64 string shown as « Application ID » in the portal)
+# meteofrance.oauth.application-id=
+# meteofrance.radar.base.url=https://public-api.meteofrance.fr/public/DPRadar/v1
+# meteofrance.radar.wms.url=https://geoservices.meteofrance.fr/services/WMS
+# meteofrance.radar.wms.layer=RADARURANCE400M
+# WMS geoservices (legacy) — disabled by default; use DPRadar token instead
+# meteofrance.radar.wms.enabled=false
+# Intervalle de rafraîchissement auto de la couche radar sur la page Météo France (secondes, 30–600, défaut 60)
+# meteofrance.radar.refresh.seconds=60
+# API Données Climatologiques (DPClim v1) — même jeton si abonné sur le portail
+# meteofrance.clim.base.url=https://public-api.meteofrance.fr/public/DPClim/v1
 
 # --- Loto import (draw archives) ---
 loto.archive.base-url=https://www.lesbonsnumeros.com

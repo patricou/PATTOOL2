@@ -1,17 +1,27 @@
 package com.pat.controller;
 
+import com.pat.controller.dto.MeteoFranceRadarPreferenceDto;
 import com.pat.service.GeocodeService;
 import com.pat.service.IpGeolocationService;
+import com.pat.service.MeteoFranceClimService;
+import com.pat.service.MeteoFranceRadarRefreshPreferenceService;
+import com.pat.service.MeteoFranceRadarService;
 import com.pat.service.OpenWeatherService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -29,6 +39,15 @@ public class ApiController {
 
     @Autowired
     private IpGeolocationService ipGeolocationService;
+
+    @Autowired
+    private MeteoFranceRadarService meteoFranceRadarService;
+
+    @Autowired
+    private MeteoFranceClimService meteoFranceClimService;
+
+    @Autowired
+    private MeteoFranceRadarRefreshPreferenceService meteoFranceRadarRefreshPreferenceService;
 
     @Value("${thunderforest.api.key:}")
     private String thunderforestApiKey;
@@ -213,5 +232,154 @@ public class ApiController {
             result.put("status", "fail");
         }
         return result;
+    }
+
+    /**
+     * Météo-France radar / DPRadar configuration status.
+     */
+    @GetMapping(value = "/meteofrance/status", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getMeteoFranceStatus() {
+        Map<String, Object> status = new LinkedHashMap<>(meteoFranceRadarService.getStatus(currentJwtSubject()));
+        status.putAll(meteoFranceClimService.getStatusFragment());
+        return status;
+    }
+
+    /** Per-user radar auto-refresh interval (MongoDB appParameters). */
+    @GetMapping(value = "/meteofrance/radar/preferences", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<MeteoFranceRadarPreferenceDto> getMeteoFranceRadarPreferences() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(meteoFranceRadarRefreshPreferenceService.readForSubject(sub));
+    }
+
+    @PutMapping(value = "/meteofrance/radar/preferences", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<MeteoFranceRadarPreferenceDto> setMeteoFranceRadarPreferences(
+            @RequestBody MeteoFranceRadarPreferenceDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (body == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            MeteoFranceRadarPreferenceDto saved =
+                    meteoFranceRadarRefreshPreferenceService.saveForSubject(sub, body.radarRefreshSeconds());
+            return ResponseEntity.ok(saved);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    private static String currentJwtSubject() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof Jwt jwt)) {
+            return null;
+        }
+        return jwt.getSubject();
+    }
+
+    /**
+     * Proxy WMS radar tile (geoservices.meteofrance.fr).
+     * BBOX in EPSG:4326 WMS 1.3.0 order: minLat,minLon,maxLat,maxLon.
+     */
+    @GetMapping(value = "/meteofrance/radar/wms", produces = {MediaType.IMAGE_PNG_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
+    public org.springframework.http.ResponseEntity<byte[]> getMeteoFranceRadarWms(
+            @RequestParam("minLat") Double minLat,
+            @RequestParam("minLon") Double minLon,
+            @RequestParam("maxLat") Double maxLat,
+            @RequestParam("maxLon") Double maxLon,
+            @RequestParam(value = "width", defaultValue = "256") int width,
+            @RequestParam(value = "height", defaultValue = "256") int height) {
+        return meteoFranceRadarService.getWmsTile(minLat, minLon, maxLat, maxLon, width, height);
+    }
+
+    /**
+     * Latest radar mosaic PNG via DPRadar API (requires meteofrance.api.token).
+     */
+    @GetMapping(value = "/meteofrance/radar/mosaic", produces = {MediaType.IMAGE_PNG_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
+    public org.springframework.http.ResponseEntity<byte[]> getMeteoFranceRadarMosaic(
+            @RequestParam(value = "zone", defaultValue = "METROPOLE") String zone,
+            @RequestParam(value = "observation", defaultValue = "REFLECTIVITE") String observation,
+            @RequestParam(value = "maille", defaultValue = "1000") Integer maille) {
+        return meteoFranceRadarService.getLatestMosaicImage(zone, observation, maille);
+    }
+
+    /**
+     * List observation types for a radar mosaic zone (DPRadar API).
+     */
+    @GetMapping(value = "/meteofrance/radar/observations", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getMeteoFranceRadarObservations(
+            @RequestParam(value = "zone", defaultValue = "METROPOLE") String zone) {
+        return meteoFranceRadarService.listObservations(zone);
+    }
+
+    /**
+     * Metadata for a radar mosaic observation (validity_time, etc.).
+     */
+    @GetMapping(value = "/meteofrance/radar/observation", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getMeteoFranceRadarObservationMeta(
+            @RequestParam(value = "zone", defaultValue = "METROPOLE") String zone,
+            @RequestParam(value = "observation", defaultValue = "REFLECTIVITE") String observation,
+            @RequestParam(value = "maille", defaultValue = "1000") Integer maille) {
+        return meteoFranceRadarService.getObservationMeta(zone, observation, maille);
+    }
+
+    /**
+     * RainViewer radar metadata (tile host + frame paths). Proxied to avoid browser CORS.
+     */
+    @GetMapping(value = "/radar/rainviewer/maps", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getRainViewerMaps() {
+        return meteoFranceRadarService.getRainViewerMaps();
+    }
+
+    /**
+     * RainViewer radar tile proxy (PNG). {@code path} is the frame path from maps metadata, e.g. {@code /v2/radar/abc123}.
+     */
+    @GetMapping(value = "/radar/rainviewer/tile/{z}/{x}/{y}", produces = MediaType.IMAGE_PNG_VALUE)
+    public org.springframework.http.ResponseEntity<byte[]> getRainViewerTile(
+            @PathVariable("z") int z,
+            @PathVariable("x") int x,
+            @PathVariable("y") int y,
+            @RequestParam("path") String framePath,
+            @RequestParam(value = "size", defaultValue = "256") int size,
+            @RequestParam(value = "color", defaultValue = "2") int color,
+            @RequestParam(value = "options", defaultValue = "1_1") String options) {
+        return meteoFranceRadarService.getRainViewerTile(framePath, z, x, y, size, color, options);
+    }
+
+    /**
+     * List climatological stations for a French department (DPClim API).
+     */
+    @GetMapping(value = "/meteofrance/clim/stations", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getMeteoFranceClimStations(
+            @RequestParam("department") String department,
+            @RequestParam(value = "frequency", defaultValue = "quotidienne") String frequency) {
+        return meteoFranceClimService.listStations(department, frequency);
+    }
+
+    /**
+     * Climatological station metadata (DPClim API).
+     */
+    @GetMapping(value = "/meteofrance/clim/station", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getMeteoFranceClimStation(
+            @RequestParam("stationId") String stationId) {
+        return meteoFranceClimService.getStationInfo(stationId);
+    }
+
+    /**
+     * Nearest climatological station + archived observations for a location (async order proxied server-side).
+     */
+    @GetMapping(value = "/meteofrance/clim/nearby", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getMeteoFranceClimNearby(
+            @RequestParam("lat") double lat,
+            @RequestParam("lon") double lon,
+            @RequestParam(value = "department", required = false) String department,
+            @RequestParam(value = "days", defaultValue = "30") int days,
+            @RequestParam(value = "frequency", defaultValue = "quotidienne") String frequency,
+            @RequestParam(value = "stationId", required = false) String stationId) {
+        return meteoFranceClimService.getNearbyClimData(lat, lon, department, days, frequency, stationId);
     }
 }

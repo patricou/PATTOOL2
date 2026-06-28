@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
@@ -113,6 +114,34 @@ public class GlobalExceptionHandler {
         
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
                 .body(errorMessage);
+    }
+
+    /**
+     * Accept header does not match any handler {@code produces} type (e.g. browser navigation to a JSON or PNG API URL).
+     * Not a server bug — log without stack trace and return 406 instead of treating it as an unexpected 500.
+     */
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+    public ResponseEntity<?> handleHttpMediaTypeNotAcceptable(
+            HttpMediaTypeNotAcceptableException exc, HttpServletRequest request) {
+        String clientIp = getClientIpAddress(request);
+        String method = request != null ? request.getMethod() : "GET";
+        String uri = request != null ? request.getRequestURI() : "unknown";
+        String accept = request != null ? request.getHeader("Accept") : null;
+        String logMessage = "No acceptable representation from IP [" + clientIp + "] for "
+                + method + " " + uri + " (Accept: " + accept + ")";
+        log.warn(logMessage);
+        exceptionTrackingService.addLog(clientIp, logMessage);
+
+        if (clientPrefersHtml(request)) {
+            String html = FriendlyErrorHtml.page(true, "en", "Not acceptable", "Cannot display this resource",
+                    "This URL is an API endpoint, not a web page. Use the PatTool menu to open the feature instead.",
+                    "406 · ");
+            return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE)
+                    .contentType(MediaType.TEXT_HTML)
+                    .body(html);
+        }
+        return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE)
+                .body("No acceptable representation for the requested Accept header.");
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
