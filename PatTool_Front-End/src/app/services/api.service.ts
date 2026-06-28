@@ -266,6 +266,42 @@ export class ApiService {
     );
   }
 
+  /** Dense screen grid (~1 cm) — POST list of lat/lon, proxied (MF IDW + Open-Meteo). */
+  postWeatherTemperatureLabels(
+    points: Array<{ lat: number; lon: number }>
+  ): Observable<WeatherTemperatureLabelGrid> {
+    return this._http.post<WeatherTemperatureLabelGrid>(
+      this.API_URL + 'external/weather/map/temperature-labels',
+      { points }
+    );
+  }
+
+  /** Grid of current temperatures for map number labels (legacy GET). */
+  getWeatherTemperatureLabels(
+    minLat: number,
+    maxLat: number,
+    minLon: number,
+    maxLon: number,
+    cols: number,
+    rows: number,
+    maxStations?: number
+  ): Observable<WeatherTemperatureLabelGrid> {
+    let params = new HttpParams()
+      .set('minLat', String(minLat))
+      .set('maxLat', String(maxLat))
+      .set('minLon', String(minLon))
+      .set('maxLon', String(maxLon))
+      .set('cols', String(cols))
+      .set('rows', String(rows));
+    if (maxStations != null && maxStations > 0) {
+      params = params.set('maxStations', String(maxStations));
+    }
+    return this._http.get<WeatherTemperatureLabelGrid>(
+      this.API_URL + 'external/weather/map/temperature-labels',
+      { params }
+    );
+  }
+
   /** Nearest MF climatological station + archived data (DPClim, proxied). */
   getMeteoFranceClimNearby(
     lat: number,
@@ -1387,6 +1423,16 @@ export interface LotoSyncResult {
 export interface MeteoFranceRadarPreference {
   radarRefreshSeconds: number;
   persistedInMongo?: boolean;
+}
+
+/** GET /api/external/weather/map/temperature-labels */
+export interface WeatherTemperatureLabelGrid {
+  points?: Array<{ lat: number; lon: number; tempC: number; stationId?: string }>;
+  cols?: number;
+  rows?: number;
+  source?: 'meteofrance-dpobs' | 'meteofrance-dpobs+open-meteo' | 'open-meteo' | string;
+  fallback?: boolean;
+  error?: string;
 }
 
 /** GET/PATCH /api/euromillions/client-settings */

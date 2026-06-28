@@ -1,7 +1,9 @@
 package com.pat.service;
 
+import com.pat.config.RestTemplateConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -12,7 +14,10 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -26,6 +31,7 @@ public class MeteoFranceClimService {
     private static final Logger log = LoggerFactory.getLogger(MeteoFranceClimService.class);
 
     private static final String DEFAULT_DPCLIM_BASE = "https://public-api.meteofrance.fr/public/DPClim/v1";
+    private static final ZoneId CLIM_ZONE = ZoneId.of("Europe/Paris");
     private static final DateTimeFormatter ISO_UTC = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
             .withZone(ZoneOffset.UTC);
     private static final Set<String> ALLOWED_FREQUENCIES = Set.of(
@@ -38,7 +44,7 @@ public class MeteoFranceClimService {
     private final String dpclimBaseUrl;
 
     public MeteoFranceClimService(
-            RestTemplate restTemplate,
+            @Qualifier(RestTemplateConfig.METEOFRANCE_CLIM_REST_TEMPLATE) RestTemplate restTemplate,
             GeocodeService geocodeService,
             @Value("${meteofrance.clim.api.token:}") String climApiToken,
             @Value("${meteofrance.clim.base.url:" + DEFAULT_DPCLIM_BASE + "}") String dpclimBaseUrl) {
@@ -162,46 +168,56 @@ public class MeteoFranceClimService {
             return error("No climatological stations found for department " + dept);
         }
 
-        Map<String, Object> selected;
-        if (stationId != null && !stationId.isBlank()) {
+        Map<String, Object> selected = null;
+        boolean explicitStation = stationId != null && !stationId.isBlank();
+        if (explicitStation) {
             String normalizedId = normalizeStationId(stationId);
-            selected = null;
             for (Map<String, Object> station : stations) {
                 if (normalizedId != null && normalizedId.equals(String.valueOf(station.get("id")))) {
-                    selected = new LinkedHashMap<>(station);
-                    Double sLat = toDouble(selected.get("lat"));
-                    Double sLon = toDouble(selected.get("lon"));
-                    if (sLat != null && sLon != null) {
-                        selected.put("distanceKm", Math.round(haversineKm(lat, lon, sLat, sLon) * 10.0) / 10.0);
-                    }
+                    selected = withDistance(station, lat, lon);
                     break;
                 }
             }
             if (selected == null) {
                 return error("Station not found in department " + dept);
             }
-        } else {
-            selected = findNearestStation(stations, lat, lon);
-        }
-        if (selected == null) {
-            return error("Could not select nearest station");
         }
 
-        String resolvedStationId = String.valueOf(selected.get("id"));
-        Instant end = Instant.now().truncatedTo(ChronoUnit.DAYS);
-        Instant start = end.minus(resolvedDays - 1L, ChronoUnit.DAYS);
+        ClimPeriod period = resolveClimPeriod(resolvedDays, freq);
+        List<Map<String, Object>> candidates = explicitStation
+                ? List.of(selected)
+                : rankStationCandidates(stations, lat, lon);
 
-        Map<String, Object> orderResult = orderAndFetchCsv(resolvedStationId, freq, start, end);
-        if (orderResult.get("error") != null) {
-            return orderResult;
+        Map<String, Object> orderResult = null;
+        Map<String, Object> triedStation = null;
+        int maxAttempts = explicitStation ? 1 : Math.min(8, candidates.size());
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
+            Map<String, Object> candidate = candidates.get(attempt);
+            triedStation = candidate;
+            orderResult = orderAndFetchCsv(String.valueOf(candidate.get("id")), freq, period.start(), period.end());
+            if (orderResult.get("error") == null) {
+                selected = candidate;
+                break;
+            }
+            if (explicitStation || !isRetryableStationError(orderResult)) {
+                break;
+            }
         }
 
-        Map<String, Object> info = getStationInfo(resolvedStationId);
+        if (orderResult == null || orderResult.get("error") != null) {
+            Map<String, Object> failure = orderResult != null
+                    ? new LinkedHashMap<>(orderResult)
+                    : error("DPClim data fetch failed");
+            return withClimContext(failure, dept, freq, resolvedDays, period, triedStation);
+        }
+
+        Map<String, Object> info = getStationInfo(String.valueOf(selected.get("id")));
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("department", dept);
         result.put("frequency", freq);
-        result.put("periodStart", ISO_UTC.format(start));
-        result.put("periodEnd", ISO_UTC.format(end.atZone(ZoneOffset.UTC).withHour(23).withMinute(59).withSecond(59).toInstant()));
+        result.put("periodStart", ISO_UTC.format(period.start()));
+        result.put("periodEnd", ISO_UTC.format(period.end()));
+        result.put("requestedDays", resolvedDays);
         result.put("station", selected);
         if (info.get("error") == null) {
             result.put("stationInfo", info.get("info"));
@@ -212,10 +228,94 @@ public class MeteoFranceClimService {
         return result;
     }
 
+    /**
+     * DPClim rejects {@code date-fin-periode} in the future. Daily archives use the last complete
+     * calendar day (Europe/Paris); hourly uses the current hour as end.
+     */
+    private static ClimPeriod resolveClimPeriod(int days, String frequency) {
+        ZonedDateTime now = ZonedDateTime.now(CLIM_ZONE);
+        if ("horaire".equals(frequency) || "infrahoraire-6m".equals(frequency)) {
+            ZonedDateTime end = now.truncatedTo(ChronoUnit.HOURS);
+            ZonedDateTime start = end.minusDays(days - 1L).truncatedTo(ChronoUnit.DAYS);
+            return new ClimPeriod(start.toInstant(), end.toInstant());
+        }
+        LocalDate endDate = now.toLocalDate().minusDays(1);
+        LocalDate startDate = endDate.minusDays(days - 1L);
+        ZonedDateTime start = startDate.atStartOfDay(CLIM_ZONE);
+        ZonedDateTime end = endDate.atTime(23, 59, 59).atZone(CLIM_ZONE);
+        return new ClimPeriod(start.toInstant(), end.toInstant());
+    }
+
+    private record ClimPeriod(Instant start, Instant end) {}
+
+    private static Map<String, Object> withClimContext(
+            Map<String, Object> body,
+            String department,
+            String frequency,
+            int requestedDays,
+            ClimPeriod period,
+            Map<String, Object> station) {
+        body.put("department", department);
+        body.put("frequency", frequency);
+        body.put("requestedDays", requestedDays);
+        body.put("periodStart", ISO_UTC.format(period.start()));
+        body.put("periodEnd", ISO_UTC.format(period.end()));
+        if (station != null) {
+            body.put("station", station);
+        }
+        return body;
+    }
+
+    private static boolean isRetryableStationError(Map<String, Object> orderResult) {
+        String err = String.valueOf(orderResult.getOrDefault("error", ""));
+        if (err.contains("404") || err.contains("empty or not ready")) {
+            return true;
+        }
+        Object details = orderResult.get("details");
+        if (details == null) {
+            return false;
+        }
+        String detailText = String.valueOf(details).toLowerCase(Locale.ROOT);
+        return detailText.contains("station") || detailText.contains("période") || detailText.contains("periode");
+    }
+
+    private static List<Map<String, Object>> rankStationCandidates(
+            List<Map<String, Object>> stations, double lat, double lon) {
+        List<Map<String, Object>> ranked = new ArrayList<>();
+        for (Map<String, Object> station : stations) {
+            Map<String, Object> withDistance = withDistance(station, lat, lon);
+            if (withDistance != null) {
+                ranked.add(withDistance);
+            }
+        }
+        ranked.sort((a, b) -> {
+            boolean openA = Boolean.TRUE.equals(a.get("open"));
+            boolean openB = Boolean.TRUE.equals(b.get("open"));
+            if (openA != openB) {
+                return openA ? -1 : 1;
+            }
+            Double dA = toDouble(a.get("distanceKm"));
+            Double dB = toDouble(b.get("distanceKm"));
+            return Double.compare(dA != null ? dA : Double.MAX_VALUE, dB != null ? dB : Double.MAX_VALUE);
+        });
+        return ranked;
+    }
+
+    private static Map<String, Object> withDistance(Map<String, Object> station, double lat, double lon) {
+        Double sLat = toDouble(station.get("lat"));
+        Double sLon = toDouble(station.get("lon"));
+        if (sLat == null || sLon == null) {
+            return null;
+        }
+        Map<String, Object> copy = new LinkedHashMap<>(station);
+        copy.put("distanceKm", Math.round(haversineKm(lat, lon, sLat, sLon) * 10.0) / 10.0);
+        return copy;
+    }
+
     private Map<String, Object> orderAndFetchCsv(String stationId, String frequency, Instant start, Instant end) {
         String id = normalizeStationId(stationId);
         String startIso = ISO_UTC.format(start);
-        String endIso = ISO_UTC.format(end.atZone(ZoneOffset.UTC).withHour(23).withMinute(59).withSecond(59).toInstant());
+        String endIso = ISO_UTC.format(end);
 
         String orderUrl = UriComponentsBuilder.fromHttpUrl(dpclimBaseUrl + "/commande-station/" + frequency)
                 .queryParam("id-station", id)
@@ -377,31 +477,6 @@ public class MeteoFranceClimService {
             stations.add(station);
         }
         return stations;
-    }
-
-    private static Map<String, Object> findNearestStation(List<Map<String, Object>> stations, double lat, double lon) {
-        Map<String, Object> best = null;
-        double bestDistance = Double.MAX_VALUE;
-        for (Map<String, Object> station : stations) {
-            Double sLat = toDouble(station.get("lat"));
-            Double sLon = toDouble(station.get("lon"));
-            if (sLat == null || sLon == null) {
-                continue;
-            }
-            double distance = haversineKm(lat, lon, sLat, sLon);
-            boolean open = Boolean.TRUE.equals(station.get("open"));
-            if (best == null
-                    || distance < bestDistance - 0.5
-                    || (Math.abs(distance - bestDistance) <= 0.5 && open && !Boolean.TRUE.equals(best.get("open")))) {
-                best = station;
-                bestDistance = distance;
-            }
-        }
-        if (best != null) {
-            best = new LinkedHashMap<>(best);
-            best.put("distanceKm", Math.round(bestDistance * 10.0) / 10.0);
-        }
-        return best;
     }
 
     private String resolveDepartmentFromCoordinates(double lat, double lon) {

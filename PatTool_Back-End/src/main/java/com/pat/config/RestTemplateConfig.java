@@ -21,6 +21,9 @@ public class RestTemplateConfig {
     /** PubChem PUG REST — name resolution + 3D records + PNG images can be slow. */
     public static final String CHEM_REST_TEMPLATE = "chemRestTemplate";
 
+    /** Météo-France DPClim — async order + file poll can take tens of seconds. */
+    public static final String METEOFRANCE_CLIM_REST_TEMPLATE = "meteoFranceClimRestTemplate";
+
 
     /**
      * Client HTTP court pour proxies et API externes (échec rapide si indisponible).
@@ -47,6 +50,17 @@ public class RestTemplateConfig {
         return builder
                 .setConnectTimeout(Duration.ofSeconds(5))
                 .setReadTimeout(Duration.ofSeconds(20))
+                .build();
+    }
+
+    @Bean(METEOFRANCE_CLIM_REST_TEMPLATE)
+    public RestTemplate meteoFranceClimRestTemplate(
+            RestTemplateBuilder builder,
+            @Value("${meteofrance.clim.http.connect-timeout-seconds:5}") int connectSeconds,
+            @Value("${meteofrance.clim.http.read-timeout-seconds:15}") int readSeconds) {
+        return builder
+                .setConnectTimeout(Duration.ofSeconds(Math.max(connectSeconds, 1)))
+                .setReadTimeout(Duration.ofSeconds(Math.max(readSeconds, 1)))
                 .build();
     }
 

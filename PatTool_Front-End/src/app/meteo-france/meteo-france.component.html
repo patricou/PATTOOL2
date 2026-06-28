@@ -1,8 +1,26 @@
-<div class="pat-title">
+<div class="pat-title meteo-france-page-title">
 
-  <h2>{{ 'METEO_FRANCE.TITLE' | translate }}</h2>
+  <div class="mf-page-header">
 
-  <p class="pat-subtitle">{{ 'METEO_FRANCE.SUBTITLE' | translate }}</p>
+    <a [href]="meteoFranceApiPortalUrl" target="_blank" rel="noopener noreferrer" class="mf-logo-link"
+
+       [attr.title]="'METEO_FRANCE.MF_API_PORTAL_LINK' | translate"
+
+       [attr.aria-label]="'METEO_FRANCE.MF_API_PORTAL_LINK' | translate">
+
+      <img src="assets/images/meteofrance-logo.svg" alt="Météo-France" class="mf-logo" width="64" height="64" />
+
+    </a>
+
+    <div class="mf-page-heading">
+
+      <h2>{{ 'METEO_FRANCE.TITLE' | translate }}</h2>
+
+      <p class="pat-subtitle mb-0">{{ 'METEO_FRANCE.SUBTITLE' | translate }}</p>
+
+    </div>
+
+  </div>
 
 </div>
 
@@ -53,6 +71,21 @@
             <i class="fa fa-refresh"></i> {{ 'METEO_FRANCE.REFRESH' | translate }}
 
           </button>
+
+          <div class="btn-group btn-group-sm temp-unit-toggle" role="group"
+               [attr.aria-label]="'METEO_FRANCE.TEMP_UNIT_LABEL' | translate">
+
+            <button type="button" class="btn"
+                    [class.btn-primary]="temperatureUnit === 'celsius'"
+                    [class.btn-outline-secondary]="temperatureUnit !== 'celsius'"
+                    (click)="onTemperatureUnitChange('celsius')">°C</button>
+
+            <button type="button" class="btn"
+                    [class.btn-primary]="temperatureUnit === 'fahrenheit'"
+                    [class.btn-outline-secondary]="temperatureUnit !== 'fahrenheit'"
+                    (click)="onTemperatureUnitChange('fahrenheit')">°F</button>
+
+          </div>
 
         </div>
 
@@ -150,6 +183,18 @@
 
           <i class="fa fa-exclamation-triangle"></i> {{ radarStatusMessageKey | translate }}
 
+          <div class="mt-1">
+
+            <a [href]="meteoFranceApiPortalUrl" target="_blank" rel="noopener noreferrer">
+
+              {{ 'METEO_FRANCE.MF_API_PORTAL_LINK' | translate }}
+
+              <i class="fa fa-external-link" aria-hidden="true"></i>
+
+            </a>
+
+          </div>
+
         </div>
 
 
@@ -171,6 +216,16 @@
               <input type="checkbox" [(ngModel)]="showRadar" (change)="onShowRadarChange()" [disabled]="!radarAvailable">
 
               {{ 'METEO_FRANCE.SHOW_RADAR' | translate }}
+
+            </label>
+
+            <label class="radar-control-item">
+
+              <input type="checkbox" [(ngModel)]="showTemperatureMap" (ngModelChange)="onShowTemperatureMapChange()"
+                     [disabled]="!temperatureMapAvailable"
+                     [attr.title]="'METEO_FRANCE.SHOW_TEMPERATURE_MAP_HINT' | translate">
+
+              {{ 'METEO_FRANCE.SHOW_TEMPERATURE_MAP' | translate }}
 
             </label>
 
@@ -236,6 +291,30 @@
             <span *ngIf="showClearSkyRadarHint" class="ms-2 text-muted">
 
               {{ 'METEO_FRANCE.RADAR_CLEAR_SKY' | translate }}
+
+            </span>
+
+            <span *ngIf="showTemperatureMap" class="ms-2 text-muted">
+
+              {{ temperatureMapHintKey | translate }}
+
+            </span>
+
+            <span *ngIf="obsStatusMessageKey" class="ms-2 text-warning">
+
+              {{ obsStatusMessageKey | translate }}
+
+            </span>
+
+            <span *ngIf="temperatureLabelsErrorKey" class="ms-2 text-danger">
+
+              {{ temperatureLabelsErrorKey | translate }}
+
+            </span>
+
+            <span *ngIf="showTemperatureMap && isLoadingTemperatureLabels" class="ms-2 text-muted">
+
+              <i class="fa fa-spinner fa-spin"></i> {{ 'METEO_FRANCE.TEMPERATURE_MAP_LOADING' | translate }}
 
             </span>
 
@@ -415,6 +494,18 @@
 
           <i class="fa fa-exclamation-triangle"></i> {{ climStatusMessageKey | translate }}
 
+          <div class="mt-1">
+
+            <a [href]="meteoFranceApiPortalUrl" target="_blank" rel="noopener noreferrer">
+
+              {{ 'METEO_FRANCE.MF_API_PORTAL_LINK' | translate }}
+
+              <i class="fa fa-external-link" aria-hidden="true"></i>
+
+            </a>
+
+          </div>
+
         </div>
 
 
@@ -471,6 +562,40 @@
 
 
 
+            <div class="clim-period-row mb-2">
+
+              <label for="clim-period" class="form-label small mb-1">{{ 'METEO_FRANCE.CLIM_PERIOD_SELECT' | translate }}</label>
+
+              <select id="clim-period" class="form-select form-select-sm clim-period-select"
+
+                      [(ngModel)]="climDays" (ngModelChange)="onClimPeriodChange()" [disabled]="isLoadingClim">
+
+                <option *ngFor="let opt of climPeriodOptions" [ngValue]="opt.days">
+
+                  {{ opt.labelKey | translate }}
+
+                </option>
+
+              </select>
+
+            </div>
+
+
+
+            <div class="clim-period text-muted small mb-2" *ngIf="climPeriodStart && climPeriodEnd">
+
+              <strong>{{ 'METEO_FRANCE.CLIM_PERIOD_LABEL' | translate }}</strong>
+
+              {{ climPeriodStart }} → {{ climPeriodEnd }}
+
+              ({{ climRequestedDays }} {{ 'METEO_FRANCE.CLIM_PERIOD_DAYS' | translate }} —
+
+              {{ (climFrequency === 'horaire' ? 'METEO_FRANCE.CLIM_HOURLY' : 'METEO_FRANCE.CLIM_DAILY') | translate }})
+
+            </div>
+
+
+
             <div class="clim-station-row mb-2" *ngIf="climStations.length">
 
               <label for="clim-station">{{ 'METEO_FRANCE.CLIM_STATION' | translate }}</label>
@@ -517,11 +642,79 @@
 
               {{ climErrorKey | translate }}
 
+              <div class="small mt-1 mb-0" *ngIf="climAttemptedStation?.name || climAttemptedStation?.id">
+
+                {{ 'METEO_FRANCE.CLIM_STATION' | translate }}:
+
+                {{ climAttemptedStation.name || climAttemptedStation.id }}
+
+                <span class="text-muted" *ngIf="climAttemptedStation.id">({{ climAttemptedStation.id }})</span>
+
+              </div>
+
+              <div class="small mt-1 mb-0 text-muted" *ngIf="climErrorDetail">{{ climErrorDetail }}</div>
+
             </div>
 
 
 
-            <div class="clim-table-wrap" *ngIf="!isLoadingClim && climDisplayRows.length">
+            <div class="clim-charts" *ngIf="!isLoadingClim && climChartsReady">
+
+              <h4 class="clim-chart-title">
+
+                <i class="fa fa-line-chart"></i> {{ 'METEO_FRANCE.CLIM_CHART_TEMP' | translate }}
+
+              </h4>
+
+              <div class="clim-chart-box">
+
+                <canvas #climTempChart baseChart
+
+                        [data]="climTempChartData"
+
+                        [options]="climTempChartOptions"
+
+                        [type]="'line'"></canvas>
+
+              </div>
+
+
+
+              <h4 class="clim-chart-title" *ngIf="climHasRainSeries">
+
+                <i class="fa fa-bar-chart"></i> {{ 'METEO_FRANCE.CLIM_CHART_RAIN' | translate }}
+
+              </h4>
+
+              <div class="clim-chart-box" *ngIf="climHasRainSeries">
+
+                <canvas #climRainChart baseChart
+
+                        [data]="climRainChartData"
+
+                        [options]="climRainChartOptions"
+
+                        [type]="'bar'"></canvas>
+
+              </div>
+
+
+
+              <button type="button" class="btn btn-link btn-sm px-0 clim-table-toggle"
+
+                      (click)="climShowTable = !climShowTable">
+
+                <i class="fa" [class.fa-chevron-down]="!climShowTable" [class.fa-chevron-up]="climShowTable"></i>
+
+                {{ (climShowTable ? 'METEO_FRANCE.CLIM_HIDE_TABLE' : 'METEO_FRANCE.CLIM_SHOW_TABLE') | translate }}
+
+              </button>
+
+            </div>
+
+
+
+            <div class="clim-table-wrap" *ngIf="!isLoadingClim && climDisplayRows.length && climShowTable">
 
               <table class="table table-sm table-striped clim-table">
 
@@ -549,7 +742,7 @@
 
                         <span *ngSwitchCase="'AAAAMMJJHH'">{{ formatClimDate(row[col]) }}</span>
 
-                        <span *ngSwitchDefault>{{ row[col] || '—' }}</span>
+                        <span *ngSwitchDefault>{{ formatClimValue(col, row[col]) }}</span>
 
                       </ng-container>
 
@@ -576,6 +769,14 @@
             <p class="text-muted small mt-2 mb-0">
 
               {{ 'METEO_FRANCE.CLIM_HINT' | translate }}
+
+              <a [href]="meteoFranceApiPortalUrl" target="_blank" rel="noopener noreferrer" class="ms-1">
+
+                {{ 'METEO_FRANCE.MF_API_PORTAL_LINK' | translate }}
+
+                <i class="fa fa-external-link" aria-hidden="true"></i>
+
+              </a>
 
             </p>
 

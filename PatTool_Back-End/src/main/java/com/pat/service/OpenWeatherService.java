@@ -566,4 +566,48 @@ public class OpenWeatherService {
             return errorMap;
         }
     }
+
+    public boolean isApiKeyConfigured() {
+        return openWeatherApiKey != null && !openWeatherApiKey.trim().isEmpty();
+    }
+
+    /**
+     * Proxy OpenWeatherMap temperature map tile (PNG). Layer {@code temp_new} — current temperatures.
+     */
+    public ResponseEntity<byte[]> getTemperatureMapTile(int z, int x, int y) {
+        if (!isApiKeyConfigured()) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
+        if (z < 0 || z > 19 || x < 0 || y < 0) {
+            return ResponseEntity.badRequest().build();
+        }
+        String url = UriComponentsBuilder
+                .fromHttpUrl("https://tile.openweathermap.org/map/temp_new/" + z + "/" + x + "/" + y + ".png")
+                .queryParam("appid", openWeatherApiKey.trim())
+                .toUriString();
+        try {
+            ResponseEntity<byte[]> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    new HttpEntity<>(new HttpHeaders()),
+                    byte[].class
+            );
+            byte[] body = response.getBody();
+            if (body == null || body.length == 0) {
+                return ResponseEntity.noContent().build();
+            }
+            HttpHeaders out = new HttpHeaders();
+            MediaType contentType = response.getHeaders().getContentType();
+            out.setContentType(contentType != null ? contentType : MediaType.IMAGE_PNG);
+            out.setCacheControl(CacheControl.maxAge(java.time.Duration.ofMinutes(10)).cachePublic());
+            return new ResponseEntity<>(body, out, HttpStatus.OK);
+        } catch (HttpClientErrorException e) {
+            log.warn("OpenWeatherMap temperature tile fetch failed ({}): z={}, x={}, y={}",
+                    e.getStatusCode(), z, x, y);
+            return ResponseEntity.status(e.getStatusCode()).build();
+        } catch (Exception e) {
+            log.warn("OpenWeatherMap temperature tile fetch failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
+    }
 }

@@ -102,6 +102,9 @@ openweathermap.api.key=
 meteofrance.api.token=
 # Jeton API Key pour DPClim (API « Données Climatologiques ») — clé distincte du radar
 # meteofrance.clim.api.token=
+# Jeton API Key pour DPObs v2 (API « Données Publiques Observation ») — températures temps réel sur la carte
+# meteofrance.obs.api.token=
+# meteofrance.obs.base.url=https://public-api.meteofrance.fr/public/DPObs/v2
 # Alternative: OAuth application id (Base64 string shown as « Application ID » in the portal)
 # meteofrance.oauth.application-id=
 # meteofrance.radar.base.url=https://public-api.meteofrance.fr/public/DPRadar/v1

@@ -1,11 +1,14 @@
 package com.pat.controller;
 
 import com.pat.controller.dto.MeteoFranceRadarPreferenceDto;
+import com.pat.controller.dto.TemperatureLabelsRequestDto;
 import com.pat.service.GeocodeService;
 import com.pat.service.IpGeolocationService;
 import com.pat.service.MeteoFranceClimService;
+import com.pat.service.MeteoFranceObsService;
 import com.pat.service.MeteoFranceRadarRefreshPreferenceService;
 import com.pat.service.MeteoFranceRadarService;
+import com.pat.service.OpenMeteoService;
 import com.pat.service.OpenWeatherService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +23,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -35,6 +39,9 @@ public class ApiController {
     private OpenWeatherService openWeatherService;
 
     @Autowired
+    private OpenMeteoService openMeteoService;
+
+    @Autowired
     private GeocodeService geocodeService;
 
     @Autowired
@@ -45,6 +52,9 @@ public class ApiController {
 
     @Autowired
     private MeteoFranceClimService meteoFranceClimService;
+
+    @Autowired
+    private MeteoFranceObsService meteoFranceObsService;
 
     @Autowired
     private MeteoFranceRadarRefreshPreferenceService meteoFranceRadarRefreshPreferenceService;
@@ -152,14 +162,169 @@ public class ApiController {
         Map<String, Object> status = new HashMap<>();
         status.put("service", "OpenWeatherMap API");
         status.put("status", "available");
+        status.put("configured", openWeatherService.isApiKeyConfigured());
         status.put("endpoints", new String[]{
             "/api/external/weather/current",
             "/api/external/weather/current/coordinates",
             "/api/external/weather/forecast",
             "/api/external/weather/forecast/coordinates",
-            "/api/external/weather/altitudes"
+            "/api/external/weather/altitudes",
+            "/api/external/weather/map/temperature/{z}/{x}/{y}"
         });
         return status;
+    }
+
+    /**
+     * OpenWeatherMap temperature map tile proxy (PNG). Avoids exposing the API key to the browser.
+     */
+    @GetMapping(value = "/weather/map/temperature/{z}/{x}/{y}", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<byte[]> getOpenWeatherTemperatureMapTile(
+            @PathVariable("z") int z,
+            @PathVariable("x") int x,
+            @PathVariable("y") int y) {
+        return openWeatherService.getTemperatureMapTile(z, x, y);
+    }
+
+    /**
+     * Current temperatures on a lat/lon grid (numeric labels for the map).
+     * Prefers Météo-France DPObs station observations; falls back to Open-Meteo when DPObs is not configured.
+     */
+    @GetMapping(value = "/weather/map/temperature-labels", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getTemperatureLabelGrid(
+            @RequestParam("minLat") double minLat,
+            @RequestParam("maxLat") double maxLat,
+            @RequestParam("minLon") double minLon,
+            @RequestParam("maxLon") double maxLon,
+            @RequestParam(value = "cols", defaultValue = "5") int cols,
+            @RequestParam(value = "rows", defaultValue = "5") int rows,
+            @RequestParam(value = "maxStations", defaultValue = "0") int maxStationsParam) {
+        if (meteoFranceObsService.isConfigured()) {
+            int maxStations = maxStationsParam > 0
+                    ? maxStationsParam
+                    : Math.max(4, cols * rows);
+            Map<String, Object> mf = meteoFranceObsService.getTemperatureLabelsInBounds(
+                    minLat, maxLat, minLon, maxLon, maxStations);
+            if (mf != null && !mf.containsKey("error")) {
+                return mf;
+            }
+            if (mf != null) {
+                return mf;
+            }
+        }
+        Map<String, Object> fallback = openMeteoService.getTemperatureLabelGrid(
+                minLat, maxLat, minLon, maxLon, cols, rows);
+        fallback.put("source", "open-meteo");
+        fallback.put("fallback", true);
+        return fallback;
+    }
+
+    private static final int MAX_TEMPERATURE_GRID_POINTS = 450;
+
+    /**
+     * Dense screen grid (~1 cm spacing): list of lat/lon points → temperatures (MF IDW + Open-Meteo fill).
+     */
+    @PostMapping(value = "/weather/map/temperature-labels", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> postTemperatureLabelGrid(@RequestBody TemperatureLabelsRequestDto body) {
+        if (body == null || body.points() == null || body.points().isEmpty()) {
+            Map<String, Object> err = new LinkedHashMap<>();
+            err.put("error", "points required");
+            return err;
+        }
+        List<TemperatureLabelsRequestDto.Point> points = body.points().size() > MAX_TEMPERATURE_GRID_POINTS
+                ? body.points().subList(0, MAX_TEMPERATURE_GRID_POINTS)
+                : body.points();
+        return resolveTemperatureLabelsForPoints(points);
+    }
+
+    private Map<String, Object> resolveTemperatureLabelsForPoints(List<TemperatureLabelsRequestDto.Point> points) {
+        Map<String, Double> tempByKey = new LinkedHashMap<>();
+        String source = "open-meteo";
+
+        if (meteoFranceObsService.isConfigured()) {
+            Map<String, Object> mf = meteoFranceObsService.interpolateTemperatureLabels(
+                    points, MAX_TEMPERATURE_GRID_POINTS);
+            if (mf != null && !mf.containsKey("error")) {
+                source = String.valueOf(mf.getOrDefault("source", "meteofrance-dpobs"));
+                mergePointsIntoMap(tempByKey, mf);
+            }
+        }
+
+        List<TemperatureLabelsRequestDto.Point> missing = new ArrayList<>();
+        for (TemperatureLabelsRequestDto.Point p : points) {
+            if (!tempByKey.containsKey(coordKey(p.lat(), p.lon()))) {
+                missing.add(p);
+            }
+        }
+
+        if (!missing.isEmpty()) {
+            Map<String, Object> om = openMeteoService.getTemperaturesForPoints(missing, MAX_TEMPERATURE_GRID_POINTS);
+            mergePointsIntoMap(tempByKey, om);
+            if ("open-meteo".equals(source) && tempByKey.isEmpty()) {
+                source = "open-meteo";
+            } else if (!missing.isEmpty() && !tempByKey.isEmpty()) {
+                source = meteoFranceObsService.isConfigured() ? "meteofrance-dpobs+open-meteo" : "open-meteo";
+            }
+        }
+
+        List<Map<String, Object>> outPoints = new ArrayList<>();
+        for (TemperatureLabelsRequestDto.Point p : points) {
+            Double tempC = tempByKey.get(coordKey(p.lat(), p.lon()));
+            if (tempC == null) {
+                continue;
+            }
+            Map<String, Object> pt = new LinkedHashMap<>();
+            pt.put("lat", p.lat());
+            pt.put("lon", p.lon());
+            pt.put("tempC", tempC);
+            outPoints.add(pt);
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("source", source);
+        result.put("points", outPoints);
+        result.put("count", outPoints.size());
+        result.put("requested", points.size());
+        return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void mergePointsIntoMap(Map<String, Double> tempByKey, Map<String, Object> payload) {
+        if (payload == null) {
+            return;
+        }
+        Object raw = payload.get("points");
+        if (!(raw instanceof List<?> list)) {
+            return;
+        }
+        for (Object item : list) {
+            if (!(item instanceof Map<?, ?> map)) {
+                continue;
+            }
+            Object lat = map.get("lat");
+            Object lon = map.get("lon");
+            Object temp = map.get("tempC");
+            if (lat instanceof Number latN && lon instanceof Number lonN && temp instanceof Number tempN) {
+                tempByKey.put(coordKey(latN.doubleValue(), lonN.doubleValue()), tempN.doubleValue());
+            }
+        }
+    }
+
+    private static String coordKey(double lat, double lon) {
+        return Math.round(lat * 10000.0) / 10000.0 + "," + Math.round(lon * 10000.0) / 10000.0;
+    }
+
+    /**
+     * Météo-France DPObs station temperatures visible on the map (same data as temperature-labels when configured).
+     */
+    @GetMapping(value = "/meteofrance/obs/temperature-labels", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getMeteoFranceObsTemperatureLabels(
+            @RequestParam("minLat") double minLat,
+            @RequestParam("maxLat") double maxLat,
+            @RequestParam("minLon") double minLon,
+            @RequestParam("maxLon") double maxLon,
+            @RequestParam(value = "maxStations", defaultValue = "24") int maxStations) {
+        return meteoFranceObsService.getTemperatureLabelsInBounds(
+                minLat, maxLat, minLon, maxLon, maxStations);
     }
 
     /**
@@ -241,6 +406,7 @@ public class ApiController {
     public Map<String, Object> getMeteoFranceStatus() {
         Map<String, Object> status = new LinkedHashMap<>(meteoFranceRadarService.getStatus(currentJwtSubject()));
         status.putAll(meteoFranceClimService.getStatusFragment());
+        status.putAll(meteoFranceObsService.getStatusFragment());
         return status;
     }
 
