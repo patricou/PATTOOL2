@@ -147,6 +147,14 @@
     text-align: center;
 }
 
+.dropdown-item .nav-menu-logo {
+    margin-right: 8px;
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+    vertical-align: middle;
+}
+
 /* Nested dropdown submenu styling */
 .dropdown-submenu {
     position: relative;

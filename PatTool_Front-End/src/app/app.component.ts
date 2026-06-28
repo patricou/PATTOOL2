@@ -13,7 +13,6 @@ import { CommonvaluesService } from './services/commonvalues.service';
 import { environment } from '../environments/environment';
 import { FileService } from './services/file.service';
 import * as piexif from 'piexifjs';
-import { NavigationButtonsComponent } from './shared/navigation-buttons/navigation-buttons.component';
 import { FriendsService } from './services/friends.service';
 import { NewsTickerComponent } from './news/news-ticker/news-ticker.component';
 import { NewsTickerService } from './services/news-ticker.service';
@@ -28,6 +27,8 @@ interface NavRouteMenuItem {
     routerLink: unknown[];
     icon: string;
     labelKey: string;
+    /** Optional menu logo (replaces Font Awesome icon when set). */
+    logoSrc?: string;
     authOnly?: boolean;
     adminOnly?: boolean;
     /** Entrée visible sans rôle IoT (ex. scan sécurité), tant que les autres filtres passent. */
@@ -52,7 +53,7 @@ type ToolsMenuRow =
     templateUrl: './app.component.html',
     styleUrls: ['./app.component.css'],
     standalone: true,
-    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule, NavigationButtonsComponent, NewsTickerComponent, CurrencyTickerComponent, StockTickerComponent, AssistantDrawerComponent]
+    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule, NewsTickerComponent, CurrencyTickerComponent, StockTickerComponent, AssistantDrawerComponent]
 })
 export class AppComponent implements OnInit {
 
@@ -139,7 +140,12 @@ export class AppComponent implements OnInit {
         { routerLink: ['todolists'], icon: 'fa fa-tasks', labelKey: 'MENU.TODOLISTS' }
     ];
     readonly navGeoLocalRaw: NavRouteMenuItem[] = [
-        { routerLink: ['api/meteo-france'], icon: 'fa fa-bolt', labelKey: 'MENU.METEO_FRANCE' },
+        {
+            routerLink: ['api/meteo-france'],
+            icon: 'fa fa-bolt',
+            labelKey: 'MENU.METEO_FRANCE',
+            logoSrc: 'assets/images/meteofrance-logo.svg'
+        },
         { routerLink: ['api/openweathermap'], icon: 'fa fa-cloud', labelKey: 'MENU.POSITION_METEO' },
         { routerLink: ['api/address-geocode'], icon: 'fa fa-map-marker', labelKey: 'MENU.ADDRESS_TO_MAP' },
         { routerLink: ['api/news'], icon: 'fa fa-newspaper-o', labelKey: 'MENU.NEWS' },

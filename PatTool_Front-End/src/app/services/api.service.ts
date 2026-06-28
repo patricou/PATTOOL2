@@ -266,13 +266,52 @@ export class ApiService {
     );
   }
 
+  /** Per-user temperature observation cache TTL (MongoDB appParameters). */
+  getMeteoFranceTemperatureCachePreferences(): Observable<MeteoFranceTemperatureCachePreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<MeteoFranceTemperatureCachePreference>(
+          this.API_URL + 'external/meteofrance/temperature/cache/preferences',
+          { headers }
+        )
+      )
+    );
+  }
+
+  saveMeteoFranceTemperatureCachePreferences(
+    temperatureCacheMinutes: number
+  ): Observable<MeteoFranceTemperatureCachePreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<MeteoFranceTemperatureCachePreference>(
+          this.API_URL + 'external/meteofrance/temperature/cache/preferences',
+          { temperatureCacheMinutes },
+          { headers }
+        )
+      )
+    );
+  }
+
   /** Dense screen grid (~1 cm) — POST list of lat/lon, proxied (MF IDW + Open-Meteo). */
   postWeatherTemperatureLabels(
-    points: Array<{ lat: number; lon: number }>
+    points: Array<{ lat: number; lon: number; stationId?: string }>,
+    source?: 'meteofrance' | 'open-meteo',
+    refresh?: boolean
   ): Observable<WeatherTemperatureLabelGrid> {
+    const body: {
+      points: Array<{ lat: number; lon: number; stationId?: string }>;
+      source?: string;
+      refresh?: boolean;
+    } = { points };
+    if (source) {
+      body.source = source;
+    }
+    if (refresh) {
+      body.refresh = true;
+    }
     return this._http.post<WeatherTemperatureLabelGrid>(
       this.API_URL + 'external/weather/map/temperature-labels',
-      { points }
+      body
     );
   }
 
@@ -284,7 +323,8 @@ export class ApiService {
     maxLon: number,
     cols: number,
     rows: number,
-    maxStations?: number
+    maxStations?: number,
+    source: 'meteofrance' | 'open-meteo' = 'meteofrance'
   ): Observable<WeatherTemperatureLabelGrid> {
     let params = new HttpParams()
       .set('minLat', String(minLat))
@@ -292,7 +332,8 @@ export class ApiService {
       .set('minLon', String(minLon))
       .set('maxLon', String(maxLon))
       .set('cols', String(cols))
-      .set('rows', String(rows));
+      .set('rows', String(rows))
+      .set('source', source);
     if (maxStations != null && maxStations > 0) {
       params = params.set('maxStations', String(maxStations));
     }
@@ -1425,13 +1466,38 @@ export interface MeteoFranceRadarPreference {
   persistedInMongo?: boolean;
 }
 
+export interface MeteoFranceTemperatureCachePreference {
+  temperatureCacheMinutes: number;
+  persistedInMongo?: boolean;
+}
+
 /** GET /api/external/weather/map/temperature-labels */
 export interface WeatherTemperatureLabelGrid {
-  points?: Array<{ lat: number; lon: number; tempC: number; stationId?: string }>;
+  points?: Array<{
+    lat: number;
+    lon: number;
+    tempC: number;
+    stationId?: string;
+    stationName?: string;
+    humidityPct?: number;
+    windDirectionDeg?: number;
+    windSpeedMs?: number;
+    windGustMs?: number;
+    dewPointC?: number;
+    precipitationMm?: number;
+    pressureHpa?: number;
+    observedAt?: string;
+    source?: string;
+    interpolated?: boolean;
+  }>;
   cols?: number;
   rows?: number;
   source?: 'meteofrance-dpobs' | 'meteofrance-dpobs+open-meteo' | 'open-meteo' | string;
   fallback?: boolean;
+  cached?: boolean;
+  cacheTtlMinutes?: number;
+  detailLevel?: string;
+  count?: number;
   error?: string;
 }
 

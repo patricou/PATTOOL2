@@ -211,6 +211,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.DELETE, "/api/external/globe/iss/trace").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/weather/altitudes").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/weather/map/temperature/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/weather/map/clouds/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/weather/map/temperature-labels").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/external/weather/map/temperature-labels").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/meteofrance/radar/wms").permitAll()

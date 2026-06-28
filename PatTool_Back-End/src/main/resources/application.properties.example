@@ -114,6 +114,7 @@ meteofrance.api.token=
 # meteofrance.radar.wms.enabled=false
 # Intervalle de rafraîchissement auto de la couche radar sur la page Météo France (secondes, 30–600, défaut 60)
 # meteofrance.radar.refresh.seconds=60
+# meteofrance.temperature.cache.minutes=5
 # API Données Climatologiques (DPClim v1) — même jeton si abonné sur le portail
 # meteofrance.clim.base.url=https://public-api.meteofrance.fr/public/DPClim/v1
 

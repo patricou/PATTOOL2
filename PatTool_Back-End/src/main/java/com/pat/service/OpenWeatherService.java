@@ -572,9 +572,29 @@ public class OpenWeatherService {
     }
 
     /**
-     * Proxy OpenWeatherMap temperature map tile (PNG). Layer {@code temp_new} — current temperatures.
+     * Proxy OpenWeatherMap weather map tile (PNG).
      */
     public ResponseEntity<byte[]> getTemperatureMapTile(int z, int x, int y) {
+        return getWeatherMapTile("temp_new", z, x, y);
+    }
+
+    /**
+     * Proxy OpenWeatherMap cloud cover map tile (PNG). Layer {@code clouds_new}.
+     * {@code enhance} remaps pale OWM pixels to darker, higher-contrast clouds (0.5–5).
+     */
+    public ResponseEntity<byte[]> getCloudMapTile(int z, int x, int y, float enhance) {
+        ResponseEntity<byte[]> base = getWeatherMapTile("clouds_new", z, x, y);
+        byte[] body = base.getBody();
+        if (body == null || body.length == 0 || !base.getStatusCode().is2xxSuccessful()) {
+            return base;
+        }
+        byte[] enhanced = CloudMapTileEnhancer.enhance(body, enhance);
+        HttpHeaders out = new HttpHeaders();
+        out.putAll(base.getHeaders());
+        return new ResponseEntity<>(enhanced, out, base.getStatusCode());
+    }
+
+    private ResponseEntity<byte[]> getWeatherMapTile(String layer, int z, int x, int y) {
         if (!isApiKeyConfigured()) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
         }
@@ -582,7 +602,7 @@ public class OpenWeatherService {
             return ResponseEntity.badRequest().build();
         }
         String url = UriComponentsBuilder
-                .fromHttpUrl("https://tile.openweathermap.org/map/temp_new/" + z + "/" + x + "/" + y + ".png")
+                .fromHttpUrl("https://tile.openweathermap.org/map/" + layer + "/" + z + "/" + x + "/" + y + ".png")
                 .queryParam("appid", openWeatherApiKey.trim())
                 .toUriString();
         try {
@@ -602,11 +622,11 @@ public class OpenWeatherService {
             out.setCacheControl(CacheControl.maxAge(java.time.Duration.ofMinutes(10)).cachePublic());
             return new ResponseEntity<>(body, out, HttpStatus.OK);
         } catch (HttpClientErrorException e) {
-            log.warn("OpenWeatherMap temperature tile fetch failed ({}): z={}, x={}, y={}",
-                    e.getStatusCode(), z, x, y);
+            log.warn("OpenWeatherMap {} tile fetch failed ({}): z={}, x={}, y={}",
+                    layer, e.getStatusCode(), z, x, y);
             return ResponseEntity.status(e.getStatusCode()).build();
         } catch (Exception e) {
-            log.warn("OpenWeatherMap temperature tile fetch failed: {}", e.getMessage());
+            log.warn("OpenWeatherMap {} tile fetch failed: {}", layer, e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
         }
     }

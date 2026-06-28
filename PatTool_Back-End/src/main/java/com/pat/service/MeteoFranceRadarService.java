@@ -30,7 +30,7 @@ public class MeteoFranceRadarService {
     private static final String RAINVIEWER_MAPS_URL = "https://api.rainviewer.com/public/weather-maps.json";
     private static final String RAINVIEWER_TILE_HOST = "https://tilecache.rainviewer.com";
     private static final java.util.regex.Pattern RAINVIEWER_FRAME_PATH =
-            java.util.regex.Pattern.compile("^/v2/radar/[a-zA-Z0-9]+$");
+            java.util.regex.Pattern.compile("^/v2/(radar|satellite)/[a-zA-Z0-9]+$");
 
     private final RestTemplate restTemplate;
     private final String apiToken;
@@ -306,7 +306,8 @@ public class MeteoFranceRadarService {
     }
 
     /**
-     * Proxy a RainViewer radar tile (PNG). Path must match {@code /v2/radar/{hash}} from maps metadata.
+     * Proxy a RainViewer radar or satellite tile (PNG). Path must match {@code /v2/radar/{hash}}
+     * or {@code /v2/satellite/{hash}} from maps metadata.
      */
     public ResponseEntity<byte[]> getRainViewerTile(
             String framePath,
@@ -315,7 +316,8 @@ public class MeteoFranceRadarService {
             int y,
             int size,
             int color,
-            String options) {
+            String options,
+            float enhance) {
         if (framePath == null || framePath.isBlank() || !RAINVIEWER_FRAME_PATH.matcher(framePath.trim()).matches()) {
             return ResponseEntity.badRequest().build();
         }
@@ -339,6 +341,9 @@ public class MeteoFranceRadarService {
             byte[] body = response.getBody();
             if (body == null || body.length == 0) {
                 return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+            }
+            if (enhance > 0.95f && framePath.contains("/satellite/")) {
+                body = CloudMapTileEnhancer.enhance(body, enhance);
             }
             HttpHeaders out = new HttpHeaders();
             MediaType contentType = response.getHeaders().getContentType();

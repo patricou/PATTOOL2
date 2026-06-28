@@ -21,7 +21,8 @@ public final class PatToolParameterCatalog {
             "assistant.routing.",
             "globe.flight.tracking.",
             "globe.iss.compass.calibration.",
-            "meteofrance.radar.refresh."
+            "meteofrance.radar.refresh.",
+            "meteofrance.temperature.cache."
     );
 
     public static final List<SectionDef> SECTIONS = List.of(
@@ -177,6 +178,7 @@ public final class PatToolParameterCatalog {
                     def("meteofrance.radar.wms.layer", false),
                     def("meteofrance.radar.wms.enabled", false),
                     defMongo("meteofrance.radar.refresh.seconds", false),
+                    defMongo("meteofrance.temperature.cache.minutes", false),
                     def("meteofrance.clim.base.url", false),
                     def("meteofrance.obs.base.url", false),
                     defSensitive("thunderforest.api.key"),

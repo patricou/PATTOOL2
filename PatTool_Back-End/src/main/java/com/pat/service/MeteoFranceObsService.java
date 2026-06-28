@@ -22,10 +22,14 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * Météo-France DPObs v2 — targeted observation API (station list + infrahoraire-6m per station).
@@ -39,30 +43,44 @@ public class MeteoFranceObsService {
             "https://public-api.meteofrance.fr/public/DPObs/v2";
 
     private static final Duration CATALOG_CACHE_TTL = Duration.ofHours(1);
-    private static final Duration OBS_CACHE_TTL = Duration.ofMinutes(5);
+    private static final Duration DEFAULT_OBS_CACHE_TTL = Duration.ofMinutes(5);
     private static final int DEFAULT_MAX_STATIONS = 48;
     private static final int ABS_MAX_STATIONS = 120;
-    private static final int MAX_STATIONS_FOR_IDW = 50;
+    private static final int MAX_STATIONS_FOR_IDW = 24;
+
+    /** Ordered by importance — matched as substring in station name (uppercase). */
+    private static final List<String> MAJOR_CITY_NAME_TOKENS = List.of(
+            "PARIS", "MARSEILLE", "LYON", "TOULOUSE", "NICE", "NANTES", "STRASBOURG",
+            "MONTPELLIER", "BORDEAUX", "LILLE", "RENNES", "REIMS", "LE HAVRE", "SAINT-ETIENNE",
+            "TOULON", "GRENOBLE", "DIJON", "ANGERS", "CLERMONT", "BREST", "TOURS", "AMIENS",
+            "METZ", "PERPIGNAN", "BESANCON", "ORLEANS", "MULHOUSE", "CAEN", "NANCY", "ROUEN",
+            "AVIGNON", "POITIERS", "LIMOGES", "ANNECY", "LA ROCHELLE", "PAU", "BAYONNE",
+            "AJACCIO", "BASTIA", "FORT-DE-FRANCE", "CAYENNE", "SAINT-DENIS"
+    );
     /** Max angular distance (degrees) for IDW — ~120 km at mid-latitudes. */
     private static final double IDW_MAX_DEGREES = 1.1;
 
     private final RestTemplate restTemplate;
     private final String obsApiToken;
     private final String dpobsBaseUrl;
+    private final MeteoFranceTemperatureCachePreferenceService temperatureCachePreferenceService;
 
     private volatile List<ObsStation> cachedCatalog;
     private volatile long cachedCatalogAtMs;
     private final ConcurrentHashMap<String, ObsCacheEntry> obsCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, BoundsCacheEntry> boundsResponseCache = new ConcurrentHashMap<>();
 
     public MeteoFranceObsService(
             @Qualifier(RestTemplateConfig.METEOFRANCE_CLIM_REST_TEMPLATE) RestTemplate restTemplate,
             @Value("${meteofrance.obs.api.token:}") String obsApiToken,
-            @Value("${meteofrance.obs.base.url:" + DEFAULT_DPOBS_V2_BASE + "}") String dpobsBaseUrl) {
+            @Value("${meteofrance.obs.base.url:" + DEFAULT_DPOBS_V2_BASE + "}") String dpobsBaseUrl,
+            MeteoFranceTemperatureCachePreferenceService temperatureCachePreferenceService) {
         this.restTemplate = restTemplate;
         this.obsApiToken = normalizeToken(obsApiToken);
         this.dpobsBaseUrl = dpobsBaseUrl != null && !dpobsBaseUrl.isBlank()
                 ? dpobsBaseUrl.trim().replaceAll("/+$", "")
                 : DEFAULT_DPOBS_V2_BASE;
+        this.temperatureCachePreferenceService = temperatureCachePreferenceService;
         if (isConfigured()) {
             log.info("Météo-France DPObs v2 credentials loaded (base={})", this.dpobsBaseUrl);
         } else {
@@ -102,7 +120,7 @@ public class MeteoFranceObsService {
      * Station temperatures in bounds via DPObs v2 {@code /station/infrahoraire-6m} (GeoJSON per station).
      */
     public Map<String, Object> getTemperatureLabelsInBounds(
-            double minLat, double maxLat, double minLon, double maxLon, int maxStations) {
+            double minLat, double maxLat, double minLon, double maxLon, int maxStations, String jwtSubject) {
         if (!isConfigured()) {
             return error("DPObs API key not configured. Set meteofrance.obs.api.token "
                     + "(API « Données Publiques Observation » v2, distinct from radar/clim keys).");
@@ -113,28 +131,36 @@ public class MeteoFranceObsService {
         double west = Math.min(minLon, maxLon);
         double east = Math.max(minLon, maxLon);
         int stationLimit = clampMaxStations(maxStations);
+        Duration cacheTtl = resolveCacheTtl(jwtSubject);
+        String boundsKey = boundsCacheKey(south, north, west, east, stationLimit);
+
+        BoundsCacheEntry cachedBounds = boundsResponseCache.get(boundsKey);
+        if (cachedBounds != null && cachedBounds.isValid(cacheTtl)) {
+            return cachedBounds.copyResult();
+        }
 
         try {
             List<ObsStation> inBounds = loadCatalog().stream()
                     .filter(s -> s.lat >= south && s.lat <= north && s.lon >= west && s.lon <= east)
                     .toList();
 
-            List<ObsStation> selected = selectStations(inBounds, stationLimit, south, north, west, east);
-            List<Map<String, Object>> points = new ArrayList<>();
-            for (ObsStation station : selected) {
-                Map<String, Object> point = fetchStationTemperaturePoint(station);
-                if (point != null) {
-                    points.add(point);
-                }
-            }
+            StationSelection selection = selectStationsForViewport(
+                    inBounds, stationLimit, south, north, west, east);
+            List<Map<String, Object>> points = selection.stations().parallelStream()
+                    .map(station -> fetchStationTemperaturePoint(station, cacheTtl))
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toCollection(ArrayList::new));
 
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("source", "meteofrance-dpobs");
             result.put("apiVersion", "v2");
             result.put("points", points);
             result.put("count", points.size());
-            result.put("stationsQueried", selected.size());
+            result.put("stationsQueried", selection.stations().size());
             result.put("stationsInBounds", inBounds.size());
+            result.put("detailLevel", selection.detailLevel());
+            result.put("cacheTtlMinutes", cacheTtl.toMinutes());
+            boundsResponseCache.put(boundsKey, new BoundsCacheEntry(result, Instant.now()));
             return result;
         } catch (HttpClientErrorException e) {
             Map<String, Object> err = error("DPObs v2 API error: " + e.getStatusCode());
@@ -150,12 +176,51 @@ public class MeteoFranceObsService {
     }
 
     /**
+     * Force-refresh one or more stations from DPObs v2 and store fresh values in the station cache.
+     */
+    public Map<String, Object> refreshTemperaturePoints(
+            List<TemperatureLabelsRequestDto.Point> targets, String jwtSubject) {
+        if (!isConfigured()) {
+            return error("DPObs API key not configured.");
+        }
+        if (targets == null || targets.isEmpty()) {
+            return error("points required");
+        }
+        Duration cacheTtl = resolveCacheTtl(jwtSubject);
+        List<Map<String, Object>> points = new ArrayList<>();
+        try {
+            for (TemperatureLabelsRequestDto.Point target : targets) {
+                ObsStation station = resolveStationForTarget(target);
+                if (station == null) {
+                    continue;
+                }
+                Map<String, Object> point = fetchStationTemperaturePoint(station, cacheTtl, true);
+                if (point != null) {
+                    point.put("cached", false);
+                    points.add(point);
+                }
+            }
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("source", "meteofrance-dpobs");
+            result.put("apiVersion", "v2");
+            result.put("points", points);
+            result.put("count", points.size());
+            result.put("refreshed", true);
+            return result;
+        } catch (Exception e) {
+            log.warn("DPObs v2 temperature refresh failed: {}", e.getMessage());
+            return error("DPObs v2 temperature refresh failed: " + e.getMessage());
+        }
+    }
+
+    /**
      * Interpolate DPObs v2 station temperatures on an arbitrary point set (screen grid ~1 cm).
      * Points without nearby stations are omitted — caller may fill with Open-Meteo.
      */
     public Map<String, Object> interpolateTemperatureLabels(
             List<TemperatureLabelsRequestDto.Point> inputPoints,
-            int maxPoints) {
+            int maxPoints,
+            String jwtSubject) {
         if (!isConfigured()) {
             return error("DPObs API key not configured.");
         }
@@ -170,9 +235,10 @@ public class MeteoFranceObsService {
 
         int limit = Math.min(inputPoints.size(), maxPoints);
         double[] bounds = boundsOf(inputPoints, limit);
+        Duration cacheTtl = resolveCacheTtl(jwtSubject);
         try {
             List<StationObs> stationObs = loadStationObservationsInBounds(
-                    bounds[0], bounds[1], bounds[2], bounds[3], MAX_STATIONS_FOR_IDW);
+                    bounds[0], bounds[1], bounds[2], bounds[3], MAX_STATIONS_FOR_IDW, cacheTtl);
 
             List<Map<String, Object>> points = new ArrayList<>();
             int idwHits = 0;
@@ -187,6 +253,11 @@ public class MeteoFranceObsService {
                 point.put("lat", roundCoord(target.lat()));
                 point.put("lon", roundCoord(target.lon()));
                 point.put("tempC", tempC);
+                point.put("interpolated", true);
+                StationObs nearest = findNearestStation(stationObs, target.lat(), target.lon());
+                if (nearest != null) {
+                    copyObservationMeta(point, nearest.data());
+                }
                 points.add(point);
             }
 
@@ -206,21 +277,28 @@ public class MeteoFranceObsService {
     }
 
     private List<StationObs> loadStationObservationsInBounds(
-            double south, double north, double west, double east, int maxStations) {
+            double south, double north, double west, double east, int maxStations, Duration cacheTtl) {
         List<ObsStation> candidates = loadCatalog().stream()
                 .filter(s -> s.lat >= south && s.lat <= north && s.lon >= west && s.lon <= east)
                 .toList();
+        List<ObsStation> selected = limitStationsInBounds(candidates, maxStations);
         List<StationObs> obs = new ArrayList<>();
-        for (ObsStation station : candidates) {
-            if (obs.size() >= maxStations) {
-                break;
-            }
-            Map<String, Object> point = fetchStationTemperaturePoint(station);
+        for (ObsStation station : selected) {
+            Map<String, Object> point = fetchStationTemperaturePoint(station, cacheTtl);
             if (point != null && point.get("tempC") instanceof Number tempNum) {
-                obs.add(new StationObs(station.id, station.lat, station.lon, tempNum.doubleValue()));
+                obs.add(new StationObs(point));
             }
         }
         return obs;
+    }
+
+    private Duration resolveCacheTtl(String jwtSubject) {
+        return temperatureCachePreferenceService.resolveEffectiveDuration(jwtSubject);
+    }
+
+    private static String boundsCacheKey(
+            double south, double north, double west, double east, int maxStations) {
+        return String.format(Locale.ROOT, "%.2f|%.2f|%.2f|%.2f|%d", south, north, west, east, maxStations);
     }
 
     private static Double idwInterpolate(List<StationObs> stations, double lat, double lon) {
@@ -231,24 +309,60 @@ public class MeteoFranceObsService {
         double sumWt = 0;
         int used = 0;
         for (StationObs s : stations) {
-            double dLat = s.lat - lat;
-            double dLon = s.lon - lon;
+            double dLat = s.lat() - lat;
+            double dLon = s.lon() - lon;
             double dist = Math.sqrt(dLat * dLat + dLon * dLon);
             if (dist < 0.0001) {
-                return s.tempC;
+                return s.tempC();
             }
             if (dist > IDW_MAX_DEGREES) {
                 continue;
             }
             double w = 1.0 / (dist * dist);
             sumW += w;
-            sumWt += w * s.tempC;
+            sumWt += w * s.tempC();
             used++;
         }
         if (used < 1 || sumW <= 0) {
             return null;
         }
         return Math.round(sumWt / sumW * 10.0) / 10.0;
+    }
+
+    private static StationObs findNearestStation(List<StationObs> stations, double lat, double lon) {
+        StationObs nearest = null;
+        double bestDist = Double.MAX_VALUE;
+        for (StationObs station : stations) {
+            double dist = distanceSq(station.lat(), station.lon(), lat, lon);
+            if (dist < bestDist) {
+                bestDist = dist;
+                nearest = station;
+            }
+        }
+        return nearest;
+    }
+
+    private static final List<String> OBSERVATION_META_KEYS = List.of(
+            "stationId",
+            "stationName",
+            "humidityPct",
+            "windDirectionDeg",
+            "windSpeedMs",
+            "windGustMs",
+            "dewPointC",
+            "precipitationMm",
+            "pressureHpa",
+            "observedAt",
+            "source"
+    );
+
+    private static void copyObservationMeta(Map<String, Object> target, Map<String, Object> source) {
+        for (String key : OBSERVATION_META_KEYS) {
+            Object value = source.get(key);
+            if (value != null) {
+                target.put(key, value);
+            }
+        }
     }
 
     private static double[] boundsOf(List<TemperatureLabelsRequestDto.Point> points, int limit) {
@@ -296,19 +410,33 @@ public class MeteoFranceObsService {
         if (lines.length < 2) {
             return List.of();
         }
-        String[] headers = splitCsvLine(lines[0]);
-        int idIdx = findColumn(headers, "id", "id_station", "geo_id_insee");
-        int latIdx = findColumn(headers, "lat", "latitude");
-        int lonIdx = findColumn(headers, "lon", "longitude");
-        int minutelyIdx = findColumn(headers, "is_minutely");
-        int openIdx = findColumn(headers, "is_open");
-
-        if (idIdx < 0 || latIdx < 0 || lonIdx < 0) {
+        int headerLineIdx = -1;
+        String[] headers = null;
+        for (int i = 0; i < Math.min(lines.length, 12); i++) {
+            String[] candidate = splitCsvLine(lines[i]);
+            if (findColumn(candidate, "id_station", "geo_id_insee", "id") >= 0
+                    && findColumn(candidate, "latitude", "lat") >= 0
+                    && findColumn(candidate, "longitude", "lon") >= 0) {
+                headerLineIdx = i;
+                headers = candidate;
+                break;
+            }
+        }
+        if (headers == null || headerLineIdx < 0) {
             throw new IllegalStateException("DPObs v2 liste-stations CSV: missing id/lat/lon columns");
         }
 
+        int idIdx = findColumn(headers, "id_station", "geo_id_insee", "id");
+        int latIdx = findColumn(headers, "latitude", "lat");
+        int lonIdx = findColumn(headers, "longitude", "lon");
+        int nameIdx = findColumn(headers,
+                "nom_usuel", "nom", "name", "long_name", "named_place",
+                "libelle", "station_name", "ville", "poste");
+        int minutelyIdx = findColumn(headers, "is_minutely");
+        int openIdx = findColumn(headers, "is_open");
+
         List<ObsStation> stations = new ArrayList<>();
-        for (int i = 1; i < lines.length; i++) {
+        for (int i = headerLineIdx + 1; i < lines.length; i++) {
             String line = lines[i].trim();
             if (line.isEmpty()) {
                 continue;
@@ -329,90 +457,126 @@ public class MeteoFranceObsService {
             if (id == null || lat == null || lon == null) {
                 continue;
             }
-            stations.add(new ObsStation(id, lat, lon));
+            String name = null;
+            if (nameIdx >= 0 && cols.length > nameIdx) {
+                name = cleanCsvCell(cols[nameIdx]);
+                if (name != null && name.isBlank()) {
+                    name = null;
+                }
+            }
+            stations.add(new ObsStation(id, name, lat, lon));
         }
         return stations;
     }
 
-    /** Pick stations spread across the visible bbox (one per grid cell when possible). */
-    private static List<ObsStation> selectStations(
-            List<ObsStation> inBounds,
-            int limit,
-            double south,
-            double north,
-            double west,
-            double east) {
+    /** Cap station API calls; keep real station positions (no spatial resampling). */
+    private static List<ObsStation> limitStationsInBounds(List<ObsStation> inBounds, int limit) {
         if (inBounds.size() <= limit) {
             return inBounds;
         }
-        int gridCols = Math.max(1, (int) Math.ceil(Math.sqrt(limit * 1.2)));
-        int gridRows = Math.max(1, (int) Math.ceil((double) limit / gridCols));
-        double latStep = (north - south) / gridRows;
-        double lonStep = (east - west) / gridCols;
-
-        List<ObsStation> selected = new ArrayList<>();
-        java.util.Set<String> usedIds = new java.util.HashSet<>();
-
-        for (int r = 0; r < gridRows && selected.size() < limit; r++) {
-            double cellSouth = south + r * latStep;
-            double cellNorth = south + (r + 1) * latStep;
-            for (int c = 0; c < gridCols && selected.size() < limit; c++) {
-                double cellWest = west + c * lonStep;
-                double cellEast = west + (c + 1) * lonStep;
-                double centerLat = (cellSouth + cellNorth) / 2;
-                double centerLon = (cellWest + cellEast) / 2;
-
-                ObsStation best = null;
-                double bestDist = Double.MAX_VALUE;
-                for (ObsStation s : inBounds) {
-                    if (usedIds.contains(s.id)) {
-                        continue;
-                    }
-                    if (s.lat < cellSouth || s.lat > cellNorth || s.lon < cellWest || s.lon > cellEast) {
-                        continue;
-                    }
-                    double d = distanceSq(s.lat, s.lon, centerLat, centerLon);
-                    if (d < bestDist) {
-                        bestDist = d;
-                        best = s;
-                    }
-                }
-                if (best != null) {
-                    selected.add(best);
-                    usedIds.add(best.id);
-                }
-            }
-        }
-
-        if (selected.size() < limit) {
-            inBounds.stream()
-                    .filter(s -> !usedIds.contains(s.id))
-                    .sorted(Comparator.comparingDouble(s -> minDistanceToSelectedSq(s, selected)))
-                    .limit(limit - selected.size())
-                    .forEach(s -> {
-                        selected.add(s);
-                        usedIds.add(s.id);
-                    });
-        }
-        return selected;
+        return inBounds.stream()
+                .sorted(Comparator.comparing(ObsStation::id))
+                .limit(limit)
+                .toList();
     }
 
-    private static double minDistanceToSelectedSq(ObsStation candidate, List<ObsStation> selected) {
-        if (selected.isEmpty()) {
-            return 0;
+    private record StationSelection(List<ObsStation> stations, String detailLevel) {}
+
+    /**
+     * Large viewport → major cities only; medium → major first then fill; zoomed in → all stations in bounds.
+     */
+    private static StationSelection selectStationsForViewport(
+            List<ObsStation> inBounds, int maxStations,
+            double south, double north, double west, double east) {
+        if (inBounds.isEmpty()) {
+            return new StationSelection(inBounds, "none");
         }
-        double min = Double.MAX_VALUE;
-        for (ObsStation s : selected) {
-            min = Math.min(min, distanceSq(candidate.lat, candidate.lon, s.lat, s.lon));
+
+        double latSpan = north - south;
+        double lonSpan = east - west;
+        double area = latSpan * lonSpan;
+        int limit = Math.min(maxStations, inBounds.size());
+
+        boolean largeView = latSpan > 5.5 || lonSpan > 5.5 || area > 20;
+        boolean mediumView = !largeView && (latSpan > 2.2 || lonSpan > 2.2 || area > 4);
+
+        if (largeView) {
+            int majorLimit = Math.min(24, limit);
+            List<ObsStation> major = pickMajorCityStations(inBounds, majorLimit);
+            if (!major.isEmpty()) {
+                return new StationSelection(major, "major-cities");
+            }
+            return new StationSelection(limitStationsInBounds(inBounds, Math.min(20, limit)), "sparse");
         }
-        return min;
+
+        if (mediumView) {
+            List<ObsStation> major = pickMajorCityStations(inBounds, limit);
+            if (major.size() >= limit) {
+                return new StationSelection(major, "major-cities");
+            }
+            Set<String> usedIds = major.stream().map(ObsStation::id).collect(Collectors.toCollection(LinkedHashSet::new));
+            List<ObsStation> mixed = new ArrayList<>(major);
+            inBounds.stream()
+                    .filter(s -> !usedIds.contains(s.id()))
+                    .sorted(Comparator.comparing(ObsStation::id))
+                    .limit(limit - mixed.size())
+                    .forEach(mixed::add);
+            return new StationSelection(mixed, "mixed");
+        }
+
+        return new StationSelection(limitStationsInBounds(inBounds, limit), "all");
+    }
+
+    private static List<ObsStation> pickMajorCityStations(List<ObsStation> inBounds, int limit) {
+        return inBounds.stream()
+                .filter(MeteoFranceObsService::isMajorCityStation)
+                .sorted(Comparator.comparingInt(MeteoFranceObsService::majorCityRank)
+                        .thenComparing(ObsStation::id))
+                .limit(limit)
+                .toList();
+    }
+
+    private static boolean isMajorCityStation(ObsStation station) {
+        if (station.name() == null || station.name().isBlank()) {
+            return false;
+        }
+        String upper = station.name().toUpperCase(Locale.ROOT);
+        for (String token : MAJOR_CITY_NAME_TOKENS) {
+            if (upper.contains(token)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static int majorCityRank(ObsStation station) {
+        String upper = station.name() != null ? station.name().toUpperCase(Locale.ROOT) : "";
+        for (int i = 0; i < MAJOR_CITY_NAME_TOKENS.size(); i++) {
+            if (upper.contains(MAJOR_CITY_NAME_TOKENS.get(i))) {
+                return i;
+            }
+        }
+        return MAJOR_CITY_NAME_TOKENS.size();
+    }
+
+    private Map<String, Object> fetchStationTemperaturePoint(ObsStation station, Duration cacheTtl) {
+        return fetchStationTemperaturePoint(station, cacheTtl, false);
     }
 
     @SuppressWarnings("unchecked")
-    private Map<String, Object> fetchStationTemperaturePoint(ObsStation station) {
+    private Map<String, Object> fetchStationTemperaturePoint(
+            ObsStation station, Duration cacheTtl, boolean bypassCache) {
         ObsCacheEntry cached = obsCache.get(station.id());
-        if (cached != null && cached.isValid()) {
-            return cached.point();
+        if (!bypassCache && cached != null && cached.isValid(cacheTtl)) {
+            Map<String, Object> point = new LinkedHashMap<>(cached.point());
+            enrichStationName(point, station);
+            point.put("cached", true);
+            return point;
+        }
+
+        if (bypassCache) {
+            obsCache.remove(station.id());
+            boundsResponseCache.clear();
         }
 
         String url = UriComponentsBuilder
@@ -430,9 +594,39 @@ public class MeteoFranceObsService {
 
         Map<String, Object> point = extractPointFromObsBody(response.getBody(), station);
         if (point != null) {
-            obsCache.put(station.id(), new ObsCacheEntry(point, Instant.now()));
+            point.put("cached", false);
+            obsCache.put(station.id(), new ObsCacheEntry(stripCachedFlag(point), Instant.now()));
         }
         return point;
+    }
+
+    private static Map<String, Object> stripCachedFlag(Map<String, Object> point) {
+        Map<String, Object> stored = new LinkedHashMap<>(point);
+        stored.remove("cached");
+        return stored;
+    }
+
+    private ObsStation resolveStationForTarget(TemperatureLabelsRequestDto.Point target) {
+        List<ObsStation> catalog = loadCatalog();
+        if (target.stationId() != null && !target.stationId().isBlank()) {
+            for (ObsStation station : catalog) {
+                if (target.stationId().equals(station.id())) {
+                    return station;
+                }
+            }
+        }
+        ObsStation nearest = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (ObsStation station : catalog) {
+            double dLat = station.lat - target.lat();
+            double dLon = station.lon - target.lon();
+            double distance = dLat * dLat + dLon * dLon;
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                nearest = station;
+            }
+        }
+        return bestDistance <= 0.02 ? nearest : null;
     }
 
     @SuppressWarnings("unchecked")
@@ -502,7 +696,47 @@ public class MeteoFranceObsService {
         point.put("lon", roundCoord(lon));
         point.put("tempC", kelvinToCelsius(tempK));
         point.put("stationId", station.id);
+        String stationName = resolveStationName(station, props);
+        if (stationName != null && !stationName.isBlank()) {
+            point.put("stationName", stationName);
+        }
+        point.put("source", "meteofrance-dpobs");
+
+        putNumber(point, "humidityPct", props.get("u"));
+        putNumber(point, "windDirectionDeg", props.get("dd"));
+        putNumber(point, "windSpeedMs", props.get("ff"));
+        putNumber(point, "windGustMs", props.get("fxi10"));
+        Double dewPointK = toDouble(props.get("td"));
+        if (dewPointK != null) {
+            point.put("dewPointC", kelvinToCelsius(dewPointK));
+        }
+        putNumber(point, "precipitationMm", props.get("rr_per"));
+        Double pressure = toDouble(props.get("pres"));
+        if (pressure == null) {
+            pressure = toDouble(props.get("pmer"));
+        }
+        if (pressure != null) {
+            point.put("pressureHpa", normalizePressureHpa(pressure));
+        }
+        Object observedAt = props.get("validity_time");
+        if (observedAt != null && !String.valueOf(observedAt).isBlank()) {
+            point.put("observedAt", String.valueOf(observedAt));
+        }
         return point;
+    }
+
+    private static void putNumber(Map<String, Object> target, String key, Object raw) {
+        Double value = toDouble(raw);
+        if (value != null) {
+            target.put(key, value);
+        }
+    }
+
+    private static double normalizePressureHpa(double pressure) {
+        if (pressure > 2000) {
+            return Math.round(pressure / 100.0 * 10.0) / 10.0;
+        }
+        return Math.round(pressure * 10.0) / 10.0;
     }
 
     private boolean probeAuth() {
@@ -537,16 +771,56 @@ public class MeteoFranceObsService {
         return Math.min(Math.max(maxStations, 4), ABS_MAX_STATIONS);
     }
 
+    private static void enrichStationName(Map<String, Object> point, ObsStation station) {
+        if (station.name != null && !station.name.isBlank()) {
+            point.put("stationName", station.name.trim());
+        }
+    }
+
+    private static String resolveStationName(ObsStation station, Map<?, ?> props) {
+        if (station.name != null && !station.name.isBlank()) {
+            return station.name.trim();
+        }
+        for (String key : List.of("nom", "name", "libelle", "station_name", "nom_usuel", "long_name")) {
+            Object raw = props.get(key);
+            if (raw != null) {
+                String value = String.valueOf(raw).trim();
+                if (!value.isBlank()) {
+                    return value;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static String cleanCsvCell(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        return raw.trim().replace("\"", "");
+    }
+
     private static int findColumn(String[] headers, String... names) {
-        for (int i = 0; i < headers.length; i++) {
-            String h = headers[i].trim().toLowerCase(Locale.ROOT);
-            for (String name : names) {
-                if (h.equals(name.toLowerCase(Locale.ROOT))) {
+        for (String name : names) {
+            String target = normalizeHeader(name);
+            for (int i = 0; i < headers.length; i++) {
+                if (normalizeHeader(headers[i]).equals(target)) {
                     return i;
                 }
             }
         }
         return -1;
+    }
+
+    private static String normalizeHeader(String raw) {
+        if (raw == null) {
+            return "";
+        }
+        return raw.trim()
+                .replace("\"", "")
+                .toLowerCase(Locale.ROOT)
+                .replace(' ', '_')
+                .replace("'", "");
     }
 
     private static String[] splitCsvLine(String line) {
@@ -630,13 +904,52 @@ public class MeteoFranceObsService {
         return trimmed;
     }
 
-    private record ObsStation(String id, double lat, double lon) {}
+    private record ObsStation(String id, String name, double lat, double lon) {}
 
-    private record StationObs(String id, double lat, double lon, double tempC) {}
+    private record StationObs(Map<String, Object> data) {
+        double lat() {
+            return ((Number) data.get("lat")).doubleValue();
+        }
+
+        double lon() {
+            return ((Number) data.get("lon")).doubleValue();
+        }
+
+        double tempC() {
+            return ((Number) data.get("tempC")).doubleValue();
+        }
+    }
 
     private record ObsCacheEntry(Map<String, Object> point, Instant fetchedAt) {
-        boolean isValid() {
-            return fetchedAt.plus(OBS_CACHE_TTL).isAfter(Instant.now());
+        boolean isValid(Duration ttl) {
+            Duration effectiveTtl = ttl != null ? ttl : DEFAULT_OBS_CACHE_TTL;
+            return fetchedAt.plus(effectiveTtl).isAfter(Instant.now());
+        }
+    }
+
+    private record BoundsCacheEntry(Map<String, Object> result, Instant fetchedAt) {
+        boolean isValid(Duration ttl) {
+            Duration effectiveTtl = ttl != null ? ttl : DEFAULT_OBS_CACHE_TTL;
+            return fetchedAt.plus(effectiveTtl).isAfter(Instant.now());
+        }
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> copyResult() {
+            Map<String, Object> copy = new LinkedHashMap<>(result);
+            copy.put("cached", true);
+            Object rawPoints = copy.get("points");
+            if (rawPoints instanceof List<?> list) {
+                List<Map<String, Object>> marked = new ArrayList<>(list.size());
+                for (Object item : list) {
+                    if (item instanceof Map<?, ?> map) {
+                        Map<String, Object> point = new LinkedHashMap<>((Map<String, Object>) map);
+                        point.put("cached", true);
+                        marked.add(point);
+                    }
+                }
+                copy.put("points", marked);
+            }
+            return copy;
         }
     }
 }
