@@ -32,6 +32,10 @@ export interface FsPhotoLink {
     manualActivityDate?: string | null;
     /** Pour les traces (TRACK) : login du membre qui a déposé le fichier. */
     uploaderUserName?: string | null;
+    /** Propriétaire du lien (urlEvents). */
+    owner?: string | null;
+    /** Date de création du lien (urlEvents). */
+    dateCreation?: string | Date | null;
 }
 
 export interface TimelineGroup {

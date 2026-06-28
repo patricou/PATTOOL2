@@ -202,6 +202,10 @@ public class PhotoTimelineRestController {
         private String manualActivityDate;
         /** Pour les traces ({@code TRACK}) : auteur du dépôt (login). */
         private String uploaderUserName;
+        /** Propriétaire du lien ({@code urlEvents} uniquement). */
+        private String owner;
+        /** Date de création du lien ({@code urlEvents} uniquement). */
+        private Date dateCreation;
 
         public FsPhotoLink() {}
         public FsPhotoLink(String path, String description) {
@@ -225,6 +229,10 @@ public class PhotoTimelineRestController {
         public void setManualActivityDate(String manualActivityDate) { this.manualActivityDate = manualActivityDate; }
         public String getUploaderUserName() { return uploaderUserName; }
         public void setUploaderUserName(String uploaderUserName) { this.uploaderUserName = uploaderUserName; }
+        public String getOwner() { return owner; }
+        public void setOwner(String owner) { this.owner = owner; }
+        public Date getDateCreation() { return dateCreation; }
+        public void setDateCreation(Date dateCreation) { this.dateCreation = dateCreation; }
     }
 
     public static class TimelineGroup {
@@ -382,6 +390,8 @@ public class PhotoTimelineRestController {
                 .include("urlEvents.typeUrl")
                 .include("urlEvents.link")
                 .include("urlEvents.urlDescription")
+                .include("urlEvents.owner")
+                .include("urlEvents.dateCreation")
                 .include("photosUrl")
                 .include("map")
                 .include("visibility")
@@ -766,6 +776,12 @@ public class PhotoTimelineRestController {
                 String canonical = normalizeUrlEventTypeForTimeline(rawType);
                 FsPhotoLink f = new FsPhotoLink(raw, urlEvent.getUrlDescription());
                 f.setTypeUrl(canonical);
+                if (urlEvent.getOwner() != null && !urlEvent.getOwner().trim().isEmpty()) {
+                    f.setOwner(urlEvent.getOwner().trim());
+                }
+                if (urlEvent.getDateCreation() != null) {
+                    f.setDateCreation(urlEvent.getDateCreation());
+                }
                 links.add(f);
                 if (maxLinks > 0 && links.size() >= maxLinks) {
                     return links;

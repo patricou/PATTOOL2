@@ -1271,6 +1271,43 @@
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
+.group-fs-link-badge-owner {
+    display: block;
+    width: 100%;
+    margin-top: 0.2rem;
+    font-size: 0.68rem;
+    font-weight: 500;
+    opacity: 0.92;
+    line-height: 1.3;
+}
+
+.group-fs-link-badge-owner i.fa-user {
+    margin-right: 0.2rem;
+}
+
+.timeline-group.has-thumbnail .group-fs-link-badge-owner {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.wall-links-modal-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 1.5rem;
+    min-height: 120px;
+}
+
+.wall-link-owner-line {
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+.wall-link-owner-line strong {
+    color: #212529;
+}
+
 /* Masonry Grid */
 .masonry-grid {
     column-count: 4;

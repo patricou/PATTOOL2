@@ -4,6 +4,7 @@ import { Observable, from, Subject, throwError, of } from 'rxjs';
 import { map, switchMap, catchError, timeout } from 'rxjs/operators';
 import { Evenement } from '../model/evenement';
 import { Commentary } from '../model/commentary';
+import { UrlEvent } from '../model/url-event';
 import { environment } from '../../environments/environment';
 import { KeycloakService } from '../keycloak/keycloak.service';
 
@@ -530,6 +531,27 @@ export class EvenementsService {
 	// Delete a commentary from an event
 	deleteCommentary(eventId: string, commentId: string): Observable<Evenement> {
 		const url = this.API_URL + "even/" + eventId + "/commentaries/" + commentId;
+		return this.getHeaderWithToken().pipe(
+			switchMap(headers => this._http.delete<Evenement>(url, { headers: headers }))
+		);
+	}
+
+	addUrlEvent(eventId: string, urlEvent: UrlEvent): Observable<Evenement> {
+		const url = this.API_URL + 'even/' + eventId + '/url-events';
+		return this.getHeaderWithToken().pipe(
+			switchMap(headers => this._http.post<Evenement>(url, urlEvent, { headers: headers }))
+		);
+	}
+
+	updateUrlEvent(eventId: string, index: number, urlEvent: UrlEvent): Observable<Evenement> {
+		const url = this.API_URL + 'even/' + eventId + '/url-events/' + index;
+		return this.getHeaderWithToken().pipe(
+			switchMap(headers => this._http.put<Evenement>(url, urlEvent, { headers: headers }))
+		);
+	}
+
+	deleteUrlEvent(eventId: string, index: number): Observable<Evenement> {
+		const url = this.API_URL + 'even/' + eventId + '/url-events/' + index;
 		return this.getHeaderWithToken().pipe(
 			switchMap(headers => this._http.delete<Evenement>(url, { headers: headers }))
 		);

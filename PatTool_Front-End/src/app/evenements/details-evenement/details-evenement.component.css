@@ -1997,6 +1997,47 @@ select.compact-input:focus {
   margin-bottom: 0;
 }
 
+.url-owner-compact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.35rem;
+  font-size: 0.72rem;
+  color: var(--text-color-dark, rgba(255, 255, 255, 0.78));
+  margin-top: 0.15rem;
+}
+
+.url-owner-compact i.fa-user,
+.url-owner-compact i.fa-calendar {
+  color: #ffd700;
+  font-size: 0.68rem;
+}
+
+.url-owner-label {
+  opacity: 0.9;
+}
+
+.url-owner-name {
+  font-weight: 600;
+}
+
+.url-owner-date {
+  opacity: 0.85;
+}
+
+.url-owner-compact--form {
+  margin: 0;
+  padding: 0.35rem 0.5rem;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+}
+
+.card-header-compact .url-owner-compact {
+  font-size: 0.65rem;
+  margin-top: 0;
+  opacity: 0.9;
+}
+
 .url-meta-compact {
   display: block;
   font-size: 0.65rem;

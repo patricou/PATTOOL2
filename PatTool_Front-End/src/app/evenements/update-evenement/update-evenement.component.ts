@@ -914,17 +914,14 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 		return this.user.userName.toLowerCase() === commentary.commentOwner.toLowerCase();
 	}
 
-	// Check if user can delete URL event (only owner of the link)
-	public canDeleteUrlEvent(urlEvent: UrlEvent): boolean {
-		return this.user.userName.toLowerCase() === urlEvent.owner.toLowerCase();
+	// Check if user can delete URL event (event owner or admin)
+	public canDeleteUrlEvent(_urlEvent?: UrlEvent): boolean {
+		return this.canEditEventFields();
 	}
 
-	// Check if user can edit URL event (link owner, event author, or admin)
-	public canEditUrlEvent(urlEvent: UrlEvent): boolean {
-		if (this.canEditEventFields()) {
-			return true;
-		}
-		return this.user.userName.toLowerCase() === urlEvent.owner.toLowerCase();
+	// Check if user can edit URL event (event owner or admin)
+	public canEditUrlEvent(_urlEvent?: UrlEvent): boolean {
+		return this.canEditEventFields();
 	}
 
 	// Check if user can edit commentary (only owner of the commentary)

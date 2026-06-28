@@ -2333,6 +2333,143 @@ public class EvenementRestController {
         }
     }
 
+    /**
+     * Add a link to an event. Any authenticated user who can view the event may add a link.
+     * POST /api/even/{eventId}/url-events
+     */
+    @RequestMapping(value = "/{eventId}/url-events", method = RequestMethod.POST)
+    public ResponseEntity<?> addUrlEventToEvent(@PathVariable String eventId, @RequestBody UrlEvent urlEvent) {
+        try {
+            Evenement evenement = evenementsRepository.findById(eventId).orElse(null);
+            if (evenement == null) {
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+
+            String currentUserId = getCurrentUserId();
+            if (!discussionService.canUserAccessEventForDetail(eventId, currentUserId)) {
+                return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+            }
+
+            String currentUserName = getCurrentUserName();
+            if (currentUserName == null) {
+                return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+            }
+
+            if (urlEvent == null || urlEvent.getTypeUrl() == null || urlEvent.getTypeUrl().trim().isEmpty()
+                    || urlEvent.getLink() == null || urlEvent.getLink().trim().isEmpty()) {
+                return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+            }
+
+            String normalizedType = urlEvent.getTypeUrl().trim().toUpperCase();
+            if ("PHOTOFROMFS".equals(normalizedType) && !hasFileSystemRole()) {
+                java.util.Map<String, String> errorBody = new java.util.HashMap<>();
+                errorBody.put("error", "PHOTOFROMFS_UNAUTHORIZED");
+                errorBody.put("message", "You are not authorized to add 'Photo from File System' type links.");
+                return new ResponseEntity<>(errorBody, HttpStatus.FORBIDDEN);
+            }
+
+            UrlEvent newLink = new UrlEvent(
+                    urlEvent.getTypeUrl().trim(),
+                    new Date(),
+                    currentUserName,
+                    urlEvent.getLink().trim(),
+                    urlEvent.getUrlDescription() != null ? urlEvent.getUrlDescription().trim() : null
+            );
+
+            if (evenement.getUrlEvents() == null) {
+                evenement.setUrlEvents(new ArrayList<>());
+            }
+            evenement.getUrlEvents().add(newLink);
+            Evenement savedEvent = evenementsRepository.save(evenement);
+            return new ResponseEntity<>(savedEvent, HttpStatus.OK);
+        } catch (Exception e) {
+            log.error("Error adding url event to event {}: {}", eventId, e.getMessage(), e);
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Update a link in an event. Only the event owner or an administrator may modify links.
+     * PUT /api/even/{eventId}/url-events/{index}
+     */
+    @RequestMapping(value = "/{eventId}/url-events/{index}", method = RequestMethod.PUT)
+    public ResponseEntity<?> updateUrlEventInEvent(@PathVariable String eventId,
+                                                  @PathVariable int index,
+                                                  @RequestBody UrlEvent urlEvent) {
+        try {
+            Evenement evenement = evenementsRepository.findById(eventId).orElse(null);
+            if (evenement == null) {
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+
+            if (!canCurrentUserModifyEvent(evenement)) {
+                java.util.Map<String, String> errorBody = new java.util.HashMap<>();
+                errorBody.put("error", "EVENT_UPDATE_UNAUTHORIZED");
+                errorBody.put("message", "Only the event owner or an administrator can modify links.");
+                return new ResponseEntity<>(errorBody, HttpStatus.FORBIDDEN);
+            }
+
+            if (evenement.getUrlEvents() == null || index < 0 || index >= evenement.getUrlEvents().size()) {
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+
+            if (urlEvent == null || urlEvent.getTypeUrl() == null || urlEvent.getTypeUrl().trim().isEmpty()
+                    || urlEvent.getLink() == null || urlEvent.getLink().trim().isEmpty()) {
+                return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+            }
+
+            String normalizedType = urlEvent.getTypeUrl().trim().toUpperCase();
+            if ("PHOTOFROMFS".equals(normalizedType) && !hasFileSystemRole()) {
+                java.util.Map<String, String> errorBody = new java.util.HashMap<>();
+                errorBody.put("error", "PHOTOFROMFS_UNAUTHORIZED");
+                return new ResponseEntity<>(errorBody, HttpStatus.FORBIDDEN);
+            }
+
+            UrlEvent existingLink = evenement.getUrlEvents().get(index);
+            existingLink.setTypeUrl(urlEvent.getTypeUrl().trim());
+            existingLink.setLink(urlEvent.getLink().trim());
+            existingLink.setUrlDescription(urlEvent.getUrlDescription() != null ? urlEvent.getUrlDescription().trim() : null);
+
+            Evenement savedEvent = evenementsRepository.save(evenement);
+            return new ResponseEntity<>(savedEvent, HttpStatus.OK);
+        } catch (Exception e) {
+            log.error("Error updating url event at index {} in event {}: {}", index, eventId, e.getMessage(), e);
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Delete a link from an event. Only the event owner or an administrator may delete links.
+     * DELETE /api/even/{eventId}/url-events/{index}
+     */
+    @RequestMapping(value = "/{eventId}/url-events/{index}", method = RequestMethod.DELETE)
+    public ResponseEntity<?> deleteUrlEventFromEvent(@PathVariable String eventId, @PathVariable int index) {
+        try {
+            Evenement evenement = evenementsRepository.findById(eventId).orElse(null);
+            if (evenement == null) {
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+
+            if (!canCurrentUserModifyEvent(evenement)) {
+                java.util.Map<String, String> errorBody = new java.util.HashMap<>();
+                errorBody.put("error", "EVENT_UPDATE_UNAUTHORIZED");
+                errorBody.put("message", "Only the event owner or an administrator can delete links.");
+                return new ResponseEntity<>(errorBody, HttpStatus.FORBIDDEN);
+            }
+
+            if (evenement.getUrlEvents() == null || index < 0 || index >= evenement.getUrlEvents().size()) {
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+
+            evenement.getUrlEvents().remove(index);
+            Evenement savedEvent = evenementsRepository.save(evenement);
+            return new ResponseEntity<>(savedEvent, HttpStatus.OK);
+        } catch (Exception e) {
+            log.error("Error deleting url event at index {} from event {}: {}", index, eventId, e.getMessage(), e);
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
     @PreDestroy
     public void cleanup() {
         log.info("Shutting down executor service for event streaming...");

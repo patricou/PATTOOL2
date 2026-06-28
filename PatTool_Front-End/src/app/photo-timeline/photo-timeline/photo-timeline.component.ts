@@ -32,6 +32,7 @@ import { DiscussionModalComponent } from '../../communications/discussion-modal/
 import { CommentaryEditor } from '../../commentary-editor/commentary-editor';
 import { Evenement } from '../../model/evenement';
 import { Commentary } from '../../model/commentary';
+import { UrlEvent } from '../../model/url-event';
 import { Member } from '../../model/member';
 import { ScaleRowToFitDirective } from './scale-row-to-fit.directive';
 import { computeTrackStatsFromFileContent } from '../track-route-stats.util';
@@ -173,6 +174,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     @ViewChild('wallShareByEmailModal') wallShareByEmailModal!: TemplateRef<any>;
     @ViewChild('wallEventAccessUsersModal') wallEventAccessUsersModal!: TemplateRef<any>;
     @ViewChild('wallCommentsModal') wallCommentsModal!: TemplateRef<any>;
+    @ViewChild('wallLinksModal') wallLinksModal!: TemplateRef<any>;
 
     /** Loaded on demand when opening « Commentaires » from the wall (same editor as détail événement). */
     wallCommentaryEvent: Evenement | null = null;
@@ -180,6 +182,28 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     wallCommentaryLoadingName = '';
     private wallCommentaryLoadingEventId = '';
     private wallCommentsModalRef: NgbModalRef | null = null;
+
+    /** Loaded on demand when opening « Liens » from the wall. */
+    wallLinksEvent: Evenement | null = null;
+    wallLinksLoading = false;
+    wallLinksLoadingName = '';
+    wallLinksGroup: TimelineGroup | null = null;
+    isAddingWallUrlEvent = false;
+    newWallUrlEvent = new UrlEvent('', new Date(), '', '', '');
+    editingWallUrlEventIndex = -1;
+    editingWallUrlEvent = new UrlEvent('', new Date(), '', '', '');
+    private wallLinksModalRef: NgbModalRef | null = null;
+    private readonly wallUrlEventTypes: { id: string; label: string }[] = [
+        { id: 'MAP', label: 'EVENTHOME.URL_TYPE_CARTE' },
+        { id: 'DOCUMENTATION', label: 'EVENTHOME.URL_TYPE_DOCUMENTATION' },
+        { id: 'FICHE', label: 'EVENTHOME.URL_TYPE_FICHE' },
+        { id: 'OTHER', label: 'EVENTHOME.URL_TYPE_OTHER' },
+        { id: 'PHOTOS', label: 'EVENTHOME.URL_TYPE_PHOTOS' },
+        { id: 'PHOTOFROMFS', label: 'EVENTHOME.URL_TYPE_PHOTOFROMFS' },
+        { id: 'VIDEO', label: 'EVENTHOME.URL_TYPE_VIDEO' },
+        { id: 'WEBSITE', label: 'EVENTHOME.URL_TYPE_WEBSITE' },
+        { id: 'WHATSAPP', label: 'EVENTHOME.URL_TYPE_WHATSAPP' }
+    ];
     /** Masonry wall videos: playback only when visible in the viewport. */
     @ViewChildren('wallTimelineVideo', { read: ElementRef }) wallTimelineVideos!: QueryList<ElementRef<HTMLVideoElement>>;
 
@@ -2345,6 +2369,29 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         return 'PHOTO_TIMELINE.LINK_ACTION_OPEN';
     }
 
+    getPhotoWallLinkOwner(link: FsPhotoLink): string {
+        const owner = (link.owner || '').trim();
+        if (owner) {
+            return owner;
+        }
+        return (link.uploaderUserName || '').trim();
+    }
+
+    formatWallLinkDate(value: string | Date | null | undefined): string {
+        if (!value) {
+            return '';
+        }
+        const d = value instanceof Date ? value : new Date(value);
+        if (isNaN(d.getTime())) {
+            return '';
+        }
+        return d.toLocaleString();
+    }
+
+    getPhotoWallLinkDate(link: FsPhotoLink): string {
+        return this.formatWallLinkDate(link.dateCreation);
+    }
+
     /** Footer click: disk slideshow only for PHOTOFROMFS; Mongo track → viewer; PDF → blob; otherwise new tab. */
     onPhotoWallFooterLinkClick(fsLink: FsPhotoLink, group: TimelineGroup): void {
         const t = (fsLink.typeUrl || '').trim().toUpperCase();
@@ -3799,6 +3846,300 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             error: () => alert(this.translate.instant('EVENTELEM.ERROR_DELETING_COMMENTARY'))
         });
         this.subscriptions.push(sub);
+    }
+
+    // ==============================
+    // Wall links modal (same rules as details-evenement)
+    // ==============================
+
+    getWallLinksCurrentUser(): Member | null {
+        return this.membersService.getUser();
+    }
+
+    canModifyWallLinksEvent(): boolean {
+        if (this.keycloakService.hasAdminRole()) {
+            return true;
+        }
+        const user = this.getWallLinksCurrentUser();
+        const authorUser = this.wallLinksEvent?.author?.userName;
+        if (user?.userName && authorUser) {
+            return user.userName.toLowerCase() === authorUser.toLowerCase();
+        }
+        if (this.wallLinksGroup) {
+            return this.isTimelineGroupOwner(this.wallLinksGroup);
+        }
+        return false;
+    }
+
+    getAvailableWallUrlEventTypes(): { id: string; label: string }[] {
+        if (this.keycloakService.hasFileSystemRole()) {
+            return this.wallUrlEventTypes;
+        }
+        return this.wallUrlEventTypes.filter(type => type.id !== 'PHOTOFROMFS');
+    }
+
+    getSortedWallUrlEventTypes(): { id: string; label: string }[] {
+        return [...this.getAvailableWallUrlEventTypes()].sort((a, b) =>
+            this.translate.instant(a.label).localeCompare(this.translate.instant(b.label))
+        );
+    }
+
+    getWallUrlTypeLabel(typeId: string): string {
+        const normalized = (typeId || '').trim().toUpperCase();
+        const match = this.wallUrlEventTypes.find(t => t.id === normalized);
+        return match ? match.label : normalized;
+    }
+
+    isWallPhotoFromFs(urlEvent: UrlEvent): boolean {
+        return (urlEvent.typeUrl || '').toUpperCase().trim() === 'PHOTOFROMFS';
+    }
+
+    openWallLinks(group: TimelineGroup): void {
+        if (!group?.eventId || !this.userId) {
+            return;
+        }
+        this.wallLinksGroup = group;
+        this.wallLinksEvent = null;
+        this.wallLinksLoading = true;
+        this.wallLinksLoadingName = group.eventName || '';
+        this.isAddingWallUrlEvent = false;
+        this.cancelEditWallUrlEvent();
+        this.openWallLinksModal();
+        this.cdr.markForCheck();
+
+        const sub = this.evenementsService.getEvenement(group.eventId).pipe(take(1)).subscribe({
+            next: (ev) => {
+                this.wallLinksEvent = ev;
+                if (!ev.urlEvents) {
+                    ev.urlEvents = [];
+                }
+                this.wallLinksLoading = false;
+                this.cdr.markForCheck();
+            },
+            error: (err) => {
+                console.error('Photo wall: load event for links', err);
+                this.wallLinksModalRef?.dismiss();
+                const msg = err?.error?.message || err?.message || '';
+                alert(this.translate.instant('COMMUN.ERROR') + (msg ? ': ' + msg : ''));
+            }
+        });
+        this.subscriptions.push(sub);
+    }
+
+    private openWallLinksModal(): void {
+        if (this.wallLinksModalRef) {
+            return;
+        }
+        const isMobile = typeof window !== 'undefined' && window.innerWidth <= 767.98;
+        const modalRef = this.modalService.open(this.wallLinksModal, {
+            size: isMobile ? undefined : 'lg',
+            fullscreen: isMobile,
+            backdrop: 'static',
+            keyboard: true,
+            animation: true,
+            centered: !isMobile,
+            windowClass: 'modal-smooth-animation wall-links-modal'
+        });
+        this.wallLinksModalRef = modalRef;
+        modalRef.result.finally(() => {
+            if (this.wallLinksModalRef === modalRef) {
+                this.wallLinksModalRef = null;
+            }
+            this.wallLinksEvent = null;
+            this.wallLinksLoading = false;
+            this.wallLinksLoadingName = '';
+            this.wallLinksGroup = null;
+            this.isAddingWallUrlEvent = false;
+            this.cancelEditWallUrlEvent();
+            this.cdr.markForCheck();
+        });
+    }
+
+    getWallLinksModalTitle(): string {
+        return this.wallLinksEvent?.evenementName || this.wallLinksLoadingName || '';
+    }
+
+    startAddWallUrlEvent(): void {
+        const user = this.getWallLinksCurrentUser();
+        this.isAddingWallUrlEvent = true;
+        this.newWallUrlEvent = new UrlEvent('', new Date(), user?.userName || '', '', '');
+    }
+
+    cancelAddWallUrlEvent(): void {
+        const user = this.getWallLinksCurrentUser();
+        this.isAddingWallUrlEvent = false;
+        this.newWallUrlEvent = new UrlEvent('', new Date(), user?.userName || '', '', '');
+    }
+
+    addWallUrlEvent(): void {
+        const ev = this.wallLinksEvent;
+        if (!ev?.id) {
+            return;
+        }
+        const typeUrl = (this.newWallUrlEvent.typeUrl || '').trim();
+        const link = (this.newWallUrlEvent.link || '').trim();
+        if (!typeUrl || !link) {
+            return;
+        }
+        let linkValue = link;
+        if (typeUrl.toUpperCase() === 'PHOTOFROMFS') {
+            if (!this.keycloakService.hasFileSystemRole()) {
+                alert(this.translate.instant('EVENTUPDT.PHOTOFROMFS_UNAUTHORIZED'));
+                return;
+            }
+            linkValue = this.addWallYearPrefixIfNeeded(linkValue);
+        }
+        const user = this.getWallLinksCurrentUser();
+        const urlEvent = new UrlEvent(
+            typeUrl,
+            new Date(),
+            user?.userName || '',
+            linkValue,
+            (this.newWallUrlEvent.urlDescription || '').trim()
+        );
+        const sub = this.evenementsService.addUrlEvent(ev.id, urlEvent).subscribe({
+            next: (updated) => {
+                if (updated?.urlEvents) {
+                    ev.urlEvents = updated.urlEvents;
+                }
+                this.cancelAddWallUrlEvent();
+                this.refreshWallLinksGroupAfterChange();
+                this.cdr.markForCheck();
+            },
+            error: (err) => this.handleWallUrlEventError(err)
+        });
+        this.subscriptions.push(sub);
+    }
+
+    startEditWallUrlEvent(index: number): void {
+        if (!this.canModifyWallLinksEvent() || !this.wallLinksEvent?.urlEvents) {
+            return;
+        }
+        const urlEvent = this.wallLinksEvent.urlEvents[index];
+        if (!urlEvent) {
+            return;
+        }
+        this.editingWallUrlEventIndex = index;
+        this.editingWallUrlEvent = new UrlEvent(
+            urlEvent.typeUrl,
+            urlEvent.dateCreation,
+            urlEvent.owner,
+            urlEvent.link,
+            urlEvent.urlDescription
+        );
+    }
+
+    cancelEditWallUrlEvent(): void {
+        this.editingWallUrlEventIndex = -1;
+        this.editingWallUrlEvent = new UrlEvent('', new Date(), '', '', '');
+    }
+
+    saveWallUrlEventEdit(): void {
+        const ev = this.wallLinksEvent;
+        if (!ev?.id || !ev.urlEvents || !this.canModifyWallLinksEvent()) {
+            return;
+        }
+        const index = this.editingWallUrlEventIndex;
+        if (index < 0 || index >= ev.urlEvents.length) {
+            return;
+        }
+        const typeUrl = (this.editingWallUrlEvent.typeUrl || '').trim();
+        const link = (this.editingWallUrlEvent.link || '').trim();
+        if (!typeUrl || !link) {
+            return;
+        }
+        let linkValue = link;
+        if (typeUrl.toUpperCase() === 'PHOTOFROMFS') {
+            if (!this.keycloakService.hasFileSystemRole()) {
+                alert(this.translate.instant('EVENTUPDT.PHOTOFROMFS_UNAUTHORIZED'));
+                return;
+            }
+            linkValue = this.addWallYearPrefixIfNeeded(linkValue);
+        }
+        const original = ev.urlEvents[index];
+        const updatedLink = new UrlEvent(
+            typeUrl,
+            original.dateCreation,
+            original.owner,
+            linkValue,
+            (this.editingWallUrlEvent.urlDescription || '').trim()
+        );
+        const sub = this.evenementsService.updateUrlEvent(ev.id, index, updatedLink).subscribe({
+            next: (updated) => {
+                if (updated?.urlEvents) {
+                    ev.urlEvents = updated.urlEvents;
+                }
+                this.cancelEditWallUrlEvent();
+                this.refreshWallLinksGroupAfterChange();
+                this.cdr.markForCheck();
+            },
+            error: (err) => this.handleWallUrlEventError(err)
+        });
+        this.subscriptions.push(sub);
+    }
+
+    removeWallUrlEvent(index: number): void {
+        const ev = this.wallLinksEvent;
+        if (!ev?.id || !ev.urlEvents || !this.canModifyWallLinksEvent()) {
+            alert(this.translate.instant('EVENTELEM.UNAUTHORIZED_DELETE_LINK'));
+            return;
+        }
+        if (!confirm(this.translate.instant('EVENTHOME.DELETE_LINK_CONFIRM') || 'Supprimer ce lien ?')) {
+            return;
+        }
+        const sub = this.evenementsService.deleteUrlEvent(ev.id, index).subscribe({
+            next: (updated) => {
+                if (updated?.urlEvents) {
+                    ev.urlEvents = updated.urlEvents;
+                } else {
+                    ev.urlEvents.splice(index, 1);
+                }
+                this.refreshWallLinksGroupAfterChange();
+                this.cdr.markForCheck();
+            },
+            error: (err) => this.handleWallUrlEventError(err)
+        });
+        this.subscriptions.push(sub);
+    }
+
+    private refreshWallLinksGroupAfterChange(): void {
+        if (this.wallLinksGroup) {
+            this.refreshTimelineGroup(this.wallLinksGroup);
+        }
+    }
+
+    private handleWallUrlEventError(err: any): void {
+        if (err?.status === 403) {
+            const errorType = err?.error?.error;
+            if (errorType === 'PHOTOFROMFS_UNAUTHORIZED') {
+                alert(this.translate.instant('EVENTUPDT.PHOTOFROMFS_UNAUTHORIZED'));
+            } else {
+                alert(this.translate.instant('EVENTUPDT.EVENT_UPDATE_UNAUTHORIZED') || 'Non autorisé');
+            }
+        } else {
+            alert(this.translate.instant('COMMUN.ERROR') || 'Erreur');
+        }
+    }
+
+    private addWallYearPrefixIfNeeded(link: string): string {
+        const trimmedLink = (link || '').trim();
+        if (trimmedLink.length < 4) {
+            return trimmedLink;
+        }
+        const firstFourChars = trimmedLink.substring(0, 4);
+        if (!/^\d{4}$/.test(firstFourChars)) {
+            return trimmedLink;
+        }
+        const year = parseInt(firstFourChars, 10);
+        if (year < 1900 || year > 2100) {
+            return trimmedLink;
+        }
+        const yearWithSlash = firstFourChars + '/';
+        const yearWithBackslash = firstFourChars + '\\';
+        if (trimmedLink.startsWith(yearWithSlash) || trimmedLink.startsWith(yearWithBackslash)) {
+            return trimmedLink;
+        }
+        return firstFourChars + '/' + trimmedLink;
     }
 
     /** PatTool assistant : même principe que element-evenement (brouillon = titre de l’activité). */

@@ -1307,13 +1307,12 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     return this.keycloakService.hasFileSystemRole();
   }
 
-  public canEditUrlEvent(urlEvent: UrlEvent): boolean {
-    return !!this.user?.userName && !!urlEvent?.owner &&
-      this.user.userName.toLowerCase() === urlEvent.owner.toLowerCase();
+  public canEditUrlEvent(_urlEvent?: UrlEvent): boolean {
+    return this.canModifyEvent();
   }
 
-  public canDeleteUrlEvent(urlEvent: UrlEvent): boolean {
-    return this.canEditUrlEvent(urlEvent);
+  public canDeleteUrlEvent(_urlEvent?: UrlEvent): boolean {
+    return this.canModifyEvent();
   }
 
   public startAddUrlEvent(): void {
@@ -1344,8 +1343,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   public addUrlEvent(): void {
-    if (!this.evenement) return;
-    if (!this.evenement.urlEvents) this.evenement.urlEvents = [];
+    if (!this.evenement?.id) return;
 
     const typeUrl = (this.newUrlEvent.typeUrl || '').trim();
     const link = (this.newUrlEvent.link || '').trim();
@@ -1369,13 +1367,31 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
       (this.newUrlEvent.urlDescription || '').trim()
     );
 
-    this.evenement.urlEvents.push(urlEvent);
-    this.persistEventChanges();
-    this.cancelAddUrlEvent();
+    const subscription = this.evenementsService.addUrlEvent(this.evenement.id, urlEvent).subscribe({
+      next: (updatedEvent) => {
+        if (updatedEvent?.urlEvents) {
+          this.evenement!.urlEvents = updatedEvent.urlEvents;
+        }
+        this.cancelAddUrlEvent();
+      },
+      error: (err: any) => {
+        if (err?.status === 403) {
+          const errorType = err?.error?.error;
+          if (errorType === 'PHOTOFROMFS_UNAUTHORIZED') {
+            alert(this.translateService.instant('EVENTUPDT.PHOTOFROMFS_UNAUTHORIZED'));
+          } else {
+            alert(this.translateService.instant('EVENTUPDT.EVENT_UPDATE_UNAUTHORIZED') || 'Non autorisé');
+          }
+        } else {
+          alert(this.translateService.instant('COMMUN.ERROR') || 'Erreur');
+        }
+      }
+    });
+    this.activeSubscriptions.add(subscription);
   }
 
   public startEditUrlEvent(urlEvent: UrlEvent): void {
-    if (!this.evenement?.urlEvents) return;
+    if (!this.canModifyEvent() || !this.evenement?.urlEvents) return;
     const idx = this.evenement.urlEvents.indexOf(urlEvent);
     if (idx < 0) return;
 
@@ -1395,7 +1411,11 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   public saveUrlEventEdit(): void {
-    if (!this.evenement?.urlEvents) return;
+    if (!this.evenement?.id || !this.evenement.urlEvents) return;
+    if (!this.canModifyEvent()) {
+      alert(this.translateService.instant('EVENTELEM.UNAUTHORIZED_DELETE_LINK'));
+      return;
+    }
     if (this.editingUrlEventIndex < 0 || this.editingUrlEventIndex >= this.evenement.urlEvents.length) return;
 
     const typeUrl = (this.editingUrlEvent.typeUrl || '').trim();
@@ -1412,17 +1432,40 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
       linkValue = this.addYearPrefixIfNeeded(linkValue);
     }
 
-    const original = this.evenement.urlEvents[this.editingUrlEventIndex];
-    original.typeUrl = typeUrl;
-    original.link = linkValue;
-    original.urlDescription = (this.editingUrlEvent.urlDescription || '').trim();
+    const updatedLink = new UrlEvent(
+      typeUrl,
+      this.evenement.urlEvents[this.editingUrlEventIndex].dateCreation,
+      this.evenement.urlEvents[this.editingUrlEventIndex].owner,
+      linkValue,
+      (this.editingUrlEvent.urlDescription || '').trim()
+    );
+    const index = this.editingUrlEventIndex;
 
-    this.persistEventChanges();
-    this.cancelEditUrlEvent();
+    const subscription = this.evenementsService.updateUrlEvent(this.evenement.id, index, updatedLink).subscribe({
+      next: (updatedEvent) => {
+        if (updatedEvent?.urlEvents) {
+          this.evenement!.urlEvents = updatedEvent.urlEvents;
+        }
+        this.cancelEditUrlEvent();
+      },
+      error: (err: any) => {
+        if (err?.status === 403) {
+          const errorType = err?.error?.error;
+          if (errorType === 'PHOTOFROMFS_UNAUTHORIZED') {
+            alert(this.translateService.instant('EVENTUPDT.PHOTOFROMFS_UNAUTHORIZED'));
+          } else {
+            alert(this.translateService.instant('EVENTUPDT.EVENT_UPDATE_UNAUTHORIZED') || 'Non autorisé');
+          }
+        } else {
+          alert(this.translateService.instant('COMMUN.ERROR') || 'Erreur');
+        }
+      }
+    });
+    this.activeSubscriptions.add(subscription);
   }
 
   public removeUrlEvent(urlEvent: UrlEvent): void {
-    if (!this.evenement?.urlEvents) return;
+    if (!this.evenement?.id || !this.evenement.urlEvents) return;
     const idx = this.evenement.urlEvents.indexOf(urlEvent);
     if (idx < 0) return;
 
@@ -1435,8 +1478,23 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
       return;
     }
 
-    this.evenement.urlEvents.splice(idx, 1);
-    this.persistEventChanges();
+    const subscription = this.evenementsService.deleteUrlEvent(this.evenement.id, idx).subscribe({
+      next: (updatedEvent) => {
+        if (updatedEvent?.urlEvents) {
+          this.evenement!.urlEvents = updatedEvent.urlEvents;
+        } else if (this.evenement?.urlEvents) {
+          this.evenement.urlEvents.splice(idx, 1);
+        }
+      },
+      error: (err: any) => {
+        if (err?.status === 403) {
+          alert(this.translateService.instant('EVENTUPDT.EVENT_UPDATE_UNAUTHORIZED') || 'Non autorisé');
+        } else {
+          alert(this.translateService.instant('COMMUN.ERROR') || 'Erreur');
+        }
+      }
+    });
+    this.activeSubscriptions.add(subscription);
   }
 
   /** Open link in a new browser window/tab */

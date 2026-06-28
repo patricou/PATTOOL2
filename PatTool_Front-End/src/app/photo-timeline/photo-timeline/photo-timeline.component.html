@@ -217,6 +217,14 @@
                         <span class="group-action-btn-text">{{ 'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate }}</span>
                     </button>
                     <button type="button"
+                            class="btn btn-sm group-action-btn group-action-btn--links"
+                            *ngIf="userId && group.eventId"
+                            (click)="openWallLinks(group); $event.stopPropagation()"
+                            [title]="'EVENTHOME.ADD_URL_EVENT' | translate">
+                        <i class="fa fa-link"></i>
+                        <span class="group-action-btn-text">{{ 'EVENTHOME.URL_EVENTS' | translate }}</span>
+                    </button>
+                    <button type="button"
                             class="btn btn-sm group-action-btn group-action-btn--commentaries"
                             *ngIf="groupHasCommentaries(group)"
                             (click)="openWallCommentary(group); $event.stopPropagation()"
@@ -305,6 +313,13 @@
                         <span class="group-fs-link-badge-verb">{{ getPhotoWallLinkActionLabelKey(fsLink) | translate }}</span>
                     </span>
                     <span class="group-fs-link-badge-target">{{ fsLink.description || fsLink.path }}</span>
+                    <span class="group-fs-link-badge-owner" *ngIf="getPhotoWallLinkOwner(fsLink)">
+                        <i class="fa fa-user" aria-hidden="true"></i>
+                        {{ 'EVENTHOME.URL_OWNER' | translate }}: {{ getPhotoWallLinkOwner(fsLink) }}
+                        <ng-container *ngIf="getPhotoWallLinkDate(fsLink) as linkDate">
+                            • {{ linkDate }}
+                        </ng-container>
+                    </span>
                 </span>
             </div>
 
@@ -1174,6 +1189,169 @@
                 (commentaryUpdated)="onWallCommentaryUpdated($event)"
                 (commentaryDeleted)="onWallCommentaryDeleted($event)">
             </app-commentary-editor>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="close()">
+            <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
+        </button>
+    </div>
+</ng-template>
+
+<!-- Liens activité (mur de photos) -->
+<ng-template #wallLinksModal let-close="close">
+    <div class="modal-header text-white selector-header rounded-top wall-links-modal-header bg-primary">
+        <h5 class="modal-title">
+            <i class="fa fa-link me-2"></i>
+            {{ 'EVENTHOME.URL_EVENTS' | translate }}
+            <ng-container *ngIf="getWallLinksModalTitle()"> — {{ getWallLinksModalTitle() }}</ng-container>
+        </h5>
+        <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto" (click)="close()" [attr.aria-label]="'COMMUN.CLOSE' | translate">
+            <i class="fa fa-times"></i>
+        </button>
+    </div>
+    <div class="modal-body selector-body wall-links-modal-body">
+        <div *ngIf="wallLinksLoading" class="wall-links-modal-loading" aria-busy="true">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">{{ 'COMMUN.LOADING' | translate }}</span>
+            </div>
+            <p class="text-muted mb-0">{{ 'COMMUN.LOADING' | translate }}...</p>
+        </div>
+        <div *ngIf="!wallLinksLoading && wallLinksEvent" class="wall-links-modal-content">
+            <div class="mb-3" *ngIf="!isAddingWallUrlEvent">
+                <button type="button" class="btn btn-outline-primary btn-sm" (click)="startAddWallUrlEvent()">
+                    <i class="fa fa-plus"></i> {{ 'EVENTHOME.ADD_URL_EVENT' | translate }}
+                </button>
+            </div>
+
+            <div class="wall-links-add-form mb-3" *ngIf="isAddingWallUrlEvent">
+                <h6 class="mb-2">{{ 'EVENTHOME.ADD_URL_EVENT' | translate }}</h6>
+                <div class="row g-2">
+                    <div class="col-12">
+                        <select [(ngModel)]="newWallUrlEvent.typeUrl" name="wallNewUrlType" class="form-control form-control-sm">
+                            <option value="">{{ 'EVENTHOME.TYPE_URL' | translate }}</option>
+                            <option *ngFor="let type of getSortedWallUrlEventTypes()" [value]="type.id">{{ type.label | translate }}</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <input [(ngModel)]="newWallUrlEvent.link"
+                               name="wallNewUrlLink"
+                               type="text"
+                               class="form-control form-control-sm"
+                               [placeholder]="'EVENTHOME.PLACEHOLDER_URL' | translate">
+                    </div>
+                    <div class="col-12">
+                        <input [(ngModel)]="newWallUrlEvent.urlDescription"
+                               name="wallNewUrlDesc"
+                               type="text"
+                               class="form-control form-control-sm"
+                               [placeholder]="'EVENTHOME.LINK_DESCRIPTION_PLACEHOLDER' | translate">
+                    </div>
+                    <div class="col-12">
+                        <p class="wall-link-owner-line mb-0" *ngIf="getWallLinksCurrentUser()?.userName">
+                            <i class="fa fa-user" aria-hidden="true"></i>
+                            {{ 'EVENTHOME.URL_OWNER' | translate }}: {{ getWallLinksCurrentUser()?.userName }}
+                        </p>
+                    </div>
+                    <div class="col-12 d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-success btn-sm" (click)="addWallUrlEvent()">
+                            <i class="fa fa-check"></i> {{ 'EVENTHOME.SAVE_URL_EVENT' | translate }}
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm" (click)="cancelAddWallUrlEvent()">
+                            <i class="fa fa-times"></i> {{ 'EVENTHOME.CANCEL_URL_EVENT' | translate }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div *ngIf="!wallLinksEvent.urlEvents?.length" class="text-center text-muted py-3">
+                <i class="fa fa-link fa-2x mb-2"></i>
+                <p class="mb-0">{{ 'EVENTHOME.NO_LINKS_ADDED' | translate }}</p>
+            </div>
+
+            <div class="wall-links-list" *ngIf="wallLinksEvent.urlEvents?.length">
+                <div class="wall-link-item card mb-2" *ngFor="let urlEvent of wallLinksEvent.urlEvents; let idx = index">
+                    <ng-container *ngIf="editingWallUrlEventIndex !== idx; else wallEditUrlTpl">
+                        <div class="card-body py-2 px-3">
+                            <div class="d-flex flex-wrap align-items-start gap-2">
+                                <div class="flex-grow-1 min-w-0">
+                                    <div class="small text-muted mb-1">
+                                        <i class="fa fa-tag"></i> {{ getWallUrlTypeLabel(urlEvent.typeUrl) | translate }}
+                                    </div>
+                                    <a *ngIf="urlEvent.link && !isWallPhotoFromFs(urlEvent)"
+                                       [href]="urlEvent.link"
+                                       target="_blank"
+                                       rel="noopener noreferrer"
+                                       class="text-break">
+                                        {{ urlEvent.urlDescription || urlEvent.link }}
+                                    </a>
+                                    <span *ngIf="urlEvent.link && isWallPhotoFromFs(urlEvent)" class="text-break">
+                                        {{ urlEvent.urlDescription || urlEvent.link }}
+                                    </span>
+                                    <p class="wall-link-owner-line mb-0 mt-1" *ngIf="urlEvent.owner">
+                                        <i class="fa fa-user" aria-hidden="true"></i>
+                                        {{ 'EVENTHOME.URL_OWNER' | translate }}:
+                                        <strong>{{ urlEvent.owner }}</strong>
+                                        <span *ngIf="urlEvent.dateCreation"> • {{ formatWallLinkDate(urlEvent.dateCreation) }}</span>
+                                    </p>
+                                </div>
+                                <div class="d-flex gap-1 flex-shrink-0" *ngIf="canModifyWallLinksEvent()">
+                                    <button type="button" class="btn btn-outline-primary btn-sm"
+                                            (click)="startEditWallUrlEvent(idx)"
+                                            [title]="'EVENTHOME.EDIT_LINK' | translate">
+                                        <i class="fa fa-edit"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger btn-sm"
+                                            (click)="removeWallUrlEvent(idx)"
+                                            [title]="'EVENTHOME.REMOVE_URL_EVENT' | translate">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </ng-container>
+                    <ng-template #wallEditUrlTpl>
+                        <div class="card-body py-2 px-3">
+                            <div class="row g-2">
+                                <div class="col-12">
+                                    <select [(ngModel)]="editingWallUrlEvent.typeUrl" name="wallEditUrlType" class="form-control form-control-sm">
+                                        <option value="">{{ 'EVENTHOME.TYPE_URL' | translate }}</option>
+                                        <option *ngFor="let type of getSortedWallUrlEventTypes()" [value]="type.id">{{ type.label | translate }}</option>
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <input [(ngModel)]="editingWallUrlEvent.link"
+                                           name="wallEditUrlLink"
+                                           type="text"
+                                           class="form-control form-control-sm"
+                                           [placeholder]="'EVENTHOME.PLACEHOLDER_URL' | translate">
+                                </div>
+                                <div class="col-12">
+                                    <input [(ngModel)]="editingWallUrlEvent.urlDescription"
+                                           name="wallEditUrlDesc"
+                                           type="text"
+                                           class="form-control form-control-sm"
+                                           [placeholder]="'EVENTHOME.LINK_DESCRIPTION_PLACEHOLDER' | translate">
+                                </div>
+                                <div class="col-12">
+                                    <p class="wall-link-owner-line mb-0" *ngIf="editingWallUrlEvent.owner">
+                                        <i class="fa fa-user" aria-hidden="true"></i>
+                                        {{ 'EVENTHOME.URL_OWNER' | translate }}: {{ editingWallUrlEvent.owner }}
+                                    </p>
+                                </div>
+                                <div class="col-12 d-flex justify-content-end gap-2">
+                                    <button type="button" class="btn btn-success btn-sm" (click)="saveWallUrlEventEdit()">
+                                        <i class="fa fa-check"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-secondary btn-sm" (click)="cancelEditWallUrlEvent()">
+                                        <i class="fa fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </ng-template>
+                </div>
+            </div>
         </div>
     </div>
     <div class="modal-footer">

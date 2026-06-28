@@ -521,7 +521,11 @@
           <div class="card-header-compact">
             <i class="fa fa-folder-open"></i>
             <span>{{ urlEvent.urlDescription || getWebsiteTitle(urlEvent.link) }}</span>
-            <small class="url-meta-compact ms-2">({{ urlEvent.owner }} • {{ formatCommentaryDate(urlEvent.dateCreation) }})</small>
+            <span class="url-owner-compact ms-2" *ngIf="urlEvent.owner">
+              <i class="fa fa-user" aria-hidden="true"></i>
+              {{ 'EVENTHOME.URL_OWNER' | translate }}: {{ urlEvent.owner }}
+              <span *ngIf="urlEvent.dateCreation"> • {{ formatCommentaryDate(urlEvent.dateCreation) }}</span>
+            </span>
             <button type="button" 
                     class="btn-compact btn-primary-compact ms-auto" 
                     (click)="togglePhotofromfsAutoplay(urlEvent.link); $event.stopPropagation()" 
@@ -708,6 +712,11 @@
                    type="text"
                    class="compact-input compact-full-row"
                    placeholder="{{ 'EVENTHOME.LINK_DESCRIPTION_PLACEHOLDER' | translate }}">
+
+            <p class="url-owner-compact url-owner-compact--form compact-full-row" *ngIf="user?.userName">
+              <i class="fa fa-user" aria-hidden="true"></i>
+              {{ 'EVENTHOME.URL_OWNER' | translate }}: {{ user?.userName }}
+            </p>
           </div>
 
           <div class="compact-form-actions">
@@ -752,7 +761,15 @@
                             [title]="'EVENTELEM.OPEN_LINK_NEW_WINDOW' | translate">
                       <i class="fa fa-external-link"></i>
                     </button>
-                    <small class="url-meta-compact">{{ urlEvent.owner }} • {{ formatCommentaryDate(urlEvent.dateCreation) }}</small>
+                  </div>
+
+                  <div class="url-owner-compact" *ngIf="urlEvent.owner">
+                    <i class="fa fa-user" aria-hidden="true"></i>
+                    <span class="url-owner-label">{{ 'EVENTHOME.URL_OWNER' | translate }}:</span>
+                    <span class="url-owner-name">{{ urlEvent.owner }}</span>
+                    <span class="url-owner-date" *ngIf="urlEvent.dateCreation">
+                      • <i class="fa fa-calendar" aria-hidden="true"></i> {{ formatCommentaryDate(urlEvent.dateCreation) }}
+                    </span>
                   </div>
 
                   <button class="btn-compact btn-fs-compact"
@@ -811,6 +828,11 @@
                            type="text"
                            class="compact-input compact-full-row"
                            placeholder="{{ 'EVENTHOME.LINK_DESCRIPTION_PLACEHOLDER' | translate }}">
+
+                    <p class="url-owner-compact url-owner-compact--form compact-full-row" *ngIf="editingUrlEvent.owner">
+                      <i class="fa fa-user" aria-hidden="true"></i>
+                      {{ 'EVENTHOME.URL_OWNER' | translate }}: {{ editingUrlEvent.owner }}
+                    </p>
                   </div>
 
                   <div class="compact-form-actions">
