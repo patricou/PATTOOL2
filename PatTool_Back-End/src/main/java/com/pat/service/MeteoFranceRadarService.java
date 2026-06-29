@@ -343,7 +343,7 @@ public class MeteoFranceRadarService {
                 return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
             }
             if (enhance > 0.95f && framePath.contains("/satellite/")) {
-                body = CloudMapTileEnhancer.enhance(body, enhance);
+                body = CloudMapTileEnhancer.enhanceSatelliteIr(body, enhance);
             }
             HttpHeaders out = new HttpHeaders();
             MediaType contentType = response.getHeaders().getContentType();

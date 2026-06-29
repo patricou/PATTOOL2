@@ -172,6 +172,7 @@ public final class PatToolParameterCatalog {
                     defSensitive("meteofrance.api.token"),
                     defSensitive("meteofrance.clim.api.token"),
                     defSensitive("meteofrance.obs.api.token"),
+                    defSensitive("meteofrance.aromepi.api.token"),
                     defSensitive("meteofrance.oauth.application-id"),
                     def("meteofrance.radar.base.url", false),
                     def("meteofrance.radar.wms.url", false),
@@ -181,6 +182,8 @@ public final class PatToolParameterCatalog {
                     defMongo("meteofrance.temperature.cache.minutes", false),
                     def("meteofrance.clim.base.url", false),
                     def("meteofrance.obs.base.url", false),
+                    def("meteofrance.aromepi.base.url", false),
+                    def("meteofrance.aromepi.wms.service", false),
                     defSensitive("thunderforest.api.key"),
                     defSensitive("ign.api.key")
             ),

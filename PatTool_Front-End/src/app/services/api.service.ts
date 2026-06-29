@@ -292,10 +292,23 @@ export class ApiService {
     );
   }
 
+  /** Clears server-side MF + Open-Meteo temperature observation caches. */
+  clearMeteoFranceTemperatureObservationCache(): Observable<MeteoFranceTemperatureCacheClearResult> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post<MeteoFranceTemperatureCacheClearResult>(
+          this.API_URL + 'external/meteofrance/temperature/cache/clear',
+          {},
+          { headers }
+        )
+      )
+    );
+  }
+
   /** Dense screen grid (~1 cm) — POST list of lat/lon, proxied (MF IDW + Open-Meteo). */
   postWeatherTemperatureLabels(
     points: Array<{ lat: number; lon: number; stationId?: string }>,
-    source?: 'meteofrance' | 'open-meteo',
+    source?: 'meteofrance' | 'open-meteo' | 'openweathermap',
     refresh?: boolean
   ): Observable<WeatherTemperatureLabelGrid> {
     const body: {
@@ -315,6 +328,26 @@ export class ApiService {
     );
   }
 
+  /** DPObs v2 station temperatures in map bounds (actual station positions, no interpolated grid). */
+  getMeteoFranceObsTemperatureLabels(
+    minLat: number,
+    maxLat: number,
+    minLon: number,
+    maxLon: number,
+    maxStations = 24
+  ): Observable<WeatherTemperatureLabelGrid> {
+    const params = new HttpParams()
+      .set('minLat', String(minLat))
+      .set('maxLat', String(maxLat))
+      .set('minLon', String(minLon))
+      .set('maxLon', String(maxLon))
+      .set('maxStations', String(maxStations));
+    return this._http.get<WeatherTemperatureLabelGrid>(
+      this.API_URL + 'external/meteofrance/obs/temperature-labels',
+      { params }
+    );
+  }
+
   /** Grid of current temperatures for map number labels (legacy GET). */
   getWeatherTemperatureLabels(
     minLat: number,
@@ -324,7 +357,7 @@ export class ApiService {
     cols: number,
     rows: number,
     maxStations?: number,
-    source: 'meteofrance' | 'open-meteo' = 'meteofrance'
+    source: 'meteofrance' | 'open-meteo' | 'openweathermap' = 'meteofrance'
   ): Observable<WeatherTemperatureLabelGrid> {
     let params = new HttpParams()
       .set('minLat', String(minLat))
@@ -383,6 +416,73 @@ export class ApiService {
         this._http.get(this.API_URL + 'external/meteofrance/clim/stations', { headers, params })
       )
     );
+  }
+
+  /** AROME-PI WMS capabilities (layers, time steps). */
+  getMeteoFranceAromepiCapabilities(): Observable<any> {
+    return this._http.get(this.API_URL + 'external/meteofrance/aromepi/capabilities');
+  }
+
+  /** Build AROME-PI WMS tile URL (proxied, no JWT required on tile load). */
+  buildMeteoFranceAromepiWmsTileUrl(
+    z: number,
+    x: number,
+    y: number,
+    layer: string,
+    time: string,
+    referenceTime: string,
+    style?: string
+  ): string {
+    const params = new HttpParams()
+      .set('layer', layer)
+      .set('time', time)
+      .set('referenceTime', referenceTime)
+      .set('width', '256')
+      .set('height', '256');
+    const withStyle = style ? params.set('style', style) : params;
+    return `${this.API_URL}external/meteofrance/aromepi/wms/${z}/${x}/${y}?${withStyle.toString()}`;
+  }
+
+  /** AROME-PI GetFeatureInfo at a point. */
+  getMeteoFranceAromepiFeatureInfo(
+    lat: number,
+    lon: number,
+    layer: string,
+    time: string,
+    referenceTime: string,
+    style?: string
+  ): Observable<any> {
+    let params = new HttpParams()
+      .set('lat', String(lat))
+      .set('lon', String(lon))
+      .set('layer', layer)
+      .set('time', time)
+      .set('referenceTime', referenceTime);
+    if (style) {
+      params = params.set('style', style);
+    }
+    return this._http.get(this.API_URL + 'external/meteofrance/aromepi/featureinfo', { params });
+  }
+
+  /** AROME-PI point forecast timeline (0–6 h, 15 min steps). */
+  getMeteoFranceAromepiPointForecast(
+    lat: number,
+    lon: number,
+    referenceTime?: string,
+    layers?: string[]
+  ): Observable<any> {
+    let params = new HttpParams()
+      .set('lat', String(lat))
+      .set('lon', String(lon));
+    if (referenceTime) {
+      params = params.set('referenceTime', referenceTime);
+    }
+    if (layers?.length) {
+      layers.forEach((layer) => {
+        params = params.append('layers', layer);
+      });
+    }
+    return this._http.get(this.API_URL + 'external/meteofrance/aromepi/point-forecast', { params });
   }
 
   /**
@@ -1469,6 +1569,12 @@ export interface MeteoFranceRadarPreference {
 export interface MeteoFranceTemperatureCachePreference {
   temperatureCacheMinutes: number;
   persistedInMongo?: boolean;
+}
+
+export interface MeteoFranceTemperatureCacheClearResult {
+  cleared?: boolean;
+  mfCacheEntries?: number;
+  openMeteoCacheEntries?: number;
 }
 
 /** GET /api/external/weather/map/temperature-labels */

@@ -213,6 +213,14 @@ public class MeteoFranceObsService {
         }
     }
 
+    /** Clears in-memory DPObs station and bounds response caches (does not change TTL preferences). */
+    public int clearTemperatureObservationCache() {
+        int cleared = obsCache.size() + boundsResponseCache.size();
+        obsCache.clear();
+        boundsResponseCache.clear();
+        return cleared;
+    }
+
     /**
      * Interpolate DPObs v2 station temperatures on an arbitrary point set (screen grid ~1 cm).
      * Points without nearby stations are omitted — caller may fill with Open-Meteo.
@@ -257,6 +265,8 @@ public class MeteoFranceObsService {
                 StationObs nearest = findNearestStation(stationObs, target.lat(), target.lon());
                 if (nearest != null) {
                     copyObservationMeta(point, nearest.data());
+                    point.put("stationLat", roundCoord(nearest.lat()));
+                    point.put("stationLon", roundCoord(nearest.lon()));
                 }
                 points.add(point);
             }
@@ -281,7 +291,7 @@ public class MeteoFranceObsService {
         List<ObsStation> candidates = loadCatalog().stream()
                 .filter(s -> s.lat >= south && s.lat <= north && s.lon >= west && s.lon <= east)
                 .toList();
-        List<ObsStation> selected = limitStationsInBounds(candidates, maxStations);
+        List<ObsStation> selected =     limitStationsInBounds(candidates, maxStations);
         List<StationObs> obs = new ArrayList<>();
         for (ObsStation station : selected) {
             Map<String, Object> point = fetchStationTemperaturePoint(station, cacheTtl);
@@ -576,7 +586,6 @@ public class MeteoFranceObsService {
 
         if (bypassCache) {
             obsCache.remove(station.id());
-            boundsResponseCache.clear();
         }
 
         String url = UriComponentsBuilder
@@ -596,8 +605,44 @@ public class MeteoFranceObsService {
         if (point != null) {
             point.put("cached", false);
             obsCache.put(station.id(), new ObsCacheEntry(stripCachedFlag(point), Instant.now()));
+            if (bypassCache) {
+                patchStationInBoundsCaches(station.id(), point);
+            }
         }
         return point;
+    }
+
+    /**
+     * After a forced station refresh, update every cached bounds response that already contains
+     * that station so pan/zoom keeps serving the fresh observation instead of stale values.
+     */
+    @SuppressWarnings("unchecked")
+    private void patchStationInBoundsCaches(String stationId, Map<String, Object> freshPoint) {
+        if (stationId == null || stationId.isBlank() || freshPoint == null) {
+            return;
+        }
+        Map<String, Object> stored = stripCachedFlag(new LinkedHashMap<>(freshPoint));
+        for (Map.Entry<String, BoundsCacheEntry> entry : boundsResponseCache.entrySet()) {
+            BoundsCacheEntry boundsEntry = entry.getValue();
+            Map<String, Object> result = boundsEntry.result();
+            Object rawPoints = result.get("points");
+            if (!(rawPoints instanceof List<?> list)) {
+                continue;
+            }
+            List<Map<String, Object>> points = (List<Map<String, Object>>) rawPoints;
+            boolean updated = false;
+            for (int i = 0; i < points.size(); i++) {
+                Map<String, Object> point = points.get(i);
+                Object id = point.get("stationId");
+                if (id != null && stationId.equals(String.valueOf(id))) {
+                    points.set(i, new LinkedHashMap<>(stored));
+                    updated = true;
+                }
+            }
+            if (updated) {
+                boundsResponseCache.put(entry.getKey(), new BoundsCacheEntry(result, Instant.now()));
+            }
+        }
     }
 
     private static Map<String, Object> stripCachedFlag(Map<String, Object> point) {

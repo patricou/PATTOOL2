@@ -9,7 +9,9 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 
 /**
- * Remaps pale weather-map cloud tiles (OpenWeatherMap, RainViewer IR) to darker, high-contrast overlays.
+ * Remaps weather-map cloud tiles for map overlays.
+ * OpenWeatherMap: soft white clouds on transparency.
+ * Satellite IR: darker high-contrast overlay.
  */
 public final class CloudMapTileEnhancer {
 
@@ -18,8 +20,53 @@ public final class CloudMapTileEnhancer {
     private CloudMapTileEnhancer() {
     }
 
-    public static byte[] enhance(byte[] pngBytes, float intensity) {
-        float gain = Math.max(0.5f, Math.min(8f, intensity));
+    public static byte[] enhanceOpenWeatherMap(byte[] pngBytes, float intensity) {
+        float gain = clampGain(intensity);
+        if (gain <= 1.02f) {
+            return pngBytes;
+        }
+        try {
+            BufferedImage src = ImageIO.read(new ByteArrayInputStream(pngBytes));
+            if (src == null) {
+                return pngBytes;
+            }
+            int w = src.getWidth();
+            int h = src.getHeight();
+            BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+            for (int y = 0; y < h; y++) {
+                for (int x = 0; x < w; x++) {
+                    int px = src.getRGB(x, y);
+                    int a = (px >>> 24) & 0xFF;
+                    int r = (px >>> 16) & 0xFF;
+                    int g = (px >>> 8) & 0xFF;
+                    int b = px & 0xFF;
+                    if (a < 8) {
+                        out.setRGB(x, y, 0x00000000);
+                        continue;
+                    }
+                    float lum = (0.299f * r + 0.587f * g + 0.114f * b) / 255f;
+                    float cloud = Math.max(0f, lum - 0.08f);
+                    float cover = (float) Math.min(1.0, Math.pow(cloud * gain * 1.15, 0.85));
+                    if (cover < 0.04f) {
+                        out.setRGB(x, y, 0x00000000);
+                        continue;
+                    }
+                    int newA = (int) Math.min(200, cover * 165);
+                    out.setRGB(x, y, (newA << 24) | 0x00F8F8F8);
+                }
+            }
+            return writePng(out, pngBytes.length);
+        } catch (Exception e) {
+            log.debug("OWM cloud tile enhance failed: {}", e.getMessage());
+            return pngBytes;
+        }
+    }
+
+    public static byte[] enhanceSatelliteIr(byte[] pngBytes, float intensity) {
+        float gain = clampGain(intensity);
+        if (gain <= 1.02f) {
+            return pngBytes;
+        }
         try {
             BufferedImage src = ImageIO.read(new ByteArrayInputStream(pngBytes));
             if (src == null) {
@@ -43,19 +90,33 @@ public final class CloudMapTileEnhancer {
                         out.setRGB(x, y, 0x00000000);
                         continue;
                     }
-                    float cover = (float) Math.min(1.0, Math.pow(signal * gain * 3.2, 0.38));
-                    int newA = (int) Math.min(255, 110 + cover * 145);
-                    int shade = (int) Math.max(18, Math.min(175, 205 - cover * 175));
-                    int blue = Math.min(255, shade + 48);
+                    float cover = (float) Math.min(1.0, Math.pow(signal * gain * 2.4, 0.42));
+                    int newA = (int) Math.min(220, 70 + cover * 150);
+                    int shade = (int) Math.max(40, Math.min(210, 230 - cover * 140));
+                    int blue = Math.min(255, shade + 36);
                     out.setRGB(x, y, (newA << 24) | (shade << 16) | ((shade + 4) << 8) | blue);
                 }
             }
-            ByteArrayOutputStream baos = new ByteArrayOutputStream(Math.max(pngBytes.length, 4096));
-            ImageIO.write(out, "png", baos);
-            return baos.toByteArray();
+            return writePng(out, pngBytes.length);
         } catch (Exception e) {
-            log.debug("Cloud tile enhance failed: {}", e.getMessage());
+            log.debug("Satellite IR cloud tile enhance failed: {}", e.getMessage());
             return pngBytes;
         }
+    }
+
+    /** @deprecated use {@link #enhanceOpenWeatherMap} or {@link #enhanceSatelliteIr} */
+    @Deprecated
+    public static byte[] enhance(byte[] pngBytes, float intensity) {
+        return enhanceOpenWeatherMap(pngBytes, intensity);
+    }
+
+    private static float clampGain(float intensity) {
+        return Math.max(0.5f, Math.min(8f, intensity));
+    }
+
+    private static byte[] writePng(BufferedImage out, int minBuffer) throws java.io.IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream(Math.max(minBuffer, 4096));
+        ImageIO.write(out, "png", baos);
+        return baos.toByteArray();
     }
 }

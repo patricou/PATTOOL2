@@ -44,101 +44,61 @@
 
       <ng-template #meteoFranceLocationPanel>
 
-        <div class="api-container meteo-france-location-panel">
+        <div class="mf-panel mf-location-panel">
 
-          <h3 class="api-title">
-
-            <i class="fa fa-map-marker"></i> {{ 'METEO_FRANCE.LOCATION_TITLE' | translate }}
-
-          </h3>
-
-
-
-          <div class="button-group mb-2">
-
-            <button type="button" class="btn btn-secondary btn-sm" (click)="useGps()" [disabled]="isLoadingGps">
-
-              <i class="fa" [class.fa-crosshairs]="!isLoadingGps" [class.fa-spinner]="isLoadingGps" [class.fa-spin]="isLoadingGps"></i>
-
-              {{ 'METEO_FRANCE.USE_GPS' | translate }}
-
-            </button>
-
-            <button type="button" class="btn btn-primary btn-sm" (click)="refreshWeather()"
-
-                    [disabled]="isLoadingWeather || isLoadingForecast">
-
-              <i class="fa fa-refresh"></i> {{ 'METEO_FRANCE.REFRESH' | translate }}
-
-            </button>
-
-            <div class="btn-group btn-group-sm temp-unit-toggle" role="group"
-                 [attr.aria-label]="'METEO_FRANCE.TEMP_UNIT_LABEL' | translate">
-
-              <button type="button" class="btn"
-                      [class.btn-primary]="temperatureUnit === 'celsius'"
-                      [class.btn-outline-secondary]="temperatureUnit !== 'celsius'"
-                      (click)="onTemperatureUnitChange('celsius')">°C</button>
-
-              <button type="button" class="btn"
-                      [class.btn-primary]="temperatureUnit === 'fahrenheit'"
-                      [class.btn-outline-secondary]="temperatureUnit !== 'fahrenheit'"
-                      (click)="onTemperatureUnitChange('fahrenheit')">°F</button>
-
+          <div class="mf-panel-header">
+            <h3 class="mf-panel-title">
+              <i class="fa fa-map-marker"></i>
+              {{ 'METEO_FRANCE.LOCATION_TITLE' | translate }}
+            </h3>
+            <div class="mf-toolbar">
+              <button type="button" class="btn btn-sm mf-btn-ghost" (click)="useGps()" [disabled]="isLoadingGps"
+                      [attr.title]="'METEO_FRANCE.USE_GPS' | translate">
+                <i class="fa" [class.fa-crosshairs]="!isLoadingGps" [class.fa-spinner]="isLoadingGps" [class.fa-spin]="isLoadingGps"></i>
+                <span class="mf-toolbar-label">{{ 'METEO_FRANCE.USE_GPS' | translate }}</span>
+              </button>
+              <button type="button" class="btn btn-sm btn-primary" (click)="refreshWeather()"
+                      [disabled]="isLoadingWeather || isLoadingForecast"
+                      [attr.title]="'METEO_FRANCE.REFRESH' | translate">
+                <i class="fa fa-refresh"></i>
+                <span class="mf-toolbar-label">{{ 'METEO_FRANCE.REFRESH' | translate }}</span>
+              </button>
+              <div class="btn-group btn-group-sm mf-unit-toggle" role="group"
+                   [attr.aria-label]="'METEO_FRANCE.TEMP_UNIT_LABEL' | translate">
+                <button type="button" class="btn"
+                        [class.btn-primary]="temperatureUnit === 'celsius'"
+                        [class.btn-outline-secondary]="temperatureUnit !== 'celsius'"
+                        (click)="onTemperatureUnitChange('celsius')">°C</button>
+                <button type="button" class="btn"
+                        [class.btn-primary]="temperatureUnit === 'fahrenheit'"
+                        [class.btn-outline-secondary]="temperatureUnit !== 'fahrenheit'"
+                        (click)="onTemperatureUnitChange('fahrenheit')">°F</button>
+              </div>
             </div>
-
           </div>
 
-
-
-          <div class="weather-controls">
-
-            <div class="form-group flex-grow-1">
-
-              <label for="mf-city">{{ 'METEO_FRANCE.CITY' | translate }}</label>
-
-              <div class="input-group input-group-sm">
-
-                <input id="mf-city" type="text" class="form-control" [(ngModel)]="city"
-
-                       (keyup.enter)="searchCity()">
-
-                <button type="button" class="btn btn-outline-primary" (click)="searchCity()" [disabled]="isLoadingCitySearch">
-
-                  <i class="fa" [class.fa-search]="!isLoadingCitySearch" [class.fa-spinner]="isLoadingCitySearch" [class.fa-spin]="isLoadingCitySearch"></i>
-
-                </button>
-
-              </div>
-
-              <div class="city-search-results" *ngIf="showCitySearchResults && citySearchResults.length">
-
-                <div class="city-search-result-item" *ngFor="let r of citySearchResults" (click)="selectCity(r)">
-
-                  <i class="fa fa-map-marker"></i> {{ r.displayName || r.cityName }}
-
-                </div>
-
-              </div>
-
+          <div class="mf-search-row">
+            <label class="mf-field-label" for="mf-city">{{ 'METEO_FRANCE.CITY' | translate }}</label>
+            <div class="input-group input-group-sm mf-search-input">
+              <input id="mf-city" type="text" class="form-control" [(ngModel)]="city" (keyup.enter)="searchCity()">
+              <button type="button" class="btn btn-outline-primary" (click)="searchCity()" [disabled]="isLoadingCitySearch">
+                <i class="fa" [class.fa-search]="!isLoadingCitySearch" [class.fa-spinner]="isLoadingCitySearch" [class.fa-spin]="isLoadingCitySearch"></i>
+              </button>
             </div>
-
+            <div class="city-search-results" *ngIf="showCitySearchResults && citySearchResults.length">
+              <div class="city-search-result-item" *ngFor="let r of citySearchResults" (click)="selectCity(r)">
+                <i class="fa fa-map-marker"></i> {{ r.displayName || r.cityName }}
+              </div>
+            </div>
           </div>
 
-
-
-          <div class="location-summary" *ngIf="fullAddress || lat">
-
-            <div><strong>{{ fullAddress || (city + ', ' + countryCode) }}</strong></div>
-
-            <div class="text-muted small">
-
-              {{ 'METEO_FRANCE.COORDS' | translate }}:
-
-              {{ lat.toFixed(5) }}, {{ lon.toFixed(5) }}
-
-            </div>
-
+          <div class="mf-location-meta" *ngIf="fullAddress || lat">
+            <p class="mf-location-address" [title]="fullAddress || (city + ', ' + countryCode)">
+              {{ fullAddress || (city + ', ' + countryCode) }}
+            </p>
+            <span class="mf-coords-badge">
+              {{ lat.toFixed(4) }}, {{ lon.toFixed(4) }}
+            </span>
           </div>
 
         </div>
@@ -147,32 +107,40 @@
 
 
 
-      <ul class="nav nav-pills mb-3 gap-2 meteo-france-tabs">
+      <div class="meteo-france-tabs-mobile d-md-none">
+        <label for="meteoFranceTabSelect" class="meteo-france-tabs-mobile-label">{{ 'METEO_FRANCE.TITLE' | translate }}</label>
+        <select id="meteoFranceTabSelect"
+                class="form-select meteo-france-tabs-select"
+                [ngModel]="activeMainTab"
+                (ngModelChange)="onMainTabChange($event)">
+          <option value="radar">{{ 'METEO_FRANCE.TAB_RADAR' | translate }}</option>
+          <option value="clim">{{ 'METEO_FRANCE.TAB_CLIM' | translate }}</option>
+          <option value="aromepi">{{ 'METEO_FRANCE.TAB_AROMEPI' | translate }}</option>
+        </select>
+      </div>
 
-        <li class="nav-item">
-
+      <ul class="nav nav-tabs meteo-france-tabs-desktop d-none d-md-flex" role="tablist">
+        <li class="nav-item" role="presentation">
           <button type="button" class="nav-link" [class.active]="activeMainTab === 'radar'"
-
                   (click)="onMainTabChange('radar')">
-
-            <i class="fa fa-bolt me-1"></i> {{ 'METEO_FRANCE.TAB_RADAR' | translate }}
-
+            <i class="fa fa-bolt"></i>
+            {{ 'METEO_FRANCE.TAB_RADAR' | translate }}
           </button>
-
         </li>
-
-        <li class="nav-item">
-
+        <li class="nav-item" role="presentation">
           <button type="button" class="nav-link" [class.active]="activeMainTab === 'clim'"
-
                   (click)="onMainTabChange('clim')">
-
-            <i class="fa fa-database me-1"></i> {{ 'METEO_FRANCE.TAB_CLIM' | translate }}
-
+            <i class="fa fa-database"></i>
+            {{ 'METEO_FRANCE.TAB_CLIM' | translate }}
           </button>
-
         </li>
-
+        <li class="nav-item" role="presentation">
+          <button type="button" class="nav-link" [class.active]="activeMainTab === 'aromepi'"
+                  (click)="onMainTabChange('aromepi')">
+            <i class="fa fa-cloud"></i>
+            {{ 'METEO_FRANCE.TAB_AROMEPI' | translate }}
+          </button>
+        </li>
       </ul>
 
 
@@ -235,182 +203,215 @@
 
 
 
-          <div class="radar-controls">
+          <div class="mf-options-panel">
 
-            <label class="radar-control-item">
-
-              <input type="checkbox" [(ngModel)]="showRadar" (change)="onShowRadarChange()" [disabled]="!radarAvailable">
-
-              {{ 'METEO_FRANCE.SHOW_RADAR' | translate }}
-
-            </label>
-
-            <label class="radar-control-item">
-
-              <input type="checkbox" [(ngModel)]="showCloudLayer" (ngModelChange)="onShowCloudLayerChange()">
-
-              {{ 'METEO_FRANCE.SHOW_CLOUDS' | translate }}
-
-            </label>
-
-            <label class="radar-control-item" *ngIf="showCloudLayer">
-
-              {{ 'METEO_FRANCE.CLOUD_OPACITY' | translate }}
-
-              <input type="range" min="0.2" max="1" step="0.05"
-
-                     [(ngModel)]="cloudOpacity"
-                     (input)="onCloudOpacityChange()"
-                     (ngModelChange)="onCloudOpacityChange()">
-
-            </label>
-
-            <label class="radar-control-item" *ngIf="showCloudLayer"
-                   [attr.title]="'METEO_FRANCE.CLOUD_INTENSITY_HINT' | translate">
-
-              {{ 'METEO_FRANCE.CLOUD_INTENSITY' | translate }}
-
-              <input type="range"
-                     [min]="cloudIntensityMin"
-                     [max]="cloudIntensityMax"
-                     step="0.1"
-
-                     [(ngModel)]="cloudIntensity"
-                     (input)="onCloudIntensityChange()"
-                     (ngModelChange)="onCloudIntensityChange()">
-
-            </label>
-
-            <label class="radar-control-item">
-
-              <input type="checkbox" [(ngModel)]="showTemperatureMap" (ngModelChange)="onShowTemperatureMapChange()"
-                     [disabled]="!temperatureMapAvailable"
-                     [attr.title]="'METEO_FRANCE.SHOW_TEMPERATURE_MAP_HINT' | translate">
-
-              {{ 'METEO_FRANCE.SHOW_TEMPERATURE_MAP' | translate }}
-
-            </label>
-
-            <div class="radar-control-item temperature-source-toggle" *ngIf="showTemperatureMap">
-              <span class="temperature-source-label">{{ 'METEO_FRANCE.TEMPERATURE_SOURCE_LABEL' | translate }}</span>
-              <div class="btn-group btn-group-sm" role="group"
-                   [attr.aria-label]="'METEO_FRANCE.TEMPERATURE_SOURCE_LABEL' | translate">
-                <button type="button"
-                        class="btn"
-                        [class.btn-primary]="temperatureDataSource === 'meteofrance'"
-                        [class.btn-outline-secondary]="temperatureDataSource !== 'meteofrance'"
-                        (click)="onTemperatureDataSourceChange('meteofrance')"
-                        [attr.title]="'METEO_FRANCE.TEMPERATURE_SOURCE_MF_HINT' | translate">
-                  {{ 'METEO_FRANCE.TEMPERATURE_SOURCE_MF' | translate }}
-                </button>
-                <button type="button"
-                        class="btn"
-                        [class.btn-primary]="temperatureDataSource === 'open-meteo'"
-                        [class.btn-outline-secondary]="temperatureDataSource !== 'open-meteo'"
-                        (click)="onTemperatureDataSourceChange('open-meteo')"
-                        [attr.title]="'METEO_FRANCE.TEMPERATURE_SOURCE_OPENMETEO_HINT' | translate">
-                  {{ 'METEO_FRANCE.TEMPERATURE_SOURCE_OPENMETEO' | translate }}
-                </button>
+            <section class="mf-opt-section">
+              <header class="mf-opt-section-head">
+                <i class="fa fa-layer-group"></i>
+                <span>{{ 'METEO_FRANCE.OPTIONS_LAYERS' | translate }}</span>
+              </header>
+              <div class="mf-chip-row">
+                <label class="mf-chip" [class.mf-chip--on]="showRadar" [class.mf-chip--disabled]="!radarAvailable">
+                  <input type="checkbox" class="mf-chip-input" [(ngModel)]="showRadar"
+                         (change)="onShowRadarChange()" [disabled]="!radarAvailable">
+                  <i class="fa fa-tint"></i>
+                  <span>{{ 'METEO_FRANCE.SHOW_RADAR' | translate }}</span>
+                </label>
+                <label class="mf-chip" [class.mf-chip--on]="showCloudLayer">
+                  <input type="checkbox" class="mf-chip-input" [(ngModel)]="showCloudLayer" (ngModelChange)="onShowCloudLayerChange()">
+                  <i class="fa fa-cloud"></i>
+                  <span>{{ 'METEO_FRANCE.SHOW_CLOUDS' | translate }}</span>
+                </label>
+                <label class="mf-chip" [class.mf-chip--on]="showTemperatureMap" [class.mf-chip--disabled]="!temperatureMapAvailable">
+                  <input type="checkbox" class="mf-chip-input" [(ngModel)]="showTemperatureMap"
+                         (ngModelChange)="onShowTemperatureMapChange()" [disabled]="!temperatureMapAvailable"
+                         [attr.title]="'METEO_FRANCE.SHOW_TEMPERATURE_MAP_HINT' | translate">
+                  <i class="fa fa-thermometer-half"></i>
+                  <span>{{ 'METEO_FRANCE.SHOW_TEMPERATURE_MAP' | translate }}</span>
+                </label>
               </div>
-            </div>
+              <div class="mf-slider-grid" *ngIf="showCloudLayer">
+                <label class="mf-slider-field" [attr.title]="'METEO_FRANCE.CLOUD_OPACITY' | translate">
+                  <span class="mf-slider-label">{{ 'METEO_FRANCE.CLOUD_OPACITY' | translate }}</span>
+                  <input type="range" class="mf-range" min="0.1" max="0.85" step="0.05"
+                         [(ngModel)]="cloudOpacity" (input)="onCloudOpacityChange()" (ngModelChange)="onCloudOpacityChange()">
+                </label>
+                <label class="mf-slider-field" [attr.title]="'METEO_FRANCE.CLOUD_INTENSITY_HINT' | translate">
+                  <span class="mf-slider-label">{{ 'METEO_FRANCE.CLOUD_INTENSITY' | translate }}</span>
+                  <input type="range" class="mf-range" [min]="cloudIntensityMin" [max]="cloudIntensityMax" step="0.1"
+                         [(ngModel)]="cloudIntensity" (input)="onCloudIntensityChange()" (ngModelChange)="onCloudIntensityChange()">
+                </label>
+              </div>
+            </section>
 
-            <label class="radar-control-item radar-control-interval" *ngIf="showTemperatureMap">
+            <section class="mf-opt-section" *ngIf="showTemperatureMap">
+              <header class="mf-opt-section-head">
+                <i class="fa fa-thermometer-half"></i>
+                <span>{{ 'METEO_FRANCE.OPTIONS_TEMPERATURE' | translate }}</span>
+              </header>
+              <div class="mf-opt-grid">
+                <div class="mf-opt-cell mf-opt-cell--wide">
+                  <p class="mf-opt-hint mb-0" *ngIf="isFranceLocation">{{ 'METEO_FRANCE.TEMPERATURE_COMPARE_HINT' | translate }}</p>
+                  <p class="mf-opt-hint mb-0" *ngIf="!isFranceLocation">{{ 'METEO_FRANCE.TEMPERATURE_SOURCE_AUTO_FOREIGN' | translate }}</p>
+                </div>
+                <div class="mf-opt-cell">
+                  <div class="form-check form-switch mf-compact-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="mf-show-temperature-tooltips"
+                           [(ngModel)]="showTemperatureTooltips" (ngModelChange)="onShowTemperatureTooltipsChange()"
+                           [attr.title]="'METEO_FRANCE.SHOW_TEMPERATURE_TOOLTIPS_HINT' | translate">
+                    <label class="form-check-label" for="mf-show-temperature-tooltips">
+                      {{ 'METEO_FRANCE.SHOW_TEMPERATURE_TOOLTIPS' | translate }}
+                    </label>
+                  </div>
+                </div>
+                <label class="mf-opt-cell mf-number-field">
+                  <span class="mf-opt-label">{{ 'METEO_FRANCE.TEMPERATURE_CACHE_MINUTES_LABEL' | translate }}</span>
+                  <div class="mf-cache-minutes-row">
+                    <input type="number" class="form-control form-control-sm mf-number-input"
+                           [(ngModel)]="temperatureCacheMinutes"
+                           (blur)="onTemperatureCacheMinutesCommitted()"
+                           (change)="onTemperatureCacheMinutesCommitted()"
+                           [min]="temperatureCacheMinMinutes" [max]="temperatureCacheMaxMinutes" [step]="1">
+                    <button type="button" class="btn btn-sm btn-outline-secondary mf-temp-cache-clear-btn"
+                            (click)="onClearTemperatureObservationCache()"
+                            [disabled]="isClearingTemperatureCache"
+                            [attr.title]="'METEO_FRANCE.TEMPERATURE_CACHE_CLEAR' | translate"
+                            [attr.aria-label]="'METEO_FRANCE.TEMPERATURE_CACHE_CLEAR' | translate">
+                      <i class="fa" [class.fa-trash-o]="!isClearingTemperatureCache" [class.fa-spinner]="isClearingTemperatureCache" [class.fa-spin]="isClearingTemperatureCache"></i>
+                    </button>
+                  </div>
+                </label>
+              </div>
+            </section>
 
-              {{ 'METEO_FRANCE.TEMPERATURE_CACHE_MINUTES_LABEL' | translate }}
-
-              <input type="number"
-                     class="form-control form-control-sm radar-refresh-interval-input"
-                     [(ngModel)]="temperatureCacheMinutes"
-                     (blur)="onTemperatureCacheMinutesCommitted()"
-                     (change)="onTemperatureCacheMinutesCommitted()"
-                     [min]="temperatureCacheMinMinutes"
-                     [max]="temperatureCacheMaxMinutes"
-                     [step]="1"
-                     [attr.title]="'METEO_FRANCE.TEMPERATURE_CACHE_MINUTES_HINT' | translate"
-                     [attr.aria-label]="'METEO_FRANCE.TEMPERATURE_CACHE_MINUTES_LABEL' | translate" />
-
-            </label>
-
-            <label class="radar-control-item">
-
-              {{ 'METEO_FRANCE.RADAR_OPACITY' | translate }}
-
-              <input type="range" min="0.2" max="1" step="0.05"
-
-                     [(ngModel)]="radarOpacity" (input)="onRadarOpacityChange()">
-
-            </label>
-
-            <label class="radar-control-item">
-
-              <input type="checkbox" [(ngModel)]="autoRefreshRadar" (ngModelChange)="onAutoRefreshRadarChange()">
-
-              {{ 'METEO_FRANCE.AUTO_REFRESH' | translate }}
-
-            </label>
-
-            <label class="radar-control-item radar-control-interval">
-
-              {{ 'METEO_FRANCE.RADAR_REFRESH_INTERVAL_LABEL' | translate }}
-
-              <input type="number"
-                     class="form-control form-control-sm radar-refresh-interval-input"
-                     [(ngModel)]="radarRefreshSeconds"
-                     (blur)="onRadarRefreshSecondsCommitted()"
-                     (change)="onRadarRefreshSecondsCommitted()"
-                     [min]="radarRefreshMinSeconds"
-                     [max]="radarRefreshMaxSeconds"
-                     [step]="1"
-                     [attr.title]="'METEO_FRANCE.RADAR_REFRESH_INTERVAL_HINT' | translate"
-                     [attr.aria-label]="'METEO_FRANCE.RADAR_REFRESH_INTERVAL_LABEL' | translate" />
-
-            </label>
+            <section class="mf-opt-section">
+              <header class="mf-opt-section-head">
+                <i class="fa fa-sliders"></i>
+                <span>{{ 'METEO_FRANCE.OPTIONS_RADAR' | translate }}</span>
+              </header>
+              <div class="mf-opt-grid">
+                <label class="mf-slider-field mf-opt-cell mf-opt-cell--wide">
+                  <span class="mf-slider-label">{{ 'METEO_FRANCE.RADAR_OPACITY' | translate }}</span>
+                  <input type="range" class="mf-range" min="0.2" max="1" step="0.05"
+                         [(ngModel)]="radarOpacity" (input)="onRadarOpacityChange()">
+                </label>
+                <div class="mf-opt-cell">
+                  <div class="form-check form-switch mf-compact-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="mf-auto-refresh-radar"
+                           [(ngModel)]="autoRefreshRadar" (ngModelChange)="onAutoRefreshRadarChange()">
+                    <label class="form-check-label" for="mf-auto-refresh-radar">
+                      {{ 'METEO_FRANCE.AUTO_REFRESH' | translate }}
+                    </label>
+                  </div>
+                </div>
+                <label class="mf-opt-cell mf-number-field" [class.mf-opt-cell--muted]="!autoRefreshRadar">
+                  <span class="mf-opt-label">{{ 'METEO_FRANCE.RADAR_REFRESH_INTERVAL_LABEL' | translate }}</span>
+                  <input type="number" class="form-control form-control-sm mf-number-input"
+                         [(ngModel)]="radarRefreshSeconds"
+                         (blur)="onRadarRefreshSecondsCommitted()"
+                         (change)="onRadarRefreshSecondsCommitted()"
+                         [min]="radarRefreshMinSeconds" [max]="radarRefreshMaxSeconds" [step]="1"
+                         [disabled]="!autoRefreshRadar">
+                </label>
+                <div class="mf-opt-cell">
+                  <div class="form-check form-switch mf-compact-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="mf-show-backend-log"
+                           [(ngModel)]="showBackendLog" (ngModelChange)="onShowBackendLogChange()">
+                    <label class="form-check-label" for="mf-show-backend-log">
+                      {{ 'METEO_FRANCE.SHOW_BACKEND_LOG' | translate }}
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </section>
 
           </div>
 
 
 
-          <div class="radar-legend">
+          <div class="mf-status-panel">
 
-            <div class="legend-line">
-              <i class="fa fa-info-circle"></i> {{ 'METEO_FRANCE.MAP_HINT' | translate }}
+            <div class="mf-status-item mf-status-item--hint">
+              <i class="fa fa-info-circle"></i>
+              <span>{{ 'METEO_FRANCE.MAP_HINT' | translate }}</span>
             </div>
 
-            <div class="legend-line" *ngIf="showRadar">
+            <div class="mf-status-item" *ngIf="showRadar">
               <i class="fa fa-tint"></i>
-              {{ precipitationLayerStatusKey | translate: precipitationStatusParams }}
+              <span>{{ precipitationLayerStatusKey | translate: precipitationStatusParams }}</span>
             </div>
 
-            <div class="legend-line" *ngIf="showCloudLayer">
+            <div class="mf-status-item" *ngIf="showCloudLayer">
               <i class="fa fa-cloud"></i>
-              {{ cloudLayerStatusKey | translate: cloudStatusParams }}
+              <span>{{ cloudLayerStatusKey | translate: cloudStatusParams }}</span>
             </div>
 
-            <div class="legend-line text-muted" *ngIf="showClearSkyRadarHint">
-              {{ 'METEO_FRANCE.RADAR_CLEAR_SKY' | translate }}
+            <div class="mf-status-item mf-status-item--muted" *ngIf="showClearSkyRadarHint">
+              <span>{{ 'METEO_FRANCE.RADAR_CLEAR_SKY' | translate }}</span>
             </div>
 
-            <div class="legend-line text-muted" *ngIf="showTemperatureMap && isLoadingTemperatureLabels">
+            <div class="mf-status-item mf-status-item--muted" *ngIf="showTemperatureMap && showMapTemperatureGrid && isLoadingTemperatureLabels">
               <i class="fa fa-spinner fa-spin"></i>
-              {{ 'METEO_FRANCE.TEMPERATURE_STATUS_LOADING' | translate: { trigger: temperatureTriggerLabel } }}
+              <span>{{ 'METEO_FRANCE.TEMPERATURE_STATUS_LOADING' | translate: { trigger: temperatureTriggerLabel } }}</span>
             </div>
 
-            <div class="legend-line" *ngIf="showTemperatureMap && !isLoadingTemperatureLabels && temperatureLabelsUpdatedAt">
+            <div class="mf-status-item" *ngIf="showTemperatureMap && showMapTemperatureGrid && !isLoadingTemperatureLabels && temperatureLabelsUpdatedAt">
+              <img *ngIf="temperatureMapBrandLogo" [src]="temperatureMapBrandLogo"
+                   [alt]="getBrandAlt(resolveMapTemperatureBrandForTemplate())"
+                   class="legend-source-logo" width="16" height="16" />
               <i class="fa fa-thermometer-half"></i>
-              {{ temperatureReadyStatusKey | translate: temperatureStatusParams }}
+              <span>{{ temperatureReadyStatusKey | translate: temperatureStatusParams }}</span>
             </div>
 
-            <div class="legend-line text-warning" *ngIf="obsStatusMessageKey">
-              {{ obsStatusMessageKey | translate }}
+            <div class="mf-status-item mf-status-item--hint" *ngIf="showTemperatureMap && !showMapTemperatureGrid">
+              <img [src]="getBrandLogoSrc('open-meteo')" [alt]="getBrandAlt('open-meteo')"
+                   class="legend-source-logo" width="16" height="16" />
+              <i class="fa fa-map-marker"></i>
+              <span>{{ temperatureMapHintKey | translate }}</span>
             </div>
 
-            <div class="legend-line"
-              *ngIf="temperatureLabelsErrorKey"
-              [class.text-danger]="temperatureLabelsErrorKey === 'METEO_FRANCE.TEMPERATURE_LABELS_ERROR'"
-              [class.text-warning]="temperatureLabelsErrorKey === 'METEO_FRANCE.TEMPERATURE_LABELS_EMPTY'">
-              {{ temperatureLabelsErrorKey | translate }}
+            <div class="mf-status-item mf-status-item--hint" *ngIf="showTemperatureMap && showMapTemperatureGrid">
+              <img [src]="getBrandLogoSrc('meteofrance')" [alt]="getBrandAlt('meteofrance')"
+                   class="legend-source-logo" width="16" height="16" />
+              <i class="fa fa-info-circle"></i>
+              <span>{{ temperatureMapHintKey | translate }}</span>
             </div>
 
+            <div class="mf-status-item mf-status-item--warn" *ngIf="obsStatusMessageKey">
+              <span>{{ obsStatusMessageKey | translate }}</span>
+            </div>
+
+            <div class="mf-status-item"
+                 *ngIf="showMapTemperatureGrid && temperatureLabelsErrorKey"
+                 [class.mf-status-item--error]="temperatureLabelsErrorKey === 'METEO_FRANCE.TEMPERATURE_LABELS_ERROR'"
+                 [class.mf-status-item--warn]="temperatureLabelsErrorKey === 'METEO_FRANCE.TEMPERATURE_LABELS_EMPTY'">
+              <span>{{ temperatureLabelsErrorKey | translate }}</span>
+            </div>
+
+          </div>
+
+          <div class="mf-backend-log" *ngIf="showBackendLog">
+            <div class="mf-backend-log-header">
+              <strong><i class="fa fa-list-alt"></i> {{ 'METEO_FRANCE.BACKEND_LOG_TITLE' | translate }}</strong>
+              <button type="button" class="btn btn-sm btn-outline-secondary"
+                      (click)="clearBackendLog()">
+                {{ 'METEO_FRANCE.BACKEND_LOG_CLEAR' | translate }}
+              </button>
+            </div>
+            <div class="mf-backend-log-body" role="log" aria-live="polite">
+              <div *ngIf="!backendLogs.length" class="mf-backend-log-empty text-muted">
+                {{ 'METEO_FRANCE.BACKEND_LOG_EMPTY' | translate }}
+              </div>
+              <div *ngFor="let entry of backendLogs"
+                   class="mf-backend-log-line"
+                   [ngClass]="backendLogStatusClass(entry.status)">
+                <span class="mf-backend-log-time">{{ formatBackendLogTime(entry.at) }}</span>
+                <span class="mf-backend-log-cat">{{ entry.categoryKey | translate }}</span>
+                <span class="mf-backend-log-src">{{ entry.sourceKey | translate }}</span>
+                <span class="mf-backend-log-status">{{ ('METEO_FRANCE.LOG_STATUS_' + entry.status.toUpperCase()) | translate }}</span>
+                <span class="mf-backend-log-detail" *ngIf="entry.detail">{{ entry.detail }}</span>
+              </div>
+            </div>
           </div>
 
         </div>
@@ -419,11 +420,16 @@
 
         <div class="api-container" *ngIf="currentWeather || isLoadingWeather">
 
-          <h3 class="api-title">
-
-            <i class="fa fa-cloud"></i> {{ 'METEO_FRANCE.CURRENT_TITLE' | translate }}
-
-          </h3>
+          <div class="mf-section-head">
+            <h3 class="api-title mb-0">
+              <i class="fa fa-cloud"></i> {{ 'METEO_FRANCE.CURRENT_TITLE' | translate }}
+            </h3>
+            <span class="mf-source-badge" *ngIf="currentWeather && !currentWeather.error" [title]="'METEO_FRANCE.LOG_SOURCE_OWM' | translate">
+              <span class="mf-source-badge-prefix">{{ 'METEO_FRANCE.SECTION_SOURCE' | translate }}</span>
+              <img [src]="openWeatherBrandLogo" [alt]="getBrandAlt('openweathermap')" width="16" height="16" />
+              <span>{{ 'METEO_FRANCE.LOG_SOURCE_OWM' | translate }}</span>
+            </span>
+          </div>
 
 
 
@@ -447,7 +453,9 @@
 
               <div>
 
-                <div class="weather-condition-temp">{{ formatTemperature(currentWeather.main?.temp) }}</div>
+                <div class="weather-condition-temp">
+                  {{ formatTemperature(currentWeather.main?.temp) }}
+                </div>
 
                 <div>{{ currentWeather.weather?.[0]?.description }}</div>
 
@@ -457,26 +465,34 @@
 
             <div class="weather-details-grid">
 
-              <div><strong>{{ 'METEO_FRANCE.FEELS_LIKE' | translate }}</strong> {{ formatTemperature(currentWeather.main?.feels_like) }}</div>
-
-              <div><strong>{{ 'METEO_FRANCE.HUMIDITY' | translate }}</strong> {{ currentWeather.main?.humidity }}%</div>
-
-              <div><strong>{{ 'METEO_FRANCE.PRESSURE' | translate }}</strong> {{ currentWeather.main?.pressure }} hPa</div>
-
-              <div><strong>{{ 'METEO_FRANCE.WIND' | translate }}</strong> {{ currentWeather.wind?.speed }} m/s</div>
-
-              <div><strong>{{ 'METEO_FRANCE.VISIBILITY' | translate }}</strong>
-
-                {{ currentWeather.visibility ? (currentWeather.visibility / 1000).toFixed(1) + ' km' : '—' }}
-
+              <div class="weather-detail-item">
+                <strong>{{ 'METEO_FRANCE.FEELS_LIKE' | translate }}</strong>
+                <span>{{ formatTemperature(currentWeather.main?.feels_like) }}</span>
               </div>
 
-              <div *ngIf="currentWeather.rain || currentWeather.snow">
+              <div class="weather-detail-item">
+                <strong>{{ 'METEO_FRANCE.HUMIDITY' | translate }}</strong>
+                <span>{{ currentWeather.main?.humidity }}%</span>
+              </div>
 
+              <div class="weather-detail-item">
+                <strong>{{ 'METEO_FRANCE.PRESSURE' | translate }}</strong>
+                <span>{{ currentWeather.main?.pressure }} hPa</span>
+              </div>
+
+              <div class="weather-detail-item">
+                <strong>{{ 'METEO_FRANCE.WIND' | translate }}</strong>
+                <span>{{ currentWeather.wind?.speed }} m/s</span>
+              </div>
+
+              <div class="weather-detail-item">
+                <strong>{{ 'METEO_FRANCE.VISIBILITY' | translate }}</strong>
+                <span>{{ currentWeather.visibility ? (currentWeather.visibility / 1000).toFixed(1) + ' km' : '—' }}</span>
+              </div>
+
+              <div class="weather-detail-item" *ngIf="currentWeather.rain || currentWeather.snow">
                 <strong>{{ 'METEO_FRANCE.PRECIP' | translate }}</strong>
-
-                {{ currentWeather.rain?.['1h'] || currentWeather.rain?.['3h'] || currentWeather.snow?.['1h'] || 0 }} mm
-
+                <span>{{ currentWeather.rain?.['1h'] || currentWeather.rain?.['3h'] || currentWeather.snow?.['1h'] || 0 }} mm</span>
               </div>
 
             </div>
@@ -489,11 +505,16 @@
 
         <div class="api-container">
 
-          <h3 class="api-title">
-
-            <i class="fa fa-calendar"></i> {{ 'METEO_FRANCE.FORECAST_TITLE' | translate }}
-
-          </h3>
+          <div class="mf-section-head">
+            <h3 class="api-title mb-0">
+              <i class="fa fa-calendar"></i> {{ 'METEO_FRANCE.FORECAST_TITLE' | translate }}
+            </h3>
+            <span class="mf-source-badge" *ngIf="displayForecastList.length" [title]="'METEO_FRANCE.LOG_SOURCE_OWM' | translate">
+              <span class="mf-source-badge-prefix">{{ 'METEO_FRANCE.SECTION_SOURCE' | translate }}</span>
+              <img [src]="openWeatherBrandLogo" [alt]="getBrandAlt('openweathermap')" width="16" height="16" />
+              <span>{{ 'METEO_FRANCE.LOG_SOURCE_OWM' | translate }}</span>
+            </span>
+          </div>
 
 
 
@@ -553,14 +574,14 @@
 
                    class="forecast-icon">
 
-              <div class="forecast-temp">{{ formatTemperature(item.main?.temp) }}</div>
+              <div class="forecast-temp">
+                {{ formatTemperature(item.main?.temp) }}
+              </div>
 
               <div class="forecast-desc small">{{ item.weather?.[0]?.description }}</div>
 
               <div class="small text-muted" *ngIf="item.pop != null">
-
                 {{ 'METEO_FRANCE.RAIN_CHANCE' | translate }}: {{ (item.pop * 100) | number:'1.0-0' }}%
-
               </div>
 
             </div>
@@ -607,11 +628,16 @@
 
         <div class="api-container">
 
-          <h3 class="api-title">
-
-            <i class="fa fa-database"></i> {{ 'METEO_FRANCE.CLIM_TITLE' | translate }}
-
-          </h3>
+          <div class="mf-section-head">
+            <h3 class="api-title mb-0">
+              <i class="fa fa-database"></i> {{ 'METEO_FRANCE.CLIM_TITLE' | translate }}
+            </h3>
+            <span class="mf-source-badge" *ngIf="climAvailable" [title]="'METEO_FRANCE.LOG_SOURCE_MF_DPCLIM' | translate">
+              <span class="mf-source-badge-prefix">{{ 'METEO_FRANCE.SECTION_SOURCE' | translate }}</span>
+              <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')" width="16" height="16" />
+              <span>{{ 'METEO_FRANCE.LOG_SOURCE_MF_DPCLIM' | translate }}</span>
+            </span>
+          </div>
 
 
 
@@ -712,15 +738,10 @@
 
 
             <div class="clim-summary text-muted small mb-2" *ngIf="climData?.station">
-
-              <span>{{ 'METEO_FRANCE.CLIM_NEAREST' | translate }}:</span>
-
+              {{ 'METEO_FRANCE.CLIM_NEAREST' | translate }}:
               <strong>{{ climData.station.name || climData.station.id }}</strong>
-
               <span *ngIf="climData.station.distanceKm != null"> — {{ climData.station.distanceKm }} km</span>
-
               <span *ngIf="climData.department"> — {{ 'METEO_FRANCE.CLIM_DEPT' | translate }} {{ climData.department }}</span>
-
             </div>
 
 
@@ -875,6 +896,175 @@
 
             </p>
 
+          </div>
+
+        </div>
+
+      </section>
+
+
+
+      <!-- AROME-PI nowcasting tab -->
+
+      <section [hidden]="activeMainTab !== 'aromepi'">
+
+        <div class="alert alert-warning" *ngIf="aromepiStatusMessageKey" role="alert">
+          <i class="fa fa-exclamation-triangle"></i> {{ aromepiStatusMessageKey | translate }}
+          <div class="mt-1">
+            <a [href]="meteoFranceApiPortalUrl" target="_blank" rel="noopener noreferrer">
+              {{ 'METEO_FRANCE.MF_API_PORTAL_LINK' | translate }}
+              <i class="fa fa-external-link" aria-hidden="true"></i>
+            </a>
+          </div>
+        </div>
+
+        <ng-container *ngIf="activeMainTab === 'aromepi'">
+          <ng-container *ngTemplateOutlet="meteoFranceLocationPanel"></ng-container>
+        </ng-container>
+
+        <div class="api-container">
+
+          <div class="mf-section-head">
+            <h3 class="api-title mb-0">
+              <i class="fa fa-cloud"></i> {{ 'METEO_FRANCE.AROMEPI_TITLE' | translate }}
+            </h3>
+            <span class="mf-source-badge" *ngIf="aromepiAvailable">
+              <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')" width="16" height="16" />
+              {{ 'METEO_FRANCE.LOG_SOURCE_MF_AROMEPI' | translate }}
+            </span>
+          </div>
+
+          <p class="text-muted small">{{ 'METEO_FRANCE.AROMEPI_HINT' | translate }}</p>
+
+          <div *ngIf="aromepiAvailable">
+
+            <div class="aromepi-controls mb-2" *ngIf="aromepiLayers.length">
+              <label class="form-label small mb-1">{{ 'METEO_FRANCE.AROMEPI_LAYER' | translate }}</label>
+              <select class="form-select form-select-sm aromepi-layer-select"
+                      [ngModel]="aromepiSelectedLayer"
+                      (ngModelChange)="onAromepiLayerChange($event)">
+                <optgroup *ngIf="aromepiCloudLayers.length" [label]="'METEO_FRANCE.AROMEPI_CAT_CLOUD' | translate">
+                  <option *ngFor="let layer of aromepiCloudLayers" [value]="layer.name">
+                    {{ aromepiLayerLabel(layer) }}
+                  </option>
+                </optgroup>
+                <optgroup *ngIf="aromepiPrecipLayers.length" [label]="'METEO_FRANCE.AROMEPI_CAT_PRECIPITATION' | translate">
+                  <option *ngFor="let layer of aromepiPrecipLayers" [value]="layer.name">
+                    {{ aromepiLayerLabel(layer) }}
+                  </option>
+                </optgroup>
+                <optgroup *ngIf="aromepiOtherLayers.length" [label]="'METEO_FRANCE.AROMEPI_CAT_OTHER' | translate">
+                  <option *ngFor="let layer of aromepiOtherLayers" [value]="layer.name">
+                    {{ aromepiLayerLabel(layer) }}
+                  </option>
+                </optgroup>
+              </select>
+
+              <div class="aromepi-opacity-row mt-2">
+                <label class="form-label small mb-0">{{ 'METEO_FRANCE.RADAR_OPACITY' | translate }}</label>
+                <input type="range" class="form-range" min="0.1" max="1" step="0.05"
+                       [(ngModel)]="aromepiOpacity" (ngModelChange)="onAromepiOpacityChange()" />
+              </div>
+            </div>
+
+            <div class="meteo-france-map-shell aromepi-map-shell" #aromepiMapShell
+                 [class.meteo-france-map-shell--fullscreen]="aromepiMapFullscreen">
+              <button type="button"
+                      class="btn btn-sm btn-light meteo-france-map-fullscreen-btn shadow-sm"
+                      (click)="toggleAromepiMapFullscreen()"
+                      [attr.title]="(aromepiMapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate">
+                <i class="fa" [class.fa-compress]="aromepiMapFullscreen" [class.fa-expand]="!aromepiMapFullscreen"></i>
+              </button>
+              <div id="meteo-france-aromepi-map" class="meteo-france-map aromepi-map"></div>
+
+              <div class="aromepi-time-controls" *ngIf="aromepiTimeSteps.length">
+                <div class="aromepi-time-label">
+                  <strong>{{ 'METEO_FRANCE.AROMEPI_FORECAST_STEP' | translate }}</strong>
+                  <span *ngIf="aromepiCurrentTime">
+                    +{{ aromepiCurrentOffsetMinutes }} min — {{ formatAromepiTime(aromepiCurrentTime) }}
+                  </span>
+                </div>
+                <div class="aromepi-time-toolbar">
+                  <button type="button" class="btn btn-sm btn-outline-primary"
+                          (click)="toggleAromepiPlayback()"
+                          [disabled]="aromepiTimeSteps.length < 2">
+                    <i class="fa" [class.fa-pause]="aromepiPlaying" [class.fa-play]="!aromepiPlaying"></i>
+                    {{ (aromepiPlaying ? 'METEO_FRANCE.AROMEPI_PAUSE' : 'METEO_FRANCE.AROMEPI_PLAY') | translate }}
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary ms-1"
+                          (click)="onAromepiFrameIndexChange(0)" [disabled]="aromepiFrameIndex === 0">
+                    <i class="fa fa-step-backward"></i>
+                  </button>
+                </div>
+                <input type="range" class="form-range aromepi-time-slider"
+                       [min]="0" [max]="aromepiTimeSteps.length - 1" step="1"
+                       [ngModel]="aromepiFrameIndex"
+                       (ngModelChange)="onAromepiFrameIndexChange($event)" />
+                <div class="aromepi-time-range small text-muted">
+                  <span>+0 min</span>
+                  <span>+360 min</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="alert alert-danger mt-2" *ngIf="aromepiLoadError" role="alert">
+              {{ 'METEO_FRANCE.AROMEPI_LAYER_ERROR' | translate }}
+            </div>
+
+            <div class="aromepi-point-panel mt-3" *ngIf="(aromepiCurrentValues | keyvalue)?.length">
+              <h4 class="h6">{{ 'METEO_FRANCE.AROMEPI_POINT_VALUES' | translate }}</h4>
+              <ul class="list-unstyled small mb-0">
+                <li *ngFor="let entry of aromepiCurrentValues | keyvalue">
+                  <strong>{{ entry.key }}</strong>: {{ entry.value }}
+                </li>
+              </ul>
+            </div>
+
+            <div class="aromepi-forecast-panel mt-3">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <h4 class="h6 mb-0">{{ 'METEO_FRANCE.AROMEPI_FORECAST_TABLE' | translate }}</h4>
+                <button type="button" class="btn btn-outline-secondary btn-sm"
+                        (click)="loadAromepiPointForecast()"
+                        [disabled]="isLoadingAromepiForecast">
+                  <i class="fa" [class.fa-refresh]="!isLoadingAromepiForecast" [class.fa-spinner]="isLoadingAromepiForecast" [class.fa-spin]="isLoadingAromepiForecast"></i>
+                  {{ 'METEO_FRANCE.REFRESH' | translate }}
+                </button>
+              </div>
+
+              <p class="text-muted small" *ngIf="isLoadingAromepiForecast">
+                {{ 'METEO_FRANCE.AROMEPI_FORECAST_LOADING' | translate }}
+              </p>
+
+              <div class="table-responsive" *ngIf="aromepiForecastSteps.length">
+                <table class="table table-sm table-striped aromepi-forecast-table">
+                  <thead>
+                    <tr>
+                      <th>{{ 'METEO_FRANCE.AROMEPI_COL_OFFSET' | translate }}</th>
+                      <th>{{ 'METEO_FRANCE.AROMEPI_COL_TIME' | translate }}</th>
+                      <th *ngFor="let layer of aromepiPointForecast?.layers">{{ aromepiLayerLabel({ name: layer, title: layer }) }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let step of aromepiForecastSteps">
+                      <td>+{{ step.offsetMinutes }} min</td>
+                      <td>{{ formatAromepiTime(step.time) }}</td>
+                      <td *ngFor="let layer of aromepiPointForecast?.layers">
+                        {{ step.values?.[layer] ?? '—' }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+          <div *ngIf="isLoadingAromepiCapabilities" class="text-muted small mt-2">
+            <i class="fa fa-spinner fa-spin"></i> {{ 'METEO_FRANCE.AROMEPI_LOADING' | translate }}
+          </div>
+
+          <div class="alert alert-warning mt-2" *ngIf="aromepiErrorKey" role="alert">
+            {{ aromepiErrorKey | translate }}
           </div>
 
         </div>

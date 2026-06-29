@@ -580,7 +580,7 @@ public class OpenWeatherService {
 
     /**
      * Proxy OpenWeatherMap cloud cover map tile (PNG). Layer {@code clouds_new}.
-     * {@code enhance} remaps pale OWM pixels to darker, higher-contrast clouds (0.5–5).
+     * {@code enhance} boosts cloud visibility (0.5–8); 1 = raw OWM tile.
      */
     public ResponseEntity<byte[]> getCloudMapTile(int z, int x, int y, float enhance) {
         ResponseEntity<byte[]> base = getWeatherMapTile("clouds_new", z, x, y);
@@ -588,7 +588,7 @@ public class OpenWeatherService {
         if (body == null || body.length == 0 || !base.getStatusCode().is2xxSuccessful()) {
             return base;
         }
-        byte[] enhanced = CloudMapTileEnhancer.enhance(body, enhance);
+        byte[] enhanced = CloudMapTileEnhancer.enhanceOpenWeatherMap(body, enhance);
         HttpHeaders out = new HttpHeaders();
         out.putAll(base.getHeaders());
         return new ResponseEntity<>(enhanced, out, base.getStatusCode());

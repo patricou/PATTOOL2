@@ -150,6 +150,14 @@ public class OpenMeteoService {
         return result;
     }
 
+    /** Clears in-memory Open-Meteo temperature caches (does not change TTL preferences). */
+    public int clearTemperatureObservationCache() {
+        int cleared = obsCache.size() + gridResponseCache.size();
+        obsCache.clear();
+        gridResponseCache.clear();
+        return cleared;
+    }
+
     private static Map<String, Object> emptyPointsResult(List<Map<String, Object>> points) {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("points", points);

@@ -105,6 +105,10 @@ meteofrance.api.token=
 # Jeton API Key pour DPObs v2 (API « Données Publiques Observation ») — températures temps réel sur la carte
 # meteofrance.obs.api.token=
 # meteofrance.obs.base.url=https://public-api.meteofrance.fr/public/DPObs/v2
+# Jeton API Key pour AROME-PI (API « AROMEPI 1.0 ») — prévisions nowcasting 0–6 h + cartes WMS animées
+# meteofrance.aromepi.api.token=
+# meteofrance.aromepi.base.url=https://public-api.meteofrance.fr/public/aromepi/1.0
+# meteofrance.aromepi.wms.service=MF-NWP-HIGHRES-AROMEPI-001-FRANCE-WMS
 # Alternative: OAuth application id (Base64 string shown as « Application ID » in the portal)
 # meteofrance.oauth.application-id=
 # meteofrance.radar.base.url=https://public-api.meteofrance.fr/public/DPRadar/v1
