@@ -176,6 +176,118 @@ public class MeteoFranceObsService {
     }
 
     /**
+     * Nearest DPObs v2 station observation, normalized to an OpenWeatherMap-like payload for the UI.
+     */
+    public Map<String, Object> getCurrentWeatherByCoordinates(double lat, double lon, String jwtSubject) {
+        if (!isConfigured()) {
+            Map<String, Object> err = error("DPObs API key not configured.");
+            err.put("patSource", "meteofrance-dpobs");
+            return err;
+        }
+        ObsStation station = resolveStationForTarget(new TemperatureLabelsRequestDto.Point(lat, lon));
+        if (station == null) {
+            Map<String, Object> err = error("No Météo-France station near this location.");
+            err.put("patSource", "meteofrance-dpobs");
+            return err;
+        }
+        Duration cacheTtl = resolveCacheTtl(jwtSubject);
+        Map<String, Object> point = fetchStationTemperaturePoint(station, cacheTtl);
+        if (point == null || point.get("tempC") == null) {
+            Map<String, Object> err = error("No Météo-France observation available for the nearest station.");
+            err.put("patSource", "meteofrance-dpobs");
+            return err;
+        }
+        return mapObservationPointToOwmFormat(point, station);
+    }
+
+    /** DPObs v2 is observation-only — no multi-day forecast endpoint in PATTOOL. */
+    public Map<String, Object> getForecastByCoordinates(double lat, double lon, String jwtSubject) {
+        Map<String, Object> err = new LinkedHashMap<>();
+        err.put("error", "forecast_not_available");
+        err.put("message", "DPObs v2 provides station observations only, not multi-day forecasts.");
+        err.put("patSource", "meteofrance-dpobs");
+        return err;
+    }
+
+    private static Map<String, Object> mapObservationPointToOwmFormat(Map<String, Object> point, ObsStation station) {
+        Map<String, Object> main = new LinkedHashMap<>();
+        Object tempC = point.get("tempC");
+        if (tempC instanceof Number tempNum) {
+            main.put("temp", tempNum.doubleValue());
+            main.put("feels_like", tempNum.doubleValue());
+        }
+        putMainNumber(main, "humidity", point.get("humidityPct"));
+        putMainNumber(main, "pressure", point.get("pressureHpa"));
+
+        String stationName = point.get("stationName") != null
+                ? String.valueOf(point.get("stationName")).trim()
+                : station.name();
+        String description = stationName != null && !stationName.isBlank()
+                ? "Observation station · " + stationName
+                : "Observation station Météo-France";
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("patSource", "meteofrance-dpobs");
+        result.put("main", main);
+        result.put("weather", List.of(Map.of(
+                "description", description,
+                "icon", ""
+        )));
+        Map<String, Object> wind = new LinkedHashMap<>();
+        putMainNumber(wind, "speed", point.get("windSpeedMs"));
+        putMainNumber(wind, "deg", point.get("windDirectionDeg"));
+        if (!wind.isEmpty()) {
+            result.put("wind", wind);
+        }
+        Object precip = point.get("precipitationMm");
+        if (precip instanceof Number precipNum && precipNum.doubleValue() > 0) {
+            result.put("rain", Map.of("1h", precipNum.doubleValue()));
+        }
+        if (stationName != null && !stationName.isBlank()) {
+            result.put("name", stationName);
+        }
+        result.put("coord", Map.of("lat", station.lat(), "lon", station.lon()));
+        Map<String, Object> mfStation = new LinkedHashMap<>();
+        mfStation.put("id", station.id());
+        if (stationName != null && !stationName.isBlank()) {
+            mfStation.put("name", stationName);
+        }
+        result.put("mfStation", mfStation);
+        long dt = parseObservedAtEpoch(point.get("observedAt"));
+        if (dt > 0) {
+            result.put("dt", dt);
+        }
+        return result;
+    }
+
+    private static void putMainNumber(Map<String, Object> target, String key, Object raw) {
+        if (raw instanceof Number number) {
+            target.put(key, number.doubleValue());
+        }
+    }
+
+    private static long parseObservedAtEpoch(Object raw) {
+        if (raw == null) {
+            return 0;
+        }
+        String text = String.valueOf(raw).trim();
+        if (text.isEmpty()) {
+            return 0;
+        }
+        if (text.matches("\\d{10}")) {
+            return Long.parseLong(text);
+        }
+        if (text.matches("\\d{13}")) {
+            return Long.parseLong(text) / 1000L;
+        }
+        try {
+            return java.time.OffsetDateTime.parse(text).toInstant().getEpochSecond();
+        } catch (Exception ignored) {
+            return 0;
+        }
+    }
+
+    /**
      * Force-refresh one or more stations from DPObs v2 and store fresh values in the station cache.
      */
     public Map<String, Object> refreshTemperaturePoints(

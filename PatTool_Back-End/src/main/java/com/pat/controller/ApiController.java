@@ -99,9 +99,10 @@ public class ApiController {
     public Map<String, Object> getCurrentWeatherByCoordinates(
             @RequestParam("lat") Double lat,
             @RequestParam("lon") Double lon,
-            @RequestParam(value = "alt", required = false) Double alt) {
-        log.debug("Fetching current weather for coordinates: lat={}, lon={}, alt={}", lat, lon, alt);
-        return openWeatherService.getCurrentWeatherByCoordinates(lat, lon, alt);
+            @RequestParam(value = "alt", required = false) Double alt,
+            @RequestParam(value = "source", defaultValue = "openweathermap") String source) {
+        log.debug("Fetching current weather for coordinates: lat={}, lon={}, alt={}, source={}", lat, lon, alt, source);
+        return resolveCurrentWeatherByCoordinates(lat, lon, alt, source, currentJwtSubject());
     }
 
     /**
@@ -139,9 +140,49 @@ public class ApiController {
     public Map<String, Object> getForecastByCoordinates(
             @RequestParam("lat") Double lat,
             @RequestParam("lon") Double lon,
-            @RequestParam(value = "alt", required = false) Double alt) {
-        log.debug("Fetching forecast for coordinates: lat={}, lon={}, alt={}", lat, lon, alt);
-        return openWeatherService.getForecastByCoordinates(lat, lon, alt);
+            @RequestParam(value = "alt", required = false) Double alt,
+            @RequestParam(value = "source", defaultValue = "openweathermap") String source) {
+        log.debug("Fetching forecast for coordinates: lat={}, lon={}, alt={}, source={}", lat, lon, alt, source);
+        return resolveForecastByCoordinates(lat, lon, source, currentJwtSubject());
+    }
+
+    private Map<String, Object> resolveCurrentWeatherByCoordinates(
+            Double lat, Double lon, Double alt, String source, String jwtSubject) {
+        return switch (normalizeWeatherSource(source)) {
+            case "open-meteo" -> openMeteoService.getCurrentWeatherByCoordinates(lat, lon, jwtSubject);
+            case "meteofrance" -> meteoFranceObsService.getCurrentWeatherByCoordinates(lat, lon, jwtSubject);
+            default -> tagOpenWeatherSource(openWeatherService.getCurrentWeatherByCoordinates(lat, lon, alt));
+        };
+    }
+
+    private Map<String, Object> resolveForecastByCoordinates(
+            Double lat, Double lon, String source, String jwtSubject) {
+        return switch (normalizeWeatherSource(source)) {
+            case "open-meteo" -> openMeteoService.getForecastByCoordinates(lat, lon, jwtSubject);
+            case "meteofrance" -> meteoFranceObsService.getForecastByCoordinates(lat, lon, jwtSubject);
+            default -> tagOpenWeatherSource(openWeatherService.getForecastByCoordinates(lat, lon, null));
+        };
+    }
+
+    private static String normalizeWeatherSource(String source) {
+        if (source == null || source.isBlank()) {
+            return "openweathermap";
+        }
+        String normalized = source.trim().toLowerCase();
+        if ("open-meteo".equals(normalized) || "openmeteo".equals(normalized)) {
+            return "open-meteo";
+        }
+        if ("meteofrance".equals(normalized) || "mf".equals(normalized) || normalized.contains("meteofrance")) {
+            return "meteofrance";
+        }
+        return "openweathermap";
+    }
+
+    private static Map<String, Object> tagOpenWeatherSource(Map<String, Object> payload) {
+        if (payload != null && !payload.containsKey("error")) {
+            payload.put("patSource", "openweathermap");
+        }
+        return payload;
     }
 
 
@@ -586,7 +627,20 @@ public class ApiController {
     }
 
     /**
-     * Latest radar mosaic PNG via DPRadar API (requires meteofrance.api.token).
+     * WMS radar tiles for Leaflet ({z}/{x}/{y}), proxied from geoservices.meteofrance.fr.
+     */
+    @GetMapping(value = "/meteofrance/radar/wms/{z}/{x}/{y}", produces = {MediaType.IMAGE_PNG_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
+    public org.springframework.http.ResponseEntity<byte[]> getMeteoFranceRadarWmsTile(
+            @PathVariable int z,
+            @PathVariable int x,
+            @PathVariable int y,
+            @RequestParam(value = "width", defaultValue = "256") int width,
+            @RequestParam(value = "height", defaultValue = "256") int height) {
+        return meteoFranceRadarService.getWmsTileFromSlippyMap(z, x, y, width, height);
+    }
+
+    /**
+     * Latest radar mosaic via DPRadar API (HDF5/BUFR grid — not used for map PNG overlay).
      */
     @GetMapping(value = "/meteofrance/radar/mosaic", produces = {MediaType.IMAGE_PNG_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
     public org.springframework.http.ResponseEntity<byte[]> getMeteoFranceRadarMosaic(

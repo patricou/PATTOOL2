@@ -215,6 +215,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/weather/map/temperature-labels").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/external/weather/map/temperature-labels").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/meteofrance/radar/wms").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/meteofrance/radar/wms/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/meteofrance/radar/mosaic").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/radar/rainviewer/maps").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/radar/rainviewer/tile/**").permitAll()

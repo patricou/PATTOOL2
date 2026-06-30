@@ -211,9 +211,9 @@
                 <span>{{ 'METEO_FRANCE.OPTIONS_LAYERS' | translate }}</span>
               </header>
               <div class="mf-chip-row">
-                <label class="mf-chip" [class.mf-chip--on]="showRadar" [class.mf-chip--disabled]="!radarAvailable">
+                <label class="mf-chip" [class.mf-chip--on]="showRadar" [class.mf-chip--disabled]="!isSelectedRadarSourceAvailable">
                   <input type="checkbox" class="mf-chip-input" [(ngModel)]="showRadar"
-                         (change)="onShowRadarChange()" [disabled]="!radarAvailable">
+                         (change)="onShowRadarChange()" [disabled]="!isSelectedRadarSourceAvailable">
                   <i class="fa fa-tint"></i>
                   <span>{{ 'METEO_FRANCE.SHOW_RADAR' | translate }}</span>
                 </label>
@@ -228,6 +228,38 @@
                          [attr.title]="'METEO_FRANCE.SHOW_TEMPERATURE_MAP_HINT' | translate">
                   <i class="fa fa-thermometer-half"></i>
                   <span>{{ 'METEO_FRANCE.SHOW_TEMPERATURE_MAP' | translate }}</span>
+                </label>
+              </div>
+              <div class="mf-layer-source-grid">
+                <label class="mf-layer-source-field mf-layer-source-field--wide">
+                  <span class="mf-layer-source-label">{{ 'METEO_FRANCE.MAP_BASE_LAYER' | translate }}</span>
+                  <select class="form-select form-select-sm mf-layer-source-select"
+                          [(ngModel)]="mapBaseLayerId"
+                          (ngModelChange)="onMapBaseLayerChange()">
+                    <option *ngFor="let layer of availableMapBaseLayers" [value]="layer.id">
+                      {{ getMapBaseLayerLabel(layer) }}
+                    </option>
+                  </select>
+                </label>
+                <label class="mf-layer-source-field">
+                  <span class="mf-layer-source-label">{{ 'METEO_FRANCE.RADAR_SOURCE_LABEL' | translate }}</span>
+                  <select class="form-select form-select-sm mf-layer-source-select"
+                          [(ngModel)]="radarLayerSource"
+                          (ngModelChange)="onRadarLayerSourceChange()">
+                    <option *ngFor="let source of availableRadarLayerSources" [ngValue]="source">
+                      {{ getRadarLayerSourceLabel(source) }}
+                    </option>
+                  </select>
+                </label>
+                <label class="mf-layer-source-field">
+                  <span class="mf-layer-source-label">{{ 'METEO_FRANCE.CLOUD_SOURCE_LABEL' | translate }}</span>
+                  <select class="form-select form-select-sm mf-layer-source-select"
+                          [(ngModel)]="cloudLayerSource"
+                          (ngModelChange)="onCloudLayerSourceChange()">
+                    <option *ngFor="let source of cloudLayerSources" [ngValue]="source">
+                      {{ getCloudLayerSourceLabel(source) }}
+                    </option>
+                  </select>
                 </label>
               </div>
               <div class="mf-slider-grid" *ngIf="showCloudLayer">
@@ -252,7 +284,7 @@
               <div class="mf-opt-grid">
                 <div class="mf-opt-cell mf-opt-cell--wide">
                   <p class="mf-opt-hint mb-0" *ngIf="isFranceLocation">{{ 'METEO_FRANCE.TEMPERATURE_COMPARE_HINT' | translate }}</p>
-                  <p class="mf-opt-hint mb-0" *ngIf="!isFranceLocation">{{ 'METEO_FRANCE.TEMPERATURE_SOURCE_AUTO_FOREIGN' | translate }}</p>
+                  <p class="mf-opt-hint mb-0" *ngIf="!isPositionInFrance">{{ 'METEO_FRANCE.TEMPERATURE_SOURCE_AUTO_FOREIGN' | translate }}</p>
                 </div>
                 <div class="mf-opt-cell">
                   <div class="form-check form-switch mf-compact-switch">
@@ -363,7 +395,11 @@
               <span>{{ temperatureReadyStatusKey | translate: temperatureStatusParams }}</span>
             </div>
 
-            <div class="mf-status-item mf-status-item--hint" *ngIf="showTemperatureMap && !showMapTemperatureGrid">
+            <div class="mf-status-item mf-status-item--hint" *ngIf="showTemperatureMap && !isPositionInFrance">
+              <span>{{ 'METEO_FRANCE.TEMPERATURE_SOURCE_AUTO_FOREIGN' | translate }}</span>
+            </div>
+
+            <div class="mf-status-item mf-status-item--hint" *ngIf="showTemperatureMap && isPositionInFrance && !showMapTemperatureGrid">
               <img [src]="getBrandLogoSrc('open-meteo')" [alt]="getBrandAlt('open-meteo')"
                    class="legend-source-logo" width="16" height="16" />
               <i class="fa fa-map-marker"></i>
@@ -418,20 +454,47 @@
 
 
 
-        <div class="api-container" *ngIf="currentWeather || isLoadingWeather">
+        <div class="api-container">
 
           <div class="mf-section-head">
             <h3 class="api-title mb-0">
               <i class="fa fa-cloud"></i> {{ 'METEO_FRANCE.CURRENT_TITLE' | translate }}
             </h3>
-            <span class="mf-source-badge" *ngIf="currentWeather && !currentWeather.error" [title]="'METEO_FRANCE.LOG_SOURCE_OWM' | translate">
-              <span class="mf-source-badge-prefix">{{ 'METEO_FRANCE.SECTION_SOURCE' | translate }}</span>
-              <img [src]="openWeatherBrandLogo" [alt]="getBrandAlt('openweathermap')" width="16" height="16" />
-              <span>{{ 'METEO_FRANCE.LOG_SOURCE_OWM' | translate }}</span>
-            </span>
+            <div class="mf-weather-source-row">
+              <label class="mf-weather-source-label" for="mf-current-weather-source">
+                {{ 'METEO_FRANCE.WEATHER_SOURCE_LABEL' | translate }}
+              </label>
+              <select id="mf-current-weather-source"
+                      class="form-select form-select-sm mf-weather-source-select"
+                      [(ngModel)]="currentWeatherSource"
+                      (ngModelChange)="onCurrentWeatherSourceChange()">
+                <option *ngFor="let source of availableWeatherPanelSources" [ngValue]="source">
+                  {{ getWeatherPanelSourceLabel(source) }}
+                </option>
+              </select>
+              <span class="mf-source-badge" *ngIf="currentWeather && !currentWeather.error"
+                    [title]="getBrandAlt(resolveLoadedWeatherBrand(currentWeatherSource, currentWeather))">
+                <span class="mf-source-badge-prefix">{{ 'METEO_FRANCE.SECTION_SOURCE' | translate }}</span>
+                <img [src]="getBrandLogoSrc(resolveLoadedWeatherBrand(currentWeatherSource, currentWeather))"
+                     [alt]="getBrandAlt(resolveLoadedWeatherBrand(currentWeatherSource, currentWeather))"
+                     width="16" height="16" />
+                <span>{{ getBrandAlt(resolveLoadedWeatherBrand(currentWeatherSource, currentWeather)) }}</span>
+              </span>
+            </div>
           </div>
 
 
+
+          <div *ngIf="(!currentWeather || currentWeather.error) && !isLoadingWeather" class="mf-weather-empty">
+            <button type="button" class="btn btn-sm btn-primary" (click)="refreshWeather()"
+                    [disabled]="isLoadingWeather || isLoadingForecast">
+              <i class="fa fa-refresh"></i> {{ 'METEO_FRANCE.REFRESH' | translate }}
+            </button>
+          </div>
+
+          <div *ngIf="currentWeather?.error && !isLoadingWeather" class="alert alert-warning py-2 mb-2">
+            {{ 'METEO_FRANCE.WEATHER_ERROR' | translate }}
+          </div>
 
           <div *ngIf="isLoadingWeather" class="text-muted">
 
@@ -458,6 +521,9 @@
                 </div>
 
                 <div>{{ currentWeather.weather?.[0]?.description }}</div>
+                <div class="small text-muted" *ngIf="currentWeather.mfStation?.name">
+                  {{ 'METEO_FRANCE.CLIM_NEAREST' | translate }}: {{ currentWeather.mfStation.name }}
+                </div>
 
               </div>
 
@@ -509,16 +575,32 @@
             <h3 class="api-title mb-0">
               <i class="fa fa-calendar"></i> {{ 'METEO_FRANCE.FORECAST_TITLE' | translate }}
             </h3>
-            <span class="mf-source-badge" *ngIf="displayForecastList.length" [title]="'METEO_FRANCE.LOG_SOURCE_OWM' | translate">
-              <span class="mf-source-badge-prefix">{{ 'METEO_FRANCE.SECTION_SOURCE' | translate }}</span>
-              <img [src]="openWeatherBrandLogo" [alt]="getBrandAlt('openweathermap')" width="16" height="16" />
-              <span>{{ 'METEO_FRANCE.LOG_SOURCE_OWM' | translate }}</span>
-            </span>
+            <div class="mf-weather-source-row">
+              <label class="mf-weather-source-label" for="mf-forecast-weather-source">
+                {{ 'METEO_FRANCE.WEATHER_SOURCE_LABEL' | translate }}
+              </label>
+              <select id="mf-forecast-weather-source"
+                      class="form-select form-select-sm mf-weather-source-select"
+                      [(ngModel)]="forecastWeatherSource"
+                      (ngModelChange)="onForecastWeatherSourceChange()">
+                <option *ngFor="let source of availableWeatherPanelSources" [ngValue]="source">
+                  {{ getWeatherPanelSourceLabel(source) }}
+                </option>
+              </select>
+              <span class="mf-source-badge" *ngIf="displayForecastList.length"
+                    [title]="getBrandAlt(resolveLoadedWeatherBrand(forecastWeatherSource, forecast))">
+                <span class="mf-source-badge-prefix">{{ 'METEO_FRANCE.SECTION_SOURCE' | translate }}</span>
+                <img [src]="getBrandLogoSrc(resolveLoadedWeatherBrand(forecastWeatherSource, forecast))"
+                     [alt]="getBrandAlt(resolveLoadedWeatherBrand(forecastWeatherSource, forecast))"
+                     width="16" height="16" />
+                <span>{{ getBrandAlt(resolveLoadedWeatherBrand(forecastWeatherSource, forecast)) }}</span>
+              </span>
+            </div>
           </div>
 
 
 
-          <div class="forecast-mode mb-2">
+          <div class="forecast-mode mb-2" *ngIf="displayForecastList.length || isLoadingForecast">
 
             <button type="button" class="btn btn-sm"
 
@@ -547,6 +629,17 @@
           </div>
 
 
+
+          <div *ngIf="!isLoadingForecast && forecastErrorKey" class="alert alert-warning py-2 mb-2">
+            {{ forecastErrorKey | translate }}
+          </div>
+
+          <div *ngIf="!isLoadingForecast && !displayForecastList.length && !forecastErrorKey" class="mf-weather-empty mb-2">
+            <button type="button" class="btn btn-sm btn-primary" (click)="refreshWeather()"
+                    [disabled]="isLoadingWeather || isLoadingForecast">
+              <i class="fa fa-refresh"></i> {{ 'METEO_FRANCE.REFRESH' | translate }}
+            </button>
+          </div>
 
           <div *ngIf="isLoadingForecast" class="text-muted">
 

@@ -9,6 +9,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -146,6 +148,34 @@ public class OpenMeteoService {
         Map<String, Object> result = emptyPointsResult(points);
         if (refresh) {
             result.put("refreshed", true);
+        }
+        return result;
+    }
+
+    /**
+     * Current conditions at a point, normalized to an OpenWeatherMap-like payload for the UI.
+     */
+    public Map<String, Object> getCurrentWeatherByCoordinates(double lat, double lon, String jwtSubject) {
+        Map<String, Object> result = fetchCurrentWeatherPayload(lat, lon, jwtSubject);
+        if (result == null) {
+            Map<String, Object> error = new LinkedHashMap<>();
+            error.put("error", "Open-Meteo current weather unavailable");
+            error.put("patSource", "open-meteo");
+            return error;
+        }
+        return result;
+    }
+
+    /**
+     * 5-day forecast (3-hour steps), normalized to an OpenWeatherMap-like {@code list} payload.
+     */
+    public Map<String, Object> getForecastByCoordinates(double lat, double lon, String jwtSubject) {
+        Map<String, Object> result = fetchForecastPayload(lat, lon);
+        if (result == null) {
+            Map<String, Object> error = new LinkedHashMap<>();
+            error.put("error", "Open-Meteo forecast unavailable");
+            error.put("patSource", "open-meteo");
+            return error;
         }
         return result;
     }
@@ -339,5 +369,219 @@ public class OpenMeteoService {
             copy.put("cached", true);
             return copy;
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> fetchCurrentWeatherPayload(double lat, double lon, String jwtSubject) {
+        String url = UriComponentsBuilder.fromHttpUrl(FORECAST_URL)
+                .queryParam("latitude", lat)
+                .queryParam("longitude", lon)
+                .queryParam("current", "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,"
+                        + "wind_speed_10m,wind_direction_10m,surface_pressure")
+                .queryParam("timezone", "auto")
+                .toUriString();
+        try {
+            ResponseEntity<Object> response = restTemplate.getForEntity(url, Object.class);
+            if (!(response.getBody() instanceof Map<?, ?> body)) {
+                return null;
+            }
+            Object currentObj = body.get("current");
+            if (!(currentObj instanceof Map<?, ?> current)) {
+                return null;
+            }
+            Object tempObj = current.get("temperature_2m");
+            if (!(tempObj instanceof Number tempNum)) {
+                return null;
+            }
+            double tempC = Math.round(tempNum.doubleValue() * 10.0) / 10.0;
+            Integer weatherCode = current.get("weather_code") instanceof Number codeNum
+                    ? codeNum.intValue() : null;
+
+            Map<String, Object> main = new LinkedHashMap<>();
+            main.put("temp", tempC);
+            if (current.get("apparent_temperature") instanceof Number feels) {
+                main.put("feels_like", Math.round(feels.doubleValue() * 10.0) / 10.0);
+            }
+            if (current.get("relative_humidity_2m") instanceof Number humidity) {
+                main.put("humidity", Math.round(humidity.doubleValue()));
+            }
+            if (current.get("surface_pressure") instanceof Number pressure) {
+                main.put("pressure", Math.round(pressure.doubleValue()));
+            }
+
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("patSource", "open-meteo");
+            result.put("main", main);
+            result.put("weather", List.of(weatherEntry(weatherCode)));
+            Map<String, Object> wind = new LinkedHashMap<>();
+            if (current.get("wind_speed_10m") instanceof Number speed) {
+                wind.put("speed", Math.round(speed.doubleValue() * 100.0) / 100.0);
+            }
+            if (current.get("wind_direction_10m") instanceof Number direction) {
+                wind.put("deg", Math.round(direction.doubleValue()));
+            }
+            if (!wind.isEmpty()) {
+                result.put("wind", wind);
+            }
+            long dt = parseOpenMeteoTimeEpoch(current.get("time"));
+            if (dt > 0) {
+                result.put("dt", dt);
+            }
+            Object latObj = body.get("latitude");
+            Object lonObj = body.get("longitude");
+            if (latObj instanceof Number latN && lonObj instanceof Number lonN) {
+                result.put("coord", Map.of("lat", latN.doubleValue(), "lon", lonN.doubleValue()));
+            }
+            return result;
+        } catch (Exception e) {
+            log.debug("Open-Meteo current weather fetch failed: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> fetchForecastPayload(double lat, double lon) {
+        String url = UriComponentsBuilder.fromHttpUrl(FORECAST_URL)
+                .queryParam("latitude", lat)
+                .queryParam("longitude", lon)
+                .queryParam("hourly", "temperature_2m,weather_code,precipitation_probability,relative_humidity_2m")
+                .queryParam("forecast_days", 5)
+                .queryParam("timezone", "auto")
+                .toUriString();
+        try {
+            ResponseEntity<Object> response = restTemplate.getForEntity(url, Object.class);
+            if (!(response.getBody() instanceof Map<?, ?> body)) {
+                return null;
+            }
+            Object hourlyObj = body.get("hourly");
+            if (!(hourlyObj instanceof Map<?, ?> hourly)) {
+                return null;
+            }
+            Object timesObj = hourly.get("time");
+            Object tempsObj = hourly.get("temperature_2m");
+            if (!(timesObj instanceof List<?> times) || !(tempsObj instanceof List<?> temps) || times.isEmpty()) {
+                return null;
+            }
+            List<?> codes = hourly.get("weather_code") instanceof List<?> list ? list : List.of();
+            List<?> pops = hourly.get("precipitation_probability") instanceof List<?> list ? list : List.of();
+            List<?> humidities = hourly.get("relative_humidity_2m") instanceof List<?> list ? list : List.of();
+
+            List<Map<String, Object>> list = new ArrayList<>();
+            long nowEpoch = Instant.now().getEpochSecond();
+            for (int i = 0; i < times.size(); i++) {
+                if (i % 3 != 0) {
+                    continue;
+                }
+                long dt = parseOpenMeteoTimeEpoch(times.get(i));
+                if (dt <= 0 || dt < nowEpoch - 3600) {
+                    continue;
+                }
+                if (list.size() >= 40) {
+                    break;
+                }
+                Double tempC = i < temps.size() && temps.get(i) instanceof Number tempNum
+                        ? Math.round(tempNum.doubleValue() * 10.0) / 10.0
+                        : null;
+                if (tempC == null) {
+                    continue;
+                }
+                Integer weatherCode = i < codes.size() && codes.get(i) instanceof Number codeNum
+                        ? codeNum.intValue() : null;
+                Map<String, Object> main = new LinkedHashMap<>();
+                main.put("temp", tempC);
+                main.put("temp_min", tempC);
+                main.put("temp_max", tempC);
+                if (i < humidities.size() && humidities.get(i) instanceof Number humidity) {
+                    main.put("humidity", Math.round(humidity.doubleValue()));
+                }
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("dt", dt);
+                item.put("main", main);
+                item.put("weather", List.of(weatherEntry(weatherCode)));
+                if (i < pops.size() && pops.get(i) instanceof Number pop) {
+                    item.put("pop", Math.min(1.0, Math.max(0.0, pop.doubleValue() / 100.0)));
+                }
+                list.add(item);
+            }
+            if (list.isEmpty()) {
+                return null;
+            }
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("patSource", "open-meteo");
+            result.put("list", list);
+            result.put("count", list.size());
+            Object latObj = body.get("latitude");
+            Object lonObj = body.get("longitude");
+            if (latObj instanceof Number latN && lonObj instanceof Number lonN) {
+                result.put("city", Map.of("coord", Map.of("lat", latN.doubleValue(), "lon", lonN.doubleValue())));
+            }
+            return result;
+        } catch (Exception e) {
+            log.debug("Open-Meteo forecast fetch failed: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private static Map<String, Object> weatherEntry(Integer weatherCode) {
+        Map<String, Object> weather = new LinkedHashMap<>();
+        weather.put("description", weatherCodeDescription(weatherCode));
+        weather.put("icon", weatherCodeToOwmIcon(weatherCode));
+        return weather;
+    }
+
+    private static long parseOpenMeteoTimeEpoch(Object raw) {
+        if (raw == null) {
+            return 0;
+        }
+        String text = String.valueOf(raw).trim();
+        if (text.isEmpty()) {
+            return 0;
+        }
+        try {
+            return OffsetDateTime.parse(text).toInstant().getEpochSecond();
+        } catch (DateTimeParseException ignored) {
+            return 0;
+        }
+    }
+
+    private static String weatherCodeDescription(Integer code) {
+        if (code == null) {
+            return "Conditions actuelles";
+        }
+        return switch (code) {
+            case 0 -> "ciel dégagé";
+            case 1 -> "principalement dégagé";
+            case 2 -> "partiellement nuageux";
+            case 3 -> "nuageux";
+            case 45, 48 -> "brouillard";
+            case 51, 53, 55 -> "bruine";
+            case 56, 57 -> "bruine verglaçante";
+            case 61, 63, 65 -> "pluie";
+            case 66, 67 -> "pluie verglaçante";
+            case 71, 73, 75 -> "neige";
+            case 77 -> "grains de neige";
+            case 80, 81, 82 -> "averses";
+            case 85, 86 -> "averses de neige";
+            case 95 -> "orage";
+            case 96, 99 -> "orage avec grêle";
+            default -> "conditions variables";
+        };
+    }
+
+    private static String weatherCodeToOwmIcon(Integer code) {
+        if (code == null) {
+            return "03d";
+        }
+        return switch (code) {
+            case 0 -> "01d";
+            case 1 -> "02d";
+            case 2 -> "03d";
+            case 3 -> "04d";
+            case 45, 48 -> "50d";
+            case 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82 -> "10d";
+            case 71, 73, 75, 77, 85, 86 -> "13d";
+            case 95, 96, 99 -> "11d";
+            default -> "03d";
+        };
     }
 }

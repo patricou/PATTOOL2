@@ -138,7 +138,12 @@ export class ApiService {
    * @param lon Longitude
    * @param alt Optional altitude in meters
    */
-  getCurrentWeatherByCoordinates(lat: number, lon: number, alt?: number | null): Observable<any> {
+  getCurrentWeatherByCoordinates(
+    lat: number,
+    lon: number,
+    alt?: number | null,
+    source?: 'openweathermap' | 'open-meteo' | 'meteofrance'
+  ): Observable<any> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers => {
         let params = new HttpParams()
@@ -146,6 +151,9 @@ export class ApiService {
           .set('lon', lon.toString());
         if (alt !== null && alt !== undefined && !isNaN(alt)) {
           params = params.set('alt', alt.toString());
+        }
+        if (source) {
+          params = params.set('source', source);
         }
         return this._http.get(this.API_URL + 'external/weather/current/coordinates', { 
           headers: headers,
@@ -181,7 +189,12 @@ export class ApiService {
    * @param lon Longitude
    * @param alt Optional altitude in meters
    */
-  getForecastByCoordinates(lat: number, lon: number, alt?: number | null): Observable<any> {
+  getForecastByCoordinates(
+    lat: number,
+    lon: number,
+    alt?: number | null,
+    source?: 'openweathermap' | 'open-meteo' | 'meteofrance'
+  ): Observable<any> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers => {
         let params = new HttpParams()
@@ -189,6 +202,9 @@ export class ApiService {
           .set('lon', lon.toString());
         if (alt !== null && alt !== undefined && !isNaN(alt)) {
           params = params.set('alt', alt.toString());
+        }
+        if (source) {
+          params = params.set('source', source);
         }
         return this._http.get(this.API_URL + 'external/weather/forecast/coordinates', { 
           headers: headers,

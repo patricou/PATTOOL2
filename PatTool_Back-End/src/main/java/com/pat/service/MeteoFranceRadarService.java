@@ -9,7 +9,11 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.*;
+import java.util.zip.GZIPInputStream;
 
 /**
  * Proxy for Météo-France radar data:
@@ -55,7 +59,7 @@ public class MeteoFranceRadarService {
             @Value("${meteofrance.radar.base.url:" + DEFAULT_DPRADAR_BASE + "}") String dpradarBaseUrl,
             @Value("${meteofrance.radar.wms.url:" + DEFAULT_WMS_BASE + "}") String wmsBaseUrl,
             @Value("${meteofrance.radar.wms.layer:" + DEFAULT_WMS_LAYER + "}") String wmsLayer,
-            @Value("${meteofrance.radar.wms.enabled:false}") boolean wmsEnabled) {
+            @Value("${meteofrance.radar.wms.enabled:true}") boolean wmsEnabled) {
         this.restTemplate = restTemplate;
         this.radarRefreshPreferenceService = radarRefreshPreferenceService;
         this.apiToken = normalizeToken(apiToken);
@@ -92,6 +96,8 @@ public class MeteoFranceRadarService {
         }
         status.put("wmsAvailable", wmsEnabled);
         status.put("wmsLayer", wmsLayer);
+        status.put("radarMosaicPngSupported", false);
+        status.put("radarDisplayMode", wmsEnabled ? "wms" : "dpradar-mosaic");
         status.put("radarRequiresToken", true);
         status.put("defaultZone", "METROPOLE");
         status.put("defaultObservation", "REFLECTIVITE");
@@ -178,6 +184,29 @@ public class MeteoFranceRadarService {
     }
 
     /**
+     * Proxy a WMS GetMap tile from standard slippy-map coordinates (Web Mercator tile index → EPSG:4326 BBOX).
+     */
+    public ResponseEntity<byte[]> getWmsTileFromSlippyMap(int z, int x, int y, int width, int height) {
+        if (!wmsEnabled) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
+        if (z < 0 || z > 18 || x < 0 || y < 0) {
+            return ResponseEntity.badRequest().build();
+        }
+        double[] bbox = tileBbox4326(z, x, y);
+        return getWmsTile(bbox[0], bbox[1], bbox[2], bbox[3], width, height);
+    }
+
+    private static double[] tileBbox4326(int z, int x, int y) {
+        double n = Math.pow(2, z);
+        double minLon = x / n * 360.0 - 180.0;
+        double maxLon = (x + 1) / n * 360.0 - 180.0;
+        double maxLat = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1 - 2.0 * y / n))));
+        double minLat = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1 - 2.0 * (y + 1) / n))));
+        return new double[]{minLat, minLon, maxLat, maxLon};
+    }
+
+    /**
      * List observation types available for a mosaic zone (DPRadar API).
      */
     @SuppressWarnings("unchecked")
@@ -248,20 +277,21 @@ public class MeteoFranceRadarService {
                 return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
             }
 
-            if (!isPng(body)) {
-                log.info("DPRadar mosaic is not PNG ({} bytes, content-type={}) — map uses RainViewer fallback",
-                        body.length, response.getHeaders().getContentType());
+            MediaType contentType = response.getHeaders().getContentType();
+            byte[] imageBytes = decodeMosaicImageBytes(body, contentType);
+            if (!isPng(imageBytes)) {
+                log.debug("DPRadar mosaic produit is {} ({} bytes raw, {} bytes decoded) — use WMS tiles for map display",
+                        guessFormat(imageBytes, contentType), body.length, imageBytes.length);
                 HttpHeaders reject = new HttpHeaders();
-                reject.set("X-Radar-Format", guessFormat(body, response.getHeaders().getContentType()));
+                reject.set("X-Radar-Format", guessFormat(imageBytes, contentType));
                 reject.set("X-Radar-Fallback", "rainviewer");
                 return new ResponseEntity<>(reject, HttpStatus.NO_CONTENT);
             }
 
             HttpHeaders out = new HttpHeaders();
-            MediaType contentType = response.getHeaders().getContentType();
-            out.setContentType(contentType != null ? contentType : MediaType.IMAGE_PNG);
+            out.setContentType(MediaType.IMAGE_PNG);
             out.setCacheControl(CacheControl.maxAge(java.time.Duration.ofMinutes(2)).cachePublic());
-            return new ResponseEntity<>(body, out, HttpStatus.OK);
+            return new ResponseEntity<>(imageBytes, out, HttpStatus.OK);
         } catch (HttpClientErrorException e) {
             if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
                 logAuthFailureOnce();
@@ -500,7 +530,50 @@ public class MeteoFranceRadarService {
                 && body[3] == 'G';
     }
 
+    /** DPRadar often returns gzip-compressed PNG with content-type application/octet-stream+gzip. */
+    private static byte[] decodeMosaicImageBytes(byte[] body, MediaType contentType) {
+        if (body == null || body.length == 0 || isPng(body)) {
+            return body;
+        }
+        if (isGzip(body) || isGzipContentType(contentType)) {
+            byte[] decompressed = gunzip(body);
+            if (decompressed != null && decompressed.length > 0) {
+                return decompressed;
+            }
+        }
+        return body;
+    }
+
+    private static boolean isGzip(byte[] body) {
+        return body.length >= 2
+                && (body[0] & 0xff) == 0x1f
+                && (body[1] & 0xff) == 0x8b;
+    }
+
+    private static boolean isGzipContentType(MediaType contentType) {
+        if (contentType == null) {
+            return false;
+        }
+        return contentType.toString().toLowerCase(Locale.ROOT).contains("gzip");
+    }
+
+    private static byte[] gunzip(byte[] body) {
+        try (GZIPInputStream in = new GZIPInputStream(new ByteArrayInputStream(body));
+             ByteArrayOutputStream out = new ByteArrayOutputStream(body.length * 2)) {
+            in.transferTo(out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
     private static String guessFormat(byte[] body, MediaType contentType) {
+        if (isPng(body)) {
+            return MediaType.IMAGE_PNG_VALUE;
+        }
+        if (isGzip(body) || isGzipContentType(contentType)) {
+            return "application/gzip";
+        }
         if (contentType != null) {
             return contentType.toString();
         }
