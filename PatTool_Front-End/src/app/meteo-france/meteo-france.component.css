@@ -211,6 +211,13 @@
   transition: color 0.25s ease;
 }
 
+.meteo-france-tabs-desktop .nav-link .mf-tab-logo {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
 .meteo-france-tabs-desktop .nav-link:hover {
   color: #0056b3;
   background: #e3f2fd;

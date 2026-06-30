@@ -1,4 +1,4 @@
-﻿{
+{
     "LANGUAGE": {
         "FR": "French",
         "EN": "English",
@@ -3663,9 +3663,9 @@
         "RADAR_TITLE": "Rain radar map (Météo-France)",
         "MAP_FULLSCREEN": "Fullscreen",
         "MAP_EXIT_FULLSCREEN": "Exit fullscreen",
-        "TAB_RADAR": "Radar & forecast",
-        "TAB_CLIM": "Climatology",
-        "TAB_AROMEPI": "AROME-PI (0–6 h)",
+        "TAB_RADAR": "Temperature & radar",
+        "TAB_CLIM": "Temperature history",
+        "TAB_AROMEPI": "MF forecast",
         "SHOW_RADAR": "Show radar",
         "RADAR_SOURCE_LABEL": "Radar source",
         "RADAR_SOURCE_MF": "Météo-France (DPRadar)",
@@ -3811,7 +3811,6 @@
         "FORECAST_3H": "3 h",
         "FORECAST_DAILY": "Daily",
         "FEELS_LIKE": "Feels like",
-        "TEMPERATURE": "Temperature",
         "HUMIDITY": "Humidity",
         "PRESSURE": "Pressure",
         "WIND": "Wind",
@@ -3872,6 +3871,29 @@
         "AROMEPI_CAT_WIND": "Wind",
         "AROMEPI_CAT_VISIBILITY": "Visibility",
         "AROMEPI_CAT_OTHER": "Other parameters",
+        "AROMEPI_LAYERS": {
+            "NEBUL__GROUND_OR_WATER_SURFACE": "Cloud cover",
+            "TOTAL_WATER_PRECIPITATION__GROUND_OR_WATER_SURFACE": "Total precipitation",
+            "TEMPERATURE__GROUND_OR_WATER_SURFACE": "Temperature",
+            "RELATIVE_HUMIDITY__GROUND_OR_WATER_SURFACE": "Relative humidity",
+            "WIND_SPEED__GROUND_OR_WATER_SURFACE": "Wind speed",
+            "VISIBILITY__GROUND_OR_WATER_SURFACE": "Visibility"
+        },
+        "AROMEPI_PARAM": {
+            "NEBUL": "Cloud cover",
+            "TOTAL_WATER_PRECIPITATION": "Total precipitation",
+            "TEMPERATURE": "Temperature",
+            "RELATIVE_HUMIDITY": "Relative humidity",
+            "WIND_SPEED": "Wind speed",
+            "VISIBILITY": "Visibility",
+            "PRECIPITATION": "Precipitation",
+            "NEIGE": "Snow",
+            "GRELE": "Hail",
+            "GRAUPEL": "Graupel"
+        },
+        "AROMEPI_LEVEL": {
+            "GROUND_OR_WATER_SURFACE": "ground/water surface"
+        },
         "DPCLIM_NOT_CONFIGURED": "Clim archives unavailable: subscribe to « Données Climatologiques » on portail-api.meteofrance.fr, then set meteofrance.clim.api.token (separate from the radar key).",
         "DPCLIM_INVALID_TOKEN": "DPClim key rejected (401). Portal: « Données Climatologiques » API → API Key → meteofrance.clim.api.token (not the radar key).",
         "CLIM_COL_DATE": "Date",

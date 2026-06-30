@@ -51,8 +51,6 @@ public class MeteoFranceAromepiService {
     private static final String DEFAULT_BASE = "https://public-api.meteofrance.fr/public/aromepi/1.0";
     private static final String DEFAULT_WMS_SERVICE = "MF-NWP-HIGHRES-AROMEPI-001-FRANCE-WMS";
     private static final Duration CAPABILITIES_CACHE_TTL = Duration.ofMinutes(10);
-    private static final int TILE_SIZE = 256;
-    private static final double EARTH_RADIUS = 6378137.0;
     private static final Pattern LAYER_SAFE = Pattern.compile("^[A-Za-z0-9_\\-]+$");
     private static final Pattern STYLE_SAFE = Pattern.compile("^[A-Za-z0-9_\\-]+$");
     private static final Pattern ISO_TIME = Pattern.compile(
@@ -175,8 +173,10 @@ public class MeteoFranceAromepiService {
         if (!isValidIsoTime(time) || !isValidIsoTime(referenceTime)) {
             return ResponseEntity.badRequest().build();
         }
+        time = normalizeForecastTime(time, referenceTime);
 
-        double[] bbox3857 = tileBbox3857(z, x, y, width, height);
+        // WMS 1.3.0 + EPSG:4326: BBOX = minLat,minLon,maxLat,maxLon (MF AROME-PI documented usage).
+        double[] bbox4326 = tileBbox4326(z, x, y);
         String resolvedStyle = style != null && !style.isBlank() ? style.trim() : resolveDefaultStyle(layer);
 
         String url = UriComponentsBuilder.fromHttpUrl(wmsEndpoint("GetMap"))
@@ -185,17 +185,18 @@ public class MeteoFranceAromepiService {
                 .queryParam("REQUEST", "GetMap")
                 .queryParam("LAYERS", layer)
                 .queryParam("STYLES", resolvedStyle)
-                .queryParam("CRS", "EPSG:3857")
-                .queryParam("BBOX", bbox3857[0] + "," + bbox3857[1] + "," + bbox3857[2] + "," + bbox3857[3])
+                .queryParam("CRS", "EPSG:4326")
+                .queryParam("BBOX", bbox4326[0] + "," + bbox4326[1] + "," + bbox4326[2] + "," + bbox4326[3])
                 .queryParam("WIDTH", width)
                 .queryParam("HEIGHT", height)
                 .queryParam("FORMAT", "image/png")
                 .queryParam("TRANSPARENT", "true")
                 .queryParam("TIME", time)
-                .queryParam("DIM_REFERENCE_TIME", referenceTime)
+                .queryParam("dim_reference_time", referenceTime)
                 .build(true)
                 .toUriString();
 
+        log.debug("AROME-PI GetMap URL: {}", url.replace(apiToken, "***"));
         return fetchImage(url, Duration.ofMinutes(5));
     }
 
@@ -213,10 +214,11 @@ public class MeteoFranceAromepiService {
         if (!isValidIsoTime(time) || !isValidIsoTime(referenceTime)) {
             return error("Invalid time parameters");
         }
+        time = normalizeForecastTime(time, referenceTime);
 
         int mapWidth = width > 0 && width <= 512 ? width : 256;
         int mapHeight = height > 0 && height <= 512 ? height : 256;
-        double[] bbox = pointBbox3857(lat, lon, mapWidth, mapHeight);
+        double[] bbox = pointBbox4326(lat, lon, mapWidth, mapHeight);
         String resolvedStyle = style != null && !style.isBlank() ? style.trim() : resolveDefaultStyle(layer);
         int i = mapWidth / 2;
         int j = mapHeight / 2;
@@ -228,7 +230,7 @@ public class MeteoFranceAromepiService {
                 .queryParam("LAYERS", layer)
                 .queryParam("QUERY_LAYERS", layer)
                 .queryParam("STYLES", resolvedStyle)
-                .queryParam("CRS", "EPSG:3857")
+                .queryParam("CRS", "EPSG:4326")
                 .queryParam("BBOX", bbox[0] + "," + bbox[1] + "," + bbox[2] + "," + bbox[3])
                 .queryParam("WIDTH", mapWidth)
                 .queryParam("HEIGHT", mapHeight)
@@ -237,7 +239,7 @@ public class MeteoFranceAromepiService {
                 .queryParam("INFO_FORMAT", "text/plain")
                 .queryParam("FEATURE_COUNT", 1)
                 .queryParam("TIME", time)
-                .queryParam("DIM_REFERENCE_TIME", referenceTime)
+                .queryParam("dim_reference_time", referenceTime)
                 .build(true)
                 .toUriString();
 
@@ -286,17 +288,19 @@ public class MeteoFranceAromepiService {
         String ref = referenceTime != null && !referenceTime.isBlank()
                 ? referenceTime.trim()
                 : String.valueOf(caps.get("defaultReferenceTime"));
+        ref = normalizeReferenceTime(ref, caps);
 
         List<String> resolvedLayers = resolveForecastLayers(layers, caps);
         List<Map<String, Object>> steps = new ArrayList<>();
         if (timeSteps != null) {
             for (String time : timeSteps) {
+                String stepTime = normalizeForecastTime(time, ref);
                 Map<String, Object> step = new LinkedHashMap<>();
-                step.put("time", time);
-                step.put("offsetMinutes", offsetMinutes(ref, time));
+                step.put("time", stepTime);
+                step.put("offsetMinutes", offsetMinutes(ref, stepTime));
                 Map<String, Object> values = new LinkedHashMap<>();
                 for (String layer : resolvedLayers) {
-                    Map<String, Object> fi = getFeatureInfo(lat, lon, layer, null, time, ref, 256, 256);
+                    Map<String, Object> fi = getFeatureInfo(lat, lon, layer, null, stepTime, ref, 256, 256);
                     if (!fi.containsKey("error")) {
                         values.put(layer, fi.get("value"));
                         Object raw = fi.get("raw");
@@ -389,32 +393,28 @@ public class MeteoFranceAromepiService {
             List<LayerInfo> allLayers = new ArrayList<>();
             collectLayers(doc.getDocumentElement(), allLayers);
 
-            List<String> referenceTimes = new ArrayList<>();
-            List<String> timeSteps = new ArrayList<>();
             Map<String, Object> bounds = defaultBounds();
-
             for (LayerInfo layer : allLayers) {
-                if (layer.referenceTimes != null && referenceTimes.isEmpty()) {
-                    referenceTimes.addAll(layer.referenceTimes);
-                }
-                if (layer.timeSteps != null && timeSteps.isEmpty()) {
-                    timeSteps.addAll(layer.timeSteps);
-                }
                 if (layer.bounds != null) {
                     bounds = layer.bounds;
                 }
             }
 
-            if (timeSteps.isEmpty() && !referenceTimes.isEmpty()) {
-                timeSteps = generateTimeSteps(referenceTimes.get(0), 360, 15);
-            }
-            if (referenceTimes.isEmpty() && !timeSteps.isEmpty()) {
-                referenceTimes = List.of(timeSteps.get(0));
+            String defaultRef = resolveLatestReferenceTime(allLayers);
+            List<String> referenceTimes = collectAllReferenceTimes(allLayers);
+            if (defaultRef == null && !referenceTimes.isEmpty()) {
+                defaultRef = referenceTimes.get(referenceTimes.size() - 1);
             }
 
-            String defaultRef = referenceTimes.isEmpty() ? null : referenceTimes.get(referenceTimes.size() - 1);
-            if (defaultRef == null && !timeSteps.isEmpty()) {
-                defaultRef = timeSteps.get(0);
+            // Forecast steps must be relative to the selected model run (reference time).
+            List<String> timeSteps = defaultRef != null
+                    ? generateTimeSteps(defaultRef, 360, 15)
+                    : List.of();
+            if (timeSteps.isEmpty() && defaultRef != null) {
+                timeSteps = List.of(defaultRef);
+            }
+            if (referenceTimes.isEmpty() && defaultRef != null) {
+                referenceTimes = List.of(defaultRef);
             }
 
             List<Map<String, Object>> layerMaps = allLayers.stream()
@@ -503,6 +503,11 @@ public class MeteoFranceAromepiService {
         map.put("title", layer.title != null ? layer.title : layer.name);
         map.put("style", layer.style != null ? layer.style : "");
         map.put("category", layer.category);
+        if (layer.referenceTimes != null && !layer.referenceTimes.isEmpty()) {
+            map.put("layerReferenceTimes", layer.referenceTimes.size() > 8
+                    ? layer.referenceTimes.subList(layer.referenceTimes.size() - 8, layer.referenceTimes.size())
+                    : layer.referenceTimes);
+        }
         return map;
     }
 
@@ -592,12 +597,82 @@ public class MeteoFranceAromepiService {
         try {
             Instant ref = Instant.parse(referenceTime);
             List<String> steps = new ArrayList<>();
-            for (int m = 0; m <= horizonMinutes; m += stepMinutes) {
+            // MF AROME-PI WMS has no dataset at T+0; first valid step is T+15 min.
+            for (int m = stepMinutes; m <= horizonMinutes; m += stepMinutes) {
                 steps.add(DateTimeFormatter.ISO_INSTANT.format(ref.plus(m, ChronoUnit.MINUTES)));
             }
             return steps;
         } catch (Exception e) {
             return List.of();
+        }
+    }
+
+    private static List<String> collectAllReferenceTimes(List<LayerInfo> allLayers) {
+        Set<String> unique = new LinkedHashSet<>();
+        for (LayerInfo layer : allLayers) {
+            if (layer.referenceTimes != null) {
+                unique.addAll(layer.referenceTimes);
+            }
+        }
+        return unique.stream()
+                .filter(MeteoFranceAromepiService::isValidIsoTime)
+                .sorted(Comparator.comparing(t -> Instant.parse(t.trim())))
+                .toList();
+    }
+
+    private static String resolveLatestReferenceTime(List<LayerInfo> allLayers) {
+        List<String> refs = collectAllReferenceTimes(allLayers);
+        return refs.isEmpty() ? null : refs.get(refs.size() - 1);
+    }
+
+    /** WMS TIME must be referenceTime + [15..360] min; T+0 is not published by MF AROME-PI WMS. */
+    static String normalizeForecastTime(String time, String referenceTime) {
+        if (time == null || referenceTime == null) {
+            return referenceTime;
+        }
+        try {
+            Instant ref = Instant.parse(referenceTime.trim());
+            Instant forecast = Instant.parse(time.trim());
+            long minutes = ChronoUnit.MINUTES.between(ref, forecast);
+            if (minutes >= 15 && minutes <= 360) {
+                return DateTimeFormatter.ISO_INSTANT.format(forecast);
+            }
+        } catch (Exception e) {
+            // fall through
+        }
+        try {
+            Instant ref = Instant.parse(referenceTime.trim());
+            return DateTimeFormatter.ISO_INSTANT.format(ref.plus(15, ChronoUnit.MINUTES));
+        } catch (Exception e) {
+            return referenceTime.trim();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static String normalizeReferenceTime(String referenceTime, Map<String, Object> caps) {
+        if (referenceTime == null || referenceTime.isBlank() || "null".equals(referenceTime)) {
+            Object def = caps.get("defaultReferenceTime");
+            return def != null ? String.valueOf(def) : referenceTime;
+        }
+        try {
+            Instant ref = Instant.parse(referenceTime.trim());
+            Object refList = caps.get("referenceTimes");
+            if (refList instanceof List<?> list && !list.isEmpty()) {
+                Instant latest = null;
+                for (Object item : list) {
+                    Instant candidate = Instant.parse(String.valueOf(item).trim());
+                    if (latest == null || candidate.isAfter(latest)) {
+                        latest = candidate;
+                    }
+                }
+                if (latest != null && ref.isBefore(latest.minus(6, ChronoUnit.HOURS))) {
+                    return DateTimeFormatter.ISO_INSTANT.format(latest);
+                }
+            }
+            return DateTimeFormatter.ISO_INSTANT.format(ref);
+        } catch (Exception e) {
+            Object def = caps.get("defaultReferenceTime");
+            return def != null ? String.valueOf(def) : referenceTime.trim();
         }
     }
 
@@ -631,8 +706,18 @@ public class MeteoFranceAromepiService {
                 return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
             }
 
-            HttpHeaders out = new HttpHeaders();
             MediaType contentType = response.getHeaders().getContentType();
+            if (contentType != null && (contentType.includes(MediaType.TEXT_XML)
+                    || contentType.includes(MediaType.APPLICATION_XML))) {
+                log.warn("AROME-PI GetMap returned XML: {}", truncateForLog(body, 400));
+                return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+            }
+            if (body.length >= 5 && body[0] == '<') {
+                log.warn("AROME-PI GetMap returned non-image body: {}", truncateForLog(body, 400));
+                return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+            }
+
+            HttpHeaders out = new HttpHeaders();
             out.setContentType(contentType != null ? contentType : MediaType.IMAGE_PNG);
             out.setCacheControl(CacheControl.maxAge(cacheMaxAge).cachePublic());
             return new ResponseEntity<>(body, out, HttpStatus.OK);
@@ -640,12 +725,21 @@ public class MeteoFranceAromepiService {
             if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
-            log.debug("AROME-PI image fetch failed ({}): {}", e.getStatusCode(), e.getMessage());
+            log.warn("AROME-PI image fetch failed ({}): {} body={}",
+                    e.getStatusCode(), e.getMessage(), truncateForLog(e.getResponseBodyAsByteArray(), 400));
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
         } catch (Exception e) {
-            log.debug("AROME-PI image fetch failed: {}", e.getMessage());
+            log.warn("AROME-PI image fetch failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
         }
+    }
+
+    private static String truncateForLog(byte[] body, int maxLen) {
+        if (body == null || body.length == 0) {
+            return "";
+        }
+        String text = new String(body, 0, Math.min(body.length, maxLen), java.nio.charset.StandardCharsets.UTF_8);
+        return text.replaceAll("\\s+", " ").trim();
     }
 
     private boolean probeAuth() {
@@ -670,31 +764,20 @@ public class MeteoFranceAromepiService {
         return baseUrl + "/wms/" + wmsService + "/" + operation;
     }
 
-    private static double[] tileBbox3857(int z, int x, int y, int width, int height) {
-        double mapSize = TILE_SIZE * Math.pow(2, z);
-        double originShift = Math.PI * EARTH_RADIUS;
-        double resolution = (2 * originShift) / mapSize;
-        double tileMapSize = width * resolution;
-
-        double minX = x * tileMapSize - originShift;
-        double maxX = (x + 1) * tileMapSize - originShift;
-        double maxY = originShift - y * tileMapSize;
-        double minY = originShift - (y + 1) * tileMapSize;
-        return new double[]{minY, minX, maxY, maxX};
+    private static double[] tileBbox4326(int z, int x, int y) {
+        double n = Math.pow(2, z);
+        double minLon = x / n * 360.0 - 180.0;
+        double maxLon = (x + 1) / n * 360.0 - 180.0;
+        double maxLat = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1 - 2.0 * y / n))));
+        double minLat = Math.toDegrees(Math.atan(Math.sinh(Math.PI * (1 - 2.0 * (y + 1) / n))));
+        return new double[]{minLat, minLon, maxLat, maxLon};
     }
 
-    private static double[] pointBbox3857(double lat, double lon, int width, int height) {
-        double mx = lon * originShift() / 180.0;
-        double my = Math.log(Math.tan((90 + lat) * Math.PI / 360.0)) / (Math.PI / 180.0);
-        my = my * originShift() / 180.0;
-        double span = 12_000.0;
-        double halfW = span * width / 256.0 / 2.0;
-        double halfH = span * height / 256.0 / 2.0;
-        return new double[]{my - halfH, mx - halfW, my + halfH, mx + halfW};
-    }
-
-    private static double originShift() {
-        return Math.PI * EARTH_RADIUS;
+    private static double[] pointBbox4326(double lat, double lon, int width, int height) {
+        double latSpan = 0.12 * height / 256.0;
+        double cosLat = Math.max(0.2, Math.abs(Math.cos(Math.toRadians(lat))));
+        double lonSpan = latSpan / cosLat * width / (double) height;
+        return new double[]{lat - latSpan / 2, lon - lonSpan / 2, lat + latSpan / 2, lon + lonSpan / 2};
     }
 
     private static Object parseFeatureInfoValue(String body) {

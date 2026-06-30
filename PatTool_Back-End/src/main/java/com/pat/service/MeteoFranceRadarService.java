@@ -18,7 +18,7 @@ import java.util.zip.GZIPInputStream;
 /**
  * Proxy for Météo-France radar data:
  * <ul>
- *   <li>WMS tiles from geoservices (no token required)</li>
+ *   <li>Optional WMS tiles when {@code meteofrance.radar.wms.enabled} and a valid geoservices URL are configured</li>
  *   <li>DPRadar REST API when {@code meteofrance.api.token} is configured</li>
  * </ul>
  */
@@ -59,7 +59,7 @@ public class MeteoFranceRadarService {
             @Value("${meteofrance.radar.base.url:" + DEFAULT_DPRADAR_BASE + "}") String dpradarBaseUrl,
             @Value("${meteofrance.radar.wms.url:" + DEFAULT_WMS_BASE + "}") String wmsBaseUrl,
             @Value("${meteofrance.radar.wms.layer:" + DEFAULT_WMS_LAYER + "}") String wmsLayer,
-            @Value("${meteofrance.radar.wms.enabled:true}") boolean wmsEnabled) {
+            @Value("${meteofrance.radar.wms.enabled:false}") boolean wmsEnabled) {
         this.restTemplate = restTemplate;
         this.radarRefreshPreferenceService = radarRefreshPreferenceService;
         this.apiToken = normalizeToken(apiToken);
@@ -95,9 +95,19 @@ public class MeteoFranceRadarService {
             }
         }
         status.put("wmsAvailable", wmsEnabled);
+        status.put("wmsOperational", wmsEnabled && probeWmsTile());
         status.put("wmsLayer", wmsLayer);
         status.put("radarMosaicPngSupported", false);
-        status.put("radarDisplayMode", wmsEnabled ? "wms" : "dpradar-mosaic");
+        if (wmsEnabled && Boolean.TRUE.equals(status.get("wmsOperational"))) {
+            status.put("radarDisplayMode", "wms");
+        } else if (configured && Boolean.TRUE.equals(status.get("authValid"))) {
+            status.put("radarDisplayMode", "rainviewer-proxy");
+            status.put("radarMapHint",
+                    "DPRadar /produit returns HDF5/BUFR, not PNG. Map overlay uses RainViewer tiles; "
+                            + "validity_time comes from Météo-France DPRadar.");
+        } else {
+            status.put("radarDisplayMode", "unavailable");
+        }
         status.put("radarRequiresToken", true);
         status.put("defaultZone", "METROPOLE");
         status.put("defaultObservation", "REFLECTIVITE");
@@ -152,6 +162,7 @@ public class MeteoFranceRadarService {
                 .queryParam("HEIGHT", height)
                 .queryParam("FORMAT", "image/png")
                 .queryParam("TRANSPARENT", "true")
+                .queryParam("STYLES", "")
                 .build(true)
                 .toUriString();
 
@@ -169,6 +180,14 @@ public class MeteoFranceRadarService {
 
             byte[] body = response.getBody();
             if (body == null || body.length == 0) {
+                log.warn("Météo-France WMS tile empty for layer {} ({})", wmsLayer, wmsBaseUrl);
+                return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+            }
+            if (!isPng(body)) {
+                String snippet = new String(body, 0, Math.min(body.length, 200), java.nio.charset.StandardCharsets.UTF_8);
+                log.warn("Météo-France WMS did not return PNG ({} bytes, starts with: {}) — "
+                                + "check meteofrance.radar.wms.url/layer or disable WMS",
+                        body.length, snippet.replaceAll("\\s+", " ").trim());
                 return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
             }
 
@@ -178,10 +197,35 @@ public class MeteoFranceRadarService {
             out.setCacheControl(CacheControl.maxAge(java.time.Duration.ofMinutes(2)).cachePublic());
             return new ResponseEntity<>(body, out, HttpStatus.OK);
         } catch (Exception e) {
-            log.debug("Météo-France WMS tile fetch failed: {}", e.getMessage());
+            log.warn("Météo-France WMS tile fetch failed ({}): {}", wmsLayer, e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
         }
     }
+
+    /** One-shot probe: France métropole sample tile (cached ~5 min). */
+    private boolean probeWmsTile() {
+        if (!wmsEnabled) {
+            return false;
+        }
+        long now = System.currentTimeMillis();
+        if (cachedWmsProbeAtMs > 0 && now - cachedWmsProbeAtMs < 300_000L) {
+            return cachedWmsProbeOk;
+        }
+        ResponseEntity<byte[]> probe = getWmsTile(47.0, 0.0, 48.0, 1.5, 64, 64);
+        cachedWmsProbeOk = probe.getStatusCode().is2xxSuccessful()
+                && probe.getBody() != null
+                && probe.getBody().length > 0;
+        cachedWmsProbeAtMs = now;
+        if (!cachedWmsProbeOk) {
+            log.info("Météo-France WMS probe failed (layer={}, url={}). "
+                            + "Disable meteofrance.radar.wms.enabled or configure a valid geoservices WMS URL.",
+                    wmsLayer, wmsBaseUrl);
+        }
+        return cachedWmsProbeOk;
+    }
+
+    private volatile boolean cachedWmsProbeOk;
+    private volatile long cachedWmsProbeAtMs;
 
     /**
      * Proxy a WMS GetMap tile from standard slippy-map coordinates (Web Mercator tile index → EPSG:4326 BBOX).

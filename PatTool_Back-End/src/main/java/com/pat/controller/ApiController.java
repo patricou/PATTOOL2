@@ -736,7 +736,7 @@ public class ApiController {
     }
 
     /**
-     * AROME-PI WMS tile proxy (EPSG:3857, TIME + DIM_REFERENCE_TIME).
+     * AROME-PI WMS tile proxy (EPSG:4326 slippy tile, TIME + DIM_REFERENCE_TIME).
      */
     @GetMapping(value = "/meteofrance/aromepi/wms/{z}/{x}/{y}", produces = {MediaType.IMAGE_PNG_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
     public ResponseEntity<byte[]> getMeteoFranceAromepiWmsTile(

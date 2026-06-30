@@ -147,6 +147,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   radarValidityTime: string | null = null;
   radarDisplaySource: 'mf' | 'rainviewer' | null = null;
   radarLoadError = false;
+  private mfWmsFallbackAttempted = false;
   cloudDisplaySource: 'rainviewer' | 'openweathermap' | null = null;
   cloudLoadError = false;
   cloudValidityTime: string | null = null;
@@ -968,16 +969,47 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     if (!this.map) {
       return;
     }
+    this.mfWmsFallbackAttempted = false;
     if (this.shouldUseMfWmsRadar()) {
       this.loadMfWmsRadarLayer();
+      return;
+    }
+    if (this.mfStatus?.authValid === true) {
+      this.loadMfRainViewerProxyLayer();
       return;
     }
     this.loadMosaicOverlay();
   }
 
-  /** DPRadar /produit is HDF5 — map display uses geoservices WMS PNG tiles (enabled by default). */
+  /** WMS only when backend probe succeeded (geoservices URL + layer valid). */
   private shouldUseMfWmsRadar(): boolean {
-    return this.mfStatus?.wmsAvailable !== false;
+    return this.mfStatus?.wmsAvailable === true && this.mfStatus?.wmsOperational === true;
+  }
+
+  /**
+   * DPRadar API has no PNG tiles. When WMS is off/unavailable but DPRadar auth works,
+   * show RainViewer radar on the map and keep MF validity_time from observation meta.
+   */
+  private loadMfRainViewerProxyLayer(): void {
+    if (!this.map) {
+      return;
+    }
+    this.radarLoadError = false;
+    this.loadMfObservationMeta();
+    this.logBackend('METEO_FRANCE.LOG_CAT_PRECIPITATION', 'METEO_FRANCE.LOG_SOURCE_MF_RADAR', 'loading');
+    if (this.mfWmsRadarLayer) {
+      this.map.removeLayer(this.mfWmsRadarLayer);
+      this.mfWmsRadarLayer = null;
+    }
+    if (this.mosaicOverlay) {
+      this.map.removeLayer(this.mosaicOverlay);
+      this.mosaicOverlay = null;
+    }
+    if (this.mosaicObjectUrl) {
+      URL.revokeObjectURL(this.mosaicObjectUrl);
+      this.mosaicObjectUrl = null;
+    }
+    this.loadRainViewerLayer(true);
   }
 
   private loadMfWmsRadarLayer(): void {
@@ -1014,6 +1046,11 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       }
     );
     this.mfWmsRadarLayer.on('tileerror', () => {
+      if (!this.mfWmsFallbackAttempted && this.radarLayerSource === 'meteofrance') {
+        this.mfWmsFallbackAttempted = true;
+        this.loadMfRainViewerProxyLayer();
+        return;
+      }
       this.radarLoadError = true;
       this.logBackend(
         'METEO_FRANCE.LOG_CAT_PRECIPITATION',
@@ -1257,23 +1294,24 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     );
   }
 
-  private loadRainViewerLayer(): void {
+  private loadRainViewerLayer(forMfProxy = false): void {
     if (!this.map) {
       return;
     }
-    this.logBackend('METEO_FRANCE.LOG_CAT_PRECIPITATION', 'METEO_FRANCE.LOG_SOURCE_RAINVIEWER', 'loading');
+    const logSource = forMfProxy ? 'METEO_FRANCE.LOG_SOURCE_MF_RADAR' : 'METEO_FRANCE.LOG_SOURCE_RAINVIEWER';
+    this.logBackend('METEO_FRANCE.LOG_CAT_PRECIPITATION', logSource, 'loading');
     this.subs.add(
       this.apiService.getRainViewerMaps().subscribe({
         next: (data) => {
           if (data?.error || !this.map) {
             this.radarLoadError = true;
-            this.logBackend('METEO_FRANCE.LOG_CAT_PRECIPITATION', 'METEO_FRANCE.LOG_SOURCE_RAINVIEWER', 'error');
+            this.logBackend('METEO_FRANCE.LOG_CAT_PRECIPITATION', logSource, 'error');
             return;
           }
           const past = data?.radar?.past;
           if (!past?.length) {
             this.radarLoadError = true;
-            this.logBackend('METEO_FRANCE.LOG_CAT_PRECIPITATION', 'METEO_FRANCE.LOG_SOURCE_RAINVIEWER', 'error');
+            this.logBackend('METEO_FRANCE.LOG_CAT_PRECIPITATION', logSource, 'error');
             return;
           }
           const frame = past[past.length - 1];
@@ -1294,13 +1332,15 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
               zIndex: 500,
               maxNativeZoom: 7,
               maxZoom: 12,
-              attribution: 'Radar &copy; RainViewer.com (via PatTool)'
+              attribution: forMfProxy
+                ? 'Radar map RainViewer — horodatage Météo-France DPRadar (via PatTool)'
+                : 'Radar &copy; RainViewer.com (via PatTool)'
             }
           );
           this.rainViewerLayer.addTo(this.map);
-          this.radarDisplaySource = 'rainviewer';
+          this.radarDisplaySource = forMfProxy ? 'mf' : 'rainviewer';
           this.radarLoadError = false;
-          if (frame?.time != null) {
+          if (!forMfProxy && frame?.time != null) {
             const ts = Number(frame.time);
             if (Number.isFinite(ts)) {
               this.radarValidityTime = new Date(ts * 1000).toLocaleString();
@@ -1308,14 +1348,14 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
           }
           this.logBackend(
             'METEO_FRANCE.LOG_CAT_PRECIPITATION',
-            'METEO_FRANCE.LOG_SOURCE_RAINVIEWER',
+            logSource,
             'ok',
             this.radarValidityTime || undefined
           );
         },
         error: () => {
           this.radarLoadError = true;
-          this.logBackend('METEO_FRANCE.LOG_CAT_PRECIPITATION', 'METEO_FRANCE.LOG_SOURCE_RAINVIEWER', 'error');
+          this.logBackend('METEO_FRANCE.LOG_CAT_PRECIPITATION', logSource, 'error');
         }
       })
     );
@@ -3067,7 +3107,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
           this.aromepiCapabilities = caps;
           this.aromepiLayers = Array.isArray(caps.layers) ? caps.layers : [];
           this.aromepiTimeSteps = Array.isArray(caps.timeSteps) ? caps.timeSteps : [];
-          this.aromepiReferenceTime = caps.defaultReferenceTime || caps.referenceTimes?.[0] || '';
+          this.aromepiReferenceTime = caps.defaultReferenceTime || caps.referenceTimes?.[caps.referenceTimes.length - 1] || '';
           this.aromepiFrameIndex = 0;
           if (!this.aromepiSelectedLayer && this.aromepiLayers.length) {
             const cloud = this.aromepiLayers.find((l) => l.category === 'cloud');
@@ -3271,8 +3311,10 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     }
     const layer = this.aromepiSelectedLayer;
     const style = this.aromepiSelectedStyle;
-    const time = this.aromepiCurrentTime;
-    const referenceTime = this.aromepiReferenceTime;
+    const { time, referenceTime } = this.resolveAromepiWmsTimes();
+    if (!time || !referenceTime) {
+      return;
+    }
     this.aromepiWmsLayer = L.tileLayer(
       `${environment.API_URL}external/meteofrance/aromepi/wms/{z}/{x}/{y}?layer=${encodeURIComponent(layer)}&time=${encodeURIComponent(time)}&referenceTime=${encodeURIComponent(referenceTime)}${style ? `&style=${encodeURIComponent(style)}` : ''}&width=256&height=256`,
       {
@@ -3290,6 +3332,21 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.aromepiWmsLayer.on('load', () => {
       this.aromepiLoadError = false;
     });
+  }
+
+  /** Ensure WMS TIME is within referenceTime + [15..360] min (backend also normalizes). */
+  private resolveAromepiWmsTimes(): { time: string; referenceTime: string } {
+    const referenceTime = this.aromepiReferenceTime;
+    let time = this.aromepiCurrentTime;
+    if (!referenceTime || !time) {
+      return { time: '', referenceTime: referenceTime || '' };
+    }
+    const offset = this.aromepiCurrentOffsetMinutes;
+    if (offset < 15 || offset > 360) {
+      time = this.aromepiTimeSteps[0] || time;
+      this.aromepiFrameIndex = 0;
+    }
+    return { time, referenceTime };
   }
 
   toggleAromepiMapFullscreen(): void {
@@ -3346,10 +3403,39 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   }
 
   aromepiLayerLabel(layer: { name: string; title: string; category?: string }): string {
+    const i18nKey = `METEO_FRANCE.AROMEPI_LAYERS.${layer.name}`;
+    const translated = this.translate.instant(i18nKey);
+    if (translated && translated !== i18nKey) {
+      return translated;
+    }
+    const fromParts = this.aromepiLayerLabelFromParts(layer.name);
+    if (fromParts) {
+      return fromParts;
+    }
     if (layer.title && layer.title !== layer.name) {
       return layer.title;
     }
-    return layer.name.replace(/__/g, ' ').replace(/_/g, ' ');
+    return layer.name.replace(/__/g, ' · ').replace(/_/g, ' ');
+  }
+
+  private aromepiLayerLabelFromParts(name: string): string | null {
+    const sep = name.indexOf('__');
+    if (sep <= 0) {
+      return null;
+    }
+    const param = name.substring(0, sep);
+    const level = name.substring(sep + 2);
+    const paramKey = `METEO_FRANCE.AROMEPI_PARAM.${param}`;
+    const levelKey = `METEO_FRANCE.AROMEPI_LEVEL.${level}`;
+    const paramLabel = this.translate.instant(paramKey);
+    if (paramLabel === paramKey) {
+      return null;
+    }
+    const levelLabel = this.translate.instant(levelKey);
+    if (levelLabel !== levelKey) {
+      return `${paramLabel} (${levelLabel})`;
+    }
+    return paramLabel;
   }
 
   aromepiCategoryLabel(category?: string): string {

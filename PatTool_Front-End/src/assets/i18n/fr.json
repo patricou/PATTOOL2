@@ -1,4 +1,4 @@
-﻿{
+{
     "LANGUAGE": {
         "FR": "Français",
         "EN": "Anglais",
@@ -3668,9 +3668,9 @@
         "RADAR_TITLE": "Carte radar pluie (Météo-France)",
         "MAP_FULLSCREEN": "Plein écran",
         "MAP_EXIT_FULLSCREEN": "Quitter le plein écran",
-        "TAB_RADAR": "Radar & prévisions",
-        "TAB_CLIM": "Climatologie",
-        "TAB_AROMEPI": "AROME-PI (0–6 h)",
+        "TAB_RADAR": "Température et radar",
+        "TAB_CLIM": "Historique température",
+        "TAB_AROMEPI": "Prévision MF",
         "SHOW_RADAR": "Afficher le radar",
         "RADAR_SOURCE_LABEL": "Source radar",
         "RADAR_SOURCE_MF": "Météo-France (DPRadar)",
@@ -3711,6 +3711,7 @@
         "TEMPERATURE_LABELS_ERROR": "Impossible de charger les températures sur la carte.",
         "TEMPERATURE_LABELS_EMPTY": "Aucune température disponible pour cette zone (essayez de zoomer ou réessayez dans un instant).",
         "TEMPERATURE_LABEL_CLOSE": "Fermer l'info température",
+        "TEMPERATURE": "Température",
         "TOOLTIP_STATION": "Station",
         "TOOLTIP_STATION_MF": "Station Météo-France",
         "TOOLTIP_OPENMETEO": "Point grille (Open-Meteo)",
@@ -3815,7 +3816,6 @@
         "FORECAST_3H": "3 h",
         "FORECAST_DAILY": "Par jour",
         "FEELS_LIKE": "Ressenti",
-        "TEMPERATURE": "Température",
         "HUMIDITY": "Humidité",
         "PRESSURE": "Pression",
         "WIND": "Vent",
@@ -3876,6 +3876,29 @@
         "AROMEPI_CAT_WIND": "Vent",
         "AROMEPI_CAT_VISIBILITY": "Visibilité",
         "AROMEPI_CAT_OTHER": "Autres paramètres",
+        "AROMEPI_LAYERS": {
+            "NEBUL__GROUND_OR_WATER_SURFACE": "Nébulosité",
+            "TOTAL_WATER_PRECIPITATION__GROUND_OR_WATER_SURFACE": "Précipitations totales",
+            "TEMPERATURE__GROUND_OR_WATER_SURFACE": "Température",
+            "RELATIVE_HUMIDITY__GROUND_OR_WATER_SURFACE": "Humidité relative",
+            "WIND_SPEED__GROUND_OR_WATER_SURFACE": "Vitesse du vent",
+            "VISIBILITY__GROUND_OR_WATER_SURFACE": "Visibilité"
+        },
+        "AROMEPI_PARAM": {
+            "NEBUL": "Nébulosité",
+            "TOTAL_WATER_PRECIPITATION": "Précipitations totales",
+            "TEMPERATURE": "Température",
+            "RELATIVE_HUMIDITY": "Humidité relative",
+            "WIND_SPEED": "Vitesse du vent",
+            "VISIBILITY": "Visibilité",
+            "PRECIPITATION": "Précipitations",
+            "NEIGE": "Neige",
+            "GRELE": "Grêle",
+            "GRAUPEL": "Grésil"
+        },
+        "AROMEPI_LEVEL": {
+            "GROUND_OR_WATER_SURFACE": "surface (sol/mer)"
+        },
         "DPCLIM_NOT_CONFIGURED": "Archives climat indisponibles : abonnez-vous à l'API « Données Climatologiques » sur portail-api.meteofrance.fr, puis configurez meteofrance.clim.api.token (clé distincte du radar).",
         "DPCLIM_INVALID_TOKEN": "Clé DPClim refusée (401). Sur le portail : API « Données Climatologiques » → Configurer → API Key → meteofrance.clim.api.token (pas la clé radar).",
         "CLIM_COL_DATE": "Date",

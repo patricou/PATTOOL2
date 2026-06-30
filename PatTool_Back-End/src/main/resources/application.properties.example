@@ -114,8 +114,8 @@ meteofrance.api.token=
 # meteofrance.radar.base.url=https://public-api.meteofrance.fr/public/DPRadar/v1
 # meteofrance.radar.wms.url=https://geoservices.meteofrance.fr/services/WMS
 # meteofrance.radar.wms.layer=RADARURANCE400M
-# WMS geoservices (PNG tiles for map display — DPRadar /produit returns HDF5, not PNG)
-# meteofrance.radar.wms.enabled=true
+# WMS geoservices (optional — DPRadar /produit is HDF5, not PNG; no public MF radar WMS by default)
+# meteofrance.radar.wms.enabled=false
 # Intervalle de rafraîchissement auto de la couche radar sur la page Météo France (secondes, 30–600, défaut 60)
 # meteofrance.radar.refresh.seconds=60
 # meteofrance.temperature.cache.minutes=5

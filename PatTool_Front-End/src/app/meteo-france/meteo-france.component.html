@@ -123,21 +123,21 @@
         <li class="nav-item" role="presentation">
           <button type="button" class="nav-link" [class.active]="activeMainTab === 'radar'"
                   (click)="onMainTabChange('radar')">
-            <i class="fa fa-bolt"></i>
+            <i class="fa fa-thermometer-half"></i>
             {{ 'METEO_FRANCE.TAB_RADAR' | translate }}
           </button>
         </li>
         <li class="nav-item" role="presentation">
           <button type="button" class="nav-link" [class.active]="activeMainTab === 'clim'"
                   (click)="onMainTabChange('clim')">
-            <i class="fa fa-database"></i>
+            <i class="fa fa-history"></i>
             {{ 'METEO_FRANCE.TAB_CLIM' | translate }}
           </button>
         </li>
         <li class="nav-item" role="presentation">
           <button type="button" class="nav-link" [class.active]="activeMainTab === 'aromepi'"
                   (click)="onMainTabChange('aromepi')">
-            <i class="fa fa-cloud"></i>
+            <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')" class="mf-tab-logo" width="18" height="18" />
             {{ 'METEO_FRANCE.TAB_AROMEPI' | translate }}
           </button>
         </li>
