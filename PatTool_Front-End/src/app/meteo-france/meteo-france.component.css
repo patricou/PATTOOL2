@@ -42,6 +42,36 @@
   padding-bottom: 0;
 }
 
+.mf-section-head-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.forecast-provider-site-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  line-height: 1;
+}
+
+.forecast-provider-site-btn img {
+  display: block;
+}
+
+.forecast-provider-site-icon {
+  font-size: 0.72rem;
+  opacity: 0.75;
+}
+
+.forecast-provider-site-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .mf-layer-source-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
@@ -1254,6 +1284,10 @@
   font-size: 0.85rem;
 }
 
+.forecast-table-wrap {
+  width: 100%;
+}
+
 .forecast-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
@@ -1340,6 +1374,50 @@
   margin-bottom: 0.75rem;
 }
 
+.clim-loading-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+  padding: 2rem;
+  color: var(--bs-secondary-color, #6c757d);
+}
+
+.clim-loading-panel-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.clim-loading-spinner {
+  font-size: 2.25rem;
+  opacity: 0.85;
+}
+
+.forecast-tab-loading-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: min(50vh, 420px);
+  padding: 2rem;
+  color: var(--bs-secondary-color, #6c757d);
+}
+
+.forecast-tab-loading-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.forecast-tab-loading-spinner {
+  font-size: 2.25rem;
+  opacity: 0.85;
+}
+
 .clim-chart-title {
   font-size: 0.95rem;
   margin: 0.75rem 0 0.35rem;
@@ -1350,6 +1428,48 @@
   position: relative;
   height: 260px;
   margin-bottom: 0.5rem;
+}
+
+.forecast-charts-wrap {
+  margin-top: 1rem;
+}
+
+.forecast-charts {
+  margin-bottom: 0.75rem;
+}
+
+.forecast-charts-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.forecast-chart-style-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 11rem;
+}
+
+.forecast-chart-section-title {
+  font-size: 0.95rem;
+  margin: 0;
+  font-weight: 600;
+}
+
+.forecast-chart-title {
+  font-size: 0.88rem;
+  margin: 0.5rem 0 0.35rem;
+  font-weight: 600;
+}
+
+.forecast-chart-box {
+  position: relative;
+  height: 240px;
+  margin-bottom: 0.75rem;
 }
 
 .clim-table-toggle {
@@ -1375,6 +1495,15 @@
   font-size: 0.85rem;
 }
 
+.forecast-data-location {
+  margin-bottom: 0.5rem;
+}
+
+.forecast-data-location strong {
+  font-weight: 600;
+  color: #212529;
+}
+
 .mf-page-header {
   display: flex;
   align-items: center;
@@ -1398,41 +1527,212 @@
   position: relative;
 }
 
+.forecast-map-bottom-section {
+  margin-top: 0.25rem;
+}
+
+.forecast-map-shell {
+  position: relative;
+}
+
+.forecast-map {
+  min-height: 360px;
+  cursor: crosshair;
+}
+
+.forecast-map-settings {
+  max-width: 16rem;
+}
+
+.forecast-settings-panel {
+  padding: 0.75rem 1rem;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  background: #f8f9fa;
+}
+
+.forecast-settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin-bottom: 0.35rem;
+}
+
+.forecast-settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 9rem;
+}
+
+.forecast-settings-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #495057;
+}
+
+.forecast-settings-params {
+  margin-top: 0.65rem;
+  margin-bottom: 0.35rem;
+}
+
+.forecast-param-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.forecast-param-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 0.82rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.multi-day-forecast-scroll {
+  max-height: min(70vh, 640px);
+  overflow: auto;
+}
+
+.multi-day-forecast-table {
+  font-size: 0.85rem;
+  width: 100%;
+}
+
+.multi-day-forecast-table th,
+.multi-day-forecast-table td {
+  vertical-align: middle;
+}
+
+.multi-day-col-time {
+  white-space: nowrap;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--bs-body-bg, #fff);
+  min-width: 9.5rem;
+}
+
+.multi-day-forecast-table thead .multi-day-col-time {
+  z-index: 2;
+  background: var(--bs-light, #f8f9fa);
+}
+
+.multi-day-forecast-table tbody tr:nth-child(even) .multi-day-col-time {
+  background: var(--bs-table-striped-bg, rgba(0, 0, 0, 0.05));
+}
+
+.multi-day-forecast-weather {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.multi-day-forecast-icon {
+  width: 28px;
+  height: 28px;
+}
+
 .aromepi-map {
   min-height: 420px;
 }
 
 .aromepi-time-controls {
   position: absolute;
-  left: 0.75rem;
-  right: 0.75rem;
-  bottom: 0.75rem;
+  left: 0.5rem;
+  right: 0.5rem;
+  bottom: 0.5rem;
   z-index: 600;
-  padding: 0.65rem 0.75rem;
-  border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  padding: 0.35rem 0.55rem;
+  border-radius: 0.375rem;
+  background: rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.1);
 }
 
-.aromepi-time-label {
+.aromepi-time-compact-row {
   display: flex;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
   flex-wrap: wrap;
-  gap: 0.35rem 0.75rem;
-  margin-bottom: 0.35rem;
-  font-size: 0.85rem;
 }
 
-.aromepi-time-toolbar {
-  margin-bottom: 0.35rem;
+.aromepi-time-actions {
+  display: flex;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+
+.aromepi-time-btn {
+  padding: 0.12rem 0.38rem;
+  line-height: 1.1;
+  font-size: 0.72rem;
+}
+
+.aromepi-time-meta {
+  flex: 1 1 10rem;
+  min-width: 0;
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+
+.aromepi-time-meta-primary {
+  display: block;
+  font-weight: 600;
+  color: rgba(33, 37, 41, 0.92);
+}
+
+.aromepi-time-meta-offset {
+  font-weight: 500;
+  color: rgba(33, 37, 41, 0.72);
+}
+
+.aromepi-time-meta-detail {
+  display: block;
+  color: rgba(33, 37, 41, 0.68);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.aromepi-time-slider-wrap {
+  flex: 1 1 11rem;
+  min-width: 9rem;
 }
 
 .aromepi-time-slider {
-  margin-bottom: 0.15rem;
+  margin: 0;
+  height: 0.3rem;
 }
 
 .aromepi-time-range {
   display: flex;
   justify-content: space-between;
+  font-size: 0.65rem;
+  line-height: 1;
+  color: rgba(33, 37, 41, 0.62);
+  margin-top: 0.05rem;
+}
+
+@media (max-width: 767.98px) {
+  .aromepi-time-compact-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .aromepi-time-meta-detail {
+    white-space: normal;
+  }
+
+  .aromepi-time-slider-wrap {
+    min-width: 0;
+  }
 }
 
 .aromepi-layer-select {
@@ -1448,6 +1748,60 @@
 
 .aromepi-forecast-table {
   font-size: 0.82rem;
+}
+
+.aggregate-forecast-table {
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.aggregate-forecast-scroll {
+  max-height: min(70vh, 720px);
+  overflow: auto;
+}
+
+.aggregate-forecast-meta-badge {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.aggregate-forecast-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bs-light, #f8f9fa);
+}
+
+.aggregate-forecast-table th,
+.aggregate-forecast-table td {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.aggregate-col-time {
+  text-align: left !important;
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: var(--bs-body-bg, #fff);
+  min-width: 9.5rem;
+}
+
+.aggregate-forecast-table thead .aggregate-col-time {
+  z-index: 4;
+  background: var(--bs-light, #f8f9fa);
+}
+
+.aggregate-col-mean {
+  background: rgba(13, 110, 253, 0.06);
+}
+
+.aggregate-forecast-table tbody tr:nth-child(even) .aggregate-col-time {
+  background: var(--bs-table-striped-bg, rgba(0, 0, 0, 0.05));
+}
+
+.aggregate-forecast-table tbody tr:nth-child(even) .aggregate-col-mean {
+  background: rgba(13, 110, 253, 0.1);
 }
 
 @media (max-width: 767.98px) {

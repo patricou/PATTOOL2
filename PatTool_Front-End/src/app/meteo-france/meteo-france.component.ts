@@ -9,15 +9,27 @@ import { environment } from '../../environments/environment';
 import { BaseChartDirective } from 'ng2-charts';
 import { Chart, ChartConfiguration, ChartOptions, registerables } from 'chart.js';
 import * as L from 'leaflet';
-import { catchError, of, Subscription } from 'rxjs';
+import { catchError, of, Subscription, take } from 'rxjs';
 
 Chart.register(...registerables);
 
 type TemperatureUnit = 'celsius' | 'fahrenheit';
 type WeatherDataSourceBrand = 'meteofrance' | 'open-meteo' | 'openweathermap';
 type WeatherPanelSource = 'openweathermap' | 'open-meteo' | 'meteofrance';
+type MultiDayForecastDisplayParam = 'temp' | 'humidity' | 'wind' | 'precip' | 'pop' | 'weather';
+type ForecastChartKind = 'line' | 'bar';
+type ForecastChartStyle = 'auto' | 'line' | 'bar';
+
+interface ForecastChartBlock {
+  param: MultiDayForecastDisplayParam;
+  labelKey: string;
+  chartType: ForecastChartKind;
+  data: ChartConfiguration<'line' | 'bar'>['data'];
+  options: ChartOptions<'line' | 'bar'>;
+}
 type RadarLayerSource = 'meteofrance' | 'rainviewer';
 type CloudLayerSource = 'openweathermap' | 'rainviewer';
+type MeteoFranceMainTab = 'radar' | 'clim' | 'aromepi' | 'forecast-options' | 'forecast-owm' | 'forecast-om' | 'forecast-aggregate';
 
 interface TemperatureGridPoint {
   lat: number;
@@ -70,6 +82,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private static readonly CURRENT_WEATHER_SOURCE_FR_STORAGE_KEY = 'meteo-france.current-weather-source.fr';
   private static readonly CURRENT_WEATHER_SOURCE_ABROAD_STORAGE_KEY = 'meteo-france.current-weather-source.abroad';
   private static readonly FORECAST_WEATHER_SOURCE_STORAGE_KEY = 'meteo-france.forecast-weather-source';
+  private static readonly MULTI_DAY_FORECAST_PARAMS_STORAGE_KEY = 'meteo-france.multi-day-forecast-params';
+  private static readonly FORECAST_CHART_STYLE_STORAGE_KEY = 'meteo-france.forecast-chart-style';
   private static readonly RADAR_LAYER_SOURCE_STORAGE_KEY = 'meteo-france.radar-layer-source';
   private static readonly CLOUD_LAYER_SOURCE_STORAGE_KEY = 'meteo-france.cloud-layer-source';
   private static readonly MAP_BASE_LAYER_STORAGE_KEY = 'meteo-france.map-base-layer';
@@ -85,10 +99,12 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private static readonly TEMP_LABEL_LOGO_EXTRA_PX = 24;
   /** Default zoom for the rain-radar map — centered on the selected position. */
   private static readonly RADAR_MAP_ZOOM = 13;
+  /** Default zoom for forecast maps (AROME-PI + multi-day forecast tabs). */
+  private static readonly FORECAST_MAP_ZOOM = 12;
   private static readonly CLIM_TEMP_COLUMNS = new Set(['TN', 'TNT', 'TX', 'TM']);
 
-  @ViewChild('climTempChart') climTempChart?: BaseChartDirective;
-  @ViewChild('climRainChart') climRainChart?: BaseChartDirective;
+  @ViewChild('climTempChart', { read: BaseChartDirective }) climTempChart?: BaseChartDirective;
+  @ViewChild('climRainChart', { read: BaseChartDirective }) climRainChart?: BaseChartDirective;
   @ViewChild('mapShell') mapShell?: ElementRef<HTMLElement>;
   @ViewChild('aromepiMapShell') aromepiMapShell?: ElementRef<HTMLElement>;
 
@@ -115,6 +131,15 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   climChartsReady = false;
   climShowTable = false;
 
+  owmForecastChartBlocks: ForecastChartBlock[] = [];
+  omForecastChartBlocks: ForecastChartBlock[] = [];
+  aggregateForecastChartBlocks: ForecastChartBlock[] = [];
+  owmForecastChartsReady = false;
+  omForecastChartsReady = false;
+  aggregateForecastChartsReady = false;
+  aromepiForecastChartBlocks: ForecastChartBlock[] = [];
+  aromepiForecastChartsReady = false;
+
   readonly meteoFranceApiPortalUrl = 'https://portail-api.meteofrance.fr/web/fr/';
 
   constructor(
@@ -130,18 +155,51 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   fullAddress = '';
 
   currentWeather: any = null;
-  forecast: any = null;
-  displayForecastList: any[] = [];
-  forecastDisplayMode: 'hourly' | 'daily' = 'hourly';
   currentWeatherSource: WeatherPanelSource = 'meteofrance';
-  forecastWeatherSource: WeatherPanelSource = 'openweathermap';
   readonly weatherPanelSources: WeatherPanelSource[] = ['openweathermap', 'open-meteo', 'meteofrance'];
+
+  owmForecast: any = null;
+  owmForecastErrorKey = '';
+  isLoadingOwmForecast = false;
+
+  omForecast: any = null;
+  omForecastErrorKey = '';
+  isLoadingOmForecast = false;
+
+  aggregatedForecast: any = null;
+  aggregatedForecastErrorKey = '';
+  isLoadingAggregatedForecast = false;
+
+  forecastHorizonHours = 24;
+  forecastStepMinutes = 60;
+  readonly forecastHorizonMinHours = 24;
+  readonly forecastHorizonMaxHours = 240;
+  readonly forecastStepMinMinutes = 6;
+  readonly forecastStepMaxMinutes = 1440;
+  readonly forecastHorizonOptions: number[] = [24, 48, 72, 96, 120, 144, 168, 192, 216, 240];
+  readonly forecastStepOptions: number[] = [6, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 360, 720, 1440];
+  multiDayForecastDisplayParams: MultiDayForecastDisplayParam[] = [
+    'temp', 'humidity', 'wind', 'precip', 'pop'
+  ];
+  forecastChartStyle: ForecastChartStyle = 'auto';
+  readonly forecastChartStyleOptions: ForecastChartStyle[] = ['auto', 'line', 'bar'];
+  readonly multiDayForecastParamOptions: Array<{ id: MultiDayForecastDisplayParam; labelKey: string }> = [
+    { id: 'temp', labelKey: 'METEO_FRANCE.AGG_COL_TEMP' },
+    { id: 'humidity', labelKey: 'METEO_FRANCE.HUMIDITY' },
+    { id: 'wind', labelKey: 'METEO_FRANCE.WIND' },
+    { id: 'precip', labelKey: 'METEO_FRANCE.PRECIP' },
+    { id: 'pop', labelKey: 'METEO_FRANCE.RAIN_CHANCE' },
+    { id: 'weather', labelKey: 'METEO_FRANCE.FORECAST_PARAM_WEATHER' }
+  ];
+
+  private owmForecastRequestId = 0;
+  private omForecastRequestId = 0;
+  private aggregatedForecastRequestId = 0;
   radarLayerSource: RadarLayerSource = 'rainviewer';
   cloudLayerSource: CloudLayerSource = 'openweathermap';
   readonly radarLayerSources: RadarLayerSource[] = ['meteofrance', 'rainviewer'];
   readonly cloudLayerSources: CloudLayerSource[] = ['openweathermap', 'rainviewer'];
   mapBaseLayerId = 'osm-standard';
-  forecastErrorKey = '';
 
   mfStatus: any = null;
   radarValidityTime: string | null = null;
@@ -154,7 +212,6 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
 
   errorMessage = '';
   isLoadingWeather = false;
-  isLoadingForecast = false;
   isLoadingCitySearch = false;
   isLoadingGps = false;
   citySearchResults: any[] = [];
@@ -181,7 +238,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   temperatureUnit: TemperatureUnit = 'celsius';
   mapFullscreen = false;
   autoRefreshRadar = true;
-  activeMainTab: 'radar' | 'clim' | 'aromepi' = 'radar';
+  activeMainTab: MeteoFranceMainTab = 'radar';
   radarRefreshSeconds = 60;
   readonly radarRefreshMinSeconds = 30;
   readonly radarRefreshMaxSeconds = 600;
@@ -222,6 +279,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   aromepiPointForecast: any = null;
   aromepiCurrentValues: Record<string, unknown> = {};
   aromepiLoadError = false;
+  aromepiNearestStation: { id: string; name?: string; distanceKm?: number } | null = null;
+  aromepiNearestStationStatus: 'idle' | 'loading' | 'ok' | 'unavailable' | 'outside-france' = 'idle';
+  private aromepiNearestStationRequestId = 0;
 
   showBackendLog = false;
   backendLogs: MeteoBackendLogEntry[] = [];
@@ -253,6 +313,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private selectedPointComparisonLoading = false;
   private selectedLocationName = '';
   private reverseGeocodeRequestId = 0;
+  private locationGeocodeKey = '';
+  private reverseGeocodingInFlight = false;
   private weatherRequestId = 0;
   private selectedTempRequestId = 0;
   private temperatureGridPoints: TemperatureGridPoint[] = [];
@@ -269,9 +331,26 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private aromepiMap: L.Map | null = null;
   private aromepiMarker: L.Marker | null = null;
   private aromepiWmsLayer: L.TileLayer | null = null;
+  private aromepiWmsLayerPending: L.TileLayer | null = null;
+  private aromepiWmsCrossfadeTimer: ReturnType<typeof setInterval> | null = null;
+  private aromepiWmsTransitioning = false;
   private aromepiMapInitialized = false;
-  private aromepiPlayTimer: ReturnType<typeof setInterval> | null = null;
+  private forecastMap: L.Map | null = null;
+  private forecastMarker: L.Marker | null = null;
+  private forecastMapInitialized = false;
+  private forecastBaseLayer: L.TileLayer | L.LayerGroup | null = null;
+  private aromepiPlayTimer: ReturnType<typeof setTimeout> | null = null;
   private aromepiForecastDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private aromepiWmsCrossfadeFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+  private forecastMapInitRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly forecastMapLayoutTimers = new Set<ReturnType<typeof setTimeout>>();
+  private initMapTimer: ReturnType<typeof setTimeout> | null = null;
+  private componentDestroyed = false;
+  private static readonly AROMEPI_WMS_CROSSFADE_MS = 320;
+  private static readonly AROMEPI_PLAY_FRAME_HOLD_MS = 380;
+  /** AROME-PI WMS native resolution (independent of multi-day forecast options). */
+  private static readonly AROMEPI_FORECAST_HORIZON_MINUTES = 360;
+  private static readonly AROMEPI_FORECAST_STEP_MINUTES = 15;
 
   ngOnInit(): void {
     this.loadTemperatureUnitPreference();
@@ -280,6 +359,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.fixLeafletIcons();
     this.loadMeteoFranceStatus();
     this.loadRadarPreferences();
+    this.loadForecastPreferences();
+    this.loadMultiDayForecastDisplayParams();
+    this.loadForecastChartStylePreference();
     this.loadTemperatureCachePreferences();
     this.mapBaseLayerId = this.readMapBaseLayerPreference();
     this.basemapService.loadOptionalLayers(this.apiService);
@@ -296,9 +378,12 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       }
       this.syncWeatherSourcePreferences();
       this.syncMapLayerSourcePreferences();
+      this.loadRadarPreferences();
+      this.loadForecastPreferences();
+    this.loadMultiDayForecastDisplayParams();
       this.refreshMfTemperatureAvailability();
       this.isLoadingGps = false;
-      setTimeout(() => this.initMap(), 0);
+      this.initMapTimer = this.scheduleComponentTimeout(() => this.initMap(), 0);
     });
   }
 
@@ -326,12 +411,22 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.componentDestroyed = true;
+    this.invalidateInFlightRequests();
     this.exitMapFullscreenIfActive();
     this.exitAromepiMapFullscreenIfActive();
     this.temperatureLabelsLoadSub?.unsubscribe();
+    this.temperatureLabelsLoadSub = null;
     this.subs.unsubscribe();
     this.clearRadarTimers();
     this.stopAromepiAnimation();
+    this.cancelAromepiWmsCrossfade();
+    this.clearAromepiWmsCrossfadeFallbackTimer();
+    this.clearForecastMapTimers();
+    if (this.initMapTimer) {
+      clearTimeout(this.initMapTimer);
+      this.initMapTimer = null;
+    }
     if (this.aromepiForecastDebounceTimer) {
       clearTimeout(this.aromepiForecastDebounceTimer);
       this.aromepiForecastDebounceTimer = null;
@@ -340,16 +435,90 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       clearTimeout(this.cloudIntensityReloadTimer);
       this.cloudIntensityReloadTimer = null;
     }
+    if (this.forecastChartRefreshTimer) {
+      clearTimeout(this.forecastChartRefreshTimer);
+      this.forecastChartRefreshTimer = null;
+    }
+    this.clearTemperatureLabelsDebounce();
     this.detachTemperatureLabelListeners();
+    this.detachMapContainerListeners();
     this.removeCloudLayers();
     this.removeRadarLayers();
+    this.removeTemperatureLabels();
+    if (this.aromepiMap) {
+      if (this.aromepiWmsLayer) {
+        this.aromepiMap.removeLayer(this.aromepiWmsLayer);
+        this.aromepiWmsLayer = null;
+      }
+      if (this.aromepiWmsLayerPending) {
+        this.aromepiMap.removeLayer(this.aromepiWmsLayerPending);
+        this.aromepiWmsLayerPending = null;
+      }
+      this.aromepiMap.remove();
+      this.aromepiMap = null;
+      this.aromepiMarker = null;
+      this.aromepiMapInitialized = false;
+    }
     if (this.map) {
       this.map.remove();
       this.map = null;
+      this.marker = null;
+      this.activeBaseLayer = null;
+      this.mapInitialized = false;
     }
-    if (this.aromepiMap) {
-      this.aromepiMap.remove();
-      this.aromepiMap = null;
+    this.destroyForecastMap();
+  }
+
+  private invalidateInFlightRequests(): void {
+    this.weatherRequestId++;
+    this.selectedTempRequestId++;
+    this.temperatureLabelsRequestId++;
+    this.reverseGeocodeRequestId++;
+    this.owmForecastRequestId++;
+    this.omForecastRequestId++;
+    this.aggregatedForecastRequestId++;
+  }
+
+  private scheduleComponentTimeout(fn: () => void, delayMs: number): ReturnType<typeof setTimeout> {
+    const timer = setTimeout(() => {
+      if (this.componentDestroyed) {
+        return;
+      }
+      fn();
+    }, delayMs);
+    return timer;
+  }
+
+  private scheduleForecastMapLayoutRefresh(delayMs: number): void {
+    const timer = setTimeout(() => {
+      this.forecastMapLayoutTimers.delete(timer);
+      if (this.componentDestroyed) {
+        return;
+      }
+      this.refreshForecastMapLayout();
+    }, delayMs);
+    this.forecastMapLayoutTimers.add(timer);
+  }
+
+  private clearForecastMapTimers(): void {
+    if (this.forecastMapInitRetryTimer) {
+      clearTimeout(this.forecastMapInitRetryTimer);
+      this.forecastMapInitRetryTimer = null;
+    }
+    for (const timer of this.forecastMapLayoutTimers) {
+      clearTimeout(timer);
+    }
+    this.forecastMapLayoutTimers.clear();
+  }
+
+  private detachMapContainerListeners(): void {
+    this.map?.getContainer()?.removeEventListener('click', this.onTemperatureTooltipClick);
+  }
+
+  private clearAromepiWmsCrossfadeFallbackTimer(): void {
+    if (this.aromepiWmsCrossfadeFallbackTimer) {
+      clearTimeout(this.aromepiWmsCrossfadeFallbackTimer);
+      this.aromepiWmsCrossfadeFallbackTimer = null;
     }
   }
 
@@ -604,6 +773,23 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     }
   }
 
+  buildProviderForecastUrl(brand: WeatherDataSourceBrand): string {
+    const lat = this.formatCoordForProviderUrl(this.lat);
+    const lon = this.formatCoordForProviderUrl(this.lon);
+    switch (brand) {
+      case 'openweathermap':
+        return `https://openweathermap.org/weathermap?basemap=map&crs=latlon&lat=${lat}&lon=${lon}&zoom=10&layer=precipitation_new&opacity=0.85`;
+      case 'open-meteo':
+        return `https://open-meteo.com/en/docs?latitude=${lat}&longitude=${lon}`;
+      default:
+        return `https://meteofrance.com/?latitude=${lat}&longitude=${lon}`;
+    }
+  }
+
+  private formatCoordForProviderUrl(value: number): string {
+    return Number(value).toFixed(4);
+  }
+
   getBrandInitials(brand: WeatherDataSourceBrand): string {
     switch (brand) {
       case 'meteofrance':
@@ -774,15 +960,105 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   }
 
   get aromepiCurrentTime(): string {
-    return this.aromepiTimeSteps[this.aromepiFrameIndex] || '';
+    return this.aromepiEffectiveTimeSteps[this.aromepiFrameIndex] || '';
+  }
+
+  get aromepiEffectiveTimeSteps(): string[] {
+    return this.buildAromepiEffectiveTimeSteps();
+  }
+
+  get aromepiEffectiveHorizonMinutes(): number {
+    const fromCaps = Number(this.aromepiCapabilities?.forecastHorizonMinutes);
+    if (Number.isFinite(fromCaps) && fromCaps > 0) {
+      return fromCaps;
+    }
+    return MeteoFranceComponent.AROMEPI_FORECAST_HORIZON_MINUTES;
+  }
+
+  get aromepiEffectiveStepMinutes(): number {
+    const fromCaps = Number(this.aromepiCapabilities?.forecastStepMinutes);
+    if (Number.isFinite(fromCaps) && fromCaps > 0) {
+      return fromCaps;
+    }
+    return MeteoFranceComponent.AROMEPI_FORECAST_STEP_MINUTES;
   }
 
   get aromepiCurrentOffsetMinutes(): number {
-    if (!this.aromepiReferenceTime || !this.aromepiCurrentTime) {
+    return this.aromepiOffsetMinutesForTime(this.aromepiCurrentTime);
+  }
+
+  get aromepiForecastStepMinutes(): number {
+    return this.aromepiEffectiveStepMinutes;
+  }
+
+  get aromepiMaxOffsetMinutes(): number {
+    const steps = this.aromepiEffectiveTimeSteps;
+    if (steps.length) {
+      return this.aromepiOffsetMinutesForTime(steps[steps.length - 1]);
+    }
+    return this.aromepiEffectiveHorizonMinutes;
+  }
+
+  get aromepiMinOffsetMinutes(): number {
+    const steps = this.aromepiEffectiveTimeSteps;
+    if (!steps.length) {
+      return 0;
+    }
+    return this.aromepiOffsetMinutesForTime(steps[0]);
+  }
+
+  private buildAromepiEffectiveTimeSteps(): string[] {
+    const all = this.aromepiTimeSteps;
+    if (!all.length || !this.aromepiReferenceTime) {
+      return all;
+    }
+    const horizonMin = this.aromepiEffectiveHorizonMinutes;
+    const stepMin = this.aromepiEffectiveStepMinutes;
+    const sorted = [...all].sort((a, b) => Date.parse(a) - Date.parse(b));
+    const withinHorizon = sorted.filter((timeIso) => {
+      const offset = this.aromepiOffsetMinutesForTime(timeIso);
+      return offset >= 0 && offset <= horizonMin;
+    });
+    if (!withinHorizon.length) {
+      return sorted;
+    }
+    if (stepMin <= 15) {
+      return withinHorizon;
+    }
+    const minOff = this.aromepiOffsetMinutesForTime(withinHorizon[0]);
+    const tolerance = stepMin / 2;
+    const picked: string[] = [];
+    for (let target = minOff; target <= horizonMin; target += stepMin) {
+      let best: string | null = null;
+      let bestDelta = Number.POSITIVE_INFINITY;
+      for (const timeIso of withinHorizon) {
+        const offset = this.aromepiOffsetMinutesForTime(timeIso);
+        const delta = Math.abs(offset - target);
+        if (delta <= tolerance && delta < bestDelta) {
+          bestDelta = delta;
+          best = timeIso;
+        }
+      }
+      if (best && !picked.includes(best)) {
+        picked.push(best);
+      }
+    }
+    return picked.length ? picked : withinHorizon;
+  }
+
+  private clampAromepiFrameIndex(): void {
+    const max = Math.max(0, this.aromepiEffectiveTimeSteps.length - 1);
+    if (this.aromepiFrameIndex > max) {
+      this.aromepiFrameIndex = 0;
+    }
+  }
+
+  private aromepiOffsetMinutesForTime(timeIso: string): number {
+    if (!this.aromepiReferenceTime || !timeIso) {
       return 0;
     }
     const ref = Date.parse(this.aromepiReferenceTime);
-    const cur = Date.parse(this.aromepiCurrentTime);
+    const cur = Date.parse(timeIso);
     if (!Number.isFinite(ref) || !Number.isFinite(cur)) {
       return 0;
     }
@@ -799,6 +1075,93 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
 
   get aromepiOtherLayers(): Array<{ name: string; title: string; style?: string; category?: string }> {
     return this.aromepiLayers.filter((l) => l.category !== 'cloud' && l.category !== 'precipitation');
+  }
+
+  get aggregatedForecastSteps(): any[] {
+    const steps = this.aggregatedForecast?.steps;
+    return Array.isArray(steps) ? steps : [];
+  }
+
+  get aggregatedForecastHorizonHours(): number {
+    return this.aggregatedForecast?.forecastHorizonHours ?? this.forecastHorizonHours;
+  }
+
+  get aggregatedForecastStepMinutes(): number {
+    return this.aggregatedForecast?.forecastStepMinutes ?? this.forecastStepMinutes;
+  }
+
+  get aggregatedForecastSourceErrors(): Array<{ source: string; message: string }> {
+    const raw = this.aggregatedForecast?.sourceErrors;
+    if (!raw || typeof raw !== 'object') {
+      return [];
+    }
+    return Object.entries(raw).map(([source, message]) => ({
+      source,
+      message: String(message)
+    }));
+  }
+
+  aggregatedSourceLabel(source: string): string {
+    switch (source) {
+      case 'openweathermap':
+        return 'OWM';
+      case 'open-meteo':
+        return 'Open-Meteo';
+      case 'meteofrance':
+        return 'MF';
+      default:
+        return source;
+    }
+  }
+
+  get isMultiDayForecastTab(): boolean {
+    return this.activeMainTab === 'forecast-owm'
+      || this.activeMainTab === 'forecast-om'
+      || this.activeMainTab === 'forecast-aggregate';
+  }
+
+  get isForecastTab(): boolean {
+    return this.isMultiDayForecastTab
+      || this.activeMainTab === 'aromepi'
+      || this.activeMainTab === 'forecast-options';
+  }
+
+  get isLoadingForecastLocation(): boolean {
+    return Number.isFinite(this.lat)
+      && Number.isFinite(this.lon)
+      && this.locationGeocodeKey !== this.currentLocationKey();
+  }
+
+  get isForecastOptionsTab(): boolean {
+    return this.activeMainTab === 'forecast-options';
+  }
+
+  get selectedMultiDayForecastNumericParams(): MultiDayForecastDisplayParam[] {
+    return this.multiDayForecastDisplayParams.filter((p) => p !== 'weather');
+  }
+
+  get selectedMultiDayForecastParamOptions(): Array<{ id: MultiDayForecastDisplayParam; labelKey: string }> {
+    return this.multiDayForecastParamOptions.filter((opt) =>
+      this.multiDayForecastDisplayParams.includes(opt.id)
+    );
+  }
+
+  get forecastHorizonSelectOptions(): number[] {
+    return this.mergeForecastSelectOption(this.forecastHorizonOptions, this.forecastHorizonHours);
+  }
+
+  get forecastStepSelectOptions(): number[] {
+    return this.mergeForecastSelectOption(this.forecastStepOptions, this.forecastStepMinutes);
+  }
+
+  get owmDisplayForecastList(): any[] {
+    const list = this.owmForecast?.list;
+    return Array.isArray(list) ? list : [];
+  }
+
+  get omDisplayForecastList(): any[] {
+    const list = this.omForecast?.list;
+    return Array.isArray(list) ? list : [];
   }
 
   get aromepiForecastSteps(): any[] {
@@ -843,6 +1206,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   onMapBaseLayerChange(): void {
     this.persistMapBaseLayerPreference(this.mapBaseLayerId);
     this.applyMapBaseLayer();
+    this.applyForecastMapBaseLayer();
+    this.refreshForecastMapLayout();
   }
 
   private readMapBaseLayerPreference(): string {
@@ -1108,6 +1473,234 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       ? Math.max(this.radarRefreshMinSeconds, Math.min(this.radarRefreshMaxSeconds, sec))
       : 60;
     return clamped * 1000;
+  }
+
+  private loadMultiDayForecastDisplayParams(): void {
+    try {
+      const raw = localStorage.getItem(MeteoFranceComponent.MULTI_DAY_FORECAST_PARAMS_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        return;
+      }
+      const allowed = new Set<MultiDayForecastDisplayParam>(
+        this.multiDayForecastParamOptions.map((opt) => opt.id)
+      );
+      const selected = parsed.filter(
+        (value): value is MultiDayForecastDisplayParam =>
+          typeof value === 'string' && allowed.has(value as MultiDayForecastDisplayParam)
+      );
+      if (selected.length) {
+        this.multiDayForecastDisplayParams = selected;
+      }
+    } catch {
+      /* keep defaults */
+    }
+  }
+
+  private persistMultiDayForecastDisplayParams(): void {
+    try {
+      localStorage.setItem(
+        MeteoFranceComponent.MULTI_DAY_FORECAST_PARAMS_STORAGE_KEY,
+        JSON.stringify(this.multiDayForecastDisplayParams)
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private loadForecastChartStylePreference(): void {
+    try {
+      const stored = localStorage.getItem(MeteoFranceComponent.FORECAST_CHART_STYLE_STORAGE_KEY);
+      if (stored === 'auto' || stored === 'line' || stored === 'bar') {
+        this.forecastChartStyle = stored;
+      }
+    } catch {
+      /* keep default */
+    }
+  }
+
+  private persistForecastChartStylePreference(): void {
+    try {
+      localStorage.setItem(
+        MeteoFranceComponent.FORECAST_CHART_STYLE_STORAGE_KEY,
+        this.forecastChartStyle
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+
+  forecastChartStyleLabelKey(style: ForecastChartStyle): string {
+    switch (style) {
+      case 'line':
+        return 'METEO_FRANCE.FORECAST_CHART_STYLE_LINE';
+      case 'bar':
+        return 'METEO_FRANCE.FORECAST_CHART_STYLE_BAR';
+      default:
+        return 'METEO_FRANCE.FORECAST_CHART_STYLE_AUTO';
+    }
+  }
+
+  onForecastChartStyleChange(): void {
+    this.persistForecastChartStylePreference();
+    this.scheduleForecastChartsRefresh();
+  }
+
+  isMultiDayForecastParamSelected(param: MultiDayForecastDisplayParam): boolean {
+    return this.multiDayForecastDisplayParams.includes(param);
+  }
+
+  onMultiDayForecastParamToggle(param: MultiDayForecastDisplayParam, checked: boolean): void {
+    const current = [...this.multiDayForecastDisplayParams];
+    if (checked) {
+      if (!current.includes(param)) {
+        current.push(param);
+      }
+    } else {
+      const idx = current.indexOf(param);
+      if (idx >= 0) {
+        current.splice(idx, 1);
+      }
+    }
+    if (!current.length) {
+      current.push('temp');
+    }
+    this.multiDayForecastDisplayParams = current;
+    this.persistMultiDayForecastDisplayParams();
+    this.scheduleForecastChartsRefresh();
+  }
+
+  formatMultiDayForecastValue(item: any, param: MultiDayForecastDisplayParam): string {
+    if (!item) {
+      return '—';
+    }
+    switch (param) {
+      case 'temp':
+        return item.main?.temp != null ? this.formatTemperature(item.main.temp) : '—';
+      case 'humidity':
+        return item.main?.humidity != null ? `${Math.round(Number(item.main.humidity))}%` : '—';
+      case 'wind':
+        return this.formatWindSpeedMs(item.wind?.speed);
+      case 'precip': {
+        const mm = item.rain?.['1h'] ?? item.rain?.['3h'] ?? item.snow?.['1h'] ?? item.snow?.['3h'];
+        return mm != null ? this.formatPrecipMm(mm) : '—';
+      }
+      case 'pop':
+        return item.pop != null ? `${Math.round(Number(item.pop) * 100)}%` : '—';
+      case 'weather':
+        return item.weather?.[0]?.description ?? '—';
+      default:
+        return '—';
+    }
+  }
+
+  private loadForecastPreferences(): void {
+    this.subs.add(
+      this.apiService.getMeteoFranceForecastPreferences().subscribe({
+        next: (pref) => {
+          if (pref?.forecastHorizonHours != null) {
+            this.forecastHorizonHours = pref.forecastHorizonHours;
+          }
+          if (pref?.forecastStepMinutes != null) {
+            this.forecastStepMinutes = pref.forecastStepMinutes;
+          }
+          this.normalizeForecastPreferences();
+        },
+        error: () => { /* default 24h / 60 min */ }
+      })
+    );
+  }
+
+  onForecastPreferencesCommitted(): void {
+    this.normalizeForecastPreferences();
+    this.clampAromepiFrameIndex();
+    if (this.activeMainTab === 'aromepi') {
+      this.setupAromepiWmsLayer(!!this.aromepiWmsLayer);
+    }
+    this.invalidateMultiDayForecasts();
+    this.refreshActiveForecastTab();
+    this.subs.add(
+      this.apiService.saveMeteoFranceForecastPreferences(
+        this.forecastHorizonHours,
+        this.forecastStepMinutes
+      ).subscribe({
+        next: (pref) => {
+          this.forecastHorizonHours = pref.forecastHorizonHours;
+          this.forecastStepMinutes = pref.forecastStepMinutes;
+          this.normalizeForecastPreferences();
+          this.invalidateMultiDayForecasts();
+          this.refreshActiveForecastTab();
+        },
+        error: () => { /* local values already applied */ }
+      })
+    );
+  }
+
+  formatForecastStepOption(minutes: number): string {
+    if (minutes >= 1440) {
+      return this.translate.instant('METEO_FRANCE.FORECAST_STEP_ONE_DAY');
+    }
+    if (minutes >= 60 && minutes % 60 === 0) {
+      const hours = minutes / 60;
+      return `${hours} ${this.translate.instant('METEO_FRANCE.FORECAST_HOURS_UNIT')}`;
+    }
+    return `${minutes} ${this.translate.instant('METEO_FRANCE.FORECAST_MINUTES_UNIT')}`;
+  }
+
+  formatForecastHorizonOption(hours: number): string {
+    const h = Math.round(Number(hours));
+    if (!Number.isFinite(h) || h <= 0) {
+      return '—';
+    }
+    if (h >= 24 && h % 24 === 0) {
+      const days = h / 24;
+      if (days === 1) {
+        return this.translate.instant('METEO_FRANCE.FORECAST_STEP_ONE_DAY');
+      }
+      return `${days} ${this.translate.instant('METEO_FRANCE.FORECAST_DAYS_UNIT')}`;
+    }
+    return `${h} ${this.translate.instant('METEO_FRANCE.FORECAST_HOURS_UNIT')}`;
+  }
+
+  private normalizeForecastPreferences(): void {
+    const horizon = Math.round(Number(this.forecastHorizonHours));
+    this.forecastHorizonHours = Number.isFinite(horizon)
+      ? Math.max(this.forecastHorizonMinHours, Math.min(this.forecastHorizonMaxHours, horizon))
+      : 24;
+    this.forecastStepMinutes = this.clampForecastStepMinutes(Math.round(Number(this.forecastStepMinutes)));
+  }
+
+  private clampForecastStepMinutes(step: number): number {
+    if (!Number.isFinite(step)) {
+      return 60;
+    }
+    return Math.max(this.forecastStepMinMinutes, Math.min(this.forecastStepMaxMinutes, step));
+  }
+
+  private mergeForecastSelectOption(options: number[], current: number): number[] {
+    const clamped = options === this.forecastHorizonOptions
+      ? Math.max(this.forecastHorizonMinHours, Math.min(this.forecastHorizonMaxHours, Math.round(Number(current))))
+      : this.clampForecastStepMinutes(Math.round(Number(current)));
+    if (options.includes(clamped)) {
+      return options;
+    }
+    return [...options, clamped].sort((a, b) => a - b);
+  }
+
+  private invalidateMultiDayForecasts(): void {
+    this.owmForecastRequestId++;
+    this.omForecastRequestId++;
+    this.aggregatedForecastRequestId++;
+    this.owmForecast = null;
+    this.omForecast = null;
+    this.aggregatedForecast = null;
+    this.owmForecastErrorKey = '';
+    this.omForecastErrorKey = '';
+    this.aggregatedForecastErrorKey = '';
+    this.clearForecastCharts();
   }
 
   private loadRadarPreferences(): void {
@@ -2398,6 +2991,35 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     return normalized === 'meteofrance-dpobs' || normalized === 'meteofrance-dpobs-v2';
   }
 
+  get forecastDataLocationPlace(): string {
+    return this.resolveForecastDataLocationPlace();
+  }
+
+  get forecastDataLocationCoords(): string {
+    if (!Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
+      return '';
+    }
+    return this.formatGpsCoordinates(this.lat, this.lon);
+  }
+
+  get forecastDataLocationShowCoords(): boolean {
+    const coords = this.forecastDataLocationCoords;
+    const place = this.forecastDataLocationPlace;
+    return !!coords && place !== coords;
+  }
+
+  private resolveForecastDataLocationPlace(): string {
+    const address = this.fullAddress?.trim();
+    if (address) {
+      return address;
+    }
+    const cityLine = [this.city?.trim(), this.countryCode?.trim()].filter(Boolean).join(', ');
+    if (cityLine) {
+      return cityLine;
+    }
+    return this.resolveSelectedLocationName();
+  }
+
   private resolveSelectedLocationName(): string {
     const name = this.selectedLocationName?.trim();
     if (name) {
@@ -3058,8 +3680,12 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     }, 120);
   }
 
-  onMainTabChange(tab: 'radar' | 'clim' | 'aromepi'): void {
+  onMainTabChange(tab: MeteoFranceMainTab): void {
+    const wasOnForecastOptions = this.isForecastOptionsTab;
     this.activeMainTab = tab;
+    if (wasOnForecastOptions && !this.isForecastOptionsTab) {
+      this.destroyForecastMap();
+    }
     if (tab === 'radar') {
       this.stopAromepiAnimation();
       setTimeout(() => {
@@ -3074,6 +3700,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         this.loadClimDataForCurrentPosition();
       }, 0);
     } else if (tab === 'aromepi') {
+      this.ensureForecastLocationResolved();
       setTimeout(() => {
         this.initAromepiMap();
         if (this.aromepiAvailable) {
@@ -3081,11 +3708,104 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
             this.loadAromepiCapabilities();
           } else {
             this.setupAromepiWmsLayer();
-            this.scheduleAromepiForecastLoad();
+            if (!this.hasAromepiPointForecastData()) {
+              this.scheduleAromepiForecastLoad();
+            }
+            this.loadAromepiCurrentValues();
           }
         }
+        this.focusAromepiMapOnPosition();
+        this.loadAromepiNearestStation();
       }, 0);
+    } else if (tab === 'forecast-options') {
+      this.stopAromepiAnimation();
+      this.ensureForecastLocationResolved();
+      this.scheduleForecastMapInit();
+    } else if (tab === 'forecast-owm') {
+      this.stopAromepiAnimation();
+      this.activateOwmForecastTabIfNeeded();
+    } else if (tab === 'forecast-om') {
+      this.stopAromepiAnimation();
+      this.activateOmForecastTabIfNeeded();
+    } else if (tab === 'forecast-aggregate') {
+      this.stopAromepiAnimation();
+      this.activateAggregatedForecastTabIfNeeded();
     }
+  }
+
+  private hasOwmForecastData(): boolean {
+    return this.owmForecast != null;
+  }
+
+  private hasOmForecastData(): boolean {
+    return this.omForecast != null;
+  }
+
+  private hasAggregatedForecastData(): boolean {
+    return this.aggregatedForecast != null;
+  }
+
+  private hasAromepiPointForecastData(): boolean {
+    const steps = this.aromepiPointForecast?.steps;
+    return Array.isArray(steps) && steps.length > 0;
+  }
+
+  private activateOwmForecastTabIfNeeded(): void {
+    this.ensureForecastLocationResolved();
+    if (this.hasOwmForecastData()) {
+      this.scheduleForecastChartsRefresh();
+      return;
+    }
+    this.loadOwmForecast();
+  }
+
+  private activateOmForecastTabIfNeeded(): void {
+    this.ensureForecastLocationResolved();
+    if (this.hasOmForecastData()) {
+      this.scheduleForecastChartsRefresh();
+      return;
+    }
+    this.loadOmForecast();
+  }
+
+  private activateAggregatedForecastTabIfNeeded(): void {
+    this.ensureForecastLocationResolved();
+    if (this.hasAggregatedForecastData()) {
+      this.scheduleForecastChartsRefresh();
+      return;
+    }
+    this.loadAggregatedForecast();
+  }
+
+  private ensureForecastLocationResolved(): void {
+    if (!Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
+      return;
+    }
+    if (this.locationGeocodeKey === this.currentLocationKey()) {
+      return;
+    }
+    if (this.reverseGeocodingInFlight) {
+      return;
+    }
+    this.reverseGeocode(this.lat, this.lon);
+  }
+
+  private prepareOwmForecastTabLoad(): void {
+    this.isLoadingOwmForecast = true;
+    this.owmForecastErrorKey = '';
+    this.clearOwmForecastCharts();
+  }
+
+  private prepareOmForecastTabLoad(): void {
+    this.isLoadingOmForecast = true;
+    this.omForecastErrorKey = '';
+    this.clearOmForecastCharts();
+  }
+
+  private prepareAggregatedForecastTabLoad(): void {
+    this.isLoadingAggregatedForecast = true;
+    this.aggregatedForecastErrorKey = '';
+    this.clearAggregateForecastCharts();
   }
 
   loadAromepiCapabilities(): void {
@@ -3109,6 +3829,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
           this.aromepiTimeSteps = Array.isArray(caps.timeSteps) ? caps.timeSteps : [];
           this.aromepiReferenceTime = caps.defaultReferenceTime || caps.referenceTimes?.[caps.referenceTimes.length - 1] || '';
           this.aromepiFrameIndex = 0;
+          this.clampAromepiFrameIndex();
           if (!this.aromepiSelectedLayer && this.aromepiLayers.length) {
             const cloud = this.aromepiLayers.find((l) => l.category === 'cloud');
             const precip = this.aromepiLayers.find((l) => l.category === 'precipitation');
@@ -3122,7 +3843,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
             `${this.aromepiLayers.length} layers, ${this.aromepiTimeSteps.length} steps`
           );
           this.setupAromepiWmsLayer();
-          this.scheduleAromepiForecastLoad();
+          if (!this.hasAromepiPointForecastData()) {
+            this.scheduleAromepiForecastLoad();
+          }
         },
         error: () => {
           this.isLoadingAromepiCapabilities = false;
@@ -3142,37 +3865,48 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   }
 
   onAromepiFrameIndexChange(index: number): void {
-    const max = Math.max(0, this.aromepiTimeSteps.length - 1);
+    const max = Math.max(0, this.aromepiEffectiveTimeSteps.length - 1);
     this.aromepiFrameIndex = Math.max(0, Math.min(max, Math.round(index)));
-    this.setupAromepiWmsLayer();
-    this.loadAromepiCurrentValues();
+    this.setupAromepiWmsLayer(!!this.aromepiWmsLayer);
+    if (!this.aromepiPlaying) {
+      this.loadAromepiCurrentValues();
+    }
   }
 
   toggleAromepiPlayback(): void {
     if (this.aromepiPlaying) {
       this.stopAromepiAnimation();
+      this.loadAromepiCurrentValues();
       return;
     }
-    if (this.aromepiTimeSteps.length < 2) {
+    if (this.aromepiEffectiveTimeSteps.length < 2) {
       return;
     }
     this.aromepiPlaying = true;
-    this.aromepiPlayTimer = setInterval(() => {
-      const next = this.aromepiFrameIndex + 1;
-      if (next >= this.aromepiTimeSteps.length) {
-        this.aromepiFrameIndex = 0;
-      } else {
-        this.aromepiFrameIndex = next;
+    this.advanceAromepiPlaybackFrame();
+  }
+
+  private advanceAromepiPlaybackFrame(): void {
+    if (!this.aromepiPlaying || this.aromepiEffectiveTimeSteps.length < 2) {
+      return;
+    }
+    const next = this.aromepiFrameIndex + 1;
+    this.aromepiFrameIndex = next >= this.aromepiEffectiveTimeSteps.length ? 0 : next;
+    this.setupAromepiWmsLayer(true, () => {
+      if (!this.aromepiPlaying) {
+        return;
       }
-      this.setupAromepiWmsLayer();
-      this.loadAromepiCurrentValues();
-    }, this.aromepiPlayIntervalMs);
+      this.aromepiPlayTimer = setTimeout(() => {
+        this.aromepiPlayTimer = null;
+        this.advanceAromepiPlaybackFrame();
+      }, MeteoFranceComponent.AROMEPI_PLAY_FRAME_HOLD_MS);
+    });
   }
 
   stopAromepiAnimation(): void {
     this.aromepiPlaying = false;
     if (this.aromepiPlayTimer) {
-      clearInterval(this.aromepiPlayTimer);
+      clearTimeout(this.aromepiPlayTimer);
       this.aromepiPlayTimer = null;
     }
   }
@@ -3180,6 +3914,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   onAromepiOpacityChange(): void {
     if (this.aromepiWmsLayer) {
       this.aromepiWmsLayer.setOpacity(this.aromepiOpacity);
+    }
+    if (this.aromepiWmsLayerPending) {
+      this.aromepiWmsLayerPending.setOpacity(this.aromepiOpacity);
     }
   }
 
@@ -3197,12 +3934,15 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         next: (data) => {
           this.isLoadingAromepiForecast = false;
           if (data?.error) {
+            this.clearAromepiForecastCharts();
             return;
           }
           this.aromepiPointForecast = data;
+          this.scheduleForecastChartsRefresh();
         },
         error: () => {
           this.isLoadingAromepiForecast = false;
+          this.clearAromepiForecastCharts();
         }
       })
     );
@@ -3220,6 +3960,48 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       this.loadAromepiPointForecast();
       this.loadAromepiCurrentValues();
     }, 400);
+  }
+
+  loadAromepiNearestStation(): void {
+    if (!this.aromepiAvailable) {
+      this.aromepiNearestStation = null;
+      this.aromepiNearestStationStatus = 'idle';
+      return;
+    }
+    if (!this.isLocationInFrance()) {
+      this.aromepiNearestStation = null;
+      this.aromepiNearestStationStatus = 'outside-france';
+      return;
+    }
+    const requestId = ++this.aromepiNearestStationRequestId;
+    this.aromepiNearestStationStatus = 'loading';
+    this.subs.add(
+      this.apiService.getMeteoFranceNearestObsStation(this.lat, this.lon).subscribe({
+        next: (data) => {
+          if (requestId !== this.aromepiNearestStationRequestId || this.componentDestroyed) {
+            return;
+          }
+          if (data?.error || !data?.id) {
+            this.aromepiNearestStation = null;
+            this.aromepiNearestStationStatus = 'unavailable';
+            return;
+          }
+          this.aromepiNearestStation = {
+            id: String(data.id),
+            name: data.name != null ? String(data.name) : undefined,
+            distanceKm: data.distanceKm != null ? Number(data.distanceKm) : undefined
+          };
+          this.aromepiNearestStationStatus = 'ok';
+        },
+        error: () => {
+          if (requestId !== this.aromepiNearestStationRequestId || this.componentDestroyed) {
+            return;
+          }
+          this.aromepiNearestStation = null;
+          this.aromepiNearestStationStatus = 'unavailable';
+        }
+      })
+    );
   }
 
   private loadAromepiCurrentValues(): void {
@@ -3257,14 +4039,15 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private initAromepiMap(): void {
     if (this.aromepiMap) {
       this.aromepiMap.invalidateSize();
+      this.focusAromepiMapOnPosition();
       return;
     }
     const bounds = this.aromepiMapBounds();
     this.aromepiMap = L.map('meteo-france-aromepi-map', {
       center: [this.lat, this.lon],
-      zoom: 7,
+      zoom: MeteoFranceComponent.FORECAST_MAP_ZOOM,
       minZoom: 5,
-      maxZoom: 12,
+      maxZoom: 14,
       maxBounds: bounds,
       maxBoundsViscosity: 0.85,
       worldCopyJump: false
@@ -3288,6 +4071,168 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.aromepiMapInitialized = true;
     this.setupAromepiWmsLayer();
     this.aromepiMap.invalidateSize();
+    this.focusAromepiMapOnPosition();
+  }
+
+  private focusAromepiMapOnPosition(): void {
+    if (!this.aromepiMap || !Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
+      return;
+    }
+    const zoom = Math.max(this.aromepiMap.getZoom(), MeteoFranceComponent.FORECAST_MAP_ZOOM);
+    this.aromepiMap.setView([this.lat, this.lon], zoom);
+  }
+
+  private scheduleForecastMapInit(afterInit?: () => void): void {
+    this.clearForecastMapTimers();
+    const initTimer = setTimeout(() => {
+      this.forecastMapLayoutTimers.delete(initTimer);
+      if (this.componentDestroyed) {
+        return;
+      }
+      this.initForecastMap();
+      afterInit?.();
+      this.refreshForecastMapLayout();
+    }, 0);
+    this.forecastMapLayoutTimers.add(initTimer);
+    this.scheduleForecastMapLayoutRefresh(150);
+    this.scheduleForecastMapLayoutRefresh(450);
+  }
+
+  private destroyForecastMap(): void {
+    this.clearForecastMapTimers();
+    if (this.forecastMap) {
+      this.forecastMap.remove();
+    }
+    this.forecastMap = null;
+    this.forecastMarker = null;
+    this.forecastBaseLayer = null;
+    this.forecastMapInitialized = false;
+  }
+
+  private getForecastMapContainer(): HTMLElement | null {
+    return document.getElementById('meteo-france-forecast-map');
+  }
+
+  private isForecastMapContainerVisible(container: HTMLElement): boolean {
+    return container.offsetWidth > 0 && container.offsetHeight > 0;
+  }
+
+  private initForecastMap(): void {
+    if (this.componentDestroyed || !this.isForecastOptionsTab) {
+      return;
+    }
+    const container = this.getForecastMapContainer();
+    if (!container) {
+      return;
+    }
+    if (this.forecastMap && (container as any)._leaflet_id == null) {
+      this.destroyForecastMap();
+    }
+    if (!this.isForecastMapContainerVisible(container)) {
+      if (this.forecastMapInitRetryTimer) {
+        clearTimeout(this.forecastMapInitRetryTimer);
+      }
+      this.forecastMapInitRetryTimer = this.scheduleComponentTimeout(() => {
+        this.forecastMapInitRetryTimer = null;
+        this.initForecastMap();
+      }, 120);
+      return;
+    }
+    if (this.forecastMap) {
+      this.bindForecastMapInteraction();
+      this.refreshForecastMapLayout();
+      return;
+    }
+
+    this.forecastMap = L.map(container, {
+      center: [this.lat, this.lon],
+      zoom: MeteoFranceComponent.FORECAST_MAP_ZOOM,
+      minZoom: 3,
+      maxZoom: 18,
+      worldCopyJump: true
+    });
+
+    this.applyForecastMapBaseLayer();
+
+    this.forecastMarker = L.marker([this.lat, this.lon], { draggable: true }).addTo(this.forecastMap);
+    this.bindForecastMapInteraction();
+    this.forecastMapInitialized = true;
+    this.refreshForecastMapLayout();
+  }
+
+  private bindForecastMapInteraction(): void {
+    if (!this.forecastMap || !this.forecastMarker) {
+      return;
+    }
+    this.forecastMarker.setLatLng([this.lat, this.lon]);
+    this.forecastMarker.off('dragend');
+    this.forecastMarker.on('dragend', () => {
+      const pos = this.forecastMarker!.getLatLng();
+      this.onForecastMapLocationPick(pos.lat, pos.lng);
+    });
+    this.forecastMap.off('click');
+    this.forecastMap.on('click', (e: L.LeafletMouseEvent) => {
+      this.onForecastMapLocationPick(e.latlng.lat, e.latlng.lng);
+    });
+  }
+
+  /** Click or drag on the shared forecast options map. */
+  private onForecastMapLocationPick(lat: number, lon: number): void {
+    if (!this.isForecastOptionsTab) {
+      return;
+    }
+    this.setLocation(lat, lon, false);
+    this.focusForecastMapOnPosition();
+  }
+
+  private applyForecastMapBaseLayer(): void {
+    if (!this.forecastMap) {
+      return;
+    }
+    this.forecastBaseLayer = this.basemapService.applyBaseLayer(
+      this.forecastMap,
+      this.mapBaseLayerId,
+      this.forecastBaseLayer
+    );
+  }
+
+  private refreshForecastMapLayout(): void {
+    if (!this.forecastMap || !this.isForecastOptionsTab) {
+      return;
+    }
+    this.forecastMap.invalidateSize(true);
+    if (!this.forecastBaseLayer) {
+      this.applyForecastMapBaseLayer();
+    }
+    this.redrawForecastMapTiles();
+    this.focusForecastMapOnPosition();
+  }
+
+  private redrawForecastMapTiles(): void {
+    if (!this.forecastMap) {
+      return;
+    }
+    this.forecastMap.eachLayer((layer) => {
+      if (layer instanceof L.TileLayer) {
+        layer.redraw();
+        return;
+      }
+      if (layer instanceof L.LayerGroup) {
+        layer.eachLayer((child) => {
+          if (child instanceof L.TileLayer) {
+            child.redraw();
+          }
+        });
+      }
+    });
+  }
+
+  private focusForecastMapOnPosition(): void {
+    if (!this.forecastMap || !Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
+      return;
+    }
+    const zoom = Math.max(this.forecastMap.getZoom(), MeteoFranceComponent.FORECAST_MAP_ZOOM);
+    this.forecastMap.setView([this.lat, this.lon], zoom);
   }
 
   private aromepiMapBounds(): L.LatLngBoundsExpression {
@@ -3298,40 +4243,148 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     return [[40.0, -6.0], [51.5, 10.0]];
   }
 
-  private setupAromepiWmsLayer(): void {
+  private setupAromepiWmsLayer(crossfade = false, onComplete?: () => void): void {
     if (!this.aromepiMap || !this.aromepiMapInitialized || !this.aromepiAvailable) {
+      onComplete?.();
       return;
     }
     if (!this.aromepiSelectedLayer || !this.aromepiCurrentTime || !this.aromepiReferenceTime) {
+      onComplete?.();
       return;
     }
-    if (this.aromepiWmsLayer) {
+    const { time, referenceTime } = this.resolveAromepiWmsTimes();
+    if (!time || !referenceTime) {
+      onComplete?.();
+      return;
+    }
+    const url = this.buildAromepiWmsUrl(this.aromepiSelectedLayer, this.aromepiSelectedStyle, time, referenceTime);
+    if (crossfade && this.aromepiWmsLayer) {
+      this.crossfadeAromepiWmsLayer(url, onComplete);
+      return;
+    }
+    this.replaceAromepiWmsLayerImmediate(url);
+    onComplete?.();
+  }
+
+  private buildAromepiWmsUrl(layer: string, style: string, time: string, referenceTime: string): string {
+    const styleParam = style ? `&style=${encodeURIComponent(style)}` : '';
+    return `${environment.API_URL}external/meteofrance/aromepi/wms/{z}/{x}/{y}?layer=${encodeURIComponent(layer)}&time=${encodeURIComponent(time)}&referenceTime=${encodeURIComponent(referenceTime)}${styleParam}&width=256&height=256`;
+  }
+
+  private createAromepiWmsTileLayer(url: string, opacity: number): L.TileLayer {
+    const options: L.TileLayerOptions = {
+      opacity,
+      zIndex: 500,
+      maxNativeZoom: 10,
+      maxZoom: 12,
+      updateWhenIdle: false,
+      keepBuffer: 2,
+      attribution: '&copy; Météo-France AROME-PI (via PatTool)'
+    };
+    const b = this.aromepiCapabilities?.bounds;
+    if (b?.south != null && b?.west != null && b?.north != null && b?.east != null) {
+      options.bounds = L.latLngBounds([b.south, b.west], [b.north, b.east]);
+    }
+    const tileLayer = L.tileLayer(url, options);
+    tileLayer.on('tileerror', () => {
+      this.aromepiLoadError = true;
+    });
+    tileLayer.on('load', () => {
+      this.aromepiLoadError = false;
+    });
+    return tileLayer;
+  }
+
+  private replaceAromepiWmsLayerImmediate(url: string): void {
+    this.cancelAromepiWmsCrossfade();
+    if (this.aromepiWmsLayerPending && this.aromepiMap) {
+      this.aromepiMap.removeLayer(this.aromepiWmsLayerPending);
+      this.aromepiWmsLayerPending = null;
+    }
+    if (this.aromepiWmsLayer && this.aromepiMap) {
       this.aromepiMap.removeLayer(this.aromepiWmsLayer);
       this.aromepiWmsLayer = null;
     }
-    const layer = this.aromepiSelectedLayer;
-    const style = this.aromepiSelectedStyle;
-    const { time, referenceTime } = this.resolveAromepiWmsTimes();
-    if (!time || !referenceTime) {
+    if (!this.aromepiMap) {
       return;
     }
-    this.aromepiWmsLayer = L.tileLayer(
-      `${environment.API_URL}external/meteofrance/aromepi/wms/{z}/{x}/{y}?layer=${encodeURIComponent(layer)}&time=${encodeURIComponent(time)}&referenceTime=${encodeURIComponent(referenceTime)}${style ? `&style=${encodeURIComponent(style)}` : ''}&width=256&height=256`,
-      {
-        opacity: this.aromepiOpacity,
-        zIndex: 500,
-        maxNativeZoom: 10,
-        maxZoom: 12,
-        attribution: '&copy; Météo-France AROME-PI (via PatTool)'
-      }
-    );
+    this.aromepiWmsLayer = this.createAromepiWmsTileLayer(url, this.aromepiOpacity);
     this.aromepiWmsLayer.addTo(this.aromepiMap);
-    this.aromepiWmsLayer.on('tileerror', () => {
-      this.aromepiLoadError = true;
-    });
-    this.aromepiWmsLayer.on('load', () => {
-      this.aromepiLoadError = false;
-    });
+  }
+
+  private crossfadeAromepiWmsLayer(url: string, onComplete?: () => void): void {
+    if (!this.aromepiMap || !this.aromepiWmsLayer) {
+      this.replaceAromepiWmsLayerImmediate(url);
+      onComplete?.();
+      return;
+    }
+    this.cancelAromepiWmsCrossfade();
+    const oldLayer = this.aromepiWmsLayer;
+    const newLayer = this.createAromepiWmsTileLayer(url, 0);
+    this.aromepiWmsLayerPending = newLayer;
+    this.aromepiWmsTransitioning = true;
+    newLayer.addTo(this.aromepiMap);
+
+    let finished = false;
+    let fadeStarted = false;
+    const finish = () => {
+      if (finished) {
+        return;
+      }
+      finished = true;
+      this.aromepiWmsTransitioning = false;
+      this.aromepiWmsLayer = newLayer;
+      this.aromepiWmsLayerPending = null;
+      onComplete?.();
+    };
+
+    const startFade = () => {
+      if (fadeStarted) {
+        return;
+      }
+      fadeStarted = true;
+      newLayer.off('load', startFade);
+      const targetOpacity = this.aromepiOpacity;
+      const steps = 8;
+      const stepMs = Math.max(24, Math.round(MeteoFranceComponent.AROMEPI_WMS_CROSSFADE_MS / steps));
+      let step = 0;
+      this.aromepiWmsCrossfadeTimer = setInterval(() => {
+        step += 1;
+        const ratio = Math.min(1, step / steps);
+        newLayer.setOpacity(targetOpacity * ratio);
+        oldLayer.setOpacity(targetOpacity * (1 - ratio));
+        if (step >= steps) {
+          this.cancelAromepiWmsCrossfade(false);
+          if (this.aromepiMap?.hasLayer(oldLayer)) {
+            this.aromepiMap.removeLayer(oldLayer);
+          }
+          newLayer.setOpacity(targetOpacity);
+          finish();
+        }
+      }, stepMs);
+    };
+
+    newLayer.on('load', startFade);
+    this.clearAromepiWmsCrossfadeFallbackTimer();
+    this.aromepiWmsCrossfadeFallbackTimer = this.scheduleComponentTimeout(() => {
+      this.aromepiWmsCrossfadeFallbackTimer = null;
+      if (!finished && this.aromepiWmsLayerPending === newLayer) {
+        startFade();
+      }
+    }, 2500);
+  }
+
+  private cancelAromepiWmsCrossfade(clearPendingLayer = true): void {
+    this.clearAromepiWmsCrossfadeFallbackTimer();
+    if (this.aromepiWmsCrossfadeTimer) {
+      clearInterval(this.aromepiWmsCrossfadeTimer);
+      this.aromepiWmsCrossfadeTimer = null;
+    }
+    this.aromepiWmsTransitioning = false;
+    if (clearPendingLayer && this.aromepiWmsLayerPending && this.aromepiMap) {
+      this.aromepiMap.removeLayer(this.aromepiWmsLayerPending);
+      this.aromepiWmsLayerPending = null;
+    }
   }
 
   /** Ensure WMS TIME is within referenceTime + [15..360] min (backend also normalizes). */
@@ -3416,6 +4469,36 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       return layer.title;
     }
     return layer.name.replace(/__/g, ' · ').replace(/_/g, ' ');
+  }
+
+  formatAromepiPointValue(layerName: string, value: unknown): string {
+    if (value === null || value === undefined || value === '') {
+      return '—';
+    }
+    const num = Number(value);
+    if (!Number.isFinite(num)) {
+      return String(value);
+    }
+    const upper = layerName.toUpperCase();
+    if (upper.includes('TEMPERATURE') || upper.includes('DEW_POINT') || upper.includes('WETB')) {
+      return this.formatTemperature(num);
+    }
+    if (upper.includes('HUMIDITY') || upper.includes('NEBUL') || upper.includes('CLOUD_COVER')) {
+      return `${Math.round(num)} %`;
+    }
+    if (upper.includes('PRECIP') || upper.includes('NEIGE') || upper.includes('GRAUPEL') || upper.includes('GRELE')) {
+      return `${num} mm`;
+    }
+    if (upper.includes('WIND')) {
+      return `${num} m/s`;
+    }
+    if (upper.includes('VISIBILITY')) {
+      return `${Math.round(num)} m`;
+    }
+    if (upper.includes('PRESSURE')) {
+      return `${num} hPa`;
+    }
+    return String(num);
   }
 
   private aromepiLayerLabelFromParts(name: string): string | null {
@@ -3517,6 +4600,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       this.subs.add(
         this.apiService.getLocationByIp().subscribe({
           next: (data) => {
+            if (this.componentDestroyed) {
+              return;
+            }
             if (data.status === 'success' && data.lat != null && data.lon != null) {
               resolve({ lat: data.lat, lng: data.lon });
             } else {
@@ -3532,6 +4618,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private setLocation(lat: number, lon: number, moveMap: boolean, preserveDepartment = false): void {
     this.lat = lat;
     this.lon = lon;
+    this.locationGeocodeKey = '';
     this.selectedLocationName = this.formatGpsCoordinates(lat, lon);
     this.errorMessage = '';
     if (this.marker) {
@@ -3540,8 +4627,14 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     if (this.aromepiMarker) {
       this.aromepiMarker.setLatLng([lat, lon]);
     }
+    if (this.forecastMarker) {
+      this.forecastMarker.setLatLng([lat, lon]);
+    }
     if (moveMap && this.aromepiMap) {
-      this.aromepiMap.setView([lat, lon], Math.max(this.aromepiMap.getZoom(), 7));
+      this.focusAromepiMapOnPosition();
+    }
+    if (moveMap && this.forecastMap) {
+      this.focusForecastMapOnPosition();
     }
     if (moveMap && this.map) {
       this.focusRadarMapOnPosition();
@@ -3559,6 +4652,25 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.clearWeatherAndForecast();
     this.refreshClimatologyForLocation();
     this.scheduleAromepiForecastLoad();
+    this.loadAromepiNearestStation();
+    if (this.isMultiDayForecastTab) {
+      this.reloadActiveMultiDayForecast();
+    } else {
+      this.refreshActiveForecastTab();
+    }
+  }
+
+  private reloadActiveMultiDayForecast(): void {
+    if (this.activeMainTab === 'forecast-owm') {
+      this.prepareOwmForecastTabLoad();
+      this.loadOwmForecast(true);
+    } else if (this.activeMainTab === 'forecast-om') {
+      this.prepareOmForecastTabLoad();
+      this.loadOmForecast(true);
+    } else if (this.activeMainTab === 'forecast-aggregate') {
+      this.prepareAggregatedForecastTabLoad();
+      this.loadAggregatedForecast(true);
+    }
   }
 
   /** Reload nearest-station climatology when the map location changes. */
@@ -3611,12 +4723,15 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
 
   private reverseGeocode(lat: number, lon: number): void {
     const requestId = ++this.reverseGeocodeRequestId;
+    this.reverseGeocodingInFlight = true;
     this.subs.add(
       this.apiService.geocodeReverse(lat, lon).subscribe({
         next: (res) => {
           if (requestId !== this.reverseGeocodeRequestId) {
             return;
           }
+          this.reverseGeocodingInFlight = false;
+          this.locationGeocodeKey = this.currentLocationKey();
           this.fullAddress = res?.displayName || res?.display_name || '';
           this.selectedLocationName = this.resolvePlaceNameFromGeocode(res, lat, lon);
           const address = res?.address;
@@ -3649,6 +4764,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
           if (requestId !== this.reverseGeocodeRequestId) {
             return;
           }
+          this.reverseGeocodingInFlight = false;
+          this.locationGeocodeKey = this.currentLocationKey();
           this.selectedLocationName = this.formatGpsCoordinates(lat, lon);
           if (this.showTemperatureMap) {
             this.updateSelectedTemperatureLabel();
@@ -3846,8 +4963,6 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       this.climChartsReady = false;
       this.climTempChartData = { labels: [], datasets: [] };
       this.climRainChartData = { labels: [], datasets: [] };
-      this.climTempChart?.update();
-      this.climRainChart?.update();
       return;
     }
 
@@ -3907,6 +5022,18 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       }]
     };
     this.climChartsReady = tempDatasets.length > 0 || hasRr;
+    this.scheduleClimChartRefresh();
+  }
+
+  /** Defer refresh until *ngIf has rendered chart canvases (BaseChartDirective). */
+  private scheduleClimChartRefresh(): void {
+    setTimeout(() => this.refreshClimChartViews(), 0);
+  }
+
+  private refreshClimChartViews(): void {
+    if (!this.climChartsReady) {
+      return;
+    }
     this.climTempChart?.update();
     this.climRainChart?.update();
   }
@@ -4146,12 +5273,34 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
 
   private clearWeatherAndForecast(): void {
     this.weatherRequestId++;
+    this.owmForecastRequestId++;
+    this.omForecastRequestId++;
+    this.aggregatedForecastRequestId++;
     this.currentWeather = null;
-    this.forecast = null;
-    this.displayForecastList = [];
-    this.forecastErrorKey = '';
+    this.owmForecast = null;
+    this.omForecast = null;
+    this.aggregatedForecast = null;
+    this.owmForecastErrorKey = '';
+    this.omForecastErrorKey = '';
+    this.aggregatedForecastErrorKey = '';
     this.isLoadingWeather = false;
-    this.isLoadingForecast = false;
+    if (this.activeMainTab === 'forecast-owm') {
+      this.isLoadingOwmForecast = true;
+      this.isLoadingOmForecast = false;
+      this.isLoadingAggregatedForecast = false;
+    } else if (this.activeMainTab === 'forecast-om') {
+      this.isLoadingOmForecast = true;
+      this.isLoadingOwmForecast = false;
+      this.isLoadingAggregatedForecast = false;
+    } else if (this.activeMainTab === 'forecast-aggregate') {
+      this.isLoadingAggregatedForecast = true;
+      this.isLoadingOwmForecast = false;
+      this.isLoadingOmForecast = false;
+    } else {
+      this.isLoadingOwmForecast = false;
+      this.isLoadingOmForecast = false;
+      this.isLoadingAggregatedForecast = false;
+    }
   }
 
   onCurrentWeatherSourceChange(): void {
@@ -4162,18 +5311,6 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.currentWeather = null;
     this.weatherRequestId++;
     this.isLoadingWeather = false;
-  }
-
-  onForecastWeatherSourceChange(): void {
-    this.persistWeatherSourcePreference(
-      MeteoFranceComponent.FORECAST_WEATHER_SOURCE_STORAGE_KEY,
-      this.forecastWeatherSource
-    );
-    this.forecast = null;
-    this.displayForecastList = [];
-    this.forecastErrorKey = '';
-    this.weatherRequestId++;
-    this.isLoadingForecast = false;
   }
 
   getWeatherPanelSourceLabel(source: WeatherPanelSource): string {
@@ -4366,26 +5503,15 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private syncWeatherSourcePreferences(): void {
     this.migrateLegacyCurrentWeatherSourceStorage();
     const defaultCurrent = this.defaultCurrentWeatherSourceForLocation();
-    const defaultForecast = this.defaultForecastWeatherSourceForLocation();
     const nextCurrent = this.resolveWeatherPanelSourcePreference(
       this.currentWeatherSourceStorageKey(),
       defaultCurrent
     );
-    const nextForecast = this.resolveWeatherPanelSourcePreference(
-      MeteoFranceComponent.FORECAST_WEATHER_SOURCE_STORAGE_KEY,
-      defaultForecast
-    );
-    const changed = nextCurrent !== this.currentWeatherSource
-      || nextForecast !== this.forecastWeatherSource;
+    const changed = nextCurrent !== this.currentWeatherSource;
     this.currentWeatherSource = nextCurrent;
-    this.forecastWeatherSource = nextForecast;
     if (changed) {
       this.currentWeather = null;
-      this.forecast = null;
-      this.displayForecastList = [];
-      this.forecastErrorKey = '';
       this.isLoadingWeather = false;
-      this.isLoadingForecast = false;
     }
   }
 
@@ -4441,17 +5567,15 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     if (this.currentWeatherSource === 'meteofrance' && !this.isLocationInFrance()) {
       this.currentWeatherSource = 'openweathermap';
     }
-    if (this.forecastWeatherSource === 'meteofrance' && !this.isLocationInFrance()) {
-      this.forecastWeatherSource = 'openweathermap';
-    }
+    this.refreshCurrentWeather();
+    this.refreshActiveForecastTab();
+  }
+
+  private refreshCurrentWeather(): void {
     const requestId = ++this.weatherRequestId;
     this.isLoadingWeather = true;
-    this.isLoadingForecast = true;
-    this.forecastErrorKey = '';
     const currentLogSource = this.weatherPanelLogSourceKey(this.currentWeatherSource);
-    const forecastLogSource = this.weatherPanelLogSourceKey(this.forecastWeatherSource);
     this.logBackend('METEO_FRANCE.LOG_CAT_CURRENT', currentLogSource, 'loading');
-    this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', forecastLogSource, 'loading');
     this.subs.add(
       this.apiService.getCurrentWeatherByCoordinates(this.lat, this.lon, null, this.currentWeatherSource).subscribe({
         next: (data) => {
@@ -4490,68 +5614,259 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         }
       })
     );
+  }
+
+  private refreshActiveForecastTab(): void {
+    if (this.activeMainTab === 'aromepi') {
+      this.clampAromepiFrameIndex();
+      this.setupAromepiWmsLayer(!!this.aromepiWmsLayer);
+      this.loadAromepiCurrentValues();
+      this.aromepiPointForecast = null;
+      this.clearAromepiForecastCharts();
+      this.scheduleAromepiForecastLoad();
+      return;
+    }
+    this.reloadActiveMultiDayForecast();
+  }
+
+  loadOwmForecast(force = false): void {
+    if (!force && this.owmForecast) {
+      this.scheduleForecastChartsRefresh();
+      return;
+    }
+    const requestId = ++this.owmForecastRequestId;
+    this.isLoadingOwmForecast = true;
+    this.owmForecastErrorKey = '';
+    this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', 'METEO_FRANCE.LOG_SOURCE_OWM', 'loading');
     this.subs.add(
-      this.apiService.getForecastByCoordinates(this.lat, this.lon, null, this.forecastWeatherSource).subscribe({
+      this.apiService.getForecastByCoordinates(
+        this.lat,
+        this.lon,
+        null,
+        'openweathermap',
+        this.forecastHorizonHours,
+        this.forecastStepMinutes
+      ).subscribe({
         next: (data) => {
-          if (requestId !== this.weatherRequestId) {
+          if (requestId !== this.owmForecastRequestId) {
             return;
           }
-          this.forecast = data;
-          this.isLoadingForecast = false;
+          this.isLoadingOwmForecast = false;
+          this.owmForecast = data;
           if (data?.error) {
-            this.forecastErrorKey = data.error === 'forecast_not_available'
-              ? 'METEO_FRANCE.FORECAST_MF_UNAVAILABLE'
-              : 'METEO_FRANCE.WEATHER_ERROR';
-            this.displayForecastList = [];
-            this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', forecastLogSource, 'error');
+            this.owmForecastErrorKey = 'METEO_FRANCE.WEATHER_ERROR';
+            this.clearOwmForecastCharts();
+            this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', 'METEO_FRANCE.LOG_SOURCE_OWM', 'error');
             return;
           }
-          this.forecastErrorKey = '';
-          this.updateForecastList();
+          this.owmForecastErrorKey = '';
           const count = Array.isArray(data?.list) ? data.list.length : 0;
           this.logBackend(
             'METEO_FRANCE.LOG_CAT_FORECAST',
-            forecastLogSource,
+            'METEO_FRANCE.LOG_SOURCE_OWM',
             'ok',
             count ? `${count} ${this.translate.instant('METEO_FRANCE.LOG_STEPS')}` : undefined
           );
+          this.scheduleForecastChartsRefresh();
         },
         error: () => {
-          if (requestId !== this.weatherRequestId) {
+          if (requestId !== this.owmForecastRequestId) {
             return;
           }
-          this.isLoadingForecast = false;
-          this.forecastErrorKey = 'METEO_FRANCE.WEATHER_ERROR';
-          this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', forecastLogSource, 'error');
+          this.isLoadingOwmForecast = false;
+          this.owmForecastErrorKey = 'METEO_FRANCE.WEATHER_ERROR';
+          this.clearOwmForecastCharts();
+          this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', 'METEO_FRANCE.LOG_SOURCE_OWM', 'error');
         }
       })
     );
   }
 
-  setForecastDisplayMode(mode: 'hourly' | 'daily'): void {
-    this.forecastDisplayMode = mode;
-    this.updateForecastList();
+  loadOmForecast(force = false): void {
+    if (!force && this.omForecast) {
+      this.scheduleForecastChartsRefresh();
+      return;
+    }
+    const requestId = ++this.omForecastRequestId;
+    this.isLoadingOmForecast = true;
+    this.omForecastErrorKey = '';
+    this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', 'METEO_FRANCE.LOG_SOURCE_OPEN_METEO', 'loading');
+    this.subs.add(
+      this.apiService.getForecastByCoordinates(
+        this.lat,
+        this.lon,
+        null,
+        'open-meteo',
+        this.forecastHorizonHours,
+        this.forecastStepMinutes
+      ).subscribe({
+        next: (data) => {
+          if (requestId !== this.omForecastRequestId) {
+            return;
+          }
+          this.isLoadingOmForecast = false;
+          this.omForecast = data;
+          if (data?.error) {
+            this.omForecastErrorKey = this.resolveOpenMeteoForecastErrorKey(data.error);
+            this.clearOmForecastCharts();
+            this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', 'METEO_FRANCE.LOG_SOURCE_OPEN_METEO', 'error');
+            return;
+          }
+          if (!Array.isArray(data?.list) || data.list.length === 0) {
+            this.omForecastErrorKey = 'METEO_FRANCE.FORECAST_OM_EMPTY';
+            this.clearOmForecastCharts();
+            this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', 'METEO_FRANCE.LOG_SOURCE_OPEN_METEO', 'error');
+            return;
+          }
+          this.omForecastErrorKey = '';
+          const count = Array.isArray(data?.list) ? data.list.length : 0;
+          this.logBackend(
+            'METEO_FRANCE.LOG_CAT_FORECAST',
+            'METEO_FRANCE.LOG_SOURCE_OPEN_METEO',
+            'ok',
+            count ? `${count} ${this.translate.instant('METEO_FRANCE.LOG_STEPS')}` : undefined
+          );
+          this.scheduleForecastChartsRefresh();
+        },
+        error: () => {
+          if (requestId !== this.omForecastRequestId) {
+            return;
+          }
+          this.isLoadingOmForecast = false;
+          this.omForecastErrorKey = 'METEO_FRANCE.FORECAST_OM_ERROR';
+          this.clearOmForecastCharts();
+          this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', 'METEO_FRANCE.LOG_SOURCE_OPEN_METEO', 'error');
+        }
+      })
+    );
   }
 
-  private updateForecastList(): void {
-    const list = this.forecast?.list;
-    if (!list?.length) {
-      this.displayForecastList = [];
+  private resolveOpenMeteoForecastErrorKey(error: unknown): string {
+    const message = String(error ?? '').toLowerCase();
+    if (message.includes('empty')) {
+      return 'METEO_FRANCE.FORECAST_OM_EMPTY';
+    }
+    if (message.includes('api key') || message.includes('openweathermap')) {
+      return 'METEO_FRANCE.FORECAST_OM_ERROR';
+    }
+    return 'METEO_FRANCE.FORECAST_OM_ERROR';
+  }
+
+  loadAggregatedForecast(force = false): void {
+    if (!force && this.aggregatedForecast) {
+      this.scheduleForecastChartsRefresh();
       return;
     }
-    if (this.forecastDisplayMode === 'hourly') {
-      this.displayForecastList = list.slice(0, 16);
-      return;
+    const requestId = ++this.aggregatedForecastRequestId;
+    this.isLoadingAggregatedForecast = true;
+    this.aggregatedForecastErrorKey = '';
+    this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', 'METEO_FRANCE.LOG_SOURCE_AGGREGATE', 'loading');
+    this.subs.add(
+      this.apiService.getAggregatedForecast(
+        this.lat,
+        this.lon,
+        this.forecastHorizonHours,
+        this.forecastStepMinutes
+      ).subscribe({
+        next: (data) => {
+          if (requestId !== this.aggregatedForecastRequestId) {
+            return;
+          }
+          this.isLoadingAggregatedForecast = false;
+          this.aggregatedForecast = data;
+          if (data?.error) {
+            this.aggregatedForecastErrorKey = 'METEO_FRANCE.AGG_FORECAST_ERROR';
+            this.clearAggregateForecastCharts();
+            this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', 'METEO_FRANCE.LOG_SOURCE_AGGREGATE', 'error');
+            return;
+          }
+          if (!Array.isArray(data?.steps) || data.steps.length === 0) {
+            this.aggregatedForecastErrorKey = 'METEO_FRANCE.AGG_FORECAST_EMPTY';
+            this.clearAggregateForecastCharts();
+            this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', 'METEO_FRANCE.LOG_SOURCE_AGGREGATE', 'error');
+            return;
+          }
+          this.aggregatedForecastErrorKey = '';
+          const count = Array.isArray(data?.steps) ? data.steps.length : 0;
+          this.logBackend(
+            'METEO_FRANCE.LOG_CAT_FORECAST',
+            'METEO_FRANCE.LOG_SOURCE_AGGREGATE',
+            'ok',
+            count ? `${count} ${this.translate.instant('METEO_FRANCE.LOG_STEPS')}` : undefined
+          );
+          this.scheduleForecastChartsRefresh();
+        },
+        error: () => {
+          if (requestId !== this.aggregatedForecastRequestId) {
+            return;
+          }
+          this.isLoadingAggregatedForecast = false;
+          this.aggregatedForecastErrorKey = 'METEO_FRANCE.AGG_FORECAST_ERROR';
+          this.clearAggregateForecastCharts();
+          this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', 'METEO_FRANCE.LOG_SOURCE_AGGREGATE', 'error');
+        }
+      })
+    );
+  }
+
+  trackAggregateStep(_index: number, step: { dt?: number }): number {
+    return step?.dt ?? _index;
+  }
+
+  aggregateSourceValue(step: any, source: string, param: string): string {
+    const raw = step?.[source]?.[param];
+    if (raw === null || raw === undefined) {
+      return '—';
     }
-    const byDay = new Map<string, any>();
-    for (const item of list) {
-      const day = new Date(item.dt * 1000).toISOString().slice(0, 10);
-      const existing = byDay.get(day);
-      if (!existing || (item.main?.temp_max ?? item.main?.temp) > (existing.main?.temp_max ?? existing.main?.temp)) {
-        byDay.set(day, item);
-      }
+    if (param === 'pop') {
+      return `${Math.round(Number(raw) * 100)}%`;
     }
-    this.displayForecastList = Array.from(byDay.values()).slice(0, 7);
+    if (param === 'humidityPct') {
+      return `${Math.round(Number(raw))}%`;
+    }
+    if (param === 'precipMm') {
+      return this.formatPrecipMm(raw);
+    }
+    if (param === 'windSpeedMs') {
+      return this.formatWindSpeedMs(raw);
+    }
+    return this.formatTemperature(Number(raw));
+  }
+
+  aggregateMeanValue(step: any, param: string): string {
+    const stats = step?.aggregate?.[param];
+    if (!stats || stats.mean === null || stats.mean === undefined) {
+      return '—';
+    }
+    if (param === 'pop') {
+      return `${Math.round(Number(stats.mean) * 100)}%`;
+    }
+    if (param === 'humidityPct') {
+      return `${Math.round(Number(stats.mean))}%`;
+    }
+    if (param === 'precipMm') {
+      return this.formatPrecipMm(stats.mean);
+    }
+    if (param === 'windSpeedMs') {
+      return this.formatWindSpeedMs(stats.mean);
+    }
+    return this.formatTemperature(Number(stats.mean));
+  }
+
+  formatWindSpeedMs(value: number | null | undefined): string {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) {
+      return '—';
+    }
+    const rounded = Math.round(Number(value) * 100) / 100;
+    return `${rounded} m/s`;
+  }
+
+  formatPrecipMm(value: number | null | undefined): string {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) {
+      return '—';
+    }
+    const rounded = Math.round(Number(value) * 100) / 100;
+    return `${rounded} mm`;
   }
 
   formatTemperature(value: number | null | undefined): string {
@@ -4590,6 +5905,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     if (this.climDisplayRows.length) {
       this.updateClimCharts();
     }
+    this.scheduleForecastChartsRefresh();
   }
 
   private loadTemperatureUnitPreference(): void {
@@ -4616,6 +5932,461 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       hour: '2-digit',
       minute: '2-digit'
     });
+  }
+
+  trackForecastChartBlock(_index: number, block: ForecastChartBlock): string {
+    return block.param;
+  }
+
+  private forecastChartRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private scheduleForecastChartsRefresh(): void {
+    if (this.forecastChartRefreshTimer != null) {
+      clearTimeout(this.forecastChartRefreshTimer);
+    }
+    this.forecastChartRefreshTimer = setTimeout(() => {
+      this.forecastChartRefreshTimer = null;
+      if (this.componentDestroyed) {
+        return;
+      }
+      this.refreshForecastCharts();
+    }, 0);
+  }
+
+  private refreshForecastCharts(): void {
+    this.updateOwmForecastCharts();
+    this.updateOmForecastCharts();
+    this.updateAggregateForecastCharts();
+    this.updateAromepiForecastCharts();
+  }
+
+  private clearForecastCharts(): void {
+    this.clearOwmForecastCharts();
+    this.clearOmForecastCharts();
+    this.clearAggregateForecastCharts();
+    this.clearAromepiForecastCharts();
+  }
+
+  private clearOwmForecastCharts(): void {
+    this.owmForecastChartBlocks = [];
+    this.owmForecastChartsReady = false;
+  }
+
+  private clearOmForecastCharts(): void {
+    this.omForecastChartBlocks = [];
+    this.omForecastChartsReady = false;
+  }
+
+  private clearAggregateForecastCharts(): void {
+    this.aggregateForecastChartBlocks = [];
+    this.aggregateForecastChartsReady = false;
+  }
+
+  private clearAromepiForecastCharts(): void {
+    this.aromepiForecastChartBlocks = [];
+    this.aromepiForecastChartsReady = false;
+  }
+
+  private updateAromepiForecastCharts(): void {
+    this.aromepiForecastChartBlocks = this.buildAromepiForecastChartBlocks(this.aromepiForecastSteps);
+    this.aromepiForecastChartsReady = this.aromepiForecastChartBlocks.length > 0;
+  }
+
+  private updateOwmForecastCharts(): void {
+    this.owmForecastChartBlocks = this.buildSingleSourceForecastChartBlocks(
+      this.owmDisplayForecastList,
+      'OWM',
+      '#e67e22'
+    );
+    this.owmForecastChartsReady = this.owmForecastChartBlocks.length > 0;
+  }
+
+  private updateOmForecastCharts(): void {
+    this.omForecastChartBlocks = this.buildSingleSourceForecastChartBlocks(
+      this.omDisplayForecastList,
+      'Open-Meteo',
+      '#3498db'
+    );
+    this.omForecastChartsReady = this.omForecastChartBlocks.length > 0;
+  }
+
+  private updateAggregateForecastCharts(): void {
+    this.aggregateForecastChartBlocks = this.buildAggregateForecastChartBlocks(this.aggregatedForecastSteps);
+    this.aggregateForecastChartsReady = this.aggregateForecastChartBlocks.length > 0;
+  }
+
+  private buildAromepiForecastChartBlocks(steps: any[]): ForecastChartBlock[] {
+    const layers: string[] = this.aromepiPointForecast?.layers ?? [];
+    if (!steps.length || !layers.length) {
+      return [];
+    }
+    const labels = steps.map((step) => this.formatAromepiChartLabel(step?.time));
+    const pointRadius = steps.length > 48 ? 0 : 2;
+    const color = '#2ecc71';
+    const blocks: ForecastChartBlock[] = [];
+
+    for (const param of this.selectedMultiDayForecastNumericParams) {
+      const layer = this.findAromepiLayerForParam(layers, param);
+      if (!layer) {
+        continue;
+      }
+      const values = steps.map((step) => this.extractAromepiChartValue(layer, step?.values?.[layer], param));
+      if (!values.some((v) => v != null)) {
+        continue;
+      }
+      const chartType = this.resolveForecastChartType(param);
+      const opt = this.multiDayForecastParamOptions.find((o) => o.id === param);
+      const layerLabel = this.aromepiLayerLabel({ name: layer, title: layer });
+      blocks.push({
+        param,
+        labelKey: opt?.labelKey ?? 'METEO_FRANCE.AGG_COL_TEMP',
+        chartType,
+        data: {
+          labels,
+          datasets: [{
+            label: `MF · ${layerLabel}`,
+            data: values,
+            borderColor: color,
+            backgroundColor: this.forecastChartBackgroundColor(chartType, color),
+            fill: this.forecastChartFill(chartType),
+            tension: 0.2,
+            spanGaps: true,
+            pointRadius
+          }]
+        },
+        options: this.buildForecastChartOptions(chartType, param)
+      });
+    }
+    return blocks;
+  }
+
+  private findAromepiLayerForParam(
+    layers: string[],
+    param: MultiDayForecastDisplayParam
+  ): string | null {
+    const upperLayers = layers.map((layer) => ({ layer, upper: layer.toUpperCase() }));
+    const matches = (predicate: (upper: string) => boolean): string[] =>
+      upperLayers.filter((entry) => predicate(entry.upper)).map((entry) => entry.layer);
+
+    let candidates: string[] = [];
+    switch (param) {
+      case 'temp':
+        candidates = matches((u) => u.includes('TEMPERATURE') && !u.includes('DEW') && !u.includes('WETB'));
+        break;
+      case 'humidity':
+        candidates = matches((u) => u.includes('HUMIDITY') || u.includes('RELATIVE_HUMIDITY'));
+        break;
+      case 'wind':
+        candidates = matches((u) =>
+          u.includes('WIND_SPEED') || (u.includes('WIND') && !u.includes('GUST') && !u.includes('DIRECTION')));
+        break;
+      case 'precip':
+        candidates = matches((u) =>
+          u.includes('PRECIP') || u.includes('NEIGE') || u.includes('GRAUPEL') || u.includes('GRELE'));
+        break;
+      case 'pop':
+        candidates = matches((u) => u.includes('PROB') || u.includes('_POP') || u.includes('PP_'));
+        break;
+      default:
+        return null;
+    }
+    if (!candidates.length) {
+      return null;
+    }
+    const rank = (name: string): number => {
+      const u = name.toUpperCase();
+      if (u.includes('GROUND_OR_WATER') || u.includes('GROUND') || u.includes('2M') || u.includes('SURFACE')) {
+        return 0;
+      }
+      if (u.includes('SPECIFIC_HEIGHT')) {
+        return 1;
+      }
+      return 2;
+    };
+    candidates.sort((a, b) => rank(a) - rank(b));
+    return candidates[0];
+  }
+
+  private extractAromepiChartValue(
+    layerName: string,
+    raw: unknown,
+    param: MultiDayForecastDisplayParam
+  ): number | null {
+    const num = Number(raw);
+    if (!Number.isFinite(num)) {
+      return null;
+    }
+    if (param === 'temp' || (layerName.toUpperCase().includes('TEMPERATURE') && !layerName.toUpperCase().includes('DEW'))) {
+      return this.celsiusToDisplay(num);
+    }
+    return num;
+  }
+
+  private formatAromepiChartLabel(iso: string | null | undefined): string {
+    if (!iso) {
+      return '';
+    }
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) {
+      return iso;
+    }
+    return d.toLocaleString(undefined, {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  private buildSingleSourceForecastChartBlocks(
+    items: any[],
+    datasetLabel: string,
+    color: string
+  ): ForecastChartBlock[] {
+    if (!items.length) {
+      return [];
+    }
+    const labels = items.map((item) => this.formatForecastChartLabel(item.dt));
+    const pointRadius = items.length > 48 ? 0 : 2;
+    const blocks: ForecastChartBlock[] = [];
+
+    for (const param of this.selectedMultiDayForecastNumericParams) {
+      const values = items.map((item) => this.extractMultiDayChartValue(item, param));
+      if (!values.some((v) => v != null)) {
+        continue;
+      }
+      const chartType = this.resolveForecastChartType(param);
+      const opt = this.multiDayForecastParamOptions.find((o) => o.id === param);
+      blocks.push({
+        param,
+        labelKey: opt?.labelKey ?? 'METEO_FRANCE.AGG_COL_TEMP',
+        chartType,
+        data: {
+          labels,
+          datasets: [{
+            label: datasetLabel,
+            data: values,
+            borderColor: color,
+            backgroundColor: this.forecastChartBackgroundColor(chartType, color),
+            fill: this.forecastChartFill(chartType),
+            tension: 0.2,
+            spanGaps: true,
+            pointRadius
+          }]
+        },
+        options: this.buildForecastChartOptions(chartType, param)
+      });
+    }
+    return blocks;
+  }
+
+  private buildAggregateForecastChartBlocks(steps: any[]): ForecastChartBlock[] {
+    if (!steps.length) {
+      return [];
+    }
+    const labels = steps.map((step) => this.formatForecastChartLabel(step.dt));
+    const pointRadius = steps.length > 48 ? 0 : 2;
+    const sourceDefs: Array<{ key: string; label: string; color: string; dashed?: boolean }> = [
+      { key: 'openweathermap', label: 'OWM', color: '#e67e22' },
+      { key: 'open-meteo', label: 'Open-Meteo', color: '#3498db' },
+      { key: 'meteofrance', label: 'MF', color: '#2ecc71' },
+      { key: 'mean', label: this.translate.instant('METEO_FRANCE.AGG_COL_MEAN'), color: '#9b59b6', dashed: true }
+    ];
+    const blocks: ForecastChartBlock[] = [];
+
+    for (const param of this.selectedMultiDayForecastNumericParams) {
+      const chartType = this.resolveForecastChartType(param);
+      const datasets: ChartConfiguration<'line' | 'bar'>['data']['datasets'] = [];
+      for (const source of sourceDefs) {
+        const values = steps.map((step) => this.extractAggregateChartValue(step, source.key, param));
+        if (!values.some((v) => v != null)) {
+          continue;
+        }
+        datasets.push({
+          label: source.label,
+          data: values,
+          borderColor: source.color,
+          backgroundColor: this.forecastChartBackgroundColor(chartType, source.color),
+          fill: this.forecastChartFill(chartType, source.dashed),
+          tension: 0.2,
+          spanGaps: true,
+          pointRadius,
+          borderDash: source.dashed && chartType === 'line' ? [6, 4] : undefined,
+          borderWidth: source.dashed ? 2 : 1.5
+        });
+      }
+      if (!datasets.length) {
+        continue;
+      }
+      const opt = this.multiDayForecastParamOptions.find((o) => o.id === param);
+      blocks.push({
+        param,
+        labelKey: opt?.labelKey ?? 'METEO_FRANCE.AGG_COL_TEMP',
+        chartType,
+        data: { labels, datasets },
+        options: this.buildForecastChartOptions(chartType, param)
+      });
+    }
+    return blocks;
+  }
+
+  private resolveForecastChartType(param: MultiDayForecastDisplayParam): ForecastChartKind {
+    if (this.forecastChartStyle === 'line') {
+      return 'line';
+    }
+    if (this.forecastChartStyle === 'bar') {
+      return 'bar';
+    }
+    return param === 'precip' ? 'bar' : 'line';
+  }
+
+  private forecastChartBackgroundColor(chartType: ForecastChartKind, color: string): string {
+    return chartType === 'bar'
+      ? this.hexToRgba(color, 0.55)
+      : this.hexToRgba(color, 0.12);
+  }
+
+  private forecastChartFill(chartType: ForecastChartKind, dashed = false): boolean {
+    return chartType === 'line' && !dashed;
+  }
+
+  private buildForecastChartOptions(
+    chartType: ForecastChartKind,
+    param: MultiDayForecastDisplayParam
+  ): ChartOptions<'line' | 'bar'> {
+    const yUnit = this.forecastChartYUnit(param);
+    const percentParam = param === 'humidity' || param === 'pop';
+    const decimals = param === 'wind' ? 2 : 1;
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, position: 'top' },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const y = ctx.parsed.y;
+              if (y == null || Number.isNaN(y)) {
+                return `${ctx.dataset.label}: —`;
+              }
+              const formatted = y.toLocaleString(undefined, { maximumFractionDigits: decimals });
+              return yUnit ? `${ctx.dataset.label}: ${formatted} ${yUnit}` : `${ctx.dataset.label}: ${formatted}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { maxTicksLimit: 14, maxRotation: 45, minRotation: 0 } },
+        y: {
+          beginAtZero: chartType === 'bar' || percentParam,
+          max: percentParam ? 100 : undefined,
+          title: { display: !!yUnit, text: yUnit },
+          ticks: {
+            callback: (v) => Number(v).toLocaleString(undefined, { maximumFractionDigits: decimals })
+          }
+        }
+      },
+      elements: chartType === 'line'
+        ? { line: { spanGaps: true, tension: 0.2 } }
+        : undefined
+    };
+  }
+
+  private forecastChartYUnit(param: MultiDayForecastDisplayParam): string {
+    switch (param) {
+      case 'temp':
+        return this.temperatureUnit === 'fahrenheit' ? '°F' : '°C';
+      case 'humidity':
+      case 'pop':
+        return '%';
+      case 'wind':
+        return 'm/s';
+      case 'precip':
+        return 'mm';
+      default:
+        return '';
+    }
+  }
+
+  private formatForecastChartLabel(ts: number | null | undefined): string {
+    if (ts == null || !Number.isFinite(Number(ts))) {
+      return '';
+    }
+    return new Date(Number(ts) * 1000).toLocaleString(undefined, {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  private extractMultiDayChartValue(item: any, param: MultiDayForecastDisplayParam): number | null {
+    if (!item) {
+      return null;
+    }
+    switch (param) {
+      case 'temp':
+        return item.main?.temp != null ? this.celsiusToDisplay(Number(item.main.temp)) : null;
+      case 'humidity':
+        return item.main?.humidity != null ? Number(item.main.humidity) : null;
+      case 'wind':
+        return item.wind?.speed != null ? Number(item.wind.speed) : null;
+      case 'precip': {
+        const mm = item.rain?.['1h'] ?? item.rain?.['3h'] ?? item.snow?.['1h'] ?? item.snow?.['3h'];
+        return mm != null ? Number(mm) : null;
+      }
+      case 'pop':
+        return item.pop != null ? Number(item.pop) * 100 : null;
+      default:
+        return null;
+    }
+  }
+
+  private extractAggregateChartValue(
+    step: any,
+    source: string,
+    param: MultiDayForecastDisplayParam
+  ): number | null {
+    const field = this.aggregateChartField(param);
+    if (!field) {
+      return null;
+    }
+    if (source === 'mean') {
+      const mean = step?.aggregate?.[field]?.mean;
+      return mean != null ? this.normalizeAggregateChartValue(field, mean) : null;
+    }
+    const raw = step?.[source]?.[field];
+    return raw != null ? this.normalizeAggregateChartValue(field, raw) : null;
+  }
+
+  private aggregateChartField(param: MultiDayForecastDisplayParam): string | null {
+    switch (param) {
+      case 'temp': return 'tempC';
+      case 'humidity': return 'humidityPct';
+      case 'wind': return 'windSpeedMs';
+      case 'precip': return 'precipMm';
+      case 'pop': return 'pop';
+      default: return null;
+    }
+  }
+
+  private normalizeAggregateChartValue(field: string, raw: number): number {
+    if (field === 'tempC') {
+      return this.celsiusToDisplay(Number(raw));
+    }
+    if (field === 'pop') {
+      return Number(raw) * 100;
+    }
+    return Number(raw);
+  }
+
+  private hexToRgba(hex: string, alpha: number): string {
+    const normalized = hex.replace('#', '');
+    const r = parseInt(normalized.substring(0, 2), 16);
+    const g = parseInt(normalized.substring(2, 4), 16);
+    const b = parseInt(normalized.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
   formatDay(ts: number): string {

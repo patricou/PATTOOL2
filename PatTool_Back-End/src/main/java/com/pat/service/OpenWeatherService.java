@@ -462,6 +462,11 @@ public class OpenWeatherService {
      * @return Forecast data
      */
     public Map<String, Object> getForecastByCoordinates(Double lat, Double lon, Double alt) {
+        return getForecastByCoordinates(lat, lon, alt, 24, 60);
+    }
+
+    public Map<String, Object> getForecastByCoordinates(
+            Double lat, Double lon, Double alt, int horizonHours, int stepMinutes) {
         // Validate API key
         if (openWeatherApiKey == null || openWeatherApiKey.trim().isEmpty()) {
             log.error("OpenWeatherMap API key is not configured!");
@@ -515,6 +520,17 @@ public class OpenWeatherService {
             );
             
             Map<String, Object> result = response.getBody() != null ? response.getBody() : new HashMap<>();
+
+            @SuppressWarnings("unchecked")
+            java.util.List<Map<String, Object>> rawList = (java.util.List<Map<String, Object>>) result.get("list");
+            if (rawList != null) {
+                java.util.List<Map<String, Object>> filtered = ForecastHorizonFilter.filterList(
+                        rawList, horizonHours, stepMinutes);
+                result.put("list", filtered);
+                result.put("cnt", filtered.size());
+            }
+            result.put("forecastHorizonHours", MeteoFranceForecastPreferenceService.clampHorizon(horizonHours));
+            result.put("forecastStepMinutes", MeteoFranceForecastPreferenceService.clampStep(stepMinutes));
             
             // Get all available altitudes with sources
             Map<String, Object> allAltitudesInfo = getAllAltitudesWithSources(lat, lon, alt);

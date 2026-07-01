@@ -9,7 +9,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -167,17 +169,77 @@ public class OpenMeteoService {
     }
 
     /**
-     * 5-day forecast (3-hour steps), normalized to an OpenWeatherMap-like {@code list} payload.
+     * Hourly forecast normalized to an OpenWeatherMap-like {@code list} payload.
      */
-    public Map<String, Object> getForecastByCoordinates(double lat, double lon, String jwtSubject) {
-        Map<String, Object> result = fetchForecastPayload(lat, lon);
+    public Map<String, Object> getForecastByCoordinates(
+            double lat, double lon, String jwtSubject, int horizonHours, int stepMinutes) {
+        Map<String, Object> result = fetchForecastPayload(lat, lon, null, "open-meteo", horizonHours, stepMinutes);
         if (result == null) {
             Map<String, Object> error = new LinkedHashMap<>();
             error.put("error", "Open-Meteo forecast unavailable");
             error.put("patSource", "open-meteo");
             return error;
         }
+        applyForecastWindow(result, horizonHours, stepMinutes);
+        if (isForecastListEmpty(result)) {
+            Map<String, Object> error = new LinkedHashMap<>();
+            error.put("error", "Open-Meteo forecast empty for selected horizon and step");
+            error.put("patSource", "open-meteo");
+            return error;
+        }
         return result;
+    }
+
+    /**
+     * Hourly forecast from the Météo-France AROME seamless model via Open-Meteo.
+     */
+    public Map<String, Object> getMeteoFranceForecastByCoordinates(
+            double lat, double lon, String jwtSubject, int horizonHours, int stepMinutes) {
+        Map<String, Object> result = fetchForecastPayload(
+                lat, lon, "meteofrance_seamless", "meteofrance", horizonHours, stepMinutes);
+        if (result == null) {
+            Map<String, Object> error = new LinkedHashMap<>();
+            error.put("error", "Météo-France (Open-Meteo) forecast unavailable");
+            error.put("patSource", "meteofrance");
+            return error;
+        }
+        applyForecastWindow(result, horizonHours, stepMinutes);
+        if (isForecastListEmpty(result)) {
+            Map<String, Object> error = new LinkedHashMap<>();
+            error.put("error", "Météo-France (Open-Meteo) forecast empty for selected horizon and step");
+            error.put("patSource", "meteofrance");
+            return error;
+        }
+        return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static boolean isForecastListEmpty(Map<String, Object> result) {
+        Object listObj = result.get("list");
+        return !(listObj instanceof List<?> list) || list.isEmpty();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void applyForecastWindow(Map<String, Object> result, int horizonHours, int stepMinutes) {
+        Object listObj = result.get("list");
+        if (!(listObj instanceof List<?> rawList)) {
+            return;
+        }
+        List<Map<String, Object>> filtered = ForecastHorizonFilter.filterList(
+                (List<Map<String, Object>>) rawList, horizonHours, stepMinutes);
+        result.put("list", filtered);
+        result.put("count", filtered.size());
+        result.put("forecastHorizonHours", MeteoFranceForecastPreferenceService.clampHorizon(horizonHours));
+        result.put("forecastStepMinutes", MeteoFranceForecastPreferenceService.clampStep(stepMinutes));
+    }
+
+    private Map<String, Object> fetchForecastPayload(
+            double lat, double lon, String model, String patSource, int horizonHours, int stepMinutes) {
+        int step = MeteoFranceForecastPreferenceService.clampStep(stepMinutes);
+        if (step < 60) {
+            return fetchMinutely15ForecastPayload(lat, lon, model, patSource, horizonHours);
+        }
+        return fetchHourlyForecastPayload(lat, lon, model, patSource, horizonHours);
     }
 
     /** Clears in-memory Open-Meteo temperature caches (does not change TTL preferences). */
@@ -423,7 +485,7 @@ public class OpenMeteoService {
             if (!wind.isEmpty()) {
                 result.put("wind", wind);
             }
-            long dt = parseOpenMeteoTimeEpoch(current.get("time"));
+            long dt = parseOpenMeteoTimeEpoch(current.get("time"), openMeteoZoneId(body));
             if (dt > 0) {
                 result.put("dt", dt);
             }
@@ -440,14 +502,20 @@ public class OpenMeteoService {
     }
 
     @SuppressWarnings("unchecked")
-    private Map<String, Object> fetchForecastPayload(double lat, double lon) {
-        String url = UriComponentsBuilder.fromHttpUrl(FORECAST_URL)
+    private Map<String, Object> fetchHourlyForecastPayload(
+            double lat, double lon, String model, String patSource, int horizonHours) {
+        int fetchHours = Math.min(Math.max(MeteoFranceForecastPreferenceService.clampHorizon(horizonHours) + 3, 24), 384);
+        UriComponentsBuilder urlBuilder = UriComponentsBuilder.fromHttpUrl(FORECAST_URL)
                 .queryParam("latitude", lat)
                 .queryParam("longitude", lon)
-                .queryParam("hourly", "temperature_2m,weather_code,precipitation_probability,relative_humidity_2m")
-                .queryParam("forecast_days", 5)
-                .queryParam("timezone", "auto")
-                .toUriString();
+                .queryParam("hourly", "temperature_2m,weather_code,precipitation_probability,"
+                        + "relative_humidity_2m,precipitation,wind_speed_10m")
+                .queryParam("forecast_hours", fetchHours)
+                .queryParam("timezone", "auto");
+        if (model != null && !model.isBlank()) {
+            urlBuilder.queryParam("models", model);
+        }
+        String url = urlBuilder.toUriString();
         try {
             ResponseEntity<Object> response = restTemplate.getForEntity(url, Object.class);
             if (!(response.getBody() instanceof Map<?, ?> body)) {
@@ -465,19 +533,16 @@ public class OpenMeteoService {
             List<?> codes = hourly.get("weather_code") instanceof List<?> list ? list : List.of();
             List<?> pops = hourly.get("precipitation_probability") instanceof List<?> list ? list : List.of();
             List<?> humidities = hourly.get("relative_humidity_2m") instanceof List<?> list ? list : List.of();
+            List<?> precips = hourly.get("precipitation") instanceof List<?> list ? list : List.of();
+            List<?> winds = hourly.get("wind_speed_10m") instanceof List<?> list ? list : List.of();
 
+            ZoneId zone = openMeteoZoneId(body);
             List<Map<String, Object>> list = new ArrayList<>();
             long nowEpoch = Instant.now().getEpochSecond();
             for (int i = 0; i < times.size(); i++) {
-                if (i % 3 != 0) {
+                long dt = parseOpenMeteoTimeEpoch(times.get(i), zone);
+                if (dt <= 0 || dt < nowEpoch - 1800) {
                     continue;
-                }
-                long dt = parseOpenMeteoTimeEpoch(times.get(i));
-                if (dt <= 0 || dt < nowEpoch - 3600) {
-                    continue;
-                }
-                if (list.size() >= 40) {
-                    break;
                 }
                 Double tempC = i < temps.size() && temps.get(i) instanceof Number tempNum
                         ? Math.round(tempNum.doubleValue() * 10.0) / 10.0
@@ -501,13 +566,21 @@ public class OpenMeteoService {
                 if (i < pops.size() && pops.get(i) instanceof Number pop) {
                     item.put("pop", Math.min(1.0, Math.max(0.0, pop.doubleValue() / 100.0)));
                 }
+                if (i < precips.size() && precips.get(i) instanceof Number precip) {
+                    Map<String, Object> rain = new LinkedHashMap<>();
+                    rain.put("1h", Math.round(precip.doubleValue() * 100.0) / 100.0);
+                    item.put("rain", rain);
+                }
+                if (i < winds.size() && winds.get(i) instanceof Number wind) {
+                    item.put("wind", Map.of("speed", Math.round(wind.doubleValue() * 100.0) / 100.0));
+                }
                 list.add(item);
             }
             if (list.isEmpty()) {
                 return null;
             }
             Map<String, Object> result = new LinkedHashMap<>();
-            result.put("patSource", "open-meteo");
+            result.put("patSource", patSource);
             result.put("list", list);
             result.put("count", list.size());
             Object latObj = body.get("latitude");
@@ -517,7 +590,102 @@ public class OpenMeteoService {
             }
             return result;
         } catch (Exception e) {
-            log.debug("Open-Meteo forecast fetch failed: {}", e.getMessage());
+            log.debug("Open-Meteo forecast fetch failed (model={}): {}", model, e.getMessage());
+            return null;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> fetchMinutely15ForecastPayload(
+            double lat, double lon, String model, String patSource, int horizonHours) {
+        int horizon = MeteoFranceForecastPreferenceService.clampHorizon(horizonHours);
+        int forecastDays = Math.min(Math.max((horizon + 23) / 24 + 1, 1), 16);
+        UriComponentsBuilder urlBuilder = UriComponentsBuilder.fromHttpUrl(FORECAST_URL)
+                .queryParam("latitude", lat)
+                .queryParam("longitude", lon)
+                .queryParam("minutely_15", "temperature_2m,weather_code,precipitation_probability,"
+                        + "relative_humidity_2m,precipitation,wind_speed_10m")
+                .queryParam("forecast_days", forecastDays)
+                .queryParam("timezone", "auto");
+        if (model != null && !model.isBlank()) {
+            urlBuilder.queryParam("models", model);
+        }
+        String url = urlBuilder.toUriString();
+        try {
+            ResponseEntity<Object> response = restTemplate.getForEntity(url, Object.class);
+            if (!(response.getBody() instanceof Map<?, ?> body)) {
+                return null;
+            }
+            Object minutelyObj = body.get("minutely_15");
+            if (!(minutelyObj instanceof Map<?, ?> minutely)) {
+                return null;
+            }
+            Object timesObj = minutely.get("time");
+            Object tempsObj = minutely.get("temperature_2m");
+            if (!(timesObj instanceof List<?> times) || !(tempsObj instanceof List<?> temps) || times.isEmpty()) {
+                return null;
+            }
+            List<?> codes = minutely.get("weather_code") instanceof List<?> list ? list : List.of();
+            List<?> pops = minutely.get("precipitation_probability") instanceof List<?> list ? list : List.of();
+            List<?> humidities = minutely.get("relative_humidity_2m") instanceof List<?> list ? list : List.of();
+            List<?> precips = minutely.get("precipitation") instanceof List<?> list ? list : List.of();
+            List<?> winds = minutely.get("wind_speed_10m") instanceof List<?> list ? list : List.of();
+
+            ZoneId zone = openMeteoZoneId(body);
+            List<Map<String, Object>> list = new ArrayList<>();
+            long nowEpoch = Instant.now().getEpochSecond();
+            for (int i = 0; i < times.size(); i++) {
+                long dt = parseOpenMeteoTimeEpoch(times.get(i), zone);
+                if (dt <= 0 || dt < nowEpoch - 900) {
+                    continue;
+                }
+                Double tempC = i < temps.size() && temps.get(i) instanceof Number tempNum
+                        ? Math.round(tempNum.doubleValue() * 10.0) / 10.0
+                        : null;
+                if (tempC == null) {
+                    continue;
+                }
+                Integer weatherCode = i < codes.size() && codes.get(i) instanceof Number codeNum
+                        ? codeNum.intValue() : null;
+                Map<String, Object> main = new LinkedHashMap<>();
+                main.put("temp", tempC);
+                main.put("temp_min", tempC);
+                main.put("temp_max", tempC);
+                if (i < humidities.size() && humidities.get(i) instanceof Number humidity) {
+                    main.put("humidity", Math.round(humidity.doubleValue()));
+                }
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("dt", dt);
+                item.put("main", main);
+                item.put("weather", List.of(weatherEntry(weatherCode)));
+                if (i < pops.size() && pops.get(i) instanceof Number pop) {
+                    item.put("pop", Math.min(1.0, Math.max(0.0, pop.doubleValue() / 100.0)));
+                }
+                if (i < precips.size() && precips.get(i) instanceof Number precip) {
+                    Map<String, Object> rain = new LinkedHashMap<>();
+                    rain.put("1h", Math.round(precip.doubleValue() * 100.0) / 100.0);
+                    item.put("rain", rain);
+                }
+                if (i < winds.size() && winds.get(i) instanceof Number wind) {
+                    item.put("wind", Map.of("speed", Math.round(wind.doubleValue() * 100.0) / 100.0));
+                }
+                list.add(item);
+            }
+            if (list.isEmpty()) {
+                return null;
+            }
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("patSource", patSource);
+            result.put("list", list);
+            result.put("count", list.size());
+            Object latObj = body.get("latitude");
+            Object lonObj = body.get("longitude");
+            if (latObj instanceof Number latN && lonObj instanceof Number lonN) {
+                result.put("city", Map.of("coord", Map.of("lat", latN.doubleValue(), "lon", lonN.doubleValue())));
+            }
+            return result;
+        } catch (Exception e) {
+            log.debug("Open-Meteo minutely_15 forecast fetch failed (model={}): {}", model, e.getMessage());
             return null;
         }
     }
@@ -529,7 +697,22 @@ public class OpenMeteoService {
         return weather;
     }
 
-    private static long parseOpenMeteoTimeEpoch(Object raw) {
+    private static ZoneId openMeteoZoneId(Map<?, ?> body) {
+        if (body == null) {
+            return ZoneId.of("UTC");
+        }
+        Object tz = body.get("timezone");
+        if (tz == null || String.valueOf(tz).isBlank()) {
+            return ZoneId.of("UTC");
+        }
+        try {
+            return ZoneId.of(String.valueOf(tz).trim());
+        } catch (Exception ignored) {
+            return ZoneId.of("UTC");
+        }
+    }
+
+    private static long parseOpenMeteoTimeEpoch(Object raw, ZoneId zone) {
         if (raw == null) {
             return 0;
         }
@@ -537,8 +720,14 @@ public class OpenMeteoService {
         if (text.isEmpty()) {
             return 0;
         }
+        ZoneId effectiveZone = zone != null ? zone : ZoneId.of("UTC");
         try {
             return OffsetDateTime.parse(text).toInstant().getEpochSecond();
+        } catch (DateTimeParseException ignored) {
+            // Open-Meteo with timezone=auto returns local times without offset (e.g. 2026-07-01T20:00).
+        }
+        try {
+            return LocalDateTime.parse(text).atZone(effectiveZone).toInstant().getEpochSecond();
         } catch (DateTimeParseException ignored) {
             return 0;
         }

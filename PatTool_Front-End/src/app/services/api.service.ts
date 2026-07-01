@@ -193,7 +193,9 @@ export class ApiService {
     lat: number,
     lon: number,
     alt?: number | null,
-    source?: 'openweathermap' | 'open-meteo' | 'meteofrance'
+    source?: 'openweathermap' | 'open-meteo' | 'meteofrance',
+    horizonHours?: number,
+    stepMinutes?: number
   ): Observable<any> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers => {
@@ -206,11 +208,64 @@ export class ApiService {
         if (source) {
           params = params.set('source', source);
         }
+        if (horizonHours != null && !isNaN(horizonHours)) {
+          params = params.set('horizonHours', String(horizonHours));
+        }
+        if (stepMinutes != null && !isNaN(stepMinutes)) {
+          params = params.set('stepMinutes', String(stepMinutes));
+        }
         return this._http.get(this.API_URL + 'external/weather/forecast/coordinates', { 
           headers: headers,
           params: params
         });
       })
+    );
+  }
+
+  /** Aggregated forecast from OWM, Open-Meteo and Météo-France (seamless). */
+  getAggregatedForecast(lat: number, lon: number, horizonHours?: number, stepMinutes?: number): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => {
+        let params = new HttpParams()
+          .set('lat', lat.toString())
+          .set('lon', lon.toString());
+        if (horizonHours != null && !isNaN(horizonHours)) {
+          params = params.set('horizonHours', String(horizonHours));
+        }
+        if (stepMinutes != null && !isNaN(stepMinutes)) {
+          params = params.set('stepMinutes', String(stepMinutes));
+        }
+        return this._http.get(this.API_URL + 'external/weather/forecast/aggregated', {
+          headers,
+          params
+        });
+      })
+    );
+  }
+
+  getMeteoFranceForecastPreferences(): Observable<MeteoFranceForecastPreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<MeteoFranceForecastPreference>(
+          this.API_URL + 'external/meteofrance/forecast/preferences',
+          { headers }
+        )
+      )
+    );
+  }
+
+  saveMeteoFranceForecastPreferences(
+    forecastHorizonHours: number,
+    forecastStepMinutes: number
+  ): Observable<MeteoFranceForecastPreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<MeteoFranceForecastPreference>(
+          this.API_URL + 'external/meteofrance/forecast/preferences',
+          { forecastHorizonHours, forecastStepMinutes },
+          { headers }
+        )
+      )
     );
   }
 
@@ -437,6 +492,14 @@ export class ApiService {
   /** AROME-PI WMS capabilities (layers, time steps). */
   getMeteoFranceAromepiCapabilities(): Observable<any> {
     return this._http.get(this.API_URL + 'external/meteofrance/aromepi/capabilities');
+  }
+
+  /** Nearest Météo-France DPObs observation station for a point. */
+  getMeteoFranceNearestObsStation(lat: number, lon: number): Observable<any> {
+    const params = new HttpParams()
+      .set('lat', String(lat))
+      .set('lon', String(lon));
+    return this._http.get(this.API_URL + 'external/meteofrance/obs/nearest-station', { params });
   }
 
   /** Build AROME-PI WMS tile URL (proxied, no JWT required on tile load). */
@@ -1579,6 +1642,12 @@ export interface LotoSyncResult {
 /** GET/PUT /api/external/meteofrance/radar/preferences */
 export interface MeteoFranceRadarPreference {
   radarRefreshSeconds: number;
+  persistedInMongo?: boolean;
+}
+
+export interface MeteoFranceForecastPreference {
+  forecastHorizonHours: number;
+  forecastStepMinutes: number;
   persistedInMongo?: boolean;
 }
 

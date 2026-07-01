@@ -210,6 +210,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/external/globe/iss/trace").permitAll()
                 .requestMatchers(HttpMethod.DELETE, "/api/external/globe/iss/trace").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/weather/altitudes").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/weather/forecast/coordinates").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/weather/forecast/aggregated").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/weather/map/temperature/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/weather/map/clouds/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/weather/map/temperature-labels").permitAll()

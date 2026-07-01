@@ -107,6 +107,7 @@ public class MeteoFranceObsService {
         }
         status.put("obsEndpoints", List.of(
                 "/api/external/meteofrance/obs/temperature-labels",
+                "/api/external/meteofrance/obs/nearest-station",
                 "/api/external/weather/map/temperature-labels"
         ));
         return status;
@@ -207,6 +208,50 @@ public class MeteoFranceObsService {
         err.put("message", "DPObs v2 provides station observations only, not multi-day forecasts.");
         err.put("patSource", "meteofrance-dpobs");
         return err;
+    }
+
+    /**
+     * Nearest DPObs v2 station for a map point (informational; AROME-PI forecasts are gridded at lat/lon).
+     */
+    public Map<String, Object> getNearestStationInfo(double lat, double lon) {
+        if (!isConfigured()) {
+            Map<String, Object> err = error("DPObs API key not configured.");
+            err.put("patSource", "meteofrance-dpobs");
+            return err;
+        }
+        List<ObsStation> catalog = loadCatalog();
+        if (catalog.isEmpty()) {
+            Map<String, Object> err = error("DPObs v2 station catalog empty.");
+            err.put("patSource", "meteofrance-dpobs");
+            return err;
+        }
+        ObsStation nearest = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (ObsStation station : catalog) {
+            double dLat = station.lat - lat;
+            double dLon = station.lon - lon;
+            double distance = dLat * dLat + dLon * dLon;
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                nearest = station;
+            }
+        }
+        if (nearest == null) {
+            Map<String, Object> err = error("No Météo-France station found.");
+            err.put("patSource", "meteofrance-dpobs");
+            return err;
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("id", nearest.id());
+        String name = nearest.name();
+        if (name != null && !name.isBlank()) {
+            result.put("name", name.trim());
+        }
+        result.put("lat", nearest.lat());
+        result.put("lon", nearest.lon());
+        result.put("distanceKm", Math.round(haversineKm(lat, lon, nearest.lat(), nearest.lon()) * 10.0) / 10.0);
+        result.put("patSource", "meteofrance-dpobs");
+        return result;
     }
 
     private static Map<String, Object> mapObservationPointToOwmFormat(Map<String, Object> point, ObsStation station) {
@@ -1024,6 +1069,16 @@ public class MeteoFranceObsService {
         double dLat = lat1 - lat2;
         double dLon = lon1 - lon2;
         return dLat * dLat + dLon * dLon;
+    }
+
+    private static double haversineKm(double lat1, double lon1, double lat2, double lon2) {
+        double r = 6371.0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return r * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     private static double kelvinToCelsius(double kelvin) {

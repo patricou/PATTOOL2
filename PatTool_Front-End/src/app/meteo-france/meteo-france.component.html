@@ -58,7 +58,7 @@
                 <span class="mf-toolbar-label">{{ 'METEO_FRANCE.USE_GPS' | translate }}</span>
               </button>
               <button type="button" class="btn btn-sm btn-primary" (click)="refreshWeather()"
-                      [disabled]="isLoadingWeather || isLoadingForecast"
+                      [disabled]="isLoadingWeather"
                       [attr.title]="'METEO_FRANCE.REFRESH' | translate">
                 <i class="fa fa-refresh"></i>
                 <span class="mf-toolbar-label">{{ 'METEO_FRANCE.REFRESH' | translate }}</span>
@@ -116,6 +116,10 @@
           <option value="radar">{{ 'METEO_FRANCE.TAB_RADAR' | translate }}</option>
           <option value="clim">{{ 'METEO_FRANCE.TAB_CLIM' | translate }}</option>
           <option value="aromepi">{{ 'METEO_FRANCE.TAB_AROMEPI' | translate }}</option>
+          <option value="forecast-owm">{{ 'METEO_FRANCE.TAB_FORECAST_OWM' | translate }}</option>
+          <option value="forecast-om">{{ 'METEO_FRANCE.TAB_FORECAST_OM' | translate }}</option>
+          <option value="forecast-aggregate">{{ 'METEO_FRANCE.TAB_FORECAST_AGG' | translate }}</option>
+          <option value="forecast-options">{{ 'METEO_FRANCE.TAB_OPTIONS' | translate }}</option>
         </select>
       </div>
 
@@ -130,7 +134,7 @@
         <li class="nav-item" role="presentation">
           <button type="button" class="nav-link" [class.active]="activeMainTab === 'clim'"
                   (click)="onMainTabChange('clim')">
-            <i class="fa fa-history"></i>
+            <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')" class="mf-tab-logo" width="18" height="18" />
             {{ 'METEO_FRANCE.TAB_CLIM' | translate }}
           </button>
         </li>
@@ -139,6 +143,34 @@
                   (click)="onMainTabChange('aromepi')">
             <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')" class="mf-tab-logo" width="18" height="18" />
             {{ 'METEO_FRANCE.TAB_AROMEPI' | translate }}
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button type="button" class="nav-link" [class.active]="activeMainTab === 'forecast-owm'"
+                  (click)="onMainTabChange('forecast-owm')">
+            <img [src]="getBrandLogoSrc('openweathermap')" [alt]="getBrandAlt('openweathermap')" class="mf-tab-logo" width="18" height="18" />
+            {{ 'METEO_FRANCE.TAB_FORECAST_OWM' | translate }}
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button type="button" class="nav-link" [class.active]="activeMainTab === 'forecast-om'"
+                  (click)="onMainTabChange('forecast-om')">
+            <img [src]="getBrandLogoSrc('open-meteo')" [alt]="getBrandAlt('open-meteo')" class="mf-tab-logo" width="18" height="18" />
+            {{ 'METEO_FRANCE.TAB_FORECAST_OM' | translate }}
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button type="button" class="nav-link" [class.active]="activeMainTab === 'forecast-aggregate'"
+                  (click)="onMainTabChange('forecast-aggregate')">
+            <i class="fa fa-balance-scale"></i>
+            {{ 'METEO_FRANCE.TAB_FORECAST_AGG' | translate }}
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button type="button" class="nav-link" [class.active]="activeMainTab === 'forecast-options'"
+                  (click)="onMainTabChange('forecast-options')">
+            <i class="fa fa-sliders"></i>
+            {{ 'METEO_FRANCE.TAB_OPTIONS' | translate }}
           </button>
         </li>
       </ul>
@@ -487,7 +519,7 @@
 
           <div *ngIf="(!currentWeather || currentWeather.error) && !isLoadingWeather" class="mf-weather-empty">
             <button type="button" class="btn btn-sm btn-primary" (click)="refreshWeather()"
-                    [disabled]="isLoadingWeather || isLoadingForecast">
+                    [disabled]="isLoadingWeather">
               <i class="fa fa-refresh"></i> {{ 'METEO_FRANCE.REFRESH' | translate }}
             </button>
           </div>
@@ -559,122 +591,6 @@
               <div class="weather-detail-item" *ngIf="currentWeather.rain || currentWeather.snow">
                 <strong>{{ 'METEO_FRANCE.PRECIP' | translate }}</strong>
                 <span>{{ currentWeather.rain?.['1h'] || currentWeather.rain?.['3h'] || currentWeather.snow?.['1h'] || 0 }} mm</span>
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
-
-
-        <div class="api-container">
-
-          <div class="mf-section-head">
-            <h3 class="api-title mb-0">
-              <i class="fa fa-calendar"></i> {{ 'METEO_FRANCE.FORECAST_TITLE' | translate }}
-            </h3>
-            <div class="mf-weather-source-row">
-              <label class="mf-weather-source-label" for="mf-forecast-weather-source">
-                {{ 'METEO_FRANCE.WEATHER_SOURCE_LABEL' | translate }}
-              </label>
-              <select id="mf-forecast-weather-source"
-                      class="form-select form-select-sm mf-weather-source-select"
-                      [(ngModel)]="forecastWeatherSource"
-                      (ngModelChange)="onForecastWeatherSourceChange()">
-                <option *ngFor="let source of availableWeatherPanelSources" [ngValue]="source">
-                  {{ getWeatherPanelSourceLabel(source) }}
-                </option>
-              </select>
-              <span class="mf-source-badge" *ngIf="displayForecastList.length"
-                    [title]="getBrandAlt(resolveLoadedWeatherBrand(forecastWeatherSource, forecast))">
-                <span class="mf-source-badge-prefix">{{ 'METEO_FRANCE.SECTION_SOURCE' | translate }}</span>
-                <img [src]="getBrandLogoSrc(resolveLoadedWeatherBrand(forecastWeatherSource, forecast))"
-                     [alt]="getBrandAlt(resolveLoadedWeatherBrand(forecastWeatherSource, forecast))"
-                     width="16" height="16" />
-                <span>{{ getBrandAlt(resolveLoadedWeatherBrand(forecastWeatherSource, forecast)) }}</span>
-              </span>
-            </div>
-          </div>
-
-
-
-          <div class="forecast-mode mb-2" *ngIf="displayForecastList.length || isLoadingForecast">
-
-            <button type="button" class="btn btn-sm"
-
-                    [class.btn-primary]="forecastDisplayMode === 'hourly'"
-
-                    [class.btn-outline-primary]="forecastDisplayMode !== 'hourly'"
-
-                    (click)="setForecastDisplayMode('hourly')">
-
-              {{ 'METEO_FRANCE.FORECAST_3H' | translate }}
-
-            </button>
-
-            <button type="button" class="btn btn-sm ms-1"
-
-                    [class.btn-primary]="forecastDisplayMode === 'daily'"
-
-                    [class.btn-outline-primary]="forecastDisplayMode !== 'daily'"
-
-                    (click)="setForecastDisplayMode('daily')">
-
-              {{ 'METEO_FRANCE.FORECAST_DAILY' | translate }}
-
-            </button>
-
-          </div>
-
-
-
-          <div *ngIf="!isLoadingForecast && forecastErrorKey" class="alert alert-warning py-2 mb-2">
-            {{ forecastErrorKey | translate }}
-          </div>
-
-          <div *ngIf="!isLoadingForecast && !displayForecastList.length && !forecastErrorKey" class="mf-weather-empty mb-2">
-            <button type="button" class="btn btn-sm btn-primary" (click)="refreshWeather()"
-                    [disabled]="isLoadingWeather || isLoadingForecast">
-              <i class="fa fa-refresh"></i> {{ 'METEO_FRANCE.REFRESH' | translate }}
-            </button>
-          </div>
-
-          <div *ngIf="isLoadingForecast" class="text-muted">
-
-            <i class="fa fa-spinner fa-spin"></i> {{ 'METEO_FRANCE.LOADING' | translate }}
-
-          </div>
-
-
-
-          <div class="forecast-grid" *ngIf="!isLoadingForecast && displayForecastList.length">
-
-            <div class="forecast-card" *ngFor="let item of displayForecastList">
-
-              <div class="forecast-time">
-
-                {{ forecastDisplayMode === 'hourly' ? formatDate(item.dt) : formatDay(item.dt) }}
-
-              </div>
-
-              <img *ngIf="item.weather?.[0]?.icon"
-
-                   [src]="getWeatherIconUrl(item.weather?.[0]?.icon)"
-
-                   [alt]="item.weather?.[0]?.description"
-
-                   class="forecast-icon">
-
-              <div class="forecast-temp">
-                {{ formatTemperature(item.main?.temp) }}
-              </div>
-
-              <div class="forecast-desc small">{{ item.weather?.[0]?.description }}</div>
-
-              <div class="small text-muted" *ngIf="item.pop != null">
-                {{ 'METEO_FRANCE.RAIN_CHANCE' | translate }}: {{ (item.pop * 100) | number:'1.0-0' }}%
               </div>
 
             </div>
@@ -839,10 +755,11 @@
 
 
 
-            <div *ngIf="isLoadingClim" class="text-muted">
-
-              <i class="fa fa-spinner fa-spin"></i> {{ 'METEO_FRANCE.CLIM_LOADING' | translate }}
-
+            <div *ngIf="isLoadingClim" class="clim-loading-panel" role="status" aria-live="polite">
+              <div class="clim-loading-panel-inner">
+                <i class="fa fa-spinner fa-spin clim-loading-spinner" aria-hidden="true"></i>
+                <span>{{ 'METEO_FRANCE.CLIM_LOADING' | translate }}</span>
+              </div>
             </div>
 
 
@@ -1011,25 +928,49 @@
           </div>
         </div>
 
-        <ng-container *ngIf="activeMainTab === 'aromepi'">
-          <ng-container *ngTemplateOutlet="meteoFranceLocationPanel"></ng-container>
-        </ng-container>
-
         <div class="api-container">
 
           <div class="mf-section-head">
             <h3 class="api-title mb-0">
               <i class="fa fa-cloud"></i> {{ 'METEO_FRANCE.AROMEPI_TITLE' | translate }}
             </h3>
-            <span class="mf-source-badge" *ngIf="aromepiAvailable">
-              <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')" width="16" height="16" />
-              {{ 'METEO_FRANCE.LOG_SOURCE_MF_AROMEPI' | translate }}
-            </span>
+            <div class="mf-section-head-actions">
+              <span class="mf-source-badge" *ngIf="aromepiAvailable">
+                <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')" width="16" height="16" />
+                {{ 'METEO_FRANCE.LOG_SOURCE_MF_AROMEPI' | translate }}
+              </span>
+              <ng-container *ngTemplateOutlet="forecastProviderSiteButton; context: { brand: 'meteofrance' }"></ng-container>
+            </div>
           </div>
 
           <p class="text-muted small">{{ 'METEO_FRANCE.AROMEPI_HINT' | translate }}</p>
 
-          <div *ngIf="aromepiAvailable">
+          <ng-container *ngTemplateOutlet="forecastDataLocationSummary"></ng-container>
+
+          <ng-container *ngTemplateOutlet="forecastTabLoadingPanel; context: {
+            loading: isLoadingAromepiCapabilities,
+            messageKey: 'METEO_FRANCE.AROMEPI_LOADING'
+          }"></ng-container>
+
+          <div class="clim-station-row text-muted small mb-2" *ngIf="aromepiAvailable && !isLoadingAromepiCapabilities">
+            <span class="me-1">{{ 'METEO_FRANCE.CLIM_STATION' | translate }} :</span>
+            <ng-container [ngSwitch]="aromepiNearestStationStatus">
+              <span *ngSwitchCase="'loading'"><i class="fa fa-spinner fa-spin"></i></span>
+              <span *ngSwitchCase="'ok'">
+                <strong>{{ aromepiNearestStation?.name || aromepiNearestStation?.id }}</strong>
+                <span *ngIf="aromepiNearestStation?.distanceKm != null">
+                  — {{ aromepiNearestStation?.distanceKm }} km
+                </span>
+              </span>
+              <span *ngSwitchCase="'outside-france'">{{ 'METEO_FRANCE.AROMEPI_STATION_OUTSIDE_FRANCE' | translate }}</span>
+              <span *ngSwitchCase="'unavailable'">{{ 'METEO_FRANCE.AROMEPI_STATION_UNAVAILABLE' | translate }}</span>
+            </ng-container>
+          </div>
+          <p class="text-muted small mb-2" *ngIf="aromepiAvailable && aromepiNearestStationStatus === 'ok'">
+            {{ 'METEO_FRANCE.AROMEPI_STATION_HINT' | translate }}
+          </p>
+
+          <div *ngIf="aromepiAvailable && !isLoadingAromepiCapabilities">
 
             <div class="aromepi-controls mb-2" *ngIf="aromepiLayers.length">
               <label class="form-label small mb-1">{{ 'METEO_FRANCE.AROMEPI_LAYER' | translate }}</label>
@@ -1070,32 +1011,55 @@
               </button>
               <div id="meteo-france-aromepi-map" class="meteo-france-map aromepi-map"></div>
 
-              <div class="aromepi-time-controls" *ngIf="aromepiTimeSteps.length">
-                <div class="aromepi-time-label">
-                  <strong>{{ 'METEO_FRANCE.AROMEPI_FORECAST_STEP' | translate }}</strong>
-                  <span *ngIf="aromepiCurrentTime">
-                    +{{ aromepiCurrentOffsetMinutes }} min — {{ formatAromepiTime(aromepiCurrentTime) }}
-                  </span>
-                </div>
-                <div class="aromepi-time-toolbar">
-                  <button type="button" class="btn btn-sm btn-outline-primary"
-                          (click)="toggleAromepiPlayback()"
-                          [disabled]="aromepiTimeSteps.length < 2">
-                    <i class="fa" [class.fa-pause]="aromepiPlaying" [class.fa-play]="!aromepiPlaying"></i>
-                    {{ (aromepiPlaying ? 'METEO_FRANCE.AROMEPI_PAUSE' : 'METEO_FRANCE.AROMEPI_PLAY') | translate }}
-                  </button>
-                  <button type="button" class="btn btn-sm btn-outline-secondary ms-1"
-                          (click)="onAromepiFrameIndexChange(0)" [disabled]="aromepiFrameIndex === 0">
-                    <i class="fa fa-step-backward"></i>
-                  </button>
-                </div>
-                <input type="range" class="form-range aromepi-time-slider"
-                       [min]="0" [max]="aromepiTimeSteps.length - 1" step="1"
-                       [ngModel]="aromepiFrameIndex"
-                       (ngModelChange)="onAromepiFrameIndexChange($event)" />
-                <div class="aromepi-time-range small text-muted">
-                  <span>+0 min</span>
-                  <span>+360 min</span>
+              <div class="aromepi-time-controls" *ngIf="aromepiEffectiveTimeSteps.length">
+                <div class="aromepi-time-compact-row">
+                  <div class="aromepi-time-actions">
+                    <button type="button" class="btn btn-sm btn-outline-primary aromepi-time-btn"
+                            (click)="toggleAromepiPlayback()"
+                            [disabled]="aromepiEffectiveTimeSteps.length < 2"
+                            [attr.title]="(aromepiPlaying ? 'METEO_FRANCE.AROMEPI_PAUSE' : 'METEO_FRANCE.AROMEPI_PLAY') | translate"
+                            [attr.aria-label]="(aromepiPlaying ? 'METEO_FRANCE.AROMEPI_PAUSE' : 'METEO_FRANCE.AROMEPI_PLAY') | translate">
+                      <i class="fa" [class.fa-pause]="aromepiPlaying" [class.fa-play]="!aromepiPlaying"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary aromepi-time-btn"
+                            (click)="onAromepiFrameIndexChange(0)"
+                            [disabled]="aromepiFrameIndex === 0"
+                            [attr.title]="'METEO_FRANCE.AROMEPI_RESET' | translate"
+                            [attr.aria-label]="'METEO_FRANCE.AROMEPI_RESET' | translate">
+                      <i class="fa fa-step-backward"></i>
+                    </button>
+                  </div>
+                  <div class="aromepi-time-meta">
+                    <span class="aromepi-time-meta-primary">
+                      {{ formatAromepiTime(aromepiCurrentTime) }}
+                      <span class="aromepi-time-meta-offset">(+{{ aromepiCurrentOffsetMinutes }} min)</span>
+                    </span>
+                    <span class="aromepi-time-meta-detail">
+                      {{ 'METEO_FRANCE.AROMEPI_TIME_BAND_FRAME' | translate: {
+                        current: aromepiFrameIndex + 1,
+                        total: aromepiEffectiveTimeSteps.length
+                      } }}
+                      · {{ 'METEO_FRANCE.FORECAST_HORIZON_LABEL' | translate }}
+                      {{ aromepiEffectiveHorizonMinutes }} {{ 'METEO_FRANCE.FORECAST_MINUTES_UNIT' | translate }}
+                      · {{ 'METEO_FRANCE.FORECAST_STEP_LABEL' | translate }}
+                      {{ aromepiForecastStepMinutes }} {{ 'METEO_FRANCE.FORECAST_MINUTES_UNIT' | translate }}
+                      <ng-container *ngIf="aromepiReferenceTime">
+                        · {{ 'METEO_FRANCE.AROMEPI_TIME_BAND_REF' | translate: {
+                          time: formatAromepiTime(aromepiReferenceTime)
+                        } }}
+                      </ng-container>
+                    </span>
+                  </div>
+                  <div class="aromepi-time-slider-wrap">
+                    <input type="range" class="form-range aromepi-time-slider"
+                           [min]="0" [max]="aromepiEffectiveTimeSteps.length - 1" step="1"
+                           [ngModel]="aromepiFrameIndex"
+                           (ngModelChange)="onAromepiFrameIndexChange($event)" />
+                    <div class="aromepi-time-range">
+                      <span>+{{ aromepiMinOffsetMinutes }} min</span>
+                      <span>+{{ aromepiMaxOffsetMinutes }} min</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1108,7 +1072,8 @@
               <h4 class="h6">{{ 'METEO_FRANCE.AROMEPI_POINT_VALUES' | translate }}</h4>
               <ul class="list-unstyled small mb-0">
                 <li *ngFor="let entry of aromepiCurrentValues | keyvalue">
-                  <strong>{{ entry.key }}</strong>: {{ entry.value }}
+                  <strong>{{ aromepiLayerLabel({ name: $any(entry.key), title: $any(entry.key) }) }}</strong>:
+                  {{ formatAromepiPointValue($any(entry.key), entry.value) }}
                 </li>
               </ul>
             </div>
@@ -1124,11 +1089,12 @@
                 </button>
               </div>
 
-              <p class="text-muted small" *ngIf="isLoadingAromepiForecast">
-                {{ 'METEO_FRANCE.AROMEPI_FORECAST_LOADING' | translate }}
-              </p>
+              <ng-container *ngTemplateOutlet="forecastTabLoadingPanel; context: {
+                loading: isLoadingAromepiForecast,
+                messageKey: 'METEO_FRANCE.AROMEPI_FORECAST_LOADING'
+              }"></ng-container>
 
-              <div class="table-responsive" *ngIf="aromepiForecastSteps.length">
+              <div class="table-responsive" *ngIf="!isLoadingAromepiForecast && aromepiForecastSteps.length">
                 <table class="table table-sm table-striped aromepi-forecast-table">
                   <thead>
                     <tr>
@@ -1142,24 +1108,275 @@
                       <td>+{{ step.offsetMinutes }} min</td>
                       <td>{{ formatAromepiTime(step.time) }}</td>
                       <td *ngFor="let layer of aromepiPointForecast?.layers">
-                        {{ step.values?.[layer] ?? '—' }}
+                        {{ formatAromepiPointValue(layer, step.values?.[layer]) }}
                       </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
+
+              <div class="forecast-charts-wrap" *ngIf="!isLoadingAromepiForecast && aromepiForecastChartsReady">
+                <ng-container *ngTemplateOutlet="multiDayForecastCharts; context: { blocks: aromepiForecastChartBlocks }"></ng-container>
+              </div>
             </div>
 
           </div>
 
-          <div *ngIf="isLoadingAromepiCapabilities" class="text-muted small mt-2">
-            <i class="fa fa-spinner fa-spin"></i> {{ 'METEO_FRANCE.AROMEPI_LOADING' | translate }}
-          </div>
-
-          <div class="alert alert-warning mt-2" *ngIf="aromepiErrorKey" role="alert">
+          <div class="alert alert-warning mt-2" *ngIf="aromepiErrorKey && !isLoadingAromepiCapabilities" role="alert">
             {{ aromepiErrorKey | translate }}
           </div>
 
+        </div>
+
+      </section>
+
+
+
+      <!-- Shared forecast options tab -->
+
+      <section [hidden]="activeMainTab !== 'forecast-options'">
+
+        <div class="api-container">
+          <div class="mf-section-head">
+            <h3 class="api-title mb-0">
+              <i class="fa fa-sliders"></i> {{ 'METEO_FRANCE.FORECAST_OPTIONS_TITLE' | translate }}
+            </h3>
+          </div>
+
+          <p class="text-muted small">{{ 'METEO_FRANCE.FORECAST_OPTIONS_HINT' | translate }}</p>
+
+          <ng-container *ngTemplateOutlet="meteoFranceLocationPanel"></ng-container>
+
+          <div class="forecast-settings-panel mb-3">
+            <ng-container *ngTemplateOutlet="forecastHorizonStepPanel; context: {
+              showParams: true,
+              hintKey: 'METEO_FRANCE.FORECAST_SETTINGS_HINT'
+            }"></ng-container>
+          </div>
+
+          <p class="text-muted small mb-2">{{ 'METEO_FRANCE.FORECAST_MAP_HINT' | translate }}</p>
+
+          <div class="forecast-map-settings mb-2">
+            <label class="forecast-settings-field" for="mf-forecast-map-base">
+              <span class="forecast-settings-label">{{ 'METEO_FRANCE.MAP_BASE_LAYER' | translate }}</span>
+              <select id="mf-forecast-map-base" class="form-select form-select-sm"
+                      [(ngModel)]="mapBaseLayerId"
+                      (ngModelChange)="onMapBaseLayerChange()">
+                <option *ngFor="let layer of availableMapBaseLayers" [value]="layer.id">
+                  {{ getMapBaseLayerLabel(layer) }}
+                </option>
+              </select>
+            </label>
+          </div>
+
+          <div class="meteo-france-map-shell forecast-map-shell mb-3">
+            <div id="meteo-france-forecast-map" class="meteo-france-map forecast-map"></div>
+          </div>
+        </div>
+
+      </section>
+
+
+
+      <!-- OpenWeatherMap forecast tab -->
+
+      <section [hidden]="activeMainTab !== 'forecast-owm'">
+
+        <div class="api-container">
+          <div class="mf-section-head">
+            <h3 class="api-title mb-0">
+              <img [src]="getBrandLogoSrc('openweathermap')" [alt]="getBrandAlt('openweathermap')" width="20" height="20" class="me-1" />
+              {{ 'METEO_FRANCE.FORECAST_OWM_TITLE' | translate }}
+            </h3>
+            <div class="mf-section-head-actions">
+              <ng-container *ngTemplateOutlet="forecastProviderSiteButton; context: { brand: 'openweathermap' }"></ng-container>
+              <button type="button" class="btn btn-sm btn-outline-primary" (click)="loadOwmForecast(true)"
+                      [disabled]="isLoadingOwmForecast">
+                <i class="fa" [class.fa-refresh]="!isLoadingOwmForecast" [class.fa-spinner]="isLoadingOwmForecast" [class.fa-spin]="isLoadingOwmForecast"></i>
+                {{ 'METEO_FRANCE.REFRESH' | translate }}
+              </button>
+            </div>
+          </div>
+
+          <p class="text-muted small">{{ 'METEO_FRANCE.FORECAST_OWM_HINT' | translate }}</p>
+
+          <ng-container *ngTemplateOutlet="forecastDataLocationSummary"></ng-container>
+
+          <ng-container *ngTemplateOutlet="forecastTabLoadingPanel; context: {
+            loading: isLoadingOwmForecast,
+            messageKey: 'METEO_FRANCE.FORECAST_LOADING'
+          }"></ng-container>
+
+          <div *ngIf="!isLoadingOwmForecast && owmForecastErrorKey" class="alert alert-warning py-2 mb-2">
+            {{ owmForecastErrorKey | translate }}
+          </div>
+
+          <div class="forecast-table-wrap" *ngIf="!isLoadingOwmForecast && owmDisplayForecastList.length">
+            <ng-container *ngTemplateOutlet="multiDayForecastTable; context: { items: owmDisplayForecastList }"></ng-container>
+          </div>
+
+          <div class="forecast-charts-wrap" *ngIf="!isLoadingOwmForecast && owmForecastChartsReady">
+            <ng-container *ngTemplateOutlet="multiDayForecastCharts; context: { blocks: owmForecastChartBlocks }"></ng-container>
+          </div>
+        </div>
+
+      </section>
+
+
+
+      <!-- Open-Meteo forecast tab -->
+
+      <section [hidden]="activeMainTab !== 'forecast-om'">
+
+        <div class="api-container">
+          <div class="mf-section-head">
+            <h3 class="api-title mb-0">
+              <img [src]="getBrandLogoSrc('open-meteo')" [alt]="getBrandAlt('open-meteo')" width="20" height="20" class="me-1" />
+              {{ 'METEO_FRANCE.FORECAST_OM_TITLE' | translate }}
+            </h3>
+            <div class="mf-section-head-actions">
+              <ng-container *ngTemplateOutlet="forecastProviderSiteButton; context: { brand: 'open-meteo' }"></ng-container>
+              <button type="button" class="btn btn-sm btn-outline-primary" (click)="loadOmForecast(true)"
+                      [disabled]="isLoadingOmForecast">
+                <i class="fa" [class.fa-refresh]="!isLoadingOmForecast" [class.fa-spinner]="isLoadingOmForecast" [class.fa-spin]="isLoadingOmForecast"></i>
+                {{ 'METEO_FRANCE.REFRESH' | translate }}
+              </button>
+            </div>
+          </div>
+
+          <p class="text-muted small">{{ 'METEO_FRANCE.FORECAST_OM_HINT' | translate }}</p>
+
+          <ng-container *ngTemplateOutlet="forecastDataLocationSummary"></ng-container>
+
+          <ng-container *ngTemplateOutlet="forecastTabLoadingPanel; context: {
+            loading: isLoadingOmForecast,
+            messageKey: 'METEO_FRANCE.FORECAST_LOADING'
+          }"></ng-container>
+
+          <div *ngIf="!isLoadingOmForecast && omForecastErrorKey" class="alert alert-warning py-2 mb-2">
+            {{ omForecastErrorKey | translate }}
+          </div>
+
+          <div class="forecast-table-wrap" *ngIf="!isLoadingOmForecast && omDisplayForecastList.length">
+            <ng-container *ngTemplateOutlet="multiDayForecastTable; context: { items: omDisplayForecastList }"></ng-container>
+          </div>
+
+          <div class="forecast-charts-wrap" *ngIf="!isLoadingOmForecast && omForecastChartsReady">
+            <ng-container *ngTemplateOutlet="multiDayForecastCharts; context: { blocks: omForecastChartBlocks }"></ng-container>
+          </div>
+        </div>
+
+      </section>
+
+
+
+      <!-- Aggregated forecast tab -->
+
+      <section [hidden]="activeMainTab !== 'forecast-aggregate'">
+
+        <div class="api-container">
+          <div class="mf-section-head">
+            <h3 class="api-title mb-0">
+              <i class="fa fa-balance-scale"></i> {{ 'METEO_FRANCE.FORECAST_AGG_TITLE' | translate }}
+            </h3>
+            <div class="mf-section-head-actions">
+              <div class="forecast-provider-site-group">
+                <ng-container *ngTemplateOutlet="forecastProviderSiteButton; context: { brand: 'openweathermap' }"></ng-container>
+                <ng-container *ngTemplateOutlet="forecastProviderSiteButton; context: { brand: 'open-meteo' }"></ng-container>
+                <ng-container *ngTemplateOutlet="forecastProviderSiteButton; context: { brand: 'meteofrance' }"></ng-container>
+              </div>
+              <button type="button" class="btn btn-sm btn-outline-primary" (click)="loadAggregatedForecast(true)"
+                      [disabled]="isLoadingAggregatedForecast">
+                <i class="fa" [class.fa-refresh]="!isLoadingAggregatedForecast" [class.fa-spinner]="isLoadingAggregatedForecast" [class.fa-spin]="isLoadingAggregatedForecast"></i>
+                {{ 'METEO_FRANCE.REFRESH' | translate }}
+              </button>
+            </div>
+          </div>
+
+          <p class="text-muted small">{{ 'METEO_FRANCE.FORECAST_AGG_HINT' | translate }}</p>
+
+          <ng-container *ngTemplateOutlet="forecastDataLocationSummary"></ng-container>
+
+          <ng-container *ngTemplateOutlet="forecastTabLoadingPanel; context: {
+            loading: isLoadingAggregatedForecast,
+            messageKey: 'METEO_FRANCE.FORECAST_LOADING'
+          }"></ng-container>
+
+          <div *ngIf="!isLoadingAggregatedForecast && aggregatedForecastSteps.length"
+               class="aggregate-forecast-meta mb-2">
+            <span class="badge bg-secondary aggregate-forecast-meta-badge">
+              {{ 'METEO_FRANCE.AGG_PERIOD_STEP' | translate: {
+                period: formatForecastHorizonOption(aggregatedForecastHorizonHours),
+                minutes: aggregatedForecastStepMinutes,
+                count: aggregatedForecastSteps.length
+              } }}
+            </span>
+          </div>
+
+          <div *ngIf="!isLoadingAggregatedForecast && aggregatedForecastSourceErrors.length"
+               class="alert alert-info py-2 mb-2 small">
+            <strong>{{ 'METEO_FRANCE.AGG_SOURCE_ERRORS' | translate }}</strong>
+            <ul class="mb-0 ps-3">
+              <li *ngFor="let err of aggregatedForecastSourceErrors">
+                {{ aggregatedSourceLabel(err.source) }} — {{ err.message }}
+              </li>
+            </ul>
+          </div>
+
+          <div *ngIf="!isLoadingAggregatedForecast && aggregatedForecastErrorKey" class="alert alert-warning py-2 mb-2">
+            {{ aggregatedForecastErrorKey | translate }}
+          </div>
+
+          <div class="table-responsive aggregate-forecast-scroll" *ngIf="!isLoadingAggregatedForecast && aggregatedForecastSteps.length">
+            <table class="table table-sm table-striped table-hover aggregate-forecast-table">
+              <thead class="table-light">
+                <tr class="aggregate-forecast-group-row">
+                  <th rowspan="2" class="aggregate-col-time">{{ 'METEO_FRANCE.AROMEPI_COL_TIME' | translate }}</th>
+                  <th colspan="4">{{ 'METEO_FRANCE.AGG_COL_TEMP' | translate }}</th>
+                  <th colspan="4">{{ 'METEO_FRANCE.HUMIDITY' | translate }} (%)</th>
+                  <th colspan="4">{{ 'METEO_FRANCE.PRECIP' | translate }} (mm)</th>
+                  <th colspan="4">{{ 'METEO_FRANCE.WIND' | translate }} (m/s)</th>
+                  <th colspan="4">{{ 'METEO_FRANCE.RAIN_CHANCE' | translate }}</th>
+                </tr>
+                <tr class="aggregate-forecast-source-row">
+                  <th>OWM</th><th>OM</th><th>MF</th><th>{{ 'METEO_FRANCE.AGG_COL_MEAN' | translate }}</th>
+                  <th>OWM</th><th>OM</th><th>MF</th><th>{{ 'METEO_FRANCE.AGG_COL_MEAN' | translate }}</th>
+                  <th>OWM</th><th>OM</th><th>MF</th><th>{{ 'METEO_FRANCE.AGG_COL_MEAN' | translate }}</th>
+                  <th>OWM</th><th>OM</th><th>MF</th><th>{{ 'METEO_FRANCE.AGG_COL_MEAN' | translate }}</th>
+                  <th>OWM</th><th>OM</th><th>MF</th><th>{{ 'METEO_FRANCE.AGG_COL_MEAN' | translate }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let step of aggregatedForecastSteps; trackBy: trackAggregateStep">
+                  <td class="aggregate-col-time">{{ formatDate(step.dt) }}</td>
+                  <td>{{ aggregateSourceValue(step, 'openweathermap', 'tempC') }}</td>
+                  <td>{{ aggregateSourceValue(step, 'open-meteo', 'tempC') }}</td>
+                  <td>{{ aggregateSourceValue(step, 'meteofrance', 'tempC') }}</td>
+                  <td class="aggregate-col-mean"><strong>{{ aggregateMeanValue(step, 'tempC') }}</strong></td>
+                  <td>{{ aggregateSourceValue(step, 'openweathermap', 'humidityPct') }}</td>
+                  <td>{{ aggregateSourceValue(step, 'open-meteo', 'humidityPct') }}</td>
+                  <td>{{ aggregateSourceValue(step, 'meteofrance', 'humidityPct') }}</td>
+                  <td class="aggregate-col-mean"><strong>{{ aggregateMeanValue(step, 'humidityPct') }}</strong></td>
+                  <td>{{ aggregateSourceValue(step, 'openweathermap', 'precipMm') }}</td>
+                  <td>{{ aggregateSourceValue(step, 'open-meteo', 'precipMm') }}</td>
+                  <td>{{ aggregateSourceValue(step, 'meteofrance', 'precipMm') }}</td>
+                  <td class="aggregate-col-mean"><strong>{{ aggregateMeanValue(step, 'precipMm') }}</strong></td>
+                  <td>{{ aggregateSourceValue(step, 'openweathermap', 'windSpeedMs') }}</td>
+                  <td>{{ aggregateSourceValue(step, 'open-meteo', 'windSpeedMs') }}</td>
+                  <td>{{ aggregateSourceValue(step, 'meteofrance', 'windSpeedMs') }}</td>
+                  <td class="aggregate-col-mean"><strong>{{ aggregateMeanValue(step, 'windSpeedMs') }}</strong></td>
+                  <td>{{ aggregateSourceValue(step, 'openweathermap', 'pop') }}</td>
+                  <td>{{ aggregateSourceValue(step, 'open-meteo', 'pop') }}</td>
+                  <td>{{ aggregateSourceValue(step, 'meteofrance', 'pop') }}</td>
+                  <td class="aggregate-col-mean"><strong>{{ aggregateMeanValue(step, 'pop') }}</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="forecast-charts-wrap" *ngIf="!isLoadingAggregatedForecast && aggregateForecastChartsReady">
+            <ng-container *ngTemplateOutlet="multiDayForecastCharts; context: { blocks: aggregateForecastChartBlocks }"></ng-container>
+          </div>
         </div>
 
       </section>
@@ -1171,4 +1388,143 @@
   </div>
 
 </div>
+
+<ng-template #forecastTabLoadingPanel let-loading="loading" let-messageKey="messageKey">
+  <div *ngIf="loading" class="forecast-tab-loading-panel" role="status" aria-live="polite">
+    <div class="forecast-tab-loading-inner">
+      <i class="fa fa-spinner fa-spin forecast-tab-loading-spinner" aria-hidden="true"></i>
+      <span>{{ (messageKey || 'METEO_FRANCE.FORECAST_LOADING') | translate }}</span>
+    </div>
+  </div>
+</ng-template>
+
+<ng-template #forecastProviderSiteButton let-brand="brand">
+  <a [href]="buildProviderForecastUrl(brand)"
+     target="_blank"
+     rel="noopener noreferrer"
+     class="btn btn-sm btn-outline-secondary forecast-provider-site-btn"
+     [attr.title]="'METEO_FRANCE.FORECAST_OPEN_PROVIDER_SITE' | translate: { provider: getBrandAlt(brand) }"
+     [attr.aria-label]="'METEO_FRANCE.FORECAST_OPEN_PROVIDER_SITE' | translate: { provider: getBrandAlt(brand) }">
+    <img [src]="getBrandLogoSrc(brand)" [alt]="getBrandAlt(brand)" width="20" height="20" />
+    <i class="fa fa-external-link forecast-provider-site-icon" aria-hidden="true"></i>
+  </a>
+</ng-template>
+
+<ng-template #forecastDataLocationSummary>
+  <p class="forecast-data-location text-muted small mb-2" *ngIf="forecastDataLocationCoords || isLoadingForecastLocation">
+    <i class="fa fa-map-marker" aria-hidden="true"></i>
+    {{ 'METEO_FRANCE.FORECAST_DATA_FOR' | translate }}
+    <strong>{{ forecastDataLocationPlace }}</strong>
+    <span *ngIf="forecastDataLocationShowCoords"> · {{ forecastDataLocationCoords }}</span>
+    <span *ngIf="isLoadingForecastLocation" class="forecast-location-loading ms-1" aria-hidden="true">
+      <i class="fa fa-spinner fa-spin"></i>
+    </span>
+  </p>
+</ng-template>
+
+<ng-template #forecastHorizonStepPanel let-showParams="showParams" let-hintKey="hintKey">
+  <div class="forecast-settings-row">
+    <label class="forecast-settings-field" for="mf-forecast-horizon">
+      <span class="forecast-settings-label">{{ 'METEO_FRANCE.FORECAST_HORIZON_LABEL' | translate }}</span>
+      <select id="mf-forecast-horizon" class="form-select form-select-sm"
+              [(ngModel)]="forecastHorizonHours"
+              (ngModelChange)="onForecastPreferencesCommitted()">
+        <option *ngFor="let h of forecastHorizonSelectOptions" [ngValue]="h">
+          {{ formatForecastHorizonOption(h) }}
+        </option>
+      </select>
+    </label>
+    <label class="forecast-settings-field" for="mf-forecast-step">
+      <span class="forecast-settings-label">{{ 'METEO_FRANCE.FORECAST_STEP_LABEL' | translate }}</span>
+      <select id="mf-forecast-step" class="form-select form-select-sm"
+              [(ngModel)]="forecastStepMinutes"
+              (ngModelChange)="onForecastPreferencesCommitted()">
+        <option *ngFor="let s of forecastStepSelectOptions" [ngValue]="s">
+          {{ formatForecastStepOption(s) }}
+        </option>
+      </select>
+    </label>
+    <label class="forecast-settings-field" for="mf-forecast-chart-style">
+      <span class="forecast-settings-label">{{ 'METEO_FRANCE.FORECAST_CHART_STYLE_LABEL' | translate }}</span>
+      <select id="mf-forecast-chart-style" class="form-select form-select-sm"
+              [(ngModel)]="forecastChartStyle"
+              (ngModelChange)="onForecastChartStyleChange()">
+        <option *ngFor="let style of forecastChartStyleOptions" [ngValue]="style">
+          {{ forecastChartStyleLabelKey(style) | translate }}
+        </option>
+      </select>
+    </label>
+  </div>
+  <div class="forecast-settings-params" *ngIf="showParams">
+    <span class="forecast-settings-label">{{ 'METEO_FRANCE.FORECAST_PARAMS_LABEL' | translate }}</span>
+    <div class="forecast-param-chips">
+      <label class="forecast-param-chip" *ngFor="let opt of multiDayForecastParamOptions">
+        <input type="checkbox"
+               [checked]="isMultiDayForecastParamSelected(opt.id)"
+               (change)="onMultiDayForecastParamToggle(opt.id, $any($event.target).checked)">
+        {{ opt.labelKey | translate }}
+      </label>
+    </div>
+  </div>
+  <p class="text-muted small mb-0">{{ hintKey | translate }}</p>
+</ng-template>
+
+<ng-template #multiDayForecastTable let-items="items">
+  <div class="table-responsive multi-day-forecast-scroll">
+    <table class="table table-sm table-striped table-hover multi-day-forecast-table">
+      <thead class="table-light">
+        <tr>
+          <th class="multi-day-col-time">{{ 'METEO_FRANCE.AROMEPI_COL_TIME' | translate }}</th>
+          <th *ngFor="let param of selectedMultiDayForecastParamOptions">
+            {{ param.labelKey | translate }}
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let item of items">
+          <td class="multi-day-col-time">{{ formatDate(item.dt) }}</td>
+          <td *ngFor="let param of selectedMultiDayForecastParamOptions">
+            <ng-container [ngSwitch]="param.id">
+              <span *ngSwitchCase="'weather'" class="multi-day-forecast-weather">
+                <img *ngIf="item.weather?.[0]?.icon"
+                     [src]="getWeatherIconUrl(item.weather?.[0]?.icon)"
+                     [alt]="item.weather?.[0]?.description"
+                     class="multi-day-forecast-icon">
+                <span>{{ formatMultiDayForecastValue(item, param.id) }}</span>
+              </span>
+              <span *ngSwitchDefault>{{ formatMultiDayForecastValue(item, param.id) }}</span>
+            </ng-container>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</ng-template>
+
+<ng-template #multiDayForecastCharts let-blocks="blocks">
+  <div class="forecast-charts">
+    <div class="forecast-charts-head">
+      <h4 class="forecast-chart-section-title">
+        <i class="fa fa-line-chart"></i> {{ 'METEO_FRANCE.FORECAST_CHARTS_TITLE' | translate }}
+      </h4>
+      <label class="forecast-chart-style-field" for="mf-forecast-chart-style-inline">
+        <span class="forecast-settings-label">{{ 'METEO_FRANCE.FORECAST_CHART_STYLE_LABEL' | translate }}</span>
+        <select id="mf-forecast-chart-style-inline" class="form-select form-select-sm"
+                [(ngModel)]="forecastChartStyle"
+                (ngModelChange)="onForecastChartStyleChange()">
+          <option *ngFor="let style of forecastChartStyleOptions" [ngValue]="style">
+            {{ forecastChartStyleLabelKey(style) | translate }}
+          </option>
+        </select>
+      </label>
+    </div>
+    <div *ngFor="let block of blocks; trackBy: trackForecastChartBlock" class="forecast-chart-box">
+      <h5 class="forecast-chart-title">{{ block.labelKey | translate }}</h5>
+      <canvas baseChart
+              [type]="block.chartType"
+              [data]="block.data"
+              [options]="block.options"></canvas>
+    </div>
+  </div>
+</ng-template>
 

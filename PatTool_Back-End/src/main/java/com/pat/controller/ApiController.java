@@ -1,5 +1,6 @@
 package com.pat.controller;
 
+import com.pat.controller.dto.MeteoFranceForecastPreferenceDto;
 import com.pat.controller.dto.MeteoFranceRadarPreferenceDto;
 import com.pat.controller.dto.MeteoFranceTemperatureCachePreferenceDto;
 import com.pat.controller.dto.TemperatureLabelsRequestDto;
@@ -8,11 +9,13 @@ import com.pat.service.IpGeolocationService;
 import com.pat.service.MeteoFranceAromepiService;
 import com.pat.service.MeteoFranceClimService;
 import com.pat.service.MeteoFranceObsService;
+import com.pat.service.MeteoFranceForecastPreferenceService;
 import com.pat.service.MeteoFranceRadarRefreshPreferenceService;
 import com.pat.service.MeteoFranceRadarService;
 import com.pat.service.MeteoFranceTemperatureCachePreferenceService;
 import com.pat.service.OpenMeteoService;
 import com.pat.service.OpenWeatherService;
+import com.pat.service.WeatherForecastAggregationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +48,9 @@ public class ApiController {
     private OpenMeteoService openMeteoService;
 
     @Autowired
+    private WeatherForecastAggregationService weatherForecastAggregationService;
+
+    @Autowired
     private GeocodeService geocodeService;
 
     @Autowired
@@ -64,6 +70,9 @@ public class ApiController {
 
     @Autowired
     private MeteoFranceRadarRefreshPreferenceService meteoFranceRadarRefreshPreferenceService;
+
+    @Autowired
+    private MeteoFranceForecastPreferenceService meteoFranceForecastPreferenceService;
 
     @Autowired
     private MeteoFranceTemperatureCachePreferenceService meteoFranceTemperatureCachePreferenceService;
@@ -141,9 +150,65 @@ public class ApiController {
             @RequestParam("lat") Double lat,
             @RequestParam("lon") Double lon,
             @RequestParam(value = "alt", required = false) Double alt,
-            @RequestParam(value = "source", defaultValue = "openweathermap") String source) {
+            @RequestParam(value = "source", defaultValue = "openweathermap") String source,
+            @RequestParam(value = "horizonHours", required = false) Integer horizonHours,
+            @RequestParam(value = "stepMinutes", required = false) Integer stepMinutes,
+            @RequestParam(value = "stepHours", required = false) Integer stepHours) {
         log.debug("Fetching forecast for coordinates: lat={}, lon={}, alt={}, source={}", lat, lon, alt, source);
-        return resolveForecastByCoordinates(lat, lon, source, currentJwtSubject());
+        String jwtSubject = currentJwtSubject();
+        int horizon = horizonHours != null
+                ? MeteoFranceForecastPreferenceService.clampHorizon(horizonHours)
+                : meteoFranceForecastPreferenceService.resolveHorizonHours(jwtSubject);
+        int step = resolveStepMinutesParam(stepMinutes, stepHours, jwtSubject);
+        return resolveForecastByCoordinates(lat, lon, source, jwtSubject, horizon, step);
+    }
+
+    /**
+     * Aggregated forecast comparing OpenWeatherMap, Open-Meteo and Météo-France (seamless via Open-Meteo).
+     */
+    @GetMapping(value = "/weather/forecast/aggregated", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getAggregatedForecast(
+            @RequestParam("lat") Double lat,
+            @RequestParam("lon") Double lon,
+            @RequestParam(value = "horizonHours", required = false) Integer horizonHours,
+            @RequestParam(value = "stepMinutes", required = false) Integer stepMinutes,
+            @RequestParam(value = "stepHours", required = false) Integer stepHours) {
+        log.debug("Fetching aggregated forecast for lat={}, lon={}", lat, lon);
+        String jwtSubject = currentJwtSubject();
+        int horizon = horizonHours != null
+                ? MeteoFranceForecastPreferenceService.clampHorizon(horizonHours)
+                : meteoFranceForecastPreferenceService.resolveHorizonHours(jwtSubject);
+        int step = resolveStepMinutesParam(stepMinutes, stepHours, jwtSubject);
+        return weatherForecastAggregationService.getAggregatedForecast(lat, lon, jwtSubject, horizon, step);
+    }
+
+    /** Per-user multi-day forecast horizon and step (MongoDB appParameters). */
+    @GetMapping(value = "/meteofrance/forecast/preferences", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<MeteoFranceForecastPreferenceDto> getMeteoFranceForecastPreferences() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(meteoFranceForecastPreferenceService.readForSubject(sub));
+    }
+
+    @PutMapping(value = "/meteofrance/forecast/preferences", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<MeteoFranceForecastPreferenceDto> setMeteoFranceForecastPreferences(
+            @RequestBody MeteoFranceForecastPreferenceDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (body == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            MeteoFranceForecastPreferenceDto saved = meteoFranceForecastPreferenceService.saveForSubject(
+                    sub, body.forecastHorizonHours(), body.forecastStepMinutes());
+            return ResponseEntity.ok(saved);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     private Map<String, Object> resolveCurrentWeatherByCoordinates(
@@ -156,12 +221,24 @@ public class ApiController {
     }
 
     private Map<String, Object> resolveForecastByCoordinates(
-            Double lat, Double lon, String source, String jwtSubject) {
+            Double lat, Double lon, String source, String jwtSubject, int horizonHours, int stepMinutes) {
         return switch (normalizeWeatherSource(source)) {
-            case "open-meteo" -> openMeteoService.getForecastByCoordinates(lat, lon, jwtSubject);
+            case "open-meteo" -> openMeteoService.getForecastByCoordinates(
+                    lat, lon, jwtSubject, horizonHours, stepMinutes);
             case "meteofrance" -> meteoFranceObsService.getForecastByCoordinates(lat, lon, jwtSubject);
-            default -> tagOpenWeatherSource(openWeatherService.getForecastByCoordinates(lat, lon, null));
+            default -> tagOpenWeatherSource(openWeatherService.getForecastByCoordinates(
+                    lat, lon, null, horizonHours, stepMinutes));
         };
+    }
+
+    private int resolveStepMinutesParam(Integer stepMinutes, Integer stepHours, String jwtSubject) {
+        if (stepMinutes != null) {
+            return MeteoFranceForecastPreferenceService.clampStep(stepMinutes);
+        }
+        if (stepHours != null) {
+            return MeteoFranceForecastPreferenceService.clampStep(stepHours * 60);
+        }
+        return meteoFranceForecastPreferenceService.resolveStepMinutes(jwtSubject);
     }
 
     private static String normalizeWeatherSource(String source) {
@@ -446,6 +523,16 @@ public class ApiController {
             @RequestParam(value = "maxStations", defaultValue = "24") int maxStations) {
         return meteoFranceObsService.getTemperatureLabelsInBounds(
                 minLat, maxLat, minLon, maxLon, maxStations, currentJwtSubject());
+    }
+
+    /**
+     * Nearest Météo-France DPObs v2 observation station for a map point.
+     */
+    @GetMapping(value = "/meteofrance/obs/nearest-station", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getMeteoFranceNearestObsStation(
+            @RequestParam("lat") double lat,
+            @RequestParam("lon") double lon) {
+        return meteoFranceObsService.getNearestStationInfo(lat, lon);
     }
 
     /**

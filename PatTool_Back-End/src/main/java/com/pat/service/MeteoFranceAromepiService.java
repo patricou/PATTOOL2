@@ -21,11 +21,18 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
+import javax.imageio.ImageIO;
 import javax.xml.parsers.DocumentBuilderFactory;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -37,10 +44,13 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 /**
- * Proxy for Météo-France AROME-PI nowcasting (0–6 h, 15 min steps) via WMS GetMap / GetFeatureInfo.
+ * Proxy for Météo-France AROME-PI nowcasting (0–6 h, 15 min steps) via WMS GetMap.
+ * Point forecast numeric values use Open-Meteo {@code meteofrance_seamless} minutely_15
+ * (MF WMS does not expose GetFeatureInfo text).
  * API « AROMEPI 1.0 » on portail-api.meteofrance.fr — requires {@code meteofrance.aromepi.api.token}.
  */
 @Service
@@ -56,10 +66,19 @@ public class MeteoFranceAromepiService {
     private static final Pattern ISO_TIME = Pattern.compile(
             "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2})?(\\.\\d+)?Z$");
 
+    private static final String OPEN_METEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
+    private static final Duration MINUTELY15_CACHE_TTL = Duration.ofMinutes(2);
+    private static final DateTimeFormatter OPEN_METEO_MINUTELY_FMT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm").withZone(ZoneOffset.UTC);
+
     private static final List<String> PREFERRED_LAYER_ORDER = List.of(
-            "NEBUL__GROUND_OR_WATER_SURFACE",
             "TOTAL_WATER_PRECIPITATION__GROUND_OR_WATER_SURFACE",
             "TEMPERATURE__GROUND_OR_WATER_SURFACE",
+            "RELATIVE_HUMIDITY__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND",
+            "TEMPERATURE__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND",
+            "VISIBILITY_MINI_15MIN__GROUND_OR_WATER_SURFACE",
+            "CONVECTIVE_AVAILABLE_POTENTIAL_ENERGY__GROUND_OR_WATER_SURFACE",
+            "NEBUL__GROUND_OR_WATER_SURFACE",
             "RELATIVE_HUMIDITY__GROUND_OR_WATER_SURFACE",
             "WIND_SPEED__GROUND_OR_WATER_SURFACE",
             "VISIBILITY__GROUND_OR_WATER_SURFACE"
@@ -71,6 +90,7 @@ public class MeteoFranceAromepiService {
     private final String wmsService;
 
     private volatile CachedCapabilities cachedCapabilities;
+    private final ConcurrentHashMap<String, CachedMinutely15> minutely15Cache = new ConcurrentHashMap<>();
 
     public MeteoFranceAromepiService(
             @Qualifier(RestTemplateConfig.METEOFRANCE_CLIM_REST_TEMPLATE) RestTemplate restTemplate,
@@ -175,8 +195,13 @@ public class MeteoFranceAromepiService {
         }
         time = normalizeForecastTime(time, referenceTime);
 
+        int outWidth = width > 0 && width <= 1024 ? width : 256;
+        int outHeight = height > 0 && height <= 1024 ? height : 256;
         // WMS 1.3.0 + EPSG:4326: BBOX = minLat,minLon,maxLat,maxLon (MF AROME-PI documented usage).
         double[] bbox4326 = tileBbox4326(z, x, y);
+        int[] wmsSize = wmsDimensionsForBbox(bbox4326, outWidth);
+        int wmsWidth = wmsSize[0];
+        int wmsHeight = wmsSize[1];
         String resolvedStyle = style != null && !style.isBlank() ? style.trim() : resolveDefaultStyle(layer);
 
         String url = UriComponentsBuilder.fromHttpUrl(wmsEndpoint("GetMap"))
@@ -187,8 +212,8 @@ public class MeteoFranceAromepiService {
                 .queryParam("STYLES", resolvedStyle)
                 .queryParam("CRS", "EPSG:4326")
                 .queryParam("BBOX", bbox4326[0] + "," + bbox4326[1] + "," + bbox4326[2] + "," + bbox4326[3])
-                .queryParam("WIDTH", width)
-                .queryParam("HEIGHT", height)
+                .queryParam("WIDTH", wmsWidth)
+                .queryParam("HEIGHT", wmsHeight)
                 .queryParam("FORMAT", "image/png")
                 .queryParam("TRANSPARENT", "true")
                 .queryParam("TIME", time)
@@ -197,7 +222,41 @@ public class MeteoFranceAromepiService {
                 .toUriString();
 
         log.debug("AROME-PI GetMap URL: {}", url.replace(apiToken, "***"));
-        return fetchImage(url, Duration.ofMinutes(5));
+        try {
+            HttpHeaders reqHeaders = authHeaders();
+            reqHeaders.setAccept(List.of(MediaType.IMAGE_PNG, MediaType.IMAGE_JPEG, MediaType.ALL));
+            ResponseEntity<byte[]> response = restTemplate.exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(reqHeaders), byte[].class);
+            byte[] body = response.getBody();
+            if (body == null || body.length == 0) {
+                return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+            }
+            MediaType contentType = response.getHeaders().getContentType();
+            if (contentType != null && (contentType.includes(MediaType.TEXT_XML)
+                    || contentType.includes(MediaType.APPLICATION_XML))) {
+                log.warn("AROME-PI GetMap returned XML: {}", truncateForLog(body, 400));
+                return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+            }
+            if (body.length >= 5 && body[0] == '<') {
+                log.warn("AROME-PI GetMap returned non-image body: {}", truncateForLog(body, 400));
+                return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+            }
+            byte[] scaled = resamplePng(body, outWidth, outHeight);
+            HttpHeaders out = new HttpHeaders();
+            out.setContentType(MediaType.IMAGE_PNG);
+            out.setCacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePublic());
+            return new ResponseEntity<>(scaled, out, HttpStatus.OK);
+        } catch (HttpClientErrorException e) {
+            if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            log.warn("AROME-PI image fetch failed ({}): {} body={}",
+                    e.getStatusCode(), e.getMessage(), truncateForLog(e.getResponseBodyAsByteArray(), 400));
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        } catch (Exception e) {
+            log.warn("AROME-PI image fetch failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
     }
 
     public Map<String, Object> getFeatureInfo(
@@ -215,6 +274,20 @@ public class MeteoFranceAromepiService {
             return error("Invalid time parameters");
         }
         time = normalizeForecastTime(time, referenceTime);
+
+        if (openMeteoVariableForLayer(layer) != null) {
+            OpenMeteoMinutely15 series = fetchOpenMeteoMinutely15Cached(lat, lon, time, time);
+            Object value = lookupLayerValue(layer, series, time);
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("layer", layer);
+            result.put("time", time);
+            result.put("referenceTime", referenceTime);
+            result.put("lat", lat);
+            result.put("lon", lon);
+            result.put("value", value);
+            result.put("source", "open-meteo-mf");
+            return result;
+        }
 
         int mapWidth = width > 0 && width <= 512 ? width : 256;
         int mapHeight = height > 0 && height <= 512 ? height : 256;
@@ -265,7 +338,7 @@ public class MeteoFranceAromepiService {
     }
 
     /**
-     * Point forecast timeline: GetFeatureInfo for each time step on selected layers.
+     * Point forecast timeline: Open-Meteo meteofrance_seamless minutely_15 aligned to AROME-PI time steps.
      */
     public Map<String, Object> getPointForecast(
             double lat, double lon,
@@ -291,6 +364,13 @@ public class MeteoFranceAromepiService {
         ref = normalizeReferenceTime(ref, caps);
 
         List<String> resolvedLayers = resolveForecastLayers(layers, caps);
+        OpenMeteoMinutely15 minutelySeries = null;
+        if (timeSteps != null && !timeSteps.isEmpty()) {
+            String firstStep = normalizeForecastTime(timeSteps.get(0), ref);
+            String lastStep = normalizeForecastTime(timeSteps.get(timeSteps.size() - 1), ref);
+            minutelySeries = fetchOpenMeteoMinutely15Cached(lat, lon, firstStep, lastStep);
+        }
+
         List<Map<String, Object>> steps = new ArrayList<>();
         if (timeSteps != null) {
             for (String time : timeSteps) {
@@ -300,13 +380,9 @@ public class MeteoFranceAromepiService {
                 step.put("offsetMinutes", offsetMinutes(ref, stepTime));
                 Map<String, Object> values = new LinkedHashMap<>();
                 for (String layer : resolvedLayers) {
-                    Map<String, Object> fi = getFeatureInfo(lat, lon, layer, null, stepTime, ref, 256, 256);
-                    if (!fi.containsKey("error")) {
-                        values.put(layer, fi.get("value"));
-                        Object raw = fi.get("raw");
-                        if (raw != null && !String.valueOf(raw).isBlank()) {
-                            values.put(layer + "_raw", raw);
-                        }
+                    Object value = lookupLayerValue(layer, minutelySeries, stepTime);
+                    if (value != null) {
+                        values.put(layer, value);
                     }
                 }
                 step.put("values", values);
@@ -320,6 +396,7 @@ public class MeteoFranceAromepiService {
         result.put("referenceTime", ref);
         result.put("layers", resolvedLayers);
         result.put("steps", steps);
+        result.put("valueSource", "open-meteo-mf");
         return result;
     }
 
@@ -773,6 +850,46 @@ public class MeteoFranceAromepiService {
         return new double[]{minLat, minLon, maxLat, maxLon};
     }
 
+    /**
+     * MF WMS EPSG:4326 expects WIDTH:HEIGHT ≈ lonSpan:latSpan; square requests leave transparent bands.
+     */
+    private static int[] wmsDimensionsForBbox(double[] bbox4326, int baseSize) {
+        double latSpan = Math.abs(bbox4326[2] - bbox4326[0]);
+        double lonSpan = Math.abs(bbox4326[3] - bbox4326[1]);
+        if (latSpan <= 0 || lonSpan <= 0 || baseSize <= 0) {
+            return new int[]{baseSize, baseSize};
+        }
+        double ratio = lonSpan / latSpan;
+        int w;
+        int h;
+        if (ratio >= 1.0) {
+            w = baseSize;
+            h = Math.max(16, (int) Math.round(baseSize / ratio));
+        } else {
+            h = baseSize;
+            w = Math.max(16, (int) Math.round(baseSize * ratio));
+        }
+        return new int[]{w, h};
+    }
+
+    private static byte[] resamplePng(byte[] pngBytes, int targetWidth, int targetHeight) throws IOException {
+        BufferedImage src = ImageIO.read(new ByteArrayInputStream(pngBytes));
+        if (src == null) {
+            return pngBytes;
+        }
+        if (src.getWidth() == targetWidth && src.getHeight() == targetHeight) {
+            return pngBytes;
+        }
+        BufferedImage dst = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = dst.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g.drawImage(src, 0, 0, targetWidth, targetHeight, null);
+        g.dispose();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(dst, "png", out);
+        return out.toByteArray();
+    }
+
     private static double[] pointBbox4326(double lat, double lon, int width, int height) {
         double latSpan = 0.12 * height / 256.0;
         double cosLat = Math.max(0.2, Math.abs(Math.cos(Math.toRadians(lat))));
@@ -813,6 +930,179 @@ public class MeteoFranceAromepiService {
             return Duration.between(Instant.parse(referenceTime), Instant.parse(time)).toMinutes();
         } catch (Exception e) {
             return 0;
+        }
+    }
+
+    private OpenMeteoMinutely15 fetchOpenMeteoMinutely15Cached(
+            double lat, double lon, String startIso, String endIso) {
+        String cacheKey = String.format(Locale.ROOT, "%.4f|%.4f|%s|%s", lat, lon, startIso, endIso);
+        CachedMinutely15 cached = minutely15Cache.get(cacheKey);
+        if (cached != null && cached.isValid()) {
+            return cached.data();
+        }
+        OpenMeteoMinutely15 fetched = fetchOpenMeteoMinutely15(lat, lon, startIso, endIso);
+        if (fetched != null && !fetched.times().isEmpty()) {
+            minutely15Cache.put(cacheKey, new CachedMinutely15(fetched, System.currentTimeMillis()));
+        }
+        return fetched;
+    }
+
+    @SuppressWarnings("unchecked")
+    private OpenMeteoMinutely15 fetchOpenMeteoMinutely15(
+            double lat, double lon, String startIso, String endIso) {
+        try {
+            Instant start = Instant.parse(startIso);
+            Instant end = Instant.parse(endIso);
+            String url = UriComponentsBuilder.fromHttpUrl(OPEN_METEO_FORECAST_URL)
+                    .queryParam("latitude", lat)
+                    .queryParam("longitude", lon)
+                    .queryParam("models", "meteofrance_seamless")
+                    .queryParam("minutely_15", "temperature_2m,relative_humidity_2m,precipitation,cape")
+                    .queryParam("start_minutely_15", OPEN_METEO_MINUTELY_FMT.format(start))
+                    .queryParam("end_minutely_15", OPEN_METEO_MINUTELY_FMT.format(end))
+                    .queryParam("timezone", "UTC")
+                    .build(true)
+                    .toUriString();
+
+            ResponseEntity<Object> response = restTemplate.getForEntity(url, Object.class);
+            Object body = response.getBody();
+            if (!(body instanceof Map<?, ?> root)) {
+                return OpenMeteoMinutely15.empty();
+            }
+            Object minutelyObj = root.get("minutely_15");
+            if (!(minutelyObj instanceof Map<?, ?> minutely)) {
+                return OpenMeteoMinutely15.empty();
+            }
+            Object timesObj = minutely.get("time");
+            if (!(timesObj instanceof List<?> timesList)) {
+                return OpenMeteoMinutely15.empty();
+            }
+            List<String> times = new ArrayList<>(timesList.size());
+            for (Object t : timesList) {
+                times.add(String.valueOf(t));
+            }
+            Map<String, List<Double>> variables = new LinkedHashMap<>();
+            for (String var : List.of("temperature_2m", "relative_humidity_2m", "precipitation", "cape")) {
+                Object valuesObj = minutely.get(var);
+                if (valuesObj instanceof List<?> valuesList) {
+                    List<Double> values = new ArrayList<>(valuesList.size());
+                    for (Object v : valuesList) {
+                        values.add(v instanceof Number n ? n.doubleValue() : null);
+                    }
+                    variables.put(var, values);
+                }
+            }
+            return new OpenMeteoMinutely15(times, variables);
+        } catch (Exception e) {
+            log.warn("Open-Meteo meteofrance_seamless minutely_15 fetch failed: {}", e.getMessage());
+            return OpenMeteoMinutely15.empty();
+        }
+    }
+
+    private static Object lookupLayerValue(String layer, OpenMeteoMinutely15 series, String stepTimeIso) {
+        if (series == null || series.times().isEmpty()) {
+            return null;
+        }
+        String variable = openMeteoVariableForLayer(layer);
+        if (variable == null) {
+            return null;
+        }
+        List<Double> values = series.variables().get(variable);
+        if (values == null || values.isEmpty()) {
+            return null;
+        }
+        int idx = indexOfMinutelyTime(series.times(), stepTimeIso);
+        if (idx < 0 || idx >= values.size()) {
+            return null;
+        }
+        Double raw = values.get(idx);
+        if (raw == null) {
+            return null;
+        }
+        return formatLayerValue(layer, raw);
+    }
+
+    private static String openMeteoVariableForLayer(String layer) {
+        if (layer == null) {
+            return null;
+        }
+        String u = layer.toUpperCase(Locale.ROOT);
+        if (u.contains("PRECIPITATION")) {
+            return "precipitation";
+        }
+        if (u.contains("TEMPERATURE")) {
+            return "temperature_2m";
+        }
+        if (u.contains("HUMIDITY")) {
+            return "relative_humidity_2m";
+        }
+        if (u.contains("CAPE") || u.contains("CONVECTIVE_AVAILABLE_POTENTIAL_ENERGY")) {
+            return "cape";
+        }
+        return null;
+    }
+
+    private static Object formatLayerValue(String layer, double raw) {
+        String u = layer.toUpperCase(Locale.ROOT);
+        if (u.contains("PRECIPITATION")) {
+            return Math.round(raw * 100.0) / 100.0;
+        }
+        if (u.contains("TEMPERATURE")) {
+            return Math.round(raw * 10.0) / 10.0;
+        }
+        if (u.contains("HUMIDITY")) {
+            return Math.round(raw);
+        }
+        if (u.contains("CAPE") || u.contains("CONVECTIVE_AVAILABLE_POTENTIAL_ENERGY")) {
+            return Math.round(raw);
+        }
+        return Math.round(raw * 10.0) / 10.0;
+    }
+
+    private static int indexOfMinutelyTime(List<String> times, String isoInstant) {
+        try {
+            Instant target = Instant.parse(isoInstant);
+            for (int i = 0; i < times.size(); i++) {
+                Instant t = parseOpenMeteoMinutelyTime(times.get(i));
+                if (t.equals(target)) {
+                    return i;
+                }
+            }
+            for (int i = 0; i < times.size(); i++) {
+                Instant t = parseOpenMeteoMinutelyTime(times.get(i));
+                if (Math.abs(Duration.between(t, target).toMinutes()) <= 1) {
+                    return i;
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Minutely time index lookup failed for {}: {}", isoInstant, e.getMessage());
+        }
+        return -1;
+    }
+
+    private static Instant parseOpenMeteoMinutelyTime(String raw) {
+        String s = raw.trim();
+        if (s.endsWith("Z")) {
+            return Instant.parse(s);
+        }
+        if (s.length() == 16) {
+            return Instant.parse(s + ":00Z");
+        }
+        if (s.length() == 19 && !s.contains("+") && !s.endsWith("Z")) {
+            return Instant.parse(s + "Z");
+        }
+        return Instant.parse(s);
+    }
+
+    private record OpenMeteoMinutely15(List<String> times, Map<String, List<Double>> variables) {
+        static OpenMeteoMinutely15 empty() {
+            return new OpenMeteoMinutely15(List.of(), Map.of());
+        }
+    }
+
+    private record CachedMinutely15(OpenMeteoMinutely15 data, long fetchedAtMs) {
+        boolean isValid() {
+            return System.currentTimeMillis() - fetchedAtMs < MINUTELY15_CACHE_TTL.toMillis();
         }
     }
 
