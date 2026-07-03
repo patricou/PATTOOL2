@@ -300,7 +300,6 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   aromepiFrameIndex = 0;
   aromepiOpacity = 0.72;
   aromepiPlaying = false;
-  aromepiPlayIntervalMs = 900;
   aromepiMapFullscreen = false;
   isLoadingAromepiCapabilities = false;
   isLoadingAromepiForecast = false;
@@ -369,7 +368,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private forecastMapInitialized = false;
   private forecastBaseLayer: L.TileLayer | L.LayerGroup | null = null;
   private aromepiBaseLayer: L.TileLayer | L.LayerGroup | null = null;
-  private aromepiPlayTimer: ReturnType<typeof setTimeout> | null = null;
+  private aromepiPlayInterval: ReturnType<typeof setInterval> | null = null;
+  private aromepiPrefetchLayers = new Map<number, L.TileLayer>();
   private aromepiForecastDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private aromepiWmsCrossfadeFallbackTimer: ReturnType<typeof setTimeout> | null = null;
   private forecastMapInitRetryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -377,7 +377,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private initMapTimer: ReturnType<typeof setTimeout> | null = null;
   private componentDestroyed = false;
   private static readonly AROMEPI_WMS_CROSSFADE_MS = 320;
-  private static readonly AROMEPI_PLAY_FRAME_HOLD_MS = 380;
+  private static readonly AROMEPI_PLAY_CROSSFADE_MS = 180;
+  private static readonly AROMEPI_PLAY_INTERVAL_MS = 650;
+  private static readonly AROMEPI_PREFETCH_AHEAD = 4;
   /** AROME-PI WMS native resolution (independent of multi-day forecast options). */
   private static readonly AROMEPI_FORECAST_HORIZON_MINUTES = 360;
   private static readonly AROMEPI_FORECAST_STEP_MINUTES = 15;
@@ -451,6 +453,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.clearRadarTimers();
     this.stopAromepiAnimation();
     this.cancelAromepiWmsCrossfade();
+    this.clearAromepiPrefetchLayers();
     this.clearAromepiWmsCrossfadeFallbackTimer();
     this.clearForecastMapTimers();
     if (this.initMapTimer) {
@@ -954,6 +957,13 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     }
     const desc = (this.currentWeather?.weather?.[0]?.description || '').toLowerCase();
     return desc.includes('clear') || desc.includes('dégagé') || desc.includes('degage');
+  }
+
+  get showClimTabSpinner(): boolean {
+    if (this.climStatusMessageKey) {
+      return false;
+    }
+    return !this.mfStatus || this.isLoadingClim;
   }
 
   get climAvailable(): boolean {
@@ -2098,6 +2108,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
             this.setupRadarLayer();
             this.setupCloudLayer();
           } else if (this.activeMainTab === 'clim' && this.climAvailable) {
+            this.prepareClimTabLoad();
             this.loadClimDataForCurrentPosition();
           } else if (this.activeMainTab === 'aromepi' && this.aromepiAvailable) {
             this.loadAromepiCapabilities();
@@ -3803,6 +3814,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       }, 0);
     } else if (tab === 'clim') {
       this.stopAromepiAnimation();
+      this.prepareClimTabLoad();
       setTimeout(() => {
         this.loadClimDataForCurrentPosition();
       }, 0);
@@ -3967,13 +3979,21 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     const layer = this.aromepiLayers.find((l) => l.name === layerName);
     this.aromepiSelectedLayer = layerName;
     this.aromepiSelectedStyle = layer?.style || '';
+    this.clearAromepiPrefetchLayers();
     this.setupAromepiWmsLayer();
     this.loadAromepiCurrentValues();
   }
 
   onAromepiFrameIndexChange(index: number): void {
     const max = Math.max(0, this.aromepiEffectiveTimeSteps.length - 1);
-    this.aromepiFrameIndex = Math.max(0, Math.min(max, Math.round(index)));
+    const nextIndex = Math.max(0, Math.min(max, Math.round(index)));
+    if (nextIndex === this.aromepiFrameIndex && !this.aromepiPlaying) {
+      return;
+    }
+    if (this.aromepiPlaying) {
+      this.stopAromepiAnimation();
+    }
+    this.aromepiFrameIndex = nextIndex;
     this.setupAromepiWmsLayer(!!this.aromepiWmsLayer);
     if (!this.aromepiPlaying) {
       this.loadAromepiCurrentValues();
@@ -3990,6 +4010,10 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       return;
     }
     this.aromepiPlaying = true;
+    this.prefetchAromepiPlaybackWindow();
+    this.aromepiPlayInterval = setInterval(() => {
+      this.advanceAromepiPlaybackFrame();
+    }, MeteoFranceComponent.AROMEPI_PLAY_INTERVAL_MS);
     this.advanceAromepiPlaybackFrame();
   }
 
@@ -3999,23 +4023,18 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     }
     const next = this.aromepiFrameIndex + 1;
     this.aromepiFrameIndex = next >= this.aromepiEffectiveTimeSteps.length ? 0 : next;
-    this.setupAromepiWmsLayer(true, () => {
-      if (!this.aromepiPlaying) {
-        return;
-      }
-      this.aromepiPlayTimer = setTimeout(() => {
-        this.aromepiPlayTimer = null;
-        this.advanceAromepiPlaybackFrame();
-      }, MeteoFranceComponent.AROMEPI_PLAY_FRAME_HOLD_MS);
-    });
+    const prefetched = this.takeAromepiPrefetchLayer(this.aromepiFrameIndex);
+    this.setupAromepiWmsLayer(true, undefined, prefetched);
+    this.prefetchAromepiPlaybackWindow();
   }
 
   stopAromepiAnimation(): void {
     this.aromepiPlaying = false;
-    if (this.aromepiPlayTimer) {
-      clearTimeout(this.aromepiPlayTimer);
-      this.aromepiPlayTimer = null;
+    if (this.aromepiPlayInterval) {
+      clearInterval(this.aromepiPlayInterval);
+      this.aromepiPlayInterval = null;
     }
+    this.clearAromepiPrefetchLayers();
   }
 
   onAromepiOpacityChange(): void {
@@ -4361,7 +4380,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     return [[40.0, -6.0], [51.5, 10.0]];
   }
 
-  private setupAromepiWmsLayer(crossfade = false, onComplete?: () => void): void {
+  private setupAromepiWmsLayer(crossfade = false, onComplete?: () => void, prefetchedLayer?: L.TileLayer | null): void {
     if (!this.aromepiMap || !this.aromepiMapInitialized || !this.aromepiAvailable) {
       onComplete?.();
       return;
@@ -4377,7 +4396,16 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     }
     const url = this.buildAromepiWmsUrl(this.aromepiSelectedLayer, this.aromepiSelectedStyle, time, referenceTime);
     if (crossfade && this.aromepiWmsLayer) {
-      this.crossfadeAromepiWmsLayer(url, onComplete);
+      if (prefetchedLayer) {
+        this.crossfadeAromepiWmsLayer(url, onComplete, prefetchedLayer);
+      } else {
+        this.crossfadeAromepiWmsLayer(url, onComplete);
+      }
+      return;
+    }
+    if (prefetchedLayer) {
+      this.replaceAromepiWmsLayerImmediate(url, prefetchedLayer);
+      onComplete?.();
       return;
     }
     this.replaceAromepiWmsLayerImmediate(url);
@@ -4413,7 +4441,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     return tileLayer;
   }
 
-  private replaceAromepiWmsLayerImmediate(url: string): void {
+  private replaceAromepiWmsLayerImmediate(url: string, existingLayer?: L.TileLayer | null): void {
     this.cancelAromepiWmsCrossfade();
     if (this.aromepiWmsLayerPending && this.aromepiMap) {
       this.aromepiMap.removeLayer(this.aromepiWmsLayerPending);
@@ -4426,22 +4454,29 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     if (!this.aromepiMap) {
       return;
     }
+    if (existingLayer && this.aromepiMap.hasLayer(existingLayer)) {
+      this.aromepiWmsLayer = existingLayer;
+      existingLayer.setOpacity(this.aromepiOpacity);
+      return;
+    }
     this.aromepiWmsLayer = this.createAromepiWmsTileLayer(url, this.aromepiOpacity);
     this.aromepiWmsLayer.addTo(this.aromepiMap);
   }
 
-  private crossfadeAromepiWmsLayer(url: string, onComplete?: () => void): void {
+  private crossfadeAromepiWmsLayer(url: string, onComplete?: () => void, prefetchedLayer?: L.TileLayer | null): void {
     if (!this.aromepiMap || !this.aromepiWmsLayer) {
-      this.replaceAromepiWmsLayerImmediate(url);
+      this.replaceAromepiWmsLayerImmediate(url, prefetchedLayer);
       onComplete?.();
       return;
     }
     this.cancelAromepiWmsCrossfade();
     const oldLayer = this.aromepiWmsLayer;
-    const newLayer = this.createAromepiWmsTileLayer(url, 0);
+    const newLayer = prefetchedLayer ?? this.createAromepiWmsTileLayer(url, 0);
     this.aromepiWmsLayerPending = newLayer;
     this.aromepiWmsTransitioning = true;
-    newLayer.addTo(this.aromepiMap);
+    if (!prefetchedLayer || !this.aromepiMap.hasLayer(newLayer)) {
+      newLayer.addTo(this.aromepiMap);
+    }
 
     let finished = false;
     let fadeStarted = false;
@@ -4456,15 +4491,20 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       onComplete?.();
     };
 
+    const crossfadeMs = this.aromepiPlaying
+      ? MeteoFranceComponent.AROMEPI_PLAY_CROSSFADE_MS
+      : MeteoFranceComponent.AROMEPI_WMS_CROSSFADE_MS;
+
     const startFade = () => {
       if (fadeStarted) {
         return;
       }
       fadeStarted = true;
       newLayer.off('load', startFade);
+      newLayer.off('tileload', onFirstTile);
       const targetOpacity = this.aromepiOpacity;
-      const steps = 8;
-      const stepMs = Math.max(24, Math.round(MeteoFranceComponent.AROMEPI_WMS_CROSSFADE_MS / steps));
+      const steps = this.aromepiPlaying ? 6 : 8;
+      const stepMs = Math.max(20, Math.round(crossfadeMs / steps));
       let step = 0;
       this.aromepiWmsCrossfadeTimer = setInterval(() => {
         step += 1;
@@ -4482,14 +4522,91 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       }, stepMs);
     };
 
-    newLayer.on('load', startFade);
-    this.clearAromepiWmsCrossfadeFallbackTimer();
-    this.aromepiWmsCrossfadeFallbackTimer = this.scheduleComponentTimeout(() => {
-      this.aromepiWmsCrossfadeFallbackTimer = null;
-      if (!finished && this.aromepiWmsLayerPending === newLayer) {
+    const onFirstTile = () => {
+      if (this.aromepiPlaying) {
+        newLayer.off('tileload', onFirstTile);
         startFade();
       }
-    }, 2500);
+    };
+
+    if (prefetchedLayer && this.isAromepiLayerTilesReady(newLayer)) {
+      startFade();
+    } else {
+      newLayer.on('load', startFade);
+      if (this.aromepiPlaying) {
+        newLayer.on('tileload', onFirstTile);
+      }
+      this.clearAromepiWmsCrossfadeFallbackTimer();
+      const fallbackMs = this.aromepiPlaying ? 350 : 2500;
+      this.aromepiWmsCrossfadeFallbackTimer = this.scheduleComponentTimeout(() => {
+        this.aromepiWmsCrossfadeFallbackTimer = null;
+        if (!finished && this.aromepiWmsLayerPending === newLayer) {
+          startFade();
+        }
+      }, fallbackMs);
+    }
+  }
+
+  private isAromepiLayerTilesReady(layer: L.TileLayer): boolean {
+    const tiles = (layer as L.TileLayer & { _tiles?: Record<string, { loaded?: boolean }> })._tiles;
+    if (!tiles) {
+      return false;
+    }
+    const values = Object.values(tiles);
+    return values.length > 0 && values.some((tile) => tile.loaded);
+  }
+
+  private prefetchAromepiPlaybackWindow(): void {
+    const steps = this.aromepiEffectiveTimeSteps;
+    if (steps.length < 2 || !this.aromepiMap) {
+      return;
+    }
+    for (let i = 1; i <= MeteoFranceComponent.AROMEPI_PREFETCH_AHEAD; i++) {
+      const idx = (this.aromepiFrameIndex + i) % steps.length;
+      this.prefetchAromepiFrame(idx);
+    }
+  }
+
+  private prefetchAromepiFrame(frameIndex: number): void {
+    if (this.aromepiPrefetchLayers.has(frameIndex)) {
+      return;
+    }
+    const steps = this.aromepiEffectiveTimeSteps;
+    if (frameIndex < 0 || frameIndex >= steps.length) {
+      return;
+    }
+    const time = steps[frameIndex];
+    if (!time || !this.aromepiReferenceTime || !this.aromepiMap || !this.aromepiSelectedLayer) {
+      return;
+    }
+    const url = this.buildAromepiWmsUrl(
+      this.aromepiSelectedLayer,
+      this.aromepiSelectedStyle,
+      time,
+      this.aromepiReferenceTime
+    );
+    const layer = this.createAromepiWmsTileLayer(url, 0);
+    layer.addTo(this.aromepiMap);
+    this.aromepiPrefetchLayers.set(frameIndex, layer);
+  }
+
+  private takeAromepiPrefetchLayer(frameIndex: number): L.TileLayer | null {
+    const layer = this.aromepiPrefetchLayers.get(frameIndex) ?? null;
+    if (layer) {
+      this.aromepiPrefetchLayers.delete(frameIndex);
+    }
+    return layer;
+  }
+
+  private clearAromepiPrefetchLayers(): void {
+    if (this.aromepiMap) {
+      this.aromepiPrefetchLayers.forEach((layer) => {
+        if (this.aromepiMap!.hasLayer(layer)) {
+          this.aromepiMap!.removeLayer(layer);
+        }
+      });
+    }
+    this.aromepiPrefetchLayers.clear();
   }
 
   private cancelAromepiWmsCrossfade(clearPendingLayer = true): void {
@@ -4802,6 +4919,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     }
     this.invalidateClimForLocationChange();
     if (this.activeMainTab === 'clim') {
+      this.prepareClimTabLoad();
       this.loadClimDataForCurrentPosition();
     }
   }
@@ -4828,12 +4946,34 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.climDataLocationKey = this.currentLocationKey();
   }
 
-  /** Load climatology for the nearest station at the current map position. */
-  private loadClimDataForCurrentPosition(): void {
-    if (!this.climAvailable || this.isLoadingClim) {
+  /** Show spinner immediately when opening the clim tab or before the HTTP call starts. */
+  private prepareClimTabLoad(): void {
+    if (this.climStatusMessageKey) {
+      return;
+    }
+    if (!this.mfStatus) {
+      this.isLoadingClim = true;
+      this.climChartsReady = false;
+      return;
+    }
+    if (!this.climAvailable) {
+      this.isLoadingClim = false;
       return;
     }
     if (this.climDisplayRows.length && !this.isClimStaleForLocation()) {
+      return;
+    }
+    this.isLoadingClim = true;
+    this.climChartsReady = false;
+  }
+
+  /** Load climatology for the nearest station at the current map position. */
+  private loadClimDataForCurrentPosition(): void {
+    if (!this.climAvailable) {
+      return;
+    }
+    if (this.climDisplayRows.length && !this.isClimStaleForLocation()) {
+      this.isLoadingClim = false;
       this.updateClimCharts();
       return;
     }
@@ -4877,6 +5017,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
             this.departmentCode = this.departmentFromPostcode(String(postcode));
           }
           if (this.activeMainTab === 'clim' && this.climAvailable) {
+            this.prepareClimTabLoad();
             this.loadClimDataForCurrentPosition();
           }
           if (this.showTemperatureMap) {
