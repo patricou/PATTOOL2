@@ -339,6 +339,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private forecastMarker: L.Marker | null = null;
   private forecastMapInitialized = false;
   private forecastBaseLayer: L.TileLayer | L.LayerGroup | null = null;
+  private aromepiBaseLayer: L.TileLayer | L.LayerGroup | null = null;
   private aromepiPlayTimer: ReturnType<typeof setTimeout> | null = null;
   private aromepiForecastDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private aromepiWmsCrossfadeFallbackTimer: ReturnType<typeof setTimeout> | null = null;
@@ -457,6 +458,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       this.aromepiMap.remove();
       this.aromepiMap = null;
       this.aromepiMarker = null;
+      this.aromepiBaseLayer = null;
       this.aromepiMapInitialized = false;
     }
     if (this.map) {
@@ -1207,6 +1209,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.persistMapBaseLayerPreference(this.mapBaseLayerId);
     this.applyMapBaseLayer();
     this.applyForecastMapBaseLayer();
+    this.applyAromepiMapBaseLayer();
     this.refreshForecastMapLayout();
   }
 
@@ -4038,6 +4041,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
 
   private initAromepiMap(): void {
     if (this.aromepiMap) {
+      if (!this.aromepiBaseLayer) {
+        this.applyAromepiMapBaseLayer();
+      }
       this.aromepiMap.invalidateSize();
       this.focusAromepiMapOnPosition();
       return;
@@ -4053,10 +4059,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       worldCopyJump: false
     });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap',
-      maxZoom: 19
-    }).addTo(this.aromepiMap);
+    this.applyAromepiMapBaseLayer();
 
     this.aromepiMarker = L.marker([this.lat, this.lon], { draggable: true }).addTo(this.aromepiMap);
     this.aromepiMarker.on('dragend', () => {
@@ -4193,6 +4196,17 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       this.forecastMap,
       this.mapBaseLayerId,
       this.forecastBaseLayer
+    );
+  }
+
+  private applyAromepiMapBaseLayer(): void {
+    if (!this.aromepiMap) {
+      return;
+    }
+    this.aromepiBaseLayer = this.basemapService.applyBaseLayer(
+      this.aromepiMap,
+      this.mapBaseLayerId,
+      this.aromepiBaseLayer
     );
   }
 

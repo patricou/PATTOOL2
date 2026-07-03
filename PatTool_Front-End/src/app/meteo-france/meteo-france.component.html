@@ -127,7 +127,7 @@
         <li class="nav-item" role="presentation">
           <button type="button" class="nav-link" [class.active]="activeMainTab === 'radar'"
                   (click)="onMainTabChange('radar')">
-            <i class="fa fa-thermometer-half"></i>
+            <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')" class="mf-tab-logo" width="18" height="18" />
             {{ 'METEO_FRANCE.TAB_RADAR' | translate }}
           </button>
         </li>
@@ -205,7 +205,8 @@
 
           <h3 class="api-title">
 
-            <i class="fa fa-bolt"></i> {{ 'METEO_FRANCE.RADAR_TITLE' | translate }}
+            <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')" class="mf-tab-logo me-1" width="20" height="20" />
+            {{ 'METEO_FRANCE.RADAR_TITLE' | translate }}
 
           </h3>
 
@@ -639,7 +640,8 @@
 
           <div class="mf-section-head">
             <h3 class="api-title mb-0">
-              <i class="fa fa-database"></i> {{ 'METEO_FRANCE.CLIM_TITLE' | translate }}
+              <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')" class="mf-tab-logo me-1" width="20" height="20" />
+              {{ 'METEO_FRANCE.CLIM_TITLE' | translate }}
             </h3>
             <span class="mf-source-badge" *ngIf="climAvailable" [title]="'METEO_FRANCE.LOG_SOURCE_MF_DPCLIM' | translate">
               <span class="mf-source-badge-prefix">{{ 'METEO_FRANCE.SECTION_SOURCE' | translate }}</span>
@@ -1211,12 +1213,12 @@
             {{ owmForecastErrorKey | translate }}
           </div>
 
-          <div class="forecast-table-wrap" *ngIf="!isLoadingOwmForecast && owmDisplayForecastList.length">
-            <ng-container *ngTemplateOutlet="multiDayForecastTable; context: { items: owmDisplayForecastList }"></ng-container>
+          <div class="forecast-charts-wrap mb-3" *ngIf="!isLoadingOwmForecast && owmForecastChartsReady">
+            <ng-container *ngTemplateOutlet="multiDayForecastCharts; context: { blocks: owmForecastChartBlocks }"></ng-container>
           </div>
 
-          <div class="forecast-charts-wrap" *ngIf="!isLoadingOwmForecast && owmForecastChartsReady">
-            <ng-container *ngTemplateOutlet="multiDayForecastCharts; context: { blocks: owmForecastChartBlocks }"></ng-container>
+          <div class="forecast-table-wrap" *ngIf="!isLoadingOwmForecast && owmDisplayForecastList.length">
+            <ng-container *ngTemplateOutlet="multiDayForecastTable; context: { items: owmDisplayForecastList }"></ng-container>
           </div>
         </div>
 
@@ -1257,12 +1259,12 @@
             {{ omForecastErrorKey | translate }}
           </div>
 
-          <div class="forecast-table-wrap" *ngIf="!isLoadingOmForecast && omDisplayForecastList.length">
-            <ng-container *ngTemplateOutlet="multiDayForecastTable; context: { items: omDisplayForecastList }"></ng-container>
+          <div class="forecast-charts-wrap mb-3" *ngIf="!isLoadingOmForecast && omForecastChartsReady">
+            <ng-container *ngTemplateOutlet="multiDayForecastCharts; context: { blocks: omForecastChartBlocks }"></ng-container>
           </div>
 
-          <div class="forecast-charts-wrap" *ngIf="!isLoadingOmForecast && omForecastChartsReady">
-            <ng-container *ngTemplateOutlet="multiDayForecastCharts; context: { blocks: omForecastChartBlocks }"></ng-container>
+          <div class="forecast-table-wrap" *ngIf="!isLoadingOmForecast && omDisplayForecastList.length">
+            <ng-container *ngTemplateOutlet="multiDayForecastTable; context: { items: omDisplayForecastList }"></ng-container>
           </div>
         </div>
 
@@ -1327,6 +1329,10 @@
             {{ aggregatedForecastErrorKey | translate }}
           </div>
 
+          <div class="forecast-charts-wrap mb-3" *ngIf="!isLoadingAggregatedForecast && aggregateForecastChartsReady">
+            <ng-container *ngTemplateOutlet="multiDayForecastCharts; context: { blocks: aggregateForecastChartBlocks }"></ng-container>
+          </div>
+
           <div class="table-responsive aggregate-forecast-scroll" *ngIf="!isLoadingAggregatedForecast && aggregatedForecastSteps.length">
             <table class="table table-sm table-striped table-hover aggregate-forecast-table">
               <thead class="table-light">
@@ -1372,10 +1378,6 @@
                 </tr>
               </tbody>
             </table>
-          </div>
-
-          <div class="forecast-charts-wrap" *ngIf="!isLoadingAggregatedForecast && aggregateForecastChartsReady">
-            <ng-container *ngTemplateOutlet="multiDayForecastCharts; context: { blocks: aggregateForecastChartBlocks }"></ng-container>
           </div>
         </div>
 
