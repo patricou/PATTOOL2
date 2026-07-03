@@ -1116,7 +1116,7 @@ def main() -> None:
     en = load_json(LOCALES / "en.json")
     fr = load_json(LOCALES / "fr.json")
     en_keys = list(en.keys())
-    assert len(en_keys) == 225, len(en_keys)
+    assert len(en_keys) == 280, len(en_keys)
 
     # Generated locale packs
     generated = {

@@ -108,7 +108,7 @@
 
 
       <div class="meteo-france-tabs-mobile d-md-none">
-        <label for="meteoFranceTabSelect" class="meteo-france-tabs-mobile-label">{{ 'METEO_FRANCE.TITLE' | translate }}</label>
+        <label for="meteoFranceTabSelect" class="meteo-france-tabs-mobile-label">{{ 'METEO_FRANCE.TAB_SELECT_LABEL' | translate }}</label>
         <select id="meteoFranceTabSelect"
                 class="form-select meteo-france-tabs-select"
                 [ngModel]="activeMainTab"
@@ -213,6 +213,7 @@
 
 
           <div class="meteo-france-map-shell" #mapShell [class.meteo-france-map-shell--fullscreen]="mapFullscreen">
+            <ng-container *ngTemplateOutlet="centerOnUserPositionButton; context: { variant: 'map' }"></ng-container>
             <button type="button"
                     class="btn btn-sm btn-light meteo-france-map-fullscreen-btn shadow-sm"
                     (click)="toggleMapFullscreen()"
@@ -643,16 +644,25 @@
               <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')" class="mf-tab-logo me-1" width="20" height="20" />
               {{ 'METEO_FRANCE.CLIM_TITLE' | translate }}
             </h3>
-            <span class="mf-source-badge" *ngIf="climAvailable" [title]="'METEO_FRANCE.LOG_SOURCE_MF_DPCLIM' | translate">
-              <span class="mf-source-badge-prefix">{{ 'METEO_FRANCE.SECTION_SOURCE' | translate }}</span>
-              <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')" width="16" height="16" />
-              <span>{{ 'METEO_FRANCE.LOG_SOURCE_MF_DPCLIM' | translate }}</span>
-            </span>
+            <div class="mf-section-head-actions">
+              <ng-container *ngTemplateOutlet="centerOnUserPositionButton; context: { variant: 'toolbar' }"></ng-container>
+              <span class="mf-source-badge" *ngIf="climAvailable" [title]="'METEO_FRANCE.LOG_SOURCE_MF_DPCLIM' | translate">
+                <span class="mf-source-badge-prefix">{{ 'METEO_FRANCE.SECTION_SOURCE' | translate }}</span>
+                <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')" width="16" height="16" />
+                <span>{{ 'METEO_FRANCE.LOG_SOURCE_MF_DPCLIM' | translate }}</span>
+              </span>
+            </div>
           </div>
 
 
 
-          <div *ngIf="climAvailable">
+          <ng-container *ngIf="!climStatusMessageKey">
+            <ng-container *ngTemplateOutlet="forecastTabLoadingPanel; context: {
+              loading: !mfStatus || isLoadingClim,
+              messageKey: 'METEO_FRANCE.CLIM_LOADING'
+            }"></ng-container>
+
+            <div *ngIf="climAvailable && !isLoadingClim">
 
             <div class="clim-controls mb-2">
 
@@ -757,16 +767,7 @@
 
 
 
-            <div *ngIf="isLoadingClim" class="clim-loading-panel" role="status" aria-live="polite">
-              <div class="clim-loading-panel-inner">
-                <i class="fa fa-spinner fa-spin clim-loading-spinner" aria-hidden="true"></i>
-                <span>{{ 'METEO_FRANCE.CLIM_LOADING' | translate }}</span>
-              </div>
-            </div>
-
-
-
-            <div class="alert alert-danger py-2" *ngIf="climErrorKey && !isLoadingClim">
+            <div class="alert alert-danger py-2" *ngIf="climErrorKey">
 
               {{ climErrorKey | translate }}
 
@@ -786,7 +787,7 @@
 
 
 
-            <div class="clim-charts" *ngIf="!isLoadingClim && climChartsReady">
+            <div class="clim-charts" *ngIf="climChartsReady">
 
               <h4 class="clim-chart-title">
 
@@ -842,7 +843,7 @@
 
 
 
-            <div class="clim-table-wrap" *ngIf="!isLoadingClim && climDisplayRows.length && climShowTable">
+            <div class="clim-table-wrap" *ngIf="climDisplayRows.length && climShowTable">
 
               <table class="table table-sm table-striped clim-table">
 
@@ -886,7 +887,7 @@
 
 
 
-            <p class="text-muted small mb-0" *ngIf="!isLoadingClim && !climErrorKey && !climDisplayRows.length">
+            <p class="text-muted small mb-0" *ngIf="!climErrorKey && !climDisplayRows.length">
 
               {{ 'METEO_FRANCE.CLIM_NO_DATA' | translate }}
 
@@ -908,7 +909,8 @@
 
             </p>
 
-          </div>
+            </div>
+          </ng-container>
 
         </div>
 
@@ -937,6 +939,7 @@
               <i class="fa fa-cloud"></i> {{ 'METEO_FRANCE.AROMEPI_TITLE' | translate }}
             </h3>
             <div class="mf-section-head-actions">
+              <ng-container *ngTemplateOutlet="centerOnUserPositionButton; context: { variant: 'toolbar' }"></ng-container>
               <span class="mf-source-badge" *ngIf="aromepiAvailable">
                 <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')" width="16" height="16" />
                 {{ 'METEO_FRANCE.LOG_SOURCE_MF_AROMEPI' | translate }}
@@ -1005,6 +1008,7 @@
 
             <div class="meteo-france-map-shell aromepi-map-shell" #aromepiMapShell
                  [class.meteo-france-map-shell--fullscreen]="aromepiMapFullscreen">
+              <ng-container *ngTemplateOutlet="centerOnUserPositionButton; context: { variant: 'map' }"></ng-container>
               <button type="button"
                       class="btn btn-sm btn-light meteo-france-map-fullscreen-btn shadow-sm"
                       (click)="toggleAromepiMapFullscreen()"
@@ -1096,6 +1100,10 @@
                 messageKey: 'METEO_FRANCE.AROMEPI_FORECAST_LOADING'
               }"></ng-container>
 
+              <div class="forecast-charts-wrap mb-3" *ngIf="!isLoadingAromepiForecast && aromepiForecastChartsReady">
+                <ng-container *ngTemplateOutlet="multiDayForecastCharts; context: { blocks: aromepiForecastChartBlocks }"></ng-container>
+              </div>
+
               <div class="table-responsive" *ngIf="!isLoadingAromepiForecast && aromepiForecastSteps.length">
                 <table class="table table-sm table-striped aromepi-forecast-table">
                   <thead>
@@ -1115,10 +1123,6 @@
                     </tr>
                   </tbody>
                 </table>
-              </div>
-
-              <div class="forecast-charts-wrap" *ngIf="!isLoadingAromepiForecast && aromepiForecastChartsReady">
-                <ng-container *ngTemplateOutlet="multiDayForecastCharts; context: { blocks: aromepiForecastChartBlocks }"></ng-container>
               </div>
             </div>
 
@@ -1143,6 +1147,9 @@
             <h3 class="api-title mb-0">
               <i class="fa fa-sliders"></i> {{ 'METEO_FRANCE.FORECAST_OPTIONS_TITLE' | translate }}
             </h3>
+            <div class="mf-section-head-actions">
+              <ng-container *ngTemplateOutlet="centerOnUserPositionButton; context: { variant: 'toolbar' }"></ng-container>
+            </div>
           </div>
 
           <p class="text-muted small">{{ 'METEO_FRANCE.FORECAST_OPTIONS_HINT' | translate }}</p>
@@ -1172,6 +1179,7 @@
           </div>
 
           <div class="meteo-france-map-shell forecast-map-shell mb-3">
+            <ng-container *ngTemplateOutlet="centerOnUserPositionButton; context: { variant: 'map' }"></ng-container>
             <div id="meteo-france-forecast-map" class="meteo-france-map forecast-map"></div>
           </div>
         </div>
@@ -1191,6 +1199,7 @@
               {{ 'METEO_FRANCE.FORECAST_OWM_TITLE' | translate }}
             </h3>
             <div class="mf-section-head-actions">
+              <ng-container *ngTemplateOutlet="centerOnUserPositionButton; context: { variant: 'toolbar' }"></ng-container>
               <ng-container *ngTemplateOutlet="forecastProviderSiteButton; context: { brand: 'openweathermap' }"></ng-container>
               <button type="button" class="btn btn-sm btn-outline-primary" (click)="loadOwmForecast(true)"
                       [disabled]="isLoadingOwmForecast">
@@ -1237,6 +1246,7 @@
               {{ 'METEO_FRANCE.FORECAST_OM_TITLE' | translate }}
             </h3>
             <div class="mf-section-head-actions">
+              <ng-container *ngTemplateOutlet="centerOnUserPositionButton; context: { variant: 'toolbar' }"></ng-container>
               <ng-container *ngTemplateOutlet="forecastProviderSiteButton; context: { brand: 'open-meteo' }"></ng-container>
               <button type="button" class="btn btn-sm btn-outline-primary" (click)="loadOmForecast(true)"
                       [disabled]="isLoadingOmForecast">
@@ -1282,6 +1292,7 @@
               <i class="fa fa-balance-scale"></i> {{ 'METEO_FRANCE.FORECAST_AGG_TITLE' | translate }}
             </h3>
             <div class="mf-section-head-actions">
+              <ng-container *ngTemplateOutlet="centerOnUserPositionButton; context: { variant: 'toolbar' }"></ng-container>
               <div class="forecast-provider-site-group">
                 <ng-container *ngTemplateOutlet="forecastProviderSiteButton; context: { brand: 'openweathermap' }"></ng-container>
                 <ng-container *ngTemplateOutlet="forecastProviderSiteButton; context: { brand: 'open-meteo' }"></ng-container>
@@ -1398,6 +1409,21 @@
       <span>{{ (messageKey || 'METEO_FRANCE.FORECAST_LOADING') | translate }}</span>
     </div>
   </div>
+</ng-template>
+
+<ng-template #centerOnUserPositionButton let-variant="variant">
+  <button type="button"
+          class="btn btn-sm shadow-sm"
+          [class.btn-light]="variant === 'map'"
+          [class.meteo-france-map-center-btn]="variant === 'map'"
+          [class.btn-outline-secondary]="variant !== 'map'"
+          (click)="centerMapOnUserPosition()"
+          [disabled]="isLoadingGps"
+          [attr.title]="'METEO_FRANCE.MAP_CENTER_USER' | translate"
+          [attr.aria-label]="'METEO_FRANCE.MAP_CENTER_USER' | translate">
+    <i class="fa" [class.fa-location-arrow]="!isLoadingGps" [class.fa-spinner]="isLoadingGps" [class.fa-spin]="isLoadingGps"></i>
+    <span class="d-none d-md-inline ms-1" *ngIf="variant !== 'map'">{{ 'METEO_FRANCE.MAP_CENTER_USER' | translate }}</span>
+  </button>
 </ng-template>
 
 <ng-template #forecastProviderSiteButton let-brand="brand">
@@ -1520,13 +1546,188 @@
         </select>
       </label>
     </div>
-    <div *ngFor="let block of blocks; trackBy: trackForecastChartBlock" class="forecast-chart-box">
-      <h5 class="forecast-chart-title">{{ block.labelKey | translate }}</h5>
-      <canvas baseChart
-              [type]="block.chartType"
-              [data]="block.data"
-              [options]="block.options"></canvas>
+    <div *ngFor="let block of blocks; let first = first; trackBy: trackForecastChartBlock" class="forecast-chart-block">
+      <h5 class="forecast-chart-title" [class.forecast-chart-title--first]="first">{{ block.labelKey | translate }}</h5>
+      <div class="forecast-chart-box">
+        <canvas baseChart
+                [type]="block.chartType"
+                [data]="block.data"
+                [options]="block.options"></canvas>
+      </div>
     </div>
   </div>
 </ng-template>
 
+<div class="mf-station-history-backdrop" *ngIf="stationHistoryModalVisible" (click)="closeStationHistoryModal()"></div>
+
+<div class="modal mf-station-history-modal"
+     *ngIf="stationHistoryModalVisible"
+     tabindex="-1"
+     role="dialog"
+     aria-modal="true"
+     [attr.aria-labelledby]="'mf-station-history-title'">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content mf-station-history-modal-content">
+      <div class="modal-header mf-station-history-modal-header">
+        <h5 class="modal-title mf-station-history-modal-title" id="mf-station-history-title">
+          <i class="fa fa-line-chart me-2" aria-hidden="true"></i>
+          {{ stationHistoryModalTitle }}
+        </h5>
+        <button type="button" class="btn-close btn-close-white btn-close-sm"
+                (click)="closeStationHistoryModal()"
+                [attr.aria-label]="'METEO_FRANCE.STATION_HISTORY_CLOSE' | translate"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-2" *ngIf="stationHistoryPoint?.stationId">
+          {{ 'METEO_FRANCE.CLIM_STATION' | translate }}: {{ stationHistoryPoint?.stationName || stationHistoryPoint?.stationId }}
+          <span class="text-muted" *ngIf="stationHistoryPoint?.stationName">({{ stationHistoryPoint?.stationId }})</span>
+        </p>
+        <p class="text-muted small mb-3">{{ 'METEO_FRANCE.STATION_HISTORY_MODAL_HINT' | translate }}</p>
+
+        <div class="clim-controls mb-2">
+          <button type="button" class="btn btn-sm"
+                  [class.btn-primary]="stationHistoryFrequency === 'quotidienne'"
+                  [class.btn-outline-primary]="stationHistoryFrequency !== 'quotidienne'"
+                  (click)="stationHistoryFrequency = 'quotidienne'; onStationHistoryFrequencyChange()"
+                  [disabled]="stationHistoryLoading">
+            {{ 'METEO_FRANCE.CLIM_DAILY' | translate }}
+          </button>
+          <button type="button" class="btn btn-sm ms-1"
+                  [class.btn-primary]="stationHistoryFrequency === 'horaire'"
+                  [class.btn-outline-primary]="stationHistoryFrequency !== 'horaire'"
+                  (click)="stationHistoryFrequency = 'horaire'; onStationHistoryFrequencyChange()"
+                  [disabled]="stationHistoryLoading">
+            {{ 'METEO_FRANCE.CLIM_HOURLY' | translate }}
+          </button>
+          <button type="button" class="btn btn-outline-secondary btn-sm ms-2"
+                  (click)="loadStationHistoryData()"
+                  [disabled]="stationHistoryLoading">
+            <i class="fa" [class.fa-refresh]="!stationHistoryLoading" [class.fa-spinner]="stationHistoryLoading" [class.fa-spin]="stationHistoryLoading"></i>
+            {{ 'METEO_FRANCE.CLIM_REFRESH' | translate }}
+          </button>
+        </div>
+
+        <div class="clim-period-row mb-2">
+          <label for="station-history-period" class="form-label small mb-1">{{ 'METEO_FRANCE.CLIM_PERIOD_SELECT' | translate }}</label>
+          <select id="station-history-period" class="form-select form-select-sm clim-period-select"
+                  [(ngModel)]="stationHistoryDays"
+                  (ngModelChange)="onStationHistoryPeriodChange()"
+                  [disabled]="stationHistoryLoading">
+            <option *ngFor="let opt of stationHistoryPeriodOptions" [ngValue]="opt.days">
+              {{ opt.labelKey | translate }}
+            </option>
+          </select>
+        </div>
+
+        <div class="clim-period text-muted small mb-2" *ngIf="stationHistoryPeriodStart && stationHistoryPeriodEnd">
+          <strong>{{ 'METEO_FRANCE.CLIM_PERIOD_LABEL' | translate }}</strong>
+          {{ stationHistoryPeriodStart }} → {{ stationHistoryPeriodEnd }}
+          ({{ stationHistoryRequestedDays }} {{ 'METEO_FRANCE.CLIM_PERIOD_DAYS' | translate }} —
+          {{ (stationHistoryFrequency === 'horaire' ? 'METEO_FRANCE.CLIM_HOURLY' : 'METEO_FRANCE.CLIM_DAILY') | translate }})
+        </div>
+
+        <div *ngIf="stationHistoryLoading" class="clim-loading-panel" role="status" aria-live="polite">
+          <div class="clim-loading-panel-inner">
+            <i class="fa fa-spinner fa-spin clim-loading-spinner" aria-hidden="true"></i>
+            <span>{{ 'METEO_FRANCE.CLIM_LOADING' | translate }}</span>
+          </div>
+        </div>
+
+        <div class="alert alert-danger py-2" *ngIf="stationHistoryErrorKey && !stationHistoryLoading">
+          {{ stationHistoryErrorKey | translate }}
+          <div class="small mt-1 mb-0 text-muted" *ngIf="stationHistoryErrorDetail">{{ stationHistoryErrorDetail }}</div>
+        </div>
+
+        <div class="station-history-charts" *ngIf="!stationHistoryLoading && stationHistoryChartsReady">
+          <h4 class="clim-chart-title" *ngIf="stationHistoryTempChartData.datasets.length">
+            <i class="fa fa-line-chart"></i> {{ 'METEO_FRANCE.CLIM_CHART_TEMP' | translate }}
+          </h4>
+          <div class="clim-chart-box station-history-chart-box" *ngIf="stationHistoryTempChartData.datasets.length">
+            <canvas #stationHistoryTempChart baseChart
+                    [data]="stationHistoryTempChartData"
+                    [options]="stationHistoryTempChartOptions"
+                    [type]="'line'"></canvas>
+          </div>
+
+          <h4 class="clim-chart-title" *ngIf="stationHistoryHasHumidityChart">
+            <i class="fa fa-line-chart"></i> {{ 'METEO_FRANCE.HUMIDITY' | translate }}
+          </h4>
+          <div class="clim-chart-box station-history-chart-box" *ngIf="stationHistoryHasHumidityChart">
+            <canvas #stationHistoryHumidityChart baseChart
+                    [data]="stationHistoryHumidityChartData"
+                    [options]="stationHistoryHumidityChartOptions"
+                    [type]="'line'"></canvas>
+          </div>
+
+          <h4 class="clim-chart-title" *ngIf="stationHistoryHasWindChart">
+            <i class="fa fa-line-chart"></i> {{ 'METEO_FRANCE.WIND' | translate }}
+          </h4>
+          <div class="clim-chart-box station-history-chart-box" *ngIf="stationHistoryHasWindChart">
+            <canvas #stationHistoryWindChart baseChart
+                    [data]="stationHistoryWindChartData"
+                    [options]="stationHistoryWindChartOptions"
+                    [type]="'line'"></canvas>
+          </div>
+
+          <h4 class="clim-chart-title" *ngIf="stationHistoryHasRainChart">
+            <i class="fa fa-bar-chart"></i> {{ 'METEO_FRANCE.CLIM_CHART_RAIN' | translate }}
+          </h4>
+          <div class="clim-chart-box station-history-chart-box" *ngIf="stationHistoryHasRainChart">
+            <canvas #stationHistoryRainChart baseChart
+                    [data]="stationHistoryRainChartData"
+                    [options]="stationHistoryRainChartOptions"
+                    [type]="'bar'"></canvas>
+          </div>
+
+          <h4 class="clim-chart-title" *ngIf="stationHistoryHasPressureChart">
+            <i class="fa fa-line-chart"></i> {{ 'METEO_FRANCE.PRESSURE' | translate }}
+          </h4>
+          <div class="clim-chart-box station-history-chart-box" *ngIf="stationHistoryHasPressureChart">
+            <canvas #stationHistoryPressureChart baseChart
+                    [data]="stationHistoryPressureChartData"
+                    [options]="stationHistoryPressureChartOptions"
+                    [type]="'line'"></canvas>
+          </div>
+
+          <button type="button" class="btn btn-link btn-sm px-0 clim-table-toggle"
+                  (click)="stationHistoryShowTable = !stationHistoryShowTable">
+            <i class="fa" [class.fa-chevron-down]="!stationHistoryShowTable" [class.fa-chevron-up]="stationHistoryShowTable"></i>
+            {{ (stationHistoryShowTable ? 'METEO_FRANCE.CLIM_HIDE_TABLE' : 'METEO_FRANCE.CLIM_SHOW_TABLE') | translate }}
+          </button>
+        </div>
+
+        <div class="clim-table-wrap station-history-table-wrap"
+             *ngIf="!stationHistoryLoading && getSortedStationHistoryRows().length && stationHistoryShowTable">
+          <table class="table table-sm table-striped clim-table station-history-table">
+            <thead>
+              <tr>
+                <th *ngFor="let col of stationHistoryDisplayColumns">{{ formatClimColumnLabel(col) }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of getSortedStationHistoryRows()">
+                <td *ngFor="let col of stationHistoryDisplayColumns">
+                  <ng-container [ngSwitch]="col">
+                    <span *ngSwitchCase="'DATE'">{{ formatClimDate(row[col]) }}</span>
+                    <span *ngSwitchCase="'AAAAMMJJ'">{{ formatClimDate(row[col]) }}</span>
+                    <span *ngSwitchCase="'AAAAMMJJHH'">{{ formatClimDate(row[col]) }}</span>
+                    <span *ngSwitchDefault>{{ formatClimValue(col, row[col]) }}</span>
+                  </ng-container>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="text-muted small mb-0" *ngIf="!stationHistoryLoading && !stationHistoryErrorKey && !getSortedStationHistoryRows().length">
+          {{ 'METEO_FRANCE.CLIM_NO_DATA' | translate }}
+        </p>
+      </div>
+      <div class="modal-footer mf-station-history-modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" (click)="closeStationHistoryModal()">
+          {{ 'METEO_FRANCE.STATION_HISTORY_CLOSE' | translate }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

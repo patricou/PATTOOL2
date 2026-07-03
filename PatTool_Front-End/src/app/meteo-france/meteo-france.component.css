@@ -295,6 +295,14 @@
   border: 1px solid rgba(0, 0, 0, 0.15);
 }
 
+.meteo-france-map-center-btn {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 500;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
 .meteo-france-map-shell:fullscreen,
 .meteo-france-map-shell:-webkit-full-screen,
 .meteo-france-map-shell.meteo-france-map-shell--fullscreen {
@@ -685,10 +693,14 @@
 
 :host ::ng-deep .mf-temp-tooltip-actions {
   margin-top: 8px;
-  text-align: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
 }
 
-:host ::ng-deep .mf-temp-refresh-btn {
+:host ::ng-deep .mf-temp-refresh-btn,
+:host ::ng-deep .mf-temp-history-btn {
   font-size: 0.75rem;
   padding: 2px 8px;
   pointer-events: auto;
@@ -1462,14 +1474,25 @@
 
 .forecast-chart-title {
   font-size: 0.88rem;
-  margin: 0.5rem 0 0.35rem;
+  margin: 1rem 0 0.35rem;
   font-weight: 600;
+}
+
+.forecast-chart-title--first {
+  margin-top: 0.35rem;
+}
+
+.forecast-chart-block {
+  margin-bottom: 0.25rem;
+}
+
+.forecast-chart-block:last-child {
+  margin-bottom: 0;
 }
 
 .forecast-chart-box {
   position: relative;
   height: 240px;
-  margin-bottom: 0.75rem;
 }
 
 .clim-table-toggle {
@@ -1819,4 +1842,98 @@
     height: 50vh;
     min-height: 260px;
   }
+}
+
+.mf-station-history-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.mf-station-history-modal {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 1055;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.mf-station-history-modal .modal-dialog {
+  margin: clamp(0.75rem, 2vh, 1.75rem) auto;
+  max-width: min(1140px, calc(100% - 2rem));
+}
+
+.mf-station-history-modal .mf-station-history-modal-content {
+  border: 4px solid #ffffff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.mf-station-history-modal .mf-station-history-modal-header {
+  padding: 0.65rem 0.85rem;
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 50%, #004085 100%);
+  color: #ffffff;
+  border: none;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.mf-station-history-modal .mf-station-history-modal-title {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.mf-station-history-modal .mf-station-history-modal-title .fa {
+  font-size: 0.88em;
+  color: #ffffff;
+}
+
+.mf-station-history-modal .mf-station-history-modal-header .btn-close {
+  opacity: 1;
+  padding: 0.35rem;
+}
+
+.mf-station-history-modal .mf-station-history-modal-header .btn-close:hover {
+  opacity: 0.85;
+}
+
+.mf-station-history-modal .modal-body {
+  background: #ffffff;
+}
+
+.mf-station-history-modal .mf-station-history-modal-footer {
+  border-top: 1px solid #dee2e6;
+  background: #f8f9fa;
+}
+
+.station-history-table-wrap {
+  max-height: min(60vh, 520px);
+  overflow: auto;
+}
+
+.station-history-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f8f9fa;
+  white-space: nowrap;
+}
+
+.station-history-table td {
+  white-space: nowrap;
+}
+
+.station-history-charts {
+  margin-bottom: 0.5rem;
+}
+
+.station-history-chart-box {
+  min-height: 220px;
+  margin-bottom: 1rem;
 }
