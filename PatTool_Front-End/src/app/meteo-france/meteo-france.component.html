@@ -247,9 +247,65 @@
                 </header>
 
                 <div class="mf-point-timeline-body">
-                  <div class="mf-point-timeline-now" *ngIf="pointTimelineMfTempC != null">
+                  <ul class="mf-point-timeline-tabs" role="tablist"
+                      *ngIf="pointTempTimelineDataLoaded && !pointTempTimelineLoading">
+                    <li *ngFor="let tab of pointTempTimelineTabs" role="presentation">
+                      <button type="button" class="mf-point-timeline-tab" role="tab"
+                              [class.active]="pointTempTimelineActiveTab === tab.id"
+                              [attr.aria-selected]="pointTempTimelineActiveTab === tab.id"
+                              (click)="onPointTempTimelineTabChange(tab.id)">
+                        <img *ngIf="tab.brand !== 'compare'"
+                             [src]="getBrandLogoSrc(tab.brand)"
+                             [alt]="getBrandAlt(tab.brand)"
+                             class="mf-point-timeline-tab-logo" width="14" height="14" />
+                        <i *ngIf="tab.brand === 'compare'" class="fa fa-balance-scale" aria-hidden="true"></i>
+                        {{ tab.labelKey | translate }}
+                      </button>
+                    </li>
+                  </ul>
+
+                  <div class="mf-point-timeline-param-row"
+                       *ngIf="pointTempTimelineDataLoaded && !pointTempTimelineLoading">
+                    <button type="button"
+                            class="mf-point-timeline-param"
+                            *ngFor="let opt of pointTempTimelineParamOptions"
+                            [class.active]="pointTempTimelineActiveParam === opt.id"
+                            (click)="onPointTempTimelineParamChange(opt.id)">
+                      {{ opt.labelKey | translate }}
+                    </button>
+                  </div>
+
+                  <div class="mf-point-timeline-now"
+                       *ngIf="pointTempTimelineActiveParam === 'temp' && pointTimelineCurrentTempC != null && pointTempTimelineActiveTab !== 'compare'">
                     <span class="mf-point-timeline-now-label">{{ 'METEO_FRANCE.POINT_TIMELINE_CURRENT' | translate }}</span>
-                    <span class="mf-point-timeline-now-value">{{ formatTemperatureLabel(pointTimelineMfTempC) }}</span>
+                    <span class="mf-point-timeline-now-value">{{ formatTemperatureLabel(pointTimelineCurrentTempC) }}</span>
+                  </div>
+
+                  <div class="mf-point-timeline-current mf-point-timeline-current--now"
+                       *ngIf="pointTimelineShowCompareNow">
+                    <div class="mf-point-timeline-section-label mf-point-timeline-section-label--now">
+                      {{ 'METEO_FRANCE.POINT_TIMELINE_CURRENT' | translate }}
+                    </div>
+                    <div class="mf-point-timeline-current-row">
+                      <span class="mf-point-timeline-current-chip mf-point-timeline-current-chip--mf"
+                            *ngIf="pointTimelineMfTempC != null">
+                        <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')"
+                             class="mf-point-timeline-chip-logo" width="14" height="14" />
+                        {{ formatTemperatureLabel(pointTimelineMfTempC) }}
+                      </span>
+                      <span class="mf-point-timeline-current-chip mf-point-timeline-current-chip--om"
+                            *ngIf="pointTimelineOpenMeteoTempC != null">
+                        <img [src]="getBrandLogoSrc('open-meteo')" [alt]="getBrandAlt('open-meteo')"
+                             class="mf-point-timeline-chip-logo" width="14" height="14" />
+                        {{ formatTemperatureLabel(pointTimelineOpenMeteoTempC) }}
+                      </span>
+                      <span class="mf-point-timeline-current-chip mf-point-timeline-current-chip--owm"
+                            *ngIf="pointTimelineOpenWeatherTempC != null">
+                        <img [src]="getBrandLogoSrc('openweathermap')" [alt]="getBrandAlt('openweathermap')"
+                             class="mf-point-timeline-chip-logo" width="14" height="14" />
+                        {{ formatTemperatureLabel(pointTimelineOpenWeatherTempC) }}
+                      </span>
+                    </div>
                   </div>
 
                   <div *ngIf="pointTempTimelineLoading" class="mf-point-timeline-loading" role="status" aria-live="polite">
@@ -261,20 +317,36 @@
                     {{ pointTempTimelineErrorKey | translate }}
                   </div>
 
-                  <ng-container *ngIf="!pointTempTimelineLoading && pointTempTimelineChartsReady">
+                  <ng-container *ngIf="!pointTempTimelineLoading && pointTempTimelineDataLoaded">
                     <section class="mf-point-timeline-section">
-                      <div class="mf-point-timeline-section-label">{{ 'METEO_FRANCE.POINT_TIMELINE_CHART_TITLE' | translate }}</div>
+                      <div class="mf-point-timeline-section-label" *ngIf="pointTempTimelinePeriodLabel">{{ pointTempTimelinePeriodLabel }}</div>
                       <p class="mf-point-timeline-source">
-                        <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')"
+                        <img *ngIf="pointTempTimelineSourceLogo"
+                             [src]="pointTempTimelineSourceLogo"
+                             [alt]="getBrandAlt(pointTempTimelineActiveTab === 'open-meteo' ? 'open-meteo' : pointTempTimelineActiveTab === 'openweathermap' ? 'openweathermap' : 'meteofrance')"
                              class="mf-point-timeline-source-logo" width="14" height="14" />
-                        {{ 'METEO_FRANCE.POINT_TIMELINE_SOURCE' | translate }}
+                        <i *ngIf="!pointTempTimelineSourceLogo" class="fa fa-balance-scale me-1" aria-hidden="true"></i>
+                        {{ pointTempTimelineSourceKey | translate }}
                       </p>
-                      <p class="mf-point-timeline-station small text-muted mb-1" *ngIf="pointTempTimelineStationLabel">{{ pointTempTimelineStationLabel }}</p>
-                      <div class="mf-point-timeline-chart-box mf-point-timeline-chart-box--combined">
+                      <p class="mf-point-timeline-station small text-muted mb-1"
+                         *ngIf="pointTempTimelineShowStation">{{ pointTempTimelineStationLabel }}</p>
+
+                      <div class="alert alert-warning py-2 mb-2 small"
+                           *ngIf="pointTempTimelineTabErrorKey && !pointTempTimelineChartsReady && !pointTempTimelineInfoKey">
+                        {{ pointTempTimelineTabErrorKey | translate }}
+                      </div>
+
+                      <div class="alert alert-info py-2 mb-2 small"
+                           *ngIf="pointTempTimelineInfoKey && !pointTempTimelineChartsReady">
+                        {{ pointTempTimelineInfoKey | translate: pointTempTimelineInfoParams }}
+                      </div>
+
+                      <div class="mf-point-timeline-chart-box mf-point-timeline-chart-box--combined"
+                           *ngIf="pointTempTimelineChartsReady">
                         <canvas #pointTempTimelineChart baseChart
                                 [data]="pointTempTimelineChartData"
                                 [options]="pointTempTimelineChartOptions"
-                                [type]="'line'"></canvas>
+                                [type]="pointTempTimelineChartType"></canvas>
                       </div>
                     </section>
                   </ng-container>

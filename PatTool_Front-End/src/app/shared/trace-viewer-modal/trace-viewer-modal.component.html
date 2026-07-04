@@ -168,9 +168,62 @@
             </header>
 
             <div class="mf-point-timeline-body">
-              <div class="mf-point-timeline-now" *ngIf="weatherTimelineMfTempC != null">
+              <ul class="mf-point-timeline-tabs" role="tablist"
+                  *ngIf="weatherTimelineDataLoaded && !weatherTimelineLoading">
+                <li *ngFor="let tab of weatherTimelineTabs" role="presentation">
+                  <button type="button" class="mf-point-timeline-tab" role="tab"
+                          [class.active]="weatherTimelineActiveTab === tab.id"
+                          [attr.aria-selected]="weatherTimelineActiveTab === tab.id"
+                          (click)="onWeatherTimelineTabChange(tab.id)">
+                    <img *ngIf="tab.brand !== 'compare'"
+                         [src]="getWeatherTimelineBrandLogo(tab.brand)"
+                         [alt]="tab.brand"
+                         class="mf-point-timeline-tab-logo" width="14" height="14" />
+                    <i *ngIf="tab.brand === 'compare'" class="fa fa-balance-scale" aria-hidden="true"></i>
+                    {{ tab.labelKey | translate }}
+                  </button>
+                </li>
+              </ul>
+
+              <div class="mf-point-timeline-param-row"
+                   *ngIf="weatherTimelineDataLoaded && !weatherTimelineLoading">
+                <button type="button"
+                        class="mf-point-timeline-param"
+                        *ngFor="let opt of weatherTimelineParamOptions"
+                        [class.active]="weatherTimelineActiveParam === opt.id"
+                        (click)="onWeatherTimelineParamChange(opt.id)">
+                  {{ opt.labelKey | translate }}
+                </button>
+              </div>
+
+              <div class="mf-point-timeline-now"
+                   *ngIf="weatherTimelineActiveParam === 'temp' && weatherTimelineCurrentTempC != null && weatherTimelineActiveTab !== 'compare'">
                 <span class="mf-point-timeline-now-label">{{ 'METEO_FRANCE.POINT_TIMELINE_CURRENT' | translate }}</span>
-                <span class="mf-point-timeline-now-value">{{ formatWeatherTemp(weatherTimelineMfTempC) }}</span>
+                <span class="mf-point-timeline-now-value">{{ formatWeatherTemp(weatherTimelineCurrentTempC) }}</span>
+              </div>
+
+              <div class="mf-point-timeline-current mf-point-timeline-current--now"
+                   *ngIf="weatherTimelineShowCompareNow">
+                <div class="mf-point-timeline-section-label mf-point-timeline-section-label--now">
+                  {{ 'METEO_FRANCE.POINT_TIMELINE_CURRENT' | translate }}
+                </div>
+                <div class="mf-point-timeline-current-row">
+                  <span class="mf-point-timeline-current-chip mf-point-timeline-current-chip--mf"
+                        *ngIf="weatherPointMfTempC != null">
+                    <img [src]="weatherLogoMf" alt="Météo-France" class="mf-point-timeline-chip-logo" width="14" height="14" />
+                    {{ formatWeatherTemp(weatherPointMfTempC) }}
+                  </span>
+                  <span class="mf-point-timeline-current-chip mf-point-timeline-current-chip--om"
+                        *ngIf="weatherPointOpenMeteoTempC != null">
+                    <img [src]="weatherLogoOm" alt="Open-Meteo" class="mf-point-timeline-chip-logo" width="14" height="14" />
+                    {{ formatWeatherTemp(weatherPointOpenMeteoTempC) }}
+                  </span>
+                  <span class="mf-point-timeline-current-chip mf-point-timeline-current-chip--owm"
+                        *ngIf="weatherPointOpenWeatherTempC != null">
+                    <img [src]="weatherLogoOwm" alt="OpenWeatherMap" class="mf-point-timeline-chip-logo" width="14" height="14" />
+                    {{ formatWeatherTemp(weatherPointOpenWeatherTempC) }}
+                  </span>
+                </div>
               </div>
 
               <div *ngIf="weatherTimelineLoading" class="mf-point-timeline-loading" role="status" aria-live="polite">
@@ -182,19 +235,36 @@
                 {{ weatherTimelineErrorKey | translate }}
               </div>
 
-              <ng-container *ngIf="!weatherTimelineLoading && weatherTimelineChartsReady">
+              <ng-container *ngIf="!weatherTimelineLoading && weatherTimelineDataLoaded">
                 <section class="mf-point-timeline-section">
-                  <div class="mf-point-timeline-section-label">{{ 'METEO_FRANCE.POINT_TIMELINE_CHART_TITLE' | translate }}</div>
+                  <div class="mf-point-timeline-section-label" *ngIf="weatherTimelinePeriodLabel">{{ weatherTimelinePeriodLabel }}</div>
                   <p class="mf-point-timeline-source">
-                    <img [src]="weatherLogoMf" alt="Météo-France" class="mf-point-timeline-source-logo" width="14" height="14" />
-                    {{ 'METEO_FRANCE.POINT_TIMELINE_SOURCE' | translate }}
+                    <img *ngIf="weatherTimelineSourceLogo"
+                         [src]="weatherTimelineSourceLogo"
+                         alt=""
+                         class="mf-point-timeline-source-logo" width="14" height="14" />
+                    <i *ngIf="!weatherTimelineSourceLogo" class="fa fa-balance-scale me-1" aria-hidden="true"></i>
+                    {{ weatherTimelineSourceKey | translate }}
                   </p>
-                  <p class="mf-point-timeline-station small text-muted mb-1" *ngIf="weatherTimelineStationLabel">{{ weatherTimelineStationLabel }}</p>
-                  <div class="mf-point-timeline-chart-box mf-point-timeline-chart-box--combined">
+                  <p class="mf-point-timeline-station small text-muted mb-1"
+                     *ngIf="weatherTimelineShowStation">{{ weatherTimelineStationLabel }}</p>
+
+                  <div class="alert alert-warning py-2 mb-2 small"
+                       *ngIf="weatherTimelineTabErrorKey && !weatherTimelineChartsReady && !weatherTimelineInfoKey">
+                    {{ weatherTimelineTabErrorKey | translate }}
+                  </div>
+
+                  <div class="alert alert-info py-2 mb-2 small"
+                       *ngIf="weatherTimelineInfoKey && !weatherTimelineChartsReady">
+                    {{ weatherTimelineInfoKey | translate: weatherTimelineInfoParams }}
+                  </div>
+
+                  <div class="mf-point-timeline-chart-box mf-point-timeline-chart-box--combined"
+                       *ngIf="weatherTimelineChartsReady">
                     <canvas #weatherTimelineChart baseChart
                             [data]="weatherTimelineChartData"
                             [options]="weatherTimelineChartOptions"
-                            [type]="'line'"></canvas>
+                            [type]="weatherTimelineChartType"></canvas>
                   </div>
                 </section>
               </ng-container>

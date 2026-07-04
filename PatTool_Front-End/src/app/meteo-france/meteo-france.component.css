@@ -2053,6 +2053,67 @@
   padding: 10px 12px 12px;
 }
 
+.mf-point-timeline-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 0;
+  margin: 0 0 8px;
+  list-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mf-point-timeline-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.68rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.mf-point-timeline-tab.active {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: rgba(37, 99, 235, 0.45);
+}
+
+.mf-point-timeline-tab-logo {
+  flex-shrink: 0;
+}
+
+.mf-point-timeline-param-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 8px;
+}
+
+.mf-point-timeline-param {
+  padding: 4px 8px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 999px;
+  background: #fff;
+  color: #475569;
+  font-size: 0.66rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.mf-point-timeline-param.active {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: rgba(5, 150, 105, 0.45);
+}
+
 .mf-point-timeline-section-label {
   font-size: 0.72rem;
   font-weight: 700;
