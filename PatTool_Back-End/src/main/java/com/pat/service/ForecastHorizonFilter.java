@@ -1,5 +1,8 @@
 package com.pat.service;
 
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -10,6 +13,11 @@ import java.util.Map;
  * Filters OpenWeatherMap-like forecast {@code list} entries to a horizon (hours) and step (minutes).
  */
 public final class ForecastHorizonFilter {
+
+    /** Daily forecast slots use local civil time (same zone as MF climatology). */
+    private static final ZoneId DAILY_SLOT_ZONE = ZoneId.of("Europe/Paris");
+    /** Preferred hour for daily forecast samples (14:00 local). */
+    private static final int DAILY_SLOT_HOUR = 14;
 
     private ForecastHorizonFilter() {
     }
@@ -44,6 +52,12 @@ public final class ForecastHorizonFilter {
     public static List<Long> slotEpochSeconds(int horizonHours, int stepMinutes) {
         int horizon = MeteoFranceForecastPreferenceService.clampHorizon(horizonHours);
         int step = MeteoFranceForecastPreferenceService.clampStep(stepMinutes);
+        if (step >= 1440) {
+            return dailySlotEpochSeconds(horizon, DAILY_SLOT_ZONE, DAILY_SLOT_HOUR);
+        }
+        if (step >= 60 && 1440 % step == 0) {
+            return localStepSlotEpochSeconds(horizon, DAILY_SLOT_ZONE, step);
+        }
         long now = System.currentTimeMillis() / 1000L;
         long horizonEnd = now + (long) horizon * 3600L;
         long stepSec = (long) step * 60L;
@@ -51,6 +65,52 @@ public final class ForecastHorizonFilter {
         long slotStart = stepSec > 0 ? ((now / stepSec) + 1) * stepSec : now;
         for (long slot = slotStart; slot <= horizonEnd; slot += stepSec) {
             slots.add(slot);
+        }
+        return slots;
+    }
+
+    /**
+     * One slot per calendar day at {@code anchorHour}:00 in {@code zone}, from the next occurrence
+     * through the forecast horizon (avoids UTC-midnight slots that display as 01:00/02:00 in France).
+     */
+    static List<Long> dailySlotEpochSeconds(int horizonHours, ZoneId zone, int anchorHour) {
+        long now = System.currentTimeMillis() / 1000L;
+        long horizonEnd = now + (long) MeteoFranceForecastPreferenceService.clampHorizon(horizonHours) * 3600L;
+        ZonedDateTime nowZdt = Instant.ofEpochSecond(now).atZone(zone);
+        ZonedDateTime slot = nowZdt.toLocalDate().atTime(anchorHour, 0).atZone(zone);
+        if (!slot.isAfter(nowZdt)) {
+            slot = slot.plusDays(1);
+        }
+        List<Long> slots = new ArrayList<>();
+        while (slot.toEpochSecond() <= horizonEnd) {
+            slots.add(slot.toEpochSecond());
+            slot = slot.plusDays(1);
+        }
+        return slots;
+    }
+
+    /**
+     * Slots every {@code stepMinutes} on local civil-time boundaries (00:00, 02:00, … for a 2 h step).
+     */
+    static List<Long> localStepSlotEpochSeconds(int horizonHours, ZoneId zone, int stepMinutes) {
+        long now = System.currentTimeMillis() / 1000L;
+        long horizonEnd = now + (long) MeteoFranceForecastPreferenceService.clampHorizon(horizonHours) * 3600L;
+        long stepSec = (long) MeteoFranceForecastPreferenceService.clampStep(stepMinutes) * 60L;
+        if (stepSec <= 0) {
+            return List.of();
+        }
+        ZonedDateTime nowZdt = Instant.ofEpochSecond(now).atZone(zone);
+        ZonedDateTime dayStart = nowZdt.toLocalDate().atStartOfDay(zone);
+        long secondsSinceMidnight = nowZdt.toEpochSecond() - dayStart.toEpochSecond();
+        long stepIndex = secondsSinceMidnight / stepSec;
+        ZonedDateTime slot = dayStart.plusSeconds((stepIndex + 1) * stepSec);
+        if (!slot.isAfter(nowZdt)) {
+            slot = slot.plusSeconds(stepSec);
+        }
+        List<Long> slots = new ArrayList<>();
+        while (slot.toEpochSecond() <= horizonEnd) {
+            slots.add(slot.toEpochSecond());
+            slot = slot.plusSeconds(stepSec);
         }
         return slots;
     }

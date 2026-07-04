@@ -22,10 +22,30 @@ public class GeocodeService {
     private static final long MIN_REQUEST_INTERVAL_MS = 1_100L;
     private static final int RETRY_DELAY_MS = 2_000;
     private static final int MAX_ATTEMPTS_REVERSE = 3;
+    private static final long SEARCH_CACHE_TTL_MS = 15 * 60 * 1000L;
+    private static final int SEARCH_CACHE_MAX_ENTRIES = 256;
 
     private final RestTemplate restTemplate;
     private final Lock rateLimitLock = new ReentrantLock();
     private volatile long lastRequestTimeMs = 0;
+    private final Lock searchCacheLock = new ReentrantLock();
+    /** LRU cache: normalized query → (timestamp, results). Hits skip Nominatim entirely. */
+    private final Map<String, SearchCacheEntry> searchCache = new LinkedHashMap<>(64, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, SearchCacheEntry> eldest) {
+            return size() > SEARCH_CACHE_MAX_ENTRIES;
+        }
+    };
+
+    private static final class SearchCacheEntry {
+        final long createdAtMs;
+        final List<Map<String, Object>> results;
+
+        SearchCacheEntry(long createdAtMs, List<Map<String, Object>> results) {
+            this.createdAtMs = createdAtMs;
+            this.results = results;
+        }
+    }
 
     public GeocodeService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
@@ -57,6 +77,12 @@ public class GeocodeService {
     public List<Map<String, Object>> search(String query) {
         if (query == null || query.trim().isEmpty()) {
             return Collections.emptyList();
+        }
+        String cacheKey = normalizeSearchKey(query);
+        List<Map<String, Object>> cached = getCachedSearch(cacheKey);
+        if (cached != null) {
+            log.debug("Geocode search cache hit for '{}'", query.trim());
+            return cached;
         }
         String url = UriComponentsBuilder.fromHttpUrl(NOMINATIM_BASE + "/search")
                 .queryParam("format", "json")
@@ -96,6 +122,7 @@ public class GeocodeService {
                 results.add(out);
             }
             log.debug("Geocode search for '{}' returned {} results", query, results.size());
+            putCachedSearch(cacheKey, results);
             return results;
         } catch (HttpClientErrorException e) {
             if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
@@ -108,6 +135,47 @@ public class GeocodeService {
             log.error("Geocode search failed for query '{}': {}", query, e.getMessage());
             throw new RuntimeException("Geocode search failed: " + e.getMessage(), e);
         }
+    }
+
+    private static String normalizeSearchKey(String query) {
+        return query.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private List<Map<String, Object>> getCachedSearch(String cacheKey) {
+        long now = System.currentTimeMillis();
+        searchCacheLock.lock();
+        try {
+            SearchCacheEntry entry = searchCache.get(cacheKey);
+            if (entry == null || now - entry.createdAtMs > SEARCH_CACHE_TTL_MS) {
+                if (entry != null) {
+                    searchCache.remove(cacheKey);
+                }
+                return null;
+            }
+            return copySearchResults(entry.results);
+        } finally {
+            searchCacheLock.unlock();
+        }
+    }
+
+    private void putCachedSearch(String cacheKey, List<Map<String, Object>> results) {
+        searchCacheLock.lock();
+        try {
+            searchCache.put(cacheKey, new SearchCacheEntry(System.currentTimeMillis(), copySearchResults(results)));
+        } finally {
+            searchCacheLock.unlock();
+        }
+    }
+
+    private static List<Map<String, Object>> copySearchResults(List<Map<String, Object>> results) {
+        if (results == null || results.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Map<String, Object>> copy = new ArrayList<>(results.size());
+        for (Map<String, Object> item : results) {
+            copy.add(item == null ? Collections.emptyMap() : new LinkedHashMap<>(item));
+        }
+        return copy;
     }
 
     /**

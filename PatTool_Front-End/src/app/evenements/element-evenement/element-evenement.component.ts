@@ -43,6 +43,7 @@ import { formatDaysUntilLcd, getDaysUntilEventStart, getDaysUntilLcdDigits } fro
 import { TodoListDetailOverlayService } from '../../todolists/todo-list-detail-overlay.service';
 import { isOdsFile as isOdsSpreadsheetFile } from '../../shared/uploaded-file-types';
 import { OdsEditorLaunchService } from '../../ods-editor/ods-editor-launch.service';
+import { ApiService } from '../../services/api.service';
 
 @Component({
 	selector: 'element-evenement',
@@ -166,6 +167,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	public isFullscreen: boolean = false;
 	private keyboardListener?: (event: KeyboardEvent) => void;
 	private isSlideshowModalOpen: boolean = false;
+	public startLocationMapLoading: boolean = false;
 	private lastKeyPressTime: number = 0;
 	private lastKeyCode: number = 0;
 
@@ -414,7 +416,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		private ngZone: NgZone,
 		private addToDbLayer: AddToDbLayerService,
 			private todoListOverlay: TodoListDetailOverlayService,
-		private odsEditorLaunch: OdsEditorLaunchService
+		private odsEditorLaunch: OdsEditorLaunchService,
+		private apiService: ApiService
 	) {
 		// Rating config 
 		this.ratingConfig.max = 10;
@@ -1175,6 +1178,138 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			this.scrollRestoreFunction();
 			this.scrollRestoreFunction = null;
 		}
+	}
+
+	public openStartLocationOnMap(event: MouseEvent): void {
+		event.stopPropagation();
+		event.preventDefault();
+
+		const locationText = this.evenement?.startLocation?.trim();
+		if (!locationText || !this.traceViewerModalComponent) {
+			return;
+		}
+
+		const parsed = this.tryParseCoordinatesFromText(locationText);
+		if (parsed) {
+			this.openTraceViewerAtCoordinates(parsed.lat, parsed.lng, locationText);
+			return;
+		}
+
+		this.startLocationMapLoading = true;
+		this.apiService.geocodeSearch(locationText).pipe(take(1)).subscribe({
+			next: (data: any[]) => {
+				const results = (data || [])
+					.map((item: any) => ({
+						lat: typeof item.lat === 'number' ? item.lat : parseFloat(item.lat),
+						lng: typeof item.lon === 'number' ? item.lon : parseFloat(item.lon),
+						displayName: item.displayName || item.display_name || locationText
+					}))
+					.filter((item) => isValidGeoCoordinate(item.lat, item.lng));
+
+				if (results.length === 0) {
+					alert(this.translateService.instant('ADDRESS_GEOCODE.NO_RESULTS'));
+					return;
+				}
+
+				const first = results[0];
+				this.openTraceViewerAtCoordinates(first.lat, first.lng, first.displayName || locationText);
+			},
+			error: () => {
+				alert(this.translateService.instant('ADDRESS_GEOCODE.ERROR'));
+			},
+			complete: () => {
+				this.startLocationMapLoading = false;
+				this.safeMarkForCheck();
+			}
+		});
+	}
+
+	private tryParseCoordinatesFromText(text: string): { lat: number; lng: number } | null {
+		const match = text.trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+		if (!match) {
+			return null;
+		}
+		const lat = parseFloat(match[1]);
+		const lng = parseFloat(match[2]);
+		return isValidGeoCoordinate(lat, lng) ? { lat, lng } : null;
+	}
+
+	private openTraceViewerAtCoordinates(lat: number, lng: number, locationLabel: string): void {
+		if (!this.traceViewerModalComponent || !isValidGeoCoordinate(lat, lng)) {
+			return;
+		}
+
+		const labelParts: string[] = [];
+		if (this.evenement?.evenementName) {
+			labelParts.push(this.evenement.evenementName);
+		}
+		if (locationLabel) {
+			labelParts.push(locationLabel);
+		}
+		const label = labelParts.length > 0
+			? labelParts.join(' • ')
+			: this.translateService.instant('EVENTELEM.SEE_LOCATION');
+
+		let finalEventColor: { r: number; g: number; b: number } | undefined;
+		const eventColor = this.evenement?.id ? this.eventColorService.getEventColor(this.evenement.id) : null;
+		if (eventColor) {
+			finalEventColor = eventColor;
+		} else if (this.evenement?.evenementName) {
+			const nameColor = this.eventColorService.getEventColor(this.evenement.evenementName);
+			if (nameColor) {
+				finalEventColor = nameColor;
+			}
+		}
+
+		const savedScrollY = window.scrollY || window.pageYOffset ||
+			document.documentElement.scrollTop ||
+			document.body.scrollTop || 0;
+		this.savedScrollPosition = savedScrollY;
+
+		this.traceViewerModalComponent.openAtLocation(lat, lng, label, finalEventColor);
+
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				window.scrollTo(0, savedScrollY);
+				document.documentElement.scrollTop = savedScrollY;
+				document.body.scrollTop = savedScrollY;
+			});
+		});
+
+		this.scrollRestoreFunction = () => {
+			if (document.body) {
+				document.body.style.overflow = '';
+				document.body.style.overflowX = '';
+				document.body.style.overflowY = '';
+				document.body.style.position = '';
+				document.body.style.height = '';
+			}
+			if (document.documentElement) {
+				document.documentElement.style.overflow = '';
+				document.documentElement.style.overflowX = '';
+				document.documentElement.style.overflowY = '';
+			}
+
+			const restoreScroll = () => {
+				window.scrollTo({
+					top: savedScrollY,
+					left: 0,
+					behavior: 'auto'
+				});
+				if (document.documentElement) {
+					document.documentElement.scrollTop = savedScrollY;
+				}
+				if (document.body) {
+					document.body.scrollTop = savedScrollY;
+				}
+			};
+
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					setTimeout(restoreScroll, 300);
+				});
+			});
+		};
 	}
 
 	// Ensure fileUploadeds is loaded (same source as details-evenement: GET even/{id})

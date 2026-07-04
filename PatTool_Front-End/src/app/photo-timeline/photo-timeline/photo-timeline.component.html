@@ -192,6 +192,9 @@
                             <i class="fa fa-user me-1"></i>{{ 'PHOTO_TIMELINE.OWNER' | translate }}: {{ getOwnerDisplay(group) }}
                         </span>
                         <span class="group-date">{{ formatEventDate(group.eventDate) }}</span>
+                        <span class="group-start-location text-muted" *ngIf="group.startLocation?.trim()">
+                            {{ 'EVENTELEM.STARTLOCATION' | translate }} : {{ group.startLocation }}
+                        </span>
                         <div *ngIf="getDaysUntilWallEventStart(group) as daysUntilStart"
                              class="event-days-until-start event-days-until-start--inline event-days-until-start--compact">
                             <div class="event-days-lcd"
@@ -243,6 +246,15 @@
                             [title]="'PHOTO_TIMELINE.EVENT_CARD' | translate">
                         <i class="fa fa-id-card"></i>
                         <span class="group-action-btn-text">{{ 'PHOTO_TIMELINE.EVENT_CARD' | translate }}</span>
+                    </button>
+                    <button type="button"
+                            class="btn btn-sm group-action-btn group-action-btn--map"
+                            *ngIf="group.startLocation?.trim()"
+                            (click)="openStartLocationOnMap($event, group)"
+                            [disabled]="isStartLocationMapLoading(group)"
+                            [title]="'EVENTELEM.MAP' | translate">
+                        <i class="fa" [ngClass]="isStartLocationMapLoading(group) ? 'fa-spinner fa-spin' : 'fa-map-marker'" aria-hidden="true"></i>
+                        <span class="group-action-btn-text">{{ 'EVENTELEM.MAP' | translate }}</span>
                     </button>
                     <button type="button"
                             class="btn btn-sm group-action-btn group-action-btn--todolist"

@@ -253,8 +253,17 @@
                 <span *ngSwitchCase="5">{{"EVENTCREATION.DIFF.4" | translate }}</span>
                 <span *ngSwitchDefault>{{"EVENTCREATION.DIFF.NA" | translate }}</span>
             </li>
-            <li class="card-info-item">
+            <li class="card-info-item card-info-item-start-location">
                 {{"EVENTELEM.STARTLOCATION" | translate }} : {{evenement.startLocation}}
+                <button *ngIf="evenement.startLocation.trim()"
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary ms-1 dynamic-footer-btn start-location-map-btn"
+                        [ngStyle]="getFooterButtonStyles('details')"
+                        (click)="openStartLocationOnMap($event)"
+                        [disabled]="startLocationMapLoading"
+                        [title]="'EVENTELEM.MAP' | translate">
+                    <i class="fa" [ngClass]="startLocationMapLoading ? 'fa-spinner fa-spin' : 'fa-map-marker'" aria-hidden="true"></i>
+                </button>
             </li>
             <li class="card-info-item card-info-item-begin-dt">
                 <div>

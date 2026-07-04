@@ -43,6 +43,7 @@ export interface TimelineGroup {
     eventName: string;
     eventType: string;
     eventDescription?: string;
+    startLocation?: string;
     eventDate: string;
     visibility?: string;
     friendGroupId?: string;

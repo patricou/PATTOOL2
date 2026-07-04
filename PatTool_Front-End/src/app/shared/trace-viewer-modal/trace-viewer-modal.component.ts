@@ -1,4 +1,6 @@
 import { ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Inject, OnDestroy, Output, TemplateRef, ViewChild } from '@angular/core';
+import { BaseChartDirective } from 'ng2-charts';
+import { Chart, ChartConfiguration, ChartOptions, registerables } from 'chart.js';
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
@@ -8,10 +10,12 @@ import { Router } from '@angular/router';
 import { FileService } from '../../services/file.service';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { ApiService } from '../../services/api.service';
-import { Subject } from 'rxjs';
-import { take, takeUntil } from 'rxjs/operators';
+import { forkJoin, of, Subject } from 'rxjs';
+import { catchError, take, takeUntil } from 'rxjs/operators';
 import * as L from 'leaflet';
 import { isValidGeoCoordinate } from '../geo-coordinates.util';
+
+Chart.register(...registerables);
 
 interface TraceViewerSource {
 	fileId?: string;
@@ -31,6 +35,8 @@ interface TraceStatistics {
 	distanceKm: number | null;
 }
 
+type TraceViewerWeatherBrand = 'meteofrance' | 'open-meteo' | 'openweathermap';
+
 @Component({
 	selector: 'app-trace-viewer-modal',
 	templateUrl: './trace-viewer-modal.component.html',
@@ -40,11 +46,26 @@ interface TraceStatistics {
 		CommonModule,
 		FormsModule,
 		NgbModule,
-		TranslateModule
+		TranslateModule,
+		BaseChartDirective
 	]
 })
 export class TraceViewerModalComponent implements OnDestroy {
+	private static readonly LOGO_MF = 'assets/images/meteofrance-logo.svg';
+	private static readonly LOGO_OPEN_METEO = 'assets/images/open-meteo-logo.svg';
+	private static readonly LOGO_OWM = 'assets/images/openweathermap-logo.svg';
+	private static readonly MF_OBS_VIEWPORT_BOUNDS = {
+		south: 42.0,
+		north: 51.2,
+		west: -5.2,
+		east: 8.5,
+	};
+	private static readonly WEATHER_TIMELINE_HISTORY_DAYS = 7;
+	private static readonly WEATHER_TIMELINE_FORECAST_HOURS = 168;
+	private static readonly WEATHER_TIMELINE_STEP_MINUTES = 120;
+
 	@ViewChild('traceViewerModal') traceViewerModal!: TemplateRef<any>;
+	@ViewChild('weatherTimelineChart', { read: BaseChartDirective }) weatherTimelineChart?: BaseChartDirective;
 	@ViewChild('cartesGouvModal') cartesGouvModal!: TemplateRef<any>;
 	@ViewChild('mapContainer', { static: false }) mapContainerRef?: ElementRef<HTMLDivElement>;
 	@Output() closed = new EventEmitter<void>();
@@ -75,12 +96,33 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private finalSelectedCoordinates?: { lat: number; lng: number };
 	public showAddress: boolean = false;
 	public showWeather: boolean = false;
-	public currentWeather: any = null;
 	public isLoadingWeather: boolean = false;
 	public clickedWeatherLat: number = 0;
 	public clickedWeatherLng: number = 0;
 	public clickedWeatherAlt: number | null = null;
 	public clickedWeatherAddress: string = '';
+	public weatherPointMfTempC: number | null = null;
+	public weatherPointOpenMeteoTempC: number | null = null;
+	public weatherPointOpenWeatherTempC: number | null = null;
+	public weatherPointMfObservedAt: string | null = null;
+	public weatherPointOpenMeteoObservedAt: string | null = null;
+	public weatherPointOpenWeatherObservedAt: string | null = null;
+	public weatherPointMfStationName = '';
+	public weatherPointMfStationId = '';
+	public weatherPointPlaceName = '';
+	readonly weatherLogoMf = TraceViewerModalComponent.LOGO_MF;
+	readonly weatherLogoOm = TraceViewerModalComponent.LOGO_OPEN_METEO;
+	readonly weatherLogoOwm = TraceViewerModalComponent.LOGO_OWM;
+	weatherTimelineVisible = false;
+	weatherTimelineLoading = false;
+	weatherTimelineErrorKey = '';
+	weatherTimelineChartsReady = false;
+	weatherTimelineStationLabel = '';
+	weatherTimelineNowIndex = -1;
+	weatherTimelineChartData: ChartConfiguration<'line'>['data'] = { labels: [], datasets: [] };
+	weatherTimelineChartOptions: ChartOptions<'line'> = { responsive: true, maintainAspectRatio: false };
+	private weatherPointRequestId = 0;
+	private weatherTimelineRequestId = 0;
 	/** Show hiking trails overlay (Waymarked Trails) above the base map. */
 	public showHikingTrailsOverlay: boolean = false;
 	private hikingTrailsOverlay?: L.TileLayer;
@@ -3536,7 +3578,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public onShowWeatherChange(): void {
 		if (this.showWeather) {
 			// If weather was already fetched for a clicked point, just display it
-			if (this.currentWeather && this.clickedWeatherLat && this.clickedWeatherLng) {
+			if (this.hasWeatherPointData && this.clickedWeatherLat && this.clickedWeatherLng) {
 				// Weather already available, just ensure address is loaded
 				if (!this.clickedWeatherAddress) {
 					this.getAddressFromCoordinatesForWeather(this.clickedWeatherLat, this.clickedWeatherLng);
@@ -3592,13 +3634,427 @@ export class TraceViewerModalComponent implements OnDestroy {
 				}, 100);
 			}
 		} else {
-			this.currentWeather = null;
+			this.clearWeatherPointComparison();
+		}
+	}
+
+	get hasWeatherPointData(): boolean {
+		return this.weatherPointMfTempC != null
+			|| this.weatherPointOpenMeteoTempC != null
+			|| this.weatherPointOpenWeatherTempC != null;
+	}
+
+	get weatherLocationDisplayName(): string {
+		const place = this.weatherPointPlaceName?.trim();
+		if (place) {
+			return place;
+		}
+		const address = this.clickedWeatherAddress?.trim();
+		if (address) {
+			const firstPart = address.split(',')[0]?.trim();
+			if (firstPart && !this.looksLikeCoordinates(firstPart)) {
+				return firstPart;
+			}
+			return address;
+		}
+		if (Number.isFinite(this.clickedWeatherLat) && Number.isFinite(this.clickedWeatherLng)) {
+			return `${this.clickedWeatherLat.toFixed(4)}, ${this.clickedWeatherLng.toFixed(4)}`;
+		}
+		return '';
+	}
+
+	public clearWeatherOverlay(): void {
+		this.closeWeatherTimeline();
+		this.clearWeatherPointComparison();
+		this.cdr.detectChanges();
+	}
+
+	public canShowWeatherTimelineButton(): boolean {
+		return this.isWeatherPointInFrance()
+			&& Number.isFinite(this.clickedWeatherLat)
+			&& Number.isFinite(this.clickedWeatherLng);
+	}
+
+	get weatherTimelineTitle(): string {
+		return this.weatherLocationDisplayName;
+	}
+
+	get weatherTimelineMfTempC(): number | null {
+		return this.weatherPointMfTempC;
+	}
+
+	public openWeatherTimeline(): void {
+		if (!this.canShowWeatherTimelineButton()) {
+			return;
+		}
+		this.weatherTimelineVisible = true;
+		this.weatherTimelineChartsReady = false;
+		this.loadWeatherTimelineData();
+	}
+
+	public closeWeatherTimeline(): void {
+		this.weatherTimelineVisible = false;
+		this.weatherTimelineLoading = false;
+		this.weatherTimelineErrorKey = '';
+		this.weatherTimelineChartsReady = false;
+		this.weatherTimelineStationLabel = '';
+		this.resetWeatherTimelineCharts();
+		this.weatherTimelineRequestId++;
+	}
+
+	private loadWeatherTimelineData(): void {
+		if (!this.weatherTimelineVisible
+			|| !Number.isFinite(this.clickedWeatherLat)
+			|| !Number.isFinite(this.clickedWeatherLng)) {
+			return;
+		}
+		const lat = this.clickedWeatherLat;
+		const lon = this.clickedWeatherLng;
+		const requestId = ++this.weatherTimelineRequestId;
+		this.weatherTimelineLoading = true;
+		this.weatherTimelineErrorKey = '';
+		this.weatherTimelineChartsReady = false;
+
+		const stationId = this.weatherPointMfStationId || undefined;
+		const clim$ = this.apiService.getMeteoFranceClimNearby(
+			lat,
+			lon,
+			TraceViewerModalComponent.WEATHER_TIMELINE_HISTORY_DAYS,
+			'horaire',
+			undefined,
+			stationId
+		).pipe(catchError(() => of(null)));
+
+		const forecast$ = this.apiService.getAggregatedForecast(
+			lat,
+			lon,
+			TraceViewerModalComponent.WEATHER_TIMELINE_FORECAST_HOURS,
+			TraceViewerModalComponent.WEATHER_TIMELINE_STEP_MINUTES
+		).pipe(catchError(() => of(null)));
+
+		forkJoin({ clim: clim$, forecast: forecast$ }).pipe(take(1)).subscribe({
+			next: ({ clim, forecast }) => {
+				if (requestId !== this.weatherTimelineRequestId || !this.weatherTimelineVisible) {
+					return;
+				}
+				this.weatherTimelineLoading = false;
+				this.buildWeatherTimelineCharts(clim, forecast);
+				if (!this.weatherTimelineChartsReady && !this.weatherTimelineErrorKey) {
+					this.weatherTimelineErrorKey = 'METEO_FRANCE.POINT_TIMELINE_NO_DATA';
+				}
+				this.cdr.detectChanges();
+			},
+			error: () => {
+				if (requestId !== this.weatherTimelineRequestId) {
+					return;
+				}
+				this.weatherTimelineLoading = false;
+				this.weatherTimelineErrorKey = 'METEO_FRANCE.POINT_TIMELINE_LOAD_ERROR';
+				this.cdr.detectChanges();
+			}
+		});
+	}
+
+	private buildWeatherTimelineCharts(climData: any, forecastData: any): void {
+		this.resetWeatherTimelineCharts();
+
+		type TimelinePoint = { ts: number; value: number; kind: 'history' | 'now' | 'forecast' };
+		const points: TimelinePoint[] = [];
+
+		if (climData && !climData.error) {
+			const hourly = climData.frequency === 'horaire';
+			const rows = [...(climData.rows || [])].sort((a, b) =>
+				this.climRowSortKey(a).localeCompare(this.climRowSortKey(b))
+			);
+			const stationName = climData.station?.name || climData.stationName || this.weatherPointMfStationName;
+			const stationId = climData.station?.id || climData.stationId || this.weatherPointMfStationId;
+			if (stationName || stationId) {
+				this.weatherTimelineStationLabel = stationName
+					? (stationId ? `${stationName} (${stationId})` : stationName)
+					: String(stationId);
+			}
+			for (const row of rows) {
+				const ts = this.climRowEpochSeconds(row);
+				const value = this.extractClimTimelineTemp(row, hourly);
+				if (ts != null && value != null && this.isTimelineTwoHourSlot(ts)) {
+					points.push({ ts, value, kind: 'history' });
+				}
+			}
+		}
+
+		const currentTemp = this.weatherPointMfTempC;
+		if (currentTemp != null) {
+			points.push({
+				ts: Math.floor(Date.now() / 1000),
+				value: Math.round(currentTemp * 10) / 10,
+				kind: 'now'
+			});
+		}
+
+		const steps: any[] = Array.isArray(forecastData?.steps) ? forecastData.steps : [];
+		if (steps.length && !forecastData?.error) {
+			for (const step of steps) {
+				const ts = Number(step?.dt);
+				const raw = step?.meteofrance?.tempC;
+				const value = raw != null && Number.isFinite(Number(raw)) ? Number(raw) : null;
+				if (Number.isFinite(ts) && ts > 0 && value != null) {
+					points.push({ ts, value, kind: 'forecast' });
+				}
+			}
+		}
+
+		if (!points.length) {
+			this.weatherTimelineChartsReady = false;
+			return;
+		}
+
+		points.sort((a, b) => a.ts - b.ts);
+		const labels = points.map((point) => this.formatPointTimelineChartLabel(point.ts));
+		const mfValues = points.map((point) => point.value);
+		this.weatherTimelineNowIndex = points.findIndex((point) => point.kind === 'now');
+
+		const mfLabel = this.translateService.instant('METEO_FRANCE.POINT_TIMELINE_LEGEND_MF');
+		const nowLabel = this.translateService.instant('METEO_FRANCE.POINT_TIMELINE_LEGEND_NOW');
+		const nowValues: Array<number | null> = mfValues.map((value, index) =>
+			index === this.weatherTimelineNowIndex ? value : null
+		);
+
+		this.weatherTimelineChartData = {
+			labels,
+			datasets: [
+				{
+					label: mfLabel,
+					data: mfValues,
+					borderColor: '#2ecc71',
+					backgroundColor: 'rgba(46, 204, 113, 0.12)',
+					tension: 0.25,
+					pointRadius: mfValues.map((_value, index) => index === this.weatherTimelineNowIndex ? 0 : 3),
+					pointHoverRadius: mfValues.map((_value, index) => index === this.weatherTimelineNowIndex ? 0 : 5),
+					spanGaps: true,
+					fill: true,
+					order: 2
+				},
+				{
+					label: nowLabel,
+					data: nowValues,
+					borderColor: '#dc2626',
+					backgroundColor: '#dc2626',
+					pointRadius: nowValues.map((value) => value != null ? 9 : 0),
+					pointHoverRadius: nowValues.map((value) => value != null ? 11 : 0),
+					pointBorderColor: '#ffffff',
+					pointBorderWidth: 2,
+					showLine: false,
+					spanGaps: false,
+					order: 1
+				}
+			]
+		};
+
+		this.weatherTimelineChartOptions = this.buildWeatherTimelineChartOptions(points);
+		this.weatherTimelineChartsReady = true;
+		setTimeout(() => this.refreshWeatherTimelineCharts(), 0);
+	}
+
+	private buildWeatherTimelineChartOptions(
+		points: Array<{ ts: number; value: number; kind: 'history' | 'now' | 'forecast' }> = []
+	): ChartOptions<'line'> {
+		const unit = '°C';
+		const nowLabel = this.translateService.instant('METEO_FRANCE.POINT_TIMELINE_LEGEND_NOW');
+		return {
+			responsive: true,
+			maintainAspectRatio: false,
+			interaction: { mode: 'index', intersect: false },
+			plugins: {
+				legend: {
+					display: true,
+					position: 'top',
+					labels: { boxWidth: 10, font: { size: 10 } }
+				},
+				tooltip: {
+					callbacks: {
+						title: (items) => {
+							const index = items[0]?.dataIndex ?? -1;
+							const point = points[index];
+							if (!point) {
+								return items[0]?.label ?? '';
+							}
+							return this.formatPointTimelineChartLabel(point.ts);
+						},
+						label: (ctx) => {
+							const y = ctx.parsed.y;
+							if (y == null || Number.isNaN(y)) {
+								return `${ctx.dataset.label}: —`;
+							}
+							const formatted = y.toLocaleString(undefined, { maximumFractionDigits: 1 });
+							const index = ctx.dataIndex;
+							const point = points[index];
+							if (point?.kind === 'now' || ctx.dataset.label === nowLabel) {
+								return `${nowLabel}: ${formatted} ${unit}`;
+							}
+							return `${ctx.dataset.label}: ${formatted} ${unit}`;
+						}
+					}
+				}
+			},
+			scales: {
+				x: { display: false },
+				y: {
+					title: { display: true, text: unit },
+					ticks: {
+						font: { size: 10 },
+						callback: (v) => Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 })
+					}
+				}
+			}
+		};
+	}
+
+	private refreshWeatherTimelineCharts(): void {
+		if (!this.weatherTimelineChartsReady) {
+			return;
+		}
+		this.weatherTimelineChart?.update();
+	}
+
+	private resetWeatherTimelineCharts(): void {
+		this.weatherTimelineChartData = { labels: [], datasets: [] };
+		this.weatherTimelineNowIndex = -1;
+	}
+
+	private extractClimTimelineTemp(row: any, hourly: boolean): number | null {
+		if (hourly) {
+			const instant = this.tempChartValue(row.T);
+			if (instant != null) {
+				return instant;
+			}
+			return this.tempChartValue(row.TAT);
+		}
+		return this.extractClimDailyMeanTemp(row);
+	}
+
+	private isTimelineTwoHourSlot(ts: number): boolean {
+		const date = new Date(ts * 1000);
+		return date.getMinutes() === 0 && date.getHours() % 2 === 0;
+	}
+
+	private extractClimDailyMeanTemp(row: any): number | null {
+		const mean = this.tempChartValue(row.TM);
+		if (mean != null) {
+			return mean;
+		}
+		const tnKey = this.parseClimNumber(row.TN) != null ? 'TN' : 'TNT';
+		const min = this.tempChartValue(row[tnKey]);
+		const max = this.tempChartValue(row.TX);
+		if (min != null && max != null) {
+			return Math.round(((min + max) / 2) * 10) / 10;
+		}
+		if (max != null) {
+			return max;
+		}
+		if (min != null) {
+			return min;
+		}
+		const instant = this.tempChartValue(row.T);
+		if (instant != null) {
+			return instant;
+		}
+		return this.tempChartValue(row.TAT);
+	}
+
+	private climRowSortKey(row: any): string {
+		const raw = row.DATE ?? row.AAAAMMJJ ?? row.AAAAMMJJHH;
+		return raw != null ? String(raw).trim() : '';
+	}
+
+	private climRowEpochSeconds(row: any): number | null {
+		const raw = row?.DATE ?? row?.AAAAMMJJ ?? row?.AAAAMMJJHH;
+		if (raw == null) {
+			return null;
+		}
+		const trimmed = String(raw).trim();
+		if (/^\d{10}$/.test(trimmed)) {
+			const year = Number(trimmed.slice(0, 4));
+			const month = Number(trimmed.slice(4, 6)) - 1;
+			const day = Number(trimmed.slice(6, 8));
+			const hour = Number(trimmed.slice(8, 10));
+			const date = new Date(year, month, day, hour, 0, 0);
+			return Number.isNaN(date.getTime()) ? null : Math.floor(date.getTime() / 1000);
+		}
+		if (/^\d{8}$/.test(trimmed)) {
+			const year = Number(trimmed.slice(0, 4));
+			const month = Number(trimmed.slice(4, 6)) - 1;
+			const day = Number(trimmed.slice(6, 8));
+			const date = new Date(year, month, day, 12, 0, 0);
+			return Number.isNaN(date.getTime()) ? null : Math.floor(date.getTime() / 1000);
+		}
+		return null;
+	}
+
+	private parseClimNumber(value: unknown): number | null {
+		if (value === null || value === undefined || value === '') {
+			return null;
+		}
+		const normalized = String(value).trim().replace(',', '.');
+		const num = Number(normalized);
+		return Number.isFinite(num) ? num : null;
+	}
+
+	private tempChartValue(value: unknown): number | null {
+		const celsius = this.parseClimNumber(value);
+		if (celsius == null) {
+			return null;
+		}
+		return Math.round(celsius * 10) / 10;
+	}
+
+	private formatPointTimelineChartLabel(ts: number | null | undefined): string {
+		if (ts == null || !Number.isFinite(Number(ts))) {
+			return '';
+		}
+		return this.formatWeatherDateTime(new Date(Number(ts) * 1000));
+	}
+
+	public formatWeatherTemp(tempC: number): string {
+		return `${Math.round(tempC * 10) / 10}°C`;
+	}
+
+	public formatWeatherObservedTime(value: string | null | undefined): string | null {
+		if (!value) {
+			return null;
+		}
+		const trimmed = value.trim();
+		if (/^\d{10}$/.test(trimmed)) {
+			const date = new Date(Number(trimmed) * 1000);
+			return Number.isNaN(date.getTime()) ? null : this.formatWeatherDateTime(date);
+		}
+		if (/^\d{13}$/.test(trimmed)) {
+			const date = new Date(Number(trimmed));
+			return Number.isNaN(date.getTime()) ? null : this.formatWeatherDateTime(date);
+		}
+		const date = new Date(trimmed);
+		if (Number.isNaN(date.getTime())) {
+			return null;
+		}
+		return this.formatWeatherDateTime(date);
+	}
+
+	public isWeatherPointInFrance(): boolean {
+		return this.isCoordinateInFranceMetropole(this.clickedWeatherLat, this.clickedWeatherLng);
+	}
+
+	public getWeatherBrandAlt(brand: TraceViewerWeatherBrand): string {
+		switch (brand) {
+			case 'meteofrance':
+				return 'Météo-France';
+			case 'openweathermap':
+				return 'OpenWeatherMap';
+			default:
+				return 'Open-Meteo';
 		}
 	}
 
 	/**
-	 * Fetch weather data for given coordinates
-	 * @param showLoading If true, set isLoadingWeather flag (default: true)
+	 * Fetch MF / Open-Meteo / OWM temperatures for the clicked point (same sources as Météo-France map popup).
 	 */
 	private fetchWeather(lat: number, lng: number, alt: number | null = null, showLoading: boolean = true): void {
 		if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
@@ -3608,37 +4064,201 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (showLoading) {
 			this.isLoadingWeather = true;
 		}
-		this.apiService.getCurrentWeatherByCoordinates(lat, lng, alt).subscribe({
-			next: (response) => {
-				if (response.error) {
-					this.currentWeather = null;
-				} else {
-					this.currentWeather = response;
+		this.closeWeatherTimeline();
+		this.clearWeatherPointComparison(false);
+		const requestId = ++this.weatherPointRequestId;
+		const requestKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+
+		let mfDone = false;
+		let openMeteoDone = false;
+		let owmDone = false;
+
+		const finishFetch = (): void => {
+			if (requestId !== this.weatherPointRequestId) {
+				return;
+			}
+			if (!mfDone || !openMeteoDone || !owmDone) {
+				return;
+			}
+			this.isLoadingWeather = false;
+			setTimeout(() => this.cdr.markForCheck(), 0);
+		};
+
+		const applyMfResponse = (mf: any): void => {
+			if (requestId !== this.weatherPointRequestId || this.currentWeatherRequestKey() !== requestKey) {
+				return;
+			}
+			const mfPoint = mf?.points?.[0];
+			const mfTemp = this.extractWeatherPointTempC(mf);
+			const mfSource = String(mf?.source || '');
+			if (this.isMfTemperaturePoint(mfPoint, mfSource) && mfTemp != null && this.isCoordinateInFranceMetropole(lat, lng)) {
+				this.weatherPointMfTempC = mfTemp;
+				this.weatherPointMfObservedAt = this.extractWeatherPointObservedAt(mfPoint);
+				const stationName = mfPoint?.stationName != null ? String(mfPoint.stationName).trim() : '';
+				const stationId = mfPoint?.stationId != null ? String(mfPoint.stationId).trim() : '';
+				this.weatherPointMfStationName = stationName || stationId;
+				this.weatherPointMfStationId = stationId;
+			}
+			mfDone = true;
+			finishFetch();
+		};
+
+		const applyOpenMeteoResponse = (openMeteo: any): void => {
+			if (requestId !== this.weatherPointRequestId || this.currentWeatherRequestKey() !== requestKey) {
+				return;
+			}
+			const openMeteoTemp = this.extractWeatherPointTempC(openMeteo);
+			const openMeteoPoint = openMeteo?.points?.[0];
+			if (openMeteoTemp != null) {
+				this.weatherPointOpenMeteoTempC = openMeteoTemp;
+				this.weatherPointOpenMeteoObservedAt = this.extractWeatherPointObservedAt(openMeteoPoint);
+			}
+			openMeteoDone = true;
+			finishFetch();
+		};
+
+		const applyOwmResponse = (owm: any): void => {
+			if (requestId !== this.weatherPointRequestId || this.currentWeatherRequestKey() !== requestKey) {
+				return;
+			}
+			const owmTemp = owm?.main?.temp;
+			if (owmTemp != null && Number.isFinite(owmTemp)) {
+				this.weatherPointOpenWeatherTempC = owmTemp;
+			}
+			if (owm?.dt != null) {
+				this.weatherPointOpenWeatherObservedAt = String(owm.dt);
+			}
+			const place = owm?.name != null ? String(owm.name).trim() : '';
+			if (place) {
+				this.weatherPointPlaceName = place;
+			}
+			owmDone = true;
+			finishFetch();
+		};
+
+		this.apiService.postWeatherTemperatureLabels([{ lat, lon: lng }], 'open-meteo').pipe(take(1)).subscribe({
+			next: applyOpenMeteoResponse,
+			error: () => {
+				if (requestId !== this.weatherPointRequestId) {
+					return;
 				}
-				this.isLoadingWeather = false;
-				// Use setTimeout to defer change detection to next tick, preventing ExpressionChangedAfterItHasBeenCheckedError
-				setTimeout(() => {
-					this.cdr.markForCheck();
-				}, 0);
+				openMeteoDone = true;
+				finishFetch();
+			}
+		});
+
+		if (this.isCoordinateInFranceMetropole(lat, lng)) {
+			this.apiService.postWeatherTemperatureLabels([{ lat, lon: lng }], 'meteofrance', true).pipe(take(1)).subscribe({
+				next: applyMfResponse,
+				error: () => {
+					if (requestId !== this.weatherPointRequestId) {
+						return;
+					}
+					mfDone = true;
+					finishFetch();
+				}
+			});
+		} else {
+			mfDone = true;
+		}
+
+		this.apiService.getCurrentWeatherByCoordinates(lat, lng, alt).pipe(
+			catchError(() => of(null)),
+			take(1)
+		).subscribe({
+			next: (owm) => {
+				if (owm?.error) {
+					if (requestId !== this.weatherPointRequestId) {
+						return;
+					}
+					owmDone = true;
+					finishFetch();
+					return;
+				}
+				applyOwmResponse(owm);
 			},
-			error: (error) => {
-				console.error('Error fetching weather:', error);
-				this.currentWeather = null;
-				this.isLoadingWeather = false;
-				// Use setTimeout to defer change detection to next tick, preventing ExpressionChangedAfterItHasBeenCheckedError
-				setTimeout(() => {
-					this.cdr.markForCheck();
-				}, 0);
+			error: () => {
+				if (requestId !== this.weatherPointRequestId) {
+					return;
+				}
+				owmDone = true;
+				finishFetch();
 			}
 		});
 	}
 
-	/**
-	 * Get weather icon URL from OpenWeatherMap
-	 */
-	public getWeatherIconUrl(icon: string): string {
-		if (!icon) return '';
-		return `https://openweathermap.org/img/wn/${icon}@2x.png`;
+	private currentWeatherRequestKey(): string {
+		return `${this.clickedWeatherLat.toFixed(4)},${this.clickedWeatherLng.toFixed(4)}`;
+	}
+
+	private clearWeatherPointComparison(resetLoading = true): void {
+		this.weatherPointMfTempC = null;
+		this.weatherPointOpenMeteoTempC = null;
+		this.weatherPointOpenWeatherTempC = null;
+		this.weatherPointMfObservedAt = null;
+		this.weatherPointOpenMeteoObservedAt = null;
+		this.weatherPointOpenWeatherObservedAt = null;
+		this.weatherPointMfStationName = '';
+		this.weatherPointMfStationId = '';
+		this.weatherPointPlaceName = '';
+		if (resetLoading) {
+			this.isLoadingWeather = false;
+		}
+	}
+
+	private extractWeatherPointTempC(data: any): number | null {
+		const raw = data?.points?.[0]?.tempC;
+		const tempC = raw != null ? Number(raw) : NaN;
+		return Number.isFinite(tempC) ? tempC : null;
+	}
+
+	private extractWeatherPointObservedAt(point: any): string | null {
+		const raw = point?.observedAt;
+		if (raw == null) {
+			return null;
+		}
+		const text = String(raw).trim();
+		return text || null;
+	}
+
+	private isMfTemperaturePoint(point: any, mfSource: string): boolean {
+		if (!point || point.tempC == null) {
+			return false;
+		}
+		if (point.stationId || point.stationName) {
+			return true;
+		}
+		if (point.interpolated === true) {
+			return true;
+		}
+		const normalized = mfSource.toLowerCase();
+		return normalized === 'meteofrance-dpobs' || normalized === 'meteofrance-dpobs-v2';
+	}
+
+	private isCoordinateInFranceMetropole(lat: number, lon: number): boolean {
+		if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+			return false;
+		}
+		const b = TraceViewerModalComponent.MF_OBS_VIEWPORT_BOUNDS;
+		return lat >= b.south && lat <= b.north && lon >= b.west && lon <= b.east;
+	}
+
+	private looksLikeCoordinates(text: string): boolean {
+		return /^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$/.test(text.trim());
+	}
+
+	private formatWeatherDateTime(date: Date): string {
+		if (Number.isNaN(date.getTime())) {
+			return '';
+		}
+		return date.toLocaleString(undefined, {
+			weekday: 'short',
+			day: 'numeric',
+			month: 'short',
+			year: 'numeric',
+			hour: '2-digit',
+			minute: '2-digit'
+		});
 	}
 
 	/**
@@ -3661,7 +4281,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.clickedWeatherLng = lng;
 		this.clickedWeatherAlt = null;
 		this.clickedWeatherAddress = '';
-		this.currentWeather = null;
+		this.clearWeatherPointComparison();
 		this.isLoadingWeather = true;
 		this.cdr.detectChanges();
 
@@ -3700,7 +4320,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.clickedWeatherLng = lng;
 		this.clickedWeatherAlt = null;
 		this.clickedWeatherAddress = '';
-		this.currentWeather = null;
+		this.clearWeatherPointComparison();
 		this.isLoadingWeather = true;
 		this.cdr.detectChanges();
 

@@ -240,6 +240,7 @@ public class PhotoTimelineRestController {
         private String eventName;
         private String eventType;
         private String eventDescription;
+        private String startLocation;
         private Date eventDate;
         private String visibility;
         private String friendGroupId;
@@ -275,6 +276,8 @@ public class PhotoTimelineRestController {
         public void setEventType(String eventType) { this.eventType = eventType; }
         public String getEventDescription() { return eventDescription; }
         public void setEventDescription(String eventDescription) { this.eventDescription = eventDescription; }
+        public String getStartLocation() { return startLocation; }
+        public void setStartLocation(String startLocation) { this.startLocation = startLocation; }
         public Date getEventDate() { return eventDate; }
         public void setEventDate(Date eventDate) { this.eventDate = eventDate; }
         public String getVisibility() { return visibility; }
@@ -542,6 +545,7 @@ public class PhotoTimelineRestController {
         group.setEventName(e.getEvenementName());
         group.setEventType(e.getType());
         group.setEventDescription(e.getComments());
+        group.setStartLocation(e.getStartLocation());
         group.setEventDate(e.getBeginEventDate());
         group.setVisibility(e.getVisibility());
         group.setFriendGroupId(e.getFriendGroupId());
@@ -635,6 +639,7 @@ public class PhotoTimelineRestController {
         group.setEventName(e.getEvenementName());
         group.setEventType(e.getType());
         group.setEventDescription(e.getComments());
+        group.setStartLocation(e.getStartLocation());
         group.setEventDate(e.getBeginEventDate());
         group.setVisibility(e.getVisibility());
         group.setFriendGroupId(e.getFriendGroupId());

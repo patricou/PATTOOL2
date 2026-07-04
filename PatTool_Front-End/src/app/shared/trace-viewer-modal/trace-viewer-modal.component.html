@@ -57,77 +57,147 @@
           </div>
         </div>
 
-        <div *ngIf="showWeather && (currentWeather || isLoadingWeather)" class="weather-overlay">
-          <div class="weather-box">
-            <div class="weather-header">
-              <i class="fa fa-cloud me-1"></i>
-              <span class="weather-address">{{ clickedWeatherAddress || ('EVENTELEM.LOADING_ADDRESS' | translate) }}</span>
-              <button type="button" 
-                      class="btn btn-link p-0 ms-auto weather-close" 
-                      (click)="currentWeather = null; $event.stopPropagation()"
-                      title="Fermer">
-                <i class="fa fa-times"></i>
-              </button>
-            </div>
-            <div class="weather-content" *ngIf="!isLoadingWeather && currentWeather">
-              <div class="weather-temp-row">
-                <img *ngIf="currentWeather.weather && currentWeather.weather[0]?.icon" 
-                     [src]="getWeatherIconUrl(currentWeather.weather[0].icon)" 
-                     alt="Weather icon"
-                     class="weather-icon">
-                <div class="weather-temp">
-                  {{ currentWeather.main?.temp ? Math.round(currentWeather.main.temp) : '--' }}°C
-                </div>
-              </div>
-              <div class="weather-desc" *ngIf="currentWeather.weather && currentWeather.weather[0]">
-                {{ currentWeather.weather[0].description }}
-              </div>
-              <div class="weather-details-grid">
-                <div class="weather-detail-item" *ngIf="currentWeather.main?.feels_like">
-                  <i class="fa fa-thermometer-half me-1"></i>
-                  <span class="weather-detail-label">Ressenti:</span>
-                  <span class="weather-detail-value">{{ Math.round(currentWeather.main.feels_like) }}°C</span>
-                </div>
-                <div class="weather-detail-item" *ngIf="currentWeather.main?.temp_min !== undefined && currentWeather.main?.temp_max !== undefined">
-                  <i class="fa fa-arrows-v me-1"></i>
-                  <span class="weather-detail-label">Min/Max:</span>
-                  <span class="weather-detail-value">{{ Math.round(currentWeather.main.temp_min) }}° / {{ Math.round(currentWeather.main.temp_max) }}°</span>
-                </div>
-                <div class="weather-detail-item" *ngIf="currentWeather.main?.humidity">
-                  <i class="fa fa-tint me-1"></i>
-                  <span class="weather-detail-label">Humidité:</span>
-                  <span class="weather-detail-value">{{ currentWeather.main.humidity }}%</span>
-                </div>
-                <div class="weather-detail-item" *ngIf="currentWeather.main?.pressure">
-                  <i class="fa fa-compress me-1"></i>
-                  <span class="weather-detail-label">Pression:</span>
-                  <span class="weather-detail-value">{{ currentWeather.main.pressure }} hPa</span>
-                </div>
-                <div class="weather-detail-item" *ngIf="currentWeather.wind?.speed">
-                  <i class="fa fa-wind me-1"></i>
-                  <span class="weather-detail-label">Vent:</span>
-                  <span class="weather-detail-value">{{ Math.round(currentWeather.wind.speed * 3.6) }} km/h</span>
-                  <span *ngIf="currentWeather.wind?.deg" class="weather-wind-direction" [style.transform]="'rotate(' + currentWeather.wind.deg + 'deg)'">
-                    <i class="fa fa-arrow-up"></i>
+        <div *ngIf="showWeather && (hasWeatherPointData || isLoadingWeather)" class="weather-overlay">
+          <div class="weather-box tv-weather-compare">
+            <button type="button"
+                    class="tv-weather-close"
+                    (click)="clearWeatherOverlay(); $event.stopPropagation()"
+                    [attr.title]="'COMMUN.CLOSE' | translate"
+                    [attr.aria-label]="'COMMUN.CLOSE' | translate">
+              <i class="fa fa-times" aria-hidden="true"></i>
+            </button>
+
+            <span class="tv-weather-location" *ngIf="weatherLocationDisplayName">
+              {{ weatherLocationDisplayName }}
+            </span>
+
+            <div class="tv-weather-rows" *ngIf="!isLoadingWeather">
+              <div class="tv-weather-mf-block" *ngIf="weatherPointMfTempC != null && isWeatherPointInFrance()">
+                <div class="tv-weather-source-row"
+                     [attr.title]="getWeatherBrandAlt('meteofrance') + (weatherPointMfStationName ? ' · ' + weatherPointMfStationName : '')">
+                  <img class="tv-weather-source-logo tv-weather-source-logo--mf"
+                       [src]="weatherLogoMf"
+                       [alt]="getWeatherBrandAlt('meteofrance')"
+                       width="14"
+                       height="14"
+                       loading="lazy">
+                  <span class="tv-weather-source-code">MF</span>
+                  <span class="tv-weather-source-values">
+                    <span class="tv-weather-temp">{{ formatWeatherTemp(weatherPointMfTempC) }}</span>
+                    <span class="tv-weather-time" *ngIf="formatWeatherObservedTime(weatherPointMfObservedAt) as mfTime">
+                      {{ mfTime }}
+                    </span>
                   </span>
                 </div>
-                <div class="weather-detail-item" *ngIf="currentWeather.visibility !== undefined">
-                  <i class="fa fa-eye me-1"></i>
-                  <span class="weather-detail-label">Visibilité:</span>
-                  <span class="weather-detail-value">{{ (currentWeather.visibility / 1000).toFixed(1) }} km</span>
-                </div>
-                <div class="weather-detail-item" *ngIf="currentWeather.clouds?.all !== undefined">
-                  <i class="fa fa-cloud me-1"></i>
-                  <span class="weather-detail-label">Nuages:</span>
-                  <span class="weather-detail-value">{{ currentWeather.clouds.all }}%</span>
-                </div>
+                <span class="tv-weather-station" *ngIf="weatherPointMfStationName">{{ weatherPointMfStationName }}</span>
+              </div>
+
+              <div class="tv-weather-source-row"
+                   *ngIf="weatherPointOpenMeteoTempC != null"
+                   [attr.title]="getWeatherBrandAlt('open-meteo')">
+                <img class="tv-weather-source-logo"
+                     [src]="weatherLogoOm"
+                     [alt]="getWeatherBrandAlt('open-meteo')"
+                     width="14"
+                     height="14"
+                     loading="lazy">
+                <span class="tv-weather-source-code">OM</span>
+                <span class="tv-weather-source-values">
+                  <span class="tv-weather-temp">{{ formatWeatherTemp(weatherPointOpenMeteoTempC) }}</span>
+                  <span class="tv-weather-time" *ngIf="formatWeatherObservedTime(weatherPointOpenMeteoObservedAt) as omTime">
+                    {{ omTime }}
+                  </span>
+                </span>
+              </div>
+
+              <div class="tv-weather-source-row"
+                   *ngIf="weatherPointOpenWeatherTempC != null"
+                   [attr.title]="getWeatherBrandAlt('openweathermap')">
+                <img class="tv-weather-source-logo"
+                     [src]="weatherLogoOwm"
+                     [alt]="getWeatherBrandAlt('openweathermap')"
+                     width="14"
+                     height="14"
+                     loading="lazy">
+                <span class="tv-weather-source-code">OWM</span>
+                <span class="tv-weather-source-values">
+                  <span class="tv-weather-temp">{{ formatWeatherTemp(weatherPointOpenWeatherTempC) }}</span>
+                  <span class="tv-weather-time" *ngIf="formatWeatherObservedTime(weatherPointOpenWeatherObservedAt) as owmTime">
+                    {{ owmTime }}
+                  </span>
+                </span>
               </div>
             </div>
+
             <div class="weather-loading" *ngIf="isLoadingWeather">
               <i class="fa fa-spinner fa-spin"></i> {{ 'EVENTELEM.LOADING_WEATHER' | translate }}
             </div>
-            <div class="weather-error" *ngIf="!isLoadingWeather && !currentWeather">
+
+            <div class="weather-error" *ngIf="!isLoadingWeather && !hasWeatherPointData">
               {{ 'EVENTELEM.NO_WEATHER_DATA' | translate }}
+            </div>
+
+            <button type="button"
+                    class="tv-weather-timeline-btn"
+                    *ngIf="canShowWeatherTimelineButton() && !isLoadingWeather && hasWeatherPointData"
+                    (click)="openWeatherTimeline(); $event.stopPropagation()"
+                    [attr.title]="'METEO_FRANCE.POINT_TIMELINE_BTN' | translate"
+                    [attr.aria-label]="'METEO_FRANCE.POINT_TIMELINE_BTN' | translate">
+              <i class="fa fa-area-chart" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="mf-point-timeline-overlay" *ngIf="weatherTimelineVisible">
+          <div class="mf-point-timeline-backdrop" (click)="closeWeatherTimeline()"></div>
+          <div class="mf-point-timeline-card" role="dialog" aria-modal="true"
+               [attr.aria-labelledby]="'tv-weather-timeline-title'">
+            <header class="mf-point-timeline-header">
+              <div class="mf-point-timeline-header-main">
+                <img [src]="weatherLogoMf" alt="Météo-France" class="mf-point-timeline-logo" width="22" height="22" />
+                <h6 class="mf-point-timeline-title" id="tv-weather-timeline-title">
+                  <i class="fa fa-area-chart me-1" aria-hidden="true"></i>
+                  {{ weatherTimelineTitle }}
+                </h6>
+              </div>
+              <button type="button" class="mf-point-timeline-close"
+                      (click)="closeWeatherTimeline()"
+                      [attr.aria-label]="'METEO_FRANCE.POINT_TIMELINE_CLOSE' | translate">
+                <i class="fa fa-times" aria-hidden="true"></i>
+              </button>
+            </header>
+
+            <div class="mf-point-timeline-body">
+              <div class="mf-point-timeline-now" *ngIf="weatherTimelineMfTempC != null">
+                <span class="mf-point-timeline-now-label">{{ 'METEO_FRANCE.POINT_TIMELINE_CURRENT' | translate }}</span>
+                <span class="mf-point-timeline-now-value">{{ formatWeatherTemp(weatherTimelineMfTempC) }}</span>
+              </div>
+
+              <div *ngIf="weatherTimelineLoading" class="mf-point-timeline-loading" role="status" aria-live="polite">
+                <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+                {{ 'METEO_FRANCE.CLIM_LOADING' | translate }}
+              </div>
+
+              <div class="alert alert-danger py-2 mb-2 small" *ngIf="weatherTimelineErrorKey && !weatherTimelineLoading">
+                {{ weatherTimelineErrorKey | translate }}
+              </div>
+
+              <ng-container *ngIf="!weatherTimelineLoading && weatherTimelineChartsReady">
+                <section class="mf-point-timeline-section">
+                  <div class="mf-point-timeline-section-label">{{ 'METEO_FRANCE.POINT_TIMELINE_CHART_TITLE' | translate }}</div>
+                  <p class="mf-point-timeline-source">
+                    <img [src]="weatherLogoMf" alt="Météo-France" class="mf-point-timeline-source-logo" width="14" height="14" />
+                    {{ 'METEO_FRANCE.POINT_TIMELINE_SOURCE' | translate }}
+                  </p>
+                  <p class="mf-point-timeline-station small text-muted mb-1" *ngIf="weatherTimelineStationLabel">{{ weatherTimelineStationLabel }}</p>
+                  <div class="mf-point-timeline-chart-box mf-point-timeline-chart-box--combined">
+                    <canvas #weatherTimelineChart baseChart
+                            [data]="weatherTimelineChartData"
+                            [options]="weatherTimelineChartOptions"
+                            [type]="'line'"></canvas>
+                  </div>
+                </section>
+              </ng-container>
             </div>
           </div>
         </div>

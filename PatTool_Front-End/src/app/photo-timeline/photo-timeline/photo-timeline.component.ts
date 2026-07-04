@@ -25,6 +25,7 @@ import { map, distinctUntilChanged, catchError, take, switchMap, finalize, obser
 import { DomSanitizer, SafeUrl, SafeStyle } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
 import { EvenementsService } from '../../services/evenements.service';
+import { ApiService } from '../../services/api.service';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { DiscussionService } from '../../services/discussion.service';
 import { EventColorService } from '../../services/event-color.service';
@@ -421,7 +422,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         private videoUploadProcessingService: VideoUploadProcessingService,
         private todoListOverlay: TodoListDetailOverlayService,
         private assistantLaunch: AssistantLaunchService,
-        private odsEditorLaunch: OdsEditorLaunchService
+        private odsEditorLaunch: OdsEditorLaunchService,
+        private apiService: ApiService
     ) {
         // Pré-charge `app.imagemaxsizekb` côté backend pour pouvoir adapter
         // le modal de compression dès la première sélection / "Ajouter dans
@@ -1299,7 +1301,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             (photoGroup?.photos?.length ?? 0) > 0
             || (photoGroup?.fsPhotoLinks?.length ?? 0) > 0;
         if (photoGroup && photoHasWallContent) {
-            return { ...photoGroup };
+            return {
+                ...photoGroup,
+                startLocation: photoGroup.startLocation ?? fallback.startLocation
+            };
         }
 
         const videoGroup = pick(videoRes);
@@ -1308,7 +1313,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 ...videoGroup,
                 photos: [],
                 videos: videoGroup.photos || [],
-                fsPhotoLinks: videoGroup.fsPhotoLinks || []
+                fsPhotoLinks: videoGroup.fsPhotoLinks || [],
+                startLocation: videoGroup.startLocation ?? fallback.startLocation
             };
         }
 
@@ -1347,6 +1353,49 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         if (!this.groupTrackLinksCache.has(group)) {
             this.groupTrackLinksCache.set(group, this.computeGroupMongoTrackLinks(group));
         }
+        this.ensureWallGroupStartLocation(group);
+    }
+
+    /** Timeline API may omit startLocation until backend restart — load from event detail when missing. */
+    private readonly wallStartLocationPending = new Set<string>();
+    private readonly wallStartLocationResolvedEmpty = new Set<string>();
+
+    private ensureWallGroupStartLocation(group: TimelineGroup): void {
+        const eventId = group?.eventId?.trim();
+        if (!eventId || group.startLocation?.trim()) {
+            return;
+        }
+        if (this.wallStartLocationPending.has(eventId) || this.wallStartLocationResolvedEmpty.has(eventId)) {
+            return;
+        }
+
+        this.wallStartLocationPending.add(eventId);
+        this.evenementsService.getEvenement(eventId).pipe(take(1)).subscribe({
+            next: (ev) => {
+                const loc = ev?.startLocation?.trim();
+                if (loc) {
+                    this.patchVisibleGroupStartLocation(eventId, loc);
+                } else {
+                    this.wallStartLocationResolvedEmpty.add(eventId);
+                }
+            },
+            error: () => {
+                this.wallStartLocationResolvedEmpty.add(eventId);
+            },
+            complete: () => {
+                this.wallStartLocationPending.delete(eventId);
+                this.cdr.markForCheck();
+            }
+        });
+    }
+
+    private patchVisibleGroupStartLocation(eventId: string, startLocation: string): void {
+        const patch = (groups: TimelineGroup[]): TimelineGroup[] =>
+            groups.map(g => (g.eventId === eventId ? { ...g, startLocation } : g));
+
+        this.visibleGroups = patch(this.visibleGroups);
+        this.bufferedGroups = patch(this.bufferedGroups);
+        this.bufferedVideoGroups = patch(this.bufferedVideoGroups);
     }
 
     /** Group media: photos and videos interleaved; capped in the grid until expanded. */
@@ -2610,6 +2659,129 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         if (this.slideshowModalComponent) {
             this.slideshowModalComponent.setTraceViewerOpen(false);
         }
+    }
+
+    startLocationMapLoadingEventId: string | null = null;
+
+    isStartLocationMapLoading(group: TimelineGroup): boolean {
+        return !!group?.eventId && this.startLocationMapLoadingEventId === group.eventId;
+    }
+
+    openStartLocationOnMap(event: MouseEvent, group: TimelineGroup): void {
+        event.stopPropagation();
+        event.preventDefault();
+
+        if (!this.traceViewerModalComponent || !group?.eventId) {
+            return;
+        }
+
+        const locationText = group.startLocation?.trim();
+        if (!locationText) {
+            this.startLocationMapLoadingEventId = group.eventId;
+            this.cdr.markForCheck();
+            this.evenementsService.getEvenement(group.eventId).pipe(take(1)).subscribe({
+                next: (ev) => {
+                    const loc = ev?.startLocation?.trim();
+                    if (loc) {
+                        this.patchVisibleGroupStartLocation(group.eventId, loc);
+                        this.openStartLocationOnMapWithText(event, { ...group, startLocation: loc }, loc);
+                    } else {
+                        alert(this.translate.instant('ADDRESS_GEOCODE.NO_RESULTS'));
+                    }
+                },
+                error: () => {
+                    alert(this.translate.instant('ADDRESS_GEOCODE.ERROR'));
+                },
+                complete: () => {
+                    this.startLocationMapLoadingEventId = null;
+                    this.cdr.markForCheck();
+                }
+            });
+            return;
+        }
+
+        this.openStartLocationOnMapWithText(event, group, locationText);
+    }
+
+    private openStartLocationOnMapWithText(event: MouseEvent, group: TimelineGroup, locationText: string): void {
+        if (!this.traceViewerModalComponent) {
+            return;
+        }
+
+        const parsed = this.tryParseCoordinatesFromText(locationText);
+        if (parsed) {
+            this.openTraceViewerAtStartLocation(parsed.lat, parsed.lng, locationText, group);
+            return;
+        }
+
+        this.startLocationMapLoadingEventId = group.eventId || null;
+        this.cdr.markForCheck();
+        this.apiService.geocodeSearch(locationText).pipe(take(1)).subscribe({
+            next: (data: any[]) => {
+                const results = (data || [])
+                    .map((item: any) => ({
+                        lat: typeof item.lat === 'number' ? item.lat : parseFloat(item.lat),
+                        lng: typeof item.lon === 'number' ? item.lon : parseFloat(item.lon),
+                        displayName: item.displayName || item.display_name || locationText
+                    }))
+                    .filter((item) => isValidGeoCoordinate(item.lat, item.lng));
+
+                if (results.length === 0) {
+                    alert(this.translate.instant('ADDRESS_GEOCODE.NO_RESULTS'));
+                    return;
+                }
+
+                const first = results[0];
+                this.openTraceViewerAtStartLocation(first.lat, first.lng, first.displayName || locationText, group);
+            },
+            error: () => {
+                alert(this.translate.instant('ADDRESS_GEOCODE.ERROR'));
+            },
+            complete: () => {
+                this.startLocationMapLoadingEventId = null;
+                this.cdr.markForCheck();
+            }
+        });
+    }
+
+    private tryParseCoordinatesFromText(text: string): { lat: number; lng: number } | null {
+        const match = text.trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+        if (!match) {
+            return null;
+        }
+        const lat = parseFloat(match[1]);
+        const lng = parseFloat(match[2]);
+        return isValidGeoCoordinate(lat, lng) ? { lat, lng } : null;
+    }
+
+    private openTraceViewerAtStartLocation(lat: number, lng: number, locationLabel: string, group: TimelineGroup): void {
+        if (!this.traceViewerModalComponent || !isValidGeoCoordinate(lat, lng)) {
+            return;
+        }
+
+        const labelParts: string[] = [];
+        if (group?.eventName) {
+            labelParts.push(group.eventName);
+        }
+        if (locationLabel) {
+            labelParts.push(locationLabel);
+        }
+        const label = labelParts.length > 0
+            ? labelParts.join(' • ')
+            : this.translate.instant('EVENTELEM.SEE_LOCATION');
+
+        let finalEventColor: { r: number; g: number; b: number } | undefined;
+        const eventColor = group?.eventId ? this.eventColorService.getEventColor(group.eventId) : null;
+        if (eventColor) {
+            finalEventColor = eventColor;
+        } else if (group?.eventName) {
+            const nameColor = this.eventColorService.getEventColor(group.eventName);
+            if (nameColor) {
+                finalEventColor = nameColor;
+            }
+        }
+
+        this.traceViewerModalComponent.openAtLocation(lat, lng, label, finalEventColor);
     }
 
     onAddToDb(event: SlideshowAddToDbEvent): void {

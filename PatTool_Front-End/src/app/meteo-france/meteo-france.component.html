@@ -85,9 +85,9 @@
                 <i class="fa" [class.fa-search]="!isLoadingCitySearch" [class.fa-spinner]="isLoadingCitySearch" [class.fa-spin]="isLoadingCitySearch"></i>
               </button>
             </div>
-            <div class="city-search-results" *ngIf="showCitySearchResults && citySearchResults.length">
+            <div class="city-search-results" *ngIf="citySearchResults.length">
               <div class="city-search-result-item" *ngFor="let r of citySearchResults" (click)="selectCity(r)">
-                <i class="fa fa-map-marker"></i> {{ r.displayName || r.cityName }}
+                <i class="fa fa-map-marker"></i> {{ r.displayName }}
               </div>
             </div>
           </div>
@@ -225,6 +225,62 @@
               </span>
             </button>
             <div id="meteo-france-map" class="meteo-france-map"></div>
+
+            <div class="mf-point-timeline-overlay" *ngIf="pointTempTimelineVisible">
+              <div class="mf-point-timeline-backdrop" (click)="closePointTempTimeline()"></div>
+              <div class="mf-point-timeline-card" role="dialog" aria-modal="true"
+                   [attr.aria-labelledby]="'mf-point-timeline-title'">
+                <header class="mf-point-timeline-header">
+                  <div class="mf-point-timeline-header-main">
+                    <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')"
+                         class="mf-point-timeline-logo" width="22" height="22" />
+                    <h6 class="mf-point-timeline-title" id="mf-point-timeline-title">
+                      <i class="fa fa-area-chart me-1" aria-hidden="true"></i>
+                      {{ pointTempTimelineTitle }}
+                    </h6>
+                  </div>
+                  <button type="button" class="mf-point-timeline-close"
+                          (click)="closePointTempTimeline()"
+                          [attr.aria-label]="'METEO_FRANCE.POINT_TIMELINE_CLOSE' | translate">
+                    <i class="fa fa-times" aria-hidden="true"></i>
+                  </button>
+                </header>
+
+                <div class="mf-point-timeline-body">
+                  <div class="mf-point-timeline-now" *ngIf="pointTimelineMfTempC != null">
+                    <span class="mf-point-timeline-now-label">{{ 'METEO_FRANCE.POINT_TIMELINE_CURRENT' | translate }}</span>
+                    <span class="mf-point-timeline-now-value">{{ formatTemperatureLabel(pointTimelineMfTempC) }}</span>
+                  </div>
+
+                  <div *ngIf="pointTempTimelineLoading" class="mf-point-timeline-loading" role="status" aria-live="polite">
+                    <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+                    {{ 'METEO_FRANCE.CLIM_LOADING' | translate }}
+                  </div>
+
+                  <div class="alert alert-danger py-2 mb-2 small" *ngIf="pointTempTimelineErrorKey && !pointTempTimelineLoading">
+                    {{ pointTempTimelineErrorKey | translate }}
+                  </div>
+
+                  <ng-container *ngIf="!pointTempTimelineLoading && pointTempTimelineChartsReady">
+                    <section class="mf-point-timeline-section">
+                      <div class="mf-point-timeline-section-label">{{ 'METEO_FRANCE.POINT_TIMELINE_CHART_TITLE' | translate }}</div>
+                      <p class="mf-point-timeline-source">
+                        <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')"
+                             class="mf-point-timeline-source-logo" width="14" height="14" />
+                        {{ 'METEO_FRANCE.POINT_TIMELINE_SOURCE' | translate }}
+                      </p>
+                      <p class="mf-point-timeline-station small text-muted mb-1" *ngIf="pointTempTimelineStationLabel">{{ pointTempTimelineStationLabel }}</p>
+                      <div class="mf-point-timeline-chart-box mf-point-timeline-chart-box--combined">
+                        <canvas #pointTempTimelineChart baseChart
+                                [data]="pointTempTimelineChartData"
+                                [options]="pointTempTimelineChartOptions"
+                                [type]="'line'"></canvas>
+                      </div>
+                    </section>
+                  </ng-container>
+                </div>
+              </div>
+            </div>
           </div>
 
 

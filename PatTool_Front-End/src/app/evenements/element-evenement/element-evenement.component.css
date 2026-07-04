@@ -28,6 +28,15 @@
     margin-bottom: 0.35rem;
 }
 
+:host .card-block .card-info-box .card-info-item-start-location .start-location-map-btn {
+    vertical-align: middle;
+    padding: 0.1rem 0.35rem;
+    line-height: 1;
+    font-size: 0.65rem;
+    border-width: 2px;
+    border-style: solid;
+}
+
 :host .card-block .card-info-box .card-info-item-begin-dt .event-days-until-start {
     margin-top: 0.35rem;
     padding-left: 0;
