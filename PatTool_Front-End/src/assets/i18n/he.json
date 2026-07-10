@@ -2913,6 +2913,7 @@
         "POINT_TIMELINE_ZOOM_HINT": "גלגלת לזום · גרור להזזה · Shift+גרור לאזור",
         "POINT_TIMELINE_ZOOM_RESET": "איפוס זום",
         "POINT_TIMELINE_CURRENT": "עכשיו",
+        "POINT_TIMELINE_CURRENT_AT": "עכשיו ב-{{time}}",
         "POINT_TIMELINE_HISTORY": "7 הימים האחרונים",
         "POINT_TIMELINE_FORECAST": "7 הימים הבאים",
         "POINT_TIMELINE_CHART_TITLE": "7 ימים אחורה · עכשיו · 7 ימים קדימה",

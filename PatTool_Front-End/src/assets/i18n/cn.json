@@ -2913,6 +2913,7 @@
         "POINT_TIMELINE_ZOOM_HINT": "滚轮缩放 · 拖动平移 · Shift+拖动框选缩放",
         "POINT_TIMELINE_ZOOM_RESET": "重置缩放",
         "POINT_TIMELINE_CURRENT": "现在",
+        "POINT_TIMELINE_CURRENT_AT": "现在 {{time}}",
         "POINT_TIMELINE_HISTORY": "过去7天",
         "POINT_TIMELINE_FORECAST": "未来7天",
         "POINT_TIMELINE_CHART_TITLE": "过去7天 · 现在 · 未来7天",

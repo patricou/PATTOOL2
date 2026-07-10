@@ -2904,6 +2904,7 @@
         "POINT_TIMELINE_ZOOM_HINT": "Wheel se zoom · drag se pan · Shift+drag se area zoom",
         "POINT_TIMELINE_ZOOM_RESET": "Zoom reset",
         "POINT_TIMELINE_CURRENT": "अभी",
+        "POINT_TIMELINE_CURRENT_AT": "अभी {{time}} पर",
         "POINT_TIMELINE_HISTORY": "पिछले 7 दिन",
         "POINT_TIMELINE_FORECAST": "अगले 7 दिन",
         "POINT_TIMELINE_CHART_TITLE": "7 दिन पीछे · अभी · 7 दिन आगे",

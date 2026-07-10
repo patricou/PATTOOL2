@@ -67,8 +67,8 @@
               <i class="fa fa-times" aria-hidden="true"></i>
             </button>
 
-            <span class="tv-weather-location" *ngIf="weatherLocationDisplayName">
-              {{ weatherLocationDisplayName }}
+            <span class="tv-weather-location" *ngIf="weatherLocationLabel">
+              {{ weatherLocationLabel }}
             </span>
 
             <div class="tv-weather-rows" *ngIf="!isLoadingWeather">
@@ -150,14 +150,17 @@
 
         <app-weather-point-timeline
           [(visible)]="weatherTimelineVisible"
-          [lat]="clickedWeatherLat"
-          [lon]="clickedWeatherLng"
-          [title]="weatherTimelineTitle"
-          [mfTempC]="weatherPointMfTempC"
-          [openMeteoTempC]="weatherPointOpenMeteoTempC"
-          [openWeatherTempC]="weatherPointOpenWeatherTempC"
-          [stationId]="weatherPointMfStationId || undefined"
-          [stationName]="weatherPointMfStationName || undefined"
+          [lat]="weatherTimelineLat"
+          [lon]="weatherTimelineLon"
+          [title]="weatherTimelineTitleSnapshot"
+          [mfTempC]="weatherTimelineMfTempC"
+          [openMeteoTempC]="weatherTimelineOpenMeteoTempC"
+          [openWeatherTempC]="weatherTimelineOpenWeatherTempC"
+          [mfObservedAt]="weatherTimelineMfObservedAt"
+          [openMeteoObservedAt]="weatherTimelineOpenMeteoObservedAt"
+          [openWeatherObservedAt]="weatherTimelineOpenWeatherObservedAt"
+          [stationId]="weatherTimelineStationId || undefined"
+          [stationName]="weatherTimelineStationName || undefined"
           overlayMode="embedded">
         </app-weather-point-timeline>
 

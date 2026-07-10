@@ -2666,6 +2666,7 @@
         "POINT_TIMELINE_ZOOM_HINT": "Τροχός για ζουμ · σύρετε για μετακίνηση · Shift+σύρετε για περιοχή",
         "POINT_TIMELINE_ZOOM_RESET": "Επαναφορά ζουμ",
         "POINT_TIMELINE_CURRENT": "Τώρα",
+        "POINT_TIMELINE_CURRENT_AT": "Τώρα στις {{time}}",
         "POINT_TIMELINE_HISTORY": "Τελευταίες 7 ημέρες",
         "POINT_TIMELINE_FORECAST": "Επόμενες 7 ημέρες",
         "POINT_TIMELINE_CHART_TITLE": "7 ημ. πίσω · τώρα · 7 ημ. μπροστά",

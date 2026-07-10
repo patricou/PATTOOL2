@@ -2906,6 +2906,7 @@
         "POINT_TIMELINE_ZOOM_HINT": "Колёсико — масштаб · перетаскивание — сдвиг · Shift+перетаскивание — область",
         "POINT_TIMELINE_ZOOM_RESET": "Сбросить масштаб",
         "POINT_TIMELINE_CURRENT": "Сейчас",
+        "POINT_TIMELINE_CURRENT_AT": "Сейчас в {{time}}",
         "POINT_TIMELINE_HISTORY": "Последние 7 дней",
         "POINT_TIMELINE_FORECAST": "Следующие 7 дней",
         "POINT_TIMELINE_CHART_TITLE": "7 д назад · сейчас · 7 д вперёд",

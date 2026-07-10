@@ -2668,6 +2668,7 @@
         "POINT_TIMELINE_ZOOM_HINT": "ホイールでズーム · ドラッグで移動 · Shift+ドラッグで範囲ズーム",
         "POINT_TIMELINE_ZOOM_RESET": "ズームをリセット",
         "POINT_TIMELINE_CURRENT": "現在",
+        "POINT_TIMELINE_CURRENT_AT": "現在 {{time}}",
         "POINT_TIMELINE_HISTORY": "過去7日間",
         "POINT_TIMELINE_FORECAST": "今後7日間",
         "POINT_TIMELINE_CHART_TITLE": "過去7日 · 現在 · 今後7日",

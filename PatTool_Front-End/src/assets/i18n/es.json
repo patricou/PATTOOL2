@@ -2928,6 +2928,7 @@
         "POINT_TIMELINE_ZOOM_HINT": "Rueda para zoom · arrastrar para desplazar · Mayús+arrastrar para zoom de área",
         "POINT_TIMELINE_ZOOM_RESET": "Restablecer zoom",
         "POINT_TIMELINE_CURRENT": "Ahora",
+        "POINT_TIMELINE_CURRENT_AT": "Ahora a las {{time}}",
         "POINT_TIMELINE_HISTORY": "Últimos 7 días",
         "POINT_TIMELINE_FORECAST": "Próximos 7 días",
         "POINT_TIMELINE_CHART_TITLE": "7 d pasados · ahora · 7 d por venir",

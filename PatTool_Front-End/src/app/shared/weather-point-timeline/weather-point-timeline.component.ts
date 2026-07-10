@@ -1,4 +1,6 @@
 import {
+  AfterViewInit,
+  ChangeDetectorRef,
   Component,
   ElementRef,
   EventEmitter,
@@ -58,7 +60,7 @@ interface TimelineLoadLogEntry {
   templateUrl: './weather-point-timeline.component.html',
   styleUrls: ['./weather-point-timeline.component.css']
 })
-export class WeatherPointTimelineComponent implements OnChanges, OnDestroy {
+export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, OnDestroy {
   private static readonly LOGO_MF = 'assets/images/meteofrance-logo.svg';
   private static readonly LOGO_OPEN_METEO = 'assets/images/open-meteo-logo.svg';
   private static readonly LOGO_OWM = 'assets/images/openweathermap-logo.svg';
@@ -76,6 +78,9 @@ export class WeatherPointTimelineComponent implements OnChanges, OnDestroy {
   @Input() mfTempC: number | null = null;
   @Input() openMeteoTempC: number | null = null;
   @Input() openWeatherTempC: number | null = null;
+  @Input() mfObservedAt: string | null = null;
+  @Input() openMeteoObservedAt: string | null = null;
+  @Input() openWeatherObservedAt: string | null = null;
   @Input() stationId?: string;
   @Input() stationName?: string;
   @Input() departmentCode?: string;
@@ -115,6 +120,8 @@ export class WeatherPointTimelineComponent implements OnChanges, OnDestroy {
   climLoading = false;
   loadLogPanelOpen = false;
   loadLogEntries: TimelineLoadLogEntry[] = [];
+  /** Bound in template — updated on next tick to avoid NG0100 on loadInProgress. */
+  loadInProgressUi = false;
 
   chartData: ChartConfiguration<'line' | 'bar'>['data'] = { labels: [], datasets: [] };
   chartOptions: ChartOptions<'line' | 'bar'> = this.buildChartOptions();
@@ -165,25 +172,40 @@ export class WeatherPointTimelineComponent implements OnChanges, OnDestroy {
   private loadDoneLogged = false;
   private chartReadyLogged = false;
   private activeLoadCancel$?: Subject<void>;
+  private loadDataTimer: ReturnType<typeof setTimeout> | null = null;
   private static readonly LOAD_LOG_MAX = 120;
 
   constructor(
     private apiService: ApiService,
     private translate: TranslateService,
+    private readonly cdr: ChangeDetectorRef,
     @Optional() private chartFullscreen?: MeteoChartFullscreenService
   ) {}
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['visible']) {
       if (this.visible && changes['visible'].previousValue !== true) {
-        this.loadData();
+        this.scheduleLoadData();
       } else if (!this.visible) {
+        this.cancelScheduledLoadData();
         this.resetInternalState();
       }
     }
-    if (this.visible && !this.loadInProgress
-      && (changes['temperatureUnit'] || changes['mfTempC'] || changes['openMeteoTempC'] || changes['openWeatherTempC'])) {
+    if (this.visible && (changes['lat'] || changes['lon'])
+      && changes['lat']?.previousValue !== undefined
+      && changes['lon']?.previousValue !== undefined) {
+      this.scheduleLoadData(true);
+    }
+    const tempChanged = changes['temperatureUnit'] || changes['mfTempC']
+      || changes['openMeteoTempC'] || changes['openWeatherTempC'];
+    if (this.visible && this.dataLoaded && !this.loadInProgress && tempChanged) {
       this.refreshFromCaches(false);
+    }
+  }
+
+  ngAfterViewInit(): void {
+    if (this.visible && !this.dataLoaded && this.loadDataTimer == null) {
+      this.scheduleLoadData();
     }
   }
 
@@ -206,6 +228,28 @@ export class WeatherPointTimelineComponent implements OnChanges, OnDestroy {
       default:
         return this.mfTempC;
     }
+  }
+
+  get currentObservedAtRaw(): string | null {
+    switch (this.activeTab) {
+      case 'open-meteo':
+        return this.openMeteoObservedAt;
+      case 'openweathermap':
+        return this.openWeatherObservedAt;
+      default:
+        return this.mfObservedAt;
+    }
+  }
+
+  get currentTempLabelKey(): string {
+    return this.formatObservedTime(this.currentObservedAtRaw)
+      ? 'METEO_FRANCE.POINT_TIMELINE_CURRENT_AT'
+      : 'METEO_FRANCE.POINT_TIMELINE_CURRENT';
+  }
+
+  get currentTempLabelParams(): Record<string, string> {
+    const time = this.formatObservedTime(this.currentObservedAtRaw);
+    return time ? { time } : {};
   }
 
   get showCompareNow(): boolean {
@@ -308,6 +352,28 @@ export class WeatherPointTimelineComponent implements OnChanges, OnDestroy {
     return `${value}${unit}`;
   }
 
+  formatObservedTime(value: string | null | undefined): string | null {
+    if (!value) {
+      return null;
+    }
+    const trimmed = value.trim();
+    let date: Date | null = null;
+    if (/^\d{10}$/.test(trimmed)) {
+      date = new Date(Number(trimmed) * 1000);
+    } else if (/^\d{13}$/.test(trimmed)) {
+      date = new Date(Number(trimmed));
+    } else {
+      date = new Date(trimmed);
+    }
+    if (!date || Number.isNaN(date.getTime())) {
+      return null;
+    }
+    return date.toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
   isFullscreen(): boolean {
     return this.timelineFullscreen;
   }
@@ -388,10 +454,45 @@ export class WeatherPointTimelineComponent implements OnChanges, OnDestroy {
     this.tabErrorKey = '';
     this.infoKey = '';
     this.errorKey = '';
-    this.loadData(true);
-    if (this.activeParam === 'precipDaily') {
-      this.loadQuotidienne();
+    this.scheduleLoadData(true);
+  }
+
+  private cancelScheduledLoadData(): void {
+    if (this.loadDataTimer != null) {
+      clearTimeout(this.loadDataTimer);
+      this.loadDataTimer = null;
     }
+  }
+
+  /** Avoid NG0100: loadData mutates loadInProgress during the same CD cycle as visible=true. */
+  private scheduleLoadData(isRefresh = false): void {
+    this.cancelScheduledLoadData();
+    this.loadDataTimer = setTimeout(() => {
+      this.loadDataTimer = null;
+      if (!this.visible) {
+        return;
+      }
+      this.loadData(isRefresh);
+      if (isRefresh && this.activeParam === 'precipDaily') {
+        this.loadQuotidienne();
+      }
+    }, 0);
+  }
+
+  /** Reporte les mises à jour UI météo (flags, graphique) — évite NG0100 en dev mode. */
+  private deferTimelineUiUpdate(update: () => void): void {
+    setTimeout(() => {
+      if (!this.visible) {
+        return;
+      }
+      update();
+      this.syncLoadInProgressUi();
+      this.cdr.markForCheck();
+    }, 0);
+  }
+
+  private syncLoadInProgressUi(): void {
+    this.loadInProgressUi = this.loadInProgress;
   }
 
   toggleLoadLogPanel(): void {
@@ -474,6 +575,7 @@ export class WeatherPointTimelineComponent implements OnChanges, OnDestroy {
     this.omLoading = true;
     this.mfForecastLoading = true;
     this.climLoading = this.climEnabled;
+    this.syncLoadInProgressUi();
     this.clearReveal();
     this.streamEventQueue = [];
     this.loadClimHoraire(requestId);
@@ -505,19 +607,29 @@ export class WeatherPointTimelineComponent implements OnChanges, OnDestroy {
         if (requestId !== this.requestId || !this.visible) {
           return;
         }
-        this.climLoading = false;
-        this.climCache = clim;
-        this.logClimResponse('METEO_FRANCE.POINT_TIMELINE_LOG_CLIM_OK', clim);
-        this.refreshFromCaches(true);
-        this.checkLoadComplete();
+        this.deferTimelineUiUpdate(() => {
+          if (requestId !== this.requestId || !this.visible) {
+            return;
+          }
+          this.climLoading = false;
+          this.climCache = clim;
+          this.logClimResponse('METEO_FRANCE.POINT_TIMELINE_LOG_CLIM_OK', clim);
+          this.refreshFromCaches(true);
+          this.checkLoadComplete();
+        });
       },
       error: (err) => {
         if (requestId !== this.requestId) {
           return;
         }
-        this.climLoading = false;
-        this.appendLoadLog('error', 'METEO_FRANCE.POINT_TIMELINE_LOG_CLIM_ERROR', this.extractErrorMessage(err));
-        this.checkLoadComplete();
+        this.deferTimelineUiUpdate(() => {
+          if (requestId !== this.requestId) {
+            return;
+          }
+          this.climLoading = false;
+          this.appendLoadLog('error', 'METEO_FRANCE.POINT_TIMELINE_LOG_CLIM_ERROR', this.extractErrorMessage(err));
+          this.checkLoadComplete();
+        });
       }
     });
   }
@@ -555,11 +667,16 @@ export class WeatherPointTimelineComponent implements OnChanges, OnDestroy {
         if (requestId !== this.requestId) {
           return;
         }
-        this.mfForecastLoading = false;
-        this.owmLoading = false;
-        this.omLoading = false;
-        this.appendLoadLog('ok', 'METEO_FRANCE.POINT_TIMELINE_LOG_SSE_COMPLETE');
-        this.checkLoadComplete();
+        this.deferTimelineUiUpdate(() => {
+          if (requestId !== this.requestId) {
+            return;
+          }
+          this.mfForecastLoading = false;
+          this.owmLoading = false;
+          this.omLoading = false;
+          this.appendLoadLog('ok', 'METEO_FRANCE.POINT_TIMELINE_LOG_SSE_COMPLETE');
+          this.checkLoadComplete();
+        });
       },
       error: (err) => {
         if (requestId !== this.requestId || abort.signal.aborted) {
@@ -568,14 +685,19 @@ export class WeatherPointTimelineComponent implements OnChanges, OnDestroy {
           }
           return;
         }
-        this.mfForecastLoading = false;
-        this.owmLoading = false;
-        this.omLoading = false;
-        this.appendLoadLog('error', 'METEO_FRANCE.POINT_TIMELINE_LOG_SSE_FATAL', this.extractErrorMessage(err));
-        if (!this.chartsReady && this.slots.length === 0) {
-          this.errorKey = 'METEO_FRANCE.POINT_TIMELINE_LOAD_ERROR';
-        }
-        this.checkLoadComplete();
+        this.deferTimelineUiUpdate(() => {
+          if (requestId !== this.requestId) {
+            return;
+          }
+          this.mfForecastLoading = false;
+          this.owmLoading = false;
+          this.omLoading = false;
+          this.appendLoadLog('error', 'METEO_FRANCE.POINT_TIMELINE_LOG_SSE_FATAL', this.extractErrorMessage(err));
+          if (!this.chartsReady && this.slots.length === 0) {
+            this.errorKey = 'METEO_FRANCE.POINT_TIMELINE_LOAD_ERROR';
+          }
+          this.checkLoadComplete();
+        });
       }
     });
   }
@@ -634,27 +756,38 @@ export class WeatherPointTimelineComponent implements OnChanges, OnDestroy {
         if (requestId !== this.requestId || !this.visible) {
           return;
         }
-        this.quotidienneLoading = false;
-        this.climQuotidienneCache = data;
-        this.logClimResponse('METEO_FRANCE.POINT_TIMELINE_LOG_QUOT_OK', data);
-        this.buildDailySlots(data, this.slots);
-        if (this.activeParam === 'precipDaily') {
-          this.renderChart();
-        }
-        this.checkLoadComplete();
+        this.deferTimelineUiUpdate(() => {
+          if (requestId !== this.requestId || !this.visible) {
+            return;
+          }
+          this.quotidienneLoading = false;
+          this.climQuotidienneCache = data;
+          this.logClimResponse('METEO_FRANCE.POINT_TIMELINE_LOG_QUOT_OK', data);
+          this.buildDailySlots(data, this.slots);
+          if (this.activeParam === 'precipDaily') {
+            this.renderChart();
+          }
+          this.checkLoadComplete();
+        });
       },
       error: (err) => {
         if (requestId !== this.requestId) {
           return;
         }
-        this.quotidienneLoading = false;
-        this.appendLoadLog('error', 'METEO_FRANCE.POINT_TIMELINE_LOG_QUOT_ERROR', this.extractErrorMessage(err));
-        this.checkLoadComplete();
+        this.deferTimelineUiUpdate(() => {
+          if (requestId !== this.requestId) {
+            return;
+          }
+          this.quotidienneLoading = false;
+          this.appendLoadLog('error', 'METEO_FRANCE.POINT_TIMELINE_LOG_QUOT_ERROR', this.extractErrorMessage(err));
+          this.checkLoadComplete();
+        });
       }
     });
   }
 
   private resetInternalState(): void {
+    this.cancelScheduledLoadData();
     this.cancelActiveLoads();
     this.unregisterFullscreenHandler();
     this.clearReveal();
@@ -679,6 +812,7 @@ export class WeatherPointTimelineComponent implements OnChanges, OnDestroy {
     this.mfForecastLoading = false;
     this.climLoading = false;
     this.quotidienneLoading = false;
+    this.loadInProgressUi = false;
     this.slots = [];
     this.dailySlots = [];
     this.loadLogPanelOpen = false;
@@ -724,15 +858,20 @@ export class WeatherPointTimelineComponent implements OnChanges, OnDestroy {
         }
         return;
       }
-      this.applyForecastStreamEvent(event);
-      this.refreshFromCaches(true);
-      if (!this.chartsReady && !this.errorKey && !this.tabLoading && this.slots.length === 0) {
-        this.tabErrorKey = 'METEO_FRANCE.POINT_TIMELINE_NO_DATA';
-        this.appendLoadLog('warn', 'METEO_FRANCE.POINT_TIMELINE_LOG_NO_SLOTS_YET');
-      }
-      if (this.streamEventQueue.length) {
-        this.flushStreamQueue();
-      }
+      this.deferTimelineUiUpdate(() => {
+        if (!this.visible) {
+          return;
+        }
+        this.applyForecastStreamEvent(event);
+        this.refreshFromCaches(true);
+        if (!this.chartsReady && !this.errorKey && !this.tabLoading && this.slots.length === 0) {
+          this.tabErrorKey = 'METEO_FRANCE.POINT_TIMELINE_NO_DATA';
+          this.appendLoadLog('warn', 'METEO_FRANCE.POINT_TIMELINE_LOG_NO_SLOTS_YET');
+        }
+        if (this.streamEventQueue.length) {
+          this.flushStreamQueue();
+        }
+      });
     });
   }
 
@@ -1419,6 +1558,7 @@ export class WeatherPointTimelineComponent implements OnChanges, OnDestroy {
         return;
       }
       this.chartsReady = true;
+      this.cdr.markForCheck();
       requestAnimationFrame(() => {
         this.timelineChart?.update();
         if (revealAfterMount && revealChartType === 'line') {
@@ -1431,6 +1571,7 @@ export class WeatherPointTimelineComponent implements OnChanges, OnDestroy {
           });
         }
         this.checkLoadComplete();
+        this.cdr.markForCheck();
       });
     }, 0);
   }

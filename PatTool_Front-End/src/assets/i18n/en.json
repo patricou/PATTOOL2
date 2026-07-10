@@ -3813,6 +3813,7 @@
         "POINT_TIMELINE_ZOOM_HINT": "Wheel to zoom · drag to pan · Shift+drag to zoom an area",
         "POINT_TIMELINE_ZOOM_RESET": "Reset zoom",
         "POINT_TIMELINE_CURRENT": "Now",
+        "POINT_TIMELINE_CURRENT_AT": "Now at {{time}}",
         "POINT_TIMELINE_HISTORY": "Last 7 days",
         "POINT_TIMELINE_FORECAST": "Next 7 days",
         "POINT_TIMELINE_CHART_TITLE": "7 days past · now · 7 days ahead",

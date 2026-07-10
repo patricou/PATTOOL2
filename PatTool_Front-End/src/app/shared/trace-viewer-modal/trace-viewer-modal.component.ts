@@ -106,6 +106,18 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public weatherPointMfStationName = '';
 	public weatherPointMfStationId = '';
 	public weatherPointPlaceName = '';
+	weatherLocationLabel = '';
+	weatherTimelineLat = 0;
+	weatherTimelineLon = 0;
+	weatherTimelineTitleSnapshot = '';
+	weatherTimelineMfTempC: number | null = null;
+	weatherTimelineOpenMeteoTempC: number | null = null;
+	weatherTimelineOpenWeatherTempC: number | null = null;
+	weatherTimelineMfObservedAt: string | null = null;
+	weatherTimelineOpenMeteoObservedAt: string | null = null;
+	weatherTimelineOpenWeatherObservedAt: string | null = null;
+	weatherTimelineStationId = '';
+	weatherTimelineStationName = '';
 	private weatherPointRequestId = 0;
 	readonly weatherLogoMf = TraceViewerModalComponent.LOGO_MF;
 	readonly weatherLogoOm = TraceViewerModalComponent.LOGO_OPEN_METEO;
@@ -198,6 +210,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private mapLayoutResizeObserver?: ResizeObserver;
 	private mapLayoutSyncDebouncer: number | null = null;
 	private traceViewerCdrTimer: number | null = null;
+	private weatherLocationLabelRefreshTimer: number | null = null;
 	private mapResizeObservedDims = { w: -1, h: -1 };
 	/** Bloque le scroll de la page derrière la modale. */
 	private modalWindowWheelHandler?: (event: Event) => void;
@@ -304,6 +317,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (this.traceViewerCdrTimer != null) {
 			clearTimeout(this.traceViewerCdrTimer);
 			this.traceViewerCdrTimer = null;
+		}
+		if (this.weatherLocationLabelRefreshTimer != null) {
+			clearTimeout(this.weatherLocationLabelRefreshTimer);
+			this.weatherLocationLabelRefreshTimer = null;
 		}
 		this.stopFollowDeviceLocation();
 		void this.releaseScreenWakeLock();
@@ -957,6 +974,51 @@ export class TraceViewerModalComponent implements OnDestroy {
 			update();
 			this.scheduleTraceViewerCdr();
 		}, 0);
+	}
+
+	private computeWeatherLocationDisplayName(): string {
+		const place = this.weatherPointPlaceName?.trim();
+		if (place) {
+			return place;
+		}
+		const address = this.clickedWeatherAddress?.trim();
+		if (address) {
+			const firstPart = address.split(',')[0]?.trim();
+			if (firstPart && !this.looksLikeCoordinates(firstPart)) {
+				return firstPart;
+			}
+			return address;
+		}
+		if (Number.isFinite(this.clickedWeatherLat) && Number.isFinite(this.clickedWeatherLng)) {
+			return `${this.clickedWeatherLat.toFixed(4)}, ${this.clickedWeatherLng.toFixed(4)}`;
+		}
+		return '';
+	}
+
+	/** Libellé lieu météo au tick suivant (regroupe géocodage + nom OWM) — évite NG0100. */
+	private scheduleWeatherLocationLabelRefresh(): void {
+		if (this.weatherLocationLabelRefreshTimer != null) {
+			clearTimeout(this.weatherLocationLabelRefreshTimer);
+		}
+		this.weatherLocationLabelRefreshTimer = window.setTimeout(() => {
+			this.weatherLocationLabelRefreshTimer = null;
+			this.weatherLocationLabel = this.computeWeatherLocationDisplayName();
+			this.scheduleTraceViewerCdr();
+		}, 0);
+	}
+
+	private syncWeatherTimelineSnapshot(): void {
+		this.weatherTimelineLat = this.clickedWeatherLat;
+		this.weatherTimelineLon = this.clickedWeatherLng;
+		this.weatherTimelineTitleSnapshot = this.weatherLocationLabel || this.computeWeatherLocationDisplayName();
+		this.weatherTimelineMfTempC = this.weatherPointMfTempC;
+		this.weatherTimelineOpenMeteoTempC = this.weatherPointOpenMeteoTempC;
+		this.weatherTimelineOpenWeatherTempC = this.weatherPointOpenWeatherTempC;
+		this.weatherTimelineMfObservedAt = this.weatherPointMfObservedAt;
+		this.weatherTimelineOpenMeteoObservedAt = this.weatherPointOpenMeteoObservedAt;
+		this.weatherTimelineOpenWeatherObservedAt = this.weatherPointOpenWeatherObservedAt;
+		this.weatherTimelineStationId = this.weatherPointMfStationId;
+		this.weatherTimelineStationName = this.weatherPointMfStationName;
 	}
 
 	private onModalShown(): void {
@@ -3671,7 +3733,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				if (!this.clickedWeatherAddress) {
 					this.getAddressFromCoordinatesForWeather(this.clickedWeatherLat, this.clickedWeatherLng);
 				}
-				this.scheduleTraceViewerCdr();
+				this.scheduleWeatherLocationLabelRefresh();
 				return;
 			}
 
@@ -3712,6 +3774,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.clickedWeatherAlt = alt;
 				this.clickedWeatherAddress = '';
 				this.isLoadingWeather = true;
+				this.scheduleWeatherLocationLabelRefresh();
 				this.scheduleTraceViewerCdr();
 
 				// Get address and altitude, then fetch weather
@@ -3733,25 +3796,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 			|| this.weatherPointOpenWeatherTempC != null;
 	}
 
-	get weatherLocationDisplayName(): string {
-		const place = this.weatherPointPlaceName?.trim();
-		if (place) {
-			return place;
-		}
-		const address = this.clickedWeatherAddress?.trim();
-		if (address) {
-			const firstPart = address.split(',')[0]?.trim();
-			if (firstPart && !this.looksLikeCoordinates(firstPart)) {
-				return firstPart;
-			}
-			return address;
-		}
-		if (Number.isFinite(this.clickedWeatherLat) && Number.isFinite(this.clickedWeatherLng)) {
-			return `${this.clickedWeatherLat.toFixed(4)}, ${this.clickedWeatherLng.toFixed(4)}`;
-		}
-		return '';
-	}
-
 	public clearWeatherOverlay(): void {
 		this.closeWeatherTimeline();
 		this.clearWeatherPointComparison();
@@ -3764,15 +3808,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 			&& Number.isFinite(this.clickedWeatherLng);
 	}
 
-	get weatherTimelineTitle(): string {
-		return this.weatherLocationDisplayName;
-	}
-
 	public openWeatherTimeline(): void {
 		if (!this.canShowWeatherTimelineButton()) {
 			return;
 		}
-		this.weatherTimelineVisible = true;
+		this.syncWeatherTimelineSnapshot();
+		this.deferWeatherUiUpdate(() => {
+			this.weatherTimelineVisible = true;
+		});
 	}
 
 	public closeWeatherTimeline(): void {
@@ -3873,6 +3916,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				}
 				mfDone = true;
 				finishFetch();
+				this.scheduleWeatherLocationLabelRefresh();
 			});
 		};
 
@@ -3918,6 +3962,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				}
 				owmDone = true;
 				finishFetch();
+				this.scheduleWeatherLocationLabelRefresh();
 			});
 		};
 
@@ -3974,6 +4019,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.weatherPointMfStationName = '';
 		this.weatherPointMfStationId = '';
 		this.weatherPointPlaceName = '';
+		this.scheduleWeatherLocationLabelRefresh();
 		if (resetLoading) {
 			this.isLoadingWeather = false;
 		}
@@ -4054,8 +4100,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.clickedWeatherLng = lng;
 		this.clickedWeatherAlt = null;
 		this.clickedWeatherAddress = '';
-		this.clearWeatherPointComparison();
 		this.isLoadingWeather = true;
+		this.scheduleWeatherLocationLabelRefresh();
 		this.scheduleTraceViewerCdr();
 
 		// Get address from coordinates (will be shared for both overlays)
@@ -4093,8 +4139,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.clickedWeatherLng = lng;
 		this.clickedWeatherAlt = null;
 		this.clickedWeatherAddress = '';
-		this.clearWeatherPointComparison();
+		this.clearWeatherPointComparison(false);
 		this.isLoadingWeather = true;
+		this.scheduleWeatherLocationLabelRefresh();
 		this.scheduleTraceViewerCdr();
 
 		// Use the shared method to fetch weather
@@ -4114,17 +4161,21 @@ export class TraceViewerModalComponent implements OnDestroy {
 		})
 			.then(response => response.json())
 			.then(data => {
-				if (data && data.display_name) {
-					this.clickedWeatherAddress = data.display_name;
-				} else {
-					this.clickedWeatherAddress = `${lat.toFixed(7)}, ${lng.toFixed(7)}`;
-				}
-				this.scheduleTraceViewerCdr();
+				this.deferWeatherUiUpdate(() => {
+					if (data && data.display_name) {
+						this.clickedWeatherAddress = data.display_name;
+					} else {
+						this.clickedWeatherAddress = `${lat.toFixed(7)}, ${lng.toFixed(7)}`;
+					}
+					this.scheduleWeatherLocationLabelRefresh();
+				});
 			})
 			.catch(error => {
 				console.debug('Could not fetch address for weather:', error);
-				this.clickedWeatherAddress = `${lat.toFixed(7)}, ${lng.toFixed(7)}`;
-				this.scheduleTraceViewerCdr();
+				this.deferWeatherUiUpdate(() => {
+					this.clickedWeatherAddress = `${lat.toFixed(7)}, ${lng.toFixed(7)}`;
+					this.scheduleWeatherLocationLabelRefresh();
+				});
 			});
 	}
 
@@ -4155,6 +4206,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.clickedWeatherAlt = null;
 			this.clickedWeatherAddress = '';
 			this.isLoadingWeather = true;
+			this.scheduleWeatherLocationLabelRefresh();
 		}
 
 		this.scheduleTraceViewerCdr();
@@ -4252,27 +4304,24 @@ export class TraceViewerModalComponent implements OnDestroy {
 					address = 'Address not found';
 				}
 
-				// Update overlay with address
-				this.clickedAddress = address;
-
-				// Also update weather address if requested (to avoid duplicate API calls)
-				if (alsoUpdateWeatherAddress) {
-					this.clickedWeatherAddress = address;
-				}
-
-				this.cdr.detectChanges();
+				this.deferWeatherUiUpdate(() => {
+					this.clickedAddress = address;
+					if (alsoUpdateWeatherAddress) {
+						this.clickedWeatherAddress = address;
+						this.scheduleWeatherLocationLabelRefresh();
+					}
+				});
 			})
 			.catch(error => {
 				console.error('Could not get address from coordinates:', error);
 				const errorAddress = 'Address not available';
-				this.clickedAddress = errorAddress;
-
-				// Also update weather address if requested
-				if (alsoUpdateWeatherAddress) {
-					this.clickedWeatherAddress = errorAddress;
-				}
-
-				this.cdr.detectChanges();
+				this.deferWeatherUiUpdate(() => {
+					this.clickedAddress = errorAddress;
+					if (alsoUpdateWeatherAddress) {
+						this.clickedWeatherAddress = errorAddress;
+						this.scheduleWeatherLocationLabelRefresh();
+					}
+				});
 			});
 	}
 

@@ -2912,6 +2912,7 @@
         "POINT_TIMELINE_ZOOM_HINT": "عجلة للتكبير · اسحب للتحريك · Shift+اسحب لتكبير منطقة",
         "POINT_TIMELINE_ZOOM_RESET": "إعادة ضبط التكبير",
         "POINT_TIMELINE_CURRENT": "الآن",
+        "POINT_TIMELINE_CURRENT_AT": "الآن عند {{time}}",
         "POINT_TIMELINE_HISTORY": "آخر 7 أيام",
         "POINT_TIMELINE_FORECAST": "الـ 7 أيام القادمة",
         "POINT_TIMELINE_CHART_TITLE": "7 أيام ماضية · الآن · 7 أيام قادمة",

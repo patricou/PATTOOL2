@@ -3165,6 +3165,18 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     return this.selectedPointOpenWeatherTempC;
   }
 
+  get pointTimelineMfObservedAt(): string | null {
+    return this.selectedPointMfObservedAt;
+  }
+
+  get pointTimelineOpenMeteoObservedAt(): string | null {
+    return this.selectedPointOpenMeteoObservedAt;
+  }
+
+  get pointTimelineOpenWeatherObservedAt(): string | null {
+    return this.selectedPointOpenWeatherObservedAt;
+  }
+
   get pointTempTimelineStationId(): string | undefined {
     return this.selectedPointMfStation?.id
       ?? this.findNearestGridPoint(this.lat, this.lon)?.stationId;

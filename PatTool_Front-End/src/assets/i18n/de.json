@@ -2927,6 +2927,7 @@
         "POINT_TIMELINE_ZOOM_HINT": "Mausrad zum Zoomen · Ziehen zum Verschieben · Umschalt+Ziehen für Bereich",
         "POINT_TIMELINE_ZOOM_RESET": "Zoom zurücksetzen",
         "POINT_TIMELINE_CURRENT": "Jetzt",
+        "POINT_TIMELINE_CURRENT_AT": "Jetzt um {{time}} Uhr",
         "POINT_TIMELINE_HISTORY": "Letzte 7 Tage",
         "POINT_TIMELINE_FORECAST": "Nächste 7 Tage",
         "POINT_TIMELINE_CHART_TITLE": "7 Tage zurück · jetzt · 7 Tage voraus",
