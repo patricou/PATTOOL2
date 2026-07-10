@@ -976,6 +976,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}, 0);
 	}
 
+	/** Évite NG0100 sur *ngIf="!isLoadingWeather" quand le switch météo change. */
+	private setWeatherLoadingState(loading: boolean): void {
+		this.deferWeatherUiUpdate(() => {
+			this.isLoadingWeather = loading;
+		});
+	}
+
 	private computeWeatherLocationDisplayName(): string {
 		const place = this.weatherPointPlaceName?.trim();
 		if (place) {
@@ -3733,6 +3740,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				if (!this.clickedWeatherAddress) {
 					this.getAddressFromCoordinatesForWeather(this.clickedWeatherLat, this.clickedWeatherLng);
 				}
+				this.setWeatherLoadingState(false);
 				this.scheduleWeatherLocationLabelRefresh();
 				return;
 			}
@@ -3773,9 +3781,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.clickedWeatherLng = lng;
 				this.clickedWeatherAlt = alt;
 				this.clickedWeatherAddress = '';
-				this.isLoadingWeather = true;
+				this.setWeatherLoadingState(true);
 				this.scheduleWeatherLocationLabelRefresh();
-				this.scheduleTraceViewerCdr();
 
 				// Get address and altitude, then fetch weather
 				this.getAddressFromCoordinatesForWeather(lat, lng);
@@ -3870,7 +3877,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 
 		if (showLoading) {
-			this.isLoadingWeather = true;
+			this.setWeatherLoadingState(true);
 		}
 		this.closeWeatherTimeline();
 		this.clearWeatherPointComparison(false);
@@ -3888,7 +3895,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			if (!mfDone || !openMeteoDone || !owmDone) {
 				return;
 			}
-			this.isLoadingWeather = false;
+			this.setWeatherLoadingState(false);
 		};
 
 		const applyMfResponse = (mf: any): void => {
@@ -4021,7 +4028,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.weatherPointPlaceName = '';
 		this.scheduleWeatherLocationLabelRefresh();
 		if (resetLoading) {
-			this.isLoadingWeather = false;
+			this.setWeatherLoadingState(false);
 		}
 	}
 
@@ -4100,9 +4107,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.clickedWeatherLng = lng;
 		this.clickedWeatherAlt = null;
 		this.clickedWeatherAddress = '';
-		this.isLoadingWeather = true;
+		this.setWeatherLoadingState(true);
 		this.scheduleWeatherLocationLabelRefresh();
-		this.scheduleTraceViewerCdr();
 
 		// Get address from coordinates (will be shared for both overlays)
 		this.getAddressFromCoordinates(lat, lng, true); // Pass true to also update weather address
@@ -4140,43 +4146,76 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.clickedWeatherAlt = null;
 		this.clickedWeatherAddress = '';
 		this.clearWeatherPointComparison(false);
-		this.isLoadingWeather = true;
+		this.setWeatherLoadingState(true);
 		this.scheduleWeatherLocationLabelRefresh();
-		this.scheduleTraceViewerCdr();
 
 		// Use the shared method to fetch weather
 		this.fetchWeatherForClickedPoint(lat, lng);
 	}
 
 	/**
+	 * Resolve a human-readable label for coordinates (backend geocode with fallbacks).
+	 */
+	private resolveAddressLabel(lat: number, lng: number): string {
+		const place = this.weatherPointPlaceName?.trim();
+		if (place) {
+			return place;
+		}
+		return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+	}
+
+	private extractGeocodeDisplayName(data: any): string {
+		const raw = data?.display_name ?? data?.displayName;
+		if (raw == null) {
+			return '';
+		}
+		const text = String(raw).trim();
+		return text;
+	}
+
+	/**
+	 * Reverse geocode via backend (Nominatim → Photon → Open-Meteo → coords / OWM place name).
+	 */
+	private fetchAddressFromCoordinates(
+		lat: number,
+		lng: number,
+		options: { updateClickedAddress?: boolean; updateWeatherAddress?: boolean } = {}
+	): void {
+		const { updateClickedAddress = false, updateWeatherAddress = false } = options;
+		this.apiService.geocodeReverse(lat, lng).pipe(take(1)).subscribe({
+			next: (data) => {
+				const address = this.extractGeocodeDisplayName(data) || this.resolveAddressLabel(lat, lng);
+				this.deferWeatherUiUpdate(() => {
+					if (updateClickedAddress) {
+						this.clickedAddress = address;
+					}
+					if (updateWeatherAddress) {
+						this.clickedWeatherAddress = address;
+						this.scheduleWeatherLocationLabelRefresh();
+					}
+				});
+			},
+			error: (error) => {
+				console.debug('Could not fetch address from backend geocode:', error);
+				const fallback = this.resolveAddressLabel(lat, lng);
+				this.deferWeatherUiUpdate(() => {
+					if (updateClickedAddress) {
+						this.clickedAddress = fallback;
+					}
+					if (updateWeatherAddress) {
+						this.clickedWeatherAddress = fallback;
+						this.scheduleWeatherLocationLabelRefresh();
+					}
+				});
+			}
+		});
+	}
+
+	/**
 	 * Get address from coordinates for weather overlay
 	 */
 	private getAddressFromCoordinatesForWeather(lat: number, lng: number): void {
-		const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
-
-		fetch(url, {
-			headers: {
-				'User-Agent': 'PATTOOL Weather App', // Required by Nominatim
-			}
-		})
-			.then(response => response.json())
-			.then(data => {
-				this.deferWeatherUiUpdate(() => {
-					if (data && data.display_name) {
-						this.clickedWeatherAddress = data.display_name;
-					} else {
-						this.clickedWeatherAddress = `${lat.toFixed(7)}, ${lng.toFixed(7)}`;
-					}
-					this.scheduleWeatherLocationLabelRefresh();
-				});
-			})
-			.catch(error => {
-				console.debug('Could not fetch address for weather:', error);
-				this.deferWeatherUiUpdate(() => {
-					this.clickedWeatherAddress = `${lat.toFixed(7)}, ${lng.toFixed(7)}`;
-					this.scheduleWeatherLocationLabelRefresh();
-				});
-			});
+		this.fetchAddressFromCoordinates(lat, lng, { updateWeatherAddress: true });
 	}
 
 	/**
@@ -4205,7 +4244,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.clickedWeatherLng = lng;
 			this.clickedWeatherAlt = null;
 			this.clickedWeatherAddress = '';
-			this.isLoadingWeather = true;
+			this.setWeatherLoadingState(true);
 			this.scheduleWeatherLocationLabelRefresh();
 		}
 
@@ -4277,52 +4316,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	/**
-	 * Get full address from coordinates using reverse geocoding (Nominatim)
+	 * Get full address from coordinates using backend reverse geocode (shared throttle + fallbacks).
 	 * @param alsoUpdateWeatherAddress If true, also update clickedWeatherAddress to avoid duplicate API calls
 	 */
 	private getAddressFromCoordinates(lat: number, lng: number, alsoUpdateWeatherAddress: boolean = false): void {
-		// Use Nominatim (OpenStreetMap) for reverse geocoding - free and no API key required
-		const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
-
-		fetch(url, {
-			headers: {
-				'User-Agent': 'PATTOOL Weather App', // Required by Nominatim
-				'Accept': 'application/json'
-			}
-		})
-			.then(response => {
-				if (!response.ok) {
-					throw new Error(`HTTP error! status: ${response.status}`);
-				}
-				return response.json();
-			})
-			.then(data => {
-				let address = '';
-				if (data && data.display_name) {
-					address = data.display_name;
-				} else {
-					address = 'Address not found';
-				}
-
-				this.deferWeatherUiUpdate(() => {
-					this.clickedAddress = address;
-					if (alsoUpdateWeatherAddress) {
-						this.clickedWeatherAddress = address;
-						this.scheduleWeatherLocationLabelRefresh();
-					}
-				});
-			})
-			.catch(error => {
-				console.error('Could not get address from coordinates:', error);
-				const errorAddress = 'Address not available';
-				this.deferWeatherUiUpdate(() => {
-					this.clickedAddress = errorAddress;
-					if (alsoUpdateWeatherAddress) {
-						this.clickedWeatherAddress = errorAddress;
-						this.scheduleWeatherLocationLabelRefresh();
-					}
-				});
-			});
+		this.fetchAddressFromCoordinates(lat, lng, {
+			updateClickedAddress: true,
+			updateWeatherAddress: alsoUpdateWeatherAddress
+		});
 	}
 
 }

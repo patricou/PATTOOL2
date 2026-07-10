@@ -4,11 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { NgbModule, NgbDropdown, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { forkJoin } from 'rxjs';
+import { take } from 'rxjs/operators';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Member } from '../../model/member';
 import { FriendRequest, FriendRequestStatus, Friend, FriendGroup } from '../../model/friend';
 import { FriendsService } from '../../services/friends.service';
 import { MembersService } from '../../services/members.service';
+import { ApiService } from '../../services/api.service';
 import { DiscussionModalComponent } from '../../communications/discussion-modal/discussion-modal.component';
 import { DiscussionService } from '../../services/discussion.service';
 import { KeycloakService } from '../../keycloak/keycloak.service';
@@ -248,6 +250,7 @@ export class FriendsComponent implements OnInit {
     private _friendsService: FriendsService,
     private _memberService: MembersService,
     private _translateService: TranslateService,
+    private _apiService: ApiService,
     private modalService: NgbModal,
     private _discussionService: DiscussionService,
     private cdr: ChangeDetectorRef,
@@ -3348,8 +3351,8 @@ export class FriendsComponent implements OnInit {
   }
 
   /**
-   * Load address for a position using Nominatim reverse geocoding
-   * Uses cache to avoid duplicate API calls for similar coordinates
+   * Load address for a position via backend reverse geocode (Nominatim → Photon → Open-Meteo).
+   * Uses cache to avoid duplicate API calls for similar coordinates.
    */
   private loadAddressForPosition(lat: number, lng: number, index: number): void {
     const cacheKey = this.getCacheKey(lat, lng);
@@ -3381,130 +3384,97 @@ export class FriendsComponent implements OnInit {
       displayItem.isLoading = true;
       displayItem.isFromCache = false;
     }
-    
-    // Use full precision coordinates for API call (not rounded)
-    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat.toFixed(10)}&lon=${lng.toFixed(10)}&zoom=18&addressdetails=1`;
-    
-    fetch(url, {
-      headers: {
-        'User-Agent': 'PATTOOL Weather App',
-        'Accept': 'application/json'
-      }
-    })
-    .then(response => {
-      if (!response.ok) {
-        // Check for rate limiting (429) or other HTTP errors
-        if (response.status === 429) {
-          console.warn('Nominatim rate limit exceeded for coordinates:', lat, lng);
-          throw new Error('Rate limit exceeded');
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return response.json();
-    })
-    .then(data => {
-      // Check if data is valid
-      if (!data) {
-        console.warn('Nominatim returned empty data for coordinates:', lat, lng);
-        const errorAddress = this._translateService.instant('FRIENDS.ADDRESS_NOT_FOUND');
-        this.addressCache.set(cacheKey, errorAddress);
-        this.positionAddresses.set(index, errorAddress);
-        this.loadingAddresses.set(index, false);
-        this.cdr.detectChanges();
-        return;
-      }
 
-      // Check for error in response
-      if (data.error) {
-        console.warn('Nominatim returned error:', data.error, 'for coordinates:', lat, lng);
-        const errorAddress = this._translateService.instant('FRIENDS.ADDRESS_NOT_FOUND');
-        this.addressCache.set(cacheKey, errorAddress);
-        this.positionAddresses.set(index, errorAddress);
-        this.loadingAddresses.set(index, false);
-        this.cdr.detectChanges();
-        return;
-      }
+    this._apiService.geocodeReverse(lat, lng).pipe(take(1)).subscribe({
+      next: (data) => {
+        if (!data || data.error) {
+          console.warn('Reverse geocode returned no data for coordinates:', lat, lng);
+          this.applyPositionAddressResult(
+            index,
+            cacheKey,
+            this._translateService.instant('FRIENDS.ADDRESS_NOT_FOUND'),
+            false
+          );
+          return;
+        }
 
-      let address = '';
-      if (data && data.address) {
-        const addr = data.address;
-        const addressParts: string[] = [];
-        
-        // Build address from most specific to least specific
-        if (addr.house_number && addr.road) {
-          addressParts.push(`${addr.road} ${addr.house_number}`);
-        } else if (addr.road) {
-          addressParts.push(addr.road);
-        }
-        
-        if (addr.postcode) {
-          addressParts.push(addr.postcode);
-        }
-        
-        if (addr.city || addr.town || addr.village) {
-          addressParts.push(addr.city || addr.town || addr.village);
-        }
-        
-        if (addr.state || addr.region) {
-          addressParts.push(addr.state || addr.region);
-        }
-        
-        if (addr.country) {
-          addressParts.push(addr.country);
-        }
-        
-        address = addressParts.length > 0 ? addressParts.join(', ') : (data.display_name || '');
-      } else if (data && data.display_name) {
-        address = data.display_name;
+        const address = this.formatReverseGeocodeAddress(data);
+        const finalAddress = address || this._translateService.instant('FRIENDS.ADDRESS_NOT_FOUND');
+        this.applyPositionAddressResult(index, cacheKey, finalAddress, false);
+      },
+      error: (error) => {
+        console.error('Could not get address from coordinates:', error);
+        this.applyPositionAddressResult(
+          index,
+          cacheKey,
+          this._translateService.instant('FRIENDS.ADDRESS_NOT_AVAILABLE'),
+          false
+        );
       }
-      
-      // If still no address, try to use display_name as fallback
-      if (!address && data.display_name) {
-        address = data.display_name;
-      }
-      
-      const finalAddress = address || this._translateService.instant('FRIENDS.ADDRESS_NOT_FOUND');
-      
-      // Store in cache for future use (using rounded coordinates as key)
-      this.addressCache.set(cacheKey, finalAddress);
-      
-      // Store for this position
-      this.positionAddresses.set(index, finalAddress);
-      this.loadingAddresses.set(index, false);
-      this.addressFromCache.set(index, false); // Mark as from API
-      
-      // Update pre-computed display data for instant UI update
-      const displayItem = this.sortedPositionsForDisplay.find(item => item.originalIndex === index);
-      if (displayItem) {
-        displayItem.address = finalAddress;
-        displayItem.isLoading = false;
-        displayItem.isFromCache = false;
-      }
-      
-      this.cdr.detectChanges();
-    })
-    .catch(error => {
-      console.error('Could not get address from coordinates:', error);
-      const errorAddress = this._translateService.instant('FRIENDS.ADDRESS_NOT_AVAILABLE');
-      
-      // Store error in cache to avoid repeated API calls for similar coordinates
-      this.addressCache.set(cacheKey, errorAddress);
-      
-      // Store for this position
-      this.positionAddresses.set(index, errorAddress);
-      this.loadingAddresses.set(index, false);
-      this.addressFromCache.set(index, false); // Mark as from API (even if error)
-      
-      // Update pre-computed display data for instant UI update
-      const displayItem = this.sortedPositionsForDisplay.find(item => item.originalIndex === index);
-      if (displayItem) {
-        displayItem.address = errorAddress;
-        displayItem.isLoading = false;
-        displayItem.isFromCache = false;
-      }
-      
-      this.cdr.detectChanges();
     });
+  }
+
+  private formatReverseGeocodeAddress(data: any): string {
+    const addr = data?.address;
+    if (addr && typeof addr === 'object') {
+      const addressParts: string[] = [];
+      const road = addr.road ?? addr.street;
+      const houseNumber = addr.house_number ?? addr.housenumber;
+
+      if (houseNumber && road) {
+        addressParts.push(`${road} ${houseNumber}`);
+      } else if (road) {
+        addressParts.push(String(road));
+      } else if (addr.name) {
+        addressParts.push(String(addr.name));
+      }
+
+      if (addr.postcode) {
+        addressParts.push(String(addr.postcode));
+      }
+
+      const locality = addr.city ?? addr.town ?? addr.village;
+      if (locality) {
+        addressParts.push(String(locality));
+      }
+
+      const region = addr.state ?? addr.region ?? addr.admin1 ?? addr.county;
+      if (region) {
+        addressParts.push(String(region));
+      }
+
+      if (addr.country) {
+        addressParts.push(String(addr.country));
+      }
+
+      if (addressParts.length > 0) {
+        return addressParts.join(', ');
+      }
+    }
+
+    const displayName = data?.display_name ?? data?.displayName;
+    return displayName != null ? String(displayName).trim() : '';
+  }
+
+  private applyPositionAddressResult(
+    index: number,
+    cacheKey: string,
+    finalAddress: string,
+    fromLocalCache: boolean
+  ): void {
+    this.addressCache.set(cacheKey, finalAddress);
+    this.positionAddresses.set(index, finalAddress);
+    this.loadingAddresses.set(index, false);
+    this.addressFromCache.set(index, fromLocalCache);
+
+    const displayItem = this.sortedPositionsForDisplay.find(item => item.originalIndex === index);
+    if (displayItem) {
+      displayItem.address = finalAddress;
+      displayItem.isLoading = false;
+      displayItem.isFromCache = fromLocalCache;
+    }
+
+    this.cdr.detectChanges();
   }
 
   /**
