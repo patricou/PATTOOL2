@@ -10,6 +10,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 /**
  * Aggregates multi-day point forecasts from OpenWeatherMap, Open-Meteo and Météo-France (via Open-Meteo seamless)
@@ -83,6 +85,79 @@ public class WeatherForecastAggregationService {
             result.put("error", "No forecast data available for the selected period and step");
         }
         return result;
+    }
+
+    /**
+     * Fetches OWM, Open-Meteo and MF forecasts in parallel and invokes {@code onSource}
+     * as soon as each upstream response is available (for SSE progressive delivery).
+     */
+    public void streamForecastSources(
+            double lat,
+            double lon,
+            String jwtSubject,
+            int horizonHours,
+            int stepMinutes,
+            Consumer<Map<String, Object>> onSource,
+            Runnable onComplete) {
+        int horizon = MeteoFranceForecastPreferenceService.clampHorizon(horizonHours);
+        int step = MeteoFranceForecastPreferenceService.clampStep(stepMinutes);
+        AtomicInteger pending = new AtomicInteger(SOURCE_KEYS.size());
+
+        Runnable finishOne = () -> {
+            if (pending.decrementAndGet() == 0 && onComplete != null) {
+                onComplete.run();
+            }
+        };
+
+        CompletableFuture
+                .supplyAsync(() -> openWeatherService.getForecastByCoordinates(lat, lon, null, horizon, step))
+                .whenComplete((payload, error) -> {
+                    if (onSource != null) {
+                        onSource.accept(wrapStreamSourcePayload("openweathermap", payload, error));
+                    }
+                    finishOne.run();
+                });
+        CompletableFuture
+                .supplyAsync(() -> openMeteoService.getForecastByCoordinates(lat, lon, jwtSubject, horizon, step))
+                .whenComplete((payload, error) -> {
+                    if (onSource != null) {
+                        onSource.accept(wrapStreamSourcePayload("open-meteo", payload, error));
+                    }
+                    finishOne.run();
+                });
+        CompletableFuture
+                .supplyAsync(() -> openMeteoService.getMeteoFranceForecastByCoordinates(lat, lon, jwtSubject, horizon, step))
+                .whenComplete((payload, error) -> {
+                    if (onSource != null) {
+                        onSource.accept(wrapStreamSourcePayload("meteofrance", payload, error));
+                    }
+                    finishOne.run();
+                });
+    }
+
+    private static Map<String, Object> wrapStreamSourcePayload(
+            String sourceKey, Map<String, Object> payload, Throwable error) {
+        Map<String, Object> event = new LinkedHashMap<>();
+        event.put("source", sourceKey);
+        if (error != null) {
+            event.put("error", error.getMessage() != null ? error.getMessage() : "request failed");
+            return event;
+        }
+        if (payload == null) {
+            event.put("error", "empty response");
+            return event;
+        }
+        if (payload.containsKey("error")) {
+            event.put("error", String.valueOf(payload.get("error")));
+            return event;
+        }
+        Object listObj = payload.get("list");
+        if (!(listObj instanceof List<?> list) || list.isEmpty()) {
+            event.put("error", "no forecast steps");
+            return event;
+        }
+        event.put("list", list);
+        return event;
     }
 
     private List<Map<String, Object>> buildAlignedSteps(

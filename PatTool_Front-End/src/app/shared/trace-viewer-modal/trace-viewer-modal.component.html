@@ -148,129 +148,18 @@
           </div>
         </div>
 
-        <div class="mf-point-timeline-overlay" *ngIf="weatherTimelineVisible">
-          <div class="mf-point-timeline-backdrop" (click)="closeWeatherTimeline()"></div>
-          <div class="mf-point-timeline-card" role="dialog" aria-modal="true"
-               [attr.aria-labelledby]="'tv-weather-timeline-title'">
-            <header class="mf-point-timeline-header">
-              <div class="mf-point-timeline-header-main">
-                <img [src]="weatherLogoMf" alt="Météo-France" class="mf-point-timeline-logo" width="22" height="22" />
-                <h6 class="mf-point-timeline-title" id="tv-weather-timeline-title">
-                  <i class="fa fa-area-chart me-1" aria-hidden="true"></i>
-                  {{ weatherTimelineTitle }}
-                </h6>
-              </div>
-              <button type="button" class="mf-point-timeline-close"
-                      (click)="closeWeatherTimeline()"
-                      [attr.aria-label]="'METEO_FRANCE.POINT_TIMELINE_CLOSE' | translate">
-                <i class="fa fa-times" aria-hidden="true"></i>
-              </button>
-            </header>
-
-            <div class="mf-point-timeline-body">
-              <ul class="mf-point-timeline-tabs" role="tablist"
-                  *ngIf="weatherTimelineDataLoaded && !weatherTimelineLoading">
-                <li *ngFor="let tab of weatherTimelineTabs" role="presentation">
-                  <button type="button" class="mf-point-timeline-tab" role="tab"
-                          [class.active]="weatherTimelineActiveTab === tab.id"
-                          [attr.aria-selected]="weatherTimelineActiveTab === tab.id"
-                          (click)="onWeatherTimelineTabChange(tab.id)">
-                    <img *ngIf="tab.brand !== 'compare'"
-                         [src]="getWeatherTimelineBrandLogo(tab.brand)"
-                         [alt]="tab.brand"
-                         class="mf-point-timeline-tab-logo" width="14" height="14" />
-                    <i *ngIf="tab.brand === 'compare'" class="fa fa-balance-scale" aria-hidden="true"></i>
-                    {{ tab.labelKey | translate }}
-                  </button>
-                </li>
-              </ul>
-
-              <div class="mf-point-timeline-param-row"
-                   *ngIf="weatherTimelineDataLoaded && !weatherTimelineLoading">
-                <button type="button"
-                        class="mf-point-timeline-param"
-                        *ngFor="let opt of weatherTimelineParamOptions"
-                        [class.active]="weatherTimelineActiveParam === opt.id"
-                        (click)="onWeatherTimelineParamChange(opt.id)">
-                  {{ opt.labelKey | translate }}
-                </button>
-              </div>
-
-              <div class="mf-point-timeline-now"
-                   *ngIf="weatherTimelineActiveParam === 'temp' && weatherTimelineCurrentTempC != null && weatherTimelineActiveTab !== 'compare'">
-                <span class="mf-point-timeline-now-label">{{ 'METEO_FRANCE.POINT_TIMELINE_CURRENT' | translate }}</span>
-                <span class="mf-point-timeline-now-value">{{ formatWeatherTemp(weatherTimelineCurrentTempC) }}</span>
-              </div>
-
-              <div class="mf-point-timeline-current mf-point-timeline-current--now"
-                   *ngIf="weatherTimelineShowCompareNow">
-                <div class="mf-point-timeline-section-label mf-point-timeline-section-label--now">
-                  {{ 'METEO_FRANCE.POINT_TIMELINE_CURRENT' | translate }}
-                </div>
-                <div class="mf-point-timeline-current-row">
-                  <span class="mf-point-timeline-current-chip mf-point-timeline-current-chip--mf"
-                        *ngIf="weatherPointMfTempC != null">
-                    <img [src]="weatherLogoMf" alt="Météo-France" class="mf-point-timeline-chip-logo" width="14" height="14" />
-                    {{ formatWeatherTemp(weatherPointMfTempC) }}
-                  </span>
-                  <span class="mf-point-timeline-current-chip mf-point-timeline-current-chip--om"
-                        *ngIf="weatherPointOpenMeteoTempC != null">
-                    <img [src]="weatherLogoOm" alt="Open-Meteo" class="mf-point-timeline-chip-logo" width="14" height="14" />
-                    {{ formatWeatherTemp(weatherPointOpenMeteoTempC) }}
-                  </span>
-                  <span class="mf-point-timeline-current-chip mf-point-timeline-current-chip--owm"
-                        *ngIf="weatherPointOpenWeatherTempC != null">
-                    <img [src]="weatherLogoOwm" alt="OpenWeatherMap" class="mf-point-timeline-chip-logo" width="14" height="14" />
-                    {{ formatWeatherTemp(weatherPointOpenWeatherTempC) }}
-                  </span>
-                </div>
-              </div>
-
-              <div *ngIf="weatherTimelineLoading" class="mf-point-timeline-loading" role="status" aria-live="polite">
-                <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
-                {{ 'METEO_FRANCE.CLIM_LOADING' | translate }}
-              </div>
-
-              <div class="alert alert-danger py-2 mb-2 small" *ngIf="weatherTimelineErrorKey && !weatherTimelineLoading">
-                {{ weatherTimelineErrorKey | translate }}
-              </div>
-
-              <ng-container *ngIf="!weatherTimelineLoading && weatherTimelineDataLoaded">
-                <section class="mf-point-timeline-section">
-                  <div class="mf-point-timeline-section-label" *ngIf="weatherTimelinePeriodLabel">{{ weatherTimelinePeriodLabel }}</div>
-                  <p class="mf-point-timeline-source">
-                    <img *ngIf="weatherTimelineSourceLogo"
-                         [src]="weatherTimelineSourceLogo"
-                         alt=""
-                         class="mf-point-timeline-source-logo" width="14" height="14" />
-                    <i *ngIf="!weatherTimelineSourceLogo" class="fa fa-balance-scale me-1" aria-hidden="true"></i>
-                    {{ weatherTimelineSourceKey | translate }}
-                  </p>
-                  <p class="mf-point-timeline-station small text-muted mb-1"
-                     *ngIf="weatherTimelineShowStation">{{ weatherTimelineStationLabel }}</p>
-
-                  <div class="alert alert-warning py-2 mb-2 small"
-                       *ngIf="weatherTimelineTabErrorKey && !weatherTimelineChartsReady && !weatherTimelineInfoKey">
-                    {{ weatherTimelineTabErrorKey | translate }}
-                  </div>
-
-                  <div class="alert alert-info py-2 mb-2 small"
-                       *ngIf="weatherTimelineInfoKey && !weatherTimelineChartsReady">
-                    {{ weatherTimelineInfoKey | translate: weatherTimelineInfoParams }}
-                  </div>
-
-                  <div class="mf-point-timeline-chart-box mf-point-timeline-chart-box--combined"
-                       *ngIf="weatherTimelineChartsReady">
-                    <canvas #weatherTimelineChart baseChart
-                            [data]="weatherTimelineChartData"
-                            [options]="weatherTimelineChartOptions"
-                            [type]="weatherTimelineChartType"></canvas>
-                  </div>
-                </section>
-              </ng-container>
-            </div>
-          </div>
-        </div>
+        <app-weather-point-timeline
+          [(visible)]="weatherTimelineVisible"
+          [lat]="clickedWeatherLat"
+          [lon]="clickedWeatherLng"
+          [title]="weatherTimelineTitle"
+          [mfTempC]="weatherPointMfTempC"
+          [openMeteoTempC]="weatherPointOpenMeteoTempC"
+          [openWeatherTempC]="weatherPointOpenWeatherTempC"
+          [stationId]="weatherPointMfStationId || undefined"
+          [stationName]="weatherPointMfStationName || undefined"
+          overlayMode="embedded">
+        </app-weather-point-timeline>
 
         <div *ngIf="isLoading" class="loading-overlay">
           <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>

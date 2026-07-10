@@ -1,0 +1,212 @@
+<div class="mf-point-timeline-overlay"
+     #timelineOverlay
+     [class.mf-point-timeline-overlay--fullscreen]="timelineFullscreen"
+     [class.mf-point-timeline-overlay--embedded]="overlayMode === 'embedded'"
+     [class.mf-point-timeline-overlay--fixed]="overlayMode === 'fixed'"
+     *ngIf="visible">
+  <div class="mf-point-timeline-backdrop" (click)="close()"></div>
+  <div #timelineCard
+       class="mf-point-timeline-card"
+       [class.mf-point-timeline-card--fullscreen]="timelineFullscreen"
+       role="dialog" aria-modal="true"
+       [attr.aria-labelledby]="'weather-point-timeline-title'">
+    <header class="mf-point-timeline-header">
+      <div class="mf-point-timeline-header-main">
+        <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')"
+             class="mf-point-timeline-logo" width="22" height="22" />
+        <h6 class="mf-point-timeline-title" id="weather-point-timeline-title">
+          <i class="fa fa-area-chart me-1" aria-hidden="true"></i>
+          {{ displayTitle }}
+        </h6>
+      </div>
+      <div class="mf-point-timeline-header-actions">
+        <button type="button" class="mf-point-timeline-header-btn"
+                (click)="refreshData(); $event.stopPropagation()"
+                [attr.title]="'METEO_FRANCE.POINT_TIMELINE_REFRESH' | translate"
+                [attr.aria-label]="'METEO_FRANCE.POINT_TIMELINE_REFRESH' | translate">
+          <i class="fa" [class.fa-refresh]="!loadInProgress" [class.fa-spinner]="loadInProgress" [class.fa-spin]="loadInProgress" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="mf-point-timeline-header-btn"
+                *ngIf="loadLogEntries.length"
+                (click)="toggleLoadLogPanel(); $event.stopPropagation()"
+                [class.mf-point-timeline-header-btn--active]="loadLogPanelOpen"
+                [attr.title]="'METEO_FRANCE.POINT_TIMELINE_LOG_TOGGLE' | translate"
+                [attr.aria-label]="'METEO_FRANCE.POINT_TIMELINE_LOG_TOGGLE' | translate">
+          <i class="fa fa-list-alt" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="mf-point-timeline-header-btn"
+                (click)="toggleFullscreen(); $event.stopPropagation()"
+                [attr.title]="(timelineFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate"
+                [attr.aria-label]="(timelineFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate">
+          <i class="fa" [class.fa-compress]="timelineFullscreen" [class.fa-expand]="!timelineFullscreen"></i>
+        </button>
+        <button type="button" class="mf-point-timeline-close"
+                (click)="close()"
+                [attr.aria-label]="'METEO_FRANCE.POINT_TIMELINE_CLOSE' | translate">
+          <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+    </header>
+
+    <div class="mf-point-timeline-body">
+      <ul class="mf-point-timeline-tabs" role="tablist"
+          *ngIf="dataLoaded">
+        <li *ngFor="let tab of timelineTabs" role="presentation">
+          <button type="button" class="mf-point-timeline-tab" role="tab"
+                  [class.active]="activeTab === tab.id"
+                  [attr.aria-selected]="activeTab === tab.id"
+                  (click)="onTabChange(tab.id)">
+            <img *ngIf="tab.brand !== 'compare'"
+                 [src]="getBrandLogoSrc(tab.brand)"
+                 [alt]="getBrandAlt(tab.brand)"
+                 class="mf-point-timeline-tab-logo" width="14" height="14" />
+            <i *ngIf="tab.brand === 'compare'" class="fa fa-balance-scale" aria-hidden="true"></i>
+            {{ tab.labelKey | translate }}
+          </button>
+        </li>
+      </ul>
+
+      <div class="mf-point-timeline-param-row"
+           *ngIf="dataLoaded">
+        <button type="button"
+                class="mf-point-timeline-param"
+                *ngFor="let opt of paramOptions"
+                [class.active]="activeParam === opt.id"
+                (click)="onParamChange(opt.id)">
+          {{ opt.labelKey | translate }}
+        </button>
+      </div>
+
+      <div class="mf-point-timeline-now"
+           *ngIf="activeParam === 'temp' && currentTempC != null && activeTab !== 'compare'">
+        <span class="mf-point-timeline-now-label">{{ 'METEO_FRANCE.POINT_TIMELINE_CURRENT' | translate }}</span>
+        <span class="mf-point-timeline-now-value">{{ formatTemperatureLabel(currentTempC) }}</span>
+      </div>
+
+      <div class="mf-point-timeline-current mf-point-timeline-current--now"
+           *ngIf="showCompareNow">
+        <div class="mf-point-timeline-section-label mf-point-timeline-section-label--now">
+          {{ 'METEO_FRANCE.POINT_TIMELINE_CURRENT' | translate }}
+        </div>
+        <div class="mf-point-timeline-current-row">
+          <span class="mf-point-timeline-current-chip mf-point-timeline-current-chip--mf"
+                *ngIf="mfTempC != null">
+            <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')"
+                 class="mf-point-timeline-chip-logo" width="14" height="14" />
+            {{ formatTemperatureLabel(mfTempC) }}
+          </span>
+          <span class="mf-point-timeline-current-chip mf-point-timeline-current-chip--om"
+                *ngIf="openMeteoTempC != null">
+            <img [src]="getBrandLogoSrc('open-meteo')" [alt]="getBrandAlt('open-meteo')"
+                 class="mf-point-timeline-chip-logo" width="14" height="14" />
+            {{ formatTemperatureLabel(openMeteoTempC) }}
+          </span>
+          <span class="mf-point-timeline-current-chip mf-point-timeline-current-chip--owm"
+                *ngIf="openWeatherTempC != null">
+            <img [src]="getBrandLogoSrc('openweathermap')" [alt]="getBrandAlt('openweathermap')"
+                 class="mf-point-timeline-chip-logo" width="14" height="14" />
+            {{ formatTemperatureLabel(openWeatherTempC) }}
+          </span>
+        </div>
+      </div>
+
+      <div class="alert alert-danger py-2 mb-2 small" *ngIf="errorKey">
+        {{ errorKey | translate }}
+      </div>
+
+      <ng-container *ngIf="dataLoaded">
+        <section class="mf-point-timeline-section">
+          <div class="mf-point-timeline-section-label" *ngIf="periodLabel">{{ periodLabel }}</div>
+          <p class="mf-point-timeline-source">
+            <img *ngIf="sourceLogo"
+                 [src]="sourceLogo"
+                 [alt]="getBrandAlt(activeTab === 'open-meteo' ? 'open-meteo' : activeTab === 'openweathermap' ? 'openweathermap' : 'meteofrance')"
+                 class="mf-point-timeline-source-logo" width="14" height="14" />
+            <i *ngIf="!sourceLogo" class="fa fa-balance-scale me-1" aria-hidden="true"></i>
+            {{ sourceKey | translate }}
+          </p>
+          <p class="mf-point-timeline-station small text-muted mb-1"
+             *ngIf="showStation">{{ stationLabel }}</p>
+
+          <div class="alert alert-warning py-2 mb-2 small"
+               *ngIf="tabErrorKey && !chartsReady && !infoKey && !tabLoading">
+            {{ tabErrorKey | translate }}
+          </div>
+
+          <div *ngIf="tabLoading" class="mf-point-timeline-loading py-3" role="status" aria-live="polite">
+            <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+            {{ 'METEO_FRANCE.CLIM_LOADING' | translate }}
+          </div>
+
+          <div class="alert alert-info py-2 mb-2 small"
+               *ngIf="infoKey && !chartsReady">
+            {{ infoKey | translate: infoParams }}
+          </div>
+
+          <div class="mf-point-timeline-chart-toolbar"
+               *ngIf="chartsReady">
+            <span class="mf-point-timeline-zoom-hint">
+              {{ 'METEO_FRANCE.POINT_TIMELINE_ZOOM_HINT' | translate }}
+            </span>
+            <button type="button" class="btn btn-sm btn-outline-secondary mf-point-timeline-zoom-reset"
+                    (click)="resetZoom()">
+              <i class="fa fa-search-minus" aria-hidden="true"></i>
+              {{ 'METEO_FRANCE.POINT_TIMELINE_ZOOM_RESET' | translate }}
+            </button>
+          </div>
+
+          <div class="mf-point-timeline-chart-box mf-point-timeline-chart-box--combined"
+               [class.mf-point-timeline-chart-box--fullscreen]="timelineFullscreen"
+               *ngIf="chartsReady">
+            <canvas #timelineChart baseChart
+                    [data]="chartData"
+                    [options]="chartOptions"
+                    [type]="chartType"></canvas>
+          </div>
+        </section>
+      </ng-container>
+
+      <div class="mf-point-timeline-load-log"
+           *ngIf="loadLogPanelOpen"
+           role="region"
+           [attr.aria-label]="'METEO_FRANCE.POINT_TIMELINE_LOG_TITLE' | translate">
+        <div class="mf-point-timeline-load-log-header">
+          <strong>
+            <i class="fa fa-list-alt me-1" aria-hidden="true"></i>
+            {{ 'METEO_FRANCE.POINT_TIMELINE_LOG_TITLE' | translate }}
+            <span class="mf-point-timeline-load-log-badge" *ngIf="loadInProgress">
+              <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+            </span>
+          </strong>
+          <div class="mf-point-timeline-load-log-actions">
+            <button type="button" class="btn btn-sm btn-outline-secondary"
+                    (click)="clearLoadLog()">
+              {{ 'METEO_FRANCE.POINT_TIMELINE_LOG_CLEAR' | translate }}
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary"
+                    (click)="closeLoadLogPanel()">
+              {{ 'METEO_FRANCE.POINT_TIMELINE_LOG_CLOSE' | translate }}
+            </button>
+          </div>
+        </div>
+        <div class="mf-point-timeline-load-log-body" #loadLogBody role="log" aria-live="polite">
+          <div *ngIf="!loadLogEntries.length" class="mf-point-timeline-load-log-empty text-muted">
+            {{ 'METEO_FRANCE.POINT_TIMELINE_LOG_EMPTY' | translate }}
+          </div>
+          <div *ngFor="let entry of loadLogEntries"
+               class="mf-point-timeline-load-log-line"
+               [ngClass]="loadLogStatusClass(entry.level)">
+            <span class="mf-point-timeline-load-log-time">{{ formatLoadLogTime(entry.at) }}</span>
+            <span class="mf-point-timeline-load-log-status">
+              {{ ('METEO_FRANCE.LOG_STATUS_' + entry.level.toUpperCase()) | translate }}
+            </span>
+            <span class="mf-point-timeline-load-log-message">
+              {{ entry.messageKey | translate: entry.params }}
+            </span>
+            <span class="mf-point-timeline-load-log-detail" *ngIf="entry.detail">{{ entry.detail }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
-import { ApiService } from '../services/api.service';
+import { ApiService, ForecastSourceStreamEvent } from '../services/api.service';
 import { LeafletBasemapOption, LeafletBasemapService } from '../shared/leaflet-basemap.service';
 import { environment } from '../../environments/environment';
 import { BaseChartDirective } from 'ng2-charts';
@@ -12,6 +12,7 @@ import zoomPlugin from 'chartjs-plugin-zoom';
 import * as L from 'leaflet';
 import { MeteoFranceChartPanelComponent } from './meteo-france-chart-panel.component';
 import { MeteoChartFullscreenService } from './meteo-chart-fullscreen.service';
+import { WeatherPointTimelineComponent } from '../shared/weather-point-timeline/weather-point-timeline.component';
 import {
   meteoChartCompactPointRadius,
   withMeteoChartZoom
@@ -23,15 +24,6 @@ Chart.register(zoomPlugin);
 
 type TemperatureUnit = 'celsius' | 'fahrenheit';
 type WeatherDataSourceBrand = 'meteofrance' | 'open-meteo' | 'openweathermap';
-type PointTempTimelineTab = 'meteofrance' | 'open-meteo' | 'openweathermap' | 'compare';
-type PointTempTimelineParam = 'temp' | 'humidity' | 'wind' | 'precip' | 'precipDaily' | 'pop';
-type PointTempTimelineSourceKey = 'meteofrance' | 'open-meteo' | 'openweathermap';
-type PointTempTimelineSourceValues = Record<PointTempTimelineParam, number | null>;
-type PointTempTimelineSlot = {
-  ts: number;
-  kind: 'history' | 'now' | 'forecast';
-  values: Record<PointTempTimelineSourceKey, PointTempTimelineSourceValues>;
-};
 type WeatherPanelSource = 'openweathermap' | 'open-meteo' | 'meteofrance';
 type MultiDayForecastDisplayParam = 'temp' | 'humidity' | 'wind' | 'precip' | 'pop' | 'weather';
 type ForecastChartKind = 'line' | 'bar';
@@ -96,7 +88,7 @@ interface MeteoBackendLogEntry {
   templateUrl: './meteo-france.component.html',
   styleUrls: ['./meteo-france.component.css'],
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NgbModule, BaseChartDirective, MeteoFranceChartPanelComponent]
+  imports: [CommonModule, FormsModule, TranslateModule, NgbModule, BaseChartDirective, MeteoFranceChartPanelComponent, WeatherPointTimelineComponent]
 })
 export class MeteoFranceComponent implements OnInit, OnDestroy {
 
@@ -128,11 +120,11 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private static readonly FORECAST_MAP_ZOOM = 12;
   private static readonly CLIM_TEMP_COLUMNS = new Set(['TN', 'TNT', 'TX', 'TM', 'T', 'TAT', 'TROS']);
 
-  @ViewChild('pointTempTimelineChart', { read: BaseChartDirective }) pointTempTimelineChart?: BaseChartDirective;
-  @ViewChild('pointTempTimelineOverlay') pointTempTimelineOverlay?: ElementRef<HTMLElement>;
-  @ViewChild('pointTempTimelineCard') pointTempTimelineCard?: ElementRef<HTMLElement>;
   @ViewChild('mapShell') mapShell?: ElementRef<HTMLElement>;
   @ViewChild('aromepiMapShell') aromepiMapShell?: ElementRef<HTMLElement>;
+  @ViewChild(WeatherPointTimelineComponent) pointTempTimeline?: WeatherPointTimelineComponent;
+
+  pointTempTimelineVisible = false;
 
   readonly climDailyPeriodOptions: ClimPeriodOption[] = [
     { days: 7, labelKey: 'METEO_FRANCE.CLIM_PERIOD_7D' },
@@ -176,9 +168,6 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     private chartFullscreen: MeteoChartFullscreenService
   ) {}
 
-  private readonly pointTimelineCloseFullscreen = (): void => {
-    this.exitPointTimelineFullscreen();
-  };
 
   city = '';
   countryCode = '';
@@ -227,6 +216,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private owmForecastRequestId = 0;
   private omForecastRequestId = 0;
   private aggregatedForecastRequestId = 0;
+  private aggregatedForecastSourceLists: Partial<Record<'meteofrance' | 'open-meteo' | 'openweathermap', any[]>> = {};
+  private aggregatedForecastSourceErrorsInternal: Record<string, string> = {};
+  private aggregatedForecastStreamAbort: AbortController | null = null;
   radarLayerSource: RadarLayerSource = 'rainviewer';
   cloudLayerSource: CloudLayerSource = 'openweathermap';
   readonly radarLayerSources: RadarLayerSource[] = ['meteofrance', 'rainviewer'];
@@ -319,52 +311,6 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   stationHistoryRainChartOptions: ChartOptions<'bar'> = this.buildClimRainChartOptions();
   stationHistoryPressureChartOptions: ChartOptions<'line'> = this.buildClimScalarChartOptions('hPa');
 
-  pointTempTimelineVisible = false;
-  pointTempTimelineFullscreen = false;
-  pointTempTimelineLoading = false;
-  pointTempTimelineErrorKey = '';
-  pointTempTimelineTabErrorKey = '';
-  pointTempTimelineHistoryAvailable = false;
-  pointTempTimelineForecastAvailable = false;
-  pointTempTimelineDataLoaded = false;
-  pointTempTimelineStationLabel = '';
-  pointTempTimelineChartsReady = false;
-  pointTempTimelineNowIndex = -1;
-  pointTempTimelineActiveTab: PointTempTimelineTab = 'meteofrance';
-  pointTempTimelineActiveParam: PointTempTimelineParam = 'temp';
-  pointTempTimelineChartType: ForecastChartKind = 'line';
-  pointTempTimelineInfoKey = '';
-  pointTempTimelineChartRenderSeq = 0;
-  private pointTempTimelineNowTs = 0;
-  pointTempTimelineChartData: ChartConfiguration<'line' | 'bar'>['data'] = { labels: [], datasets: [] };
-  pointTempTimelineChartOptions: ChartOptions<'line' | 'bar'> = this.buildPointTempTimelineChartOptions();
-  readonly pointTempTimelineTabs: ReadonlyArray<{
-    id: PointTempTimelineTab;
-    labelKey: string;
-    brand: WeatherDataSourceBrand | 'compare';
-  }> = [
-    { id: 'meteofrance', labelKey: 'METEO_FRANCE.POINT_TIMELINE_TAB_MF', brand: 'meteofrance' },
-    { id: 'open-meteo', labelKey: 'METEO_FRANCE.POINT_TIMELINE_TAB_OM', brand: 'open-meteo' },
-    { id: 'openweathermap', labelKey: 'METEO_FRANCE.POINT_TIMELINE_TAB_OWM', brand: 'openweathermap' },
-    { id: 'compare', labelKey: 'METEO_FRANCE.POINT_TIMELINE_TAB_COMPARE', brand: 'compare' }
-  ];
-  readonly pointTempTimelineParamOptions: ReadonlyArray<{ id: PointTempTimelineParam; labelKey: string }> = [
-    { id: 'temp', labelKey: 'METEO_FRANCE.AGG_COL_TEMP' },
-    { id: 'humidity', labelKey: 'METEO_FRANCE.HUMIDITY' },
-    { id: 'wind', labelKey: 'METEO_FRANCE.WIND' },
-    { id: 'precip', labelKey: 'METEO_FRANCE.PRECIP' },
-    { id: 'precipDaily', labelKey: 'METEO_FRANCE.PRECIP_DAILY' },
-    { id: 'pop', labelKey: 'METEO_FRANCE.RAIN_CHANCE' }
-  ];
-  private pointTempTimelineRequestId = 0;
-  private pointTempTimelineClimCache: any = null;
-  private pointTempTimelineClimQuotidienneCache: any = null;
-  private pointTempTimelineForecastCache: any = null;
-  private pointTempTimelineMfForecastCache: any = null;
-  private pointTempTimelineQuotidienneLoading = false;
-  private pointTempTimelineSlots: PointTempTimelineSlot[] = [];
-  private pointTempTimelineDailySlots: PointTempTimelineSlot[] = [];
-  private pointTempTimelineChartPoints: Array<{ ts: number; kind: 'history' | 'now' | 'forecast' }> = [];
 
   aromepiCapabilities: any = null;
   aromepiLayers: Array<{ name: string; title: string; style?: string; category?: string }> = [];
@@ -456,12 +402,6 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private static readonly AROMEPI_PLAY_INTERVAL_MS = 650;
   private static readonly AROMEPI_PREFETCH_AHEAD = 4;
   /** Point temperature timeline: 7 d history + 7 d forecast, one sample every 2 h. */
-  private static readonly POINT_TIMELINE_SLOT_PARAMS: Array<'temp' | 'humidity' | 'wind' | 'precip' | 'pop'> = [
-    'temp', 'humidity', 'wind', 'precip', 'pop'
-  ];
-  private static readonly POINT_TIMELINE_HISTORY_DAYS = 7;
-  private static readonly POINT_TIMELINE_FORECAST_HOURS = 168;
-  private static readonly POINT_TIMELINE_STEP_MINUTES = 120;
   /** AROME-PI WMS native resolution (independent of multi-day forecast options). */
   private static readonly AROMEPI_FORECAST_HORIZON_MINUTES = 360;
   private static readonly AROMEPI_FORECAST_STEP_MINUTES = 15;
@@ -1214,7 +1154,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   }
 
   get aggregatedForecastSourceErrors(): Array<{ source: string; message: string }> {
-    const raw = this.aggregatedForecast?.sourceErrors;
+    const raw = this.aggregatedForecast?.sourceErrors ?? this.aggregatedForecastSourceErrorsInternal;
     if (!raw || typeof raw !== 'object') {
       return [];
     }
@@ -1223,6 +1163,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       message: String(message)
     }));
   }
+
 
   aggregatedSourceLabel(source: string): string {
     switch (source) {
@@ -1872,9 +1813,12 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.owmForecastRequestId++;
     this.omForecastRequestId++;
     this.aggregatedForecastRequestId++;
+    this.abortAggregatedForecastStream();
     this.owmForecast = null;
     this.omForecast = null;
     this.aggregatedForecast = null;
+    this.aggregatedForecastSourceLists = {};
+    this.aggregatedForecastSourceErrorsInternal = {};
     this.owmForecastErrorKey = '';
     this.omForecastErrorKey = '';
     this.aggregatedForecastErrorKey = '';
@@ -3205,6 +3149,46 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     return this.resolveSelectedLocationName();
   }
 
+  get pointTempTimelineTitle(): string {
+    return this.resolveSelectedLocationName();
+  }
+
+  get pointTimelineMfTempC(): number | null {
+    return this.selectedPointMfTempC;
+  }
+
+  get pointTimelineOpenMeteoTempC(): number | null {
+    return this.selectedPointOpenMeteoTempC;
+  }
+
+  get pointTimelineOpenWeatherTempC(): number | null {
+    return this.selectedPointOpenWeatherTempC;
+  }
+
+  get pointTempTimelineStationId(): string | undefined {
+    return this.selectedPointMfStation?.id
+      ?? this.findNearestGridPoint(this.lat, this.lon)?.stationId;
+  }
+
+  get pointTempTimelineStationName(): string | undefined {
+    return this.selectedPointMfStation?.name;
+  }
+
+  private canShowPointTempTimelineButton(): boolean {
+    return this.isLocationInFrance();
+  }
+
+  openPointTempTimeline(): void {
+    if (!this.canShowPointTempTimelineButton() || !Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
+      return;
+    }
+    this.pointTempTimelineVisible = true;
+  }
+
+  closePointTempTimeline(): void {
+    this.pointTempTimelineVisible = false;
+  }
+
   private resolveSelectedLocationName(): string {
     const name = this.selectedLocationName?.trim();
     if (name && !this.looksLikeCoordinates(name)) {
@@ -3852,7 +3836,6 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   @HostListener('document:fullscreenchange')
   @HostListener('document:webkitfullscreenchange')
   onMapFullscreenChange(): void {
-    this.syncPointTimelineNativeFullscreen();
     const shell = this.mapShell?.nativeElement;
     const doc = document as Document & { webkitFullscreenElement?: Element };
     const active = !!(shell && (document.fullscreenElement === shell || doc.webkitFullscreenElement === shell));
@@ -3872,8 +3855,12 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       this.closeStationHistoryModal();
       return;
     }
-    if (this.pointTempTimelineFullscreen) {
-      this.exitPointTimelineFullscreen();
+    if (this.pointTempTimeline?.isFullscreen()) {
+      this.pointTempTimeline.exitFullscreen();
+      return;
+    }
+    if (this.pointTempTimelineVisible) {
+      this.closePointTempTimeline();
       return;
     }
     if (this.mapFullscreen) {
@@ -5435,352 +5422,6 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.resetStationHistoryCharts();
   }
 
-  get pointTempTimelineTitle(): string {
-    return this.resolveSelectedLocationName();
-  }
-
-  private canShowPointTempTimelineButton(): boolean {
-    return this.isLocationInFrance();
-  }
-
-  get pointTimelineMfTempC(): number | null {
-    return this.selectedPointMfTempC;
-  }
-
-  get pointTimelineOpenMeteoTempC(): number | null {
-    return this.selectedPointOpenMeteoTempC;
-  }
-
-  get pointTimelineOpenWeatherTempC(): number | null {
-    return this.selectedPointOpenWeatherTempC;
-  }
-
-  get pointTimelineCurrentTempC(): number | null {
-    switch (this.pointTempTimelineActiveTab) {
-      case 'open-meteo':
-        return this.selectedPointOpenMeteoTempC;
-      case 'openweathermap':
-        return this.selectedPointOpenWeatherTempC;
-      default:
-        return this.selectedPointMfTempC;
-    }
-  }
-
-  get pointTimelineShowCompareNow(): boolean {
-    return this.pointTempTimelineActiveParam === 'temp'
-      && this.pointTempTimelineActiveTab === 'compare'
-      && (this.pointTimelineMfTempC != null
-        || this.pointTimelineOpenMeteoTempC != null
-        || this.pointTimelineOpenWeatherTempC != null);
-  }
-
-  get pointTempTimelineSourceKey(): string {
-    switch (this.pointTempTimelineActiveTab) {
-      case 'open-meteo':
-        return 'METEO_FRANCE.POINT_TIMELINE_SOURCE_OM';
-      case 'openweathermap':
-        return 'METEO_FRANCE.POINT_TIMELINE_SOURCE_OWM';
-      case 'compare':
-        return 'METEO_FRANCE.POINT_TIMELINE_SOURCE_COMPARE';
-      default:
-        return 'METEO_FRANCE.POINT_TIMELINE_SOURCE';
-    }
-  }
-
-  get pointTempTimelineSourceLogo(): string | null {
-    switch (this.pointTempTimelineActiveTab) {
-      case 'open-meteo':
-        return this.getBrandLogoSrc('open-meteo');
-      case 'openweathermap':
-        return this.getBrandLogoSrc('openweathermap');
-      case 'compare':
-        return null;
-      default:
-        return this.meteoFranceBrandLogo;
-    }
-  }
-
-  get pointTempTimelineShowStation(): boolean {
-    return this.pointTempTimelineActiveTab === 'meteofrance' && !!this.pointTempTimelineStationLabel;
-  }
-
-  get pointTempTimelinePeriodLabel(): string {
-    return this.buildPointTempTimelinePeriodLabel(
-      this.pointTempTimelineActiveParam,
-      this.getActivePointTempTimelineDisplaySlots()
-    );
-  }
-
-  get pointTempTimelineInfoParams(): Record<string, string> {
-    return { period: this.pointTempTimelinePeriodLabel };
-  }
-
-  onPointTempTimelineTabChange(tab: PointTempTimelineTab): void {
-    if (this.pointTempTimelineActiveTab === tab) {
-      return;
-    }
-    this.pointTempTimelineActiveTab = tab;
-    this.pointTempTimelineTabErrorKey = '';
-    this.pointTempTimelineInfoKey = '';
-    this.renderPointTempTimelineChart();
-  }
-
-  onPointTempTimelineParamChange(param: PointTempTimelineParam): void {
-    if (this.pointTempTimelineActiveParam === param) {
-      return;
-    }
-    this.pointTempTimelineActiveParam = param;
-    this.pointTempTimelineTabErrorKey = '';
-    this.pointTempTimelineInfoKey = '';
-    if (param === 'precipDaily') {
-      this.loadPointTempTimelineQuotidienne();
-    }
-    this.renderPointTempTimelineChart();
-  }
-
-  openPointTempTimeline(): void {
-    if (!this.canShowPointTempTimelineButton() || !Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
-      return;
-    }
-    this.pointTempTimelineVisible = true;
-    this.pointTempTimelineFullscreen = false;
-    this.pointTempTimelineActiveTab = 'meteofrance';
-    this.pointTempTimelineActiveParam = 'temp';
-    this.pointTempTimelineChartsReady = false;
-    this.pointTempTimelineHistoryAvailable = false;
-    this.pointTempTimelineDataLoaded = false;
-    this.loadPointTempTimelineData();
-  }
-
-  togglePointTempTimelineFullscreen(): void {
-    if (this.pointTempTimelineFullscreen) {
-      this.exitPointTimelineFullscreen();
-      return;
-    }
-    const overlay = this.pointTempTimelineOverlay?.nativeElement;
-    if (!overlay) {
-      this.setPointTempTimelineFullscreen(true);
-      return;
-    }
-    const request = overlay.requestFullscreen?.bind(overlay)
-      ?? (overlay as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen?.bind(overlay);
-    if (request) {
-      request().then(() => this.setPointTempTimelineFullscreen(true))
-        .catch(() => this.setPointTempTimelineFullscreen(true));
-    } else {
-      this.setPointTempTimelineFullscreen(true);
-    }
-  }
-
-  private exitPointTimelineFullscreen(): void {
-    const overlay = this.pointTempTimelineOverlay?.nativeElement;
-    const doc = document as Document & { webkitFullscreenElement?: Element; webkitExitFullscreen?: () => Promise<void> };
-    const fsElement = document.fullscreenElement ?? doc.webkitFullscreenElement;
-    if (overlay && fsElement === overlay) {
-      const exit = document.exitFullscreen?.bind(document) ?? doc.webkitExitFullscreen?.bind(document);
-      exit?.().catch(() => this.setPointTempTimelineFullscreen(false));
-      return;
-    }
-    this.setPointTempTimelineFullscreen(false);
-  }
-
-  private syncPointTimelineNativeFullscreen(): void {
-    const overlay = this.pointTempTimelineOverlay?.nativeElement;
-    if (!overlay || !this.pointTempTimelineVisible) {
-      return;
-    }
-    const doc = document as Document & { webkitFullscreenElement?: Element };
-    const active = document.fullscreenElement === overlay || doc.webkitFullscreenElement === overlay;
-    if (this.pointTempTimelineFullscreen !== active) {
-      this.setPointTempTimelineFullscreen(active);
-    }
-  }
-
-  resetPointTempTimelineZoom(): void {
-    const chart = this.pointTempTimelineChart?.chart as (Chart & { resetZoom?: () => void }) | undefined;
-    chart?.resetZoom?.();
-  }
-
-  private setPointTempTimelineFullscreen(fullscreen: boolean): void {
-    if (this.pointTempTimelineFullscreen === fullscreen) {
-      return;
-    }
-    this.pointTempTimelineFullscreen = fullscreen;
-    if (fullscreen) {
-      this.chartFullscreen.register(this.pointTimelineCloseFullscreen);
-    } else {
-      this.chartFullscreen.unregister(this.pointTimelineCloseFullscreen);
-    }
-    if (this.pointTempTimelineChartsReady) {
-      this.pointTempTimelineChartOptions = this.buildPointTempTimelineChartOptions(
-        this.pointTempTimelineChartPoints,
-        this.pointTempTimelineActiveParam,
-        this.pointTempTimelineChartType
-      );
-    }
-    setTimeout(() => this.resizePointTempTimelineChart(), fullscreen ? 180 : 120);
-  }
-
-  private resizePointTempTimelineChart(): void {
-    this.pointTempTimelineChart?.chart?.resize();
-    this.pointTempTimelineChart?.update();
-  }
-
-  closePointTempTimeline(): void {
-    this.exitPointTimelineFullscreen();
-    this.chartFullscreen.unregister(this.pointTimelineCloseFullscreen);
-    this.pointTempTimelineVisible = false;
-    this.pointTempTimelineFullscreen = false;
-    this.pointTempTimelineLoading = false;
-    this.pointTempTimelineErrorKey = '';
-    this.pointTempTimelineTabErrorKey = '';
-    this.pointTempTimelineInfoKey = '';
-    this.pointTempTimelineChartsReady = false;
-    this.pointTempTimelineHistoryAvailable = false;
-    this.pointTempTimelineForecastAvailable = false;
-    this.pointTempTimelineDataLoaded = false;
-    this.pointTempTimelineStationLabel = '';
-    this.pointTempTimelineClimCache = null;
-    this.pointTempTimelineClimQuotidienneCache = null;
-    this.pointTempTimelineForecastCache = null;
-    this.pointTempTimelineMfForecastCache = null;
-    this.pointTempTimelineQuotidienneLoading = false;
-    this.pointTempTimelineSlots = [];
-    this.pointTempTimelineDailySlots = [];
-    this.resetPointTempTimelineCharts();
-    this.pointTempTimelineRequestId++;
-  }
-
-  loadPointTempTimelineData(): void {
-    if (!this.pointTempTimelineVisible || !Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
-      return;
-    }
-    const requestId = ++this.pointTempTimelineRequestId;
-    this.pointTempTimelineLoading = true;
-    this.pointTempTimelineErrorKey = '';
-    this.pointTempTimelineChartsReady = false;
-    this.pointTempTimelineClimCache = null;
-    this.pointTempTimelineClimQuotidienneCache = null;
-    this.pointTempTimelineForecastCache = null;
-    this.pointTempTimelineMfForecastCache = null;
-
-    const stationId = this.selectedPointMfStation?.id
-      ?? this.findNearestGridPoint(this.lat, this.lon)?.stationId;
-
-    const climHoraire$ = this.climAvailable
-      ? this.apiService.getMeteoFranceClimNearby(
-          this.lat,
-          this.lon,
-          MeteoFranceComponent.POINT_TIMELINE_HISTORY_DAYS,
-          'horaire',
-          this.departmentCode || undefined,
-          stationId
-        ).pipe(catchError(() => of(null)))
-      : of(null);
-
-    const mfForecast$ = this.apiService.getForecastByCoordinates(
-      this.lat,
-      this.lon,
-      undefined,
-      'meteofrance',
-      MeteoFranceComponent.POINT_TIMELINE_FORECAST_HOURS,
-      MeteoFranceComponent.POINT_TIMELINE_STEP_MINUTES
-    ).pipe(catchError(() => of(null)));
-
-    this.subs.add(
-      forkJoin({ clim: climHoraire$, mfForecast: mfForecast$ }).subscribe({
-        next: ({ clim, mfForecast }) => {
-          if (requestId !== this.pointTempTimelineRequestId || !this.pointTempTimelineVisible) {
-            return;
-          }
-          this.pointTempTimelineLoading = false;
-          this.pointTempTimelineClimCache = clim;
-          this.pointTempTimelineMfForecastCache = mfForecast;
-          this.refreshPointTempTimelineFromCaches();
-          if (!this.pointTempTimelineChartsReady
-            && !this.pointTempTimelineErrorKey
-            && (!this.pointTempTimelineDataLoaded || this.pointTempTimelineSlots.length === 0)) {
-            this.pointTempTimelineErrorKey = 'METEO_FRANCE.POINT_TIMELINE_NO_DATA';
-          }
-          this.loadPointTempTimelineAggregatedForecast(requestId);
-        },
-        error: () => {
-          if (requestId !== this.pointTempTimelineRequestId) {
-            return;
-          }
-          this.pointTempTimelineLoading = false;
-          this.pointTempTimelineErrorKey = 'METEO_FRANCE.POINT_TIMELINE_LOAD_ERROR';
-        }
-      })
-    );
-  }
-
-  /** Loads OWM + Open-Meteo + MF forecasts in the background (compare / other tabs). */
-  private loadPointTempTimelineAggregatedForecast(requestId: number): void {
-    if (requestId !== this.pointTempTimelineRequestId || !this.pointTempTimelineVisible) {
-      return;
-    }
-    this.subs.add(
-      this.apiService.getAggregatedForecast(
-        this.lat,
-        this.lon,
-        MeteoFranceComponent.POINT_TIMELINE_FORECAST_HOURS,
-        MeteoFranceComponent.POINT_TIMELINE_STEP_MINUTES
-      ).pipe(catchError(() => of(null))).subscribe({
-        next: (forecast) => {
-          if (requestId !== this.pointTempTimelineRequestId || !this.pointTempTimelineVisible) {
-            return;
-          }
-          if (forecast && !forecast.error) {
-            this.pointTempTimelineForecastCache = forecast;
-            this.refreshPointTempTimelineFromCaches();
-          }
-        }
-      })
-    );
-  }
-
-  /** DPClim quotidienne is only needed for the daily-precipitation view — load on demand. */
-  private loadPointTempTimelineQuotidienne(): void {
-    if (this.pointTempTimelineQuotidienneLoading
-      || this.pointTempTimelineClimQuotidienneCache
-      || !this.climAvailable
-      || !this.pointTempTimelineVisible) {
-      return;
-    }
-    const requestId = this.pointTempTimelineRequestId;
-    const stationId = this.selectedPointMfStation?.id
-      ?? this.findNearestGridPoint(this.lat, this.lon)?.stationId;
-    this.pointTempTimelineQuotidienneLoading = true;
-    this.subs.add(
-      this.apiService.getMeteoFranceClimNearby(
-        this.lat,
-        this.lon,
-        MeteoFranceComponent.POINT_TIMELINE_HISTORY_DAYS,
-        'quotidienne',
-        this.departmentCode || undefined,
-        stationId
-      ).pipe(catchError(() => of(null))).subscribe({
-        next: (data) => {
-          if (requestId !== this.pointTempTimelineRequestId || !this.pointTempTimelineVisible) {
-            return;
-          }
-          this.pointTempTimelineQuotidienneLoading = false;
-          this.pointTempTimelineClimQuotidienneCache = data;
-          this.buildPointTempTimelineDailySlots(data, this.pointTempTimelineSlots);
-          if (this.pointTempTimelineActiveParam === 'precipDaily') {
-            this.renderPointTempTimelineChart();
-          }
-        },
-        error: () => {
-          if (requestId !== this.pointTempTimelineRequestId) {
-            return;
-          }
-          this.pointTempTimelineQuotidienneLoading = false;
-        }
-      })
-    );
-  }
 
   onStationHistoryFrequencyChange(): void {
     const options = this.stationHistoryPeriodOptions;
@@ -5951,7 +5592,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   }
 
   private buildClimScalarChartOptions(unit: string): ChartOptions<'line'> {
-    return withMeteoChartZoom({
+    return withMeteoChartZoom<'line'>({
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
@@ -6056,859 +5697,6 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.stationHistoryPressureChartData = { labels: [], datasets: [] };
   }
 
-  private resetPointTempTimelineCharts(): void {
-    this.pointTempTimelineChartData = { labels: [], datasets: [] };
-    this.pointTempTimelineNowIndex = -1;
-  }
-
-  private refreshPointTempTimelineFromCaches(): void {
-    this.buildPointTempTimelineSlots(
-      this.pointTempTimelineClimCache,
-      this.pointTempTimelineForecastCache,
-      this.pointTempTimelineMfForecastCache
-    );
-    this.buildPointTempTimelineDailySlots(
-      this.pointTempTimelineClimQuotidienneCache,
-      this.pointTempTimelineSlots
-    );
-    this.pointTempTimelineDataLoaded = true;
-    this.renderPointTempTimelineChart();
-  }
-
-  private buildPointTempTimelineSlots(
-    climData: any,
-    forecastData: any,
-    mfOnlyForecast: any = null
-  ): void {
-    this.pointTempTimelineHistoryAvailable = false;
-    this.pointTempTimelineForecastAvailable = false;
-    this.pointTempTimelineStationLabel = '';
-    const slotMap = new Map<number, PointTempTimelineSlot>();
-
-    if (climData && !climData.error) {
-      const hourly = climData.frequency === 'horaire';
-      const rows = [...(climData.rows || [])].sort((a, b) =>
-        this.climRowSortKey(a).localeCompare(this.climRowSortKey(b))
-      );
-      const precipColumn = this.resolveClimPrecipColumn(rows);
-      const stationName = climData.station?.name || climData.stationName || this.selectedPointMfStation?.name;
-      const stationId = climData.station?.id || climData.stationId || this.selectedPointMfStation?.id;
-      if (stationName || stationId) {
-        this.pointTempTimelineStationLabel = stationName
-          ? (stationId ? `${stationName} (${stationId})` : stationName)
-          : String(stationId);
-      }
-      for (const row of rows) {
-        const ts = this.climRowEpochSeconds(row);
-        if (ts == null || !this.isTimelineTwoHourSlot(ts)) {
-          continue;
-        }
-        const slot = slotMap.get(ts) ?? this.createEmptyPointTempTimelineSlot(ts, 'history');
-        for (const param of MeteoFranceComponent.POINT_TIMELINE_SLOT_PARAMS) {
-          const value = this.extractClimTimelineValue(row, hourly, param, precipColumn);
-          if (value != null) {
-            slot.values.meteofrance[param] = value;
-            this.pointTempTimelineHistoryAvailable = true;
-          }
-        }
-        slotMap.set(ts, slot);
-      }
-    }
-
-    const nowTs = Math.floor(Date.now() / 1000);
-    const nowSlot = slotMap.get(nowTs) ?? this.createEmptyPointTempTimelineSlot(nowTs, 'now');
-    nowSlot.kind = 'now';
-    if (this.selectedPointMfTempC != null) {
-      nowSlot.values.meteofrance.temp = Math.round(this.celsiusToDisplay(this.selectedPointMfTempC) * 10) / 10;
-    }
-    if (this.selectedPointOpenMeteoTempC != null) {
-      nowSlot.values['open-meteo'].temp = Math.round(this.celsiusToDisplay(this.selectedPointOpenMeteoTempC) * 10) / 10;
-    }
-    if (this.selectedPointOpenWeatherTempC != null) {
-      nowSlot.values.openweathermap.temp = Math.round(this.celsiusToDisplay(this.selectedPointOpenWeatherTempC) * 10) / 10;
-    }
-    slotMap.set(nowTs, nowSlot);
-    this.pointTempTimelineNowTs = nowTs;
-
-    const steps: any[] = Array.isArray(forecastData?.steps) ? forecastData.steps : [];
-    if (steps.length && !forecastData?.error) {
-      for (const step of steps) {
-        const ts = Number(step?.dt);
-        if (!Number.isFinite(ts) || ts <= 0) {
-          continue;
-        }
-        const slot = slotMap.get(ts) ?? this.createEmptyPointTempTimelineSlot(ts, 'forecast');
-        for (const source of ['meteofrance', 'open-meteo', 'openweathermap'] as const) {
-          for (const param of MeteoFranceComponent.POINT_TIMELINE_SLOT_PARAMS) {
-            const value = this.extractAggregateChartValue(step, source, param);
-            if (value != null) {
-              slot.values[source][param] = value;
-              this.pointTempTimelineForecastAvailable = true;
-            }
-          }
-        }
-        slotMap.set(ts, slot);
-      }
-    } else if (mfOnlyForecast && !mfOnlyForecast.error && Array.isArray(mfOnlyForecast.list)) {
-      this.mergeSingleSourceForecastListIntoSlotMap(slotMap, mfOnlyForecast.list, 'meteofrance');
-    }
-
-    this.pointTempTimelineSlots = [...slotMap.values()].sort((a, b) => a.ts - b.ts);
-    this.fillPointTempTimelineNowValues();
-  }
-
-  private mergeSingleSourceForecastListIntoSlotMap(
-    slotMap: Map<number, PointTempTimelineSlot>,
-    list: any[],
-    source: PointTempTimelineSourceKey
-  ): void {
-    for (const item of list) {
-      const ts = Number(item?.dt);
-      if (!Number.isFinite(ts) || ts <= 0) {
-        continue;
-      }
-      const slot = slotMap.get(ts) ?? this.createEmptyPointTempTimelineSlot(ts, 'forecast');
-      for (const param of MeteoFranceComponent.POINT_TIMELINE_SLOT_PARAMS) {
-        const value = this.extractListItemTimelineValue(item, param);
-        if (value != null) {
-          slot.values[source][param] = value;
-          this.pointTempTimelineForecastAvailable = true;
-        }
-      }
-      slotMap.set(ts, slot);
-    }
-  }
-
-  private extractListItemTimelineValue(item: any, param: PointTempTimelineParam): number | null {
-    if (!item) {
-      return null;
-    }
-    switch (param) {
-      case 'temp': {
-        const temp = item.main?.temp;
-        return temp != null ? Math.round(this.celsiusToDisplay(Number(temp)) * 10) / 10 : null;
-      }
-      case 'humidity': {
-        const humidity = item.main?.humidity;
-        return humidity != null ? Math.round(Number(humidity)) : null;
-      }
-      case 'wind': {
-        const wind = item.wind?.speed;
-        return wind != null ? Math.round(Number(wind) * 100) / 100 : null;
-      }
-      case 'precip': {
-        const mm = item.rain?.['1h'] ?? item.rain?.['3h'] ?? item.snow?.['1h'] ?? item.snow?.['3h'];
-        return mm != null ? Number(mm) : null;
-      }
-      case 'pop': {
-        const pop = item.pop;
-        return pop != null ? Math.round(Number(pop) * 1000) / 10 : null;
-      }
-      default:
-        return null;
-    }
-  }
-
-  /**
-   * Resolve a "now" value for humidity/wind/precip on the current slot so the red
-   * marker can show like it does for temperature. Values are linearly interpolated
-   * between the closest surrounding slots per source.
-   */
-  private fillPointTempTimelineNowValues(): void {
-    const nowTs = this.pointTempTimelineNowTs;
-    const slots = this.pointTempTimelineSlots;
-    const nowIndex = slots.findIndex((slot) => slot.kind === 'now');
-    if (nowIndex < 0) {
-      return;
-    }
-    const nowSlot = slots[nowIndex];
-    const params: Array<'humidity' | 'wind' | 'precip'> = ['humidity', 'wind', 'precip'];
-    const sources: PointTempTimelineSourceKey[] = ['meteofrance', 'open-meteo', 'openweathermap'];
-    for (const source of sources) {
-      for (const param of params) {
-        if (nowSlot.values[source][param] != null) {
-          continue;
-        }
-        let before: { ts: number; value: number } | null = null;
-        let after: { ts: number; value: number } | null = null;
-        for (let i = nowIndex - 1; i >= 0; i--) {
-          const value = slots[i].values[source][param];
-          if (value != null) {
-            before = { ts: slots[i].ts, value };
-            break;
-          }
-        }
-        for (let i = nowIndex + 1; i < slots.length; i++) {
-          const value = slots[i].values[source][param];
-          if (value != null) {
-            after = { ts: slots[i].ts, value };
-            break;
-          }
-        }
-        let resolved: number | null = null;
-        if (before && after) {
-          if (param === 'precip') {
-            resolved = after.value;
-          } else {
-            const span = after.ts - before.ts;
-            const ratio = span > 0 ? (nowTs - before.ts) / span : 0;
-            resolved = before.value + (after.value - before.value) * ratio;
-          }
-        } else if (after) {
-          resolved = after.value;
-        } else if (before) {
-          resolved = before.value;
-        }
-        if (resolved != null) {
-          nowSlot.values[source][param] = Math.round(resolved * 10) / 10;
-        }
-      }
-    }
-  }
-
-  private buildPointTempTimelineDailySlots(
-    climQuotidienneData: any,
-    hourlySlots: PointTempTimelineSlot[]
-  ): void {
-    const dayMap = new Map<string, PointTempTimelineSlot>();
-    const todayStart = this.timelineTodayStartTs();
-
-    const ensureDay = (dayKey: string, noonTs: number): PointTempTimelineSlot => {
-      let slot = dayMap.get(dayKey);
-      if (!slot) {
-        const kind: PointTempTimelineSlot['kind'] = noonTs < todayStart
-          ? 'history'
-          : noonTs < todayStart + 86_400
-            ? 'now'
-            : 'forecast';
-        slot = this.createEmptyPointTempTimelineSlot(noonTs, kind);
-        dayMap.set(dayKey, slot);
-      }
-      return slot;
-    };
-
-    if (climQuotidienneData && !climQuotidienneData.error) {
-      const rows = [...(climQuotidienneData.rows || [])].sort((a, b) =>
-        this.climRowSortKey(a).localeCompare(this.climRowSortKey(b))
-      );
-      const precipColumn = this.resolveClimPrecipColumn(rows);
-      for (const row of rows) {
-        const ts = this.climRowEpochSeconds(row);
-        if (ts == null || ts >= todayStart) {
-          continue;
-        }
-        const dayKey = this.timelineLocalDayKey(ts);
-        const slot = ensureDay(dayKey, this.timelineDayNoonTs(ts));
-        const value = this.extractClimTimelineValue(row, false, 'precipDaily', precipColumn);
-        if (value != null) {
-          slot.values.meteofrance.precipDaily = value;
-          this.pointTempTimelineHistoryAvailable = true;
-        }
-      }
-    }
-
-    for (const hourSlot of hourlySlots) {
-      if (hourSlot.kind === 'now') {
-        continue;
-      }
-      const dayKey = this.timelineLocalDayKey(hourSlot.ts);
-      const isPastDay = hourSlot.ts < todayStart;
-      const dailySlot = ensureDay(dayKey, this.timelineDayNoonTs(hourSlot.ts));
-      for (const source of ['meteofrance', 'open-meteo', 'openweathermap'] as const) {
-        const precip = hourSlot.values[source].precip;
-        if (precip == null) {
-          continue;
-        }
-        if (source === 'meteofrance' && isPastDay && dailySlot.values.meteofrance.precipDaily != null) {
-          continue;
-        }
-        const prev = dailySlot.values[source].precipDaily ?? 0;
-        dailySlot.values[source].precipDaily = Math.round((prev + precip) * 10) / 10;
-        if (hourSlot.kind === 'forecast' || !isPastDay) {
-          this.pointTempTimelineForecastAvailable = true;
-        }
-      }
-    }
-
-    this.pointTempTimelineDailySlots = [...dayMap.values()].sort((a, b) => a.ts - b.ts);
-  }
-
-  private timelineLocalDayKey(ts: number): string {
-    const date = new Date(ts * 1000);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
-  private timelineDayNoonTs(ts: number): number {
-    const date = new Date(ts * 1000);
-    date.setHours(12, 0, 0, 0);
-    return Math.floor(date.getTime() / 1000);
-  }
-
-  private timelineTodayStartTs(): number {
-    const date = new Date();
-    date.setHours(0, 0, 0, 0);
-    return Math.floor(date.getTime() / 1000);
-  }
-
-  private createEmptyTimelineSourceValues(): PointTempTimelineSourceValues {
-    return {
-      temp: null,
-      humidity: null,
-      wind: null,
-      precip: null,
-      precipDaily: null,
-      pop: null
-    };
-  }
-
-  private createEmptyPointTempTimelineSlot(
-    ts: number,
-    kind: PointTempTimelineSlot['kind']
-  ): PointTempTimelineSlot {
-    const empty = () => this.createEmptyTimelineSourceValues();
-    return {
-      ts,
-      kind,
-      values: {
-        meteofrance: empty(),
-        'open-meteo': empty(),
-        openweathermap: empty()
-      }
-    };
-  }
-
-  private resolveClimPrecipColumn(rows: any[]): string | null {
-    if (rows.some((row) => this.parseClimNumber(row.RR) != null)) {
-      return 'RR';
-    }
-    if (rows.some((row) => this.parseClimNumber(row.RR1) != null)) {
-      return 'RR1';
-    }
-    if (rows.some((row) => this.parseClimNumber(row.RR3) != null)) {
-      return 'RR3';
-    }
-    return null;
-  }
-
-  private extractClimTimelineValue(
-    row: any,
-    hourly: boolean,
-    param: PointTempTimelineParam,
-    precipColumn: string | null = null
-  ): number | null {
-    switch (param) {
-      case 'temp':
-        return this.extractClimTimelineTemp(row, hourly);
-      case 'humidity': {
-        const humidity = this.parseClimNumber(row.U);
-        return humidity != null ? humidity : null;
-      }
-      case 'wind': {
-        const wind = this.parseClimNumber(row.FF) ?? this.parseClimNumber(row.FXI);
-        return wind != null ? wind : null;
-      }
-      case 'precip': {
-        if (precipColumn) {
-          return this.parseClimNumber(row[precipColumn]);
-        }
-        const rain = this.parseClimNumber(row.RR);
-        if (rain != null) {
-          return rain;
-        }
-        return this.parseClimNumber(row.RR1) ?? this.parseClimNumber(row.RR3);
-      }
-      case 'precipDaily': {
-        if (hourly) {
-          return null;
-        }
-        if (precipColumn) {
-          return this.parseClimNumber(row[precipColumn]);
-        }
-        return this.parseClimNumber(row.RR)
-          ?? this.parseClimNumber(row.RR1)
-          ?? this.parseClimNumber(row.RR3);
-      }
-      case 'pop':
-        return null;
-      default:
-        return null;
-    }
-  }
-
-  private normalizeTimelineChartValues(
-    values: Array<number | null>,
-    chartType: ForecastChartKind
-  ): Array<number | null> {
-    if (chartType !== 'bar') {
-      return values;
-    }
-    return values.map((value) => (value == null ? 0 : value));
-  }
-
-  private collectTimelineDatasetValues(
-    datasets: ChartConfiguration<'line' | 'bar'>['data']['datasets'],
-    skipLabel?: string
-  ): number[] {
-    const values: number[] = [];
-    for (const dataset of datasets) {
-      if (skipLabel && dataset.label === skipLabel) {
-        continue;
-      }
-      for (const raw of dataset.data ?? []) {
-        if (raw != null && Number.isFinite(Number(raw))) {
-          values.push(Number(raw));
-        }
-      }
-    }
-    return values;
-  }
-
-  private evaluatePointTempTimelineChartContent(
-    datasets: ChartConfiguration<'line' | 'bar'>['data']['datasets'],
-    param: PointTempTimelineParam,
-    nowLabel: string
-  ): 'ok' | 'empty' | 'all-zero' {
-    const values = this.collectTimelineDatasetValues(datasets, nowLabel);
-    if (!values.length) {
-      return 'empty';
-    }
-    if ((param === 'precip' || param === 'precipDaily') && values.every((value) => value === 0)) {
-      return 'all-zero';
-    }
-    return 'ok';
-  }
-
-  private activatePointTempTimelineChart(): void {
-    this.pointTempTimelineChartsReady = false;
-    this.pointTempTimelineChartRenderSeq++;
-    setTimeout(() => {
-      if (!this.pointTempTimelineVisible) {
-        return;
-      }
-      this.pointTempTimelineChartsReady = true;
-      requestAnimationFrame(() => this.refreshPointTempTimelineCharts());
-    }, 0);
-  }
-
-  private pointTempTimelineSlotValue(
-    slot: PointTempTimelineSlot,
-    source: PointTempTimelineSourceKey,
-    param: PointTempTimelineParam
-  ): number | null {
-    return slot.values[source][param];
-  }
-
-  private getPointTempTimelineSlotsForTab(
-    tab: PointTempTimelineTab,
-    param: PointTempTimelineParam
-  ): PointTempTimelineSlot[] {
-    if (tab === 'compare') {
-      return this.pointTempTimelineSlots.filter((slot) =>
-        slot.values.meteofrance[param] != null
-        || slot.values['open-meteo'][param] != null
-        || slot.values.openweathermap[param] != null
-      );
-    }
-    return this.pointTempTimelineSlots.filter((slot) => this.pointTempTimelineSlotValue(slot, tab, param) != null);
-  }
-
-  private getPointTempTimelineDailySlotsForTab(
-    tab: PointTempTimelineTab,
-    param: PointTempTimelineParam
-  ): PointTempTimelineSlot[] {
-    if (tab === 'compare') {
-      return this.pointTempTimelineDailySlots.filter((slot) =>
-        slot.values.meteofrance[param] != null
-        || slot.values['open-meteo'][param] != null
-        || slot.values.openweathermap[param] != null
-      );
-    }
-    return this.pointTempTimelineDailySlots.filter((slot) => this.pointTempTimelineSlotValue(slot, tab, param) != null);
-  }
-
-  private getActivePointTempTimelineDisplaySlots(): PointTempTimelineSlot[] {
-    const tab = this.pointTempTimelineActiveTab;
-    const param = this.pointTempTimelineActiveParam;
-    return param === 'precipDaily'
-      ? this.getPointTempTimelineDailySlotsForTab(tab, param)
-      : this.getPointTempTimelineSlotsForTab(tab, param);
-  }
-
-  private formatTimelineSlotRangeLabel(
-    slots: Array<{ ts: number }>,
-    daily: boolean
-  ): string {
-    if (!slots.length) {
-      return '';
-    }
-    const format = daily
-      ? (ts: number) => this.formatPointTimelineDailyChartLabel(ts)
-      : (ts: number) => this.formatPointTimelineChartLabel(ts);
-    return `${format(slots[0].ts)} → ${format(slots[slots.length - 1].ts)}`;
-  }
-
-  private buildPointTempTimelinePeriodLabel(
-    param: PointTempTimelineParam,
-    slots: PointTempTimelineSlot[]
-  ): string {
-    return this.formatTimelineSlotRangeLabel(slots, param === 'precipDaily');
-  }
-
-  private renderPointTempTimelineChart(): void {
-    this.pointTempTimelineChartsReady = false;
-    this.resetPointTempTimelineCharts();
-    this.pointTempTimelineTabErrorKey = '';
-    this.pointTempTimelineInfoKey = '';
-    const tab = this.pointTempTimelineActiveTab;
-    const param = this.pointTempTimelineActiveParam;
-    const chartType = (param === 'precip' || param === 'precipDaily') ? 'bar' : 'line';
-    this.pointTempTimelineChartType = chartType;
-    const slots = param === 'precipDaily'
-      ? this.getPointTempTimelineDailySlotsForTab(tab, param)
-      : this.getPointTempTimelineSlotsForTab(tab, param);
-    const showNowMarker = param === 'temp' || param === 'humidity' || param === 'wind' || param === 'precip';
-
-    if (!slots.length) {
-      this.pointTempTimelineChartsReady = false;
-      this.pointTempTimelineTabErrorKey = this.resolvePointTempTimelineTabErrorKey(tab, param);
-      return;
-    }
-
-    this.pointTempTimelineChartPoints = slots.map((slot) => ({ ts: slot.ts, kind: slot.kind }));
-    const labels = param === 'precipDaily'
-      ? slots.map((slot) => this.formatPointTimelineDailyChartLabel(slot.ts))
-      : slots.map((slot) => this.formatPointTimelineChartLabel(slot.ts));
-    this.pointTempTimelineNowIndex = showNowMarker ? slots.findIndex((slot) => slot.kind === 'now') : -1;
-    const nowLabel = this.translate.instant('METEO_FRANCE.POINT_TIMELINE_LEGEND_NOW');
-    const compactPoints = meteoChartCompactPointRadius(slots.length, 3) === 0;
-    const linePointRadius = compactPoints ? 0 : 3;
-    const linePointHoverRadius = compactPoints ? 0 : 5;
-    const comparePointRadius = compactPoints ? 0 : 2;
-    const comparePointHoverRadius = compactPoints ? 0 : 4;
-    const datasets: ChartConfiguration<'line' | 'bar'>['data']['datasets'] = [];
-
-    if (tab === 'compare') {
-      const compareSources: Array<{
-        key: PointTempTimelineSourceKey;
-        labelKey: string;
-        color: string;
-      }> = [
-        { key: 'meteofrance', labelKey: 'METEO_FRANCE.POINT_TIMELINE_LEGEND_MF', color: '#2ecc71' },
-        { key: 'open-meteo', labelKey: 'METEO_FRANCE.POINT_TIMELINE_LEGEND_OM', color: '#3498db' },
-        { key: 'openweathermap', labelKey: 'METEO_FRANCE.POINT_TIMELINE_LEGEND_OWM', color: '#e67e22' }
-      ];
-      for (const source of compareSources) {
-        const rawValues = slots.map((slot) => this.pointTempTimelineSlotValue(slot, source.key, param));
-        if (!rawValues.some((value) => value != null)) {
-          continue;
-        }
-        const values = this.normalizeTimelineChartValues(rawValues, chartType);
-        datasets.push({
-          label: this.translate.instant(source.labelKey),
-          data: values,
-          borderColor: source.color,
-          backgroundColor: chartType === 'bar'
-            ? this.hexToRgba(source.color, 0.55)
-            : 'transparent',
-          ...(chartType === 'line' ? {
-            tension: 0.25,
-            spanGaps: true,
-            pointRadius: values.map((_value, index) => {
-              if (showNowMarker && index === this.pointTempTimelineNowIndex) {
-                return 0;
-              }
-              return _value != null ? comparePointRadius : 0;
-            }),
-            pointHoverRadius: values.map((_value, index) => {
-              if (showNowMarker && index === this.pointTempTimelineNowIndex) {
-                return 0;
-              }
-              return _value != null ? comparePointHoverRadius : 0;
-            })
-          } : {
-            borderWidth: 1
-          }),
-          fill: false,
-          order: 2
-        });
-      }
-      if (!datasets.length) {
-        this.pointTempTimelineChartsReady = false;
-        this.pointTempTimelineTabErrorKey = 'METEO_FRANCE.POINT_TIMELINE_NO_DATA';
-        return;
-      }
-      if (showNowMarker && this.pointTempTimelineNowIndex >= 0) {
-        const nowSlot = slots[this.pointTempTimelineNowIndex];
-        const nowValue = nowSlot.values.meteofrance[param]
-          ?? nowSlot.values['open-meteo'][param]
-          ?? nowSlot.values.openweathermap[param];
-        if (nowValue != null) {
-          const nowValues: Array<number | null> = slots.map((_slot, index) =>
-            index === this.pointTempTimelineNowIndex ? nowValue : null
-          );
-          datasets.push({
-            type: 'line',
-            label: nowLabel,
-            data: nowValues,
-            borderColor: '#dc2626',
-            backgroundColor: '#dc2626',
-            pointRadius: nowValues.map((value) => value != null ? 9 : 0),
-            pointHoverRadius: nowValues.map((value) => value != null ? 11 : 0),
-            pointBorderColor: '#ffffff',
-            pointBorderWidth: 2,
-            showLine: false,
-            spanGaps: false,
-            order: 0
-          } as any);
-        }
-      }
-    } else {
-      const rawValues = slots.map((slot) => this.pointTempTimelineSlotValue(slot, tab, param));
-      const values = this.normalizeTimelineChartValues(rawValues, chartType);
-      const color = tab === 'open-meteo' ? '#3498db' : tab === 'openweathermap' ? '#e67e22' : '#2ecc71';
-      const labelKey = tab === 'open-meteo'
-        ? 'METEO_FRANCE.POINT_TIMELINE_LEGEND_OM'
-        : tab === 'openweathermap'
-          ? 'METEO_FRANCE.POINT_TIMELINE_LEGEND_OWM'
-          : 'METEO_FRANCE.POINT_TIMELINE_LEGEND_MF';
-      const nowValues: Array<number | null> = rawValues.map((value, index) =>
-        showNowMarker && index === this.pointTempTimelineNowIndex ? value : null
-      );
-      datasets.push({
-        label: this.translate.instant(labelKey),
-        data: values,
-        borderColor: color,
-        backgroundColor: chartType === 'bar'
-          ? this.hexToRgba(color, 0.55)
-          : tab === 'meteofrance'
-            ? 'rgba(46, 204, 113, 0.12)'
-            : tab === 'open-meteo'
-              ? 'rgba(52, 152, 219, 0.12)'
-              : 'rgba(230, 126, 34, 0.12)',
-        ...(chartType === 'line' ? {
-          tension: 0.25,
-          spanGaps: true,
-          pointRadius: rawValues.map((_value, index) =>
-            showNowMarker && index === this.pointTempTimelineNowIndex ? 0 : linePointRadius
-          ),
-          pointHoverRadius: rawValues.map((_value, index) =>
-            showNowMarker && index === this.pointTempTimelineNowIndex ? 0 : linePointHoverRadius
-          ),
-          fill: tab === 'meteofrance'
-        } : {
-          borderWidth: 1
-        }),
-        order: 2
-      });
-      if (showNowMarker) {
-        datasets.push({
-          type: 'line',
-          label: nowLabel,
-          data: nowValues,
-          borderColor: '#dc2626',
-          backgroundColor: '#dc2626',
-          pointRadius: nowValues.map((value) => value != null ? 9 : 0),
-          pointHoverRadius: nowValues.map((value) => value != null ? 11 : 0),
-          pointBorderColor: '#ffffff',
-          pointBorderWidth: 2,
-          showLine: false,
-          spanGaps: false,
-          order: 0
-        } as any);
-      }
-    }
-
-    this.pointTempTimelineChartData = { labels, datasets };
-    this.pointTempTimelineChartOptions = this.buildPointTempTimelineChartOptions(
-      this.pointTempTimelineChartPoints,
-      param,
-      chartType
-    );
-    const chartContent = this.evaluatePointTempTimelineChartContent(datasets, param, nowLabel);
-    if (chartContent === 'empty') {
-      this.pointTempTimelineChartsReady = false;
-      this.pointTempTimelineTabErrorKey = this.resolvePointTempTimelineTabErrorKey(tab, param);
-      return;
-    }
-    if (chartContent === 'all-zero') {
-      this.pointTempTimelineChartsReady = false;
-      this.pointTempTimelineInfoKey = 'METEO_FRANCE.POINT_TIMELINE_NO_PRECIP_PERIOD';
-      return;
-    }
-    this.activatePointTempTimelineChart();
-  }
-
-  private resolvePointTempTimelineTabErrorKey(tab: PointTempTimelineTab, param: PointTempTimelineParam): string {
-    if (param === 'pop' && tab === 'meteofrance') {
-      return 'METEO_FRANCE.POINT_TIMELINE_POP_MF_FORECAST_ONLY';
-    }
-    switch (tab) {
-      case 'open-meteo':
-        return 'METEO_FRANCE.POINT_TIMELINE_UNAVAILABLE_OM';
-      case 'openweathermap':
-        return 'METEO_FRANCE.POINT_TIMELINE_UNAVAILABLE_OWM';
-      case 'compare':
-        return 'METEO_FRANCE.POINT_TIMELINE_NO_DATA';
-      default:
-        if (param === 'pop' || param === 'humidity' || param === 'wind' || param === 'precip' || param === 'precipDaily') {
-          return this.pointTempTimelineForecastAvailable
-            ? 'METEO_FRANCE.POINT_TIMELINE_FORECAST_ONLY_PARAM'
-            : 'METEO_FRANCE.POINT_TIMELINE_NO_DATA';
-        }
-        return this.pointTempTimelineHistoryAvailable
-          ? 'METEO_FRANCE.POINT_TIMELINE_FORECAST_UNAVAILABLE'
-          : 'METEO_FRANCE.POINT_TIMELINE_NO_DATA';
-    }
-  }
-
-  private isTimelineTwoHourSlot(ts: number): boolean {
-    const date = new Date(ts * 1000);
-    return date.getMinutes() === 0 && date.getHours() % 2 === 0;
-  }
-
-  private extractClimTimelineTemp(row: any, hourly: boolean): number | null {
-    if (hourly) {
-      const instant = this.tempChartValue(row.T);
-      if (instant != null) {
-        return instant;
-      }
-      return this.tempChartValue(row.TAT);
-    }
-    return this.extractClimDailyMeanTemp(row);
-  }
-
-  private extractClimDailyMeanTemp(row: any): number | null {
-    const mean = this.tempChartValue(row.TM);
-    if (mean != null) {
-      return mean;
-    }
-    const tnKey = this.parseClimNumber(row.TN) != null ? 'TN' : 'TNT';
-    const min = this.tempChartValue(row[tnKey]);
-    const max = this.tempChartValue(row.TX);
-    if (min != null && max != null) {
-      return Math.round(((min + max) / 2) * 10) / 10;
-    }
-    if (max != null) {
-      return max;
-    }
-    if (min != null) {
-      return min;
-    }
-    const instant = this.tempChartValue(row.T);
-    if (instant != null) {
-      return instant;
-    }
-    return this.tempChartValue(row.TAT);
-  }
-
-  private buildPointTempTimelineChartOptions(
-    points: Array<{ ts: number; kind: 'history' | 'now' | 'forecast' }> = [],
-    param: PointTempTimelineParam = 'temp',
-    chartType: ForecastChartKind = 'line'
-  ): ChartOptions<'line' | 'bar'> {
-    const yUnit = this.pointTimelineYUnit(param);
-    const percentParam = param === 'humidity' || param === 'pop';
-    const decimals = param === 'wind' ? 2 : 1;
-    const nowLabel = this.translate.instant('METEO_FRANCE.POINT_TIMELINE_LEGEND_NOW');
-    const options = {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: {
-          display: true,
-          position: 'top',
-          labels: { boxWidth: 10, font: { size: 10 } }
-        },
-        tooltip: {
-          callbacks: {
-            title: (items) => {
-              const index = items[0]?.dataIndex ?? -1;
-              const point = points[index];
-              if (!point) {
-                return items[0]?.label ?? '';
-              }
-              return param === 'precipDaily'
-                ? this.formatPointTimelineDailyChartLabel(point.ts)
-                : this.formatPointTimelineChartLabel(point.ts);
-            },
-            label: (ctx) => {
-              const y = ctx.parsed.y;
-              if (y == null || Number.isNaN(y)) {
-                return `${ctx.dataset.label}: —`;
-              }
-              const formatted = y.toLocaleString(undefined, { maximumFractionDigits: decimals });
-              const index = ctx.dataIndex;
-              const point = points[index];
-              const suffix = yUnit ? ` ${yUnit}` : '';
-              if (point?.kind === 'now' || ctx.dataset.label === nowLabel) {
-                return `${nowLabel}: ${formatted}${suffix}`;
-              }
-              return `${ctx.dataset.label}: ${formatted}${suffix}`;
-            }
-          }
-        }
-      },
-      scales: {
-        x: {
-          display: this.pointTempTimelineFullscreen,
-          ticks: {
-            maxTicksLimit: this.pointTempTimelineFullscreen ? 14 : 8,
-            maxRotation: 45,
-            minRotation: 0,
-            font: { size: 10 },
-            autoSkip: true
-          }
-        },
-        y: {
-          beginAtZero: chartType === 'bar' || percentParam,
-          max: percentParam ? 100 : undefined,
-          title: { display: !!yUnit, text: yUnit, font: { size: 10 } },
-          ticks: {
-            font: { size: 10 },
-            callback: (v) => Number(v).toLocaleString(undefined, { maximumFractionDigits: decimals })
-          }
-        }
-      },
-      elements: chartType === 'bar'
-        ? { bar: { borderWidth: 1 } }
-        : { line: { spanGaps: true, tension: 0.25 } },
-      datasets: chartType === 'bar'
-        ? { bar: { categoryPercentage: 0.82, barPercentage: 0.9 } }
-        : undefined
-    };
-    return chartType === 'bar'
-      ? withMeteoChartZoom(options as ChartOptions<'bar'>)
-      : withMeteoChartZoom(options as ChartOptions<'line'>);
-  }
-
-  private refreshPointTempTimelineCharts(): void {
-    if (!this.pointTempTimelineChartsReady) {
-      return;
-    }
-    this.pointTempTimelineChart?.update();
-  }
-
-  private formatPointTimelineChartLabel(ts: number | null | undefined): string {
-    if (ts == null || !Number.isFinite(Number(ts))) {
-      return '';
-    }
-    return this.formatTemperatureDateTime(new Date(Number(ts) * 1000));
-  }
-
-  private formatPointTimelineDailyChartLabel(ts: number | null | undefined): string {
-    if (ts == null || !Number.isFinite(Number(ts))) {
-      return '';
-    }
-    return new Date(Number(ts) * 1000).toLocaleString(undefined, {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short'
-    });
-  }
 
   private climRowEpochSeconds(row: any): number | null {
     const raw = row?.DATE ?? row?.AAAAMMJJ ?? row?.AAAAMMJJHH;
@@ -7293,10 +6081,13 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.owmForecastRequestId++;
     this.omForecastRequestId++;
     this.aggregatedForecastRequestId++;
+    this.abortAggregatedForecastStream();
     this.currentWeather = null;
     this.owmForecast = null;
     this.omForecast = null;
     this.aggregatedForecast = null;
+    this.aggregatedForecastSourceLists = {};
+    this.aggregatedForecastSourceErrorsInternal = {};
     this.owmForecastErrorKey = '';
     this.omForecastErrorKey = '';
     this.aggregatedForecastErrorKey = '';
@@ -7769,6 +6560,11 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     return 'METEO_FRANCE.FORECAST_OM_ERROR';
   }
 
+  private abortAggregatedForecastStream(): void {
+    this.aggregatedForecastStreamAbort?.abort();
+    this.aggregatedForecastStreamAbort = null;
+  }
+
   loadAggregatedForecast(force = false): void {
     if (!force && this.aggregatedForecast) {
       this.scheduleForecastChartsRefresh();
@@ -7777,50 +6573,67 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     const requestId = ++this.aggregatedForecastRequestId;
     this.isLoadingAggregatedForecast = true;
     this.aggregatedForecastErrorKey = '';
+    this.aggregatedForecast = null;
+    this.aggregatedForecastSourceLists = {};
+    this.aggregatedForecastSourceErrorsInternal = {};
+    this.clearAggregateForecastCharts();
+    this.abortAggregatedForecastStream();
     this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', 'METEO_FRANCE.LOG_SOURCE_AGGREGATE', 'loading');
+
+    const abort = new AbortController();
+    this.aggregatedForecastStreamAbort = abort;
     this.subs.add(
-      this.apiService.getAggregatedForecast(
+      this.apiService.streamForecastSources(
         this.lat,
         this.lon,
         this.forecastHorizonHours,
-        this.forecastStepMinutes
+        this.forecastStepMinutes,
+        abort.signal
       ).subscribe({
-        next: (data) => {
+        next: (event) => {
+          if (requestId !== this.aggregatedForecastRequestId) {
+            return;
+          }
+          if (event.error || !Array.isArray(event.list) || event.list.length === 0) {
+            this.aggregatedForecastSourceErrorsInternal[event.source] = event.error ?? 'no forecast steps';
+          } else {
+            this.aggregatedForecastSourceLists[event.source] = event.list;
+          }
+          this.rebuildAggregatedForecastFromSourceLists();
+          if (this.aggregatedForecastSteps.length) {
+            this.isLoadingAggregatedForecast = false;
+            this.aggregatedForecastErrorKey = '';
+            this.scheduleForecastChartsRefresh();
+          }
+        },
+        complete: () => {
           if (requestId !== this.aggregatedForecastRequestId) {
             return;
           }
           this.isLoadingAggregatedForecast = false;
-          this.aggregatedForecast = data;
-          if (data?.error) {
-            this.aggregatedForecastErrorKey = 'METEO_FRANCE.AGG_FORECAST_ERROR';
-            this.clearAggregateForecastCharts();
-            this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', 'METEO_FRANCE.LOG_SOURCE_AGGREGATE', 'error');
-            return;
-          }
-          if (!Array.isArray(data?.steps) || data.steps.length === 0) {
+          if (!this.aggregatedForecastSteps.length) {
             this.aggregatedForecastErrorKey = 'METEO_FRANCE.AGG_FORECAST_EMPTY';
-            this.clearAggregateForecastCharts();
             this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', 'METEO_FRANCE.LOG_SOURCE_AGGREGATE', 'error');
             return;
           }
-          this.aggregatedForecastErrorKey = '';
-          const count = Array.isArray(data?.steps) ? data.steps.length : 0;
+          const count = this.aggregatedForecastSteps.length;
           this.logBackend(
             'METEO_FRANCE.LOG_CAT_FORECAST',
             'METEO_FRANCE.LOG_SOURCE_AGGREGATE',
             'ok',
             count ? `${count} ${this.translate.instant('METEO_FRANCE.LOG_STEPS')}` : undefined
           );
-          this.scheduleForecastChartsRefresh();
         },
         error: () => {
-          if (requestId !== this.aggregatedForecastRequestId) {
+          if (requestId !== this.aggregatedForecastRequestId || abort.signal.aborted) {
             return;
           }
           this.isLoadingAggregatedForecast = false;
-          this.aggregatedForecastErrorKey = 'METEO_FRANCE.AGG_FORECAST_ERROR';
-          this.clearAggregateForecastCharts();
-          this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', 'METEO_FRANCE.LOG_SOURCE_AGGREGATE', 'error');
+          if (!this.aggregatedForecastSteps.length) {
+            this.aggregatedForecastErrorKey = 'METEO_FRANCE.AGG_FORECAST_ERROR';
+            this.clearAggregateForecastCharts();
+            this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', 'METEO_FRANCE.LOG_SOURCE_AGGREGATE', 'error');
+          }
         }
       })
     );
@@ -7924,9 +6737,6 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     }
     if (this.stationHistoryDisplayRows.length) {
       this.updateStationHistoryCharts();
-    }
-    if (this.pointTempTimelineVisible && this.pointTempTimelineChartsReady) {
-      this.loadPointTempTimelineData();
     }
     this.scheduleForecastChartsRefresh();
   }
@@ -8277,11 +7087,11 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         legend: { display: true, position: 'top' },
         tooltip: {
           callbacks: {
-            title: (items) => {
+            title: (items: TooltipItem<'line' | 'bar'>[]) => {
               const label = items[0]?.label;
               return label != null ? String(label) : '';
             },
-            label: (ctx) => {
+            label: (ctx: TooltipItem<'line' | 'bar'>) => {
               const y = ctx.parsed.y;
               if (y == null || Number.isNaN(y)) {
                 return `${ctx.dataset.label}: —`;
@@ -8299,7 +7109,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
           max: percentParam ? 100 : undefined,
           title: { display: !!yUnit, text: yUnit },
           ticks: {
-            callback: (v) => Number(v).toLocaleString(undefined, { maximumFractionDigits: decimals })
+            callback: (v: string | number) => Number(v).toLocaleString(undefined, { maximumFractionDigits: decimals })
           }
         }
       },
@@ -8307,27 +7117,11 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         ? { line: { spanGaps: true, tension: 0.2 } }
         : undefined
     };
-    return chartType === 'bar'
-      ? withMeteoChartZoom(options as ChartOptions<'bar'>)
-      : withMeteoChartZoom(options as ChartOptions<'line'>);
+    return (chartType === 'bar'
+      ? withMeteoChartZoom<'bar'>(options as ChartOptions<'bar'>)
+      : withMeteoChartZoom<'line'>(options as ChartOptions<'line'>)) as ChartOptions<'line' | 'bar'>;
   }
 
-  private pointTimelineYUnit(param: PointTempTimelineParam): string {
-    switch (param) {
-      case 'temp':
-        return this.temperatureUnit === 'fahrenheit' ? '°F' : '°C';
-      case 'humidity':
-      case 'pop':
-        return '%';
-      case 'wind':
-        return 'm/s';
-      case 'precip':
-      case 'precipDaily':
-        return 'mm';
-      default:
-        return '';
-    }
-  }
 
   private forecastChartYUnit(param: MultiDayForecastDisplayParam): string {
     switch (param) {
@@ -8410,6 +7204,123 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       return Number(raw) * 100;
     }
     return Number(raw);
+  }
+
+  private rebuildAggregatedForecastFromSourceLists(): void {
+    const sourceKeys: Array<'meteofrance' | 'open-meteo' | 'openweathermap'> = ['openweathermap', 'open-meteo', 'meteofrance'];
+    const dtSet = new Set<number>();
+    for (const key of sourceKeys) {
+      for (const item of this.aggregatedForecastSourceLists[key] ?? []) {
+        const dt = Number(item?.dt);
+        if (Number.isFinite(dt)) {
+          dtSet.add(dt);
+        }
+      }
+    }
+    const sortedDts = [...dtSet].sort((a, b) => a - b);
+    const sourcesAvailable: string[] = [];
+    const steps = sortedDts.map((dt) => {
+      const step: Record<string, unknown> = { dt };
+      const bySource: Record<string, Record<string, number>> = {};
+      for (const key of sourceKeys) {
+        const list = this.aggregatedForecastSourceLists[key];
+        if (!list?.length) {
+          continue;
+        }
+        const item = list.find((entry) => Number(entry?.dt) === dt);
+        const values = item ? this.normalizeForecastItemAggregateFields(item) : null;
+        if (values && Object.keys(values).length) {
+          step[key] = values;
+          bySource[key] = values;
+          if (!sourcesAvailable.includes(key)) {
+            sourcesAvailable.push(key);
+          }
+        }
+      }
+      const aggregate = this.buildAggregateStepStats(bySource);
+      if (Object.keys(aggregate).length) {
+        step['aggregate'] = aggregate;
+      }
+      return step;
+    });
+
+    this.aggregatedForecast = {
+      lat: this.lat,
+      lon: this.lon,
+      forecastHorizonHours: this.forecastHorizonHours,
+      forecastStepMinutes: this.forecastStepMinutes,
+      steps,
+      sourcesAvailable,
+      sourceErrors: Object.keys(this.aggregatedForecastSourceErrorsInternal).length
+        ? { ...this.aggregatedForecastSourceErrorsInternal }
+        : undefined
+    };
+  }
+
+  private normalizeForecastItemAggregateFields(item: any): Record<string, number> {
+    const values: Record<string, number> = {};
+    if (item?.main?.temp != null) {
+      values['tempC'] = Math.round(Number(item.main.temp) * 10) / 10;
+    }
+    if (item?.main?.humidity != null) {
+      values['humidityPct'] = Math.round(Number(item.main.humidity));
+    }
+    if (item?.wind?.speed != null) {
+      values['windSpeedMs'] = Math.round(Number(item.wind.speed) * 10) / 10;
+    }
+    const mm = item?.rain?.['1h'] ?? item?.rain?.['3h'] ?? item?.snow?.['1h'] ?? item?.snow?.['3h'];
+    if (mm != null) {
+      values['precipMm'] = Math.round(Number(mm) * 10) / 10;
+    }
+    if (item?.pop != null) {
+      values['pop'] = Math.round(Math.min(1, Math.max(0, Number(item.pop))) * 1000) / 1000;
+    }
+    return values;
+  }
+
+  private buildAggregateStepStats(
+    bySource: Record<string, Record<string, number>>
+  ): Record<string, { min: number; max: number; mean: number; count: number }> {
+    const paramKeys = ['tempC', 'humidityPct', 'precipMm', 'windSpeedMs', 'pop'] as const;
+    const aggregate: Record<string, { min: number; max: number; mean: number; count: number }> = {};
+    for (const param of paramKeys) {
+      const nums: number[] = [];
+      for (const values of Object.values(bySource)) {
+        const raw = values[param];
+        if (raw != null && Number.isFinite(raw)) {
+          nums.push(Number(raw));
+        }
+      }
+      if (!nums.length) {
+        continue;
+      }
+      const min = Math.min(...nums);
+      const max = Math.max(...nums);
+      const mean = nums.reduce((sum, value) => sum + value, 0) / nums.length;
+      if (param === 'pop') {
+        aggregate[param] = {
+          min: Math.round(min * 100) / 100,
+          max: Math.round(max * 100) / 100,
+          mean: Math.round(mean * 100) / 100,
+          count: nums.length
+        };
+      } else if (param === 'humidityPct') {
+        aggregate[param] = {
+          min: Math.round(min),
+          max: Math.round(max),
+          mean: Math.round(mean),
+          count: nums.length
+        };
+      } else {
+        aggregate[param] = {
+          min: Math.round(min * 10) / 10,
+          max: Math.round(max * 10) / 10,
+          mean: Math.round(mean * 10) / 10,
+          count: nums.length
+        };
+      }
+    }
+    return aggregate;
   }
 
   private hexToRgba(hex: string, alpha: number): string {

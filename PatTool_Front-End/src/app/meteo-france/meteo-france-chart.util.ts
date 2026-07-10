@@ -44,13 +44,16 @@ export function meteoChartZoomPluginOptions(): Record<string, unknown> {
 export function withMeteoChartZoom<K extends MeteoChartKind>(
   chartOptions: ChartOptions<K>
 ): ChartOptions<K> {
-  const { plugins, animation, ...rest } = chartOptions;
+  const opts = chartOptions as ChartOptions<K> & {
+    plugins?: Record<string, unknown>;
+    animation?: unknown;
+  };
   return {
-    ...rest,
+    ...opts,
     plugins: {
-      ...(plugins ?? {}),
+      ...(opts.plugins ?? {}),
       ...meteoChartZoomPluginOptions()
     },
-    animation: animation === undefined ? false : animation
+    animation: opts.animation === undefined ? false : opts.animation
   } as ChartOptions<K>;
 }

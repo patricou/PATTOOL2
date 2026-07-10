@@ -27,8 +27,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -180,6 +182,61 @@ public class ApiController {
                 : meteoFranceForecastPreferenceService.resolveHorizonHours(jwtSubject);
         int step = resolveStepMinutesParam(stepMinutes, stepHours, jwtSubject);
         return weatherForecastAggregationService.getAggregatedForecast(lat, lon, jwtSubject, horizon, step);
+    }
+
+    /**
+     * SSE stream: emits each forecast source (OWM, Open-Meteo, MF) as soon as it is fetched.
+     */
+    @GetMapping(value = "/weather/forecast/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamForecastSources(
+            @RequestParam("lat") Double lat,
+            @RequestParam("lon") Double lon,
+            @RequestParam(value = "horizonHours", required = false) Integer horizonHours,
+            @RequestParam(value = "stepMinutes", required = false) Integer stepMinutes,
+            @RequestParam(value = "stepHours", required = false) Integer stepHours) {
+        SseEmitter emitter = new SseEmitter(300_000L);
+        String jwtSubject = currentJwtSubject();
+        int horizon = horizonHours != null
+                ? MeteoFranceForecastPreferenceService.clampHorizon(horizonHours)
+                : meteoFranceForecastPreferenceService.resolveHorizonHours(jwtSubject);
+        int step = resolveStepMinutesParam(stepMinutes, stepHours, jwtSubject);
+        java.util.concurrent.atomic.AtomicBoolean alive = new java.util.concurrent.atomic.AtomicBoolean(true);
+
+        emitter.onCompletion(() -> alive.set(false));
+        emitter.onTimeout(() -> alive.set(false));
+        emitter.onError((ex) -> alive.set(false));
+
+        weatherForecastAggregationService.streamForecastSources(
+                lat,
+                lon,
+                jwtSubject,
+                horizon,
+                step,
+                event -> {
+                    if (!alive.get()) {
+                        return;
+                    }
+                    try {
+                        String source = String.valueOf(event.getOrDefault("source", "source"));
+                        emitter.send(SseEmitter.event().name(source).data(event));
+                    } catch (IOException ex) {
+                        alive.set(false);
+                        log.debug("Forecast SSE client disconnected: {}", ex.getMessage());
+                    }
+                },
+                () -> {
+                    if (!alive.get()) {
+                        return;
+                    }
+                    try {
+                        emitter.send(SseEmitter.event().name("complete").data(""));
+                        emitter.complete();
+                    } catch (IOException ex) {
+                        log.debug("Forecast SSE complete failed: {}", ex.getMessage());
+                        emitter.complete();
+                    }
+                });
+        return emitter;
     }
 
     /** Per-user multi-day forecast horizon and step (MongoDB appParameters). */

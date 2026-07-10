@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { KeycloakService } from '../keycloak/keycloak.service';
-import { Observable, from, throwError } from 'rxjs';
+import { Observable, Subject, from, throwError } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
@@ -89,6 +89,13 @@ export interface IssAlertConfig {
   lon: number | null;
   minQuality: string;
   leadMinutes: number;
+}
+
+/** One forecast source payload from GET /external/weather/forecast/stream (SSE). */
+export interface ForecastSourceStreamEvent {
+  source: 'openweathermap' | 'open-meteo' | 'meteofrance';
+  list?: any[];
+  error?: string;
 }
 
 @Injectable()
@@ -241,6 +248,117 @@ export class ApiService {
         });
       })
     );
+  }
+
+  /**
+   * SSE stream of forecast sources — each provider is emitted as soon as its upstream call completes.
+   */
+  streamForecastSources(
+    lat: number,
+    lon: number,
+    horizonHours?: number,
+    stepMinutes?: number,
+    signal?: AbortSignal
+  ): Observable<ForecastSourceStreamEvent> {
+    const subject = new Subject<ForecastSourceStreamEvent>();
+    this.getHeaderWithToken().subscribe({
+      next: (headers) => {
+        const token = headers.get('Authorization') || '';
+        const params = new URLSearchParams({
+          lat: String(lat),
+          lon: String(lon)
+        });
+        if (horizonHours != null && !isNaN(horizonHours)) {
+          params.set('horizonHours', String(horizonHours));
+        }
+        if (stepMinutes != null && !isNaN(stepMinutes)) {
+          params.set('stepMinutes', String(stepMinutes));
+        }
+        const url = `${this.API_URL}external/weather/forecast/stream?${params.toString()}`;
+        this.consumeForecastSourceStream(url, token, subject, signal).catch((err) => {
+          if (!signal?.aborted) {
+            subject.error(err);
+          }
+        });
+      },
+      error: (err) => subject.error(err)
+    });
+    return subject.asObservable();
+  }
+
+  private async consumeForecastSourceStream(
+    url: string,
+    authToken: string,
+    subject: Subject<ForecastSourceStreamEvent>,
+    signal?: AbortSignal
+  ): Promise<void> {
+    const response = await fetch(url, {
+      headers: {
+        Authorization: authToken,
+        Accept: 'text/event-stream'
+      },
+      cache: 'no-cache',
+      signal
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const reader = response.body?.getReader();
+    if (!reader) {
+      subject.error(new Error('No reader available'));
+      return;
+    }
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let currentEventType: string | null = null;
+    let currentData = '';
+
+    const flushEvent = (): void => {
+      if (!currentEventType) {
+        currentData = '';
+        return;
+      }
+      if (currentEventType === 'complete') {
+        subject.complete();
+      } else if (currentEventType === 'error') {
+        subject.error(new Error(currentData || 'stream error'));
+      } else {
+        try {
+          const parsed = JSON.parse(currentData) as ForecastSourceStreamEvent;
+          subject.next(parsed);
+        } catch {
+          subject.error(new Error('Invalid forecast stream payload'));
+        }
+      }
+      currentEventType = null;
+      currentData = '';
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        flushEvent();
+        if (!subject.closed) {
+          subject.complete();
+        }
+        break;
+      }
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (line.trim() === '') {
+          flushEvent();
+          continue;
+        }
+        if (line.startsWith('event:')) {
+          currentEventType = line.slice(6).trim();
+        } else if (line.startsWith('data:')) {
+          const chunk = line.slice(5).trim();
+          currentData = currentData ? `${currentData}\n${chunk}` : chunk;
+        }
+      }
+    }
   }
 
   getMeteoFranceForecastPreferences(): Observable<MeteoFranceForecastPreference> {
