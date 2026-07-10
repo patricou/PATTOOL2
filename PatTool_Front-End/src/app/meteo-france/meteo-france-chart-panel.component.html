@@ -1,0 +1,51 @@
+<div class="mf-chart-panel-shell"
+     [class.mf-chart-panel-shell--fullscreen]="fullscreen"
+     *ngIf="visible">
+  <div class="mf-chart-panel-backdrop" *ngIf="fullscreen" (click)="setFullscreen(false)"></div>
+  <div class="mf-chart-panel-card" [class.mf-chart-panel-card--fullscreen]="fullscreen">
+    <header class="mf-chart-panel-header" *ngIf="showHeader">
+      <h4 *ngIf="headingLevel === 'h4'" class="mf-chart-panel-title clim-chart-title">
+        <i *ngIf="titleIcon" class="fa me-1" [ngClass]="titleIcon" aria-hidden="true"></i>
+        <ng-container *ngIf="titleKey">{{ titleKey | translate }}</ng-container>
+        <ng-container *ngIf="!titleKey">{{ title }}</ng-container>
+      </h4>
+      <h5 *ngIf="headingLevel === 'h5'" class="mf-chart-panel-title forecast-chart-title"
+          [class.forecast-chart-title--first]="firstInGroup">
+        <ng-container *ngIf="titleKey">{{ titleKey | translate }}</ng-container>
+        <ng-container *ngIf="!titleKey">{{ title }}</ng-container>
+      </h5>
+      <div class="mf-chart-panel-header-actions">
+        <button type="button" class="mf-chart-panel-icon-btn"
+                (click)="toggleFullscreen()"
+                [attr.title]="(fullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate"
+                [attr.aria-label]="(fullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate">
+          <i class="fa" [class.fa-compress]="fullscreen" [class.fa-expand]="!fullscreen"></i>
+        </button>
+        <button type="button" class="mf-chart-panel-icon-btn mf-chart-panel-icon-btn--close"
+                *ngIf="fullscreen"
+                (click)="setFullscreen(false)"
+                [attr.aria-label]="'METEO_FRANCE.POINT_TIMELINE_CLOSE' | translate">
+          <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+    </header>
+
+    <div class="mf-chart-panel-toolbar" *ngIf="showToolbar">
+      <span class="mf-chart-panel-zoom-hint">{{ 'METEO_FRANCE.POINT_TIMELINE_ZOOM_HINT' | translate }}</span>
+      <button type="button" class="btn btn-sm btn-outline-secondary mf-chart-panel-zoom-reset"
+              (click)="resetZoom()">
+        <i class="fa fa-search-minus" aria-hidden="true"></i>
+        {{ 'METEO_FRANCE.POINT_TIMELINE_ZOOM_RESET' | translate }}
+      </button>
+    </div>
+
+    <div class="mf-chart-panel-chart-box"
+         [class.mf-chart-panel-chart-box--fullscreen]="fullscreen"
+         [ngClass]="chartBoxClass">
+      <canvas baseChart
+              [type]="chartType"
+              [data]="data"
+              [options]="options"></canvas>
+    </div>
+  </div>
+</div>

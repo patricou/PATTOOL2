@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "×¦×¨×¤×ª××ª",
         "EN": "×× ××××ª",
@@ -1681,7 +1681,12 @@
         "VIDEO_DURATION": "××©×:",
         "VIDEO_CURRENT_TIME": "××× × ××××:",
         "VIDEO_VOLUME": "×¢××¦××ª ×§××:",
-        "VIDEO_SIZE": "××××:"
+        "VIDEO_SIZE": "××××:",
+        "SELECT_ALL_PHOTOS": "Select all photos",
+        "DESELECT_ALL_PHOTOS": "Deselect all photos",
+        "SELECTED_PHOTOS_COUNT": "{{count}} photo(s) selected",
+        "DELETE_SELECTED_FILES": "Delete selected ({{count}})",
+        "DELETE_SELECTED_FILES_CONFIRM": "Are you sure you want to delete {{count}} file(s)?"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "××ª×× ××××× ××××××××ª",
@@ -2903,6 +2908,8 @@
         "TEMPERATURE_TOOLTIP_HISTORY": "Historique",
         "POINT_TIMELINE_BTN": "7 ימים: היסטוריה ותחזית",
         "POINT_TIMELINE_CLOSE": "סגור",
+        "POINT_TIMELINE_ZOOM_HINT": "גלגלת לזום · גרור להזזה · Shift+גרור לאזור",
+        "POINT_TIMELINE_ZOOM_RESET": "איפוס זום",
         "POINT_TIMELINE_CURRENT": "עכשיו",
         "POINT_TIMELINE_HISTORY": "7 הימים האחרונים",
         "POINT_TIMELINE_FORECAST": "7 הימים הבאים",

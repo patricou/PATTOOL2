@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "à¤«à¥à¤°à¥à¤à¤",
         "EN": "à¤à¤à¤à¥à¤°à¥à¤à¥",
@@ -422,7 +422,12 @@
         "VIDEO_DURATION": "à¤à¤µà¤§à¤¿:",
         "VIDEO_CURRENT_TIME": "à¤µà¤°à¥à¤¤à¤®à¤¾à¤¨ à¤¸à¤®à¤¯:",
         "VIDEO_VOLUME": "à¤à¤µà¤¾à¤à¤¼:",
-        "VIDEO_SIZE": "à¤à¤à¤¾à¤°:"
+        "VIDEO_SIZE": "à¤à¤à¤¾à¤°:",
+        "SELECT_ALL_PHOTOS": "Select all photos",
+        "DESELECT_ALL_PHOTOS": "Deselect all photos",
+        "SELECTED_PHOTOS_COUNT": "{{count}} photo(s) selected",
+        "DELETE_SELECTED_FILES": "Delete selected ({{count}})",
+        "DELETE_SELECTED_FILES_CONFIRM": "Are you sure you want to delete {{count}} file(s)?"
     },
     "MENU": {
         "BRAND": "PATTOOL",
@@ -2894,6 +2899,8 @@
         "TEMPERATURE_TOOLTIP_HISTORY": "Historique",
         "POINT_TIMELINE_BTN": "7 दिन: इतिहास और पूर्वानुमान",
         "POINT_TIMELINE_CLOSE": "बंद करें",
+        "POINT_TIMELINE_ZOOM_HINT": "Wheel se zoom · drag se pan · Shift+drag se area zoom",
+        "POINT_TIMELINE_ZOOM_RESET": "Zoom reset",
         "POINT_TIMELINE_CURRENT": "अभी",
         "POINT_TIMELINE_HISTORY": "पिछले 7 दिन",
         "POINT_TIMELINE_FORECAST": "अगले 7 दिन",

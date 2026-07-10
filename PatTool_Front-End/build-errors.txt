@@ -1,0 +1,67 @@
+﻿node.exe : - Generating browser application bundles (phase: setup)...
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (- Generating br...hase: setup)...:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+ΓêÜ Browser application bundle generation complete.
+ΓêÜ Browser application bundle generation complete.
+- Copying assets...
+ΓêÜ Copying assets complete.
+- Generating index html...
+ΓêÜ Index html generation complete.
+
+Initial chunk files                                                                                     | Names                                             |  Raw size
+vendor.js                                                                                               | vendor                                            |   7.49 MB | 
+main.js                                                                                                 | main                                              |   7.03 MB | 
+styles.css                                                                                              | styles                                            | 611.83 kB | 
+scripts.js                                                                                              | scripts                                           | 332.74 kB | 
+polyfills.js                                                                                            | polyfills                                         | 125.61 kB | 
+runtime.js                                                                                              | runtime                                           |  15.29 kB | 
+
+                                                                                                        | Initial total                                     |  15.61 MB
+
+Lazy chunk files                                                                                        | Names                                             |  Raw size
+src_app_calculator_calculator_component_ts.js                                                           | calculator-calculator-component                   |   3.13 MB | 
+default-node_modules_three_build_three_module_js-node_modules_three_examples_jsm_controls_Orb-4a15dc.js | chimie-chimie-component                           |   1.87 MB | 
+node_modules_heic2any_dist_heic2any_js.js                                                               | heic2any                                          |   1.38 MB | 
+src_app_world-globe_world-globe_component_ts.js                                                         | world-globe-world-globe-component                 |   1.11 MB | 
+src_app_ods-editor_ods-editor_component_ts.js                                                           | ods-editor-ods-editor-component                   |   1.09 MB | 
+src_app_calendar_calendar_component_ts.js                                                               | calendar-calendar-component                       |   1.01 MB | 
+src_app_meteo-france_meteo-france_component_ts.js                                                       | meteo-france-meteo-france-component               | 864.08 kB | 
+src_app_friends_friends_module_ts.js                                                                    | friends-friends-module                            | 786.03 kB | 
+src_app_photo-timeline_photo-timeline_module_ts.js                                                      | photo-timeline-photo-timeline-module              | 657.71 kB | 
+default-node_modules_quill_quill_js.js                                                                  | pdf-converter-pdf-converter-component             | 597.18 kB | 
+src_app_local-network_local-network_component_ts.js                                                     | local-network-local-network-component             | 541.67 kB | 
+default-node_modules_astronomy-engine_esm_astronomy_js.js                                               | solar-system-solar-system-component               | 391.12 kB | 
+src_app_news_news_component_ts.js                                                                       | news-news-component                               | 344.75 kB | 
+src_app_todolists_todolists_component_ts.js                                                             | todolists-todolists-component                     | 305.85 kB | 
+src_app_system_system_component_ts.js                                                                   | system-system-component                           | 262.44 kB | 
+src_app_openweathermap_openweathermap_component_ts.js                                                   | openweathermap-openweathermap-component           | 242.77 kB | 
+src_app_iot-cameras_iot-cameras_component_ts.js                                                         | iot-cameras-iot-cameras-component                 | 195.46 kB | 
+src_app_euromillions_euromillions_component_ts.js                                                       | euromillions-euromillions-component               | 186.43 kB | 
+src_app_iothome_iothome_component_ts.js                                                                 | iothome-iothome-component                         | 179.68 kB | 
+src_app_chimie_chimie_component_ts.js                                                                   | chimie-chimie-component                           | 174.15 kB | 
+src_app_pdf-converter_pdf-converter_component_ts.js                                                     | pdf-converter-pdf-converter-component             | 163.08 kB | 
+src_app_solar-system_solar-system_component_ts.js                                                       | solar-system-solar-system-component               | 157.68 kB | 
+src_app_pattool-parameters_pattool-parameters_component_ts.js                                           | pattool-parameters-pattool-parameters-component   | 153.82 kB | 
+default-node_modules_chartjs-plugin-zoom_dist_chartjs-plugin-zoom_esm_js.js                             | iothome-iothome-component                         | 141.81 kB | 
+src_app_cern_cern_component_ts.js                                                                       | cern-cern-component                               | 137.76 kB | 
+src_app_links_links_module_ts.js                                                                        | links-links-module                                | 116.65 kB | 
+src_app_iot-proxy_iot-proxy_component_ts.js                                                             | iot-proxy-iot-proxy-component                     | 115.09 kB | 
+src_app_address-geocode_address-geocode_component_ts.js                                                 | address-geocode-address-geocode-component         | 113.91 kB | 
+src_app_timezone-converter_timezone-converter_component_ts.js                                           | timezone-converter-timezone-converter-component   | 100.13 kB | 
+src_app_loto_loto_component_ts.js                                                                       | loto-loto-component                               |  99.89 kB | 
+src_app_stock-exchange_stock-exchange_component_ts.js                                                   | stock-exchange-stock-exchange-component           |  91.39 kB | 
+src_app_world-security-scan_world-security-scan_component_ts.js                                         | world-security-scan-world-security-scan-component |  79.32 kB | 
+src_app_cryptos_cryptos_component_ts.js                                                                 | cryptos-cryptos-component                         |  63.49 kB | 
+src_app_currency-converter_currency-converter_component_ts.js                                           | currency-converter-currency-converter-component   |  47.34 kB | 
+src_app_ciel_ciel_component_ts.js                                                                       | ciel-ciel-component                               |  35.88 kB | 
+default-node_modules_capacitor_core_dist_index_js.js                                                    | capacitor-core                                    |  28.02 kB | 
+common.js                                                                                               | common                                            |  15.39 kB | 
+node_modules_capgo_capacitor-wifi_dist_esm_web_js.js                                                    | web                                               |   5.12 kB | 
+node_modules_capgo_capacitor-wifi_dist_esm_index_js.js                                                  | capgo-capacitor-wifi                              |   3.63 kB | 
+node_modules_ngx-quill_fesm2022_ngx-quill-quill-CUw8Q_m0_mjs.js                                         | ngx-quill-quill-CUw8Q_m0-mjs                      |   1.08 kB | 
+
+Build at: 2026-07-10T18:46:25.231Z - Hash: fe4140e648b367ff - Time: 261254ms

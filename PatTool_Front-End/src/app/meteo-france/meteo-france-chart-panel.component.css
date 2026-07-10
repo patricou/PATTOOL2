@@ -1,0 +1,126 @@
+.mf-chart-panel-shell {
+  position: relative;
+}
+
+.mf-chart-panel-shell--fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 2300;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 0;
+}
+
+.mf-chart-panel-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.mf-chart-panel-card {
+  position: relative;
+  width: 100%;
+}
+
+.mf-chart-panel-card--fullscreen {
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  padding: 12px 14px 14px;
+  overflow: hidden;
+}
+
+.mf-chart-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.mf-chart-panel-title {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.mf-chart-panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.mf-chart-panel-icon-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #334155;
+  cursor: pointer;
+}
+
+.mf-chart-panel-icon-btn:hover {
+  background: #e2e8f0;
+}
+
+.mf-chart-panel-icon-btn--close {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #fff;
+}
+
+.mf-chart-panel-icon-btn--close:hover {
+  background: #2563eb;
+}
+
+.mf-chart-panel-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.mf-chart-panel-zoom-hint {
+  font-size: 0.68rem;
+  color: #64748b;
+  line-height: 1.3;
+}
+
+.mf-chart-panel-zoom-reset {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  padding: 2px 8px;
+}
+
+.mf-chart-panel-chart-box {
+  position: relative;
+  min-height: 150px;
+  height: 220px;
+}
+
+.mf-chart-panel-chart-box.station-history-chart-box {
+  min-height: 220px;
+}
+
+.mf-chart-panel-chart-box--fullscreen {
+  flex: 1;
+  height: auto;
+  min-height: 280px;
+}
+
+.mf-chart-panel-card--fullscreen .mf-chart-panel-toolbar {
+  flex-shrink: 0;
+}
+
+.mf-chart-panel-card--fullscreen .mf-chart-panel-header {
+  flex-shrink: 0;
+}

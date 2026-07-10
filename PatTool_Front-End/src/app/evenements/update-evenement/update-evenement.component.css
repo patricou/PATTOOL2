@@ -1639,6 +1639,19 @@ textarea.form-control {
     opacity: 0.6;
 }
 
+.files-list .file-delete-admin {
+    background-color: #dc3545 !important;
+    color: #fff !important;
+    border: 1px solid #b02a37 !important;
+    box-shadow: 0 2px 6px rgba(220, 53, 69, 0.45) !important;
+}
+
+.files-list .file-delete-admin:hover:not(:disabled) {
+    background-color: #c82333 !important;
+    border-color: #a71d2a !important;
+    color: #fff !important;
+}
+
 /* URL Events list header with delete button */
 .url-events-list .d-flex {
     border-bottom: 2px solid #e9ecef;

@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "Francs",
         "EN": "Ingls",
@@ -1588,7 +1588,12 @@
         "VIDEO_DURATION": "Duracin:",
         "VIDEO_CURRENT_TIME": "Tiempo actual:",
         "VIDEO_VOLUME": "Volumen:",
-        "VIDEO_SIZE": "Tamao:"
+        "VIDEO_SIZE": "Tamao:",
+        "SELECT_ALL_PHOTOS": "Select all photos",
+        "DESELECT_ALL_PHOTOS": "Deselect all photos",
+        "SELECTED_PHOTOS_COUNT": "{{count}} photo(s) selected",
+        "DELETE_SELECTED_FILES": "Delete selected ({{count}})",
+        "DELETE_SELECTED_FILES_CONFIRM": "Are you sure you want to delete {{count}} file(s)?"
     },
     "EVENTCREATION": {
         "TITLE": "Creacin de actividad",
@@ -2918,6 +2923,8 @@
         "TEMPERATURE_TOOLTIP_HISTORY": "Historique",
         "POINT_TIMELINE_BTN": "7 días: historial y previsión",
         "POINT_TIMELINE_CLOSE": "Cerrar",
+        "POINT_TIMELINE_ZOOM_HINT": "Rueda para zoom · arrastrar para desplazar · Mayús+arrastrar para zoom de área",
+        "POINT_TIMELINE_ZOOM_RESET": "Restablecer zoom",
         "POINT_TIMELINE_CURRENT": "Ahora",
         "POINT_TIMELINE_HISTORY": "Últimos 7 días",
         "POINT_TIMELINE_FORECAST": "Próximos 7 días",

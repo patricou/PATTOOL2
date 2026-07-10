@@ -4380,33 +4380,34 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 	// delete a file uploaded linked to the evenement, update the evenement
 	delFile(fieldId: string) {
-		// Find the file being deleted to check if it contains "thumbnail"
 		const fileToDelete = this.evenement.fileUploadeds.find(fileUploaded => fileUploaded.fieldId === fieldId);
-		
-		// Prevent deletion of thumbnail files
-		if (fileToDelete && fileToDelete.fileName && fileToDelete.fileName.toLowerCase().includes('thumbnail')) {
+
+		if (!fileToDelete) {
+			return;
+		}
+
+		if (this.isThumbnailFile(fileToDelete)) {
 			alert(this.translateService.instant('EVENTELEM.CANNOT_DELETE_THUMBNAIL'));
 			return;
 		}
-		
+
+		if (!this.canDeleteFile(fileToDelete.uploaderMember)) {
+			alert(this.translateService.instant('EVENTELEM.UNAUTHORIZED_DELETE_FILE'));
+			return;
+		}
+
 		if (confirm(this.translateService.instant('EVENTELEM.DELETEFILE_CONFIRM'))) {
-			// Create a copy of the evenement without the file to delete
 			const evenementToUpdate = { ...this.evenement };
 			evenementToUpdate.fileUploadeds = this.evenement.fileUploadeds.filter(fileUploaded => !(fileUploaded.fieldId == fieldId));
-			
-			// Call backend to delete the file from MongoDB GridFS
+
 			const updateSubscription = this._fileService.updateFile(evenementToUpdate, this.user).subscribe({
 				next: (updatedEvenement) => {
-					// Update the local evenement with the response
-					this.evenement.fileUploadeds = evenementToUpdate.fileUploadeds;
-					this.updateFileUploaded.emit(this.evenement);
-					this.scheduleFooterFileCountSnapshot();
+					this.applyEvenementAfterFileDeletion(updatedEvenement, [fieldId]);
+					this.selectedFilesForDeletion.delete(fieldId);
 				},
 				error: (error) => {
 					console.error('Error deleting file from MongoDB:', error);
 					alert(this.translateService.instant('EVENTELEM.DELETE_FILE_ERROR'));
-					// Revert the local change on error
-					// The file list will be restored when the component refreshes
 				}
 			});
 			this.allSubscriptions.push(updateSubscription);
@@ -5062,6 +5063,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 
 	public isLoadingFiles: boolean = false;
 	private fileStreamSubscription: Subscription | null = null;
+	private selectedFilesForDeletion: Set<string> = new Set();
+	public isBulkDeletingFiles: boolean = false;
 	
 	public onFilesButtonClick(content: any): void {
 		this.forceCloseTooltips();
@@ -5074,6 +5077,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	
 	public openFilesModal(content: any): void {
 		this.forceCloseTooltips();
+		this.clearFileSelectionForDeletion();
 		
 		if (!this.evenement || !this.evenement.id) {
 			console.error('Invalid event in openFilesModal');
@@ -5193,6 +5197,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		// Clean up subscription when modal is closed
 		modalRef.result.finally(() => {
 			this.trackStatsHydrateGeneration++;
+			this.clearFileSelectionForDeletion();
 			if (this.fileStreamSubscription) {
 				this.fileStreamSubscription.unsubscribe();
 				this.fileStreamSubscription = null;
@@ -5577,10 +5582,186 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return this.evenement.fileUploadeds.filter(file => this.isImageFile(file.fileName)).length;
 	}
 
-	public isFileOwner(member: Member): boolean {
-		let b: boolean = false;
-		b = this.user.id == member.id
-		return b;
+	public isFileOwner(member?: Member | null): boolean {
+		if (!member || !this.user) {
+			return false;
+		}
+		if (this.user.id && member.id && this.user.id == member.id) {
+			return true;
+		}
+		if (this.user.userName && member.userName) {
+			return this.user.userName.toLowerCase() === member.userName.toLowerCase();
+		}
+		return false;
+	}
+
+	public canDeleteFile(member?: Member | null): boolean {
+		return this.isFileOwner(member) || this.isAdmin();
+	}
+
+	public isAdminDeletingOthersFile(member: Member): boolean {
+		return this.isAdmin() && !this.isFileOwner(member);
+	}
+
+	public canSelectFileForDeletion(uploadedFile: UploadedFile): boolean {
+		return !this.isThumbnailFile(uploadedFile)
+			&& this.canDeleteFile(uploadedFile.uploaderMember);
+	}
+
+	public getFileSelectionTooltip(uploadedFile: UploadedFile): string {
+		if (this.isThumbnailFile(uploadedFile)) {
+			return this.translateService.instant('EVENTELEM.CANNOT_DELETE_THUMBNAIL');
+		}
+		if (!this.canDeleteFile(uploadedFile.uploaderMember)) {
+			return this.translateService.instant('EVENTELEM.UNAUTHORIZED_DELETE_FILE');
+		}
+		return '';
+	}
+
+	public getCardImageFilesCount(): number {
+		if (!this.evenement?.fileUploadeds) {
+			return 0;
+		}
+		return this.evenement.fileUploadeds.filter(file => this.isThumbnailFile(file)).length;
+	}
+
+	public isFileSelectedForDeletion(fieldId: string): boolean {
+		return this.selectedFilesForDeletion.has(fieldId);
+	}
+
+	public toggleFileSelectionForDeletion(fieldId: string): void {
+		const uploadedFile = this.evenement?.fileUploadeds?.find(file => file.fieldId === fieldId);
+		if (!uploadedFile || !this.canSelectFileForDeletion(uploadedFile)) {
+			return;
+		}
+		if (this.selectedFilesForDeletion.has(fieldId)) {
+			this.selectedFilesForDeletion.delete(fieldId);
+		} else {
+			this.selectedFilesForDeletion.add(fieldId);
+		}
+	}
+
+	public getSelectedDeletableFilesCount(): number {
+		return this.selectedFilesForDeletion.size;
+	}
+
+	public canUseBulkFileSelection(): boolean {
+		return this.getDeletableFilesForSelection().length > 0;
+	}
+
+	public getDeletableFilesForSelection(): UploadedFile[] {
+		if (!this.evenement?.fileUploadeds) {
+			return [];
+		}
+		return this.evenement.fileUploadeds.filter(file => this.canSelectFileForDeletion(file));
+	}
+
+	public areAllDeletableFilesSelected(): boolean {
+		const deletable = this.getDeletableFilesForSelection();
+		return deletable.length > 0 && deletable.every(file => this.selectedFilesForDeletion.has(file.fieldId));
+	}
+
+	public toggleSelectAllDeletableFiles(): void {
+		const deletable = this.getDeletableFilesForSelection();
+		if (this.areAllDeletableFilesSelected()) {
+			deletable.forEach(file => this.selectedFilesForDeletion.delete(file.fieldId));
+		} else {
+			deletable.forEach(file => this.selectedFilesForDeletion.add(file.fieldId));
+		}
+	}
+
+	public hasSelectedFilesForDeletion(): boolean {
+		return this.selectedFilesForDeletion.size > 0;
+	}
+
+	public isAdminDeletingAnySelectedFile(): boolean {
+		if (!this.isAdmin()) {
+			return false;
+		}
+		return this.getSelectedFilesForDeletion().some(file => !this.isFileOwner(file.uploaderMember));
+	}
+
+	private getSelectedFilesForDeletion(): UploadedFile[] {
+		if (!this.evenement?.fileUploadeds) {
+			return [];
+		}
+		return this.evenement.fileUploadeds.filter(file => this.selectedFilesForDeletion.has(file.fieldId));
+	}
+
+	private clearFileSelectionForDeletion(): void {
+		this.selectedFilesForDeletion.clear();
+	}
+
+	private applyEvenementAfterFileDeletion(updatedEvenement: Evenement | null, deletedFieldIds: string[]): void {
+		if (updatedEvenement) {
+			this.evenement.fileUploadeds = updatedEvenement.fileUploadeds ?? [];
+			this.evenement.thumbnail = updatedEvenement.thumbnail ?? undefined;
+		} else if (deletedFieldIds.length > 0) {
+			const deleted = new Set(deletedFieldIds);
+			this.evenement.fileUploadeds = (this.evenement.fileUploadeds || []).filter(file => !deleted.has(file.fieldId));
+			if (this.evenement.thumbnail && deleted.has(this.evenement.thumbnail.fieldId)) {
+				this.evenement.thumbnail = undefined;
+			}
+		}
+
+		deletedFieldIds.forEach(fieldId => this.clearDeletedFileCaches(fieldId));
+		if (deletedFieldIds.some(fieldId => this.evenement.thumbnail?.fieldId === fieldId)) {
+			this.invalidateThumbnailCache();
+		}
+
+		this.scheduleFooterFileCountSnapshot();
+		this.updateFileUploaded.emit(this.evenement);
+	}
+
+	private clearDeletedFileCaches(fieldId: string): void {
+		this.fileThumbnailsCache.delete(fieldId);
+		this.fileThumbnailsLoadTimes.delete(fieldId);
+		this.fileThumbnailsLoading.delete(fieldId);
+		ElementEvenementComponent.blobCache.delete(fieldId);
+
+		const blobUrl = ElementEvenementComponent.blobUrlCache.get(fieldId);
+		if (blobUrl && typeof blobUrl === 'object' && 'changingThisBreaksApplicationSecurity' in blobUrl) {
+			const url = blobUrl['changingThisBreaksApplicationSecurity'];
+			if (url && typeof url === 'string' && url.startsWith('blob:')) {
+				try {
+					this.nativeWindow.URL.revokeObjectURL(url);
+				} catch (_) { /* ignore */ }
+			}
+		}
+
+		ElementEvenementComponent.blobUrlCache.delete(fieldId);
+		ElementEvenementComponent.clearFileLoading(fieldId);
+	}
+
+	public deleteSelectedFiles(): void {
+		const toDelete = this.getSelectedFilesForDeletion().filter(file => this.canSelectFileForDeletion(file));
+		if (toDelete.length === 0) {
+			return;
+		}
+
+		const confirmMsg = this.translateService.instant('EVENTELEM.DELETE_SELECTED_FILES_CONFIRM', { count: toDelete.length });
+		if (!confirm(confirmMsg)) {
+			return;
+		}
+
+		const fieldIdsToDelete = toDelete.map(file => file.fieldId);
+		const evenementToUpdate = { ...this.evenement };
+		evenementToUpdate.fileUploadeds = this.evenement.fileUploadeds.filter(file => !fieldIdsToDelete.includes(file.fieldId));
+
+		this.isBulkDeletingFiles = true;
+		const updateSubscription = this._fileService.updateFile(evenementToUpdate, this.user).subscribe({
+			next: (updatedEvenement) => {
+				this.applyEvenementAfterFileDeletion(updatedEvenement, fieldIdsToDelete);
+				this.clearFileSelectionForDeletion();
+				this.isBulkDeletingFiles = false;
+			},
+			error: (error) => {
+				console.error('Error deleting files from MongoDB:', error);
+				alert(this.translateService.instant('EVENTELEM.DELETE_FILE_ERROR'));
+				this.isBulkDeletingFiles = false;
+			}
+		});
+		this.allSubscriptions.push(updateSubscription);
 	}
 	public open(content: any) {
 		this.forceCloseTooltips();
@@ -6026,6 +6207,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 
 	public setFileAsThumbnail(uploadedFile: UploadedFile): void {
+		if (!this.canModifyEvent()) {
+			return;
+		}
+
 		if (
 			!uploadedFile ||
 			!this.evenement ||

@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "ÎÎ±Î»Î»Î¹ÎºÎ¬",
         "EN": "ÎÎ³Î³Î»Î¹ÎºÎ¬",
@@ -1335,7 +1335,12 @@
         "VIDEO_DURATION": "ÎÎ¹Î¬ÏÎºÎµÎ¹Î±:",
         "VIDEO_CURRENT_TIME": "Î¤ÏÎ­ÏÎ¿ÏÏÎ± ÏÏÎ±:",
         "VIDEO_VOLUME": "ÎÎ½ÏÎ±ÏÎ·:",
-        "VIDEO_SIZE": "ÎÎ­Î³ÎµÎ¸Î¿Ï:"
+        "VIDEO_SIZE": "ÎÎ­Î³ÎµÎ¸Î¿Ï:",
+        "SELECT_ALL_PHOTOS": "Select all photos",
+        "DESELECT_ALL_PHOTOS": "Deselect all photos",
+        "SELECTED_PHOTOS_COUNT": "{{count}} photo(s) selected",
+        "DELETE_SELECTED_FILES": "Delete selected ({{count}})",
+        "DELETE_SELECTED_FILES_CONFIRM": "Are you sure you want to delete {{count}} file(s)?"
     },
     "EVENTCREATION": {
         "TITLE": "ÎÎ·Î¼Î¹Î¿ÏÏÎ³Î¯Î± ÎÏÎ±ÏÏÎ·ÏÎ¹ÏÏÎ·ÏÎ±Ï",
@@ -2656,6 +2661,8 @@
         "TEMPERATURE_TOOLTIP_HISTORY": "Historique",
         "POINT_TIMELINE_BTN": "7 ημέρες: ιστορικό και πρόβλεψη",
         "POINT_TIMELINE_CLOSE": "Κλείσιμο",
+        "POINT_TIMELINE_ZOOM_HINT": "Τροχός για ζουμ · σύρετε για μετακίνηση · Shift+σύρετε για περιοχή",
+        "POINT_TIMELINE_ZOOM_RESET": "Επαναφορά ζουμ",
         "POINT_TIMELINE_CURRENT": "Τώρα",
         "POINT_TIMELINE_HISTORY": "Τελευταίες 7 ημέρες",
         "POINT_TIMELINE_FORECAST": "Επόμενες 7 ημέρες",

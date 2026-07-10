@@ -54,6 +54,7 @@ import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -1266,16 +1267,9 @@ public class FileRestController {
         }
 
         // Find all files that were removed (files in old event but not in new event)
-        List<FileUploaded> filesToDelete = evenementNotUpdated.getFileUploadeds().stream()
-            .filter(fileUploaded -> {
-                // Check if this file still exists in the updated event
-                boolean stillExists = evenement.getFileUploadeds().stream()
-                    .anyMatch(fileUploaded2 -> fileUploaded.getFieldId().equals(fileUploaded2.getFieldId()));
-                return !stillExists; // Return true if file was removed
-            })
-            .collect(java.util.stream.Collectors.toList());
+        List<FileUploaded> filesToDelete = findRemovedFiles(evenementNotUpdated, evenement);
 
-        log.debug("Files to delete from GridFS: " + filesToDelete.size());
+        log.info("File update for event {}: {} file(s) to remove from GridFS", evenement.getId(), filesToDelete.size());
 
         // Check if the thumbnail file was deleted
         FileUploaded oldThumbnail = evenementNotUpdated.getThumbnail();
@@ -1324,71 +1318,24 @@ public class FileRestController {
         Evenement savedEvenement = evenementsRepository.save(evenement);
 
         // delete all removed files from MongoDB GridFS
+        int deletedFromGridFs = 0;
+        int failedGridFsDeletes = 0;
         for (FileUploaded f : filesToDelete) {
-            String fileName = f.getFileName() != null ? f.getFileName() : "unknown";
-            String fileId = f.getFieldId();
-            
-            // Check if it's a video file
-            boolean isVideo = isVideoFile(fileName);
-            String fileType = isVideo ? "VIDEO" : "FILE";
-            
-            log.debug("🗑️  [{}] Starting deletion from GridFS: ID={}, Name={}", fileType, fileId, fileName);
-            
-            try {
-                ObjectId fileObjectId = new ObjectId(fileId);
-                
-                // Check if file exists before deletion
-                GridFSFile fileToDelete = gridFsTemplate.findOne(new Query(Criteria.where("_id").is(fileObjectId)));
-                if (fileToDelete != null) {
-                    long fileSize = fileToDelete.getLength();
-                    String contentType = fileToDelete.getMetadata() != null ? 
-                        fileToDelete.getMetadata().getString("contentType") : "unknown";
-                    
-                    log.debug("📋 [{}] File found in GridFS - Size: {} bytes, ContentType: {}", 
-                            fileType, fileSize, contentType);
-                    
-                    // Delete the file
-                    gridFsTemplate.delete(new Query(Criteria.where("_id").is(fileObjectId)));
-                    
-                    log.debug("✅ [{}] Successfully deleted from GridFS: ID={}, Name={}, Size={} bytes", 
-                            fileType, fileId, fileName, fileSize);
-                } else {
-                    log.warn("⚠️  [{}] File not found in GridFS (may already be deleted): ID={}, Name={}",
-                            fileType, fileId, fileName);
-                }
-            } catch (IllegalArgumentException e) {
-                log.error("❌ [{}] Invalid ObjectId format for file deletion: ID={}, Name={}", 
-                        fileType, fileId, fileName, e);
-                // Try with string ID as fallback
-                try {
-                    GridFSFile fileToDelete = gridFsTemplate.findOne(new Query(Criteria.where("_id").is(fileId)));
-                    if (fileToDelete != null) {
-                        gridFsTemplate.delete(new Query(Criteria.where("_id").is(fileId)));
-                        log.debug("✅ [{}] Deleted from GridFS using string ID: ID={}, Name={}", 
-                                fileType, fileId, fileName);
-                    } else {
-                        log.warn("⚠️  [{}] File not found in GridFS (string ID): ID={}, Name={}",
-                                fileType, fileId, fileName);
-                    }
-                } catch (Exception e2) {
-                    log.error("❌ [{}] Error deleting file from GridFS with string ID: ID={}, Name={}", 
-                            fileType, fileId, fileName, e2);
-                }
-            } catch (Exception e) {
-                log.error("❌ [{}] Error deleting file from GridFS: ID={}, Name={}", 
-                        fileType, fileId, fileName, e);
-                // Continue with other files - the file reference is already removed from the event
+            if (deleteFileFromGridFs(f)) {
+                deletedFromGridFs++;
+            } else {
+                failedGridFsDeletes++;
             }
         }
         
         if (!filesToDelete.isEmpty()) {
             long videoCount = filesToDelete.stream()
-                .filter(f -> isVideoFile(f.getFileName()))
+                .filter(file -> isVideoFile(file.getFileName()))
                 .count();
             long otherFilesCount = filesToDelete.size() - videoCount;
             
-            log.debug("📊 Deletion summary: {} total file(s) processed - {} video(s), {} other file(s)", 
-                    filesToDelete.size(), videoCount, otherFilesCount);
+            log.info("GridFS deletion summary for event {}: {} deleted, {} failed, {} total ({} video(s), {} other file(s))",
+                    evenement.getId(), deletedFromGridFs, failedGridFsDeletes, filesToDelete.size(), videoCount, otherFilesCount);
         }
 
         // return the evenement
@@ -1399,6 +1346,94 @@ public class FileRestController {
 
         return new ResponseEntity<Evenement>(savedEvenement, httpHeaders, HttpStatus.CREATED);
 
+    }
+
+    /**
+     * Files present in the old event but missing from the updated payload.
+     */
+    private List<FileUploaded> findRemovedFiles(Evenement oldEvent, Evenement newEvent) {
+        List<FileUploaded> oldFiles = oldEvent.getFileUploadeds() != null
+                ? oldEvent.getFileUploadeds()
+                : Collections.emptyList();
+        List<FileUploaded> newFiles = newEvent.getFileUploadeds() != null
+                ? newEvent.getFileUploadeds()
+                : Collections.emptyList();
+
+        return oldFiles.stream()
+                .filter(Objects::nonNull)
+                .filter(file -> file.getFieldId() != null && !file.getFieldId().isBlank())
+                .filter(file -> newFiles.stream()
+                        .noneMatch(newFile -> newFile != null
+                                && file.getFieldId().equals(newFile.getFieldId())))
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * Deletes one GridFS file and verifies it no longer exists in MongoDB.
+     * @return true when the file is absent from GridFS after the operation
+     */
+    private boolean deleteFileFromGridFs(FileUploaded fileUploaded) {
+        if (fileUploaded == null || fileUploaded.getFieldId() == null || fileUploaded.getFieldId().isBlank()) {
+            log.warn("Skipping GridFS deletion: missing file id");
+            return false;
+        }
+
+        String fileName = fileUploaded.getFileName() != null ? fileUploaded.getFileName() : "unknown";
+        String fileId = fileUploaded.getFieldId();
+        boolean isVideo = isVideoFile(fileName);
+        String fileType = isVideo ? "VIDEO" : "FILE";
+
+        log.info("Deleting {} from GridFS: id={}, name={}", fileType, fileId, fileName);
+
+        try {
+            ObjectId fileObjectId = new ObjectId(fileId);
+            GridFSFile existingFile = gridFsTemplate.findOne(new Query(Criteria.where("_id").is(fileObjectId)));
+            if (existingFile == null) {
+                log.warn("{} already absent from GridFS: id={}, name={}", fileType, fileId, fileName);
+                return true;
+            }
+
+            long fileSize = existingFile.getLength();
+            gridFsTemplate.delete(new Query(Criteria.where("_id").is(fileObjectId)));
+
+            GridFSFile remainingFile = gridFsTemplate.findOne(new Query(Criteria.where("_id").is(fileObjectId)));
+            if (remainingFile != null) {
+                log.error("{} still present in GridFS after delete: id={}, name={}", fileType, fileId, fileName);
+                return false;
+            }
+
+            log.info("Deleted {} from GridFS: id={}, name={}, size={} bytes", fileType, fileId, fileName, fileSize);
+            return true;
+        } catch (IllegalArgumentException invalidObjectId) {
+            log.warn("Invalid ObjectId for GridFS delete, retrying with string id: id={}, name={}", fileId, fileName);
+            try {
+                GridFSFile existingFile = gridFsTemplate.findOne(new Query(Criteria.where("_id").is(fileId)));
+                if (existingFile == null) {
+                    log.warn("{} already absent from GridFS (string id): id={}, name={}", fileType, fileId, fileName);
+                    return true;
+                }
+
+                long fileSize = existingFile.getLength();
+                gridFsTemplate.delete(new Query(Criteria.where("_id").is(fileId)));
+
+                GridFSFile remainingFile = gridFsTemplate.findOne(new Query(Criteria.where("_id").is(fileId)));
+                if (remainingFile != null) {
+                    log.error("{} still present in GridFS after delete (string id): id={}, name={}", fileType, fileId, fileName);
+                    return false;
+                }
+
+                log.info("Deleted {} from GridFS using string id: id={}, name={}, size={} bytes",
+                        fileType, fileId, fileName, fileSize);
+                return true;
+            } catch (Exception retryError) {
+                log.error("Error deleting {} from GridFS with string id: id={}, name={}",
+                        fileType, fileId, fileName, retryError);
+                return false;
+            }
+        } catch (Exception e) {
+            log.error("Error deleting {} from GridFS: id={}, name={}", fileType, fileId, fileName, e);
+            return false;
+        }
     }
 
     /**

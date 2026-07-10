@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "ãã©ã³ã¹èª",
         "EN": "è±èª",
@@ -1336,7 +1336,12 @@
         "VIDEO_DURATION": "åçæé:",
         "VIDEO_CURRENT_TIME": "ç¾å¨ã®æé:",
         "VIDEO_VOLUME": "é³é:",
-        "VIDEO_SIZE": "ãµã¤ãº:"
+        "VIDEO_SIZE": "ãµã¤ãº:",
+        "SELECT_ALL_PHOTOS": "Select all photos",
+        "DESELECT_ALL_PHOTOS": "Deselect all photos",
+        "SELECTED_PHOTOS_COUNT": "{{count}} photo(s) selected",
+        "DELETE_SELECTED_FILES": "Delete selected ({{count}})",
+        "DELETE_SELECTED_FILES_CONFIRM": "Are you sure you want to delete {{count}} file(s)?"
     },
     "EVENTCREATION": {
         "TITLE": "æ´»åã®ä½æ",
@@ -2658,6 +2663,8 @@
         "TEMPERATURE_TOOLTIP_HISTORY": "Historique",
         "POINT_TIMELINE_BTN": "7日間：履歴と予報",
         "POINT_TIMELINE_CLOSE": "閉じる",
+        "POINT_TIMELINE_ZOOM_HINT": "ホイールでズーム · ドラッグで移動 · Shift+ドラッグで範囲ズーム",
+        "POINT_TIMELINE_ZOOM_RESET": "ズームをリセット",
         "POINT_TIMELINE_CURRENT": "現在",
         "POINT_TIMELINE_HISTORY": "過去7日間",
         "POINT_TIMELINE_FORECAST": "今後7日間",

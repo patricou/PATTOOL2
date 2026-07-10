@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "æ³è¯­",
         "EN": "è±è¯­",
@@ -1581,7 +1581,12 @@
         "VIDEO_DURATION": "æ¶é¿:",
         "VIDEO_CURRENT_TIME": "å½åæ¶é´:",
         "VIDEO_VOLUME": "é³é:",
-        "VIDEO_SIZE": "å¤§å°:"
+        "VIDEO_SIZE": "å¤§å°:",
+        "SELECT_ALL_PHOTOS": "Select all photos",
+        "DESELECT_ALL_PHOTOS": "Deselect all photos",
+        "SELECTED_PHOTOS_COUNT": "{{count}} photo(s) selected",
+        "DELETE_SELECTED_FILES": "Delete selected ({{count}})",
+        "DELETE_SELECTED_FILES_CONFIRM": "Are you sure you want to delete {{count}} file(s)?"
     },
     "EVENTCREATION": {
         "TITLE": "åå»ºæ´»å¨",
@@ -2903,6 +2908,8 @@
         "TEMPERATURE_TOOLTIP_HISTORY": "Historique",
         "POINT_TIMELINE_BTN": "7天：历史与预报",
         "POINT_TIMELINE_CLOSE": "关闭",
+        "POINT_TIMELINE_ZOOM_HINT": "滚轮缩放 · 拖动平移 · Shift+拖动框选缩放",
+        "POINT_TIMELINE_ZOOM_RESET": "重置缩放",
         "POINT_TIMELINE_CURRENT": "现在",
         "POINT_TIMELINE_HISTORY": "过去7天",
         "POINT_TIMELINE_FORECAST": "未来7天",

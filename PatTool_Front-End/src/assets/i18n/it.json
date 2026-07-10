@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "Francese",
         "EN": "Inglese",
@@ -1248,6 +1248,11 @@
         "FILESDOWNLOAD": "Gestione file",
         "DELETEFILE": "Elimina file",
         "DELETEFILE_CONFIRM": "Sei sicuro di voler eliminare questo file?",
+        "SELECT_ALL_PHOTOS": "Seleziona tutte le foto",
+        "DESELECT_ALL_PHOTOS": "Deseleziona tutte",
+        "SELECTED_PHOTOS_COUNT": "{{count}} foto selezionate",
+        "DELETE_SELECTED_FILES": "Elimina selezione ({{count}})",
+        "DELETE_SELECTED_FILES_CONFIRM": "Sei sicuro di voler eliminare {{count}} file?",
         "LIVECHAT": "Discussione live",
         "DELMESCHAT": "Elimina messaggio",
         "DESC": "Descrizione",
@@ -2916,6 +2921,8 @@
         "TEMPERATURE_TOOLTIP_HISTORY": "Historique",
         "POINT_TIMELINE_BTN": "7 giorni: storico e previsioni",
         "POINT_TIMELINE_CLOSE": "Chiudi",
+        "POINT_TIMELINE_ZOOM_HINT": "Rotella per zoom · trascina per spostare · Maiusc+trascina per area",
+        "POINT_TIMELINE_ZOOM_RESET": "Reimposta zoom",
         "POINT_TIMELINE_CURRENT": "Adesso",
         "POINT_TIMELINE_HISTORY": "Ultimi 7 giorni",
         "POINT_TIMELINE_FORECAST": "Prossimi 7 giorni",

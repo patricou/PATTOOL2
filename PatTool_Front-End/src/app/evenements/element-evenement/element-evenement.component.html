@@ -373,8 +373,7 @@
         </svg>
     </a>
     
-    <a *ngIf="isAuthor()"
-       class="btn btn-sm btn-outline-primary mb-1 me-1 dynamic-footer-btn" 
+    <a class="btn btn-sm btn-outline-primary mb-1 me-1 dynamic-footer-btn" 
        [ngStyle]="getFooterButtonStyles('download')"
        (click)="onFilesButtonClick(filesModal); $event.stopPropagation()"
        placement="top" 
@@ -643,6 +642,24 @@
         </div>
         <div *ngIf="!isLoadingFiles && evenement.fileUploadeds && evenement.fileUploadeds.length > 0; else noFilesTemplate">
             <div class="files-container">
+                <div *ngIf="canUseBulkFileSelection()"
+                     class="file-bulk-select-toolbar d-flex align-items-center flex-wrap gap-2 mb-3">
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary"
+                            (click)="toggleSelectAllDeletableFiles()">
+                        <i class="fa me-1"
+                           [class.fa-check-square-o]="areAllDeletableFilesSelected()"
+                           [class.fa-square-o]="!areAllDeletableFilesSelected()"></i>
+                        {{ (areAllDeletableFilesSelected() ? 'EVENTELEM.DESELECT_ALL_PHOTOS' : 'EVENTELEM.SELECT_ALL_PHOTOS') | translate }}
+                    </button>
+                    <small class="text-muted" *ngIf="hasSelectedFilesForDeletion()">
+                        {{ 'EVENTELEM.SELECTED_PHOTOS_COUNT' | translate: { count: getSelectedDeletableFilesCount() } }}
+                        / {{ getDeletableFilesForSelection().length }}
+                    </small>
+                    <small class="text-muted" *ngIf="getCardImageFilesCount() > 0">
+                        · {{ 'EVENTELEM.CARD_IMAGE_EXCLUDED_FROM_SELECTION' | translate: { count: getCardImageFilesCount() } }}
+                    </small>
+                </div>
                 <!-- Group files by type -->
                 <div *ngFor="let typeKey of getSortedFileTypeKeys()" class="file-type-group mb-4">
                     <!-- Type Header -->
@@ -668,9 +685,19 @@
                         <ul class="list-group files-list" 
                             [style.background-color]="getFilesListGradient()">
                             <li class="list-group-item d-flex justify-content-between align-items-start flex-wrap gap-2"
+                                [class.file-row-selected]="canSelectFileForDeletion(uploadedFile) && isFileSelectedForDeletion(uploadedFile.fieldId)"
                                 *ngFor="let uploadedFile of getGroupedFiles()[typeKey]">
                     <div class="d-flex flex-column flex-grow-1 min-width-0">
                     <div class="file-name d-flex align-items-center flex-wrap">
+                        <input *ngIf="canSelectFileForDeletion(uploadedFile)"
+                               type="checkbox"
+                               class="form-check-input file-delete-checkbox me-2 flex-shrink-0"
+                               [checked]="isFileSelectedForDeletion(uploadedFile.fieldId)"
+                               [ngbTooltip]="getFileSelectionTooltip(uploadedFile)"
+                               placement="top"
+                               (change)="toggleFileSelectionForDeletion(uploadedFile.fieldId)"
+                               (click)="$event.stopPropagation()"
+                               (mouseleave)="onTooltipMouseLeave($event)" />
                         <!-- Thumbnail for image files -->
                         <img *ngIf="isImageFile(uploadedFile.fileName) && getFileThumbnail(uploadedFile.fieldId)" 
                              [src]="getFileThumbnail(uploadedFile.fieldId)" 
@@ -717,6 +744,13 @@
                               (click)="(isImageFile(uploadedFile.fileName) || isVideoFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isOdsFile(uploadedFile.fileName) || isTrackFile(uploadedFile.fileName)) && handleFileClick(uploadedFile)"
                               [style.cursor]="(isImageFile(uploadedFile.fileName) || isVideoFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isOdsFile(uploadedFile.fileName) || isTrackFile(uploadedFile.fileName)) ? 'pointer' : 'default'">
                             {{getTruncatedFileName(uploadedFile.fileName)}}
+                        </span>
+                        <span *ngIf="isThumbnailFile(uploadedFile)"
+                              class="badge bg-warning text-dark ms-2"
+                              [ngbTooltip]="'EVENTELEM.CANNOT_DELETE_THUMBNAIL' | translate"
+                              placement="top"
+                              (mouseleave)="onTooltipMouseLeave($event)">
+                            {{ 'EVENTELEM.CARD_IMAGE_BADGE' | translate }}
                         </span>
                         <input *ngIf="isTrackFile(uploadedFile.fileName) && isAuthor()"
                                type="text"
@@ -777,7 +811,7 @@
                     </div>
                     <div class="file-actions flex-shrink-0">
                         <button class="btn btn-sm btn-warning me-2"
-                                *ngIf="isImageFile(uploadedFile.fileName)"
+                                *ngIf="isImageFile(uploadedFile.fileName) && canModifyEvent()"
                                 [disabled]="isThumbnailFile(uploadedFile)"
                                 ngbTooltip="{{ 'EVENTELEM.SET_AS_CARD_IMAGE' | translate }}"
                                 (click)="setFileAsThumbnail(uploadedFile)"
@@ -837,12 +871,14 @@
                             <i class="fa fa-files-o" aria-hidden="true"></i>
                         </button>
                         <button class="btn btn-sm btn-danger" placement="left"
+                            *ngIf="canDeleteFile(uploadedFile.uploaderMember) || isThumbnailFile(uploadedFile)"
+                            [ngClass]="{'footer-btn-edit-admin': isAdminDeletingOthersFile(uploadedFile.uploaderMember)}"
                             [ngbTooltip]="isThumbnailFile(uploadedFile) ? ('EVENTELEM.CANNOT_DELETE_THUMBNAIL' | translate) : ('EVENTELEM.DELETEFILE' | translate)"
-                            [disabled]="!isFileOwner(uploadedFile.uploaderMember) || isThumbnailFile(uploadedFile)"
+                            [disabled]="!canDeleteFile(uploadedFile.uploaderMember) || isThumbnailFile(uploadedFile)"
                             (click)="delFile(uploadedFile.fieldId)"
-                            [style.background-color]="getFileActionButtonGradient()"
-                            [style.border-color]="getInverseTextColor()"
-                            [style.color]="getInverseTextColor()"
+                            [style.background-color]="isAdminDeletingOthersFile(uploadedFile.uploaderMember) ? null : getFileActionButtonGradient()"
+                            [style.border-color]="isAdminDeletingOthersFile(uploadedFile.uploaderMember) ? null : getInverseTextColor()"
+                            [style.color]="isAdminDeletingOthersFile(uploadedFile.uploaderMember) ? null : getInverseTextColor()"
                             (mouseleave)="onTooltipMouseLeave($event)">
                             <i class="fa fa-trash" aria-hidden="true"></i>
                         </button>
@@ -861,6 +897,17 @@
         </ng-template>
     </div>
     <div class="modal-footer">
+        <button class="btn btn-sm btn-danger"
+                *ngIf="hasSelectedFilesForDeletion()"
+                [disabled]="isBulkDeletingFiles"
+                [ngClass]="{'footer-btn-edit-admin': isAdminDeletingAnySelectedFile()}"
+                (click)="deleteSelectedFiles()"
+                [style.background-color]="isAdminDeletingAnySelectedFile() ? null : getFileActionButtonGradient()"
+                [style.border-color]="isAdminDeletingAnySelectedFile() ? null : getInverseTextColor()"
+                [style.color]="isAdminDeletingAnySelectedFile() ? null : getInverseTextColor()">
+            <i class="fa" [class.fa-spinner]="isBulkDeletingFiles" [class.fa-spin]="isBulkDeletingFiles" [class.fa-trash]="!isBulkDeletingFiles"></i>
+            {{ 'EVENTELEM.DELETE_SELECTED_FILES' | translate: { count: getSelectedDeletableFilesCount() } }}
+        </button>
         <button class="btn btn-sm btn-success" 
                 *ngIf="evenement.fileUploadeds && evenement.fileUploadeds.length > 0"
                 (click)="downloadAllFiles()"

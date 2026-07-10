@@ -9,6 +9,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Aggregates multi-day point forecasts from OpenWeatherMap, Open-Meteo and Météo-France (via Open-Meteo seamless)
@@ -60,12 +61,17 @@ public class WeatherForecastAggregationService {
         List<String> sourcesAvailable = new ArrayList<>();
         Map<String, List<Map<String, Object>>> sourceItems = new LinkedHashMap<>();
 
-        collectSource(sourceItems, sourcesAvailable, sourceErrors, "openweathermap",
+        CompletableFuture<Map<String, Object>> owmFuture = CompletableFuture.supplyAsync(() ->
                 openWeatherService.getForecastByCoordinates(lat, lon, null, horizon, step));
-        collectSource(sourceItems, sourcesAvailable, sourceErrors, "open-meteo",
+        CompletableFuture<Map<String, Object>> omFuture = CompletableFuture.supplyAsync(() ->
                 openMeteoService.getForecastByCoordinates(lat, lon, jwtSubject, horizon, step));
-        collectSource(sourceItems, sourcesAvailable, sourceErrors, "meteofrance",
+        CompletableFuture<Map<String, Object>> mfFuture = CompletableFuture.supplyAsync(() ->
                 openMeteoService.getMeteoFranceForecastByCoordinates(lat, lon, jwtSubject, horizon, step));
+        CompletableFuture.allOf(owmFuture, omFuture, mfFuture).join();
+
+        collectSource(sourceItems, sourcesAvailable, sourceErrors, "openweathermap", owmFuture.join());
+        collectSource(sourceItems, sourcesAvailable, sourceErrors, "open-meteo", omFuture.join());
+        collectSource(sourceItems, sourcesAvailable, sourceErrors, "meteofrance", mfFuture.join());
 
         List<Map<String, Object>> steps = buildAlignedSteps(slots, toleranceSec, sourceItems);
         result.put("steps", steps);

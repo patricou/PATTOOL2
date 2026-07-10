@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "Ð¤ÑÐ°Ð½ÑÑÐ·ÑÐºÐ¸Ð¹",
         "EN": "ÐÐ½Ð³Ð»Ð¸Ð¹ÑÐºÐ¸Ð¹",
@@ -423,7 +423,12 @@
         "VIDEO_DURATION": "ÐÐ»Ð¸ÑÐµÐ»ÑÐ½Ð¾ÑÑÑ:",
         "VIDEO_CURRENT_TIME": "Ð¢ÐµÐºÑÑÐµÐµ Ð²ÑÐµÐ¼Ñ:",
         "VIDEO_VOLUME": "ÐÑÐ¾Ð¼ÐºÐ¾ÑÑÑ:",
-        "VIDEO_SIZE": "Ð Ð°Ð·Ð¼ÐµÑ:"
+        "VIDEO_SIZE": "Ð Ð°Ð·Ð¼ÐµÑ:",
+        "SELECT_ALL_PHOTOS": "Select all photos",
+        "DESELECT_ALL_PHOTOS": "Deselect all photos",
+        "SELECTED_PHOTOS_COUNT": "{{count}} photo(s) selected",
+        "DELETE_SELECTED_FILES": "Delete selected ({{count}})",
+        "DELETE_SELECTED_FILES_CONFIRM": "Are you sure you want to delete {{count}} file(s)?"
     },
     "MENU": {
         "BRAND": "PATTOOL",
@@ -2896,6 +2901,8 @@
         "TEMPERATURE_TOOLTIP_HISTORY": "Historique",
         "POINT_TIMELINE_BTN": "7 дней: история и прогноз",
         "POINT_TIMELINE_CLOSE": "Закрыть",
+        "POINT_TIMELINE_ZOOM_HINT": "Колёсико — масштаб · перетаскивание — сдвиг · Shift+перетаскивание — область",
+        "POINT_TIMELINE_ZOOM_RESET": "Сбросить масштаб",
         "POINT_TIMELINE_CURRENT": "Сейчас",
         "POINT_TIMELINE_HISTORY": "Последние 7 дней",
         "POINT_TIMELINE_FORECAST": "Следующие 7 дней",

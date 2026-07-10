@@ -1182,7 +1182,29 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 
 	// File management methods
 	public isFileOwner(uploadedFile: UploadedFile): boolean {
-		return this.user.userName.toLowerCase() === uploadedFile.uploaderMember.userName.toLowerCase();
+		if (!uploadedFile?.uploaderMember || !this.user) {
+			return false;
+		}
+		const member = uploadedFile.uploaderMember;
+		if (this.user.id && member.id && this.user.id === member.id) {
+			return true;
+		}
+		if (this.user.userName && member.userName) {
+			return this.user.userName.toLowerCase() === member.userName.toLowerCase();
+		}
+		return false;
+	}
+
+	public isAdmin(): boolean {
+		return this._keycloakService.hasAdminRole();
+	}
+
+	public canDeleteFile(uploadedFile: UploadedFile): boolean {
+		return this.isFileOwner(uploadedFile) || this.isAdmin();
+	}
+
+	public isAdminDeletingOthersFile(uploadedFile: UploadedFile): boolean {
+		return this.isAdmin() && !this.isFileOwner(uploadedFile);
 	}
 
 	private reloadEvent(): void {
@@ -1866,15 +1888,22 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 	}
 
 	public deleteFile(fileIndex: number): void {
-		// Get the file to check if it's a thumbnail
 		const fileToDelete = this.evenement.fileUploadeds[fileIndex];
-		
-		// Prevent deletion of thumbnail files
-		if (fileToDelete && fileToDelete.fileName && fileToDelete.fileName.toLowerCase().includes('thumbnail')) {
+
+		if (!fileToDelete) {
+			return;
+		}
+
+		if (this.isThumbnailFile(fileToDelete)) {
 			alert(this.translate.instant('EVENTELEM.CANNOT_DELETE_THUMBNAIL'));
 			return;
 		}
-		
+
+		if (!this.canDeleteFile(fileToDelete)) {
+			alert(this.translate.instant('EVENTELEM.UNAUTHORIZED_DELETE_FILE'));
+			return;
+		}
+
 		if (confirm(this.translate.instant('EVENTELEM.DELETEFILE_CONFIRM'))) {
 			this.evenement.fileUploadeds.splice(fileIndex, 1);
 			this._evenementsService.put4FileEvenement(this.evenement).subscribe(
@@ -1890,10 +1919,10 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 	}
 	
 	public isThumbnailFile(uploadedFile: UploadedFile | null | undefined): boolean {
-		if (!uploadedFile || !uploadedFile.fileName) {
+		if (!uploadedFile || !this.evenement?.thumbnail) {
 			return false;
 		}
-		return uploadedFile.fileName.toLowerCase().includes('thumbnail');
+		return uploadedFile.fieldId === this.evenement.thumbnail.fieldId;
 	}
 
 	public onFileSelected(event: any): void {

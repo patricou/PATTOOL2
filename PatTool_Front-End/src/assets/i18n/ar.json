@@ -1,4 +1,4 @@
-{
+﻿{
     "LANGUAGE": {
         "FR": "Ø§ÙÙØ±ÙØ³ÙØ©",
         "EN": "Ø§ÙØ¥ÙØ¬ÙÙØ²ÙØ©",
@@ -1243,7 +1243,12 @@
         "COPY_LINK": "ÙØ³Ø® Ø§ÙØ±Ø§Ø¨Ø·",
         "FILESDOWNLOAD": "ØªÙØ²ÙÙ Ø§ÙÙÙÙØ§Øª",
         "DELETEFILE": "Ø­Ø°Ù Ø§ÙÙÙÙ",
-        "DELETEFILE_CONFIRM": "ÙÙ Ø£ÙØª ÙØªØ£ÙØ¯ ÙÙ Ø£ÙÙ ØªØ±ÙØ¯ Ø­Ø°Ù ÙØ°Ø§ Ø§ÙÙÙÙØ",
+        "DELETEFILE_CONFIRM": "هل أنت متأكد من أنك تريد حذف هذا الملف؟",
+        "SELECT_ALL_PHOTOS": "Select all photos",
+        "DESELECT_ALL_PHOTOS": "Deselect all photos",
+        "SELECTED_PHOTOS_COUNT": "{{count}} photo(s) selected",
+        "DELETE_SELECTED_FILES": "Delete selected ({{count}})",
+        "DELETE_SELECTED_FILES_CONFIRM": "Are you sure you want to delete {{count}} file(s)?",
         "LIVECHAT": "Ø¯Ø±Ø¯Ø´Ø© ÙØ¨Ø§Ø´Ø±Ø©",
         "DELMESCHAT": "Ø­Ø°Ù Ø§ÙØ±Ø³Ø§ÙØ©",
         "DESC": "ÙØµÙ",
@@ -2902,6 +2907,8 @@
         "TEMPERATURE_TOOLTIP_HISTORY": "Historique",
         "POINT_TIMELINE_BTN": "7 أيام: السجل والتنبؤ",
         "POINT_TIMELINE_CLOSE": "إغلاق",
+        "POINT_TIMELINE_ZOOM_HINT": "عجلة للتكبير · اسحب للتحريك · Shift+اسحب لتكبير منطقة",
+        "POINT_TIMELINE_ZOOM_RESET": "إعادة ضبط التكبير",
         "POINT_TIMELINE_CURRENT": "الآن",
         "POINT_TIMELINE_HISTORY": "آخر 7 أيام",
         "POINT_TIMELINE_FORECAST": "الـ 7 أيام القادمة",

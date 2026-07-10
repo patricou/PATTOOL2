@@ -798,10 +798,11 @@
 
                                         <!-- Delete Button -->
                                         <button type="button" 
-                                                class="btn btn-outline-danger btn-sm"
+                                                class="btn btn-sm"
+                                                [ngClass]="isAdminDeletingOthersFile(uploadedFile) ? 'btn-danger file-delete-admin' : 'btn-outline-danger'"
                                                 (click)="deleteFile(i)"
-                                                [disabled]="!isFileOwner(uploadedFile) || isThumbnailFile(uploadedFile)"
-                                                [title]="isThumbnailFile(uploadedFile) ? ('EVENTELEM.CANNOT_DELETE_THUMBNAIL' | translate) : ('EVENTELEM.DELETE_FILE' | translate)">
+                                                [disabled]="!canDeleteFile(uploadedFile) || isThumbnailFile(uploadedFile)"
+                                                [title]="isThumbnailFile(uploadedFile) ? ('EVENTELEM.CANNOT_DELETE_THUMBNAIL' | translate) : ('EVENTELEM.DELETEFILE' | translate)">
                                             <i class="fa fa-trash"></i>
                                         </button>
                                     </div>

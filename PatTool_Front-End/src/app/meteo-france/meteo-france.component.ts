@@ -7,11 +7,19 @@ import { ApiService } from '../services/api.service';
 import { LeafletBasemapOption, LeafletBasemapService } from '../shared/leaflet-basemap.service';
 import { environment } from '../../environments/environment';
 import { BaseChartDirective } from 'ng2-charts';
-import { Chart, ChartConfiguration, ChartOptions, registerables } from 'chart.js';
+import { Chart, ChartConfiguration, ChartOptions, TooltipItem, registerables } from 'chart.js';
+import zoomPlugin from 'chartjs-plugin-zoom';
 import * as L from 'leaflet';
+import { MeteoFranceChartPanelComponent } from './meteo-france-chart-panel.component';
+import { MeteoChartFullscreenService } from './meteo-chart-fullscreen.service';
+import {
+  meteoChartCompactPointRadius,
+  withMeteoChartZoom
+} from './meteo-france-chart.util';
 import { catchError, forkJoin, of, Subscription, take } from 'rxjs';
 
 Chart.register(...registerables);
+Chart.register(zoomPlugin);
 
 type TemperatureUnit = 'celsius' | 'fahrenheit';
 type WeatherDataSourceBrand = 'meteofrance' | 'open-meteo' | 'openweathermap';
@@ -88,7 +96,7 @@ interface MeteoBackendLogEntry {
   templateUrl: './meteo-france.component.html',
   styleUrls: ['./meteo-france.component.css'],
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NgbModule, BaseChartDirective]
+  imports: [CommonModule, FormsModule, TranslateModule, NgbModule, BaseChartDirective, MeteoFranceChartPanelComponent]
 })
 export class MeteoFranceComponent implements OnInit, OnDestroy {
 
@@ -120,14 +128,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private static readonly FORECAST_MAP_ZOOM = 12;
   private static readonly CLIM_TEMP_COLUMNS = new Set(['TN', 'TNT', 'TX', 'TM', 'T', 'TAT', 'TROS']);
 
-  @ViewChild('climTempChart', { read: BaseChartDirective }) climTempChart?: BaseChartDirective;
-  @ViewChild('climRainChart', { read: BaseChartDirective }) climRainChart?: BaseChartDirective;
-  @ViewChild('stationHistoryTempChart', { read: BaseChartDirective }) stationHistoryTempChart?: BaseChartDirective;
-  @ViewChild('stationHistoryHumidityChart', { read: BaseChartDirective }) stationHistoryHumidityChart?: BaseChartDirective;
-  @ViewChild('stationHistoryWindChart', { read: BaseChartDirective }) stationHistoryWindChart?: BaseChartDirective;
-  @ViewChild('stationHistoryRainChart', { read: BaseChartDirective }) stationHistoryRainChart?: BaseChartDirective;
-  @ViewChild('stationHistoryPressureChart', { read: BaseChartDirective }) stationHistoryPressureChart?: BaseChartDirective;
   @ViewChild('pointTempTimelineChart', { read: BaseChartDirective }) pointTempTimelineChart?: BaseChartDirective;
+  @ViewChild('pointTempTimelineOverlay') pointTempTimelineOverlay?: ElementRef<HTMLElement>;
+  @ViewChild('pointTempTimelineCard') pointTempTimelineCard?: ElementRef<HTMLElement>;
   @ViewChild('mapShell') mapShell?: ElementRef<HTMLElement>;
   @ViewChild('aromepiMapShell') aromepiMapShell?: ElementRef<HTMLElement>;
 
@@ -169,8 +172,13 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     private apiService: ApiService,
     private translate: TranslateService,
     private basemapService: LeafletBasemapService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private chartFullscreen: MeteoChartFullscreenService
   ) {}
+
+  private readonly pointTimelineCloseFullscreen = (): void => {
+    this.exitPointTimelineFullscreen();
+  };
 
   city = '';
   countryCode = '';
@@ -312,6 +320,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   stationHistoryPressureChartOptions: ChartOptions<'line'> = this.buildClimScalarChartOptions('hPa');
 
   pointTempTimelineVisible = false;
+  pointTempTimelineFullscreen = false;
   pointTempTimelineLoading = false;
   pointTempTimelineErrorKey = '';
   pointTempTimelineTabErrorKey = '';
@@ -351,6 +360,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private pointTempTimelineClimCache: any = null;
   private pointTempTimelineClimQuotidienneCache: any = null;
   private pointTempTimelineForecastCache: any = null;
+  private pointTempTimelineMfForecastCache: any = null;
+  private pointTempTimelineQuotidienneLoading = false;
   private pointTempTimelineSlots: PointTempTimelineSlot[] = [];
   private pointTempTimelineDailySlots: PointTempTimelineSlot[] = [];
   private pointTempTimelineChartPoints: Array<{ ts: number; kind: 'history' | 'now' | 'forecast' }> = [];
@@ -3841,6 +3852,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   @HostListener('document:fullscreenchange')
   @HostListener('document:webkitfullscreenchange')
   onMapFullscreenChange(): void {
+    this.syncPointTimelineNativeFullscreen();
     const shell = this.mapShell?.nativeElement;
     const doc = document as Document & { webkitFullscreenElement?: Element };
     const active = !!(shell && (document.fullscreenElement === shell || doc.webkitFullscreenElement === shell));
@@ -3853,8 +3865,15 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
 
   @HostListener('document:keydown.escape')
   onMapFullscreenEscape(): void {
+    if (this.chartFullscreen.closeIfActive()) {
+      return;
+    }
     if (this.stationHistoryModalVisible) {
       this.closeStationHistoryModal();
+      return;
+    }
+    if (this.pointTempTimelineFullscreen) {
+      this.exitPointTimelineFullscreen();
       return;
     }
     if (this.mapFullscreen) {
@@ -5513,6 +5532,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.pointTempTimelineActiveParam = param;
     this.pointTempTimelineTabErrorKey = '';
     this.pointTempTimelineInfoKey = '';
+    if (param === 'precipDaily') {
+      this.loadPointTempTimelineQuotidienne();
+    }
     this.renderPointTempTimelineChart();
   }
 
@@ -5521,6 +5543,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       return;
     }
     this.pointTempTimelineVisible = true;
+    this.pointTempTimelineFullscreen = false;
     this.pointTempTimelineActiveTab = 'meteofrance';
     this.pointTempTimelineActiveParam = 'temp';
     this.pointTempTimelineChartsReady = false;
@@ -5529,8 +5552,85 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.loadPointTempTimelineData();
   }
 
+  togglePointTempTimelineFullscreen(): void {
+    if (this.pointTempTimelineFullscreen) {
+      this.exitPointTimelineFullscreen();
+      return;
+    }
+    const overlay = this.pointTempTimelineOverlay?.nativeElement;
+    if (!overlay) {
+      this.setPointTempTimelineFullscreen(true);
+      return;
+    }
+    const request = overlay.requestFullscreen?.bind(overlay)
+      ?? (overlay as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen?.bind(overlay);
+    if (request) {
+      request().then(() => this.setPointTempTimelineFullscreen(true))
+        .catch(() => this.setPointTempTimelineFullscreen(true));
+    } else {
+      this.setPointTempTimelineFullscreen(true);
+    }
+  }
+
+  private exitPointTimelineFullscreen(): void {
+    const overlay = this.pointTempTimelineOverlay?.nativeElement;
+    const doc = document as Document & { webkitFullscreenElement?: Element; webkitExitFullscreen?: () => Promise<void> };
+    const fsElement = document.fullscreenElement ?? doc.webkitFullscreenElement;
+    if (overlay && fsElement === overlay) {
+      const exit = document.exitFullscreen?.bind(document) ?? doc.webkitExitFullscreen?.bind(document);
+      exit?.().catch(() => this.setPointTempTimelineFullscreen(false));
+      return;
+    }
+    this.setPointTempTimelineFullscreen(false);
+  }
+
+  private syncPointTimelineNativeFullscreen(): void {
+    const overlay = this.pointTempTimelineOverlay?.nativeElement;
+    if (!overlay || !this.pointTempTimelineVisible) {
+      return;
+    }
+    const doc = document as Document & { webkitFullscreenElement?: Element };
+    const active = document.fullscreenElement === overlay || doc.webkitFullscreenElement === overlay;
+    if (this.pointTempTimelineFullscreen !== active) {
+      this.setPointTempTimelineFullscreen(active);
+    }
+  }
+
+  resetPointTempTimelineZoom(): void {
+    const chart = this.pointTempTimelineChart?.chart as (Chart & { resetZoom?: () => void }) | undefined;
+    chart?.resetZoom?.();
+  }
+
+  private setPointTempTimelineFullscreen(fullscreen: boolean): void {
+    if (this.pointTempTimelineFullscreen === fullscreen) {
+      return;
+    }
+    this.pointTempTimelineFullscreen = fullscreen;
+    if (fullscreen) {
+      this.chartFullscreen.register(this.pointTimelineCloseFullscreen);
+    } else {
+      this.chartFullscreen.unregister(this.pointTimelineCloseFullscreen);
+    }
+    if (this.pointTempTimelineChartsReady) {
+      this.pointTempTimelineChartOptions = this.buildPointTempTimelineChartOptions(
+        this.pointTempTimelineChartPoints,
+        this.pointTempTimelineActiveParam,
+        this.pointTempTimelineChartType
+      );
+    }
+    setTimeout(() => this.resizePointTempTimelineChart(), fullscreen ? 180 : 120);
+  }
+
+  private resizePointTempTimelineChart(): void {
+    this.pointTempTimelineChart?.chart?.resize();
+    this.pointTempTimelineChart?.update();
+  }
+
   closePointTempTimeline(): void {
+    this.exitPointTimelineFullscreen();
+    this.chartFullscreen.unregister(this.pointTimelineCloseFullscreen);
     this.pointTempTimelineVisible = false;
+    this.pointTempTimelineFullscreen = false;
     this.pointTempTimelineLoading = false;
     this.pointTempTimelineErrorKey = '';
     this.pointTempTimelineTabErrorKey = '';
@@ -5543,6 +5643,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.pointTempTimelineClimCache = null;
     this.pointTempTimelineClimQuotidienneCache = null;
     this.pointTempTimelineForecastCache = null;
+    this.pointTempTimelineMfForecastCache = null;
+    this.pointTempTimelineQuotidienneLoading = false;
     this.pointTempTimelineSlots = [];
     this.pointTempTimelineDailySlots = [];
     this.resetPointTempTimelineCharts();
@@ -5557,6 +5659,10 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.pointTempTimelineLoading = true;
     this.pointTempTimelineErrorKey = '';
     this.pointTempTimelineChartsReady = false;
+    this.pointTempTimelineClimCache = null;
+    this.pointTempTimelineClimQuotidienneCache = null;
+    this.pointTempTimelineForecastCache = null;
+    this.pointTempTimelineMfForecastCache = null;
 
     const stationId = this.selectedPointMfStation?.id
       ?? this.findNearestGridPoint(this.lat, this.lon)?.stationId;
@@ -5572,37 +5678,31 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         ).pipe(catchError(() => of(null)))
       : of(null);
 
-    const climQuotidienne$ = this.climAvailable
-      ? this.apiService.getMeteoFranceClimNearby(
-          this.lat,
-          this.lon,
-          MeteoFranceComponent.POINT_TIMELINE_HISTORY_DAYS,
-          'quotidienne',
-          this.departmentCode || undefined,
-          stationId
-        ).pipe(catchError(() => of(null)))
-      : of(null);
-
-    const forecast$ = this.apiService.getAggregatedForecast(
+    const mfForecast$ = this.apiService.getForecastByCoordinates(
       this.lat,
       this.lon,
+      undefined,
+      'meteofrance',
       MeteoFranceComponent.POINT_TIMELINE_FORECAST_HOURS,
       MeteoFranceComponent.POINT_TIMELINE_STEP_MINUTES
     ).pipe(catchError(() => of(null)));
 
     this.subs.add(
-      forkJoin({ clim: climHoraire$, climQuotidienne: climQuotidienne$, forecast: forecast$ }).subscribe({
-        next: ({ clim, climQuotidienne, forecast }) => {
+      forkJoin({ clim: climHoraire$, mfForecast: mfForecast$ }).subscribe({
+        next: ({ clim, mfForecast }) => {
           if (requestId !== this.pointTempTimelineRequestId || !this.pointTempTimelineVisible) {
             return;
           }
           this.pointTempTimelineLoading = false;
-          this.buildPointTempTimelineCharts(clim, climQuotidienne, forecast);
+          this.pointTempTimelineClimCache = clim;
+          this.pointTempTimelineMfForecastCache = mfForecast;
+          this.refreshPointTempTimelineFromCaches();
           if (!this.pointTempTimelineChartsReady
             && !this.pointTempTimelineErrorKey
             && (!this.pointTempTimelineDataLoaded || this.pointTempTimelineSlots.length === 0)) {
             this.pointTempTimelineErrorKey = 'METEO_FRANCE.POINT_TIMELINE_NO_DATA';
           }
+          this.loadPointTempTimelineAggregatedForecast(requestId);
         },
         error: () => {
           if (requestId !== this.pointTempTimelineRequestId) {
@@ -5610,6 +5710,73 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
           }
           this.pointTempTimelineLoading = false;
           this.pointTempTimelineErrorKey = 'METEO_FRANCE.POINT_TIMELINE_LOAD_ERROR';
+        }
+      })
+    );
+  }
+
+  /** Loads OWM + Open-Meteo + MF forecasts in the background (compare / other tabs). */
+  private loadPointTempTimelineAggregatedForecast(requestId: number): void {
+    if (requestId !== this.pointTempTimelineRequestId || !this.pointTempTimelineVisible) {
+      return;
+    }
+    this.subs.add(
+      this.apiService.getAggregatedForecast(
+        this.lat,
+        this.lon,
+        MeteoFranceComponent.POINT_TIMELINE_FORECAST_HOURS,
+        MeteoFranceComponent.POINT_TIMELINE_STEP_MINUTES
+      ).pipe(catchError(() => of(null))).subscribe({
+        next: (forecast) => {
+          if (requestId !== this.pointTempTimelineRequestId || !this.pointTempTimelineVisible) {
+            return;
+          }
+          if (forecast && !forecast.error) {
+            this.pointTempTimelineForecastCache = forecast;
+            this.refreshPointTempTimelineFromCaches();
+          }
+        }
+      })
+    );
+  }
+
+  /** DPClim quotidienne is only needed for the daily-precipitation view — load on demand. */
+  private loadPointTempTimelineQuotidienne(): void {
+    if (this.pointTempTimelineQuotidienneLoading
+      || this.pointTempTimelineClimQuotidienneCache
+      || !this.climAvailable
+      || !this.pointTempTimelineVisible) {
+      return;
+    }
+    const requestId = this.pointTempTimelineRequestId;
+    const stationId = this.selectedPointMfStation?.id
+      ?? this.findNearestGridPoint(this.lat, this.lon)?.stationId;
+    this.pointTempTimelineQuotidienneLoading = true;
+    this.subs.add(
+      this.apiService.getMeteoFranceClimNearby(
+        this.lat,
+        this.lon,
+        MeteoFranceComponent.POINT_TIMELINE_HISTORY_DAYS,
+        'quotidienne',
+        this.departmentCode || undefined,
+        stationId
+      ).pipe(catchError(() => of(null))).subscribe({
+        next: (data) => {
+          if (requestId !== this.pointTempTimelineRequestId || !this.pointTempTimelineVisible) {
+            return;
+          }
+          this.pointTempTimelineQuotidienneLoading = false;
+          this.pointTempTimelineClimQuotidienneCache = data;
+          this.buildPointTempTimelineDailySlots(data, this.pointTempTimelineSlots);
+          if (this.pointTempTimelineActiveParam === 'precipDaily') {
+            this.renderPointTempTimelineChart();
+          }
+        },
+        error: () => {
+          if (requestId !== this.pointTempTimelineRequestId) {
+            return;
+          }
+          this.pointTempTimelineQuotidienneLoading = false;
         }
       })
     );
@@ -5717,7 +5884,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
 
   private buildClimTempChartOptions(): ChartOptions<'line'> {
     const unit = () => (this.temperatureUnit === 'fahrenheit' ? '°F' : '°C');
-    return {
+    return withMeteoChartZoom<'line'>({
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
@@ -5725,11 +5892,11 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         legend: { display: true, position: 'top' },
         tooltip: {
           callbacks: {
-            title: (items) => {
+            title: (items: TooltipItem<'line'>[]) => {
               const label = items[0]?.label;
               return label != null ? String(label) : '';
             },
-            label: (ctx) => {
+            label: (ctx: TooltipItem<'line'>) => {
               const y = ctx.parsed.y;
               if (y == null || Number.isNaN(y)) {
                 return `${ctx.dataset.label}: —`;
@@ -5744,15 +5911,15 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         y: {
           title: { display: true, text: unit() },
           ticks: {
-            callback: (v) => Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 })
+            callback: (v: string | number) => Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 })
           }
         }
       }
-    };
+    });
   }
 
   private buildClimRainChartOptions(): ChartOptions<'bar'> {
-    return {
+    return withMeteoChartZoom<'bar'>({
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
@@ -5780,11 +5947,11 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
           }
         }
       }
-    };
+    });
   }
 
   private buildClimScalarChartOptions(unit: string): ChartOptions<'line'> {
-    return {
+    return withMeteoChartZoom({
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
@@ -5811,7 +5978,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
           }
         }
       }
-    };
+    });
   }
 
   private updateClimCharts(): void {
@@ -5838,7 +6005,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         borderColor: '#2563eb',
         backgroundColor: 'rgba(37, 99, 235, 0.12)',
         tension: 0.25,
-        pointRadius: rows.length > 60 ? 0 : 2,
+        pointRadius: meteoChartCompactPointRadius(rows.length),
         spanGaps: true
       });
     }
@@ -5849,7 +6016,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         borderColor: '#dc2626',
         backgroundColor: 'rgba(220, 38, 38, 0.12)',
         tension: 0.25,
-        pointRadius: rows.length > 60 ? 0 : 2,
+        pointRadius: meteoChartCompactPointRadius(rows.length),
         spanGaps: true
       });
     }
@@ -5860,7 +6027,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         borderColor: '#ca8a04',
         backgroundColor: 'rgba(202, 138, 4, 0.12)',
         tension: 0.25,
-        pointRadius: rows.length > 60 ? 0 : 2,
+        pointRadius: meteoChartCompactPointRadius(rows.length),
         spanGaps: true
       });
     }
@@ -5879,20 +6046,6 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       }]
     };
     this.climChartsReady = tempDatasets.length > 0 || hasRr;
-    this.scheduleClimChartRefresh();
-  }
-
-  /** Defer refresh until *ngIf has rendered chart canvases (BaseChartDirective). */
-  private scheduleClimChartRefresh(): void {
-    setTimeout(() => this.refreshClimChartViews(), 0);
-  }
-
-  private refreshClimChartViews(): void {
-    if (!this.climChartsReady) {
-      return;
-    }
-    this.climTempChart?.update();
-    this.climRainChart?.update();
   }
 
   private resetStationHistoryCharts(): void {
@@ -5908,17 +6061,25 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.pointTempTimelineNowIndex = -1;
   }
 
-  private buildPointTempTimelineCharts(climData: any, climQuotidienneData: any, forecastData: any): void {
-    this.pointTempTimelineClimCache = climData;
-    this.pointTempTimelineClimQuotidienneCache = climQuotidienneData;
-    this.pointTempTimelineForecastCache = forecastData;
-    this.buildPointTempTimelineSlots(climData, forecastData);
-    this.buildPointTempTimelineDailySlots(climQuotidienneData, this.pointTempTimelineSlots);
+  private refreshPointTempTimelineFromCaches(): void {
+    this.buildPointTempTimelineSlots(
+      this.pointTempTimelineClimCache,
+      this.pointTempTimelineForecastCache,
+      this.pointTempTimelineMfForecastCache
+    );
+    this.buildPointTempTimelineDailySlots(
+      this.pointTempTimelineClimQuotidienneCache,
+      this.pointTempTimelineSlots
+    );
     this.pointTempTimelineDataLoaded = true;
     this.renderPointTempTimelineChart();
   }
 
-  private buildPointTempTimelineSlots(climData: any, forecastData: any): void {
+  private buildPointTempTimelineSlots(
+    climData: any,
+    forecastData: any,
+    mfOnlyForecast: any = null
+  ): void {
     this.pointTempTimelineHistoryAvailable = false;
     this.pointTempTimelineForecastAvailable = false;
     this.pointTempTimelineStationLabel = '';
@@ -5988,10 +6149,64 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         }
         slotMap.set(ts, slot);
       }
+    } else if (mfOnlyForecast && !mfOnlyForecast.error && Array.isArray(mfOnlyForecast.list)) {
+      this.mergeSingleSourceForecastListIntoSlotMap(slotMap, mfOnlyForecast.list, 'meteofrance');
     }
 
     this.pointTempTimelineSlots = [...slotMap.values()].sort((a, b) => a.ts - b.ts);
     this.fillPointTempTimelineNowValues();
+  }
+
+  private mergeSingleSourceForecastListIntoSlotMap(
+    slotMap: Map<number, PointTempTimelineSlot>,
+    list: any[],
+    source: PointTempTimelineSourceKey
+  ): void {
+    for (const item of list) {
+      const ts = Number(item?.dt);
+      if (!Number.isFinite(ts) || ts <= 0) {
+        continue;
+      }
+      const slot = slotMap.get(ts) ?? this.createEmptyPointTempTimelineSlot(ts, 'forecast');
+      for (const param of MeteoFranceComponent.POINT_TIMELINE_SLOT_PARAMS) {
+        const value = this.extractListItemTimelineValue(item, param);
+        if (value != null) {
+          slot.values[source][param] = value;
+          this.pointTempTimelineForecastAvailable = true;
+        }
+      }
+      slotMap.set(ts, slot);
+    }
+  }
+
+  private extractListItemTimelineValue(item: any, param: PointTempTimelineParam): number | null {
+    if (!item) {
+      return null;
+    }
+    switch (param) {
+      case 'temp': {
+        const temp = item.main?.temp;
+        return temp != null ? Math.round(this.celsiusToDisplay(Number(temp)) * 10) / 10 : null;
+      }
+      case 'humidity': {
+        const humidity = item.main?.humidity;
+        return humidity != null ? Math.round(Number(humidity)) : null;
+      }
+      case 'wind': {
+        const wind = item.wind?.speed;
+        return wind != null ? Math.round(Number(wind) * 100) / 100 : null;
+      }
+      case 'precip': {
+        const mm = item.rain?.['1h'] ?? item.rain?.['3h'] ?? item.snow?.['1h'] ?? item.snow?.['3h'];
+        return mm != null ? Number(mm) : null;
+      }
+      case 'pop': {
+        const pop = item.pop;
+        return pop != null ? Math.round(Number(pop) * 1000) / 10 : null;
+      }
+      default:
+        return null;
+    }
   }
 
   /**
@@ -6274,7 +6489,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         return;
       }
       this.pointTempTimelineChartsReady = true;
-      setTimeout(() => this.refreshPointTempTimelineCharts(), 0);
+      requestAnimationFrame(() => this.refreshPointTempTimelineCharts());
     }, 0);
   }
 
@@ -6368,6 +6583,11 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       : slots.map((slot) => this.formatPointTimelineChartLabel(slot.ts));
     this.pointTempTimelineNowIndex = showNowMarker ? slots.findIndex((slot) => slot.kind === 'now') : -1;
     const nowLabel = this.translate.instant('METEO_FRANCE.POINT_TIMELINE_LEGEND_NOW');
+    const compactPoints = meteoChartCompactPointRadius(slots.length, 3) === 0;
+    const linePointRadius = compactPoints ? 0 : 3;
+    const linePointHoverRadius = compactPoints ? 0 : 5;
+    const comparePointRadius = compactPoints ? 0 : 2;
+    const comparePointHoverRadius = compactPoints ? 0 : 4;
     const datasets: ChartConfiguration<'line' | 'bar'>['data']['datasets'] = [];
 
     if (tab === 'compare') {
@@ -6400,13 +6620,13 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
               if (showNowMarker && index === this.pointTempTimelineNowIndex) {
                 return 0;
               }
-              return _value != null ? 2 : 0;
+              return _value != null ? comparePointRadius : 0;
             }),
             pointHoverRadius: values.map((_value, index) => {
               if (showNowMarker && index === this.pointTempTimelineNowIndex) {
                 return 0;
               }
-              return _value != null ? 4 : 0;
+              return _value != null ? comparePointHoverRadius : 0;
             })
           } : {
             borderWidth: 1
@@ -6472,10 +6692,10 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
           tension: 0.25,
           spanGaps: true,
           pointRadius: rawValues.map((_value, index) =>
-            showNowMarker && index === this.pointTempTimelineNowIndex ? 0 : 3
+            showNowMarker && index === this.pointTempTimelineNowIndex ? 0 : linePointRadius
           ),
           pointHoverRadius: rawValues.map((_value, index) =>
-            showNowMarker && index === this.pointTempTimelineNowIndex ? 0 : 5
+            showNowMarker && index === this.pointTempTimelineNowIndex ? 0 : linePointHoverRadius
           ),
           fill: tab === 'meteofrance'
         } : {
@@ -6593,7 +6813,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     const percentParam = param === 'humidity' || param === 'pop';
     const decimals = param === 'wind' ? 2 : 1;
     const nowLabel = this.translate.instant('METEO_FRANCE.POINT_TIMELINE_LEGEND_NOW');
-    return {
+    const options = {
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
@@ -6633,7 +6853,16 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         }
       },
       scales: {
-        x: { display: false },
+        x: {
+          display: this.pointTempTimelineFullscreen,
+          ticks: {
+            maxTicksLimit: this.pointTempTimelineFullscreen ? 14 : 8,
+            maxRotation: 45,
+            minRotation: 0,
+            font: { size: 10 },
+            autoSkip: true
+          }
+        },
         y: {
           beginAtZero: chartType === 'bar' || percentParam,
           max: percentParam ? 100 : undefined,
@@ -6651,6 +6880,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         ? { bar: { categoryPercentage: 0.82, barPercentage: 0.9 } }
         : undefined
     };
+    return chartType === 'bar'
+      ? withMeteoChartZoom(options as ChartOptions<'bar'>)
+      : withMeteoChartZoom(options as ChartOptions<'line'>);
   }
 
   private refreshPointTempTimelineCharts(): void {
@@ -6711,7 +6943,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     }
 
     const labels = rows.map((row) => this.climRowDateLabel(row));
-    const pointRadius = rows.length > 60 ? 0 : 2;
+    const pointRadius = meteoChartCompactPointRadius(rows.length);
     const tempColumns: Array<{ key: string; color: string; bg: string }> = [];
     if (rows.some((r) => this.parseClimNumber(r.T) != null)) {
       tempColumns.push({ key: 'T', color: '#2563eb', bg: 'rgba(37, 99, 235, 0.12)' });
@@ -6820,22 +7052,6 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       || windDatasets.length > 0
       || hasRain
       || pressureDataset.length > 0;
-    this.scheduleStationHistoryChartRefresh();
-  }
-
-  private scheduleStationHistoryChartRefresh(): void {
-    setTimeout(() => this.refreshStationHistoryChartViews(), 0);
-  }
-
-  private refreshStationHistoryChartViews(): void {
-    if (!this.stationHistoryChartsReady) {
-      return;
-    }
-    this.stationHistoryTempChart?.update();
-    this.stationHistoryHumidityChart?.update();
-    this.stationHistoryWindChart?.update();
-    this.stationHistoryRainChart?.update();
-    this.stationHistoryPressureChart?.update();
   }
 
   private getSortedClimRows(): any[] {
@@ -7822,7 +8038,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       return [];
     }
     const labels = steps.map((step) => this.formatAromepiChartLabel(step?.time));
-    const pointRadius = steps.length > 48 ? 0 : 2;
+    const pointRadius = meteoChartCompactPointRadius(steps.length);
     const color = '#2ecc71';
     const blocks: ForecastChartBlock[] = [];
 
@@ -7943,7 +8159,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       return [];
     }
     const labels = items.map((item) => this.formatForecastChartLabel(item.dt));
-    const pointRadius = items.length > 48 ? 0 : 2;
+    const pointRadius = meteoChartCompactPointRadius(items.length);
     const blocks: ForecastChartBlock[] = [];
 
     for (const param of this.selectedMultiDayForecastNumericParams) {
@@ -7981,7 +8197,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       return [];
     }
     const labels = steps.map((step) => this.formatForecastChartLabel(step.dt));
-    const pointRadius = steps.length > 48 ? 0 : 2;
+    const pointRadius = meteoChartCompactPointRadius(steps.length);
     const sourceDefs: Array<{ key: string; label: string; color: string; dashed?: boolean }> = [
       { key: 'openweathermap', label: 'OWM', color: '#e67e22' },
       { key: 'open-meteo', label: 'Open-Meteo', color: '#3498db' },
@@ -8053,7 +8269,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     const yUnit = this.forecastChartYUnit(param);
     const percentParam = param === 'humidity' || param === 'pop';
     const decimals = param === 'wind' ? 2 : 1;
-    return {
+    const options = {
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
@@ -8091,6 +8307,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         ? { line: { spanGaps: true, tension: 0.2 } }
         : undefined
     };
+    return chartType === 'bar'
+      ? withMeteoChartZoom(options as ChartOptions<'bar'>)
+      : withMeteoChartZoom(options as ChartOptions<'line'>);
   }
 
   private pointTimelineYUnit(param: PointTempTimelineParam): string {

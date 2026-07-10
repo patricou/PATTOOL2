@@ -226,133 +226,6 @@
             </button>
             <div id="meteo-france-map" class="meteo-france-map"></div>
 
-            <div class="mf-point-timeline-overlay" *ngIf="pointTempTimelineVisible">
-              <div class="mf-point-timeline-backdrop" (click)="closePointTempTimeline()"></div>
-              <div class="mf-point-timeline-card" role="dialog" aria-modal="true"
-                   [attr.aria-labelledby]="'mf-point-timeline-title'">
-                <header class="mf-point-timeline-header">
-                  <div class="mf-point-timeline-header-main">
-                    <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')"
-                         class="mf-point-timeline-logo" width="22" height="22" />
-                    <h6 class="mf-point-timeline-title" id="mf-point-timeline-title">
-                      <i class="fa fa-area-chart me-1" aria-hidden="true"></i>
-                      {{ pointTempTimelineTitle }}
-                    </h6>
-                  </div>
-                  <button type="button" class="mf-point-timeline-close"
-                          (click)="closePointTempTimeline()"
-                          [attr.aria-label]="'METEO_FRANCE.POINT_TIMELINE_CLOSE' | translate">
-                    <i class="fa fa-times" aria-hidden="true"></i>
-                  </button>
-                </header>
-
-                <div class="mf-point-timeline-body">
-                  <ul class="mf-point-timeline-tabs" role="tablist"
-                      *ngIf="pointTempTimelineDataLoaded && !pointTempTimelineLoading">
-                    <li *ngFor="let tab of pointTempTimelineTabs" role="presentation">
-                      <button type="button" class="mf-point-timeline-tab" role="tab"
-                              [class.active]="pointTempTimelineActiveTab === tab.id"
-                              [attr.aria-selected]="pointTempTimelineActiveTab === tab.id"
-                              (click)="onPointTempTimelineTabChange(tab.id)">
-                        <img *ngIf="tab.brand !== 'compare'"
-                             [src]="getBrandLogoSrc(tab.brand)"
-                             [alt]="getBrandAlt(tab.brand)"
-                             class="mf-point-timeline-tab-logo" width="14" height="14" />
-                        <i *ngIf="tab.brand === 'compare'" class="fa fa-balance-scale" aria-hidden="true"></i>
-                        {{ tab.labelKey | translate }}
-                      </button>
-                    </li>
-                  </ul>
-
-                  <div class="mf-point-timeline-param-row"
-                       *ngIf="pointTempTimelineDataLoaded && !pointTempTimelineLoading">
-                    <button type="button"
-                            class="mf-point-timeline-param"
-                            *ngFor="let opt of pointTempTimelineParamOptions"
-                            [class.active]="pointTempTimelineActiveParam === opt.id"
-                            (click)="onPointTempTimelineParamChange(opt.id)">
-                      {{ opt.labelKey | translate }}
-                    </button>
-                  </div>
-
-                  <div class="mf-point-timeline-now"
-                       *ngIf="pointTempTimelineActiveParam === 'temp' && pointTimelineCurrentTempC != null && pointTempTimelineActiveTab !== 'compare'">
-                    <span class="mf-point-timeline-now-label">{{ 'METEO_FRANCE.POINT_TIMELINE_CURRENT' | translate }}</span>
-                    <span class="mf-point-timeline-now-value">{{ formatTemperatureLabel(pointTimelineCurrentTempC) }}</span>
-                  </div>
-
-                  <div class="mf-point-timeline-current mf-point-timeline-current--now"
-                       *ngIf="pointTimelineShowCompareNow">
-                    <div class="mf-point-timeline-section-label mf-point-timeline-section-label--now">
-                      {{ 'METEO_FRANCE.POINT_TIMELINE_CURRENT' | translate }}
-                    </div>
-                    <div class="mf-point-timeline-current-row">
-                      <span class="mf-point-timeline-current-chip mf-point-timeline-current-chip--mf"
-                            *ngIf="pointTimelineMfTempC != null">
-                        <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')"
-                             class="mf-point-timeline-chip-logo" width="14" height="14" />
-                        {{ formatTemperatureLabel(pointTimelineMfTempC) }}
-                      </span>
-                      <span class="mf-point-timeline-current-chip mf-point-timeline-current-chip--om"
-                            *ngIf="pointTimelineOpenMeteoTempC != null">
-                        <img [src]="getBrandLogoSrc('open-meteo')" [alt]="getBrandAlt('open-meteo')"
-                             class="mf-point-timeline-chip-logo" width="14" height="14" />
-                        {{ formatTemperatureLabel(pointTimelineOpenMeteoTempC) }}
-                      </span>
-                      <span class="mf-point-timeline-current-chip mf-point-timeline-current-chip--owm"
-                            *ngIf="pointTimelineOpenWeatherTempC != null">
-                        <img [src]="getBrandLogoSrc('openweathermap')" [alt]="getBrandAlt('openweathermap')"
-                             class="mf-point-timeline-chip-logo" width="14" height="14" />
-                        {{ formatTemperatureLabel(pointTimelineOpenWeatherTempC) }}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div *ngIf="pointTempTimelineLoading" class="mf-point-timeline-loading" role="status" aria-live="polite">
-                    <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
-                    {{ 'METEO_FRANCE.CLIM_LOADING' | translate }}
-                  </div>
-
-                  <div class="alert alert-danger py-2 mb-2 small" *ngIf="pointTempTimelineErrorKey && !pointTempTimelineLoading">
-                    {{ pointTempTimelineErrorKey | translate }}
-                  </div>
-
-                  <ng-container *ngIf="!pointTempTimelineLoading && pointTempTimelineDataLoaded">
-                    <section class="mf-point-timeline-section">
-                      <div class="mf-point-timeline-section-label" *ngIf="pointTempTimelinePeriodLabel">{{ pointTempTimelinePeriodLabel }}</div>
-                      <p class="mf-point-timeline-source">
-                        <img *ngIf="pointTempTimelineSourceLogo"
-                             [src]="pointTempTimelineSourceLogo"
-                             [alt]="getBrandAlt(pointTempTimelineActiveTab === 'open-meteo' ? 'open-meteo' : pointTempTimelineActiveTab === 'openweathermap' ? 'openweathermap' : 'meteofrance')"
-                             class="mf-point-timeline-source-logo" width="14" height="14" />
-                        <i *ngIf="!pointTempTimelineSourceLogo" class="fa fa-balance-scale me-1" aria-hidden="true"></i>
-                        {{ pointTempTimelineSourceKey | translate }}
-                      </p>
-                      <p class="mf-point-timeline-station small text-muted mb-1"
-                         *ngIf="pointTempTimelineShowStation">{{ pointTempTimelineStationLabel }}</p>
-
-                      <div class="alert alert-warning py-2 mb-2 small"
-                           *ngIf="pointTempTimelineTabErrorKey && !pointTempTimelineChartsReady && !pointTempTimelineInfoKey">
-                        {{ pointTempTimelineTabErrorKey | translate }}
-                      </div>
-
-                      <div class="alert alert-info py-2 mb-2 small"
-                           *ngIf="pointTempTimelineInfoKey && !pointTempTimelineChartsReady">
-                        {{ pointTempTimelineInfoKey | translate: pointTempTimelineInfoParams }}
-                      </div>
-
-                      <div class="mf-point-timeline-chart-box mf-point-timeline-chart-box--combined"
-                           *ngIf="pointTempTimelineChartsReady">
-                        <canvas #pointTempTimelineChart baseChart
-                                [data]="pointTempTimelineChartData"
-                                [options]="pointTempTimelineChartOptions"
-                                [type]="pointTempTimelineChartType"></canvas>
-                      </div>
-                    </section>
-                  </ng-container>
-                </div>
-              </div>
-            </div>
           </div>
 
 
@@ -919,45 +792,24 @@
 
             <div class="clim-charts" *ngIf="climChartsReady">
 
-              <h4 class="clim-chart-title">
+              <app-meteo-france-chart-panel
+                [headingLevel]="'h4'"
+                titleIcon="fa-line-chart"
+                titleKey="METEO_FRANCE.CLIM_CHART_TEMP"
+                [chartType]="'line'"
+                [data]="climTempChartData"
+                [options]="climTempChartOptions">
+              </app-meteo-france-chart-panel>
 
-                <i class="fa fa-line-chart"></i> {{ 'METEO_FRANCE.CLIM_CHART_TEMP' | translate }}
-
-              </h4>
-
-              <div class="clim-chart-box">
-
-                <canvas #climTempChart baseChart
-
-                        [data]="climTempChartData"
-
-                        [options]="climTempChartOptions"
-
-                        [type]="'line'"></canvas>
-
-              </div>
-
-
-
-              <h4 class="clim-chart-title" *ngIf="climHasRainSeries">
-
-                <i class="fa fa-bar-chart"></i> {{ 'METEO_FRANCE.CLIM_CHART_RAIN' | translate }}
-
-              </h4>
-
-              <div class="clim-chart-box" *ngIf="climHasRainSeries">
-
-                <canvas #climRainChart baseChart
-
-                        [data]="climRainChartData"
-
-                        [options]="climRainChartOptions"
-
-                        [type]="'bar'"></canvas>
-
-              </div>
-
-
+              <app-meteo-france-chart-panel
+                *ngIf="climHasRainSeries"
+                [headingLevel]="'h4'"
+                titleIcon="fa-bar-chart"
+                titleKey="METEO_FRANCE.CLIM_CHART_RAIN"
+                [chartType]="'bar'"
+                [data]="climRainChartData"
+                [options]="climRainChartOptions">
+              </app-meteo-france-chart-panel>
 
               <button type="button" class="btn btn-link btn-sm px-0 clim-table-toggle"
 
@@ -1677,16 +1529,172 @@
       </label>
     </div>
     <div *ngFor="let block of blocks; let first = first; trackBy: trackForecastChartBlock" class="forecast-chart-block">
-      <h5 class="forecast-chart-title" [class.forecast-chart-title--first]="first">{{ block.labelKey | translate }}</h5>
-      <div class="forecast-chart-box">
-        <canvas baseChart
-                [type]="block.chartType"
-                [data]="block.data"
-                [options]="block.options"></canvas>
-      </div>
+      <app-meteo-france-chart-panel
+        [headingLevel]="'h5'"
+        [firstInGroup]="first"
+        [titleKey]="block.labelKey"
+        [chartType]="block.chartType"
+        [data]="block.data"
+        [options]="block.options">
+      </app-meteo-france-chart-panel>
     </div>
   </div>
 </ng-template>
+
+<div class="mf-point-timeline-overlay"
+     #pointTempTimelineOverlay
+     [class.mf-point-timeline-overlay--fullscreen]="pointTempTimelineFullscreen"
+     *ngIf="pointTempTimelineVisible">
+  <div class="mf-point-timeline-backdrop" (click)="closePointTempTimeline()"></div>
+  <div #pointTempTimelineCard
+       class="mf-point-timeline-card"
+       [class.mf-point-timeline-card--fullscreen]="pointTempTimelineFullscreen"
+       role="dialog" aria-modal="true"
+       [attr.aria-labelledby]="'mf-point-timeline-title'">
+    <header class="mf-point-timeline-header">
+      <div class="mf-point-timeline-header-main">
+        <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')"
+             class="mf-point-timeline-logo" width="22" height="22" />
+        <h6 class="mf-point-timeline-title" id="mf-point-timeline-title">
+          <i class="fa fa-area-chart me-1" aria-hidden="true"></i>
+          {{ pointTempTimelineTitle }}
+        </h6>
+      </div>
+      <div class="mf-point-timeline-header-actions">
+        <button type="button" class="mf-point-timeline-header-btn"
+                (click)="togglePointTempTimelineFullscreen(); $event.stopPropagation()"
+                [attr.title]="(pointTempTimelineFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate"
+                [attr.aria-label]="(pointTempTimelineFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate">
+          <i class="fa" [class.fa-compress]="pointTempTimelineFullscreen" [class.fa-expand]="!pointTempTimelineFullscreen"></i>
+        </button>
+        <button type="button" class="mf-point-timeline-close"
+                (click)="closePointTempTimeline()"
+                [attr.aria-label]="'METEO_FRANCE.POINT_TIMELINE_CLOSE' | translate">
+          <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+    </header>
+
+    <div class="mf-point-timeline-body">
+      <ul class="mf-point-timeline-tabs" role="tablist"
+          *ngIf="pointTempTimelineDataLoaded && !pointTempTimelineLoading">
+        <li *ngFor="let tab of pointTempTimelineTabs" role="presentation">
+          <button type="button" class="mf-point-timeline-tab" role="tab"
+                  [class.active]="pointTempTimelineActiveTab === tab.id"
+                  [attr.aria-selected]="pointTempTimelineActiveTab === tab.id"
+                  (click)="onPointTempTimelineTabChange(tab.id)">
+            <img *ngIf="tab.brand !== 'compare'"
+                 [src]="getBrandLogoSrc(tab.brand)"
+                 [alt]="getBrandAlt(tab.brand)"
+                 class="mf-point-timeline-tab-logo" width="14" height="14" />
+            <i *ngIf="tab.brand === 'compare'" class="fa fa-balance-scale" aria-hidden="true"></i>
+            {{ tab.labelKey | translate }}
+          </button>
+        </li>
+      </ul>
+
+      <div class="mf-point-timeline-param-row"
+           *ngIf="pointTempTimelineDataLoaded && !pointTempTimelineLoading">
+        <button type="button"
+                class="mf-point-timeline-param"
+                *ngFor="let opt of pointTempTimelineParamOptions"
+                [class.active]="pointTempTimelineActiveParam === opt.id"
+                (click)="onPointTempTimelineParamChange(opt.id)">
+          {{ opt.labelKey | translate }}
+        </button>
+      </div>
+
+      <div class="mf-point-timeline-now"
+           *ngIf="pointTempTimelineActiveParam === 'temp' && pointTimelineCurrentTempC != null && pointTempTimelineActiveTab !== 'compare'">
+        <span class="mf-point-timeline-now-label">{{ 'METEO_FRANCE.POINT_TIMELINE_CURRENT' | translate }}</span>
+        <span class="mf-point-timeline-now-value">{{ formatTemperatureLabel(pointTimelineCurrentTempC) }}</span>
+      </div>
+
+      <div class="mf-point-timeline-current mf-point-timeline-current--now"
+           *ngIf="pointTimelineShowCompareNow">
+        <div class="mf-point-timeline-section-label mf-point-timeline-section-label--now">
+          {{ 'METEO_FRANCE.POINT_TIMELINE_CURRENT' | translate }}
+        </div>
+        <div class="mf-point-timeline-current-row">
+          <span class="mf-point-timeline-current-chip mf-point-timeline-current-chip--mf"
+                *ngIf="pointTimelineMfTempC != null">
+            <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')"
+                 class="mf-point-timeline-chip-logo" width="14" height="14" />
+            {{ formatTemperatureLabel(pointTimelineMfTempC) }}
+          </span>
+          <span class="mf-point-timeline-current-chip mf-point-timeline-current-chip--om"
+                *ngIf="pointTimelineOpenMeteoTempC != null">
+            <img [src]="getBrandLogoSrc('open-meteo')" [alt]="getBrandAlt('open-meteo')"
+                 class="mf-point-timeline-chip-logo" width="14" height="14" />
+            {{ formatTemperatureLabel(pointTimelineOpenMeteoTempC) }}
+          </span>
+          <span class="mf-point-timeline-current-chip mf-point-timeline-current-chip--owm"
+                *ngIf="pointTimelineOpenWeatherTempC != null">
+            <img [src]="getBrandLogoSrc('openweathermap')" [alt]="getBrandAlt('openweathermap')"
+                 class="mf-point-timeline-chip-logo" width="14" height="14" />
+            {{ formatTemperatureLabel(pointTimelineOpenWeatherTempC) }}
+          </span>
+        </div>
+      </div>
+
+      <div *ngIf="pointTempTimelineLoading" class="mf-point-timeline-loading" role="status" aria-live="polite">
+        <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+        {{ 'METEO_FRANCE.CLIM_LOADING' | translate }}
+      </div>
+
+      <div class="alert alert-danger py-2 mb-2 small" *ngIf="pointTempTimelineErrorKey && !pointTempTimelineLoading">
+        {{ pointTempTimelineErrorKey | translate }}
+      </div>
+
+      <ng-container *ngIf="!pointTempTimelineLoading && pointTempTimelineDataLoaded">
+        <section class="mf-point-timeline-section">
+          <div class="mf-point-timeline-section-label" *ngIf="pointTempTimelinePeriodLabel">{{ pointTempTimelinePeriodLabel }}</div>
+          <p class="mf-point-timeline-source">
+            <img *ngIf="pointTempTimelineSourceLogo"
+                 [src]="pointTempTimelineSourceLogo"
+                 [alt]="getBrandAlt(pointTempTimelineActiveTab === 'open-meteo' ? 'open-meteo' : pointTempTimelineActiveTab === 'openweathermap' ? 'openweathermap' : 'meteofrance')"
+                 class="mf-point-timeline-source-logo" width="14" height="14" />
+            <i *ngIf="!pointTempTimelineSourceLogo" class="fa fa-balance-scale me-1" aria-hidden="true"></i>
+            {{ pointTempTimelineSourceKey | translate }}
+          </p>
+          <p class="mf-point-timeline-station small text-muted mb-1"
+             *ngIf="pointTempTimelineShowStation">{{ pointTempTimelineStationLabel }}</p>
+
+          <div class="alert alert-warning py-2 mb-2 small"
+               *ngIf="pointTempTimelineTabErrorKey && !pointTempTimelineChartsReady && !pointTempTimelineInfoKey">
+            {{ pointTempTimelineTabErrorKey | translate }}
+          </div>
+
+          <div class="alert alert-info py-2 mb-2 small"
+               *ngIf="pointTempTimelineInfoKey && !pointTempTimelineChartsReady">
+            {{ pointTempTimelineInfoKey | translate: pointTempTimelineInfoParams }}
+          </div>
+
+          <div class="mf-point-timeline-chart-toolbar"
+               *ngIf="pointTempTimelineChartsReady">
+            <span class="mf-point-timeline-zoom-hint">
+              {{ 'METEO_FRANCE.POINT_TIMELINE_ZOOM_HINT' | translate }}
+            </span>
+            <button type="button" class="btn btn-sm btn-outline-secondary mf-point-timeline-zoom-reset"
+                    (click)="resetPointTempTimelineZoom()">
+              <i class="fa fa-search-minus" aria-hidden="true"></i>
+              {{ 'METEO_FRANCE.POINT_TIMELINE_ZOOM_RESET' | translate }}
+            </button>
+          </div>
+
+          <div class="mf-point-timeline-chart-box mf-point-timeline-chart-box--combined"
+               [class.mf-point-timeline-chart-box--fullscreen]="pointTempTimelineFullscreen"
+               *ngIf="pointTempTimelineChartsReady">
+            <canvas #pointTempTimelineChart baseChart
+                    [data]="pointTempTimelineChartData"
+                    [options]="pointTempTimelineChartOptions"
+                    [type]="pointTempTimelineChartType"></canvas>
+          </div>
+        </section>
+      </ng-container>
+    </div>
+  </div>
+</div>
 
 <div class="mf-station-history-backdrop" *ngIf="stationHistoryModalVisible" (click)="closeStationHistoryModal()"></div>
 
@@ -1769,55 +1777,60 @@
         </div>
 
         <div class="station-history-charts" *ngIf="!stationHistoryLoading && stationHistoryChartsReady">
-          <h4 class="clim-chart-title" *ngIf="stationHistoryTempChartData.datasets.length">
-            <i class="fa fa-line-chart"></i> {{ 'METEO_FRANCE.CLIM_CHART_TEMP' | translate }}
-          </h4>
-          <div class="clim-chart-box station-history-chart-box" *ngIf="stationHistoryTempChartData.datasets.length">
-            <canvas #stationHistoryTempChart baseChart
-                    [data]="stationHistoryTempChartData"
-                    [options]="stationHistoryTempChartOptions"
-                    [type]="'line'"></canvas>
-          </div>
+          <app-meteo-france-chart-panel
+            *ngIf="stationHistoryTempChartData.datasets.length"
+            [headingLevel]="'h4'"
+            titleIcon="fa-line-chart"
+            titleKey="METEO_FRANCE.CLIM_CHART_TEMP"
+            [chartType]="'line'"
+            chartBoxClass="station-history-chart-box"
+            [data]="stationHistoryTempChartData"
+            [options]="stationHistoryTempChartOptions">
+          </app-meteo-france-chart-panel>
 
-          <h4 class="clim-chart-title" *ngIf="stationHistoryHasHumidityChart">
-            <i class="fa fa-line-chart"></i> {{ 'METEO_FRANCE.HUMIDITY' | translate }}
-          </h4>
-          <div class="clim-chart-box station-history-chart-box" *ngIf="stationHistoryHasHumidityChart">
-            <canvas #stationHistoryHumidityChart baseChart
-                    [data]="stationHistoryHumidityChartData"
-                    [options]="stationHistoryHumidityChartOptions"
-                    [type]="'line'"></canvas>
-          </div>
+          <app-meteo-france-chart-panel
+            *ngIf="stationHistoryHasHumidityChart"
+            [headingLevel]="'h4'"
+            titleIcon="fa-line-chart"
+            titleKey="METEO_FRANCE.HUMIDITY"
+            [chartType]="'line'"
+            chartBoxClass="station-history-chart-box"
+            [data]="stationHistoryHumidityChartData"
+            [options]="stationHistoryHumidityChartOptions">
+          </app-meteo-france-chart-panel>
 
-          <h4 class="clim-chart-title" *ngIf="stationHistoryHasWindChart">
-            <i class="fa fa-line-chart"></i> {{ 'METEO_FRANCE.WIND' | translate }}
-          </h4>
-          <div class="clim-chart-box station-history-chart-box" *ngIf="stationHistoryHasWindChart">
-            <canvas #stationHistoryWindChart baseChart
-                    [data]="stationHistoryWindChartData"
-                    [options]="stationHistoryWindChartOptions"
-                    [type]="'line'"></canvas>
-          </div>
+          <app-meteo-france-chart-panel
+            *ngIf="stationHistoryHasWindChart"
+            [headingLevel]="'h4'"
+            titleIcon="fa-line-chart"
+            titleKey="METEO_FRANCE.WIND"
+            [chartType]="'line'"
+            chartBoxClass="station-history-chart-box"
+            [data]="stationHistoryWindChartData"
+            [options]="stationHistoryWindChartOptions">
+          </app-meteo-france-chart-panel>
 
-          <h4 class="clim-chart-title" *ngIf="stationHistoryHasRainChart">
-            <i class="fa fa-bar-chart"></i> {{ 'METEO_FRANCE.CLIM_CHART_RAIN' | translate }}
-          </h4>
-          <div class="clim-chart-box station-history-chart-box" *ngIf="stationHistoryHasRainChart">
-            <canvas #stationHistoryRainChart baseChart
-                    [data]="stationHistoryRainChartData"
-                    [options]="stationHistoryRainChartOptions"
-                    [type]="'bar'"></canvas>
-          </div>
+          <app-meteo-france-chart-panel
+            *ngIf="stationHistoryHasRainChart"
+            [headingLevel]="'h4'"
+            titleIcon="fa-bar-chart"
+            titleKey="METEO_FRANCE.CLIM_CHART_RAIN"
+            [chartType]="'bar'"
+            chartBoxClass="station-history-chart-box"
+            [data]="stationHistoryRainChartData"
+            [options]="stationHistoryRainChartOptions">
+          </app-meteo-france-chart-panel>
 
-          <h4 class="clim-chart-title" *ngIf="stationHistoryHasPressureChart">
-            <i class="fa fa-line-chart"></i> {{ 'METEO_FRANCE.PRESSURE' | translate }}
-          </h4>
-          <div class="clim-chart-box station-history-chart-box" *ngIf="stationHistoryHasPressureChart">
-            <canvas #stationHistoryPressureChart baseChart
-                    [data]="stationHistoryPressureChartData"
-                    [options]="stationHistoryPressureChartOptions"
-                    [type]="'line'"></canvas>
-          </div>
+          <app-meteo-france-chart-panel
+            *ngIf="stationHistoryHasPressureChart"
+            [headingLevel]="'h4'"
+            titleIcon="fa-line-chart"
+            titleKey="METEO_FRANCE.PRESSURE"
+            [chartType]="'line'"
+            chartBoxClass="station-history-chart-box"
+            [data]="stationHistoryPressureChartData"
+            [options]="stationHistoryPressureChartOptions">
+          </app-meteo-france-chart-panel>
 
           <button type="button" class="btn btn-link btn-sm px-0 clim-table-toggle"
                   (click)="stationHistoryShowTable = !stationHistoryShowTable">
