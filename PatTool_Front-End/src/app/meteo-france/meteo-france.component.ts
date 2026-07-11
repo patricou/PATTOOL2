@@ -24,7 +24,7 @@ Chart.register(...registerables);
 Chart.register(zoomPlugin);
 
 type TemperatureUnit = 'celsius' | 'fahrenheit';
-type WeatherDataSourceBrand = 'meteofrance' | 'open-meteo' | 'openweathermap';
+type WeatherDataSourceBrand = 'meteofrance' | 'open-meteo' | 'openweathermap' | 'meteoswiss';
 type WeatherPanelSource = 'openweathermap' | 'open-meteo' | 'meteofrance';
 type MultiDayForecastDisplayParam = 'temp' | 'humidity' | 'wind' | 'precip' | 'pop' | 'weather';
 type ForecastChartKind = 'line' | 'bar';
@@ -47,7 +47,7 @@ interface ForecastChartBlock {
 }
 type RadarLayerSource = 'meteofrance' | 'rainviewer';
 type CloudLayerSource = 'openweathermap' | 'rainviewer';
-type MeteoFranceMainTab = 'radar' | 'clim' | 'aromepi' | 'forecast-options' | 'forecast-owm' | 'forecast-om' | 'forecast-aggregate';
+type MeteoFranceMainTab = 'radar' | 'clim' | 'aromepi' | 'forecast-options' | 'forecast-owm' | 'forecast-om' | 'forecast-ms' | 'forecast-aggregate';
 
 interface TemperatureGridPoint {
   lat: number;
@@ -108,6 +108,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private static readonly LOGO_MF = 'assets/images/meteofrance-logo.svg';
   private static readonly LOGO_OPEN_METEO = 'assets/images/open-meteo-logo.svg';
   private static readonly LOGO_OWM = 'assets/images/openweathermap-logo.svg';
+  private static readonly LOGO_METEOSWISS = 'assets/images/meteoswiss-logo.svg';
   private static readonly MF_OBS_VIEWPORT_BOUNDS = {
     south: 42.0,
     north: 51.2,
@@ -152,9 +153,11 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
 
   owmForecastChartBlocks: ForecastChartBlock[] = [];
   omForecastChartBlocks: ForecastChartBlock[] = [];
+  msForecastChartBlocks: ForecastChartBlock[] = [];
   aggregateForecastChartBlocks: ForecastChartBlock[] = [];
   owmForecastChartsReady = false;
   omForecastChartsReady = false;
+  msForecastChartsReady = false;
   aggregateForecastChartsReady = false;
   aromepiForecastChartBlocks: ForecastChartBlock[] = [];
   aromepiForecastChartsReady = false;
@@ -189,6 +192,10 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   omForecastErrorKey = '';
   isLoadingOmForecast = false;
 
+  msForecast: any = null;
+  msForecastErrorKey = '';
+  isLoadingMsForecast = false;
+
   aggregatedForecast: any = null;
   aggregatedForecastErrorKey = '';
   isLoadingAggregatedForecast = false;
@@ -217,6 +224,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
 
   private owmForecastRequestId = 0;
   private omForecastRequestId = 0;
+  private msForecastRequestId = 0;
   private aggregatedForecastRequestId = 0;
   private aggregatedForecastSourceLists: Partial<Record<'meteofrance' | 'open-meteo' | 'openweathermap', any[]>> = {};
   private aggregatedForecastSourceErrorsInternal: Record<string, string> = {};
@@ -509,7 +517,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
 
     const tab = params.get('tab');
     if (tab === 'radar' || tab === 'clim' || tab === 'aromepi' || tab === 'forecast-owm'
-      || tab === 'forecast-om' || tab === 'forecast-aggregate' || tab === 'forecast-options') {
+      || tab === 'forecast-om' || tab === 'forecast-ms' || tab === 'forecast-aggregate' || tab === 'forecast-options') {
       this.activeMainTab = tab;
     } else if (params.get('temp') === '1' || params.get('radar') === '1') {
       this.activeMainTab = 'radar';
@@ -626,6 +634,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.reverseGeocodeRequestId++;
     this.owmForecastRequestId++;
     this.omForecastRequestId++;
+    this.msForecastRequestId++;
     this.aggregatedForecastRequestId++;
   }
 
@@ -929,6 +938,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         return MeteoFranceComponent.LOGO_MF;
       case 'openweathermap':
         return MeteoFranceComponent.LOGO_OWM;
+      case 'meteoswiss':
+        return MeteoFranceComponent.LOGO_METEOSWISS;
       default:
         return MeteoFranceComponent.LOGO_OPEN_METEO;
     }
@@ -940,6 +951,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         return 'Météo-France';
       case 'openweathermap':
         return 'OpenWeatherMap';
+      case 'meteoswiss':
+        return 'MeteoSwiss';
       default:
         return 'Open-Meteo';
     }
@@ -953,6 +966,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         return `https://openweathermap.org/weathermap?basemap=map&crs=latlon&lat=${lat}&lon=${lon}&zoom=10&layer=precipitation_new&opacity=0.85`;
       case 'open-meteo':
         return `https://open-meteo.com/en/docs?latitude=${lat}&longitude=${lon}`;
+      case 'meteoswiss':
+        return `https://www.meteoswiss.admin.ch/?latitude=${lat}&longitude=${lon}`;
       default:
         return `https://meteofrance.com/?latitude=${lat}&longitude=${lon}`;
     }
@@ -968,6 +983,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         return 'MF';
       case 'openweathermap':
         return 'OWM';
+      case 'meteoswiss':
+        return 'MS';
       default:
         return 'OM';
     }
@@ -1301,6 +1318,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   get isMultiDayForecastTab(): boolean {
     return this.activeMainTab === 'forecast-owm'
       || this.activeMainTab === 'forecast-om'
+      || this.activeMainTab === 'forecast-ms'
       || this.activeMainTab === 'forecast-aggregate';
   }
 
@@ -1346,6 +1364,21 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   get omDisplayForecastList(): any[] {
     const list = this.omForecast?.list;
     return Array.isArray(list) ? list : [];
+  }
+
+  get msDisplayForecastList(): any[] {
+    const list = this.msForecast?.list;
+    return Array.isArray(list) ? list : [];
+  }
+
+  get msForecastPointLabel(): string {
+    const point = this.msForecast?.meteoswissPoint;
+    if (!point) {
+      return '';
+    }
+    const name = point.name ?? point.postalCode ?? '';
+    const distance = point.distanceKm != null ? ` (${point.distanceKm} km)` : '';
+    return `${name}${distance}`.trim();
   }
 
   get aromepiForecastSteps(): any[] {
@@ -2040,15 +2073,18 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private invalidateMultiDayForecasts(): void {
     this.owmForecastRequestId++;
     this.omForecastRequestId++;
+    this.msForecastRequestId++;
     this.aggregatedForecastRequestId++;
     this.abortAggregatedForecastStream();
     this.owmForecast = null;
     this.omForecast = null;
+    this.msForecast = null;
     this.aggregatedForecast = null;
     this.aggregatedForecastSourceLists = {};
     this.aggregatedForecastSourceErrorsInternal = {};
     this.owmForecastErrorKey = '';
     this.omForecastErrorKey = '';
+    this.msForecastErrorKey = '';
     this.aggregatedForecastErrorKey = '';
     this.clearForecastCharts();
   }
@@ -4075,6 +4111,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     } else if (tab === 'forecast-om') {
       this.stopAromepiAnimation();
       this.activateOmForecastTabIfNeeded();
+    } else if (tab === 'forecast-ms') {
+      this.stopAromepiAnimation();
+      this.activateMsForecastTabIfNeeded();
     } else if (tab === 'forecast-aggregate') {
       this.stopAromepiAnimation();
       this.activateAggregatedForecastTabIfNeeded();
@@ -4087,6 +4126,10 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
 
   private hasOmForecastData(): boolean {
     return this.omForecast != null;
+  }
+
+  private hasMsForecastData(): boolean {
+    return this.msForecast != null;
   }
 
   private hasAggregatedForecastData(): boolean {
@@ -4114,6 +4157,15 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       return;
     }
     this.loadOmForecast();
+  }
+
+  private activateMsForecastTabIfNeeded(): void {
+    this.ensureForecastLocationResolved();
+    if (this.hasMsForecastData()) {
+      this.scheduleForecastChartsRefresh();
+      return;
+    }
+    this.loadMsForecast();
   }
 
   private activateAggregatedForecastTabIfNeeded(): void {
@@ -4145,6 +4197,12 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.isLoadingOmForecast = true;
     this.omForecastErrorKey = '';
     this.clearOmForecastCharts();
+  }
+
+  private prepareMsForecastTabLoad(): void {
+    this.isLoadingMsForecast = true;
+    this.msForecastErrorKey = '';
+    this.clearMsForecastCharts();
   }
 
   private prepareAggregatedForecastTabLoad(): void {
@@ -5424,6 +5482,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     } else if (this.activeMainTab === 'forecast-om') {
       this.prepareOmForecastTabLoad();
       this.loadOmForecast(true);
+    } else if (this.activeMainTab === 'forecast-ms') {
+      this.prepareMsForecastTabLoad();
+      this.loadMsForecast(true);
     } else if (this.activeMainTab === 'forecast-aggregate') {
       this.prepareAggregatedForecastTabLoad();
       this.loadAggregatedForecast(true);
@@ -6342,33 +6403,45 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.weatherRequestId++;
     this.owmForecastRequestId++;
     this.omForecastRequestId++;
+    this.msForecastRequestId++;
     this.aggregatedForecastRequestId++;
     this.abortAggregatedForecastStream();
     this.currentWeather = null;
     this.owmForecast = null;
     this.omForecast = null;
+    this.msForecast = null;
     this.aggregatedForecast = null;
     this.aggregatedForecastSourceLists = {};
     this.aggregatedForecastSourceErrorsInternal = {};
     this.owmForecastErrorKey = '';
     this.omForecastErrorKey = '';
+    this.msForecastErrorKey = '';
     this.aggregatedForecastErrorKey = '';
     this.isLoadingWeather = false;
     if (this.activeMainTab === 'forecast-owm') {
       this.isLoadingOwmForecast = true;
       this.isLoadingOmForecast = false;
+      this.isLoadingMsForecast = false;
       this.isLoadingAggregatedForecast = false;
     } else if (this.activeMainTab === 'forecast-om') {
       this.isLoadingOmForecast = true;
       this.isLoadingOwmForecast = false;
+      this.isLoadingMsForecast = false;
+      this.isLoadingAggregatedForecast = false;
+    } else if (this.activeMainTab === 'forecast-ms') {
+      this.isLoadingMsForecast = true;
+      this.isLoadingOwmForecast = false;
+      this.isLoadingOmForecast = false;
       this.isLoadingAggregatedForecast = false;
     } else if (this.activeMainTab === 'forecast-aggregate') {
       this.isLoadingAggregatedForecast = true;
       this.isLoadingOwmForecast = false;
       this.isLoadingOmForecast = false;
+      this.isLoadingMsForecast = false;
     } else {
       this.isLoadingOwmForecast = false;
       this.isLoadingOmForecast = false;
+      this.isLoadingMsForecast = false;
       this.isLoadingAggregatedForecast = false;
     }
   }
@@ -6811,6 +6884,79 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     );
   }
 
+  loadMsForecast(force = false): void {
+    if (!force && this.msForecast) {
+      this.scheduleForecastChartsRefresh();
+      return;
+    }
+    const requestId = ++this.msForecastRequestId;
+    this.isLoadingMsForecast = true;
+    this.msForecastErrorKey = '';
+    this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', 'METEO_FRANCE.LOG_SOURCE_METEOSWISS', 'loading');
+    this.subs.add(
+      this.apiService.getForecastByCoordinates(
+        this.lat,
+        this.lon,
+        null,
+        'meteoswiss',
+        this.forecastHorizonHours,
+        this.forecastStepMinutes
+      ).subscribe({
+        next: (data) => {
+          if (requestId !== this.msForecastRequestId) {
+            return;
+          }
+          this.isLoadingMsForecast = false;
+          this.msForecast = data;
+          if (data?.error) {
+            this.msForecastErrorKey = this.resolveMeteoSwissForecastErrorKey(data.error);
+            this.clearMsForecastCharts();
+            this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', 'METEO_FRANCE.LOG_SOURCE_METEOSWISS', 'error', String(data.error));
+            return;
+          }
+          if (!Array.isArray(data?.list) || data.list.length === 0) {
+            this.msForecastErrorKey = 'METEO_FRANCE.FORECAST_MS_EMPTY';
+            this.clearMsForecastCharts();
+            this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', 'METEO_FRANCE.LOG_SOURCE_METEOSWISS', 'error');
+            return;
+          }
+          this.msForecastErrorKey = '';
+          const count = data.list.length;
+          this.logBackend(
+            'METEO_FRANCE.LOG_CAT_FORECAST',
+            'METEO_FRANCE.LOG_SOURCE_METEOSWISS',
+            'ok',
+            count ? `${count} ${this.translate.instant('METEO_FRANCE.LOG_STEPS')}` : undefined
+          );
+          this.scheduleForecastChartsRefresh();
+        },
+        error: () => {
+          if (requestId !== this.msForecastRequestId) {
+            return;
+          }
+          this.isLoadingMsForecast = false;
+          this.msForecastErrorKey = 'METEO_FRANCE.FORECAST_MS_ERROR';
+          this.clearMsForecastCharts();
+          this.logBackend('METEO_FRANCE.LOG_CAT_FORECAST', 'METEO_FRANCE.LOG_SOURCE_METEOSWISS', 'error');
+        }
+      })
+    );
+  }
+
+  private resolveMeteoSwissForecastErrorKey(error: unknown): string {
+    const message = String(error ?? '').toLowerCase();
+    if (message.includes('outside') || message.includes('coverage') || message.includes('switzerland')) {
+      return 'METEO_FRANCE.FORECAST_MS_OUT_OF_COVERAGE';
+    }
+    if (message.includes('loading')) {
+      return 'METEO_FRANCE.FORECAST_MS_LOADING';
+    }
+    if (message.includes('empty')) {
+      return 'METEO_FRANCE.FORECAST_MS_EMPTY';
+    }
+    return 'METEO_FRANCE.FORECAST_MS_ERROR';
+  }
+
   private resolveOpenMeteoForecastErrorKey(error: unknown): string {
     const message = String(error ?? '').toLowerCase();
     if (message.includes('empty')) {
@@ -7045,6 +7191,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private refreshForecastCharts(): void {
     this.updateOwmForecastCharts();
     this.updateOmForecastCharts();
+    this.updateMsForecastCharts();
     this.updateAggregateForecastCharts();
     this.updateAromepiForecastCharts();
   }
@@ -7052,6 +7199,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private clearForecastCharts(): void {
     this.clearOwmForecastCharts();
     this.clearOmForecastCharts();
+    this.clearMsForecastCharts();
     this.clearAggregateForecastCharts();
     this.clearAromepiForecastCharts();
   }
@@ -7064,6 +7212,11 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private clearOmForecastCharts(): void {
     this.omForecastChartBlocks = [];
     this.omForecastChartsReady = false;
+  }
+
+  private clearMsForecastCharts(): void {
+    this.msForecastChartBlocks = [];
+    this.msForecastChartsReady = false;
   }
 
   private clearAggregateForecastCharts(): void {
@@ -7097,6 +7250,15 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       '#3498db'
     );
     this.omForecastChartsReady = this.omForecastChartBlocks.length > 0;
+  }
+
+  private updateMsForecastCharts(): void {
+    this.msForecastChartBlocks = this.buildSingleSourceForecastChartBlocks(
+      this.msDisplayForecastList,
+      'MeteoSwiss',
+      '#d52b1e'
+    );
+    this.msForecastChartsReady = this.msForecastChartBlocks.length > 0;
   }
 
   private updateAggregateForecastCharts(): void {

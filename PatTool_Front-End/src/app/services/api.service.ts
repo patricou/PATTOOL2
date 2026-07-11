@@ -240,7 +240,7 @@ export class ApiService {
     lat: number,
     lon: number,
     alt?: number | null,
-    source?: 'openweathermap' | 'open-meteo' | 'meteofrance',
+    source?: 'openweathermap' | 'open-meteo' | 'meteofrance' | 'meteoswiss',
     horizonHours?: number,
     stepMinutes?: number
   ): Observable<any> {

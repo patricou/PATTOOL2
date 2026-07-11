@@ -118,6 +118,7 @@
           <option value="aromepi">{{ 'METEO_FRANCE.TAB_AROMEPI' | translate }}</option>
           <option value="forecast-owm">{{ 'METEO_FRANCE.TAB_FORECAST_OWM' | translate }}</option>
           <option value="forecast-om">{{ 'METEO_FRANCE.TAB_FORECAST_OM' | translate }}</option>
+          <option value="forecast-ms">{{ 'METEO_FRANCE.TAB_FORECAST_MS' | translate }}</option>
           <option value="forecast-aggregate">{{ 'METEO_FRANCE.TAB_FORECAST_AGG' | translate }}</option>
           <option value="forecast-options">{{ 'METEO_FRANCE.TAB_OPTIONS' | translate }}</option>
         </select>
@@ -157,6 +158,13 @@
                   (click)="onMainTabChange('forecast-om')">
             <img [src]="getBrandLogoSrc('open-meteo')" [alt]="getBrandAlt('open-meteo')" class="mf-tab-logo" width="18" height="18" />
             {{ 'METEO_FRANCE.TAB_FORECAST_OM' | translate }}
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button type="button" class="nav-link" [class.active]="activeMainTab === 'forecast-ms'"
+                  (click)="onMainTabChange('forecast-ms')">
+            <img [src]="getBrandLogoSrc('meteoswiss')" [alt]="getBrandAlt('meteoswiss')" class="mf-tab-logo" width="18" height="18" />
+            {{ 'METEO_FRANCE.TAB_FORECAST_MS' | translate }}
           </button>
         </li>
         <li class="nav-item" role="presentation">
@@ -1379,6 +1387,58 @@
 
           <div class="forecast-table-wrap" *ngIf="!isLoadingOmForecast && omDisplayForecastList.length">
             <ng-container *ngTemplateOutlet="multiDayForecastTable; context: { items: omDisplayForecastList }"></ng-container>
+          </div>
+        </div>
+
+      </section>
+
+
+
+      <!-- MeteoSwiss forecast tab -->
+
+      <section [hidden]="activeMainTab !== 'forecast-ms'">
+
+        <div class="api-container">
+          <div class="mf-section-head">
+            <h3 class="api-title mb-0">
+              <img [src]="getBrandLogoSrc('meteoswiss')" [alt]="getBrandAlt('meteoswiss')" width="20" height="20" class="me-1" />
+              {{ 'METEO_FRANCE.FORECAST_MS_TITLE' | translate }}
+            </h3>
+            <div class="mf-section-head-actions">
+              <ng-container *ngTemplateOutlet="centerOnUserPositionButton; context: { variant: 'toolbar' }"></ng-container>
+              <ng-container *ngTemplateOutlet="forecastProviderSiteButton; context: { brand: 'meteoswiss' }"></ng-container>
+              <button type="button" class="btn btn-sm btn-outline-primary" (click)="loadMsForecast(true)"
+                      [disabled]="isLoadingMsForecast">
+                <i class="fa" [class.fa-refresh]="!isLoadingMsForecast" [class.fa-spinner]="isLoadingMsForecast" [class.fa-spin]="isLoadingMsForecast"></i>
+                {{ 'METEO_FRANCE.REFRESH' | translate }}
+              </button>
+            </div>
+          </div>
+
+          <p class="text-muted small">{{ 'METEO_FRANCE.FORECAST_MS_HINT' | translate }}</p>
+
+          <ng-container *ngTemplateOutlet="forecastDataLocationSummary"></ng-container>
+
+          <p class="text-muted small mb-2" *ngIf="!isLoadingMsForecast && msForecastPointLabel">
+            <i class="fa fa-map-pin" aria-hidden="true"></i>
+            {{ 'METEO_FRANCE.FORECAST_MS_POINT' | translate }} <strong>{{ msForecastPointLabel }}</strong>
+          </p>
+
+          <ng-container *ngTemplateOutlet="forecastTabLoadingPanel; context: {
+            loading: isLoadingMsForecast,
+            messageKey: 'METEO_FRANCE.FORECAST_LOADING'
+          }"></ng-container>
+
+          <div *ngIf="!isLoadingMsForecast && msForecastErrorKey" class="alert alert-warning py-2 mb-2">
+            {{ msForecastErrorKey | translate }}
+          </div>
+
+          <div class="forecast-charts-wrap mb-3" *ngIf="!isLoadingMsForecast && msForecastChartsReady">
+            <ng-container *ngTemplateOutlet="multiDayForecastCharts; context: { blocks: msForecastChartBlocks }"></ng-container>
+          </div>
+
+          <div class="forecast-table-wrap" *ngIf="!isLoadingMsForecast && msDisplayForecastList.length">
+            <ng-container *ngTemplateOutlet="multiDayForecastTable; context: { items: msDisplayForecastList }"></ng-container>
           </div>
         </div>
 

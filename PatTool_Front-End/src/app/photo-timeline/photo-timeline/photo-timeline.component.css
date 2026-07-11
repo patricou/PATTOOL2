@@ -1347,6 +1347,25 @@
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+.photo-number-badge {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    z-index: 2;
+    min-width: 1.5rem;
+    padding: 2px 7px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1.35;
+    text-align: center;
+    backdrop-filter: blur(4px);
+    pointer-events: none;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
 .photo-card:hover {
     transform: translateY(-3px);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);

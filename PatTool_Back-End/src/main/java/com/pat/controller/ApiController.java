@@ -14,6 +14,7 @@ import com.pat.service.MeteoFranceForecastPreferenceService;
 import com.pat.service.MeteoFranceRadarRefreshPreferenceService;
 import com.pat.service.MeteoFranceRadarService;
 import com.pat.service.MeteoFranceTemperatureCachePreferenceService;
+import com.pat.service.MeteoSwissForecastService;
 import com.pat.service.TraceViewerPreferenceService;
 import com.pat.service.OpenMeteoService;
 import com.pat.service.OpenWeatherService;
@@ -71,6 +72,9 @@ public class ApiController {
 
     @Autowired
     private MeteoFranceAromepiService meteoFranceAromepiService;
+
+    @Autowired
+    private MeteoSwissForecastService meteoSwissForecastService;
 
     @Autowired
     private MeteoFranceRadarRefreshPreferenceService meteoFranceRadarRefreshPreferenceService;
@@ -288,6 +292,8 @@ public class ApiController {
             case "open-meteo" -> openMeteoService.getForecastByCoordinates(
                     lat, lon, jwtSubject, horizonHours, stepMinutes);
             case "meteofrance" -> meteoFranceObsService.getForecastByCoordinates(lat, lon, jwtSubject);
+            case "meteoswiss" -> meteoSwissForecastService.getForecastByCoordinates(
+                    lat, lon, horizonHours, stepMinutes);
             default -> tagOpenWeatherSource(openWeatherService.getForecastByCoordinates(
                     lat, lon, null, horizonHours, stepMinutes));
         };
@@ -313,6 +319,9 @@ public class ApiController {
         }
         if ("meteofrance".equals(normalized) || "mf".equals(normalized) || normalized.contains("meteofrance")) {
             return "meteofrance";
+        }
+        if ("meteoswiss".equals(normalized) || "meteo-swiss".equals(normalized) || "meteoschweiz".equals(normalized)) {
+            return "meteoswiss";
         }
         return "openweathermap";
     }

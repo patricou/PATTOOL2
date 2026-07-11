@@ -359,6 +359,7 @@
                          [attr.data-file-type]="media.item.fileType"
                          (click)="openSlideshow(group, media.photoIndex ?? 0)">
                         <div class="photo-card">
+                            <span class="photo-number-badge" aria-hidden="true">{{ (media.photoIndex ?? 0) + 1 }}</span>
                             <ng-container *ngIf="hasWallThumbnail(media.item.fileId); else wallMasonryThumbPh">
                                 <img [src]="getThumbnailUrl(media.item)!"
                                      [alt]="media.item.fileName"
