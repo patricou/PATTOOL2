@@ -767,7 +767,6 @@
         "ISS_ALERT_ADMIN_PASSES_HINT": "Show upcoming visible ISS passes over this location",
         "ISS_ALERT_ADMIN_PASSES_LOADING": "Fetching upcoming passes…",
         "ISS_ALERT_ADMIN_NO_PLACE": "This alert has no geocoded location.",
-
         "ISS_ALERT_ADMIN_EDIT": "Edit this alert",
         "ISS_ALERT_ADMIN_EDIT_HINT": "Edit this alert in the configuration form",
         "ISS_ALERT_EDITING_BANNER": "Editing alert for {{owner}}",
@@ -2304,7 +2303,6 @@
         "YES": "Yes",
         "NO": "No",
         "CLOSE": "Close",
-
         "MONGODB_DOWN_TITLE": "MongoDB is not available",
         "MONGODB_DOWN_MESSAGE": "The application cannot reach the MongoDB database ({{target}}). Most features will not work until it is started.",
         "MONGODB_DOWN_HINT": "Start MongoDB on this host, then click Retry.",
@@ -4326,7 +4324,7 @@
         "ASSISTANT_EVENT": "AI assistant",
         "WALL_UPLOADING": "Uploading files…",
         "WALL_UPLOAD_LOG_WAITING": "Waiting for upload to start…",
-        "SHOW_MORE_GRID_PHOTOS": "Show more photos in the grid"
+        "SHOW_MORE_GRID_PHOTOS": "View all photos"
     },
     "NEWS": {
         "PAGE_TITLE": "News",

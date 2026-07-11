@@ -269,7 +269,6 @@
         "ISS_ALERT_TEST_SENT": "æ¬¡ã®ãã¹ç¨ã®ãã¹ãã¡ã¼ã«ãéä¿¡ãã¾ããã",
         "ISS_ALERT_TEST_NO_PASS": "ãã®å ´æã«ä»å¾ã®å¯è¦ãã¹ã¯ããã¾ããã",
         "ISS_ALERT_TEST_NO_PLACE": "åã«å ´æï¼é½å¸ã¾ãã¯å½ï¼ãè¨­å®ãã¦ãã ããã",
-
         "ISS_ALERT_ADMIN_TITLE": "設定済み ISS 通知一覧（管理者）",
         "ISS_ALERT_ADMIN_OPEN": "設定済み ISS 通知",
         "ISS_ALERT_ADMIN_OPEN_HINT": "全ユーザーの ISS メール通知を表示",
@@ -294,7 +293,6 @@
         "ISS_ALERT_ADMIN_PASSES_HINT": "この場所での今後の可視 ISS 通過を表示",
         "ISS_ALERT_ADMIN_PASSES_LOADING": "通過を検索中…",
         "ISS_ALERT_ADMIN_NO_PLACE": "この通知にはジオコードされた場所がありません。",
-
         "ISS_ALERT_ADMIN_EDIT": "この通知を編集",
         "ISS_ALERT_ADMIN_EDIT_HINT": "設定フォームでこの通知を編集",
         "ISS_ALERT_EDITING_BANNER": "{{owner}} の通知を編集中",
@@ -1489,7 +1487,6 @@
         "YES": "ã¯ã",
         "NO": "ããã",
         "CLOSE": "éãã",
-
         "MONGODB_DOWN_TITLE": "MongoDB を利用できません",
         "MONGODB_DOWN_MESSAGE": "アプリケーションは MongoDB データベース（{{target}}）に接続できません。起動するまで多くの機能は利用できません。",
         "MONGODB_DOWN_HINT": "このホストで MongoDB を起動してから、再試行をクリックしてください。",
@@ -3326,7 +3323,8 @@
         "WALL_UPLOAD_BTN": "ãã®ã¢ã¯ãã£ããã£ã«ãã¡ã¤ã«ãè¿½å ï¼åçãåç»ãGPSãã©ãã¯ãPDF ãªã©ï¼",
         "ASSISTANT_EVENT": "AIã¢ã·ã¹ã¿ã³ã",
         "WALL_UPLOADING": "ãã¡ã¤ã«ãã¢ããã­ã¼ãä¸­â¦",
-        "WALL_UPLOAD_LOG_WAITING": "ã¢ããã­ã¼ãã®éå§ãå¾ã£ã¦ãã¾ãâ¦"
+        "WALL_UPLOAD_LOG_WAITING": "ã¢ããã­ã¼ãã®éå§ãå¾ã£ã¦ãã¾ãâ¦",
+        "SHOW_MORE_GRID_PHOTOS": "すべての写真を見る"
     },
     "NEWS": {
         "PAGE_TITLE": "ãã¥ã¼ã¹",

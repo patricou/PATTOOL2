@@ -37,8 +37,8 @@ public class PhotoTimelineRestController {
 
     private static final Logger log = LoggerFactory.getLogger(PhotoTimelineRestController.class);
     private static final long ACCESS_CACHE_TTL_MS = 2 * 60 * 1000;
-    /** Max photos/videos per event in paged wall JSON (full list when {@code eventId} is set). */
-    private static final int WALL_PHOTOS_PER_EVENT_CAP = 48;
+    /** Max photos per event in paged wall JSON (full list when {@code eventId} is set). */
+    private static final int WALL_PHOTOS_PER_EVENT_CAP = 10;
     private static final int WALL_VIDEOS_PER_EVENT_CAP = 8;
     /** Max footer links (urlEvents + tracks + PDF + …) per event in paged listing. */
     private static final int WALL_FS_LINKS_PER_EVENT_CAP = 16;

@@ -767,7 +767,6 @@
         "ISS_ALERT_ADMIN_PASSES_HINT": "Afficher les prochains passages ISS visibles au-dessus de ce lieu",
         "ISS_ALERT_ADMIN_PASSES_LOADING": "Recherche des prochains passages…",
         "ISS_ALERT_ADMIN_NO_PLACE": "Lieu non géolocalisé pour cette alerte.",
-
         "ISS_ALERT_ADMIN_EDIT": "Modifier cette alerte",
         "ISS_ALERT_ADMIN_EDIT_HINT": "Modifier cette alerte dans le formulaire de configuration",
         "ISS_ALERT_EDITING_BANNER": "Modification de l'alerte de {{owner}}",
@@ -2288,7 +2287,6 @@
         "YES": "Oui",
         "NO": "Non",
         "CLOSE": "Fermer",
-
         "MONGODB_DOWN_TITLE": "MongoDB indisponible",
         "MONGODB_DOWN_MESSAGE": "L'application ne peut pas joindre la base MongoDB ({{target}}). La plupart des fonctionnalités ne fonctionneront pas tant qu'elle n'est pas démarrée.",
         "MONGODB_DOWN_HINT": "Démarrez MongoDB sur cette machine, puis cliquez sur Réessayer.",
@@ -4330,7 +4328,7 @@
         "ASSISTANT_EVENT": "Assistant IA",
         "WALL_UPLOADING": "Envoi des fichiers en cours…",
         "WALL_UPLOAD_LOG_WAITING": "En attente du début de l'envoi…",
-        "SHOW_MORE_GRID_PHOTOS": "Afficher plus de photos dans la grille"
+        "SHOW_MORE_GRID_PHOTOS": "Voir toutes les photos"
     },
     "NEWS": {
         "PAGE_TITLE": "Actualités",

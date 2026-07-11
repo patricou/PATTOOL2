@@ -269,7 +269,6 @@
         "ISS_ALERT_TEST_SENT": "ØªÙ Ø¥Ø±Ø³Ø§Ù Ø¨Ø±ÙØ¯ Ø§Ø®ØªØ¨Ø§Ø± ÙÙÙØ±ÙØ± Ø§ÙÙØ§Ø¯Ù.",
         "ISS_ALERT_TEST_NO_PASS": "ÙØ§ ÙÙØ¬Ø¯ ÙØ±ÙØ± ÙØ±Ø¦Ù ÙØ§Ø¯Ù ÙÙØ°Ø§ Ø§ÙÙÙØ§Ù.",
         "ISS_ALERT_TEST_NO_PLACE": "Ø­Ø¯ÙØ¯ ÙÙØ§ÙÙØ§ Ø£ÙÙØ§Ù (ÙØ¯ÙÙØ© Ø£Ù Ø¯ÙÙØ©).",
-
         "ISS_ALERT_ADMIN_TITLE": "جميع تنبيهات ISS المُعدّة (المسؤول)",
         "ISS_ALERT_ADMIN_OPEN": "تنبيهات ISS المُعدّة",
         "ISS_ALERT_ADMIN_OPEN_HINT": "عرض جميع تنبيهات ISS بالبريد الإلكتروني للمستخدمين",
@@ -294,7 +293,6 @@
         "ISS_ALERT_ADMIN_PASSES_HINT": "عرض مرور ISS المرئي القادم فوق هذا المكان",
         "ISS_ALERT_ADMIN_PASSES_LOADING": "جارٍ البحث عن المرور…",
         "ISS_ALERT_ADMIN_NO_PLACE": "لا يوجد موقع مُرمَّز جغرافيًا لهذا التنبيه.",
-
         "ISS_ALERT_ADMIN_EDIT": "تعديل هذا التنبيه",
         "ISS_ALERT_ADMIN_EDIT_HINT": "تعديل هذا التنبيه في نموذج الإعداد",
         "ISS_ALERT_EDITING_BANNER": "تعديل تنبيه {{owner}}",
@@ -1733,7 +1731,6 @@
         "YES": "ÙØ¹Ù",
         "NO": "ÙØ§",
         "CLOSE": "Ø¥ØºÙØ§Ù",
-
         "MONGODB_DOWN_TITLE": "MongoDB غير متاح",
         "MONGODB_DOWN_MESSAGE": "لا يمكن للتطبيق الوصول إلى قاعدة بيانات MongoDB ({{target}}). لن تعمل معظم الميزات حتى يتم تشغيلها.",
         "MONGODB_DOWN_HINT": "شغّل MongoDB على هذا المضيف ثم انقر إعادة المحاولة.",
@@ -3319,7 +3316,8 @@
         "WALL_UPLOAD_BTN": "Ø¥Ø¶Ø§ÙØ© ÙÙÙØ§Øª Ø¥ÙÙ ÙØ°Ø§ Ø§ÙÙØ´Ø§Ø· (ØµÙØ±Ø ÙÙØ¯ÙÙØ ÙØ³Ø§Ø±Ø§Øª GPSØ PDFâ¦)",
         "ASSISTANT_EVENT": "ÙØ³Ø§Ø¹Ø¯ Ø§ÙØ°ÙØ§Ø¡ Ø§ÙØ§ØµØ·ÙØ§Ø¹Ù",
         "WALL_UPLOADING": "Ø¬Ø§Ø±Ù Ø±ÙØ¹ Ø§ÙÙÙÙØ§Øªâ¦",
-        "WALL_UPLOAD_LOG_WAITING": "ÙÙ Ø§ÙØªØ¸Ø§Ø± Ø¨Ø¯Ø¡ Ø§ÙØ±ÙØ¹â¦"
+        "WALL_UPLOAD_LOG_WAITING": "ÙÙ Ø§ÙØªØ¸Ø§Ø± Ø¨Ø¯Ø¡ Ø§ÙØ±ÙØ¹â¦",
+        "SHOW_MORE_GRID_PHOTOS": "عرض جميع الصور"
     },
     "NEWS": {
         "PAGE_TITLE": "Ø§ÙØ£Ø®Ø¨Ø§Ø±",

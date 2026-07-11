@@ -272,7 +272,6 @@
         "ISS_ALERT_TEST_SENT": "Test-E-Mail f?r den n?chsten ?berflug gesendet.",
         "ISS_ALERT_TEST_NO_PASS": "Kein bevorstehender sichtbarer ?berflug f?r diesen Ort.",
         "ISS_ALERT_TEST_NO_PLACE": "Legen Sie zuerst einen Ort fest (Stadt oder Land).",
-
         "ISS_ALERT_ADMIN_TITLE": "Alle konfigurierten ISS-Alarme (Admin)",
         "ISS_ALERT_ADMIN_OPEN": "Konfigurierte ISS-Alarme",
         "ISS_ALERT_ADMIN_OPEN_HINT": "Liste aller ISS-E-Mail-Alarme der Benutzer anzeigen",
@@ -297,7 +296,6 @@
         "ISS_ALERT_ADMIN_PASSES_HINT": "Kommende sichtbare ISS-Passagen über diesem Ort anzeigen",
         "ISS_ALERT_ADMIN_PASSES_LOADING": "Passagen werden gesucht…",
         "ISS_ALERT_ADMIN_NO_PLACE": "Für diese Benachrichtigung ist kein geocodierter Ort hinterlegt.",
-
         "ISS_ALERT_ADMIN_EDIT": "Diese Benachrichtigung bearbeiten",
         "ISS_ALERT_ADMIN_EDIT_HINT": "Diese Benachrichtigung im Konfigurationsformular bearbeiten",
         "ISS_ALERT_EDITING_BANNER": "Benachrichtigung von {{owner}} wird bearbeitet",
@@ -1744,7 +1742,6 @@
         "YES": "Ja",
         "NO": "Nein",
         "CLOSE": "Schlie?en",
-
         "MONGODB_DOWN_TITLE": "MongoDB nicht verfügbar",
         "MONGODB_DOWN_MESSAGE": "Die Anwendung kann die MongoDB-Datenbank ({{target}}) nicht erreichen. Die meisten Funktionen stehen erst nach dem Start zur Verfügung.",
         "MONGODB_DOWN_HINT": "Starten Sie MongoDB auf diesem Host und klicken Sie auf Erneut versuchen.",
@@ -3335,7 +3332,8 @@
         "WALL_UPLOAD_BTN": "Dateien zu dieser Aktivit?t hinzuf?gen (Fotos, Videos, GPS-Tracks, PDF ?)",
         "ASSISTANT_EVENT": "KI-Assistent",
         "WALL_UPLOADING": "Dateien werden hochgeladen ?",
-        "WALL_UPLOAD_LOG_WAITING": "Warte auf Start des Uploads ?"
+        "WALL_UPLOAD_LOG_WAITING": "Warte auf Start des Uploads ?",
+        "SHOW_MORE_GRID_PHOTOS": "Alle Fotos anzeigen"
     },
     "NEWS": {
         "PAGE_TITLE": "Nachrichten",

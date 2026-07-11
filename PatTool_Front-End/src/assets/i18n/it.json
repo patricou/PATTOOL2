@@ -271,7 +271,6 @@
         "ISS_ALERT_TEST_SENT": "E-mail di prova inviata per il prossimo passaggio.",
         "ISS_ALERT_TEST_NO_PASS": "Nessun passaggio visibile imminente per questo luogo.",
         "ISS_ALERT_TEST_NO_PLACE": "Imposta prima un luogo (cittÂ o paese).",
-
         "ISS_ALERT_ADMIN_TITLE": "Tutti gli avvisi ISS configurati (admin)",
         "ISS_ALERT_ADMIN_OPEN": "Avvisi ISS configurati",
         "ISS_ALERT_ADMIN_OPEN_HINT": "Mostra tutti gli avvisi ISS e-mail degli utenti",
@@ -296,7 +295,6 @@
         "ISS_ALERT_ADMIN_PASSES_HINT": "Mostra i prossimi passaggi ISS visibili su questo luogo",
         "ISS_ALERT_ADMIN_PASSES_LOADING": "Ricerca passaggi in corsoâ€¦",
         "ISS_ALERT_ADMIN_NO_PLACE": "Questo avviso non ha un luogo geocodificato.",
-
         "ISS_ALERT_ADMIN_EDIT": "Modifica questo avviso",
         "ISS_ALERT_ADMIN_EDIT_HINT": "Modifica questo avviso nel modulo di configurazione",
         "ISS_ALERT_EDITING_BANNER": "Modifica avviso di {{owner}}",
@@ -1738,7 +1736,6 @@
         "YES": "SÂ",
         "NO": "No",
         "CLOSE": "Chiudi",
-
         "MONGODB_DOWN_TITLE": "MongoDB non disponibile",
         "MONGODB_DOWN_MESSAGE": "L'applicazione non riesce a raggiungere il database MongoDB ({{target}}). La maggior parte delle funzioni non sarà disponibile finché non viene avviato.",
         "MONGODB_DOWN_HINT": "Avvia MongoDB su questo host, poi clicca Riprova.",
@@ -3334,7 +3331,8 @@
         "WALL_UPLOAD_BTN": "Aggiungi file a questa attivitÂ (foto, video, tracce GPS, PDF?)",
         "ASSISTANT_EVENT": "Assistente IA",
         "WALL_UPLOADING": "Caricamento file in corso?",
-        "WALL_UPLOAD_LOG_WAITING": "In attesa dell?avvio del caricamento?"
+        "WALL_UPLOAD_LOG_WAITING": "In attesa dell?avvio del caricamento?",
+        "SHOW_MORE_GRID_PHOTOS": "Vedi tutte le foto"
     },
     "NEWS": {
         "PAGE_TITLE": "Notizie",

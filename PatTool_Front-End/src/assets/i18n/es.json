@@ -272,7 +272,6 @@
         "ISS_ALERT_TEST_SENT": "Correo de prueba enviado para el prÂximo paso.",
         "ISS_ALERT_TEST_NO_PASS": "No hay prÂximos pasos visibles para este lugar.",
         "ISS_ALERT_TEST_NO_PLACE": "Defina primero un lugar (ciudad o paÂs).",
-
         "ISS_ALERT_ADMIN_TITLE": "Todas las alertas ISS configuradas (admin)",
         "ISS_ALERT_ADMIN_OPEN": "Alertas ISS configuradas",
         "ISS_ALERT_ADMIN_OPEN_HINT": "Mostrar todas las alertas ISS por correo de los usuarios",
@@ -297,7 +296,6 @@
         "ISS_ALERT_ADMIN_PASSES_HINT": "Mostrar los prÃ³ximos pasos ISS visibles sobre este lugar",
         "ISS_ALERT_ADMIN_PASSES_LOADING": "Buscando prÃ³ximos pasosâ€¦",
         "ISS_ALERT_ADMIN_NO_PLACE": "Esta alerta no tiene un lugar geocodificado.",
-
         "ISS_ALERT_ADMIN_EDIT": "Modificar esta alerta",
         "ISS_ALERT_ADMIN_EDIT_HINT": "Modificar esta alerta en el formulario de configuración",
         "ISS_ALERT_EDITING_BANNER": "Modificación de la alerta de {{owner}}",
@@ -1741,7 +1739,6 @@
         "YES": "SÂ",
         "NO": "No",
         "CLOSE": "Cerrar",
-
         "MONGODB_DOWN_TITLE": "MongoDB no disponible",
         "MONGODB_DOWN_MESSAGE": "La aplicación no puede conectar con la base MongoDB ({{target}}). La mayoría de funciones no funcionarán hasta que se inicie.",
         "MONGODB_DOWN_HINT": "Inicie MongoDB en este equipo y pulse Reintentar.",
@@ -3336,7 +3333,8 @@
         "WALL_UPLOAD_BTN": "AÂadir archivos a esta actividad (fotos, vÂdeos, trazas GPS, PDF?)",
         "ASSISTANT_EVENT": "Asistente IA",
         "WALL_UPLOADING": "Subiendo archivos?",
-        "WALL_UPLOAD_LOG_WAITING": "Esperando el inicio de la subida?"
+        "WALL_UPLOAD_LOG_WAITING": "Esperando el inicio de la subida?",
+        "SHOW_MORE_GRID_PHOTOS": "Ver todas las fotos"
     },
     "NEWS": {
         "PAGE_TITLE": "Noticias",

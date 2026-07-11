@@ -53,8 +53,8 @@ const PAGE_SIZE = 12;
 const INITIAL_VISIBLE_GROUPS = 1;
 /** Thumbnails eagerly queued per group after first paint (0 = viewport IO only at open). */
 const WALL_INITIAL_PRELOAD_THUMBS_PER_GROUP = 0;
-/** Max masonry tiles rendered per event until the user expands (reduces DOM + thumb queue). */
-const WALL_MASONRY_GRID_CAP = 28;
+/** Max masonry tiles per event in all-events wall until the user expands (single-event wall: no cap). */
+const WALL_MASONRY_GRID_CAP = 10;
 /** Reveal up to this many buffered events from the first API page without extra round-trips. */
 const WALL_BUFFER_DRAIN_TARGET = 3;
 /** Delay before starting the parallel video-only timeline stream. */
@@ -1398,37 +1398,51 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.bufferedVideoGroups = patch(this.bufferedVideoGroups);
     }
 
-    /** Group media: photos and videos interleaved; capped in the grid until expanded. */
+    /** Group media: photos and videos interleaved; capped in all-events wall until expanded. */
     getGroupMedia(group: TimelineGroup): GroupMediaItem[] {
         let full = this.groupMediaCache.get(group);
         if (!full) {
             full = this.buildGroupMediaList(group);
             this.groupMediaCache.set(group, full);
         }
-        const eventId = group.eventId || '';
-        if (!this.wallMasonryExpandedEventIds.has(eventId) && full.length > WALL_MASONRY_GRID_CAP) {
+        if (this.isSingleEventWallView() || this.isWallMasonryGridExpanded(group)) {
+            return full;
+        }
+        if (full.length > WALL_MASONRY_GRID_CAP) {
             return full.slice(0, WALL_MASONRY_GRID_CAP);
         }
         return full;
     }
 
-    isWallMasonryGridCapped(group: TimelineGroup): boolean {
-        const eventId = group.eventId || '';
-        if (this.wallMasonryExpandedEventIds.has(eventId)) {
-            return false;
-        }
-        const full = this.groupMediaCache.get(group);
-        return (full?.length ?? this.buildGroupMediaList(group).length) > WALL_MASONRY_GRID_CAP;
+    private isSingleEventWallView(): boolean {
+        return !!this.filterEventId?.trim();
     }
 
+    private isWallMasonryGridExpanded(group: TimelineGroup): boolean {
+        const eventId = group.eventId?.trim();
+        return !!eventId && this.wallMasonryExpandedEventIds.has(eventId);
+    }
+
+    isWallMasonryGridCapped(group: TimelineGroup): boolean {
+        if (this.isSingleEventWallView() || this.isWallMasonryGridExpanded(group)) {
+            return false;
+        }
+        const full = this.groupMediaCache.get(group) ?? this.buildGroupMediaList(group);
+        const shown = full.length;
+        const total = (group.totalPhotosInEvent ?? group.photos?.length ?? 0)
+            + (group.totalVideosInEvent ?? group.videos?.length ?? 0);
+        return shown > WALL_MASONRY_GRID_CAP
+            || total > WALL_MASONRY_GRID_CAP
+            || !!group.photosTruncated
+            || !!group.videosTruncated;
+    }
+
+    /** All-events wall: load every photo/video for this activity; single-event wall: already uncapped. */
     expandWallMasonryGrid(group: TimelineGroup): void {
-        const id = group.eventId?.trim();
-        if (!id) return;
-        this.wallMasonryExpandedEventIds.add(id);
-        setTimeout(() => {
-            if (!this.destroyed) this.scanWallMediaHosts();
-        }, 0);
-        this.cdr.markForCheck();
+        if (this.isSingleEventWallView()) {
+            return;
+        }
+        this.refreshTimelineGroup(group);
     }
 
     private isVideoFile(fileName: string): boolean {
@@ -1690,7 +1704,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     private preloadThumbnailsForGroup(group: TimelineGroup, initialBatch = false): void {
         const photos = group.photos || [];
         const cap = initialBatch ? WALL_INITIAL_PRELOAD_THUMBS_PER_GROUP : WALL_PRELOAD_THUMBS_PER_GROUP_CAP;
-        const limit = Math.min(photos.length, cap);
+        const gridCap = !this.isSingleEventWallView() && !this.isWallMasonryGridExpanded(group)
+            ? WALL_MASONRY_GRID_CAP
+            : cap;
+        const limit = Math.min(photos.length, cap, gridCap);
         for (let i = 0; i < limit; i++) {
             this.loadThumbnail(photos[i], initialBatch);
         }

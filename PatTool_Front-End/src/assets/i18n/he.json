@@ -269,7 +269,6 @@
         "ISS_ALERT_TEST_SENT": "× ×©×× ×××××× ××××§× ×××¢××¨ ×××.",
         "ISS_ALERT_TEST_NO_PASS": "××× ××¢××¨ ×××× ×§×¨×× ×××§×× ××.",
         "ISS_ALERT_TEST_NO_PLACE": "××××¨ ×ª×××× ××§×× (×¢××¨ ×× ×××× ×).",
-
         "ISS_ALERT_ADMIN_TITLE": "כל התראות ISS שהוגדרו (מנהל)",
         "ISS_ALERT_ADMIN_OPEN": "התראות ISS שהוגדרו",
         "ISS_ALERT_ADMIN_OPEN_HINT": "הצג את כל התראות הדוא\"ל ISS של המשתמשים",
@@ -294,7 +293,6 @@
         "ISS_ALERT_ADMIN_PASSES_HINT": "הצג מעברי ISS נראים קרובים מעל מיקום זה",
         "ISS_ALERT_ADMIN_PASSES_LOADING": "מחפש מעברים…",
         "ISS_ALERT_ADMIN_NO_PLACE": "להתראה זו אין מיקום מקודד גאוגרפית.",
-
         "ISS_ALERT_ADMIN_EDIT": "ערוך התראה זו",
         "ISS_ALERT_ADMIN_EDIT_HINT": "ערוך התראה זו בטופס ההגדרות",
         "ISS_ALERT_EDITING_BANNER": "עריכת התראה של {{owner}}",
@@ -1734,7 +1732,6 @@
         "YES": "××",
         "NO": "××",
         "CLOSE": "×¡×××¨",
-
         "MONGODB_DOWN_TITLE": "MongoDB אינו זמין",
         "MONGODB_DOWN_MESSAGE": "היישום לא יכול להגיע למסד הנתונים MongoDB ({{target}}). רוב הפונקציות לא יעבדו עד שהוא יופעל.",
         "MONGODB_DOWN_HINT": "הפעל MongoDB במארח זה ולחץ נסה שוב.",
@@ -3320,7 +3317,8 @@
         "WALL_UPLOAD_BTN": "×××¡×¤×ª ×§××¦×× ××¤×¢××××ª (×ª××× ××ª, ×××××, ××¡×××× GPS, PDFâ¦)",
         "ASSISTANT_EVENT": "×¢×××¨ AI",
         "WALL_UPLOADING": "××¢×× ×§××¦××â¦",
-        "WALL_UPLOAD_LOG_WAITING": "×××ª×× ××ª××××ª ×××¢×××â¦"
+        "WALL_UPLOAD_LOG_WAITING": "×××ª×× ××ª××××ª ×××¢×××â¦",
+        "SHOW_MORE_GRID_PHOTOS": "הצג את כל התמונות"
     },
     "NEWS": {
         "PAGE_TITLE": "×××©××ª",
