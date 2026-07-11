@@ -212,6 +212,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	// File thumbnails cache
 	private fileThumbnailsCache: Map<string, SafeUrl> = new Map();
 	private fileThumbnailsLoading: Set<string> = new Set();
+
+	// Hover preview for image thumbnails in files modal
+	public fileHoverPreviewVisible = false;
+	public fileHoverPreviewUrl: SafeUrl | null = null;
+	public fileHoverPreviewAlt = '';
 	
 	// Video thumbnails cache
 	private videoThumbnailsCache: Map<string, SafeUrl> = new Map();
@@ -5119,6 +5124,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		
 		// Restore scroll when modal closes (exactly like PhotosSelectorModalComponent)
 		modalRef.result.finally(() => {
+			this.hideFileHoverPreview();
 			// First unblock scroll (like PhotosSelectorModalComponent.unblockPageScroll)
 			if (document.body) {
 				document.body.style.overflow = '';
@@ -6868,7 +6874,31 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 
 	// Handle file click based on file type
+	public onFileThumbnailMouseEnter(uploadedFile: UploadedFile): void {
+		if (!this.isImageFile(uploadedFile.fileName)) {
+			return;
+		}
+		const url = this.getFileThumbnail(uploadedFile.fieldId);
+		if (!url) {
+			return;
+		}
+		this.fileHoverPreviewUrl = url;
+		this.fileHoverPreviewAlt = uploadedFile.fileName;
+		this.fileHoverPreviewVisible = true;
+	}
+
+	public onFileThumbnailMouseLeave(): void {
+		this.hideFileHoverPreview();
+	}
+
+	private hideFileHoverPreview(): void {
+		this.fileHoverPreviewVisible = false;
+		this.fileHoverPreviewUrl = null;
+		this.fileHoverPreviewAlt = '';
+	}
+
 	public handleFileClick(uploadedFile: UploadedFile): void {
+		this.hideFileHoverPreview();
 		if (this.isImageFile(uploadedFile.fileName)) {
 			this.openSingleImageInSlideshow(uploadedFile.fieldId, uploadedFile.fileName);
 		} else if (this.isVideoFile(uploadedFile.fileName)) {
@@ -7221,6 +7251,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	
 	ngOnDestroy() {
 		this.componentDestroyed = true;
+		this.hideFileHoverPreview();
 		try { this.cdr.detach(); } catch (_) { /* ignore if already destroyed */ }
 		// Close any open modals to prevent memory leaks when navigating away
 		if (this.uploadLogsModalRef) {

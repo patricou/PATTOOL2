@@ -704,6 +704,8 @@
                              class="file-thumbnail me-2"
                              [class.file-thumbnail-clickable]="isImageFile(uploadedFile.fileName)"
                              [alt]="uploadedFile.fileName"
+                             (mouseenter)="onFileThumbnailMouseEnter(uploadedFile)"
+                             (mouseleave)="onFileThumbnailMouseLeave()"
                              (click)="isImageFile(uploadedFile.fileName) && handleFileClick(uploadedFile)"
                              (load)="onFileThumbnailLoaded(uploadedFile.fieldId)"
                              (error)="onFileThumbnailError($event, uploadedFile.fieldId)"
@@ -895,6 +897,17 @@
                 <p>{{ 'EVENTELEM.NO_FILES' | translate }}</p>
             </div>
         </ng-template>
+    </div>
+    <!-- Hover preview overlay for image thumbnails -->
+    <div *ngIf="fileHoverPreviewVisible"
+         class="file-hover-preview-overlay">
+        <div class="file-hover-preview-content">
+            <img *ngIf="fileHoverPreviewUrl"
+                 [src]="fileHoverPreviewUrl"
+                 [alt]="fileHoverPreviewAlt"
+                 class="file-hover-preview-image" />
+            <p class="file-hover-preview-caption mb-0">{{ fileHoverPreviewAlt }}</p>
+        </div>
     </div>
     <div class="modal-footer">
         <button class="btn btn-sm btn-danger"
