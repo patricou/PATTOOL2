@@ -486,8 +486,20 @@
 </ng-template>
 
 <ng-template #cartesGouvModal let-modal>
-  <div class="modal-header">
+  <div class="modal-header cartes-gouv-embed-header">
     <h5 class="modal-title"><i class="fa fa-map me-2"></i>{{ 'EVENTELEM.CARTES_GOUV_FR' | translate }}</h5>
+    <div class="cartes-gouv-layer-picker d-flex align-items-center gap-2 ms-3">
+      <label class="cartes-gouv-layer-label mb-0" for="cartes-gouv-layer-select">{{ 'EVENTELEM.CARTES_GOUV_LAYER_LABEL' | translate }}</label>
+      <select id="cartes-gouv-layer-select"
+              class="form-select form-select-sm cartes-gouv-layer-select"
+              [ngModel]="selectedCartesGouvLayerId"
+              (ngModelChange)="onCartesGouvEmbedLayerChange($event)"
+              [attr.aria-label]="'EVENTELEM.CARTES_GOUV_LAYER_LABEL' | translate">
+        <option *ngFor="let layer of cartesGouvEmbedLayers" [value]="layer.id">
+          {{ layer.labelKey ? (layer.labelKey | translate) : layer.label }}
+        </option>
+      </select>
+    </div>
     <div class="d-flex align-items-center gap-2 ms-auto">
       <button type="button" class="btn btn-outline-light btn-sm" (click)="toggleCartesGouvFullscreen()" [title]="cartesGouvFullscreen ? ('EVENTELEM.EXIT_FULLSCREEN' | translate) : ('EVENTELEM.FULLSCREEN' | translate)">
         <i class="fa" [ngClass]="cartesGouvFullscreen ? 'fa-compress' : 'fa-arrows-alt'"></i>

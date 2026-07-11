@@ -23,7 +23,8 @@ public final class PatToolParameterCatalog {
             "globe.iss.alert.",
             "globe.iss.compass.calibration.",
             "meteofrance.radar.refresh.",
-            "meteofrance.temperature.cache."
+            "meteofrance.temperature.cache.",
+            "trace.viewer."
     );
 
     public static final List<SectionDef> SECTIONS = List.of(

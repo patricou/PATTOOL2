@@ -2158,6 +2158,22 @@
 	min-height: 0 !important;
 	overflow: hidden !important;
 }
+::ng-deep .cartes-gouv-embed-modal .modal-header.cartes-gouv-embed-header {
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+::ng-deep .cartes-gouv-embed-modal .cartes-gouv-layer-picker {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+::ng-deep .cartes-gouv-embed-modal .cartes-gouv-layer-label {
+	font-size: 0.85rem;
+	white-space: nowrap;
+}
+::ng-deep .cartes-gouv-embed-modal .cartes-gouv-layer-select {
+	min-width: 10rem;
+	max-width: 16rem;
+}
 @media (max-width: 768px) {
 	::ng-deep .cartes-gouv-embed-modal .modal-dialog {
 		max-width: 100vw !important;

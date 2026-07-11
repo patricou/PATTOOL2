@@ -60,6 +60,20 @@ export interface FlightTrackingPreference {
   pollIntervalSec?: number | null;
 }
 
+/** Per-user trace viewer switches and basemap (GET/PUT /external/trace-viewer/preferences). */
+export interface TraceViewerPreference {
+  showAddress?: boolean | null;
+  showWeather?: boolean | null;
+  autoRefreshRadar?: boolean | null;
+  showHikingTrailsOverlay?: boolean | null;
+  showCyclingTrailsOverlay?: boolean | null;
+  followDeviceLocation?: boolean | null;
+  keepScreenAwake?: boolean | null;
+  showGpsCoordinates?: boolean | null;
+  baseLayerId?: string | null;
+  persisted?: boolean | null;
+}
+
 /** Waypoint of a full flight track (OpenSky /tracks/all). */
 export interface FlightTrackPoint {
   time?: number | null;
@@ -1014,6 +1028,32 @@ export class ApiService {
       switchMap(headers =>
         this._http.delete<void>(
           this.API_URL + 'external/globe/flight/tracking',
+          { headers }
+        )
+      )
+    );
+  }
+
+  /** Per-user trace viewer UI switches and basemap. */
+  getTraceViewerPreferences(): Observable<TraceViewerPreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<TraceViewerPreference>(
+          this.API_URL + 'external/trace-viewer/preferences',
+          { headers }
+        )
+      )
+    );
+  }
+
+  saveTraceViewerPreferences(
+    prefs: Partial<TraceViewerPreference>
+  ): Observable<TraceViewerPreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<TraceViewerPreference>(
+          this.API_URL + 'external/trace-viewer/preferences',
+          prefs,
           { headers }
         )
       )

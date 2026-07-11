@@ -7,7 +7,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Router } from '@angular/router';
 import { FileService } from '../../services/file.service';
 import { KeycloakService } from '../../keycloak/keycloak.service';
-import { ApiService } from '../../services/api.service';
+import { ApiService, TraceViewerPreference } from '../../services/api.service';
 import { forkJoin, of, Subject } from 'rxjs';
 import { catchError, take, takeUntil } from 'rxjs/operators';
 import { WeatherPointTimelineComponent } from '../weather-point-timeline/weather-point-timeline.component';
@@ -35,6 +35,14 @@ interface TraceStatistics {
 
 type TraceViewerWeatherBrand = 'meteofrance' | 'open-meteo' | 'openweathermap';
 
+interface CartesGouvEmbedLayerOption {
+	id: string;
+	label: string;
+	labelKey?: string;
+	/** WMTS layer id for cartes.gouv.fr embed `l=` parameter (before `$GEOPORTAIL:…`). */
+	embedLayer: string;
+}
+
 @Component({
 	selector: 'app-trace-viewer-modal',
 	templateUrl: './trace-viewer-modal.component.html',
@@ -58,6 +66,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 		west: -5.2,
 		east: 8.5,
 	};
+	private static readonly CARTES_GOUV_EMBED_LAYER_SUFFIX = '$GEOPORTAIL:OGC:WMTS(1;1;1;0)';
+	private static readonly CARTES_GOUV_LAYER_STORAGE_KEY = 'pat.traceViewer.cartesGouvLayerId';
+	private static readonly CARTES_GOUV_EMBED_LAYERS: CartesGouvEmbedLayerOption[] = [
+		{ id: 'ign-maps', label: 'Cartes IGN', labelKey: 'EVENTELEM.CARTES_GOUV_LAYER_MAPS', embedLayer: 'GEOGRAPHICALGRIDSYSTEMS.MAPS' },
+		{ id: 'ign-plan', label: 'Plan IGN', labelKey: 'EVENTELEM.CARTES_GOUV_LAYER_PLAN', embedLayer: 'GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2' },
+		{ id: 'ign-scan-regional', label: 'Scan régional', labelKey: 'EVENTELEM.CARTES_GOUV_LAYER_SCAN', embedLayer: 'IGNF_CARTES_SCAN-REGIONAL' },
+		{ id: 'ign-ortho', label: 'Orthophotos', labelKey: 'EVENTELEM.CARTES_GOUV_LAYER_ORTHO', embedLayer: 'ORTHOIMAGERY.ORTHOPHOTOS' },
+		{ id: 'ign-cadastre', label: 'Cadastre', labelKey: 'EVENTELEM.CARTES_GOUV_LAYER_CADASTRRE', embedLayer: 'CADASTRALPARCELS.PARCELLAIRE_EXPRESS' },
+		{ id: 'ign-limites', label: 'Limites administratives', labelKey: 'EVENTELEM.CARTES_GOUV_LAYER_LIMITES', embedLayer: 'LIMITES_ADMINISTRATIVES_EXPRESS.LATEST' },
+		{ id: 'ign-relief', label: 'Relief', labelKey: 'EVENTELEM.CARTES_GOUV_LAYER_RELIEF', embedLayer: 'ELEVATION.ELEVATIONGRIDCOVERAGE.HIGHRES' }
+	];
 
 	@ViewChild('traceViewerModal') traceViewerModal!: TemplateRef<any>;
 	@ViewChild(WeatherPointTimelineComponent) weatherPointTimeline?: WeatherPointTimelineComponent;
@@ -201,6 +220,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		typeof navigator !== 'undefined' && 'wakeLock' in navigator;
 	/** cartes.gouv.fr iframe embed URL (center + zoom) for that modal. */
 	public cartesGouvEmbedUrl: SafeResourceUrl | null = null;
+	public readonly cartesGouvEmbedLayers = TraceViewerModalComponent.CARTES_GOUV_EMBED_LAYERS;
+	public selectedCartesGouvLayerId = 'ign-maps';
 	private cartesGouvModalRef?: NgbModalRef;
 	public cartesGouvFullscreen = false;
 	private cartesGouvFullscreenChangeListener?: () => void;
@@ -209,6 +230,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 	/** Fullscreen options panel (basemap, switches, actions) — collapsed by default. */
 	public isFullscreenOptionsExpanded = false;
 	private trackBounds: L.LatLngBounds | null = null;
+	/** Zoom to restore when recentering a single-point view (openAtLocation). */
+	private locationRecenterZoom: number | null = null;
+	private static readonly DEFAULT_LOCATION_ZOOM = 14;
 	/** Tracks container resize (flex / modal / embed) to recover Leaflet black-map issues. */
 	private mapLayoutResizeObserver?: ResizeObserver;
 	private mapLayoutSyncDebouncer: number | null = null;
@@ -227,6 +251,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private mapInitVisibilityAttempts = 0;
 	/** `NgbModal` `container` host for embedding (globe): resolve `.map-container` under this root (avoid global IDs). */
 	private mapEmbedHostRoot?: HTMLElement;
+	/** Avoid persisting while applying server-loaded preferences. */
+	private applyingTraceViewerPrefs = false;
+	private traceViewerPrefsReady = false;
 	private embeddedModalMapKickToken = 0;
 	private static readonly TRACE_VIEWER_MODAL_WINDOW_CLASS = 'slideshow-modal-wide trace-viewer-leaflet-modal';
 	private static readonly SWISSTOPO_BASEMAP_IDS = new Set<string>(['swisstopo-pixelkarte', 'swisstopo-swissimage']);
@@ -314,7 +341,106 @@ export class TraceViewerModalComponent implements OnDestroy {
 		@Inject(DOCUMENT) private readonly document: Document
 	) {
 		this.configureLeafletIcons();
+		this.loadTraceViewerPreferences();
 		this.loadRadarRefreshPreferences();
+	}
+
+	private loadTraceViewerPreferences(): void {
+		this.apiService.getTraceViewerPreferences().pipe(takeUntil(this.destroy$)).subscribe({
+			next: (pref) => {
+				this.applyingTraceViewerPrefs = true;
+				try {
+					this.applyTraceViewerPreferences(pref);
+					if (this.map) {
+						this.applySelectedBaseLayer();
+						this.applyPersistedSwitchEffects();
+					}
+				} finally {
+					this.applyingTraceViewerPrefs = false;
+					this.traceViewerPrefsReady = true;
+				}
+			},
+			error: () => {
+				this.traceViewerPrefsReady = true;
+			}
+		});
+	}
+
+	private applyTraceViewerPreferences(pref: TraceViewerPreference | null | undefined): void {
+		if (!pref) {
+			return;
+		}
+		if (pref.showAddress != null) {
+			this.showAddress = pref.showAddress;
+		}
+		if (pref.showWeather != null) {
+			this.showWeather = pref.showWeather;
+		}
+		if (pref.autoRefreshRadar != null) {
+			this.autoRefreshRadar = pref.autoRefreshRadar;
+		}
+		if (pref.showHikingTrailsOverlay != null) {
+			this.showHikingTrailsOverlay = pref.showHikingTrailsOverlay;
+		}
+		if (pref.showCyclingTrailsOverlay != null) {
+			this.showCyclingTrailsOverlay = pref.showCyclingTrailsOverlay;
+		}
+		if (pref.followDeviceLocation != null) {
+			this.followDeviceLocation = pref.followDeviceLocation;
+		}
+		if (pref.keepScreenAwake != null) {
+			this.keepScreenAwake = pref.keepScreenAwake;
+		}
+		if (pref.showGpsCoordinates != null) {
+			this.showGpsCoordinates = pref.showGpsCoordinates;
+		}
+		if (pref.baseLayerId && pref.baseLayerId !== 'cartes-gouv') {
+			this.selectedBaseLayerId = pref.baseLayerId;
+		}
+	}
+
+	private persistTraceViewerPreferences(): void {
+		if (!this.traceViewerPrefsReady || this.applyingTraceViewerPrefs) {
+			return;
+		}
+		const baseLayerId =
+			this.selectedBaseLayerId === 'cartes-gouv'
+				? (this.lastBaseLayerBeforeCartesGouv || 'opentopomap')
+				: this.selectedBaseLayerId;
+		this.apiService.saveTraceViewerPreferences({
+			showAddress: this.showAddress,
+			showWeather: this.showWeather,
+			autoRefreshRadar: this.autoRefreshRadar,
+			showHikingTrailsOverlay: this.showHikingTrailsOverlay,
+			showCyclingTrailsOverlay: this.showCyclingTrailsOverlay,
+			followDeviceLocation: this.followDeviceLocation,
+			keepScreenAwake: this.keepScreenAwake,
+			showGpsCoordinates: this.showGpsCoordinates,
+			baseLayerId
+		}).pipe(takeUntil(this.destroy$)).subscribe({ error: () => { /* keep local value */ } });
+	}
+
+	/** Re-apply overlay switches after map init (prefs loaded before open). */
+	private applyPersistedSwitchEffects(): void {
+		if (this.showGpsCoordinates) {
+			this.toggleGpsCoordinates();
+		}
+		if (this.showAddress) {
+			this.onShowAddressChange();
+		}
+		if (this.showWeather) {
+			this.onShowWeatherChange();
+		} else {
+			this.applyWeatherRadarOverlay();
+		}
+		this.applyHikingTrailsOverlay();
+		this.applyCyclingTrailsOverlay();
+		if (this.followDeviceLocation) {
+			this.startFollowDeviceLocation();
+		}
+		if (this.keepScreenAwake) {
+			void this.acquireScreenWakeLock();
+		}
 	}
 
 	private loadRadarRefreshPreferences(): void {
@@ -322,9 +448,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 			next: (pref) => {
 				if (pref?.radarRefreshSeconds != null) {
 					this.radarRefreshSeconds = pref.radarRefreshSeconds;
-				}
-				if (pref?.autoRefreshEnabled != null) {
-					this.autoRefreshRadar = pref.autoRefreshEnabled;
 				}
 				if (this.showWeather) {
 					this.startWeatherRadarRefreshTimer();
@@ -558,7 +681,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.tryRenderPendingPositions();
 			this.tryRenderPendingLocation();
 			if (this.trackBounds?.isValid()) {
-				this.map.fitBounds(this.trackBounds, { padding: [24, 24] });
+				this.fitMapToTrackBounds(this.trackBounds);
 			}
 		}
 	}
@@ -693,6 +816,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	/** Open cartes.gouv.fr in an embed modal at the current map center and zoom. */
 	public openCartesGouvEmbed(): void {
+		this.loadCartesGouvLayerPreference();
+		this.selectedCartesGouvLayerId = this.resolveCartesGouvLayerIdForOpen();
 		let lng: number;
 		let lat: number;
 		let z: number;
@@ -737,12 +862,81 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.applySelectedBaseLayer();
 	}
 
+	public onCartesGouvEmbedLayerChange(layerId: string): void {
+		if (!layerId || !this.cartesGouvEmbedLayers.some((layer) => layer.id === layerId)) {
+			return;
+		}
+		this.selectedCartesGouvLayerId = layerId;
+		this.persistCartesGouvLayerPreference();
+		if (!this.cartesGouvModalRef) {
+			return;
+		}
+		let lat: number;
+		let lng: number;
+		let z: number;
+		if (this.map) {
+			const center = this.map.getCenter();
+			lat = center.lat;
+			lng = center.lng;
+			z = this.map.getZoom();
+		} else {
+			lat = this.currentLat || 46.25;
+			lng = this.currentLng || 2.2;
+			z = this.currentZoom || 6;
+		}
+		this.updateCartesGouvEmbedUrl(lat, lng, z);
+	}
+
 	/** Update cartes.gouv.fr iframe URL from center+zoom (open + “follow my location” recenters). */
 	private updateCartesGouvEmbedUrl(lat: number, lng: number, z: number): void {
 		const c = `${lng.toFixed(6)},${lat.toFixed(6)}`;
-		const embedUrl = `https://cartes.gouv.fr/explorer-les-cartes/embed?c=${encodeURIComponent(c)}&z=${z}&l=GEOGRAPHICALGRIDSYSTEMS.MAPS$GEOPORTAIL:OGC:WMTS(1;1;1;0)&permalinkShare=yes`;
+		const layerParam = this.buildCartesGouvEmbedLayerParam(this.selectedCartesGouvLayerId);
+		const embedUrl = `https://cartes.gouv.fr/explorer-les-cartes/embed?c=${encodeURIComponent(c)}&z=${z}&l=${encodeURIComponent(layerParam)}&permalinkShare=yes`;
 		this.cartesGouvEmbedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(embedUrl);
 		this.cdr.markForCheck();
+	}
+
+	private buildCartesGouvEmbedLayerParam(layerId: string): string {
+		const layer = this.cartesGouvEmbedLayers.find((item) => item.id === layerId)
+			?? this.cartesGouvEmbedLayers[0];
+		return `${layer.embedLayer}${TraceViewerModalComponent.CARTES_GOUV_EMBED_LAYER_SUFFIX}`;
+	}
+
+	private resolveCartesGouvLayerIdForOpen(): string {
+		const fromBaseLayer: Record<string, string> = {
+			'ign-classic': 'ign-scan-regional',
+			'ign-plan': 'ign-plan',
+			'ign-ortho': 'ign-ortho',
+			'ign-cadastre': 'ign-cadastre',
+			'ign-topo': 'ign-plan'
+		};
+		const baseHint = fromBaseLayer[this.selectedBaseLayerId] ?? fromBaseLayer[this.lastBaseLayerBeforeCartesGouv];
+		if (baseHint && this.cartesGouvEmbedLayers.some((layer) => layer.id === baseHint)) {
+			return baseHint;
+		}
+		if (this.cartesGouvEmbedLayers.some((layer) => layer.id === this.selectedCartesGouvLayerId)) {
+			return this.selectedCartesGouvLayerId;
+		}
+		return 'ign-maps';
+	}
+
+	private loadCartesGouvLayerPreference(): void {
+		try {
+			const stored = localStorage.getItem(TraceViewerModalComponent.CARTES_GOUV_LAYER_STORAGE_KEY);
+			if (stored && this.cartesGouvEmbedLayers.some((layer) => layer.id === stored)) {
+				this.selectedCartesGouvLayerId = stored;
+			}
+		} catch {
+			/* ignore storage errors */
+		}
+	}
+
+	private persistCartesGouvLayerPreference(): void {
+		try {
+			localStorage.setItem(TraceViewerModalComponent.CARTES_GOUV_LAYER_STORAGE_KEY, this.selectedCartesGouvLayerId);
+		} catch {
+			/* ignore storage errors */
+		}
 	}
 
 	public closeCartesGouvEmbed(): void {
@@ -1256,20 +1450,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.registerMapMoveHandler();
 			// Register GPS click handler (always active, but only updates if switch is enabled)
 			this.registerMapMouseMoveHandler();
-			// If GPS coordinates are already enabled, initialize with center
-			if (this.showGpsCoordinates) {
-				this.updateGpsCoordinatesFromCenter();
-			}
-
 			// Register click handler for marker creation (always active)
 			this.registerMapClickHandler();
 
 			// Register address click handler (always active, but only updates if switch is enabled)
 			this.registerAddressClickHandler();
 
-			if (this.followDeviceLocation) {
-				this.startFollowDeviceLocation();
-			}
+			this.applyPersistedSwitchEffects();
 		});
 	}
 
@@ -1452,12 +1639,55 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.tryRenderPendingTrack();
 	}
 
-	/** Centrage trace (comme mars 2026) : fitBounds simple, sans reset de grille. */
+	/** True when bounds collapse to a single point (openAtLocation without GPX track). */
+	private isDegenerateBounds(bounds: L.LatLngBounds): boolean {
+		if (!bounds.isValid()) {
+			return true;
+		}
+		const sw = bounds.getSouthWest();
+		const ne = bounds.getNorthEast();
+		return Math.abs(sw.lat - ne.lat) < 1e-7 && Math.abs(sw.lng - ne.lng) < 1e-7;
+	}
+
+	/** Max zoom supported by the active basemap (fitBounds beyond this shows gray tiles). */
+	private resolveFitBoundsMaxZoom(): number {
+		if (!this.map) {
+			return TraceViewerModalComponent.DEFAULT_LOCATION_ZOOM;
+		}
+		const layer = this.activeBaseLayer;
+		if (layer instanceof L.TileLayer) {
+			return layer.options.maxZoom ?? this.map.getMaxZoom();
+		}
+		if (layer && 'getLayers' in layer) {
+			let max = 2;
+			for (const child of (layer as L.LayerGroup).getLayers()) {
+				if (child instanceof L.TileLayer && child.options.maxZoom != null) {
+					max = Math.max(max, child.options.maxZoom);
+				}
+			}
+			if (max > 2) {
+				return max;
+			}
+		}
+		return Math.min(this.map.getMaxZoom(), 18);
+	}
+
+	/** Centrage trace : fitBounds avec plafond de zoom ; point unique → setView. */
 	private fitMapToTrackBounds(bounds: L.LatLngBounds): void {
 		if (!this.map || !bounds.isValid()) {
 			return;
 		}
-		this.map.fitBounds(bounds, { padding: [24, 24] });
+		const maxZoom = this.resolveFitBoundsMaxZoom();
+		if (this.isDegenerateBounds(bounds)) {
+			const zoom = Math.min(
+				maxZoom,
+				Math.max(2, this.locationRecenterZoom ?? TraceViewerModalComponent.DEFAULT_LOCATION_ZOOM)
+			);
+			this.map.setView(bounds.getCenter(), zoom, { animate: false });
+			this.currentZoom = zoom;
+			return;
+		}
+		this.map.fitBounds(bounds, { padding: [24, 24], maxZoom });
 		this.currentZoom = this.map.getZoom();
 	}
 
@@ -1492,6 +1722,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		const points = this.pendingTrackPoints;
 		this.pendingTrackPoints = null;
+		this.locationRecenterZoom = null;
 
 		this.overlayLayer.clearLayers();
 
@@ -1544,6 +1775,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		const positions = this.pendingPositions;
 		this.pendingPositions = null;
+		this.locationRecenterZoom = null;
 		const overlayLayer = this.overlayLayer; // Store in local variable for TypeScript
 
 		overlayLayer.clearLayers();
@@ -1697,6 +1929,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		// and keep pendingLocation so registerLocationSelection can use it
 		if (this.selectionMode) {
 			this.trackBounds = L.latLngBounds([lat, lng], [lat, lng]);
+			this.locationRecenterZoom = viewZoom;
 			this.map.setView([lat, lng], viewZoom);
 			this.refreshMapLayout();
 			return;
@@ -1706,6 +1939,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.pendingLocation = null;
 
 		this.overlayLayer.clearLayers();
+		this.locationRecenterZoom = viewZoom;
 
 		const marker = L.marker([lat, lng]);
 		if (label && label.trim().length > 0) {
@@ -1919,6 +2153,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private resetState(): void {
 		this.trackBounds = null;
+		this.locationRecenterZoom = null;
 		this.hasError = false;
 		this.errorMessage = '';
 		this.isLoading = false;
@@ -1929,7 +2164,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.lastRenderedPosition = null;
 		this.selectionMode = false;
 		this.simpleShareMode = false;
-		this.showGpsCoordinates = false;
 		this.currentLat = 0;
 		this.currentLng = 0;
 		this.currentAlt = null;
@@ -1937,12 +2171,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.clickedLat = 0;
 		this.clickedLng = 0;
 		this.clickedAlt = null;
-		this.showAddress = false;
-		this.showHikingTrailsOverlay = false;
-		this.showCyclingTrailsOverlay = false;
 		this.stopFollowDeviceLocation();
-		this.followDeviceLocation = false;
-		this.keepScreenAwake = false;
 		void this.releaseScreenWakeLock();
 		this.cleanupMapMoveHandler();
 		this.cleanupMapMouseMoveHandler();
@@ -2142,6 +2371,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		} else {
 			void this.releaseScreenWakeLock();
 		}
+		this.persistTraceViewerPreferences();
 	}
 
 	private async acquireScreenWakeLock(): Promise<void> {
@@ -2499,7 +2729,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 			{ id: 'swisstopo-swissimage', label: 'SWISSIMAGE', labelKey: 'EVENTELEM.SWISSSTOPO_SWISSIMAGE' }
 		].sort((a, b) => a.label.localeCompare(b.label));
 
-		this.selectedBaseLayerId = 'opentopomap';
+		if (!this.selectedBaseLayerId || !this.availableBaseLayers.some((layer) => layer.id === this.selectedBaseLayerId)) {
+			this.selectedBaseLayerId = 'opentopomap';
+		}
 	}
 
 	public onBaseLayerChange(layerId: string): void {
@@ -2511,6 +2743,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		this.selectedBaseLayerId = layerId;
 		this.applySelectedBaseLayer();
+		this.persistTraceViewerPreferences();
 	}
 
 	public toggleFullscreenInfo(): void {
@@ -2588,6 +2821,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public onHikingTrailsOverlayChange(): void {
 		this.applyHikingTrailsOverlay();
 		this.cdr.detectChanges();
+		this.persistTraceViewerPreferences();
 	}
 
 	/**
@@ -2613,6 +2847,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public onCyclingTrailsOverlayChange(): void {
 		this.applyCyclingTrailsOverlay();
 		this.cdr.detectChanges();
+		this.persistTraceViewerPreferences();
 	}
 
 	/** Rain radar overlay (RainViewer via PatTool), shown when the weather switch is on. */
@@ -2705,6 +2940,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	public onAutoRefreshRadarChange(): void {
 		this.startWeatherRadarRefreshTimer();
+		this.persistTraceViewerPreferences();
 		this.apiService.saveMeteoFranceRadarPreferences({ autoRefreshEnabled: this.autoRefreshRadar })
 			.pipe(takeUntil(this.destroy$))
 			.subscribe({ error: () => { /* keep local value */ } });
@@ -2750,6 +2986,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		} else {
 			this.stopFollowDeviceLocation();
 		}
+		this.persistTraceViewerPreferences();
 	}
 
 	private startFollowDeviceLocation(): void {
@@ -3552,6 +3789,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.updateGpsCoordinatesFromCenter();
 		}
 		this.cdr.detectChanges();
+		this.persistTraceViewerPreferences();
 	}
 
 	private registerMapMoveHandler(): void {
@@ -3720,6 +3958,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			if (this.clickedAddress && this.clickedLat && this.clickedLng) {
 				// Address already available, just ensure it's displayed
 				this.cdr.detectChanges();
+				this.persistTraceViewerPreferences();
 				return;
 			}
 
@@ -3767,6 +4006,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			}
 		}
 		// Handler is always registered, no need to clean up
+		this.persistTraceViewerPreferences();
 	}
 
 	/**
@@ -3783,6 +4023,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				}
 				this.setWeatherLoadingState(false);
 				this.scheduleWeatherLocationLabelRefresh();
+				this.persistTraceViewerPreferences();
 				return;
 			}
 
@@ -3836,6 +4077,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.applyWeatherRadarOverlay();
 			this.clearWeatherPointComparison();
 		}
+		this.persistTraceViewerPreferences();
 	}
 
 	get hasWeatherPointData(): boolean {

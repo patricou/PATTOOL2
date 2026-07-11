@@ -4,6 +4,7 @@ import com.pat.controller.dto.MeteoFranceForecastPreferenceDto;
 import com.pat.controller.dto.MeteoFranceRadarPreferenceDto;
 import com.pat.controller.dto.MeteoFranceTemperatureCachePreferenceDto;
 import com.pat.controller.dto.TemperatureLabelsRequestDto;
+import com.pat.controller.dto.TraceViewerPreferenceDto;
 import com.pat.service.GeocodeService;
 import com.pat.service.IpGeolocationService;
 import com.pat.service.MeteoFranceAromepiService;
@@ -13,6 +14,7 @@ import com.pat.service.MeteoFranceForecastPreferenceService;
 import com.pat.service.MeteoFranceRadarRefreshPreferenceService;
 import com.pat.service.MeteoFranceRadarService;
 import com.pat.service.MeteoFranceTemperatureCachePreferenceService;
+import com.pat.service.TraceViewerPreferenceService;
 import com.pat.service.OpenMeteoService;
 import com.pat.service.OpenWeatherService;
 import com.pat.service.WeatherForecastAggregationService;
@@ -78,6 +80,9 @@ public class ApiController {
 
     @Autowired
     private MeteoFranceTemperatureCachePreferenceService meteoFranceTemperatureCachePreferenceService;
+
+    @Autowired
+    private TraceViewerPreferenceService traceViewerPreferenceService;
 
     @Value("${thunderforest.api.key:}")
     private String thunderforestApiKey;
@@ -736,6 +741,33 @@ public class ApiController {
         }
         try {
             return ResponseEntity.ok(meteoFranceRadarRefreshPreferenceService.saveGlobal(body));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /** Per-user trace viewer switches and basemap (MongoDB appParameters). */
+    @GetMapping(value = "/trace-viewer/preferences", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<TraceViewerPreferenceDto> getTraceViewerPreferences() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(traceViewerPreferenceService.readForSubject(sub));
+    }
+
+    @PutMapping(value = "/trace-viewer/preferences", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<TraceViewerPreferenceDto> setTraceViewerPreferences(
+            @RequestBody TraceViewerPreferenceDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (body == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            return ResponseEntity.ok(traceViewerPreferenceService.saveForSubject(sub, body));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         }
