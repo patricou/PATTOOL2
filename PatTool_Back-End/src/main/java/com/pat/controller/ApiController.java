@@ -15,6 +15,7 @@ import com.pat.service.MeteoFranceRadarRefreshPreferenceService;
 import com.pat.service.MeteoFranceRadarService;
 import com.pat.service.MeteoFranceTemperatureCachePreferenceService;
 import com.pat.service.MeteoSwissForecastService;
+import com.pat.service.MeteoSwissObsService;
 import com.pat.service.TraceViewerPreferenceService;
 import com.pat.service.OpenMeteoService;
 import com.pat.service.OpenWeatherService;
@@ -75,6 +76,9 @@ public class ApiController {
 
     @Autowired
     private MeteoSwissForecastService meteoSwissForecastService;
+
+    @Autowired
+    private MeteoSwissObsService meteoSwissObsService;
 
     @Autowired
     private MeteoFranceRadarRefreshPreferenceService meteoFranceRadarRefreshPreferenceService;
@@ -246,6 +250,38 @@ public class ApiController {
                     }
                 });
         return emitter;
+    }
+
+    /** MeteoSwiss Open Data cache status (forecast + precip map readiness). */
+    @GetMapping(value = "/meteoswiss/status", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getMeteoSwissStatus() {
+        return meteoSwissForecastService.getStatus();
+    }
+
+    /** MeteoSwiss hourly precipitation map animation — frame list and bounds. */
+    @GetMapping(value = "/meteoswiss/precip/capabilities", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getMeteoSwissPrecipMapCapabilities(
+            @RequestParam(value = "horizonHours", required = false) Integer horizonHours) {
+        String jwtSubject = currentJwtSubject();
+        int horizon = horizonHours != null
+                ? MeteoFranceForecastPreferenceService.clampHorizon(horizonHours)
+                : meteoFranceForecastPreferenceService.resolveHorizonHours(jwtSubject);
+        return meteoSwissForecastService.getPrecipMapCapabilities(horizon);
+    }
+
+    /** MeteoSwiss precipitation raster PNG for one forecast hour (epoch seconds UTC). */
+    @GetMapping(value = "/meteoswiss/precip/frame.png", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<byte[]> getMeteoSwissPrecipMapFrame(@RequestParam("dt") Long dt) {
+        if (dt == null || dt <= 0) {
+            return ResponseEntity.badRequest().build();
+        }
+        byte[] png = meteoSwissForecastService.getPrecipMapFramePng(dt);
+        if (png == null || png.length == 0) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok()
+                .cacheControl(org.springframework.http.CacheControl.maxAge(300, java.util.concurrent.TimeUnit.SECONDS))
+                .body(png);
     }
 
     /** Per-user multi-day forecast horizon and step (MongoDB appParameters). */
@@ -597,6 +633,20 @@ public class ApiController {
     }
 
     /**
+     * MeteoSwiss SwissMetNet station temperatures visible on the map (ogd-smn, open data).
+     */
+    @GetMapping(value = "/meteoswiss/obs/temperature-labels", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getMeteoSwissObsTemperatureLabels(
+            @RequestParam("minLat") double minLat,
+            @RequestParam("maxLat") double maxLat,
+            @RequestParam("minLon") double minLon,
+            @RequestParam("maxLon") double maxLon,
+            @RequestParam(value = "maxStations", defaultValue = "24") int maxStations) {
+        return meteoSwissObsService.getTemperatureLabelsInBounds(
+                minLat, maxLat, minLon, maxLon, maxStations);
+    }
+
+    /**
      * Nearest Météo-France DPObs v2 observation station for a map point.
      */
     @GetMapping(value = "/meteofrance/obs/nearest-station", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -687,6 +737,7 @@ public class ApiController {
         status.putAll(meteoFranceClimService.getStatusFragment());
         status.putAll(meteoFranceObsService.getStatusFragment());
         status.putAll(meteoFranceAromepiService.getStatusFragment());
+        status.putAll(meteoSwissObsService.getStatusFragment());
         status.put("openWeatherConfigured", openWeatherService.isApiKeyConfigured());
         return status;
     }

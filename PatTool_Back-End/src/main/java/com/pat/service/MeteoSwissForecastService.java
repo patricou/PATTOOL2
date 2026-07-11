@@ -61,6 +61,7 @@ public class MeteoSwissForecastService {
 
     private volatile List<PointRecord> points = List.of();
     private volatile ForecastCache cache;
+    private volatile PrecipMapCache precipMapCache;
     private volatile String lastError;
     private volatile Instant lastRefreshAttempt;
     private volatile Instant lastSuccessfulRefresh;
@@ -102,11 +103,14 @@ public class MeteoSwissForecastService {
         }
         ForecastCache active = cache;
         if (active == null) {
+            requestCacheRefreshIfIdle();
             if (refreshInProgress.get()) {
                 return error("MeteoSwiss forecast data is loading, please retry in a minute");
             }
-            refreshCacheSafe();
-            return error(lastError != null ? lastError : "MeteoSwiss forecast cache not ready");
+            if (lastError != null && !lastError.isBlank()) {
+                return error(lastError);
+            }
+            return error("MeteoSwiss forecast data is loading, please retry in a minute");
         }
 
         NearestPoint nearest = findNearestPoint(lat, lon);
@@ -141,6 +145,66 @@ public class MeteoSwissForecastService {
         return result;
     }
 
+    public Map<String, Object> getPrecipMapCapabilities(int horizonHours) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("patSource", "meteoswiss");
+        result.put("attribution", "Source: MeteoSwiss");
+        result.put("bounds", precipBounds());
+        result.put("south", CH_MIN_LAT);
+        result.put("north", CH_MAX_LAT);
+        result.put("west", CH_MIN_LON);
+        result.put("east", CH_MAX_LON);
+        if (!enabled) {
+            result.put("error", "MeteoSwiss forecast service is disabled");
+            return result;
+        }
+        PrecipMapCache active = precipMapCache;
+        if (active == null) {
+            requestCacheRefreshIfIdle();
+            if (refreshInProgress.get()) {
+                result.put("error", "MeteoSwiss precipitation map is loading, please retry in a minute");
+                return result;
+            }
+            if (lastError != null && !lastError.isBlank()) {
+                result.put("error", lastError);
+                return result;
+            }
+            result.put("error", "MeteoSwiss precipitation map is loading, please retry in a minute");
+            return result;
+        }
+        int horizon = MeteoFranceForecastPreferenceService.clampHorizon(horizonHours);
+        long now = Instant.now().getEpochSecond();
+        long horizonEnd = now + (long) horizon * 3600L;
+        List<Map<String, Object>> frames = new ArrayList<>();
+        for (long epoch : active.epochs()) {
+            if (epoch < now - 1800 || epoch > horizonEnd) {
+                continue;
+            }
+            Map<String, Object> frame = new LinkedHashMap<>();
+            frame.put("dt", epoch);
+            frame.put("offsetHours", Math.round((epoch - now) / 3600.0 * 10.0) / 10.0);
+            frame.put("maxMm", active.maxMmByEpoch().getOrDefault(epoch, 0.0));
+            frames.add(frame);
+        }
+        result.put("frames", frames);
+        result.put("frameCount", frames.size());
+        result.put("itemId", active.itemId());
+        result.put("loadedAt", active.loadedAt().toString());
+        result.put("stepMinutes", 60);
+        if (frames.isEmpty()) {
+            result.put("error", "No precipitation frames for selected horizon");
+        }
+        return result;
+    }
+
+    public byte[] getPrecipMapFramePng(long epoch) {
+        PrecipMapCache active = precipMapCache;
+        if (active == null) {
+            return null;
+        }
+        return active.pngByEpoch().get(epoch);
+    }
+
     public Map<String, Object> getStatus() {
         Map<String, Object> status = new LinkedHashMap<>();
         status.put("enabled", enabled);
@@ -153,6 +217,9 @@ public class MeteoSwissForecastService {
             status.put("stepCountSample", cache.listByPointId().values().stream()
                     .findFirst().map(List::size).orElse(0));
         }
+        if (precipMapCache != null) {
+            status.put("precipFrameCount", precipMapCache.epochs().size());
+        }
         if (lastSuccessfulRefresh != null) {
             status.put("lastSuccessfulRefresh", lastSuccessfulRefresh.toString());
         }
@@ -163,6 +230,12 @@ public class MeteoSwissForecastService {
             status.put("lastError", lastError);
         }
         return status;
+    }
+
+    private void requestCacheRefreshIfIdle() {
+        if (!refreshInProgress.get()) {
+            CompletableFuture.runAsync(this::refreshCacheSafe);
+        }
     }
 
     private void refreshCacheSafe() {
@@ -178,17 +251,19 @@ public class MeteoSwissForecastService {
                 return;
             }
             String itemId = String.valueOf(item.get("id"));
-            ForecastCache built = buildCacheFromItem(itemId, item);
-            if (built == null) {
+            CacheBuildResult built = buildCacheFromItem(itemId, item);
+            if (built == null || built.forecast() == null) {
                 lastError = "Failed to parse MeteoSwiss forecast files for " + itemId;
                 return;
             }
-            cache = built;
+            cache = built.forecast();
+            precipMapCache = built.precip();
             lastError = null;
             lastSuccessfulRefresh = Instant.now();
-            log.info("MeteoSwiss forecast cache refreshed: item={}, points={}, sampleSteps={}",
-                    itemId, built.listByPointId().size(),
-                    built.listByPointId().values().stream().findFirst().map(List::size).orElse(0));
+            log.info("MeteoSwiss forecast cache refreshed: item={}, points={}, sampleSteps={}, precipFrames={}",
+                    itemId, built.forecast().listByPointId().size(),
+                    built.forecast().listByPointId().values().stream().findFirst().map(List::size).orElse(0),
+                    precipMapCache != null ? precipMapCache.epochs().size() : 0);
         } catch (Exception e) {
             lastError = e.getMessage() != null ? e.getMessage() : "MeteoSwiss refresh failed";
             log.warn("MeteoSwiss forecast refresh failed: {}", e.getMessage());
@@ -270,7 +345,7 @@ public class MeteoSwissForecastService {
     }
 
     @SuppressWarnings("unchecked")
-    private ForecastCache buildCacheFromItem(String itemId, Map<String, Object> item) {
+    private CacheBuildResult buildCacheFromItem(String itemId, Map<String, Object> item) {
         Object assetsObj = item.get("assets");
         if (!(assetsObj instanceof Map<?, ?> assets) || assets.isEmpty()) {
             return null;
@@ -306,7 +381,7 @@ public class MeteoSwissForecastService {
                     steps.add(itemMap);
                 }
             }
-            steps.sort(Comparator.comparingLong(item -> ((Number) item.get("dt")).longValue()));
+            steps.sort(Comparator.comparingLong(step -> ((Number) step.get("dt")).longValue()));
             if (!steps.isEmpty()) {
                 listByPoint.put(pointEntry.getKey(), steps);
             }
@@ -314,7 +389,62 @@ public class MeteoSwissForecastService {
         if (listByPoint.isEmpty()) {
             return null;
         }
-        return new ForecastCache(itemId, Instant.now(), listByPoint);
+        ForecastCache forecast = new ForecastCache(itemId, Instant.now(), listByPoint);
+        PrecipMapCache precip = buildPrecipMapCache(itemId, merged);
+        return new CacheBuildResult(forecast, precip);
+    }
+
+    private PrecipMapCache buildPrecipMapCache(String itemId, Map<Integer, Map<Long, StepBuilder>> merged) {
+        Map<Long, Map<Integer, Double>> precipByEpoch = new LinkedHashMap<>();
+        long nowEpoch = Instant.now().getEpochSecond();
+        for (Map.Entry<Integer, Map<Long, StepBuilder>> pointEntry : merged.entrySet()) {
+            for (Map.Entry<Long, StepBuilder> stepEntry : pointEntry.getValue().entrySet()) {
+                if (stepEntry.getKey() < nowEpoch - 7200) {
+                    continue;
+                }
+                Double mm = stepEntry.getValue().precipMm;
+                if (mm == null || mm < 0) {
+                    continue;
+                }
+                precipByEpoch
+                        .computeIfAbsent(stepEntry.getKey(), k -> new HashMap<>())
+                        .put(pointEntry.getKey(), mm);
+            }
+        }
+        if (precipByEpoch.isEmpty()) {
+            log.warn("MeteoSwiss precip map: no hourly precipitation values in cache");
+            return null;
+        }
+        List<Long> epochs = precipByEpoch.keySet().stream().sorted().toList();
+        Map<Long, byte[]> pngByEpoch = new LinkedHashMap<>();
+        Map<Long, Double> maxMmByEpoch = new LinkedHashMap<>();
+        try {
+            for (long epoch : epochs) {
+                Map<Integer, Double> byPoint = precipByEpoch.get(epoch);
+                double maxMm = byPoint != null
+                        ? byPoint.values().stream()
+                        .filter(v -> v != null && v > 0)
+                        .mapToDouble(Double::doubleValue)
+                        .max()
+                        .orElse(0)
+                        : 0;
+                maxMmByEpoch.put(epoch, maxMm);
+                byte[] png = MeteoSwissPrecipRasterizer.renderFrame(
+                        CH_MIN_LAT, CH_MAX_LAT, CH_MIN_LON, CH_MAX_LON,
+                        points, byPoint);
+                pngByEpoch.put(epoch, png);
+            }
+        } catch (Exception e) {
+            log.warn("MeteoSwiss precip raster failed: {}", e.getMessage());
+            return null;
+        }
+        return new PrecipMapCache(itemId, Instant.now(), epochs, pngByEpoch, maxMmByEpoch);
+    }
+
+    private static List<List<Double>> precipBounds() {
+        return List.of(
+                List.of(CH_MIN_LAT, CH_MIN_LON),
+                List.of(CH_MAX_LAT, CH_MAX_LON));
     }
 
     @SuppressWarnings("unchecked")
@@ -499,7 +629,7 @@ public class MeteoSwissForecastService {
         return err;
     }
 
-    private record PointRecord(int id, double lat, double lon, String name, String postalCode, double heightM) {
+    record PointRecord(int id, double lat, double lon, String name, String postalCode, double heightM) {
         String displayName() {
             if (name != null && postalCode != null) {
                 return name + " (" + postalCode + ")";
@@ -519,7 +649,16 @@ public class MeteoSwissForecastService {
     private record ForecastCache(
             String itemId, Instant loadedAt, Map<Integer, List<Map<String, Object>>> listByPointId) {}
 
-    private static final class StepBuilder {
+    private record CacheBuildResult(ForecastCache forecast, PrecipMapCache precip) {}
+
+    private record PrecipMapCache(
+            String itemId,
+            Instant loadedAt,
+            List<Long> epochs,
+            Map<Long, byte[]> pngByEpoch,
+            Map<Long, Double> maxMmByEpoch) {}
+
+    static final class StepBuilder {
         private Double tempC;
         private Double windSpeedMs;
         private Double windDeg;

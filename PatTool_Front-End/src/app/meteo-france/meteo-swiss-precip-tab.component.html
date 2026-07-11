@@ -1,0 +1,116 @@
+<div class="api-container ms-precip-tab">
+  <div class="mf-section-head">
+    <h3 class="api-title mb-0">
+      <img src="assets/images/meteoswiss-logo.svg" alt="MeteoSwiss" width="20" height="20" class="me-1" />
+      {{ 'METEO_FRANCE.MS_PRECIP_TITLE' | translate }}
+    </h3>
+    <div class="mf-section-head-actions">
+      <button type="button" class="btn btn-sm btn-outline-primary" (click)="refresh()" [disabled]="loading">
+        <i class="fa" [class.fa-refresh]="!loading" [class.fa-spinner]="loading" [class.fa-spin]="loading"></i>
+        {{ 'METEO_FRANCE.REFRESH' | translate }}
+      </button>
+    </div>
+  </div>
+
+  <p class="text-muted small">{{ 'METEO_FRANCE.MS_PRECIP_HINT' | translate }}</p>
+
+  <div class="ms-precip-meta text-muted small mb-2" *ngIf="itemId && !loading">
+    <span *ngIf="loadedAt">{{ 'METEO_FRANCE.MS_PRECIP_UPDATED' | translate }} {{ loadedAt }}</span>
+    <span *ngIf="frames.length"> · {{ frames.length }} {{ 'METEO_FRANCE.MS_PRECIP_FRAMES' | translate }}</span>
+  </div>
+
+  <div class="forecast-tab-loading-panel" *ngIf="loading" role="status" aria-live="polite">
+    <div class="forecast-tab-loading-inner">
+      <i class="fa fa-spinner fa-spin forecast-tab-loading-spinner" aria-hidden="true"></i>
+      <span>{{ 'METEO_FRANCE.MS_PRECIP_LOADING' | translate }}</span>
+    </div>
+  </div>
+
+  <div *ngIf="!loading && errorKey" class="alert alert-warning py-2 mb-2">
+    {{ errorKey | translate }}
+  </div>
+
+  <div *ngIf="!loading && !errorKey && currentFrameDry" class="alert alert-info py-2 mb-2">
+    {{ 'METEO_FRANCE.MS_PRECIP_FRAME_DRY' | translate }}
+  </div>
+
+  <div class="ms-precip-controls mb-2" *ngIf="!loading && frames.length">
+    <label class="forecast-settings-field" for="ms-precip-map-base">
+      <span class="forecast-settings-label">{{ 'METEO_FRANCE.MAP_BASE_LAYER' | translate }}</span>
+      <select id="ms-precip-map-base" class="form-select form-select-sm"
+              [(ngModel)]="mapBaseLayerId" (ngModelChange)="onMapBaseLayerChange()">
+        <option *ngFor="let layer of availableMapBaseLayers" [value]="layer.id">
+          {{ getMapBaseLayerLabel(layer) }}
+        </option>
+      </select>
+    </label>
+
+    <button type="button" class="btn btn-sm btn-outline-secondary"
+            (click)="focusSwitzerland()">
+      <i class="fa fa-crosshairs"></i>
+      {{ 'METEO_FRANCE.MS_PRECIP_CENTER_CH' | translate }}
+    </button>
+
+    <div class="ms-precip-opacity-row">
+      <label for="ms-precip-opacity">{{ 'METEO_FRANCE.MS_PRECIP_OPACITY' | translate }}</label>
+      <input id="ms-precip-opacity" type="range" class="form-range" min="0.2" max="1" step="0.05"
+             [(ngModel)]="opacity" (ngModelChange)="onOpacityChange()" />
+    </div>
+  </div>
+
+  <div class="meteo-france-map-shell ms-precip-map-shell mb-2"
+       #mapShell
+       [class.meteo-france-map-shell--fullscreen]="mapFullscreen">
+    <button type="button"
+            class="btn btn-sm btn-light meteo-france-map-fullscreen-btn shadow-sm"
+            (click)="toggleMapFullscreen()"
+            [attr.title]="(mapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate"
+            [attr.aria-label]="(mapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate">
+      <i class="fa" [class.fa-expand]="!mapFullscreen" [class.fa-compress]="mapFullscreen"></i>
+      <span class="d-none d-md-inline ms-1">
+        {{ (mapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate }}
+      </span>
+    </button>
+    <div id="meteo-swiss-precip-map" class="meteo-france-map ms-precip-map"></div>
+  </div>
+
+  <div class="aromepi-time-controls" *ngIf="!loading && frames.length > 1">
+    <div class="aromepi-time-compact-row">
+      <div class="aromepi-time-actions">
+        <button type="button" class="btn btn-sm btn-outline-primary aromepi-time-btn"
+                (click)="togglePlayback()"
+                [attr.title]="(playing ? 'METEO_FRANCE.AROMEPI_PAUSE' : 'METEO_FRANCE.AROMEPI_PLAY') | translate">
+          <i class="fa" [class.fa-pause]="playing" [class.fa-play]="!playing"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary aromepi-time-btn"
+                (click)="onFrameIndexChange(0)" [disabled]="frameIndex === 0">
+          <i class="fa fa-step-backward"></i>
+        </button>
+      </div>
+      <div class="aromepi-time-meta">
+        <span class="aromepi-time-meta-primary">{{ currentTimeLabel }}</span>
+        <span class="aromepi-time-meta-offset" *ngIf="offsetLabel">{{ offsetLabel }}</span>
+        <span class="aromepi-time-meta-offset" *ngIf="currentMaxMmLabel">{{ currentMaxMmLabel }}</span>
+        <span class="aromepi-time-meta-detail">
+          {{ 'METEO_FRANCE.AROMEPI_TIME_BAND_FRAME' | translate: {
+            current: frameIndex + 1,
+            total: frames.length
+          } }}
+        </span>
+      </div>
+      <div class="aromepi-time-slider-wrap">
+        <input type="range" class="form-range aromepi-time-slider"
+               [min]="0" [max]="frames.length - 1" step="1"
+               [ngModel]="frameIndex" (ngModelChange)="onFrameIndexChange($event)" />
+      </div>
+    </div>
+  </div>
+
+  <div class="ms-precip-legend" *ngIf="!loading && frames.length">
+    <span class="ms-precip-legend-title">{{ 'METEO_FRANCE.MS_PRECIP_LEGEND' | translate }}</span>
+    <span class="ms-precip-legend-item" *ngFor="let stop of legendStops">
+      <span class="ms-precip-legend-swatch" [style.background]="stop.color"></span>
+      {{ stop.label }} mm/h
+    </span>
+  </div>
+</div>

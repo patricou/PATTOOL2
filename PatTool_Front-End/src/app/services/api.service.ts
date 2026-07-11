@@ -269,6 +269,43 @@ export class ApiService {
     );
   }
 
+  /** MeteoSwiss Open Data cache status (forecast + precip map readiness). */
+  getMeteoSwissStatus(): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => this._http.get(this.API_URL + 'external/meteoswiss/status', { headers }))
+    );
+  }
+
+  /** MeteoSwiss precipitation map animation — available hourly frames. */
+  getMeteoSwissPrecipCapabilities(horizonHours?: number): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => {
+        let params = new HttpParams();
+        if (horizonHours != null && !isNaN(horizonHours)) {
+          params = params.set('horizonHours', String(horizonHours));
+        }
+        return this._http.get(this.API_URL + 'external/meteoswiss/precip/capabilities', {
+          headers,
+          params
+        });
+      })
+    );
+  }
+
+  /** MeteoSwiss precipitation raster PNG for one UTC epoch (seconds). */
+  getMeteoSwissPrecipFrame(dt: number): Observable<Blob> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => {
+        const params = new HttpParams().set('dt', String(dt));
+        return this._http.get(this.API_URL + 'external/meteoswiss/precip/frame.png', {
+          headers: headers.set('Accept', 'image/png,image/*,application/octet-stream,*/*'),
+          params,
+          responseType: 'blob'
+        });
+      })
+    );
+  }
+
   /** Aggregated forecast from OWM, Open-Meteo and Météo-France (seamless). */
   getAggregatedForecast(lat: number, lon: number, horizonHours?: number, stepMinutes?: number): Observable<any> {
     return this.getHeaderWithToken().pipe(
@@ -570,6 +607,26 @@ export class ApiService {
       .set('maxStations', String(maxStations));
     return this._http.get<WeatherTemperatureLabelGrid>(
       this.API_URL + 'external/meteofrance/obs/temperature-labels',
+      { params }
+    );
+  }
+
+  /** MeteoSwiss SwissMetNet station temperatures in map bounds (ogd-smn, open data). */
+  getMeteoSwissObsTemperatureLabels(
+    minLat: number,
+    maxLat: number,
+    minLon: number,
+    maxLon: number,
+    maxStations = 24
+  ): Observable<WeatherTemperatureLabelGrid> {
+    const params = new HttpParams()
+      .set('minLat', String(minLat))
+      .set('maxLat', String(maxLat))
+      .set('minLon', String(minLon))
+      .set('maxLon', String(maxLon))
+      .set('maxStations', String(maxStations));
+    return this._http.get<WeatherTemperatureLabelGrid>(
+      this.API_URL + 'external/meteoswiss/obs/temperature-labels',
       { params }
     );
   }

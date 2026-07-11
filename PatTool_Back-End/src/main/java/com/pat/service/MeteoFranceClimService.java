@@ -147,6 +147,13 @@ public class MeteoFranceClimService {
         }
 
         String dept = normalizeDepartment(department);
+        boolean explicitStation = stationId != null && !stationId.isBlank();
+        if (explicitStation) {
+            String deptFromStation = departmentFromStationId(stationId);
+            if (deptFromStation != null) {
+                dept = deptFromStation;
+            }
+        }
         if (dept == null) {
             dept = resolveDepartmentFromCoordinates(lat, lon);
         }
@@ -169,7 +176,6 @@ public class MeteoFranceClimService {
         }
 
         Map<String, Object> selected = null;
-        boolean explicitStation = stationId != null && !stationId.isBlank();
         if (explicitStation) {
             String normalizedId = normalizeStationId(stationId);
             for (Map<String, Object> station : stations) {
@@ -515,6 +521,21 @@ public class MeteoFranceClimService {
             return "2A";
         }
         return pc.substring(0, 2);
+    }
+
+    /** DPClim station ids are zero-padded; the leading digits encode the French department. */
+    static String departmentFromStationId(String stationId) {
+        String normalized = normalizeStationId(stationId);
+        if (normalized == null || normalized.length() < 3) {
+            return null;
+        }
+        if (normalized.startsWith("97") || normalized.startsWith("98")) {
+            return normalized.substring(0, 3);
+        }
+        if (normalized.startsWith("20")) {
+            return "2A";
+        }
+        return normalized.substring(0, 2);
     }
 
     private boolean probeAuth() {
