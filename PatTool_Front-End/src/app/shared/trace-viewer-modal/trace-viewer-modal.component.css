@@ -1660,12 +1660,20 @@
 	line-height: 1.1;
 }
 
+.tv-weather-actions {
+	display: flex;
+	gap: 4px;
+	width: 100%;
+	margin-top: 4px;
+}
+
+.tv-weather-action-btn,
 .tv-weather-timeline-btn {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 100%;
-	margin-top: 4px;
+	flex: 1 1 0;
+	min-width: 0;
 	padding: 3px 6px;
 	border: 1px solid rgba(255, 255, 255, 0.35);
 	border-radius: 6px;
@@ -1674,15 +1682,22 @@
 	font-size: 11px;
 	line-height: 1;
 	cursor: pointer;
+	gap: 4px;
 }
 
+.tv-weather-action-btn:hover,
 .tv-weather-timeline-btn:hover {
 	background: rgba(255, 255, 255, 0.28);
 }
 
+.tv-weather-action-btn:focus-visible,
 .tv-weather-timeline-btn:focus-visible {
 	outline: 1px solid #fff;
 	outline-offset: 1px;
+}
+
+.tv-weather-action-btn--mf img {
+	flex-shrink: 0;
 }
 
 .mf-point-timeline-overlay {

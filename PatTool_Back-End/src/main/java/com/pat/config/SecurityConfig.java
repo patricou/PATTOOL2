@@ -167,6 +167,7 @@ public class SecurityConfig {
                 // ============================================
                 // Health check endpoint (monitoring)
                 .requestMatchers("/actuator/health").permitAll()
+                .requestMatchers("/api/health/**").permitAll()
                 
                 // Root and index files
                 .requestMatchers("/", "/index.html", "/favicon.ico", "/robots.txt").permitAll()
@@ -206,6 +207,7 @@ public class SecurityConfig {
                 // Geo: geocode and altitudes (no sensitive data, allow without login for address/map tools)
                 .requestMatchers(HttpMethod.GET, "/api/external/geocode/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/globe/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/globe/iss/global-prefs").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/globe/iss/trace/background").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/external/globe/iss/trace").permitAll()
                 .requestMatchers(HttpMethod.DELETE, "/api/external/globe/iss/trace").permitAll()
@@ -219,6 +221,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/meteofrance/radar/wms").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/meteofrance/radar/wms/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/meteofrance/radar/mosaic").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/meteofrance/radar/preferences").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/radar/rainviewer/maps").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/radar/rainviewer/tile/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/meteofrance/clim/**").permitAll()

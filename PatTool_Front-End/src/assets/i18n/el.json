@@ -57,7 +57,7 @@
         "LOTTO": "ÎÏÏÎ¿",
         "EUROMILLIONS": "EuroMillions",
         "SOLAR_SYSTEM": "Solar system",
-        "WORLD_GLOBE": "Î¥Î´ÏÏÎ³ÎµÎ¹Î¿Ï ÏÏÎ±Î¯ÏÎ±",
+        "WORLD_GLOBE": "ISS",
         "SKY": "ÎÏÏÎ±Î½ÏÏ",
         "PDF_CONVERTER": "Επεξεργαστής PDF",
         "ODS_EDITOR": "Î¥ÏÎ¿Î»Î¿Î³Î¹ÏÏÎ¹ÎºÏ ÏÏÎ»Î»Î¿ Calc (.ods)",
@@ -225,7 +225,7 @@
         "COMPASS_FACING": "ÎÎ¿Î¹ÏÎ¬ÏÎµ ÏÏÎ¿Ï ÏÎ¿Î½ ISS",
         "COMPASS_TURN_LEFT": "Î£ÏÏÎ¯ÏÏÎµ {{deg}}Â° Î±ÏÎ¹ÏÏÎµÏÎ¬",
         "COMPASS_TURN_RIGHT": "Î£ÏÏÎ¯ÏÏÎµ {{deg}}Â° Î´ÎµÎ¾Î¹Î¬",
-        "TITLE": "Î¥Î´ÏÏÎ³ÎµÎ¹Î¿Ï ÏÏÎ±Î¯ÏÎ±",
+        "TITLE": "ISS",
         "LIGHT_UNIFORM": "Î¦ÏÏÎ¹ÏÎ¼ÏÏ ÏÏÎ±Î¯ÏÎ±Ï",
         "LIGHT_UNIFORM_HINT": "ÎÎ¼Î¿Î¹ÏÎ¼Î¿ÏÏÎ¿Ï ÏÏÏÎ¹ÏÎ¼ÏÏ ÏÎµ Î¿Î»ÏÎºÎ»Î·ÏÎ· ÏÎ· ÏÏÎ±Î¯ÏÎ±.",
         "SUBTITLE": "ÎÎ¹Î±Î´ÏÎ±ÏÏÎ¹ÎºÎ® 3D ÏÎ´ÏÏÎ³ÎµÎ¹Î¿Ï (WebGL). ÎÎ¹ ÎµÎ¹ÎºÏÎ½ÎµÏ Î´Î¹Î­ÏÏÎ¿Î½ÏÎ±Î¹ Î¼Î­ÏÏ ÏÎ¿Ï API PatToolÂ· Î· Î³ÎµÏÎºÏÎ´Î¹ÎºÎ¿ÏÎ¿Î¯Î·ÏÎ· ÏÎ¿ÏÎ¿Î¸ÎµÏÎ¹ÏÎ½ ÏÏÎ·ÏÎ¹Î¼Î¿ÏÎ¿Î¹ÎµÎ¯ ÏÎ¿ Î¯Î´Î¹Î¿ backend Î¼Îµ ÎÎ¹ÎµÏÎ¸ÏÎ½ÏÎ·/GPS.",
@@ -269,6 +269,36 @@
         "ISS_ALERT_TEST_SENT": "Î£ÏÎ¬Î»Î¸Î·ÎºÎµ Î´Î¿ÎºÎ¹Î¼Î±ÏÏÎ¹ÎºÏ email Î³Î¹Î± ÏÎ·Î½ ÎµÏÏÎ¼ÎµÎ½Î· Î´Î¹Î­Î»ÎµÏÏÎ·.",
         "ISS_ALERT_TEST_NO_PASS": "ÎÎµÎ½ ÏÏÎ¬ÏÏÎµÎ¹ ÎµÏÎµÏÏÏÎ¼ÎµÎ½Î· Î¿ÏÎ±ÏÎ® Î´Î¹Î­Î»ÎµÏÏÎ· Î³Î¹Î± Î±ÏÏÏ ÏÎ¿ ÏÎ·Î¼ÎµÎ¯Î¿.",
         "ISS_ALERT_TEST_NO_PLACE": "ÎÏÎ¯ÏÏÎµ ÏÏÏÏÎ± Î­Î½Î± ÏÎ·Î¼ÎµÎ¯Î¿ (ÏÏÎ»Î· Î® ÏÏÏÎ±).",
+
+        "ISS_ALERT_ADMIN_TITLE": "Όλες οι ρυθμισμένες ειδοποιήσεις ISS (διαχειριστής)",
+        "ISS_ALERT_ADMIN_OPEN": "Ρυθμισμένες ειδοποιήσεις ISS",
+        "ISS_ALERT_ADMIN_OPEN_HINT": "Εμφάνιση όλων των ειδοποιήσεων ISS e-mail των χρηστών",
+        "ISS_ALERT_ADMIN_LOADING": "Φόρτωση λίστας…",
+        "ISS_ALERT_ADMIN_EMPTY": "Δεν έχουν ρυθμιστεί ειδοποιήσεις χρηστών.",
+        "ISS_ALERT_ADMIN_COL_USER": "Χρήστης",
+        "ISS_ALERT_ADMIN_COL_OWNER": "Ιδιοκτήτης",
+        "ISS_ALERT_ADMIN_COL_EMAIL": "E-mail",
+        "ISS_ALERT_ADMIN_COL_PLACE": "Τόπος",
+        "ISS_ALERT_ADMIN_COL_ENABLED": "Ενεργό",
+        "ISS_ALERT_ADMIN_COL_DISABLED": "Ανενεργό",
+        "ISS_ALERT_ADMIN_COL_QUALITY": "Ποιότητα",
+        "ISS_ALERT_ADMIN_DELETE": "Διαγραφή αυτής της ειδοποίησης",
+        "ISS_ALERT_ADMIN_DELETE_CONFIRM": "Διαγραφή ειδοποίησης ISS του {{owner}} ({{email}});",
+        "ISS_ALERT_ADMIN_DELETE_ERROR": "Αδυναμία διαγραφής αυτής της ειδοποίησης.",
+        "ISS_ALERT_MANAGE_OPEN": "Η ειδοποίηση ISS μου",
+        "ISS_ALERT_MANAGE_OPEN_HINT": "Προβολή ή διαγραφή της ειδοποίησης ISS e-mail σας",
+        "ISS_ALERT_MANAGE_TITLE": "Η ειδοποίηση ISS μου",
+        "ISS_ALERT_MANAGE_EMPTY": "Δεν έχετε ρυθμίσει ακόμα ειδοποίηση ISS.",
+        "ISS_ALERT_DELETE_CONFIRM": "Διαγραφή της ειδοποίησης ISS σας ({{email}});",
+        "ISS_ALERT_ADMIN_PASSES_BTN": "Επόμενες διελεύσεις ISS",
+        "ISS_ALERT_ADMIN_PASSES_HINT": "Εμφάνιση επερχόμενων ορατών διελεύσεων ISS πάνω από αυτόν τον τόπο",
+        "ISS_ALERT_ADMIN_PASSES_LOADING": "Αναζήτηση διελεύσεων…",
+        "ISS_ALERT_ADMIN_NO_PLACE": "Αυτή η ειδοποίηση δεν έχει γεωκωδικοποιημένη τοποθεσία.",
+
+        "ISS_ALERT_ADMIN_EDIT": "Επεξεργασία αυτής της ειδοποίησης",
+        "ISS_ALERT_ADMIN_EDIT_HINT": "Επεξεργασία αυτής της ειδοποίησης στη φόρμα ρυθμίσεων",
+        "ISS_ALERT_EDITING_BANNER": "Επεξεργασία ειδοποίησης του {{owner}}",
+        "ISS_ALERT_EDIT_CANCEL": "Ακύρωση",
         "OPT_SECTION_VIEW": "Globe view",
         "OPT_SECTION_FLIGHT": "Î Î±ÏÎ±ÎºÎ¿Î»Î¿ÏÎ¸Î·ÏÎ· ÏÏÎ®ÏÎ·Ï",
         "FLIGHT_INTRO": "Î Î±ÏÎ±ÎºÎ¿Î»Î¿ÏÎ¸Î®ÏÏÎµ Î¼Î¹Î± Î¶ÏÎ½ÏÎ±Î½Î® ÏÏÎ®ÏÎ· ÎºÎ±Î¹ ÏÏÎµÎ´Î¹Î¬ÏÏÎµ ÏÎ·Î½ ÏÏÎ¿ÏÎ¹Î¬ ÏÎ·Ï ÏÏÎ¿Î½ ÏÎ´ÏÏÎ³ÎµÎ¹Î¿ (OpenSky Network).",
@@ -1288,6 +1318,8 @@
         "TRACK_BASEMAP": "ÎÎ±ÏÎ¹ÎºÏÏ ÏÎ¬ÏÏÎ·Ï",
         "TRACK_RECENTER": "ÎÏÎ±Î½Î±ÎºÎµÎ½ÏÏÎ¹ÏÎ¼ÏÏ Î´Î¹Î±Î´ÏÎ¿Î¼Î®Ï (R)",
         "TRACK_VIEW_ON_GLOBE": "Globe 3D",
+        "TRACK_OPEN_METEO_FRANCE": "Météo-France",
+        "TRACK_OPEN_METEO_FRANCE_HINT": "Άνοιγμα Météo-France (ραντάρ και θερμοκρασία) σε αυτή τη θέση",
         "TRACK_VIEW_ON_GLOBE_HINT": "ÎÎ½Î¿Î¯Î³ÎµÎ¹ ÏÎ·Î½ ÏÎ´ÏÏÎ³ÎµÎ¹Î¿ ÎºÎµÎ½ÏÏÎ±ÏÎ¹ÏÎ¼Î­Î½Î· ÏÏÎ¿ ÎºÎ­Î½ÏÏÎ¿ ÏÎ¿Ï ÏÎ¬ÏÏÎ·",
         "TRACK_SHARE_LOCATION": "ÎÎ¿Î¹Î½Î¿ÏÎ¿Î¯Î·ÏÎ· Î¤Î¿ÏÎ¿Î¸ÎµÏÎ¯Î±Ï",
         "TRACK_KEEP_SCREEN_AWAKE": "ÎÎ¹Î±ÏÎ®ÏÎ·ÏÎ· Î¿Î¸ÏÎ½Î·Ï ÎµÎ½ÎµÏÎ³Î®Ï",
@@ -1455,6 +1487,11 @@
         "YES": "ÎÎ±Î¹",
         "NO": "ÎÏÎ¹",
         "CLOSE": "ÎÎ»ÎµÎ¯ÏÎ¹Î¼Î¿",
+
+        "MONGODB_DOWN_TITLE": "Το MongoDB δεν είναι διαθέσιμο",
+        "MONGODB_DOWN_MESSAGE": "Η εφαρμογή δεν μπορεί να συνδεθεί στη βάση MongoDB ({{target}}). Οι περισσότερες λειτουργίες δεν θα λειτουργούν μέχρι να ξεκινήσει.",
+        "MONGODB_DOWN_HINT": "Ξεκινήστε το MongoDB σε αυτόν τον κεντρικό υπολογιστή και πατήστε Δοκιμή ξανά.",
+        "MONGODB_DOWN_RETRY": "Δοκιμή ξανά",
         "OPEN": "ÎÎ½Î¿Î¹Î³Î¼Î±",
         "CONFIRM": "ÎÏÎ¹Î²ÎµÎ²Î±Î¯ÏÏÎ·",
         "DOWNLOAD": "ÎÎ®ÏÎ·",

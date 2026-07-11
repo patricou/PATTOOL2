@@ -13,7 +13,8 @@ import java.time.Instant;
 import java.util.Optional;
 
 /**
- * Server-side ISS position sampling for the historical MongoDB trace, independent of connected users.
+ * Server-side ISS position sampling for the historical MongoDB trace.
+ * The {@link #PARAM_BACKGROUND_ENABLED} flag is the master recording toggle (globe client POST and scheduler).
  */
 @Service
 public class IssTraceBackgroundScheduler {
@@ -49,7 +50,7 @@ public class IssTraceBackgroundScheduler {
 
     @PostConstruct
     public void init() {
-        backgroundEnabled = appParameterService.getBoolean(PARAM_BACKGROUND_ENABLED, enabledDefault);
+        backgroundEnabled = appParameterService.getBooleanSafe(PARAM_BACKGROUND_ENABLED, enabledDefault);
         log.info(
                 "ISS trace background scheduler: enabled={}, intervalSec={}",
                 backgroundEnabled,
@@ -76,8 +77,8 @@ public class IssTraceBackgroundScheduler {
         appParameterService.setBoolean(
                 PARAM_BACKGROUND_ENABLED,
                 enabled,
-                "Record ISS position to MongoDB on a fixed interval even when no user has the globe open.");
-        log.info("ISS trace background recording {}", enabled ? "enabled" : "disabled");
+                "Record ISS ground-track samples to MongoDB (globe client while open and server scheduler every interval).");
+        log.info("ISS trace recording {}", enabled ? "enabled" : "disabled");
         if (enabled) {
             sampleIssPositionNow();
         }
@@ -94,6 +95,9 @@ public class IssTraceBackgroundScheduler {
 
     /** Fetches ISS position from the proxied feed and stores one point if the interval elapsed. */
     public boolean sampleIssPositionNow() {
+        if (!backgroundEnabled) {
+            return false;
+        }
         try {
             Optional<double[]> latLon = fetchCurrentIssLatLon();
             if (latLon.isEmpty()) {

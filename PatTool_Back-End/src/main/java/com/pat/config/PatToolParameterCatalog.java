@@ -20,6 +20,7 @@ public final class PatToolParameterCatalog {
     public static final Set<String> MONGO_USER_KEY_PREFIXES = Set.of(
             "assistant.routing.",
             "globe.flight.tracking.",
+            "globe.iss.alert.",
             "globe.iss.compass.calibration.",
             "meteofrance.radar.refresh.",
             "meteofrance.temperature.cache."
@@ -137,6 +138,7 @@ public final class PatToolParameterCatalog {
                     defMongo("globe.iss.trace.display.limit.enabled", false),
                     def("globe.iss.trace.background.enabled-default", false),
                     defMongo("globe.iss.trace.background.enabled", false),
+                    defMongo("globe.iss.global.prefs", false),
                     def("globe.iss.trace.background.interval.seconds", false),
                     def("globe.iss.trace.background.fixed-rate-ms", false),
                     def("globe.iss.alert.lead-minutes", false),
@@ -179,6 +181,7 @@ public final class PatToolParameterCatalog {
                     def("meteofrance.radar.wms.layer", false),
                     def("meteofrance.radar.wms.enabled", false),
                     defMongo("meteofrance.radar.refresh.seconds", false),
+                    defMongo("meteofrance.radar.auto-refresh.enabled", false),
                     defMongo("meteofrance.temperature.cache.minutes", false),
                     def("meteofrance.clim.base.url", false),
                     def("meteofrance.obs.base.url", false),

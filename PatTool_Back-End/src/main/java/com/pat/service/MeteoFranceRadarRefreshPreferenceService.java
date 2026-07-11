@@ -8,18 +8,19 @@ import org.springframework.stereotype.Service;
 import java.util.Optional;
 
 /**
- * Radar auto-refresh interval: per-user MongoDB preference
- * ({@code meteofrance.radar.refresh.<JWT sub>}), optional global Mongo override
- * ({@code meteofrance.radar.refresh.seconds}), then {@code application.properties}.
+ * Radar auto-refresh settings shared by all users: interval
+ * ({@code meteofrance.radar.refresh.seconds}) and enabled switch
+ * ({@code meteofrance.radar.auto-refresh.enabled}), with {@code application.properties} fallback.
  */
 @Service
 public class MeteoFranceRadarRefreshPreferenceService {
 
-    static final String GLOBAL_PARAM_KEY = "meteofrance.radar.refresh.seconds";
-    static final String USER_PARAM_KEY_PREFIX = "meteofrance.radar.refresh.";
+    static final String GLOBAL_SECONDS_KEY = "meteofrance.radar.refresh.seconds";
+    static final String GLOBAL_AUTO_REFRESH_KEY = "meteofrance.radar.auto-refresh.enabled";
 
     private static final int MIN_SECONDS = 30;
     private static final int MAX_SECONDS = 600;
+    private static final boolean DEFAULT_AUTO_REFRESH = true;
 
     private final AppParameterService appParameterService;
     private final int propertiesDefaultSeconds;
@@ -31,45 +32,50 @@ public class MeteoFranceRadarRefreshPreferenceService {
         this.propertiesDefaultSeconds = clamp(propertiesDefaultSeconds);
     }
 
-    public int resolveEffectiveSeconds(String jwtSubject) {
-        if (jwtSubject != null && !jwtSubject.isBlank()) {
-            Optional<Integer> userValue = readUserSeconds(jwtSubject);
-            if (userValue.isPresent()) {
-                return userValue.get();
-            }
-        }
-        Optional<String> globalMongo = appParameterService.find(GLOBAL_PARAM_KEY).map(AppParameter::getParamValue);
+    public int resolveEffectiveSeconds() {
+        Optional<String> globalMongo = appParameterService.find(GLOBAL_SECONDS_KEY).map(AppParameter::getParamValue);
         if (globalMongo.isPresent() && !globalMongo.get().isBlank()) {
             return parseSeconds(globalMongo.get(), propertiesDefaultSeconds);
         }
         return propertiesDefaultSeconds;
     }
 
-    public MeteoFranceRadarPreferenceDto readForSubject(String jwtSubject) {
-        int seconds = resolveEffectiveSeconds(jwtSubject);
-        boolean persisted = jwtSubject != null
-                && !jwtSubject.isBlank()
-                && readUserSeconds(jwtSubject).isPresent();
-        return new MeteoFranceRadarPreferenceDto(seconds, persisted);
+    public boolean resolveAutoRefreshEnabled() {
+        return appParameterService.getBooleanSafe(GLOBAL_AUTO_REFRESH_KEY, DEFAULT_AUTO_REFRESH);
     }
 
-    public MeteoFranceRadarPreferenceDto saveForSubject(String jwtSubject, int radarRefreshSeconds) {
-        if (jwtSubject == null || jwtSubject.isBlank()) {
-            throw new IllegalArgumentException("jwtSubject required");
+    public MeteoFranceRadarPreferenceDto readGlobal() {
+        int seconds = resolveEffectiveSeconds();
+        boolean autoRefresh = resolveAutoRefreshEnabled();
+        boolean persisted = isPersistedInMongo();
+        return new MeteoFranceRadarPreferenceDto(seconds, autoRefresh, persisted);
+    }
+
+    public MeteoFranceRadarPreferenceDto saveGlobal(MeteoFranceRadarPreferenceDto patch) {
+        if (patch == null) {
+            throw new IllegalArgumentException("patch required");
         }
-        int clamped = clamp(radarRefreshSeconds);
+        MeteoFranceRadarPreferenceDto current = readGlobal();
+        int seconds = patch.radarRefreshSeconds() != null
+                ? clamp(patch.radarRefreshSeconds())
+                : current.radarRefreshSeconds();
+        boolean autoRefresh = patch.autoRefreshEnabled() != null
+                ? patch.autoRefreshEnabled()
+                : current.autoRefreshEnabled();
         appParameterService.setLong(
-                USER_PARAM_KEY_PREFIX + jwtSubject,
-                clamped,
-                "Météo France: radar auto-refresh interval (seconds) for user.");
-        return new MeteoFranceRadarPreferenceDto(clamped, true);
+                GLOBAL_SECONDS_KEY,
+                seconds,
+                "Météo France: radar auto-refresh interval (seconds), shared by all users.");
+        appParameterService.setBoolean(
+                GLOBAL_AUTO_REFRESH_KEY,
+                autoRefresh,
+                "Météo France: radar auto-refresh enabled switch, shared by all users.");
+        return new MeteoFranceRadarPreferenceDto(seconds, autoRefresh, true);
     }
 
-    private Optional<Integer> readUserSeconds(String jwtSubject) {
-        return appParameterService.find(USER_PARAM_KEY_PREFIX + jwtSubject)
-                .map(AppParameter::getParamValue)
-                .filter(v -> v != null && !v.isBlank())
-                .map(v -> parseSeconds(v, propertiesDefaultSeconds));
+    private boolean isPersistedInMongo() {
+        return appParameterService.find(GLOBAL_SECONDS_KEY).isPresent()
+                || appParameterService.find(GLOBAL_AUTO_REFRESH_KEY).isPresent();
     }
 
     private static int parseSeconds(String raw, int fallback) {

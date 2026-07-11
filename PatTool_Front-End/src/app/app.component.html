@@ -116,7 +116,8 @@
                         <a class="dropdown-item"
                            [routerLink]="item.routerLink"
                            (click)="closeMenu()">
-                            <i [class]="item.icon"></i> {{ item.labelKey | translate }}
+                            <img *ngIf="item.logoSrc" [src]="item.logoSrc" alt="" class="nav-menu-logo" width="16" height="16" />
+                            <i *ngIf="!item.logoSrc" [class]="item.icon"></i> {{ item.labelKey | translate }}
                         </a>
                     </li>
                 </ul>
@@ -373,6 +374,34 @@
      [class.pat-div--with-stock-ticker]="stockTickerEnabled"></div>
 <router-outlet></router-outlet>
 <app-assistant-drawer></app-assistant-drawer>
+
+<div
+  class="pat-mongodb-alert-overlay"
+  *ngIf="mongodbDownModalOpen"
+  role="alertdialog"
+  aria-modal="true"
+  [attr.aria-label]="'COMMUN.MONGODB_DOWN_TITLE' | translate">
+  <div class="pat-mongodb-alert-card" (click)="$event.stopPropagation()">
+    <div class="pat-mongodb-alert-icon" aria-hidden="true">
+      <i class="fa fa-database"></i>
+    </div>
+    <h2 class="pat-mongodb-alert-title">{{ 'COMMUN.MONGODB_DOWN_TITLE' | translate }}</h2>
+    <p class="pat-mongodb-alert-message mb-2">
+      {{ 'COMMUN.MONGODB_DOWN_MESSAGE' | translate : { target: mongodbDownTargetLabel() } }}
+    </p>
+    <p class="pat-mongodb-alert-hint text-muted small mb-0">
+      {{ 'COMMUN.MONGODB_DOWN_HINT' | translate }}
+    </p>
+    <div class="pat-mongodb-alert-actions">
+      <button type="button" class="btn btn-primary btn-sm" (click)="retryMongoDbHealthCheck()">
+        <i class="fa fa-refresh me-1" aria-hidden="true"></i>{{ 'COMMUN.MONGODB_DOWN_RETRY' | translate }}
+      </button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="dismissMongoDbDownModal()">
+        {{ 'COMMUN.CLOSE' | translate }}
+      </button>
+    </div>
+  </div>
+</div>
 
 <!-- Modal window for user information -->
 <ng-template #usercontent let-c="close" let-d="dismiss">

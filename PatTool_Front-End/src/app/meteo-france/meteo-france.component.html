@@ -226,6 +226,113 @@
             </button>
             <div id="meteo-france-map" class="meteo-france-map"></div>
 
+            <div class="mf-selected-point-weather-overlay"
+                 *ngIf="showSelectedPointWeatherOverlay">
+              <div class="weather-box tv-weather-compare">
+                <button type="button"
+                        class="tv-weather-close"
+                        (click)="dismissSelectedPointWeatherOverlay(); $event.stopPropagation()"
+                        [attr.title]="'COMMUN.CLOSE' | translate"
+                        [attr.aria-label]="'COMMUN.CLOSE' | translate">
+                  <i class="fa fa-times" aria-hidden="true"></i>
+                </button>
+
+                <span class="tv-weather-location" *ngIf="selectedPointWeatherLocationLabel">
+                  {{ selectedPointWeatherLocationLabel }}
+                </span>
+
+                <div class="tv-weather-rows" *ngIf="!selectedPointComparisonLoading">
+                  <div class="tv-weather-mf-block"
+                       *ngIf="pointTimelineMfTempC != null && isFranceLocation">
+                    <div class="tv-weather-source-row"
+                         [attr.title]="getBrandAlt('meteofrance') + (pointTempTimelineStationName ? ' · ' + pointTempTimelineStationName : '')">
+                      <img class="tv-weather-source-logo tv-weather-source-logo--mf"
+                           [src]="getBrandLogoSrc('meteofrance')"
+                           [alt]="getBrandAlt('meteofrance')"
+                           width="14"
+                           height="14"
+                           loading="lazy">
+                      <span class="tv-weather-source-code">MF</span>
+                      <span class="tv-weather-source-values">
+                        <span class="tv-weather-temp">{{ formatTemperatureLabel(pointTimelineMfTempC!) }}</span>
+                        <span class="tv-weather-time"
+                              *ngIf="formatSelectedPointObservedTime(pointTimelineMfObservedAt) as mfTime">
+                          {{ mfTime }}
+                        </span>
+                      </span>
+                    </div>
+                    <span class="tv-weather-station" *ngIf="selectedPointMfStationLine">{{ selectedPointMfStationLine }}</span>
+                  </div>
+
+                  <div class="tv-weather-source-row"
+                       *ngIf="pointTimelineOpenMeteoTempC != null"
+                       [attr.title]="getBrandAlt('open-meteo')">
+                    <img class="tv-weather-source-logo"
+                         [src]="getBrandLogoSrc('open-meteo')"
+                         [alt]="getBrandAlt('open-meteo')"
+                         width="14"
+                         height="14"
+                         loading="lazy">
+                    <span class="tv-weather-source-code">OM</span>
+                    <span class="tv-weather-source-values">
+                      <span class="tv-weather-temp">{{ formatTemperatureLabel(pointTimelineOpenMeteoTempC!) }}</span>
+                      <span class="tv-weather-time"
+                            *ngIf="formatSelectedPointObservedTime(pointTimelineOpenMeteoObservedAt) as omTime">
+                        {{ omTime }}
+                      </span>
+                    </span>
+                  </div>
+
+                  <div class="tv-weather-source-row"
+                       *ngIf="selectedPointFallbackSourceRow as fallback"
+                       [attr.title]="getBrandAlt(fallback.brand)">
+                    <img class="tv-weather-source-logo"
+                         [src]="getBrandLogoSrc(fallback.brand)"
+                         [alt]="getBrandAlt(fallback.brand)"
+                         width="14"
+                         height="14"
+                         loading="lazy">
+                    <span class="tv-weather-source-code">{{ getBrandInitials(fallback.brand) }}</span>
+                    <span class="tv-weather-source-values">
+                      <span class="tv-weather-temp">{{ formatTemperatureLabel(fallback.tempC) }}</span>
+                    </span>
+                  </div>
+
+                  <div class="tv-weather-source-row"
+                       *ngIf="pointTimelineOpenWeatherTempC != null"
+                       [attr.title]="getBrandAlt('openweathermap')">
+                    <img class="tv-weather-source-logo"
+                         [src]="getBrandLogoSrc('openweathermap')"
+                         [alt]="getBrandAlt('openweathermap')"
+                         width="14"
+                         height="14"
+                         loading="lazy">
+                    <span class="tv-weather-source-code">OWM</span>
+                    <span class="tv-weather-source-values">
+                      <span class="tv-weather-temp">{{ formatTemperatureLabel(pointTimelineOpenWeatherTempC!) }}</span>
+                      <span class="tv-weather-time"
+                            *ngIf="formatSelectedPointObservedTime(pointTimelineOpenWeatherObservedAt) as owmTime">
+                        {{ owmTime }}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+
+                <div class="weather-loading" *ngIf="selectedPointComparisonLoading">
+                  <i class="fa fa-spinner fa-spin"></i> {{ 'METEO_FRANCE.LOADING' | translate }}
+                </div>
+
+                <button type="button"
+                        class="tv-weather-action-btn mf-selected-point-timeline-btn"
+                        *ngIf="canShowSelectedPointTimelineButton && !selectedPointComparisonLoading && hasSelectedPointWeatherData"
+                        (click)="openPointTempTimeline(); $event.stopPropagation()"
+                        [attr.title]="'METEO_FRANCE.POINT_TIMELINE_BTN' | translate"
+                        [attr.aria-label]="'METEO_FRANCE.POINT_TIMELINE_BTN' | translate">
+                  <i class="fa fa-area-chart" aria-hidden="true"></i>
+                </button>
+              </div>
+            </div>
+
           </div>
 
 
@@ -366,8 +473,12 @@
                   <div class="form-check form-switch mf-compact-switch">
                     <input class="form-check-input" type="checkbox" role="switch" id="mf-auto-refresh-radar"
                            [(ngModel)]="autoRefreshRadar" (ngModelChange)="onAutoRefreshRadarChange()">
-                    <label class="form-check-label" for="mf-auto-refresh-radar">
-                      {{ 'METEO_FRANCE.AUTO_REFRESH' | translate }}
+                    <label class="form-check-label" for="mf-auto-refresh-radar"
+                           [title]="'METEO_FRANCE.AUTO_REFRESH' | translate">
+                      {{ 'METEO_FRANCE.AUTO_REFRESH_SHORT' | translate }}
+                      <span *ngIf="autoRefreshRadar && radarRefreshCountdown > 0" class="mf-radar-countdown">
+                        ({{ radarRefreshCountdown }} s)
+                      </span>
                     </label>
                   </div>
                 </div>
@@ -946,7 +1057,7 @@
               <span *ngSwitchCase="'ok'">
                 <strong>{{ aromepiNearestStation?.name || aromepiNearestStation?.id }}</strong>
                 <span *ngIf="aromepiNearestStation?.distanceKm != null">
-                  — {{ aromepiNearestStation?.distanceKm }} km
+                  — {{ 'METEO_FRANCE.AROMEPI_STATION_DISTANCE' | translate: { km: aromepiNearestStation?.distanceKm } }}
                 </span>
               </span>
               <span *ngSwitchCase="'outside-france'">{{ 'METEO_FRANCE.AROMEPI_STATION_OUTSIDE_FRANCE' | translate }}</span>
@@ -957,39 +1068,47 @@
             {{ 'METEO_FRANCE.AROMEPI_STATION_HINT' | translate }}
           </p>
 
-          <div *ngIf="aromepiAvailable && !isLoadingAromepiCapabilities">
+          <div *ngIf="aromepiAvailable">
 
-            <div class="aromepi-controls mb-2" *ngIf="aromepiLayers.length">
-              <label class="form-label small mb-1">{{ 'METEO_FRANCE.AROMEPI_LAYER' | translate }}</label>
-              <select class="form-select form-select-sm aromepi-layer-select"
-                      [ngModel]="aromepiSelectedLayer"
-                      (ngModelChange)="onAromepiLayerChange($event)">
-                <optgroup *ngIf="aromepiCloudLayers.length" [label]="'METEO_FRANCE.AROMEPI_CAT_CLOUD' | translate">
-                  <option *ngFor="let layer of aromepiCloudLayers" [value]="layer.name">
-                    {{ aromepiLayerLabel(layer) }}
-                  </option>
-                </optgroup>
-                <optgroup *ngIf="aromepiPrecipLayers.length" [label]="'METEO_FRANCE.AROMEPI_CAT_PRECIPITATION' | translate">
-                  <option *ngFor="let layer of aromepiPrecipLayers" [value]="layer.name">
-                    {{ aromepiLayerLabel(layer) }}
-                  </option>
-                </optgroup>
-                <optgroup *ngIf="aromepiOtherLayers.length" [label]="'METEO_FRANCE.AROMEPI_CAT_OTHER' | translate">
-                  <option *ngFor="let layer of aromepiOtherLayers" [value]="layer.name">
-                    {{ aromepiLayerLabel(layer) }}
-                  </option>
-                </optgroup>
-              </select>
+            <div *ngIf="!isLoadingAromepiCapabilities">
+              <div class="aromepi-controls mb-2" *ngIf="aromepiLayers.length">
+                <label class="form-label small mb-1">{{ 'METEO_FRANCE.AROMEPI_LAYER' | translate }}</label>
+                <select class="form-select form-select-sm aromepi-layer-select"
+                        [ngModel]="aromepiSelectedLayer"
+                        (ngModelChange)="onAromepiLayerChange($event)">
+                  <optgroup *ngIf="aromepiCloudLayers.length" [label]="'METEO_FRANCE.AROMEPI_CAT_CLOUD' | translate">
+                    <option *ngFor="let layer of aromepiCloudLayers" [value]="layer.name">
+                      {{ aromepiLayerLabel(layer) }}
+                    </option>
+                  </optgroup>
+                  <optgroup *ngIf="aromepiPrecipLayers.length" [label]="'METEO_FRANCE.AROMEPI_CAT_PRECIPITATION' | translate">
+                    <option *ngFor="let layer of aromepiPrecipLayers" [value]="layer.name">
+                      {{ aromepiLayerLabel(layer) }}
+                    </option>
+                  </optgroup>
+                  <optgroup *ngIf="aromepiOtherLayers.length" [label]="'METEO_FRANCE.AROMEPI_CAT_OTHER' | translate">
+                    <option *ngFor="let layer of aromepiOtherLayers" [value]="layer.name">
+                      {{ aromepiLayerLabel(layer) }}
+                    </option>
+                  </optgroup>
+                </select>
 
-              <div class="aromepi-opacity-row mt-2">
-                <label class="form-label small mb-0">{{ 'METEO_FRANCE.RADAR_OPACITY' | translate }}</label>
-                <input type="range" class="form-range" min="0.1" max="1" step="0.05"
-                       [(ngModel)]="aromepiOpacity" (ngModelChange)="onAromepiOpacityChange()" />
+                <div class="aromepi-opacity-row mt-2">
+                  <label class="form-label small mb-0">{{ 'METEO_FRANCE.RADAR_OPACITY' | translate }}</label>
+                  <input type="range" class="form-range" min="0.1" max="1" step="0.05"
+                         [(ngModel)]="aromepiOpacity" (ngModelChange)="onAromepiOpacityChange()" />
+                </div>
               </div>
             </div>
 
             <div class="meteo-france-map-shell aromepi-map-shell" #aromepiMapShell
                  [class.meteo-france-map-shell--fullscreen]="aromepiMapFullscreen">
+              <div class="aromepi-map-loading-overlay"
+                   *ngIf="isLoadingAromepiCapabilities || !isAromepiMapReady"
+                   role="status" aria-live="polite">
+                <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+                <span>{{ 'METEO_FRANCE.AROMEPI_LOADING' | translate }}</span>
+              </div>
               <ng-container *ngTemplateOutlet="centerOnUserPositionButton; context: { variant: 'map' }"></ng-container>
               <button type="button"
                       class="btn btn-sm btn-light meteo-france-map-fullscreen-btn shadow-sm"
@@ -999,7 +1118,7 @@
               </button>
               <div id="meteo-france-aromepi-map" class="meteo-france-map aromepi-map"></div>
 
-              <div class="aromepi-time-controls" *ngIf="aromepiEffectiveTimeSteps.length">
+              <div class="aromepi-time-controls" *ngIf="!isLoadingAromepiCapabilities && aromepiEffectiveTimeSteps.length">
                 <div class="aromepi-time-compact-row">
                   <div class="aromepi-time-actions">
                     <button type="button" class="btn btn-sm btn-outline-primary aromepi-time-btn"
@@ -1020,7 +1139,7 @@
                   <div class="aromepi-time-meta">
                     <span class="aromepi-time-meta-primary">
                       {{ formatAromepiTime(aromepiCurrentTime) }}
-                      <span class="aromepi-time-meta-offset">(+{{ aromepiCurrentOffsetMinutes }} min)</span>
+                      <span class="aromepi-time-meta-offset">{{ formatAromepiOffsetMinutes(aromepiCurrentOffsetMinutes, true) }}</span>
                     </span>
                     <span class="aromepi-time-meta-detail">
                       {{ 'METEO_FRANCE.AROMEPI_TIME_BAND_FRAME' | translate: {
@@ -1044,14 +1163,15 @@
                            [ngModel]="aromepiFrameIndex"
                            (ngModelChange)="onAromepiFrameIndexChange($event)" />
                     <div class="aromepi-time-range">
-                      <span>+{{ aromepiMinOffsetMinutes }} min</span>
-                      <span>+{{ aromepiMaxOffsetMinutes }} min</span>
+                      <span>{{ formatAromepiOffsetMinutes(aromepiMinOffsetMinutes) }}</span>
+                      <span>{{ formatAromepiOffsetMinutes(aromepiMaxOffsetMinutes) }}</span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
+            <div *ngIf="!isLoadingAromepiCapabilities">
             <div class="alert alert-danger mt-2" *ngIf="aromepiLoadError" role="alert">
               {{ 'METEO_FRANCE.AROMEPI_LAYER_ERROR' | translate }}
             </div>
@@ -1097,7 +1217,7 @@
                   </thead>
                   <tbody>
                     <tr *ngFor="let step of aromepiForecastSteps">
-                      <td>+{{ step.offsetMinutes }} min</td>
+                      <td>{{ formatAromepiOffsetMinutes(step.offsetMinutes) }}</td>
                       <td>{{ formatAromepiTime(step.time) }}</td>
                       <td *ngFor="let layer of aromepiPointForecast?.layers">
                         {{ formatAromepiPointValue(layer, step.values?.[layer]) }}
@@ -1108,10 +1228,12 @@
               </div>
             </div>
 
-          </div>
+            </div>
 
-          <div class="alert alert-warning mt-2" *ngIf="aromepiErrorKey && !isLoadingAromepiCapabilities" role="alert">
-            {{ aromepiErrorKey | translate }}
+            <div class="alert alert-warning mt-2" *ngIf="aromepiErrorKey && !isLoadingAromepiCapabilities" role="alert">
+              {{ aromepiErrorKey | translate }}
+            </div>
+
           </div>
 
         </div>

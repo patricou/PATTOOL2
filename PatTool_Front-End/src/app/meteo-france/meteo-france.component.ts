@@ -1,4 +1,5 @@
 import { Component, ChangeDetectorRef, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { ActivatedRoute, ParamMap } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -165,7 +166,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     private translate: TranslateService,
     private basemapService: LeafletBasemapService,
     private cdr: ChangeDetectorRef,
-    private chartFullscreen: MeteoChartFullscreenService
+    private chartFullscreen: MeteoChartFullscreenService,
+    private route: ActivatedRoute
   ) {}
 
 
@@ -263,6 +265,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   temperatureUnit: TemperatureUnit = 'celsius';
   mapFullscreen = false;
   autoRefreshRadar = true;
+  radarRefreshCountdown = 0;
   activeMainTab: MeteoFranceMainTab = 'radar';
   radarRefreshSeconds = 60;
   readonly radarRefreshMinSeconds = 30;
@@ -344,7 +347,6 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private rainViewerLayer: L.TileLayer | null = null;
   private rainViewerCloudLayer: L.TileLayer | null = null;
   private temperatureLabelsLayer: L.LayerGroup | null = null;
-  private selectedTempLabelMarker: L.Marker | null = null;
   private selectedTempLabelDismissed = false;
   private selectedPointTempC: number | null = null;
   private selectedPointMfTempC: number | null = null;
@@ -359,7 +361,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private selectedPointOpenWeatherPlace: string | null = null;
   private selectedPointOpenWeatherDistKm: number | null = null;
   private selectedPointComparisonReady = false;
-  private selectedPointComparisonLoading = false;
+  selectedPointComparisonLoading = false;
   private selectedLocationName = '';
   private reverseGeocodeRequestId = 0;
   private locationGeocodeKey = '';
@@ -395,6 +397,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private aromepiWmsCrossfadeFallbackTimer: ReturnType<typeof setTimeout> | null = null;
   private forecastMapInitRetryTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly forecastMapLayoutTimers = new Set<ReturnType<typeof setTimeout>>();
+  private aromepiMapInitRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly aromepiMapLayoutTimers = new Set<ReturnType<typeof setTimeout>>();
   private initMapTimer: ReturnType<typeof setTimeout> | null = null;
   private componentDestroyed = false;
   private static readonly AROMEPI_WMS_CROSSFADE_MS = 320;
@@ -405,6 +409,13 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   /** AROME-PI WMS native resolution (independent of multi-day forecast options). */
   private static readonly AROMEPI_FORECAST_HORIZON_MINUTES = 360;
   private static readonly AROMEPI_FORECAST_STEP_MINUTES = 15;
+  /** Zoom from router deep link (trace viewer, etc.) applied on next radar map focus. */
+  private pendingRadarMapZoom: number | null = null;
+  /** Shared center/zoom kept in sync across radar, AROME-PI and forecast-options maps. */
+  private sharedMapCenterLat: number | null = null;
+  private sharedMapCenterLon: number | null = null;
+  private sharedMapZoom: number | null = null;
+  private syncingMapView = false;
 
   ngOnInit(): void {
     this.loadTemperatureUnitPreference();
@@ -419,22 +430,104 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.loadTemperatureCachePreferences();
     this.mapBaseLayerId = this.readMapBaseLayerPreference();
     this.basemapService.loadOptionalLayers(this.apiService);
+
+    const hadDeepLink = this.applyNavigationQueryParams(this.route.snapshot.queryParamMap);
+    this.subs.add(
+      this.route.queryParamMap.subscribe((params) => {
+        if (!this.applyNavigationQueryParams(params)) {
+          return;
+        }
+        if (this.mapInitialized) {
+          this.onMainTabChange('radar');
+        }
+      })
+    );
+    this.subs.add(
+      this.translate.onLangChange.subscribe(() => {
+        if (this.aromepiForecastSteps.length) {
+          this.updateAromepiForecastCharts();
+        }
+        this.cdr.markForCheck();
+      })
+    );
+
+    if (hadDeepLink) {
+      this.bootstrapMeteoFranceLocation();
+      return;
+    }
+
     this.isLoadingGps = true;
     this.getUserLocation().then((location) => {
       this.setLocation(location.lat, location.lng, false);
     }).finally(() => {
-      if (!Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
-        this.setLocation(48.8566, 2.3522, false);
-      }
-      this.syncWeatherSourcePreferences();
-      this.syncMapLayerSourcePreferences();
-      this.loadRadarPreferences();
-      this.loadForecastPreferences();
-    this.loadMultiDayForecastDisplayParams();
-      this.refreshMfTemperatureAvailability();
-      this.isLoadingGps = false;
-      this.initMapTimer = this.scheduleComponentTimeout(() => this.initMap(), 0);
+      this.bootstrapMeteoFranceLocation();
     });
+  }
+
+  private bootstrapMeteoFranceLocation(): void {
+    if (!Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
+      this.setLocation(48.8566, 2.3522, false);
+    }
+    this.syncWeatherSourcePreferences();
+    this.syncMapLayerSourcePreferences();
+    this.loadRadarPreferences();
+    this.loadForecastPreferences();
+    this.loadMultiDayForecastDisplayParams();
+    this.refreshMfTemperatureAvailability();
+    this.isLoadingGps = false;
+    this.initMapTimer = this.scheduleComponentTimeout(() => this.initMap(), 0);
+    if (this.activeMainTab === 'aromepi') {
+      this.scheduleAromepiMapInit(() => {
+        if (this.aromepiAvailable) {
+          this.ensureAromepiCapabilitiesLoaded();
+        }
+      });
+    }
+  }
+
+  /** Deep link: ?lat=&lon=&z=&tab=radar&temp=1&radar=1 (from trace viewer, etc.). */
+  private applyNavigationQueryParams(params: ParamMap): boolean {
+    const latStr = params.get('lat');
+    const lonStr = params.get('lon') ?? params.get('lng');
+    if (!latStr || !lonStr) {
+      return false;
+    }
+    const lat = parseFloat(latStr);
+    const lon = parseFloat(lonStr);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+      return false;
+    }
+
+    const zStr = params.get('z') ?? params.get('zoom');
+    if (zStr != null && zStr !== '') {
+      const z = parseFloat(zStr);
+      if (Number.isFinite(z) && z >= 2 && z <= 18) {
+        this.pendingRadarMapZoom = z;
+        this.sharedMapZoom = z;
+      }
+    }
+
+    const tab = params.get('tab');
+    if (tab === 'radar' || tab === 'clim' || tab === 'aromepi' || tab === 'forecast-owm'
+      || tab === 'forecast-om' || tab === 'forecast-aggregate' || tab === 'forecast-options') {
+      this.activeMainTab = tab;
+    } else if (params.get('temp') === '1' || params.get('radar') === '1') {
+      this.activeMainTab = 'radar';
+    }
+
+    if (params.get('radar') === '1') {
+      this.showRadar = true;
+    } else if (params.get('radar') === '0') {
+      this.showRadar = false;
+    }
+    if (params.get('temp') === '1') {
+      this.showTemperatureMap = true;
+    } else if (params.get('temp') === '0') {
+      this.showTemperatureMap = false;
+    }
+
+    this.setLocation(lat, lon, this.mapInitialized);
+    return true;
   }
 
   private migrateLegacyCurrentWeatherSourceStorage(): void {
@@ -474,6 +567,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.clearAromepiPrefetchLayers();
     this.clearAromepiWmsCrossfadeFallbackTimer();
     this.clearForecastMapTimers();
+    this.clearAromepiMapTimers();
     if (this.initMapTimer) {
       clearTimeout(this.initMapTimer);
       this.initMapTimer = null;
@@ -565,6 +659,28 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       clearTimeout(timer);
     }
     this.forecastMapLayoutTimers.clear();
+  }
+
+  private scheduleAromepiMapLayoutRefresh(delayMs: number): void {
+    const timer = setTimeout(() => {
+      this.aromepiMapLayoutTimers.delete(timer);
+      if (this.componentDestroyed) {
+        return;
+      }
+      this.refreshAromepiMapLayout();
+    }, delayMs);
+    this.aromepiMapLayoutTimers.add(timer);
+  }
+
+  private clearAromepiMapTimers(): void {
+    if (this.aromepiMapInitRetryTimer) {
+      clearTimeout(this.aromepiMapInitRetryTimer);
+      this.aromepiMapInitRetryTimer = null;
+    }
+    for (const timer of this.aromepiMapLayoutTimers) {
+      clearTimeout(timer);
+    }
+    this.aromepiMapLayoutTimers.clear();
   }
 
   private detachMapContainerListeners(): void {
@@ -1009,6 +1125,10 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     return this.mfStatus?.aromepiAuthValid === true;
   }
 
+  get isAromepiMapReady(): boolean {
+    return this.aromepiMapInitialized && this.aromepiMap != null;
+  }
+
   get aromepiStatusMessageKey(): string {
     if (!this.mfStatus) {
       return '';
@@ -1369,13 +1489,129 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     });
   }
 
+  private ensureSharedMapViewDefaults(): void {
+    if (this.sharedMapCenterLat == null || this.sharedMapCenterLon == null) {
+      this.sharedMapCenterLat = this.lat;
+      this.sharedMapCenterLon = this.lon;
+    }
+    if (this.sharedMapZoom == null) {
+      this.sharedMapZoom = this.pendingRadarMapZoom ?? MeteoFranceComponent.RADAR_MAP_ZOOM;
+    }
+  }
+
+  private captureSharedMapViewFrom(source: L.Map): void {
+    const center = source.getCenter();
+    this.sharedMapCenterLat = center.lat;
+    this.sharedMapCenterLon = center.lng;
+    this.sharedMapZoom = source.getZoom();
+  }
+
+  private clampZoomForMap(map: L.Map, zoom: number): number {
+    return Math.min(Math.max(zoom, map.getMinZoom()), map.getMaxZoom());
+  }
+
+  private applySharedMapViewTo(map: L.Map | null): void {
+    if (!map) {
+      return;
+    }
+    this.ensureSharedMapViewDefaults();
+    const zoom = this.clampZoomForMap(map, this.sharedMapZoom!);
+    map.setView([this.sharedMapCenterLat!, this.sharedMapCenterLon!], zoom, { animate: false });
+  }
+
+  private applySharedMapViewToAllMaps(): void {
+    this.ensureSharedMapViewDefaults();
+    this.syncingMapView = true;
+    try {
+      this.applySharedMapViewTo(this.map);
+      this.applySharedMapViewTo(this.aromepiMap);
+      this.applySharedMapViewTo(this.forecastMap);
+    } finally {
+      this.syncingMapView = false;
+    }
+  }
+
+  private centerSharedMapOnLocation(options?: { minZoom?: number }): void {
+    if (!Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
+      return;
+    }
+    this.sharedMapCenterLat = this.lat;
+    this.sharedMapCenterLon = this.lon;
+    if (this.pendingRadarMapZoom != null) {
+      this.sharedMapZoom = this.pendingRadarMapZoom;
+      this.pendingRadarMapZoom = null;
+    } else {
+      let zoom = this.sharedMapZoom ?? MeteoFranceComponent.RADAR_MAP_ZOOM;
+      if (options?.minZoom != null) {
+        zoom = Math.max(zoom, options.minZoom);
+      }
+      this.sharedMapZoom = zoom;
+    }
+    this.applySharedMapViewToAllMaps();
+  }
+
+  private syncMapViewFromSource(source: 'radar' | 'aromepi' | 'forecast'): void {
+    if (this.syncingMapView) {
+      return;
+    }
+    const sourceMap = source === 'radar'
+      ? this.map
+      : source === 'aromepi'
+        ? this.aromepiMap
+        : this.forecastMap;
+    if (!sourceMap) {
+      return;
+    }
+    this.syncingMapView = true;
+    try {
+      this.captureSharedMapViewFrom(sourceMap);
+      if (source !== 'radar') {
+        this.applySharedMapViewTo(this.map);
+      }
+      if (source !== 'aromepi') {
+        this.applySharedMapViewTo(this.aromepiMap);
+      }
+      if (source !== 'forecast') {
+        this.applySharedMapViewTo(this.forecastMap);
+      }
+    } finally {
+      this.syncingMapView = false;
+    }
+  }
+
+  private readonly onRadarMapViewChange = (): void => {
+    this.syncMapViewFromSource('radar');
+  };
+
+  private readonly onAromepiMapViewChange = (): void => {
+    this.syncMapViewFromSource('aromepi');
+  };
+
+  private readonly onForecastMapViewChange = (): void => {
+    this.syncMapViewFromSource('forecast');
+  };
+
+  private bindSharedMapViewSync(map: L.Map, source: 'radar' | 'aromepi' | 'forecast'): void {
+    const handler = source === 'radar'
+      ? this.onRadarMapViewChange
+      : source === 'aromepi'
+        ? this.onAromepiMapViewChange
+        : this.onForecastMapViewChange;
+    map.off('moveend', handler);
+    map.off('zoomend', handler);
+    map.on('moveend', handler);
+    map.on('zoomend', handler);
+  }
+
   private initMap(): void {
     if (this.map) {
       return;
     }
+    this.ensureSharedMapViewDefaults();
+    const initialRadarZoom = Math.min(Math.max(this.sharedMapZoom!, 2), 18);
     this.map = L.map('meteo-france-map', {
-      center: [this.lat, this.lon],
-      zoom: MeteoFranceComponent.RADAR_MAP_ZOOM,
+      center: [this.sharedMapCenterLat!, this.sharedMapCenterLon!],
+      zoom: initialRadarZoom,
       minZoom: 2,
       maxZoom: 18,
       worldCopyJump: true
@@ -1406,17 +1642,17 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.setupRadarLayer();
     this.setupCloudLayer();
     this.setupTemperatureLabels();
+    this.bindSharedMapViewSync(this.map, 'radar');
     this.map.invalidateSize();
-    this.focusRadarMapOnPosition();
+    this.centerSharedMapOnLocation({ minZoom: MeteoFranceComponent.RADAR_MAP_ZOOM });
   }
 
-  /** Keep the rain-radar map tightly centered on the selected position. */
+  /** Apply the shared map view on the radar map (pan/zoom sync, not forced recenter on marker). */
   private focusRadarMapOnPosition(): void {
-    if (!this.map || !Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
+    if (!this.map) {
       return;
     }
-    const zoom = Math.max(this.map.getZoom(), MeteoFranceComponent.RADAR_MAP_ZOOM);
-    this.map.setView([this.lat, this.lon], zoom);
+    this.applySharedMapViewTo(this.map);
   }
 
   private setupRadarLayer(): void {
@@ -1584,14 +1820,6 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       default:
         return this.translate.instant('METEO_FRANCE.CLOUD_SOURCE_RAINVIEWER');
     }
-  }
-
-  private get radarRefreshMs(): number {
-    const sec = Number(this.radarRefreshSeconds);
-    const clamped = Number.isFinite(sec)
-      ? Math.max(this.radarRefreshMinSeconds, Math.min(this.radarRefreshMaxSeconds, sec))
-      : 60;
-    return clamped * 1000;
   }
 
   private loadMultiDayForecastDisplayParams(): void {
@@ -1831,10 +2059,13 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         next: (pref) => {
           if (pref?.radarRefreshSeconds != null) {
             this.radarRefreshSeconds = pref.radarRefreshSeconds;
-            this.startRadarRefreshTimer();
           }
+          if (pref?.autoRefreshEnabled != null) {
+            this.autoRefreshRadar = pref.autoRefreshEnabled;
+          }
+          this.startRadarRefreshTimer();
         },
-        error: () => { /* anonymous or not configured — status/default applies */ }
+        error: () => { /* keep defaults */ }
       })
     );
   }
@@ -1845,9 +2076,11 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       ? Math.max(this.radarRefreshMinSeconds, Math.min(this.radarRefreshMaxSeconds, n))
       : 60;
     this.subs.add(
-      this.apiService.saveMeteoFranceRadarPreferences(this.radarRefreshSeconds).subscribe({
+      this.apiService.saveMeteoFranceRadarPreferences({ radarRefreshSeconds: this.radarRefreshSeconds }).subscribe({
         next: (pref) => {
-          this.radarRefreshSeconds = pref.radarRefreshSeconds;
+          if (pref?.radarRefreshSeconds != null) {
+            this.radarRefreshSeconds = pref.radarRefreshSeconds;
+          }
           this.startRadarRefreshTimer();
         },
         error: () => { /* keep local value */ }
@@ -1913,7 +2146,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
 
   private startRadarRefreshTimer(): void {
     this.clearRadarTimers();
-    if (!this.autoRefreshRadar) {
+    if (!this.autoRefreshRadar || (!this.showRadar && !this.showCloudLayer)) {
+      this.radarRefreshCountdown = 0;
       return;
     }
     const refreshLayers = (): void => {
@@ -1924,13 +2158,31 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         this.loadCloudLayer();
       }
     };
-    if (this.showRadar || this.showCloudLayer) {
-      this.mosaicRefreshTimer = setInterval(refreshLayers, this.radarRefreshMs);
-    }
+    this.radarRefreshCountdown = this.effectiveRadarRefreshSeconds;
+    this.mosaicRefreshTimer = setInterval(() => {
+      this.radarRefreshCountdown = Math.max(0, this.radarRefreshCountdown - 1);
+      if (this.radarRefreshCountdown === 0) {
+        refreshLayers();
+        this.radarRefreshCountdown = this.effectiveRadarRefreshSeconds;
+      }
+      this.cdr.markForCheck();
+    }, 1000);
+  }
+
+  private get effectiveRadarRefreshSeconds(): number {
+    const sec = Number(this.radarRefreshSeconds);
+    return Number.isFinite(sec)
+      ? Math.max(this.radarRefreshMinSeconds, Math.min(this.radarRefreshMaxSeconds, sec))
+      : 60;
   }
 
   onAutoRefreshRadarChange(): void {
     this.startRadarRefreshTimer();
+    this.subs.add(
+      this.apiService.saveMeteoFranceRadarPreferences({ autoRefreshEnabled: this.autoRefreshRadar }).subscribe({
+        error: () => { /* keep local value */ }
+      })
+    );
   }
 
   private loadMosaicOverlay(): void {
@@ -2081,6 +2333,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       clearInterval(this.mosaicRefreshTimer);
       this.mosaicRefreshTimer = null;
     }
+    this.radarRefreshCountdown = 0;
   }
 
   private removeRadarLayers(): void {
@@ -2137,7 +2390,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
             this.prepareClimTabLoad();
             this.loadClimDataForCurrentPosition();
           } else if (this.activeMainTab === 'aromepi' && this.aromepiAvailable) {
-            this.loadAromepiCapabilities();
+            this.scheduleAromepiMapInit(() => this.ensureAromepiCapabilitiesLoaded());
           }
         },
         error: () => {
@@ -2432,10 +2685,6 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.selectedTempLabelDismissed = false;
     this.temperatureLabelsRequestId++;
     this.isLoadingTemperatureLabels = false;
-    if (this.selectedTempLabelMarker && this.map) {
-      this.map.removeLayer(this.selectedTempLabelMarker);
-      this.selectedTempLabelMarker = null;
-    }
     if (this.map && this.temperatureLabelsLayer) {
       this.map.removeLayer(this.temperatureLabelsLayer);
       this.temperatureLabelsLayer = null;
@@ -2746,36 +2995,19 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   }
 
   private updateSelectedTemperatureLabel(options?: { forceShow?: boolean }): void {
-    if (!this.map || !this.showTemperatureMap) {
-      if (!this.showTemperatureMap) {
-        this.removeSelectedTemperatureLabel();
-      }
+    if (!this.showTemperatureMap) {
+      this.removeSelectedTemperatureLabel();
       return;
     }
     if (this.selectedTempLabelDismissed && !options?.forceShow) {
+      this.cdr.markForCheck();
       return;
     }
     if (!this.canShowSelectedTemperatureLabel()) {
       this.removeSelectedTemperatureLabel();
       return;
     }
-    const html = this.buildSelectedTemperatureLabelHtml();
-    const icon = L.divIcon({
-      className: 'mf-temp-label mf-temp-label--selected',
-      html,
-      iconSize: [1, 1],
-      iconAnchor: [0, 0]
-    });
-    if (!this.selectedTempLabelMarker) {
-      this.selectedTempLabelMarker = L.marker([this.lat, this.lon], {
-        icon,
-        interactive: true,
-        zIndexOffset: 1000
-      }).addTo(this.map);
-    } else {
-      this.selectedTempLabelMarker.setLatLng([this.lat, this.lon]);
-      this.selectedTempLabelMarker.setIcon(icon);
-    }
+    this.cdr.markForCheck();
   }
 
   private canShowSelectedTemperatureLabel(): boolean {
@@ -2792,10 +3024,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   }
 
   private removeSelectedTemperatureLabel(): void {
-    if (this.selectedTempLabelMarker && this.map) {
-      this.map.removeLayer(this.selectedTempLabelMarker);
-      this.selectedTempLabelMarker = null;
-    }
+    this.cdr.markForCheck();
   }
 
   formatTemperatureLabel(valueCelsius: number): string {
@@ -2806,29 +3035,24 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     return `${value}${unit}`;
   }
 
-  private buildSelectedSourceRow(
-    brand: WeatherDataSourceBrand,
-    tempC: number,
-    size = 14,
-    title?: string,
-    observedAt?: string | null
-  ): string {
-    const tooltip = title?.trim() || this.getBrandAlt(brand);
-    const logoSize = brand === 'meteofrance' ? Math.max(size, 14) : size;
-    const obsTime = this.formatPointObservedTime(observedAt);
-    const timeHtml = obsTime
-      ? `<span class="mf-temp-label-obs-time">${this.escapeHtml(obsTime)}</span>`
-      : '';
-    return (
-      `<span class="mf-temp-label-source-row" title="${this.escapeHtml(tooltip)}">` +
-      `${this.buildBrandLogoHtml(brand, logoSize)}` +
-      `<span class="mf-temp-label-source-code">${this.escapeHtml(this.getBrandInitials(brand))}</span>` +
-      `<span class="mf-temp-label-source-values">` +
-      `<span class="mf-temp-label-alt-value">${this.formatTemperatureLabel(tempC)}</span>` +
-      timeHtml +
-      `</span>` +
-      `</span>`
-    );
+  formatSelectedPointObservedTime(value: string | null | undefined): string | null {
+    if (!value) {
+      return null;
+    }
+    const trimmed = value.trim();
+    if (/^\d{10}$/.test(trimmed)) {
+      const date = new Date(Number(trimmed) * 1000);
+      return Number.isNaN(date.getTime()) ? null : this.formatTemperatureDateTime(date);
+    }
+    if (/^\d{13}$/.test(trimmed)) {
+      const date = new Date(Number(trimmed));
+      return Number.isNaN(date.getTime()) ? null : this.formatTemperatureDateTime(date);
+    }
+    const date = new Date(trimmed);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+    return this.formatTemperatureDateTime(date);
   }
 
   private formatSelectedMfStationLabel(): string {
@@ -2919,41 +3143,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   }
 
   private formatPointObservedTime(value: string | null | undefined): string | null {
-    if (!value) {
-      return null;
-    }
-    const trimmed = value.trim();
-    if (/^\d{10}$/.test(trimmed)) {
-      const date = new Date(Number(trimmed) * 1000);
-      return Number.isNaN(date.getTime()) ? null : this.formatTemperatureDateTime(date);
-    }
-    if (/^\d{13}$/.test(trimmed)) {
-      const date = new Date(Number(trimmed));
-      return Number.isNaN(date.getTime()) ? null : this.formatTemperatureDateTime(date);
-    }
-    const date = new Date(trimmed);
-    if (Number.isNaN(date.getTime())) {
-      return null;
-    }
-    return this.formatTemperatureDateTime(date);
-  }
-
-  private buildSelectedPointRowTitle(
-    brand: WeatherDataSourceBrand,
-    extra?: string,
-    observedAt?: string | null
-  ): string | undefined {
-    const parts = [this.getBrandAlt(brand)];
-    if (extra?.trim()) {
-      parts.push(extra.trim());
-    }
-    const obsTime = this.formatPointObservedTime(observedAt);
-    if (obsTime) {
-      parts.push(
-        this.translate.instant('METEO_FRANCE.POINT_SOURCE_AT', { time: obsTime })
-      );
-    }
-    return parts.length > 1 || obsTime ? parts.join(' · ') : undefined;
+    return this.formatSelectedPointObservedTime(value);
   }
 
   private haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -2972,93 +3162,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     return Number.isFinite(tempC) ? tempC : null;
   }
 
-  private buildSelectedTemperatureLabelHtml(): string {
-    const locationName = this.resolveSelectedLocationName();
-    const rows: string[] = [];
-
-    if (this.selectedPointMfTempC != null && this.isMfTemperaturePointAllowed()) {
-      const stationName = this.formatSelectedMfStationLabel();
-      const mfTitle = this.buildSelectedPointRowTitle(
-        'meteofrance',
-        stationName || undefined,
-        this.selectedPointMfObservedAt
-      );
-      let mfBlock = this.buildSelectedSourceRow(
-        'meteofrance',
-        this.selectedPointMfTempC,
-        14,
-        mfTitle,
-        this.selectedPointMfObservedAt
-      );
-      if (stationName) {
-        const stationLine = this.formatSelectedMfStationProximityLabel();
-        if (stationLine) {
-          mfBlock += `<span class="mf-temp-label-station">${this.escapeHtml(stationLine)}</span>`;
-        }
-      }
-      rows.push(`<span class="mf-temp-label-mf-block">${mfBlock}</span>`);
-    }
-
-    if (this.selectedPointOpenMeteoTempC != null) {
-      rows.push(this.buildSelectedSourceRow(
-        'open-meteo',
-        this.selectedPointOpenMeteoTempC,
-        14,
-        this.buildSelectedPointRowTitle('open-meteo', undefined, this.selectedPointOpenMeteoObservedAt),
-        this.selectedPointOpenMeteoObservedAt
-      ));
-    } else if (
-      this.selectedPointMfTempC == null
-      && this.selectedPointOpenMeteoTempC == null
-      && this.selectedPointOpenWeatherTempC == null
-    ) {
-      const tempC = this.resolveSelectedTemperatureCelsius();
-      if (tempC != null) {
-        rows.push(this.buildSelectedSourceRow(this.resolveMapTemperatureBrand(), tempC));
-      }
-    }
-
-    if (this.selectedPointOpenWeatherTempC != null) {
-      rows.push(this.buildSelectedSourceRow(
-        'openweathermap',
-        this.selectedPointOpenWeatherTempC,
-        14,
-        this.buildSelectedPointRowTitle('openweathermap', undefined, this.selectedPointOpenWeatherObservedAt),
-        this.selectedPointOpenWeatherObservedAt
-      ));
-    }
-
-    if (this.selectedPointComparisonLoading) {
-      const loadingText = this.escapeHtml(this.translate.instant('METEO_FRANCE.LOADING'));
-      if (!rows.length) {
-        rows.push(`<span class="mf-temp-label-loading"><i class="fa fa-spinner fa-spin"></i> ${loadingText}</span>`);
-      } else {
-        rows.push(`<span class="mf-temp-label-loading mf-temp-label-loading--inline"><i class="fa fa-spinner fa-spin"></i></span>`);
-      }
-    }
-
-    const closeLabel = this.escapeHtml(this.translate.instant('METEO_FRANCE.TEMPERATURE_LABEL_CLOSE'));
-    const timelineLabel = this.escapeHtml(this.translate.instant('METEO_FRANCE.POINT_TIMELINE_BTN'));
-    const timelineButtonHtml = this.canShowPointTempTimelineButton()
-      ? (
-        `<button type="button" class="mf-temp-point-timeline-btn" aria-label="${timelineLabel}" title="${timelineLabel}">` +
-        `<i class="fa fa-area-chart" aria-hidden="true"></i>` +
-        `</button>`
-      )
-      : '';
-    const headerHtml = locationName.trim()
-      ? `<span class="mf-temp-label-city mf-temp-label-city--header">${this.escapeHtml(locationName)}</span>`
-      : '';
-    return (
-      `<span class="mf-temp-label-selected-inner">` +
-      `<button type="button" class="mf-temp-selected-close" aria-label="${closeLabel}" title="${closeLabel}">` +
-      `<i class="fa fa-times" aria-hidden="true"></i>` +
-      `</button>` +
-      `${headerHtml}` +
-      `${rows.join('')}` +
-      `${timelineButtonHtml}` +
-      `</span>`
-    );
+  dismissSelectedPointWeatherOverlay(): void {
+    this.dismissSelectedTemperatureLabel();
   }
 
   private dismissSelectedTemperatureLabel(): void {
@@ -3149,8 +3254,48 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     return this.resolveSelectedLocationName();
   }
 
+  get showSelectedPointWeatherOverlay(): boolean {
+    return this.showTemperatureMap
+      && !this.selectedTempLabelDismissed
+      && this.canShowSelectedTemperatureLabel();
+  }
+
+  get selectedPointWeatherLocationLabel(): string {
+    return this.resolveSelectedLocationName();
+  }
+
+  get selectedPointMfStationLine(): string {
+    return this.formatSelectedMfStationProximityLabel();
+  }
+
   get pointTempTimelineTitle(): string {
     return this.resolveSelectedLocationName();
+  }
+
+  get selectedPointFallbackSourceRow(): { brand: WeatherDataSourceBrand; tempC: number } | null {
+    if (
+      this.selectedPointMfTempC != null
+      || this.selectedPointOpenMeteoTempC != null
+      || this.selectedPointOpenWeatherTempC != null
+    ) {
+      return null;
+    }
+    const tempC = this.resolveSelectedTemperatureCelsius();
+    if (tempC == null) {
+      return null;
+    }
+    return { brand: this.resolveMapTemperatureBrand(), tempC };
+  }
+
+  get hasSelectedPointWeatherData(): boolean {
+    return (this.pointTimelineMfTempC != null && this.isLocationInFrance())
+      || this.pointTimelineOpenMeteoTempC != null
+      || this.pointTimelineOpenWeatherTempC != null
+      || this.selectedPointFallbackSourceRow != null;
+  }
+
+  get canShowSelectedPointTimelineButton(): boolean {
+    return this.isLocationInFrance();
   }
 
   get pointTimelineMfTempC(): number | null {
@@ -3186,12 +3331,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     return this.selectedPointMfStation?.name;
   }
 
-  private canShowPointTempTimelineButton(): boolean {
-    return this.isLocationInFrance();
-  }
-
   openPointTempTimeline(): void {
-    if (!this.canShowPointTempTimelineButton() || !Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
+    if (!this.canShowSelectedPointTimelineButton || !Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
       return;
     }
     this.pointTempTimelineVisible = true;
@@ -3308,27 +3449,11 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
 
   private isTemperatureMapUiClick(event: Event | undefined): boolean {
     const target = event?.target as HTMLElement | null;
-    return !!target?.closest('.mf-temp-tooltip, .mf-temp-label, .mf-temp-refresh-btn, .mf-temp-history-btn, .mf-temp-point-timeline-btn, .mf-temp-selected-close, .mf-point-timeline-card');
+    return !!target?.closest('.mf-temp-tooltip, .mf-temp-label, .mf-temp-refresh-btn, .mf-temp-history-btn, .mf-selected-point-weather-overlay, .mf-point-timeline-card');
   }
 
   private readonly onTemperatureTooltipClick = (event: MouseEvent): void => {
     const target = event.target as HTMLElement | null;
-    const closeButton = target?.closest('.mf-temp-selected-close') as HTMLElement | null;
-    if (closeButton) {
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-      this.dismissSelectedTemperatureLabel();
-      return;
-    }
-    const timelineButton = target?.closest('.mf-temp-point-timeline-btn') as HTMLElement | null;
-    if (timelineButton) {
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-      this.openPointTempTimeline();
-      return;
-    }
     const historyButton = target?.closest('.mf-temp-history-btn') as HTMLElement | null;
     if (historyButton) {
       event.preventDefault();
@@ -3934,22 +4059,12 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       }, 0);
     } else if (tab === 'aromepi') {
       this.ensureForecastLocationResolved();
-      setTimeout(() => {
-        this.initAromepiMap();
+      this.scheduleAromepiMapInit(() => {
         if (this.aromepiAvailable) {
-          if (!this.aromepiCapabilities && !this.isLoadingAromepiCapabilities) {
-            this.loadAromepiCapabilities();
-          } else {
-            this.setupAromepiWmsLayer();
-            if (!this.hasAromepiPointForecastData()) {
-              this.scheduleAromepiForecastLoad();
-            }
-            this.loadAromepiCurrentValues();
-          }
+          this.ensureAromepiCapabilitiesLoaded();
         }
-        this.focusAromepiMapOnPosition();
         this.loadAromepiNearestStation();
-      }, 0);
+      });
     } else if (tab === 'forecast-options') {
       this.stopAromepiAnimation();
       this.ensureForecastLocationResolved();
@@ -4072,10 +4187,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
             'ok',
             `${this.aromepiLayers.length} layers, ${this.aromepiTimeSteps.length} steps`
           );
-          this.setupAromepiWmsLayer();
-          if (!this.hasAromepiPointForecastData()) {
-            this.scheduleAromepiForecastLoad();
-          }
+          this.scheduleAromepiMapReadyAfterDom();
         },
         error: () => {
           this.isLoadingAromepiCapabilities = false;
@@ -4274,18 +4386,59 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   }
 
   private initAromepiMap(): void {
-    if (this.aromepiMap) {
-      if (!this.aromepiBaseLayer) {
-        this.applyAromepiMapBaseLayer();
+    if (this.componentDestroyed || this.activeMainTab !== 'aromepi') {
+      return;
+    }
+    const container = this.getAromepiMapContainer();
+    if (!container) {
+      if (this.aromepiMapInitRetryTimer) {
+        clearTimeout(this.aromepiMapInitRetryTimer);
       }
-      this.aromepiMap.invalidateSize();
-      this.focusAromepiMapOnPosition();
+      this.aromepiMapInitRetryTimer = this.scheduleComponentTimeout(() => {
+        this.aromepiMapInitRetryTimer = null;
+        this.initAromepiMap();
+      }, 120);
+      return;
+    }
+    if (this.aromepiMap && (container as any)._leaflet_id == null) {
+      if (this.aromepiWmsLayer) {
+        this.aromepiMap.removeLayer(this.aromepiWmsLayer);
+        this.aromepiWmsLayer = null;
+      }
+      if (this.aromepiWmsLayerPending) {
+        this.aromepiMap.removeLayer(this.aromepiWmsLayerPending);
+        this.aromepiWmsLayerPending = null;
+      }
+      this.aromepiMap.remove();
+      this.aromepiMap = null;
+      this.aromepiMarker = null;
+      this.aromepiBaseLayer = null;
+      this.aromepiMapInitialized = false;
+    }
+    if (!this.isAromepiMapContainerVisible(container)) {
+      if (this.aromepiMapInitRetryTimer) {
+        clearTimeout(this.aromepiMapInitRetryTimer);
+      }
+      this.aromepiMapInitRetryTimer = this.scheduleComponentTimeout(() => {
+        this.aromepiMapInitRetryTimer = null;
+        this.initAromepiMap();
+      }, 120);
+      return;
+    }
+    if (this.aromepiMap) {
+      if (this.aromepiMarker) {
+        this.aromepiMarker.setLatLng([this.lat, this.lon]);
+      }
+      this.bindSharedMapViewSync(this.aromepiMap, 'aromepi');
+      this.refreshAromepiMapLayout();
       return;
     }
     const bounds = this.aromepiMapBounds();
-    this.aromepiMap = L.map('meteo-france-aromepi-map', {
-      center: [this.lat, this.lon],
-      zoom: MeteoFranceComponent.FORECAST_MAP_ZOOM,
+    this.ensureSharedMapViewDefaults();
+    const initialAromepiZoom = Math.min(Math.max(this.sharedMapZoom!, 5), 14);
+    this.aromepiMap = L.map(container, {
+      center: [this.sharedMapCenterLat!, this.sharedMapCenterLon!],
+      zoom: initialAromepiZoom,
       minZoom: 5,
       maxZoom: 14,
       maxBounds: bounds,
@@ -4306,17 +4459,81 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     });
 
     this.aromepiMapInitialized = true;
+    this.bindSharedMapViewSync(this.aromepiMap, 'aromepi');
     this.setupAromepiWmsLayer();
-    this.aromepiMap.invalidateSize();
-    this.focusAromepiMapOnPosition();
+    this.refreshAromepiMapLayout();
+  }
+
+  private getAromepiMapContainer(): HTMLElement | null {
+    return document.getElementById('meteo-france-aromepi-map');
+  }
+
+  private isAromepiMapContainerVisible(container: HTMLElement): boolean {
+    return container.offsetWidth > 0 && container.offsetHeight > 0;
+  }
+
+  private scheduleAromepiMapInit(afterInit?: () => void): void {
+    this.clearAromepiMapTimers();
+    const initTimer = setTimeout(() => {
+      this.aromepiMapLayoutTimers.delete(initTimer);
+      if (this.componentDestroyed || this.activeMainTab !== 'aromepi') {
+        return;
+      }
+      afterInit?.();
+      if (this.aromepiCapabilities) {
+        this.initAromepiMap();
+        this.refreshAromepiMapLayout();
+      }
+    }, 0);
+    this.aromepiMapLayoutTimers.add(initTimer);
+    this.scheduleAromepiMapLayoutRefresh(150);
+    this.scheduleAromepiMapLayoutRefresh(450);
+  }
+
+  /** After capabilities load: wait for *ngIf DOM, then create Leaflet map + WMS layer. */
+  private scheduleAromepiMapReadyAfterDom(): void {
+    const boot = () => {
+      if (this.componentDestroyed || this.activeMainTab !== 'aromepi') {
+        return;
+      }
+      this.initAromepiMap();
+      this.setupAromepiWmsLayer();
+      if (!this.hasAromepiPointForecastData()) {
+        this.scheduleAromepiForecastLoad();
+      }
+      this.loadAromepiCurrentValues();
+      this.refreshAromepiMapLayout();
+    };
+    setTimeout(boot, 0);
+    this.scheduleAromepiMapLayoutRefresh(150);
+    this.scheduleAromepiMapLayoutRefresh(450);
+  }
+
+  private ensureAromepiCapabilitiesLoaded(): void {
+    if (!this.aromepiAvailable) {
+      return;
+    }
+    if (!this.aromepiCapabilities && !this.isLoadingAromepiCapabilities) {
+      this.loadAromepiCapabilities();
+      return;
+    }
+    if (!this.aromepiCapabilities || this.isLoadingAromepiCapabilities) {
+      return;
+    }
+    this.initAromepiMap();
+    this.setupAromepiWmsLayer();
+    if (!this.hasAromepiPointForecastData()) {
+      this.scheduleAromepiForecastLoad();
+    }
+    this.loadAromepiCurrentValues();
+    this.refreshAromepiMapLayout();
   }
 
   private focusAromepiMapOnPosition(): void {
-    if (!this.aromepiMap || !Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
+    if (!this.aromepiMap) {
       return;
     }
-    const zoom = Math.max(this.aromepiMap.getZoom(), MeteoFranceComponent.FORECAST_MAP_ZOOM);
-    this.aromepiMap.setView([this.lat, this.lon], zoom);
+    this.applySharedMapViewTo(this.aromepiMap);
   }
 
   private scheduleForecastMapInit(afterInit?: () => void): void {
@@ -4377,13 +4594,15 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     }
     if (this.forecastMap) {
       this.bindForecastMapInteraction();
+      this.bindSharedMapViewSync(this.forecastMap, 'forecast');
       this.refreshForecastMapLayout();
       return;
     }
 
+    this.ensureSharedMapViewDefaults();
     this.forecastMap = L.map(container, {
-      center: [this.lat, this.lon],
-      zoom: MeteoFranceComponent.FORECAST_MAP_ZOOM,
+      center: [this.sharedMapCenterLat!, this.sharedMapCenterLon!],
+      zoom: this.sharedMapZoom!,
       minZoom: 3,
       maxZoom: 18,
       worldCopyJump: true
@@ -4393,6 +4612,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
 
     this.forecastMarker = L.marker([this.lat, this.lon], { draggable: true }).addTo(this.forecastMap);
     this.bindForecastMapInteraction();
+    this.bindSharedMapViewSync(this.forecastMap, 'forecast');
     this.forecastMapInitialized = true;
     this.refreshForecastMapLayout();
   }
@@ -4419,7 +4639,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       return;
     }
     this.setLocation(lat, lon, false);
-    this.focusForecastMapOnPosition();
+    this.centerSharedMapOnLocation({ minZoom: MeteoFranceComponent.FORECAST_MAP_ZOOM });
   }
 
   private applyForecastMapBaseLayer(): void {
@@ -4442,6 +4662,37 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       this.mapBaseLayerId,
       this.aromepiBaseLayer
     );
+  }
+
+  private refreshAromepiMapLayout(): void {
+    if (!this.aromepiMap || this.activeMainTab !== 'aromepi') {
+      return;
+    }
+    this.aromepiMap.invalidateSize(true);
+    if (!this.aromepiBaseLayer) {
+      this.applyAromepiMapBaseLayer();
+    }
+    this.redrawAromepiMapTiles();
+    this.focusAromepiMapOnPosition();
+  }
+
+  private redrawAromepiMapTiles(): void {
+    if (!this.aromepiMap) {
+      return;
+    }
+    this.aromepiMap.eachLayer((layer) => {
+      if (layer instanceof L.TileLayer) {
+        layer.redraw();
+        return;
+      }
+      if (layer instanceof L.LayerGroup) {
+        layer.eachLayer((child) => {
+          if (child instanceof L.TileLayer) {
+            child.redraw();
+          }
+        });
+      }
+    });
   }
 
   private refreshForecastMapLayout(): void {
@@ -4476,11 +4727,10 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   }
 
   private focusForecastMapOnPosition(): void {
-    if (!this.forecastMap || !Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
+    if (!this.forecastMap) {
       return;
     }
-    const zoom = Math.max(this.forecastMap.getZoom(), MeteoFranceComponent.FORECAST_MAP_ZOOM);
-    this.forecastMap.setView([this.lat, this.lon], zoom);
+    this.applySharedMapViewTo(this.forecastMap);
   }
 
   private aromepiMapBounds(): L.LatLngBoundsExpression {
@@ -4762,10 +5012,10 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       ?? (shell as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen?.bind(shell);
     request?.().then(() => {
       this.aromepiMapFullscreen = true;
-      setTimeout(() => this.aromepiMap?.invalidateSize(), 120);
+      setTimeout(() => this.refreshAromepiMapLayout(), 120);
     }).catch(() => {
       this.aromepiMapFullscreen = !this.aromepiMapFullscreen;
-      setTimeout(() => this.aromepiMap?.invalidateSize(), 120);
+      setTimeout(() => this.refreshAromepiMapLayout(), 120);
     });
   }
 
@@ -4775,13 +5025,13 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       const exit = document.exitFullscreen?.bind(document) ?? doc.webkitExitFullscreen?.bind(document);
       exit?.().catch(() => {
         this.aromepiMapFullscreen = false;
-        setTimeout(() => this.aromepiMap?.invalidateSize(), 120);
+        setTimeout(() => this.refreshAromepiMapLayout(), 120);
       });
       return;
     }
     if (this.aromepiMapFullscreen) {
       this.aromepiMapFullscreen = false;
-      setTimeout(() => this.aromepiMap?.invalidateSize(), 120);
+      setTimeout(() => this.refreshAromepiMapLayout(), 120);
     }
   }
 
@@ -4794,6 +5044,12 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       return iso;
     }
     return this.formatTemperatureDateTime(d);
+  }
+
+  formatAromepiOffsetMinutes(minutes: number, parens = false): string {
+    const unit = this.translate.instant('METEO_FRANCE.FORECAST_MINUTES_UNIT');
+    const text = `+${minutes} ${unit}`;
+    return parens ? `(${text})` : text;
   }
 
   aromepiLayerLabel(layer: { name: string; title: string; category?: string }): string {
@@ -4997,14 +5253,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     if (this.forecastMarker) {
       this.forecastMarker.setLatLng([this.lat, this.lon]);
     }
-    if (moveMap && this.aromepiMap) {
-      this.focusAromepiMapOnPosition();
-    }
-    if (moveMap && this.forecastMap) {
-      this.focusForecastMapOnPosition();
-    }
-    if (moveMap && this.map) {
-      this.focusRadarMapOnPosition();
+    if (moveMap) {
+      this.centerSharedMapOnLocation({ minZoom: MeteoFranceComponent.RADAR_MAP_ZOOM });
     }
   }
 

@@ -57,7 +57,7 @@
         "LOTTO": "Ø§ÙÙÙØªÙ",
         "EUROMILLIONS": "EuroMillions",
         "SOLAR_SYSTEM": "Solar system",
-        "WORLD_GLOBE": "Ø§ÙÙØ±Ø© Ø§ÙØ£Ø±Ø¶ÙØ©",
+        "WORLD_GLOBE": "ISS",
         "SKY": "Ø§ÙØ³ÙØ§Ø¡",
         "PDF_CONVERTER": "محرر PDF",
         "ODS_EDITOR": "Ø¬Ø¯ÙÙ Calc (.ods)",
@@ -225,7 +225,7 @@
         "COMPASS_FACING": "Ø£ÙØª ØªÙØ§Ø¬Ù Ø§ÙÙØ­Ø·Ø©",
         "COMPASS_TURN_LEFT": "Ø§Ø³ØªØ¯Ø± {{deg}}Â° ÙÙÙØ³Ø§Ø±",
         "COMPASS_TURN_RIGHT": "Ø§Ø³ØªØ¯Ø± {{deg}}Â° ÙÙÙÙÙÙ",
-        "TITLE": "ÙØ±Ø© Ø£Ø±Ø¶ÙØ© Ø«ÙØ§Ø«ÙØ© Ø§ÙØ£Ø¨Ø¹Ø§Ø¯",
+        "TITLE": "ISS",
         "LIGHT_UNIFORM": "Ø¥Ø¶Ø§Ø¡Ø© Ø§ÙÙØ±Ø©",
         "LIGHT_UNIFORM_HINT": "Ø¥Ø¶Ø§Ø¡Ø© ÙØªØ³Ø§ÙÙØ© Ø¹ÙÙ Ø§ÙÙØ±Ø© Ø¨Ø£ÙÙÙÙØ§.",
         "SUBTITLE": "ÙØ±Ø© Ø£Ø±Ø¶ ØªÙØ§Ø¹ÙÙØ© Ø«ÙØ§Ø«ÙØ© Ø§ÙØ£Ø¨Ø¹Ø§Ø¯ (WebGL). Ø§ÙØµÙØ± ØªÙØ± Ø¹Ø¨Ø± ÙØ§Ø¬ÙØ© PatToolØ ØªØ±ÙÙØ² Ø§ÙÙÙØ§ÙØ¹ Ø§ÙØ¬ØºØ±Ø§ÙÙ ÙØ³ØªØ®Ø¯Ù ÙÙØ³ Ø§ÙØ®ÙÙÙØ© ÙØ«Ù Ø¹ÙÙØ§Ù/GPS.",
@@ -269,6 +269,36 @@
         "ISS_ALERT_TEST_SENT": "ØªÙ Ø¥Ø±Ø³Ø§Ù Ø¨Ø±ÙØ¯ Ø§Ø®ØªØ¨Ø§Ø± ÙÙÙØ±ÙØ± Ø§ÙÙØ§Ø¯Ù.",
         "ISS_ALERT_TEST_NO_PASS": "ÙØ§ ÙÙØ¬Ø¯ ÙØ±ÙØ± ÙØ±Ø¦Ù ÙØ§Ø¯Ù ÙÙØ°Ø§ Ø§ÙÙÙØ§Ù.",
         "ISS_ALERT_TEST_NO_PLACE": "Ø­Ø¯ÙØ¯ ÙÙØ§ÙÙØ§ Ø£ÙÙØ§Ù (ÙØ¯ÙÙØ© Ø£Ù Ø¯ÙÙØ©).",
+
+        "ISS_ALERT_ADMIN_TITLE": "جميع تنبيهات ISS المُعدّة (المسؤول)",
+        "ISS_ALERT_ADMIN_OPEN": "تنبيهات ISS المُعدّة",
+        "ISS_ALERT_ADMIN_OPEN_HINT": "عرض جميع تنبيهات ISS بالبريد الإلكتروني للمستخدمين",
+        "ISS_ALERT_ADMIN_LOADING": "جارٍ تحميل القائمة…",
+        "ISS_ALERT_ADMIN_EMPTY": "لا توجد تنبيهات مستخدم مُعدّة.",
+        "ISS_ALERT_ADMIN_COL_USER": "المستخدم",
+        "ISS_ALERT_ADMIN_COL_OWNER": "المالك",
+        "ISS_ALERT_ADMIN_COL_EMAIL": "البريد الإلكتروني",
+        "ISS_ALERT_ADMIN_COL_PLACE": "المكان",
+        "ISS_ALERT_ADMIN_COL_ENABLED": "نشط",
+        "ISS_ALERT_ADMIN_COL_DISABLED": "غير نشط",
+        "ISS_ALERT_ADMIN_COL_QUALITY": "الجودة",
+        "ISS_ALERT_ADMIN_DELETE": "حذف هذا التنبيه",
+        "ISS_ALERT_ADMIN_DELETE_CONFIRM": "حذف تنبيه ISS لـ {{owner}} ({{email}})؟",
+        "ISS_ALERT_ADMIN_DELETE_ERROR": "تعذر حذف هذا التنبيه.",
+        "ISS_ALERT_MANAGE_OPEN": "تنبيه ISS الخاص بي",
+        "ISS_ALERT_MANAGE_OPEN_HINT": "عرض أو حذف تنبيه ISS بالبريد الإلكتروني",
+        "ISS_ALERT_MANAGE_TITLE": "تنبيه ISS الخاص بي",
+        "ISS_ALERT_MANAGE_EMPTY": "لم تقم بإعداد تنبيه ISS بعد.",
+        "ISS_ALERT_DELETE_CONFIRM": "حذف تنبيه ISS الخاص بك ({{email}})؟",
+        "ISS_ALERT_ADMIN_PASSES_BTN": "المرور القادم لل ISS",
+        "ISS_ALERT_ADMIN_PASSES_HINT": "عرض مرور ISS المرئي القادم فوق هذا المكان",
+        "ISS_ALERT_ADMIN_PASSES_LOADING": "جارٍ البحث عن المرور…",
+        "ISS_ALERT_ADMIN_NO_PLACE": "لا يوجد موقع مُرمَّز جغرافيًا لهذا التنبيه.",
+
+        "ISS_ALERT_ADMIN_EDIT": "تعديل هذا التنبيه",
+        "ISS_ALERT_ADMIN_EDIT_HINT": "تعديل هذا التنبيه في نموذج الإعداد",
+        "ISS_ALERT_EDITING_BANNER": "تعديل تنبيه {{owner}}",
+        "ISS_ALERT_EDIT_CANCEL": "إلغاء",
         "OPT_SECTION_VIEW": "Globe view",
         "OPT_SECTION_FLIGHT": "ÙØªØ§Ø¨Ø¹Ø© Ø§ÙØ±Ø­ÙØ©",
         "FLIGHT_INTRO": "ØªØ§Ø¨Ø¹ Ø±Ø­ÙØ© ÙØ¨Ø§Ø´Ø±Ø© ÙØ§Ø±Ø³Ù ÙØ³Ø§Ø±ÙØ§ Ø¹ÙÙ Ø§ÙÙØ±Ø© Ø§ÙØ£Ø±Ø¶ÙØ© (OpenSky Network).",
@@ -1538,6 +1568,8 @@
         "TRACK_BASEMAP": "Ø®Ø±ÙØ·Ø© Ø§ÙØ£Ø³Ø§Ø³",
         "TRACK_RECENTER": "Ø¥Ø¹Ø§Ø¯Ø© ØªÙØ±ÙØ² Ø§ÙÙØ³Ø§Ø± (R)",
         "TRACK_VIEW_ON_GLOBE": "Globe 3D",
+        "TRACK_OPEN_METEO_FRANCE": "Météo-France",
+        "TRACK_OPEN_METEO_FRANCE_HINT": "فتح Météo-France (الرادار ودرجة الحرارة) في هذا الموقع",
         "TRACK_VIEW_ON_GLOBE_HINT": "ÙØªØ­ Ø§ÙÙØ±Ø© Ø§ÙØ£Ø±Ø¶ÙØ© ÙØ±ÙØ²Ø© Ø¹ÙÙ ÙØ³Ø· Ø§ÙØ®Ø±ÙØ·Ø©",
         "TRACK_SHARE_LOCATION": "ÙØ´Ø§Ø±ÙØ© Ø§ÙÙÙÙØ¹",
         "TRACK_KEEP_SCREEN_AWAKE": "Ø¥Ø¨ÙØ§Ø¡ Ø§ÙØ´Ø§Ø´Ø© ÙØ¶Ø§Ø¡Ø©",
@@ -1701,6 +1733,11 @@
         "YES": "ÙØ¹Ù",
         "NO": "ÙØ§",
         "CLOSE": "Ø¥ØºÙØ§Ù",
+
+        "MONGODB_DOWN_TITLE": "MongoDB غير متاح",
+        "MONGODB_DOWN_MESSAGE": "لا يمكن للتطبيق الوصول إلى قاعدة بيانات MongoDB ({{target}}). لن تعمل معظم الميزات حتى يتم تشغيلها.",
+        "MONGODB_DOWN_HINT": "شغّل MongoDB على هذا المضيف ثم انقر إعادة المحاولة.",
+        "MONGODB_DOWN_RETRY": "إعادة المحاولة",
         "OPEN": "ÙØªØ­",
         "CONFIRM": "ØªØ£ÙÙØ¯",
         "DOWNLOAD": "ØªØ­ÙÙÙ",

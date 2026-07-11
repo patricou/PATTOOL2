@@ -32,6 +32,12 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
             return next.handle(req);
         }
 
+        // Public health probes (MongoDB status for UI alert).
+        const isHealthProbe = req.method === 'GET' && /\/api\/health\//i.test(req.url);
+        if (isHealthProbe) {
+            return next.handle(req);
+        }
+
         // Globe proxy (ISS, textures, GeoJSON…) is permitAll — skip Keycloak wait for faster ISS at open.
         const isGlobePublicApiGet =
             req.method === 'GET' && /\/api\/external\/globe\//i.test(req.url);

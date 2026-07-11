@@ -137,14 +137,30 @@
               {{ 'EVENTELEM.NO_WEATHER_DATA' | translate }}
             </div>
 
-            <button type="button"
-                    class="tv-weather-timeline-btn"
-                    *ngIf="canShowWeatherTimelineButton() && !isLoadingWeather && hasWeatherPointData"
-                    (click)="openWeatherTimeline(); $event.stopPropagation()"
-                    [attr.title]="'METEO_FRANCE.POINT_TIMELINE_BTN' | translate"
-                    [attr.aria-label]="'METEO_FRANCE.POINT_TIMELINE_BTN' | translate">
-              <i class="fa fa-area-chart" aria-hidden="true"></i>
-            </button>
+            <div class="tv-weather-actions"
+                 *ngIf="!isLoadingWeather && hasWeatherPointData">
+              <button type="button"
+                      class="tv-weather-action-btn"
+                      *ngIf="canShowWeatherTimelineButton()"
+                      (click)="openWeatherTimeline(); $event.stopPropagation()"
+                      [attr.title]="'METEO_FRANCE.POINT_TIMELINE_BTN' | translate"
+                      [attr.aria-label]="'METEO_FRANCE.POINT_TIMELINE_BTN' | translate">
+                <i class="fa fa-area-chart" aria-hidden="true"></i>
+              </button>
+              <button type="button"
+                      class="tv-weather-action-btn tv-weather-action-btn--mf"
+                      (click)="openMeteoFranceAtWeatherPoint(); $event.stopPropagation()"
+                      [attr.title]="'EVENTELEM.TRACK_OPEN_METEO_FRANCE_HINT' | translate"
+                      [attr.aria-label]="'EVENTELEM.TRACK_OPEN_METEO_FRANCE' | translate">
+                <img [src]="weatherLogoMf"
+                     alt=""
+                     width="14"
+                     height="14"
+                     loading="lazy"
+                     aria-hidden="true">
+                <i class="fa fa-tint" aria-hidden="true"></i>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -218,6 +234,15 @@
                    (change)="onShowWeatherChange()">
             <label class="form-check-label gps-switch-label" for="show-weather-switch-fullscreen" [title]="'EVENTELEM.SHOW_WEATHER' | translate">
               <i class="fa fa-cloud me-1" aria-hidden="true"></i>{{ 'EVENTELEM.WEATHER' | translate }}
+            </label>
+          </div>
+          <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" id="auto-refresh-radar-switch-fullscreen"
+                   [(ngModel)]="autoRefreshRadar"
+                   (ngModelChange)="onAutoRefreshRadarChange()">
+            <label class="form-check-label gps-switch-label" for="auto-refresh-radar-switch-fullscreen" [title]="'METEO_FRANCE.AUTO_REFRESH' | translate">
+              <i class="fa fa-refresh me-1" aria-hidden="true"></i>{{ 'METEO_FRANCE.AUTO_REFRESH_SHORT' | translate }}
+              <span *ngIf="autoRefreshRadar && showWeather && radarRefreshCountdown > 0" class="device-countdown">({{ radarRefreshCountdown }} s)</span>
             </label>
           </div>
           <div class="form-check form-switch mt-2">
@@ -361,6 +386,15 @@
                (change)="onShowWeatherChange()">
         <label class="form-check-label ms-1 ms-sm-2 gps-switch-label" for="show-weather-switch" [title]="'EVENTELEM.SHOW_WEATHER' | translate">
           <i class="fa fa-cloud me-1" aria-hidden="true"></i><span class="switch-text-short">{{ 'EVENTELEM.WEATHER' | translate }}</span>
+        </label>
+      </div>
+      <div class="form-check form-switch d-flex align-items-center flex-shrink-0">
+        <input class="form-check-input" type="checkbox" id="auto-refresh-radar-switch"
+               [(ngModel)]="autoRefreshRadar"
+               (ngModelChange)="onAutoRefreshRadarChange()">
+        <label class="form-check-label ms-1 ms-sm-2 gps-switch-label" for="auto-refresh-radar-switch" [title]="'METEO_FRANCE.AUTO_REFRESH' | translate">
+          <i class="fa fa-refresh me-1" aria-hidden="true"></i><span class="switch-text-short">{{ 'METEO_FRANCE.AUTO_REFRESH_SHORT' | translate }}</span>
+          <span *ngIf="autoRefreshRadar && showWeather && radarRefreshCountdown > 0" class="device-countdown">({{ radarRefreshCountdown }} s)</span>
         </label>
       </div>
       <div class="form-check form-switch d-flex align-items-center flex-shrink-0">

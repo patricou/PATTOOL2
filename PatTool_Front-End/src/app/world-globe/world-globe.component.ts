@@ -18,7 +18,8 @@ import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { Subscription, firstValueFrom, timeout } from 'rxjs';
 import { finalize } from 'rxjs/operators';
-import { ApiService, IssAlertConfig, IssCompassCalibration } from '../services/api.service';
+import { ApiService, GlobeIssGlobalPrefs, IssAlertAdminEntry, IssAlertConfig, IssCompassCalibration } from '../services/api.service';
+import { KeycloakService } from '../keycloak/keycloak.service';
 import { GlobeIssNowService, GlobeIssNowSnapshot } from '../services/globe-iss-now.service';
 import { AirportIcaoEntry, AirportLookupService } from '../services/airport-lookup.service';
 import * as THREE from 'three';
@@ -26,6 +27,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { environment } from '../../environments/environment';
 import { Body, Equator, Observer, SiderealTime } from 'astronomy-engine';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
+import { drawIssTopViewIcon } from '../shared/globe-iss-icon.util';
 import earcut from 'earcut';
 
 /** Réponse proxifiée ISS (/api/external/globe/iss/now). */
@@ -51,6 +53,13 @@ interface IssPassByPlaceResponse {
     response?: Array<{ risetime?: number; duration?: number }>;
   };
   candidates?: Array<{ lat: number; lon: number; displayName?: string }>;
+}
+
+interface IssAlertPassesUiState {
+  loading: boolean;
+  error: string;
+  lines: string[];
+  open: boolean;
 }
 
 /** Point ISS historique (MongoDB, GET /api/external/globe/iss/trace). */
@@ -113,12 +122,12 @@ const ISS_LIVE_HD_DESTINATION_ORBITE_URL =
 /**
  * IDs YouTube embarqués par Destination Orbite (balise lite-youtube sur leurs pages direct).
  * Standard : flux NASA officiel — https://www.youtube.com/watch?v=uwXgcTc8oY8
- * HD : https://www.youtube.com/watch?v=FuuC4dpSQ1M
+ * HD : https://www.youtube.com/watch?v=awQzjn72bI0
  */
 /** Page standard Destination Orbite → lite-youtube `uwXgcTc8oY8` (NASA officiel). */
 const ISS_LIVE_YOUTUBE_VIDEO_ID = 'uwXgcTc8oY8';
-/** Page HD Destination Orbite → lite-youtube `FuuC4dpSQ1M`. */
-const ISS_LIVE_HD_YOUTUBE_VIDEO_ID = 'FuuC4dpSQ1M';
+/** Page HD Destination Orbite → lite-youtube `awQzjn72bI0` (màj 06-11-2025 ; ancien `FuuC4dpSQ1M` hors ligne). */
+const ISS_LIVE_HD_YOUTUBE_VIDEO_ID = 'awQzjn72bI0';
 
 /** Sphère repère géocodage : rayon monde, légèrement au-dessus du maillage Terre (rayon 1). */
 const GLOBE_GEOCODE_MARKER_SURFACE_OFFSET = 1.003;
@@ -299,6 +308,7 @@ function globePixelRatioCap(): number {
 })
 export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly apiService = inject(ApiService);
+  private readonly keycloakService = inject(KeycloakService);
   private readonly issNowService = inject(GlobeIssNowService);
   private readonly airportLookup = inject(AirportLookupService);
   private readonly http = inject(HttpClient);
@@ -393,8 +403,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   timeZonesEnabled = false;
   issOverlayEnabled = true;
   /**
-   * Interrupteur maître d’affichage de la trace ISS : masque/affiche d’un coup la traînée temps réel
-   * ET la trace historique (mêmes lignes orange). Les données ne sont pas effacées, seulement cachées.
+   * Interrupteur maître d’affichage de la trace ISS live : masque/affiche la traînée temps réel
+   * et la prédiction rouge. La trace historique MongoDB a son propre interrupteur
+   * ({@link issHistoricalTraceEnabled}) et reste visible indépendamment.
    */
   issTraceVisible = true;
   /** Bandeau défilant lat/lon/altitude/vitesse ISS (page globe). */
@@ -508,7 +519,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Dates/heures le long de la trace historique ISS (activé par défaut). */
   issHistoricalTraceDatesEnabled = false;
   issHistoricalTraceClearInFlight = false;
-  /** Server records ISS to MongoDB every 15 min even when no user has the globe open (persisted in MongoDB). */
+  /** Server records ISS to MongoDB (master recording toggle, persisted in MongoDB). */
   issBackgroundTraceEnabled = false;
   issBackgroundTraceIntervalMinutes = 15;
   issBackgroundTraceLoading = false;
@@ -779,7 +790,17 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   issAlertTesting = false;
   issAlertError = '';
   issAlertNotice = '';
+  issAlertAdminEntries: IssAlertAdminEntry[] = [];
+  issAlertAdminLoading = false;
+  issAlertAdminModalOpen = false;
+  issAlertAdminDeletingUserId = '';
+  issAlertAdminDeleteError = '';
+  issAlertEditingUserId: string | null = null;
+  issAlertEditingOwnerLabel = '';
+  issAlertPassesUi: Record<string, IssAlertPassesUiState> = {};
   private issAlertConfigLoaded = false;
+  private issGlobalPrefsLoaded = false;
+  private issGlobalPrefsSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
   private renderer?: THREE.WebGLRenderer;
   private scene?: THREE.Scene;
@@ -1064,9 +1085,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     const canPickIssTraceDate =
-      this.issHistoricalTraceDatesEnabled &&
-      this.issHistoricalTraceEnabled &&
-      this.issTraceVisible;
+      this.issHistoricalTraceDatesEnabled && this.issHistoricalTraceEnabled;
     const canPickCountryLabel = this.countryLabelsEnabled;
     if (!canPickIssTraceDate && !canPickCountryLabel) {
       if (this.issTraceDateLoupeLabel !== null) {
@@ -1158,6 +1177,90 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     });
     queueMicrotask(() => this.bootstrapThree());
     this.loadIssFsPipStackTopFromStorage();
+    queueMicrotask(() => this.loadIssGlobalPrefsThenBootstrapIss());
+    queueMicrotask(() => this.loadIssBackgroundTraceSetting());
+    queueMicrotask(() => this.loadIssTraceDisplayLimitSetting());
+    queueMicrotask(() => this.loadIssAlertConfig());
+    queueMicrotask(() => this.loadFlightTrackingPreference());
+  }
+
+  /** Loads shared ISS switches from MongoDB, then starts polling / trace display as configured. */
+  private loadIssGlobalPrefsThenBootstrapIss(): void {
+    this.apiService.getIssGlobalPrefs().subscribe({
+      next: (prefs) => {
+        this.applyIssGlobalPrefs(prefs);
+        this.issGlobalPrefsLoaded = true;
+        this.bootstrapIssUiAfterGlobalPrefs();
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.bootstrapIssUiAfterGlobalPrefs();
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private applyIssGlobalPrefs(prefs: GlobeIssGlobalPrefs | null | undefined): void {
+    if (!prefs) {
+      return;
+    }
+    if (typeof prefs.overlayEnabled === 'boolean') {
+      this.issOverlayEnabled = prefs.overlayEnabled;
+    }
+    if (typeof prefs.historicalTraceEnabled === 'boolean') {
+      this.issHistoricalTraceEnabled = prefs.historicalTraceEnabled;
+    }
+    if (typeof prefs.historicalTraceDatesEnabled === 'boolean') {
+      this.issHistoricalTraceDatesEnabled = prefs.historicalTraceDatesEnabled;
+    }
+    if (typeof prefs.traceVisible === 'boolean') {
+      this.issTraceVisible = prefs.traceVisible;
+    }
+    if (typeof prefs.keepEarthCentered === 'boolean') {
+      this.issKeepEarthCentered = prefs.keepEarthCentered;
+    }
+    if (typeof prefs.tickerEnabled === 'boolean') {
+      this.issTickerEnabled = prefs.tickerEnabled;
+    }
+    if (typeof prefs.liveEmbedEnabled === 'boolean') {
+      this.issLiveEmbedEnabled = prefs.liveEmbedEnabled;
+    }
+    if (typeof prefs.liveHdEmbedEnabled === 'boolean') {
+      this.issLiveHdEmbedEnabled = prefs.liveHdEmbedEnabled;
+    }
+    if (typeof prefs.pollIntervalSec === 'number' && prefs.pollIntervalSec > 0) {
+      this.issPollIntervalSec = this.clampIssPollIntervalSec(prefs.pollIntervalSec);
+    }
+  }
+
+  private buildIssGlobalPrefsPayload(): GlobeIssGlobalPrefs {
+    return {
+      overlayEnabled: this.issOverlayEnabled,
+      historicalTraceEnabled: this.issHistoricalTraceEnabled,
+      historicalTraceDatesEnabled: this.issHistoricalTraceDatesEnabled,
+      traceVisible: this.issTraceVisible,
+      keepEarthCentered: this.issKeepEarthCentered,
+      tickerEnabled: this.issTickerEnabled,
+      liveEmbedEnabled: this.issLiveEmbedEnabled,
+      liveHdEmbedEnabled: this.issLiveHdEmbedEnabled,
+      pollIntervalSec: this.clampIssPollIntervalSec(this.issPollIntervalSec)
+    };
+  }
+
+  private schedulePersistIssGlobalPrefs(): void {
+    if (!this.issGlobalPrefsLoaded) {
+      return;
+    }
+    if (this.issGlobalPrefsSaveTimer != null) {
+      clearTimeout(this.issGlobalPrefsSaveTimer);
+    }
+    this.issGlobalPrefsSaveTimer = setTimeout(() => {
+      this.issGlobalPrefsSaveTimer = null;
+      this.apiService.setIssGlobalPrefs(this.buildIssGlobalPrefsPayload()).subscribe({ error: () => {} });
+    }, 400);
+  }
+
+  private bootstrapIssUiAfterGlobalPrefs(): void {
     queueMicrotask(() => this.refreshIssLivePiPPanelsLayout());
     if (this.issPositionFeedActive()) {
       queueMicrotask(() => {
@@ -1168,13 +1271,14 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.issHistoricalTraceEnabled) {
       queueMicrotask(() => void this.loadIssHistoricalTrace());
     }
-    queueMicrotask(() => this.loadIssBackgroundTraceSetting());
-    queueMicrotask(() => this.loadIssTraceDisplayLimitSetting());
-    queueMicrotask(() => this.loadIssAlertConfig());
-    queueMicrotask(() => this.loadFlightTrackingPreference());
+    this.applyIssTraceVisibility();
   }
 
   ngOnDestroy(): void {
+    if (this.issGlobalPrefsSaveTimer != null) {
+      clearTimeout(this.issGlobalPrefsSaveTimer);
+      this.issGlobalPrefsSaveTimer = null;
+    }
     this.stopIssCompassSensors();
     this.stopIssCompassFreshnessTimer();
     this.endIssFsSplitResizeDrag();
@@ -1467,7 +1571,6 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       !group?.visible ||
       !this.issHistoricalTraceDatesEnabled ||
       !this.issHistoricalTraceEnabled ||
-      !this.issTraceVisible ||
       !this.camera ||
       !this.renderer
     ) {
@@ -1982,6 +2085,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       this.cdr.markForCheck();
     }
+    this.schedulePersistIssGlobalPrefs();
   }
 
   onIssTickerToggle(): void {
@@ -1993,20 +2097,21 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.clearIssPositionFeedState();
     }
     this.cdr.markForCheck();
+    this.schedulePersistIssGlobalPrefs();
   }
 
   /**
-   * Interrupteur maître : affiche/masque d’un coup la traînée ISS temps réel ET la trace historique.
-   * On ne supprime aucune donnée — on bascule seulement la visibilité des lignes/étiquettes.
+   * Interrupteur maître : affiche/masque la traînée ISS temps réel et la prédiction rouge.
+   * La trace historique MongoDB reste pilotée par {@link issHistoricalTraceEnabled}.
    */
   onIssTraceToggle(): void {
     if (this.issTraceVisible) {
       this.rebuildIssTrailGeometry();
-      this.rebuildIssHistoricalTrailGeometry();
       this.rebuildIssForecastTrailGeometry();
     }
     this.applyIssTraceVisibility();
     this.cdr.markForCheck();
+    this.schedulePersistIssGlobalPrefs();
   }
 
   /** Horodatage (ms) du point de trace ISS le plus ancien connu, sinon `null`. */
@@ -2100,21 +2205,21 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.formatIssTraceDateLabel(new Date(oldest).toISOString());
   }
 
-  /** Applique l’état de {@link issTraceVisible} aux deux lignes orange et aux étiquettes de dates. */
+  /** Applique la visibilité des traces ISS live (master) et historique (interrupteur dédié). */
   private applyIssTraceVisibility(): void {
-    const visible = this.issTraceVisible;
+    const liveVisible = this.issTraceVisible;
     if (this.issTrailLine) {
-      this.issTrailLine.visible = visible && this.issTrailPoints.length >= 2;
-    }
-    if (this.issHistoricalTrailLine) {
-      this.issHistoricalTrailLine.visible = visible && this.issHistoricalTraceEnabled;
+      this.issTrailLine.visible = liveVisible && this.issTrailPoints.length >= 2;
     }
     if (this.issForecastTrailLine) {
-      this.issForecastTrailLine.visible = visible && this.issForecastTrailPoints.length >= 1;
+      this.issForecastTrailLine.visible = liveVisible && this.issForecastTrailPoints.length >= 1;
+    }
+    if (this.issHistoricalTrailLine) {
+      this.issHistoricalTrailLine.visible = this.issHistoricalTraceEnabled;
     }
     if (this.issHistoricalTraceDateLabelsGroup) {
       this.issHistoricalTraceDateLabelsGroup.visible =
-        visible && this.issHistoricalTraceEnabled && this.issHistoricalTraceDatesEnabled;
+        this.issHistoricalTraceEnabled && this.issHistoricalTraceDatesEnabled;
     }
   }
 
@@ -2236,17 +2341,423 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         })
       )
       .subscribe({
-        next: (res) => this.applyIssAlertConfig(res),
+        next: (res) => {
+          this.applyIssAlertConfig(res);
+          if (this.hasIssAlertAdminRole()) {
+            this.loadIssAlertAdminList();
+          }
+        },
         error: () => {
-          /* keep defaults */
+          this.applyIssAlertConfig(null);
+        }
+      });
+  }
+
+  hasIssAlertAdminRole(): boolean {
+    return this.keycloakService.hasAdminRole();
+  }
+
+  issAlertHasOwnConfig(): boolean {
+    return (
+      this.issAlertEnabled ||
+      !!(this.issAlertEmail && this.issAlertEmail.trim()) ||
+      !!(this.issAlertPlace && this.issAlertPlace.trim())
+    );
+  }
+
+  private loadIssAlertAdminList(): void {
+    if (!this.hasIssAlertAdminRole() || this.issAlertAdminLoading) {
+      return;
+    }
+    this.issAlertAdminLoading = true;
+    this.apiService
+      .getIssAlertsAdmin()
+      .pipe(
+        finalize(() => {
+          this.issAlertAdminLoading = false;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
+        next: (entries) => {
+          this.issAlertAdminEntries = Array.isArray(entries) ? entries : [];
+        },
+        error: () => {
+          this.issAlertAdminEntries = [];
+        }
+      });
+  }
+
+  private loadIssAlertModalEntries(): void {
+    if (this.issAlertAdminLoading) {
+      return;
+    }
+    if (this.hasIssAlertAdminRole()) {
+      this.loadIssAlertAdminList();
+      return;
+    }
+    const own = this.buildOwnIssAlertModalEntry();
+    this.issAlertAdminEntries = own ? [own] : [];
+    this.cdr.markForCheck();
+  }
+
+  private buildOwnIssAlertModalEntry(): IssAlertAdminEntry | null {
+    if (!this.issAlertHasOwnConfig()) {
+      return null;
+    }
+    const userId = this.keycloakService.getJwtSubject() || '';
+    const owner =
+      this.keycloakService.getUsernameForDisplay()
+      || this.keycloakService.getPreferredUsername()
+      || userId;
+    return {
+      userId,
+      owner,
+      enabled: this.issAlertEnabled,
+      email: this.issAlertEmail,
+      place: this.issAlertPlace,
+      placeLabel: this.issAlertPlaceLabel,
+      lat: this.issAlertLat,
+      lon: this.issAlertLon,
+      minQuality: this.issAlertMinQuality
+    };
+  }
+
+  issAlertManageBadgeCount(): number {
+    if (this.hasIssAlertAdminRole()) {
+      return this.issAlertAdminEntries.length;
+    }
+    return this.issAlertHasOwnConfig() ? 1 : 0;
+  }
+
+  openIssAlertAdminModal(): void {
+    this.issAlertAdminDeleteError = '';
+    this.issAlertAdminModalOpen = true;
+    this.loadIssAlertModalEntries();
+  }
+
+  closeIssAlertAdminModal(): void {
+    this.issAlertAdminModalOpen = false;
+    this.issAlertAdminDeleteError = '';
+    this.issAlertPassesUi = {};
+  }
+
+  canEditIssAlertRow(row: IssAlertAdminEntry): boolean {
+    const userId = (row.userId || '').trim();
+    if (!userId) {
+      return false;
+    }
+    if (this.hasIssAlertAdminRole()) {
+      return true;
+    }
+    const currentSub = (this.keycloakService.getJwtSubject() || '').trim();
+    return !!currentSub && userId === currentSub;
+  }
+
+  isIssAlertEditingOtherUser(): boolean {
+    const editing = (this.issAlertEditingUserId || '').trim();
+    if (!editing) {
+      return false;
+    }
+    const currentSub = (this.keycloakService.getJwtSubject() || '').trim();
+    return !!currentSub && editing !== currentSub;
+  }
+
+  editIssAlertAdminEntry(row: IssAlertAdminEntry): void {
+    if (!this.canEditIssAlertRow(row)) {
+      return;
+    }
+    const userId = (row.userId || '').trim();
+    const currentSub = (this.keycloakService.getJwtSubject() || '').trim();
+    const isOther = !!userId && userId !== currentSub;
+    if (isOther) {
+      this.issAlertEditingUserId = userId;
+      this.issAlertEditingOwnerLabel = this.formatIssAlertAdminOwner(row);
+    } else {
+      this.issAlertEditingUserId = null;
+      this.issAlertEditingOwnerLabel = '';
+    }
+    this.issAlertError = '';
+    this.issAlertNotice = '';
+    this.issAlertEnabled = !!row.enabled;
+    this.issAlertEmail = row.email || '';
+    this.issAlertPlace = row.place || '';
+    this.issAlertPlaceLabel = row.placeLabel || '';
+    this.issAlertLat = typeof row.lat === 'number' ? row.lat : null;
+    this.issAlertLon = typeof row.lon === 'number' ? row.lon : null;
+    this.issAlertMinQuality = row.minQuality || 'fair';
+    this.closeIssAlertAdminModal();
+    this.showOptionsPanel = true;
+    this.cdr.markForCheck();
+    queueMicrotask(() => this.scrollToIssAlertForm());
+  }
+
+  cancelIssAlertEdit(): void {
+    this.issAlertEditingUserId = null;
+    this.issAlertEditingOwnerLabel = '';
+    this.issAlertError = '';
+    this.issAlertNotice = '';
+    this.issAlertLoading = true;
+    this.apiService
+      .getIssAlertConfig()
+      .pipe(
+        finalize(() => {
+          this.issAlertLoading = false;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
+        next: (res) => this.applyIssAlertConfig(res),
+        error: () => this.applyIssAlertConfig(null)
+      });
+  }
+
+  private scrollToIssAlertForm(): void {
+    document.querySelector<HTMLElement>('.wg-iss-alert-section')?.scrollIntoView({
+      block: 'nearest',
+      inline: 'nearest'
+    });
+    document.getElementById('wgIssAlertPlace')?.focus({ preventScroll: true });
+  }
+
+  private issAlertSaveRequest(body: {
+    enabled?: boolean;
+    email?: string;
+    place?: string;
+    minQuality?: string;
+  }) {
+    if (this.isIssAlertEditingOtherUser() && this.issAlertEditingUserId) {
+      return this.apiService.setIssAlertConfigAdmin(this.issAlertEditingUserId, body);
+    }
+    return this.apiService.setIssAlertConfig(body);
+  }
+
+  issAlertPassesKey(row: IssAlertAdminEntry): string {
+    return (row.userId || row.email || '__self__').trim();
+  }
+
+  getIssAlertPassesUi(row: IssAlertAdminEntry): IssAlertPassesUiState | null {
+    return this.issAlertPassesUi[this.issAlertPassesKey(row)] ?? null;
+  }
+
+  isIssAlertPassesOpen(row: IssAlertAdminEntry): boolean {
+    return !!this.getIssAlertPassesUi(row)?.open;
+  }
+
+  toggleIssAlertUpcomingPasses(row: IssAlertAdminEntry): void {
+    const key = this.issAlertPassesKey(row);
+    const existing = this.issAlertPassesUi[key];
+    if (existing?.open) {
+      existing.open = false;
+      this.cdr.markForCheck();
+      return;
+    }
+    if (existing?.lines.length || existing?.error) {
+      existing.open = true;
+      this.cdr.markForCheck();
+      return;
+    }
+    this.issAlertPassesUi[key] = {
+      loading: true,
+      error: '',
+      lines: [],
+      open: true
+    };
+    this.fetchIssAlertUpcomingPasses(row, key);
+  }
+
+  private fetchIssAlertUpcomingPasses(row: IssAlertAdminEntry, key: string): void {
+    const lat = row.lat != null ? Number(row.lat) : NaN;
+    const lon = row.lon != null ? Number(row.lon) : NaN;
+    const placeQuery = (row.place || row.placeLabel || '').trim();
+    const request$ =
+      Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180
+        ? this.apiService.getIssPassesByCoordinates(lat, lon, 5)
+        : placeQuery
+          ? this.apiService.getIssPassesByPlace(placeQuery, 5)
+          : null;
+    if (!request$) {
+      this.setIssAlertPassesError(
+        key,
+        this.translate.instant('WORLD_GLOBE.ISS_ALERT_ADMIN_NO_PLACE')
+      );
+      return;
+    }
+    request$
+      .pipe(
+        finalize(() => {
+          const state = this.issAlertPassesUi[key];
+          if (state) {
+            state.loading = false;
+          }
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
+        next: (body) => this.applyIssAlertPassesResponse(key, body as IssPassByPlaceResponse),
+        error: () => {
+          this.setIssAlertPassesError(
+            key,
+            this.translate.instant('WORLD_GLOBE.ISS_PASS_ERROR')
+          );
+        }
+      });
+  }
+
+  private applyIssAlertPassesResponse(key: string, body: IssPassByPlaceResponse): void {
+    const state = this.issAlertPassesUi[key];
+    if (!state) {
+      return;
+    }
+    const parsed = this.extractIssPassLines(body);
+    state.lines = parsed.lines;
+    state.error = parsed.error;
+    state.loading = false;
+    this.cdr.markForCheck();
+  }
+
+  private setIssAlertPassesError(key: string, message: string): void {
+    const state = this.issAlertPassesUi[key];
+    if (!state) {
+      this.issAlertPassesUi[key] = {
+        loading: false,
+        error: message,
+        lines: [],
+        open: true
+      };
+    } else {
+      state.loading = false;
+      state.error = message;
+      state.lines = [];
+    }
+    this.cdr.markForCheck();
+  }
+
+  private extractIssPassLines(body: IssPassByPlaceResponse): { lines: string[]; error: string } {
+    const status = String(body?.status ?? '').toLowerCase();
+    if (status === 'ambiguous') {
+      return {
+        lines: [],
+        error: this.translate.instant('WORLD_GLOBE.ISS_PASS_AMBIGUOUS_HINT')
+      };
+    }
+    if (status !== 'success') {
+      const code = body?.code ?? '';
+      if (code === 'no_geocode_results') {
+        return { lines: [], error: this.translate.instant('ADDRESS_GEOCODE.NO_RESULTS') };
+      }
+      if (code === 'no_passes') {
+        return { lines: [], error: this.translate.instant('WORLD_GLOBE.ISS_PASS_NONE') };
+      }
+      return {
+        lines: [],
+        error: body?.message?.trim() || this.translate.instant('WORLD_GLOBE.ISS_PASS_ERROR')
+      };
+    }
+    const passes = body.passes?.response ?? (body.nextPass ? [body.nextPass] : []);
+    const lines = passes
+      .map((p) => this.formatIssPassLine(p.risetime, p.duration))
+      .filter((line): line is string => !!line);
+    if (!lines.length) {
+      return { lines: [], error: this.translate.instant('WORLD_GLOBE.ISS_PASS_NONE') };
+    }
+    return { lines, error: '' };
+  }
+
+  formatIssAlertAdminOwner(row: IssAlertAdminEntry): string {
+    return (row.owner || row.userId || '').trim();
+  }
+
+  isIssAlertRowDeleting(row: IssAlertAdminEntry): boolean {
+    const deleting = this.issAlertAdminDeletingUserId;
+    if (!deleting) {
+      return false;
+    }
+    return deleting === (row.userId || '__self__');
+  }
+
+  formatIssAlertAdminQuality(minQuality: string | undefined): string {
+    switch ((minQuality || '').toLowerCase()) {
+      case 'good':
+        return this.translate.instant('WORLD_GLOBE.ISS_ALERT_QUALITY_GOOD');
+      case 'any':
+        return this.translate.instant('WORLD_GLOBE.ISS_ALERT_QUALITY_ANY');
+      default:
+        return this.translate.instant('WORLD_GLOBE.ISS_ALERT_QUALITY_FAIR');
+    }
+  }
+
+  deleteIssAlertAdminEntry(row: IssAlertAdminEntry): void {
+    if (this.issAlertAdminDeletingUserId) {
+      return;
+    }
+    const userId = (row.userId || '').trim();
+    const currentSub = (this.keycloakService.getJwtSubject() || '').trim();
+    const isAdmin = this.hasIssAlertAdminRole();
+    const isAdminDeletingOther = isAdmin && !!userId && userId !== currentSub;
+    if (isAdmin && !userId) {
+      return;
+    }
+    const owner = this.formatIssAlertAdminOwner(row);
+    const email = (row.email || '').trim();
+    const confirmMsg = this.translate.instant(
+      isAdminDeletingOther ? 'WORLD_GLOBE.ISS_ALERT_ADMIN_DELETE_CONFIRM' : 'WORLD_GLOBE.ISS_ALERT_DELETE_CONFIRM',
+      { owner, email: email || '—' }
+    );
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+    this.issAlertAdminDeleteError = '';
+    this.issAlertAdminDeletingUserId = isAdminDeletingOther ? userId : (userId || '__self__');
+    const delete$ = isAdminDeletingOther
+      ? this.apiService.deleteIssAlertAdmin(userId)
+      : this.apiService.deleteIssAlert();
+    delete$
+      .pipe(
+        finalize(() => {
+          this.issAlertAdminDeletingUserId = '';
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
+        next: () => {
+          if (!isAdminDeletingOther) {
+            this.applyIssAlertConfig(null);
+            this.issAlertEditingUserId = null;
+            this.issAlertEditingOwnerLabel = '';
+          } else if (
+            this.issAlertEditingUserId &&
+            (this.issAlertEditingUserId || '').trim() === userId
+          ) {
+            this.cancelIssAlertEdit();
+          }
+          if (isAdmin) {
+            this.issAlertAdminEntries = this.issAlertAdminEntries.filter((e) => (e.userId || '').trim() !== userId);
+          } else {
+            this.issAlertAdminEntries = [];
+          }
+        },
+        error: () => {
+          this.issAlertAdminDeleteError = this.translate.instant('WORLD_GLOBE.ISS_ALERT_ADMIN_DELETE_ERROR');
         }
       });
   }
 
   private applyIssAlertConfig(res: IssAlertConfig | null | undefined): void {
+    this.issAlertEnabled = false;
+    this.issAlertEmail = '';
+    this.issAlertPlace = '';
+    this.issAlertPlaceLabel = '';
+    this.issAlertLat = null;
+    this.issAlertLon = null;
+    this.issAlertMinQuality = 'fair';
     if (!res) {
       return;
     }
+    this.applyIssAlertConfigFromRow(res);
+  }
+
+  private applyIssAlertConfigFromRow(res: IssAlertConfig): void {
     this.issAlertEnabled = !!res.enabled;
     this.issAlertEmail = res.email || '';
     this.issAlertPlace = res.place || '';
@@ -2267,8 +2778,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.issAlertError = '';
     this.issAlertNotice = '';
     this.issAlertSaving = true;
-    this.apiService
-      .setIssAlertConfig({ enabled: next })
+    this.issAlertSaveRequest({ enabled: next })
       .pipe(
         finalize(() => {
           this.issAlertSaving = false;
@@ -2276,7 +2786,16 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         })
       )
       .subscribe({
-        next: (res) => this.applyIssAlertConfig(res),
+        next: (res) => {
+          if (this.isIssAlertEditingOtherUser()) {
+            this.applyIssAlertConfigFromRow(res);
+          } else {
+            this.applyIssAlertConfig(res);
+          }
+          if (this.hasIssAlertAdminRole()) {
+            this.loadIssAlertAdminList();
+          }
+        },
         error: () => {
           this.issAlertEnabled = !next;
           this.issAlertError = this.translate.instant('WORLD_GLOBE.ISS_ALERT_SAVE_ERROR');
@@ -2292,8 +2811,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.issAlertError = '';
     this.issAlertNotice = '';
     this.issAlertSaving = true;
-    this.apiService
-      .setIssAlertConfig({
+    this.issAlertSaveRequest({
         enabled: this.issAlertEnabled,
         email: (this.issAlertEmail || '').trim(),
         place: (this.issAlertPlace || '').trim(),
@@ -2307,8 +2825,17 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       )
       .subscribe({
         next: (res) => {
-          this.applyIssAlertConfig(res);
+          if (this.isIssAlertEditingOtherUser()) {
+            this.applyIssAlertConfigFromRow(res);
+          } else {
+            this.applyIssAlertConfig(res);
+            this.issAlertEditingUserId = null;
+            this.issAlertEditingOwnerLabel = '';
+          }
           this.issAlertNotice = this.translate.instant('WORLD_GLOBE.ISS_ALERT_SAVED');
+          if (this.hasIssAlertAdminRole()) {
+            this.loadIssAlertAdminList();
+          }
         },
         error: (err) => {
           const code = err?.error?.error;
@@ -2361,8 +2888,10 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     } else {
       this.clearIssHistoricalTrail();
       this.issHistoricalTraceFailed = false;
+      this.applyIssTraceVisibility();
       this.cdr.markForCheck();
     }
+    this.schedulePersistIssGlobalPrefs();
   }
 
   onIssHistoricalTraceDatesToggle(): void {
@@ -2372,6 +2901,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.disposeIssHistoricalTraceDateLabels();
     }
     this.cdr.markForCheck();
+    this.schedulePersistIssGlobalPrefs();
   }
 
   onClearIssHistoricalTraceClick(): void {
@@ -2443,6 +2973,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.applyIssEarthCenteredCameraIfNeeded();
     }
     this.cdr.markForCheck();
+    this.schedulePersistIssGlobalPrefs();
   }
 
   /** Lieu fixé par géocodage (ville / pays) : le suivi caméra ISS est suspendu. */
@@ -2634,6 +3165,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       queueMicrotask(() => this.startIssPolling());
     }
     queueMicrotask(() => this.cdr.markForCheck());
+    this.schedulePersistIssGlobalPrefs();
   }
 
   /** Position ISS tout de suite ; le prochain tirage automatique est recalculé à partir de maintenant. */
@@ -2737,6 +3269,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         this.syncIssLivePiPStackOffset();
       }
     });
+    this.schedulePersistIssGlobalPrefs();
   }
 
   onIssLiveHdEmbedPanelToggle(): void {
@@ -2756,6 +3289,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         this.syncIssLivePiPStackOffset();
       }
     });
+    this.schedulePersistIssGlobalPrefs();
   }
 
   /** Ferme la mini-fenêtre ISS (désactive le flux + quitte le plein écran vidéo si actif). */
@@ -6168,14 +6702,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       (place?.lat != null && place?.lon != null
         ? `${place.lat.toFixed(4)}, ${place.lon.toFixed(4)}`
         : '');
-    const passes =
-      body.passes?.response ??
-      (body.nextPass ? [body.nextPass] : []);
-    const lines = passes
-      .map((p) => this.formatIssPassLine(p.risetime, p.duration))
-      .filter((l): l is string => !!l);
-    if (lines.length === 0) {
-      this.issPassError = this.translate.instant('WORLD_GLOBE.ISS_PASS_NONE');
+    const parsed = this.extractIssPassLines(body);
+    if (parsed.lines.length === 0) {
+      this.issPassError = parsed.error || this.translate.instant('WORLD_GLOBE.ISS_PASS_NONE');
       this.issPassSummary = null;
       this.cdr.markForCheck();
       return;
@@ -6193,8 +6722,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.issPassSummary = {
       placeLabel,
       coordsLine,
-      nextPassLine: lines[0],
-      upcomingLines: lines
+      nextPassLine: parsed.lines[0],
+      upcomingLines: parsed.lines
     };
     if (lat != null && lon != null) {
       this.flyGlobeToGeocodeResult({
@@ -9579,8 +10108,10 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.applyIssTraceVisibility();
     if (this.issTraceVisible) {
       this.rebuildIssTrailGeometry();
-      this.rebuildIssHistoricalTrailGeometry();
       this.rebuildIssForecastTrailGeometry();
+    }
+    if (this.issHistoricalTraceEnabled && this.issHistoricalTrailPoints.length >= 2) {
+      this.rebuildIssHistoricalTrailGeometry();
     }
     this.scheduleWorldGlobeCdr();
   }
@@ -9601,10 +10132,10 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     return WorldGlobeComponent.createIconPlaneMesh(tex, GLOBE_FLIGHT_ICON_WORLD_SIZE);
   }
 
-  /** Space station (top-down, yellow): central module + solar panels. */
+  /** ISS top-down mesh uses {@link drawIssTopViewIcon}. */
   private static createIssIconMesh(): THREE.Mesh {
     const tex = WorldGlobeComponent.createGlobeIconCanvasTexture((ctx, size) => {
-      WorldGlobeComponent.drawIssTopViewIcon(ctx, size);
+      drawIssTopViewIcon(ctx, size);
     });
     return WorldGlobeComponent.createIconPlaneMesh(tex, GLOBE_ISS_ICON_WORLD_SIZE);
   }
@@ -9739,61 +10270,6 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     ctx.stroke();
   }
 
-  /** ISS top-down: central truss + yellow solar panels. */
-  private static drawIssTopViewIcon(ctx: CanvasRenderingContext2D, size: number): void {
-    const cx = size / 2;
-    const cy = size / 2;
-    const s = size;
-    const yellow = '#ffea00';
-    const panel = '#ffd000';
-    const stroke = '#fff8b0';
-    ctx.clearRect(0, 0, s, s);
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = Math.max(1.5, s * 0.028);
-
-    // Solar panels (left / right)
-    ctx.fillStyle = panel;
-    ctx.strokeRect(cx - s * 0.44, cy - s * 0.13, s * 0.16, s * 0.26);
-    ctx.fillRect(cx - s * 0.44, cy - s * 0.13, s * 0.16, s * 0.26);
-    ctx.strokeRect(cx + s * 0.28, cy - s * 0.13, s * 0.16, s * 0.26);
-    ctx.fillRect(cx + s * 0.28, cy - s * 0.13, s * 0.16, s * 0.26);
-
-    // Panel grid
-    ctx.strokeStyle = 'rgba(255, 240, 160, 0.55)';
-    ctx.lineWidth = 1;
-    for (let i = 1; i <= 3; i++) {
-      const xL = cx - s * 0.44 + (s * 0.16 * i) / 4;
-      const xR = cx + s * 0.28 + (s * 0.16 * i) / 4;
-      ctx.beginPath();
-      ctx.moveTo(xL, cy - s * 0.13);
-      ctx.lineTo(xL, cy + s * 0.13);
-      ctx.moveTo(xR, cy - s * 0.13);
-      ctx.lineTo(xR, cy + s * 0.13);
-      ctx.stroke();
-    }
-
-    // Main truss (horizontal)
-    ctx.fillStyle = yellow;
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = Math.max(2, s * 0.03);
-    ctx.fillRect(cx - s * 0.3, cy - s * 0.028, s * 0.6, s * 0.056);
-    ctx.strokeRect(cx - s * 0.3, cy - s * 0.028, s * 0.6, s * 0.056);
-
-    // Modules (nodes)
-    ctx.beginPath();
-    ctx.arc(cx - s * 0.14, cy, s * 0.045, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(cx + s * 0.14, cy, s * 0.045, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
-    // Central module
-    ctx.fillRect(cx - s * 0.055, cy - s * 0.055, s * 0.11, s * 0.11);
-    ctx.strokeRect(cx - s * 0.055, cy - s * 0.055, s * 0.11, s * 0.11);
-  }
 
   /**
    * Cap vrai (0° = Nord, sens horaire) d’un vecteur tangent à la sphère, même repère que {@link orientGlobeIconMesh}.
@@ -10454,13 +10930,14 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     } finally {
       this.issHistoricalTraceLoading = false;
+      this.applyIssTraceVisibility();
       this.cdr.markForCheck();
     }
   }
 
   /** Enregistre un échantillon ISS côté serveur (au plus 1× par intervalle serveur, fire-and-forget). */
   private persistIssTraceSample(lat: number, lon: number): void {
-    if (!this.issOverlayEnabled) {
+    if (!this.issOverlayEnabled || !this.issBackgroundTraceEnabled) {
       return;
     }
     const minMs = Math.max(1000, this.issTraceSampleIntervalSec * 1000);
@@ -10513,6 +10990,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }
     if (vertices.length === 0) {
+      if (this.issHistoricalTrailLine) {
+        this.issHistoricalTrailLine.visible = false;
+      }
       return;
     }
     if (!this.issHistoricalTrailLine) {
@@ -10530,6 +11010,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.issHistoricalTrailLine = line;
     }
     const line = this.issHistoricalTrailLine;
+    if (line.parent !== earth) {
+      earth.add(line);
+    }
     const histMat = line.material;
     if (!Array.isArray(histMat) && histMat instanceof THREE.LineBasicMaterial) {
       histMat.color.setHex(GLOBE_ISS_HISTORICAL_TRAIL_COLOR);
@@ -10539,7 +11022,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     line.geometry = new THREE.BufferGeometry();
     oldGeo.dispose();
     line.geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-    line.visible = this.issTraceVisible;
+    line.visible = this.issHistoricalTraceEnabled;
     if (this.issHistoricalTraceDatesEnabled) {
       this.rebuildIssHistoricalTraceDateLabels();
     } else {
@@ -10590,7 +11073,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (group.children.length === 0) {
       return;
     }
-    group.visible = this.issTraceVisible;
+    group.visible = this.issHistoricalTraceEnabled && this.issHistoricalTraceDatesEnabled;
     earth.add(group);
     this.issHistoricalTraceDateLabelsGroup = group;
     this.updateIssHistoricalTraceDateLabelsScaleForZoom();

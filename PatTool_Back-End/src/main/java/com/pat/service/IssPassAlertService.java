@@ -2,8 +2,12 @@ package com.pat.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.pat.controller.MailController;
+import com.pat.controller.dto.IssAlertAdminEntryDto;
+import com.pat.repo.AppParameterRepository;
+import com.pat.repo.MembersRepository;
+import com.pat.repo.domain.AppParameter;
+import com.pat.repo.domain.Member;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,37 +21,32 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 
 /**
  * E-mail alerts for upcoming <em>visible</em> ISS passes over a configured city/country.
  *
- * <p>The observed place (and recipient e-mail) are stored in MongoDB {@code appParameters} so the
- * configuration survives restarts and can be edited from the UI. A scheduler polls visible-pass
- * predictions (CDN Space, via {@link GlobeProxyService}) and sends one e-mail roughly
- * {@code globe.iss.alert.lead-minutes} minutes (default 30) before each pass, with date/time,
- * duration, rise/max/set direction (azimuth), peak elevation, brightness and visibility quality.</p>
+ * <p>Each user stores their own watched place and recipient e-mail in MongoDB
+ * ({@code globe.iss.alert.<JWT sub>}, JSON). A scheduler polls visible-pass
+ * predictions and sends one e-mail per user roughly
+ * {@code globe.iss.alert.lead-minutes} minutes (default 30) before each pass.</p>
  */
 @Service
 public class IssPassAlertService {
 
     private static final Logger log = LoggerFactory.getLogger(IssPassAlertService.class);
 
-    /** MongoDB {@code appParameters} keys (survive restarts). */
-    public static final String PARAM_ENABLED = "globe.iss.alert.enabled";
-    public static final String PARAM_EMAIL = "globe.iss.alert.email";
-    public static final String PARAM_PLACE = "globe.iss.alert.place";
-    public static final String PARAM_PLACE_LABEL = "globe.iss.alert.placeLabel";
-    public static final String PARAM_LAT = "globe.iss.alert.lat";
-    public static final String PARAM_LON = "globe.iss.alert.lon";
-    public static final String PARAM_MIN_QUALITY = "globe.iss.alert.minQuality";
-    /** JSON array of rise times (epoch ms) already e-mailed, to avoid duplicate alerts. */
-    public static final String PARAM_NOTIFIED = "globe.iss.alert.notified";
+    /** Per-user MongoDB key prefix ({@code globe.iss.alert.<JWT sub>}, JSON). */
+    public static final String PARAM_KEY_PREFIX = "globe.iss.alert.";
+
+    /** Suffixes of legacy per-field global keys — not JWT user ids. */
+    private static final Set<String> LEGACY_SUFFIXES = Set.of(
+            "enabled", "email", "place", "placeLabel", "lat", "lon", "minQuality", "notified");
 
     private static final DateTimeFormatter MAIL_DATE =
             DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.FRENCH);
@@ -63,6 +62,8 @@ public class IssPassAlertService {
     private final GlobeProxyService globeProxyService;
     private final GeocodeService geocodeService;
     private final AppParameterService appParameterService;
+    private final AppParameterRepository appParameterRepository;
+    private final MembersRepository membersRepository;
     private final MailController mailController;
     private final ObjectMapper objectMapper;
 
@@ -79,20 +80,22 @@ public class IssPassAlertService {
             GlobeProxyService globeProxyService,
             GeocodeService geocodeService,
             AppParameterService appParameterService,
+            AppParameterRepository appParameterRepository,
+            MembersRepository membersRepository,
             MailController mailController,
             ObjectMapper objectMapper) {
         this.globeProxyService = globeProxyService;
         this.geocodeService = geocodeService;
         this.appParameterService = appParameterService;
+        this.appParameterRepository = appParameterRepository;
+        this.membersRepository = membersRepository;
         this.mailController = mailController;
         this.objectMapper = objectMapper;
     }
 
     @PostConstruct
     public void init() {
-        log.info("ISS visible-pass alert: enabled={}, place='{}', leadMinutes={}, zone={}",
-                appParameterService.getBoolean(PARAM_ENABLED, false),
-                appParameterService.getString(PARAM_PLACE, ""),
+        log.info("ISS visible-pass alert: per-user configs, leadMinutes={}, zone={}",
                 getLeadMinutes(),
                 zoneId);
     }
@@ -157,66 +160,163 @@ public class IssPassAlertService {
             int leadMinutes) {
     }
 
-    public AlertConfig getConfig() {
-        Double lat = parseNullableDouble(appParameterService.getString(PARAM_LAT, null));
-        Double lon = parseNullableDouble(appParameterService.getString(PARAM_LON, null));
-        return new AlertConfig(
-                appParameterService.getBoolean(PARAM_ENABLED, false),
-                appParameterService.getString(PARAM_EMAIL, ""),
-                appParameterService.getString(PARAM_PLACE, ""),
-                appParameterService.getString(PARAM_PLACE_LABEL, ""),
-                lat,
-                lon,
-                appParameterService.getString(PARAM_MIN_QUALITY, "fair"),
-                getLeadMinutes());
+    /** Persisted JSON document for one user's alert settings. */
+    private record StoredUserAlert(
+            boolean enabled,
+            String email,
+            String place,
+            String placeLabel,
+            Double lat,
+            Double lon,
+            String minQuality,
+            List<Long> notified) {
+        StoredUserAlert {
+            if (email == null) {
+                email = "";
+            }
+            if (place == null) {
+                place = "";
+            }
+            if (placeLabel == null) {
+                placeLabel = "";
+            }
+            if (minQuality == null) {
+                minQuality = "fair";
+            }
+            if (notified == null) {
+                notified = new ArrayList<>();
+            }
+        }
+
+        static StoredUserAlert empty() {
+            return new StoredUserAlert(false, "", "", "", null, null, "fair", new ArrayList<>());
+        }
+    }
+
+    public AlertConfig getConfig(String jwtSubject) {
+        if (jwtSubject == null || jwtSubject.isBlank()) {
+            throw new IllegalArgumentException("jwtSubject required");
+        }
+        StoredUserAlert stored = loadStored(jwtSubject);
+        return toAlertConfig(stored);
     }
 
     /**
-     * Update the alert configuration. When {@code place} changes (or coordinates are missing),
+     * Update the alert configuration for the current user. When {@code place} changes (or coordinates are missing),
      * the place is geocoded server-side and the resolved coordinates / display name are stored.
-     *
-     * @return the updated configuration (with resolved coordinates)
-     * @throws IllegalArgumentException when the place cannot be geocoded
      */
-    public AlertConfig updateConfig(Boolean enabled, String email, String place, String minQuality) {
-        if (enabled != null) {
-            appParameterService.setBoolean(PARAM_ENABLED, enabled,
-                    "Send an e-mail before the ISS becomes visible over the configured place.");
+    public AlertConfig updateConfig(
+            String jwtSubject, Boolean enabled, String email, String place, String minQuality) {
+        if (jwtSubject == null || jwtSubject.isBlank()) {
+            throw new IllegalArgumentException("jwtSubject required");
         }
-        if (email != null) {
-            appParameterService.setString(PARAM_EMAIL, email.trim(),
-                    "Recipient e-mail for ISS visible-pass alerts (blank = default app recipient).");
-        }
-        if (minQuality != null) {
-            Quality q = Quality.fromString(minQuality, Quality.FAIR);
-            appParameterService.setString(PARAM_MIN_QUALITY, q.name().toLowerCase(Locale.ROOT),
-                    "Minimum visibility quality for ISS pass alerts (any/fair/good).");
-        }
+        StoredUserAlert stored = loadStored(jwtSubject);
+        boolean nextEnabled = enabled != null ? enabled : stored.enabled();
+        String nextEmail = email != null ? email.trim() : stored.email();
+        String nextMinQuality = minQuality != null
+                ? Quality.fromString(minQuality, Quality.FAIR).name().toLowerCase(Locale.ROOT)
+                : stored.minQuality();
+        String nextPlace = stored.place();
+        String nextPlaceLabel = stored.placeLabel();
+        Double nextLat = stored.lat();
+        Double nextLon = stored.lon();
+        List<Long> nextNotified = new ArrayList<>(stored.notified());
+
         if (place != null) {
             String trimmed = place.trim();
-            String previous = appParameterService.getString(PARAM_PLACE, "");
-            boolean coordsMissing = parseNullableDouble(appParameterService.getString(PARAM_LAT, null)) == null
-                    || parseNullableDouble(appParameterService.getString(PARAM_LON, null)) == null;
-            if (!trimmed.isEmpty() && (!trimmed.equalsIgnoreCase(previous) || coordsMissing)) {
+            boolean coordsMissing = nextLat == null || nextLon == null;
+            if (!trimmed.isEmpty() && (!trimmed.equalsIgnoreCase(nextPlace) || coordsMissing)) {
                 List<Map<String, Object>> hits = geocodeService.search(trimmed);
                 if (hits.isEmpty()) {
                     throw new IllegalArgumentException("no_geocode_results");
                 }
                 Map<String, Object> best = hits.get(0);
-                double lat = toDouble(best.get("lat"));
-                double lon = toDouble(best.get("lon"));
-                String displayName = best.get("displayName") != null ? best.get("displayName").toString() : trimmed;
-                appParameterService.setString(PARAM_PLACE, trimmed, "Place watched for ISS visible-pass alerts.");
-                appParameterService.setString(PARAM_PLACE_LABEL, displayName, "Resolved display name of the watched place.");
-                appParameterService.setString(PARAM_LAT, Double.toString(lat), "Latitude of the watched place.");
-                appParameterService.setString(PARAM_LON, Double.toString(lon), "Longitude of the watched place.");
-                // A new place invalidates the de-dup history.
-                appParameterService.setString(PARAM_NOTIFIED, "[]", "ISS pass rise times already e-mailed.");
+                nextLat = toDouble(best.get("lat"));
+                nextLon = toDouble(best.get("lon"));
+                nextPlaceLabel = best.get("displayName") != null ? best.get("displayName").toString() : trimmed;
+                nextPlace = trimmed;
+                nextNotified.clear();
             } else if (trimmed.isEmpty()) {
-                appParameterService.setString(PARAM_PLACE, "", "Place watched for ISS visible-pass alerts.");
+                nextPlace = "";
             }
         }
-        return getConfig();
+
+        StoredUserAlert updated = new StoredUserAlert(
+                nextEnabled, nextEmail, nextPlace, nextPlaceLabel, nextLat, nextLon, nextMinQuality, nextNotified);
+        saveStored(jwtSubject, updated);
+        return toAlertConfig(updated);
+    }
+
+    /**
+     * All per-user alert configs that were created (enabled, e-mail or place set).
+     * Legacy global keys ({@link #LEGACY_SUFFIXES}) are excluded.
+     */
+    public List<IssAlertAdminEntryDto> listAllConfiguredAlerts() {
+        List<IssAlertAdminEntryDto> out = new ArrayList<>();
+        for (AppParameter row : appParameterRepository.findByParamKeyStartingWith(PARAM_KEY_PREFIX)) {
+            String userId = alertKeySuffix(row.getParamKey());
+            if (userId == null) {
+                continue;
+            }
+            StoredUserAlert stored = parseStoredRow(row);
+            if (!hasCreatedAlert(stored)) {
+                continue;
+            }
+            out.add(new IssAlertAdminEntryDto(
+                    userId,
+                    resolveOwnerLabel(userId),
+                    stored.enabled(),
+                    stored.email(),
+                    stored.place(),
+                    stored.placeLabel(),
+                    stored.lat(),
+                    stored.lon(),
+                    stored.minQuality()));
+        }
+        out.sort((a, b) -> String.CASE_INSENSITIVE_ORDER.compare(
+                a.email() != null ? a.email() : "",
+                b.email() != null ? b.email() : ""));
+        return out;
+    }
+
+    /** Remove a user's ISS alert configuration (admin). */
+    public boolean deleteAlertForUser(String targetUserId) {
+        if (!StringUtils.hasText(targetUserId)) {
+            return false;
+        }
+        String userId = targetUserId.trim();
+        if (isLegacyAlertKeySuffix(userId)) {
+            return false;
+        }
+        String key = PARAM_KEY_PREFIX + userId;
+        if (appParameterRepository.findByParamKey(key).isEmpty()) {
+            return false;
+        }
+        appParameterService.delete(key);
+        return true;
+    }
+
+    private String resolveOwnerLabel(String keycloakId) {
+        if (!StringUtils.hasText(keycloakId)) {
+            return "";
+        }
+        Member member = membersRepository.findByKeycloakId(keycloakId.trim());
+        if (member == null) {
+            return keycloakId.trim();
+        }
+        String first = member.getFirstName() != null ? member.getFirstName().trim() : "";
+        String last = member.getLastName() != null ? member.getLastName().trim() : "";
+        String fullName = (first + " " + last).trim();
+        if (StringUtils.hasText(fullName)) {
+            return fullName;
+        }
+        if (StringUtils.hasText(member.getUserName())) {
+            return member.getUserName().trim();
+        }
+        if (StringUtils.hasText(member.getAddressEmail())) {
+            return member.getAddressEmail().trim();
+        }
+        return keycloakId.trim();
     }
 
     // ---------------------------------------------------------------------
@@ -307,14 +407,28 @@ public class IssPassAlertService {
      * @return number of alert e-mails sent in this run
      */
     public int checkAndNotify() {
-        AlertConfig cfg = getConfig();
-        if (!cfg.enabled()) {
+        List<AppParameter> rows = appParameterRepository.findByParamKeyStartingWith(PARAM_KEY_PREFIX);
+        int sent = 0;
+        for (AppParameter row : rows) {
+            String sub = alertKeySuffix(row.getParamKey());
+            if (sub == null) {
+                continue;
+            }
+            sent += checkAndNotifyForUser(sub);
+        }
+        return sent;
+    }
+
+    private int checkAndNotifyForUser(String jwtSubject) {
+        StoredUserAlert stored = loadStored(jwtSubject);
+        if (!stored.enabled()) {
             return 0;
         }
-        if (cfg.lat() == null || cfg.lon() == null) {
-            log.debug("ISS pass alert: enabled but no place coordinates set.");
+        if (stored.lat() == null || stored.lon() == null) {
+            log.debug("ISS pass alert: user {} enabled but no place coordinates set.", jwtSubject);
             return 0;
         }
+        AlertConfig cfg = toAlertConfig(stored);
         Quality minQuality = Quality.fromString(cfg.minQuality(), Quality.FAIR);
         List<VisiblePass> passes = fetchUpcomingVisiblePasses(cfg.lat(), cfg.lon(), 2, minQuality, 20);
         if (passes.isEmpty()) {
@@ -322,8 +436,7 @@ public class IssPassAlertService {
         }
         long now = Instant.now().toEpochMilli();
         long leadMs = getLeadMinutes() * 60_000L;
-        Set<Long> notified = loadNotified();
-        // Prune entries older than 6 h to keep the parameter small.
+        Set<Long> notified = new TreeSet<>(stored.notified());
         notified.removeIf(t -> t < now - 6L * 3_600_000L);
 
         int sent = 0;
@@ -340,9 +453,28 @@ public class IssPassAlertService {
                 sent++;
             }
         }
-        saveNotified(notified);
         if (sent > 0) {
-            log.info("ISS pass alert: sent {} e-mail(s) for place '{}'.", sent, cfg.placeLabel());
+            saveStored(jwtSubject, new StoredUserAlert(
+                    stored.enabled(),
+                    stored.email(),
+                    stored.place(),
+                    stored.placeLabel(),
+                    stored.lat(),
+                    stored.lon(),
+                    stored.minQuality(),
+                    new ArrayList<>(notified)));
+            log.info("ISS pass alert: sent {} e-mail(s) for user {} place '{}'.",
+                    sent, jwtSubject, cfg.placeLabel());
+        } else if (!notified.equals(new TreeSet<>(stored.notified()))) {
+            saveStored(jwtSubject, new StoredUserAlert(
+                    stored.enabled(),
+                    stored.email(),
+                    stored.place(),
+                    stored.placeLabel(),
+                    stored.lat(),
+                    stored.lon(),
+                    stored.minQuality(),
+                    new ArrayList<>(notified)));
         }
         return sent;
     }
@@ -352,11 +484,15 @@ public class IssPassAlertService {
      *
      * @return a short status: "sent", "no_place", "no_pass" or "mail_failed"
      */
-    public String sendTestForNextPass() {
-        AlertConfig cfg = getConfig();
-        if (cfg.lat() == null || cfg.lon() == null) {
+    public String sendTestForNextPass(String jwtSubject) {
+        if (jwtSubject == null || jwtSubject.isBlank()) {
+            throw new IllegalArgumentException("jwtSubject required");
+        }
+        StoredUserAlert stored = loadStored(jwtSubject);
+        if (stored.lat() == null || stored.lon() == null) {
             return "no_place";
         }
+        AlertConfig cfg = toAlertConfig(stored);
         Quality minQuality = Quality.fromString(cfg.minQuality(), Quality.FAIR);
         List<VisiblePass> passes = fetchUpcomingVisiblePasses(cfg.lat(), cfg.lon(), 5, minQuality, 1);
         if (passes.isEmpty()) {
@@ -549,39 +685,83 @@ public class IssPassAlertService {
     }
 
     // ---------------------------------------------------------------------
-    // De-dup history persistence
+    // Per-user persistence
     // ---------------------------------------------------------------------
 
-    private Set<Long> loadNotified() {
-        Set<Long> set = new TreeSet<>();
-        String raw = appParameterService.getString(PARAM_NOTIFIED, "[]");
-        try {
-            JsonNode node = objectMapper.readTree(raw);
-            if (node.isArray()) {
-                for (JsonNode n : node) {
-                    long v = n.asLong(0);
-                    if (v > 0) {
-                        set.add(v);
-                    }
-                }
-            }
-        } catch (Exception ignore) {
-            // corrupt value -> start fresh
+    private StoredUserAlert loadStored(String jwtSubject) {
+        if (isLegacyAlertKeySuffix(jwtSubject)) {
+            return StoredUserAlert.empty();
         }
-        return set;
+        String key = PARAM_KEY_PREFIX + jwtSubject;
+        Optional<AppParameter> row = appParameterService.find(key);
+        if (row.isEmpty()) {
+            return StoredUserAlert.empty();
+        }
+        return parseStoredRow(row.get());
     }
 
-    private void saveNotified(Set<Long> notified) {
-        try {
-            ArrayNode arr = objectMapper.createArrayNode();
-            for (Long t : notified) {
-                arr.add(t);
-            }
-            appParameterService.setJson(PARAM_NOTIFIED, objectMapper.writeValueAsString(arr),
-                    "ISS pass rise times already e-mailed (de-dup).");
-        } catch (Exception e) {
-            log.warn("ISS pass alert: failed to persist notified set: {}", e.getMessage());
+    private StoredUserAlert parseStoredRow(AppParameter row) {
+        if (row == null) {
+            return StoredUserAlert.empty();
         }
+        String raw = row.getParamValue();
+        if (raw == null || raw.isBlank()) {
+            return StoredUserAlert.empty();
+        }
+        try {
+            return objectMapper.readValue(raw, StoredUserAlert.class);
+        } catch (Exception e) {
+            String suffix = alertKeySuffix(row.getParamKey());
+            log.warn("ISS alert config unreadable for {}: {}", suffix != null ? suffix : row.getParamKey(), e.getMessage());
+            return StoredUserAlert.empty();
+        }
+    }
+
+    /** Returns the JWT {@code sub} suffix, or {@code null} if blank or a legacy global key suffix. */
+    private static String alertKeySuffix(String paramKey) {
+        if (paramKey == null || !paramKey.startsWith(PARAM_KEY_PREFIX)) {
+            return null;
+        }
+        String suffix = paramKey.substring(PARAM_KEY_PREFIX.length());
+        if (suffix.isBlank() || isLegacyAlertKeySuffix(suffix)) {
+            return null;
+        }
+        return suffix;
+    }
+
+    private static boolean isLegacyAlertKeySuffix(String suffix) {
+        return suffix != null && LEGACY_SUFFIXES.contains(suffix);
+    }
+
+    private static boolean hasCreatedAlert(StoredUserAlert stored) {
+        return stored.enabled()
+                || StringUtils.hasText(stored.email())
+                || StringUtils.hasText(stored.place());
+    }
+
+    private void saveStored(String jwtSubject, StoredUserAlert stored) {
+        String key = PARAM_KEY_PREFIX + jwtSubject;
+        try {
+            String json = objectMapper.writeValueAsString(stored);
+            appParameterService.setJson(
+                    key,
+                    json,
+                    "ISS visible-pass alert settings for one user (place, e-mail, notified passes).");
+        } catch (Exception e) {
+            throw new IllegalStateException("Serialization ISS alert config", e);
+        }
+    }
+
+    private AlertConfig toAlertConfig(StoredUserAlert stored) {
+        return new AlertConfig(
+                stored.enabled(),
+                stored.email(),
+                stored.place(),
+                stored.placeLabel(),
+                stored.lat(),
+                stored.lon(),
+                stored.minQuality(),
+                getLeadMinutes());
     }
 
     // ---------------------------------------------------------------------

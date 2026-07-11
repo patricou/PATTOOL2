@@ -5,9 +5,11 @@ import com.pat.repo.domain.AppParameter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -52,6 +54,19 @@ public class AppParameterService {
     public boolean getBoolean(String paramKey, boolean defaultValue) {
         return find(paramKey).map(p -> Boolean.parseBoolean(p.getParamValue()))
                 .orElse(defaultValue);
+    }
+
+    /**
+     * Like {@link #getBoolean(String, boolean)} but never throws when MongoDB is unreachable
+     * (e.g. during startup before the database is available).
+     */
+    public boolean getBooleanSafe(String paramKey, boolean defaultValue) {
+        try {
+            return getBoolean(paramKey, defaultValue);
+        } catch (DataAccessException e) {
+            log.warn("Could not read AppParameter '{}': {} — using default {}", paramKey, e.getMessage(), defaultValue);
+            return defaultValue;
+        }
     }
 
     // ---------------------------------------------------------------------
@@ -100,5 +115,12 @@ public class AppParameterService {
 
     public void delete(String paramKey) {
         repository.findByParamKey(paramKey).ifPresent(repository::delete);
+    }
+
+    public List<AppParameter> findByParamKeyStartingWith(String prefix) {
+        if (prefix == null || prefix.isBlank()) {
+            return List.of();
+        }
+        return repository.findByParamKeyStartingWith(prefix);
     }
 }

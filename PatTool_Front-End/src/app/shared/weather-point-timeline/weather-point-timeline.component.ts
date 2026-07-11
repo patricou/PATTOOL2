@@ -543,7 +543,6 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     }
     const requestId = ++this.requestId;
     this.clearLoadLog();
-    this.loadLogPanelOpen = true;
     this.loadDoneLogged = false;
     this.chartReadyLogged = false;
     this.cancelActiveLoads();

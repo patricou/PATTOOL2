@@ -133,7 +133,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private weatherRadarRefreshTimer: ReturnType<typeof setInterval> | null = null;
 	private weatherRadarLoadRequestId = 0;
 	private static readonly WEATHER_RADAR_OPACITY = 0.72;
-	private static readonly WEATHER_RADAR_REFRESH_MS = 60_000;
+	/** Global radar auto-refresh (MongoDB, shared with Météo-France). */
+	public autoRefreshRadar = true;
+	public radarRefreshCountdown = 0;
+	private radarRefreshSeconds = 60;
 
 	/** Follow device GPS: recenter the map every 5 s. */
 	public followDeviceLocation: boolean = false;
@@ -311,6 +314,24 @@ export class TraceViewerModalComponent implements OnDestroy {
 		@Inject(DOCUMENT) private readonly document: Document
 	) {
 		this.configureLeafletIcons();
+		this.loadRadarRefreshPreferences();
+	}
+
+	private loadRadarRefreshPreferences(): void {
+		this.apiService.getMeteoFranceRadarPreferences().pipe(takeUntil(this.destroy$)).subscribe({
+			next: (pref) => {
+				if (pref?.radarRefreshSeconds != null) {
+					this.radarRefreshSeconds = pref.radarRefreshSeconds;
+				}
+				if (pref?.autoRefreshEnabled != null) {
+					this.autoRefreshRadar = pref.autoRefreshEnabled;
+				}
+				if (this.showWeather) {
+					this.startWeatherRadarRefreshTimer();
+				}
+			},
+			error: () => { /* keep defaults */ }
+		});
 	}
 
 	ngOnDestroy(): void {
@@ -2618,6 +2639,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			clearInterval(this.weatherRadarRefreshTimer);
 			this.weatherRadarRefreshTimer = null;
 		}
+		this.radarRefreshCountdown = 0;
 	}
 
 	private loadWeatherRainViewerRadar(): void {
@@ -2659,14 +2681,33 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private startWeatherRadarRefreshTimer(): void {
 		this.clearWeatherRadarRefreshTimer();
-		if (!this.showWeather) {
+		if (!this.showWeather || !this.autoRefreshRadar) {
+			this.radarRefreshCountdown = 0;
 			return;
 		}
+		this.radarRefreshCountdown = this.effectiveRadarRefreshSeconds;
 		this.weatherRadarRefreshTimer = setInterval(() => {
-			if (this.showWeather && this.map) {
-				this.loadWeatherRainViewerRadar();
+			this.radarRefreshCountdown = Math.max(0, this.radarRefreshCountdown - 1);
+			if (this.radarRefreshCountdown === 0) {
+				if (this.showWeather && this.autoRefreshRadar && this.map) {
+					this.loadWeatherRainViewerRadar();
+				}
+				this.radarRefreshCountdown = this.effectiveRadarRefreshSeconds;
 			}
-		}, TraceViewerModalComponent.WEATHER_RADAR_REFRESH_MS);
+			this.scheduleTraceViewerCdr();
+		}, 1000);
+	}
+
+	private get effectiveRadarRefreshSeconds(): number {
+		const sec = Number(this.radarRefreshSeconds);
+		return Number.isFinite(sec) ? Math.max(30, Math.min(600, sec)) : 60;
+	}
+
+	public onAutoRefreshRadarChange(): void {
+		this.startWeatherRadarRefreshTimer();
+		this.apiService.saveMeteoFranceRadarPreferences({ autoRefreshEnabled: this.autoRefreshRadar })
+			.pipe(takeUntil(this.destroy$))
+			.subscribe({ error: () => { /* keep local value */ } });
 	}
 
 	public toggleSelectionOverlay(): void {
@@ -3823,6 +3864,27 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.deferWeatherUiUpdate(() => {
 			this.weatherTimelineVisible = true;
 		});
+	}
+
+	/** Ouvre Météo-France (onglet radar + températures) centré sur le point météo actuel. */
+	public openMeteoFranceAtWeatherPoint(): void {
+		if (!Number.isFinite(this.clickedWeatherLat) || !Number.isFinite(this.clickedWeatherLng)) {
+			return;
+		}
+		const lat = Math.round(this.clickedWeatherLat * 1e7) / 1e7;
+		const lon = Math.round(this.clickedWeatherLng * 1e7) / 1e7;
+		const z = this.map ? this.map.getZoom() : this.currentZoom;
+		void this.router.navigate(['api', 'meteo-france'], {
+			queryParams: {
+				lat,
+				lon,
+				z: Math.round(z * 100) / 100,
+				tab: 'radar',
+				temp: '1',
+				radar: '1'
+			}
+		});
+		this.close();
 	}
 
 	public closeWeatherTimeline(): void {

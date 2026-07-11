@@ -79,7 +79,7 @@ export interface FlightTrack {
   points?: FlightTrackPoint[] | null;
 }
 
-/** ISS visible-pass e-mail alert configuration (GET/PUT /external/globe/iss/alert). */
+/** ISS visible-pass e-mail alert configuration (GET/PUT /external/globe/iss/alert, per user). */
 export interface IssAlertConfig {
   enabled: boolean;
   email: string;
@@ -89,6 +89,32 @@ export interface IssAlertConfig {
   lon: number | null;
   minQuality: string;
   leadMinutes: number;
+}
+
+/** One user's ISS alert (GET /external/globe/iss/alerts, admin only). */
+export interface IssAlertAdminEntry {
+  userId: string;
+  owner?: string;
+  enabled: boolean;
+  email: string;
+  place: string;
+  placeLabel: string;
+  lat?: number | null;
+  lon?: number | null;
+  minQuality: string;
+}
+
+/** Shared ISS globe UI switches (GET/PUT /external/globe/iss/global-prefs, all users). */
+export interface GlobeIssGlobalPrefs {
+  overlayEnabled?: boolean;
+  historicalTraceEnabled?: boolean;
+  historicalTraceDatesEnabled?: boolean;
+  traceVisible?: boolean;
+  keepEarthCentered?: boolean;
+  tickerEnabled?: boolean;
+  liveEmbedEnabled?: boolean;
+  liveHdEmbedEnabled?: boolean;
+  pollIntervalSec?: number;
 }
 
 /** One forecast source payload from GET /external/weather/forecast/stream (SSE). */
@@ -431,24 +457,21 @@ export class ApiService {
     return this._http.get(this.API_URL + 'external/radar/rainviewer/maps');
   }
 
-  /** Per-user radar auto-refresh interval (MongoDB appParameters). */
+  /** Global radar auto-refresh settings (MongoDB appParameters, all users). */
   getMeteoFranceRadarPreferences(): Observable<MeteoFranceRadarPreference> {
-    return this.getHeaderWithToken().pipe(
-      switchMap(headers =>
-        this._http.get<MeteoFranceRadarPreference>(
-          this.API_URL + 'external/meteofrance/radar/preferences',
-          { headers }
-        )
-      )
+    return this._http.get<MeteoFranceRadarPreference>(
+      this.API_URL + 'external/meteofrance/radar/preferences'
     );
   }
 
-  saveMeteoFranceRadarPreferences(radarRefreshSeconds: number): Observable<MeteoFranceRadarPreference> {
+  saveMeteoFranceRadarPreferences(
+    prefs: Partial<Pick<MeteoFranceRadarPreference, 'radarRefreshSeconds' | 'autoRefreshEnabled'>>
+  ): Observable<MeteoFranceRadarPreference> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers =>
         this._http.put<MeteoFranceRadarPreference>(
           this.API_URL + 'external/meteofrance/radar/preferences',
-          { radarRefreshSeconds },
+          prefs,
           { headers }
         )
       )
@@ -758,7 +781,24 @@ export class ApiService {
    * ISS visible pass predictions for a place (geocode + Open Notify via backend).
    * @param index zero-based geocode candidate when the API returns status {@code ambiguous}.
    */
-  /** Server-side ISS trace background recording (MongoDB, every 15 min when enabled). */
+  /** Shared ISS globe UI switch states (MongoDB, same for every user). */
+  getIssGlobalPrefs(): Observable<GlobeIssGlobalPrefs> {
+    return this._http.get<GlobeIssGlobalPrefs>(this.API_URL + 'external/globe/iss/global-prefs');
+  }
+
+  setIssGlobalPrefs(prefs: GlobeIssGlobalPrefs): Observable<GlobeIssGlobalPrefs> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<GlobeIssGlobalPrefs>(
+          this.API_URL + 'external/globe/iss/global-prefs',
+          prefs,
+          { headers }
+        )
+      )
+    );
+  }
+
+  /** ISS trace recording toggle (MongoDB): globe client + server scheduler when enabled. */
   getIssTraceBackgroundRecording(): Observable<{ enabled: boolean; intervalMinutes: number }> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers =>
@@ -815,6 +855,36 @@ export class ApiService {
     );
   }
 
+  /** All configured ISS alert e-mails (admin only). */
+  getIssAlertsAdmin(): Observable<IssAlertAdminEntry[]> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<IssAlertAdminEntry[]>(this.API_URL + 'external/globe/iss/alerts', { headers })
+      )
+    );
+  }
+
+  /** Delete the current user's ISS alert configuration. */
+  deleteIssAlert(): Observable<void> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.delete<void>(this.API_URL + 'external/globe/iss/alert', { headers })
+      )
+    );
+  }
+
+  /** Delete one user's ISS alert configuration (admin only). */
+  deleteIssAlertAdmin(userId: string): Observable<void> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.delete<void>(
+          this.API_URL + 'external/globe/iss/alerts/' + encodeURIComponent(userId),
+          { headers }
+        )
+      )
+    );
+  }
+
   /** Update the ISS alert configuration (place is geocoded server-side when it changes). */
   setIssAlertConfig(
     body: { enabled?: boolean; email?: string; place?: string; minQuality?: string }
@@ -822,6 +892,22 @@ export class ApiService {
     return this.getHeaderWithToken().pipe(
       switchMap(headers =>
         this._http.put<IssAlertConfig>(this.API_URL + 'external/globe/iss/alert', body, { headers })
+      )
+    );
+  }
+
+  /** Update another user's ISS alert configuration (admin only). */
+  setIssAlertConfigAdmin(
+    userId: string,
+    body: { enabled?: boolean; email?: string; place?: string; minQuality?: string }
+  ): Observable<IssAlertConfig> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<IssAlertConfig>(
+          this.API_URL + 'external/globe/iss/alerts/' + encodeURIComponent(userId),
+          body,
+          { headers }
+        )
       )
     );
   }
@@ -955,6 +1041,21 @@ export class ApiService {
           params = params.set('index', String(index));
         }
         return this._http.get<unknown>(this.API_URL + 'external/globe/iss/passes-by-place', {
+          headers,
+          params
+        });
+      })
+    );
+  }
+
+  getIssPassesByCoordinates(lat: number, lon: number, passCount = 5): Observable<unknown> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => {
+        const params = new HttpParams()
+          .set('lat', String(lat))
+          .set('lon', String(lon))
+          .set('n', String(passCount));
+        return this._http.get<unknown>(this.API_URL + 'external/globe/iss/passes', {
           headers,
           params
         });
@@ -1757,9 +1858,10 @@ export interface LotoSyncResult {
   messages?: string[];
 }
 
-/** GET/PUT /api/external/meteofrance/radar/preferences */
+/** GET/PUT /api/external/meteofrance/radar/preferences (global, all users) */
 export interface MeteoFranceRadarPreference {
   radarRefreshSeconds: number;
+  autoRefreshEnabled: boolean;
   persistedInMongo?: boolean;
 }
 

@@ -4,6 +4,7 @@ import com.pat.repo.domain.AppParameter;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -18,4 +19,7 @@ public interface AppParameterRepository extends MongoRepository<AppParameter, St
 
     /** Quickly test whether a key exists (without loading the value). */
     boolean existsByParamKey(String paramKey);
+
+    /** All parameters whose key starts with the given prefix (e.g. per-user alert configs). */
+    List<AppParameter> findByParamKeyStartingWith(String prefix);
 }

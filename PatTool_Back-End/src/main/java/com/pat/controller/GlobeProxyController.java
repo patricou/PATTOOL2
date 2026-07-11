@@ -4,8 +4,12 @@ import com.pat.controller.dto.CompassCalibrationDto;
 import com.pat.controller.dto.FlightStateDto;
 import com.pat.controller.dto.FlightTrackDto;
 import com.pat.controller.dto.FlightTrackingPreferenceDto;
+import com.pat.controller.dto.GlobeIssGlobalPrefsDto;
+import com.pat.controller.dto.IssAlertAdminEntryDto;
+import com.pat.controller.dto.IssTraceResponseDto;
 import com.pat.service.CompassCalibrationService;
 import com.pat.service.FlightTrackingPreferenceService;
+import com.pat.service.GlobeIssGlobalPrefsService;
 import com.pat.service.OpenSkyService;
 import com.pat.service.OpenSkyUnavailableException;
 import com.pat.service.GlobeProxyService;
@@ -24,6 +28,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -56,6 +61,7 @@ public class GlobeProxyController {
     private final IssPassLookupService issPassLookupService;
     private final IssTraceBackgroundScheduler issTraceBackgroundScheduler;
     private final IssPassAlertService issPassAlertService;
+    private final GlobeIssGlobalPrefsService globeIssGlobalPrefsService;
     private final CompassCalibrationService compassCalibrationService;
     private final OpenSkyService openSkyService;
     private final FlightTrackingPreferenceService flightTrackingPreferenceService;
@@ -66,6 +72,7 @@ public class GlobeProxyController {
             IssPassLookupService issPassLookupService,
             IssTraceBackgroundScheduler issTraceBackgroundScheduler,
             IssPassAlertService issPassAlertService,
+            GlobeIssGlobalPrefsService globeIssGlobalPrefsService,
             CompassCalibrationService compassCalibrationService,
             OpenSkyService openSkyService,
             FlightTrackingPreferenceService flightTrackingPreferenceService) {
@@ -74,6 +81,7 @@ public class GlobeProxyController {
         this.issPassLookupService = issPassLookupService;
         this.issTraceBackgroundScheduler = issTraceBackgroundScheduler;
         this.issPassAlertService = issPassAlertService;
+        this.globeIssGlobalPrefsService = globeIssGlobalPrefsService;
         this.compassCalibrationService = compassCalibrationService;
         this.openSkyService = openSkyService;
         this.flightTrackingPreferenceService = flightTrackingPreferenceService;
@@ -325,12 +333,12 @@ public class GlobeProxyController {
 
     /** Historical ISS ground track stored in MongoDB (retention configured server-side). */
     @GetMapping("/iss/trace")
-    public ResponseEntity<IssTraceResponse> issHistoricalTrace() {
+    public ResponseEntity<IssTraceResponseDto> issHistoricalTrace() {
         try {
             List<IssTracePointView> points = issTraceService.getTraceForDisplay();
             return ResponseEntity.ok()
                     .cacheControl(CacheControl.maxAge(60, TimeUnit.SECONDS).cachePublic())
-                    .body(new IssTraceResponse(
+                    .body(new IssTraceResponseDto(
                             points,
                             issTraceService.getRetentionDays(),
                             issTraceService.getSampleIntervalSeconds()));
@@ -345,6 +353,9 @@ public class GlobeProxyController {
     public ResponseEntity<Void> recordIssTracePoint(@RequestBody IssTraceRecordRequest body) {
         if (body == null || body.latitude() == null || body.longitude() == null) {
             return ResponseEntity.badRequest().build();
+        }
+        if (!issTraceBackgroundScheduler.isBackgroundEnabled()) {
+            return ResponseEntity.noContent().build();
         }
         try {
             Instant at;
@@ -366,9 +377,9 @@ public class GlobeProxyController {
     }
 
     /**
-     * Background ISS trace recording (server scheduler, MongoDB flag).
-     * When enabled, samples are stored every {@link IssTraceBackgroundScheduler#getBackgroundIntervalMinutes()} minutes
-     * even if no user has the globe page open.
+     * ISS trace recording toggle (MongoDB flag).
+     * When enabled, samples are stored from the globe client (while open) and every
+     * {@link IssTraceBackgroundScheduler#getBackgroundIntervalMinutes()} minutes on the server.
      */
     @GetMapping("/iss/trace/background")
     public ResponseEntity<IssTraceBackgroundStatusResponse> issTraceBackgroundStatus() {
@@ -414,25 +425,119 @@ public class GlobeProxyController {
     }
 
     /**
-     * Current ISS visible-pass e-mail alert configuration (place watched, recipient, quality threshold).
+     * Shared ISS globe UI switch states (MongoDB, same for every user).
      */
-    @GetMapping("/iss/alert")
-    public ResponseEntity<AlertConfig> issAlertConfig() {
-        return ResponseEntity.ok(issPassAlertService.getConfig());
+    @GetMapping("/iss/global-prefs")
+    public ResponseEntity<GlobeIssGlobalPrefsDto> getIssGlobalPrefs() {
+        return ResponseEntity.ok(globeIssGlobalPrefsService.getPrefs());
+    }
+
+    @PutMapping("/iss/global-prefs")
+    public ResponseEntity<GlobeIssGlobalPrefsDto> setIssGlobalPrefs(@RequestBody GlobeIssGlobalPrefsDto body) {
+        if (body == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            return ResponseEntity.ok(globeIssGlobalPrefsService.updatePrefs(body));
+        } catch (Exception e) {
+            log.warn("ISS global prefs update failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /** Delete the current user's ISS alert configuration. */
+    @DeleteMapping("/iss/alert")
+    public ResponseEntity<Void> deleteOwnIssAlertConfig() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (!issPassAlertService.deleteAlertForUser(sub)) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.noContent().build();
     }
 
     /**
-     * Update the ISS alert configuration. When {@code place} changes it is geocoded server-side
-     * (Nominatim) and the resolved coordinates are stored.
+     * All configured ISS alert e-mails (admin only).
      */
-    @PutMapping("/iss/alert")
-    public ResponseEntity<?> setIssAlertConfig(@RequestBody IssAlertConfigRequest body) {
+    @GetMapping("/iss/alerts")
+    public ResponseEntity<List<IssAlertAdminEntryDto>> issAlertConfigsAdmin() {
+        if (!hasAdminRole()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(issPassAlertService.listAllConfiguredAlerts());
+    }
+
+    /** Update one user's ISS alert configuration (admin only). */
+    @PutMapping("/iss/alerts/{userId}")
+    public ResponseEntity<?> setIssAlertConfigAdmin(
+            @PathVariable String userId, @RequestBody IssAlertConfigRequest body) {
+        if (!hasAdminRole()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        if (userId == null || userId.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
         if (body == null) {
             return ResponseEntity.badRequest().build();
         }
         try {
             AlertConfig updated = issPassAlertService.updateConfig(
-                    body.enabled(), body.email(), body.place(), body.minQuality());
+                    userId, body.enabled(), body.email(), body.place(), body.minQuality());
+            return ResponseEntity.ok(updated);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new IssAlertErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            log.warn("ISS alert admin config update failed for {}: {}", userId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new IssAlertErrorResponse("update_failed"));
+        }
+    }
+
+    /** Delete one user's ISS alert configuration (admin only). */
+    @DeleteMapping("/iss/alerts/{userId}")
+    public ResponseEntity<Void> deleteIssAlertConfigAdmin(@PathVariable String userId) {
+        if (!hasAdminRole()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        if (userId == null || userId.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        if (!issPassAlertService.deleteAlertForUser(userId)) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Current user's ISS visible-pass e-mail alert (place watched, recipient, quality threshold).
+     */
+    @GetMapping("/iss/alert")
+    public ResponseEntity<AlertConfig> issAlertConfig() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(issPassAlertService.getConfig(sub));
+    }
+
+    /**
+     * Update the current user's ISS alert configuration. When {@code place} changes it is geocoded server-side
+     * (Nominatim) and the resolved coordinates are stored.
+     */
+    @PutMapping("/iss/alert")
+    public ResponseEntity<?> setIssAlertConfig(@RequestBody IssAlertConfigRequest body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (body == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            AlertConfig updated = issPassAlertService.updateConfig(
+                    sub, body.enabled(), body.email(), body.place(), body.minQuality());
             return ResponseEntity.ok(updated);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new IssAlertErrorResponse(e.getMessage()));
@@ -443,10 +548,14 @@ public class GlobeProxyController {
         }
     }
 
-    /** Send a test alert e-mail for the next upcoming visible pass over the configured place. */
+    /** Send a test alert e-mail for the next upcoming visible pass over the current user's watched place. */
     @PostMapping("/iss/alert/test")
     public ResponseEntity<IssAlertTestResponse> sendIssAlertTest() {
-        String status = issPassAlertService.sendTestForNextPass();
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String status = issPassAlertService.sendTestForNextPass(sub);
         boolean ok = "sent".equals(status);
         return ResponseEntity.ok(new IssAlertTestResponse(ok, status));
     }
@@ -627,6 +736,17 @@ public class GlobeProxyController {
         return jwt.getSubject();
     }
 
+    private static boolean hasAdminRole() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) {
+            return false;
+        }
+        return auth.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(authority -> authority.equalsIgnoreCase("ROLE_Admin")
+                        || authority.equalsIgnoreCase("ROLE_admin"));
+    }
+
     /** Delete all stored ISS trace samples. */
     @DeleteMapping("/iss/trace")
     public ResponseEntity<Void> clearIssHistoricalTrace() {
@@ -640,9 +760,6 @@ public class GlobeProxyController {
     }
 
     public record IssTraceRecordRequest(Double latitude, Double longitude, String recordedAt) {
-    }
-
-    public record IssTraceResponse(List<IssTracePointView> points, int retentionDays, int sampleIntervalSeconds) {
     }
 
     public record IssTraceBackgroundStatusResponse(boolean enabled, int intervalMinutes) {

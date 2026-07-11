@@ -1,5 +1,5 @@
 import { Component, ElementRef, OnInit, ViewChild, HostListener, TemplateRef, ChangeDetectorRef } from '@angular/core';
-import { of } from 'rxjs';
+import { of, Subscription } from 'rxjs';
 import { take, catchError } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
@@ -22,6 +22,8 @@ import { StockTickerComponent } from './stock-exchange/stock-ticker/stock-ticker
 import { StockTickerService } from './services/stock-ticker.service';
 import { AssistantDrawerComponent } from './shared/assistant-drawer/assistant-drawer.component';
 import { GlobeIssNowService } from './services/globe-iss-now.service';
+import { MongoHealthService, MongoHealthStatus } from './services/mongodb-health.service';
+import { buildIssTopViewIconDataUrl } from './shared/globe-iss-icon.util';
 
 interface NavRouteMenuItem {
     routerLink: unknown[];
@@ -125,6 +127,12 @@ export class AppComponent implements OnInit {
     /** True while the global stock-quote ticker banner is visible (pushed by StockTickerService). */
     public stockTickerEnabled: boolean = false;
 
+    /** MongoDB unreachable — global alert modal. */
+    public mongodbDownModalOpen = false;
+    public mongodbHealthDetail: MongoHealthStatus | null = null;
+    private mongodbAlertDismissed = false;
+    private mongodbHealthSub: Subscription | null = null;
+
     /** Menus déroulants : entrées dans un ordre arbitraire, affichage trié par libellé traduit. */
     readonly navEventsRaw: NavRouteMenuItem[] = [
         { routerLink: ['even'], icon: 'fa fa-list', labelKey: 'MENU.EVENTSLIST' },
@@ -219,7 +227,8 @@ export class AppComponent implements OnInit {
         private _newsTicker: NewsTickerService,
         private _currencyTicker: CurrencyTickerService,
         private _stockTicker: StockTickerService,
-        private _globeIssNow: GlobeIssNowService) {
+        private _globeIssNow: GlobeIssNowService,
+        private _mongoHealth: MongoHealthService) {
         this.selectedFiles = [];
         this._newsTicker.enabled$.subscribe((v) => {
             this.newsTickerEnabled = v;
@@ -266,7 +275,65 @@ export class AppComponent implements OnInit {
         });
         this.getUserInfo();
         this.checkIotRole();
+        this.applyIssMenuIcon();
         this._globeIssNow.startBackgroundPrefetch();
+        this.startMongoHealthMonitoring();
+    }
+
+    private applyIssMenuIcon(): void {
+        const logoSrc = buildIssTopViewIconDataUrl(32);
+        if (!logoSrc) {
+            return;
+        }
+        const issItem = this.navGeoWorldRaw.find((item) => item.routerLink[0] === 'tools/world-globe');
+        if (issItem) {
+            issItem.logoSrc = logoSrc;
+        }
+    }
+
+    private startMongoHealthMonitoring(): void {
+        this._mongoHealth.startMonitoring();
+        this.mongodbHealthSub?.unsubscribe();
+        this.mongodbHealthSub = this._mongoHealth.state$.subscribe((state) => {
+          if (state === 'up') {
+            this.mongodbDownModalOpen = false;
+            this.mongodbAlertDismissed = false;
+            this.mongodbHealthDetail = null;
+          } else if (state === 'down' && !this.mongodbAlertDismissed) {
+            this.mongodbDownModalOpen = true;
+          }
+          this.cdr.markForCheck();
+        });
+        this._mongoHealth.detail$.subscribe((detail) => {
+          if (detail) {
+            this.mongodbHealthDetail = detail;
+            this.cdr.markForCheck();
+          }
+        });
+    }
+
+    dismissMongoDbDownModal(): void {
+        this.mongodbAlertDismissed = true;
+        this.mongodbDownModalOpen = false;
+        this.cdr.markForCheck();
+    }
+
+    retryMongoDbHealthCheck(): void {
+        this.mongodbAlertDismissed = false;
+        this._mongoHealth.checkNow();
+    }
+
+    mongodbDownTargetLabel(): string {
+        const d = this.mongodbHealthDetail;
+        if (!d) {
+          return '—';
+        }
+        if (d.host === 'MongoDB (URI)') {
+          return d.database ? `MongoDB (${d.database})` : 'MongoDB';
+        }
+        const host = d.host || 'localhost';
+        const port = d.port != null ? d.port : 27017;
+        return `${host}:${port}`;
     }
 
     /**

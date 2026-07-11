@@ -129,6 +129,7 @@ public final class PatToolParameterCodeDefaults {
             Map.entry("meteofrance.radar.wms.layer", "RADARURANCE400M"),
             Map.entry("meteofrance.radar.wms.enabled", "false"),
             Map.entry("meteofrance.radar.refresh.seconds", "60"),
+            Map.entry("meteofrance.radar.auto-refresh.enabled", "true"),
             Map.entry("meteofrance.temperature.cache.minutes", "5"),
             Map.entry("meteofrance.clim.base.url", "https://public-api.meteofrance.fr/public/DPClim/v1"),
             Map.entry("meteofrance.obs.base.url", "https://public-api.meteofrance.fr/public/DPObs/v2"),

@@ -112,8 +112,9 @@ public class MeteoFranceRadarService {
         status.put("defaultZone", "METROPOLE");
         status.put("defaultObservation", "REFLECTIVITE");
         status.put("defaultMaille", 1000);
-        int refreshSec = radarRefreshPreferenceService.resolveEffectiveSeconds(jwtSubject);
+        int refreshSec = radarRefreshPreferenceService.resolveEffectiveSeconds();
         status.put("radarRefreshSeconds", refreshSec);
+        status.put("radarAutoRefreshEnabled", radarRefreshPreferenceService.resolveAutoRefreshEnabled());
         status.put("radarRefreshMinSeconds", 30);
         status.put("radarRefreshMaxSeconds", 600);
         status.put("mosaicBounds", mosaicBoundsWgs84());

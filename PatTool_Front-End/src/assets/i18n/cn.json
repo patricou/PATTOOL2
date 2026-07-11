@@ -57,7 +57,7 @@
         "LOTTO": "ä¹é",
         "EUROMILLIONS": "EuroMillions",
         "SOLAR_SYSTEM": "Solar system",
-        "WORLD_GLOBE": "å°çä¸ç»´çä½",
+        "WORLD_GLOBE": "ISS",
         "SKY": "å¤©ç©º",
         "PDF_CONVERTER": "PDF 编辑器",
         "ODS_EDITOR": "Calc çµå­è¡¨æ ¼ (.ods)",
@@ -225,7 +225,7 @@
         "COMPASS_FACING": "ä½ æ­£æåå½éç©ºé´ç«",
         "COMPASS_TURN_LEFT": "åå·¦è½¬ {{deg}}Â°",
         "COMPASS_TURN_RIGHT": "åå³è½¬ {{deg}}Â°",
-        "TITLE": "å°çä»ª",
+        "TITLE": "ISS",
         "LIGHT_UNIFORM": "å°çåç§",
         "LIGHT_UNIFORM_HINT": "æ´ä¸ªçä½ååç§æã",
         "SUBTITLE": "äº¤äºå¼ 3D å°çï¼WebGLï¼ãå¾åç» PatTool API ä»£çï¼å°ç¹çå°çç¼ç ä¸å°å/GPS å±ç¨åä¸åç«¯ã",
@@ -269,6 +269,36 @@
         "ISS_ALERT_TEST_SENT": "å·²ä¸ºä¸æ¬¡è¿å¢åéæµè¯é®ä»¶ã",
         "ISS_ALERT_TEST_NO_PASS": "è¯¥å°ç¹æ²¡æå³å°å°æ¥çå¯è§è¿å¢ã",
         "ISS_ALERT_TEST_NO_PLACE": "è¯·åè®¾ç½®å°ç¹ï¼åå¸æå½å®¶ï¼ã",
+
+        "ISS_ALERT_ADMIN_TITLE": "所有已配置的 ISS 提醒（管理员）",
+        "ISS_ALERT_ADMIN_OPEN": "已配置的 ISS 提醒",
+        "ISS_ALERT_ADMIN_OPEN_HINT": "显示所有用户的 ISS 邮件提醒",
+        "ISS_ALERT_ADMIN_LOADING": "正在加载列表…",
+        "ISS_ALERT_ADMIN_EMPTY": "尚未配置任何用户提醒。",
+        "ISS_ALERT_ADMIN_COL_USER": "用户",
+        "ISS_ALERT_ADMIN_COL_OWNER": "所有者",
+        "ISS_ALERT_ADMIN_COL_EMAIL": "电子邮件",
+        "ISS_ALERT_ADMIN_COL_PLACE": "地点",
+        "ISS_ALERT_ADMIN_COL_ENABLED": "启用",
+        "ISS_ALERT_ADMIN_COL_DISABLED": "停用",
+        "ISS_ALERT_ADMIN_COL_QUALITY": "质量",
+        "ISS_ALERT_ADMIN_DELETE": "删除此提醒",
+        "ISS_ALERT_ADMIN_DELETE_CONFIRM": "删除 {{owner}}（{{email}}）的 ISS 提醒？",
+        "ISS_ALERT_ADMIN_DELETE_ERROR": "无法删除此提醒。",
+        "ISS_ALERT_MANAGE_OPEN": "我的 ISS 提醒",
+        "ISS_ALERT_MANAGE_OPEN_HINT": "查看或删除您的 ISS 邮件提醒",
+        "ISS_ALERT_MANAGE_TITLE": "我的 ISS 提醒",
+        "ISS_ALERT_MANAGE_EMPTY": "您尚未配置 ISS 提醒。",
+        "ISS_ALERT_DELETE_CONFIRM": "删除您的 ISS 提醒（{{email}}）？",
+        "ISS_ALERT_ADMIN_PASSES_BTN": "即将过境 ISS",
+        "ISS_ALERT_ADMIN_PASSES_HINT": "显示此地点即将出现的可见 ISS 过境",
+        "ISS_ALERT_ADMIN_PASSES_LOADING": "正在查询过境…",
+        "ISS_ALERT_ADMIN_NO_PLACE": "此提醒没有地理编码位置。",
+
+        "ISS_ALERT_ADMIN_EDIT": "编辑此提醒",
+        "ISS_ALERT_ADMIN_EDIT_HINT": "在配置表单中编辑此提醒",
+        "ISS_ALERT_EDITING_BANNER": "正在编辑 {{owner}} 的提醒",
+        "ISS_ALERT_EDIT_CANCEL": "取消",
         "OPT_SECTION_VIEW": "Globe view",
         "OPT_SECTION_FLIGHT": "èªç­è·è¸ª",
         "FLIGHT_INTRO": "è·è¸ªå®æ¶èªç­å¹¶å¨å°çä»ªä¸ç»å¶å¶è½¨è¿¹ï¼OpenSky Networkï¼ã",
@@ -1534,6 +1564,8 @@
         "TRACK_BASEMAP": "åºå¾",
         "TRACK_RECENTER": "éæ°å±ä¸­è½¨è¿¹ (R)",
         "TRACK_VIEW_ON_GLOBE": "Globe 3D",
+        "TRACK_OPEN_METEO_FRANCE": "Météo-France",
+        "TRACK_OPEN_METEO_FRANCE_HINT": "在此位置打开 Météo-France（雷达和温度）",
         "TRACK_VIEW_ON_GLOBE_HINT": "æå¼å°çé¡µé¢å¹¶å±ä¸­å°å°å¾ä¸­å¿",
         "TRACK_SHARE_LOCATION": "åäº«ä½ç½®",
         "TRACK_KEEP_SCREEN_AWAKE": "ä¿æå±å¹å¸¸äº®",
@@ -1702,6 +1734,11 @@
         "YES": "æ¯",
         "NO": "å¦",
         "CLOSE": "å³é­",
+
+        "MONGODB_DOWN_TITLE": "MongoDB 不可用",
+        "MONGODB_DOWN_MESSAGE": "应用无法连接 MongoDB 数据库（{{target}}）。在启动之前，大多数功能将无法使用。",
+        "MONGODB_DOWN_HINT": "请在此主机上启动 MongoDB，然后点击重试。",
+        "MONGODB_DOWN_RETRY": "重试",
         "OPEN": "æå¼",
         "CONFIRM": "ç¡®è®¤",
         "DOWNLOAD": "ä¸è½½",

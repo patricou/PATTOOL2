@@ -718,14 +718,10 @@ public class ApiController {
         return result;
     }
 
-    /** Per-user radar auto-refresh interval (MongoDB appParameters). */
+    /** Global radar auto-refresh settings (MongoDB appParameters, all users). */
     @GetMapping(value = "/meteofrance/radar/preferences", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<MeteoFranceRadarPreferenceDto> getMeteoFranceRadarPreferences() {
-        String sub = currentJwtSubject();
-        if (sub == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        return ResponseEntity.ok(meteoFranceRadarRefreshPreferenceService.readForSubject(sub));
+        return ResponseEntity.ok(meteoFranceRadarRefreshPreferenceService.readGlobal());
     }
 
     @PutMapping(value = "/meteofrance/radar/preferences", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -739,9 +735,7 @@ public class ApiController {
             return ResponseEntity.badRequest().build();
         }
         try {
-            MeteoFranceRadarPreferenceDto saved =
-                    meteoFranceRadarRefreshPreferenceService.saveForSubject(sub, body.radarRefreshSeconds());
-            return ResponseEntity.ok(saved);
+            return ResponseEntity.ok(meteoFranceRadarRefreshPreferenceService.saveGlobal(body));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         }

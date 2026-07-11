@@ -32,6 +32,7 @@ public class MemoryCheckFilter implements Filter {
     private static final String[] EXCLUDED_PATHS = {
         "/actuator/health",
         "/actuator/info",
+        "/api/health/",
         "/favicon.ico",
         "/assets/",
         "/.well-known/"

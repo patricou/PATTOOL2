@@ -54,7 +54,7 @@ public class IssTraceService {
 
     @PostConstruct
     public void init() {
-        displayLimitEnabled = appParameterService.getBoolean(PARAM_DISPLAY_LIMIT_ENABLED, displayLimitEnabledDefault);
+        displayLimitEnabled = appParameterService.getBooleanSafe(PARAM_DISPLAY_LIMIT_ENABLED, displayLimitEnabledDefault);
         log.info("ISS trace display limit: enabled={}, maxPoints={}", displayLimitEnabled, getLimitedDisplayPoints());
     }
 

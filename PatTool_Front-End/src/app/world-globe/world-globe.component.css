@@ -3268,3 +3268,130 @@ body:has(.wg-fs-root--viewport-locked) {
   color: #b9c7e8;
 }
 
+.wg-iss-alert-admin-open-btn {
+  font-size: 0.78rem;
+}
+
+.wg-iss-alert-admin-modal {
+  width: min(96vw, 36rem);
+}
+
+.wg-iss-alert-admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  max-height: min(60vh, 28rem);
+  overflow: auto;
+}
+
+.wg-iss-alert-admin-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.wg-iss-alert-admin-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(120, 150, 220, 0.35);
+  border-radius: 0.45rem;
+  background: rgba(8, 14, 28, 0.72);
+}
+
+.wg-iss-alert-admin-item__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.wg-iss-alert-admin-passes-btn.active {
+  background: rgba(13, 202, 240, 0.18);
+  border-color: rgba(13, 202, 240, 0.55);
+  color: #9eeaf9;
+}
+
+.wg-iss-alert-admin-passes {
+  padding: 0.45rem 0.55rem 0.5rem;
+  border: 1px solid rgba(120, 150, 220, 0.22);
+  border-radius: 0.4rem;
+  background: rgba(4, 10, 22, 0.55);
+  color: #d7e4fb;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.wg-iss-alert-admin-passes__list li + li {
+  margin-top: 0.2rem;
+}
+
+.wg-iss-alert-admin-passes__error {
+  color: #ffd89a !important;
+}
+
+.wg-iss-alert-admin-item__main {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: #dde6f5;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.wg-iss-alert-admin-item__owner {
+  margin-bottom: 0.15rem;
+}
+
+.wg-iss-alert-admin-item__email {
+  margin-bottom: 0.1rem;
+  color: #e8eef8;
+}
+
+.wg-iss-alert-admin-item__place {
+  margin-bottom: 0.1rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: #c8daf5;
+}
+
+.wg-iss-alert-admin-item__quality {
+  font-size: 0.75rem;
+  line-height: 1.3;
+  color: #a8bddf;
+}
+
+.wg-iss-alert-admin-modal .text-muted {
+  color: #a8bddf !important;
+}
+
+.wg-iss-alert-admin-delete-btn {
+  flex-shrink: 0;
+}
+
+.wg-iss-alert-admin-edit-btn {
+  flex-shrink: 0;
+}
+
+.wg-iss-alert-edit-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.35rem;
+  background: rgba(13, 110, 253, 0.12);
+  border: 1px solid rgba(13, 110, 253, 0.35);
+  color: #b8d4ff;
+}
+
+.wg-iss-alert-edit-cancel {
+  color: #9ec5fe;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.wg-iss-alert-edit-cancel:hover {
+  color: #cfe2ff;
+}
+

@@ -283,6 +283,24 @@
                   </ng-container>
                 </div>
               </div>
+              <div class="wg-opt-row">
+                <label
+                  class="wg-opt-row__label"
+                  for="wgIssBackgroundTrace"
+                  [attr.title]="'WORLD_GLOBE.ISS_BACKGROUND_TRACE_HINT' | translate : { minutes: issBackgroundTraceIntervalMinutes }">{{
+                  'WORLD_GLOBE.ISS_BACKGROUND_TRACE' | translate
+                }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="wgIssBackgroundTrace"
+                    [(ngModel)]="issBackgroundTraceEnabled"
+                    (ngModelChange)="onIssBackgroundTraceToggle()"
+                    [disabled]="issBackgroundTraceLoading || issBackgroundTraceSaving" />
+                </div>
+              </div>
+              <p class="wg-opt-iss-meta text-muted small mb-0" *ngIf="issBackgroundTraceSaving">{{ 'WORLD_GLOBE.ISS_BACKGROUND_TRACE_SAVING' | translate }}</p>
               <div class="wg-opt-row wg-opt-row--tools">
                 <label class="wg-opt-row__label" for="wgIssHistoricalTrace" [attr.title]="'WORLD_GLOBE.ISS_HISTORICAL_TRACE_HINT' | translate">{{ 'WORLD_GLOBE.ISS_HISTORICAL_TRACE' | translate }}</label>
                 <div class="wg-opt-row__tools">
@@ -341,24 +359,6 @@
                   </div>
                 </div>
               </ng-container>
-              <div class="wg-opt-row">
-                <label
-                  class="wg-opt-row__label"
-                  for="wgIssBackgroundTrace"
-                  [attr.title]="'WORLD_GLOBE.ISS_BACKGROUND_TRACE_HINT' | translate : { minutes: issBackgroundTraceIntervalMinutes }">{{
-                  'WORLD_GLOBE.ISS_BACKGROUND_TRACE' | translate
-                }}</label>
-                <div class="form-check form-switch wg-opt-switch mb-0">
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    id="wgIssBackgroundTrace"
-                    [(ngModel)]="issBackgroundTraceEnabled"
-                    (ngModelChange)="onIssBackgroundTraceToggle()"
-                    [disabled]="issBackgroundTraceLoading || issBackgroundTraceSaving" />
-                </div>
-              </div>
-              <p class="wg-opt-iss-meta text-muted small mb-0" *ngIf="issBackgroundTraceSaving">{{ 'WORLD_GLOBE.ISS_BACKGROUND_TRACE_SAVING' | translate }}</p>
               <div class="wg-opt-row">
                 <label
                   class="wg-opt-row__label"
@@ -489,6 +489,19 @@
               </div>
 
               <div class="wg-iss-alert-section mt-2">
+                <div class="wg-iss-alert-edit-banner small mb-2" *ngIf="isIssAlertEditingOtherUser()">
+                  <span>
+                    <i class="fa fa-pencil me-1" aria-hidden="true"></i>
+                    {{ 'WORLD_GLOBE.ISS_ALERT_EDITING_BANNER' | translate : { owner: issAlertEditingOwnerLabel || '—' } }}
+                  </span>
+                  <button
+                    type="button"
+                    class="btn btn-link btn-sm p-0 wg-iss-alert-edit-cancel"
+                    (click)="cancelIssAlertEdit()"
+                    [disabled]="issAlertLoading || issAlertSaving">
+                    {{ 'WORLD_GLOBE.ISS_ALERT_EDIT_CANCEL' | translate }}
+                  </button>
+                </div>
                 <div class="wg-opt-row wg-opt-row--tools">
                   <label class="wg-opt-row__label" for="wgIssAlertEnabled" [attr.title]="'WORLD_GLOBE.ISS_ALERT_HINT' | translate">
                     <i class="fa fa-envelope-o me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_ALERT_ENABLED' | translate }}
@@ -551,7 +564,7 @@
                       type="button"
                       class="btn btn-sm btn-outline-secondary"
                       (click)="sendIssAlertTest()"
-                      [disabled]="issAlertLoading || issAlertSaving || issAlertTesting || !issAlertLat || !issAlertLon">
+                      [disabled]="issAlertLoading || issAlertSaving || issAlertTesting || !issAlertLat || !issAlertLon || isIssAlertEditingOtherUser()">
                       <span *ngIf="!issAlertTesting"><i class="fa fa-paper-plane me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_ALERT_TEST' | translate }}</span>
                       <span *ngIf="issAlertTesting" class="spinner-border spinner-border-sm" role="status"></span>
                     </button>
@@ -564,6 +577,21 @@
                   <div class="wg-iss-pass-error text-danger small mt-1" *ngIf="issAlertError">{{ issAlertError }}</div>
                   <div class="text-success small mt-1" *ngIf="issAlertNotice">{{ issAlertNotice }}</div>
                 </ng-container>
+
+                <div class="wg-iss-alert-admin mt-2">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary w-100 wg-iss-alert-admin-open-btn"
+                    (click)="openIssAlertAdminModal()"
+                    [disabled]="issAlertAdminLoading"
+                    [attr.title]="(hasIssAlertAdminRole() ? 'WORLD_GLOBE.ISS_ALERT_ADMIN_OPEN_HINT' : 'WORLD_GLOBE.ISS_ALERT_MANAGE_OPEN_HINT') | translate"
+                    [attr.aria-label]="(hasIssAlertAdminRole() ? 'WORLD_GLOBE.ISS_ALERT_ADMIN_OPEN' : 'WORLD_GLOBE.ISS_ALERT_MANAGE_OPEN') | translate">
+                    <i class="fa fa-list me-1" aria-hidden="true"></i>
+                    {{ (hasIssAlertAdminRole() ? 'WORLD_GLOBE.ISS_ALERT_ADMIN_OPEN' : 'WORLD_GLOBE.ISS_ALERT_MANAGE_OPEN') | translate }}
+                    <span class="badge bg-secondary ms-1" *ngIf="issAlertManageBadgeCount()">{{ issAlertManageBadgeCount() }}</span>
+                    <span class="spinner-border spinner-border-sm ms-1" role="status" *ngIf="issAlertAdminLoading"></span>
+                  </button>
+                </div>
               </div>
             </div>
           </details>
@@ -1531,6 +1559,109 @@
       </div>
 
     </div>
+  </div>
+</div>
+
+<div
+  class="wg-share-preview-overlay wg-iss-alert-admin-overlay"
+  *ngIf="issAlertAdminModalOpen"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="(hasIssAlertAdminRole() ? 'WORLD_GLOBE.ISS_ALERT_ADMIN_TITLE' : 'WORLD_GLOBE.ISS_ALERT_MANAGE_TITLE') | translate"
+  (click)="closeIssAlertAdminModal()">
+  <div class="wg-share-preview-card wg-iss-alert-admin-modal" (click)="$event.stopPropagation()">
+    <div class="wg-share-preview-head">
+      <h3 class="wg-share-preview-title mb-0">
+        <i class="fa fa-envelope-o me-2" aria-hidden="true"></i>
+        {{ (hasIssAlertAdminRole() ? 'WORLD_GLOBE.ISS_ALERT_ADMIN_TITLE' : 'WORLD_GLOBE.ISS_ALERT_MANAGE_TITLE') | translate }}
+      </h3>
+      <button
+        type="button"
+        class="wg-share-preview-close btn btn-sm btn-dark border-secondary"
+        (click)="closeIssAlertAdminModal()"
+        [attr.aria-label]="'COMMUN.CLOSE' | translate">
+        <i class="fa fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+
+    <div *ngIf="issAlertAdminLoading" class="text-muted small py-2">
+      <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+      {{ 'WORLD_GLOBE.ISS_ALERT_ADMIN_LOADING' | translate }}
+    </div>
+
+    <p class="text-muted small mb-0" *ngIf="!issAlertAdminLoading && issAlertAdminEntries.length === 0">
+      {{ (hasIssAlertAdminRole() ? 'WORLD_GLOBE.ISS_ALERT_ADMIN_EMPTY' : 'WORLD_GLOBE.ISS_ALERT_MANAGE_EMPTY') | translate }}
+    </p>
+
+    <div class="wg-iss-alert-admin-list" *ngIf="!issAlertAdminLoading && issAlertAdminEntries.length > 0">
+      <article class="wg-iss-alert-admin-card" *ngFor="let row of issAlertAdminEntries">
+        <div class="wg-iss-alert-admin-item">
+          <div class="wg-iss-alert-admin-item__main">
+            <div class="wg-iss-alert-admin-item__owner">
+              <i class="fa fa-user me-1" aria-hidden="true"></i>
+              <strong>{{ formatIssAlertAdminOwner(row) }}</strong>
+              <span class="badge ms-1" [ngClass]="row.enabled ? 'bg-success' : 'bg-secondary'">
+                {{ (row.enabled ? 'WORLD_GLOBE.ISS_ALERT_ADMIN_COL_ENABLED' : 'WORLD_GLOBE.ISS_ALERT_ADMIN_COL_DISABLED') | translate }}
+              </span>
+            </div>
+            <div class="wg-iss-alert-admin-item__email text-break">
+              <i class="fa fa-envelope-o me-1" aria-hidden="true"></i>{{ row.email || '—' }}
+            </div>
+            <div class="wg-iss-alert-admin-item__place text-break">
+              <i class="fa fa-map-marker me-1" aria-hidden="true"></i>{{ row.placeLabel || row.place || '—' }}
+            </div>
+            <div class="wg-iss-alert-admin-item__quality">
+              {{ 'WORLD_GLOBE.ISS_ALERT_ADMIN_COL_QUALITY' | translate }} :
+              {{ formatIssAlertAdminQuality(row.minQuality) }}
+            </div>
+          </div>
+          <div class="wg-iss-alert-admin-item__actions">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-primary wg-iss-alert-admin-edit-btn"
+              *ngIf="canEditIssAlertRow(row)"
+              (click)="editIssAlertAdminEntry(row)"
+              [attr.title]="'WORLD_GLOBE.ISS_ALERT_ADMIN_EDIT_HINT' | translate"
+              [attr.aria-label]="'WORLD_GLOBE.ISS_ALERT_ADMIN_EDIT' | translate">
+              <i class="fa fa-pencil" aria-hidden="true"></i>
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-info wg-iss-alert-admin-passes-btn"
+              (click)="toggleIssAlertUpcomingPasses(row)"
+              [disabled]="getIssAlertPassesUi(row)?.loading"
+              [class.active]="isIssAlertPassesOpen(row)"
+              [attr.title]="'WORLD_GLOBE.ISS_ALERT_ADMIN_PASSES_HINT' | translate"
+              [attr.aria-label]="'WORLD_GLOBE.ISS_ALERT_ADMIN_PASSES_BTN' | translate">
+              <i class="fa" [class.fa-space-shuttle]="!getIssAlertPassesUi(row)?.loading" [class.fa-spinner]="getIssAlertPassesUi(row)?.loading" [class.fa-spin]="getIssAlertPassesUi(row)?.loading" aria-hidden="true"></i>
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-danger wg-iss-alert-admin-delete-btn"
+              (click)="deleteIssAlertAdminEntry(row)"
+              [disabled]="isIssAlertRowDeleting(row)"
+              [attr.title]="'WORLD_GLOBE.ISS_ALERT_ADMIN_DELETE' | translate"
+              [attr.aria-label]="'WORLD_GLOBE.ISS_ALERT_ADMIN_DELETE' | translate">
+              <i class="fa" [class.fa-trash]="!isIssAlertRowDeleting(row)" [class.fa-spinner]="isIssAlertRowDeleting(row)" [class.fa-spin]="isIssAlertRowDeleting(row)" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+        <div class="wg-iss-alert-admin-passes" *ngIf="isIssAlertPassesOpen(row)">
+          <div class="wg-iss-alert-admin-passes__loading text-muted small" *ngIf="getIssAlertPassesUi(row)?.loading">
+            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+            {{ 'WORLD_GLOBE.ISS_ALERT_ADMIN_PASSES_LOADING' | translate }}
+          </div>
+          <div class="wg-iss-alert-admin-passes__error text-warning small" *ngIf="!getIssAlertPassesUi(row)?.loading && getIssAlertPassesUi(row)?.error">
+            {{ getIssAlertPassesUi(row)?.error }}
+          </div>
+          <ul class="wg-iss-alert-admin-passes__list list-unstyled mb-0" *ngIf="!getIssAlertPassesUi(row)?.loading && getIssAlertPassesUi(row)?.lines?.length">
+            <li *ngFor="let line of getIssAlertPassesUi(row)?.lines">{{ line }}</li>
+          </ul>
+        </div>
+      </article>
+    </div>
+
+    <div class="alert alert-danger py-2 small mb-0 mt-2" *ngIf="issAlertAdminDeleteError">{{ issAlertAdminDeleteError }}</div>
   </div>
 </div>
 
