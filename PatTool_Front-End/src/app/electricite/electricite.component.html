@@ -1,0 +1,280 @@
+<div class="pat-title">
+  <h2>
+    <i class="fa fa-bolt me-2"></i>
+    {{ 'ELECTRICITE.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="electricite-page">
+  <p class="text-muted small mb-3">
+    {{ 'ELECTRICITE.SUBTITLE' | translate }}
+  </p>
+
+  <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <button type="button"
+            class="btn btn-sm btn-outline-secondary"
+            (click)="loadAll()"
+            [disabled]="isLoading">
+      <i class="fa fa-refresh me-1" [class.fa-spin]="isLoading"></i>
+      {{ 'ELECTRICITE.REFRESH' | translate }}
+    </button>
+    <button type="button"
+            class="btn btn-sm btn-outline-danger"
+            *ngIf="overview"
+            (click)="openUnavailModal()">
+      <i class="fa fa-exclamation-triangle me-1"></i>
+      {{ 'ELECTRICITE.UNAVAIL_OPEN' | translate }}
+      <span class="badge rounded-pill ms-1"
+            [class.bg-danger]="unavailabilities.length"
+            [class.bg-success]="!unavailabilities.length">
+        {{ unavailabilities.length }}
+      </span>
+    </button>
+    <span class="small text-muted ms-auto" *ngIf="lastUpdatedLabel">
+      {{ 'ELECTRICITE.UPDATED' | translate }} {{ lastUpdatedLabel }}
+    </span>
+  </div>
+
+  <div *ngIf="errorMessage" class="alert alert-warning d-flex align-items-start" role="alert">
+    <i class="fa fa-exclamation-triangle me-2 mt-1"></i>
+    <div>{{ errorMessage | translate }}</div>
+  </div>
+
+  <div *ngIf="isLoading && !overview" class="text-muted small mb-3">
+    <i class="fa fa-spinner fa-spin me-1"></i>
+    {{ 'ELECTRICITE.LOADING' | translate }}
+  </div>
+
+  <ng-container *ngIf="overview">
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-4 col-xl-2">
+        <div class="card shadow-sm h-100 kpi-card kpi-card--nuclear">
+          <div class="card-body py-3">
+            <div class="kpi-label">{{ 'ELECTRICITE.KPI_NUCLEAR' | translate }}</div>
+            <div class="kpi-value">{{ formatMw(overview.frLatest?.nucleaire) }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-4 col-xl-2">
+        <div class="card shadow-sm h-100 kpi-card">
+          <div class="card-body py-3">
+            <div class="kpi-label">{{ 'ELECTRICITE.KPI_CONSUMPTION' | translate }}</div>
+            <div class="kpi-value">{{ formatMw(overview.frLatest?.consommation) }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-4 col-xl-2">
+        <div class="card shadow-sm h-100 kpi-card">
+          <div class="card-body py-3">
+            <div class="kpi-label">{{ 'ELECTRICITE.KPI_CO2' | translate }}</div>
+            <div class="kpi-value">
+              {{ overview.frLatest?.tauxCo2 != null ? overview.frLatest?.tauxCo2 + ' g/kWh' : '—' }}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-4 col-xl-2">
+        <div class="card shadow-sm h-100 kpi-card">
+          <div class="card-body py-3">
+            <div class="kpi-label">{{ 'ELECTRICITE.KPI_INSTALLED' | translate }}</div>
+            <div class="kpi-value">{{ formatMw(overview.frInstalledNuclearMw) }}</div>
+            <div class="kpi-sub">{{ overview.frPlantCount }} {{ 'ELECTRICITE.UNITS' | translate }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-4 col-xl-2">
+        <div class="card shadow-sm h-100 kpi-card kpi-card--action"
+             [class.kpi-card--warn]="(overview.frActiveUnavailabilityCount ?? 0) > 0"
+             role="button"
+             tabindex="0"
+             (click)="openUnavailModal()"
+             (keydown.enter)="openUnavailModal()"
+             (keydown.space)="openUnavailModal(); $event.preventDefault()"
+             [attr.title]="'ELECTRICITE.UNAVAIL_OPEN' | translate"
+             [attr.aria-label]="'ELECTRICITE.UNAVAIL_OPEN' | translate">
+          <div class="card-body py-3">
+            <div class="kpi-label">{{ 'ELECTRICITE.KPI_UNAVAIL' | translate }}</div>
+            <div class="kpi-value">{{ overview.frActiveUnavailabilityCount }}</div>
+            <div class="kpi-sub">{{ 'ELECTRICITE.UNAVAIL_KPI_HINT' | translate }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-4 col-xl-2">
+        <div class="card shadow-sm h-100 kpi-card">
+          <div class="card-body py-3">
+            <div class="kpi-label">{{ 'ELECTRICITE.KPI_WORLD' | translate }}</div>
+            <div class="kpi-value">{{ overview.worldOperationalCount }}</div>
+            <div class="kpi-sub">/ {{ overview.worldNuclearPlantCount }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-12 col-xl-7">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <h5 class="card-title">{{ 'ELECTRICITE.CHART_TITLE' | translate }}</h5>
+            <p class="small text-muted">{{ 'ELECTRICITE.CHART_HINT' | translate }}</p>
+            <div class="electricite-chart-wrap">
+              <canvas baseChart [data]="chartData" [options]="chartOptions" type="line"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-xl-5">
+        <div class="card shadow-sm h-100">
+          <div class="card-body d-flex flex-column">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+              <h5 class="card-title mb-0">{{ 'ELECTRICITE.MAP_TITLE' | translate }}</h5>
+              <div class="btn-group btn-group-sm ms-auto" role="group">
+                <button type="button" class="btn"
+                        [class.btn-primary]="mapMode === 'fr'"
+                        [class.btn-outline-primary]="mapMode !== 'fr'"
+                        (click)="setMapMode('fr')">
+                  {{ 'ELECTRICITE.MAP_FR' | translate }}
+                </button>
+                <button type="button" class="btn"
+                        [class.btn-primary]="mapMode === 'world'"
+                        [class.btn-outline-primary]="mapMode !== 'world'"
+                        (click)="setMapMode('world')">
+                  {{ 'ELECTRICITE.MAP_WORLD' | translate }}
+                </button>
+              </div>
+            </div>
+            <div class="mb-2" *ngIf="mapMode === 'world'">
+              <select class="form-select form-select-sm"
+                      [(ngModel)]="worldStatusFilter"
+                      (ngModelChange)="setWorldStatusFilter($event)">
+                <option value="operational">{{ 'ELECTRICITE.WORLD_OPERATIONAL' | translate }}</option>
+                <option value="all">{{ 'ELECTRICITE.WORLD_ALL' | translate }}</option>
+              </select>
+            </div>
+            <p class="small text-muted mb-2">{{ 'ELECTRICITE.MAP_HINT' | translate }}</p>
+            <div class="electricite-map-shell flex-grow-1"
+                 #mapShell
+                 [class.electricite-map-shell--fullscreen]="mapFullscreen">
+              <button type="button"
+                      class="btn btn-sm btn-light electricite-map-fullscreen-btn shadow-sm"
+                      (click)="toggleMapFullscreen()"
+                      [attr.title]="(mapFullscreen ? 'ELECTRICITE.MAP_EXIT_FULLSCREEN' : 'ELECTRICITE.MAP_FULLSCREEN') | translate"
+                      [attr.aria-label]="(mapFullscreen ? 'ELECTRICITE.MAP_EXIT_FULLSCREEN' : 'ELECTRICITE.MAP_FULLSCREEN') | translate">
+                <i class="fa" [class.fa-expand]="!mapFullscreen" [class.fa-compress]="mapFullscreen"></i>
+                <span class="electricite-map-fullscreen-label">
+                  {{ (mapFullscreen ? 'ELECTRICITE.MAP_EXIT_FULLSCREEN' : 'ELECTRICITE.MAP_FULLSCREEN') | translate }}
+                </span>
+              </button>
+              <div #mapHost class="electricite-map"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4" *ngIf="overview.euNuclear?.length || overview.usNuclear">
+      <div class="col-12">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">{{ 'ELECTRICITE.INTERNATIONAL_TITLE' | translate }}</h5>
+            <p class="small text-muted" *ngIf="!overview.entsoeConfigured && !overview.eiaConfigured">
+              {{ 'ELECTRICITE.INTERNATIONAL_HINT' | translate }}
+            </p>
+            <div class="table-responsive" *ngIf="overview.euNuclear?.length">
+              <table class="table table-sm table-hover mb-0">
+                <thead>
+                  <tr>
+                    <th>{{ 'ELECTRICITE.COUNTRY' | translate }}</th>
+                    <th>{{ 'ELECTRICITE.NUCLEAR_MW' | translate }}</th>
+                    <th>{{ 'ELECTRICITE.SOURCE' | translate }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of overview.euNuclear">
+                    <td>{{ row.countryName }} ({{ row.countryCode }})</td>
+                    <td>{{ formatMw(row.nuclearMw) }}</td>
+                    <td>{{ row.source }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div *ngIf="overview.usNuclear as us" class="mt-2 small">
+              <strong>{{ us.countryName }}</strong> — {{ formatMw(us.nuclearMw) }}
+              <span class="text-muted">({{ us.source }})</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="small text-muted mb-0">
+      {{ 'ELECTRICITE.SOURCE_NOTE' | translate }}
+    </p>
+  </ng-container>
+</div>
+
+<ng-template #unavailModal let-modal>
+  <div class="modal-header">
+    <h5 class="modal-title d-flex align-items-center flex-wrap gap-2">
+      <i class="fa fa-exclamation-triangle text-warning"></i>
+      <span *ngIf="unavailFilterTranche">{{ 'ELECTRICITE.UNAVAIL_TITLE_UNIT' | translate:{ unit: unavailFilterTranche } }}</span>
+      <span *ngIf="!unavailFilterTranche">{{ 'ELECTRICITE.UNAVAIL_TITLE' | translate }}</span>
+      <span class="badge rounded-pill"
+            [class.bg-danger]="modalUnavailabilities.length"
+            [class.bg-success]="!modalUnavailabilities.length">
+        {{ modalUnavailabilities.length }}
+      </span>
+    </h5>
+    <button type="button"
+            class="btn-close"
+            [attr.aria-label]="'COMMUN.CLOSE' | translate"
+            (click)="modal.dismiss()"></button>
+  </div>
+  <div class="modal-body electricite-unavail-modal-body">
+    <p class="text-muted small mb-3">{{ 'ELECTRICITE.UNAVAIL_HINT' | translate }}</p>
+    <button type="button"
+            class="btn btn-link btn-sm px-0 mb-2"
+            *ngIf="unavailFilterTranche"
+            (click)="unavailFilterTranche = null">
+      {{ 'ELECTRICITE.UNAVAIL_SHOW_ALL' | translate }}
+    </button>
+
+    <div *ngIf="!modalUnavailabilities.length" class="electricite-unavail-empty text-center py-4">
+      <i class="fa fa-check-circle fa-3x text-success mb-3"></i>
+      <p class="mb-0 fw-semibold">
+        {{ (unavailFilterTranche ? 'ELECTRICITE.NO_UNAVAIL_FOR_UNIT' : 'ELECTRICITE.NO_UNAVAIL') | translate:{ unit: unavailFilterTranche } }}
+      </p>
+    </div>
+
+    <div class="electricite-unavail-list" *ngIf="modalUnavailabilities.length">
+      <article class="electricite-unavail-item"
+               *ngFor="let u of modalUnavailabilities; trackBy: trackUnavail">
+        <div class="electricite-unavail-item__head">
+          <strong class="electricite-unavail-item__unit">{{ u.nom }}</strong>
+          <span class="badge bg-danger-subtle text-danger electricite-unavail-item__type" *ngIf="u.type">
+            {{ u.type }}
+          </span>
+        </div>
+        <p class="electricite-unavail-item__cause mb-2" *ngIf="u.cause">{{ u.cause }}</p>
+        <div class="electricite-unavail-item__meta">
+          <span>
+            <i class="fa fa-bolt text-muted me-1"></i>
+            {{ formatUnavailPower(u) }}
+          </span>
+          <span>
+            <i class="fa fa-calendar text-muted me-1"></i>
+            {{ formatDatetime(u.dateDebut) }} → {{ formatDatetime(u.dateFin) }}
+          </span>
+        </div>
+        <p class="electricite-unavail-item__extra small text-muted mb-0"
+           *ngIf="u.informationComplementaire">
+          {{ u.informationComplementaire }}
+        </p>
+      </article>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" (click)="modal.close()">
+      <i class="fa fa-times me-1"></i>{{ 'COMMUN.CLOSE' | translate }}
+    </button>
+  </div>
+</ng-template>

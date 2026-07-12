@@ -1,0 +1,199 @@
+.electricite-page {
+  max-width: 1400px;
+}
+
+.kpi-card .kpi-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6c757d;
+  margin-bottom: 0.25rem;
+}
+
+.kpi-card .kpi-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.kpi-card .kpi-sub {
+  font-size: 0.75rem;
+  color: #6c757d;
+}
+
+.kpi-card--nuclear .kpi-value {
+  color: #6f42c1;
+}
+
+.kpi-card--warn .kpi-value {
+  color: #dc3545;
+}
+
+.electricite-chart-wrap {
+  position: relative;
+  height: 280px;
+}
+
+.electricite-map-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 320px;
+  height: 320px;
+}
+
+.electricite-map {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  height: 100%;
+  border-radius: 0.375rem;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  z-index: 0;
+}
+
+.electricite-map-shell:fullscreen,
+.electricite-map-shell:-webkit-full-screen,
+.electricite-map-shell.electricite-map-shell--fullscreen {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  background: #fff;
+}
+
+.electricite-map-shell.electricite-map-shell--fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+}
+
+.electricite-map-shell:fullscreen .electricite-map,
+.electricite-map-shell:-webkit-full-screen .electricite-map,
+.electricite-map-shell.electricite-map-shell--fullscreen .electricite-map {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  border-radius: 0;
+}
+
+.electricite-map-fullscreen-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 500;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.electricite-map-fullscreen-label {
+  display: none;
+}
+
+@media (min-width: 576px) {
+  .electricite-map-fullscreen-label {
+    display: inline;
+    margin-left: 0.35rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  .electricite-map-shell {
+    min-height: 360px;
+    height: 360px;
+  }
+}
+
+.kpi-card--action {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.kpi-card--action:hover,
+.kpi-card--action:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 0.35rem 1rem rgba(0, 0, 0, 0.12) !important;
+  outline: none;
+}
+
+.electricite-unavail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.electricite-unavail-item {
+  border: 1px solid rgba(220, 53, 69, 0.2);
+  border-left: 4px solid #dc3545;
+  border-radius: 0.5rem;
+  padding: 0.85rem 1rem;
+  background: #fff;
+}
+
+.electricite-unavail-item__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.electricite-unavail-item__unit {
+  font-size: 1rem;
+}
+
+.electricite-unavail-item__cause {
+  color: #495057;
+  margin-bottom: 0.5rem;
+}
+
+.electricite-unavail-item__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  color: #212529;
+}
+
+@media (min-width: 576px) {
+  .electricite-unavail-item__meta {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+}
+
+:host ::ng-deep .electricite-map-popup {
+  min-width: 180px;
+  line-height: 1.35;
+}
+
+:host ::ng-deep .electricite-popup-title {
+  display: block;
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+:host ::ng-deep .electricite-popup-status {
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+:host ::ng-deep .electricite-popup-status--ok {
+  background: rgba(25, 135, 84, 0.12);
+  color: #198754;
+}
+
+:host ::ng-deep .electricite-popup-status--warn {
+  background: rgba(220, 53, 69, 0.12);
+  color: #dc3545;
+}
+
+:host ::ng-deep .electricite-popup-unavail-btn {
+  width: 100%;
+  white-space: normal;
+}

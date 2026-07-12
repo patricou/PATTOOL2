@@ -167,6 +167,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./cryptos/cryptos.component').then(m => m.CryptosComponent)
 			},
 			{
+				path: 'api/electricite',
+				loadComponent: () => import('./electricite/electricite.component').then(m => m.ElectriciteComponent)
+			},
+			{
 				path: 'tools/loto',
 				loadComponent: () => import('./loto/loto.component').then(m => m.LotoComponent)
 			},

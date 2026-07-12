@@ -1681,6 +1681,51 @@ export class ApiService {
   }
 
   // ===================================================================
+  // Électricité — ODRÉ, EDF, GeoNuclearData (+ ENTSO-E / EIA optionnels)
+  // Backend: /api/external/electricity/*
+  // ===================================================================
+
+  getElectricityOverview(): Observable<ElectricityOverview> {
+    return this._http.get<ElectricityOverview>(this.API_URL + 'external/electricity/overview');
+  }
+
+  getElectricityFrGeneration(hours = 24): Observable<ElectricityGenerationPoint[]> {
+    return this._http.get<ElectricityGenerationPoint[]>(
+      this.API_URL + 'external/electricity/fr/generation',
+      { params: new HttpParams().set('hours', String(hours)) }
+    );
+  }
+
+  getElectricityFrPlants(): Observable<ElectricityFrPlant[]> {
+    return this._http.get<ElectricityFrPlant[]>(this.API_URL + 'external/electricity/fr/plants');
+  }
+
+  getElectricityFrUnavailabilities(active = true): Observable<ElectricityUnavailability[]> {
+    return this._http.get<ElectricityUnavailability[]>(
+      this.API_URL + 'external/electricity/fr/unavailabilities',
+      { params: new HttpParams().set('active', String(active)) }
+    );
+  }
+
+  getElectricityWorldNuclearPlants(): Observable<ElectricityNuclearPlant[]> {
+    return this._http.get<ElectricityNuclearPlant[]>(
+      this.API_URL + 'external/electricity/world/nuclear-plants'
+    );
+  }
+
+  getElectricityEuNuclear(): Observable<ElectricityCountryNuclear[]> {
+    return this._http.get<ElectricityCountryNuclear[]>(
+      this.API_URL + 'external/electricity/eu/nuclear'
+    );
+  }
+
+  getElectricityUsNuclear(): Observable<ElectricityCountryNuclear> {
+    return this._http.get<ElectricityCountryNuclear>(
+      this.API_URL + 'external/electricity/us/nuclear'
+    );
+  }
+
+  // ===================================================================
   // Stellarium Web — sky map viewer + Noctua Sky catalogue proxy
   // Backend: /api/external/stellarium/* (no auth required — public data)
   // ===================================================================
@@ -2432,4 +2477,83 @@ export interface CryptoMarketChartResponse {
   points?: CryptoMarketChartPoint[];
   stale?: boolean;
   fetchedAt?: string;
+}
+
+/** GET /api/external/electricity/overview */
+export interface ElectricityGenerationPoint {
+  datetime?: string;
+  nucleaire?: number | null;
+  gaz?: number | null;
+  eolien?: number | null;
+  solaire?: number | null;
+  hydraulique?: number | null;
+  consommation?: number | null;
+  bioenergies?: number | null;
+  charbon?: number | null;
+  fioul?: number | null;
+  tauxCo2?: number | null;
+}
+
+export interface ElectricityFrPlant {
+  centrale?: string;
+  tranche?: string;
+  puissanceInstalleeMw?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  region?: string;
+  sousFiliere?: string;
+  dateMiseEnService?: string;
+  commune?: string;
+}
+
+export interface ElectricityUnavailability {
+  identifiant?: string;
+  nom?: string;
+  filiere?: string;
+  status?: string;
+  type?: string;
+  cause?: string;
+  dateDebut?: string;
+  dateFin?: string;
+  puissanceMaximaleMw?: number | null;
+  puissanceDisponibleMw?: number | null;
+  informationComplementaire?: string;
+}
+
+export interface ElectricityNuclearPlant {
+  id?: number;
+  name?: string;
+  country?: string;
+  countryCode?: string;
+  status?: string;
+  reactorType?: string;
+  capacityMw?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  operationalFrom?: string;
+  operationalTo?: string;
+}
+
+export interface ElectricityCountryNuclear {
+  countryCode?: string;
+  countryName?: string;
+  datetime?: string;
+  nuclearMw?: number | null;
+  source?: string;
+  note?: string;
+}
+
+export interface ElectricityOverview {
+  updatedAt?: string;
+  frLatest?: ElectricityGenerationPoint | null;
+  frHistory?: ElectricityGenerationPoint[];
+  frPlantCount?: number;
+  frInstalledNuclearMw?: number;
+  frActiveUnavailabilityCount?: number;
+  euNuclear?: ElectricityCountryNuclear[];
+  usNuclear?: ElectricityCountryNuclear | null;
+  entsoeConfigured?: boolean;
+  eiaConfigured?: boolean;
+  worldNuclearPlantCount?: number;
+  worldOperationalCount?: number;
 }

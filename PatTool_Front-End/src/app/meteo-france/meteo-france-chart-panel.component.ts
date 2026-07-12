@@ -28,7 +28,8 @@ export class MeteoFranceChartPanelComponent implements OnChanges, OnDestroy {
   @Input() firstInGroup = false;
   @Input() chartType: 'line' | 'bar' = 'line';
   @Input() data: ChartConfiguration<'line' | 'bar'>['data'] = { labels: [], datasets: [] };
-  @Input() options: ChartOptions<'line' | 'bar'> = {};
+  /** Accept line- or bar-specific option objects from parent charts. */
+  @Input() options: ChartOptions<'line'> | ChartOptions<'bar'> | ChartOptions<'line' | 'bar'> = {};
   @Input() chartBoxClass = '';
   @Input() showToolbar = true;
   @Input() showHeader = true;

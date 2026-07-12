@@ -230,6 +230,10 @@ public final class PatToolParameterCatalog {
                     defSensitive("app.coingecko.api-key"),
                     def("app.coingecko.plan", false)
             ),
+            section("electricity", "PATTOOL_PARAMS.SECTION.ELECTRICITY",
+                    defSensitive("app.electricity.entsoe-token"),
+                    defSensitive("app.electricity.eia-api-key")
+            ),
             section("news", "PATTOOL_PARAMS.SECTION.NEWS",
                     def("newsapi.api.base.url", false),
                     defSensitive("newsapi.api.key"),

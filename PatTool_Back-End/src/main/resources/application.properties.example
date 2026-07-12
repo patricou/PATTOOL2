@@ -187,3 +187,9 @@ app.cache.persistence.restore-on-startup=true
 # app.coingecko.api-base=https://api.coingecko.com/api/v3
 # app.coingecko.api-key=
 # app.coingecko.plan=demo
+
+# Électricité (page Monde) — clés gratuites optionnelles pour Europe (ENTSO-E) et USA (EIA)
+# ENTSO-E : https://transparency.entsoe.eu (inscription gratuite)
+# app.electricity.entsoe-token=
+# EIA : https://www.eia.gov/opendata/register.php
+# app.electricity.eia-api-key=

@@ -24,6 +24,9 @@ public class RestTemplateConfig {
     /** Météo-France DPClim — async order + file poll can take tens of seconds. */
     public static final String METEOFRANCE_CLIM_REST_TEMPLATE = "meteoFranceClimRestTemplate";
 
+    /** Open data électricité (ODRÉ, EDF, GeoNuclearData) — réponses parfois lentes. */
+    public static final String ELECTRICITY_REST_TEMPLATE = "electricityRestTemplate";
+
 
     /**
      * Client HTTP court pour proxies et API externes (échec rapide si indisponible).
@@ -72,6 +75,14 @@ public class RestTemplateConfig {
         return builder
                 .setConnectTimeout(Duration.ofSeconds(Math.max(connectSeconds, 1)))
                 .setReadTimeout(Duration.ofSeconds(Math.max(readSeconds, 1)))
+                .build();
+    }
+
+    @Bean(ELECTRICITY_REST_TEMPLATE)
+    public RestTemplate electricityRestTemplate(RestTemplateBuilder builder) {
+        return builder
+                .setConnectTimeout(Duration.ofSeconds(5))
+                .setReadTimeout(Duration.ofSeconds(20))
                 .build();
     }
 
