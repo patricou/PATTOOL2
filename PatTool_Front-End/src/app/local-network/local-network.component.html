@@ -30,7 +30,8 @@
                                        type="checkbox" 
                                        role="switch"
                                        id="useExternalVendorAPI"
-                                       [(ngModel)]="useExternalVendorAPI"
+                                       [ngModel]="useExternalVendorAPI"
+                                       (ngModelChange)="onUseExternalVendorApiChange($event)"
                                        [disabled]="isScanning"
                                        [title]="'LOCAL_NETWORK.USE_EXTERNAL_VENDOR_API_TOOLTIP' | translate"
                                        style="font-size: 0.75rem;">
@@ -200,7 +201,8 @@
                               [attr.title]="('LOCAL_NETWORK.DEVICE_STATS_BADGE_TITLE' | translate: { u: getUnknownDevicesCount(), k: getKnownDevicesCount() })">{{ getUnknownDevicesCount() }} / {{ getKnownDevicesCount() }}</span>
                         <div class="form-check form-switch mb-0 toolbar-switch flex-shrink-0">
                             <input class="form-check-input" type="checkbox" id="showOnlyUnknownDevices"
-                                   [(ngModel)]="showOnlyUnknownDevices">
+                                   [ngModel]="showOnlyUnknownDevices"
+                                   (ngModelChange)="onShowOnlyUnknownDevicesChange($event)">
                             <label class="form-check-label" for="showOnlyUnknownDevices"
                                    [title]="'LOCAL_NETWORK.SHOW_ONLY_UNKNOWN' | translate">{{ "LOCAL_NETWORK.SHOW_ONLY_UNKNOWN_SHORT" | translate }}</label>
                         </div>
@@ -217,7 +219,8 @@
                         </span>
                         <div class="form-check form-switch mb-0 toolbar-switch flex-shrink-0">
                             <input class="form-check-input" type="checkbox" id="showOnlyMacConflictDevices"
-                                   [(ngModel)]="showOnlyMacConflictDevices">
+                                   [ngModel]="showOnlyMacConflictDevices"
+                                   (ngModelChange)="onShowOnlyMacConflictDevicesChange($event)">
                             <label class="form-check-label" for="showOnlyMacConflictDevices"
                                    [title]="'LOCAL_NETWORK.SHOW_ONLY_MAC_CONFLICT_TOOLTIP' | translate">{{ "LOCAL_NETWORK.SHOW_ONLY_MAC_CONFLICT_SHORT" | translate }}</label>
                         </div>

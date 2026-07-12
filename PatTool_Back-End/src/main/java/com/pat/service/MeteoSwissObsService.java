@@ -5,6 +5,7 @@ import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -17,6 +18,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -45,6 +47,10 @@ public class MeteoSwissObsService {
             "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/ogd-smn_meta_stations.csv";
     private static final String STATION_T_NOW_URL =
             "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/%s/ogd-smn_%s_t_now.csv";
+    private static final String STATION_H_NOW_URL =
+            "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/%s/ogd-smn_%s_h_now.csv";
+    private static final String STATION_H_RECENT_URL =
+            "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/%s/ogd-smn_%s_h_recent.csv";
 
     private static final DateTimeFormatter OBS_TS =
             DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
@@ -57,6 +63,7 @@ public class MeteoSwissObsService {
     private static final double CH_MAX_LON = 10.49;
 
     private static final Duration DEFAULT_CACHE_TTL = Duration.ofMinutes(5);
+    private static final Duration HISTORY_CACHE_TTL = Duration.ofMinutes(30);
     private static final String AUTOMATIC_STATION_MARKER = "automatic weather stations";
 
     private static final List<String> MAJOR_CITY_NAME_TOKENS = List.of(
@@ -70,6 +77,7 @@ public class MeteoSwissObsService {
     private volatile List<SmnStation> catalog = List.of();
     private final ConcurrentHashMap<String, ObsCacheEntry> obsCache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, BoundsCacheEntry> boundsResponseCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, HistoryCacheEntry> historyResponseCache = new ConcurrentHashMap<>();
 
     public MeteoSwissObsService(
             RestTemplate restTemplate,
@@ -161,6 +169,80 @@ public class MeteoSwissObsService {
         Map<String, Object> result = getTemperatureLabelsForPoints(targets);
         result.put("refreshed", true);
         return result;
+    }
+
+    /**
+     * Nearest SwissMetNet station + hourly archived observations for a map point (ogd-smn h_recent + h_now).
+     * Response shape mirrors DPClim horaire for the point timeline modal.
+     */
+    public Map<String, Object> getNearbyHourlyHistory(double lat, double lon, int days, String stationId, boolean forceRefresh) {
+        if (!enabled) {
+            return error("MeteoSwiss SMN observations are disabled");
+        }
+        if (!isInSwitzerland(lat, lon)) {
+            return error("Coordinates outside Switzerland");
+        }
+        ensureCatalogLoaded();
+        if (catalog.isEmpty()) {
+            return error("MeteoSwiss SMN station catalog is loading, please retry shortly");
+        }
+
+        int resolvedDays = clampHistoryDays(days);
+        SmnStation station = resolveStationForCoordinates(lat, lon, stationId);
+        if (station == null) {
+            return error("No MeteoSwiss SMN station found for this location");
+        }
+
+        String cacheKey = station.id().toUpperCase(Locale.ROOT) + "|" + resolvedDays;
+        if (!forceRefresh) {
+            HistoryCacheEntry cached = historyResponseCache.get(cacheKey);
+            if (cached != null && cached.isValid(HISTORY_CACHE_TTL)) {
+                Map<String, Object> copy = new LinkedHashMap<>(cached.result());
+                copy.put("cached", true);
+                return copy;
+            }
+        }
+
+        Instant periodEnd = Instant.now().truncatedTo(ChronoUnit.HOURS);
+        Instant periodStart = periodEnd.minus(resolvedDays - 1L, ChronoUnit.DAYS).truncatedTo(ChronoUnit.DAYS);
+
+        String abbr = station.id().toLowerCase(Locale.ROOT);
+        Map<Long, Map<String, Object>> rowByEpoch = new LinkedHashMap<>();
+        mergeHourlyCsvIntoRows(
+                STATION_H_RECENT_URL.formatted(abbr, abbr), periodStart, periodEnd, rowByEpoch);
+        mergeHourlyCsvIntoRows(
+                STATION_H_NOW_URL.formatted(abbr, abbr), periodStart, periodEnd, rowByEpoch);
+
+        List<Map<String, Object>> rows = rowByEpoch.values().stream()
+                .sorted(Comparator.comparingLong(row -> ((Number) row.get("epochSeconds")).longValue()))
+                .toList();
+
+        Map<String, Object> stationMeta = new LinkedHashMap<>();
+        stationMeta.put("id", station.id());
+        stationMeta.put("name", station.name());
+        stationMeta.put("lat", station.lat());
+        stationMeta.put("lon", station.lon());
+        stationMeta.put("distanceKm", round(haversineKm(lat, lon, station.lat(), station.lon()), 1));
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("frequency", "horaire");
+        result.put("requestedDays", resolvedDays);
+        result.put("periodStart", periodStart.toString());
+        result.put("periodEnd", periodEnd.toString());
+        result.put("station", stationMeta);
+        result.put("rows", rows);
+        result.put("source", "MeteoSwiss SMN");
+        result.put("patSource", "meteoswiss-smn");
+        result.put("cacheTtlMinutes", HISTORY_CACHE_TTL.toMinutes());
+        historyResponseCache.put(cacheKey, new HistoryCacheEntry(result, Instant.now()));
+        return result;
+    }
+
+    /** Clears in-memory MeteoSwiss SMN hourly history response cache. */
+    public int clearHistoryCache() {
+        int cleared = historyResponseCache.size();
+        historyResponseCache.clear();
+        return cleared;
     }
 
     public Map<String, Object> getTemperatureLabelsInBounds(
@@ -429,6 +511,12 @@ public class MeteoSwissObsService {
         }
     }
 
+    private record HistoryCacheEntry(Map<String, Object> result, Instant loadedAt) {
+        boolean isValid(Duration ttl) {
+            return loadedAt.plus(ttl).isAfter(Instant.now());
+        }
+    }
+
     private record StationSelection(List<SmnStation> stations, String detailLevel) {}
 
     private static StationSelection selectStationsForViewport(
@@ -499,8 +587,12 @@ public class MeteoSwissObsService {
     }
 
     private SmnStation resolveStationForTarget(TemperatureLabelsRequestDto.Point target) {
-        if (target.stationId() != null && !target.stationId().isBlank()) {
-            String wanted = target.stationId().trim();
+        return resolveStationForCoordinates(target.lat(), target.lon(), target.stationId());
+    }
+
+    private SmnStation resolveStationForCoordinates(double lat, double lon, String stationId) {
+        if (stationId != null && !stationId.isBlank()) {
+            String wanted = stationId.trim();
             for (SmnStation station : catalog) {
                 if (station.id().equalsIgnoreCase(wanted)) {
                     return station;
@@ -509,8 +601,96 @@ public class MeteoSwissObsService {
         }
         return catalog.stream()
                 .min(Comparator.comparingDouble(station ->
-                        haversineKm(target.lat(), target.lon(), station.lat(), station.lon())))
+                        haversineKm(lat, lon, station.lat(), station.lon())))
                 .orElse(null);
+    }
+
+    private static int clampHistoryDays(int days) {
+        if (days < 1) {
+            return 7;
+        }
+        return Math.min(days, 30);
+    }
+
+    private void mergeHourlyCsvIntoRows(
+            String url,
+            Instant periodStart,
+            Instant periodEnd,
+            Map<Long, Map<String, Object>> rowByEpoch) {
+        try {
+            restTemplate.execute(url, HttpMethod.GET, null, response ->
+                    parseHourlyCsvRows(response.getBody(), periodStart, periodEnd, rowByEpoch));
+        } catch (Exception e) {
+            log.debug("MeteoSwiss SMN hourly CSV failed ({}): {}", url, e.getMessage());
+        }
+    }
+
+    private Void parseHourlyCsvRows(
+            InputStream body,
+            Instant periodStart,
+            Instant periodEnd,
+            Map<Long, Map<String, Object>> rowByEpoch) {
+        if (body == null) {
+            return null;
+        }
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(body, StandardCharsets.ISO_8859_1))) {
+            String headerLine = reader.readLine();
+            if (headerLine == null || headerLine.isBlank()) {
+                return null;
+            }
+            String[] headers = headerLine.split(";", -1);
+            int tsIdx = findColumn(headers, "reference_timestamp");
+            int tempIdx = findColumn(headers, "tre200s0");
+            int tempFallbackIdx = findColumn(headers, "tresurs0");
+            int tempGrassIdx = findColumn(headers, "tre005s0");
+            int humidityIdx = findColumn(headers, "ure200s0");
+            int windSpeedIdx = findColumn(headers, "fu3010z0");
+            int precipIdx = findColumn(headers, "rre150z0");
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.isBlank()) {
+                    continue;
+                }
+                String[] cols = line.split(";", -1);
+                if (tsIdx < 0 || cols.length <= tsIdx) {
+                    continue;
+                }
+                Instant observedInstant = parseObservedInstant(cols[tsIdx]);
+                if (observedInstant == null) {
+                    continue;
+                }
+                Instant slotInstant = observedInstant.truncatedTo(ChronoUnit.HOURS);
+                if (slotInstant.isBefore(periodStart) || slotInstant.isAfter(periodEnd)) {
+                    continue;
+                }
+                Double tempC = firstDouble(cols, tempIdx, tempFallbackIdx, tempGrassIdx);
+                if (tempC == null) {
+                    continue;
+                }
+                Map<String, Object> row = new LinkedHashMap<>();
+                long epochSeconds = slotInstant.getEpochSecond();
+                row.put("epochSeconds", epochSeconds);
+                row.put("reference_timestamp", cols[tsIdx].trim());
+                row.put("T", round(tempC, 1));
+                Double humidity = parseDouble(cols, humidityIdx);
+                if (humidity != null) {
+                    row.put("U", Math.round(humidity));
+                }
+                Double windKmh = parseDouble(cols, windSpeedIdx);
+                if (windKmh != null) {
+                    row.put("FF", round(windKmh / 3.6, 2));
+                }
+                Double precip = parseDouble(cols, precipIdx);
+                if (precip != null) {
+                    row.put("RR", precip);
+                }
+                rowByEpoch.put(epochSeconds, row);
+            }
+        } catch (Exception e) {
+            log.debug("MeteoSwiss SMN hourly CSV parse failed: {}", e.getMessage());
+        }
+        return null;
     }
 
     private static boolean isInSwitzerland(double lat, double lon) {

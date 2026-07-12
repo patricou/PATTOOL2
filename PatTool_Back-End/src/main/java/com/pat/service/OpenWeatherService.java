@@ -9,18 +9,43 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class OpenWeatherService {
 
     private static final Logger log = LoggerFactory.getLogger(OpenWeatherService.class);
+    private static final Duration ELEVATION_HIT_CACHE_TTL = Duration.ofHours(24);
+    private static final Duration ELEVATION_MISS_CACHE_TTL = Duration.ofHours(1);
+    private static final Duration OPEN_ELEVATION_RATE_LIMIT_COOLDOWN = Duration.ofMinutes(30);
+    private static final String OPEN_ELEVATION_LOOKUP_URL =
+            "https://api.open-elevation.com/api/v1/lookup?locations=%s,%s";
+    private static final String OPEN_METEO_ELEVATION_URL = "https://api.open-meteo.com/v1/elevation";
 
     private final RestTemplate restTemplate;
     private final GeocodeService geocodeService;
     private final String openWeatherApiBaseUrl;
     private final String openWeatherApiKey;
+    private final ConcurrentHashMap<String, ElevationCacheEntry> elevationCache = new ConcurrentHashMap<>();
+    private volatile Instant openElevationBlockedUntil = Instant.EPOCH;
+
+    private record ElevationCacheEntry(
+            Double altitude,
+            String sourceKey,
+            String sourceDescription,
+            Instant expiresAt) {
+        boolean isValid() {
+            return Instant.now().isBefore(expiresAt);
+        }
+    }
+
+    private record SeaLevelElevation(Double altitude, String sourceKey, String sourceDescription) {}
 
     public OpenWeatherService(
             RestTemplate restTemplate,
@@ -161,62 +186,172 @@ public class OpenWeatherService {
         return getAltitudeFromOpenElevation(lat, lon);
     }
 
-    /**
-     * Get altitude from OpenElevation API (free elevation service)
-     * @param lat Latitude
-     * @param lon Longitude
-     * @return Altitude in meters, or null if not available
-     */
     private Double getAltitudeFromOpenElevation(Double lat, Double lon) {
+        SeaLevelElevation resolved = resolveSeaLevelElevation(lat, lon);
+        return resolved != null ? resolved.altitude() : null;
+    }
+
+    private SeaLevelElevation resolveSeaLevelElevation(double lat, double lon) {
+        String cacheKey = elevationCacheKey(lat, lon);
+        ElevationCacheEntry cached = elevationCache.get(cacheKey);
+        if (cached != null && cached.isValid()) {
+            if (cached.altitude() == null) {
+                return null;
+            }
+            return new SeaLevelElevation(cached.altitude(), cached.sourceKey(), cached.sourceDescription());
+        }
+
+        SeaLevelElevation resolved = null;
+        if (!isOpenElevationBlocked()) {
+            resolved = fetchOpenElevationApi(lat, lon);
+        }
+        if (resolved == null) {
+            resolved = fetchOpenMeteoElevation(lat, lon);
+        }
+
+        if (resolved != null) {
+            cacheElevation(cacheKey, resolved, ELEVATION_HIT_CACHE_TTL);
+            return resolved;
+        }
+
+        elevationCache.put(cacheKey, new ElevationCacheEntry(
+                null, null, null, Instant.now().plus(ELEVATION_MISS_CACHE_TTL)));
+        return null;
+    }
+
+    private boolean isOpenElevationBlocked() {
+        return Instant.now().isBefore(openElevationBlockedUntil);
+    }
+
+    private void markOpenElevationRateLimited() {
+        Instant blockedUntil = Instant.now().plus(OPEN_ELEVATION_RATE_LIMIT_COOLDOWN);
+        if (Instant.now().isAfter(openElevationBlockedUntil)) {
+            log.warn(
+                    "OpenElevation API rate limited (429); pausing calls for {} minutes. "
+                            + "Using Open-Meteo elevation as fallback.",
+                    OPEN_ELEVATION_RATE_LIMIT_COOLDOWN.toMinutes());
+        }
+        openElevationBlockedUntil = blockedUntil;
+    }
+
+    private SeaLevelElevation fetchOpenElevationApi(double lat, double lon) {
         try {
-            // OpenElevation API endpoint - reliable free elevation service
-            String url = "https://api.open-elevation.com/api/v1/lookup?locations=" + lat + "," + lon;
-            
+            String url = OPEN_ELEVATION_LOOKUP_URL.formatted(
+                    formatCoordinate(lat), formatCoordinate(lon));
             log.debug("Calling OpenElevation API for coordinates ({}, {})", lat, lon);
-            
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            
-            HttpEntity<String> requestEntity = new HttpEntity<>(headers);
-            
+
             @SuppressWarnings("unchecked")
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     url,
                     HttpMethod.GET,
-                    requestEntity,
-                    (Class<Map<String, Object>>) (Class<?>) Map.class
-            );
-            
-            if (response.getBody() != null) {
-                Map<String, Object> body = response.getBody();
-                // OpenElevation returns: {"results": [{"latitude": lat, "longitude": lon, "elevation": elevation}]}
-                if (body.containsKey("results")) {
-                    @SuppressWarnings("unchecked")
-                    java.util.List<Map<String, Object>> results = (java.util.List<Map<String, Object>>) body.get("results");
-                    if (results != null && !results.isEmpty()) {
-                        Map<String, Object> result = results.get(0);
-                        if (result.containsKey("elevation")) {
-                            Object elevation = result.get("elevation");
-                            Double altitude = null;
-                            if (elevation instanceof Number) {
-                                altitude = ((Number) elevation).doubleValue();
-                            } else if (elevation instanceof String) {
-                                altitude = Double.parseDouble((String) elevation);
-                            }
-                            if (altitude != null) {
-                                log.debug("Altitude obtained from OpenElevation API: {}m for coordinates ({}, {})", altitude, lat, lon);
-                                return altitude;
-                            }
-                        }
-                    }
-                }
-                log.warn("OpenElevation API response did not contain expected elevation data for coordinates ({}, {})", lat, lon);
+                    new HttpEntity<>(new HttpHeaders()),
+                    (Class<Map<String, Object>>) (Class<?>) Map.class);
+
+            Double altitude = parseOpenElevationBody(response.getBody());
+            if (altitude != null) {
+                log.debug("Altitude obtained from OpenElevation API: {}m for coordinates ({}, {})",
+                        altitude, lat, lon);
+                return new SeaLevelElevation(
+                        altitude,
+                        "openelevation",
+                        "Altitude from OpenElevation API (sea level)");
+            }
+            log.debug("OpenElevation API response did not contain elevation for ({}, {})", lat, lon);
+        } catch (HttpClientErrorException.TooManyRequests e) {
+            markOpenElevationRateLimited();
+        } catch (HttpClientErrorException e) {
+            if (e.getStatusCode().value() == 429) {
+                markOpenElevationRateLimited();
+            } else {
+                log.debug("OpenElevation API error for ({}, {}): {}", lat, lon, e.getMessage());
             }
         } catch (Exception e) {
-            log.warn("Error calling OpenElevation API for coordinates ({}, {}): {}", lat, lon, e.getMessage());
+            log.debug("OpenElevation API error for ({}, {}): {}", lat, lon, e.getMessage());
         }
-        log.warn("Could not obtain altitude from OpenElevation API for coordinates ({}, {})", lat, lon);
         return null;
+    }
+
+    private SeaLevelElevation fetchOpenMeteoElevation(double lat, double lon) {
+        try {
+            String url = UriComponentsBuilder.fromHttpUrl(OPEN_METEO_ELEVATION_URL)
+                    .queryParam("latitude", lat)
+                    .queryParam("longitude", lon)
+                    .toUriString();
+            log.debug("Calling Open-Meteo elevation API for coordinates ({}, {})", lat, lon);
+
+            @SuppressWarnings("unchecked")
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    new HttpEntity<>(new HttpHeaders()),
+                    (Class<Map<String, Object>>) (Class<?>) Map.class);
+
+            Double altitude = parseOpenMeteoElevationBody(response.getBody());
+            if (altitude != null) {
+                log.debug("Altitude obtained from Open-Meteo elevation API: {}m for coordinates ({}, {})",
+                        altitude, lat, lon);
+                return new SeaLevelElevation(
+                        altitude,
+                        "open-meteo",
+                        "Altitude from Open-Meteo elevation API (sea level)");
+            }
+        } catch (Exception e) {
+            log.debug("Open-Meteo elevation API error for ({}, {}): {}", lat, lon, e.getMessage());
+        }
+        return null;
+    }
+
+    private static Double parseOpenElevationBody(Map<String, Object> body) {
+        if (body == null || !body.containsKey("results")) {
+            return null;
+        }
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> results = (List<Map<String, Object>>) body.get("results");
+        if (results == null || results.isEmpty()) {
+            return null;
+        }
+        return parseElevationValue(results.get(0).get("elevation"));
+    }
+
+    private static Double parseOpenMeteoElevationBody(Map<String, Object> body) {
+        if (body == null || !body.containsKey("elevation")) {
+            return null;
+        }
+        Object raw = body.get("elevation");
+        if (raw instanceof List<?> list && !list.isEmpty()) {
+            return parseElevationValue(list.get(0));
+        }
+        return parseElevationValue(raw);
+    }
+
+    private static Double parseElevationValue(Object elevation) {
+        if (elevation instanceof Number number) {
+            return number.doubleValue();
+        }
+        if (elevation instanceof String text) {
+            try {
+                return Double.parseDouble(text);
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private static String elevationCacheKey(double lat, double lon) {
+        return String.format(Locale.US, "%.4f,%.4f", lat, lon);
+    }
+
+    private static String formatCoordinate(double value) {
+        return String.format(Locale.US, "%.6f", value);
+    }
+
+    private void cacheElevation(String cacheKey, SeaLevelElevation elevation, Duration ttl) {
+        elevationCache.put(cacheKey, new ElevationCacheEntry(
+                elevation.altitude(),
+                elevation.sourceKey(),
+                elevation.sourceDescription(),
+                Instant.now().plus(ttl)));
     }
 
     /**
@@ -234,21 +369,19 @@ public class OpenWeatherService {
         Map<String, Object> result = new HashMap<>();
         java.util.List<Map<String, Object>> altitudes = new java.util.ArrayList<>();
         
-        // Source 1: OpenElevation API (highest priority - provides accurate sea level altitude)
-        // This is preferred over mobile GPS because mobile GPS often uses HAE (Height Above Ellipsoid)
-        // which can differ from sea level by ~30 meters depending on location
+        // Source 1: sea-level elevation (OpenElevation when available, Open-Meteo fallback)
         try {
-            Double openElevationAlt = getAltitudeFromOpenElevation(lat, lon);
-            if (openElevationAlt != null) {
-                Map<String, Object> openElevationAltMap = new HashMap<>();
-                openElevationAltMap.put("altitude", openElevationAlt);
-                openElevationAltMap.put("source", "openelevation");
-                openElevationAltMap.put("sourceDescription", "Altitude from OpenElevation API (sea level)");
-                openElevationAltMap.put("priority", 1);
-                altitudes.add(openElevationAltMap);
+            SeaLevelElevation seaLevel = resolveSeaLevelElevation(lat, lon);
+            if (seaLevel != null) {
+                Map<String, Object> seaLevelAltMap = new HashMap<>();
+                seaLevelAltMap.put("altitude", seaLevel.altitude());
+                seaLevelAltMap.put("source", seaLevel.sourceKey());
+                seaLevelAltMap.put("sourceDescription", seaLevel.sourceDescription());
+                seaLevelAltMap.put("priority", 1);
+                altitudes.add(seaLevelAltMap);
             }
         } catch (Exception e) {
-            log.debug("Could not get altitude from OpenElevation: {}", e.getMessage());
+            log.debug("Could not get sea-level elevation: {}", e.getMessage());
         }
         
         // Source 2: Nominatim (though it typically doesn't provide elevation)

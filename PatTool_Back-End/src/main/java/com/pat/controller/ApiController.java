@@ -654,6 +654,28 @@ public class ApiController {
     }
 
     /**
+     * Nearest MeteoSwiss SMN station + hourly archived observations for a map point (timeline modal).
+     */
+    @GetMapping(value = "/meteoswiss/obs/history/nearby", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getMeteoSwissHistoryNearby(
+            @RequestParam("lat") double lat,
+            @RequestParam("lon") double lon,
+            @RequestParam(value = "days", defaultValue = "7") int days,
+            @RequestParam(value = "stationId", required = false) String stationId,
+            @RequestParam(value = "refresh", defaultValue = "false") boolean refresh) {
+        return meteoSwissObsService.getNearbyHourlyHistory(lat, lon, days, stationId, refresh);
+    }
+
+    /** Clears server-side MeteoSwiss SMN hourly history cache. */
+    @PostMapping(value = "/meteoswiss/obs/history/cache/clear", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> clearMeteoSwissHistoryCache() {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("cleared", true);
+        result.put("cacheEntries", meteoSwissObsService.clearHistoryCache());
+        return result;
+    }
+
+    /**
      * Nearest Météo-France DPObs v2 observation station for a map point.
      */
     @GetMapping(value = "/meteofrance/obs/nearest-station", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -960,8 +982,18 @@ public class ApiController {
             @RequestParam(value = "department", required = false) String department,
             @RequestParam(value = "days", defaultValue = "30") int days,
             @RequestParam(value = "frequency", defaultValue = "quotidienne") String frequency,
-            @RequestParam(value = "stationId", required = false) String stationId) {
-        return meteoFranceClimService.getNearbyClimData(lat, lon, department, days, frequency, stationId);
+            @RequestParam(value = "stationId", required = false) String stationId,
+            @RequestParam(value = "refresh", defaultValue = "false") boolean refresh) {
+        return meteoFranceClimService.getNearbyClimData(lat, lon, department, days, frequency, stationId, refresh);
+    }
+
+    /** Clears server-side MF DPClim nearby response cache. */
+    @PostMapping(value = "/meteofrance/clim/cache/clear", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> clearMeteoFranceClimCache() {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("cleared", true);
+        result.put("cacheEntries", meteoFranceClimService.clearClimCache());
+        return result;
     }
 
     /**

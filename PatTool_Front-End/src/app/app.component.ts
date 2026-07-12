@@ -153,7 +153,7 @@ export class AppComponent implements OnInit {
             icon: 'fa fa-umbrella',
             labelKey: 'MENU.METEO_FRANCE'
         },
-        { routerLink: ['api/openweathermap'], icon: 'fa fa-cloud', labelKey: 'MENU.POSITION_METEO' },
+        { routerLink: ['api/openweathermap'], icon: 'fa fa-location-arrow', labelKey: 'MENU.POSITION_METEO' },
         { routerLink: ['api/address-geocode'], icon: 'fa fa-map-marker', labelKey: 'MENU.ADDRESS_TO_MAP' },
         { routerLink: ['api/news'], icon: 'fa fa-newspaper-o', labelKey: 'MENU.NEWS' },
         { routerLink: ['api/timezone-converter'], icon: 'fa fa-clock-o', labelKey: 'MENU.TIME_ZONES' }

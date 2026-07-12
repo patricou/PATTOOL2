@@ -1746,6 +1746,20 @@
   height: 64px;
 }
 
+.mf-page-brand-globe {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1d4ed8;
+  font-size: 2rem;
+  line-height: 1;
+}
+
 .aromepi-map-shell {
   position: relative;
 }

@@ -264,7 +264,7 @@ public class IssPassAlertService {
             }
             out.add(new IssAlertAdminEntryDto(
                     userId,
-                    resolveOwnerLabel(userId),
+                    resolveOwnerLabel(userId, stored.email()),
                     stored.enabled(),
                     stored.email(),
                     stored.place(),
@@ -296,13 +296,27 @@ public class IssPassAlertService {
         return true;
     }
 
-    private String resolveOwnerLabel(String keycloakId) {
-        if (!StringUtils.hasText(keycloakId)) {
-            return "";
+    private String resolveOwnerLabel(String keycloakId, String alertEmail) {
+        Member member = null;
+        if (StringUtils.hasText(keycloakId)) {
+            member = membersRepository.findByKeycloakId(keycloakId.trim());
         }
-        Member member = membersRepository.findByKeycloakId(keycloakId.trim());
+        if (member == null && StringUtils.hasText(alertEmail)) {
+            member = membersRepository.findByAddressEmail(alertEmail.trim());
+        }
+        String fromMember = memberDisplayName(member);
+        if (StringUtils.hasText(fromMember)) {
+            return fromMember;
+        }
+        if (StringUtils.hasText(alertEmail)) {
+            return alertEmail.trim();
+        }
+        return StringUtils.hasText(keycloakId) ? keycloakId.trim() : "";
+    }
+
+    private static String memberDisplayName(Member member) {
         if (member == null) {
-            return keycloakId.trim();
+            return "";
         }
         String first = member.getFirstName() != null ? member.getFirstName().trim() : "";
         String last = member.getLastName() != null ? member.getLastName().trim() : "";
@@ -316,7 +330,7 @@ public class IssPassAlertService {
         if (StringUtils.hasText(member.getAddressEmail())) {
             return member.getAddressEmail().trim();
         }
-        return keycloakId.trim();
+        return "";
     }
 
     // ---------------------------------------------------------------------
@@ -575,6 +589,8 @@ public class IssPassAlertService {
                 + "🛰️ Passage ISS visible</div>"
                 + "<div style=\"font-family:" + fontStack + ";font-size:13px;color:rgba(255,255,255,0.9);margin-top:6px;\">"
                 + "La Station spatiale internationale " + visibilityLeadPhrase(pass.riseTimeMs(), rise) + "</div>"
+                + "<div style=\"font-family:" + fontStack + ";font-size:13px;color:rgba(255,255,255,0.85);margin-top:8px;\">"
+                + "👀 " + lookoutSummary(pass) + "</div>"
                 + "</td></tr>"
                 + "<tr><td style=\"padding:18px 18px 4px 18px;\">"
                 + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" "
@@ -596,6 +612,31 @@ public class IssPassAlertService {
                 + "<td style=\"padding:11px 16px;border-bottom:1px solid #eef2f7;"
                 + "font-family:'Segoe UI',Arial,sans-serif;font-size:14px;color:#0f172a;font-weight:600;\">" + value + "</td>"
                 + "</tr>";
+    }
+
+    /** Short phrase for e-mail header: where to look and max elevation. */
+    private static String lookoutSummary(VisiblePass pass) {
+        double azMax = azimuthAtMax(pass);
+        double elevMax = pass.maxElevationDeg();
+        boolean hasDir = !Double.isNaN(azMax);
+        boolean hasElev = !Double.isNaN(elevMax);
+        if (!hasDir && !hasElev) {
+            return "Direction et élévation indisponibles pour ce passage.";
+        }
+        StringBuilder sb = new StringBuilder("Regardez vers ");
+        if (hasDir) {
+            sb.append(directionFromAzimuth(azMax)).append(" (").append(Math.round(azMax)).append("°)");
+        } else {
+            sb.append("—");
+        }
+        if (hasElev) {
+            if (hasDir) {
+                sb.append(" — ");
+            }
+            sb.append("élévation max ").append(Math.round(elevMax)).append("° au-dessus de l’horizon");
+        }
+        sb.append(".");
+        return sb.toString();
     }
 
     /** Human phrase describing how far ahead the pass is (accurate for both alerts and test e-mails). */

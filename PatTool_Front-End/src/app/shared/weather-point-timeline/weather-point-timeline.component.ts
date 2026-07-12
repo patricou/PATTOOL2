@@ -21,6 +21,7 @@ import zoomPlugin from 'chartjs-plugin-zoom';
 import { Subject, catchError, of } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { ApiService, ForecastSourceStreamEvent } from '../../services/api.service';
+import { WeatherHistoryCacheService } from '../../services/weather-history-cache.service';
 import { MeteoChartFullscreenService } from '../../meteo-france/meteo-chart-fullscreen.service';
 import {
   meteoChartCompactPointRadius,
@@ -133,6 +134,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   omLoading = false;
   mfForecastLoading = false;
   msLoading = false;
+  msHistoryLoading = false;
   climLoading = false;
   loadLogPanelOpen = false;
   loadLogEntries: TimelineLoadLogEntry[] = [];
@@ -191,6 +193,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   private climQuotidienneCache: any = null;
   private mfForecastCache: any = null;
   private msForecastCache: any = null;
+  private msHistoryCache: any = null;
   private owmForecastCache: any = null;
   private omForecastCache: any = null;
   private quotidienneLoading = false;
@@ -206,6 +209,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
 
   constructor(
     private apiService: ApiService,
+    private historyCache: WeatherHistoryCacheService,
     private translate: TranslateService,
     private readonly cdr: ChangeDetectorRef,
     @Optional() private chartFullscreen?: MeteoChartFullscreenService
@@ -344,6 +348,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     return this.climLoading
       || this.mfForecastLoading
       || this.msLoading
+      || this.msHistoryLoading
       || this.omLoading
       || this.owmLoading
       || this.quotidienneLoading;
@@ -356,14 +361,15 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
         return (this.mfForecastLoading || this.climLoading)
           && this.getSlotsForTab('meteofrance', param).length === 0;
       case 'meteoswiss':
-        return this.msLoading && this.getSlotsForTab('meteoswiss', param).length === 0;
+        return (this.msLoading || this.msHistoryLoading)
+          && this.getSlotsForTab('meteoswiss', param).length === 0;
       case 'openweathermap':
         return this.owmLoading && this.getSlotsForTab('openweathermap', param).length === 0;
       case 'open-meteo':
         return this.omLoading && this.getSlotsForTab('open-meteo', param).length === 0;
       case 'compare':
         return (this.region === 'switzerland'
-          ? (this.msLoading || this.owmLoading || this.omLoading)
+          ? (this.msLoading || this.msHistoryLoading || this.owmLoading || this.omLoading)
           : (this.mfForecastLoading || this.owmLoading || this.omLoading))
           && this.getSlotsForTab('compare', param).length === 0;
       default:
@@ -621,6 +627,8 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     this.climCache = null;
     this.climQuotidienneCache = null;
     this.mfForecastCache = null;
+    this.msForecastCache = null;
+    this.msHistoryCache = null;
     this.owmForecastCache = null;
     this.omForecastCache = null;
     this.owmLoading = true;
@@ -634,6 +642,8 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     this.loadForecastStream(requestId);
     if (this.region === 'switzerland') {
       this.activeTab = 'meteoswiss';
+      this.msHistoryLoading = true;
+      this.loadMeteoSwissHistory(requestId);
       this.loadMeteoSwissForecast(requestId);
     } else {
       this.activeTab = 'meteofrance';
@@ -688,6 +698,76 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     });
   }
 
+  private loadMeteoSwissHistory(requestId: number): void {
+    if (this.region !== 'switzerland' || !this.visible) {
+      this.msHistoryLoading = false;
+      return;
+    }
+    this.msHistoryLoading = true;
+    const loadCancel$ = this.activeLoadCancel$;
+    const days = WeatherPointTimelineComponent.HISTORY_DAYS;
+    const cacheKey = this.historyCache.msHistKey(this.lat, this.lon, days, this.stationId || undefined);
+    const clientCached = this.historyCache.getMsHist(cacheKey);
+    if (clientCached) {
+      this.deferTimelineUiUpdate(() => {
+        if (requestId !== this.requestId) {
+          return;
+        }
+        this.msHistoryLoading = false;
+        this.msHistoryCache = clientCached;
+        this.logClimResponse('METEO_FRANCE.POINT_TIMELINE_LOG_MS_HIST_OK', clientCached);
+        this.refreshFromCaches(true);
+        this.checkLoadComplete();
+      });
+      return;
+    }
+    this.appendLoadLog('info', 'METEO_FRANCE.POINT_TIMELINE_LOG_MS_HIST_START');
+    this.apiService.getMeteoSwissHistoryNearby(
+      this.lat,
+      this.lon,
+      days,
+      this.stationId || undefined
+    ).pipe(
+      catchError(() => of(null)),
+      takeUntil(this.destroy$),
+      takeUntil(loadCancel$!)
+    ).subscribe({
+      next: (data) => {
+        if (requestId !== this.requestId || !this.visible) {
+          return;
+        }
+        this.deferTimelineUiUpdate(() => {
+          if (requestId !== this.requestId) {
+            return;
+          }
+          this.msHistoryLoading = false;
+          this.msHistoryCache = data;
+          this.historyCache.setMsHist(cacheKey, data);
+          this.logClimResponse('METEO_FRANCE.POINT_TIMELINE_LOG_MS_HIST_OK', data);
+          this.refreshFromCaches(true);
+          this.checkLoadComplete();
+        });
+      },
+      error: (err) => {
+        if (requestId !== this.requestId) {
+          return;
+        }
+        this.deferTimelineUiUpdate(() => {
+          if (requestId !== this.requestId) {
+            return;
+          }
+          this.msHistoryLoading = false;
+          this.appendLoadLog(
+            'error',
+            'METEO_FRANCE.POINT_TIMELINE_LOG_MS_HIST_ERROR',
+            this.extractErrorMessage(err)
+          );
+          this.checkLoadComplete();
+        });
+      }
+    });
+  }
+
   private loadClimHoraire(requestId: number): void {
     if (!this.climEnabled || !this.visible) {
       this.climLoading = false;
@@ -695,12 +775,34 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
       this.checkLoadComplete();
       return;
     }
+    const days = WeatherPointTimelineComponent.HISTORY_DAYS;
+    const cacheKey = this.historyCache.climKey(
+      this.lat,
+      this.lon,
+      days,
+      'horaire',
+      this.stationId
+    );
+    const clientCached = this.historyCache.getClim(cacheKey);
+    if (clientCached) {
+      this.deferTimelineUiUpdate(() => {
+        if (requestId !== this.requestId || !this.visible) {
+          return;
+        }
+        this.climLoading = false;
+        this.climCache = clientCached;
+        this.logClimResponse('METEO_FRANCE.POINT_TIMELINE_LOG_CLIM_OK', clientCached);
+        this.refreshFromCaches(true);
+        this.checkLoadComplete();
+      });
+      return;
+    }
     this.appendLoadLog('info', 'METEO_FRANCE.POINT_TIMELINE_LOG_CLIM_START');
     const loadCancel$ = this.activeLoadCancel$;
     this.apiService.getMeteoFranceClimNearby(
       this.lat,
       this.lon,
-      WeatherPointTimelineComponent.HISTORY_DAYS,
+      days,
       'horaire',
       this.departmentCode || undefined,
       this.stationId
@@ -719,6 +821,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
           }
           this.climLoading = false;
           this.climCache = clim;
+          this.historyCache.setClim(cacheKey, clim);
           this.logClimResponse('METEO_FRANCE.POINT_TIMELINE_LOG_CLIM_OK', clim);
           this.refreshFromCaches(true);
           this.checkLoadComplete();
@@ -912,12 +1015,14 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     this.climQuotidienneCache = null;
     this.mfForecastCache = null;
     this.msForecastCache = null;
+    this.msHistoryCache = null;
     this.owmForecastCache = null;
     this.omForecastCache = null;
     this.owmLoading = false;
     this.omLoading = false;
     this.mfForecastLoading = false;
     this.msLoading = false;
+    this.msHistoryLoading = false;
     this.climLoading = false;
     this.quotidienneLoading = false;
     this.loadInProgressUi = false;
@@ -954,6 +1059,37 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     this.stationLabel = this.stationName || this.stationId || '';
 
     const nowTs = Math.floor(Date.now() / 1000);
+
+    if (this.msHistoryCache && !this.msHistoryCache.error) {
+      const resolvedStationName = this.msHistoryCache.station?.name || this.stationName;
+      const resolvedStationId = this.msHistoryCache.station?.id || this.stationId;
+      if (resolvedStationName || resolvedStationId) {
+        this.stationLabel = resolvedStationName
+          ? (resolvedStationId ? `${resolvedStationName} (${resolvedStationId})` : resolvedStationName)
+          : String(resolvedStationId);
+      }
+      const rows = [...(this.msHistoryCache.rows || [])].sort((a, b) =>
+        String(a.epochSeconds ?? a.reference_timestamp ?? '').localeCompare(
+          String(b.epochSeconds ?? b.reference_timestamp ?? '')
+        )
+      );
+      for (const row of rows) {
+        const ts = this.msHistoryRowEpochSeconds(row);
+        if (ts == null || ts >= nowTs || !this.isTimelineTwoHourSlot(ts)) {
+          continue;
+        }
+        const slot = slotMap.get(ts) ?? this.createEmptySlot(ts, 'history');
+        for (const param of WeatherPointTimelineComponent.SLOT_PARAMS) {
+          const value = this.extractMsHistoryTimelineValue(row, param);
+          if (value != null) {
+            slot.values.meteoswiss[param] = value;
+            this.historyAvailable = true;
+          }
+        }
+        slotMap.set(ts, slot);
+      }
+    }
+
     const nowSlot = slotMap.get(nowTs) ?? this.createEmptySlot(nowTs, 'now');
     nowSlot.kind = 'now';
     if (this.msTempC != null) {
@@ -2000,6 +2136,34 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
       return 'RR3';
     }
     return null;
+  }
+
+  private msHistoryRowEpochSeconds(row: any): number | null {
+    if (row?.epochSeconds != null && Number.isFinite(Number(row.epochSeconds))) {
+      return Number(row.epochSeconds);
+    }
+    return this.climRowEpochSeconds(row);
+  }
+
+  private extractMsHistoryTimelineValue(row: any, param: TimelineParam): number | null {
+    switch (param) {
+      case 'temp':
+        return this.tempChartValue(row.T);
+      case 'humidity': {
+        const humidity = this.parseClimNumber(row.U);
+        return humidity != null ? humidity : null;
+      }
+      case 'wind': {
+        const wind = this.parseClimNumber(row.FF);
+        return wind != null ? wind : null;
+      }
+      case 'precip':
+        return this.parseClimNumber(row.RR);
+      case 'pop':
+        return null;
+      default:
+        return null;
+    }
   }
 
   private extractClimTimelineValue(

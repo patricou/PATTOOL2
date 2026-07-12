@@ -2,21 +2,30 @@
 
   <div class="mf-page-header">
 
-    <a [href]="meteoFranceApiPortalUrl" target="_blank" rel="noopener noreferrer" class="mf-logo-link"
-
-       [attr.title]="'METEO_FRANCE.MF_API_PORTAL_LINK' | translate"
-
-       [attr.aria-label]="'METEO_FRANCE.MF_API_PORTAL_LINK' | translate">
-
-      <img src="assets/images/meteofrance-logo.svg" alt="Météo-France" class="mf-logo" width="64" height="64" />
-
+    <a *ngIf="pageHeaderBrand !== 'world'"
+       [href]="pageHeaderBrandUrl"
+       target="_blank"
+       rel="noopener noreferrer"
+       class="mf-logo-link"
+       [attr.title]="pageHeaderBrandLinkKey | translate"
+       [attr.aria-label]="pageHeaderBrandLinkKey | translate">
+      <img [src]="pageHeaderBrandLogo!"
+           [alt]="pageHeaderBrandAlt"
+           class="mf-logo"
+           width="64"
+           height="64" />
     </a>
+
+    <span *ngIf="pageHeaderBrand === 'world'"
+          class="mf-page-brand-globe"
+          [attr.title]="pageHeaderBrandAlt"
+          [attr.aria-label]="pageHeaderBrandAlt">
+      <i class="fa fa-globe" aria-hidden="true"></i>
+    </span>
 
     <div class="mf-page-heading">
 
       <h2>{{ 'METEO_FRANCE.TITLE' | translate }}</h2>
-
-      <p class="pat-subtitle mb-0">{{ 'METEO_FRANCE.SUBTITLE' | translate }}</p>
 
     </div>
 
@@ -116,6 +125,7 @@
           <option value="radar">{{ 'METEO_FRANCE.TAB_RADAR' | translate }}</option>
           <option *ngIf="showMeteoSwissForecastTabs" value="forecast-ms">{{ 'METEO_FRANCE.TAB_FORECAST_MS' | translate }}</option>
           <option *ngIf="showMeteoSwissForecastTabs" value="ms-precip">{{ 'METEO_FRANCE.TAB_MS_PRECIP' | translate }}</option>
+          <option *ngIf="showMsHistTab" value="ms-hist">{{ 'METEO_FRANCE.TAB_MS_HIST' | translate }}</option>
           <option *ngIf="showClimTab" value="clim">{{ 'METEO_FRANCE.TAB_CLIM' | translate }}</option>
           <option *ngIf="showMfAromepiTab" value="aromepi">{{ 'METEO_FRANCE.TAB_AROMEPI' | translate }}</option>
           <option value="forecast-owm">{{ 'METEO_FRANCE.TAB_FORECAST_OWM' | translate }}</option>
@@ -147,10 +157,17 @@
             {{ 'METEO_FRANCE.TAB_MS_PRECIP' | translate }}
           </button>
         </li>
+        <li class="nav-item" role="presentation" *ngIf="showMsHistTab">
+          <button type="button" class="nav-link" [class.active]="activeMainTab === 'ms-hist'"
+                  (click)="onMainTabChange('ms-hist')">
+            <img [src]="getBrandLogoSrc('meteoswiss')" [alt]="getBrandAlt('meteoswiss')" class="mf-tab-logo" width="18" height="18" />
+            {{ 'METEO_FRANCE.TAB_MS_HIST' | translate }}
+          </button>
+        </li>
         <li class="nav-item" role="presentation" *ngIf="showClimTab">
           <button type="button" class="nav-link" [class.active]="activeMainTab === 'clim'"
                   (click)="onMainTabChange('clim')">
-            <img [src]="getBrandLogoSrc(regionalProviderTabBrand)" [alt]="getBrandAlt(regionalProviderTabBrand)" class="mf-tab-logo" width="18" height="18" />
+            <img [src]="getBrandLogoSrc('meteofrance')" [alt]="getBrandAlt('meteofrance')" class="mf-tab-logo" width="18" height="18" />
             {{ 'METEO_FRANCE.TAB_CLIM' | translate }}
           </button>
         </li>
@@ -842,7 +859,7 @@
 
               </button>
 
-              <button type="button" class="btn btn-outline-secondary btn-sm ms-2" (click)="loadClimData(climSelectedStationId || undefined)"
+              <button type="button" class="btn btn-outline-secondary btn-sm ms-2" (click)="loadClimData(climSelectedStationId || undefined, true)"
 
                       [disabled]="isLoadingClim">
 
@@ -851,6 +868,18 @@
                 {{ 'METEO_FRANCE.CLIM_REFRESH' | translate }}
 
               </button>
+
+              <button type="button" class="btn btn-outline-secondary btn-sm ms-1"
+                      (click)="onClearClimHistoryCache()"
+                      [disabled]="isClearingClimHistoryCache || isLoadingClim"
+                      [attr.title]="'METEO_FRANCE.HISTORY_CACHE_CLEAR' | translate"
+                      [attr.aria-label]="'METEO_FRANCE.HISTORY_CACHE_CLEAR' | translate">
+                <i class="fa" [class.fa-trash-o]="!isClearingClimHistoryCache" [class.fa-spinner]="isClearingClimHistoryCache" [class.fa-spin]="isClearingClimHistoryCache"></i>
+              </button>
+
+              <span class="badge bg-secondary ms-2 align-middle" *ngIf="climFromCache && climDisplayRows.length">
+                {{ 'METEO_FRANCE.HISTORY_CACHE_BADGE' | translate }}
+              </span>
 
             </div>
 
@@ -1438,8 +1467,8 @@
               <ng-container *ngTemplateOutlet="centerOnUserPositionButton; context: { variant: 'toolbar' }"></ng-container>
               <ng-container *ngTemplateOutlet="forecastProviderSiteButton; context: { brand: 'meteoswiss' }"></ng-container>
               <button type="button" class="btn btn-sm btn-outline-primary" (click)="loadMsForecast(true)"
-                      [disabled]="isLoadingMsForecast">
-                <i class="fa" [class.fa-refresh]="!isLoadingMsForecast" [class.fa-spinner]="isLoadingMsForecast" [class.fa-spin]="isLoadingMsForecast"></i>
+                      [disabled]="showMsForecastTabSpinner">
+                <i class="fa" [class.fa-refresh]="!showMsForecastTabSpinner" [class.fa-spinner]="showMsForecastTabSpinner" [class.fa-spin]="showMsForecastTabSpinner"></i>
                 {{ 'METEO_FRANCE.REFRESH' | translate }}
               </button>
             </div>
@@ -1449,26 +1478,26 @@
 
           <ng-container *ngTemplateOutlet="forecastDataLocationSummary"></ng-container>
 
-          <p class="text-muted small mb-2" *ngIf="!isLoadingMsForecast && msForecastPointLabel">
+          <p class="text-muted small mb-2" *ngIf="!showMsForecastTabSpinner && msForecastPointLabel">
             <i class="fa fa-map-pin" aria-hidden="true"></i>
             {{ 'METEO_FRANCE.FORECAST_MS_POINT' | translate }} <strong>{{ msForecastPointLabel }}</strong>
           </p>
 
           <ng-container *ngTemplateOutlet="forecastTabLoadingPanel; context: {
-            loading: isLoadingMsForecast || msForecastCacheLoading,
+            loading: showMsForecastTabSpinner,
             messageKey: msForecastCacheLoading ? null : 'METEO_FRANCE.FORECAST_LOADING',
             customMessage: msForecastCacheLoading ? msForecastCacheLoadingLabel : null
           }"></ng-container>
 
-          <div *ngIf="!isLoadingMsForecast && !msForecastCacheLoading && msForecastErrorKey" class="alert alert-warning py-2 mb-2">
+          <div *ngIf="!showMsForecastTabSpinner && msForecastErrorKey" class="alert alert-warning py-2 mb-2">
             {{ msForecastErrorKey | translate: { detail: msForecastErrorDetail } }}
           </div>
 
-          <div class="forecast-charts-wrap mb-3" *ngIf="!isLoadingMsForecast && !msForecastCacheLoading && msForecastChartsReady">
+          <div class="forecast-charts-wrap mb-3" *ngIf="!showMsForecastTabSpinner && msForecastChartsReady">
             <ng-container *ngTemplateOutlet="multiDayForecastCharts; context: { blocks: msForecastChartBlocks }"></ng-container>
           </div>
 
-          <div class="forecast-table-wrap" *ngIf="!isLoadingMsForecast && !msForecastCacheLoading && msDisplayForecastList.length">
+          <div class="forecast-table-wrap" *ngIf="!showMsForecastTabSpinner && msDisplayForecastList.length">
             <ng-container *ngTemplateOutlet="multiDayForecastTable; context: { items: msDisplayForecastList }"></ng-container>
           </div>
         </div>
@@ -1484,6 +1513,161 @@
           [horizonHours]="forecastHorizonHours"
           [active]="activeMainTab === 'ms-precip'">
         </app-meteo-swiss-precip-tab>
+      </section>
+
+
+
+      <!-- MeteoSwiss station history tab -->
+
+      <section [hidden]="activeMainTab !== 'ms-hist'">
+
+        <ng-container *ngIf="activeMainTab === 'ms-hist'">
+
+          <div class="api-container">
+
+            <div class="mf-section-head">
+              <h3 class="api-title mb-0">
+                <img [src]="getBrandLogoSrc('meteoswiss')" [alt]="getBrandAlt('meteoswiss')" width="20" height="20" class="me-1" />
+                {{ 'METEO_FRANCE.MS_HIST_TITLE' | translate }}
+              </h3>
+              <div class="mf-section-head-actions">
+                <ng-container *ngTemplateOutlet="centerOnUserPositionButton; context: { variant: 'toolbar' }"></ng-container>
+                <span class="mf-source-badge" [title]="'METEO_FRANCE.LOG_SOURCE_METEOSWISS_SMN' | translate">
+                  <span class="mf-source-badge-prefix">{{ 'METEO_FRANCE.SECTION_SOURCE' | translate }}</span>
+                  <img [src]="getBrandLogoSrc('meteoswiss')" [alt]="getBrandAlt('meteoswiss')" width="16" height="16" />
+                  <span>{{ 'METEO_FRANCE.LOG_SOURCE_METEOSWISS_SMN' | translate }}</span>
+                </span>
+              </div>
+            </div>
+
+            <div *ngIf="showMsHistTabSpinner" class="forecast-tab-loading-panel clim-tab-loading-panel" role="status" aria-live="polite">
+              <div class="forecast-tab-loading-inner">
+                <i class="fa fa-spinner fa-spin forecast-tab-loading-spinner" aria-hidden="true"></i>
+                <span>{{ 'METEO_FRANCE.MS_HIST_LOADING' | translate }}</span>
+              </div>
+            </div>
+
+            <div *ngIf="!showMsHistTabSpinner">
+
+              <div class="clim-controls mb-2">
+                <button type="button" class="btn btn-sm btn-outline-primary" (click)="loadMsHistData(true)"
+                        [disabled]="isLoadingMsHist">
+                  <i class="fa" [class.fa-refresh]="!isLoadingMsHist" [class.fa-spinner]="isLoadingMsHist" [class.fa-spin]="isLoadingMsHist"></i>
+                  {{ 'METEO_FRANCE.CLIM_REFRESH' | translate }}
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary ms-1"
+                        (click)="onClearMsHistHistoryCache()"
+                        [disabled]="isClearingMsHistHistoryCache || isLoadingMsHist"
+                        [attr.title]="'METEO_FRANCE.HISTORY_CACHE_CLEAR' | translate"
+                        [attr.aria-label]="'METEO_FRANCE.HISTORY_CACHE_CLEAR' | translate">
+                  <i class="fa" [class.fa-trash-o]="!isClearingMsHistHistoryCache" [class.fa-spinner]="isClearingMsHistHistoryCache" [class.fa-spin]="isClearingMsHistHistoryCache"></i>
+                </button>
+                <span class="badge bg-secondary ms-2 align-middle" *ngIf="msHistFromCache && msHistDisplayRows.length">
+                  {{ 'METEO_FRANCE.HISTORY_CACHE_BADGE' | translate }}
+                </span>
+              </div>
+
+              <div class="clim-period-row mb-2">
+                <label for="ms-hist-period" class="form-label small mb-1">{{ 'METEO_FRANCE.CLIM_PERIOD_SELECT' | translate }}</label>
+                <select id="ms-hist-period" class="form-select form-select-sm clim-period-select"
+                        [(ngModel)]="msHistDays" (ngModelChange)="onMsHistPeriodChange()" [disabled]="isLoadingMsHist">
+                  <option *ngFor="let opt of msHistPeriodOptions" [ngValue]="opt.days">
+                    {{ opt.labelKey | translate }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="clim-period text-muted small mb-2" *ngIf="msHistPeriodStart && msHistPeriodEnd">
+                <i class="fa fa-calendar" aria-hidden="true"></i>
+                {{ 'METEO_FRANCE.CLIM_PERIOD_LABEL' | translate }}
+                {{ msHistPeriodStart }} → {{ msHistPeriodEnd }}
+                ({{ msHistRequestedDays }} {{ 'METEO_FRANCE.CLIM_PERIOD_DAYS' | translate }} —
+                {{ 'METEO_FRANCE.CLIM_HOURLY' | translate }})
+              </div>
+
+              <div class="clim-summary text-muted small mb-2" *ngIf="msHistData?.station">
+                <strong>{{ msHistData.station.name || msHistData.station.id }}</strong>
+                <span *ngIf="msHistData.station.distanceKm != null"> — {{ msHistData.station.distanceKm }} km</span>
+              </div>
+
+              <div class="alert alert-danger py-2" *ngIf="msHistErrorKey">
+                {{ msHistErrorKey | translate }}
+                <div class="small mt-1 mb-0 text-muted" *ngIf="msHistErrorDetail">{{ msHistErrorDetail }}</div>
+              </div>
+
+              <div class="clim-charts" *ngIf="msHistChartsReady">
+                <h4 class="clim-chart-title">{{ 'METEO_FRANCE.CLIM_CHART_TEMP' | translate }}</h4>
+                <div class="clim-chart-box">
+                  <canvas baseChart
+                          [type]="'line'"
+                          [data]="msHistTempChartData"
+                          [options]="msHistTempChartOptions">
+                  </canvas>
+                </div>
+
+                <h4 class="clim-chart-title" *ngIf="msHistHasRainSeries">{{ 'METEO_FRANCE.CLIM_CHART_RAIN' | translate }}</h4>
+                <div class="clim-chart-box" *ngIf="msHistHasRainSeries">
+                  <canvas baseChart
+                          [type]="'bar'"
+                          [data]="msHistRainChartData"
+                          [options]="msHistRainChartOptions">
+                  </canvas>
+                </div>
+
+                <h4 class="clim-chart-title" *ngIf="msHistHasHumiditySeries">{{ 'METEO_FRANCE.HUMIDITY' | translate }}</h4>
+                <div class="clim-chart-box" *ngIf="msHistHasHumiditySeries">
+                  <canvas baseChart
+                          [type]="'line'"
+                          [data]="msHistHumidityChartData"
+                          [options]="msHistHumidityChartOptions">
+                  </canvas>
+                </div>
+
+                <h4 class="clim-chart-title" *ngIf="msHistHasWindSeries">{{ 'METEO_FRANCE.WIND' | translate }}</h4>
+                <div class="clim-chart-box" *ngIf="msHistHasWindSeries">
+                  <canvas baseChart
+                          [type]="'line'"
+                          [data]="msHistWindChartData"
+                          [options]="msHistWindChartOptions">
+                  </canvas>
+                </div>
+
+                <button type="button" class="btn btn-link btn-sm px-0 clim-table-toggle"
+                        (click)="msHistShowTable = !msHistShowTable">
+                  <i class="fa" [class.fa-chevron-down]="!msHistShowTable" [class.fa-chevron-up]="msHistShowTable"></i>
+                  {{ (msHistShowTable ? 'METEO_FRANCE.CLIM_HIDE_TABLE' : 'METEO_FRANCE.CLIM_SHOW_TABLE') | translate }}
+                </button>
+              </div>
+
+              <div class="clim-table-wrap" *ngIf="msHistDisplayRows.length && msHistShowTable">
+                <table class="table table-sm table-striped clim-table">
+                  <thead>
+                    <tr>
+                      <th *ngFor="let col of msHistDisplayColumns">{{ formatMsHistColumn(col) | translate }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let row of msHistDisplayRows">
+                      <td *ngFor="let col of msHistDisplayColumns">{{ formatMsHistCell(col, row) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <p class="text-muted small mb-0" *ngIf="!msHistErrorKey && !msHistDisplayRows.length && !isLoadingMsHist">
+                {{ 'METEO_FRANCE.MS_HIST_NO_DATA' | translate }}
+              </p>
+
+              <p class="text-muted small mt-2 mb-0">
+                {{ 'METEO_FRANCE.MS_HIST_HINT' | translate }}
+              </p>
+
+            </div>
+
+          </div>
+
+        </ng-container>
+
       </section>
 
 

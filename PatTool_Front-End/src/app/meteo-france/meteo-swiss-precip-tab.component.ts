@@ -136,6 +136,7 @@ export class MeteoSwissPrecipTabComponent implements OnInit, OnChanges, OnDestro
   activate(): void {
     if (!this.mapInitialized) {
       this.pendingActivate = true;
+      this.loading = true;
       this.bootstrap();
       return;
     }
@@ -251,6 +252,7 @@ export class MeteoSwissPrecipTabComponent implements OnInit, OnChanges, OnDestro
   }
 
   private bootstrap(): void {
+    this.loading = true;
     setTimeout(() => {
       this.initMap();
       this.loadCapabilities();

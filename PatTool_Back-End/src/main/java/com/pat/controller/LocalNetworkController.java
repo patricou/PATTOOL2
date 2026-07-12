@@ -4,7 +4,9 @@ import com.pat.repo.NetworkDeviceMappingRepository;
 import com.pat.repo.MacVendorMappingRepository;
 import com.pat.repo.NewDeviceHistoryRepository;
 import com.pat.dto.WifiScanResult;
+import com.pat.controller.dto.LocalNetworkGlobalPrefsDto;
 import com.pat.service.LocalNetworkService;
+import com.pat.service.LocalNetworkGlobalPrefsService;
 import com.pat.service.NetworkScanScheduler;
 import com.pat.service.WifiScanService;
 import org.slf4j.Logger;
@@ -41,15 +43,17 @@ public class LocalNetworkController {
     private final NewDeviceHistoryRepository newDeviceHistoryRepository;
     private final NetworkScanScheduler networkScanScheduler;
     private final WifiScanService wifiScanService;
+    private final LocalNetworkGlobalPrefsService localNetworkGlobalPrefsService;
 
     @Autowired
-    public LocalNetworkController(LocalNetworkService localNetworkService, NetworkDeviceMappingRepository deviceMappingRepository, MacVendorMappingRepository macVendorMappingRepository, NewDeviceHistoryRepository newDeviceHistoryRepository, NetworkScanScheduler networkScanScheduler, WifiScanService wifiScanService) {
+    public LocalNetworkController(LocalNetworkService localNetworkService, NetworkDeviceMappingRepository deviceMappingRepository, MacVendorMappingRepository macVendorMappingRepository, NewDeviceHistoryRepository newDeviceHistoryRepository, NetworkScanScheduler networkScanScheduler, WifiScanService wifiScanService, LocalNetworkGlobalPrefsService localNetworkGlobalPrefsService) {
         this.localNetworkService = localNetworkService;
         this.deviceMappingRepository = deviceMappingRepository;
         this.macVendorMappingRepository = macVendorMappingRepository;
         this.newDeviceHistoryRepository = newDeviceHistoryRepository;
         this.networkScanScheduler = networkScanScheduler;
         this.wifiScanService = wifiScanService;
+        this.localNetworkGlobalPrefsService = localNetworkGlobalPrefsService;
     }
 
     /**
@@ -64,6 +68,50 @@ public class LocalNetworkController {
                 .map(GrantedAuthority::getAuthority)
                 .anyMatch(authority -> authority.equalsIgnoreCase("ROLE_Admin") || 
                                      authority.equalsIgnoreCase("ROLE_admin"));
+    }
+
+    /**
+     * Shared local-network UI switch states (MongoDB, same for every user).
+     */
+    @GetMapping("/global-prefs")
+    public ResponseEntity<?> getLocalNetworkGlobalPrefs() {
+        if (!hasAdminRole()) {
+            return adminForbidden();
+        }
+        return ResponseEntity.ok(localNetworkGlobalPrefsService.getPrefs());
+    }
+
+    @PutMapping("/global-prefs")
+    public ResponseEntity<?> setLocalNetworkGlobalPrefs(@RequestBody LocalNetworkGlobalPrefsDto body) {
+        if (!hasAdminRole()) {
+            return adminForbidden();
+        }
+        if (body == null) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Validation failed");
+            errorResponse.put("message", "Request body is required");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+        try {
+            LocalNetworkGlobalPrefsDto updated = localNetworkGlobalPrefsService.updatePrefs(body);
+            if (body.scanSchedulerEnabled() != null) {
+                networkScanScheduler.applySchedulerEnabled(updated.scanSchedulerEnabled());
+            }
+            return ResponseEntity.ok(updated);
+        } catch (Exception e) {
+            log.warn("Local network global prefs update failed: {}", e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Update failed");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    private ResponseEntity<Map<String, Object>> adminForbidden() {
+        Map<String, Object> errorResponse = new HashMap<>();
+        errorResponse.put("error", "Unauthorized");
+        errorResponse.put("message", "Admin role required");
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
     }
 
     @GetMapping(value = "/scan", produces = MediaType.APPLICATION_JSON_VALUE)

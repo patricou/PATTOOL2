@@ -10,6 +10,15 @@ export interface StreamEvent {
   data: any;
 }
 
+/** Shared local-network switch states (GET/PUT /network/global-prefs, admin only). */
+export interface LocalNetworkGlobalPrefs {
+  useExternalVendorAPI?: boolean;
+  scanSchedulerEnabled?: boolean;
+  showOnlyUnknownDevices?: boolean;
+  showOnlyMacConflictDevices?: boolean;
+  wifiScanUseBackend?: boolean;
+}
+
 @Injectable()
 export class LocalNetworkService {
 
@@ -285,6 +294,29 @@ export class LocalNetworkService {
     return this.getHeaderWithToken().pipe(
       switchMap(headers =>
         this._http.delete(this.API_URL + "network/mac-vendor-mappings/" + id, { headers: headers })
+      )
+    );
+  }
+
+  /**
+   * Shared local-network UI switch states (MongoDB, admin only).
+   */
+  getLocalNetworkGlobalPrefs(): Observable<LocalNetworkGlobalPrefs> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<LocalNetworkGlobalPrefs>(this.API_URL + 'network/global-prefs', { headers: headers })
+      )
+    );
+  }
+
+  setLocalNetworkGlobalPrefs(prefs: LocalNetworkGlobalPrefs): Observable<LocalNetworkGlobalPrefs> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<LocalNetworkGlobalPrefs>(
+          this.API_URL + 'network/global-prefs',
+          prefs,
+          { headers: headers }
+        )
       )
     );
   }

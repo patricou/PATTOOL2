@@ -13,6 +13,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -21,6 +22,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Proxy for Météo-France DPClim v1 (climatological station archives).
@@ -37,11 +39,13 @@ public class MeteoFranceClimService {
     private static final Set<String> ALLOWED_FREQUENCIES = Set.of(
             "quotidienne", "horaire", "infrahoraire-6m", "decadaire", "mensuelle"
     );
+    private static final Duration CLIM_CACHE_TTL = Duration.ofMinutes(30);
 
     private final RestTemplate restTemplate;
     private final GeocodeService geocodeService;
     private final String climApiToken;
     private final String dpclimBaseUrl;
+    private final ConcurrentHashMap<String, ClimCacheEntry> climResponseCache = new ConcurrentHashMap<>();
 
     public MeteoFranceClimService(
             @Qualifier(RestTemplateConfig.METEOFRANCE_CLIM_REST_TEMPLATE) RestTemplate restTemplate,
@@ -138,7 +142,8 @@ public class MeteoFranceClimService {
             String department,
             int days,
             String frequency,
-            String stationId) {
+            String stationId,
+            boolean forceRefresh) {
         if (!isConfigured()) {
             return error("DPClim API key not configured. Set meteofrance.clim.api.token (separate from meteofrance.api.token for radar)");
         }
@@ -163,6 +168,16 @@ public class MeteoFranceClimService {
 
         String freq = normalizeFrequency(frequency);
         int resolvedDays = resolveDays(days, freq);
+
+        String cacheKey = climCacheKey(lat, lon, dept, freq, resolvedDays, stationId);
+        if (!forceRefresh) {
+            ClimCacheEntry cached = climResponseCache.get(cacheKey);
+            if (cached != null && cached.isValid(CLIM_CACHE_TTL)) {
+                Map<String, Object> copy = new LinkedHashMap<>(cached.result());
+                copy.put("cached", true);
+                return copy;
+            }
+        }
 
         Map<String, Object> stationsResponse = listStations(dept, freq);
         if (stationsResponse.get("error") != null) {
@@ -231,7 +246,37 @@ public class MeteoFranceClimService {
         result.put("columns", orderResult.get("columns"));
         result.put("rows", orderResult.get("rows"));
         result.put("source", "Météo-France DPClim");
+        result.put("cacheTtlMinutes", CLIM_CACHE_TTL.toMinutes());
+        climResponseCache.put(cacheKey, new ClimCacheEntry(new LinkedHashMap<>(result), Instant.now()));
         return result;
+    }
+
+    /** Clears in-memory DPClim nearby response cache. */
+    public int clearClimCache() {
+        int cleared = climResponseCache.size();
+        climResponseCache.clear();
+        return cleared;
+    }
+
+    private static String climCacheKey(
+            double lat, double lon, String dept, String freq, int days, String stationId) {
+        String stationPart = stationId != null && !stationId.isBlank()
+                ? normalizeStationIdForCache(stationId)
+                : "";
+        return String.format(Locale.ROOT, "%.4f|%.4f|%s|%s|%d|%s", lat, lon, dept, freq, days, stationPart);
+    }
+
+    private static String normalizeStationIdForCache(String stationId) {
+        if (stationId == null) {
+            return "";
+        }
+        return stationId.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private record ClimCacheEntry(Map<String, Object> result, Instant loadedAt) {
+        boolean isValid(Duration ttl) {
+            return loadedAt.plus(ttl).isAfter(Instant.now());
+        }
     }
 
     /**

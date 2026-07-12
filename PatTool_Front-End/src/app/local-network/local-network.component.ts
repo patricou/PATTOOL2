@@ -247,7 +247,7 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   /** User-facing line from native scan path (translated). */
   wifiNativeInfoText = '';
 
-  private static readonly STORAGE_WIFI_SCAN_MODE = 'pat.localNetwork.wifiScan.mode';
+  isLoadingGlobalPrefs = false;
 
   private wifiConnListenerCleanup?: () => void;
 
@@ -278,14 +278,9 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
 
     this.loadIotProxies();
     
-    // Load scheduler enabled status
-    this.loadScanSchedulerStatus();
+    // Load shared switch states from MongoDB, then start initial scan
+    this.loadLocalNetworkGlobalPrefs(true);
     this.loadScanSchedulerInterval();
-    
-    // Start network scan automatically when page opens
-    setTimeout(() => {
-      this.startScan();
-    }, 500); // Small delay to ensure mappings are loaded
   }
 
   /**
@@ -1011,14 +1006,6 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   }
 
   openWifiScanModal(): void {
-    const saved =
-      typeof sessionStorage !== 'undefined'
-        ? sessionStorage.getItem(LocalNetworkComponent.STORAGE_WIFI_SCAN_MODE)
-        : null;
-    if (saved === 'frontend' || saved === 'backend') {
-      this.wifiScanUseBackend = saved === 'backend';
-    }
-
     this.wifiScanError = '';
     this.wifiNetworks = [];
     this.wifiScanBackendWarning = '';
@@ -1048,12 +1035,7 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   }
 
   onWifiScanBackendToggleChange(): void {
-    if (typeof sessionStorage !== 'undefined') {
-      sessionStorage.setItem(
-        LocalNetworkComponent.STORAGE_WIFI_SCAN_MODE,
-        this.wifiScanUseBackend ? 'backend' : 'frontend'
-      );
-    }
+    this.persistLocalNetworkGlobalPrefs({ wifiScanUseBackend: this.wifiScanUseBackend });
     this.cleanupWifiConnListener();
     this.runWifiScanAccordingToMode();
   }
@@ -2845,34 +2827,107 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Load scan scheduler enabled status from backend
+   * Load shared local-network switch states from MongoDB (global for all users).
    */
-  loadScanSchedulerStatus(): void {
+  loadLocalNetworkGlobalPrefs(startScanAfterLoad = false): void {
+    this.isLoadingGlobalPrefs = true;
     this.isLoadingSchedulerStatus = true;
-    this.localNetworkService.getScanSchedulerEnabled().subscribe({
-      next: (response) => {
+    this.localNetworkService.getLocalNetworkGlobalPrefs().subscribe({
+      next: (prefs) => {
         this.ngZone.run(() => {
+          this.isLoadingGlobalPrefs = false;
           this.isLoadingSchedulerStatus = false;
-          if (response && response.enabled !== undefined) {
-            this.scanSchedulerEnabled = response.enabled;
-            console.log('Scan scheduler status loaded:', response.enabled);
-          } else {
-            console.warn('Invalid response from getScanSchedulerEnabled:', response);
-            this.scanSchedulerEnabled = false;
+          if (prefs) {
+            if (prefs.useExternalVendorAPI !== undefined) {
+              this.useExternalVendorAPI = !!prefs.useExternalVendorAPI;
+            }
+            if (prefs.scanSchedulerEnabled !== undefined) {
+              this.scanSchedulerEnabled = !!prefs.scanSchedulerEnabled;
+            }
+            if (prefs.showOnlyUnknownDevices !== undefined) {
+              this.showOnlyUnknownDevices = !!prefs.showOnlyUnknownDevices;
+            }
+            if (prefs.showOnlyMacConflictDevices !== undefined) {
+              this.showOnlyMacConflictDevices = !!prefs.showOnlyMacConflictDevices;
+            }
+            if (prefs.wifiScanUseBackend !== undefined) {
+              this.wifiScanUseBackend = !!prefs.wifiScanUseBackend;
+            }
+          }
+          this.cdr.detectChanges();
+          if (startScanAfterLoad) {
+            setTimeout(() => this.startScan(), 300);
+          }
+        });
+      },
+      error: (error) => {
+        this.ngZone.run(() => {
+          this.isLoadingGlobalPrefs = false;
+          this.isLoadingSchedulerStatus = false;
+          console.error('Error loading local network global prefs:', error);
+          this.cdr.detectChanges();
+          if (startScanAfterLoad) {
+            setTimeout(() => this.startScan(), 300);
+          }
+        });
+      }
+    });
+  }
+
+  onUseExternalVendorApiChange(value: boolean): void {
+    this.useExternalVendorAPI = !!value;
+    this.persistLocalNetworkGlobalPrefs({ useExternalVendorAPI: this.useExternalVendorAPI });
+  }
+
+  onShowOnlyUnknownDevicesChange(value: boolean): void {
+    this.showOnlyUnknownDevices = !!value;
+    this.persistLocalNetworkGlobalPrefs({ showOnlyUnknownDevices: this.showOnlyUnknownDevices });
+  }
+
+  onShowOnlyMacConflictDevicesChange(value: boolean): void {
+    this.showOnlyMacConflictDevices = !!value;
+    this.persistLocalNetworkGlobalPrefs({ showOnlyMacConflictDevices: this.showOnlyMacConflictDevices });
+  }
+
+  private persistLocalNetworkGlobalPrefs(partial: {
+    useExternalVendorAPI?: boolean;
+    scanSchedulerEnabled?: boolean;
+    showOnlyUnknownDevices?: boolean;
+    showOnlyMacConflictDevices?: boolean;
+    wifiScanUseBackend?: boolean;
+  }): void {
+    this.localNetworkService.setLocalNetworkGlobalPrefs(partial).subscribe({
+      next: (prefs) => {
+        this.ngZone.run(() => {
+          if (prefs.useExternalVendorAPI !== undefined) {
+            this.useExternalVendorAPI = !!prefs.useExternalVendorAPI;
+          }
+          if (prefs.scanSchedulerEnabled !== undefined) {
+            this.scanSchedulerEnabled = !!prefs.scanSchedulerEnabled;
+          }
+          if (prefs.showOnlyUnknownDevices !== undefined) {
+            this.showOnlyUnknownDevices = !!prefs.showOnlyUnknownDevices;
+          }
+          if (prefs.showOnlyMacConflictDevices !== undefined) {
+            this.showOnlyMacConflictDevices = !!prefs.showOnlyMacConflictDevices;
+          }
+          if (prefs.wifiScanUseBackend !== undefined) {
+            this.wifiScanUseBackend = !!prefs.wifiScanUseBackend;
           }
           this.cdr.detectChanges();
         });
       },
       error: (error) => {
-        this.ngZone.run(() => {
-          this.isLoadingSchedulerStatus = false;
-          // Même valeur par défaut que le backend si l’API échoue
-          this.scanSchedulerEnabled = false;
-          console.error('Error loading scan scheduler status:', error);
-          this.cdr.detectChanges();
-        });
+        console.error('Error saving local network global prefs:', error);
       }
-})
+    });
+  }
+
+  /**
+   * @deprecated Use loadLocalNetworkGlobalPrefs — kept for callers that only refresh scheduler flag.
+   */
+  loadScanSchedulerStatus(): void {
+    this.loadLocalNetworkGlobalPrefs();
   }
 
   /**
@@ -2917,14 +2972,13 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     this.scanSchedulerEnabled = newValue;
     this.isLoadingSchedulerStatus = true;
     
-    this.localNetworkService.setScanSchedulerEnabled(newValue).subscribe({
-      next: (response) => {
+    this.localNetworkService.setLocalNetworkGlobalPrefs({ scanSchedulerEnabled: newValue }).subscribe({
+      next: (prefs) => {
         this.ngZone.run(() => {
           this.isLoadingSchedulerStatus = false;
-          if (response && response.enabled !== undefined) {
-            this.scanSchedulerEnabled = response.enabled;
+          if (prefs.scanSchedulerEnabled !== undefined) {
+            this.scanSchedulerEnabled = !!prefs.scanSchedulerEnabled;
           }
-          // If response doesn't have enabled, keep the optimistic value
           this.cdr.detectChanges();
         });
       },

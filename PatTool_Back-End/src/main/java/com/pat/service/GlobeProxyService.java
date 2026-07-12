@@ -369,6 +369,15 @@ public class GlobeProxyService {
             ObjectNode item = objectMapper.createObjectNode();
             item.put("risetime", riseSec);
             item.put("duration", durationSec);
+            if (pass.has("riseAzimuth")) {
+                item.put("riseAzimuth", pass.get("riseAzimuth").asDouble());
+            }
+            if (pass.has("maxElevation")) {
+                item.put("maxElevation", pass.get("maxElevation").asDouble());
+            }
+            if (pass.has("setAzimuth")) {
+                item.put("setAzimuth", pass.get("setAzimuth").asDouble());
+            }
             response.add(item);
             added++;
         }

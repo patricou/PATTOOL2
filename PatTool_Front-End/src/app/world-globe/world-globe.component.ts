@@ -42,15 +42,23 @@ interface GlobeOpenNotifyIssResponse {
 }
 
 /** Réponse /api/external/globe/iss/passes-by-place (géocode + Open Notify). */
+interface IssPassSummaryItem {
+  risetime?: number;
+  duration?: number;
+  riseAzimuth?: number;
+  maxElevation?: number;
+  setAzimuth?: number;
+}
+
 interface IssPassByPlaceResponse {
   status?: string;
   code?: string;
   message?: string;
   place?: { lat?: number; lon?: number; displayName?: string };
-  nextPass?: { risetime?: number; duration?: number };
+  nextPass?: IssPassSummaryItem;
   passes?: {
     message?: string;
-    response?: Array<{ risetime?: number; duration?: number }>;
+    response?: IssPassSummaryItem[];
   };
   candidates?: Array<{ lat: number; lon: number; displayName?: string }>;
 }
@@ -2656,7 +2664,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     const passes = body.passes?.response ?? (body.nextPass ? [body.nextPass] : []);
     const lines = passes
-      .map((p) => this.formatIssPassLine(p.risetime, p.duration))
+      .map((p) => this.formatIssPassLine(p))
       .filter((line): line is string => !!line);
     if (!lines.length) {
       return { lines: [], error: this.translate.instant('WORLD_GLOBE.ISS_PASS_NONE') };
@@ -2665,7 +2673,11 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   formatIssAlertAdminOwner(row: IssAlertAdminEntry): string {
-    return (row.owner || row.userId || '').trim();
+    const owner = (row.owner || '').trim();
+    if (owner && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(owner)) {
+      return owner;
+    }
+    return (row.email || row.userId || '').trim();
   }
 
   isIssAlertRowDeleting(row: IssAlertAdminEntry): boolean {
@@ -6736,8 +6748,13 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  private formatIssPassLine(risetime?: number, durationSec?: number): string | null {
-    const t = typeof risetime === 'number' ? risetime : parseInt(String(risetime ?? ''), 10);
+  private static readonly ISS_PASS_COMPASS_16 = [
+    'N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+    'S', 'SSO', 'SO', 'OSO', 'O', 'ONO', 'NO', 'NNO'
+  ];
+
+  private formatIssPassLine(pass: IssPassSummaryItem): string | null {
+    const t = typeof pass.risetime === 'number' ? pass.risetime : parseInt(String(pass.risetime ?? ''), 10);
     if (!Number.isFinite(t) || t <= 0) {
       return null;
     }
@@ -6745,12 +6762,68 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       dateStyle: 'medium',
       timeStyle: 'short'
     });
-    const dur = typeof durationSec === 'number' ? durationSec : parseInt(String(durationSec ?? ''), 10);
+    const dur = typeof pass.duration === 'number' ? pass.duration : parseInt(String(pass.duration ?? ''), 10);
     const minutes = Number.isFinite(dur) && dur > 0 ? Math.max(1, Math.round(dur / 60)) : null;
+    const lookout = this.formatIssPassLookout(pass);
     if (minutes != null) {
-      return this.translate.instant('WORLD_GLOBE.ISS_PASS_LINE', { datetime: when, minutes });
+      if (lookout) {
+        return this.translate.instant('WORLD_GLOBE.ISS_PASS_LINE', { datetime: when, minutes, lookout });
+      }
+      return this.translate.instant('WORLD_GLOBE.ISS_PASS_LINE_NO_LOOKOUT', { datetime: when, minutes });
     }
-    return this.translate.instant('WORLD_GLOBE.ISS_PASS_LINE_NO_DURATION', { datetime: when });
+    if (lookout) {
+      return this.translate.instant('WORLD_GLOBE.ISS_PASS_LINE_NO_DURATION', { datetime: when, lookout });
+    }
+    return this.translate.instant('WORLD_GLOBE.ISS_PASS_LINE_NO_DURATION_NO_LOOKOUT', { datetime: when });
+  }
+
+  private formatIssPassLookout(pass: IssPassSummaryItem): string {
+    const azMax = WorldGlobeComponent.issPassAzimuthAtMax(pass.riseAzimuth, pass.setAzimuth);
+    const elevMax = pass.maxElevation;
+    const hasDir = Number.isFinite(azMax);
+    const hasElev = typeof elevMax === 'number' && Number.isFinite(elevMax);
+    if (!hasDir && !hasElev) {
+      return '';
+    }
+    const parts: string[] = [];
+    if (hasDir) {
+      parts.push(
+        this.translate.instant('WORLD_GLOBE.ISS_PASS_LOOKOUT_DIR', {
+          direction: WorldGlobeComponent.issPassDirectionFromAzimuth(azMax),
+          azimuth: Math.round(azMax)
+        })
+      );
+    }
+    if (hasElev) {
+      parts.push(
+        this.translate.instant('WORLD_GLOBE.ISS_PASS_LOOKOUT_ELEV', {
+          elevation: Math.round(elevMax)
+        })
+      );
+    }
+    return parts.join(', ');
+  }
+
+  private static issPassAzimuthAtMax(riseAz?: number, setAz?: number): number {
+    const a = typeof riseAz === 'number' && Number.isFinite(riseAz) ? riseAz : NaN;
+    const b = typeof setAz === 'number' && Number.isFinite(setAz) ? setAz : NaN;
+    if (Number.isNaN(a)) {
+      return b;
+    }
+    if (Number.isNaN(b)) {
+      return a;
+    }
+    const ar = (a * Math.PI) / 180;
+    const br = (b * Math.PI) / 180;
+    const x = Math.cos(ar) + Math.cos(br);
+    const y = Math.sin(ar) + Math.sin(br);
+    return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+  }
+
+  private static issPassDirectionFromAzimuth(azimuthDeg: number): string {
+    const a = ((azimuthDeg % 360) + 360) % 360;
+    const idx = Math.round(a / 22.5) % 16;
+    return WorldGlobeComponent.ISS_PASS_COMPASS_16[idx];
   }
 
   searchGlobePlace(): void {

@@ -33,6 +33,9 @@ public class NetworkScanScheduler {
     private LocalNetworkService localNetworkService;
 
     @Autowired
+    private LocalNetworkGlobalPrefsService localNetworkGlobalPrefsService;
+
+    @Autowired
     private NetworkDeviceMappingRepository deviceMappingRepository;
 
     @Autowired
@@ -57,8 +60,13 @@ public class NetworkScanScheduler {
      */
     @PostConstruct
     public void init() {
-        this.schedulerEnabled = schedulerEnabledDefault;
-        log.info("Network scan scheduler initialized. Enabled: {}", schedulerEnabled);
+        if (localNetworkGlobalPrefsService.hasStoredPrefs()) {
+            this.schedulerEnabled = localNetworkGlobalPrefsService.getPrefs().scanSchedulerEnabled();
+        } else {
+            this.schedulerEnabled = schedulerEnabledDefault;
+        }
+        log.info("Network scan scheduler initialized. Enabled: {} (MongoDB prefs: {})",
+                schedulerEnabled, localNetworkGlobalPrefsService.hasStoredPrefs());
     }
 
     /**
@@ -71,9 +79,21 @@ public class NetworkScanScheduler {
     /**
      * Set scheduler enabled status (can be updated at runtime)
      */
-    public void setSchedulerEnabled(boolean enabled) {
+    /**
+     * Runtime flag update only (MongoDB already updated by caller).
+     */
+    public void applySchedulerEnabled(boolean enabled) {
         this.schedulerEnabled = enabled;
-        log.info("Network scan scheduler enabled flag updated to: {}", enabled);
+        log.info("Network scan scheduler enabled flag applied: {}", enabled);
+    }
+
+    /**
+     * Set scheduler enabled status (persists to MongoDB and updates runtime flag).
+     */
+    public void setSchedulerEnabled(boolean enabled) {
+        applySchedulerEnabled(enabled);
+        localNetworkGlobalPrefsService.updatePrefs(new com.pat.controller.dto.LocalNetworkGlobalPrefsDto(
+                null, enabled, null, null, null));
     }
 
     /**
@@ -148,7 +168,8 @@ public class NetworkScanScheduler {
             List<Map<String, Object>> newDevices = new ArrayList<>();
 
             // Perform network scan with callback to collect devices
-            localNetworkService.scanLocalNetworkStreaming(false, (device, progress, total) -> {
+            boolean useExternalVendorAPI = localNetworkGlobalPrefsService.getPrefs().useExternalVendorAPI();
+            localNetworkService.scanLocalNetworkStreaming(useExternalVendorAPI, (device, progress, total) -> {
                 if (device != null && !device.isEmpty()) {
                     foundDevices.add(device);
                     

@@ -93,6 +93,15 @@ public class IssPassLookupService {
             if (first.has("duration")) {
                 next.put("duration", first.get("duration").asInt());
             }
+            if (first.has("riseAzimuth")) {
+                next.put("riseAzimuth", first.get("riseAzimuth").asDouble());
+            }
+            if (first.has("maxElevation")) {
+                next.put("maxElevation", first.get("maxElevation").asDouble());
+            }
+            if (first.has("setAzimuth")) {
+                next.put("setAzimuth", first.get("setAzimuth").asDouble());
+            }
             out.set("nextPass", next);
             return objectMapper.writeValueAsBytes(out);
         } catch (IllegalArgumentException e) {

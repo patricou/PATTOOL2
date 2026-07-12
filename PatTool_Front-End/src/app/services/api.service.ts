@@ -631,6 +631,35 @@ export class ApiService {
     );
   }
 
+  /** Nearest MeteoSwiss SMN station + hourly archived observations (ogd-smn, open data). */
+  getMeteoSwissHistoryNearby(
+    lat: number,
+    lon: number,
+    days = 7,
+    stationId?: string,
+    refresh = false
+  ): Observable<any> {
+    let params = new HttpParams()
+      .set('lat', String(lat))
+      .set('lon', String(lon))
+      .set('days', String(days));
+    if (stationId) {
+      params = params.set('stationId', stationId);
+    }
+    if (refresh) {
+      params = params.set('refresh', 'true');
+    }
+    return this._http.get(this.API_URL + 'external/meteoswiss/obs/history/nearby', { params });
+  }
+
+  /** Clears server-side MeteoSwiss SMN hourly history cache. */
+  clearMeteoSwissHistoryCache(): Observable<WeatherHistoryCacheClearResult> {
+    return this._http.post<WeatherHistoryCacheClearResult>(
+      this.API_URL + 'external/meteoswiss/obs/history/cache/clear',
+      {}
+    );
+  }
+
   /** Grid of current temperatures for map number labels (legacy GET). */
   getWeatherTemperatureLabels(
     minLat: number,
@@ -666,7 +695,8 @@ export class ApiService {
     days = 30,
     frequency: 'quotidienne' | 'horaire' = 'quotidienne',
     department?: string,
-    stationId?: string
+    stationId?: string,
+    refresh = false
   ): Observable<any> {
     let params = new HttpParams()
       .set('lat', String(lat))
@@ -679,9 +709,25 @@ export class ApiService {
     if (stationId) {
       params = params.set('stationId', stationId);
     }
+    if (refresh) {
+      params = params.set('refresh', 'true');
+    }
     return this.getHeaderWithToken().pipe(
       switchMap(headers =>
         this._http.get(this.API_URL + 'external/meteofrance/clim/nearby', { headers, params })
+      )
+    );
+  }
+
+  /** Clears server-side MF DPClim nearby response cache. */
+  clearMeteoFranceClimCache(): Observable<WeatherHistoryCacheClearResult> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post<WeatherHistoryCacheClearResult>(
+          this.API_URL + 'external/meteofrance/clim/cache/clear',
+          {},
+          { headers }
+        )
       )
     );
   }
@@ -1977,6 +2023,11 @@ export interface MeteoFranceTemperatureCacheClearResult {
   cleared?: boolean;
   mfCacheEntries?: number;
   openMeteoCacheEntries?: number;
+}
+
+export interface WeatherHistoryCacheClearResult {
+  cleared?: boolean;
+  cacheEntries?: number;
 }
 
 /** GET /api/external/weather/map/temperature-labels */

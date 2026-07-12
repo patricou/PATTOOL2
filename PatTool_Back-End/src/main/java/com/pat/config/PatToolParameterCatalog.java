@@ -167,7 +167,8 @@ public final class PatToolParameterCatalog {
                     defSensitive("app.router.password"),
                     def("app.macvendor.api.url", false),
                     def("app.network.scan.scheduler.enabled", false),
-                    def("app.network.scan.scheduler.cron", false)
+                    def("app.network.scan.scheduler.cron", false),
+                    defMongo("local.network.global.prefs", false)
             ),
             section("weather-maps", "PATTOOL_PARAMS.SECTION.WEATHER_MAPS",
                     defSensitive("openweathermap.api.key"),

@@ -225,8 +225,10 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/radar/rainviewer/maps").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/radar/rainviewer/tile/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/meteofrance/clim/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/external/meteofrance/clim/cache/clear").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/meteofrance/obs/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/meteoswiss/obs/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/external/meteoswiss/obs/history/cache/clear").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/meteoswiss/precip/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/meteofrance/aromepi/**").permitAll()
 
