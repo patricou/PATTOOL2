@@ -35,10 +35,13 @@
   </div>
 
   <div class="ms-precip-controls mb-2" *ngIf="!loading && frames.length">
-    <label class="forecast-settings-field" for="ms-precip-map-base">
+    <label class="forecast-settings-field" for="ms-precip-map-base"
+           [attr.title]="'METEO_FRANCE.PARAM_TOOLTIP_MAP_BASE_LAYER' | translate">
       <span class="forecast-settings-label">{{ 'METEO_FRANCE.MAP_BASE_LAYER' | translate }}</span>
       <select id="ms-precip-map-base" class="form-select form-select-sm"
-              [(ngModel)]="mapBaseLayerId" (ngModelChange)="onMapBaseLayerChange()">
+              [(ngModel)]="mapBaseLayerId" (ngModelChange)="onMapBaseLayerChange()"
+              [attr.title]="'METEO_FRANCE.PARAM_TOOLTIP_MAP_BASE_LAYER' | translate"
+              [attr.aria-label]="'METEO_FRANCE.PARAM_TOOLTIP_MAP_BASE_LAYER' | translate">
         <option *ngFor="let layer of availableMapBaseLayers" [value]="layer.id">
           {{ getMapBaseLayerLabel(layer) }}
         </option>
@@ -51,10 +54,12 @@
       {{ 'METEO_FRANCE.MS_PRECIP_CENTER_CH' | translate }}
     </button>
 
-    <div class="ms-precip-opacity-row">
+    <div class="ms-precip-opacity-row" [attr.title]="'METEO_FRANCE.PARAM_TOOLTIP_MS_PRECIP_OPACITY' | translate">
       <label for="ms-precip-opacity">{{ 'METEO_FRANCE.MS_PRECIP_OPACITY' | translate }}</label>
       <input id="ms-precip-opacity" type="range" class="form-range" min="0.2" max="1" step="0.05"
-             [(ngModel)]="opacity" (ngModelChange)="onOpacityChange()" />
+             [(ngModel)]="opacity" (ngModelChange)="onOpacityChange()"
+             [attr.title]="'METEO_FRANCE.PARAM_TOOLTIP_MS_PRECIP_OPACITY' | translate"
+             [attr.aria-label]="'METEO_FRANCE.PARAM_TOOLTIP_MS_PRECIP_OPACITY' | translate" />
     </div>
   </div>
 
@@ -83,8 +88,22 @@
           <i class="fa" [class.fa-pause]="playing" [class.fa-play]="!playing"></i>
         </button>
         <button type="button" class="btn btn-sm btn-outline-secondary aromepi-time-btn"
-                (click)="onFrameIndexChange(0)" [disabled]="frameIndex === 0">
+                (click)="onStepFrame(-1)" [disabled]="frameIndex === 0"
+                [attr.title]="'METEO_FRANCE.AROMEPI_STEP_BACK' | translate"
+                [attr.aria-label]="'METEO_FRANCE.AROMEPI_STEP_BACK' | translate">
           <i class="fa fa-step-backward"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary aromepi-time-btn"
+                (click)="onStepFrame(1)" [disabled]="frameIndex >= frames.length - 1"
+                [attr.title]="'METEO_FRANCE.AROMEPI_STEP_FORWARD' | translate"
+                [attr.aria-label]="'METEO_FRANCE.AROMEPI_STEP_FORWARD' | translate">
+          <i class="fa fa-step-forward"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary aromepi-time-btn"
+                (click)="onFrameIndexChange(0)" [disabled]="frameIndex === 0"
+                [attr.title]="'METEO_FRANCE.AROMEPI_RESET' | translate"
+                [attr.aria-label]="'METEO_FRANCE.AROMEPI_RESET' | translate">
+          <i class="fa fa-fast-backward"></i>
         </button>
       </div>
       <div class="aromepi-time-meta">
@@ -98,10 +117,12 @@
           } }}
         </span>
       </div>
-      <div class="aromepi-time-slider-wrap">
+      <div class="aromepi-time-slider-wrap" [attr.title]="'METEO_FRANCE.PARAM_TOOLTIP_AROMEPI_TIMELINE' | translate">
         <input type="range" class="form-range aromepi-time-slider"
                [min]="0" [max]="frames.length - 1" step="1"
-               [ngModel]="frameIndex" (ngModelChange)="onFrameIndexChange($event)" />
+               [ngModel]="frameIndex" (ngModelChange)="onFrameIndexChange($event)"
+               [attr.title]="'METEO_FRANCE.PARAM_TOOLTIP_AROMEPI_TIMELINE' | translate"
+               [attr.aria-label]="'METEO_FRANCE.PARAM_TOOLTIP_AROMEPI_TIMELINE' | translate" />
       </div>
     </div>
   </div>

@@ -73,7 +73,8 @@
                 <span class="mf-toolbar-label">{{ 'METEO_FRANCE.REFRESH' | translate }}</span>
               </button>
               <div class="btn-group btn-group-sm mf-unit-toggle" role="group"
-                   [attr.aria-label]="'METEO_FRANCE.TEMP_UNIT_LABEL' | translate">
+                   [attr.aria-label]="'METEO_FRANCE.TEMP_UNIT_LABEL' | translate"
+                   [attr.title]="paramTooltipKey('TEMP_UNIT') | translate">
                 <button type="button" class="btn"
                         [class.btn-primary]="temperatureUnit === 'celsius'"
                         [class.btn-outline-secondary]="temperatureUnit !== 'celsius'"
@@ -412,51 +413,68 @@
                 <span>{{ 'METEO_FRANCE.OPTIONS_LAYERS' | translate }}</span>
               </header>
               <div class="mf-chip-row">
-                <label class="mf-chip" [class.mf-chip--on]="showRadar" [class.mf-chip--disabled]="!isSelectedRadarSourceAvailable">
+                <label class="mf-chip" [class.mf-chip--on]="showRadar" [class.mf-chip--disabled]="!isSelectedRadarSourceAvailable"
+                       [attr.title]="'METEO_FRANCE.SWITCH_TOOLTIP_SHOW_RADAR' | translate">
                   <input type="checkbox" class="mf-chip-input" [(ngModel)]="showRadar"
-                         (change)="onShowRadarChange()" [disabled]="!isSelectedRadarSourceAvailable">
+                         (change)="onShowRadarChange()" [disabled]="!isSelectedRadarSourceAvailable"
+                         [attr.title]="'METEO_FRANCE.SWITCH_TOOLTIP_SHOW_RADAR' | translate"
+                         [attr.aria-label]="'METEO_FRANCE.SWITCH_TOOLTIP_SHOW_RADAR' | translate">
                   <i class="fa fa-tint"></i>
                   <span>{{ 'METEO_FRANCE.SHOW_RADAR' | translate }}</span>
                 </label>
-                <label class="mf-chip" [class.mf-chip--on]="showCloudLayer">
-                  <input type="checkbox" class="mf-chip-input" [(ngModel)]="showCloudLayer" (ngModelChange)="onShowCloudLayerChange()">
+                <label class="mf-chip" [class.mf-chip--on]="showCloudLayer"
+                       [attr.title]="'METEO_FRANCE.SWITCH_TOOLTIP_SHOW_CLOUDS' | translate">
+                  <input type="checkbox" class="mf-chip-input" [(ngModel)]="showCloudLayer" (ngModelChange)="onShowCloudLayerChange()"
+                         [attr.title]="'METEO_FRANCE.SWITCH_TOOLTIP_SHOW_CLOUDS' | translate"
+                         [attr.aria-label]="'METEO_FRANCE.SWITCH_TOOLTIP_SHOW_CLOUDS' | translate">
                   <i class="fa fa-cloud"></i>
                   <span>{{ 'METEO_FRANCE.SHOW_CLOUDS' | translate }}</span>
                 </label>
-                <label class="mf-chip" [class.mf-chip--on]="showTemperatureMap" [class.mf-chip--disabled]="!temperatureMapAvailable">
+                <label class="mf-chip" [class.mf-chip--on]="showTemperatureMap" [class.mf-chip--disabled]="!temperatureMapAvailable"
+                       [attr.title]="showTemperatureMapHintKey | translate">
                   <input type="checkbox" class="mf-chip-input" [(ngModel)]="showTemperatureMap"
                          (ngModelChange)="onShowTemperatureMapChange()" [disabled]="!temperatureMapAvailable"
-                         [attr.title]="showTemperatureMapHintKey | translate">
+                         [attr.title]="showTemperatureMapHintKey | translate"
+                         [attr.aria-label]="showTemperatureMapHintKey | translate">
                   <i class="fa fa-thermometer-half"></i>
                   <span>{{ 'METEO_FRANCE.SHOW_TEMPERATURE_MAP' | translate }}</span>
                 </label>
               </div>
               <div class="mf-layer-source-grid">
-                <label class="mf-layer-source-field mf-layer-source-field--wide">
+                <label class="mf-layer-source-field mf-layer-source-field--wide"
+                       [attr.title]="paramTooltipKey('MAP_BASE_LAYER') | translate">
                   <span class="mf-layer-source-label">{{ 'METEO_FRANCE.MAP_BASE_LAYER' | translate }}</span>
                   <select class="form-select form-select-sm mf-layer-source-select"
                           [(ngModel)]="mapBaseLayerId"
-                          (ngModelChange)="onMapBaseLayerChange()">
+                          (ngModelChange)="onMapBaseLayerChange()"
+                          [attr.title]="paramTooltipKey('MAP_BASE_LAYER') | translate"
+                          [attr.aria-label]="paramTooltipKey('MAP_BASE_LAYER') | translate">
                     <option *ngFor="let layer of availableMapBaseLayers" [value]="layer.id">
                       {{ getMapBaseLayerLabel(layer) }}
                     </option>
                   </select>
                 </label>
-                <label class="mf-layer-source-field">
+                <label class="mf-layer-source-field"
+                       [attr.title]="paramTooltipKey('RADAR_SOURCE') | translate">
                   <span class="mf-layer-source-label">{{ 'METEO_FRANCE.RADAR_SOURCE_LABEL' | translate }}</span>
                   <select class="form-select form-select-sm mf-layer-source-select"
                           [(ngModel)]="radarLayerSource"
-                          (ngModelChange)="onRadarLayerSourceChange()">
+                          (ngModelChange)="onRadarLayerSourceChange()"
+                          [attr.title]="paramTooltipKey('RADAR_SOURCE') | translate"
+                          [attr.aria-label]="paramTooltipKey('RADAR_SOURCE') | translate">
                     <option *ngFor="let source of availableRadarLayerSources" [ngValue]="source">
                       {{ getRadarLayerSourceLabel(source) }}
                     </option>
                   </select>
                 </label>
-                <label class="mf-layer-source-field">
+                <label class="mf-layer-source-field"
+                       [attr.title]="paramTooltipKey('CLOUD_SOURCE') | translate">
                   <span class="mf-layer-source-label">{{ 'METEO_FRANCE.CLOUD_SOURCE_LABEL' | translate }}</span>
                   <select class="form-select form-select-sm mf-layer-source-select"
                           [(ngModel)]="cloudLayerSource"
-                          (ngModelChange)="onCloudLayerSourceChange()">
+                          (ngModelChange)="onCloudLayerSourceChange()"
+                          [attr.title]="paramTooltipKey('CLOUD_SOURCE') | translate"
+                          [attr.aria-label]="paramTooltipKey('CLOUD_SOURCE') | translate">
                     <option *ngFor="let source of cloudLayerSources" [ngValue]="source">
                       {{ getCloudLayerSourceLabel(source) }}
                     </option>
@@ -464,15 +482,19 @@
                 </label>
               </div>
               <div class="mf-slider-grid" *ngIf="showCloudLayer">
-                <label class="mf-slider-field" [attr.title]="'METEO_FRANCE.CLOUD_OPACITY' | translate">
+                <label class="mf-slider-field" [attr.title]="paramTooltipKey('CLOUD_OPACITY') | translate">
                   <span class="mf-slider-label">{{ 'METEO_FRANCE.CLOUD_OPACITY' | translate }}</span>
                   <input type="range" class="mf-range" min="0.1" max="0.85" step="0.05"
-                         [(ngModel)]="cloudOpacity" (input)="onCloudOpacityChange()" (ngModelChange)="onCloudOpacityChange()">
+                         [(ngModel)]="cloudOpacity" (input)="onCloudOpacityChange()" (ngModelChange)="onCloudOpacityChange()"
+                         [attr.title]="paramTooltipKey('CLOUD_OPACITY') | translate"
+                         [attr.aria-label]="paramTooltipKey('CLOUD_OPACITY') | translate">
                 </label>
-                <label class="mf-slider-field" [attr.title]="'METEO_FRANCE.CLOUD_INTENSITY_HINT' | translate">
+                <label class="mf-slider-field" [attr.title]="paramTooltipKey('CLOUD_INTENSITY') | translate">
                   <span class="mf-slider-label">{{ 'METEO_FRANCE.CLOUD_INTENSITY' | translate }}</span>
                   <input type="range" class="mf-range" [min]="cloudIntensityMin" [max]="cloudIntensityMax" step="0.1"
-                         [(ngModel)]="cloudIntensity" (input)="onCloudIntensityChange()" (ngModelChange)="onCloudIntensityChange()">
+                         [(ngModel)]="cloudIntensity" (input)="onCloudIntensityChange()" (ngModelChange)="onCloudIntensityChange()"
+                         [attr.title]="paramTooltipKey('CLOUD_INTENSITY') | translate"
+                         [attr.aria-label]="paramTooltipKey('CLOUD_INTENSITY') | translate">
                 </label>
               </div>
             </section>
@@ -488,16 +510,20 @@
                   <p class="mf-opt-hint mb-0" *ngIf="!isPositionInFrance">{{ 'METEO_FRANCE.TEMPERATURE_SOURCE_AUTO_FOREIGN' | translate }}</p>
                 </div>
                 <div class="mf-opt-cell">
-                  <div class="form-check form-switch mf-compact-switch">
+                  <div class="form-check form-switch mf-compact-switch"
+                       [attr.title]="'METEO_FRANCE.SWITCH_TOOLTIP_TEMPERATURE_TOOLTIPS' | translate">
                     <input class="form-check-input" type="checkbox" role="switch" id="mf-show-temperature-tooltips"
                            [(ngModel)]="showTemperatureTooltips" (ngModelChange)="onShowTemperatureTooltipsChange()"
-                           [attr.title]="'METEO_FRANCE.SHOW_TEMPERATURE_TOOLTIPS_HINT' | translate">
-                    <label class="form-check-label" for="mf-show-temperature-tooltips">
+                           [attr.title]="'METEO_FRANCE.SWITCH_TOOLTIP_TEMPERATURE_TOOLTIPS' | translate"
+                           [attr.aria-label]="'METEO_FRANCE.SWITCH_TOOLTIP_TEMPERATURE_TOOLTIPS' | translate">
+                    <label class="form-check-label" for="mf-show-temperature-tooltips"
+                           [attr.title]="'METEO_FRANCE.SWITCH_TOOLTIP_TEMPERATURE_TOOLTIPS' | translate">
                       {{ 'METEO_FRANCE.SHOW_TEMPERATURE_TOOLTIPS' | translate }}
                     </label>
                   </div>
                 </div>
-                <label class="mf-opt-cell mf-number-field">
+                <label class="mf-opt-cell mf-number-field"
+                       [attr.title]="paramTooltipKey('TEMPERATURE_CACHE_MINUTES') | translate">
                   <span class="mf-opt-label">{{ 'METEO_FRANCE.TEMPERATURE_CACHE_MINUTES_LABEL' | translate }}</span>
                   <div class="mf-cache-minutes-row">
                     <input type="number" class="form-control form-control-sm mf-number-input"
@@ -505,7 +531,9 @@
                            [disabled]="!canEditMeteoOptions"
                            (blur)="onTemperatureCacheMinutesCommitted()"
                            (change)="onTemperatureCacheMinutesCommitted()"
-                           [min]="temperatureCacheMinMinutes" [max]="temperatureCacheMaxMinutes" [step]="1">
+                           [min]="temperatureCacheMinMinutes" [max]="temperatureCacheMaxMinutes" [step]="1"
+                           [attr.title]="paramTooltipKey('TEMPERATURE_CACHE_MINUTES') | translate"
+                           [attr.aria-label]="paramTooltipKey('TEMPERATURE_CACHE_MINUTES') | translate">
                     <button type="button" class="btn btn-sm btn-outline-secondary mf-temp-cache-clear-btn"
                             (click)="onClearTemperatureObservationCache()"
                             [disabled]="isClearingTemperatureCache"
@@ -524,19 +552,25 @@
                 <span>{{ 'METEO_FRANCE.OPTIONS_RADAR' | translate }}</span>
               </header>
               <div class="mf-opt-grid">
-                <label class="mf-slider-field mf-opt-cell mf-opt-cell--wide">
+                <label class="mf-slider-field mf-opt-cell mf-opt-cell--wide"
+                       [attr.title]="paramTooltipKey('RADAR_OPACITY') | translate">
                   <span class="mf-slider-label">{{ 'METEO_FRANCE.RADAR_OPACITY' | translate }}</span>
                   <input type="range" class="mf-range" min="0.2" max="1" step="0.05"
-                         [(ngModel)]="radarOpacity" (input)="onRadarOpacityChange()">
+                         [(ngModel)]="radarOpacity" (input)="onRadarOpacityChange()"
+                         [attr.title]="paramTooltipKey('RADAR_OPACITY') | translate"
+                         [attr.aria-label]="paramTooltipKey('RADAR_OPACITY') | translate">
                 </label>
                 <div class="mf-opt-cell">
-                  <div class="form-check form-switch mf-compact-switch">
+                  <div class="form-check form-switch mf-compact-switch"
+                       [attr.title]="'METEO_FRANCE.SWITCH_TOOLTIP_AUTO_REFRESH_RADAR' | translate">
                     <input class="form-check-input" type="checkbox" role="switch" id="mf-auto-refresh-radar"
                            [(ngModel)]="autoRefreshRadar"
                            [disabled]="!canEditMeteoOptions"
-                           (ngModelChange)="onAutoRefreshRadarChange()">
+                           (ngModelChange)="onAutoRefreshRadarChange()"
+                           [attr.title]="'METEO_FRANCE.SWITCH_TOOLTIP_AUTO_REFRESH_RADAR' | translate"
+                           [attr.aria-label]="'METEO_FRANCE.SWITCH_TOOLTIP_AUTO_REFRESH_RADAR' | translate">
                     <label class="form-check-label" for="mf-auto-refresh-radar"
-                           [title]="'METEO_FRANCE.AUTO_REFRESH' | translate">
+                           [attr.title]="'METEO_FRANCE.SWITCH_TOOLTIP_AUTO_REFRESH_RADAR' | translate">
                       {{ 'METEO_FRANCE.AUTO_REFRESH_SHORT' | translate }}
                       <span *ngIf="autoRefreshRadar && radarRefreshCountdown > 0" class="mf-radar-countdown">
                         ({{ radarRefreshCountdown }} s)
@@ -544,20 +578,27 @@
                     </label>
                   </div>
                 </div>
-                <label class="mf-opt-cell mf-number-field" [class.mf-opt-cell--muted]="!autoRefreshRadar">
+                <label class="mf-opt-cell mf-number-field" [class.mf-opt-cell--muted]="!autoRefreshRadar"
+                       [attr.title]="paramTooltipKey('RADAR_REFRESH_INTERVAL') | translate">
                   <span class="mf-opt-label">{{ 'METEO_FRANCE.RADAR_REFRESH_INTERVAL_LABEL' | translate }}</span>
                   <input type="number" class="form-control form-control-sm mf-number-input"
                          [(ngModel)]="radarRefreshSeconds"
                          [disabled]="!autoRefreshRadar || !canEditMeteoOptions"
                          (blur)="onRadarRefreshSecondsCommitted()"
                          (change)="onRadarRefreshSecondsCommitted()"
-                         [min]="radarRefreshMinSeconds" [max]="radarRefreshMaxSeconds" [step]="1">
+                         [min]="radarRefreshMinSeconds" [max]="radarRefreshMaxSeconds" [step]="1"
+                         [attr.title]="paramTooltipKey('RADAR_REFRESH_INTERVAL') | translate"
+                         [attr.aria-label]="paramTooltipKey('RADAR_REFRESH_INTERVAL') | translate">
                 </label>
                 <div class="mf-opt-cell">
-                  <div class="form-check form-switch mf-compact-switch">
+                  <div class="form-check form-switch mf-compact-switch"
+                       [attr.title]="'METEO_FRANCE.SWITCH_TOOLTIP_BACKEND_LOG' | translate">
                     <input class="form-check-input" type="checkbox" role="switch" id="mf-show-backend-log"
-                           [(ngModel)]="showBackendLog" (ngModelChange)="onShowBackendLogChange()">
-                    <label class="form-check-label" for="mf-show-backend-log">
+                           [(ngModel)]="showBackendLog" (ngModelChange)="onShowBackendLogChange()"
+                           [attr.title]="'METEO_FRANCE.SWITCH_TOOLTIP_BACKEND_LOG' | translate"
+                           [attr.aria-label]="'METEO_FRANCE.SWITCH_TOOLTIP_BACKEND_LOG' | translate">
+                    <label class="form-check-label" for="mf-show-backend-log"
+                           [attr.title]="'METEO_FRANCE.SWITCH_TOOLTIP_BACKEND_LOG' | translate">
                       {{ 'METEO_FRANCE.SHOW_BACKEND_LOG' | translate }}
                     </label>
                   </div>
@@ -669,13 +710,16 @@
               <i class="fa fa-cloud"></i> {{ 'METEO_FRANCE.CURRENT_TITLE' | translate }}
             </h3>
             <div class="mf-weather-source-row">
-              <label class="mf-weather-source-label" for="mf-current-weather-source">
+              <label class="mf-weather-source-label" for="mf-current-weather-source"
+                     [attr.title]="paramTooltipKey('CURRENT_WEATHER_SOURCE') | translate">
                 {{ 'METEO_FRANCE.WEATHER_SOURCE_LABEL' | translate }}
               </label>
               <select id="mf-current-weather-source"
                       class="form-select form-select-sm mf-weather-source-select"
                       [(ngModel)]="currentWeatherSource"
-                      (ngModelChange)="onCurrentWeatherSourceChange()">
+                      (ngModelChange)="onCurrentWeatherSourceChange()"
+                      [attr.title]="paramTooltipKey('CURRENT_WEATHER_SOURCE') | translate"
+                      [attr.aria-label]="paramTooltipKey('CURRENT_WEATHER_SOURCE') | translate">
                 <option *ngFor="let source of availableWeatherPanelSources" [ngValue]="source">
                   {{ getWeatherPanelSourceLabel(source) }}
                 </option>
@@ -848,7 +892,8 @@
 
                       [class.btn-outline-primary]="climFrequency !== 'quotidienne'"
 
-                      (click)="climFrequency = 'quotidienne'; onClimFrequencyChange()">
+                      (click)="climFrequency = 'quotidienne'; onClimFrequencyChange()"
+                      [attr.title]="paramTooltipKey('CLIM_DAILY') | translate">
 
                 {{ 'METEO_FRANCE.CLIM_DAILY' | translate }}
 
@@ -860,7 +905,8 @@
 
                       [class.btn-outline-primary]="climFrequency !== 'horaire'"
 
-                      (click)="climFrequency = 'horaire'; onClimFrequencyChange()">
+                      (click)="climFrequency = 'horaire'; onClimFrequencyChange()"
+                      [attr.title]="paramTooltipKey('CLIM_HOURLY') | translate">
 
                 {{ 'METEO_FRANCE.CLIM_HOURLY' | translate }}
 
@@ -894,11 +940,14 @@
 
             <div class="clim-period-row mb-2">
 
-              <label for="clim-period" class="form-label small mb-1">{{ 'METEO_FRANCE.CLIM_PERIOD_SELECT' | translate }}</label>
+              <label for="clim-period" class="form-label small mb-1"
+                     [attr.title]="paramTooltipKey('CLIM_PERIOD') | translate">{{ 'METEO_FRANCE.CLIM_PERIOD_SELECT' | translate }}</label>
 
               <select id="clim-period" class="form-select form-select-sm clim-period-select"
 
-                      [(ngModel)]="climDays" (ngModelChange)="onClimPeriodChange()" [disabled]="isLoadingClim">
+                      [(ngModel)]="climDays" (ngModelChange)="onClimPeriodChange()" [disabled]="isLoadingClim"
+                      [attr.title]="paramTooltipKey('CLIM_PERIOD') | translate"
+                      [attr.aria-label]="paramTooltipKey('CLIM_PERIOD') | translate">
 
                 <option *ngFor="let opt of climPeriodOptions" [ngValue]="opt.days">
 
@@ -928,11 +977,13 @@
 
             <div class="clim-station-row mb-2" *ngIf="climStations.length">
 
-              <label for="clim-station">{{ 'METEO_FRANCE.CLIM_STATION' | translate }}</label>
+              <label for="clim-station" [attr.title]="paramTooltipKey('CLIM_STATION') | translate">{{ 'METEO_FRANCE.CLIM_STATION' | translate }}</label>
 
               <select id="clim-station" class="form-select form-select-sm"
 
-                      [(ngModel)]="climSelectedStationId" (ngModelChange)="onClimStationChange()">
+                      [(ngModel)]="climSelectedStationId" (ngModelChange)="onClimStationChange()"
+                      [attr.title]="paramTooltipKey('CLIM_STATION') | translate"
+                      [attr.aria-label]="paramTooltipKey('CLIM_STATION') | translate">
 
                 <option *ngFor="let s of climStations" [value]="s.id">
 
@@ -1166,10 +1217,12 @@
 
             <div *ngIf="!isLoadingAromepiCapabilities">
               <div class="aromepi-controls mb-2" *ngIf="aromepiLayers.length">
-                <label class="form-label small mb-1">{{ 'METEO_FRANCE.AROMEPI_LAYER' | translate }}</label>
+                <label class="form-label small mb-1" [attr.title]="paramTooltipKey('AROMEPI_LAYER') | translate">{{ 'METEO_FRANCE.AROMEPI_LAYER' | translate }}</label>
                 <select class="form-select form-select-sm aromepi-layer-select"
                         [ngModel]="aromepiSelectedLayer"
-                        (ngModelChange)="onAromepiLayerChange($event)">
+                        (ngModelChange)="onAromepiLayerChange($event)"
+                        [attr.title]="paramTooltipKey('AROMEPI_LAYER') | translate"
+                        [attr.aria-label]="paramTooltipKey('AROMEPI_LAYER') | translate">
                   <optgroup *ngIf="aromepiCloudLayers.length" [label]="'METEO_FRANCE.AROMEPI_CAT_CLOUD' | translate">
                     <option *ngFor="let layer of aromepiCloudLayers" [value]="layer.name">
                       {{ aromepiLayerLabel(layer) }}
@@ -1187,10 +1240,12 @@
                   </optgroup>
                 </select>
 
-                <div class="aromepi-opacity-row mt-2">
+                <div class="aromepi-opacity-row mt-2" [attr.title]="paramTooltipKey('AROMEPI_OPACITY') | translate">
                   <label class="form-label small mb-0">{{ 'METEO_FRANCE.RADAR_OPACITY' | translate }}</label>
                   <input type="range" class="form-range" min="0.1" max="1" step="0.05"
-                         [(ngModel)]="aromepiOpacity" (ngModelChange)="onAromepiOpacityChange()" />
+                         [(ngModel)]="aromepiOpacity" (ngModelChange)="onAromepiOpacityChange()"
+                         [attr.title]="paramTooltipKey('AROMEPI_OPACITY') | translate"
+                         [attr.aria-label]="paramTooltipKey('AROMEPI_OPACITY') | translate" />
                 </div>
               </div>
             </div>
@@ -1223,11 +1278,25 @@
                       <i class="fa" [class.fa-pause]="aromepiPlaying" [class.fa-play]="!aromepiPlaying"></i>
                     </button>
                     <button type="button" class="btn btn-sm btn-outline-secondary aromepi-time-btn"
+                            (click)="onAromepiStepFrame(-1)"
+                            [disabled]="aromepiFrameIndex === 0"
+                            [attr.title]="'METEO_FRANCE.AROMEPI_STEP_BACK' | translate"
+                            [attr.aria-label]="'METEO_FRANCE.AROMEPI_STEP_BACK' | translate">
+                      <i class="fa fa-step-backward"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary aromepi-time-btn"
+                            (click)="onAromepiStepFrame(1)"
+                            [disabled]="aromepiFrameIndex >= aromepiEffectiveTimeSteps.length - 1"
+                            [attr.title]="'METEO_FRANCE.AROMEPI_STEP_FORWARD' | translate"
+                            [attr.aria-label]="'METEO_FRANCE.AROMEPI_STEP_FORWARD' | translate">
+                      <i class="fa fa-step-forward"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary aromepi-time-btn"
                             (click)="onAromepiFrameIndexChange(0)"
                             [disabled]="aromepiFrameIndex === 0"
                             [attr.title]="'METEO_FRANCE.AROMEPI_RESET' | translate"
                             [attr.aria-label]="'METEO_FRANCE.AROMEPI_RESET' | translate">
-                      <i class="fa fa-step-backward"></i>
+                      <i class="fa fa-fast-backward"></i>
                     </button>
                   </div>
                   <div class="aromepi-time-meta">
@@ -1251,11 +1320,13 @@
                       </ng-container>
                     </span>
                   </div>
-                  <div class="aromepi-time-slider-wrap">
+                  <div class="aromepi-time-slider-wrap" [attr.title]="paramTooltipKey('AROMEPI_TIMELINE') | translate">
                     <input type="range" class="form-range aromepi-time-slider"
                            [min]="0" [max]="aromepiEffectiveTimeSteps.length - 1" step="1"
                            [value]="aromepiFrameIndex"
-                           (input)="onAromepiFrameSliderInput($event)" />
+                           (input)="onAromepiFrameSliderInput($event)"
+                           [attr.title]="paramTooltipKey('AROMEPI_TIMELINE') | translate"
+                           [attr.aria-label]="paramTooltipKey('AROMEPI_TIMELINE') | translate" />
                     <div class="aromepi-time-range">
                       <span>{{ formatAromepiOffsetMinutes(aromepiMinOffsetMinutes) }}</span>
                       <span>{{ formatAromepiOffsetMinutes(aromepiMaxOffsetMinutes) }}</span>
@@ -1374,11 +1445,14 @@
           <p class="text-muted small mb-2">{{ 'METEO_FRANCE.FORECAST_MAP_HINT' | translate }}</p>
 
           <div class="forecast-map-settings mb-2">
-            <label class="forecast-settings-field" for="mf-forecast-map-base">
+            <label class="forecast-settings-field" for="mf-forecast-map-base"
+                   [attr.title]="paramTooltipKey('MAP_BASE_LAYER') | translate">
               <span class="forecast-settings-label">{{ 'METEO_FRANCE.MAP_BASE_LAYER' | translate }}</span>
               <select id="mf-forecast-map-base" class="form-select form-select-sm"
                       [(ngModel)]="mapBaseLayerId"
-                      (ngModelChange)="onMapBaseLayerChange()">
+                      (ngModelChange)="onMapBaseLayerChange()"
+                      [attr.title]="paramTooltipKey('MAP_BASE_LAYER') | translate"
+                      [attr.aria-label]="paramTooltipKey('MAP_BASE_LAYER') | translate">
                 <option *ngFor="let layer of availableMapBaseLayers" [value]="layer.id">
                   {{ getMapBaseLayerLabel(layer) }}
                 </option>
@@ -1605,9 +1679,12 @@
               </div>
 
               <div class="clim-period-row mb-2">
-                <label for="ms-hist-period" class="form-label small mb-1">{{ 'METEO_FRANCE.CLIM_PERIOD_SELECT' | translate }}</label>
+                <label for="ms-hist-period" class="form-label small mb-1"
+                       [attr.title]="paramTooltipKey('MS_HIST_PERIOD') | translate">{{ 'METEO_FRANCE.CLIM_PERIOD_SELECT' | translate }}</label>
                 <select id="ms-hist-period" class="form-select form-select-sm clim-period-select"
-                        [(ngModel)]="msHistDays" (ngModelChange)="onMsHistPeriodChange()" [disabled]="isLoadingMsHist">
+                        [(ngModel)]="msHistDays" (ngModelChange)="onMsHistPeriodChange()" [disabled]="isLoadingMsHist"
+                        [attr.title]="paramTooltipKey('MS_HIST_PERIOD') | translate"
+                        [attr.aria-label]="paramTooltipKey('MS_HIST_PERIOD') | translate">
                   <option *ngFor="let opt of msHistPeriodOptions" [ngValue]="opt.days">
                     {{ opt.labelKey | translate }}
                   </option>
@@ -1879,33 +1956,42 @@
 
 <ng-template #forecastHorizonStepPanel let-showParams="showParams" let-hintKey="hintKey">
   <div class="forecast-settings-row">
-    <label class="forecast-settings-field" for="mf-forecast-horizon">
+    <label class="forecast-settings-field" for="mf-forecast-horizon"
+           [attr.title]="paramTooltipKey('FORECAST_HORIZON') | translate">
       <span class="forecast-settings-label">{{ 'METEO_FRANCE.FORECAST_HORIZON_LABEL' | translate }}</span>
       <select id="mf-forecast-horizon" class="form-select form-select-sm"
               [(ngModel)]="forecastHorizonHours"
               [disabled]="!canEditMeteoOptions"
-              (ngModelChange)="onForecastPreferencesCommitted()">
+              (ngModelChange)="onForecastPreferencesCommitted()"
+              [attr.title]="paramTooltipKey('FORECAST_HORIZON') | translate"
+              [attr.aria-label]="paramTooltipKey('FORECAST_HORIZON') | translate">
         <option *ngFor="let h of forecastHorizonSelectOptions" [ngValue]="h">
           {{ formatForecastHorizonOption(h) }}
         </option>
       </select>
     </label>
-    <label class="forecast-settings-field" for="mf-forecast-step">
+    <label class="forecast-settings-field" for="mf-forecast-step"
+           [attr.title]="paramTooltipKey('FORECAST_STEP') | translate">
       <span class="forecast-settings-label">{{ 'METEO_FRANCE.FORECAST_STEP_LABEL' | translate }}</span>
       <select id="mf-forecast-step" class="form-select form-select-sm"
               [(ngModel)]="forecastStepMinutes"
               [disabled]="!canEditMeteoOptions"
-              (ngModelChange)="onForecastPreferencesCommitted()">
+              (ngModelChange)="onForecastPreferencesCommitted()"
+              [attr.title]="paramTooltipKey('FORECAST_STEP') | translate"
+              [attr.aria-label]="paramTooltipKey('FORECAST_STEP') | translate">
         <option *ngFor="let s of forecastStepSelectOptions" [ngValue]="s">
           {{ formatForecastStepOption(s) }}
         </option>
       </select>
     </label>
-    <label class="forecast-settings-field" for="mf-forecast-chart-style">
+    <label class="forecast-settings-field" for="mf-forecast-chart-style"
+           [attr.title]="paramTooltipKey('FORECAST_CHART_STYLE') | translate">
       <span class="forecast-settings-label">{{ 'METEO_FRANCE.FORECAST_CHART_STYLE_LABEL' | translate }}</span>
       <select id="mf-forecast-chart-style" class="form-select form-select-sm"
               [(ngModel)]="forecastChartStyle"
-              (ngModelChange)="onForecastChartStyleChange()">
+              (ngModelChange)="onForecastChartStyleChange()"
+              [attr.title]="paramTooltipKey('FORECAST_CHART_STYLE') | translate"
+              [attr.aria-label]="paramTooltipKey('FORECAST_CHART_STYLE') | translate">
         <option *ngFor="let style of forecastChartStyleOptions" [ngValue]="style">
           {{ forecastChartStyleLabelKey(style) | translate }}
         </option>
@@ -1915,10 +2001,13 @@
   <div class="forecast-settings-params" *ngIf="showParams">
     <span class="forecast-settings-label">{{ 'METEO_FRANCE.FORECAST_PARAMS_LABEL' | translate }}</span>
     <div class="forecast-param-chips">
-      <label class="forecast-param-chip" *ngFor="let opt of multiDayForecastParamOptions">
+      <label class="forecast-param-chip" *ngFor="let opt of multiDayForecastParamOptions"
+             [attr.title]="forecastParamSwitchTooltipKey(opt.id) | translate">
         <input type="checkbox"
                [checked]="isMultiDayForecastParamSelected(opt.id)"
-               (change)="onMultiDayForecastParamToggle(opt.id, $any($event.target).checked)">
+               (change)="onMultiDayForecastParamToggle(opt.id, $any($event.target).checked)"
+               [attr.title]="forecastParamSwitchTooltipKey(opt.id) | translate"
+               [attr.aria-label]="forecastParamSwitchTooltipKey(opt.id) | translate">
         {{ opt.labelKey | translate }}
       </label>
     </div>
@@ -1933,14 +2022,17 @@
       <span>{{ 'METEO_FRANCE.OPTIONS_HISTORY' | translate }}</span>
     </header>
     <div class="mf-opt-grid">
-      <label class="mf-opt-cell mf-number-field mf-opt-cell--wide" for="mf-history-cache-days">
+      <label class="mf-opt-cell mf-number-field mf-opt-cell--wide" for="mf-history-cache-days"
+             [attr.title]="paramTooltipKey('HISTORY_CACHE_DAYS') | translate">
         <span class="mf-opt-label">{{ 'METEO_FRANCE.HISTORY_CACHE_DAYS_LABEL' | translate }}</span>
         <input id="mf-history-cache-days" type="number" class="form-control form-control-sm mf-number-input"
                [(ngModel)]="historyCacheDays"
                [disabled]="!canEditMeteoOptions"
                (blur)="onHistoryCacheDaysCommitted()"
                (change)="onHistoryCacheDaysCommitted()"
-               [min]="historyCacheMinDays" [max]="historyCacheMaxDays" [step]="1">
+               [min]="historyCacheMinDays" [max]="historyCacheMaxDays" [step]="1"
+               [attr.title]="paramTooltipKey('HISTORY_CACHE_DAYS') | translate"
+               [attr.aria-label]="paramTooltipKey('HISTORY_CACHE_DAYS') | translate">
         <p class="mf-opt-hint mb-0 mt-1">{{ 'METEO_FRANCE.HISTORY_CACHE_DAYS_HINT' | translate }}</p>
       </label>
     </div>
@@ -1952,14 +2044,17 @@
       <span>{{ 'METEO_FRANCE.OPTIONS_AROMEPI' | translate }}</span>
     </header>
     <div class="mf-opt-grid">
-      <label class="mf-opt-cell mf-number-field mf-opt-cell--wide" for="mf-aromepi-prefetch-ahead">
+      <label class="mf-opt-cell mf-number-field mf-opt-cell--wide" for="mf-aromepi-prefetch-ahead"
+             [attr.title]="paramTooltipKey('AROMEPI_PREFETCH_AHEAD') | translate">
         <span class="mf-opt-label">{{ 'METEO_FRANCE.AROMEPI_PREFETCH_AHEAD_LABEL' | translate }}</span>
         <input id="mf-aromepi-prefetch-ahead" type="number" class="form-control form-control-sm mf-number-input"
                [(ngModel)]="aromepiPrefetchAhead"
                [disabled]="!canEditMeteoOptions"
                (blur)="onAromepiPrefetchAheadCommitted()"
                (change)="onAromepiPrefetchAheadCommitted()"
-               [min]="aromepiPrefetchAheadMin" [max]="aromepiPrefetchAheadMax" [step]="1">
+               [min]="aromepiPrefetchAheadMin" [max]="aromepiPrefetchAheadMax" [step]="1"
+               [attr.title]="paramTooltipKey('AROMEPI_PREFETCH_AHEAD') | translate"
+               [attr.aria-label]="paramTooltipKey('AROMEPI_PREFETCH_AHEAD') | translate">
         <p class="mf-opt-hint mb-0 mt-1">{{ 'METEO_FRANCE.AROMEPI_PREFETCH_AHEAD_HINT' | translate }}</p>
       </label>
     </div>
@@ -2004,11 +2099,14 @@
       <h4 class="forecast-chart-section-title">
         <i class="fa fa-line-chart"></i> {{ 'METEO_FRANCE.FORECAST_CHARTS_TITLE' | translate }}
       </h4>
-      <label class="forecast-chart-style-field" for="mf-forecast-chart-style-inline">
+      <label class="forecast-chart-style-field" for="mf-forecast-chart-style-inline"
+             [attr.title]="paramTooltipKey('FORECAST_CHART_STYLE') | translate">
         <span class="forecast-settings-label">{{ 'METEO_FRANCE.FORECAST_CHART_STYLE_LABEL' | translate }}</span>
         <select id="mf-forecast-chart-style-inline" class="form-select form-select-sm"
                 [(ngModel)]="forecastChartStyle"
-                (ngModelChange)="onForecastChartStyleChange()">
+                (ngModelChange)="onForecastChartStyleChange()"
+                [attr.title]="paramTooltipKey('FORECAST_CHART_STYLE') | translate"
+                [attr.aria-label]="paramTooltipKey('FORECAST_CHART_STYLE') | translate">
           <option *ngFor="let style of forecastChartStyleOptions" [ngValue]="style">
             {{ forecastChartStyleLabelKey(style) | translate }}
           </option>
@@ -2081,14 +2179,16 @@
                   [class.btn-primary]="stationHistoryFrequency === 'quotidienne'"
                   [class.btn-outline-primary]="stationHistoryFrequency !== 'quotidienne'"
                   (click)="stationHistoryFrequency = 'quotidienne'; onStationHistoryFrequencyChange()"
-                  [disabled]="stationHistoryLoading">
+                  [disabled]="stationHistoryLoading"
+                  [attr.title]="paramTooltipKey('STATION_HISTORY_DAILY') | translate">
             {{ 'METEO_FRANCE.CLIM_DAILY' | translate }}
           </button>
           <button type="button" class="btn btn-sm ms-1"
                   [class.btn-primary]="stationHistoryFrequency === 'horaire'"
                   [class.btn-outline-primary]="stationHistoryFrequency !== 'horaire'"
                   (click)="stationHistoryFrequency = 'horaire'; onStationHistoryFrequencyChange()"
-                  [disabled]="stationHistoryLoading">
+                  [disabled]="stationHistoryLoading"
+                  [attr.title]="paramTooltipKey('STATION_HISTORY_HOURLY') | translate">
             {{ 'METEO_FRANCE.CLIM_HOURLY' | translate }}
           </button>
           <button type="button" class="btn btn-outline-secondary btn-sm ms-2"
@@ -2100,11 +2200,14 @@
         </div>
 
         <div class="clim-period-row mb-2">
-          <label for="station-history-period" class="form-label small mb-1">{{ 'METEO_FRANCE.CLIM_PERIOD_SELECT' | translate }}</label>
+          <label for="station-history-period" class="form-label small mb-1"
+                 [attr.title]="paramTooltipKey('STATION_HISTORY_PERIOD') | translate">{{ 'METEO_FRANCE.CLIM_PERIOD_SELECT' | translate }}</label>
           <select id="station-history-period" class="form-select form-select-sm clim-period-select"
                   [(ngModel)]="stationHistoryDays"
                   (ngModelChange)="onStationHistoryPeriodChange()"
-                  [disabled]="stationHistoryLoading">
+                  [disabled]="stationHistoryLoading"
+                  [attr.title]="paramTooltipKey('STATION_HISTORY_PERIOD') | translate"
+                  [attr.aria-label]="paramTooltipKey('STATION_HISTORY_PERIOD') | translate">
             <option *ngFor="let opt of stationHistoryPeriodOptions" [ngValue]="opt.days">
               {{ opt.labelKey | translate }}
             </option>

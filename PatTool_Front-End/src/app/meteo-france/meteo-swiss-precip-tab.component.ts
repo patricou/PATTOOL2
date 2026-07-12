@@ -251,6 +251,14 @@ export class MeteoSwissPrecipTabComponent implements OnInit, OnChanges, OnDestro
     this.loadCurrentFrame();
   }
 
+  onStepFrame(delta: number): void {
+    const max = Math.max(0, this.frames.length - 1);
+    if (max < 1 || !Number.isFinite(delta) || delta === 0) {
+      return;
+    }
+    this.onFrameIndexChange(this.frameIndex + delta);
+  }
+
   togglePlayback(): void {
     if (this.playing) {
       this.stopPlayback();

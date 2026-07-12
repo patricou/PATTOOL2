@@ -2278,6 +2278,14 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     return this.multiDayForecastDisplayParams.includes(param);
   }
 
+  forecastParamSwitchTooltipKey(param: MultiDayForecastDisplayParam): string {
+    return `METEO_FRANCE.SWITCH_TOOLTIP_FORECAST_PARAM_${param.toUpperCase()}`;
+  }
+
+  paramTooltipKey(key: string): string {
+    return `METEO_FRANCE.PARAM_TOOLTIP_${key}`;
+  }
+
   onMultiDayForecastParamToggle(param: MultiDayForecastDisplayParam, checked: boolean): void {
     const current = [...this.multiDayForecastDisplayParams];
     if (checked) {
@@ -5123,6 +5131,14 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         this.loadAromepiCurrentValues();
       }
     });
+  }
+
+  onAromepiStepFrame(delta: number): void {
+    const max = Math.max(0, this.aromepiEffectiveTimeSteps.length - 1);
+    if (max < 1 || !Number.isFinite(delta) || delta === 0) {
+      return;
+    }
+    this.onAromepiFrameIndexChange(this.aromepiFrameIndex + delta);
   }
 
   toggleAromepiPlayback(): void {
