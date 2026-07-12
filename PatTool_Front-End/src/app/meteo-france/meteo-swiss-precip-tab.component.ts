@@ -18,7 +18,7 @@ interface MsPrecipFrame {
   standalone: true,
   imports: [CommonModule, FormsModule, TranslateModule],
   templateUrl: './meteo-swiss-precip-tab.component.html',
-  styleUrls: ['./meteo-swiss-precip-tab.component.css']
+  styleUrls: ['./meteo-swiss-precip-tab.component.css', './meteo-france-maps.shared.css']
 })
 export class MeteoSwissPrecipTabComponent implements OnInit, OnChanges, OnDestroy {
 

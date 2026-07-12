@@ -35,7 +35,7 @@
 
 
 
-<div class="container mt-0">
+<div class="container mt-0 meteo-france-page">
 
   <div class="row justify-content-center">
 
@@ -139,7 +139,11 @@
         <li class="nav-item" role="presentation">
           <button type="button" class="nav-link" [class.active]="activeMainTab === 'radar'"
                   (click)="onMainTabChange('radar')">
-            <img [src]="getBrandLogoSrc(regionalProviderTabBrand)" [alt]="getBrandAlt(regionalProviderTabBrand)" class="mf-tab-logo" width="18" height="18" />
+            <img *ngIf="radarTabHeaderBrand === 'meteofrance'"
+                 [src]="getBrandLogoSrc('meteofrance')" [alt]="getBrandAlt('meteofrance')" class="mf-tab-logo" width="18" height="18" />
+            <img *ngIf="radarTabHeaderBrand === 'meteoswiss'"
+                 [src]="getBrandLogoSrc('meteoswiss')" [alt]="getBrandAlt('meteoswiss')" class="mf-tab-logo" width="18" height="18" />
+            <i *ngIf="radarTabHeaderBrand === 'world'" class="fa fa-globe mf-tab-logo-icon" aria-hidden="true"></i>
             {{ 'METEO_FRANCE.TAB_RADAR' | translate }}
           </button>
         </li>
@@ -245,7 +249,7 @@
 
 
 
-          <div class="meteo-france-map-shell" #mapShell [class.meteo-france-map-shell--fullscreen]="mapFullscreen">
+          <div class="meteo-france-map-shell mf-map-shell--radar" #mapShell [class.meteo-france-map-shell--fullscreen]="mapFullscreen">
             <ng-container *ngTemplateOutlet="centerOnUserPositionButton; context: { variant: 'map' }"></ng-container>
             <button type="button"
                     class="btn btn-sm btn-light meteo-france-map-fullscreen-btn shadow-sm"
@@ -498,6 +502,7 @@
                   <div class="mf-cache-minutes-row">
                     <input type="number" class="form-control form-control-sm mf-number-input"
                            [(ngModel)]="temperatureCacheMinutes"
+                           [disabled]="!canEditMeteoOptions"
                            (blur)="onTemperatureCacheMinutesCommitted()"
                            (change)="onTemperatureCacheMinutesCommitted()"
                            [min]="temperatureCacheMinMinutes" [max]="temperatureCacheMaxMinutes" [step]="1">
@@ -509,24 +514,6 @@
                       <i class="fa" [class.fa-trash-o]="!isClearingTemperatureCache" [class.fa-spinner]="isClearingTemperatureCache" [class.fa-spin]="isClearingTemperatureCache"></i>
                     </button>
                   </div>
-                </label>
-              </div>
-            </section>
-
-            <section class="mf-opt-section">
-              <header class="mf-opt-section-head">
-                <i class="fa fa-line-chart"></i>
-                <span>{{ 'METEO_FRANCE.OPTIONS_HISTORY' | translate }}</span>
-              </header>
-              <div class="mf-opt-grid">
-                <label class="mf-opt-cell mf-number-field mf-opt-cell--wide">
-                  <span class="mf-opt-label">{{ 'METEO_FRANCE.HISTORY_CACHE_DAYS_LABEL' | translate }}</span>
-                  <input type="number" class="form-control form-control-sm mf-number-input"
-                         [(ngModel)]="historyCacheDays"
-                         (blur)="onHistoryCacheDaysCommitted()"
-                         (change)="onHistoryCacheDaysCommitted()"
-                         [min]="historyCacheMinDays" [max]="historyCacheMaxDays" [step]="1">
-                  <p class="mf-opt-hint mb-0 mt-1">{{ 'METEO_FRANCE.HISTORY_CACHE_DAYS_HINT' | translate }}</p>
                 </label>
               </div>
             </section>
@@ -545,7 +532,9 @@
                 <div class="mf-opt-cell">
                   <div class="form-check form-switch mf-compact-switch">
                     <input class="form-check-input" type="checkbox" role="switch" id="mf-auto-refresh-radar"
-                           [(ngModel)]="autoRefreshRadar" (ngModelChange)="onAutoRefreshRadarChange()">
+                           [(ngModel)]="autoRefreshRadar"
+                           [disabled]="!canEditMeteoOptions"
+                           (ngModelChange)="onAutoRefreshRadarChange()">
                     <label class="form-check-label" for="mf-auto-refresh-radar"
                            [title]="'METEO_FRANCE.AUTO_REFRESH' | translate">
                       {{ 'METEO_FRANCE.AUTO_REFRESH_SHORT' | translate }}
@@ -559,10 +548,10 @@
                   <span class="mf-opt-label">{{ 'METEO_FRANCE.RADAR_REFRESH_INTERVAL_LABEL' | translate }}</span>
                   <input type="number" class="form-control form-control-sm mf-number-input"
                          [(ngModel)]="radarRefreshSeconds"
+                         [disabled]="!autoRefreshRadar || !canEditMeteoOptions"
                          (blur)="onRadarRefreshSecondsCommitted()"
                          (change)="onRadarRefreshSecondsCommitted()"
-                         [min]="radarRefreshMinSeconds" [max]="radarRefreshMaxSeconds" [step]="1"
-                         [disabled]="!autoRefreshRadar">
+                         [min]="radarRefreshMinSeconds" [max]="radarRefreshMaxSeconds" [step]="1">
                 </label>
                 <div class="mf-opt-cell">
                   <div class="form-check form-switch mf-compact-switch">
@@ -1206,7 +1195,7 @@
               </div>
             </div>
 
-            <div class="meteo-france-map-shell aromepi-map-shell" #aromepiMapShell
+            <div class="meteo-france-map-shell aromepi-map-shell mf-map-shell--aromepi" #aromepiMapShell
                  [class.meteo-france-map-shell--fullscreen]="aromepiMapFullscreen">
               <div class="aromepi-map-loading-overlay"
                    *ngIf="isLoadingAromepiCapabilities"
@@ -1265,8 +1254,8 @@
                   <div class="aromepi-time-slider-wrap">
                     <input type="range" class="form-range aromepi-time-slider"
                            [min]="0" [max]="aromepiEffectiveTimeSteps.length - 1" step="1"
-                           [ngModel]="aromepiFrameIndex"
-                           (ngModelChange)="onAromepiFrameIndexChange($event)" />
+                           [value]="aromepiFrameIndex"
+                           (input)="onAromepiFrameSliderInput($event)" />
                     <div class="aromepi-time-range">
                       <span>{{ formatAromepiOffsetMinutes(aromepiMinOffsetMinutes) }}</span>
                       <span>{{ formatAromepiOffsetMinutes(aromepiMaxOffsetMinutes) }}</span>
@@ -1363,6 +1352,11 @@
 
           <p class="text-muted small">{{ 'METEO_FRANCE.FORECAST_OPTIONS_HINT' | translate }}</p>
 
+          <div class="alert alert-info py-2 px-3 mb-3" *ngIf="!canEditMeteoOptions" role="status">
+            <i class="fa fa-lock me-1" aria-hidden="true"></i>
+            {{ 'METEO_FRANCE.OPTIONS_ADMIN_ONLY' | translate }}
+          </div>
+
           <ng-container *ngTemplateOutlet="meteoFranceLocationPanel"></ng-container>
 
           <div class="forecast-settings-panel mb-3">
@@ -1370,6 +1364,11 @@
               showParams: true,
               hintKey: 'METEO_FRANCE.FORECAST_SETTINGS_HINT'
             }"></ng-container>
+          </div>
+
+          <div class="mf-options-panel mb-3">
+            <p class="text-muted small mb-2">{{ 'METEO_FRANCE.OPTIONS_CACHE_SECTION_HINT' | translate }}</p>
+            <ng-container *ngTemplateOutlet="meteoFrancePersistenceOptionsPanel"></ng-container>
           </div>
 
           <p class="text-muted small mb-2">{{ 'METEO_FRANCE.FORECAST_MAP_HINT' | translate }}</p>
@@ -1387,7 +1386,7 @@
             </label>
           </div>
 
-          <div class="meteo-france-map-shell forecast-map-shell mb-3">
+          <div class="meteo-france-map-shell forecast-map-shell mf-map-shell--forecast-options mb-3">
             <ng-container *ngTemplateOutlet="centerOnUserPositionButton; context: { variant: 'map' }"></ng-container>
             <div id="meteo-france-forecast-map" class="meteo-france-map forecast-map"></div>
           </div>
@@ -1884,6 +1883,7 @@
       <span class="forecast-settings-label">{{ 'METEO_FRANCE.FORECAST_HORIZON_LABEL' | translate }}</span>
       <select id="mf-forecast-horizon" class="form-select form-select-sm"
               [(ngModel)]="forecastHorizonHours"
+              [disabled]="!canEditMeteoOptions"
               (ngModelChange)="onForecastPreferencesCommitted()">
         <option *ngFor="let h of forecastHorizonSelectOptions" [ngValue]="h">
           {{ formatForecastHorizonOption(h) }}
@@ -1894,6 +1894,7 @@
       <span class="forecast-settings-label">{{ 'METEO_FRANCE.FORECAST_STEP_LABEL' | translate }}</span>
       <select id="mf-forecast-step" class="form-select form-select-sm"
               [(ngModel)]="forecastStepMinutes"
+              [disabled]="!canEditMeteoOptions"
               (ngModelChange)="onForecastPreferencesCommitted()">
         <option *ngFor="let s of forecastStepSelectOptions" [ngValue]="s">
           {{ formatForecastStepOption(s) }}
@@ -1923,6 +1924,46 @@
     </div>
   </div>
   <p class="text-muted small mb-0">{{ hintKey | translate }}</p>
+</ng-template>
+
+<ng-template #meteoFrancePersistenceOptionsPanel>
+  <section class="mf-opt-section">
+    <header class="mf-opt-section-head">
+      <i class="fa fa-line-chart"></i>
+      <span>{{ 'METEO_FRANCE.OPTIONS_HISTORY' | translate }}</span>
+    </header>
+    <div class="mf-opt-grid">
+      <label class="mf-opt-cell mf-number-field mf-opt-cell--wide" for="mf-history-cache-days">
+        <span class="mf-opt-label">{{ 'METEO_FRANCE.HISTORY_CACHE_DAYS_LABEL' | translate }}</span>
+        <input id="mf-history-cache-days" type="number" class="form-control form-control-sm mf-number-input"
+               [(ngModel)]="historyCacheDays"
+               [disabled]="!canEditMeteoOptions"
+               (blur)="onHistoryCacheDaysCommitted()"
+               (change)="onHistoryCacheDaysCommitted()"
+               [min]="historyCacheMinDays" [max]="historyCacheMaxDays" [step]="1">
+        <p class="mf-opt-hint mb-0 mt-1">{{ 'METEO_FRANCE.HISTORY_CACHE_DAYS_HINT' | translate }}</p>
+      </label>
+    </div>
+  </section>
+
+  <section class="mf-opt-section" *ngIf="showMfAromepiTab">
+    <header class="mf-opt-section-head">
+      <i class="fa fa-play-circle"></i>
+      <span>{{ 'METEO_FRANCE.OPTIONS_AROMEPI' | translate }}</span>
+    </header>
+    <div class="mf-opt-grid">
+      <label class="mf-opt-cell mf-number-field mf-opt-cell--wide" for="mf-aromepi-prefetch-ahead">
+        <span class="mf-opt-label">{{ 'METEO_FRANCE.AROMEPI_PREFETCH_AHEAD_LABEL' | translate }}</span>
+        <input id="mf-aromepi-prefetch-ahead" type="number" class="form-control form-control-sm mf-number-input"
+               [(ngModel)]="aromepiPrefetchAhead"
+               [disabled]="!canEditMeteoOptions"
+               (blur)="onAromepiPrefetchAheadCommitted()"
+               (change)="onAromepiPrefetchAheadCommitted()"
+               [min]="aromepiPrefetchAheadMin" [max]="aromepiPrefetchAheadMax" [step]="1">
+        <p class="mf-opt-hint mb-0 mt-1">{{ 'METEO_FRANCE.AROMEPI_PREFETCH_AHEAD_HINT' | translate }}</p>
+      </label>
+    </div>
+  </section>
 </ng-template>
 
 <ng-template #multiDayForecastTable let-items="items">

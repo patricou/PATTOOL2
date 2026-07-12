@@ -1,0 +1,73 @@
+/**
+ * Shared Leaflet map heights for meteo-france (radar, AROME-PI, forecast options, MS precip).
+ * Imported by meteo-france.component and meteo-swiss-precip-tab so every tab uses the same rules.
+ * --mf-map-chrome = fixed app chrome + content above the map; map fills the rest of the viewport.
+ */
+:host {
+  --mf-map-min-h: 420px;
+  --mf-map-chrome: 280px;
+}
+
+.meteo-france-map,
+.ms-precip-map {
+  width: 100%;
+  height: clamp(
+    var(--mf-map-min-h),
+    calc(100dvh - var(--mf-map-chrome)),
+    calc(100dvh - var(--mf-map-chrome))
+  );
+  min-height: var(--mf-map-min-h);
+  max-height: calc(100dvh - var(--mf-map-chrome));
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
+  z-index: 0;
+}
+
+.mf-map-shell--radar {
+  --mf-map-chrome: 270px;
+}
+
+.mf-map-shell--aromepi {
+  --mf-map-chrome: 360px;
+}
+
+.mf-map-shell--forecast-options {
+  --mf-map-chrome: 500px;
+}
+
+.mf-map-shell--ms-precip {
+  --mf-map-chrome: 390px;
+}
+
+@media (max-width: 767.98px) {
+  :host {
+    --mf-map-min-h: 320px;
+  }
+
+  .mf-map-shell--radar {
+    --mf-map-chrome: 310px;
+  }
+
+  .mf-map-shell--aromepi {
+    --mf-map-chrome: 400px;
+  }
+
+  .mf-map-shell--forecast-options {
+    --mf-map-chrome: 540px;
+  }
+
+  .mf-map-shell--ms-precip {
+    --mf-map-chrome: 440px;
+  }
+}
+
+@media (max-width: 576px) {
+  .meteo-france-map,
+  .ms-precip-map {
+    height: clamp(
+      var(--mf-map-min-h),
+      calc(100dvh - var(--mf-map-chrome)),
+      calc(100dvh - var(--mf-map-chrome))
+    );
+  }
+}

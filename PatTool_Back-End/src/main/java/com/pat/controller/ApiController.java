@@ -1,5 +1,6 @@
 package com.pat.controller;
 
+import com.pat.controller.dto.MeteoFranceAromepiPlaybackPreferenceDto;
 import com.pat.controller.dto.MeteoFranceHistoryCachePreferenceDto;
 import com.pat.controller.dto.MeteoFranceForecastPreferenceDto;
 import com.pat.controller.dto.MeteoFranceRadarPreferenceDto;
@@ -10,6 +11,7 @@ import com.pat.service.GeocodeService;
 import com.pat.service.IpGeolocationService;
 import com.pat.service.MeteoFranceAromepiService;
 import com.pat.service.MeteoFranceClimService;
+import com.pat.service.MeteoFranceAromepiPlaybackPreferenceService;
 import com.pat.service.MeteoFranceHistoryCachePreferenceService;
 import com.pat.service.MeteoFranceObsService;
 import com.pat.service.MeteoFranceForecastPreferenceService;
@@ -30,6 +32,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -93,6 +96,9 @@ public class ApiController {
 
     @Autowired
     private MeteoFranceHistoryCachePreferenceService meteoFranceHistoryCachePreferenceService;
+
+    @Autowired
+    private MeteoFranceAromepiPlaybackPreferenceService meteoFranceAromepiPlaybackPreferenceService;
 
     @Autowired
     private TraceViewerPreferenceService traceViewerPreferenceService;
@@ -300,11 +306,14 @@ public class ApiController {
     }
 
     @PutMapping(value = "/meteofrance/forecast/preferences", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<MeteoFranceForecastPreferenceDto> setMeteoFranceForecastPreferences(
+    public ResponseEntity<?> setMeteoFranceForecastPreferences(
             @RequestBody MeteoFranceForecastPreferenceDto body) {
         String sub = currentJwtSubject();
         if (sub == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (!hasAdminRole()) {
+            return adminForbidden();
         }
         if (body == null) {
             return ResponseEntity.badRequest().build();
@@ -788,11 +797,14 @@ public class ApiController {
     }
 
     @PutMapping(value = "/meteofrance/temperature/cache/preferences", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<MeteoFranceTemperatureCachePreferenceDto> setMeteoFranceTemperatureCachePreferences(
+    public ResponseEntity<?> setMeteoFranceTemperatureCachePreferences(
             @RequestBody MeteoFranceTemperatureCachePreferenceDto body) {
         String sub = currentJwtSubject();
         if (sub == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (!hasAdminRole()) {
+            return adminForbidden();
         }
         if (body == null) {
             return ResponseEntity.badRequest().build();
@@ -817,11 +829,14 @@ public class ApiController {
     }
 
     @PutMapping(value = "/meteofrance/history/cache/preferences", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<MeteoFranceHistoryCachePreferenceDto> setMeteoFranceHistoryCachePreferences(
+    public ResponseEntity<?> setMeteoFranceHistoryCachePreferences(
             @RequestBody MeteoFranceHistoryCachePreferenceDto body) {
         String sub = currentJwtSubject();
         if (sub == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (!hasAdminRole()) {
+            return adminForbidden();
         }
         if (body == null) {
             return ResponseEntity.badRequest().build();
@@ -829,6 +844,37 @@ public class ApiController {
         try {
             MeteoFranceHistoryCachePreferenceDto saved = meteoFranceHistoryCachePreferenceService.saveForSubject(
                     sub, body.historyCacheDays());
+            return ResponseEntity.ok(saved);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping(value = "/meteofrance/aromepi/playback/preferences", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<MeteoFranceAromepiPlaybackPreferenceDto> getMeteoFranceAromepiPlaybackPreferences() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(meteoFranceAromepiPlaybackPreferenceService.readForSubject(sub));
+    }
+
+    @PutMapping(value = "/meteofrance/aromepi/playback/preferences", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> setMeteoFranceAromepiPlaybackPreferences(
+            @RequestBody MeteoFranceAromepiPlaybackPreferenceDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (!hasAdminRole()) {
+            return adminForbidden();
+        }
+        if (body == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            MeteoFranceAromepiPlaybackPreferenceDto saved = meteoFranceAromepiPlaybackPreferenceService.saveForSubject(
+                    sub, body.prefetchAhead());
             return ResponseEntity.ok(saved);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
@@ -854,11 +900,14 @@ public class ApiController {
     }
 
     @PutMapping(value = "/meteofrance/radar/preferences", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<MeteoFranceRadarPreferenceDto> setMeteoFranceRadarPreferences(
+    public ResponseEntity<?> setMeteoFranceRadarPreferences(
             @RequestBody MeteoFranceRadarPreferenceDto body) {
         String sub = currentJwtSubject();
         if (sub == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (!hasAdminRole()) {
+            return adminForbidden();
         }
         if (body == null) {
             return ResponseEntity.badRequest().build();
@@ -903,6 +952,24 @@ public class ApiController {
             return null;
         }
         return jwt.getSubject();
+    }
+
+    private static boolean hasAdminRole() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(authority -> authority.equalsIgnoreCase("ROLE_Admin")
+                        || authority.equalsIgnoreCase("ROLE_admin"));
+    }
+
+    private static ResponseEntity<Map<String, Object>> adminForbidden() {
+        Map<String, Object> errorResponse = new LinkedHashMap<>();
+        errorResponse.put("error", "Unauthorized");
+        errorResponse.put("message", "Admin role required");
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
     }
 
     /**

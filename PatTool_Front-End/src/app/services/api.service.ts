@@ -626,6 +626,32 @@ export class ApiService {
     );
   }
 
+  /** Per-user AROME-PI map playback prefetch window (MongoDB appParameters). */
+  getMeteoFranceAromepiPlaybackPreferences(): Observable<MeteoFranceAromepiPlaybackPreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<MeteoFranceAromepiPlaybackPreference>(
+          this.API_URL + 'external/meteofrance/aromepi/playback/preferences',
+          { headers }
+        )
+      )
+    );
+  }
+
+  saveMeteoFranceAromepiPlaybackPreferences(
+    prefetchAhead: number
+  ): Observable<MeteoFranceAromepiPlaybackPreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<MeteoFranceAromepiPlaybackPreference>(
+          this.API_URL + 'external/meteofrance/aromepi/playback/preferences',
+          { prefetchAhead },
+          { headers }
+        )
+      )
+    );
+  }
+
   /** Clears server-side MF + Open-Meteo temperature observation caches. */
   clearMeteoFranceTemperatureObservationCache(): Observable<MeteoFranceTemperatureCacheClearResult> {
     return this.getHeaderWithToken().pipe(
@@ -2092,6 +2118,11 @@ export interface MeteoFranceTemperatureCachePreference {
 
 export interface MeteoFranceHistoryCachePreference {
   historyCacheDays: number;
+  persistedInMongo?: boolean;
+}
+
+export interface MeteoFranceAromepiPlaybackPreference {
+  prefetchAhead: number;
   persistedInMongo?: boolean;
 }
 
