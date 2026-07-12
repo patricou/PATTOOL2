@@ -39,7 +39,7 @@
         "GEO": "Ø§ÙØ¹Ø§ÙÙ",
         "GEO_WORLD_VIEWS": "Ø§ÙØ£Ø±Ø¶ ÙØ§ÙÙØ¶Ø§Ø¡",
         "POSITION_METEO": "Ø§ÙÙÙÙØ¹/Ø§ÙØ·ÙØ³",
-        "METEO_FRANCE": "MeteoFrance",
+        "METEO_FRANCE": "الطقس والتوقعات",
         "ADDRESS_TO_MAP": "Ø§ÙØ¹ÙÙØ§Ù/GPS Ø¹ÙÙ Ø§ÙØ®Ø±ÙØ·Ø©",
         "NEWS": "Ø§ÙØ£Ø®Ø¨Ø§Ø±",
         "CURRENCY_CONVERTER": "ÙØ­ÙÙ Ø§ÙØ¹ÙÙØ§Øª",
@@ -2797,10 +2797,10 @@
         "NO_ID_ERROR": "Ø®Ø·Ø£: Ø§ÙØªØ¹ÙÙÙ ÙÙØ³ ÙÙ ÙØ¹Ø±Ù"
     },
     "METEO_FRANCE": {
-        "TITLE": "طقس دقيق",
-        "SUBTITLE": "Radar Météo-France, conditions actuelles et prévisions",
+        "TITLE": "الطقس والتوقعات",
+        "SUBTITLE": "رادار وملاحظات وتوقعات متعددة المصادر",
         "MF_API_PORTAL_LINK": "Portail API Météo-France",
-        "RADAR_TITLE": "Carte radar pluie (Météo-France)",
+        "RADAR_TITLE": "خريطة الرادار",
         "MAP_FULLSCREEN": "ملء الشاشة",
         "MAP_EXIT_FULLSCREEN": "الخروج من ملء الشاشة",
         "MAP_CENTER_USER": "Centrer sur ma position",
@@ -3120,6 +3120,8 @@
         "FORECAST_OM_HINT": "Open-Meteo multi-model blend, 3-hour خطوات, no API key.",
         "FORECAST_AGG_TITLE": "التوقعات comparison (OWM · Open-Meteo · MF)",
         "FORECAST_AGG_HINT": "Météo-France = modèle AROME seamless via Open-Meteo. Une ligne par échéance (période et خطوات définis dans l'onglet Options). « — » = source sans donnée à ce خطوات.",
+        "FORECAST_AGG_TITLE_CH": "مقارنة التوقعات (OWM · Open-Meteo · MS)",
+        "FORECAST_AGG_HINT_CH": "MeteoSwiss = توقعات ICON-CH. صف لكل موعد (الفترة والخطوة في الخيارات). « — » = لا بيانات من هذا المصدر.",
         "FORECAST_LOADING": "جاري التحميل forecast…",
         "FORECAST_DATA_FOR": "التوقعات for:",
         "FORECAST_OPEN_PROVIDER_SITE": "Ouvrir le site {{provider}}",

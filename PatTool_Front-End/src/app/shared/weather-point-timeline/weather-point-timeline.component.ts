@@ -31,10 +31,10 @@ Chart.register(...registerables);
 Chart.register(zoomPlugin);
 
 type TemperatureUnit = 'celsius' | 'fahrenheit';
-type WeatherDataSourceBrand = 'meteofrance' | 'open-meteo' | 'openweathermap';
-type TimelineTab = 'meteofrance' | 'open-meteo' | 'openweathermap' | 'compare';
+type WeatherDataSourceBrand = 'meteofrance' | 'open-meteo' | 'openweathermap' | 'meteoswiss';
+type TimelineTab = 'meteofrance' | 'open-meteo' | 'openweathermap' | 'meteoswiss' | 'compare';
 type TimelineParam = 'temp' | 'humidity' | 'wind' | 'precip' | 'precipDaily' | 'pop';
-type TimelineSourceKey = 'meteofrance' | 'open-meteo' | 'openweathermap';
+type TimelineSourceKey = 'meteofrance' | 'open-meteo' | 'openweathermap' | 'meteoswiss';
 type TimelineSourceValues = Record<TimelineParam, number | null>;
 type TimelineSlot = {
   ts: number;
@@ -64,6 +64,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   private static readonly LOGO_MF = 'assets/images/meteofrance-logo.svg';
   private static readonly LOGO_OPEN_METEO = 'assets/images/open-meteo-logo.svg';
   private static readonly LOGO_OWM = 'assets/images/openweathermap-logo.svg';
+  private static readonly LOGO_MS = 'assets/images/meteoswiss-logo.svg';
   private static readonly SLOT_PARAMS: Array<'temp' | 'humidity' | 'wind' | 'precip' | 'pop'> = [
     'temp', 'humidity', 'wind', 'precip', 'pop'
   ];
@@ -76,15 +77,18 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   @Input({ required: true }) lon!: number;
   @Input() title = '';
   @Input() mfTempC: number | null = null;
+  @Input() msTempC: number | null = null;
   @Input() openMeteoTempC: number | null = null;
   @Input() openWeatherTempC: number | null = null;
   @Input() mfObservedAt: string | null = null;
+  @Input() msObservedAt: string | null = null;
   @Input() openMeteoObservedAt: string | null = null;
   @Input() openWeatherObservedAt: string | null = null;
   @Input() stationId?: string;
   @Input() stationName?: string;
   @Input() departmentCode?: string;
   @Input() climEnabled = true;
+  @Input() region: 'france' | 'switzerland' = 'france';
   @Input() temperatureUnit: TemperatureUnit = 'celsius';
   @Input() enableRevealAnimation = true;
   @Input() overlayMode: 'fixed' | 'embedded' = 'fixed';
@@ -99,6 +103,17 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   @ViewChild('loadLogBody') loadLogBody?: ElementRef<HTMLElement>;
 
   readonly meteoFranceBrandLogo = WeatherPointTimelineComponent.LOGO_MF;
+  readonly meteoSwissBrandLogo = WeatherPointTimelineComponent.LOGO_MS;
+
+  get headerBrandLogo(): string {
+    return this.region === 'switzerland'
+      ? WeatherPointTimelineComponent.LOGO_MS
+      : WeatherPointTimelineComponent.LOGO_MF;
+  }
+
+  get headerBrandAlt(): string {
+    return this.region === 'switzerland' ? 'MeteoSwiss' : 'Météo-France';
+  }
 
   timelineFullscreen = false;
   loading = false;
@@ -117,6 +132,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   owmLoading = false;
   omLoading = false;
   mfForecastLoading = false;
+  msLoading = false;
   climLoading = false;
   loadLogPanelOpen = false;
   loadLogEntries: TimelineLoadLogEntry[] = [];
@@ -132,10 +148,22 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     brand: WeatherDataSourceBrand | 'compare';
   }> = [
     { id: 'meteofrance', labelKey: 'METEO_FRANCE.POINT_TIMELINE_TAB_MF', brand: 'meteofrance' },
+    { id: 'meteoswiss', labelKey: 'METEO_FRANCE.POINT_TIMELINE_TAB_MS', brand: 'meteoswiss' },
     { id: 'open-meteo', labelKey: 'METEO_FRANCE.POINT_TIMELINE_TAB_OM', brand: 'open-meteo' },
     { id: 'openweathermap', labelKey: 'METEO_FRANCE.POINT_TIMELINE_TAB_OWM', brand: 'openweathermap' },
     { id: 'compare', labelKey: 'METEO_FRANCE.POINT_TIMELINE_TAB_COMPARE', brand: 'compare' }
   ];
+
+  get visibleTimelineTabs(): ReadonlyArray<{
+    id: TimelineTab;
+    labelKey: string;
+    brand: WeatherDataSourceBrand | 'compare';
+  }> {
+    if (this.region === 'switzerland') {
+      return this.timelineTabs.filter((tab) => tab.id !== 'meteofrance');
+    }
+    return this.timelineTabs.filter((tab) => tab.id !== 'meteoswiss');
+  }
 
   readonly paramOptions: ReadonlyArray<{ id: TimelineParam; labelKey: string }> = [
     { id: 'temp', labelKey: 'METEO_FRANCE.AGG_COL_TEMP' },
@@ -162,6 +190,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   private climCache: any = null;
   private climQuotidienneCache: any = null;
   private mfForecastCache: any = null;
+  private msForecastCache: any = null;
   private owmForecastCache: any = null;
   private omForecastCache: any = null;
   private quotidienneLoading = false;
@@ -221,6 +250,8 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
 
   get currentTempC(): number | null {
     switch (this.activeTab) {
+      case 'meteoswiss':
+        return this.msTempC;
       case 'open-meteo':
         return this.openMeteoTempC;
       case 'openweathermap':
@@ -232,6 +263,8 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
 
   get currentObservedAtRaw(): string | null {
     switch (this.activeTab) {
+      case 'meteoswiss':
+        return this.msObservedAt;
       case 'open-meteo':
         return this.openMeteoObservedAt;
       case 'openweathermap':
@@ -255,17 +288,26 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   get showCompareNow(): boolean {
     return this.activeParam === 'temp'
       && this.activeTab === 'compare'
-      && (this.mfTempC != null || this.openMeteoTempC != null || this.openWeatherTempC != null);
+      && (this.mfTempC != null || this.msTempC != null || this.openMeteoTempC != null || this.openWeatherTempC != null);
+  }
+
+  get compareNowMeanTempC(): number | null {
+    const regional = this.region === 'switzerland' ? this.msTempC : this.mfTempC;
+    return this.meanOfTempsC(regional, this.openMeteoTempC, this.openWeatherTempC);
   }
 
   get sourceKey(): string {
     switch (this.activeTab) {
+      case 'meteoswiss':
+        return 'METEO_FRANCE.POINT_TIMELINE_SOURCE_MS';
       case 'open-meteo':
         return 'METEO_FRANCE.POINT_TIMELINE_SOURCE_OM';
       case 'openweathermap':
         return 'METEO_FRANCE.POINT_TIMELINE_SOURCE_OWM';
       case 'compare':
-        return 'METEO_FRANCE.POINT_TIMELINE_SOURCE_COMPARE';
+        return this.region === 'switzerland'
+          ? 'METEO_FRANCE.POINT_TIMELINE_SOURCE_COMPARE_CH'
+          : 'METEO_FRANCE.POINT_TIMELINE_SOURCE_COMPARE';
       default:
         return 'METEO_FRANCE.POINT_TIMELINE_SOURCE';
     }
@@ -273,6 +315,8 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
 
   get sourceLogo(): string | null {
     switch (this.activeTab) {
+      case 'meteoswiss':
+        return this.getBrandLogoSrc('meteoswiss');
       case 'open-meteo':
         return this.getBrandLogoSrc('open-meteo');
       case 'openweathermap':
@@ -285,7 +329,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   }
 
   get showStation(): boolean {
-    return this.activeTab === 'meteofrance' && !!this.stationLabel;
+    return (this.activeTab === 'meteofrance' || this.activeTab === 'meteoswiss') && !!this.stationLabel;
   }
 
   get periodLabel(): string {
@@ -299,6 +343,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   get loadInProgress(): boolean {
     return this.climLoading
       || this.mfForecastLoading
+      || this.msLoading
       || this.omLoading
       || this.owmLoading
       || this.quotidienneLoading;
@@ -310,12 +355,16 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
       case 'meteofrance':
         return (this.mfForecastLoading || this.climLoading)
           && this.getSlotsForTab('meteofrance', param).length === 0;
+      case 'meteoswiss':
+        return this.msLoading && this.getSlotsForTab('meteoswiss', param).length === 0;
       case 'openweathermap':
         return this.owmLoading && this.getSlotsForTab('openweathermap', param).length === 0;
       case 'open-meteo':
         return this.omLoading && this.getSlotsForTab('open-meteo', param).length === 0;
       case 'compare':
-        return (this.mfForecastLoading || this.owmLoading || this.omLoading)
+        return (this.region === 'switzerland'
+          ? (this.msLoading || this.owmLoading || this.omLoading)
+          : (this.mfForecastLoading || this.owmLoading || this.omLoading))
           && this.getSlotsForTab('compare', param).length === 0;
       default:
         return false;
@@ -326,6 +375,8 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     switch (brand) {
       case 'meteofrance':
         return WeatherPointTimelineComponent.LOGO_MF;
+      case 'meteoswiss':
+        return WeatherPointTimelineComponent.LOGO_MS;
       case 'openweathermap':
         return WeatherPointTimelineComponent.LOGO_OWM;
       default:
@@ -337,6 +388,8 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     switch (brand) {
       case 'meteofrance':
         return 'Météo-France';
+      case 'meteoswiss':
+        return 'MeteoSwiss';
       case 'openweathermap':
         return 'OpenWeatherMap';
       default:
@@ -579,6 +632,60 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     this.streamEventQueue = [];
     this.loadClimHoraire(requestId);
     this.loadForecastStream(requestId);
+    if (this.region === 'switzerland') {
+      this.activeTab = 'meteoswiss';
+      this.loadMeteoSwissForecast(requestId);
+    } else {
+      this.activeTab = 'meteofrance';
+    }
+  }
+
+  private loadMeteoSwissForecast(requestId: number): void {
+    if (this.region !== 'switzerland' || !this.visible) {
+      this.msLoading = false;
+      return;
+    }
+    this.msLoading = true;
+    const loadCancel$ = this.activeLoadCancel$;
+    this.apiService.getForecastByCoordinates(
+      this.lat,
+      this.lon,
+      null,
+      'meteoswiss',
+      WeatherPointTimelineComponent.FORECAST_HOURS,
+      WeatherPointTimelineComponent.STEP_MINUTES
+    ).pipe(
+      takeUntil(loadCancel$ ?? this.destroy$),
+      catchError(() => of(null))
+    ).subscribe({
+      next: (data) => {
+        if (requestId !== this.requestId || !this.visible) {
+          return;
+        }
+        this.deferTimelineUiUpdate(() => {
+          if (requestId !== this.requestId) {
+            return;
+          }
+          this.msLoading = false;
+          this.msForecastCache = data && !data.error && Array.isArray(data.list) ? data : null;
+          this.refreshFromCaches(true);
+          this.checkLoadComplete();
+        });
+      },
+      error: () => {
+        if (requestId !== this.requestId) {
+          return;
+        }
+        this.deferTimelineUiUpdate(() => {
+          if (requestId !== this.requestId) {
+            return;
+          }
+          this.msLoading = false;
+          this.refreshFromCaches(true);
+          this.checkLoadComplete();
+        });
+      }
+    });
   }
 
   private loadClimHoraire(requestId: number): void {
@@ -804,11 +911,13 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     this.climCache = null;
     this.climQuotidienneCache = null;
     this.mfForecastCache = null;
+    this.msForecastCache = null;
     this.owmForecastCache = null;
     this.omForecastCache = null;
     this.owmLoading = false;
     this.omLoading = false;
     this.mfForecastLoading = false;
+    this.msLoading = false;
     this.climLoading = false;
     this.quotidienneLoading = false;
     this.loadInProgressUi = false;
@@ -828,10 +937,50 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   }
 
   private refreshFromCaches(incremental = false): void {
-    this.buildSlots(this.climCache, this.mfForecastCache);
-    this.buildDailySlots(this.climQuotidienneCache, this.slots);
+    if (this.region === 'switzerland') {
+      this.buildSlotsSwitzerland();
+    } else {
+      this.buildSlots(this.climCache, this.mfForecastCache);
+      this.buildDailySlots(this.climQuotidienneCache, this.slots);
+    }
     this.dataLoaded = true;
     this.renderChart(this.shouldUseIncremental(incremental));
+  }
+
+  private buildSlotsSwitzerland(): void {
+    const slotMap = new Map<number, TimelineSlot>();
+    this.historyAvailable = false;
+    this.forecastAvailable = false;
+    this.stationLabel = this.stationName || this.stationId || '';
+
+    const nowTs = Math.floor(Date.now() / 1000);
+    const nowSlot = slotMap.get(nowTs) ?? this.createEmptySlot(nowTs, 'now');
+    nowSlot.kind = 'now';
+    if (this.msTempC != null) {
+      nowSlot.values.meteoswiss.temp = Math.round(this.celsiusToDisplay(this.msTempC) * 10) / 10;
+    }
+    if (this.openMeteoTempC != null) {
+      nowSlot.values['open-meteo'].temp = Math.round(this.celsiusToDisplay(this.openMeteoTempC) * 10) / 10;
+    }
+    if (this.openWeatherTempC != null) {
+      nowSlot.values.openweathermap.temp = Math.round(this.celsiusToDisplay(this.openWeatherTempC) * 10) / 10;
+    }
+    slotMap.set(nowTs, nowSlot);
+    this.nowTs = nowTs;
+
+    if (this.msForecastCache?.list) {
+      this.mergeForecastListIntoSlotMap(slotMap, this.msForecastCache.list, 'meteoswiss');
+    }
+    if (this.owmForecastCache?.list) {
+      this.mergeForecastListIntoSlotMap(slotMap, this.owmForecastCache.list, 'openweathermap');
+    }
+    if (this.omForecastCache?.list) {
+      this.mergeForecastListIntoSlotMap(slotMap, this.omForecastCache.list, 'open-meteo');
+    }
+
+    this.slots = [...slotMap.values()].sort((a, b) => a.ts - b.ts);
+    this.dailySlots = [];
+    this.fillNowValues();
   }
 
   private shouldUseIncremental(incremental: boolean): boolean {
@@ -1061,6 +1210,9 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     if (this.mfTempC != null) {
       nowSlot.values.meteofrance.temp = Math.round(this.celsiusToDisplay(this.mfTempC) * 10) / 10;
     }
+    if (this.msTempC != null) {
+      nowSlot.values.meteoswiss.temp = Math.round(this.celsiusToDisplay(this.msTempC) * 10) / 10;
+    }
     if (this.openMeteoTempC != null) {
       nowSlot.values['open-meteo'].temp = Math.round(this.celsiusToDisplay(this.openMeteoTempC) * 10) / 10;
     }
@@ -1145,7 +1297,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     }
     const nowSlot = slots[nowIndex];
     const params: Array<'humidity' | 'wind' | 'precip'> = ['humidity', 'wind', 'precip'];
-    const sources: TimelineSourceKey[] = ['meteofrance', 'open-meteo', 'openweathermap'];
+    const sources: TimelineSourceKey[] = this.compareSourceKeys();
     for (const source of sources) {
       for (const param of params) {
         if (nowSlot.values[source][param] != null) {
@@ -1270,10 +1422,38 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
       kind,
       values: {
         meteofrance: empty(),
+        meteoswiss: empty(),
         'open-meteo': empty(),
         openweathermap: empty()
       }
     };
+  }
+
+  private compareSourceKeys(): TimelineSourceKey[] {
+    return this.region === 'switzerland'
+      ? ['meteoswiss', 'open-meteo', 'openweathermap']
+      : ['meteofrance', 'open-meteo', 'openweathermap'];
+  }
+
+  private meanOfTempsC(...values: Array<number | null | undefined>): number | null {
+    const temps = values.filter((value): value is number => value != null && Number.isFinite(value));
+    if (!temps.length) {
+      return null;
+    }
+    return Math.round((temps.reduce((sum, value) => sum + value, 0) / temps.length) * 10) / 10;
+  }
+
+  private compareMeanSlotValue(slot: TimelineSlot, param: TimelineParam): number | null {
+    if (param !== 'temp') {
+      return null;
+    }
+    const values = this.compareSourceKeys()
+      .map((source) => this.slotValue(slot, source, param))
+      .filter((value): value is number => value != null && Number.isFinite(value));
+    if (!values.length) {
+      return null;
+    }
+    return Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10;
   }
 
   private slotValue(slot: TimelineSlot, source: TimelineSourceKey, param: TimelineParam): number | null {
@@ -1283,9 +1463,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   private getSlotsForTab(tab: TimelineTab, param: TimelineParam): TimelineSlot[] {
     if (tab === 'compare') {
       return this.slots.filter((slot) =>
-        slot.values.meteofrance[param] != null
-        || slot.values['open-meteo'][param] != null
-        || slot.values.openweathermap[param] != null
+        this.compareSourceKeys().some((source) => slot.values[source][param] != null)
       );
     }
     return this.slots.filter((slot) => this.slotValue(slot, tab, param) != null);
@@ -1294,9 +1472,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   private getDailySlotsForTab(tab: TimelineTab, param: TimelineParam): TimelineSlot[] {
     if (tab === 'compare') {
       return this.dailySlots.filter((slot) =>
-        slot.values.meteofrance[param] != null
-        || slot.values['open-meteo'][param] != null
-        || slot.values.openweathermap[param] != null
+        this.compareSourceKeys().some((source) => slot.values[source][param] != null)
       );
     }
     return this.dailySlots.filter((slot) => this.slotValue(slot, tab, param) != null);
@@ -1367,7 +1543,9 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
 
     if (tab === 'compare') {
       const compareSources: Array<{ key: TimelineSourceKey; labelKey: string; color: string }> = [
-        { key: 'meteofrance', labelKey: 'METEO_FRANCE.POINT_TIMELINE_LEGEND_MF', color: '#2ecc71' },
+        ...(this.region === 'switzerland'
+          ? [{ key: 'meteoswiss' as TimelineSourceKey, labelKey: 'METEO_FRANCE.POINT_TIMELINE_LEGEND_MS', color: '#d52b1e' }]
+          : [{ key: 'meteofrance' as TimelineSourceKey, labelKey: 'METEO_FRANCE.POINT_TIMELINE_LEGEND_MF', color: '#2ecc71' }]),
         { key: 'open-meteo', labelKey: 'METEO_FRANCE.POINT_TIMELINE_LEGEND_OM', color: '#3498db' },
         { key: 'openweathermap', labelKey: 'METEO_FRANCE.POINT_TIMELINE_LEGEND_OWM', color: '#e67e22' }
       ];
@@ -1406,6 +1584,36 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
           order: 2
         });
       }
+      if (param === 'temp') {
+        const meanValues = slots.map((slot) => this.compareMeanSlotValue(slot, param));
+        if (meanValues.some((value) => value != null)) {
+          const values = this.normalizeTimelineChartValues(meanValues, chartType);
+          datasets.push({
+            label: this.translate.instant('METEO_FRANCE.AGG_COL_MEAN'),
+            data: values,
+            borderColor: '#6366f1',
+            backgroundColor: 'transparent',
+            borderDash: [8, 4],
+            borderWidth: 2,
+            tension: 0.25,
+            spanGaps: true,
+            pointRadius: values.map((_value, index) => {
+              if (showNowMarker && index === this.nowIndex) {
+                return 0;
+              }
+              return _value != null ? comparePointRadius : 0;
+            }),
+            pointHoverRadius: values.map((_value, index) => {
+              if (showNowMarker && index === this.nowIndex) {
+                return 0;
+              }
+              return _value != null ? comparePointHoverRadius : 0;
+            }),
+            fill: false,
+            order: 1
+          });
+        }
+      }
       if (!datasets.length) {
         this.chartsReady = false;
         this.tabErrorKey = 'METEO_FRANCE.POINT_TIMELINE_NO_DATA';
@@ -1413,9 +1621,11 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
       }
       if (showNowMarker && this.nowIndex >= 0) {
         const nowSlot = slots[this.nowIndex];
-        const nowValue = nowSlot.values.meteofrance[param]
-          ?? nowSlot.values['open-meteo'][param]
-          ?? nowSlot.values.openweathermap[param];
+        const nowValue = param === 'temp'
+          ? this.compareMeanSlotValue(nowSlot, param)
+          : nowSlot.values.meteofrance[param]
+            ?? nowSlot.values['open-meteo'][param]
+            ?? nowSlot.values.openweathermap[param];
         if (nowValue != null) {
           const nowValues: Array<number | null> = slots.map((_slot, index) =>
             index === this.nowIndex ? nowValue : null
@@ -1439,12 +1649,20 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     } else {
       const rawValues = slots.map((slot) => this.slotValue(slot, tab, param));
       const values = this.normalizeTimelineChartValues(rawValues, chartType);
-      const color = tab === 'open-meteo' ? '#3498db' : tab === 'openweathermap' ? '#e67e22' : '#2ecc71';
+      const color = tab === 'open-meteo'
+        ? '#3498db'
+        : tab === 'openweathermap'
+          ? '#e67e22'
+          : tab === 'meteoswiss'
+            ? '#d52b1e'
+            : '#2ecc71';
       const labelKey = tab === 'open-meteo'
         ? 'METEO_FRANCE.POINT_TIMELINE_LEGEND_OM'
         : tab === 'openweathermap'
           ? 'METEO_FRANCE.POINT_TIMELINE_LEGEND_OWM'
-          : 'METEO_FRANCE.POINT_TIMELINE_LEGEND_MF';
+          : tab === 'meteoswiss'
+            ? 'METEO_FRANCE.POINT_TIMELINE_LEGEND_MS'
+            : 'METEO_FRANCE.POINT_TIMELINE_LEGEND_MF';
       const nowValues: Array<number | null> = rawValues.map((value, index) =>
         showNowMarker && index === this.nowIndex ? value : null
       );
@@ -1468,7 +1686,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
           pointHoverRadius: rawValues.map((_value, index) =>
             showNowMarker && index === this.nowIndex ? 0 : linePointHoverRadius
           ),
-          fill: tab === 'meteofrance'
+          fill: tab === 'meteofrance' || tab === 'meteoswiss'
         } : {
           borderWidth: 1
         }),
@@ -1528,6 +1746,8 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
       return 'METEO_FRANCE.POINT_TIMELINE_POP_MF_FORECAST_ONLY';
     }
     switch (tab) {
+      case 'meteoswiss':
+        return 'METEO_FRANCE.POINT_TIMELINE_UNAVAILABLE_MS';
       case 'open-meteo':
         return 'METEO_FRANCE.POINT_TIMELINE_UNAVAILABLE_OM';
       case 'openweathermap':
@@ -2035,6 +2255,8 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     switch (source) {
       case 'meteofrance':
         return this.translate.instant('METEO_FRANCE.POINT_TIMELINE_TAB_MF');
+      case 'meteoswiss':
+        return this.translate.instant('METEO_FRANCE.POINT_TIMELINE_TAB_MS');
       case 'open-meteo':
         return this.translate.instant('METEO_FRANCE.POINT_TIMELINE_TAB_OM');
       case 'openweathermap':

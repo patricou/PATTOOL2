@@ -92,6 +92,26 @@
                 <span class="tv-weather-station" *ngIf="weatherPointMfStationName">{{ weatherPointMfStationName }}</span>
               </div>
 
+              <div class="tv-weather-ms-block" *ngIf="weatherPointMsTempC != null && isWeatherPointInSwitzerland()">
+                <div class="tv-weather-source-row"
+                     [attr.title]="getWeatherBrandAlt('meteoswiss') + (weatherPointMsStationName ? ' · ' + weatherPointMsStationName : '')">
+                  <img class="tv-weather-source-logo tv-weather-source-logo--ms"
+                       [src]="weatherLogoMs"
+                       [alt]="getWeatherBrandAlt('meteoswiss')"
+                       width="14"
+                       height="14"
+                       loading="lazy">
+                  <span class="tv-weather-source-code">MS</span>
+                  <span class="tv-weather-source-values">
+                    <span class="tv-weather-temp">{{ formatWeatherTemp(weatherPointMsTempC) }}</span>
+                    <span class="tv-weather-time" *ngIf="formatWeatherObservedTime(weatherPointMsObservedAt) as msTime">
+                      {{ msTime }}
+                    </span>
+                  </span>
+                </div>
+                <span class="tv-weather-station" *ngIf="weatherPointMsStationName">{{ weatherPointMsStationName }}</span>
+              </div>
+
               <div class="tv-weather-source-row"
                    *ngIf="weatherPointOpenMeteoTempC != null"
                    [attr.title]="getWeatherBrandAlt('open-meteo')">
@@ -170,13 +190,17 @@
           [lon]="weatherTimelineLon"
           [title]="weatherTimelineTitleSnapshot"
           [mfTempC]="weatherTimelineMfTempC"
+          [msTempC]="weatherTimelineMsTempC"
           [openMeteoTempC]="weatherTimelineOpenMeteoTempC"
           [openWeatherTempC]="weatherTimelineOpenWeatherTempC"
           [mfObservedAt]="weatherTimelineMfObservedAt"
+          [msObservedAt]="weatherTimelineMsObservedAt"
           [openMeteoObservedAt]="weatherTimelineOpenMeteoObservedAt"
           [openWeatherObservedAt]="weatherTimelineOpenWeatherObservedAt"
           [stationId]="weatherTimelineStationId || undefined"
           [stationName]="weatherTimelineStationName || undefined"
+          [region]="weatherTimelineRegion()"
+          [climEnabled]="weatherTimelineRegion() === 'france'"
           overlayMode="embedded">
         </app-weather-point-timeline>
 

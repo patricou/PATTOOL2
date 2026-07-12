@@ -150,9 +150,8 @@ export class AppComponent implements OnInit {
     readonly navGeoLocalRaw: NavRouteMenuItem[] = [
         {
             routerLink: ['api/meteo-france'],
-            icon: 'fa fa-bolt',
-            labelKey: 'MENU.METEO_FRANCE',
-            logoSrc: 'assets/images/meteofrance-logo.svg'
+            icon: 'fa fa-umbrella',
+            labelKey: 'MENU.METEO_FRANCE'
         },
         { routerLink: ['api/openweathermap'], icon: 'fa fa-cloud', labelKey: 'MENU.POSITION_METEO' },
         { routerLink: ['api/address-geocode'], icon: 'fa fa-map-marker', labelKey: 'MENU.ADDRESS_TO_MAP' },

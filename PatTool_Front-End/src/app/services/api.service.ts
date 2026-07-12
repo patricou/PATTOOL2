@@ -571,7 +571,7 @@ export class ApiService {
   /** Dense screen grid (~1 cm) — POST list of lat/lon, proxied (MF IDW + Open-Meteo). */
   postWeatherTemperatureLabels(
     points: Array<{ lat: number; lon: number; stationId?: string }>,
-    source?: 'meteofrance' | 'open-meteo' | 'openweathermap',
+    source?: 'meteofrance' | 'open-meteo' | 'openweathermap' | 'meteoswiss',
     refresh?: boolean
   ): Observable<WeatherTemperatureLabelGrid> {
     const body: {

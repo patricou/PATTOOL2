@@ -114,12 +114,12 @@
                 [ngModel]="activeMainTab"
                 (ngModelChange)="onMainTabChange($event)">
           <option value="radar">{{ 'METEO_FRANCE.TAB_RADAR' | translate }}</option>
-          <option value="clim">{{ 'METEO_FRANCE.TAB_CLIM' | translate }}</option>
-          <option value="aromepi">{{ 'METEO_FRANCE.TAB_AROMEPI' | translate }}</option>
+          <option *ngIf="showMeteoSwissForecastTabs" value="forecast-ms">{{ 'METEO_FRANCE.TAB_FORECAST_MS' | translate }}</option>
+          <option *ngIf="showMeteoSwissForecastTabs" value="ms-precip">{{ 'METEO_FRANCE.TAB_MS_PRECIP' | translate }}</option>
+          <option *ngIf="showClimTab" value="clim">{{ 'METEO_FRANCE.TAB_CLIM' | translate }}</option>
+          <option *ngIf="showMfAromepiTab" value="aromepi">{{ 'METEO_FRANCE.TAB_AROMEPI' | translate }}</option>
           <option value="forecast-owm">{{ 'METEO_FRANCE.TAB_FORECAST_OWM' | translate }}</option>
           <option value="forecast-om">{{ 'METEO_FRANCE.TAB_FORECAST_OM' | translate }}</option>
-          <option value="forecast-ms">{{ 'METEO_FRANCE.TAB_FORECAST_MS' | translate }}</option>
-          <option value="ms-precip">{{ 'METEO_FRANCE.TAB_MS_PRECIP' | translate }}</option>
           <option value="forecast-aggregate">{{ 'METEO_FRANCE.TAB_FORECAST_AGG' | translate }}</option>
           <option value="forecast-options">{{ 'METEO_FRANCE.TAB_OPTIONS' | translate }}</option>
         </select>
@@ -129,21 +129,35 @@
         <li class="nav-item" role="presentation">
           <button type="button" class="nav-link" [class.active]="activeMainTab === 'radar'"
                   (click)="onMainTabChange('radar')">
-            <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')" class="mf-tab-logo" width="18" height="18" />
+            <img [src]="getBrandLogoSrc(regionalProviderTabBrand)" [alt]="getBrandAlt(regionalProviderTabBrand)" class="mf-tab-logo" width="18" height="18" />
             {{ 'METEO_FRANCE.TAB_RADAR' | translate }}
           </button>
         </li>
-        <li class="nav-item" role="presentation">
+        <li class="nav-item" role="presentation" *ngIf="showMeteoSwissForecastTabs">
+          <button type="button" class="nav-link" [class.active]="activeMainTab === 'forecast-ms'"
+                  (click)="onMainTabChange('forecast-ms')">
+            <img [src]="getBrandLogoSrc('meteoswiss')" [alt]="getBrandAlt('meteoswiss')" class="mf-tab-logo" width="18" height="18" />
+            {{ 'METEO_FRANCE.TAB_FORECAST_MS' | translate }}
+          </button>
+        </li>
+        <li class="nav-item" role="presentation" *ngIf="showMeteoSwissForecastTabs">
+          <button type="button" class="nav-link" [class.active]="activeMainTab === 'ms-precip'"
+                  (click)="onMainTabChange('ms-precip')">
+            <img [src]="getBrandLogoSrc('meteoswiss')" [alt]="getBrandAlt('meteoswiss')" class="mf-tab-logo" width="18" height="18" />
+            {{ 'METEO_FRANCE.TAB_MS_PRECIP' | translate }}
+          </button>
+        </li>
+        <li class="nav-item" role="presentation" *ngIf="showClimTab">
           <button type="button" class="nav-link" [class.active]="activeMainTab === 'clim'"
                   (click)="onMainTabChange('clim')">
-            <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')" class="mf-tab-logo" width="18" height="18" />
+            <img [src]="getBrandLogoSrc(regionalProviderTabBrand)" [alt]="getBrandAlt(regionalProviderTabBrand)" class="mf-tab-logo" width="18" height="18" />
             {{ 'METEO_FRANCE.TAB_CLIM' | translate }}
           </button>
         </li>
-        <li class="nav-item" role="presentation">
+        <li class="nav-item" role="presentation" *ngIf="showMfAromepiTab">
           <button type="button" class="nav-link" [class.active]="activeMainTab === 'aromepi'"
                   (click)="onMainTabChange('aromepi')">
-            <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')" class="mf-tab-logo" width="18" height="18" />
+            <img [src]="getBrandLogoSrc(regionalProviderTabBrand)" [alt]="getBrandAlt(regionalProviderTabBrand)" class="mf-tab-logo" width="18" height="18" />
             {{ 'METEO_FRANCE.TAB_AROMEPI' | translate }}
           </button>
         </li>
@@ -159,20 +173,6 @@
                   (click)="onMainTabChange('forecast-om')">
             <img [src]="getBrandLogoSrc('open-meteo')" [alt]="getBrandAlt('open-meteo')" class="mf-tab-logo" width="18" height="18" />
             {{ 'METEO_FRANCE.TAB_FORECAST_OM' | translate }}
-          </button>
-        </li>
-        <li class="nav-item" role="presentation">
-          <button type="button" class="nav-link" [class.active]="activeMainTab === 'forecast-ms'"
-                  (click)="onMainTabChange('forecast-ms')">
-            <img [src]="getBrandLogoSrc('meteoswiss')" [alt]="getBrandAlt('meteoswiss')" class="mf-tab-logo" width="18" height="18" />
-            {{ 'METEO_FRANCE.TAB_FORECAST_MS' | translate }}
-          </button>
-        </li>
-        <li class="nav-item" role="presentation">
-          <button type="button" class="nav-link" [class.active]="activeMainTab === 'ms-precip'"
-                  (click)="onMainTabChange('ms-precip')">
-            <img [src]="getBrandLogoSrc('meteoswiss')" [alt]="getBrandAlt('meteoswiss')" class="mf-tab-logo" width="18" height="18" />
-            {{ 'METEO_FRANCE.TAB_MS_PRECIP' | translate }}
           </button>
         </li>
         <li class="nav-item" role="presentation">
@@ -221,7 +221,7 @@
 
           <h3 class="api-title">
 
-            <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')" class="mf-tab-logo me-1" width="20" height="20" />
+            <i class="fa fa-bullseye me-1" aria-hidden="true"></i>
             {{ 'METEO_FRANCE.RADAR_TITLE' | translate }}
 
           </h3>
@@ -259,7 +259,7 @@
 
                 <div class="tv-weather-rows" *ngIf="!selectedPointComparisonLoading">
                   <div class="tv-weather-mf-block"
-                       *ngIf="pointTimelineMfTempC != null && isFranceLocation">
+                       *ngIf="pointTimelineMfTempC != null && isSelectedPointInFrance">
                     <div class="tv-weather-source-row"
                          [attr.title]="getBrandAlt('meteofrance') + (pointTempTimelineStationName ? ' · ' + pointTempTimelineStationName : '')">
                       <img class="tv-weather-source-logo tv-weather-source-logo--mf"
@@ -278,6 +278,28 @@
                       </span>
                     </div>
                     <span class="tv-weather-station" *ngIf="selectedPointMfStationLine">{{ selectedPointMfStationLine }}</span>
+                  </div>
+
+                  <div class="tv-weather-ms-block"
+                       *ngIf="pointTimelineMsTempC != null && isSelectedPointInSwitzerland">
+                    <div class="tv-weather-source-row"
+                         [attr.title]="getBrandAlt('meteoswiss') + (pointTempTimelineStationName ? ' · ' + pointTempTimelineStationName : '')">
+                      <img class="tv-weather-source-logo tv-weather-source-logo--ms"
+                           [src]="getBrandLogoSrc('meteoswiss')"
+                           [alt]="getBrandAlt('meteoswiss')"
+                           width="14"
+                           height="14"
+                           loading="lazy">
+                      <span class="tv-weather-source-code">MS</span>
+                      <span class="tv-weather-source-values">
+                        <span class="tv-weather-temp">{{ formatTemperatureLabel(pointTimelineMsTempC!) }}</span>
+                        <span class="tv-weather-time"
+                              *ngIf="formatSelectedPointObservedTime(pointTimelineMsObservedAt) as msTime">
+                          {{ msTime }}
+                        </span>
+                      </span>
+                    </div>
+                    <span class="tv-weather-station" *ngIf="selectedPointMsStationLine">{{ selectedPointMsStationLine }}</span>
                   </div>
 
                   <div class="tv-weather-source-row"
@@ -1473,14 +1495,14 @@
         <div class="api-container">
           <div class="mf-section-head">
             <h3 class="api-title mb-0">
-              <i class="fa fa-balance-scale"></i> {{ 'METEO_FRANCE.FORECAST_AGG_TITLE' | translate }}
+              <i class="fa fa-balance-scale"></i> {{ aggregateForecastAggTitleKey | translate }}
             </h3>
             <div class="mf-section-head-actions">
               <ng-container *ngTemplateOutlet="centerOnUserPositionButton; context: { variant: 'toolbar' }"></ng-container>
               <div class="forecast-provider-site-group">
                 <ng-container *ngTemplateOutlet="forecastProviderSiteButton; context: { brand: 'openweathermap' }"></ng-container>
                 <ng-container *ngTemplateOutlet="forecastProviderSiteButton; context: { brand: 'open-meteo' }"></ng-container>
-                <ng-container *ngTemplateOutlet="forecastProviderSiteButton; context: { brand: 'meteofrance' }"></ng-container>
+                <ng-container *ngTemplateOutlet="forecastProviderSiteButton; context: { brand: aggregateRegionalSourceKey }"></ng-container>
               </div>
               <button type="button" class="btn btn-sm btn-outline-primary" (click)="loadAggregatedForecast(true)"
                       [disabled]="isLoadingAggregatedForecast">
@@ -1490,7 +1512,7 @@
             </div>
           </div>
 
-          <p class="text-muted small">{{ 'METEO_FRANCE.FORECAST_AGG_HINT' | translate }}</p>
+          <p class="text-muted small">{{ aggregateForecastAggHintKey | translate }}</p>
 
           <ng-container *ngTemplateOutlet="forecastDataLocationSummary"></ng-container>
 
@@ -1540,11 +1562,11 @@
                   <th colspan="4">{{ 'METEO_FRANCE.RAIN_CHANCE' | translate }}</th>
                 </tr>
                 <tr class="aggregate-forecast-source-row">
-                  <th>OWM</th><th>OM</th><th>MF</th><th>{{ 'METEO_FRANCE.AGG_COL_MEAN' | translate }}</th>
-                  <th>OWM</th><th>OM</th><th>MF</th><th>{{ 'METEO_FRANCE.AGG_COL_MEAN' | translate }}</th>
-                  <th>OWM</th><th>OM</th><th>MF</th><th>{{ 'METEO_FRANCE.AGG_COL_MEAN' | translate }}</th>
-                  <th>OWM</th><th>OM</th><th>MF</th><th>{{ 'METEO_FRANCE.AGG_COL_MEAN' | translate }}</th>
-                  <th>OWM</th><th>OM</th><th>MF</th><th>{{ 'METEO_FRANCE.AGG_COL_MEAN' | translate }}</th>
+                  <th>OWM</th><th>OM</th><th>{{ aggregateRegionalSourceShortLabel }}</th><th>{{ 'METEO_FRANCE.AGG_COL_MEAN' | translate }}</th>
+                  <th>OWM</th><th>OM</th><th>{{ aggregateRegionalSourceShortLabel }}</th><th>{{ 'METEO_FRANCE.AGG_COL_MEAN' | translate }}</th>
+                  <th>OWM</th><th>OM</th><th>{{ aggregateRegionalSourceShortLabel }}</th><th>{{ 'METEO_FRANCE.AGG_COL_MEAN' | translate }}</th>
+                  <th>OWM</th><th>OM</th><th>{{ aggregateRegionalSourceShortLabel }}</th><th>{{ 'METEO_FRANCE.AGG_COL_MEAN' | translate }}</th>
+                  <th>OWM</th><th>OM</th><th>{{ aggregateRegionalSourceShortLabel }}</th><th>{{ 'METEO_FRANCE.AGG_COL_MEAN' | translate }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1552,23 +1574,23 @@
                   <td class="aggregate-col-time">{{ formatDate(step.dt) }}</td>
                   <td>{{ aggregateSourceValue(step, 'openweathermap', 'tempC') }}</td>
                   <td>{{ aggregateSourceValue(step, 'open-meteo', 'tempC') }}</td>
-                  <td>{{ aggregateSourceValue(step, 'meteofrance', 'tempC') }}</td>
+                  <td>{{ aggregateSourceValue(step, aggregateRegionalSourceKey, 'tempC') }}</td>
                   <td class="aggregate-col-mean"><strong>{{ aggregateMeanValue(step, 'tempC') }}</strong></td>
                   <td>{{ aggregateSourceValue(step, 'openweathermap', 'humidityPct') }}</td>
                   <td>{{ aggregateSourceValue(step, 'open-meteo', 'humidityPct') }}</td>
-                  <td>{{ aggregateSourceValue(step, 'meteofrance', 'humidityPct') }}</td>
+                  <td>{{ aggregateSourceValue(step, aggregateRegionalSourceKey, 'humidityPct') }}</td>
                   <td class="aggregate-col-mean"><strong>{{ aggregateMeanValue(step, 'humidityPct') }}</strong></td>
                   <td>{{ aggregateSourceValue(step, 'openweathermap', 'precipMm') }}</td>
                   <td>{{ aggregateSourceValue(step, 'open-meteo', 'precipMm') }}</td>
-                  <td>{{ aggregateSourceValue(step, 'meteofrance', 'precipMm') }}</td>
+                  <td>{{ aggregateSourceValue(step, aggregateRegionalSourceKey, 'precipMm') }}</td>
                   <td class="aggregate-col-mean"><strong>{{ aggregateMeanValue(step, 'precipMm') }}</strong></td>
                   <td>{{ aggregateSourceValue(step, 'openweathermap', 'windSpeedMs') }}</td>
                   <td>{{ aggregateSourceValue(step, 'open-meteo', 'windSpeedMs') }}</td>
-                  <td>{{ aggregateSourceValue(step, 'meteofrance', 'windSpeedMs') }}</td>
+                  <td>{{ aggregateSourceValue(step, aggregateRegionalSourceKey, 'windSpeedMs') }}</td>
                   <td class="aggregate-col-mean"><strong>{{ aggregateMeanValue(step, 'windSpeedMs') }}</strong></td>
                   <td>{{ aggregateSourceValue(step, 'openweathermap', 'pop') }}</td>
                   <td>{{ aggregateSourceValue(step, 'open-meteo', 'pop') }}</td>
-                  <td>{{ aggregateSourceValue(step, 'meteofrance', 'pop') }}</td>
+                  <td>{{ aggregateSourceValue(step, aggregateRegionalSourceKey, 'pop') }}</td>
                   <td class="aggregate-col-mean"><strong>{{ aggregateMeanValue(step, 'pop') }}</strong></td>
                 </tr>
               </tbody>
@@ -1757,7 +1779,10 @@
   [stationId]="pointTempTimelineStationId"
   [stationName]="pointTempTimelineStationName"
   [departmentCode]="departmentCode || undefined"
-  [climEnabled]="climAvailable"
+  [climEnabled]="climAvailable && pointTempTimelineRegion === 'france'"
+  [region]="pointTempTimelineRegion"
+  [msTempC]="pointTimelineMsTempC"
+  [msObservedAt]="pointTimelineMsObservedAt"
   [temperatureUnit]="temperatureUnit"
   [registerChartFullscreen]="true">
 </app-weather-point-timeline>

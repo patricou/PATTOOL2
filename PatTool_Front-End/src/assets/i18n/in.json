@@ -457,7 +457,7 @@
         "GEO": "à¤¦à¥à¤¨à¤¿à¤¯à¤¾",
         "GEO_WORLD_VIEWS": "à¤ªà¥à¤¥à¥à¤µà¥ à¤à¤° à¤à¤à¤¤à¤°à¤¿à¤à¥à¤·",
         "POSITION_METEO": "à¤¸à¥à¤¥à¤¿à¤¤à¤¿/à¤®à¥à¤¸à¤®",
-        "METEO_FRANCE": "MeteoFrance",
+        "METEO_FRANCE": "मौसम और पूर्वानुमान",
         "ADDRESS_TO_MAP": "à¤ªà¤¤à¤¾/GPS à¤®à¤¾à¤¨à¤à¤¿à¤¤à¥à¤° à¤ªà¤°",
         "NEWS": "à¤¸à¤®à¤¾à¤à¤¾à¤°",
         "CURRENCY_CONVERTER": "à¤®à¥à¤¦à¥à¤°à¤¾ à¤à¤¨à¥à¤µà¤°à¥à¤à¤°",
@@ -2789,10 +2789,10 @@
         "NO_ID_ERROR": "à¤¤à¥à¤°à¥à¤à¤¿: à¤à¤¿à¤ªà¥à¤ªà¤£à¥ à¤®à¥à¤ ID à¤¨à¤¹à¥à¤ à¤¹à¥"
     },
     "METEO_FRANCE": {
-        "TITLE": "सटीक मौसम",
-        "SUBTITLE": "Radar Météo-France, conditions actuelles et prévisions",
+        "TITLE": "मौसम और पूर्वानुमान",
+        "SUBTITLE": "रडार, अवलोकन और बहु-स्रोत पूर्वानुमान",
         "MF_API_PORTAL_LINK": "Portail API Météo-France",
-        "RADAR_TITLE": "Carte radar pluie (Météo-France)",
+        "RADAR_TITLE": "रडार मानचित्र",
         "MAP_FULLSCREEN": "पूर्ण स्क्रीन",
         "MAP_EXIT_FULLSCREEN": "पूर्ण स्क्रीन से बाहर",
         "MAP_CENTER_USER": "Centrer sur ma position",
@@ -3112,6 +3112,8 @@
         "FORECAST_OM_HINT": "Open-Meteo multi-model blend, 3-hour चरण, no API key.",
         "FORECAST_AGG_TITLE": "पूर्वानुमान comparison (OWM · Open-Meteo · MF)",
         "FORECAST_AGG_HINT": "Météo-France = modèle AROME seamless via Open-Meteo. Une ligne par échéance (période et pas définis dans l'onglet Options). « — » = source sans donnée à ce pas.",
+        "FORECAST_AGG_TITLE_CH": "पूर्वानुमान तुलना (OWM · Open-Meteo · MS)",
+        "FORECAST_AGG_HINT_CH": "MeteoSwiss = ICON-CH पूर्वानुमान। प्रत्येक समय-चरण के लिए एक पंक्ति (अवधि और चरण विकल्पों में)। « — » = स्रोत से कोई डेटा नहीं।",
         "FORECAST_LOADING": "लोड हो रहा है forecast…",
         "FORECAST_DATA_FOR": "पूर्वानुमान for:",
         "FORECAST_OPEN_PROVIDER_SITE": "Ouvrir le site {{provider}}",

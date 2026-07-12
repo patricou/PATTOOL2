@@ -880,22 +880,12 @@ public class MeteoFranceObsService {
 
         double lat = station.lat;
         double lon = station.lon;
-        Object geometryObj = feature.get("geometry");
-        if (geometryObj instanceof Map<?, ?> geometry) {
-            Object coordsObj = geometry.get("coordinates");
-            if (coordsObj instanceof List<?> coords && coords.size() >= 2) {
-                Double geoLon = toDouble(coords.get(0));
-                Double geoLat = toDouble(coords.get(1));
-                if (geoLat != null && geoLon != null) {
-                    lat = geoLat;
-                    lon = geoLon;
-                }
-            }
-        }
 
         Map<String, Object> point = new LinkedHashMap<>();
         point.put("lat", roundCoord(lat));
         point.put("lon", roundCoord(lon));
+        point.put("stationLat", roundCoord(station.lat));
+        point.put("stationLon", roundCoord(station.lon));
         point.put("tempC", kelvinToCelsius(tempK));
         point.put("stationId", station.id);
         String stationName = resolveStationName(station, props);

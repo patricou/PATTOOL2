@@ -12,7 +12,7 @@
        [attr.aria-labelledby]="'weather-point-timeline-title'">
     <header class="mf-point-timeline-header">
       <div class="mf-point-timeline-header-main">
-        <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')"
+        <img [src]="headerBrandLogo" [alt]="headerBrandAlt"
              class="mf-point-timeline-logo" width="22" height="22" />
         <h6 class="mf-point-timeline-title" id="weather-point-timeline-title">
           <i class="fa fa-area-chart me-1" aria-hidden="true"></i>
@@ -51,7 +51,7 @@
     <div class="mf-point-timeline-body">
       <ul class="mf-point-timeline-tabs" role="tablist"
           *ngIf="dataLoaded">
-        <li *ngFor="let tab of timelineTabs" role="presentation">
+        <li *ngFor="let tab of visibleTimelineTabs" role="presentation">
           <button type="button" class="mf-point-timeline-tab" role="tab"
                   [class.active]="activeTab === tab.id"
                   [attr.aria-selected]="activeTab === tab.id"
@@ -95,6 +95,12 @@
                  class="mf-point-timeline-chip-logo" width="14" height="14" />
             {{ formatTemperatureLabel(mfTempC) }}
           </span>
+          <span class="mf-point-timeline-current-chip mf-point-timeline-current-chip--ms"
+                *ngIf="msTempC != null">
+            <img [src]="meteoSwissBrandLogo" [alt]="getBrandAlt('meteoswiss')"
+                 class="mf-point-timeline-chip-logo" width="14" height="14" />
+            {{ formatTemperatureLabel(msTempC) }}
+          </span>
           <span class="mf-point-timeline-current-chip mf-point-timeline-current-chip--om"
                 *ngIf="openMeteoTempC != null">
             <img [src]="getBrandLogoSrc('open-meteo')" [alt]="getBrandAlt('open-meteo')"
@@ -106,6 +112,12 @@
             <img [src]="getBrandLogoSrc('openweathermap')" [alt]="getBrandAlt('openweathermap')"
                  class="mf-point-timeline-chip-logo" width="14" height="14" />
             {{ formatTemperatureLabel(openWeatherTempC) }}
+          </span>
+          <span class="mf-point-timeline-current-chip mf-point-timeline-current-chip--mean"
+                *ngIf="compareNowMeanTempC != null">
+            <i class="fa fa-balance-scale" aria-hidden="true"></i>
+            <span class="mf-point-timeline-current-mean-label">{{ 'METEO_FRANCE.AGG_COL_MEAN' | translate }}</span>
+            {{ formatTemperatureLabel(compareNowMeanTempC) }}
           </span>
         </div>
       </div>

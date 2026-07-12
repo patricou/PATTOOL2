@@ -13,11 +13,6 @@ import { BaseChartDirective } from 'ng2-charts';
 import { Chart, ChartConfiguration, ChartOptions } from 'chart.js';
 import { MeteoChartFullscreenService } from './meteo-chart-fullscreen.service';
 
-type MeteoChartPanelOptions =
-  | ChartOptions<'line'>
-  | ChartOptions<'bar'>
-  | ChartOptions<'line' | 'bar'>;
-
 @Component({
   selector: 'app-meteo-france-chart-panel',
   standalone: true,
@@ -33,7 +28,7 @@ export class MeteoFranceChartPanelComponent implements OnChanges, OnDestroy {
   @Input() firstInGroup = false;
   @Input() chartType: 'line' | 'bar' = 'line';
   @Input() data: ChartConfiguration<'line' | 'bar'>['data'] = { labels: [], datasets: [] };
-  @Input() options: MeteoChartPanelOptions = {};
+  @Input() options: ChartOptions<'line' | 'bar'> = {};
   @Input() chartBoxClass = '';
   @Input() showToolbar = true;
   @Input() showHeader = true;

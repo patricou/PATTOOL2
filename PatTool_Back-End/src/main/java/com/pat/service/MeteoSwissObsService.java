@@ -1,5 +1,6 @@
 package com.pat.service;
 
+import com.pat.controller.dto.TemperatureLabelsRequestDto;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +16,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -46,7 +48,8 @@ public class MeteoSwissObsService {
 
     private static final DateTimeFormatter OBS_TS =
             DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
-    private static final ZoneId SWISS_ZONE = ZoneId.of("Europe/Zurich");
+    /** MeteoSwiss {@code reference_timestamp} values are UTC wall-clock times (see opendata docs). */
+    private static final ZoneId OBS_ZONE = ZoneOffset.UTC;
 
     private static final double CH_MIN_LAT = 45.82;
     private static final double CH_MAX_LAT = 47.81;
@@ -88,6 +91,76 @@ public class MeteoSwissObsService {
         status.put("meteoswissSmnStationCount", catalog.size());
         status.put("meteoswissSmnReady", !catalog.isEmpty());
         return status;
+    }
+
+    /**
+     * Nearest SwissMetNet station temperature for each requested point (popup / trace viewer).
+     */
+    public Map<String, Object> getTemperatureLabelsForPoints(List<TemperatureLabelsRequestDto.Point> targets) {
+        if (!enabled) {
+            return error("MeteoSwiss SMN observations are disabled");
+        }
+        ensureCatalogLoaded();
+        if (catalog.isEmpty()) {
+            return error("MeteoSwiss SMN station catalog is loading, please retry shortly");
+        }
+        if (targets == null || targets.isEmpty()) {
+            Map<String, Object> empty = new LinkedHashMap<>();
+            empty.put("source", "meteoswiss-smn");
+            empty.put("points", List.of());
+            empty.put("count", 0);
+            empty.put("requested", 0);
+            return empty;
+        }
+
+        List<Map<String, Object>> points = new ArrayList<>();
+        for (TemperatureLabelsRequestDto.Point target : targets) {
+            if (!isInSwitzerland(target.lat(), target.lon())) {
+                continue;
+            }
+            SmnStation station = resolveStationForTarget(target);
+            if (station == null) {
+                continue;
+            }
+            Map<String, Object> point = fetchStationTemperaturePoint(station);
+            if (point == null) {
+                continue;
+            }
+            applyCatalogCoordinates(station, point);
+            double distKm = haversineKm(target.lat(), target.lon(), station.lat(), station.lon());
+            if (distKm >= 0.05) {
+                point.put("nearestStationKm", round(distKm, 1));
+            }
+            points.add(point);
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("source", "meteoswiss-smn");
+        result.put("points", points);
+        result.put("count", points.size());
+        result.put("requested", targets.size());
+        result.put("cacheTtlMinutes", DEFAULT_CACHE_TTL.toMinutes());
+        return result;
+    }
+
+    /**
+     * Force-refresh one or more stations from SwissMetNet {@code t_now} CSV and store fresh values in the station cache.
+     */
+    public Map<String, Object> refreshTemperaturePoints(List<TemperatureLabelsRequestDto.Point> targets) {
+        if (targets != null) {
+            for (TemperatureLabelsRequestDto.Point target : targets) {
+                if (!isInSwitzerland(target.lat(), target.lon())) {
+                    continue;
+                }
+                SmnStation station = resolveStationForTarget(target);
+                if (station != null) {
+                    obsCache.remove(station.id());
+                }
+            }
+        }
+        Map<String, Object> result = getTemperatureLabelsForPoints(targets);
+        result.put("refreshed", true);
+        return result;
     }
 
     public Map<String, Object> getTemperatureLabelsInBounds(
@@ -145,6 +218,7 @@ public class MeteoSwissObsService {
         if (cached != null && cached.isValid(DEFAULT_CACHE_TTL)) {
             Map<String, Object> point = new LinkedHashMap<>(cached.point());
             point.put("cached", true);
+            applyCatalogCoordinates(station, point);
             return point;
         }
 
@@ -157,8 +231,7 @@ public class MeteoSwissObsService {
                 return null;
             }
             Map<String, Object> point = new LinkedHashMap<>();
-            point.put("lat", station.lat);
-            point.put("lon", station.lon);
+            applyCatalogCoordinates(station, point);
             point.put("tempC", parsed.tempC);
             point.put("stationId", station.id());
             point.put("stationName", station.name);
@@ -189,6 +262,7 @@ public class MeteoSwissObsService {
                 Map<String, Object> point = new LinkedHashMap<>(cached.point());
                 point.put("cached", true);
                 point.put("stale", true);
+                applyCatalogCoordinates(station, point);
                 return point;
             }
             return null;
@@ -214,6 +288,7 @@ public class MeteoSwissObsService {
             int pressureIdx = findColumn(headers, "pp0qffs0");
 
             ParsedObservation best = null;
+            Instant bestObservedAt = null;
             String line;
             while ((line = reader.readLine()) != null) {
                 if (line.isBlank()) {
@@ -222,6 +297,14 @@ public class MeteoSwissObsService {
                 String[] cols = line.split(";", -1);
                 Double tempC = firstDouble(cols, tempIdx, tempFallbackIdx, tempGrassIdx);
                 if (tempC == null) {
+                    continue;
+                }
+                Instant observedInstant = null;
+                if (tsIdx >= 0 && cols.length > tsIdx) {
+                    observedInstant = parseObservedInstant(cols[tsIdx]);
+                }
+                if (best != null && observedInstant != null && bestObservedAt != null
+                        && !observedInstant.isAfter(bestObservedAt)) {
                     continue;
                 }
                 ParsedObservation row = new ParsedObservation();
@@ -234,10 +317,11 @@ public class MeteoSwissObsService {
                 }
                 row.precipitationMm = parseDouble(cols, precipIdx);
                 row.pressureHpa = parseDouble(cols, pressureIdx);
-                if (tsIdx >= 0 && cols.length > tsIdx) {
-                    row.observedAt = parseObservedAt(cols[tsIdx]);
+                if (observedInstant != null) {
+                    row.observedAt = observedInstant.toString();
                 }
                 best = row;
+                bestObservedAt = observedInstant;
             }
             return best;
         } catch (Exception e) {
@@ -306,6 +390,13 @@ public class MeteoSwissObsService {
             log.warn("MeteoSwiss SMN station catalog download failed: {}", e.getMessage());
         }
         return List.copyOf(loaded);
+    }
+
+    private static void applyCatalogCoordinates(SmnStation station, Map<String, Object> point) {
+        point.put("lat", station.lat());
+        point.put("lon", station.lon());
+        point.put("stationLat", station.lat());
+        point.put("stationLon", station.lon());
     }
 
     private record SmnStation(String id, String name, double lat, double lon) {}
@@ -407,6 +498,35 @@ public class MeteoSwissObsService {
         return MAJOR_CITY_NAME_TOKENS.size();
     }
 
+    private SmnStation resolveStationForTarget(TemperatureLabelsRequestDto.Point target) {
+        if (target.stationId() != null && !target.stationId().isBlank()) {
+            String wanted = target.stationId().trim();
+            for (SmnStation station : catalog) {
+                if (station.id().equalsIgnoreCase(wanted)) {
+                    return station;
+                }
+            }
+        }
+        return catalog.stream()
+                .min(Comparator.comparingDouble(station ->
+                        haversineKm(target.lat(), target.lon(), station.lat(), station.lon())))
+                .orElse(null);
+    }
+
+    private static boolean isInSwitzerland(double lat, double lon) {
+        return lat >= CH_MIN_LAT && lat <= CH_MAX_LAT && lon >= CH_MIN_LON && lon <= CH_MAX_LON;
+    }
+
+    private static double haversineKm(double lat1, double lon1, double lat2, double lon2) {
+        double r = 6371.0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return r * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
     private static List<SmnStation> limitStations(List<SmnStation> inBounds, int limit) {
         if (inBounds.size() <= limit) {
             return inBounds;
@@ -470,13 +590,13 @@ public class MeteoSwissObsService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    private static String parseObservedAt(String raw) {
+    private static Instant parseObservedInstant(String raw) {
         if (raw == null || raw.isBlank()) {
             return null;
         }
         try {
             LocalDateTime ldt = LocalDateTime.parse(raw.trim(), OBS_TS);
-            return ldt.atZone(SWISS_ZONE).toInstant().toString();
+            return ldt.atZone(OBS_ZONE).toInstant();
         } catch (DateTimeParseException e) {
             return null;
         }

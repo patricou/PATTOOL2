@@ -516,6 +516,13 @@ public class ApiController {
             return om;
         }
 
+        if ("meteoswiss".equalsIgnoreCase(sourceParam)) {
+            if (refresh) {
+                return meteoSwissObsService.refreshTemperaturePoints(points);
+            }
+            return meteoSwissObsService.getTemperatureLabelsForPoints(points);
+        }
+
         boolean mfSource = sourceParam == null
                 || sourceParam.isBlank()
                 || "meteofrance".equalsIgnoreCase(sourceParam);

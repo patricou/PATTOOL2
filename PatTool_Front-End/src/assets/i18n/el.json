@@ -39,7 +39,7 @@
         "GEO": "ÎÏÏÎ¼Î¿Ï",
         "GEO_WORLD_VIEWS": "ÎÎ· ÎºÎ±Î¹ Î´Î¹Î¬ÏÏÎ·Î¼Î±",
         "POSITION_METEO": "ÎÎ­ÏÎ·/ÎÎ±Î¹ÏÏÏ",
-        "METEO_FRANCE": "MeteoFrance",
+        "METEO_FRANCE": "Καιρός και προγνώσεις",
         "ADDRESS_TO_MAP": "ÎÎ¹ÎµÏÎ¸ÏÎ½ÏÎ·/GPS ÏÏÎ¿Î½ ÏÎ¬ÏÏÎ·",
         "NEWS": "ÎÎ¹Î´Î®ÏÎµÎ¹Ï",
         "CURRENCY_CONVERTER": "ÎÎµÏÎ±ÏÏÎ¿ÏÎ­Î±Ï Î½Î¿Î¼Î¹ÏÎ¼Î¬ÏÏÎ½",
@@ -2551,10 +2551,10 @@
         "NO_ID_ERROR": "Î£ÏÎ¬Î»Î¼Î±: ÏÎ¿ ÏÏÏÎ»Î¹Î¿ Î´ÎµÎ½ Î­ÏÎµÎ¹ ID"
     },
     "METEO_FRANCE": {
-        "TITLE": "Ακριβής καιρός",
-        "SUBTITLE": "Radar Météo-France, conditions actuelles et prévisions",
+        "TITLE": "Καιρός και προγνώσεις",
+        "SUBTITLE": "Ραντάρ, παρατηρήσεις και πολλαπλές πηγές πρόβλεψης",
         "MF_API_PORTAL_LINK": "Portail API Météo-France",
-        "RADAR_TITLE": "Carte radar pluie (Météo-France)",
+        "RADAR_TITLE": "Χάρτης ραντάρ",
         "MAP_FULLSCREEN": "Πλήρης οθόνη",
         "MAP_EXIT_FULLSCREEN": "Έξοδος από πλήρη οθόνη",
         "MAP_CENTER_USER": "Centrer sur ma position",
@@ -2874,6 +2874,8 @@
         "FORECAST_OM_HINT": "Open-Meteo multi-model blend, 3-hour βήματα, no API key.",
         "FORECAST_AGG_TITLE": "Πρόγνωση comparison (OWM · Open-Meteo · MF)",
         "FORECAST_AGG_HINT": "Météo-France = modèle AROME seamless via Open-Meteo. Une ligne par échéance (période et pas définis dans l'onglet Options). « — » = source sans donnée à ce pas.",
+        "FORECAST_AGG_TITLE_CH": "Σύγκριση προβλέψεων (OWM · Open-Meteo · MS)",
+        "FORECAST_AGG_HINT_CH": "MeteoSwiss = προβλέψεις ICON-CH. Μία γραμμή ανά βήμα (περίοδος και βήμα στις Επιλογές). « — » = χωρίς δεδομένα.",
         "FORECAST_LOADING": "Φόρτωση forecast…",
         "FORECAST_DATA_FOR": "Πρόγνωση for:",
         "FORECAST_OPEN_PROVIDER_SITE": "Ouvrir le site {{provider}}",
