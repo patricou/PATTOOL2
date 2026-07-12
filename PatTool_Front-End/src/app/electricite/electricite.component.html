@@ -6,11 +6,11 @@
 </div>
 
 <div class="electricite-page">
-  <p class="text-muted small mb-3">
+  <p class="electricite-lead text-muted">
     {{ 'ELECTRICITE.SUBTITLE' | translate }}
   </p>
 
-  <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+  <div class="electricite-toolbar">
     <button type="button"
             class="btn btn-sm btn-outline-secondary"
             (click)="loadAll()"
@@ -30,12 +30,12 @@
         {{ unavailabilities.length }}
       </span>
     </button>
-    <span class="small text-muted ms-auto" *ngIf="lastUpdatedLabel">
+    <span class="electricite-updated small text-muted ms-auto" *ngIf="lastUpdatedLabel">
       {{ 'ELECTRICITE.UPDATED' | translate }} {{ lastUpdatedLabel }}
     </span>
   </div>
 
-  <div *ngIf="errorMessage" class="alert alert-warning d-flex align-items-start" role="alert">
+  <div *ngIf="errorMessage" class="alert alert-warning electricite-alert d-flex align-items-start" role="alert">
     <i class="fa fa-exclamation-triangle me-2 mt-1"></i>
     <div>{{ errorMessage | translate }}</div>
   </div>
@@ -46,9 +46,9 @@
   </div>
 
   <ng-container *ngIf="overview">
-    <div class="row g-3 mb-4">
+    <div class="row electricite-kpi-row g-3 g-xl-4">
       <div class="col-6 col-md-4 col-xl-2">
-        <div class="card shadow-sm h-100 kpi-card kpi-card--nuclear">
+        <div class="card h-100 kpi-card kpi-card--nuclear">
           <div class="card-body py-3">
             <div class="kpi-label">{{ 'ELECTRICITE.KPI_NUCLEAR' | translate }}</div>
             <div class="kpi-value">{{ formatMw(overview.frLatest?.nucleaire) }}</div>
@@ -56,7 +56,7 @@
         </div>
       </div>
       <div class="col-6 col-md-4 col-xl-2">
-        <div class="card shadow-sm h-100 kpi-card">
+        <div class="card h-100 kpi-card">
           <div class="card-body py-3">
             <div class="kpi-label">{{ 'ELECTRICITE.KPI_CONSUMPTION' | translate }}</div>
             <div class="kpi-value">{{ formatMw(overview.frLatest?.consommation) }}</div>
@@ -64,17 +64,15 @@
         </div>
       </div>
       <div class="col-6 col-md-4 col-xl-2">
-        <div class="card shadow-sm h-100 kpi-card">
+        <div class="card h-100 kpi-card">
           <div class="card-body py-3">
             <div class="kpi-label">{{ 'ELECTRICITE.KPI_CO2' | translate }}</div>
-            <div class="kpi-value">
-              {{ overview.frLatest?.tauxCo2 != null ? overview.frLatest?.tauxCo2 + ' g/kWh' : '—' }}
-            </div>
+            <div class="kpi-value">{{ formatCo2(overview.frLatest?.tauxCo2) }}</div>
           </div>
         </div>
       </div>
       <div class="col-6 col-md-4 col-xl-2">
-        <div class="card shadow-sm h-100 kpi-card">
+        <div class="card h-100 kpi-card">
           <div class="card-body py-3">
             <div class="kpi-label">{{ 'ELECTRICITE.KPI_INSTALLED' | translate }}</div>
             <div class="kpi-value">{{ formatMw(overview.frInstalledNuclearMw) }}</div>
@@ -83,7 +81,7 @@
         </div>
       </div>
       <div class="col-6 col-md-4 col-xl-2">
-        <div class="card shadow-sm h-100 kpi-card kpi-card--action"
+        <div class="card h-100 kpi-card kpi-card--action"
              [class.kpi-card--warn]="(overview.frActiveUnavailabilityCount ?? 0) > 0"
              role="button"
              tabindex="0"
@@ -100,7 +98,7 @@
         </div>
       </div>
       <div class="col-6 col-md-4 col-xl-2">
-        <div class="card shadow-sm h-100 kpi-card">
+        <div class="card h-100 kpi-card">
           <div class="card-body py-3">
             <div class="kpi-label">{{ 'ELECTRICITE.KPI_WORLD' | translate }}</div>
             <div class="kpi-value">{{ overview.worldOperationalCount }}</div>
@@ -110,12 +108,12 @@
       </div>
     </div>
 
-    <div class="row g-3 mb-4">
+    <div class="row electricite-main-row g-3 g-xl-4">
       <div class="col-12 col-xl-7">
-        <div class="card shadow-sm h-100">
+        <div class="card electricite-panel h-100">
           <div class="card-body">
             <h5 class="card-title">{{ 'ELECTRICITE.CHART_TITLE' | translate }}</h5>
-            <p class="small text-muted">{{ 'ELECTRICITE.CHART_HINT' | translate }}</p>
+            <p class="electricite-panel-hint">{{ 'ELECTRICITE.CHART_HINT' | translate }}</p>
             <div class="electricite-chart-wrap">
               <canvas baseChart [data]="chartData" [options]="chartOptions" type="line"></canvas>
             </div>
@@ -123,9 +121,9 @@
         </div>
       </div>
       <div class="col-12 col-xl-5">
-        <div class="card shadow-sm h-100">
+        <div class="card electricite-panel h-100">
           <div class="card-body d-flex flex-column">
-            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+            <div class="electricite-map-header d-flex flex-wrap align-items-center gap-2 mb-2">
               <h5 class="card-title mb-0">{{ 'ELECTRICITE.MAP_TITLE' | translate }}</h5>
               <div class="btn-group btn-group-sm ms-auto" role="group">
                 <button type="button" class="btn"
@@ -150,7 +148,7 @@
                 <option value="all">{{ 'ELECTRICITE.WORLD_ALL' | translate }}</option>
               </select>
             </div>
-            <p class="small text-muted mb-2">{{ 'ELECTRICITE.MAP_HINT' | translate }}</p>
+            <p class="electricite-panel-hint mb-2">{{ 'ELECTRICITE.MAP_HINT' | translate }}</p>
             <div class="electricite-map-shell flex-grow-1"
                  #mapShell
                  [class.electricite-map-shell--fullscreen]="mapFullscreen">
@@ -171,12 +169,12 @@
       </div>
     </div>
 
-    <div class="row g-3 mb-4" *ngIf="overview.euNuclear?.length || overview.usNuclear">
+    <div class="row electricite-main-row g-3 g-xl-4" *ngIf="overview.euNuclear?.length || overview.usNuclear">
       <div class="col-12">
-        <div class="card shadow-sm">
+        <div class="card electricite-panel">
           <div class="card-body">
             <h5 class="card-title">{{ 'ELECTRICITE.INTERNATIONAL_TITLE' | translate }}</h5>
-            <p class="small text-muted" *ngIf="!overview.entsoeConfigured && !overview.eiaConfigured">
+            <p class="electricite-panel-hint" *ngIf="!overview.entsoeConfigured && !overview.eiaConfigured">
               {{ 'ELECTRICITE.INTERNATIONAL_HINT' | translate }}
             </p>
             <div class="table-responsive" *ngIf="overview.euNuclear?.length">
@@ -206,16 +204,16 @@
       </div>
     </div>
 
-    <p class="small text-muted mb-0">
+    <p class="electricite-footer-note text-muted">
       {{ 'ELECTRICITE.SOURCE_NOTE' | translate }}
     </p>
   </ng-container>
 </div>
 
 <ng-template #unavailModal let-modal>
-  <div class="modal-header">
-    <h5 class="modal-title d-flex align-items-center flex-wrap gap-2">
-      <i class="fa fa-exclamation-triangle text-warning"></i>
+  <div class="modal-header electricite-unavail-modal-header">
+    <h5 class="modal-title electricite-unavail-modal-title d-flex align-items-center flex-wrap gap-2">
+      <i class="fa fa-exclamation-triangle"></i>
       <span *ngIf="unavailFilterTranche">{{ 'ELECTRICITE.UNAVAIL_TITLE_UNIT' | translate:{ unit: unavailFilterTranche } }}</span>
       <span *ngIf="!unavailFilterTranche">{{ 'ELECTRICITE.UNAVAIL_TITLE' | translate }}</span>
       <span class="badge rounded-pill"
@@ -225,12 +223,28 @@
       </span>
     </h5>
     <button type="button"
-            class="btn-close"
+            class="btn-close btn-close-white"
             [attr.aria-label]="'COMMUN.CLOSE' | translate"
             (click)="modal.dismiss()"></button>
   </div>
   <div class="modal-body electricite-unavail-modal-body">
     <p class="text-muted small mb-3">{{ 'ELECTRICITE.UNAVAIL_HINT' | translate }}</p>
+
+    <details class="electricite-unavail-legend mb-3">
+      <summary class="electricite-unavail-legend__title">
+        <i class="fa fa-info-circle me-1"></i>{{ 'ELECTRICITE.UNAVAIL_LEGEND_TITLE' | translate }}
+      </summary>
+      <p class="electricite-unavail-legend__intro small text-muted mb-2">
+        {{ 'ELECTRICITE.UNAVAIL_LEGEND_INTRO' | translate }}
+      </p>
+      <dl class="electricite-unavail-legend__list mb-0">
+        <div class="electricite-unavail-legend__item" *ngFor="let entry of unavailTypeLegend">
+          <dt><span class="badge bg-secondary-subtle text-secondary">{{ entry.codeKey | translate }}</span></dt>
+          <dd>{{ entry.explainKey | translate }}</dd>
+        </div>
+      </dl>
+    </details>
+
     <button type="button"
             class="btn btn-link btn-sm px-0 mb-2"
             *ngIf="unavailFilterTranche"
@@ -251,10 +265,15 @@
         <div class="electricite-unavail-item__head">
           <strong class="electricite-unavail-item__unit">{{ u.nom }}</strong>
           <span class="badge bg-danger-subtle text-danger electricite-unavail-item__type" *ngIf="u.type">
-            {{ u.type }}
+            {{ displayUnavailType(u.type) }}
           </span>
         </div>
-        <p class="electricite-unavail-item__cause mb-2" *ngIf="u.cause">{{ u.cause }}</p>
+        <p class="electricite-unavail-item__type-help small text-muted mb-2"
+           *ngIf="explainUnavailType(u.type) as typeHelp">
+          {{ typeHelp }}
+        </p>
+        <p class="electricite-unavail-item__cause mb-2"
+           *ngIf="u.cause && !isGenericUnavailCause(u.cause)">{{ u.cause }}</p>
         <div class="electricite-unavail-item__meta">
           <span>
             <i class="fa fa-bolt text-muted me-1"></i>

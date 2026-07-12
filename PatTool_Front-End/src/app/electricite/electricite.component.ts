@@ -34,6 +34,11 @@ Chart.register(...registerables);
 type MapMode = 'fr' | 'world';
 type WorldStatusFilter = 'operational' | 'all';
 
+interface UnavailTypeLegendEntry {
+  codeKey: string;
+  explainKey: string;
+}
+
 @Component({
   selector: 'app-electricite',
   standalone: true,
@@ -64,32 +69,20 @@ export class ElectriciteComponent implements OnInit, AfterViewInit, OnDestroy {
   mapFullscreen = false;
   unavailFilterTranche: string | null = null;
 
+  /** Types REMIT publiés par EDF Open Data (libellés tels que reçus). */
+  readonly unavailTypeLegend: UnavailTypeLegendEntry[] = [
+    { codeKey: 'ELECTRICITE.UNAVAIL_CODE_PLANIFIEE', explainKey: 'ELECTRICITE.UNAVAIL_TYPE_PLANIFIEE' },
+    { codeKey: 'ELECTRICITE.UNAVAIL_CODE_FORTUITE', explainKey: 'ELECTRICITE.UNAVAIL_TYPE_FORTUITE' },
+    { codeKey: 'ELECTRICITE.UNAVAIL_CODE_CHRONIQUE_PMIN', explainKey: 'ELECTRICITE.UNAVAIL_TYPE_CHRONIQUE_PMIN' },
+    { codeKey: 'ELECTRICITE.UNAVAIL_CODE_CHRONIQUE_AFRR', explainKey: 'ELECTRICITE.UNAVAIL_TYPE_CHRONIQUE_AFRR' }
+  ];
+
   isLoading = false;
   errorMessage = '';
   lastUpdatedLabel = '';
 
   chartData: ChartConfiguration<'line'>['data'] = { labels: [], datasets: [] };
-  chartOptions: ChartOptions<'line'> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: { mode: 'index', intersect: false },
-    plugins: {
-      legend: { position: 'top' },
-      tooltip: {
-        callbacks: {
-          label: (ctx) => `${ctx.dataset.label}: ${(ctx.parsed.y as number).toLocaleString()} MW`
-        }
-      }
-    },
-    scales: {
-      x: { ticks: { maxTicksLimit: 8 } },
-      y: {
-        ticks: {
-          callback: (v) => Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 })
-        }
-      }
-    }
-  };
+  chartOptions: ChartOptions<'line'> = {};
 
   private map?: L.Map;
   private baseLayer: L.TileLayer | L.LayerGroup | null = null;
@@ -97,6 +90,7 @@ export class ElectriciteComponent implements OnInit, AfterViewInit, OnDestroy {
   private mapReady = false;
   private pendingMapRefresh = false;
   private refreshSub?: Subscription;
+  private langSub?: Subscription;
   private readonly refreshMs = 5 * 60_000;
   private mapPopupActionsWired = false;
 
@@ -110,8 +104,17 @@ export class ElectriciteComponent implements OnInit, AfterViewInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.applyChartOptions();
     this.loadAll();
     this.refreshSub = interval(this.refreshMs).subscribe(() => this.loadAll(true));
+    this.langSub = this.translate.onLangChange.subscribe(() => {
+      this.applyChartOptions();
+      if (this.overview?.frHistory?.length) {
+        this.rebuildChart(this.overview.frHistory);
+      }
+      this.refreshMapMarkers();
+      this.cdr.markForCheck();
+    });
   }
 
   ngAfterViewInit(): void {
@@ -120,6 +123,7 @@ export class ElectriciteComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.refreshSub?.unsubscribe();
+    this.langSub?.unsubscribe();
     this.exitMapFullscreenIfActive();
     this.map?.remove();
     this.map = undefined;
@@ -248,7 +252,38 @@ export class ElectriciteComponent implements OnInit, AfterViewInit, OnDestroy {
     if (value == null || Number.isNaN(value)) {
       return '—';
     }
-    return `${value.toLocaleString(undefined, { maximumFractionDigits: 0 })} MW`;
+    return this.translate.instant('ELECTRICITE.MW_VALUE', {
+      value: value.toLocaleString(undefined, { maximumFractionDigits: 0 })
+    });
+  }
+
+  formatCo2(value: number | null | undefined): string {
+    if (value == null || Number.isNaN(value)) {
+      return '—';
+    }
+    return this.translate.instant('ELECTRICITE.CO2_VALUE', { value });
+  }
+
+  displayUnavailType(type?: string | null): string {
+    if (!type) {
+      return '';
+    }
+    const norm = type.trim().toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    if (norm.includes('planif')) {
+      return this.translate.instant('ELECTRICITE.UNAVAIL_CODE_PLANIFIEE');
+    }
+    if (norm.includes('fortuit')) {
+      return this.translate.instant('ELECTRICITE.UNAVAIL_CODE_FORTUITE');
+    }
+    if (norm.includes('pmin')) {
+      return this.translate.instant('ELECTRICITE.UNAVAIL_CODE_CHRONIQUE_PMIN');
+    }
+    if (norm.includes('afrr')) {
+      return this.translate.instant('ELECTRICITE.UNAVAIL_CODE_CHRONIQUE_AFRR');
+    }
+    return type;
   }
 
   formatDatetime(iso: string | null | undefined): string {
@@ -291,12 +326,50 @@ export class ElectriciteComponent implements OnInit, AfterViewInit, OnDestroy {
 
   formatUnavailPower(u: ElectricityUnavailability): string {
     if (u.puissanceDisponibleMw != null && u.puissanceMaximaleMw != null) {
-      return `${u.puissanceDisponibleMw.toLocaleString(undefined, { maximumFractionDigits: 0 })} / ${u.puissanceMaximaleMw.toLocaleString(undefined, { maximumFractionDigits: 0 })} MW`;
+      return this.translate.instant('ELECTRICITE.MW_AVAILABLE_MAX', {
+        available: u.puissanceDisponibleMw.toLocaleString(undefined, { maximumFractionDigits: 0 }),
+        max: u.puissanceMaximaleMw.toLocaleString(undefined, { maximumFractionDigits: 0 })
+      });
     }
     if (u.puissanceMaximaleMw != null) {
-      return `${u.puissanceMaximaleMw.toLocaleString(undefined, { maximumFractionDigits: 0 })} MW max`;
+      return this.translate.instant('ELECTRICITE.MW_MAX_ONLY', {
+        max: u.puissanceMaximaleMw.toLocaleString(undefined, { maximumFractionDigits: 0 })
+      });
     }
     return '—';
+  }
+
+  explainUnavailType(type?: string | null): string {
+    if (!type) {
+      return '';
+    }
+    const norm = type.trim().toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    if (norm.includes('planif')) {
+      return this.translate.instant('ELECTRICITE.UNAVAIL_TYPE_PLANIFIEE');
+    }
+    if (norm.includes('fortuit')) {
+      return this.translate.instant('ELECTRICITE.UNAVAIL_TYPE_FORTUITE');
+    }
+    if (norm.includes('pmin')) {
+      return this.translate.instant('ELECTRICITE.UNAVAIL_TYPE_CHRONIQUE_PMIN');
+    }
+    if (norm.includes('afrr')) {
+      return this.translate.instant('ELECTRICITE.UNAVAIL_TYPE_CHRONIQUE_AFRR');
+    }
+    return '';
+  }
+
+  isGenericUnavailCause(cause?: string | null): boolean {
+    if (!cause) {
+      return true;
+    }
+    const norm = cause.trim().toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    return (norm.includes('information') && norm.includes('complementaire'))
+      || (norm.includes('additional') && norm.includes('information'));
   }
 
   private ensureMap(): void {
@@ -359,11 +432,15 @@ export class ElectriciteComponent implements OnInit, AfterViewInit, OnDestroy {
           fillOpacity: 0.85
         });
         marker.bindPopup([
-          `<strong>${plant.name}</strong>`,
-          plant.country,
-          plant.status,
-          plant.reactorType || '',
-          plant.capacityMw != null ? `${plant.capacityMw} MW` : ''
+          `<strong>${this.escapeHtml(plant.name || '')}</strong>`,
+          plant.country ? this.escapeHtml(plant.country) : '',
+          plant.status ? this.escapeHtml(plant.status) : '',
+          plant.reactorType ? this.escapeHtml(plant.reactorType) : '',
+          plant.capacityMw != null
+            ? this.escapeHtml(this.translate.instant('ELECTRICITE.MW_VALUE', {
+              value: plant.capacityMw.toLocaleString(undefined, { maximumFractionDigits: 0 })
+            }))
+            : ''
         ].filter(Boolean).join('<br>'));
         marker.addTo(this.mapLayer);
       }
@@ -414,14 +491,39 @@ export class ElectriciteComponent implements OnInit, AfterViewInit, OnDestroy {
     this.chartData = {
       labels,
       datasets: [
-        this.lineDataset('Nucléaire', chronological.map((p) => p.nucleaire), '#6f42c1'),
-        this.lineDataset('Éolien', chronological.map((p) => p.eolien), '#20c997'),
-        this.lineDataset('Solaire', chronological.map((p) => p.solaire), '#ffc107'),
-        this.lineDataset('Gaz', chronological.map((p) => p.gaz), '#fd7e14'),
-        this.lineDataset('Hydraulique', chronological.map((p) => p.hydraulique), '#0dcaf0')
+        this.lineDataset(this.translate.instant('ELECTRICITE.CHART_NUCLEAR'), chronological.map((p) => p.nucleaire), '#6f42c1'),
+        this.lineDataset(this.translate.instant('ELECTRICITE.CHART_WIND'), chronological.map((p) => p.eolien), '#20c997'),
+        this.lineDataset(this.translate.instant('ELECTRICITE.CHART_SOLAR'), chronological.map((p) => p.solaire), '#ffc107'),
+        this.lineDataset(this.translate.instant('ELECTRICITE.CHART_GAS'), chronological.map((p) => p.gaz), '#fd7e14'),
+        this.lineDataset(this.translate.instant('ELECTRICITE.CHART_HYDRO'), chronological.map((p) => p.hydraulique), '#0dcaf0')
       ]
     };
     this.chart?.update();
+  }
+
+  private applyChartOptions(): void {
+    const mw = this.translate.instant('ELECTRICITE.MW');
+    this.chartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${ctx.dataset.label}: ${(ctx.parsed.y as number).toLocaleString()} ${mw}`
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { maxTicksLimit: 8 } },
+        y: {
+          ticks: {
+            callback: (v) => Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 })
+          }
+        }
+      }
+    };
   }
 
   private lineDataset(label: string, data: Array<number | null | undefined>, color: string) {
@@ -455,11 +557,16 @@ export class ElectriciteComponent implements OnInit, AfterViewInit, OnDestroy {
       ? this.translate.instant('ELECTRICITE.POPUP_STATUS_UNAVAIL')
       : this.translate.instant('ELECTRICITE.POPUP_STATUS_OK');
     const btnLabel = this.translate.instant('ELECTRICITE.POPUP_VIEW_UNAVAIL');
+    const mwLabel = plant.puissanceInstalleeMw != null
+      ? this.translate.instant('ELECTRICITE.MW_VALUE', {
+        value: plant.puissanceInstalleeMw.toLocaleString(undefined, { maximumFractionDigits: 0 })
+      })
+      : '—';
     const lines = [
       `<div class="electricite-map-popup">`,
       `<strong class="electricite-popup-title">${this.escapeHtml(tranche)}</strong>`,
       plant.centrale ? `<div>${this.escapeHtml(plant.centrale)}</div>` : '',
-      `<div>${plant.puissanceInstalleeMw ?? '—'} MW</div>`,
+      `<div>${this.escapeHtml(mwLabel)}</div>`,
       plant.region ? `<div class="text-muted small">${this.escapeHtml(plant.region)}</div>` : '',
       `<div class="electricite-popup-status ${statusClass}">${this.escapeHtml(statusLabel)}</div>`,
       `<button type="button" class="btn btn-sm electricite-popup-unavail-btn ${unavail ? 'btn-danger' : 'btn-outline-secondary'} mt-2" data-tranche="${this.escapeAttr(tranche)}">`,
