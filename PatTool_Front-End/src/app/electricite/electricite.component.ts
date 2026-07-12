@@ -496,7 +496,7 @@ export class ElectriciteComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       event.preventDefault();
       event.stopPropagation();
-      const tranche = btn.dataset.tranche || '';
+      const tranche = btn.dataset['tranche'] || '';
       this.ngZone.run(() => {
         this.openUnavailModal(tranche);
         this.map?.closePopup();
