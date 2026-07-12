@@ -25,6 +25,10 @@
   margin-right: 5px;
 }
 
+.mf-geocode-alert {
+  margin: 0.75rem 0 0.5rem;
+}
+
 .mf-section-head {
   display: flex;
   align-items: center;

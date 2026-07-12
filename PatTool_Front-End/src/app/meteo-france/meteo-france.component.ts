@@ -307,6 +307,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   isLoadingCitySearch = false;
   isLoadingGps = false;
   citySearchResults: MeteoFranceGeocodeResult[] = [];
+  geocodeErrorKey = '';
+  geocodeErrorParams: Record<string, string> = {};
   private citySearchCache = new Map<string, MeteoFranceGeocodeResult[]>();
   private citySearchRequestId = 0;
 
@@ -441,6 +443,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private selectedLocationName = '';
   private reverseGeocodeRequestId = 0;
   private locationGeocodeKey = '';
+  /** True once the user picked a place (geocode, coords, map click) — blocks late init GPS from overwriting. */
+  private userLocationLocked = false;
+  private recenterMapOnNextReload = false;
   private weatherRequestId = 0;
   private selectedTempRequestId = 0;
   private temperatureGridPoints: TemperatureGridPoint[] = [];
@@ -538,6 +543,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
 
     this.isLoadingGps = true;
     this.getUserLocation().then((location) => {
+      if (this.userLocationLocked || this.componentDestroyed) {
+        return;
+      }
       this.setLocation(location.lat, location.lng, false);
     }).finally(() => {
       this.bootstrapMeteoFranceLocation();
@@ -607,6 +615,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     }
 
     this.setLocation(lat, lon, this.mapInitialized);
+    this.userLocationLocked = true;
     this.activeMainTab = this.resolveRegionalMainTab(this.activeMainTab);
     return true;
   }
@@ -1908,13 +1917,18 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     }
   }
 
-  private centerSharedMapOnLocation(options?: { minZoom?: number }): void {
-    if (!Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
+  private centerSharedMapOnLocation(options?: { minZoom?: number; forceZoom?: number; lat?: number; lon?: number }): void {
+    const lat = options?.lat ?? this.lat;
+    const lon = options?.lon ?? this.lon;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
       return;
     }
-    this.sharedMapCenterLat = this.lat;
-    this.sharedMapCenterLon = this.lon;
-    if (this.pendingRadarMapZoom != null) {
+    this.sharedMapCenterLat = lat;
+    this.sharedMapCenterLon = lon;
+    if (options?.forceZoom != null) {
+      this.sharedMapZoom = options.forceZoom;
+      this.pendingRadarMapZoom = null;
+    } else if (this.pendingRadarMapZoom != null) {
       this.sharedMapZoom = this.pendingRadarMapZoom;
       this.pendingRadarMapZoom = null;
     } else {
@@ -1925,6 +1939,70 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       this.sharedMapZoom = zoom;
     }
     this.applySharedMapViewToAllMaps();
+  }
+
+  /** Center all maps and markers on exact GPS coordinates (geocode hit or parsed lat/lon). */
+  private goToPlaceCoordinates(
+    lat: number,
+    lon: number,
+    zoom = MeteoFranceComponent.RADAR_MAP_ZOOM
+  ): void {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      return;
+    }
+    this.lat = lat;
+    this.lon = lon;
+    this.sharedMapCenterLat = lat;
+    this.sharedMapCenterLon = lon;
+    this.sharedMapZoom = zoom;
+    this.pendingRadarMapZoom = null;
+
+    if (this.marker) {
+      this.marker.setLatLng([lat, lon]);
+    }
+    if (this.aromepiMarker) {
+      this.aromepiMarker.setLatLng([lat, lon]);
+    }
+    if (this.forecastMarker) {
+      this.forecastMarker.setLatLng([lat, lon]);
+    }
+
+    this.syncingMapView = true;
+    try {
+      const maps = [this.map, this.aromepiMap, this.forecastMap];
+      for (const map of maps) {
+        if (!map) {
+          continue;
+        }
+        const z = this.clampZoomForMap(map, zoom);
+        map.setView([lat, lon], z, { animate: false });
+      }
+      if (this.map) {
+        this.sharedMapZoom = this.map.getZoom();
+        this.sharedMapCenterLat = this.map.getCenter().lat;
+        this.sharedMapCenterLon = this.map.getCenter().lng;
+      }
+    } finally {
+      this.syncingMapView = false;
+    }
+  }
+
+  /** After layout / tab chrome changes, re-apply geocode coordinates (trace-viewer pattern). */
+  private scheduleRecenterAfterLayout(lat: number, lon: number): void {
+    for (const delayMs of [80, 250]) {
+      this.scheduleComponentTimeout(() => {
+        if (this.componentDestroyed) {
+          return;
+        }
+        if (Math.abs(this.lat - lat) > 1e-6 || Math.abs(this.lon - lon) > 1e-6) {
+          return;
+        }
+        this.map?.invalidateSize();
+        this.aromepiMap?.invalidateSize();
+        this.forecastMap?.invalidateSize();
+        this.goToPlaceCoordinates(lat, lon);
+      }, delayMs);
+    }
   }
 
   private syncMapViewFromSource(source: 'radar' | 'aromepi' | 'forecast'): void {
@@ -2003,6 +2081,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.marker = L.marker([this.lat, this.lon], { draggable: true }).addTo(this.map);
     this.marker.on('dragend', () => {
       const pos = this.marker!.getLatLng();
+      this.userLocationLocked = true;
       this.setLocation(pos.lat, pos.lng, false);
     });
 
@@ -2010,6 +2089,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       if (this.isTemperatureMapUiClick(e.originalEvent)) {
         return;
       }
+      this.userLocationLocked = true;
       this.setLocation(e.latlng.lat, e.latlng.lng, false);
     });
 
@@ -5547,10 +5627,12 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.aromepiMarker = L.marker([this.lat, this.lon], { draggable: true }).addTo(this.aromepiMap);
     this.aromepiMarker.on('dragend', () => {
       const pos = this.aromepiMarker!.getLatLng();
+      this.userLocationLocked = true;
       this.setLocation(pos.lat, pos.lng, false);
     });
 
     this.aromepiMap.on('click', (e: L.LeafletMouseEvent) => {
+      this.userLocationLocked = true;
       this.setLocation(e.latlng.lat, e.latlng.lng, false);
     });
 
@@ -5737,6 +5819,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     if (!this.isForecastOptionsTab) {
       return;
     }
+    this.userLocationLocked = true;
     this.setLocation(lat, lon, false);
     this.centerSharedMapOnLocation({ minZoom: MeteoFranceComponent.FORECAST_MAP_ZOOM });
   }
@@ -6293,22 +6376,29 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
 
     const parsedCoords = this.parseCoordinatesInput(query);
     if (parsedCoords) {
+      this.clearGeocodeError();
       this.errorMessage = '';
       this.citySearchResults = [];
+      this.userLocationLocked = true;
       this.setLocation(parsedCoords.lat, parsedCoords.lon, true);
       return;
     }
-
     const cacheKey = query.toLowerCase();
     const cached = this.citySearchCache.get(cacheKey);
     if (cached) {
       this.citySearchResults = cached;
-      this.errorMessage = cached.length > 0 ? '' : 'METEO_FRANCE.GEOCODE_ERROR';
       this.isLoadingCitySearch = false;
+      if (cached.length > 0) {
+        this.clearGeocodeError();
+        this.applyGeocodeSearchResults(query, cached);
+      } else {
+        this.showCityNotFound(query);
+      }
       this.cdr.detectChanges();
       return;
     }
 
+    this.clearGeocodeError();
     this.errorMessage = '';
     this.isLoadingCitySearch = true;
     const requestId = ++this.citySearchRequestId;
@@ -6321,9 +6411,10 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
           .map((item) => this.normalizeGeocodeSearchResult(item))
           .filter((item): item is MeteoFranceGeocodeResult => item != null);
         this.citySearchCache.set(cacheKey, results);
-        this.citySearchResults = results;
         if (results.length === 0) {
-          this.errorMessage = 'METEO_FRANCE.GEOCODE_ERROR';
+          this.showCityNotFound(query);
+        } else {
+          this.applyGeocodeSearchResults(query, results);
         }
         this.cdr.detectChanges();
       },
@@ -6331,7 +6422,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         if (requestId !== this.citySearchRequestId) {
           return;
         }
-        this.errorMessage = 'METEO_FRANCE.GEOCODE_ERROR';
+        this.showCitySearchError();
         this.cdr.detectChanges();
       },
       complete: () => {
@@ -6344,6 +6435,23 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     });
   }
 
+  private clearGeocodeError(): void {
+    this.geocodeErrorKey = '';
+    this.geocodeErrorParams = {};
+  }
+
+  private showCityNotFound(query: string): void {
+    this.citySearchResults = [];
+    this.geocodeErrorKey = 'METEO_FRANCE.GEOCODE_NOT_FOUND';
+    this.geocodeErrorParams = { query };
+  }
+
+  private showCitySearchError(): void {
+    this.citySearchResults = [];
+    this.geocodeErrorKey = 'METEO_FRANCE.GEOCODE_ERROR';
+    this.geocodeErrorParams = {};
+  }
+
   selectCity(result: MeteoFranceGeocodeResult | any): void {
     const normalized = this.normalizeGeocodeSearchResult(result) ?? (result as MeteoFranceGeocodeResult);
     if (!normalized || !Number.isFinite(normalized.lat) || !Number.isFinite(normalized.lon)) {
@@ -6352,14 +6460,64 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.selectCityFromGeocode(normalized);
   }
 
-  /** Same critical path as address-geocode selectResult: UI first, heavy work later. */
+  /** Pick the best Nominatim hit for the query, then center the map on its lat/lon (address-geocode pattern). */
+  private applyGeocodeSearchResults(query: string, results: MeteoFranceGeocodeResult[]): void {
+    const picked = this.pickBestGeocodeResult(query, results);
+    this.citySearchResults = results.length > 1 ? results : [];
+    this.selectCityFromGeocode(picked);
+  }
+
+  private pickBestGeocodeResult(query: string, results: MeteoFranceGeocodeResult[]): MeteoFranceGeocodeResult {
+    if (results.length <= 1) {
+      return results[0];
+    }
+    const q = query.trim().toLowerCase();
+    const placeName = (result: MeteoFranceGeocodeResult): string => {
+      const address = result.address;
+      if (address) {
+        return (
+          this.readAddressField(address, 'city')
+          || this.readAddressField(address, 'town')
+          || this.readAddressField(address, 'village')
+          || this.readAddressField(address, 'municipality')
+          || this.readAddressField(address, 'hamlet')
+        ).toLowerCase();
+      }
+      return '';
+    };
+    const exactPlace = results.find((result) => placeName(result) === q);
+    if (exactPlace) {
+      return exactPlace;
+    }
+    const startsWith = results.find((result) => {
+      const name = placeName(result);
+      return name.startsWith(q) || result.displayName.toLowerCase().startsWith(q);
+    });
+    if (startsWith) {
+      return startsWith;
+    }
+    const includes = results.find((result) => {
+      const name = placeName(result);
+      return name.includes(q) || result.displayName.toLowerCase().includes(q);
+    });
+    return includes ?? results[0];
+  }
+
+  /** Same critical path as address-geocode selectResult + showOnMap: use result.lat/lon for the map. */
   private selectCityFromGeocode(result: MeteoFranceGeocodeResult): void {
+    const lat = result.lat;
+    const lon = result.lon;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      return;
+    }
+    this.userLocationLocked = true;
+    this.recenterMapOnNextReload = true;
     this.citySearchResults = [];
-    this.errorMessage = '';
-    this.lat = result.lat;
-    this.lon = result.lon;
-    this.applyGeocodeMetadata(result, result.lat, result.lon);
-    this.syncMapMarkers(false);
+    this.clearGeocodeError();
+    this.goToPlaceCoordinates(lat, lon);
+    this.markLocationResolvedAtCoordinates(lat, lon);
+    this.applyGeocodeMetadata(result, lat, lon);
+    this.scheduleRecenterAfterLayout(lat, lon);
     this.cdr.detectChanges();
     setTimeout(() => {
       if (this.componentDestroyed) {
@@ -6369,12 +6527,22 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     }, 0);
   }
 
+  private parseGeocodeCoordinate(value: unknown): number {
+    if (typeof value === 'number') {
+      return value;
+    }
+    if (typeof value === 'string' && value.trim() !== '') {
+      return parseFloat(value);
+    }
+    return NaN;
+  }
+
   private normalizeGeocodeSearchResult(item: any): MeteoFranceGeocodeResult | null {
     if (!item) {
       return null;
     }
-    const lat = typeof item.lat === 'number' ? item.lat : parseFloat(item.lat);
-    const lon = typeof item.lon === 'number' ? item.lon : parseFloat(item.lon);
+    const lat = this.parseGeocodeCoordinate(item.lat ?? item.latitude);
+    const lon = this.parseGeocodeCoordinate(item.lon ?? item.lng ?? item.longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
       return null;
     }
@@ -6415,7 +6583,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       this.forecastMarker.setLatLng([this.lat, this.lon]);
     }
     if (moveMap) {
-      this.centerSharedMapOnLocation({ minZoom: MeteoFranceComponent.RADAR_MAP_ZOOM });
+      this.goToPlaceCoordinates(this.lat, this.lon);
     }
   }
 
@@ -6445,7 +6613,12 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       this.fetchSelectedPointTemperature(this.lat, this.lon);
       this.updateSelectedTemperatureLabel();
     }
-    this.focusActiveTabMap();
+    if (this.recenterMapOnNextReload) {
+      this.recenterMapOnNextReload = false;
+      this.goToPlaceCoordinates(this.lat, this.lon);
+    } else {
+      this.focusActiveTabMap();
+    }
     if (this.isMultiDayForecastTab) {
       this.reloadActiveMultiDayForecast();
     } else {
@@ -6475,6 +6648,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.isLoadingGps = true;
     this.errorMessage = '';
     this.getUserLocation().then((location) => {
+      this.userLocationLocked = true;
       this.setLocation(location.lat, location.lng, true);
     }).finally(() => {
       this.isLoadingGps = false;
@@ -6694,7 +6868,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
 
   /** Apply Nominatim address fields (forward geocode response). UI only — no weather loads. */
   private applyGeocodeMetadata(res: any, lat: number, lon: number): void {
-    this.locationGeocodeKey = this.currentLocationKey();
+    this.locationGeocodeKey = `${lat.toFixed(4)},${lon.toFixed(4)}`;
     this.fullAddress = res?.displayName || res?.display_name || '';
     this.selectedLocationName = this.resolvePlaceNameFromGeocode(res, lat, lon);
     const address = res?.address;

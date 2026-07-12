@@ -420,6 +420,12 @@
 
 
 
+          <div class="alert alert-danger mf-geocode-alert" *ngIf="geocodeErrorKey" role="alert">
+            <i class="fa fa-exclamation-circle"></i> {{ geocodeErrorKey | translate:geocodeErrorParams }}
+          </div>
+
+
+
           <ng-container *ngIf="activeMainTab === 'radar'">
 
             <ng-container *ngTemplateOutlet="meteoFranceLocationPanel"></ng-container>
