@@ -355,6 +355,23 @@ public class OpenWeatherService {
     }
 
     /**
+     * Sea-level elevation (m) for coordinates — cached server-side (OpenElevation / Open-Meteo).
+     */
+    public Map<String, Object> getSeaLevelElevationForCoordinates(double lat, double lon) {
+        Map<String, Object> result = new HashMap<>();
+        SeaLevelElevation seaLevel = resolveSeaLevelElevation(lat, lon);
+        if (seaLevel != null && seaLevel.altitude() != null) {
+            result.put("altitudeM", seaLevel.altitude());
+            result.put("source", seaLevel.sourceKey());
+        } else {
+            result.put("altitudeM", null);
+        }
+        result.put("lat", lat);
+        result.put("lon", lon);
+        return result;
+    }
+
+    /**
      * Get all available altitudes with their sources
      * Tries to get altitude from all possible sources and returns all available ones
      * Priority order: OpenElevation (sea level) > Nominatim > Mobile GPS (may be HAE)

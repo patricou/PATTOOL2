@@ -402,6 +402,17 @@ public class ApiController {
     }
 
     /**
+     * Cached sea-level elevation (m) for a coordinate — used for weather-station tooltips.
+     */
+    @GetMapping(value = "/weather/elevation", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getElevation(
+            @RequestParam("lat") Double lat,
+            @RequestParam("lon") Double lon) {
+        log.debug("Fetching elevation for coordinates: lat={}, lon={}", lat, lon);
+        return openWeatherService.getSeaLevelElevationForCoordinates(lat, lon);
+    }
+
+    /**
      * Test endpoint to check API configuration
      * @return Status information
      */
@@ -417,6 +428,7 @@ public class ApiController {
             "/api/external/weather/forecast",
             "/api/external/weather/forecast/coordinates",
             "/api/external/weather/altitudes",
+            "/api/external/weather/elevation",
             "/api/external/weather/map/temperature/{z}/{x}/{y}",
             "/api/external/weather/map/clouds/{z}/{x}/{y}"
         });

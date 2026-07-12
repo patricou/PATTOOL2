@@ -939,6 +939,20 @@ export class ApiService {
     );
   }
 
+  /** Cached sea-level elevation (m) for weather-station tooltips. */
+  getStationElevation(lat: number, lon: number): Observable<{ altitudeM: number | null; source?: string }> {
+    const url = this.API_URL + 'external/weather/elevation';
+    const params = new HttpParams().set('lat', lat.toString()).set('lon', lon.toString());
+    const requestNoAuth = () => this._http.get<{ altitudeM: number | null; source?: string }>(url, {
+      headers: new HttpHeaders({ 'Accept': 'application/json', 'Content-Type': 'application/json; charset=UTF-8' }),
+      params
+    });
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => this._http.get<{ altitudeM: number | null; source?: string }>(url, { headers, params })),
+      catchError(() => requestNoAuth())
+    );
+  }
+
   /**
    * Get API status
    */

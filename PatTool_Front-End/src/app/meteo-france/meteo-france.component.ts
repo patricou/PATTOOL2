@@ -71,6 +71,7 @@ interface TemperatureGridPoint {
   source?: string;
   interpolated?: boolean;
   cached?: boolean;
+  altitudeM?: number;
 }
 
 interface ClimPeriodOption {
@@ -447,6 +448,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private temperatureLabelsRequestId = 0;
   private temperatureLabelsLoadSub: Subscription | null = null;
   private readonly refreshingTemperatureKeys = new Set<string>();
+  private readonly stationAltitudeCache = new Map<string, number | null>();
+  private readonly stationAltitudeInflight = new Map<string, Subscription>();
   private cloudIntensityReloadTimer: ReturnType<typeof setTimeout> | null = null;
   private mosaicObjectUrl: string | null = null;
   private readonly radarBounds: L.LatLngBoundsExpression = [[40.8, -5.6], [52.0, 10.2]];
@@ -639,6 +642,10 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.exitAromepiMapFullscreenIfActive();
     this.temperatureLabelsLoadSub?.unsubscribe();
     this.temperatureLabelsLoadSub = null;
+    for (const sub of this.stationAltitudeInflight.values()) {
+      sub.unsubscribe();
+    }
+    this.stationAltitudeInflight.clear();
     this.subs.unsubscribe();
     this.clearRadarTimers();
     this.stopAromepiAnimation();
@@ -3357,6 +3364,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     if (!this.showTemperatureTooltips) {
       return;
     }
+    this.applyCachedStationAltitude(point);
     marker.bindTooltip(this.buildTemperatureLabelTooltip(point), {
       direction: 'top',
       offset: [0, -10],
@@ -3395,6 +3403,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     });
     marker.on('mouseover', () => {
       cancelClose();
+      this.ensureStationAltitude(point, marker);
       marker.openTooltip();
       wireTooltipElement();
     });
@@ -4318,6 +4327,16 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       lines.push(`<div class="mf-temp-tooltip-meta">${this.escapeHtml(point.stationId)}</div>`);
     }
 
+    if (this.isObsStationPoint(point)) {
+      const altitudeLabel = this.formatStationAltitudeLabel(point.altitudeM);
+      if (altitudeLabel) {
+        lines.push(this.tooltipRow(
+          this.translate.instant('METEO_FRANCE.TOOLTIP_STATION_ALTITUDE'),
+          this.escapeHtml(altitudeLabel)
+        ));
+      }
+    }
+
     if (point.interpolated) {
       lines.push(`<div class="mf-temp-tooltip-meta">${this.escapeHtml(this.translate.instant('METEO_FRANCE.TOOLTIP_INTERPOLATED'))}</div>`);
     }
@@ -4408,6 +4427,80 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     }
     const isMf = point.source === 'meteofrance-dpobs';
     return this.translate.instant(isMf ? 'METEO_FRANCE.TOOLTIP_STATION_MF' : 'METEO_FRANCE.TOOLTIP_OPENMETEO');
+  }
+
+  private isObsStationPoint(point: TemperatureGridPoint): boolean {
+    if (point.interpolated || !point.stationId) {
+      return false;
+    }
+    return this.isMfStationLabelPoint(point) || this.isMsStationLabelPoint(point);
+  }
+
+  private stationAltitudeCacheKey(lat: number, lon: number): string {
+    return `${lat.toFixed(5)},${lon.toFixed(5)}`;
+  }
+
+  private applyCachedStationAltitude(point: TemperatureGridPoint): void {
+    if (!this.isObsStationPoint(point) || point.altitudeM != null) {
+      return;
+    }
+    const key = this.stationAltitudeCacheKey(point.lat, point.lon);
+    if (this.stationAltitudeCache.has(key)) {
+      const cached = this.stationAltitudeCache.get(key);
+      if (cached != null) {
+        point.altitudeM = cached;
+      }
+    }
+  }
+
+  private formatStationAltitudeLabel(altitudeM: number | undefined): string | null {
+    if (altitudeM == null || !Number.isFinite(altitudeM)) {
+      return null;
+    }
+    return `${Math.round(altitudeM)} m`;
+  }
+
+  private ensureStationAltitude(point: TemperatureGridPoint, marker?: L.Marker): void {
+    if (!this.isObsStationPoint(point)) {
+      return;
+    }
+    this.applyCachedStationAltitude(point);
+    if (point.altitudeM != null) {
+      return;
+    }
+    const key = this.stationAltitudeCacheKey(point.lat, point.lon);
+    if (this.stationAltitudeCache.has(key) || this.stationAltitudeInflight.has(key)) {
+      return;
+    }
+    const sub = this.apiService.getStationElevation(point.lat, point.lon).pipe(take(1)).subscribe({
+      next: (response) => {
+        this.stationAltitudeInflight.delete(key);
+        const raw = response?.altitudeM;
+        const altitudeM = raw != null && Number.isFinite(Number(raw)) ? Math.round(Number(raw)) : null;
+        this.stationAltitudeCache.set(key, altitudeM);
+        if (altitudeM == null) {
+          return;
+        }
+        point.altitudeM = altitudeM;
+        this.updatePointAltitudeInGrid(point);
+        if (marker?.getTooltip()) {
+          marker.setTooltipContent(this.buildTemperatureLabelTooltip(point));
+        }
+      },
+      error: () => {
+        this.stationAltitudeInflight.delete(key);
+        this.stationAltitudeCache.set(key, null);
+      }
+    });
+    this.stationAltitudeInflight.set(key, sub);
+  }
+
+  private updatePointAltitudeInGrid(point: TemperatureGridPoint): void {
+    const key = this.temperaturePointKey(point);
+    const index = this.temperatureGridPoints.findIndex((p) => this.temperaturePointKey(p) === key);
+    if (index >= 0) {
+      this.temperatureGridPoints[index] = { ...this.temperatureGridPoints[index], altitudeM: point.altitudeM };
+    }
   }
 
   private tooltipRow(label: string, value: string): string {

@@ -3832,6 +3832,7 @@
         "TOOLTIP_DEWPOINT": "Point de rosée",
         "TOOLTIP_WIND_GUST": "Rafales (10 min)",
         "TOOLTIP_OBSERVED_AT": "Observation",
+        "TOOLTIP_STATION_ALTITUDE": "Altitude",
         "DPOBS_NOT_CONFIGURED": "Observations MF v2 : abonnez-vous à l'API « Données Publiques Observation » sur portail-api.meteofrance.fr, puis meteofrance.obs.api.token (repli Open-Meteo actif).",
         "DPOBS_INVALID_TOKEN": "Jeton observations Météo-France refusé (401). Vérifiez meteofrance.obs.api.token (API « Données Publiques Observation », clé distincte du radar et du climat).",
         "RADAR_SOURCE": "Source",

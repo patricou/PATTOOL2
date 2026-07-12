@@ -3827,6 +3827,7 @@
         "TOOLTIP_DEWPOINT": "Dew point",
         "TOOLTIP_WIND_GUST": "Wind gusts (10 min)",
         "TOOLTIP_OBSERVED_AT": "Observation",
+        "TOOLTIP_STATION_ALTITUDE": "Altitude",
         "DPOBS_NOT_CONFIGURED": "MF observations v2: subscribe to « Public Observation Data » on portail-api.meteofrance.fr, then set meteofrance.obs.api.token (Open-Meteo fallback active).",
         "DPOBS_INVALID_TOKEN": "Météo-France observations token rejected (401). Check meteofrance.obs.api.token (« Public Observation Data » API, distinct from radar and clim keys).",
         "RADAR_SOURCE": "Source",
