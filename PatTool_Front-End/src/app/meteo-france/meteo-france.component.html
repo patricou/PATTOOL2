@@ -258,7 +258,7 @@
                     [attr.title]="(mapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate"
                     [attr.aria-label]="(mapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate">
               <i class="fa" [class.fa-expand]="!mapFullscreen" [class.fa-compress]="mapFullscreen"></i>
-              <span class="d-none d-md-inline ms-1">
+              <span class="meteo-france-map-fullscreen-label">
                 {{ (mapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate }}
               </span>
             </button>
@@ -392,6 +392,29 @@
                 </button>
               </div>
             </div>
+
+            <app-weather-point-timeline
+              [(visible)]="pointTempTimelineVisible"
+              [lat]="lat"
+              [lon]="lon"
+              [title]="pointTempTimelineTitle"
+              [mfTempC]="pointTimelineMfTempC"
+              [openMeteoTempC]="pointTimelineOpenMeteoTempC"
+              [openWeatherTempC]="pointTimelineOpenWeatherTempC"
+              [mfObservedAt]="pointTimelineMfObservedAt"
+              [openMeteoObservedAt]="pointTimelineOpenMeteoObservedAt"
+              [openWeatherObservedAt]="pointTimelineOpenWeatherObservedAt"
+              [stationId]="pointTempTimelineStationId"
+              [stationName]="pointTempTimelineStationName"
+              [departmentCode]="departmentCode || undefined"
+              [climEnabled]="climAvailable && pointTempTimelineRegion === 'france'"
+              [region]="pointTempTimelineRegion"
+              [msTempC]="pointTimelineMsTempC"
+              [msObservedAt]="pointTimelineMsObservedAt"
+              [temperatureUnit]="temperatureUnit"
+              [registerChartFullscreen]="true"
+              [overlayMode]="pointTempTimelineOverlayMode">
+            </app-weather-point-timeline>
 
           </div>
 
@@ -1262,8 +1285,12 @@
               <button type="button"
                       class="btn btn-sm btn-light meteo-france-map-fullscreen-btn shadow-sm"
                       (click)="toggleAromepiMapFullscreen()"
-                      [attr.title]="(aromepiMapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate">
+                      [attr.title]="(aromepiMapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate"
+                      [attr.aria-label]="(aromepiMapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate">
                 <i class="fa" [class.fa-compress]="aromepiMapFullscreen" [class.fa-expand]="!aromepiMapFullscreen"></i>
+                <span class="meteo-france-map-fullscreen-label">
+                  {{ (aromepiMapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate }}
+                </span>
               </button>
               <div id="meteo-france-aromepi-map" class="meteo-france-map aromepi-map"></div>
 
@@ -2125,28 +2152,6 @@
     </div>
   </div>
 </ng-template>
-
-<app-weather-point-timeline
-  [(visible)]="pointTempTimelineVisible"
-  [lat]="lat"
-  [lon]="lon"
-  [title]="pointTempTimelineTitle"
-  [mfTempC]="pointTimelineMfTempC"
-  [openMeteoTempC]="pointTimelineOpenMeteoTempC"
-  [openWeatherTempC]="pointTimelineOpenWeatherTempC"
-  [mfObservedAt]="pointTimelineMfObservedAt"
-  [openMeteoObservedAt]="pointTimelineOpenMeteoObservedAt"
-  [openWeatherObservedAt]="pointTimelineOpenWeatherObservedAt"
-  [stationId]="pointTempTimelineStationId"
-  [stationName]="pointTempTimelineStationName"
-  [departmentCode]="departmentCode || undefined"
-  [climEnabled]="climAvailable && pointTempTimelineRegion === 'france'"
-  [region]="pointTempTimelineRegion"
-  [msTempC]="pointTimelineMsTempC"
-  [msObservedAt]="pointTimelineMsObservedAt"
-  [temperatureUnit]="temperatureUnit"
-  [registerChartFullscreen]="true">
-</app-weather-point-timeline>
 
 <div class="mf-station-history-backdrop" *ngIf="stationHistoryModalVisible" (click)="closeStationHistoryModal()"></div>
 

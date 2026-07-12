@@ -3977,6 +3977,11 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     return this.isSelectedPointInSwitzerland ? 'switzerland' : 'france';
   }
 
+  /** Native map fullscreen hides fixed overlays — timeline must be embedded in the map shell. */
+  get pointTempTimelineOverlayMode(): 'fixed' | 'embedded' {
+    return this.isRadarMapNativeFullscreen() ? 'embedded' : 'fixed';
+  }
+
   openPointTempTimeline(): void {
     if (!this.canShowSelectedPointTimelineButton || !Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
       return;
@@ -4771,6 +4776,15 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       this.mapFullscreen = true;
       this.refreshMapLayoutAfterResize();
     });
+  }
+
+  private isRadarMapNativeFullscreen(): boolean {
+    const shell = this.mapShell?.nativeElement;
+    if (!shell) {
+      return false;
+    }
+    const doc = document as Document & { webkitFullscreenElement?: Element };
+    return document.fullscreenElement === shell || doc.webkitFullscreenElement === shell;
   }
 
   @HostListener('document:fullscreenchange')
@@ -7114,6 +7128,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     const point = this.temperatureGridPoints.find((p) => this.temperaturePointKey(p) === key);
     if (!point?.stationId) {
       return;
+    }
+    if (this.isRadarMapNativeFullscreen()) {
+      this.exitMapFullscreenIfActive();
     }
     this.stationHistoryPoint = point;
     this.stationHistoryModalVisible = true;

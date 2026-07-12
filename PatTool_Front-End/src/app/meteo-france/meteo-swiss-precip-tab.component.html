@@ -72,7 +72,7 @@
             [attr.title]="(mapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate"
             [attr.aria-label]="(mapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate">
       <i class="fa" [class.fa-expand]="!mapFullscreen" [class.fa-compress]="mapFullscreen"></i>
-      <span class="d-none d-md-inline ms-1">
+      <span class="meteo-france-map-fullscreen-label">
         {{ (mapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate }}
       </span>
     </button>
