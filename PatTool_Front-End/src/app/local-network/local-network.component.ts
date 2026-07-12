@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
+import { Subscription } from 'rxjs';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { LocalNetworkService } from '../services/local-network.service';
@@ -114,7 +115,10 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   errorMessage: string = '';
   lastScanTime: Date | null = null;
   scanStartTime: Date | null = null;
-  private scanSubscription: any = null;
+  private scanSubscription: Subscription | null = null;
+  private wifiScanSubscription: Subscription | null = null;
+  private readonly scanProgressTimerIds: ReturnType<typeof setTimeout>[] = [];
+  private destroyed = false;
   isAuthorized: boolean = false; // Prevent template rendering until authorization is verified
 
   // Device sorting - Default: sort by vulnerabilities (most vulnerable first)
@@ -338,33 +342,91 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     // Use streaming scan for real-time updates
     this.scanSubscription = this.localNetworkService.scanNetworkStream(this.useExternalVendorAPI).subscribe({
       next: (event) => {
-        // Run in Angular zone to ensure change detection
+        if (this.destroyed) {
+          return;
+        }
         this.ngZone.run(() => {
-          this.handleScanEvent(event);
+          if (!this.destroyed) {
+            this.handleScanEvent(event);
+          }
         });
       },
       error: (error) => {
+        if (this.destroyed) {
+          return;
+        }
         this.ngZone.run(() => {
-          this.handleScanError(error);
+          if (!this.destroyed) {
+            this.handleScanError(error);
+          }
         });
       },
       complete: () => {
+        if (this.destroyed) {
+          return;
+        }
         this.ngZone.run(() => {
-          this.handleScanComplete();
+          if (!this.destroyed) {
+            this.handleScanComplete();
+          }
         });
-        // Clear subscription reference
         this.scanSubscription = null;
       }
     });
   }
 
   ngOnDestroy(): void {
-    // Clean up subscription on component destroy
+    this.destroyed = true;
+    this.clearScanProgressTimers();
     if (this.scanSubscription) {
       this.scanSubscription.unsubscribe();
       this.scanSubscription = null;
     }
+    this.unsubscribeWifiScan();
     this.cleanupWifiConnListener();
+    this.dismissOpenModals();
+  }
+
+  private dismissOpenModals(): void {
+    this.inventoryPreviewModalRef?.dismiss('destroy');
+    this.inventoryPreviewModalRef = undefined;
+    this.wifiScanModalRef?.dismiss('destroy');
+    this.wifiScanModalRef = undefined;
+    this.modalRef?.dismiss('destroy');
+    this.modalRef = undefined;
+    this.vendorInfoModalRef?.dismiss('destroy');
+    this.vendorInfoModalRef = undefined;
+    this.macVendorMappingsModalRef?.dismiss('destroy');
+    this.macVendorMappingsModalRef = undefined;
+    this.newDeviceHistoryModalRef?.dismiss('destroy');
+    this.newDeviceHistoryModalRef = undefined;
+  }
+
+  private scheduleScanProgressTimer(callback: () => void, delayMs: number): void {
+    const timerId = setTimeout(() => {
+      const idx = this.scanProgressTimerIds.indexOf(timerId);
+      if (idx >= 0) {
+        this.scanProgressTimerIds.splice(idx, 1);
+      }
+      if (!this.destroyed) {
+        callback();
+      }
+    }, delayMs);
+    this.scanProgressTimerIds.push(timerId);
+  }
+
+  private clearScanProgressTimers(): void {
+    for (const timerId of this.scanProgressTimerIds) {
+      clearTimeout(timerId);
+    }
+    this.scanProgressTimerIds.length = 0;
+  }
+
+  private unsubscribeWifiScan(): void {
+    if (this.wifiScanSubscription) {
+      this.wifiScanSubscription.unsubscribe();
+      this.wifiScanSubscription = null;
+    }
   }
 
   private handleScanEvent(event: any): void {
@@ -418,13 +480,12 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
         this.loadIotProxies();
         
         // Wait a moment before hiding progress bar
-        setTimeout(() => {
+        this.scheduleScanProgressTimer(() => {
           this.isLoading = false;
           this.isScanning = false;
           this.lastScanTime = new Date();
-          
-          // Keep progress bar visible for 2 seconds after completion
-          setTimeout(() => {
+
+          this.scheduleScanProgressTimer(() => {
             if (!this.isScanning) {
               this.scanProgress = 0;
               this.scanProgressText = '0%';
@@ -522,12 +583,12 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
       this.scanLiveDetailEnglish = '';
       this.loadIotProxies();
       
-      setTimeout(() => {
+      this.scheduleScanProgressTimer(() => {
         this.isScanning = false;
         this.isLoading = false;
         this.lastScanTime = new Date();
-        
-        setTimeout(() => {
+
+        this.scheduleScanProgressTimer(() => {
           if (!this.isScanning) {
             this.scanProgress = 0;
             this.scanProgressText = '0%';
@@ -1030,6 +1091,7 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
 
   closeWifiScanModal(): void {
     this.cleanupWifiConnListener();
+    this.unsubscribeWifiScan();
     this.wifiScanModalRef?.dismiss('close');
     this.wifiScanModalRef = undefined;
   }
@@ -1194,8 +1256,16 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
 
         if (!updateOnly && c) {
           const et = c;
-          const handler = (): void =>
-            this.ngZone.run(() => this.captureBrowserWifiHints(true));
+          const handler = (): void => {
+            if (this.destroyed) {
+              return;
+            }
+            this.ngZone.run(() => {
+              if (!this.destroyed) {
+                this.captureBrowserWifiHints(true);
+              }
+            });
+          };
 
           et.addEventListener('change', handler);
           this.wifiConnListenerCleanup = () => {
@@ -1221,8 +1291,12 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
 
     this.wifiScanLoading = true;
     this.wifiScanError = '';
-    this.localNetworkService.scanNearbyWifi().subscribe({
+    this.unsubscribeWifiScan();
+    this.wifiScanSubscription = this.localNetworkService.scanNearbyWifi().subscribe({
       next: (payload: Record<string, unknown>) => {
+        if (this.destroyed) {
+          return;
+        }
         this.wifiScanLoading = false;
         const nets = payload['networks'];
         if (Array.isArray(nets)) {
@@ -1251,6 +1325,9 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       },
       error: (error) => {
+        if (this.destroyed) {
+          return;
+        }
         this.wifiScanLoading = false;
         if (error?.status === 403) {
           this.wifiScanError = this.translateService.instant('LOCAL_NETWORK.WIFI_SCAN_FORBIDDEN');
@@ -2856,7 +2933,7 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
           }
           this.cdr.detectChanges();
           if (startScanAfterLoad) {
-            setTimeout(() => this.startScan(), 300);
+            this.scheduleScanProgressTimer(() => this.startScan(), 300);
           }
         });
       },
@@ -2867,7 +2944,7 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
           console.error('Error loading local network global prefs:', error);
           this.cdr.detectChanges();
           if (startScanAfterLoad) {
-            setTimeout(() => this.startScan(), 300);
+            this.scheduleScanProgressTimer(() => this.startScan(), 300);
           }
         });
       }
@@ -2898,7 +2975,13 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   }): void {
     this.localNetworkService.setLocalNetworkGlobalPrefs(partial).subscribe({
       next: (prefs) => {
+        if (this.destroyed) {
+          return;
+        }
         this.ngZone.run(() => {
+          if (this.destroyed) {
+            return;
+          }
           if (prefs.useExternalVendorAPI !== undefined) {
             this.useExternalVendorAPI = !!prefs.useExternalVendorAPI;
           }

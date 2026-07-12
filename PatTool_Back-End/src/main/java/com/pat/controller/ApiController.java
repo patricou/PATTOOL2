@@ -1,5 +1,6 @@
 package com.pat.controller;
 
+import com.pat.controller.dto.MeteoFranceHistoryCachePreferenceDto;
 import com.pat.controller.dto.MeteoFranceForecastPreferenceDto;
 import com.pat.controller.dto.MeteoFranceRadarPreferenceDto;
 import com.pat.controller.dto.MeteoFranceTemperatureCachePreferenceDto;
@@ -9,6 +10,7 @@ import com.pat.service.GeocodeService;
 import com.pat.service.IpGeolocationService;
 import com.pat.service.MeteoFranceAromepiService;
 import com.pat.service.MeteoFranceClimService;
+import com.pat.service.MeteoFranceHistoryCachePreferenceService;
 import com.pat.service.MeteoFranceObsService;
 import com.pat.service.MeteoFranceForecastPreferenceService;
 import com.pat.service.MeteoFranceRadarRefreshPreferenceService;
@@ -88,6 +90,9 @@ public class ApiController {
 
     @Autowired
     private MeteoFranceTemperatureCachePreferenceService meteoFranceTemperatureCachePreferenceService;
+
+    @Autowired
+    private MeteoFranceHistoryCachePreferenceService meteoFranceHistoryCachePreferenceService;
 
     @Autowired
     private TraceViewerPreferenceService traceViewerPreferenceService;
@@ -663,7 +668,8 @@ public class ApiController {
             @RequestParam(value = "days", defaultValue = "7") int days,
             @RequestParam(value = "stationId", required = false) String stationId,
             @RequestParam(value = "refresh", defaultValue = "false") boolean refresh) {
-        return meteoSwissObsService.getNearbyHourlyHistory(lat, lon, days, stationId, refresh);
+        return meteoSwissObsService.getNearbyHourlyHistory(
+                lat, lon, days, stationId, refresh, currentJwtSubject());
     }
 
     /** Clears server-side MeteoSwiss SMN hourly history cache. */
@@ -794,6 +800,35 @@ public class ApiController {
         try {
             MeteoFranceTemperatureCachePreferenceDto saved = meteoFranceTemperatureCachePreferenceService.saveForSubject(
                     sub, body.temperatureCacheMinutes());
+            return ResponseEntity.ok(saved);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /** Per-user MF/MS station history cache retention (MongoDB appParameters). */
+    @GetMapping(value = "/meteofrance/history/cache/preferences", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<MeteoFranceHistoryCachePreferenceDto> getMeteoFranceHistoryCachePreferences() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(meteoFranceHistoryCachePreferenceService.readForSubject(sub));
+    }
+
+    @PutMapping(value = "/meteofrance/history/cache/preferences", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<MeteoFranceHistoryCachePreferenceDto> setMeteoFranceHistoryCachePreferences(
+            @RequestBody MeteoFranceHistoryCachePreferenceDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (body == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            MeteoFranceHistoryCachePreferenceDto saved = meteoFranceHistoryCachePreferenceService.saveForSubject(
+                    sub, body.historyCacheDays());
             return ResponseEntity.ok(saved);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
@@ -984,7 +1019,8 @@ public class ApiController {
             @RequestParam(value = "frequency", defaultValue = "quotidienne") String frequency,
             @RequestParam(value = "stationId", required = false) String stationId,
             @RequestParam(value = "refresh", defaultValue = "false") boolean refresh) {
-        return meteoFranceClimService.getNearbyClimData(lat, lon, department, days, frequency, stationId, refresh);
+        return meteoFranceClimService.getNearbyClimData(
+                lat, lon, department, days, frequency, stationId, refresh, currentJwtSubject());
     }
 
     /** Clears server-side MF DPClim nearby response cache. */

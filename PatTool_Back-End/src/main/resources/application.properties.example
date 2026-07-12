@@ -109,6 +109,7 @@ meteofrance.api.token=
 # meteofrance.aromepi.api.token=
 # meteofrance.aromepi.base.url=https://public-api.meteofrance.fr/public/aromepi/1.0
 # meteofrance.aromepi.wms.service=MF-NWP-HIGHRES-AROMEPI-001-FRANCE-WMS
+# meteofrance.aromepi.wms.max.concurrent=4
 # Alternative: OAuth application id (Base64 string shown as « Application ID » in the portal)
 # meteofrance.oauth.application-id=
 # meteofrance.radar.base.url=https://public-api.meteofrance.fr/public/DPRadar/v1

@@ -287,6 +287,11 @@
   position: relative;
 }
 
+:host {
+  --mf-map-min-h: 360px;
+  --mf-map-chrome: 300px;
+}
+
 .mf-selected-point-weather-overlay {
   position: absolute;
   bottom: 20px;
@@ -497,8 +502,9 @@
 
 .meteo-france-map {
   width: 100%;
-  height: min(62vh, 520px);
-  min-height: 320px;
+  height: min(75vh, calc(100dvh - var(--mf-map-chrome)));
+  min-height: var(--mf-map-min-h);
+  max-height: calc(100dvh - var(--mf-map-chrome));
   border-radius: 4px;
   border: 1px solid #dee2e6;
   z-index: 0;
@@ -1734,6 +1740,10 @@
   flex-wrap: wrap;
 }
 
+.mf-page-heading h2 {
+  margin-bottom: 0.25rem;
+}
+
 .mf-logo-link {
   flex-shrink: 0;
   line-height: 0;
@@ -1794,7 +1804,6 @@
 }
 
 .forecast-map {
-  min-height: 360px;
   cursor: crosshair;
 }
 
@@ -1893,10 +1902,6 @@
 .multi-day-forecast-icon {
   width: 28px;
   height: 28px;
-}
-
-.aromepi-map {
-  min-height: 420px;
 }
 
 .aromepi-time-controls {
@@ -2063,19 +2068,15 @@
 }
 
 @media (max-width: 767.98px) {
-  .aromepi-map {
-    min-height: 320px;
+  :host {
+    --mf-map-min-h: 300px;
+    --mf-map-chrome: 340px;
   }
-}
-
-.mf-page-heading h2 {
-  margin-bottom: 0.25rem;
 }
 
 @media (max-width: 576px) {
   .meteo-france-map {
-    height: 50vh;
-    min-height: 260px;
+    height: min(68vh, calc(100dvh - var(--mf-map-chrome)));
   }
 }
 

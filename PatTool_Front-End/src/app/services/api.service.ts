@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { KeycloakService } from '../keycloak/keycloak.service';
-import { Observable, Subject, from, throwError } from 'rxjs';
+import { Observable, Subject, Subscription, from, throwError } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
@@ -329,6 +329,7 @@ export class ApiService {
 
   /**
    * SSE stream of forecast sources — each provider is emitted as soon as its upstream call completes.
+   * Unsubscribing aborts the underlying fetch and cancels the stream reader.
    */
   streamForecastSources(
     lat: number,
@@ -337,9 +338,27 @@ export class ApiService {
     stepMinutes?: number,
     signal?: AbortSignal
   ): Observable<ForecastSourceStreamEvent> {
-    const subject = new Subject<ForecastSourceStreamEvent>();
-    this.getHeaderWithToken().subscribe({
+    const eventSubject = new Subject<ForecastSourceStreamEvent>();
+    const abortController = new AbortController();
+    const streamState: { reader: ReadableStreamDefaultReader<Uint8Array> | null } = { reader: null };
+    let tokenSubscription: Subscription | null = null;
+
+    const abortFromExternal = (): void => abortController.abort();
+    if (signal) {
+      if (signal.aborted) {
+        return new Observable((subscriber) => {
+          subscriber.complete();
+          return undefined;
+        });
+      }
+      signal.addEventListener('abort', abortFromExternal, { once: true });
+    }
+
+    tokenSubscription = this.getHeaderWithToken().subscribe({
       next: (headers) => {
+        if (abortController.signal.aborted) {
+          return;
+        }
         const token = headers.get('Authorization') || '';
         const params = new URLSearchParams({
           lat: String(lat),
@@ -352,22 +371,41 @@ export class ApiService {
           params.set('stepMinutes', String(stepMinutes));
         }
         const url = `${this.API_URL}external/weather/forecast/stream?${params.toString()}`;
-        this.consumeForecastSourceStream(url, token, subject, signal).catch((err) => {
-          if (!signal?.aborted) {
-            subject.error(err);
+        this.consumeForecastSourceStream(url, token, eventSubject, abortController.signal, streamState).catch((err) => {
+          if (!abortController.signal.aborted) {
+            eventSubject.error(err);
           }
         });
       },
-      error: (err) => subject.error(err)
+      error: (err) => {
+        if (!abortController.signal.aborted) {
+          eventSubject.error(err);
+        }
+      }
     });
-    return subject.asObservable();
+
+    return new Observable<ForecastSourceStreamEvent>((subscriber) => {
+      const subscription = eventSubject.subscribe(subscriber);
+      return () => {
+        abortController.abort();
+        if (signal) {
+          signal.removeEventListener('abort', abortFromExternal);
+        }
+        tokenSubscription?.unsubscribe();
+        tokenSubscription = null;
+        streamState.reader?.cancel().catch(() => undefined);
+        streamState.reader = null;
+        subscription.unsubscribe();
+      };
+    });
   }
 
   private async consumeForecastSourceStream(
     url: string,
     authToken: string,
     subject: Subject<ForecastSourceStreamEvent>,
-    signal?: AbortSignal
+    signal: AbortSignal,
+    streamState: { reader: ReadableStreamDefaultReader<Uint8Array> | null }
   ): Promise<void> {
     const response = await fetch(url, {
       headers: {
@@ -377,6 +415,9 @@ export class ApiService {
       cache: 'no-cache',
       signal
     });
+    if (signal.aborted) {
+      return;
+    }
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -385,6 +426,7 @@ export class ApiService {
       subject.error(new Error('No reader available'));
       return;
     }
+    streamState.reader = reader;
     const decoder = new TextDecoder();
     let buffer = '';
     let currentEventType: string | null = null;
@@ -411,8 +453,11 @@ export class ApiService {
       currentData = '';
     };
 
-    while (true) {
+    while (!signal.aborted) {
       const { done, value } = await reader.read();
+      if (signal.aborted) {
+        return;
+      }
       if (done) {
         flushEvent();
         if (!subject.closed) {
@@ -549,6 +594,32 @@ export class ApiService {
         this._http.put<MeteoFranceTemperatureCachePreference>(
           this.API_URL + 'external/meteofrance/temperature/cache/preferences',
           { temperatureCacheMinutes },
+          { headers }
+        )
+      )
+    );
+  }
+
+  /** Per-user MF/MS station history cache retention (MongoDB appParameters). */
+  getMeteoFranceHistoryCachePreferences(): Observable<MeteoFranceHistoryCachePreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<MeteoFranceHistoryCachePreference>(
+          this.API_URL + 'external/meteofrance/history/cache/preferences',
+          { headers }
+        )
+      )
+    );
+  }
+
+  saveMeteoFranceHistoryCachePreferences(
+    historyCacheDays: number
+  ): Observable<MeteoFranceHistoryCachePreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<MeteoFranceHistoryCachePreference>(
+          this.API_URL + 'external/meteofrance/history/cache/preferences',
+          { historyCacheDays },
           { headers }
         )
       )
@@ -2016,6 +2087,11 @@ export interface MeteoFranceForecastPreference {
 
 export interface MeteoFranceTemperatureCachePreference {
   temperatureCacheMinutes: number;
+  persistedInMongo?: boolean;
+}
+
+export interface MeteoFranceHistoryCachePreference {
+  historyCacheDays: number;
   persistedInMongo?: boolean;
 }
 

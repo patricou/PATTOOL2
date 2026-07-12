@@ -15,6 +15,8 @@ export class ScaleRowToFitDirective implements AfterViewInit, OnDestroy {
     private mo?: MutationObserver;
     private onWinResize?: () => void;
     private langSub?: Subscription;
+    private destroyed = false;
+    private pendingTimeouts: ReturnType<typeof setTimeout>[] = [];
 
     constructor(
         private el: ElementRef<HTMLElement>,
@@ -30,9 +32,12 @@ export class ScaleRowToFitDirective implements AfterViewInit, OnDestroy {
         }
 
         const update = () => {
+            if (this.destroyed) {
+                return;
+            }
             this.zone.runOutsideAngular(() => {
                 requestAnimationFrame(() => {
-                    if (!parent.isConnected || !inner.isConnected) {
+                    if (this.destroyed || !parent.isConnected || !inner.isConnected) {
                         return;
                     }
                     const pw = parent.clientWidth;
@@ -58,17 +63,21 @@ export class ScaleRowToFitDirective implements AfterViewInit, OnDestroy {
         this.onWinResize = () => update();
         window.addEventListener('resize', this.onWinResize);
 
-        setTimeout(update, 0);
-        setTimeout(update, 250);
+        this.pendingTimeouts.push(setTimeout(update, 0));
+        this.pendingTimeouts.push(setTimeout(update, 250));
 
         if (this.translate) {
             this.langSub = this.translate.onLangChange.subscribe(() => {
-                setTimeout(update, 0);
+                if (this.destroyed) return;
+                this.pendingTimeouts.push(setTimeout(update, 0));
             });
         }
     }
 
     ngOnDestroy(): void {
+        this.destroyed = true;
+        this.pendingTimeouts.forEach((id) => clearTimeout(id));
+        this.pendingTimeouts = [];
         this.ro?.disconnect();
         this.mo?.disconnect();
         this.langSub?.unsubscribe();

@@ -515,6 +515,24 @@
 
             <section class="mf-opt-section">
               <header class="mf-opt-section-head">
+                <i class="fa fa-line-chart"></i>
+                <span>{{ 'METEO_FRANCE.OPTIONS_HISTORY' | translate }}</span>
+              </header>
+              <div class="mf-opt-grid">
+                <label class="mf-opt-cell mf-number-field mf-opt-cell--wide">
+                  <span class="mf-opt-label">{{ 'METEO_FRANCE.HISTORY_CACHE_DAYS_LABEL' | translate }}</span>
+                  <input type="number" class="form-control form-control-sm mf-number-input"
+                         [(ngModel)]="historyCacheDays"
+                         (blur)="onHistoryCacheDaysCommitted()"
+                         (change)="onHistoryCacheDaysCommitted()"
+                         [min]="historyCacheMinDays" [max]="historyCacheMaxDays" [step]="1">
+                  <p class="mf-opt-hint mb-0 mt-1">{{ 'METEO_FRANCE.HISTORY_CACHE_DAYS_HINT' | translate }}</p>
+                </label>
+              </div>
+            </section>
+
+            <section class="mf-opt-section">
+              <header class="mf-opt-section-head">
                 <i class="fa fa-sliders"></i>
                 <span>{{ 'METEO_FRANCE.OPTIONS_RADAR' | translate }}</span>
               </header>
@@ -831,7 +849,7 @@
               </div>
             </div>
 
-            <div *ngIf="climAvailable && !isLoadingClim">
+            <div *ngIf="!showClimTabSpinner && climAvailable">
 
             <div class="clim-controls mb-2">
 
@@ -987,6 +1005,26 @@
                 [chartType]="'bar'"
                 [data]="climRainChartData"
                 [options]="climRainChartOptions">
+              </app-meteo-france-chart-panel>
+
+              <app-meteo-france-chart-panel
+                *ngIf="climHasHumiditySeries"
+                [headingLevel]="'h4'"
+                titleIcon="fa-tint"
+                titleKey="METEO_FRANCE.HUMIDITY"
+                [chartType]="'line'"
+                [data]="climHumidityChartData"
+                [options]="climHumidityChartOptions">
+              </app-meteo-france-chart-panel>
+
+              <app-meteo-france-chart-panel
+                *ngIf="climHasWindSeries"
+                [headingLevel]="'h4'"
+                titleIcon="fa-flag"
+                titleKey="METEO_FRANCE.WIND"
+                [chartType]="'line'"
+                [data]="climWindChartData"
+                [options]="climWindChartOptions">
               </app-meteo-france-chart-panel>
 
               <button type="button" class="btn btn-link btn-sm px-0 clim-table-toggle"
@@ -1171,7 +1209,7 @@
             <div class="meteo-france-map-shell aromepi-map-shell" #aromepiMapShell
                  [class.meteo-france-map-shell--fullscreen]="aromepiMapFullscreen">
               <div class="aromepi-map-loading-overlay"
-                   *ngIf="isLoadingAromepiCapabilities || !isAromepiMapReady"
+                   *ngIf="isLoadingAromepiCapabilities"
                    role="status" aria-live="polite">
                 <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
                 <span>{{ 'METEO_FRANCE.AROMEPI_LOADING' | translate }}</span>
@@ -2013,7 +2051,7 @@
             {{ 'METEO_FRANCE.CLIM_HOURLY' | translate }}
           </button>
           <button type="button" class="btn btn-outline-secondary btn-sm ms-2"
-                  (click)="loadStationHistoryData()"
+                  (click)="loadStationHistoryData(true)"
                   [disabled]="stationHistoryLoading">
             <i class="fa" [class.fa-refresh]="!stationHistoryLoading" [class.fa-spinner]="stationHistoryLoading" [class.fa-spin]="stationHistoryLoading"></i>
             {{ 'METEO_FRANCE.CLIM_REFRESH' | translate }}

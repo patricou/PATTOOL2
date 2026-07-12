@@ -1,5 +1,9 @@
+:host {
+  --mf-map-min-h: 360px;
+  --mf-map-chrome: 400px;
+}
+
 .ms-precip-map-shell {
-  min-height: 420px;
   position: relative;
 }
 
@@ -26,6 +30,7 @@
   width: 100%;
   height: 100%;
   min-height: 0;
+  max-height: none;
   border-radius: 0;
 }
 
@@ -36,8 +41,12 @@
 }
 
 .ms-precip-map {
-  min-height: 420px;
   width: 100%;
+  height: min(72vh, calc(100dvh - var(--mf-map-chrome)));
+  min-height: var(--mf-map-min-h);
+  max-height: calc(100dvh - var(--mf-map-chrome));
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
 }
 
 :host ::ng-deep .ms-precip-overlay {
@@ -84,8 +93,12 @@
 }
 
 @media (max-width: 767px) {
-  .ms-precip-map-shell,
+  :host {
+    --mf-map-min-h: 300px;
+    --mf-map-chrome: 430px;
+  }
+
   .ms-precip-map {
-    min-height: 320px;
+    height: min(65vh, calc(100dvh - var(--mf-map-chrome)));
   }
 }

@@ -25,6 +25,8 @@ export class MeteoSwissPrecipTabComponent implements OnInit, OnChanges, OnDestro
   private static readonly CH_CENTER: L.LatLngExpression = [46.82, 8.23];
   private static readonly CH_ZOOM = 8;
   private static readonly PLAY_INTERVAL_MS = 900;
+  private static readonly CACHE_POLL_MS = 5_000;
+  private static readonly CACHE_POLL_MAX = 36;
 
   @Input() horizonHours = 48;
   @Input() active = false;
@@ -64,6 +66,11 @@ export class MeteoSwissPrecipTabComponent implements OnInit, OnChanges, OnDestro
   private pendingActivate = false;
   private fitBoundsOnNextFrame = true;
   private userAdjustedMapView = false;
+  private destroyed = false;
+  private layoutTimer: ReturnType<typeof setTimeout> | null = null;
+  private cachePollTimer: ReturnType<typeof setTimeout> | null = null;
+  private cachePollCount = 0;
+  private capabilitiesRequestId = 0;
   currentFrameDry = false;
 
   constructor(
@@ -88,7 +95,10 @@ export class MeteoSwissPrecipTabComponent implements OnInit, OnChanges, OnDestro
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
+    this.stopCacheWatch();
     this.stopPlayback();
+    this.clearLayoutTimer();
     this.exitMapFullscreenIfActive();
     this.revokeFrameUrl();
     this.destroyMap();
@@ -143,7 +153,7 @@ export class MeteoSwissPrecipTabComponent implements OnInit, OnChanges, OnDestro
     if (!this.frames.length) {
       this.loadCapabilities();
     }
-    setTimeout(() => {
+    this.scheduleLayoutRefresh(120, () => {
       this.map?.invalidateSize();
       if (this.frames.length) {
         if (!this.userAdjustedMapView) {
@@ -151,7 +161,29 @@ export class MeteoSwissPrecipTabComponent implements OnInit, OnChanges, OnDestro
         }
         this.loadCurrentFrame();
       }
-    }, 120);
+    });
+  }
+
+  private scheduleLayoutRefresh(delayMs: number, fn?: () => void): void {
+    this.clearLayoutTimer();
+    this.layoutTimer = setTimeout(() => {
+      this.layoutTimer = null;
+      if (this.destroyed) {
+        return;
+      }
+      if (fn) {
+        fn();
+        return;
+      }
+      this.map?.invalidateSize();
+    }, delayMs);
+  }
+
+  private clearLayoutTimer(): void {
+    if (this.layoutTimer) {
+      clearTimeout(this.layoutTimer);
+      this.layoutTimer = null;
+    }
   }
 
   get currentFrame(): MsPrecipFrame | null {
@@ -252,11 +284,10 @@ export class MeteoSwissPrecipTabComponent implements OnInit, OnChanges, OnDestro
   }
 
   private bootstrap(): void {
-    this.loading = true;
-    setTimeout(() => {
+    this.scheduleLayoutRefresh(0, () => {
       this.initMap();
-      this.loadCapabilities();
-    }, 0);
+      this.loadCapabilities(true);
+    });
   }
 
   private initMap(): void {
@@ -282,7 +313,7 @@ export class MeteoSwissPrecipTabComponent implements OnInit, OnChanges, OnDestro
     this.mapInitialized = true;
     if (this.pendingActivate) {
       this.pendingActivate = false;
-      setTimeout(() => this.map?.invalidateSize(), 100);
+      this.scheduleLayoutRefresh(100);
     }
   }
 
@@ -296,20 +327,32 @@ export class MeteoSwissPrecipTabComponent implements OnInit, OnChanges, OnDestro
   }
 
   private loadCapabilities(force = false): void {
-    if (this.loading && !force) {
+    if (!force && this.loading) {
       return;
     }
+    this.stopCacheWatch();
+    const requestId = ++this.capabilitiesRequestId;
     this.loading = true;
     this.errorKey = '';
     this.subs.add(
       this.apiService.getMeteoSwissPrecipCapabilities(this.horizonHours).subscribe({
         next: (caps) => {
-          this.loading = false;
+          if (requestId !== this.capabilitiesRequestId || this.destroyed) {
+            return;
+          }
           if (caps?.error) {
-            this.errorKey = this.resolveErrorKey(String(caps.error));
+            const errorKey = this.resolveErrorKey(String(caps.error));
+            if (errorKey === 'METEO_FRANCE.MS_PRECIP_LOADING') {
+              this.frames = [];
+              this.startCacheWatch();
+              return;
+            }
+            this.loading = false;
+            this.errorKey = errorKey;
             this.frames = [];
             return;
           }
+          this.loading = false;
           const south = Number(caps.south);
           const north = Number(caps.north);
           const west = Number(caps.west);
@@ -331,11 +374,84 @@ export class MeteoSwissPrecipTabComponent implements OnInit, OnChanges, OnDestro
           this.loadCurrentFrame();
         },
         error: () => {
+          if (requestId !== this.capabilitiesRequestId || this.destroyed) {
+            return;
+          }
           this.loading = false;
           this.errorKey = 'METEO_FRANCE.MS_PRECIP_ERROR';
         }
       })
     );
+  }
+
+  private startCacheWatch(): void {
+    if (this.cachePollTimer) {
+      return;
+    }
+    this.cachePollCount = 0;
+    this.pollCacheStatus();
+  }
+
+  private pollCacheStatus(): void {
+    if (this.destroyed || !this.active) {
+      this.stopCacheWatch();
+      return;
+    }
+    this.cachePollCount++;
+    if (this.cachePollCount > MeteoSwissPrecipTabComponent.CACHE_POLL_MAX) {
+      this.loading = false;
+      this.errorKey = 'METEO_FRANCE.MS_PRECIP_LOADING';
+      this.stopCacheWatch();
+      return;
+    }
+    this.subs.add(
+      this.apiService.getMeteoSwissStatus().subscribe({
+        next: (status) => this.handleCacheStatus(status),
+        error: () => this.scheduleCachePoll()
+      })
+    );
+  }
+
+  private handleCacheStatus(status: any): void {
+    const precipReady = status?.ready && (status?.precipFrameCount ?? 0) > 0;
+    if (precipReady) {
+      this.stopCacheWatch();
+      this.loadCapabilities(true);
+      return;
+    }
+    if (status?.ready && !status?.loading && (status?.precipFrameCount ?? 0) <= 0) {
+      this.loading = false;
+      this.errorKey = 'METEO_FRANCE.MS_PRECIP_EMPTY';
+      this.stopCacheWatch();
+      return;
+    }
+    if (!status?.loading && status?.lastError) {
+      this.loading = false;
+      this.errorKey = 'METEO_FRANCE.MS_PRECIP_ERROR';
+      this.stopCacheWatch();
+      return;
+    }
+    this.scheduleCachePoll();
+  }
+
+  private scheduleCachePoll(): void {
+    this.clearCachePollTimer();
+    this.cachePollTimer = setTimeout(() => {
+      this.cachePollTimer = null;
+      this.pollCacheStatus();
+    }, MeteoSwissPrecipTabComponent.CACHE_POLL_MS);
+  }
+
+  private stopCacheWatch(): void {
+    this.clearCachePollTimer();
+    this.cachePollCount = 0;
+  }
+
+  private clearCachePollTimer(): void {
+    if (this.cachePollTimer) {
+      clearTimeout(this.cachePollTimer);
+      this.cachePollTimer = null;
+    }
   }
 
   private loadCurrentFrame(): void {
@@ -437,7 +553,7 @@ export class MeteoSwissPrecipTabComponent implements OnInit, OnChanges, OnDestro
   }
 
   private refreshMapLayoutAfterResize(): void {
-    setTimeout(() => this.map?.invalidateSize(), 120);
+    this.scheduleLayoutRefresh(120);
   }
 
   private isFrameDry(frame: MsPrecipFrame | null): boolean {
@@ -460,12 +576,12 @@ export class MeteoSwissPrecipTabComponent implements OnInit, OnChanges, OnDestro
   }
 
   private scheduleFitMapToBounds(): void {
-    setTimeout(() => {
+    this.scheduleLayoutRefresh(160, () => {
       this.map?.invalidateSize();
       if (!this.userAdjustedMapView) {
         this.fitMapToBounds();
       }
-    }, 160);
+    });
   }
 
   private revokeFrameUrl(): void {

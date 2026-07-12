@@ -39,10 +39,10 @@ public class MeteoFranceClimService {
     private static final Set<String> ALLOWED_FREQUENCIES = Set.of(
             "quotidienne", "horaire", "infrahoraire-6m", "decadaire", "mensuelle"
     );
-    private static final Duration CLIM_CACHE_TTL = Duration.ofMinutes(30);
 
     private final RestTemplate restTemplate;
     private final GeocodeService geocodeService;
+    private final MeteoFranceHistoryCachePreferenceService historyCachePreferenceService;
     private final String climApiToken;
     private final String dpclimBaseUrl;
     private final ConcurrentHashMap<String, ClimCacheEntry> climResponseCache = new ConcurrentHashMap<>();
@@ -50,10 +50,12 @@ public class MeteoFranceClimService {
     public MeteoFranceClimService(
             @Qualifier(RestTemplateConfig.METEOFRANCE_CLIM_REST_TEMPLATE) RestTemplate restTemplate,
             GeocodeService geocodeService,
+            MeteoFranceHistoryCachePreferenceService historyCachePreferenceService,
             @Value("${meteofrance.clim.api.token:}") String climApiToken,
             @Value("${meteofrance.clim.base.url:" + DEFAULT_DPCLIM_BASE + "}") String dpclimBaseUrl) {
         this.restTemplate = restTemplate;
         this.geocodeService = geocodeService;
+        this.historyCachePreferenceService = historyCachePreferenceService;
         this.climApiToken = normalizeToken(climApiToken);
         this.dpclimBaseUrl = dpclimBaseUrl != null && !dpclimBaseUrl.isBlank()
                 ? dpclimBaseUrl.trim()
@@ -143,7 +145,8 @@ public class MeteoFranceClimService {
             int days,
             String frequency,
             String stationId,
-            boolean forceRefresh) {
+            boolean forceRefresh,
+            String jwtSubject) {
         if (!isConfigured()) {
             return error("DPClim API key not configured. Set meteofrance.clim.api.token (separate from meteofrance.api.token for radar)");
         }
@@ -170,11 +173,13 @@ public class MeteoFranceClimService {
         int resolvedDays = resolveDays(days, freq);
 
         String cacheKey = climCacheKey(lat, lon, dept, freq, resolvedDays, stationId);
+        Duration cacheTtl = historyCachePreferenceService.resolveEffectiveDuration(jwtSubject);
         if (!forceRefresh) {
             ClimCacheEntry cached = climResponseCache.get(cacheKey);
-            if (cached != null && cached.isValid(CLIM_CACHE_TTL)) {
+            if (cached != null && cached.isValid(cacheTtl)) {
                 Map<String, Object> copy = new LinkedHashMap<>(cached.result());
                 copy.put("cached", true);
+                copy.put("cacheTtlDays", cacheTtl.toDays());
                 return copy;
             }
         }
@@ -246,7 +251,7 @@ public class MeteoFranceClimService {
         result.put("columns", orderResult.get("columns"));
         result.put("rows", orderResult.get("rows"));
         result.put("source", "Météo-France DPClim");
-        result.put("cacheTtlMinutes", CLIM_CACHE_TTL.toMinutes());
+        result.put("cacheTtlDays", cacheTtl.toDays());
         climResponseCache.put(cacheKey, new ClimCacheEntry(new LinkedHashMap<>(result), Instant.now()));
         return result;
     }

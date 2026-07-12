@@ -63,7 +63,6 @@ public class MeteoSwissObsService {
     private static final double CH_MAX_LON = 10.49;
 
     private static final Duration DEFAULT_CACHE_TTL = Duration.ofMinutes(5);
-    private static final Duration HISTORY_CACHE_TTL = Duration.ofMinutes(30);
     private static final String AUTOMATIC_STATION_MARKER = "automatic weather stations";
 
     private static final List<String> MAJOR_CITY_NAME_TOKENS = List.of(
@@ -73,6 +72,7 @@ public class MeteoSwissObsService {
 
     private final RestTemplate restTemplate;
     private final boolean enabled;
+    private final MeteoFranceHistoryCachePreferenceService historyCachePreferenceService;
 
     private volatile List<SmnStation> catalog = List.of();
     private final ConcurrentHashMap<String, ObsCacheEntry> obsCache = new ConcurrentHashMap<>();
@@ -81,8 +81,10 @@ public class MeteoSwissObsService {
 
     public MeteoSwissObsService(
             RestTemplate restTemplate,
+            MeteoFranceHistoryCachePreferenceService historyCachePreferenceService,
             @Value("${meteoswiss.obs.enabled:true}") boolean enabled) {
         this.restTemplate = restTemplate;
+        this.historyCachePreferenceService = historyCachePreferenceService;
         this.enabled = enabled;
     }
 
@@ -175,7 +177,8 @@ public class MeteoSwissObsService {
      * Nearest SwissMetNet station + hourly archived observations for a map point (ogd-smn h_recent + h_now).
      * Response shape mirrors DPClim horaire for the point timeline modal.
      */
-    public Map<String, Object> getNearbyHourlyHistory(double lat, double lon, int days, String stationId, boolean forceRefresh) {
+    public Map<String, Object> getNearbyHourlyHistory(
+            double lat, double lon, int days, String stationId, boolean forceRefresh, String jwtSubject) {
         if (!enabled) {
             return error("MeteoSwiss SMN observations are disabled");
         }
@@ -194,11 +197,13 @@ public class MeteoSwissObsService {
         }
 
         String cacheKey = station.id().toUpperCase(Locale.ROOT) + "|" + resolvedDays;
+        Duration cacheTtl = historyCachePreferenceService.resolveEffectiveDuration(jwtSubject);
         if (!forceRefresh) {
             HistoryCacheEntry cached = historyResponseCache.get(cacheKey);
-            if (cached != null && cached.isValid(HISTORY_CACHE_TTL)) {
+            if (cached != null && cached.isValid(cacheTtl)) {
                 Map<String, Object> copy = new LinkedHashMap<>(cached.result());
                 copy.put("cached", true);
+                copy.put("cacheTtlDays", cacheTtl.toDays());
                 return copy;
             }
         }
@@ -233,8 +238,10 @@ public class MeteoSwissObsService {
         result.put("rows", rows);
         result.put("source", "MeteoSwiss SMN");
         result.put("patSource", "meteoswiss-smn");
-        result.put("cacheTtlMinutes", HISTORY_CACHE_TTL.toMinutes());
-        historyResponseCache.put(cacheKey, new HistoryCacheEntry(result, Instant.now()));
+        result.put("cacheTtlDays", cacheTtl.toDays());
+        if (!rows.isEmpty()) {
+            historyResponseCache.put(cacheKey, new HistoryCacheEntry(result, Instant.now()));
+        }
         return result;
     }
 
@@ -640,12 +647,13 @@ public class MeteoSwissObsService {
             }
             String[] headers = headerLine.split(";", -1);
             int tsIdx = findColumn(headers, "reference_timestamp");
-            int tempIdx = findColumn(headers, "tre200s0");
-            int tempFallbackIdx = findColumn(headers, "tresurs0");
-            int tempGrassIdx = findColumn(headers, "tre005s0");
-            int humidityIdx = findColumn(headers, "ure200s0");
-            int windSpeedIdx = findColumn(headers, "fu3010z0");
-            int precipIdx = findColumn(headers, "rre150z0");
+            // h_recent / h_now use hourly aggregates (*h0), not 10-min snapshots (*s0) from t_now.
+            int tempIdx = findColumn(headers, "tre200h0");
+            int tempFallbackIdx = findColumn(headers, "tre200hn");
+            int tempGrassIdx = findColumn(headers, "tre005h0");
+            int humidityIdx = findColumn(headers, "ure200h0");
+            int windSpeedIdx = findColumn(headers, "fu3010h0");
+            int precipIdx = findColumn(headers, "rre150h0");
 
             String line;
             while ((line = reader.readLine()) != null) {

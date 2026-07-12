@@ -183,6 +183,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     wallCommentaryLoadingName = '';
     private wallCommentaryLoadingEventId = '';
     private wallCommentsModalRef: NgbModalRef | null = null;
+    private wallDiscussionModalRef: NgbModalRef | null = null;
 
     /** Loaded on demand when opening « Liens » from the wall. */
     wallLinksEvent: Evenement | null = null;
@@ -451,6 +452,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
     ngOnDestroy(): void {
         this.destroyed = true;
+        this.timelineLoadGeneration++;
         this.subscriptions.forEach(s => s.unsubscribe());
         this.subscriptions = [];
         this.fsSlideshowSubs.forEach(s => { if (s && !s.closed) s.unsubscribe(); });
@@ -492,10 +494,24 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             try { this.wallEventAccessModalRef.dismiss(); } catch (_) {}
             this.wallEventAccessModalRef = null;
         }
+        if (this.wallCommentsModalRef) {
+            try { this.wallCommentsModalRef.dismiss(); } catch (_) {}
+            this.wallCommentsModalRef = null;
+        }
+        if (this.wallLinksModalRef) {
+            try { this.wallLinksModalRef.dismiss(); } catch (_) {}
+            this.wallLinksModalRef = null;
+        }
+        if (this.wallDiscussionModalRef) {
+            try { this.wallDiscussionModalRef.dismiss(); } catch (_) {}
+            this.wallDiscussionModalRef = null;
+        }
         if (this.wallEventAccessOpenTimer != null) {
             clearTimeout(this.wallEventAccessOpenTimer);
             this.wallEventAccessOpenTimer = null;
         }
+        this.pauseAllWallTimelineVideos();
+        this.releaseWallTimelineVideoElements();
         this.thumbnailCache.forEach(url => {
             if (url.startsWith('blob:')) URL.revokeObjectURL(url);
         });
@@ -600,6 +616,26 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             }
             try {
                 v.pause();
+            } catch {
+                /* ignore */
+            }
+        }
+    }
+
+    /** Drops decoded video buffers when leaving the wall (blob URLs are revoked separately). */
+    private releaseWallTimelineVideoElements(): void {
+        if (!this.wallTimelineVideos?.length) {
+            return;
+        }
+        for (const ref of this.wallTimelineVideos) {
+            const v = ref?.nativeElement;
+            if (!v) {
+                continue;
+            }
+            try {
+                v.pause();
+                v.removeAttribute('src');
+                v.load();
             } catch {
                 /* ignore */
             }
@@ -1164,6 +1200,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     private setupIntersectionObserver(): void {
+        if (this.destroyed) {
+            return;
+        }
         if (this.intersectionObserver) {
             this.intersectionObserver.disconnect();
         }
@@ -1173,6 +1212,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
         this.intersectionObserver = new IntersectionObserver(
             (entries) => {
+                if (this.destroyed) return;
                 if (entries[0].isIntersecting && (this.bufferedGroups.length > 0 || this.hasMore || this.bufferedVideoGroups.length > 0 || this.hasMoreVideos)) {
                     this.queueRevealMore();
                 }
@@ -1185,6 +1225,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
     @HostListener('window:scroll')
     onWindowScroll(): void {
+        if (this.destroyed) return;
         if (this.bufferedGroups.length === 0 && !this.hasMore && this.bufferedVideoGroups.length === 0 && !this.hasMoreVideos) return;
 
         const scrollPosition = window.innerHeight + window.scrollY;
@@ -1370,8 +1411,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         }
 
         this.wallStartLocationPending.add(eventId);
-        this.evenementsService.getEvenement(eventId).pipe(take(1)).subscribe({
+        const sub = this.evenementsService.getEvenement(eventId).pipe(take(1)).subscribe({
             next: (ev) => {
+                if (this.destroyed) return;
                 const loc = ev?.startLocation?.trim();
                 if (loc) {
                     this.patchVisibleGroupStartLocation(eventId, loc);
@@ -1380,13 +1422,16 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 }
             },
             error: () => {
+                if (this.destroyed) return;
                 this.wallStartLocationResolvedEmpty.add(eventId);
             },
             complete: () => {
+                if (this.destroyed) return;
                 this.wallStartLocationPending.delete(eventId);
                 this.cdr.markForCheck();
             }
         });
+        this.subscriptions.push(sub);
     }
 
     private patchVisibleGroupStartLocation(eventId: string, startLocation: string): void {
@@ -2696,8 +2741,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         if (!locationText) {
             this.startLocationMapLoadingEventId = group.eventId;
             this.cdr.markForCheck();
-            this.evenementsService.getEvenement(group.eventId).pipe(take(1)).subscribe({
+            const sub = this.evenementsService.getEvenement(group.eventId).pipe(take(1)).subscribe({
                 next: (ev) => {
+                    if (this.destroyed) return;
                     const loc = ev?.startLocation?.trim();
                     if (loc) {
                         this.patchVisibleGroupStartLocation(group.eventId, loc);
@@ -2707,13 +2753,16 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                     }
                 },
                 error: () => {
+                    if (this.destroyed) return;
                     alert(this.translate.instant('ADDRESS_GEOCODE.ERROR'));
                 },
                 complete: () => {
+                    if (this.destroyed) return;
                     this.startLocationMapLoadingEventId = null;
                     this.cdr.markForCheck();
                 }
             });
+            this.subscriptions.push(sub);
             return;
         }
 
@@ -2733,8 +2782,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
         this.startLocationMapLoadingEventId = group.eventId || null;
         this.cdr.markForCheck();
-        this.apiService.geocodeSearch(locationText).pipe(take(1)).subscribe({
+        const sub = this.apiService.geocodeSearch(locationText).pipe(take(1)).subscribe({
             next: (data: any[]) => {
+                if (this.destroyed) return;
                 const results = (data || [])
                     .map((item: any) => ({
                         lat: typeof item.lat === 'number' ? item.lat : parseFloat(item.lat),
@@ -2752,13 +2802,16 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 this.openTraceViewerAtStartLocation(first.lat, first.lng, first.displayName || locationText, group);
             },
             error: () => {
+                if (this.destroyed) return;
                 alert(this.translate.instant('ADDRESS_GEOCODE.ERROR'));
             },
             complete: () => {
+                if (this.destroyed) return;
                 this.startLocationMapLoadingEventId = null;
                 this.cdr.markForCheck();
             }
         });
+        this.subscriptions.push(sub);
     }
 
     private tryParseCoordinatesFromText(text: string): { lat: number; lng: number } | null {
@@ -4410,6 +4463,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
     private wallOpenDiscussionModal(discussionId: string, evenement: Evenement): void {
         try {
+            this.wallDiscussionModalRef?.dismiss();
             const modalRef = this.modalService.open(DiscussionModalComponent, {
                 size: 'lg',
                 centered: true,
@@ -4417,6 +4471,16 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 keyboard: true,
                 windowClass: 'discussion-modal-window'
             });
+            this.wallDiscussionModalRef = modalRef;
+            const closedSub = modalRef.closed.subscribe(() => {
+                if (this.wallDiscussionModalRef === modalRef) {
+                    this.wallDiscussionModalRef = null;
+                }
+                if (!this.destroyed) {
+                    this.cdr.markForCheck();
+                }
+            });
+            this.subscriptions.push(closedSub);
             if (modalRef?.componentInstance) {
                 modalRef.componentInstance.discussionId = discussionId;
                 modalRef.componentInstance.title = evenement.evenementName || 'Discussion';
@@ -4425,11 +4489,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                     modalRef.componentInstance.eventColor = eventColor;
                 }
                 setTimeout(() => {
+                    if (this.destroyed || this.wallDiscussionModalRef !== modalRef) return;
                     modalRef.componentInstance?.applyEventColorToModal();
                 }, 300);
             }
-            const closedSub = modalRef.closed.subscribe(() => this.cdr.markForCheck());
-            this.subscriptions.push(closedSub);
         } catch (e) {
             console.error('Error opening discussion modal from photo wall', e);
             alert(this.translate.instant('EVENTELEM.ERROR_OPENING_DISCUSSION'));

@@ -11,11 +11,18 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
+
+import jakarta.annotation.PostConstruct;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Semaphore;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -61,6 +68,10 @@ public class MeteoFranceAromepiService {
     private static final String DEFAULT_BASE = "https://public-api.meteofrance.fr/public/aromepi/1.0";
     private static final String DEFAULT_WMS_SERVICE = "MF-NWP-HIGHRES-AROMEPI-001-FRANCE-WMS";
     private static final Duration CAPABILITIES_CACHE_TTL = Duration.ofMinutes(10);
+    private static final Duration TILE_CACHE_TTL = Duration.ofMinutes(15);
+    private static final int TILE_CACHE_MAX_ENTRIES = 4096;
+    private static final int WMS_MAX_RETRIES = 3;
+    private static final long WMS_RETRY_BASE_MS = 450L;
     private static final Pattern LAYER_SAFE = Pattern.compile("^[A-Za-z0-9_\\-]+$");
     private static final Pattern STYLE_SAFE = Pattern.compile("^[A-Za-z0-9_\\-]+$");
     private static final Pattern ISO_TIME = Pattern.compile(
@@ -91,12 +102,15 @@ public class MeteoFranceAromepiService {
 
     private volatile CachedCapabilities cachedCapabilities;
     private final ConcurrentHashMap<String, CachedMinutely15> minutely15Cache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, CachedTile> tileCache = new ConcurrentHashMap<>();
+    private final Semaphore wmsFetchSemaphore;
 
     public MeteoFranceAromepiService(
             @Qualifier(RestTemplateConfig.METEOFRANCE_CLIM_REST_TEMPLATE) RestTemplate restTemplate,
             @Value("${meteofrance.aromepi.api.token:}") String apiToken,
             @Value("${meteofrance.aromepi.base.url:" + DEFAULT_BASE + "}") String baseUrl,
-            @Value("${meteofrance.aromepi.wms.service:" + DEFAULT_WMS_SERVICE + "}") String wmsService) {
+            @Value("${meteofrance.aromepi.wms.service:" + DEFAULT_WMS_SERVICE + "}") String wmsService,
+            @Value("${meteofrance.aromepi.wms.max.concurrent:4}") int wmsMaxConcurrent) {
         this.restTemplate = restTemplate;
         this.apiToken = normalizeToken(apiToken);
         this.baseUrl = baseUrl != null && !baseUrl.isBlank()
@@ -105,12 +119,29 @@ public class MeteoFranceAromepiService {
         this.wmsService = wmsService != null && !wmsService.isBlank()
                 ? wmsService.trim()
                 : DEFAULT_WMS_SERVICE;
+        this.wmsFetchSemaphore = new Semaphore(Math.max(1, wmsMaxConcurrent), true);
         if (isConfigured()) {
             log.info("Météo-France AROME-PI credentials loaded (wms={})", this.wmsService);
         } else {
             log.info("Météo-France AROME-PI not configured — set meteofrance.aromepi.api.token "
                     + "(API « AROMEPI 1.0 » on portail-api.meteofrance.fr)");
         }
+    }
+
+    /** Prefetch WMS GetCapabilities so the first AROME-PI tab open is not blocked on MF latency. */
+    @PostConstruct
+    public void warmCapabilitiesCacheAsync() {
+        if (!isConfigured()) {
+            return;
+        }
+        CompletableFuture.runAsync(() -> {
+            try {
+                loadCapabilities();
+                log.info("Météo-France AROME-PI WMS capabilities cache warmed");
+            } catch (Exception e) {
+                log.debug("Météo-France AROME-PI capabilities warm-up skipped: {}", e.getMessage());
+            }
+        });
     }
 
     public Map<String, Object> getStatusFragment() {
@@ -222,30 +253,19 @@ public class MeteoFranceAromepiService {
                 .toUriString();
 
         log.debug("AROME-PI GetMap URL: {}", url.replace(apiToken, "***"));
+        String cacheKey = tileCacheKey(z, x, y, layer, resolvedStyle, time, referenceTime, outWidth, outHeight);
+        CachedTile cachedTile = tileCache.get(cacheKey);
+        if (cachedTile != null && cachedTile.isValid()) {
+            return pngTileResponse(cachedTile.png());
+        }
         try {
-            HttpHeaders reqHeaders = authHeaders();
-            reqHeaders.setAccept(List.of(MediaType.IMAGE_PNG, MediaType.IMAGE_JPEG, MediaType.ALL));
-            ResponseEntity<byte[]> response = restTemplate.exchange(
-                    url, HttpMethod.GET, new HttpEntity<>(reqHeaders), byte[].class);
-            byte[] body = response.getBody();
-            if (body == null || body.length == 0) {
+            byte[] raw = fetchWmsPngWithRetry(url);
+            if (raw == null) {
                 return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
             }
-            MediaType contentType = response.getHeaders().getContentType();
-            if (contentType != null && (contentType.includes(MediaType.TEXT_XML)
-                    || contentType.includes(MediaType.APPLICATION_XML))) {
-                log.warn("AROME-PI GetMap returned XML: {}", truncateForLog(body, 400));
-                return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
-            }
-            if (body.length >= 5 && body[0] == '<') {
-                log.warn("AROME-PI GetMap returned non-image body: {}", truncateForLog(body, 400));
-                return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
-            }
-            byte[] scaled = resamplePng(body, outWidth, outHeight);
-            HttpHeaders out = new HttpHeaders();
-            out.setContentType(MediaType.IMAGE_PNG);
-            out.setCacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePublic());
-            return new ResponseEntity<>(scaled, out, HttpStatus.OK);
+            byte[] scaled = resamplePng(raw, outWidth, outHeight);
+            putTileCache(cacheKey, scaled);
+            return pngTileResponse(scaled);
         } catch (HttpClientErrorException e) {
             if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -253,10 +273,114 @@ public class MeteoFranceAromepiService {
             log.warn("AROME-PI image fetch failed ({}): {} body={}",
                     e.getStatusCode(), e.getMessage(), truncateForLog(e.getResponseBodyAsByteArray(), 400));
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        } catch (HttpServerErrorException e) {
+            log.warn("AROME-PI image fetch failed ({}): {} body={}",
+                    e.getStatusCode(), e.getMessage(), truncateForLog(e.getResponseBodyAsByteArray(), 400));
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
         } catch (Exception e) {
             log.warn("AROME-PI image fetch failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
         }
+    }
+
+    private ResponseEntity<byte[]> pngTileResponse(byte[] png) {
+        HttpHeaders out = new HttpHeaders();
+        out.setContentType(MediaType.IMAGE_PNG);
+        out.setCacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePublic());
+        return new ResponseEntity<>(png, out, HttpStatus.OK);
+    }
+
+    private byte[] fetchWmsPngWithRetry(String url) throws InterruptedException {
+        HttpStatusCodeException lastHttpError = null;
+        Exception lastError = null;
+        for (int attempt = 1; attempt <= WMS_MAX_RETRIES; attempt++) {
+            wmsFetchSemaphore.acquire();
+            try {
+                HttpHeaders reqHeaders = authHeaders();
+                reqHeaders.setAccept(List.of(MediaType.IMAGE_PNG, MediaType.IMAGE_JPEG, MediaType.ALL));
+                ResponseEntity<byte[]> response = restTemplate.exchange(
+                        url, HttpMethod.GET, new HttpEntity<>(reqHeaders), byte[].class);
+                byte[] body = response.getBody();
+                if (body == null || body.length == 0) {
+                    lastError = new IllegalStateException("Empty WMS response");
+                } else if (isFaultResponseBody(body, response.getHeaders().getContentType())) {
+                    lastError = new IllegalStateException("WMS returned fault XML");
+                    log.debug("AROME-PI GetMap fault body: {}", truncateForLog(body, 400));
+                } else {
+                    return body;
+                }
+            } catch (HttpClientErrorException e) {
+                if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
+                    throw e;
+                }
+                lastHttpError = e;
+            } catch (HttpServerErrorException e) {
+                lastHttpError = e;
+            } catch (Exception e) {
+                lastError = e;
+            } finally {
+                wmsFetchSemaphore.release();
+            }
+            if (lastHttpError != null) {
+                if (!isRetryableWmsStatus(lastHttpError.getStatusCode()) || attempt >= WMS_MAX_RETRIES) {
+                    throw lastHttpError;
+                }
+                log.debug("AROME-PI WMS retry {}/{} after HTTP {}", attempt, WMS_MAX_RETRIES,
+                        lastHttpError.getStatusCode().value());
+            } else if (attempt >= WMS_MAX_RETRIES) {
+                break;
+            } else {
+                log.debug("AROME-PI WMS retry {}/{} after transient error", attempt, WMS_MAX_RETRIES);
+            }
+            Thread.sleep(WMS_RETRY_BASE_MS * attempt);
+            lastHttpError = null;
+        }
+        if (lastHttpError != null) {
+            throw lastHttpError;
+        }
+        if (lastError != null) {
+            throw new IllegalStateException(lastError.getMessage() != null
+                    ? lastError.getMessage()
+                    : "WMS fetch failed");
+        }
+        return null;
+    }
+
+    private static boolean isRetryableWmsStatus(HttpStatusCode status) {
+        int code = status.value();
+        return status.is5xxServerError() || code == 429;
+    }
+
+    private static boolean isFaultResponseBody(byte[] body, MediaType contentType) {
+        if (contentType != null && (contentType.includes(MediaType.TEXT_XML)
+                || contentType.includes(MediaType.APPLICATION_XML))) {
+            return true;
+        }
+        return body.length >= 5 && body[0] == '<';
+    }
+
+    private static String tileCacheKey(
+            int z, int x, int y,
+            String layer, String style,
+            String time, String referenceTime,
+            int width, int height) {
+        return z + "|" + x + "|" + y + "|" + layer + "|" + style + "|" + time + "|"
+                + referenceTime + "|" + width + "x" + height;
+    }
+
+    private void putTileCache(String key, byte[] png) {
+        if (tileCache.size() >= TILE_CACHE_MAX_ENTRIES) {
+            evictExpiredTiles();
+            if (tileCache.size() >= TILE_CACHE_MAX_ENTRIES) {
+                tileCache.clear();
+            }
+        }
+        tileCache.put(key, new CachedTile(png, System.currentTimeMillis()));
+    }
+
+    private void evictExpiredTiles() {
+        long now = System.currentTimeMillis();
+        tileCache.entrySet().removeIf(entry -> now - entry.getValue().fetchedAtMs() >= TILE_CACHE_TTL.toMillis());
     }
 
     public Map<String, Object> getFeatureInfo(
@@ -770,47 +894,6 @@ public class MeteoFranceAromepiService {
         return "";
     }
 
-    private ResponseEntity<byte[]> fetchImage(String url, Duration cacheMaxAge) {
-        try {
-            HttpHeaders reqHeaders = authHeaders();
-            reqHeaders.setAccept(List.of(MediaType.IMAGE_PNG, MediaType.IMAGE_JPEG, MediaType.ALL));
-
-            ResponseEntity<byte[]> response = restTemplate.exchange(
-                    url, HttpMethod.GET, new HttpEntity<>(reqHeaders), byte[].class);
-
-            byte[] body = response.getBody();
-            if (body == null || body.length == 0) {
-                return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
-            }
-
-            MediaType contentType = response.getHeaders().getContentType();
-            if (contentType != null && (contentType.includes(MediaType.TEXT_XML)
-                    || contentType.includes(MediaType.APPLICATION_XML))) {
-                log.warn("AROME-PI GetMap returned XML: {}", truncateForLog(body, 400));
-                return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
-            }
-            if (body.length >= 5 && body[0] == '<') {
-                log.warn("AROME-PI GetMap returned non-image body: {}", truncateForLog(body, 400));
-                return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
-            }
-
-            HttpHeaders out = new HttpHeaders();
-            out.setContentType(contentType != null ? contentType : MediaType.IMAGE_PNG);
-            out.setCacheControl(CacheControl.maxAge(cacheMaxAge).cachePublic());
-            return new ResponseEntity<>(body, out, HttpStatus.OK);
-        } catch (HttpClientErrorException e) {
-            if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-            }
-            log.warn("AROME-PI image fetch failed ({}): {} body={}",
-                    e.getStatusCode(), e.getMessage(), truncateForLog(e.getResponseBodyAsByteArray(), 400));
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
-        } catch (Exception e) {
-            log.warn("AROME-PI image fetch failed: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
-        }
-    }
-
     private static String truncateForLog(byte[] body, int maxLen) {
         if (body == null || body.length == 0) {
             return "";
@@ -820,9 +903,20 @@ public class MeteoFranceAromepiService {
     }
 
     private boolean probeAuth() {
+        CachedCapabilities cached = cachedCapabilities;
+        if (cached != null
+                && System.currentTimeMillis() - cached.fetchedAtMs < CAPABILITIES_CACHE_TTL.toMillis()) {
+            return true;
+        }
         try {
             loadCapabilities();
             return true;
+        } catch (HttpClientErrorException e) {
+            if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
+                return false;
+            }
+            log.debug("AROME-PI auth probe failed: {}", e.getMessage());
+            return false;
         } catch (Exception e) {
             log.debug("AROME-PI auth probe failed: {}", e.getMessage());
             return false;
@@ -1195,6 +1289,12 @@ public class MeteoFranceAromepiService {
             return Double.parseDouble(raw.trim());
         } catch (NumberFormatException e) {
             return null;
+        }
+    }
+
+    private record CachedTile(byte[] png, long fetchedAtMs) {
+        boolean isValid() {
+            return System.currentTimeMillis() - fetchedAtMs < TILE_CACHE_TTL.toMillis();
         }
     }
 

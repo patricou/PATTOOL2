@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { environment } from '../../environments/environment';
-import { Observable, from, Subject } from 'rxjs';
+import { Observable, from, Subject, Subscription } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
 
 export interface StreamEvent {
@@ -67,53 +67,62 @@ export class LocalNetworkService {
 
   /**
    * Stream network scan results using Server-Sent Events (SSE)
-   * Returns an Observable that emits events as devices are found
-   * @param useExternalVendorAPI If true, use external API for vendor detection (OUI lookup)
+   * Returns an Observable that emits events as devices are found.
+   * Unsubscribing aborts the underlying fetch and cancels the stream reader.
    */
   scanNetworkStream(useExternalVendorAPI: boolean = false): Observable<StreamEvent> {
     const eventSubject = new Subject<StreamEvent>();
+    const abortController = new AbortController();
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+    let tokenSubscription: Subscription | null = null;
 
-    from(this._keycloakService.getToken()).subscribe({
+    tokenSubscription = from(this._keycloakService.getToken()).subscribe({
       next: (token: string) => {
-        // Build URL with query parameter
-        const url = this.API_URL + "network/scan/stream" + (useExternalVendorAPI ? "?useExternalVendorAPI=true" : "");
-        
-        // Use fetch API instead of EventSource to support custom headers
+        if (abortController.signal.aborted) {
+          return;
+        }
+        const url = this.API_URL + 'network/scan/stream'
+          + (useExternalVendorAPI ? '?useExternalVendorAPI=true' : '');
+
         fetch(url, {
           headers: {
-            'Authorization': 'Bearer ' + token,
-            'Accept': 'text/event-stream'
+            Authorization: 'Bearer ' + token,
+            Accept: 'text/event-stream'
           },
-          cache: 'no-cache'
+          cache: 'no-cache',
+          signal: abortController.signal
         }).then(response => {
-          if (!response.ok) {
-            const error = new Error(`HTTP error! status: ${response.status}`);
-            eventSubject.error(error);
+          if (abortController.signal.aborted) {
             return;
           }
-
+          if (!response.ok) {
+            eventSubject.error(new Error(`HTTP error! status: ${response.status}`));
+            return;
+          }
           if (!response.body) {
             eventSubject.error(new Error('Response body is null'));
             return;
           }
 
-          const reader = response.body.getReader();
+          reader = response.body.getReader();
           const decoder = new TextDecoder();
           let buffer = '';
-          let eventType = 'message';
+          let eventType: StreamEvent['type'] | 'message' = 'message';
           let eventData = '';
-          let eventCount = 0;
 
           const readStream = (): void => {
+            if (abortController.signal.aborted || !reader) {
+              return;
+            }
             reader.read().then(({ done, value }) => {
+              if (abortController.signal.aborted) {
+                return;
+              }
               if (done) {
-                // Process any remaining data in buffer
                 if (eventData.trim()) {
                   try {
                     const data = JSON.parse(eventData.trim());
-                    const event: StreamEvent = { type: eventType as any, data };
-                    eventSubject.next(event);
-                    eventCount++;
+                    eventSubject.next({ type: eventType as StreamEvent['type'], data });
                   } catch (e) {
                     console.error('[SSE] Error parsing final SSE data:', e, eventData);
                   }
@@ -128,24 +137,15 @@ export class LocalNetworkService {
 
               for (const line of lines) {
                 const trimmedLine = line.trim();
-                
                 if (trimmedLine.startsWith('event:')) {
-                  eventType = trimmedLine.substring(6).trim();
+                  eventType = trimmedLine.substring(6).trim() as StreamEvent['type'];
                 } else if (trimmedLine.startsWith('data:')) {
-                  // Handle multi-line data (append if data already exists)
                   const dataLine = trimmedLine.substring(5);
-                  if (eventData) {
-                    eventData += '\n' + dataLine;
-                  } else {
-                    eventData = dataLine;
-                  }
+                  eventData = eventData ? eventData + '\n' + dataLine : dataLine;
                 } else if (trimmedLine === '' && eventData) {
-                  // Empty line signals end of event
                   try {
                     const data = JSON.parse(eventData.trim());
-                    const event: StreamEvent = { type: eventType as any, data };
-                    eventSubject.next(event);
-                    eventCount++;
+                    eventSubject.next({ type: eventType as StreamEvent['type'], data });
                   } catch (e) {
                     console.error('[SSE] Error parsing SSE data:', e, 'EventData:', eventData);
                   }
@@ -156,6 +156,9 @@ export class LocalNetworkService {
 
               readStream();
             }).catch(error => {
+              if (abortController.signal.aborted) {
+                return;
+              }
               console.error('[SSE] Error reading stream:', error);
               eventSubject.error(error);
             });
@@ -163,16 +166,31 @@ export class LocalNetworkService {
 
           readStream();
         }).catch(error => {
+          if (abortController.signal.aborted) {
+            return;
+          }
           console.error('[SSE] Fetch error:', error);
           eventSubject.error(error);
         });
       },
       error: (error) => {
-        eventSubject.error(error);
+        if (!abortController.signal.aborted) {
+          eventSubject.error(error);
+        }
       }
     });
 
-    return eventSubject.asObservable();
+    return new Observable<StreamEvent>(subscriber => {
+      const subscription = eventSubject.subscribe(subscriber);
+      return () => {
+        abortController.abort();
+        tokenSubscription?.unsubscribe();
+        tokenSubscription = null;
+        reader?.cancel().catch(() => undefined);
+        reader = null;
+        subscription.unsubscribe();
+      };
+    });
   }
 
   /**

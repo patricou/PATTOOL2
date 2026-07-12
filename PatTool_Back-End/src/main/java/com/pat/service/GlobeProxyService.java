@@ -27,10 +27,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Proxies fixed allow-listed globe imagery URLs (Three.js sample textures, NASA BMNG, NASA GIBS WMS),
@@ -120,7 +116,6 @@ public class GlobeProxyService {
             "https://api.wheretheiss.at/v1/satellites/25544/positions";
 
     private static final long ISS_NOW_MEMORY_CACHE_MS = 3_000L;
-    private static final long ISS_NOW_PARALLEL_WAIT_MS = 8_000L;
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -304,7 +299,7 @@ public class GlobeProxyService {
                         + "&lon=" + String.format(Locale.US, "%.6f", lon)
                         + "&alt=" + String.format(Locale.US, "%.0f", alt)
                         + "&n=" + n;
-                return fetchBytes(openNotifyUrl, MAX_BYTES_ISS_FEED);
+                return fetchBytes(openNotifyUrl, MAX_BYTES_ISS_FEED, false);
             } catch (IllegalStateException secondary) {
                 log.warn("Globe ISS passes: Open Notify fallback failed ({})", secondary.getMessage());
                 throw primary;
@@ -439,7 +434,7 @@ public class GlobeProxyService {
             return cached.payload;
         }
 
-        byte[] live = fetchOpenNotifyIssNowParallel();
+        byte[] live = fetchOpenNotifyIssNowLive();
         if (live != null) {
             storeIssNowMemoryCache(live);
             return live;
@@ -449,10 +444,11 @@ public class GlobeProxyService {
         if (latest.isPresent()) {
             byte[] fromTrace = buildOpenNotifyIssNowJsonFromCoordinates(latest.get());
             storeIssNowMemoryCache(fromTrace);
-            log.info("Globe ISS: upstream unavailable; serving latest Mongo trace sample.");
+            log.info("Globe ISS: live feeds unavailable; serving latest Mongo trace sample.");
             return fromTrace;
         }
 
+        log.warn("Globe ISS: all position sources failed (WhereTheISS.at, Open Notify, Mongo trace).");
         throw new IllegalStateException("ISS position unavailable");
     }
 
@@ -461,38 +457,22 @@ public class GlobeProxyService {
     }
 
     /**
-     * Queries WhereTheISS.at and Open Notify in parallel; first successful response wins.
+     * Live ISS position: WhereTheISS.at first (more reliable), then Open Notify.
+     * Failures are logged at debug only — callers fall back to Mongo trace samples.
      */
-    private byte[] fetchOpenNotifyIssNowParallel() {
-        AtomicReference<byte[]> winner = new AtomicReference<>();
-        CountDownLatch done = new CountDownLatch(1);
-        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            executor.submit(() -> {
-                try {
-                    byte[] raw = fetchBytes(WHERE_THE_ISS_AT_ISS_JSON, MAX_BYTES_ISS_FEED);
-                    byte[] mapped = mapWhereTheIssAtToOpenNotifyCompatibleJson(raw);
-                    if (winner.compareAndSet(null, mapped)) {
-                        done.countDown();
-                    }
-                } catch (Exception e) {
-                    log.debug("Globe ISS parallel: wheretheiss.at failed ({})", e.getMessage());
-                }
-            });
-            executor.submit(() -> {
-                try {
-                    byte[] body = fetchBytes(OPEN_NOTIFY_ISS_NOW_JSON, MAX_BYTES_ISS_FEED);
-                    if (winner.compareAndSet(null, body)) {
-                        done.countDown();
-                    }
-                } catch (Exception e) {
-                    log.debug("Globe ISS parallel: Open Notify failed ({})", e.getMessage());
-                }
-            });
-            done.await(ISS_NOW_PARALLEL_WAIT_MS, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+    private byte[] fetchOpenNotifyIssNowLive() {
+        try {
+            byte[] raw = fetchBytes(WHERE_THE_ISS_AT_ISS_JSON, MAX_BYTES_ISS_FEED, false);
+            return mapWhereTheIssAtToOpenNotifyCompatibleJson(raw);
+        } catch (Exception e) {
+            log.debug("Globe ISS: wheretheiss.at unavailable ({}).", e.getMessage());
         }
-        return winner.get();
+        try {
+            return fetchBytes(OPEN_NOTIFY_ISS_NOW_JSON, MAX_BYTES_ISS_FEED, false);
+        } catch (Exception e) {
+            log.debug("Globe ISS: Open Notify unavailable ({}).", e.getMessage());
+        }
+        return null;
     }
 
     private byte[] buildOpenNotifyIssNowJsonFromCoordinates(IssTraceService.IssTracePointView point) {
@@ -634,6 +614,10 @@ public class GlobeProxyService {
     }
 
     private byte[] fetchBytes(String url, int maxBytes) {
+        return fetchBytes(url, maxBytes, true);
+    }
+
+    private byte[] fetchBytes(String url, int maxBytes, boolean warnOnFailure) {
         HttpHeaders headers = new HttpHeaders();
         headers.set(HttpHeaders.USER_AGENT, UA);
         headers.set(HttpHeaders.ACCEPT, "*/*");
@@ -656,7 +640,11 @@ public class GlobeProxyService {
             }
             return body;
         } catch (RestClientException e) {
-            log.warn("Globe proxy fetch failed for {}: {}", url, e.getMessage());
+            if (warnOnFailure) {
+                log.warn("Globe proxy fetch failed for {}: {}", url, e.getMessage());
+            } else {
+                log.debug("Globe proxy fetch failed for {}: {}", url, e.getMessage());
+            }
             throw new IllegalStateException("Upstream fetch failed: " + e.getMessage(), e);
         }
     }

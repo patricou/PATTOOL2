@@ -39,6 +39,7 @@ export class MeteoFranceChartPanelComponent implements OnChanges, OnDestroy {
   fullscreen = false;
 
   private readonly closeFullscreen = () => this.setFullscreen(false);
+  private chartRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private readonly chartFullscreen: MeteoChartFullscreenService) {}
 
@@ -49,6 +50,10 @@ export class MeteoFranceChartPanelComponent implements OnChanges, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.chartRefreshTimer) {
+      clearTimeout(this.chartRefreshTimer);
+      this.chartRefreshTimer = null;
+    }
     this.chartFullscreen.unregister(this.closeFullscreen);
   }
 
@@ -85,7 +90,11 @@ export class MeteoFranceChartPanelComponent implements OnChanges, OnDestroy {
   }
 
   private scheduleChartRefresh(delayMs = 0): void {
-    setTimeout(() => {
+    if (this.chartRefreshTimer) {
+      clearTimeout(this.chartRefreshTimer);
+    }
+    this.chartRefreshTimer = setTimeout(() => {
+      this.chartRefreshTimer = null;
       this.chartDir?.chart?.resize();
       this.chartDir?.update();
     }, delayMs);

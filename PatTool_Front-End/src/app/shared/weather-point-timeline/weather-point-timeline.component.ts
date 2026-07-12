@@ -706,8 +706,13 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     this.msHistoryLoading = true;
     const loadCancel$ = this.activeLoadCancel$;
     const days = WeatherPointTimelineComponent.HISTORY_DAYS;
-    const cacheKey = this.historyCache.msHistKey(this.lat, this.lon, days, this.stationId || undefined);
-    const clientCached = this.historyCache.getMsHist(cacheKey);
+    const msQuery = {
+      lat: this.lat,
+      lon: this.lon,
+      days,
+      stationId: this.stationId || undefined
+    };
+    const clientCached = this.historyCache.lookupMsHist(msQuery);
     if (clientCached) {
       this.deferTimelineUiUpdate(() => {
         if (requestId !== this.requestId) {
@@ -742,7 +747,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
           }
           this.msHistoryLoading = false;
           this.msHistoryCache = data;
-          this.historyCache.setMsHist(cacheKey, data);
+          this.historyCache.setMsHist(msQuery, data);
           this.logClimResponse('METEO_FRANCE.POINT_TIMELINE_LOG_MS_HIST_OK', data);
           this.refreshFromCaches(true);
           this.checkLoadComplete();
@@ -776,14 +781,14 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
       return;
     }
     const days = WeatherPointTimelineComponent.HISTORY_DAYS;
-    const cacheKey = this.historyCache.climKey(
-      this.lat,
-      this.lon,
+    const climQuery = {
+      lat: this.lat,
+      lon: this.lon,
       days,
-      'horaire',
-      this.stationId
-    );
-    const clientCached = this.historyCache.getClim(cacheKey);
+      frequency: 'horaire',
+      stationId: this.stationId
+    };
+    const clientCached = this.historyCache.lookupClim(climQuery);
     if (clientCached) {
       this.deferTimelineUiUpdate(() => {
         if (requestId !== this.requestId || !this.visible) {
@@ -821,7 +826,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
           }
           this.climLoading = false;
           this.climCache = clim;
-          this.historyCache.setClim(cacheKey, clim);
+          this.historyCache.setClim(climQuery, clim);
           this.logClimResponse('METEO_FRANCE.POINT_TIMELINE_LOG_CLIM_OK', clim);
           this.refreshFromCaches(true);
           this.checkLoadComplete();
@@ -946,13 +951,31 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
       return;
     }
     const requestId = this.requestId;
+    const days = WeatherPointTimelineComponent.HISTORY_DAYS;
+    const climQuery = {
+      lat: this.lat,
+      lon: this.lon,
+      days,
+      frequency: 'quotidienne',
+      stationId: this.stationId
+    };
+    const clientCached = this.historyCache.lookupClim(climQuery);
+    if (clientCached) {
+      this.climQuotidienneCache = clientCached;
+      this.logClimResponse('METEO_FRANCE.POINT_TIMELINE_LOG_QUOT_OK', clientCached);
+      this.buildDailySlots(clientCached, this.slots);
+      if (this.activeParam === 'precipDaily') {
+        this.renderChart();
+      }
+      return;
+    }
     this.quotidienneLoading = true;
     this.appendLoadLog('loading', 'METEO_FRANCE.POINT_TIMELINE_LOG_QUOT_START');
     const loadCancel$ = this.activeLoadCancel$;
     this.apiService.getMeteoFranceClimNearby(
       this.lat,
       this.lon,
-      WeatherPointTimelineComponent.HISTORY_DAYS,
+      days,
       'quotidienne',
       this.departmentCode || undefined,
       this.stationId
@@ -971,6 +994,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
           }
           this.quotidienneLoading = false;
           this.climQuotidienneCache = data;
+          this.historyCache.setClim(climQuery, data);
           this.logClimResponse('METEO_FRANCE.POINT_TIMELINE_LOG_QUOT_OK', data);
           this.buildDailySlots(data, this.slots);
           if (this.activeParam === 'precipDaily') {
