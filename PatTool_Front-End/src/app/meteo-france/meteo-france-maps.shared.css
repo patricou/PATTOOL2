@@ -24,7 +24,9 @@
 }
 
 .mf-map-shell--radar {
-  --mf-map-chrome: 270px;
+  /* Radar tab has search + controls above the map: keep the input visible without scrolling. */
+  --mf-map-chrome: 360px;
+  --mf-map-min-h: 320px;
 }
 
 .mf-map-shell--aromepi {
@@ -45,7 +47,7 @@
   }
 
   .mf-map-shell--radar {
-    --mf-map-chrome: 310px;
+    --mf-map-chrome: 380px;
   }
 
   .mf-map-shell--aromepi {
@@ -58,6 +60,14 @@
 
   .mf-map-shell--ms-precip {
     --mf-map-chrome: 440px;
+  }
+}
+
+/* Short viewports (laptops / mobile landscape): prioritize controls + search field. */
+@media (max-height: 760px) {
+  .mf-map-shell--radar {
+    --mf-map-chrome: 420px;
+    --mf-map-min-h: 260px;
   }
 }
 

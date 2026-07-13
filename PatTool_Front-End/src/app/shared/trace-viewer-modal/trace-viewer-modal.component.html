@@ -67,8 +67,11 @@
               <i class="fa fa-times" aria-hidden="true"></i>
             </button>
 
-            <span class="tv-weather-location" *ngIf="weatherLocationLabel">
-              {{ weatherLocationLabel }}
+            <span class="tv-weather-location" *ngIf="weatherPointWeatherLocationLabel">
+              {{ weatherPointWeatherLocationLabel }}
+            </span>
+            <span class="tv-weather-location" *ngIf="isFiniteAltitude(clickedWeatherAlt)">
+              {{ clickedWeatherAlt!.toFixed(0) }} m
             </span>
 
             <div class="tv-weather-rows" *ngIf="!isLoadingWeather">
@@ -89,7 +92,7 @@
                     </span>
                   </span>
                 </div>
-                <span class="tv-weather-station" *ngIf="weatherPointMfStationName">{{ weatherPointMfStationName }}</span>
+                <span class="tv-weather-station" *ngIf="weatherPointMfStationLine">{{ weatherPointMfStationLine }}</span>
               </div>
 
               <div class="tv-weather-ms-block" *ngIf="weatherPointMsTempC != null && isWeatherPointInSwitzerland()">
@@ -109,7 +112,7 @@
                     </span>
                   </span>
                 </div>
-                <span class="tv-weather-station" *ngIf="weatherPointMsStationName">{{ weatherPointMsStationName }}</span>
+                <span class="tv-weather-station" *ngIf="weatherPointMsStationLine">{{ weatherPointMsStationLine }}</span>
               </div>
 
               <div class="tv-weather-source-row"
@@ -169,15 +172,26 @@
               </button>
               <button type="button"
                       class="tv-weather-action-btn tv-weather-action-btn--mf"
-                      (click)="openMeteoFranceAtWeatherPoint(); $event.stopPropagation()"
+                      (click)="openRegionalMeteoAtWeatherPoint(); $event.stopPropagation()"
                       [attr.title]="'EVENTELEM.TRACK_OPEN_METEO_FRANCE_HINT' | translate"
                       [attr.aria-label]="'EVENTELEM.TRACK_OPEN_METEO_FRANCE' | translate">
-                <img [src]="weatherLogoMf"
-                     alt=""
-                     width="14"
-                     height="14"
-                     loading="lazy"
-                     aria-hidden="true">
+                <ng-container [ngSwitch]="weatherPointActionBrand()">
+                  <img *ngSwitchCase="'meteofrance'"
+                       [src]="weatherLogoMf"
+                       alt=""
+                       width="14"
+                       height="14"
+                       loading="lazy"
+                       aria-hidden="true">
+                  <img *ngSwitchCase="'meteoswiss'"
+                       [src]="weatherLogoMs"
+                       alt=""
+                       width="14"
+                       height="14"
+                       loading="lazy"
+                       aria-hidden="true">
+                  <i *ngSwitchDefault class="fa fa-globe" aria-hidden="true"></i>
+                </ng-container>
                 <i class="fa fa-tint" aria-hidden="true"></i>
               </button>
             </div>
@@ -189,6 +203,7 @@
           [lat]="weatherTimelineLat"
           [lon]="weatherTimelineLon"
           [title]="weatherTimelineTitleSnapshot"
+          [altitudeM]="clickedWeatherAlt"
           [mfTempC]="weatherTimelineMfTempC"
           [msTempC]="weatherTimelineMsTempC"
           [openMeteoTempC]="weatherTimelineOpenMeteoTempC"

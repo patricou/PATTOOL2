@@ -23,6 +23,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import jakarta.annotation.PostConstruct;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicLong;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -40,7 +41,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -99,18 +102,27 @@ public class MeteoFranceAromepiService {
     private final String apiToken;
     private final String baseUrl;
     private final String wmsService;
+    private final long wmsMinIntervalMs;
 
     private volatile CachedCapabilities cachedCapabilities;
     private final ConcurrentHashMap<String, CachedMinutely15> minutely15Cache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, CachedTile> tileCache = new ConcurrentHashMap<>();
     private final Semaphore wmsFetchSemaphore;
+    /**
+     * Upstream (Météo-France) throttling window: when we receive 429, pause all
+     * subsequent WMS calls until this instant to avoid hammering the quota.
+     */
+    private volatile long wmsBackoffUntilMs = 0L;
+    /** Next time (ms) a WMS request is allowed to start (global pacing). */
+    private final AtomicLong nextWmsAllowedAtMs = new AtomicLong(0L);
 
     public MeteoFranceAromepiService(
             @Qualifier(RestTemplateConfig.METEOFRANCE_CLIM_REST_TEMPLATE) RestTemplate restTemplate,
             @Value("${meteofrance.aromepi.api.token:}") String apiToken,
             @Value("${meteofrance.aromepi.base.url:" + DEFAULT_BASE + "}") String baseUrl,
             @Value("${meteofrance.aromepi.wms.service:" + DEFAULT_WMS_SERVICE + "}") String wmsService,
-            @Value("${meteofrance.aromepi.wms.max.concurrent:4}") int wmsMaxConcurrent) {
+            @Value("${meteofrance.aromepi.wms.max.concurrent:2}") int wmsMaxConcurrent,
+            @Value("${meteofrance.aromepi.wms.min-interval-ms:250}") long wmsMinIntervalMs) {
         this.restTemplate = restTemplate;
         this.apiToken = normalizeToken(apiToken);
         this.baseUrl = baseUrl != null && !baseUrl.isBlank()
@@ -119,6 +131,7 @@ public class MeteoFranceAromepiService {
         this.wmsService = wmsService != null && !wmsService.isBlank()
                 ? wmsService.trim()
                 : DEFAULT_WMS_SERVICE;
+        this.wmsMinIntervalMs = Math.max(0L, wmsMinIntervalMs);
         this.wmsFetchSemaphore = new Semaphore(Math.max(1, wmsMaxConcurrent), true);
         if (isConfigured()) {
             log.info("Météo-France AROME-PI credentials loaded (wms={})", this.wmsService);
@@ -212,6 +225,10 @@ public class MeteoFranceAromepiService {
         if (!isConfigured()) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
         }
+        ResponseEntity<byte[]> throttled = throttledResponseIfNeeded();
+        if (throttled != null) {
+            return throttled;
+        }
         if (z < 0 || z > 18 || x < 0 || y < 0) {
             return ResponseEntity.badRequest().build();
         }
@@ -270,6 +287,11 @@ public class MeteoFranceAromepiService {
             if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
+            if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
+                // Propagate 429 to the browser so it can stop retrying aggressively.
+                ResponseEntity<byte[]> resp = throttledResponseIfNeeded();
+                return resp != null ? resp : ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).build();
+            }
             log.warn("AROME-PI image fetch failed ({}): {} body={}",
                     e.getStatusCode(), e.getMessage(), truncateForLog(e.getResponseBodyAsByteArray(), 400));
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
@@ -291,9 +313,15 @@ public class MeteoFranceAromepiService {
     }
 
     private byte[] fetchWmsPngWithRetry(String url) throws InterruptedException {
+        long now = System.currentTimeMillis();
+        long backoffUntil = wmsBackoffUntilMs;
+        if (backoffUntil > now) {
+            return null;
+        }
         HttpStatusCodeException lastHttpError = null;
         Exception lastError = null;
         for (int attempt = 1; attempt <= WMS_MAX_RETRIES; attempt++) {
+            paceWmsRequests();
             wmsFetchSemaphore.acquire();
             try {
                 HttpHeaders reqHeaders = authHeaders();
@@ -311,6 +339,10 @@ public class MeteoFranceAromepiService {
                 }
             } catch (HttpClientErrorException e) {
                 if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
+                    throw e;
+                }
+                if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
+                    registerWmsThrottle(e);
                     throw e;
                 }
                 lastHttpError = e;
@@ -346,9 +378,125 @@ public class MeteoFranceAromepiService {
         return null;
     }
 
+    private void paceWmsRequests() throws InterruptedException {
+        if (wmsMinIntervalMs <= 0) {
+            return;
+        }
+        while (true) {
+            long now = System.currentTimeMillis();
+            long allowedAt = nextWmsAllowedAtMs.get();
+            long startAt = Math.max(now, allowedAt);
+            long next = startAt + wmsMinIntervalMs;
+            if (nextWmsAllowedAtMs.compareAndSet(allowedAt, next)) {
+                long sleepMs = startAt - now;
+                if (sleepMs > 0) {
+                    Thread.sleep(sleepMs);
+                }
+                return;
+            }
+        }
+    }
+
     private static boolean isRetryableWmsStatus(HttpStatusCode status) {
         int code = status.value();
-        return status.is5xxServerError() || code == 429;
+        return status.is5xxServerError();
+    }
+
+    private void registerWmsThrottle(HttpClientErrorException e) {
+        long now = System.currentTimeMillis();
+        long until = now + Duration.ofMinutes(1).toMillis();
+
+        HttpHeaders headers = e.getResponseHeaders();
+        if (headers != null) {
+            String retryAfter = headers.getFirst(HttpHeaders.RETRY_AFTER);
+            Long retrySec = parseRetryAfterSeconds(retryAfter);
+            if (retrySec != null && retrySec > 0) {
+                until = Math.max(until, now + retrySec * 1000L);
+            }
+        }
+
+        String body = null;
+        try {
+            body = e.getResponseBodyAsString(StandardCharsets.UTF_8);
+        } catch (Exception ignored) {
+            // ignore
+        }
+        Long bodyUntil = parseMeteoFranceNextAccessTimeMs(body);
+        if (bodyUntil != null) {
+            until = Math.max(until, bodyUntil);
+        }
+
+        if (until > wmsBackoffUntilMs) {
+            wmsBackoffUntilMs = until;
+            log.warn("AROME-PI rate limited (429); pausing WMS calls for ~{} s",
+                    Math.max(1, Duration.ofMillis(until - now).toSeconds()));
+        }
+    }
+
+    private static Long parseRetryAfterSeconds(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(raw.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static final Pattern MF_NEXT_ACCESS_TIME =
+            Pattern.compile("\"nextAccessTime\"\\s*:\\s*\"([^\"]+)\"");
+
+    private static Long parseMeteoFranceNextAccessTimeMs(String body) {
+        if (body == null || body.isBlank()) {
+            return null;
+        }
+        var m = MF_NEXT_ACCESS_TIME.matcher(body);
+        if (!m.find()) {
+            return null;
+        }
+        String raw = m.group(1);
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+
+        // Example observed:
+        // "2026-juil.-13 19:15:00+0000 UTC"
+        // (French month abbreviation, with dot)
+        try {
+            DateTimeFormatter fmt1 = new DateTimeFormatterBuilder()
+                    .parseCaseInsensitive()
+                    .appendPattern("yyyy-MMM.-dd HH:mm:ssZ 'UTC'")
+                    .toFormatter(Locale.FRENCH);
+            return fmt1.parse(raw.trim(), Instant::from).toEpochMilli();
+        } catch (DateTimeParseException ignored) {
+            // fallthrough
+        } catch (Exception ignored) {
+            // fallthrough
+        }
+        try {
+            DateTimeFormatter fmt2 = new DateTimeFormatterBuilder()
+                    .parseCaseInsensitive()
+                    .appendPattern("yyyy-MMM-dd HH:mm:ssZ 'UTC'")
+                    .toFormatter(Locale.FRENCH);
+            return fmt2.parse(raw.trim(), Instant::from).toEpochMilli();
+        } catch (Exception ignored) {
+            // fallthrough
+        }
+        return null;
+    }
+
+    private ResponseEntity<byte[]> throttledResponseIfNeeded() {
+        long now = System.currentTimeMillis();
+        long until = wmsBackoffUntilMs;
+        if (until <= now) {
+            return null;
+        }
+        long retryAfterSec = Math.max(1, Duration.ofMillis(until - now).toSeconds());
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.RETRY_AFTER, String.valueOf(retryAfterSec));
+        headers.setCacheControl(CacheControl.noStore());
+        return new ResponseEntity<>(new byte[0], headers, HttpStatus.TOO_MANY_REQUESTS);
     }
 
     private static boolean isFaultResponseBody(byte[] body, MediaType contentType) {

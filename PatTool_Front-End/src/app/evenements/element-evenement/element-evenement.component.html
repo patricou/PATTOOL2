@@ -255,7 +255,7 @@
             </li>
             <li class="card-info-item card-info-item-start-location">
                 {{"EVENTELEM.STARTLOCATION" | translate }} : {{evenement.startLocation}}
-                <button *ngIf="evenement.startLocation.trim()"
+                <button *ngIf="hasValidDepartureLocation(evenement.startLocation)"
                         type="button"
                         class="btn btn-sm btn-outline-secondary ms-1 dynamic-footer-btn start-location-map-btn"
                         [ngStyle]="getFooterButtonStyles('details')"

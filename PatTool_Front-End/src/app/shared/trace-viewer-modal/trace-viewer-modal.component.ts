@@ -14,6 +14,14 @@ import { WeatherPointTimelineComponent } from '../weather-point-timeline/weather
 import { environment } from '../../../environments/environment';
 import * as L from 'leaflet';
 import { isValidGeoCoordinate } from '../geo-coordinates.util';
+import {
+	extractGeocodeCityName,
+	formatMfStationProximityLabel,
+	formatGpsCoordinates,
+	resolveMfStationDistanceKm,
+	resolvePlaceNameFromGeocode,
+	resolveWeatherPointLocationLabel,
+} from '../weather-point-popup.util';
 
 interface TraceViewerSource {
 	fileId?: string;
@@ -34,6 +42,7 @@ interface TraceStatistics {
 }
 
 type TraceViewerWeatherBrand = 'meteofrance' | 'open-meteo' | 'openweathermap' | 'meteoswiss';
+type TraceViewerWeatherActionBrand = 'meteofrance' | 'meteoswiss' | 'world';
 
 interface CartesGouvEmbedLayerOption {
 	id: string;
@@ -137,7 +146,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public weatherPointMsStationName = '';
 	public weatherPointMsStationId = '';
 	public weatherPointPlaceName = '';
-	weatherLocationLabel = '';
+	/** Locality from reverse geocode (hamlet/village/town), preferred over OWM place name for popup title. */
+	public weatherLocationName = '';
+	public weatherCity = '';
+	private weatherPointMfStationDistKm: number | null = null;
+	private weatherPointMsStationDistKm: number | null = null;
 	weatherTimelineLat = 0;
 	weatherTimelineLon = 0;
 	weatherTimelineTitleSnapshot = '';
@@ -252,7 +265,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private mapLayoutResizeObserver?: ResizeObserver;
 	private mapLayoutSyncDebouncer: number | null = null;
 	private traceViewerCdrTimer: number | null = null;
-	private weatherLocationLabelRefreshTimer: number | null = null;
 	private mapResizeObservedDims = { w: -1, h: -1 };
 	/** Bloque le scroll de la page derrière la modale. */
 	private modalWindowWheelHandler?: (event: Event) => void;
@@ -477,10 +489,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 			clearTimeout(this.traceViewerCdrTimer);
 			this.traceViewerCdrTimer = null;
 		}
-		if (this.weatherLocationLabelRefreshTimer != null) {
-			clearTimeout(this.weatherLocationLabelRefreshTimer);
-			this.weatherLocationLabelRefreshTimer = null;
-		}
 		this.stopFollowDeviceLocation();
 		void this.releaseScreenWakeLock();
 		this.cleanupVisibilityChangeListener();
@@ -671,7 +679,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 				: 'https://wmts{s}.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg',
 			{
 				subdomains: '0123456789',
-				maxZoom: isImage ? 19 : 18,
+				// Allow over-zoom while keeping tiles (Leaflet will upscale above native).
+				maxNativeZoom: isImage ? 19 : 18,
+				maxZoom: 20,
 				minZoom: 2,
 				attribution: TraceViewerModalComponent.SWISSTOPO_ATTRIBUTION
 			}
@@ -1213,41 +1223,38 @@ export class TraceViewerModalComponent implements OnDestroy {
 		});
 	}
 
-	private computeWeatherLocationDisplayName(): string {
-		const place = this.weatherPointPlaceName?.trim();
-		if (place) {
-			return place;
-		}
-		const address = this.clickedWeatherAddress?.trim();
-		if (address) {
-			const firstPart = address.split(',')[0]?.trim();
-			if (firstPart && !this.looksLikeCoordinates(firstPart)) {
-				return firstPart;
-			}
-			return address;
-		}
-		if (Number.isFinite(this.clickedWeatherLat) && Number.isFinite(this.clickedWeatherLng)) {
-			return `${this.clickedWeatherLat.toFixed(4)}, ${this.clickedWeatherLng.toFixed(4)}`;
-		}
-		return '';
+	get weatherPointWeatherLocationLabel(): string {
+		return resolveWeatherPointLocationLabel({
+			geocodeName: this.weatherLocationName,
+			openWeatherPlace: this.weatherPointPlaceName,
+			city: this.weatherCity,
+			lat: this.clickedWeatherLat,
+			lon: this.clickedWeatherLng,
+		});
 	}
 
-	/** Libellé lieu météo au tick suivant (regroupe géocodage + nom OWM) — évite NG0100. */
-	private scheduleWeatherLocationLabelRefresh(): void {
-		if (this.weatherLocationLabelRefreshTimer != null) {
-			clearTimeout(this.weatherLocationLabelRefreshTimer);
-		}
-		this.weatherLocationLabelRefreshTimer = window.setTimeout(() => {
-			this.weatherLocationLabelRefreshTimer = null;
-			this.weatherLocationLabel = this.computeWeatherLocationDisplayName();
-			this.scheduleTraceViewerCdr();
-		}, 0);
+	get weatherPointMfStationLine(): string {
+		return formatMfStationProximityLabel(
+			this.weatherPointMfStationName,
+			this.weatherPointMfStationId,
+			this.weatherPointMfStationDistKm,
+			(station, km) => this.translateService.instant('METEO_FRANCE.POINT_SOURCE_MF_NEAREST', { station, km })
+		);
+	}
+
+	get weatherPointMsStationLine(): string {
+		return formatMfStationProximityLabel(
+			this.weatherPointMsStationName,
+			this.weatherPointMsStationId,
+			this.weatherPointMsStationDistKm,
+			(station, km) => this.translateService.instant('METEO_FRANCE.POINT_SOURCE_MS_NEAREST', { station, km })
+		);
 	}
 
 	private syncWeatherTimelineSnapshot(): void {
 		this.weatherTimelineLat = this.clickedWeatherLat;
 		this.weatherTimelineLon = this.clickedWeatherLng;
-		this.weatherTimelineTitleSnapshot = this.weatherLocationLabel || this.computeWeatherLocationDisplayName();
+		this.weatherTimelineTitleSnapshot = this.weatherPointWeatherLocationLabel;
 		this.weatherTimelineMfTempC = this.weatherPointMfTempC;
 		this.weatherTimelineMsTempC = this.weatherPointMsTempC;
 		this.weatherTimelineOpenMeteoTempC = this.weatherPointOpenMeteoTempC;
@@ -1411,6 +1418,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 				attributionControl: true,
 				zoomDelta: 1,
 				zoomSnap: 0,
+				// Keep a consistent max zoom across basemaps; basemaps handle over-zoom via maxNativeZoom.
+				maxZoom: 20,
 				scrollWheelZoom: false,
 				doubleClickZoom: false
 			});
@@ -2569,7 +2578,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 							'&REQUEST=GetTile&SERVICE=WMTS&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
 							{
 								minZoom: 13,
-								maxZoom: 19,
+								maxNativeZoom: 19,
+								maxZoom: 20,
 								attribution: '&copy; IGN - Géoportail',
 								zIndex: 3
 							}
@@ -2590,13 +2600,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 					this.thunderforestApiKey = apiKey;
 					// Add OpenCycleMap layer (vélo / rando)
 					this.baseLayers['opencyclemap'] = L.tileLayer('https://{s}.tile.thunderforest.com/cycle/{z}/{x}/{y}.png?apikey=' + this.thunderforestApiKey, {
-						maxZoom: 18,
+						maxNativeZoom: 18,
+						maxZoom: 20,
 						subdomains: ['a', 'b', 'c'],
 						attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://www.thunderforest.com">Thunderforest</a>'
 					});
 					// Add Thunderforest Outdoors (carte rando : sentiers, relief, SAC)
 					this.baseLayers['thunderforest-outdoors'] = L.tileLayer('https://{s}.tile.thunderforest.com/outdoors/{z}/{x}/{y}.png?apikey=' + this.thunderforestApiKey, {
-						maxZoom: 18,
+						maxNativeZoom: 18,
+						maxZoom: 20,
 						subdomains: ['a', 'b', 'c'],
 						attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://www.thunderforest.com">Thunderforest</a>'
 					});
@@ -2618,19 +2630,23 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private createBaseLayers(): void {
 		this.baseLayers = {
 			'osm-standard': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-				maxZoom: 19,
+				maxNativeZoom: 19,
+				maxZoom: 20,
 				attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 			}),
 			'osm-fr': (() => {
 				// Create a layer group with OSM standard as base and OSM France on top
 				// This ensures no missing tiles - if OSM France fails, OSM standard shows
 				const osmStandardBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+					maxNativeZoom: 19,
 					maxZoom: 20,
 					attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 					opacity: 0.7, // Slightly transparent so OSM France shows through
 					zIndex: 1
 				});
 				const osmFrance = L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+					// osmfr commonly stops earlier than map max; allow over-zoom by upscaling.
+					maxNativeZoom: 19,
 					maxZoom: 20,
 					minZoom: 0,
 					subdomains: ['a', 'b', 'c'],
@@ -2642,7 +2658,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 				return L.layerGroup([osmStandardBase, osmFrance]) as any;
 			})(),
 			'esri-imagery': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-				maxZoom: 19,
+				maxNativeZoom: 19,
+				maxZoom: 20,
 				attribution: 'Tiles &copy; Esri'
 			}),
 			// 'esri-topo': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
@@ -2654,7 +2671,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 			// 	attribution: 'Tiles &copy; Esri'
 			// }),
 			'opentopomap': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-				maxZoom: 17,
+				maxNativeZoom: 17,
+				maxZoom: 20,
 				subdomains: 'abc',
 				attribution: 'Map data: &copy; OSM contributors, SRTM'
 			}),
@@ -2663,7 +2681,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 			// 	attribution: 'Tiles &copy; Esri'
 			// }),
 			'ign-plan': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
-				maxZoom: 19,
+				maxNativeZoom: 19,
+				maxZoom: 20,
 				attribution: '&copy; IGN - Géoportail'
 			}),
 			'ign-classic': (() => {
@@ -2676,22 +2695,26 @@ export class TraceViewerModalComponent implements OnDestroy {
 				});
 				const planIgn = L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
 					minZoom: 12,
-					maxZoom: 19,
+					maxNativeZoom: 19,
+					maxZoom: 20,
 					attribution: '&copy; IGN - Géoportail',
 					zIndex: 2
 				});
 				return L.layerGroup([scanRegional, planIgn]) as any;
 			})(),
 			'ign-ortho': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
-				maxZoom: 19,
+				maxNativeZoom: 19,
+				maxZoom: 20,
 				attribution: '&copy; IGN - Géoportail'
 			}),
 			'ign-cadastre': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=CADASTRALPARCELS.PARCELLAIRE_EXPRESS&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
-				maxZoom: 19,
+				maxNativeZoom: 19,
+				maxZoom: 20,
 				attribution: '&copy; IGN - Géoportail'
 			}),
 			'ign-limites': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=LIMITES_ADMINISTRATIVES_EXPRESS.LATEST&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
-				maxZoom: 19,
+				maxNativeZoom: 19,
+				maxZoom: 20,
 				attribution: '&copy; IGN - Géoportail'
 			}),
 			// IGN Cartes (Scan Express) commented out - layer name may be incorrect or deprecated
@@ -2708,15 +2731,18 @@ export class TraceViewerModalComponent implements OnDestroy {
 			// 	attribution: '&copy; IGN - Géoportail'
 			// }),
 			'ign-relief': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=ELEVATION.ELEVATIONGRIDCOVERAGE.HIGHRES&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
-				maxZoom: 19,
+				maxNativeZoom: 19,
+				maxZoom: 20,
 				attribution: '&copy; IGN - Géoportail'
 			}),
 			'ign-routes': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=TRANSPORTNETWORKS.ROADS&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
-				maxZoom: 19,
+				maxNativeZoom: 19,
+				maxZoom: 20,
 				attribution: '&copy; IGN - Géoportail'
 			}),
 			'ign-topo': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
-				maxZoom: 19,
+				maxNativeZoom: 19,
+				maxZoom: 20,
 				attribution: '&copy; IGN - Géoportail'
 			}),
 			// IGN BD Topo commented out - not available as simple WMTS tile layer
@@ -2726,7 +2752,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 			// }),
 			// CyclOSM : carte vélo / rando (hébergée par OSM France)
 			'cyclosm': L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', {
-				maxZoom: 18,
+				maxNativeZoom: 18,
+				maxZoom: 20,
 				subdomains: 'abc',
 				attribution: '&copy; <a href="https://www.cyclosm.org">CyclOSM</a> | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 			}),
@@ -4040,11 +4067,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 			// If weather was already fetched for a clicked point, just display it
 			if (this.hasWeatherPointData && this.clickedWeatherLat && this.clickedWeatherLng) {
 				// Weather already available, just ensure address is loaded
-				if (!this.clickedWeatherAddress) {
+				if (!this.clickedWeatherAddress && !this.weatherLocationName) {
 					this.getAddressFromCoordinatesForWeather(this.clickedWeatherLat, this.clickedWeatherLng);
 				}
 				this.setWeatherLoadingState(false);
-				this.scheduleWeatherLocationLabelRefresh();
+				this.scheduleTraceViewerCdr();
 				this.persistTraceViewerPreferences();
 				return;
 			}
@@ -4085,9 +4112,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.clickedWeatherLng = lng;
 				this.clickedWeatherAlt = alt;
 				this.clickedWeatherAddress = '';
+				this.weatherLocationName = '';
+				this.weatherCity = '';
+				this.weatherPointPlaceName = '';
 				this.clickedWeatherCountryCode = '';
 				this.setWeatherLoadingState(true);
-				this.scheduleWeatherLocationLabelRefresh();
+				this.scheduleTraceViewerCdr();
 
 				// Get address and altitude, then fetch weather
 				this.getAddressFromCoordinatesForWeather(lat, lng);
@@ -4138,20 +4168,30 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	/** Ouvre Météo-France (onglet radar + températures) centré sur le point météo actuel. */
 	public openMeteoFranceAtWeatherPoint(): void {
+		this.openRegionalMeteoAtWeatherPoint();
+	}
+
+	/**
+	 * Ouvre l'écran météo centré sur le point courant.
+	 * - France: radar + températures
+	 * - Suisse: onglet précipitations MeteoSwiss (sinon le bouton affiche une icône incohérente)
+	 */
+	public openRegionalMeteoAtWeatherPoint(): void {
 		if (!Number.isFinite(this.clickedWeatherLat) || !Number.isFinite(this.clickedWeatherLng)) {
 			return;
 		}
 		const lat = Math.round(this.clickedWeatherLat * 1e7) / 1e7;
 		const lon = Math.round(this.clickedWeatherLng * 1e7) / 1e7;
 		const z = this.map ? this.map.getZoom() : this.currentZoom;
+		const tab = this.isWeatherPointInSwitzerland() ? 'ms-precip' : 'radar';
 		void this.router.navigate(['api', 'meteo-france'], {
 			queryParams: {
 				lat,
 				lon,
 				z: Math.round(z * 100) / 100,
-				tab: 'radar',
-				temp: '1',
-				radar: '1'
+				tab,
+				temp: tab === 'radar' ? '1' : '0',
+				radar: tab === 'radar' ? '1' : '0'
 			}
 		});
 		this.close();
@@ -4191,6 +4231,16 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	public isWeatherPointInSwitzerland(): boolean {
 		return this.isWeatherLocationInSwitzerland();
+	}
+
+	public weatherPointActionBrand(): TraceViewerWeatherActionBrand {
+		if (this.isWeatherPointInFrance()) {
+			return 'meteofrance';
+		}
+		if (this.isWeatherPointInSwitzerland()) {
+			return 'meteoswiss';
+		}
+		return 'world';
 	}
 
 	private isWeatherLocationInFrance(): boolean {
@@ -4288,10 +4338,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 					this.weatherPointMfObservedAt = observedAt;
 					this.weatherPointMfStationName = stationName || stationId;
 					this.weatherPointMfStationId = stationId;
+					this.weatherPointMfStationDistKm = resolveMfStationDistanceKm(lat, lng, mfPoint);
 				}
 				mfDone = true;
 				finishFetch();
-				this.scheduleWeatherLocationLabelRefresh();
+				this.scheduleTraceViewerCdr();
 			});
 		};
 
@@ -4317,10 +4368,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 					this.weatherPointMsObservedAt = observedAt;
 					this.weatherPointMsStationName = stationName || stationId;
 					this.weatherPointMsStationId = stationId;
+					this.weatherPointMsStationDistKm = resolveMfStationDistanceKm(lat, lng, msPoint);
 				}
 				msDone = true;
 				finishFetch();
-				this.scheduleWeatherLocationLabelRefresh();
+				this.scheduleTraceViewerCdr();
 			});
 		};
 
@@ -4366,7 +4418,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				}
 				owmDone = true;
 				finishFetch();
-				this.scheduleWeatherLocationLabelRefresh();
+				this.scheduleTraceViewerCdr();
 			});
 		};
 
@@ -4435,9 +4487,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.weatherPointMfStationId = '';
 		this.weatherPointMsStationName = '';
 		this.weatherPointMsStationId = '';
-		this.clickedWeatherCountryCode = '';
-		this.weatherPointPlaceName = '';
-		this.scheduleWeatherLocationLabelRefresh();
+		this.weatherPointMfStationDistKm = null;
+		this.weatherPointMsStationDistKm = null;
+		this.scheduleTraceViewerCdr();
 		if (resetLoading) {
 			this.setWeatherLoadingState(false);
 		}
@@ -4542,9 +4594,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.clickedWeatherLng = lng;
 		this.clickedWeatherAlt = null;
 		this.clickedWeatherAddress = '';
+		this.weatherLocationName = '';
+		this.weatherCity = '';
+		this.weatherPointPlaceName = '';
 		this.clickedWeatherCountryCode = '';
 		this.setWeatherLoadingState(true);
-		this.scheduleWeatherLocationLabelRefresh();
+		this.scheduleTraceViewerCdr();
 
 		// Get address from coordinates (will be shared for both overlays)
 		this.getAddressFromCoordinates(lat, lng, true); // Pass true to also update weather address
@@ -4584,7 +4639,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.clickedWeatherCountryCode = '';
 		this.clearWeatherPointComparison(false);
 		this.setWeatherLoadingState(true);
-		this.scheduleWeatherLocationLabelRefresh();
+		this.scheduleTraceViewerCdr();
 
 		// Use the shared method to fetch weather
 		this.fetchWeatherForClickedPoint(lat, lng);
@@ -4594,11 +4649,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	 * Resolve a human-readable label for coordinates (backend geocode with fallbacks).
 	 */
 	private resolveAddressLabel(lat: number, lng: number): string {
-		const place = this.weatherPointPlaceName?.trim();
-		if (place) {
-			return place;
-		}
-		return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+		return formatGpsCoordinates(lat, lng);
 	}
 
 	private extractGeocodeDisplayName(data: any): string {
@@ -4628,6 +4679,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.apiService.geocodeReverse(lat, lng).pipe(take(1)).subscribe({
 			next: (data) => {
 				const address = this.extractGeocodeDisplayName(data) || this.resolveAddressLabel(lat, lng);
+				const locationName = resolvePlaceNameFromGeocode(data, lat, lng);
+				const cityName = extractGeocodeCityName(data);
 				const countryCode = this.extractGeocodeCountryCode(data);
 				this.deferWeatherUiUpdate(() => {
 					if (updateClickedAddress) {
@@ -4636,8 +4689,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 					if (updateWeatherAddress) {
 						const previousCode = this.clickedWeatherCountryCode;
 						this.clickedWeatherAddress = address;
+						this.weatherLocationName = locationName;
+						if (cityName) {
+							this.weatherCity = cityName;
+						}
 						this.clickedWeatherCountryCode = countryCode;
-						this.scheduleWeatherLocationLabelRefresh();
+						this.scheduleTraceViewerCdr();
 						if (countryCode && countryCode !== previousCode && this.showWeather) {
 							this.fetchWeather(lat, lng, this.clickedWeatherAlt, false);
 						}
@@ -4653,7 +4710,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 					}
 					if (updateWeatherAddress) {
 						this.clickedWeatherAddress = fallback;
-						this.scheduleWeatherLocationLabelRefresh();
+						this.weatherLocationName = resolvePlaceNameFromGeocode(
+							{ display_name: fallback },
+							lat,
+							lng
+						);
+						this.scheduleTraceViewerCdr();
 					}
 				});
 			}
@@ -4693,8 +4755,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.clickedWeatherLng = lng;
 			this.clickedWeatherAlt = null;
 			this.clickedWeatherAddress = '';
+			this.weatherLocationName = '';
+			this.weatherCity = '';
+			this.weatherPointPlaceName = '';
 			this.setWeatherLoadingState(true);
-			this.scheduleWeatherLocationLabelRefresh();
+			this.scheduleTraceViewerCdr();
 		}
 
 		this.scheduleTraceViewerCdr();

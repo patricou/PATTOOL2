@@ -1185,11 +1185,29 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		}
 	}
 
+	public hasValidDepartureLocation(location?: string | null): boolean {
+		if (!location) {
+			return false;
+		}
+		const trimmed = location.trim();
+		if (!trimmed) {
+			return false;
+		}
+		// Treat common "not available" tokens as invalid, but still allow displaying them in UI.
+		const token = trimmed.replace(/[\s./_-]+/g, '').toUpperCase();
+		return token !== 'NA';
+	}
+
 	public openStartLocationOnMap(event: MouseEvent): void {
 		event.stopPropagation();
 		event.preventDefault();
 
-		const locationText = this.evenement?.startLocation?.trim();
+		const rawLocation = this.evenement?.startLocation;
+		if (!this.hasValidDepartureLocation(rawLocation)) {
+			return;
+		}
+
+		const locationText = rawLocation!.trim();
 		if (!locationText || !this.traceViewerModalComponent) {
 			return;
 		}

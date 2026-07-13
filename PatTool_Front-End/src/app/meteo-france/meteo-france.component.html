@@ -398,6 +398,7 @@
               [lat]="lat"
               [lon]="lon"
               [title]="pointTempTimelineTitle"
+              [altitudeM]="pointTempTimelineAltitudeM"
               [mfTempC]="pointTimelineMfTempC"
               [openMeteoTempC]="pointTimelineOpenMeteoTempC"
               [openWeatherTempC]="pointTimelineOpenWeatherTempC"
@@ -2067,6 +2068,38 @@
                [attr.title]="paramTooltipKey('HISTORY_CACHE_DAYS') | translate"
                [attr.aria-label]="paramTooltipKey('HISTORY_CACHE_DAYS') | translate">
         <p class="mf-opt-hint mb-0 mt-1">{{ 'METEO_FRANCE.HISTORY_CACHE_DAYS_HINT' | translate }}</p>
+        <div class="mf-toolbar mt-2">
+          <button type="button"
+                  class="btn btn-sm btn-outline-secondary"
+                  (click)="onClearClimHistoryCache()"
+                  [disabled]="!canEditMeteoOptions || isClearingClimHistoryCache">
+            <i class="fa"
+               [class.fa-trash-o]="!isClearingClimHistoryCache"
+               [class.fa-spinner]="isClearingClimHistoryCache"
+               [class.fa-spin]="isClearingClimHistoryCache"></i>
+            <span class="mf-toolbar-label">{{ 'METEO_FRANCE.HISTORY_CACHE_CLEAR' | translate }} (MF)</span>
+          </button>
+          <button type="button"
+                  class="btn btn-sm btn-outline-secondary"
+                  (click)="onClearMsHistHistoryCache()"
+                  [disabled]="!canEditMeteoOptions || isClearingMsHistHistoryCache">
+            <i class="fa"
+               [class.fa-trash-o]="!isClearingMsHistHistoryCache"
+               [class.fa-spinner]="isClearingMsHistHistoryCache"
+               [class.fa-spin]="isClearingMsHistHistoryCache"></i>
+            <span class="mf-toolbar-label">{{ 'METEO_FRANCE.HISTORY_CACHE_CLEAR' | translate }} (MS)</span>
+          </button>
+        </div>
+        <div class="mf-opt-cache-clear-toast mt-2"
+             *ngIf="optionsHistoryCacheClearMessageKey"
+             [class.mf-opt-cache-clear-toast--ok]="optionsHistoryCacheClearLevel === 'ok'"
+             [class.mf-opt-cache-clear-toast--error]="optionsHistoryCacheClearLevel === 'error'">
+          <i class="fa"
+             [class.fa-check-circle]="optionsHistoryCacheClearLevel === 'ok'"
+             [class.fa-exclamation-triangle]="optionsHistoryCacheClearLevel === 'error'"
+             aria-hidden="true"></i>
+          <span>{{ optionsHistoryCacheClearMessageKey | translate }}</span>
+        </div>
       </label>
     </div>
   </section>

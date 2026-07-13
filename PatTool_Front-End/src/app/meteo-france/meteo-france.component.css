@@ -866,11 +866,23 @@
 }
 
 :host ::ng-deep .mf-temp-refresh-btn,
-:host ::ng-deep .mf-temp-history-btn {
+:host ::ng-deep .ms-temp-refresh-btn,
+:host ::ng-deep .mf-temp-history-btn,
+:host ::ng-deep .ms-temp-history-btn {
   font-size: 0.75rem;
   padding: 2px 8px;
   pointer-events: auto;
   cursor: pointer;
+}
+
+:host ::ng-deep .mf-temp-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+:host ::ng-deep .mf-temp-action-btn .mf-temp-source-logo {
+  flex-shrink: 0;
 }
 
 .radar-controls {
@@ -916,6 +928,42 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
+}
+
+.mf-opt-grid .mf-toolbar .btn {
+  padding: 2px 7px;
+  font-size: 0.72rem;
+  line-height: 1.15;
+}
+
+.mf-opt-grid .mf-toolbar .btn .fa {
+  font-size: 0.8em;
+}
+
+.mf-opt-cache-clear-toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: rgba(248, 250, 252, 0.9);
+  color: #475569;
+}
+
+.mf-opt-cache-clear-toast--ok {
+  border-color: rgba(34, 197, 94, 0.45);
+  background: rgba(34, 197, 94, 0.08);
+  color: #166534;
+}
+
+.mf-opt-cache-clear-toast--error {
+  border-color: rgba(220, 38, 38, 0.45);
+  background: rgba(220, 38, 38, 0.08);
+  color: #991b1b;
 }
 
 .mf-btn-ghost {
@@ -1961,6 +2009,18 @@
 
   .aromepi-time-slider-wrap {
     min-width: 0;
+  }
+
+  /* Mobile: keep map fully touchable by moving the player below it. */
+  .aromepi-time-controls {
+    position: static;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    margin: 0.5rem 0 0;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 }
 

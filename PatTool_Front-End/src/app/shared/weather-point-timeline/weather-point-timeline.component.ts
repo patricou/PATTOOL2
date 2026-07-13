@@ -71,12 +71,14 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   ];
   private static readonly HISTORY_DAYS = 7;
   private static readonly FORECAST_HOURS = 168;
-  private static readonly STEP_MINUTES = 120;
+  private static readonly STEP_MINUTES = 60;
+  private static readonly STEP_MINUTES_CH = 60;
 
   @Input() visible = false;
   @Input({ required: true }) lat!: number;
   @Input({ required: true }) lon!: number;
   @Input() title = '';
+  @Input() altitudeM: number | null = null;
   @Input() mfTempC: number | null = null;
   @Input() msTempC: number | null = null;
   @Input() openMeteoTempC: number | null = null;
@@ -249,7 +251,13 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   }
 
   get displayTitle(): string {
-    return this.title;
+    const base = (this.title ?? '').trim();
+    const alt = this.altitudeM;
+    if (alt == null || !Number.isFinite(alt)) {
+      return base;
+    }
+    const rounded = Math.round(alt);
+    return base ? `${base} · ${rounded} m` : `${rounded} m`;
   }
 
   get currentTempC(): number | null {
@@ -663,7 +671,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
       null,
       'meteoswiss',
       WeatherPointTimelineComponent.FORECAST_HOURS,
-      WeatherPointTimelineComponent.STEP_MINUTES
+      this.forecastStepMinutes()
     ).pipe(
       takeUntil(loadCancel$ ?? this.destroy$),
       catchError(() => of(null))
@@ -868,7 +876,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
       this.lat,
       this.lon,
       WeatherPointTimelineComponent.FORECAST_HOURS,
-      WeatherPointTimelineComponent.STEP_MINUTES,
+      this.forecastStepMinutes(),
       abort.signal
     ).pipe(takeUntil(this.destroy$)).subscribe({
       next: (event) => {
@@ -1099,7 +1107,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
       );
       for (const row of rows) {
         const ts = this.msHistoryRowEpochSeconds(row);
-        if (ts == null || ts >= nowTs || !this.isTimelineTwoHourSlot(ts)) {
+        if (ts == null || ts >= nowTs || !this.isTimelineSlot(ts, this.timelineSlotMinutes())) {
           continue;
         }
         const slot = slotMap.get(ts) ?? this.createEmptySlot(ts, 'history');
@@ -1349,7 +1357,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
       }
       for (const row of rows) {
         const ts = this.climRowEpochSeconds(row);
-        if (ts == null || !this.isTimelineTwoHourSlot(ts)) {
+        if (ts == null || !this.isTimelineSlot(ts, this.timelineSlotMinutes())) {
           continue;
         }
         const slot = slotMap.get(ts) ?? this.createEmptySlot(ts, 'history');
@@ -1723,6 +1731,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
             ? this.hexToRgba(source.color, 0.55)
             : 'transparent',
           ...(chartType === 'line' ? {
+            cubicInterpolationMode: 'monotone',
             tension: 0.25,
             spanGaps: true,
             pointRadius: values.map((_value, index) => {
@@ -1755,6 +1764,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
             backgroundColor: 'transparent',
             borderDash: [8, 4],
             borderWidth: 2,
+            cubicInterpolationMode: 'monotone',
             tension: 0.25,
             spanGaps: true,
             pointRadius: values.map((_value, index) => {
@@ -1838,6 +1848,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
               ? 'rgba(52, 152, 219, 0.12)'
               : 'rgba(230, 126, 34, 0.12)',
         ...(chartType === 'line' ? {
+          cubicInterpolationMode: 'monotone',
           tension: 0.25,
           spanGaps: true,
           pointRadius: rawValues.map((_value, index) =>
@@ -2270,9 +2281,31 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     return this.tempChartValue(row.TAT);
   }
 
-  private isTimelineTwoHourSlot(ts: number): boolean {
+  private isTimelineSlot(ts: number, stepMinutes: number): boolean {
+    const minutes = Math.max(1, Math.round(stepMinutes));
     const date = new Date(ts * 1000);
-    return date.getMinutes() === 0 && date.getHours() % 2 === 0;
+    if (date.getMinutes() !== 0) {
+      return false;
+    }
+    if (minutes <= 60) {
+      return true;
+    }
+    // 120min => even hours; keep it predictable for charting.
+    const hourModulo = Math.round(minutes / 60);
+    return hourModulo > 0 ? (date.getHours() % hourModulo === 0) : true;
+  }
+
+  private forecastStepMinutes(): number {
+    return this.region === 'switzerland'
+      ? WeatherPointTimelineComponent.STEP_MINUTES_CH
+      : WeatherPointTimelineComponent.STEP_MINUTES;
+  }
+
+  private timelineSlotMinutes(): number {
+    // Switzerland: MeteoSwiss obs/forecast are hourly; keeping 1h avoids the "jump after now".
+    return this.region === 'switzerland'
+      ? WeatherPointTimelineComponent.STEP_MINUTES_CH
+      : WeatherPointTimelineComponent.STEP_MINUTES;
   }
 
   private timelineLocalDayKey(ts: number): string {

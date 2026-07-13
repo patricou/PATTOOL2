@@ -140,7 +140,9 @@ export class LeafletBasemapService {
         : 'https://wmts{s}.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg',
       {
         subdomains: '0123456789',
-        maxZoom: isImage ? 19 : 18,
+        // Allow over-zoom while keeping tiles (Leaflet will upscale above native).
+        maxNativeZoom: isImage ? 19 : 18,
+        maxZoom: 20,
         minZoom: 2,
         attribution: LeafletBasemapService.SWISSTOPO_ATTRIBUTION,
       }
@@ -154,7 +156,7 @@ export class LeafletBasemapService {
     );
     const planIgn = L.tileLayer(
       'https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}',
-      { minZoom: 12, maxZoom: 19, attribution: '&copy; IGN - Géoportail', zIndex: 2 }
+      { minZoom: 12, maxNativeZoom: 19, maxZoom: 20, attribution: '&copy; IGN - Géoportail', zIndex: 2 }
     );
     const layers: L.Layer[] = [scanRegional, planIgn];
     if (this.ignApiKey) {
@@ -163,7 +165,8 @@ export class LeafletBasemapService {
         '&REQUEST=GetTile&SERVICE=WMTS&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
         {
           minZoom: 13,
-          maxZoom: 19,
+          maxNativeZoom: 19,
+          maxZoom: 20,
           attribution: '&copy; IGN - Géoportail',
           zIndex: 3,
         }
@@ -176,7 +179,8 @@ export class LeafletBasemapService {
     return L.tileLayer(
       'https://{s}.tile.thunderforest.com/cycle/{z}/{x}/{y}.png?apikey=' + this.thunderforestApiKey,
       {
-        maxZoom: 18,
+        maxNativeZoom: 18,
+        maxZoom: 20,
         subdomains: ['a', 'b', 'c'],
         attribution: '&copy; OpenStreetMap contributors, &copy; Thunderforest',
       }
@@ -187,7 +191,8 @@ export class LeafletBasemapService {
     return L.tileLayer(
       'https://{s}.tile.thunderforest.com/outdoors/{z}/{x}/{y}.png?apikey=' + this.thunderforestApiKey,
       {
-        maxZoom: 18,
+        maxNativeZoom: 18,
+        maxZoom: 20,
         subdomains: ['a', 'b', 'c'],
         attribution: '&copy; OpenStreetMap contributors, &copy; Thunderforest',
       }
@@ -197,17 +202,20 @@ export class LeafletBasemapService {
   private createBaseLayers(): void {
     this.layerFactories = {
       'osm-standard': () => L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
+        maxNativeZoom: 19,
+        maxZoom: 20,
         attribution: '&copy; OpenStreetMap contributors',
       }),
       'osm-fr': () => {
         const osmStandardBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxNativeZoom: 19,
           maxZoom: 20,
           attribution: '&copy; OpenStreetMap contributors',
           opacity: 0.7,
           zIndex: 1,
         });
         const osmFrance = L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+          maxNativeZoom: 19,
           maxZoom: 20,
           minZoom: 0,
           subdomains: ['a', 'b', 'c'],
@@ -219,32 +227,34 @@ export class LeafletBasemapService {
       },
       'esri-imagery': () => L.tileLayer(
         'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+        { maxNativeZoom: 19, maxZoom: 20, attribution: 'Tiles &copy; Esri' }
       ),
       'opentopomap': () => L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-        maxZoom: 17,
+        maxNativeZoom: 17,
+        maxZoom: 20,
         subdomains: 'abc',
         attribution: 'Map data: &copy; OSM contributors, SRTM',
       }),
       'ign-plan': () => L.tileLayer(
         'https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}',
-        { maxZoom: 19, attribution: '&copy; IGN - Géoportail' }
+        { maxNativeZoom: 19, maxZoom: 20, attribution: '&copy; IGN - Géoportail' }
       ),
       'ign-classic': () => this.createIgnClassicLayer(),
       'ign-ortho': () => L.tileLayer(
         'https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}',
-        { maxZoom: 19, attribution: '&copy; IGN - Géoportail' }
+        { maxNativeZoom: 19, maxZoom: 20, attribution: '&copy; IGN - Géoportail' }
       ),
       'ign-cadastre': () => L.tileLayer(
         'https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=CADASTRALPARCELS.PARCELLAIRE_EXPRESS&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}',
-        { maxZoom: 19, attribution: '&copy; IGN - Géoportail' }
+        { maxNativeZoom: 19, maxZoom: 20, attribution: '&copy; IGN - Géoportail' }
       ),
       'ign-topo': () => L.tileLayer(
         'https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}',
-        { maxZoom: 19, attribution: '&copy; IGN - Géoportail' }
+        { maxNativeZoom: 19, maxZoom: 20, attribution: '&copy; IGN - Géoportail' }
       ),
       'cyclosm': () => L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', {
-        maxZoom: 18,
+        maxNativeZoom: 18,
+        maxZoom: 20,
         subdomains: 'abc',
         attribution: '&copy; CyclOSM | &copy; OpenStreetMap',
       }),
