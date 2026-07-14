@@ -1,6 +1,6 @@
 <ng-template #traceViewerModal let-modal>
   <div class="modal-header slideshow-header">
-    <h5 class="modal-title">
+    <h5 class="modal-title" [title]="traceViewerTitleFull">
       <i class="fa fa-map-signs me-2" aria-hidden="true"></i>
       {{ 'EVENTELEM.TRACK_VIEWER_TITLE' | translate:{ fileName: trackFileName } }}
     </h5>

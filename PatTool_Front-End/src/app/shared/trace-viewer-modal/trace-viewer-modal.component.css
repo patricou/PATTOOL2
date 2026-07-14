@@ -130,6 +130,11 @@
 	}
 	::ng-deep .modal.show .modal-content:has(.trace-viewer-body) .slideshow-header .modal-title {
 		font-size: 0.9rem !important;
+		flex: 1 1 auto !important;
+		min-width: 0 !important;
+		overflow: hidden !important;
+		text-overflow: ellipsis !important;
+		white-space: nowrap !important;
 	}
 
 	/* Footer compact pour laisser plus de place à la carte */
@@ -252,16 +257,18 @@
 	.slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-switches-group {
 		display: flex !important;
 		flex-direction: row !important;
-		flex-wrap: nowrap !important;
+		flex-wrap: wrap !important;
 		align-items: center !important;
-		justify-content: space-between !important;
+		justify-content: flex-start !important;
 		overflow-x: visible !important;
 		width: 100% !important;
-		gap: 0.2rem !important;
+		gap: 0.2rem 0.15rem !important;
+		row-gap: 0.2rem !important;
 	}
 
 	.slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-switches-group .form-check {
-		flex: 1 1 0 !important;
+		flex: 0 0 calc(25% - 0.12rem) !important;
+		max-width: calc(25% - 0.12rem) !important;
 		min-width: 0 !important;
 		justify-content: center !important;
 		margin: 0 !important;
@@ -474,16 +481,18 @@
 	.slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-switches-group {
 		display: flex !important;
 		flex-direction: row !important;
-		flex-wrap: nowrap !important;
+		flex-wrap: wrap !important;
 		align-items: center !important;
-		justify-content: space-between !important;
+		justify-content: flex-start !important;
 		overflow-x: visible !important;
 		width: 100% !important;
-		gap: 0.2rem !important;
+		gap: 0.2rem 0.15rem !important;
+		row-gap: 0.2rem !important;
 	}
 
 	.slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-switches-group .form-check {
-		flex: 1 1 0 !important;
+		flex: 0 0 calc(25% - 0.12rem) !important;
+		max-width: calc(25% - 0.12rem) !important;
 		min-width: 0 !important;
 		justify-content: center !important;
 		margin: 0 !important;
@@ -742,6 +751,16 @@
 	background: var(--slideshow-header-bg, linear-gradient(135deg, #28a745 0%, #20c997 100%));
 	color: var(--slideshow-header-text, #fff);
 	border: none;
+	min-width: 0;
+}
+
+.slideshow-header .modal-title {
+	flex: 1 1 auto;
+	min-width: 0;
+	margin-bottom: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .slideshow-header .btn {
@@ -1032,6 +1051,19 @@
 }
 
 @media (max-width: 768px) {
+	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-switches-group {
+		flex-wrap: wrap !important;
+		justify-content: flex-start !important;
+		row-gap: 0.2rem !important;
+		gap: 0.2rem 0.15rem !important;
+	}
+
+	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-switches-group .form-check {
+		flex: 0 0 calc(25% - 0.12rem) !important;
+		max-width: calc(25% - 0.12rem) !important;
+		justify-content: center !important;
+	}
+
 	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar #trace-base-layer {
 		max-width: min(16rem, 48vw);
 		width: auto;

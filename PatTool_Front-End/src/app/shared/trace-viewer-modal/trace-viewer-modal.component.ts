@@ -1240,6 +1240,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		});
 	}
 
+	get traceViewerTitleFull(): string {
+		return this.translate('EVENTELEM.TRACK_VIEWER_TITLE', { fileName: this.trackFileName });
+	}
+
 	get weatherPointWeatherLocationLabel(): string {
 		return resolveWeatherPointLocationLabel({
 			geocodeName: this.weatherLocationName,
