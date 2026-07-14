@@ -29,7 +29,12 @@ export class MeteoFranceChartPanelComponent implements OnChanges, OnDestroy {
   @Input() chartType: 'line' | 'bar' = 'line';
   @Input() data: ChartConfiguration<'line' | 'bar'>['data'] = { labels: [], datasets: [] };
   /** Accept line- or bar-specific option objects from parent charts. */
-  @Input() options: ChartOptions<'line'> | ChartOptions<'bar'> | ChartOptions<'line' | 'bar'> = {};
+  @Input() options: ChartOptions<'line'> | ChartOptions<'bar'> = {};
+
+  /** ng2-charts expects options matching the dynamic [type] union. */
+  get boundChartOptions(): ChartOptions<'line' | 'bar'> {
+    return this.options as ChartOptions<'line' | 'bar'>;
+  }
   @Input() chartBoxClass = '';
   @Input() showToolbar = true;
   @Input() showHeader = true;

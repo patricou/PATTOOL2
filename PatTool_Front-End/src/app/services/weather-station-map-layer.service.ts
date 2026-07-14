@@ -16,12 +16,17 @@ import {
 	filterNonOverlappingWeatherStationLabels,
 	filterStationLabelPoints,
 	filterWeatherStationPointsInBounds,
+	findNearestWeatherStationGridPoint,
 	formatWeatherStationTemperatureLabel,
 	isMfStationLabelPoint,
+	isMeteoFranceStationPoint,
+	isMeteoSwissStationPoint,
 	isMsStationLabelPoint,
 	isObsWeatherStationPoint,
 	normalizeWeatherStationGridPoint,
+	resolveWeatherStationRefreshProvider,
 	stationMarkerLatLng,
+	weatherStationPointKey,
 } from '../shared/weather-station-map.util';
 
 export interface WeatherStationMapLayerOptions {
@@ -30,6 +35,11 @@ export interface WeatherStationMapLayerOptions {
 	excludeNearPoint?: () => { lat: number; lng: number } | null;
 	brandLogos?: Partial<Record<WeatherStationBrand, string>>;
 	brandAlts?: Partial<Record<WeatherStationBrand, string>>;
+	onGridPointsUpdated?: () => void;
+	climAvailable?: () => boolean;
+	msHistAvailable?: () => boolean;
+	onMfStationHistory?: (point: WeatherStationGridPoint) => void;
+	onMsStationHistory?: (point: WeatherStationGridPoint) => void;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -44,10 +54,51 @@ export class WeatherStationMapLayerService {
 	private gridPoints: WeatherStationGridPoint[] = [];
 	private labelSource: 'meteofrance-dpobs' | 'meteoswiss-smn' | null = null;
 	private loadSub?: Subscription;
+	private refreshSub?: Subscription;
 	private debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	private requestId = 0;
+	private readonly refreshingTemperatureKeys = new Set<string>();
 	private readonly stationAltitudeCache = new Map<string, number | null>();
 	private readonly stationAltitudeInflight = new Map<string, Subscription>();
+	private readonly markersByKey = new Map<string, L.Marker>();
+	private tooltipClickListenerAttached = false;
+
+	private readonly onTemperatureTooltipClick = (event: MouseEvent): void => {
+		const target = event.target as HTMLElement | null;
+		const msHistoryButton = target?.closest('.ms-temp-history-btn') as HTMLElement | null;
+		if (msHistoryButton) {
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation();
+			const historyKey = msHistoryButton.getAttribute('data-temp-key');
+			if (historyKey) {
+				this.openMsStationHistory(historyKey);
+			}
+			return;
+		}
+		const historyButton = target?.closest('.mf-temp-history-btn') as HTMLElement | null;
+		if (historyButton) {
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation();
+			const historyKey = historyButton.getAttribute('data-temp-key');
+			if (historyKey) {
+				this.openMfStationHistory(historyKey);
+			}
+			return;
+		}
+		const button = target?.closest('.mf-temp-refresh-btn, .ms-temp-refresh-btn') as HTMLElement | null;
+		if (!button) {
+			return;
+		}
+		event.preventDefault();
+		event.stopPropagation();
+		event.stopImmediatePropagation();
+		const key = button.getAttribute('data-temp-key');
+		if (key) {
+			this.refreshTemperaturePointByKey(key);
+		}
+	};
 
 	private readonly onMapMoveEnd = (): void => {
 		this.render();
@@ -76,16 +127,38 @@ export class WeatherStationMapLayerService {
 		this.setup();
 	}
 
+	getLabelSource(): 'meteofrance-dpobs' | 'meteoswiss-smn' | null {
+		return this.labelSource;
+	}
+
+	getGridPoints(): WeatherStationGridPoint[] {
+		return [...this.gridPoints];
+	}
+
+	findNearestGridPoint(lat: number, lon: number): WeatherStationGridPoint | null {
+		const provider = this.options.resolveProvider();
+		if (!provider || !this.labelSource) {
+			return null;
+		}
+		const activePoints = filterStationLabelPoints(this.gridPoints, provider, this.labelSource);
+		return findNearestWeatherStationGridPoint(activePoints, lat, lon);
+	}
+
 	detach(): void {
 		this.clearDebounce();
 		this.loadSub?.unsubscribe();
 		this.loadSub = undefined;
+		this.refreshSub?.unsubscribe();
+		this.refreshSub = undefined;
 		this.requestId++;
+		this.refreshingTemperatureKeys.clear();
+		this.markersByKey.clear();
 		this.gridPoints = [];
 		this.labelSource = null;
 		this.stationAltitudeInflight.forEach((sub) => sub.unsubscribe());
 		this.stationAltitudeInflight.clear();
 		this.stationAltitudeCache.clear();
+		this.detachTooltipClickListener();
 		this.map?.off('moveend', this.onMapMoveEnd);
 		this.map?.off('zoomend', this.onMapZoomEnd);
 		if (this.map && this.layer) {
@@ -95,17 +168,35 @@ export class WeatherStationMapLayerService {
 		this.map = undefined;
 	}
 
+	private attachTooltipClickListener(): void {
+		if (!this.map || this.tooltipClickListenerAttached) {
+			return;
+		}
+		this.map.getContainer().addEventListener('click', this.onTemperatureTooltipClick);
+		this.tooltipClickListenerAttached = true;
+	}
+
+	private detachTooltipClickListener(): void {
+		if (!this.map || !this.tooltipClickListenerAttached) {
+			return;
+		}
+		this.map.getContainer().removeEventListener('click', this.onTemperatureTooltipClick);
+		this.tooltipClickListenerAttached = false;
+	}
+
 	private setup(): void {
 		if (!this.map) {
 			return;
 		}
 		this.detachListenersAndLayer();
 		if (!this.options.enabled) {
+			this.detachTooltipClickListener();
 			return;
 		}
 		this.layer = L.layerGroup().addTo(this.map);
 		this.map.on('moveend', this.onMapMoveEnd);
 		this.map.on('zoomend', this.onMapZoomEnd);
+		this.attachTooltipClickListener();
 		this.scheduleLoad();
 	}
 
@@ -113,9 +204,12 @@ export class WeatherStationMapLayerService {
 		this.clearDebounce();
 		this.loadSub?.unsubscribe();
 		this.loadSub = undefined;
+		this.refreshSub?.unsubscribe();
+		this.refreshSub = undefined;
 		this.requestId++;
 		this.gridPoints = [];
 		this.labelSource = null;
+		this.markersByKey.clear();
 		this.map?.off('moveend', this.onMapMoveEnd);
 		this.map?.off('zoomend', this.onMapZoomEnd);
 		if (this.map && this.layer) {
@@ -194,6 +288,7 @@ export class WeatherStationMapLayerService {
 				if (data?.error) {
 					this.gridPoints = previousPoints.length ? previousPoints : [];
 					this.render();
+					this.options.onGridPointsUpdated?.();
 					return;
 				}
 				const src = String(data?.source || '');
@@ -214,6 +309,7 @@ export class WeatherStationMapLayerService {
 					this.gridPoints = points.length ? points : previousPoints;
 				}
 				this.render();
+				this.options.onGridPointsUpdated?.();
 			},
 			error: () => {
 				if (requestId !== this.requestId) {
@@ -221,6 +317,7 @@ export class WeatherStationMapLayerService {
 				}
 				this.gridPoints = previousPoints.length ? previousPoints : [];
 				this.render();
+				this.options.onGridPointsUpdated?.();
 			},
 		});
 	}
@@ -230,6 +327,7 @@ export class WeatherStationMapLayerService {
 			return;
 		}
 		this.layer.clearLayers();
+		this.markersByKey.clear();
 		const provider = this.options.resolveProvider();
 		if (!provider || !this.options.enabled) {
 			return;
@@ -264,6 +362,7 @@ export class WeatherStationMapLayerService {
 				iconAnchor: [w / 2, h / 2],
 			});
 			const marker = L.marker([markerLat, markerLon], { icon, interactive: true });
+			this.markersByKey.set(weatherStationPointKey(point), marker);
 			this.bindTooltip(marker, point);
 			marker.addTo(this.layer);
 		}
@@ -281,7 +380,89 @@ export class WeatherStationMapLayerService {
 				meteofrance: this.options.brandAlts?.meteofrance || 'Météo-France',
 				meteoswiss: this.options.brandAlts?.meteoswiss || 'MeteoSwiss',
 			},
+			showStationActions: true,
+			isRefreshing: (key: string) => this.refreshingTemperatureKeys.has(key),
+			canShowMfHistory: (point) =>
+				isMeteoFranceStationPoint(point, this.labelSource) && this.options.climAvailable?.() === true,
+			canShowMsHistory: (point) =>
+				isMeteoSwissStationPoint(point, this.labelSource) && this.options.msHistAvailable?.() !== false,
 		};
+	}
+
+	private findPointByKey(key: string): WeatherStationGridPoint | null {
+		return this.gridPoints.find((point) => weatherStationPointKey(point) === key) ?? null;
+	}
+
+	private openMfStationHistory(key: string): void {
+		const point = this.findPointByKey(key);
+		if (!point?.stationId || !isMeteoFranceStationPoint(point, this.labelSource)) {
+			return;
+		}
+		this.options.onMfStationHistory?.(point);
+	}
+
+	private openMsStationHistory(key: string): void {
+		const point = this.findPointByKey(key);
+		if (!point?.stationId || !isMeteoSwissStationPoint(point, this.labelSource)) {
+			return;
+		}
+		this.options.onMsStationHistory?.(point);
+	}
+
+	private refreshTemperaturePointByKey(key: string): void {
+		const point = this.findPointByKey(key);
+		if (!point?.stationId || this.refreshingTemperatureKeys.has(key)) {
+			return;
+		}
+		const provider = resolveWeatherStationRefreshProvider(point, this.labelSource);
+		if (!provider) {
+			return;
+		}
+		const [markerLat, markerLon] = stationMarkerLatLng(point);
+		this.refreshingTemperatureKeys.add(key);
+		this.refreshTooltipContentForKey(key);
+		this.refreshSub?.unsubscribe();
+		this.refreshSub = this.apiService.postWeatherTemperatureLabels(
+			[{
+				lat: markerLat,
+				lon: markerLon,
+				stationId: point.stationId,
+			}],
+			provider === 'ms' ? 'meteoswiss' : 'meteofrance',
+			true
+		).subscribe({
+			next: (data) => {
+				this.refreshingTemperatureKeys.delete(key);
+				const updated = data?.points?.[0];
+				if (!updated || data?.error) {
+					this.refreshTooltipContentForKey(key);
+					return;
+				}
+				const normalized = normalizeWeatherStationGridPoint(updated, false);
+				normalized.cached = false;
+				const isValid = provider === 'ms'
+					? isMeteoSwissStationPoint(normalized, 'meteoswiss-smn')
+					: isMeteoFranceStationPoint(normalized, 'meteofrance-dpobs');
+				if (!isValid) {
+					this.refreshTooltipContentForKey(key);
+					return;
+				}
+				const updatedKey = weatherStationPointKey(normalized);
+				const index = this.gridPoints.findIndex((p) => weatherStationPointKey(p) === updatedKey);
+				if (index >= 0) {
+					this.gridPoints[index] = normalized;
+				} else {
+					this.gridPoints.push(normalized);
+				}
+				this.labelSource = provider === 'ms' ? 'meteoswiss-smn' : 'meteofrance-dpobs';
+				this.render();
+				this.options.onGridPointsUpdated?.();
+			},
+			error: () => {
+				this.refreshingTemperatureKeys.delete(key);
+				this.refreshTooltipContentForKey(key);
+			},
+		});
 	}
 
 	private stationAltitudeCacheKey(lat: number, lon: number): string {
@@ -335,6 +516,15 @@ export class WeatherStationMapLayerService {
 		this.stationAltitudeInflight.set(key, sub);
 	}
 
+	private refreshTooltipContentForKey(key: string): void {
+		const point = this.findPointByKey(key);
+		const marker = this.markersByKey.get(key);
+		if (!point || !marker?.getTooltip()) {
+			return;
+		}
+		marker.setTooltipContent(buildWeatherStationTooltipHtml(point, this.buildTooltipContext()));
+	}
+
 	private bindTooltip(marker: L.Marker, point: WeatherStationGridPoint): void {
 		this.applyCachedStationAltitude(point);
 		marker.bindTooltip(buildWeatherStationTooltipHtml(point, this.buildTooltipContext()), {
@@ -342,6 +532,7 @@ export class WeatherStationMapLayerService {
 			offset: [0, -10],
 			opacity: 0.97,
 			className: 'mf-temp-tooltip',
+			permanent: true,
 			sticky: false,
 		});
 		let closeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -356,7 +547,7 @@ export class WeatherStationMapLayerService {
 			closeTimer = setTimeout(() => {
 				marker.closeTooltip();
 				closeTimer = null;
-			}, 320);
+			}, 520);
 		};
 		const wireTooltipElement = (): void => {
 			const el = marker.getTooltip()?.getElement() as HTMLElement | undefined;
@@ -375,6 +566,7 @@ export class WeatherStationMapLayerService {
 			this.ensureStationAltitude(point, marker);
 			marker.openTooltip();
 			wireTooltipElement();
+			requestAnimationFrame(() => wireTooltipElement());
 		});
 		marker.on('mouseout', scheduleClose);
 		marker.on('click', (e: L.LeafletMouseEvent) => {

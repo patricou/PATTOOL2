@@ -142,6 +142,32 @@ export function stationMarkerLatLng(point: WeatherStationGridPoint): [number, nu
 	return [point.lat, point.lon];
 }
 
+/** Nearest station grid point to a map click (same metric as Météo-France temperature map). */
+export function findNearestWeatherStationGridPoint(
+	points: WeatherStationGridPoint[],
+	lat: number,
+	lon: number
+): WeatherStationGridPoint | null {
+	if (!points.length || !Number.isFinite(lat) || !Number.isFinite(lon)) {
+		return null;
+	}
+	let best: WeatherStationGridPoint | null = null;
+	let bestDist = Infinity;
+	for (const point of points) {
+		if (!Number.isFinite(point.lat) || !Number.isFinite(point.lon)) {
+			continue;
+		}
+		const dLat = point.lat - lat;
+		const dLon = point.lon - lon;
+		const dist = dLat * dLat + dLon * dLon;
+		if (dist < bestDist) {
+			bestDist = dist;
+			best = point;
+		}
+	}
+	return best;
+}
+
 export function isMfStationLabelPoint(
 	point: WeatherStationGridPoint,
 	labelSource: 'meteofrance-dpobs' | 'meteoswiss-smn' | null
@@ -201,7 +227,7 @@ export function filterStationLabelPoints(
 }
 
 export function formatWeatherStationTemperatureLabel(tempC: number): string {
-	return `${Math.round(tempC)}°C`;
+	return `${(Math.round(tempC * 10) / 10).toFixed(1)}°C`;
 }
 
 export function estimateWeatherStationLabelWidth(tempLabel: string): number {
@@ -232,6 +258,62 @@ export interface WeatherStationTooltipContext {
 	labelSource: 'meteofrance-dpobs' | 'meteoswiss-smn' | null;
 	brandLogos: Record<WeatherStationBrand, string>;
 	brandAlts: Record<WeatherStationBrand, string>;
+	showStationActions?: boolean;
+	isRefreshing?: (key: string) => boolean;
+	canShowMfHistory?: (point: WeatherStationGridPoint) => boolean;
+	canShowMsHistory?: (point: WeatherStationGridPoint) => boolean;
+}
+
+export function weatherStationPointKey(point: WeatherStationGridPoint): string {
+	return point.stationId ?? `${point.lat.toFixed(4)},${point.lon.toFixed(4)}`;
+}
+
+export function resolveWeatherStationRefreshProvider(
+	point: WeatherStationGridPoint,
+	labelSource: 'meteofrance-dpobs' | 'meteoswiss-smn' | null
+): WeatherStationProvider | null {
+	if (isMeteoSwissStationPoint(point, labelSource)) {
+		return 'ms';
+	}
+	if (isMeteoFranceStationPoint(point, labelSource)) {
+		return 'mf';
+	}
+	return null;
+}
+
+export function isWeatherStationMapUiClick(event: Event | undefined): boolean {
+	const target = event?.target as HTMLElement | null;
+	return !!target?.closest(
+		'.mf-temp-tooltip, .mf-temp-label, .mf-temp-refresh-btn, .ms-temp-refresh-btn, ' +
+		'.mf-temp-history-btn, .ms-temp-history-btn'
+	);
+}
+
+function buildWeatherStationRefreshButtonHtml(
+	point: WeatherStationGridPoint,
+	key: string,
+	refreshing: boolean,
+	ctx: WeatherStationTooltipContext
+): string {
+	const provider = resolveWeatherStationRefreshProvider(point, ctx.labelSource);
+	if (!provider) {
+		return '';
+	}
+	const brand: WeatherStationBrand = provider === 'ms' ? 'meteoswiss' : 'meteofrance';
+	const btnClass = provider === 'ms' ? 'ms-temp-refresh-btn' : 'mf-temp-refresh-btn';
+	const labelKey = provider === 'ms'
+		? 'METEO_FRANCE.TEMPERATURE_TOOLTIP_REFRESH_MS'
+		: 'METEO_FRANCE.TEMPERATURE_TOOLTIP_REFRESH';
+	const label = refreshing
+		? escapeWeatherStationHtml(ctx.translate('METEO_FRANCE.TEMPERATURE_TOOLTIP_REFRESHING'))
+		: escapeWeatherStationHtml(ctx.translate(labelKey));
+	const logo = buildWeatherStationBrandLogoHtml(brand, ctx.brandLogos[brand], ctx.brandAlts[brand], 12);
+	const title = escapeWeatherStationHtml(ctx.brandAlts[brand]);
+	return (
+		`<button type="button" class="${btnClass} btn btn-sm btn-outline-primary mf-temp-action-btn mf-temp-action-btn--${provider}" ` +
+		`data-temp-key="${key}" title="${title}" aria-label="${label}"${refreshing ? ' disabled' : ''}>` +
+		`${logo}<span>${label}</span></button>`
+	);
 }
 
 export function isMeteoFranceStationPoint(
@@ -446,6 +528,29 @@ export function buildWeatherStationTooltipHtml(
 	}
 	if (point.cached) {
 		lines.push(`<div class="mf-temp-tooltip-meta">${escapeWeatherStationHtml(ctx.translate('METEO_FRANCE.TEMPERATURE_TOOLTIP_CACHED'))}</div>`);
+	}
+
+	if (point.stationId && ctx.showStationActions) {
+		const key = escapeWeatherStationHtml(weatherStationPointKey(point));
+		const rawKey = weatherStationPointKey(point);
+		const refreshing = ctx.isRefreshing?.(rawKey) === true;
+		let actions =
+			`<div class="mf-temp-tooltip-actions">` +
+			buildWeatherStationRefreshButtonHtml(point, key, refreshing, ctx);
+		if (ctx.canShowMfHistory?.(point)) {
+			const historyLabel = escapeWeatherStationHtml(ctx.translate('METEO_FRANCE.TEMPERATURE_TOOLTIP_HISTORY'));
+			actions +=
+				`<button type="button" class="mf-temp-history-btn btn btn-sm btn-outline-light" ` +
+				`data-temp-key="${key}">${historyLabel}</button>`;
+		}
+		if (ctx.canShowMsHistory?.(point)) {
+			const historyLabel = escapeWeatherStationHtml(ctx.translate('METEO_FRANCE.TEMPERATURE_TOOLTIP_HISTORY'));
+			actions +=
+				`<button type="button" class="ms-temp-history-btn btn btn-sm btn-outline-light" ` +
+				`data-temp-key="${key}">${historyLabel}</button>`;
+		}
+		actions += `</div>`;
+		lines.push(actions);
 	}
 
 	return lines.join('');
