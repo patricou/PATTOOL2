@@ -17,11 +17,13 @@ import { FriendGroup } from '../../model/friend';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { CommentaryEditor } from '../../commentary-editor/commentary-editor';
 import { EventColorService } from '../../services/event-color.service';
+import { START_LOCATION_NA, normalizeStartLocation } from '../../shared/start-location.util';
+import { StartLocationFieldComponent } from '../../shared/start-location-field/start-location-field.component';
 
 @Component({
 	selector: 'app-create-evenement',
 	standalone: true,
-	imports: [CommonModule, FormsModule, RouterModule, TranslateModule, NavigationButtonsModule, CommentaryEditor],
+	imports: [CommonModule, FormsModule, RouterModule, TranslateModule, NavigationButtonsModule, CommentaryEditor, StartLocationFieldComponent],
 	templateUrl: './create-evenement.component.html',
 	styleUrls: ['./create-evenement.component.css']
 })
@@ -111,9 +113,10 @@ export class CreateEvenementComponent implements OnInit {
 		this.user = this._memberService.getUser();
 
 		// init new event fields
-		this.evenement = new Evenement(this.user, new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "Open", "", [], "", "", "", "", 0, 0, "public", [], [], undefined, undefined);
+		this.evenement = new Evenement(this.user, new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "Open", "", [], "", "", START_LOCATION_NA, "", 0, 0, "public", [], [], undefined, undefined);
 		this.author = this.evenement.author.firstName + " " + this.evenement.author.lastName + " / " + this.evenement.author.userName;
-		
+		this.evenement.startLocation = normalizeStartLocation(this.evenement.startLocation);
+
 		// Initialize date strings with local timezone
 		this.beginEventDateString = this.formatDateForInput(this.evenement.beginEventDate);
 		this.endEventDateString = this.formatDateForInput(this.evenement.endEventDate);

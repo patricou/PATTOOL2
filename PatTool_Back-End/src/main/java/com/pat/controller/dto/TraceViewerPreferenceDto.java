@@ -9,6 +9,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 public record TraceViewerPreferenceDto(
         Boolean showAddress,
         Boolean showWeather,
+        Boolean showWeatherStations,
         Boolean autoRefreshRadar,
         Boolean showHikingTrailsOverlay,
         Boolean showCyclingTrailsOverlay,

@@ -243,20 +243,27 @@
             <li class="card-info-item">
                 <i class="fa me-1" [ngClass]="getEventTypeIcon(evenement.type)" aria-hidden="true"></i>{{"EVENTELEM.TYPE" | translate }} : {{ getEventTypeLabel(evenement.type) }}
             </li>
-            <li class="card-info-item" [ngSwitch]="+evenement.diffculty">
+            <li class="card-info-item" *ngIf="hasValidDifficulty(evenement.diffculty)" [ngSwitch]="+evenement.diffculty">
                 {{"EVENTELEM.DIFF" | translate }} :
-                <span *ngSwitchCase="0">{{"EVENTCREATION.DIFF.NA" | translate }}</span>
                 <span *ngSwitchCase="1">{{"EVENTCREATION.DIFF.0" | translate }}</span>
                 <span *ngSwitchCase="2">{{"EVENTCREATION.DIFF.1" | translate }}</span>
                 <span *ngSwitchCase="3">{{"EVENTCREATION.DIFF.2" | translate }}</span>
                 <span *ngSwitchCase="4">{{"EVENTCREATION.DIFF.3" | translate }}</span>
                 <span *ngSwitchCase="5">{{"EVENTCREATION.DIFF.4" | translate }}</span>
-                <span *ngSwitchDefault>{{"EVENTCREATION.DIFF.NA" | translate }}</span>
             </li>
-            <li class="card-info-item card-info-item-start-location">
-                {{"EVENTELEM.STARTLOCATION" | translate }} : {{evenement.startLocation}}
-                <button *ngIf="hasValidDepartureLocation(evenement.startLocation)"
-                        type="button"
+            <li class="card-info-item card-info-item-start-location" *ngIf="hasValidDepartureLocation(evenement.startLocation)">
+                {{"EVENTELEM.STARTLOCATION" | translate }} :
+                <span class="d-inline d-md-none"
+                      [ngbTooltip]="getStartLocationTooltip(evenement.startLocation, startLocationDisplayMaxMobile) ?? ''"
+                      [disableTooltip]="!getStartLocationTooltip(evenement.startLocation, startLocationDisplayMaxMobile)"
+                      placement="top"
+                      container="body">{{ formatStartLocationDisplay(evenement.startLocation, startLocationDisplayMaxMobile) }}</span>
+                <span class="d-none d-md-inline"
+                      [ngbTooltip]="getStartLocationTooltip(evenement.startLocation, startLocationDisplayMaxDesktop) ?? ''"
+                      [disableTooltip]="!getStartLocationTooltip(evenement.startLocation, startLocationDisplayMaxDesktop)"
+                      placement="top"
+                      container="body">{{ formatStartLocationDisplay(evenement.startLocation, startLocationDisplayMaxDesktop) }}</span>
+                <button type="button"
                         class="btn btn-sm btn-outline-secondary ms-1 dynamic-footer-btn start-location-map-btn"
                         [ngStyle]="getFooterButtonStyles('details')"
                         (click)="openStartLocationOnMap($event)"

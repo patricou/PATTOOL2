@@ -31,6 +31,8 @@ import { EventColorService } from '../../services/event-color.service';
 import { computeTrackStatsFromFileContent } from '../../photo-timeline/track-route-stats.util';
 import { isOdsFile as isOdsSpreadsheetFile } from '../../shared/uploaded-file-types';
 import { OdsEditorLaunchService } from '../../ods-editor/ods-editor-launch.service';
+import { normalizeStartLocation } from '../../shared/start-location.util';
+import { StartLocationFieldComponent } from '../../shared/start-location-field/start-location-field.component';
 
 @Component({
 	selector: 'update-evenement',
@@ -45,7 +47,8 @@ import { OdsEditorLaunchService } from '../../ods-editor/ods-editor-launch.servi
 		VideoshowModalComponent,
 		TraceViewerModalComponent,
 		NavigationButtonsModule,
-		CommentaryEditor
+		CommentaryEditor,
+		StartLocationFieldComponent
 	],
 	templateUrl: './update-evenement.component.html',
 	styleUrls: ['./update-evenement.component.css']
@@ -250,6 +253,7 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 				clearTimeout(timeoutId);
 				//console.log("EVenement : " + JSON.stringify(evenement));
 				this.evenement = evenement;
+				this.evenement.startLocation = normalizeStartLocation(this.evenement.startLocation);
 				// Save original state for comparison
 				this.originalEvenement = JSON.parse(JSON.stringify(evenement));
 				this.hasUnsavedChanges = false;

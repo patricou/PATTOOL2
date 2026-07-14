@@ -1,0 +1,53 @@
+<div class="start-location-field">
+	<div class="selected-location-row">
+		<div class="selected-location-label">
+			<strong>{{ 'EVENTCREATION.STARTLOCATION_SELECTED' | translate }}:</strong>
+			<span *ngIf="isNaSelected()" class="selected-location-value text-muted">
+				{{ 'EVENTCREATION.DIFF.NA' | translate }}
+			</span>
+			<span *ngIf="!isNaSelected()" class="selected-location-value">{{ value }}</span>
+		</div>
+		<button type="button"
+				class="btn btn-sm btn-outline-secondary"
+				(click)="selectNa()"
+				[disabled]="disabled || isNaSelected()">
+			{{ 'EVENTCREATION.DIFF.NA' | translate }}
+		</button>
+	</div>
+
+	<label class="form-label small text-muted mb-1" [attr.for]="inputId + 'Search'">
+		{{ 'EVENTCREATION.STARTLOCATION_SEARCH' | translate }}
+	</label>
+	<div class="input-group">
+		<input type="text"
+			   [id]="inputId + 'Search'"
+			   class="form-control"
+			   [(ngModel)]="searchQuery"
+			   [ngModelOptions]="{ standalone: true }"
+			   [placeholder]="'EVENTCREATION.STARTLOCATIONHLP' | translate"
+			   [disabled]="disabled"
+			   (input)="onSearchInput()"
+			   (keyup.enter)="searchNow()"
+			   (blur)="onSearchBlur()">
+		<button type="button"
+				class="btn btn-outline-primary"
+				(click)="searchNow()"
+				[disabled]="disabled || isLoading || !searchQuery.trim()"
+				[attr.title]="'ADDRESS_GEOCODE.FIND_GPS' | translate">
+			<i class="fa" [class.fa-search]="!isLoading" [class.fa-spinner]="isLoading" [class.fa-spin]="isLoading"></i>
+		</button>
+	</div>
+
+	<div class="search-results" *ngIf="showResults && results.length">
+		<button type="button"
+				class="search-result-item"
+				*ngFor="let result of results"
+				(mousedown)="selectResult(result)">
+			<i class="fa fa-map-marker"></i> {{ result.displayName }}
+		</button>
+	</div>
+
+	<div class="text-danger small mt-1" *ngIf="searchErrorKey">
+		<i class="fa fa-exclamation-circle"></i> {{ searchErrorKey | translate }}
+	</div>
+</div>

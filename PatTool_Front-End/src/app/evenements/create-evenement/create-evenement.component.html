@@ -264,9 +264,15 @@
                                 {{ "EVENTCREATION.STARTLOCATION" | translate }}
                                 <span class="required">*</span>
                             </label>
-                            <input id="startLocation" #startLocation="ngModel" [(ngModel)]="evenement.startLocation"
-                                name="startLocation" placeholder="{{ 'EVENTCREATION.STARTLOCATIONHLP' | translate }}"
-                                class="form-control" required>
+                            <app-start-location-field
+                                id="startLocation"
+                                inputId="startLocation"
+                                #startLocation="ngModel"
+                                [(ngModel)]="evenement.startLocation"
+                                name="startLocation"
+                                required
+                                [disabled]="!canEditEventFields()">
+                            </app-start-location-field>
                             <div class="error-message" [hidden]="!startLocation.invalid || !f.submitted">
                                 <i class="fa fa-exclamation-triangle"></i>
                                 {{ "EVENTCREATION.STARTLOCATIONERR" | translate }}

@@ -249,7 +249,7 @@
                     </button>
                     <button type="button"
                             class="btn btn-sm group-action-btn group-action-btn--map"
-                            *ngIf="group.startLocation?.trim()"
+                            *ngIf="hasValidDepartureLocation(group.startLocation)"
                             (click)="openStartLocationOnMap($event, group)"
                             [disabled]="isStartLocationMapLoading(group)"
                             [title]="'EVENTELEM.MAP' | translate">

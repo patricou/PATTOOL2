@@ -8,6 +8,8 @@ import { Router } from '@angular/router';
 import { FileService } from '../../services/file.service';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { ApiService, TraceViewerPreference } from '../../services/api.service';
+import { WeatherStationMapLayerService } from '../../services/weather-station-map-layer.service';
+import { resolveWeatherStationProvider } from '../weather-station-map.util';
 import { forkJoin, of, Subject } from 'rxjs';
 import { catchError, take, takeUntil } from 'rxjs/operators';
 import { WeatherPointTimelineComponent } from '../weather-point-timeline/weather-point-timeline.component';
@@ -126,6 +128,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private finalSelectedCoordinates?: { lat: number; lng: number };
 	public showAddress: boolean = false;
 	public showWeather: boolean = false;
+	/** Météo-France / MeteoSwiss station temperature labels on the map (France / Switzerland). */
+	public showWeatherStations: boolean = false;
+	/** Last double-clicked point used to choose MF vs MeteoSwiss station layer. */
+	private stationSelectionLat: number | null = null;
+	private stationSelectionLng: number | null = null;
+	private stationSelectionCountryCode = '';
 	public isLoadingWeather: boolean = false;
 	public clickedWeatherLat: number = 0;
 	public clickedWeatherLng: number = 0;
@@ -363,6 +371,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		private readonly fileService: FileService,
 		private readonly keycloakService: KeycloakService,
 		private readonly apiService: ApiService,
+		private readonly weatherStationMapLayer: WeatherStationMapLayerService,
 		private readonly sanitizer: DomSanitizer,
 		private readonly router: Router,
 		@Inject(DOCUMENT) private readonly document: Document
@@ -403,6 +412,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (pref.showWeather != null) {
 			this.showWeather = pref.showWeather;
 		}
+		if (pref.showWeatherStations != null) {
+			this.showWeatherStations = pref.showWeatherStations;
+		}
 		if (pref.autoRefreshRadar != null) {
 			this.autoRefreshRadar = pref.autoRefreshRadar;
 		}
@@ -437,6 +449,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.apiService.saveTraceViewerPreferences({
 			showAddress: this.showAddress,
 			showWeather: this.showWeather,
+			showWeatherStations: this.showWeatherStations,
 			autoRefreshRadar: this.autoRefreshRadar,
 			showHikingTrailsOverlay: this.showHikingTrailsOverlay,
 			showCyclingTrailsOverlay: this.showCyclingTrailsOverlay,
@@ -460,6 +473,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		} else {
 			this.applyWeatherRadarOverlay();
 		}
+		if (this.showWeatherStations) {
+			this.seedStationSelectionFromExistingClick();
+		}
+		this.applyWeatherStationsOverlay();
 		this.applyHikingTrailsOverlay();
 		this.applyCyclingTrailsOverlay();
 		if (this.followDeviceLocation) {
@@ -1488,6 +1505,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.registerAddressClickHandler();
 
 			this.applyPersistedSwitchEffects();
+			this.applyWeatherStationsOverlay();
 		});
 	}
 
@@ -2236,6 +2254,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.weatherRadarLoadRequestId++;
 		this.clearWeatherRadarRefreshTimer();
 		this.weatherRadarLayer = undefined;
+		this.weatherStationMapLayer.detach();
+		this.clearStationSelection();
 		this.removeDeviceLocationMarker();
 		this.pendingTrackPoints = null;
 		this.pendingLocation = null;
@@ -2897,6 +2917,126 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.applyCyclingTrailsOverlay();
 		this.cdr.detectChanges();
 		this.persistTraceViewerPreferences();
+	}
+
+	get showWeatherStationsHintKey(): string {
+		const provider = this.resolveMapWeatherStationProvider();
+		if (provider === 'ms') {
+			return 'METEO_FRANCE.SHOW_TEMPERATURE_MAP_HINT_MS';
+		}
+		if (provider === 'mf') {
+			return 'METEO_FRANCE.SHOW_TEMPERATURE_MAP_HINT';
+		}
+		return 'EVENTELEM.SHOW_WEATHER_STATIONS_HINT_OUTSIDE';
+	}
+
+	public onShowWeatherStationsChange(): void {
+		if (this.showWeatherStations) {
+			this.seedStationSelectionFromExistingClick();
+		} else {
+			this.clearStationSelection();
+		}
+		this.applyWeatherStationsOverlay();
+		this.cdr.detectChanges();
+		this.persistTraceViewerPreferences();
+	}
+
+	private clearStationSelection(): void {
+		this.stationSelectionLat = null;
+		this.stationSelectionLng = null;
+		this.stationSelectionCountryCode = '';
+	}
+
+	/** Reuse last clicked / weather / track point when enabling the stations switch. */
+	private seedStationSelectionFromExistingClick(): void {
+		if (this.stationSelectionLat != null && this.stationSelectionLng != null) {
+			return;
+		}
+		if (Number.isFinite(this.clickedWeatherLat) && Number.isFinite(this.clickedWeatherLng)
+			&& (this.clickedWeatherLat !== 0 || this.clickedWeatherLng !== 0)) {
+			this.stationSelectionLat = this.clickedWeatherLat;
+			this.stationSelectionLng = this.clickedWeatherLng;
+			this.stationSelectionCountryCode = this.clickedWeatherCountryCode;
+			return;
+		}
+		if (Number.isFinite(this.clickedLat) && Number.isFinite(this.clickedLng)
+			&& (this.clickedLat !== 0 || this.clickedLng !== 0)) {
+			this.stationSelectionLat = this.clickedLat;
+			this.stationSelectionLng = this.clickedLng;
+			return;
+		}
+		if (this.lastRenderedPosition) {
+			this.stationSelectionLat = this.lastRenderedPosition.lat;
+			this.stationSelectionLng = this.lastRenderedPosition.lng;
+		}
+	}
+
+	private setStationSelectionFromClick(lat: number, lng: number): void {
+		this.stationSelectionLat = lat;
+		this.stationSelectionLng = lng;
+		this.stationSelectionCountryCode = '';
+		this.refreshWeatherStationsForSelection();
+		this.apiService.geocodeReverse(lat, lng).pipe(take(1)).subscribe({
+			next: (data) => {
+				if (this.stationSelectionLat !== lat || this.stationSelectionLng !== lng) {
+					return;
+				}
+				this.stationSelectionCountryCode = this.extractGeocodeCountryCode(data);
+				this.refreshWeatherStationsForSelection();
+				this.scheduleTraceViewerCdr();
+			},
+			error: () => { /* bbox-based provider until geocode succeeds */ }
+		});
+	}
+
+	private refreshWeatherStationsForSelection(): void {
+		if (!this.showWeatherStations) {
+			return;
+		}
+		this.applyWeatherStationsOverlay();
+	}
+
+	private applyWeatherStationsOverlay(): void {
+		if (!this.map) {
+			return;
+		}
+		if (!this.showWeatherStations) {
+			this.weatherStationMapLayer.detach();
+			return;
+		}
+		if (!this.resolveMapWeatherStationProvider()) {
+			this.weatherStationMapLayer.detach();
+			return;
+		}
+		this.weatherStationMapLayer.bind(this.map, {
+			enabled: true,
+			resolveProvider: () => this.resolveMapWeatherStationProvider(),
+			excludeNearPoint: () => {
+				if (this.stationSelectionLat == null || this.stationSelectionLng == null) {
+					return null;
+				}
+				return { lat: this.stationSelectionLat, lng: this.stationSelectionLng };
+			},
+			brandLogos: {
+				meteofrance: TraceViewerModalComponent.LOGO_MF,
+				meteoswiss: TraceViewerModalComponent.LOGO_MS,
+			},
+			brandAlts: {
+				meteofrance: 'Météo-France',
+				meteoswiss: 'MeteoSwiss',
+			},
+		});
+	}
+
+	private resolveMapWeatherStationProvider(): 'mf' | 'ms' | null {
+		if (this.stationSelectionLat == null || this.stationSelectionLng == null) {
+			return null;
+		}
+		return resolveWeatherStationProvider(
+			this.stationSelectionLat,
+			this.stationSelectionLng,
+			this.stationSelectionCountryCode
+		);
 	}
 
 	/** Rain radar overlay (RainViewer via PatTool), shown when the weather switch is on. */
@@ -4695,6 +4835,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 						}
 						this.clickedWeatherCountryCode = countryCode;
 						this.scheduleTraceViewerCdr();
+						if (this.stationSelectionLat === lat && this.stationSelectionLng === lng) {
+							this.stationSelectionCountryCode = countryCode;
+							this.refreshWeatherStationsForSelection();
+						}
 						if (countryCode && countryCode !== previousCode && this.showWeather) {
 							this.fetchWeather(lat, lng, this.clickedWeatherAlt, false);
 						}
@@ -4786,6 +4930,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 			setTimeout(() => {
 				this.fetchWeather(lat, lng, this.clickedWeatherAlt);
 			}, 100);
+		}
+
+		if (this.showWeatherStations) {
+			this.setStationSelectionFromClick(lat, lng);
 		}
 	}
 

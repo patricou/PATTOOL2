@@ -61,6 +61,7 @@ public class TraceViewerPreferenceService {
         return new TraceViewerPreferenceDto(
                 dto.showAddress(),
                 dto.showWeather(),
+                dto.showWeatherStations(),
                 dto.autoRefreshRadar(),
                 dto.showHikingTrailsOverlay(),
                 dto.showCyclingTrailsOverlay(),
@@ -96,6 +97,7 @@ public class TraceViewerPreferenceService {
         return new TraceViewerPreferenceDto(
                 normalized.showAddress(),
                 normalized.showWeather(),
+                normalized.showWeatherStations(),
                 normalized.autoRefreshRadar(),
                 normalized.showHikingTrailsOverlay(),
                 normalized.showCyclingTrailsOverlay(),
@@ -133,6 +135,7 @@ public class TraceViewerPreferenceService {
         return new TraceViewerPreferenceDto(
                 false,
                 false,
+                false,
                 true,
                 false,
                 false,
@@ -148,6 +151,7 @@ public class TraceViewerPreferenceService {
         return new TraceViewerPreferenceDto(
                 patch.showAddress() != null ? patch.showAddress() : base.showAddress(),
                 patch.showWeather() != null ? patch.showWeather() : base.showWeather(),
+                patch.showWeatherStations() != null ? patch.showWeatherStations() : base.showWeatherStations(),
                 patch.autoRefreshRadar() != null ? patch.autoRefreshRadar() : base.autoRefreshRadar(),
                 patch.showHikingTrailsOverlay() != null
                         ? patch.showHikingTrailsOverlay() : base.showHikingTrailsOverlay(),
@@ -169,6 +173,7 @@ public class TraceViewerPreferenceService {
         return Optional.of(new TraceViewerPreferenceDto(
                 boolOrDefault(dto.showAddress(), false),
                 boolOrDefault(dto.showWeather(), false),
+                boolOrDefault(dto.showWeatherStations(), false),
                 boolOrDefault(dto.autoRefreshRadar(), true),
                 boolOrDefault(dto.showHikingTrailsOverlay(), false),
                 boolOrDefault(dto.showCyclingTrailsOverlay(), false),

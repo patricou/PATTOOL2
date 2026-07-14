@@ -2232,3 +2232,126 @@
 	min-height: 0 !important;
 	height: auto !important;
 }
+
+/* Weather station temperature labels (MF / MeteoSwiss) — same pill as Météo-France radar/temperature map.
+   ::ng-deep without :host so Leaflet-injected markers inside the modal receive these rules. */
+::ng-deep .trace-viewer-body .leaflet-marker-icon.mf-temp-label,
+::ng-deep .trace-viewer-body .leaflet-div-icon.mf-temp-label,
+::ng-deep .trace-viewer-leaflet-modal .leaflet-marker-icon.mf-temp-label,
+::ng-deep .trace-viewer-leaflet-modal .leaflet-div-icon.mf-temp-label {
+	background: transparent !important;
+	border: none !important;
+	overflow: visible !important;
+}
+
+::ng-deep .trace-viewer-body .mf-temp-label:not(.mf-temp-label--selected) > span,
+::ng-deep .trace-viewer-leaflet-modal .mf-temp-label:not(.mf-temp-label--selected) > span {
+	display: inline-block;
+	padding: 2px 6px;
+	border-radius: 4px;
+	background: rgba(255, 255, 255, 0.92);
+	border: 1px solid rgba(0, 0, 0, 0.15);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+	font-size: 0.78rem;
+	font-weight: 700;
+	color: #1a1a1a;
+	white-space: nowrap;
+	transform: translate(-50%, -50%);
+}
+
+::ng-deep .trace-viewer-body .mf-temp-label > span.mf-temp-label-inner,
+::ng-deep .trace-viewer-leaflet-modal .mf-temp-label > span.mf-temp-label-inner {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 2px 8px 2px 6px;
+}
+
+::ng-deep .trace-viewer-body .mf-temp-label-value,
+::ng-deep .trace-viewer-leaflet-modal .mf-temp-label-value {
+	line-height: 1;
+}
+
+::ng-deep .trace-viewer-body .mf-temp-source-logo,
+::ng-deep .trace-viewer-leaflet-modal .mf-temp-source-logo {
+	display: block;
+	flex-shrink: 0;
+	border-radius: 2px;
+	object-fit: contain;
+	margin-right: 2px;
+}
+
+::ng-deep .trace-viewer-body .leaflet-tooltip.mf-temp-tooltip,
+::ng-deep .trace-viewer-leaflet-modal .leaflet-tooltip.mf-temp-tooltip {
+	background: rgba(20, 28, 38, 0.94);
+	color: #f5f7fa;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 8px;
+	box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+	padding: 8px 10px;
+	font-size: 0.78rem;
+	line-height: 1.35;
+	max-width: 260px;
+	pointer-events: auto;
+}
+
+::ng-deep .trace-viewer-body .leaflet-tooltip.mf-temp-tooltip::after,
+::ng-deep .trace-viewer-leaflet-modal .leaflet-tooltip.mf-temp-tooltip::after {
+	content: '';
+	position: absolute;
+	left: 8%;
+	right: 8%;
+	top: 100%;
+	height: 16px;
+}
+
+::ng-deep .trace-viewer-body .leaflet-tooltip.mf-temp-tooltip::before,
+::ng-deep .trace-viewer-leaflet-modal .leaflet-tooltip.mf-temp-tooltip::before {
+	border-top-color: rgba(20, 28, 38, 0.94);
+}
+
+::ng-deep .trace-viewer-body .mf-temp-tooltip-title,
+::ng-deep .trace-viewer-leaflet-modal .mf-temp-tooltip-title {
+	font-weight: 700;
+	margin-bottom: 4px;
+}
+
+::ng-deep .trace-viewer-body .mf-temp-tooltip-meta,
+::ng-deep .trace-viewer-leaflet-modal .mf-temp-tooltip-meta {
+	color: #b8c5d6;
+	font-size: 0.72rem;
+	margin-bottom: 6px;
+}
+
+::ng-deep .trace-viewer-body .mf-temp-tooltip-row,
+::ng-deep .trace-viewer-leaflet-modal .mf-temp-tooltip-row {
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+	margin-top: 2px;
+}
+
+::ng-deep .trace-viewer-body .mf-temp-tooltip-row span,
+::ng-deep .trace-viewer-leaflet-modal .mf-temp-tooltip-row span {
+	color: #c7d2e0;
+}
+
+::ng-deep .trace-viewer-body .mf-temp-tooltip-row strong,
+::ng-deep .trace-viewer-leaflet-modal .mf-temp-tooltip-row strong {
+	color: #fff;
+	font-weight: 600;
+	text-align: right;
+}
+
+::ng-deep .trace-viewer-body .mf-temp-tooltip-value-with-logo,
+::ng-deep .trace-viewer-leaflet-modal .mf-temp-tooltip-value-with-logo {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	justify-content: flex-end;
+}
+
+::ng-deep .trace-viewer-body .mf-temp-tooltip-value-with-logo .mf-temp-source-logo,
+::ng-deep .trace-viewer-leaflet-modal .mf-temp-tooltip-value-with-logo .mf-temp-source-logo {
+	margin-right: 2px;
+}

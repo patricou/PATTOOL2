@@ -64,6 +64,7 @@ export interface FlightTrackingPreference {
 export interface TraceViewerPreference {
   showAddress?: boolean | null;
   showWeather?: boolean | null;
+  showWeatherStations?: boolean | null;
   autoRefreshRadar?: boolean | null;
   showHikingTrailsOverlay?: boolean | null;
   showCyclingTrailsOverlay?: boolean | null;

@@ -8,6 +8,7 @@ import { SlideshowModalModule } from '../../shared/slideshow-modal/slideshow-mod
 import { SlideshowModalComponent, SlideshowImageSource, SlideshowAddToDbEvent, SlideshowLocationEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { isValidGeoCoordinate } from '../../shared/geo-coordinates.util';
+import { hasValidDepartureLocation } from '../../shared/start-location.util';
 import { VideoshowModalModule } from '../../shared/videoshow-modal/videoshow-modal.module';
 import { VideoshowModalComponent, VideoshowVideoSource } from '../../shared/videoshow-modal/videoshow-modal.component';
 import { PhotoTimelineService, TimelineResponse, TimelineGroup, TimelinePhoto, FsPhotoLink } from '../../services/photo-timeline.service';
@@ -2729,6 +2730,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         return !!group?.eventId && this.startLocationMapLoadingEventId === group.eventId;
     }
 
+    hasValidDepartureLocation(location?: string | null): boolean {
+        return hasValidDepartureLocation(location);
+    }
+
     openStartLocationOnMap(event: MouseEvent, group: TimelineGroup): void {
         event.stopPropagation();
         event.preventDefault();
@@ -2738,6 +2743,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         }
 
         const locationText = group.startLocation?.trim();
+        if (locationText && !this.hasValidDepartureLocation(locationText)) {
+            return;
+        }
         if (!locationText) {
             this.startLocationMapLoadingEventId = group.eventId;
             this.cdr.markForCheck();
@@ -2745,7 +2753,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 next: (ev) => {
                     if (this.destroyed) return;
                     const loc = ev?.startLocation?.trim();
-                    if (loc) {
+                    if (loc && this.hasValidDepartureLocation(loc)) {
                         this.patchVisibleGroupStartLocation(group.eventId, loc);
                         this.openStartLocationOnMapWithText(event, { ...group, startLocation: loc }, loc);
                     } else {

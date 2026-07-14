@@ -7,6 +7,7 @@ import { NgbModule, NgbModal, NgbRatingConfig } from '@ng-bootstrap/ng-bootstrap
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent, SlideshowAddToDbEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { isValidGeoCoordinate } from '../../shared/geo-coordinates.util';
+import { hasValidDepartureLocation, formatStartLocationDisplay, getStartLocationTooltip, START_LOCATION_DISPLAY_MAX_LENGTH, START_LOCATION_DISPLAY_MAX_LENGTH_MOBILE } from '../../shared/start-location.util';
 import { applyMultiplicativeWheelScale, normalizeWheelDeltaPixels } from '../../shared/wheel-zoom.util';
 import { VideoshowModalComponent, VideoshowVideoSource } from '../../shared/videoshow-modal/videoshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
@@ -1186,16 +1187,23 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 
 	public hasValidDepartureLocation(location?: string | null): boolean {
-		if (!location) {
-			return false;
-		}
-		const trimmed = location.trim();
-		if (!trimmed) {
-			return false;
-		}
-		// Treat common "not available" tokens as invalid, but still allow displaying them in UI.
-		const token = trimmed.replace(/[\s./_-]+/g, '').toUpperCase();
-		return token !== 'NA';
+		return hasValidDepartureLocation(location);
+	}
+
+	public hasValidDifficulty(difficulty?: string | number | null): boolean {
+		const value = Number(difficulty);
+		return Number.isFinite(value) && value >= 1 && value <= 5;
+	}
+
+	public readonly startLocationDisplayMaxMobile = START_LOCATION_DISPLAY_MAX_LENGTH_MOBILE;
+	public readonly startLocationDisplayMaxDesktop = START_LOCATION_DISPLAY_MAX_LENGTH;
+
+	public formatStartLocationDisplay(location?: string | null, maxLength?: number): string {
+		return formatStartLocationDisplay(location, maxLength);
+	}
+
+	public getStartLocationTooltip(location?: string | null, maxLength?: number): string | null {
+		return getStartLocationTooltip(location, maxLength);
 	}
 
 	public openStartLocationOnMap(event: MouseEvent): void {
