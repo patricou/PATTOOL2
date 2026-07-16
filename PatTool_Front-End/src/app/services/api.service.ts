@@ -850,6 +850,13 @@ export class ApiService {
     return this._http.get(this.API_URL + 'external/meteofrance/aromepi/capabilities');
   }
 
+  /** Current AROME-PI WMS throttle window (429 backoff). */
+  getMeteoFranceAromepiThrottle(): Observable<{ aromepiWmsThrottled?: boolean; aromepiWmsRetryAfterSeconds?: number }> {
+    return this._http.get<{ aromepiWmsThrottled?: boolean; aromepiWmsRetryAfterSeconds?: number }>(
+      this.API_URL + 'external/meteofrance/aromepi/throttle'
+    );
+  }
+
   /** Nearest Météo-France DPObs observation station for a point. */
   getMeteoFranceNearestObsStation(lat: number, lon: number): Observable<any> {
     const params = new HttpParams()

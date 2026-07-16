@@ -1,4 +1,4 @@
-{
+﻿{
     "TITLE": "מזג אוויר מדויק",
     "SUBTITLE": "Radar Météo-France, conditions actuelles et prévisions",
     "MF_API_PORTAL_LINK": "Portail API Météo-France",
@@ -8,7 +8,7 @@
     "MAP_CENTER_USER": "Centrer sur ma position",
     "TAB_RADAR": "טמפרטורה ומכ\"ם",
     "TAB_CLIM": "היסטוריית טמפרטורה",
-    "TAB_AROMEPI": "תחזית MF (6 h)",
+    "TAB_AROMEPI": "תחזית MF (3 h)",
     "TAB_SELECT_LABEL": "Onglet",
     "TAB_FORECAST_OWM": "תחזית OWM",
     "TAB_FORECAST_OM": "תחזית Open-Meteo",

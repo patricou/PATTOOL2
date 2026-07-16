@@ -1120,6 +1120,14 @@ public class ApiController {
     }
 
     /**
+     * Current AROME-PI WMS throttle window (429 backoff) — for map banners.
+     */
+    @GetMapping(value = "/meteofrance/aromepi/throttle", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getMeteoFranceAromepiThrottle() {
+        return meteoFranceAromepiService.getThrottleStatus();
+    }
+
+    /**
      * AROME-PI WMS tile proxy (EPSG:4326 slippy tile, TIME + DIM_REFERENCE_TIME).
      */
     @GetMapping(value = "/meteofrance/aromepi/wms/{z}/{x}/{y}", produces = {MediaType.IMAGE_PNG_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})

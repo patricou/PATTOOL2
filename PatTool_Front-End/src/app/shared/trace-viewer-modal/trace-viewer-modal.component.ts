@@ -3178,8 +3178,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 					{
 						opacity: TraceViewerModalComponent.WEATHER_RADAR_OPACITY,
 						zIndex: 5,
+						// RainViewer native tiles stop at z7; keep layer visible up to map maxZoom (20).
 						maxNativeZoom: 7,
-						maxZoom: 18,
+						maxZoom: 20,
 						attribution: 'Radar © RainViewer.com (via PatTool)'
 					}
 				);
@@ -3210,6 +3211,18 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private get effectiveRadarRefreshSeconds(): number {
 		const sec = Number(this.radarRefreshSeconds);
 		return Number.isFinite(sec) ? Math.max(30, Math.min(600, sec)) : 60;
+	}
+
+	/** Manual radar reload (resets auto-refresh countdown when enabled). */
+	public onRefreshRadar(): void {
+		if (!this.map || !this.showWeather) {
+			return;
+		}
+		this.loadWeatherRainViewerRadar();
+		if (this.autoRefreshRadar) {
+			this.radarRefreshCountdown = this.effectiveRadarRefreshSeconds;
+			this.scheduleTraceViewerCdr();
+		}
 	}
 
 	public onAutoRefreshRadarChange(): void {

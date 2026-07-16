@@ -61,17 +61,6 @@
               {{ 'METEO_FRANCE.LOCATION_TITLE' | translate }}
             </h3>
             <div class="mf-toolbar">
-              <button type="button" class="btn btn-sm mf-btn-ghost" (click)="useGps()" [disabled]="isLoadingGps"
-                      [attr.title]="'METEO_FRANCE.USE_GPS' | translate">
-                <i class="fa" [class.fa-crosshairs]="!isLoadingGps" [class.fa-spinner]="isLoadingGps" [class.fa-spin]="isLoadingGps"></i>
-                <span class="mf-toolbar-label">{{ 'METEO_FRANCE.USE_GPS' | translate }}</span>
-              </button>
-              <button type="button" class="btn btn-sm btn-primary" (click)="refreshWeather()"
-                      [disabled]="isLoadingWeather"
-                      [attr.title]="'METEO_FRANCE.REFRESH' | translate">
-                <i class="fa fa-refresh"></i>
-                <span class="mf-toolbar-label">{{ 'METEO_FRANCE.REFRESH' | translate }}</span>
-              </button>
               <div class="btn-group btn-group-sm mf-unit-toggle" role="group"
                    [attr.aria-label]="'METEO_FRANCE.TEMP_UNIT_LABEL' | translate"
                    [attr.title]="paramTooltipKey('TEMP_UNIT') | translate">
@@ -241,16 +230,85 @@
 
         <div class="api-container">
 
-          <h3 class="api-title">
+          <div class="mf-section-head">
+            <h3 class="api-title mb-0">
+              <i class="fa fa-bullseye me-1" aria-hidden="true"></i>
+              {{ 'METEO_FRANCE.RADAR_TITLE' | translate }}
+            </h3>
+            <div class="mf-section-head-actions">
+              <button type="button"
+                      class="btn btn-sm btn-outline-secondary mf-section-head-btn"
+                      (click)="onRefreshRadar()"
+                      [disabled]="!showRadar"
+                      [attr.title]="'METEO_FRANCE.RADAR_REFRESH_NOW' | translate"
+                      [attr.aria-label]="'METEO_FRANCE.RADAR_REFRESH_NOW' | translate">
+                <i class="fa fa-refresh" aria-hidden="true"></i>
+                <span class="mf-toolbar-label">{{ 'METEO_FRANCE.RADAR_REFRESH_NOW' | translate }}</span>
+              </button>
+              <button type="button"
+                      class="btn btn-sm btn-outline-secondary mf-section-head-btn"
+                      (click)="useGps()"
+                      [disabled]="isLoadingGps"
+                      [attr.title]="'METEO_FRANCE.USE_GPS' | translate"
+                      [attr.aria-label]="'METEO_FRANCE.USE_GPS' | translate">
+                <i class="fa" [class.fa-crosshairs]="!isLoadingGps" [class.fa-spinner]="isLoadingGps" [class.fa-spin]="isLoadingGps" aria-hidden="true"></i>
+                <span class="mf-toolbar-label">{{ 'METEO_FRANCE.USE_GPS' | translate }}</span>
+              </button>
+              <button type="button"
+                      class="btn btn-sm btn-primary mf-section-head-btn"
+                      (click)="refreshWeather()"
+                      [disabled]="isLoadingWeather"
+                      [attr.title]="'METEO_FRANCE.REFRESH' | translate"
+                      [attr.aria-label]="'METEO_FRANCE.REFRESH' | translate">
+                <i class="fa fa-refresh" aria-hidden="true"></i>
+                <span class="mf-toolbar-label">{{ 'METEO_FRANCE.REFRESH' | translate }}</span>
+              </button>
+              <button type="button"
+                      class="btn btn-sm btn-outline-secondary mf-section-head-btn"
+                      (click)="toggleRadarTabHelp()"
+                      [class.active]="showRadarTabHelp"
+                      [attr.aria-expanded]="showRadarTabHelp"
+                      [attr.title]="'METEO_FRANCE.RADAR_TAB_HELP_BTN' | translate"
+                      [attr.aria-label]="'METEO_FRANCE.RADAR_TAB_HELP_BTN' | translate">
+                <i class="fa fa-question-circle" aria-hidden="true"></i>
+                <span class="mf-toolbar-label">{{ 'METEO_FRANCE.RADAR_TAB_HELP_BTN' | translate }}</span>
+              </button>
+            </div>
+          </div>
 
-            <i class="fa fa-bullseye me-1" aria-hidden="true"></i>
-            {{ 'METEO_FRANCE.RADAR_TITLE' | translate }}
+          <div class="mf-radar-help-panel" *ngIf="showRadarTabHelp" role="region"
+               [attr.aria-label]="'METEO_FRANCE.RADAR_TAB_HELP_TITLE' | translate">
+            <div class="mf-radar-help-header">
+              <h4 class="mf-radar-help-title">
+                <i class="fa fa-info-circle" aria-hidden="true"></i>
+                {{ 'METEO_FRANCE.RADAR_TAB_HELP_TITLE' | translate }}
+              </h4>
+              <button type="button" class="btn btn-sm btn-outline-secondary" (click)="toggleRadarTabHelp()"
+                      [attr.title]="'COMMUN.CLOSE' | translate"
+                      [attr.aria-label]="'COMMUN.CLOSE' | translate">
+                <i class="fa fa-times" aria-hidden="true"></i>
+              </button>
+            </div>
+            <p class="mf-radar-help-intro">{{ 'METEO_FRANCE.RADAR_TAB_HELP_INTRO' | translate }}</p>
 
-          </h3>
+            <section class="mf-radar-help-section" *ngFor="let section of radarTabHelpSections">
+              <h5 class="mf-radar-help-section-title">{{ section.titleKey | translate }}</h5>
+              <dl class="mf-radar-help-list">
+                <div class="mf-radar-help-item" *ngFor="let item of section.items">
+                  <dt>{{ item.labelKey | translate }}</dt>
+                  <dd>{{ item.descKey | translate }}</dd>
+                </div>
+              </dl>
+            </section>
+          </div>
 
 
 
           <div class="meteo-france-map-shell mf-map-shell--radar" #mapShell [class.meteo-france-map-shell--fullscreen]="mapFullscreen">
+            <div class="mf-map-alert" *ngIf="radarMapAlertKey" role="alert">
+              <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+              <span>{{ radarMapAlertKey | translate }}</span>
+            </div>
             <ng-container *ngTemplateOutlet="centerOnUserPositionButton; context: { variant: 'map' }"></ng-container>
             <button type="button"
                     class="btn btn-sm btn-light meteo-france-map-fullscreen-btn shadow-sm"
@@ -1207,7 +1265,7 @@
               <i class="fa fa-cloud"></i> {{ 'METEO_FRANCE.AROMEPI_TITLE' | translate }}
             </h3>
             <div class="mf-section-head-actions">
-              <ng-container *ngTemplateOutlet="centerOnUserPositionButton; context: { variant: 'toolbar' }"></ng-container>
+              <ng-container *ngTemplateOutlet="centerOnUserPositionButton; context: { variant: 'toolbar', compact: true }"></ng-container>
               <span class="mf-source-badge" *ngIf="aromepiAvailable">
                 <img [src]="meteoFranceBrandLogo" [alt]="getBrandAlt('meteofrance')" width="16" height="16" />
                 {{ 'METEO_FRANCE.LOG_SOURCE_MF_AROMEPI' | translate }}
@@ -1216,69 +1274,12 @@
             </div>
           </div>
 
-          <p class="text-muted small">{{ 'METEO_FRANCE.AROMEPI_HINT' | translate }}</p>
-
-          <ng-container *ngTemplateOutlet="forecastDataLocationSummary"></ng-container>
-
           <ng-container *ngTemplateOutlet="forecastTabLoadingPanel; context: {
             loading: isLoadingAromepiCapabilities,
             messageKey: 'METEO_FRANCE.AROMEPI_LOADING'
           }"></ng-container>
 
-          <div class="clim-station-row text-muted small mb-2" *ngIf="aromepiAvailable && !isLoadingAromepiCapabilities">
-            <span class="me-1">{{ 'METEO_FRANCE.CLIM_STATION' | translate }} :</span>
-            <ng-container [ngSwitch]="aromepiNearestStationStatus">
-              <span *ngSwitchCase="'loading'"><i class="fa fa-spinner fa-spin"></i></span>
-              <span *ngSwitchCase="'ok'">
-                <strong>{{ aromepiNearestStation?.name || aromepiNearestStation?.id }}</strong>
-                <span *ngIf="aromepiNearestStation?.distanceKm != null">
-                  — {{ 'METEO_FRANCE.AROMEPI_STATION_DISTANCE' | translate: { km: aromepiNearestStation?.distanceKm } }}
-                </span>
-              </span>
-              <span *ngSwitchCase="'outside-france'">{{ 'METEO_FRANCE.AROMEPI_STATION_OUTSIDE_FRANCE' | translate }}</span>
-              <span *ngSwitchCase="'unavailable'">{{ 'METEO_FRANCE.AROMEPI_STATION_UNAVAILABLE' | translate }}</span>
-            </ng-container>
-          </div>
-          <p class="text-muted small mb-2" *ngIf="aromepiAvailable && aromepiNearestStationStatus === 'ok'">
-            {{ 'METEO_FRANCE.AROMEPI_STATION_HINT' | translate }}
-          </p>
-
           <div *ngIf="aromepiAvailable">
-
-            <div *ngIf="!isLoadingAromepiCapabilities">
-              <div class="aromepi-controls mb-2" *ngIf="aromepiLayers.length">
-                <label class="form-label small mb-1" [attr.title]="paramTooltipKey('AROMEPI_LAYER') | translate">{{ 'METEO_FRANCE.AROMEPI_LAYER' | translate }}</label>
-                <select class="form-select form-select-sm aromepi-layer-select"
-                        [ngModel]="aromepiSelectedLayer"
-                        (ngModelChange)="onAromepiLayerChange($event)"
-                        [attr.title]="paramTooltipKey('AROMEPI_LAYER') | translate"
-                        [attr.aria-label]="paramTooltipKey('AROMEPI_LAYER') | translate">
-                  <optgroup *ngIf="aromepiCloudLayers.length" [label]="'METEO_FRANCE.AROMEPI_CAT_CLOUD' | translate">
-                    <option *ngFor="let layer of aromepiCloudLayers" [value]="layer.name">
-                      {{ aromepiLayerLabel(layer) }}
-                    </option>
-                  </optgroup>
-                  <optgroup *ngIf="aromepiPrecipLayers.length" [label]="'METEO_FRANCE.AROMEPI_CAT_PRECIPITATION' | translate">
-                    <option *ngFor="let layer of aromepiPrecipLayers" [value]="layer.name">
-                      {{ aromepiLayerLabel(layer) }}
-                    </option>
-                  </optgroup>
-                  <optgroup *ngIf="aromepiOtherLayers.length" [label]="'METEO_FRANCE.AROMEPI_CAT_OTHER' | translate">
-                    <option *ngFor="let layer of aromepiOtherLayers" [value]="layer.name">
-                      {{ aromepiLayerLabel(layer) }}
-                    </option>
-                  </optgroup>
-                </select>
-
-                <div class="aromepi-opacity-row mt-2" [attr.title]="paramTooltipKey('AROMEPI_OPACITY') | translate">
-                  <label class="form-label small mb-0">{{ 'METEO_FRANCE.RADAR_OPACITY' | translate }}</label>
-                  <input type="range" class="form-range" min="0.1" max="1" step="0.05"
-                         [(ngModel)]="aromepiOpacity" (ngModelChange)="onAromepiOpacityChange()"
-                         [attr.title]="paramTooltipKey('AROMEPI_OPACITY') | translate"
-                         [attr.aria-label]="paramTooltipKey('AROMEPI_OPACITY') | translate" />
-                </div>
-              </div>
-            </div>
 
             <div class="meteo-france-map-shell aromepi-map-shell mf-map-shell--aromepi" #aromepiMapShell
                  [class.meteo-france-map-shell--fullscreen]="aromepiMapFullscreen">
@@ -1287,6 +1288,20 @@
                    role="status" aria-live="polite">
                 <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
                 <span>{{ 'METEO_FRANCE.AROMEPI_LOADING' | translate }}</span>
+              </div>
+              <div class="mf-map-alert"
+                   *ngIf="aromepiMapAlertKey && !isLoadingAromepiCapabilities"
+                   [class.mf-map-alert--error]="!aromepiMapAlertIsWarning"
+                   role="alert">
+                <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+                <span>{{ aromepiMapAlertKey | translate: aromepiMapAlertParams }}</span>
+                <button type="button"
+                        class="btn btn-sm btn-light mf-map-alert-action"
+                        *ngIf="aromepiThrottleRetrySec <= 0"
+                        (click)="onRefreshAromepiLayer()"
+                        [attr.title]="'METEO_FRANCE.AROMEPI_REFRESH_LAYER' | translate">
+                  <i class="fa fa-refresh" aria-hidden="true"></i>
+                </button>
               </div>
               <ng-container *ngTemplateOutlet="centerOnUserPositionButton; context: { variant: 'map' }"></ng-container>
               <button type="button"
@@ -1299,7 +1314,19 @@
                   {{ (aromepiMapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate }}
                 </span>
               </button>
+              <div class="aromepi-layer-overlay"
+                   *ngIf="aromepiMapFullscreen && !isLoadingAromepiCapabilities && aromepiLayers.length">
+                <ng-container *ngTemplateOutlet="aromepiLayerControls; context: { compact: true }"></ng-container>
+                <ng-container *ngTemplateOutlet="aromepiOpacityControl; context: { compact: true }"></ng-container>
+              </div>
               <div id="meteo-france-aromepi-map" class="meteo-france-map aromepi-map"></div>
+
+              <div class="aromepi-forecast-clock"
+                   *ngIf="!isLoadingAromepiCapabilities && aromepiCurrentTime"
+                   [attr.title]="formatAromepiTime(aromepiCurrentTime) + ' ' + formatAromepiOffsetMinutes(aromepiCurrentOffsetMinutes, true)"
+                   aria-live="polite">
+                {{ formatAromepiClockTime(aromepiCurrentTime) }}
+              </div>
 
               <div class="aromepi-time-controls" *ngIf="!isLoadingAromepiCapabilities && aromepiEffectiveTimeSteps.length">
                 <div class="aromepi-time-compact-row">
@@ -1332,6 +1359,13 @@
                             [attr.aria-label]="'METEO_FRANCE.AROMEPI_RESET' | translate">
                       <i class="fa fa-fast-backward"></i>
                     </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary aromepi-time-btn"
+                            (click)="onRefreshAromepiLayer()"
+                            [disabled]="!aromepiSelectedLayer || isLoadingAromepiCapabilities"
+                            [attr.title]="'METEO_FRANCE.AROMEPI_REFRESH_LAYER' | translate"
+                            [attr.aria-label]="'METEO_FRANCE.AROMEPI_REFRESH_LAYER' | translate">
+                      <i class="fa fa-refresh" aria-hidden="true"></i>
+                    </button>
                   </div>
                   <div class="aromepi-time-meta">
                     <span class="aromepi-time-meta-primary">
@@ -1362,12 +1396,37 @@
                            [attr.title]="paramTooltipKey('AROMEPI_TIMELINE') | translate"
                            [attr.aria-label]="paramTooltipKey('AROMEPI_TIMELINE') | translate" />
                     <div class="aromepi-time-range">
-                      <span>{{ formatAromepiOffsetMinutes(aromepiMinOffsetMinutes) }}</span>
-                      <span>{{ formatAromepiOffsetMinutes(aromepiMaxOffsetMinutes) }}</span>
+                      <span [attr.title]="'METEO_FRANCE.AROMEPI_RANGE_START' | translate">{{ formatAromepiOffsetMinutes(aromepiMinOffsetMinutes) }}</span>
+                      <span class="aromepi-time-range-current">{{ formatAromepiOffsetMinutes(aromepiCurrentOffsetMinutes) }}</span>
+                      <span [attr.title]="'METEO_FRANCE.AROMEPI_RANGE_END' | translate">{{ formatAromepiOffsetMinutes(aromepiMaxOffsetMinutes) }}</span>
                     </div>
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div class="aromepi-map-meta mt-2" *ngIf="!isLoadingAromepiCapabilities && !aromepiMapFullscreen">
+              <ng-container *ngTemplateOutlet="aromepiLayerControls"></ng-container>
+              <ng-container *ngTemplateOutlet="aromepiOpacityControl"></ng-container>
+              <p class="text-muted small mb-1">{{ 'METEO_FRANCE.AROMEPI_HINT' | translate }}</p>
+              <ng-container *ngTemplateOutlet="forecastDataLocationSummary"></ng-container>
+              <div class="clim-station-row text-muted small mb-1" *ngIf="aromepiAvailable">
+                <span class="me-1">{{ 'METEO_FRANCE.CLIM_STATION' | translate }} :</span>
+                <ng-container [ngSwitch]="aromepiNearestStationStatus">
+                  <span *ngSwitchCase="'loading'"><i class="fa fa-spinner fa-spin"></i></span>
+                  <span *ngSwitchCase="'ok'">
+                    <strong>{{ aromepiNearestStation?.name || aromepiNearestStation?.id }}</strong>
+                    <span *ngIf="aromepiNearestStation?.distanceKm != null">
+                      — {{ 'METEO_FRANCE.AROMEPI_STATION_DISTANCE' | translate: { km: aromepiNearestStation?.distanceKm } }}
+                    </span>
+                  </span>
+                  <span *ngSwitchCase="'outside-france'">{{ 'METEO_FRANCE.AROMEPI_STATION_OUTSIDE_FRANCE' | translate }}</span>
+                  <span *ngSwitchCase="'unavailable'">{{ 'METEO_FRANCE.AROMEPI_STATION_UNAVAILABLE' | translate }}</span>
+                </ng-container>
+              </div>
+              <p class="text-muted small mb-0" *ngIf="aromepiAvailable && aromepiNearestStationStatus === 'ok'">
+                {{ 'METEO_FRANCE.AROMEPI_STATION_HINT' | translate }}
+              </p>
             </div>
 
             <div *ngIf="!isLoadingAromepiCapabilities">
@@ -1949,18 +2008,58 @@
   </div>
 </ng-template>
 
-<ng-template #centerOnUserPositionButton let-variant="variant">
+<ng-template #aromepiLayerControls let-compact="compact">
+  <div class="aromepi-controls" [class.mb-2]="!compact" [class.aromepi-controls--compact]="compact" *ngIf="aromepiLayers.length">
+    <label class="form-label small mb-0" [attr.title]="paramTooltipKey('AROMEPI_LAYER') | translate">{{ 'METEO_FRANCE.AROMEPI_LAYER' | translate }}</label>
+    <select class="form-select form-select-sm aromepi-layer-select"
+            [ngModel]="aromepiSelectedLayer"
+            (ngModelChange)="onAromepiLayerChange($event)"
+            [attr.title]="paramTooltipKey('AROMEPI_LAYER') | translate"
+            [attr.aria-label]="paramTooltipKey('AROMEPI_LAYER') | translate">
+      <optgroup *ngIf="aromepiCloudLayers.length" [label]="'METEO_FRANCE.AROMEPI_CAT_CLOUD' | translate">
+        <option *ngFor="let layer of aromepiCloudLayers" [value]="layer.name">
+          {{ aromepiLayerLabel(layer) }}
+        </option>
+      </optgroup>
+      <optgroup *ngIf="aromepiPrecipLayers.length" [label]="'METEO_FRANCE.AROMEPI_CAT_PRECIPITATION' | translate">
+        <option *ngFor="let layer of aromepiPrecipLayers" [value]="layer.name">
+          {{ aromepiLayerLabel(layer) }}
+        </option>
+      </optgroup>
+      <optgroup *ngIf="aromepiOtherLayers.length" [label]="'METEO_FRANCE.AROMEPI_CAT_OTHER' | translate">
+        <option *ngFor="let layer of aromepiOtherLayers" [value]="layer.name">
+          {{ aromepiLayerLabel(layer) }}
+        </option>
+      </optgroup>
+    </select>
+  </div>
+</ng-template>
+
+<ng-template #aromepiOpacityControl let-compact="compact">
+  <div class="aromepi-opacity-row" [class.mb-2]="!compact" [class.mt-2]="compact"
+       [attr.title]="paramTooltipKey('AROMEPI_OPACITY') | translate">
+    <label class="form-label small mb-0">{{ 'METEO_FRANCE.RADAR_OPACITY' | translate }}</label>
+    <input type="range" class="form-range" min="0.1" max="1" step="0.05"
+           [(ngModel)]="aromepiOpacity" (ngModelChange)="onAromepiOpacityChange()"
+           [attr.title]="paramTooltipKey('AROMEPI_OPACITY') | translate"
+           [attr.aria-label]="paramTooltipKey('AROMEPI_OPACITY') | translate" />
+  </div>
+</ng-template>
+
+<ng-template #centerOnUserPositionButton let-variant="variant" let-compact="compact">
   <button type="button"
           class="btn btn-sm shadow-sm"
           [class.btn-light]="variant === 'map'"
           [class.meteo-france-map-center-btn]="variant === 'map'"
           [class.btn-outline-secondary]="variant !== 'map'"
+          [class.mf-section-head-btn]="compact"
           (click)="centerMapOnUserPosition()"
           [disabled]="isLoadingGps"
           [attr.title]="'METEO_FRANCE.MAP_CENTER_USER' | translate"
           [attr.aria-label]="'METEO_FRANCE.MAP_CENTER_USER' | translate">
     <i class="fa" [class.fa-location-arrow]="!isLoadingGps" [class.fa-spinner]="isLoadingGps" [class.fa-spin]="isLoadingGps"></i>
-    <span class="d-none d-md-inline ms-1" *ngIf="variant !== 'map'">{{ 'METEO_FRANCE.MAP_CENTER_USER' | translate }}</span>
+    <span class="ms-1" *ngIf="variant !== 'map' && compact">{{ 'METEO_FRANCE.USE_GPS' | translate }}</span>
+    <span class="d-none d-md-inline ms-1" *ngIf="variant !== 'map' && !compact">{{ 'METEO_FRANCE.MAP_CENTER_USER' | translate }}</span>
   </button>
 </ng-template>
 

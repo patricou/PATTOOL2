@@ -1,4 +1,4 @@
-{
+﻿{
     "TITLE": "Meteo precisa",
     "SUBTITLE": "Radar Météo-Frannoce, condizioni attuali e previsioni",
     "MF_API_PORTAL_LINK": "Portale API Météo-Frannoce",
@@ -8,7 +8,7 @@
     "MAP_CENTER_USER": "Centrer sur ma position",
     "TAB_RADAR": "Temperatura e radar",
     "TAB_CLIM": "Storico temperatura",
-    "TAB_AROMEPI": "Previsioni MF (6 h)",
+    "TAB_AROMEPI": "Previsioni MF (3 h)",
     "TAB_SELECT_LABEL": "Onglet",
     "TAB_FORECAST_OWM": "Previsioni OWM",
     "TAB_FORECAST_OM": "Previsioni Open-Meteo",

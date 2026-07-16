@@ -1,4 +1,4 @@
-{
+﻿{
     "TITLE": "Точный прогноз погоды",
     "SUBTITLE": "Radar Météo-France, conditions actuelles et prévisions",
     "MF_API_PORTAL_LINK": "Portail API Météo-France",
@@ -8,7 +8,7 @@
     "MAP_CENTER_USER": "Centrer sur ma position",
     "TAB_RADAR": "Температура и радар",
     "TAB_CLIM": "История температуры",
-    "TAB_AROMEPI": "Прогноз MF (6 h)",
+    "TAB_AROMEPI": "Прогноз MF (3 h)",
     "TAB_SELECT_LABEL": "Onglet",
     "TAB_FORECAST_OWM": "Прогноз OWM",
     "TAB_FORECAST_OM": "Прогноз Open-Meteo",

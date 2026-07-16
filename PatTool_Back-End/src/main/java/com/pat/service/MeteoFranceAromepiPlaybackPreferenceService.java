@@ -18,15 +18,15 @@ public class MeteoFranceAromepiPlaybackPreferenceService {
     static final String GLOBAL_PARAM_KEY = "meteofrance.aromepi.playback.prefetch";
     static final String USER_PARAM_KEY_PREFIX = "meteofrance.aromepi.playback.prefetch.";
 
-    private static final int MIN_PREFETCH = 5;
-    private static final int MAX_PREFETCH = 12;
+    private static final int MIN_PREFETCH = 1;
+    private static final int MAX_PREFETCH = 6;
 
     private final AppParameterService appParameterService;
     private final int propertiesDefaultPrefetch;
 
     public MeteoFranceAromepiPlaybackPreferenceService(
             AppParameterService appParameterService,
-            @Value("${meteofrance.aromepi.playback.prefetch:5}") int propertiesDefaultPrefetch) {
+            @Value("${meteofrance.aromepi.playback.prefetch:2}") int propertiesDefaultPrefetch) {
         this.appParameterService = appParameterService;
         this.propertiesDefaultPrefetch = clamp(propertiesDefaultPrefetch);
     }

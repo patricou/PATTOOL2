@@ -357,9 +357,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   historyCacheDays = 14;
   readonly historyCacheMinDays = 1;
   readonly historyCacheMaxDays = 90;
-  aromepiPrefetchAhead = 5;
-  readonly aromepiPrefetchAheadMin = 5;
-  readonly aromepiPrefetchAheadMax = 12;
+  aromepiPrefetchAhead = 2;
+  readonly aromepiPrefetchAheadMin = 1;
+  readonly aromepiPrefetchAheadMax = 6;
 
   departmentCode = '';
   climFrequency: 'quotidienne' | 'horaire' = 'quotidienne';
@@ -410,6 +410,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   aromepiFrameIndex = 0;
   aromepiOpacity = 0.72;
   aromepiPlaying = false;
+  /** Bust browser tile cache when manually refreshing the AROME-PI overlay. */
+  private aromepiWmsCacheBust = 0;
   aromepiMapFullscreen = false;
   isLoadingAromepiCapabilities = false;
   isLoadingAromepiForecast = false;
@@ -417,11 +419,70 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   aromepiPointForecast: any = null;
   aromepiCurrentValues: Record<string, unknown> = {};
   aromepiLoadError = false;
+  /** Seconds remaining in MF WMS 429 backoff (0 = not throttled). */
+  aromepiThrottleRetrySec = 0;
+  private aromepiThrottleProbeInflight = false;
+  private aromepiThrottleCountdownTimer: ReturnType<typeof setInterval> | null = null;
   aromepiNearestStation: { id: string; name?: string; distanceKm?: number } | null = null;
   aromepiNearestStationStatus: 'idle' | 'loading' | 'ok' | 'unavailable' | 'outside-france' = 'idle';
   private aromepiNearestStationRequestId = 0;
 
   showBackendLog = false;
+  showRadarTabHelp = false;
+  readonly radarTabHelpSections: Array<{
+    titleKey: string;
+    items: Array<{ labelKey: string; descKey: string }>;
+  }> = [
+    {
+      titleKey: 'METEO_FRANCE.RADAR_TAB_HELP_SECTION_LOCATION',
+      items: [
+        { labelKey: 'METEO_FRANCE.USE_GPS', descKey: 'METEO_FRANCE.RADAR_TAB_HELP_USE_GPS' },
+        { labelKey: 'METEO_FRANCE.REFRESH', descKey: 'METEO_FRANCE.RADAR_TAB_HELP_REFRESH_WEATHER' },
+        { labelKey: 'METEO_FRANCE.TEMP_UNIT_LABEL', descKey: 'METEO_FRANCE.PARAM_TOOLTIP_TEMP_UNIT' },
+        { labelKey: 'METEO_FRANCE.CITY', descKey: 'METEO_FRANCE.RADAR_TAB_HELP_CITY' },
+        { labelKey: 'METEO_FRANCE.WEATHER_SOURCE_LABEL', descKey: 'METEO_FRANCE.PARAM_TOOLTIP_CURRENT_WEATHER_SOURCE' }
+      ]
+    },
+    {
+      titleKey: 'METEO_FRANCE.RADAR_TAB_HELP_SECTION_MAP',
+      items: [
+        { labelKey: 'METEO_FRANCE.MAP_CENTER_USER', descKey: 'METEO_FRANCE.RADAR_TAB_HELP_MAP_CENTER' },
+        { labelKey: 'METEO_FRANCE.MAP_FULLSCREEN', descKey: 'METEO_FRANCE.RADAR_TAB_HELP_MAP_FULLSCREEN' },
+        { labelKey: 'METEO_FRANCE.RADAR_TAB_HELP_MAP_CLICK_LABEL', descKey: 'METEO_FRANCE.RADAR_HINT' }
+      ]
+    },
+    {
+      titleKey: 'METEO_FRANCE.OPTIONS_LAYERS',
+      items: [
+        { labelKey: 'METEO_FRANCE.SHOW_RADAR', descKey: 'METEO_FRANCE.SWITCH_TOOLTIP_SHOW_RADAR' },
+        { labelKey: 'METEO_FRANCE.SHOW_CLOUDS', descKey: 'METEO_FRANCE.SWITCH_TOOLTIP_SHOW_CLOUDS' },
+        { labelKey: 'METEO_FRANCE.SHOW_TEMPERATURE_MAP', descKey: 'METEO_FRANCE.RADAR_TAB_HELP_SHOW_TEMPERATURES' },
+        { labelKey: 'METEO_FRANCE.MAP_BASE_LAYER', descKey: 'METEO_FRANCE.PARAM_TOOLTIP_MAP_BASE_LAYER' },
+        { labelKey: 'METEO_FRANCE.RADAR_SOURCE_LABEL', descKey: 'METEO_FRANCE.PARAM_TOOLTIP_RADAR_SOURCE' },
+        { labelKey: 'METEO_FRANCE.CLOUD_SOURCE_LABEL', descKey: 'METEO_FRANCE.PARAM_TOOLTIP_CLOUD_SOURCE' },
+        { labelKey: 'METEO_FRANCE.CLOUD_OPACITY', descKey: 'METEO_FRANCE.PARAM_TOOLTIP_CLOUD_OPACITY' },
+        { labelKey: 'METEO_FRANCE.CLOUD_INTENSITY', descKey: 'METEO_FRANCE.PARAM_TOOLTIP_CLOUD_INTENSITY' }
+      ]
+    },
+    {
+      titleKey: 'METEO_FRANCE.OPTIONS_TEMPERATURE',
+      items: [
+        { labelKey: 'METEO_FRANCE.SHOW_TEMPERATURE_TOOLTIPS', descKey: 'METEO_FRANCE.SWITCH_TOOLTIP_TEMPERATURE_TOOLTIPS' },
+        { labelKey: 'METEO_FRANCE.TEMPERATURE_CACHE_MINUTES_LABEL', descKey: 'METEO_FRANCE.PARAM_TOOLTIP_TEMPERATURE_CACHE_MINUTES' },
+        { labelKey: 'METEO_FRANCE.TEMPERATURE_CACHE_CLEAR', descKey: 'METEO_FRANCE.RADAR_TAB_HELP_TEMP_CACHE_CLEAR' }
+      ]
+    },
+    {
+      titleKey: 'METEO_FRANCE.OPTIONS_RADAR',
+      items: [
+        { labelKey: 'METEO_FRANCE.RADAR_OPACITY', descKey: 'METEO_FRANCE.PARAM_TOOLTIP_RADAR_OPACITY' },
+        { labelKey: 'METEO_FRANCE.AUTO_REFRESH', descKey: 'METEO_FRANCE.SWITCH_TOOLTIP_AUTO_REFRESH_RADAR' },
+        { labelKey: 'METEO_FRANCE.RADAR_REFRESH_NOW', descKey: 'METEO_FRANCE.SWITCH_TOOLTIP_REFRESH_RADAR' },
+        { labelKey: 'METEO_FRANCE.RADAR_REFRESH_INTERVAL_LABEL', descKey: 'METEO_FRANCE.PARAM_TOOLTIP_RADAR_REFRESH_INTERVAL' },
+        { labelKey: 'METEO_FRANCE.SHOW_BACKEND_LOG', descKey: 'METEO_FRANCE.SWITCH_TOOLTIP_BACKEND_LOG' }
+      ]
+    }
+  ];
   backendLogs: MeteoBackendLogEntry[] = [];
   private backendLogSeq = 0;
   private static readonly BACKEND_LOG_MAX = 120;
@@ -502,7 +563,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private static readonly AROMEPI_PLAY_DATA_WAIT_MS = 900;
   /** Point temperature timeline: 7 d history + 7 d forecast, one sample every 2 h. */
   /** AROME-PI WMS native resolution (independent of multi-day forecast options). */
-  private static readonly AROMEPI_FORECAST_HORIZON_MINUTES = 360;
+  private static readonly AROMEPI_FORECAST_HORIZON_MINUTES = 180;
   private static readonly AROMEPI_FORECAST_STEP_MINUTES = 15;
   /** Zoom from router deep link (trace viewer, etc.) applied on next radar map focus. */
   private pendingRadarMapZoom: number | null = null;
@@ -683,6 +744,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.cancelAromepiWmsCrossfade();
     this.clearAromepiPrefetchLayers();
     this.clearAromepiWmsCrossfadeFallbackTimer();
+    this.clearAromepiThrottleCountdown();
     this.clearForecastMapTimers();
     this.clearAromepiMapTimers();
     this.clearMsForecastCacheWatch();
@@ -1532,6 +1594,44 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     return '';
   }
 
+  /** Banner shown on the AROME-PI map for MF errors / rate limits. */
+  get aromepiMapAlertKey(): string {
+    if (this.aromepiThrottleRetrySec > 0) {
+      return 'METEO_FRANCE.AROMEPI_RATE_LIMITED';
+    }
+    if (this.aromepiStatusMessageKey) {
+      return this.aromepiStatusMessageKey;
+    }
+    if (this.aromepiErrorKey) {
+      return this.aromepiErrorKey;
+    }
+    if (this.aromepiLoadError) {
+      return 'METEO_FRANCE.AROMEPI_LAYER_ERROR';
+    }
+    return '';
+  }
+
+  get aromepiMapAlertParams(): Record<string, string | number> {
+    return { seconds: this.aromepiThrottleRetrySec };
+  }
+
+  get aromepiMapAlertIsWarning(): boolean {
+    return this.aromepiThrottleRetrySec > 0
+      || !!this.aromepiStatusMessageKey
+      || !!this.aromepiErrorKey;
+  }
+
+  /** Banner shown on the Temperature & radar map for MF radar errors. */
+  get radarMapAlertKey(): string {
+    if (this.radarStatusMessageKey) {
+      return this.radarStatusMessageKey;
+    }
+    if (this.radarLoadError && this.showRadar) {
+      return 'METEO_FRANCE.RADAR_LOAD_ERROR';
+    }
+    return '';
+  }
+
   get aromepiCurrentTime(): string {
     return this.aromepiEffectiveTimeSteps[this.aromepiFrameIndex] || '';
   }
@@ -1621,9 +1721,37 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
 
   private clampAromepiFrameIndex(): void {
     const max = Math.max(0, this.aromepiEffectiveTimeSteps.length - 1);
-    if (this.aromepiFrameIndex > max) {
-      this.aromepiFrameIndex = 0;
+    if (this.aromepiFrameIndex < 0 || this.aromepiFrameIndex > max) {
+      this.aromepiFrameIndex = this.findAromepiFrameIndexClosestToNow();
     }
+  }
+
+  /**
+   * Pick the forecast step nearest to wall-clock now.
+   * MF AROME-PI WMS has no T+0 (first step is typically run+15 min), so "now" ≈ closest available TIME.
+   */
+  private findAromepiFrameIndexClosestToNow(): number {
+    const steps = this.aromepiEffectiveTimeSteps;
+    if (!steps.length) {
+      return 0;
+    }
+    const nowMs = Date.now();
+    let bestIdx = 0;
+    let bestScore = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < steps.length; i++) {
+      const t = Date.parse(steps[i]);
+      if (!Number.isFinite(t)) {
+        continue;
+      }
+      const delta = t - nowMs;
+      // Prefer current/future steps slightly over past ones when equally close.
+      const score = Math.abs(delta) + (delta < 0 ? 30_000 : 0);
+      if (score < bestScore) {
+        bestScore = score;
+        bestIdx = i;
+      }
+    }
+    return bestIdx;
   }
 
   private aromepiOffsetMinutesForTime(timeIso: string): number {
@@ -2338,8 +2466,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       {
         opacity: this.radarOpacity,
         zIndex: 500,
+        // Native tiles ~z10; keep layer visible up to map maxZoom (18) via Leaflet upscale.
         maxNativeZoom: 10,
-        maxZoom: 12,
+        maxZoom: 18,
         attribution: 'Radar &copy; Météo-France (WMS via PatTool)'
       }
     );
@@ -2876,6 +3005,23 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     );
   }
 
+  /** Manual radar reload (resets auto-refresh countdown when enabled). */
+  onRefreshRadar(): void {
+    if (!this.map || !this.showRadar) {
+      return;
+    }
+    this.loadRadarLayer();
+    if (this.autoRefreshRadar) {
+      this.radarRefreshCountdown = this.effectiveRadarRefreshSeconds;
+      this.cdr.markForCheck();
+    }
+  }
+
+  toggleRadarTabHelp(): void {
+    this.showRadarTabHelp = !this.showRadarTabHelp;
+    this.cdr.markForCheck();
+  }
+
   private loadMosaicOverlay(): void {
     if (!this.map) {
       return;
@@ -2988,8 +3134,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
             {
               opacity: this.radarOpacity,
               zIndex: 500,
+              // RainViewer native tiles stop at z7; keep layer visible up to map maxZoom (18).
               maxNativeZoom: 7,
-              maxZoom: 12,
+              maxZoom: 18,
               attribution: forMfProxy
                 ? 'Radar map RainViewer — horodatage Météo-France DPRadar (via PatTool)'
                 : 'Radar &copy; RainViewer.com (via PatTool)'
@@ -3054,6 +3201,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       this.apiService.getMeteoFranceStatus().subscribe({
         next: (status) => {
           this.mfStatus = status;
+          this.applyAromepiThrottleFromStatus(status);
           const parts: string[] = [];
           if (status?.dpradarConfigured) {
             parts.push('DPRadar');
@@ -5328,7 +5476,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
           this.aromepiLayers = Array.isArray(caps.layers) ? caps.layers : [];
           this.aromepiTimeSteps = Array.isArray(caps.timeSteps) ? caps.timeSteps : [];
           this.aromepiReferenceTime = caps.defaultReferenceTime || caps.referenceTimes?.[caps.referenceTimes.length - 1] || '';
-          this.aromepiFrameIndex = 0;
+          this.aromepiFrameIndex = this.findAromepiFrameIndexClosestToNow();
           this.clampAromepiFrameIndex();
           if (!this.aromepiSelectedLayer && this.aromepiLayers.length) {
             const cloud = this.aromepiLayers.find((l) => l.category === 'cloud');
@@ -5400,6 +5548,30 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       return;
     }
     this.onAromepiFrameIndexChange(this.aromepiFrameIndex + delta);
+  }
+
+  /** Force-reload the selected AROME-PI WMS overlay (helps after missing tiles / 429). */
+  onRefreshAromepiLayer(): void {
+    if (!this.aromepiMap || !this.aromepiSelectedLayer) {
+      return;
+    }
+    if (this.aromepiPlaying) {
+      this.stopAromepiAnimation();
+    }
+    this.clearAromepiPrefetchLayers();
+    this.aromepiLoadError = false;
+    this.aromepiThrottleRetrySec = 0;
+    this.clearAromepiThrottleCountdown();
+    this.aromepiWmsCacheBust = Date.now();
+    this.setupAromepiWmsLayer(false, (success) => {
+      // One-shot bust only — keep subsequent frame changes browser-cacheable.
+      this.aromepiWmsCacheBust = 0;
+      if (success) {
+        this.loadAromepiCurrentValues();
+      }
+      this.probeAromepiThrottleStatus();
+      this.cdr.markForCheck();
+    });
   }
 
   toggleAromepiPlayback(): void {
@@ -5775,8 +5947,13 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     if (!this.aromepiCapabilities || this.isLoadingAromepiCapabilities) {
       return;
     }
+    const closest = this.findAromepiFrameIndexClosestToNow();
+    const frameChanged = closest !== this.aromepiFrameIndex;
+    if (frameChanged) {
+      this.aromepiFrameIndex = closest;
+    }
     this.initAromepiMap();
-    this.setupAromepiWmsLayer();
+    this.setupAromepiWmsLayer(!!this.aromepiWmsLayer && frameChanged);
     if (!this.hasAromepiPointForecastData()) {
       this.scheduleAromepiForecastLoad();
     }
@@ -6041,17 +6218,20 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
 
   private buildAromepiWmsUrl(layer: string, style: string, time: string, referenceTime: string): string {
     const styleParam = style ? `&style=${encodeURIComponent(style)}` : '';
-    return `${environment.API_URL}external/meteofrance/aromepi/wms/{z}/{x}/{y}?layer=${encodeURIComponent(layer)}&time=${encodeURIComponent(time)}&referenceTime=${encodeURIComponent(referenceTime)}${styleParam}&width=256&height=256`;
+    const bust = this.aromepiWmsCacheBust > 0 ? `&_=${this.aromepiWmsCacheBust}` : '';
+    return `${environment.API_URL}external/meteofrance/aromepi/wms/{z}/{x}/{y}?layer=${encodeURIComponent(layer)}&time=${encodeURIComponent(time)}&referenceTime=${encodeURIComponent(referenceTime)}${styleParam}&width=256&height=256${bust}`;
   }
 
   private createAromepiWmsTileLayer(url: string, opacity: number): L.TileLayer {
     const options: L.TileLayerOptions = {
       opacity,
       zIndex: 500,
+      // Native WMS quality ~z10; keep layer visible up to map maxZoom via Leaflet upscale.
       maxNativeZoom: 10,
-      maxZoom: 12,
-      updateWhenIdle: !this.aromepiPlaying,
-      keepBuffer: this.aromepiPlaying ? 2 : 1,
+      maxZoom: 18,
+      // Always wait for pan/zoom end — fewer parallel requests → fewer MF 429s.
+      updateWhenIdle: true,
+      keepBuffer: 1,
       attribution: '&copy; Météo-France AROME-PI (via PatTool)'
     };
     const b = this.aromepiCapabilities?.bounds;
@@ -6059,15 +6239,92 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       options.bounds = L.latLngBounds([b.south, b.west], [b.north, b.east]);
     }
     const tileLayer = L.tileLayer(url, options);
-    tileLayer.on('tileerror', () => {
-      if (!this.aromepiPlaying) {
+    tileLayer.on('tileerror', (e: L.TileErrorEvent) => {
+      const tile = e.tile as HTMLImageElement & { _aromepiRetry?: number };
+      const retries = tile._aromepiRetry ?? 0;
+      this.probeAromepiThrottleStatus();
+      // Slow retries only: rapid retries during MF 429 make the quota worse.
+      if (retries < 2) {
+        tile._aromepiRetry = retries + 1;
+        const src = tile.src;
+        tile.src = '';
+        window.setTimeout(() => {
+          if (!this.aromepiMap || !this.aromepiMap.hasLayer(tileLayer)) {
+            return;
+          }
+          tile.src = src;
+        }, 2000 * (retries + 1));
+        return;
+      }
+      if (!this.aromepiPlaying && this.aromepiThrottleRetrySec <= 0) {
         this.aromepiLoadError = true;
+        this.cdr.markForCheck();
       }
     });
     tileLayer.on('load', () => {
       this.aromepiLoadError = false;
+      this.cdr.markForCheck();
     });
     return tileLayer;
+  }
+
+  /** Ask backend whether MF WMS is in 429 backoff; show countdown on the map. */
+  private probeAromepiThrottleStatus(): void {
+    if (this.aromepiThrottleProbeInflight) {
+      return;
+    }
+    this.aromepiThrottleProbeInflight = true;
+    this.subs.add(
+      this.apiService.getMeteoFranceAromepiThrottle().subscribe({
+        next: (status) => {
+          this.aromepiThrottleProbeInflight = false;
+          this.applyAromepiThrottleFromStatus(status);
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.aromepiThrottleProbeInflight = false;
+        }
+      })
+    );
+  }
+
+  private applyAromepiThrottleFromStatus(status: {
+    aromepiWmsThrottled?: boolean;
+    aromepiWmsRetryAfterSeconds?: number;
+  } | null | undefined): void {
+    const retry = Number(status?.aromepiWmsRetryAfterSeconds);
+    if (status?.aromepiWmsThrottled && Number.isFinite(retry) && retry > 0) {
+      this.aromepiThrottleRetrySec = Math.max(1, Math.round(retry));
+      this.aromepiLoadError = false;
+      this.startAromepiThrottleCountdown();
+      return;
+    }
+    if (this.aromepiThrottleRetrySec > 0) {
+      this.aromepiThrottleRetrySec = 0;
+      this.clearAromepiThrottleCountdown();
+    }
+  }
+
+  private startAromepiThrottleCountdown(): void {
+    this.clearAromepiThrottleCountdown();
+    this.aromepiThrottleCountdownTimer = setInterval(() => {
+      if (this.aromepiThrottleRetrySec <= 1) {
+        this.aromepiThrottleRetrySec = 0;
+        this.clearAromepiThrottleCountdown();
+        this.probeAromepiThrottleStatus();
+        this.cdr.markForCheck();
+        return;
+      }
+      this.aromepiThrottleRetrySec -= 1;
+      this.cdr.markForCheck();
+    }, 1000);
+  }
+
+  private clearAromepiThrottleCountdown(): void {
+    if (this.aromepiThrottleCountdownTimer != null) {
+      clearInterval(this.aromepiThrottleCountdownTimer);
+      this.aromepiThrottleCountdownTimer = null;
+    }
   }
 
   private replaceAromepiWmsLayerImmediate(url: string, existingLayer?: L.TileLayer | null): void {
@@ -6240,9 +6497,16 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     if (steps.length < 2 || !this.aromepiMap) {
       return;
     }
+    // Stagger prefetch so we do not open N full tile sets at once against MF quota.
     for (let i = 1; i <= this.aromepiPrefetchAhead; i++) {
       const idx = (this.aromepiFrameIndex + i) % steps.length;
-      this.prefetchAromepiFrame(idx);
+      const delayMs = (i - 1) * 750;
+      window.setTimeout(() => {
+        if (!this.aromepiMap) {
+          return;
+        }
+        this.prefetchAromepiFrame(idx);
+      }, delayMs);
     }
   }
 
@@ -6301,7 +6565,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Ensure WMS TIME is within referenceTime + [15..360] min (backend also normalizes). */
+  /** Ensure WMS TIME is within referenceTime + [15..horizon] min (backend also normalizes). */
   private resolveAromepiWmsTimes(): { time: string; referenceTime: string } {
     const referenceTime = this.aromepiReferenceTime;
     let time = this.aromepiCurrentTime;
@@ -6309,7 +6573,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       return { time: '', referenceTime: referenceTime || '' };
     }
     const offset = this.aromepiCurrentOffsetMinutes;
-    if (offset < 15 || offset > 360) {
+    const maxOffset = this.aromepiEffectiveHorizonMinutes;
+    if (offset < 15 || offset > maxOffset) {
       time = this.aromepiTimeSteps[0] || time;
       this.aromepiFrameIndex = 0;
     }
@@ -6362,6 +6627,22 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       return iso;
     }
     return this.formatTemperatureDateTime(d);
+  }
+
+  /** Local HH:mm for the active AROME-PI forecast step (same instant as the timeline). */
+  formatAromepiClockTime(iso: string): string {
+    if (!iso) {
+      return '';
+    }
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) {
+      return '';
+    }
+    return d.toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
   }
 
   formatAromepiOffsetMinutes(minutes: number, parens = false): string {

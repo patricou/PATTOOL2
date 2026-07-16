@@ -1,4 +1,4 @@
-{
+﻿{
     "TITLE": "Präzisionswetter",
     "SUBTITLE": "Météo-FrJahrce-Radar, aktuelle Bedingungen und Vorhersage",
     "MF_API_PORTAL_LINK": "Météo-FrJahrce-API-Portal",
@@ -8,7 +8,7 @@
     "MAP_CENTER_USER": "Centrer sur ma position",
     "TAB_RADAR": "Temperatur und Radar",
     "TAB_CLIM": "Temperaturverlauf",
-    "TAB_AROMEPI": "Vorhersage MF (6 h)",
+    "TAB_AROMEPI": "Vorhersage MF (3 h)",
     "TAB_SELECT_LABEL": "Onglet",
     "TAB_FORECAST_OWM": "Vorhersage OWM",
     "TAB_FORECAST_OM": "Vorhersage Open-Meteo",

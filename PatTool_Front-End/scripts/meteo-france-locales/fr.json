@@ -1,4 +1,4 @@
-{
+﻿{
   "TITLE": "Météo précise",
   "SUBTITLE": "Radar Météo-France, conditions actuelles et prévisions",
   "MF_API_PORTAL_LINK": "Portail API Météo-France",
@@ -8,7 +8,7 @@
   "MAP_CENTER_USER": "Centrer sur ma position",
   "TAB_RADAR": "Température et radar",
   "TAB_CLIM": "Historique température",
-  "TAB_AROMEPI": "Prévisions MF (6 h)",
+  "TAB_AROMEPI": "Prévisions MF (3 h)",
   "TAB_SELECT_LABEL": "Onglet",
   "TAB_FORECAST_OWM": "Prévisions OWM",
   "TAB_FORECAST_OM": "Prévisions Open-Meteo",

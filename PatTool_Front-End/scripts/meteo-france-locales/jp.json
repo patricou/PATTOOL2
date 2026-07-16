@@ -1,4 +1,4 @@
-{
+﻿{
     "TITLE": "精密天気",
     "SUBTITLE": "Radar Météo-France, conditions actuelles et prévisions",
     "MF_API_PORTAL_LINK": "Portail API Météo-France",
@@ -8,7 +8,7 @@
     "MAP_CENTER_USER": "Centrer sur ma position",
     "TAB_RADAR": "気温とレーダー",
     "TAB_CLIM": "気温履歴",
-    "TAB_AROMEPI": "MF予報 (6 h)",
+    "TAB_AROMEPI": "MF予報 (3 h)",
     "TAB_SELECT_LABEL": "Onglet",
     "TAB_FORECAST_OWM": "予報 OWM",
     "TAB_FORECAST_OM": "予報 Open-Meteo",

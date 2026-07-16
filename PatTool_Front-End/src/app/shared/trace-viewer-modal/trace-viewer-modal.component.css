@@ -1027,6 +1027,17 @@
 	color: #fff !important;
 }
 
+.tv-radar-refresh-btn {
+	padding: 0.15rem 0.4rem;
+	line-height: 1.2;
+	font-size: 0.72rem;
+	flex-shrink: 0;
+}
+
+.fullscreen-selector .tv-radar-refresh-btn {
+	padding: 0.2rem 0.45rem;
+}
+
 ::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .btn {
 	padding: 0.26rem 0.48rem !important;
 	font-size: 0.74rem !important;

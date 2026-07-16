@@ -109,9 +109,10 @@ meteofrance.api.token=
 # meteofrance.aromepi.api.token=
 # meteofrance.aromepi.base.url=https://public-api.meteofrance.fr/public/aromepi/1.0
 # meteofrance.aromepi.wms.service=MF-NWP-HIGHRES-AROMEPI-001-FRANCE-WMS
-# AROME-PI quota is easy to hit: keep concurrency low and pace WMS calls.
+# AROME-PI quota: 2 concurrent + 300ms pacing (~3–6 tiles/s). Raise interval if you get 429s.
 # meteofrance.aromepi.wms.max.concurrent=2
-# meteofrance.aromepi.wms.min-interval-ms=250
+# meteofrance.aromepi.wms.min-interval-ms=300
+# meteofrance.aromepi.playback.prefetch=2
 # Alternative: OAuth application id (Base64 string shown as « Application ID » in the portal)
 # meteofrance.oauth.application-id=
 # meteofrance.radar.base.url=https://public-api.meteofrance.fr/public/DPRadar/v1

@@ -1,4 +1,4 @@
-{
+﻿{
   "TITLE": "Precision weather",
   "SUBTITLE": "Météo-France radar, current conditions and forecast",
   "MF_API_PORTAL_LINK": "Météo-France API portal",
@@ -8,7 +8,7 @@
   "MAP_CENTER_USER": "Center on my location",
   "TAB_RADAR": "Temperature & radar",
   "TAB_CLIM": "Temperature history",
-  "TAB_AROMEPI": "MF forecast (6 h)",
+  "TAB_AROMEPI": "MF forecast (3 h)",
   "TAB_SELECT_LABEL": "Section",
   "TAB_FORECAST_OWM": "OWM forecast",
   "TAB_FORECAST_OM": "Open-Meteo forecast",
