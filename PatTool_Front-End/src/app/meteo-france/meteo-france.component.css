@@ -417,6 +417,11 @@
   pointer-events: auto;
 }
 
+/* Sit below the red forecast clock on AROME-PI. */
+.mf-map-shell--aromepi .mf-map-alert {
+  top: 2.85rem;
+}
+
 .mf-map-alert--error {
   background: rgba(254, 226, 226, 0.96);
   border-color: #ef4444;
@@ -426,6 +431,24 @@
 .mf-map-alert i.fa {
   margin-top: 2px;
   flex-shrink: 0;
+}
+
+.mf-map-alert-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.mf-map-alert-link {
+  font-weight: 600;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.mf-map-alert-link:hover {
+  opacity: 0.85;
 }
 
 .mf-map-alert-action {
@@ -1951,20 +1974,32 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 650;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
   margin: 0;
-  padding: 0.15rem 0.55rem;
+  padding: 0.12rem 0.5rem;
   border-radius: 0.35rem;
   background: rgba(255, 255, 255, 0.82);
   color: #d40000;
-  font-size: clamp(1.35rem, 3.2vw, 1.85rem);
-  font-weight: 700;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.04em;
   line-height: 1.15;
   text-shadow: 0 0 1px rgba(255, 255, 255, 0.9);
   pointer-events: none;
   user-select: none;
   white-space: nowrap;
+}
+
+.aromepi-forecast-clock-time {
+  font-size: clamp(1.05rem, 2.4vw, 1.35rem);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.aromepi-forecast-clock-offset {
+  font-size: clamp(0.78rem, 1.8vw, 0.95rem);
+  font-weight: 600;
+  opacity: 0.92;
 }
 
 .forecast-map-bottom-section {

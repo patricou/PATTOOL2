@@ -58,7 +58,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 /**
- * Proxy for Météo-France AROME-PI nowcasting (0–3 h UI horizon, 15 min steps) via WMS GetMap.
+ * Proxy for Météo-France AROME-PI nowcasting (0–6 h UI horizon, 15 min steps) via WMS GetMap.
  * Point forecast numeric values use Open-Meteo {@code meteofrance_seamless} minutely_15
  * (MF WMS does not expose GetFeatureInfo text).
  * API « AROMEPI 1.0 » on portail-api.meteofrance.fr — requires {@code meteofrance.aromepi.api.token}.
@@ -68,8 +68,8 @@ public class MeteoFranceAromepiService {
 
     private static final Logger log = LoggerFactory.getLogger(MeteoFranceAromepiService.class);
 
-    /** PatTool display / playback horizon (MF WMS publishes up to 6 h; we cap at 3 h). */
-    private static final int FORECAST_HORIZON_MINUTES = 180;
+    /** PatTool display / playback horizon (0–6 h). */
+    private static final int FORECAST_HORIZON_MINUTES = 360;
     private static final int FORECAST_STEP_MINUTES = 15;
     private static final int FORECAST_MIN_OFFSET_MINUTES = 15;
 

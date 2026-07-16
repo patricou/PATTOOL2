@@ -1294,7 +1294,16 @@
                    [class.mf-map-alert--error]="!aromepiMapAlertIsWarning"
                    role="alert">
                 <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
-                <span>{{ aromepiMapAlertKey | translate: aromepiMapAlertParams }}</span>
+                <div class="mf-map-alert-body">
+                  <span>{{ aromepiMapAlertKey | translate: aromepiMapAlertParams }}</span>
+                  <a class="mf-map-alert-link"
+                     [href]="meteoFranceApiPortalUrl"
+                     target="_blank"
+                     rel="noopener noreferrer">
+                    {{ 'METEO_FRANCE.MF_API_PORTAL_LINK' | translate }}
+                    <i class="fa fa-external-link" aria-hidden="true"></i>
+                  </a>
+                </div>
                 <button type="button"
                         class="btn btn-sm btn-light mf-map-alert-action"
                         *ngIf="aromepiThrottleRetrySec <= 0"
@@ -1323,9 +1332,10 @@
 
               <div class="aromepi-forecast-clock"
                    *ngIf="!isLoadingAromepiCapabilities && aromepiCurrentTime"
-                   [attr.title]="formatAromepiTime(aromepiCurrentTime) + ' ' + formatAromepiOffsetMinutes(aromepiCurrentOffsetMinutes, true)"
+                   [attr.title]="formatAromepiTime(aromepiCurrentTime) + ' · ' + formatAromepiOffsetFromNow(aromepiCurrentTime)"
                    aria-live="polite">
-                {{ formatAromepiClockTime(aromepiCurrentTime) }}
+                <span class="aromepi-forecast-clock-time">{{ formatAromepiClockTime(aromepiCurrentTime) }}</span>
+                <span class="aromepi-forecast-clock-offset">{{ formatAromepiOffsetFromNow(aromepiCurrentTime) }}</span>
               </div>
 
               <div class="aromepi-time-controls" *ngIf="!isLoadingAromepiCapabilities && aromepiEffectiveTimeSteps.length">
@@ -1408,7 +1418,13 @@
             <div class="aromepi-map-meta mt-2" *ngIf="!isLoadingAromepiCapabilities && !aromepiMapFullscreen">
               <ng-container *ngTemplateOutlet="aromepiLayerControls"></ng-container>
               <ng-container *ngTemplateOutlet="aromepiOpacityControl"></ng-container>
-              <p class="text-muted small mb-1">{{ 'METEO_FRANCE.AROMEPI_HINT' | translate }}</p>
+              <p class="text-muted small mb-1">
+                {{ 'METEO_FRANCE.AROMEPI_HINT' | translate }}
+                <a [href]="meteoFranceApiPortalUrl" target="_blank" rel="noopener noreferrer" class="ms-1">
+                  {{ 'METEO_FRANCE.MF_API_PORTAL_LINK' | translate }}
+                  <i class="fa fa-external-link" aria-hidden="true"></i>
+                </a>
+              </p>
               <ng-container *ngTemplateOutlet="forecastDataLocationSummary"></ng-container>
               <div class="clim-station-row text-muted small mb-1" *ngIf="aromepiAvailable">
                 <span class="me-1">{{ 'METEO_FRANCE.CLIM_STATION' | translate }} :</span>

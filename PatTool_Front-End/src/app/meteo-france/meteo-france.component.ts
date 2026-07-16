@@ -423,6 +423,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   aromepiThrottleRetrySec = 0;
   private aromepiThrottleProbeInflight = false;
   private aromepiThrottleCountdownTimer: ReturnType<typeof setInterval> | null = null;
+  /** Clears the map tile-error banner only after a quiet period of successful loads. */
+  private aromepiLoadErrorClearTimer: ReturnType<typeof setTimeout> | null = null;
   aromepiNearestStation: { id: string; name?: string; distanceKm?: number } | null = null;
   aromepiNearestStationStatus: 'idle' | 'loading' | 'ok' | 'unavailable' | 'outside-france' = 'idle';
   private aromepiNearestStationRequestId = 0;
@@ -563,7 +565,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private static readonly AROMEPI_PLAY_DATA_WAIT_MS = 900;
   /** Point temperature timeline: 7 d history + 7 d forecast, one sample every 2 h. */
   /** AROME-PI WMS native resolution (independent of multi-day forecast options). */
-  private static readonly AROMEPI_FORECAST_HORIZON_MINUTES = 180;
+  private static readonly AROMEPI_FORECAST_HORIZON_MINUTES = 360;
   private static readonly AROMEPI_FORECAST_STEP_MINUTES = 15;
   /** Zoom from router deep link (trace viewer, etc.) applied on next radar map focus. */
   private pendingRadarMapZoom: number | null = null;
@@ -745,6 +747,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.clearAromepiPrefetchLayers();
     this.clearAromepiWmsCrossfadeFallbackTimer();
     this.clearAromepiThrottleCountdown();
+    this.clearAromepiTileErrorBanner();
     this.clearForecastMapTimers();
     this.clearAromepiMapTimers();
     this.clearMsForecastCacheWatch();
@@ -5559,7 +5562,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       this.stopAromepiAnimation();
     }
     this.clearAromepiPrefetchLayers();
-    this.aromepiLoadError = false;
+    this.clearAromepiTileErrorBanner();
     this.aromepiThrottleRetrySec = 0;
     this.clearAromepiThrottleCountdown();
     this.aromepiWmsCacheBust = Date.now();
@@ -6242,6 +6245,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     tileLayer.on('tileerror', (e: L.TileErrorEvent) => {
       const tile = e.tile as HTMLImageElement & { _aromepiRetry?: number };
       const retries = tile._aromepiRetry ?? 0;
+      // Show the map banner immediately — do not wait for retries / playback end.
+      this.reportAromepiTileError();
       this.probeAromepiThrottleStatus();
       // Slow retries only: rapid retries during MF 429 make the quota worse.
       if (retries < 2) {
@@ -6254,18 +6259,56 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
           }
           tile.src = src;
         }, 2000 * (retries + 1));
-        return;
       }
-      if (!this.aromepiPlaying && this.aromepiThrottleRetrySec <= 0) {
-        this.aromepiLoadError = true;
-        this.cdr.markForCheck();
-      }
+    });
+    tileLayer.on('tileload', () => {
+      this.scheduleClearAromepiTileError();
     });
     tileLayer.on('load', () => {
-      this.aromepiLoadError = false;
-      this.cdr.markForCheck();
+      this.scheduleClearAromepiTileError();
     });
     return tileLayer;
+  }
+
+  /** Near real-time map banner for WMS tile failures (502 / fault XML / etc.). */
+  private reportAromepiTileError(): void {
+    if (this.aromepiThrottleRetrySec > 0) {
+      return;
+    }
+    if (this.aromepiLoadErrorClearTimer != null) {
+      clearTimeout(this.aromepiLoadErrorClearTimer);
+      this.aromepiLoadErrorClearTimer = null;
+    }
+    if (!this.aromepiLoadError) {
+      this.aromepiLoadError = true;
+      this.cdr.detectChanges();
+    }
+  }
+
+  private scheduleClearAromepiTileError(): void {
+    if (!this.aromepiLoadError || this.aromepiThrottleRetrySec > 0) {
+      return;
+    }
+    if (this.aromepiLoadErrorClearTimer != null) {
+      clearTimeout(this.aromepiLoadErrorClearTimer);
+    }
+    // Keep the banner visible briefly so intermittent faults are noticeable.
+    this.aromepiLoadErrorClearTimer = setTimeout(() => {
+      this.aromepiLoadErrorClearTimer = null;
+      if (this.aromepiThrottleRetrySec > 0) {
+        return;
+      }
+      this.aromepiLoadError = false;
+      this.cdr.detectChanges();
+    }, 2500);
+  }
+
+  private clearAromepiTileErrorBanner(): void {
+    if (this.aromepiLoadErrorClearTimer != null) {
+      clearTimeout(this.aromepiLoadErrorClearTimer);
+      this.aromepiLoadErrorClearTimer = null;
+    }
+    this.aromepiLoadError = false;
   }
 
   /** Ask backend whether MF WMS is in 429 backoff; show countdown on the map. */
@@ -6643,6 +6686,24 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       minute: '2-digit',
       hour12: false
     });
+  }
+
+  /** Signed offset of the forecast step vs wall-clock now (e.g. +45 min, −12 min). */
+  formatAromepiOffsetFromNow(iso: string): string {
+    if (!iso) {
+      return '';
+    }
+    const target = Date.parse(iso);
+    if (!Number.isFinite(target)) {
+      return '';
+    }
+    const minutes = Math.round((target - Date.now()) / 60_000);
+    const unit = this.translate.instant('METEO_FRANCE.FORECAST_MINUTES_UNIT');
+    if (minutes === 0) {
+      return `±0 ${unit}`;
+    }
+    const sign = minutes > 0 ? '+' : '−';
+    return `${sign}${Math.abs(minutes)} ${unit}`;
   }
 
   formatAromepiOffsetMinutes(minutes: number, parens = false): string {
