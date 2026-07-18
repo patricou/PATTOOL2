@@ -928,6 +928,7 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
     }
     this.tilesCacheHits = 0;
     this.tilesCacheMisses = 0;
+    this.tilesCacheFetchedAtMs = null;
     this.setTilesLoading(true);
     // Keep last Live/Cache badge visible until the first sample of this layer arrives.
     const url = this.buildWmsUrl(

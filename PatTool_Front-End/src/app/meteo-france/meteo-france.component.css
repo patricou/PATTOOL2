@@ -2099,6 +2099,12 @@
   opacity: 0.92;
 }
 
+.mf-map-cache-badge-time {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.92;
+  font-weight: 600;
+}
+
 .forecast-map-bottom-section {
   margin-top: 0.25rem;
 }

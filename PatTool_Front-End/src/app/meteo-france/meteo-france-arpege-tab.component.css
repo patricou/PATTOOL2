@@ -220,6 +220,12 @@
   opacity: 0.92;
 }
 
+.mf-map-cache-badge-time {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.92;
+  font-weight: 600;
+}
+
 .aromepi-time-controls {
   position: absolute;
   left: 0.5rem;
