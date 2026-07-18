@@ -194,7 +194,8 @@
                : (tilesFromCache
                  ? 'METEO_FRANCE.FORECAST_MAP_CACHE_HINT'
                  : 'METEO_FRANCE.FORECAST_MAP_LIVE_HINT')) | translate: {
-                 ttl: forecastCacheTtlMinutes ?? '—'
+                 ttl: forecastCacheTtlMinutes ?? '—',
+                 cachedAt: formatTilesCacheFetchedAtFull() || '—'
                }">
           <i class="fa"
              [class.fa-spinner]="tilesLoading"
@@ -203,7 +204,11 @@
              [class.fa-bolt]="!tilesLoading && !tilesFromCache"
              aria-hidden="true"></i>
           <ng-container *ngIf="tilesCacheKnown; else arpegeCacheLoadingLabel">
-            {{ (tilesFromCache ? 'METEO_FRANCE.FORECAST_MAP_CACHE' : 'METEO_FRANCE.FORECAST_MAP_LIVE') | translate }}
+            <span>{{ (tilesFromCache ? 'METEO_FRANCE.FORECAST_MAP_CACHE' : 'METEO_FRANCE.FORECAST_MAP_LIVE') | translate }}</span>
+            <span class="mf-map-cache-badge-time"
+                  *ngIf="tilesFromCache && formatTilesCacheFetchedAt()">
+              · {{ formatTilesCacheFetchedAt() }}
+            </span>
           </ng-container>
           <ng-template #arpegeCacheLoadingLabel>
             {{ 'METEO_FRANCE.FORECAST_MAP_LOADING' | translate }}

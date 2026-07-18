@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { Observable, tap } from 'rxjs';
 import { ApiService, MeteoFranceHistoryCachePreference } from './api.service';
 
 export interface MfClimCacheQuery {
@@ -108,16 +109,17 @@ export class WeatherHistoryCacheService {
     return n;
   }
 
-  saveRetentionPreference(days: number): void {
+  saveRetentionPreference(days: number): Observable<MeteoFranceHistoryCachePreference> {
     this.setRetentionDays(days);
-    this.apiService.saveMeteoFranceHistoryCachePreferences(this.retentionDays).subscribe({
-      next: (pref) => {
-        if (pref?.historyCacheDays != null) {
-          this.setRetentionDays(pref.historyCacheDays);
+    return this.apiService.saveMeteoFranceHistoryCachePreferences(this.retentionDays).pipe(
+      tap({
+        next: (pref) => {
+          if (pref?.historyCacheDays != null) {
+            this.setRetentionDays(pref.historyCacheDays);
+          }
         }
-      },
-      error: () => { /* keep local value */ }
-    });
+      })
+    );
   }
 
   private loadRetentionPreference(): void {

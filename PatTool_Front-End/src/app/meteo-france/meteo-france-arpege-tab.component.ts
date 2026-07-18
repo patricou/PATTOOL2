@@ -119,6 +119,8 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
   tilesCacheKnown = false;
   tilesFromCache = false;
   tilesLoading = false;
+  /** Epoch ms when the served tile entered the server cache (HIT only). */
+  tilesCacheFetchedAtMs: number | null = null;
   forecastCacheTtlMinutes: number | null = null;
   clearingForecastCache = false;
   private cacheProbeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -348,6 +350,7 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
   reloadAfterForecastCacheClear(): void {
     this.tilesCacheKnown = false;
     this.tilesFromCache = false;
+    this.tilesCacheFetchedAtMs = null;
     this.tilesCacheHits = 0;
     this.tilesCacheMisses = 0;
     if (this.active && this.authValid) {
@@ -366,6 +369,7 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
         this.clearingForecastCache = false;
         this.tilesCacheKnown = false;
         this.tilesFromCache = false;
+        this.tilesCacheFetchedAtMs = null;
         this.tilesCacheHits = 0;
         this.tilesCacheMisses = 0;
         this.loadCapabilities(true);
@@ -544,6 +548,42 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
     } catch {
       return iso;
     }
+  }
+
+  /** Local HH:mm when the current map tiles entered the server cache. */
+  formatTilesCacheFetchedAt(): string {
+    if (this.tilesCacheFetchedAtMs == null) {
+      return '';
+    }
+    const d = new Date(this.tilesCacheFetchedAtMs);
+    if (Number.isNaN(d.getTime())) {
+      return '';
+    }
+    return d.toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+  }
+
+  /** Full local date+time for the cache badge tooltip. */
+  formatTilesCacheFetchedAtFull(): string {
+    if (this.tilesCacheFetchedAtMs == null) {
+      return '';
+    }
+    const d = new Date(this.tilesCacheFetchedAtMs);
+    if (Number.isNaN(d.getTime())) {
+      return '';
+    }
+    return d.toLocaleString(undefined, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
   }
 
   formatOffsetFromNow(iso: string): string {
@@ -910,7 +950,7 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
       updateWhenIdle: true,
       keepBuffer: 1,
       attribution: '&copy; Météo-France ARPEGE (via PatTool)'
-    }, (fromCache) => this.applyTileCacheSample(fromCache));
+    }, (fromCache, fetchedAtMs) => this.applyTileCacheSample(fromCache, fetchedAtMs));
     this.wmsLayer.on('loading', () => this.setTilesLoading(true));
     this.wmsLayer.on('load', () => this.setTilesLoading(false));
     this.wmsLayer.addTo(this.map);
@@ -919,7 +959,7 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
   private createCacheAwareTileLayer(
     url: string,
     options: L.TileLayerOptions,
-    onCacheSample: (fromCache: boolean) => void
+    onCacheSample: (fromCache: boolean, fetchedAtMs: number | null) => void
   ): L.TileLayer {
     const CacheAwareTileLayer = L.TileLayer.extend({
       createTile(coords: L.Coords, done: (error: Error | null, tile?: HTMLElement) => void) {
@@ -934,7 +974,11 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
             }
             const hint = (res.headers.get('X-Pat-Cache') || '').toUpperCase();
             if (hint === 'HIT' || hint === 'MISS') {
-              onCacheSample(hint === 'HIT');
+              const rawFetched = res.headers.get('X-Pat-Cache-Fetched-At');
+              const fetchedAtMs = rawFetched != null && rawFetched !== ''
+                ? Number(rawFetched)
+                : null;
+              onCacheSample(hint === 'HIT', Number.isFinite(fetchedAtMs) ? fetchedAtMs : null);
             }
             return res.blob();
           })
@@ -970,16 +1014,27 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
     this.cdr.detectChanges();
   }
 
-  private applyTileCacheSample(fromCache: boolean): void {
+  private applyTileCacheSample(fromCache: boolean, fetchedAtMs: number | null = null): void {
     if (fromCache) {
       this.tilesCacheHits++;
+      if (fetchedAtMs != null && Number.isFinite(fetchedAtMs)) {
+        if (this.tilesCacheFetchedAtMs == null || fetchedAtMs < this.tilesCacheFetchedAtMs) {
+          this.tilesCacheFetchedAtMs = fetchedAtMs;
+        }
+      }
     } else {
       this.tilesCacheMisses++;
+      this.tilesCacheFetchedAtMs = null;
     }
     const nextFromCache = this.tilesCacheMisses === 0;
+    if (!nextFromCache) {
+      this.tilesCacheFetchedAtMs = null;
+    }
     if (!this.tilesCacheKnown || this.tilesFromCache !== nextFromCache) {
       this.tilesCacheKnown = true;
       this.tilesFromCache = nextFromCache;
+      this.cdr.detectChanges();
+    } else if (fromCache && fetchedAtMs != null) {
       this.cdr.detectChanges();
     }
   }
@@ -1005,7 +1060,14 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
         }
         const hint = (res.headers.get('X-Pat-Cache') || '').toUpperCase();
         if (hint === 'HIT' || hint === 'MISS') {
-          this.applyTileCacheSample(hint === 'HIT');
+          const rawFetched = res.headers.get('X-Pat-Cache-Fetched-At');
+          const fetchedAtMs = rawFetched != null && rawFetched !== ''
+            ? Number(rawFetched)
+            : null;
+          this.applyTileCacheSample(
+            hint === 'HIT',
+            Number.isFinite(fetchedAtMs) ? fetchedAtMs : null
+          );
         }
       })
       .catch(() => { /* ignore probe failures */ });

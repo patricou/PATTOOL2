@@ -49,6 +49,19 @@
 
       </div>
 
+      <div class="mf-opt-save-toast"
+           *ngIf="optionsSaveMessageKey"
+           role="status"
+           [attr.aria-live]="optionsSaveLevel === 'error' ? 'assertive' : 'polite'"
+           [class.mf-opt-save-toast--ok]="optionsSaveLevel === 'ok'"
+           [class.mf-opt-save-toast--error]="optionsSaveLevel === 'error'">
+        <i class="fa"
+           [class.fa-check-circle]="optionsSaveLevel === 'ok'"
+           [class.fa-exclamation-triangle]="optionsSaveLevel === 'error'"
+           aria-hidden="true"></i>
+        <span>{{ optionsSaveMessageKey | translate }}</span>
+      </div>
+
 
 
       <ng-template #meteoFranceLocationPanel>
@@ -1421,7 +1434,8 @@
                        : (aromepiTilesFromCache
                          ? 'METEO_FRANCE.FORECAST_MAP_CACHE_HINT'
                          : 'METEO_FRANCE.FORECAST_MAP_LIVE_HINT')) | translate: {
-                         ttl: aromepiForecastCacheTtlMinutes ?? '—'
+                         ttl: aromepiForecastCacheTtlMinutes ?? '—',
+                         cachedAt: formatAromepiTilesCacheFetchedAtFull() || '—'
                        }">
                   <i class="fa"
                      [class.fa-spinner]="aromepiTilesLoading"
@@ -1430,7 +1444,11 @@
                      [class.fa-bolt]="!aromepiTilesLoading && !aromepiTilesFromCache"
                      aria-hidden="true"></i>
                   <ng-container *ngIf="aromepiTilesCacheKnown; else aromepiCacheLoadingLabel">
-                    {{ (aromepiTilesFromCache ? 'METEO_FRANCE.FORECAST_MAP_CACHE' : 'METEO_FRANCE.FORECAST_MAP_LIVE') | translate }}
+                    <span>{{ (aromepiTilesFromCache ? 'METEO_FRANCE.FORECAST_MAP_CACHE' : 'METEO_FRANCE.FORECAST_MAP_LIVE') | translate }}</span>
+                    <span class="mf-map-cache-badge-time"
+                          *ngIf="aromepiTilesFromCache && formatAromepiTilesCacheFetchedAt()">
+                      · {{ formatAromepiTilesCacheFetchedAt() }}
+                    </span>
                   </ng-container>
                   <ng-template #aromepiCacheLoadingLabel>
                     {{ 'METEO_FRANCE.FORECAST_MAP_LOADING' | translate }}

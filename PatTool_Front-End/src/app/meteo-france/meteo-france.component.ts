@@ -382,6 +382,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   optionsForecastCacheClearMessageKey = '';
   optionsForecastCacheClearLevel: 'ok' | 'error' | '' = '';
   private optionsForecastCacheClearToastTimer: ReturnType<typeof setTimeout> | null = null;
+  optionsSaveMessageKey = '';
+  optionsSaveLevel: 'ok' | 'error' | '' = '';
+  private optionsSaveToastTimer: ReturnType<typeof setTimeout> | null = null;
   historyCacheDays = 14;
   readonly historyCacheMinDays = 1;
   readonly historyCacheMaxDays = 90;
@@ -476,6 +479,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   aromepiTilesCacheKnown = false;
   aromepiTilesFromCache = false;
   aromepiTilesLoading = false;
+  /** Epoch ms when the served tile entered the server cache (HIT only). */
+  aromepiTilesCacheFetchedAtMs: number | null = null;
   aromepiForecastCacheTtlMinutes: number | null = null;
   private aromepiCacheProbeTimer: ReturnType<typeof setTimeout> | null = null;
   private aromepiCacheProbeGen = 0;
@@ -858,6 +863,18 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     if (this.forecastChartRefreshTimer) {
       clearTimeout(this.forecastChartRefreshTimer);
       this.forecastChartRefreshTimer = null;
+    }
+    if (this.optionsSaveToastTimer) {
+      clearTimeout(this.optionsSaveToastTimer);
+      this.optionsSaveToastTimer = null;
+    }
+    if (this.optionsForecastCacheClearToastTimer) {
+      clearTimeout(this.optionsForecastCacheClearToastTimer);
+      this.optionsForecastCacheClearToastTimer = null;
+    }
+    if (this.optionsHistoryCacheClearTimer) {
+      clearTimeout(this.optionsHistoryCacheClearTimer);
+      this.optionsHistoryCacheClearTimer = null;
     }
     this.clearTemperatureLabelsDebounce();
     this.detachTemperatureLabelListeners();
@@ -2880,8 +2897,11 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
           this.normalizeForecastPreferences();
           this.invalidateMultiDayForecasts();
           this.refreshActiveForecastTab();
+          this.showOptionsSaveToast(true);
         },
-        error: () => { /* local values already applied */ }
+        error: () => {
+          this.showOptionsSaveToast(false);
+        }
       })
     );
   }
@@ -2988,8 +3008,11 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
             this.radarRefreshSeconds = pref.radarRefreshSeconds;
           }
           this.startRadarRefreshTimer();
+          this.showOptionsSaveToast(true);
         },
-        error: () => { /* keep local value */ }
+        error: () => {
+          this.showOptionsSaveToast(false);
+        }
       })
     );
   }
@@ -3045,7 +3068,19 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.historyCacheDays = Number.isFinite(n)
       ? Math.max(this.historyCacheMinDays, Math.min(this.historyCacheMaxDays, n))
       : 14;
-    this.historyCache.saveRetentionPreference(this.historyCacheDays);
+    this.subs.add(
+      this.historyCache.saveRetentionPreference(this.historyCacheDays).subscribe({
+        next: (pref) => {
+          if (pref?.historyCacheDays != null) {
+            this.historyCacheDays = pref.historyCacheDays;
+          }
+          this.showOptionsSaveToast(true);
+        },
+        error: () => {
+          this.showOptionsSaveToast(false);
+        }
+      })
+    );
   }
 
   private loadAromepiPlaybackPreferences(): void {
@@ -3075,9 +3110,11 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
             this.aromepiPrefetchAhead = this.clampAromepiPrefetchAhead(pref.prefetchAhead);
           }
           this.refreshAromepiPrefetchWindow();
+          this.showOptionsSaveToast(true);
         },
         error: () => {
           this.refreshAromepiPrefetchWindow();
+          this.showOptionsSaveToast(false);
         }
       })
     );
@@ -3113,8 +3150,11 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       this.apiService.saveMeteoFranceTemperatureCachePreferences(this.temperatureCacheMinutes).subscribe({
         next: (pref) => {
           this.temperatureCacheMinutes = pref.temperatureCacheMinutes;
+          this.showOptionsSaveToast(true);
         },
-        error: () => { /* keep local value */ }
+        error: () => {
+          this.showOptionsSaveToast(false);
+        }
       })
     );
   }
@@ -3159,10 +3199,30 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       this.apiService.saveMeteoFranceForecastCachePreferences(this.forecastCacheMinutes).subscribe({
         next: (pref) => {
           this.forecastCacheMinutes = pref.forecastCacheMinutes;
+          this.showOptionsSaveToast(true);
         },
-        error: () => { /* keep local value */ }
+        error: () => {
+          this.showOptionsSaveToast(false);
+        }
       })
     );
+  }
+
+  private showOptionsSaveToast(ok: boolean): void {
+    this.optionsSaveMessageKey = ok
+      ? 'METEO_FRANCE.OPTIONS_SAVE_OK'
+      : 'METEO_FRANCE.OPTIONS_SAVE_ERR';
+    this.optionsSaveLevel = ok ? 'ok' : 'error';
+    if (this.optionsSaveToastTimer) {
+      clearTimeout(this.optionsSaveToastTimer);
+    }
+    this.optionsSaveToastTimer = setTimeout(() => {
+      this.optionsSaveMessageKey = '';
+      this.optionsSaveLevel = '';
+      this.optionsSaveToastTimer = null;
+      this.cdr.markForCheck();
+    }, 3500);
+    this.cdr.markForCheck();
   }
 
   onClearForecastCaches(): void {
@@ -3177,6 +3237,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
           this.showForecastCacheClearToast('METEO_FRANCE.FORECAST_CACHE_CLEAR_OK', 'ok');
           this.aromepiTilesCacheKnown = false;
           this.aromepiTilesFromCache = false;
+          this.aromepiTilesCacheFetchedAtMs = null;
           this.aromepiTilesCacheHits = 0;
           this.aromepiTilesCacheMisses = 0;
           this.aromepiWmsCacheBust = Date.now();
@@ -3247,7 +3308,12 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.startRadarRefreshTimer();
     this.subs.add(
       this.apiService.saveMeteoFranceRadarPreferences({ autoRefreshEnabled: this.autoRefreshRadar }).subscribe({
-        error: () => { /* keep local value */ }
+        next: () => {
+          this.showOptionsSaveToast(true);
+        },
+        error: () => {
+          this.showOptionsSaveToast(false);
+        }
       })
     );
   }
@@ -6572,6 +6638,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     }
     this.aromepiTilesCacheHits = 0;
     this.aromepiTilesCacheMisses = 0;
+    this.aromepiTilesCacheFetchedAtMs = null;
     this.setAromepiTilesLoading(true);
     // Keep last Live/Cache badge visible until the first sample of this layer arrives.
     const { time, referenceTime } = this.resolveAromepiWmsTimes();
@@ -6638,7 +6705,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     }
     const stats = { hits: 0, misses: 0 };
     let tileLayer: L.TileLayer;
-    tileLayer = this.createCacheAwareTileLayer(url, options, (fromCache) => {
+    tileLayer = this.createCacheAwareTileLayer(url, options, (fromCache, fetchedAtMs) => {
       if (fromCache) {
         stats.hits++;
       } else {
@@ -6651,7 +6718,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       if (tileLayer !== this.aromepiWmsLayer && tileLayer !== this.aromepiWmsLayerPending) {
         return;
       }
-      this.applyAromepiTileCacheSample(fromCache);
+      this.applyAromepiTileCacheSample(fromCache, fetchedAtMs);
     });
     (tileLayer as L.TileLayer & { _patCacheStats?: { hits: number; misses: number } })._patCacheStats = stats;
     tileLayer.on('tileerror', (e: L.TileErrorEvent) => {
@@ -6703,7 +6770,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private createCacheAwareTileLayer(
     url: string,
     options: L.TileLayerOptions,
-    onCacheSample: (fromCache: boolean) => void
+    onCacheSample: (fromCache: boolean, fetchedAtMs: number | null) => void
   ): L.TileLayer {
     const CacheAwareTileLayer = L.TileLayer.extend({
       createTile(coords: L.Coords, done: (error: Error | null, tile?: HTMLElement) => void) {
@@ -6718,7 +6785,11 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
             }
             const hint = (res.headers.get('X-Pat-Cache') || '').toUpperCase();
             if (hint === 'HIT' || hint === 'MISS') {
-              onCacheSample(hint === 'HIT');
+              const rawFetched = res.headers.get('X-Pat-Cache-Fetched-At');
+              const fetchedAtMs = rawFetched != null && rawFetched !== ''
+                ? Number(rawFetched)
+                : null;
+              onCacheSample(hint === 'HIT', Number.isFinite(fetchedAtMs) ? fetchedAtMs : null);
             }
             return res.blob();
           })
@@ -6754,16 +6825,28 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
-  private applyAromepiTileCacheSample(fromCache: boolean): void {
+  private applyAromepiTileCacheSample(fromCache: boolean, fetchedAtMs: number | null = null): void {
     if (fromCache) {
       this.aromepiTilesCacheHits++;
+      if (fetchedAtMs != null && Number.isFinite(fetchedAtMs)) {
+        // Keep oldest sample so the badge reflects the most stale tile in view.
+        if (this.aromepiTilesCacheFetchedAtMs == null || fetchedAtMs < this.aromepiTilesCacheFetchedAtMs) {
+          this.aromepiTilesCacheFetchedAtMs = fetchedAtMs;
+        }
+      }
     } else {
       this.aromepiTilesCacheMisses++;
+      this.aromepiTilesCacheFetchedAtMs = null;
     }
     const nextFromCache = this.aromepiTilesCacheMisses === 0;
+    if (!nextFromCache) {
+      this.aromepiTilesCacheFetchedAtMs = null;
+    }
     if (!this.aromepiTilesCacheKnown || this.aromepiTilesFromCache !== nextFromCache) {
       this.aromepiTilesCacheKnown = true;
       this.aromepiTilesFromCache = nextFromCache;
+      this.cdr.detectChanges();
+    } else if (fromCache && fetchedAtMs != null) {
       this.cdr.detectChanges();
     }
   }
@@ -6777,6 +6860,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.aromepiTilesCacheMisses = stats.misses;
     this.aromepiTilesCacheKnown = true;
     this.aromepiTilesFromCache = stats.misses === 0 && stats.hits > 0;
+    if (!this.aromepiTilesFromCache) {
+      this.aromepiTilesCacheFetchedAtMs = null;
+    }
     this.cdr.detectChanges();
   }
 
@@ -6803,7 +6889,14 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         }
         const hint = (res.headers.get('X-Pat-Cache') || '').toUpperCase();
         if (hint === 'HIT' || hint === 'MISS') {
-          this.applyAromepiTileCacheSample(hint === 'HIT');
+          const rawFetched = res.headers.get('X-Pat-Cache-Fetched-At');
+          const fetchedAtMs = rawFetched != null && rawFetched !== ''
+            ? Number(rawFetched)
+            : null;
+          this.applyAromepiTileCacheSample(
+            hint === 'HIT',
+            Number.isFinite(fetchedAtMs) ? fetchedAtMs : null
+          );
         }
       })
       .catch(() => { /* ignore probe failures */ });
@@ -7279,6 +7372,42 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     return d.toLocaleTimeString(undefined, {
       hour: '2-digit',
       minute: '2-digit',
+      hour12: false
+    });
+  }
+
+  /** Local HH:mm when the current map tiles entered the server cache. */
+  formatAromepiTilesCacheFetchedAt(): string {
+    if (this.aromepiTilesCacheFetchedAtMs == null) {
+      return '';
+    }
+    const d = new Date(this.aromepiTilesCacheFetchedAtMs);
+    if (Number.isNaN(d.getTime())) {
+      return '';
+    }
+    return d.toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+  }
+
+  /** Full local date+time for the cache badge tooltip. */
+  formatAromepiTilesCacheFetchedAtFull(): string {
+    if (this.aromepiTilesCacheFetchedAtMs == null) {
+      return '';
+    }
+    const d = new Date(this.aromepiTilesCacheFetchedAtMs);
+    if (Number.isNaN(d.getTime())) {
+      return '';
+    }
+    return d.toLocaleString(undefined, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
       hour12: false
     });
   }

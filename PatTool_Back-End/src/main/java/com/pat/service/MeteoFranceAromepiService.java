@@ -345,11 +345,11 @@ public class MeteoFranceAromepiService {
         boolean cacheHit = cachedTile != null && cachedTile.isValid(forecastCacheTtl());
         if (probeOnly) {
             // Instant HIT/MISS for the map badge — no MF upstream fetch.
-            return probeCacheResponse(cacheHit);
+            return probeCacheResponse(cacheHit, cacheHit ? cachedTile.fetchedAtMs() : null);
         }
         if (cacheHit) {
             // Serve memory cache even during upstream 429 backoff — avoids blank tiles for known frames.
-            return pngTileResponse(cachedTile.png(), true);
+            return pngTileResponse(cachedTile.png(), true, cachedTile.fetchedAtMs());
         }
 
         ResponseEntity<byte[]> throttled = throttledResponseIfNeeded();
@@ -390,8 +390,9 @@ public class MeteoFranceAromepiService {
                 return again != null ? again : ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
             }
             byte[] scaled = resamplePng(raw, outWidth, outHeight);
+            long fetchedAtMs = System.currentTimeMillis();
             putTileCache(cacheKey, scaled);
-            return pngTileResponse(scaled, false);
+            return pngTileResponse(scaled, false, fetchedAtMs);
         } catch (HttpClientErrorException e) {
             if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -414,23 +415,27 @@ public class MeteoFranceAromepiService {
         }
     }
 
-    private ResponseEntity<byte[]> pngTileResponse(byte[] png, boolean fromCache) {
+    private ResponseEntity<byte[]> pngTileResponse(byte[] png, boolean fromCache, long fetchedAtMs) {
         recordTileCacheFlag(fromCache);
         HttpHeaders out = new HttpHeaders();
         out.setContentType(MediaType.IMAGE_PNG);
         // Force every Leaflet tile request through the server so HIT/MISS is accurate for the UI badge.
         out.setCacheControl(CacheControl.noStore());
         out.set("X-Pat-Cache", fromCache ? "HIT" : "MISS");
-        out.set("Access-Control-Expose-Headers", "X-Pat-Cache");
+        out.set("X-Pat-Cache-Fetched-At", Long.toString(fetchedAtMs));
+        out.set("Access-Control-Expose-Headers", "X-Pat-Cache, X-Pat-Cache-Fetched-At");
         return new ResponseEntity<>(png, out, HttpStatus.OK);
     }
 
     /** Lightweight cache peek for the Live/Cache badge (no image body, no upstream call). */
-    private ResponseEntity<byte[]> probeCacheResponse(boolean fromCache) {
+    private ResponseEntity<byte[]> probeCacheResponse(boolean fromCache, Long fetchedAtMs) {
         HttpHeaders out = new HttpHeaders();
         out.setCacheControl(CacheControl.noStore());
         out.set("X-Pat-Cache", fromCache ? "HIT" : "MISS");
-        out.set("Access-Control-Expose-Headers", "X-Pat-Cache");
+        if (fetchedAtMs != null) {
+            out.set("X-Pat-Cache-Fetched-At", Long.toString(fetchedAtMs));
+        }
+        out.set("Access-Control-Expose-Headers", "X-Pat-Cache, X-Pat-Cache-Fetched-At");
         return new ResponseEntity<>(new byte[0], out, HttpStatus.NO_CONTENT);
     }
 
