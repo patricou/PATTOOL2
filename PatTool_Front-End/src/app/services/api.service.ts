@@ -897,7 +897,7 @@ export class ApiService {
   }
 
   /** Current AROME-PI WMS throttle window (429 backoff). */
-  getMeteoFranceAromepiThrottle(): Observable<{
+  getMeteoFranceAromepiThrottle(resetTileHint = false): Observable<{
     aromepiWmsThrottled?: boolean;
     aromepiWmsRetryAfterSeconds?: number;
     aromepiTilesCacheKnown?: boolean;
@@ -905,6 +905,10 @@ export class ApiService {
     aromepiCapabilitiesCached?: boolean;
     forecastCacheTtlMinutes?: number;
   }> {
+    let params = new HttpParams();
+    if (resetTileHint) {
+      params = params.set('resetTileHint', 'true');
+    }
     return this._http.get<{
       aromepiWmsThrottled?: boolean;
       aromepiWmsRetryAfterSeconds?: number;
@@ -913,7 +917,8 @@ export class ApiService {
       aromepiCapabilitiesCached?: boolean;
       forecastCacheTtlMinutes?: number;
     }>(
-      this.API_URL + 'external/meteofrance/aromepi/throttle'
+      this.API_URL + 'external/meteofrance/aromepi/throttle',
+      { params }
     );
   }
 
@@ -1026,7 +1031,7 @@ export class ApiService {
   }
 
   /** Current ARPEGE WMS throttle window (429 backoff). */
-  getMeteoFranceArpegeThrottle(): Observable<{
+  getMeteoFranceArpegeThrottle(resetTileHint = false): Observable<{
     arpegeWmsThrottled?: boolean;
     arpegeWmsRetryAfterSeconds?: number;
     arpegeTilesCacheKnown?: boolean;
@@ -1034,6 +1039,10 @@ export class ApiService {
     arpegeCapabilitiesCached?: boolean;
     forecastCacheTtlMinutes?: number;
   }> {
+    let params = new HttpParams();
+    if (resetTileHint) {
+      params = params.set('resetTileHint', 'true');
+    }
     return this._http.get<{
       arpegeWmsThrottled?: boolean;
       arpegeWmsRetryAfterSeconds?: number;
@@ -1042,7 +1051,8 @@ export class ApiService {
       arpegeCapabilitiesCached?: boolean;
       forecastCacheTtlMinutes?: number;
     }>(
-      this.API_URL + 'external/meteofrance/arpege/throttle'
+      this.API_URL + 'external/meteofrance/arpege/throttle',
+      { params }
     );
   }
 

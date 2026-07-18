@@ -1374,25 +1374,26 @@
               </div>
               <div id="meteo-france-aromepi-map" class="meteo-france-map aromepi-map"></div>
 
-              <div class="aromepi-forecast-clock"
-                   *ngIf="!isLoadingAromepiCapabilities && aromepiCurrentTime"
-                   [attr.title]="formatAromepiTime(aromepiCurrentTime) + ' · ' + formatAromepiOffsetMinutes(aromepiCurrentOffsetMinutes, true)"
-                   aria-live="polite">
-                <span class="aromepi-forecast-clock-time">{{ formatAromepiClockTime(aromepiCurrentTime) }}</span>
-                <span class="aromepi-forecast-clock-offset">{{ formatAromepiOffsetMinutes(aromepiCurrentOffsetMinutes, true) }}</span>
-              </div>
-
-              <div class="mf-map-cache-badge"
-                   *ngIf="aromepiTilesCacheKnown && !isLoadingAromepiCapabilities"
-                   [class.mf-map-cache-badge--cached]="aromepiTilesFromCache"
-                   [class.mf-map-cache-badge--live]="!aromepiTilesFromCache"
-                   [attr.title]="(aromepiTilesFromCache
-                     ? 'METEO_FRANCE.FORECAST_MAP_CACHE_HINT'
-                     : 'METEO_FRANCE.FORECAST_MAP_LIVE_HINT') | translate: {
-                       ttl: aromepiForecastCacheTtlMinutes ?? '—'
-                     }">
-                <i class="fa" [class.fa-database]="aromepiTilesFromCache" [class.fa-bolt]="!aromepiTilesFromCache" aria-hidden="true"></i>
-                {{ (aromepiTilesFromCache ? 'METEO_FRANCE.FORECAST_MAP_CACHE' : 'METEO_FRANCE.FORECAST_MAP_LIVE') | translate }}
+              <div class="aromepi-forecast-clock-row"
+                   *ngIf="!isLoadingAromepiCapabilities && aromepiCurrentTime">
+                <div class="aromepi-forecast-clock"
+                     [attr.title]="formatAromepiTime(aromepiCurrentTime) + ' · ' + formatAromepiOffsetMinutes(aromepiCurrentOffsetMinutes, true)"
+                     aria-live="polite">
+                  <span class="aromepi-forecast-clock-time">{{ formatAromepiClockTime(aromepiCurrentTime) }}</span>
+                  <span class="aromepi-forecast-clock-offset">{{ formatAromepiOffsetMinutes(aromepiCurrentOffsetMinutes, true) }}</span>
+                </div>
+                <div class="mf-map-cache-badge"
+                     *ngIf="aromepiTilesCacheKnown"
+                     [class.mf-map-cache-badge--cached]="aromepiTilesFromCache"
+                     [class.mf-map-cache-badge--live]="!aromepiTilesFromCache"
+                     [attr.title]="(aromepiTilesFromCache
+                       ? 'METEO_FRANCE.FORECAST_MAP_CACHE_HINT'
+                       : 'METEO_FRANCE.FORECAST_MAP_LIVE_HINT') | translate: {
+                         ttl: aromepiForecastCacheTtlMinutes ?? '—'
+                       }">
+                  <i class="fa" [class.fa-database]="aromepiTilesFromCache" [class.fa-bolt]="!aromepiTilesFromCache" aria-hidden="true"></i>
+                  {{ (aromepiTilesFromCache ? 'METEO_FRANCE.FORECAST_MAP_CACHE' : 'METEO_FRANCE.FORECAST_MAP_LIVE') | translate }}
+                </div>
               </div>
 
               <div class="aromepi-time-controls" *ngIf="!isLoadingAromepiCapabilities && aromepiEffectiveTimeSteps.length">

@@ -1970,12 +1970,25 @@
   color: #0d6efd;
 }
 
-.aromepi-forecast-clock {
+.aromepi-forecast-clock-row {
   position: absolute;
   top: 0.55rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: 650;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  pointer-events: none;
+  max-width: calc(100% - 1.2rem);
+}
+
+.aromepi-forecast-clock {
+  position: static;
+  top: auto;
+  left: auto;
+  transform: none;
+  z-index: auto;
   display: inline-flex;
   align-items: baseline;
   gap: 0.4rem;
@@ -2005,13 +2018,14 @@
 }
 
 .mf-map-cache-badge {
-  position: absolute;
-  top: 0.55rem;
-  left: 0.55rem;
-  z-index: 650;
+  position: static;
+  top: auto;
+  left: auto;
+  z-index: auto;
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
+  flex-shrink: 0;
   padding: 0.15rem 0.45rem;
   border-radius: 0.35rem;
   font-size: 0.7rem;

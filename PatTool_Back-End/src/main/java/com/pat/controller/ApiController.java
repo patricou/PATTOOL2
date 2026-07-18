@@ -1182,8 +1182,9 @@ public class ApiController {
      * Current AROME-PI WMS throttle window (429 backoff) — for map banners.
      */
     @GetMapping(value = "/meteofrance/aromepi/throttle", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Map<String, Object> getMeteoFranceAromepiThrottle() {
-        return meteoFranceAromepiService.getThrottleStatus();
+    public Map<String, Object> getMeteoFranceAromepiThrottle(
+            @RequestParam(value = "resetTileHint", defaultValue = "false") boolean resetTileHint) {
+        return meteoFranceAromepiService.getThrottleStatus(resetTileHint);
     }
 
     /**
@@ -1250,8 +1251,9 @@ public class ApiController {
      * Current ARPEGE WMS throttle window (429 backoff) — for map banners.
      */
     @GetMapping(value = "/meteofrance/arpege/throttle", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Map<String, Object> getMeteoFranceArpegeThrottle() {
-        return meteoFranceArpegeService.getThrottleStatus();
+    public Map<String, Object> getMeteoFranceArpegeThrottle(
+            @RequestParam(value = "resetTileHint", defaultValue = "false") boolean resetTileHint) {
+        return meteoFranceArpegeService.getThrottleStatus(resetTileHint);
     }
 
     /**

@@ -147,25 +147,26 @@
 
       <div id="meteo-france-arpege-map" class="meteo-france-map arpege-map"></div>
 
-      <div class="aromepi-forecast-clock"
-           *ngIf="!loading && currentTime"
-           [attr.title]="formatTime(currentTime) + ' · ' + formatOffsetMinutes(currentOffsetMinutes, true)"
-           aria-live="polite">
-        <span class="aromepi-forecast-clock-time">{{ formatClockTime(currentTime) }}</span>
-        <span class="aromepi-forecast-clock-offset">{{ formatOffsetMinutes(currentOffsetMinutes, true) }}</span>
-      </div>
-
-      <div class="mf-map-cache-badge"
-           *ngIf="tilesCacheKnown && !loading"
-           [class.mf-map-cache-badge--cached]="tilesFromCache"
-           [class.mf-map-cache-badge--live]="!tilesFromCache"
-           [attr.title]="(tilesFromCache
-             ? 'METEO_FRANCE.FORECAST_MAP_CACHE_HINT'
-             : 'METEO_FRANCE.FORECAST_MAP_LIVE_HINT') | translate: {
-               ttl: forecastCacheTtlMinutes ?? '—'
-             }">
-        <i class="fa" [class.fa-database]="tilesFromCache" [class.fa-bolt]="!tilesFromCache" aria-hidden="true"></i>
-        {{ (tilesFromCache ? 'METEO_FRANCE.FORECAST_MAP_CACHE' : 'METEO_FRANCE.FORECAST_MAP_LIVE') | translate }}
+      <div class="aromepi-forecast-clock-row"
+           *ngIf="!loading && currentTime">
+        <div class="aromepi-forecast-clock"
+             [attr.title]="formatTime(currentTime) + ' · ' + formatOffsetMinutes(currentOffsetMinutes, true)"
+             aria-live="polite">
+          <span class="aromepi-forecast-clock-time">{{ formatClockTime(currentTime) }}</span>
+          <span class="aromepi-forecast-clock-offset">{{ formatOffsetMinutes(currentOffsetMinutes, true) }}</span>
+        </div>
+        <div class="mf-map-cache-badge"
+             *ngIf="tilesCacheKnown"
+             [class.mf-map-cache-badge--cached]="tilesFromCache"
+             [class.mf-map-cache-badge--live]="!tilesFromCache"
+             [attr.title]="(tilesFromCache
+               ? 'METEO_FRANCE.FORECAST_MAP_CACHE_HINT'
+               : 'METEO_FRANCE.FORECAST_MAP_LIVE_HINT') | translate: {
+                 ttl: forecastCacheTtlMinutes ?? '—'
+               }">
+          <i class="fa" [class.fa-database]="tilesFromCache" [class.fa-bolt]="!tilesFromCache" aria-hidden="true"></i>
+          {{ (tilesFromCache ? 'METEO_FRANCE.FORECAST_MAP_CACHE' : 'METEO_FRANCE.FORECAST_MAP_LIVE') | translate }}
+        </div>
       </div>
 
       <div class="aromepi-time-controls" *ngIf="!loading && timeSteps.length">

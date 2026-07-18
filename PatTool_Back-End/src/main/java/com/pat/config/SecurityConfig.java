@@ -359,7 +359,8 @@ public class SecurityConfig {
             "Location",
             "Content-Disposition",
             "Cache-Control",
-            "X-Upload-Error"
+            "X-Upload-Error",
+            "X-Pat-Cache"
         ));
         
         // Cache preflight requests for 1 hour

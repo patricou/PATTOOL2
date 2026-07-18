@@ -212,6 +212,17 @@ public class MeteoFranceAromepiService {
 
     /** Lightweight throttle status for the UI (no upstream call). */
     public Map<String, Object> getThrottleStatus() {
+        return getThrottleStatus(false);
+    }
+
+    /**
+     * @param resetTileHint when true, clears the recent HIT/MISS window so the next
+     *                      map layer load is measured on its own (not mixed with older tiles).
+     */
+    public Map<String, Object> getThrottleStatus(boolean resetTileHint) {
+        if (resetTileHint) {
+            recentTileCacheFlags.clear();
+        }
         Map<String, Object> status = new LinkedHashMap<>();
         long now = System.currentTimeMillis();
         long until = wmsBackoffUntilMs;
@@ -391,7 +402,8 @@ public class MeteoFranceAromepiService {
         recordTileCacheFlag(fromCache);
         HttpHeaders out = new HttpHeaders();
         out.setContentType(MediaType.IMAGE_PNG);
-        out.setCacheControl(CacheControl.maxAge(forecastCacheTtl()).cachePublic());
+        // Force every Leaflet tile request through the server so HIT/MISS is accurate for the UI badge.
+        out.setCacheControl(CacheControl.noStore());
         out.set("X-Pat-Cache", fromCache ? "HIT" : "MISS");
         out.set("Access-Control-Expose-Headers", "X-Pat-Cache");
         return new ResponseEntity<>(png, out, HttpStatus.OK);
@@ -404,18 +416,20 @@ public class MeteoFranceAromepiService {
         }
     }
 
-    /** {@code null} when no tiles served yet; otherwise majority of recent serves. */
+    /**
+     * {@code null} when no tiles served yet in the current hint window.
+     * Live if any recent tile was a MISS; Cache only when every recent tile was a HIT.
+     */
     private Boolean majorityTilesCached() {
         if (recentTileCacheFlags.isEmpty()) {
             return null;
         }
-        int hits = 0;
         for (Boolean flag : recentTileCacheFlags) {
-            if (Boolean.TRUE.equals(flag)) {
-                hits++;
+            if (!Boolean.TRUE.equals(flag)) {
+                return false;
             }
         }
-        return hits * 2 >= recentTileCacheFlags.size();
+        return true;
     }
 
     private Duration forecastCacheTtl() {

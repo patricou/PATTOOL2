@@ -537,13 +537,6 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
           this.errorKey = 'METEO_FRANCE.ARPEGE_LOAD_ERROR';
           return;
         }
-        if (caps?.cached === true) {
-          this.tilesCacheKnown = true;
-          this.tilesFromCache = true;
-        } else if (caps?.cached === false) {
-          this.tilesCacheKnown = true;
-          this.tilesFromCache = false;
-        }
         if (caps?.cacheTtlMinutes != null && Number.isFinite(Number(caps.cacheTtlMinutes))) {
           this.forecastCacheTtlMinutes = Number(caps.cacheTtlMinutes);
         }
@@ -759,6 +752,8 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
     if (!this.selectedLayer || !this.currentTime || !this.referenceTime) {
       return;
     }
+    this.tilesCacheKnown = false;
+    this.tilesFromCache = false;
     const url = this.buildWmsUrl(
       this.selectedLayer,
       this.selectedStyle,
@@ -769,18 +764,74 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
       this.map.removeLayer(this.wmsLayer);
       this.wmsLayer = null;
     }
-    this.wmsLayer = L.tileLayer(url, {
+    const maxNativeZoom = this.selectedDomain === MeteoFranceArpegeTabComponent.DOMAIN_GLOBE ? 7 : 9;
+    this.wmsLayer = this.createCacheAwareTileLayer(url, {
       opacity: this.opacity,
       zIndex: 500,
-      maxNativeZoom: this.selectedDomain === MeteoFranceArpegeTabComponent.DOMAIN_GLOBE ? 7 : 9,
+      maxNativeZoom,
       maxZoom: 12,
       updateWhenIdle: true,
       keepBuffer: 1,
       attribution: '&copy; Météo-France ARPEGE (via PatTool)'
-    });
-    this.wmsLayer.on('tileload', () => this.scheduleCacheStatusProbe());
-    this.wmsLayer.on('load', () => this.scheduleCacheStatusProbe());
+    }, (fromCache) => this.applyTileCacheSample(fromCache));
     this.wmsLayer.addTo(this.map);
+  }
+
+  private createCacheAwareTileLayer(
+    url: string,
+    options: L.TileLayerOptions,
+    onCacheSample: (fromCache: boolean) => void
+  ): L.TileLayer {
+    const CacheAwareTileLayer = L.TileLayer.extend({
+      createTile(coords: L.Coords, done: (error: Error | null, tile?: HTMLElement) => void) {
+        const tile = document.createElement('img');
+        tile.alt = '';
+        (tile as HTMLImageElement & { _patBlobUrl?: string }).crossOrigin = 'anonymous';
+        const tileUrl = (this as L.TileLayer).getTileUrl(coords);
+        fetch(tileUrl, { cache: 'no-store', credentials: 'same-origin' })
+          .then((res) => {
+            if (!res.ok) {
+              throw new Error(`tile HTTP ${res.status}`);
+            }
+            const hint = (res.headers.get('X-Pat-Cache') || '').toUpperCase();
+            if (hint === 'HIT' || hint === 'MISS') {
+              onCacheSample(hint === 'HIT');
+            }
+            return res.blob();
+          })
+          .then((blob) => {
+            const objectUrl = URL.createObjectURL(blob);
+            (tile as HTMLImageElement & { _patBlobUrl?: string })._patBlobUrl = objectUrl;
+            tile.onload = () => done(null, tile);
+            tile.onerror = () => done(new Error('tile decode failed'), tile);
+            tile.src = objectUrl;
+          })
+          .catch((err: Error) => done(err, tile));
+        return tile;
+      }
+    });
+    const tileLayer = new (CacheAwareTileLayer as unknown as {
+      new (urlTemplate: string, options?: L.TileLayerOptions): L.TileLayer;
+    })(url, options);
+    tileLayer.on('tileunload', (e: L.TileEvent) => {
+      const img = e.tile as HTMLImageElement & { _patBlobUrl?: string };
+      if (img?._patBlobUrl) {
+        URL.revokeObjectURL(img._patBlobUrl);
+        img._patBlobUrl = undefined;
+      }
+    });
+    return tileLayer;
+  }
+
+  private applyTileCacheSample(fromCache: boolean): void {
+    if (!this.tilesCacheKnown) {
+      this.tilesCacheKnown = true;
+      this.tilesFromCache = fromCache;
+      return;
+    }
+    if (!fromCache && this.tilesFromCache) {
+      this.tilesFromCache = false;
+    }
   }
 
   private buildWmsUrl(layer: string, style: string, time: string, referenceTime: string): string {
@@ -864,13 +915,6 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
       next: (status) => {
         this.wmsThrottled = !!status?.arpegeWmsThrottled;
         this.wmsRetryAfterSeconds = Number(status?.arpegeWmsRetryAfterSeconds) || 0;
-        if (status?.arpegeTilesCacheKnown) {
-          this.tilesCacheKnown = true;
-          this.tilesFromCache = !!status.arpegeTilesCached;
-        } else if (status?.arpegeCapabilitiesCached != null && !this.tilesCacheKnown) {
-          this.tilesCacheKnown = true;
-          this.tilesFromCache = !!status.arpegeCapabilitiesCached;
-        }
         if (status?.forecastCacheTtlMinutes != null && Number.isFinite(Number(status.forecastCacheTtlMinutes))) {
           this.forecastCacheTtlMinutes = Number(status.forecastCacheTtlMinutes);
         }
@@ -889,7 +933,7 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
     this.cacheProbeTimer = setTimeout(() => {
       this.cacheProbeTimer = null;
       this.pollThrottle();
-    }, 400);
+    }, 500);
   }
 
   private centerOnInputLocation(animate: boolean): void {
