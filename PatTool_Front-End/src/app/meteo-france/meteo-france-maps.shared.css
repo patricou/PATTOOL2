@@ -9,7 +9,8 @@
 }
 
 .meteo-france-map,
-.ms-precip-map {
+.ms-precip-map,
+.arpege-map {
   width: 100%;
   height: clamp(
     var(--mf-map-min-h),
@@ -41,6 +42,10 @@
   --mf-map-chrome: 390px;
 }
 
+.mf-map-shell--arpege {
+  --mf-map-chrome: 360px;
+}
+
 @media (max-width: 767.98px) {
   :host {
     --mf-map-min-h: 320px;
@@ -61,6 +66,10 @@
   .mf-map-shell--ms-precip {
     --mf-map-chrome: 440px;
   }
+
+  .mf-map-shell--arpege {
+    --mf-map-chrome: 400px;
+  }
 }
 
 /* Short viewports (laptops / mobile landscape): prioritize controls + search field. */
@@ -73,7 +82,8 @@
 
 @media (max-width: 576px) {
   .meteo-france-map,
-  .ms-precip-map {
+  .ms-precip-map,
+  .arpege-map {
     height: clamp(
       var(--mf-map-min-h),
       calc(100dvh - var(--mf-map-chrome)),
@@ -118,21 +128,37 @@
   z-index: 2000;
 }
 
-.meteo-france-map-fullscreen-btn {
+.meteo-france-map-corner-actions {
   position: absolute;
   top: 10px;
   right: 10px;
   z-index: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.meteo-france-map-fullscreen-btn,
+.meteo-france-map-trace-viewer-btn {
+  position: relative;
+  top: auto;
+  right: auto;
+  z-index: auto;
   border: 1px solid rgba(0, 0, 0, 0.15);
 }
 
-.meteo-france-map-fullscreen-label {
+.meteo-france-map-fullscreen-label,
+.meteo-france-map-trace-viewer-label,
+.meteo-france-map-center-label {
   display: none;
   margin-left: 0.25rem;
 }
 
 @media (min-width: 768px) {
-  .meteo-france-map-fullscreen-label {
+  .meteo-france-map-fullscreen-label,
+  .meteo-france-map-trace-viewer-label,
+  .meteo-france-map-center-label {
     display: inline;
   }
 }

@@ -666,6 +666,45 @@ export class ApiService {
     );
   }
 
+  /** Per-user AROME-PI / ARPEGE forecast cache TTL (MongoDB appParameters). */
+  getMeteoFranceForecastCachePreferences(): Observable<MeteoFranceForecastCachePreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<MeteoFranceForecastCachePreference>(
+          this.API_URL + 'external/meteofrance/forecast/cache/preferences',
+          { headers }
+        )
+      )
+    );
+  }
+
+  saveMeteoFranceForecastCachePreferences(
+    forecastCacheMinutes: number
+  ): Observable<MeteoFranceForecastCachePreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<MeteoFranceForecastCachePreference>(
+          this.API_URL + 'external/meteofrance/forecast/cache/preferences',
+          { forecastCacheMinutes },
+          { headers }
+        )
+      )
+    );
+  }
+
+  /** Clears in-memory AROME-PI + ARPEGE forecast caches. */
+  clearMeteoFranceForecastCaches(): Observable<MeteoFranceForecastCacheClearResult> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post<MeteoFranceForecastCacheClearResult>(
+          this.API_URL + 'external/meteofrance/forecast/cache/clear',
+          {},
+          { headers }
+        )
+      )
+    );
+  }
+
   /** Dense screen grid (~1 cm) — POST list of lat/lon, proxied (MF IDW + Open-Meteo). */
   postWeatherTemperatureLabels(
     points: Array<{ lat: number; lon: number; stationId?: string }>,
@@ -845,14 +884,35 @@ export class ApiService {
     );
   }
 
-  /** AROME-PI WMS capabilities (layers, time steps). */
-  getMeteoFranceAromepiCapabilities(): Observable<any> {
-    return this._http.get(this.API_URL + 'external/meteofrance/aromepi/capabilities');
+  /** AROME-PI WMS capabilities (layers, time steps, domains, elevations). */
+  getMeteoFranceAromepiCapabilities(domain?: string, referenceTime?: string): Observable<any> {
+    let params = new HttpParams();
+    if (domain) {
+      params = params.set('domain', domain);
+    }
+    if (referenceTime) {
+      params = params.set('referenceTime', referenceTime);
+    }
+    return this._http.get(this.API_URL + 'external/meteofrance/aromepi/capabilities', { params });
   }
 
   /** Current AROME-PI WMS throttle window (429 backoff). */
-  getMeteoFranceAromepiThrottle(): Observable<{ aromepiWmsThrottled?: boolean; aromepiWmsRetryAfterSeconds?: number }> {
-    return this._http.get<{ aromepiWmsThrottled?: boolean; aromepiWmsRetryAfterSeconds?: number }>(
+  getMeteoFranceAromepiThrottle(): Observable<{
+    aromepiWmsThrottled?: boolean;
+    aromepiWmsRetryAfterSeconds?: number;
+    aromepiTilesCacheKnown?: boolean;
+    aromepiTilesCached?: boolean;
+    aromepiCapabilitiesCached?: boolean;
+    forecastCacheTtlMinutes?: number;
+  }> {
+    return this._http.get<{
+      aromepiWmsThrottled?: boolean;
+      aromepiWmsRetryAfterSeconds?: number;
+      aromepiTilesCacheKnown?: boolean;
+      aromepiTilesCached?: boolean;
+      aromepiCapabilitiesCached?: boolean;
+      forecastCacheTtlMinutes?: number;
+    }>(
       this.API_URL + 'external/meteofrance/aromepi/throttle'
     );
   }
@@ -867,22 +927,36 @@ export class ApiService {
 
   /** Build AROME-PI WMS tile URL (proxied, no JWT required on tile load). */
   buildMeteoFranceAromepiWmsTileUrl(
-    z: number,
-    x: number,
-    y: number,
+    z: number | string,
+    x: number | string,
+    y: number | string,
     layer: string,
     time: string,
     referenceTime: string,
-    style?: string
+    style?: string,
+    domain?: string,
+    elevation?: string,
+    cacheBust?: number
   ): string {
-    const params = new HttpParams()
+    let params = new HttpParams()
       .set('layer', layer)
       .set('time', time)
       .set('referenceTime', referenceTime)
       .set('width', '256')
       .set('height', '256');
-    const withStyle = style ? params.set('style', style) : params;
-    return `${this.API_URL}external/meteofrance/aromepi/wms/${z}/${x}/${y}?${withStyle.toString()}`;
+    if (style) {
+      params = params.set('style', style);
+    }
+    if (domain) {
+      params = params.set('domain', domain);
+    }
+    if (elevation) {
+      params = params.set('elevation', elevation);
+    }
+    if (cacheBust && cacheBust > 0) {
+      params = params.set('_', String(cacheBust));
+    }
+    return `${this.API_URL}external/meteofrance/aromepi/wms/${z}/${x}/${y}?${params.toString()}`;
   }
 
   /** AROME-PI GetFeatureInfo at a point. */
@@ -892,7 +966,9 @@ export class ApiService {
     layer: string,
     time: string,
     referenceTime: string,
-    style?: string
+    style?: string,
+    domain?: string,
+    elevation?: string
   ): Observable<any> {
     let params = new HttpParams()
       .set('lat', String(lat))
@@ -903,6 +979,12 @@ export class ApiService {
     if (style) {
       params = params.set('style', style);
     }
+    if (domain) {
+      params = params.set('domain', domain);
+    }
+    if (elevation) {
+      params = params.set('elevation', elevation);
+    }
     return this._http.get(this.API_URL + 'external/meteofrance/aromepi/featureinfo', { params });
   }
 
@@ -911,7 +993,8 @@ export class ApiService {
     lat: number,
     lon: number,
     referenceTime?: string,
-    layers?: string[]
+    layers?: string[],
+    domain?: string
   ): Observable<any> {
     let params = new HttpParams()
       .set('lat', String(lat))
@@ -919,12 +1002,132 @@ export class ApiService {
     if (referenceTime) {
       params = params.set('referenceTime', referenceTime);
     }
+    if (domain) {
+      params = params.set('domain', domain);
+    }
     if (layers?.length) {
       layers.forEach((layer) => {
         params = params.append('layers', layer);
       });
     }
     return this._http.get(this.API_URL + 'external/meteofrance/aromepi/point-forecast', { params });
+  }
+
+  /** ARPEGE WMS capabilities (layers, time steps, domains, elevations). */
+  getMeteoFranceArpegeCapabilities(domain?: string, referenceTime?: string): Observable<any> {
+    let params = new HttpParams();
+    if (domain) {
+      params = params.set('domain', domain);
+    }
+    if (referenceTime) {
+      params = params.set('referenceTime', referenceTime);
+    }
+    return this._http.get(this.API_URL + 'external/meteofrance/arpege/capabilities', { params });
+  }
+
+  /** Current ARPEGE WMS throttle window (429 backoff). */
+  getMeteoFranceArpegeThrottle(): Observable<{
+    arpegeWmsThrottled?: boolean;
+    arpegeWmsRetryAfterSeconds?: number;
+    arpegeTilesCacheKnown?: boolean;
+    arpegeTilesCached?: boolean;
+    arpegeCapabilitiesCached?: boolean;
+    forecastCacheTtlMinutes?: number;
+  }> {
+    return this._http.get<{
+      arpegeWmsThrottled?: boolean;
+      arpegeWmsRetryAfterSeconds?: number;
+      arpegeTilesCacheKnown?: boolean;
+      arpegeTilesCached?: boolean;
+      arpegeCapabilitiesCached?: boolean;
+      forecastCacheTtlMinutes?: number;
+    }>(
+      this.API_URL + 'external/meteofrance/arpege/throttle'
+    );
+  }
+
+  /** Build ARPEGE WMS tile URL (proxied, no JWT required on tile load). */
+  buildMeteoFranceArpegeWmsTileUrl(
+    z: number | string,
+    x: number | string,
+    y: number | string,
+    layer: string,
+    time: string,
+    referenceTime: string,
+    style?: string,
+    domain?: string,
+    elevation?: string
+  ): string {
+    let params = new HttpParams()
+      .set('layer', layer)
+      .set('time', time)
+      .set('referenceTime', referenceTime)
+      .set('width', '256')
+      .set('height', '256');
+    if (style) {
+      params = params.set('style', style);
+    }
+    if (domain) {
+      params = params.set('domain', domain);
+    }
+    if (elevation) {
+      params = params.set('elevation', elevation);
+    }
+    return `${this.API_URL}external/meteofrance/arpege/wms/${z}/${x}/${y}?${params.toString()}`;
+  }
+
+  /** ARPEGE GetFeatureInfo / point value at a location. */
+  getMeteoFranceArpegeFeatureInfo(
+    lat: number,
+    lon: number,
+    layer: string,
+    time: string,
+    referenceTime: string,
+    style?: string,
+    domain?: string,
+    elevation?: string
+  ): Observable<any> {
+    let params = new HttpParams()
+      .set('lat', String(lat))
+      .set('lon', String(lon))
+      .set('layer', layer)
+      .set('time', time)
+      .set('referenceTime', referenceTime);
+    if (style) {
+      params = params.set('style', style);
+    }
+    if (domain) {
+      params = params.set('domain', domain);
+    }
+    if (elevation) {
+      params = params.set('elevation', elevation);
+    }
+    return this._http.get(this.API_URL + 'external/meteofrance/arpege/featureinfo', { params });
+  }
+
+  /** ARPEGE point forecast timeline (0–102 h). */
+  getMeteoFranceArpegePointForecast(
+    lat: number,
+    lon: number,
+    referenceTime?: string,
+    layers?: string[],
+    domain?: string
+  ): Observable<any> {
+    let params = new HttpParams()
+      .set('lat', String(lat))
+      .set('lon', String(lon));
+    if (referenceTime) {
+      params = params.set('referenceTime', referenceTime);
+    }
+    if (domain) {
+      params = params.set('domain', domain);
+    }
+    if (layers?.length) {
+      layers.forEach((layer) => {
+        params = params.append('layers', layer);
+      });
+    }
+    return this._http.get(this.API_URL + 'external/meteofrance/arpege/point-forecast', { params });
   }
 
   /**
@@ -2183,6 +2386,11 @@ export interface MeteoFranceTemperatureCachePreference {
   persistedInMongo?: boolean;
 }
 
+export interface MeteoFranceForecastCachePreference {
+  forecastCacheMinutes: number;
+  persistedInMongo?: boolean;
+}
+
 export interface MeteoFranceHistoryCachePreference {
   historyCacheDays: number;
   persistedInMongo?: boolean;
@@ -2197,6 +2405,13 @@ export interface MeteoFranceTemperatureCacheClearResult {
   cleared?: boolean;
   mfCacheEntries?: number;
   openMeteoCacheEntries?: number;
+}
+
+export interface MeteoFranceForecastCacheClearResult {
+  cleared?: boolean;
+  totalEntries?: number;
+  aromepi?: { totalEntries?: number };
+  arpege?: { totalEntries?: number };
 }
 
 export interface WeatherHistoryCacheClearResult {

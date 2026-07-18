@@ -1,4 +1,4 @@
-﻿{
+{
     "LANGUAGE": {
         "FR": "à¤«à¥à¤°à¥à¤à¤",
         "EN": "à¤à¤à¤à¥à¤°à¥à¤à¥",
@@ -2795,6 +2795,7 @@
         "RADAR_TITLE": "रडार मानचित्र",
         "MAP_FULLSCREEN": "पूर्ण स्क्रीन",
         "MAP_EXIT_FULLSCREEN": "पूर्ण स्क्रीन से बाहर",
+        "OPEN_IN_TRACE_VIEWER": "ट्रेस व्यूअर में खोलें",
         "MAP_CENTER_USER": "मेरी स्थिति पर केंद्रित करें",
         "MAP_CENTER_USER_SHORT": "मेरी GPS स्थिति",
         "TAB_RADAR": "तापमान और रडार",
@@ -2807,6 +2808,7 @@
         "MS_HIST_NO_DATA": "अनुरोधित अवधि के लिए कोई डेटा नहीं।",
         "MS_HIST_COL_TIME": "दिनांक / समय",
         "TAB_AROMEPI": "MF पूर्वानुमान (3 घं)",
+        "TAB_ARPEGE": "MF ARPEGE पूर्वानुमान",
         "TAB_SELECT_LABEL": "Onglet",
         "TAB_FORECAST_OWM": "पूर्वानुमान OWM",
         "TAB_FORECAST_OM": "पूर्वानुमान Open-Meteo",
@@ -3084,6 +3086,15 @@
         "CLIM_LOAD_ERROR": "Impossible de charger les données climatologiques pour cette période ou cette station.",
         "CLIM_NO_DATA": "Aucune donnée sur la période demandée.",
         "CLIM_HINT": "Archives officielles DPClim (CSV). Abonnement « Données Climatologiques » + clé meteofrance.clim.api.token (différente de la clé radar).",
+        "ARPEGE_TITLE": "ARPEGE पूर्वानुमान (Météo-France)",
+        "ARPEGE_HINT": "ARPEGE पूर्वानुमान (Météo-France)",
+        "ARPEGE_NOT_CONFIGURED": "ARPEGE: set meteofrance.arpege.api.token",
+        "ARPEGE_INVALID_TOKEN": "ARPEGE API key rejected (401).",
+        "ARPEGE_LOADING": "Loading ARPEGE…",
+        "ARPEGE_LOAD_ERROR": "ARPEGE capabilities failed.",
+        "ARPEGE_LAYER": "Layer",
+        "ARPEGE_FORECAST_TABLE": "Point forecast",
+        "ARPEGE_FORECAST_LOADING": "Loading…",
         "AROMEPI_TITLE": "पूर्वानुमान nowcasting AROME-PI (Météo-France)",
         "AROMEPI_HINT": "High-resolution Météo-France model: 0–3 h forecast in 15 min चरण. Animated WMS map (clouds, precipitation, etc.) plus values at the selected point.",
         "AROMEPI_NOT_CONFIGURED": "AROME-PI indisponible : abonnez-vous à l'API « AROMEPI 1.0 » sur portail-api.meteofrance.fr, puis configurez meteofrance.aromepi.api.token (clé distincte du radar, climat et observations).",

@@ -1,4 +1,4 @@
-﻿{
+{
     "LANGUAGE": {
         "FR": "Ð¤ÑÐ°Ð½ÑÑÐ·ÑÐºÐ¸Ð¹",
         "EN": "ÐÐ½Ð³Ð»Ð¸Ð¹ÑÐºÐ¸Ð¹",
@@ -2797,6 +2797,7 @@
         "RADAR_TITLE": "Карта радара",
         "MAP_FULLSCREEN": "Полный экран",
         "MAP_EXIT_FULLSCREEN": "Выйти из полного экрана",
+        "OPEN_IN_TRACE_VIEWER": "Открыть в Trace Viewer",
         "MAP_CENTER_USER": "Центрировать на моём местоположении",
         "MAP_CENTER_USER_SHORT": "Моя GPS-позиция",
         "TAB_RADAR": "Температура и радар",
@@ -2809,6 +2810,7 @@
         "MS_HIST_NO_DATA": "Нет данных за запрошенный период.",
         "MS_HIST_COL_TIME": "Дата / время",
         "TAB_AROMEPI": "Прогнозы MF (3 ч)",
+        "TAB_ARPEGE": "Прогноз MF ARPEGE",
         "TAB_SELECT_LABEL": "Onglet",
         "TAB_FORECAST_OWM": "Прогноз OWM",
         "TAB_FORECAST_OM": "Прогноз Open-Meteo",
@@ -3086,6 +3088,15 @@
         "CLIM_LOAD_ERROR": "Не удалось загрузить les données climatologiques pour cette période ou cette station.",
         "CLIM_NO_DATA": "Aucune donnée sur la période demandée.",
         "CLIM_HINT": "Официальные архивы DPClim (CSV). Abonnement « Données Climatologiques » + clé meteofrance.clim.api.token (différente de la clé radar).",
+        "ARPEGE_TITLE": "Прогнозы ARPEGE (Météo-France)",
+        "ARPEGE_HINT": "Прогнозы ARPEGE (Météo-France)",
+        "ARPEGE_NOT_CONFIGURED": "ARPEGE: set meteofrance.arpege.api.token",
+        "ARPEGE_INVALID_TOKEN": "ARPEGE API key rejected (401).",
+        "ARPEGE_LOADING": "Loading ARPEGE…",
+        "ARPEGE_LOAD_ERROR": "ARPEGE capabilities failed.",
+        "ARPEGE_LAYER": "Layer",
+        "ARPEGE_FORECAST_TABLE": "Point forecast",
+        "ARPEGE_FORECAST_LOADING": "Loading…",
         "AROMEPI_TITLE": "Прогноз nowcasting AROME-PI (Météo-France)",
         "AROMEPI_HINT": "Высокоразрешающая модель Météo-France: прогноз 0–3 ч с шагом 15 мин. Анимированная WMS-карта (облака, осадки и т.д.) и значения в выбранной точке.",
         "AROMEPI_NOT_CONFIGURED": "AROME-PI недоступен: подпишитесь на API « AROMEPI 1.0 » на portail-api.meteofrance.fr и укажите meteofrance.aromepi.api.token (отдельный ключ, не радар/климат/наблюдения).",

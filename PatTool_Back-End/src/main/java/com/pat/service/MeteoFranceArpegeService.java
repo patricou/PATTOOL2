@@ -60,28 +60,29 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 /**
- * Proxy for Météo-France AROME-PI nowcasting (0–6 h UI horizon, 15 min steps) via WMS GetMap.
- * Domains: France 0.01° and France 0.025°. Supports TIME, dim_reference_time, ELEVATION.
- * Point forecast numeric values use Open-Meteo {@code meteofrance_seamless} minutely_15
- * (MF WMS does not expose GetFeatureInfo text).
- * API « AROMEPI 1.0 » on portail-api.meteofrance.fr — requires {@code meteofrance.aromepi.api.token}.
+ * Proxy for Météo-France ARPEGE forecast (0–102 h via WMS GetMap).
+ * Domains: Europe 0.1° and Globe 0.25°. Supports TIME, reference_time, ELEVATION.
+ * Point values use Open-Meteo {@code meteofrance_arpege_europe} / {@code meteofrance_arpege_world}.
+ * API « ARPEGE » on portail-api.meteofrance.fr — requires {@code meteofrance.arpege.api.token}.
  */
 @Service
-public class MeteoFranceAromepiService {
+public class MeteoFranceArpegeService {
 
-    private static final Logger log = LoggerFactory.getLogger(MeteoFranceAromepiService.class);
+    private static final Logger log = LoggerFactory.getLogger(MeteoFranceArpegeService.class);
 
-    /** PatTool display / playback horizon (0–6 h). */
-    private static final int FORECAST_HORIZON_MINUTES = 360;
-    private static final int FORECAST_STEP_MINUTES = 15;
-    private static final int FORECAST_MIN_OFFSET_MINUTES = 15;
+    /** PatTool display / playback horizon (0–102 h, matching MF ARPEGE publication). */
+    private static final int FORECAST_HORIZON_MINUTES = 6120;
+    private static final int FORECAST_HOURLY_UNTIL_MINUTES = 2880;
+    private static final int FORECAST_STEP_MINUTES = 60;
+    private static final int FORECAST_STEP_3H_MINUTES = 180;
+    private static final int FORECAST_MIN_OFFSET_MINUTES = 0;
 
-    private static final String DEFAULT_BASE = "https://public-api.meteofrance.fr/public/aromepi/1.0";
-    private static final String WMS_001 = "MF-NWP-HIGHRES-AROMEPI-001-FRANCE-WMS";
-    private static final String WMS_0025 = "MF-NWP-HIGHRES-AROMEPI-0025-FRANCE-WMS";
-    private static final String DOMAIN_001 = "001-FRANCE";
-    private static final String DOMAIN_0025 = "0025-FRANCE";
-    private static final String DEFAULT_WMS_SERVICE = WMS_001;
+    private static final String DEFAULT_BASE = "https://public-api.meteofrance.fr/public/arpege/1.0";
+    private static final String DEFAULT_WMS_SERVICE = "MF-NWP-GLOBAL-ARPEGE-01-EUROPE-WMS";
+    private static final String WMS_EUROPE = "MF-NWP-GLOBAL-ARPEGE-01-EUROPE-WMS";
+    private static final String WMS_GLOBE = "MF-NWP-GLOBAL-ARPEGE-025-GLOBE-WMS";
+    private static final String DOMAIN_EUROPE = "01-EUROPE";
+    private static final String DOMAIN_GLOBE = "025-GLOBE";
     private static final Duration CAPABILITIES_CACHE_TTL_FALLBACK = Duration.ofMinutes(10);
     /** Fallback when preference service unavailable — overridden by meteofrance.forecast.cache.minutes (default 5). */
     private static final Duration FORECAST_CACHE_TTL_FALLBACK = Duration.ofMinutes(5);
@@ -94,19 +95,22 @@ public class MeteoFranceAromepiService {
             "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2})?(\\.\\d+)?Z$");
 
     private static final String OPEN_METEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
-    private static final DateTimeFormatter OPEN_METEO_MINUTELY_FMT =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm").withZone(ZoneOffset.UTC);
+    private static final DateTimeFormatter OPEN_METEO_HOURLY_FMT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:00").withZone(ZoneOffset.UTC);
 
     private static final List<String> PREFERRED_LAYER_ORDER = List.of(
             "TOTAL_WATER_PRECIPITATION__GROUND_OR_WATER_SURFACE",
+            "TOTAL_PRECIPITATION__GROUND_OR_WATER_SURFACE",
+            "TEMPERATURE__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND",
             "TEMPERATURE__GROUND_OR_WATER_SURFACE",
             "RELATIVE_HUMIDITY__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND",
-            "TEMPERATURE__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND",
-            "VISIBILITY_MINI_15MIN__GROUND_OR_WATER_SURFACE",
+            "WIND_SPEED__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND",
+            "WIND_SPEED_GUST__SPECIFIC_HEIGHT_LEVEL_ABOVE_GROUND",
+            "PRESSURE__MEAN_SEA_LEVEL",
+            "GEOMETRIC_HEIGHT__GROUND_OR_WATER_SURFACE",
             "CONVECTIVE_AVAILABLE_POTENTIAL_ENERGY__GROUND_OR_WATER_SURFACE",
-            "NEBUL__GROUND_OR_WATER_SURFACE",
-            "RELATIVE_HUMIDITY__GROUND_OR_WATER_SURFACE",
-            "WIND_SPEED__GROUND_OR_WATER_SURFACE",
+            "TOTAL_CLOUD_COVER__GROUND_OR_WATER_SURFACE",
+            "LOW_CLOUD_COVER__GROUND_OR_WATER_SURFACE",
             "VISIBILITY__GROUND_OR_WATER_SURFACE"
     );
 
@@ -117,9 +121,9 @@ public class MeteoFranceAromepiService {
     private final String wmsService;
     private final long wmsMinIntervalMs;
 
-    /** Capabilities cache keyed by WMS service id (001-FRANCE / 0025-FRANCE). */
+    /** Capabilities cache keyed by WMS service id (Europe / Globe). */
     private final ConcurrentHashMap<String, CachedCapabilities> capabilitiesByService = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, CachedMinutely15> minutely15Cache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, CachedHourly> minutely15Cache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, CachedTile> tileCache = new ConcurrentHashMap<>();
     private final Semaphore wmsFetchSemaphore;
     /**
@@ -134,14 +138,14 @@ public class MeteoFranceAromepiService {
     private final ConcurrentLinkedDeque<Boolean> recentTileCacheFlags = new ConcurrentLinkedDeque<>();
     private final AtomicBoolean lastCapabilitiesFromCache = new AtomicBoolean(false);
 
-    public MeteoFranceAromepiService(
+    public MeteoFranceArpegeService(
             @Qualifier(RestTemplateConfig.METEOFRANCE_CLIM_REST_TEMPLATE) RestTemplate restTemplate,
             MeteoFranceForecastCachePreferenceService forecastCachePreferenceService,
-            @Value("${meteofrance.aromepi.api.token:}") String apiToken,
-            @Value("${meteofrance.aromepi.base.url:" + DEFAULT_BASE + "}") String baseUrl,
-            @Value("${meteofrance.aromepi.wms.service:" + DEFAULT_WMS_SERVICE + "}") String wmsService,
-            @Value("${meteofrance.aromepi.wms.max.concurrent:2}") int wmsMaxConcurrent,
-            @Value("${meteofrance.aromepi.wms.min-interval-ms:300}") long wmsMinIntervalMs) {
+            @Value("${meteofrance.arpege.api.token:}") String apiToken,
+            @Value("${meteofrance.arpege.base.url:" + DEFAULT_BASE + "}") String baseUrl,
+            @Value("${meteofrance.arpege.wms.service:" + DEFAULT_WMS_SERVICE + "}") String wmsService,
+            @Value("${meteofrance.arpege.wms.max.concurrent:2}") int wmsMaxConcurrent,
+            @Value("${meteofrance.arpege.wms.min-interval-ms:300}") long wmsMinIntervalMs) {
         this.restTemplate = restTemplate;
         this.forecastCachePreferenceService = forecastCachePreferenceService;
         this.apiToken = normalizeToken(apiToken);
@@ -154,14 +158,14 @@ public class MeteoFranceAromepiService {
         this.wmsMinIntervalMs = Math.max(0L, wmsMinIntervalMs);
         this.wmsFetchSemaphore = new Semaphore(Math.max(1, wmsMaxConcurrent), true);
         if (isConfigured()) {
-            log.info("Météo-France AROME-PI credentials loaded (wms={})", this.wmsService);
+            log.info("Météo-France ARPEGE credentials loaded (wms={})", this.wmsService);
         } else {
-            log.info("Météo-France AROME-PI not configured — set meteofrance.aromepi.api.token "
-                    + "(API « AROMEPI 1.0 » on portail-api.meteofrance.fr)");
+            log.info("Météo-France ARPEGE not configured — set meteofrance.arpege.api.token "
+                    + "(API « ARPEGE » on portail-api.meteofrance.fr)");
         }
     }
 
-    /** Prefetch WMS GetCapabilities so the first AROME-PI tab open is not blocked on MF latency. */
+    /** Prefetch WMS GetCapabilities so the first ARPEGE tab open is not blocked on MF latency. */
     @PostConstruct
     public void warmCapabilitiesCacheAsync() {
         if (!isConfigured()) {
@@ -170,9 +174,9 @@ public class MeteoFranceAromepiService {
         CompletableFuture.runAsync(() -> {
             try {
                 loadCapabilities(wmsService);
-                log.info("Météo-France AROME-PI WMS capabilities cache warmed ({})", wmsService);
+                log.info("Météo-France ARPEGE WMS capabilities cache warmed ({})", wmsService);
             } catch (Exception e) {
-                log.debug("Météo-France AROME-PI capabilities warm-up skipped: {}", e.getMessage());
+                log.debug("Météo-France ARPEGE capabilities warm-up skipped: {}", e.getMessage());
             }
         });
     }
@@ -180,31 +184,31 @@ public class MeteoFranceAromepiService {
     public Map<String, Object> getStatusFragment() {
         Map<String, Object> status = new LinkedHashMap<>();
         boolean configured = isConfigured();
-        status.put("aromepiConfigured", configured);
-        status.put("aromepiAuthValid", false);
-        status.put("aromepiWmsService", wmsService);
-        status.put("aromepiBaseUrl", baseUrl);
+        status.put("arpegeConfigured", configured);
+        status.put("arpegeAuthValid", false);
+        status.put("arpegeWmsService", wmsService);
+        status.put("arpegeBaseUrl", baseUrl);
         if (configured) {
             if (looksLikeTruncatedApiKey(apiToken)) {
-                status.put("aromepiAuthValid", false);
-                status.put("aromepiAuthError",
-                        "AROME-PI API key looks truncated (expected a full JWT with 3 segments). "
-                                + "Paste the complete token into meteofrance.aromepi.api.token, then restart the backend.");
+                status.put("arpegeAuthValid", false);
+                status.put("arpegeAuthError",
+                        "ARPEGE API key looks truncated (expected a full JWT with 3 segments). "
+                                + "Paste the complete token into meteofrance.arpege.api.token, then restart the backend.");
             } else {
                 boolean valid = probeAuth();
-                status.put("aromepiAuthValid", valid);
+                status.put("arpegeAuthValid", valid);
                 if (!valid) {
-                    status.put("aromepiAuthError",
-                            "Invalid credentials or missing subscription to API « AROMEPI 1.0 ». "
-                                    + "Use meteofrance.aromepi.api.token.");
+                    status.put("arpegeAuthError",
+                            "Invalid credentials or missing subscription to API « ARPEGE ». "
+                                    + "Use meteofrance.arpege.api.token.");
                 }
             }
         }
-        status.put("aromepiEndpoints", List.of(
-                "/api/external/meteofrance/aromepi/capabilities",
-                "/api/external/meteofrance/aromepi/wms/{z}/{x}/{y}",
-                "/api/external/meteofrance/aromepi/featureinfo",
-                "/api/external/meteofrance/aromepi/point-forecast"
+        status.put("arpegeEndpoints", List.of(
+                "/api/external/meteofrance/arpege/capabilities",
+                "/api/external/meteofrance/arpege/wms/{z}/{x}/{y}",
+                "/api/external/meteofrance/arpege/featureinfo",
+                "/api/external/meteofrance/arpege/point-forecast"
         ));
         status.putAll(getThrottleStatus());
         return status;
@@ -217,12 +221,12 @@ public class MeteoFranceAromepiService {
         long until = wmsBackoffUntilMs;
         boolean throttled = until > now;
         long retryAfterSec = throttled ? Math.max(1, Duration.ofMillis(until - now).toSeconds()) : 0;
-        status.put("aromepiWmsThrottled", throttled);
-        status.put("aromepiWmsRetryAfterSeconds", retryAfterSec);
+        status.put("arpegeWmsThrottled", throttled);
+        status.put("arpegeWmsRetryAfterSeconds", retryAfterSec);
         Boolean tilesCached = majorityTilesCached();
-        status.put("aromepiTilesCacheKnown", tilesCached != null);
-        status.put("aromepiTilesCached", tilesCached != null && tilesCached);
-        status.put("aromepiCapabilitiesCached", lastCapabilitiesFromCache.get());
+        status.put("arpegeTilesCacheKnown", tilesCached != null);
+        status.put("arpegeTilesCached", tilesCached != null && tilesCached);
+        status.put("arpegeCapabilitiesCached", lastCapabilitiesFromCache.get());
         status.put("forecastCacheTtlMinutes", forecastCacheTtl().toMinutes());
         return status;
     }
@@ -237,24 +241,24 @@ public class MeteoFranceAromepiService {
 
     public Map<String, Object> getCapabilities(String domain, String referenceTime) {
         if (!isConfigured()) {
-            return error("AROME-PI API key not configured. Set meteofrance.aromepi.api.token "
-                    + "(API « AROMEPI 1.0 » on portail-api.meteofrance.fr)");
+            return error("ARPEGE API key not configured. Set meteofrance.arpege.api.token "
+                    + "(API « ARPEGE » on portail-api.meteofrance.fr)");
         }
         try {
             String service = resolveWmsService(domain);
             ParsedCapabilities parsed = loadCapabilities(service);
             String ref = normalizeReferenceTime(referenceTime, parsed);
             List<String> timeSteps = ref != null
-                    ? generateTimeSteps(ref, FORECAST_HORIZON_MINUTES, FORECAST_STEP_MINUTES)
+                    ? generateArpegeTimeSteps(ref)
                     : parsed.timeSteps();
             Map<String, Object> result = new LinkedHashMap<>();
-            result.put("service", "AROMEPI");
+            result.put("service", "ARPEGE");
             result.put("domain", domainIdForService(service));
             result.put("domains", List.of(
-                    Map.of("id", DOMAIN_001, "label", "France 0.01°", "wmsService", WMS_001),
-                    Map.of("id", DOMAIN_0025, "label", "France 0.025°", "wmsService", WMS_0025)
+                    Map.of("id", DOMAIN_EUROPE, "label", "Europe 0.1°", "wmsService", WMS_EUROPE),
+                    Map.of("id", DOMAIN_GLOBE, "label", "Globe 0.25°", "wmsService", WMS_GLOBE)
             ));
-            result.put("resolution", service.contains("0025") ? "0.025" : "0.01");
+            result.put("resolution", service.contains("025") ? "0.25" : "0.1");
             result.put("wmsService", service);
             result.put("bounds", parsed.bounds());
             result.put("referenceTimes", parsed.referenceTimes());
@@ -265,17 +269,19 @@ public class MeteoFranceAromepiService {
             result.put("layers", parsed.layers());
             result.put("forecastHorizonMinutes", FORECAST_HORIZON_MINUTES);
             result.put("forecastStepMinutes", FORECAST_STEP_MINUTES);
+            result.put("forecastStep3hMinutes", FORECAST_STEP_3H_MINUTES);
+            result.put("forecastHourlyUntilMinutes", FORECAST_HOURLY_UNTIL_MINUTES);
             result.put("cached", lastCapabilitiesFromCache.get());
             result.put("cacheTtlMinutes", forecastCacheTtl().toMinutes());
             return result;
         } catch (HttpClientErrorException e) {
             if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
-                return error("AROME-PI API key rejected (401). Check meteofrance.aromepi.api.token.");
+                return error("ARPEGE API key rejected (401). Check meteofrance.arpege.api.token.");
             }
-            log.warn("AROME-PI GetCapabilities failed ({}): {}", e.getStatusCode(), e.getMessage());
+            log.warn("ARPEGE GetCapabilities failed ({}): {}", e.getStatusCode(), e.getMessage());
             return error("GetCapabilities failed: HTTP " + e.getStatusCode().value());
         } catch (Exception e) {
-            log.warn("AROME-PI GetCapabilities failed: {}", e.getMessage());
+            log.warn("ARPEGE GetCapabilities failed: {}", e.getMessage());
             return error("GetCapabilities failed: " + e.getMessage());
         }
     }
@@ -321,7 +327,6 @@ public class MeteoFranceAromepiService {
         String cacheKey = tileCacheKey(service, z, x, y, layer, resolvedStyle, time, referenceTime, elev, outWidth, outHeight);
         CachedTile cachedTile = tileCache.get(cacheKey);
         if (cachedTile != null && cachedTile.isValid(forecastCacheTtl())) {
-            // Serve memory cache even during upstream 429 backoff — avoids blank tiles for known frames.
             return pngTileResponse(cachedTile.png(), true);
         }
 
@@ -330,7 +335,6 @@ public class MeteoFranceAromepiService {
             return throttled;
         }
 
-        // WMS 1.3.0 + EPSG:4326: BBOX = minLat,minLon,maxLat,maxLon (MF AROME-PI documented usage).
         double[] bbox4326 = tileBbox4326(z, x, y);
         int[] wmsSize = wmsDimensionsForBbox(bbox4326, outWidth);
         int wmsWidth = wmsSize[0];
@@ -349,13 +353,13 @@ public class MeteoFranceAromepiService {
                 .queryParam("FORMAT", "image/png")
                 .queryParam("TRANSPARENT", "true")
                 .queryParam("TIME", time)
-                .queryParam("dim_reference_time", referenceTime);
+                .queryParam("reference_time", referenceTime);
         if (elev != null) {
             builder.queryParam("ELEVATION", elev);
         }
         String url = builder.build(true).toUriString();
 
-        log.debug("AROME-PI GetMap URL: {}", url.replace(apiToken, "***"));
+        log.debug("ARPEGE GetMap URL: {}", url.replace(apiToken, "***"));
         try {
             byte[] raw = fetchWmsPngWithRetry(url);
             if (raw == null) {
@@ -370,19 +374,18 @@ public class MeteoFranceAromepiService {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
             if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
-                // Propagate 429 to the browser so it can stop retrying aggressively.
                 ResponseEntity<byte[]> resp = throttledResponseIfNeeded();
                 return resp != null ? resp : ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).build();
             }
-            log.warn("AROME-PI image fetch failed ({}): {} body={}",
+            log.warn("ARPEGE image fetch failed ({}): {} body={}",
                     e.getStatusCode(), e.getMessage(), truncateForLog(e.getResponseBodyAsByteArray(), 400));
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
         } catch (HttpServerErrorException e) {
-            log.warn("AROME-PI image fetch failed ({}): {} body={}",
+            log.warn("ARPEGE image fetch failed ({}): {} body={}",
                     e.getStatusCode(), e.getMessage(), truncateForLog(e.getResponseBodyAsByteArray(), 400));
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
         } catch (Exception e) {
-            log.warn("AROME-PI image fetch failed: {}", e.getMessage());
+            log.warn("ARPEGE image fetch failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
         }
     }
@@ -433,7 +436,7 @@ public class MeteoFranceAromepiService {
                 : CAPABILITIES_CACHE_TTL_FALLBACK;
     }
 
-    /** Clears in-memory AROME-PI forecast caches (tiles, capabilities, Open-Meteo point series). */
+    /** Clears in-memory ARPEGE forecast caches (tiles, capabilities, Open-Meteo point series). */
     public Map<String, Object> clearForecastCaches() {
         int tiles = tileCache.size();
         int caps = capabilitiesByService.size();
@@ -472,7 +475,7 @@ public class MeteoFranceAromepiService {
                     lastError = new IllegalStateException("Empty WMS response");
                 } else if (isFaultResponseBody(body, response.getHeaders().getContentType())) {
                     lastError = new IllegalStateException("WMS returned fault XML");
-                    log.debug("AROME-PI GetMap fault body: {}", truncateForLog(body, 400));
+                    log.debug("ARPEGE GetMap fault body: {}", truncateForLog(body, 400));
                 } else {
                     return body;
                 }
@@ -496,12 +499,12 @@ public class MeteoFranceAromepiService {
                 if (!isRetryableWmsStatus(lastHttpError.getStatusCode()) || attempt >= WMS_MAX_RETRIES) {
                     throw lastHttpError;
                 }
-                log.debug("AROME-PI WMS retry {}/{} after HTTP {}", attempt, WMS_MAX_RETRIES,
+                log.debug("ARPEGE WMS retry {}/{} after HTTP {}", attempt, WMS_MAX_RETRIES,
                         lastHttpError.getStatusCode().value());
             } else if (attempt >= WMS_MAX_RETRIES) {
                 break;
             } else {
-                log.debug("AROME-PI WMS retry {}/{} after transient error", attempt, WMS_MAX_RETRIES);
+                log.debug("ARPEGE WMS retry {}/{} after transient error", attempt, WMS_MAX_RETRIES);
             }
             Thread.sleep(WMS_RETRY_BASE_MS * attempt);
             lastHttpError = null;
@@ -567,7 +570,7 @@ public class MeteoFranceAromepiService {
 
         if (until > wmsBackoffUntilMs) {
             wmsBackoffUntilMs = until;
-            log.warn("AROME-PI rate limited (429); pausing new WMS fetches for ~{} s (cached tiles still served)",
+            log.warn("ARPEGE rate limited (429); pausing new WMS fetches for ~{} s (cached tiles still served)",
                     Math.max(1, Duration.ofMillis(until - now).toSeconds()));
         }
     }
@@ -688,7 +691,7 @@ public class MeteoFranceAromepiService {
             String elevation,
             int width, int height) {
         if (!isConfigured()) {
-            return error("AROME-PI API key not configured");
+            return error("ARPEGE API key not configured");
         }
         if (!isValidLatLon(lat, lon) || !isSafeLayer(layer)) {
             return error("Invalid parameters");
@@ -699,9 +702,10 @@ public class MeteoFranceAromepiService {
         String service = resolveWmsService(domain);
         time = normalizeForecastTime(time, referenceTime);
         String elev = normalizeElevation(elevation);
+        String openMeteoModel = openMeteoModelForService(service);
 
         if (openMeteoVariableForLayer(layer) != null) {
-            OpenMeteoMinutely15 series = fetchOpenMeteoMinutely15Cached(lat, lon, time, time);
+            OpenMeteoHourly series = fetchOpenMeteoHourlyCached(lat, lon, time, time, openMeteoModel);
             Object value = lookupLayerValue(layer, series, time);
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("layer", layer);
@@ -719,7 +723,9 @@ public class MeteoFranceAromepiService {
         int mapWidth = width > 0 && width <= 512 ? width : 256;
         int mapHeight = height > 0 && height <= 512 ? height : 256;
         double[] bbox = pointBbox4326(lat, lon, mapWidth, mapHeight);
-        String resolvedStyle = style != null && !style.isBlank() ? style.trim() : resolveDefaultStyle(layer, service);
+        String resolvedStyle = style != null && !style.isBlank()
+                ? style.trim()
+                : resolveDefaultStyle(layer, service);
         int i = mapWidth / 2;
         int j = mapHeight / 2;
 
@@ -739,7 +745,7 @@ public class MeteoFranceAromepiService {
                 .queryParam("INFO_FORMAT", "text/plain")
                 .queryParam("FEATURE_COUNT", 1)
                 .queryParam("TIME", time)
-                .queryParam("dim_reference_time", referenceTime);
+                .queryParam("reference_time", referenceTime);
         if (elev != null) {
             builder.queryParam("ELEVATION", elev);
         }
@@ -763,13 +769,13 @@ public class MeteoFranceAromepiService {
             result.put("value", parseFeatureInfoValue(body));
             return result;
         } catch (Exception e) {
-            log.debug("AROME-PI GetFeatureInfo failed for {}: {}", layer, e.getMessage());
+            log.debug("ARPEGE GetFeatureInfo failed for {}: {}", layer, e.getMessage());
             return error("GetFeatureInfo failed: " + e.getMessage());
         }
     }
 
     /**
-     * Point forecast timeline: Open-Meteo meteofrance_seamless minutely_15 aligned to AROME-PI time steps.
+     * Point forecast timeline via Open-Meteo ARPEGE models, aligned to WMS time steps.
      */
     public Map<String, Object> getPointForecast(
             double lat, double lon,
@@ -784,7 +790,7 @@ public class MeteoFranceAromepiService {
             String referenceTime,
             String domain) {
         if (!isConfigured()) {
-            return error("AROME-PI API key not configured");
+            return error("ARPEGE API key not configured");
         }
         if (!isValidLatLon(lat, lon)) {
             return error("Invalid coordinates");
@@ -796,6 +802,7 @@ public class MeteoFranceAromepiService {
         }
 
         String service = resolveWmsService(domain);
+        String openMeteoModel = openMeteoModelForService(service);
 
         @SuppressWarnings("unchecked")
         List<String> timeSteps = (List<String>) caps.get("timeSteps");
@@ -805,16 +812,19 @@ public class MeteoFranceAromepiService {
         ref = normalizeReferenceTime(ref, caps);
 
         List<String> resolvedLayers = resolveForecastLayers(layers, caps);
-        OpenMeteoMinutely15 minutelySeries = null;
+        OpenMeteoHourly minutelySeries = null;
         if (timeSteps != null && !timeSteps.isEmpty()) {
             String firstStep = normalizeForecastTime(timeSteps.get(0), ref);
             String lastStep = normalizeForecastTime(timeSteps.get(timeSteps.size() - 1), ref);
-            minutelySeries = fetchOpenMeteoMinutely15Cached(lat, lon, firstStep, lastStep);
+            minutelySeries = fetchOpenMeteoHourlyCached(lat, lon, firstStep, lastStep, openMeteoModel);
         }
 
         List<Map<String, Object>> steps = new ArrayList<>();
         if (timeSteps != null) {
-            for (String time : timeSteps) {
+            // Point table: keep hourly density readable (cap at 102 steps ≈ H+102 hourly subset).
+            int stride = timeSteps.size() > 120 ? 3 : 1;
+            for (int idx = 0; idx < timeSteps.size(); idx += stride) {
+                String time = timeSteps.get(idx);
                 String stepTime = normalizeForecastTime(time, ref);
                 Map<String, Object> step = new LinkedHashMap<>();
                 step.put("time", stepTime);
@@ -839,13 +849,20 @@ public class MeteoFranceAromepiService {
         result.put("layers", resolvedLayers);
         result.put("steps", steps);
         result.put("valueSource", "open-meteo-mf");
+        result.put("openMeteoModel", openMeteoModel);
         return result;
+    }
+
+    private static String openMeteoModelForService(String service) {
+        return service != null && service.contains("025")
+                ? "meteofrance_arpege_world"
+                : "meteofrance_arpege_europe";
     }
 
     private List<String> resolveForecastLayers(List<String> requested, Map<String, Object> caps) {
         if (requested != null && !requested.isEmpty()) {
             return requested.stream()
-                    .filter(MeteoFranceAromepiService::isSafeLayer)
+                    .filter(MeteoFranceArpegeService::isSafeLayer)
                     .distinct()
                     .limit(6)
                     .toList();
@@ -857,7 +874,7 @@ public class MeteoFranceAromepiService {
         }
         List<String> names = capLayers.stream()
                 .map(l -> String.valueOf(l.get("name")))
-                .filter(MeteoFranceAromepiService::isSafeLayer)
+                .filter(MeteoFranceArpegeService::isSafeLayer)
                 .toList();
         List<String> ordered = new ArrayList<>();
         for (String pref : PREFERRED_LAYER_ORDER) {
@@ -932,9 +949,8 @@ public class MeteoFranceAromepiService {
                 defaultRef = referenceTimes.get(referenceTimes.size() - 1);
             }
 
-            // Forecast steps must be relative to the selected model run (reference time).
             List<String> timeSteps = defaultRef != null
-                    ? generateTimeSteps(defaultRef, FORECAST_HORIZON_MINUTES, FORECAST_STEP_MINUTES)
+                    ? generateArpegeTimeSteps(defaultRef)
                     : List.of();
             if (timeSteps.isEmpty() && defaultRef != null) {
                 timeSteps = List.of(defaultRef);
@@ -962,7 +978,7 @@ public class MeteoFranceAromepiService {
             return new ParsedCapabilities(
                     bounds, referenceTimes, defaultRef, timeSteps, elevations, defaultElevation, layerMaps);
         } catch (Exception e) {
-            throw new IllegalStateException("Failed to parse AROME-PI GetCapabilities XML", e);
+            throw new IllegalStateException("Failed to parse ARPEGE GetCapabilities XML", e);
         }
     }
 
@@ -1134,18 +1150,25 @@ public class MeteoFranceAromepiService {
         return Duration.ofMinutes(15);
     }
 
-    private List<String> generateTimeSteps(String referenceTime, int horizonMinutes, int stepMinutes) {
+    private List<String> generateArpegeTimeSteps(String referenceTime) {
         try {
             Instant ref = Instant.parse(referenceTime);
             List<String> steps = new ArrayList<>();
-            // MF AROME-PI WMS has no dataset at T+0; first valid step is T+15 min.
-            for (int m = stepMinutes; m <= horizonMinutes; m += stepMinutes) {
+            // 0–48 h hourly, then 51–102 h every 3 h (MF ARPEGE publication schedule).
+            for (int m = FORECAST_MIN_OFFSET_MINUTES; m <= FORECAST_HOURLY_UNTIL_MINUTES; m += FORECAST_STEP_MINUTES) {
+                steps.add(DateTimeFormatter.ISO_INSTANT.format(ref.plus(m, ChronoUnit.MINUTES)));
+            }
+            for (int m = FORECAST_HOURLY_UNTIL_MINUTES + 180; m <= FORECAST_HORIZON_MINUTES; m += FORECAST_STEP_3H_MINUTES) {
                 steps.add(DateTimeFormatter.ISO_INSTANT.format(ref.plus(m, ChronoUnit.MINUTES)));
             }
             return steps;
         } catch (Exception e) {
             return List.of();
         }
+    }
+
+    private List<String> generateTimeSteps(String referenceTime, int horizonMinutes, int stepMinutes) {
+        return generateArpegeTimeSteps(referenceTime);
     }
 
     private static List<String> collectAllElevations(List<LayerInfo> allLayers) {
@@ -1176,7 +1199,7 @@ public class MeteoFranceAromepiService {
             }
         }
         return unique.stream()
-                .filter(MeteoFranceAromepiService::isValidIsoTime)
+                .filter(MeteoFranceArpegeService::isValidIsoTime)
                 .sorted(Comparator.comparing(t -> Instant.parse(t.trim())))
                 .toList();
     }
@@ -1186,7 +1209,7 @@ public class MeteoFranceAromepiService {
         return refs.isEmpty() ? null : refs.get(refs.size() - 1);
     }
 
-    /** WMS TIME must be referenceTime + [15..horizon] min; T+0 is not published by MF AROME-PI WMS. */
+    /** WMS TIME must be referenceTime + [15..horizon] min; T+0 is not published by MF ARPEGE WMS. */
     static String normalizeForecastTime(String time, String referenceTime) {
         if (time == null || referenceTime == null) {
             return referenceTime;
@@ -1279,10 +1302,10 @@ public class MeteoFranceAromepiService {
             if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
                 return false;
             }
-            log.debug("AROME-PI auth probe failed: {}", e.getMessage());
+            log.debug("ARPEGE auth probe failed: {}", e.getMessage());
             return false;
         } catch (Exception e) {
-            log.debug("AROME-PI auth probe failed: {}", e.getMessage());
+            log.debug("ARPEGE auth probe failed: {}", e.getMessage());
             return false;
         }
     }
@@ -1309,23 +1332,23 @@ public class MeteoFranceAromepiService {
             return wmsService;
         }
         String d = domain.trim().toUpperCase(Locale.ROOT);
-        if (d.contains("0025") || d.contains("0.025")) {
-            return WMS_0025;
+        if (d.contains("025") || d.contains("GLOBE") || d.contains("WORLD") || "0.25".equals(d)) {
+            return WMS_GLOBE;
         }
-        if (d.contains("001") || d.contains("0.01")) {
-            return WMS_001;
+        if (d.contains("01") || d.contains("EUROPE") || "0.1".equals(d)) {
+            return WMS_EUROPE;
         }
-        if (d.contains("AROMEPI") && d.contains("WMS")) {
+        if (d.contains("ARPEGE") && d.contains("WMS")) {
             return domain.trim();
         }
         return wmsService;
     }
 
     private static String domainIdForService(String service) {
-        if (service != null && service.contains("0025")) {
-            return DOMAIN_0025;
+        if (service != null && service.contains("025")) {
+            return DOMAIN_GLOBE;
         }
-        return DOMAIN_001;
+        return DOMAIN_EUROPE;
     }
 
     private static String normalizeElevation(String elevation) {
@@ -1441,33 +1464,34 @@ public class MeteoFranceAromepiService {
         }
     }
 
-    private OpenMeteoMinutely15 fetchOpenMeteoMinutely15Cached(
-            double lat, double lon, String startIso, String endIso) {
-        String cacheKey = String.format(Locale.ROOT, "%.4f|%.4f|%s|%s", lat, lon, startIso, endIso);
-        CachedMinutely15 cached = minutely15Cache.get(cacheKey);
+    private OpenMeteoHourly fetchOpenMeteoHourlyCached(
+            double lat, double lon, String startIso, String endIso, String model) {
+        String resolvedModel = model != null && !model.isBlank() ? model : "meteofrance_arpege_europe";
+        String cacheKey = String.format(Locale.ROOT, "%.4f|%.4f|%s|%s|%s", lat, lon, startIso, endIso, resolvedModel);
+        CachedHourly cached = minutely15Cache.get(cacheKey);
         if (cached != null && cached.isValid(forecastCacheTtl())) {
             return cached.data();
         }
-        OpenMeteoMinutely15 fetched = fetchOpenMeteoMinutely15(lat, lon, startIso, endIso);
+        OpenMeteoHourly fetched = fetchOpenMeteoHourly(lat, lon, startIso, endIso, resolvedModel);
         if (fetched != null && !fetched.times().isEmpty()) {
-            minutely15Cache.put(cacheKey, new CachedMinutely15(fetched, System.currentTimeMillis()));
+            minutely15Cache.put(cacheKey, new CachedHourly(fetched, System.currentTimeMillis()));
         }
         return fetched;
     }
 
     @SuppressWarnings("unchecked")
-    private OpenMeteoMinutely15 fetchOpenMeteoMinutely15(
-            double lat, double lon, String startIso, String endIso) {
+    private OpenMeteoHourly fetchOpenMeteoHourly(
+            double lat, double lon, String startIso, String endIso, String model) {
         try {
             Instant start = Instant.parse(startIso);
             Instant end = Instant.parse(endIso);
             String url = UriComponentsBuilder.fromHttpUrl(OPEN_METEO_FORECAST_URL)
                     .queryParam("latitude", lat)
                     .queryParam("longitude", lon)
-                    .queryParam("models", "meteofrance_seamless")
-                    .queryParam("minutely_15", "temperature_2m,relative_humidity_2m,precipitation,cape")
-                    .queryParam("start_minutely_15", OPEN_METEO_MINUTELY_FMT.format(start))
-                    .queryParam("end_minutely_15", OPEN_METEO_MINUTELY_FMT.format(end))
+                    .queryParam("models", model)
+                    .queryParam("hourly", "temperature_2m,relative_humidity_2m,precipitation,cape")
+                    .queryParam("start_hour", OPEN_METEO_HOURLY_FMT.format(start))
+                    .queryParam("end_hour", OPEN_METEO_HOURLY_FMT.format(end))
                     .queryParam("timezone", "UTC")
                     .build(true)
                     .toUriString();
@@ -1475,15 +1499,15 @@ public class MeteoFranceAromepiService {
             ResponseEntity<Object> response = restTemplate.getForEntity(url, Object.class);
             Object body = response.getBody();
             if (!(body instanceof Map<?, ?> root)) {
-                return OpenMeteoMinutely15.empty();
+                return OpenMeteoHourly.empty();
             }
-            Object minutelyObj = root.get("minutely_15");
+            Object minutelyObj = root.get("hourly");
             if (!(minutelyObj instanceof Map<?, ?> minutely)) {
-                return OpenMeteoMinutely15.empty();
+                return OpenMeteoHourly.empty();
             }
             Object timesObj = minutely.get("time");
             if (!(timesObj instanceof List<?> timesList)) {
-                return OpenMeteoMinutely15.empty();
+                return OpenMeteoHourly.empty();
             }
             List<String> times = new ArrayList<>(timesList.size());
             for (Object t : timesList) {
@@ -1500,14 +1524,14 @@ public class MeteoFranceAromepiService {
                     variables.put(var, values);
                 }
             }
-            return new OpenMeteoMinutely15(times, variables);
+            return new OpenMeteoHourly(times, variables);
         } catch (Exception e) {
-            log.warn("Open-Meteo meteofrance_seamless minutely_15 fetch failed: {}", e.getMessage());
-            return OpenMeteoMinutely15.empty();
+            log.warn("Open-Meteo {} hourly fetch failed: {}", model, e.getMessage());
+            return OpenMeteoHourly.empty();
         }
     }
 
-    private static Object lookupLayerValue(String layer, OpenMeteoMinutely15 series, String stepTimeIso) {
+    private static Object lookupLayerValue(String layer, OpenMeteoHourly series, String stepTimeIso) {
         if (series == null || series.times().isEmpty()) {
             return null;
         }
@@ -1602,13 +1626,13 @@ public class MeteoFranceAromepiService {
         return Instant.parse(s);
     }
 
-    private record OpenMeteoMinutely15(List<String> times, Map<String, List<Double>> variables) {
-        static OpenMeteoMinutely15 empty() {
-            return new OpenMeteoMinutely15(List.of(), Map.of());
+    private record OpenMeteoHourly(List<String> times, Map<String, List<Double>> variables) {
+        static OpenMeteoHourly empty() {
+            return new OpenMeteoHourly(List.of(), Map.of());
         }
     }
 
-    private record CachedMinutely15(OpenMeteoMinutely15 data, long fetchedAtMs) {
+    private record CachedHourly(OpenMeteoHourly data, long fetchedAtMs) {
         boolean isValid(Duration ttl) {
             Duration effective = ttl != null ? ttl : FORECAST_CACHE_TTL_FALLBACK;
             return System.currentTimeMillis() - fetchedAtMs < effective.toMillis();

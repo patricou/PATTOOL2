@@ -633,6 +633,8 @@
   left: 10px;
   z-index: 500;
   border: 1px solid rgba(0, 0, 0, 0.15);
+  display: inline-flex;
+  align-items: center;
 }
 
 :host ::ng-deep .mf-temp-label {
@@ -2002,6 +2004,36 @@
   opacity: 0.92;
 }
 
+.mf-map-cache-badge {
+  position: absolute;
+  top: 0.55rem;
+  left: 0.55rem;
+  z-index: 650;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.2;
+  pointer-events: none;
+  user-select: none;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+}
+
+.mf-map-cache-badge--cached {
+  background: rgba(241, 245, 249, 0.94);
+  color: #475569;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+}
+
+.mf-map-cache-badge--live {
+  background: rgba(236, 253, 245, 0.94);
+  color: #047857;
+  border: 1px solid rgba(52, 211, 153, 0.55);
+}
+
 .forecast-map-bottom-section {
   margin-top: 0.25rem;
 }
@@ -2223,6 +2255,17 @@
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
+}
+
+.aromepi-domain-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.5rem 0.75rem;
+  align-items: end;
+}
+
+.aromepi-domain-controls .aromepi-controls {
+  margin-bottom: 0;
 }
 
 .aromepi-controls {

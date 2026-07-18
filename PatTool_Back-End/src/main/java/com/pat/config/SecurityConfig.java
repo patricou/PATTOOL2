@@ -227,11 +227,13 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/radar/rainviewer/tile/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/meteofrance/clim/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/external/meteofrance/clim/cache/clear").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/external/meteofrance/forecast/cache/clear").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/meteofrance/obs/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/meteoswiss/obs/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/external/meteoswiss/obs/history/cache/clear").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/meteoswiss/precip/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/meteofrance/aromepi/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/meteofrance/arpege/**").permitAll()
 
                 // News image proxy: <img src> tags cannot send a JWT. The proxy
                 // itself enforces SSRF + size + content-type guards, so leaving

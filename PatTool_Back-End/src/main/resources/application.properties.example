@@ -108,11 +108,21 @@ meteofrance.api.token=
 # Jeton API Key pour AROME-PI (API « AROMEPI 1.0 ») — prévisions nowcasting 0–6 h + cartes WMS animées
 # meteofrance.aromepi.api.token=
 # meteofrance.aromepi.base.url=https://public-api.meteofrance.fr/public/aromepi/1.0
+# Default WMS domain is France 0.01° (MF-NWP-HIGHRES-AROMEPI-001-FRANCE-WMS); the map can also switch to
+# France 0.025° (MF-NWP-HIGHRES-AROMEPI-0025-FRANCE-WMS) at runtime via the capabilities/wms `domain` query param.
 # meteofrance.aromepi.wms.service=MF-NWP-HIGHRES-AROMEPI-001-FRANCE-WMS
 # AROME-PI quota: 2 concurrent + 300ms pacing (~3–6 tiles/s). Raise interval if you get 429s.
 # meteofrance.aromepi.wms.max.concurrent=2
 # meteofrance.aromepi.wms.min-interval-ms=300
 # meteofrance.aromepi.playback.prefetch=2
+# Jeton API Key pour ARPEGE (API « ARPEGE ») — prévisions 0–48 h + cartes WMS (Europe 0.1°)
+# meteofrance.arpege.api.token=
+# meteofrance.arpege.base.url=https://public-api.meteofrance.fr/public/arpege/1.0
+# Default WMS domain is Europe 0.1° (MF-NWP-GLOBAL-ARPEGE-01-EUROPE-WMS); the map can also switch to
+# Globe 0.25° (MF-NWP-GLOBAL-ARPEGE-025-GLOBE-WMS) at runtime via the capabilities/wms `domain` query param.
+# meteofrance.arpege.wms.service=MF-NWP-GLOBAL-ARPEGE-01-EUROPE-WMS
+# meteofrance.arpege.wms.max.concurrent=2
+# meteofrance.arpege.wms.min-interval-ms=300
 # Alternative: OAuth application id (Base64 string shown as « Application ID » in the portal)
 # meteofrance.oauth.application-id=
 # meteofrance.radar.base.url=https://public-api.meteofrance.fr/public/DPRadar/v1
@@ -123,7 +133,8 @@ meteofrance.api.token=
 # Intervalle de rafraîchissement auto de la couche radar sur la page Météo France (secondes, 30–600, défaut 60)
 # meteofrance.radar.refresh.seconds=60
 # meteofrance.temperature.cache.minutes=5
-# API Données Climatologiques (DPClim v1) — même jeton si abonné sur le portail
+# Cache AROME-PI / ARPEGE (tuiles WMS, capabilities, prévision au point) — durée en minutes (défaut 5)
+# meteofrance.forecast.cache.minutes=5
 # meteofrance.clim.base.url=https://public-api.meteofrance.fr/public/DPClim/v1
 
 # --- Loto import (draw archives) ---

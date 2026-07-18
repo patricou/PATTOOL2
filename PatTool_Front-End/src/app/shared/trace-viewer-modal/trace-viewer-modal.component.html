@@ -289,7 +289,7 @@
                      [(ngModel)]="autoRefreshRadar"
                      (ngModelChange)="onAutoRefreshRadarChange()">
               <label class="form-check-label gps-switch-label" for="auto-refresh-radar-switch-fullscreen" [title]="'METEO_FRANCE.AUTO_REFRESH' | translate">
-                <i class="fa fa-refresh me-1" aria-hidden="true"></i>{{ 'METEO_FRANCE.AUTO_REFRESH_SHORT' | translate }}
+                {{ 'METEO_FRANCE.AUTO_REFRESH_SHORT' | translate }}
                 <span *ngIf="autoRefreshRadar && showWeather && radarRefreshCountdown > 0" class="device-countdown">({{ radarRefreshCountdown }} s)</span>
               </label>
             </div>
@@ -459,7 +459,7 @@
                  [(ngModel)]="autoRefreshRadar"
                  (ngModelChange)="onAutoRefreshRadarChange()">
           <label class="form-check-label ms-1 ms-sm-2 gps-switch-label" for="auto-refresh-radar-switch" [title]="'METEO_FRANCE.AUTO_REFRESH' | translate">
-            <i class="fa fa-refresh me-1" aria-hidden="true"></i><span class="switch-text-short">{{ 'METEO_FRANCE.AUTO_REFRESH_SHORT' | translate }}</span>
+            <span class="switch-text-short">{{ 'METEO_FRANCE.AUTO_REFRESH_SHORT' | translate }}</span>
             <span *ngIf="autoRefreshRadar && showWeather && radarRefreshCountdown > 0" class="device-countdown">({{ radarRefreshCountdown }} s)</span>
           </label>
         </div>

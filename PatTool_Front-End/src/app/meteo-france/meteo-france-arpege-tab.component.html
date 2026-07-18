@@ -1,0 +1,384 @@
+<div class="alert alert-warning" *ngIf="displayStatusMessageKey && !authValid" role="alert">
+  <i class="fa fa-exclamation-triangle"></i> {{ displayStatusMessageKey | translate }}
+  <div class="mt-1">
+    <a href="https://portail-api.meteofrance.fr/web/fr/api/ARPEGE" target="_blank" rel="noopener noreferrer">
+      {{ 'METEO_FRANCE.MF_API_PORTAL_LINK' | translate }}
+      <i class="fa fa-external-link" aria-hidden="true"></i>
+    </a>
+  </div>
+</div>
+
+<div class="api-container arpege-tab">
+
+  <div class="mf-section-head">
+    <h3 class="api-title mb-0">
+      <i class="fa fa-cloud"></i> {{ 'METEO_FRANCE.ARPEGE_TITLE' | translate }}
+    </h3>
+    <div class="mf-section-head-actions">
+      <button type="button"
+              class="btn btn-sm btn-outline-secondary mf-section-head-btn"
+              (click)="centerOnSelectedLocation()"
+              [attr.title]="'METEO_FRANCE.MAP_CENTER_USER' | translate"
+              [attr.aria-label]="'METEO_FRANCE.MAP_CENTER_USER' | translate">
+        <i class="fa fa-location-arrow" aria-hidden="true"></i>
+        <span>{{ 'METEO_FRANCE.USE_GPS' | translate }}</span>
+      </button>
+      <span class="mf-source-badge" *ngIf="authValid">
+        <img src="assets/images/meteofrance-logo.svg" alt="Météo-France" width="16" height="16" />
+        {{ 'METEO_FRANCE.LOG_SOURCE_MF_ARPEGE' | translate }}
+      </span>
+      <a href="https://meteofrance.com"
+         target="_blank"
+         rel="noopener noreferrer"
+         class="btn btn-sm btn-outline-secondary forecast-provider-site-btn"
+         [attr.title]="'METEO_FRANCE.FORECAST_OPEN_PROVIDER_SITE' | translate: { provider: 'Météo-France' }">
+        <img src="assets/images/meteofrance-logo.svg" alt="Météo-France" width="20" height="20" />
+        <i class="fa fa-external-link forecast-provider-site-icon" aria-hidden="true"></i>
+      </a>
+      <button type="button"
+              class="btn btn-sm btn-outline-secondary mf-section-head-btn"
+              (click)="onClearForecastCaches()"
+              [disabled]="clearingForecastCache || loading"
+              [attr.title]="'METEO_FRANCE.FORECAST_CACHE_CLEAR' | translate"
+              [attr.aria-label]="'METEO_FRANCE.FORECAST_CACHE_CLEAR' | translate">
+        <i class="fa"
+           [class.fa-trash-o]="!clearingForecastCache"
+           [class.fa-spinner]="clearingForecastCache"
+           [class.fa-spin]="clearingForecastCache"
+           aria-hidden="true"></i>
+        <span class="d-none d-md-inline">{{ 'METEO_FRANCE.FORECAST_CACHE_CLEAR' | translate }}</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="forecast-tab-loading-panel" *ngIf="loading" role="status" aria-live="polite">
+    <div class="forecast-tab-loading-inner">
+      <i class="fa fa-spinner fa-spin forecast-tab-loading-spinner" aria-hidden="true"></i>
+      <span>{{ 'METEO_FRANCE.ARPEGE_LOADING' | translate }}</span>
+    </div>
+  </div>
+
+  <div *ngIf="authValid">
+
+    <div class="meteo-france-map-shell aromepi-map-shell arpege-map-shell mf-map-shell--arpege"
+         #mapShell
+         [class.meteo-france-map-shell--fullscreen]="mapFullscreen">
+
+      <div class="aromepi-map-loading-overlay"
+           *ngIf="loading"
+           role="status" aria-live="polite">
+        <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+        <span>{{ 'METEO_FRANCE.ARPEGE_LOADING' | translate }}</span>
+      </div>
+
+      <div class="mf-map-alert"
+           *ngIf="displayStatusMessageKey && !loading"
+           role="alert">
+        <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+        <div class="mf-map-alert-body">
+          <span *ngIf="wmsThrottled; else arpegeStatusMsg">
+            {{ displayStatusMessageKey | translate: { seconds: wmsRetryAfterSeconds } }}
+          </span>
+          <ng-template #arpegeStatusMsg>
+            <span>{{ displayStatusMessageKey | translate }}</span>
+          </ng-template>
+          <a class="mf-map-alert-link"
+             href="https://portail-api.meteofrance.fr/web/fr/api/ARPEGE"
+             target="_blank"
+             rel="noopener noreferrer">
+            {{ 'METEO_FRANCE.MF_API_PORTAL_LINK' | translate }}
+            <i class="fa fa-external-link" aria-hidden="true"></i>
+          </a>
+        </div>
+        <button type="button"
+                class="btn btn-sm btn-light mf-map-alert-action"
+                (click)="activate()"
+                [attr.title]="'METEO_FRANCE.AROMEPI_REFRESH_LAYER' | translate">
+          <i class="fa fa-refresh" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="meteo-france-map-corner-actions">
+        <button type="button"
+                class="btn btn-sm btn-light meteo-france-map-trace-viewer-btn shadow-sm"
+                (click)="openMapInTraceViewer()"
+                [attr.title]="'METEO_FRANCE.OPEN_IN_TRACE_VIEWER' | translate"
+                [attr.aria-label]="'METEO_FRANCE.OPEN_IN_TRACE_VIEWER' | translate">
+          <i class="fa fa-map" aria-hidden="true"></i>
+          <span class="meteo-france-map-trace-viewer-label">
+            {{ 'METEO_FRANCE.OPEN_IN_TRACE_VIEWER' | translate }}
+          </span>
+        </button>
+        <button type="button"
+                class="btn btn-sm btn-light meteo-france-map-fullscreen-btn shadow-sm"
+                (click)="toggleMapFullscreen()"
+                [attr.title]="(mapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate"
+                [attr.aria-label]="(mapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate">
+          <i class="fa" [class.fa-compress]="mapFullscreen" [class.fa-expand]="!mapFullscreen"></i>
+          <span class="meteo-france-map-fullscreen-label">
+            {{ (mapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate }}
+          </span>
+        </button>
+      </div>
+
+      <div class="aromepi-layer-overlay"
+           *ngIf="mapFullscreen && !loading && layers.length">
+        <div class="arpege-domain-controls mb-2">
+          <div class="aromepi-controls aromepi-controls--compact">
+            <label class="form-label small mb-0">{{ 'METEO_FRANCE.ARPEGE_DOMAIN' | translate }}</label>
+            <select class="form-select form-select-sm"
+                    [ngModel]="selectedDomain"
+                    (ngModelChange)="onDomainChange($event)">
+              <option *ngFor="let d of domains" [value]="d.id">{{ d.label }}</option>
+            </select>
+          </div>
+          <div class="aromepi-controls aromepi-controls--compact" *ngIf="showElevationControl">
+            <label class="form-label small mb-0">{{ 'METEO_FRANCE.ARPEGE_ELEVATION' | translate }}</label>
+            <select class="form-select form-select-sm"
+                    [ngModel]="selectedElevation"
+                    (ngModelChange)="onElevationChange($event)">
+              <option *ngFor="let elev of elevations" [value]="elev">{{ elev }} m</option>
+            </select>
+          </div>
+        </div>
+        <ng-container *ngTemplateOutlet="arpegeLayerControls; context: { compact: true }"></ng-container>
+        <ng-container *ngTemplateOutlet="arpegeOpacityControl; context: { compact: true }"></ng-container>
+      </div>
+
+      <div id="meteo-france-arpege-map" class="meteo-france-map arpege-map"></div>
+
+      <div class="aromepi-forecast-clock"
+           *ngIf="!loading && currentTime"
+           [attr.title]="formatTime(currentTime) + ' · ' + formatOffsetMinutes(currentOffsetMinutes, true)"
+           aria-live="polite">
+        <span class="aromepi-forecast-clock-time">{{ formatClockTime(currentTime) }}</span>
+        <span class="aromepi-forecast-clock-offset">{{ formatOffsetMinutes(currentOffsetMinutes, true) }}</span>
+      </div>
+
+      <div class="mf-map-cache-badge"
+           *ngIf="tilesCacheKnown && !loading"
+           [class.mf-map-cache-badge--cached]="tilesFromCache"
+           [class.mf-map-cache-badge--live]="!tilesFromCache"
+           [attr.title]="(tilesFromCache
+             ? 'METEO_FRANCE.FORECAST_MAP_CACHE_HINT'
+             : 'METEO_FRANCE.FORECAST_MAP_LIVE_HINT') | translate: {
+               ttl: forecastCacheTtlMinutes ?? '—'
+             }">
+        <i class="fa" [class.fa-database]="tilesFromCache" [class.fa-bolt]="!tilesFromCache" aria-hidden="true"></i>
+        {{ (tilesFromCache ? 'METEO_FRANCE.FORECAST_MAP_CACHE' : 'METEO_FRANCE.FORECAST_MAP_LIVE') | translate }}
+      </div>
+
+      <div class="aromepi-time-controls" *ngIf="!loading && timeSteps.length">
+        <div class="aromepi-time-compact-row">
+          <div class="aromepi-time-actions">
+            <button type="button" class="btn btn-sm btn-outline-primary aromepi-time-btn"
+                    (click)="togglePlayback()"
+                    [disabled]="timeSteps.length < 2"
+                    [attr.title]="(playing ? 'METEO_FRANCE.AROMEPI_PAUSE' : 'METEO_FRANCE.AROMEPI_PLAY') | translate"
+                    [attr.aria-label]="(playing ? 'METEO_FRANCE.AROMEPI_PAUSE' : 'METEO_FRANCE.AROMEPI_PLAY') | translate">
+              <i class="fa" [class.fa-pause]="playing" [class.fa-play]="!playing"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary aromepi-time-btn"
+                    (click)="onStepFrame(-1)"
+                    [disabled]="frameIndex === 0"
+                    [attr.title]="'METEO_FRANCE.AROMEPI_STEP_BACK' | translate"
+                    [attr.aria-label]="'METEO_FRANCE.AROMEPI_STEP_BACK' | translate">
+              <i class="fa fa-step-backward"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary aromepi-time-btn"
+                    (click)="onStepFrame(1)"
+                    [disabled]="frameIndex >= timeSteps.length - 1"
+                    [attr.title]="'METEO_FRANCE.AROMEPI_STEP_FORWARD' | translate"
+                    [attr.aria-label]="'METEO_FRANCE.AROMEPI_STEP_FORWARD' | translate">
+              <i class="fa fa-step-forward"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary aromepi-time-btn"
+                    (click)="onFrameIndexChange(0)"
+                    [disabled]="frameIndex === 0"
+                    [attr.title]="'METEO_FRANCE.AROMEPI_RESET' | translate"
+                    [attr.aria-label]="'METEO_FRANCE.AROMEPI_RESET' | translate">
+              <i class="fa fa-fast-backward"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary aromepi-time-btn"
+                    (click)="activate()"
+                    [disabled]="!selectedLayer || loading"
+                    [attr.title]="'METEO_FRANCE.AROMEPI_REFRESH_LAYER' | translate"
+                    [attr.aria-label]="'METEO_FRANCE.AROMEPI_REFRESH_LAYER' | translate">
+              <i class="fa fa-refresh" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="aromepi-time-meta">
+            <span class="aromepi-time-meta-primary">
+              {{ formatTime(currentTime) }}
+              <span class="aromepi-time-meta-offset">{{ formatOffsetMinutes(currentOffsetMinutes, true) }}</span>
+            </span>
+            <span class="aromepi-time-meta-detail">
+              {{ 'METEO_FRANCE.AROMEPI_TIME_BAND_FRAME' | translate: {
+                current: frameIndex + 1,
+                total: timeSteps.length
+              } }}
+              · {{ 'METEO_FRANCE.FORECAST_HORIZON_LABEL' | translate }}
+              {{ horizonMinutes }} {{ 'METEO_FRANCE.FORECAST_MINUTES_UNIT' | translate }}
+              · {{ 'METEO_FRANCE.FORECAST_STEP_LABEL' | translate }}
+              {{ stepMinutes }} {{ 'METEO_FRANCE.FORECAST_MINUTES_UNIT' | translate }}
+              <ng-container *ngIf="referenceTime">
+                · {{ 'METEO_FRANCE.AROMEPI_TIME_BAND_REF' | translate: {
+                  time: formatTime(referenceTime)
+                } }}
+              </ng-container>
+            </span>
+          </div>
+          <div class="aromepi-time-slider-wrap">
+            <input type="range" class="form-range aromepi-time-slider"
+                   [min]="0" [max]="timeSteps.length - 1" step="1"
+                   [value]="frameIndex"
+                   (input)="onFrameSliderInput($event)"
+                   [attr.aria-label]="'METEO_FRANCE.ARPEGE_FORECAST_TABLE' | translate" />
+            <div class="aromepi-time-range">
+              <span [attr.title]="'METEO_FRANCE.ARPEGE_RANGE_START' | translate">{{ formatOffsetMinutes(minOffsetMinutes) }}</span>
+              <span class="aromepi-time-range-current">{{ formatOffsetMinutes(currentOffsetMinutes) }}</span>
+              <span [attr.title]="'METEO_FRANCE.ARPEGE_RANGE_END' | translate">{{ formatOffsetMinutes(maxOffsetMinutes) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="aromepi-map-meta mt-2" *ngIf="!loading && !mapFullscreen">
+      <div class="arpege-domain-controls mb-2">
+        <div class="aromepi-controls">
+          <label class="form-label small mb-0">{{ 'METEO_FRANCE.ARPEGE_DOMAIN' | translate }}</label>
+          <select class="form-select form-select-sm"
+                  [ngModel]="selectedDomain"
+                  (ngModelChange)="onDomainChange($event)">
+            <option *ngFor="let d of domains" [value]="d.id">{{ d.label }}</option>
+          </select>
+        </div>
+        <div class="aromepi-controls" *ngIf="referenceTimes.length">
+          <label class="form-label small mb-0">{{ 'METEO_FRANCE.ARPEGE_RUN' | translate }}</label>
+          <select class="form-select form-select-sm"
+                  [ngModel]="referenceTime"
+                  (ngModelChange)="onReferenceRunChange($event)">
+            <option *ngFor="let run of referenceTimes" [value]="run">{{ formatTime(run) }}</option>
+          </select>
+        </div>
+        <div class="aromepi-controls" *ngIf="showElevationControl">
+          <label class="form-label small mb-0">{{ 'METEO_FRANCE.ARPEGE_ELEVATION' | translate }}</label>
+          <select class="form-select form-select-sm"
+                  [ngModel]="selectedElevation"
+                  (ngModelChange)="onElevationChange($event)">
+            <option *ngFor="let elev of elevations" [value]="elev">{{ elev }} m</option>
+          </select>
+        </div>
+      </div>
+      <ng-container *ngTemplateOutlet="arpegeLayerControls"></ng-container>
+      <ng-container *ngTemplateOutlet="arpegeOpacityControl"></ng-container>
+      <p class="text-muted small mb-1">
+        {{ 'METEO_FRANCE.ARPEGE_HINT' | translate }}
+        <a href="https://portail-api.meteofrance.fr/web/fr/api/ARPEGE"
+           target="_blank" rel="noopener noreferrer" class="ms-1">
+          {{ 'METEO_FRANCE.MF_API_PORTAL_LINK' | translate }}
+          <i class="fa fa-external-link" aria-hidden="true"></i>
+        </a>
+      </p>
+      <p class="text-muted small mb-1">{{ 'METEO_FRANCE.ARPEGE_CLICK_HINT' | translate }}</p>
+      <p class="forecast-data-location text-muted small mb-0" *ngIf="locationLabel || locationCoords">
+        <i class="fa fa-map-marker" aria-hidden="true"></i>
+        {{ 'METEO_FRANCE.FORECAST_DATA_FOR' | translate }}
+        <strong>{{ locationLabel || locationCoords }}</strong>
+        <span *ngIf="locationLabel && locationCoords"> · {{ locationCoords }}</span>
+      </p>
+    </div>
+
+    <div *ngIf="!loading">
+      <div class="aromepi-forecast-panel mt-3">
+        <button type="button" class="btn btn-link btn-sm px-0"
+                (click)="showForecastTable = !showForecastTable">
+          <i class="fa" [class.fa-chevron-down]="!showForecastTable" [class.fa-chevron-up]="showForecastTable"></i>
+          {{ (showForecastTable ? 'METEO_FRANCE.CLIM_HIDE_TABLE' : 'METEO_FRANCE.CLIM_SHOW_TABLE') | translate }}
+        </button>
+
+        <ng-container *ngIf="showForecastTable">
+          <div class="d-flex align-items-center justify-content-between mb-2 mt-1">
+            <h4 class="h6 mb-0">{{ 'METEO_FRANCE.ARPEGE_FORECAST_TABLE' | translate }}</h4>
+            <button type="button" class="btn btn-outline-secondary btn-sm"
+                    (click)="reloadPointForecast()"
+                    [disabled]="pointForecastLoading">
+              <i class="fa" [class.fa-refresh]="!pointForecastLoading" [class.fa-spinner]="pointForecastLoading" [class.fa-spin]="pointForecastLoading"></i>
+              {{ 'METEO_FRANCE.REFRESH' | translate }}
+            </button>
+          </div>
+
+          <div class="forecast-tab-loading-panel" *ngIf="pointForecastLoading" role="status" aria-live="polite">
+            <div class="forecast-tab-loading-inner">
+              <i class="fa fa-spinner fa-spin forecast-tab-loading-spinner" aria-hidden="true"></i>
+              <span>{{ 'METEO_FRANCE.ARPEGE_FORECAST_LOADING' | translate }}</span>
+            </div>
+          </div>
+
+          <div class="table-responsive" *ngIf="!pointForecastLoading && pointForecastSteps.length">
+            <table class="table table-sm table-striped aromepi-forecast-table">
+              <thead>
+                <tr>
+                  <th>{{ 'METEO_FRANCE.AROMEPI_COL_OFFSET' | translate }}</th>
+                  <th>{{ 'METEO_FRANCE.AROMEPI_COL_TIME' | translate }}</th>
+                  <th *ngFor="let layer of pointForecastLayers">{{ formatLayerLabel(layer) }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let step of pointForecastSteps">
+                  <td>{{ formatOffsetMinutes(step.offsetMinutes) }}</td>
+                  <td>{{ formatTime(step.time) }}</td>
+                  <td *ngFor="let layer of pointForecastLayers">
+                    {{ formatPointValue(layer, step.values?.[layer]) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </ng-container>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<ng-template #arpegeLayerControls let-compact="compact">
+  <div class="aromepi-controls" [class.mb-2]="!compact" [class.aromepi-controls--compact]="compact" *ngIf="layers.length">
+    <label class="form-label small mb-0">{{ 'METEO_FRANCE.ARPEGE_LAYER' | translate }}</label>
+    <select class="form-select form-select-sm aromepi-layer-select"
+            [ngModel]="selectedLayer"
+            (ngModelChange)="onLayerSelect($event)">
+      <optgroup *ngIf="cloudLayers.length" [label]="'METEO_FRANCE.AROMEPI_CAT_CLOUD' | translate">
+        <option *ngFor="let layer of cloudLayers" [value]="layer.name">
+          {{ formatLayerLabel(layer.name) }}
+        </option>
+      </optgroup>
+      <optgroup *ngIf="precipLayers.length" [label]="'METEO_FRANCE.AROMEPI_CAT_PRECIPITATION' | translate">
+        <option *ngFor="let layer of precipLayers" [value]="layer.name">
+          {{ formatLayerLabel(layer.name) }}
+        </option>
+      </optgroup>
+      <optgroup *ngIf="tempLayers.length" [label]="'METEO_FRANCE.AROMEPI_CAT_TEMPERATURE' | translate">
+        <option *ngFor="let layer of tempLayers" [value]="layer.name">
+          {{ formatLayerLabel(layer.name) }}
+        </option>
+      </optgroup>
+      <optgroup *ngIf="otherLayers.length" [label]="'METEO_FRANCE.AROMEPI_CAT_OTHER' | translate">
+        <option *ngFor="let layer of otherLayers" [value]="layer.name">
+          {{ formatLayerLabel(layer.name) }}
+        </option>
+      </optgroup>
+    </select>
+  </div>
+</ng-template>
+
+<ng-template #arpegeOpacityControl let-compact="compact">
+  <div class="aromepi-opacity-row" [class.mb-2]="!compact" [class.mt-2]="compact">
+    <label class="form-label small mb-0">{{ 'METEO_FRANCE.RADAR_OPACITY' | translate }}</label>
+    <input type="range" class="form-range" min="0.1" max="1" step="0.05"
+           [(ngModel)]="opacity" (ngModelChange)="onOpacityChange()" />
+  </div>
+</ng-template>
+
+<app-trace-viewer-modal></app-trace-viewer-modal>

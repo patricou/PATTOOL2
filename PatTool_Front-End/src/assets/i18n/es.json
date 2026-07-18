@@ -1,4 +1,4 @@
-﻿{
+{
     "LANGUAGE": {
         "FR": "FrancÂs",
         "EN": "InglÂs",
@@ -2819,6 +2819,7 @@
         "RADAR_TITLE": "Mapa radar",
         "MAP_FULLSCREEN": "Pantalla completa",
         "MAP_EXIT_FULLSCREEN": "Salir de pantalla completa",
+        "OPEN_IN_TRACE_VIEWER": "Abrir en Trace Viewer",
         "MAP_CENTER_USER": "Centrar en mi posición",
         "MAP_CENTER_USER_SHORT": "Mi posición GPS",
         "TAB_RADAR": "Temperatura y radar",
@@ -2831,6 +2832,7 @@
         "MS_HIST_NO_DATA": "Sin datos para el periodo solicitado.",
         "MS_HIST_COL_TIME": "Fecha / hora",
         "TAB_AROMEPI": "Previsiones MF (3 h)",
+        "TAB_ARPEGE": "Previsiones MF ARPEGE",
         "TAB_SELECT_LABEL": "Onglet",
         "TAB_FORECAST_OWM": "PrevisiÃ³n OWM",
         "TAB_FORECAST_OM": "PrevisiÃ³n Open-Meteo",
@@ -3108,6 +3110,15 @@
         "CLIM_LOAD_ERROR": "No se pudieron cargar los datos climatolÃ³gicos pour cette pÃ©riode ou cette station.",
         "CLIM_NO_DATA": "Aucune donnÃ©e sur la pÃ©riode demaÃ±odÃ©e.",
         "CLIM_HINT": "Archivos oficiales DPClim (CSV). Abonnement Â« DonnÃ©es Climatologiques Â» + clÃ© meteofraÃ±oce.clim.api.token (diffÃ©rente de la clÃ© radar).",
+        "ARPEGE_TITLE": "Previsiones ARPEGE (Météo-France)",
+        "ARPEGE_HINT": "Previsiones ARPEGE (Météo-France)",
+        "ARPEGE_NOT_CONFIGURED": "ARPEGE: set meteofrance.arpege.api.token",
+        "ARPEGE_INVALID_TOKEN": "ARPEGE API key rejected (401).",
+        "ARPEGE_LOADING": "Loading ARPEGE…",
+        "ARPEGE_LOAD_ERROR": "ARPEGE capabilities failed.",
+        "ARPEGE_LAYER": "Layer",
+        "ARPEGE_FORECAST_TABLE": "Point forecast",
+        "ARPEGE_FORECAST_LOADING": "Loading…",
         "AROMEPI_TITLE": "PrevisiÃ³n nowcasting AROME-PI (MÃ©tÃ©o-France)",
         "AROMEPI_HINT": "Modelo de alta resoluciÃ³n MÃ©tÃ©o-France: previsiÃ³n de 0 a 3 h en pasos de 15 min. Mapa WMS animado (nubes, precipitaciones, etc.) y valores en el punto seleccionado.",
         "AROMEPI_NOT_CONFIGURED": "AROME-PI no disponible: suscrÃ­base a la API Â« AROMEPI 1.0 Â» en portail-api.meteofrance.fr y configure meteofrance.aromepi.api.token (clave distinta del radar, clima y observaciones).",

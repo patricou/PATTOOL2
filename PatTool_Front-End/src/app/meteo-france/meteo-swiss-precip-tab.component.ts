@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ApiService } from '../services/api.service';
 import { LeafletBasemapOption, LeafletBasemapService } from '../shared/leaflet-basemap.service';
+import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 import * as L from 'leaflet';
 import { Subscription } from 'rxjs';
 
@@ -16,7 +17,7 @@ interface MsPrecipFrame {
 @Component({
   selector: 'app-meteo-swiss-precip-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule],
+  imports: [CommonModule, FormsModule, TranslateModule, TraceViewerModalComponent],
   templateUrl: './meteo-swiss-precip-tab.component.html',
   styleUrls: ['./meteo-swiss-precip-tab.component.css', './meteo-france-maps.shared.css']
 })
@@ -32,6 +33,7 @@ export class MeteoSwissPrecipTabComponent implements OnInit, OnChanges, OnDestro
   @Input() active = false;
 
   @ViewChild('mapShell') mapShell?: ElementRef<HTMLElement>;
+  @ViewChild(TraceViewerModalComponent) traceViewerModalComponent?: TraceViewerModalComponent;
 
   mapFullscreen = false;
   loading = false;
@@ -119,6 +121,34 @@ export class MeteoSwissPrecipTabComponent implements OnInit, OnChanges, OnDestro
     request?.().catch(() => {
       this.mapFullscreen = true;
       this.refreshMapLayoutAfterResize();
+    });
+  }
+
+  openMapInTraceViewer(): void {
+    if (!this.traceViewerModalComponent) {
+      return;
+    }
+    let lat: number;
+    let lon: number;
+    let zoom: number;
+    if (this.map) {
+      const center = this.map.getCenter();
+      lat = center.lat;
+      lon = center.lng;
+      zoom = this.map.getZoom();
+    } else {
+      const center = MeteoSwissPrecipTabComponent.CH_CENTER as [number, number];
+      lat = center[0];
+      lon = center[1];
+      zoom = MeteoSwissPrecipTabComponent.CH_ZOOM;
+    }
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      return;
+    }
+    const label = this.translate.instant('METEO_FRANCE.MS_PRECIP_TITLE');
+    this.traceViewerModalComponent.openAtLocation(lat, lon, label, undefined, false, false, {
+      zoom,
+      initialBaseLayerId: this.mapBaseLayerId
     });
   }
 

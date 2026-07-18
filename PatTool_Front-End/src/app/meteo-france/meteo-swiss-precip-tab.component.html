@@ -66,16 +66,28 @@
   <div class="meteo-france-map-shell ms-precip-map-shell mf-map-shell--ms-precip mb-2"
        #mapShell
        [class.meteo-france-map-shell--fullscreen]="mapFullscreen">
-    <button type="button"
-            class="btn btn-sm btn-light meteo-france-map-fullscreen-btn shadow-sm"
-            (click)="toggleMapFullscreen()"
-            [attr.title]="(mapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate"
-            [attr.aria-label]="(mapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate">
-      <i class="fa" [class.fa-expand]="!mapFullscreen" [class.fa-compress]="mapFullscreen"></i>
-      <span class="meteo-france-map-fullscreen-label">
-        {{ (mapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate }}
-      </span>
-    </button>
+    <div class="meteo-france-map-corner-actions">
+      <button type="button"
+              class="btn btn-sm btn-light meteo-france-map-trace-viewer-btn shadow-sm"
+              (click)="openMapInTraceViewer()"
+              [attr.title]="'METEO_FRANCE.OPEN_IN_TRACE_VIEWER' | translate"
+              [attr.aria-label]="'METEO_FRANCE.OPEN_IN_TRACE_VIEWER' | translate">
+        <i class="fa fa-map" aria-hidden="true"></i>
+        <span class="meteo-france-map-trace-viewer-label">
+          {{ 'METEO_FRANCE.OPEN_IN_TRACE_VIEWER' | translate }}
+        </span>
+      </button>
+      <button type="button"
+              class="btn btn-sm btn-light meteo-france-map-fullscreen-btn shadow-sm"
+              (click)="toggleMapFullscreen()"
+              [attr.title]="(mapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate"
+              [attr.aria-label]="(mapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate">
+        <i class="fa" [class.fa-expand]="!mapFullscreen" [class.fa-compress]="mapFullscreen"></i>
+        <span class="meteo-france-map-fullscreen-label">
+          {{ (mapFullscreen ? 'METEO_FRANCE.MAP_EXIT_FULLSCREEN' : 'METEO_FRANCE.MAP_FULLSCREEN') | translate }}
+        </span>
+      </button>
+    </div>
     <div id="meteo-swiss-precip-map" class="meteo-france-map ms-precip-map"></div>
   </div>
 
@@ -135,3 +147,5 @@
     </span>
   </div>
 </div>
+
+<app-trace-viewer-modal></app-trace-viewer-modal>

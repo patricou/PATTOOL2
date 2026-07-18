@@ -1,4 +1,4 @@
-﻿{
+{
     "LANGUAGE": {
         "FR": "Ø§ÙÙØ±ÙØ³ÙØ©",
         "EN": "Ø§ÙØ¥ÙØ¬ÙÙØ²ÙØ©",
@@ -2803,6 +2803,7 @@
         "RADAR_TITLE": "خريطة الرادار",
         "MAP_FULLSCREEN": "ملء الشاشة",
         "MAP_EXIT_FULLSCREEN": "الخروج من ملء الشاشة",
+        "OPEN_IN_TRACE_VIEWER": "فتح في عارض التتبع",
         "MAP_CENTER_USER": "توسيط على موقعي",
         "MAP_CENTER_USER_SHORT": "موقعي GPS",
         "TAB_RADAR": "درجة الحرارة والرادار",
@@ -2815,6 +2816,7 @@
         "MS_HIST_NO_DATA": "لا توجد بيانات للفترة المطلوبة.",
         "MS_HIST_COL_TIME": "التاريخ / الوقت",
         "TAB_AROMEPI": "توقعات MF (3 س)",
+        "TAB_ARPEGE": "توقعات MF ARPEGE",
         "TAB_SELECT_LABEL": "Onglet",
         "TAB_FORECAST_OWM": "التوقعات OWM",
         "TAB_FORECAST_OM": "التوقعات Open-Meteo",
@@ -3092,6 +3094,15 @@
         "CLIM_LOAD_ERROR": "Impossible de charger les données climatologiques pour cette période ou cette station.",
         "CLIM_NO_DATA": "Aucune donnée sur la période demandée.",
         "CLIM_HINT": "Archives officielles DPClim (CSV). Abonnement « Données Climatologiques » + clé meteofrance.clim.api.token (différente de la clé radar).",
+        "ARPEGE_TITLE": "توقعات ARPEGE (Météo-France)",
+        "ARPEGE_HINT": "توقعات ARPEGE (Météo-France)",
+        "ARPEGE_NOT_CONFIGURED": "ARPEGE: set meteofrance.arpege.api.token",
+        "ARPEGE_INVALID_TOKEN": "ARPEGE API key rejected (401).",
+        "ARPEGE_LOADING": "Loading ARPEGE…",
+        "ARPEGE_LOAD_ERROR": "ARPEGE capabilities failed.",
+        "ARPEGE_LAYER": "Layer",
+        "ARPEGE_FORECAST_TABLE": "Point forecast",
+        "ARPEGE_FORECAST_LOADING": "Loading…",
         "AROMEPI_TITLE": "توقعات nowcasting AROME-PI (Météo-France)",
         "AROMEPI_HINT": "نموذج Météo-France عالي الدقة: توقعات 0–3 س بخطوات 15 دقيقة. خريطة WMS متحركة (سحب، هطول، إلخ) وقيم عند النقطة المحددة.",
         "AROMEPI_NOT_CONFIGURED": "AROME-PI غير متاح: اشترك في API « AROMEPI 1.0 » على portail-api.meteofrance.fr ثم عيّن meteofrance.aromepi.api.token (مفتاح منفصل عن الرادار والمناخ والملاحظات).",

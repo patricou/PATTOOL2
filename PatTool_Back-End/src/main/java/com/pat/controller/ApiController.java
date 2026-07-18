@@ -2,6 +2,7 @@ package com.pat.controller;
 
 import com.pat.controller.dto.MeteoFranceAromepiPlaybackPreferenceDto;
 import com.pat.controller.dto.MeteoFranceHistoryCachePreferenceDto;
+import com.pat.controller.dto.MeteoFranceForecastCachePreferenceDto;
 import com.pat.controller.dto.MeteoFranceForecastPreferenceDto;
 import com.pat.controller.dto.MeteoFranceRadarPreferenceDto;
 import com.pat.controller.dto.MeteoFranceTemperatureCachePreferenceDto;
@@ -10,10 +11,12 @@ import com.pat.controller.dto.TraceViewerPreferenceDto;
 import com.pat.service.GeocodeService;
 import com.pat.service.IpGeolocationService;
 import com.pat.service.MeteoFranceAromepiService;
+import com.pat.service.MeteoFranceArpegeService;
 import com.pat.service.MeteoFranceClimService;
 import com.pat.service.MeteoFranceAromepiPlaybackPreferenceService;
 import com.pat.service.MeteoFranceHistoryCachePreferenceService;
 import com.pat.service.MeteoFranceObsService;
+import com.pat.service.MeteoFranceForecastCachePreferenceService;
 import com.pat.service.MeteoFranceForecastPreferenceService;
 import com.pat.service.MeteoFranceRadarRefreshPreferenceService;
 import com.pat.service.MeteoFranceRadarService;
@@ -80,6 +83,9 @@ public class ApiController {
     private MeteoFranceAromepiService meteoFranceAromepiService;
 
     @Autowired
+    private MeteoFranceArpegeService meteoFranceArpegeService;
+
+    @Autowired
     private MeteoSwissForecastService meteoSwissForecastService;
 
     @Autowired
@@ -93,6 +99,9 @@ public class ApiController {
 
     @Autowired
     private MeteoFranceTemperatureCachePreferenceService meteoFranceTemperatureCachePreferenceService;
+
+    @Autowired
+    private MeteoFranceForecastCachePreferenceService meteoFranceForecastCachePreferenceService;
 
     @Autowired
     private MeteoFranceHistoryCachePreferenceService meteoFranceHistoryCachePreferenceService;
@@ -793,6 +802,7 @@ public class ApiController {
         status.putAll(meteoFranceClimService.getStatusFragment());
         status.putAll(meteoFranceObsService.getStatusFragment());
         status.putAll(meteoFranceAromepiService.getStatusFragment());
+        status.putAll(meteoFranceArpegeService.getStatusFragment());
         status.putAll(meteoSwissObsService.getStatusFragment());
         status.put("openWeatherConfigured", openWeatherService.isApiKeyConfigured());
         return status;
@@ -902,6 +912,53 @@ public class ApiController {
         result.put("cleared", true);
         result.put("mfCacheEntries", mfEntries);
         result.put("openMeteoCacheEntries", openMeteoEntries);
+        return result;
+    }
+
+    /** Per-user AROME-PI / ARPEGE forecast cache TTL (MongoDB appParameters). */
+    @GetMapping(value = "/meteofrance/forecast/cache/preferences", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<MeteoFranceForecastCachePreferenceDto> getMeteoFranceForecastCachePreferences() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(meteoFranceForecastCachePreferenceService.readForSubject(sub));
+    }
+
+    @PutMapping(value = "/meteofrance/forecast/cache/preferences", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> setMeteoFranceForecastCachePreferences(
+            @RequestBody MeteoFranceForecastCachePreferenceDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (!hasAdminRole()) {
+            return adminForbidden();
+        }
+        if (body == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            MeteoFranceForecastCachePreferenceDto saved = meteoFranceForecastCachePreferenceService.saveForSubject(
+                    sub, body.forecastCacheMinutes());
+            return ResponseEntity.ok(saved);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /** Clears in-memory AROME-PI + ARPEGE forecast caches (tiles, capabilities, point series). */
+    @PostMapping(value = "/meteofrance/forecast/cache/clear", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> clearMeteoFranceForecastCaches() {
+        Map<String, Object> result = new LinkedHashMap<>();
+        Map<String, Object> aromepi = meteoFranceAromepiService.clearForecastCaches();
+        Map<String, Object> arpege = meteoFranceArpegeService.clearForecastCaches();
+        result.put("cleared", true);
+        result.put("aromepi", aromepi);
+        result.put("arpege", arpege);
+        int total = ((Number) aromepi.getOrDefault("totalEntries", 0)).intValue()
+                + ((Number) arpege.getOrDefault("totalEntries", 0)).intValue();
+        result.put("totalEntries", total);
         return result;
     }
 
@@ -1112,11 +1169,13 @@ public class ApiController {
     }
 
     /**
-     * AROME-PI WMS capabilities (layers, time steps, reference runs).
+     * AROME-PI WMS capabilities (layers, time steps, reference runs, elevations, domains).
      */
     @GetMapping(value = "/meteofrance/aromepi/capabilities", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Map<String, Object> getMeteoFranceAromepiCapabilities() {
-        return meteoFranceAromepiService.getCapabilities();
+    public Map<String, Object> getMeteoFranceAromepiCapabilities(
+            @RequestParam(value = "domain", required = false) String domain,
+            @RequestParam(value = "referenceTime", required = false) String referenceTime) {
+        return meteoFranceAromepiService.getCapabilities(domain, referenceTime);
     }
 
     /**
@@ -1128,7 +1187,7 @@ public class ApiController {
     }
 
     /**
-     * AROME-PI WMS tile proxy (EPSG:4326 slippy tile, TIME + DIM_REFERENCE_TIME).
+     * AROME-PI WMS tile proxy (EPSG:4326 slippy tile, TIME + dim_reference_time + optional ELEVATION).
      */
     @GetMapping(value = "/meteofrance/aromepi/wms/{z}/{x}/{y}", produces = {MediaType.IMAGE_PNG_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
     public ResponseEntity<byte[]> getMeteoFranceAromepiWmsTile(
@@ -1139,13 +1198,16 @@ public class ApiController {
             @RequestParam("time") String time,
             @RequestParam("referenceTime") String referenceTime,
             @RequestParam(value = "style", required = false) String style,
+            @RequestParam(value = "domain", required = false) String domain,
+            @RequestParam(value = "elevation", required = false) String elevation,
             @RequestParam(value = "width", defaultValue = "256") int width,
             @RequestParam(value = "height", defaultValue = "256") int height) {
-        return meteoFranceAromepiService.getWmsTile(z, x, y, layer, style, time, referenceTime, width, height);
+        return meteoFranceAromepiService.getWmsTile(
+                z, x, y, layer, style, time, referenceTime, domain, elevation, width, height);
     }
 
     /**
-     * AROME-PI WMS GetFeatureInfo at a point (current forecast step).
+     * AROME-PI WMS GetFeatureInfo / Open-Meteo value at a point (current forecast step).
      */
     @GetMapping(value = "/meteofrance/aromepi/featureinfo", produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> getMeteoFranceAromepiFeatureInfo(
@@ -1154,19 +1216,91 @@ public class ApiController {
             @RequestParam("layer") String layer,
             @RequestParam("time") String time,
             @RequestParam("referenceTime") String referenceTime,
-            @RequestParam(value = "style", required = false) String style) {
-        return meteoFranceAromepiService.getFeatureInfo(lat, lon, layer, style, time, referenceTime, 256, 256);
+            @RequestParam(value = "style", required = false) String style,
+            @RequestParam(value = "domain", required = false) String domain,
+            @RequestParam(value = "elevation", required = false) String elevation) {
+        return meteoFranceAromepiService.getFeatureInfo(
+                lat, lon, layer, style, time, referenceTime, domain, elevation, 256, 256);
     }
 
     /**
-     * AROME-PI point forecast timeline (GetFeatureInfo on each 15 min step).
+     * AROME-PI point forecast timeline (Open-Meteo meteofrance_seamless minutely_15).
      */
     @GetMapping(value = "/meteofrance/aromepi/point-forecast", produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> getMeteoFranceAromepiPointForecast(
             @RequestParam("lat") double lat,
             @RequestParam("lon") double lon,
             @RequestParam(value = "referenceTime", required = false) String referenceTime,
+            @RequestParam(value = "domain", required = false) String domain,
             @RequestParam(value = "layers", required = false) List<String> layers) {
-        return meteoFranceAromepiService.getPointForecast(lat, lon, layers, referenceTime);
+        return meteoFranceAromepiService.getPointForecast(lat, lon, layers, referenceTime, domain);
+    }
+
+    /**
+     * ARPEGE WMS capabilities (layers, time steps, reference runs, elevations, domains).
+     */
+    @GetMapping(value = "/meteofrance/arpege/capabilities", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getMeteoFranceArpegeCapabilities(
+            @RequestParam(value = "domain", required = false) String domain,
+            @RequestParam(value = "referenceTime", required = false) String referenceTime) {
+        return meteoFranceArpegeService.getCapabilities(domain, referenceTime);
+    }
+
+    /**
+     * Current ARPEGE WMS throttle window (429 backoff) — for map banners.
+     */
+    @GetMapping(value = "/meteofrance/arpege/throttle", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getMeteoFranceArpegeThrottle() {
+        return meteoFranceArpegeService.getThrottleStatus();
+    }
+
+    /**
+     * ARPEGE WMS tile proxy (EPSG:4326 slippy tile, TIME + reference_time + optional ELEVATION).
+     */
+    @GetMapping(value = "/meteofrance/arpege/wms/{z}/{x}/{y}", produces = {MediaType.IMAGE_PNG_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
+    public ResponseEntity<byte[]> getMeteoFranceArpegeWmsTile(
+            @PathVariable("z") int z,
+            @PathVariable("x") int x,
+            @PathVariable("y") int y,
+            @RequestParam("layer") String layer,
+            @RequestParam("time") String time,
+            @RequestParam("referenceTime") String referenceTime,
+            @RequestParam(value = "style", required = false) String style,
+            @RequestParam(value = "domain", required = false) String domain,
+            @RequestParam(value = "elevation", required = false) String elevation,
+            @RequestParam(value = "width", defaultValue = "256") int width,
+            @RequestParam(value = "height", defaultValue = "256") int height) {
+        return meteoFranceArpegeService.getWmsTile(
+                z, x, y, layer, style, time, referenceTime, domain, elevation, width, height);
+    }
+
+    /**
+     * ARPEGE WMS GetFeatureInfo / Open-Meteo value at a point (current forecast step).
+     */
+    @GetMapping(value = "/meteofrance/arpege/featureinfo", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getMeteoFranceArpegeFeatureInfo(
+            @RequestParam("lat") double lat,
+            @RequestParam("lon") double lon,
+            @RequestParam("layer") String layer,
+            @RequestParam("time") String time,
+            @RequestParam("referenceTime") String referenceTime,
+            @RequestParam(value = "style", required = false) String style,
+            @RequestParam(value = "domain", required = false) String domain,
+            @RequestParam(value = "elevation", required = false) String elevation) {
+        return meteoFranceArpegeService.getFeatureInfo(
+                lat, lon, layer, style, time, referenceTime, domain, elevation, 256, 256);
+    }
+
+    /**
+     * ARPEGE point forecast timeline (Open-Meteo ARPEGE Europe / World hourly).
+     */
+    @GetMapping(value = "/meteofrance/arpege/point-forecast", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getMeteoFranceArpegePointForecast(
+            @RequestParam("lat") double lat,
+            @RequestParam("lon") double lon,
+            @RequestParam(value = "referenceTime", required = false) String referenceTime,
+            @RequestParam(value = "domain", required = false) String domain,
+            @RequestParam(value = "layers", required = false) List<String> layers) {
+        return meteoFranceArpegeService.getPointForecast(lat, lon, layers, referenceTime, domain);
     }
 }

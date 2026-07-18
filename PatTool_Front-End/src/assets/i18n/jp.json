@@ -1,4 +1,4 @@
-﻿{
+{
     "LANGUAGE": {
         "FR": "ãã©ã³ã¹èª",
         "EN": "è±èª",
@@ -2559,6 +2559,7 @@
         "RADAR_TITLE": "レーダーマップ",
         "MAP_FULLSCREEN": "全画面",
         "MAP_EXIT_FULLSCREEN": "全画面を終了",
+        "OPEN_IN_TRACE_VIEWER": "トレースビューアで開く",
         "MAP_CENTER_USER": "現在地に移動",
         "MAP_CENTER_USER_SHORT": "GPS現在地",
         "TAB_RADAR": "気温とレーダー",
@@ -2571,6 +2572,7 @@
         "MS_HIST_NO_DATA": "要求された期間のデータがありません。",
         "MS_HIST_COL_TIME": "日付 / 時刻",
         "TAB_AROMEPI": "MF予報（3時間）",
+        "TAB_ARPEGE": "MF ARPEGE予報",
         "TAB_SELECT_LABEL": "Onglet",
         "TAB_FORECAST_OWM": "予報 OWM",
         "TAB_FORECAST_OM": "予報 Open-Meteo",
@@ -2848,6 +2850,15 @@
         "CLIM_LOAD_ERROR": "Impossible de charger les données climatologiques pour cette période ou cette station.",
         "CLIM_NO_DATA": "Aucune donnée sur la période demandée.",
         "CLIM_HINT": "Archives officielles DPClim (CSV). Abonnement « Données Climatologiques » + clé meteofrance.clim.api.token (différente de la clé radar).",
+        "ARPEGE_TITLE": "ARPEGE予報（Météo-France）",
+        "ARPEGE_HINT": "ARPEGE予報（Météo-France）",
+        "ARPEGE_NOT_CONFIGURED": "ARPEGE: set meteofrance.arpege.api.token",
+        "ARPEGE_INVALID_TOKEN": "ARPEGE API key rejected (401).",
+        "ARPEGE_LOADING": "Loading ARPEGE…",
+        "ARPEGE_LOAD_ERROR": "ARPEGE capabilities failed.",
+        "ARPEGE_LAYER": "Layer",
+        "ARPEGE_FORECAST_TABLE": "Point forecast",
+        "ARPEGE_FORECAST_LOADING": "Loading…",
         "AROMEPI_TITLE": "AROME-PI ナウキャスティング予報（Météo-France）",
         "AROMEPI_HINT": "Météo-France 高解像度モデル：0〜3時間、15分刻み。アニメーション WMS 地図（雲・降水など）と選択地点の値。",
         "AROMEPI_NOT_CONFIGURED": "AROME-PI 利用不可：portail-api.meteofrance.fr で API « AROMEPI 1.0 » に登録し、meteofrance.aromepi.api.token を設定してください（レーダー・気候・観測とは別キー）。",

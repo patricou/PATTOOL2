@@ -1,4 +1,4 @@
-﻿{
+{
     "LANGUAGE": {
         "FR": "×¦×¨×¤×ª××ª",
         "EN": "×× ××××ª",
@@ -2799,11 +2799,12 @@
     },
     "METEO_FRANCE": {
         "TITLE": "מזג אוויר ותחזיות",
-        "SUBTITLE": "מכ"ם, תצפיות ותחזיות ממקורות מרובים",
+        "SUBTITLE": "מכ\"ם, תצפיות ותחזיות ממקורות מרובים",
         "MF_API_PORTAL_LINK": "Portail API Météo-France",
         "RADAR_TITLE": "מפת מכ\"ם",
         "MAP_FULLSCREEN": "מסך מלא",
         "MAP_EXIT_FULLSCREEN": "יציאה ממסך מלא",
+        "OPEN_IN_TRACE_VIEWER": "פתח ב-Trace Viewer",
         "MAP_CENTER_USER": "מרכז על המיקום שלי",
         "MAP_CENTER_USER_SHORT": "המיקום שלי GPS",
         "TAB_RADAR": "טמפרטורה ומכ\"ם",
@@ -2816,6 +2817,7 @@
         "MS_HIST_NO_DATA": "אין נתונים לתקופה המבוקשת.",
         "MS_HIST_COL_TIME": "תאריך / שעה",
         "TAB_AROMEPI": "תחזיות MF (3 ש')",
+        "TAB_ARPEGE": "תחזית MF ARPEGE",
         "TAB_SELECT_LABEL": "Onglet",
         "TAB_FORECAST_OWM": "תחזית OWM",
         "TAB_FORECAST_OM": "תחזית Open-Meteo",
@@ -3093,6 +3095,15 @@
         "CLIM_LOAD_ERROR": "לא ניתן לטעון les données climatologiques pour cette période ou cette station.",
         "CLIM_NO_DATA": "Aucune donnée sur la période demandée.",
         "CLIM_HINT": "Archives officielles DPClim (CSV). Abonnement « Données Climatologiques » + clé meteofrance.clim.api.token (différente de la clé radar).",
+        "ARPEGE_TITLE": "תחזיות ARPEGE (Météo-France)",
+        "ARPEGE_HINT": "תחזיות ARPEGE (Météo-France)",
+        "ARPEGE_NOT_CONFIGURED": "ARPEGE: set meteofrance.arpege.api.token",
+        "ARPEGE_INVALID_TOKEN": "ARPEGE API key rejected (401).",
+        "ARPEGE_LOADING": "Loading ARPEGE…",
+        "ARPEGE_LOAD_ERROR": "ARPEGE capabilities failed.",
+        "ARPEGE_LAYER": "Layer",
+        "ARPEGE_FORECAST_TABLE": "Point forecast",
+        "ARPEGE_FORECAST_LOADING": "Loading…",
         "AROMEPI_TITLE": "תחזית nowcasting AROME-PI (Météo-France)",
         "AROMEPI_HINT": "מודל Météo-France ברזולוציה גבוהה: תחזית 0–3 ש' בצעדים של 15 דקות. מפת WMS מונפשת (עננים, משקעים וכו') וערכים בנקודה שנבחרה.",
         "AROMEPI_NOT_CONFIGURED": "AROME-PI לא זמין: הירשם ל-API « AROMEPI 1.0 » ב-portail-api.meteofrance.fr והגדר meteofrance.aromepi.api.token (מפתח נפרד מרדאר, אקלים ותצפיות).",

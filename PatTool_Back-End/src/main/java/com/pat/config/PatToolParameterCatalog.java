@@ -24,6 +24,7 @@ public final class PatToolParameterCatalog {
             "globe.iss.compass.calibration.",
             "meteofrance.radar.refresh.",
             "meteofrance.temperature.cache.",
+            "meteofrance.forecast.cache.",
             "trace.viewer."
     );
 
@@ -177,6 +178,7 @@ public final class PatToolParameterCatalog {
                     defSensitive("meteofrance.clim.api.token"),
                     defSensitive("meteofrance.obs.api.token"),
                     defSensitive("meteofrance.aromepi.api.token"),
+                    defSensitive("meteofrance.arpege.api.token"),
                     defSensitive("meteofrance.oauth.application-id"),
                     def("meteofrance.radar.base.url", false),
                     def("meteofrance.radar.wms.url", false),
@@ -185,10 +187,13 @@ public final class PatToolParameterCatalog {
                     defMongo("meteofrance.radar.refresh.seconds", false),
                     defMongo("meteofrance.radar.auto-refresh.enabled", false),
                     defMongo("meteofrance.temperature.cache.minutes", false),
+                    defMongo("meteofrance.forecast.cache.minutes", false),
                     def("meteofrance.clim.base.url", false),
                     def("meteofrance.obs.base.url", false),
                     def("meteofrance.aromepi.base.url", false),
                     def("meteofrance.aromepi.wms.service", false),
+                    def("meteofrance.arpege.base.url", false),
+                    def("meteofrance.arpege.wms.service", false),
                     defSensitive("thunderforest.api.key"),
                     defSensitive("ign.api.key")
             ),

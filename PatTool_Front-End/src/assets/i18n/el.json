@@ -1,4 +1,4 @@
-﻿{
+{
     "LANGUAGE": {
         "FR": "ÎÎ±Î»Î»Î¹ÎºÎ¬",
         "EN": "ÎÎ³Î³Î»Î¹ÎºÎ¬",
@@ -2557,6 +2557,7 @@
         "RADAR_TITLE": "Χάρτης ραντάρ",
         "MAP_FULLSCREEN": "Πλήρης οθόνη",
         "MAP_EXIT_FULLSCREEN": "Έξοδος από πλήρη οθόνη",
+        "OPEN_IN_TRACE_VIEWER": "Άνοιγμα στον Trace Viewer",
         "MAP_CENTER_USER": "Κεντράρισμα στη θέση μου",
         "MAP_CENTER_USER_SHORT": "Η θέση μου GPS",
         "TAB_RADAR": "Θερμοκρασία και ραντάρ",
@@ -2569,6 +2570,7 @@
         "MS_HIST_NO_DATA": "Δεν υπάρχουν δεδομένα για την ζητούμενη περίοδο.",
         "MS_HIST_COL_TIME": "Ημερομηνία / ώρα",
         "TAB_AROMEPI": "Προγνώσεις MF (3 ώ)",
+        "TAB_ARPEGE": "Πρόγνωση MF ARPEGE",
         "TAB_SELECT_LABEL": "Onglet",
         "TAB_FORECAST_OWM": "Πρόγνωση OWM",
         "TAB_FORECAST_OM": "Πρόγνωση Open-Meteo",
@@ -2846,6 +2848,15 @@
         "CLIM_LOAD_ERROR": "Impossible de charger les données climatologiques pour cette période ou cette station.",
         "CLIM_NO_DATA": "Aucune donnée sur la période demandée.",
         "CLIM_HINT": "Archives officielles DPClim (CSV). Abonnement « Données Climatologiques » + clé meteofrance.clim.api.token (différente de la clé radar).",
+        "ARPEGE_TITLE": "Προγνώσεις ARPEGE (Météo-France)",
+        "ARPEGE_HINT": "Προγνώσεις ARPEGE (Météo-France)",
+        "ARPEGE_NOT_CONFIGURED": "ARPEGE: set meteofrance.arpege.api.token",
+        "ARPEGE_INVALID_TOKEN": "ARPEGE API key rejected (401).",
+        "ARPEGE_LOADING": "Loading ARPEGE…",
+        "ARPEGE_LOAD_ERROR": "ARPEGE capabilities failed.",
+        "ARPEGE_LAYER": "Layer",
+        "ARPEGE_FORECAST_TABLE": "Point forecast",
+        "ARPEGE_FORECAST_LOADING": "Loading…",
         "AROMEPI_TITLE": "Πρόγνωση nowcasting AROME-PI (Météo-France)",
         "AROMEPI_HINT": "Υψηλής ανάλυσης μοντέλο Météo-France: πρόγνωση 0–3 ώ με βήματα 15 λεπτών. Κινούμενος χάρτης WMS (νέφη, βροχή κ.λπ.) και τιμές στο επιλεγμένο σημείο.",
         "AROMEPI_NOT_CONFIGURED": "AROME-PI μη διαθέσιμο: εγγραφείτε στο API « AROMEPI 1.0 » στο portail-api.meteofrance.fr και ορίστε meteofrance.aromepi.api.token (ξεχωριστό κλειδί από ραντάρ, κλίμα, παρατηρήσεις).",

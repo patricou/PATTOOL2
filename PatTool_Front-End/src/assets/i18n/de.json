@@ -1,4 +1,4 @@
-﻿{
+{
     "LANGUAGE": {
         "FR": "Franz?sisch",
         "EN": "Englisch",
@@ -2818,6 +2818,7 @@
         "RADAR_TITLE": "Radarkarte",
         "MAP_FULLSCREEN": "Vollbild",
         "MAP_EXIT_FULLSCREEN": "Vollbild beenden",
+        "OPEN_IN_TRACE_VIEWER": "Im Trace Viewer öffnen",
         "MAP_CENTER_USER": "Auf meinen Standort zentrieren",
         "MAP_CENTER_USER_SHORT": "Mein GPS-Standort",
         "TAB_RADAR": "Temperatur und Radar",
@@ -2830,6 +2831,7 @@
         "MS_HIST_NO_DATA": "Keine Daten für den angeforderten Zeitraum.",
         "MS_HIST_COL_TIME": "Datum / Uhrzeit",
         "TAB_AROMEPI": "MF-Vorhersagen (3 h)",
+        "TAB_ARPEGE": "MF ARPEGE Vorhersage",
         "TAB_SELECT_LABEL": "Onglet",
         "TAB_FORECAST_OWM": "Vorhersage OWM",
         "TAB_FORECAST_OM": "Vorhersage Open-Meteo",
@@ -3107,6 +3109,15 @@
         "CLIM_LOAD_ERROR": "Klimadaten konnten nicht geladen werden pour cette période ou cette station.",
         "CLIM_NO_DATA": "Keine Daten für den gewählten Zeitraum.",
         "CLIM_HINT": "Offizielle DPClim-Archive (CSV). Abonnement « Données Climatologiques » + clé meteofrJahrce.clim.api.token (différente de la clé radar).",
+        "ARPEGE_TITLE": "ARPEGE-Vorhersagen (Météo-France)",
+        "ARPEGE_HINT": "ARPEGE-Vorhersagen (Météo-France)",
+        "ARPEGE_NOT_CONFIGURED": "ARPEGE: set meteofrance.arpege.api.token",
+        "ARPEGE_INVALID_TOKEN": "ARPEGE API key rejected (401).",
+        "ARPEGE_LOADING": "Loading ARPEGE…",
+        "ARPEGE_LOAD_ERROR": "ARPEGE capabilities failed.",
+        "ARPEGE_LAYER": "Layer",
+        "ARPEGE_FORECAST_TABLE": "Point forecast",
+        "ARPEGE_FORECAST_LOADING": "Loading…",
         "AROMEPI_TITLE": "AROME-PI-Nowcasting-Vorhersage (Météo-France)",
         "AROMEPI_HINT": "Hochauflösendes Météo-France-Modell: 0–3 h Vorhersage in 15-Minuten-Schritten. Animierte WMS-Karte (Wolken, Niederschlag usw.) plus Werte am gewählten Punkt.",
         "AROMEPI_NOT_CONFIGURED": "AROME-PI nicht verfügbar: API « AROMEPI 1.0 » auf portail-api.meteofrance.fr abonnieren, dann meteofrance.aromepi.api.token setzen (eigener Schlüssel, nicht Radar/Klima/Obs).",

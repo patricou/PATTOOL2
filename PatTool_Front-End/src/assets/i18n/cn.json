@@ -1,4 +1,4 @@
-﻿{
+{
     "LANGUAGE": {
         "FR": "æ³è¯­",
         "EN": "è±è¯­",
@@ -2804,6 +2804,7 @@
         "RADAR_TITLE": "雷达地图",
         "MAP_FULLSCREEN": "全屏",
         "MAP_EXIT_FULLSCREEN": "退出全屏",
+        "OPEN_IN_TRACE_VIEWER": "在轨迹查看器中打开",
         "MAP_CENTER_USER": "定位到我的位置",
         "MAP_CENTER_USER_SHORT": "我的GPS位置",
         "TAB_RADAR": "温度与雷达",
@@ -2816,6 +2817,7 @@
         "MS_HIST_NO_DATA": "请求的时间段内无数据。",
         "MS_HIST_COL_TIME": "日期 / 时间",
         "TAB_AROMEPI": "MF 预报（3 小时）",
+        "TAB_ARPEGE": "MF ARPEGE 预报",
         "TAB_SELECT_LABEL": "Onglet",
         "TAB_FORECAST_OWM": "预报 OWM",
         "TAB_FORECAST_OM": "预报 Open-Meteo",
@@ -3093,6 +3095,15 @@
         "CLIM_LOAD_ERROR": "Impossible de charger les données climatologiques pour cette période ou cette station.",
         "CLIM_NO_DATA": "Aucune donnée sur la période demandée.",
         "CLIM_HINT": "Archives officielles DPClim (CSV). Abonnement « Données Climatologiques » + clé meteofrance.clim.api.token (différente de la clé radar).",
+        "ARPEGE_TITLE": "ARPEGE 预报（Météo-France）",
+        "ARPEGE_HINT": "ARPEGE 预报（Météo-France）",
+        "ARPEGE_NOT_CONFIGURED": "ARPEGE: set meteofrance.arpege.api.token",
+        "ARPEGE_INVALID_TOKEN": "ARPEGE API key rejected (401).",
+        "ARPEGE_LOADING": "Loading ARPEGE…",
+        "ARPEGE_LOAD_ERROR": "ARPEGE capabilities failed.",
+        "ARPEGE_LAYER": "Layer",
+        "ARPEGE_FORECAST_TABLE": "Point forecast",
+        "ARPEGE_FORECAST_LOADING": "Loading…",
         "AROMEPI_TITLE": "AROME-PI 临近预报（Météo-France）",
         "AROMEPI_HINT": "Météo-France 高分辨率模式：0–3 小时预报，15 分钟步长。动画 WMS 地图（云、降水等）及选点数值。",
         "AROMEPI_NOT_CONFIGURED": "AROME-PI 不可用：请在 portail-api.meteofrance.fr 订阅 API « AROMEPI 1.0 »，并设置 meteofrance.aromepi.api.token（与雷达、气候、观测密钥不同）。",

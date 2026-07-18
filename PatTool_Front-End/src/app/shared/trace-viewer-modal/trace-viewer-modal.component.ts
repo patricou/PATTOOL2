@@ -620,7 +620,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 		});
 	}
 
-	public openAtLocation(lat: number, lng: number, label?: string, eventColor?: { r: number; g: number; b: number }, enableSelection: boolean = false, simpleShare: boolean = false): void {
+	public openAtLocation(
+		lat: number,
+		lng: number,
+		label?: string,
+		eventColor?: { r: number; g: number; b: number },
+		enableSelection: boolean = false,
+		simpleShare: boolean = false,
+		viewOptions?: { zoom?: number; initialBaseLayerId?: string }
+	): void {
 		if (!isValidGeoCoordinate(lat, lng)) {
 			return;
 		}
@@ -642,7 +650,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		// Call open() which will call resetState() and reset selectionMode to false
 		this.open({
 			fileName,
-			location: { lat, lng, label }
+			location: { lat, lng, label, zoom: viewOptions?.zoom },
+			initialBaseLayerId: viewOptions?.initialBaseLayerId
 		});
 
 		// Restore selectionMode and simpleShareMode AFTER open() has reset it

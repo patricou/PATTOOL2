@@ -1,0 +1,380 @@
+.arpege-map-shell {
+  position: relative;
+}
+
+.arpege-domain-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.5rem 0.75rem;
+  align-items: end;
+}
+
+.arpege-domain-controls .aromepi-controls {
+  margin-bottom: 0;
+}
+
+.api-title {
+  color: #333;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.api-title i {
+  margin-right: 0.35rem;
+}
+
+.mf-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #007bff;
+}
+
+.mf-section-head .api-title {
+  margin-bottom: 0;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.mf-section-head-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.mf-section-head-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.4rem;
+  line-height: 1.2;
+  font-size: 0.75rem;
+}
+
+.mf-source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #555;
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 999px;
+  padding: 3px 10px 3px 8px;
+}
+
+.mf-source-badge img {
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.mf-map-alert {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1100;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: min(92%, 28rem);
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(254, 243, 199, 0.96);
+  border: 1px solid #f59e0b;
+  color: #92400e;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18);
+  font-size: 0.82rem;
+}
+
+.mf-map-alert-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.mf-map-alert-link {
+  color: inherit;
+  font-weight: 600;
+}
+
+.mf-map-alert-action {
+  flex-shrink: 0;
+}
+
+.aromepi-map-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 700;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.82);
+  color: #495057;
+  font-size: 0.85rem;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.aromepi-map-loading-overlay .fa-spinner {
+  font-size: 1.35rem;
+  color: #0d6efd;
+}
+
+.aromepi-forecast-clock {
+  position: absolute;
+  top: 0.55rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 650;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0.12rem 0.5rem;
+  border-radius: 0.35rem;
+  background: rgba(255, 255, 255, 0.82);
+  color: #d40000;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  text-shadow: 0 0 1px rgba(255, 255, 255, 0.9);
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.aromepi-forecast-clock-time {
+  font-size: clamp(1.05rem, 2.4vw, 1.35rem);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.aromepi-forecast-clock-offset {
+  font-size: clamp(0.78rem, 1.8vw, 0.95rem);
+  font-weight: 600;
+  opacity: 0.92;
+}
+
+.mf-map-cache-badge {
+  position: absolute;
+  top: 0.55rem;
+  left: 0.55rem;
+  z-index: 650;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.2;
+  pointer-events: none;
+  user-select: none;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+}
+
+.mf-map-cache-badge--cached {
+  background: rgba(241, 245, 249, 0.94);
+  color: #475569;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+}
+
+.mf-map-cache-badge--live {
+  background: rgba(236, 253, 245, 0.94);
+  color: #047857;
+  border: 1px solid rgba(52, 211, 153, 0.55);
+}
+
+.aromepi-time-controls {
+  position: absolute;
+  left: 0.5rem;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  z-index: 650;
+  padding: 0.35rem 0.55rem;
+  border-radius: 0.375rem;
+  background: rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.1);
+}
+
+.aromepi-time-compact-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+  flex-wrap: wrap;
+}
+
+.aromepi-time-actions {
+  display: flex;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+
+.aromepi-time-btn {
+  padding: 0.12rem 0.38rem;
+  line-height: 1.1;
+  font-size: 0.72rem;
+}
+
+.aromepi-time-meta {
+  flex: 1 1 10rem;
+  min-width: 0;
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+
+.aromepi-time-meta-primary {
+  display: block;
+  font-weight: 600;
+  color: rgba(33, 37, 41, 0.92);
+}
+
+.aromepi-time-meta-offset {
+  font-weight: 500;
+  color: rgba(33, 37, 41, 0.72);
+}
+
+.aromepi-time-meta-detail {
+  display: block;
+  color: rgba(33, 37, 41, 0.68);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.aromepi-time-slider-wrap {
+  flex: 1 1 11rem;
+  min-width: 9rem;
+}
+
+.aromepi-time-slider {
+  margin: 0;
+  height: 0.3rem;
+}
+
+.aromepi-time-range {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.65rem;
+  line-height: 1;
+  color: rgba(33, 37, 41, 0.62);
+  margin-top: 0.05rem;
+}
+
+.aromepi-time-range-current {
+  font-weight: 700;
+  color: #0d6efd;
+  font-size: 0.72rem;
+}
+
+.aromepi-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: flex-end;
+}
+
+.aromepi-controls .form-label {
+  margin-bottom: 0.15rem;
+}
+
+.aromepi-layer-select {
+  min-width: 14rem;
+  max-width: 28rem;
+}
+
+.aromepi-opacity-row {
+  min-width: 10rem;
+  max-width: 16rem;
+}
+
+.aromepi-layer-overlay {
+  position: absolute;
+  top: 3.25rem;
+  left: 10px;
+  z-index: 660;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.4rem;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  max-width: min(22rem, calc(100% - 20px));
+}
+
+.aromepi-layer-overlay .aromepi-controls--compact .aromepi-layer-select,
+.aromepi-layer-overlay .aromepi-opacity-row {
+  min-width: 0;
+  width: 100%;
+  max-width: none;
+}
+
+.aromepi-forecast-table {
+  font-size: 0.85rem;
+}
+
+.meteo-france-map-center-btn {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 500;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  display: inline-flex;
+  align-items: center;
+}
+
+.forecast-provider-site-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  line-height: 1;
+}
+
+.forecast-provider-site-icon {
+  font-size: 0.72rem;
+  opacity: 0.75;
+}
+
+@media (max-width: 767.98px) {
+  .aromepi-time-compact-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .aromepi-time-meta-detail {
+    white-space: normal;
+  }
+
+  .aromepi-time-slider-wrap {
+    min-width: 0;
+  }
+
+  .aromepi-time-controls {
+    position: static;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    margin: 0.5rem 0 0;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
