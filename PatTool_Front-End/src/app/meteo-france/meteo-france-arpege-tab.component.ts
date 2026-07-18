@@ -1,4 +1,5 @@
 import {
+  ChangeDetectorRef,
   Component,
   ElementRef,
   HostListener,
@@ -98,13 +99,20 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
   showForecastTable = false;
   wmsThrottled = false;
   wmsRetryAfterSeconds = 0;
+  /** Rate-limit map banner is shown briefly, then auto-hidden. */
+  private throttleBannerVisible = false;
+  private throttleBannerTimer: ReturnType<typeof setTimeout> | null = null;
   featureInfoLoading = false;
   featureInfoValue: string | null = null;
   tilesCacheKnown = false;
   tilesFromCache = false;
+  tilesLoading = false;
   forecastCacheTtlMinutes: number | null = null;
   clearingForecastCache = false;
   private cacheProbeTimer: ReturnType<typeof setTimeout> | null = null;
+  private cacheProbeGen = 0;
+  private tilesCacheHits = 0;
+  private tilesCacheMisses = 0;
   private clearCacheSub: Subscription | null = null;
 
   private map: L.Map | null = null;
@@ -124,7 +132,8 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
   constructor(
     private apiService: ApiService,
     private basemapService: LeafletBasemapService,
-    private translate: TranslateService
+    private translate: TranslateService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -157,6 +166,7 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
     this.destroyed = true;
     this.stopPlayback();
     this.stopThrottlePolling();
+    this.clearThrottleBanner();
     this.clearLayoutTimer();
     if (this.cacheProbeTimer) {
       clearTimeout(this.cacheProbeTimer);
@@ -178,7 +188,7 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
   }
 
   get displayStatusMessageKey(): string {
-    if (this.wmsThrottled && this.authValid) {
+    if (this.wmsThrottled && this.authValid && this.throttleBannerVisible) {
       return 'METEO_FRANCE.AROMEPI_RATE_LIMITED';
     }
     if (this.statusMessageKey) {
@@ -258,6 +268,8 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
   reloadAfterForecastCacheClear(): void {
     this.tilesCacheKnown = false;
     this.tilesFromCache = false;
+    this.tilesCacheHits = 0;
+    this.tilesCacheMisses = 0;
     if (this.active && this.authValid) {
       this.loadCapabilities(true);
     }
@@ -274,6 +286,8 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
         this.clearingForecastCache = false;
         this.tilesCacheKnown = false;
         this.tilesFromCache = false;
+        this.tilesCacheHits = 0;
+        this.tilesCacheMisses = 0;
         this.loadCapabilities(true);
       },
       error: () => {
@@ -752,14 +766,17 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
     if (!this.selectedLayer || !this.currentTime || !this.referenceTime) {
       return;
     }
-    this.tilesCacheKnown = false;
-    this.tilesFromCache = false;
+    this.tilesCacheHits = 0;
+    this.tilesCacheMisses = 0;
+    this.setTilesLoading(true);
+    // Keep last Live/Cache badge visible until the first sample of this layer arrives.
     const url = this.buildWmsUrl(
       this.selectedLayer,
       this.selectedStyle,
       this.currentTime,
       this.referenceTime
     );
+    this.probeTileCacheHint(url);
     if (this.wmsLayer) {
       this.map.removeLayer(this.wmsLayer);
       this.wmsLayer = null;
@@ -774,6 +791,8 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
       keepBuffer: 1,
       attribution: '&copy; Météo-France ARPEGE (via PatTool)'
     }, (fromCache) => this.applyTileCacheSample(fromCache));
+    this.wmsLayer.on('loading', () => this.setTilesLoading(true));
+    this.wmsLayer.on('load', () => this.setTilesLoading(false));
     this.wmsLayer.addTo(this.map);
   }
 
@@ -823,15 +842,53 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
     return tileLayer;
   }
 
-  private applyTileCacheSample(fromCache: boolean): void {
-    if (!this.tilesCacheKnown) {
-      this.tilesCacheKnown = true;
-      this.tilesFromCache = fromCache;
+  private setTilesLoading(loading: boolean): void {
+    if (this.tilesLoading === loading || this.destroyed) {
       return;
     }
-    if (!fromCache && this.tilesFromCache) {
-      this.tilesFromCache = false;
+    this.tilesLoading = loading;
+    this.cdr.detectChanges();
+  }
+
+  private applyTileCacheSample(fromCache: boolean): void {
+    if (fromCache) {
+      this.tilesCacheHits++;
+    } else {
+      this.tilesCacheMisses++;
     }
+    const nextFromCache = this.tilesCacheMisses === 0;
+    if (!this.tilesCacheKnown || this.tilesFromCache !== nextFromCache) {
+      this.tilesCacheKnown = true;
+      this.tilesFromCache = nextFromCache;
+      this.cdr.detectChanges();
+    }
+  }
+
+  /** Instant Live/Cache hint via probeOnly (server memory lookup, no MF fetch). */
+  private probeTileCacheHint(urlTemplate: string): void {
+    const map = this.map;
+    if (!map || !urlTemplate || this.destroyed) {
+      return;
+    }
+    const gen = ++this.cacheProbeGen;
+    const maxNative = this.selectedDomain === MeteoFranceArpegeTabComponent.DOMAIN_GLOBE ? 7 : 9;
+    const z = Math.min(Math.max(0, Math.round(map.getZoom())), maxNative);
+    const point = map.project(map.getCenter(), z);
+    const x = Math.floor(point.x / 256);
+    const y = Math.floor(point.y / 256);
+    const tileUrl = L.Util.template(urlTemplate, { s: '', r: '', z, x, y });
+    const probeUrl = tileUrl + (tileUrl.includes('?') ? '&' : '?') + 'probeOnly=true';
+    fetch(probeUrl, { cache: 'no-store', credentials: 'same-origin' })
+      .then((res) => {
+        if (this.destroyed || gen !== this.cacheProbeGen) {
+          return;
+        }
+        const hint = (res.headers.get('X-Pat-Cache') || '').toUpperCase();
+        if (hint === 'HIT' || hint === 'MISS') {
+          this.applyTileCacheSample(hint === 'HIT');
+        }
+      })
+      .catch(() => { /* ignore probe failures */ });
   }
 
   private buildWmsUrl(layer: string, style: string, time: string, referenceTime: string): string {
@@ -913,17 +970,47 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
     }
     this.apiService.getMeteoFranceArpegeThrottle().pipe(take(1)).subscribe({
       next: (status) => {
+        const wasThrottled = this.wmsThrottled;
         this.wmsThrottled = !!status?.arpegeWmsThrottled;
         this.wmsRetryAfterSeconds = Number(status?.arpegeWmsRetryAfterSeconds) || 0;
         if (status?.forecastCacheTtlMinutes != null && Number.isFinite(Number(status.forecastCacheTtlMinutes))) {
           this.forecastCacheTtlMinutes = Number(status.forecastCacheTtlMinutes);
         }
+        if (this.wmsThrottled && this.wmsRetryAfterSeconds > 0 && !wasThrottled) {
+          this.showThrottleBannerBriefly();
+        } else if (!this.wmsThrottled && wasThrottled) {
+          this.clearThrottleBanner();
+        }
       },
       error: () => {
         this.wmsThrottled = false;
         this.wmsRetryAfterSeconds = 0;
+        this.clearThrottleBanner();
       }
     });
+  }
+
+  private showThrottleBannerBriefly(): void {
+    this.throttleBannerVisible = true;
+    if (this.throttleBannerTimer != null) {
+      clearTimeout(this.throttleBannerTimer);
+    }
+    this.throttleBannerTimer = setTimeout(() => {
+      this.throttleBannerTimer = null;
+      this.throttleBannerVisible = false;
+      if (!this.destroyed) {
+        this.cdr.detectChanges();
+      }
+    }, 3000);
+    this.cdr.detectChanges();
+  }
+
+  private clearThrottleBanner(): void {
+    if (this.throttleBannerTimer != null) {
+      clearTimeout(this.throttleBannerTimer);
+      this.throttleBannerTimer = null;
+    }
+    this.throttleBannerVisible = false;
   }
 
   private scheduleCacheStatusProbe(): void {

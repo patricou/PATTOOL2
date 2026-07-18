@@ -1383,16 +1383,29 @@
                   <span class="aromepi-forecast-clock-offset">{{ formatAromepiOffsetMinutes(aromepiCurrentOffsetMinutes, true) }}</span>
                 </div>
                 <div class="mf-map-cache-badge"
-                     *ngIf="aromepiTilesCacheKnown"
-                     [class.mf-map-cache-badge--cached]="aromepiTilesFromCache"
-                     [class.mf-map-cache-badge--live]="!aromepiTilesFromCache"
-                     [attr.title]="(aromepiTilesFromCache
-                       ? 'METEO_FRANCE.FORECAST_MAP_CACHE_HINT'
-                       : 'METEO_FRANCE.FORECAST_MAP_LIVE_HINT') | translate: {
+                     *ngIf="aromepiTilesCacheKnown || aromepiTilesLoading"
+                     [class.mf-map-cache-badge--cached]="aromepiTilesCacheKnown && aromepiTilesFromCache"
+                     [class.mf-map-cache-badge--live]="aromepiTilesCacheKnown && !aromepiTilesFromCache"
+                     [class.mf-map-cache-badge--loading]="aromepiTilesLoading"
+                     [attr.title]="(aromepiTilesLoading
+                       ? 'METEO_FRANCE.FORECAST_MAP_LOADING_HINT'
+                       : (aromepiTilesFromCache
+                         ? 'METEO_FRANCE.FORECAST_MAP_CACHE_HINT'
+                         : 'METEO_FRANCE.FORECAST_MAP_LIVE_HINT')) | translate: {
                          ttl: aromepiForecastCacheTtlMinutes ?? '—'
                        }">
-                  <i class="fa" [class.fa-database]="aromepiTilesFromCache" [class.fa-bolt]="!aromepiTilesFromCache" aria-hidden="true"></i>
-                  {{ (aromepiTilesFromCache ? 'METEO_FRANCE.FORECAST_MAP_CACHE' : 'METEO_FRANCE.FORECAST_MAP_LIVE') | translate }}
+                  <i class="fa"
+                     [class.fa-spinner]="aromepiTilesLoading"
+                     [class.fa-spin]="aromepiTilesLoading"
+                     [class.fa-database]="!aromepiTilesLoading && aromepiTilesFromCache"
+                     [class.fa-bolt]="!aromepiTilesLoading && !aromepiTilesFromCache"
+                     aria-hidden="true"></i>
+                  <ng-container *ngIf="aromepiTilesCacheKnown; else aromepiCacheLoadingLabel">
+                    {{ (aromepiTilesFromCache ? 'METEO_FRANCE.FORECAST_MAP_CACHE' : 'METEO_FRANCE.FORECAST_MAP_LIVE') | translate }}
+                  </ng-container>
+                  <ng-template #aromepiCacheLoadingLabel>
+                    {{ 'METEO_FRANCE.FORECAST_MAP_LOADING' | translate }}
+                  </ng-template>
                 </div>
               </div>
 

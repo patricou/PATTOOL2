@@ -306,6 +306,17 @@ public class MeteoFranceAromepiService {
             String domain,
             String elevation,
             int width, int height) {
+        return getWmsTile(z, x, y, layer, style, time, referenceTime, domain, elevation, width, height, false);
+    }
+
+    public ResponseEntity<byte[]> getWmsTile(
+            int z, int x, int y,
+            String layer, String style,
+            String time, String referenceTime,
+            String domain,
+            String elevation,
+            int width, int height,
+            boolean probeOnly) {
         if (!isConfigured()) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
         }
@@ -331,7 +342,12 @@ public class MeteoFranceAromepiService {
 
         String cacheKey = tileCacheKey(service, z, x, y, layer, resolvedStyle, time, referenceTime, elev, outWidth, outHeight);
         CachedTile cachedTile = tileCache.get(cacheKey);
-        if (cachedTile != null && cachedTile.isValid(forecastCacheTtl())) {
+        boolean cacheHit = cachedTile != null && cachedTile.isValid(forecastCacheTtl());
+        if (probeOnly) {
+            // Instant HIT/MISS for the map badge — no MF upstream fetch.
+            return probeCacheResponse(cacheHit);
+        }
+        if (cacheHit) {
             // Serve memory cache even during upstream 429 backoff — avoids blank tiles for known frames.
             return pngTileResponse(cachedTile.png(), true);
         }
@@ -407,6 +423,15 @@ public class MeteoFranceAromepiService {
         out.set("X-Pat-Cache", fromCache ? "HIT" : "MISS");
         out.set("Access-Control-Expose-Headers", "X-Pat-Cache");
         return new ResponseEntity<>(png, out, HttpStatus.OK);
+    }
+
+    /** Lightweight cache peek for the Live/Cache badge (no image body, no upstream call). */
+    private ResponseEntity<byte[]> probeCacheResponse(boolean fromCache) {
+        HttpHeaders out = new HttpHeaders();
+        out.setCacheControl(CacheControl.noStore());
+        out.set("X-Pat-Cache", fromCache ? "HIT" : "MISS");
+        out.set("Access-Control-Expose-Headers", "X-Pat-Cache");
+        return new ResponseEntity<>(new byte[0], out, HttpStatus.NO_CONTENT);
     }
 
     private void recordTileCacheFlag(boolean fromCache) {

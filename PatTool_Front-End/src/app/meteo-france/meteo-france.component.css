@@ -2048,6 +2048,17 @@
   border: 1px solid rgba(52, 211, 153, 0.55);
 }
 
+.mf-map-cache-badge--loading {
+  background: rgba(239, 246, 255, 0.94);
+  color: #1d4ed8;
+  border: 1px solid rgba(147, 197, 253, 0.7);
+}
+
+.mf-map-cache-badge--loading.mf-map-cache-badge--cached,
+.mf-map-cache-badge--loading.mf-map-cache-badge--live {
+  opacity: 0.92;
+}
+
 .forecast-map-bottom-section {
   margin-top: 0.25rem;
 }

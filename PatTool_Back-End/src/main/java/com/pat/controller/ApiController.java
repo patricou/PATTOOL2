@@ -1202,9 +1202,10 @@ public class ApiController {
             @RequestParam(value = "domain", required = false) String domain,
             @RequestParam(value = "elevation", required = false) String elevation,
             @RequestParam(value = "width", defaultValue = "256") int width,
-            @RequestParam(value = "height", defaultValue = "256") int height) {
+            @RequestParam(value = "height", defaultValue = "256") int height,
+            @RequestParam(value = "probeOnly", defaultValue = "false") boolean probeOnly) {
         return meteoFranceAromepiService.getWmsTile(
-                z, x, y, layer, style, time, referenceTime, domain, elevation, width, height);
+                z, x, y, layer, style, time, referenceTime, domain, elevation, width, height, probeOnly);
     }
 
     /**
@@ -1271,9 +1272,10 @@ public class ApiController {
             @RequestParam(value = "domain", required = false) String domain,
             @RequestParam(value = "elevation", required = false) String elevation,
             @RequestParam(value = "width", defaultValue = "256") int width,
-            @RequestParam(value = "height", defaultValue = "256") int height) {
+            @RequestParam(value = "height", defaultValue = "256") int height,
+            @RequestParam(value = "probeOnly", defaultValue = "false") boolean probeOnly) {
         return meteoFranceArpegeService.getWmsTile(
-                z, x, y, layer, style, time, referenceTime, domain, elevation, width, height);
+                z, x, y, layer, style, time, referenceTime, domain, elevation, width, height, probeOnly);
     }
 
     /**

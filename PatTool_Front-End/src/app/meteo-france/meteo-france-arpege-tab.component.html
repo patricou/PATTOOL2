@@ -156,16 +156,29 @@
           <span class="aromepi-forecast-clock-offset">{{ formatOffsetMinutes(currentOffsetMinutes, true) }}</span>
         </div>
         <div class="mf-map-cache-badge"
-             *ngIf="tilesCacheKnown"
-             [class.mf-map-cache-badge--cached]="tilesFromCache"
-             [class.mf-map-cache-badge--live]="!tilesFromCache"
-             [attr.title]="(tilesFromCache
-               ? 'METEO_FRANCE.FORECAST_MAP_CACHE_HINT'
-               : 'METEO_FRANCE.FORECAST_MAP_LIVE_HINT') | translate: {
+             *ngIf="tilesCacheKnown || tilesLoading"
+             [class.mf-map-cache-badge--cached]="tilesCacheKnown && tilesFromCache"
+             [class.mf-map-cache-badge--live]="tilesCacheKnown && !tilesFromCache"
+             [class.mf-map-cache-badge--loading]="tilesLoading"
+             [attr.title]="(tilesLoading
+               ? 'METEO_FRANCE.FORECAST_MAP_LOADING_HINT'
+               : (tilesFromCache
+                 ? 'METEO_FRANCE.FORECAST_MAP_CACHE_HINT'
+                 : 'METEO_FRANCE.FORECAST_MAP_LIVE_HINT')) | translate: {
                  ttl: forecastCacheTtlMinutes ?? '—'
                }">
-          <i class="fa" [class.fa-database]="tilesFromCache" [class.fa-bolt]="!tilesFromCache" aria-hidden="true"></i>
-          {{ (tilesFromCache ? 'METEO_FRANCE.FORECAST_MAP_CACHE' : 'METEO_FRANCE.FORECAST_MAP_LIVE') | translate }}
+          <i class="fa"
+             [class.fa-spinner]="tilesLoading"
+             [class.fa-spin]="tilesLoading"
+             [class.fa-database]="!tilesLoading && tilesFromCache"
+             [class.fa-bolt]="!tilesLoading && !tilesFromCache"
+             aria-hidden="true"></i>
+          <ng-container *ngIf="tilesCacheKnown; else arpegeCacheLoadingLabel">
+            {{ (tilesFromCache ? 'METEO_FRANCE.FORECAST_MAP_CACHE' : 'METEO_FRANCE.FORECAST_MAP_LIVE') | translate }}
+          </ng-container>
+          <ng-template #arpegeCacheLoadingLabel>
+            {{ 'METEO_FRANCE.FORECAST_MAP_LOADING' | translate }}
+          </ng-template>
         </div>
       </div>
 

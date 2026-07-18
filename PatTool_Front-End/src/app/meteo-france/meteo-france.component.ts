@@ -367,7 +367,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   mapFullscreen = false;
   autoRefreshRadar = true;
   radarRefreshCountdown = 0;
-  activeMainTab: MeteoFranceMainTab = 'radar';
+  activeMainTab: MeteoFranceMainTab = 'arpege';
   radarRefreshSeconds = 60;
   readonly radarRefreshMinSeconds = 30;
   readonly radarRefreshMaxSeconds = 600;
@@ -464,6 +464,9 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   aromepiLoadError = false;
   /** Seconds remaining in MF WMS 429 backoff (0 = not throttled). */
   aromepiThrottleRetrySec = 0;
+  /** Rate-limit map banner is shown briefly, then auto-hidden. */
+  private aromepiThrottleBannerVisible = false;
+  private aromepiThrottleBannerTimer: ReturnType<typeof setTimeout> | null = null;
   private aromepiThrottleProbeInflight = false;
   private aromepiThrottleCountdownTimer: ReturnType<typeof setInterval> | null = null;
   /** Clears the map tile-error banner only after a quiet period of successful loads. */
@@ -471,8 +474,12 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   /** Map overlay: whether recent WMS tiles were served from server cache. */
   aromepiTilesCacheKnown = false;
   aromepiTilesFromCache = false;
+  aromepiTilesLoading = false;
   aromepiForecastCacheTtlMinutes: number | null = null;
   private aromepiCacheProbeTimer: ReturnType<typeof setTimeout> | null = null;
+  private aromepiCacheProbeGen = 0;
+  private aromepiTilesCacheHits = 0;
+  private aromepiTilesCacheMisses = 0;
   aromepiNearestStation: { id: string; name?: string; distanceKm?: number } | null = null;
   aromepiNearestStationStatus: 'idle' | 'loading' | 'ok' | 'unavailable' | 'outside-france' = 'idle';
   private aromepiNearestStationRequestId = 0;
@@ -688,12 +695,15 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.refreshMfTemperatureAvailability();
     this.isLoadingGps = false;
     this.initMapTimer = this.scheduleComponentTimeout(() => this.initMap(), 0);
+    this.activeMainTab = this.resolveRegionalMainTab(this.activeMainTab);
     if (this.activeMainTab === 'aromepi') {
       this.scheduleAromepiMapInit(() => {
         if (this.aromepiAvailable) {
           this.ensureAromepiCapabilitiesLoaded();
         }
       });
+    } else if (this.activeMainTab === 'arpege') {
+      this.ensureForecastLocationResolved();
     }
   }
 
@@ -796,6 +806,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.clearAromepiPrefetchLayers();
     this.clearAromepiWmsCrossfadeFallbackTimer();
     this.clearAromepiThrottleCountdown();
+    this.clearAromepiThrottleBanner();
     this.clearAromepiTileErrorBanner();
     this.clearForecastMapTimers();
     this.clearAromepiMapTimers();
@@ -1655,7 +1666,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
 
   /** Banner shown on the AROME-PI map for MF errors / rate limits. */
   get aromepiMapAlertKey(): string {
-    if (this.aromepiThrottleRetrySec > 0) {
+    if (this.aromepiThrottleRetrySec > 0 && this.aromepiThrottleBannerVisible) {
       return 'METEO_FRANCE.AROMEPI_RATE_LIMITED';
     }
     if (this.aromepiStatusMessageKey) {
@@ -1675,7 +1686,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   }
 
   get aromepiMapAlertIsWarning(): boolean {
-    return this.aromepiThrottleRetrySec > 0
+    return (this.aromepiThrottleRetrySec > 0 && this.aromepiThrottleBannerVisible)
       || !!this.aromepiStatusMessageKey
       || !!this.aromepiErrorKey;
   }
@@ -3086,6 +3097,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
           this.showForecastCacheClearToast('METEO_FRANCE.FORECAST_CACHE_CLEAR_OK', 'ok');
           this.aromepiTilesCacheKnown = false;
           this.aromepiTilesFromCache = false;
+          this.aromepiTilesCacheHits = 0;
+          this.aromepiTilesCacheMisses = 0;
           this.aromepiWmsCacheBust = Date.now();
           if (this.aromepiAvailable) {
             this.aromepiCapabilities = null;
@@ -5834,6 +5847,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.clearAromepiTileErrorBanner();
     this.aromepiThrottleRetrySec = 0;
     this.clearAromepiThrottleCountdown();
+    this.clearAromepiThrottleBanner();
     this.aromepiWmsCacheBust = Date.now();
     this.setupAromepiWmsLayer(false, (success) => {
       // One-shot bust only — keep subsequent frame changes browser-cacheable.
@@ -6463,14 +6477,18 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       onComplete?.(false);
       return;
     }
-    this.aromepiTilesCacheKnown = false;
-    this.aromepiTilesFromCache = false;
+    this.aromepiTilesCacheHits = 0;
+    this.aromepiTilesCacheMisses = 0;
+    this.setAromepiTilesLoading(true);
+    // Keep last Live/Cache badge visible until the first sample of this layer arrives.
     const { time, referenceTime } = this.resolveAromepiWmsTimes();
     if (!time || !referenceTime) {
+      this.setAromepiTilesLoading(false);
       onComplete?.(false);
       return;
     }
     const url = this.buildAromepiWmsUrl(this.aromepiSelectedLayer, this.aromepiSelectedStyle, time, referenceTime);
+    this.probeAromepiTileCacheHint(url);
     if (crossfade && this.aromepiWmsLayer) {
       if (prefetchedLayer && !this.isAromepiLayerDataAvailable(prefetchedLayer)) {
         this.discardAromepiPrefetchLayer(prefetchedLayer);
@@ -6483,10 +6501,12 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     if (prefetchedLayer) {
       if (!this.isAromepiLayerDataAvailable(prefetchedLayer)) {
         this.discardAromepiPrefetchLayer(prefetchedLayer);
+        this.setAromepiTilesLoading(false);
         onComplete?.(false);
         return;
       }
       this.replaceAromepiWmsLayerImmediate(url, prefetchedLayer);
+      this.setAromepiTilesLoading(false);
       onComplete?.(true);
       return;
     }
@@ -6563,8 +6583,22 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     tileLayer.on('tileload', () => {
       this.scheduleClearAromepiTileError();
     });
+    tileLayer.on('loading', () => {
+      if (!trackCache) {
+        return;
+      }
+      if (tileLayer === this.aromepiWmsLayer || tileLayer === this.aromepiWmsLayerPending) {
+        this.setAromepiTilesLoading(true);
+      }
+    });
     tileLayer.on('load', () => {
       this.scheduleClearAromepiTileError();
+      if (!trackCache) {
+        return;
+      }
+      if (tileLayer === this.aromepiWmsLayer || tileLayer === this.aromepiWmsLayerPending) {
+        this.setAromepiTilesLoading(false);
+      }
     });
     return tileLayer;
   }
@@ -6619,17 +6653,25 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     return tileLayer;
   }
 
-  private applyAromepiTileCacheSample(fromCache: boolean): void {
-    if (!this.aromepiTilesCacheKnown) {
-      this.aromepiTilesCacheKnown = true;
-      this.aromepiTilesFromCache = fromCache;
-      this.cdr.markForCheck();
+  private setAromepiTilesLoading(loading: boolean): void {
+    if (this.aromepiTilesLoading === loading) {
       return;
     }
-    // Any MISS in the current layer batch forces Live; only stay Cache if all samples are HIT.
-    if (!fromCache && this.aromepiTilesFromCache) {
-      this.aromepiTilesFromCache = false;
-      this.cdr.markForCheck();
+    this.aromepiTilesLoading = loading;
+    this.cdr.detectChanges();
+  }
+
+  private applyAromepiTileCacheSample(fromCache: boolean): void {
+    if (fromCache) {
+      this.aromepiTilesCacheHits++;
+    } else {
+      this.aromepiTilesCacheMisses++;
+    }
+    const nextFromCache = this.aromepiTilesCacheMisses === 0;
+    if (!this.aromepiTilesCacheKnown || this.aromepiTilesFromCache !== nextFromCache) {
+      this.aromepiTilesCacheKnown = true;
+      this.aromepiTilesFromCache = nextFromCache;
+      this.cdr.detectChanges();
     }
   }
 
@@ -6638,9 +6680,40 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     if (!stats || (stats.hits === 0 && stats.misses === 0)) {
       return;
     }
+    this.aromepiTilesCacheHits = stats.hits;
+    this.aromepiTilesCacheMisses = stats.misses;
     this.aromepiTilesCacheKnown = true;
     this.aromepiTilesFromCache = stats.misses === 0 && stats.hits > 0;
-    this.cdr.markForCheck();
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * Instant Live/Cache hint via probeOnly (server memory lookup, no MF fetch).
+   * Real tile headers still refine the badge afterward.
+   */
+  private probeAromepiTileCacheHint(urlTemplate: string): void {
+    const map = this.aromepiMap;
+    if (!map || !urlTemplate) {
+      return;
+    }
+    const gen = ++this.aromepiCacheProbeGen;
+    const z = Math.min(Math.max(0, Math.round(map.getZoom())), 10);
+    const point = map.project(map.getCenter(), z);
+    const x = Math.floor(point.x / 256);
+    const y = Math.floor(point.y / 256);
+    const tileUrl = L.Util.template(urlTemplate, { s: '', r: '', z, x, y });
+    const probeUrl = tileUrl + (tileUrl.includes('?') ? '&' : '?') + 'probeOnly=true';
+    fetch(probeUrl, { cache: 'no-store', credentials: 'same-origin' })
+      .then((res) => {
+        if (gen !== this.aromepiCacheProbeGen) {
+          return;
+        }
+        const hint = (res.headers.get('X-Pat-Cache') || '').toUpperCase();
+        if (hint === 'HIT' || hint === 'MISS') {
+          this.applyAromepiTileCacheSample(hint === 'HIT');
+        }
+      })
+      .catch(() => { /* ignore probe failures */ });
   }
 
   /** Near real-time map banner for WMS tile failures (502 / fault XML / etc.). */
@@ -6714,15 +6787,41 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     }
     const retry = Number(status?.aromepiWmsRetryAfterSeconds);
     if (status?.aromepiWmsThrottled && Number.isFinite(retry) && retry > 0) {
+      const wasThrottled = this.aromepiThrottleRetrySec > 0;
       this.aromepiThrottleRetrySec = Math.max(1, Math.round(retry));
       this.aromepiLoadError = false;
+      if (!wasThrottled) {
+        this.showAromepiThrottleBannerBriefly();
+      }
       this.startAromepiThrottleCountdown();
       return;
     }
     if (this.aromepiThrottleRetrySec > 0) {
       this.aromepiThrottleRetrySec = 0;
       this.clearAromepiThrottleCountdown();
+      this.clearAromepiThrottleBanner();
     }
+  }
+
+  private showAromepiThrottleBannerBriefly(): void {
+    this.aromepiThrottleBannerVisible = true;
+    if (this.aromepiThrottleBannerTimer != null) {
+      clearTimeout(this.aromepiThrottleBannerTimer);
+    }
+    this.aromepiThrottleBannerTimer = setTimeout(() => {
+      this.aromepiThrottleBannerTimer = null;
+      this.aromepiThrottleBannerVisible = false;
+      this.cdr.detectChanges();
+    }, 3000);
+    this.cdr.detectChanges();
+  }
+
+  private clearAromepiThrottleBanner(): void {
+    if (this.aromepiThrottleBannerTimer != null) {
+      clearTimeout(this.aromepiThrottleBannerTimer);
+      this.aromepiThrottleBannerTimer = null;
+    }
+    this.aromepiThrottleBannerVisible = false;
   }
 
   private scheduleAromepiCacheStatusProbe(): void {
@@ -6775,6 +6874,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       this.aromepiWmsLayer = existingLayer;
       existingLayer.setOpacity(this.aromepiOpacity);
       this.applyAromepiTileCacheStatsFromLayer(existingLayer);
+      this.setAromepiTilesLoading(false);
       return;
     }
     this.aromepiWmsLayer = this.createAromepiWmsTileLayer(url, this.aromepiOpacity);
@@ -6811,6 +6911,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       this.aromepiWmsLayer = newLayer;
       this.aromepiWmsLayerPending = null;
       this.applyAromepiTileCacheStatsFromLayer(newLayer);
+      this.setAromepiTilesLoading(false);
       onComplete?.(true);
     };
 
@@ -6827,6 +6928,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       }
       this.aromepiWmsLayerPending = null;
       this.aromepiWmsTransitioning = false;
+      this.setAromepiTilesLoading(false);
       onComplete?.(false);
     };
 
