@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -34,7 +35,8 @@ public class AppParameterService {
 
     public Optional<AppParameter> find(String paramKey) {
         if (paramKey == null) return Optional.empty();
-        return repository.findByParamKey(paramKey);
+        // Heal duplicate rows on read so findByParamKey-style callers never see non-unique results.
+        return Optional.ofNullable(resolveUnique(paramKey, true));
     }
 
     /** Returns the raw string value, or {@code defaultValue} if the key is absent. */
@@ -78,11 +80,14 @@ public class AppParameterService {
      * touch {@code dateModification}. {@code valueType} / {@code description}
      * are only applied on creation (they describe the shape of the key,
      * not the latest value).
+     * <p>
+     * If Mongo already has several documents for the same {@code paramKey}
+     * (unique index missing / race), keep the newest, update it, and delete the rest.
      */
     public AppParameter setValue(String paramKey, String paramValue, String valueType, String description) {
-        Optional<AppParameter> existing = repository.findByParamKey(paramKey);
-        AppParameter entity = existing.orElseGet(AppParameter::new);
-        if (!existing.isPresent()) {
+        AppParameter entity = resolveUnique(paramKey, true);
+        if (entity == null) {
+            entity = new AppParameter();
             entity.setParamKey(paramKey);
             entity.setValueType(valueType);
             entity.setDescription(description);
@@ -114,7 +119,13 @@ public class AppParameterService {
     }
 
     public void delete(String paramKey) {
-        repository.findByParamKey(paramKey).ifPresent(repository::delete);
+        if (paramKey == null) {
+            return;
+        }
+        List<AppParameter> rows = repository.findAllByParamKey(paramKey);
+        if (!rows.isEmpty()) {
+            repository.deleteAll(rows);
+        }
     }
 
     public List<AppParameter> findByParamKeyStartingWith(String prefix) {
@@ -122,5 +133,32 @@ public class AppParameterService {
             return List.of();
         }
         return repository.findByParamKeyStartingWith(prefix);
+    }
+
+    /**
+     * Load rows for {@code paramKey}. When several exist, keep the most recently
+     * modified (then created) document and optionally delete the extras.
+     */
+    private AppParameter resolveUnique(String paramKey, boolean deleteDuplicates) {
+        List<AppParameter> rows = repository.findAllByParamKey(paramKey);
+        if (rows.isEmpty()) {
+            return null;
+        }
+        if (rows.size() == 1) {
+            return rows.get(0);
+        }
+        rows.sort(Comparator
+                .comparing(AppParameter::getDateModification, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(AppParameter::getDateCreation, Comparator.nullsLast(Comparator.naturalOrder()))
+                .reversed());
+        AppParameter keeper = rows.get(0);
+        List<AppParameter> extras = rows.subList(1, rows.size());
+        log.warn("AppParameter '{}' has {} duplicate document(s); keeping id={} and {}",
+                paramKey, extras.size(), keeper.getId(),
+                deleteDuplicates ? "deleting extras" : "leaving extras until next write");
+        if (deleteDuplicates) {
+            repository.deleteAll(extras);
+        }
+        return keeper;
     }
 }

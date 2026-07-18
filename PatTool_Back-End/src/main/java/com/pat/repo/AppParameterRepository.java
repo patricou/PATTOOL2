@@ -5,7 +5,6 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import java.util.Optional;
 
 /**
  * MongoDB repository for {@link AppParameter}, PATTOOL's generic
@@ -14,8 +13,11 @@ import java.util.Optional;
 @Repository
 public interface AppParameterRepository extends MongoRepository<AppParameter, String> {
 
-    /** Retrieve a parameter by its business key (e.g. {@code newsapi.requests.log}). */
-    Optional<AppParameter> findByParamKey(String paramKey);
+    /**
+     * All documents for a business key. Prefer {@link AppParameterService#find(String)}
+     * which collapses duplicates; use this when healing non-unique rows.
+     */
+    List<AppParameter> findAllByParamKey(String paramKey);
 
     /** Quickly test whether a key exists (without loading the value). */
     boolean existsByParamKey(String paramKey);

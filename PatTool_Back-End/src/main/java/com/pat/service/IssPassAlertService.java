@@ -289,7 +289,7 @@ public class IssPassAlertService {
             return false;
         }
         String key = PARAM_KEY_PREFIX + userId;
-        if (appParameterRepository.findByParamKey(key).isEmpty()) {
+        if (!appParameterRepository.existsByParamKey(key)) {
             return false;
         }
         appParameterService.delete(key);
