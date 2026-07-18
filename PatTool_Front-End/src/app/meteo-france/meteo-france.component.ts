@@ -456,6 +456,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   /** Bust browser tile cache when manually refreshing the AROME-PI overlay. */
   private aromepiWmsCacheBust = 0;
   aromepiMapFullscreen = false;
+  aromepiFullscreenOptionsExpanded = false;
   isLoadingAromepiCapabilities = false;
   isLoadingAromepiForecast = false;
   aromepiErrorKey = '';
@@ -624,10 +625,10 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private static readonly AROMEPI_FORECAST_STEP_MINUTES = 15;
   /** Zoom from router deep link (trace viewer, etc.) applied on next radar map focus. */
   private pendingRadarMapZoom: number | null = null;
-  /** Shared center/zoom kept in sync across radar, AROME-PI and forecast-options maps. */
-  private sharedMapCenterLat: number | null = null;
-  private sharedMapCenterLon: number | null = null;
-  private sharedMapZoom: number | null = null;
+  /** Shared center/zoom kept in sync across radar, AROME-PI, ARPEGE and forecast-options maps. */
+  sharedMapCenterLat: number | null = null;
+  sharedMapCenterLon: number | null = null;
+  sharedMapZoom: number | null = null;
   private syncingMapView = false;
 
   ngOnInit(): void {
@@ -678,6 +679,12 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         return;
       }
       this.setLocation(location.lat, location.lng, false);
+      // Align shared map view with GPS before maps finish initializing (ARPEGE is default tab).
+      this.sharedMapCenterLat = location.lat;
+      this.sharedMapCenterLon = location.lng;
+      if (this.sharedMapZoom == null) {
+        this.sharedMapZoom = MeteoFranceComponent.RADAR_MAP_ZOOM;
+      }
     }).finally(() => {
       this.bootstrapMeteoFranceLocation();
     });
@@ -687,6 +694,12 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     if (!Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
       this.setLocation(48.8566, 2.3522, false);
     }
+    // Always pin shared view to the selected user location on open.
+    this.sharedMapCenterLat = this.lat;
+    this.sharedMapCenterLon = this.lon;
+    if (this.sharedMapZoom == null) {
+      this.sharedMapZoom = MeteoFranceComponent.RADAR_MAP_ZOOM;
+    }
     this.syncWeatherSourcePreferences();
     this.syncMapLayerSourcePreferences();
     this.loadRadarPreferences();
@@ -695,15 +708,29 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.refreshMfTemperatureAvailability();
     this.isLoadingGps = false;
     this.initMapTimer = this.scheduleComponentTimeout(() => this.initMap(), 0);
+    this.ensureSharedMapViewDefaults();
     this.activeMainTab = this.resolveRegionalMainTab(this.activeMainTab);
     if (this.activeMainTab === 'aromepi') {
       this.scheduleAromepiMapInit(() => {
         if (this.aromepiAvailable) {
           this.ensureAromepiCapabilitiesLoaded();
         }
+        this.goToPlaceCoordinates(this.lat, this.lon);
       });
     } else if (this.activeMainTab === 'arpege') {
       this.ensureForecastLocationResolved();
+      this.scheduleComponentTimeout(() => {
+        this.arpegeTab?.invalidateMapSize();
+        this.goToPlaceCoordinates(this.lat, this.lon);
+      }, 120);
+      // Second pass: ARPEGE map may finish init slightly later than ViewChild is ready.
+      this.scheduleComponentTimeout(() => {
+        this.goToPlaceCoordinates(this.lat, this.lon);
+      }, 350);
+    } else {
+      this.scheduleComponentTimeout(() => {
+        this.goToPlaceCoordinates(this.lat, this.lon);
+      }, 120);
     }
   }
 
@@ -2173,6 +2200,35 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.refreshForecastMapLayout();
   }
 
+  onArpegeMapViewChange(view: { centerLat: number; centerLon: number; zoom: number }): void {
+    if (this.syncingMapView) {
+      return;
+    }
+    if (!Number.isFinite(view.centerLat) || !Number.isFinite(view.centerLon) || !Number.isFinite(view.zoom)) {
+      return;
+    }
+    this.sharedMapCenterLat = view.centerLat;
+    this.sharedMapCenterLon = view.centerLon;
+    this.sharedMapZoom = view.zoom;
+    this.syncMapViewFromSource('arpege');
+  }
+
+  onArpegeLocationChange(pos: { lat: number; lon: number }): void {
+    if (!Number.isFinite(pos.lat) || !Number.isFinite(pos.lon)) {
+      return;
+    }
+    this.userLocationLocked = true;
+    this.setLocation(pos.lat, pos.lon, true);
+  }
+
+  onArpegeMapBaseLayerChange(layerId: string): void {
+    if (!layerId || layerId === this.mapBaseLayerId) {
+      return;
+    }
+    this.mapBaseLayerId = layerId;
+    this.onMapBaseLayerChange();
+  }
+
   private readMapBaseLayerPreference(): string {
     try {
       const raw = localStorage.getItem(MeteoFranceComponent.MAP_BASE_LAYER_STORAGE_KEY);
@@ -2250,6 +2306,11 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       this.applySharedMapViewTo(this.map);
       this.applySharedMapViewTo(this.aromepiMap);
       this.applySharedMapViewTo(this.forecastMap);
+      this.arpegeTab?.applySharedMapView(
+        this.sharedMapCenterLat!,
+        this.sharedMapCenterLon!,
+        this.sharedMapZoom!
+      );
     } finally {
       this.syncingMapView = false;
     }
@@ -2315,6 +2376,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         const z = this.clampZoomForMap(map, zoom);
         map.setView([lat, lon], z, { animate: false });
       }
+      this.arpegeTab?.applySharedMapView(lat, lon, zoom);
       if (this.map) {
         this.sharedMapZoom = this.map.getZoom();
         this.sharedMapCenterLat = this.map.getCenter().lat;
@@ -2338,13 +2400,26 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         this.map?.invalidateSize();
         this.aromepiMap?.invalidateSize();
         this.forecastMap?.invalidateSize();
+        this.arpegeTab?.invalidateMapSize();
         this.goToPlaceCoordinates(lat, lon);
       }, delayMs);
     }
   }
 
-  private syncMapViewFromSource(source: 'radar' | 'aromepi' | 'forecast'): void {
+  private syncMapViewFromSource(source: 'radar' | 'aromepi' | 'forecast' | 'arpege'): void {
     if (this.syncingMapView) {
+      return;
+    }
+    if (source === 'arpege') {
+      // Shared state already set by onArpegeMapViewChange before calling this.
+      this.syncingMapView = true;
+      try {
+        this.applySharedMapViewTo(this.map);
+        this.applySharedMapViewTo(this.aromepiMap);
+        this.applySharedMapViewTo(this.forecastMap);
+      } finally {
+        this.syncingMapView = false;
+      }
       return;
     }
     const sourceMap = source === 'radar'
@@ -2367,6 +2442,11 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       if (source !== 'forecast') {
         this.applySharedMapViewTo(this.forecastMap);
       }
+      this.arpegeTab?.applySharedMapView(
+        this.sharedMapCenterLat!,
+        this.sharedMapCenterLon!,
+        this.sharedMapZoom!
+      );
     } finally {
       this.syncingMapView = false;
     }
@@ -5389,13 +5469,21 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   @HostListener('document:webkitfullscreenchange')
   onMapFullscreenChange(): void {
     const shell = this.mapShell?.nativeElement;
+    const aromepiShell = this.aromepiMapShell?.nativeElement;
     const doc = document as Document & { webkitFullscreenElement?: Element };
     const active = !!(shell && (document.fullscreenElement === shell || doc.webkitFullscreenElement === shell));
-    if (this.mapFullscreen === active) {
-      return;
+    if (this.mapFullscreen !== active) {
+      this.mapFullscreen = active;
+      this.refreshMapLayoutAfterResize();
     }
-    this.mapFullscreen = active;
-    this.refreshMapLayoutAfterResize();
+    const aromepiActive = !!(aromepiShell && (document.fullscreenElement === aromepiShell || doc.webkitFullscreenElement === aromepiShell));
+    if (this.aromepiMapFullscreen !== aromepiActive) {
+      this.aromepiMapFullscreen = aromepiActive;
+      if (!aromepiActive) {
+        this.aromepiFullscreenOptionsExpanded = false;
+      }
+      setTimeout(() => this.refreshAromepiMapLayout(), 120);
+    }
   }
 
   @HostListener('document:keydown.escape')
@@ -5492,6 +5580,11 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     } else if (tab === 'arpege') {
       this.stopAromepiAnimation();
       this.ensureForecastLocationResolved();
+      this.ensureSharedMapViewDefaults();
+      this.scheduleComponentTimeout(() => {
+        this.arpegeTab?.invalidateMapSize();
+        this.applySharedMapViewToAllMaps();
+      }, 80);
     } else if (tab === 'forecast-options') {
       this.historyCacheDays = this.historyCache.getRetentionDays();
       this.stopAromepiAnimation();
@@ -7130,11 +7223,19 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       ?? (shell as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen?.bind(shell);
     request?.().then(() => {
       this.aromepiMapFullscreen = true;
+      this.aromepiFullscreenOptionsExpanded = false;
       setTimeout(() => this.refreshAromepiMapLayout(), 120);
     }).catch(() => {
       this.aromepiMapFullscreen = !this.aromepiMapFullscreen;
+      if (this.aromepiMapFullscreen) {
+        this.aromepiFullscreenOptionsExpanded = false;
+      }
       setTimeout(() => this.refreshAromepiMapLayout(), 120);
     });
+  }
+
+  toggleAromepiFullscreenOptions(): void {
+    this.aromepiFullscreenOptionsExpanded = !this.aromepiFullscreenOptionsExpanded;
   }
 
   private exitAromepiMapFullscreenIfActive(): void {
@@ -7143,12 +7244,14 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       const exit = document.exitFullscreen?.bind(document) ?? doc.webkitExitFullscreen?.bind(document);
       exit?.().catch(() => {
         this.aromepiMapFullscreen = false;
+        this.aromepiFullscreenOptionsExpanded = false;
         setTimeout(() => this.refreshAromepiMapLayout(), 120);
       });
       return;
     }
     if (this.aromepiMapFullscreen) {
       this.aromepiMapFullscreen = false;
+      this.aromepiFullscreenOptionsExpanded = false;
       setTimeout(() => this.refreshAromepiMapLayout(), 120);
     }
   }
@@ -7539,6 +7642,12 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       this.focusRadarMapOnPosition();
     } else if (this.activeMainTab === 'aromepi' && this.aromepiMap) {
       this.focusAromepiMapOnPosition();
+    } else if (this.activeMainTab === 'arpege') {
+      this.arpegeTab?.applySharedMapView(
+        this.sharedMapCenterLat ?? this.lat,
+        this.sharedMapCenterLon ?? this.lon,
+        this.sharedMapZoom ?? MeteoFranceComponent.RADAR_MAP_ZOOM
+      );
     } else if (this.isForecastTab && this.forecastMap) {
       this.focusForecastMapOnPosition();
     }

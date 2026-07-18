@@ -2,11 +2,13 @@ import {
   ChangeDetectorRef,
   Component,
   ElementRef,
+  EventEmitter,
   HostListener,
   Input,
   OnChanges,
   OnDestroy,
   OnInit,
+  Output,
   SimpleChanges,
   ViewChild
 } from '@angular/core';
@@ -49,7 +51,7 @@ interface ArpegeForecastStep {
 })
 export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestroy {
 
-  private static readonly DEFAULT_ZOOM = 7;
+  private static readonly DEFAULT_ZOOM = 13;
   private static readonly PLAY_INTERVAL_MS = 700;
   private static readonly THROTTLE_POLL_MS = 5000;
   private static readonly DOMAIN_EUROPE = '01-EUROPE';
@@ -58,6 +60,11 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
 
   @Input() lat = 48.8566;
   @Input() lon = 2.3522;
+  /** Shared map zoom from parent (radar / AROME / options). */
+  @Input() mapZoom: number | null = null;
+  /** Shared map center (may differ from GPS marker when the user pans). */
+  @Input() mapCenterLat: number | null = null;
+  @Input() mapCenterLon: number | null = null;
   @Input() mapBaseLayerId = 'osm-standard';
   @Input() active = false;
   @Input() authValid = false;
@@ -66,10 +73,15 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
   @Input() locationLabel = '';
   @Input() locationCoords = '';
 
+  @Output() mapViewChange = new EventEmitter<{ centerLat: number; centerLon: number; zoom: number }>();
+  @Output() locationChange = new EventEmitter<{ lat: number; lon: number }>();
+  @Output() mapBaseLayerChange = new EventEmitter<string>();
+
   @ViewChild('mapShell') mapShell?: ElementRef<HTMLElement>;
   @ViewChild(TraceViewerModalComponent) traceViewerModalComponent?: TraceViewerModalComponent;
 
   mapFullscreen = false;
+  fullscreenOptionsExpanded = false;
   loading = false;
   errorKey = '';
   layers: ArpegeLayer[] = [];
@@ -122,6 +134,18 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
   private featureInfoPopup: L.Popup | null = null;
   private mapInitialized = false;
   private destroyed = false;
+  private syncingMapView = false;
+  private readonly onArpegeMapViewChange = (): void => {
+    if (this.syncingMapView || !this.map || this.destroyed) {
+      return;
+    }
+    const center = this.map.getCenter();
+    this.mapViewChange.emit({
+      centerLat: center.lat,
+      centerLon: center.lng,
+      zoom: this.map.getZoom()
+    });
+  };
   private playTimer: ReturnType<typeof setInterval> | null = null;
   private throttleTimer: ReturnType<typeof setInterval> | null = null;
   private layoutTimer: ReturnType<typeof setTimeout> | null = null;
@@ -153,9 +177,25 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
     if (changes['active']?.currentValue === true) {
       this.activate();
     }
-    if ((changes['lat'] || changes['lon']) && this.active && this.mapInitialized) {
-      this.centerOnInputLocation(false);
-      this.loadPointForecast();
+    if ((changes['lat'] || changes['lon']) && this.mapInitialized) {
+      this.updateLocationMarker();
+      // Parent GPS / location change: recenter on the selected position (not only the marker).
+      if (this.active && !this.syncingMapView
+        && Number.isFinite(this.lat) && Number.isFinite(this.lon)) {
+        this.applySharedMapView(this.lat, this.lon, this.resolveInitialZoom());
+        this.mapViewChange.emit({
+          centerLat: this.lat,
+          centerLon: this.lon,
+          zoom: this.resolveInitialZoom()
+        });
+      }
+      if (this.active) {
+        this.loadPointForecast();
+      }
+    }
+    if ((changes['mapZoom'] || changes['mapCenterLat'] || changes['mapCenterLon'])
+      && this.mapInitialized && !this.syncingMapView) {
+      this.applySharedMapViewFromInputs();
     }
     if ((changes['authValid'] || changes['configured'] || changes['statusMessageKey']) && this.active) {
       this.loadCapabilities();
@@ -250,14 +290,54 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
     if (!this.mapInitialized) {
       this.scheduleLayoutRefresh(80, () => this.initMap());
     } else {
-      this.scheduleLayoutRefresh(80, () => this.map?.invalidateSize());
+      this.scheduleLayoutRefresh(80, () => {
+        this.map?.invalidateSize();
+        this.applySharedMapViewFromInputs();
+      });
     }
     this.loadCapabilities();
     this.startThrottlePolling();
   }
 
+  /** Apply parent shared view (center + zoom). Used when other maps move. */
+  applySharedMapView(centerLat: number, centerLon: number, zoom: number): void {
+    if (!this.map || this.destroyed) {
+      return;
+    }
+    if (!Number.isFinite(centerLat) || !Number.isFinite(centerLon) || !Number.isFinite(zoom)) {
+      return;
+    }
+    const z = Math.min(Math.max(zoom, this.map.getMinZoom()), this.map.getMaxZoom());
+    const center = this.map.getCenter();
+    if (Math.abs(center.lat - centerLat) < 1e-7
+      && Math.abs(center.lng - centerLon) < 1e-7
+      && this.map.getZoom() === z) {
+      return;
+    }
+    this.syncingMapView = true;
+    try {
+      this.map.setView([centerLat, centerLon], z, { animate: false });
+    } finally {
+      // Ignore the moveend/zoomend triggered by this setView.
+      window.setTimeout(() => {
+        this.syncingMapView = false;
+      }, 0);
+    }
+  }
+
+  invalidateMapSize(): void {
+    this.map?.invalidateSize();
+  }
+
   centerOnSelectedLocation(): void {
-    this.centerOnInputLocation(true);
+    const zoom = this.resolveInitialZoom();
+    this.applySharedMapView(this.lat, this.lon, zoom);
+    this.updateLocationMarker();
+    this.mapViewChange.emit({
+      centerLat: this.lat,
+      centerLon: this.lon,
+      zoom
+    });
   }
 
   reloadPointForecast(): void {
@@ -298,6 +378,7 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
 
   onMapBaseLayerChange(): void {
     this.applyBaseLayer();
+    this.mapBaseLayerChange.emit(this.localMapBaseLayerId);
   }
 
   onDomainChange(domainId: string): void {
@@ -393,8 +474,13 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
       ?? (shell as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen?.bind(shell);
     request?.().catch(() => {
       this.mapFullscreen = true;
+      this.fullscreenOptionsExpanded = false;
       this.refreshMapLayoutAfterResize();
     });
+  }
+
+  toggleFullscreenOptions(): void {
+    this.fullscreenOptionsExpanded = !this.fullscreenOptionsExpanded;
   }
 
   openMapInTraceViewer(): void {
@@ -521,6 +607,7 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
       return;
     }
     this.mapFullscreen = active;
+    this.fullscreenOptionsExpanded = false;
     this.refreshMapLayoutAfterResize();
   }
 
@@ -720,22 +807,55 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
       this.scheduleLayoutRefresh(120, () => this.initMap());
       return;
     }
+    // Prefer GPS / selected location for initial center (shared center may still be stale).
+    const centerLat = Number.isFinite(this.lat) ? this.lat
+      : (Number.isFinite(this.mapCenterLat) ? this.mapCenterLat! : 48.8566);
+    const centerLon = Number.isFinite(this.lon) ? this.lon
+      : (Number.isFinite(this.mapCenterLon) ? this.mapCenterLon! : 2.3522);
     this.map = L.map(container, {
-      center: [this.lat, this.lon],
-      zoom: MeteoFranceArpegeTabComponent.DEFAULT_ZOOM,
+      center: [centerLat, centerLon],
+      zoom: this.resolveInitialZoom(),
       minZoom: 2,
-      maxZoom: 12,
+      maxZoom: 14,
       worldCopyJump: false
     });
     this.applyMapBoundsForDomain();
     this.applyBaseLayer();
     this.updateLocationMarker();
     this.map.on('click', (e: L.LeafletMouseEvent) => this.onMapClick(e));
+    this.bindSharedMapViewSync();
     this.mapInitialized = true;
     this.scheduleLayoutRefresh(60, () => {
       this.map?.invalidateSize();
+      this.applySharedMapView(centerLat, centerLon, this.resolveInitialZoom());
+      this.updateLocationMarker();
       this.setupWmsLayer();
     });
+  }
+
+  private resolveInitialZoom(): number {
+    const z = this.mapZoom != null && Number.isFinite(this.mapZoom)
+      ? this.mapZoom
+      : MeteoFranceArpegeTabComponent.DEFAULT_ZOOM;
+    return Math.min(Math.max(z, 2), 14);
+  }
+
+  private applySharedMapViewFromInputs(): void {
+    const centerLat = Number.isFinite(this.mapCenterLat) ? this.mapCenterLat! : this.lat;
+    const centerLon = Number.isFinite(this.mapCenterLon) ? this.mapCenterLon! : this.lon;
+    const zoom = this.resolveInitialZoom();
+    this.applySharedMapView(centerLat, centerLon, zoom);
+    this.updateLocationMarker();
+  }
+
+  private bindSharedMapViewSync(): void {
+    if (!this.map) {
+      return;
+    }
+    this.map.off('moveend', this.onArpegeMapViewChange);
+    this.map.off('zoomend', this.onArpegeMapViewChange);
+    this.map.on('moveend', this.onArpegeMapViewChange);
+    this.map.on('zoomend', this.onArpegeMapViewChange);
   }
 
   private applyMapBoundsForDomain(): void {
@@ -786,7 +906,7 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
       opacity: this.opacity,
       zIndex: 500,
       maxNativeZoom,
-      maxZoom: 12,
+      maxZoom: 14,
       updateWhenIdle: true,
       keepBuffer: 1,
       attribution: '&copy; Météo-France ARPEGE (via PatTool)'
@@ -1023,14 +1143,6 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
     }, 500);
   }
 
-  private centerOnInputLocation(animate: boolean): void {
-    if (!this.map || !Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
-      return;
-    }
-    this.map.setView([this.lat, this.lon], this.map.getZoom(), { animate });
-    this.updateLocationMarker();
-  }
-
   private updateLocationMarker(): void {
     if (!this.map || !Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
       return;
@@ -1041,6 +1153,7 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
       return;
     }
     this.locationMarker = L.marker(latLng, {
+      draggable: true,
       icon: L.icon({
         iconUrl: 'assets/leaflet/images/marker-icon.png',
         shadowUrl: 'assets/leaflet/images/marker-shadow.png',
@@ -1048,6 +1161,10 @@ export class MeteoFranceArpegeTabComponent implements OnInit, OnChanges, OnDestr
         iconAnchor: [12, 41]
       })
     }).addTo(this.map);
+    this.locationMarker.on('dragend', () => {
+      const pos = this.locationMarker!.getLatLng();
+      this.locationChange.emit({ lat: pos.lat, lon: pos.lng });
+    });
   }
 
   private stopPlayback(): void {

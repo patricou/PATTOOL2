@@ -286,29 +286,36 @@
   border-bottom: 3px solid #dee2e6;
   margin-bottom: 1.25rem;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  flex-direction: row;
+  align-items: stretch;
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   background: #ffffff;
   padding: 8px 4px 0 4px;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
   max-width: 100%;
   -ms-overflow-style: none;
-  scrollbar-width: none;
+  scrollbar-width: thin;
   border-radius: 8px 8px 0 0;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
 .meteo-france-tabs-desktop::-webkit-scrollbar {
-  display: none;
+  height: 4px;
+}
+
+.meteo-france-tabs-desktop::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
 }
 
 .meteo-france-tabs-desktop .nav-item {
   margin: 0;
-  flex: 1;
-  min-width: fit-content;
+  flex: 0 0 auto;
+  min-width: 0;
   border: none !important;
   position: relative;
 }
@@ -317,21 +324,21 @@
   color: #495057;
   border: 1px solid #dee2e6 !important;
   border-bottom: none !important;
-  padding: 10px 16px;
+  padding: 8px 12px;
   transition: all 0.3s ease;
   white-space: nowrap;
-  flex: 1;
+  flex: 0 0 auto;
   background: #f8f9fa;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   border-radius: 8px 8px 0 0;
   margin-bottom: -3px;
-  width: 100%;
-  min-width: fit-content;
+  width: auto;
+  min-width: 0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   cursor: pointer;
 }
@@ -382,12 +389,12 @@
 @media (max-width: 992px) {
   .meteo-france-tabs-desktop {
     padding: 6px 3px 0 3px;
-    gap: 6px;
+    gap: 4px;
   }
 
   .meteo-france-tabs-desktop .nav-link {
-    padding: 8px 14px;
-    font-size: 0.8rem;
+    padding: 7px 10px;
+    font-size: 0.75rem;
   }
 }
 
@@ -2318,29 +2325,17 @@
   max-width: 20rem;
 }
 
-.aromepi-layer-overlay {
-  position: absolute;
-  top: 3rem;
-  left: 0.5rem;
-  z-index: 600;
-  max-width: min(22rem, calc(100% - 5.5rem));
-  padding: 0.45rem 0.6rem;
-  border-radius: 0.375rem;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
+.aromepi-layer-below-map {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem 0.75rem;
 }
 
-.aromepi-layer-overlay .aromepi-controls--compact .aromepi-layer-select,
-.aromepi-layer-overlay .aromepi-opacity-row {
-  max-width: none;
-  width: 100%;
-}
-
-.aromepi-layer-overlay .aromepi-opacity-row {
-  margin-top: 0.45rem;
+.aromepi-layer-below-map .aromepi-controls {
+  margin-bottom: 0;
+  flex: 1 1 16rem;
+  min-width: 12rem;
 }
 
 .aromepi-forecast-table {

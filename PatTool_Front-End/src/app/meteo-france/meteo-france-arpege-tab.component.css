@@ -328,27 +328,17 @@
   max-width: 16rem;
 }
 
-.aromepi-layer-overlay {
-  position: absolute;
-  top: 3.25rem;
-  left: 10px;
-  z-index: 660;
+.aromepi-layer-below-map {
   display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.45rem 0.55rem;
-  border-radius: 0.4rem;
-  background: rgba(255, 255, 255, 0.94);
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
-  max-width: min(22rem, calc(100% - 20px));
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem 0.75rem;
 }
 
-.aromepi-layer-overlay .aromepi-controls--compact .aromepi-layer-select,
-.aromepi-layer-overlay .aromepi-opacity-row {
-  min-width: 0;
-  width: 100%;
-  max-width: none;
+.aromepi-layer-below-map .aromepi-controls {
+  margin-bottom: 0;
+  flex: 1 1 16rem;
+  min-width: 12rem;
 }
 
 .aromepi-forecast-table {

@@ -162,3 +162,123 @@
     display: inline;
   }
 }
+
+/* Fullscreen layer options — Trace Viewer style: frosted glass, bottom-left */
+.mf-fullscreen-selector {
+  --mf-fs-card-bg: rgba(255, 255, 255, 0.42);
+  --mf-fs-card-border: rgba(255, 255, 255, 0.55);
+  --mf-fs-card-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
+  --mf-fs-text: #1e293b;
+  position: absolute;
+  top: auto;
+  /* Sit above the forecast time player (full-width bottom bar). */
+  bottom: 4.75rem;
+  left: 0.75rem;
+  z-index: 660;
+  display: flex;
+  flex-direction: column;
+  min-width: 260px;
+  max-width: min(280px, calc(100% - 1.5rem));
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  background: var(--mf-fs-card-bg);
+  border: 1px solid var(--mf-fs-card-border);
+  box-shadow: var(--mf-fs-card-shadow);
+  color: var(--mf-fs-text);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.mf-fullscreen-selector--collapsed {
+  min-width: auto;
+  max-width: none;
+  padding: 0.35rem 0.45rem;
+  bottom: 4.75rem;
+  left: 0.75rem;
+}
+
+.mf-fullscreen-selector-expand-btn,
+.mf-fullscreen-selector-collapse-btn {
+  background: rgba(255, 255, 255, 0.55);
+  border-color: rgba(15, 23, 42, 0.18);
+}
+
+.mf-fullscreen-selector-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.mf-fullscreen-selector-body select.form-select,
+.mf-fullscreen-selector-body .form-range {
+  background-color: rgba(255, 255, 255, 0.72);
+}
+
+.mf-fullscreen-selector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.mf-fullscreen-selector-title {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.mf-fullscreen-selector-collapse-btn {
+  flex-shrink: 0;
+  padding: 0.15rem 0.45rem;
+  line-height: 1;
+}
+
+.mf-fullscreen-selector-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.mf-fullscreen-selector-body .aromepi-controls,
+.mf-fullscreen-selector-body .arpege-domain-controls,
+.mf-fullscreen-selector-body .aromepi-domain-controls {
+  margin-bottom: 0 !important;
+  grid-template-columns: 1fr;
+}
+
+.mf-fullscreen-selector-body .aromepi-controls--compact .aromepi-layer-select,
+.mf-fullscreen-selector-body .aromepi-opacity-row {
+  min-width: 0;
+  width: 100%;
+  max-width: none;
+}
+
+.mf-fullscreen-selector-body label,
+.mf-fullscreen-selector-body .form-label {
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: var(--mf-fs-text);
+  margin-bottom: 0.15rem;
+}
+
+.mf-fullscreen-selector-body select.form-select {
+  font-size: 0.8rem;
+}
+
+.mf-fullscreen-selector-body .aromepi-opacity-row {
+  margin-top: 0;
+}
+
+.aromepi-layer-below-map {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem 0.75rem;
+}
+
+.aromepi-layer-below-map .aromepi-controls {
+  margin-bottom: 0;
+  flex: 1 1 16rem;
+  min-width: 12rem;
+}
