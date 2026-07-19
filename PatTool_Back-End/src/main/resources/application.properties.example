@@ -80,6 +80,9 @@ globe.proxy.http.read-timeout-seconds=90
 # Free IPTV / TV watcher (/api/external/tv) — iptv-org country playlists + HLS proxy.
 # app.tv.playlist-base-url=https://iptv-org.github.io/iptv/countries
 # app.tv.catalog-cache-minutes=60
+# XMLTV EPG now/next (iptv-epg.org country files, gzip preferred).
+# app.tv.epg.base-url=https://iptv-epg.org/files
+# app.tv.epg.cache-minutes=180
 # Optional Referer sent upstream when a CDN requires one (leave empty by default).
 # app.tv.proxy-referrer=
 # TF1 / TMC / TFX live workaround (free TF1 account required — create one on tf1.fr).

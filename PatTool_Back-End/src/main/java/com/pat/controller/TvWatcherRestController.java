@@ -2,12 +2,15 @@ package com.pat.controller;
 
 import com.pat.controller.dto.TvChannelDto;
 import com.pat.controller.dto.TvCountryDto;
+import com.pat.controller.dto.TvEpgNowDto;
 import com.pat.controller.dto.TvFavoritesDto;
 import com.pat.service.CanalGroupLiveService;
 import com.pat.service.FranceTvLiveService;
+import com.pat.service.M6GroupLiveService;
 import com.pat.service.RadioFranceLiveService;
 import com.pat.service.Tf1LiveService;
 import com.pat.service.TvCatalogService;
+import com.pat.service.TvEpgService;
 import com.pat.service.TvFavoritesService;
 import com.pat.service.TvLastChannelService;
 import com.pat.service.TvStreamProxyService;
@@ -32,6 +35,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -83,18 +87,53 @@ public class TvWatcherRestController {
     @Autowired
     private RadioFranceLiveService radioFranceLiveService;
 
+    @Autowired
+    private M6GroupLiveService m6GroupLiveService;
+
+    @Autowired
+    private TvEpgService tvEpgService;
+
     @GetMapping("/countries")
     public ResponseEntity<List<TvCountryDto>> countries() {
         return ResponseEntity.ok()
-                .cacheControl(CacheControl.maxAge(Duration.ofHours(12)).cachePublic())
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePublic().mustRevalidate())
                 .body(tvCatalogService.listCountries());
+    }
+
+    /**
+     * Channel count for a country, or worldwide total when {@code country=all}.
+     */
+    @GetMapping("/channel-count")
+    public ResponseEntity<Map<String, Object>> channelCount(
+            @RequestParam(defaultValue = "all") String country) {
+        if (!tvCatalogService.isAllCountries(country) && !tvCatalogService.isSupportedCountry(country)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid country code"));
+        }
+        int count = tvCatalogService.countChannels(country);
+        String code = tvCatalogService.isAllCountries(country) ? "all" : country.trim().toLowerCase(Locale.ROOT);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(10)).cachePublic())
+                .body(Map.of("country", code, "count", count));
     }
 
     @GetMapping("/channels")
     public ResponseEntity<?> channels(
             @RequestParam(defaultValue = "fr") String country,
             @RequestParam(required = false) String q,
-            @RequestParam(required = false) String group) {
+            @RequestParam(required = false) String group,
+            @RequestParam(required = false, defaultValue = "200") int limit) {
+        if (tvCatalogService.isAllCountries(country)) {
+            String query = q != null ? q.trim() : "";
+            if (query.length() < 2) {
+                return ResponseEntity.ok()
+                        .cacheControl(CacheControl.noStore())
+                        .body(List.of());
+            }
+            List<TvChannelDto> worldwide = tvCatalogService.searchAllCountries(query, group, limit);
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(Duration.ofMinutes(2)).cachePublic())
+                    .body(worldwide);
+        }
         if (!tvCatalogService.isSupportedCountry(country)) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid country code"));
         }
@@ -117,6 +156,9 @@ public class TvWatcherRestController {
 
     @GetMapping("/groups")
     public ResponseEntity<?> groups(@RequestParam(defaultValue = "fr") String country) {
+        if (tvCatalogService.isAllCountries(country)) {
+            return ResponseEntity.ok(List.of());
+        }
         if (!tvCatalogService.isSupportedCountry(country)) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid country code"));
         }
@@ -129,6 +171,27 @@ public class TvWatcherRestController {
                 .sorted(String.CASE_INSENSITIVE_ORDER)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(groups);
+    }
+
+    /**
+     * Now / next programmes for channel XMLTV ids (comma-separated).
+     * Example: {@code GET /epg/now?country=fr&ids=TF1.fr,M6.fr,France2.fr}
+     */
+    @GetMapping("/epg/now")
+    public ResponseEntity<Map<String, TvEpgNowDto>> epgNow(
+            @RequestParam(defaultValue = "fr") String country,
+            @RequestParam("ids") String ids) {
+        if (!StringUtils.hasText(ids)) {
+            return ResponseEntity.ok(Map.of());
+        }
+        List<String> idList = Arrays.stream(ids.split(","))
+                .map(String::trim)
+                .filter(StringUtils::hasText)
+                .collect(Collectors.toList());
+        Map<String, TvEpgNowDto> result = tvEpgService.nowForIds(country, idList);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(2)).cachePublic())
+                .body(result);
     }
 
     @GetMapping("/favorites")
@@ -215,14 +278,16 @@ public class TvWatcherRestController {
             HttpServletRequest request) {
         Optional<String> upstream = TvStreamProxyService.decodeUpstreamUrl(encodedUrl);
         if (upstream.isEmpty()) {
-            return ResponseEntity.badRequest().build();
+            return TvStreamProxyService.jsonError(HttpStatus.BAD_REQUEST, "invalid_encoded_url",
+                    "URL de flux encodée invalide");
+        }
+        ResponseEntity<byte[]> resolveError = resolveLiveUpstreamOrError(upstream.get());
+        if (resolveError != null) {
+            return resolveError;
         }
         Optional<String> resolved = resolveLiveUpstream(upstream.get());
-        if (resolved.isEmpty() || !StringUtils.hasText(resolved.get())) {
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
-        }
         String proxyBase = buildProxyBase(request);
-        return tvStreamProxyService.proxy(resolved.get(), proxyBase, range);
+        return tvStreamProxyService.proxy(resolved.orElse(upstream.get()), proxyBase, range);
     }
 
     /**
@@ -234,22 +299,26 @@ public class TvWatcherRestController {
             @RequestHeader(value = "Range", required = false) String range,
             HttpServletRequest request) {
         if (!StringUtils.hasText(url)) {
-            return ResponseEntity.badRequest().build();
+            return TvStreamProxyService.jsonError(HttpStatus.BAD_REQUEST, "missing_url",
+                    "URL de flux manquante");
         }
         String trimmed = url.trim();
         if (!(trimmed.startsWith("http://") || trimmed.startsWith("https://")
                 || FranceTvLiveService.isVirtualUrl(trimmed)
                 || Tf1LiveService.isVirtualUrl(trimmed)
                 || CanalGroupLiveService.isVirtualUrl(trimmed)
-                || RadioFranceLiveService.isVirtualUrl(trimmed))) {
-            return ResponseEntity.badRequest().build();
+                || RadioFranceLiveService.isVirtualUrl(trimmed)
+                || M6GroupLiveService.isVirtualUrl(trimmed))) {
+            return TvStreamProxyService.jsonError(HttpStatus.BAD_REQUEST, "invalid_url",
+                    "L’URL doit être http(s) ou un flux live virtuel supporté");
+        }
+        ResponseEntity<byte[]> resolveError = resolveLiveUpstreamOrError(trimmed);
+        if (resolveError != null) {
+            return resolveError;
         }
         Optional<String> resolved = resolveLiveUpstream(trimmed);
-        if (resolved.isEmpty() || !StringUtils.hasText(resolved.get())) {
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
-        }
         String proxyBase = buildProxyBase(request);
-        return tvStreamProxyService.proxy(resolved.get(), proxyBase, range);
+        return tvStreamProxyService.proxy(resolved.orElse(trimmed), proxyBase, range);
     }
 
     /** Resolve a france.tv live channel to a fresh signed HLS URL (JSON). */
@@ -336,6 +405,29 @@ public class TvWatcherRestController {
         ));
     }
 
+    /**
+     * Resolve M6 / W9 / 6ter / Gulli via public IPTV mirrors (official M6+ is DRM-only).
+     */
+    @GetMapping("/live/m6group/{slug}")
+    public ResponseEntity<?> resolveM6Group(@PathVariable("slug") String slug) {
+        if (m6GroupLiveService.findChannel(slug).isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Unknown M6 group channel"));
+        }
+        Optional<String> hls = m6GroupLiveService.resolveHlsUrl(slug);
+        if (hls.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of(
+                    "error", "m6group_resolve_failed",
+                    "message", "M6+ officiel est protégé DRM — aucun miroir IPTV public disponible. "
+                            + "Regardez sur https://www.m6.fr/m6/direct"
+            ));
+        }
+        return ResponseEntity.ok(Map.of(
+                "slug", slug,
+                "streamUrl", hls.get(),
+                "virtualUrl", M6GroupLiveService.virtualUrl(slug)
+        ));
+    }
+
     private Optional<String> resolveLiveUpstream(String url) {
         if (Tf1LiveService.isVirtualUrl(url)) {
             return tf1LiveService.resolveVirtualOrPassthrough(url);
@@ -349,7 +441,72 @@ public class TvWatcherRestController {
         if (RadioFranceLiveService.isVirtualUrl(url)) {
             return radioFranceLiveService.resolveVirtualOrPassthrough(url);
         }
+        if (M6GroupLiveService.isVirtualUrl(url)) {
+            return m6GroupLiveService.resolveVirtualOrPassthrough(url);
+        }
         return Optional.of(url);
+    }
+
+    /**
+     * @return a JSON error response when live resolution fails; {@code null} when OK to proxy
+     */
+    private ResponseEntity<byte[]> resolveLiveUpstreamOrError(String url) {
+        if (Tf1LiveService.isVirtualUrl(url)) {
+            Optional<String> slug = Tf1LiveService.slugFromVirtualUrl(url);
+            if (slug.isEmpty() || tf1LiveService.findChannel(slug.get()).isEmpty()) {
+                return TvStreamProxyService.jsonError(HttpStatus.BAD_REQUEST, "unknown_tf1_channel",
+                        "Chaîne TF1 inconnue");
+            }
+            boolean needsAuth = tf1LiveService.findChannel(slug.get())
+                    .map(Tf1LiveService.ChannelDef::requiresAuth).orElse(true);
+            if (needsAuth && !tf1LiveService.isConfigured()) {
+                return TvStreamProxyService.jsonError(HttpStatus.SERVICE_UNAVAILABLE, "tf1_credentials_missing",
+                        "Compte TF1 requis : configurez app.tv.tf1.email et app.tv.tf1.password");
+            }
+            Optional<String> hls = tf1LiveService.resolveHlsUrl(slug.get());
+            if (hls.isEmpty() || !StringUtils.hasText(hls.get())) {
+                return TvStreamProxyService.jsonError(HttpStatus.BAD_GATEWAY, "tf1_resolve_failed",
+                        "Impossible de résoudre le flux live TF1");
+            }
+            return null;
+        }
+        if (FranceTvLiveService.isVirtualUrl(url)) {
+            Optional<String> hls = franceTvLiveService.resolveVirtualOrPassthrough(url);
+            if (hls.isEmpty() || !StringUtils.hasText(hls.get()) || FranceTvLiveService.isVirtualUrl(hls.get())) {
+                return TvStreamProxyService.jsonError(HttpStatus.BAD_GATEWAY, "francetv_resolve_failed",
+                        "Impossible de résoudre le flux live france.tv");
+            }
+            return null;
+        }
+        if (CanalGroupLiveService.isVirtualUrl(url)) {
+            Optional<String> hls = canalGroupLiveService.resolveVirtualOrPassthrough(url);
+            if (hls.isEmpty() || !StringUtils.hasText(hls.get())
+                    || CanalGroupLiveService.isVirtualUrl(hls.get())) {
+                return TvStreamProxyService.jsonError(HttpStatus.BAD_GATEWAY, "canalgroup_resolve_failed",
+                        "Impossible de résoudre le flux live CNews/CStar");
+            }
+            return null;
+        }
+        if (RadioFranceLiveService.isVirtualUrl(url)) {
+            Optional<String> hls = radioFranceLiveService.resolveVirtualOrPassthrough(url);
+            if (hls.isEmpty() || !StringUtils.hasText(hls.get())
+                    || RadioFranceLiveService.isVirtualUrl(hls.get())) {
+                return TvStreamProxyService.jsonError(HttpStatus.BAD_GATEWAY, "radiofrance_resolve_failed",
+                        "Impossible de résoudre le flux live Radio France");
+            }
+            return null;
+        }
+        if (M6GroupLiveService.isVirtualUrl(url)) {
+            Optional<String> hls = m6GroupLiveService.resolveVirtualOrPassthrough(url);
+            if (hls.isEmpty() || !StringUtils.hasText(hls.get())
+                    || M6GroupLiveService.isVirtualUrl(hls.get())) {
+                return TvStreamProxyService.jsonError(HttpStatus.BAD_GATEWAY, "m6group_resolve_failed",
+                        "M6+ officiel est protégé DRM — aucun miroir IPTV public disponible. "
+                                + "Regardez sur https://www.m6.fr/m6/direct");
+            }
+            return null;
+        }
+        return null;
     }
 
     private static String buildProxyBase(HttpServletRequest request) {

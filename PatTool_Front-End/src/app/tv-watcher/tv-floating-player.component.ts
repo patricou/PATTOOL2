@@ -10,12 +10,13 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 
 import { ApiService, TvChannel } from '../services/api.service';
 import { TvFloatingState, TvPlayerService } from '../services/tv-player.service';
-import { isCanalGroupVirtual, isFranceTvVirtual, isRadioFranceVirtual, isTf1Virtual, resolveTvStreamUrl } from '../tv-watcher/tv-stream.util';
+import { isCanalGroupVirtual, isFranceTvVirtual, isM6GroupVirtual, isRadioFranceVirtual, isTf1Virtual, resolveTvStreamUrl } from '../tv-watcher/tv-stream.util';
+import { isTvI18nErrorKey } from '../tv-watcher/tv-stream-error.util';
 import { startTvHlsPlayback, TvHlsPlaybackHandle } from './tv-hls-playback';
 
 type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
@@ -69,8 +70,17 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
     private tvPlayer: TvPlayerService,
     private api: ApiService,
     private router: Router,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private translate: TranslateService
   ) {}
+
+  formatPlayError(message: string | null | undefined): string {
+    const m = (message || '').trim();
+    if (!m) {
+      return '';
+    }
+    return isTvI18nErrorKey(m) ? this.translate.instant(m) : m;
+  }
 
   ngOnInit(): void {
     this.placeDefaultPosition();
@@ -114,6 +124,10 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
 
   usesRadioFrance(): boolean {
     return isRadioFranceVirtual(resolveTvStreamUrl(this.channel));
+  }
+
+  usesM6Group(): boolean {
+    return isM6GroupVirtual(resolveTvStreamUrl(this.channel));
   }
 
   close(): void {

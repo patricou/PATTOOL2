@@ -40,37 +40,195 @@ public class TvCatalogService {
     private static final Pattern QUALITY_IN_NAME = Pattern.compile("\\((\\d+p)\\)", Pattern.CASE_INSENSITIVE);
     private static final Pattern COUNTRY_CODE = Pattern.compile("^[a-z]{2}$");
 
-    private static final List<TvCountryDto> COUNTRIES = List.of(
-            new TvCountryDto("fr", "France", "🇫🇷"),
-            new TvCountryDto("be", "Belgique", "🇧🇪"),
-            new TvCountryDto("ch", "Suisse", "🇨🇭"),
-            new TvCountryDto("ca", "Canada", "🇨🇦"),
-            new TvCountryDto("us", "United States", "🇺🇸"),
-            new TvCountryDto("gb", "United Kingdom", "🇬🇧"),
-            new TvCountryDto("de", "Germany", "🇩🇪"),
-            new TvCountryDto("es", "Spain", "🇪🇸"),
-            new TvCountryDto("it", "Italy", "🇮🇹"),
-            new TvCountryDto("pt", "Portugal", "🇵🇹"),
-            new TvCountryDto("nl", "Netherlands", "🇳🇱"),
-            new TvCountryDto("pl", "Poland", "🇵🇱"),
-            new TvCountryDto("ru", "Russia", "🇷🇺"),
-            new TvCountryDto("ma", "Morocco", "🇲🇦"),
-            new TvCountryDto("tn", "Tunisia", "🇹🇳"),
-            new TvCountryDto("dz", "Algeria", "🇩🇿"),
-            new TvCountryDto("sn", "Senegal", "🇸🇳"),
-            new TvCountryDto("ci", "Côte d'Ivoire", "🇨🇮"),
-            new TvCountryDto("br", "Brazil", "🇧🇷"),
-            new TvCountryDto("mx", "Mexico", "🇲🇽"),
-            new TvCountryDto("ar", "Argentina", "🇦🇷"),
-            new TvCountryDto("jp", "Japan", "🇯🇵"),
-            new TvCountryDto("cn", "China", "🇨🇳"),
-            new TvCountryDto("in", "India", "🇮🇳"),
-            new TvCountryDto("au", "Australia", "🇦🇺"),
-            new TvCountryDto("tr", "Turkey", "🇹🇷"),
-            new TvCountryDto("eg", "Egypt", "🇪🇬"),
-            new TvCountryDto("sa", "Saudi Arabia", "🇸🇦"),
-            new TvCountryDto("ae", "United Arab Emirates", "🇦🇪"),
-            new TvCountryDto("kr", "South Korea", "🇰🇷")
+    /** ISO 3166-1 alpha-2 codes (iptv-org playlists). France & Switzerland pinned first at display time. */
+    private static final List<String> COUNTRY_CODES = List.of(
+            "fr",
+            "ch",
+            "ae",
+            "af",
+            "ag",
+            "al",
+            "am",
+            "ao",
+            "ar",
+            "at",
+            "au",
+            "az",
+            "ba",
+            "bb",
+            "bd",
+            "be",
+            "bf",
+            "bg",
+            "bh",
+            "bi",
+            "bj",
+            "bn",
+            "bo",
+            "br",
+            "bs",
+            "bt",
+            "bw",
+            "by",
+            "bz",
+            "ca",
+            "cd",
+            "cf",
+            "cg",
+            "ci",
+            "cl",
+            "cm",
+            "cn",
+            "co",
+            "cr",
+            "cu",
+            "cv",
+            "cy",
+            "cz",
+            "de",
+            "dj",
+            "dk",
+            "dm",
+            "do",
+            "dz",
+            "ec",
+            "ee",
+            "eg",
+            "er",
+            "es",
+            "et",
+            "fi",
+            "fj",
+            "ga",
+            "gb",
+            "gd",
+            "ge",
+            "gh",
+            "gm",
+            "gn",
+            "gq",
+            "gr",
+            "gt",
+            "gw",
+            "gy",
+            "hk",
+            "hn",
+            "hr",
+            "ht",
+            "hu",
+            "id",
+            "ie",
+            "il",
+            "in",
+            "iq",
+            "ir",
+            "is",
+            "it",
+            "jm",
+            "jo",
+            "jp",
+            "ke",
+            "kg",
+            "kh",
+            "km",
+            "kn",
+            "kp",
+            "kr",
+            "kw",
+            "kz",
+            "la",
+            "lb",
+            "lc",
+            "lk",
+            "lr",
+            "ls",
+            "lt",
+            "lu",
+            "lv",
+            "ly",
+            "ma",
+            "md",
+            "me",
+            "mg",
+            "mk",
+            "ml",
+            "mm",
+            "mn",
+            "mr",
+            "mt",
+            "mu",
+            "mv",
+            "mw",
+            "mx",
+            "my",
+            "mz",
+            "na",
+            "ne",
+            "ng",
+            "ni",
+            "nl",
+            "no",
+            "np",
+            "nz",
+            "om",
+            "pa",
+            "pe",
+            "pg",
+            "ph",
+            "pk",
+            "pl",
+            "pr",
+            "ps",
+            "pt",
+            "py",
+            "qa",
+            "ro",
+            "rs",
+            "ru",
+            "rw",
+            "sa",
+            "sb",
+            "sc",
+            "sd",
+            "se",
+            "sg",
+            "si",
+            "sk",
+            "sl",
+            "sn",
+            "so",
+            "sr",
+            "ss",
+            "sv",
+            "sy",
+            "sz",
+            "td",
+            "tg",
+            "th",
+            "tj",
+            "tl",
+            "tm",
+            "tn",
+            "to",
+            "tr",
+            "tt",
+            "tw",
+            "tz",
+            "ua",
+            "ug",
+            "us",
+            "uy",
+            "uz",
+            "vc",
+            "ve",
+            "vn",
+            "vu",
+            "ws",
+            "xk",
+            "ye",
+            "za",
+            "zm",
+            "zw"
     );
 
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -79,6 +237,8 @@ public class TvCatalogService {
             .build();
 
     private final ConcurrentHashMap<String, CachedPlaylist> cache = new ConcurrentHashMap<>();
+    private volatile Integer worldwideCountCache;
+    private volatile Instant worldwideCountExpires;
 
     @Value("${app.tv.playlist-base-url:https://iptv-org.github.io/iptv/countries}")
     private String playlistBaseUrl;
@@ -87,7 +247,58 @@ public class TvCatalogService {
     private long cacheMinutes;
 
     public List<TvCountryDto> listCountries() {
-        return COUNTRIES;
+        List<TvCountryDto> countries = new ArrayList<>(COUNTRY_CODES.size());
+        for (String code : COUNTRY_CODES) {
+            countries.add(toCountryDto(code));
+        }
+        countries.sort((a, b) -> {
+            int pa = countryPinRank(a.getCode());
+            int pb = countryPinRank(b.getCode());
+            if (pa != pb) {
+                return Integer.compare(pa, pb);
+            }
+            String na = a.getName() != null ? a.getName() : "";
+            String nb = b.getName() != null ? b.getName() : "";
+            return na.compareToIgnoreCase(nb);
+        });
+        return countries;
+    }
+
+    /** France first, Switzerland second, then alphabetical. */
+    private static int countryPinRank(String code) {
+        if (code == null) {
+            return 100;
+        }
+        return switch (code.trim().toLowerCase(Locale.ROOT)) {
+            case "fr" -> 0;
+            case "ch" -> 1;
+            default -> 100;
+        };
+    }
+
+    private static TvCountryDto toCountryDto(String code) {
+        String normalized = code.trim().toLowerCase(Locale.ROOT);
+        String name = Locale.of("", normalized.toUpperCase(Locale.ROOT)).getDisplayCountry(Locale.FRENCH);
+        if (name == null || name.isBlank() || name.equalsIgnoreCase(normalized)) {
+            name = normalized.toUpperCase(Locale.ROOT);
+        }
+        // Prefer common French labels when Locale is incomplete
+        if ("xk".equals(normalized)) {
+            name = "Kosovo";
+        }
+        return new TvCountryDto(normalized, name, flagEmoji(normalized));
+    }
+
+    private static String flagEmoji(String code) {
+        if (code == null || code.length() != 2) {
+            return "";
+        }
+        int first = Character.toUpperCase(code.charAt(0)) - 'A' + 0x1F1E6;
+        int second = Character.toUpperCase(code.charAt(1)) - 'A' + 0x1F1E6;
+        if (first < 0x1F1E6 || first > 0x1F1FF || second < 0x1F1E6 || second > 0x1F1FF) {
+            return "";
+        }
+        return new String(Character.toChars(first)) + new String(Character.toChars(second));
     }
 
     public boolean isSupportedCountry(String country) {
@@ -95,7 +306,19 @@ public class TvCatalogService {
             return false;
         }
         String code = country.trim().toLowerCase(Locale.ROOT);
-        return COUNTRY_CODE.matcher(code).matches();
+        if (!COUNTRY_CODE.matcher(code).matches()) {
+            return false;
+        }
+        return COUNTRY_CODES.contains(code);
+    }
+
+    /** {@code all} / {@code *} = search across every catalogued country. */
+    public boolean isAllCountries(String country) {
+        if (country == null) {
+            return false;
+        }
+        String code = country.trim().toLowerCase(Locale.ROOT);
+        return "all".equals(code) || "*".equals(code);
     }
 
     public List<TvChannelDto> listChannels(String country) {
@@ -118,8 +341,88 @@ public class TvCatalogService {
     }
 
     /**
+     * Search channel name/group across all configured countries.
+     * Requires a query of at least 2 characters; capped by {@code limit}.
+     */
+    public List<TvChannelDto> searchAllCountries(String query, String group, int limit) {
+        String q = query != null ? query.trim().toLowerCase(Locale.ROOT) : "";
+        if (q.length() < 2) {
+            return Collections.emptyList();
+        }
+        String groupFilter = group != null ? group.trim().toLowerCase(Locale.ROOT) : "";
+        int max = Math.max(1, Math.min(limit <= 0 ? 200 : limit, 500));
+        List<TvChannelDto> out = new ArrayList<>(Math.min(max, 64));
+        for (String countryCode : COUNTRY_CODES) {
+            List<TvChannelDto> channels = listChannels(countryCode);
+            if (channels == null || channels.isEmpty()) {
+                continue;
+            }
+            for (TvChannelDto ch : channels) {
+                if (!matchesQuery(ch, q)) {
+                    continue;
+                }
+                if (!groupFilter.isEmpty()
+                        && (ch.getGroup() == null
+                        || !ch.getGroup().toLowerCase(Locale.ROOT).contains(groupFilter))) {
+                    continue;
+                }
+                out.add(ch);
+                if (out.size() >= max) {
+                    return out;
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Channel count for one country, or the sum across every catalogued country when {@code all}.
+     * Relies on the same playlist cache as {@link #listChannels(String)}.
+     */
+    public int countChannels(String country) {
+        if (isAllCountries(country)) {
+            Instant now = Instant.now();
+            Integer cached = worldwideCountCache;
+            Instant expires = worldwideCountExpires;
+            if (cached != null && expires != null && expires.isAfter(now)) {
+                return cached;
+            }
+            int total = COUNTRY_CODES.parallelStream()
+                    .mapToInt(code -> {
+                        List<TvChannelDto> channels = listChannels(code);
+                        return channels != null ? channels.size() : 0;
+                    })
+                    .sum();
+            worldwideCountCache = total;
+            worldwideCountExpires = now.plus(Duration.ofMinutes(Math.max(5, cacheMinutes)));
+            return total;
+        }
+        if (!isSupportedCountry(country)) {
+            return 0;
+        }
+        List<TvChannelDto> channels = listChannels(country);
+        return channels != null ? channels.size() : 0;
+    }
+
+    private static boolean matchesQuery(TvChannelDto ch, String queryLower) {
+        if (queryLower == null || queryLower.isEmpty()) {
+            return true;
+        }
+        if (ch.getName() != null && ch.getName().toLowerCase(Locale.ROOT).contains(queryLower)) {
+            return true;
+        }
+        if (ch.getGroup() != null && ch.getGroup().toLowerCase(Locale.ROOT).contains(queryLower)) {
+            return true;
+        }
+        if (ch.getId() != null && ch.getId().toLowerCase(Locale.ROOT).contains(queryLower)) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * Replace broken third-party mirrors of major French FTA channels with virtual
-     * {@code francetv:…} / {@code tf1:…} / {@code canalgroup:…} / {@code radiofrance:…}
+     * {@code francetv:…} / {@code tf1:…} / {@code canalgroup:…} / {@code radiofrance:…} / {@code m6group:…}
      * URLs resolved on play.
      */
     private List<TvChannelDto> overlayOfficialLiveSources(List<TvChannelDto> channels, String countryCode) {
@@ -146,12 +449,19 @@ public class TvCatalogService {
                 "cnews.fr", "cnews",
                 "cstar.fr", "cstar"
         );
+        Map<String, String> m6ByTvg = Map.of(
+                "m6.fr", "m6",
+                "w9.fr", "w9",
+                "6ter.fr", "6ter",
+                "gulli.fr", "gulli"
+        );
         List<TvChannelDto> out = new ArrayList<>(channels.size());
         for (TvChannelDto ch : channels) {
             String franceSlug = matchFranceTvSlug(ch, franceByTvg);
             String tf1Slug = matchTf1Slug(ch, tf1ByTvg);
             String canalSlug = matchCanalGroupSlug(ch, canalByTvg);
             String radioSlug = matchRadioFranceSlug(ch, radioFranceByTvg);
+            String m6Slug = matchM6GroupSlug(ch, m6ByTvg);
             if (franceSlug != null) {
                 out.add(patchVirtual(ch, FranceTvLiveService.virtualUrl(franceSlug)));
             } else if (tf1Slug != null) {
@@ -160,6 +470,8 @@ public class TvCatalogService {
                 out.add(patchVirtual(ch, CanalGroupLiveService.virtualUrl(canalSlug)));
             } else if (radioSlug != null) {
                 out.add(patchVirtual(ch, RadioFranceLiveService.virtualUrl(radioSlug)));
+            } else if (m6Slug != null) {
+                out.add(patchVirtual(ch, M6GroupLiveService.virtualUrl(m6Slug)));
             } else {
                 out.add(ch);
             }
@@ -186,6 +498,14 @@ public class TvCatalogService {
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/CNews_logo_2017.svg/512px-CNews_logo_2017.svg.png");
         ensureCanalGroupChannel(out, "cstar", "CStar", "Entertainment",
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/CStar_logo_2016.svg/512px-CStar_logo_2016.svg.png");
+        ensureM6GroupChannel(out, "m6", "M6", "Entertainment",
+                "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Logo_M6_2015.svg/512px-Logo_M6_2015.svg.png");
+        ensureM6GroupChannel(out, "w9", "W9", "Entertainment",
+                "https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/W9_2018.svg/512px-W9_2018.svg.png");
+        ensureM6GroupChannel(out, "6ter", "6ter", "Entertainment",
+                "https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/6ter_2012.svg/512px-6ter_2012.svg.png");
+        ensureM6GroupChannel(out, "gulli", "Gulli", "Kids",
+                "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/Gulli_2017.svg/512px-Gulli_2017.svg.png");
         return prioritizeOfficialLive(out);
     }
 
@@ -262,6 +582,24 @@ public class TvCatalogService {
         return null;
     }
 
+    private static String matchM6GroupSlug(TvChannelDto ch, Map<String, String> byTvgPrefix) {
+        String id = ch.getId() != null ? ch.getId().toLowerCase(Locale.ROOT) : "";
+        String name = ch.getName() != null ? ch.getName().toLowerCase(Locale.ROOT) : "";
+        if (id.startsWith("m6music.fr") || name.contains("m6 music")) {
+            return null;
+        }
+        for (Map.Entry<String, String> e : byTvgPrefix.entrySet()) {
+            if (id.startsWith(e.getKey())) {
+                return e.getValue();
+            }
+        }
+        if (name.matches("^m6\\b.*") && !name.contains("music")) return "m6";
+        if (name.matches("^w9\\b.*")) return "w9";
+        if (name.matches("^6\\s*ter\\b.*") || name.equals("6ter")) return "6ter";
+        if (name.matches("^gulli\\b.*")) return "gulli";
+        return null;
+    }
+
     private static void ensureFranceTvChannel(List<TvChannelDto> list, String slug, String name,
                                               String group, String logo) {
         String virtual = FranceTvLiveService.virtualUrl(slug);
@@ -298,6 +636,15 @@ public class TvCatalogService {
         }
     }
 
+    private static void ensureM6GroupChannel(List<TvChannelDto> list, String slug, String name,
+                                             String group, String logo) {
+        String virtual = M6GroupLiveService.virtualUrl(slug);
+        boolean present = list.stream().anyMatch(c -> virtual.equalsIgnoreCase(c.getStreamUrl()));
+        if (!present) {
+            list.add(0, new TvChannelDto("m6group-" + slug, name, logo, group, "fr", virtual, "720p"));
+        }
+    }
+
     private static List<TvChannelDto> prioritizeOfficialLive(List<TvChannelDto> channels) {
         List<TvChannelDto> priority = new ArrayList<>();
         List<TvChannelDto> rest = new ArrayList<>();
@@ -305,7 +652,8 @@ public class TvCatalogService {
             if (FranceTvLiveService.isVirtualUrl(ch.getStreamUrl())
                     || Tf1LiveService.isVirtualUrl(ch.getStreamUrl())
                     || CanalGroupLiveService.isVirtualUrl(ch.getStreamUrl())
-                    || RadioFranceLiveService.isVirtualUrl(ch.getStreamUrl())) {
+                    || RadioFranceLiveService.isVirtualUrl(ch.getStreamUrl())
+                    || M6GroupLiveService.isVirtualUrl(ch.getStreamUrl())) {
                 priority.add(ch);
             } else {
                 rest.add(ch);

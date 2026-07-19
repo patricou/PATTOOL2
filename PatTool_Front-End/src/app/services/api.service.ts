@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { KeycloakService } from '../keycloak/keycloak.service';
-import { Observable, Subject, Subscription, from, throwError } from 'rxjs';
+import { Observable, Subject, Subscription, from, of, throwError } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
@@ -2098,7 +2098,9 @@ export class ApiService {
   // ===================================================================
 
   getTvCountries(): Observable<TvCountry[]> {
-    return this._http.get<TvCountry[]>(this.API_URL + 'external/tv/countries');
+    // Cache-buster query param (avoid custom headers that break CORS preflight).
+    const params = new HttpParams().set('_', String(Date.now()));
+    return this._http.get<TvCountry[]>(this.API_URL + 'external/tv/countries', { params });
   }
 
   getTvChannels(country: string, q?: string, group?: string): Observable<TvChannel[]> {
@@ -2112,9 +2114,32 @@ export class ApiService {
     return this._http.get<TvChannel[]>(this.API_URL + 'external/tv/channels', { params });
   }
 
+  getTvChannelCount(country: string = 'all'): Observable<{ country: string; count: number }> {
+    const params = new HttpParams().set('country', country || 'all');
+    return this._http.get<{ country: string; count: number }>(
+      this.API_URL + 'external/tv/channel-count',
+      { params }
+    );
+  }
+
   getTvGroups(country: string): Observable<string[]> {
     const params = new HttpParams().set('country', country || 'fr');
     return this._http.get<string[]>(this.API_URL + 'external/tv/groups', { params });
+  }
+
+  /**
+   * Now / next EPG programmes for XMLTV channel ids (comma-separated, max ~80).
+   * Keys in the response are canonical EPG ids (e.g. TF1.fr).
+   */
+  getTvEpgNow(country: string, ids: string[]): Observable<Record<string, TvEpgNow>> {
+    const unique = [...new Set((ids || []).map((id) => (id || '').trim()).filter(Boolean))].slice(0, 80);
+    if (!unique.length) {
+      return of({});
+    }
+    const params = new HttpParams()
+      .set('country', country || 'fr')
+      .set('ids', unique.join(','));
+    return this._http.get<Record<string, TvEpgNow>>(this.API_URL + 'external/tv/epg/now', { params });
   }
 
   /** Whether TF1 credentials are configured on the backend. */
@@ -2951,4 +2976,17 @@ export interface TvChannel {
 /** GET/PUT /api/external/tv/favorites — per authenticated user */
 export interface TvFavorites {
   channels: TvChannel[];
+}
+
+/** GET /api/external/tv/epg/now */
+export interface TvEpgProgramme {
+  title?: string;
+  description?: string;
+  start?: string;
+  stop?: string;
+}
+
+export interface TvEpgNow {
+  now?: TvEpgProgramme | null;
+  next?: TvEpgProgramme | null;
 }

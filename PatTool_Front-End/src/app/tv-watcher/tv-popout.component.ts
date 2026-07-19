@@ -8,11 +8,12 @@ import {
   ViewChild
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
 import { ApiService, TvChannel } from '../services/api.service';
 import { TvPlayerService } from '../services/tv-player.service';
-import { isCanalGroupVirtual, isFranceTvVirtual, isRadioFranceVirtual, isTf1Virtual, resolveTvStreamUrl } from './tv-stream.util';
+import { isCanalGroupVirtual, isFranceTvVirtual, isM6GroupVirtual, isRadioFranceVirtual, isTf1Virtual, resolveTvStreamUrl } from './tv-stream.util';
+import { isTvI18nErrorKey } from './tv-stream-error.util';
 import { startTvHlsPlayback, TvHlsPlaybackHandle } from './tv-hls-playback';
 
 @Component({
@@ -39,8 +40,17 @@ export class TvPopoutComponent implements OnInit, OnDestroy {
   constructor(
     private api: ApiService,
     private tvPlayer: TvPlayerService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private translate: TranslateService
   ) {}
+
+  formatPlayError(message: string | null | undefined): string {
+    const m = (message || '').trim();
+    if (!m) {
+      return '';
+    }
+    return isTvI18nErrorKey(m) ? this.translate.instant(m) : m;
+  }
 
   ngOnInit(): void {
     document.title = 'PatTool TV';
@@ -78,6 +88,10 @@ export class TvPopoutComponent implements OnInit, OnDestroy {
 
   usesRadioFrance(): boolean {
     return isRadioFranceVirtual(resolveTvStreamUrl(this.channel));
+  }
+
+  usesM6Group(): boolean {
+    return isM6GroupVirtual(resolveTvStreamUrl(this.channel));
   }
 
   toggleMute(): void {

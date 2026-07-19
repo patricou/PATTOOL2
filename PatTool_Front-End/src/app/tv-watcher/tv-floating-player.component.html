@@ -36,6 +36,12 @@
         [attr.title]="'TV.WORKAROUND_HINT_RADIO' | translate">
         {{ 'TV.WORKAROUND_BADGE_RADIO' | translate }}
       </span>
+      <span
+        *ngIf="usesM6Group()"
+        class="tv-float-badge tv-float-badge--m6"
+        [attr.title]="'TV.WORKAROUND_HINT_M6' | translate">
+        {{ 'TV.WORKAROUND_BADGE_M6' | translate }}
+      </span>
     </div>
     <div class="tv-float-actions">
       <button
@@ -120,6 +126,7 @@
         class="tv-float-video"
         controls
         playsinline
+        [class.tv-float-video--hidden]="!!playError"
         (click)="ensureSound($event)"
         (volumechange)="onVideoVolumeChange()"></video>
       <div class="tv-float-buffering" *ngIf="isBuffering && !playError">
@@ -142,8 +149,8 @@
         <i class="fa fa-volume-up" aria-hidden="true"></i>
         {{ 'TV.UNMUTE' | translate }}
       </button>
+      <div *ngIf="playError" class="tv-float-error" role="alert">{{ formatPlayError(playError) }}</div>
     </div>
-    <div *ngIf="playError" class="tv-float-error">{{ playError | translate }}</div>
     <p class="tv-float-hint">{{ 'TV.FLOAT_HINT' | translate }}</p>
     <p class="tv-float-hint tv-float-hint--secondary">{{ 'TV.POPOUT_HINT' | translate }}</p>
   </div>

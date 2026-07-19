@@ -29,6 +29,13 @@
           (click)="setListMode('catalog')">
           <i class="fa fa-globe me-1"></i>
           {{ 'TV.TAB_CATALOG' | translate }}
+          <span
+            class="badge rounded-pill tv-count-badge"
+            *ngIf="catalogTabCount > 0 || isLoadingCatalogCount"
+            [attr.title]="'TV.CHANNEL_COUNT' | translate:{ count: catalogTabCount }">
+            <i class="fa fa-spinner fa-spin" *ngIf="isLoadingCatalogCount && catalogTabCount <= 0" aria-hidden="true"></i>
+            <ng-container *ngIf="catalogTabCount > 0">{{ catalogTabCount }}</ng-container>
+          </span>
         </button>
         <button
           type="button"
@@ -39,76 +46,168 @@
           (click)="setListMode('favorites')">
           <i class="fa fa-star me-1"></i>
           {{ 'TV.TAB_FAVORITES' | translate }}
-          <span class="badge rounded-pill tv-fav-badge" *ngIf="favorites.length">{{ favorites.length }}</span>
+          <span
+            class="badge rounded-pill tv-fav-badge"
+            *ngIf="listMode === 'favorites' ? filteredChannelCount >= 0 && !isLoadingFavorites : favorites.length > 0">
+            {{ listMode === 'favorites' ? filteredChannelCount : favorites.length }}
+          </span>
         </button>
       </div>
 
       <div class="tv-filters" *ngIf="listMode === 'catalog'">
-        <label class="form-label small mb-1" for="tv-country">
+        <label class="form-label small mb-1" id="tv-country-label">
           {{ 'TV.COUNTRY' | translate }}
         </label>
-        <select
-          id="tv-country"
-          class="form-select form-select-sm"
-          [(ngModel)]="selectedCountry"
-          (ngModelChange)="onCountryChange()"
-          [disabled]="isLoadingCountries">
-          <option *ngFor="let c of countries" [value]="c.code">
-            {{ c.flag }} {{ c.name }}
-          </option>
-        </select>
+        <div class="tv-country-picker" (click)="$event.stopPropagation()">
+          <button
+            type="button"
+            class="tv-country-btn form-select form-select-sm"
+            id="tv-country"
+            [attr.aria-labelledby]="'tv-country-label'"
+            [attr.aria-expanded]="countryMenuOpen"
+            [disabled]="isLoadingCountries"
+            (click)="toggleCountryMenu($event)">
+            <span
+              *ngIf="!isAllCountries && countryFlagCode(selectedCountry) as flagCode"
+              class="fi fi-{{ flagCode }} tv-fi-flag"
+              aria-hidden="true"></span>
+            <i *ngIf="isAllCountries" class="fa fa-globe tv-country-globe" aria-hidden="true"></i>
+            <span class="tv-country-btn-label">{{ selectedCountryName() }}</span>
+            <i class="fa fa-caret-down tv-country-caret" aria-hidden="true"></i>
+          </button>
+          <div class="tv-country-menu" *ngIf="countryMenuOpen" role="listbox" [attr.aria-label]="'TV.COUNTRY' | translate">
+            <div class="tv-country-filter-wrap" (click)="$event.stopPropagation()">
+              <input
+                type="search"
+                class="form-control form-control-sm tv-country-filter"
+                [(ngModel)]="countryFilter"
+                [placeholder]="'TV.COUNTRY_FILTER' | translate"
+                autocomplete="off"
+                (keydown.escape)="countryMenuOpen = false" />
+            </div>
+            <button
+              type="button"
+              class="tv-country-option"
+              role="option"
+              [attr.aria-selected]="isAllCountries"
+              [class.active]="isAllCountries"
+              (click)="selectCountry('all', $event)">
+              <i class="fa fa-globe tv-country-globe" aria-hidden="true"></i>
+              <span>{{ 'TV.COUNTRY_ALL' | translate }}</span>
+            </button>
+            <button
+              type="button"
+              class="tv-country-option"
+              role="option"
+              *ngFor="let c of filteredCountries"
+              [attr.aria-selected]="selectedCountry === c.code"
+              [class.active]="selectedCountry === c.code"
+              (click)="selectCountry(c.code, $event)">
+              <span class="fi fi-{{ countryFlagCode(c.code) }} tv-fi-flag" aria-hidden="true"></span>
+              <span>{{ c.name }}</span>
+            </button>
+            <div
+              class="tv-country-empty small text-muted"
+              *ngIf="countryFilter.trim() && filteredCountries.length === 0">
+              {{ 'TV.COUNTRY_FILTER_EMPTY' | translate }}
+            </div>
+            <div
+              class="tv-country-empty small text-danger"
+              *ngIf="!countryFilter.trim() && countries.length === 0 && !isLoadingCountries">
+              {{ (countriesError || 'TV.ERR_COUNTRIES') | translate }}
+            </div>
+          </div>
+        </div>
 
-        <label class="form-label small mb-1 mt-2" for="tv-group">
+        <label class="form-label small mb-1 mt-2" for="tv-group" *ngIf="!isAllCountries">
+          <i class="fa me-1" [ngClass]="groupIconClass(selectedGroup)" aria-hidden="true"></i>
           {{ 'TV.GROUP' | translate }}
         </label>
         <select
           id="tv-group"
           class="form-select form-select-sm"
+          *ngIf="!isAllCountries"
           [(ngModel)]="selectedGroup"
           (ngModelChange)="onGroupChange()">
-          <option value="">{{ 'TV.GROUP_ALL' | translate }}</option>
-          <option *ngFor="let g of groups" [value]="g">{{ g }}</option>
+          <option value="">{{ groupEmoji('') }} {{ 'TV.GROUP_ALL' | translate }}</option>
+          <option *ngFor="let g of groups" [value]="g">{{ groupEmoji(g) }} {{ groupLabelKey(g) | translate }}</option>
         </select>
       </div>
 
       <div class="tv-filters" [class.tv-filters--search-only]="listMode === 'favorites'">
-        <label class="form-label small mb-1" for="tv-search">
-          {{ 'TV.SEARCH' | translate }}
+        <label class="form-label small mb-1" for="tv-search-channel">
+          {{ 'TV.SEARCH_CHANNEL' | translate }}
         </label>
         <div class="input-group input-group-sm">
           <input
-            id="tv-search"
+            id="tv-search-channel"
             type="search"
             class="form-control"
-            [ngModel]="searchQuery"
-            (ngModelChange)="onSearchInput($event)"
-            [placeholder]="'TV.SEARCH_PLACEHOLDER' | translate"
+            [ngModel]="channelQuery"
+            (ngModelChange)="onChannelSearchInput($event)"
+            [placeholder]="(isAllCountries ? 'TV.SEARCH_PLACEHOLDER_ALL' : 'TV.SEARCH_PLACEHOLDER_CHANNEL') | translate"
             autocomplete="off" />
           <button
             type="button"
             class="btn btn-outline-secondary"
-            *ngIf="searchQuery"
-            (click)="clearSearch()"
+            *ngIf="channelQuery"
+            (click)="clearChannelSearch()"
             [attr.aria-label]="'TV.CLEAR_SEARCH' | translate">
             <i class="fa fa-times"></i>
           </button>
         </div>
+        <div class="tv-worldwide-hint small text-muted mt-1" *ngIf="listMode === 'catalog' && worldwideSearchHint">
+          <i class="fa fa-globe me-1" aria-hidden="true"></i>
+          {{ 'TV.SEARCH_WORLDWIDE_HINT' | translate }}
+        </div>
+
+        <label class="form-label small mb-1 mt-2" for="tv-search-program">
+          {{ 'TV.SEARCH_PROGRAM' | translate }}
+        </label>
+        <div class="input-group input-group-sm">
+          <input
+            id="tv-search-program"
+            type="search"
+            class="form-control"
+            [ngModel]="programQuery"
+            (ngModelChange)="onProgramSearchInput($event)"
+            [placeholder]="'TV.SEARCH_PLACEHOLDER_PROGRAM' | translate"
+            autocomplete="off" />
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            *ngIf="programQuery"
+            (click)="clearProgramSearch()"
+            [attr.aria-label]="'TV.CLEAR_SEARCH' | translate">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+        <div
+          class="tv-epg-search-hint small text-muted mt-1"
+          *ngIf="programQuery.trim() && isLoadingEpg">
+          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
+          {{ 'TV.SEARCH_EPG_LOADING' | translate }}
+        </div>
       </div>
 
-      <div class="tv-channel-meta small text-muted">
+      <div class="tv-channel-meta" *ngIf="listMode === 'catalog' || listMode === 'favorites'" role="status">
         <span *ngIf="listMode === 'catalog' && isLoadingChannels">
-          <i class="fa fa-spinner fa-spin me-1"></i>
+          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
           {{ 'TV.LOADING' | translate }}
         </span>
         <span *ngIf="listMode === 'favorites' && isLoadingFavorites">
-          <i class="fa fa-spinner fa-spin me-1"></i>
+          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
           {{ 'TV.LOADING_FAVORITES' | translate }}
         </span>
-        <span *ngIf="listMode === 'catalog' && !isLoadingChannels">
-          {{ 'TV.CHANNEL_COUNT' | translate:{ count: displayedChannels.length } }}
+        <span *ngIf="listMode === 'catalog' && !isLoadingChannels" class="tv-channel-meta-count">
+          <i class="fa fa-television me-1" aria-hidden="true"></i>
+          {{ 'TV.CHANNEL_COUNT' | translate:{ count: (isAllCountries && !channelQuery.trim() && !programQuery.trim() ? catalogTabCount : filteredChannelCount) } }}
+          <span class="tv-channel-meta-filter" *ngIf="hasActiveFilters && !(isAllCountries && !channelQuery.trim() && !programQuery.trim())">{{ 'TV.CHANNEL_COUNT_FILTERED' | translate }}</span>
         </span>
-        <span *ngIf="listMode === 'favorites' && !isLoadingFavorites">
-          {{ 'TV.FAVORITE_COUNT' | translate:{ count: displayedChannels.length } }}
+        <span *ngIf="listMode === 'favorites' && !isLoadingFavorites" class="tv-channel-meta-count">
+          <i class="fa fa-star me-1" aria-hidden="true"></i>
+          {{ 'TV.FAVORITE_COUNT' | translate:{ count: filteredChannelCount } }}
+          <span class="tv-channel-meta-filter" *ngIf="channelQuery.trim() || programQuery.trim()">{{ 'TV.CHANNEL_COUNT_FILTERED' | translate }}</span>
         </span>
       </div>
 
@@ -151,13 +250,27 @@
                 [class.tv-workaround-badge--tf1]="usesTf1Workaround(ch)"
                 [class.tv-workaround-badge--canal]="usesCanalGroupWorkaround(ch)"
                 [class.tv-workaround-badge--radio]="usesRadioFranceWorkaround(ch)"
+                [class.tv-workaround-badge--m6]="usesM6GroupWorkaround(ch)"
                 [attr.title]="workaroundHintKey(ch) | translate">
                 {{ workaroundBadgeKey(ch) | translate }}
               </span>
             </span>
-            <span class="tv-channel-group" *ngIf="ch.group || (listMode === 'favorites' && ch.country)">
-              <ng-container *ngIf="listMode === 'favorites' && ch.country">{{ ch.country | uppercase }} · </ng-container>
-              {{ ch.group }}
+            <span class="tv-channel-epg" *ngIf="epgNowTitle(ch) as nowTitle" [attr.title]="nowTitle">
+              <span class="tv-channel-epg-label">{{ 'TV.EPG_NOW' | translate }}</span>
+              {{ nowTitle }}
+            </span>
+            <span class="tv-channel-group" *ngIf="ch.group || ch.country">
+              <span
+                *ngIf="countryFlagCode(ch.country) as flagCode"
+                class="fi fi-{{ flagCode }} tv-fi-flag tv-channel-flag"
+                [attr.title]="countryLabel(ch.country)"
+                aria-hidden="true"></span>
+              <i
+                *ngIf="ch.group"
+                class="fa tv-group-icon"
+                [ngClass]="groupIconClass(ch.group)"
+                aria-hidden="true"></i>
+              <ng-container *ngIf="ch.group">{{ groupLabelKey(ch.group) | translate }}</ng-container>
             </span>
           </span>
           <button
@@ -198,16 +311,19 @@
         (mousemove)="onTvPointerMove()"
         (mouseleave)="onTvPointerLeave()"
         (touchstart)="onTvPointerEnter()">
-        <div class="tv-video-wrap" [class.tv-video-wrap--empty]="!selectedChannel || isFloatingOpen">
+        <div
+          class="tv-video-wrap"
+          [class.tv-video-wrap--empty]="!selectedChannel || isFloatingOpen">
           <video
             #videoEl
             class="tv-video"
             controls
             playsinline
             [class.tv-video--hidden]="!selectedChannel || isFloatingOpen"
+            [class.tv-video--error]="!!playError"
             (volumechange)="onVideoVolumeChange()"
             (click)="ensureSound($event)"></video>
-          <div class="tv-placeholder" *ngIf="!selectedChannel && !isFloatingOpen">
+          <div class="tv-placeholder" *ngIf="!selectedChannel && !isFloatingOpen && !playError">
             <i class="fa fa-television tv-placeholder-icon"></i>
             <p>{{ 'TV.PICK_CHANNEL' | translate }}</p>
             <p class="small text-muted mb-0">{{ 'TV.NOTE_FREE' | translate }}</p>
@@ -247,9 +363,8 @@
           <div
             class="tv-play-error"
             *ngIf="playError"
-            [class.tv-play-error--hidden]="!chromeVisible"
             role="alert">
-            {{ playError | translate }}
+            {{ formatPlayError(playError) }}
           </div>
         </div>
 
@@ -275,18 +390,43 @@
                   [class.tv-workaround-badge--tf1]="usesTf1Workaround(selectedChannel)"
                   [class.tv-workaround-badge--canal]="usesCanalGroupWorkaround(selectedChannel)"
                   [class.tv-workaround-badge--radio]="usesRadioFranceWorkaround(selectedChannel)"
+                  [class.tv-workaround-badge--m6]="usesM6GroupWorkaround(selectedChannel)"
                   [attr.title]="workaroundHintKey(selectedChannel) | translate">
                   {{ workaroundBadgeKey(selectedChannel) | translate }}
                 </span>
               </div>
-              <div class="tv-now-meta text-muted small" *ngIf="selectedChannel.group || selectedChannel.quality || usesOfficialWorkaround(selectedChannel)">
-                <span *ngIf="selectedChannel.group">{{ selectedChannel.group }}</span>
+              <div class="tv-now-meta text-muted small" *ngIf="selectedChannel.group || selectedChannel.quality || selectedChannel.country || usesOfficialWorkaround(selectedChannel)">
+                <span
+                  *ngIf="countryFlagCode(selectedChannel.country) as flagCode"
+                  class="fi fi-{{ flagCode }} tv-fi-flag tv-now-country"
+                  [attr.title]="countryLabel(selectedChannel.country)"
+                  aria-hidden="true"></span>
+                <span *ngIf="selectedChannel.group">
+                  <i class="fa tv-group-icon" [ngClass]="groupIconClass(selectedChannel.group)" aria-hidden="true"></i>
+                  {{ groupLabelKey(selectedChannel.group) | translate }}
+                </span>
                 <span *ngIf="selectedChannel.group && selectedChannel.quality"> · </span>
                 <span *ngIf="selectedChannel.quality">{{ selectedChannel.quality }}</span>
                 <span *ngIf="usesOfficialWorkaround(selectedChannel)" class="tv-workaround-line">
                   <ng-container *ngIf="selectedChannel.group || selectedChannel.quality"> · </ng-container>
                   {{ workaroundActiveKey(selectedChannel) | translate }}
                 </span>
+              </div>
+              <div class="tv-epg-now" *ngIf="epgFor(selectedChannel) as epg">
+                <div class="tv-epg-row" *ngIf="epg.now?.title">
+                  <span class="tv-epg-label">{{ 'TV.EPG_NOW' | translate }}</span>
+                  <span class="tv-epg-time" *ngIf="formatEpgClock(epg.now?.start) || formatEpgClock(epg.now?.stop)">
+                    {{ formatEpgClock(epg.now?.start) }}–{{ formatEpgClock(epg.now?.stop) }}
+                  </span>
+                  <span class="tv-epg-title" [attr.title]="epg.now?.description || epg.now?.title">{{ epg.now?.title }}</span>
+                </div>
+                <div class="tv-epg-row tv-epg-row--next" *ngIf="epg.next?.title">
+                  <span class="tv-epg-label">{{ 'TV.EPG_NEXT' | translate }}</span>
+                  <span class="tv-epg-time" *ngIf="formatEpgClock(epg.next?.start)">
+                    {{ formatEpgClock(epg.next?.start) }}
+                  </span>
+                  <span class="tv-epg-title">{{ epg.next?.title }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -343,6 +483,47 @@
               [attr.aria-label]="(isPipActive ? 'TV.PIP_EXIT' : 'TV.PIP') | translate">
               <i class="fa" [class.fa-compress]="isPipActive" [class.fa-clone]="!isPipActive" aria-hidden="true"></i>
             </button>
+            <div class="tv-share-wrap" (click)="$event.stopPropagation()">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-light tv-now-action"
+                (click)="toggleShareMenu($event)"
+                [attr.title]="'TV.SHARE' | translate"
+                [attr.aria-label]="'TV.SHARE' | translate"
+                [attr.aria-expanded]="shareMenuOpen">
+                <i class="fa fa-share-alt" aria-hidden="true"></i>
+              </button>
+              <div class="tv-share-menu" *ngIf="shareMenuOpen" role="menu">
+                <button
+                  type="button"
+                  class="tv-share-menu-item"
+                  *ngIf="canNativeShare"
+                  role="menuitem"
+                  (click)="shareViaNative($event)">
+                  <i class="fa fa-share-alt" aria-hidden="true"></i>
+                  {{ 'TV.SHARE_NATIVE' | translate }}
+                </button>
+                <button
+                  type="button"
+                  class="tv-share-menu-item tv-share-menu-item--wa"
+                  role="menuitem"
+                  (click)="shareViaWhatsApp($event)">
+                  <i class="fa fa-whatsapp" aria-hidden="true"></i>
+                  {{ 'TV.SHARE_WHATSAPP' | translate }}
+                </button>
+                <button
+                  type="button"
+                  class="tv-share-menu-item"
+                  role="menuitem"
+                  (click)="shareCopyLink($event)">
+                  <i class="fa fa-link" aria-hidden="true"></i>
+                  {{ 'TV.SHARE_COPY' | translate }}
+                </button>
+              </div>
+              <div class="tv-share-feedback" *ngIf="shareFeedback" role="status">
+                {{ shareFeedback | translate }}
+              </div>
+            </div>
             <button
               type="button"
               class="btn btn-sm btn-outline-warning tv-now-action"

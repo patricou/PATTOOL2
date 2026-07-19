@@ -86,37 +86,66 @@ public class TvStreamProxyService {
      *                    e.g. {@code https://host/api/external/tv/stream/}
      * @param rangeHeader optional browser {@code Range} header
      */
+    /** JSON error payload for the TV watcher UI ({@code error} + {@code message}). */
+    public static ResponseEntity<byte[]> jsonError(HttpStatus status, String error, String message) {
+        String safeError = error != null ? error : "tv_stream_error";
+        String safeMessage = message != null && !message.isBlank() ? message : safeError;
+        String json = "{\"error\":\"" + jsonEscape(safeError) + "\",\"message\":\"" + jsonEscape(safeMessage) + "\"}";
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+        headers.set(HttpHeaders.CACHE_CONTROL, "no-store");
+        headers.set(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+        return ResponseEntity.status(status).headers(headers).body(json.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static String jsonEscape(String value) {
+        return value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\r", "\\r")
+                .replace("\n", "\\n");
+    }
+
     public ResponseEntity<byte[]> proxy(String upstreamUrl, String proxyBase, String rangeHeader) {
         URI uri;
         try {
             uri = URI.create(upstreamUrl);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
+            return jsonError(HttpStatus.BAD_REQUEST, "invalid_url", "URL de flux invalide");
         }
 
         String scheme = uri.getScheme();
         if (scheme == null
                 || !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"))) {
-            return ResponseEntity.badRequest().build();
+            return jsonError(HttpStatus.BAD_REQUEST, "invalid_scheme",
+                    "L’URL du flux doit être http ou https");
         }
         String host = uri.getHost();
         if (host == null || host.isBlank() || isBlockedHost(host)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            return jsonError(HttpStatus.FORBIDDEN, "host_blocked", "Hôte de flux non autorisé");
         }
 
         String referer = resolveReferer(host);
         FetchResult fetched = fetch(upstreamUrl, rangeHeader, referer);
         if (fetched == null) {
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
-        }
-        if (fetched.status == HttpStatus.NOT_FOUND.value()) {
-            return ResponseEntity.notFound().build();
+            return jsonError(HttpStatus.BAD_GATEWAY, "upstream_unreachable",
+                    "Flux distant inaccessible ou bloqué");
         }
         if (fetched.status == 416) {
-            return ResponseEntity.status(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE).build();
+            return jsonError(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE, "range_not_satisfiable",
+                    "Plage d’octets demandée indisponible");
         }
-        if (fetched.body == null) {
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        if (fetched.status >= 400) {
+            HttpStatus mapped = HttpStatus.resolve(fetched.status);
+            if (mapped == null || mapped.is2xxSuccessful()) {
+                mapped = HttpStatus.BAD_GATEWAY;
+            }
+            return jsonError(mapped, "upstream_http_error",
+                    "Le flux distant a répondu HTTP " + fetched.status);
+        }
+        if (fetched.body == null || fetched.body.length == 0) {
+            return jsonError(HttpStatus.BAD_GATEWAY, "upstream_empty",
+                    "Le flux distant a renvoyé une réponse vide");
         }
 
         byte[] body = fetched.body;
@@ -240,6 +269,10 @@ public class TvStreamProxyService {
         }
         if (h.endsWith("radiofrance.fr") || h.contains("stream.radiofrance")) {
             return "https://www.radiofrance.fr/";
+        }
+        if (h.contains("6cloud.fr") || h.contains("6play.fr") || h.contains("m6web")
+                || h.contains("haititivi") || h.contains("m6.fr")) {
+            return "https://www.6play.fr/";
         }
         return defaultReferrer;
     }

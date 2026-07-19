@@ -85,10 +85,11 @@ public class TvLastChannelService {
         boolean virtualTf1 = Tf1LiveService.isVirtualUrl(streamUrl);
         boolean virtualCanal = CanalGroupLiveService.isVirtualUrl(streamUrl);
         boolean virtualRadio = RadioFranceLiveService.isVirtualUrl(streamUrl);
+        boolean virtualM6 = M6GroupLiveService.isVirtualUrl(streamUrl);
         if (!StringUtils.hasText(streamUrl)) {
             return null;
         }
-        if (!virtualFranceTv && !virtualTf1 && !virtualCanal && !virtualRadio
+        if (!virtualFranceTv && !virtualTf1 && !virtualCanal && !virtualRadio && !virtualM6
                 && !(streamUrl.startsWith("http://") || streamUrl.startsWith("https://"))) {
             return null;
         }

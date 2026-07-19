@@ -263,8 +263,10 @@ public class SecurityConfig {
                 // Free IPTV catalog + HLS stream proxy (iptv-org) — public read-only
                 // Favorites (GET/PUT/DELETE /api/external/tv/favorites**) stay authenticated via /api/**
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/countries").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/tv/channel-count").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/channels").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/groups").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/tv/epg/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/live/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/stream", "/api/external/tv/stream/**").permitAll()
                 // Stellarium Web — sky map viewer + Noctua Sky catalogue proxy (read-only)

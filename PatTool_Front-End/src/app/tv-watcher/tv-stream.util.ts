@@ -1,13 +1,15 @@
 import { TvChannel } from '../services/api.service';
 
 /**
- * Map known FTA channels to backend virtual live URLs (france.tv / TF1 / Canal / Radio France).
+ * Map known FTA channels to backend virtual live URLs
+ * (france.tv / TF1 / Canal / Radio France / M6 group mirrors).
  */
 export function resolveTvStreamUrl(channel: TvChannel | null | undefined): string {
   const existing = channel?.streamUrl || '';
   const lower = existing.toLowerCase();
   if (lower.startsWith('francetv:') || lower.startsWith('tf1:')
-      || lower.startsWith('canalgroup:') || lower.startsWith('radiofrance:')) {
+      || lower.startsWith('canalgroup:') || lower.startsWith('radiofrance:')
+      || lower.startsWith('m6group:')) {
     return existing;
   }
   const id = (channel?.id || '').toLowerCase();
@@ -51,6 +53,21 @@ export function resolveTvStreamUrl(channel: TvChannel | null | undefined): strin
   if (id.startsWith('cstar.fr') || /^c\s*star\b/.test(name) || name === 'cstar') {
     return 'canalgroup:cstar';
   }
+  if (id.startsWith('m6music.fr') || name.includes('m6 music')) {
+    return existing;
+  }
+  if (id.startsWith('m6.fr') || (/^m6\b/.test(name) && !name.includes('music'))) {
+    return 'm6group:m6';
+  }
+  if (id.startsWith('w9.fr') || /^w9\b/.test(name)) {
+    return 'm6group:w9';
+  }
+  if (id.startsWith('6ter.fr') || /^6\s*ter\b/.test(name) || name === '6ter') {
+    return 'm6group:6ter';
+  }
+  if (id.startsWith('gulli.fr') || /^gulli\b/.test(name)) {
+    return 'm6group:gulli';
+  }
   return existing;
 }
 
@@ -68,4 +85,8 @@ export function isCanalGroupVirtual(url: string): boolean {
 
 export function isRadioFranceVirtual(url: string): boolean {
   return (url || '').toLowerCase().startsWith('radiofrance:');
+}
+
+export function isM6GroupVirtual(url: string): boolean {
+  return (url || '').toLowerCase().startsWith('m6group:');
 }

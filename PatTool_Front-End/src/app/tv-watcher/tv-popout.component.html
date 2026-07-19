@@ -27,6 +27,12 @@
         [attr.title]="'TV.WORKAROUND_HINT_RADIO' | translate">
         {{ 'TV.WORKAROUND_BADGE_RADIO' | translate }}
       </span>
+      <span
+        *ngIf="usesM6Group()"
+        class="tv-popout-badge tv-popout-badge--m6"
+        [attr.title]="'TV.WORKAROUND_HINT_M6' | translate">
+        {{ 'TV.WORKAROUND_BADGE_M6' | translate }}
+      </span>
     </div>
     <div class="tv-popout-actions">
       <button
@@ -58,7 +64,13 @@
   </header>
 
   <div class="tv-popout-stage">
-    <video #videoEl class="tv-popout-video" controls playsinline autoplay></video>
+    <video
+      #videoEl
+      class="tv-popout-video"
+      controls
+      playsinline
+      autoplay
+      [class.tv-popout-video--hidden]="!!playError"></video>
     <div class="tv-popout-buffering" *ngIf="isBuffering && !playError">
       <i class="fa fa-spinner fa-spin"></i>
       <span>{{ 'TV.BUFFERING' | translate }}</span>
@@ -72,7 +84,7 @@
         (error)="$any($event.target).style.display='none'" />
       <span><i class="fa fa-headphones me-1"></i>{{ channelName }}</span>
     </div>
-    <div *ngIf="playError" class="tv-popout-error">{{ playError | translate }}</div>
+    <div *ngIf="playError" class="tv-popout-error" role="alert">{{ formatPlayError(playError) }}</div>
   </div>
 
   <p class="tv-popout-hint">{{ 'TV.POPOUT_HINT' | translate }}</p>

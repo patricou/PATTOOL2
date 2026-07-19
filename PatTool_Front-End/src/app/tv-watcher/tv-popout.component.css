@@ -66,6 +66,10 @@
   background: #0b7285;
 }
 
+.tv-popout-badge--m6 {
+  background: #c2255c;
+}
+
 .tv-popout-actions {
   display: flex;
   align-items: center;
@@ -127,10 +131,26 @@
 }
 
 .tv-popout-error {
-  color: #ffb4b4;
-  padding: 1rem;
+  color: #664d03;
+  padding: 0.75rem 1rem;
+  margin: 0.75rem;
   text-align: center;
   pointer-events: auto;
+  background: rgba(255, 243, 205, 0.97);
+  border: 1px solid #ffe69c;
+  border-radius: 0.4rem;
+  inset: auto;
+  left: 0.75rem;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  height: auto;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.tv-popout-video--hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .tv-popout-radio {

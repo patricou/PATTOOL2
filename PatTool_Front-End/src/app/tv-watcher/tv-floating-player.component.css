@@ -85,6 +85,12 @@
   border-color: rgba(153, 233, 242, 0.45);
 }
 
+.tv-float-badge--m6 {
+  background: rgba(194, 37, 92, 0.28);
+  color: #faa2c1;
+  border-color: rgba(250, 162, 193, 0.45);
+}
+
 .tv-float-actions {
   display: flex;
   align-items: center;
@@ -213,9 +219,27 @@
 }
 
 .tv-float-error {
-  flex: 0 0 auto;
-  font-size: 0.75rem;
-  color: #ffc107;
+  position: absolute;
+  left: 0.5rem;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 4;
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.35rem;
+  border: 1px solid #ffe69c;
+  background: rgba(255, 243, 205, 0.97);
+  color: #664d03;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  text-align: center;
+  pointer-events: none;
+}
+
+.tv-float-video--hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .tv-float-hint {
