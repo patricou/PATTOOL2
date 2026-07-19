@@ -49,6 +49,7 @@ const ISS_FORECAST_STEP_SEC = 120;
 const ISS_DEFAULT_VELOCITY_KMH = 27_600;
 
 interface IssForecastResponse {
+  approximate?: boolean;
   points?: { latitude: number; longitude: number; timestamp: number }[];
 }
 
@@ -305,7 +306,7 @@ export class GlobeIssNowService {
       if (pts.length === 0) {
         return null;
       }
-      return { points: pts, approximate: false, fetchedAtMs: Date.now() };
+      return { points: pts, approximate: !!data?.approximate, fetchedAtMs: Date.now() };
     } catch {
       return null;
     }

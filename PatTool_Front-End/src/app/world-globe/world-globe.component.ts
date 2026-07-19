@@ -93,6 +93,7 @@ interface IssForecastPointDto {
 interface IssForecastResponse {
   minutes: number;
   stepSec: number;
+  approximate?: boolean;
   points: IssForecastPointDto[];
 }
 
@@ -10761,16 +10762,17 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       if (pts.length === 0) {
         throw new Error('ISS forecast returned no future points');
       }
+      const approximate = !!data?.approximate;
       this.issForecastTrailPoints.length = 0;
       this.issForecastTrailPoints.push(...pts);
-      this.issForecastTrailApproximate = false;
+      this.issForecastTrailApproximate = approximate;
       this.markIssForecastTrailGeometryDirty();
       this.rebuildIssForecastTrailGeometry(lat, lon);
       this.issForecastTrailLastGeometryRebuildMs = performance.now();
       this.issForecastTrailGeometryDirty = false;
       this.issNowService.storeForecastSnapshot({
         points: pts,
-        approximate: false,
+        approximate,
         fetchedAtMs: Date.now()
       });
     } catch {

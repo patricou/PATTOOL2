@@ -492,12 +492,22 @@ public class GlobeProxyService {
     }
 
     /**
-     * Predicted ISS ground track from now through {@code minutesAhead} (WhereTheISS.at SGP4 positions).
-     * Timestamps are batched (10 per upstream request).
+     * Predicted ISS ground track from now through {@code minutesAhead}.
+     * Prefers WhereTheISS.at SGP4 positions; if that upstream is down (e.g. expired TLS),
+     * falls back to a spherical orbit approximation from the current live ISS position.
      */
     public byte[] fetchIssForecastPositions(int minutesAhead, int stepSec) {
         int minutes = Math.min(120, Math.max(5, minutesAhead));
         int step = Math.min(600, Math.max(30, stepSec));
+        try {
+            return fetchIssForecastFromWhereTheIssAt(minutes, step);
+        } catch (Exception e) {
+            log.warn("ISS forecast upstream unavailable ({}), using approximate track.", e.getMessage());
+            return buildApproximateIssForecast(minutes, step);
+        }
+    }
+
+    private byte[] fetchIssForecastFromWhereTheIssAt(int minutes, int step) {
         long nowSec = Instant.now().getEpochSecond();
         long endSec = nowSec + (long) minutes * 60L;
         List<Long> timestamps = new ArrayList<>();
@@ -521,7 +531,7 @@ public class GlobeProxyService {
                 String url = WHERE_THE_ISS_AT_ISS_POSITIONS
                         + "?timestamps=" + tsParam
                         + "&units=kilometers";
-                byte[] raw = fetchBytes(url, MAX_BYTES_ISS_FEED);
+                byte[] raw = fetchBytes(url, MAX_BYTES_ISS_FEED, false);
                 JsonNode arr = objectMapper.readTree(raw);
                 if (!arr.isArray()) {
                     throw new IllegalStateException("WhereTheISS.at positions response is not an array");
@@ -543,16 +553,104 @@ public class GlobeProxyService {
                     points.add(pt);
                 }
             }
-            ObjectNode out = objectMapper.createObjectNode();
-            out.put("minutes", minutes);
-            out.put("stepSec", step);
-            out.set("points", points);
-            return objectMapper.writeValueAsBytes(out);
         } catch (IllegalStateException e) {
             throw e;
         } catch (Exception e) {
-            throw new IllegalStateException("ISS forecast mapping failed: " + e.getMessage(), e);
+            throw new IllegalStateException("WhereTheISS.at forecast failed: " + e.getMessage(), e);
         }
+        if (points.isEmpty()) {
+            throw new IllegalStateException("WhereTheISS.at returned no usable forecast points");
+        }
+        ObjectNode out = objectMapper.createObjectNode();
+        out.put("minutes", minutes);
+        out.put("stepSec", step);
+        out.put("approximate", false);
+        out.set("points", points);
+        try {
+            return objectMapper.writeValueAsBytes(out);
+        } catch (Exception e) {
+            throw new IllegalStateException("ISS forecast JSON encode failed: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Rough ISS ground-track extrapolation (~7.66 km/s orbital / ~27 600 km/h ground speed,
+     * ~92 min period, inclination-aware bearing turn). Good enough for the globe trail overlay.
+     */
+    private byte[] buildApproximateIssForecast(int minutes, int step) {
+        double lat;
+        double lon;
+        try {
+            byte[] nowJson = fetchOpenNotifyIssNow();
+            JsonNode root = objectMapper.readTree(nowJson);
+            JsonNode pos = root.path("iss_position");
+            lat = Double.parseDouble(pos.path("latitude").asText("NaN"));
+            lon = Double.parseDouble(pos.path("longitude").asText("NaN"));
+        } catch (Exception e) {
+            throw new IllegalStateException("ISS forecast fallback needs a current position: " + e.getMessage(), e);
+        }
+        if (!Double.isFinite(lat) || !Double.isFinite(lon) || Math.abs(lat) > 90.0 || Math.abs(lon) > 180.0) {
+            throw new IllegalStateException("ISS forecast fallback got invalid current coordinates");
+        }
+
+        final double speedKmh = 27600.0;
+        final double orbitPeriodSec = 92.0 * 60.0;
+        long nowSec = Instant.now().getEpochSecond();
+        int steps = Math.max(1, (minutes * 60) / step);
+        double orbitTurnDegPerStep = (360.0 / orbitPeriodSec) * step;
+        double distKm = speedKmh * (step / 3600.0);
+        // Seed an eastward heading; continuous turn approximates the 51.6° inclination band.
+        double bearing = lat >= 0.0 ? 75.0 : 105.0;
+
+        ArrayNode points = objectMapper.createArrayNode();
+        ObjectNode nowPt = objectMapper.createObjectNode();
+        nowPt.put("latitude", lat);
+        nowPt.put("longitude", lon);
+        nowPt.put("timestamp", nowSec);
+        points.add(nowPt);
+
+        double curLat = lat;
+        double curLon = lon;
+        double curBrng = bearing;
+        for (int i = 0; i < steps; i++) {
+            double[] next = destinationLatLon(curLat, curLon, curBrng, distKm);
+            curLat = next[0];
+            curLon = next[1];
+            curBrng = (curBrng + orbitTurnDegPerStep + 360.0) % 360.0;
+            ObjectNode pt = objectMapper.createObjectNode();
+            pt.put("latitude", curLat);
+            pt.put("longitude", curLon);
+            pt.put("timestamp", nowSec + (long) (i + 1) * step);
+            points.add(pt);
+        }
+
+        ObjectNode out = objectMapper.createObjectNode();
+        out.put("minutes", minutes);
+        out.put("stepSec", step);
+        out.put("approximate", true);
+        out.set("points", points);
+        try {
+            return objectMapper.writeValueAsBytes(out);
+        } catch (Exception e) {
+            throw new IllegalStateException("ISS approximate forecast JSON encode failed: " + e.getMessage(), e);
+        }
+    }
+
+    /** Great-circle destination (WGS84 sphere, R=6371 km). Returns {@code [lat, lon]}. */
+    private static double[] destinationLatLon(double latDeg, double lonDeg, double bearingDeg, double distKm) {
+        final double R = 6371.0;
+        double br = Math.toRadians(bearingDeg);
+        double lat1 = Math.toRadians(latDeg);
+        double lon1 = Math.toRadians(lonDeg);
+        double angDist = distKm / R;
+        double lat2 = Math.asin(
+                Math.sin(lat1) * Math.cos(angDist) + Math.cos(lat1) * Math.sin(angDist) * Math.cos(br));
+        double lon2 = lon1 + Math.atan2(
+                Math.sin(br) * Math.sin(angDist) * Math.cos(lat1),
+                Math.cos(angDist) - Math.sin(lat1) * Math.sin(lat2));
+        double lonDegOut = Math.toDegrees(lon2);
+        lonDegOut = ((lonDegOut + 540.0) % 360.0) - 180.0;
+        return new double[]{Math.toDegrees(lat2), lonDegOut};
     }
 
     private byte[] mapWhereTheIssAtToOpenNotifyCompatibleJson(byte[] wtiaPayload) {

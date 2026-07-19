@@ -326,7 +326,7 @@ public class GlobeProxyController {
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body);
         } catch (Exception e) {
-            log.debug("ISS forecast failed: {}", e.getMessage());
+            log.warn("ISS forecast failed: {}", e.toString());
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
         }
     }
