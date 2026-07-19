@@ -1,0 +1,165 @@
+:host {
+  display: block;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: #0b0d10;
+  color: #f2f4f7;
+}
+
+.tv-popout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 100vh;
+}
+
+.tv-popout-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.65rem;
+  background: linear-gradient(180deg, #1a1f27 0%, #12151a 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.tv-popout-title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.tv-popout-title-text {
+  overflow: visible;
+  text-overflow: unset;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.25;
+}
+
+.tv-popout-badge {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.12rem 0.35rem;
+  border-radius: 0.25rem;
+  background: #1e5bb8;
+  color: #fff;
+}
+
+.tv-popout-badge--tf1 {
+  background: #c4122f;
+}
+
+.tv-popout-badge--canal {
+  background: #6f42c1;
+}
+
+.tv-popout-badge--radio {
+  background: #0b7285;
+}
+
+.tv-popout-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.tv-popout-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: #d7dde6;
+  cursor: pointer;
+}
+
+.tv-popout-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.tv-popout-btn--close:hover {
+  background: rgba(220, 53, 69, 0.35);
+}
+
+.tv-popout-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tv-popout-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+.tv-popout-buffering,
+.tv-popout-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.35);
+  font-size: 0.95rem;
+}
+
+.tv-popout-error {
+  color: #ffb4b4;
+  padding: 1rem;
+  text-align: center;
+  pointer-events: auto;
+}
+
+.tv-popout-radio {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  background: radial-gradient(ellipse at center, #1a2332 0%, #0b0f14 70%);
+  color: #e9ecef;
+  font-size: 1rem;
+  pointer-events: none;
+}
+
+.tv-popout-radio-logo {
+  width: min(28%, 140px);
+  height: auto;
+  object-fit: contain;
+}
+
+.tv-popout-hint {
+  margin: 0;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.55);
+  background: #12151a;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}

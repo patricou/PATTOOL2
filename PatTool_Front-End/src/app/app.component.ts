@@ -1,8 +1,8 @@
 import { Component, ElementRef, OnInit, ViewChild, HostListener, TemplateRef, ChangeDetectorRef } from '@angular/core';
 import { of, Subscription } from 'rxjs';
-import { take, catchError } from 'rxjs/operators';
+import { take, catchError, filter } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
-import { RouterModule, Router } from '@angular/router';
+import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService, LangChangeEvent } from '@ngx-translate/core';
 import { KeycloakService } from './keycloak/keycloak.service';
@@ -21,6 +21,7 @@ import { CurrencyTickerService } from './services/currency-ticker.service';
 import { StockTickerComponent } from './stock-exchange/stock-ticker/stock-ticker.component';
 import { StockTickerService } from './services/stock-ticker.service';
 import { AssistantDrawerComponent } from './shared/assistant-drawer/assistant-drawer.component';
+import { TvFloatingPlayerComponent } from './tv-watcher/tv-floating-player.component';
 import { GlobeIssNowService } from './services/globe-iss-now.service';
 import { MongoHealthService, MongoHealthStatus } from './services/mongodb-health.service';
 import { buildIssTopViewIconDataUrl } from './shared/globe-iss-icon.util';
@@ -55,7 +56,7 @@ type ToolsMenuRow =
     templateUrl: './app.component.html',
     styleUrls: ['./app.component.css'],
     standalone: true,
-    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule, NewsTickerComponent, CurrencyTickerComponent, StockTickerComponent, AssistantDrawerComponent]
+    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule, NewsTickerComponent, CurrencyTickerComponent, StockTickerComponent, AssistantDrawerComponent, TvFloatingPlayerComponent]
 })
 export class AppComponent implements OnInit {
 
@@ -68,6 +69,8 @@ export class AppComponent implements OnInit {
     public selectedFiles: File[] = [];
     public fileInfoMap: Map<string, { originalSize: number; compressedSize?: number; isCompressed: boolean }> = new Map();
     public resultSaveOndisk: string = "";
+    /** Minimal chrome for the detached TV pop-out window. */
+    public tvPopoutMode = false;
     public isMenuCollapsed = true;
     public isLoading: boolean = false;
     public showEventsDropdown: boolean = false;
@@ -157,7 +160,8 @@ export class AppComponent implements OnInit {
         { routerLink: ['api/address-geocode'], icon: 'fa fa-map-marker', labelKey: 'MENU.ADDRESS_TO_MAP' },
         { routerLink: ['api/news'], icon: 'fa fa-newspaper-o', labelKey: 'MENU.NEWS' },
         { routerLink: ['api/timezone-converter'], icon: 'fa fa-clock-o', labelKey: 'MENU.TIME_ZONES' },
-        { routerLink: ['api/electricite'], icon: 'fa fa-bolt', labelKey: 'MENU.ELECTRICITE' }
+        { routerLink: ['api/electricite'], icon: 'fa fa-bolt', labelKey: 'MENU.ELECTRICITE' },
+        { routerLink: ['tools/tv-watcher'], icon: 'fa fa-television', labelKey: 'MENU.TV' }
     ];
     readonly navFinanceRaw: NavRouteMenuItem[] = [
         { routerLink: ['api/currency-converter'], icon: 'fa fa-money', labelKey: 'MENU.CURRENCY_CONVERTER' },
@@ -245,6 +249,21 @@ export class AppComponent implements OnInit {
             this.updateTickerBodyClasses();
             this.cdr.markForCheck();
         });
+        this.router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd)).subscribe(() => {
+            this.updateTvPopoutMode();
+        });
+        this.updateTvPopoutMode();
+    }
+
+    private updateTvPopoutMode(): void {
+        const url = this.router.url || '';
+        this.tvPopoutMode = url.includes('tools/tv-popout');
+        try {
+            document.body.classList.toggle('tv-popout-mode', this.tvPopoutMode);
+        } catch {
+            /* ignore */
+        }
+        this.cdr.markForCheck();
     }
 
     /**

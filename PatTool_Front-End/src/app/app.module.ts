@@ -191,6 +191,14 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./chimie/chimie.component').then(m => m.ChimieComponent)
 			},
 			{
+				path: 'tools/tv-watcher',
+				loadComponent: () => import('./tv-watcher/tv-watcher.component').then(m => m.TvWatcherComponent)
+			},
+			{
+				path: 'tools/tv-popout',
+				loadComponent: () => import('./tv-watcher/tv-popout.component').then(m => m.TvPopoutComponent)
+			},
+			{
 				path: 'tools/solar-system',
 				loadComponent: () => import('./solar-system/solar-system.component').then(m => m.SolarSystemComponent)
 			},

@@ -1,0 +1,162 @@
+<div
+  class="tv-float"
+  *ngIf="state.open"
+  [class.tv-float--minimized]="state.minimized"
+  [style.left.px]="posX"
+  [style.top.px]="posY"
+  [style.width.px]="state.minimized ? null : widthPx"
+  [style.height.px]="state.minimized ? null : heightPx"
+  role="dialog"
+  [attr.aria-label]="'TV.FLOAT_TITLE' | translate">
+  <div class="tv-float-header" (mousedown)="onDragStart($event)">
+    <div class="tv-float-title">
+      <i class="fa fa-television me-1" aria-hidden="true"></i>
+      <span class="tv-float-title-text">{{ channel?.name || ('TV.FLOAT_TITLE' | translate) }}</span>
+      <span
+        *ngIf="usesFranceTv()"
+        class="tv-float-badge"
+        [attr.title]="'TV.WORKAROUND_HINT' | translate">
+        {{ 'TV.WORKAROUND_BADGE' | translate }}
+      </span>
+      <span
+        *ngIf="usesTf1()"
+        class="tv-float-badge tv-float-badge--tf1"
+        [attr.title]="'TV.WORKAROUND_HINT_TF1' | translate">
+        {{ 'TV.WORKAROUND_BADGE_TF1' | translate }}
+      </span>
+      <span
+        *ngIf="usesCanalGroup()"
+        class="tv-float-badge tv-float-badge--canal"
+        [attr.title]="'TV.WORKAROUND_HINT_CANAL' | translate">
+        {{ 'TV.WORKAROUND_BADGE_CANAL' | translate }}
+      </span>
+      <span
+        *ngIf="usesRadioFrance()"
+        class="tv-float-badge tv-float-badge--radio"
+        [attr.title]="'TV.WORKAROUND_HINT_RADIO' | translate">
+        {{ 'TV.WORKAROUND_BADGE_RADIO' | translate }}
+      </span>
+    </div>
+    <div class="tv-float-actions">
+      <button
+        type="button"
+        class="tv-float-btn"
+        (click)="toggleMute()"
+        [attr.title]="(isMuted ? 'TV.UNMUTE' : 'TV.MUTE') | translate"
+        [attr.aria-label]="(isMuted ? 'TV.UNMUTE' : 'TV.MUTE') | translate">
+        <i class="fa" [class.fa-volume-off]="isMuted || volumePercent === 0" [class.fa-volume-down]="!isMuted && volumePercent > 0 && volumePercent < 50" [class.fa-volume-up]="!isMuted && volumePercent >= 50"></i>
+      </button>
+      <label class="tv-float-vol-wrap">
+        <span class="visually-hidden">{{ 'TV.VOLUME_LEVEL' | translate:{ percent: isMuted ? 0 : volumePercent } }}</span>
+        <input
+          type="range"
+          class="tv-float-vol-slider"
+          min="0"
+          max="100"
+          step="1"
+          [value]="volumePercent"
+          (input)="setVolumePercent($any($event.target).value)"
+          [attr.title]="'TV.VOLUME_LEVEL' | translate:{ percent: isMuted ? 0 : volumePercent }"
+          [attr.aria-label]="'TV.VOLUME' | translate" />
+      </label>
+      <button
+        type="button"
+        class="tv-float-btn"
+        *ngIf="pipSupported"
+        (click)="togglePictureInPicture()"
+        [attr.title]="(isPipActive ? 'TV.PIP_EXIT' : 'TV.PIP') | translate"
+        [attr.aria-label]="(isPipActive ? 'TV.PIP_EXIT' : 'TV.PIP') | translate">
+        <i class="fa" [class.fa-compress]="isPipActive" [class.fa-clone]="!isPipActive"></i>
+      </button>
+      <button
+        type="button"
+        class="tv-float-btn"
+        (click)="openExternalWindow()"
+        [attr.title]="'TV.EXTERNAL_WINDOW' | translate"
+        [attr.aria-label]="'TV.EXTERNAL_WINDOW' | translate">
+        <i class="fa fa-desktop"></i>
+      </button>
+      <button
+        type="button"
+        class="tv-float-btn"
+        (click)="goToTvPage()"
+        [attr.title]="'TV.FLOAT_OPEN_PAGE' | translate"
+        [attr.aria-label]="'TV.FLOAT_OPEN_PAGE' | translate">
+        <i class="fa fa-external-link"></i>
+      </button>
+      <button
+        type="button"
+        class="tv-float-btn"
+        *ngIf="!state.minimized"
+        (click)="minimize()"
+        [attr.title]="'TV.FLOAT_MINIMIZE' | translate"
+        [attr.aria-label]="'TV.FLOAT_MINIMIZE' | translate">
+        <i class="fa fa-minus"></i>
+      </button>
+      <button
+        type="button"
+        class="tv-float-btn"
+        *ngIf="state.minimized"
+        (click)="restore()"
+        [attr.title]="'TV.FLOAT_RESTORE' | translate"
+        [attr.aria-label]="'TV.FLOAT_RESTORE' | translate">
+        <i class="fa fa-window-maximize"></i>
+      </button>
+      <button
+        type="button"
+        class="tv-float-btn tv-float-btn--close"
+        (click)="close()"
+        [attr.title]="'TV.FLOAT_CLOSE' | translate"
+        [attr.aria-label]="'TV.FLOAT_CLOSE' | translate">
+        <i class="fa fa-times"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="tv-float-body" *ngIf="!state.minimized">
+    <div class="tv-float-video-wrap">
+      <video
+        #videoEl
+        class="tv-float-video"
+        controls
+        playsinline
+        (click)="ensureSound($event)"
+        (volumechange)="onVideoVolumeChange()"></video>
+      <div class="tv-float-buffering" *ngIf="isBuffering && !playError">
+        <i class="fa fa-spinner fa-spin"></i>
+      </div>
+      <div class="tv-float-radio" *ngIf="usesRadioFrance() && !playError">
+        <img
+          *ngIf="channel?.logo"
+          class="tv-float-radio-logo"
+          [src]="channel?.logo"
+          [alt]="channel?.name || ''"
+          (error)="$any($event.target).style.display='none'" />
+        <span><i class="fa fa-headphones me-1"></i>{{ channel?.name }}</span>
+      </div>
+      <button
+        type="button"
+        class="tv-float-unmute"
+        *ngIf="(isMuted || volumePercent === 0) && !playError"
+        (click)="ensureSound($event)">
+        <i class="fa fa-volume-up" aria-hidden="true"></i>
+        {{ 'TV.UNMUTE' | translate }}
+      </button>
+    </div>
+    <div *ngIf="playError" class="tv-float-error">{{ playError | translate }}</div>
+    <p class="tv-float-hint">{{ 'TV.FLOAT_HINT' | translate }}</p>
+    <p class="tv-float-hint tv-float-hint--secondary">{{ 'TV.POPOUT_HINT' | translate }}</p>
+  </div>
+
+  <!-- Resize handles (hidden when minimized) -->
+  <ng-container *ngIf="!state.minimized">
+    <div class="tv-float-resize tv-float-resize--n" (mousedown)="onResizeStart($event, 'n')"></div>
+    <div class="tv-float-resize tv-float-resize--s" (mousedown)="onResizeStart($event, 's')"></div>
+    <div class="tv-float-resize tv-float-resize--e" (mousedown)="onResizeStart($event, 'e')"></div>
+    <div class="tv-float-resize tv-float-resize--w" (mousedown)="onResizeStart($event, 'w')"></div>
+    <div class="tv-float-resize tv-float-resize--ne" (mousedown)="onResizeStart($event, 'ne')"></div>
+    <div class="tv-float-resize tv-float-resize--nw" (mousedown)="onResizeStart($event, 'nw')"></div>
+    <div class="tv-float-resize tv-float-resize--se" (mousedown)="onResizeStart($event, 'se')" [attr.title]="'TV.FLOAT_RESIZE' | translate"></div>
+    <div class="tv-float-resize tv-float-resize--sw" (mousedown)="onResizeStart($event, 'sw')"></div>
+  </ng-container>
+</div>

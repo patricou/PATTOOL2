@@ -1,4 +1,4 @@
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top" *ngIf="!tvPopoutMode">
     <!-- Brand -->
     <a class="navbar-brand" [routerLink]="['/home']">
         <img src="assets/images/pat.png" width="30" height="30" class="d-inline-block align-top" alt="">
@@ -331,6 +331,7 @@
 
 <!-- Global news ticker (toggle from the News page). Sits between the top
      navbar and the per-page title so it's visible on every route. -->
+<ng-container *ngIf="!tvPopoutMode">
 <app-news-ticker></app-news-ticker>
 <app-currency-ticker></app-currency-ticker>
 <app-stock-ticker></app-stock-ticker>
@@ -372,8 +373,10 @@
      [class.pat-div--with-news-ticker]="newsTickerEnabled"
      [class.pat-div--with-currency-ticker]="currencyTickerEnabled"
      [class.pat-div--with-stock-ticker]="stockTickerEnabled"></div>
+</ng-container>
 <router-outlet></router-outlet>
-<app-assistant-drawer></app-assistant-drawer>
+<app-assistant-drawer *ngIf="!tvPopoutMode"></app-assistant-drawer>
+<app-tv-floating-player *ngIf="!tvPopoutMode"></app-tv-floating-player>
 
 <div
   class="pat-mongodb-alert-overlay"

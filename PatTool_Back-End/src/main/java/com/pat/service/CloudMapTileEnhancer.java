@@ -45,14 +45,14 @@ public final class CloudMapTileEnhancer {
                         continue;
                     }
                     float lum = (0.299f * r + 0.587f * g + 0.114f * b) / 255f;
-                    float cloud = Math.max(0f, lum - 0.08f);
-                    float cover = (float) Math.min(1.0, Math.pow(cloud * gain * 1.15, 0.85));
-                    if (cover < 0.04f) {
+                    float cloud = Math.max(0f, lum - 0.04f);
+                    float cover = (float) Math.min(1.0, Math.pow(cloud * gain * 1.45, 0.72));
+                    if (cover < 0.02f) {
                         out.setRGB(x, y, 0x00000000);
                         continue;
                     }
-                    int newA = (int) Math.min(200, cover * 165);
-                    out.setRGB(x, y, (newA << 24) | 0x00F8F8F8);
+                    int newA = (int) Math.min(240, 40 + cover * 200);
+                    out.setRGB(x, y, (newA << 24) | 0x00FFFFFF);
                 }
             }
             return writePng(out, pngBytes.length);
@@ -90,11 +90,11 @@ public final class CloudMapTileEnhancer {
                         out.setRGB(x, y, 0x00000000);
                         continue;
                     }
-                    float cover = (float) Math.min(1.0, Math.pow(signal * gain * 2.4, 0.42));
-                    int newA = (int) Math.min(220, 70 + cover * 150);
-                    int shade = (int) Math.max(40, Math.min(210, 230 - cover * 140));
-                    int blue = Math.min(255, shade + 36);
-                    out.setRGB(x, y, (newA << 24) | (shade << 16) | ((shade + 4) << 8) | blue);
+                    float cover = (float) Math.min(1.0, Math.pow(signal * gain * 2.8, 0.38));
+                    int newA = (int) Math.min(245, 90 + cover * 155);
+                    int shade = (int) Math.max(35, Math.min(200, 220 - cover * 150));
+                    int blue = Math.min(255, shade + 48);
+                    out.setRGB(x, y, (newA << 24) | (shade << 16) | ((shade + 6) << 8) | blue);
                 }
             }
             return writePng(out, pngBytes.length);

@@ -1,0 +1,79 @@
+<div class="tv-popout" role="application" [attr.aria-label]="'TV.POPOUT_TITLE' | translate">
+  <header class="tv-popout-bar">
+    <div class="tv-popout-title">
+      <i class="fa fa-television me-1" aria-hidden="true"></i>
+      <span class="tv-popout-title-text">{{ channelName }}</span>
+      <span
+        *ngIf="usesFranceTv()"
+        class="tv-popout-badge"
+        [attr.title]="'TV.WORKAROUND_HINT' | translate">
+        {{ 'TV.WORKAROUND_BADGE' | translate }}
+      </span>
+      <span
+        *ngIf="usesTf1()"
+        class="tv-popout-badge tv-popout-badge--tf1"
+        [attr.title]="'TV.WORKAROUND_HINT_TF1' | translate">
+        {{ 'TV.WORKAROUND_BADGE_TF1' | translate }}
+      </span>
+      <span
+        *ngIf="usesCanalGroup()"
+        class="tv-popout-badge tv-popout-badge--canal"
+        [attr.title]="'TV.WORKAROUND_HINT_CANAL' | translate">
+        {{ 'TV.WORKAROUND_BADGE_CANAL' | translate }}
+      </span>
+      <span
+        *ngIf="usesRadioFrance()"
+        class="tv-popout-badge tv-popout-badge--radio"
+        [attr.title]="'TV.WORKAROUND_HINT_RADIO' | translate">
+        {{ 'TV.WORKAROUND_BADGE_RADIO' | translate }}
+      </span>
+    </div>
+    <div class="tv-popout-actions">
+      <button
+        type="button"
+        class="tv-popout-btn"
+        (click)="toggleMute()"
+        [attr.title]="(isMuted ? 'TV.UNMUTE' : 'TV.MUTE') | translate"
+        [attr.aria-label]="(isMuted ? 'TV.UNMUTE' : 'TV.MUTE') | translate">
+        <i class="fa" [class.fa-volume-off]="isMuted" [class.fa-volume-up]="!isMuted"></i>
+      </button>
+      <button
+        type="button"
+        class="tv-popout-btn"
+        *ngIf="pipSupported"
+        (click)="togglePictureInPicture()"
+        [attr.title]="(isPipActive ? 'TV.PIP_EXIT' : 'TV.PIP') | translate"
+        [attr.aria-label]="(isPipActive ? 'TV.PIP_EXIT' : 'TV.PIP') | translate">
+        <i class="fa" [class.fa-compress]="isPipActive" [class.fa-clone]="!isPipActive"></i>
+      </button>
+      <button
+        type="button"
+        class="tv-popout-btn tv-popout-btn--close"
+        (click)="closeWindow()"
+        [attr.title]="'TV.POPOUT_CLOSE' | translate"
+        [attr.aria-label]="'TV.POPOUT_CLOSE' | translate">
+        <i class="fa fa-times"></i>
+      </button>
+    </div>
+  </header>
+
+  <div class="tv-popout-stage">
+    <video #videoEl class="tv-popout-video" controls playsinline autoplay></video>
+    <div class="tv-popout-buffering" *ngIf="isBuffering && !playError">
+      <i class="fa fa-spinner fa-spin"></i>
+      <span>{{ 'TV.BUFFERING' | translate }}</span>
+    </div>
+    <div class="tv-popout-radio" *ngIf="usesRadioFrance() && !playError">
+      <img
+        *ngIf="channel?.logo"
+        class="tv-popout-radio-logo"
+        [src]="channel?.logo"
+        [alt]="channelName"
+        (error)="$any($event.target).style.display='none'" />
+      <span><i class="fa fa-headphones me-1"></i>{{ channelName }}</span>
+    </div>
+    <div *ngIf="playError" class="tv-popout-error">{{ playError | translate }}</div>
+  </div>
+
+  <p class="tv-popout-hint">{{ 'TV.POPOUT_HINT' | translate }}</p>
+</div>

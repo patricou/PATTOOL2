@@ -1034,6 +1034,25 @@
 	flex-shrink: 0;
 }
 
+/* Cloud tiles (same rendering as Météo-France Température et radar). */
+:host ::ng-deep .leaflet-layer.mf-cloud-tiles img {
+	filter: contrast(var(--mf-cloud-contrast, 2.6))
+		brightness(var(--mf-cloud-brightness, 0.72))
+		saturate(var(--mf-cloud-saturate, 1.5));
+}
+
+:host ::ng-deep .leaflet-layer.mf-cloud-tiles--owm img {
+	mix-blend-mode: normal;
+	filter: contrast(1.35) brightness(1.15) saturate(1.05);
+}
+
+:host ::ng-deep .leaflet-layer.mf-cloud-tiles--rv img {
+	mix-blend-mode: multiply;
+	filter: contrast(var(--mf-cloud-contrast, 2.4))
+		brightness(var(--mf-cloud-brightness, 0.78))
+		saturate(var(--mf-cloud-saturate, 1.55));
+}
+
 .fullscreen-selector .tv-radar-refresh-btn {
 	padding: 0.2rem 0.45rem;
 }

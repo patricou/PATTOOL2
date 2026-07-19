@@ -45,6 +45,16 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
             return next.handle(req);
         }
 
+        // Free IPTV catalog / stream proxy is permitAll — skip Keycloak wait.
+        // Favorites require JWT: do not skip /favorites.
+        const isTvPublicApiGet =
+            req.method === 'GET'
+            && /\/api\/external\/tv\//i.test(req.url)
+            && !/\/api\/external\/tv\/favorites/i.test(req.url);
+        if (isTvPublicApiGet) {
+            return next.handle(req);
+        }
+
         // If the caller already set Authorization (e.g. FileService.getHeaderWithToken()), pass through.
         // Avoids double getToken() and "Token retrieval failed" blocking uploads when token refresh is slow/fails.
         if (req.headers.has('Authorization')) {

@@ -1,0 +1,292 @@
+:host {
+  display: contents;
+}
+
+.tv-float {
+  position: fixed;
+  z-index: 1080;
+  display: flex;
+  flex-direction: column;
+  min-width: 280px;
+  min-height: 160px;
+  background: #0b1220;
+  color: #e9ecef;
+  border-radius: 0.75rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  user-select: none;
+}
+
+.tv-float--minimized {
+  width: min(320px, calc(100vw - 24px)) !important;
+  height: auto !important;
+}
+
+.tv-float-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  padding: 0.45rem 0.55rem 0.45rem 0.75rem;
+  background: linear-gradient(180deg, #152038 0%, #0f172a 100%);
+  cursor: grab;
+}
+
+.tv-float-header:active {
+  cursor: grabbing;
+}
+
+.tv-float-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.tv-float-title-text {
+  overflow: visible;
+  text-overflow: unset;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.25;
+}
+
+.tv-float-badge {
+  flex: 0 0 auto;
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.25rem;
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+  border: 1px solid rgba(255, 193, 7, 0.4);
+}
+
+.tv-float-badge--tf1 {
+  background: rgba(13, 110, 253, 0.22);
+  color: #6ea8fe;
+  border-color: rgba(110, 168, 254, 0.5);
+}
+
+.tv-float-badge--canal {
+  background: rgba(111, 66, 193, 0.28);
+  color: #d0bfff;
+  border-color: rgba(208, 191, 255, 0.45);
+}
+
+.tv-float-badge--radio {
+  background: rgba(11, 114, 133, 0.32);
+  color: #99e9f2;
+  border-color: rgba(153, 233, 242, 0.45);
+}
+
+.tv-float-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  flex: 0 0 auto;
+}
+
+.tv-float-btn {
+  border: none;
+  background: transparent;
+  color: #ced4da;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.tv-float-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.tv-float-vol-wrap {
+  display: inline-flex;
+  align-items: center;
+  width: 4.5rem;
+  margin: 0 0.15rem;
+}
+
+.tv-float-vol-slider {
+  width: 100%;
+  height: 0.3rem;
+  accent-color: #6ea8fe;
+  cursor: pointer;
+}
+
+.tv-float-btn--close:hover {
+  background: rgba(220, 53, 69, 0.35);
+  color: #fff;
+}
+
+.tv-float-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0.45rem 0.55rem 0.55rem;
+  gap: 0.35rem;
+}
+
+.tv-float-video-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  border-radius: 0.45rem;
+  overflow: hidden;
+  background: #000;
+}
+
+.tv-float-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+  outline: none;
+}
+
+.tv-float-buffering {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font-size: 1.25rem;
+  pointer-events: none;
+}
+
+.tv-float-radio {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  background: radial-gradient(ellipse at center, #1a2332 0%, #0b0f14 70%);
+  color: #e9ecef;
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.tv-float-radio-logo {
+  width: min(36%, 88px);
+  height: auto;
+  object-fit: contain;
+}
+
+.tv-float-unmute {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.tv-float-unmute:hover {
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.tv-float-error {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  color: #ffc107;
+}
+
+.tv-float-hint {
+  flex: 0 0 auto;
+  margin: 0;
+  font-size: 0.68rem;
+  color: #adb5bd;
+  line-height: 1.35;
+}
+
+.tv-float-hint--secondary {
+  margin-top: 0.15rem;
+  color: rgba(173, 181, 189, 0.75);
+}
+
+/* Resize handles */
+.tv-float-resize {
+  position: absolute;
+  z-index: 2;
+}
+
+.tv-float-resize--n,
+.tv-float-resize--s {
+  left: 10px;
+  right: 10px;
+  height: 8px;
+  cursor: ns-resize;
+}
+
+.tv-float-resize--n { top: 0; }
+.tv-float-resize--s { bottom: 0; }
+
+.tv-float-resize--e,
+.tv-float-resize--w {
+  top: 10px;
+  bottom: 10px;
+  width: 8px;
+  cursor: ew-resize;
+}
+
+.tv-float-resize--e { right: 0; }
+.tv-float-resize--w { left: 0; }
+
+.tv-float-resize--ne,
+.tv-float-resize--nw,
+.tv-float-resize--se,
+.tv-float-resize--sw {
+  width: 14px;
+  height: 14px;
+}
+
+.tv-float-resize--ne { top: 0; right: 0; cursor: nesw-resize; }
+.tv-float-resize--nw { top: 0; left: 0; cursor: nwse-resize; }
+.tv-float-resize--se {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
+  width: 18px;
+  height: 18px;
+}
+.tv-float-resize--sw { bottom: 0; left: 0; cursor: nesw-resize; }
+
+.tv-float-resize--se::after {
+  content: '';
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid rgba(255, 255, 255, 0.45);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.45);
+  border-radius: 0 0 2px 0;
+  pointer-events: none;
+}

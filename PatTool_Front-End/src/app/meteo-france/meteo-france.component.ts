@@ -348,8 +348,8 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   radarOpacity = 0.72;
   showRadar = true;
   showCloudLayer = true;
-  cloudOpacity = 0.45;
-  cloudIntensity = 1.5;
+  cloudOpacity = 0.75;
+  cloudIntensity = 3.0;
   readonly cloudIntensityMin = 0.5;
   readonly cloudIntensityMax = 8;
   showTemperatureMap = true;
@@ -592,6 +592,10 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   private readonly stationAltitudeCache = new Map<string, number | null>();
   private readonly stationAltitudeInflight = new Map<string, Subscription>();
   private cloudIntensityReloadTimer: ReturnType<typeof setTimeout> | null = null;
+  private mapLayerPreferenceSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Deep-link overrides so async Mongo prefs do not wipe URL-forced layer visibility. */
+  private navigationForcedShowRadar: boolean | null = null;
+  private navigationForcedShowTemperatureMap: boolean | null = null;
   private mosaicObjectUrl: string | null = null;
   private readonly radarBounds: L.LatLngBoundsExpression = [[40.8, -5.6], [52.0, 10.2]];
   private readonly subs = new Subscription();
@@ -643,6 +647,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.fixLeafletIcons();
     this.loadMeteoFranceStatus();
     this.loadRadarPreferences();
+    this.loadMapLayerPreferences();
     this.loadForecastPreferences();
     this.loadMultiDayForecastDisplayParams();
     this.loadForecastChartStylePreference();
@@ -708,6 +713,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     this.syncWeatherSourcePreferences();
     this.syncMapLayerSourcePreferences();
     this.loadRadarPreferences();
+    this.loadMapLayerPreferences();
     this.loadForecastPreferences();
     this.loadMultiDayForecastDisplayParams();
     this.refreshMfTemperatureAvailability();
@@ -771,13 +777,17 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
 
     if (params.get('radar') === '1') {
       this.showRadar = true;
+      this.navigationForcedShowRadar = true;
     } else if (params.get('radar') === '0') {
       this.showRadar = false;
+      this.navigationForcedShowRadar = false;
     }
     if (params.get('temp') === '1') {
       this.showTemperatureMap = true;
+      this.navigationForcedShowTemperatureMap = true;
     } else if (params.get('temp') === '0') {
       this.showTemperatureMap = false;
+      this.navigationForcedShowTemperatureMap = false;
     }
 
     const stationIdParam = params.get('stationId')?.trim();
@@ -859,6 +869,10 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     if (this.cloudIntensityReloadTimer) {
       clearTimeout(this.cloudIntensityReloadTimer);
       this.cloudIntensityReloadTimer = null;
+    }
+    if (this.mapLayerPreferenceSaveTimer) {
+      clearTimeout(this.mapLayerPreferenceSaveTimer);
+      this.mapLayerPreferenceSaveTimer = null;
     }
     if (this.forecastChartRefreshTimer) {
       clearTimeout(this.forecastChartRefreshTimer);
@@ -2993,6 +3007,118 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     );
   }
 
+  private loadMapLayerPreferences(): void {
+    this.subs.add(
+      this.apiService.getMeteoFranceMapLayerPreferences().subscribe({
+        next: (pref) => {
+          if (!pref) {
+            return;
+          }
+          const radarWas = this.showRadar;
+          const cloudWas = this.showCloudLayer;
+          const tempWas = this.showTemperatureMap;
+          const opacityWas = this.cloudOpacity;
+          const intensityWas = this.cloudIntensity;
+
+          if (this.navigationForcedShowRadar == null && pref.showRadar != null) {
+            this.showRadar = pref.showRadar;
+          }
+          if (pref.showCloudLayer != null) {
+            this.showCloudLayer = pref.showCloudLayer;
+          }
+          if (this.navigationForcedShowTemperatureMap == null && pref.showTemperatureMap != null) {
+            this.showTemperatureMap = pref.showTemperatureMap;
+          }
+          if (pref.cloudOpacity != null && Number.isFinite(pref.cloudOpacity)) {
+            this.cloudOpacity = this.readCloudOpacityFrom(pref.cloudOpacity);
+          }
+          if (pref.cloudIntensity != null && Number.isFinite(pref.cloudIntensity)) {
+            this.cloudIntensity = this.readCloudIntensityFrom(pref.cloudIntensity);
+          }
+
+          if (!this.mapInitialized) {
+            return;
+          }
+          if (radarWas !== this.showRadar) {
+            this.setupRadarLayer();
+          }
+          if (cloudWas !== this.showCloudLayer
+            || opacityWas !== this.cloudOpacity
+            || intensityWas !== this.cloudIntensity) {
+            this.setupCloudLayer();
+          } else if (this.showCloudLayer && this.rainViewerCloudLayer) {
+            this.rainViewerCloudLayer.setOpacity(this.readCloudOpacity());
+            this.updateCloudTileEnhancement();
+          }
+          if (tempWas !== this.showTemperatureMap) {
+            this.setupTemperatureLabels();
+          }
+          this.startRadarRefreshTimer();
+          this.cdr.markForCheck();
+        },
+        error: () => { /* keep defaults */ }
+      })
+    );
+  }
+
+  private persistMapLayerPreferences(
+    patch: Partial<{
+      showRadar: boolean;
+      showCloudLayer: boolean;
+      showTemperatureMap: boolean;
+      cloudOpacity: number;
+      cloudIntensity: number;
+    }>,
+    options?: { debounceMs?: number; toast?: boolean }
+  ): void {
+    if (!this.guardMeteoOptionsEdit()) {
+      return;
+    }
+    const debounceMs = options?.debounceMs ?? 0;
+    const toast = options?.toast ?? true;
+    const run = (): void => {
+      this.mapLayerPreferenceSaveTimer = null;
+      this.subs.add(
+        this.apiService.saveMeteoFranceMapLayerPreferences(patch).subscribe({
+          next: (pref) => {
+            if (pref?.cloudOpacity != null && Number.isFinite(pref.cloudOpacity)) {
+              this.cloudOpacity = this.readCloudOpacityFrom(pref.cloudOpacity);
+            }
+            if (pref?.cloudIntensity != null && Number.isFinite(pref.cloudIntensity)) {
+              this.cloudIntensity = this.readCloudIntensityFrom(pref.cloudIntensity);
+            }
+            if (toast) {
+              this.showOptionsSaveToast(true);
+            }
+          },
+          error: () => {
+            if (toast) {
+              this.showOptionsSaveToast(false);
+            }
+          }
+        })
+      );
+    };
+    if (debounceMs > 0) {
+      if (this.mapLayerPreferenceSaveTimer) {
+        clearTimeout(this.mapLayerPreferenceSaveTimer);
+      }
+      this.mapLayerPreferenceSaveTimer = setTimeout(run, debounceMs);
+      return;
+    }
+    run();
+  }
+
+  private readCloudOpacityFrom(value: number): number {
+    return Number.isFinite(value) ? Math.max(0.1, Math.min(1, value)) : 0.75;
+  }
+
+  private readCloudIntensityFrom(value: number): number {
+    return Number.isFinite(value)
+      ? Math.max(this.cloudIntensityMin, Math.min(this.cloudIntensityMax, value))
+      : 3.0;
+  }
+
   onRadarRefreshSecondsCommitted(): void {
     if (!this.guardMeteoOptionsEdit()) {
       return;
@@ -3576,6 +3702,10 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
       this.rainViewerCloudLayer.setOpacity(opacity);
       this.updateCloudTileEnhancement();
     }
+    this.persistMapLayerPreferences(
+      { cloudOpacity: opacity, cloudIntensity: this.readCloudIntensity() },
+      { debounceMs: 400 }
+    );
   }
 
   onCloudIntensityChange(): void {
@@ -3589,6 +3719,10 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         this.loadOpenWeatherCloudLayer();
         this.cloudIntensityReloadTimer = null;
       }, 350);
+      this.persistMapLayerPreferences(
+        { cloudOpacity: this.readCloudOpacity(), cloudIntensity: this.cloudIntensity },
+        { debounceMs: 400 }
+      );
       return;
     }
     if (this.cloudDisplaySource === 'rainviewer') {
@@ -3600,9 +3734,17 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
         this.loadRainViewerCloudLayer();
         this.cloudIntensityReloadTimer = null;
       }, 350);
+      this.persistMapLayerPreferences(
+        { cloudOpacity: this.readCloudOpacity(), cloudIntensity: this.cloudIntensity },
+        { debounceMs: 400 }
+      );
       return;
     }
     this.updateCloudTileEnhancement();
+    this.persistMapLayerPreferences(
+      { cloudOpacity: this.readCloudOpacity(), cloudIntensity: this.cloudIntensity },
+      { debounceMs: 400 }
+    );
   }
 
   private updateCloudTileEnhancement(): void {
@@ -3623,25 +3765,21 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     }
     const intensity = this.readCloudIntensity();
     const opacity = this.readCloudOpacity();
-    const intensityFactor = 0.9 + intensity * 0.22;
-    const contrast = 1.65 * intensityFactor * (0.85 + opacity * 0.15);
-    const brightness = 0.88 - (intensity - 1) * 0.05;
-    const saturate = 1.25 * (0.9 + intensity * 0.12);
+    const intensityFactor = 0.95 + intensity * 0.28;
+    const contrast = 1.85 * intensityFactor * (0.85 + opacity * 0.2);
+    const brightness = 0.82 - (intensity - 1) * 0.04;
+    const saturate = 1.4 * (0.9 + intensity * 0.14);
     container.style.setProperty('--mf-cloud-contrast', contrast.toFixed(2));
     container.style.setProperty('--mf-cloud-brightness', brightness.toFixed(2));
     container.style.setProperty('--mf-cloud-saturate', saturate.toFixed(2));
   }
 
   private readCloudOpacity(): number {
-    const n = Number(this.cloudOpacity);
-    return Number.isFinite(n) ? Math.max(0.1, Math.min(1, n)) : 0.45;
+    return this.readCloudOpacityFrom(Number(this.cloudOpacity));
   }
 
   private readCloudIntensity(): number {
-    const n = Number(this.cloudIntensity);
-    return Number.isFinite(n)
-      ? Math.max(this.cloudIntensityMin, Math.min(this.cloudIntensityMax, n))
-      : 1.5;
+    return this.readCloudIntensityFrom(Number(this.cloudIntensity));
   }
 
   private attachCloudTileLayer(url: string, attribution: string, openWeather = false, rainViewer = false): void {
@@ -3697,6 +3835,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   onShowCloudLayerChange(): void {
     this.setupCloudLayer();
     this.startRadarRefreshTimer();
+    this.persistMapLayerPreferences({ showCloudLayer: this.showCloudLayer });
   }
 
   private setupCloudLayer(): void {
@@ -3811,6 +3950,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
 
   onShowTemperatureMapChange(): void {
     this.setupTemperatureLabels();
+    this.persistMapLayerPreferences({ showTemperatureMap: this.showTemperatureMap });
   }
 
   private setupTemperatureLabels(): void {
@@ -5467,6 +5607,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   onShowRadarChange(): void {
     this.setupRadarLayer();
     this.startRadarRefreshTimer();
+    this.persistMapLayerPreferences({ showRadar: this.showRadar });
   }
 
   toggleMapFullscreen(): void {

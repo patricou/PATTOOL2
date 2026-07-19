@@ -575,6 +575,32 @@ export class ApiService {
     );
   }
 
+  /** Global map-layer switches + cloud opacity/intensity (MongoDB appParameters, all users). */
+  getMeteoFranceMapLayerPreferences(): Observable<MeteoFranceMapLayerPreference> {
+    return this._http.get<MeteoFranceMapLayerPreference>(
+      this.API_URL + 'external/meteofrance/map-layer/preferences'
+    );
+  }
+
+  saveMeteoFranceMapLayerPreferences(
+    prefs: Partial<
+      Pick<
+        MeteoFranceMapLayerPreference,
+        'showRadar' | 'showCloudLayer' | 'showTemperatureMap' | 'cloudOpacity' | 'cloudIntensity'
+      >
+    >
+  ): Observable<MeteoFranceMapLayerPreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<MeteoFranceMapLayerPreference>(
+          this.API_URL + 'external/meteofrance/map-layer/preferences',
+          prefs,
+          { headers }
+        )
+      )
+    );
+  }
+
   /** Per-user temperature observation cache TTL (MongoDB appParameters). */
   getMeteoFranceTemperatureCachePreferences(): Observable<MeteoFranceTemperatureCachePreference> {
     return this.getHeaderWithToken().pipe(
@@ -2067,6 +2093,109 @@ export class ApiService {
   }
 
   // ===================================================================
+  // TV watcher — free IPTV (iptv-org) catalog + HLS stream proxy
+  // Backend: /api/external/tv/* (public)
+  // ===================================================================
+
+  getTvCountries(): Observable<TvCountry[]> {
+    return this._http.get<TvCountry[]>(this.API_URL + 'external/tv/countries');
+  }
+
+  getTvChannels(country: string, q?: string, group?: string): Observable<TvChannel[]> {
+    let params = new HttpParams().set('country', country || 'fr');
+    if (q && q.trim()) {
+      params = params.set('q', q.trim());
+    }
+    if (group && group.trim()) {
+      params = params.set('group', group.trim());
+    }
+    return this._http.get<TvChannel[]>(this.API_URL + 'external/tv/channels', { params });
+  }
+
+  getTvGroups(country: string): Observable<string[]> {
+    const params = new HttpParams().set('country', country || 'fr');
+    return this._http.get<string[]>(this.API_URL + 'external/tv/groups', { params });
+  }
+
+  /** Whether TF1 credentials are configured on the backend. */
+  getTvTf1Status(): Observable<{ configured: boolean; channels?: string[] }> {
+    return this._http.get<{ configured: boolean; channels?: string[] }>(
+      this.API_URL + 'external/tv/live/tf1/status'
+    );
+  }
+
+  /** Proxied HLS / media URL for a channel stream (Base64-URL path segment). */
+  tvStreamProxyUrl(streamUrl: string): string {
+    const bytes = new TextEncoder().encode(streamUrl);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const b64 = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    return this.API_URL + 'external/tv/stream/' + b64;
+  }
+
+  /** GET /api/external/tv/favorites — JWT required, per-user list. */
+  getTvFavorites(): Observable<TvFavorites> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<TvFavorites>(this.API_URL + 'external/tv/favorites', { headers })
+      )
+    );
+  }
+
+  /** PUT full favorites list. */
+  saveTvFavorites(body: TvFavorites): Observable<TvFavorites> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<TvFavorites>(this.API_URL + 'external/tv/favorites', body, { headers })
+      )
+    );
+  }
+
+  /** PUT add one favorite channel. */
+  addTvFavorite(channel: TvChannel): Observable<TvFavorites> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<TvFavorites>(this.API_URL + 'external/tv/favorites/item', channel, { headers })
+      )
+    );
+  }
+
+  /** DELETE remove one favorite by channel id. */
+  removeTvFavorite(channelId: string): Observable<TvFavorites> {
+    const params = new HttpParams().set('id', channelId || '');
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.delete<TvFavorites>(this.API_URL + 'external/tv/favorites/item', { headers, params })
+      )
+    );
+  }
+
+  /** GET last watched channel — JWT required, per-user. 204 when none. */
+  getTvLastChannel(): Observable<TvChannel | null> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<TvChannel>(this.API_URL + 'external/tv/last-channel', {
+          headers,
+          observe: 'response'
+        }).pipe(
+          map((res) => (res.status === 204 ? null : res.body || null))
+        )
+      )
+    );
+  }
+
+  /** PUT persist last watched channel for the current user. */
+  saveTvLastChannel(channel: TvChannel): Observable<TvChannel> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<TvChannel>(this.API_URL + 'external/tv/last-channel', channel, { headers })
+      )
+    );
+  }
+
+  // ===================================================================
   // Loto — archives (scraping LesBonsNumeros côté serveur)
   // ===================================================================
 
@@ -2382,6 +2511,16 @@ export interface LotoSyncResult {
 export interface MeteoFranceRadarPreference {
   radarRefreshSeconds: number;
   autoRefreshEnabled: boolean;
+  persistedInMongo?: boolean;
+}
+
+/** GET/PUT /api/external/meteofrance/map-layer/preferences (global, all users) */
+export interface MeteoFranceMapLayerPreference {
+  showRadar: boolean;
+  showCloudLayer: boolean;
+  showTemperatureMap: boolean;
+  cloudOpacity: number;
+  cloudIntensity: number;
   persistedInMongo?: boolean;
 }
 
@@ -2789,4 +2928,27 @@ export interface ElectricityOverview {
   eiaConfigured?: boolean;
   worldNuclearPlantCount?: number;
   worldOperationalCount?: number;
+}
+
+/** GET /api/external/tv/countries */
+export interface TvCountry {
+  code: string;
+  name: string;
+  flag?: string;
+}
+
+/** GET /api/external/tv/channels */
+export interface TvChannel {
+  id: string;
+  name: string;
+  logo?: string;
+  group?: string;
+  country?: string;
+  streamUrl: string;
+  quality?: string;
+}
+
+/** GET/PUT /api/external/tv/favorites — per authenticated user */
+export interface TvFavorites {
+  channels: TvChannel[];
 }

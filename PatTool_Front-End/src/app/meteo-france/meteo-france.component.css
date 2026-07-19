@@ -690,14 +690,14 @@
 
 :host ::ng-deep .leaflet-layer.mf-cloud-tiles--owm img {
   mix-blend-mode: normal;
-  filter: none;
+  filter: contrast(1.35) brightness(1.15) saturate(1.05);
 }
 
 :host ::ng-deep .leaflet-layer.mf-cloud-tiles--rv img {
   mix-blend-mode: multiply;
-  filter: contrast(var(--mf-cloud-contrast, 2))
-          brightness(var(--mf-cloud-brightness, 0.82))
-          saturate(var(--mf-cloud-saturate, 1.35));
+  filter: contrast(var(--mf-cloud-contrast, 2.4))
+          brightness(var(--mf-cloud-brightness, 0.78))
+          saturate(var(--mf-cloud-saturate, 1.55));
 }
 
 :host ::ng-deep .mf-temp-label--dense > span {

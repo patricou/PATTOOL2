@@ -1,0 +1,378 @@
+<div class="pat-title">
+  <h2 class="tv-page-title">
+    <span class="tv-title-icon" aria-hidden="true">
+      <i class="fa fa-television"></i>
+      <span class="tv-title-antenna"></span>
+    </span>
+    {{ 'TV.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="tv-page">
+  <div class="alert alert-info py-2 px-3 small tv-float-banner" *ngIf="isFloatingOpen" role="status">
+    <i class="fa fa-window-restore me-1"></i>
+    {{ 'TV.FLOAT_ACTIVE_BANNER' | translate }}
+    <button type="button" class="btn btn-link btn-sm p-0 ms-2 align-baseline" (click)="closeFloatingWindow()">
+      {{ 'TV.FLOAT_CLOSE' | translate }}
+    </button>
+  </div>
+
+  <div class="tv-layout">
+    <aside class="tv-sidebar">
+      <div class="tv-mode-tabs" role="tablist">
+        <button
+          type="button"
+          class="tv-mode-tab"
+          role="tab"
+          [class.active]="listMode === 'catalog'"
+          [attr.aria-selected]="listMode === 'catalog'"
+          (click)="setListMode('catalog')">
+          <i class="fa fa-globe me-1"></i>
+          {{ 'TV.TAB_CATALOG' | translate }}
+        </button>
+        <button
+          type="button"
+          class="tv-mode-tab"
+          role="tab"
+          [class.active]="listMode === 'favorites'"
+          [attr.aria-selected]="listMode === 'favorites'"
+          (click)="setListMode('favorites')">
+          <i class="fa fa-star me-1"></i>
+          {{ 'TV.TAB_FAVORITES' | translate }}
+          <span class="badge rounded-pill tv-fav-badge" *ngIf="favorites.length">{{ favorites.length }}</span>
+        </button>
+      </div>
+
+      <div class="tv-filters" *ngIf="listMode === 'catalog'">
+        <label class="form-label small mb-1" for="tv-country">
+          {{ 'TV.COUNTRY' | translate }}
+        </label>
+        <select
+          id="tv-country"
+          class="form-select form-select-sm"
+          [(ngModel)]="selectedCountry"
+          (ngModelChange)="onCountryChange()"
+          [disabled]="isLoadingCountries">
+          <option *ngFor="let c of countries" [value]="c.code">
+            {{ c.flag }} {{ c.name }}
+          </option>
+        </select>
+
+        <label class="form-label small mb-1 mt-2" for="tv-group">
+          {{ 'TV.GROUP' | translate }}
+        </label>
+        <select
+          id="tv-group"
+          class="form-select form-select-sm"
+          [(ngModel)]="selectedGroup"
+          (ngModelChange)="onGroupChange()">
+          <option value="">{{ 'TV.GROUP_ALL' | translate }}</option>
+          <option *ngFor="let g of groups" [value]="g">{{ g }}</option>
+        </select>
+      </div>
+
+      <div class="tv-filters" [class.tv-filters--search-only]="listMode === 'favorites'">
+        <label class="form-label small mb-1" for="tv-search">
+          {{ 'TV.SEARCH' | translate }}
+        </label>
+        <div class="input-group input-group-sm">
+          <input
+            id="tv-search"
+            type="search"
+            class="form-control"
+            [ngModel]="searchQuery"
+            (ngModelChange)="onSearchInput($event)"
+            [placeholder]="'TV.SEARCH_PLACEHOLDER' | translate"
+            autocomplete="off" />
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            *ngIf="searchQuery"
+            (click)="clearSearch()"
+            [attr.aria-label]="'TV.CLEAR_SEARCH' | translate">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="tv-channel-meta small text-muted">
+        <span *ngIf="listMode === 'catalog' && isLoadingChannels">
+          <i class="fa fa-spinner fa-spin me-1"></i>
+          {{ 'TV.LOADING' | translate }}
+        </span>
+        <span *ngIf="listMode === 'favorites' && isLoadingFavorites">
+          <i class="fa fa-spinner fa-spin me-1"></i>
+          {{ 'TV.LOADING_FAVORITES' | translate }}
+        </span>
+        <span *ngIf="listMode === 'catalog' && !isLoadingChannels">
+          {{ 'TV.CHANNEL_COUNT' | translate:{ count: displayedChannels.length } }}
+        </span>
+        <span *ngIf="listMode === 'favorites' && !isLoadingFavorites">
+          {{ 'TV.FAVORITE_COUNT' | translate:{ count: displayedChannels.length } }}
+        </span>
+      </div>
+
+      <div *ngIf="channelsError && listMode === 'catalog'" class="alert alert-warning py-2 px-2 small mb-2 mx-2">
+        {{ channelsError | translate }}
+      </div>
+      <div *ngIf="favoritesError" class="alert alert-warning py-2 px-2 small mb-2 mx-2">
+        {{ favoritesError | translate }}
+      </div>
+      <div *ngIf="favoritesHint" class="alert alert-info py-2 px-2 small mb-2 mx-2">
+        {{ favoritesHint | translate }}
+      </div>
+
+      <ul class="tv-channel-list" role="listbox" [attr.aria-label]="'TV.CHANNELS' | translate">
+        <li
+          *ngFor="let ch of displayedChannels; trackBy: trackByChannelId"
+          class="tv-channel-item"
+          [class.active]="selectedChannel?.id === ch.id"
+          role="option"
+          [attr.aria-selected]="selectedChannel?.id === ch.id"
+          (click)="selectChannel(ch)"
+          (keydown.enter)="selectChannel(ch)"
+          tabindex="0">
+          <img
+            *ngIf="ch.logo"
+            class="tv-channel-logo"
+            [src]="ch.logo"
+            alt=""
+            loading="lazy"
+            (error)="$any($event.target).style.display='none'" />
+          <span *ngIf="!ch.logo" class="tv-channel-logo tv-channel-logo--placeholder">
+            <i class="fa fa-television"></i>
+          </span>
+          <span class="tv-channel-text">
+            <span class="tv-channel-name">
+              {{ ch.name }}
+              <span
+                *ngIf="usesOfficialWorkaround(ch)"
+                class="tv-workaround-badge"
+                [class.tv-workaround-badge--tf1]="usesTf1Workaround(ch)"
+                [class.tv-workaround-badge--canal]="usesCanalGroupWorkaround(ch)"
+                [class.tv-workaround-badge--radio]="usesRadioFranceWorkaround(ch)"
+                [attr.title]="workaroundHintKey(ch) | translate">
+                {{ workaroundBadgeKey(ch) | translate }}
+              </span>
+            </span>
+            <span class="tv-channel-group" *ngIf="ch.group || (listMode === 'favorites' && ch.country)">
+              <ng-container *ngIf="listMode === 'favorites' && ch.country">{{ ch.country | uppercase }} · </ng-container>
+              {{ ch.group }}
+            </span>
+          </span>
+          <button
+            type="button"
+            class="tv-fav-btn"
+            [class.is-fav]="isFavorite(ch)"
+            [disabled]="favoriteBusyId === ch.id"
+            (click)="toggleFavorite(ch, $event)"
+            [attr.title]="(isFavorite(ch) ? 'TV.UNFAVORITE' : 'TV.FAVORITE') | translate"
+            [attr.aria-label]="(isFavorite(ch) ? 'TV.UNFAVORITE' : 'TV.FAVORITE') | translate">
+            <i class="fa" [class.fa-star]="isFavorite(ch)" [class.fa-star-o]="!isFavorite(ch)"></i>
+          </button>
+        </li>
+        <li *ngIf="listMode === 'catalog' && !isLoadingChannels && !displayedChannels.length" class="tv-empty text-muted small">
+          {{ 'TV.NO_CHANNELS' | translate }}
+        </li>
+        <li *ngIf="listMode === 'favorites' && !isLoadingFavorites && !displayedChannels.length" class="tv-empty text-muted small">
+          {{ (isLoggedIn ? 'TV.NO_FAVORITES' : 'TV.FAVORITES_LOGIN') | translate }}
+        </li>
+      </ul>
+    </aside>
+
+    <section class="tv-player-panel" aria-label="TV">
+      <div class="tv-antenna" aria-hidden="true" title="Antenne VHF — réception maximale 📡">
+        <span class="tv-antenna-base"></span>
+        <span class="tv-antenna-mast"></span>
+        <span class="tv-antenna-ear tv-antenna-ear--left">
+          <span class="tv-antenna-ball"></span>
+        </span>
+        <span class="tv-antenna-ear tv-antenna-ear--right">
+          <span class="tv-antenna-ball"></span>
+        </span>
+      </div>
+      <div
+        class="tv-player-frame"
+        [class.tv-player-frame--chrome-hidden]="selectedChannel && !chromeVisible"
+        (mouseenter)="onTvPointerEnter()"
+        (mousemove)="onTvPointerMove()"
+        (mouseleave)="onTvPointerLeave()"
+        (touchstart)="onTvPointerEnter()">
+        <div class="tv-video-wrap" [class.tv-video-wrap--empty]="!selectedChannel || isFloatingOpen">
+          <video
+            #videoEl
+            class="tv-video"
+            controls
+            playsinline
+            [class.tv-video--hidden]="!selectedChannel || isFloatingOpen"
+            (volumechange)="onVideoVolumeChange()"
+            (click)="ensureSound($event)"></video>
+          <div class="tv-placeholder" *ngIf="!selectedChannel && !isFloatingOpen">
+            <i class="fa fa-television tv-placeholder-icon"></i>
+            <p>{{ 'TV.PICK_CHANNEL' | translate }}</p>
+            <p class="small text-muted mb-0">{{ 'TV.NOTE_FREE' | translate }}</p>
+          </div>
+          <div class="tv-placeholder" *ngIf="isFloatingOpen">
+            <i class="fa fa-window-restore tv-placeholder-icon"></i>
+            <p>{{ 'TV.FLOAT_ACTIVE_BANNER' | translate }}</p>
+            <button type="button" class="btn btn-sm btn-outline-light mt-1" (click)="closeFloatingWindow()">
+              {{ 'TV.FLOAT_CLOSE' | translate }}
+            </button>
+          </div>
+          <div class="tv-buffering" *ngIf="selectedChannel && isBuffering && !playError && !isFloatingOpen">
+            <i class="fa fa-spinner fa-spin"></i>
+            {{ 'TV.BUFFERING' | translate }}
+          </div>
+          <div
+            class="tv-radio-stage"
+            *ngIf="selectedChannel && usesRadioFranceWorkaround(selectedChannel) && !isFloatingOpen && !playError">
+            <img
+              *ngIf="selectedChannel.logo"
+              class="tv-radio-logo"
+              [src]="selectedChannel.logo"
+              [alt]="selectedChannel.name"
+              (error)="$any($event.target).style.display='none'" />
+            <div class="tv-radio-label">
+              <i class="fa fa-headphones" aria-hidden="true"></i>
+              {{ selectedChannel.name }}
+            </div>
+          </div>
+          <div
+            class="tv-unmute-hint"
+            *ngIf="selectedChannel && (isMuted || volumePercent === 0) && !isFloatingOpen && !playError"
+            (click)="ensureSound($event)">
+            <i class="fa fa-volume-up" aria-hidden="true"></i>
+            {{ 'TV.UNMUTE' | translate }}
+          </div>
+          <div
+            class="tv-play-error"
+            *ngIf="playError"
+            [class.tv-play-error--hidden]="!chromeVisible"
+            role="alert">
+            {{ playError | translate }}
+          </div>
+        </div>
+
+        <div
+          class="tv-chrome"
+          *ngIf="selectedChannel"
+          [class.tv-chrome--hidden]="!chromeVisible"
+          [attr.aria-hidden]="!chromeVisible">
+          <div class="tv-now-playing">
+          <div class="tv-now-info">
+            <img
+              *ngIf="selectedChannel.logo"
+              class="tv-now-logo"
+              [src]="selectedChannel.logo"
+              alt=""
+              (error)="$any($event.target).style.display='none'" />
+            <div class="tv-now-text">
+              <div class="tv-now-name">
+                {{ selectedChannel.name }}
+                <span
+                  *ngIf="usesOfficialWorkaround(selectedChannel)"
+                  class="tv-workaround-badge tv-workaround-badge--on-dark"
+                  [class.tv-workaround-badge--tf1]="usesTf1Workaround(selectedChannel)"
+                  [class.tv-workaround-badge--canal]="usesCanalGroupWorkaround(selectedChannel)"
+                  [class.tv-workaround-badge--radio]="usesRadioFranceWorkaround(selectedChannel)"
+                  [attr.title]="workaroundHintKey(selectedChannel) | translate">
+                  {{ workaroundBadgeKey(selectedChannel) | translate }}
+                </span>
+              </div>
+              <div class="tv-now-meta text-muted small" *ngIf="selectedChannel.group || selectedChannel.quality || usesOfficialWorkaround(selectedChannel)">
+                <span *ngIf="selectedChannel.group">{{ selectedChannel.group }}</span>
+                <span *ngIf="selectedChannel.group && selectedChannel.quality"> · </span>
+                <span *ngIf="selectedChannel.quality">{{ selectedChannel.quality }}</span>
+                <span *ngIf="usesOfficialWorkaround(selectedChannel)" class="tv-workaround-line">
+                  <ng-container *ngIf="selectedChannel.group || selectedChannel.quality"> · </ng-container>
+                  {{ workaroundActiveKey(selectedChannel) | translate }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="tv-now-actions" role="toolbar" [attr.aria-label]="'TV.TITLE' | translate">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-light tv-now-action"
+              (click)="toggleMute()"
+              [disabled]="isFloatingOpen"
+              [attr.title]="(isMuted ? 'TV.UNMUTE' : 'TV.MUTE') | translate"
+              [attr.aria-label]="(isMuted ? 'TV.UNMUTE' : 'TV.MUTE') | translate">
+              <i class="fa" [class.fa-volume-off]="isMuted || volumePercent === 0" [class.fa-volume-down]="!isMuted && volumePercent > 0 && volumePercent < 50" [class.fa-volume-up]="!isMuted && volumePercent >= 50" aria-hidden="true"></i>
+            </button>
+            <label class="tv-volume-slider-wrap" *ngIf="!isFloatingOpen">
+              <span class="visually-hidden">{{ 'TV.VOLUME_LEVEL' | translate:{ percent: isMuted ? 0 : volumePercent } }}</span>
+              <input
+                type="range"
+                class="tv-volume-slider"
+                min="0"
+                max="100"
+                step="1"
+                [value]="volumePercent"
+                (input)="setVolumePercent($any($event.target).value)"
+                [attr.title]="'TV.VOLUME_LEVEL' | translate:{ percent: isMuted ? 0 : volumePercent }"
+                [attr.aria-valuemin]="0"
+                [attr.aria-valuemax]="100"
+                [attr.aria-valuenow]="isMuted ? 0 : volumePercent"
+                [attr.aria-label]="'TV.VOLUME' | translate" />
+            </label>
+            <button
+              type="button"
+              class="btn btn-sm btn-primary tv-now-action"
+              *ngIf="!isFloatingOpen"
+              (click)="openInFloatingWindow(selectedChannel)"
+              [attr.title]="'TV.FLOAT_OPEN' | translate"
+              [attr.aria-label]="'TV.FLOAT_OPEN' | translate">
+              <i class="fa fa-window-restore" aria-hidden="true"></i>
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-light tv-now-action"
+              (click)="openExternalWindow(selectedChannel)"
+              [attr.title]="'TV.EXTERNAL_WINDOW' | translate"
+              [attr.aria-label]="'TV.EXTERNAL_WINDOW' | translate">
+              <i class="fa fa-desktop" aria-hidden="true"></i>
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-light tv-now-action"
+              *ngIf="pipSupported && !isFloatingOpen"
+              (click)="togglePictureInPicture()"
+              [attr.title]="(isPipActive ? 'TV.PIP_EXIT' : 'TV.PIP') | translate"
+              [attr.aria-label]="(isPipActive ? 'TV.PIP_EXIT' : 'TV.PIP') | translate">
+              <i class="fa" [class.fa-compress]="isPipActive" [class.fa-clone]="!isPipActive" aria-hidden="true"></i>
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-warning tv-now-action"
+              *ngIf="isFloatingOpen"
+              (click)="closeFloatingWindow()"
+              [attr.title]="'TV.FLOAT_CLOSE' | translate"
+              [attr.aria-label]="'TV.FLOAT_CLOSE' | translate">
+              <i class="fa fa-times" aria-hidden="true"></i>
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm tv-now-action tv-now-fav"
+              [class.btn-warning]="isFavorite(selectedChannel)"
+              [class.btn-outline-light]="!isFavorite(selectedChannel)"
+              [disabled]="favoriteBusyId === selectedChannel.id"
+              (click)="toggleFavorite(selectedChannel, $event)"
+              [attr.title]="(isFavorite(selectedChannel) ? 'TV.UNFAVORITE' : 'TV.FAVORITE') | translate"
+              [attr.aria-label]="(isFavorite(selectedChannel) ? 'TV.UNFAVORITE' : 'TV.FAVORITE') | translate">
+              <i class="fa" [class.fa-star]="isFavorite(selectedChannel)" [class.fa-star-o]="!isFavorite(selectedChannel)" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="tv-footer">
+    <p class="tv-lead text-muted mb-0">
+      {{ 'TV.SUBTITLE' | translate }}
+    </p>
+  </footer>
+</div>

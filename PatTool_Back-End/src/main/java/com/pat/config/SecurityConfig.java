@@ -223,6 +223,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/meteofrance/radar/wms/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/meteofrance/radar/mosaic").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/meteofrance/radar/preferences").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/meteofrance/map-layer/preferences").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/radar/rainviewer/maps").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/radar/rainviewer/tile/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/meteofrance/clim/**").permitAll()
@@ -259,6 +260,13 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/cern/**").permitAll()
                 // Chemistry proxy (PubChem) — public read-only data (periodic table, molecules, images)
                 .requestMatchers(HttpMethod.GET, "/api/external/chem/**").permitAll()
+                // Free IPTV catalog + HLS stream proxy (iptv-org) — public read-only
+                // Favorites (GET/PUT/DELETE /api/external/tv/favorites**) stay authenticated via /api/**
+                .requestMatchers(HttpMethod.GET, "/api/external/tv/countries").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/tv/channels").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/tv/groups").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/tv/live/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/tv/stream", "/api/external/tv/stream/**").permitAll()
                 // Stellarium Web — sky map viewer + Noctua Sky catalogue proxy (read-only)
                 .requestMatchers(HttpMethod.GET, "/api/external/stellarium/**").permitAll()
                 // Tirages Loto importés (lecture seule, données publiques d'archive)

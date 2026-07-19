@@ -1773,3 +1773,14 @@ body.pat-wg-true-fullscreen app-world-globe .wg-fs-root {
   margin: 0 !important;
   padding: 0 !important;
 }
+
+/* Detached TV pop-out window: no app chrome / no page scroll */
+body.tv-popout-mode {
+  overflow: hidden !important;
+  background: #0b0d10 !important;
+}
+
+body.tv-popout-mode app-root {
+  display: block;
+  min-height: 100vh;
+}

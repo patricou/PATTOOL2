@@ -77,6 +77,16 @@ mistral.http.read-timeout-seconds=300
 globe.proxy.http.connect-timeout-seconds=10
 globe.proxy.http.read-timeout-seconds=90
 
+# Free IPTV / TV watcher (/api/external/tv) — iptv-org country playlists + HLS proxy.
+# app.tv.playlist-base-url=https://iptv-org.github.io/iptv/countries
+# app.tv.catalog-cache-minutes=60
+# Optional Referer sent upstream when a CDN requires one (leave empty by default).
+# app.tv.proxy-referrer=
+# TF1 / TMC / TFX live workaround (free TF1 account required — create one on tf1.fr).
+# LCI usually works without credentials.
+# app.tv.tf1.email=
+# app.tv.tf1.password=
+
 # ISS ground track stored in MongoDB while the globe overlay is active (world-globe page).
 # Retention window for historical trace (default 30 days ≈ 1 month).
 globe.iss.trace.retention.days=30

@@ -4,6 +4,7 @@ import com.pat.controller.dto.MeteoFranceAromepiPlaybackPreferenceDto;
 import com.pat.controller.dto.MeteoFranceHistoryCachePreferenceDto;
 import com.pat.controller.dto.MeteoFranceForecastCachePreferenceDto;
 import com.pat.controller.dto.MeteoFranceForecastPreferenceDto;
+import com.pat.controller.dto.MeteoFranceMapLayerPreferenceDto;
 import com.pat.controller.dto.MeteoFranceRadarPreferenceDto;
 import com.pat.controller.dto.MeteoFranceTemperatureCachePreferenceDto;
 import com.pat.controller.dto.TemperatureLabelsRequestDto;
@@ -18,6 +19,7 @@ import com.pat.service.MeteoFranceHistoryCachePreferenceService;
 import com.pat.service.MeteoFranceObsService;
 import com.pat.service.MeteoFranceForecastCachePreferenceService;
 import com.pat.service.MeteoFranceForecastPreferenceService;
+import com.pat.service.MeteoFranceMapLayerPreferenceService;
 import com.pat.service.MeteoFranceRadarRefreshPreferenceService;
 import com.pat.service.MeteoFranceRadarService;
 import com.pat.service.MeteoFranceTemperatureCachePreferenceService;
@@ -93,6 +95,9 @@ public class ApiController {
 
     @Autowired
     private MeteoFranceRadarRefreshPreferenceService meteoFranceRadarRefreshPreferenceService;
+
+    @Autowired
+    private MeteoFranceMapLayerPreferenceService meteoFranceMapLayerPreferenceService;
 
     @Autowired
     private MeteoFranceForecastPreferenceService meteoFranceForecastPreferenceService;
@@ -983,6 +988,32 @@ public class ApiController {
         }
         try {
             return ResponseEntity.ok(meteoFranceRadarRefreshPreferenceService.saveGlobal(body));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /** Global map-layer switches + cloud opacity/intensity (MongoDB appParameters, all users). */
+    @GetMapping(value = "/meteofrance/map-layer/preferences", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<MeteoFranceMapLayerPreferenceDto> getMeteoFranceMapLayerPreferences() {
+        return ResponseEntity.ok(meteoFranceMapLayerPreferenceService.readGlobal());
+    }
+
+    @PutMapping(value = "/meteofrance/map-layer/preferences", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> setMeteoFranceMapLayerPreferences(
+            @RequestBody MeteoFranceMapLayerPreferenceDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (!hasAdminRole()) {
+            return adminForbidden();
+        }
+        if (body == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            return ResponseEntity.ok(meteoFranceMapLayerPreferenceService.saveGlobal(body));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         }

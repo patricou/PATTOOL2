@@ -191,9 +191,19 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private cyclingTrailsOverlay?: L.TileLayer;
 	/** RainViewer precipitation radar when weather switch is on (same proxy as Météo-France). */
 	private weatherRadarLayer?: L.TileLayer;
+	private weatherCloudLayer?: L.TileLayer;
 	private weatherRadarRefreshTimer: ReturnType<typeof setInterval> | null = null;
 	private weatherRadarLoadRequestId = 0;
+	private weatherCloudLoadRequestId = 0;
 	private static readonly WEATHER_RADAR_OPACITY = 0.72;
+	private static readonly CLOUD_LAYER_SOURCE_STORAGE_KEY = 'meteo-france.cloud-layer-source';
+	private static readonly CLOUD_INTENSITY_MIN = 0.5;
+	private static readonly CLOUD_INTENSITY_MAX = 8;
+	/** Shared with Météo-France (MongoDB map-layer preferences). */
+	private cloudOpacity = 0.75;
+	private cloudIntensity = 3.0;
+	private cloudLayerSource: 'openweathermap' | 'rainviewer' = 'openweathermap';
+	private cloudDisplaySource: 'openweathermap' | 'rainviewer' | null = null;
 	/** Global radar auto-refresh (MongoDB, shared with Météo-France). */
 	public autoRefreshRadar = true;
 	public radarRefreshCountdown = 0;
@@ -385,6 +395,49 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.configureLeafletIcons();
 		this.loadTraceViewerPreferences();
 		this.loadRadarRefreshPreferences();
+		this.loadMapLayerCloudPreferences();
+	}
+
+	/** Cloud opacity / intensity shared with Météo-France (MongoDB, all users). */
+	private loadMapLayerCloudPreferences(options?: { applyClouds?: boolean }): void {
+		try {
+			const stored = localStorage.getItem(TraceViewerModalComponent.CLOUD_LAYER_SOURCE_STORAGE_KEY);
+			if (stored === 'openweathermap' || stored === 'rainviewer') {
+				this.cloudLayerSource = stored;
+			}
+		} catch { /* private mode */ }
+		const applyClouds = options?.applyClouds === true;
+		this.apiService.getMeteoFranceMapLayerPreferences().pipe(takeUntil(this.destroy$)).subscribe({
+			next: (pref) => {
+				if (pref?.cloudOpacity != null && Number.isFinite(pref.cloudOpacity)) {
+					this.cloudOpacity = this.clampCloudOpacity(pref.cloudOpacity);
+				}
+				if (pref?.cloudIntensity != null && Number.isFinite(pref.cloudIntensity)) {
+					this.cloudIntensity = this.clampCloudIntensity(pref.cloudIntensity);
+				}
+				if (applyClouds && this.showWeather && this.map) {
+					this.loadWeatherCloudLayer();
+				}
+			},
+			error: () => {
+				if (applyClouds && this.showWeather && this.map) {
+					this.loadWeatherCloudLayer();
+				}
+			}
+		});
+	}
+
+	private clampCloudOpacity(value: number): number {
+		return Number.isFinite(value) ? Math.max(0.1, Math.min(1, value)) : 0.75;
+	}
+
+	private clampCloudIntensity(value: number): number {
+		return Number.isFinite(value)
+			? Math.max(
+				TraceViewerModalComponent.CLOUD_INTENSITY_MIN,
+				Math.min(TraceViewerModalComponent.CLOUD_INTENSITY_MAX, value)
+			)
+			: 3.0;
 	}
 
 	private loadTraceViewerPreferences(): void {
@@ -2276,8 +2329,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.hikingTrailsOverlay = undefined;
 		this.cyclingTrailsOverlay = undefined;
 		this.weatherRadarLoadRequestId++;
+		this.weatherCloudLoadRequestId++;
 		this.clearWeatherRadarRefreshTimer();
 		this.weatherRadarLayer = undefined;
+		this.weatherCloudLayer = undefined;
 		this.weatherStationMapLayer.detach();
 		this.clearStationSelection();
 		this.removeDeviceLocationMarker();
@@ -3133,23 +3188,33 @@ export class TraceViewerModalComponent implements OnDestroy {
 		);
 	}
 
-	/** Rain radar overlay (RainViewer via PatTool), shown when the weather switch is on. */
+	/** Rain radar + satellite/OWM cloud overlays when the weather switch is on. */
 	private applyWeatherRadarOverlay(): void {
 		if (!this.map) {
 			return;
 		}
 		this.removeWeatherRadarLayer();
+		this.removeWeatherCloudLayer();
 		this.clearWeatherRadarRefreshTimer();
 		if (!this.showWeather) {
 			return;
 		}
 		this.loadWeatherRainViewerRadar();
+		// Always re-fetch opacity/intensity from Mongo (shared with Météo-France) before drawing clouds.
+		this.loadMapLayerCloudPreferences({ applyClouds: true });
 		this.startWeatherRadarRefreshTimer();
 	}
 
 	private removeWeatherRadarLayer(): void {
 		this.weatherRadarLayer?.remove();
 		this.weatherRadarLayer = undefined;
+	}
+
+	private removeWeatherCloudLayer(): void {
+		this.weatherCloudLoadRequestId++;
+		this.weatherCloudLayer?.remove();
+		this.weatherCloudLayer = undefined;
+		this.cloudDisplaySource = null;
 	}
 
 	private clearWeatherRadarRefreshTimer(): void {
@@ -3198,6 +3263,123 @@ export class TraceViewerModalComponent implements OnDestroy {
 		});
 	}
 
+	private loadWeatherCloudLayer(): void {
+		if (!this.map || !this.showWeather) {
+			return;
+		}
+		if (this.cloudLayerSource === 'rainviewer') {
+			this.loadWeatherRainViewerCloudLayer();
+			return;
+		}
+		this.loadWeatherOpenWeatherCloudLayer();
+	}
+
+	private loadWeatherOpenWeatherCloudLayer(): void {
+		if (!this.map || !this.showWeather) {
+			return;
+		}
+		const requestId = ++this.weatherCloudLoadRequestId;
+		const enhance = this.clampCloudIntensity(this.cloudIntensity).toFixed(1);
+		const cacheBust = Date.now();
+		const tileUrl =
+			`${environment.API_URL}external/weather/map/clouds/{z}/{x}/{y}?enhance=${enhance}&_=${cacheBust}`;
+		if (requestId !== this.weatherCloudLoadRequestId) {
+			return;
+		}
+		this.attachWeatherCloudTileLayer(
+			tileUrl,
+			'Clouds © OpenWeatherMap (via PatTool)',
+			true,
+			false
+		);
+		this.cloudDisplaySource = 'openweathermap';
+	}
+
+	private loadWeatherRainViewerCloudLayer(): void {
+		if (!this.map || !this.showWeather) {
+			return;
+		}
+		const requestId = ++this.weatherCloudLoadRequestId;
+		this.apiService.getRainViewerMaps().pipe(takeUntil(this.destroy$)).subscribe({
+			next: (data) => {
+				if (requestId !== this.weatherCloudLoadRequestId || !this.map || !this.showWeather) {
+					return;
+				}
+				const infrared = data?.satellite?.infrared;
+				if (!infrared?.length) {
+					return;
+				}
+				const frame = infrared[infrared.length - 1];
+				const path = frame?.path;
+				if (!path) {
+					return;
+				}
+				const encodedPath = encodeURIComponent(path);
+				const enhance = this.clampCloudIntensity(this.cloudIntensity).toFixed(1);
+				const tileBase = `${environment.API_URL}external/radar/rainviewer/tile/{z}/{x}/{y}`;
+				this.attachWeatherCloudTileLayer(
+					`${tileBase}?path=${encodedPath}&size=256&color=2&options=0_0&enhance=${enhance}`,
+					'Satellite IR © RainViewer.com (via PatTool)',
+					false,
+					true
+				);
+				this.cloudDisplaySource = 'rainviewer';
+			}
+		});
+	}
+
+	private attachWeatherCloudTileLayer(
+		url: string,
+		attribution: string,
+		openWeather: boolean,
+		rainViewer: boolean
+	): void {
+		if (!this.map) {
+			return;
+		}
+		this.weatherCloudLayer?.remove();
+		this.weatherCloudLayer = L.tileLayer(url, {
+			opacity: this.clampCloudOpacity(this.cloudOpacity),
+			zIndex: 4,
+			maxZoom: 20,
+			attribution,
+			className: openWeather
+				? 'mf-cloud-tiles mf-cloud-tiles--owm'
+				: rainViewer
+					? 'mf-cloud-tiles mf-cloud-tiles--rv'
+					: 'mf-cloud-tiles'
+		});
+		this.weatherCloudLayer.addTo(this.map);
+		this.weatherCloudLayer.on('load', () => this.updateWeatherCloudTileEnhancement());
+		this.updateWeatherCloudTileEnhancement();
+	}
+
+	private updateWeatherCloudTileEnhancement(): void {
+		const layer = this.weatherCloudLayer;
+		if (!layer) {
+			return;
+		}
+		const container = layer.getContainer() as HTMLElement | undefined;
+		if (!container) {
+			return;
+		}
+		if (this.cloudDisplaySource === 'openweathermap') {
+			container.style.removeProperty('--mf-cloud-contrast');
+			container.style.removeProperty('--mf-cloud-brightness');
+			container.style.removeProperty('--mf-cloud-saturate');
+			return;
+		}
+		const intensity = this.clampCloudIntensity(this.cloudIntensity);
+		const opacity = this.clampCloudOpacity(this.cloudOpacity);
+		const intensityFactor = 0.95 + intensity * 0.28;
+		const contrast = 1.85 * intensityFactor * (0.85 + opacity * 0.2);
+		const brightness = 0.82 - (intensity - 1) * 0.04;
+		const saturate = 1.4 * (0.9 + intensity * 0.14);
+		container.style.setProperty('--mf-cloud-contrast', contrast.toFixed(2));
+		container.style.setProperty('--mf-cloud-brightness', brightness.toFixed(2));
+		container.style.setProperty('--mf-cloud-saturate', saturate.toFixed(2));
+	}
+
 	private startWeatherRadarRefreshTimer(): void {
 		this.clearWeatherRadarRefreshTimer();
 		if (!this.showWeather || !this.autoRefreshRadar) {
@@ -3210,6 +3392,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			if (this.radarRefreshCountdown === 0) {
 				if (this.showWeather && this.autoRefreshRadar && this.map) {
 					this.loadWeatherRainViewerRadar();
+					this.loadMapLayerCloudPreferences({ applyClouds: true });
 				}
 				this.radarRefreshCountdown = this.effectiveRadarRefreshSeconds;
 			}
@@ -3228,6 +3411,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 		this.loadWeatherRainViewerRadar();
+		this.loadMapLayerCloudPreferences({ applyClouds: true });
 		if (this.autoRefreshRadar) {
 			this.radarRefreshCountdown = this.effectiveRadarRefreshSeconds;
 			this.scheduleTraceViewerCdr();

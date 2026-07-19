@@ -596,8 +596,9 @@
               <div class="mf-slider-grid" *ngIf="showCloudLayer">
                 <label class="mf-slider-field" [attr.title]="paramTooltipKey('CLOUD_OPACITY') | translate">
                   <span class="mf-slider-label">{{ 'METEO_FRANCE.CLOUD_OPACITY' | translate }}</span>
-                  <input type="range" class="mf-range" min="0.1" max="0.85" step="0.05"
+                  <input type="range" class="mf-range" min="0.1" max="1" step="0.05"
                          [(ngModel)]="cloudOpacity" (input)="onCloudOpacityChange()" (ngModelChange)="onCloudOpacityChange()"
+                         [disabled]="!canEditMeteoOptions"
                          [attr.title]="paramTooltipKey('CLOUD_OPACITY') | translate"
                          [attr.aria-label]="paramTooltipKey('CLOUD_OPACITY') | translate">
                 </label>
@@ -605,6 +606,7 @@
                   <span class="mf-slider-label">{{ 'METEO_FRANCE.CLOUD_INTENSITY' | translate }}</span>
                   <input type="range" class="mf-range" [min]="cloudIntensityMin" [max]="cloudIntensityMax" step="0.1"
                          [(ngModel)]="cloudIntensity" (input)="onCloudIntensityChange()" (ngModelChange)="onCloudIntensityChange()"
+                         [disabled]="!canEditMeteoOptions"
                          [attr.title]="paramTooltipKey('CLOUD_INTENSITY') | translate"
                          [attr.aria-label]="paramTooltipKey('CLOUD_INTENSITY') | translate">
                 </label>
