@@ -321,6 +321,8 @@ export class AssistantDrawerComponent
 
   /** Juste sous la bande bleue `.pat-title` (ou minimum sous navbar + tickers). */
   fabTopPx = 72;
+  /** Sur TV watcher : bouton à gauche pour ne pas masquer l’antenne / le centre de l’écran. */
+  fabAlignLeft = false;
 
   isOpen = false;
   fullscreen = false;
@@ -1739,8 +1741,17 @@ export class AssistantDrawerComponent
         Math.round(anchorBottom + AssistantDrawerComponent.FAB_UNDER_TITLE_GAP_PX)
       );
     }
+    const alignLeft = /\/tools\/tv-watcher(?:\/|$|\?)/.test(this.router.url || '');
+    let changed = false;
     if (next !== this.fabTopPx) {
       this.fabTopPx = next;
+      changed = true;
+    }
+    if (alignLeft !== this.fabAlignLeft) {
+      this.fabAlignLeft = alignLeft;
+      changed = true;
+    }
+    if (changed) {
       window.setTimeout(() => this.cdr.markForCheck(), 0);
     }
   }

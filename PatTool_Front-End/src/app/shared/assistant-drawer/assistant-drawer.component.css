@@ -74,6 +74,16 @@
   box-shadow: 0 4px 18px rgba(37, 99, 235, 0.45);
 }
 
+.pat-assistant-fab--left {
+  left: max(1rem, 10%);
+  right: auto;
+  transform: translateX(-50%);
+}
+
+.pat-assistant-fab--left:hover {
+  transform: translateX(-50%) scale(1.06);
+}
+
 .pat-assistant-fab--open {
   background: linear-gradient(145deg, #991b1b, #b91c1c 50%, #dc2626);
   color: #ffffff;
