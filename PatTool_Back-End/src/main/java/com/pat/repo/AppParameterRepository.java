@@ -24,4 +24,7 @@ public interface AppParameterRepository extends MongoRepository<AppParameter, St
 
     /** All parameters whose key starts with the given prefix (e.g. per-user alert configs). */
     List<AppParameter> findByParamKeyStartingWith(String prefix);
+
+    /** All parameters whose key ends with the given suffix (e.g. {@code .<JWT sub>}). */
+    List<AppParameter> findByParamKeyEndingWith(String suffix);
 }

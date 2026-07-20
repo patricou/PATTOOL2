@@ -2,28 +2,30 @@ import Hls, { type HlsConfig } from 'hls.js';
 
 /**
  * Shared hls.js options tuned for IPTV live (proxy HLS).
- * Keeps the live edge closer and limits buffer bloat — large buffers often
- * make audio drift ahead of video on unstable mirrors.
+ *
+ * Important: do NOT raise {@code maxLiveSyncPlaybackRate} above 1 — speeding up
+ * the element to catch the live edge is a known cause of progressive A/V (lip-sync) drift
+ * in hls.js / Chromium (see video-dev/hls.js#5220). Prefer a hard seek back to the live edge.
  */
 export function createTvHlsConfig(): Partial<HlsConfig> {
   return {
     enableWorker: true,
     lowLatencyMode: false,
-    maxBufferLength: 18,
-    maxMaxBufferLength: 36,
-    backBufferLength: 30,
+    // Keep buffers modest so audio/video tracks stay aligned on flaky IPTV mirrors.
+    maxBufferLength: 12,
+    maxMaxBufferLength: 24,
+    backBufferLength: 18,
     liveSyncDurationCount: 3,
-    liveMaxLatencyDurationCount: 8,
+    liveMaxLatencyDurationCount: 6,
     liveDurationInfinity: true,
-    /** Gently speed up when slightly behind the live edge (reduces A/V drift). */
-    maxLiveSyncPlaybackRate: 1.08,
+    // Must stay 1 — values > 1 desync lipsync over time.
+    maxLiveSyncPlaybackRate: 1,
     highBufferWatchdogPeriod: 1,
-    nudgeOffset: 0.05,
-    nudgeMaxRetry: 8,
+    nudgeOffset: 0.1,
+    nudgeMaxRetry: 5,
     maxFragLookUpTolerance: 0.25,
     xhrSetup: (xhr) => {
       xhr.withCredentials = false;
-      // Ensure error bodies (JSON from our proxy) are readable as text.
       try {
         xhr.responseType = 'text';
       } catch {
@@ -36,6 +38,7 @@ export function createTvHlsConfig(): Partial<HlsConfig> {
 /**
  * Recover from stalls / media errors without tearing down the whole session.
  * Returns true when the error was handled as non-fatal recovery.
+ * Only call for {@code data.fatal === true}.
  */
 export function tryRecoverTvHlsError(hls: Hls, data: { fatal?: boolean; type?: string }): boolean {
   if (!data?.fatal) {
@@ -61,16 +64,71 @@ export function tryRecoverTvHlsError(hls: Hls, data: { fatal?: boolean; type?: s
 }
 
 /**
- * If playback stalls far behind the live edge, jump forward to re-sync A/V.
+ * Manual A/V resync: reset playbackRate, jump to the live edge (or buffered end),
+ * and recover the MediaSource so audio + video SourceBuffers restart together.
+ */
+export function resyncTvHlsAv(hls: Hls | null, video: HTMLVideoElement): boolean {
+  try {
+    video.playbackRate = 1;
+  } catch {
+    /* ignore */
+  }
+
+  let target: number | null = null;
+  if (hls) {
+    const liveSync = hls.liveSyncPosition;
+    if (liveSync != null && Number.isFinite(liveSync)) {
+      target = liveSync;
+    }
+  }
+  if (target == null && video.buffered.length > 0) {
+    try {
+      target = video.buffered.end(video.buffered.length - 1) - 0.35;
+    } catch {
+      target = null;
+    }
+  }
+
+  if (target != null && Number.isFinite(target) && target >= 0) {
+    try {
+      video.currentTime = Math.max(0, target);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (hls) {
+    try {
+      hls.recoverMediaError();
+    } catch {
+      try {
+        hls.startLoad();
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  void video.play().catch(() => undefined);
+  return true;
+}
+
+/**
+ * Keep live playback near the edge and hard-seek when lag builds up.
+ * Seeking resets video+audio SourceBuffers together (fixes lip-sync drift better than
+ * changing {@code playbackRate}).
  */
 export function attachTvHlsLiveSyncWatchdog(
   hls: Hls,
   video: HTMLVideoElement
 ): () => void {
-  let lastNudgeAt = 0;
-  const onWaiting = () => {
+  let lastSeekAt = 0;
+  const MIN_SEEK_GAP_MS = 3500;
+  const LAG_SEEK_SEC = 2.5;
+
+  const seekToLiveEdge = (reason: string) => {
     const now = Date.now();
-    if (now - lastNudgeAt < 4000) {
+    if (now - lastSeekAt < MIN_SEEK_GAP_MS) {
       return;
     }
     const liveSync = hls.liveSyncPosition;
@@ -78,15 +136,56 @@ export function attachTvHlsLiveSyncWatchdog(
       return;
     }
     const lag = liveSync - video.currentTime;
-    if (lag > 4) {
-      lastNudgeAt = now;
-      try {
-        video.currentTime = liveSync;
-      } catch {
-        /* ignore */
+    if (lag < LAG_SEEK_SEC) {
+      return;
+    }
+    lastSeekAt = now;
+    try {
+      // Ensure normal rate — leftover catch-up rates from older configs cause desync.
+      if (video.playbackRate !== 1) {
+        video.playbackRate = 1;
       }
+      video.currentTime = liveSync;
+      if (video.paused) {
+        void video.play().catch(() => undefined);
+      }
+    } catch {
+      /* ignore */
+    }
+    void reason;
+  };
+
+  const onWaiting = () => seekToLiveEdge('waiting');
+  const onStalled = () => seekToLiveEdge('stalled');
+  const onPlaying = () => {
+    if (video.playbackRate !== 1) {
+      video.playbackRate = 1;
     }
   };
+
+  // Periodic lag check (network jitter / buffer holes).
+  const tick = window.setInterval(() => {
+    if (video.paused || video.ended || video.seeking) {
+      return;
+    }
+    seekToLiveEdge('tick');
+  }, 2000);
+
   video.addEventListener('waiting', onWaiting);
-  return () => video.removeEventListener('waiting', onWaiting);
+  video.addEventListener('stalled', onStalled);
+  video.addEventListener('playing', onPlaying);
+
+  return () => {
+    window.clearInterval(tick);
+    video.removeEventListener('waiting', onWaiting);
+    video.removeEventListener('stalled', onStalled);
+    video.removeEventListener('playing', onPlaying);
+    try {
+      if (video.playbackRate !== 1) {
+        video.playbackRate = 1;
+      }
+    } catch {
+      /* ignore */
+    }
+  };
 }

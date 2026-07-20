@@ -115,12 +115,15 @@
   overflow: hidden;
   /* Keep list height in sync with the player so the page stays above the fold */
   max-height: calc(100dvh - 11rem);
+  /* Allow the channel list flex child to shrink and scroll inside */
+  min-height: 0;
 }
 
 .tv-mode-tabs {
   display: flex;
   gap: 0;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  flex: 0 0 auto;
 }
 
 .tv-mode-tab {
@@ -161,9 +164,70 @@
   color: #0d6efd;
 }
 
+.tv-filters-panel {
+  flex: 0 0 auto;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.tv-filters-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.55rem 1rem;
+  border: 0;
+  background: #f8f9fa;
+  color: #343a40;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tv-filters-toggle:hover {
+  background: #eef1f4;
+  color: #0d6efd;
+}
+
+.tv-filters-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.tv-filters-toggle-caret {
+  flex: 0 0 auto;
+  opacity: 0.7;
+}
+
+.tv-filters-active-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.85rem;
+  height: 0.85rem;
+  padding: 0;
+  font-size: 0.4rem;
+  background: #0d6efd;
+  color: #fff;
+}
+
+.tv-filters-body {
+  display: flex;
+  flex-direction: column;
+}
+
 .tv-filters {
   padding: 0.85rem 1rem 0.65rem;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  flex: 0 0 auto;
+}
+
+.tv-filters-body > .tv-filters:last-child {
+  border-bottom: 0;
 }
 
 .tv-filters--search-only {
@@ -176,6 +240,7 @@
   background: #f8f9fa;
   font-size: 0.82rem;
   color: #343a40;
+  flex: 0 0 auto;
 }
 
 .tv-channel-meta-count {
@@ -196,8 +261,14 @@
   list-style: none;
   margin: 0;
   padding: 0.35rem 0;
+  overflow-x: hidden;
   overflow-y: auto;
   flex: 1 1 auto;
+  /* Critical for nested flex scroll (catalog + favorites tabs) */
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 
 .tv-channel-item {
@@ -738,6 +809,20 @@
     0 1px 0 rgba(255, 230, 190, 0.12);
 }
 
+.tv-player-frame--share-open {
+  overflow: visible;
+  z-index: 2;
+}
+
+/* Keep native video controls above the chrome overlay when expanded. */
+.tv-video {
+  z-index: 1;
+}
+
+.tv-video::-webkit-media-controls-panel {
+  z-index: 7;
+}
+
 .tv-video-wrap {
   position: relative;
   width: 100%;
@@ -873,17 +958,30 @@
 }
 
 .tv-chrome {
-  transition: opacity 0.28s ease, max-height 0.28s ease, margin 0.28s ease, padding 0.28s ease;
+  position: absolute;
+  left: 0.45rem;
+  right: 0.45rem;
+  top: 0.5rem;
+  bottom: auto;
+  z-index: 6;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0.55rem 0.65rem 0.65rem;
+  border-radius: 0.3rem 0.3rem 0 0;
+  background: linear-gradient(
+    0deg,
+    rgba(5, 5, 5, 0) 0%,
+    rgba(5, 5, 5, 0.72) 28%,
+    rgba(5, 5, 5, 0.94) 100%
+  );
+  transition: opacity 0.28s ease;
   opacity: 1;
-  max-height: 220px;
-  overflow: hidden;
+  overflow: visible;
+  pointer-events: auto;
 }
 
 .tv-chrome--hidden {
   opacity: 0;
-  max-height: 0;
-  margin: 0 !important;
-  padding: 0 !important;
   pointer-events: none;
 }
 
@@ -892,7 +990,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.65rem 0.85rem;
-  margin-top: 0.75rem;
+  margin: 0;
   color: #e9ecef;
 }
 
@@ -947,6 +1045,13 @@
   min-width: 0;
 }
 
+.tv-resync-feedback {
+  color: #9ef0c3;
+  white-space: nowrap;
+  font-weight: 500;
+  padding: 0 0.15rem;
+}
+
 .tv-now-action {
   display: inline-flex;
   align-items: center;
@@ -991,8 +1096,10 @@
 .tv-share-menu {
   position: absolute;
   right: 0;
-  bottom: calc(100% + 0.35rem);
-  z-index: 6;
+  top: calc(100% + 0.35rem);
+  bottom: auto;
+  /* Above native video controls (z-index 7) and chrome overlay. */
+  z-index: 30;
   min-width: 11.5rem;
   padding: 0.35rem;
   border-radius: 0.5rem;
@@ -1039,8 +1146,9 @@
 .tv-share-feedback {
   position: absolute;
   right: 0;
-  bottom: calc(100% + 0.35rem);
-  z-index: 6;
+  top: calc(100% + 0.35rem);
+  bottom: auto;
+  z-index: 30;
   white-space: nowrap;
   padding: 0.35rem 0.6rem;
   border-radius: 0.4rem;
@@ -1048,6 +1156,17 @@
   background: rgba(25, 135, 84, 0.95);
   color: #fff;
   box-shadow: 0 0.35rem 0.85rem rgba(0, 0, 0, 0.35);
+}
+
+/* Let the share popover escape clipped chrome / action-row scroll. */
+.tv-chrome--share-open {
+  overflow: visible !important;
+  max-height: none !important;
+  z-index: 8;
+}
+
+.tv-now-actions--share-open {
+  overflow: visible !important;
 }
 
 .tv-placeholder {
@@ -1087,8 +1206,18 @@
   }
 
   .tv-sidebar {
-    max-height: 38vh;
+    /* More room for the channel list; filters stay fixed, list scrolls inside */
+    max-height: min(62dvh, 28rem);
+    min-height: 16rem;
     order: 1;
+  }
+
+  .tv-mode-tabs {
+    flex: 0 0 auto;
+  }
+
+  .tv-channel-list {
+    min-height: 10rem;
   }
 
   .tv-page {
@@ -1097,6 +1226,15 @@
 }
 
 @media (max-width: 640px) {
+  .tv-sidebar {
+    max-height: min(70dvh, 32rem);
+    min-height: 18rem;
+  }
+
+  .tv-filters {
+    padding: 0.65rem 0.75rem 0.5rem;
+  }
+
   .tv-footer {
     margin-top: 0.65rem;
     padding-top: 0.5rem;
@@ -1108,6 +1246,42 @@
 
   .tv-player-frame {
     padding: 0.55rem;
+  }
+
+  /* Mobile: keep chrome below the screen (not overlaid). */
+  .tv-chrome {
+    position: static;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    z-index: auto;
+    padding: 0;
+    border-radius: 0;
+    background: none;
+    max-height: 280px;
+    overflow: hidden;
+    transition:
+      opacity 0.28s ease,
+      max-height 0.28s ease,
+      margin 0.28s ease,
+      padding 0.28s ease;
+  }
+
+  .tv-chrome--hidden {
+    max-height: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Chrome is below the video on mobile — open share menu upward. */
+  .tv-share-menu,
+  .tv-share-feedback {
+    top: auto;
+    bottom: calc(100% + 0.35rem);
+  }
+
+  .tv-chrome--share-open {
+    position: relative;
   }
 
   .tv-now-playing {

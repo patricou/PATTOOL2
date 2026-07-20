@@ -314,7 +314,7 @@
         <ul class="navbar-nav">
             <li class="nav-item" [hidden]="!isAuthenticated()">
                 <a class="nav-link" 
-                   (click)="open(usercontent); closeMenu(); $event.preventDefault()">
+                   (click)="openUserInfoModal(); closeMenu(); $event.preventDefault()">
                     <i class="fa fa-user"></i> {{ user.userName }}
                 </a>
             </li>
@@ -418,80 +418,86 @@
                 <i class="fa fa-times"></i>
             </button>
         </div>
+
+        <div class="user-modal-tabs" role="tablist">
+            <button
+                type="button"
+                class="user-modal-tab"
+                role="tab"
+                *ngFor="let tab of userInfoTabs; trackBy: trackUserInfoTab"
+                [class.active]="userInfoTab === tab.id"
+                [attr.aria-selected]="userInfoTab === tab.id"
+                (click)="setUserInfoTab(tab.id)">
+                <i class="fa" [ngClass]="tab.icon" aria-hidden="true"></i>
+                <span>{{ tab.labelKey | translate }}</span>
+                <span class="user-modal-tab-count" *ngIf="tab.count != null && tab.count > 0">{{ tab.count }}</span>
+            </button>
+        </div>
         
         <div class="user-modal-body">
-            <div class="user-info-grid">
+            <!-- Profil -->
+            <div class="user-info-grid" *ngIf="userInfoTab === 'profile'">
                 <div class="user-info-item">
-                    <div class="info-icon">
-                        <i class="fa fa-envelope"></i>
-                    </div>
+                    <div class="info-icon"><i class="fa fa-envelope"></i></div>
                     <div class="info-content">
                         <div class="info-label">{{"USERINFO.EMAIL" | translate}}</div>
-                        <div class="info-value d-flex align-items-center">
-                            <span class="flex-grow-1">{{user.addressEmail}}</span>
-                            <button class="btn btn-sm btn-outline-primary ms-2" 
-                                    (click)="sendEmail(user.addressEmail)"
-                                    [attr.title]="'EVENTELEM.SEND_EMAIL' | translate">
-                                <i class="fa fa-envelope"></i>
+                        <div class="info-value d-flex align-items-center gap-1">
+                            <span class="flex-grow-1 text-break">{{user.addressEmail || '—'}}</span>
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-outline-primary user-info-action"
+                                *ngIf="user.addressEmail"
+                                (click)="copyUserInfoValue(user.addressEmail)"
+                                [attr.title]="'USERINFO.COPY' | translate"
+                                [attr.aria-label]="'USERINFO.COPY' | translate">
+                                <i class="fa fa-copy" aria-hidden="true"></i>
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-outline-primary user-info-action"
+                                *ngIf="user.addressEmail"
+                                (click)="sendEmail(user.addressEmail)"
+                                [attr.title]="'EVENTELEM.SEND_EMAIL' | translate"
+                                [attr.aria-label]="'EVENTELEM.SEND_EMAIL' | translate">
+                                <i class="fa fa-envelope" aria-hidden="true"></i>
                             </button>
                         </div>
                     </div>
                 </div>
-                
                 <div class="user-info-item">
-                    <div class="info-icon">
-                        <i class="fa fa-user"></i>
-                    </div>
+                    <div class="info-icon"><i class="fa fa-user"></i></div>
                     <div class="info-content">
                         <div class="info-label">{{"USERINFO.FIRSTNAME" | translate}}</div>
-                        <div class="info-value">{{user.firstName}}</div>
+                        <div class="info-value">{{user.firstName || '—'}}</div>
                     </div>
                 </div>
-                
                 <div class="user-info-item">
-                    <div class="info-icon">
-                        <i class="fa fa-user"></i>
-                    </div>
+                    <div class="info-icon"><i class="fa fa-user"></i></div>
                     <div class="info-content">
                         <div class="info-label">{{"USERINFO.LASTNAME" | translate}}</div>
-                        <div class="info-value">{{user.lastName}}</div>
+                        <div class="info-value">{{user.lastName || '—'}}</div>
                     </div>
                 </div>
-                
                 <div class="user-info-item">
-                    <div class="info-icon">
-                        <i class="fa fa-at"></i>
-                    </div>
+                    <div class="info-icon"><i class="fa fa-at"></i></div>
                     <div class="info-content">
                         <div class="info-label">{{"USERINFO.USERNAME" | translate}}</div>
-                        <div class="info-value">{{user.userName}}</div>
+                        <div class="info-value d-flex align-items-center gap-1">
+                            <span class="flex-grow-1 text-break">{{user.userName || '—'}}</span>
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-outline-primary user-info-action"
+                                *ngIf="user.userName"
+                                (click)="copyUserInfoValue(user.userName)"
+                                [attr.title]="'USERINFO.COPY' | translate"
+                                [attr.aria-label]="'USERINFO.COPY' | translate">
+                                <i class="fa fa-copy" aria-hidden="true"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
-                
                 <div class="user-info-item">
-                    <div class="info-icon">
-                        <i class="fa fa-key"></i>
-                    </div>
-                    <div class="info-content">
-                        <div class="info-label">{{"USERINFO.KEYCLOAKID" | translate}}</div>
-                        <div class="info-value">{{user.keycloakId}}</div>
-                    </div>
-                </div>
-                
-                <div class="user-info-item">
-                    <div class="info-icon">
-                        <i class="fa fa-id-card"></i>
-                    </div>
-                    <div class="info-content">
-                        <div class="info-label">{{"USERINFO.ID" | translate}}</div>
-                        <div class="info-value">{{user.id}}</div>
-                    </div>
-                </div>
-                
-                <div class="user-info-item">
-                    <div class="info-icon">
-                        <i class="fa fa-shield"></i>
-                    </div>
+                    <div class="info-icon"><i class="fa fa-shield"></i></div>
                     <div class="info-content">
                         <div class="info-label">{{"USERINFO.ROLES" | translate}}</div>
                         <div class="info-value">
@@ -502,7 +508,7 @@
                                 <span>{{"USERINFO.LOADING_ROLES" | translate}}</span>
                             </div>
                             <div *ngIf="!isLoadingRoles && getDisplayRoles() && getDisplayRoles().length > 0" class="roles-container">
-                                <span *ngFor="let role of getDisplayRoles(); let last = last" class="badge me-1 mb-1" [ngClass]="getRoleBadgeClass(role)">
+                                <span *ngFor="let role of getDisplayRoles()" class="badge me-1 mb-1" [ngClass]="getRoleBadgeClass(role)">
                                     {{role}}
                                 </span>
                             </div>
@@ -513,6 +519,248 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Compte -->
+            <div class="user-info-grid" *ngIf="userInfoTab === 'account'">
+                <div class="user-info-item">
+                    <div class="info-icon"><i class="fa fa-at"></i></div>
+                    <div class="info-content">
+                        <div class="info-label">{{"USERINFO.USERNAME" | translate}}</div>
+                        <div class="info-value d-flex align-items-center gap-1">
+                            <span class="flex-grow-1 text-break">{{user.userName || '—'}}</span>
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-outline-primary user-info-action"
+                                *ngIf="user.userName"
+                                (click)="copyUserInfoValue(user.userName)"
+                                [attr.title]="'USERINFO.COPY' | translate"
+                                [attr.aria-label]="'USERINFO.COPY' | translate">
+                                <i class="fa fa-copy" aria-hidden="true"></i>
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-outline-secondary user-info-action"
+                                *ngIf="user.userName"
+                                (click)="showUserParamsForUsername()"
+                                [attr.title]="'USERINFO.PARAMS_BY_USERNAME' | translate"
+                                [attr.aria-label]="'USERINFO.PARAMS_BY_USERNAME' | translate">
+                                <i class="fa fa-sliders" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="user-info-item">
+                    <div class="info-icon"><i class="fa fa-globe"></i></div>
+                    <div class="info-content">
+                        <div class="info-label">{{"USERINFO.LOCALE" | translate}}</div>
+                        <div class="info-value">{{ user.locale || '—' }}</div>
+                    </div>
+                </div>
+                <div class="user-info-item">
+                    <div class="info-icon"><i class="fa fa-whatsapp"></i></div>
+                    <div class="info-content">
+                        <div class="info-label">{{"USERINFO.WHATSAPP" | translate}}</div>
+                        <div class="info-value d-flex align-items-center gap-1">
+                            <span class="flex-grow-1 text-break">{{ user.whatsappLink || '—' }}</span>
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-outline-primary user-info-action"
+                                *ngIf="user.whatsappLink"
+                                (click)="copyUserInfoValue(user.whatsappLink)"
+                                [attr.title]="'USERINFO.COPY' | translate"
+                                [attr.aria-label]="'USERINFO.COPY' | translate">
+                                <i class="fa fa-copy" aria-hidden="true"></i>
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-outline-success user-info-action"
+                                *ngIf="user.whatsappLink"
+                                (click)="openWhatsAppLink(user.whatsappLink)"
+                                [attr.title]="'USERINFO.OPEN_WHATSAPP' | translate"
+                                [attr.aria-label]="'USERINFO.OPEN_WHATSAPP' | translate">
+                                <i class="fa fa-external-link" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="user-info-item">
+                    <div class="info-icon"><i class="fa fa-eye"></i></div>
+                    <div class="info-content">
+                        <div class="info-label">{{"USERINFO.VISIBLE" | translate}}</div>
+                        <div class="info-value">
+                            {{
+                              user.visible === true
+                                ? ('USERINFO.VISIBLE_YES' | translate)
+                                : user.visible === false
+                                  ? ('USERINFO.VISIBLE_NO' | translate)
+                                  : '—'
+                            }}
+                        </div>
+                    </div>
+                </div>
+                <div class="user-info-item">
+                    <div class="info-icon"><i class="fa fa-calendar-plus-o"></i></div>
+                    <div class="info-content">
+                        <div class="info-label">{{"USERINFO.REGISTRATION" | translate}}</div>
+                        <div class="info-value">{{ user.registrationDate ? (user.registrationDate | date:'medium') : '—' }}</div>
+                    </div>
+                </div>
+                <div class="user-info-item">
+                    <div class="info-icon"><i class="fa fa-clock-o"></i></div>
+                    <div class="info-content">
+                        <div class="info-label">{{"USERINFO.LAST_CONNECTION" | translate}}</div>
+                        <div class="info-value">{{ user.lastConnectionDate ? (user.lastConnectionDate | date:'medium') : '—' }}</div>
+                    </div>
+                </div>
+                <div class="user-info-item">
+                    <div class="info-icon"><i class="fa fa-map-marker"></i></div>
+                    <div class="info-content">
+                        <div class="info-label">{{"USERINFO.POSITIONS" | translate}}</div>
+                        <div class="info-value">{{ user.positions?.length || 0 }}</div>
+                    </div>
+                </div>
+                <div class="user-info-item">
+                    <div class="info-icon"><i class="fa fa-key"></i></div>
+                    <div class="info-content">
+                        <div class="info-label">{{"USERINFO.KEYCLOAKID" | translate}}</div>
+                        <div class="info-value d-flex align-items-center gap-1">
+                            <span class="flex-grow-1 text-break user-modal-mono">{{user.keycloakId || '—'}}</span>
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-outline-primary user-info-action"
+                                *ngIf="user.keycloakId"
+                                (click)="copyUserInfoValue(user.keycloakId)"
+                                [attr.title]="'USERINFO.COPY' | translate"
+                                [attr.aria-label]="'USERINFO.COPY' | translate">
+                                <i class="fa fa-copy" aria-hidden="true"></i>
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-outline-secondary user-info-action"
+                                *ngIf="user.keycloakId"
+                                (click)="showUserParamsForKeycloak()"
+                                [attr.title]="'USERINFO.PARAMS_BY_KEYCLOAK' | translate"
+                                [attr.aria-label]="'USERINFO.PARAMS_BY_KEYCLOAK' | translate">
+                                <i class="fa fa-sliders" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="user-info-item">
+                    <div class="info-icon"><i class="fa fa-id-card"></i></div>
+                    <div class="info-content">
+                        <div class="info-label">{{"USERINFO.ID" | translate}}</div>
+                        <div class="info-value d-flex align-items-center gap-1">
+                            <span class="flex-grow-1 text-break user-modal-mono">{{user.id || '—'}}</span>
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-outline-primary user-info-action"
+                                *ngIf="user.id"
+                                (click)="copyUserInfoValue(user.id)"
+                                [attr.title]="'USERINFO.COPY' | translate"
+                                [attr.aria-label]="'USERINFO.COPY' | translate">
+                                <i class="fa fa-copy" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="user-info-copy-feedback" *ngIf="userInfoCopyFeedback" role="status">
+                {{ userInfoCopyFeedback | translate }}
+            </div>
+
+            <!-- Paramètres par catégorie -->
+            <ng-container *ngIf="isUserParamTab(userInfoTab)">
+                <div class="user-params-owner-bar" role="group" [attr.aria-label]="'USERINFO.SECTION_PARAMS' | translate">
+                    <button
+                        type="button"
+                        class="btn btn-sm user-params-owner-btn"
+                        [class.active]="userParamsOwnerFilter === 'all'"
+                        (click)="setUserParamsOwnerFilter('all')">
+                        {{ 'USERINFO.PARAMS_FILTER_ALL' | translate }}
+                        <span class="user-params-owner-count" *ngIf="userAppParameters?.length">{{ userAppParameters.length }}</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="btn btn-sm user-params-owner-btn"
+                        [class.active]="userParamsOwnerFilter === 'username'"
+                        [disabled]="!user.userName"
+                        (click)="setUserParamsOwnerFilter('username')">
+                        {{ 'USERINFO.PARAMS_FILTER_USERNAME' | translate }}
+                    </button>
+                    <button
+                        type="button"
+                        class="btn btn-sm user-params-owner-btn"
+                        [class.active]="userParamsOwnerFilter === 'sub'"
+                        [disabled]="!user.keycloakId"
+                        (click)="setUserParamsOwnerFilter('sub')">
+                        {{ 'USERINFO.PARAMS_FILTER_KEYCLOAK' | translate }}
+                    </button>
+                </div>
+                <p class="user-params-owner-hint small text-muted" *ngIf="userParamsOwnerFilter !== 'all'">
+                    {{
+                      userParamsOwnerFilter === 'username'
+                        ? ('USERINFO.PARAMS_HINT_USERNAME' | translate:{ name: user.userName })
+                        : ('USERINFO.PARAMS_HINT_KEYCLOAK' | translate:{ id: user.keycloakId })
+                    }}
+                </p>
+                <div class="user-modal-params-loading" *ngIf="isLoadingUserParams">
+                    <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+                    {{ 'USERINFO.LOADING_PARAMS' | translate }}
+                </div>
+                <div class="alert alert-warning py-2 small mb-0" *ngIf="!isLoadingUserParams && userParamsError" role="alert">
+                    {{ userParamsError | translate }}
+                </div>
+                <div class="text-muted small" *ngIf="!isLoadingUserParams && !userParamsError && paramsForTab(userInfoTab).length === 0">
+                    {{ 'USERINFO.NO_PARAMS' | translate }}
+                </div>
+                <div class="user-info-grid" *ngIf="!isLoadingUserParams && paramsForTab(userInfoTab).length > 0">
+                    <div class="user-info-item user-info-item--param" *ngFor="let p of paramsForTab(userInfoTab)">
+                        <div class="info-icon info-icon--param"><i class="fa fa-sliders"></i></div>
+                        <div class="info-content">
+                            <div class="info-label d-flex align-items-center gap-1">
+                                <span class="flex-grow-1 text-break">{{ p.featureKey || p.paramKey }}</span>
+                                <span
+                                  class="badge user-param-owner-badge"
+                                  *ngIf="p.ownerKey"
+                                  [attr.title]="p.paramKey">
+                                  {{ p.ownerKey === user.keycloakId ? ('USERINFO.OWNER_KEYCLOAK' | translate) : ('USERINFO.OWNER_USERNAME' | translate) }}
+                                </span>
+                                <button
+                                  type="button"
+                                  class="btn btn-sm btn-outline-primary user-info-action"
+                                  *ngIf="p.paramValue"
+                                  (click)="copyUserInfoValue(formatUserParamValue(p))"
+                                  [attr.title]="'USERINFO.COPY' | translate"
+                                  [attr.aria-label]="'USERINFO.COPY' | translate">
+                                  <i class="fa fa-copy" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <div class="user-param-meta small text-muted">
+                                <span *ngIf="p.valueType" class="badge bg-secondary me-1">{{ p.valueType }}</span>
+                                <span class="user-modal-mono me-1" *ngIf="p.paramKey">{{ p.paramKey }}</span>
+                                <span *ngIf="p.dateModification">{{ p.dateModification | date:'short' }}</span>
+                            </div>
+                            <div class="info-value small text-muted" *ngIf="p.description">{{ p.description }}</div>
+                            <pre
+                              class="user-param-value"
+                              [class.user-param-value--collapsed]="isUserParamLong(p) && userParamExpandedKey !== p.paramKey"
+                            >{{ formatUserParamValue(p) }}</pre>
+                            <button
+                              type="button"
+                              class="btn btn-link btn-sm p-0"
+                              *ngIf="isUserParamLong(p)"
+                              (click)="toggleUserParamExpand(p.paramKey)">
+                              {{
+                                (userParamExpandedKey === p.paramKey ? 'USERINFO.COLLAPSE_VALUE' : 'USERINFO.EXPAND_VALUE')
+                                  | translate
+                              }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </ng-container>
         </div>
         
         <div class="user-modal-footer">

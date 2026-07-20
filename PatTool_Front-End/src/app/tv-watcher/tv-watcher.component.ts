@@ -35,6 +35,7 @@ import { epgLookupKey, resolveEpgChannelId } from './tv-epg.util';
 import {
   attachTvHlsLiveSyncWatchdog,
   createTvHlsConfig,
+  resyncTvHlsAv,
   tryRecoverTvHlsError
 } from './tv-hls-config';
 
@@ -56,7 +57,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   favorites: TvChannel[] = [];
   favoriteIds = new Set<string>();
 
-  listMode: TvListMode = 'catalog';
+  listMode: TvListMode = 'favorites';
   selectedCountry = 'fr';
   selectedGroup = '';
   /** Filter by channel name / group / country. */
@@ -68,6 +69,11 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   worldwideSearchHint = false;
   countryMenuOpen = false;
   countryFilter = '';
+  /** Collapse state of the filters panel, remembered per tab. */
+  private filtersCollapsedByMode: Record<TvListMode, boolean> = {
+    catalog: true,
+    favorites: true
+  };
 
   isLoadingCountries = false;
   isLoadingChannels = false;
@@ -90,6 +96,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   /** Share menu (WhatsApp / copy / native). */
   shareMenuOpen = false;
   shareFeedback = '';
+  /** Brief status after manual A/V resync. */
+  resyncFeedback = '';
   readonly canNativeShare =
     typeof navigator !== 'undefined' && typeof (navigator as Navigator).share === 'function';
 
@@ -116,12 +124,14 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   private restoredLastChannel = false;
   private chromeHideTimer: ReturnType<typeof setTimeout> | null = null;
   private shareFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
+  private resyncFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
   /** Deep-link channel id waiting for catalog load. */
   private pendingShareChannelId = '';
   private playGeneration = 0;
   private static readonly CHROME_HIDE_MS = 3000;
   private static readonly LAST_CHANNEL_STORAGE_KEY = 'pattool.tv.last-channel';
-  private static readonly SHARE_STREAM_MAX_LEN = 500;
+  /** Max length for virtual stream tokens in share links (not full http URLs). */
+  private static readonly SHARE_STREAM_MAX_LEN = 80;
   private static readonly EPG_REFRESH_MS = 5 * 60 * 1000;
   /** Countries scanned for worldwide programme-title search (EPG now/next). */
   private static readonly WORLDWIDE_PROGRAM_COUNTRIES = [
@@ -139,6 +149,21 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   get isAllCountries(): boolean {
     return (this.selectedCountry || '').toLowerCase() === 'all';
+  }
+
+  get filtersCollapsed(): boolean {
+    return !!this.filtersCollapsedByMode[this.listMode];
+  }
+
+  /** True when search/group inputs are non-empty (for collapsed indicator). */
+  get hasFilterInputs(): boolean {
+    if (this.channelQuery.trim() || this.programQuery.trim()) {
+      return true;
+    }
+    if (this.listMode === 'catalog' && this.selectedGroup) {
+      return true;
+    }
+    return false;
   }
 
   get filteredCountries(): TvCountry[] {
@@ -294,6 +319,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.clearChromeHideTimer();
     this.clearShareFeedbackTimer();
+    this.clearResyncFeedbackTimer();
     if (this.epgRefreshTimer != null) {
       clearInterval(this.epgRefreshTimer);
       this.epgRefreshTimer = null;
@@ -308,14 +334,15 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.destroyPlayer();
   }
 
-  @HostListener('document:click')
-  onDocumentClick(): void {
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement | null;
     let changed = false;
-    if (this.shareMenuOpen) {
+    if (this.shareMenuOpen && !target?.closest?.('.tv-share-wrap')) {
       this.shareMenuOpen = false;
       changed = true;
     }
-    if (this.countryMenuOpen) {
+    if (this.countryMenuOpen && !target?.closest?.('.tv-country-picker')) {
       this.countryMenuOpen = false;
       changed = true;
     }
@@ -352,10 +379,14 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   private scheduleChromeHide(delayMs = TvWatcherComponent.CHROME_HIDE_MS): void {
     this.clearChromeHideTimer();
-    if (!this.selectedChannel || this.isMuted) {
+    if (!this.selectedChannel || this.isMuted || this.shareMenuOpen) {
       return;
     }
     this.chromeHideTimer = setTimeout(() => {
+      if (this.shareMenuOpen) {
+        this.chromeHideTimer = null;
+        return;
+      }
       this.chromeVisible = false;
       this.chromeHideTimer = null;
       this.cdr.markForCheck();
@@ -373,10 +404,20 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.listMode = mode;
     this.channelsError = '';
     this.favoritesHint = '';
+    this.countryMenuOpen = false;
     if (mode === 'favorites' && !this.isLoggedIn) {
       this.favoritesHint = 'TV.FAVORITES_LOGIN';
     }
     this.refreshEpg();
+    this.cdr.markForCheck();
+  }
+
+  toggleFiltersCollapsed(event?: Event): void {
+    event?.stopPropagation();
+    this.filtersCollapsedByMode[this.listMode] = !this.filtersCollapsedByMode[this.listMode];
+    if (this.filtersCollapsed) {
+      this.countryMenuOpen = false;
+    }
     this.cdr.markForCheck();
   }
 
@@ -822,6 +863,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     }
     this.shareMenuOpen = !this.shareMenuOpen;
     this.shareFeedback = '';
+    if (this.shareMenuOpen) {
+      this.showChrome(false);
+    }
     this.cdr.markForCheck();
   }
 
@@ -832,9 +876,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (!channel) {
       return;
     }
-    const url = this.buildShareDeepLink(channel);
-    const title = channel.name || this.translate.instant('TV.TITLE');
-    const text = this.translate.instant('TV.SHARE_TEXT', { name: channel.name || title });
+    const { title, text, url } = this.buildSharePayload(channel);
     const nav = navigator as Navigator & {
       share?: (data: ShareData) => Promise<void>;
     };
@@ -842,6 +884,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     try {
+      // Put the URL in `text` as well: many targets (WhatsApp) ignore `url` and only send text.
       await nav.share({ title, text, url });
       this.shareMenuOpen = false;
       this.cdr.markForCheck();
@@ -861,10 +904,13 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (!channel) {
       return;
     }
-    const url = this.buildShareDeepLink(channel);
-    const text = this.translate.instant('TV.SHARE_TEXT', { name: channel.name || '' });
-    const body = `${text}\n${url}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(body)}`, '_blank', 'noopener,noreferrer');
+    // URL first on its own line — WhatsApp linkifies more reliably than trailing URLs.
+    const { text } = this.buildSharePayload(channel, { urlFirst: true });
+    window.open(
+      `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`,
+      '_blank',
+      'noopener,noreferrer'
+    );
     this.shareMenuOpen = false;
     this.cdr.markForCheck();
   }
@@ -980,6 +1026,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   /**
    * Shareable URL without hash in the path (WhatsApp-friendly), via static redirect page.
+   * Keep the query short and free of nested http(s) — messengers then auto-link reliably.
    */
   private buildShareDeepLink(channel: TvChannel): string {
     const u = new URL(window.location.href);
@@ -1000,6 +1047,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         basePath = '';
       }
     } else {
+      // Hash-routed SPA: pathname is the deploy base (e.g. /pattool), not the Angular route.
       basePath = path;
     }
     const params = new URLSearchParams();
@@ -1010,14 +1058,50 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (country) {
       params.set('c', country);
     }
-    if (channel.name) {
-      params.set('n', channel.name);
+    const name = (channel.name || '').trim();
+    if (name && name.length <= 80) {
+      params.set('n', name);
     }
+    // Only short virtual tokens (francetv:…, tf1:…). Full http(s) stream URLs nested in
+    // ?s= break WhatsApp / iMessage auto-link (they see a second https inside the query).
     const stream = resolveTvStreamUrl(channel);
-    if (stream && stream.length <= TvWatcherComponent.SHARE_STREAM_MAX_LEN) {
+    if (stream && TvWatcherComponent.isShareSafeStreamToken(stream)) {
       params.set('s', stream);
     }
-    return `${u.origin}${basePath}/assets/tv-link.html?${params.toString()}`;
+    // Prefer %20 over + — some messengers stop linkifying at +.
+    const qs = params.toString().replace(/\+/g, '%20');
+    return `${u.origin}${basePath}/assets/tv-link.html?${qs}`;
+  }
+
+  /**
+   * True for short non-URL stream tokens safe to put in a WhatsApp share link.
+   * Rejects anything that looks like http(s):// (even encoded).
+   */
+  private static isShareSafeStreamToken(stream: string): boolean {
+    const s = (stream || '').trim();
+    if (!s || s.length > TvWatcherComponent.SHARE_STREAM_MAX_LEN) {
+      return false;
+    }
+    if (/^https?:\/\//i.test(s) || s.includes('://')) {
+      return false;
+    }
+    if (/%3A%2F%2F/i.test(s) || /https?%3A/i.test(s)) {
+      return false;
+    }
+    return true;
+  }
+
+  /** Message + URL formatted so WhatsApp / iMessage make the link tappable. */
+  private buildSharePayload(
+    channel: TvChannel,
+    opts?: { urlFirst?: boolean }
+  ): { title: string; text: string; url: string } {
+    const url = this.buildShareDeepLink(channel);
+    const title = channel.name || this.translate.instant('TV.TITLE');
+    const intro = this.translate.instant('TV.SHARE_TEXT', { name: channel.name || title });
+    // Blank line isolates the URL so messengers detect a single clean link.
+    const text = opts?.urlFirst ? `${url}\n\n${intro}` : `${intro}\n\n${url}`;
+    return { title, text, url };
   }
 
   private async copyTextToClipboard(text: string): Promise<boolean> {
@@ -1050,6 +1134,38 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       clearTimeout(this.shareFeedbackTimer);
       this.shareFeedbackTimer = null;
     }
+  }
+
+  private clearResyncFeedbackTimer(): void {
+    if (this.resyncFeedbackTimer != null) {
+      clearTimeout(this.resyncFeedbackTimer);
+      this.resyncFeedbackTimer = null;
+    }
+  }
+
+  /** Force A/V resync (live edge seek + MediaSource recover). */
+  resyncAudioVideo(event?: Event): void {
+    event?.stopPropagation();
+    const video = this.videoEl?.nativeElement;
+    if (!video || !this.selectedChannel || this.isFloatingOpen) {
+      return;
+    }
+    this.isBuffering = true;
+    this.resyncFeedback = 'TV.RESYNC_AV_DONE';
+    this.clearResyncFeedbackTimer();
+    resyncTvHlsAv(this.hls, video);
+    this.showChrome(true);
+    this.cdr.markForCheck();
+    // Brief buffering pulse then clear status.
+    window.setTimeout(() => {
+      this.isBuffering = false;
+      this.cdr.markForCheck();
+    }, 400);
+    this.resyncFeedbackTimer = setTimeout(() => {
+      this.resyncFeedback = '';
+      this.resyncFeedbackTimer = null;
+      this.cdr.markForCheck();
+    }, 2200);
   }
 
   private loadCountries(): void {
@@ -1422,6 +1538,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       this.hls = new Hls(createTvHlsConfig());
       this.hls.loadSource(proxyUrl);
       this.hls.attachMedia(video);
+      video.playbackRate = 1;
       this.detachHlsLiveSync = attachTvHlsLiveSyncWatchdog(this.hls, video);
       this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
         tryPlay();

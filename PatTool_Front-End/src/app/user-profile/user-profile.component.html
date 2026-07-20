@@ -1,0 +1,216 @@
+<div class="user-profile-page">
+  <div class="user-profile-card">
+    <div class="user-profile-header">
+      <div class="user-profile-title-section">
+        <i class="fa fa-user-circle user-profile-icon" aria-hidden="true"></i>
+        <h1 class="user-profile-title">{{ 'USERINFO.TITLE' | translate }}</h1>
+      </div>
+      <button
+        type="button"
+        class="user-profile-close"
+        [attr.aria-label]="'COMMUN.CLOSE' | translate"
+        (click)="closeTab()">
+        <i class="fa fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+
+    <div class="user-profile-body">
+      <div class="user-profile-loading" *ngIf="isLoadingUser">
+        <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+        {{ 'USERINFO.LOADING' | translate }}
+      </div>
+
+      <ng-container *ngIf="!isLoadingUser">
+        <h2 class="user-profile-section-title">{{ 'USERINFO.SECTION_IDENTITY' | translate }}</h2>
+        <div class="user-info-grid">
+          <div class="user-info-item">
+            <div class="info-icon"><i class="fa fa-envelope" aria-hidden="true"></i></div>
+            <div class="info-content">
+              <div class="info-label">{{ 'USERINFO.EMAIL' | translate }}</div>
+              <div class="info-value d-flex align-items-center">
+                <span class="flex-grow-1">{{ user.addressEmail || '—' }}</span>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-primary ms-2"
+                  *ngIf="user.addressEmail"
+                  (click)="sendEmail(user.addressEmail)"
+                  [attr.title]="'EVENTELEM.SEND_EMAIL' | translate">
+                  <i class="fa fa-envelope" aria-hidden="true"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="user-info-item">
+            <div class="info-icon"><i class="fa fa-user" aria-hidden="true"></i></div>
+            <div class="info-content">
+              <div class="info-label">{{ 'USERINFO.FIRSTNAME' | translate }}</div>
+              <div class="info-value">{{ user.firstName || '—' }}</div>
+            </div>
+          </div>
+
+          <div class="user-info-item">
+            <div class="info-icon"><i class="fa fa-user" aria-hidden="true"></i></div>
+            <div class="info-content">
+              <div class="info-label">{{ 'USERINFO.LASTNAME' | translate }}</div>
+              <div class="info-value">{{ user.lastName || '—' }}</div>
+            </div>
+          </div>
+
+          <div class="user-info-item">
+            <div class="info-icon"><i class="fa fa-at" aria-hidden="true"></i></div>
+            <div class="info-content">
+              <div class="info-label">{{ 'USERINFO.USERNAME' | translate }}</div>
+              <div class="info-value">{{ user.userName || '—' }}</div>
+            </div>
+          </div>
+
+          <div class="user-info-item">
+            <div class="info-icon"><i class="fa fa-globe" aria-hidden="true"></i></div>
+            <div class="info-content">
+              <div class="info-label">{{ 'USERINFO.LOCALE' | translate }}</div>
+              <div class="info-value">{{ user.locale || '—' }}</div>
+            </div>
+          </div>
+
+          <div class="user-info-item">
+            <div class="info-icon"><i class="fa fa-whatsapp" aria-hidden="true"></i></div>
+            <div class="info-content">
+              <div class="info-label">{{ 'USERINFO.WHATSAPP' | translate }}</div>
+              <div class="info-value">{{ user.whatsappLink || '—' }}</div>
+            </div>
+          </div>
+
+          <div class="user-info-item">
+            <div class="info-icon"><i class="fa fa-eye" aria-hidden="true"></i></div>
+            <div class="info-content">
+              <div class="info-label">{{ 'USERINFO.VISIBLE' | translate }}</div>
+              <div class="info-value">
+                {{
+                  user.visible === true
+                    ? ('USERINFO.VISIBLE_YES' | translate)
+                    : user.visible === false
+                      ? ('USERINFO.VISIBLE_NO' | translate)
+                      : '—'
+                }}
+              </div>
+            </div>
+          </div>
+
+          <div class="user-info-item">
+            <div class="info-icon"><i class="fa fa-calendar-plus-o" aria-hidden="true"></i></div>
+            <div class="info-content">
+              <div class="info-label">{{ 'USERINFO.REGISTRATION' | translate }}</div>
+              <div class="info-value">{{ user.registrationDate ? (user.registrationDate | date: 'medium') : '—' }}</div>
+            </div>
+          </div>
+
+          <div class="user-info-item">
+            <div class="info-icon"><i class="fa fa-clock-o" aria-hidden="true"></i></div>
+            <div class="info-content">
+              <div class="info-label">{{ 'USERINFO.LAST_CONNECTION' | translate }}</div>
+              <div class="info-value">{{ user.lastConnectionDate ? (user.lastConnectionDate | date: 'medium') : '—' }}</div>
+            </div>
+          </div>
+
+          <div class="user-info-item">
+            <div class="info-icon"><i class="fa fa-key" aria-hidden="true"></i></div>
+            <div class="info-content">
+              <div class="info-label">{{ 'USERINFO.KEYCLOAKID' | translate }}</div>
+              <div class="info-value user-mono">{{ user.keycloakId || '—' }}</div>
+            </div>
+          </div>
+
+          <div class="user-info-item">
+            <div class="info-icon"><i class="fa fa-id-card" aria-hidden="true"></i></div>
+            <div class="info-content">
+              <div class="info-label">{{ 'USERINFO.ID' | translate }}</div>
+              <div class="info-value user-mono">{{ user.id || '—' }}</div>
+            </div>
+          </div>
+
+          <div class="user-info-item">
+            <div class="info-icon"><i class="fa fa-map-marker" aria-hidden="true"></i></div>
+            <div class="info-content">
+              <div class="info-label">{{ 'USERINFO.POSITIONS' | translate }}</div>
+              <div class="info-value">{{ user.positions?.length || 0 }}</div>
+            </div>
+          </div>
+
+          <div class="user-info-item">
+            <div class="info-icon"><i class="fa fa-shield" aria-hidden="true"></i></div>
+            <div class="info-content">
+              <div class="info-label">{{ 'USERINFO.ROLES' | translate }}</div>
+              <div class="info-value">
+                <div *ngIf="roles.length > 0" class="roles-container">
+                  <span
+                    *ngFor="let role of roles"
+                    class="badge me-1 mb-1"
+                    [ngClass]="getRoleBadgeClass(role)">
+                    {{ role }}
+                  </span>
+                </div>
+                <div *ngIf="roles.length === 0" class="text-muted">
+                  {{ 'USERINFO.NO_ROLES' | translate }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <h2 class="user-profile-section-title mt-4">{{ 'USERINFO.SECTION_PARAMS' | translate }}</h2>
+        <p class="user-profile-section-hint">{{ 'USERINFO.SECTION_PARAMS_HINT' | translate }}</p>
+
+        <div class="user-profile-loading" *ngIf="isLoadingParams">
+          <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+          {{ 'USERINFO.LOADING_PARAMS' | translate }}
+        </div>
+
+        <div class="alert alert-warning py-2" *ngIf="!isLoadingParams && paramsError" role="alert">
+          {{ paramsError | translate }}
+        </div>
+
+        <div class="text-muted small" *ngIf="!isLoadingParams && !paramsError && parameters.length === 0">
+          {{ 'USERINFO.NO_PARAMS' | translate }}
+        </div>
+
+        <div class="user-params-list" *ngIf="!isLoadingParams && parameters.length > 0">
+          <div class="user-param-item" *ngFor="let p of parameters">
+            <div class="user-param-head">
+              <div class="info-icon info-icon--param"><i class="fa fa-sliders" aria-hidden="true"></i></div>
+              <div class="info-content">
+                <div class="info-label">{{ p.featureKey || p.paramKey }}</div>
+                <div class="user-param-meta small text-muted">
+                  <span *ngIf="p.valueType" class="badge bg-secondary me-1">{{ p.valueType }}</span>
+                  <span *ngIf="p.dateModification">{{ p.dateModification | date: 'short' }}</span>
+                </div>
+                <div class="info-value user-param-desc small" *ngIf="p.description">{{ p.description }}</div>
+                <pre
+                  class="user-param-value"
+                  [class.user-param-value--collapsed]="isLongValue(p) && expandedKey !== p.paramKey"
+                  >{{ formatValue(p) }}</pre>
+                <button
+                  type="button"
+                  class="btn btn-link btn-sm p-0"
+                  *ngIf="isLongValue(p)"
+                  (click)="toggleExpand(p.paramKey)">
+                  {{
+                    (expandedKey === p.paramKey ? 'USERINFO.COLLAPSE_VALUE' : 'USERINFO.EXPAND_VALUE')
+                      | translate
+                  }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+
+    <div class="user-profile-footer">
+      <button type="button" class="user-profile-btn-close" (click)="closeTab()">
+        <i class="fa fa-times" aria-hidden="true"></i>
+        {{ 'COMMUN.CLOSE' | translate }}
+      </button>
+    </div>
+  </div>
+</div>

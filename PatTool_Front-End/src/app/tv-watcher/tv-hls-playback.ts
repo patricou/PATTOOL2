@@ -118,6 +118,7 @@ export function startTvHlsPlayback(
     hls = new Hls(createTvHlsConfig());
     hls.loadSource(proxyUrl);
     hls.attachMedia(video);
+    video.playbackRate = 1;
     detachLiveSync = attachTvHlsLiveSyncWatchdog(hls, video);
     hls.on(Hls.Events.MANIFEST_PARSED, () => tryPlay());
     hls.on(Hls.Events.ERROR, (_e, data) => {

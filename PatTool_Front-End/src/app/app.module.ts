@@ -91,6 +91,11 @@ export function HttpLoaderFactory(http: HttpClient) {
 			{ path: 'maps', component: AboutComponent },
 			{ path: 'links-admin', component: LinksAdminComponent },
 			{ path: 'home', component: HomePageComponent },
+			{
+				path: 'profile',
+				loadComponent: () =>
+					import('./user-profile/user-profile.component').then((m) => m.UserProfileComponent)
+			},
 			// Lazy loaded routes - loaded on demand to reduce initial bundle size
 			{ 
 				path: 'links', 

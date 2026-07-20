@@ -1,17 +1,25 @@
 package com.pat.service;
 
+import com.pat.config.PatToolParameterCatalog;
 import com.pat.repo.AppParameterRepository;
 import com.pat.repo.domain.AppParameter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 /**
  * High-level accessor over {@link AppParameter}. Keeps callers from having
@@ -28,6 +36,9 @@ public class AppParameterService {
 
     @Autowired
     private AppParameterRepository repository;
+
+    @Autowired
+    private MongoTemplate mongoTemplate;
 
     // ---------------------------------------------------------------------
     // Generic read
@@ -133,6 +144,87 @@ public class AppParameterService {
             return List.of();
         }
         return repository.findByParamKeyStartingWith(prefix);
+    }
+
+    /**
+     * Per-user rows keyed as {@code feature.<owner>} where {@code owner} is typically
+     * the JWT {@code sub} (Keycloak id) or {@code preferred_username}.
+     * <p>
+     * Uses {@link PatToolParameterCatalog#MONGO_USER_KEY_PREFIXES} (exact key + prefix scan),
+     * then a quoted regex suffix scan for any other user-scoped keys.
+     */
+    public List<AppParameter> findByOwnerSuffix(String ownerKey) {
+        if (ownerKey == null || ownerKey.isBlank()) {
+            return List.of();
+        }
+        String owner = ownerKey.trim();
+        String suffix = "." + owner;
+        LinkedHashMap<String, AppParameter> byKey = new LinkedHashMap<>();
+
+        for (String prefix : PatToolParameterCatalog.MONGO_USER_KEY_PREFIXES) {
+            find(prefix + owner).ifPresent(row -> putRow(byKey, row));
+            try {
+                for (AppParameter row : repository.findByParamKeyStartingWith(prefix)) {
+                    String key = row.getParamKey();
+                    if (key != null && key.endsWith(suffix)) {
+                        putRow(byKey, row);
+                    }
+                }
+            } catch (RuntimeException e) {
+                log.warn("StartingWith scan for prefix '{}' failed: {}", prefix, e.getMessage());
+            }
+        }
+
+        try {
+            Pattern pattern = Pattern.compile(Pattern.quote(suffix) + "$");
+            Query query = new Query(Criteria.where("paramKey").regex(pattern));
+            for (AppParameter row : mongoTemplate.find(query, AppParameter.class)) {
+                putRow(byKey, row);
+            }
+        } catch (DataAccessException e) {
+            log.warn("Regex scan for AppParameter owner '{}' failed: {}", owner, e.getMessage());
+        }
+
+        List<AppParameter> rows = new ArrayList<>(byKey.values());
+        rows.sort(Comparator
+                .comparing(AppParameter::getParamKey, Comparator.nullsLast(String::compareToIgnoreCase)));
+        log.info("findByOwnerSuffix('{}') → {} row(s) from catalog prefixes + suffix scan", owner, rows.size());
+        return rows;
+    }
+
+    private static void putRow(LinkedHashMap<String, AppParameter> byKey, AppParameter row) {
+        if (row == null || row.getParamKey() == null) {
+            return;
+        }
+        byKey.putIfAbsent(row.getParamKey(), row);
+    }
+
+    /** @deprecated use {@link #findByOwnerSuffix(String)} */
+    public List<AppParameter> findByJwtSubject(String jwtSubject) {
+        return findByOwnerSuffix(jwtSubject);
+    }
+
+    /**
+     * Merge rows for several owner suffixes (e.g. Keycloak sub + preferred_username).
+     * Dedupes by {@code paramKey} (first owner wins).
+     */
+    public List<AppParameter> findByOwnerSuffixes(Collection<String> ownerKeys) {
+        if (ownerKeys == null || ownerKeys.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashMap<String, AppParameter> byKey = new LinkedHashMap<>();
+        for (String owner : ownerKeys) {
+            if (owner == null || owner.isBlank()) {
+                continue;
+            }
+            for (AppParameter row : findByOwnerSuffix(owner.trim())) {
+                String key = row.getParamKey();
+                if (key != null && !byKey.containsKey(key)) {
+                    byKey.put(key, row);
+                }
+            }
+        }
+        return new ArrayList<>(byKey.values());
     }
 
     /**

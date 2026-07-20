@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, ViewChild, HostListener, TemplateRef, ChangeDetectorRef } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild, HostListener, TemplateRef, ChangeDetectorRef, ApplicationRef } from '@angular/core';
 import { of, Subscription } from 'rxjs';
 import { take, catchError, filter } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
@@ -24,7 +24,18 @@ import { AssistantDrawerComponent } from './shared/assistant-drawer/assistant-dr
 import { TvFloatingPlayerComponent } from './tv-watcher/tv-floating-player.component';
 import { GlobeIssNowService } from './services/globe-iss-now.service';
 import { MongoHealthService, MongoHealthStatus } from './services/mongodb-health.service';
+import { LastRouteService } from './services/last-route.service';
+import { ApiService, UserAppParameter } from './services/api.service';
 import { buildIssTopViewIconDataUrl } from './shared/globe-iss-icon.util';
+
+type UserInfoTabId = 'profile' | 'account' | 'tv' | 'globe' | 'meteo' | 'assistant' | 'other';
+
+interface UserInfoTabDef {
+    id: UserInfoTabId;
+    labelKey: string;
+    icon: string;
+    count?: number;
+}
 
 interface NavRouteMenuItem {
     routerLink: unknown[];
@@ -65,6 +76,24 @@ export class AppComponent implements OnInit {
     public user: Member = new Member("", "", "", "", "", [], "");
     public userRoles: string[] = []; // User roles from Keycloak
     public isLoadingRoles: boolean = false; // Loading state for roles
+    /** Active tab inside the user-info modal. */
+    public userInfoTab: UserInfoTabId = 'profile';
+    public userAppParameters: UserAppParameter[] = [];
+    public isLoadingUserParams = false;
+    public userParamsError = '';
+    public userParamExpandedKey: string | null = null;
+    /** Brief feedback after copying a user-info field (i18n key or empty). */
+    public userInfoCopyFeedback = '';
+    private userInfoCopyTimer: ReturnType<typeof setTimeout> | null = null;
+    /** Filter Mongo appParameters: all | JWT sub | preferred_username. */
+    public userParamsOwnerFilter: 'all' | 'sub' | 'username' = 'all';
+    private userParamsSub?: Subscription;
+    /** Cached tab strip — avoid new object identities each CD (breaks clicks with *ngFor). */
+    private userInfoTabsCache: UserInfoTabDef[] = [
+        { id: 'profile', labelKey: 'USERINFO.TAB_PROFILE', icon: 'fa-user' },
+        { id: 'account', labelKey: 'USERINFO.TAB_ACCOUNT', icon: 'fa-id-badge' }
+    ];
+    private userInfoTabsCacheKey = '';
     public hasIotRole: boolean = false; // Check if user has Iot role for menu visibility
     public selectedFiles: File[] = [];
     public fileInfoMap: Map<string, { originalSize: number; compressedSize?: number; isCompressed: boolean }> = new Map();
@@ -228,12 +257,16 @@ export class AppComponent implements OnInit {
         private _friendsService: FriendsService,
         private router: Router,
         private cdr: ChangeDetectorRef,
+        private appRef: ApplicationRef,
         private _newsTicker: NewsTickerService,
         private _currencyTicker: CurrencyTickerService,
         private _stockTicker: StockTickerService,
         private _globeIssNow: GlobeIssNowService,
-        private _mongoHealth: MongoHealthService) {
+        private _mongoHealth: MongoHealthService,
+        private lastRoute: LastRouteService,
+        private api: ApiService) {
         this.selectedFiles = [];
+        this.lastRoute.beginSession();
         this._newsTicker.enabled$.subscribe((v) => {
             this.newsTickerEnabled = v;
             this.updateTickerBodyClasses();
@@ -249,8 +282,9 @@ export class AppComponent implements OnInit {
             this.updateTickerBodyClasses();
             this.cdr.markForCheck();
         });
-        this.router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd)).subscribe(() => {
+        this.router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd)).subscribe((e) => {
             this.updateTvPopoutMode();
+            this.lastRoute.remember(e.urlAfterRedirects || e.url);
         });
         this.updateTvPopoutMode();
     }
@@ -297,6 +331,7 @@ export class AppComponent implements OnInit {
         this.applyIssMenuIcon();
         this._globeIssNow.startBackgroundPrefetch();
         this.startMongoHealthMonitoring();
+        this.lastRoute.restoreFromServerIfNeeded();
     }
 
     private applyIssMenuIcon(): void {
@@ -616,12 +651,29 @@ export class AppComponent implements OnInit {
     // for modal chat
     public closeResult: string = "";
 
+    /** Open the user-info modal and load Mongo appParameters for this account. */
+    openUserInfoModal(): void {
+        this.userInfoTab = 'profile';
+        this.userParamExpandedKey = null;
+        this.userInfoCopyFeedback = '';
+        this.userParamsOwnerFilter = 'all';
+        this.userInfoTabsCacheKey = '';
+        this.loadUserRoles();
+        this.loadUserAppParameters();
+        this.modalService.open(this.usercontent, { backdrop: 'static', keyboard: false }).result.then((result) => {
+            this.closeResult = `Closed with: ${result}`;
+        }, (reason) => {
+            this.closeResult = `Dismissed ${this.getDismissReason(reason)}`;
+        });
+    }
+
     public open(content: any) {
         this.resultSaveOndisk = "";
-        
-        // If opening user content modal, fetch roles
+
+        // Legacy path: some callers still pass the template ref directly.
         if (content === this.usercontent) {
-            this.loadUserRoles();
+            this.openUserInfoModal();
+            return;
         }
 
         this.modalService.open(content, { backdrop: 'static', keyboard: false }).result.then((result) => {
@@ -629,6 +681,200 @@ export class AppComponent implements OnInit {
         }, (reason) => {
             this.closeResult = `Dismissed ${this.getDismissReason(reason)}`;
         });
+    }
+
+    get userInfoTabs(): UserInfoTabDef[] {
+        const cacheKey = [
+            this.isLoadingUserParams ? '1' : '0',
+            this.userParamsError || '',
+            this.userParamsOwnerFilter,
+            (this.userAppParameters || []).map((p) => p.paramKey || p.featureKey || '').join('|')
+        ].join('::');
+        if (cacheKey === this.userInfoTabsCacheKey && this.userInfoTabsCache.length) {
+            return this.userInfoTabsCache;
+        }
+        const tabs: UserInfoTabDef[] = [
+            { id: 'profile', labelKey: 'USERINFO.TAB_PROFILE', icon: 'fa-user' },
+            { id: 'account', labelKey: 'USERINFO.TAB_ACCOUNT', icon: 'fa-id-badge' }
+        ];
+        const categories: Array<{ id: UserInfoTabId; labelKey: string; icon: string }> = [
+            { id: 'tv', labelKey: 'USERINFO.TAB_TV', icon: 'fa-television' },
+            { id: 'globe', labelKey: 'USERINFO.TAB_GLOBE', icon: 'fa-globe' },
+            { id: 'meteo', labelKey: 'USERINFO.TAB_METEO', icon: 'fa-cloud' },
+            { id: 'assistant', labelKey: 'USERINFO.TAB_ASSISTANT', icon: 'fa-comments' },
+            { id: 'other', labelKey: 'USERINFO.TAB_PARAMS', icon: 'fa-sliders' }
+        ];
+        if (this.isLoadingUserParams) {
+            for (const cat of categories) {
+                tabs.push({ ...cat });
+            }
+        } else {
+            for (const cat of categories) {
+                if (cat.id === 'other') {
+                    continue;
+                }
+                const count = this.paramsForTab(cat.id).length;
+                if (count > 0) {
+                    tabs.push({ ...cat, count });
+                }
+            }
+            // Always expose full Mongo inventory (last-route, meteo prefs, …).
+            tabs.push({
+                id: 'other',
+                labelKey: 'USERINFO.TAB_PARAMS',
+                icon: 'fa-sliders',
+                count: this.filteredUserAppParameters.length || undefined
+            });
+        }
+        this.userInfoTabsCache = tabs;
+        this.userInfoTabsCacheKey = cacheKey;
+        return tabs;
+    }
+
+    setUserInfoTab(tab: UserInfoTabId): void {
+        this.userInfoTab = tab;
+        this.userParamExpandedKey = null;
+        // Reload if Paramètres opened with an empty list (e.g. prior load never ran).
+        if (this.isUserParamTab(tab)
+            && !this.isLoadingUserParams
+            && !this.userParamsError
+            && !(this.userAppParameters?.length)) {
+            this.loadUserAppParameters();
+        }
+        this.cdr.detectChanges();
+    }
+
+    trackUserInfoTab(_: number, tab: UserInfoTabDef): string {
+        return tab.id;
+    }
+
+    isUserParamTab(tab: UserInfoTabId): boolean {
+        return tab === 'tv' || tab === 'globe' || tab === 'meteo' || tab === 'assistant' || tab === 'other';
+    }
+
+    paramsForTab(tab: UserInfoTabId): UserAppParameter[] {
+        const rows = this.filteredUserAppParameters;
+        // "Autres" = inventaire complet des appParameters Mongo du compte.
+        if (tab === 'other') {
+            return rows;
+        }
+        return rows.filter((p) => this.categorizeUserParam(p) === tab);
+    }
+
+    get filteredUserAppParameters(): UserAppParameter[] {
+        const rows = this.userAppParameters || [];
+        if (this.userParamsOwnerFilter === 'all') {
+            return rows;
+        }
+        const owner = this.userParamsOwnerFilter === 'sub'
+            ? (this.user.keycloakId || '').trim()
+            : (this.user.userName || '').trim();
+        if (!owner) {
+            return [];
+        }
+        return rows.filter((p) => (p.ownerKey || '').trim() === owner
+            || (p.paramKey || '').endsWith('.' + owner));
+    }
+
+    setUserParamsOwnerFilter(filter: 'all' | 'sub' | 'username'): void {
+        this.userParamsOwnerFilter = filter;
+        this.userInfoTabsCacheKey = '';
+        if (filter === 'sub' || filter === 'username') {
+            this.userInfoTab = 'other';
+            // Jump to first category that has rows, else "other".
+            const cats: UserInfoTabId[] = ['tv', 'globe', 'meteo', 'assistant', 'other'];
+            for (const id of cats) {
+                if (this.paramsForTab(id).length > 0) {
+                    this.userInfoTab = id;
+                    break;
+                }
+            }
+        }
+        this.cdr.detectChanges();
+    }
+
+    showUserParamsForUsername(): void {
+        this.setUserParamsOwnerFilter('username');
+    }
+
+    showUserParamsForKeycloak(): void {
+        this.setUserParamsOwnerFilter('sub');
+    }
+
+    private categorizeUserParam(p: UserAppParameter): UserInfoTabId {
+        const key = ((p.featureKey || p.paramKey || '') as string).toLowerCase();
+        if (key.startsWith('tv.') || key.includes('.tv.') || key.startsWith('tv')) {
+            return 'tv';
+        }
+        if (
+            key.startsWith('globe.') ||
+            key.startsWith('iss.') ||
+            key.includes('flight') ||
+            key.includes('iss.') ||
+            key.includes('globe')
+        ) {
+            return 'globe';
+        }
+        if (
+            key.startsWith('meteofrance.') ||
+            key.startsWith('meteo.') ||
+            key.startsWith('weather.') ||
+            key.includes('meteo') ||
+            key.includes('radar')
+        ) {
+            return 'meteo';
+        }
+        if (key.startsWith('assistant.') || key.includes('assistant')) {
+            return 'assistant';
+        }
+        // app.last-route.*, trace.viewer.*, etc.
+        return 'other';
+    }
+
+    private loadUserAppParameters(): void {
+        this.userParamsSub?.unsubscribe();
+        this.isLoadingUserParams = true;
+        this.userParamsError = '';
+        this.userAppParameters = [];
+        this.userInfoTabsCacheKey = '';
+        this.userParamsSub = this.api.getUserAppParameters('all').subscribe({
+            next: (rows) => {
+                this.userAppParameters = rows || [];
+                this.isLoadingUserParams = false;
+                this.userInfoTabsCacheKey = '';
+                this.cdr.detectChanges();
+                this.appRef.tick();
+            },
+            error: (err) => {
+                console.error('user-parameters load failed', err);
+                this.userParamsError = 'USERINFO.PARAMS_ERROR';
+                this.isLoadingUserParams = false;
+                this.userInfoTabsCacheKey = '';
+                this.cdr.detectChanges();
+                this.appRef.tick();
+            }
+        });
+    }
+
+    formatUserParamValue(p: UserAppParameter): string {
+        const raw = p.paramValue ?? '';
+        if ((p.valueType || '').toUpperCase() === 'JSON') {
+            try {
+                return JSON.stringify(JSON.parse(raw), null, 2);
+            } catch {
+                return raw;
+            }
+        }
+        return raw;
+    }
+
+    isUserParamLong(p: UserAppParameter): boolean {
+        return (p.paramValue || '').length > 120 || (p.valueType || '').toUpperCase() === 'JSON';
+    }
+
+    toggleUserParamExpand(key: string): void {
+        this.userParamExpandedKey = this.userParamExpandedKey === key ? null : key;
+        this.cdr.markForCheck();
     }
 
     /**
@@ -715,7 +961,62 @@ export class AppComponent implements OnInit {
     }
 
     public sendEmail(email: string): void {
+        if (!email) {
+            return;
+        }
         window.open(`mailto:${email}`, '_blank');
+    }
+
+    openWhatsAppLink(link: string | null | undefined): void {
+        const url = (link || '').trim();
+        if (!url) {
+            return;
+        }
+        const href = /^https?:\/\//i.test(url) ? url : `https://wa.me/${url.replace(/\D/g, '')}`;
+        window.open(href, '_blank', 'noopener,noreferrer');
+    }
+
+    async copyUserInfoValue(value: string | null | undefined): Promise<void> {
+        const text = (value || '').trim();
+        if (!text) {
+            return;
+        }
+        const ok = await this.copyTextToClipboard(text);
+        this.userInfoCopyFeedback = ok ? 'USERINFO.COPY_OK' : 'USERINFO.COPY_FAIL';
+        if (this.userInfoCopyTimer != null) {
+            clearTimeout(this.userInfoCopyTimer);
+        }
+        this.userInfoCopyTimer = setTimeout(() => {
+            this.userInfoCopyFeedback = '';
+            this.userInfoCopyTimer = null;
+            this.cdr.detectChanges();
+        }, 2200);
+        this.cdr.detectChanges();
+    }
+
+    private async copyTextToClipboard(text: string): Promise<boolean> {
+        try {
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(text);
+                return true;
+            }
+        } catch {
+            /* fall through */
+        }
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            const ok = document.execCommand('copy');
+            document.body.removeChild(ta);
+            return ok;
+        } catch {
+            return false;
+        }
     }
 
     onFilesSelected(event: any) {

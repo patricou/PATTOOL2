@@ -1835,7 +1835,45 @@
     "ROLE_MANAGER": "ÙØ¯ÙØ±",
     "ROLE_ADMIN": "ÙØ³Ø¤ÙÙ",
     "ROLE_UM_AUTHORIZATION": "ØªÙÙÙØ¶ UM",
-    "ROLE_USER": "ÙØ³ØªØ®Ø¯Ù"
+    "ROLE_USER": "ÙØ³ØªØ®Ø¯Ù",
+    "COPY": "نسخ",
+    "COPY_OK": "تم النسخ إلى الحافظة",
+    "COPY_FAIL": "تعذر النسخ",
+    "OPEN_WHATSAPP": "فتح واتساب",
+    "PARAMS_BY_USERNAME": "معاملات MongoDB (الاسم المستعار)",
+    "PARAMS_BY_KEYCLOAK": "معاملات MongoDB (Keycloak)",
+    "PARAMS_FILTER_ALL": "الكل",
+    "PARAMS_FILTER_USERNAME": "عبر الاسم المستعار",
+    "PARAMS_FILTER_KEYCLOAK": "عبر Keycloak",
+    "PARAMS_HINT_USERNAME": "مفاتيح تنتهي بـ .{{name}}",
+    "PARAMS_HINT_KEYCLOAK": "مفاتيح تنتهي بـ .{{id}}",
+    "OWNER_USERNAME": "الاسم المستعار",
+    "OWNER_KEYCLOAK": "Keycloak",
+    "TAB_PARAMS": "المعاملات",
+    "TAB_PROFILE": "الملف الشخصي",
+    "TAB_ACCOUNT": "الحساب",
+    "TAB_TV": "TV",
+    "TAB_GLOBE": "الكرة الأرضية",
+    "TAB_METEO": "الطقس",
+    "TAB_ASSISTANT": "المساعد",
+    "TAB_OTHER": "أخرى",
+    "LOCALE": "اللغة",
+    "WHATSAPP": "WhatsApp",
+    "VISIBLE": "مرئي للأصدقاء",
+    "VISIBLE_YES": "نعم",
+    "VISIBLE_NO": "لا",
+    "REGISTRATION": "التسجيل",
+    "LAST_CONNECTION": "آخر اتصال",
+    "POSITIONS": "المواضع المحفوظة",
+    "LOADING_PARAMS": "جاري تحميل المعاملات…",
+    "NO_PARAMS": "لا توجد معاملات محفوظة لهذا الحساب.",
+    "SECTION_PARAMS": "المعاملات المحفوظة",
+    "SECTION_PARAMS_HINT": "التفضيلات والبيانات المخزنة على الخادم لحسابك.",
+    "PARAMS_ERROR": "تعذر تحميل المعاملات.",
+    "EXPAND_VALUE": "عرض المزيد",
+    "COLLAPSE_VALUE": "طي",
+    "SECTION_IDENTITY": "الملف الشخصي",
+    "LOADING": "جاري التحميل…"
   },
   "UPLOADFILE": {
     "MENU": "ØªØ­ÙÙÙ",

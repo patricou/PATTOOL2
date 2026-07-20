@@ -1183,8 +1183,9 @@ body > .tooltip {
     backdrop-filter: blur(20px);
     border: 5px solid #000000;
     overflow: hidden;
-    max-width: 500px;
-    width: 85vw;
+    max-width: 560px;
+    width: 90vw;
+    max-height: min(88vh, 720px);
     display: flex;
     flex-direction: column;
     position: relative;
@@ -1273,8 +1274,110 @@ body > .tooltip {
 
 .user-modal-body {
     padding: 15px;
-    flex: 1;
-    overflow: visible;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    background: #f3f6fb;
+}
+
+.user-modal-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.25rem;
+    padding: 0.45rem 0.55rem 0.35rem;
+    background: #e9eef6;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex: 0 0 auto;
+}
+
+.user-modal-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex: 0 0 auto;
+    border: 0;
+    border-radius: 999px;
+    padding: 0.35rem 0.7rem;
+    background: transparent;
+    color: #495057;
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.user-modal-tab:hover {
+    background: rgba(13, 110, 253, 0.08);
+    color: #0d6efd;
+}
+
+.user-modal-tab.active {
+    background: #0d6efd;
+    color: #fff;
+}
+
+.user-modal-tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.1rem;
+    height: 1.1rem;
+    padding: 0 0.25rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.25);
+    font-size: 0.68rem;
+}
+
+.user-modal-tab:not(.active) .user-modal-tab-count {
+    background: rgba(13, 110, 253, 0.15);
+    color: #0d6efd;
+}
+
+.user-modal-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.78rem;
+    word-break: break-all;
+}
+
+.user-modal-params-loading {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: #495057;
+    font-size: 0.88rem;
+    padding: 0.5rem 0;
+}
+
+.user-info-item--param {
+    align-items: flex-start;
+}
+
+.info-icon--param {
+    background: linear-gradient(315deg, #495057 0%, #343a40 100%) !important;
+}
+
+.user-param-meta {
+    margin-bottom: 0.2rem;
+}
+
+.user-param-value {
+    margin: 0.3rem 0 0;
+    padding: 0.4rem 0.5rem;
+    border-radius: 0.35rem;
+    background: #f8f9fa;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    font-size: 0.75rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: none;
+    overflow: auto;
+}
+
+.user-param-value--collapsed {
+    max-height: 4.2rem;
+    overflow: hidden;
 }
 
 .user-info-grid {
@@ -1317,6 +1420,78 @@ body > .tooltip {
 .info-content {
     flex: 1;
     min-width: 0;
+}
+
+.user-info-action {
+    flex: 0 0 auto;
+    padding: 0.15rem 0.4rem;
+    line-height: 1.2;
+}
+
+.user-info-copy-feedback {
+    margin: 0.35rem 0 0;
+    padding: 0.35rem 0.6rem;
+    border-radius: 0.4rem;
+    font-size: 0.78rem;
+    background: rgba(25, 135, 84, 0.92);
+    color: #fff;
+    text-align: center;
+}
+
+.user-params-owner-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-bottom: 0.55rem;
+}
+
+.user-params-owner-btn {
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    background: #fff;
+    color: #495057;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 0.25rem 0.65rem;
+}
+
+.user-params-owner-btn.active {
+    background: #0d6efd;
+    border-color: #0d6efd;
+    color: #fff;
+}
+
+.user-params-owner-btn:disabled {
+    opacity: 0.55;
+}
+
+.user-params-owner-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.1rem;
+    margin-left: 0.25rem;
+    padding: 0 0.25rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.25);
+    font-size: 0.68rem;
+}
+
+.user-params-owner-btn:not(.active) .user-params-owner-count {
+    background: rgba(13, 110, 253, 0.12);
+    color: #0d6efd;
+}
+
+.user-params-owner-hint {
+    margin: 0 0 0.55rem;
+}
+
+.user-param-owner-badge {
+    flex: 0 0 auto;
+    background: #e9ecef;
+    color: #495057;
+    font-weight: 600;
+    font-size: 0.65rem;
 }
 
 .info-label {

@@ -17,14 +17,25 @@ public final class PatToolParameterCatalog {
 
     public record SectionDef(String id, String labelKey, List<ParameterDef> parameters) {}
 
+    /**
+     * Per-user {@code appParameters} keys: {@code <prefix><JWT sub|username>}.
+     * Source of truth for services that call {@code AppParameterService.set*} with a user id.
+     * Keep in sync with those services (LastRoute, TV, Météo-France, Globe, Assistant, Trace).
+     */
     public static final Set<String> MONGO_USER_KEY_PREFIXES = Set.of(
+            "app.last-route.",
             "assistant.routing.",
+            "tv.favorites.",
+            "tv.last-channel.",
             "globe.flight.tracking.",
             "globe.iss.alert.",
             "globe.iss.compass.calibration.",
-            "meteofrance.radar.refresh.",
-            "meteofrance.temperature.cache.",
+            "meteofrance.forecast.horizon.",
+            "meteofrance.forecast.step.",
             "meteofrance.forecast.cache.",
+            "meteofrance.temperature.cache.",
+            "meteofrance.history.cache.",
+            "meteofrance.aromepi.playback.prefetch.",
             "trace.viewer."
     );
 

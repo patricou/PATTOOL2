@@ -4,6 +4,7 @@ import { platformBrowserDynamic } from '@angular/platform-browser-dynamic';
 import { AppModule } from './app/app.module';
 import { environment } from './environments/environment';
 import { KeycloakService } from './app/keycloak/keycloak.service';
+import { LastRouteService } from './app/services/last-route.service';
 import { prefetchPatStaticAssets } from './prefetch-static-assets';
 
 if (environment.production) {
@@ -45,6 +46,8 @@ window.addEventListener('unhandledrejection', (event) => {
 
 KeycloakService.init()
   .then(() => {
+    // Restore last page before Angular's default '' → photos redirect.
+    LastRouteService.tryRestoreHashBeforeBootstrap();
     const platform = platformBrowserDynamic();
     platform.bootstrapModule(AppModule);
   })

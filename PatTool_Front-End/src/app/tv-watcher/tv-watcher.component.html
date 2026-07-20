@@ -54,139 +54,167 @@
         </button>
       </div>
 
-      <div class="tv-filters" *ngIf="listMode === 'catalog'">
-        <label class="form-label small mb-1" id="tv-country-label">
-          {{ 'TV.COUNTRY' | translate }}
-        </label>
-        <div class="tv-country-picker" (click)="$event.stopPropagation()">
-          <button
-            type="button"
-            class="tv-country-btn form-select form-select-sm"
-            id="tv-country"
-            [attr.aria-labelledby]="'tv-country-label'"
-            [attr.aria-expanded]="countryMenuOpen"
-            [disabled]="isLoadingCountries"
-            (click)="toggleCountryMenu($event)">
+      <div class="tv-filters-panel">
+        <button
+          type="button"
+          class="tv-filters-toggle"
+          (click)="toggleFiltersCollapsed()"
+          [attr.aria-expanded]="!filtersCollapsed"
+          [attr.title]="(filtersCollapsed ? 'TV.FILTERS_SHOW' : 'TV.FILTERS_HIDE') | translate"
+          [attr.aria-label]="(filtersCollapsed ? 'TV.FILTERS_SHOW' : 'TV.FILTERS_HIDE') | translate">
+          <span class="tv-filters-toggle-label">
+            <i class="fa fa-filter" aria-hidden="true"></i>
+            {{ 'TV.FILTERS' | translate }}
             <span
-              *ngIf="!isAllCountries && countryFlagCode(selectedCountry) as flagCode"
-              class="fi fi-{{ flagCode }} tv-fi-flag"
-              aria-hidden="true"></span>
-            <i *ngIf="isAllCountries" class="fa fa-globe tv-country-globe" aria-hidden="true"></i>
-            <span class="tv-country-btn-label">{{ selectedCountryName() }}</span>
-            <i class="fa fa-caret-down tv-country-caret" aria-hidden="true"></i>
-          </button>
-          <div class="tv-country-menu" *ngIf="countryMenuOpen" role="listbox" [attr.aria-label]="'TV.COUNTRY' | translate">
-            <div class="tv-country-filter-wrap" (click)="$event.stopPropagation()">
+              class="badge rounded-pill tv-filters-active-badge"
+              *ngIf="filtersCollapsed && hasFilterInputs"
+              [attr.title]="'TV.CHANNEL_COUNT_FILTERED' | translate">
+              <i class="fa fa-circle" aria-hidden="true"></i>
+            </span>
+          </span>
+          <i
+            class="fa tv-filters-toggle-caret"
+            [class.fa-chevron-down]="filtersCollapsed"
+            [class.fa-chevron-up]="!filtersCollapsed"
+            aria-hidden="true"></i>
+        </button>
+
+        <div class="tv-filters-body" *ngIf="!filtersCollapsed" id="tv-filters-body">
+          <div class="tv-filters" *ngIf="listMode === 'catalog'">
+            <label class="form-label small mb-1" id="tv-country-label">
+              {{ 'TV.COUNTRY' | translate }}
+            </label>
+            <div class="tv-country-picker" (click)="$event.stopPropagation()">
+              <button
+                type="button"
+                class="tv-country-btn form-select form-select-sm"
+                id="tv-country"
+                [attr.aria-labelledby]="'tv-country-label'"
+                [attr.aria-expanded]="countryMenuOpen"
+                [disabled]="isLoadingCountries"
+                (click)="toggleCountryMenu($event)">
+                <span
+                  *ngIf="!isAllCountries && countryFlagCode(selectedCountry) as flagCode"
+                  class="fi fi-{{ flagCode }} tv-fi-flag"
+                  aria-hidden="true"></span>
+                <i *ngIf="isAllCountries" class="fa fa-globe tv-country-globe" aria-hidden="true"></i>
+                <span class="tv-country-btn-label">{{ selectedCountryName() }}</span>
+                <i class="fa fa-caret-down tv-country-caret" aria-hidden="true"></i>
+              </button>
+              <div class="tv-country-menu" *ngIf="countryMenuOpen" role="listbox" [attr.aria-label]="'TV.COUNTRY' | translate">
+                <div class="tv-country-filter-wrap" (click)="$event.stopPropagation()">
+                  <input
+                    type="search"
+                    class="form-control form-control-sm tv-country-filter"
+                    [(ngModel)]="countryFilter"
+                    [placeholder]="'TV.COUNTRY_FILTER' | translate"
+                    autocomplete="off"
+                    (keydown.escape)="countryMenuOpen = false" />
+                </div>
+                <button
+                  type="button"
+                  class="tv-country-option"
+                  role="option"
+                  [attr.aria-selected]="isAllCountries"
+                  [class.active]="isAllCountries"
+                  (click)="selectCountry('all', $event)">
+                  <i class="fa fa-globe tv-country-globe" aria-hidden="true"></i>
+                  <span>{{ 'TV.COUNTRY_ALL' | translate }}</span>
+                </button>
+                <button
+                  type="button"
+                  class="tv-country-option"
+                  role="option"
+                  *ngFor="let c of filteredCountries"
+                  [attr.aria-selected]="selectedCountry === c.code"
+                  [class.active]="selectedCountry === c.code"
+                  (click)="selectCountry(c.code, $event)">
+                  <span class="fi fi-{{ countryFlagCode(c.code) }} tv-fi-flag" aria-hidden="true"></span>
+                  <span>{{ c.name }}</span>
+                </button>
+                <div
+                  class="tv-country-empty small text-muted"
+                  *ngIf="countryFilter.trim() && filteredCountries.length === 0">
+                  {{ 'TV.COUNTRY_FILTER_EMPTY' | translate }}
+                </div>
+                <div
+                  class="tv-country-empty small text-danger"
+                  *ngIf="!countryFilter.trim() && countries.length === 0 && !isLoadingCountries">
+                  {{ (countriesError || 'TV.ERR_COUNTRIES') | translate }}
+                </div>
+              </div>
+            </div>
+
+            <label class="form-label small mb-1 mt-2" for="tv-group" *ngIf="!isAllCountries">
+              <i class="fa me-1" [ngClass]="groupIconClass(selectedGroup)" aria-hidden="true"></i>
+              {{ 'TV.GROUP' | translate }}
+            </label>
+            <select
+              id="tv-group"
+              class="form-select form-select-sm"
+              *ngIf="!isAllCountries"
+              [(ngModel)]="selectedGroup"
+              (ngModelChange)="onGroupChange()">
+              <option value="">{{ groupEmoji('') }} {{ 'TV.GROUP_ALL' | translate }}</option>
+              <option *ngFor="let g of groups" [value]="g">{{ groupEmoji(g) }} {{ groupLabelKey(g) | translate }}</option>
+            </select>
+          </div>
+
+          <div class="tv-filters" [class.tv-filters--search-only]="listMode === 'favorites'">
+            <label class="form-label small mb-1" for="tv-search-channel">
+              {{ 'TV.SEARCH_CHANNEL' | translate }}
+            </label>
+            <div class="input-group input-group-sm">
               <input
+                id="tv-search-channel"
                 type="search"
-                class="form-control form-control-sm tv-country-filter"
-                [(ngModel)]="countryFilter"
-                [placeholder]="'TV.COUNTRY_FILTER' | translate"
-                autocomplete="off"
-                (keydown.escape)="countryMenuOpen = false" />
+                class="form-control"
+                [ngModel]="channelQuery"
+                (ngModelChange)="onChannelSearchInput($event)"
+                [placeholder]="(isAllCountries ? 'TV.SEARCH_PLACEHOLDER_ALL' : 'TV.SEARCH_PLACEHOLDER_CHANNEL') | translate"
+                autocomplete="off" />
+              <button
+                type="button"
+                class="btn btn-outline-secondary"
+                *ngIf="channelQuery"
+                (click)="clearChannelSearch()"
+                [attr.aria-label]="'TV.CLEAR_SEARCH' | translate">
+                <i class="fa fa-times"></i>
+              </button>
             </div>
-            <button
-              type="button"
-              class="tv-country-option"
-              role="option"
-              [attr.aria-selected]="isAllCountries"
-              [class.active]="isAllCountries"
-              (click)="selectCountry('all', $event)">
-              <i class="fa fa-globe tv-country-globe" aria-hidden="true"></i>
-              <span>{{ 'TV.COUNTRY_ALL' | translate }}</span>
-            </button>
-            <button
-              type="button"
-              class="tv-country-option"
-              role="option"
-              *ngFor="let c of filteredCountries"
-              [attr.aria-selected]="selectedCountry === c.code"
-              [class.active]="selectedCountry === c.code"
-              (click)="selectCountry(c.code, $event)">
-              <span class="fi fi-{{ countryFlagCode(c.code) }} tv-fi-flag" aria-hidden="true"></span>
-              <span>{{ c.name }}</span>
-            </button>
-            <div
-              class="tv-country-empty small text-muted"
-              *ngIf="countryFilter.trim() && filteredCountries.length === 0">
-              {{ 'TV.COUNTRY_FILTER_EMPTY' | translate }}
+            <div class="tv-worldwide-hint small text-muted mt-1" *ngIf="listMode === 'catalog' && worldwideSearchHint">
+              <i class="fa fa-globe me-1" aria-hidden="true"></i>
+              {{ 'TV.SEARCH_WORLDWIDE_HINT' | translate }}
+            </div>
+
+            <label class="form-label small mb-1 mt-2" for="tv-search-program">
+              {{ 'TV.SEARCH_PROGRAM' | translate }}
+            </label>
+            <div class="input-group input-group-sm">
+              <input
+                id="tv-search-program"
+                type="search"
+                class="form-control"
+                [ngModel]="programQuery"
+                (ngModelChange)="onProgramSearchInput($event)"
+                [placeholder]="'TV.SEARCH_PLACEHOLDER_PROGRAM' | translate"
+                autocomplete="off" />
+              <button
+                type="button"
+                class="btn btn-outline-secondary"
+                *ngIf="programQuery"
+                (click)="clearProgramSearch()"
+                [attr.aria-label]="'TV.CLEAR_SEARCH' | translate">
+                <i class="fa fa-times"></i>
+              </button>
             </div>
             <div
-              class="tv-country-empty small text-danger"
-              *ngIf="!countryFilter.trim() && countries.length === 0 && !isLoadingCountries">
-              {{ (countriesError || 'TV.ERR_COUNTRIES') | translate }}
+              class="tv-epg-search-hint small text-muted mt-1"
+              *ngIf="programQuery.trim() && isLoadingEpg">
+              <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
+              {{ 'TV.SEARCH_EPG_LOADING' | translate }}
             </div>
           </div>
-        </div>
-
-        <label class="form-label small mb-1 mt-2" for="tv-group" *ngIf="!isAllCountries">
-          <i class="fa me-1" [ngClass]="groupIconClass(selectedGroup)" aria-hidden="true"></i>
-          {{ 'TV.GROUP' | translate }}
-        </label>
-        <select
-          id="tv-group"
-          class="form-select form-select-sm"
-          *ngIf="!isAllCountries"
-          [(ngModel)]="selectedGroup"
-          (ngModelChange)="onGroupChange()">
-          <option value="">{{ groupEmoji('') }} {{ 'TV.GROUP_ALL' | translate }}</option>
-          <option *ngFor="let g of groups" [value]="g">{{ groupEmoji(g) }} {{ groupLabelKey(g) | translate }}</option>
-        </select>
-      </div>
-
-      <div class="tv-filters" [class.tv-filters--search-only]="listMode === 'favorites'">
-        <label class="form-label small mb-1" for="tv-search-channel">
-          {{ 'TV.SEARCH_CHANNEL' | translate }}
-        </label>
-        <div class="input-group input-group-sm">
-          <input
-            id="tv-search-channel"
-            type="search"
-            class="form-control"
-            [ngModel]="channelQuery"
-            (ngModelChange)="onChannelSearchInput($event)"
-            [placeholder]="(isAllCountries ? 'TV.SEARCH_PLACEHOLDER_ALL' : 'TV.SEARCH_PLACEHOLDER_CHANNEL') | translate"
-            autocomplete="off" />
-          <button
-            type="button"
-            class="btn btn-outline-secondary"
-            *ngIf="channelQuery"
-            (click)="clearChannelSearch()"
-            [attr.aria-label]="'TV.CLEAR_SEARCH' | translate">
-            <i class="fa fa-times"></i>
-          </button>
-        </div>
-        <div class="tv-worldwide-hint small text-muted mt-1" *ngIf="listMode === 'catalog' && worldwideSearchHint">
-          <i class="fa fa-globe me-1" aria-hidden="true"></i>
-          {{ 'TV.SEARCH_WORLDWIDE_HINT' | translate }}
-        </div>
-
-        <label class="form-label small mb-1 mt-2" for="tv-search-program">
-          {{ 'TV.SEARCH_PROGRAM' | translate }}
-        </label>
-        <div class="input-group input-group-sm">
-          <input
-            id="tv-search-program"
-            type="search"
-            class="form-control"
-            [ngModel]="programQuery"
-            (ngModelChange)="onProgramSearchInput($event)"
-            [placeholder]="'TV.SEARCH_PLACEHOLDER_PROGRAM' | translate"
-            autocomplete="off" />
-          <button
-            type="button"
-            class="btn btn-outline-secondary"
-            *ngIf="programQuery"
-            (click)="clearProgramSearch()"
-            [attr.aria-label]="'TV.CLEAR_SEARCH' | translate">
-            <i class="fa fa-times"></i>
-          </button>
-        </div>
-        <div
-          class="tv-epg-search-hint small text-muted mt-1"
-          *ngIf="programQuery.trim() && isLoadingEpg">
-          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
-          {{ 'TV.SEARCH_EPG_LOADING' | translate }}
         </div>
       </div>
 
@@ -307,6 +335,7 @@
       <div
         class="tv-player-frame"
         [class.tv-player-frame--chrome-hidden]="selectedChannel && !chromeVisible"
+        [class.tv-player-frame--share-open]="shareMenuOpen"
         (mouseenter)="onTvPointerEnter()"
         (mousemove)="onTvPointerMove()"
         (mouseleave)="onTvPointerLeave()"
@@ -372,6 +401,7 @@
           class="tv-chrome"
           *ngIf="selectedChannel"
           [class.tv-chrome--hidden]="!chromeVisible"
+          [class.tv-chrome--share-open]="shareMenuOpen"
           [attr.aria-hidden]="!chromeVisible">
           <div class="tv-now-playing">
           <div class="tv-now-info">
@@ -431,7 +461,11 @@
             </div>
           </div>
 
-          <div class="tv-now-actions" role="toolbar" [attr.aria-label]="'TV.TITLE' | translate">
+          <div
+            class="tv-now-actions"
+            [class.tv-now-actions--share-open]="shareMenuOpen"
+            role="toolbar"
+            [attr.aria-label]="'TV.TITLE' | translate">
             <button
               type="button"
               class="btn btn-sm btn-outline-light tv-now-action"
@@ -457,6 +491,18 @@
                 [attr.aria-valuenow]="isMuted ? 0 : volumePercent"
                 [attr.aria-label]="'TV.VOLUME' | translate" />
             </label>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-light tv-now-action"
+              *ngIf="!isFloatingOpen && selectedChannel && !playError"
+              (click)="resyncAudioVideo($event)"
+              [attr.title]="'TV.RESYNC_AV' | translate"
+              [attr.aria-label]="'TV.RESYNC_AV' | translate">
+              <i class="fa fa-refresh" aria-hidden="true"></i>
+            </button>
+            <span class="tv-resync-feedback small" *ngIf="resyncFeedback" role="status">
+              {{ resyncFeedback | translate }}
+            </span>
             <button
               type="button"
               class="btn btn-sm btn-primary tv-now-action"

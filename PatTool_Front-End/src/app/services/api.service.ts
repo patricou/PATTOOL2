@@ -2220,6 +2220,55 @@ export class ApiService {
     );
   }
 
+  /** GET last visited app page — JWT required, per-user. 204 when none. */
+  getAppLastRoute(): Observable<string | null> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<{ route?: string }>(this.API_URL + 'external/app/last-route', {
+          headers,
+          observe: 'response'
+        }).pipe(
+          map((res) => {
+            if (res.status === 204 || !res.body) {
+              return null;
+            }
+            const route = typeof res.body.route === 'string' ? res.body.route.trim() : '';
+            return route || null;
+          })
+        )
+      )
+    );
+  }
+
+  /** PUT persist last visited app page for the current user. */
+  saveAppLastRoute(route: string): Observable<{ route: string }> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<{ route: string }>(
+          this.API_URL + 'external/app/last-route',
+          { route },
+          { headers }
+        )
+      )
+    );
+  }
+
+  /** GET all appParameters rows owned by the current JWT subject. */
+  getUserAppParameters(owner?: 'all' | 'sub' | 'username' | string): Observable<UserAppParameter[]> {
+    const params =
+      owner && owner !== 'all'
+        ? new HttpParams().set('owner', owner)
+        : undefined;
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<UserAppParameter[]>(this.API_URL + 'external/app/user-parameters', {
+          headers,
+          params
+        })
+      )
+    );
+  }
+
   // ===================================================================
   // Loto — archives (scraping LesBonsNumeros côté serveur)
   // ===================================================================
@@ -2971,6 +3020,18 @@ export interface TvChannel {
   country?: string;
   streamUrl: string;
   quality?: string;
+}
+
+/** GET /api/external/app/user-parameters */
+export interface UserAppParameter {
+  paramKey: string;
+  featureKey?: string;
+  paramValue?: string;
+  valueType?: string;
+  description?: string;
+  dateModification?: string;
+  /** Suffix that matched: JWT sub or preferred_username. */
+  ownerKey?: string;
 }
 
 /** GET/PUT /api/external/tv/favorites — per authenticated user */
