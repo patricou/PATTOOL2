@@ -1882,7 +1882,23 @@
     "EXPAND_VALUE": "Mostrar más",
     "COLLAPSE_VALUE": "Reducir",
     "SECTION_IDENTITY": "Perfil",
-    "LOADING": "Cargando…"
+    "LOADING": "Cargando…",
+    "PARAM_LABELS": {
+      "APP_LAST_ROUTE": "Página de inicio",
+      "ASSISTANT_ROUTING": "Enrutado del asistente",
+      "TV_FAVORITES": "Canales TV favoritos",
+      "TV_LAST_CHANNEL": "Último canal TV",
+      "GLOBE_FLIGHT_TRACKING": "Seguimiento de vuelos (globo)",
+      "GLOBE_ISS_ALERT": "Alerta paso ISS",
+      "GLOBE_ISS_COMPASS": "Calibración brújula ISS",
+      "METEO_FORECAST_HORIZON": "Horizonte de previsión",
+      "METEO_FORECAST_STEP": "Paso de previsión",
+      "METEO_FORECAST_CACHE": "Caché de previsiones",
+      "METEO_TEMPERATURE_CACHE": "Caché de temperaturas",
+      "METEO_HISTORY_CACHE": "Caché historial meteorológico",
+      "METEO_AROMEPI_PREFETCH": "Precarga AROME-PI",
+      "TRACE_VIEWER": "Visor de trazas"
+    }
   },
   "UPLOADFILE": {
     "MENU": "Subir",

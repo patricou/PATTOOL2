@@ -62,6 +62,24 @@ type ToolsMenuRow =
   | { kind: 'doc-submenu' }
   | { kind: 'lang-submenu' };
 
+/** Mongo featureKey → i18n label (USERINFO.PARAM_LABELS.*). */
+const USER_PARAM_LABEL_KEYS: Record<string, string> = {
+    'app.last-route': 'USERINFO.PARAM_LABELS.APP_LAST_ROUTE',
+    'assistant.routing': 'USERINFO.PARAM_LABELS.ASSISTANT_ROUTING',
+    'tv.favorites': 'USERINFO.PARAM_LABELS.TV_FAVORITES',
+    'tv.last-channel': 'USERINFO.PARAM_LABELS.TV_LAST_CHANNEL',
+    'globe.flight.tracking': 'USERINFO.PARAM_LABELS.GLOBE_FLIGHT_TRACKING',
+    'globe.iss.alert': 'USERINFO.PARAM_LABELS.GLOBE_ISS_ALERT',
+    'globe.iss.compass.calibration': 'USERINFO.PARAM_LABELS.GLOBE_ISS_COMPASS',
+    'meteofrance.forecast.horizon': 'USERINFO.PARAM_LABELS.METEO_FORECAST_HORIZON',
+    'meteofrance.forecast.step': 'USERINFO.PARAM_LABELS.METEO_FORECAST_STEP',
+    'meteofrance.forecast.cache': 'USERINFO.PARAM_LABELS.METEO_FORECAST_CACHE',
+    'meteofrance.temperature.cache': 'USERINFO.PARAM_LABELS.METEO_TEMPERATURE_CACHE',
+    'meteofrance.history.cache': 'USERINFO.PARAM_LABELS.METEO_HISTORY_CACHE',
+    'meteofrance.aromepi.playback.prefetch': 'USERINFO.PARAM_LABELS.METEO_AROMEPI_PREFETCH',
+    'trace.viewer': 'USERINFO.PARAM_LABELS.TRACE_VIEWER'
+};
+
 @Component({
     selector: 'app-root',
     templateUrl: './app.component.html',
@@ -660,7 +678,12 @@ export class AppComponent implements OnInit {
         this.userInfoTabsCacheKey = '';
         this.loadUserRoles();
         this.loadUserAppParameters();
-        this.modalService.open(this.usercontent, { backdrop: 'static', keyboard: false }).result.then((result) => {
+        this.modalService.open(this.usercontent, {
+            backdrop: 'static',
+            keyboard: false,
+            size: 'lg',
+            windowClass: 'user-info-modal-window'
+        }).result.then((result) => {
             this.closeResult = `Closed with: ${result}`;
         }, (reason) => {
             this.closeResult = `Dismissed ${this.getDismissReason(reason)}`;
@@ -829,6 +852,22 @@ export class AppComponent implements OnInit {
         }
         // app.last-route.*, trace.viewer.*, etc.
         return 'other';
+    }
+
+    /** Human-readable title for a Mongo appParameter row. */
+    userParamLabel(p: UserAppParameter): string {
+        const feature = (p.featureKey || '').trim().toLowerCase();
+        const i18nKey = USER_PARAM_LABEL_KEYS[feature];
+        if (i18nKey) {
+            const translated = this._translate.instant(i18nKey);
+            if (translated && translated !== i18nKey) {
+                return translated;
+            }
+        }
+        if (feature) {
+            return feature;
+        }
+        return (p.paramKey || '').trim() || '—';
     }
 
     private loadUserAppParameters(): void {

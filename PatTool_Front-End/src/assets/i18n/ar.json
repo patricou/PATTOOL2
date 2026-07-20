@@ -1873,7 +1873,23 @@
     "EXPAND_VALUE": "عرض المزيد",
     "COLLAPSE_VALUE": "طي",
     "SECTION_IDENTITY": "الملف الشخصي",
-    "LOADING": "جاري التحميل…"
+    "LOADING": "جاري التحميل…",
+    "PARAM_LABELS": {
+      "APP_LAST_ROUTE": "صفحة البدء",
+      "ASSISTANT_ROUTING": "توجيه المساعد",
+      "TV_FAVORITES": "قنوات التلفزيون المفضلة",
+      "TV_LAST_CHANNEL": "آخر قناة تلفزيون",
+      "GLOBE_FLIGHT_TRACKING": "تتبع الرحلات (الكرة الأرضية)",
+      "GLOBE_ISS_ALERT": "تنبيه مرور محطة الفضاء",
+      "GLOBE_ISS_COMPASS": "معايرة بوصلة محطة الفضاء",
+      "METEO_FORECAST_HORIZON": "أفق التوقعات",
+      "METEO_FORECAST_STEP": "خطوة التوقعات",
+      "METEO_FORECAST_CACHE": "ذاكرة التخزين المؤقت للتوقعات",
+      "METEO_TEMPERATURE_CACHE": "ذاكرة التخزين المؤقت لدرجات الحرارة",
+      "METEO_HISTORY_CACHE": "ذاكرة التخزين المؤقت لتاريخ الطقس",
+      "METEO_AROMEPI_PREFETCH": "التحميل المسبق لـ AROME-PI",
+      "TRACE_VIEWER": "عارض المسارات"
+    }
   },
   "UPLOADFILE": {
     "MENU": "ØªØ­ÙÙÙ",

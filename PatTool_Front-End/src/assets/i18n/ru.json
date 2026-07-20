@@ -1867,7 +1867,23 @@
     "EXPAND_VALUE": "Показать больше",
     "COLLAPSE_VALUE": "Свернуть",
     "SECTION_IDENTITY": "Профиль",
-    "LOADING": "Загрузка…"
+    "LOADING": "Загрузка…",
+    "PARAM_LABELS": {
+      "APP_LAST_ROUTE": "Стартовая страница",
+      "ASSISTANT_ROUTING": "Маршрутизация ассистента",
+      "TV_FAVORITES": "Избранные ТВ-каналы",
+      "TV_LAST_CHANNEL": "Последний ТВ-канал",
+      "GLOBE_FLIGHT_TRACKING": "Отслеживание рейсов (глобус)",
+      "GLOBE_ISS_ALERT": "Оповещение о пролёте МКС",
+      "GLOBE_ISS_COMPASS": "Калибровка компаса МКС",
+      "METEO_FORECAST_HORIZON": "Горизонт прогноза",
+      "METEO_FORECAST_STEP": "Шаг прогноза",
+      "METEO_FORECAST_CACHE": "Кэш прогнозов",
+      "METEO_TEMPERATURE_CACHE": "Кэш температур",
+      "METEO_HISTORY_CACHE": "Кэш истории погоды",
+      "METEO_AROMEPI_PREFETCH": "Предзагрузка AROME-PI",
+      "TRACE_VIEWER": "Просмотр трасс"
+    }
   },
   "UPLOADFILE": {
     "MENU": "ÐÐ°Ð³ÑÑÐ·Ð¸ÑÑ",

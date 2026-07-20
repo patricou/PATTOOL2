@@ -1874,7 +1874,23 @@
     "EXPAND_VALUE": "显示更多",
     "COLLAPSE_VALUE": "收起",
     "SECTION_IDENTITY": "个人资料",
-    "LOADING": "加载中…"
+    "LOADING": "加载中…",
+    "PARAM_LABELS": {
+      "APP_LAST_ROUTE": "启动页面",
+      "ASSISTANT_ROUTING": "助手路由",
+      "TV_FAVORITES": "收藏电视频道",
+      "TV_LAST_CHANNEL": "上次电视频道",
+      "GLOBE_FLIGHT_TRACKING": "航班跟踪（地球仪）",
+      "GLOBE_ISS_ALERT": "国际空间站过境提醒",
+      "GLOBE_ISS_COMPASS": "国际空间站罗盘校准",
+      "METEO_FORECAST_HORIZON": "预报时长",
+      "METEO_FORECAST_STEP": "预报步长",
+      "METEO_FORECAST_CACHE": "预报缓存",
+      "METEO_TEMPERATURE_CACHE": "温度缓存",
+      "METEO_HISTORY_CACHE": "天气历史缓存",
+      "METEO_AROMEPI_PREFETCH": "AROME-PI 预加载",
+      "TRACE_VIEWER": "轨迹查看器"
+    }
   },
   "UPLOADFILE": {
     "MENU": "ä¸è½½",

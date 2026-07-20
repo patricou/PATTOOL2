@@ -1629,7 +1629,23 @@
     "EXPAND_VALUE": "もっと見る",
     "COLLAPSE_VALUE": "閉じる",
     "SECTION_IDENTITY": "プロフィール",
-    "LOADING": "読み込み中…"
+    "LOADING": "読み込み中…",
+    "PARAM_LABELS": {
+      "APP_LAST_ROUTE": "起動ページ",
+      "ASSISTANT_ROUTING": "アシスタント経路",
+      "TV_FAVORITES": "お気に入りTVチャンネル",
+      "TV_LAST_CHANNEL": "前回のTVチャンネル",
+      "GLOBE_FLIGHT_TRACKING": "フライト追跡（地球儀）",
+      "GLOBE_ISS_ALERT": "ISS通過アラート",
+      "GLOBE_ISS_COMPASS": "ISSコンパス校正",
+      "METEO_FORECAST_HORIZON": "予報期間",
+      "METEO_FORECAST_STEP": "予報ステップ",
+      "METEO_FORECAST_CACHE": "予報キャッシュ",
+      "METEO_TEMPERATURE_CACHE": "気温キャッシュ",
+      "METEO_HISTORY_CACHE": "気象履歴キャッシュ",
+      "METEO_AROMEPI_PREFETCH": "AROME-PI先読み",
+      "TRACE_VIEWER": "トレースビューア"
+    }
   },
   "UPLOADFILE": {
     "MENU": "ãã¦ã³ã­ã¼ã",

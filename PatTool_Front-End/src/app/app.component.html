@@ -719,8 +719,8 @@
                     <div class="user-info-item user-info-item--param" *ngFor="let p of paramsForTab(userInfoTab)">
                         <div class="info-icon info-icon--param"><i class="fa fa-sliders"></i></div>
                         <div class="info-content">
-                            <div class="info-label d-flex align-items-center gap-1">
-                                <span class="flex-grow-1 text-break">{{ p.featureKey || p.paramKey }}</span>
+                            <div class="info-label info-label--param d-flex align-items-center gap-1">
+                                <span class="flex-grow-1 text-break">{{ userParamLabel(p) }}</span>
                                 <span
                                   class="badge user-param-owner-badge"
                                   *ngIf="p.ownerKey"

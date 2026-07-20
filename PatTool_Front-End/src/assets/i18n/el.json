@@ -1627,7 +1627,23 @@
     "EXPAND_VALUE": "Εμφάνιση περισσότερων",
     "COLLAPSE_VALUE": "Σύμπτυξη",
     "SECTION_IDENTITY": "Προφίλ",
-    "LOADING": "Φόρτωση…"
+    "LOADING": "Φόρτωση…",
+    "PARAM_LABELS": {
+      "APP_LAST_ROUTE": "Σελίδα εκκίνησης",
+      "ASSISTANT_ROUTING": "Δρομολόγηση βοηθού",
+      "TV_FAVORITES": "Αγαπημένα κανάλια TV",
+      "TV_LAST_CHANNEL": "Τελευταίο κανάλι TV",
+      "GLOBE_FLIGHT_TRACKING": "Παρακολούθηση πτήσεων (υδρόγειος)",
+      "GLOBE_ISS_ALERT": "Ειδοποίηση διέλευσης ISS",
+      "GLOBE_ISS_COMPASS": "Βαθμονόμηση πυξίδας ISS",
+      "METEO_FORECAST_HORIZON": "Ορίζοντας πρόγνωσης",
+      "METEO_FORECAST_STEP": "Βήμα πρόγνωσης",
+      "METEO_FORECAST_CACHE": "Cache προγνώσεων",
+      "METEO_TEMPERATURE_CACHE": "Cache θερμοκρασιών",
+      "METEO_HISTORY_CACHE": "Cache ιστορικού καιρού",
+      "METEO_AROMEPI_PREFETCH": "Προφόρτωση AROME-PI",
+      "TRACE_VIEWER": "Προβολή ιχνών"
+    }
   },
   "UPLOADFILE": {
     "MENU": "ÎÎ®ÏÎ·",

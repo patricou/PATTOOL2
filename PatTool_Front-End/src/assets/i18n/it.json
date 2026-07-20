@@ -1878,7 +1878,23 @@
     "EXPAND_VALUE": "Mostra di più",
     "COLLAPSE_VALUE": "Riduci",
     "SECTION_IDENTITY": "Profilo",
-    "LOADING": "Caricamento…"
+    "LOADING": "Caricamento…",
+    "PARAM_LABELS": {
+      "APP_LAST_ROUTE": "Pagina di avvio",
+      "ASSISTANT_ROUTING": "Instradamento assistente",
+      "TV_FAVORITES": "Canali TV preferiti",
+      "TV_LAST_CHANNEL": "Ultimo canale TV",
+      "GLOBE_FLIGHT_TRACKING": "Tracciamento voli (globo)",
+      "GLOBE_ISS_ALERT": "Avviso passaggio ISS",
+      "GLOBE_ISS_COMPASS": "Calibrazione bussola ISS",
+      "METEO_FORECAST_HORIZON": "Orizzonte di previsione",
+      "METEO_FORECAST_STEP": "Passo di previsione",
+      "METEO_FORECAST_CACHE": "Cache previsioni",
+      "METEO_TEMPERATURE_CACHE": "Cache temperature",
+      "METEO_HISTORY_CACHE": "Cache storico meteo",
+      "METEO_AROMEPI_PREFETCH": "Precaricamento AROME-PI",
+      "TRACE_VIEWER": "Visualizzatore tracce"
+    }
   },
   "UPLOADFILE": {
     "MENU": "Scaricare",

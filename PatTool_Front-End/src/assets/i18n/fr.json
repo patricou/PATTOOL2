@@ -2444,7 +2444,23 @@
     "PARAMS_HINT_USERNAME": "Clés se terminant par .{{name}}",
     "PARAMS_HINT_KEYCLOAK": "Clés se terminant par .{{id}}",
     "OWNER_USERNAME": "Surnom",
-    "OWNER_KEYCLOAK": "Keycloak"
+    "OWNER_KEYCLOAK": "Keycloak",
+    "PARAM_LABELS": {
+      "APP_LAST_ROUTE": "Page de démarrage",
+      "ASSISTANT_ROUTING": "Routage assistant",
+      "TV_FAVORITES": "Chaînes TV favorites",
+      "TV_LAST_CHANNEL": "Dernière chaîne TV",
+      "GLOBE_FLIGHT_TRACKING": "Suivi de vols (globe)",
+      "GLOBE_ISS_ALERT": "Alerte passage ISS",
+      "GLOBE_ISS_COMPASS": "Calibration boussole ISS",
+      "METEO_FORECAST_HORIZON": "Horizon de prévision",
+      "METEO_FORECAST_STEP": "Pas de prévision",
+      "METEO_FORECAST_CACHE": "Cache des prévisions",
+      "METEO_TEMPERATURE_CACHE": "Cache des températures",
+      "METEO_HISTORY_CACHE": "Cache historique météo",
+      "METEO_AROMEPI_PREFETCH": "Préchargement AROME-PI",
+      "TRACE_VIEWER": "Visionneuse de traces"
+    }
   },
   "UPLOADFILE": {
     "MENU": "Téléverser",

@@ -1845,7 +1845,23 @@
     "EXPAND_VALUE": "और दिखाएँ",
     "COLLAPSE_VALUE": "संक्षिप्त करें",
     "SECTION_IDENTITY": "प्रोफ़ाइल",
-    "LOADING": "लोड हो रहा है…"
+    "LOADING": "लोड हो रहा है…",
+    "PARAM_LABELS": {
+      "APP_LAST_ROUTE": "Halaman awal",
+      "ASSISTANT_ROUTING": "Perutean asisten",
+      "TV_FAVORITES": "Saluran TV favorit",
+      "TV_LAST_CHANNEL": "Saluran TV terakhir",
+      "GLOBE_FLIGHT_TRACKING": "Pelacakan penerbangan (globe)",
+      "GLOBE_ISS_ALERT": "Peringatan lintasan ISS",
+      "GLOBE_ISS_COMPASS": "Kalibrasi kompas ISS",
+      "METEO_FORECAST_HORIZON": "Horizon prakiraan",
+      "METEO_FORECAST_STEP": "Langkah prakiraan",
+      "METEO_FORECAST_CACHE": "Cache prakiraan",
+      "METEO_TEMPERATURE_CACHE": "Cache suhu",
+      "METEO_HISTORY_CACHE": "Cache riwayat cuaca",
+      "METEO_AROMEPI_PREFETCH": "Prefetch AROME-PI",
+      "TRACE_VIEWER": "Penampil jejak"
+    }
   },
   "UPLOADFILE": {
     "MENU": "à¤à¤ªà¤²à¥à¤¡",

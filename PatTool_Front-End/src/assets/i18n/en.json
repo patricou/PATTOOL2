@@ -2460,7 +2460,23 @@
     "PARAMS_HINT_USERNAME": "Keys ending with .{{name}}",
     "PARAMS_HINT_KEYCLOAK": "Keys ending with .{{id}}",
     "OWNER_USERNAME": "Username",
-    "OWNER_KEYCLOAK": "Keycloak"
+    "OWNER_KEYCLOAK": "Keycloak",
+    "PARAM_LABELS": {
+      "APP_LAST_ROUTE": "Startup page",
+      "ASSISTANT_ROUTING": "Assistant routing",
+      "TV_FAVORITES": "Favorite TV channels",
+      "TV_LAST_CHANNEL": "Last TV channel",
+      "GLOBE_FLIGHT_TRACKING": "Flight tracking (globe)",
+      "GLOBE_ISS_ALERT": "ISS pass alert",
+      "GLOBE_ISS_COMPASS": "ISS compass calibration",
+      "METEO_FORECAST_HORIZON": "Forecast horizon",
+      "METEO_FORECAST_STEP": "Forecast step",
+      "METEO_FORECAST_CACHE": "Forecast cache",
+      "METEO_TEMPERATURE_CACHE": "Temperature cache",
+      "METEO_HISTORY_CACHE": "Weather history cache",
+      "METEO_AROMEPI_PREFETCH": "AROME-PI prefetch",
+      "TRACE_VIEWER": "Trace viewer"
+    }
   },
   "UPLOADFILE": {
     "MENU": "Upload",

@@ -1874,7 +1874,23 @@
     "EXPAND_VALUE": "הצג עוד",
     "COLLAPSE_VALUE": "צמצם",
     "SECTION_IDENTITY": "פרופיל",
-    "LOADING": "טוען…"
+    "LOADING": "טוען…",
+    "PARAM_LABELS": {
+      "APP_LAST_ROUTE": "דף פתיחה",
+      "ASSISTANT_ROUTING": "ניתוב עוזר",
+      "TV_FAVORITES": "ערוצי טלוויזיה מועדפים",
+      "TV_LAST_CHANNEL": "ערוץ טלוויזיה אחרון",
+      "GLOBE_FLIGHT_TRACKING": "מעקב טיסות (גלובוס)",
+      "GLOBE_ISS_ALERT": "התראת מעבר תחנת החלל",
+      "GLOBE_ISS_COMPASS": "כיול מצפן תחנת החלל",
+      "METEO_FORECAST_HORIZON": "אופק תחזית",
+      "METEO_FORECAST_STEP": "צעד תחזית",
+      "METEO_FORECAST_CACHE": "מטמון תחזיות",
+      "METEO_TEMPERATURE_CACHE": "מטמון טמפרטורות",
+      "METEO_HISTORY_CACHE": "מטמון היסטוריית מזג אוויר",
+      "METEO_AROMEPI_PREFETCH": "טעינה מראש AROME-PI",
+      "TRACE_VIEWER": "מציג מסלולים"
+    }
   },
   "UPLOADFILE": {
     "MENU": "××¢××",
