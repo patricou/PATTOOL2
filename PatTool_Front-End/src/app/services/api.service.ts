@@ -2142,6 +2142,34 @@ export class ApiService {
     return this._http.get<Record<string, TvEpgNow>>(this.API_URL + 'external/tv/epg/now', { params });
   }
 
+  /** Full EPG schedule for one XMLTV channel id (cached ≈ −6h … +36h window). */
+  getTvEpgSchedule(country: string, id: string): Observable<TvEpgSchedule> {
+    const channelId = (id || '').trim();
+    if (!channelId) {
+      return of({ channelId: '', programmes: [] });
+    }
+    const params = new HttpParams()
+      .set('country', country || 'fr')
+      .set('id', channelId);
+    return this._http.get<TvEpgSchedule>(this.API_URL + 'external/tv/epg/schedule', { params });
+  }
+
+  /**
+   * Server-side programme search across the cached EPG window.
+   * Use {@code country=all} for major countries.
+   */
+  getTvEpgSearch(country: string, query: string, limit = 40): Observable<TvEpgSearchHit[]> {
+    const q = (query || '').trim();
+    if (q.length < 2) {
+      return of([]);
+    }
+    const params = new HttpParams()
+      .set('country', country || 'fr')
+      .set('q', q)
+      .set('limit', String(Math.min(80, Math.max(1, limit))));
+    return this._http.get<TvEpgSearchHit[]>(this.API_URL + 'external/tv/epg/search', { params });
+  }
+
   /** Whether TF1 credentials are configured on the backend. */
   getTvTf1Status(): Observable<{ configured: boolean; channels?: string[] }> {
     return this._http.get<{ configured: boolean; channels?: string[] }>(
@@ -2216,6 +2244,109 @@ export class ApiService {
     return this.getHeaderWithToken().pipe(
       switchMap((headers) =>
         this._http.put<TvChannel>(this.API_URL + 'external/tv/last-channel', channel, { headers })
+      )
+    );
+  }
+
+  // ===================================================================
+  // Radio watcher — world radio (radio-browser.info) + stream proxy
+  // Backend: /api/external/radio/* (public catalog; favorites JWT)
+  // ===================================================================
+
+  getRadioCountries(): Observable<RadioCountry[]> {
+    const params = new HttpParams().set('_', String(Date.now()));
+    return this._http.get<RadioCountry[]>(this.API_URL + 'external/radio/countries', { params });
+  }
+
+  getRadioStations(country: string, q?: string, tag?: string): Observable<RadioStation[]> {
+    let params = new HttpParams().set('country', country || 'fr');
+    if (q && q.trim()) {
+      params = params.set('q', q.trim());
+    }
+    if (tag && tag.trim()) {
+      params = params.set('tag', tag.trim());
+    }
+    return this._http.get<RadioStation[]>(this.API_URL + 'external/radio/stations', { params });
+  }
+
+  getRadioStationById(id: string): Observable<RadioStation> {
+    return this._http.get<RadioStation>(this.API_URL + 'external/radio/stations/' + encodeURIComponent(id || ''));
+  }
+
+  getRadioStationCount(country: string = 'all'): Observable<{ country: string; count: number }> {
+    const params = new HttpParams().set('country', country || 'all');
+    return this._http.get<{ country: string; count: number }>(
+      this.API_URL + 'external/radio/station-count',
+      { params }
+    );
+  }
+
+  getRadioTags(country: string): Observable<string[]> {
+    const params = new HttpParams().set('country', country || 'fr');
+    return this._http.get<string[]>(this.API_URL + 'external/radio/tags', { params });
+  }
+
+  /** Proxied audio / HLS URL for a radio stream (Base64-URL path segment). */
+  radioStreamProxyUrl(streamUrl: string): string {
+    const bytes = new TextEncoder().encode(streamUrl);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const b64 = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    return this.API_URL + 'external/radio/stream/' + b64;
+  }
+
+  getRadioFavorites(): Observable<RadioFavorites> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<RadioFavorites>(this.API_URL + 'external/radio/favorites', { headers })
+      )
+    );
+  }
+
+  saveRadioFavorites(body: RadioFavorites): Observable<RadioFavorites> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<RadioFavorites>(this.API_URL + 'external/radio/favorites', body, { headers })
+      )
+    );
+  }
+
+  addRadioFavorite(station: RadioStation): Observable<RadioFavorites> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<RadioFavorites>(this.API_URL + 'external/radio/favorites/item', station, { headers })
+      )
+    );
+  }
+
+  removeRadioFavorite(stationId: string): Observable<RadioFavorites> {
+    const params = new HttpParams().set('id', stationId || '');
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.delete<RadioFavorites>(this.API_URL + 'external/radio/favorites/item', { headers, params })
+      )
+    );
+  }
+
+  getRadioLastStation(): Observable<RadioStation | null> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<RadioStation>(this.API_URL + 'external/radio/last-station', {
+          headers,
+          observe: 'response'
+        }).pipe(
+          map((res) => (res.status === 204 ? null : res.body || null))
+        )
+      )
+    );
+  }
+
+  saveRadioLastStation(station: RadioStation): Observable<RadioStation> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<RadioStation>(this.API_URL + 'external/radio/last-station', station, { headers })
       )
     );
   }
@@ -3050,4 +3181,45 @@ export interface TvEpgProgramme {
 export interface TvEpgNow {
   now?: TvEpgProgramme | null;
   next?: TvEpgProgramme | null;
+}
+
+/** GET /api/external/tv/epg/schedule */
+export interface TvEpgSchedule {
+  channelId?: string;
+  programmes?: TvEpgProgramme[];
+}
+
+/** GET /api/external/tv/epg/search */
+export interface TvEpgSearchHit {
+  country?: string;
+  channelId?: string;
+  programme?: TvEpgProgramme | null;
+  channel?: TvChannel | null;
+}
+
+/** GET /api/external/radio/countries */
+export interface RadioCountry {
+  code: string;
+  name: string;
+  flag?: string;
+  stationCount?: number;
+}
+
+/** GET /api/external/radio/stations */
+export interface RadioStation {
+  id: string;
+  name: string;
+  logo?: string;
+  tags?: string;
+  country?: string;
+  streamUrl: string;
+  codec?: string;
+  bitrate?: number;
+  language?: string;
+  homepage?: string;
+}
+
+/** GET/PUT /api/external/radio/favorites — per authenticated user */
+export interface RadioFavorites {
+  stations: RadioStation[];
 }

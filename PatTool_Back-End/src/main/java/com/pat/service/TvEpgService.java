@@ -3,6 +3,8 @@ package com.pat.service;
 import com.pat.controller.dto.TvChannelDto;
 import com.pat.controller.dto.TvEpgNowDto;
 import com.pat.controller.dto.TvEpgProgrammeDto;
+import com.pat.controller.dto.TvEpgScheduleDto;
+import com.pat.controller.dto.TvEpgSearchHitDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,14 +31,17 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiFunction;
 import java.util.zip.GZIPInputStream;
 
 /**
- * XMLTV EPG (now / next) from iptv-epg.org country files, matched by {@code tvg-id}.
+ * XMLTV EPG (now / next / schedule / search) from iptv-epg.org country files, matched by {@code tvg-id}.
  */
 @Service
 public class TvEpgService {
@@ -47,6 +52,13 @@ public class TvEpgService {
     private static final DateTimeFormatter XMLTV =
             DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
     private static final int MAX_IDS_PER_REQUEST = 80;
+    private static final int MAX_SEARCH_RESULTS = 80;
+    private static final int MIN_SEARCH_QUERY_LEN = 2;
+
+    /** Default countries scanned for worldwide programme search. */
+    public static final List<String> WORLDWIDE_SEARCH_COUNTRIES = List.of(
+            "fr", "us", "gb", "de", "es", "it", "be", "ch", "ca", "nl", "pt", "pl"
+    );
 
     /** Virtual live URLs → XMLTV channel ids used by iptv-epg.org. */
     private static final Map<String, String> VIRTUAL_EPG_IDS = Map.ofEntries(
@@ -132,19 +144,8 @@ public class TvEpgService {
         }
         List<String> ids = new ArrayList<>();
         for (String raw : rawIds) {
-            if (!StringUtils.hasText(raw)) {
-                continue;
-            }
-            String cleaned = raw.trim();
-            int hash = cleaned.indexOf('#');
-            if (hash >= 0) {
-                cleaned = cleaned.substring(0, hash);
-            }
-            int at = cleaned.indexOf('@');
-            if (at > 0) {
-                cleaned = cleaned.substring(0, at);
-            }
-            if (StringUtils.hasText(cleaned)) {
+            String cleaned = cleanChannelId(raw);
+            if (cleaned != null) {
                 ids.add(cleaned);
             }
             if (ids.size() >= MAX_IDS_PER_REQUEST) {
@@ -174,6 +175,149 @@ public class TvEpgService {
             }
         }
         return out;
+    }
+
+    /**
+     * Full cached schedule for one XMLTV channel id (≈ −6h … +36h window).
+     */
+    public TvEpgScheduleDto scheduleForId(String countryCode, String rawId) {
+        String cc = normalizeCountry(countryCode);
+        String id = cleanChannelId(rawId);
+        if (cc == null || id == null) {
+            return new TvEpgScheduleDto(rawId != null ? rawId.trim() : "", List.of());
+        }
+        CountryGuide guide = loadGuide(cc);
+        if (guide == null) {
+            return new TvEpgScheduleDto(id, List.of());
+        }
+        String key = id.toLowerCase(Locale.ROOT);
+        List<Programme> list = guide.byChannel.get(key);
+        String canonical = guide.canonicalId.getOrDefault(key, id);
+        if (list == null || list.isEmpty()) {
+            return new TvEpgScheduleDto(canonical, List.of());
+        }
+        List<TvEpgProgrammeDto> programmes = new ArrayList<>(list.size());
+        for (Programme p : list) {
+            TvEpgProgrammeDto dto = toDto(p);
+            if (dto != null) {
+                programmes.add(dto);
+            }
+        }
+        return new TvEpgScheduleDto(canonical, programmes);
+    }
+
+    /**
+     * Search programme titles/descriptions in the cached XMLTV window.
+     * {@code countryCode=all} scans {@link #WORLDWIDE_SEARCH_COUNTRIES}.
+     *
+     * @param channelResolver optional catalog lookup {@code (country, epgId) → channel}
+     */
+    public List<TvEpgSearchHitDto> searchProgrammes(
+            String countryCode,
+            String query,
+            int limit,
+            BiFunction<String, String, TvChannelDto> channelResolver) {
+        String q = query != null ? query.trim().toLowerCase(Locale.ROOT) : "";
+        if (q.length() < MIN_SEARCH_QUERY_LEN) {
+            return List.of();
+        }
+        int max = Math.min(MAX_SEARCH_RESULTS, Math.max(1, limit));
+        List<String> countries = resolveSearchCountries(countryCode);
+        if (countries.isEmpty()) {
+            return List.of();
+        }
+
+        Instant now = Instant.now();
+        List<TvEpgSearchHitDto> hits = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+
+        for (String cc : countries) {
+            CountryGuide guide = loadGuide(cc);
+            if (guide == null) {
+                continue;
+            }
+
+            List<ScoredHit> scored = new ArrayList<>();
+            for (Map.Entry<String, List<Programme>> entry : guide.byChannel.entrySet()) {
+                String canonical = guide.canonicalId.getOrDefault(entry.getKey(), entry.getKey());
+                for (Programme p : entry.getValue()) {
+                    if (p.stop != null && !p.stop.isAfter(now.minus(Duration.ofHours(1)))) {
+                        continue;
+                    }
+                    int score = matchScore(p, q);
+                    if (score <= 0) {
+                        continue;
+                    }
+                    scored.add(new ScoredHit(cc, canonical, p, score));
+                }
+            }
+            scored.sort(Comparator
+                    .comparingInt((ScoredHit h) -> h.score).reversed()
+                    .thenComparing(h -> h.programme.start, Comparator.nullsLast(Comparator.naturalOrder())));
+
+            for (ScoredHit h : scored) {
+                String dedupe = h.country + "|" + h.channelId.toLowerCase(Locale.ROOT)
+                        + "|" + (h.programme.start != null ? h.programme.start.toString() : "")
+                        + "|" + h.programme.title;
+                if (!seen.add(dedupe)) {
+                    continue;
+                }
+                TvChannelDto channel = channelResolver != null
+                        ? channelResolver.apply(h.country, h.channelId)
+                        : null;
+                hits.add(new TvEpgSearchHitDto(h.country, h.channelId, toDto(h.programme), channel));
+                if (hits.size() >= max) {
+                    return hits;
+                }
+            }
+        }
+        return hits;
+    }
+
+    private static int matchScore(Programme p, String q) {
+        String title = p.title != null ? p.title.toLowerCase(Locale.ROOT) : "";
+        String desc = p.description != null ? p.description.toLowerCase(Locale.ROOT) : "";
+        if (title.equals(q)) {
+            return 100;
+        }
+        if (title.startsWith(q)) {
+            return 80;
+        }
+        if (title.contains(q)) {
+            return 60;
+        }
+        if (desc.contains(q)) {
+            return 20;
+        }
+        return 0;
+    }
+
+    private static List<String> resolveSearchCountries(String countryCode) {
+        if (!StringUtils.hasText(countryCode)) {
+            return List.of();
+        }
+        String cc = countryCode.trim().toLowerCase(Locale.ROOT);
+        if ("all".equals(cc)) {
+            return WORLDWIDE_SEARCH_COUNTRIES;
+        }
+        String normalized = normalizeCountry(cc);
+        return normalized != null ? List.of(normalized) : List.of();
+    }
+
+    private static String cleanChannelId(String rawId) {
+        if (!StringUtils.hasText(rawId)) {
+            return null;
+        }
+        String cleaned = rawId.trim();
+        int hash = cleaned.indexOf('#');
+        if (hash >= 0) {
+            cleaned = cleaned.substring(0, hash);
+        }
+        int at = cleaned.indexOf('@');
+        if (at > 0) {
+            cleaned = cleaned.substring(0, at);
+        }
+        return StringUtils.hasText(cleaned) ? cleaned : null;
     }
 
     private TvEpgNowDto pickNowNext(List<Programme> list, Instant now) {
@@ -401,6 +545,9 @@ public class TvEpgService {
     }
 
     private record Programme(String title, String description, Instant start, Instant stop) {
+    }
+
+    private record ScoredHit(String country, String channelId, Programme programme, int score) {
     }
 
     private record CountryGuide(Map<String, List<Programme>> byChannel, Map<String, String> canonicalId) {

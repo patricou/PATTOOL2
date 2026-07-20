@@ -20,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -239,6 +240,8 @@ public class TvCatalogService {
     private final ConcurrentHashMap<String, CachedPlaylist> cache = new ConcurrentHashMap<>();
     private volatile Integer worldwideCountCache;
     private volatile Instant worldwideCountExpires;
+    private volatile List<String> worldwideGroupsCache;
+    private volatile Instant worldwideGroupsExpires;
 
     @Value("${app.tv.playlist-base-url:https://iptv-org.github.io/iptv/countries}")
     private String playlistBaseUrl;
@@ -342,14 +345,14 @@ public class TvCatalogService {
 
     /**
      * Search channel name/group across all configured countries.
-     * Requires a query of at least 2 characters; capped by {@code limit}.
+     * Requires a name query of at least 2 characters <strong>or</strong> a non-empty category filter.
      */
     public List<TvChannelDto> searchAllCountries(String query, String group, int limit) {
         String q = query != null ? query.trim().toLowerCase(Locale.ROOT) : "";
-        if (q.length() < 2) {
+        String groupFilter = group != null ? group.trim().toLowerCase(Locale.ROOT) : "";
+        if (q.length() < 2 && groupFilter.isEmpty()) {
             return Collections.emptyList();
         }
-        String groupFilter = group != null ? group.trim().toLowerCase(Locale.ROOT) : "";
         int max = Math.max(1, Math.min(limit <= 0 ? 200 : limit, 500));
         List<TvChannelDto> out = new ArrayList<>(Math.min(max, 64));
         for (String countryCode : COUNTRY_CODES) {
@@ -358,7 +361,7 @@ public class TvCatalogService {
                 continue;
             }
             for (TvChannelDto ch : channels) {
-                if (!matchesQuery(ch, q)) {
+                if (q.length() >= 2 && !matchesQuery(ch, q)) {
                     continue;
                 }
                 if (!groupFilter.isEmpty()
@@ -373,6 +376,50 @@ public class TvCatalogService {
             }
         }
         return out;
+    }
+
+    /**
+     * Distinct primary {@code group-title} values for one country, or the worldwide union when {@code all}.
+     */
+    public List<String> listGroups(String country) {
+        if (isAllCountries(country)) {
+            Instant now = Instant.now();
+            List<String> cached = worldwideGroupsCache;
+            Instant expires = worldwideGroupsExpires;
+            if (cached != null && expires != null && expires.isAfter(now)) {
+                return cached;
+            }
+            TreeSet<String> groups = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+            for (String code : COUNTRY_CODES) {
+                collectPrimaryGroups(listChannels(code), groups);
+            }
+            List<String> result = List.copyOf(groups);
+            worldwideGroupsCache = result;
+            worldwideGroupsExpires = now.plus(Duration.ofMinutes(Math.max(5, cacheMinutes)));
+            return result;
+        }
+        if (!isSupportedCountry(country)) {
+            return Collections.emptyList();
+        }
+        TreeSet<String> groups = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        collectPrimaryGroups(listChannels(country), groups);
+        return List.copyOf(groups);
+    }
+
+    private static void collectPrimaryGroups(List<TvChannelDto> channels, TreeSet<String> groups) {
+        if (channels == null) {
+            return;
+        }
+        for (TvChannelDto ch : channels) {
+            String g = ch.getGroup();
+            if (g == null || g.isBlank()) {
+                continue;
+            }
+            String primary = g.split(";")[0].trim();
+            if (!primary.isEmpty()) {
+                groups.add(primary);
+            }
+        }
     }
 
     /**

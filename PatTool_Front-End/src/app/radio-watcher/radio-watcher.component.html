@@ -1,0 +1,444 @@
+<div class="pat-title">
+  <h2 class="radio-page-title">
+    <span class="radio-title-icon" aria-hidden="true">
+      <i class="fa fa-headphones"></i>
+    </span>
+    {{ 'RADIO.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="radio-page">
+  <div class="alert alert-info py-2 px-3 small radio-float-banner" *ngIf="isFloatingOpen" role="status">
+    <i class="fa fa-window-restore me-1"></i>
+    {{ 'RADIO.FLOAT_ACTIVE_BANNER' | translate }}
+    <button type="button" class="btn btn-link btn-sm p-0 ms-2 align-baseline" (click)="closeFloatingWindow()">
+      {{ 'RADIO.FLOAT_CLOSE' | translate }}
+    </button>
+  </div>
+
+  <div class="radio-layout">
+    <aside class="radio-sidebar">
+      <div class="radio-mode-tabs" role="tablist">
+        <button
+          type="button"
+          class="radio-mode-tab"
+          role="tab"
+          [class.active]="listMode === 'catalog'"
+          [attr.aria-selected]="listMode === 'catalog'"
+          (click)="setListMode('catalog')">
+          <i class="fa fa-globe me-1"></i>
+          {{ 'RADIO.TAB_CATALOG' | translate }}
+          <span
+            class="badge rounded-pill radio-count-badge"
+            *ngIf="catalogTabCount > 0 || isLoadingCatalogCount"
+            [attr.title]="'RADIO.STATION_COUNT' | translate:{ count: catalogTabCount }">
+            <i class="fa fa-spinner fa-spin" *ngIf="isLoadingCatalogCount && catalogTabCount <= 0" aria-hidden="true"></i>
+            <ng-container *ngIf="catalogTabCount > 0">{{ catalogTabCount }}</ng-container>
+          </span>
+        </button>
+        <button
+          type="button"
+          class="radio-mode-tab"
+          role="tab"
+          [class.active]="listMode === 'favorites'"
+          [attr.aria-selected]="listMode === 'favorites'"
+          (click)="setListMode('favorites')">
+          <i class="fa fa-star me-1"></i>
+          {{ 'RADIO.TAB_FAVORITES' | translate }}
+          <span
+            class="badge rounded-pill radio-fav-badge"
+            *ngIf="listMode === 'favorites' ? filteredStationCount >= 0 && !isLoadingFavorites : favorites.length > 0">
+            {{ listMode === 'favorites' ? filteredStationCount : favorites.length }}
+          </span>
+        </button>
+      </div>
+
+      <div class="radio-filters-panel">
+        <button
+          type="button"
+          class="radio-filters-toggle"
+          (click)="toggleFiltersCollapsed()"
+          [attr.aria-expanded]="!filtersCollapsed"
+          [attr.title]="(filtersCollapsed ? 'RADIO.FILTERS_SHOW' : 'RADIO.FILTERS_HIDE') | translate"
+          [attr.aria-label]="(filtersCollapsed ? 'RADIO.FILTERS_SHOW' : 'RADIO.FILTERS_HIDE') | translate">
+          <span class="radio-filters-toggle-label">
+            <i class="fa fa-filter" aria-hidden="true"></i>
+            {{ 'RADIO.FILTERS' | translate }}
+            <span
+              class="badge rounded-pill radio-filters-active-badge"
+              *ngIf="filtersCollapsed && hasFilterInputs"
+              [attr.title]="'RADIO.STATION_COUNT_FILTERED' | translate">
+              <i class="fa fa-circle" aria-hidden="true"></i>
+            </span>
+          </span>
+          <i
+            class="fa radio-filters-toggle-caret"
+            [class.fa-chevron-down]="filtersCollapsed"
+            [class.fa-chevron-up]="!filtersCollapsed"
+            aria-hidden="true"></i>
+        </button>
+
+        <div class="radio-filters-body" *ngIf="!filtersCollapsed" id="radio-filters-body">
+          <div class="radio-filters" *ngIf="listMode === 'catalog'">
+            <label class="form-label small mb-1" id="radio-country-label">
+              {{ 'RADIO.COUNTRY' | translate }}
+            </label>
+            <div class="radio-country-picker" (click)="$event.stopPropagation()">
+              <button
+                type="button"
+                class="radio-country-btn form-select form-select-sm"
+                id="radio-country"
+                [attr.aria-labelledby]="'radio-country-label'"
+                [attr.aria-expanded]="countryMenuOpen"
+                [disabled]="isLoadingCountries"
+                (click)="toggleCountryMenu($event)">
+                <span
+                  *ngIf="!isAllCountries && countryFlagCode(selectedCountry) as flagCode"
+                  class="fi fi-{{ flagCode }} radio-fi-flag"
+                  aria-hidden="true"></span>
+                <i *ngIf="isAllCountries" class="fa fa-globe radio-country-globe" aria-hidden="true"></i>
+                <span class="radio-country-btn-label">{{ selectedCountryName() }}</span>
+                <i class="fa fa-caret-down radio-country-caret" aria-hidden="true"></i>
+              </button>
+              <div class="radio-country-menu" *ngIf="countryMenuOpen" role="listbox" [attr.aria-label]="'RADIO.COUNTRY' | translate">
+                <div class="radio-country-filter-wrap" (click)="$event.stopPropagation()">
+                  <input
+                    type="search"
+                    class="form-control form-control-sm radio-country-filter"
+                    [(ngModel)]="countryFilter"
+                    [placeholder]="'RADIO.COUNTRY_FILTER' | translate"
+                    autocomplete="off"
+                    (keydown.escape)="countryMenuOpen = false" />
+                </div>
+                <button
+                  type="button"
+                  class="radio-country-option"
+                  role="option"
+                  [attr.aria-selected]="isAllCountries"
+                  [class.active]="isAllCountries"
+                  (click)="selectCountry('all', $event)">
+                  <i class="fa fa-globe radio-country-globe" aria-hidden="true"></i>
+                  <span>{{ 'RADIO.COUNTRY_ALL' | translate }}</span>
+                </button>
+                <button
+                  type="button"
+                  class="radio-country-option"
+                  role="option"
+                  *ngFor="let c of filteredCountries"
+                  [attr.aria-selected]="selectedCountry === c.code"
+                  [class.active]="selectedCountry === c.code"
+                  (click)="selectCountry(c.code, $event)">
+                  <span class="fi fi-{{ countryFlagCode(c.code) }} radio-fi-flag" aria-hidden="true"></span>
+                  <span>{{ c.name }}</span>
+                </button>
+                <div
+                  class="radio-country-empty small text-muted"
+                  *ngIf="countryFilter.trim() && filteredCountries.length === 0">
+                  {{ 'RADIO.COUNTRY_FILTER_EMPTY' | translate }}
+                </div>
+                <div
+                  class="radio-country-empty small text-danger"
+                  *ngIf="!countryFilter.trim() && countries.length === 0 && !isLoadingCountries">
+                  {{ (countriesError || 'RADIO.ERR_COUNTRIES') | translate }}
+                </div>
+              </div>
+            </div>
+
+            <label class="form-label small mb-1 mt-2" for="radio-tag" *ngIf="!isAllCountries">
+              <i class="fa fa-music me-1" aria-hidden="true"></i>
+              {{ 'RADIO.TAG' | translate }}
+            </label>
+            <select
+              id="radio-tag"
+              class="form-select form-select-sm"
+              *ngIf="!isAllCountries"
+              [(ngModel)]="selectedTag"
+              (ngModelChange)="onTagChange()">
+              <option value="">{{ 'RADIO.TAG_ALL' | translate }}</option>
+              <option *ngFor="let t of tags" [value]="t">{{ t }}</option>
+            </select>
+          </div>
+
+          <div class="radio-filters" [class.radio-filters--search-only]="listMode === 'favorites'">
+            <label class="form-label small mb-1" for="radio-search-station">
+              {{ 'RADIO.SEARCH_STATION' | translate }}
+            </label>
+            <div class="input-group input-group-sm">
+              <input
+                id="radio-search-station"
+                type="search"
+                class="form-control"
+                [ngModel]="stationQuery"
+                (ngModelChange)="onStationSearchInput($event)"
+                [placeholder]="(isAllCountries ? 'RADIO.SEARCH_PLACEHOLDER_ALL' : 'RADIO.SEARCH_PLACEHOLDER') | translate"
+                autocomplete="off" />
+              <button
+                type="button"
+                class="btn btn-outline-secondary"
+                *ngIf="stationQuery"
+                (click)="clearStationSearch()"
+                [attr.aria-label]="'RADIO.CLEAR_SEARCH' | translate">
+                <i class="fa fa-times"></i>
+              </button>
+            </div>
+            <div class="radio-worldwide-hint small text-muted mt-1" *ngIf="listMode === 'catalog' && worldwideSearchHint">
+              <i class="fa fa-globe me-1" aria-hidden="true"></i>
+              {{ 'RADIO.SEARCH_WORLDWIDE_HINT' | translate }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="radio-channel-meta" *ngIf="listMode === 'catalog' || listMode === 'favorites'" role="status">
+        <span *ngIf="listMode === 'catalog' && isLoadingStations">
+          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
+          {{ 'RADIO.LOADING' | translate }}
+        </span>
+        <span *ngIf="listMode === 'favorites' && isLoadingFavorites">
+          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
+          {{ 'RADIO.LOADING_FAVORITES' | translate }}
+        </span>
+        <span *ngIf="listMode === 'catalog' && !isLoadingStations" class="radio-channel-meta-count">
+          <i class="fa fa-headphones me-1" aria-hidden="true"></i>
+          {{ 'RADIO.STATION_COUNT' | translate:{ count: (isAllCountries && !stationQuery.trim() ? catalogTabCount : filteredStationCount) } }}
+          <span class="radio-channel-meta-filter" *ngIf="hasActiveFilters && !(isAllCountries && !stationQuery.trim())">{{ 'RADIO.STATION_COUNT_FILTERED' | translate }}</span>
+        </span>
+        <span *ngIf="listMode === 'favorites' && !isLoadingFavorites" class="radio-channel-meta-count">
+          <i class="fa fa-star me-1" aria-hidden="true"></i>
+          {{ 'RADIO.FAVORITE_COUNT' | translate:{ count: filteredStationCount } }}
+          <span class="radio-channel-meta-filter" *ngIf="stationQuery.trim()">{{ 'RADIO.STATION_COUNT_FILTERED' | translate }}</span>
+        </span>
+      </div>
+
+      <div *ngIf="stationsError && listMode === 'catalog'" class="alert alert-warning py-2 px-2 small mb-2 mx-2">
+        {{ stationsError | translate }}
+      </div>
+      <div *ngIf="favoritesError" class="alert alert-warning py-2 px-2 small mb-2 mx-2">
+        {{ favoritesError | translate }}
+      </div>
+      <div *ngIf="favoritesHint" class="alert alert-info py-2 px-2 small mb-2 mx-2">
+        {{ favoritesHint | translate }}
+      </div>
+
+      <ul class="radio-channel-list" role="listbox" [attr.aria-label]="'RADIO.STATIONS' | translate">
+        <li
+          *ngFor="let st of displayedStations; trackBy: trackByStationId"
+          class="radio-channel-item"
+          [class.active]="selectedStation?.id === st.id"
+          role="option"
+          [attr.aria-selected]="selectedStation?.id === st.id"
+          (click)="selectStation(st)"
+          (keydown.enter)="selectStation(st)"
+          tabindex="0">
+          <img
+            *ngIf="stationLogo(st) as logo"
+            class="radio-channel-logo"
+            [src]="logo"
+            alt=""
+            loading="lazy"
+            (error)="$any($event.target).style.display='none'" />
+          <span *ngIf="!stationLogo(st)" class="radio-channel-logo radio-channel-logo--placeholder">
+            <i class="fa fa-headphones"></i>
+          </span>
+          <span class="radio-channel-text">
+            <span class="radio-channel-name">{{ st.name }}</span>
+            <span class="radio-channel-group" *ngIf="primaryTag(st) || st.country || st.codec">
+              <span
+                *ngIf="countryFlagCode(st.country) as flagCode"
+                class="fi fi-{{ flagCode }} radio-fi-flag radio-channel-flag"
+                [attr.title]="countryLabel(st.country)"
+                aria-hidden="true"></span>
+              <ng-container *ngIf="primaryTag(st)">{{ primaryTag(st) }}</ng-container>
+              <ng-container *ngIf="primaryTag(st) && st.codec"> · </ng-container>
+              <ng-container *ngIf="st.codec">{{ st.codec }}</ng-container>
+            </span>
+          </span>
+          <button
+            type="button"
+            class="radio-fav-btn"
+            [class.is-fav]="isFavorite(st)"
+            [disabled]="favoriteBusyId === st.id"
+            (click)="toggleFavorite(st, $event)"
+            [attr.title]="(isFavorite(st) ? 'RADIO.UNFAVORITE' : 'RADIO.FAVORITE') | translate"
+            [attr.aria-label]="(isFavorite(st) ? 'RADIO.UNFAVORITE' : 'RADIO.FAVORITE') | translate">
+            <i class="fa" [class.fa-star]="isFavorite(st)" [class.fa-star-o]="!isFavorite(st)"></i>
+          </button>
+        </li>
+        <li *ngIf="listMode === 'catalog' && !isLoadingStations && !displayedStations.length" class="radio-empty text-muted small">
+          {{ 'RADIO.NO_STATIONS' | translate }}
+        </li>
+        <li *ngIf="listMode === 'favorites' && !isLoadingFavorites && !displayedStations.length" class="radio-empty text-muted small">
+          {{ (isLoggedIn ? 'RADIO.NO_FAVORITES' : 'RADIO.FAVORITES_LOGIN') | translate }}
+        </li>
+      </ul>
+    </aside>
+
+    <section class="radio-player-panel" aria-label="Radio">
+      <div
+        class="radio-player-frame"
+        [class.radio-player-frame--chrome-hidden]="selectedStation && !chromeVisible"
+        [class.radio-player-frame--share-open]="shareMenuOpen"
+        (mouseenter)="onRadioPointerEnter()"
+        (mousemove)="onRadioPointerMove()"
+        (mouseleave)="onRadioPointerLeave()"
+        (touchstart)="onRadioPointerEnter()">
+        <div
+          class="radio-video-wrap"
+          [class.radio-video-wrap--empty]="!selectedStation || isFloatingOpen">
+          <video
+            #mediaEl
+            class="radio-video radio-audio-el"
+            playsinline
+            [class.radio-video--hidden]="!selectedStation || isFloatingOpen"
+            [class.radio-video--error]="!!playError"
+            (volumechange)="onMediaVolumeChange()"></video>
+
+          <div class="radio-placeholder" *ngIf="!selectedStation && !isFloatingOpen && !playError">
+            <i class="fa fa-headphones radio-placeholder-icon"></i>
+            <p>{{ 'RADIO.PICK_STATION' | translate }}</p>
+            <p class="small text-muted mb-0">{{ 'RADIO.NOTE_FREE' | translate }}</p>
+          </div>
+          <div class="radio-placeholder" *ngIf="isFloatingOpen">
+            <i class="fa fa-window-restore radio-placeholder-icon"></i>
+            <p>{{ 'RADIO.FLOAT_ACTIVE_BANNER' | translate }}</p>
+            <button type="button" class="btn btn-sm btn-outline-light mt-1" (click)="closeFloatingWindow()">
+              {{ 'RADIO.FLOAT_CLOSE' | translate }}
+            </button>
+          </div>
+          <div class="radio-buffering" *ngIf="selectedStation && isBuffering && !playError && !isFloatingOpen">
+            <i class="fa fa-spinner fa-spin"></i>
+            {{ 'RADIO.BUFFERING' | translate }}
+          </div>
+          <div
+            class="radio-audio-stage"
+            *ngIf="selectedStation && !isFloatingOpen && !playError">
+            <img
+              *ngIf="stationLogo(selectedStation) as logo"
+              class="radio-audio-logo"
+              [src]="logo"
+              [alt]="selectedStation.name"
+              (error)="$any($event.target).style.display='none'" />
+            <div class="radio-audio-label">
+              <i class="fa fa-headphones" aria-hidden="true"></i>
+              {{ selectedStation.name }}
+            </div>
+          </div>
+          <div
+            class="radio-unmute-hint"
+            *ngIf="selectedStation && (isMuted || volumePercent === 0) && !isFloatingOpen && !playError"
+            (click)="ensureSound($event)">
+            <i class="fa fa-volume-up" aria-hidden="true"></i>
+            {{ 'RADIO.UNMUTE' | translate }}
+          </div>
+          <div class="radio-play-error" *ngIf="playError" role="alert">
+            {{ formatPlayError(playError) }}
+          </div>
+        </div>
+
+        <div
+          class="radio-chrome"
+          *ngIf="selectedStation"
+          [class.radio-chrome--hidden]="!chromeVisible"
+          [class.radio-chrome--share-open]="shareMenuOpen"
+          [attr.aria-hidden]="!chromeVisible">
+          <div class="radio-now-playing">
+            <div class="radio-now-info">
+              <img
+                *ngIf="stationLogo(selectedStation) as logo"
+                class="radio-now-logo"
+                [src]="logo"
+                alt=""
+                (error)="$any($event.target).style.display='none'" />
+              <div class="radio-now-text">
+                <div class="radio-now-name">{{ selectedStation.name }}</div>
+                <div class="radio-now-meta text-muted small">
+                  <span
+                    *ngIf="countryFlagCode(selectedStation.country) as flagCode"
+                    class="fi fi-{{ flagCode }} radio-fi-flag radio-now-country"
+                    [attr.title]="countryLabel(selectedStation.country)"
+                    aria-hidden="true"></span>
+                  <span *ngIf="primaryTag(selectedStation)">{{ primaryTag(selectedStation) }}</span>
+                  <span *ngIf="primaryTag(selectedStation) && selectedStation.codec"> · </span>
+                  <span *ngIf="selectedStation.codec">{{ selectedStation.codec }}</span>
+                  <span *ngIf="formatBitrate(selectedStation)"> · {{ formatBitrate(selectedStation) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="radio-now-actions" [class.radio-now-actions--share-open]="shareMenuOpen" role="toolbar">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-light radio-now-action"
+                (click)="toggleMute()"
+                [disabled]="isFloatingOpen"
+                [attr.title]="(isMuted || volumePercent === 0 ? 'RADIO.UNMUTE' : 'RADIO.MUTE') | translate">
+                <i class="fa" [class.fa-volume-off]="isMuted || volumePercent === 0" [class.fa-volume-up]="!(isMuted || volumePercent === 0)"></i>
+              </button>
+              <label class="radio-volume-slider-wrap" *ngIf="!isFloatingOpen">
+                <input
+                  type="range"
+                  class="radio-volume-slider"
+                  min="0"
+                  max="100"
+                  step="1"
+                  [ngModel]="volumePercent"
+                  (ngModelChange)="onVolumeSlider($event)"
+                  [attr.aria-label]="'RADIO.VOLUME' | translate"
+                  [attr.title]="'RADIO.VOLUME_LEVEL' | translate:{ percent: volumePercent }" />
+              </label>
+
+              <button
+                type="button"
+                class="btn btn-sm btn-primary radio-now-action"
+                *ngIf="!isFloatingOpen"
+                (click)="openFloatingWindow()"
+                [attr.title]="'RADIO.FLOAT_OPEN' | translate">
+                <i class="fa fa-window-restore"></i>
+              </button>
+
+              <div class="radio-share-wrap">
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-light radio-now-action"
+                  (click)="toggleShareMenu($event)"
+                  [attr.title]="'RADIO.SHARE' | translate">
+                  <i class="fa fa-share-alt"></i>
+                </button>
+                <div class="radio-share-menu" *ngIf="shareMenuOpen">
+                  <button type="button" class="radio-share-menu-item" *ngIf="canNativeShare" (click)="shareNative()">
+                    {{ 'RADIO.SHARE_NATIVE' | translate }}
+                  </button>
+                  <button type="button" class="radio-share-menu-item radio-share-menu-item--wa" (click)="shareWhatsApp()">
+                    {{ 'RADIO.SHARE_WHATSAPP' | translate }}
+                  </button>
+                  <button type="button" class="radio-share-menu-item" (click)="copyShareLink()">
+                    {{ 'RADIO.SHARE_COPY' | translate }}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-light radio-now-action"
+                (click)="toggleFavorite(selectedStation!, $event)"
+                [attr.title]="(isFavorite(selectedStation!) ? 'RADIO.UNFAVORITE' : 'RADIO.FAVORITE') | translate">
+                <i class="fa" [class.fa-star]="isFavorite(selectedStation!)" [class.fa-star-o]="!isFavorite(selectedStation!)"></i>
+              </button>
+
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-danger radio-now-action"
+                (click)="stopPlayback()"
+                [attr.title]="'RADIO.STOP' | translate">
+                <i class="fa fa-stop"></i>
+              </button>
+            </div>
+          </div>
+          <div class="small text-success px-2 pb-1" *ngIf="shareFeedback">{{ shareFeedback | translate }}</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <p class="radio-lead text-muted radio-footer">{{ 'RADIO.SUBTITLE' | translate }}</p>
+</div>

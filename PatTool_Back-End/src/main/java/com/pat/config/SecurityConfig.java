@@ -269,6 +269,14 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/epg/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/live/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/stream", "/api/external/tv/stream/**").permitAll()
+                // World radio catalog + stream proxy (radio-browser.info) — public read-only
+                // Favorites (GET/PUT/DELETE /api/external/radio/favorites**) stay authenticated via /api/**
+                .requestMatchers(HttpMethod.GET, "/api/external/radio/countries").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/radio/station-count").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/radio/stations").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/radio/stations/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/radio/tags").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/radio/stream", "/api/external/radio/stream/**").permitAll()
                 // Stellarium Web — sky map viewer + Noctua Sky catalogue proxy (read-only)
                 .requestMatchers(HttpMethod.GET, "/api/external/stellarium/**").permitAll()
                 // Tirages Loto importés (lecture seule, données publiques d'archive)
@@ -351,6 +359,7 @@ public class SecurityConfig {
             "Access-Control-Request-Method",
             "Access-Control-Request-Headers",
             "Cache-Control", // Required for SSE streaming
+            "Range", // HLS / media segment byte-range requests
             "user-id", // Custom header used by your app
             "visibility-filter", // Custom header for visibility filtering
             "admin-override", // Custom header for admin override to see all events
@@ -369,6 +378,8 @@ public class SecurityConfig {
             "Location",
             "Content-Disposition",
             "Cache-Control",
+            "Content-Range",
+            "Accept-Ranges",
             "X-Upload-Error",
             "X-Pat-Cache"
         ));

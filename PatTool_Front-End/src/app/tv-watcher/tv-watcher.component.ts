@@ -15,7 +15,7 @@ import { Subject, Subscription, forkJoin, of } from 'rxjs';
 import { debounceTime, distinctUntilChanged, catchError } from 'rxjs/operators';
 import Hls from 'hls.js';
 
-import { ApiService, TvChannel, TvCountry, TvEpgNow } from '../services/api.service';
+import { ApiService, TvChannel, TvCountry, TvEpgNow, TvEpgProgramme, TvEpgSearchHit } from '../services/api.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { TvPlayerService } from '../services/tv-player.service';
 import {
@@ -62,7 +62,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   selectedGroup = '';
   /** Filter by channel name / group / country. */
   channelQuery = '';
-  /** Filter by EPG now/next programme title. */
+  /** Filter by EPG programme title (server-side search). */
   programQuery = '';
   selectedChannel: TvChannel | null = null;
   /** Hint when « all countries » is selected but the query is too short. */
@@ -109,6 +109,17 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   epgById: Record<string, TvEpgNow> = {};
   isLoadingEpg = false;
 
+  /** Server-side programme search results. */
+  programSearchHits: TvEpgSearchHit[] = [];
+  private programSearchEpgIds = new Set<string>();
+  isLoadingProgramSearch = false;
+
+  /** Full EPG schedule panel for the selected channel. */
+  guideOpen = false;
+  guideProgrammes: TvEpgProgramme[] = [];
+  isLoadingGuide = false;
+  guideError = '';
+
   private catalogCountSub?: Subscription;
   private hls: Hls | null = null;
   private detachHlsLiveSync: (() => void) | null = null;
@@ -120,6 +131,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   private resumeSub?: Subscription;
   private lastChannelSaveSub?: Subscription;
   private epgSub?: Subscription;
+  private programSearchHttpSub?: Subscription;
+  private guideSub?: Subscription;
   private epgRefreshTimer: ReturnType<typeof setInterval> | null = null;
   private restoredLastChannel = false;
   private chromeHideTimer: ReturnType<typeof setTimeout> | null = null;
@@ -133,10 +146,6 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   /** Max length for virtual stream tokens in share links (not full http URLs). */
   private static readonly SHARE_STREAM_MAX_LEN = 80;
   private static readonly EPG_REFRESH_MS = 5 * 60 * 1000;
-  /** Countries scanned for worldwide programme-title search (EPG now/next). */
-  private static readonly WORLDWIDE_PROGRAM_COUNTRIES = [
-    'fr', 'us', 'gb', 'de', 'es', 'it', 'be', 'ch', 'ca', 'nl', 'pt', 'pl'
-  ];
 
   constructor(
     private api: ApiService,
@@ -220,7 +229,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     }
     if (this.isAllCountries) {
       const searching =
-        this.channelQuery.trim().length >= 2 || this.programQuery.trim().length >= 2;
+        this.channelQuery.trim().length >= 2
+        || this.programQuery.trim().length >= 2
+        || !!this.selectedGroup;
       if (!searching && this.catalogTotalCount > 0) {
         return this.catalogTotalCount;
       }
@@ -259,12 +270,20 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     return false;
   }
 
-  /** Match EPG now / next programme title. */
+  /** Match EPG programme via server search hits (full guide window). */
   matchesProgramQuery(channel: TvChannel, queryLower: string): boolean {
     const q = (queryLower || '').trim().toLowerCase();
     if (!q || !channel) {
       return true;
     }
+    if (q.length < 2) {
+      return true;
+    }
+    const epgId = resolveEpgChannelId(channel);
+    if (epgId && this.programSearchEpgIds.has(epgLookupKey(epgId))) {
+      return true;
+    }
+    // Fallback while search loads / for favorites without a hit yet.
     const epg = this.epgFor(channel);
     if ((epg?.now?.title || '').toLowerCase().includes(q)) {
       return true;
@@ -286,14 +305,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         }
       });
     this.programSearchSub = this.programSearch$
-      .pipe(debounceTime(200), distinctUntilChanged())
-      .subscribe(() => {
-        if (this.listMode === 'catalog' && this.isAllCountries) {
-          this.loadChannels();
-        } else if (this.programQuery.trim()) {
-          this.refreshEpg();
-        }
-        this.cdr.markForCheck();
+      .pipe(debounceTime(320), distinctUntilChanged())
+      .subscribe((q) => {
+        this.runProgramSearch(q);
       });
 
     this.resumeSub = this.tvPlayer.resumeOnPage$.subscribe((channel) => {
@@ -325,6 +339,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       this.epgRefreshTimer = null;
     }
     this.epgSub?.unsubscribe();
+    this.programSearchHttpSub?.unsubscribe();
+    this.guideSub?.unsubscribe();
     this.channelSearchSub?.unsubscribe();
     this.programSearchSub?.unsubscribe();
     this.channelsSub?.unsubscribe();
@@ -379,11 +395,11 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   private scheduleChromeHide(delayMs = TvWatcherComponent.CHROME_HIDE_MS): void {
     this.clearChromeHideTimer();
-    if (!this.selectedChannel || this.isMuted || this.shareMenuOpen) {
+    if (!this.selectedChannel || this.isMuted || this.shareMenuOpen || this.guideOpen) {
       return;
     }
     this.chromeHideTimer = setTimeout(() => {
-      if (this.shareMenuOpen) {
+      if (this.shareMenuOpen || this.guideOpen) {
         this.chromeHideTimer = null;
         return;
       }
@@ -409,6 +425,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       this.favoritesHint = 'TV.FAVORITES_LOGIN';
     }
     this.refreshEpg();
+    if (this.programQuery.trim().length >= 2) {
+      this.runProgramSearch(this.programQuery.trim().toLowerCase());
+    }
     this.cdr.markForCheck();
   }
 
@@ -427,6 +446,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.countryMenuOpen = false;
     this.loadCatalogCount();
     this.loadChannels();
+    if (this.programQuery.trim().length >= 2) {
+      this.runProgramSearch(this.programQuery.trim().toLowerCase());
+    }
   }
 
   toggleCountryMenu(event?: Event): void {
@@ -469,9 +491,6 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   onGroupChange(): void {
-    if (this.isAllCountries) {
-      return;
-    }
     this.loadChannels();
   }
 
@@ -493,7 +512,197 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   clearProgramSearch(): void {
     this.programQuery = '';
+    this.clearProgramSearchState();
     this.programSearch$.next('');
+    if (this.listMode === 'catalog' && this.isAllCountries && !this.channelQuery.trim()) {
+      this.loadChannels();
+    }
+  }
+
+  /** Matched programme title from server search for list hints. */
+  programSearchTitle(channel: TvChannel | null | undefined): string {
+    if (!channel || !this.programQuery.trim()) {
+      return '';
+    }
+    const epgId = resolveEpgChannelId(channel);
+    if (!epgId) {
+      return '';
+    }
+    const key = epgLookupKey(epgId);
+    const hit = this.programSearchHits.find((h) => epgLookupKey(h.channelId) === key);
+    return (hit?.programme?.title || '').trim();
+  }
+
+  /** Label + title shown under each channel in the sidebar. */
+  channelListEpgLine(channel: TvChannel | null | undefined): { labelKey: string; title: string } | null {
+    const hit = this.programSearchTitle(channel);
+    if (hit) {
+      return { labelKey: 'TV.SEARCH_PROGRAM', title: hit };
+    }
+    const now = this.epgNowTitle(channel);
+    if (now) {
+      return { labelKey: 'TV.EPG_NOW', title: now };
+    }
+    return null;
+  }
+
+  toggleGuide(): void {
+    if (this.guideOpen) {
+      this.closeGuide();
+      return;
+    }
+    this.guideOpen = true;
+    this.showChrome(true);
+    this.loadGuideSchedule();
+  }
+
+  closeGuide(): void {
+    this.guideOpen = false;
+    this.guideError = '';
+    this.guideSub?.unsubscribe();
+    this.cdr.markForCheck();
+  }
+
+  isProgrammeLive(programme: TvEpgProgramme | null | undefined): boolean {
+    if (!programme?.start || !programme?.stop) {
+      return false;
+    }
+    const start = new Date(programme.start).getTime();
+    const stop = new Date(programme.stop).getTime();
+    const now = Date.now();
+    return !Number.isNaN(start) && !Number.isNaN(stop) && start <= now && now < stop;
+  }
+
+  formatEpgDay(iso: string | null | undefined): string {
+    if (!iso) {
+      return '';
+    }
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) {
+      return '';
+    }
+    return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+
+  private loadGuideSchedule(): void {
+    const channel = this.selectedChannel;
+    const epgId = resolveEpgChannelId(channel);
+    if (!channel || !epgId) {
+      this.guideProgrammes = [];
+      this.guideError = 'TV.EPG_GUIDE_EMPTY';
+      this.isLoadingGuide = false;
+      this.cdr.markForCheck();
+      return;
+    }
+    let cc = (channel.country || this.selectedCountry || 'fr').toLowerCase();
+    if (!cc || cc === 'all' || cc.length !== 2) {
+      cc = 'fr';
+    }
+    this.guideSub?.unsubscribe();
+    this.isLoadingGuide = true;
+    this.guideError = '';
+    this.guideSub = this.api.getTvEpgSchedule(cc, epgId).subscribe({
+      next: (schedule) => {
+        this.guideProgrammes = schedule?.programmes || [];
+        this.isLoadingGuide = false;
+        if (!this.guideProgrammes.length) {
+          this.guideError = 'TV.EPG_GUIDE_EMPTY';
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.guideProgrammes = [];
+        this.isLoadingGuide = false;
+        this.guideError = 'TV.EPG_GUIDE_ERROR';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private clearProgramSearchState(): void {
+    this.programSearchHits = [];
+    this.programSearchEpgIds = new Set();
+    this.isLoadingProgramSearch = false;
+    this.programSearchHttpSub?.unsubscribe();
+  }
+
+  private runProgramSearch(queryLower: string): void {
+    const q = (queryLower || '').trim();
+    if (q.length < 2) {
+      this.clearProgramSearchState();
+      if (this.listMode === 'catalog' && this.isAllCountries && !this.channelQuery.trim()) {
+        this.channels = [];
+        this.worldwideSearchHint = true;
+        this.isLoadingChannels = false;
+      }
+      this.cdr.markForCheck();
+      return;
+    }
+
+    const country =
+      this.listMode === 'favorites'
+        ? 'all'
+        : this.isAllCountries
+          ? 'all'
+          : (this.selectedCountry || 'fr');
+
+    this.programSearchHttpSub?.unsubscribe();
+    this.isLoadingProgramSearch = true;
+    this.worldwideSearchHint = false;
+    this.cdr.markForCheck();
+
+    this.programSearchHttpSub = this.api.getTvEpgSearch(country, q, 50).subscribe({
+      next: (hits) => {
+        this.programSearchHits = hits || [];
+        const ids = new Set<string>();
+        for (const hit of this.programSearchHits) {
+          const id = epgLookupKey(hit.channelId);
+          if (id) {
+            ids.add(id);
+          }
+        }
+        this.programSearchEpgIds = ids;
+        this.isLoadingProgramSearch = false;
+
+        if (this.listMode === 'catalog' && this.isAllCountries && !this.channelQuery.trim()) {
+          if (!this.selectedGroup) {
+            this.applyWorldwideProgramHits(this.programSearchHits);
+          }
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.programSearchHits = [];
+        this.programSearchEpgIds = new Set();
+        this.isLoadingProgramSearch = false;
+        if (this.listMode === 'catalog' && this.isAllCountries && !this.channelQuery.trim()) {
+          this.channels = [];
+        }
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  /** Build the worldwide channel list from EPG search hits that include catalog channels. */
+  private applyWorldwideProgramHits(hits: TvEpgSearchHit[]): void {
+    const seen = new Set<string>();
+    const merged: TvChannel[] = [];
+    for (const hit of hits || []) {
+      const ch = hit.channel;
+      if (!ch) {
+        continue;
+      }
+      const key = (ch.id || ch.streamUrl || ch.name || '').toLowerCase();
+      if (!key || seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      merged.push(ch);
+    }
+    this.channels = this.sortChannelsByName(merged);
+    this.isLoadingChannels = false;
+    this.applyPendingShareChannel();
+    this.refreshEpg();
   }
 
   countryLabel(code: string | null | undefined): string {
@@ -516,6 +725,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.persistLastWatchedChannel(channel);
     if (!this.epgFor(channel)) {
       this.refreshEpg();
+    }
+    if (this.guideOpen) {
+      this.loadGuideSchedule();
     }
     if (this.usesTf1Workaround(channel) && this.tf1Configured === false
         && !resolveTvStreamUrl(channel).endsWith(':lci')) {
@@ -1224,12 +1436,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     const country = this.selectedCountry || 'fr';
     const channelQ = (this.channelQuery || '').trim();
     const programQ = (this.programQuery || '').trim();
+    const group = (this.selectedGroup || '').trim();
 
     if (country.toLowerCase() === 'all') {
-      this.groups = [];
-      this.selectedGroup = '';
-      if (channelQ.length >= 2) {
-        this.channelsSub = this.api.getTvChannels('all', channelQ).subscribe({
+      this.loadWorldwideGroups();
+      if (channelQ.length >= 2 || group) {
+        this.channelsSub = this.api.getTvChannels('all', channelQ.length >= 2 ? channelQ : undefined, group || undefined).subscribe({
           next: (list) => {
             this.channels = this.sortChannelsByName(list || []);
             this.isLoadingChannels = false;
@@ -1247,7 +1459,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         return;
       }
       if (programQ.length >= 2) {
-        this.loadWorldwideProgramPool();
+        // Channel list is filled by runProgramSearch → applyWorldwideProgramHits.
+        this.isLoadingChannels = this.isLoadingProgramSearch;
+        this.cdr.markForCheck();
         return;
       }
       this.channels = [];
@@ -1284,43 +1498,21 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     });
   }
 
-  /**
-   * Load channel catalogs for major countries, then EPG, so programme search works worldwide.
-   */
-  private loadWorldwideProgramPool(): void {
-    const requests = TvWatcherComponent.WORLDWIDE_PROGRAM_COUNTRIES.map((cc) =>
-      this.api.getTvChannels(cc).pipe(catchError(() => of([] as TvChannel[])))
-    );
-    this.channelsSub = forkJoin(requests).subscribe({
-      next: (lists) => {
-        const seen = new Set<string>();
-        const merged: TvChannel[] = [];
-        for (const list of lists) {
-          for (const ch of list || []) {
-            const key = (ch.id || ch.streamUrl || ch.name || '').toLowerCase();
-            if (!key || seen.has(key)) {
-              continue;
-            }
-            seen.add(key);
-            merged.push(ch);
-          }
-        }
-        this.channels = this.sortChannelsByName(merged);
-        this.isLoadingChannels = false;
-        this.applyPendingShareChannel();
-        this.refreshEpg();
+  /** Load category list for worldwide mode (union of all country groups). */
+  private loadWorldwideGroups(): void {
+    this.api.getTvGroups('all').subscribe({
+      next: (g) => {
+        this.groups = g || [];
         this.cdr.markForCheck();
       },
       error: () => {
-        this.channels = [];
-        this.isLoadingChannels = false;
-        this.channelsError = 'TV.ERR_CHANNELS';
+        this.groups = [];
         this.cdr.markForCheck();
       }
     });
   }
 
-  /** Fetch now/next EPG for the channel pool (batched), so search can match programme titles. */
+  /** Fetch now/next EPG for the channel pool (batched). */
   private refreshEpg(): void {
     const pool =
       this.listMode === 'favorites' ? this.favorites || [] : this.channels || [];

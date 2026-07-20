@@ -3,6 +3,8 @@ package com.pat.controller;
 import com.pat.controller.dto.TvChannelDto;
 import com.pat.controller.dto.TvCountryDto;
 import com.pat.controller.dto.TvEpgNowDto;
+import com.pat.controller.dto.TvEpgScheduleDto;
+import com.pat.controller.dto.TvEpgSearchHitDto;
 import com.pat.controller.dto.TvFavoritesDto;
 import com.pat.service.CanalGroupLiveService;
 import com.pat.service.FranceTvLiveService;
@@ -36,10 +38,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 /**
@@ -49,6 +53,9 @@ import java.util.stream.Collectors;
  * <ul>
  *   <li>{@code GET /api/external/tv/countries}</li>
  *   <li>{@code GET /api/external/tv/channels?country=fr&amp;q=...&amp;group=...}</li>
+ *   <li>{@code GET /api/external/tv/epg/now}</li>
+ *   <li>{@code GET /api/external/tv/epg/schedule}</li>
+ *   <li>{@code GET /api/external/tv/epg/search}</li>
  *   <li>{@code GET /api/external/tv/stream/{base64url}}</li>
  * </ul>
  * Authenticated (per JWT subject):
@@ -124,7 +131,8 @@ public class TvWatcherRestController {
             @RequestParam(required = false, defaultValue = "200") int limit) {
         if (tvCatalogService.isAllCountries(country)) {
             String query = q != null ? q.trim() : "";
-            if (query.length() < 2) {
+            String groupFilter = group != null ? group.trim() : "";
+            if (query.length() < 2 && groupFilter.isEmpty()) {
                 return ResponseEntity.ok()
                         .cacheControl(CacheControl.noStore())
                         .body(List.of());
@@ -157,20 +165,14 @@ public class TvWatcherRestController {
     @GetMapping("/groups")
     public ResponseEntity<?> groups(@RequestParam(defaultValue = "fr") String country) {
         if (tvCatalogService.isAllCountries(country)) {
-            return ResponseEntity.ok(List.of());
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(Duration.ofMinutes(10)).cachePublic())
+                    .body(tvCatalogService.listGroups("all"));
         }
         if (!tvCatalogService.isSupportedCountry(country)) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid country code"));
         }
-        List<String> groups = tvCatalogService.listChannels(country).stream()
-                .map(TvChannelDto::getGroup)
-                .filter(StringUtils::hasText)
-                .map(g -> g.split(";")[0].trim())
-                .filter(StringUtils::hasText)
-                .distinct()
-                .sorted(String.CASE_INSENSITIVE_ORDER)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(groups);
+        return ResponseEntity.ok(tvCatalogService.listGroups(country));
     }
 
     /**
@@ -192,6 +194,63 @@ public class TvWatcherRestController {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofMinutes(2)).cachePublic())
                 .body(result);
+    }
+
+    /**
+     * Full EPG schedule for one channel (cached XMLTV window ≈ −6h … +36h).
+     * Example: {@code GET /epg/schedule?country=fr&id=TF1.fr}
+     */
+    @GetMapping("/epg/schedule")
+    public ResponseEntity<TvEpgScheduleDto> epgSchedule(
+            @RequestParam(defaultValue = "fr") String country,
+            @RequestParam("id") String id) {
+        if (!StringUtils.hasText(id)) {
+            return ResponseEntity.badRequest().build();
+        }
+        TvEpgScheduleDto schedule = tvEpgService.scheduleForId(country, id);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePublic())
+                .body(schedule);
+    }
+
+    /**
+     * Search programmes by title/description across the cached EPG window.
+     * {@code country=all} scans major countries server-side.
+     * Example: {@code GET /epg/search?country=fr&q=journal&limit=40}
+     */
+    @GetMapping("/epg/search")
+    public ResponseEntity<List<TvEpgSearchHitDto>> epgSearch(
+            @RequestParam(defaultValue = "fr") String country,
+            @RequestParam("q") String q,
+            @RequestParam(required = false, defaultValue = "40") int limit) {
+        String query = q != null ? q.trim() : "";
+        if (query.length() < 2) {
+            return ResponseEntity.ok(List.of());
+        }
+        Map<String, Map<String, TvChannelDto>> epgIndexByCountry = new HashMap<>();
+        BiFunction<String, String, TvChannelDto> resolver = (cc, epgId) -> {
+            if (!StringUtils.hasText(epgId)) {
+                return null;
+            }
+            Map<String, TvChannelDto> index = epgIndexByCountry.computeIfAbsent(cc, code -> {
+                Map<String, TvChannelDto> map = new HashMap<>();
+                if (!tvCatalogService.isSupportedCountry(code)) {
+                    return map;
+                }
+                for (TvChannelDto ch : tvCatalogService.listChannels(code)) {
+                    String resolved = TvEpgService.resolveEpgChannelId(ch);
+                    if (StringUtils.hasText(resolved)) {
+                        map.putIfAbsent(resolved.toLowerCase(Locale.ROOT), ch);
+                    }
+                }
+                return map;
+            });
+            return index.get(epgId.toLowerCase(Locale.ROOT));
+        };
+        List<TvEpgSearchHitDto> hits = tvEpgService.searchProgrammes(country, query, limit, resolver);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(2)).cachePublic())
+                .body(hits);
     }
 
     @GetMapping("/favorites")

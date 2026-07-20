@@ -145,14 +145,13 @@
               </div>
             </div>
 
-            <label class="form-label small mb-1 mt-2" for="tv-group" *ngIf="!isAllCountries">
+            <label class="form-label small mb-1 mt-2" for="tv-group">
               <i class="fa me-1" [ngClass]="groupIconClass(selectedGroup)" aria-hidden="true"></i>
               {{ 'TV.GROUP' | translate }}
             </label>
             <select
               id="tv-group"
               class="form-select form-select-sm"
-              *ngIf="!isAllCountries"
               [(ngModel)]="selectedGroup"
               (ngModelChange)="onGroupChange()">
               <option value="">{{ groupEmoji('') }} {{ 'TV.GROUP_ALL' | translate }}</option>
@@ -210,7 +209,7 @@
             </div>
             <div
               class="tv-epg-search-hint small text-muted mt-1"
-              *ngIf="programQuery.trim() && isLoadingEpg">
+              *ngIf="programQuery.trim().length >= 2 && isLoadingProgramSearch">
               <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
               {{ 'TV.SEARCH_EPG_LOADING' | translate }}
             </div>
@@ -229,8 +228,8 @@
         </span>
         <span *ngIf="listMode === 'catalog' && !isLoadingChannels" class="tv-channel-meta-count">
           <i class="fa fa-television me-1" aria-hidden="true"></i>
-          {{ 'TV.CHANNEL_COUNT' | translate:{ count: (isAllCountries && !channelQuery.trim() && !programQuery.trim() ? catalogTabCount : filteredChannelCount) } }}
-          <span class="tv-channel-meta-filter" *ngIf="hasActiveFilters && !(isAllCountries && !channelQuery.trim() && !programQuery.trim())">{{ 'TV.CHANNEL_COUNT_FILTERED' | translate }}</span>
+          {{ 'TV.CHANNEL_COUNT' | translate:{ count: (isAllCountries && !channelQuery.trim() && !programQuery.trim() && !selectedGroup ? catalogTabCount : filteredChannelCount) } }}
+          <span class="tv-channel-meta-filter" *ngIf="hasActiveFilters && !(isAllCountries && !channelQuery.trim() && !programQuery.trim() && !selectedGroup)">{{ 'TV.CHANNEL_COUNT_FILTERED' | translate }}</span>
         </span>
         <span *ngIf="listMode === 'favorites' && !isLoadingFavorites" class="tv-channel-meta-count">
           <i class="fa fa-star me-1" aria-hidden="true"></i>
@@ -283,9 +282,9 @@
                 {{ workaroundBadgeKey(ch) | translate }}
               </span>
             </span>
-            <span class="tv-channel-epg" *ngIf="epgNowTitle(ch) as nowTitle" [attr.title]="nowTitle">
-              <span class="tv-channel-epg-label">{{ 'TV.EPG_NOW' | translate }}</span>
-              {{ nowTitle }}
+            <span class="tv-channel-epg" *ngIf="channelListEpgLine(ch) as epgLine" [attr.title]="epgLine.title">
+              <span class="tv-channel-epg-label">{{ epgLine.labelKey | translate }}</span>
+              {{ epgLine.title }}
             </span>
             <span class="tv-channel-group" *ngIf="ch.group || ch.country">
               <span
@@ -458,6 +457,16 @@
                   <span class="tv-epg-title">{{ epg.next?.title }}</span>
                 </div>
               </div>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-warning tv-epg-guide-toggle"
+                (click)="toggleGuide(); $event.stopPropagation()"
+                [attr.aria-expanded]="guideOpen"
+                [attr.title]="(guideOpen ? 'TV.EPG_GUIDE_CLOSE' : 'TV.EPG_GUIDE_OPEN') | translate"
+                [attr.aria-label]="(guideOpen ? 'TV.EPG_GUIDE_CLOSE' : 'TV.EPG_GUIDE_OPEN') | translate">
+                <i class="fa fa-list-alt me-1" aria-hidden="true"></i>
+                {{ 'TV.EPG_GUIDE' | translate }}
+              </button>
             </div>
           </div>
 
@@ -592,6 +601,47 @@
             </button>
           </div>
         </div>
+
+          <div class="tv-epg-guide" *ngIf="guideOpen" (click)="$event.stopPropagation()" role="region" [attr.aria-label]="'TV.EPG_GUIDE' | translate">
+            <div class="tv-epg-guide-head">
+              <span class="tv-epg-guide-title">
+                <i class="fa fa-list-alt me-1" aria-hidden="true"></i>
+                {{ 'TV.EPG_GUIDE' | translate }}
+              </span>
+              <button
+                type="button"
+                class="btn btn-sm btn-link text-light tv-epg-guide-close"
+                (click)="closeGuide()"
+                [attr.aria-label]="'TV.EPG_GUIDE_CLOSE' | translate">
+                <i class="fa fa-times" aria-hidden="true"></i>
+              </button>
+            </div>
+            <div class="tv-epg-guide-body" *ngIf="isLoadingGuide">
+              <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
+              {{ 'TV.EPG_GUIDE_LOADING' | translate }}
+            </div>
+            <div class="tv-epg-guide-body text-warning" *ngIf="!isLoadingGuide && guideError">
+              {{ guideError | translate }}
+            </div>
+            <ul class="tv-epg-guide-list" *ngIf="!isLoadingGuide && !guideError && guideProgrammes.length">
+              <li
+                *ngFor="let p of guideProgrammes"
+                class="tv-epg-guide-item"
+                [class.tv-epg-guide-item--live]="isProgrammeLive(p)">
+                <div class="tv-epg-guide-when">
+                  <span class="tv-epg-guide-day">{{ formatEpgDay(p.start) }}</span>
+                  <span class="tv-epg-guide-clock">
+                    {{ formatEpgClock(p.start) }}–{{ formatEpgClock(p.stop) }}
+                  </span>
+                  <span class="tv-epg-guide-live" *ngIf="isProgrammeLive(p)">{{ 'TV.EPG_NOW' | translate }}</span>
+                </div>
+                <div class="tv-epg-guide-prog">
+                  <span class="tv-epg-guide-prog-title" [attr.title]="p.description || p.title">{{ p.title }}</span>
+                  <span class="tv-epg-guide-prog-desc" *ngIf="p.description">{{ p.description }}</span>
+                </div>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
     </section>

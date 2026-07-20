@@ -94,7 +94,8 @@ public class TvStreamProxyService {
         HttpHeaders headers = new HttpHeaders();
         headers.set(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
         headers.set(HttpHeaders.CACHE_CONTROL, "no-store");
-        headers.set(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+        // Do not set Access-Control-Allow-Origin here: Spring CorsFilter already adds it.
+        // A second value ("*, http://localhost:4200") breaks browser CORS checks.
         return ResponseEntity.status(status).headers(headers).body(json.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -160,7 +161,8 @@ public class TvStreamProxyService {
         HttpHeaders headers = new HttpHeaders();
         headers.set(HttpHeaders.CONTENT_TYPE, contentType);
         headers.set(HttpHeaders.CACHE_CONTROL, "no-store");
-        headers.set(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+        // CORS is handled solely by Spring CorsFilter (SecurityConfig). Setting "*" here
+        // would duplicate Access-Control-Allow-Origin and break HLS.js / audio XHR.
         if (fetched.contentRange != null) {
             headers.set(HttpHeaders.CONTENT_RANGE, fetched.contentRange);
         }

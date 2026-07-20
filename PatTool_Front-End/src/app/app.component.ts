@@ -22,6 +22,7 @@ import { StockTickerComponent } from './stock-exchange/stock-ticker/stock-ticker
 import { StockTickerService } from './services/stock-ticker.service';
 import { AssistantDrawerComponent } from './shared/assistant-drawer/assistant-drawer.component';
 import { TvFloatingPlayerComponent } from './tv-watcher/tv-floating-player.component';
+import { RadioFloatingPlayerComponent } from './radio-watcher/radio-floating-player.component';
 import { GlobeIssNowService } from './services/globe-iss-now.service';
 import { MongoHealthService, MongoHealthStatus } from './services/mongodb-health.service';
 import { LastRouteService } from './services/last-route.service';
@@ -85,7 +86,7 @@ const USER_PARAM_LABEL_KEYS: Record<string, string> = {
     templateUrl: './app.component.html',
     styleUrls: ['./app.component.css'],
     standalone: true,
-    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule, NewsTickerComponent, CurrencyTickerComponent, StockTickerComponent, AssistantDrawerComponent, TvFloatingPlayerComponent]
+    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule, NewsTickerComponent, CurrencyTickerComponent, StockTickerComponent, AssistantDrawerComponent, TvFloatingPlayerComponent, RadioFloatingPlayerComponent]
 })
 export class AppComponent implements OnInit {
 
@@ -208,7 +209,8 @@ export class AppComponent implements OnInit {
         { routerLink: ['api/news'], icon: 'fa fa-newspaper-o', labelKey: 'MENU.NEWS' },
         { routerLink: ['api/timezone-converter'], icon: 'fa fa-clock-o', labelKey: 'MENU.TIME_ZONES' },
         { routerLink: ['api/electricite'], icon: 'fa fa-bolt', labelKey: 'MENU.ELECTRICITE' },
-        { routerLink: ['tools/tv-watcher'], icon: 'fa fa-television', labelKey: 'MENU.TV' }
+        { routerLink: ['tools/tv-watcher'], icon: 'fa fa-television', labelKey: 'MENU.TV' },
+        { routerLink: ['tools/radio-watcher'], icon: 'fa fa-headphones', labelKey: 'MENU.RADIO' }
     ];
     readonly navFinanceRaw: NavRouteMenuItem[] = [
         { routerLink: ['api/currency-converter'], icon: 'fa fa-money', labelKey: 'MENU.CURRENCY_CONVERTER' },
