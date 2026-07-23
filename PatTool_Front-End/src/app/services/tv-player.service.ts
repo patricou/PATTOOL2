@@ -3,7 +3,7 @@ import { BehaviorSubject, Subject } from 'rxjs';
 import Hls from 'hls.js';
 import { TvChannel } from './api.service';
 import { resolveTvStreamUrl } from '../tv-watcher/tv-stream.util';
-import { TvPipCarrier } from '../tv-watcher/tv-pip-carrier';
+import { TvDocPipLabels, TvPipCarrier } from '../tv-watcher/tv-pip-carrier';
 
 export interface TvFloatingState {
   open: boolean;
@@ -71,6 +71,7 @@ export class TvPlayerService {
     pageVideo: HTMLVideoElement;
     hls: Hls | null;
     detachLiveSync: (() => void) | null;
+    labels?: TvDocPipLabels;
   }): Promise<void> {
     await this.pipCarrier.enterFromPage(opts);
   }
@@ -329,8 +330,11 @@ export class TvPlayerService {
   }
 
   static supportsVideoPictureInPicture(): boolean {
-    if (typeof document === 'undefined') {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
       return false;
+    }
+    if ('documentPictureInPicture' in window) {
+      return true;
     }
     return !!(document as Document & { pictureInPictureEnabled?: boolean }).pictureInPictureEnabled;
   }

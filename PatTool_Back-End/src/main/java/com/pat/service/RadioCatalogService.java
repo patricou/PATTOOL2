@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 
 /**
  * Loads worldwide internet radio stations from radio-browser.info and caches them in memory.
+ * Uses multiple API mirrors with failover; failed fetches do not overwrite a warm cache with [].
  */
 @Service
 public class RadioCatalogService {
@@ -40,20 +41,35 @@ public class RadioCatalogService {
     private static final Pattern COUNTRY_CODE = Pattern.compile("^[a-z]{2}$");
     private static final String USER_AGENT = "PatTool/1.0 (radio-watcher; https://github.com)";
 
+    /** Built-in mirrors when app.radio.api-base-urls is unset (network shrinks over time). */
+    private static final List<String> DEFAULT_API_BASES = List.of(
+            "https://de1.api.radio-browser.info",
+            "https://de2.api.radio-browser.info",
+            "https://all.api.radio-browser.info"
+    );
+
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(12))
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build();
 
+    /** Preferred first base (kept for backward compatibility with app.radio.api-base-url). */
     @Value("${app.radio.api-base-url:https://de1.api.radio-browser.info}")
     private String apiBaseUrl;
+
+    /**
+     * Optional comma-separated mirror list. When empty, uses {@link #apiBaseUrl} plus built-in fallbacks.
+     */
+    @Value("${app.radio.api-base-urls:}")
+    private String apiBaseUrls;
 
     @Value("${app.radio.catalog-cache-minutes:60}")
     private int catalogCacheMinutes;
 
     private final ConcurrentHashMap<String, CacheEntry<List<RadioStationDto>>> stationCache = new ConcurrentHashMap<>();
     private volatile CacheEntry<List<RadioCountryDto>> countriesCache;
+    private volatile int mirrorRotateOffset = 0;
 
     public RadioCatalogService(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
@@ -73,17 +89,26 @@ public class RadioCatalogService {
 
     public List<RadioCountryDto> listCountries() {
         CacheEntry<List<RadioCountryDto>> cached = countriesCache;
-        if (cached != null && !cached.isExpired(catalogCacheMinutes)) {
+        if (cached != null && !cached.isExpired(catalogCacheMinutes) && !cached.value.isEmpty()) {
             return cached.value;
         }
         synchronized (this) {
             cached = countriesCache;
-            if (cached != null && !cached.isExpired(catalogCacheMinutes)) {
+            if (cached != null && !cached.isExpired(catalogCacheMinutes) && !cached.value.isEmpty()) {
                 return cached.value;
             }
             List<RadioCountryDto> loaded = fetchCountries();
-            countriesCache = new CacheEntry<>(loaded);
-            return loaded;
+            if (!loaded.isEmpty()) {
+                countriesCache = new CacheEntry<>(loaded);
+                return loaded;
+            }
+            // Upstream down: keep serving a warm (even expired) cache rather than an empty UI.
+            if (cached != null && !cached.value.isEmpty()) {
+                log.warn("radio countries upstream failed — serving stale cache ({} entries)", cached.value.size());
+                return cached.value;
+            }
+            countriesCache = new CacheEntry<>(List.of());
+            return List.of();
         }
     }
 
@@ -102,12 +127,21 @@ public class RadioCatalogService {
     public List<RadioStationDto> listStations(String country) {
         String code = country.trim().toLowerCase(Locale.ROOT);
         CacheEntry<List<RadioStationDto>> cached = stationCache.get(code);
-        if (cached != null && !cached.isExpired(catalogCacheMinutes)) {
+        if (cached != null && !cached.isExpired(catalogCacheMinutes) && !cached.value.isEmpty()) {
             return cached.value;
         }
         List<RadioStationDto> loaded = fetchStationsByCountry(code);
-        stationCache.put(code, new CacheEntry<>(loaded));
-        return loaded;
+        if (!loaded.isEmpty()) {
+            stationCache.put(code, new CacheEntry<>(loaded));
+            return loaded;
+        }
+        if (cached != null && !cached.value.isEmpty()) {
+            log.warn("radio stations upstream failed for {} — serving stale cache ({} entries)",
+                    code, cached.value.size());
+            return cached.value;
+        }
+        // Do not poison the cache with [] on a transient 503 — next request will retry.
+        return List.of();
     }
 
     public List<RadioStationDto> searchAllCountries(String query, String tag, int limit) {
@@ -277,19 +311,85 @@ public class RadioCatalogService {
     }
 
     private JsonNode getJson(String pathAndQuery) throws Exception {
-        String base = apiBaseUrl.endsWith("/") ? apiBaseUrl.substring(0, apiBaseUrl.length() - 1) : apiBaseUrl;
+        List<String> bases = resolveApiBases();
+        Exception lastError = null;
+        for (int i = 0; i < bases.size(); i++) {
+            int idx = Math.floorMod(mirrorRotateOffset + i, bases.size());
+            String base = bases.get(idx);
+            try {
+                JsonNode node = getJsonFromBase(base, pathAndQuery);
+                // Prefer a working mirror next time.
+                mirrorRotateOffset = idx;
+                return node;
+            } catch (Exception e) {
+                lastError = e;
+                log.debug("radio-browser mirror failed {}: {}", base, e.toString());
+            }
+        }
+        if (lastError != null) {
+            throw lastError;
+        }
+        throw new IllegalStateException("no radio-browser mirrors configured");
+    }
+
+    private JsonNode getJsonFromBase(String apiBase, String pathAndQuery) throws Exception {
+        String base = apiBase.endsWith("/") ? apiBase.substring(0, apiBase.length() - 1) : apiBase;
         URI uri = URI.create(base + pathAndQuery);
         HttpRequest request = HttpRequest.newBuilder(uri)
-                .timeout(Duration.ofSeconds(25))
+                .timeout(Duration.ofSeconds(20))
                 .header("User-Agent", USER_AGENT)
                 .header("Accept", "application/json")
                 .GET()
                 .build();
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new IllegalStateException("HTTP " + response.statusCode() + " from radio-browser");
+            throw new IllegalStateException("HTTP " + response.statusCode() + " from radio-browser (" + base + ")");
         }
         return objectMapper.readTree(response.body());
+    }
+
+    private List<String> resolveApiBases() {
+        LinkedHashMap<String, Boolean> ordered = new LinkedHashMap<>();
+        if (StringUtils.hasText(apiBaseUrls)) {
+            for (String part : apiBaseUrls.split(",")) {
+                String b = normalizeBase(part);
+                if (b != null) {
+                    ordered.put(b, Boolean.TRUE);
+                }
+            }
+        }
+        String preferred = normalizeBase(apiBaseUrl);
+        if (preferred != null) {
+            // Put preferred first.
+            LinkedHashMap<String, Boolean> withPreferred = new LinkedHashMap<>();
+            withPreferred.put(preferred, Boolean.TRUE);
+            withPreferred.putAll(ordered);
+            ordered = withPreferred;
+        }
+        if (ordered.isEmpty()) {
+            for (String def : DEFAULT_API_BASES) {
+                ordered.put(def, Boolean.TRUE);
+            }
+        } else {
+            for (String def : DEFAULT_API_BASES) {
+                ordered.putIfAbsent(def, Boolean.TRUE);
+            }
+        }
+        return new ArrayList<>(ordered.keySet());
+    }
+
+    private static String normalizeBase(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return null;
+        }
+        String b = raw.trim();
+        while (b.endsWith("/")) {
+            b = b.substring(0, b.length() - 1);
+        }
+        if (!(b.startsWith("http://") || b.startsWith("https://"))) {
+            return null;
+        }
+        return b;
     }
 
     private static String text(JsonNode node, String field) {

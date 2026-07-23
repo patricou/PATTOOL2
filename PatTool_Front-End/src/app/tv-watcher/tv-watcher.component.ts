@@ -904,7 +904,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
           channel: this.selectedChannel,
           pageVideo: video,
           hls,
-          detachLiveSync: detach
+          detachLiveSync: detach,
+          labels: {
+            fullscreen: this.translate.instant('TV.POPOUT_FULLSCREEN'),
+            fullscreenExit: this.translate.instant('TV.POPOUT_FULLSCREEN_EXIT'),
+            close: this.translate.instant('TV.PIP_EXIT')
+          }
         });
         this.isPipActive = true;
         this.cdr.markForCheck();

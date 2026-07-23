@@ -91,7 +91,10 @@ globe.proxy.http.read-timeout-seconds=90
 # app.tv.tf1.password=
 
 # World radio watcher (/api/external/radio) — radio-browser.info catalog + stream proxy.
+# Preferred mirror (tried first). Additional built-in fallbacks: de2, all.api.radio-browser.info
 # app.radio.api-base-url=https://de1.api.radio-browser.info
+# Optional explicit mirror list (comma-separated); built-ins are still appended as backup.
+# app.radio.api-base-urls=https://de1.api.radio-browser.info,https://de2.api.radio-browser.info,https://all.api.radio-browser.info
 # app.radio.catalog-cache-minutes=60
 
 # ISS ground track stored in MongoDB while the globe overlay is active (world-globe page).
