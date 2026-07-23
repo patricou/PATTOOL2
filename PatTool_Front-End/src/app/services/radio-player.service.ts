@@ -6,6 +6,10 @@ export interface RadioFloatingState {
   open: boolean;
   minimized: boolean;
   station: RadioStation | null;
+  /**
+   * Invisible shell host used only to keep OS Picture-in-Picture alive across routes.
+   */
+  pipHostOnly?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -13,7 +17,8 @@ export class RadioPlayerService {
   private readonly stateSubject = new BehaviorSubject<RadioFloatingState>({
     open: false,
     minimized: false,
-    station: null
+    station: null,
+    pipHostOnly: false
   });
 
   private readonly resumeOnPageSubject = new Subject<RadioStation>();
@@ -31,15 +36,17 @@ export class RadioPlayerService {
     return this.stateSubject.value.open;
   }
 
-  openFloating(station: RadioStation): void {
+  openFloating(station: RadioStation, options?: { pipHostOnly?: boolean }): void {
     if (!station?.streamUrl && !station?.id) {
       return;
     }
     this.clearPendingResume();
+    const pipHostOnly = !!options?.pipHostOnly;
     this.stateSubject.next({
       open: true,
-      minimized: false,
-      station: { ...station }
+      minimized: pipHostOnly ? true : false,
+      station: { ...station },
+      pipHostOnly
     });
   }
 
@@ -51,7 +58,8 @@ export class RadioPlayerService {
     this.stateSubject.next({
       ...this.stateSubject.value,
       station: { ...station },
-      minimized: false
+      minimized: this.stateSubject.value.pipHostOnly ? true : false,
+      pipHostOnly: false
     });
   }
 
@@ -66,15 +74,27 @@ export class RadioPlayerService {
     if (!this.stateSubject.value.open) {
       return;
     }
-    this.stateSubject.next({ ...this.stateSubject.value, minimized: false });
+    this.stateSubject.next({
+      ...this.stateSubject.value,
+      minimized: false,
+      pipHostOnly: false
+    });
   }
 
-  close(): void {
+  /**
+   * Close the floating radio.
+   * By default asks the radio page to resume the last station.
+   */
+  close(options?: { resumeOnPage?: boolean }): void {
     const station = this.stateSubject.value.station;
-    this.stateSubject.next({ open: false, minimized: false, station: null });
-    if (station) {
+    const wasOpen = this.stateSubject.value.open;
+    const wasPipHost = !!this.stateSubject.value.pipHostOnly;
+    this.stateSubject.next({ open: false, minimized: false, station: null, pipHostOnly: false });
+    if (wasOpen && options?.resumeOnPage !== false && station && !wasPipHost) {
       this.pendingResumeStation = station;
       this.resumeOnPageSubject.next(station);
+    } else {
+      this.clearPendingResume();
     }
   }
 

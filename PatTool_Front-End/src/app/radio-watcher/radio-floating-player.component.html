@@ -1,12 +1,14 @@
 <div
   class="radio-float"
   *ngIf="state.open"
-  [class.radio-float--minimized]="state.minimized"
+  [class.radio-float--minimized]="state.minimized && !state.pipHostOnly"
+  [class.radio-float--pip-host]="!!state.pipHostOnly"
   [style.left.px]="posX"
   [style.top.px]="posY"
-  [style.width.px]="state.minimized ? null : widthPx"
-  [style.height.px]="state.minimized ? null : heightPx"
+  [style.width.px]="state.minimized || state.pipHostOnly ? null : widthPx"
+  [style.height.px]="state.minimized || state.pipHostOnly ? null : heightPx"
   role="dialog"
+  [attr.aria-hidden]="!!state.pipHostOnly"
   [attr.aria-label]="'RADIO.FLOAT_TITLE' | translate">
   <div class="radio-float-header" (mousedown)="startDrag($event)">
     <div class="radio-float-title">
@@ -32,6 +34,23 @@
           (ngModelChange)="onVolumeSlider($event)"
           [attr.aria-label]="'RADIO.VOLUME' | translate" />
       </label>
+      <button
+        type="button"
+        class="radio-float-btn"
+        *ngIf="pipSupported"
+        (click)="togglePictureInPicture()"
+        [attr.title]="(isPipActive ? 'RADIO.PIP_EXIT' : 'RADIO.PIP') | translate"
+        [attr.aria-label]="(isPipActive ? 'RADIO.PIP_EXIT' : 'RADIO.PIP') | translate">
+        <i class="fa" [class.fa-compress]="isPipActive" [class.fa-clone]="!isPipActive"></i>
+      </button>
+      <button
+        type="button"
+        class="radio-float-btn"
+        (click)="toggleFullscreen()"
+        [attr.title]="(isFullscreen ? 'RADIO.FULLSCREEN_EXIT' : 'RADIO.FULLSCREEN') | translate"
+        [attr.aria-label]="(isFullscreen ? 'RADIO.FULLSCREEN_EXIT' : 'RADIO.FULLSCREEN') | translate">
+        <i class="fa" [class.fa-compress]="isFullscreen" [class.fa-arrows-alt]="!isFullscreen"></i>
+      </button>
       <a
         routerLink="/tools/radio-watcher"
         class="radio-float-btn"
@@ -64,14 +83,14 @@
     </div>
   </div>
 
-  <div class="radio-float-body" *ngIf="!state.minimized">
+  <div class="radio-float-body" *ngIf="!state.minimized || state.pipHostOnly">
     <div class="radio-float-video-wrap">
       <video
         #mediaEl
         class="radio-float-video radio-float-audio"
         playsinline
         (volumechange)="onMediaVolumeChange()"></video>
-      <div class="radio-float-radio" *ngIf="station && !playError">
+      <div class="radio-float-radio" *ngIf="station && !playError && !state.pipHostOnly">
         <img
           *ngIf="station.logo"
           class="radio-float-radio-logo"
@@ -80,17 +99,17 @@
           (error)="$any($event.target).style.display='none'" />
         <div>{{ station.name }}</div>
       </div>
-      <div class="radio-float-buffering" *ngIf="isBuffering && !playError">
+      <div class="radio-float-buffering" *ngIf="isBuffering && !playError && !state.pipHostOnly">
         <i class="fa fa-spinner fa-spin me-1"></i>
         {{ 'RADIO.BUFFERING' | translate }}
       </div>
-      <div class="radio-float-error" *ngIf="playError" role="alert">
+      <div class="radio-float-error" *ngIf="playError && !state.pipHostOnly" role="alert">
         {{ formatPlayError(playError) }}
       </div>
     </div>
   </div>
 
-  <ng-container *ngIf="!state.minimized">
+  <ng-container *ngIf="!state.minimized && !state.pipHostOnly">
     <div class="radio-float-resize radio-float-resize--n" (mousedown)="startResize('n', $event)"></div>
     <div class="radio-float-resize radio-float-resize--s" (mousedown)="startResize('s', $event)"></div>
     <div class="radio-float-resize radio-float-resize--e" (mousedown)="startResize('e', $event)"></div>

@@ -273,18 +273,44 @@
       </ul>
     </aside>
 
-    <section class="radio-player-panel" aria-label="Radio">
+    <section
+      #playerPanel
+      class="radio-player-panel"
+      [class.radio-player-panel--on]="!!selectedStation && !isFloatingOpen && !playError"
+      [class.radio-player-panel--live]="!!selectedStation && !isBuffering && !playError && !isFloatingOpen"
+      aria-label="Radio">
+      <div class="radio-cabinet-handle" aria-hidden="true">
+        <span class="radio-cabinet-handle-grip"></span>
+      </div>
+      <div class="radio-whip-antenna" aria-hidden="true">
+        <span class="radio-whip-base"></span>
+        <span class="radio-whip-mast"></span>
+        <span class="radio-whip-tip"></span>
+        <span class="radio-whip-wave radio-whip-wave--1"></span>
+        <span class="radio-whip-wave radio-whip-wave--2"></span>
+      </div>
+      <div class="radio-feet" aria-hidden="true">
+        <span></span><span></span><span></span><span></span>
+      </div>
+
       <div
         class="radio-player-frame"
         [class.radio-player-frame--chrome-hidden]="selectedStation && !chromeVisible"
         [class.radio-player-frame--share-open]="shareMenuOpen"
+        [class.radio-player-frame--playing]="!!selectedStation && !isFloatingOpen && !playError"
+        [class.radio-player-frame--live]="!!selectedStation && !isBuffering && !playError && !isFloatingOpen"
         (mouseenter)="onRadioPointerEnter()"
         (mousemove)="onRadioPointerMove()"
         (mouseleave)="onRadioPointerLeave()"
         (touchstart)="onRadioPointerEnter()">
+        <div class="radio-brand-plate" aria-hidden="true">
+          <span class="radio-brand-name">PatTool</span>
+          <span class="radio-brand-model">World Receiver</span>
+        </div>
+
         <div
-          class="radio-video-wrap"
-          [class.radio-video-wrap--empty]="!selectedStation || isFloatingOpen">
+          class="radio-face"
+          [class.radio-face--empty]="!selectedStation || isFloatingOpen">
           <video
             #mediaEl
             class="radio-video radio-audio-el"
@@ -293,10 +319,98 @@
             [class.radio-video--error]="!!playError"
             (volumechange)="onMediaVolumeChange()"></video>
 
+          <div class="radio-ambient" aria-hidden="true"></div>
+
+          <div class="radio-dial" aria-hidden="true">
+            <div class="radio-dial-glass">
+              <div class="radio-dial-glow"></div>
+              <div class="radio-dial-freqs">
+                <span>88</span><span>92</span><span>96</span><span>100</span><span>104</span><span>108</span>
+              </div>
+              <div class="radio-dial-scale">
+                <span *ngFor="let tick of [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14]" class="radio-dial-tick"></span>
+              </div>
+              <div
+                class="radio-dial-needle"
+                [style.--needle-pos]="selectedStation ? '68%' : '22%'"></div>
+              <div class="radio-dial-bands">
+                <span>LW</span>
+                <span>AM</span>
+                <span class="is-active">FM</span>
+                <span>SW</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="radio-meter" aria-hidden="true">
+            <div class="radio-meter-glass">
+              <div class="radio-meter-scale"></div>
+              <div
+                class="radio-meter-needle"
+                [class.is-live]="!!selectedStation && !isBuffering && !playError && !isFloatingOpen"></div>
+              <span class="radio-meter-label">SIGNAL</span>
+            </div>
+          </div>
+
+          <div class="radio-tubes" aria-hidden="true">
+            <span class="radio-tube" *ngFor="let t of [1,2,3]">
+              <span class="radio-tube-glow"></span>
+            </span>
+          </div>
+
+          <div class="radio-speaker" aria-hidden="true">
+            <div class="radio-speaker-cloth">
+              <div
+                class="radio-eq"
+                *ngIf="selectedStation && !isBuffering && !isFloatingOpen && !playError">
+                <span *ngFor="let b of [1,2,3,4,5,6,7,8,9]" class="radio-eq-bar"></span>
+              </div>
+              <div class="radio-speaker-grille">
+                <span class="radio-speaker-ring" *ngFor="let r of [1,2,3,4,5,6]"></span>
+                <span class="radio-speaker-hub"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="radio-station-badge" *ngIf="selectedStation && !isFloatingOpen && !playError">
+            <div class="radio-on-air"><span></span> ON AIR</div>
+            <img
+              *ngIf="stationLogo(selectedStation) as logo"
+              class="radio-audio-logo"
+              [src]="logo"
+              [alt]="selectedStation.name"
+              (error)="$any($event.target).style.display='none'" />
+            <div class="radio-audio-label">
+              <i class="fa fa-rss" aria-hidden="true"></i>
+              <span>{{ selectedStation.name }}</span>
+            </div>
+            <div class="radio-station-meta">
+              <span *ngIf="selectedStation.country">{{ countryLabel(selectedStation.country) }}</span>
+              <span *ngIf="selectedStation.codec">{{ selectedStation.codec }}</span>
+              <span *ngIf="formatBitrate(selectedStation)">{{ formatBitrate(selectedStation) }}</span>
+            </div>
+          </div>
+
+          <div class="radio-controls-row" aria-hidden="true">
+            <div class="radio-power">
+              <span class="radio-power-led" [class.is-on]="!!selectedStation && !playError && !isFloatingOpen"></span>
+              <span class="radio-power-cap"></span>
+            </div>
+            <div class="radio-knobs">
+              <span class="radio-knob radio-knob--tune"></span>
+              <span class="radio-knob radio-knob--bass"></span>
+              <span class="radio-knob radio-knob--vol"></span>
+            </div>
+          </div>
+
           <div class="radio-placeholder" *ngIf="!selectedStation && !isFloatingOpen && !playError">
-            <i class="fa fa-headphones radio-placeholder-icon"></i>
+            <div class="radio-placeholder-orb" aria-hidden="true"></div>
+            <div class="radio-world-arcs" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </div>
+            <i class="fa fa-rss radio-placeholder-icon"></i>
             <p>{{ 'RADIO.PICK_STATION' | translate }}</p>
-            <p class="small text-muted mb-0">{{ 'RADIO.NOTE_FREE' | translate }}</p>
+            <p class="small mb-0 radio-placeholder-note">{{ 'RADIO.NOTE_FREE' | translate }}</p>
           </div>
           <div class="radio-placeholder" *ngIf="isFloatingOpen">
             <i class="fa fa-window-restore radio-placeholder-icon"></i>
@@ -308,20 +422,6 @@
           <div class="radio-buffering" *ngIf="selectedStation && isBuffering && !playError && !isFloatingOpen">
             <i class="fa fa-spinner fa-spin"></i>
             {{ 'RADIO.BUFFERING' | translate }}
-          </div>
-          <div
-            class="radio-audio-stage"
-            *ngIf="selectedStation && !isFloatingOpen && !playError">
-            <img
-              *ngIf="stationLogo(selectedStation) as logo"
-              class="radio-audio-logo"
-              [src]="logo"
-              [alt]="selectedStation.name"
-              (error)="$any($event.target).style.display='none'" />
-            <div class="radio-audio-label">
-              <i class="fa fa-headphones" aria-hidden="true"></i>
-              {{ selectedStation.name }}
-            </div>
           </div>
           <div
             class="radio-unmute-hint"
@@ -396,6 +496,16 @@
                 <i class="fa fa-window-restore"></i>
               </button>
 
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-light radio-now-action"
+                *ngIf="pipSupported && !isFloatingOpen"
+                (click)="togglePictureInPicture()"
+                [attr.title]="(isPipActive ? 'RADIO.PIP_EXIT' : 'RADIO.PIP') | translate"
+                [attr.aria-label]="(isPipActive ? 'RADIO.PIP_EXIT' : 'RADIO.PIP') | translate">
+                <i class="fa" [class.fa-compress]="isPipActive" [class.fa-clone]="!isPipActive"></i>
+              </button>
+
               <div class="radio-share-wrap">
                 <button
                   type="button"
@@ -432,10 +542,41 @@
                 [attr.title]="'RADIO.STOP' | translate">
                 <i class="fa fa-stop"></i>
               </button>
+
+              <label
+                class="radio-keep-alive form-check form-switch"
+                (click)="$event.stopPropagation()"
+                [attr.title]="'RADIO.KEEP_ALIVE_HINT' | translate">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="radioKeepAliveSwitch"
+                  [ngModel]="keepAliveOnNavigate"
+                  (ngModelChange)="setKeepAliveOnNavigate($event)"
+                  [attr.aria-label]="'RADIO.KEEP_ALIVE' | translate" />
+                <span class="visually-hidden">{{ 'RADIO.KEEP_ALIVE' | translate }}</span>
+              </label>
             </div>
           </div>
           <div class="small text-success px-2 pb-1" *ngIf="shareFeedback">{{ shareFeedback | translate }}</div>
         </div>
+      </div>
+
+      <div class="radio-presets" role="toolbar" [attr.aria-label]="'RADIO.PRESETS' | translate">
+        <button
+          *ngFor="let slot of presetSlots; let i = index"
+          type="button"
+          class="radio-preset"
+          [class.is-active]="!!slot && selectedStation?.id === slot.id"
+          [class.is-empty]="!slot"
+          (click)="playPreset(slot, $event)"
+          [attr.title]="presetTitle(slot, i)"
+          [attr.aria-label]="presetTitle(slot, i)"
+          [attr.aria-pressed]="!!slot && selectedStation?.id === slot.id">
+          <span class="radio-preset-num">{{ i + 1 }}</span>
+          <span class="radio-preset-label">{{ slot ? shortPresetName(slot) : '—' }}</span>
+        </button>
       </div>
     </section>
   </div>

@@ -3871,7 +3871,9 @@
     "EPG_GUIDE_CLOSE": "Cerrar guía de programación",
     "EPG_GUIDE_LOADING": "Cargando la guía…",
     "EPG_GUIDE_EMPTY": "No hay guía disponible para este canal.",
-    "EPG_GUIDE_ERROR": "No se pudo cargar la guía de programación."
+    "EPG_GUIDE_ERROR": "No se pudo cargar la guía de programación.",
+    "RESTART_STREAM": "Reconectar el flujo desde cero",
+    "RESTART_STREAM_DONE": "Flujo reconectado"
   },
   "RADIO": {
     "TITLE": "Radio — world stations",

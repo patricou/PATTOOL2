@@ -17,9 +17,49 @@
   user-select: none;
 }
 
-.tv-float--minimized {
-  width: min(320px, calc(100vw - 24px)) !important;
-  height: auto !important;
+.tv-float:fullscreen,
+.tv-float:-webkit-full-screen {
+  left: 0 !important;
+  top: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  max-height: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.tv-float:fullscreen .tv-float-body,
+.tv-float:-webkit-full-screen .tv-float-body {
+  flex: 1;
+  min-height: 0;
+}
+
+.tv-float:fullscreen .tv-float-video-wrap,
+.tv-float:-webkit-full-screen .tv-float-video-wrap {
+  flex: 1;
+  min-height: 0;
+}
+
+.tv-float:fullscreen .tv-float-hint,
+.tv-float:-webkit-full-screen .tv-float-hint,
+.tv-float:fullscreen .tv-float-resize,
+.tv-float:-webkit-full-screen .tv-float-resize {
+  display: none !important;
+}
+
+/* Invisible host: keeps a <video> alive so OS PiP survives route changes. */
+.tv-float--pip-host {
+  left: -10000px !important;
+  top: 0 !important;
+  width: 320px !important;
+  height: 180px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+  z-index: -1 !important;
 }
 
 .tv-float-header {

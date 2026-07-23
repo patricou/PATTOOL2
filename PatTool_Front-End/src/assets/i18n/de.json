@@ -3870,7 +3870,9 @@
     "EPG_GUIDE_CLOSE": "Programmführer schließen",
     "EPG_GUIDE_LOADING": "Programmführer wird geladen…",
     "EPG_GUIDE_EMPTY": "Kein Programmführer für diesen Sender.",
-    "EPG_GUIDE_ERROR": "Programmführer konnte nicht geladen werden."
+    "EPG_GUIDE_ERROR": "Programmführer konnte nicht geladen werden.",
+    "RESTART_STREAM": "Stream komplett neu verbinden",
+    "RESTART_STREAM_DONE": "Stream neu verbunden"
   },
   "RADIO": {
     "TITLE": "Radio — world stations",

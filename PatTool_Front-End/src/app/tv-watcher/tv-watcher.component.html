@@ -509,26 +509,18 @@
               [attr.aria-label]="'TV.RESYNC_AV' | translate">
               <i class="fa fa-refresh" aria-hidden="true"></i>
             </button>
-            <span class="tv-resync-feedback small" *ngIf="resyncFeedback" role="status">
-              {{ resyncFeedback | translate }}
-            </span>
-            <button
-              type="button"
-              class="btn btn-sm btn-primary tv-now-action"
-              *ngIf="!isFloatingOpen"
-              (click)="openInFloatingWindow(selectedChannel)"
-              [attr.title]="'TV.FLOAT_OPEN' | translate"
-              [attr.aria-label]="'TV.FLOAT_OPEN' | translate">
-              <i class="fa fa-window-restore" aria-hidden="true"></i>
-            </button>
             <button
               type="button"
               class="btn btn-sm btn-outline-light tv-now-action"
-              (click)="openExternalWindow(selectedChannel)"
-              [attr.title]="'TV.EXTERNAL_WINDOW' | translate"
-              [attr.aria-label]="'TV.EXTERNAL_WINDOW' | translate">
-              <i class="fa fa-desktop" aria-hidden="true"></i>
+              *ngIf="!isFloatingOpen && selectedChannel && !playError"
+              (click)="restartStream($event)"
+              [attr.title]="'TV.RESTART_STREAM' | translate"
+              [attr.aria-label]="'TV.RESTART_STREAM' | translate">
+              <i class="fa fa-repeat" aria-hidden="true"></i>
             </button>
+            <span class="tv-resync-feedback small" *ngIf="resyncFeedback" role="status">
+              {{ resyncFeedback | translate }}
+            </span>
             <button
               type="button"
               class="btn btn-sm btn-outline-light tv-now-action"
@@ -599,6 +591,20 @@
               [attr.aria-label]="(isFavorite(selectedChannel) ? 'TV.UNFAVORITE' : 'TV.FAVORITE') | translate">
               <i class="fa" [class.fa-star]="isFavorite(selectedChannel)" [class.fa-star-o]="!isFavorite(selectedChannel)" aria-hidden="true"></i>
             </button>
+            <label
+              class="tv-keep-alive form-check form-switch"
+              (click)="$event.stopPropagation()"
+              [attr.title]="'TV.KEEP_ALIVE_HINT' | translate">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                role="switch"
+                id="tvKeepAliveSwitch"
+                [ngModel]="keepAliveOnNavigate"
+                (ngModelChange)="setKeepAliveOnNavigate($event)"
+                [attr.aria-label]="'TV.KEEP_ALIVE' | translate" />
+              <span class="visually-hidden">{{ 'TV.KEEP_ALIVE' | translate }}</span>
+            </label>
           </div>
         </div>
 

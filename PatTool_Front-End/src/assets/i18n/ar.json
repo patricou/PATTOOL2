@@ -3854,7 +3854,9 @@
     "EPG_GUIDE_CLOSE": "إغلاق دليل البرامج",
     "EPG_GUIDE_LOADING": "جارٍ تحميل الدليل…",
     "EPG_GUIDE_EMPTY": "لا يتوفر دليل لهذا القناة.",
-    "EPG_GUIDE_ERROR": "تعذر تحميل دليل البرامج."
+    "EPG_GUIDE_ERROR": "تعذر تحميل دليل البرامج.",
+    "RESTART_STREAM": "Reconnect stream from scratch",
+    "RESTART_STREAM_DONE": "Stream reconnected"
   },
   "RADIO": {
     "TITLE": "Radio — world stations",

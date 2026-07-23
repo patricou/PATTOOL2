@@ -98,6 +98,33 @@
   margin-bottom: 1rem;
 }
 
+.tv-keep-alive {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.25rem;
+  margin: 0;
+  padding: 0;
+  border-radius: 0.375rem;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: transparent;
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+
+.tv-keep-alive .form-check-input {
+  margin: 0;
+  cursor: pointer;
+  width: 1.85rem;
+  height: 1rem;
+  float: none;
+}
+
+.tv-keep-alive .form-check-input:focus {
+  box-shadow: 0 0 0 0.15rem rgba(110, 168, 254, 0.35);
+}
+
 .tv-layout {
   display: grid;
   grid-template-columns: minmax(360px, 420px) minmax(0, 1fr);

@@ -22,6 +22,42 @@
   height: auto !important;
 }
 
+.radio-float--pip-host {
+  left: -10000px !important;
+  top: 0 !important;
+  width: 320px !important;
+  height: 180px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+  z-index: -1 !important;
+}
+
+.radio-float:fullscreen,
+.radio-float:-webkit-full-screen {
+  left: 0 !important;
+  top: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  max-height: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.radio-float:fullscreen .radio-float-body,
+.radio-float:-webkit-full-screen .radio-float-body {
+  flex: 1;
+  min-height: 0;
+}
+
+.radio-float:fullscreen .radio-float-resize,
+.radio-float:-webkit-full-screen .radio-float-resize {
+  display: none !important;
+}
+
 .radio-float-header {
   display: flex;
   align-items: center;

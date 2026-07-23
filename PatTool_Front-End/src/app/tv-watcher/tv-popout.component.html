@@ -46,6 +46,23 @@
       <button
         type="button"
         class="tv-popout-btn"
+        (click)="toggleFullscreen()"
+        [attr.title]="(isFullscreen ? 'TV.POPOUT_FULLSCREEN_EXIT' : 'TV.POPOUT_FULLSCREEN') | translate"
+        [attr.aria-label]="(isFullscreen ? 'TV.POPOUT_FULLSCREEN_EXIT' : 'TV.POPOUT_FULLSCREEN') | translate">
+        <i class="fa" [class.fa-compress]="isFullscreen" [class.fa-arrows-alt]="!isFullscreen"></i>
+      </button>
+      <button
+        type="button"
+        class="tv-popout-btn"
+        [class.is-active]="isOverlayActive"
+        (click)="toggleOverlayWindow()"
+        [attr.title]="(isOverlayActive ? 'TV.POPOUT_OVERLAY_EXIT' : 'TV.POPOUT_OVERLAY') | translate"
+        [attr.aria-label]="(isOverlayActive ? 'TV.POPOUT_OVERLAY_EXIT' : 'TV.POPOUT_OVERLAY') | translate">
+        <i class="fa" [class.fa-thumb-tack]="!isOverlayActive" [class.fa-times-circle]="isOverlayActive"></i>
+      </button>
+      <button
+        type="button"
+        class="tv-popout-btn"
         *ngIf="pipSupported"
         (click)="togglePictureInPicture()"
         [attr.title]="(isPipActive ? 'TV.PIP_EXIT' : 'TV.PIP') | translate"
@@ -63,29 +80,31 @@
     </div>
   </header>
 
-  <div class="tv-popout-stage">
-    <video
-      #videoEl
-      class="tv-popout-video"
-      controls
-      playsinline
-      autoplay
-      [class.tv-popout-video--hidden]="!!playError"></video>
-    <div class="tv-popout-buffering" *ngIf="isBuffering && !playError">
-      <i class="fa fa-spinner fa-spin"></i>
-      <span>{{ 'TV.BUFFERING' | translate }}</span>
+  <div class="tv-popout-stage-slot" #stageSlot>
+    <div class="tv-popout-stage" #stageEl>
+      <video
+        #videoEl
+        class="tv-popout-video"
+        controls
+        playsinline
+        autoplay
+        [class.tv-popout-video--hidden]="!!playError"></video>
+      <div class="tv-popout-buffering" *ngIf="isBuffering && !playError">
+        <i class="fa fa-spinner fa-spin"></i>
+        <span>{{ 'TV.BUFFERING' | translate }}</span>
+      </div>
+      <div class="tv-popout-radio" *ngIf="usesRadioFrance() && !playError">
+        <img
+          *ngIf="channel?.logo"
+          class="tv-popout-radio-logo"
+          [src]="channel?.logo"
+          [alt]="channelName"
+          (error)="$any($event.target).style.display='none'" />
+        <span><i class="fa fa-headphones me-1"></i>{{ channelName }}</span>
+      </div>
+      <div *ngIf="playError" class="tv-popout-error" role="alert">{{ formatPlayError(playError) }}</div>
     </div>
-    <div class="tv-popout-radio" *ngIf="usesRadioFrance() && !playError">
-      <img
-        *ngIf="channel?.logo"
-        class="tv-popout-radio-logo"
-        [src]="channel?.logo"
-        [alt]="channelName"
-        (error)="$any($event.target).style.display='none'" />
-      <span><i class="fa fa-headphones me-1"></i>{{ channelName }}</span>
-    </div>
-    <div *ngIf="playError" class="tv-popout-error" role="alert">{{ formatPlayError(playError) }}</div>
   </div>
 
-  <p class="tv-popout-hint">{{ 'TV.POPOUT_HINT' | translate }}</p>
+  <p class="tv-popout-hint" *ngIf="!isFullscreen && !isOverlayActive">{{ 'TV.POPOUT_HINT' | translate }}</p>
 </div>

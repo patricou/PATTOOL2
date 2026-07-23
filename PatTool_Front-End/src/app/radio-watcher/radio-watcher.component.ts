@@ -20,6 +20,14 @@ import { ApiService, RadioCountry, RadioStation } from '../services/api.service'
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { RadioPlayerService } from '../services/radio-player.service';
 import { createTvHlsConfig, tryRecoverTvHlsError } from '../tv-watcher/tv-hls-config';
+import {
+  applyRadioMediaSession,
+  closeRadioDocPip,
+  enterRadioPictureInPicture,
+  isRadioDocPipOpen,
+  stopRadioPipCarrier,
+  supportsRadioPictureInPicture
+} from './radio-pip.util';
 
 type RadioListMode = 'catalog' | 'favorites';
 
@@ -32,6 +40,7 @@ type RadioListMode = 'catalog' | 'favorites';
 })
 export class RadioWatcherComponent implements OnInit, OnDestroy {
   @ViewChild('mediaEl') mediaEl?: ElementRef<HTMLVideoElement>;
+  @ViewChild('playerPanel') playerPanelEl?: ElementRef<HTMLElement>;
 
   countries: RadioCountry[] = [];
   stations: RadioStation[] = [];
@@ -67,6 +76,10 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   chromeVisible = true;
   shareMenuOpen = false;
   shareFeedback = '';
+  /** When true, leaving the page with PiP open keeps OS PiP alive. */
+  keepAliveOnNavigate = true;
+  isPipActive = false;
+  pipSupported = supportsRadioPictureInPicture();
   readonly canNativeShare =
     typeof navigator !== 'undefined' && typeof (navigator as Navigator).share === 'function';
 
@@ -87,7 +100,9 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   private playGeneration = 0;
   private static readonly CHROME_HIDE_MS = 4000;
   private static readonly LAST_STATION_STORAGE_KEY = 'pattool.radio.last-station';
+  private static readonly KEEP_ALIVE_STORAGE_KEY = 'pattool.radio.keep-alive';
   private static readonly SHARE_STREAM_MAX_LEN = 80;
+  private static readonly PRESET_COUNT = 12;
 
   constructor(
     private api: ApiService,
@@ -190,6 +205,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.keepAliveOnNavigate = this.readKeepAlivePreference();
     this.stationSearchSub = this.stationSearch$
       .pipe(debounceTime(280), distinctUntilChanged())
       .subscribe(() => {
@@ -207,6 +223,9 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     if (pending) {
       this.restoredLastStation = true;
       this.resumePagePlayback(pending);
+    } else if (this.radioPlayer.isOpen && this.radioPlayer.snapshot.station) {
+      this.selectedStation = this.radioPlayer.snapshot.station;
+      this.restoredLastStation = true;
     }
 
     this.loadCountries();
@@ -226,7 +245,144 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     this.catalogCountSub?.unsubscribe();
     this.resumeSub?.unsubscribe();
     this.lastStationSaveSub?.unsubscribe();
+    this.applyLeavePagePlaybackPolicy();
     this.destroyPlayer();
+  }
+
+  /**
+   * Keep-alive ON + OS PiP active: hand stream to a hidden shell host so PiP survives navigation.
+   * Keep-alive OFF: stop page + floating playback.
+   * Keep-alive ON without PiP: do not auto-open the floating window.
+   */
+  private applyLeavePagePlaybackPolicy(): void {
+    // Always restore Doc PiP face/media before the page view is destroyed.
+    const pipOwned = isRadioDocPipOpen() || this.isPipElementOwned();
+    if (!this.keepAliveOnNavigate) {
+      if (this.radioPlayer.isOpen) {
+        this.radioPlayer.close({ resumeOnPage: false });
+      }
+      this.exitPictureInPictureIfOwned();
+      return;
+    }
+    if (this.radioPlayer.isOpen) {
+      // Floating already owns playback — still close Doc PiP so DOM homes are restored.
+      this.exitPictureInPictureIfOwned();
+      return;
+    }
+    const station = this.selectedStation;
+    if (!station || this.playError || !pipOwned) {
+      this.exitPictureInPictureIfOwned();
+      return;
+    }
+    // Close doc-pip first so media returns home, then hand off to shell host.
+    closeRadioDocPip();
+    this.persistLastStation(station);
+    this.radioPlayer.openFloating(station, { pipHostOnly: true });
+  }
+
+  private isPipElementOwned(): boolean {
+    const pipEl = document.pictureInPictureElement;
+    return (
+      !!pipEl &&
+      (pipEl === this.mediaEl?.nativeElement ||
+        pipEl === document.getElementById('pattool-radio-pip-carrier'))
+    );
+  }
+
+  private exitPictureInPictureIfOwned(): void {
+    closeRadioDocPip();
+    if (this.isPipElementOwned()) {
+      document.exitPictureInPicture().catch(() => undefined);
+      stopRadioPipCarrier();
+    }
+    this.isPipActive = false;
+  }
+
+  async togglePictureInPicture(): Promise<void> {
+    if (!this.pipSupported || !this.selectedStation) {
+      return;
+    }
+    const media = this.mediaEl?.nativeElement;
+    if (!media) {
+      return;
+    }
+    try {
+      if (isRadioDocPipOpen() || this.isPipElementOwned()) {
+        closeRadioDocPip();
+        if (this.isPipElementOwned()) {
+          await document.exitPictureInPicture().catch(() => undefined);
+          stopRadioPipCarrier();
+        }
+        this.isPipActive = false;
+        this.cdr.markForCheck();
+        return;
+      }
+      await enterRadioPictureInPicture(media, {
+        title: this.selectedStation.name || 'Radio',
+        artworkUrl: this.stationLogo(this.selectedStation),
+        countryLabel: this.countryLabel(this.selectedStation.country),
+        faceEl: this.playerPanelEl?.nativeElement || null,
+        labels: {
+          fullscreen: this.translate.instant('RADIO.FULLSCREEN'),
+          fullscreenExit: this.translate.instant('RADIO.FULLSCREEN_EXIT'),
+          close: this.translate.instant('RADIO.PIP_EXIT')
+        },
+        onClose: () => {
+          if (!this.isPipActive) {
+            return;
+          }
+          this.isPipActive = false;
+          this.cdr.markForCheck();
+        }
+      });
+      this.isPipActive = true;
+      this.cdr.markForCheck();
+    } catch {
+      this.playError = 'RADIO.ERR_PIP';
+      this.showChrome(true);
+      this.cdr.markForCheck();
+    }
+  }
+
+  @HostListener('document:enterpictureinpicture')
+  onEnterPip(): void {
+    this.isPipActive = isRadioDocPipOpen() || this.isPipElementOwned();
+    this.cdr.markForCheck();
+  }
+
+  @HostListener('document:leavepictureinpicture')
+  onLeavePip(): void {
+    if (!isRadioDocPipOpen()) {
+      this.isPipActive = false;
+      stopRadioPipCarrier();
+      this.cdr.markForCheck();
+    }
+  }
+
+  setKeepAliveOnNavigate(enabled: boolean): void {
+    this.keepAliveOnNavigate = !!enabled;
+    this.writeKeepAlivePreference(this.keepAliveOnNavigate);
+    this.cdr.markForCheck();
+  }
+
+  private readKeepAlivePreference(): boolean {
+    try {
+      const raw = localStorage.getItem(RadioWatcherComponent.KEEP_ALIVE_STORAGE_KEY);
+      if (raw === null) {
+        return true;
+      }
+      return raw === '1' || raw === 'true';
+    } catch {
+      return true;
+    }
+  }
+
+  private writeKeepAlivePreference(enabled: boolean): void {
+    try {
+      localStorage.setItem(RadioWatcherComponent.KEEP_ALIVE_STORAGE_KEY, enabled ? '1' : '0');
+    } catch {
+      /* private mode / quota */
+    }
   }
 
   @HostListener('document:click', ['$event'])
@@ -393,6 +549,48 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     return !!station?.id && this.favoriteIds.has(station.id);
   }
 
+  /** First N favorites mapped to physical-style preset buttons on the radio face. */
+  get presetSlots(): (RadioStation | null)[] {
+    const slots: (RadioStation | null)[] = [];
+    for (let i = 0; i < RadioWatcherComponent.PRESET_COUNT; i++) {
+      slots.push(this.favorites[i] || null);
+    }
+    return slots;
+  }
+
+  playPreset(station: RadioStation | null, event?: Event): void {
+    event?.stopPropagation();
+    if (!station) {
+      if (!this.isLoggedIn) {
+        this.favoritesHint = 'RADIO.FAVORITES_LOGIN';
+      } else {
+        this.setListMode('favorites');
+      }
+      this.cdr.markForCheck();
+      return;
+    }
+    this.selectStation(station);
+  }
+
+  shortPresetName(station: RadioStation): string {
+    const name = (station?.name || '').trim();
+    if (!name) {
+      return '—';
+    }
+    if (name.length <= 7) {
+      return name;
+    }
+    return `${name.slice(0, 6)}…`;
+  }
+
+  presetTitle(station: RadioStation | null, index: number): string {
+    const n = index + 1;
+    if (station?.name) {
+      return this.translate.instant('RADIO.PRESET_PLAY', { n, name: station.name });
+    }
+    return this.translate.instant('RADIO.PRESET_EMPTY', { n });
+  }
+
   selectStation(station: RadioStation): void {
     if (!station) {
       return;
@@ -424,6 +622,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     const station = this.selectedStation;
+    closeRadioDocPip();
     this.destroyPlayer();
     this.radioPlayer.openFloating(station);
     this.cdr.markForCheck();
@@ -609,9 +808,17 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   }
 
   private resumePagePlayback(station: RadioStation): void {
+    if (!station || this.radioPlayer.isOpen) {
+      return;
+    }
+    this.radioPlayer.clearPendingResume();
     this.selectedStation = station;
     this.playError = '';
-    setTimeout(() => this.playStation(station), 0);
+    setTimeout(() => {
+      if (!this.radioPlayer.isOpen) {
+        this.playStation(station);
+      }
+    }, 0);
     this.cdr.markForCheck();
   }
 
@@ -750,21 +957,29 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   }
 
   private restoreLastPlayedStation(): void {
-    if (this.restoredLastStation) {
+    if (this.restoredLastStation || this.selectedStation || this.radioPlayer.isOpen) {
       return;
     }
     const local = this.readLocalLastStation();
     if (local) {
       this.restoredLastStation = true;
       this.selectedStation = local;
-      setTimeout(() => this.playStation(local), 0);
+      setTimeout(() => {
+        if (!this.radioPlayer.isOpen) {
+          this.playStation(local);
+        }
+      }, 0);
     }
     if (this.isLoggedIn) {
       this.api.getRadioLastStation().pipe(catchError(() => of(null))).subscribe((st) => {
-        if (st && !this.restoredLastStation) {
+        if (st && !this.restoredLastStation && !this.radioPlayer.isOpen) {
           this.restoredLastStation = true;
           this.selectedStation = st;
-          setTimeout(() => this.playStation(st), 0);
+          setTimeout(() => {
+            if (!this.radioPlayer.isOpen) {
+              this.playStation(st);
+            }
+          }, 0);
           this.cdr.markForCheck();
         } else if (st) {
           this.writeLocalLastStation(st);
@@ -918,6 +1133,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   }
 
   private destroyPlayer(clearSrc = true): void {
+    closeRadioDocPip();
     if (this.hls) {
       try {
         this.hls.destroy();
@@ -941,6 +1157,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
         media.load();
       }
     }
+    this.isPipActive = false;
   }
 
   formatPlayError(message: string | null | undefined): string {

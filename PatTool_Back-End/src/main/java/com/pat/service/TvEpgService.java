@@ -390,10 +390,12 @@ public class TvEpgService {
         HttpResponse<InputStream> response = fetch(gzUrl);
         boolean gzip = true;
         if (response == null || response.statusCode() < 200 || response.statusCode() >= 300) {
+            closeQuietly(response);
             response = fetch(xmlUrl);
             gzip = false;
             if (response == null || response.statusCode() < 200 || response.statusCode() >= 300) {
                 log.warn("TV EPG HTTP {} for {}", response != null ? response.statusCode() : -1, xmlUrl);
+                closeQuietly(response);
                 return null;
             }
         }
@@ -403,6 +405,20 @@ public class TvEpgService {
                      ? new GZIPInputStream(new BufferedInputStream(raw, 64 * 1024))
                      : new BufferedInputStream(raw, 64 * 1024)) {
             return parseXmltv(in);
+        }
+    }
+
+    private static void closeQuietly(HttpResponse<InputStream> response) {
+        if (response == null) {
+            return;
+        }
+        try {
+            InputStream body = response.body();
+            if (body != null) {
+                body.close();
+            }
+        } catch (Exception ignored) {
+            /* ignore */
         }
     }
 
@@ -426,7 +442,18 @@ public class TvEpgService {
         factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
         factory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
         XMLStreamReader reader = factory.createXMLStreamReader(in);
+        try {
+            return parseXmltvReader(reader);
+        } finally {
+            try {
+                reader.close();
+            } catch (Exception ignored) {
+                /* ignore */
+            }
+        }
+    }
 
+    private CountryGuide parseXmltvReader(XMLStreamReader reader) throws Exception {
         Instant windowStart = Instant.now().minus(Duration.ofHours(6));
         Instant windowEnd = Instant.now().plus(Duration.ofHours(36));
 
@@ -495,7 +522,6 @@ public class TvEpgService {
                 text.setLength(0);
             }
         }
-        reader.close();
 
         for (List<Programme> list : byChannel.values()) {
             list.sort(Comparator.comparing(p -> p.start, Comparator.nullsLast(Comparator.naturalOrder())));

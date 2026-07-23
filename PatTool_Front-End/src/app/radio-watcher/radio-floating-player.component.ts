@@ -17,6 +17,14 @@ import Hls from 'hls.js';
 import { ApiService, RadioStation } from '../services/api.service';
 import { RadioFloatingState, RadioPlayerService } from '../services/radio-player.service';
 import { createTvHlsConfig, tryRecoverTvHlsError } from '../tv-watcher/tv-hls-config';
+import {
+  applyRadioMediaSession,
+  closeRadioDocPip,
+  enterRadioPictureInPicture,
+  isRadioDocPipOpen,
+  stopRadioPipCarrier,
+  supportsRadioPictureInPicture
+} from './radio-pip.util';
 
 type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
@@ -35,6 +43,9 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   volumePercent = 100;
   isBuffering = false;
   playError = '';
+  isPipActive = false;
+  isFullscreen = false;
+  pipSupported = supportsRadioPictureInPicture();
 
   posX = 24;
   posY = 24;
@@ -63,6 +74,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   private stateSub?: Subscription;
   private lastStationId = '';
   private playGeneration = 0;
+  private suppressPipHostClose = false;
 
   constructor(
     private radioPlayer: RadioPlayerService,
@@ -117,6 +129,81 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
 
   restore(): void {
     this.radioPlayer.restore();
+  }
+
+  async togglePictureInPicture(): Promise<void> {
+    const media = this.mediaEl?.nativeElement;
+    if (!media || !this.pipSupported || !this.station) {
+      return;
+    }
+    try {
+      if (isRadioDocPipOpen()) {
+        closeRadioDocPip();
+        this.isPipActive = false;
+        this.cdr.markForCheck();
+        return;
+      }
+      const carrier = document.getElementById('pattool-radio-pip-carrier');
+      if (
+        document.pictureInPictureElement === media ||
+        document.pictureInPictureElement === carrier
+      ) {
+        await document.exitPictureInPicture();
+        stopRadioPipCarrier();
+        this.isPipActive = false;
+        this.cdr.markForCheck();
+        return;
+      }
+      if (this.state.minimized && !this.state.pipHostOnly) {
+        this.restore();
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      await enterRadioPictureInPicture(media, {
+        title: this.station.name || 'Radio',
+        artworkUrl: this.station.logo,
+        countryLabel: this.station.country || null,
+        labels: {
+          fullscreen: this.translate.instant('RADIO.FULLSCREEN'),
+          fullscreenExit: this.translate.instant('RADIO.FULLSCREEN_EXIT'),
+          close: this.translate.instant('RADIO.PIP_EXIT')
+        },
+        onClose: () => {
+          this.isPipActive = false;
+          if (this.state.pipHostOnly && this.state.open) {
+            this.radioPlayer.close({ resumeOnPage: false });
+          }
+          this.cdr.markForCheck();
+        }
+      });
+      this.isPipActive = true;
+      this.cdr.markForCheck();
+    } catch {
+      this.playError = 'RADIO.ERR_PIP';
+      this.cdr.markForCheck();
+    }
+  }
+
+  async toggleFullscreen(): Promise<void> {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        return;
+      }
+      if (this.state.minimized) {
+        this.restore();
+        await new Promise((r) => setTimeout(r, 40));
+      }
+      const root = document.querySelector('.radio-float') as HTMLElement | null;
+      if (!root?.requestFullscreen) {
+        this.playError = 'RADIO.ERR_FULLSCREEN';
+        this.cdr.markForCheck();
+        return;
+      }
+      await root.requestFullscreen();
+    } catch {
+      this.playError = 'RADIO.ERR_FULLSCREEN';
+      this.cdr.markForCheck();
+    }
   }
 
   toggleMute(): void {
@@ -228,6 +315,43 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     this.resizing = null;
   }
 
+  @HostListener('document:fullscreenchange')
+  onFullscreenChange(): void {
+    this.isFullscreen = !!document.fullscreenElement;
+    this.cdr.markForCheck();
+  }
+
+  @HostListener('document:enterpictureinpicture')
+  onEnterPip(): void {
+    const pip = document.pictureInPictureElement;
+    this.isPipActive =
+      pip === this.mediaEl?.nativeElement ||
+      pip === document.getElementById('pattool-radio-pip-carrier');
+    this.cdr.markForCheck();
+  }
+
+  @HostListener('document:leavepictureinpicture')
+  onLeavePip(): void {
+    this.isPipActive = false;
+    if (this.suppressPipHostClose) {
+      this.cdr.markForCheck();
+      return;
+    }
+    if (this.state.pipHostOnly && this.state.open) {
+      this.radioPlayer.close({ resumeOnPage: false });
+      stopRadioPipCarrier();
+      this.cdr.markForCheck();
+      return;
+    }
+    stopRadioPipCarrier();
+    const media = this.mediaEl?.nativeElement;
+    if (media && this.state.open) {
+      media.muted = false;
+      media.play().catch(() => undefined);
+    }
+    this.cdr.markForCheck();
+  }
+
   private placeDefaultPosition(): void {
     if (this.positioned || typeof window === 'undefined') {
       return;
@@ -251,10 +375,13 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
       return;
     }
     const gen = ++this.playGeneration;
+    this.suppressPipHostClose = true;
     this.destroyPlayer(false);
     this.playError = '';
     this.isBuffering = true;
     this.cdr.markForCheck();
+
+    applyRadioMediaSession({ title: station.name || 'Radio', artworkUrl: station.logo });
 
     const proxyUrl = this.api.radioStreamProxyUrl(station.streamUrl);
     const url = (station.streamUrl || '').toLowerCase();
@@ -264,6 +391,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
       codec.includes('mpegurl') ||
       codec.includes('m3u8') ||
       codec.includes('hls');
+    const pipHostOnly = !!this.state.pipHostOnly;
 
     const onError = (message: string) => {
       if (gen !== this.playGeneration) {
@@ -271,7 +399,23 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
       }
       this.playError = message || 'RADIO.ERR_STREAM';
       this.isBuffering = false;
+      this.suppressPipHostClose = false;
       this.cdr.markForCheck();
+    };
+
+    const afterPlaying = () => {
+      if (gen !== this.playGeneration) {
+        return;
+      }
+      this.isBuffering = false;
+      this.cdr.markForCheck();
+      if (pipHostOnly) {
+        void this.enterPipForHost(media).finally(() => {
+          this.suppressPipHostClose = false;
+        });
+      } else {
+        this.suppressPipHostClose = false;
+      }
     };
 
     const tryPlay = () => {
@@ -280,18 +424,12 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
       }
       media.muted = false;
       this.isMuted = false;
-      void media.play().then(() => {
-        this.isBuffering = false;
-        this.cdr.markForCheck();
-      }).catch((err: unknown) => {
+      void media.play().then(() => afterPlaying()).catch((err: unknown) => {
         const name = err && typeof err === 'object' && 'name' in err ? String((err as { name: string }).name) : '';
         if (name === 'NotAllowedError') {
           media.muted = true;
           this.isMuted = true;
-          void media.play().then(() => {
-            this.isBuffering = false;
-            this.cdr.markForCheck();
-          }).catch(() => onError('RADIO.ERR_PLAY'));
+          void media.play().then(() => afterPlaying()).catch(() => onError('RADIO.ERR_PLAY'));
           return;
         }
         onError('RADIO.ERR_PLAY');
@@ -331,6 +469,15 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   }
 
   private destroyPlayer(clearSrc = true): void {
+    closeRadioDocPip();
+    const pip = document.pictureInPictureElement;
+    if (
+      pip === this.mediaEl?.nativeElement ||
+      pip === document.getElementById('pattool-radio-pip-carrier')
+    ) {
+      document.exitPictureInPicture().catch(() => undefined);
+      stopRadioPipCarrier();
+    }
     if (this.hls) {
       try {
         this.hls.destroy();
@@ -353,6 +500,36 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
         media.removeAttribute('src');
         media.load();
       }
+    }
+    this.isPipActive = false;
+  }
+
+  private async enterPipForHost(media: HTMLVideoElement): Promise<void> {
+    if (!this.pipSupported || !this.state.pipHostOnly || !this.state.open || !this.station) {
+      return;
+    }
+    try {
+      await enterRadioPictureInPicture(media, {
+        title: this.station.name || 'Radio',
+        artworkUrl: this.station.logo,
+        countryLabel: this.station.country || null,
+        labels: {
+          fullscreen: this.translate.instant('RADIO.FULLSCREEN'),
+          fullscreenExit: this.translate.instant('RADIO.FULLSCREEN_EXIT'),
+          close: this.translate.instant('RADIO.PIP_EXIT')
+        },
+        onClose: () => {
+          this.isPipActive = false;
+          if (this.state.pipHostOnly && this.state.open) {
+            this.radioPlayer.close({ resumeOnPage: false });
+          }
+          this.cdr.markForCheck();
+        }
+      });
+      this.isPipActive = true;
+      this.cdr.markForCheck();
+    } catch {
+      this.radioPlayer.close({ resumeOnPage: false });
     }
   }
 }

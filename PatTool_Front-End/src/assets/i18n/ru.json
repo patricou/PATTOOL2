@@ -3849,7 +3849,9 @@
     "EPG_GUIDE_CLOSE": "Закрыть телегид",
     "EPG_GUIDE_LOADING": "Загрузка телегида…",
     "EPG_GUIDE_EMPTY": "Телегид недоступен для этого канала.",
-    "EPG_GUIDE_ERROR": "Не удалось загрузить телегид."
+    "EPG_GUIDE_ERROR": "Не удалось загрузить телегид.",
+    "RESTART_STREAM": "Reconnect stream from scratch",
+    "RESTART_STREAM_DONE": "Stream reconnected"
   },
   "RADIO": {
     "TITLE": "Radio — world stations",

@@ -3847,7 +3847,9 @@
     "EPG_GUIDE_CLOSE": "कार्यक्रम गाइड बंद करें",
     "EPG_GUIDE_LOADING": "गाइड लोड हो रहा है…",
     "EPG_GUIDE_EMPTY": "इस चैनल के लिए गाइड उपलब्ध नहीं है।",
-    "EPG_GUIDE_ERROR": "गाइड लोड नहीं हो सका।"
+    "EPG_GUIDE_ERROR": "गाइड लोड नहीं हो सका।",
+    "RESTART_STREAM": "Reconnect stream from scratch",
+    "RESTART_STREAM_DONE": "Stream reconnected"
   },
   "RADIO": {
     "TITLE": "Radio — world stations",

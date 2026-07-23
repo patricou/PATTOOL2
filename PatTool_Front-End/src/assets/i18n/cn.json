@@ -3856,7 +3856,9 @@
     "EPG_GUIDE_CLOSE": "关闭节目表",
     "EPG_GUIDE_LOADING": "正在加载节目表…",
     "EPG_GUIDE_EMPTY": "该频道暂无节目表。",
-    "EPG_GUIDE_ERROR": "无法加载节目表。"
+    "EPG_GUIDE_ERROR": "无法加载节目表。",
+    "RESTART_STREAM": "Reconnect stream from scratch",
+    "RESTART_STREAM_DONE": "Stream reconnected"
   },
   "RADIO": {
     "TITLE": "Radio — world stations",

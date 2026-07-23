@@ -3858,7 +3858,9 @@
     "EPG_GUIDE_CLOSE": "Κλείσιμο οδηγού προγράμματος",
     "EPG_GUIDE_LOADING": "Φόρτωση οδηγού…",
     "EPG_GUIDE_EMPTY": "Δεν υπάρχει οδηγός για αυτό το κανάλι.",
-    "EPG_GUIDE_ERROR": "Αδυναμία φόρτωσης του οδηγού."
+    "EPG_GUIDE_ERROR": "Αδυναμία φόρτωσης του οδηγού.",
+    "RESTART_STREAM": "Reconnect stream from scratch",
+    "RESTART_STREAM_DONE": "Stream reconnected"
   },
   "RADIO": {
     "TITLE": "Radio — world stations",

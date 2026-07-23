@@ -1,12 +1,14 @@
 <div
   class="tv-float"
   *ngIf="state.open"
-  [class.tv-float--minimized]="state.minimized"
+  [class.tv-float--minimized]="state.minimized && !state.pipHostOnly"
+  [class.tv-float--pip-host]="!!state.pipHostOnly"
   [style.left.px]="posX"
   [style.top.px]="posY"
-  [style.width.px]="state.minimized ? null : widthPx"
-  [style.height.px]="state.minimized ? null : heightPx"
+  [style.width.px]="state.minimized || state.pipHostOnly ? null : widthPx"
+  [style.height.px]="state.minimized || state.pipHostOnly ? null : heightPx"
   role="dialog"
+  [attr.aria-hidden]="!!state.pipHostOnly"
   [attr.aria-label]="'TV.FLOAT_TITLE' | translate">
   <div class="tv-float-header" (mousedown)="onDragStart($event)">
     <div class="tv-float-title">
@@ -73,6 +75,14 @@
         [attr.title]="(isPipActive ? 'TV.PIP_EXIT' : 'TV.PIP') | translate"
         [attr.aria-label]="(isPipActive ? 'TV.PIP_EXIT' : 'TV.PIP') | translate">
         <i class="fa" [class.fa-compress]="isPipActive" [class.fa-clone]="!isPipActive"></i>
+      </button>
+      <button
+        type="button"
+        class="tv-float-btn"
+        (click)="toggleFullscreen()"
+        [attr.title]="(isFullscreen ? 'TV.POPOUT_FULLSCREEN_EXIT' : 'TV.POPOUT_FULLSCREEN') | translate"
+        [attr.aria-label]="(isFullscreen ? 'TV.POPOUT_FULLSCREEN_EXIT' : 'TV.POPOUT_FULLSCREEN') | translate">
+        <i class="fa" [class.fa-compress]="isFullscreen" [class.fa-arrows-alt]="!isFullscreen"></i>
       </button>
       <button
         type="button"

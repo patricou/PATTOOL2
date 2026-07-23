@@ -45,8 +45,12 @@ public class RadioStreamProxyService {
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
     private static final int CONNECT_TIMEOUT_MS = 12_000;
-    /** Live Icecast: do not idle-timeout the read while the client is listening. */
-    private static final int READ_TIMEOUT_MS = 0;
+    /**
+     * Idle read timeout for continuous Icecast/MP3 pipes.
+     * Non-zero so a silent/hung upstream cannot pin a Tomcat worker forever after the browser
+     * already aborted (station change / leave page). Client abort is still detected on write.
+     */
+    private static final int READ_TIMEOUT_MS = 60_000;
     private static final int MAX_REDIRECTS = 8;
     private static final int PLAYLIST_MAX_BYTES = 64 * 1024;
 
@@ -265,33 +269,45 @@ public class RadioStreamProxyService {
             }
             URL u = uri.toURL();
             HttpURLConnection conn = (HttpURLConnection) u.openConnection();
-            conn.setInstanceFollowRedirects(false);
-            conn.setConnectTimeout(CONNECT_TIMEOUT_MS);
-            conn.setReadTimeout(READ_TIMEOUT_MS);
-            conn.setRequestProperty("User-Agent", USER_AGENT);
-            conn.setRequestProperty("Accept", "*/*");
-            conn.setRequestProperty("Icy-MetaData", "0");
+            boolean retainConnection = false;
+            try {
+                conn.setInstanceFollowRedirects(false);
+                conn.setConnectTimeout(CONNECT_TIMEOUT_MS);
+                conn.setReadTimeout(READ_TIMEOUT_MS);
+                conn.setRequestProperty("User-Agent", USER_AGENT);
+                conn.setRequestProperty("Accept", "*/*");
+                conn.setRequestProperty("Icy-MetaData", "0");
 
-            int code = conn.getResponseCode();
-            if (code >= 300 && code < 400) {
-                String location = conn.getHeaderField("Location");
-                conn.disconnect();
-                if (location == null || location.isBlank()) {
+                int code = conn.getResponseCode();
+                if (code >= 300 && code < 400) {
+                    String location = conn.getHeaderField("Location");
+                    if (location == null || location.isBlank()) {
+                        return null;
+                    }
+                    current = uri.resolve(location).toString();
+                    continue;
+                }
+                if (code >= 400) {
                     return null;
                 }
-                current = uri.resolve(location).toString();
-                continue;
+                InputStream in = conn.getInputStream();
+                OpenedStream opened = new OpenedStream();
+                opened.connection = conn;
+                opened.inputStream = in;
+                opened.contentType = conn.getContentType();
+                retainConnection = true;
+                return opened;
+            } catch (Exception e) {
+                throw e;
+            } finally {
+                if (!retainConnection) {
+                    try {
+                        conn.disconnect();
+                    } catch (Exception ignored) {
+                        /* ignore */
+                    }
+                }
             }
-            if (code >= 400) {
-                conn.disconnect();
-                return null;
-            }
-            InputStream in = conn.getInputStream();
-            OpenedStream opened = new OpenedStream();
-            opened.connection = conn;
-            opened.inputStream = in;
-            opened.contentType = conn.getContentType();
-            return opened;
         }
         return null;
     }

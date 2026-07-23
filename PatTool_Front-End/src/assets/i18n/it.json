@@ -3869,7 +3869,9 @@
     "EPG_GUIDE_CLOSE": "Chiudi la guida TV",
     "EPG_GUIDE_LOADING": "Caricamento della guida…",
     "EPG_GUIDE_EMPTY": "Nessuna guida disponibile per questo canale.",
-    "EPG_GUIDE_ERROR": "Impossibile caricare la guida TV."
+    "EPG_GUIDE_ERROR": "Impossibile caricare la guida TV.",
+    "RESTART_STREAM": "Ricollega lo stream da zero",
+    "RESTART_STREAM_DONE": "Stream ricollegato"
   },
   "RADIO": {
     "TITLE": "Radio — world stations",

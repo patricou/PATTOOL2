@@ -98,6 +98,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   shareFeedback = '';
   /** Brief status after manual A/V resync. */
   resyncFeedback = '';
+  /** When true, leaving the page keeps playback in the floating player. */
+  keepAliveOnNavigate = true;
   readonly canNativeShare =
     typeof navigator !== 'undefined' && typeof (navigator as Navigator).share === 'function';
 
@@ -143,6 +145,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   private playGeneration = 0;
   private static readonly CHROME_HIDE_MS = 3000;
   private static readonly LAST_CHANNEL_STORAGE_KEY = 'pattool.tv.last-channel';
+  private static readonly KEEP_ALIVE_STORAGE_KEY = 'pattool.tv.keep-alive';
   /** Max length for virtual stream tokens in share links (not full http URLs). */
   private static readonly SHARE_STREAM_MAX_LEN = 80;
   private static readonly EPG_REFRESH_MS = 5 * 60 * 1000;
@@ -295,6 +298,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.keepAliveOnNavigate = this.readKeepAlivePreference();
     this.channelSearchSub = this.channelSearch$
       .pipe(debounceTime(280), distinctUntilChanged())
       .subscribe(() => {
@@ -314,9 +318,19 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       this.resumePagePlayback(channel);
     });
     const pending = this.tvPlayer.consumePendingResume();
-    if (pending) {
+    if (this.tvPlayer.isOsPipActive()) {
+      // Back on the TV page while OS PiP still runs — keep one stream only.
+      this.tvPlayer.detachPipHostOnly();
+      this.selectedChannel =
+        this.tvPlayer.osPipChannel || this.tvPlayer.snapshot.channel || this.selectedChannel;
+      this.isPipActive = true;
+      this.restoredLastChannel = true;
+    } else if (pending) {
       this.restoredLastChannel = true;
       this.resumePagePlayback(pending);
+    } else if (this.tvPlayer.isOpen && this.tvPlayer.snapshot.channel) {
+      this.selectedChannel = this.tvPlayer.snapshot.channel;
+      this.restoredLastChannel = true;
     }
 
     this.loadCountries();
@@ -347,7 +361,69 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.catalogCountSub?.unsubscribe();
     this.resumeSub?.unsubscribe();
     this.lastChannelSaveSub?.unsubscribe();
+    this.applyLeavePagePlaybackPolicy();
     this.destroyPlayer();
+  }
+
+  /**
+   * Keep-alive ON + OS PiP active: hand the stream to a hidden shell host so PiP survives navigation.
+   * Keep-alive OFF: stop page + floating playback (PiP ends with the page video).
+   * Keep-alive ON without PiP: do not open the floating window — playback simply stops.
+   */
+  private applyLeavePagePlaybackPolicy(): void {
+    if (!this.keepAliveOnNavigate) {
+      if (this.tvPlayer.isOpen) {
+        this.tvPlayer.close({ resumeOnPage: false });
+      }
+      this.tvPlayer.stopOsPip();
+      this.exitPictureInPictureIfOwned();
+      return;
+    }
+    if (this.tvPlayer.isPopoutActive || this.tvPlayer.isOpen) {
+      // External pop-out or an already-open float already owns playback.
+      return;
+    }
+    const ch = this.selectedChannel || this.tvPlayer.osPipChannel;
+    const pipOwned = this.tvPlayer.isOsPipActive();
+    if (!ch || this.playError || !pipOwned) {
+      return;
+    }
+    this.persistLastWatchedChannel(ch);
+    // Carrier already holds the stream + OS PiP; only register an invisible host.
+    this.tvPlayer.openFloating(ch, { pipHostOnly: true });
+  }
+
+  private exitPictureInPictureIfOwned(): void {
+    const video = this.videoEl?.nativeElement;
+    if (video && document.pictureInPictureElement === video) {
+      document.exitPictureInPicture().catch(() => undefined);
+    }
+  }
+
+  setKeepAliveOnNavigate(enabled: boolean): void {
+    this.keepAliveOnNavigate = !!enabled;
+    this.writeKeepAlivePreference(this.keepAliveOnNavigate);
+    this.cdr.markForCheck();
+  }
+
+  private readKeepAlivePreference(): boolean {
+    try {
+      const raw = localStorage.getItem(TvWatcherComponent.KEEP_ALIVE_STORAGE_KEY);
+      if (raw === null) {
+        return true;
+      }
+      return raw === '1' || raw === 'true';
+    } catch {
+      return true;
+    }
+  }
+
+  private writeKeepAlivePreference(enabled: boolean): void {
+    try {
+      localStorage.setItem(TvWatcherComponent.KEEP_ALIVE_STORAGE_KEY, enabled ? '1' : '0');
+    } catch {
+      /* private mode / quota */
+    }
   }
 
   @HostListener('document:click', ['$event'])
@@ -796,17 +872,56 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   async togglePictureInPicture(): Promise<void> {
     const video = this.videoEl?.nativeElement;
-    if (!video || !this.pipSupported || this.isFloatingOpen) {
+    if (!video || !this.pipSupported || !this.selectedChannel) {
+      return;
+    }
+    // Floating UI owns playback unless we are only hosting OS PiP keep-alive.
+    if (this.isFloatingOpen && !this.tvPlayer.isOsPipActive()) {
       return;
     }
     try {
+      if (this.tvPlayer.isOsPipActive()) {
+        const returned = await this.tvPlayer.exitOsPipToPage(video);
+        this.hls = returned.hls;
+        this.detachHlsLiveSync = returned.detachLiveSync;
+        this.isPipActive = false;
+        this.cdr.markForCheck();
+        return;
+      }
       if (document.pictureInPictureElement === video) {
         await document.exitPictureInPicture();
-      } else {
-        if (video.readyState < 1) {
+        this.isPipActive = false;
+        this.cdr.markForCheck();
+        return;
+      }
+      // Move HLS/native playback onto a body-level carrier so PiP survives route changes.
+      const hls = this.hls;
+      const detach = this.detachHlsLiveSync;
+      this.hls = null;
+      this.detachHlsLiveSync = null;
+      try {
+        await this.tvPlayer.enterOsPipFromPage({
+          channel: this.selectedChannel,
+          pageVideo: video,
+          hls,
+          detachLiveSync: detach
+        });
+        this.isPipActive = true;
+        this.cdr.markForCheck();
+      } catch (err) {
+        try {
+          const returned = await this.tvPlayer.exitOsPipToPage(video);
+          this.hls = returned.hls ?? hls;
+          this.detachHlsLiveSync = returned.detachLiveSync ?? detach;
+          if (!returned.hls && this.hls) {
+            this.hls.attachMedia(video);
+          }
           await video.play().catch(() => undefined);
+        } catch {
+          this.hls = hls;
+          this.detachHlsLiveSync = detach;
         }
-        await video.requestPictureInPicture();
+        throw err;
       }
     } catch {
       this.playError = 'TV.ERR_PIP';
@@ -817,16 +932,29 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   @HostListener('document:enterpictureinpicture')
   onEnterPip(): void {
-    this.isPipActive = document.pictureInPictureElement === this.videoEl?.nativeElement;
+    this.isPipActive =
+      this.tvPlayer.isOsPipActive() ||
+      document.pictureInPictureElement === this.videoEl?.nativeElement;
     this.cdr.markForCheck();
   }
 
-  @HostListener('document:leavepictureinpicture')
-  onLeavePip(): void {
+  @HostListener('document:leavepictureinpicture', ['$event'])
+  onLeavePip(event: Event): void {
+    const left = event?.target as Node | null;
+    const pageVideo = this.videoEl?.nativeElement;
     this.isPipActive = false;
-    // Browser often pauses when leaving PiP — resume in-page playback.
+    // Carrier leave is owned by TvPlayerService (stop + single resume) — do not start a 2nd stream.
+    if (left && pageVideo && left !== pageVideo) {
+      this.cdr.markForCheck();
+      return;
+    }
+    if (this.tvPlayer.isOsPipActive()) {
+      this.cdr.markForCheck();
+      return;
+    }
+    // Classic in-page video left PiP — resume if needed.
     if (!this.isFloatingOpen && this.selectedChannel) {
-      const video = this.videoEl?.nativeElement;
+      const video = pageVideo;
       if (video?.src || this.hls) {
         video?.play().catch(() => {
           this.resumePagePlayback(this.selectedChannel!);
@@ -840,7 +968,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   /** Resume HLS on the page player after floating / pop-out / PiP ends. */
   private resumePagePlayback(channel: TvChannel | null | undefined): void {
-    if (!channel || this.tvPlayer.isOpen) {
+    if (!channel || this.tvPlayer.isOpen || this.tvPlayer.isOsPipActive()) {
       return;
     }
     this.tvPlayer.clearPendingResume();
@@ -851,7 +979,11 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.showChrome(true);
     this.cdr.detectChanges();
     setTimeout(() => {
-      if (!this.tvPlayer.isOpen && this.selectedChannel?.id === channel.id) {
+      if (
+        !this.tvPlayer.isOpen &&
+        !this.tvPlayer.isOsPipActive() &&
+        this.selectedChannel?.id === channel.id
+      ) {
         this.playChannel(channel);
       }
     }, 0);
@@ -1380,6 +1512,27 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     }, 2200);
   }
 
+  /** Tear down HLS/media and reconnect to the current channel from scratch. */
+  restartStream(event?: Event): void {
+    event?.stopPropagation();
+    const channel = this.selectedChannel;
+    if (!channel || this.isFloatingOpen) {
+      return;
+    }
+    this.playError = '';
+    this.isBuffering = true;
+    this.resyncFeedback = 'TV.RESTART_STREAM_DONE';
+    this.clearResyncFeedbackTimer();
+    this.showChrome(true);
+    this.cdr.markForCheck();
+    this.playChannel(channel);
+    this.resyncFeedbackTimer = setTimeout(() => {
+      this.resyncFeedback = '';
+      this.resyncFeedbackTimer = null;
+      this.cdr.markForCheck();
+    }, 2200);
+  }
+
   private loadCountries(): void {
     this.isLoadingCountries = true;
     this.countriesError = '';
@@ -1667,6 +1820,11 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (this.tvPlayer.isOsPipActive()) {
+      this.tvPlayer.stopOsPip();
+      this.isPipActive = false;
+    }
+
     this.destroyPlayer();
     this.playError = '';
     this.isBuffering = true;
@@ -1882,7 +2040,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       this.hls = null;
     }
     const video = this.videoEl?.nativeElement;
-    if (video) {
+    // Do not touch the OS PiP carrier — it lives outside this view.
+    if (video && document.pictureInPictureElement !== video) {
       video.pause();
       video.removeAttribute('src');
       video.load();

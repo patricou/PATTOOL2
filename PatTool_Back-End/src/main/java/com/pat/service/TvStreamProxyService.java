@@ -39,7 +39,7 @@ public class TvStreamProxyService {
     private static final int READ_TIMEOUT_MS = 45_000;
     private static final int MAX_REDIRECTS = 8;
     /** Hard cap for a single proxied response (playlists + media segments). */
-    private static final int MAX_BYTES = 40 * 1024 * 1024;
+    private static final int MAX_BYTES = 12 * 1024 * 1024;
 
     @Value("${app.tv.proxy-referrer:}")
     private String defaultReferrer;
@@ -221,24 +221,26 @@ public class TvStreamProxyService {
                     continue;
                 }
 
-                InputStream stream = code >= 400 ? conn.getErrorStream() : conn.getInputStream();
-                if (stream == null) {
+                InputStream raw = code >= 400 ? conn.getErrorStream() : conn.getInputStream();
+                if (raw == null) {
                     FetchResult empty = new FetchResult();
                     empty.status = code;
                     return empty;
                 }
-                byte[] body = readLimited(stream, MAX_BYTES);
-                if (body == null) {
-                    log.warn("TV proxy response too large for {}", current);
-                    return null;
+                try (InputStream stream = raw) {
+                    byte[] body = readLimited(stream, MAX_BYTES);
+                    if (body == null) {
+                        log.warn("TV proxy response too large for {}", current);
+                        return null;
+                    }
+                    FetchResult result = new FetchResult();
+                    result.status = code;
+                    result.body = body;
+                    result.contentType = conn.getContentType();
+                    result.contentRange = conn.getHeaderField("Content-Range");
+                    result.acceptRanges = conn.getHeaderField("Accept-Ranges");
+                    return result;
                 }
-                FetchResult result = new FetchResult();
-                result.status = code;
-                result.body = body;
-                result.contentType = conn.getContentType();
-                result.contentRange = conn.getHeaderField("Content-Range");
-                result.acceptRanges = conn.getHeaderField("Accept-Ranges");
-                return result;
             } catch (Exception e) {
                 log.debug("TV proxy fetch failed for {}: {}", current, e.toString());
                 return null;

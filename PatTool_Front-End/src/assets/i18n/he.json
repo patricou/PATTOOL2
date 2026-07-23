@@ -3855,7 +3855,9 @@
     "EPG_GUIDE_CLOSE": "סגור מדריך תוכניות",
     "EPG_GUIDE_LOADING": "טוען מדריך…",
     "EPG_GUIDE_EMPTY": "אין מדריך זמין לערוץ זה.",
-    "EPG_GUIDE_ERROR": "לא ניתן לטעון את מדריך התוכניות."
+    "EPG_GUIDE_ERROR": "לא ניתן לטעון את מדריך התוכניות.",
+    "RESTART_STREAM": "Reconnect stream from scratch",
+    "RESTART_STREAM_DONE": "Stream reconnected"
   },
   "RADIO": {
     "TITLE": "Radio — world stations",

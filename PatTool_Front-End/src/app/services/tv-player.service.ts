@@ -1,12 +1,19 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Subject } from 'rxjs';
+import Hls from 'hls.js';
 import { TvChannel } from './api.service';
 import { resolveTvStreamUrl } from '../tv-watcher/tv-stream.util';
+import { TvPipCarrier } from '../tv-watcher/tv-pip-carrier';
 
 export interface TvFloatingState {
   open: boolean;
   minimized: boolean;
   channel: TvChannel | null;
+  /**
+   * Invisible shell host used only to keep OS Picture-in-Picture alive across routes.
+   * The in-app floating chrome is hidden.
+   */
+  pipHostOnly?: boolean;
 }
 
 /** Payload written before opening / updating the OS pop-out window. */
@@ -23,7 +30,8 @@ export class TvPlayerService {
   private readonly stateSubject = new BehaviorSubject<TvFloatingState>({
     open: false,
     minimized: false,
-    channel: null
+    channel: null,
+    pipHostOnly: false
   });
 
   /** Emitted when detached playback ends and the in-page player should resume. */
@@ -33,8 +41,125 @@ export class TvPlayerService {
   private pendingResumeChannel: TvChannel | null = null;
   private popoutWatchTimer: ReturnType<typeof setInterval> | null = null;
   private popoutChannel: TvChannel | null = null;
+  private readonly pipCarrier = new TvPipCarrier();
+  private pipLeaveUnsub: (() => void) | null = null;
+  /** Ignore carrier leavepictureinpicture while we intentionally move/stop media. */
+  private suppressPipLeaveHandling = false;
+  private suppressPipLeaveTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly state$ = this.stateSubject.asObservable();
+
+  constructor() {
+    this.pipLeaveUnsub = this.pipCarrier.onLeave(() => this.onOsPipClosed());
+  }
+
+  /** True when the persistent OS PiP carrier owns the Picture-in-Picture window. */
+  isOsPipActive(): boolean {
+    return this.pipCarrier.isActive();
+  }
+
+  get osPipChannel(): TvChannel | null {
+    return this.pipCarrier.activeChannel;
+  }
+
+  /**
+   * Transfer in-page playback onto the persistent carrier and open OS PiP.
+   * Must be called from a user gesture (PiP button).
+   */
+  async enterOsPipFromPage(opts: {
+    channel: TvChannel;
+    pageVideo: HTMLVideoElement;
+    hls: Hls | null;
+    detachLiveSync: (() => void) | null;
+  }): Promise<void> {
+    await this.pipCarrier.enterFromPage(opts);
+  }
+
+  /** Exit OS PiP and move playback back to the in-page video element. */
+  async exitOsPipToPage(pageVideo: HTMLVideoElement): Promise<{
+    hls: Hls | null;
+    detachLiveSync: (() => void) | null;
+  }> {
+    this.beginSuppressPipLeave();
+    try {
+      const result = await this.pipCarrier.returnToPage(pageVideo);
+      // Drop keep-alive shell if any — media already belongs to the page player.
+      if (this.stateSubject.value.pipHostOnly) {
+        this.stateSubject.next({ open: false, minimized: false, channel: null, pipHostOnly: false });
+      }
+      return result;
+    } finally {
+      this.endSuppressPipLeaveSoon();
+    }
+  }
+
+  /**
+   * Tear down the OS PiP carrier media (and exit PiP if open).
+   * Does not request page resume — callers that need resume must do it themselves.
+   */
+  stopOsPip(options?: { dispose?: boolean }): void {
+    this.beginSuppressPipLeave();
+    try {
+      if (options?.dispose) {
+        this.pipCarrier.dispose();
+      } else {
+        this.pipCarrier.stop();
+      }
+    } finally {
+      this.endSuppressPipLeaveSoon();
+    }
+  }
+
+  /**
+   * When returning to the TV page while keep-alive PiP is running, drop the invisible
+   * host without stopping the carrier (avoids a second decoder when the page resumes UI).
+   */
+  detachPipHostOnly(): void {
+    if (!this.stateSubject.value.pipHostOnly) {
+      return;
+    }
+    this.stateSubject.next({ open: false, minimized: false, channel: null, pipHostOnly: false });
+  }
+
+  private beginSuppressPipLeave(): void {
+    this.suppressPipLeaveHandling = true;
+    if (this.suppressPipLeaveTimer != null) {
+      clearTimeout(this.suppressPipLeaveTimer);
+      this.suppressPipLeaveTimer = null;
+    }
+  }
+
+  private endSuppressPipLeaveSoon(): void {
+    if (this.suppressPipLeaveTimer != null) {
+      clearTimeout(this.suppressPipLeaveTimer);
+    }
+    this.suppressPipLeaveTimer = setTimeout(() => {
+      this.suppressPipLeaveHandling = false;
+      this.suppressPipLeaveTimer = null;
+    }, 250);
+  }
+
+  private onOsPipClosed(): void {
+    if (this.suppressPipLeaveHandling) {
+      return;
+    }
+    const channel =
+      this.stateSubject.value.channel || this.pipCarrier.activeChannel;
+    const wasPipHost = this.stateSubject.value.open && !!this.stateSubject.value.pipHostOnly;
+    // Always silence the carrier — otherwise page resume starts a second stream.
+    this.beginSuppressPipLeave();
+    try {
+      this.pipCarrier.stop();
+    } finally {
+      this.endSuppressPipLeaveSoon();
+    }
+    if (wasPipHost) {
+      this.stateSubject.next({ open: false, minimized: false, channel: null, pipHostOnly: false });
+    }
+    if (channel) {
+      this.requestResumeOnPage(channel);
+    }
+  }
 
   get snapshot(): TvFloatingState {
     return this.stateSubject.value;
@@ -44,8 +169,13 @@ export class TvPlayerService {
     return this.stateSubject.value.open;
   }
 
+  /** True while an OS pop-out window is being watched. */
+  get isPopoutActive(): boolean {
+    return this.popoutWatchTimer != null || this.popoutChannel != null;
+  }
+
   /** Open (or switch) the floating TV window with a channel. */
-  openFloating(channel: TvChannel): void {
+  openFloating(channel: TvChannel, options?: { pipHostOnly?: boolean }): void {
     if (!channel?.streamUrl && !channel?.id) {
       return;
     }
@@ -55,10 +185,12 @@ export class TvPlayerService {
       streamUrl: resolveTvStreamUrl(channel)
     };
     this.clearPendingResume();
+    const pipHostOnly = !!options?.pipHostOnly;
     this.stateSubject.next({
       open: true,
-      minimized: false,
-      channel: normalized
+      minimized: pipHostOnly ? true : false,
+      channel: normalized,
+      pipHostOnly
     });
   }
 
@@ -73,7 +205,8 @@ export class TvPlayerService {
         ...channel,
         streamUrl: resolveTvStreamUrl(channel)
       },
-      minimized: false
+      minimized: this.stateSubject.value.pipHostOnly ? true : false,
+      pipHostOnly: false
     });
   }
 
@@ -88,7 +221,11 @@ export class TvPlayerService {
     if (!this.stateSubject.value.open) {
       return;
     }
-    this.stateSubject.next({ ...this.stateSubject.value, minimized: false });
+    this.stateSubject.next({
+      ...this.stateSubject.value,
+      minimized: false,
+      pipHostOnly: false
+    });
   }
 
   /**
@@ -98,8 +235,12 @@ export class TvPlayerService {
   close(options?: { resumeOnPage?: boolean }): void {
     const channel = this.stateSubject.value.channel;
     const wasOpen = this.stateSubject.value.open;
-    this.stateSubject.next({ open: false, minimized: false, channel: null });
-    if (wasOpen && options?.resumeOnPage !== false && channel) {
+    const wasPipHost = !!this.stateSubject.value.pipHostOnly;
+    this.stateSubject.next({ open: false, minimized: false, channel: null, pipHostOnly: false });
+    if (wasPipHost) {
+      this.stopOsPip();
+    }
+    if (wasOpen && options?.resumeOnPage !== false && channel && !wasPipHost) {
       this.requestResumeOnPage(channel);
     }
   }

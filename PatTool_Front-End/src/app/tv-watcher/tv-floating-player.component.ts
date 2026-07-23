@@ -37,6 +37,7 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
   isBuffering = false;
   playError = '';
   isPipActive = false;
+  isFullscreen = false;
   pipSupported = TvPlayerService.supportsVideoPictureInPicture();
 
   posX = 24;
@@ -65,6 +66,10 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
   private playback: TvHlsPlaybackHandle | null = null;
   private stateSub?: Subscription;
   private lastChannelId = '';
+  /** Avoid closing pip-host when we briefly tear down the video to restart/handoff. */
+  private suppressPipHostClose = false;
+  private playTimer: ReturnType<typeof setTimeout> | null = null;
+  private playGeneration = 0;
 
   constructor(
     private tvPlayer: TvPlayerService,
@@ -90,20 +95,51 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
       this.state = s;
       this.cdr.markForCheck();
       if (!s.open) {
+        this.clearPlayTimer();
         this.destroyPlayer();
         this.lastChannelId = '';
         return;
       }
+      // Keep-alive host: OS PiP already plays on the persistent carrier — do not restart.
+      if (s.pipHostOnly) {
+        this.clearPlayTimer();
+        this.lastChannelId = s.channel?.id || this.lastChannelId;
+        this.isPipActive = this.tvPlayer.isOsPipActive();
+        this.isBuffering = false;
+        this.playError = '';
+        // Never start a second HLS decoder for pip-host-only mode.
+        if (!this.isPipActive) {
+          this.tvPlayer.close({ resumeOnPage: false });
+        }
+        this.cdr.markForCheck();
+        return;
+      }
       if (s.channel && (channelChanged || !prevOpen)) {
         this.lastChannelId = s.channel.id || '';
-        setTimeout(() => this.playChannel(s.channel!), 0);
+        this.clearPlayTimer();
+        const gen = ++this.playGeneration;
+        this.playTimer = setTimeout(() => {
+          this.playTimer = null;
+          if (gen === this.playGeneration && this.state.open && this.state.channel?.id === s.channel!.id) {
+            this.playChannel(s.channel!);
+          }
+        }, 0);
       }
     });
   }
 
   ngOnDestroy(): void {
+    this.clearPlayTimer();
     this.stateSub?.unsubscribe();
     this.destroyPlayer();
+  }
+
+  private clearPlayTimer(): void {
+    if (this.playTimer != null) {
+      clearTimeout(this.playTimer);
+      this.playTimer = null;
+    }
+    this.playGeneration++;
   }
 
   get channel(): TvChannel | null {
@@ -232,6 +268,31 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
     }
   }
 
+  async toggleFullscreen(): Promise<void> {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        return;
+      }
+      if (this.state.minimized) {
+        this.restore();
+        await new Promise((r) => setTimeout(r, 40));
+      }
+      const root = document.querySelector('.tv-float') as HTMLElement | null;
+      const video = this.videoEl?.nativeElement;
+      const target = root || video;
+      if (!target?.requestFullscreen) {
+        this.playError = 'TV.ERR_FULLSCREEN';
+        this.cdr.markForCheck();
+        return;
+      }
+      await target.requestFullscreen();
+    } catch {
+      this.playError = 'TV.ERR_FULLSCREEN';
+      this.cdr.markForCheck();
+    }
+  }
+
   /** Separate OS window (can sit on another monitor / over other apps). */
   openExternalWindow(): void {
     if (!this.channel) {
@@ -293,15 +354,33 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
     this.clampSizeAndPosition();
   }
 
+  @HostListener('document:fullscreenchange')
+  onFullscreenChange(): void {
+    this.isFullscreen = !!document.fullscreenElement;
+    this.cdr.markForCheck();
+  }
+
   @HostListener('document:enterpictureinpicture')
   onEnterPip(): void {
-    this.isPipActive = document.pictureInPictureElement === this.videoEl?.nativeElement;
+    this.isPipActive =
+      this.tvPlayer.isOsPipActive() ||
+      document.pictureInPictureElement === this.videoEl?.nativeElement;
     this.cdr.markForCheck();
   }
 
   @HostListener('document:leavepictureinpicture')
   onLeavePip(): void {
+    // Persistent carrier leave is handled by TvPlayerService (closes pipHostOnly).
+    if (this.state.pipHostOnly) {
+      this.isPipActive = false;
+      this.cdr.markForCheck();
+      return;
+    }
     this.isPipActive = false;
+    if (this.suppressPipHostClose) {
+      this.cdr.markForCheck();
+      return;
+    }
     const video = this.videoEl?.nativeElement;
     if (video && this.state.open) {
       video.play().catch(() => undefined);
@@ -379,10 +458,14 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
   }
 
   private playChannel(channel: TvChannel): void {
+    if (!this.state.open || this.state.pipHostOnly) {
+      return;
+    }
     const video = this.videoEl?.nativeElement;
     if (!video || !channel) {
       return;
     }
+    this.suppressPipHostClose = true;
     this.destroyPlayer();
     this.playError = '';
     this.isBuffering = true;
@@ -402,6 +485,7 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
       }
     });
     video.volume = Math.min(1, Math.max(0, this.volumePercent / 100));
+    this.suppressPipHostClose = false;
   }
 
   private destroyPlayer(): void {
