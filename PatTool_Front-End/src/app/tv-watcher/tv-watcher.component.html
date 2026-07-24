@@ -368,6 +368,12 @@
             {{ 'TV.BUFFERING' | translate }}
           </div>
           <div
+            class="tv-token-toast"
+            *ngIf="tokenRenewedToast && !isFloatingOpen"
+            role="status">
+            {{ 'TV.TOKEN_RENEWED' | translate }}
+          </div>
+          <div
             class="tv-radio-stage"
             *ngIf="selectedChannel && usesRadioFranceWorkaround(selectedChannel) && !isFloatingOpen && !playError">
             <img

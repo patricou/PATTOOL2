@@ -19,6 +19,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Resolves official france.tv live HLS manifests (France 2/3/4/5, franceinfo) via the public
@@ -36,6 +38,14 @@ public class FranceTvLiveService {
     private static final String PLAYER_API = "https://k7.ftven.fr/videos/";
     private static final String USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+
+    /**
+     * Akamai {@code hdnea=exp=} tokens for france.tv live are ~10 minutes (measured).
+     * Cache must expire before the token, otherwise reconnect keeps serving a 403 URL.
+     */
+    private static final Duration TOKEN_SAFETY_MARGIN = Duration.ofSeconds(90);
+    private static final Duration FALLBACK_CACHE_TTL = Duration.ofMinutes(8);
+    private static final Pattern AKAMAI_EXP = Pattern.compile("(?:[?&~]|^|/)exp[=:](\\d{9,12})");
 
     /** Stable live video IDs from france.tv direct pages. */
     private static final Map<String, ChannelDef> CHANNELS = new LinkedHashMap<>();
@@ -111,39 +121,107 @@ public class FranceTvLiveService {
      * Returns a short-lived signed HLS master playlist URL for the given france.tv live slug.
      */
     public Optional<String> resolveHlsUrl(String slug) {
+        return resolveHlsUrl(slug, false);
+    }
+
+    /**
+     * @param forceRefresh when true, bypass the in-memory signed-URL cache (e.g. after HTTP 403).
+     */
+    public Optional<String> resolveHlsUrl(String slug, boolean forceRefresh) {
         Optional<ChannelDef> def = findChannel(slug);
         if (def.isEmpty()) {
             return Optional.empty();
         }
         String key = slug.trim().toLowerCase(Locale.ROOT);
-        CachedUrl cached = cache.get(key);
         Instant now = Instant.now();
-        if (cached != null && cached.expiresAt.isAfter(now)) {
-            return Optional.of(cached.url);
+        if (!forceRefresh) {
+            CachedUrl cached = cache.get(key);
+            if (cached != null && cached.expiresAt.isAfter(now) && !isAkamaiUrlExpired(cached.url, now)) {
+                return Optional.of(cached.url);
+            }
+        } else {
+            cache.remove(key);
         }
         try {
             String signed = fetchSignedHls(def.get().videoId());
             if (signed == null || signed.isBlank()) {
-                return cached != null ? Optional.of(cached.url) : Optional.empty();
+                CachedUrl stale = cache.get(key);
+                if (stale != null && stale.expiresAt.isAfter(now) && !isAkamaiUrlExpired(stale.url, now)) {
+                    return Optional.of(stale.url);
+                }
+                return Optional.empty();
             }
-            // Tokens typically last a few hours; refresh earlier to be safe.
-            cache.put(key, new CachedUrl(signed, now.plus(Duration.ofMinutes(25))));
+            Instant expiresAt = cacheExpiryForSignedUrl(signed, now);
+            cache.put(key, new CachedUrl(signed, expiresAt));
             return Optional.of(signed);
         } catch (Exception e) {
             log.warn("France.tv live resolve failed for {}: {}", key, e.toString());
-            return cached != null ? Optional.of(cached.url) : Optional.empty();
+            CachedUrl stale = cache.get(key);
+            if (stale != null && stale.expiresAt.isAfter(now) && !isAkamaiUrlExpired(stale.url, now)) {
+                return Optional.of(stale.url);
+            }
+            return Optional.empty();
         }
+    }
+
+    /** Drop a cached signed URL so the next resolve fetches a fresh Akamai token. */
+    public void invalidate(String slug) {
+        if (slug == null) {
+            return;
+        }
+        cache.remove(slug.trim().toLowerCase(Locale.ROOT));
     }
 
     /**
      * Resolve a virtual {@code francetv:…} URL to a real https HLS URL.
      */
     public Optional<String> resolveVirtualOrPassthrough(String url) {
+        return resolveVirtualOrPassthrough(url, false);
+    }
+
+    public Optional<String> resolveVirtualOrPassthrough(String url, boolean forceRefresh) {
         Optional<String> slug = slugFromVirtualUrl(url);
         if (slug.isEmpty()) {
             return Optional.ofNullable(url);
         }
-        return resolveHlsUrl(slug.get());
+        return resolveHlsUrl(slug.get(), forceRefresh);
+    }
+
+    static Instant cacheExpiryForSignedUrl(String signedUrl, Instant now) {
+        Optional<Instant> tokenExp = parseAkamaiExpiry(signedUrl);
+        if (tokenExp.isPresent()) {
+            Instant soft = tokenExp.get().minus(TOKEN_SAFETY_MARGIN);
+            // Never cache past the real token; keep a tiny positive TTL if already near expiry.
+            if (soft.isAfter(now.plusSeconds(15))) {
+                return soft;
+            }
+            return now.plusSeconds(15);
+        }
+        return now.plus(FALLBACK_CACHE_TTL);
+    }
+
+    static boolean isAkamaiUrlExpired(String url, Instant now) {
+        return parseAkamaiExpiry(url).map(exp -> !exp.isAfter(now)).orElse(false);
+    }
+
+    public static Optional<Instant> parseAkamaiExpiry(String url) {
+        if (url == null || url.isBlank()) {
+            return Optional.empty();
+        }
+        Matcher m = AKAMAI_EXP.matcher(url);
+        if (!m.find()) {
+            return Optional.empty();
+        }
+        try {
+            long epoch = Long.parseLong(m.group(1));
+            // Guard against absurd values.
+            if (epoch < 1_000_000_000L || epoch > 4_000_000_000L) {
+                return Optional.empty();
+            }
+            return Optional.of(Instant.ofEpochSecond(epoch));
+        } catch (NumberFormatException e) {
+            return Optional.empty();
+        }
     }
 
     private String fetchSignedHls(String videoId) throws Exception {

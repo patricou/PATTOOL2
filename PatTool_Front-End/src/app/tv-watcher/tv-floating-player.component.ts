@@ -18,6 +18,8 @@ import { TvFloatingState, TvPlayerService } from '../services/tv-player.service'
 import { isCanalGroupVirtual, isFranceTvVirtual, isM6GroupVirtual, isRadioFranceVirtual, isTf1Virtual, resolveTvStreamUrl } from '../tv-watcher/tv-stream.util';
 import { isTvI18nErrorKey } from '../tv-watcher/tv-stream-error.util';
 import { startTvHlsPlayback, TvHlsPlaybackHandle } from './tv-hls-playback';
+import { franceTvSlugFromVirtual } from './tv-francetv-refresh';
+import { firstValueFrom } from 'rxjs';
 
 type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
@@ -38,6 +40,9 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
   playError = '';
   isPipActive = false;
   isFullscreen = false;
+  tokenRenewedToast = false;
+  private franceTvTokenRefreshAttempted = false;
+  private tokenRenewedToastTimer: ReturnType<typeof setTimeout> | null = null;
   pipSupported = TvPlayerService.supportsVideoPictureInPicture();
 
   posX = 24;
@@ -116,6 +121,7 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
       }
       if (s.channel && (channelChanged || !prevOpen)) {
         this.lastChannelId = s.channel.id || '';
+        this.franceTvTokenRefreshAttempted = false;
         this.clearPlayTimer();
         const gen = ++this.playGeneration;
         this.playTimer = setTimeout(() => {
@@ -469,7 +475,9 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
     this.destroyPlayer();
     this.playError = '';
     this.isBuffering = true;
-    const proxyUrl = this.api.tvStreamProxyUrl(resolveTvStreamUrl(channel));
+    const streamUrl = resolveTvStreamUrl(channel);
+    const proxyUrl = this.api.tvStreamProxyUrl(streamUrl);
+    const franceSlug = franceTvSlugFromVirtual(streamUrl);
     this.playback = startTvHlsPlayback(video, proxyUrl, {
       onBuffering: (v) => {
         this.isBuffering = v;
@@ -482,13 +490,55 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
       onMutedChange: (m) => {
         this.isMuted = m;
         this.cdr.markForCheck();
-      }
+      },
+      onTokenExpired: () => {
+        if (this.franceTvTokenRefreshAttempted || !isFranceTvVirtual(streamUrl)) {
+          return false;
+        }
+        this.franceTvTokenRefreshAttempted = true;
+        this.isBuffering = true;
+        this.cdr.markForCheck();
+        // Defer so destroy() from the error path finishes first.
+        setTimeout(() => this.playChannel(channel), 0);
+        return true;
+      },
+      franceTv: franceSlug
+        ? {
+            slug: franceSlug,
+            resolveMeta: async (fresh) => {
+              try {
+                return await firstValueFrom(this.api.resolveFranceTvLive(franceSlug, fresh));
+              } catch {
+                return null;
+              }
+            },
+            onRenewed: () => this.showTokenRenewedToast()
+          }
+        : undefined
     });
     video.volume = Math.min(1, Math.max(0, this.volumePercent / 100));
     this.suppressPipHostClose = false;
   }
 
+  private showTokenRenewedToast(): void {
+    this.tokenRenewedToast = true;
+    if (this.tokenRenewedToastTimer != null) {
+      clearTimeout(this.tokenRenewedToastTimer);
+    }
+    this.tokenRenewedToastTimer = setTimeout(() => {
+      this.tokenRenewedToast = false;
+      this.tokenRenewedToastTimer = null;
+      this.cdr.markForCheck();
+    }, 1000);
+    this.cdr.markForCheck();
+  }
+
   private destroyPlayer(): void {
+    if (this.tokenRenewedToastTimer != null) {
+      clearTimeout(this.tokenRenewedToastTimer);
+      this.tokenRenewedToastTimer = null;
+    }
+    this.tokenRenewedToast = false;
     if (document.pictureInPictureElement === this.videoEl?.nativeElement) {
       document.exitPictureInPicture().catch(() => undefined);
     }

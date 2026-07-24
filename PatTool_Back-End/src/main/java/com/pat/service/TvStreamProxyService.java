@@ -34,6 +34,10 @@ public class TvStreamProxyService {
 
     private static final String USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+    /** TF1 mediainfo forces HLS with an iPhone UA — CDN JWTs often expect the same UA on playlist/segments. */
+    private static final String IPHONE_USER_AGENT =
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 "
+                    + "(KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
 
     private static final int CONNECT_TIMEOUT_MS = 10_000;
     private static final int READ_TIMEOUT_MS = 45_000;
@@ -189,7 +193,7 @@ public class TvStreamProxyService {
                 conn.setInstanceFollowRedirects(false);
                 conn.setConnectTimeout(CONNECT_TIMEOUT_MS);
                 conn.setReadTimeout(READ_TIMEOUT_MS);
-                conn.setRequestProperty("User-Agent", USER_AGENT);
+                conn.setRequestProperty("User-Agent", userAgentForHost(uri.getHost()));
                 conn.setRequestProperty("Accept", "*/*");
                 String ref = referer != null ? referer : resolveReferer(uri.getHost());
                 if (ref != null && !ref.isBlank()) {
@@ -262,7 +266,8 @@ public class TvStreamProxyService {
                 || h.contains("ssai.ftven") || h.contains("live-ssai")) {
             return "https://www.france.tv/";
         }
-        if (h.endsWith("tf1.fr") || h.contains("diff.tf1.fr") || h.contains("tf1info.fr")) {
+        if (h.endsWith("tf1.fr") || h.contains("diff.tf1.fr") || h.contains("tf1info.fr")
+                || h.contains("cdn-0.diff") || h.contains("cdn-1.diff")) {
             return "https://www.tf1.fr/";
         }
         if (h.contains("dailymotion.com") || h.contains("dmcdn.net") || h.contains("dmxleo.com")) {
@@ -279,6 +284,18 @@ public class TvStreamProxyService {
             return "https://www.6play.fr/";
         }
         return defaultReferrer;
+    }
+
+    private static String userAgentForHost(String host) {
+        if (host == null) {
+            return USER_AGENT;
+        }
+        String h = host.toLowerCase(Locale.ROOT);
+        // Official TF1 Group CDN streams are issued for the iPhone UA used by mediainfo.
+        if (h.endsWith("tf1.fr") || h.contains("diff.tf1.fr") || h.contains("tf1info.fr")) {
+            return IPHONE_USER_AGENT;
+        }
+        return USER_AGENT;
     }
 
     private static byte[] readLimited(InputStream in, int maxBytes) throws java.io.IOException {

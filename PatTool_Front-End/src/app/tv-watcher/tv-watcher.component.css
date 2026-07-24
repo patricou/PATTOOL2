@@ -1025,6 +1025,34 @@
   pointer-events: none;
 }
 
+.tv-token-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 14%;
+  transform: translateX(-50%);
+  color: #f8f9fa;
+  background: rgba(0, 0, 0, 0.62);
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  letter-spacing: 0.01em;
+  z-index: 5;
+  pointer-events: none;
+  white-space: nowrap;
+  animation: tv-token-toast-in 0.18s ease-out;
+}
+
+@keyframes tv-token-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
 .tv-play-error {
   position: absolute;
   left: 0.65rem;

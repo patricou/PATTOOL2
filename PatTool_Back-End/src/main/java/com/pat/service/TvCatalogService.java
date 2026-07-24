@@ -22,6 +22,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -242,6 +245,13 @@ public class TvCatalogService {
     private volatile Instant worldwideCountExpires;
     private volatile List<String> worldwideGroupsCache;
     private volatile Instant worldwideGroupsExpires;
+    private final AtomicBoolean worldwideCountRefreshing = new AtomicBoolean(false);
+    private final AtomicBoolean worldwideGroupsRefreshing = new AtomicBoolean(false);
+    private final ExecutorService catalogRefreshExecutor = Executors.newFixedThreadPool(2, r -> {
+        Thread t = new Thread(r, "tv-catalog-refresh");
+        t.setDaemon(true);
+        return t;
+    });
 
     @Value("${app.tv.playlist-base-url:https://iptv-org.github.io/iptv/countries}")
     private String playlistBaseUrl;
@@ -380,6 +390,7 @@ public class TvCatalogService {
 
     /**
      * Distinct primary {@code group-title} values for one country, or the worldwide union when {@code all}.
+     * Serves a stale worldwide cache immediately while refreshing in the background.
      */
     public List<String> listGroups(String country) {
         if (isAllCountries(country)) {
@@ -389,14 +400,11 @@ public class TvCatalogService {
             if (cached != null && expires != null && expires.isAfter(now)) {
                 return cached;
             }
-            TreeSet<String> groups = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
-            for (String code : COUNTRY_CODES) {
-                collectPrimaryGroups(listChannels(code), groups);
+            if (cached != null && !cached.isEmpty()) {
+                scheduleWorldwideGroupsRefresh();
+                return cached;
             }
-            List<String> result = List.copyOf(groups);
-            worldwideGroupsCache = result;
-            worldwideGroupsExpires = now.plus(Duration.ofMinutes(Math.max(5, cacheMinutes)));
-            return result;
+            return recomputeWorldwideGroups();
         }
         if (!isSupportedCountry(country)) {
             return Collections.emptyList();
@@ -404,6 +412,32 @@ public class TvCatalogService {
         TreeSet<String> groups = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         collectPrimaryGroups(listChannels(country), groups);
         return List.copyOf(groups);
+    }
+
+    private void scheduleWorldwideGroupsRefresh() {
+        if (!worldwideGroupsRefreshing.compareAndSet(false, true)) {
+            return;
+        }
+        catalogRefreshExecutor.execute(() -> {
+            try {
+                recomputeWorldwideGroups();
+            } catch (Exception e) {
+                log.warn("TV worldwide groups refresh failed: {}", e.toString());
+            } finally {
+                worldwideGroupsRefreshing.set(false);
+            }
+        });
+    }
+
+    private List<String> recomputeWorldwideGroups() {
+        TreeSet<String> groups = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        for (String code : COUNTRY_CODES) {
+            collectPrimaryGroups(listChannels(code), groups);
+        }
+        List<String> result = List.copyOf(groups);
+        worldwideGroupsCache = result;
+        worldwideGroupsExpires = Instant.now().plus(Duration.ofMinutes(Math.max(5, cacheMinutes)));
+        return result;
     }
 
     private static void collectPrimaryGroups(List<TvChannelDto> channels, TreeSet<String> groups) {
@@ -425,6 +459,7 @@ public class TvCatalogService {
     /**
      * Channel count for one country, or the sum across every catalogued country when {@code all}.
      * Relies on the same playlist cache as {@link #listChannels(String)}.
+     * Serves a stale worldwide total immediately while refreshing in the background.
      */
     public int countChannels(String country) {
         if (isAllCountries(country)) {
@@ -434,21 +469,44 @@ public class TvCatalogService {
             if (cached != null && expires != null && expires.isAfter(now)) {
                 return cached;
             }
-            int total = COUNTRY_CODES.parallelStream()
-                    .mapToInt(code -> {
-                        List<TvChannelDto> channels = listChannels(code);
-                        return channels != null ? channels.size() : 0;
-                    })
-                    .sum();
-            worldwideCountCache = total;
-            worldwideCountExpires = now.plus(Duration.ofMinutes(Math.max(5, cacheMinutes)));
-            return total;
+            if (cached != null && cached > 0) {
+                scheduleWorldwideCountRefresh();
+                return cached;
+            }
+            return recomputeWorldwideCount();
         }
         if (!isSupportedCountry(country)) {
             return 0;
         }
         List<TvChannelDto> channels = listChannels(country);
         return channels != null ? channels.size() : 0;
+    }
+
+    private void scheduleWorldwideCountRefresh() {
+        if (!worldwideCountRefreshing.compareAndSet(false, true)) {
+            return;
+        }
+        catalogRefreshExecutor.execute(() -> {
+            try {
+                recomputeWorldwideCount();
+            } catch (Exception e) {
+                log.warn("TV worldwide count refresh failed: {}", e.toString());
+            } finally {
+                worldwideCountRefreshing.set(false);
+            }
+        });
+    }
+
+    private int recomputeWorldwideCount() {
+        int total = COUNTRY_CODES.parallelStream()
+                .mapToInt(code -> {
+                    List<TvChannelDto> channels = listChannels(code);
+                    return channels != null ? channels.size() : 0;
+                })
+                .sum();
+        worldwideCountCache = total;
+        worldwideCountExpires = Instant.now().plus(Duration.ofMinutes(Math.max(5, cacheMinutes)));
+        return total;
     }
 
     private static boolean matchesQuery(TvChannelDto ch, String queryLower) {

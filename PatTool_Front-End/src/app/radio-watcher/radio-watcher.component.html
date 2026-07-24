@@ -144,14 +144,13 @@
               </div>
             </div>
 
-            <label class="form-label small mb-1 mt-2" for="radio-tag" *ngIf="!isAllCountries">
+            <label class="form-label small mb-1 mt-2" for="radio-tag">
               <i class="fa fa-music me-1" aria-hidden="true"></i>
               {{ 'RADIO.TAG' | translate }}
             </label>
             <select
               id="radio-tag"
               class="form-select form-select-sm"
-              *ngIf="!isAllCountries"
               [(ngModel)]="selectedTag"
               (ngModelChange)="onTagChange()">
               <option value="">{{ 'RADIO.TAG_ALL' | translate }}</option>
@@ -200,8 +199,8 @@
         </span>
         <span *ngIf="listMode === 'catalog' && !isLoadingStations" class="radio-channel-meta-count">
           <i class="fa fa-headphones me-1" aria-hidden="true"></i>
-          {{ 'RADIO.STATION_COUNT' | translate:{ count: (isAllCountries && !stationQuery.trim() ? catalogTabCount : filteredStationCount) } }}
-          <span class="radio-channel-meta-filter" *ngIf="hasActiveFilters && !(isAllCountries && !stationQuery.trim())">{{ 'RADIO.STATION_COUNT_FILTERED' | translate }}</span>
+          {{ 'RADIO.STATION_COUNT' | translate:{ count: (isAllCountries && !stationQuery.trim() && !selectedTag ? catalogTabCount : filteredStationCount) } }}
+          <span class="radio-channel-meta-filter" *ngIf="hasActiveFilters && !(isAllCountries && !stationQuery.trim() && !selectedTag)">{{ 'RADIO.STATION_COUNT_FILTERED' | translate }}</span>
         </span>
         <span *ngIf="listMode === 'favorites' && !isLoadingFavorites" class="radio-channel-meta-count">
           <i class="fa fa-star me-1" aria-hidden="true"></i>

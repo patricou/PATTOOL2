@@ -22,11 +22,18 @@ import {
 } from './tv-stream.util';
 import { isTvI18nErrorKey } from './tv-stream-error.util';
 import { startTvHlsPlayback, TvHlsPlaybackHandle } from './tv-hls-playback';
+import { franceTvSlugFromVirtual } from './tv-francetv-refresh';
+import { firstValueFrom } from 'rxjs';
 
 /** Minimal typing for the Document Picture-in-Picture API (Chromium). */
 interface DocumentPictureInPicture {
   window: Window | null;
-  requestWindow(options?: { width?: number; height?: number }): Promise<Window>;
+  requestWindow(options?: {
+    width?: number;
+    height?: number;
+    disallowReturnToOpener?: boolean;
+    preferInitialWindowPlacement?: boolean;
+  }): Promise<Window>;
 }
 
 @Component({
@@ -52,6 +59,9 @@ export class TvPopoutComponent implements OnInit, OnDestroy {
 
   private playback: TvHlsPlaybackHandle | null = null;
   private lastChannelId = '';
+  private franceTvTokenRefreshAttempted = false;
+  tokenRenewedToast = false;
+  private tokenRenewedToastTimer: ReturnType<typeof setTimeout> | null = null;
   private storageListener?: (ev: StorageEvent) => void;
   private overlayPipWindow: Window | null = null;
   private overlayPageHideHandler?: () => void;
@@ -192,11 +202,15 @@ export class TvPopoutComponent implements OnInit, OnDestroy {
       }
       const width = Math.max(480, Math.round(stage.clientWidth || 960));
       const height = Math.max(270, Math.round(stage.clientHeight || 540));
-      const pipWindow = await dpi.requestWindow({ width, height });
+      const pipWindow = await dpi.requestWindow({
+        width,
+        height,
+        disallowReturnToOpener: true
+      });
       this.copyStylesToWindow(pipWindow);
       pipWindow.document.documentElement.classList.add('tv-popout-overlay-root');
       pipWindow.document.body.classList.add('tv-popout-overlay-body');
-      pipWindow.document.title = `${this.channelName} — PatTool`;
+      pipWindow.document.title = '';
       pipWindow.document.body.appendChild(stage);
       this.installOverlayControls(pipWindow);
       if (video) {
@@ -224,31 +238,70 @@ export class TvPopoutComponent implements OnInit, OnDestroy {
     fsBtn.title = this.translate.instant('TV.POPOUT_FULLSCREEN');
     fsBtn.setAttribute('aria-label', fsBtn.title);
     fsBtn.innerHTML = '<i class="fa fa-arrows-alt" aria-hidden="true"></i>';
-    fsBtn.addEventListener('click', async () => {
-      try {
-        const root = doc.documentElement;
-        if (doc.fullscreenElement) {
-          await doc.exitFullscreen();
-          fsBtn.innerHTML = '<i class="fa fa-arrows-alt" aria-hidden="true"></i>';
-          fsBtn.title = this.translate.instant('TV.POPOUT_FULLSCREEN');
-        } else {
-          await root.requestFullscreen();
-          fsBtn.innerHTML = '<i class="fa fa-compress" aria-hidden="true"></i>';
-          fsBtn.title = this.translate.instant('TV.POPOUT_FULLSCREEN_EXIT');
-        }
-      } catch {
-        /* ignore — some browsers block fullscreen from PiP */
-      }
-    });
-    doc.addEventListener('fullscreenchange', () => {
-      const on = !!doc.fullscreenElement;
-      fsBtn.innerHTML = on
-        ? '<i class="fa fa-compress" aria-hidden="true"></i>'
-        : '<i class="fa fa-arrows-alt" aria-hidden="true"></i>';
-      fsBtn.title = this.translate.instant(on ? 'TV.POPOUT_FULLSCREEN_EXIT' : 'TV.POPOUT_FULLSCREEN');
+    fsBtn.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      // Fullscreen is blocked inside Document PiP — expand in this popout window instead.
+      void this.exitOverlayAndFullscreen();
     });
     bar.appendChild(fsBtn);
     doc.body.appendChild(bar);
+  }
+
+  /**
+   * Move the stage back into the popout, request fullscreen there (user activation from
+   * the PiP click still propagates), then close the Document PiP overlay.
+   */
+  private async exitOverlayAndFullscreen(): Promise<void> {
+    const stage = this.stageEl?.nativeElement;
+    const slot = this.stageSlot?.nativeElement;
+    const pip = this.overlayPipWindow;
+    if (!stage) {
+      return;
+    }
+
+    if (slot && stage.parentElement !== slot) {
+      slot.appendChild(stage);
+    }
+
+    const target =
+      this.host.nativeElement.querySelector('.tv-popout') || this.host.nativeElement;
+
+    try {
+      window.focus();
+    } catch {
+      /* ignore */
+    }
+
+    let fsReq: Promise<void> = Promise.resolve();
+    try {
+      if (target && 'requestFullscreen' in target) {
+        fsReq = (target as HTMLElement).requestFullscreen();
+      }
+    } catch (err) {
+      fsReq = Promise.reject(err);
+    }
+
+    if (pip && this.overlayPageHideHandler) {
+      pip.removeEventListener('pagehide', this.overlayPageHideHandler);
+    }
+    this.overlayPageHideHandler = undefined;
+    this.overlayPipWindow = null;
+    this.isOverlayActive = false;
+    try {
+      if (pip && !pip.closed) {
+        pip.close();
+      }
+    } catch {
+      /* ignore */
+    }
+
+    try {
+      await fsReq;
+    } catch {
+      this.playError = 'TV.ERR_FULLSCREEN';
+    }
+    this.cdr.markForCheck();
   }
 
   async togglePictureInPicture(): Promise<void> {
@@ -349,10 +402,10 @@ export class TvPopoutComponent implements OnInit, OnDestroy {
         width: 2.25rem; height: 2.25rem; border: 0; border-radius: 0.4rem;
         background: rgba(0,0,0,0.55); color: #fff; cursor: pointer;
         display: inline-flex; align-items: center; justify-content: center;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+        box-shadow: none;
       }
       body.tv-popout-overlay-body .tv-popout-overlay-fs:hover {
-        background: rgba(0,0,0,0.75);
+        background: rgba(0,0,0,0.8);
       }
       body.tv-popout-overlay-body:fullscreen .tv-popout-overlay-bar,
       body.tv-popout-overlay-body:-webkit-full-screen .tv-popout-overlay-bar {
@@ -380,6 +433,7 @@ export class TvPopoutComponent implements OnInit, OnDestroy {
     }
     this.channel = channel;
     this.lastChannelId = id;
+    this.franceTvTokenRefreshAttempted = false;
     document.title = `${channel.name || 'TV'} — PatTool`;
     this.cdr.markForCheck();
     setTimeout(() => this.playChannel(channel), 0);
@@ -393,7 +447,9 @@ export class TvPopoutComponent implements OnInit, OnDestroy {
     this.destroyPlayer();
     this.playError = '';
     this.isBuffering = true;
-    const proxyUrl = this.api.tvStreamProxyUrl(resolveTvStreamUrl(channel));
+    const streamUrl = resolveTvStreamUrl(channel);
+    const proxyUrl = this.api.tvStreamProxyUrl(streamUrl);
+    const franceSlug = franceTvSlugFromVirtual(streamUrl);
     this.playback = startTvHlsPlayback(video, proxyUrl, {
       onBuffering: (v) => {
         this.isBuffering = v;
@@ -406,11 +462,52 @@ export class TvPopoutComponent implements OnInit, OnDestroy {
       onMutedChange: (m) => {
         this.isMuted = m;
         this.cdr.markForCheck();
-      }
+      },
+      onTokenExpired: () => {
+        if (this.franceTvTokenRefreshAttempted || !isFranceTvVirtual(streamUrl)) {
+          return false;
+        }
+        this.franceTvTokenRefreshAttempted = true;
+        this.isBuffering = true;
+        this.cdr.markForCheck();
+        setTimeout(() => this.playChannel(channel), 0);
+        return true;
+      },
+      franceTv: franceSlug
+        ? {
+            slug: franceSlug,
+            resolveMeta: async (fresh) => {
+              try {
+                return await firstValueFrom(this.api.resolveFranceTvLive(franceSlug, fresh));
+              } catch {
+                return null;
+              }
+            },
+            onRenewed: () => this.showTokenRenewedToast()
+          }
+        : undefined
     });
   }
 
+  private showTokenRenewedToast(): void {
+    this.tokenRenewedToast = true;
+    if (this.tokenRenewedToastTimer != null) {
+      clearTimeout(this.tokenRenewedToastTimer);
+    }
+    this.tokenRenewedToastTimer = setTimeout(() => {
+      this.tokenRenewedToast = false;
+      this.tokenRenewedToastTimer = null;
+      this.cdr.markForCheck();
+    }, 1000);
+    this.cdr.markForCheck();
+  }
+
   private destroyPlayer(): void {
+    if (this.tokenRenewedToastTimer != null) {
+      clearTimeout(this.tokenRenewedToastTimer);
+      this.tokenRenewedToastTimer = null;
+    }
+    this.tokenRenewedToast = false;
     this.playback?.destroy();
     this.playback = null;
   }

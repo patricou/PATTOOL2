@@ -39,9 +39,18 @@ export function createTvHlsConfig(): Partial<HlsConfig> {
  * Recover from stalls / media errors without tearing down the whole session.
  * Returns true when the error was handled as non-fatal recovery.
  * Only call for {@code data.fatal === true}.
+ *
+ * Does not soft-recover HTTP 401/403: those usually mean an expired CDN token
+ * (france.tv Akamai), so the caller must re-resolve the virtual stream URL.
  */
-export function tryRecoverTvHlsError(hls: Hls, data: { fatal?: boolean; type?: string }): boolean {
+export function tryRecoverTvHlsError(
+  hls: Hls,
+  data: { fatal?: boolean; type?: string; response?: { code?: number }; networkDetails?: { status?: number } | null }
+): boolean {
   if (!data?.fatal) {
+    return false;
+  }
+  if (isTvHlsForbiddenError(data)) {
     return false;
   }
   if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
@@ -61,6 +70,15 @@ export function tryRecoverTvHlsError(hls: Hls, data: { fatal?: boolean; type?: s
     }
   }
   return false;
+}
+
+/** True when HLS failed with HTTP 401/403 (typically expired signed CDN URL). */
+export function isTvHlsForbiddenError(data: {
+  response?: { code?: number };
+  networkDetails?: { status?: number } | null;
+} | null | undefined): boolean {
+  const code = data?.response?.code ?? data?.networkDetails?.status;
+  return code === 401 || code === 403;
 }
 
 /**

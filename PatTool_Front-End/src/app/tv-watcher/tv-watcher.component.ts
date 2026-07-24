@@ -11,7 +11,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { Subject, Subscription, forkJoin, of } from 'rxjs';
+import { Subject, Subscription, forkJoin, of, firstValueFrom } from 'rxjs';
 import { debounceTime, distinctUntilChanged, catchError } from 'rxjs/operators';
 import Hls from 'hls.js';
 
@@ -35,9 +35,15 @@ import { epgLookupKey, resolveEpgChannelId } from './tv-epg.util';
 import {
   attachTvHlsLiveSyncWatchdog,
   createTvHlsConfig,
+  isTvHlsForbiddenError,
   resyncTvHlsAv,
   tryRecoverTvHlsError
 } from './tv-hls-config';
+import {
+  FranceTvTokenKeeper,
+  franceTvSlugFromVirtual,
+  startFranceTvTokenKeeper
+} from './tv-francetv-refresh';
 
 type TvListMode = 'catalog' | 'favorites';
 
@@ -58,7 +64,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   favoriteIds = new Set<string>();
 
   listMode: TvListMode = 'favorites';
-  selectedCountry = 'fr';
+  selectedCountry = 'all';
   selectedGroup = '';
   /** Filter by channel name / group / country. */
   channelQuery = '';
@@ -98,6 +104,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   shareFeedback = '';
   /** Brief status after manual A/V resync. */
   resyncFeedback = '';
+  /** Brief on-video toast when france.tv Akamai token was renewed silently. */
+  tokenRenewedToast = false;
+  private tokenRenewedToastTimer: ReturnType<typeof setTimeout> | null = null;
   /** When true, leaving the page keeps playback in the floating player. */
   keepAliveOnNavigate = true;
   readonly canNativeShare =
@@ -125,6 +134,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   private catalogCountSub?: Subscription;
   private hls: Hls | null = null;
   private detachHlsLiveSync: (() => void) | null = null;
+  private franceTvKeeper: FranceTvTokenKeeper | null = null;
   private channelSearch$ = new Subject<string>();
   private programSearch$ = new Subject<string>();
   private channelSearchSub?: Subscription;
@@ -143,9 +153,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   /** Deep-link channel id waiting for catalog load. */
   private pendingShareChannelId = '';
   private playGeneration = 0;
+  /** One auto re-resolve per play attempt when france.tv Akamai token returns 403. */
+  private franceTvTokenRefreshAttempted = false;
   private static readonly CHROME_HIDE_MS = 3000;
   private static readonly LAST_CHANNEL_STORAGE_KEY = 'pattool.tv.last-channel';
   private static readonly KEEP_ALIVE_STORAGE_KEY = 'pattool.tv.keep-alive';
+  private static readonly CATALOG_COUNT_STORAGE_KEY = 'pattool.tv.catalog-count';
   /** Max length for virtual stream tokens in share links (not full http URLs). */
   private static readonly SHARE_STREAM_MAX_LEN = 80;
   private static readonly EPG_REFRESH_MS = 5 * 60 * 1000;
@@ -222,13 +235,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Count shown on the « Toutes les TV » tab.
-   * Worldwide with no search: full catalog total (not 0).
-   * Otherwise: filtered list size.
+   * Count shown on the « Toutes les TV » tab — always the catalog size for the
+   * current country (or filtered catalog list), never the Favorites count.
    */
   get catalogTabCount(): number {
     if (this.listMode === 'favorites') {
-      return this.filteredChannelCount;
+      return this.catalogTotalCount > 0 ? this.catalogTotalCount : 0;
     }
     if (this.isAllCountries) {
       const searching =
@@ -238,6 +250,16 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       if (!searching && this.catalogTotalCount > 0) {
         return this.catalogTotalCount;
       }
+    }
+    // Country catalog: prefer server total when the list is unfiltered.
+    if (
+      !this.isAllCountries
+      && this.catalogTotalCount > 0
+      && !this.channelQuery.trim()
+      && !this.programQuery.trim()
+      && !this.selectedGroup
+    ) {
+      return this.catalogTotalCount;
     }
     return this.filteredChannelCount;
   }
@@ -334,10 +356,16 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     }
 
     this.loadCountries();
-    this.loadCatalogCount();
-    this.loadChannels();
     this.loadFavorites();
     this.loadTf1Status();
+    // Worldwide count/groups scan every IPTV playlist — defer so Favorites opens fast.
+    this.hydrateCatalogCountFromStorage();
+    if (this.listMode === 'catalog') {
+      this.loadCatalogCount();
+      this.loadChannels();
+    } else {
+      setTimeout(() => this.loadCatalogCount({ silent: true }), 1200);
+    }
     this.epgRefreshTimer = setInterval(() => this.refreshEpg(), TvWatcherComponent.EPG_REFRESH_MS);
     if (!this.tryOpenSharedChannelFromQuery()) {
       this.restoreLastWatchedChannel();
@@ -500,6 +528,17 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (mode === 'favorites' && !this.isLoggedIn) {
       this.favoritesHint = 'TV.FAVORITES_LOGIN';
     }
+    if (mode === 'catalog') {
+      if (!this.catalogTotalCount || this.catalogTotalCount <= 0) {
+        this.loadCatalogCount();
+      }
+      if (!this.channels.length && !this.isLoadingChannels) {
+        this.loadChannels();
+      }
+      if (!this.filtersCollapsed && this.isAllCountries && !this.groups.length) {
+        this.ensureWorldwideGroups();
+      }
+    }
     this.refreshEpg();
     if (this.programQuery.trim().length >= 2) {
       this.runProgramSearch(this.programQuery.trim().toLowerCase());
@@ -512,12 +551,15 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.filtersCollapsedByMode[this.listMode] = !this.filtersCollapsedByMode[this.listMode];
     if (this.filtersCollapsed) {
       this.countryMenuOpen = false;
+    } else if (this.listMode === 'catalog' && this.isAllCountries) {
+      this.ensureWorldwideGroups();
     }
     this.cdr.markForCheck();
   }
 
   onCountryChange(): void {
     this.selectedGroup = '';
+    this.groups = [];
     this.worldwideSearchHint = false;
     this.countryMenuOpen = false;
     this.loadCatalogCount();
@@ -541,7 +583,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   selectCountry(code: string, event?: Event): void {
     event?.stopPropagation();
     event?.preventDefault();
-    this.selectedCountry = code || 'fr';
+    this.selectedCountry = code || 'all';
     this.countryFilter = '';
     this.onCountryChange();
   }
@@ -797,6 +839,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.selectedChannel = channel;
     this.playError = '';
     this.isBuffering = true;
+    this.franceTvTokenRefreshAttempted = false;
     this.showChrome(true);
     this.persistLastWatchedChannel(channel);
     if (!this.epgFor(channel)) {
@@ -804,14 +847,6 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     }
     if (this.guideOpen) {
       this.loadGuideSchedule();
-    }
-    if (this.usesTf1Workaround(channel) && this.tf1Configured === false
-        && !resolveTvStreamUrl(channel).endsWith(':lci')) {
-      this.isBuffering = false;
-      this.playError = 'TV.ERR_TF1_AUTH';
-      this.showChrome(true);
-      this.cdr.detectChanges();
-      return;
     }
     // If floating window is already open, switch channel there and keep navigating freely.
     if (this.tvPlayer.isOpen) {
@@ -832,11 +867,6 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       this.playError = 'TV.FLOAT_NEED_CHANNEL';
       return;
     }
-    if (this.usesTf1Workaround(ch) && this.tf1Configured === false
-        && !resolveTvStreamUrl(ch).endsWith(':lci')) {
-      this.playError = 'TV.ERR_TF1_AUTH';
-      return;
-    }
     this.destroyPlayer();
     this.isBuffering = false;
     this.playError = '';
@@ -854,11 +884,6 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     const ch = channel || this.selectedChannel;
     if (!ch) {
       this.playError = 'TV.FLOAT_NEED_CHANNEL';
-      return;
-    }
-    if (this.usesTf1Workaround(ch) && this.tf1Configured === false
-        && !resolveTvStreamUrl(ch).endsWith(':lci')) {
-      this.playError = 'TV.ERR_TF1_AUTH';
       return;
     }
     this.destroyPlayer();
@@ -1010,14 +1035,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         ...channel,
         streamUrl: resolveTvStreamUrl(channel)
       };
-      if (normalized.country) {
-        const nextCountry = normalized.country;
-        if (nextCountry !== this.selectedCountry) {
-          this.selectedCountry = nextCountry;
-          this.selectedGroup = '';
-          this.loadChannels();
-        }
-      }
+      // Keep catalog country filter on its default (« Tous les pays »);
+      // restoring playback must not switch the sidebar filter to the channel country.
       this.selectChannel(normalized);
     };
 
@@ -1526,6 +1545,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     }
     this.playError = '';
     this.isBuffering = true;
+    this.franceTvTokenRefreshAttempted = false;
     this.resyncFeedback = 'TV.RESTART_STREAM_DONE';
     this.clearResyncFeedbackTimer();
     this.showChrome(true);
@@ -1569,14 +1589,20 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   /** Total TVs for the selected country (or worldwide). Used by the catalog tab badge. */
-  private loadCatalogCount(): void {
+  private loadCatalogCount(opts?: { silent?: boolean }): void {
     this.catalogCountSub?.unsubscribe();
-    this.isLoadingCatalogCount = true;
+    const silent = !!opts?.silent;
+    if (!silent) {
+      this.isLoadingCatalogCount = true;
+    }
     const country = this.isAllCountries ? 'all' : (this.selectedCountry || 'fr');
     this.catalogCountSub = this.api.getTvChannelCount(country).subscribe({
       next: (res) => {
         this.catalogTotalCount = Math.max(0, Number(res?.count) || 0);
         this.isLoadingCatalogCount = false;
+        if (this.isAllCountries && this.catalogTotalCount > 0) {
+          this.persistCatalogCount(this.catalogTotalCount);
+        }
         this.cdr.markForCheck();
       },
       error: () => {
@@ -1584,6 +1610,29 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       }
     });
+  }
+
+  private hydrateCatalogCountFromStorage(): void {
+    if (!this.isAllCountries || this.catalogTotalCount > 0) {
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(TvWatcherComponent.CATALOG_COUNT_STORAGE_KEY);
+      const n = Number(raw);
+      if (Number.isFinite(n) && n > 0) {
+        this.catalogTotalCount = Math.floor(n);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private persistCatalogCount(count: number): void {
+    try {
+      localStorage.setItem(TvWatcherComponent.CATALOG_COUNT_STORAGE_KEY, String(count));
+    } catch {
+      /* ignore */
+    }
   }
 
   private loadChannels(): void {
@@ -1597,7 +1646,10 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     const group = (this.selectedGroup || '').trim();
 
     if (country.toLowerCase() === 'all') {
-      this.loadWorldwideGroups();
+      // Groups are heavy (scan all playlists) — load only when filters are open.
+      if (!this.filtersCollapsed) {
+        this.ensureWorldwideGroups();
+      }
       if (channelQ.length >= 2 || group) {
         this.channelsSub = this.api.getTvChannels('all', channelQ.length >= 2 ? channelQ : undefined, group || undefined).subscribe({
           next: (list) => {
@@ -1657,6 +1709,13 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   /** Load category list for worldwide mode (union of all country groups). */
+  private ensureWorldwideGroups(): void {
+    if (this.groups.length > 0 || !this.isAllCountries) {
+      return;
+    }
+    this.loadWorldwideGroups();
+  }
+
   private loadWorldwideGroups(): void {
     this.api.getTvGroups('all').subscribe({
       next: (g) => {
@@ -1895,33 +1954,120 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       this.hls.attachMedia(video);
       video.playbackRate = 1;
       this.detachHlsLiveSync = attachTvHlsLiveSyncWatchdog(this.hls, video);
-      this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        tryPlay();
-      });
-      this.hls.on(Hls.Events.ERROR, (_event, data) => {
-        if (!data?.fatal) {
-          return;
-        }
-        if (this.hls && tryRecoverTvHlsError(this.hls, data)) {
-          this.isBuffering = true;
-          this.cdr.markForCheck();
-          tryPlay(false);
-          return;
-        }
-        try {
-          this.hls?.destroy();
-        } catch {
-          /* ignore */
-        }
-        this.hls = null;
-        void this.reportPlayStreamError(proxyUrl, playGen, data);
-      });
+      this.bindWatcherHlsHandlers(this.hls, channel, proxyUrl, playGen, tryPlay);
+      this.startFranceTvKeeperIfNeeded(channel, proxyUrl, playGen, tryPlay);
       return;
     }
 
     this.isBuffering = false;
     this.playError = 'TV.ERR_UNSUPPORTED';
     this.showChrome(true);
+    this.cdr.markForCheck();
+  }
+
+  private bindWatcherHlsHandlers(
+    instance: Hls,
+    channel: TvChannel,
+    proxyUrl: string,
+    playGen: number,
+    tryPlay: (allowMuteFallback?: boolean) => void
+  ): void {
+    instance.on(Hls.Events.MANIFEST_PARSED, () => {
+      tryPlay();
+    });
+    instance.on(Hls.Events.ERROR, (_event, data) => {
+      if (!data?.fatal) {
+        return;
+      }
+      if (
+        playGen === this.playGeneration &&
+        !this.franceTvTokenRefreshAttempted &&
+        this.usesFranceTvWorkaround(channel) &&
+        isTvHlsForbiddenError(data)
+      ) {
+        this.franceTvTokenRefreshAttempted = true;
+        this.isBuffering = true;
+        this.cdr.markForCheck();
+        this.playChannel(channel);
+        return;
+      }
+      if (this.hls && tryRecoverTvHlsError(this.hls, data)) {
+        this.isBuffering = true;
+        this.cdr.markForCheck();
+        tryPlay(false);
+        return;
+      }
+      try {
+        this.hls?.destroy();
+      } catch {
+        /* ignore */
+      }
+      this.hls = null;
+      void this.reportPlayStreamError(proxyUrl, playGen, data);
+    });
+  }
+
+  private startFranceTvKeeperIfNeeded(
+    channel: TvChannel,
+    proxyUrl: string,
+    playGen: number,
+    tryPlay: (allowMuteFallback?: boolean) => void
+  ): void {
+    const slug = franceTvSlugFromVirtual(resolveTvStreamUrl(channel));
+    if (!slug) {
+      return;
+    }
+    this.franceTvKeeper?.stop();
+    this.franceTvKeeper = startFranceTvTokenKeeper({
+      slug,
+      proxyUrl,
+      getHls: () => this.hls,
+      getVideo: () => this.videoEl?.nativeElement || null,
+      isCancelled: () => playGen !== this.playGeneration,
+      resolveMeta: async (fresh) => {
+        try {
+          return await firstValueFrom(this.api.resolveFranceTvLive(slug, fresh));
+        } catch {
+          return null;
+        }
+      },
+      onRenewed: () => {
+        if (playGen !== this.playGeneration) {
+          return;
+        }
+        this.showTokenRenewedToast();
+      },
+      onHlsSwapped: (next, media) => {
+        if (playGen !== this.playGeneration) {
+          try {
+            next.destroy();
+          } catch {
+            /* ignore */
+          }
+          return;
+        }
+        try {
+          this.detachHlsLiveSync?.();
+        } catch {
+          /* ignore */
+        }
+        this.hls = next;
+        this.detachHlsLiveSync = attachTvHlsLiveSyncWatchdog(next, media);
+        this.bindWatcherHlsHandlers(next, channel, proxyUrl, playGen, tryPlay);
+      }
+    });
+  }
+
+  private showTokenRenewedToast(): void {
+    this.tokenRenewedToast = true;
+    if (this.tokenRenewedToastTimer != null) {
+      clearTimeout(this.tokenRenewedToastTimer);
+    }
+    this.tokenRenewedToastTimer = setTimeout(() => {
+      this.tokenRenewedToast = false;
+      this.tokenRenewedToastTimer = null;
+      this.cdr.markForCheck();
+    }, 1000);
     this.cdr.markForCheck();
   }
 
@@ -2032,6 +2178,13 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   private destroyPlayer(): void {
+    this.franceTvKeeper?.stop();
+    this.franceTvKeeper = null;
+    if (this.tokenRenewedToastTimer != null) {
+      clearTimeout(this.tokenRenewedToastTimer);
+      this.tokenRenewedToastTimer = null;
+    }
+    this.tokenRenewedToast = false;
     if (this.detachHlsLiveSync) {
       this.detachHlsLiveSync();
       this.detachHlsLiveSync = null;

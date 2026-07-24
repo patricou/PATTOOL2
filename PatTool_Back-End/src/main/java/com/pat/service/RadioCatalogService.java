@@ -69,6 +69,7 @@ public class RadioCatalogService {
 
     private final ConcurrentHashMap<String, CacheEntry<List<RadioStationDto>>> stationCache = new ConcurrentHashMap<>();
     private volatile CacheEntry<List<RadioCountryDto>> countriesCache;
+    private volatile CacheEntry<List<String>> worldwideTagsCache;
     private volatile int mirrorRotateOffset = 0;
 
     public RadioCatalogService(ObjectMapper objectMapper) {
@@ -144,16 +145,24 @@ public class RadioCatalogService {
         return List.of();
     }
 
+    /**
+     * Worldwide station search. Requires a name query of at least 2 characters
+     * <strong>or</strong> a non-empty genre/tag filter (same pattern as TV category search).
+     */
     public List<RadioStationDto> searchAllCountries(String query, String tag, int limit) {
         String q = query != null ? query.trim() : "";
-        if (q.length() < 2) {
+        String tagFilter = tag != null ? tag.trim() : "";
+        if (q.length() < 2 && tagFilter.isEmpty()) {
             return List.of();
         }
         int safeLimit = Math.max(1, Math.min(limit, 300));
-        return searchStations(q, null, tag, safeLimit);
+        return searchStations(q.length() >= 2 ? q : "", null, tagFilter, safeLimit);
     }
 
     public List<String> listTags(String country) {
+        if (isAllCountries(country)) {
+            return listWorldwideTags();
+        }
         Map<String, Integer> counts = new LinkedHashMap<>();
         for (RadioStationDto st : listStations(country)) {
             if (!StringUtils.hasText(st.getTags())) {
@@ -173,6 +182,53 @@ public class RadioCatalogService {
                 .limit(80)
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toList());
+    }
+
+    private List<String> listWorldwideTags() {
+        CacheEntry<List<String>> cached = worldwideTagsCache;
+        if (cached != null && !cached.isExpired(catalogCacheMinutes) && !cached.value.isEmpty()) {
+            return cached.value;
+        }
+        synchronized (this) {
+            cached = worldwideTagsCache;
+            if (cached != null && !cached.isExpired(catalogCacheMinutes) && !cached.value.isEmpty()) {
+                return cached.value;
+            }
+            List<String> loaded = fetchWorldwideTags();
+            if (!loaded.isEmpty()) {
+                worldwideTagsCache = new CacheEntry<>(loaded);
+                return loaded;
+            }
+            if (cached != null && !cached.value.isEmpty()) {
+                return cached.value;
+            }
+            return List.of();
+        }
+    }
+
+    private List<String> fetchWorldwideTags() {
+        try {
+            JsonNode root = getJson("/json/tags?order=stationcount&reverse=true&hidebroken=true&limit=80");
+            if (root == null || !root.isArray()) {
+                return List.of();
+            }
+            List<String> tags = new ArrayList<>();
+            for (JsonNode node : root) {
+                String name = text(node, "name");
+                if (!StringUtils.hasText(name)) {
+                    continue;
+                }
+                String tag = name.trim().toLowerCase(Locale.ROOT);
+                if (tag.isEmpty() || tag.length() > 40) {
+                    continue;
+                }
+                tags.add(tag);
+            }
+            return tags;
+        } catch (Exception e) {
+            log.warn("radio worldwide tags fetch failed: {}", e.getMessage());
+            return List.of();
+        }
     }
 
     public Optional<RadioStationDto> findById(String stationUuid) {

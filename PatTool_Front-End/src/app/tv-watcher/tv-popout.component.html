@@ -93,6 +93,9 @@
         <i class="fa fa-spinner fa-spin"></i>
         <span>{{ 'TV.BUFFERING' | translate }}</span>
       </div>
+      <div class="tv-token-toast" *ngIf="tokenRenewedToast" role="status">
+        {{ 'TV.TOKEN_RENEWED' | translate }}
+      </div>
       <div class="tv-popout-radio" *ngIf="usesRadioFrance() && !playError">
         <img
           *ngIf="channel?.logo"

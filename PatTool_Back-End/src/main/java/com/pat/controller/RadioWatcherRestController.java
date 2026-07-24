@@ -97,7 +97,8 @@ public class RadioWatcherRestController {
             @RequestParam(required = false, defaultValue = "200") int limit) {
         if (radioCatalogService.isAllCountries(country)) {
             String query = q != null ? q.trim() : "";
-            if (query.length() < 2) {
+            String tagFilter = tag != null ? tag.trim() : "";
+            if (query.length() < 2 && tagFilter.isEmpty()) {
                 return ResponseEntity.ok()
                         .cacheControl(CacheControl.noStore())
                         .body(List.of());
@@ -131,7 +132,9 @@ public class RadioWatcherRestController {
     @GetMapping("/tags")
     public ResponseEntity<?> tags(@RequestParam(defaultValue = "fr") String country) {
         if (radioCatalogService.isAllCountries(country)) {
-            return ResponseEntity.ok(List.of());
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(Duration.ofMinutes(10)).cachePublic())
+                    .body(radioCatalogService.listTags("all"));
         }
         if (!radioCatalogService.isSupportedCountry(country)) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid country code"));

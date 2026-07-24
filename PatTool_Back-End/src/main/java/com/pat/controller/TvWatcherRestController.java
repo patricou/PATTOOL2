@@ -37,6 +37,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -340,13 +341,7 @@ public class TvWatcherRestController {
             return TvStreamProxyService.jsonError(HttpStatus.BAD_REQUEST, "invalid_encoded_url",
                     "URL de flux encodée invalide");
         }
-        ResponseEntity<byte[]> resolveError = resolveLiveUpstreamOrError(upstream.get());
-        if (resolveError != null) {
-            return resolveError;
-        }
-        Optional<String> resolved = resolveLiveUpstream(upstream.get());
-        String proxyBase = buildProxyBase(request);
-        return tvStreamProxyService.proxy(resolved.orElse(upstream.get()), proxyBase, range);
+        return proxyResolvedStream(upstream.get(), range, request);
     }
 
     /**
@@ -371,36 +366,67 @@ public class TvWatcherRestController {
             return TvStreamProxyService.jsonError(HttpStatus.BAD_REQUEST, "invalid_url",
                     "L’URL doit être http(s) ou un flux live virtuel supporté");
         }
-        ResponseEntity<byte[]> resolveError = resolveLiveUpstreamOrError(trimmed);
+        return proxyResolvedStream(trimmed, range, request);
+    }
+
+    /**
+     * Resolve virtual live URLs then proxy. For france.tv, a 403 usually means the Akamai
+     * token expired while still cached — invalidate and retry once with a fresh signature.
+     */
+    private ResponseEntity<byte[]> proxyResolvedStream(String upstream, String range, HttpServletRequest request) {
+        ResponseEntity<byte[]> resolveError = resolveLiveUpstreamOrError(upstream);
         if (resolveError != null) {
             return resolveError;
         }
-        Optional<String> resolved = resolveLiveUpstream(trimmed);
+        Optional<String> resolved = resolveLiveUpstream(upstream);
         String proxyBase = buildProxyBase(request);
-        return tvStreamProxyService.proxy(resolved.orElse(trimmed), proxyBase, range);
+        String target = resolved.orElse(upstream);
+        ResponseEntity<byte[]> first = tvStreamProxyService.proxy(target, proxyBase, range);
+        if (!isUpstreamForbidden(first) || !FranceTvLiveService.isVirtualUrl(upstream)) {
+            return first;
+        }
+        FranceTvLiveService.slugFromVirtualUrl(upstream).ifPresent(franceTvLiveService::invalidate);
+        Optional<String> refreshed = franceTvLiveService.resolveVirtualOrPassthrough(upstream, true);
+        if (refreshed.isEmpty() || !StringUtils.hasText(refreshed.get())
+                || FranceTvLiveService.isVirtualUrl(refreshed.get())) {
+            return first;
+        }
+        return tvStreamProxyService.proxy(refreshed.get(), proxyBase, range);
+    }
+
+    private static boolean isUpstreamForbidden(ResponseEntity<byte[]> response) {
+        return response != null && response.getStatusCode() == HttpStatus.FORBIDDEN;
     }
 
     /** Resolve a france.tv live channel to a fresh signed HLS URL (JSON). */
     @GetMapping("/live/francetv/{slug}")
-    public ResponseEntity<?> resolveFranceTv(@PathVariable("slug") String slug) {
-        Optional<String> hls = franceTvLiveService.resolveHlsUrl(slug);
+    public ResponseEntity<?> resolveFranceTv(
+            @PathVariable("slug") String slug,
+            @RequestParam(value = "fresh", defaultValue = "false") boolean fresh) {
+        Optional<String> hls = franceTvLiveService.resolveHlsUrl(slug, fresh);
         if (hls.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                     .body(Map.of("error", "Unable to resolve france.tv live stream"));
         }
+        String signed = hls.get();
+        long expiresAtEpoch = FranceTvLiveService.parseAkamaiExpiry(signed)
+                .map(Instant::getEpochSecond)
+                .orElse(Instant.now().plus(Duration.ofMinutes(8)).getEpochSecond());
         return ResponseEntity.ok(Map.of(
                 "slug", slug,
-                "streamUrl", hls.get(),
-                "virtualUrl", FranceTvLiveService.virtualUrl(slug)
+                "streamUrl", signed,
+                "virtualUrl", FranceTvLiveService.virtualUrl(slug),
+                "expiresAtEpoch", expiresAtEpoch
         ));
     }
 
-    /** Whether TF1 account credentials are configured (required for TF1/TMC/TFX). */
+    /** Whether TF1 account credentials are configured (preferred for official TF1+/TMC/TFX). */
     @GetMapping("/live/tf1/status")
     public ResponseEntity<Map<String, Object>> tf1Status() {
         return ResponseEntity.ok(Map.of(
                 "configured", tf1LiveService.isConfigured(),
-                "channels", List.of("tf1", "tmc", "tfx", "lci")
+                "channels", List.of("tf1", "tmc", "tfx", "lci"),
+                "mirrorsFallback", true
         ));
     }
 
@@ -409,17 +435,13 @@ public class TvWatcherRestController {
         if (tf1LiveService.findChannel(slug).isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Unknown TF1 channel"));
         }
-        boolean needsAuth = tf1LiveService.findChannel(slug).map(Tf1LiveService.ChannelDef::requiresAuth).orElse(true);
-        if (needsAuth && !tf1LiveService.isConfigured()) {
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
-                    "error", "tf1_credentials_missing",
-                    "message", "Set app.tv.tf1.email and app.tv.tf1.password (free TF1 account) in application.properties"
-            ));
-        }
+        // Official path prefers credentials; IPTV mirrors are tried automatically when missing/invalid.
         Optional<String> hls = tf1LiveService.resolveHlsUrl(slug);
         if (hls.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                    .body(Map.of("error", "Unable to resolve TF1 live stream"));
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of(
+                    "error", "tf1_resolve_failed",
+                    "message", "Impossible de résoudre le flux TF1 (API officielle et miroirs IPTV)"
+            ));
         }
         return ResponseEntity.ok(Map.of(
                 "slug", slug,
@@ -516,16 +538,10 @@ public class TvWatcherRestController {
                 return TvStreamProxyService.jsonError(HttpStatus.BAD_REQUEST, "unknown_tf1_channel",
                         "Chaîne TF1 inconnue");
             }
-            boolean needsAuth = tf1LiveService.findChannel(slug.get())
-                    .map(Tf1LiveService.ChannelDef::requiresAuth).orElse(true);
-            if (needsAuth && !tf1LiveService.isConfigured()) {
-                return TvStreamProxyService.jsonError(HttpStatus.SERVICE_UNAVAILABLE, "tf1_credentials_missing",
-                        "Compte TF1 requis : configurez app.tv.tf1.email et app.tv.tf1.password");
-            }
             Optional<String> hls = tf1LiveService.resolveHlsUrl(slug.get());
             if (hls.isEmpty() || !StringUtils.hasText(hls.get())) {
                 return TvStreamProxyService.jsonError(HttpStatus.BAD_GATEWAY, "tf1_resolve_failed",
-                        "Impossible de résoudre le flux live TF1");
+                        "Impossible de résoudre le flux TF1 (API officielle et miroirs IPTV)");
             }
             return null;
         }

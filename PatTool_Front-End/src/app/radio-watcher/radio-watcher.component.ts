@@ -49,7 +49,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   favoriteIds = new Set<string>();
 
   listMode: RadioListMode = 'favorites';
-  selectedCountry = 'fr';
+  selectedCountry = 'all';
   selectedTag = '';
   stationQuery = '';
   selectedStation: RadioStation | null = null;
@@ -164,15 +164,28 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     return this.displayedStations.length;
   }
 
+  /**
+   * Count shown on the « Toutes les radios » tab — always the catalog size for the
+   * current country (or filtered catalog list), never the Favorites count.
+   */
   get catalogTabCount(): number {
     if (this.listMode === 'favorites') {
-      return this.filteredStationCount;
+      return this.catalogTotalCount > 0 ? this.catalogTotalCount : 0;
     }
     if (this.isAllCountries) {
-      const searching = this.stationQuery.trim().length >= 2;
+      const searching = this.stationQuery.trim().length >= 2 || !!this.selectedTag;
       if (!searching && this.catalogTotalCount > 0) {
         return this.catalogTotalCount;
       }
+    }
+    // Country catalog: prefer server total when the list is unfiltered.
+    if (
+      !this.isAllCountries
+      && this.catalogTotalCount > 0
+      && !this.stationQuery.trim()
+      && !this.selectedTag
+    ) {
+      return this.catalogTotalCount;
     }
     return this.filteredStationCount;
   }
@@ -230,11 +243,12 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
 
     this.loadCountries();
     this.loadCatalogCount();
-    this.loadStations();
     this.loadFavorites();
     if (!this.tryOpenSharedStationFromQuery()) {
       this.restoreLastPlayedStation();
     }
+    // Tags + catalog stations: deferred — worldwide mode needs a search/tag first,
+    // and tags are only useful once the filters panel is opened.
   }
 
   ngOnDestroy(): void {
@@ -453,6 +467,9 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
 
   toggleFiltersCollapsed(): void {
     this.filtersCollapsedByMode[this.listMode] = !this.filtersCollapsedByMode[this.listMode];
+    if (!this.filtersCollapsed && this.listMode === 'catalog') {
+      this.ensureTagsLoaded();
+    }
   }
 
   setListMode(mode: RadioListMode): void {
@@ -461,8 +478,13 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     }
     this.listMode = mode;
     this.countryMenuOpen = false;
-    if (mode === 'catalog' && !this.stations.length && !this.isLoadingStations) {
-      this.loadStations();
+    if (mode === 'catalog') {
+      if (!this.filtersCollapsed) {
+        this.ensureTagsLoaded();
+      }
+      if (!this.stations.length && !this.isLoadingStations) {
+        this.loadStations();
+      }
     }
   }
 
@@ -477,14 +499,19 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   selectCountry(code: string, event?: Event): void {
     event?.stopPropagation();
     this.countryMenuOpen = false;
-    const next = (code || 'fr').toLowerCase();
+    const next = (code || 'all').toLowerCase();
     if (this.selectedCountry === next) {
       return;
     }
     this.selectedCountry = next;
     this.selectedTag = '';
+    this.tags = [];
+    this.tagsLoadCountry = '';
     this.loadCatalogCount();
     this.loadStations();
+    if (!this.filtersCollapsed) {
+      this.ensureTagsLoaded();
+    }
   }
 
   selectedCountryName(): string {
@@ -829,6 +856,9 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
       next: (list) => {
         this.countries = list || [];
         this.isLoadingCountries = false;
+        if (this.isAllCountries) {
+          this.applyWorldwideCountFromCountries();
+        }
         this.cdr.markForCheck();
       },
       error: () => {
@@ -841,6 +871,16 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
 
   private loadCatalogCount(): void {
     this.catalogCountSub?.unsubscribe();
+    if (this.isAllCountries) {
+      if (this.countries.length) {
+        this.applyWorldwideCountFromCountries();
+        return;
+      }
+      // Count comes with countries; keep badge spinner until then.
+      this.isLoadingCatalogCount = true;
+      this.cdr.markForCheck();
+      return;
+    }
     this.isLoadingCatalogCount = true;
     this.catalogCountSub = this.api.getRadioStationCount(this.selectedCountry).subscribe({
       next: (res) => {
@@ -856,6 +896,14 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     });
   }
 
+  private applyWorldwideCountFromCountries(): void {
+    this.catalogTotalCount = (this.countries || []).reduce(
+      (sum, c) => sum + (Number(c.stationCount) || 0),
+      0
+    );
+    this.isLoadingCatalogCount = false;
+  }
+
   private loadStations(): void {
     this.stationsSub?.unsubscribe();
     this.stationsError = '';
@@ -863,9 +911,9 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
 
     if (this.isAllCountries) {
       const q = this.stationQuery.trim();
-      if (q.length < 2) {
+      const tag = this.selectedTag.trim();
+      if (q.length < 2 && !tag) {
         this.stations = [];
-        this.tags = [];
         this.worldwideSearchHint = true;
         this.isLoadingStations = false;
         this.tryResolvePendingShare();
@@ -881,10 +929,8 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
       next: (list) => {
         this.stations = list || [];
         this.isLoadingStations = false;
-        if (!this.isAllCountries) {
-          this.loadTags();
-        } else {
-          this.tags = [];
+        if (!this.isAllCountries && !this.filtersCollapsed) {
+          this.ensureTagsLoaded();
         }
         this.tryResolvePendingShare();
         this.cdr.markForCheck();
@@ -898,9 +944,25 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     });
   }
 
+  private tagsLoadCountry = '';
+
+  private ensureTagsLoaded(): void {
+    const country = this.selectedCountry || 'all';
+    if (this.tagsLoadCountry === country && this.tags.length > 0) {
+      return;
+    }
+    this.tagsLoadCountry = country;
+    this.loadTags();
+  }
+
   private loadTags(): void {
-    this.api.getRadioTags(this.selectedCountry).pipe(catchError(() => of([] as string[]))).subscribe((tags) => {
+    const country = this.selectedCountry || 'all';
+    this.api.getRadioTags(country).pipe(catchError(() => of([] as string[]))).subscribe((tags) => {
+      if ((this.selectedCountry || 'all') !== country) {
+        return;
+      }
       this.tags = tags || [];
+      this.tagsLoadCountry = country;
       this.cdr.markForCheck();
     });
   }

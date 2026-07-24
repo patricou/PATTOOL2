@@ -2098,9 +2098,7 @@ export class ApiService {
   // ===================================================================
 
   getTvCountries(): Observable<TvCountry[]> {
-    // Cache-buster query param (avoid custom headers that break CORS preflight).
-    const params = new HttpParams().set('_', String(Date.now()));
-    return this._http.get<TvCountry[]>(this.API_URL + 'external/tv/countries', { params });
+    return this._http.get<TvCountry[]>(this.API_URL + 'external/tv/countries');
   }
 
   getTvChannels(country: string, q?: string, group?: string): Observable<TvChannel[]> {
@@ -2175,6 +2173,31 @@ export class ApiService {
     return this._http.get<{ configured: boolean; channels?: string[] }>(
       this.API_URL + 'external/tv/live/tf1/status'
     );
+  }
+
+  /**
+   * Resolve france.tv live to a signed HLS URL (+ Akamai expiry epoch).
+   * Pass {@code fresh: true} to bypass the server signed-URL cache.
+   */
+  resolveFranceTvLive(
+    slug: string,
+    fresh = false
+  ): Observable<{
+    slug: string;
+    streamUrl: string;
+    virtualUrl: string;
+    expiresAtEpoch: number;
+  }> {
+    let params = new HttpParams();
+    if (fresh) {
+      params = params.set('fresh', 'true');
+    }
+    return this._http.get<{
+      slug: string;
+      streamUrl: string;
+      virtualUrl: string;
+      expiresAtEpoch: number;
+    }>(this.API_URL + 'external/tv/live/francetv/' + encodeURIComponent(slug), { params });
   }
 
   /** Proxied HLS / media URL for a channel stream (Base64-URL path segment). */
@@ -2254,12 +2277,11 @@ export class ApiService {
   // ===================================================================
 
   getRadioCountries(): Observable<RadioCountry[]> {
-    const params = new HttpParams().set('_', String(Date.now()));
-    return this._http.get<RadioCountry[]>(this.API_URL + 'external/radio/countries', { params });
+    return this._http.get<RadioCountry[]>(this.API_URL + 'external/radio/countries');
   }
 
   getRadioStations(country: string, q?: string, tag?: string): Observable<RadioStation[]> {
-    let params = new HttpParams().set('country', country || 'fr');
+    let params = new HttpParams().set('country', country || 'all');
     if (q && q.trim()) {
       params = params.set('q', q.trim());
     }
@@ -2282,7 +2304,7 @@ export class ApiService {
   }
 
   getRadioTags(country: string): Observable<string[]> {
-    const params = new HttpParams().set('country', country || 'fr');
+    const params = new HttpParams().set('country', country || 'all');
     return this._http.get<string[]>(this.API_URL + 'external/radio/tags', { params });
   }
 

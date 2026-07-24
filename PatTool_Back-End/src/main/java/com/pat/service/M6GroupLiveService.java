@@ -49,12 +49,15 @@ public class M6GroupLiveService {
     private static final Map<String, ChannelDef> CHANNELS = new LinkedHashMap<>();
 
     static {
+        // Official M6+ / 6play / 6cloud lives are DRM or IP-gated. Prefer clear IPTV mirrors
+        // (same host family as TF1 mirrors) before slower/dead seeds and iptv-org discovery.
         CHANNELS.put("m6", new ChannelDef(
                 "M6",
                 "Entertainment",
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Logo_M6_2015.svg/512px-Logo_M6_2015.svg.png",
                 "m6.fr",
                 List.of(
+                        "http://151.80.18.177:86/M6_HD/index.m3u8",
                         "http://cdn.haititivi.com/M6-HD/index.m3u8",
                         "http://99.27.51.147:8080/M6/index.m3u8"
                 )));
@@ -64,8 +67,8 @@ public class M6GroupLiveService {
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/W9_2018.svg/512px-W9_2018.svg.png",
                 "w9.fr",
                 List.of(
-                        "http://145.239.5.177/331a/index.m3u8",
-                        "https://origin-m6web.live.6cloud.fr/out/v1/6play/6play-w9/cmaf_q2hyb21h/hls-short-hd720.m3u8"
+                        "http://151.80.18.177:86/W9_HD/index.m3u8",
+                        "http://145.239.5.177/331a/index.m3u8"
                 )));
         CHANNELS.put("6ter", new ChannelDef(
                 "6ter",
@@ -135,7 +138,11 @@ public class M6GroupLiveService {
         CachedUrl cached = streamCache.get(key);
         Instant now = Instant.now();
         if (cached != null && cached.expiresAt.isAfter(now)) {
-            return Optional.of(cached.url);
+            if (probeClearHls(cached.url)) {
+                return Optional.of(cached.url);
+            }
+            streamCache.remove(key);
+            log.info("M6 group live {} dropped stale cached URL", key);
         }
 
         List<String> candidates = buildCandidates(def);
@@ -147,9 +154,6 @@ public class M6GroupLiveService {
             }
         }
 
-        if (cached != null) {
-            return Optional.of(cached.url);
-        }
         log.warn("M6 group live: no working public HLS for {} (official M6+ is DRM-only)", key);
         return Optional.empty();
     }
@@ -237,14 +241,17 @@ public class M6GroupLiveService {
 
     private boolean probeClearHls(String url) {
         try {
-            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
-                    .timeout(Duration.ofSeconds(10))
+            HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
+                    .timeout(Duration.ofSeconds(8))
                     .header("User-Agent", USER_AGENT)
                     .header("Accept", "*/*")
-                    .header("Referer", "https://www.6play.fr/")
-                    .GET()
-                    .build();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                    .GET();
+            // 6play Referer only helps official 6cloud hosts; it can break third-party mirrors.
+            if (isM6OfficialCdn(url)) {
+                builder.header("Referer", "https://www.6play.fr/");
+                builder.header("Origin", "https://www.6play.fr");
+            }
+            HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 return false;
             }
@@ -253,13 +260,31 @@ public class M6GroupLiveService {
                 return false;
             }
             String upper = body.toUpperCase(Locale.ROOT);
+            if (upper.contains("ACCESS DENIED") || upper.contains("PROTOCOL DISABLED")) {
+                return false;
+            }
             // Skip DRM / FairPlay / Sample-AES playlists — browser HLS.js cannot play them.
             if (upper.contains("SAMPLE-AES") || upper.contains("FAIRPLAY")
                     || upper.contains("COM.APPLE.STREAMINGKEYDELIVERY")
-                    || upper.contains("SKD://")) {
+                    || upper.contains("SKD://")
+                    || upper.contains("WIDEVINE")
+                    || upper.contains("COM.WIDEVINE")) {
                 return false;
             }
             return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static boolean isM6OfficialCdn(String url) {
+        try {
+            String host = URI.create(url).getHost();
+            if (host == null) {
+                return false;
+            }
+            String h = host.toLowerCase(Locale.ROOT);
+            return h.contains("6cloud.fr") || h.contains("6play.fr") || h.contains("m6web");
         } catch (Exception e) {
             return false;
         }

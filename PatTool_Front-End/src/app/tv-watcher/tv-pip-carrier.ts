@@ -10,12 +10,18 @@ export interface TvDocPipLabels {
 
 interface DocumentPictureInPictureApi {
   window: Window | null;
-  requestWindow(options?: { width?: number; height?: number }): Promise<Window>;
+  requestWindow(options?: {
+    width?: number;
+    height?: number;
+    disallowReturnToOpener?: boolean;
+    preferInitialWindowPlacement?: boolean;
+  }): Promise<Window>;
 }
 
 /**
  * Persistent <video> outside Angular views so Picture-in-Picture survives route changes.
- * Prefers Document PiP (custom fullscreen button) when available; falls back to classic video PiP.
+ * Uses classic video PiP (no Document-PiP title bar). Falls back to Document PiP only
+ * when classic video PiP is unavailable; fullscreen there goes through an opener shell.
  */
 export class TvPipCarrier {
   private video: HTMLVideoElement | null = null;
@@ -28,6 +34,10 @@ export class TvPipCarrier {
   private docPipPageHide: (() => void) | null = null;
   private hostSlot: HTMLDivElement | null = null;
   private suppressLeaveNotify = false;
+  private lastLabels: TvDocPipLabels | undefined;
+  private fsShell: HTMLDivElement | null = null;
+  private inOpenerFullscreen = false;
+  private fsChangeHandler: (() => void) | null = null;
 
   get element(): HTMLVideoElement | null {
     return this.video;
@@ -38,6 +48,9 @@ export class TvPipCarrier {
   }
 
   isActive(): boolean {
+    if (this.inOpenerFullscreen) {
+      return true;
+    }
     if (this.isDocPipOpen()) {
       return true;
     }
@@ -189,14 +202,20 @@ export class TvPipCarrier {
     carrier.muted = pageMuted;
     await carrier.play().catch(() => undefined);
 
-    const dpi = this.getDocumentPipApi();
-    if (dpi) {
-      await this.openDocumentPip(carrier, opts.channel, opts.labels);
+    // Classic video PiP has no browser title bar / frame chrome (unlike Document PiP).
+    const canClassicPip =
+      !!(document as Document & { pictureInPictureEnabled?: boolean }).pictureInPictureEnabled &&
+      typeof carrier.requestPictureInPicture === 'function';
+    if (canClassicPip) {
+      if (document.pictureInPictureElement !== carrier) {
+        await carrier.requestPictureInPicture();
+      }
       return;
     }
 
-    if (document.pictureInPictureElement !== carrier) {
-      await carrier.requestPictureInPicture();
+    const dpi = this.getDocumentPipApi();
+    if (dpi) {
+      await this.openDocumentPip(carrier, opts.channel, opts.labels);
     }
   }
 
@@ -213,9 +232,15 @@ export class TvPipCarrier {
       dpi.window.close();
     }
 
+    this.lastLabels = labels;
     const width = Math.max(480, Math.round(window.innerWidth * 0.35));
     const height = Math.max(270, Math.round(width * 9 / 16));
-    const pipWindow = await dpi.requestWindow({ width, height });
+    // Hide the "back to tab" control; keep the floating surface as video-only as possible.
+    const pipWindow = await dpi.requestWindow({
+      width,
+      height,
+      disallowReturnToOpener: true
+    });
     const doc = pipWindow.document;
     doc.title = '';
 
@@ -224,45 +249,40 @@ export class TvPipCarrier {
       html, body {
         margin: 0; padding: 0; width: 100%; height: 100%;
         overflow: hidden; background: #000; color: #fff;
+        border: 0; outline: 0;
       }
       .tv-doc-pip {
         position: relative; width: 100%; height: 100%;
         display: flex; align-items: center; justify-content: center;
-        background: #000;
+        background: #000; border: 0; margin: 0; padding: 0;
       }
       .tv-doc-pip-bar {
-        position: absolute; top: 0.45rem; right: 0.45rem; left: 0.45rem;
-        display: flex; justify-content: flex-end; gap: 0.4rem; z-index: 10;
+        position: absolute; top: 0.4rem; right: 0.4rem;
+        display: flex; justify-content: flex-end; gap: 0.35rem; z-index: 10;
         pointer-events: none;
         opacity: 1;
-        transform: translateY(0);
-        transition: opacity 0.28s ease, transform 0.28s ease;
+        transition: opacity 0.28s ease;
       }
       .tv-doc-pip-bar.is-hidden {
         opacity: 0;
-        transform: translateY(-0.35rem);
         pointer-events: none;
       }
       .tv-doc-pip-bar > * { pointer-events: auto; }
       .tv-doc-pip-bar.is-hidden > * { pointer-events: none; }
       .tv-doc-pip-btn {
-        width: 2.5rem; height: 2.5rem; padding: 0; border-radius: 0.45rem;
-        background: #000; color: #fff; cursor: pointer;
+        width: 2.35rem; height: 2.35rem; padding: 0; border-radius: 0.4rem;
+        background: rgba(0,0,0,0.55); color: #fff; cursor: pointer;
         display: inline-flex; align-items: center; justify-content: center;
-        font-size: 1.05rem;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.55);
-        border: 1px solid rgba(255,255,255,0.22);
+        font-size: 1rem;
+        border: 0;
+        box-shadow: none;
       }
-      .tv-doc-pip-btn:hover { background: #111; border-color: rgba(255,255,255,0.4); }
-      .tv-doc-pip-btn--fs {
-        background: #000;
-        border-color: rgba(255,255,255,0.28);
-      }
-      .tv-doc-pip-btn--fs:hover { background: #111; }
+      .tv-doc-pip-btn:hover { background: rgba(0,0,0,0.8); }
       .tv-doc-pip video {
         width: 100% !important; height: 100% !important;
         max-width: 100%; max-height: 100%;
         object-fit: contain; background: #000;
+        border: 0; outline: 0; display: block;
       }
     `;
     doc.head.appendChild(style);
@@ -282,7 +302,6 @@ export class TvPipCarrier {
     bar.className = 'tv-doc-pip-bar';
 
     const fsLabel = labels?.fullscreen || 'Fullscreen';
-    const fsExitLabel = labels?.fullscreenExit || 'Exit fullscreen';
     const closeLabel = labels?.close || 'Close';
 
     const fsBtn = doc.createElement('button');
@@ -291,25 +310,11 @@ export class TvPipCarrier {
     fsBtn.title = fsLabel;
     fsBtn.setAttribute('aria-label', fsLabel);
     fsBtn.innerHTML = '<i class="fa fa-arrows-alt" aria-hidden="true"></i>';
-    fsBtn.addEventListener('click', async (ev) => {
+    fsBtn.addEventListener('click', (ev) => {
+      ev.preventDefault();
       ev.stopPropagation();
-      try {
-        if (doc.fullscreenElement) {
-          await doc.exitFullscreen();
-        } else {
-          await doc.documentElement.requestFullscreen();
-        }
-      } catch {
-        /* blocked */
-      }
-    });
-    doc.addEventListener('fullscreenchange', () => {
-      const on = !!doc.fullscreenElement;
-      fsBtn.innerHTML = on
-        ? '<i class="fa fa-compress" aria-hidden="true"></i>'
-        : '<i class="fa fa-arrows-alt" aria-hidden="true"></i>';
-      fsBtn.title = on ? fsExitLabel : fsLabel;
-      fsBtn.setAttribute('aria-label', fsBtn.title);
+      // Fullscreen API is disabled inside Document PiP — use the opener shell.
+      this.enterOpenerFullscreen();
     });
 
     const closeBtn = doc.createElement('button');
@@ -325,29 +330,28 @@ export class TvPipCarrier {
     root.appendChild(bar);
     root.appendChild(carrier);
     doc.body.appendChild(root);
-    carrier.controls = true;
-    // Native control fullscreen (next to volume) calls video.requestFullscreen(),
-    // which is blocked in Document PiP — route it to the PiP document instead.
-    const requestDocFs = () => {
-      if (doc.fullscreenElement) {
-        return doc.exitFullscreen();
-      }
-      return doc.documentElement.requestFullscreen();
-    };
+    // No native controls chrome (title/border bar) — only our auto-hiding buttons.
+    carrier.controls = false;
     try {
-      carrier.requestFullscreen = (() => requestDocFs()) as typeof carrier.requestFullscreen;
+      carrier.requestFullscreen = (() => {
+        this.enterOpenerFullscreen();
+        return Promise.resolve();
+      }) as typeof carrier.requestFullscreen;
       const webkitCarrier = carrier as HTMLVideoElement & {
-        webkitRequestFullscreen?: () => Promise<void> | void;
-        webkitRequestFullScreen?: () => Promise<void> | void;
+        webkitRequestFullscreen?: () => void;
+        webkitRequestFullScreen?: () => void;
       };
-      webkitCarrier.webkitRequestFullscreen = () => requestDocFs();
-      webkitCarrier.webkitRequestFullScreen = () => requestDocFs();
+      webkitCarrier.webkitRequestFullscreen = () => {
+        this.enterOpenerFullscreen();
+      };
+      webkitCarrier.webkitRequestFullScreen = () => {
+        this.enterOpenerFullscreen();
+      };
     } catch {
       /* ignore */
     }
     carrier.play().catch(() => undefined);
 
-    // Hide chrome 2s after the pointer leaves the PiP window; show again on re-enter.
     let hideTimer: ReturnType<typeof setTimeout> | null = null;
     const showBar = () => {
       bar.classList.remove('is-hidden');
@@ -363,7 +367,7 @@ export class TvPipCarrier {
       hideTimer = setTimeout(() => {
         hideTimer = null;
         bar.classList.add('is-hidden');
-      }, 2000);
+      }, 1600);
     };
     doc.addEventListener('mouseenter', showBar, true);
     doc.addEventListener('mousemove', showBar);
@@ -386,12 +390,262 @@ export class TvPipCarrier {
       } catch {
         /* ignore */
       }
+      // Opener fullscreen already relocated the video — don't park / notify leave.
+      if (this.inOpenerFullscreen) {
+        this.docPipWindow = null;
+        this.docPipPageHide = null;
+        return;
+      }
       this.parkCarrierInHost();
       this.docPipWindow = null;
       this.docPipPageHide = null;
       this.notifyLeave();
     };
     pipWindow.addEventListener('pagehide', this.docPipPageHide);
+  }
+
+  /**
+   * Document PiP cannot use the Fullscreen API (blocked by Chrome/spec).
+   * Move the video into a shell in the opener, call requestFullscreen() while the
+   * PiP-click user-activation is still propagated, then close PiP.
+   */
+  private enterOpenerFullscreen(): void {
+    const carrier = this.video;
+    if (!carrier || this.inOpenerFullscreen) {
+      return;
+    }
+
+    const pipWin = this.isDocPipOpen() ? this.docPipWindow : null;
+    this.removeFsShellSync(false);
+
+    const shell = document.createElement('div');
+    shell.id = 'pattool-tv-pip-fs-shell';
+    Object.assign(shell.style, {
+      position: 'fixed',
+      inset: '0',
+      width: '100%',
+      height: '100%',
+      background: '#000',
+      zIndex: '2147483646',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      border: '0',
+      margin: '0',
+      padding: '0'
+    } as CSSStyleDeclaration);
+
+    Object.assign(carrier.style, {
+      width: '100%',
+      height: '100%',
+      objectFit: 'contain',
+      background: '#000',
+      border: '0'
+    } as CSSStyleDeclaration);
+    carrier.controls = false;
+
+    shell.appendChild(carrier);
+    document.body.appendChild(shell);
+    this.fsShell = shell;
+    this.inOpenerFullscreen = true;
+
+    this.fsChangeHandler = () => {
+      if (!document.fullscreenElement && this.inOpenerFullscreen && this.fsShell === shell) {
+        this.mountFsExitChrome(shell);
+      }
+    };
+    document.addEventListener('fullscreenchange', this.fsChangeHandler);
+
+    void carrier.play().catch(() => undefined);
+    try {
+      window.focus();
+    } catch {
+      /* ignore */
+    }
+
+    let fsReq: Promise<void>;
+    try {
+      fsReq = shell.requestFullscreen();
+    } catch (err) {
+      fsReq = Promise.reject(err);
+    }
+
+    this.suppressLeaveNotify = true;
+    this.closeDocPipWindowOnly(pipWin);
+    setTimeout(() => {
+      this.suppressLeaveNotify = false;
+    }, 100);
+
+    void fsReq.then(
+      () => undefined,
+      () => {
+        if (this.inOpenerFullscreen && this.fsShell === shell) {
+          this.mountFsExitChrome(shell);
+        }
+      }
+    );
+  }
+
+  private closeDocPipWindowOnly(win: Window | null): void {
+    const pip = win || (this.isDocPipOpen() ? this.docPipWindow : null);
+    if (!pip) {
+      this.docPipWindow = null;
+      this.docPipPageHide = null;
+      return;
+    }
+    try {
+      if (this.docPipPageHide) {
+        pip.removeEventListener('pagehide', this.docPipPageHide);
+      }
+    } catch {
+      /* ignore */
+    }
+    this.docPipPageHide = null;
+    this.docPipWindow = null;
+    try {
+      if (!pip.closed) {
+        pip.close();
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private mountFsExitChrome(shell: HTMLDivElement): void {
+    if (shell.dataset['fsChrome'] === '1') {
+      return;
+    }
+    shell.dataset['fsChrome'] = '1';
+    shell.style.position = 'fixed';
+
+    const exitLabel = this.lastLabels?.fullscreenExit || 'Exit fullscreen';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.title = exitLabel;
+    btn.setAttribute('aria-label', exitLabel);
+    btn.innerHTML = '<i class="fa fa-compress" aria-hidden="true"></i>';
+    Object.assign(btn.style, {
+      position: 'absolute',
+      top: '0.75rem',
+      right: '0.75rem',
+      width: '2.5rem',
+      height: '2.5rem',
+      padding: '0',
+      borderRadius: '0.45rem',
+      background: 'rgba(0,0,0,0.65)',
+      color: '#fff',
+      cursor: 'pointer',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: '1.05rem',
+      border: '0',
+      zIndex: '2'
+    } as CSSStyleDeclaration);
+    btn.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      void this.exitOpenerFullscreen(true);
+    });
+    shell.appendChild(btn);
+
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape' && this.inOpenerFullscreen && !document.fullscreenElement) {
+        void this.exitOpenerFullscreen(true);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    (shell as HTMLDivElement & { __fsEsc?: (ev: KeyboardEvent) => void }).__fsEsc = onKey;
+  }
+
+  private async exitOpenerFullscreen(reopenPip: boolean): Promise<void> {
+    if (!this.inOpenerFullscreen && !this.fsShell) {
+      return;
+    }
+    this.inOpenerFullscreen = false;
+    await this.teardownFsShell(true);
+
+    if (!reopenPip || !this.channel || !this.video) {
+      return;
+    }
+    const dpi = this.getDocumentPipApi();
+    if (dpi) {
+      try {
+        await this.openDocumentPip(this.video, this.channel, this.lastLabels);
+        return;
+      } catch {
+        /* fall through */
+      }
+    }
+    try {
+      if (document.pictureInPictureElement !== this.video) {
+        await this.video.requestPictureInPicture();
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private removeFsShellSync(exitBrowserFullscreen: boolean): void {
+    if (this.fsChangeHandler) {
+      document.removeEventListener('fullscreenchange', this.fsChangeHandler);
+      this.fsChangeHandler = null;
+    }
+    const shell = this.fsShell;
+    if (shell) {
+      const esc = (shell as HTMLDivElement & { __fsEsc?: (ev: KeyboardEvent) => void }).__fsEsc;
+      if (esc) {
+        document.removeEventListener('keydown', esc);
+        delete (shell as HTMLDivElement & { __fsEsc?: (ev: KeyboardEvent) => void }).__fsEsc;
+      }
+    }
+    if (exitBrowserFullscreen && document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => undefined);
+    }
+    if (shell && this.video && shell.contains(this.video)) {
+      this.parkCarrierInHost();
+    }
+    if (shell) {
+      try {
+        shell.remove();
+      } catch {
+        /* ignore */
+      }
+    }
+    this.fsShell = null;
+    this.inOpenerFullscreen = false;
+  }
+
+  private async teardownFsShell(exitBrowserFullscreen: boolean): Promise<void> {
+    if (this.fsChangeHandler) {
+      document.removeEventListener('fullscreenchange', this.fsChangeHandler);
+      this.fsChangeHandler = null;
+    }
+
+    const shell = this.fsShell;
+    if (shell) {
+      const esc = (shell as HTMLDivElement & { __fsEsc?: (ev: KeyboardEvent) => void }).__fsEsc;
+      if (esc) {
+        document.removeEventListener('keydown', esc);
+        delete (shell as HTMLDivElement & { __fsEsc?: (ev: KeyboardEvent) => void }).__fsEsc;
+      }
+    }
+
+    if (exitBrowserFullscreen && document.fullscreenElement) {
+      try {
+        await document.exitFullscreen();
+      } catch {
+        /* ignore */
+      }
+    }
+
+    this.parkCarrierInHost();
+    try {
+      this.fsShell?.remove();
+    } catch {
+      /* ignore */
+    }
+    this.fsShell = null;
+    this.inOpenerFullscreen = false;
   }
 
   private parkCarrierInHost(): void {
@@ -433,6 +687,9 @@ export class TvPipCarrier {
   }
 
   private async closePipSurface(): Promise<void> {
+    if (this.inOpenerFullscreen || this.fsShell) {
+      await this.teardownFsShell(true);
+    }
     if (this.isDocPipOpen()) {
       const win = this.docPipWindow!;
       try {
@@ -606,5 +863,9 @@ export class TvPipCarrier {
     this.channel = null;
     this.docPipWindow = null;
     this.docPipPageHide = null;
+    this.lastLabels = undefined;
+    this.fsShell = null;
+    this.inOpenerFullscreen = false;
+    this.fsChangeHandler = null;
   }
 }
