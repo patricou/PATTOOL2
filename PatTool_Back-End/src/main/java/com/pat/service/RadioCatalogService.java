@@ -145,6 +145,78 @@ public class RadioCatalogService {
         return List.of();
     }
 
+    /** Drop countries / stations / worldwide tags caches. */
+    public void invalidateAll() {
+        stationCache.clear();
+        countriesCache = null;
+        worldwideTagsCache = null;
+    }
+
+    /** Prefetch countries list, FR/CH stations, and worldwide genre tags. */
+    public void warmFrequent() {
+        try {
+            listCountries();
+        } catch (Exception e) {
+            log.warn("radio warm countries failed: {}", e.toString());
+        }
+        for (String code : List.of("fr", "ch", "be")) {
+            try {
+                listStations(code);
+            } catch (Exception e) {
+                log.warn("radio warm stations {} failed: {}", code, e.toString());
+            }
+        }
+        try {
+            listTags("all");
+        } catch (Exception e) {
+            log.warn("radio warm tags failed: {}", e.toString());
+        }
+    }
+
+    /** Invalidate then reload frequent + worldwide tags. */
+    public void reloadFrequent() {
+        invalidateAll();
+        warmFrequent();
+    }
+
+    /**
+     * Reload countries list, worldwide tags, and station lists for every known country.
+     * Used by scheduled / full media catalog refresh (can take several minutes).
+     */
+    public void reloadAllCountries() {
+        invalidateAll();
+        List<RadioCountryDto> countries;
+        try {
+            countries = listCountries();
+        } catch (Exception e) {
+            log.warn("radio reloadAllCountries: countries failed: {}", e.toString());
+            countries = List.of();
+        }
+        int ok = 0;
+        for (RadioCountryDto country : countries) {
+            String code = country != null && country.getCode() != null
+                    ? country.getCode().trim().toLowerCase(Locale.ROOT)
+                    : "";
+            if (!isSupportedCountry(code)) {
+                continue;
+            }
+            stationCache.remove(code);
+            try {
+                listStations(code);
+                ok++;
+            } catch (Exception e) {
+                log.warn("radio reload stations {} failed: {}", code, e.toString());
+            }
+        }
+        try {
+            worldwideTagsCache = null;
+            listTags("all");
+        } catch (Exception e) {
+            log.warn("radio reload worldwide tags failed: {}", e.toString());
+        }
+        log.info("radio reloadAllCountries finished ({} countries loaded)", ok);
+    }
+
     /**
      * Worldwide station search. Requires a name query of at least 2 characters
      * <strong>or</strong> a non-empty genre/tag filter (same pattern as TV category search).

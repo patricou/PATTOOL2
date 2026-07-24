@@ -1,0 +1,122 @@
+<div class="tv-epg-browser-backdrop" *ngIf="open" (click)="close()" aria-hidden="true"></div>
+<div
+  class="tv-epg-browser-modal"
+  *ngIf="open"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="'TV.EPG_BROWSER_TITLE' | translate">
+  <div class="tv-epg-browser-header">
+    <h3 class="tv-epg-browser-title">
+      <i class="fa fa-list-alt me-1" aria-hidden="true"></i>
+      {{ 'TV.EPG_BROWSER_TITLE' | translate }}
+    </h3>
+    <button
+      type="button"
+      class="tv-epg-browser-close"
+      (click)="close()"
+      [attr.aria-label]="'TV.EPG_BROWSER_CLOSE' | translate">
+      <i class="fa fa-times" aria-hidden="true"></i>
+    </button>
+  </div>
+
+  <div class="tv-epg-browser-filters">
+    <label class="form-label small mb-1" for="tv-epg-browse-country">{{ 'TV.COUNTRY' | translate }}</label>
+    <select
+      id="tv-epg-browse-country"
+      class="form-select form-select-sm"
+      [(ngModel)]="browseCountry"
+      (ngModelChange)="onCountryChange()">
+      <option *ngFor="let c of countries" [value]="c.code">{{ c.name }}</option>
+    </select>
+
+    <label class="form-label small mb-1 mt-2" for="tv-epg-browse-filter">{{ 'TV.EPG_BROWSER_FILTER' | translate }}</label>
+    <div class="input-group input-group-sm">
+      <input
+        id="tv-epg-browse-filter"
+        type="search"
+        class="form-control"
+        [ngModel]="tvFilter"
+        (ngModelChange)="onFilterInput($event)"
+        [placeholder]="'TV.EPG_BROWSER_FILTER_PLACEHOLDER' | translate"
+        autocomplete="off" />
+      <button
+        type="button"
+        class="btn btn-outline-secondary"
+        *ngIf="tvFilter"
+        (click)="clearFilter()"
+        [attr.aria-label]="'TV.CLEAR_SEARCH' | translate">
+        <i class="fa fa-times"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="tv-epg-browser-body">
+    <div class="tv-epg-browser-status" *ngIf="loading">
+      <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
+      {{ 'TV.EPG_BROWSER_LOADING' | translate }}
+    </div>
+    <div class="tv-epg-browser-status text-warning" *ngIf="!loading && errorKey && !rows.length">
+      {{ errorKey | translate }}
+    </div>
+
+    <div class="tv-epg-browser-count small text-muted" *ngIf="!loading && rows.length">
+      {{ 'TV.EPG_BROWSER_COUNT' | translate:{ count: rows.length } }}
+    </div>
+
+    <ul class="tv-epg-browser-list" *ngIf="!loading && rows.length">
+      <li *ngFor="let row of rows" class="tv-epg-browser-item" [class.is-expanded]="expandedId === row.channelId">
+        <button type="button" class="tv-epg-browser-row" (click)="toggleExpand(row)">
+          <span class="tv-epg-browser-row-main">
+            <span class="tv-epg-browser-ch-name">{{ row.name || row.channelId }}</span>
+            <span class="tv-epg-browser-ch-id text-muted">{{ row.channelId }}</span>
+          </span>
+          <span class="tv-epg-browser-row-now" *ngIf="row.now?.title">
+            <span class="tv-epg-browser-badge">{{ 'TV.EPG_NOW' | translate }}</span>
+            {{ row.now?.title }}
+          </span>
+          <span class="tv-epg-browser-row-meta text-muted">
+            {{ row.programmeCount || 0 }}
+            <i class="fa" [class.fa-chevron-down]="expandedId !== row.channelId" [class.fa-chevron-up]="expandedId === row.channelId" aria-hidden="true"></i>
+          </span>
+        </button>
+
+        <div class="tv-epg-browser-actions" *ngIf="canPlay(row)">
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary"
+            (click)="play(row, $event)"
+            [attr.title]="'TV.EPG_BROWSER_PLAY' | translate">
+            <i class="fa fa-play" aria-hidden="true"></i>
+            {{ 'TV.EPG_BROWSER_PLAY' | translate }}
+          </button>
+        </div>
+
+        <div class="tv-epg-browser-schedule" *ngIf="expandedId === row.channelId">
+          <div *ngIf="loadingSchedule" class="small text-muted py-2">
+            <i class="fa fa-spinner fa-spin me-1"></i>
+            {{ 'TV.EPG_GUIDE_LOADING' | translate }}
+          </div>
+          <ul class="tv-epg-browser-progs" *ngIf="!loadingSchedule && filteredExpandedProgrammes.length">
+            <li
+              *ngFor="let p of filteredExpandedProgrammes"
+              class="tv-epg-browser-prog"
+              [ngClass]="programmeToneClass(p)"
+              [class.is-match]="programmeMatchesFilter(p)">
+              <div class="tv-epg-browser-prog-when">
+                <span>{{ formatDay(p.start) }}</span>
+                <span>{{ formatClock(p.start) }}–{{ formatClock(p.stop) }}</span>
+                <span class="tv-epg-browser-live" *ngIf="isLive(p)">{{ 'TV.EPG_NOW' | translate }}</span>
+              </div>
+              <div class="tv-epg-browser-prog-title" [attr.title]="p.description || p.title">{{ p.title }}</div>
+              <div class="tv-epg-browser-prog-desc" *ngIf="p.description">{{ p.description }}</div>
+            </li>
+          </ul>
+          <div class="small text-muted py-2" *ngIf="!loadingSchedule && !filteredExpandedProgrammes.length">
+            {{ 'TV.EPG_GUIDE_EMPTY' | translate }}
+          </div>
+        </div>
+      </li>
+    </ul>
+  </div>
+</div>
+

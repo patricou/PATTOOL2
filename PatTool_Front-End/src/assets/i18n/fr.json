@@ -5006,7 +5006,29 @@
     "TOKEN_RENEWED": "Jeton du flux renouvelé",
     "FILTERS": "Filtres",
     "FILTERS_SHOW": "Afficher les filtres",
-    "FILTERS_HIDE": "Masquer les filtres"
+    "FILTERS_HIDE": "Masquer les filtres",
+    "EPG_BROWSER_OPEN": "Programmes",
+    "EPG_BROWSER_TITLE": "Programmes par TV",
+    "EPG_BROWSER_CLOSE": "Fermer",
+    "EPG_BROWSER_FILTER": "Filtrer par TV ou programme",
+    "EPG_BROWSER_FILTER_PLACEHOLDER": "Chaîne ou titre de programme…",
+    "EPG_BROWSER_LOADING": "Chargement des programmes…",
+    "EPG_BROWSER_EMPTY": "Aucun programme / chaîne EPG pour ce filtre.",
+    "EPG_BROWSER_ERROR": "Impossible de charger les programmes.",
+    "EPG_BROWSER_PICK_COUNTRY": "Choisissez un pays (pas « Tous les pays »).",
+    "EPG_BROWSER_COUNT": "{{count}} chaîne(s)",
+    "EPG_BROWSER_PLAY": "Regarder"
+  },
+  "MEDIA_CACHE": {
+    "REFRESH": "Rafraîchir les caches",
+    "REFRESH_TITLE": "Recharger TV, programmes et radio en arrière-plan",
+    "REFRESH_STARTED": "Rafraîchissement des caches démarré…",
+    "REFRESH_DONE": "Caches TV / programmes / radio rechargés.",
+    "REFRESH_DONE_SEC": "Caches rechargés ({{seconds}} s).",
+    "REFRESH_ERROR": "Échec du rafraîchissement des caches.",
+    "HELP": "Aide caches",
+    "HELP_TITLE": "Caches TV & radio",
+    "HELP_CLOSE": "Fermer"
   },
   "RADIO": {
     "TITLE": "Radio — stations du monde",

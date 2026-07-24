@@ -27,7 +27,7 @@ import {
   resolveTvStreamUrl
 } from './tv-stream.util';
 import {
-  isTvI18nErrorKey,
+  formatTvPlayErrorDisplay,
   resolveTvStreamErrorMessage
 } from './tv-stream-error.util';
 import { groupIconEmoji, groupIconFaClass, groupI18nKey } from './tv-group-icon.util';
@@ -37,20 +37,23 @@ import {
   createTvHlsConfig,
   isTvHlsForbiddenError,
   resyncTvHlsAv,
-  tryRecoverTvHlsError
+  tryRecoverTvHlsError,
+  type TvHlsRecoverAttempts
 } from './tv-hls-config';
 import {
   FranceTvTokenKeeper,
   franceTvSlugFromVirtual,
   startFranceTvTokenKeeper
 } from './tv-francetv-refresh';
+import { MediaCatalogCacheToolbarComponent } from '../shared/media-catalog-cache-toolbar/media-catalog-cache-toolbar.component';
+import { TvEpgBrowserComponent } from './tv-epg-browser.component';
 
 type TvListMode = 'catalog' | 'favorites';
 
 @Component({
   selector: 'app-tv-watcher',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule],
+  imports: [CommonModule, FormsModule, TranslateModule, MediaCatalogCacheToolbarComponent, TvEpgBrowserComponent],
   templateUrl: './tv-watcher.component.html',
   styleUrls: ['./tv-watcher.component.css']
 })
@@ -101,6 +104,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   chromeVisible = true;
   /** Share menu (WhatsApp / copy / native). */
   shareMenuOpen = false;
+  epgBrowserOpen = false;
   shareFeedback = '';
   /** Brief status after manual A/V resync. */
   resyncFeedback = '';
@@ -153,6 +157,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   /** Deep-link channel id waiting for catalog load. */
   private pendingShareChannelId = '';
   private playGeneration = 0;
+  private hlsRecoverAttempts: TvHlsRecoverAttempts = { network: 0, media: 0 };
   /** One auto re-resolve per play attempt when france.tv Akamai token returns 403. */
   private franceTvTokenRefreshAttempted = false;
   private static readonly CHROME_HIDE_MS = 3000;
@@ -358,13 +363,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.loadCountries();
     this.loadFavorites();
     this.loadTf1Status();
-    // Worldwide count/groups scan every IPTV playlist — defer so Favorites opens fast.
+    // Worldwide count scans ~180 IPTV playlists — never warm it while Favorites is open
+    // (it saturates the backend and makes « Chargement des favoris… » crawl).
     this.hydrateCatalogCountFromStorage();
     if (this.listMode === 'catalog') {
       this.loadCatalogCount();
       this.loadChannels();
-    } else {
-      setTimeout(() => this.loadCatalogCount({ silent: true }), 1200);
     }
     this.epgRefreshTimer = setInterval(() => this.refreshEpg(), TvWatcherComponent.EPG_REFRESH_MS);
     if (!this.tryOpenSharedChannelFromQuery()) {
@@ -529,9 +533,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       this.favoritesHint = 'TV.FAVORITES_LOGIN';
     }
     if (mode === 'catalog') {
-      if (!this.catalogTotalCount || this.catalogTotalCount <= 0) {
-        this.loadCatalogCount();
-      }
+      this.loadCatalogCount();
       if (!this.channels.length && !this.isLoadingChannels) {
         this.loadChannels();
       }
@@ -679,6 +681,26 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.guideError = '';
     this.guideSub?.unsubscribe();
     this.cdr.markForCheck();
+  }
+
+  openEpgBrowser(): void {
+    this.epgBrowserOpen = true;
+    this.shareMenuOpen = false;
+    this.countryMenuOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  closeEpgBrowser(): void {
+    this.epgBrowserOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  onEpgBrowserPlay(channel: TvChannel): void {
+    if (!channel) {
+      return;
+    }
+    this.closeEpgBrowser();
+    this.selectChannel(channel);
   }
 
   isProgrammeLive(programme: TvEpgProgramme | null | undefined): boolean {
@@ -1309,11 +1331,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   /** Display play errors: translate {@code TV.*} keys, show API/backend text as-is. */
   formatPlayError(message: string | null | undefined): string {
-    const m = (message || '').trim();
-    if (!m) {
-      return '';
-    }
-    return isTvI18nErrorKey(m) ? this.translate.instant(m) : m;
+    return formatTvPlayErrorDisplay(message, (key) => this.translate.instant(key));
   }
 
   groupIconClass(group: string | null | undefined): string {
@@ -1893,6 +1911,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.playError = '';
     this.isBuffering = true;
     const playGen = ++this.playGeneration;
+    this.hlsRecoverAttempts = { network: 0, media: 0 };
     this.applyAudioToVideo(video, { muted: false, ensureVolume: true });
     const streamUrl = resolveTvStreamUrl(channel);
     const proxyUrl = this.api.tvStreamProxyUrl(streamUrl);
@@ -1991,7 +2010,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         this.playChannel(channel);
         return;
       }
-      if (this.hls && tryRecoverTvHlsError(this.hls, data)) {
+      if (this.hls && tryRecoverTvHlsError(this.hls, data, this.hlsRecoverAttempts)) {
         this.isBuffering = true;
         this.cdr.markForCheck();
         tryPlay(false);

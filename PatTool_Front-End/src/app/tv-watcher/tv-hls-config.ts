@@ -26,11 +26,6 @@ export function createTvHlsConfig(): Partial<HlsConfig> {
     maxFragLookUpTolerance: 0.25,
     xhrSetup: (xhr) => {
       xhr.withCredentials = false;
-      try {
-        xhr.responseType = 'text';
-      } catch {
-        /* ignore */
-      }
     }
   };
 }
@@ -40,12 +35,24 @@ export function createTvHlsConfig(): Partial<HlsConfig> {
  * Returns true when the error was handled as non-fatal recovery.
  * Only call for {@code data.fatal === true}.
  *
+ * Caps retries so permanent upstream failures surface a backend/HLS error banner
+ * instead of looping forever on startLoad / recoverMediaError.
+ *
  * Does not soft-recover HTTP 401/403: those usually mean an expired CDN token
  * (france.tv Akamai), so the caller must re-resolve the virtual stream URL.
  */
+export interface TvHlsRecoverAttempts {
+  network: number;
+  media: number;
+}
+
+const MAX_NETWORK_RECOVERIES = 2;
+const MAX_MEDIA_RECOVERIES = 2;
+
 export function tryRecoverTvHlsError(
   hls: Hls,
-  data: { fatal?: boolean; type?: string; response?: { code?: number }; networkDetails?: { status?: number } | null }
+  data: { fatal?: boolean; type?: string; response?: { code?: number }; networkDetails?: { status?: number } | null },
+  attempts?: TvHlsRecoverAttempts
 ): boolean {
   if (!data?.fatal) {
     return false;
@@ -54,16 +61,28 @@ export function tryRecoverTvHlsError(
     return false;
   }
   if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+    if (attempts && attempts.media >= MAX_MEDIA_RECOVERIES) {
+      return false;
+    }
     try {
       hls.recoverMediaError();
+      if (attempts) {
+        attempts.media += 1;
+      }
       return true;
     } catch {
       return false;
     }
   }
   if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+    if (attempts && attempts.network >= MAX_NETWORK_RECOVERIES) {
+      return false;
+    }
     try {
       hls.startLoad();
+      if (attempts) {
+        attempts.network += 1;
+      }
       return true;
     } catch {
       return false;

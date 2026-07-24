@@ -90,17 +90,37 @@ public class TvStreamProxyService {
      *                    e.g. {@code https://host/api/external/tv/stream/}
      * @param rangeHeader optional browser {@code Range} header
      */
-    /** JSON error payload for the TV watcher UI ({@code error} + {@code message}). */
+    /**
+     * JSON error payload for the TV watcher UI:
+     * {@code error}, {@code message}, optional {@code status}, optional {@code host}.
+     */
     public static ResponseEntity<byte[]> jsonError(HttpStatus status, String error, String message) {
+        return jsonError(status, error, message, null, null);
+    }
+
+    public static ResponseEntity<byte[]> jsonError(HttpStatus status, String error, String message,
+                                                   String host, Integer upstreamStatus) {
         String safeError = error != null ? error : "tv_stream_error";
         String safeMessage = message != null && !message.isBlank() ? message : safeError;
-        String json = "{\"error\":\"" + jsonEscape(safeError) + "\",\"message\":\"" + jsonEscape(safeMessage) + "\"}";
+        StringBuilder json = new StringBuilder(160);
+        json.append("{\"error\":\"").append(jsonEscape(safeError)).append('"');
+        json.append(",\"message\":\"").append(jsonEscape(safeMessage)).append('"');
+        if (status != null) {
+            json.append(",\"status\":").append(status.value());
+        }
+        if (upstreamStatus != null && upstreamStatus > 0) {
+            json.append(",\"upstreamStatus\":").append(upstreamStatus);
+        }
+        if (host != null && !host.isBlank()) {
+            json.append(",\"host\":\"").append(jsonEscape(host.trim())).append('"');
+        }
+        json.append('}');
         HttpHeaders headers = new HttpHeaders();
         headers.set(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
         headers.set(HttpHeaders.CACHE_CONTROL, "no-store");
         // Do not set Access-Control-Allow-Origin here: Spring CorsFilter already adds it.
         // A second value ("*, http://localhost:4200") breaks browser CORS checks.
-        return ResponseEntity.status(status).headers(headers).body(json.getBytes(StandardCharsets.UTF_8));
+        return ResponseEntity.status(status).headers(headers).body(json.toString().getBytes(StandardCharsets.UTF_8));
     }
 
     private static String jsonEscape(String value) {
@@ -127,18 +147,20 @@ public class TvStreamProxyService {
         }
         String host = uri.getHost();
         if (host == null || host.isBlank() || isBlockedHost(host)) {
-            return jsonError(HttpStatus.FORBIDDEN, "host_blocked", "Hôte de flux non autorisé");
+            return jsonError(HttpStatus.FORBIDDEN, "host_blocked",
+                    "Hôte de flux non autorisé" + (host != null && !host.isBlank() ? " (" + host + ")" : ""),
+                    host, null);
         }
 
         String referer = resolveReferer(host);
         FetchResult fetched = fetch(upstreamUrl, rangeHeader, referer);
         if (fetched == null) {
             return jsonError(HttpStatus.BAD_GATEWAY, "upstream_unreachable",
-                    "Flux distant inaccessible ou bloqué");
+                    "Flux distant inaccessible ou bloqué (" + host + ")", host, null);
         }
         if (fetched.status == 416) {
             return jsonError(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE, "range_not_satisfiable",
-                    "Plage d’octets demandée indisponible");
+                    "Plage d’octets demandée indisponible (" + host + ")", host, fetched.status);
         }
         if (fetched.status >= 400) {
             HttpStatus mapped = HttpStatus.resolve(fetched.status);
@@ -146,11 +168,12 @@ public class TvStreamProxyService {
                 mapped = HttpStatus.BAD_GATEWAY;
             }
             return jsonError(mapped, "upstream_http_error",
-                    "Le flux distant a répondu HTTP " + fetched.status);
+                    "Le flux distant a répondu HTTP " + fetched.status + " (" + host + ")",
+                    host, fetched.status);
         }
         if (fetched.body == null || fetched.body.length == 0) {
             return jsonError(HttpStatus.BAD_GATEWAY, "upstream_empty",
-                    "Le flux distant a renvoyé une réponse vide");
+                    "Le flux distant a renvoyé une réponse vide (" + host + ")", host, fetched.status);
         }
 
         byte[] body = fetched.body;

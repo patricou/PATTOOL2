@@ -1,0 +1,86 @@
+<div class="media-cache-toolbar">
+  <button
+    type="button"
+    class="media-cache-btn"
+    (click)="refreshCaches()"
+    [disabled]="refreshing"
+    [attr.title]="'MEDIA_CACHE.REFRESH_TITLE' | translate"
+    [attr.aria-label]="'MEDIA_CACHE.REFRESH_TITLE' | translate">
+    <i class="fa" [class.fa-refresh]="!refreshing" [class.fa-spinner]="refreshing" [class.fa-spin]="refreshing" aria-hidden="true"></i>
+    <span class="media-cache-btn-label">{{ 'MEDIA_CACHE.REFRESH' | translate }}</span>
+  </button>
+  <button
+    type="button"
+    class="media-cache-btn media-cache-btn--help"
+    (click)="openHelp()"
+    [attr.title]="'MEDIA_CACHE.HELP_TITLE' | translate"
+    [attr.aria-label]="'MEDIA_CACHE.HELP_TITLE' | translate">
+    <i class="fa fa-question-circle" aria-hidden="true"></i>
+    <span class="media-cache-btn-label">{{ 'MEDIA_CACHE.HELP' | translate }}</span>
+  </button>
+</div>
+
+<div
+  class="media-cache-toast"
+  *ngIf="toastMessage"
+  role="status"
+  [class.media-cache-toast--error]="toastError">
+  <i class="fa me-1" [class.fa-check-circle]="!toastError" [class.fa-exclamation-triangle]="toastError" aria-hidden="true"></i>
+  {{ toastMessage }}
+</div>
+
+<div class="media-cache-modal-backdrop" *ngIf="helpOpen" (click)="closeHelp()" aria-hidden="true"></div>
+<div
+  class="media-cache-modal"
+  *ngIf="helpOpen"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="'MEDIA_CACHE.HELP_TITLE' | translate">
+  <div class="media-cache-modal-header">
+    <h3 class="media-cache-modal-title">{{ 'MEDIA_CACHE.HELP_TITLE' | translate }}</h3>
+    <button
+      type="button"
+      class="media-cache-modal-close"
+      (click)="closeHelp()"
+      [attr.aria-label]="'MEDIA_CACHE.HELP_CLOSE' | translate">
+      <i class="fa fa-times" aria-hidden="true"></i>
+    </button>
+  </div>
+  <div class="media-cache-modal-body" *ngIf="helpLang === 'fr'">
+    <p><strong>Caches TV &amp; radio (mémoire serveur)</strong></p>
+    <ul>
+      <li><strong>Chaînes TV</strong> : playlist par pays, ~60&nbsp;min. Rechargée au prochain accès après expiration. Les pays sans playlist (404) sont mémorisés vides pour éviter de les redemander.</li>
+      <li><strong>Programmes TV (EPG)</strong> : guide par pays, ~180&nbsp;min. Source iptv-epg.org — <em>tous les pays du catalogue sont essayés</em> au refresh, mais seuls ceux qui ont un fichier EPG sont remplis. Même dans un pays couvert, seules les chaînes avec un id EPG (tvg-id) ont un programme.</li>
+      <li><strong>Radio</strong> : pays, stations (par pays) et genres mondiaux, ~60&nbsp;min.</li>
+    </ul>
+    <p><strong>Mises à jour automatiques</strong></p>
+    <ul>
+      <li>~90&nbsp;s après le démarrage du serveur : <strong>gros refresh complet</strong> (toutes les playlists TV, EPG tous pays, radio tous pays).</li>
+      <li>Chaque nuit à 04:00 : même <strong>refresh complet</strong>.</li>
+      <li>À 07:00, 17:00 et 20:00 : rafraîchissement <strong>EPG + radio de tous les pays</strong>.</li>
+    </ul>
+    <p><strong>Bouton « Rafraîchir les caches »</strong> : même refresh complet, lancé à la demande. Un message s’affiche quand c’est terminé. Un seul refresh à la fois.</p>
+    <p class="text-muted small mb-0">Le redémarrage du backend vide ces caches. Ils ne sont pas stockés dans le navigateur (sauf le total TV pour le badge).</p>
+  </div>
+  <div class="media-cache-modal-body" *ngIf="helpLang === 'en'">
+    <p><strong>TV &amp; radio caches (server memory)</strong></p>
+    <ul>
+      <li><strong>TV channels</strong>: per-country playlist, ~60&nbsp;min. Reloaded on the next access after expiry. Countries with no playlist (404) are cached empty so they are not re-fetched repeatedly.</li>
+      <li><strong>TV programmes (EPG)</strong>: per-country guide, ~180&nbsp;min. Source iptv-epg.org — <em>every catalog country is tried</em> on refresh, but only countries with an EPG file are filled. Even then, only channels with an EPG id (tvg-id) get programme data.</li>
+      <li><strong>Radio</strong>: countries, stations (per country) and worldwide genres, ~60&nbsp;min.</li>
+    </ul>
+    <p><strong>Automatic updates</strong></p>
+    <ul>
+      <li>~90&nbsp;s after server start: <strong>full refresh</strong> (all TV playlists, EPG all countries, radio all countries).</li>
+      <li>Every night at 04:00: the same <strong>full refresh</strong>.</li>
+      <li>At 07:00, 17:00 and 20:00: <strong>EPG + radio refresh for all countries</strong>.</li>
+    </ul>
+    <p><strong>“Refresh caches” button</strong>: the same full refresh, on demand. A message appears when finished. Only one refresh runs at a time.</p>
+    <p class="text-muted small mb-0">Restarting the backend clears these caches. They are not stored in the browser (except the TV total for the badge).</p>
+  </div>
+  <div class="media-cache-modal-footer">
+    <button type="button" class="btn btn-sm btn-primary" (click)="closeHelp()">
+      {{ 'MEDIA_CACHE.HELP_CLOSE' | translate }}
+    </button>
+  </div>
+</div>

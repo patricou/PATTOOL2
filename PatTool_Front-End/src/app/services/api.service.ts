@@ -2093,6 +2093,22 @@ export class ApiService {
   }
 
   // ===================================================================
+  // Media catalog caches (TV playlists + EPG + radio) — background refresh
+  // Backend: /api/external/media/catalog-cache/*
+  // ===================================================================
+
+  getMediaCatalogCacheStatus(): Observable<MediaCatalogCacheStatus> {
+    return this._http.get<MediaCatalogCacheStatus>(this.API_URL + 'external/media/catalog-cache/status');
+  }
+
+  refreshMediaCatalogCache(): Observable<MediaCatalogCacheStatus & { accepted?: boolean }> {
+    return this._http.post<MediaCatalogCacheStatus & { accepted?: boolean }>(
+      this.API_URL + 'external/media/catalog-cache/refresh',
+      {}
+    );
+  }
+
+  // ===================================================================
   // TV watcher — free IPTV (iptv-org) catalog + HLS stream proxy
   // Backend: /api/external/tv/* (public)
   // ===================================================================
@@ -2150,6 +2166,17 @@ export class ApiService {
       .set('country', country || 'fr')
       .set('id', channelId);
     return this._http.get<TvEpgSchedule>(this.API_URL + 'external/tv/epg/schedule', { params });
+  }
+
+  /** Browse EPG channels for one country (now/next), optional TV name filter. */
+  getTvEpgBrowse(country: string, q?: string, limit = 120): Observable<TvEpgBrowseChannel[]> {
+    let params = new HttpParams()
+      .set('country', country || 'fr')
+      .set('limit', String(Math.max(1, Math.min(limit, 300))));
+    if (q && q.trim()) {
+      params = params.set('q', q.trim());
+    }
+    return this._http.get<TvEpgBrowseChannel[]>(this.API_URL + 'external/tv/epg/browse', { params });
   }
 
   /**
@@ -3157,6 +3184,17 @@ export interface ElectricityOverview {
   worldOperationalCount?: number;
 }
 
+/** GET/POST /api/external/media/catalog-cache/* */
+export interface MediaCatalogCacheStatus {
+  busy?: boolean;
+  accepted?: boolean;
+  lastStartedAt?: string | null;
+  lastCompletedAt?: string | null;
+  lastDurationMs?: number | null;
+  lastError?: string | null;
+  lastPhase?: string | null;
+}
+
 /** GET /api/external/tv/countries */
 export interface TvCountry {
   code: string;
@@ -3209,6 +3247,16 @@ export interface TvEpgNow {
 export interface TvEpgSchedule {
   channelId?: string;
   programmes?: TvEpgProgramme[];
+}
+
+/** GET /api/external/tv/epg/browse */
+export interface TvEpgBrowseChannel {
+  channelId?: string;
+  name?: string;
+  channel?: TvChannel | null;
+  now?: TvEpgProgramme | null;
+  next?: TvEpgProgramme | null;
+  programmeCount?: number;
 }
 
 /** GET /api/external/tv/epg/search */

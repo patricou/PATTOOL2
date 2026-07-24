@@ -2,6 +2,7 @@ package com.pat.controller;
 
 import com.pat.controller.dto.TvChannelDto;
 import com.pat.controller.dto.TvCountryDto;
+import com.pat.controller.dto.TvEpgBrowseChannelDto;
 import com.pat.controller.dto.TvEpgNowDto;
 import com.pat.controller.dto.TvEpgScheduleDto;
 import com.pat.controller.dto.TvEpgSearchHitDto;
@@ -195,6 +196,38 @@ public class TvWatcherRestController {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofMinutes(2)).cachePublic())
                 .body(result);
+    }
+
+    /**
+     * Browse programmes by TV for one country (now/next overview).
+     * Optional {@code q} filters by channel name / EPG id <strong>or</strong> programme title.
+     * Example: {@code GET /epg/browse?country=fr&q=jt&limit=120}
+     */
+    @GetMapping("/epg/browse")
+    public ResponseEntity<List<TvEpgBrowseChannelDto>> epgBrowse(
+            @RequestParam(defaultValue = "fr") String country,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "120") int limit) {
+        if (tvCatalogService.isAllCountries(country)) {
+            return ResponseEntity.badRequest().build();
+        }
+        if (!tvCatalogService.isSupportedCountry(country)) {
+            return ResponseEntity.badRequest().build();
+        }
+        String code = country.trim().toLowerCase(Locale.ROOT);
+        Map<String, TvChannelDto> index = new HashMap<>();
+        for (TvChannelDto ch : tvCatalogService.listChannels(code)) {
+            String resolved = TvEpgService.resolveEpgChannelId(ch);
+            if (StringUtils.hasText(resolved)) {
+                index.putIfAbsent(resolved.toLowerCase(Locale.ROOT), ch);
+            }
+        }
+        BiFunction<String, String, TvChannelDto> resolver =
+                (cc, epgId) -> index.get(epgId != null ? epgId.toLowerCase(Locale.ROOT) : "");
+        List<TvEpgBrowseChannelDto> rows = tvEpgService.browseChannels(code, q, limit, resolver);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(2)).cachePublic())
+                .body(rows);
     }
 
     /**

@@ -4,7 +4,8 @@ import {
   attachTvHlsLiveSyncWatchdog,
   createTvHlsConfig,
   isTvHlsForbiddenError,
-  tryRecoverTvHlsError
+  tryRecoverTvHlsError,
+  type TvHlsRecoverAttempts
 } from './tv-hls-config';
 import {
   FranceTvResolveMeta,
@@ -55,6 +56,7 @@ export function startTvHlsPlayback(
   let detachLiveSync: (() => void) | null = null;
   let tokenRefreshAttempted = false;
   let franceTvKeeper: FranceTvTokenKeeper | null = null;
+  const recoverAttempts: TvHlsRecoverAttempts = { network: 0, media: 0 };
 
   const setBuffering = (v: boolean) => {
     if (!destroyed) {
@@ -104,7 +106,7 @@ export function startTvHlsPlayback(
         tokenRefreshAttempted = true;
         return;
       }
-      if (hls && tryRecoverTvHlsError(hls, data)) {
+      if (hls && tryRecoverTvHlsError(hls, data, recoverAttempts)) {
         setBuffering(true);
         tryPlay(false);
         return;

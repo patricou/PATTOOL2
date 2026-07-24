@@ -20,7 +20,7 @@ import {
   isTf1Virtual,
   resolveTvStreamUrl
 } from './tv-stream.util';
-import { isTvI18nErrorKey } from './tv-stream-error.util';
+import { formatTvPlayErrorDisplay } from './tv-stream-error.util';
 import { startTvHlsPlayback, TvHlsPlaybackHandle } from './tv-hls-playback';
 import { franceTvSlugFromVirtual } from './tv-francetv-refresh';
 import { firstValueFrom } from 'rxjs';
@@ -88,11 +88,7 @@ export class TvPopoutComponent implements OnInit, OnDestroy {
   }
 
   formatPlayError(message: string | null | undefined): string {
-    const m = (message || '').trim();
-    if (!m) {
-      return '';
-    }
-    return isTvI18nErrorKey(m) ? this.translate.instant(m) : m;
+    return formatTvPlayErrorDisplay(message, (key) => this.translate.instant(key));
   }
 
   ngOnInit(): void {

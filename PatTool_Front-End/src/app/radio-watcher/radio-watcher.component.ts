@@ -28,13 +28,14 @@ import {
   stopRadioPipCarrier,
   supportsRadioPictureInPicture
 } from './radio-pip.util';
+import { MediaCatalogCacheToolbarComponent } from '../shared/media-catalog-cache-toolbar/media-catalog-cache-toolbar.component';
 
 type RadioListMode = 'catalog' | 'favorites';
 
 @Component({
   selector: 'app-radio-watcher',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule],
+  imports: [CommonModule, FormsModule, TranslateModule, MediaCatalogCacheToolbarComponent],
   templateUrl: './radio-watcher.component.html',
   styleUrls: ['./radio-watcher.component.css']
 })

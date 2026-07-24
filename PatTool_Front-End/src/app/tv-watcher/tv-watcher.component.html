@@ -5,8 +5,26 @@
       <span class="tv-title-antenna"></span>
     </span>
     {{ 'TV.TITLE' | translate }}
+    <app-media-catalog-cache-toolbar></app-media-catalog-cache-toolbar>
+    <button
+      type="button"
+      class="tv-epg-browser-open-btn"
+      (click)="openEpgBrowser()"
+      [attr.title]="'TV.EPG_BROWSER_TITLE' | translate"
+      [attr.aria-label]="'TV.EPG_BROWSER_TITLE' | translate">
+      <i class="fa fa-list-alt" aria-hidden="true"></i>
+      <span class="tv-epg-browser-open-label">{{ 'TV.EPG_BROWSER_OPEN' | translate }}</span>
+    </button>
   </h2>
 </div>
+
+<app-tv-epg-browser
+  [open]="epgBrowserOpen"
+  [countries]="countries"
+  [initialCountry]="selectedCountry"
+  (closed)="closeEpgBrowser()"
+  (playChannel)="onEpgBrowserPlay($event)">
+</app-tv-epg-browser>
 
 <div class="tv-page">
   <div class="alert alert-info py-2 px-3 small tv-float-banner" *ngIf="isFloatingOpen" role="status">

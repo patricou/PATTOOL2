@@ -5002,7 +5002,29 @@
     "TOKEN_RENEWED": "Stream token renewed",
     "FILTERS": "Filters",
     "FILTERS_SHOW": "Show filters",
-    "FILTERS_HIDE": "Hide filters"
+    "FILTERS_HIDE": "Hide filters",
+    "EPG_BROWSER_OPEN": "Programmes",
+    "EPG_BROWSER_TITLE": "Programmes by TV",
+    "EPG_BROWSER_CLOSE": "Close",
+    "EPG_BROWSER_FILTER": "Filter by TV or programme",
+    "EPG_BROWSER_FILTER_PLACEHOLDER": "Channel or programme title…",
+    "EPG_BROWSER_LOADING": "Loading programmes…",
+    "EPG_BROWSER_EMPTY": "No programme / EPG channel for this filter.",
+    "EPG_BROWSER_ERROR": "Could not load programmes.",
+    "EPG_BROWSER_PICK_COUNTRY": "Pick a country (not “All countries”).",
+    "EPG_BROWSER_COUNT": "{{count}} channel(s)",
+    "EPG_BROWSER_PLAY": "Watch"
+  },
+  "MEDIA_CACHE": {
+    "REFRESH": "Refresh caches",
+    "REFRESH_TITLE": "Reload TV, programmes and radio in the background",
+    "REFRESH_STARTED": "Cache refresh started…",
+    "REFRESH_DONE": "TV / programme / radio caches reloaded.",
+    "REFRESH_DONE_SEC": "Caches reloaded ({{seconds}} s).",
+    "REFRESH_ERROR": "Cache refresh failed.",
+    "HELP": "Cache help",
+    "HELP_TITLE": "TV & radio caches",
+    "HELP_CLOSE": "Close"
   },
   "RADIO": {
     "TITLE": "Radio — world stations",

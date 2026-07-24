@@ -1,16 +1,76 @@
 /**
- * Parse TV stream proxy / live API error payloads ({@code {error, message}}) so the UI
- * can show a specific backend / HLS cause instead of always falling back to TV.ERR_STREAM.
+ * Parse TV stream proxy / live API error payloads ({@code {error, message, host, status}})
+ * so the UI can show a specific backend / HLS cause instead of always falling back to TV.ERR_STREAM.
+ *
+ * Display convention: {@code TV.ERR_*\nDetail line} — formatPlayError translates the key line
+ * and keeps the detail line as-is (backend / technical text).
  */
 
 export interface TvStreamApiError {
   error?: string;
   message?: string;
+  host?: string;
+  status?: number;
+  upstreamStatus?: number;
 }
 
 /** True when {@code value} is an ngx-translate key under {@code TV.*}. */
 export function isTvI18nErrorKey(value: string | null | undefined): boolean {
   return !!value && /^TV\.[A-Z0-9_]+$/i.test(value.trim());
+}
+
+/**
+ * Translate {@code TV.*} keys; if the string is {@code KEY\\ndetail}, translate only the first line.
+ */
+export function formatTvPlayErrorDisplay(
+  message: string | null | undefined,
+  translate: (key: string) => string
+): string {
+  const m = (message || '').trim();
+  if (!m) {
+    return '';
+  }
+  const nl = m.indexOf('\n');
+  if (nl < 0) {
+    return isTvI18nErrorKey(m) ? translate(m) : m;
+  }
+  const head = m.slice(0, nl).trim();
+  const detail = m.slice(nl + 1).trim();
+  const headOut = isTvI18nErrorKey(head) ? translate(head) : head;
+  return detail ? `${headOut}\n${detail}` : headOut;
+}
+
+function formatBackendDetail(parsed: TvStreamApiError): string | null {
+  const message = (parsed.message || '').trim();
+  const code = (parsed.error || '').trim();
+  const host = (parsed.host || '').trim();
+  const upstream =
+    typeof parsed.upstreamStatus === 'number' && parsed.upstreamStatus > 0
+      ? parsed.upstreamStatus
+      : typeof parsed.status === 'number' && parsed.status >= 400
+        ? parsed.status
+        : null;
+
+  const parts: string[] = [];
+  if (message) {
+    parts.push(message);
+  } else if (code) {
+    parts.push(code);
+  }
+  // Avoid duplicating host/status when the message already embeds them.
+  if (host && !parts.some((p) => p.includes(host))) {
+    parts.push(host);
+  }
+  if (upstream != null && !parts.some((p) => p.includes(`HTTP ${upstream}`) || p.includes(String(upstream)))) {
+    parts.push(`HTTP ${upstream}`);
+  }
+  if (code && message && !message.includes(code)) {
+    parts.push(`[${code}]`);
+  }
+  if (!parts.length) {
+    return null;
+  }
+  return parts.join(' — ');
 }
 
 export function parseTvStreamErrorBody(body: string | null | undefined): string | null {
@@ -23,13 +83,9 @@ export function parseTvStreamErrorBody(body: string | null | undefined): string 
   }
   try {
     const json = JSON.parse(text) as TvStreamApiError;
-    const message = (json.message || '').trim();
-    if (message) {
-      return message;
-    }
-    const code = (json.error || '').trim();
-    if (code) {
-      return code;
+    const detail = formatBackendDetail(json);
+    if (detail) {
+      return detail;
     }
   } catch {
     /* not JSON */
@@ -98,6 +154,11 @@ function httpCodeFromHlsData(data: TvHlsErrorData): number | null {
   return null;
 }
 
+function failedUrlFromHlsData(data: TvHlsErrorData): string | null {
+  const url = (data?.response?.url || '').trim();
+  return url || null;
+}
+
 /**
  * Prefer JSON {@code message} from the HLS XHR / response body.
  */
@@ -114,8 +175,12 @@ export function extractTvStreamErrorFromHlsData(data: TvHlsErrorData): string | 
   if (err && typeof err === 'object' && 'message' in err) {
     const msg = String((err as { message?: unknown }).message || '').trim();
     // Skip noisy browser internals like "Failed to fetch" alone — classified below.
-    if (msg && !/^failed to fetch$/i.test(msg) && !/^load failed$/i.test(msg)
-        && !/^networkerror/i.test(msg)) {
+    if (
+      msg &&
+      !/^failed to fetch$/i.test(msg) &&
+      !/^load failed$/i.test(msg) &&
+      !/^networkerror/i.test(msg)
+    ) {
       return msg;
     }
   }
@@ -142,25 +207,33 @@ export function describeHlsFailure(data: TvHlsErrorData): string | null {
         : ` (HTTP ${code})`
       : '';
 
-  if (details.includes('manifest') || details.includes('levelLoad'.toLowerCase())
-      || details.includes('multivariant')) {
+  if (
+    details.includes('manifest') ||
+    details.includes('levelload') ||
+    details.includes('multivariant')
+  ) {
     return typeof code === 'number' && code >= 400
       ? `Impossible de charger le manifeste HLS${httpSuffix}`
       : 'TV.ERR_MANIFEST';
   }
-  if (details.includes('frag') || details.includes('segment') || details.includes('partLoad')) {
+  if (details.includes('frag') || details.includes('segment') || details.includes('partload')) {
     return typeof code === 'number' && code >= 400
       ? `Segment vidéo inaccessible${httpSuffix}`
       : 'TV.ERR_SEGMENT';
   }
-  if (details.includes('keyLoad') || details.includes('key')) {
+  if (details.includes('keyload') || details.includes('key')) {
     return 'TV.ERR_KEY';
   }
   if (details.includes('timeout')) {
     return 'TV.ERR_TIMEOUT';
   }
-  if (type.includes('media') || details.includes('buffer') || details.includes('codec')
-      || details.includes('demux') || details.includes('remux')) {
+  if (
+    type.includes('media') ||
+    details.includes('buffer') ||
+    details.includes('codec') ||
+    details.includes('demux') ||
+    details.includes('remux')
+  ) {
     return 'TV.ERR_MEDIA';
   }
   if (type.includes('network') || details.includes('load')) {
@@ -174,7 +247,21 @@ export function describeHlsFailure(data: TvHlsErrorData): string | null {
   if (details && details.length <= 80) {
     return `Échec de lecture (${data.details})`;
   }
+  if (type) {
+    return `Échec de lecture (${data.type})`;
+  }
   return null;
+}
+
+function withFriendlyPrefix(detail: string | null, friendlyKey = 'TV.ERR_STREAM'): string {
+  if (!detail) {
+    return friendlyKey;
+  }
+  if (isTvI18nErrorKey(detail)) {
+    return detail;
+  }
+  // Backend / technical detail under the friendly banner text.
+  return `${friendlyKey}\n${detail}`;
 }
 
 /**
@@ -188,17 +275,23 @@ export async function resolveTvStreamErrorMessage(
 ): Promise<string> {
   const fromHlsBody = extractTvStreamErrorFromHlsData(hlsData);
   if (fromHlsBody) {
-    return fromHlsBody;
+    return withFriendlyPrefix(fromHlsBody);
   }
 
-  const fromFetch = await fetchTvStreamErrorMessage(proxyUrl);
-  if (fromFetch) {
-    return fromFetch;
+  const failedUrl = failedUrlFromHlsData(hlsData);
+  const probeUrls = [failedUrl, proxyUrl].filter(
+    (u, i, arr): u is string => !!u && arr.indexOf(u) === i
+  );
+  for (const url of probeUrls) {
+    const fromFetch = await fetchTvStreamErrorMessage(url);
+    if (fromFetch) {
+      return withFriendlyPrefix(fromFetch);
+    }
   }
 
   const described = describeHlsFailure(hlsData);
   if (described) {
-    return described;
+    return isTvI18nErrorKey(described) ? described : withFriendlyPrefix(described);
   }
 
   return 'TV.ERR_STREAM';

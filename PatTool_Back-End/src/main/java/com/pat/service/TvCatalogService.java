@@ -277,6 +277,11 @@ public class TvCatalogService {
         return countries;
     }
 
+    /** All catalogued ISO country codes (iptv-org playlists). */
+    public List<String> allCountryCodes() {
+        return COUNTRY_CODES;
+    }
+
     /** France first, Switzerland second, then alphabetical. */
     private static int countryPinRank(String code) {
         if (code == null) {
@@ -351,6 +356,44 @@ public class TvCatalogService {
             return channels;
         }
         return cached != null ? cached.channels : Collections.emptyList();
+    }
+
+    /** Drop all playlist / worldwide aggregates (next access reloads from iptv-org). */
+    public void invalidateAll() {
+        cache.clear();
+        worldwideCountCache = null;
+        worldwideCountExpires = null;
+        worldwideGroupsCache = null;
+        worldwideGroupsExpires = null;
+    }
+
+    /** Warm frequently used countries without scanning the full worldwide catalog. */
+    public void warmFrequentCountries() {
+        for (String code : List.of("fr", "ch", "be")) {
+            try {
+                listChannels(code);
+            } catch (Exception e) {
+                log.warn("TV warm {} failed: {}", code, e.toString());
+            }
+        }
+    }
+
+    /**
+     * Reload every country playlist into cache (including empty 404 entries),
+     * then refresh worldwide count + groups. Intended for background jobs.
+     */
+    public void reloadAllPlaylists() {
+        for (String code : COUNTRY_CODES) {
+            try {
+                // Bypass TTL: remove entry then fetch.
+                cache.remove(code);
+                listChannels(code);
+            } catch (Exception e) {
+                log.warn("TV reload {} failed: {}", code, e.toString());
+            }
+        }
+        recomputeWorldwideCount();
+        recomputeWorldwideGroups();
     }
 
     /**
@@ -784,8 +827,14 @@ public class TvCatalogService {
                     .GET()
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                log.warn("TV playlist HTTP {} for {}", response.statusCode(), url);
+            int status = response.statusCode();
+            if (status == 404) {
+                // iptv-org has no playlist for this country — cache as empty (do not retry every count).
+                log.debug("TV playlist not found (404) for {}", countryCode);
+                return Collections.emptyList();
+            }
+            if (status < 200 || status >= 300) {
+                log.warn("TV playlist HTTP {} for {}", status, url);
                 return null;
             }
             return parseM3u(response.body(), countryCode);

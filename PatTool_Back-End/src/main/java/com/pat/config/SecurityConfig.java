@@ -277,6 +277,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/radio/stations/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/radio/tags").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/radio/stream", "/api/external/radio/stream/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/media/catalog-cache/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/external/media/catalog-cache/**").permitAll()
                 // Stellarium Web — sky map viewer + Noctua Sky catalogue proxy (read-only)
                 .requestMatchers(HttpMethod.GET, "/api/external/stellarium/**").permitAll()
                 // Tirages Loto importés (lecture seule, données publiques d'archive)

@@ -34,6 +34,31 @@
   gap: 0.55rem;
 }
 
+.tv-epg-browser-open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  color: #1d4ed8;
+  border-radius: 0.4rem;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  cursor: pointer;
+  margin-left: 0.15rem;
+}
+
+.tv-epg-browser-open-btn:hover {
+  background: #eff6ff;
+}
+
+@media (max-width: 640px) {
+  .tv-epg-browser-open-label {
+    display: none;
+  }
+}
+
 .tv-lead {
   margin: 0;
   font-size: 0.82rem;
@@ -1071,6 +1096,7 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   pointer-events: none;
   text-align: center;
+  white-space: pre-line;
 }
 
 /* Any play error: hide broken video UI, keep the wrap size (aspect-ratio above). */

@@ -1,6 +1,7 @@
 package com.pat.service;
 
 import com.pat.controller.dto.TvChannelDto;
+import com.pat.controller.dto.TvEpgBrowseChannelDto;
 import com.pat.controller.dto.TvEpgNowDto;
 import com.pat.controller.dto.TvEpgProgrammeDto;
 import com.pat.controller.dto.TvEpgScheduleDto;
@@ -27,6 +28,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -55,10 +57,14 @@ public class TvEpgService {
     private static final int MAX_SEARCH_RESULTS = 80;
     private static final int MIN_SEARCH_QUERY_LEN = 2;
 
-    /** Default countries scanned for worldwide programme search. */
+    /** Default countries scanned for worldwide programme search when no EPG cache is warm yet. */
     public static final List<String> WORLDWIDE_SEARCH_COUNTRIES = List.of(
-            "fr", "us", "gb", "de", "es", "it", "be", "ch", "ca", "nl", "pt", "pl"
+            "fr", "us", "gb", "de", "es", "it", "be", "ch", "ca", "nl", "pt", "pl",
+            "at", "au", "br", "cz", "dk", "fi", "gr", "hu", "ie", "in", "jp", "kr",
+            "mx", "no", "ro", "ru", "se", "tr", "ua"
     );
+
+    private static final CountryGuide EMPTY_GUIDE = new CountryGuide(Map.of(), Map.of());
 
     /** Virtual live URLs → XMLTV channel ids used by iptv-epg.org. */
     private static final Map<String, String> VIRTUAL_EPG_IDS = Map.ofEntries(
@@ -94,6 +100,51 @@ public class TvEpgService {
             @Value("${app.tv.epg.cache-minutes:180}") int cacheMinutes) {
         this.epgBaseUrl = epgBaseUrl;
         this.cacheTtl = Duration.ofMinutes(Math.max(30, cacheMinutes));
+    }
+
+    /** Drop all in-memory XMLTV guides. */
+    public void invalidateAll() {
+        guideCache.clear();
+    }
+
+    /** Prefetch guides for the most used countries. */
+    public void warmFrequentCountries() {
+        for (String code : List.of("fr", "ch", "be")) {
+            try {
+                loadGuide(code);
+            } catch (Exception e) {
+                log.warn("TV EPG warm {} failed: {}", code, e.toString());
+            }
+        }
+    }
+
+    /** Force-reload EPG for every country currently (or previously) cached, plus frequent ones. */
+    public void reloadCachedAndFrequent() {
+        Set<String> codes = new LinkedHashSet<>();
+        codes.add("fr");
+        codes.add("ch");
+        codes.add("be");
+        codes.addAll(guideCache.keySet());
+        reloadCountries(codes);
+    }
+
+    /** Force-reload EPG guides for the given country codes (clears each entry first). */
+    public void reloadCountries(Collection<String> countryCodes) {
+        if (countryCodes == null || countryCodes.isEmpty()) {
+            return;
+        }
+        for (String raw : countryCodes) {
+            String code = normalizeCountry(raw);
+            if (code == null) {
+                continue;
+            }
+            guideCache.remove(code);
+            try {
+                loadGuide(code);
+            } catch (Exception e) {
+                log.warn("TV EPG reload {} failed: {}", code, e.toString());
+            }
+        }
     }
 
     /**
@@ -207,8 +258,115 @@ public class TvEpgService {
     }
 
     /**
+     * Browse EPG channels for one country: now/next overview, optional name / programme filter.
+     * Catalog resolver can attach the matching {@link TvChannelDto} when available.
+     */
+    public List<TvEpgBrowseChannelDto> browseChannels(
+            String countryCode,
+            String query,
+            int limit,
+            BiFunction<String, String, TvChannelDto> channelResolver) {
+        String cc = normalizeCountry(countryCode);
+        if (cc == null) {
+            return List.of();
+        }
+        CountryGuide guide = loadGuide(cc);
+        if (guide == null || guide.byChannel() == null || guide.byChannel().isEmpty()) {
+            return List.of();
+        }
+        String q = query != null ? query.trim().toLowerCase(Locale.ROOT) : "";
+        int max = Math.min(300, Math.max(1, limit <= 0 ? 120 : limit));
+        Instant now = Instant.now();
+        List<TvEpgBrowseChannelDto> nameHits = new ArrayList<>();
+        List<TvEpgBrowseChannelDto> progHits = new ArrayList<>();
+
+        List<Map.Entry<String, List<Programme>>> entries = new ArrayList<>(guide.byChannel().entrySet());
+        entries.sort(Comparator.comparing(e ->
+                guide.canonicalId().getOrDefault(e.getKey(), e.getKey()),
+                String.CASE_INSENSITIVE_ORDER));
+
+        for (Map.Entry<String, List<Programme>> entry : entries) {
+            String canonical = guide.canonicalId().getOrDefault(entry.getKey(), entry.getKey());
+            TvChannelDto channel = channelResolver != null ? channelResolver.apply(cc, canonical) : null;
+            String displayName = channel != null && StringUtils.hasText(channel.getName())
+                    ? channel.getName()
+                    : humanizeEpgChannelId(canonical);
+            List<Programme> list = entry.getValue();
+            boolean nameMatch = true;
+            boolean progMatch = false;
+            if (!q.isEmpty()) {
+                String idLower = canonical.toLowerCase(Locale.ROOT);
+                String nameLower = displayName.toLowerCase(Locale.ROOT);
+                nameMatch = idLower.contains(q) || nameLower.contains(q);
+                progMatch = anyProgrammeMatches(list, q, now);
+                if (!nameMatch && !progMatch) {
+                    continue;
+                }
+            }
+            TvEpgNowDto nn = pickNowNext(list, now);
+            TvEpgBrowseChannelDto row = new TvEpgBrowseChannelDto(
+                    canonical,
+                    displayName,
+                    channel,
+                    nn != null ? nn.getNow() : null,
+                    nn != null ? nn.getNext() : null,
+                    list != null ? list.size() : 0
+            );
+            if (q.isEmpty() || nameMatch) {
+                nameHits.add(row);
+            } else {
+                progHits.add(row);
+            }
+        }
+        List<TvEpgBrowseChannelDto> out = new ArrayList<>(Math.min(max, nameHits.size() + progHits.size()));
+        for (TvEpgBrowseChannelDto row : nameHits) {
+            if (out.size() >= max) {
+                break;
+            }
+            out.add(row);
+        }
+        for (TvEpgBrowseChannelDto row : progHits) {
+            if (out.size() >= max) {
+                break;
+            }
+            out.add(row);
+        }
+        return out;
+    }
+
+    /** True when any upcoming / recent programme title or description contains {@code q}. */
+    private boolean anyProgrammeMatches(List<Programme> list, String q, Instant now) {
+        if (list == null || list.isEmpty() || !StringUtils.hasText(q)) {
+            return false;
+        }
+        Instant cutoff = now.minus(Duration.ofHours(2));
+        for (Programme p : list) {
+            if (p.stop != null && p.stop.isBefore(cutoff)) {
+                continue;
+            }
+            if (matchScore(p, q) > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String humanizeEpgChannelId(String channelId) {
+        if (!StringUtils.hasText(channelId)) {
+            return "";
+        }
+        String s = channelId.trim();
+        int dot = s.lastIndexOf('.');
+        if (dot > 0) {
+            s = s.substring(0, dot);
+        }
+        return s.replace('_', ' ').replace('-', ' ');
+    }
+
+    /**
      * Search programme titles/descriptions in the cached XMLTV window.
-     * {@code countryCode=all} scans {@link #WORLDWIDE_SEARCH_COUNTRIES}.
+     * {@code countryCode=all} scans every country that has a warm non-empty EPG cache
+     * (falls back to {@link #WORLDWIDE_SEARCH_COUNTRIES} before the first full reload).
      *
      * @param channelResolver optional catalog lookup {@code (country, epgId) → channel}
      */
@@ -233,7 +391,7 @@ public class TvEpgService {
 
         for (String cc : countries) {
             CountryGuide guide = loadGuide(cc);
-            if (guide == null) {
+            if (guide == null || guide.byChannel() == null || guide.byChannel().isEmpty()) {
                 continue;
             }
 
@@ -292,16 +450,66 @@ public class TvEpgService {
         return 0;
     }
 
-    private static List<String> resolveSearchCountries(String countryCode) {
+    private List<String> resolveSearchCountries(String countryCode) {
         if (!StringUtils.hasText(countryCode)) {
             return List.of();
         }
         String cc = countryCode.trim().toLowerCase(Locale.ROOT);
         if ("all".equals(cc)) {
+            List<String> warm = cachedCountriesWithProgrammes();
+            if (!warm.isEmpty()) {
+                return warm;
+            }
             return WORLDWIDE_SEARCH_COUNTRIES;
         }
         String normalized = normalizeCountry(cc);
         return normalized != null ? List.of(normalized) : List.of();
+    }
+
+    /** Countries that currently have a non-empty EPG guide in memory. */
+    public List<String> cachedCountriesWithProgrammes() {
+        Instant now = Instant.now();
+        List<String> out = new ArrayList<>();
+        for (Map.Entry<String, CachedGuide> e : guideCache.entrySet()) {
+            CachedGuide cached = e.getValue();
+            if (cached == null || cached.expiresAt().isBefore(now)) {
+                continue;
+            }
+            CountryGuide guide = cached.guide();
+            if (guide != null && guide.byChannel() != null && !guide.byChannel().isEmpty()) {
+                out.add(e.getKey());
+            }
+        }
+        out.sort(String::compareTo);
+        return out;
+    }
+
+    public Map<String, Object> cacheStats() {
+        Instant now = Instant.now();
+        int withData = 0;
+        int empty = 0;
+        int expired = 0;
+        for (CachedGuide cached : guideCache.values()) {
+            if (cached == null) {
+                continue;
+            }
+            if (cached.expiresAt().isBefore(now)) {
+                expired++;
+                continue;
+            }
+            CountryGuide guide = cached.guide();
+            if (guide != null && guide.byChannel() != null && !guide.byChannel().isEmpty()) {
+                withData++;
+            } else {
+                empty++;
+            }
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("epgCachedCountries", guideCache.size());
+        out.put("epgCountriesWithProgrammes", withData);
+        out.put("epgCountriesEmptyOrMissing", empty);
+        out.put("epgCountriesExpired", expired);
+        return out;
     }
 
     private static String cleanChannelId(String rawId) {
@@ -368,16 +576,21 @@ public class TvEpgService {
             try {
                 CountryGuide guide = downloadAndParse(countryCode);
                 if (guide == null) {
-                    return cached != null ? cached.guide : null;
+                    // Transient failure — keep any previous cache, do not poison.
+                    return cached != null ? cached.guide() : null;
                 }
                 guideCache.put(countryCode, new CachedGuide(guide, Instant.now().plus(cacheTtl)));
-                log.info("TV EPG loaded for {} ({} channels, {} programmes)",
-                        countryCode, guide.byChannel.size(),
-                        guide.byChannel.values().stream().mapToInt(List::size).sum());
+                if (!guide.byChannel().isEmpty()) {
+                    log.info("TV EPG loaded for {} ({} channels, {} programmes)",
+                            countryCode, guide.byChannel().size(),
+                            guide.byChannel().values().stream().mapToInt(List::size).sum());
+                } else {
+                    log.debug("TV EPG empty/missing for {}", countryCode);
+                }
                 return guide;
             } catch (Exception e) {
                 log.warn("TV EPG load failed for {}: {}", countryCode, e.toString());
-                return cached != null ? cached.guide : null;
+                return cached != null ? cached.guide() : null;
             }
         }
     }
@@ -390,12 +603,19 @@ public class TvEpgService {
         HttpResponse<InputStream> response = fetch(gzUrl);
         boolean gzip = true;
         if (response == null || response.statusCode() < 200 || response.statusCode() >= 300) {
+            int gzStatus = response != null ? response.statusCode() : -1;
             closeQuietly(response);
             response = fetch(xmlUrl);
             gzip = false;
             if (response == null || response.statusCode() < 200 || response.statusCode() >= 300) {
-                log.warn("TV EPG HTTP {} for {}", response != null ? response.statusCode() : -1, xmlUrl);
+                int xmlStatus = response != null ? response.statusCode() : -1;
                 closeQuietly(response);
+                // Permanent miss (404) → cache empty; other codes → transient null.
+                if (gzStatus == 404 || xmlStatus == 404) {
+                    log.debug("TV EPG not found (404) for {}", countryCode);
+                    return EMPTY_GUIDE;
+                }
+                log.warn("TV EPG HTTP {} for {}", xmlStatus, xmlUrl);
                 return null;
             }
         }
