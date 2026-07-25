@@ -399,15 +399,19 @@ public class TvCatalogService {
     /**
      * Search channel name/group across all configured countries.
      * Requires a name query of at least 2 characters <strong>or</strong> a non-empty category filter.
+     * Returns at most {@code limit} channels (default / max {@link #WORLDWIDE_SEARCH_MAX}) plus the exact match {@code total}.
      */
-    public List<TvChannelDto> searchAllCountries(String query, String group, int limit) {
+    public static final int WORLDWIDE_SEARCH_MAX = 10_000;
+
+    public TvChannelSearchResult searchAllCountries(String query, String group, int limit) {
         String q = query != null ? query.trim().toLowerCase(Locale.ROOT) : "";
         String groupFilter = group != null ? group.trim().toLowerCase(Locale.ROOT) : "";
+        int max = Math.max(1, Math.min(limit <= 0 ? WORLDWIDE_SEARCH_MAX : limit, WORLDWIDE_SEARCH_MAX));
         if (q.length() < 2 && groupFilter.isEmpty()) {
-            return Collections.emptyList();
+            return new TvChannelSearchResult(Collections.emptyList(), 0, max);
         }
-        int max = Math.max(1, Math.min(limit <= 0 ? 200 : limit, 500));
-        List<TvChannelDto> out = new ArrayList<>(Math.min(max, 64));
+        List<TvChannelDto> out = new ArrayList<>(Math.min(max, 256));
+        int total = 0;
         for (String countryCode : COUNTRY_CODES) {
             List<TvChannelDto> channels = listChannels(countryCode);
             if (channels == null || channels.isEmpty()) {
@@ -422,13 +426,17 @@ public class TvCatalogService {
                         || !ch.getGroup().toLowerCase(Locale.ROOT).contains(groupFilter))) {
                     continue;
                 }
-                out.add(ch);
-                if (out.size() >= max) {
-                    return out;
+                total++;
+                if (out.size() < max) {
+                    out.add(ch);
                 }
             }
         }
-        return out;
+        return new TvChannelSearchResult(out, total, max);
+    }
+
+    /** Worldwide channel search page: truncated list + exact match count. */
+    public record TvChannelSearchResult(List<TvChannelDto> channels, int total, int limit) {
     }
 
     /**

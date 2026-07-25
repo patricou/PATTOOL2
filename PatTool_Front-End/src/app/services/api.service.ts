@@ -2125,7 +2125,53 @@ export class ApiService {
     if (group && group.trim()) {
       params = params.set('group', group.trim());
     }
+    // Worldwide search returns { channels, total, limit, truncated }; single-country returns an array.
+    if ((country || '').toLowerCase() === 'all') {
+      return this._http
+        .get<TvChannel[] | { channels?: TvChannel[]; total?: number; truncated?: boolean }>(
+          this.API_URL + 'external/tv/channels',
+          { params }
+        )
+        .pipe(
+          map((body) => {
+            if (Array.isArray(body)) {
+              return body;
+            }
+            return body?.channels || [];
+          })
+        );
+    }
     return this._http.get<TvChannel[]>(this.API_URL + 'external/tv/channels', { params });
+  }
+
+  /**
+   * Worldwide channel search with exact match total (list may be truncated server-side).
+   */
+  getTvChannelsWorldwide(
+    q?: string,
+    group?: string,
+    limit = 10000
+  ): Observable<{ channels: TvChannel[]; total: number; truncated: boolean; limit: number }> {
+    let params = new HttpParams().set('country', 'all').set('limit', String(Math.max(1, limit)));
+    if (q && q.trim()) {
+      params = params.set('q', q.trim());
+    }
+    if (group && group.trim()) {
+      params = params.set('group', group.trim());
+    }
+    return this._http
+      .get<{ channels?: TvChannel[]; total?: number; truncated?: boolean; limit?: number }>(
+        this.API_URL + 'external/tv/channels',
+        { params }
+      )
+      .pipe(
+        map((body) => ({
+          channels: body?.channels || [],
+          total: Math.max(0, Number(body?.total) || 0),
+          truncated: !!body?.truncated,
+          limit: Math.max(0, Number(body?.limit) || limit)
+        }))
+      );
   }
 
   getTvChannelCount(country: string = 'all'): Observable<{ country: string; count: number }> {
@@ -2227,6 +2273,50 @@ export class ApiService {
     }>(this.API_URL + 'external/tv/live/francetv/' + encodeURIComponent(slug), { params });
   }
 
+  /** Resolve TF1 group live (official or IPTV mirror). {@code fresh} forces re-probe. */
+  resolveTf1Live(
+    slug: string,
+    fresh = false
+  ): Observable<{
+    slug: string;
+    streamUrl: string;
+    virtualUrl: string;
+    expiresAtEpoch: number;
+  }> {
+    let params = new HttpParams();
+    if (fresh) {
+      params = params.set('fresh', 'true');
+    }
+    return this._http.get<{
+      slug: string;
+      streamUrl: string;
+      virtualUrl: string;
+      expiresAtEpoch: number;
+    }>(this.API_URL + 'external/tv/live/tf1/' + encodeURIComponent(slug), { params });
+  }
+
+  /** Resolve M6 group live via IPTV mirrors. {@code fresh} forces re-probe. */
+  resolveM6GroupLive(
+    slug: string,
+    fresh = false
+  ): Observable<{
+    slug: string;
+    streamUrl: string;
+    virtualUrl: string;
+    expiresAtEpoch: number;
+  }> {
+    let params = new HttpParams();
+    if (fresh) {
+      params = params.set('fresh', 'true');
+    }
+    return this._http.get<{
+      slug: string;
+      streamUrl: string;
+      virtualUrl: string;
+      expiresAtEpoch: number;
+    }>(this.API_URL + 'external/tv/live/m6group/' + encodeURIComponent(slug), { params });
+  }
+
   /** Proxied HLS / media URL for a channel stream (Base64-URL path segment). */
   tvStreamProxyUrl(streamUrl: string): string {
     const bytes = new TextEncoder().encode(streamUrl);
@@ -2315,7 +2405,50 @@ export class ApiService {
     if (tag && tag.trim()) {
       params = params.set('tag', tag.trim());
     }
+    if ((country || '').toLowerCase() === 'all') {
+      return this.getRadioStationsWorldwide(q, tag).pipe(map((page) => page.stations));
+    }
     return this._http.get<RadioStation[]>(this.API_URL + 'external/radio/stations', { params });
+  }
+
+  /**
+   * Worldwide radio search with match total (list may still be capped by radio-browser).
+   */
+  getRadioStationsWorldwide(
+    q?: string,
+    tag?: string,
+    limit = 10000
+  ): Observable<{ stations: RadioStation[]; total: number; truncated: boolean; limit: number }> {
+    let params = new HttpParams().set('country', 'all').set('limit', String(Math.max(1, limit)));
+    if (q && q.trim()) {
+      params = params.set('q', q.trim());
+    }
+    if (tag && tag.trim()) {
+      params = params.set('tag', tag.trim());
+    }
+    return this._http
+      .get<RadioStation[] | { stations?: RadioStation[]; total?: number; truncated?: boolean; limit?: number }>(
+        this.API_URL + 'external/radio/stations',
+        { params }
+      )
+      .pipe(
+        map((body) => {
+          if (Array.isArray(body)) {
+            return {
+              stations: body,
+              total: body.length,
+              truncated: false,
+              limit
+            };
+          }
+          return {
+            stations: body?.stations || [],
+            total: Math.max(0, Number(body?.total) || 0),
+            truncated: !!body?.truncated,
+            limit: Math.max(0, Number(body?.limit) || limit)
+          };
+        })
+      );
   }
 
   getRadioStationById(id: string): Observable<RadioStation> {

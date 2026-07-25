@@ -11,7 +11,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { Subject, Subscription, forkJoin, of, firstValueFrom } from 'rxjs';
+import { Subject, Subscription, forkJoin, of } from 'rxjs';
 import { debounceTime, distinctUntilChanged, catchError } from 'rxjs/operators';
 import Hls from 'hls.js';
 
@@ -21,6 +21,7 @@ import { TvPlayerService } from '../services/tv-player.service';
 import {
   isCanalGroupVirtual,
   isFranceTvVirtual,
+  isKeepAliveVirtualLive,
   isM6GroupVirtual,
   isRadioFranceVirtual,
   isTf1Virtual,
@@ -42,9 +43,9 @@ import {
 } from './tv-hls-config';
 import {
   FranceTvTokenKeeper,
-  franceTvSlugFromVirtual,
   startFranceTvTokenKeeper
 } from './tv-francetv-refresh';
+import { bustVirtualLiveCache, preflightVirtualLive, virtualLiveKeepAliveFromUrl } from './tv-virtual-live-keepalive';
 import { MediaCatalogCacheToolbarComponent } from '../shared/media-catalog-cache-toolbar/media-catalog-cache-toolbar.component';
 import { TvEpgBrowserComponent } from './tv-epg-browser.component';
 
@@ -119,6 +120,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   /** Total catalog size for the current country (or worldwide when country=all). */
   catalogTotalCount = 0;
   isLoadingCatalogCount = false;
+  /** Exact match count for worldwide search (may exceed the truncated list length). */
+  searchMatchTotal: number | null = null;
+  searchListTruncated = false;
 
   /** EPG now/next keyed by lowercase XMLTV id. */
   epgById: Record<string, TvEpgNow> = {};
@@ -255,8 +259,35 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       if (!searching && this.catalogTotalCount > 0) {
         return this.catalogTotalCount;
       }
+      if (searching && this.searchMatchTotal != null && this.searchMatchTotal >= 0) {
+        return this.searchMatchTotal;
+      }
     }
     // Country catalog: prefer server total when the list is unfiltered.
+    if (
+      !this.isAllCountries
+      && this.catalogTotalCount > 0
+      && !this.channelQuery.trim()
+      && !this.programQuery.trim()
+      && !this.selectedGroup
+    ) {
+      return this.catalogTotalCount;
+    }
+    return this.filteredChannelCount;
+  }
+
+  /** Exact TV count shown in the list header (catalog total or search match total). */
+  get listHeaderChannelCount(): number {
+    if (this.isAllCountries) {
+      const idle =
+        !this.channelQuery.trim() && !this.programQuery.trim() && !this.selectedGroup;
+      if (idle) {
+        return this.catalogTotalCount > 0 ? this.catalogTotalCount : 0;
+      }
+      if (this.searchMatchTotal != null) {
+        return this.searchMatchTotal;
+      }
+    }
     if (
       !this.isAllCountries
       && this.catalogTotalCount > 0
@@ -840,6 +871,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       merged.push(ch);
     }
     this.channels = this.sortChannelsByName(merged);
+    this.searchMatchTotal = merged.length;
+    this.searchListTruncated = false;
     this.isLoadingChannels = false;
     this.applyPendingShareChannel();
     this.refreshEpg();
@@ -855,6 +888,21 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       return found.name;
     }
     return c.toUpperCase();
+  }
+
+  /** Country code for a list row (channel field, else current country filter when not worldwide). */
+  channelCountryCode(ch: TvChannel | null | undefined): string {
+    const fromCh = (ch?.country || '').trim().toLowerCase();
+    if (fromCh && fromCh !== 'all') {
+      return fromCh;
+    }
+    if (!this.isAllCountries) {
+      const sel = (this.selectedCountry || '').trim().toLowerCase();
+      if (sel && sel !== 'all') {
+        return sel;
+      }
+    }
+    return '';
   }
 
   selectChannel(channel: TvChannel): void {
@@ -1669,9 +1717,13 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         this.ensureWorldwideGroups();
       }
       if (channelQ.length >= 2 || group) {
-        this.channelsSub = this.api.getTvChannels('all', channelQ.length >= 2 ? channelQ : undefined, group || undefined).subscribe({
-          next: (list) => {
-            this.channels = this.sortChannelsByName(list || []);
+        this.channelsSub = this.api
+          .getTvChannelsWorldwide(channelQ.length >= 2 ? channelQ : undefined, group || undefined)
+          .subscribe({
+          next: (page) => {
+            this.channels = this.sortChannelsByName(page?.channels || []);
+            this.searchMatchTotal = Math.max(0, Number(page?.total) || 0);
+            this.searchListTruncated = !!page?.truncated;
             this.isLoadingChannels = false;
             this.applyPendingShareChannel();
             this.refreshEpg();
@@ -1679,6 +1731,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
           },
           error: () => {
             this.channels = [];
+            this.searchMatchTotal = null;
+            this.searchListTruncated = false;
             this.isLoadingChannels = false;
             this.channelsError = 'TV.ERR_CHANNELS';
             this.cdr.markForCheck();
@@ -1693,11 +1747,16 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         return;
       }
       this.channels = [];
+      this.searchMatchTotal = null;
+      this.searchListTruncated = false;
       this.isLoadingChannels = false;
       this.worldwideSearchHint = true;
       this.cdr.markForCheck();
       return;
     }
+
+    this.searchMatchTotal = null;
+    this.searchListTruncated = false;
 
     this.api.getTvGroups(country).subscribe({
       next: (g) => {
@@ -1916,6 +1975,32 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     const streamUrl = resolveTvStreamUrl(channel);
     const proxyUrl = this.api.tvStreamProxyUrl(streamUrl);
 
+    void this.startPlaybackAfterPreflight(channel, video, streamUrl, proxyUrl, playGen);
+  }
+
+  private async startPlaybackAfterPreflight(
+    channel: TvChannel,
+    video: HTMLVideoElement,
+    streamUrl: string,
+    proxyUrl: string,
+    playGen: number
+  ): Promise<void> {
+    if (isKeepAliveVirtualLive(streamUrl)) {
+      const pre = await preflightVirtualLive(streamUrl, this.api);
+      if (playGen !== this.playGeneration) {
+        return;
+      }
+      if (!pre.ok) {
+        this.isBuffering = false;
+        this.playError = pre.detail
+          ? `TV.ERR_STREAM\n${pre.detail}`
+          : 'TV.ERR_STREAM';
+        this.showChrome(true);
+        this.cdr.markForCheck();
+        return;
+      }
+    }
+
     const tryPlay = (allowMuteFallback = true) => {
       if (playGen !== this.playGeneration) {
         return;
@@ -1998,22 +2083,42 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       if (!data?.fatal) {
         return;
       }
+      const streamUrl = resolveTvStreamUrl(channel);
       if (
         playGen === this.playGeneration &&
         !this.franceTvTokenRefreshAttempted &&
-        this.usesFranceTvWorkaround(channel) &&
+        isKeepAliveVirtualLive(streamUrl) &&
         isTvHlsForbiddenError(data)
       ) {
         this.franceTvTokenRefreshAttempted = true;
         this.isBuffering = true;
         this.cdr.markForCheck();
-        this.playChannel(channel);
+        void bustVirtualLiveCache(streamUrl, this.api).finally(() => {
+          if (playGen === this.playGeneration) {
+            this.playChannel(channel);
+          }
+        });
         return;
       }
       if (this.hls && tryRecoverTvHlsError(this.hls, data, this.hlsRecoverAttempts)) {
         this.isBuffering = true;
         this.cdr.markForCheck();
         tryPlay(false);
+        return;
+      }
+      if (
+        playGen === this.playGeneration &&
+        !this.franceTvTokenRefreshAttempted &&
+        isKeepAliveVirtualLive(streamUrl)
+      ) {
+        this.franceTvTokenRefreshAttempted = true;
+        this.isBuffering = true;
+        this.cdr.markForCheck();
+        void bustVirtualLiveCache(streamUrl, this.api).finally(() => {
+          if (playGen === this.playGeneration) {
+            this.playChannel(channel);
+          }
+        });
         return;
       }
       try {
@@ -2032,24 +2137,19 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     playGen: number,
     tryPlay: (allowMuteFallback?: boolean) => void
   ): void {
-    const slug = franceTvSlugFromVirtual(resolveTvStreamUrl(channel));
-    if (!slug) {
+    const streamUrl = resolveTvStreamUrl(channel);
+    const keepAlive = virtualLiveKeepAliveFromUrl(streamUrl, this.api);
+    if (!keepAlive) {
       return;
     }
     this.franceTvKeeper?.stop();
     this.franceTvKeeper = startFranceTvTokenKeeper({
-      slug,
+      slug: keepAlive.slug,
       proxyUrl,
       getHls: () => this.hls,
       getVideo: () => this.videoEl?.nativeElement || null,
       isCancelled: () => playGen !== this.playGeneration,
-      resolveMeta: async (fresh) => {
-        try {
-          return await firstValueFrom(this.api.resolveFranceTvLive(slug, fresh));
-        } catch {
-          return null;
-        }
-      },
+      resolveMeta: keepAlive.resolveMeta,
       onRenewed: () => {
         if (playGen !== this.playGeneration) {
           return;

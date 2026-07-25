@@ -246,8 +246,15 @@
         </span>
         <span *ngIf="listMode === 'catalog' && !isLoadingChannels" class="tv-channel-meta-count">
           <i class="fa fa-television me-1" aria-hidden="true"></i>
-          {{ 'TV.CHANNEL_COUNT' | translate:{ count: (isAllCountries && !channelQuery.trim() && !programQuery.trim() && !selectedGroup ? catalogTabCount : filteredChannelCount) } }}
-          <span class="tv-channel-meta-filter" *ngIf="hasActiveFilters && !(isAllCountries && !channelQuery.trim() && !programQuery.trim() && !selectedGroup)">{{ 'TV.CHANNEL_COUNT_FILTERED' | translate }}</span>
+          {{ 'TV.CHANNEL_COUNT' | translate:{ count: listHeaderChannelCount } }}
+          <span class="tv-channel-meta-filter" *ngIf="searchListTruncated && channels.length > 0">
+            {{ 'TV.CHANNEL_COUNT_SHOWN' | translate:{ shown: channels.length } }}
+          </span>
+          <span
+            class="tv-channel-meta-filter"
+            *ngIf="hasActiveFilters && !searchListTruncated && !(isAllCountries && !channelQuery.trim() && !programQuery.trim() && !selectedGroup)">
+            {{ 'TV.CHANNEL_COUNT_FILTERED' | translate }}
+          </span>
         </span>
         <span *ngIf="listMode === 'favorites' && !isLoadingFavorites" class="tv-channel-meta-count">
           <i class="fa fa-star me-1" aria-hidden="true"></i>
@@ -268,7 +275,7 @@
 
       <ul class="tv-channel-list" role="listbox" [attr.aria-label]="'TV.CHANNELS' | translate">
         <li
-          *ngFor="let ch of displayedChannels; trackBy: trackByChannelId"
+          *ngFor="let ch of displayedChannels; let i = index; trackBy: trackByChannelId"
           class="tv-channel-item"
           [class.active]="selectedChannel?.id === ch.id"
           role="option"
@@ -276,6 +283,7 @@
           (click)="selectChannel(ch)"
           (keydown.enter)="selectChannel(ch)"
           tabindex="0">
+          <span class="tv-channel-index" aria-hidden="true">{{ i + 1 }}</span>
           <img
             *ngIf="ch.logo"
             class="tv-channel-logo"
@@ -304,12 +312,14 @@
               <span class="tv-channel-epg-label">{{ epgLine.labelKey | translate }}</span>
               {{ epgLine.title }}
             </span>
-            <span class="tv-channel-group" *ngIf="ch.group || ch.country">
+            <span class="tv-channel-group" *ngIf="ch.group || channelCountryCode(ch)">
               <span
-                *ngIf="countryFlagCode(ch.country) as flagCode"
+                *ngIf="countryFlagCode(channelCountryCode(ch)) as flagCode"
                 class="fi fi-{{ flagCode }} tv-fi-flag tv-channel-flag"
-                [attr.title]="countryLabel(ch.country)"
+                [attr.title]="countryLabel(channelCountryCode(ch))"
                 aria-hidden="true"></span>
+              <span *ngIf="channelCountryCode(ch)" class="tv-channel-country">{{ countryLabel(channelCountryCode(ch)) }}</span>
+              <span *ngIf="ch.group && channelCountryCode(ch)" class="tv-channel-meta-sep" aria-hidden="true">·</span>
               <i
                 *ngIf="ch.group"
                 class="fa tv-group-icon"

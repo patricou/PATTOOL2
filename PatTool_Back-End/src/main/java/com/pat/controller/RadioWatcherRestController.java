@@ -94,19 +94,33 @@ public class RadioWatcherRestController {
             @RequestParam(defaultValue = "fr") String country,
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String tag,
-            @RequestParam(required = false, defaultValue = "200") int limit) {
+            @RequestParam(required = false, defaultValue = "10000") int limit) {
         if (radioCatalogService.isAllCountries(country)) {
             String query = q != null ? q.trim() : "";
             String tagFilter = tag != null ? tag.trim() : "";
+            int safeLimit = Math.max(1, Math.min(limit <= 0 ? RadioCatalogService.WORLDWIDE_SEARCH_MAX : limit,
+                    RadioCatalogService.WORLDWIDE_SEARCH_MAX));
             if (query.length() < 2 && tagFilter.isEmpty()) {
                 return ResponseEntity.ok()
                         .cacheControl(CacheControl.noStore())
-                        .body(List.of());
+                        .body(Map.of(
+                                "stations", List.of(),
+                                "total", 0,
+                                "limit", safeLimit,
+                                "truncated", false
+                        ));
             }
-            List<RadioStationDto> worldwide = radioCatalogService.searchAllCountries(query, tag, limit);
+            RadioCatalogService.RadioStationSearchResult worldwide =
+                    radioCatalogService.searchAllCountries(query, tagFilter, safeLimit);
+            boolean truncated = worldwide.total() >= worldwide.limit();
             return ResponseEntity.ok()
                     .cacheControl(CacheControl.maxAge(Duration.ofMinutes(2)).cachePublic())
-                    .body(worldwide);
+                    .body(Map.of(
+                            "stations", worldwide.stations(),
+                            "total", worldwide.total(),
+                            "limit", worldwide.limit(),
+                            "truncated", truncated
+                    ));
         }
         if (!radioCatalogService.isSupportedCountry(country)) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid country code"));
@@ -121,7 +135,6 @@ public class RadioWatcherRestController {
                         || (st.getTags() != null && st.getTags().toLowerCase(Locale.ROOT).contains(query)))
                 .filter(st -> tagFilter.isEmpty()
                         || (st.getTags() != null && st.getTags().toLowerCase(Locale.ROOT).contains(tagFilter)))
-                .limit(Math.max(1, Math.min(limit, 500)))
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok()

@@ -90,3 +90,35 @@ export function isRadioFranceVirtual(url: string): boolean {
 export function isM6GroupVirtual(url: string): boolean {
   return (url || '').toLowerCase().startsWith('m6group:');
 }
+
+/** True when playback uses a backend virtual live URL that needs periodic re-resolve. */
+export function isKeepAliveVirtualLive(url: string): boolean {
+  return isFranceTvVirtual(url) || isTf1Virtual(url) || isM6GroupVirtual(url);
+}
+
+export function franceTvSlugFromVirtualUrl(url: string): string | null {
+  const lower = (url || '').trim().toLowerCase();
+  if (!lower.startsWith('francetv:')) {
+    return null;
+  }
+  const slug = lower.slice('francetv:'.length).trim();
+  return slug || null;
+}
+
+export function tf1SlugFromVirtual(url: string): string | null {
+  const lower = (url || '').trim().toLowerCase();
+  if (!lower.startsWith('tf1:')) {
+    return null;
+  }
+  const slug = lower.slice('tf1:'.length).trim();
+  return slug || null;
+}
+
+export function m6GroupSlugFromVirtual(url: string): string | null {
+  const lower = (url || '').trim().toLowerCase();
+  if (!lower.startsWith('m6group:')) {
+    return null;
+  }
+  const slug = lower.slice('m6group:'.length).trim();
+  return slug || null;
+}

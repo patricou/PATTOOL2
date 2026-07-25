@@ -200,8 +200,15 @@
         </span>
         <span *ngIf="listMode === 'catalog' && !isLoadingStations" class="radio-channel-meta-count">
           <i class="fa fa-headphones me-1" aria-hidden="true"></i>
-          {{ 'RADIO.STATION_COUNT' | translate:{ count: (isAllCountries && !stationQuery.trim() && !selectedTag ? catalogTabCount : filteredStationCount) } }}
-          <span class="radio-channel-meta-filter" *ngIf="hasActiveFilters && !(isAllCountries && !stationQuery.trim() && !selectedTag)">{{ 'RADIO.STATION_COUNT_FILTERED' | translate }}</span>
+          {{ 'RADIO.STATION_COUNT' | translate:{ count: listHeaderStationCount } }}
+          <span class="radio-channel-meta-filter" *ngIf="searchListTruncated && stations.length > 0">
+            {{ 'RADIO.STATION_COUNT_SHOWN' | translate:{ shown: stations.length } }}
+          </span>
+          <span
+            class="radio-channel-meta-filter"
+            *ngIf="hasActiveFilters && !searchListTruncated && !(isAllCountries && !stationQuery.trim() && !selectedTag)">
+            {{ 'RADIO.STATION_COUNT_FILTERED' | translate }}
+          </span>
         </span>
         <span *ngIf="listMode === 'favorites' && !isLoadingFavorites" class="radio-channel-meta-count">
           <i class="fa fa-star me-1" aria-hidden="true"></i>
@@ -222,7 +229,7 @@
 
       <ul class="radio-channel-list" role="listbox" [attr.aria-label]="'RADIO.STATIONS' | translate">
         <li
-          *ngFor="let st of displayedStations; trackBy: trackByStationId"
+          *ngFor="let st of displayedStations; let i = index; trackBy: trackByStationId"
           class="radio-channel-item"
           [class.active]="selectedStation?.id === st.id"
           role="option"
@@ -230,6 +237,7 @@
           (click)="selectStation(st)"
           (keydown.enter)="selectStation(st)"
           tabindex="0">
+          <span class="radio-channel-index" aria-hidden="true">{{ i + 1 }}</span>
           <img
             *ngIf="stationLogo(st) as logo"
             class="radio-channel-logo"
@@ -248,6 +256,8 @@
                 class="fi fi-{{ flagCode }} radio-fi-flag radio-channel-flag"
                 [attr.title]="countryLabel(st.country)"
                 aria-hidden="true"></span>
+              <span *ngIf="st.country" class="radio-channel-country">{{ countryLabel(st.country) }}</span>
+              <span *ngIf="st.country && (primaryTag(st) || st.codec)" class="radio-channel-meta-sep" aria-hidden="true">·</span>
               <ng-container *ngIf="primaryTag(st)">{{ primaryTag(st) }}</ng-container>
               <ng-container *ngIf="primaryTag(st) && st.codec"> · </ng-container>
               <ng-container *ngIf="st.codec">{{ st.codec }}</ng-container>

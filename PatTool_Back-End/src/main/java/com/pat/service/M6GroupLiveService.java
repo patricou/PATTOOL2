@@ -1,11 +1,9 @@
 package com.pat.service;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -14,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -21,36 +20,35 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 /**
  * Best-effort live for M6 Group FTA channels (M6 / W9 / 6ter / Gulli).
  * <p>
- * Official M6+ / 6play lives are Widevine / FairPlay DRM — not playable in this HLS player.
+ * Official M6+ / 6play lives are Widevine / FairPlay DRM â€” not playable in this HLS player.
  * This service probes public IPTV mirrors (seed URLs + current iptv-org FR playlist entries)
- * and returns the first clear HLS that responds.
+ * and returns the first clear <strong>browser-playable</strong> HLS (AVC preferred; HEVC-only skipped).
  * <p>
  * Virtual catalog URLs: {@code m6group:m6}, {@code m6group:w9}, {@code m6group:6ter}, {@code m6group:gulli}.
  */
 @Service
 public class M6GroupLiveService {
-
     private static final Logger log = LoggerFactory.getLogger(M6GroupLiveService.class);
-
     public static final String SCHEME_PREFIX = "m6group:";
-
     private static final String USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-
     private static final Pattern TVG_ID = Pattern.compile("tvg-id=\"([^\"]+)\"", Pattern.CASE_INSENSITIVE);
-
+    private static final Pattern STREAM_INF = Pattern.compile(
+            "#EXT-X-STREAM-INF:([^\\n\\r]*)[\\n\\r]+([^#\\n\\r][^\\n\\r]*)",
+            Pattern.CASE_INSENSITIVE);
     private static final Map<String, ChannelDef> CHANNELS = new LinkedHashMap<>();
-
     static {
-        // Official M6+ / 6play / 6cloud lives are DRM or IP-gated. Prefer clear IPTV mirrors
-        // (same host family as TF1 mirrors) before slower/dead seeds and iptv-org discovery.
+        // Prefer known clear AVC mirrors. Skip geo-blocked / DRM / HEVC-only hosts as primary seeds.
         CHANNELS.put("m6", new ChannelDef(
                 "M6",
                 "Entertainment",
@@ -58,8 +56,7 @@ public class M6GroupLiveService {
                 "m6.fr",
                 List.of(
                         "http://151.80.18.177:86/M6_HD/index.m3u8",
-                        "http://cdn.haititivi.com/M6-HD/index.m3u8",
-                        "http://99.27.51.147:8080/M6/index.m3u8"
+                        "http://145.239.5.177/319/index.m3u8"
                 )));
         CHANNELS.put("w9", new ChannelDef(
                 "W9",
@@ -75,36 +72,40 @@ public class M6GroupLiveService {
                 "Entertainment",
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/6ter_2012.svg/512px-6ter_2012.svg.png",
                 "6ter.fr",
-                List.of("http://145.239.5.177/314/index.m3u8")));
+                List.of(
+                        "http://145.239.5.177/314/index.m3u8"
+                )));
         CHANNELS.put("gulli", new ChannelDef(
                 "Gulli",
                 "Kids",
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/Gulli_2017.svg/512px-Gulli_2017.svg.png",
                 "gulli.fr",
                 List.of(
-                        "http://99.27.51.147:8080/Gulli/index.m3u8",
-                        "http://41.205.77.102/GULLI/index.m3u8"
+                        "http://145.239.5.177/318/index.m3u8",
+                        "http://99.27.51.147:8080/Gulli/index.m3u8"
                 )));
     }
-
     private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(8))
+            .connectTimeout(Duration.ofSeconds(5))
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build();
-
+    private final ExecutorService probeExecutor = Executors.newFixedThreadPool(4, r -> {
+        Thread t = new Thread(r, "m6-hls-probe");
+        t.setDaemon(true);
+        return t;
+    });
     private final String playlistBaseUrl;
     private final ConcurrentHashMap<String, CachedUrl> streamCache = new ConcurrentHashMap<>();
+    /** Temporary blacklist of dead mirror URLs (flaky IPTV). */
+    private final ConcurrentHashMap<String, Instant> failedUntil = new ConcurrentHashMap<>();
     private volatile CachedPlaylist playlistCache;
-
     public M6GroupLiveService(
             @Value("${app.tv.playlist-base-url:https://iptv-org.github.io/iptv/countries}") String playlistBaseUrl) {
         this.playlistBaseUrl = playlistBaseUrl;
     }
-
     public static boolean isVirtualUrl(String url) {
         return url != null && url.regionMatches(true, 0, SCHEME_PREFIX, 0, SCHEME_PREFIX.length());
     }
-
     public static Optional<String> slugFromVirtualUrl(String url) {
         if (!isVirtualUrl(url)) {
             return Optional.empty();
@@ -112,60 +113,172 @@ public class M6GroupLiveService {
         String slug = url.substring(SCHEME_PREFIX.length()).trim().toLowerCase(Locale.ROOT);
         return slug.isEmpty() ? Optional.empty() : Optional.of(slug);
     }
-
     public static String virtualUrl(String slug) {
         return SCHEME_PREFIX + slug;
     }
-
     public Map<String, ChannelDef> channels() {
         return CHANNELS;
     }
-
     public Optional<ChannelDef> findChannel(String slug) {
         if (slug == null) {
             return Optional.empty();
         }
         return Optional.ofNullable(CHANNELS.get(slug.trim().toLowerCase(Locale.ROOT)));
     }
-
     public Optional<String> resolveHlsUrl(String slug) {
+        return resolveHlsUrl(slug, false);
+    }
+    /**
+     * @param forceRefresh when true, drop the cached mirror and prefer another candidate.
+     */
+    public Optional<String> resolveHlsUrl(String slug, boolean forceRefresh) {
         Optional<ChannelDef> defOpt = findChannel(slug);
         if (defOpt.isEmpty()) {
             return Optional.empty();
         }
         ChannelDef def = defOpt.get();
         String key = slug.trim().toLowerCase(Locale.ROOT);
-        CachedUrl cached = streamCache.get(key);
         Instant now = Instant.now();
-        if (cached != null && cached.expiresAt.isAfter(now)) {
-            if (probeClearHls(cached.url)) {
-                return Optional.of(cached.url);
+        String avoidUrl = null;
+        CachedUrl cached = streamCache.get(key);
+        if (forceRefresh) {
+            if (cached != null) {
+                avoidUrl = cached.url;
+                markFailed(cached.url, Duration.ofMinutes(2));
             }
             streamCache.remove(key);
-            log.info("M6 group live {} dropped stale cached URL", key);
-        }
-
-        List<String> candidates = buildCandidates(def);
-        for (String candidate : candidates) {
-            if (probeClearHls(candidate)) {
-                streamCache.put(key, new CachedUrl(candidate, now.plus(Duration.ofMinutes(8))));
-                log.info("M6 group live resolved {} -> {}", key, candidate);
-                return Optional.of(candidate);
+            cached = null;
+        } else if (cached != null && cached.expiresAt.isAfter(now)) {
+            if (!isTemporarilyFailed(cached.url) && probeClearHls(cached.url)) {
+                return Optional.of(cached.url);
             }
+            avoidUrl = cached.url;
+            markFailed(cached.url, Duration.ofMinutes(2));
+            streamCache.remove(key);
+            log.info("M6 group live {} dropped stale cached URL", key);
+            cached = null;
         }
-
+        List<String> candidates = buildCandidates(def);
+        Optional<String> picked = probeFirstWorking(candidates, avoidUrl);
+        if (picked.isPresent()) {
+            clearFailed(picked.get());
+            streamCache.put(key, new CachedUrl(picked.get(), now.plus(Duration.ofMinutes(4))));
+            log.info("M6 group live resolved {} -> {}", key, picked.get());
+            return picked;
+        }
+        if (StringUtils.hasText(avoidUrl) && probeClearHls(avoidUrl)) {
+            clearFailed(avoidUrl);
+            streamCache.put(key, new CachedUrl(avoidUrl, now.plus(Duration.ofMinutes(2))));
+            return Optional.of(avoidUrl);
+        }
         log.warn("M6 group live: no working public HLS for {} (official M6+ is DRM-only)", key);
         return Optional.empty();
     }
-
+    /** Drop a cached stream URL so the next resolve re-probes mirrors. */
+    public void invalidate(String slug) {
+        if (slug == null) {
+            return;
+        }
+        String key = slug.trim().toLowerCase(Locale.ROOT);
+        CachedUrl cached = streamCache.remove(key);
+        if (cached != null) {
+            markFailed(cached.url, Duration.ofMinutes(2));
+        }
+    }
     public Optional<String> resolveVirtualOrPassthrough(String url) {
+        return resolveVirtualOrPassthrough(url, false);
+    }
+    public Optional<String> resolveVirtualOrPassthrough(String url, boolean forceRefresh) {
         Optional<String> slug = slugFromVirtualUrl(url);
         if (slug.isEmpty()) {
             return Optional.ofNullable(url);
         }
-        return resolveHlsUrl(slug.get());
+        return resolveHlsUrl(slug.get(), forceRefresh);
     }
-
+    private Optional<String> probeFirstWorking(List<String> candidates, String avoidUrl) {
+        List<String> toProbe = new ArrayList<>();
+        for (String candidate : candidates) {
+            if (!StringUtils.hasText(candidate) || sameUrl(candidate, avoidUrl) || isTemporarilyFailed(candidate)) {
+                continue;
+            }
+            toProbe.add(candidate.trim());
+        }
+        if (toProbe.isEmpty()) {
+            // All blacklisted â€” try them anyway on a cold start / force path.
+            for (String candidate : candidates) {
+                if (StringUtils.hasText(candidate) && !sameUrl(candidate, avoidUrl)) {
+                    toProbe.add(candidate.trim());
+                }
+            }
+        }
+        if (toProbe.isEmpty()) {
+            return Optional.empty();
+        }
+        List<CompletableFuture<ProbeResult>> futures = new ArrayList<>();
+        for (int i = 0; i < toProbe.size(); i++) {
+            final String url = toProbe.get(i);
+            final int order = i;
+            futures.add(CompletableFuture.supplyAsync(() -> {
+                boolean ok = probeClearHls(url) || probeClearHls(url);
+                return new ProbeResult(url, ok, order);
+            }, probeExecutor));
+        }
+        try {
+            CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new))
+                    .orTimeout(12, TimeUnit.SECONDS)
+                    .exceptionally(ex -> null)
+                    .join();
+        } catch (Exception ignored) {
+            // individual futures may still complete
+        }
+        return futures.stream()
+                .map(f -> {
+                    try {
+                        return f.getNow(null);
+                    } catch (Exception e) {
+                        return null;
+                    }
+                })
+                .filter(r -> r != null && r.ok)
+                .sorted(Comparator.comparingInt(r -> r.order))
+                .map(r -> r.url)
+                .findFirst()
+                .or(() -> {
+                    toProbe.forEach(u -> markFailed(u, Duration.ofSeconds(90)));
+                    return Optional.empty();
+                });
+    }
+    private static boolean sameUrl(String a, String b) {
+        if (a == null || b == null) {
+            return false;
+        }
+        return a.trim().equalsIgnoreCase(b.trim());
+    }
+    private void markFailed(String url, Duration ttl) {
+        if (!StringUtils.hasText(url)) {
+            return;
+        }
+        failedUntil.put(url.trim(), Instant.now().plus(ttl));
+    }
+    private void clearFailed(String url) {
+        if (StringUtils.hasText(url)) {
+            failedUntil.remove(url.trim());
+        }
+    }
+    private boolean isTemporarilyFailed(String url) {
+        if (!StringUtils.hasText(url)) {
+            return false;
+        }
+        Instant until = failedUntil.get(url.trim());
+        if (until == null) {
+            return false;
+        }
+        if (until.isBefore(Instant.now())) {
+            failedUntil.remove(url.trim());
+            return false;
+        }
+        return true;
+    }
     private List<String> buildCandidates(ChannelDef def) {
         Set<String> ordered = new LinkedHashSet<>();
         for (String seed : def.seedUrls()) {
@@ -178,7 +291,6 @@ public class M6GroupLiveService {
         }
         return new ArrayList<>(ordered);
     }
-
     private List<String> discoverFromIptvOrg(String tvgPrefix) {
         String playlist = loadFrancePlaylist();
         if (!StringUtils.hasText(playlist)) {
@@ -205,13 +317,11 @@ public class M6GroupLiveService {
         }
         return found;
     }
-
     private static boolean matchesTvg(String tvgId, String prefix) {
         String id = tvgId.toLowerCase(Locale.ROOT);
         String p = prefix.toLowerCase(Locale.ROOT);
         return id.equals(p) || id.startsWith(p + "@") || id.startsWith(p + "#");
     }
-
     private String loadFrancePlaylist() {
         Instant now = Instant.now();
         CachedPlaylist cached = playlistCache;
@@ -238,45 +348,107 @@ public class M6GroupLiveService {
             return cached != null ? cached.body : null;
         }
     }
-
+    /**
+     * Master (+ optional media) playlist must be clear HLS and browser-decodable (AVC when codecs are declared).
+     */
     private boolean probeClearHls(String url) {
         try {
-            HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
-                    .timeout(Duration.ofSeconds(8))
-                    .header("User-Agent", USER_AGENT)
-                    .header("Accept", "*/*")
-                    .GET();
-            // 6play Referer only helps official 6cloud hosts; it can break third-party mirrors.
-            if (isM6OfficialCdn(url)) {
-                builder.header("Referer", "https://www.6play.fr/");
-                builder.header("Origin", "https://www.6play.fr");
-            }
-            HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            String master = fetchText(url);
+            if (!isClearMasterPlaylist(master)) {
                 return false;
             }
-            String body = response.body() != null ? response.body().trim() : "";
-            if (body.length() < 8 || !body.contains("#EXTM3U")) {
+            String mediaUrl = pickBrowserMediaPlaylist(url, master);
+            if (mediaUrl == null) {
+                // Single-media playlist (no variants) â€” master itself is enough.
+                return master.contains("#EXTINF") || master.contains("#EXT-X-TARGETDURATION");
+            }
+            String media = fetchText(mediaUrl);
+            if (!StringUtils.hasText(media) || !media.contains("#EXTM3U")) {
                 return false;
             }
-            String upper = body.toUpperCase(Locale.ROOT);
-            if (upper.contains("ACCESS DENIED") || upper.contains("PROTOCOL DISABLED")) {
+            String upper = media.toUpperCase(Locale.ROOT);
+            if (upper.contains("ACCESS DENIED") || upper.contains("PROTOCOL DISABLED")
+                    || upper.contains("SAMPLE-AES") || upper.contains("WIDEVINE") || upper.contains("FAIRPLAY")) {
                 return false;
             }
-            // Skip DRM / FairPlay / Sample-AES playlists — browser HLS.js cannot play them.
-            if (upper.contains("SAMPLE-AES") || upper.contains("FAIRPLAY")
-                    || upper.contains("COM.APPLE.STREAMINGKEYDELIVERY")
-                    || upper.contains("SKD://")
-                    || upper.contains("WIDEVINE")
-                    || upper.contains("COM.WIDEVINE")) {
-                return false;
-            }
-            return true;
+            return media.contains("#EXTINF") || media.contains(".ts") || media.contains(".m4s");
         } catch (Exception e) {
             return false;
         }
     }
-
+    private String fetchText(String url) throws Exception {
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
+                .timeout(Duration.ofSeconds(6))
+                .header("User-Agent", USER_AGENT)
+                .header("Accept", "*/*")
+                .GET();
+        if (isM6OfficialCdn(url)) {
+            builder.header("Referer", "https://www.6play.fr/");
+            builder.header("Origin", "https://www.6play.fr");
+        }
+        HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            return null;
+        }
+        return response.body();
+    }
+    private static boolean isClearMasterPlaylist(String body) {
+        if (!StringUtils.hasText(body)) {
+            return false;
+        }
+        String trimmed = body.trim();
+        if (trimmed.length() < 8 || !trimmed.contains("#EXTM3U")) {
+            return false;
+        }
+        String upper = trimmed.toUpperCase(Locale.ROOT);
+        if (upper.contains("ACCESS DENIED") || upper.contains("PROTOCOL DISABLED")
+                || upper.contains("WRONG_COUNTRY") || upper.contains("X-DENY")) {
+            return false;
+        }
+        if (upper.contains("SAMPLE-AES") || upper.contains("FAIRPLAY")
+                || upper.contains("COM.APPLE.STREAMINGKEYDELIVERY")
+                || upper.contains("SKD://")
+                || upper.contains("WIDEVINE")
+                || upper.contains("COM.WIDEVINE")) {
+            return false;
+        }
+        return true;
+    }
+    /**
+     * Pick a variant URI that Chromium can usually play (AVC / no HEVC-only).
+     */
+    private static String pickBrowserMediaPlaylist(String masterUrl, String masterBody) {
+        Matcher m = STREAM_INF.matcher(masterBody);
+        String fallback = null;
+        while (m.find()) {
+            String attrs = m.group(1) != null ? m.group(1) : "";
+            String uri = m.group(2) != null ? m.group(2).trim() : "";
+            if (!StringUtils.hasText(uri)) {
+                continue;
+            }
+            String attrsLower = attrs.toLowerCase(Locale.ROOT);
+            boolean hevc = attrsLower.contains("hvc1") || attrsLower.contains("hev1") || attrsLower.contains("hevc");
+            boolean avc = attrsLower.contains("avc1") || attrsLower.contains("avc3");
+            if (hevc && !avc) {
+                continue;
+            }
+            String abs = resolveAgainst(masterUrl, uri);
+            if (avc) {
+                return abs;
+            }
+            if (fallback == null) {
+                fallback = abs;
+            }
+        }
+        return fallback;
+    }
+    private static String resolveAgainst(String baseUrl, String ref) {
+        try {
+            return URI.create(baseUrl).resolve(ref).toString();
+        } catch (Exception e) {
+            return ref;
+        }
+    }
     private static boolean isM6OfficialCdn(String url) {
         try {
             String host = URI.create(url).getHost();
@@ -289,7 +461,6 @@ public class M6GroupLiveService {
             return false;
         }
     }
-
     public record ChannelDef(
             String name,
             String group,
@@ -298,10 +469,10 @@ public class M6GroupLiveService {
             List<String> seedUrls
     ) {
     }
-
     private record CachedUrl(String url, Instant expiresAt) {
     }
-
     private record CachedPlaylist(String body, Instant expiresAt) {
+    }
+    private record ProbeResult(String url, boolean ok, int order) {
     }
 }

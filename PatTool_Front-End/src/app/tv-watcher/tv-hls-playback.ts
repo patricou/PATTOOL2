@@ -20,16 +20,16 @@ export interface TvHlsPlaybackCallbacks {
   onBuffering?: (buffering: boolean) => void;
   onError?: (message: TvHlsErrorMessage) => void;
   onMutedChange?: (muted: boolean) => void;
-  /**
-   * Called once when playback dies with HTTP 401/403 (expired CDN token).
-   * Return true if the caller started a full re-resolve / restart.
-   */
+/**
+ * Called when playback dies with HTTP 401/403, or after soft HLS recovery is exhausted.
+ * Return true if the caller started a full re-resolve / restart.
+ */
   onTokenExpired?: () => boolean;
   /**
-   * france.tv only: silent token renew before Akamai expiry.
+   * Silent keep-alive for virtual lives (france.tv / TF1 / M6): renew before CDN/mirror expiry.
    * {@code onRenewed} should show a short on-screen toast (≈1s).
    */
-  franceTv?: {
+  virtualLive?: {
     slug: string;
     resolveMeta: (fresh: boolean) => Promise<FranceTvResolveMeta | null>;
     onRenewed?: () => void;
@@ -111,6 +111,11 @@ export function startTvHlsPlayback(
         tryPlay(false);
         return;
       }
+      // TF1 / M6 mirrors (and france.tv) — one full re-resolve after soft recovery fails.
+      if (!tokenRefreshAttempted && callbacks.onTokenExpired?.()) {
+        tokenRefreshAttempted = true;
+        return;
+      }
       try {
         hls?.destroy();
       } catch {
@@ -122,21 +127,21 @@ export function startTvHlsPlayback(
   };
 
   const startKeeperIfNeeded = () => {
-    const ft = callbacks.franceTv;
-    if (!ft?.slug || !hls) {
+    const live = callbacks.virtualLive;
+    if (!live?.slug || !hls) {
       return;
     }
     franceTvKeeper?.stop();
     franceTvKeeper = startFranceTvTokenKeeper({
-      slug: ft.slug,
+      slug: live.slug,
       proxyUrl,
       getHls: () => hls,
       getVideo: () => (destroyed ? null : video),
-      resolveMeta: ft.resolveMeta,
+      resolveMeta: live.resolveMeta,
       isCancelled: () => destroyed,
       onRenewed: () => {
         if (!destroyed) {
-          ft.onRenewed?.();
+          live.onRenewed?.();
         }
       },
       onHlsSwapped: (next, media) => {

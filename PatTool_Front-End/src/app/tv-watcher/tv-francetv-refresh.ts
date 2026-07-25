@@ -36,8 +36,8 @@ export interface FranceTvTokenKeeper {
 const REFRESH_BEFORE_EXP_SEC = 90;
 /** Never schedule sooner than this after start / last renew. */
 const MIN_DELAY_MS = 20_000;
-/** Fallback cadence when expiry is unknown (~10 min tokens). */
-const FALLBACK_REFRESH_MS = 7 * 60 * 1000;
+/** Fallback cadence when expiry is unknown (~5 min mirror / token window). */
+const FALLBACK_REFRESH_MS = 4 * 60 * 1000;
 const PRELOAD_TIMEOUT_MS = 20_000;
 
 /**

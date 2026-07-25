@@ -344,6 +344,21 @@
   background: rgba(13, 110, 253, 0.12);
 }
 
+.tv-channel-index {
+  flex: 0 0 1.75rem;
+  min-width: 1.75rem;
+  text-align: right;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #868e96;
+  line-height: 1;
+}
+
+.tv-channel-item.active .tv-channel-index {
+  color: #0d6efd;
+}
+
 .tv-channel-logo {
   width: 36px;
   height: 36px;
@@ -460,6 +475,20 @@
   align-items: center;
   gap: 0.3rem;
   max-width: 100%;
+}
+
+.tv-channel-country {
+  font-weight: 600;
+  color: #495057;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tv-channel-meta-sep {
+  opacity: 0.55;
+  flex: 0 0 auto;
 }
 
 .tv-channel-epg {

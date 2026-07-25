@@ -147,34 +147,50 @@ public class Tf1LiveService {
     }
 
     public Optional<String> resolveHlsUrl(String slug) {
+        return resolveHlsUrl(slug, false);
+    }
+
+    /**
+     * @param forceRefresh when true, drop the cached mirror/official URL and prefer another candidate.
+     */
+    public Optional<String> resolveHlsUrl(String slug, boolean forceRefresh) {
         Optional<ChannelDef> defOpt = findChannel(slug);
         if (defOpt.isEmpty()) {
             return Optional.empty();
         }
         ChannelDef def = defOpt.get();
         String key = slug.trim().toLowerCase(Locale.ROOT);
-        CachedUrl cached = streamCache.get(key);
         Instant now = Instant.now();
-        if (cached != null && cached.expiresAt.isAfter(now)) {
+        String avoidUrl = null;
+        CachedUrl cached = streamCache.get(key);
+        if (forceRefresh) {
+            if (cached != null) {
+                avoidUrl = cached.url;
+            }
+            streamCache.remove(key);
+            cached = null;
+        } else if (cached != null && cached.expiresAt.isAfter(now)) {
             boolean official = isTf1CdnUrl(cached.url);
             if (probeClearHls(cached.url, official)) {
                 return Optional.of(cached.url);
             }
+            avoidUrl = cached.url;
             streamCache.remove(key);
             log.info("TF1 live {} dropped stale cached URL ({})", key, official ? "official" : "mirror");
+            cached = null;
         }
 
         // Official TF1+ token exchange (www.tf1.fr/token/gigya/web) is often blocked by bot
         // protection ("Malicious request"). Prefer public IPTV mirrors for authenticated
         // channels, then fall back to official when mirrors are down.
         if (def.requiresAuth()) {
-            Optional<String> mirror = resolveFromMirrors(def, key, now);
+            Optional<String> mirror = resolveFromMirrors(def, key, now, avoidUrl);
             if (mirror.isPresent()) {
                 return mirror;
             }
             Optional<String> official = resolveOfficial(def, key);
-            if (official.isPresent() && probeClearHls(official.get(), true)) {
-                streamCache.put(key, new CachedUrl(official.get(), now.plus(Duration.ofMinutes(8))));
+            if (official.isPresent() && !sameUrl(official.get(), avoidUrl) && probeClearHls(official.get(), true)) {
+                streamCache.put(key, new CachedUrl(official.get(), now.plus(Duration.ofMinutes(5))));
                 log.info("TF1 live {} resolved via official mediainfo", key);
                 return official;
             }
@@ -183,12 +199,12 @@ public class Tf1LiveService {
             }
         } else {
             Optional<String> official = resolveOfficial(def, key);
-            if (official.isPresent() && probeClearHls(official.get(), true)) {
-                streamCache.put(key, new CachedUrl(official.get(), now.plus(Duration.ofMinutes(8))));
+            if (official.isPresent() && !sameUrl(official.get(), avoidUrl) && probeClearHls(official.get(), true)) {
+                streamCache.put(key, new CachedUrl(official.get(), now.plus(Duration.ofMinutes(5))));
                 log.info("TF1 live {} resolved via official mediainfo", key);
                 return official;
             }
-            Optional<String> mirror = resolveFromMirrors(def, key, now);
+            Optional<String> mirror = resolveFromMirrors(def, key, now, avoidUrl);
             if (mirror.isPresent()) {
                 return mirror;
             }
@@ -197,14 +213,30 @@ public class Tf1LiveService {
         if (cached != null) {
             return Optional.of(cached.url);
         }
+        // Last resort: previously avoided URL if it still probes (better than nothing).
+        if (StringUtils.hasText(avoidUrl) && probeClearHls(avoidUrl, isTf1CdnUrl(avoidUrl))) {
+            streamCache.put(key, new CachedUrl(avoidUrl, now.plus(Duration.ofMinutes(3))));
+            return Optional.of(avoidUrl);
+        }
         log.warn("TF1 live: no official URL and no working IPTV mirror for {}", key);
         return Optional.empty();
     }
 
-    private Optional<String> resolveFromMirrors(ChannelDef def, String key, Instant now) {
+    /** Drop a cached stream URL so the next resolve re-probes mirrors. */
+    public void invalidate(String slug) {
+        if (slug == null) {
+            return;
+        }
+        streamCache.remove(slug.trim().toLowerCase(Locale.ROOT));
+    }
+
+    private Optional<String> resolveFromMirrors(ChannelDef def, String key, Instant now, String avoidUrl) {
         for (String candidate : buildMirrorCandidates(def)) {
+            if (sameUrl(candidate, avoidUrl)) {
+                continue;
+            }
             if (probeClearHls(candidate, false)) {
-                streamCache.put(key, new CachedUrl(candidate, now.plus(Duration.ofMinutes(8))));
+                streamCache.put(key, new CachedUrl(candidate, now.plus(Duration.ofMinutes(5))));
                 log.info("TF1 live {} resolved via IPTV mirror {}", key, candidate);
                 return Optional.of(candidate);
             }
@@ -212,12 +244,23 @@ public class Tf1LiveService {
         return Optional.empty();
     }
 
+    private static boolean sameUrl(String a, String b) {
+        if (a == null || b == null) {
+            return false;
+        }
+        return a.trim().equalsIgnoreCase(b.trim());
+    }
+
     public Optional<String> resolveVirtualOrPassthrough(String url) {
+        return resolveVirtualOrPassthrough(url, false);
+    }
+
+    public Optional<String> resolveVirtualOrPassthrough(String url, boolean forceRefresh) {
         Optional<String> slug = slugFromVirtualUrl(url);
         if (slug.isEmpty()) {
             return Optional.ofNullable(url);
         }
-        return resolveHlsUrl(slug.get());
+        return resolveHlsUrl(slug.get(), forceRefresh);
     }
 
     private Optional<String> resolveOfficial(ChannelDef def, String key) {

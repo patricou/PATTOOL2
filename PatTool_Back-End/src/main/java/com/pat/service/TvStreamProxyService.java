@@ -302,8 +302,7 @@ public class TvStreamProxyService {
         if (h.endsWith("radiofrance.fr") || h.contains("stream.radiofrance")) {
             return "https://www.radiofrance.fr/";
         }
-        if (h.contains("6cloud.fr") || h.contains("6play.fr") || h.contains("m6web")
-                || h.contains("haititivi") || h.contains("m6.fr")) {
+        if (h.contains("6cloud.fr") || h.contains("6play.fr") || h.contains("m6web")) {
             return "https://www.6play.fr/";
         }
         return defaultReferrer;

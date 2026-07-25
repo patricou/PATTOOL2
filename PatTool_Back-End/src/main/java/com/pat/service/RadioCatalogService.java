@@ -220,15 +220,24 @@ public class RadioCatalogService {
     /**
      * Worldwide station search. Requires a name query of at least 2 characters
      * <strong>or</strong> a non-empty genre/tag filter (same pattern as TV category search).
+     * Returns up to {@link #WORLDWIDE_SEARCH_MAX} stations plus the exact returned {@code total}.
      */
-    public List<RadioStationDto> searchAllCountries(String query, String tag, int limit) {
+    public static final int WORLDWIDE_SEARCH_MAX = 10_000;
+
+    public RadioStationSearchResult searchAllCountries(String query, String tag, int limit) {
         String q = query != null ? query.trim() : "";
         String tagFilter = tag != null ? tag.trim() : "";
+        int max = Math.max(1, Math.min(limit <= 0 ? WORLDWIDE_SEARCH_MAX : limit, WORLDWIDE_SEARCH_MAX));
         if (q.length() < 2 && tagFilter.isEmpty()) {
-            return List.of();
+            return new RadioStationSearchResult(List.of(), 0, max);
         }
-        int safeLimit = Math.max(1, Math.min(limit, 300));
-        return searchStations(q.length() >= 2 ? q : "", null, tagFilter, safeLimit);
+        List<RadioStationDto> stations = searchStations(q.length() >= 2 ? q : "", null, tagFilter, max);
+        int total = stations != null ? stations.size() : 0;
+        return new RadioStationSearchResult(stations != null ? stations : List.of(), total, max);
+    }
+
+    /** Worldwide radio search page: list + match count (may be capped by radio-browser). */
+    public record RadioStationSearchResult(List<RadioStationDto> stations, int total, int limit) {
     }
 
     public List<String> listTags(String country) {

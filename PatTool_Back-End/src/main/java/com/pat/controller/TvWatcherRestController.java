@@ -130,19 +130,33 @@ public class TvWatcherRestController {
             @RequestParam(defaultValue = "fr") String country,
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String group,
-            @RequestParam(required = false, defaultValue = "200") int limit) {
+            @RequestParam(required = false, defaultValue = "10000") int limit) {
         if (tvCatalogService.isAllCountries(country)) {
             String query = q != null ? q.trim() : "";
             String groupFilter = group != null ? group.trim() : "";
+            int safeLimit = Math.max(1, Math.min(limit <= 0 ? TvCatalogService.WORLDWIDE_SEARCH_MAX : limit,
+                    TvCatalogService.WORLDWIDE_SEARCH_MAX));
             if (query.length() < 2 && groupFilter.isEmpty()) {
                 return ResponseEntity.ok()
                         .cacheControl(CacheControl.noStore())
-                        .body(List.of());
+                        .body(Map.of(
+                                "channels", List.of(),
+                                "total", 0,
+                                "limit", safeLimit,
+                                "truncated", false
+                        ));
             }
-            List<TvChannelDto> worldwide = tvCatalogService.searchAllCountries(query, group, limit);
+            TvCatalogService.TvChannelSearchResult worldwide =
+                    tvCatalogService.searchAllCountries(query, groupFilter, safeLimit);
+            boolean truncated = worldwide.total() > worldwide.channels().size();
             return ResponseEntity.ok()
                     .cacheControl(CacheControl.maxAge(Duration.ofMinutes(2)).cachePublic())
-                    .body(worldwide);
+                    .body(Map.of(
+                            "channels", worldwide.channels(),
+                            "total", worldwide.total(),
+                            "limit", worldwide.limit(),
+                            "truncated", truncated
+                    ));
         }
         if (!tvCatalogService.isSupportedCountry(country)) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid country code"));
@@ -403,8 +417,8 @@ public class TvWatcherRestController {
     }
 
     /**
-     * Resolve virtual live URLs then proxy. For france.tv, a 403 usually means the Akamai
-     * token expired while still cached — invalidate and retry once with a fresh signature.
+     * Resolve virtual live URLs then proxy. On 401/403/404/5xx for france.tv / TF1 / M6,
+     * invalidate the cached upstream and retry once with a fresh resolve (new token or mirror).
      */
     private ResponseEntity<byte[]> proxyResolvedStream(String upstream, String range, HttpServletRequest request) {
         ResponseEntity<byte[]> resolveError = resolveLiveUpstreamOrError(upstream);
@@ -415,20 +429,56 @@ public class TvWatcherRestController {
         String proxyBase = buildProxyBase(request);
         String target = resolved.orElse(upstream);
         ResponseEntity<byte[]> first = tvStreamProxyService.proxy(target, proxyBase, range);
-        if (!isUpstreamForbidden(first) || !FranceTvLiveService.isVirtualUrl(upstream)) {
+        if (!shouldRefreshVirtualLive(first, upstream)) {
             return first;
         }
-        FranceTvLiveService.slugFromVirtualUrl(upstream).ifPresent(franceTvLiveService::invalidate);
-        Optional<String> refreshed = franceTvLiveService.resolveVirtualOrPassthrough(upstream, true);
+        Optional<String> refreshed = refreshVirtualLiveUpstream(upstream);
         if (refreshed.isEmpty() || !StringUtils.hasText(refreshed.get())
-                || FranceTvLiveService.isVirtualUrl(refreshed.get())) {
+                || isStillVirtualUrl(refreshed.get())) {
+            return first;
+        }
+        if (refreshed.get().equalsIgnoreCase(target)) {
             return first;
         }
         return tvStreamProxyService.proxy(refreshed.get(), proxyBase, range);
     }
 
-    private static boolean isUpstreamForbidden(ResponseEntity<byte[]> response) {
-        return response != null && response.getStatusCode() == HttpStatus.FORBIDDEN;
+    private static boolean shouldRefreshVirtualLive(ResponseEntity<byte[]> response, String upstream) {
+        if (response == null || !StringUtils.hasText(upstream)) {
+            return false;
+        }
+        int code = response.getStatusCode().value();
+        boolean bad = code == 401 || code == 403 || code == 404 || code >= 500;
+        if (!bad) {
+            return false;
+        }
+        return FranceTvLiveService.isVirtualUrl(upstream)
+                || Tf1LiveService.isVirtualUrl(upstream)
+                || M6GroupLiveService.isVirtualUrl(upstream);
+    }
+
+    private Optional<String> refreshVirtualLiveUpstream(String upstream) {
+        if (FranceTvLiveService.isVirtualUrl(upstream)) {
+            FranceTvLiveService.slugFromVirtualUrl(upstream).ifPresent(franceTvLiveService::invalidate);
+            return franceTvLiveService.resolveVirtualOrPassthrough(upstream, true);
+        }
+        if (Tf1LiveService.isVirtualUrl(upstream)) {
+            Tf1LiveService.slugFromVirtualUrl(upstream).ifPresent(tf1LiveService::invalidate);
+            return tf1LiveService.resolveVirtualOrPassthrough(upstream, true);
+        }
+        if (M6GroupLiveService.isVirtualUrl(upstream)) {
+            M6GroupLiveService.slugFromVirtualUrl(upstream).ifPresent(m6GroupLiveService::invalidate);
+            return m6GroupLiveService.resolveVirtualOrPassthrough(upstream, true);
+        }
+        return Optional.empty();
+    }
+
+    private static boolean isStillVirtualUrl(String url) {
+        return FranceTvLiveService.isVirtualUrl(url)
+                || Tf1LiveService.isVirtualUrl(url)
+                || CanalGroupLiveService.isVirtualUrl(url)
+                || RadioFranceLiveService.isVirtualUrl(url)
+                || M6GroupLiveService.isVirtualUrl(url);
     }
 
     /** Resolve a france.tv live channel to a fresh signed HLS URL (JSON). */
@@ -464,22 +514,26 @@ public class TvWatcherRestController {
     }
 
     @GetMapping("/live/tf1/{slug}")
-    public ResponseEntity<?> resolveTf1(@PathVariable("slug") String slug) {
+    public ResponseEntity<?> resolveTf1(
+            @PathVariable("slug") String slug,
+            @RequestParam(value = "fresh", defaultValue = "false") boolean fresh) {
         if (tf1LiveService.findChannel(slug).isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Unknown TF1 channel"));
         }
         // Official path prefers credentials; IPTV mirrors are tried automatically when missing/invalid.
-        Optional<String> hls = tf1LiveService.resolveHlsUrl(slug);
+        Optional<String> hls = tf1LiveService.resolveHlsUrl(slug, fresh);
         if (hls.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of(
                     "error", "tf1_resolve_failed",
                     "message", "Impossible de résoudre le flux TF1 (API officielle et miroirs IPTV)"
             ));
         }
+        long expiresAtEpoch = Instant.now().plus(Duration.ofMinutes(5)).getEpochSecond();
         return ResponseEntity.ok(Map.of(
                 "slug", slug,
                 "streamUrl", hls.get(),
-                "virtualUrl", Tf1LiveService.virtualUrl(slug)
+                "virtualUrl", Tf1LiveService.virtualUrl(slug),
+                "expiresAtEpoch", expiresAtEpoch
         ));
     }
 
@@ -523,11 +577,13 @@ public class TvWatcherRestController {
      * Resolve M6 / W9 / 6ter / Gulli via public IPTV mirrors (official M6+ is DRM-only).
      */
     @GetMapping("/live/m6group/{slug}")
-    public ResponseEntity<?> resolveM6Group(@PathVariable("slug") String slug) {
+    public ResponseEntity<?> resolveM6Group(
+            @PathVariable("slug") String slug,
+            @RequestParam(value = "fresh", defaultValue = "false") boolean fresh) {
         if (m6GroupLiveService.findChannel(slug).isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Unknown M6 group channel"));
         }
-        Optional<String> hls = m6GroupLiveService.resolveHlsUrl(slug);
+        Optional<String> hls = m6GroupLiveService.resolveHlsUrl(slug, fresh);
         if (hls.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of(
                     "error", "m6group_resolve_failed",
@@ -535,10 +591,12 @@ public class TvWatcherRestController {
                             + "Regardez sur https://www.m6.fr/m6/direct"
             ));
         }
+        long expiresAtEpoch = Instant.now().plus(Duration.ofMinutes(5)).getEpochSecond();
         return ResponseEntity.ok(Map.of(
                 "slug", slug,
                 "streamUrl", hls.get(),
-                "virtualUrl", M6GroupLiveService.virtualUrl(slug)
+                "virtualUrl", M6GroupLiveService.virtualUrl(slug),
+                "expiresAtEpoch", expiresAtEpoch
         ));
     }
 

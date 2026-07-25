@@ -15,6 +15,7 @@ import { TvPlayerService } from '../services/tv-player.service';
 import {
   isCanalGroupVirtual,
   isFranceTvVirtual,
+  isKeepAliveVirtualLive,
   isM6GroupVirtual,
   isRadioFranceVirtual,
   isTf1Virtual,
@@ -22,8 +23,7 @@ import {
 } from './tv-stream.util';
 import { formatTvPlayErrorDisplay } from './tv-stream-error.util';
 import { startTvHlsPlayback, TvHlsPlaybackHandle } from './tv-hls-playback';
-import { franceTvSlugFromVirtual } from './tv-francetv-refresh';
-import { firstValueFrom } from 'rxjs';
+import { bustVirtualLiveCache, preflightVirtualLive, virtualLiveKeepAliveFromUrl } from './tv-virtual-live-keepalive';
 
 /** Minimal typing for the Document Picture-in-Picture API (Chromium). */
 interface DocumentPictureInPicture {
@@ -445,44 +445,55 @@ export class TvPopoutComponent implements OnInit, OnDestroy {
     this.isBuffering = true;
     const streamUrl = resolveTvStreamUrl(channel);
     const proxyUrl = this.api.tvStreamProxyUrl(streamUrl);
-    const franceSlug = franceTvSlugFromVirtual(streamUrl);
-    this.playback = startTvHlsPlayback(video, proxyUrl, {
-      onBuffering: (v) => {
-        this.isBuffering = v;
-        this.cdr.markForCheck();
-      },
-      onError: (key) => {
-        this.playError = key;
-        this.cdr.markForCheck();
-      },
-      onMutedChange: (m) => {
-        this.isMuted = m;
-        this.cdr.markForCheck();
-      },
-      onTokenExpired: () => {
-        if (this.franceTvTokenRefreshAttempted || !isFranceTvVirtual(streamUrl)) {
-          return false;
+    const keepAlive = virtualLiveKeepAliveFromUrl(streamUrl, this.api);
+    const channelId = channel.id || '';
+    void (async () => {
+      if (isKeepAliveVirtualLive(streamUrl)) {
+        const pre = await preflightVirtualLive(streamUrl, this.api);
+        if ((this.channel?.id || '') !== channelId) {
+          return;
         }
-        this.franceTvTokenRefreshAttempted = true;
-        this.isBuffering = true;
-        this.cdr.markForCheck();
-        setTimeout(() => this.playChannel(channel), 0);
-        return true;
-      },
-      franceTv: franceSlug
-        ? {
-            slug: franceSlug,
-            resolveMeta: async (fresh) => {
-              try {
-                return await firstValueFrom(this.api.resolveFranceTvLive(franceSlug, fresh));
-              } catch {
-                return null;
-              }
-            },
-            onRenewed: () => this.showTokenRenewedToast()
+        if (!pre.ok) {
+          this.isBuffering = false;
+          this.playError = pre.detail ? `TV.ERR_STREAM\n${pre.detail}` : 'TV.ERR_STREAM';
+          this.cdr.markForCheck();
+          return;
+        }
+      }
+      this.playback = startTvHlsPlayback(video, proxyUrl, {
+        onBuffering: (v) => {
+          this.isBuffering = v;
+          this.cdr.markForCheck();
+        },
+        onError: (key) => {
+          this.playError = key;
+          this.cdr.markForCheck();
+        },
+        onMutedChange: (m) => {
+          this.isMuted = m;
+          this.cdr.markForCheck();
+        },
+        onTokenExpired: () => {
+          if (this.franceTvTokenRefreshAttempted || !isKeepAliveVirtualLive(streamUrl)) {
+            return false;
           }
-        : undefined
-    });
+          this.franceTvTokenRefreshAttempted = true;
+          this.isBuffering = true;
+          this.cdr.markForCheck();
+          void bustVirtualLiveCache(streamUrl, this.api).finally(() => {
+            setTimeout(() => this.playChannel(channel), 0);
+          });
+          return true;
+        },
+        virtualLive: keepAlive
+          ? {
+              slug: keepAlive.slug,
+              resolveMeta: keepAlive.resolveMeta,
+              onRenewed: () => this.showTokenRenewedToast()
+            }
+          : undefined
+      });
+    })();
   }
 
   private showTokenRenewedToast(): void {

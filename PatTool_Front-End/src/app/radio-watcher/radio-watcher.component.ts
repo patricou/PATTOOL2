@@ -84,8 +84,12 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   readonly canNativeShare =
     typeof navigator !== 'undefined' && typeof (navigator as Navigator).share === 'function';
 
+  /** Total catalog size for the current country (or worldwide when country=all). */
   catalogTotalCount = 0;
   isLoadingCatalogCount = false;
+  /** Exact match count for worldwide search (may equal list length from radio-browser). */
+  searchMatchTotal: number | null = null;
+  searchListTruncated = false;
 
   private catalogCountSub?: Subscription;
   private hls: Hls | null = null;
@@ -178,8 +182,33 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
       if (!searching && this.catalogTotalCount > 0) {
         return this.catalogTotalCount;
       }
+      if (searching && this.searchMatchTotal != null && this.searchMatchTotal >= 0) {
+        return this.searchMatchTotal;
+      }
     }
     // Country catalog: prefer server total when the list is unfiltered.
+    if (
+      !this.isAllCountries
+      && this.catalogTotalCount > 0
+      && !this.stationQuery.trim()
+      && !this.selectedTag
+    ) {
+      return this.catalogTotalCount;
+    }
+    return this.filteredStationCount;
+  }
+
+  /** Exact station count shown in the list header. */
+  get listHeaderStationCount(): number {
+    if (this.isAllCountries) {
+      const idle = !this.stationQuery.trim() && !this.selectedTag;
+      if (idle) {
+        return this.catalogTotalCount > 0 ? this.catalogTotalCount : 0;
+      }
+      if (this.searchMatchTotal != null) {
+        return this.searchMatchTotal;
+      }
+    }
     if (
       !this.isAllCountries
       && this.catalogTotalCount > 0
@@ -915,6 +944,8 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
       const tag = this.selectedTag.trim();
       if (q.length < 2 && !tag) {
         this.stations = [];
+        this.searchMatchTotal = null;
+        this.searchListTruncated = false;
         this.worldwideSearchHint = true;
         this.isLoadingStations = false;
         this.tryResolvePendingShare();
@@ -926,11 +957,35 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     this.isLoadingStations = true;
     const q = this.stationQuery.trim() || undefined;
     const tag = this.selectedTag.trim() || undefined;
+    if (this.isAllCountries) {
+      this.stationsSub = this.api.getRadioStationsWorldwide(q, tag).subscribe({
+        next: (page) => {
+          this.stations = page?.stations || [];
+          this.searchMatchTotal = Math.max(0, Number(page?.total) || 0);
+          this.searchListTruncated = !!page?.truncated;
+          this.isLoadingStations = false;
+          this.tryResolvePendingShare();
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.stations = [];
+          this.searchMatchTotal = null;
+          this.searchListTruncated = false;
+          this.stationsError = 'RADIO.ERR_STATIONS';
+          this.isLoadingStations = false;
+          this.cdr.markForCheck();
+        }
+      });
+      return;
+    }
+
+    this.searchMatchTotal = null;
+    this.searchListTruncated = false;
     this.stationsSub = this.api.getRadioStations(this.selectedCountry, q, tag).subscribe({
       next: (list) => {
         this.stations = list || [];
         this.isLoadingStations = false;
-        if (!this.isAllCountries && !this.filtersCollapsed) {
+        if (!this.filtersCollapsed) {
           this.ensureTagsLoaded();
         }
         this.tryResolvePendingShare();

@@ -15,11 +15,10 @@ import { Subscription } from 'rxjs';
 
 import { ApiService, TvChannel } from '../services/api.service';
 import { TvFloatingState, TvPlayerService } from '../services/tv-player.service';
-import { isCanalGroupVirtual, isFranceTvVirtual, isM6GroupVirtual, isRadioFranceVirtual, isTf1Virtual, resolveTvStreamUrl } from '../tv-watcher/tv-stream.util';
+import { isCanalGroupVirtual, isFranceTvVirtual, isKeepAliveVirtualLive, isM6GroupVirtual, isRadioFranceVirtual, isTf1Virtual, resolveTvStreamUrl } from '../tv-watcher/tv-stream.util';
 import { formatTvPlayErrorDisplay } from './tv-stream-error.util';
 import { startTvHlsPlayback, TvHlsPlaybackHandle } from './tv-hls-playback';
-import { franceTvSlugFromVirtual } from './tv-francetv-refresh';
-import { firstValueFrom } from 'rxjs';
+import { bustVirtualLiveCache, preflightVirtualLive, virtualLiveKeepAliveFromUrl } from './tv-virtual-live-keepalive';
 
 type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
@@ -473,47 +472,57 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
     this.isBuffering = true;
     const streamUrl = resolveTvStreamUrl(channel);
     const proxyUrl = this.api.tvStreamProxyUrl(streamUrl);
-    const franceSlug = franceTvSlugFromVirtual(streamUrl);
-    this.playback = startTvHlsPlayback(video, proxyUrl, {
-      onBuffering: (v) => {
-        this.isBuffering = v;
-        this.cdr.markForCheck();
-      },
-      onError: (key) => {
-        this.playError = key;
-        this.cdr.markForCheck();
-      },
-      onMutedChange: (m) => {
-        this.isMuted = m;
-        this.cdr.markForCheck();
-      },
-      onTokenExpired: () => {
-        if (this.franceTvTokenRefreshAttempted || !isFranceTvVirtual(streamUrl)) {
-          return false;
+    const keepAlive = virtualLiveKeepAliveFromUrl(streamUrl, this.api);
+    void (async () => {
+      if (isKeepAliveVirtualLive(streamUrl)) {
+        const pre = await preflightVirtualLive(streamUrl, this.api);
+        if (!this.state.open || this.state.pipHostOnly || this.state.channel?.id !== channel.id) {
+          return;
         }
-        this.franceTvTokenRefreshAttempted = true;
-        this.isBuffering = true;
-        this.cdr.markForCheck();
-        // Defer so destroy() from the error path finishes first.
-        setTimeout(() => this.playChannel(channel), 0);
-        return true;
-      },
-      franceTv: franceSlug
-        ? {
-            slug: franceSlug,
-            resolveMeta: async (fresh) => {
-              try {
-                return await firstValueFrom(this.api.resolveFranceTvLive(franceSlug, fresh));
-              } catch {
-                return null;
-              }
-            },
-            onRenewed: () => this.showTokenRenewedToast()
+        if (!pre.ok) {
+          this.isBuffering = false;
+          this.playError = pre.detail ? `TV.ERR_STREAM\n${pre.detail}` : 'TV.ERR_STREAM';
+          this.cdr.markForCheck();
+          this.suppressPipHostClose = false;
+          return;
+        }
+      }
+      this.playback = startTvHlsPlayback(video, proxyUrl, {
+        onBuffering: (v) => {
+          this.isBuffering = v;
+          this.cdr.markForCheck();
+        },
+        onError: (key) => {
+          this.playError = key;
+          this.cdr.markForCheck();
+        },
+        onMutedChange: (m) => {
+          this.isMuted = m;
+          this.cdr.markForCheck();
+        },
+        onTokenExpired: () => {
+          if (this.franceTvTokenRefreshAttempted || !isKeepAliveVirtualLive(streamUrl)) {
+            return false;
           }
-        : undefined
-    });
-    video.volume = Math.min(1, Math.max(0, this.volumePercent / 100));
-    this.suppressPipHostClose = false;
+          this.franceTvTokenRefreshAttempted = true;
+          this.isBuffering = true;
+          this.cdr.markForCheck();
+          void bustVirtualLiveCache(streamUrl, this.api).finally(() => {
+            setTimeout(() => this.playChannel(channel), 0);
+          });
+          return true;
+        },
+        virtualLive: keepAlive
+          ? {
+              slug: keepAlive.slug,
+              resolveMeta: keepAlive.resolveMeta,
+              onRenewed: () => this.showTokenRenewedToast()
+            }
+          : undefined
+      });
+      video.volume = Math.min(1, Math.max(0, this.volumePercent / 100));
+      this.suppressPipHostClose = false;
+    })();
   }
 
   private showTokenRenewedToast(): void {
