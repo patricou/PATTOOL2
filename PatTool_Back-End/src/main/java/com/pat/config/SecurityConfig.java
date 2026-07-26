@@ -261,7 +261,7 @@ public class SecurityConfig {
                 // Chemistry proxy (PubChem) — public read-only data (periodic table, molecules, images)
                 .requestMatchers(HttpMethod.GET, "/api/external/chem/**").permitAll()
                 // Free IPTV catalog + HLS stream proxy (iptv-org) — public read-only
-                // Favorites (GET/PUT/DELETE /api/external/tv/favorites**) stay authenticated via /api/**
+                // Favorites + recordings stay JWT-checked in the controller (Security is permitAll for most /api).
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/countries").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/channel-count").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/channels").permitAll()
@@ -269,6 +269,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/epg/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/live/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/stream", "/api/external/tv/stream/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/tv/recordings/status").permitAll()
                 // World radio catalog + stream proxy (radio-browser.info) — public read-only
                 // Favorites (GET/PUT/DELETE /api/external/radio/favorites**) stay authenticated via /api/**
                 .requestMatchers(HttpMethod.GET, "/api/external/radio/countries").permitAll()

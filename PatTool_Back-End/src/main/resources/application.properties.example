@@ -89,6 +89,9 @@ globe.proxy.http.read-timeout-seconds=90
 # LCI usually works without credentials.
 # app.tv.tf1.email=
 # app.tv.tf1.password=
+# On-demand TV recording — browser MediaRecorder upload → MongoDB GridFS.
+# app.tv.recording.enabled=true
+# app.tv.recording.max-duration-sec=1800
 
 # World radio watcher (/api/external/radio) — radio-browser.info catalog + stream proxy.
 # Preferred mirror (tried first). Additional built-in fallbacks: de2, all.api.radio-browser.info

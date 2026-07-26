@@ -2388,6 +2388,77 @@ export class ApiService {
     );
   }
 
+  /** GET /api/external/tv/recordings/status — capability (public). */
+  getTvRecordingStatus(): Observable<TvRecordingStatus> {
+    return this._http.get<TvRecordingStatus>(this.API_URL + 'external/tv/recordings/status');
+  }
+
+  /** GET per-user TV recordings — JWT required. */
+  getTvRecordings(): Observable<TvRecording[]> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<TvRecording[]>(this.API_URL + 'external/tv/recordings', { headers })
+      )
+    );
+  }
+
+  /** POST multipart browser recording (MediaRecorder blob) → GridFS. */
+  uploadTvRecording(file: Blob, meta: TvRecordingStartRequest, fileName?: string): Observable<TvRecording> {
+    const form = new FormData();
+    const name = fileName || ('tv-recording' + (file.type.includes('mp4') ? '.mp4' : '.webm'));
+    form.append('file', file, name);
+    if (meta.channelId) {
+      form.append('channelId', meta.channelId);
+    }
+    if (meta.channelName) {
+      form.append('channelName', meta.channelName);
+    }
+    if (meta.channelLogo) {
+      form.append('channelLogo', meta.channelLogo);
+    }
+    if (meta.country) {
+      form.append('country', meta.country);
+    }
+    if (meta.streamUrl) {
+      form.append('streamUrl', meta.streamUrl);
+    }
+    if (meta.durationSec != null) {
+      form.append('durationSec', String(meta.durationSec));
+    }
+    // Auth only — do not set Content-Type so the browser adds multipart boundary.
+    return from(this._keycloakService.getToken()).pipe(
+      switchMap((token: string) => {
+        const headers = new HttpHeaders({ Authorization: 'Bearer ' + token });
+        return this._http.post<TvRecording>(this.API_URL + 'external/tv/recordings', form, { headers });
+      })
+    );
+  }
+
+  /** DELETE a recording (+ GridFS blob). */
+  deleteTvRecording(id: string): Observable<void> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.delete<void>(this.API_URL + 'external/tv/recordings/' + encodeURIComponent(id), { headers })
+      )
+    );
+  }
+
+  /** Absolute playback URL for a finished recording (GridFS via VideoController). */
+  tvRecordingMediaUrl(recording: TvRecording): string {
+    if (recording?.mediaUrl) {
+      if (recording.mediaUrl.startsWith('http://') || recording.mediaUrl.startsWith('https://')) {
+        return recording.mediaUrl;
+      }
+      // mediaUrl is typically "/api/video/{id}" — strip leading /api/ if API_URL already ends with /api/
+      const path = recording.mediaUrl.replace(/^\/api\//, '');
+      return this.API_URL + path;
+    }
+    if (recording?.gridFsFileId) {
+      return this.API_URL + 'video/' + recording.gridFsFileId;
+    }
+    return '';
+  }
+
   // ===================================================================
   // Radio watcher — world radio (radio-browser.info) + stream proxy
   // Backend: /api/external/radio/* (public catalog; favorites JWT)
@@ -3361,6 +3432,44 @@ export interface UserAppParameter {
 /** GET/PUT /api/external/tv/favorites — per authenticated user */
 export interface TvFavorites {
   channels: TvChannel[];
+}
+
+/** On-demand TV recording (MongoDB metadata + GridFS video). */
+export interface TvRecording {
+  id: string;
+  channelId?: string;
+  channelName?: string;
+  channelLogo?: string;
+  country?: string;
+  streamUrl?: string;
+  status?: 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED' | 'CANCELLED' | string;
+  startedAt?: string;
+  endedAt?: string;
+  durationSec?: number;
+  actualDurationSec?: number;
+  gridFsFileId?: string;
+  contentType?: string;
+  fileName?: string;
+  byteLength?: number;
+  error?: string;
+  mediaUrl?: string;
+}
+
+export interface TvRecordingStartRequest {
+  channelId?: string;
+  channelName?: string;
+  channelLogo?: string;
+  country?: string;
+  streamUrl: string;
+  durationSec?: number;
+}
+
+export interface TvRecordingStatus {
+  enabled?: boolean;
+  mode?: string;
+  maxDurationSec?: number;
+  defaultDurationSec?: number;
+  maxUploadBytes?: number;
 }
 
 /** GET /api/external/tv/epg/now */

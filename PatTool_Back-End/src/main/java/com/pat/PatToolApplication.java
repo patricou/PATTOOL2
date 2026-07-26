@@ -60,6 +60,7 @@ import java.time.format.DateTimeFormatter;
             com.pat.repo.OdsEditorDocumentRepository.class,
             com.pat.repo.PdfConverterDocumentRepository.class,
             com.pat.repo.TodoListRepository.class,
+            com.pat.repo.TvRecordingRepository.class,
             com.pat.repo.UrlLinkRepository.class,
             com.pat.repo.UserConnectionLogRepository.class
         }

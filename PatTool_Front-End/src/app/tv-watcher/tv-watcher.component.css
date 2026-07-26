@@ -22,6 +22,7 @@
 :host.tv-landscape-fs .tv-sidebar,
 :host.tv-landscape-fs .tv-footer,
 :host.tv-landscape-fs .tv-chrome,
+:host.tv-landscape-fs .tv-program-panel,
 :host.tv-landscape-fs app-tv-epg-browser {
   display: none !important;
 }
@@ -264,26 +265,42 @@
 
 .tv-mode-tabs {
   display: flex;
+  flex-direction: column;
   gap: 0;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   flex: 0 0 auto;
+}
+
+.tv-mode-tabs-row {
+  display: flex;
+  gap: 0;
+}
+
+.tv-mode-tabs-row--secondary {
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .tv-mode-tab {
   flex: 1 1 50%;
   border: none;
   background: transparent;
-  padding: 0.65rem 0.4rem;
-  font-size: 0.8rem;
+  padding: 0.55rem 0.35rem;
+  font-size: 0.78rem;
   font-weight: 600;
   color: #6c757d;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.3rem;
+  gap: 0.25rem;
   white-space: nowrap;
   min-width: 0;
+}
+
+.tv-mode-tab--recordings {
+  flex: 1 1 100%;
+  font-size: 0.75rem;
+  padding: 0.45rem 0.35rem;
 }
 
 .tv-mode-tab.active {
@@ -292,7 +309,14 @@
   background: rgba(13, 110, 253, 0.04);
 }
 
+.tv-mode-tab--recordings.active {
+  color: #c0392b;
+  box-shadow: inset 0 -2px 0 #c0392b;
+  background: rgba(192, 57, 43, 0.06);
+}
+
 .tv-fav-badge,
+.tv-rec-badge,
 .tv-count-badge {
   margin-left: 0.35rem;
   font-size: 0.7rem;
@@ -302,9 +326,90 @@
   color: #fff;
 }
 
-.tv-mode-tab.active .tv-count-badge {
+.tv-rec-badge {
+  background: #c0392b;
+}
+
+.tv-mode-tab.active .tv-count-badge,
+.tv-mode-tab.active .tv-rec-badge {
   background: #fff;
   color: #0d6efd;
+}
+
+.tv-mode-tab.active .tv-rec-badge {
+  color: #c0392b;
+}
+
+.tv-record-duration {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tv-record-duration-select {
+  width: auto;
+  min-width: 4.5rem;
+  padding: 0.15rem 1.5rem 0.15rem 0.4rem;
+  font-size: 0.75rem;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.tv-now-record .fa-circle {
+  color: #e74c3c;
+}
+
+.tv-now-record--unavailable {
+  opacity: 0.55;
+}
+
+.tv-now-record--unavailable .fa-circle {
+  color: #adb5bd;
+}
+
+.tv-now-record--active {
+  animation: tv-rec-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes tv-rec-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
+
+.tv-rec-dot {
+  color: #e74c3c;
+  animation: tv-rec-pulse 1.2s ease-in-out infinite;
+}
+
+.tv-rec-status {
+  font-weight: 600;
+}
+
+.tv-rec-status[data-status='RUNNING'],
+.tv-rec-status[data-status='PENDING'] {
+  color: #c0392b;
+}
+
+.tv-rec-status[data-status='DONE'] {
+  color: #1e8449;
+}
+
+.tv-rec-status[data-status='FAILED'] {
+  color: #922b21;
+}
+
+.tv-rec-delete-btn {
+  color: #922b21;
+}
+
+.tv-recording-item .tv-channel-name {
+  font-size: 0.9rem;
 }
 
 .tv-filters-panel {
@@ -1298,18 +1403,18 @@
   z-index: 6;
   box-sizing: border-box;
   margin: 0;
-  padding: 0.4rem 0.5rem 0.75rem;
+  padding: 0.4rem 0.5rem 0.65rem;
   border-radius: 0.35rem 0.35rem 0 0;
   background: linear-gradient(
     180deg,
-    rgba(5, 5, 5, 0.92) 0%,
-    rgba(5, 5, 5, 0.7) 55%,
+    rgba(5, 5, 5, 0.88) 0%,
+    rgba(5, 5, 5, 0.45) 70%,
     rgba(5, 5, 5, 0) 100%
   );
   transition: opacity 0.28s ease;
   opacity: 1;
   overflow: visible;
-  pointer-events: auto;
+  pointer-events: none;
 }
 
 .tv-chrome--hidden {
@@ -1319,18 +1424,45 @@
 
 .tv-now-playing {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-end;
   gap: 0.45rem;
   margin: 0;
   color: #e9ecef;
+  pointer-events: none;
+}
+
+.tv-program-panel {
+  position: absolute;
+  left: 0.5rem;
+  right: auto;
+  top: 0.45rem;
+  z-index: 5;
+  max-width: min(52%, 22rem);
+  padding: 0.35rem 0.55rem 0.55rem 0.35rem;
+  border-radius: 0.35rem;
+  color: #e9ecef;
+  pointer-events: auto;
+  transition: opacity 0.28s ease;
+  background: linear-gradient(
+    105deg,
+    rgba(5, 5, 5, 0.82) 0%,
+    rgba(5, 5, 5, 0.45) 70%,
+    rgba(5, 5, 5, 0) 100%
+  );
+}
+
+.tv-player-frame--chrome-hidden .tv-program-panel {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .tv-now-info {
   display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  flex: 1 1 220px;
+  align-items: flex-start;
+  gap: 0.55rem;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -1343,12 +1475,13 @@
 }
 
 .tv-now-logo {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   object-fit: contain;
   border-radius: 0.35rem;
   background: rgba(255, 255, 255, 0.08);
   flex: 0 0 auto;
+  margin-top: 0.1rem;
 }
 
 .tv-now-name {
@@ -1358,10 +1491,11 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 0.4rem;
-  line-height: 1.3;
+  line-height: 1.25;
   white-space: normal;
   overflow: visible;
   word-break: break-word;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
 }
 
 .tv-now-meta {
@@ -1378,8 +1512,10 @@
   gap: 0.25rem;
   flex: 0 0 auto;
   min-width: 0;
-  width: 100%;
-  order: -1;
+  width: auto;
+  margin-top: 0;
+  padding-top: 0;
+  pointer-events: auto;
 }
 
 .tv-resync-feedback {
@@ -1659,7 +1795,7 @@
     padding: 0.55rem;
   }
 
-  /* Mobile: keep chrome overlaid at the top of the TV screen. */
+  /* Mobile: actions stay on the TV; channel / programmes sit under the screen. */
   .tv-chrome {
     position: absolute;
     left: 0;
@@ -1667,16 +1803,17 @@
     top: 0;
     bottom: auto;
     z-index: 6;
-    padding: 0.35rem 0.4rem 0.7rem;
+    padding: 0.3rem 0.35rem 0.55rem;
     border-radius: 0.35rem 0.35rem 0 0;
     background: linear-gradient(
       180deg,
-      rgba(5, 5, 5, 0.92) 0%,
-      rgba(5, 5, 5, 0.7) 55%,
+      rgba(5, 5, 5, 0.88) 0%,
+      rgba(5, 5, 5, 0.35) 75%,
       rgba(5, 5, 5, 0) 100%
     );
     max-height: none;
     overflow: visible;
+    pointer-events: none;
   }
 
   .tv-chrome--hidden {
@@ -1691,25 +1828,59 @@
   }
 
   .tv-now-playing {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.4rem;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.25rem;
     margin-top: 0;
   }
 
-  .tv-now-info {
-    flex: 0 0 auto;
-    width: 100%;
-  }
-
   .tv-now-actions {
-    width: 100%;
+    flex: 0 1 auto;
+    width: auto;
+    max-width: 100%;
     flex-wrap: nowrap;
-    justify-content: flex-start;
+    justify-content: flex-end;
     align-items: center;
     gap: 0.25rem;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    pointer-events: auto;
+  }
+
+  .tv-program-panel {
+    position: static;
+    left: auto;
+    top: auto;
+    z-index: 1;
+    max-width: none;
+    width: 100%;
+    margin-top: 0.55rem;
+    padding: 0.55rem 0.45rem 0.35rem;
+    border-radius: 0.4rem;
+    background: rgba(12, 12, 14, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #e9ecef;
+    max-height: 40rem;
+    overflow: hidden;
+    transition: opacity 0.28s ease, max-height 0.28s ease, margin 0.28s ease, padding 0.28s ease, border-width 0.28s ease;
+  }
+
+  .tv-player-frame--chrome-hidden .tv-program-panel {
+    opacity: 0;
+    pointer-events: none;
+    max-height: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-width: 0;
+  }
+
+  .tv-now-info {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
   }
 
   .tv-now-action {
@@ -1726,11 +1897,15 @@
   .tv-volume-slider-wrap {
     flex: 1 1 auto;
     min-width: 3rem;
-    max-width: none;
+    max-width: 5.5rem;
     margin: 0;
   }
 
   .tv-now-name {
     font-size: 0.95rem;
+  }
+
+  .tv-epg-guide {
+    margin-top: 0.45rem;
   }
 }

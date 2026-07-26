@@ -7,6 +7,8 @@ import com.pat.controller.dto.TvEpgNowDto;
 import com.pat.controller.dto.TvEpgScheduleDto;
 import com.pat.controller.dto.TvEpgSearchHitDto;
 import com.pat.controller.dto.TvFavoritesDto;
+import com.pat.controller.dto.TvRecordingDto;
+import com.pat.controller.dto.TvRecordingStartRequest;
 import com.pat.service.CanalGroupLiveService;
 import com.pat.service.FranceTvLiveService;
 import com.pat.service.M6GroupLiveService;
@@ -16,6 +18,7 @@ import com.pat.service.TvCatalogService;
 import com.pat.service.TvEpgService;
 import com.pat.service.TvFavoritesService;
 import com.pat.service.TvLastChannelService;
+import com.pat.service.TvRecordingService;
 import com.pat.service.TvStreamProxyService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,12 +33,15 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -66,6 +72,8 @@ import java.util.stream.Collectors;
  *   <li>{@code PUT /api/external/tv/favorites/item} — add one channel</li>
  *   <li>{@code DELETE /api/external/tv/favorites/item?id=...}</li>
  *   <li>{@code GET/PUT /api/external/tv/last-channel} — last watched channel</li>
+ *   <li>{@code GET/POST /api/external/tv/recordings} — browser DVR upload (GridFS)</li>
+ *   <li>{@code DELETE /api/external/tv/recordings/{id}}</li>
  * </ul>
  */
 @RestController
@@ -101,6 +109,9 @@ public class TvWatcherRestController {
 
     @Autowired
     private TvEpgService tvEpgService;
+
+    @Autowired
+    private TvRecordingService tvRecordingService;
 
     @GetMapping("/countries")
     public ResponseEntity<List<TvCountryDto>> countries() {
@@ -299,6 +310,75 @@ public class TvWatcherRestController {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofMinutes(2)).cachePublic())
                 .body(hits);
+    }
+
+    /** Recording capability / limits (public; start still requires JWT). */
+    @GetMapping("/recordings/status")
+    public ResponseEntity<Map<String, Object>> recordingsStatus() {
+        return ResponseEntity.ok(tvRecordingService.statusInfo());
+    }
+
+    @GetMapping("/recordings")
+    public ResponseEntity<List<TvRecordingDto>> listRecordings() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(tvRecordingService.listForSubject(sub));
+    }
+
+    @GetMapping("/recordings/{id}")
+    public ResponseEntity<TvRecordingDto> getRecording(@PathVariable("id") String id) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return tvRecordingService.findForSubject(id, sub)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @PostMapping(value = "/recordings", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadRecording(
+            @RequestPart("file") MultipartFile file,
+            @RequestParam(value = "channelId", required = false) String channelId,
+            @RequestParam(value = "channelName", required = false) String channelName,
+            @RequestParam(value = "channelLogo", required = false) String channelLogo,
+            @RequestParam(value = "country", required = false) String country,
+            @RequestParam(value = "streamUrl", required = false) String streamUrl,
+            @RequestParam(value = "durationSec", required = false) Integer durationSec) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        TvRecordingStartRequest meta = new TvRecordingStartRequest();
+        meta.setChannelId(channelId);
+        meta.setChannelName(channelName);
+        meta.setChannelLogo(channelLogo);
+        meta.setCountry(country);
+        meta.setStreamUrl(streamUrl);
+        meta.setDurationSec(durationSec);
+        try {
+            return ResponseEntity.status(HttpStatus.CREATED).body(tvRecordingService.upload(sub, meta, file));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/recordings/{id}")
+    public ResponseEntity<?> deleteRecording(@PathVariable("id") String id) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            tvRecordingService.delete(id, sub);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @GetMapping("/favorites")

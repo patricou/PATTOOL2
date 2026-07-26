@@ -16,7 +16,7 @@ import { Subject, Subscription, forkJoin, of } from 'rxjs';
 import { debounceTime, distinctUntilChanged, catchError } from 'rxjs/operators';
 import Hls from 'hls.js';
 
-import { ApiService, TvChannel, TvCountry, TvEpgNow, TvEpgProgramme, TvEpgSearchHit } from '../services/api.service';
+import { ApiService, TvChannel, TvCountry, TvEpgNow, TvEpgProgramme, TvEpgSearchHit, TvRecording, TvRecordingStatus } from '../services/api.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { TvPlayerService } from '../services/tv-player.service';
 import {
@@ -50,7 +50,7 @@ import { bustVirtualLiveCache, preflightVirtualLive, virtualLiveKeepAliveFromUrl
 import { MediaCatalogCacheToolbarComponent } from '../shared/media-catalog-cache-toolbar/media-catalog-cache-toolbar.component';
 import { TvEpgBrowserComponent } from './tv-epg-browser.component';
 
-type TvListMode = 'catalog' | 'favorites';
+type TvListMode = 'catalog' | 'favorites' | 'recordings';
 
 @Component({
   selector: 'app-tv-watcher',
@@ -72,6 +72,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   groups: string[] = [];
   favorites: TvChannel[] = [];
   favoriteIds = new Set<string>();
+  recordings: TvRecording[] = [];
 
   listMode: TvListMode = 'favorites';
   selectedCountry = 'all';
@@ -81,6 +82,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   /** Filter by EPG programme title (server-side search). */
   programQuery = '';
   selectedChannel: TvChannel | null = null;
+  /** Playback of a finished recording (mutually exclusive with live channel stream). */
+  playingRecording: TvRecording | null = null;
   /** Hint when « all countries » is selected but the query is too short. */
   worldwideSearchHint = false;
   countryMenuOpen = false;
@@ -88,7 +91,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   /** Collapse state of the filters panel, remembered per tab. */
   private filtersCollapsedByMode: Record<TvListMode, boolean> = {
     catalog: true,
-    favorites: true
+    favorites: true,
+    recordings: true
   };
 
   isLoadingCountries = false;
@@ -100,6 +104,29 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   countriesError = '';
   favoritesError = '';
   favoritesHint = '';
+  recordingsError = '';
+  recordingsHint = '';
+  isLoadingRecordings = false;
+  recordingBusy = false;
+  recordingStatus: TvRecordingStatus | null = null;
+  /** True after the first capability probe (success or error). */
+  recordingStatusLoaded = false;
+  /** Browser-side capture in progress (MediaRecorder). */
+  clientRecordingActive = false;
+  private mediaRecorder: MediaRecorder | null = null;
+  private recordedChunks: Blob[] = [];
+  private clientRecordStartedAt = 0;
+  private clientRecordChannel: TvChannel | null = null;
+  private recordAutoStopTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Requested max duration when starting a recording (seconds). */
+  recordDurationSec = 300;
+  readonly recordDurationOptions = [
+    { sec: 60, labelKey: 'TV.RECORD_DUR_1M' },
+    { sec: 300, labelKey: 'TV.RECORD_DUR_5M' },
+    { sec: 600, labelKey: 'TV.RECORD_DUR_10M' },
+    { sec: 900, labelKey: 'TV.RECORD_DUR_15M' },
+    { sec: 1800, labelKey: 'TV.RECORD_DUR_30M' }
+  ];
   isMuted = false;
   /** 0–100, mirrored to HTMLVideoElement.volume */
   volumePercent = 100;
@@ -165,6 +192,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   private epgSub?: Subscription;
   private programSearchHttpSub?: Subscription;
   private guideSub?: Subscription;
+  private recordingsPollTimer: ReturnType<typeof setInterval> | null = null;
   private epgRefreshTimer: ReturnType<typeof setInterval> | null = null;
   private restoredLastChannel = false;
   private chromeHideTimer: ReturnType<typeof setTimeout> | null = null;
@@ -245,6 +273,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   get displayedChannels(): TvChannel[] {
+    if (this.listMode === 'recordings') {
+      return [];
+    }
     const source = this.listMode === 'favorites' ? this.favorites : this.channels;
     const channelQ = this.channelQuery.trim().toLowerCase();
     const programQ = this.programQuery.trim().toLowerCase();
@@ -259,6 +290,64 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         return false;
       }
       return true;
+    });
+  }
+
+  get activeRecording(): TvRecording | null {
+    if (!this.clientRecordingActive) {
+      return null;
+    }
+    return {
+      id: 'local-recording',
+      channelId: this.clientRecordChannel?.id,
+      channelName: this.clientRecordChannel?.name || 'TV',
+      channelLogo: this.clientRecordChannel?.logo,
+      country: this.clientRecordChannel?.country,
+      status: 'RUNNING',
+      startedAt: new Date(this.clientRecordStartedAt).toISOString(),
+      durationSec: this.recordDurationSec
+    };
+  }
+
+  get supportsBrowserRecording(): boolean {
+    if (typeof MediaRecorder === 'undefined') {
+      return false;
+    }
+    const proto = HTMLVideoElement?.prototype as HTMLVideoElement & {
+      captureStream?: () => MediaStream;
+    };
+    return typeof proto?.captureStream === 'function';
+  }
+
+  get recordingAvailable(): boolean {
+    if (!this.supportsBrowserRecording) {
+      return false;
+    }
+    if (this.recordingStatusLoaded && this.recordingStatus?.enabled === false) {
+      return false;
+    }
+    return true;
+  }
+
+  get recordButtonTitleKey(): string {
+    if (!this.supportsBrowserRecording) {
+      return 'TV.ERR_RECORD_UNAVAILABLE';
+    }
+    if (this.recordingStatusLoaded && this.recordingStatus?.enabled === false) {
+      return 'TV.ERR_RECORD_UNAVAILABLE';
+    }
+    return 'TV.RECORD';
+  }
+
+  get filteredRecordings(): TvRecording[] {
+    const q = this.channelQuery.trim().toLowerCase();
+    if (!q) {
+      return this.recordings;
+    }
+    return this.recordings.filter((r) => {
+      const name = (r.channelName || '').toLowerCase();
+      const status = (r.status || '').toLowerCase();
+      return name.includes(q) || status.includes(q);
     });
   }
 
@@ -418,6 +507,10 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.loadCountries();
     this.loadFavorites();
     this.loadTf1Status();
+    this.loadRecordingCapability();
+    if (this.isLoggedIn) {
+      this.loadRecordings();
+    }
     // Worldwide count scans ~180 IPTV playlists — never warm it while Favorites is open
     // (it saturates the backend and makes « Chargement des favoris… » crawl).
     this.hydrateCatalogCountFromStorage();
@@ -439,6 +532,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.clearChromeHideTimer();
     this.clearShareFeedbackTimer();
     this.clearResyncFeedbackTimer();
+    this.stopRecordingsPoll();
+    this.abortClientRecording(false);
     if (this.epgRefreshTimer != null) {
       clearInterval(this.epgRefreshTimer);
       this.epgRefreshTimer = null;
@@ -797,7 +892,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   private scheduleChromeHide(delayMs = TvWatcherComponent.CHROME_HIDE_MS): void {
     this.clearChromeHideTimer();
-    if (!this.selectedChannel || this.isMuted || this.shareMenuOpen || this.guideOpen) {
+    // Keep the bar while the share menu / EPG guide is open. Mute no longer blocks
+    // auto-hide (mobile unmute uses the separate on-video hint).
+    if (!this.selectedChannel || this.shareMenuOpen || this.guideOpen) {
       return;
     }
     this.chromeHideTimer = setTimeout(() => {
@@ -822,9 +919,17 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.listMode = mode;
     this.channelsError = '';
     this.favoritesHint = '';
+    this.recordingsHint = '';
     this.countryMenuOpen = false;
     if (mode === 'favorites' && !this.isLoggedIn) {
       this.favoritesHint = 'TV.FAVORITES_LOGIN';
+    }
+    if (mode === 'recordings') {
+      if (!this.isLoggedIn) {
+        this.recordingsHint = 'TV.RECORD_LOGIN';
+      } else {
+        this.loadRecordings();
+      }
     }
     if (mode === 'catalog') {
       this.loadCatalogCount();
@@ -2216,6 +2321,411 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.favoriteIds = new Set(this.favorites.map((c) => c.id).filter(Boolean));
   }
 
+  private loadRecordingCapability(): void {
+    this.api.getTvRecordingStatus().subscribe({
+      next: (s) => {
+        this.recordingStatus = s || null;
+        this.recordingStatusLoaded = true;
+        if (s?.defaultDurationSec && s.defaultDurationSec > 0) {
+          this.recordDurationSec = s.defaultDurationSec;
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.recordingStatus = null;
+        this.recordingStatusLoaded = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private loadRecordings(): void {
+    if (!this.isLoggedIn) {
+      this.recordings = [];
+      this.stopRecordingsPoll();
+      return;
+    }
+    this.isLoadingRecordings = true;
+    this.recordingsError = '';
+    this.api.getTvRecordings().subscribe({
+      next: (list) => {
+        this.recordings = list || [];
+        this.isLoadingRecordings = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.isLoadingRecordings = false;
+        this.recordingsError = 'TV.ERR_RECORDINGS_LOAD';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private syncRecordingsPoll(): void {
+    // Browser recording has no server-side RUNNING job to poll.
+    this.stopRecordingsPoll();
+  }
+
+  private startRecordingsPoll(): void {
+    /* no-op — kept for compatibility */
+  }
+
+  private stopRecordingsPoll(): void {
+    if (this.recordingsPollTimer != null) {
+      clearInterval(this.recordingsPollTimer);
+      this.recordingsPollTimer = null;
+    }
+  }
+
+  private pickRecorderMimeType(): string {
+    const candidates = [
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm',
+      'video/mp4'
+    ];
+    for (const type of candidates) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        return type;
+      }
+    }
+    return '';
+  }
+
+  startRecording(event?: Event): void {
+    event?.stopPropagation();
+    event?.preventDefault();
+    if (!this.isLoggedIn) {
+      this.recordingsHint = 'TV.RECORD_LOGIN';
+      this.setListMode('recordings');
+      this.showChrome(true);
+      this.cdr.markForCheck();
+      return;
+    }
+    if (!this.supportsBrowserRecording) {
+      this.playError = 'TV.ERR_RECORD_UNAVAILABLE';
+      this.showChrome(true);
+      this.cdr.markForCheck();
+      return;
+    }
+    if (this.recordingStatusLoaded && this.recordingStatus?.enabled === false) {
+      this.playError = 'TV.ERR_RECORD_UNAVAILABLE';
+      this.showChrome(true);
+      this.cdr.markForCheck();
+      return;
+    }
+    const channel = this.selectedChannel;
+    const video = this.videoEl?.nativeElement;
+    if (!channel?.streamUrl || !video || this.recordingBusy || this.clientRecordingActive || this.playingRecording) {
+      return;
+    }
+    if (video.paused || video.readyState < 2) {
+      this.playError = 'TV.ERR_RECORD_NEED_PLAY';
+      this.showChrome(true);
+      this.cdr.markForCheck();
+      return;
+    }
+
+    let stream: MediaStream;
+    try {
+      const capturable = video as HTMLVideoElement & { captureStream: () => MediaStream };
+      stream = capturable.captureStream();
+    } catch (e) {
+      this.playError = 'TV.ERR_RECORD_UNAVAILABLE';
+      this.showChrome(true);
+      this.cdr.markForCheck();
+      return;
+    }
+    if (!stream || stream.getTracks().length === 0) {
+      this.playError = 'TV.ERR_RECORD_UNAVAILABLE';
+      this.showChrome(true);
+      this.cdr.markForCheck();
+      return;
+    }
+
+    const mimeType = this.pickRecorderMimeType();
+    try {
+      this.recordedChunks = [];
+      this.mediaRecorder = mimeType
+        ? new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2_500_000 })
+        : new MediaRecorder(stream, { videoBitsPerSecond: 2_500_000 });
+    } catch {
+      this.playError = 'TV.ERR_RECORD_UNAVAILABLE';
+      this.showChrome(true);
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.mediaRecorder.ondataavailable = (ev: BlobEvent) => {
+      if (ev.data && ev.data.size > 0) {
+        this.recordedChunks.push(ev.data);
+      }
+    };
+    this.mediaRecorder.onerror = () => {
+      this.playError = 'TV.ERR_RECORD_START';
+      this.abortClientRecording(false);
+      this.cdr.markForCheck();
+    };
+
+    this.clientRecordChannel = channel;
+    this.clientRecordStartedAt = Date.now();
+    this.clientRecordingActive = true;
+    this.playError = '';
+    this.mediaRecorder.start(1000);
+
+    if (this.recordAutoStopTimer != null) {
+      clearTimeout(this.recordAutoStopTimer);
+    }
+    this.recordAutoStopTimer = setTimeout(() => {
+      this.recordAutoStopTimer = null;
+      if (this.clientRecordingActive) {
+        this.stopActiveRecording();
+      }
+    }, Math.max(5, this.recordDurationSec) * 1000);
+
+    this.showChrome(true);
+    this.cdr.markForCheck();
+  }
+
+  stopActiveRecording(event?: Event): void {
+    event?.stopPropagation();
+    event?.preventDefault();
+    if (!this.clientRecordingActive || !this.mediaRecorder) {
+      return;
+    }
+    if (this.recordingBusy) {
+      return;
+    }
+    const recorder = this.mediaRecorder;
+    const channel = this.clientRecordChannel;
+    const startedAt = this.clientRecordStartedAt;
+    const mimeType = recorder.mimeType || this.pickRecorderMimeType() || 'video/webm';
+
+    this.recordingBusy = true;
+    if (this.recordAutoStopTimer != null) {
+      clearTimeout(this.recordAutoStopTimer);
+      this.recordAutoStopTimer = null;
+    }
+
+    recorder.onstop = () => {
+      const durationSec = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+      const blob = new Blob(this.recordedChunks, { type: mimeType.split(';')[0] || 'video/webm' });
+      this.recordedChunks = [];
+      this.mediaRecorder = null;
+      this.clientRecordingActive = false;
+      this.clientRecordChannel = null;
+
+      if (!blob.size || blob.size < 1024) {
+        this.recordingBusy = false;
+        this.playError = 'TV.ERR_RECORD_START';
+        this.cdr.markForCheck();
+        return;
+      }
+      if (!channel) {
+        this.recordingBusy = false;
+        this.cdr.markForCheck();
+        return;
+      }
+
+      const ext = mimeType.includes('mp4') ? '.mp4' : '.webm';
+      this.api
+        .uploadTvRecording(
+          blob,
+          {
+            channelId: channel.id,
+            channelName: channel.name,
+            channelLogo: channel.logo,
+            country: channel.country,
+            streamUrl: resolveTvStreamUrl(channel),
+            durationSec
+          },
+          `tv-${(channel.name || 'rec').replace(/[^\w.-]+/g, '_').slice(0, 40)}${ext}`
+        )
+        .subscribe({
+          next: (rec) => {
+            this.recordingBusy = false;
+            if (rec) {
+              this.recordings = [rec, ...this.recordings.filter((r) => r.id !== rec.id)];
+            }
+            this.setListMode('recordings');
+            this.showChrome(true);
+            this.cdr.markForCheck();
+          },
+          error: (err) => {
+            this.recordingBusy = false;
+            const code = err?.error?.error || '';
+            if (code === 'file_too_large') {
+              this.playError = 'TV.ERR_RECORD_TOO_LARGE';
+            } else if (code === 'tv_recording_disabled') {
+              this.playError = 'TV.ERR_RECORD_UNAVAILABLE';
+            } else {
+              this.playError = 'TV.ERR_RECORD_START';
+            }
+            this.showChrome(true);
+            this.cdr.markForCheck();
+          }
+        });
+    };
+
+    try {
+      if (recorder.state !== 'inactive') {
+        recorder.stop();
+      } else {
+        recorder.onstop(new Event('stop') as BlobEvent);
+      }
+    } catch {
+      this.recordingBusy = false;
+      this.abortClientRecording(false);
+      this.playError = 'TV.ERR_RECORD_STOP';
+      this.cdr.markForCheck();
+    }
+  }
+
+  private abortClientRecording(upload: boolean): void {
+    if (this.recordAutoStopTimer != null) {
+      clearTimeout(this.recordAutoStopTimer);
+      this.recordAutoStopTimer = null;
+    }
+    try {
+      if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+        this.mediaRecorder.onstop = null;
+        this.mediaRecorder.stop();
+      }
+    } catch {
+      /* ignore */
+    }
+    this.mediaRecorder = null;
+    this.recordedChunks = [];
+    this.clientRecordingActive = false;
+    this.clientRecordChannel = null;
+    if (!upload) {
+      this.recordingBusy = false;
+    }
+  }
+
+  playRecording(rec: TvRecording, event?: Event): void {
+    event?.stopPropagation();
+    event?.preventDefault();
+    const url = this.api.tvRecordingMediaUrl(rec);
+    if (!url || rec.status !== 'DONE') {
+      return;
+    }
+    const video = this.videoEl?.nativeElement;
+    if (!video) {
+      return;
+    }
+    if (this.tvPlayer.isOsPipActive()) {
+      this.tvPlayer.stopOsPip();
+      this.isPipActive = false;
+    }
+    this.destroyPlayer();
+    this.playingRecording = rec;
+    this.selectedChannel = {
+      id: rec.channelId || rec.id,
+      name: rec.channelName || 'Recording',
+      logo: rec.channelLogo,
+      country: rec.country,
+      streamUrl: url,
+      group: 'Recording'
+    };
+    this.playError = '';
+    this.isBuffering = true;
+    this.applyAudioToVideo(video, { muted: false, ensureVolume: true });
+    video.src = url;
+    video.load();
+    const p = video.play();
+    if (p && typeof p.then === 'function') {
+      p.then(() => {
+        this.isBuffering = false;
+        this.cdr.markForCheck();
+      }).catch(() => {
+        this.isBuffering = false;
+        this.playError = 'TV.ERR_RECORD_PLAY';
+        this.cdr.markForCheck();
+      });
+    } else {
+      this.isBuffering = false;
+    }
+    this.showChrome(true);
+    this.cdr.markForCheck();
+  }
+
+  deleteRecording(rec: TvRecording, event?: Event): void {
+    event?.stopPropagation();
+    event?.preventDefault();
+    if (!rec?.id || this.recordingBusy) {
+      return;
+    }
+    this.recordingBusy = true;
+    this.api.deleteTvRecording(rec.id).subscribe({
+      next: () => {
+        this.recordingBusy = false;
+        this.recordings = this.recordings.filter((r) => r.id !== rec.id);
+        if (this.playingRecording?.id === rec.id) {
+          this.playingRecording = null;
+          this.destroyPlayer();
+        }
+        this.syncRecordingsPoll();
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.recordingBusy = false;
+        this.recordingsError = 'TV.ERR_RECORD_DELETE';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  recordingStatusLabelKey(status: string | undefined): string {
+    switch (status) {
+      case 'PENDING':
+        return 'TV.RECORD_STATUS_PENDING';
+      case 'RUNNING':
+        return 'TV.RECORD_STATUS_RUNNING';
+      case 'DONE':
+        return 'TV.RECORD_STATUS_DONE';
+      case 'FAILED':
+        return 'TV.RECORD_STATUS_FAILED';
+      case 'CANCELLED':
+        return 'TV.RECORD_STATUS_CANCELLED';
+      default:
+        return 'TV.RECORD_STATUS_UNKNOWN';
+    }
+  }
+
+  formatRecordingSize(bytes: number | undefined | null): string {
+    if (bytes == null || bytes <= 0) {
+      return '';
+    }
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    }
+    if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(0)} KB`;
+    }
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  formatRecordingWhen(iso: string | undefined | null): string {
+    if (!iso) {
+      return '';
+    }
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) {
+      return '';
+    }
+    return d.toLocaleString(undefined, {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  trackByRecordingId(_index: number, rec: TvRecording): string {
+    return rec?.id || String(_index);
+  }
+
   /** Alphabetical order by channel name (locale-aware, case-insensitive). */
   private sortChannelsByName(list: TvChannel[]): TvChannel[] {
     return [...list].sort((a, b) =>
@@ -2227,6 +2737,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     const video = this.videoEl?.nativeElement;
     if (!video || !channel?.streamUrl) {
       return;
+    }
+
+    this.playingRecording = null;
+
+    if (this.clientRecordingActive) {
+      this.abortClientRecording(false);
     }
 
     if (this.tvPlayer.isOsPipActive()) {
@@ -2516,7 +3032,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     this.applyAudioToVideo(video, { muted: true, ensureVolume: false });
-    this.showChrome(false);
+    this.showChrome(true);
     this.cdr.markForCheck();
   }
 
