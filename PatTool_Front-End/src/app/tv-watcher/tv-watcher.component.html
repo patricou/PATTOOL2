@@ -100,7 +100,8 @@
             {{ 'TV.TAB_IA' | translate }}
             <span
               class="badge rounded-pill tv-ia-badge"
-              *ngIf="listMode === 'ia' && iaTotal > 0">
+              *ngIf="iaTotal > 0"
+              [attr.title]="'TV.IA_COUNT' | translate:{ count: iaTotal }">
               {{ iaTotal }}
             </span>
           </button>

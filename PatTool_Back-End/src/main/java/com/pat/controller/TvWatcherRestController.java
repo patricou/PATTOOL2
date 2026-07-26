@@ -794,7 +794,7 @@ public class TvWatcherRestController {
      */
     @GetMapping("/ia/programs")
     public ResponseEntity<Map<String, Object>> iaPrograms(
-            @RequestParam(value = "section", defaultValue = "FEATURE_FILMS") String section,
+            @RequestParam(value = "section", defaultValue = "RECENT") String section,
             @RequestParam(value = "q", required = false) String q,
             @RequestParam(value = "page", defaultValue = "1") int page) {
         InternetArchiveReplayService.IaCatalogResult result =

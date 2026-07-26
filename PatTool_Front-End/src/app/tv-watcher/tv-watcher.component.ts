@@ -114,7 +114,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   /** Internet Archive movie catalog. */
   iaSections: IaSection[] = [];
-  iaSection = 'FEATURE_FILMS';
+  iaSection = 'RECENT';
   iaPage = 1;
   iaPages = 1;
   iaTotal = 0;
@@ -279,7 +279,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (this.listMode === 'arte' && this.arteSection && this.arteSection !== 'MOST_RECENT') {
       return true;
     }
-    if (this.listMode === 'ia' && this.iaSection && this.iaSection !== 'FEATURE_FILMS') {
+    if (this.listMode === 'ia' && this.iaSection && this.iaSection !== 'RECENT') {
       return true;
     }
     return false;
@@ -551,6 +551,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.loadFavorites();
     this.loadTf1Status();
     this.loadRecordingCapability();
+    this.loadIaTabCount();
     if (this.isLoggedIn) {
       this.loadRecordings();
     }
@@ -2614,6 +2615,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       },
       error: () => {
         this.iaSections = [
+          { code: 'RECENT', label: 'Ajouts récents' },
           { code: 'FEATURE_FILMS', label: 'Films (feature films)' },
           { code: 'CLASSIC_FILMS', label: 'Classiques' },
           { code: 'MOST_DOWNLOADED', label: 'Les plus téléchargés' }
@@ -2623,12 +2625,32 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Warm the Archive.org tab badge without replacing the current channel list. */
+  private loadIaTabCount(): void {
+    if (this.listMode === 'ia' || this.iaTotal > 0) {
+      return;
+    }
+    this.api.getIaPrograms({
+      section: this.iaSection || 'RECENT',
+      page: 1
+    }).subscribe({
+      next: (res) => {
+        if (this.listMode === 'ia') {
+          return;
+        }
+        this.iaTotal = Math.max(0, Number(res?.total) || 0);
+        this.cdr.markForCheck();
+      },
+      error: () => { /* badge stays hidden */ }
+    });
+  }
+
   private loadIaPrograms(): void {
     this.isLoadingIa = true;
     this.iaError = '';
     const q = this.channelQuery.trim();
     this.api.getIaPrograms({
-      section: this.iaSection || 'FEATURE_FILMS',
+      section: this.iaSection || 'RECENT',
       q: q.length >= 2 ? q : undefined,
       page: this.iaPage
     }).subscribe({

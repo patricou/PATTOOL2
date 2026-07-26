@@ -2374,7 +2374,7 @@ export class ApiService {
     page?: number;
   }): Observable<IaProgramsResponse> {
     let params = new HttpParams()
-      .set('section', options?.section || 'FEATURE_FILMS')
+      .set('section', options?.section || 'RECENT')
       .set('page', String(options?.page && options.page > 0 ? options.page : 1));
     const q = (options?.q || '').trim();
     if (q) {

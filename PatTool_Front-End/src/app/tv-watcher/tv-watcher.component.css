@@ -1783,6 +1783,15 @@
     flex: 0 0 auto;
   }
 
+  /* Tab count badges crowd the narrow secondary row — counts stay in the list meta. */
+  .tv-mode-tab .tv-count-badge,
+  .tv-mode-tab .tv-fav-badge,
+  .tv-mode-tab .tv-arte-badge,
+  .tv-mode-tab .tv-ia-badge,
+  .tv-mode-tab .tv-rec-badge {
+    display: none;
+  }
+
   /* When filters are open, cap them so the channel list keeps most of the sidebar. */
   .tv-filters-panel:has(.tv-filters-body) {
     flex: 0 1 auto;

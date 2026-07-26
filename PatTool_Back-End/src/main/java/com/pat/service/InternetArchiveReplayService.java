@@ -55,6 +55,10 @@ public class InternetArchiveReplayService {
     private static final Map<String, SectionDef> SECTIONS = new LinkedHashMap<>();
 
     static {
+        SECTIONS.put("RECENT", new SectionDef(
+                "Ajouts récents",
+                "mediatype:movies AND format:(MPEG4 OR \"h.264\" OR \"512Kb MPEG4\")",
+                "publicdate desc"));
         SECTIONS.put("FEATURE_FILMS", new SectionDef(
                 "Films (feature films)",
                 "collection:feature_films AND mediatype:movies AND format:(MPEG4 OR \"h.264\" OR \"512Kb MPEG4\")",
@@ -79,10 +83,6 @@ public class InternetArchiveReplayService {
                 "Les plus téléchargés",
                 "mediatype:movies AND format:(MPEG4 OR \"h.264\" OR \"512Kb MPEG4\")",
                 "downloads desc"));
-        SECTIONS.put("RECENT", new SectionDef(
-                "Ajouts récents",
-                "mediatype:movies AND format:(MPEG4 OR \"h.264\" OR \"512Kb MPEG4\")",
-                "publicdate desc"));
     }
 
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -127,10 +127,10 @@ public class InternetArchiveReplayService {
 
     public String normalizeSection(String section) {
         if (!StringUtils.hasText(section)) {
-            return "FEATURE_FILMS";
+            return "RECENT";
         }
         String code = section.trim().toUpperCase(Locale.ROOT);
-        return SECTIONS.containsKey(code) ? code : "FEATURE_FILMS";
+        return SECTIONS.containsKey(code) ? code : "RECENT";
     }
 
     public boolean isValidIdentifier(String identifier) {
