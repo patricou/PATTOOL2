@@ -2,6 +2,97 @@
   display: block;
 }
 
+/* Mobile landscape: immersive TV stage covering the viewport. */
+:host.tv-landscape-fs {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  background: #000;
+  overflow: hidden;
+}
+
+:host.tv-landscape-fs .pat-title,
+:host.tv-landscape-fs .tv-float-banner,
+:host.tv-landscape-fs .tv-sidebar,
+:host.tv-landscape-fs .tv-footer,
+:host.tv-landscape-fs .tv-chrome,
+:host.tv-landscape-fs app-tv-epg-browser {
+  display: none !important;
+}
+
+:host.tv-landscape-fs .tv-page {
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+:host.tv-landscape-fs .tv-layout {
+  display: block;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+:host.tv-landscape-fs .tv-player-panel {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+:host.tv-landscape-fs .tv-player-frame {
+  height: 100%;
+  padding: 0;
+  border-radius: 0;
+}
+
+:host.tv-landscape-fs .tv-video-wrap {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  aspect-ratio: auto;
+  border-radius: 0;
+}
+
+:host.tv-landscape-fs .tv-video {
+  border-radius: 0;
+  object-fit: contain;
+}
+
+.tv-landscape-fs-exit {
+  position: absolute;
+  top: max(0.55rem, env(safe-area-inset-top, 0px));
+  right: max(0.55rem, env(safe-area-inset-right, 0px));
+  z-index: 8;
+  width: 2.35rem;
+  height: 2.35rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.tv-landscape-fs-exit:active,
+.tv-landscape-fs-exit:focus-visible {
+  background: rgba(13, 110, 253, 0.75);
+  outline: none;
+}
+
 /* Keep the global .pat-title spacing (navbar spacer via .pat-div); only tune text layout. */
 :host .pat-title {
   overflow: visible;
@@ -1437,18 +1528,19 @@
 
   .tv-player-panel {
     order: -1;
-    width: min(100%, calc((100dvh - 18rem) * 16 / 9 + 1rem));
+    width: min(100%, calc((100dvh - 22rem) * 16 / 9 + 1rem));
     margin-inline: auto;
   }
 
   .tv-video-wrap {
-    max-height: calc(100dvh - 18rem);
+    max-height: calc(100dvh - 22rem);
   }
 
   .tv-sidebar {
-    /* More room for the channel list; filters stay fixed, list scrolls inside */
-    max-height: min(62dvh, 28rem);
-    min-height: 16rem;
+    /* Fixed height so flex children (filters vs list) share space predictably */
+    height: min(78dvh, 40rem);
+    max-height: min(78dvh, 40rem);
+    min-height: 22rem;
     order: 1;
   }
 
@@ -1456,8 +1548,32 @@
     flex: 0 0 auto;
   }
 
+  /* When filters are open, cap them so the channel list keeps most of the sidebar. */
+  .tv-filters-panel:has(.tv-filters-body) {
+    flex: 0 1 auto;
+    max-height: 11.5rem;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .tv-filters-toggle {
+    flex: 0 0 auto;
+  }
+
+  .tv-filters-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
   .tv-channel-list {
-    min-height: 10rem;
+    flex: 1 1 auto;
+    min-height: 0;
   }
 
   .tv-page {
@@ -1467,12 +1583,59 @@
 
 @media (max-width: 640px) {
   .tv-sidebar {
-    max-height: min(70dvh, 32rem);
-    min-height: 18rem;
+    height: min(82dvh, 44rem);
+    max-height: min(82dvh, 44rem);
+    min-height: 24rem;
+  }
+
+  .tv-player-panel {
+    width: min(100%, 20.5rem);
+    margin-top: 1.35rem;
+    padding: 0.3rem;
+  }
+
+  .tv-video-wrap {
+    max-height: 10.5rem;
   }
 
   .tv-filters {
-    padding: 0.65rem 0.75rem 0.5rem;
+    padding: 0.45rem 0.65rem 0.4rem;
+  }
+
+  .tv-filters--search-only {
+    padding-top: 0.4rem;
+  }
+
+  /* Country + category side by side to free vertical space for the list. */
+  .tv-filters-body > .tv-filters:first-child:not(.tv-filters--search-only) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 0.45rem;
+    row-gap: 0.15rem;
+    align-items: end;
+  }
+
+  .tv-filters-body > .tv-filters:first-child:not(.tv-filters--search-only) .form-label {
+    margin-bottom: 0.1rem !important;
+    margin-top: 0 !important;
+  }
+
+  .tv-filters-body > .tv-filters:first-child:not(.tv-filters--search-only) .tv-country-picker,
+  .tv-filters-body > .tv-filters:first-child:not(.tv-filters--search-only) .form-select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .tv-filters-body .form-label.mt-2 {
+    margin-top: 0.35rem !important;
+  }
+
+  .tv-filters-panel:has(.tv-filters-body) {
+    max-height: 9.75rem;
+  }
+
+  .tv-channel-meta {
+    padding: 0.4rem 0.75rem;
   }
 
   .tv-footer {

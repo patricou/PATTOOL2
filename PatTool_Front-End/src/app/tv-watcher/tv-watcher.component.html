@@ -379,6 +379,15 @@
             [class.tv-video--error]="!!playError"
             (volumechange)="onVideoVolumeChange()"
             (click)="ensureSound($event)"></video>
+          <button
+            *ngIf="landscapeFullscreen && selectedChannel && !isFloatingOpen"
+            type="button"
+            class="tv-landscape-fs-exit"
+            (click)="exitLandscapeFullscreen(true)"
+            [attr.title]="'TV.POPOUT_FULLSCREEN_EXIT' | translate"
+            [attr.aria-label]="'TV.POPOUT_FULLSCREEN_EXIT' | translate">
+            <i class="fa fa-compress" aria-hidden="true"></i>
+          </button>
           <div class="tv-placeholder" *ngIf="!selectedChannel && !isFloatingOpen && !playError">
             <i class="fa fa-television tv-placeholder-icon"></i>
             <p>{{ 'TV.PICK_CHANNEL' | translate }}</p>

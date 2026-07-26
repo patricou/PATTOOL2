@@ -1774,6 +1774,34 @@ body.pat-wg-true-fullscreen app-world-globe .wg-fs-root {
   padding: 0 !important;
 }
 
+/* Mobile landscape TV watcher: hide app chrome, lock scroll */
+body.tv-landscape-fs {
+  overflow: hidden !important;
+}
+
+body.tv-landscape-fs app-root > nav.navbar,
+body.tv-landscape-fs app-root > app-news-ticker,
+body.tv-landscape-fs app-root > app-currency-ticker,
+body.tv-landscape-fs app-root > app-stock-ticker,
+body.tv-landscape-fs app-root > .pat-div,
+body.tv-landscape-fs app-root > .friend-requests-app-banner {
+  display: none !important;
+}
+
+body.tv-landscape-fs app-tv-watcher {
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2000 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: #000 !important;
+}
+
 /* Detached TV pop-out window: no app chrome / no page scroll */
 body.tv-popout-mode {
   overflow: hidden !important;

@@ -2,6 +2,7 @@ import {
   ChangeDetectorRef,
   Component,
   ElementRef,
+  HostBinding,
   HostListener,
   OnDestroy,
   OnInit,
@@ -59,7 +60,12 @@ type TvListMode = 'catalog' | 'favorites';
   styleUrls: ['./tv-watcher.component.css']
 })
 export class TvWatcherComponent implements OnInit, OnDestroy {
-  @ViewChild('videoEl') videoEl?: ElementRef<HTMLVideoElement>;
+  @ViewChild('videoEl')
+  set videoElRef(ref: ElementRef<HTMLVideoElement> | undefined) {
+    this.videoEl = ref;
+    this.bindLandscapeVideoFsListener(ref?.nativeElement || null);
+  }
+  videoEl?: ElementRef<HTMLVideoElement>;
 
   countries: TvCountry[] = [];
   channels: TvChannel[] = [];
@@ -124,6 +130,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   searchMatchTotal: number | null = null;
   searchListTruncated = false;
 
+  /**
+   * Mobile landscape: immersive TV stage (CSS + best-effort native fullscreen).
+   * Set via HostBinding so the player can cover the viewport even if Fullscreen API is blocked.
+   */
+  @HostBinding('class.tv-landscape-fs') landscapeFullscreen = false;
+
   /** EPG now/next keyed by lowercase XMLTV id. */
   epgById: Record<string, TvEpgNow> = {};
   isLoadingEpg = false;
@@ -171,6 +183,18 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   /** Max length for virtual stream tokens in share links (not full http URLs). */
   private static readonly SHARE_STREAM_MAX_LEN = 80;
   private static readonly EPG_REFRESH_MS = 5 * 60 * 1000;
+  private static readonly LANDSCAPE_FS_BODY_CLASS = 'tv-landscape-fs';
+
+  /** User dismissed immersive FS while still landscape — wait until portrait before auto-reentering. */
+  private landscapeFsUserDismissed = false;
+  private landscapeFsNativeRequested = false;
+  private landscapeFsNativeActive = false;
+  private landscapeFsSuppressDismiss = false;
+  private landscapeOrientationMql: MediaQueryList | null = null;
+  private landscapeFsVideoBound: HTMLVideoElement | null = null;
+  private readonly onLandscapeOrientationMedia = (): void => this.syncLandscapeFullscreen();
+  private readonly onLandscapeFsChange = (): void => this.onLandscapeNativeFullscreenChange();
+  private readonly onLandscapeWebkitFsEnd = (): void => this.onLandscapeNativeFullscreenChange();
 
   constructor(
     private api: ApiService,
@@ -405,9 +429,13 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (!this.tryOpenSharedChannelFromQuery()) {
       this.restoreLastWatchedChannel();
     }
+    this.setupLandscapeFullscreenWatchers();
+    this.syncLandscapeFullscreen();
   }
 
   ngOnDestroy(): void {
+    this.teardownLandscapeFullscreenWatchers();
+    this.exitLandscapeFullscreen(false);
     this.clearChromeHideTimer();
     this.clearShareFeedbackTimer();
     this.clearResyncFeedbackTimer();
@@ -460,6 +488,241 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     const video = this.videoEl?.nativeElement;
     if (video && document.pictureInPictureElement === video) {
       document.exitPictureInPicture().catch(() => undefined);
+    }
+  }
+
+  /** Exit immersive landscape TV (portrait, floating handoff, or explicit dismiss). */
+  exitLandscapeFullscreen(markDismissed = true): void {
+    if (markDismissed && this.landscapeFullscreen) {
+      this.landscapeFsUserDismissed = true;
+    }
+    if (!this.landscapeFullscreen && !document.body.classList.contains(TvWatcherComponent.LANDSCAPE_FS_BODY_CLASS)) {
+      this.landscapeFsSuppressDismiss = true;
+      this.exitOwnedNativeFullscreen();
+      this.landscapeFsSuppressDismiss = false;
+      return;
+    }
+    this.landscapeFullscreen = false;
+    document.body.classList.remove(TvWatcherComponent.LANDSCAPE_FS_BODY_CLASS);
+    this.landscapeFsSuppressDismiss = true;
+    this.exitOwnedNativeFullscreen();
+    // fullscreenchange is sync-ish on most browsers; clear on next tick.
+    setTimeout(() => {
+      this.landscapeFsSuppressDismiss = false;
+    }, 0);
+    this.cdr.markForCheck();
+  }
+
+  @HostListener('window:orientationchange')
+  @HostListener('window:resize')
+  onViewportOrientationMaybeChanged(): void {
+    this.syncLandscapeFullscreen();
+  }
+
+  private setupLandscapeFullscreenWatchers(): void {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
+    this.landscapeOrientationMql = window.matchMedia('(orientation: landscape)');
+    if (typeof this.landscapeOrientationMql.addEventListener === 'function') {
+      this.landscapeOrientationMql.addEventListener('change', this.onLandscapeOrientationMedia);
+    } else {
+      // Safari < 14
+      (this.landscapeOrientationMql as MediaQueryList & {
+        addListener?: (cb: () => void) => void;
+      }).addListener?.(this.onLandscapeOrientationMedia);
+    }
+    document.addEventListener('fullscreenchange', this.onLandscapeFsChange);
+    document.addEventListener('webkitfullscreenchange', this.onLandscapeFsChange);
+    this.bindLandscapeVideoFsListener(this.videoEl?.nativeElement || null);
+  }
+
+  private bindLandscapeVideoFsListener(video: HTMLVideoElement | null): void {
+    if (this.landscapeFsVideoBound === video) {
+      return;
+    }
+    if (this.landscapeFsVideoBound) {
+      this.landscapeFsVideoBound.removeEventListener('webkitendfullscreen', this.onLandscapeWebkitFsEnd);
+      this.landscapeFsVideoBound = null;
+    }
+    if (video) {
+      video.addEventListener('webkitendfullscreen', this.onLandscapeWebkitFsEnd);
+      this.landscapeFsVideoBound = video;
+    }
+  }
+
+  private teardownLandscapeFullscreenWatchers(): void {
+    if (this.landscapeOrientationMql) {
+      if (typeof this.landscapeOrientationMql.removeEventListener === 'function') {
+        this.landscapeOrientationMql.removeEventListener('change', this.onLandscapeOrientationMedia);
+      } else {
+        (this.landscapeOrientationMql as MediaQueryList & {
+          removeListener?: (cb: () => void) => void;
+        }).removeListener?.(this.onLandscapeOrientationMedia);
+      }
+      this.landscapeOrientationMql = null;
+    }
+    document.removeEventListener('fullscreenchange', this.onLandscapeFsChange);
+    document.removeEventListener('webkitfullscreenchange', this.onLandscapeFsChange);
+    this.bindLandscapeVideoFsListener(null);
+  }
+
+  private isMobileLikeViewport(): boolean {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    const coarse = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    const narrow = window.matchMedia('(max-width: 900px)').matches;
+    const touch = (navigator.maxTouchPoints || 0) > 0;
+    return coarse || (narrow && touch);
+  }
+
+  private isLandscapeOrientation(): boolean {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    if (this.landscapeOrientationMql) {
+      return this.landscapeOrientationMql.matches;
+    }
+    return window.matchMedia('(orientation: landscape)').matches;
+  }
+
+  private canEnterLandscapeFullscreen(): boolean {
+    return (
+      this.isMobileLikeViewport()
+      && this.isLandscapeOrientation()
+      && !!this.selectedChannel
+      && !this.isFloatingOpen
+      && !this.tvPlayer.isPopoutActive
+      && !this.landscapeFsUserDismissed
+    );
+  }
+
+  private syncLandscapeFullscreen(): void {
+    if (!this.isLandscapeOrientation()) {
+      this.landscapeFsUserDismissed = false;
+      this.exitLandscapeFullscreen(false);
+      return;
+    }
+    if (this.canEnterLandscapeFullscreen()) {
+      this.enterLandscapeFullscreen();
+      return;
+    }
+    if (this.landscapeFullscreen && (!this.selectedChannel || this.isFloatingOpen || this.tvPlayer.isPopoutActive)) {
+      this.exitLandscapeFullscreen(false);
+    }
+  }
+
+  private enterLandscapeFullscreen(): void {
+    if (!this.landscapeFullscreen) {
+      this.landscapeFullscreen = true;
+      document.body.classList.add(TvWatcherComponent.LANDSCAPE_FS_BODY_CLASS);
+      this.showChrome(false);
+      this.cdr.markForCheck();
+    } else {
+      document.body.classList.add(TvWatcherComponent.LANDSCAPE_FS_BODY_CLASS);
+    }
+    // Best-effort native FS (often blocked without a gesture — CSS mode still covers the screen).
+    void this.requestLandscapeNativeFullscreen();
+  }
+
+  private async requestLandscapeNativeFullscreen(): Promise<void> {
+    const video = this.videoEl?.nativeElement;
+    if (!video || this.isFloatingOpen) {
+      return;
+    }
+    const doc = document as Document & { webkitFullscreenElement?: Element | null };
+    if (document.fullscreenElement || doc.webkitFullscreenElement) {
+      return;
+    }
+    const anyVideo = video as HTMLVideoElement & {
+      webkitDisplayingFullscreen?: boolean;
+      webkitEnterFullscreen?: () => void;
+    };
+    if (anyVideo.webkitDisplayingFullscreen) {
+      return;
+    }
+    this.landscapeFsNativeRequested = true;
+    try {
+      if (typeof anyVideo.webkitEnterFullscreen === 'function') {
+        anyVideo.webkitEnterFullscreen();
+        return;
+      }
+      const wrap = video.closest('.tv-video-wrap') as HTMLElement | null;
+      const target = wrap || video;
+      const req =
+        target.requestFullscreen?.bind(target)
+        || (target as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void })
+            .webkitRequestFullscreen?.bind(target);
+      if (req) {
+        await Promise.resolve(req());
+      }
+    } catch {
+      // CSS immersive mode remains active.
+    }
+  }
+
+  private exitOwnedNativeFullscreen(): void {
+    const video = this.videoEl?.nativeElement as
+      | (HTMLVideoElement & { webkitDisplayingFullscreen?: boolean; webkitExitFullscreen?: () => void })
+      | undefined;
+    try {
+      if (video?.webkitDisplayingFullscreen && typeof video.webkitExitFullscreen === 'function') {
+        video.webkitExitFullscreen();
+      }
+    } catch {
+      /* ignore */
+    }
+    const doc = document as Document & {
+      webkitFullscreenElement?: Element | null;
+      webkitExitFullscreen?: () => Promise<void> | void;
+    };
+    const fsEl = document.fullscreenElement || doc.webkitFullscreenElement;
+    if (!fsEl) {
+      this.landscapeFsNativeRequested = false;
+      return;
+    }
+    const wrap = video?.closest('.tv-video-wrap');
+    const owned = this.landscapeFsNativeRequested || fsEl === video || (!!wrap && (fsEl === wrap || wrap.contains(fsEl)));
+    if (!owned) {
+      return;
+    }
+    try {
+      if (document.exitFullscreen) {
+        void document.exitFullscreen().catch(() => undefined);
+      } else {
+        doc.webkitExitFullscreen?.();
+      }
+    } catch {
+      /* ignore */
+    }
+    this.landscapeFsNativeRequested = false;
+  }
+
+  private onLandscapeNativeFullscreenChange(): void {
+    const video = this.videoEl?.nativeElement as
+      | (HTMLVideoElement & { webkitDisplayingFullscreen?: boolean })
+      | undefined;
+    const doc = document as Document & { webkitFullscreenElement?: Element | null };
+    const fsEl = document.fullscreenElement || doc.webkitFullscreenElement || null;
+    const wrap = video?.closest('.tv-video-wrap');
+    const ours = !!(
+      video?.webkitDisplayingFullscreen
+      || (fsEl && (fsEl === video || (wrap && (fsEl === wrap || wrap.contains(fsEl)))))
+    );
+    if (ours) {
+      this.landscapeFsNativeActive = true;
+      return;
+    }
+    const hadNative = this.landscapeFsNativeActive || this.landscapeFsNativeRequested;
+    this.landscapeFsNativeActive = false;
+    this.landscapeFsNativeRequested = false;
+    if (this.landscapeFsSuppressDismiss || !hadNative) {
+      return;
+    }
+    // User left native FS while still landscape → don't auto-reenter until portrait.
+    if (this.isLandscapeOrientation() && this.landscapeFullscreen) {
+      this.exitLandscapeFullscreen(true);
     }
   }
 
@@ -923,11 +1186,13 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       this.destroyPlayer();
       this.isBuffering = false;
       this.tvPlayer.setChannel(channel);
+      this.exitLandscapeFullscreen(false);
       this.cdr.detectChanges();
       return;
     }
     this.cdr.detectChanges();
     this.playChannel(channel);
+    this.syncLandscapeFullscreen();
   }
 
   /** Detach playback into a floating window that survives route changes. */
@@ -943,11 +1208,13 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.selectedChannel = ch;
     this.persistLastWatchedChannel(ch);
     this.tvPlayer.openFloating(ch);
+    this.exitLandscapeFullscreen(false);
     this.cdr.markForCheck();
   }
 
   closeFloatingWindow(): void {
     this.tvPlayer.close();
+    this.syncLandscapeFullscreen();
   }
 
   openExternalWindow(channel?: TvChannel | null): void {
@@ -1085,6 +1352,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         this.selectedChannel?.id === channel.id
       ) {
         this.playChannel(channel);
+        this.syncLandscapeFullscreen();
       }
     }, 0);
   }
