@@ -592,15 +592,41 @@
               <span *ngIf="formatRecordingSize(rec.byteLength) as size">{{ size }}</span>
             </span>
           </span>
-          <button
-            type="button"
-            class="tv-fav-btn tv-rec-delete-btn"
-            [disabled]="recordingBusy"
-            (click)="deleteRecording(rec, $event)"
-            [attr.title]="'TV.RECORD_DELETE' | translate"
-            [attr.aria-label]="'TV.RECORD_DELETE' | translate">
-            <i class="fa fa-trash" aria-hidden="true"></i>
-          </button>
+          <span class="tv-rec-actions" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+            <button
+              *ngIf="rec.status === 'DONE'"
+              type="button"
+              class="tv-fav-btn tv-rec-action-btn"
+              [disabled]="recordingBusy || downloadingRecordingId === rec.id"
+              (click)="downloadRecording(rec, $event)"
+              [attr.title]="'TV.RECORD_DOWNLOAD' | translate"
+              [attr.aria-label]="'TV.RECORD_DOWNLOAD' | translate">
+              <i
+                class="fa"
+                [class.fa-download]="downloadingRecordingId !== rec.id"
+                [class.fa-spinner]="downloadingRecordingId === rec.id"
+                [class.fa-spin]="downloadingRecordingId === rec.id"
+                aria-hidden="true"></i>
+            </button>
+            <button
+              type="button"
+              class="tv-fav-btn tv-rec-action-btn"
+              [disabled]="recordingBusy"
+              (click)="renameRecording(rec, $event)"
+              [attr.title]="'TV.RECORD_RENAME' | translate"
+              [attr.aria-label]="'TV.RECORD_RENAME' | translate">
+              <i class="fa fa-pencil" aria-hidden="true"></i>
+            </button>
+            <button
+              type="button"
+              class="tv-fav-btn tv-rec-delete-btn"
+              [disabled]="recordingBusy"
+              (click)="deleteRecording(rec, $event)"
+              [attr.title]="'TV.RECORD_DELETE' | translate"
+              [attr.aria-label]="'TV.RECORD_DELETE' | translate">
+              <i class="fa fa-trash" aria-hidden="true"></i>
+            </button>
+          </span>
         </li>
         <li *ngIf="!isLoadingRecordings && isLoggedIn && !filteredRecordings.length" class="tv-empty text-muted small">
           {{ 'TV.NO_RECORDINGS' | translate }}

@@ -8,6 +8,7 @@ import com.pat.controller.dto.TvEpgScheduleDto;
 import com.pat.controller.dto.TvEpgSearchHitDto;
 import com.pat.controller.dto.TvFavoritesDto;
 import com.pat.controller.dto.TvRecordingDto;
+import com.pat.controller.dto.TvRecordingRenameRequest;
 import com.pat.controller.dto.TvRecordingStartRequest;
 import com.pat.service.ArteReplayService;
 import com.pat.service.CanalGroupLiveService;
@@ -34,6 +35,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -81,6 +83,7 @@ import java.util.stream.Collectors;
  *   <li>{@code DELETE /api/external/tv/favorites/item?id=...}</li>
  *   <li>{@code GET/PUT /api/external/tv/last-channel} — last watched channel</li>
  *   <li>{@code GET/POST /api/external/tv/recordings} — browser DVR upload (GridFS)</li>
+ *   <li>{@code PATCH /api/external/tv/recordings/{id}} — rename</li>
  *   <li>{@code DELETE /api/external/tv/recordings/{id}}</li>
  * </ul>
  */
@@ -378,6 +381,25 @@ public class TvWatcherRestController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PatchMapping("/recordings/{id}")
+    public ResponseEntity<?> renameRecording(
+            @PathVariable("id") String id,
+            @RequestBody TvRecordingRenameRequest body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            String name = body != null ? body.getChannelName() : null;
+            return ResponseEntity.ok(tvRecordingService.rename(id, sub, name));
+        } catch (IllegalArgumentException e) {
+            if ("not_found".equals(e.getMessage())) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 

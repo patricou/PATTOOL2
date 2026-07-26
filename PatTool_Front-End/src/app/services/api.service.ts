@@ -2530,6 +2530,37 @@ export class ApiService {
     );
   }
 
+  /** PATCH rename display title of a recording. */
+  renameTvRecording(id: string, channelName: string): Observable<TvRecording> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.patch<TvRecording>(
+          this.API_URL + 'external/tv/recordings/' + encodeURIComponent(id),
+          { channelName },
+          { headers }
+        )
+      )
+    );
+  }
+
+  /** Download recording media as Blob (JWT Authorization). */
+  downloadTvRecordingBlob(recording: TvRecording): Observable<Blob> {
+    const path = recording?.gridFsFileId
+      ? 'video/' + recording.gridFsFileId + '?quality=high'
+      : (recording?.mediaUrl || '').replace(/^\/api\//, '');
+    if (!path) {
+      return throwError(() => new Error('no_media'));
+    }
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get(this.API_URL + path, {
+          headers,
+          responseType: 'blob'
+        })
+      )
+    );
+  }
+
   /** Absolute playback URL for a finished recording (GridFS via VideoController). */
   tvRecordingMediaUrl(recording: TvRecording, accessToken?: string): string {
     let url = '';

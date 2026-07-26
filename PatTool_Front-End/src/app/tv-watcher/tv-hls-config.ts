@@ -37,6 +37,30 @@ export function createTvHlsConfig(mode: TvHlsPlaybackMode = 'live'): Partial<Hls
   };
 }
 
+/** Disable HLS + native text tracks (default on every channel / stream change). */
+export function disableTvSubtitles(hls?: Hls | null, video?: HTMLVideoElement | null): void {
+  if (hls) {
+    try {
+      hls.subtitleDisplay = false;
+      if (typeof hls.subtitleTrack === 'number' && hls.subtitleTrack !== -1) {
+        hls.subtitleTrack = -1;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  const tracks = video?.textTracks;
+  if (!tracks?.length) {
+    return;
+  }
+  for (let i = 0; i < tracks.length; i++) {
+    const track = tracks[i];
+    if (track && track.mode !== 'disabled') {
+      track.mode = 'disabled';
+    }
+  }
+}
+
 /** True when the active media playlist is a live sliding window (not VOD / EVENT ended). */
 export function isTvHlsLivePlaylist(hls: Hls | null | undefined): boolean {
   if (!hls) {

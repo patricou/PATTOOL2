@@ -3,6 +3,7 @@ import { resolveTvStreamErrorMessage } from './tv-stream-error.util';
 import {
   attachTvHlsLiveSyncWatchdog,
   createTvHlsConfig,
+  disableTvSubtitles,
   isTvHlsForbiddenError,
   tryRecoverTvHlsError,
   type TvHlsRecoverAttempts
@@ -61,6 +62,7 @@ export function startTvHlsPlayback(
   let tokenRefreshAttempted = false;
   let franceTvKeeper: FranceTvTokenKeeper | null = null;
   const recoverAttempts: TvHlsRecoverAttempts = { network: 0, media: 0 };
+  disableTvSubtitles(null, video);
 
   const setBuffering = (v: boolean) => {
     if (!destroyed) {
@@ -97,7 +99,13 @@ export function startTvHlsPlayback(
   };
 
   const bindHlsHandlers = (instance: Hls) => {
-    instance.on(Hls.Events.MANIFEST_PARSED, () => tryPlay());
+    instance.on(Hls.Events.MANIFEST_PARSED, () => {
+      disableTvSubtitles(instance, video);
+      tryPlay();
+    });
+    instance.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => {
+      disableTvSubtitles(instance, video);
+    });
     instance.on(Hls.Events.ERROR, (_e, data) => {
       if (!data?.fatal) {
         return;
@@ -231,6 +239,7 @@ export function startTvHlsPlayback(
     hls = new Hls(createTvHlsConfig(vod ? 'vod' : 'live'));
     hls.loadSource(proxyUrl);
     hls.attachMedia(video);
+    disableTvSubtitles(hls, video);
     video.playbackRate = 1;
     detachLiveSync = vod ? null : attachTvHlsLiveSyncWatchdog(hls, video);
     bindHlsHandlers(hls);

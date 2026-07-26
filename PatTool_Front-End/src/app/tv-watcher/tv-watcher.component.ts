@@ -42,6 +42,7 @@ import { epgLookupKey, resolveEpgChannelId } from './tv-epg.util';
 import {
   attachTvHlsLiveSyncWatchdog,
   createTvHlsConfig,
+  disableTvSubtitles,
   isTvHlsForbiddenError,
   resyncTvHlsAv,
   tryRecoverTvHlsError,
@@ -135,6 +136,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   recordingsHint = '';
   isLoadingRecordings = false;
   recordingBusy = false;
+  /** Recording id currently being downloaded (spinner on that row). */
+  downloadingRecordingId = '';
   recordingStatus: TvRecordingStatus | null = null;
   /** True after the first capability probe (success or error). */
   recordingStatusLoaded = false;
@@ -3075,6 +3078,80 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     });
   }
 
+  renameRecording(rec: TvRecording, event?: Event): void {
+    event?.stopPropagation();
+    event?.preventDefault();
+    if (!rec?.id || this.recordingBusy) {
+      return;
+    }
+    const current = (rec.channelName || '').trim();
+    const next = window.prompt(
+      this.translate.instant('TV.RECORD_RENAME_PROMPT'),
+      current || 'TV'
+    );
+    if (next == null) {
+      return;
+    }
+    const name = next.trim();
+    if (!name || name === current) {
+      return;
+    }
+    this.recordingBusy = true;
+    this.api.renameTvRecording(rec.id, name).subscribe({
+      next: (updated) => {
+        this.recordingBusy = false;
+        this.recordings = this.recordings.map((r) =>
+          r.id === updated.id ? { ...r, ...updated } : r
+        );
+        if (this.playingRecording?.id === updated.id) {
+          this.playingRecording = { ...this.playingRecording, ...updated };
+          if (this.selectedChannel) {
+            this.selectedChannel = {
+              ...this.selectedChannel,
+              name: updated.channelName || this.selectedChannel.name
+            };
+          }
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.recordingBusy = false;
+        this.recordingsError = 'TV.ERR_RECORD_RENAME';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  downloadRecording(rec: TvRecording, event?: Event): void {
+    event?.stopPropagation();
+    event?.preventDefault();
+    if (!rec?.id || rec.status !== 'DONE' || this.downloadingRecordingId) {
+      return;
+    }
+    this.downloadingRecordingId = rec.id;
+    this.recordingsError = '';
+    this.api.downloadTvRecordingBlob(rec).subscribe({
+      next: (blob) => {
+        this.downloadingRecordingId = '';
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = rec.fileName || `${(rec.channelName || 'tv').replace(/[^\w.-]+/g, '_')}.webm`;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.downloadingRecordingId = '';
+        this.recordingsError = 'TV.ERR_RECORD_DOWNLOAD';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
   recordingStatusLabelKey(status: string | undefined): string {
     switch (status) {
       case 'PENDING':
@@ -3155,6 +3232,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     const playGen = ++this.playGeneration;
     this.hlsRecoverAttempts = { network: 0, media: 0 };
     this.applyAudioToVideo(video, { muted: false, ensureVolume: true });
+    disableTvSubtitles(null, video);
     const streamUrl = resolveTvStreamUrl(channel);
     const proxyUrl = this.api.tvStreamProxyUrl(streamUrl);
 
@@ -3294,6 +3372,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       this.hls = new Hls(createTvHlsConfig(vod ? 'vod' : 'live'));
       this.hls.loadSource(effectiveProxyUrl);
       this.hls.attachMedia(video);
+      disableTvSubtitles(this.hls, video);
       video.playbackRate = 1;
       // Never attach live-edge seek on ARTE replay — it jumps straight to the end.
       this.detachHlsLiveSync = vod
@@ -3328,7 +3407,11 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     tryPlay: (allowMuteFallback?: boolean) => void
   ): void {
     instance.on(Hls.Events.MANIFEST_PARSED, () => {
+      disableTvSubtitles(instance, this.videoEl?.nativeElement || null);
       tryPlay();
+    });
+    instance.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => {
+      disableTvSubtitles(instance, this.videoEl?.nativeElement || null);
     });
     instance.on(Hls.Events.ERROR, (_event, data) => {
       if (!data?.fatal) {

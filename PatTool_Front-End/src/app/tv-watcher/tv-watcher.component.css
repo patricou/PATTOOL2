@@ -439,6 +439,22 @@
   color: #922b21;
 }
 
+.tv-rec-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+  flex: 0 0 auto;
+  margin-left: 0.15rem;
+}
+
+.tv-rec-action-btn {
+  color: #495057;
+}
+
+.tv-rec-action-btn:hover:not(:disabled) {
+  color: #0d6efd;
+}
+
 .tv-rec-delete-btn {
   color: #922b21;
 }

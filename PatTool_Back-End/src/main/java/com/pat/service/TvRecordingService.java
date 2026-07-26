@@ -158,6 +158,41 @@ public class TvRecordingService {
         tvRecordingRepository.delete(rec);
     }
 
+    /**
+     * Rename the display title (and download file base name) for an owned recording.
+     */
+    public TvRecordingDto rename(String id, String ownerSub, String newName) {
+        if (!StringUtils.hasText(newName)) {
+            throw new IllegalArgumentException("name_required");
+        }
+        String name = newName.trim();
+        if (name.length() > 120) {
+            name = name.substring(0, 120);
+        }
+        TvRecording rec = tvRecordingRepository.findByIdAndOwnerSub(id, ownerSub)
+                .orElseThrow(() -> new IllegalArgumentException("not_found"));
+        rec.setChannelName(name);
+        String ext = extensionFor(rec.getContentType(), rec.getFileName());
+        String stamp = "";
+        if (StringUtils.hasText(rec.getFileName())) {
+            String base = rec.getFileName();
+            int dash = base.lastIndexOf('-');
+            int dot = base.lastIndexOf('.');
+            if (dash >= 0 && dot > dash + 1) {
+                String maybeTs = base.substring(dash + 1, dot);
+                if (maybeTs.matches("\\d{10,}")) {
+                    stamp = "-" + maybeTs;
+                }
+            }
+        }
+        if (stamp.isEmpty()) {
+            stamp = "-" + Instant.now().toEpochMilli();
+        }
+        rec.setFileName(safeFileName(name) + stamp + ext);
+        tvRecordingRepository.save(rec);
+        return toDto(rec);
+    }
+
     private TvRecordingDto toDto(TvRecording rec) {
         TvRecordingDto dto = new TvRecordingDto();
         dto.setId(rec.getId());
