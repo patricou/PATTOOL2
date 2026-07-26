@@ -539,18 +539,19 @@ public class TvWatcherRestController {
      * invalidate the cached upstream and retry once with a fresh resolve (new token or mirror).
      */
     private ResponseEntity<byte[]> proxyResolvedStream(String upstream, String range, HttpServletRequest request) {
-        ResponseEntity<byte[]> resolveError = resolveLiveUpstreamOrError(upstream);
+        String normalized = TvStreamProxyService.normalizeShareVirtualUrl(upstream);
+        ResponseEntity<byte[]> resolveError = resolveLiveUpstreamOrError(normalized);
         if (resolveError != null) {
             return resolveError;
         }
-        Optional<String> resolved = resolveLiveUpstream(upstream);
+        Optional<String> resolved = resolveLiveUpstream(normalized);
         String proxyBase = buildProxyBase(request);
-        String target = resolved.orElse(upstream);
+        String target = resolved.orElse(normalized);
         ResponseEntity<byte[]> first = tvStreamProxyService.proxy(target, proxyBase, range);
-        if (!shouldRefreshVirtualLive(first, upstream)) {
+        if (!shouldRefreshVirtualLive(first, normalized)) {
             return first;
         }
-        Optional<String> refreshed = refreshVirtualLiveUpstream(upstream);
+        Optional<String> refreshed = refreshVirtualLiveUpstream(normalized);
         if (refreshed.isEmpty() || !StringUtils.hasText(refreshed.get())
                 || isStillVirtualUrl(refreshed.get())) {
             return first;

@@ -20,6 +20,11 @@ export const environment = {
     API_URL4FILE: "http://localhost:8000/uploadfile",
     API_URL4FILEONDISK: "http://localhost:8000/api/fsphotos",
     API_URL4UPLOADFILEONDISK: "http://localhost:8000/uploadondisk",
+    /**
+     * Public HTTPS origin for WhatsApp / messenger shares only.
+     * App stays on http://localhost:4200 — WhatsApp never linkifies localhost.
+     */
+    sharePublicOrigin: 'https://www.patrickdeschamps.com',
     // Langages for the translator
     langs: ["ar", "cn", "de", "el", "en", "es", "fr", "he", "in", "it", "jp", "ru"]
 };

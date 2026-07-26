@@ -4,9 +4,28 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>PatTool TV</title>
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="PatTool TV">
+  <meta property="og:title" content="PatTool TV">
+  <meta property="og:description" content="Regarder une chaîne ou une vidéo partagée sur PatTool TV.">
+  <meta name="twitter:card" content="summary">
   <script>
     (function () {
       var search = window.location.search || '';
+      var params = new URLSearchParams(search.charAt(0) === '?' ? search.slice(1) : search);
+      var name = (params.get('n') || '').trim();
+      // Share encoding uses ~h~ / ~a~ for # / @ (WhatsApp-safe).
+      name = name.replace(/~h~/g, '#').replace(/~a~/g, '@').replace(/~~/g, '~');
+      if (name) {
+        try { name = decodeURIComponent(name); } catch (e) { /* keep */ }
+        document.title = name + ' — PatTool TV';
+        var ogTitle = document.querySelector('meta[property="og:title"]');
+        if (ogTitle) { ogTitle.setAttribute('content', name + ' — PatTool TV'); }
+        var ogDesc = document.querySelector('meta[property="og:description"]');
+        if (ogDesc) {
+          ogDesc.setAttribute('content', 'Je regarde « ' + name + ' » sur PatTool TV');
+        }
+      }
       var pathname = window.location.pathname || '/';
       if (pathname.length > 1 && pathname.charAt(pathname.length - 1) === '/') {
         pathname = pathname.slice(0, -1);
@@ -27,6 +46,10 @@
         base = pathname;
       }
       var qs = search && search.charAt(0) === '?' ? search : (search ? '?' + search : '');
+      // Restore scheme: from WhatsApp-safe scheme~ before handing off to the SPA.
+      if (qs) {
+        qs = qs.replace(/([?&]s=)(francetv|tf1|canalgroup|radiofrance|m6group|arte|ia)~/gi, '$1$2:');
+      }
       window.location.replace(window.location.origin + base + '/#/tools/tv-watcher' + qs);
     })();
   </script>

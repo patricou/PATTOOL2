@@ -5,7 +5,8 @@ import { TvChannel } from '../services/api.service';
  * (france.tv / TF1 / Canal / Radio France / M6 group mirrors).
  */
 export function resolveTvStreamUrl(channel: TvChannel | null | undefined): string {
-  const existing = channel?.streamUrl || '';
+  // Share links use scheme~id (WhatsApp-safe); always restore scheme: before play/proxy.
+  const existing = decodeShareStreamToken(channel?.streamUrl || '');
   const lower = existing.toLowerCase();
   if (lower.startsWith('francetv:') || lower.startsWith('tf1:')
       || lower.startsWith('canalgroup:') || lower.startsWith('radiofrance:')
@@ -93,11 +94,11 @@ export function isM6GroupVirtual(url: string): boolean {
 }
 
 export function isArteVirtual(url: string): boolean {
-  return (url || '').toLowerCase().startsWith('arte:');
+  return decodeShareStreamToken(url || '').toLowerCase().startsWith('arte:');
 }
 
 export function isInternetArchiveVirtual(url: string): boolean {
-  return (url || '').toLowerCase().startsWith('ia:');
+  return decodeShareStreamToken(url || '').toLowerCase().startsWith('ia:');
 }
 
 export function isArteLiveVirtual(url: string): boolean {
@@ -132,7 +133,7 @@ export function isKeepAliveVirtualLive(url: string): boolean {
 }
 
 export function arteProgramIdFromVirtualUrl(url: string): string | null {
-  const raw = (url || '').trim();
+  const raw = decodeShareStreamToken(url || '').trim();
   if (!raw.toLowerCase().startsWith('arte:')) {
     return null;
   }
@@ -174,4 +175,108 @@ export function m6GroupSlugFromVirtual(url: string): string | null {
   }
   const slug = lower.slice('m6group:'.length).trim();
   return slug || null;
+}
+
+/** Virtual live / VOD schemes used in PatTool stream tokens. */
+const VIRTUAL_STREAM_SCHEMES =
+  'francetv|tf1|canalgroup|radiofrance|m6group|arte|ia';
+
+/**
+ * WhatsApp (and some messengers) truncate auto-linked URLs when a bare
+ * {@code scheme:} appears inside the query (e.g. {@code ?s=arte:123}). Replace the
+ * first colon with {@code ~} for share links.
+ */
+export function encodeShareStreamToken(stream: string): string {
+  const s = (stream || '').trim();
+  if (!s) {
+    return '';
+  }
+  const re = new RegExp(`^(${VIRTUAL_STREAM_SCHEMES}):`, 'i');
+  return s.replace(re, '$1~');
+}
+
+/** Inverse of {@link encodeShareStreamToken}; also accepts already-raw {@code arte:…} tokens. */
+export function decodeShareStreamToken(stream: string): string {
+  let s = (stream || '').trim();
+  if (!s) {
+    return '';
+  }
+  try {
+    // Some messengers leave a once-encoded tilde (%7E) in the value.
+    if (/%7e/i.test(s) || /%3a/i.test(s)) {
+      s = decodeURIComponent(s);
+    }
+  } catch {
+    /* keep raw */
+  }
+  const re = new RegExp(`^(${VIRTUAL_STREAM_SCHEMES})[~:](.+)$`, 'i');
+  const m = s.match(re);
+  if (m) {
+    return `${m[1].toLowerCase()}:${m[2]}`;
+  }
+  return s;
+}
+
+/**
+ * Rebuild a virtual stream URL from a share channel id when {@code s=} was truncated
+ * (e.g. {@code arte-134388-000-A} → {@code arte:134388-000-A}).
+ */
+export function virtualStreamFromShareChannelId(channelId: string): string {
+  const id = (channelId || '').trim();
+  if (!id) {
+    return '';
+  }
+  const m = id.match(/^(arte|ia)[-_~:](.+)$/i);
+  if (!m) {
+    return '';
+  }
+  return decodeShareStreamToken(`${m[1].toLowerCase()}:${m[2]}`);
+}
+
+/** True when the token is a short non-http virtual stream safe for share query params. */
+export function isShareSafeStreamToken(stream: string, maxLen = 160): boolean {
+  const s = (stream || '').trim();
+  if (!s || s.length > maxLen) {
+    return false;
+  }
+  if (/^https?:\/\//i.test(s) || /:\/\//.test(s)) {
+    return false;
+  }
+  if (/%3A%2F%2F/i.test(s) || /https?%3A/i.test(s)) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Encode channel id / name for share query params.
+ * Messengers often decode {@code %23} back to {@code #} and then truncate the URL
+ * (iptv-org ids like {@code arte.fr@SD#13}). Map {@code #}/{@code @} to safe tokens.
+ */
+export function encodeShareQueryValue(value: string): string {
+  return (value || '')
+    .replace(/~/g, '~~')
+    .replace(/#/g, '~h~')
+    .replace(/@/g, '~a~');
+}
+
+/** Inverse of {@link encodeShareQueryValue}. */
+export function decodeShareQueryValue(value: string): string {
+  const s = value || '';
+  let out = '';
+  for (let i = 0; i < s.length; i++) {
+    if (s.startsWith('~h~', i)) {
+      out += '#';
+      i += 2;
+    } else if (s.startsWith('~a~', i)) {
+      out += '@';
+      i += 2;
+    } else if (s.startsWith('~~', i)) {
+      out += '~';
+      i += 1;
+    } else {
+      out += s.charAt(i);
+    }
+  }
+  return out;
 }

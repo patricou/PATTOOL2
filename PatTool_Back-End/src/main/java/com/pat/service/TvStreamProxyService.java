@@ -68,18 +68,35 @@ public class TvStreamProxyService {
             if (url.isEmpty()) {
                 return Optional.empty();
             }
-            return Optional.of(url);
+            return Optional.of(normalizeShareVirtualUrl(url));
         } catch (IllegalArgumentException e) {
             try {
                 String decoded = URLDecoder.decode(encoded, StandardCharsets.UTF_8);
                 if (decoded.startsWith("http://") || decoded.startsWith("https://")) {
                     return Optional.of(decoded);
                 }
+                String normalized = normalizeShareVirtualUrl(decoded);
+                if (!normalized.equals(decoded) || normalized.contains(":")) {
+                    return Optional.of(normalized);
+                }
             } catch (Exception ignored) {
                 // fall through
             }
             return Optional.empty();
         }
+    }
+
+    /**
+     * WhatsApp-safe share tokens use {@code arte~id} instead of {@code arte:id}.
+     * Restore the colon before resolving / proxying.
+     */
+    public static String normalizeShareVirtualUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return url;
+        }
+        return url.replaceFirst(
+                "(?i)^(francetv|tf1|canalgroup|radiofrance|m6group|arte|ia)~",
+                "$1:");
     }
 
     /**

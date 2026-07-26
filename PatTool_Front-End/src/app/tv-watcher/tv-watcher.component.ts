@@ -19,7 +19,12 @@ import Hls from 'hls.js';
 import { ApiService, ArteProgram, ArteSection, IaProgram, IaSection, TvChannel, TvCountry, TvEpgNow, TvEpgProgramme, TvEpgSearchHit, TvRecording, TvRecordingStatus } from '../services/api.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { TvPlayerService } from '../services/tv-player.service';
+import { environment } from '../../environments/environment';
 import {
+  decodeShareQueryValue,
+  decodeShareStreamToken,
+  encodeShareQueryValue,
+  encodeShareStreamToken,
   isArteReplayVod,
   isArteVirtual,
   isCanalGroupVirtual,
@@ -30,8 +35,10 @@ import {
   isM6GroupVirtual,
   isProgressiveVod,
   isRadioFranceVirtual,
+  isShareSafeStreamToken,
   isTf1Virtual,
-  resolveTvStreamUrl
+  resolveTvStreamUrl,
+  virtualStreamFromShareChannelId
 } from './tv-stream.util';
 import {
   formatTvPlayErrorDisplay,
@@ -239,7 +246,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   private static readonly KEEP_ALIVE_STORAGE_KEY = 'pattool.tv.keep-alive';
   private static readonly CATALOG_COUNT_STORAGE_KEY = 'pattool.tv.catalog-count';
   /** Max length for virtual stream tokens in share links (not full http URLs). */
-  private static readonly SHARE_STREAM_MAX_LEN = 80;
+  private static readonly SHARE_STREAM_MAX_LEN = 160;
   private static readonly EPG_REFRESH_MS = 5 * 60 * 1000;
   private static readonly LANDSCAPE_FS_BODY_CLASS = 'tv-landscape-fs';
 
@@ -1863,7 +1870,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (!channel) {
       return;
     }
-    const { title, text, url } = this.buildSharePayload(channel);
+    // Native share: same as WhatsApp when possible (public HTTPS URL last → clickable).
+    const { title, text } = this.buildSharePayload(channel, { urlFirst: false, publicLink: true });
     const nav = navigator as Navigator & {
       share?: (data: ShareData) => Promise<void>;
     };
@@ -1871,8 +1879,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     try {
-      // Put the URL in `text` as well: many targets (WhatsApp) ignore `url` and only send text.
-      await nav.share({ title, text, url });
+      // Prefer text-only: some targets duplicate `url` when both are set, and put URL first.
+      await nav.share({ title, text });
       this.shareMenuOpen = false;
       this.cdr.markForCheck();
     } catch (err) {
@@ -1891,10 +1899,10 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (!channel) {
       return;
     }
-    // URL first on its own line — WhatsApp linkifies more reliably than trailing URLs.
-    const { text } = this.buildSharePayload(channel, { urlFirst: true });
+    // App runs on localhost:4200, but WhatsApp only linkifies a public HTTPS URL — put it last.
+    const { text } = this.buildSharePayload(channel, { urlFirst: false, publicLink: true });
     window.open(
-      `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`,
+      `https://wa.me/?text=${encodeURIComponent(text)}`,
       '_blank',
       'noopener,noreferrer'
     );
@@ -1909,6 +1917,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (!channel) {
       return;
     }
+    // Copied link stays on current origin (http://localhost:4200 in ng serve).
     const url = this.buildShareDeepLink(channel);
     const ok = await this.copyTextToClipboard(url);
     this.shareFeedback = ok ? 'TV.SHARE_COPIED' : 'TV.SHARE_COPY_FAILED';
@@ -1957,22 +1966,32 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
    */
   private tryOpenSharedChannelFromQuery(): boolean {
     const p = this.route.snapshot.queryParamMap;
-    const id = (p.get('ch') || '').trim();
-    const stream = (p.get('s') || '').trim();
-    const name = (p.get('n') || '').trim();
+    const id = decodeShareQueryValue((p.get('ch') || '').trim());
+    const streamRaw = (p.get('s') || '').trim();
+    let stream = decodeShareStreamToken(streamRaw);
+    if (!stream) {
+      stream = virtualStreamFromShareChannelId(id);
+    }
+    const name = decodeShareQueryValue((p.get('n') || '').trim());
     const country = (p.get('c') || '').trim().toLowerCase();
     if (!id && !stream) {
       return false;
     }
-    if (country) {
+    // Fake catalog codes used by ARTE / Archive.org lists — do not load IPTV for them.
+    if (country && country !== 'arte' && country !== 'ia') {
       this.selectedCountry = country;
+    }
+    if (isArteVirtual(stream) || country === 'arte' || id.toLowerCase().startsWith('arte-') || id.toLowerCase().startsWith('arte.')) {
+      this.listMode = 'arte';
+    } else if (isInternetArchiveVirtual(stream) || country === 'ia' || id.toLowerCase().startsWith('ia-')) {
+      this.listMode = 'ia';
     }
     const draft: TvChannel = {
       id: id || `shared-${(stream || name || 'tv').slice(0, 48)}`,
       name: name || id || 'TV',
-      country: country || this.selectedCountry,
+      country: country === 'arte' || country === 'ia' ? country : (country || this.selectedCountry),
       streamUrl: stream || '',
-      group: '',
+      group: isArteVirtual(stream) ? 'ARTE' : (isInternetArchiveVirtual(stream) ? 'Archive.org' : ''),
       logo: undefined,
       quality: undefined
     };
@@ -2011,8 +2030,14 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
    * Shareable URL without hash in the path (WhatsApp-friendly), via static redirect page.
    * Keep the query short and free of nested http(s) — messengers then auto-link reliably.
    */
-  private buildShareDeepLink(channel: TvChannel): string {
+  private buildShareDeepLink(channel: TvChannel, opts?: { publicLink?: boolean }): string {
     const u = new URL(window.location.href);
+    const host = (u.hostname || '').toLowerCase();
+    const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+    const publicOrigin = ((environment as { sharePublicOrigin?: string }).sharePublicOrigin || '').replace(/\/$/, '');
+    // publicLink: WhatsApp-safe HTTPS host. Otherwise current origin (localhost:4200 in ng serve).
+    const usePublic = !!opts?.publicLink && !!publicOrigin;
+    const origin = usePublic ? publicOrigin : u.origin;
     let path = u.pathname || '/';
     if (path.length > 1 && path.endsWith('/')) {
       path = path.slice(0, -1);
@@ -2029,62 +2054,151 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       if (basePath === '/') {
         basePath = '';
       }
+    } else if (isLocal && usePublic) {
+      // Dev SPA path is not the production base — share from site root.
+      basePath = '';
     } else {
       // Hash-routed SPA: pathname is the deploy base (e.g. /pattool), not the Angular route.
       basePath = path;
     }
     const params = new URLSearchParams();
     if (channel.id) {
-      params.set('ch', channel.id);
+      // Never put raw #/@ in the query — WhatsApp decodes %23 and truncates the link.
+      params.set('ch', encodeShareQueryValue(channel.id));
     }
     const country = (channel.country || this.selectedCountry || '').trim();
-    if (country) {
+    if (this.usesInternetArchive(channel)) {
+      params.set('c', 'ia');
+    } else if (this.usesArteReplay(channel) || this.isArteChannel(channel)) {
+      params.set('c', 'arte');
+    } else if (country) {
       params.set('c', country);
     }
-    const name = (channel.name || '').trim();
-    if (name && name.length <= 80) {
-      params.set('n', name);
+    // Keep ?n= short ASCII only — long UTF-8 titles in the query break WhatsApp linkification.
+    const nameAscii = this.shareAsciiName(channel.name);
+    if (nameAscii) {
+      params.set('n', encodeShareQueryValue(nameAscii));
     }
-    // Only short virtual tokens (francetv:…, tf1:…). Full http(s) stream URLs nested in
-    // ?s= break WhatsApp / iMessage auto-link (they see a second https inside the query).
-    const stream = resolveTvStreamUrl(channel);
-    if (stream && TvWatcherComponent.isShareSafeStreamToken(stream)) {
-      params.set('s', stream);
+    // Virtual tokens only. Encode arte:/ia:/francetv:… as arte~/ia~/… so WhatsApp
+    // does not truncate the link at the bare "scheme:" inside the query string.
+    const stream = this.shareStreamTokenFor(channel);
+    if (stream) {
+      params.set('s', encodeShareStreamToken(stream));
     }
     // Prefer %20 over + — some messengers stop linkifying at +.
     const qs = params.toString().replace(/\+/g, '%20');
-    return `${u.origin}${basePath}/assets/tv-link.html?${qs}`;
+    return `${origin}${basePath}/assets/tv-link.html?${qs}`;
+  }
+
+  /** Short ASCII label for share query {@code n=} (full title stays in the message body). */
+  private shareAsciiName(name: string | null | undefined): string {
+    const raw = (name || '').trim();
+    if (!raw) {
+      return '';
+    }
+    const ascii = raw
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^\w\s.-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return ascii.slice(0, 48);
   }
 
   /**
-   * True for short non-URL stream tokens safe to put in a WhatsApp share link.
-   * Rejects anything that looks like http(s):// (even encoded).
+   * Prefer short virtual tokens for share links. Live ARTE from the IPTV catalog
+   * maps to {@code arte:LIVE} (http stream URLs are not WhatsApp-safe in ?s=).
    */
-  private static isShareSafeStreamToken(stream: string): boolean {
-    const s = (stream || '').trim();
-    if (!s || s.length > TvWatcherComponent.SHARE_STREAM_MAX_LEN) {
-      return false;
+  private shareStreamTokenFor(channel: TvChannel): string {
+    const resolved = resolveTvStreamUrl(channel);
+    if (resolved && isShareSafeStreamToken(resolved, TvWatcherComponent.SHARE_STREAM_MAX_LEN)) {
+      return resolved;
     }
-    if (/^https?:\/\//i.test(s) || s.includes('://')) {
-      return false;
+    if (this.usesInternetArchive(channel)) {
+      const id = internetArchiveIdFromVirtualUrl(resolved) || (channel.id || '').replace(/^ia-/i, '');
+      if (id && isShareSafeStreamToken(`ia:${id}`, TvWatcherComponent.SHARE_STREAM_MAX_LEN)) {
+        return `ia:${id}`;
+      }
     }
-    if (/%3A%2F%2F/i.test(s) || /https?%3A/i.test(s)) {
-      return false;
+    if (this.usesArteReplay(channel) || this.isArteChannel(channel)) {
+      if (isArteVirtual(resolved) && !/^arte:live$/i.test(resolved.trim())) {
+        return resolved;
+      }
+      return 'arte:LIVE';
     }
-    return true;
+    return '';
   }
 
   /** Message + URL formatted so WhatsApp / iMessage make the link tappable. */
   private buildSharePayload(
     channel: TvChannel,
-    opts?: { urlFirst?: boolean }
+    opts?: { urlFirst?: boolean; publicLink?: boolean }
   ): { title: string; text: string; url: string } {
-    const url = this.buildShareDeepLink(channel);
-    const title = channel.name || this.translate.instant('TV.TITLE');
-    const intro = this.translate.instant('TV.SHARE_TEXT', { name: channel.name || title });
-    // Blank line isolates the URL so messengers detect a single clean link.
-    const text = opts?.urlFirst ? `${url}\n\n${intro}` : `${intro}\n\n${url}`;
+    const url = this.buildShareDeepLink(channel, { publicLink: !!opts?.publicLink });
+    const title = (channel.name || '').trim() || this.translate.instant('TV.TITLE');
+    const details = this.buildShareDetailLines(channel);
+    const intro = this.translate.instant('TV.SHARE_TEXT', { name: title });
+    // Default: details + intro, then blank line + URL last (clickable trailing link).
+    const blocks: string[] = opts?.urlFirst
+      ? [url, '', ...details, '', intro]
+      : [...details, '', intro, '', url];
+    const text = blocks.filter((line, i, arr) => !(line === '' && arr[i - 1] === '')).join('\n').trim();
     return { title, text, url };
+  }
+
+  /** Extra lines describing what is being watched (source, programme, duration…). */
+  private buildShareDetailLines(channel: TvChannel): string[] {
+    const lines: string[] = [];
+    const title = (channel.name || '').trim();
+    if (title) {
+      lines.push(`📺 ${title}`);
+    }
+    if (this.usesArteReplay(channel)) {
+      lines.push(this.translate.instant('TV.SHARE_SOURCE_ARTE'));
+      const meta = this.arteMetaFor(channel);
+      if (meta?.subtitle) {
+        lines.push(meta.subtitle);
+      }
+      if (meta?.durationLabel) {
+        lines.push(meta.durationLabel);
+      }
+      if (meta?.availabilityLabel) {
+        lines.push(meta.availabilityLabel);
+      }
+    } else if (this.usesInternetArchive(channel)) {
+      lines.push(this.translate.instant('TV.SHARE_SOURCE_IA'));
+      const meta = this.iaMetaFor(channel);
+      if (meta?.subtitle) {
+        lines.push(meta.subtitle);
+      }
+      if (meta?.durationLabel) {
+        lines.push(meta.durationLabel);
+      }
+      if (meta?.genre) {
+        lines.push(meta.genre);
+      }
+    } else if (this.isArteChannel(channel)) {
+      lines.push(this.translate.instant('TV.SHARE_SOURCE_ARTE_LIVE'));
+      const epg = this.epgFor(channel);
+      const nowTitle = (epg?.now?.title || '').trim();
+      if (nowTitle) {
+        lines.push(this.translate.instant('TV.SHARE_NOW_PLAYING', { title: nowTitle }));
+      }
+    } else {
+      const country = (channel.country || this.selectedCountry || '').trim();
+      if (country && country !== 'all') {
+        lines.push(this.translate.instant('TV.SHARE_COUNTRY', { country: this.countryLabel(country) }));
+      }
+      const epg = this.epgFor(channel);
+      const nowTitle = (epg?.now?.title || '').trim();
+      if (nowTitle) {
+        lines.push(this.translate.instant('TV.SHARE_NOW_PLAYING', { title: nowTitle }));
+      }
+    }
+    if (channel.quality) {
+      lines.push(channel.quality);
+    }
+    return lines.filter(Boolean);
   }
 
   private async copyTextToClipboard(text: string): Promise<boolean> {

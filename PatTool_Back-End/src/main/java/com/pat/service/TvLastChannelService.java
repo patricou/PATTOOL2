@@ -81,6 +81,9 @@ public class TvLastChannelService {
             return null;
         }
         String streamUrl = trimTo(ch.getStreamUrl(), MAX_URL_LEN);
+        if (streamUrl != null) {
+            streamUrl = TvStreamProxyService.normalizeShareVirtualUrl(streamUrl);
+        }
         boolean virtualFranceTv = FranceTvLiveService.isVirtualUrl(streamUrl);
         boolean virtualTf1 = Tf1LiveService.isVirtualUrl(streamUrl);
         boolean virtualCanal = CanalGroupLiveService.isVirtualUrl(streamUrl);

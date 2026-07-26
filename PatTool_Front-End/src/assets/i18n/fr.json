@@ -4985,6 +4985,11 @@
     "SHARE_WHATSAPP": "WhatsApp",
     "SHARE_COPY": "Copier le lien",
     "SHARE_TEXT": "Je regarde {{name}} sur PatTool TV",
+    "SHARE_SOURCE_ARTE": "ARTE Replay",
+    "SHARE_SOURCE_ARTE_LIVE": "ARTE — Direct",
+    "SHARE_SOURCE_IA": "Archive.org",
+    "SHARE_NOW_PLAYING": "En ce moment : {{title}}",
+    "SHARE_COUNTRY": "Pays : {{country}}",
     "SHARE_COPIED": "Lien copié",
     "SHARE_COPY_FAILED": "Impossible de copier le lien",
     "CAT": {
