@@ -13,10 +13,14 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ApiService, TvChannel } from '../services/api.service';
 import { TvPlayerService } from '../services/tv-player.service';
 import {
+  isArteReplayVod,
+  internetArchiveIdFromVirtualUrl,
   isCanalGroupVirtual,
   isFranceTvVirtual,
+  isInternetArchiveVirtual,
   isKeepAliveVirtualLive,
   isM6GroupVirtual,
+  isProgressiveVod,
   isRadioFranceVirtual,
   isTf1Virtual,
   resolveTvStreamUrl
@@ -24,6 +28,7 @@ import {
 import { formatTvPlayErrorDisplay } from './tv-stream-error.util';
 import { startTvHlsPlayback, TvHlsPlaybackHandle } from './tv-hls-playback';
 import { bustVirtualLiveCache, preflightVirtualLive, virtualLiveKeepAliveFromUrl } from './tv-virtual-live-keepalive';
+import { firstValueFrom } from 'rxjs';
 
 /** Minimal typing for the Document Picture-in-Picture API (Chromium). */
 interface DocumentPictureInPicture {
@@ -448,6 +453,39 @@ export class TvPopoutComponent implements OnInit, OnDestroy {
     const keepAlive = virtualLiveKeepAliveFromUrl(streamUrl, this.api);
     const channelId = channel.id || '';
     void (async () => {
+      let playUrl = proxyUrl;
+      let progressive = isProgressiveVod(streamUrl);
+      if (isInternetArchiveVirtual(streamUrl)) {
+        const identifier = internetArchiveIdFromVirtualUrl(streamUrl);
+        if (!identifier) {
+          this.isBuffering = false;
+          this.playError = 'TV.IA_ERR_RESOLVE';
+          this.cdr.markForCheck();
+          return;
+        }
+        try {
+          const resolved = await firstValueFrom(this.api.resolveInternetArchiveItem(identifier));
+          if ((this.channel?.id || '') !== channelId) {
+            return;
+          }
+          if (!resolved?.streamUrl) {
+            this.isBuffering = false;
+            this.playError = 'TV.IA_ERR_RESOLVE';
+            this.cdr.markForCheck();
+            return;
+          }
+          playUrl = resolved.streamUrl;
+          progressive = true;
+        } catch {
+          if ((this.channel?.id || '') !== channelId) {
+            return;
+          }
+          this.isBuffering = false;
+          this.playError = 'TV.IA_ERR_RESOLVE';
+          this.cdr.markForCheck();
+          return;
+        }
+      }
       if (isKeepAliveVirtualLive(streamUrl)) {
         const pre = await preflightVirtualLive(streamUrl, this.api);
         if ((this.channel?.id || '') !== channelId) {
@@ -460,7 +498,9 @@ export class TvPopoutComponent implements OnInit, OnDestroy {
           return;
         }
       }
-      this.playback = startTvHlsPlayback(video, proxyUrl, {
+      this.playback = startTvHlsPlayback(video, playUrl, {
+        vod: isArteReplayVod(streamUrl),
+        progressive,
         onBuffering: (v) => {
           this.isBuffering = v;
           this.cdr.markForCheck();

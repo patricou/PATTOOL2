@@ -178,6 +178,7 @@ public class TvStreamProxyService {
 
         byte[] body = fetched.body;
         String contentType = fetched.contentType != null ? fetched.contentType : MediaType.APPLICATION_OCTET_STREAM_VALUE;
+        contentType = stripSpuriousCharset(contentType);
 
         if (isPlaylist(upstreamUrl, contentType, body)) {
             String rewritten = rewritePlaylist(new String(body, StandardCharsets.UTF_8), upstreamUrl, proxyBase);
@@ -230,12 +231,20 @@ public class TvStreamProxyService {
                         conn.setRequestProperty("priority", "u=1, i");
                     } else if (ref.contains("20minutes.fr")) {
                         conn.setRequestProperty("Origin", "https://www.20minutes.fr");
+                    } else if (ref.contains("arte.tv")) {
+                        conn.setRequestProperty("Origin", "https://www.arte.tv");
+                    } else if (ref.contains("archive.org")) {
+                        conn.setRequestProperty("Origin", "https://archive.org");
                     }
                 } else if (defaultReferrer != null && !defaultReferrer.isBlank()) {
                     conn.setRequestProperty("Referer", defaultReferrer);
                 }
                 if (rangeHeader != null && !rangeHeader.isBlank()) {
                     conn.setRequestProperty("Range", rangeHeader);
+                } else if (looksLikeProgressiveMedia(current)) {
+                    // Progressive MP4 (e.g. Internet Archive) can be hundreds of MB.
+                    // Without Range the 12 MiB cap would abort; seed a first chunk instead.
+                    conn.setRequestProperty("Range", "bytes=0-" + (MAX_BYTES - 1));
                 }
 
                 int code = conn.getResponseCode();
@@ -305,7 +314,26 @@ public class TvStreamProxyService {
         if (h.contains("6cloud.fr") || h.contains("6play.fr") || h.contains("m6web")) {
             return "https://www.6play.fr/";
         }
+        if (h.contains("arte.tv") || h.contains("arte-")
+                || (h.contains("akamaized.net") && h.contains("arte"))) {
+            return "https://www.arte.tv/";
+        }
+        if (h.equals("archive.org") || h.endsWith(".archive.org")) {
+            return "https://archive.org/";
+        }
         return defaultReferrer;
+    }
+
+    private static boolean looksLikeProgressiveMedia(String url) {
+        if (url == null) {
+            return false;
+        }
+        String lower = url.toLowerCase(Locale.ROOT);
+        if (lower.contains(".m3u8") || lower.contains("/manifest") || lower.contains(".mpd")) {
+            return false;
+        }
+        return lower.contains(".mp4") || lower.contains(".webm") || lower.contains(".ogv")
+                || lower.contains("archive.org/download/");
     }
 
     private static String userAgentForHost(String host) {
@@ -318,6 +346,23 @@ public class TvStreamProxyService {
             return IPHONE_USER_AGENT;
         }
         return USER_AGENT;
+    }
+
+    /**
+     * HttpURLConnection sometimes appends {@code ;charset=UTF-8} to binary types like
+     * {@code video/mp4}, which confuses MSE / some players.
+     */
+    private static String stripSpuriousCharset(String contentType) {
+        if (contentType == null || contentType.isBlank()) {
+            return contentType;
+        }
+        String lower = contentType.toLowerCase(Locale.ROOT);
+        if (!(lower.startsWith("video/") || lower.startsWith("audio/") || lower.startsWith("application/octet-stream")
+                || lower.contains("mp2t") || lower.contains("mp4"))) {
+            return contentType;
+        }
+        int semi = contentType.indexOf(';');
+        return semi >= 0 ? contentType.substring(0, semi).trim() : contentType;
     }
 
     private static byte[] readLimited(InputStream in, int maxBytes) throws java.io.IOException {

@@ -74,6 +74,37 @@
         </div>
         <div class="tv-mode-tabs-row tv-mode-tabs-row--secondary">
           <button
+            *ngIf="showArteReplayTab"
+            type="button"
+            class="tv-mode-tab tv-mode-tab--arte"
+            role="tab"
+            [class.active]="listMode === 'arte'"
+            [attr.aria-selected]="listMode === 'arte'"
+            (click)="setListMode('arte')">
+            <i class="fa fa-play-circle me-1" aria-hidden="true"></i>
+            {{ 'TV.TAB_ARTE' | translate }}
+            <span
+              class="badge rounded-pill tv-arte-badge"
+              *ngIf="listMode === 'arte' && arteTotal > 0">
+              {{ arteTotal }}
+            </span>
+          </button>
+          <button
+            type="button"
+            class="tv-mode-tab tv-mode-tab--ia"
+            role="tab"
+            [class.active]="listMode === 'ia'"
+            [attr.aria-selected]="listMode === 'ia'"
+            (click)="setListMode('ia')">
+            <i class="fa fa-film me-1" aria-hidden="true"></i>
+            {{ 'TV.TAB_IA' | translate }}
+            <span
+              class="badge rounded-pill tv-ia-badge"
+              *ngIf="listMode === 'ia' && iaTotal > 0">
+              {{ iaTotal }}
+            </span>
+          </button>
+          <button
             type="button"
             class="tv-mode-tab tv-mode-tab--recordings"
             role="tab"
@@ -196,9 +227,43 @@
             </select>
           </div>
 
-          <div class="tv-filters" [class.tv-filters--search-only]="listMode === 'favorites' || listMode === 'recordings'">
+          <div class="tv-filters" *ngIf="listMode === 'arte'">
+            <label class="form-label small mb-1" for="tv-arte-section">
+              {{ 'TV.ARTE_SECTION' | translate }}
+            </label>
+            <select
+              id="tv-arte-section"
+              class="form-select form-select-sm"
+              [(ngModel)]="arteSection"
+              [disabled]="isLoadingArte || channelQuery.trim().length >= 2"
+              (ngModelChange)="onArteSectionChange()">
+              <option *ngFor="let sec of arteSections" [value]="sec.code">{{ sec.label }}</option>
+            </select>
+            <p class="tv-arte-hint small text-muted mt-1 mb-0" *ngIf="channelQuery.trim().length >= 2">
+              {{ 'TV.ARTE_SEARCH_OVERRIDES_SECTION' | translate }}
+            </p>
+          </div>
+
+          <div class="tv-filters" *ngIf="listMode === 'ia'">
+            <label class="form-label small mb-1" for="tv-ia-section">
+              {{ 'TV.IA_SECTION' | translate }}
+            </label>
+            <select
+              id="tv-ia-section"
+              class="form-select form-select-sm"
+              [(ngModel)]="iaSection"
+              [disabled]="isLoadingIa || channelQuery.trim().length >= 2"
+              (ngModelChange)="onIaSectionChange()">
+              <option *ngFor="let sec of iaSections" [value]="sec.code">{{ sec.label }}</option>
+            </select>
+            <p class="tv-arte-hint small text-muted mt-1 mb-0" *ngIf="channelQuery.trim().length >= 2">
+              {{ 'TV.IA_SEARCH_OVERRIDES_SECTION' | translate }}
+            </p>
+          </div>
+
+          <div class="tv-filters" [class.tv-filters--search-only]="listMode === 'favorites' || listMode === 'recordings' || listMode === 'arte' || listMode === 'ia'">
             <label class="form-label small mb-1" for="tv-search-channel">
-              {{ (listMode === 'recordings' ? 'TV.SEARCH_RECORDING' : 'TV.SEARCH_CHANNEL') | translate }}
+              {{ (listMode === 'recordings' ? 'TV.SEARCH_RECORDING' : (listMode === 'arte' ? 'TV.ARTE_SEARCH' : (listMode === 'ia' ? 'TV.IA_SEARCH' : 'TV.SEARCH_CHANNEL'))) | translate }}
             </label>
             <div class="input-group input-group-sm">
               <input
@@ -207,7 +272,7 @@
                 class="form-control"
                 [ngModel]="channelQuery"
                 (ngModelChange)="onChannelSearchInput($event)"
-                [placeholder]="(listMode === 'recordings' ? 'TV.SEARCH_PLACEHOLDER_RECORDING' : (isAllCountries ? 'TV.SEARCH_PLACEHOLDER_ALL' : 'TV.SEARCH_PLACEHOLDER_CHANNEL')) | translate"
+                [placeholder]="(listMode === 'recordings' ? 'TV.SEARCH_PLACEHOLDER_RECORDING' : (listMode === 'arte' ? 'TV.ARTE_SEARCH_PLACEHOLDER' : (listMode === 'ia' ? 'TV.IA_SEARCH_PLACEHOLDER' : (isAllCountries ? 'TV.SEARCH_PLACEHOLDER_ALL' : 'TV.SEARCH_PLACEHOLDER_CHANNEL')))) | translate"
                 autocomplete="off" />
               <button
                 type="button"
@@ -223,7 +288,7 @@
               {{ 'TV.SEARCH_WORLDWIDE_HINT' | translate }}
             </div>
 
-            <ng-container *ngIf="listMode !== 'recordings'">
+            <ng-container *ngIf="listMode !== 'recordings' && listMode !== 'arte' && listMode !== 'ia'">
             <label class="form-label small mb-1 mt-2" for="tv-search-program">
               {{ 'TV.SEARCH_PROGRAM' | translate }}
             </label>
@@ -256,7 +321,7 @@
         </div>
       </div>
 
-      <div class="tv-channel-meta" *ngIf="listMode === 'catalog' || listMode === 'favorites' || listMode === 'recordings'" role="status">
+      <div class="tv-channel-meta" *ngIf="listMode === 'catalog' || listMode === 'favorites' || listMode === 'recordings' || listMode === 'arte' || listMode === 'ia'" role="status">
         <span *ngIf="listMode === 'catalog' && isLoadingChannels">
           <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
           {{ 'TV.LOADING' | translate }}
@@ -268,6 +333,14 @@
         <span *ngIf="listMode === 'recordings' && isLoadingRecordings">
           <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
           {{ 'TV.RECORDINGS_LOADING' | translate }}
+        </span>
+        <span *ngIf="listMode === 'arte' && isLoadingArte">
+          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
+          {{ 'TV.ARTE_LOADING' | translate }}
+        </span>
+        <span *ngIf="listMode === 'ia' && isLoadingIa">
+          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
+          {{ 'TV.IA_LOADING' | translate }}
         </span>
         <span *ngIf="listMode === 'catalog' && !isLoadingChannels" class="tv-channel-meta-count">
           <i class="fa fa-television me-1" aria-hidden="true"></i>
@@ -291,10 +364,30 @@
           {{ 'TV.RECORDING_COUNT' | translate:{ count: filteredRecordings.length } }}
           <span class="tv-channel-meta-filter" *ngIf="channelQuery.trim()">{{ 'TV.CHANNEL_COUNT_FILTERED' | translate }}</span>
         </span>
+        <span *ngIf="listMode === 'arte' && !isLoadingArte" class="tv-channel-meta-count">
+          <i class="fa fa-play-circle me-1" aria-hidden="true"></i>
+          {{ 'TV.ARTE_COUNT' | translate:{ count: arteTotal || filteredChannelCount } }}
+          <span class="tv-channel-meta-filter" *ngIf="artePages > 1">
+            {{ 'TV.ARTE_PAGE' | translate:{ page: artePage, pages: artePages } }}
+          </span>
+        </span>
+        <span *ngIf="listMode === 'ia' && !isLoadingIa" class="tv-channel-meta-count">
+          <i class="fa fa-film me-1" aria-hidden="true"></i>
+          {{ 'TV.IA_COUNT' | translate:{ count: iaTotal || filteredChannelCount } }}
+          <span class="tv-channel-meta-filter" *ngIf="iaPages > 1">
+            {{ 'TV.IA_PAGE' | translate:{ page: iaPage, pages: iaPages } }}
+          </span>
+        </span>
       </div>
 
       <div *ngIf="channelsError && listMode === 'catalog'" class="alert alert-warning py-2 px-2 small mb-2 mx-2">
         {{ channelsError | translate }}
+      </div>
+      <div *ngIf="arteError && listMode === 'arte'" class="alert alert-warning py-2 px-2 small mb-2 mx-2">
+        {{ arteError | translate }}
+      </div>
+      <div *ngIf="iaError && listMode === 'ia'" class="alert alert-warning py-2 px-2 small mb-2 mx-2">
+        {{ iaError | translate }}
       </div>
       <div *ngIf="favoritesError" class="alert alert-warning py-2 px-2 small mb-2 mx-2">
         {{ favoritesError | translate }}
@@ -344,15 +437,34 @@
                 [class.tv-workaround-badge--canal]="usesCanalGroupWorkaround(ch)"
                 [class.tv-workaround-badge--radio]="usesRadioFranceWorkaround(ch)"
                 [class.tv-workaround-badge--m6]="usesM6GroupWorkaround(ch)"
+                [class.tv-workaround-badge--arte]="usesArteReplay(ch)"
+                [class.tv-workaround-badge--ia]="usesInternetArchive(ch)"
                 [attr.title]="workaroundHintKey(ch) | translate">
                 {{ workaroundBadgeKey(ch) | translate }}
               </span>
             </span>
-            <span class="tv-channel-epg" *ngIf="channelListEpgLine(ch) as epgLine" [attr.title]="epgLine.title">
+            <span class="tv-channel-epg" *ngIf="listMode !== 'arte' && listMode !== 'ia' && channelListEpgLine(ch) as epgLine" [attr.title]="epgLine.title">
               <span class="tv-channel-epg-label">{{ epgLine.labelKey | translate }}</span>
               {{ epgLine.title }}
             </span>
-            <span class="tv-channel-group" *ngIf="ch.group || channelCountryCode(ch)">
+            <span class="tv-channel-epg" *ngIf="listMode === 'arte' && arteMetaFor(ch) as meta">
+              <ng-container *ngIf="meta.subtitle">{{ meta.subtitle }}</ng-container>
+              <ng-container *ngIf="meta.subtitle && meta.availabilityLabel"> · </ng-container>
+              <ng-container *ngIf="meta.availabilityLabel">{{ meta.availabilityLabel }}</ng-container>
+              <ng-container *ngIf="!meta.subtitle && !meta.availabilityLabel && meta.description">
+                {{ meta.description }}
+              </ng-container>
+            </span>
+            <span class="tv-channel-epg" *ngIf="listMode === 'ia' && iaMetaFor(ch) as meta">
+              <ng-container *ngIf="meta.subtitle">{{ meta.subtitle }}</ng-container>
+              <ng-container *ngIf="meta.subtitle && meta.description"> · </ng-container>
+              <ng-container *ngIf="meta.description">{{ meta.description }}</ng-container>
+            </span>
+            <span class="tv-channel-group" *ngIf="(listMode === 'arte' || listMode === 'ia') && ch.group">
+              <i class="fa fa-clock-o tv-group-icon" aria-hidden="true"></i>
+              {{ ch.group }}
+            </span>
+            <span class="tv-channel-group" *ngIf="listMode !== 'arte' && listMode !== 'ia' && (ch.group || channelCountryCode(ch))">
               <span
                 *ngIf="countryFlagCode(channelCountryCode(ch)) as flagCode"
                 class="fi fi-{{ flagCode }} tv-fi-flag tv-channel-flag"
@@ -385,7 +497,49 @@
         <li *ngIf="listMode === 'favorites' && !isLoadingFavorites && !displayedChannels.length" class="tv-empty text-muted small">
           {{ (isLoggedIn ? 'TV.NO_FAVORITES' : 'TV.FAVORITES_LOGIN') | translate }}
         </li>
+        <li *ngIf="listMode === 'arte' && !isLoadingArte && !displayedChannels.length" class="tv-empty text-muted small">
+          {{ 'TV.ARTE_EMPTY' | translate }}
+        </li>
+        <li *ngIf="listMode === 'ia' && !isLoadingIa && !displayedChannels.length" class="tv-empty text-muted small">
+          {{ 'TV.IA_EMPTY' | translate }}
+        </li>
       </ul>
+
+      <div class="tv-arte-pager" *ngIf="listMode === 'arte' && artePages > 1" role="navigation" [attr.aria-label]="'TV.ARTE_PAGER' | translate">
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          (click)="artePrevPage()"
+          [disabled]="artePage <= 1 || isLoadingArte">
+          <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        </button>
+        <span class="tv-arte-pager-label">{{ 'TV.ARTE_PAGE' | translate:{ page: artePage, pages: artePages } }}</span>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          (click)="arteNextPage()"
+          [disabled]="artePage >= artePages || isLoadingArte">
+          <i class="fa fa-chevron-right" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="tv-arte-pager" *ngIf="listMode === 'ia' && iaPages > 1" role="navigation" [attr.aria-label]="'TV.IA_PAGER' | translate">
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          (click)="iaPrevPage()"
+          [disabled]="iaPage <= 1 || isLoadingIa">
+          <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        </button>
+        <span class="tv-arte-pager-label">{{ 'TV.IA_PAGE' | translate:{ page: iaPage, pages: iaPages } }}</span>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          (click)="iaNextPage()"
+          [disabled]="iaPage >= iaPages || isLoadingIa">
+          <i class="fa fa-chevron-right" aria-hidden="true"></i>
+        </button>
+      </div>
 
       <ul
         class="tv-channel-list tv-recording-list"
@@ -474,7 +628,7 @@
         (mouseenter)="onTvPointerEnter()"
         (mousemove)="onTvPointerMove()"
         (mouseleave)="onTvPointerLeave()"
-        (touchstart)="onTvPointerEnter()">
+        (touchstart)="onTvTouchStart($event)">
         <div
           class="tv-video-wrap"
           [class.tv-video-wrap--empty]="!selectedChannel || isFloatingOpen">
@@ -552,7 +706,9 @@
             *ngIf="selectedChannel"
             [class.tv-chrome--hidden]="!chromeVisible"
             [class.tv-chrome--share-open]="shareMenuOpen"
-            [attr.aria-hidden]="!chromeVisible">
+            [hidden]="!chromeVisible"
+            [attr.aria-hidden]="!chromeVisible"
+            [attr.inert]="!chromeVisible ? '' : null">
             <div class="tv-now-playing">
               <div
                 class="tv-now-actions"
@@ -729,7 +885,14 @@
             </div>
           </div>
 
-          <div class="tv-program-panel" *ngIf="selectedChannel" (click)="$event.stopPropagation()">
+          <div
+            class="tv-program-panel"
+            *ngIf="selectedChannel"
+            [class.tv-program-panel--hidden]="!chromeVisible"
+            [hidden]="!chromeVisible"
+            [attr.aria-hidden]="!chromeVisible"
+            [attr.inert]="!chromeVisible ? '' : null"
+            (click)="$event.stopPropagation()">
               <div class="tv-now-info">
                 <img
                   *ngIf="selectedChannel.logo"

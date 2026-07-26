@@ -14,14 +14,19 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
+import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 import org.springframework.core.Ordered;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -144,6 +149,8 @@ public class SecurityConfig {
                 .referrerPolicy(referrer -> referrer.policy(ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
             )
             .oauth2ResourceServer(oauth2 -> oauth2
+                // <video>/<audio src> cannot send Authorization; allow access_token on GET /api/video/**
+                .bearerTokenResolver(videoAwareBearerTokenResolver())
                 .jwt(jwt -> jwt
                     .jwkSetUri(jwkSetUri)
                     .jwtAuthenticationConverter(jwtAuthenticationConverter())
@@ -268,6 +275,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/groups").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/epg/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/live/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/tv/arte/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/tv/ia/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/stream", "/api/external/tv/stream/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/recordings/status").permitAll()
                 // World radio catalog + stream proxy (radio-browser.info) — public read-only
@@ -339,6 +348,31 @@ public class SecurityConfig {
             );
         
         return http.build();
+    }
+
+    /**
+     * Resolves JWT from the Authorization header by default. For progressive media
+     * playback ({@code <video src="/api/video/...">}), also accepts {@code access_token}
+     * as a query parameter — browsers cannot attach Authorization on media element requests.
+     * Scoped to GET {@code /api/video/**} to avoid leaking tokens into unrelated API logs.
+     */
+    private BearerTokenResolver videoAwareBearerTokenResolver() {
+        DefaultBearerTokenResolver headerResolver = new DefaultBearerTokenResolver();
+        return (HttpServletRequest request) -> {
+            String fromHeader = headerResolver.resolve(request);
+            if (StringUtils.hasText(fromHeader)) {
+                return fromHeader;
+            }
+            if (!HttpMethod.GET.matches(request.getMethod())) {
+                return null;
+            }
+            String path = request.getRequestURI();
+            if (path == null || !path.contains("/api/video/")) {
+                return null;
+            }
+            String fromQuery = request.getParameter("access_token");
+            return StringUtils.hasText(fromQuery) ? fromQuery.trim() : null;
+        };
     }
 
     @Bean

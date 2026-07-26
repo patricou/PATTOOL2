@@ -12,18 +12,23 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { Subject, Subscription, forkJoin, of } from 'rxjs';
+import { Subject, Subscription, forkJoin, of, firstValueFrom } from 'rxjs';
 import { debounceTime, distinctUntilChanged, catchError } from 'rxjs/operators';
 import Hls from 'hls.js';
 
-import { ApiService, TvChannel, TvCountry, TvEpgNow, TvEpgProgramme, TvEpgSearchHit, TvRecording, TvRecordingStatus } from '../services/api.service';
+import { ApiService, ArteProgram, ArteSection, IaProgram, IaSection, TvChannel, TvCountry, TvEpgNow, TvEpgProgramme, TvEpgSearchHit, TvRecording, TvRecordingStatus } from '../services/api.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { TvPlayerService } from '../services/tv-player.service';
 import {
+  isArteReplayVod,
+  isArteVirtual,
   isCanalGroupVirtual,
   isFranceTvVirtual,
+  internetArchiveIdFromVirtualUrl,
+  isInternetArchiveVirtual,
   isKeepAliveVirtualLive,
   isM6GroupVirtual,
+  isProgressiveVod,
   isRadioFranceVirtual,
   isTf1Virtual,
   resolveTvStreamUrl
@@ -50,7 +55,7 @@ import { bustVirtualLiveCache, preflightVirtualLive, virtualLiveKeepAliveFromUrl
 import { MediaCatalogCacheToolbarComponent } from '../shared/media-catalog-cache-toolbar/media-catalog-cache-toolbar.component';
 import { TvEpgBrowserComponent } from './tv-epg-browser.component';
 
-type TvListMode = 'catalog' | 'favorites' | 'recordings';
+type TvListMode = 'catalog' | 'favorites' | 'recordings' | 'arte' | 'ia';
 
 @Component({
   selector: 'app-tv-watcher',
@@ -92,8 +97,30 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   private filtersCollapsedByMode: Record<TvListMode, boolean> = {
     catalog: true,
     favorites: true,
-    recordings: true
+    recordings: true,
+    arte: false,
+    ia: false
   };
+
+  /** ARTE replay catalog (proxied EMAC). */
+  arteSections: ArteSection[] = [];
+  arteSection = 'MOST_RECENT';
+  artePage = 1;
+  artePages = 1;
+  arteTotal = 0;
+  isLoadingArte = false;
+  arteError = '';
+  private arteMetaById = new Map<string, ArteProgram>();
+
+  /** Internet Archive movie catalog. */
+  iaSections: IaSection[] = [];
+  iaSection = 'FEATURE_FILMS';
+  iaPage = 1;
+  iaPages = 1;
+  iaTotal = 0;
+  isLoadingIa = false;
+  iaError = '';
+  private iaMetaById = new Map<string, IaProgram>();
 
   isLoadingCountries = false;
   isLoadingChannels = false;
@@ -204,7 +231,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   private hlsRecoverAttempts: TvHlsRecoverAttempts = { network: 0, media: 0 };
   /** One auto re-resolve per play attempt when france.tv Akamai token returns 403. */
   private franceTvTokenRefreshAttempted = false;
-  private static readonly CHROME_HIDE_MS = 3000;
+  private static readonly CHROME_HIDE_MS = 2000;
   private static readonly LAST_CHANNEL_STORAGE_KEY = 'pattool.tv.last-channel';
   private static readonly KEEP_ALIVE_STORAGE_KEY = 'pattool.tv.keep-alive';
   private static readonly CATALOG_COUNT_STORAGE_KEY = 'pattool.tv.catalog-count';
@@ -249,6 +276,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (this.listMode === 'catalog' && this.selectedGroup) {
       return true;
     }
+    if (this.listMode === 'arte' && this.arteSection && this.arteSection !== 'MOST_RECENT') {
+      return true;
+    }
+    if (this.listMode === 'ia' && this.iaSection && this.iaSection !== 'FEATURE_FILMS') {
+      return true;
+    }
     return false;
   }
 
@@ -275,6 +308,10 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   get displayedChannels(): TvChannel[] {
     if (this.listMode === 'recordings') {
       return [];
+    }
+    if (this.listMode === 'arte' || this.listMode === 'ia') {
+      // Server already filters by section / search query.
+      return this.channels;
     }
     const source = this.listMode === 'favorites' ? this.favorites : this.channels;
     const channelQ = this.channelQuery.trim().toLowerCase();
@@ -473,7 +510,13 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.channelSearchSub = this.channelSearch$
       .pipe(debounceTime(280), distinctUntilChanged())
       .subscribe(() => {
-        if (this.listMode === 'catalog' && this.isAllCountries) {
+        if (this.listMode === 'arte') {
+          this.artePage = 1;
+          this.loadArtePrograms();
+        } else if (this.listMode === 'ia') {
+          this.iaPage = 1;
+          this.loadIaPrograms();
+        } else if (this.listMode === 'catalog' && this.isAllCountries) {
           this.loadChannels();
         } else {
           this.cdr.markForCheck();
@@ -605,7 +648,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     setTimeout(() => {
       this.landscapeFsSuppressDismiss = false;
     }, 0);
-    this.cdr.markForCheck();
+    // Landscape used showChrome(false) (sticky). Re-arm auto-hide for portrait.
+    if (this.selectedChannel) {
+      this.showChrome(true);
+    } else {
+      this.cdr.markForCheck();
+    }
   }
 
   @HostListener('window:orientationchange')
@@ -851,9 +899,11 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   onDocumentClick(event: MouseEvent): void {
     const target = event.target as HTMLElement | null;
     let changed = false;
+    let closedOverlay = false;
     if (this.shareMenuOpen && !target?.closest?.('.tv-share-wrap')) {
       this.shareMenuOpen = false;
       changed = true;
+      closedOverlay = true;
     }
     if (this.countryMenuOpen && !target?.closest?.('.tv-country-picker')) {
       this.countryMenuOpen = false;
@@ -862,13 +912,23 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (changed) {
       this.cdr.markForCheck();
     }
+    if (closedOverlay) {
+      this.scheduleChromeHide();
+    }
   }
 
   onTvPointerEnter(): void {
+    // Touch devices fire synthetic mouseenter that would keep the chrome sticky.
+    if (this.isMobileLikeViewport()) {
+      return;
+    }
     this.showChrome(true);
   }
 
   onTvPointerMove(): void {
+    if (this.isMobileLikeViewport()) {
+      return;
+    }
     if (!this.chromeVisible) {
       this.showChrome(true);
     } else {
@@ -877,12 +937,26 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   onTvPointerLeave(): void {
+    if (this.isMobileLikeViewport()) {
+      return;
+    }
     this.scheduleChromeHide(800);
+  }
+
+  /** Mobile: tap the TV to show controls, then auto-hide after 2s. */
+  onTvTouchStart(event?: TouchEvent): void {
+    const target = event?.target as HTMLElement | null;
+    // Touches on interactive chrome controls already keep the bar via their handlers.
+    if (target?.closest?.('.tv-now-action, .tv-volume-slider-wrap, .tv-record-duration, .tv-share-wrap, .tv-keep-alive, .tv-epg-guide-toggle, .tv-epg-guide, a, button, input, select, label')) {
+      this.scheduleChromeHide();
+      return;
+    }
+    this.showChrome(true);
   }
 
   private showChrome(scheduleHide: boolean): void {
     this.chromeVisible = true;
-    this.cdr.markForCheck();
+    this.cdr.detectChanges();
     if (scheduleHide) {
       this.scheduleChromeHide();
     } else {
@@ -892,20 +966,37 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   private scheduleChromeHide(delayMs = TvWatcherComponent.CHROME_HIDE_MS): void {
     this.clearChromeHideTimer();
-    // Keep the bar while the share menu / EPG guide is open. Mute no longer blocks
-    // auto-hide (mobile unmute uses the separate on-video hint).
+    // Keep the bar while the share menu / EPG guide is open.
     if (!this.selectedChannel || this.shareMenuOpen || this.guideOpen) {
       return;
     }
     this.chromeHideTimer = setTimeout(() => {
-      if (this.shareMenuOpen || this.guideOpen) {
-        this.chromeHideTimer = null;
+      this.chromeHideTimer = null;
+      if (this.shareMenuOpen || this.guideOpen || !this.selectedChannel) {
         return;
       }
-      this.chromeVisible = false;
-      this.chromeHideTimer = null;
-      this.cdr.markForCheck();
+      this.hideChrome();
     }, delayMs);
+  }
+
+  /** Hide player chrome without leaving focus inside an aria-hidden ancestor. */
+  private hideChrome(): void {
+    if (!this.chromeVisible) {
+      return;
+    }
+    this.blurFocusInsideChrome();
+    this.chromeVisible = false;
+    this.cdr.detectChanges();
+  }
+
+  private blurFocusInsideChrome(): void {
+    const active = typeof document !== 'undefined' ? document.activeElement : null;
+    if (!(active instanceof HTMLElement)) {
+      return;
+    }
+    if (active.closest('.tv-chrome, .tv-program-panel')) {
+      active.blur();
+    }
   }
 
   private clearChromeHideTimer(): void {
@@ -920,6 +1011,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.channelsError = '';
     this.favoritesHint = '';
     this.recordingsHint = '';
+    this.arteError = '';
+    this.iaError = '';
     this.countryMenuOpen = false;
     if (mode === 'favorites' && !this.isLoggedIn) {
       this.favoritesHint = 'TV.FAVORITES_LOGIN';
@@ -933,15 +1026,30 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     }
     if (mode === 'catalog') {
       this.loadCatalogCount();
-      if (!this.channels.length && !this.isLoadingChannels) {
-        this.loadChannels();
-      }
+      // Always reload: channels may still hold ARTE programmes from the replay tab.
+      this.loadChannels();
       if (!this.filtersCollapsed && this.isAllCountries && !this.groups.length) {
         this.ensureWorldwideGroups();
       }
     }
+    if (mode === 'arte') {
+      this.channelQuery = '';
+      this.programQuery = '';
+      if (!this.arteSections.length) {
+        this.loadArteSections();
+      }
+      this.loadArtePrograms();
+    }
+    if (mode === 'ia') {
+      this.channelQuery = '';
+      this.programQuery = '';
+      if (!this.iaSections.length) {
+        this.loadIaSections();
+      }
+      this.loadIaPrograms();
+    }
     this.refreshEpg();
-    if (this.programQuery.trim().length >= 2) {
+    if (mode !== 'arte' && mode !== 'ia' && this.programQuery.trim().length >= 2) {
       this.runProgramSearch(this.programQuery.trim().toLowerCase());
     }
     this.cdr.markForCheck();
@@ -1079,6 +1187,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.guideOpen = false;
     this.guideError = '';
     this.guideSub?.unsubscribe();
+    this.scheduleChromeHide();
     this.cdr.markForCheck();
   }
 
@@ -1280,6 +1389,15 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.franceTvTokenRefreshAttempted = false;
     this.showChrome(true);
     this.persistLastWatchedChannel(channel);
+    // Leave ARTE / IA replay list when switching to a live catalog channel.
+    if (this.listMode === 'arte' && !this.isArteChannel(channel)) {
+      this.listMode = 'catalog';
+      this.loadChannels();
+    }
+    if (this.listMode === 'ia' && !this.usesInternetArchive(channel)) {
+      this.listMode = 'catalog';
+      this.loadChannels();
+    }
     if (!this.epgFor(channel)) {
       this.refreshEpg();
     }
@@ -1570,15 +1688,57 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     return isM6GroupVirtual(resolveTvStreamUrl(channel));
   }
 
+  /** True when this item is an ARTE replay / live virtual stream. */
+  usesArteReplay(channel: TvChannel | null | undefined): boolean {
+    return isArteVirtual(resolveTvStreamUrl(channel));
+  }
+
+  /** True when this item is an Internet Archive movie virtual stream. */
+  usesInternetArchive(channel: TvChannel | null | undefined): boolean {
+    return isInternetArchiveVirtual(resolveTvStreamUrl(channel));
+  }
+
+  /** Show ARTE Replay tab only while watching an ARTE channel (live IPTV or arte: stream). */
+  get showArteReplayTab(): boolean {
+    return this.isArteChannel(this.selectedChannel);
+  }
+
+  isArteChannel(channel: TvChannel | null | undefined): boolean {
+    if (!channel) {
+      return false;
+    }
+    if (this.usesArteReplay(channel)) {
+      return true;
+    }
+    if ((channel.country || '').trim().toLowerCase() === 'arte') {
+      return true;
+    }
+    const name = (channel.name || '').trim().toLowerCase();
+    // ARTE, ARTE HD, ARTE FHD, ARTE (1080p), …
+    if (/^arte(\b|[\s\-_.(]|hd|fhd|sd|uhd|4k)/i.test(name)) {
+      return true;
+    }
+    const url = (channel.streamUrl || '').toLowerCase();
+    return url.includes('arte.tv') || url.includes('arte:');
+  }
+
   usesOfficialWorkaround(channel: TvChannel | null | undefined): boolean {
     return this.usesFranceTvWorkaround(channel)
       || this.usesTf1Workaround(channel)
       || this.usesCanalGroupWorkaround(channel)
       || this.usesRadioFranceWorkaround(channel)
-      || this.usesM6GroupWorkaround(channel);
+      || this.usesM6GroupWorkaround(channel)
+      || this.usesArteReplay(channel)
+      || this.usesInternetArchive(channel);
   }
 
   workaroundBadgeKey(channel: TvChannel | null | undefined): string {
+    if (this.usesInternetArchive(channel)) {
+      return 'TV.WORKAROUND_BADGE_IA';
+    }
+    if (this.usesArteReplay(channel)) {
+      return 'TV.WORKAROUND_BADGE_ARTE';
+    }
     if (this.usesTf1Workaround(channel)) {
       return 'TV.WORKAROUND_BADGE_TF1';
     }
@@ -1595,6 +1755,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   workaroundHintKey(channel: TvChannel | null | undefined): string {
+    if (this.usesInternetArchive(channel)) {
+      return 'TV.WORKAROUND_HINT_IA';
+    }
+    if (this.usesArteReplay(channel)) {
+      return 'TV.WORKAROUND_HINT_ARTE';
+    }
     if (this.usesTf1Workaround(channel)) {
       return 'TV.WORKAROUND_HINT_TF1';
     }
@@ -1611,6 +1777,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   workaroundActiveKey(channel: TvChannel | null | undefined): string {
+    if (this.usesInternetArchive(channel)) {
+      return 'TV.WORKAROUND_ACTIVE_IA';
+    }
+    if (this.usesArteReplay(channel)) {
+      return 'TV.WORKAROUND_ACTIVE_ARTE';
+    }
     if (this.usesTf1Workaround(channel)) {
       return 'TV.WORKAROUND_ACTIVE_TF1';
     }
@@ -2181,6 +2353,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   /** Fetch now/next EPG for the channel pool (batched). */
   private refreshEpg(): void {
+    if (this.listMode === 'arte' || this.listMode === 'ia' || this.listMode === 'recordings') {
+      return;
+    }
     const pool =
       this.listMode === 'favorites' ? this.favorites || [] : this.channels || [];
     const byCountry = new Map<string, string[]>();
@@ -2309,6 +2484,189 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         this.tf1Configured = null;
       }
     });
+  }
+
+  onArteSectionChange(): void {
+    this.artePage = 1;
+    this.loadArtePrograms();
+  }
+
+  artePrevPage(): void {
+    if (this.artePage <= 1 || this.isLoadingArte) {
+      return;
+    }
+    this.artePage -= 1;
+    this.loadArtePrograms();
+  }
+
+  arteNextPage(): void {
+    if (this.artePage >= this.artePages || this.isLoadingArte) {
+      return;
+    }
+    this.artePage += 1;
+    this.loadArtePrograms();
+  }
+
+  arteMetaFor(channel: TvChannel | null | undefined): ArteProgram | null {
+    if (!channel?.id) {
+      return null;
+    }
+    return this.arteMetaById.get(channel.id) || null;
+  }
+
+  private loadArteSections(): void {
+    this.api.getArteSections('fr').subscribe({
+      next: (res) => {
+        this.arteSections = res?.sections || [];
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.arteSections = [
+          { code: 'MOST_RECENT', label: 'Plus récentes' },
+          { code: 'MOST_VIEWED', label: 'Plus vues' },
+          { code: 'LAST_CHANCE', label: 'Dernière chance' }
+        ];
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private loadArtePrograms(): void {
+    this.isLoadingArte = true;
+    this.arteError = '';
+    const q = this.channelQuery.trim();
+    this.api.getArtePrograms({
+      lang: 'fr',
+      section: this.arteSection || 'MOST_RECENT',
+      q: q.length >= 2 ? q : undefined,
+      page: this.artePage
+    }).subscribe({
+      next: (res) => {
+        this.artePage = res?.page || 1;
+        this.artePages = Math.max(1, res?.pages || 1);
+        this.arteTotal = res?.total || 0;
+        this.arteMetaById.clear();
+        const programs = res?.programs || [];
+        this.channels = programs.map((p) => {
+          this.arteMetaById.set(p.id, p);
+          return this.arteProgramToChannel(p);
+        });
+        this.isLoadingArte = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.channels = [];
+        this.arteTotal = 0;
+        this.artePages = 1;
+        this.isLoadingArte = false;
+        this.arteError = 'TV.ARTE_ERR_LOAD';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private arteProgramToChannel(p: ArteProgram): TvChannel {
+    const metaBits = [p.durationLabel, p.genre].filter(Boolean).join(' · ');
+    return {
+      id: p.id || `arte-${p.programId}`,
+      name: p.title,
+      logo: p.imageUrl,
+      group: metaBits || 'ARTE',
+      country: 'arte',
+      streamUrl: p.streamUrl || `arte:${p.programId}`,
+      quality: p.live ? 'LIVE' : (p.durationLabel || undefined)
+    };
+  }
+
+  onIaSectionChange(): void {
+    this.iaPage = 1;
+    this.loadIaPrograms();
+  }
+
+  iaPrevPage(): void {
+    if (this.iaPage <= 1 || this.isLoadingIa) {
+      return;
+    }
+    this.iaPage -= 1;
+    this.loadIaPrograms();
+  }
+
+  iaNextPage(): void {
+    if (this.iaPage >= this.iaPages || this.isLoadingIa) {
+      return;
+    }
+    this.iaPage += 1;
+    this.loadIaPrograms();
+  }
+
+  iaMetaFor(channel: TvChannel | null | undefined): IaProgram | null {
+    if (!channel?.id) {
+      return null;
+    }
+    return this.iaMetaById.get(channel.id) || null;
+  }
+
+  private loadIaSections(): void {
+    this.api.getIaSections().subscribe({
+      next: (res) => {
+        this.iaSections = res?.sections || [];
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.iaSections = [
+          { code: 'FEATURE_FILMS', label: 'Films (feature films)' },
+          { code: 'CLASSIC_FILMS', label: 'Classiques' },
+          { code: 'MOST_DOWNLOADED', label: 'Les plus téléchargés' }
+        ];
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private loadIaPrograms(): void {
+    this.isLoadingIa = true;
+    this.iaError = '';
+    const q = this.channelQuery.trim();
+    this.api.getIaPrograms({
+      section: this.iaSection || 'FEATURE_FILMS',
+      q: q.length >= 2 ? q : undefined,
+      page: this.iaPage
+    }).subscribe({
+      next: (res) => {
+        this.iaPage = res?.page || 1;
+        this.iaPages = Math.max(1, res?.pages || 1);
+        this.iaTotal = res?.total || 0;
+        this.iaMetaById.clear();
+        const programs = res?.programs || [];
+        this.channels = programs.map((p) => {
+          this.iaMetaById.set(p.id, p);
+          return this.iaProgramToChannel(p);
+        });
+        this.isLoadingIa = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.channels = [];
+        this.iaTotal = 0;
+        this.iaPages = 1;
+        this.isLoadingIa = false;
+        this.iaError = 'TV.IA_ERR_LOAD';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private iaProgramToChannel(p: IaProgram): TvChannel {
+    const metaBits = [p.durationLabel, p.subtitle || p.genre].filter(Boolean).join(' · ');
+    return {
+      id: p.id || `ia-${p.programId}`,
+      name: p.title,
+      logo: p.imageUrl,
+      group: metaBits || 'Archive.org',
+      country: 'ia',
+      streamUrl: p.streamUrl || `ia:${p.programId}`,
+      quality: p.durationLabel || undefined
+    };
   }
 
   private applyFavorites(list: TvChannel[]): void {
@@ -2606,8 +2964,13 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   playRecording(rec: TvRecording, event?: Event): void {
     event?.stopPropagation();
     event?.preventDefault();
-    const url = this.api.tvRecordingMediaUrl(rec);
-    if (!url || rec.status !== 'DONE') {
+    if (rec.status !== 'DONE') {
+      return;
+    }
+    // Sync token so <video src> stays inside the click gesture (Bearer cannot be set on media elements).
+    const token = this.keycloak.getTokenSync();
+    const url = this.api.tvRecordingMediaUrl(rec, token || undefined);
+    if (!url) {
       return;
     }
     const video = this.videoEl?.nativeElement;
@@ -2633,19 +2996,33 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.applyAudioToVideo(video, { muted: false, ensureVolume: true });
     video.src = url;
     video.load();
-    const p = video.play();
-    if (p && typeof p.then === 'function') {
-      p.then(() => {
+    const tryPlay = (allowMuteFallback = true) => {
+      this.applyAudioToVideo(video, { muted: allowMuteFallback ? false : true, ensureVolume: true });
+      const p = video.play();
+      if (p && typeof p.then === 'function') {
+        p.then(() => {
+          this.isBuffering = false;
+          this.syncMuteFromVideo();
+          this.cdr.markForCheck();
+        }).catch((err: unknown) => {
+          const name =
+            err && typeof err === 'object' && 'name' in err ? String((err as { name: string }).name) : '';
+          if (name === 'AbortError') {
+            return;
+          }
+          if (allowMuteFallback && name === 'NotAllowedError') {
+            tryPlay(false);
+            return;
+          }
+          this.isBuffering = false;
+          this.playError = 'TV.ERR_RECORD_PLAY';
+          this.cdr.markForCheck();
+        });
+      } else {
         this.isBuffering = false;
-        this.cdr.markForCheck();
-      }).catch(() => {
-        this.isBuffering = false;
-        this.playError = 'TV.ERR_RECORD_PLAY';
-        this.cdr.markForCheck();
-      });
-    } else {
-      this.isBuffering = false;
-    }
+      }
+    };
+    tryPlay(true);
     this.showChrome(true);
     this.cdr.markForCheck();
   }
@@ -2769,6 +3146,45 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     proxyUrl: string,
     playGen: number
   ): Promise<void> {
+    let effectiveStreamUrl = streamUrl;
+    let effectiveProxyUrl = proxyUrl;
+
+    if (isInternetArchiveVirtual(streamUrl)) {
+      const identifier = internetArchiveIdFromVirtualUrl(streamUrl);
+      if (!identifier) {
+        this.isBuffering = false;
+        this.playError = 'TV.ERR_STREAM';
+        this.showChrome(true);
+        this.cdr.markForCheck();
+        return;
+      }
+      try {
+        const resolved = await firstValueFrom(this.api.resolveInternetArchiveItem(identifier));
+        if (playGen !== this.playGeneration) {
+          return;
+        }
+        if (!resolved?.streamUrl) {
+          this.isBuffering = false;
+          this.playError = 'TV.IA_ERR_RESOLVE';
+          this.showChrome(true);
+          this.cdr.markForCheck();
+          return;
+        }
+        effectiveStreamUrl = resolved.streamUrl;
+        // archive.org serves CORS * — play MP4 directly (avoid proxying multi‑GB files).
+        effectiveProxyUrl = resolved.streamUrl;
+      } catch {
+        if (playGen !== this.playGeneration) {
+          return;
+        }
+        this.isBuffering = false;
+        this.playError = 'TV.IA_ERR_RESOLVE';
+        this.showChrome(true);
+        this.cdr.markForCheck();
+        return;
+      }
+    }
+
     if (isKeepAliveVirtualLive(streamUrl)) {
       const pre = await preflightVirtualLive(streamUrl, this.api);
       if (playGen !== this.playGeneration) {
@@ -2811,13 +3227,16 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
           }
           if (allowMuteFallback && !this.isMuted) {
             // Autoplay with sound blocked (async HLS loses user gesture) — start muted.
+            // Still auto-hide chrome: unmute uses the on-video hint, not a sticky bar.
             this.applyAudioToVideo(video, { muted: true, ensureVolume: true });
-            this.showChrome(false);
+            this.showChrome(true);
             tryPlay(false);
             return;
           }
           this.isBuffering = false;
-          this.playError = 'TV.ERR_PLAY';
+          this.playError = isInternetArchiveVirtual(streamUrl) || isProgressiveVod(effectiveStreamUrl)
+            ? 'TV.IA_ERR_PLAY'
+            : 'TV.ERR_PLAY';
           this.showChrome(true);
           this.cdr.markForCheck();
         });
@@ -2826,24 +3245,50 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       }
     };
 
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = proxyUrl;
+    // Progressive MP4 (Internet Archive) — do not feed through hls.js.
+    if (isProgressiveVod(effectiveStreamUrl) || isInternetArchiveVirtual(streamUrl)) {
+      video.src = effectiveProxyUrl;
+      video.playbackRate = 1;
       const onNativeError = () => {
-        void this.reportPlayStreamError(proxyUrl, playGen);
+        if (playGen !== this.playGeneration) {
+          return;
+        }
+        this.isBuffering = false;
+        this.playError = 'TV.IA_ERR_PLAY';
+        this.showChrome(true);
+        this.cdr.markForCheck();
       };
       video.addEventListener('error', onNativeError, { once: true });
+      video.addEventListener('loadeddata', () => tryPlay(), { once: true });
       tryPlay();
       return;
     }
 
+    // Prefer hls.js whenever available. Chromium/Electron often reports
+    // canPlayType('application/vnd.apple.mpegurl') as "maybe" without real native
+    // HLS — that path hangs on proxied ARTE CMAF (demuxed) VOD.
     if (Hls.isSupported()) {
-      this.hls = new Hls(createTvHlsConfig());
-      this.hls.loadSource(proxyUrl);
+      const vod = isArteReplayVod(streamUrl);
+      this.hls = new Hls(createTvHlsConfig(vod ? 'vod' : 'live'));
+      this.hls.loadSource(effectiveProxyUrl);
       this.hls.attachMedia(video);
       video.playbackRate = 1;
-      this.detachHlsLiveSync = attachTvHlsLiveSyncWatchdog(this.hls, video);
-      this.bindWatcherHlsHandlers(this.hls, channel, proxyUrl, playGen, tryPlay);
-      this.startFranceTvKeeperIfNeeded(channel, proxyUrl, playGen, tryPlay);
+      // Never attach live-edge seek on ARTE replay — it jumps straight to the end.
+      this.detachHlsLiveSync = vod
+        ? null
+        : attachTvHlsLiveSyncWatchdog(this.hls, video);
+      this.bindWatcherHlsHandlers(this.hls, channel, effectiveProxyUrl, playGen, tryPlay);
+      this.startFranceTvKeeperIfNeeded(channel, effectiveProxyUrl, playGen, tryPlay);
+      return;
+    }
+
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = effectiveProxyUrl;
+      const onNativeError = () => {
+        void this.reportPlayStreamError(effectiveProxyUrl, playGen);
+      };
+      video.addEventListener('error', onNativeError, { once: true });
+      tryPlay();
       return;
     }
 
@@ -2955,7 +3400,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
           /* ignore */
         }
         this.hls = next;
-        this.detachHlsLiveSync = attachTvHlsLiveSyncWatchdog(next, media);
+        this.detachHlsLiveSync = isArteReplayVod(resolveTvStreamUrl(channel))
+          ? null
+          : attachTvHlsLiveSyncWatchdog(next, media);
         this.bindWatcherHlsHandlers(next, channel, proxyUrl, playGen, tryPlay);
       }
     });
@@ -3071,12 +3518,11 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (pct > 0) {
       video.muted = false;
       this.isMuted = false;
-      this.scheduleChromeHide();
     } else {
       video.muted = true;
       this.isMuted = true;
-      this.showChrome(false);
     }
+    this.scheduleChromeHide();
     this.cdr.markForCheck();
   }
 

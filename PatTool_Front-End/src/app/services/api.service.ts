@@ -2317,6 +2317,93 @@ export class ApiService {
     }>(this.API_URL + 'external/tv/live/m6group/' + encodeURIComponent(slug), { params });
   }
 
+  /** GET /api/external/tv/arte/sections — ARTE replay section codes. */
+  getArteSections(lang = 'fr'): Observable<ArteSectionsResponse> {
+    const params = new HttpParams().set('lang', lang);
+    return this._http.get<ArteSectionsResponse>(this.API_URL + 'external/tv/arte/sections', { params });
+  }
+
+  /** GET /api/external/tv/arte/programs — ARTE EMAC catalog / search (proxied). */
+  getArtePrograms(options?: {
+    lang?: string;
+    section?: string;
+    q?: string;
+    page?: number;
+  }): Observable<ArteProgramsResponse> {
+    let params = new HttpParams()
+      .set('lang', options?.lang || 'fr')
+      .set('section', options?.section || 'MOST_RECENT')
+      .set('page', String(options?.page && options.page > 0 ? options.page : 1));
+    const q = (options?.q || '').trim();
+    if (q) {
+      params = params.set('q', q);
+    }
+    return this._http.get<ArteProgramsResponse>(this.API_URL + 'external/tv/arte/programs', { params });
+  }
+
+  /** GET /api/external/tv/arte/resolve/{programId} — resolve ARTE HLS (proxied metadata). */
+  resolveArteProgram(programId: string, lang = 'fr', fresh = false): Observable<{
+    programId: string;
+    lang: string;
+    streamUrl: string;
+    virtualUrl: string;
+    expiresAtEpoch: number;
+  }> {
+    let params = new HttpParams().set('lang', lang);
+    if (fresh) {
+      params = params.set('fresh', 'true');
+    }
+    return this._http.get<{
+      programId: string;
+      lang: string;
+      streamUrl: string;
+      virtualUrl: string;
+      expiresAtEpoch: number;
+    }>(this.API_URL + 'external/tv/arte/resolve/' + encodeURIComponent(programId), { params });
+  }
+
+  /** GET /api/external/tv/ia/sections — Internet Archive curated sections. */
+  getIaSections(): Observable<IaSectionsResponse> {
+    return this._http.get<IaSectionsResponse>(this.API_URL + 'external/tv/ia/sections');
+  }
+
+  /** GET /api/external/tv/ia/programs — Internet Archive movie catalog / search. */
+  getIaPrograms(options?: {
+    section?: string;
+    q?: string;
+    page?: number;
+  }): Observable<IaProgramsResponse> {
+    let params = new HttpParams()
+      .set('section', options?.section || 'FEATURE_FILMS')
+      .set('page', String(options?.page && options.page > 0 ? options.page : 1));
+    const q = (options?.q || '').trim();
+    if (q) {
+      params = params.set('q', q);
+    }
+    return this._http.get<IaProgramsResponse>(this.API_URL + 'external/tv/ia/programs', { params });
+  }
+
+  /** GET /api/external/tv/ia/resolve/{identifier} — resolve Archive.org progressive media URL. */
+  resolveInternetArchiveItem(identifier: string, fresh = false): Observable<{
+    identifier: string;
+    streamUrl: string;
+    virtualUrl: string;
+    progressive: boolean;
+    expiresAtEpoch: number;
+  }> {
+    let params = new HttpParams();
+    if (fresh) {
+      params = params.set('fresh', 'true');
+    }
+    return this._http.get<{
+      identifier: string;
+      streamUrl: string;
+      virtualUrl: string;
+      progressive: boolean;
+      expiresAtEpoch: number;
+    }>(this.API_URL + 'external/tv/ia/resolve/' + encodeURIComponent(identifier), { params });
+  }
+
   /** Proxied HLS / media URL for a channel stream (Base64-URL path segment). */
   tvStreamProxyUrl(streamUrl: string): string {
     const bytes = new TextEncoder().encode(streamUrl);
@@ -2444,19 +2531,30 @@ export class ApiService {
   }
 
   /** Absolute playback URL for a finished recording (GridFS via VideoController). */
-  tvRecordingMediaUrl(recording: TvRecording): string {
+  tvRecordingMediaUrl(recording: TvRecording, accessToken?: string): string {
+    let url = '';
     if (recording?.mediaUrl) {
       if (recording.mediaUrl.startsWith('http://') || recording.mediaUrl.startsWith('https://')) {
-        return recording.mediaUrl;
+        url = recording.mediaUrl;
+      } else {
+        // mediaUrl is typically "/api/video/{id}" — strip leading /api/ if API_URL already ends with /api/
+        const path = recording.mediaUrl.replace(/^\/api\//, '');
+        url = this.API_URL + path;
       }
-      // mediaUrl is typically "/api/video/{id}" — strip leading /api/ if API_URL already ends with /api/
-      const path = recording.mediaUrl.replace(/^\/api\//, '');
-      return this.API_URL + path;
+    } else if (recording?.gridFsFileId) {
+      url = this.API_URL + 'video/' + recording.gridFsFileId;
     }
-    if (recording?.gridFsFileId) {
-      return this.API_URL + 'video/' + recording.gridFsFileId;
+    if (!url) {
+      return '';
     }
-    return '';
+    // <video src> cannot send Authorization; Spring accepts access_token on GET /api/video/**
+    const params = new URLSearchParams();
+    params.set('quality', 'high');
+    if (accessToken) {
+      params.set('access_token', accessToken);
+    }
+    const sep = url.includes('?') ? '&' : '?';
+    return url + sep + params.toString();
   }
 
   // ===================================================================
@@ -3415,6 +3513,79 @@ export interface TvChannel {
   country?: string;
   streamUrl: string;
   quality?: string;
+}
+
+/** GET /api/external/tv/arte/programs */
+export interface ArteProgram {
+  id: string;
+  programId: string;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  imageUrl?: string;
+  durationLabel?: string;
+  durationSec?: number;
+  availabilityLabel?: string;
+  remainingDays?: number;
+  kind?: string;
+  genre?: string;
+  webpageUrl?: string;
+  streamUrl: string;
+  live?: boolean;
+  playable?: boolean;
+}
+
+export interface ArteSection {
+  code: string;
+  label: string;
+}
+
+export interface ArteSectionsResponse {
+  lang: string;
+  sections: ArteSection[];
+}
+
+export interface ArteProgramsResponse {
+  lang: string;
+  section: string;
+  page: number;
+  pages: number;
+  total: number;
+  programs: ArteProgram[];
+}
+
+/** GET /api/external/tv/ia/programs — Internet Archive movies */
+export interface IaProgram {
+  id: string;
+  programId: string;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  imageUrl?: string;
+  durationLabel?: string;
+  durationSec?: number;
+  kind?: string;
+  genre?: string;
+  webpageUrl?: string;
+  streamUrl: string;
+  playable?: boolean;
+}
+
+export interface IaSection {
+  code: string;
+  label: string;
+}
+
+export interface IaSectionsResponse {
+  sections: IaSection[];
+}
+
+export interface IaProgramsResponse {
+  section: string;
+  page: number;
+  pages: number;
+  total: number;
+  programs: IaProgram[];
 }
 
 /** GET /api/external/app/user-parameters */

@@ -11,11 +11,11 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
 
 import { ApiService, TvChannel } from '../services/api.service';
 import { TvFloatingState, TvPlayerService } from '../services/tv-player.service';
-import { isCanalGroupVirtual, isFranceTvVirtual, isKeepAliveVirtualLive, isM6GroupVirtual, isRadioFranceVirtual, isTf1Virtual, resolveTvStreamUrl } from '../tv-watcher/tv-stream.util';
+import { isCanalGroupVirtual, isFranceTvVirtual, isArteReplayVod, isInternetArchiveVirtual, internetArchiveIdFromVirtualUrl, isKeepAliveVirtualLive, isM6GroupVirtual, isProgressiveVod, isRadioFranceVirtual, isTf1Virtual, resolveTvStreamUrl } from '../tv-watcher/tv-stream.util';
 import { formatTvPlayErrorDisplay } from './tv-stream-error.util';
 import { startTvHlsPlayback, TvHlsPlaybackHandle } from './tv-hls-playback';
 import { bustVirtualLiveCache, preflightVirtualLive, virtualLiveKeepAliveFromUrl } from './tv-virtual-live-keepalive';
@@ -471,9 +471,45 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
     this.playError = '';
     this.isBuffering = true;
     const streamUrl = resolveTvStreamUrl(channel);
-    const proxyUrl = this.api.tvStreamProxyUrl(streamUrl);
+    let proxyUrl = this.api.tvStreamProxyUrl(streamUrl);
     const keepAlive = virtualLiveKeepAliveFromUrl(streamUrl, this.api);
     void (async () => {
+      let playUrl = proxyUrl;
+      let progressive = isProgressiveVod(streamUrl);
+      if (isInternetArchiveVirtual(streamUrl)) {
+        const identifier = internetArchiveIdFromVirtualUrl(streamUrl);
+        if (!identifier) {
+          this.isBuffering = false;
+          this.playError = 'TV.IA_ERR_RESOLVE';
+          this.cdr.markForCheck();
+          this.suppressPipHostClose = false;
+          return;
+        }
+        try {
+           const resolved = await firstValueFrom(this.api.resolveInternetArchiveItem(identifier));
+          if (!this.state.open || this.state.pipHostOnly || this.state.channel?.id !== channel.id) {
+            return;
+          }
+          if (!resolved?.streamUrl) {
+            this.isBuffering = false;
+            this.playError = 'TV.IA_ERR_RESOLVE';
+            this.cdr.markForCheck();
+            this.suppressPipHostClose = false;
+            return;
+          }
+          playUrl = resolved.streamUrl;
+          progressive = true;
+        } catch {
+          if (!this.state.open || this.state.pipHostOnly || this.state.channel?.id !== channel.id) {
+            return;
+          }
+          this.isBuffering = false;
+          this.playError = 'TV.IA_ERR_RESOLVE';
+          this.cdr.markForCheck();
+          this.suppressPipHostClose = false;
+          return;
+        }
+      }
       if (isKeepAliveVirtualLive(streamUrl)) {
         const pre = await preflightVirtualLive(streamUrl, this.api);
         if (!this.state.open || this.state.pipHostOnly || this.state.channel?.id !== channel.id) {
@@ -487,7 +523,9 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
           return;
         }
       }
-      this.playback = startTvHlsPlayback(video, proxyUrl, {
+      this.playback = startTvHlsPlayback(video, playUrl, {
+        vod: isArteReplayVod(streamUrl),
+        progressive,
         onBuffering: (v) => {
           this.isBuffering = v;
           this.cdr.markForCheck();

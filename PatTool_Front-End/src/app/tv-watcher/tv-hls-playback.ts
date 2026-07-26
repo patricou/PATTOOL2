@@ -34,6 +34,10 @@ export interface TvHlsPlaybackCallbacks {
     resolveMeta: (fresh: boolean) => Promise<FranceTvResolveMeta | null>;
     onRenewed?: () => void;
   };
+  /** Use VOD HLS tuning (ARTE replay). Skips live-edge seek watchdog. */
+  vod?: boolean;
+  /** Progressive MP4/WebM (Internet Archive) — use video.src instead of hls.js. */
+  progressive?: boolean;
 }
 
 export interface TvHlsPlaybackHandle {
@@ -159,7 +163,7 @@ export function startTvHlsPlayback(
           /* ignore */
         }
         hls = next;
-        detachLiveSync = attachTvHlsLiveSyncWatchdog(next, media);
+        detachLiveSync = callbacks.vod ? null : attachTvHlsLiveSyncWatchdog(next, media);
         bindHlsHandlers(next);
       }
     });
@@ -204,21 +208,40 @@ export function startTvHlsPlayback(
     }
   };
 
-  if (video.canPlayType('application/vnd.apple.mpegurl')) {
+  // Prefer hls.js whenever available. Chromium/Electron often reports
+  // canPlayType('application/vnd.apple.mpegurl') as "maybe" without real native
+  // HLS — that path hangs on proxied ARTE CMAF (demuxed) VOD.
+  if (callbacks.progressive) {
+    video.src = proxyUrl;
+    video.playbackRate = 1;
+    const onNativeError = () => {
+      void reportFatalStreamError();
+    };
+    video.addEventListener('error', onNativeError, { once: true });
+    video.addEventListener(
+      'loadeddata',
+      () => {
+        tryPlay();
+      },
+      { once: true }
+    );
+    tryPlay();
+  } else if (Hls.isSupported()) {
+    const vod = !!callbacks.vod;
+    hls = new Hls(createTvHlsConfig(vod ? 'vod' : 'live'));
+    hls.loadSource(proxyUrl);
+    hls.attachMedia(video);
+    video.playbackRate = 1;
+    detachLiveSync = vod ? null : attachTvHlsLiveSyncWatchdog(hls, video);
+    bindHlsHandlers(hls);
+    startKeeperIfNeeded();
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
     video.src = proxyUrl;
     const onNativeError = () => {
       void reportFatalStreamError();
     };
     video.addEventListener('error', onNativeError, { once: true });
     tryPlay();
-  } else if (Hls.isSupported()) {
-    hls = new Hls(createTvHlsConfig());
-    hls.loadSource(proxyUrl);
-    hls.attachMedia(video);
-    video.playbackRate = 1;
-    detachLiveSync = attachTvHlsLiveSyncWatchdog(hls, video);
-    bindHlsHandlers(hls);
-    startKeeperIfNeeded();
   } else {
     setBuffering(false);
     setError('TV.ERR_UNSUPPORTED');

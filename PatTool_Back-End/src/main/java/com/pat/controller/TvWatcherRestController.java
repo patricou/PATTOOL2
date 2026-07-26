@@ -9,8 +9,10 @@ import com.pat.controller.dto.TvEpgSearchHitDto;
 import com.pat.controller.dto.TvFavoritesDto;
 import com.pat.controller.dto.TvRecordingDto;
 import com.pat.controller.dto.TvRecordingStartRequest;
+import com.pat.service.ArteReplayService;
 import com.pat.service.CanalGroupLiveService;
 import com.pat.service.FranceTvLiveService;
+import com.pat.service.InternetArchiveReplayService;
 import com.pat.service.M6GroupLiveService;
 import com.pat.service.RadioFranceLiveService;
 import com.pat.service.Tf1LiveService;
@@ -65,6 +67,12 @@ import java.util.stream.Collectors;
  *   <li>{@code GET /api/external/tv/epg/schedule}</li>
  *   <li>{@code GET /api/external/tv/epg/search}</li>
  *   <li>{@code GET /api/external/tv/stream/{base64url}}</li>
+ *   <li>{@code GET /api/external/tv/arte/sections}</li>
+ *   <li>{@code GET /api/external/tv/arte/programs}</li>
+ *   <li>{@code GET /api/external/tv/arte/resolve/{programId}}</li>
+ *   <li>{@code GET /api/external/tv/ia/sections}</li>
+ *   <li>{@code GET /api/external/tv/ia/programs}</li>
+ *   <li>{@code GET /api/external/tv/ia/resolve/{identifier}}</li>
  * </ul>
  * Authenticated (per JWT subject):
  * <ul>
@@ -106,6 +114,12 @@ public class TvWatcherRestController {
 
     @Autowired
     private M6GroupLiveService m6GroupLiveService;
+
+    @Autowired
+    private ArteReplayService arteReplayService;
+
+    @Autowired
+    private InternetArchiveReplayService internetArchiveReplayService;
 
     @Autowired
     private TvEpgService tvEpgService;
@@ -489,7 +503,9 @@ public class TvWatcherRestController {
                 || Tf1LiveService.isVirtualUrl(trimmed)
                 || CanalGroupLiveService.isVirtualUrl(trimmed)
                 || RadioFranceLiveService.isVirtualUrl(trimmed)
-                || M6GroupLiveService.isVirtualUrl(trimmed))) {
+                || M6GroupLiveService.isVirtualUrl(trimmed)
+                || ArteReplayService.isVirtualUrl(trimmed)
+                || InternetArchiveReplayService.isVirtualUrl(trimmed))) {
             return TvStreamProxyService.jsonError(HttpStatus.BAD_REQUEST, "invalid_url",
                     "L’URL doit être http(s) ou un flux live virtuel supporté");
         }
@@ -534,7 +550,9 @@ public class TvWatcherRestController {
         }
         return FranceTvLiveService.isVirtualUrl(upstream)
                 || Tf1LiveService.isVirtualUrl(upstream)
-                || M6GroupLiveService.isVirtualUrl(upstream);
+                || M6GroupLiveService.isVirtualUrl(upstream)
+                || ArteReplayService.isVirtualUrl(upstream)
+                || InternetArchiveReplayService.isVirtualUrl(upstream);
     }
 
     private Optional<String> refreshVirtualLiveUpstream(String upstream) {
@@ -550,6 +568,16 @@ public class TvWatcherRestController {
             M6GroupLiveService.slugFromVirtualUrl(upstream).ifPresent(m6GroupLiveService::invalidate);
             return m6GroupLiveService.resolveVirtualOrPassthrough(upstream, true);
         }
+        if (ArteReplayService.isVirtualUrl(upstream)) {
+            ArteReplayService.programIdFromVirtualUrl(upstream)
+                    .ifPresent(id -> arteReplayService.invalidate(id, "fr"));
+            return arteReplayService.resolveVirtualOrPassthrough(upstream, true);
+        }
+        if (InternetArchiveReplayService.isVirtualUrl(upstream)) {
+            InternetArchiveReplayService.identifierFromVirtualUrl(upstream)
+                    .ifPresent(internetArchiveReplayService::invalidate);
+            return internetArchiveReplayService.resolveVirtualOrPassthrough(upstream, true);
+        }
         return Optional.empty();
     }
 
@@ -558,7 +586,9 @@ public class TvWatcherRestController {
                 || Tf1LiveService.isVirtualUrl(url)
                 || CanalGroupLiveService.isVirtualUrl(url)
                 || RadioFranceLiveService.isVirtualUrl(url)
-                || M6GroupLiveService.isVirtualUrl(url);
+                || M6GroupLiveService.isVirtualUrl(url)
+                || ArteReplayService.isVirtualUrl(url)
+                || InternetArchiveReplayService.isVirtualUrl(url);
     }
 
     /** Resolve a france.tv live channel to a fresh signed HLS URL (JSON). */
@@ -680,6 +710,134 @@ public class TvWatcherRestController {
         ));
     }
 
+    /**
+     * ARTE replay catalog sections (EMAC v4 codes).
+     */
+    @GetMapping("/arte/sections")
+    public ResponseEntity<Map<String, Object>> arteSections(
+            @RequestParam(value = "lang", defaultValue = "fr") String lang) {
+        String language = arteReplayService.normalizeLang(lang);
+        List<Map<String, String>> sections = arteReplayService.sections().entrySet().stream()
+                .map(e -> Map.of("code", e.getKey(), "label", e.getValue()))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofHours(6)).cachePublic())
+                .body(Map.of("lang", language, "sections", sections));
+    }
+
+    /**
+     * ARTE replay / VOD listing (EMAC v4). Search when {@code q} has ≥ 2 characters.
+     */
+    @GetMapping("/arte/programs")
+    public ResponseEntity<Map<String, Object>> artePrograms(
+            @RequestParam(value = "lang", defaultValue = "fr") String lang,
+            @RequestParam(value = "section", defaultValue = "MOST_RECENT") String section,
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "page", defaultValue = "1") int page) {
+        ArteReplayService.ArteCatalogResult result = arteReplayService.listPrograms(lang, section, q, page);
+        Map<String, Object> body = new HashMap<>();
+        body.put("lang", result.language());
+        body.put("section", result.section());
+        body.put("page", result.page());
+        body.put("pages", result.pages());
+        body.put("total", result.total());
+        body.put("programs", result.programs());
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(2)).cachePublic().mustRevalidate())
+                .body(body);
+    }
+
+    /**
+     * Resolve an ARTE program (or {@code LIVE}) to an upstream HLS URL.
+     */
+    @GetMapping("/arte/resolve/{programId}")
+    public ResponseEntity<?> resolveArte(
+            @PathVariable("programId") String programId,
+            @RequestParam(value = "lang", defaultValue = "fr") String lang,
+            @RequestParam(value = "fresh", defaultValue = "false") boolean fresh) {
+        if (!arteReplayService.isValidProgramId(programId)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "invalid_arte_program_id"));
+        }
+        Optional<String> hls = arteReplayService.resolveHlsUrl(programId, lang, fresh);
+        if (hls.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of(
+                    "error", "arte_resolve_failed",
+                    "message", "Impossible de résoudre le flux ARTE (droits expirés, géo-restriction ou programme indisponible)"
+            ));
+        }
+        long expiresAtEpoch = Instant.now().plus(Duration.ofMinutes(8)).getEpochSecond();
+        String id = "LIVE".equalsIgnoreCase(programId.trim()) ? "LIVE" : programId.trim();
+        return ResponseEntity.ok(Map.of(
+                "programId", id,
+                "lang", arteReplayService.normalizeLang(lang),
+                "streamUrl", hls.get(),
+                "virtualUrl", ArteReplayService.virtualUrl(id),
+                "expiresAtEpoch", expiresAtEpoch
+        ));
+    }
+
+    /**
+     * Internet Archive curated sections (feature films collections).
+     */
+    @GetMapping("/ia/sections")
+    public ResponseEntity<Map<String, Object>> iaSections() {
+        List<Map<String, String>> sections = internetArchiveReplayService.sections().entrySet().stream()
+                .map(e -> Map.of("code", e.getKey(), "label", e.getValue()))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofHours(6)).cachePublic())
+                .body(Map.of("sections", sections));
+    }
+
+    /**
+     * Internet Archive movie listing (Advanced Search). Search when {@code q} has ≥ 2 characters.
+     */
+    @GetMapping("/ia/programs")
+    public ResponseEntity<Map<String, Object>> iaPrograms(
+            @RequestParam(value = "section", defaultValue = "FEATURE_FILMS") String section,
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "page", defaultValue = "1") int page) {
+        InternetArchiveReplayService.IaCatalogResult result =
+                internetArchiveReplayService.listPrograms(section, q, page);
+        Map<String, Object> body = new HashMap<>();
+        body.put("section", result.section());
+        body.put("page", result.page());
+        body.put("pages", result.pages());
+        body.put("total", result.total());
+        body.put("programs", result.programs());
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(2)).cachePublic())
+                .body(body);
+    }
+
+    /**
+     * Resolve an Internet Archive identifier to a progressive MP4/HLS download URL.
+     */
+    @GetMapping("/ia/resolve/{identifier}")
+    public ResponseEntity<?> resolveInternetArchive(
+            @PathVariable("identifier") String identifier,
+            @RequestParam(value = "fresh", defaultValue = "false") boolean fresh) {
+        if (!internetArchiveReplayService.isValidIdentifier(identifier)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "invalid_ia_identifier"));
+        }
+        Optional<String> stream = internetArchiveReplayService.resolveStreamUrl(identifier, fresh);
+        if (stream.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of(
+                    "error", "ia_resolve_failed",
+                    "message", "Impossible de résoudre le fichier vidéo Archive.org (item dark, sans MP4, ou indisponible)"
+            ));
+        }
+        String id = identifier.trim();
+        long expiresAtEpoch = Instant.now().plus(Duration.ofMinutes(30)).getEpochSecond();
+        return ResponseEntity.ok(Map.of(
+                "identifier", id,
+                "streamUrl", stream.get(),
+                "virtualUrl", InternetArchiveReplayService.virtualUrl(id),
+                "progressive", true,
+                "expiresAtEpoch", expiresAtEpoch
+        ));
+    }
+
     private Optional<String> resolveLiveUpstream(String url) {
         if (Tf1LiveService.isVirtualUrl(url)) {
             return tf1LiveService.resolveVirtualOrPassthrough(url);
@@ -695,6 +853,12 @@ public class TvWatcherRestController {
         }
         if (M6GroupLiveService.isVirtualUrl(url)) {
             return m6GroupLiveService.resolveVirtualOrPassthrough(url);
+        }
+        if (ArteReplayService.isVirtualUrl(url)) {
+            return arteReplayService.resolveVirtualOrPassthrough(url);
+        }
+        if (InternetArchiveReplayService.isVirtualUrl(url)) {
+            return internetArchiveReplayService.resolveVirtualOrPassthrough(url);
         }
         return Optional.of(url);
     }
@@ -749,6 +913,32 @@ public class TvWatcherRestController {
                 return TvStreamProxyService.jsonError(HttpStatus.BAD_GATEWAY, "m6group_resolve_failed",
                         "M6+ officiel est protégé DRM — aucun miroir IPTV public disponible. "
                                 + "Regardez sur https://www.m6.fr/m6/direct");
+            }
+            return null;
+        }
+        if (ArteReplayService.isVirtualUrl(url)) {
+            Optional<String> programId = ArteReplayService.programIdFromVirtualUrl(url);
+            if (programId.isEmpty()) {
+                return TvStreamProxyService.jsonError(HttpStatus.BAD_REQUEST, "unknown_arte_program",
+                        "Identifiant ARTE invalide");
+            }
+            Optional<String> hls = arteReplayService.resolveHlsUrl(programId.get(), "fr");
+            if (hls.isEmpty() || !StringUtils.hasText(hls.get())) {
+                return TvStreamProxyService.jsonError(HttpStatus.BAD_GATEWAY, "arte_resolve_failed",
+                        "Impossible de résoudre le flux ARTE (droits / géo / indisponible)");
+            }
+            return null;
+        }
+        if (InternetArchiveReplayService.isVirtualUrl(url)) {
+            Optional<String> identifier = InternetArchiveReplayService.identifierFromVirtualUrl(url);
+            if (identifier.isEmpty()) {
+                return TvStreamProxyService.jsonError(HttpStatus.BAD_REQUEST, "unknown_ia_item",
+                        "Identifiant Internet Archive invalide");
+            }
+            Optional<String> stream = internetArchiveReplayService.resolveStreamUrl(identifier.get());
+            if (stream.isEmpty() || !StringUtils.hasText(stream.get())) {
+                return TvStreamProxyService.jsonError(HttpStatus.BAD_GATEWAY, "ia_resolve_failed",
+                        "Impossible de résoudre le fichier vidéo Archive.org");
             }
             return null;
         }

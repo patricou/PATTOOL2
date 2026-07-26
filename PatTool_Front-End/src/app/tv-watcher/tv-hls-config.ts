@@ -1,23 +1,30 @@
 import Hls, { type HlsConfig } from 'hls.js';
 
+export type TvHlsPlaybackMode = 'live' | 'vod';
+
 /**
- * Shared hls.js options tuned for IPTV live (proxy HLS).
+ * Shared hls.js options.
+ * {@code live} — IPTV / live FTA (france.tv, TF1, ARTE LIVE…).
+ * {@code vod} — ARTE replay and other finite HLS (no live-edge seeking).
  *
  * Important: do NOT raise {@code maxLiveSyncPlaybackRate} above 1 — speeding up
  * the element to catch the live edge is a known cause of progressive A/V (lip-sync) drift
  * in hls.js / Chromium (see video-dev/hls.js#5220). Prefer a hard seek back to the live edge.
  */
-export function createTvHlsConfig(): Partial<HlsConfig> {
+export function createTvHlsConfig(mode: TvHlsPlaybackMode = 'live'): Partial<HlsConfig> {
+  const vod = mode === 'vod';
   return {
     enableWorker: true,
     lowLatencyMode: false,
     // Keep buffers modest so audio/video tracks stay aligned on flaky IPTV mirrors.
-    maxBufferLength: 12,
-    maxMaxBufferLength: 24,
-    backBufferLength: 18,
+    maxBufferLength: vod ? 30 : 12,
+    maxMaxBufferLength: vod ? 60 : 24,
+    backBufferLength: vod ? 30 : 18,
     liveSyncDurationCount: 3,
     liveMaxLatencyDurationCount: 6,
-    liveDurationInfinity: true,
+    // Must stay false for VOD: with true, hls.js exposes a liveSyncPosition near the
+    // end and our live-edge watchdog seeks the replay straight to the finale.
+    liveDurationInfinity: !vod,
     // Must stay 1 — values > 1 desync lipsync over time.
     maxLiveSyncPlaybackRate: 1,
     highBufferWatchdogPeriod: 1,
@@ -28,6 +35,22 @@ export function createTvHlsConfig(): Partial<HlsConfig> {
       xhr.withCredentials = false;
     }
   };
+}
+
+/** True when the active media playlist is a live sliding window (not VOD / EVENT ended). */
+export function isTvHlsLivePlaylist(hls: Hls | null | undefined): boolean {
+  if (!hls) {
+    return false;
+  }
+  const level =
+    (hls.currentLevel >= 0 ? hls.levels[hls.currentLevel] : null)
+    || hls.levels.find((l) => !!l?.details)
+    || null;
+  const details = level?.details;
+  if (details) {
+    return !!details.live;
+  }
+  return false;
 }
 
 /**
@@ -112,7 +135,7 @@ export function resyncTvHlsAv(hls: Hls | null, video: HTMLVideoElement): boolean
   }
 
   let target: number | null = null;
-  if (hls) {
+  if (hls && isTvHlsLivePlaylist(hls)) {
     const liveSync = hls.liveSyncPosition;
     if (liveSync != null && Number.isFinite(liveSync)) {
       target = liveSync;
@@ -120,7 +143,15 @@ export function resyncTvHlsAv(hls: Hls | null, video: HTMLVideoElement): boolean
   }
   if (target == null && video.buffered.length > 0) {
     try {
+      // VOD / unknown: nudge slightly behind the buffer tip (not to "live edge").
       target = video.buffered.end(video.buffered.length - 1) - 0.35;
+      // Prefer staying near the current playhead when already buffered.
+      if (Number.isFinite(video.currentTime) && video.currentTime > 0) {
+        const cur = video.currentTime;
+        if (cur < (target as number)) {
+          target = cur;
+        }
+      }
     } catch {
       target = null;
     }
@@ -154,6 +185,9 @@ export function resyncTvHlsAv(hls: Hls | null, video: HTMLVideoElement): boolean
  * Keep live playback near the edge and hard-seek when lag builds up.
  * Seeking resets video+audio SourceBuffers together (fixes lip-sync drift better than
  * changing {@code playbackRate}).
+ * <p>
+ * No-op for VOD (e.g. ARTE replay): with {@code liveDurationInfinity}, hls.js can still
+ * expose a {@code liveSyncPosition} near the end — seeking there jumps to the finale.
  */
 export function attachTvHlsLiveSyncWatchdog(
   hls: Hls,
@@ -164,6 +198,9 @@ export function attachTvHlsLiveSyncWatchdog(
   const LAG_SEEK_SEC = 2.5;
 
   const seekToLiveEdge = (reason: string) => {
+    if (!isTvHlsLivePlaylist(hls)) {
+      return;
+    }
     const now = Date.now();
     if (now - lastSeekAt < MIN_SEEK_GAP_MS) {
       return;

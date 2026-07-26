@@ -9,7 +9,8 @@ export function resolveTvStreamUrl(channel: TvChannel | null | undefined): strin
   const lower = existing.toLowerCase();
   if (lower.startsWith('francetv:') || lower.startsWith('tf1:')
       || lower.startsWith('canalgroup:') || lower.startsWith('radiofrance:')
-      || lower.startsWith('m6group:')) {
+      || lower.startsWith('m6group:') || lower.startsWith('arte:')
+      || lower.startsWith('ia:')) {
     return existing;
   }
   const id = (channel?.id || '').toLowerCase();
@@ -91,9 +92,61 @@ export function isM6GroupVirtual(url: string): boolean {
   return (url || '').toLowerCase().startsWith('m6group:');
 }
 
+export function isArteVirtual(url: string): boolean {
+  return (url || '').toLowerCase().startsWith('arte:');
+}
+
+export function isInternetArchiveVirtual(url: string): boolean {
+  return (url || '').toLowerCase().startsWith('ia:');
+}
+
+export function isArteLiveVirtual(url: string): boolean {
+  const id = arteProgramIdFromVirtualUrl(url);
+  return !!id && id.toUpperCase() === 'LIVE';
+}
+
+/** Finite ARTE replay (not the live channel) — use VOD HLS config, no live-edge seek. */
+export function isArteReplayVod(url: string): boolean {
+  return isArteVirtual(url) && !isArteLiveVirtual(url);
+}
+
+/** Progressive MP4/WebM VOD (Internet Archive) — use video.src, not hls.js. */
+export function isProgressiveVod(url: string): boolean {
+  if (isInternetArchiveVirtual(url)) {
+    return true;
+  }
+  const lower = (url || '').toLowerCase();
+  if (!lower.startsWith('http://') && !lower.startsWith('https://')) {
+    return false;
+  }
+  if (lower.includes('.m3u8') || lower.includes('/manifest') || lower.includes('.mpd')) {
+    return false;
+  }
+  return lower.includes('.mp4') || lower.includes('.webm') || lower.includes('.ogv')
+    || lower.includes('archive.org/download/');
+}
+
 /** True when playback uses a backend virtual live URL that needs periodic re-resolve. */
 export function isKeepAliveVirtualLive(url: string): boolean {
   return isFranceTvVirtual(url) || isTf1Virtual(url) || isM6GroupVirtual(url);
+}
+
+export function arteProgramIdFromVirtualUrl(url: string): string | null {
+  const raw = (url || '').trim();
+  if (!raw.toLowerCase().startsWith('arte:')) {
+    return null;
+  }
+  const id = raw.slice('arte:'.length).trim();
+  return id || null;
+}
+
+export function internetArchiveIdFromVirtualUrl(url: string): string | null {
+  const raw = (url || '').trim();
+  if (!raw.toLowerCase().startsWith('ia:')) {
+    return null;
+  }
+  const id = raw.slice('ia:'.length).trim();
+  return id || null;
 }
 
 export function franceTvSlugFromVirtualUrl(url: string): string | null {

@@ -278,6 +278,7 @@
 
 .tv-mode-tabs-row--secondary {
   border-top: 1px solid rgba(0, 0, 0, 0.06);
+  gap: 0.25rem;
 }
 
 .tv-mode-tab {
@@ -297,8 +298,10 @@
   min-width: 0;
 }
 
-.tv-mode-tab--recordings {
-  flex: 1 1 100%;
+.tv-mode-tab--recordings,
+.tv-mode-tab--arte,
+.tv-mode-tab--ia {
+  flex: 1 1 auto;
   font-size: 0.75rem;
   padding: 0.45rem 0.35rem;
 }
@@ -315,8 +318,22 @@
   background: rgba(192, 57, 43, 0.06);
 }
 
+.tv-mode-tab--arte.active {
+  color: #fa501e;
+  box-shadow: inset 0 -2px 0 #fa501e;
+  background: rgba(250, 80, 30, 0.07);
+}
+
+.tv-mode-tab--ia.active {
+  color: #2c5aa0;
+  box-shadow: inset 0 -2px 0 #2c5aa0;
+  background: rgba(44, 90, 160, 0.07);
+}
+
 .tv-fav-badge,
 .tv-rec-badge,
+.tv-arte-badge,
+.tv-ia-badge,
 .tv-count-badge {
   margin-left: 0.35rem;
   font-size: 0.7rem;
@@ -330,14 +347,32 @@
   background: #c0392b;
 }
 
+.tv-arte-badge {
+  background: #fa501e;
+}
+
+.tv-ia-badge {
+  background: #2c5aa0;
+}
+
 .tv-mode-tab.active .tv-count-badge,
-.tv-mode-tab.active .tv-rec-badge {
+.tv-mode-tab.active .tv-rec-badge,
+.tv-mode-tab.active .tv-arte-badge,
+.tv-mode-tab.active .tv-ia-badge {
   background: #fff;
   color: #0d6efd;
 }
 
 .tv-mode-tab.active .tv-rec-badge {
   color: #c0392b;
+}
+
+.tv-mode-tab.active .tv-arte-badge {
+  color: #fa501e;
+}
+
+.tv-mode-tab.active .tv-ia-badge {
+  color: #2c5aa0;
 }
 
 .tv-record-duration {
@@ -655,6 +690,50 @@
   background: rgba(194, 37, 92, 0.28);
   color: #faa2c1;
   border-color: rgba(250, 162, 193, 0.45);
+}
+
+.tv-workaround-badge--arte {
+  background: #fff4ef;
+  color: #fa501e;
+  border-color: #ffc9b5;
+}
+
+.tv-workaround-badge--on-dark.tv-workaround-badge--arte {
+  background: rgba(250, 80, 30, 0.28);
+  color: #ffb899;
+  border-color: rgba(255, 184, 153, 0.45);
+}
+
+.tv-workaround-badge--ia {
+  background: #eef3fa;
+  color: #2c5aa0;
+  border-color: #b6c8e0;
+}
+
+.tv-workaround-badge--on-dark.tv-workaround-badge--ia {
+  background: rgba(44, 90, 160, 0.28);
+  color: #a8c4ef;
+  border-color: rgba(168, 196, 239, 0.45);
+}
+
+.tv-arte-hint {
+  line-height: 1.3;
+}
+
+.tv-arte-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.5rem 0.75rem;
+  flex: 0 0 auto;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.tv-arte-pager-label {
+  font-size: 0.78rem;
+  color: #6c757d;
+  font-variant-numeric: tabular-nums;
 }
 
 .tv-workaround-line {
@@ -1411,15 +1490,21 @@
     rgba(5, 5, 5, 0.45) 70%,
     rgba(5, 5, 5, 0) 100%
   );
-  transition: opacity 0.28s ease;
+  transition: opacity 0.28s ease, visibility 0.28s ease;
   opacity: 1;
+  visibility: visible;
   overflow: visible;
   pointer-events: none;
 }
 
 .tv-chrome--hidden {
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
+}
+
+.tv-player-frame--chrome-hidden .tv-chrome {
+  display: none !important;
 }
 
 .tv-now-playing {
@@ -1444,7 +1529,7 @@
   border-radius: 0.35rem;
   color: #e9ecef;
   pointer-events: auto;
-  transition: opacity 0.28s ease;
+  transition: opacity 0.28s ease, visibility 0.28s ease;
   background: linear-gradient(
     105deg,
     rgba(5, 5, 5, 0.82) 0%,
@@ -1453,9 +1538,12 @@
   );
 }
 
-.tv-player-frame--chrome-hidden .tv-program-panel {
+.tv-player-frame--chrome-hidden .tv-program-panel,
+.tv-program-panel--hidden {
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
+  display: none !important;
 }
 
 .tv-now-info {
@@ -1672,12 +1760,15 @@
 
   .tv-player-panel {
     order: -1;
-    width: min(100%, calc((100dvh - 22rem) * 16 / 9 + 1rem));
+    width: 100%;
+    max-width: none;
     margin-inline: auto;
+    box-sizing: border-box;
   }
 
   .tv-video-wrap {
-    max-height: calc(100dvh - 22rem);
+    max-height: none;
+    width: 100%;
   }
 
   .tv-sidebar {
@@ -1721,11 +1812,16 @@
   }
 
   .tv-page {
-    padding: 0.5rem 0.85rem 1rem;
+    padding: 0.5rem 0.5rem 1rem;
   }
 }
 
 @media (max-width: 640px) {
+  .tv-page {
+    padding-left: 0.45rem;
+    padding-right: 0.45rem;
+  }
+
   .tv-sidebar {
     height: min(82dvh, 44rem);
     max-height: min(82dvh, 44rem);
@@ -1733,13 +1829,17 @@
   }
 
   .tv-player-panel {
-    width: min(100%, 20.5rem);
+    width: 100%;
+    max-width: none;
     margin-top: 1.35rem;
+    margin-inline: auto;
     padding: 0.3rem;
+    box-sizing: border-box;
   }
 
   .tv-video-wrap {
-    max-height: 10.5rem;
+    max-height: none;
+    width: 100%;
   }
 
   .tv-filters {
@@ -1818,7 +1918,12 @@
 
   .tv-chrome--hidden {
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
+  }
+
+  .tv-player-frame--chrome-hidden .tv-chrome {
+    display: none !important;
   }
 
   .tv-share-menu,
@@ -1866,9 +1971,12 @@
     transition: opacity 0.28s ease, max-height 0.28s ease, margin 0.28s ease, padding 0.28s ease, border-width 0.28s ease;
   }
 
-  .tv-player-frame--chrome-hidden .tv-program-panel {
+  .tv-player-frame--chrome-hidden .tv-program-panel,
+  .tv-program-panel--hidden {
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
+    display: none !important;
     max-height: 0;
     margin-top: 0;
     margin-bottom: 0;
