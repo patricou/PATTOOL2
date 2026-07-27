@@ -592,7 +592,9 @@
 
 <!-- ============================ Share modal (e-mail / WhatsApp) ==================== -->
 <ng-template #shareModal let-c="close" let-d="dismiss">
-    <div class="todolists-share-modal" *ngIf="shareList as list">
+    <div class="todolists-share-modal"
+         [class.todolists-share-modal--reminder]="shareKind === 'reminder'"
+         *ngIf="shareList as list">
         <div class="modal-header todolists-share-header">
             <div class="todolists-editor-header-media" aria-hidden="true">
                 <img *ngIf="list.imageDataUrl" [src]="list.imageDataUrl" alt="">
@@ -626,13 +628,17 @@
             <div class="todolists-share-tabs btn-group w-100 mb-3" role="group">
                 <input type="radio" class="btn-check" id="todo-share-mode-email"
                        [checked]="shareMode === 'email'" (change)="setShareMode('email')">
-                <label class="btn btn-outline-info" for="todo-share-mode-email">
+                <label class="btn btn-outline-info"
+                       [class.btn-sm]="shareKind === 'reminder'"
+                       for="todo-share-mode-email">
                     <i class="fa fa-envelope-o"></i> {{ 'TODOLISTS.SHARE.EMAIL' | translate }}
                 </label>
 
                 <input type="radio" class="btn-check" id="todo-share-mode-wa"
                        [checked]="shareMode === 'whatsapp'" (change)="setShareMode('whatsapp')">
-                <label class="btn btn-outline-success" for="todo-share-mode-wa">
+                <label class="btn btn-outline-success"
+                       [class.btn-sm]="shareKind === 'reminder'"
+                       for="todo-share-mode-wa">
                     <i class="fa fa-whatsapp"></i> {{ 'TODOLISTS.SHARE.WHATSAPP' | translate }}
                 </label>
             </div>
@@ -742,11 +748,14 @@
 
         </div>
 
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" (click)="closeShare()" [disabled]="shareSending">
+        <div class="modal-footer" [class.py-2]="shareKind === 'reminder'" [class.px-3]="shareKind === 'reminder'">
+            <button type="button" class="btn btn-secondary"
+                    [class.btn-sm]="shareKind === 'reminder'"
+                    (click)="closeShare()" [disabled]="shareSending">
                 <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
             </button>
             <button type="button" class="btn btn-info"
+                    [class.btn-sm]="shareKind === 'reminder'"
                     *ngIf="shareMode === 'email'"
                     (click)="sendShareEmail()" [disabled]="shareSending">
                 <i class="fa fa-paper-plane" *ngIf="!shareSending"></i>
@@ -756,6 +765,7 @@
                     : 'TODOLISTS.SHARE.SEND_EMAIL') | translate }}
             </button>
             <button type="button" class="btn btn-success"
+                    [class.btn-sm]="shareKind === 'reminder'"
                     *ngIf="shareMode === 'whatsapp'"
                     (click)="sendShareWhatsApp()">
                 <i class="fa fa-whatsapp"></i> {{ 'TODOLISTS.SHARE.OPEN_WHATSAPP' | translate }}

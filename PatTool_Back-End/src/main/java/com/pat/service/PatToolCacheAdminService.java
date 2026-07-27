@@ -249,15 +249,87 @@ public class PatToolCacheAdminService {
         out.put("success", started);
         out.put("started", started);
         out.put("message", started
-                ? "Media catalog refresh started (" + rebuilding.size()
-                + " catalogs + " + clearedLive.size() + " live stream caches)"
+                ? "Media catalog refresh started in parallel (" + rebuilding.size()
+                + " catalogs + " + clearedLive.size() + " live stream caches = "
+                + (rebuilding.size() + clearedLive.size()) + ")"
                 : "Media catalog refresh already running");
         out.put("rebuildingCaches", rebuilding);
         out.put("clearedLiveCaches", clearedLive);
         out.put("clearedLiveEntries", liveEntries);
         out.put("cacheCount", rebuilding.size() + clearedLive.size());
+        out.put("parallel", true);
         out.put("status", mediaCatalogCacheService.status());
         return out;
+    }
+
+    /**
+     * Refresh one cache: rebuild/warm when possible, otherwise clear so the next
+     * request reloads fresh data.
+     */
+    public Map<String, Object> refreshOne(String id) {
+        if (id == null || id.isBlank()) {
+            return Map.of("success", false, "message", "Missing cache id");
+        }
+        String cacheId = id.trim();
+        if ("media-catalog".equals(cacheId)) {
+            return refreshMediaCatalog();
+        }
+
+        CacheDef def = find(cacheId);
+        if (def == null) {
+            return Map.of("success", false, "message", "Unknown cache id: " + cacheId);
+        }
+
+        try {
+            int before = def.counter.get().intValue();
+            switch (cacheId) {
+                case "tv-catalog" -> {
+                    tvCatalogService.invalidateAll();
+                    tvCatalogService.warmFrequentCountries();
+                }
+                case "tv-epg" -> {
+                    tvEpgService.invalidateAll();
+                    tvEpgService.warmFrequentCountries();
+                }
+                case "radio-catalog" -> radioCatalogService.reloadFrequent();
+                case "archive-org" -> {
+                    internetArchiveReplayService.invalidateAll();
+                    internetArchiveReplayService.warmCatalog();
+                }
+                case "image-compression" -> {
+                    CachePersistenceService.CacheLoadResult loaded = cachePersistenceService.loadCache();
+                    Map<String, Object> out = new LinkedHashMap<>();
+                    out.put("success", loaded.isSuccess());
+                    out.put("id", cacheId);
+                    out.put("action", "refresh");
+                    out.put("entryCount", loaded.getEntryCount());
+                    out.put("message", loaded.getMessage());
+                    out.put("cache", statusOf(def));
+                    return out;
+                }
+                case "ms-forecast" -> {
+                    meteoSwissForecastService.clearCache();
+                    // next request / status poll will trigger rebuild
+                }
+                default -> {
+                    if (!def.clearable || def.clearer == null) {
+                        return Map.of("success", false, "message", "Cache is not refreshable: " + cacheId);
+                    }
+                    def.clearer.get();
+                }
+            }
+            log.info("Refreshed cache {} (before={} entries)", cacheId, before);
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("success", true);
+            out.put("id", cacheId);
+            out.put("action", "refresh");
+            out.put("previousEntries", before);
+            out.put("cache", statusOf(def));
+            return out;
+        } catch (Exception e) {
+            log.warn("Failed to refresh cache {}: {}", cacheId, e.toString());
+            return Map.of("success", false, "message", e.getMessage() != null ? e.getMessage() : e.toString());
+        }
     }
 
     private CacheDef find(String id) {
@@ -279,7 +351,7 @@ public class PatToolCacheAdminService {
         row.put("nameKey", def.nameKey);
         row.put("descriptionKey", def.descriptionKey);
         row.put("clearable", def.clearable);
-        row.put("refreshable", def.refreshable);
+        row.put("refreshable", true);
         try {
             row.put("entryCount", def.counter.get());
             if (def.details != null) {
@@ -316,22 +388,41 @@ public class PatToolCacheAdminService {
                 "SYSTEM.CACHE_REGISTRY.MEDIA_CATALOG_DESC",
                 false, true,
                 () -> {
-                    long epg = 0;
+                    // Orchestrator only — count how many child catalogs have data (0–4),
+                    // not the sum of country/playlist entries (that looked identical to TV).
+                    long n = 0;
+                    if (tvCatalogService.cacheEntryCount() > 0) {
+                        n++;
+                    }
                     Object epgObj = tvEpgService.cacheStats().get("epgCachedCountries");
-                    if (epgObj instanceof Number n) {
-                        epg = n.longValue();
+                    if (epgObj instanceof Number epg && epg.longValue() > 0) {
+                        n++;
+                    }
+                    if (radioCatalogService.cacheEntryCount() > 0) {
+                        n++;
                     }
                     Map<String, Object> ia = internetArchiveReplayService.cacheStats();
-                    long iaPages = ((Number) ia.getOrDefault("iaPageCacheEntries", 0)).longValue();
-                    long iaStreams = ((Number) ia.getOrDefault("iaStreamCacheEntries", 0)).longValue();
-                    return tvCatalogService.cacheEntryCount()
-                            + epg
-                            + radioCatalogService.cacheEntryCount()
-                            + iaPages
-                            + iaStreams;
+                    long iaTotal = ((Number) ia.getOrDefault("iaPageCacheEntries", 0)).longValue()
+                            + ((Number) ia.getOrDefault("iaStreamCacheEntries", 0)).longValue();
+                    if (iaTotal > 0) {
+                        n++;
+                    }
+                    return n;
                 },
                 () -> 0,
-                mediaCatalogCacheService::status));
+                () -> {
+                    Map<String, Object> status = new LinkedHashMap<>(mediaCatalogCacheService.status());
+                    status.put("tvEntries", tvCatalogService.cacheEntryCount());
+                    Object epgObj = tvEpgService.cacheStats().get("epgCachedCountries");
+                    status.put("epgEntries", epgObj instanceof Number n ? n.longValue() : 0L);
+                    status.put("radioEntries", radioCatalogService.cacheEntryCount());
+                    Map<String, Object> ia = internetArchiveReplayService.cacheStats();
+                    status.put("archiveEntries",
+                            ((Number) ia.getOrDefault("iaPageCacheEntries", 0)).longValue()
+                                    + ((Number) ia.getOrDefault("iaStreamCacheEntries", 0)).longValue());
+                    status.put("orchestrator", true);
+                    return status;
+                }));
 
         list.add(def("tv-catalog", "media",
                 "SYSTEM.CACHE_REGISTRY.TV_CATALOG", "SYSTEM.CACHE_REGISTRY.TV_CATALOG_DESC",

@@ -134,6 +134,14 @@ export class CacheService {
     );
   }
 
+  refreshRegistryCache(id: string, user: any): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post(this.API_URL + "cache/registry/" + encodeURIComponent(id) + "/refresh", user, { headers: headers })
+      )
+    );
+  }
+
   clearAllRegistryCaches(user: any): Observable<any> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers =>

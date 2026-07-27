@@ -3602,10 +3602,10 @@
       },
       "IMAGE_COMPRESSION": "Image compression",
       "IMAGE_COMPRESSION_DESC": "Compressed JPEG variants for photos (memory + disk).",
-      "MEDIA_CATALOG": "Media catalogs (bundle)",
-      "MEDIA_CATALOG_DESC": "TV playlists + EPG + radio + Archive.org — refresh together.",
+      "MEDIA_CATALOG": "Media catalogs (orchestrator)",
+      "MEDIA_CATALOG_DESC": "Coordinator only (no own entries). Refresh starts the full media batch (TV + EPG + radio + Archive.org + live URLs).",
       "TV_CATALOG": "TV playlists",
-      "TV_CATALOG_DESC": "iptv-org country playlists.",
+      "TV_CATALOG_DESC": "iptv-org playlists per country. Refresh only warms FR/CH/BE (fast).",
       "TV_EPG": "TV EPG",
       "TV_EPG_DESC": "XMLTV programme guides per country.",
       "RADIO_CATALOG": "Radio catalog",
@@ -3664,8 +3664,13 @@
       "CLEAR_SELECTED_CONFIRM": "Clear {{count}} selected cache(s)?",
       "CLEAR_SELECTED_DONE": "{{count}} cache(s) cleared ({{entries}} entries).",
       "SELECT_ALL": "Select all visible",
-      "REFRESH_MEDIA_HINT": "Rebuilds TV + EPG + radio + Archive.org and clears live stream URL caches (9 caches).",
-      "MEDIA_REFRESH_STARTED_N": "Refreshing {{count}} media caches…"
+      "REFRESH_MEDIA_HINT": "Refreshes 10 media caches at once in parallel: TV + EPG + radio + Archive.org (full rebuild) and 5 live/replay URL caches.",
+      "MEDIA_REFRESH_STARTED_N": "Refreshing {{count}} media caches in parallel…",
+      "REFRESH_DONE": "« {{name}} » refreshed.",
+      "REFRESH_ERROR": "Failed to refresh cache",
+      "REFRESH_CATALOG_HINT": "Quick refresh: invalidate then warm frequent countries only (not a full worldwide rebuild).",
+      "MEDIA_BUSY": "running…",
+      "MEDIA_BREAKDOWN": "Children: TV {{tv}} · EPG {{epg}} · Radio {{radio}} · Archive {{archive}}"
     }
   },
   "FRIENDS": {

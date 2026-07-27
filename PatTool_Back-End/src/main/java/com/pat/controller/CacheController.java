@@ -559,6 +559,36 @@ public class CacheController {
     }
 
     /**
+     * Refresh one cache by id (Admin): rebuild/warm when possible, else clear.
+     */
+    @PostMapping("/registry/{id}/refresh")
+    public ResponseEntity<Map<String, Object>> refreshRegistryCache(
+            @PathVariable("id") String id,
+            @RequestBody(required = false) Member member) {
+        String userLabel = member != null ? member.getUserName() : "unknown";
+        log.info("Cache registry refresh requested for id={} by {}", id, userLabel);
+        try {
+            if (!hasAdminRole()) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("authorized", false);
+                response.put("message", userLabel + " : Admin role required to refresh caches.");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+            Map<String, Object> result = patToolCacheAdminService.refreshOne(id);
+            result.put("authorized", true);
+            boolean ok = Boolean.TRUE.equals(result.get("success"));
+            return ok ? ResponseEntity.ok(result) : ResponseEntity.badRequest().body(result);
+        } catch (Exception e) {
+            log.error("Error refreshing registry cache {}", id, e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    /**
      * Start a full media catalog refresh (TV + EPG + radio + Archive.org).
      */
     @PostMapping("/registry/media-catalog/refresh")

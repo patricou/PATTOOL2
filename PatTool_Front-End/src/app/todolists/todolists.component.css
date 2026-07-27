@@ -497,14 +497,21 @@
 .todolists-item-actions {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
     flex-shrink: 0;
-    margin-left: 4px;
+    margin-left: 2px;
 }
 
 .todolists-item-remind {
-    padding: 0.15rem 0.4rem;
-    line-height: 1.2;
+    padding: 0.1rem 0.28rem !important;
+    line-height: 1;
+    font-size: 0.7rem !important;
+    min-width: 1.55rem;
+}
+
+.todolists-item-remind .fa {
+    font-size: 0.75rem;
+    line-height: 1;
 }
 
 .todolists-reminder-assignee {
@@ -1128,6 +1135,20 @@
 
 .todolists-share-tabs .btn {
     font-weight: 600;
+}
+
+.todolists-share-modal--reminder .todolists-share-tabs .btn {
+    font-weight: 500;
+    font-size: 0.8125rem;
+}
+
+.todolists-share-modal--reminder .todolists-share-recipient-chips .btn {
+    font-size: 0.75rem;
+    padding: 0.15rem 0.45rem;
+}
+
+.todolists-share-modal--reminder .modal-footer .btn {
+    font-size: 0.8125rem;
 }
 
 @media (max-width: 600px) {

@@ -65,6 +65,8 @@ export class SystemComponent implements OnInit {
   isLoadingRegistry: boolean = false;
   registryError: string = '';
   clearingCacheId: string | null = null;
+  /** Cache ids whose Rafraîchir button should show a spinner. */
+  refreshingCacheIds: string[] = [];
   isClearingAllCaches: boolean = false;
   isRefreshingMediaCatalog: boolean = false;
   registryMessage: string = '';
@@ -72,6 +74,20 @@ export class SystemComponent implements OnInit {
   selectedRegistryCategory: string = 'all';
   selectedCacheIds: string[] = [];
   isClearingSelectedCaches: boolean = false;
+
+  /** The ~10 media caches refreshed together by « Rafraîchir les catalogues média ». */
+  private readonly MEDIA_BATCH_IDS: string[] = [
+    'media-catalog',
+    'tv-catalog',
+    'tv-epg',
+    'radio-catalog',
+    'archive-org',
+    'france-tv-live',
+    'tf1-live',
+    'm6-live',
+    'canal-live',
+    'arte-replay'
+  ];
 
   // Performance Statistics
   performanceStats: any = null;
@@ -804,6 +820,58 @@ export class SystemComponent implements OnInit {
     });
   }
 
+  refreshRegistryCache(cache: any): void {
+    if (!this.isClearCacheAuthorized || !cache?.id) {
+      return;
+    }
+    // Orchestrator row = same action as the toolbar (all ~10 media caches).
+    if (cache.id === 'media-catalog') {
+      this.refreshMediaCatalogFromRegistry();
+      return;
+    }
+    const label = this.translate.instant(cache.nameKey || cache.id);
+    this.refreshingCacheIds = [cache.id];
+    this.registryMessageVisible = false;
+    this.cdr.detectChanges();
+
+    this._cacheService.refreshRegistryCache(cache.id, this.user).subscribe({
+      next: (response: any) => {
+        let data = response;
+        if (response?._body) {
+          data = typeof response._body === 'string' ? JSON.parse(response._body) : response._body;
+        }
+        if (data?.success) {
+          this.showRegistryMessage(
+            this.translate.instant('SYSTEM.CACHE_REGISTRY.REFRESH_DONE', { name: label })
+          );
+          this.loadCacheRegistry();
+          if (cache.id === 'image-compression') {
+            this.loadCacheStats();
+            this.loadCompressionCacheStats();
+          }
+        } else {
+          this.showRegistryMessage(data?.message || this.translate.instant('SYSTEM.CACHE_REGISTRY.REFRESH_ERROR'));
+        }
+        this.refreshingCacheIds = [];
+        this.cdr.detectChanges();
+      },
+      error: (error: any) => {
+        this.showRegistryMessage(error?.error?.message || error?.message || this.translate.instant('SYSTEM.CACHE_REGISTRY.REFRESH_ERROR'));
+        this.refreshingCacheIds = [];
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  /** Spinner only on the Rafraîchir button for this cache. */
+  isRefreshButtonSpinning(cache: any): boolean {
+    return !!cache?.id && this.refreshingCacheIds.includes(cache.id);
+  }
+
+  isMediaBatchCache(cache: any): boolean {
+    return !!cache?.id && this.MEDIA_BATCH_IDS.includes(cache.id);
+  }
+
   clearAllRegistryCaches(): void {
     if (!this.isClearCacheAuthorized) {
       return;
@@ -845,7 +913,9 @@ export class SystemComponent implements OnInit {
       return;
     }
     this.isRefreshingMediaCatalog = true;
+    this.refreshingCacheIds = [...this.MEDIA_BATCH_IDS];
     this.registryMessageVisible = false;
+    this.cdr.detectChanges();
     this._cacheService.refreshMediaCatalog(this.user).subscribe({
       next: (response: any) => {
         let data = response;
@@ -853,20 +923,25 @@ export class SystemComponent implements OnInit {
           data = typeof response._body === 'string' ? JSON.parse(response._body) : response._body;
         }
         if (data?.started || data?.success) {
-          const cacheCount = data?.cacheCount ?? 9;
+          const cacheCount = data?.cacheCount ?? this.MEDIA_BATCH_IDS.length;
           this.showRegistryMessage(
             this.translate.instant('SYSTEM.CACHE_REGISTRY.MEDIA_REFRESH_STARTED_N', { count: cacheCount })
           );
+          this.cdr.detectChanges();
           this.pollMediaCatalogUntilIdle();
         } else {
           this.showRegistryMessage(data?.message || this.translate.instant('SYSTEM.CACHE_REGISTRY.MEDIA_REFRESH_BUSY'));
           this.isRefreshingMediaCatalog = false;
+          this.refreshingCacheIds = [];
           this.loadCacheRegistry();
+          this.cdr.detectChanges();
         }
       },
       error: (error: any) => {
         this.showRegistryMessage(error?.error?.message || error?.message || this.translate.instant('SYSTEM.CACHE_REGISTRY.MEDIA_REFRESH_ERROR'));
         this.isRefreshingMediaCatalog = false;
+        this.refreshingCacheIds = [];
+        this.cdr.detectChanges();
       }
     });
   }
@@ -874,7 +949,9 @@ export class SystemComponent implements OnInit {
   private pollMediaCatalogUntilIdle(attempt: number = 0): void {
     if (attempt > 90) {
       this.isRefreshingMediaCatalog = false;
+      this.refreshingCacheIds = [];
       this.loadCacheRegistry();
+      this.cdr.detectChanges();
       return;
     }
     setTimeout(() => {
@@ -886,12 +963,16 @@ export class SystemComponent implements OnInit {
           }
           const caches = Array.isArray(data?.caches) ? data.caches : [];
           this.cacheRegistry = caches;
+          // Keep all media refresh buttons spinning while the batch runs
+          this.refreshingCacheIds = [...this.MEDIA_BATCH_IDS];
+          this.cdr.detectChanges();
           const media = caches.find((c: any) => c.id === 'media-catalog');
           const busy = media?.details?.busy === true;
           if (busy) {
             this.pollMediaCatalogUntilIdle(attempt + 1);
           } else {
             this.isRefreshingMediaCatalog = false;
+            this.refreshingCacheIds = [];
             const durationSec = media?.details?.lastDurationMs != null
               ? Math.round(Number(media.details.lastDurationMs) / 1000)
               : null;
@@ -901,11 +982,14 @@ export class SystemComponent implements OnInit {
                 : this.translate.instant('SYSTEM.CACHE_REGISTRY.MEDIA_REFRESH_DONE')
             );
             this.loadCacheRegistry();
+            this.cdr.detectChanges();
           }
         },
         error: () => {
           this.isRefreshingMediaCatalog = false;
+          this.refreshingCacheIds = [];
           this.loadCacheRegistry();
+          this.cdr.detectChanges();
         }
       });
     }, 2000);
@@ -922,6 +1006,26 @@ export class SystemComponent implements OnInit {
 
   categoryLabelKey(category: string): string {
     return 'SYSTEM.CACHE_REGISTRY.CATEGORY.' + (category || 'other').toUpperCase();
+  }
+
+  formatMediaDuration(ms: number): string {
+    const sec = Math.max(0, Math.round(Number(ms) / 1000));
+    if (sec < 60) {
+      return sec + ' s';
+    }
+    const min = Math.floor(sec / 60);
+    const rem = sec % 60;
+    return rem > 0 ? min + ' min ' + rem + ' s' : min + ' min';
+  }
+
+  mediaCatalogEntriesTitle(cache: any): string {
+    const d = cache?.details || {};
+    return this.translate.instant('SYSTEM.CACHE_REGISTRY.MEDIA_BREAKDOWN', {
+      tv: d.tvEntries ?? 0,
+      epg: d.epgEntries ?? 0,
+      radio: d.radioEntries ?? 0,
+      archive: d.archiveEntries ?? 0
+    });
   }
 
   loadAdditionalDebugInfo(): void {

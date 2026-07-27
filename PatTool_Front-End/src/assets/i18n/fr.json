@@ -3607,10 +3607,10 @@
       },
       "IMAGE_COMPRESSION": "Compression d'images",
       "IMAGE_COMPRESSION_DESC": "Variantes JPEG compressées des photos (mémoire + disque).",
-      "MEDIA_CATALOG": "Catalogues média (lot)",
-      "MEDIA_CATALOG_DESC": "Playlists TV + EPG + radio + Archive.org — rafraîchis ensemble.",
+      "MEDIA_CATALOG": "Catalogues média (orchestrateur)",
+      "MEDIA_CATALOG_DESC": "Orchestrateur uniquement (pas de données propres). Rafraîchir lance le lot média complet (TV + EPG + radio + Archive.org + flux live).",
       "TV_CATALOG": "Playlists TV",
-      "TV_CATALOG_DESC": "Playlists iptv-org par pays.",
+      "TV_CATALOG_DESC": "Playlists iptv-org par pays. Rafraîchir ne recharge que FR/CH/BE (rapide).",
       "TV_EPG": "EPG TV",
       "TV_EPG_DESC": "Guides XMLTV par pays.",
       "RADIO_CATALOG": "Catalogue radio",
@@ -3669,8 +3669,13 @@
       "CLEAR_SELECTED_CONFIRM": "Vider les {{count}} cache(s) sélectionné(s) ?",
       "CLEAR_SELECTED_DONE": "{{count}} cache(s) vidé(s) ({{entries}} entrées).",
       "SELECT_ALL": "Tout sélectionner (filtre)",
-      "REFRESH_MEDIA_HINT": "Reconstruit TV + EPG + radio + Archive.org et vide les caches de flux live (9 caches).",
-      "MEDIA_REFRESH_STARTED_N": "Rafraîchissement de {{count}} caches média…"
+      "REFRESH_MEDIA_HINT": "Rafraîchit 10 caches média d’un coup en parallèle : TV + EPG + radio + Archive.org (rebuild complet) et 5 caches de flux live/replay.",
+      "MEDIA_REFRESH_STARTED_N": "Rafraîchissement de {{count}} caches média en parallèle…",
+      "REFRESH_DONE": "« {{name}} » rafraîchi.",
+      "REFRESH_ERROR": "Échec du rafraîchissement du cache",
+      "REFRESH_CATALOG_HINT": "Rafraîchissement rapide : invalidation puis warm FR/CH/BE uniquement (pas le monde entier).",
+      "MEDIA_BUSY": "en cours…",
+      "MEDIA_BREAKDOWN": "Enfants : TV {{tv}} · EPG {{epg}} · Radio {{radio}} · Archive {{archive}}"
     }
   },
   "FRIENDS": {

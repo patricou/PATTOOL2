@@ -95,6 +95,22 @@
     color: #fff;
 }
 
+.registry-filter-btn.busy {
+    border-color: #2563eb;
+    color: #1d4ed8;
+}
+
+.registry-filter-btn.busy.active {
+    background: #1e3a8a;
+    border-color: #1e3a8a;
+    color: #fff;
+}
+
+.registry-filter-spinner {
+    margin-right: 0.25rem;
+    font-size: 0.7rem;
+}
+
 .registry-actions {
     display: flex;
     flex-wrap: wrap;
@@ -131,6 +147,38 @@
     background: #f0fdf4;
 }
 
+.registry-row-busy {
+    background: #eff6ff;
+}
+
+.registry-row-busy.registry-row-selected {
+    background: #e0f2fe;
+}
+
+.registry-cat-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    background: #eef2ff;
+    color: #3730a3;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.registry-cat-badge.busy {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.registry-name {
+    font-weight: 600;
+    color: #111827;
+}
+
 .registry-feedback {
     margin-bottom: 0.5rem;
 }
@@ -151,23 +199,6 @@
     border-bottom-width: 1px;
 }
 
-.registry-cat-badge {
-    display: inline-block;
-    padding: 0.15rem 0.45rem;
-    border-radius: 4px;
-    background: #eef2ff;
-    color: #3730a3;
-    font-size: 0.72rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-}
-
-.registry-name {
-    font-weight: 600;
-    color: #111827;
-}
-
 .registry-desc {
     font-size: 0.75rem;
     color: #6b7280;
@@ -180,12 +211,30 @@
     white-space: nowrap;
 }
 
+.registry-entry-hint {
+    font-weight: 500;
+    color: #6b7280;
+    margin-left: 0.15rem;
+}
+
 .registry-row-actions {
     white-space: nowrap;
 }
 
-.registry-row-actions .btn {
-    margin-right: 0.25rem;
+.registry-row-actions .btn-registry-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    margin: 0 0.1rem 0 0;
+    padding: 0.1rem 0.35rem;
+    font-size: 0.68rem;
+    line-height: 1.2;
+    border-radius: 3px;
+    min-height: 0;
+}
+
+.registry-row-actions .btn-registry-action i {
+    font-size: 0.65rem;
 }
 
 .registry-readonly {

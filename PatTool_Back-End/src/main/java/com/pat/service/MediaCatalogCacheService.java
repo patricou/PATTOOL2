@@ -79,7 +79,8 @@ public class MediaCatalogCacheService {
     }
 
     /**
-     * Start a full background refresh of TV + EPG + radio + Archive.org.
+     * Start a full background refresh of TV + EPG + radio + Archive.org
+     * running the heavy catalog jobs <strong>in parallel</strong>.
      * Returns {@code false} if one is already running.
      */
     public boolean startFullRefresh() {
@@ -92,21 +93,31 @@ public class MediaCatalogCacheService {
         refreshExecutor.execute(() -> {
             long t0 = System.currentTimeMillis();
             try {
-                lastPhase = "tv-channels";
-                log.info("Media catalog full refresh: TV channels");
-                tvCatalogService.reloadAllPlaylists();
+                lastPhase = "parallel-catalogs";
+                log.info("Media catalog full refresh: TV + EPG + radio + Archive.org in parallel");
 
-                lastPhase = "tv-epg";
-                log.info("Media catalog full refresh: TV EPG (all countries)");
-                tvEpgService.reloadCountries(tvCatalogService.allCountryCodes());
+                java.util.concurrent.CompletableFuture<Void> tv =
+                        java.util.concurrent.CompletableFuture.runAsync(() -> {
+                            log.info("Media catalog parallel: TV channels");
+                            tvCatalogService.reloadAllPlaylists();
+                        });
+                java.util.concurrent.CompletableFuture<Void> epg =
+                        java.util.concurrent.CompletableFuture.runAsync(() -> {
+                            log.info("Media catalog parallel: TV EPG (all countries)");
+                            tvEpgService.reloadCountries(tvCatalogService.allCountryCodes());
+                        });
+                java.util.concurrent.CompletableFuture<Void> radio =
+                        java.util.concurrent.CompletableFuture.runAsync(() -> {
+                            log.info("Media catalog parallel: radio (all countries)");
+                            radioCatalogService.reloadAllCountries();
+                        });
+                java.util.concurrent.CompletableFuture<Void> archive =
+                        java.util.concurrent.CompletableFuture.runAsync(() -> {
+                            log.info("Media catalog parallel: Archive.org movie listings");
+                            internetArchiveReplayService.warmCatalog();
+                        });
 
-                lastPhase = "radio";
-                log.info("Media catalog full refresh: radio (all countries)");
-                radioCatalogService.reloadAllCountries();
-
-                lastPhase = "archive-org";
-                log.info("Media catalog full refresh: Archive.org movie listings");
-                internetArchiveReplayService.warmCatalog();
+                java.util.concurrent.CompletableFuture.allOf(tv, epg, radio, archive).join();
 
                 lastPhase = "done";
                 lastError = null;
