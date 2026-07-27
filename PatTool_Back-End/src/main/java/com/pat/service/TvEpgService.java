@@ -509,6 +509,21 @@ public class TvEpgService {
         out.put("epgCountriesWithProgrammes", withData);
         out.put("epgCountriesEmptyOrMissing", empty);
         out.put("epgCountriesExpired", expired);
+        long programmes = 0;
+        long channels = 0;
+        for (CachedGuide cached : guideCache.values()) {
+            if (cached == null || cached.guide() == null || cached.guide().byChannel() == null) {
+                continue;
+            }
+            channels += cached.guide().byChannel().size();
+            for (List<Programme> list : cached.guide().byChannel().values()) {
+                if (list != null) {
+                    programmes += list.size();
+                }
+            }
+        }
+        out.put("epgCachedChannels", channels);
+        out.put("epgCachedProgrammes", programmes);
         return out;
     }
 

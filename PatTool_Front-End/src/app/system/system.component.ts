@@ -1019,13 +1019,54 @@ export class SystemComponent implements OnInit {
   }
 
   mediaCatalogEntriesTitle(cache: any): string {
+    if (cache?.id !== 'media-catalog') {
+      return '';
+    }
     const d = cache?.details || {};
     return this.translate.instant('SYSTEM.CACHE_REGISTRY.MEDIA_BREAKDOWN', {
-      tv: d.tvEntries ?? 0,
-      epg: d.epgEntries ?? 0,
-      radio: d.radioEntries ?? 0,
-      archive: d.archiveEntries ?? 0
+      tv: d.tvChannels ?? d.tvEntries ?? 0,
+      epg: d.epgProgrammes ?? d.epgEntries ?? 0,
+      radio: d.radioStations ?? d.radioEntries ?? 0,
+      archive: d.archiveRecords ?? d.archiveEntries ?? 0
     });
+  }
+
+  recordUnitLabel(cache: any): string {
+    const unit = cache?.recordUnit || cache?.details?.recordUnit || 'records';
+    const key = 'SYSTEM.CACHE_REGISTRY.UNIT.' + String(unit).toUpperCase();
+    const translated = this.translate.instant(key);
+    return translated === key ? String(unit) : translated;
+  }
+
+  cacheRecordsTitle(cache: any): string {
+    if (cache?.id === 'archive-org' && cache?.details) {
+      return this.translate.instant('SYSTEM.CACHE_REGISTRY.ARCHIVE_BREAKDOWN', {
+        found: cache.details.iaMaxNumFound ?? cache.recordCount ?? 0,
+        docs: cache.details.iaCachedDocs ?? 0,
+        pages: cache.details.iaPageCacheEntries ?? 0,
+        streams: cache.details.iaStreamCacheEntries ?? 0
+      });
+    }
+    if (cache?.details?.channels != null) {
+      return this.translate.instant('SYSTEM.CACHE_REGISTRY.TV_BREAKDOWN', {
+        channels: cache.details.channels,
+        countries: cache.details.countries ?? 0
+      });
+    }
+    if (cache?.details?.stations != null) {
+      return this.translate.instant('SYSTEM.CACHE_REGISTRY.RADIO_BREAKDOWN', {
+        stations: cache.details.stations,
+        countries: cache.details.countries ?? 0
+      });
+    }
+    if (cache?.details?.epgCachedProgrammes != null) {
+      return this.translate.instant('SYSTEM.CACHE_REGISTRY.EPG_BREAKDOWN', {
+        programmes: cache.details.epgCachedProgrammes,
+        countries: cache.details.epgCachedCountries ?? 0,
+        channels: cache.details.epgCachedChannels ?? 0
+      });
+    }
+    return '';
   }
 
   loadAdditionalDebugInfo(): void {

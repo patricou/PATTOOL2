@@ -150,9 +150,35 @@ public class InternetArchiveReplayService {
     }
 
     public Map<String, Object> cacheStats() {
+        Instant now = Instant.now();
+        int pageEntries = 0;
+        int cachedDocs = 0;
+        long maxNumFound = 0;
+        for (CachedPage cached : pageCache.values()) {
+            if (cached == null || cached.json == null) {
+                continue;
+            }
+            if (cached.expiresAt != null && cached.expiresAt.isBefore(now)) {
+                continue;
+            }
+            pageEntries++;
+            long found = cached.json.path("numFound").asLong(0);
+            if (found > maxNumFound) {
+                maxNumFound = found;
+            }
+            JsonNode docs = cached.json.path("docs");
+            if (docs.isArray()) {
+                cachedDocs += docs.size();
+            }
+        }
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("iaPageCacheEntries", pageCache.size());
         out.put("iaStreamCacheEntries", streamCache.size());
+        out.put("iaCachedPageEntries", pageEntries);
+        out.put("iaCachedDocs", cachedDocs);
+        out.put("iaMaxNumFound", maxNumFound);
+        // Prefer upstream total from last cached searches (e.g. ~16M movies); else docs in memory.
+        out.put("iaRecordCount", maxNumFound > 0 ? maxNumFound : cachedDocs);
         return out;
     }
 

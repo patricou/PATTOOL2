@@ -163,6 +163,17 @@ public class RadioCatalogService {
         return n;
     }
 
+    /** Total radio stations held in country caches. */
+    public long cachedStationCount() {
+        long total = 0;
+        for (CacheEntry<List<RadioStationDto>> entry : stationCache.values()) {
+            if (entry != null && entry.value != null) {
+                total += entry.value.size();
+            }
+        }
+        return total;
+    }
+
     /** Prefetch countries list, FR/CH stations, and worldwide genre tags. */
     public void warmFrequent() {
         try {

@@ -141,13 +141,13 @@ public class ChemistryProxyService {
     }
 
     public int clearCache() {
-        int n = cachedElements != null ? 1 : 0;
+        int n = cachedElements != null ? cachedElements.size() : 0;
         cachedElements = null;
         return n;
     }
 
     public int cacheEntryCount() {
-        return cachedElements != null ? 1 : 0;
+        return cachedElements != null ? cachedElements.size() : 0;
     }
 
     // ------------------------------------------------------------------

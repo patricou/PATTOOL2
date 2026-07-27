@@ -3611,7 +3611,7 @@
       "RADIO_CATALOG": "Radio catalog",
       "RADIO_CATALOG_DESC": "radio-browser stations, countries and tags.",
       "ARCHIVE_ORG": "Internet Archive",
-      "ARCHIVE_ORG_DESC": "Archive.org listings and stream URLs.",
+      "ARCHIVE_ORG_DESC": "Archive.org movie listings. The record count is the largest numFound from cached search pages (upstream total, e.g. ~16M); only a few pages/docs are kept in memory.",
       "FRANCE_TV_LIVE": "France.tv live",
       "FRANCE_TV_LIVE_DESC": "Signed HLS URLs for France.tv live channels.",
       "TF1_LIVE": "TF1 live",
@@ -3670,7 +3670,28 @@
       "REFRESH_ERROR": "Failed to refresh cache",
       "REFRESH_CATALOG_HINT": "Quick refresh: invalidate then warm frequent countries only (not a full worldwide rebuild).",
       "MEDIA_BUSY": "running…",
-      "MEDIA_BREAKDOWN": "Children: TV {{tv}} · EPG {{epg}} · Radio {{radio}} · Archive {{archive}}"
+      "MEDIA_BREAKDOWN": "Children records: TV {{tv}} · EPG {{epg}} · Radio {{radio}} · Archive {{archive}}",
+      "COL_RECORDS": "Records",
+      "UNIT": {
+        "CHANNELS": "channels",
+        "PROGRAMMES": "programmes",
+        "STATIONS": "stations",
+        "ITEMS": "items",
+        "RECORDS": "records",
+        "IMAGES": "images",
+        "URLS": "URLs",
+        "TILES": "tiles",
+        "FRAMES": "frames",
+        "RESPONSES": "responses",
+        "QUOTES": "quotes",
+        "RATES": "rates",
+        "ELEMENTS": "elements",
+        "EDGES": "edges"
+      },
+      "ARCHIVE_BREAKDOWN": "Archive.org: {{found}} matching items (upstream). Cached locally: {{docs}} docs in {{pages}} pages + {{streams}} streams.",
+      "TV_BREAKDOWN": "TV: {{channels}} channels across {{countries}} country playlists in memory.",
+      "RADIO_BREAKDOWN": "Radio: {{stations}} stations across {{countries}} country lists in memory.",
+      "EPG_BREAKDOWN": "EPG: {{programmes}} programmes ({{channels}} channels, {{countries}} countries) in memory."
     }
   },
   "FRIENDS": {

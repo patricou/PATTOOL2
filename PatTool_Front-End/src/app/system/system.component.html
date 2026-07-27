@@ -106,7 +106,7 @@
                                 </th>
                                 <th>{{ 'SYSTEM.CACHE_REGISTRY.COL_CATEGORY' | translate }}</th>
                                 <th>{{ 'SYSTEM.CACHE_REGISTRY.COL_NAME' | translate }}</th>
-                                <th>{{ 'SYSTEM.CACHE_REGISTRY.COL_ENTRIES' | translate }}</th>
+                                <th>{{ 'SYSTEM.CACHE_REGISTRY.COL_RECORDS' | translate }}</th>
                                 <th>{{ 'SYSTEM.CACHE_REGISTRY.COL_ACTIONS' | translate }}</th>
                             </tr>
                         </thead>
@@ -126,20 +126,19 @@
                                     <div class="registry-name">{{ cache.nameKey | translate }}</div>
                                     <div class="registry-desc">{{ cache.descriptionKey | translate }}</div>
                                 </td>
-                                <td class="registry-entries">
-                                    <ng-container *ngIf="cache.id === 'media-catalog'; else registryEntryCount">
-                                        <span *ngIf="cache.details?.busy" class="text-warning">
-                                            {{ 'SYSTEM.CACHE_REGISTRY.MEDIA_BUSY' | translate }}
-                                        </span>
-                                        <span *ngIf="!cache.details?.busy"
-                                              [title]="mediaCatalogEntriesTitle(cache)">
-                                            {{ cache.entryCount || 0 }}/4
-                                            <small class="registry-entry-hint" *ngIf="cache.details?.lastDurationMs != null">
-                                                ({{ formatMediaDuration(cache.details.lastDurationMs) }})
-                                            </small>
-                                        </span>
+                                <td class="registry-entries" [title]="cacheRecordsTitle(cache) || mediaCatalogEntriesTitle(cache)">
+                                    <span *ngIf="cache.details?.busy && cache.id === 'media-catalog'" class="text-warning">
+                                        {{ 'SYSTEM.CACHE_REGISTRY.MEDIA_BUSY' | translate }}
+                                    </span>
+                                    <ng-container *ngIf="!(cache.details?.busy && cache.id === 'media-catalog')">
+                                        <span>{{ (cache.recordCount ?? cache.entryCount ?? 0) | number }}</span>
+                                        <small class="registry-entry-hint">
+                                            {{ recordUnitLabel(cache) }}
+                                        </small>
+                                        <small class="registry-entry-hint" *ngIf="cache.id === 'media-catalog' && cache.details?.lastDurationMs != null">
+                                            ({{ formatMediaDuration(cache.details.lastDurationMs) }})
+                                        </small>
                                     </ng-container>
-                                    <ng-template #registryEntryCount>{{ cache.entryCount || 0 }}</ng-template>
                                 </td>
                                 <td class="registry-row-actions">
                                     <button type="button"

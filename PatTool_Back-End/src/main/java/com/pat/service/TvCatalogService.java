@@ -388,6 +388,17 @@ public class TvCatalogService {
         return n;
     }
 
+    /** Total TV channels held in playlist cache (sum across countries). */
+    public long cachedChannelCount() {
+        long total = 0;
+        for (CachedPlaylist playlist : cache.values()) {
+            if (playlist != null && playlist.channels != null) {
+                total += playlist.channels.size();
+            }
+        }
+        return total;
+    }
+
     /** Warm frequently used countries without scanning the full worldwide catalog. */
     public void warmFrequentCountries() {
         for (String code : List.of("fr", "ch", "be")) {

@@ -353,12 +353,23 @@ public class PatToolCacheAdminService {
         row.put("clearable", def.clearable);
         row.put("refreshable", true);
         try {
-            row.put("entryCount", def.counter.get());
+            long records = def.counter.get();
+            row.put("entryCount", records);
+            row.put("recordCount", records);
             if (def.details != null) {
-                row.put("details", def.details.get());
+                Map<String, Object> details = def.details.get();
+                row.put("details", details);
+                if (details != null && details.get("recordUnit") != null) {
+                    row.put("recordUnit", details.get("recordUnit"));
+                }
+            }
+            if (!row.containsKey("recordUnit")) {
+                row.put("recordUnit", "records");
             }
         } catch (Exception e) {
             row.put("entryCount", 0);
+            row.put("recordCount", 0);
+            row.put("recordUnit", "records");
             row.put("error", e.getMessage() != null ? e.getMessage() : e.toString());
         }
         return row;
@@ -380,7 +391,11 @@ public class PatToolCacheAdminService {
                     CachePersistenceService.CacheClearResult r = cachePersistenceService.clearCache();
                     return r.getMemoryEntries();
                 },
-                () -> imageCompressionService.getCacheStatistics()));
+                () -> {
+                    Map<String, Object> d = new LinkedHashMap<>(imageCompressionService.getCacheStatistics());
+                    d.put("recordUnit", "images");
+                    return d;
+                }));
 
         list.add(new CacheDef(
                 "media-catalog", "media",
@@ -388,57 +403,63 @@ public class PatToolCacheAdminService {
                 "SYSTEM.CACHE_REGISTRY.MEDIA_CATALOG_DESC",
                 false, true,
                 () -> {
-                    // Orchestrator only — count how many child catalogs have data (0–4),
-                    // not the sum of country/playlist entries (that looked identical to TV).
-                    long n = 0;
-                    if (tvCatalogService.cacheEntryCount() > 0) {
-                        n++;
+                    // Sum of child record volumes (channels + programmes + stations + IA items).
+                    long total = tvCatalogService.cachedChannelCount();
+                    Object epgProg = tvEpgService.cacheStats().get("epgCachedProgrammes");
+                    if (epgProg instanceof Number n) {
+                        total += n.longValue();
                     }
-                    Object epgObj = tvEpgService.cacheStats().get("epgCachedCountries");
-                    if (epgObj instanceof Number epg && epg.longValue() > 0) {
-                        n++;
-                    }
-                    if (radioCatalogService.cacheEntryCount() > 0) {
-                        n++;
-                    }
+                    total += radioCatalogService.cachedStationCount();
                     Map<String, Object> ia = internetArchiveReplayService.cacheStats();
-                    long iaTotal = ((Number) ia.getOrDefault("iaPageCacheEntries", 0)).longValue()
-                            + ((Number) ia.getOrDefault("iaStreamCacheEntries", 0)).longValue();
-                    if (iaTotal > 0) {
-                        n++;
+                    Object iaRec = ia.get("iaRecordCount");
+                    if (iaRec instanceof Number n) {
+                        total += n.longValue();
                     }
-                    return n;
+                    return total;
                 },
                 () -> 0,
                 () -> {
                     Map<String, Object> status = new LinkedHashMap<>(mediaCatalogCacheService.status());
                     status.put("tvEntries", tvCatalogService.cacheEntryCount());
+                    status.put("tvChannels", tvCatalogService.cachedChannelCount());
                     Object epgObj = tvEpgService.cacheStats().get("epgCachedCountries");
                     status.put("epgEntries", epgObj instanceof Number n ? n.longValue() : 0L);
+                    Object epgProg = tvEpgService.cacheStats().get("epgCachedProgrammes");
+                    status.put("epgProgrammes", epgProg instanceof Number n ? n.longValue() : 0L);
                     status.put("radioEntries", radioCatalogService.cacheEntryCount());
+                    status.put("radioStations", radioCatalogService.cachedStationCount());
                     Map<String, Object> ia = internetArchiveReplayService.cacheStats();
                     status.put("archiveEntries",
                             ((Number) ia.getOrDefault("iaPageCacheEntries", 0)).longValue()
                                     + ((Number) ia.getOrDefault("iaStreamCacheEntries", 0)).longValue());
+                    status.put("archiveRecords", ((Number) ia.getOrDefault("iaRecordCount", 0)).longValue());
                     status.put("orchestrator", true);
+                    status.put("recordUnit", "records");
                     return status;
                 }));
 
         list.add(def("tv-catalog", "media",
                 "SYSTEM.CACHE_REGISTRY.TV_CATALOG", "SYSTEM.CACHE_REGISTRY.TV_CATALOG_DESC",
                 true, false,
-                () -> (long) tvCatalogService.cacheEntryCount(),
+                tvCatalogService::cachedChannelCount,
                 () -> {
                     int n = tvCatalogService.cacheEntryCount();
                     tvCatalogService.invalidateAll();
                     return n;
+                },
+                () -> {
+                    Map<String, Object> d = new LinkedHashMap<>();
+                    d.put("countries", tvCatalogService.cacheEntryCount());
+                    d.put("channels", tvCatalogService.cachedChannelCount());
+                    d.put("recordUnit", "channels");
+                    return d;
                 }));
 
         list.add(def("tv-epg", "media",
                 "SYSTEM.CACHE_REGISTRY.TV_EPG", "SYSTEM.CACHE_REGISTRY.TV_EPG_DESC",
                 true, false,
                 () -> {
-                    Object n = tvEpgService.cacheStats().get("epgCachedCountries");
+                    Object n = tvEpgService.cacheStats().get("epgCachedProgrammes");
                     return n instanceof Number ? ((Number) n).longValue() : 0L;
                 },
                 () -> {
@@ -447,16 +468,27 @@ public class PatToolCacheAdminService {
                     tvEpgService.invalidateAll();
                     return before;
                 },
-                tvEpgService::cacheStats));
+                () -> {
+                    Map<String, Object> d = new LinkedHashMap<>(tvEpgService.cacheStats());
+                    d.put("recordUnit", "programmes");
+                    return d;
+                }));
 
         list.add(def("radio-catalog", "media",
                 "SYSTEM.CACHE_REGISTRY.RADIO_CATALOG", "SYSTEM.CACHE_REGISTRY.RADIO_CATALOG_DESC",
                 true, false,
-                () -> (long) radioCatalogService.cacheEntryCount(),
+                radioCatalogService::cachedStationCount,
                 () -> {
                     int n = radioCatalogService.cacheEntryCount();
                     radioCatalogService.invalidateAll();
                     return n;
+                },
+                () -> {
+                    Map<String, Object> d = new LinkedHashMap<>();
+                    d.put("countries", radioCatalogService.cacheEntryCount());
+                    d.put("stations", radioCatalogService.cachedStationCount());
+                    d.put("recordUnit", "stations");
+                    return d;
                 }));
 
         list.add(def("archive-org", "media",
@@ -464,48 +496,58 @@ public class PatToolCacheAdminService {
                 true, false,
                 () -> {
                     Map<String, Object> s = internetArchiveReplayService.cacheStats();
-                    return ((Number) s.getOrDefault("iaPageCacheEntries", 0)).longValue()
-                            + ((Number) s.getOrDefault("iaStreamCacheEntries", 0)).longValue();
+                    Object n = s.get("iaRecordCount");
+                    return n instanceof Number ? ((Number) n).longValue() : 0L;
                 },
                 internetArchiveReplayService::invalidateAll,
-                internetArchiveReplayService::cacheStats));
+                () -> {
+                    Map<String, Object> d = new LinkedHashMap<>(internetArchiveReplayService.cacheStats());
+                    d.put("recordUnit", "items");
+                    return d;
+                }));
 
         list.add(def("france-tv-live", "media",
                 "SYSTEM.CACHE_REGISTRY.FRANCE_TV_LIVE", "SYSTEM.CACHE_REGISTRY.FRANCE_TV_LIVE_DESC",
                 true, false,
                 () -> (long) franceTvLiveService.cacheEntryCount(),
-                franceTvLiveService::invalidateAll));
+                franceTvLiveService::invalidateAll,
+                unit("urls")));
 
         list.add(def("tf1-live", "media",
                 "SYSTEM.CACHE_REGISTRY.TF1_LIVE", "SYSTEM.CACHE_REGISTRY.TF1_LIVE_DESC",
                 true, false,
                 () -> (long) tf1LiveService.cacheEntryCount(),
-                tf1LiveService::invalidateAll));
+                tf1LiveService::invalidateAll,
+                unit("urls")));
 
         list.add(def("m6-live", "media",
                 "SYSTEM.CACHE_REGISTRY.M6_LIVE", "SYSTEM.CACHE_REGISTRY.M6_LIVE_DESC",
                 true, false,
                 () -> (long) m6GroupLiveService.cacheEntryCount(),
-                m6GroupLiveService::invalidateAll));
+                m6GroupLiveService::invalidateAll,
+                unit("urls")));
 
         list.add(def("canal-live", "media",
                 "SYSTEM.CACHE_REGISTRY.CANAL_LIVE", "SYSTEM.CACHE_REGISTRY.CANAL_LIVE_DESC",
                 true, false,
                 () -> (long) canalGroupLiveService.cacheEntryCount(),
-                canalGroupLiveService::invalidateAll));
+                canalGroupLiveService::invalidateAll,
+                unit("urls")));
 
         list.add(def("arte-replay", "media",
                 "SYSTEM.CACHE_REGISTRY.ARTE_REPLAY", "SYSTEM.CACHE_REGISTRY.ARTE_REPLAY_DESC",
                 true, false,
                 () -> (long) arteReplayService.cacheEntryCount(),
-                arteReplayService::invalidateAll));
+                arteReplayService::invalidateAll,
+                unit("urls")));
 
         list.add(def("mf-temperature", "weather",
                 "SYSTEM.CACHE_REGISTRY.MF_TEMPERATURE", "SYSTEM.CACHE_REGISTRY.MF_TEMPERATURE_DESC",
                 true, false,
                 () -> (long) meteoFranceObsService.cacheEntryCount() + openMeteoService.cacheEntryCount(),
                 () -> meteoFranceObsService.clearTemperatureObservationCache()
-                        + openMeteoService.clearTemperatureObservationCache()));
+                        + openMeteoService.clearTemperatureObservationCache(),
+                unit("records")));
 
         list.add(def("mf-forecast-aromepi", "weather",
                 "SYSTEM.CACHE_REGISTRY.MF_FORECAST_AROMEPI", "SYSTEM.CACHE_REGISTRY.MF_FORECAST_AROMEPI_DESC",
@@ -514,7 +556,8 @@ public class PatToolCacheAdminService {
                 () -> {
                     Object n = meteoFranceAromepiService.clearForecastCaches().get("totalEntries");
                     return n instanceof Number ? ((Number) n).intValue() : 0;
-                }));
+                },
+                unit("tiles")));
 
         list.add(def("mf-forecast-arpege", "weather",
                 "SYSTEM.CACHE_REGISTRY.MF_FORECAST_ARPEGE", "SYSTEM.CACHE_REGISTRY.MF_FORECAST_ARPEGE_DESC",
@@ -523,32 +566,40 @@ public class PatToolCacheAdminService {
                 () -> {
                     Object n = meteoFranceArpegeService.clearForecastCaches().get("totalEntries");
                     return n instanceof Number ? ((Number) n).intValue() : 0;
-                }));
+                },
+                unit("tiles")));
 
         list.add(def("mf-clim", "weather",
                 "SYSTEM.CACHE_REGISTRY.MF_CLIM", "SYSTEM.CACHE_REGISTRY.MF_CLIM_DESC",
                 true, false,
                 () -> (long) meteoFranceClimService.cacheEntryCount(),
-                meteoFranceClimService::clearClimCache));
+                meteoFranceClimService::clearClimCache,
+                unit("records")));
 
         list.add(def("ms-obs", "weather",
                 "SYSTEM.CACHE_REGISTRY.MS_OBS", "SYSTEM.CACHE_REGISTRY.MS_OBS_DESC",
                 true, false,
                 () -> (long) meteoSwissObsService.cacheEntryCount(),
-                meteoSwissObsService::clearAllCaches));
+                meteoSwissObsService::clearAllCaches,
+                unit("records")));
 
         list.add(def("ms-forecast", "weather",
                 "SYSTEM.CACHE_REGISTRY.MS_FORECAST", "SYSTEM.CACHE_REGISTRY.MS_FORECAST_DESC",
                 true, false,
                 () -> (long) meteoSwissForecastService.cacheEntryCount(),
                 meteoSwissForecastService::clearCache,
-                meteoSwissForecastService::getStatus));
+                () -> {
+                    Map<String, Object> d = new LinkedHashMap<>(meteoSwissForecastService.getStatus());
+                    d.put("recordUnit", "frames");
+                    return d;
+                }));
 
         list.add(def("mf-radar", "weather",
                 "SYSTEM.CACHE_REGISTRY.MF_RADAR", "SYSTEM.CACHE_REGISTRY.MF_RADAR_DESC",
                 true, false,
                 () -> (long) meteoFranceRadarService.cacheEntryCount(),
-                meteoFranceRadarService::clearCache));
+                meteoFranceRadarService::clearCache,
+                unit("records")));
 
         list.add(def("news-api", "news",
                 "SYSTEM.CACHE_REGISTRY.NEWS_API", "SYSTEM.CACHE_REGISTRY.NEWS_API_DESC",
@@ -560,7 +611,8 @@ public class PatToolCacheAdminService {
                 () -> {
                     Object n = newsApiService.clearCache().get("cleared");
                     return n instanceof Number ? ((Number) n).intValue() : 0;
-                }));
+                },
+                unit("responses")));
 
         list.add(def("newsdata", "news",
                 "SYSTEM.CACHE_REGISTRY.NEWSDATA", "SYSTEM.CACHE_REGISTRY.NEWSDATA_DESC",
@@ -572,7 +624,8 @@ public class PatToolCacheAdminService {
                 () -> {
                     Object n = newsDataService.clearCache().get("cleared");
                     return n instanceof Number ? ((Number) n).intValue() : 0;
-                }));
+                },
+                unit("responses")));
 
         list.add(def("stock", "finance",
                 "SYSTEM.CACHE_REGISTRY.STOCK", "SYSTEM.CACHE_REGISTRY.STOCK_DESC",
@@ -582,7 +635,8 @@ public class PatToolCacheAdminService {
                     int n = twelveDataProxyService.cacheEntryCount();
                     twelveDataProxyService.clearCache();
                     return n;
-                }));
+                },
+                unit("quotes")));
 
         list.add(def("fx-frankfurter", "finance",
                 "SYSTEM.CACHE_REGISTRY.FX", "SYSTEM.CACHE_REGISTRY.FX_DESC",
@@ -592,31 +646,36 @@ public class PatToolCacheAdminService {
                     int n = frankfurterProxyService.cacheEntryCount();
                     frankfurterProxyService.clearCache();
                     return n;
-                }));
+                },
+                unit("rates")));
 
         list.add(def("crypto-coingecko", "finance",
                 "SYSTEM.CACHE_REGISTRY.CRYPTO", "SYSTEM.CACHE_REGISTRY.CRYPTO_DESC",
                 true, false,
                 () -> (long) coinGeckoProxyService.cacheEntryCount(),
-                coinGeckoProxyService::clearCache));
+                coinGeckoProxyService::clearCache,
+                unit("quotes")));
 
         list.add(def("electricity", "other",
                 "SYSTEM.CACHE_REGISTRY.ELECTRICITY", "SYSTEM.CACHE_REGISTRY.ELECTRICITY_DESC",
                 true, false,
                 () -> (long) electricityProxyService.cacheEntryCount(),
-                electricityProxyService::clearCache));
+                electricityProxyService::clearCache,
+                unit("records")));
 
         list.add(def("chemistry", "other",
                 "SYSTEM.CACHE_REGISTRY.CHEMISTRY", "SYSTEM.CACHE_REGISTRY.CHEMISTRY_DESC",
                 true, false,
                 () -> (long) chemistryProxyService.cacheEntryCount(),
-                chemistryProxyService::clearCache));
+                chemistryProxyService::clearCache,
+                unit("elements")));
 
         list.add(def("geocode", "geo",
                 "SYSTEM.CACHE_REGISTRY.GEOCODE", "SYSTEM.CACHE_REGISTRY.GEOCODE_DESC",
                 true, false,
                 () -> (long) geocodeService.cacheEntryCount(),
-                geocodeService::clearCache));
+                geocodeService::clearCache,
+                unit("records")));
 
         list.add(def("ip-geolocation", "geo",
                 "SYSTEM.CACHE_REGISTRY.IP_GEO", "SYSTEM.CACHE_REGISTRY.IP_GEO_DESC",
@@ -626,19 +685,22 @@ public class PatToolCacheAdminService {
                     int n = ipGeolocationService.cacheEntryCount();
                     ipGeolocationService.clearCache();
                     return n;
-                }));
+                },
+                unit("records")));
 
         list.add(def("opensky", "geo",
                 "SYSTEM.CACHE_REGISTRY.OPENSKY", "SYSTEM.CACHE_REGISTRY.OPENSKY_DESC",
                 true, false,
                 () -> (long) openSkyService.cacheEntryCount(),
-                openSkyService::clearCache));
+                openSkyService::clearCache,
+                unit("records")));
 
         list.add(def("globe-iss", "geo",
                 "SYSTEM.CACHE_REGISTRY.GLOBE_ISS", "SYSTEM.CACHE_REGISTRY.GLOBE_ISS_DESC",
                 true, false,
                 () -> (long) globeProxyService.cacheEntryCount(),
-                globeProxyService::clearIssNowCache));
+                globeProxyService::clearIssNowCache,
+                unit("records")));
 
         list.add(def("agenda-social", "other",
                 "SYSTEM.CACHE_REGISTRY.AGENDA_SOCIAL", "SYSTEM.CACHE_REGISTRY.AGENDA_SOCIAL_DESC",
@@ -648,9 +710,18 @@ public class PatToolCacheAdminService {
                     long n = agendaSocialGraphCache.cacheEntryCount();
                     agendaSocialGraphCache.clearCache();
                     return (int) n;
-                }));
+                },
+                unit("edges")));
 
         return list;
+    }
+
+    private static Supplier<Map<String, Object>> unit(String recordUnit) {
+        return () -> {
+            Map<String, Object> d = new LinkedHashMap<>();
+            d.put("recordUnit", recordUnit);
+            return d;
+        };
     }
 
     private static CacheDef def(
