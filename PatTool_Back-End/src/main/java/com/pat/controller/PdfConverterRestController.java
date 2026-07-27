@@ -1,10 +1,13 @@
 package com.pat.controller;
 
 import com.pat.controller.dto.PdfConverterDocumentRequest;
+import com.pat.repo.CalendarAppointmentRepository;
+import com.pat.repo.EvenementsRepository;
 import com.pat.repo.MembersRepository;
 import com.pat.repo.PdfConverterDocumentRepository;
 import com.pat.repo.domain.Member;
 import com.pat.repo.domain.PdfConverterDocument;
+import com.pat.service.DiscussionService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -32,6 +35,15 @@ public class PdfConverterRestController {
 
     @Autowired
     private MembersRepository membersRepository;
+
+    @Autowired
+    private CalendarAppointmentRepository calendarAppointmentRepository;
+
+    @Autowired
+    private EvenementsRepository evenementsRepository;
+
+    @Autowired
+    private DiscussionService discussionService;
 
     @GetMapping
     public ResponseEntity<List<PdfConverterDocument>> list(
@@ -79,6 +91,11 @@ public class PdfConverterRestController {
         doc.setOwnerMemberId(userId);
         doc.setCreatedAt(now);
         applyEditableFields(doc, body);
+        Optional<ResponseEntity<PdfConverterDocument>> linkErr =
+                applyValidatedLinks(doc, body.getCalendarAppointmentId(), body.getEvenementId(), userId);
+        if (linkErr.isPresent()) {
+            return linkErr.get();
+        }
         doc.setUpdatedAt(now);
         return ResponseEntity.status(HttpStatus.CREATED).body(repository.save(doc));
     }
@@ -91,12 +108,17 @@ public class PdfConverterRestController {
         if (!StringUtils.hasText(userId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
-        Optional<PdfConverterDocument> opt = findAccessible(id, userId);
+        Optional<PdfConverterDocument> opt = findEditable(id, userId);
         if (opt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
         PdfConverterDocument doc = opt.get();
         applyEditableFields(doc, body);
+        Optional<ResponseEntity<PdfConverterDocument>> linkErr =
+                applyValidatedLinks(doc, body.getCalendarAppointmentId(), body.getEvenementId(), userId);
+        if (linkErr.isPresent()) {
+            return linkErr.get();
+        }
         doc.setUpdatedAt(new Date());
         return ResponseEntity.ok(repository.save(doc));
     }
@@ -121,7 +143,37 @@ public class PdfConverterRestController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Readable if owner/admin, or if the document is linked to an event/appointment the member can access.
+     * Mutations still use {@link #findEditable}.
+     */
     private Optional<PdfConverterDocument> findAccessible(String id, String userId) {
+        if (hasAdminRole()) {
+            return repository.findById(id);
+        }
+        Optional<PdfConverterDocument> owned = repository.findByIdAndOwnerMemberId(id, userId);
+        if (owned.isPresent()) {
+            return owned;
+        }
+        Optional<PdfConverterDocument> any = repository.findById(id);
+        if (any.isEmpty()) {
+            return Optional.empty();
+        }
+        PdfConverterDocument doc = any.get();
+        if (StringUtils.hasText(doc.getEvenementId())
+                && discussionService.canUserAccessEventForDetail(doc.getEvenementId().trim(), userId)) {
+            return any;
+        }
+        if (StringUtils.hasText(doc.getCalendarAppointmentId())
+                && calendarAppointmentRepository.findAccessibleByIdAndMember(
+                        doc.getCalendarAppointmentId().trim(), userId).isPresent()) {
+            return any;
+        }
+        return Optional.empty();
+    }
+
+    /** Create/update/delete: owner or Admin only. */
+    private Optional<PdfConverterDocument> findEditable(String id, String userId) {
         if (hasAdminRole()) {
             return repository.findById(id);
         }
@@ -161,5 +213,46 @@ public class PdfConverterRestController {
     private void applyEditableFields(PdfConverterDocument doc, PdfConverterDocumentRequest body) {
         doc.setFileName(body.getFileName().trim());
         doc.setHtmlContent(body.getHtmlContent() != null ? body.getHtmlContent() : "");
+    }
+
+    /**
+     * Validates and sets {@link PdfConverterDocument#getCalendarAppointmentId()} /
+     * {@link PdfConverterDocument#getEvenementId()} (mutually exclusive). Multiple documents
+     * may point at the same target.
+     *
+     * @return empty if OK, or a non-2xx response to return from the controller
+     */
+    private Optional<ResponseEntity<PdfConverterDocument>> applyValidatedLinks(
+            PdfConverterDocument doc, String calRaw, String evRaw, String userId) {
+        String calId = StringUtils.hasText(calRaw) ? calRaw.trim() : null;
+        String evId = StringUtils.hasText(evRaw) ? evRaw.trim() : null;
+        if (calId != null && evId != null) {
+            return Optional.of(ResponseEntity.badRequest().build());
+        }
+        if (calId != null) {
+            if (calendarAppointmentRepository.findById(calId).isEmpty()) {
+                return Optional.of(ResponseEntity.badRequest().build());
+            }
+            if (calendarAppointmentRepository.findAccessibleByIdAndMember(calId, userId).isEmpty()) {
+                return Optional.of(ResponseEntity.status(HttpStatus.FORBIDDEN).build());
+            }
+            doc.setCalendarAppointmentId(calId);
+            doc.setEvenementId(null);
+            return Optional.empty();
+        }
+        if (evId != null) {
+            if (evenementsRepository.findById(evId).isEmpty()) {
+                return Optional.of(ResponseEntity.badRequest().build());
+            }
+            if (!discussionService.canUserAccessEventForDetail(evId, userId)) {
+                return Optional.of(ResponseEntity.status(HttpStatus.FORBIDDEN).build());
+            }
+            doc.setEvenementId(evId);
+            doc.setCalendarAppointmentId(null);
+            return Optional.empty();
+        }
+        doc.setCalendarAppointmentId(null);
+        doc.setEvenementId(null);
+        return Optional.empty();
     }
 }

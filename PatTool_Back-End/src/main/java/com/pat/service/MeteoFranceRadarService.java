@@ -526,6 +526,40 @@ public class MeteoFranceRadarService {
         return cachedOAuthToken;
     }
 
+    public int clearCache() {
+        int n = 0;
+        if (cachedOAuthToken != null) {
+            n++;
+        }
+        if (cachedRainViewerMaps != null) {
+            n++;
+        }
+        if (cachedWmsProbeAtMs > 0) {
+            n++;
+        }
+        cachedOAuthToken = null;
+        cachedOAuthExpiresAtMs = 0;
+        cachedRainViewerMaps = null;
+        cachedRainViewerMapsAtMs = 0;
+        cachedWmsProbeAtMs = 0;
+        cachedWmsProbeOk = false;
+        return n;
+    }
+
+    public int cacheEntryCount() {
+        int n = 0;
+        if (cachedOAuthToken != null) {
+            n++;
+        }
+        if (cachedRainViewerMaps != null) {
+            n++;
+        }
+        if (cachedWmsProbeAtMs > 0) {
+            n++;
+        }
+        return n;
+    }
+
     private boolean probeAuth() {
         try {
             HttpHeaders headers = authHeaders();

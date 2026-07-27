@@ -456,6 +456,16 @@ public class GlobeProxyService {
         issNowMemoryCache = new IssNowMemoryCache(payload, System.currentTimeMillis());
     }
 
+    public int clearIssNowCache() {
+        int n = issNowMemoryCache != null ? 1 : 0;
+        issNowMemoryCache = null;
+        return n;
+    }
+
+    public int cacheEntryCount() {
+        return issNowMemoryCache != null ? 1 : 0;
+    }
+
     /**
      * Live ISS position: WhereTheISS.at first (more reliable), then Open Notify.
      * Failures are logged at debug only — callers fall back to Mongo trace samples.

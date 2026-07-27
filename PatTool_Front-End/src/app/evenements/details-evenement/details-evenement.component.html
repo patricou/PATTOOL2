@@ -83,7 +83,7 @@
           </h1>
         </div>
         <div class="event-meta">
-          <span class="meta-item">
+          <span class="meta-item meta-item-dates">
             <i class="fa fa-calendar"></i>
             <span *ngIf="evenement.beginEventDate">
               {{ 'COMMUN.FROM' | translate }} {{ formatEventDateTime(evenement.beginEventDate, evenement.startHour) }}
@@ -94,6 +94,14 @@
             <span *ngIf="evenement.endEventDate && evenement.endEventDate === evenement.beginEventDate && evenement.startHour">
               {{ formatEventDateTime(evenement.beginEventDate, evenement.startHour) }}
             </span>
+            <button *ngIf="evenement.beginEventDate"
+                    type="button"
+                    class="btn-compact btn-primary-compact meta-agenda-btn"
+                    (click)="openEventInAgenda(); $event.stopPropagation()"
+                    [attr.title]="'EVENTELEM.OPEN_AGENDA' | translate"
+                    [attr.aria-label]="'EVENTELEM.OPEN_AGENDA' | translate">
+              <i class="fa fa-calendar-check-o" aria-hidden="true"></i>
+            </button>
           </span>
           <span class="meta-item" *ngIf="evenement && evenement.author">
             <i class="fa fa-user"></i>
@@ -169,6 +177,21 @@
                     [attr.aria-label]="'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate">
               <i class="fa fa-tasks" aria-hidden="true"></i>
               <span class="btn-text">{{ 'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate }}</span>
+            </button>
+          </div>
+          <div class="event-pdf-converter-link-wrapper"
+               *ngIf="evenement && !accessDenied && hasLinkedPdfConverterDocuments()"
+               [ngbTooltip]="'EVENTELEM.PDF_CONVERTER_BUTTON_HINT' | translate"
+               placement="top"
+               container="body">
+            <button type="button"
+                    class="btn-compact btn-primary-compact"
+                    (click)="openLinkedPdfConverterDocuments(); $event.stopPropagation()"
+                    [attr.title]="'EVENTELEM.PDF_CONVERTER_BUTTON_HINT' | translate"
+                    [attr.aria-label]="'EVENTELEM.PDF_CONVERTER_BUTTON_HINT' | translate">
+              <i class="fa fa-file-text-o" aria-hidden="true"></i>
+              <span class="btn-text">{{ 'EVENTELEM.PDF_CONVERTER_BUTTON_HINT' | translate }}
+                ({{ getLinkedPdfConverterDocuments().length }})</span>
             </button>
           </div>
           <div class="add-web-link-wrapper" *ngIf="user && evenement">
@@ -886,6 +909,42 @@
                       (click)="delFile(pdfFile.fieldId)"
                       title="{{ 'EVENTELEM.DELETEFILE' | translate }}">
                 <i class="fa fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PDF converter drafts linked to this activity -->
+      <div class="dynamic-card card-small card-vertical pdf-converter-docs-card"
+           *ngIf="hasLinkedPdfConverterDocuments()"
+           [ngClass]="getCardLayoutClasses('pdfs')"
+           [style.order]="getCardOrder('pdfs')"
+           [ngStyle]="getCardGridPosition('pdfs')">
+        <div class="card-header-compact">
+          <i class="fa fa-file-text-o"></i>
+          <span>{{ 'EVENTELEM.PDF_CONVERTER_DOCUMENTS' | translate }} ({{ getLinkedPdfConverterDocuments().length }})</span>
+        </div>
+        <div class="pdfs-list-compact">
+          <div class="pdf-item-compact" *ngFor="let doc of getLinkedPdfConverterDocuments()">
+            <div class="pdf-name-compact">{{ doc.fileName || 'document' }}.pdf</div>
+            <div class="pdf-meta-compact" *ngIf="doc.ownerDisplayName || doc.updatedAt">
+              <ng-container *ngIf="doc.ownerDisplayName">
+                <i class="fa fa-user"></i>
+                <span class="pdf-owner-compact">{{ doc.ownerDisplayName }}</span>
+              </ng-container>
+              <span class="pdf-sep-compact" *ngIf="doc.ownerDisplayName && doc.updatedAt">•</span>
+              <span class="pdf-date-compact" *ngIf="doc.updatedAt">
+                <i class="fa fa-calendar"></i>
+                {{ doc.updatedAt | date:'short' }}
+              </span>
+            </div>
+            <div class="pdf-actions-compact">
+              <button
+                class="btn-compact btn-primary-compact"
+                (click)="openLinkedPdfConverterDocument(doc)"
+                [title]="'EVENTELEM.PDF_CONVERTER_OPEN' | translate">
+                <i class="fa fa-pencil"></i>
               </button>
             </div>
           </div>

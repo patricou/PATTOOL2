@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterModule } from '@angular/router';
+import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NgbActiveModal, NgbModal, NgbModalModule } from '@ng-bootstrap/ng-bootstrap';
 import { TodoListDetailOverlayService } from '../todolists/todo-list-detail-overlay.service';
@@ -131,6 +131,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     private translate = inject(TranslateService);
     private modal = inject(NgbModal);
     private router = inject(Router);
+    private route = inject(ActivatedRoute);
     private fileService = inject(FileService);
     private cdr = inject(ChangeDetectorRef);
     private evenementsService = inject(EvenementsService);
@@ -147,6 +148,9 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     /** fileId → calendar event ids (O(1) thumb apply instead of scanning all events). */
     private thumbFileIdToEventIds = new Map<string, string[]>();
     private langChangeSub?: Subscription;
+    private focusDateQuerySub?: Subscription;
+    /** Date from {@code ?date=YYYY-MM-DD} applied as FullCalendar {@code initialDate} / {@code gotoDate}. */
+    private focusDateFromQuery: Date | null = null;
     private layoutResizeTimer?: ReturnType<typeof setTimeout>;
 
     /** Évite double ouverture si {@code select} et {@code dateClick} se déclenchent de près (mobile). */
@@ -262,6 +266,9 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
             /* ignore */
         }
         this.saintCalendarId = this.saintOfDayService.readStoredCalendarId();
+        this.focusDateFromQuery = this.parseFocusDateQueryParam(
+            this.route.snapshot.queryParamMap.get('date')
+        );
         this.calendarOptions = this.buildCalendarOptions();
         this.calendarMobileUi = this.isCalendarMobileViewport();
         if (this.isAuthenticated()) {
@@ -270,6 +277,13 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         this.refreshCalendarEventUiStrings();
         this.loadFriendGroupsForCalendar();
         this.reloadSaintCalendarData();
+        this.focusDateQuerySub = this.route.queryParamMap.subscribe((params) => {
+            const next = this.parseFocusDateQueryParam(params.get('date'));
+            this.focusDateFromQuery = next;
+            if (next) {
+                this.gotoFocusDate(next);
+            }
+        });
         this.langChangeSub = this.translate.onLangChange.subscribe(() => {
             this.refreshCalendarEventUiStrings();
             this.saintSearchQuery = '';
@@ -407,8 +421,43 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     ngAfterViewInit(): void {
-        queueMicrotask(() => this.applyCalendarLayoutForViewport());
+        queueMicrotask(() => {
+            this.applyCalendarLayoutForViewport();
+            if (this.focusDateFromQuery) {
+                this.gotoFocusDate(this.focusDateFromQuery);
+            }
+        });
     }
+
+    /** Parses {@code YYYY-MM-DD} as a local calendar day (invalid -> null). */
+    private parseFocusDateQueryParam(raw: string | null | undefined): Date | null {
+        const s = (raw || '').trim();
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+        if (!m) {
+            return null;
+        }
+        const y = Number(m[1]);
+        const mo = Number(m[2]);
+        const d = Number(m[3]);
+        if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) {
+            return null;
+        }
+        const date = new Date(y, mo - 1, d);
+        if (date.getFullYear() !== y || date.getMonth() !== mo - 1 || date.getDate() !== d) {
+            return null;
+        }
+        return date;
+    }
+
+    private gotoFocusDate(date: Date): void {
+        const api = this.fullCalendar?.getApi();
+        if (!api) {
+            return;
+        }
+        api.gotoDate(date);
+        this.cdr.markForCheck();
+    }
+
 
     @HostListener('window:resize')
     onCalendarWindowResize(): void {
@@ -579,6 +628,8 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         }
         this.langChangeSub?.unsubscribe();
         this.langChangeSub = undefined;
+        this.focusDateQuerySub?.unsubscribe();
+        this.focusDateQuerySub = undefined;
         this.appointmentEventsStreamSub?.unsubscribe();
         this.appointmentEventsStreamSub = undefined;
         this.revokeThumbnailBlobs();
@@ -1167,6 +1218,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         return {
             plugins: [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin],
             initialView: 'dayGridMonth',
+            ...(this.focusDateFromQuery ? { initialDate: this.focusDateFromQuery } : {}),
             headerToolbar: {
                 left: 'prev,next today',
                 center: 'title',

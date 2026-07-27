@@ -46,9 +46,10 @@ public class InternetArchiveReplayService {
     private static final String USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
     private static final Duration STREAM_CACHE_TTL = Duration.ofMinutes(30);
-    private static final Duration PAGE_CACHE_TTL = Duration.ofMinutes(5);
-    private static final int ROWS_PER_PAGE = 24;
-    private static final int MAX_PAGE = 40;
+    /** Listing pages: aligned with TV/radio catalog warm TTL (~60 min). */
+    private static final Duration PAGE_CACHE_TTL = Duration.ofMinutes(60);
+    /** Items per listing page (Archive.org Advanced Search {@code rows}). */
+    private static final int ROWS_PER_PAGE = 50;
     private static final Pattern IDENTIFIER = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9._-]{1,120}$");
 
     /** Curated collections / sorts for the TV watcher Archive.org tab. */
@@ -125,6 +126,36 @@ public class InternetArchiveReplayService {
         return out;
     }
 
+    /**
+     * Prefetch curated section pages (page 1) into {@link #pageCache} for the media catalog warm.
+     * Also warms the French-language RECENT listing used by the global country filter.
+     */
+    public void warmCatalog() {
+        int ok = 0;
+        for (String section : SECTIONS.keySet()) {
+            try {
+                listPrograms(section, "", 1, null);
+                ok++;
+            } catch (Exception e) {
+                log.warn("IA warm section {} failed: {}", section, e.toString());
+            }
+        }
+        try {
+            listPrograms("RECENT", "", 1, "fr");
+            ok++;
+        } catch (Exception e) {
+            log.warn("IA warm RECENT/fr failed: {}", e.toString());
+        }
+        log.info("IA catalog warm finished ({} listings cached, pageCacheSize={})", ok, pageCache.size());
+    }
+
+    public Map<String, Object> cacheStats() {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("iaPageCacheEntries", pageCache.size());
+        out.put("iaStreamCacheEntries", streamCache.size());
+        return out;
+    }
+
     public String normalizeSection(String section) {
         if (!StringUtils.hasText(section)) {
             return "RECENT";
@@ -138,7 +169,11 @@ public class InternetArchiveReplayService {
     }
 
     public IaCatalogResult listPrograms(String section, String query, int page) {
-        int safePage = Math.max(1, Math.min(page <= 0 ? 1 : page, MAX_PAGE));
+        return listPrograms(section, query, page, null);
+    }
+
+    public IaCatalogResult listPrograms(String section, String query, int page, String country) {
+        int requestedPage = Math.max(1, page <= 0 ? 1 : page);
         String q = query != null ? query.trim() : "";
         String sectionCode;
         String lucene;
@@ -156,15 +191,25 @@ public class InternetArchiveReplayService {
             lucene = def.query();
             sort = def.sort();
         }
+        String languageClause = languageClauseForCountry(country);
+        if (StringUtils.hasText(languageClause)) {
+            lucene = "(" + lucene + ") AND (" + languageClause + ")";
+        }
 
-        JsonNode response = fetchSearchPage(lucene, sort, safePage);
-        List<IaProgramDto> programs = new ArrayList<>();
+        JsonNode response = fetchSearchPage(lucene, sort, requestedPage);
         int total = 0;
         int pages = 1;
         if (response != null) {
             total = Math.max(0, response.path("numFound").asInt(0));
             pages = Math.max(1, (int) Math.ceil(total / (double) ROWS_PER_PAGE));
-            pages = Math.min(pages, MAX_PAGE);
+        }
+        int safePage = Math.min(requestedPage, pages);
+        if (safePage != requestedPage) {
+            response = fetchSearchPage(lucene, sort, safePage);
+        }
+
+        List<IaProgramDto> programs = new ArrayList<>();
+        if (response != null) {
             JsonNode docs = response.path("docs");
             if (docs.isArray()) {
                 for (JsonNode doc : docs) {
@@ -172,7 +217,54 @@ public class InternetArchiveReplayService {
                 }
             }
         }
-        return new IaCatalogResult(sectionCode, safePage, pages, total, programs);
+        return new IaCatalogResult(sectionCode, safePage, pages, ROWS_PER_PAGE, total, programs);
+    }
+
+    /**
+     * Map ISO country codes from the TV catalog filter to Archive.org {@code language:} Lucene clauses.
+     * {@code all} / unknown → no language restriction.
+     */
+    static String languageClauseForCountry(String country) {
+        if (!StringUtils.hasText(country)) {
+            return null;
+        }
+        String code = country.trim().toLowerCase(Locale.ROOT);
+        if ("all".equals(code) || "*".equals(code)) {
+            return null;
+        }
+        return switch (code) {
+            case "fr" -> "language:(fra OR fre OR french OR français OR francais)";
+            case "be" -> "language:(fra OR fre OR french OR français OR dut OR nld OR dutch OR belgian)";
+            case "ch" -> "language:(fra OR fre OR french OR ger OR deu OR german OR ita OR italian)";
+            case "de", "at" -> "language:(ger OR deu OR german OR deutsch)";
+            case "es", "mx", "ar", "cl", "co", "pe", "ve" -> "language:(spa OR spanish OR español OR espanol OR castellano)";
+            case "it" -> "language:(ita OR italian OR italiano)";
+            case "pt", "br" -> "language:(por OR portuguese OR português OR portugues)";
+            case "en", "gb", "uk", "us", "au", "nz", "ie", "ca" -> "language:(eng OR english)";
+            case "ru" -> "language:(rus OR russian)";
+            case "jp" -> "language:(jpn OR japanese)";
+            case "cn", "tw", "hk" -> "language:(chi OR zho OR chinese OR cmn)";
+            case "sa", "eg", "ma", "dz", "tn", "ae", "qa", "kw" -> "language:(ara OR arabic)";
+            case "in" -> "language:(hin OR hindi OR eng OR english OR tam OR tel OR ben)";
+            case "nl" -> "language:(dut OR nld OR dutch OR flemish)";
+            case "pl" -> "language:(pol OR polish)";
+            case "el", "gr" -> "language:(gre OR ell OR greek)";
+            case "he", "il" -> "language:(heb OR hebrew)";
+            case "se" -> "language:(swe OR swedish)";
+            case "no" -> "language:(nor OR norwegian)";
+            case "dk" -> "language:(dan OR danish)";
+            case "fi" -> "language:(fin OR finnish)";
+            case "tr" -> "language:(tur OR turkish)";
+            case "ro" -> "language:(rum OR ron OR romanian)";
+            case "cz", "cs" -> "language:(cze OR ces OR czech)";
+            case "hu" -> "language:(hun OR hungarian)";
+            case "kr" -> "language:(kor OR korean)";
+            case "th" -> "language:(tha OR thai)";
+            case "vn" -> "language:(vie OR vietnamese)";
+            case "id" -> "language:(ind OR indonesian)";
+            case "ua" -> "language:(ukr OR ukrainian)";
+            default -> null;
+        };
     }
 
     public Optional<String> resolveStreamUrl(String identifier) {
@@ -210,6 +302,13 @@ public class InternetArchiveReplayService {
             return;
         }
         streamCache.remove(identifier.trim());
+    }
+
+    public int invalidateAll() {
+        int n = pageCache.size() + streamCache.size();
+        pageCache.clear();
+        streamCache.clear();
+        return n;
     }
 
     public Optional<String> resolveVirtualOrPassthrough(String url) {
@@ -548,6 +647,7 @@ public class InternetArchiveReplayService {
             String section,
             int page,
             int pages,
+            int pageSize,
             int total,
             List<IaProgramDto> programs
     ) {

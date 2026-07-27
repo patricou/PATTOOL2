@@ -356,6 +356,180 @@ public class TodoListRestController {
         return ResponseEntity.ok(Map.of("sent", sent, "skipped", skipped, "total", toEmails.size()));
     }
 
+    /**
+     * Send a task reminder by e-mail. Body fields (same as {@link #shareByEmail} plus):
+     * <ul>
+     *     <li>{@code itemId}: required — the task that triggered the reminder</li>
+     * </ul>
+     * The mail lists every open/in-progress task assigned to the same person as that item
+     * (or only that item when it has no assignee). If {@code toMemberIds}/{@code toEmails}
+     * are omitted and the item has an assignee, the assignee is the default recipient.
+     */
+    @PostMapping(value = "/{id}/reminder-email")
+    public ResponseEntity<Map<String, Object>> sendReminderEmail(
+            @PathVariable String id,
+            @RequestBody Map<String, Object> body,
+            @RequestHeader(value = "user-id", required = false) String userId) {
+        if (!StringUtils.hasText(userId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        Optional<TodoList> opt = todoListRepository.findAccessibleByIdAndMember(id, userId);
+        if (opt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        TodoList list = opt.get();
+        if (list.getItems() == null) {
+            list.setItems(new ArrayList<>());
+        }
+        String itemId = body.get("itemId") != null ? body.get("itemId").toString().trim() : "";
+        if (!StringUtils.hasText(itemId)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "itemId is required"));
+        }
+        TodoItem focus = list.getItems().stream()
+                .filter(it -> itemId.equals(it.getId()))
+                .findFirst()
+                .orElse(null);
+        if (focus == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "item not found"));
+        }
+
+        List<TodoItem> reminderItems = buildReminderItems(list, focus);
+
+        @SuppressWarnings("unchecked")
+        List<String> toEmails = (List<String>) body.get("toEmails");
+        @SuppressWarnings("unchecked")
+        List<String> toMemberIds = (List<String>) body.get("toMemberIds");
+        List<String> resolved = new ArrayList<>();
+        if (toEmails != null) {
+            resolved.addAll(toEmails);
+        }
+        if (toMemberIds != null) {
+            for (String mid : toMemberIds) {
+                if (!StringUtils.hasText(mid)) continue;
+                membersRepository.findById(mid).ifPresent(member -> {
+                    if (StringUtils.hasText(member.getAddressEmail())) {
+                        resolved.add(member.getAddressEmail());
+                    }
+                });
+            }
+        }
+        // Default recipient = assignee of the focused task.
+        if (resolved.isEmpty() && StringUtils.hasText(focus.getAssigneeMemberId())) {
+            membersRepository.findById(focus.getAssigneeMemberId()).ifPresent(member -> {
+                if (StringUtils.hasText(member.getAddressEmail())) {
+                    resolved.add(member.getAddressEmail());
+                }
+            });
+        }
+        if (resolved.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "toEmails or toMemberIds is required"));
+        }
+        toEmails = resolved;
+
+        String customMessage = body.get("customMessage") != null ? body.get("customMessage").toString() : "";
+        String senderName = body.get("senderName") != null ? body.get("senderName").toString().trim() : null;
+        if (senderName == null || senderName.isEmpty()) {
+            senderName = resolveSenderName(userId);
+        }
+        String mailLang = body.get("mailLang") != null ? body.get("mailLang").toString().trim() : "fr";
+        if (mailLang.isEmpty()) {
+            mailLang = "fr";
+        }
+        String listUrl = body.get("listUrl") != null ? body.get("listUrl").toString().trim() : null;
+        if (listUrl != null && listUrl.isEmpty()) {
+            listUrl = null;
+        }
+
+        TodoList mailList = shallowCopyForMail(list, reminderItems);
+        DecodedImage cover = decodeDataUrl(list.getImageDataUrl());
+        boolean hasInlineImage = cover != null;
+
+        String ownerLabel = membersRepository.findById(list.getOwnerMemberId())
+                .map(this::organizerLabel)
+                .orElse(list.getOwnerMemberId());
+        Map<String, String> t = todoEmailMessages(mailLang);
+        String assigneeLabel = StringUtils.hasText(focus.getAssigneeMemberId())
+                ? membersRepository.findById(focus.getAssigneeMemberId()).map(this::organizerLabel).orElse("")
+                : "";
+        String reminderIntro = StringUtils.hasText(assigneeLabel)
+                ? String.format(Locale.ROOT, t.get("REMINDER_FOR"), assigneeLabel)
+                : t.get("REMINDER_GENERIC");
+        String reminderPrefix = StringUtils.hasText(customMessage)
+                ? customMessage.trim()
+                : reminderIntro;
+        // Put the reminder banner first; keep any free-text message as the custom block.
+        String htmlBody = generateShareTodoEmailHtml(mailLang, mailList, reminderPrefix, ownerLabel,
+                hasInlineImage, listUrl, senderName);
+        String plainText = buildShareTodoPlainText(mailLang, mailList, reminderPrefix, ownerLabel, senderName, listUrl);
+        String listName = StringUtils.hasText(list.getName()) ? list.getName() : t.get("LIST_FALLBACK");
+        String subject = "PatTool – " + t.get("REMINDER_SUBJECT") + " " + listName;
+        String bcc = mailController.getMailSentTo();
+
+        int sent = 0;
+        int skipped = 0;
+        for (String email : toEmails) {
+            String trimmed = email != null ? email.trim() : "";
+            if (trimmed.isEmpty() || !mailController.isValidEmail(trimmed)) {
+                skipped++;
+                continue;
+            }
+            try {
+                if (hasInlineImage && cover != null) {
+                    ByteArrayResource resource = new ByteArrayResource(cover.bytes);
+                    mailController.sendMailToRecipientWithInline(trimmed, subject, htmlBody, plainText,
+                            "todoListImage", resource, cover.contentType, bcc);
+                } else {
+                    mailController.sendMailToRecipientPlainAndHtml(trimmed, subject, plainText, htmlBody, bcc);
+                }
+                sent++;
+            } catch (Exception e) {
+                log.error("Failed to send to-do reminder to {}: {}", trimmed, e.getMessage(), e);
+                skipped++;
+            }
+        }
+        return ResponseEntity.ok(Map.of(
+                "sent", sent,
+                "skipped", skipped,
+                "total", toEmails.size(),
+                "taskCount", reminderItems.size()));
+    }
+
+    /**
+     * Open/in-progress tasks for the focus item's assignee; otherwise just the focus item.
+     */
+    private List<TodoItem> buildReminderItems(TodoList list, TodoItem focus) {
+        List<TodoItem> all = list.getItems() != null ? list.getItems() : List.of();
+        String assigneeId = focus.getAssigneeMemberId();
+        if (StringUtils.hasText(assigneeId)) {
+            List<TodoItem> pending = all.stream()
+                    .filter(it -> assigneeId.equals(it.getAssigneeMemberId()))
+                    .filter(it -> !TodoList.STATUS_DONE.equals(it.getStatus()))
+                    .collect(Collectors.toList());
+            if (!pending.isEmpty()) {
+                return pending;
+            }
+        }
+        List<TodoItem> single = new ArrayList<>(1);
+        single.add(focus);
+        return single;
+    }
+
+    private TodoList shallowCopyForMail(TodoList source, List<TodoItem> items) {
+        TodoList copy = new TodoList();
+        copy.setId(source.getId());
+        copy.setOwnerMemberId(source.getOwnerMemberId());
+        copy.setName(source.getName());
+        copy.setDescription(source.getDescription());
+        copy.setImageDataUrl(source.getImageDataUrl());
+        copy.setDueDate(source.getDueDate());
+        copy.setStatus(source.getStatus());
+        copy.setCreatedAt(source.getCreatedAt());
+        copy.setUpdatedAt(source.getUpdatedAt());
+        copy.setVisibility(source.getVisibility());
+        copy.setItems(items != null ? items : new ArrayList<>());
+        return copy;
+    }
+
     private String resolveSenderName(String userId) {
         return membersRepository.findById(userId).map(this::organizerLabel).orElse("PatTool");
     }
@@ -681,7 +855,8 @@ public class TodoListRestController {
 
     private static Map<String, String> todoLang(String owner, String created, String due, String status, String tasks,
             String view, String sentBy, String sentVia, String fallback,
-            String open, String inProgress, String done, String archived, String noTasks) {
+            String open, String inProgress, String done, String archived, String noTasks,
+            String reminderSubject, String reminderFor, String reminderGeneric) {
         Map<String, String> m = new HashMap<>();
         m.put("OWNER", owner);
         m.put("CREATED_AT", created);
@@ -697,6 +872,9 @@ public class TodoListRestController {
         m.put("STATUS_DONE", done);
         m.put("STATUS_ARCHIVED", archived);
         m.put("NO_TASKS", noTasks);
+        m.put("REMINDER_SUBJECT", reminderSubject);
+        m.put("REMINDER_FOR", reminderFor);
+        m.put("REMINDER_GENERIC", reminderGeneric);
         return m;
     }
 
@@ -708,7 +886,10 @@ public class TodoListRestController {
                 "Cet e-mail a été envoyé via PatTool.",
                 "Liste de tâches",
                 "Ouverte", "En cours", "Terminée", "Archivée",
-                "Aucune tâche dans cette liste."));
+                "Aucune tâche dans cette liste.",
+                "Rappel :",
+                "Rappel des tâches à faire pour %s.",
+                "Rappel des tâches à faire."));
         TODO_EMAIL_MESSAGES.put("en", todoLang(
                 "Owner", "Created on", "Due date", "Status", "Tasks",
                 "Open in PatTool",
@@ -716,7 +897,10 @@ public class TodoListRestController {
                 "This email was sent via PatTool.",
                 "To-do list",
                 "Open", "In progress", "Done", "Archived",
-                "No tasks in this list."));
+                "No tasks in this list.",
+                "Reminder:",
+                "Reminder of tasks to do for %s.",
+                "Reminder of tasks to do."));
     }
 
     /**

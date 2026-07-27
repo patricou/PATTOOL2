@@ -137,6 +137,10 @@ public class MeteoFranceArpegeService {
     private static final int TILE_CACHE_HINT_WINDOW = 24;
     private final ConcurrentLinkedDeque<Boolean> recentTileCacheFlags = new ConcurrentLinkedDeque<>();
     private final AtomicBoolean lastCapabilitiesFromCache = new AtomicBoolean(false);
+    /** Latest ARPEGE run already warmed into forecast caches (capabilities + point series). */
+    private volatile String lastPrefetchedReferenceTime;
+    private volatile Instant lastPrefetchAt;
+    private final AtomicBoolean prefetchInProgress = new AtomicBoolean(false);
 
     public MeteoFranceArpegeService(
             @Qualifier(RestTemplateConfig.METEOFRANCE_CLIM_REST_TEMPLATE) RestTemplate restTemplate,
@@ -239,6 +243,9 @@ public class MeteoFranceArpegeService {
         status.put("arpegeTilesCached", tilesCached != null && tilesCached);
         status.put("arpegeCapabilitiesCached", lastCapabilitiesFromCache.get());
         status.put("forecastCacheTtlMinutes", forecastCacheTtl().toMinutes());
+        status.put("arpegeLastPrefetchedReferenceTime", lastPrefetchedReferenceTime);
+        status.put("arpegeLastPrefetchAt", lastPrefetchAt != null ? lastPrefetchAt.toString() : null);
+        status.put("arpegePrefetchInProgress", prefetchInProgress.get());
         return status;
     }
 
@@ -489,12 +496,151 @@ public class MeteoFranceArpegeService {
         minutely15Cache.clear();
         recentTileCacheFlags.clear();
         lastCapabilitiesFromCache.set(false);
+        lastPrefetchedReferenceTime = null;
+        lastPrefetchAt = null;
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("tileEntries", tiles);
         result.put("capabilitiesEntries", caps);
         result.put("pointForecastEntries", point);
         result.put("totalEntries", tiles + caps + point);
         return result;
+    }
+
+    public int cacheEntryCount() {
+        return tileCache.size() + capabilitiesByService.size() + minutely15Cache.size();
+    }
+
+    /**
+     * Poll MF GetCapabilities (bypass TTL). When a newer model run is exposed, warm forecast caches
+     * (capabilities + Open-Meteo point series for the warm location) so the UI is ready immediately.
+     *
+     * @return true if a new run was detected and prefetch started/completed
+     */
+    public boolean pollAndPrefetchIfNewRun(double warmLat, double warmLon) {
+        if (!isConfigured()) {
+            return false;
+        }
+        if (!prefetchInProgress.compareAndSet(false, true)) {
+            return false;
+        }
+        try {
+            ParsedCapabilities caps = forceReloadCapabilities(wmsService);
+            String latest = caps.defaultReferenceTime();
+            if (latest == null || latest.isBlank()) {
+                List<String> refs = caps.referenceTimes();
+                if (refs != null && !refs.isEmpty()) {
+                    latest = refs.get(refs.size() - 1);
+                }
+            }
+            if (latest == null || latest.isBlank()) {
+                return false;
+            }
+            String previous = lastPrefetchedReferenceTime;
+            if (previous == null) {
+                log.info("Météo-France ARPEGE run baseline {} — warming forecast cache", latest);
+                warmForecastCachesForRun(latest, warmLat, warmLon);
+                lastPrefetchedReferenceTime = latest;
+                lastPrefetchAt = Instant.now();
+                return true;
+            }
+            if (latest.equals(previous) || !isReferenceTimeNewer(latest, previous)) {
+                return false;
+            }
+            log.info("Météo-France ARPEGE new run exposed: {} (was {}) — warming forecast cache",
+                    latest, previous);
+            warmForecastCachesForRun(latest, warmLat, warmLon);
+            lastPrefetchedReferenceTime = latest;
+            lastPrefetchAt = Instant.now();
+            return true;
+        } catch (Exception e) {
+            log.warn("Météo-France ARPEGE run prefetch failed: {}", e.getMessage());
+            return false;
+        } finally {
+            prefetchInProgress.set(false);
+        }
+    }
+
+    private void warmForecastCachesForRun(String referenceTime, double lat, double lon) {
+        // Point forecast warms Open-Meteo series for the full ARPEGE horizon at this location.
+        Map<String, Object> point = getPointForecast(lat, lon, null, referenceTime, DOMAIN_EUROPE);
+        if (point.containsKey("error")) {
+            log.warn("ARPEGE point-forecast warm-up incomplete for {}: {}",
+                    referenceTime, point.get("error"));
+        } else {
+            Object steps = point.get("steps");
+            int count = steps instanceof List<?> list ? list.size() : 0;
+            log.info("ARPEGE forecast cache warmed for run {} ({} point steps @ {},{})",
+                    referenceTime, count, lat, lon);
+        }
+        // Light WMS tile warm-up for the preferred precip layer near T+0…T+5h (Paris area).
+        warmSampleTilesForRun(referenceTime, lat, lon);
+    }
+
+    private void warmSampleTilesForRun(String referenceTime, double lat, double lon) {
+        try {
+            ParsedCapabilities caps = loadCapabilities(wmsService);
+            String layer = resolvePreferredLayerName(caps);
+            if (layer == null) {
+                return;
+            }
+            List<String> steps = generateArpegeTimeSteps(referenceTime);
+            if (steps.isEmpty()) {
+                return;
+            }
+            int zoom = 6;
+            int[] tile = latLonToTile(lat, lon, zoom);
+            int maxSteps = Math.min(6, steps.size());
+            for (int i = 0; i < maxSteps; i++) {
+                String time = steps.get(i);
+                getWmsTile(zoom, tile[0], tile[1], layer, null, time, referenceTime,
+                        DOMAIN_EUROPE, null, 256, 256);
+            }
+            log.debug("ARPEGE WMS tile warm-up done for run {} ({} steps @ z{})",
+                    referenceTime, maxSteps, zoom);
+        } catch (Exception e) {
+            log.debug("ARPEGE WMS tile warm-up skipped: {}", e.getMessage());
+        }
+    }
+
+    private String resolvePreferredLayerName(ParsedCapabilities caps) {
+        if (caps == null || caps.layers() == null) {
+            return PREFERRED_LAYER_ORDER.get(0);
+        }
+        List<String> names = caps.layers().stream()
+                .map(l -> String.valueOf(l.get("name")))
+                .filter(MeteoFranceArpegeService::isSafeLayer)
+                .toList();
+        for (String pref : PREFERRED_LAYER_ORDER) {
+            if (names.contains(pref)) {
+                return pref;
+            }
+        }
+        return names.isEmpty() ? null : names.get(0);
+    }
+
+    private ParsedCapabilities forceReloadCapabilities(String service) {
+        String svc = service != null && !service.isBlank() ? service.trim() : wmsService;
+        capabilitiesByService.remove(svc);
+        return loadCapabilities(svc);
+    }
+
+    private static boolean isReferenceTimeNewer(String candidate, String previous) {
+        try {
+            return Instant.parse(candidate.trim()).isAfter(Instant.parse(previous.trim()));
+        } catch (Exception e) {
+            return !candidate.equals(previous);
+        }
+    }
+
+    /** Web Mercator tile indices for lat/lon at zoom (XYZ / Leaflet). */
+    private static int[] latLonToTile(double lat, double lon, int zoom) {
+        double latRad = Math.toRadians(Math.max(-85.05112878, Math.min(85.05112878, lat)));
+        int n = 1 << zoom;
+        int x = (int) Math.floor((lon + 180.0) / 360.0 * n);
+        int y = (int) Math.floor((1.0 - Math.log(Math.tan(latRad) + 1.0 / Math.cos(latRad)) / Math.PI) / 2.0 * n);
+        x = Math.max(0, Math.min(n - 1, x));
+        y = Math.max(0, Math.min(n - 1, y));
+        return new int[]{x, y};
     }
 
     private byte[] fetchWmsPngWithRetry(String url) throws InterruptedException {

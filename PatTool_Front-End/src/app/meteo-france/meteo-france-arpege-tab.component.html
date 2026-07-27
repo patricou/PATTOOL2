@@ -51,10 +51,17 @@
     </div>
   </div>
 
-  <div class="forecast-tab-loading-panel" *ngIf="loading" role="status" aria-live="polite">
-    <div class="forecast-tab-loading-inner">
-      <i class="fa fa-spinner fa-spin forecast-tab-loading-spinner" aria-hidden="true"></i>
-      <span>{{ 'METEO_FRANCE.ARPEGE_LOADING' | translate }}</span>
+  <div class="mf-viewport-loading"
+       *ngIf="active && (loading || pointForecastLoading)"
+       role="status"
+       aria-live="polite">
+    <div class="mf-viewport-loading-inner">
+      <i class="fa fa-spinner fa-spin mf-viewport-loading-spinner" aria-hidden="true"></i>
+      <span>{{ (
+        pointForecastLoading
+          ? 'METEO_FRANCE.ARPEGE_FORECAST_LOADING'
+          : 'METEO_FRANCE.ARPEGE_LOADING'
+      ) | translate }}</span>
     </div>
   </div>
 
@@ -65,10 +72,10 @@
          [class.meteo-france-map-shell--fullscreen]="mapFullscreen">
 
       <div class="aromepi-map-loading-overlay"
-           *ngIf="loading"
+           *ngIf="tilesLoading && !loading && !pointForecastLoading && !playing"
            role="status" aria-live="polite">
         <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
-        <span>{{ 'METEO_FRANCE.ARPEGE_LOADING' | translate }}</span>
+        <span>{{ 'METEO_FRANCE.FORECAST_MAP_LOADING_HINT' | translate }}</span>
       </div>
 
       <div class="mf-map-alert"
@@ -221,35 +228,35 @@
           <div class="aromepi-time-actions">
             <button type="button" class="btn btn-sm btn-outline-primary aromepi-time-btn"
                     (click)="togglePlayback()"
-                    [disabled]="timeSteps.length < 2"
+                    [disabled]="loading || timeSteps.length < 2"
                     [attr.title]="(playing ? 'METEO_FRANCE.AROMEPI_PAUSE' : 'METEO_FRANCE.AROMEPI_PLAY') | translate"
                     [attr.aria-label]="(playing ? 'METEO_FRANCE.AROMEPI_PAUSE' : 'METEO_FRANCE.AROMEPI_PLAY') | translate">
               <i class="fa" [class.fa-pause]="playing" [class.fa-play]="!playing"></i>
             </button>
             <button type="button" class="btn btn-sm btn-outline-secondary aromepi-time-btn"
                     (click)="onStepFrame(-1)"
-                    [disabled]="frameIndex === 0"
+                    [disabled]="tilesLoading || frameIndex === 0"
                     [attr.title]="'METEO_FRANCE.AROMEPI_STEP_BACK' | translate"
                     [attr.aria-label]="'METEO_FRANCE.AROMEPI_STEP_BACK' | translate">
               <i class="fa fa-step-backward"></i>
             </button>
             <button type="button" class="btn btn-sm btn-outline-secondary aromepi-time-btn"
                     (click)="onStepFrame(1)"
-                    [disabled]="frameIndex >= timeSteps.length - 1"
+                    [disabled]="tilesLoading || frameIndex >= timeSteps.length - 1"
                     [attr.title]="'METEO_FRANCE.AROMEPI_STEP_FORWARD' | translate"
                     [attr.aria-label]="'METEO_FRANCE.AROMEPI_STEP_FORWARD' | translate">
               <i class="fa fa-step-forward"></i>
             </button>
             <button type="button" class="btn btn-sm btn-outline-secondary aromepi-time-btn"
                     (click)="onFrameIndexChange(0)"
-                    [disabled]="frameIndex === 0"
+                    [disabled]="tilesLoading || frameIndex === 0"
                     [attr.title]="'METEO_FRANCE.AROMEPI_RESET' | translate"
                     [attr.aria-label]="'METEO_FRANCE.AROMEPI_RESET' | translate">
               <i class="fa fa-fast-backward"></i>
             </button>
             <button type="button" class="btn btn-sm btn-outline-secondary aromepi-time-btn"
                     (click)="activate()"
-                    [disabled]="!selectedLayer || loading"
+                    [disabled]="!selectedLayer || loading || tilesLoading"
                     [attr.title]="'METEO_FRANCE.AROMEPI_REFRESH_LAYER' | translate"
                     [attr.aria-label]="'METEO_FRANCE.AROMEPI_REFRESH_LAYER' | translate">
               <i class="fa fa-refresh" aria-hidden="true"></i>
@@ -280,6 +287,7 @@
             <input type="range" class="form-range aromepi-time-slider"
                    [min]="0" [max]="timeSteps.length - 1" step="1"
                    [value]="frameIndex"
+                   [disabled]="tilesLoading"
                    (input)="onFrameSliderInput($event)"
                    [attr.aria-label]="'METEO_FRANCE.ARPEGE_FORECAST_TABLE' | translate" />
             <div class="aromepi-time-range">
@@ -358,13 +366,6 @@
               <i class="fa" [class.fa-refresh]="!pointForecastLoading" [class.fa-spinner]="pointForecastLoading" [class.fa-spin]="pointForecastLoading"></i>
               {{ 'METEO_FRANCE.REFRESH' | translate }}
             </button>
-          </div>
-
-          <div class="forecast-tab-loading-panel" *ngIf="pointForecastLoading" role="status" aria-live="polite">
-            <div class="forecast-tab-loading-inner">
-              <i class="fa fa-spinner fa-spin forecast-tab-loading-spinner" aria-hidden="true"></i>
-              <span>{{ 'METEO_FRANCE.ARPEGE_FORECAST_LOADING' | translate }}</span>
-            </div>
           </div>
 
           <div class="table-responsive" *ngIf="!pointForecastLoading && pointForecastSteps.length">

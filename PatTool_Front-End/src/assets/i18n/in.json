@@ -429,7 +429,11 @@
     "DESELECT_ALL_PHOTOS": "Deselect all photos",
     "SELECTED_PHOTOS_COUNT": "{{count}} photo(s) selected",
     "DELETE_SELECTED_FILES": "Delete selected ({{count}})",
-    "DELETE_SELECTED_FILES_CONFIRM": "Are you sure you want to delete {{count}} file(s)?"
+    "DELETE_SELECTED_FILES_CONFIRM": "Are you sure you want to delete {{count}} file(s)?",
+    "PDF_CONVERTER_BUTTON_HINT": "PDF editor docs",
+    "PDF_CONVERTER_DOCUMENTS": "PDF editor documents",
+    "PDF_CONVERTER_OPEN": "Open in PDF editor",
+    "OPEN_AGENDA": "Buka agenda"
   },
   "MENU": {
     "BRAND": "PATTOOL",
@@ -1072,6 +1076,25 @@
       "WHATSAPP_OPENED": "WhatsApp Ã Â¤Â¨Ã Â¤Âˆ Ã Â¤ÂµÃ Â¤Â¿Ã Â¤Â‚Ã Â¤Â¡Ã Â¥Â‹ Ã Â¤Â®Ã Â¥Â‡Ã Â¤Â‚ Ã Â¤Â–Ã Â¥ÂÃ Â¤Â²Ã Â¤Â¾Ã Â¥Â¤",
       "WHATSAPP_IMAGE_ONLY": "Ã Â¤Â•Ã Â¤ÂµÃ Â¤Â° Ã Â¤Â«Ã Â¤Â¼Ã Â¥Â‹Ã Â¤ÂŸÃ Â¥Â‹ Ã Â¤Â¸Ã Â¤Â¾Ã Â¤ÂÃ Â¤Â¾ Ã Â¤Â•Ã Â¥Â€ Ã Â¤Â—Ã Â¤ÂˆÃ Â¥Â¤ Ã Â¤Â¯Ã Â¤Â¦Ã Â¤Â¿ Ã Â¤Â•Ã Â¤Â¾Ã Â¤Â°Ã Â¥ÂÃ Â¤Â¯ Ã Â¤ÂŸÃ Â¥Â‡Ã Â¤Â•Ã Â¥ÂÃ Â¤Â¸Ã Â¥ÂÃ Â¤ÂŸ Ã Â¤Â¨Ã Â¤Â¹Ã Â¥Â€Ã Â¤Â‚ Ã Â¤Â¦Ã Â¤Â¿Ã Â¤Â–Ã Â¤Â¤Ã Â¤Â¾, Ã Â¤Â¤Ã Â¥Â‹ Ã Â¤ÂŠÃ Â¤ÂªÃ Â¤Â° Ã Â¤Â•Ã Â¥Â‡ Ã Â¤Â¸Ã Â¤Â‚Ã Â¤Â¦Ã Â¥Â‡Ã Â¤Â¶ Ã Â¤Â¬Ã Â¥Â‰Ã Â¤Â•Ã Â¥ÂÃ Â¤Â¸ Ã Â¤Â¸Ã Â¥Â‡ Ã Â¤ÂšÃ Â¤Â¿Ã Â¤ÂªÃ Â¤Â•Ã Â¤Â¾Ã Â¤ÂÃ Â¤Â Ã Â¤Â¯Ã Â¤Â¾ Ã Â¤Â¦Ã Â¥Â‚Ã Â¤Â¸Ã Â¤Â°Ã Â¤Â¾ Ã Â¤Â¸Ã Â¤Â‚Ã Â¤Â¦Ã Â¥Â‡Ã Â¤Â¶ Ã Â¤Â­Ã Â¥Â‡Ã Â¤ÂœÃ Â¥Â‡Ã Â¤Â‚Ã Â¥Â¤",
       "OPEN_IN_PATTOOL": "PatTool Ã Â¤Â®Ã Â¥Â‡Ã Â¤Â‚ Ã Â¤Â¯Ã Â¤Â¹ Ã Â¤Â¸Ã Â¥Â‚Ã Â¤ÂšÃ Â¥Â€ Ã Â¤Â–Ã Â¥Â‹Ã Â¤Â²Ã Â¥Â‡Ã Â¤Â‚:"
+    },
+    "REMINDER": {
+      "BUTTON": "Send a reminder",
+      "EMAIL": "Email reminder",
+      "WHATSAPP": "WhatsApp reminder",
+      "EMAIL_HINT": "Remind by email of tasks still to do",
+      "WHATSAPP_HINT": "Remind on WhatsApp of tasks still to do",
+      "EMAIL_TITLE": "Email reminder",
+      "WHATSAPP_TITLE": "WhatsApp reminder",
+      "DEFAULT_MESSAGE": "Reminder: here are the tasks to do on the list \"{{name}}\" (task: {{task}}).",
+      "DEFAULT_MESSAGE_FOR": "Hi {{assignee}}! Reminder of your open tasks on the list \"{{name}}\".",
+      "FOR_ASSIGNEE": "Tasks for {{name}}",
+      "TASKS_PREVIEW_TITLE": "Tasks included in the reminder",
+      "WHATSAPP_TASKS_HEADER": "To do",
+      "WHATSAPP_BODY_HINT": "Tap \"Open WhatsApp\" — the message lists the open tasks for this person.",
+      "SEND_EMAIL": "Send reminder",
+      "SENT_OK": "Reminder sent to {{sent}} of {{total}} recipient(s).",
+      "SEND_ERROR": "Could not send the reminder. Please try again.",
+      "NEED_ASSIGNEE_OR_PAGE": "Assign the task, or open the full lists page to pick a recipient."
     }
   },
   "CALENDAR": {
@@ -1940,7 +1963,18 @@
     "ERR_FILENAME_REQUIRED": "PDF Ã Â¤Â«Ã Â¤Â¼Ã Â¤Â¾Ã Â¤Â‡Ã Â¤Â² Ã Â¤Â¨Ã Â¤Â¾Ã Â¤Â® Ã Â¤Â¦Ã Â¤Â°Ã Â¥ÂÃ Â¤Âœ Ã Â¤Â•Ã Â¤Â°Ã Â¥Â‡Ã Â¤Â‚Ã Â¥Â¤",
     "ERR_CONTENT_REQUIRED": "Ã Â¤ÂŸÃ Â¥Â‡Ã Â¤Â•Ã Â¥ÂÃ Â¤Â¸Ã Â¥ÂÃ Â¤ÂŸ Ã Â¤Â¯Ã Â¤Â¾ Ã Â¤Â•Ã Â¤Â® Ã Â¤Â¸Ã Â¥Â‡ Ã Â¤Â•Ã Â¤Â® Ã Â¤ÂÃ Â¤Â• Ã Â¤ÂšÃ Â¤Â¿Ã Â¤Â¤Ã Â¥ÂÃ Â¤Â° Ã Â¤ÂœÃ Â¥Â‹Ã Â¤Â¡Ã Â¤Â¼Ã Â¥Â‡Ã Â¤Â‚Ã Â¥Â¤",
     "ERR_EXPORT": "PDF Ã Â¤Â¬Ã Â¤Â¨Ã Â¤Â¾Ã Â¤Â¨Ã Â¤Â¾ Ã Â¤ÂµÃ Â¤Â¿Ã Â¤Â«Ã Â¤Â²Ã Â¥Â¤ Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â¨Ã Â¤Âƒ Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â°Ã Â¤Â¯Ã Â¤Â¾Ã Â¤Â¸ Ã Â¤Â•Ã Â¤Â°Ã Â¥Â‡Ã Â¤Â‚Ã Â¥Â¤",
-    "ERR_SHARE_WHATSAPP": "WhatsApp à¤ªà¤° PDF à¤¸à¤¾à¤à¤¾ à¤¨à¤¹à¥€à¤‚ à¤¹à¥‹ à¤¸à¤•à¤¾à¥¤ à¤ªà¥à¤¨à¤ƒ à¤ªà¥à¤°à¤¯à¤¾à¤¸ à¤•à¤°à¥‡à¤‚à¥¤"
+    "ERR_SHARE_WHATSAPP": "WhatsApp à¤ªà¤° PDF à¤¸à¤¾à¤à¤¾ à¤¨à¤¹à¥€à¤‚ à¤¹à¥‹ à¤¸à¤•à¤¾à¥¤ à¤ªà¥à¤¨à¤ƒ à¤ªà¥à¤°à¤¯à¤¾à¤¸ à¤•à¤°à¥‡à¤‚à¥¤",
+    "LINK_SECTION_TITLE": "Tautkan dokumen ini ke kalender",
+    "LINK_SECTION_INTRO": "Anda dapat menautkan dokumen ini ke janji pribadi di agenda atau ke aktivitas (acara) yang dapat Anda akses di kalender — salah satu saja, tidak keduanya sekaligus.",
+    "LINK_PICK_APPOINTMENT": "Janji pribadi (agenda)",
+    "LINK_PICK_ACTIVITY": "Aktivitas",
+    "LINK_NONE": "Tidak ada",
+    "LINK_LOADING_CALENDAR": "Memuat agenda dan aktivitas…",
+    "LINK_LOAD_ERROR": "Tidak dapat memuat kalender. Anda tetap dapat menyimpan dokumen; coba lagi nanti untuk memilih tautan.",
+    "LINK_HINT": "Memilih janji menghapus tautan aktivitas, dan sebaliknya.",
+    "LINK_STALE_APPOINTMENT": "Tautan saat ini (janji {{id}} — di luar rentang yang dimuat atau tidak tersedia)",
+    "LINK_STALE_ACTIVITY": "Tautan saat ini (aktivitas {{id}} — di luar rentang yang dimuat atau tidak tersedia)",
+    "ERR_LINK": "Tidak dapat menautkan dokumen ini ke aktivitas atau janji yang dipilih. Periksa akses dan coba lagi."
   },
   "LOTTO": {
     "TITLE": "Ã Â¤Â«Ã Â¥ÂÃ Â¤Â°Ã Â¥Â‡Ã Â¤Â‚Ã Â¤Âš Ã Â¤Â²Ã Â¥Â‹Ã Â¤ÂŸÃ Â¥Â‹ (FDJ) Ã¢Â€Â” Ã Â¤Â¡Ã Â¥ÂÃ Â¤Â°Ã Â¥Â‰",
@@ -3431,7 +3465,8 @@
     "ASSISTANT_EVENT": "AI Ã Â¤Â¸Ã Â¤Â¹Ã Â¤Â¾Ã Â¤Â¯Ã Â¤Â•",
     "WALL_UPLOADING": "Ã Â¤Â«Ã Â¤Â¼Ã Â¤Â¾Ã Â¤Â‡Ã Â¤Â²Ã Â¥Â‡Ã Â¤Â‚ Ã Â¤Â…Ã Â¤ÂªÃ Â¤Â²Ã Â¥Â‹Ã Â¤Â¡ Ã Â¤Â¹Ã Â¥Â‹ Ã Â¤Â°Ã Â¤Â¹Ã Â¥Â€ Ã Â¤Â¹Ã Â¥ÂˆÃ Â¤Â‚Ã¢Â€Â¦",
     "WALL_UPLOAD_LOG_WAITING": "Ã Â¤Â…Ã Â¤ÂªÃ Â¤Â²Ã Â¥Â‹Ã Â¤Â¡ Ã Â¤Â¶Ã Â¥ÂÃ Â¤Â°Ã Â¥Â‚ Ã Â¤Â¹Ã Â¥Â‹Ã Â¤Â¨Ã Â¥Â‡ Ã Â¤Â•Ã Â¥Â€ Ã Â¤ÂªÃ Â¥ÂÃ Â¤Â°Ã Â¤Â¤Ã Â¥Â€Ã Â¤Â•Ã Â¥ÂÃ Â¤Â·Ã Â¤Â¾Ã¢Â€Â¦",
-    "SHOW_MORE_GRID_PHOTOS": "à¤¸à¤­à¥€ à¤«à¤¼à¥‹à¤Ÿà¥‹ à¤¦à¥‡à¤–à¥‡à¤‚"
+    "SHOW_MORE_GRID_PHOTOS": "à¤¸à¤­à¥€ à¤«à¤¼à¥‹à¤Ÿà¥‹ à¤¦à¥‡à¤–à¥‡à¤‚",
+    "PDF_CONVERTER_WALL_TABLE_TITLE": "PDF editor documents"
   },
   "NEWS": {
     "PAGE_TITLE": "Ã Â¤Â¸Ã Â¤Â®Ã Â¤Â¾Ã Â¤ÂšÃ Â¤Â¾Ã Â¤Â°",
@@ -3850,7 +3885,23 @@
     "EPG_GUIDE_ERROR": "à¤—à¤¾à¤‡à¤¡ à¤²à¥‹à¤¡ à¤¨à¤¹à¥€à¤‚ à¤¹à¥‹ à¤¸à¤•à¤¾à¥¤",
     "RESTART_STREAM": "Reconnect stream from scratch",
     "RESTART_STREAM_DONE": "Stream reconnected",
-    "TOKEN_RENEWED": "Stream token renewed"
+    "TOKEN_RENEWED": "Stream token renewed",
+    "GLOBAL_FILTER_OPEN": "Global filter",
+    "SIDEBAR_FILTER": "सूची फ़िल्टर",
+    "SIDEBAR_FILTER_PLACEHOLDER": "चैनल या फ़िल्में फ़िल्टर करें…",
+    "SIDEBAR_FILTER_CLEAR": "फ़िल्टर साफ़ करें",
+    "GLOBAL_FILTER_TITLE": "Global filter (all tabs)",
+    "GLOBAL_FILTER_CLOSE": "Close",
+    "GLOBAL_FILTER_LEAD": "Configure a shared filter. Enable \"Apply to all tabs\" to use it on All TVs, Favorites, ARTE Replay, Archive.org and Recordings.",
+    "GLOBAL_FILTER_APPLY_ALL": "Apply to all tabs",
+    "GLOBAL_FILTER_APPLY_ALL_HINT": "When enabled, the filter stays active when switching tabs and is saved for your account.",
+    "GLOBAL_FILTER_APPLY": "Apply",
+    "GLOBAL_FILTER_CLEAR": "Clear",
+    "GLOBAL_FILTER_LOGIN": "Sign in to save this filter to your account.",
+    "GLOBAL_FILTER_COUNTRY_HINT": "For Archive.org: filters by the country language. For ARTE: catalog language. For All TVs: channel country.",
+    "GLOBAL_FILTER_CHANNEL_HINT": "Live TV / Favorites: channel name. Archive.org & ARTE: can also search a title.",
+    "GLOBAL_FILTER_PROGRAM_HINT": "Archive.org & ARTE: film or show title (server search). Live TV: EPG programme title.",
+    "GLOBAL_FILTER_PROGRAM_PLACEHOLDER": "E.g. Star Wars, news, documentary…"
   },
   "RADIO": {
     "TITLE": "Radio â€” world stations",

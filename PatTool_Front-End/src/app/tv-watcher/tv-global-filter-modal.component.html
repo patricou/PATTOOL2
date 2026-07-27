@@ -1,0 +1,122 @@
+<div class="tv-global-filter-backdrop" *ngIf="open" (click)="close()" aria-hidden="true"></div>
+<div
+  class="tv-global-filter-modal"
+  *ngIf="open"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="'TV.GLOBAL_FILTER_TITLE' | translate"
+  (click)="$event.stopPropagation()">
+  <div class="tv-global-filter-header">
+    <h3 class="tv-global-filter-title">
+      <i class="fa fa-filter me-1" aria-hidden="true"></i>
+      {{ 'TV.GLOBAL_FILTER_TITLE' | translate }}
+    </h3>
+    <button
+      type="button"
+      class="tv-global-filter-close"
+      (click)="close()"
+      [attr.aria-label]="'TV.GLOBAL_FILTER_CLOSE' | translate">
+      <i class="fa fa-times" aria-hidden="true"></i>
+    </button>
+  </div>
+
+  <div class="tv-global-filter-body">
+    <p class="tv-global-filter-lead small text-muted mb-3">
+      {{ 'TV.GLOBAL_FILTER_LEAD' | translate }}
+    </p>
+
+    <div class="form-check tv-global-filter-apply-check mb-3">
+      <input
+        class="form-check-input"
+        type="checkbox"
+        id="tv-global-filter-apply-all"
+        [(ngModel)]="draft.applyToAllTabs" />
+      <label class="form-check-label" for="tv-global-filter-apply-all">
+        {{ 'TV.GLOBAL_FILTER_APPLY_ALL' | translate }}
+      </label>
+      <div class="form-text">{{ 'TV.GLOBAL_FILTER_APPLY_ALL_HINT' | translate }}</div>
+    </div>
+
+    <label class="form-label small mb-1" for="tv-global-filter-country">
+      {{ 'TV.COUNTRY' | translate }}
+    </label>
+    <input
+      id="tv-global-filter-country-search"
+      type="search"
+      class="form-control form-control-sm mb-1"
+      [(ngModel)]="countryFilter"
+      [placeholder]="'TV.COUNTRY_FILTER' | translate"
+      autocomplete="off"
+      spellcheck="false" />
+    <select
+      id="tv-global-filter-country"
+      class="form-select form-select-sm"
+      [(ngModel)]="draft.country"
+      (ngModelChange)="onCountryChange()">
+      <option value="all">{{ 'TV.COUNTRY_ALL' | translate }}</option>
+      <option *ngFor="let c of filteredCountries" [value]="c.code">
+        {{ c.flag }} {{ c.name }} ({{ c.code | uppercase }})
+      </option>
+    </select>
+    <div class="form-text mb-1" *ngIf="countryFilter.trim() && filteredCountries.length === 0">
+      {{ 'TV.COUNTRY_FILTER_EMPTY' | translate }}
+    </div>
+    <div class="form-text mb-1">{{ 'TV.GLOBAL_FILTER_COUNTRY_HINT' | translate }}</div>
+
+    <label class="form-label small mb-1 mt-2" for="tv-global-filter-group">
+      {{ 'TV.GROUP' | translate }}
+    </label>
+    <select
+      id="tv-global-filter-group"
+      class="form-select form-select-sm"
+      [(ngModel)]="draft.group">
+      <option value="">{{ groupEmoji('') }} {{ 'TV.GROUP_ALL' | translate }}</option>
+      <option *ngFor="let g of groups" [value]="g">{{ groupEmoji(g) }} {{ groupLabelKey(g) | translate }}</option>
+    </select>
+
+    <label class="form-label small mb-1 mt-2" for="tv-global-filter-channel">
+      {{ 'TV.SEARCH_CHANNEL' | translate }}
+    </label>
+    <input
+      id="tv-global-filter-channel"
+      type="search"
+      class="form-control form-control-sm"
+      [(ngModel)]="draft.channelQuery"
+      [placeholder]="'TV.SEARCH_PLACEHOLDER_CHANNEL' | translate"
+      autocomplete="off" />
+    <div class="form-text">{{ 'TV.GLOBAL_FILTER_CHANNEL_HINT' | translate }}</div>
+
+    <label class="form-label small mb-1 mt-2" for="tv-global-filter-program">
+      {{ 'TV.SEARCH_PROGRAM' | translate }}
+    </label>
+    <input
+      id="tv-global-filter-program"
+      type="search"
+      class="form-control form-control-sm"
+      [(ngModel)]="draft.programQuery"
+      [placeholder]="'TV.GLOBAL_FILTER_PROGRAM_PLACEHOLDER' | translate"
+      autocomplete="off" />
+    <div class="form-text">{{ 'TV.GLOBAL_FILTER_PROGRAM_HINT' | translate }}</div>
+    <div class="alert alert-warning py-2 px-3 small mt-3 mb-0" *ngIf="loginHint" role="status">
+      <i class="fa fa-lock me-1" aria-hidden="true"></i>
+      {{ 'TV.GLOBAL_FILTER_LOGIN' | translate }}
+    </div>
+  </div>
+
+  <div class="tv-global-filter-footer">
+    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="clear()" [disabled]="saving">
+      <i class="fa fa-eraser me-1" aria-hidden="true"></i>
+      {{ 'TV.GLOBAL_FILTER_CLEAR' | translate }}
+    </button>
+    <div class="tv-global-filter-footer-right">
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="close()" [disabled]="saving">
+        {{ 'TV.GLOBAL_FILTER_CLOSE' | translate }}
+      </button>
+      <button type="button" class="btn btn-primary btn-sm" (click)="apply()" [disabled]="saving">
+        <i class="fa fa-spinner fa-spin me-1" *ngIf="saving" aria-hidden="true"></i>
+        <i class="fa fa-check me-1" *ngIf="!saving" aria-hidden="true"></i>
+        {{ 'TV.GLOBAL_FILTER_APPLY' | translate }}
+      </button>
+    </div>
+  </div>
+</div>

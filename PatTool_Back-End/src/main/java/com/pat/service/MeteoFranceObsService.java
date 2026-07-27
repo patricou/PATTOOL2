@@ -378,6 +378,10 @@ public class MeteoFranceObsService {
         return cleared;
     }
 
+    public int cacheEntryCount() {
+        return obsCache.size() + boundsResponseCache.size();
+    }
+
     /**
      * Interpolate DPObs v2 station temperatures on an arbitrary point set (screen grid ~1 cm).
      * Points without nearby stations are omitted — caller may fill with Open-Meteo.

@@ -257,12 +257,29 @@
                         <span class="group-action-btn-text">{{ 'EVENTELEM.MAP' | translate }}</span>
                     </button>
                     <button type="button"
+                            class="btn btn-sm group-action-btn group-action-btn--agenda"
+                            *ngIf="group.eventDate"
+                            (click)="openWallEventInAgenda(group, $event)"
+                            [title]="'EVENTELEM.OPEN_AGENDA' | translate">
+                        <i class="fa fa-calendar" aria-hidden="true"></i>
+                        <span class="group-action-btn-text">{{ 'EVENTELEM.OPEN_AGENDA' | translate }}</span>
+                    </button>
+                    <button type="button"
                             class="btn btn-sm group-action-btn group-action-btn--todolist"
                             *ngIf="group.linkedTodoListId"
                             (click)="openWallTodoList(group, $event)"
                             [title]="'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate">
                         <i class="fa fa-tasks"></i>
                         <span class="group-action-btn-text">{{ 'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate }}</span>
+                    </button>
+                    <button type="button"
+                            class="btn btn-sm group-action-btn group-action-btn--pdf-converter"
+                            *ngIf="getGroupLinkedPdfConverterDocuments(group).length > 0"
+                            (click)="openWallPdfConverterDocs(group, $event)"
+                            [title]="'EVENTELEM.PDF_CONVERTER_BUTTON_HINT' | translate">
+                        <i class="fa fa-file-text-o"></i>
+                        <span class="group-action-btn-text">{{ 'EVENTELEM.PDF_CONVERTER_BUTTON_HINT' | translate }}
+                          ({{ getGroupLinkedPdfConverterDocuments(group).length }})</span>
                     </button>
                     <button type="button"
                             class="btn btn-sm group-action-btn group-action-btn--links"
@@ -680,6 +697,42 @@
                                     <button type="button"
                                             class="btn btn-outline-primary btn-sm py-0 px-2 photo-wall-tracks-open-btn"
                                             (click)="onPhotoWallFooterLinkClick(pdf, group); $event.stopPropagation()">
+                                        {{ 'PHOTO_TIMELINE.TRACK_TABLE_OPEN' | translate }}
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Documents éditeur PDF (brouillons liés à l’activité) -->
+            <div class="photo-wall-tracks-wrap mt-2"
+                 *ngIf="getGroupLinkedPdfConverterDocuments(group).length > 0">
+                <div class="photo-wall-tracks-title-row d-flex flex-wrap align-items-center justify-content-between gap-2 mb-1">
+                    <div class="photo-wall-tracks-title small mb-0">
+                        <i class="fa fa-file-text-o me-1" aria-hidden="true"></i>
+                        {{ 'PHOTO_TIMELINE.PDF_CONVERTER_WALL_TABLE_TITLE' | translate }}
+                        <span class="text-muted ms-1">({{ getGroupLinkedPdfConverterDocuments(group).length }})</span>
+                    </div>
+                </div>
+                <div class="table-responsive photo-wall-tracks-table-responsive">
+                    <table class="table table-sm table-striped photo-wall-tracks-table mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th scope="col">{{ 'PHOTO_TIMELINE.TRACK_TABLE_NAME' | translate }}</th>
+                                <th scope="col" class="d-none d-md-table-cell">{{ 'PHOTO_TIMELINE.TRACK_TABLE_OWNER' | translate }}</th>
+                                <th scope="col" class="text-end photo-wall-tracks-col-open">{{ 'PHOTO_TIMELINE.TRACK_TABLE_OPEN' | translate }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let doc of getGroupLinkedPdfConverterDocuments(group)">
+                                <td class="text-wrap photo-wall-tracks-col-name">{{ doc.fileName || 'document' }}.pdf</td>
+                                <td class="text-wrap photo-wall-tracks-col-owner d-none d-md-table-cell">{{ doc.ownerDisplayName || '—' }}</td>
+                                <td class="text-end photo-wall-tracks-col-open">
+                                    <button type="button"
+                                            class="btn btn-outline-primary btn-sm py-0 px-2 photo-wall-tracks-open-btn"
+                                            (click)="openWallPdfConverterDocument(doc, $event)">
                                         {{ 'PHOTO_TIMELINE.TRACK_TABLE_OPEN' | translate }}
                                     </button>
                                 </td>

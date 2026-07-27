@@ -232,6 +232,17 @@ public class MeteoSwissForecastService {
         return status;
     }
 
+    public int clearCache() {
+        int n = (cache != null ? 1 : 0) + (precipMapCache != null ? 1 : 0);
+        cache = null;
+        precipMapCache = null;
+        return n;
+    }
+
+    public int cacheEntryCount() {
+        return (cache != null ? 1 : 0) + (precipMapCache != null ? 1 : 0);
+    }
+
     private void requestCacheRefreshIfIdle() {
         if (!refreshInProgress.get()) {
             CompletableFuture.runAsync(this::refreshCacheSafe);

@@ -486,6 +486,17 @@ public class CoinGeckoProxyService {
         }
     }
 
+    public int clearCache() {
+        int n = priceCache.size() + chartCache.size();
+        priceCache.clear();
+        chartCache.clear();
+        return n;
+    }
+
+    public int cacheEntryCount() {
+        return priceCache.size() + chartCache.size();
+    }
+
     private static String normalizeBase(String base) {
         if (base == null || base.isBlank()) {
             return "https://api.coingecko.com/api/v3";

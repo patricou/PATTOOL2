@@ -654,6 +654,25 @@
       "WHATSAPP_OPENED": "WhatsApp Ã—Â Ã—Â¤Ã—ÂªÃ—Â— Ã—Â‘Ã—Â—Ã—ÂœÃ—Â•Ã—ÂŸ Ã—Â—Ã—Â“Ã—Â©.",
       "WHATSAPP_IMAGE_ONLY": "Ã—ÂªÃ—ÂžÃ—Â•Ã—Â Ã—Âª Ã—Â”Ã—Â›Ã—Â¨Ã—Â™Ã—Â›Ã—Â” Ã—Â©Ã—Â•Ã—ÂªÃ—Â¤Ã—Â”. Ã—ÂÃ—Â Ã—Â˜Ã—Â§Ã—Â¡Ã—Â˜ Ã—Â”Ã—ÂžÃ—Â©Ã—Â™Ã—ÂžÃ—Â•Ã—Âª Ã—Â—Ã—Â¡Ã—Â¨, Ã—Â”Ã—Â“Ã—Â‘Ã—Â™Ã—Â§Ã—Â• Ã—ÂÃ—Â•Ã—ÂªÃ—Â• Ã—ÂžÃ—Â©Ã—Â“Ã—Â” Ã—Â”Ã—Â”Ã—Â•Ã—Â“Ã—Â¢Ã—Â” Ã—ÂœÃ—ÂžÃ—Â¢Ã—ÂœÃ—Â” Ã—ÂÃ—Â• Ã—Â©Ã—ÂœÃ—Â—Ã—Â• Ã—Â”Ã—Â•Ã—Â“Ã—Â¢Ã—Â” Ã—Â©Ã—Â Ã—Â™Ã—Â™Ã—Â”.",
       "OPEN_IN_PATTOOL": "Ã—Â¤Ã—ÂªÃ—Â—Ã—Â• Ã—ÂÃ—Âª Ã—Â”Ã—Â¨Ã—Â©Ã—Â™Ã—ÂžÃ—Â” Ã—Â‘-PatTool:"
+    },
+    "REMINDER": {
+      "BUTTON": "Send a reminder",
+      "EMAIL": "Email reminder",
+      "WHATSAPP": "WhatsApp reminder",
+      "EMAIL_HINT": "Remind by email of tasks still to do",
+      "WHATSAPP_HINT": "Remind on WhatsApp of tasks still to do",
+      "EMAIL_TITLE": "Email reminder",
+      "WHATSAPP_TITLE": "WhatsApp reminder",
+      "DEFAULT_MESSAGE": "Reminder: here are the tasks to do on the list \"{{name}}\" (task: {{task}}).",
+      "DEFAULT_MESSAGE_FOR": "Hi {{assignee}}! Reminder of your open tasks on the list \"{{name}}\".",
+      "FOR_ASSIGNEE": "Tasks for {{name}}",
+      "TASKS_PREVIEW_TITLE": "Tasks included in the reminder",
+      "WHATSAPP_TASKS_HEADER": "To do",
+      "WHATSAPP_BODY_HINT": "Tap \"Open WhatsApp\" — the message lists the open tasks for this person.",
+      "SEND_EMAIL": "Send reminder",
+      "SENT_OK": "Reminder sent to {{sent}} of {{total}} recipient(s).",
+      "SEND_ERROR": "Could not send the reminder. Please try again.",
+      "NEED_ASSIGNEE_OR_PAGE": "Assign the task, or open the full lists page to pick a recipient."
     }
   },
   "CALENDAR": {
@@ -1718,7 +1737,11 @@
     "DESELECT_ALL_PHOTOS": "Deselect all photos",
     "SELECTED_PHOTOS_COUNT": "{{count}} photo(s) selected",
     "DELETE_SELECTED_FILES": "Delete selected ({{count}})",
-    "DELETE_SELECTED_FILES_CONFIRM": "Are you sure you want to delete {{count}} file(s)?"
+    "DELETE_SELECTED_FILES_CONFIRM": "Are you sure you want to delete {{count}} file(s)?",
+    "PDF_CONVERTER_BUTTON_HINT": "PDF editor docs",
+    "PDF_CONVERTER_DOCUMENTS": "PDF editor documents",
+    "PDF_CONVERTER_OPEN": "Open in PDF editor",
+    "OPEN_AGENDA": "פתח יומן"
   },
   "CAROUSEL": {
     "START_AUTOPLAY": "Ã—Â”Ã—ÂªÃ—Â—Ã—Âœ Ã—Â’Ã—ÂœÃ—Â™Ã—ÂœÃ—Â” Ã—ÂÃ—Â•Ã—Â˜Ã—Â•Ã—ÂžÃ—Â˜Ã—Â™Ã—Âª",
@@ -1970,7 +1993,18 @@
     "ERR_FILENAME_REQUIRED": "Ã—Â™Ã—Â© Ã—ÂœÃ—Â”Ã—Â–Ã—Â™Ã—ÂŸ Ã—Â©Ã—Â Ã—Â§Ã—Â•Ã—Â‘Ã—Â¥ PDF.",
     "ERR_CONTENT_REQUIRED": "Ã—Â”Ã—Â•Ã—Â¡Ã—Â™Ã—Â¤Ã—Â• Ã—Â˜Ã—Â§Ã—Â¡Ã—Â˜ Ã—ÂÃ—Â• Ã—ÂœÃ—Â¤Ã—Â—Ã—Â•Ã—Âª Ã—ÂªÃ—ÂžÃ—Â•Ã—Â Ã—Â” Ã—ÂÃ—Â—Ã—Âª.",
     "ERR_EXPORT": "Ã—Â™Ã—Â¦Ã—Â™Ã—Â¨Ã—Âª PDF Ã—Â Ã—Â›Ã—Â©Ã—ÂœÃ—Â”. Ã—Â Ã—Â¡Ã—Â• Ã—Â©Ã—Â•Ã—Â‘.",
-    "ERR_SHARE_WHATSAPP": "×œ× × ×™×ª×Ÿ ×œ×©×ª×£ ××ª ×”-PDF ×‘-WhatsApp. × ×¡×” ×©×•×‘."
+    "ERR_SHARE_WHATSAPP": "×œ× × ×™×ª×Ÿ ×œ×©×ª×£ ××ª ×”-PDF ×‘-WhatsApp. × ×¡×” ×©×•×‘.",
+    "LINK_SECTION_TITLE": "קישור מסמך זה ליומן",
+    "LINK_SECTION_INTRO": "ניתן לקשר מסמך זה לפגישה אישית ביומן או לפעילות (אירוע) שיש לך גישה אליה בלוח השנה — אחד מהם, לא שניהם בו־זמנית.",
+    "LINK_PICK_APPOINTMENT": "פגישה אישית (יומן)",
+    "LINK_PICK_ACTIVITY": "פעילות",
+    "LINK_NONE": "ללא",
+    "LINK_LOADING_CALENDAR": "טוען את היומן והפעילויות…",
+    "LINK_LOAD_ERROR": "לא ניתן לטעון את לוח השנה. עדיין ניתן לשמור את המסמך; נסה שוב מאוחר יותר לבחירת קישור.",
+    "LINK_HINT": "בחירת פגישה מנקה קישור לפעילות, ולהפך.",
+    "LINK_STALE_APPOINTMENT": "קישור נוכחי (פגישה {{id}} — מחוץ לטווח שנטען או לא זמין)",
+    "LINK_STALE_ACTIVITY": "קישור נוכחי (פעילות {{id}} — מחוץ לטווח שנטען או לא זמין)",
+    "ERR_LINK": "לא ניתן לקשר מסמך זה לפעילות או לפגישה שנבחרו. בדוק את הגישה ונסה שוב."
   },
   "LOTTO": {
     "TITLE": "Ã—ÂœÃ—Â•Ã—Â˜Ã—Â• Ã—Â¦Ã—Â¨Ã—Â¤Ã—ÂªÃ—Â™ (FDJ) Ã¢Â€Â” Ã—Â”Ã—Â’Ã—Â¨Ã—ÂœÃ—Â•Ã—Âª",
@@ -3439,7 +3473,8 @@
     "ASSISTANT_EVENT": "Ã—Â¢Ã—Â•Ã—Â–Ã—Â¨ AI",
     "WALL_UPLOADING": "Ã—ÂžÃ—Â¢Ã—ÂœÃ—Â” Ã—Â§Ã—Â‘Ã—Â¦Ã—Â™Ã—ÂÃ¢Â€Â¦",
     "WALL_UPLOAD_LOG_WAITING": "Ã—ÂžÃ—ÂžÃ—ÂªÃ—Â™Ã—ÂŸ Ã—ÂœÃ—ÂªÃ—Â—Ã—Â™Ã—ÂœÃ—Âª Ã—Â”Ã—Â”Ã—Â¢Ã—ÂœÃ—ÂÃ—Â”Ã¢Â€Â¦",
-    "SHOW_MORE_GRID_PHOTOS": "×”×¦×’ ××ª ×›×œ ×”×ª×ž×•× ×•×ª"
+    "SHOW_MORE_GRID_PHOTOS": "×”×¦×’ ××ª ×›×œ ×”×ª×ž×•× ×•×ª",
+    "PDF_CONVERTER_WALL_TABLE_TITLE": "PDF editor documents"
   },
   "NEWS": {
     "PAGE_TITLE": "Ã—Â—Ã—Â“Ã—Â©Ã—Â•Ã—Âª",
@@ -3858,7 +3893,23 @@
     "EPG_GUIDE_ERROR": "×œ× × ×™×ª×Ÿ ×œ×˜×¢×•×Ÿ ××ª ×ž×“×¨×™×š ×”×ª×•×›× ×™×•×ª.",
     "RESTART_STREAM": "Reconnect stream from scratch",
     "RESTART_STREAM_DONE": "Stream reconnected",
-    "TOKEN_RENEWED": "Stream token renewed"
+    "TOKEN_RENEWED": "Stream token renewed",
+    "GLOBAL_FILTER_OPEN": "Global filter",
+    "SIDEBAR_FILTER": "סינון הרשימה",
+    "SIDEBAR_FILTER_PLACEHOLDER": "סנן ערוצים או סרטים…",
+    "SIDEBAR_FILTER_CLEAR": "נקה סינון",
+    "GLOBAL_FILTER_TITLE": "Global filter (all tabs)",
+    "GLOBAL_FILTER_CLOSE": "Close",
+    "GLOBAL_FILTER_LEAD": "Configure a shared filter. Enable \"Apply to all tabs\" to use it on All TVs, Favorites, ARTE Replay, Archive.org and Recordings.",
+    "GLOBAL_FILTER_APPLY_ALL": "Apply to all tabs",
+    "GLOBAL_FILTER_APPLY_ALL_HINT": "When enabled, the filter stays active when switching tabs and is saved for your account.",
+    "GLOBAL_FILTER_APPLY": "Apply",
+    "GLOBAL_FILTER_CLEAR": "Clear",
+    "GLOBAL_FILTER_LOGIN": "Sign in to save this filter to your account.",
+    "GLOBAL_FILTER_COUNTRY_HINT": "For Archive.org: filters by the country language. For ARTE: catalog language. For All TVs: channel country.",
+    "GLOBAL_FILTER_CHANNEL_HINT": "Live TV / Favorites: channel name. Archive.org & ARTE: can also search a title.",
+    "GLOBAL_FILTER_PROGRAM_HINT": "Archive.org & ARTE: film or show title (server search). Live TV: EPG programme title.",
+    "GLOBAL_FILTER_PROGRAM_PLACEHOLDER": "E.g. Star Wars, news, documentary…"
   },
   "RADIO": {
     "TITLE": "Radio â€” world stations",

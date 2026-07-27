@@ -1206,6 +1206,31 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return getStartLocationTooltip(location, maxLength);
 	}
 
+	/** Opens the agenda focused on this activity's start date. */
+	public openEventInAgenda(event: MouseEvent): void {
+		event.stopPropagation();
+		event.preventDefault();
+		const dateKey = this.toAgendaDateQueryParam(this.evenement?.beginEventDate);
+		if (!dateKey) {
+			return;
+		}
+		void this._router.navigate(['/calendrier'], { queryParams: { date: dateKey } });
+	}
+
+	private toAgendaDateQueryParam(value: Date | string | null | undefined): string | null {
+		if (!value) {
+			return null;
+		}
+		const d = value instanceof Date ? value : new Date(value);
+		if (Number.isNaN(d.getTime())) {
+			return null;
+		}
+		const y = d.getFullYear();
+		const m = String(d.getMonth() + 1).padStart(2, '0');
+		const day = String(d.getDate()).padStart(2, '0');
+		return `${y}-${m}-${day}`;
+	}
+
 	public openStartLocationOnMap(event: MouseEvent): void {
 		event.stopPropagation();
 		event.preventDefault();

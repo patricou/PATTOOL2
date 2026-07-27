@@ -15,7 +15,7 @@ import { DiscussionModalComponent } from '../../communications/discussion-modal/
 import { ElementEvenementComponent } from '../element-evenement/element-evenement.component';
 import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 
-import { Evenement } from '../../model/evenement';
+import { Evenement, PdfConverterDocumentLink } from '../../model/evenement';
 import { Member } from '../../model/member';
 import { UploadedFile } from '../../model/uploadedfile';
 import { UrlEvent } from '../../model/url-event';
@@ -3658,6 +3658,61 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     if (id) {
       this.todoListOverlay.open(id);
     }
+  }
+
+  public getLinkedPdfConverterDocuments(): PdfConverterDocumentLink[] {
+    const list = this.evenement?.linkedPdfConverterDocuments;
+    return Array.isArray(list) ? list.filter((d) => !!(d?.id || '').trim()) : [];
+  }
+
+  public hasLinkedPdfConverterDocuments(): boolean {
+    return this.getLinkedPdfConverterDocuments().length > 0;
+  }
+
+  /** Opens the first linked draft, or scrolls to the linked-documents card when several. */
+  public openLinkedPdfConverterDocuments(): void {
+    const docs = this.getLinkedPdfConverterDocuments();
+    if (docs.length === 1) {
+      this.openLinkedPdfConverterDocument(docs[0]);
+      return;
+    }
+    if (docs.length > 1) {
+      const el = document.querySelector('.pdf-converter-docs-card');
+      if (el instanceof HTMLElement) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  }
+
+  public openLinkedPdfConverterDocument(doc: PdfConverterDocumentLink): void {
+    const id = (doc?.id || '').trim();
+    if (!id) {
+      return;
+    }
+    void this.router.navigate(['/tools/pdf-converter'], { queryParams: { doc: id } });
+  }
+
+  /** Opens the agenda focused on this activity's start date. */
+  public openEventInAgenda(): void {
+    const dateKey = this.toAgendaDateQueryParam(this.evenement?.beginEventDate);
+    if (!dateKey) {
+      return;
+    }
+    void this.router.navigate(['/calendrier'], { queryParams: { date: dateKey } });
+  }
+
+  private toAgendaDateQueryParam(value: Date | string | null | undefined): string | null {
+    if (!value) {
+      return null;
+    }
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) {
+      return null;
+    }
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
 
   // Check if current user is the owner of the event

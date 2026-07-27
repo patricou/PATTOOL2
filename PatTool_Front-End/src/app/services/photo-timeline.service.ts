@@ -60,6 +60,14 @@ export interface TimelineGroup {
     ratingMinus?: number;
     /** Linked to-do list when the activity has one (from timeline API). */
     linkedTodoListId?: string | null;
+    /** PDF converter drafts linked to this activity (from timeline API). */
+    linkedPdfConverterDocuments?: Array<{
+        id?: string;
+        fileName?: string;
+        ownerMemberId?: string;
+        ownerDisplayName?: string | null;
+        updatedAt?: string | Date | null;
+    }> | null;
     /** Rich-text commentaries count (from timeline API). */
     commentariesCount?: number;
     /** Full image count when the paged wall caps {@link photos}. */

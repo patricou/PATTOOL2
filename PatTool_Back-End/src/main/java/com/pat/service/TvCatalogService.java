@@ -282,7 +282,7 @@ public class TvCatalogService {
         return COUNTRY_CODES;
     }
 
-    /** France first, Switzerland second, then alphabetical. */
+    /** France / Suisse first, then frequent catalogs, then alphabetical. */
     private static int countryPinRank(String code) {
         if (code == null) {
             return 100;
@@ -290,6 +290,13 @@ public class TvCatalogService {
         return switch (code.trim().toLowerCase(Locale.ROOT)) {
             case "fr" -> 0;
             case "ch" -> 1;
+            case "be" -> 2;
+            case "us" -> 3;
+            case "gb" -> 4;
+            case "ca" -> 5;
+            case "de" -> 6;
+            case "es" -> 7;
+            case "it" -> 8;
             default -> 100;
         };
     }
@@ -300,10 +307,13 @@ public class TvCatalogService {
         if (name == null || name.isBlank() || name.equalsIgnoreCase(normalized)) {
             name = normalized.toUpperCase(Locale.ROOT);
         }
-        // Prefer common French labels when Locale is incomplete
-        if ("xk".equals(normalized)) {
-            name = "Kosovo";
-        }
+        // Prefer common French labels when Locale is incomplete / ambiguous
+        name = switch (normalized) {
+            case "xk" -> "Kosovo";
+            case "us" -> "États-Unis";
+            case "gb" -> "Royaume-Uni";
+            default -> name;
+        };
         return new TvCountryDto(normalized, name, flagEmoji(normalized));
     }
 
@@ -365,6 +375,17 @@ public class TvCatalogService {
         worldwideCountExpires = null;
         worldwideGroupsCache = null;
         worldwideGroupsExpires = null;
+    }
+
+    public int cacheEntryCount() {
+        int n = cache.size();
+        if (worldwideCountCache != null) {
+            n++;
+        }
+        if (worldwideGroupsCache != null) {
+            n++;
+        }
+        return n;
     }
 
     /** Warm frequently used countries without scanning the full worldwide catalog. */

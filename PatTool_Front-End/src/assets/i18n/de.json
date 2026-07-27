@@ -657,6 +657,25 @@
       "WHATSAPP_OPENED": "WhatsApp wurde in einem neuen Fenster ge?ffnet.",
       "WHATSAPP_IMAGE_ONLY": "Titelbild geteilt. Fehlt der Aufgabentext, f?gen Sie ihn aus dem Nachrichtenfeld oben ein oder senden Sie eine zweite Nachricht.",
       "OPEN_IN_PATTOOL": "Diese Liste in PatTool ?ffnen:"
+    },
+    "REMINDER": {
+      "BUTTON": "Send a reminder",
+      "EMAIL": "Email reminder",
+      "WHATSAPP": "WhatsApp reminder",
+      "EMAIL_HINT": "Remind by email of tasks still to do",
+      "WHATSAPP_HINT": "Remind on WhatsApp of tasks still to do",
+      "EMAIL_TITLE": "Email reminder",
+      "WHATSAPP_TITLE": "WhatsApp reminder",
+      "DEFAULT_MESSAGE": "Reminder: here are the tasks to do on the list \"{{name}}\" (task: {{task}}).",
+      "DEFAULT_MESSAGE_FOR": "Hi {{assignee}}! Reminder of your open tasks on the list \"{{name}}\".",
+      "FOR_ASSIGNEE": "Tasks for {{name}}",
+      "TASKS_PREVIEW_TITLE": "Tasks included in the reminder",
+      "WHATSAPP_TASKS_HEADER": "To do",
+      "WHATSAPP_BODY_HINT": "Tap \"Open WhatsApp\" — the message lists the open tasks for this person.",
+      "SEND_EMAIL": "Send reminder",
+      "SENT_OK": "Reminder sent to {{sent}} of {{total}} recipient(s).",
+      "SEND_ERROR": "Could not send the reminder. Please try again.",
+      "NEED_ASSIGNEE_OR_PAGE": "Assign the task, or open the full lists page to pick a recipient."
     }
   },
   "CALENDAR": {
@@ -1629,7 +1648,11 @@
     "VIDEO_DURATION": "Dauer:",
     "VIDEO_CURRENT_TIME": "Aktuelle Zeit:",
     "VIDEO_VOLUME": "Lautst?rke:",
-    "VIDEO_SIZE": "Gr??e:"
+    "VIDEO_SIZE": "Gr??e:",
+    "PDF_CONVERTER_BUTTON_HINT": "PDF-Editor-Dokumente",
+    "PDF_CONVERTER_DOCUMENTS": "PDF-Editor-Dokumente",
+    "PDF_CONVERTER_OPEN": "Im PDF-Editor öffnen",
+    "OPEN_AGENDA": "Agenda öffnen"
   },
   "EVENTCREATION": {
     "TITLE": "Veranstaltung erstellen",
@@ -1983,7 +2006,18 @@
     "ERR_FILENAME_REQUIRED": "Bitte einen PDF-Dateinamen angeben.",
     "ERR_CONTENT_REQUIRED": "Text oder mindestens ein Bild hinzuf?gen.",
     "ERR_EXPORT": "PDF-Erzeugung fehlgeschlagen. Bitte erneut versuchen.",
-    "ERR_SHARE_WHATSAPP": "PDF konnte nicht ï¿½ber WhatsApp geteilt werden. Bitte erneut versuchen."
+    "ERR_SHARE_WHATSAPP": "PDF konnte nicht ï¿½ber WhatsApp geteilt werden. Bitte erneut versuchen.",
+    "LINK_SECTION_TITLE": "Dieses Dokument mit dem Kalender verknüpfen",
+    "LINK_SECTION_INTRO": "Sie können dieses Dokument entweder mit einem persönlichen Termin in Ihrem Kalender oder mit einer Aktivität (Ereignis) verknüpfen, auf die Sie Zugriff haben — eines von beiden, nicht beides gleichzeitig.",
+    "LINK_PICK_APPOINTMENT": "Persönlicher Termin (Kalender)",
+    "LINK_PICK_ACTIVITY": "Aktivität",
+    "LINK_NONE": "Keine",
+    "LINK_LOADING_CALENDAR": "Kalender und Aktivitäten werden geladen…",
+    "LINK_LOAD_ERROR": "Kalender konnte nicht geladen werden. Sie können das Dokument trotzdem speichern; versuchen Sie später erneut, eine Verknüpfung zu wählen.",
+    "LINK_HINT": "Die Wahl eines Termins löscht die Aktivitätsverknüpfung und umgekehrt.",
+    "LINK_STALE_APPOINTMENT": "Aktuelle Verknüpfung (Termin {{id}} — außerhalb des geladenen Zeitraums oder nicht verfügbar)",
+    "LINK_STALE_ACTIVITY": "Aktuelle Verknüpfung (Aktivität {{id}} — außerhalb des geladenen Zeitraums oder nicht verfügbar)",
+    "ERR_LINK": "Dieses Dokument konnte nicht mit der ausgewählten Aktivität oder dem Termin verknüpft werden. Prüfen Sie den Zugriff und versuchen Sie es erneut."
   },
   "LOTTO": {
     "TITLE": "Loto (FDJ) ? Ziehungen",
@@ -3454,7 +3488,8 @@
     "ASSISTANT_EVENT": "KI-Assistent",
     "WALL_UPLOADING": "Dateien werden hochgeladen ?",
     "WALL_UPLOAD_LOG_WAITING": "Warte auf Start des Uploads ?",
-    "SHOW_MORE_GRID_PHOTOS": "Alle Fotos anzeigen"
+    "SHOW_MORE_GRID_PHOTOS": "Alle Fotos anzeigen",
+    "PDF_CONVERTER_WALL_TABLE_TITLE": "PDF-Editor-Dokumente"
   },
   "NEWS": {
     "PAGE_TITLE": "Nachrichten",
@@ -3887,7 +3922,23 @@
     "EPG_GUIDE_ERROR": "ProgrammfÃ¼hrer konnte nicht geladen werden.",
     "RESTART_STREAM": "Stream komplett neu verbinden",
     "RESTART_STREAM_DONE": "Stream neu verbunden",
-    "TOKEN_RENEWED": "Stream token renewed"
+    "TOKEN_RENEWED": "Stream token renewed",
+    "GLOBAL_FILTER_OPEN": "Globaler Filter",
+    "SIDEBAR_FILTER": "Liste filtern",
+    "SIDEBAR_FILTER_PLACEHOLDER": "Sender oder Filme filtern…",
+    "SIDEBAR_FILTER_CLEAR": "Filter löschen",
+    "GLOBAL_FILTER_TITLE": "Globaler Filter (alle Tabs)",
+    "GLOBAL_FILTER_CLOSE": "Schliessen",
+    "GLOBAL_FILTER_LEAD": "Gemeinsamen Filter konfigurieren. \"Auf alle Tabs anwenden\" aktivieren fur Alle TVs, Favoriten, ARTE Replay, Archive.org und Aufnahmen.",
+    "GLOBAL_FILTER_APPLY_ALL": "Auf alle Tabs anwenden",
+    "GLOBAL_FILTER_APPLY_ALL_HINT": "Wenn aktiviert, bleibt der Filter beim Tabwechsel aktiv und wird fur Ihr Konto gespeichert.",
+    "GLOBAL_FILTER_APPLY": "Anwenden",
+    "GLOBAL_FILTER_CLEAR": "Loschen",
+    "GLOBAL_FILTER_LOGIN": "Melden Sie sich an, um diesen Filter in Ihrem Konto zu speichern.",
+    "GLOBAL_FILTER_COUNTRY_HINT": "For Archive.org: filters by the country language. For ARTE: catalog language. For All TVs: channel country.",
+    "GLOBAL_FILTER_CHANNEL_HINT": "Live TV / Favorites: channel name. Archive.org & ARTE: can also search a title.",
+    "GLOBAL_FILTER_PROGRAM_HINT": "Archive.org & ARTE: film or show title (server search). Live TV: EPG programme title.",
+    "GLOBAL_FILTER_PROGRAM_PLACEHOLDER": "E.g. Star Wars, news, documentary…"
   },
   "RADIO": {
     "TITLE": "Radio â€” world stations",

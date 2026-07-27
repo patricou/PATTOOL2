@@ -4,9 +4,9 @@
         <h2>{{ 'SYSTEM.TITLE' | translate }}</h2>
         <button (click)="refreshAllStats()" 
                 class="btn btn-sm btn-outline-primary btn-refresh-all-stats" 
-                [disabled]="isLoadingStats"
+                [disabled]="isLoadingStats || isLoadingRegistry"
                 [title]="'SYSTEM.REFRESH_ALL_STATS' | translate">
-            <i class="fa" [class.fa-refresh]="!isLoadingStats" [class.fa-spinner]="isLoadingStats" [class.fa-spin]="isLoadingStats"></i>
+            <i class="fa" [class.fa-refresh]="!(isLoadingStats || isLoadingRegistry)" [class.fa-spinner]="isLoadingStats || isLoadingRegistry" [class.fa-spin]="isLoadingStats || isLoadingRegistry"></i>
             <span>{{ 'SYSTEM.REFRESH_ALL_STATS' | translate }}</span>
         </button>
     </div>
@@ -16,6 +16,145 @@
 <div class="container mt-0">
     <div class="row justify-content-center">
         <div class="col-12" style="max-width: 75%; margin: 0 auto;">
+
+            <!-- PatTool cache registry -->
+            <div class="cache-stats-card cache-registry-card">
+                <div class="stats-header">
+                    <div class="stats-icon">
+                        <i class="fa fa-database"></i>
+                    </div>
+                    <div class="stats-title">
+                        <h4>{{ 'SYSTEM.CACHE_REGISTRY.TITLE' | translate }}</h4>
+                        <p class="registry-subtitle">{{ 'SYSTEM.CACHE_REGISTRY.SUBTITLE' | translate }}</p>
+                    </div>
+                    <button (click)="loadCacheRegistry()"
+                            class="btn-refresh-stats"
+                            [disabled]="isLoadingRegistry"
+                            [title]="'SYSTEM.CACHE_STATS.REFRESH' | translate">
+                        <i class="fa" [class.fa-refresh]="!isLoadingRegistry" [class.fa-spinner]="isLoadingRegistry" [class.fa-spin]="isLoadingRegistry"></i>
+                    </button>
+                </div>
+
+                <div class="registry-toolbar" *ngIf="!isLoadingRegistry && !registryError">
+                    <div class="registry-summary">
+                        <span class="registry-chip">{{ cacheRegistry.length }} {{ 'SYSTEM.CACHE_REGISTRY.CACHES' | translate }}</span>
+                        <span class="registry-chip">{{ registryTotalEntries }} {{ 'SYSTEM.CACHE_STATS.ENTRIES' | translate }}</span>
+                    </div>
+                    <div class="registry-filters">
+                        <button type="button"
+                                class="registry-filter-btn"
+                                [class.active]="selectedRegistryCategory === 'all'"
+                                (click)="selectRegistryCategory('all')">
+                            {{ 'SYSTEM.CACHE_REGISTRY.CATEGORY.ALL' | translate }}
+                        </button>
+                        <button type="button"
+                                class="registry-filter-btn"
+                                *ngFor="let cat of cacheRegistryCategories"
+                                [class.active]="selectedRegistryCategory === cat"
+                                (click)="selectRegistryCategory(cat)">
+                            {{ categoryLabelKey(cat) | translate }}
+                        </button>
+                    </div>
+                    <div class="registry-actions" *ngIf="isClearCacheAuthorized">
+                        <button type="button"
+                                class="btn-small btn-registry-refresh"
+                                (click)="refreshMediaCatalogFromRegistry()"
+                                [disabled]="isRefreshingMediaCatalog || isClearingAllCaches || isClearingSelectedCaches"
+                                [title]="'SYSTEM.CACHE_REGISTRY.REFRESH_MEDIA_HINT' | translate">
+                            <i class="fa" [class.fa-television]="!isRefreshingMediaCatalog" [class.fa-spinner]="isRefreshingMediaCatalog" [class.fa-spin]="isRefreshingMediaCatalog"></i>
+                            <span>{{ 'SYSTEM.CACHE_REGISTRY.REFRESH_MEDIA' | translate }}</span>
+                        </button>
+                        <button type="button"
+                                class="btn-small btn-registry-selected"
+                                (click)="clearSelectedRegistryCaches()"
+                                [disabled]="selectedCacheIds.length === 0 || isClearingSelectedCaches || isClearingAllCaches || isRefreshingMediaCatalog">
+                            <i class="fa" [class.fa-check-square-o]="!isClearingSelectedCaches" [class.fa-spinner]="isClearingSelectedCaches" [class.fa-spin]="isClearingSelectedCaches"></i>
+                            <span>{{ 'SYSTEM.CACHE_REGISTRY.CLEAR_SELECTED' | translate }} ({{ selectedCacheIds.length }})</span>
+                        </button>
+                        <button type="button"
+                                class="btn-small btn-clear"
+                                (click)="clearAllRegistryCaches()"
+                                [disabled]="isClearingAllCaches || isRefreshingMediaCatalog || isClearingSelectedCaches">
+                            <i class="fa" [class.fa-trash]="!isClearingAllCaches" [class.fa-spinner]="isClearingAllCaches" [class.fa-spin]="isClearingAllCaches"></i>
+                            <span>{{ 'SYSTEM.CACHE_REGISTRY.CLEAR_ALL' | translate }}</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div *ngIf="registryMessageVisible" class="action-message registry-feedback">
+                    <i class="fa fa-info-circle"></i>
+                    <span>{{ registryMessage }}</span>
+                </div>
+
+                <div class="stats-loading" *ngIf="isLoadingRegistry">
+                    <i class="fa fa-spinner fa-spin"></i> {{ 'SYSTEM.CACHE_REGISTRY.LOADING' | translate }}
+                </div>
+                <div class="stats-error" *ngIf="registryError && !isLoadingRegistry">
+                    <i class="fa fa-exclamation-triangle"></i> {{ registryError }}
+                </div>
+
+                <div class="registry-table-wrap" *ngIf="!isLoadingRegistry && !registryError">
+                    <table class="table table-sm table-hover registry-table">
+                        <thead>
+                            <tr>
+                                <th class="registry-check-col">
+                                    <input type="checkbox"
+                                           [checked]="allFilteredSelected"
+                                           (change)="toggleSelectAllFiltered($any($event.target).checked)"
+                                           [disabled]="!isClearCacheAuthorized || filteredCacheRegistry.length === 0"
+                                           [title]="'SYSTEM.CACHE_REGISTRY.SELECT_ALL' | translate">
+                                </th>
+                                <th>{{ 'SYSTEM.CACHE_REGISTRY.COL_CATEGORY' | translate }}</th>
+                                <th>{{ 'SYSTEM.CACHE_REGISTRY.COL_NAME' | translate }}</th>
+                                <th>{{ 'SYSTEM.CACHE_REGISTRY.COL_ENTRIES' | translate }}</th>
+                                <th>{{ 'SYSTEM.CACHE_REGISTRY.COL_ACTIONS' | translate }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let cache of filteredCacheRegistry" [class.registry-row-selected]="isCacheSelected(cache.id)">
+                                <td class="registry-check-col">
+                                    <input type="checkbox"
+                                           [checked]="isCacheSelected(cache.id)"
+                                           (change)="toggleCacheSelection(cache.id, $any($event.target).checked)"
+                                           [disabled]="!isClearCacheAuthorized">
+                                </td>
+                                <td>
+                                    <span class="registry-cat-badge">{{ categoryLabelKey(cache.category) | translate }}</span>
+                                </td>
+                                <td>
+                                    <div class="registry-name">{{ cache.nameKey | translate }}</div>
+                                    <div class="registry-desc">{{ cache.descriptionKey | translate }}</div>
+                                </td>
+                                <td class="registry-entries">{{ cache.entryCount || 0 }}</td>
+                                <td class="registry-row-actions">
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger"
+                                            *ngIf="cache.clearable"
+                                            (click)="clearRegistryCache(cache)"
+                                            [disabled]="!isClearCacheAuthorized || clearingCacheId === cache.id || isClearingAllCaches || isClearingSelectedCaches"
+                                            [title]="!isClearCacheAuthorized ? ('SYSTEM.CLEAR_CACHE.NOT_AUTHORIZED' | translate) : ('SYSTEM.CACHE_REGISTRY.CLEAR' | translate)">
+                                        <i class="fa" [class.fa-trash]="clearingCacheId !== cache.id" [class.fa-spinner]="clearingCacheId === cache.id" [class.fa-spin]="clearingCacheId === cache.id"></i>
+                                        {{ 'SYSTEM.CACHE_REGISTRY.CLEAR' | translate }}
+                                    </button>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-primary"
+                                            *ngIf="cache.refreshable"
+                                            (click)="refreshMediaCatalogFromRegistry()"
+                                            [disabled]="!isClearCacheAuthorized || isRefreshingMediaCatalog"
+                                            [title]="'SYSTEM.CACHE_REGISTRY.REFRESH_MEDIA_HINT' | translate">
+                                        <i class="fa" [class.fa-refresh]="!isRefreshingMediaCatalog" [class.fa-spinner]="isRefreshingMediaCatalog" [class.fa-spin]="isRefreshingMediaCatalog"></i>
+                                        {{ 'SYSTEM.CACHE_REGISTRY.REFRESH' | translate }}
+                                    </button>
+                                    <span class="registry-readonly" *ngIf="!cache.clearable && !cache.refreshable">—</span>
+                                </td>
+                            </tr>
+                            <tr *ngIf="filteredCacheRegistry.length === 0">
+                                <td colspan="5" class="text-center text-muted">{{ 'SYSTEM.CACHE_REGISTRY.EMPTY' | translate }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
             
             <!-- Backend Cache Statistics Section -->
             <div class="cache-stats-card">

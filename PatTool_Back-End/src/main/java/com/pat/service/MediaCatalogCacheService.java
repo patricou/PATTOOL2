@@ -2,8 +2,6 @@ package com.pat.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -12,13 +10,17 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Coordinates in-memory caches for TV playlists, TV EPG, and radio catalogs:
- * full refresh ~90s after boot, nightly at 04:00, EPG+radio all countries at 07/17/20, and manual refresh.
+ * Single coordinator for in-memory media catalogs (TV playlists, TV EPG, radio, Archive.org).
+ * <p>
+ * All of them are refreshed together:
+ * <ul>
+ *   <li>every day at 07:00, 17:00 and 20:00 (server time)</li>
+ *   <li>when the user clicks « Rafraîchir les caches »</li>
+ * </ul>
+ * No boot warm-up and no separate nightly job.
  */
 @Service
 public class MediaCatalogCacheService {
@@ -28,15 +30,11 @@ public class MediaCatalogCacheService {
     private final TvCatalogService tvCatalogService;
     private final TvEpgService tvEpgService;
     private final RadioCatalogService radioCatalogService;
+    private final InternetArchiveReplayService internetArchiveReplayService;
 
     private final AtomicBoolean refreshBusy = new AtomicBoolean(false);
     private final ExecutorService refreshExecutor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "media-catalog-refresh");
-        t.setDaemon(true);
-        return t;
-    });
-    private final ScheduledExecutorService bootScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread t = new Thread(r, "media-catalog-boot-refresh");
         t.setDaemon(true);
         return t;
     });
@@ -50,51 +48,21 @@ public class MediaCatalogCacheService {
     public MediaCatalogCacheService(
             TvCatalogService tvCatalogService,
             TvEpgService tvEpgService,
-            RadioCatalogService radioCatalogService) {
+            RadioCatalogService radioCatalogService,
+            InternetArchiveReplayService internetArchiveReplayService) {
         this.tvCatalogService = tvCatalogService;
         this.tvEpgService = tvEpgService;
         this.radioCatalogService = radioCatalogService;
+        this.internetArchiveReplayService = internetArchiveReplayService;
     }
 
-    /** Full catalog refresh ~90s after boot (keeps startup responsive). */
-    @EventListener(ApplicationReadyEvent.class)
-    public void onApplicationReady() {
-        bootScheduler.schedule(() -> {
-            log.info("Media catalog boot full refresh starting");
-            if (!startFullRefresh()) {
-                log.info("Media catalog boot full refresh skipped (already busy)");
-            }
-        }, 90, TimeUnit.SECONDS);
-    }
-
-    /** Full catalog refresh every night at 04:00 (server time). */
-    @Scheduled(cron = "${app.media.catalog.nightly-warm-cron:0 0 4 * * *}")
-    public void nightlyFullRefresh() {
-        log.info("Media catalog nightly full refresh starting");
+    /** Full refresh of every media catalog at 07:00, 17:00 and 20:00. */
+    @Scheduled(cron = "${app.media.catalog.refresh-cron:0 0 7,17,20 * * *}")
+    public void scheduledFullRefresh() {
+        log.info("Media catalog scheduled full refresh starting (07/17/20)");
         if (!startFullRefresh()) {
-            log.info("Media catalog nightly full refresh skipped (already busy)");
+            log.info("Media catalog scheduled full refresh skipped (already busy)");
         }
-    }
-
-    /** EPG + radio refresh for every country at 07:00, 17:00 and 20:00. */
-    @Scheduled(cron = "${app.media.catalog.epg-refresh-cron:0 0 7,17,20 * * *}")
-    public void scheduledEpgAndRadioFullRefresh() {
-        if (refreshBusy.get()) {
-            log.info("Media catalog EPG/radio refresh skipped (full refresh already busy)");
-            return;
-        }
-        log.info("Media catalog EPG + radio full refresh starting (all countries)");
-        refreshExecutor.execute(() -> {
-            try {
-                log.info("Media catalog scheduled refresh: TV EPG (all countries)");
-                tvEpgService.reloadCountries(tvCatalogService.allCountryCodes());
-                log.info("Media catalog scheduled refresh: radio (all countries)");
-                radioCatalogService.reloadAllCountries();
-                log.info("Media catalog EPG + radio full refresh finished");
-            } catch (Exception e) {
-                log.warn("Media catalog EPG/radio full refresh failed: {}", e.toString());
-            }
-        });
     }
 
     public Map<String, Object> status() {
@@ -106,11 +74,13 @@ public class MediaCatalogCacheService {
         out.put("lastError", lastError);
         out.put("lastPhase", lastPhase);
         out.putAll(tvEpgService.cacheStats());
+        out.putAll(internetArchiveReplayService.cacheStats());
         return out;
     }
 
     /**
-     * Start a full background refresh. Returns {@code false} if one is already running.
+     * Start a full background refresh of TV + EPG + radio + Archive.org.
+     * Returns {@code false} if one is already running.
      */
     public boolean startFullRefresh() {
         if (!refreshBusy.compareAndSet(false, true)) {
@@ -133,6 +103,10 @@ public class MediaCatalogCacheService {
                 lastPhase = "radio";
                 log.info("Media catalog full refresh: radio (all countries)");
                 radioCatalogService.reloadAllCountries();
+
+                lastPhase = "archive-org";
+                log.info("Media catalog full refresh: Archive.org movie listings");
+                internetArchiveReplayService.warmCatalog();
 
                 lastPhase = "done";
                 lastError = null;

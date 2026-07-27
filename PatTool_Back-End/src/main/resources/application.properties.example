@@ -158,6 +158,13 @@ meteofrance.api.token=
 # meteofrance.temperature.cache.minutes=5
 # Cache AROME-PI / ARPEGE (tuiles WMS, capabilities, prévision au point) — durée en minutes (défaut 5)
 # meteofrance.forecast.cache.minutes=5
+# Auto-detect new ARPEGE / AROME-PI runs via GetCapabilities and warm forecast caches immediately.
+# meteofrance.forecast.run-prefetch.enabled=true
+# Poll every 5 minutes (cron: second minute hour …).
+# meteofrance.forecast.run-prefetch.cron=0 */5 * * * *
+# Warm-up point for Open-Meteo series + sample WMS tiles (default: Paris).
+# meteofrance.forecast.run-prefetch.lat=48.8566
+# meteofrance.forecast.run-prefetch.lon=2.3522
 # meteofrance.clim.base.url=https://public-api.meteofrance.fr/public/DPClim/v1
 
 # --- Loto import (draw archives) ---

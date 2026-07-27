@@ -7,6 +7,7 @@ import com.pat.controller.dto.TvEpgNowDto;
 import com.pat.controller.dto.TvEpgScheduleDto;
 import com.pat.controller.dto.TvEpgSearchHitDto;
 import com.pat.controller.dto.TvFavoritesDto;
+import com.pat.controller.dto.TvFilterPreferenceDto;
 import com.pat.controller.dto.TvRecordingDto;
 import com.pat.controller.dto.TvRecordingRenameRequest;
 import com.pat.controller.dto.TvRecordingStartRequest;
@@ -20,6 +21,7 @@ import com.pat.service.Tf1LiveService;
 import com.pat.service.TvCatalogService;
 import com.pat.service.TvEpgService;
 import com.pat.service.TvFavoritesService;
+import com.pat.service.TvFilterPreferenceService;
 import com.pat.service.TvLastChannelService;
 import com.pat.service.TvRecordingService;
 import com.pat.service.TvStreamProxyService;
@@ -81,6 +83,7 @@ import java.util.stream.Collectors;
  *   <li>{@code GET/PUT /api/external/tv/favorites}</li>
  *   <li>{@code PUT /api/external/tv/favorites/item} — add one channel</li>
  *   <li>{@code DELETE /api/external/tv/favorites/item?id=...}</li>
+ *   <li>{@code GET/PUT /api/external/tv/filter-preferences} — global filter across tabs</li>
  *   <li>{@code GET/PUT /api/external/tv/last-channel} — last watched channel</li>
  *   <li>{@code GET/POST /api/external/tv/recordings} — browser DVR upload (GridFS)</li>
  *   <li>{@code PATCH /api/external/tv/recordings/{id}} — rename</li>
@@ -99,6 +102,9 @@ public class TvWatcherRestController {
 
     @Autowired
     private TvFavoritesService tvFavoritesService;
+
+    @Autowired
+    private TvFilterPreferenceService tvFilterPreferenceService;
 
     @Autowired
     private TvLastChannelService tvLastChannelService;
@@ -341,7 +347,10 @@ public class TvWatcherRestController {
         if (sub == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        return ResponseEntity.ok(tvRecordingService.listForSubject(sub));
+        String memberId = tvRecordingService.resolveMemberByKeycloakId(sub)
+                .map(m -> m.getId())
+                .orElse(null);
+        return ResponseEntity.ok(tvRecordingService.listAccessible(sub, memberId));
     }
 
     @GetMapping("/recordings/{id}")
@@ -350,7 +359,10 @@ public class TvWatcherRestController {
         if (sub == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        return tvRecordingService.findForSubject(id, sub)
+        String memberId = tvRecordingService.resolveMemberByKeycloakId(sub)
+                .map(m -> m.getId())
+                .orElse(null);
+        return tvRecordingService.findAccessible(id, sub, memberId)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -363,11 +375,17 @@ public class TvWatcherRestController {
             @RequestParam(value = "channelLogo", required = false) String channelLogo,
             @RequestParam(value = "country", required = false) String country,
             @RequestParam(value = "streamUrl", required = false) String streamUrl,
-            @RequestParam(value = "durationSec", required = false) Integer durationSec) {
+            @RequestParam(value = "durationSec", required = false) Integer durationSec,
+            @RequestParam(value = "visibility", required = false) String visibility,
+            @RequestParam(value = "friendGroupId", required = false) String friendGroupId,
+            @RequestParam(value = "friendGroupIds", required = false) List<String> friendGroupIds) {
         String sub = currentJwtSubject();
         if (sub == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
+        String memberId = tvRecordingService.resolveMemberByKeycloakId(sub)
+                .map(m -> m.getId())
+                .orElse(null);
         TvRecordingStartRequest meta = new TvRecordingStartRequest();
         meta.setChannelId(channelId);
         meta.setChannelName(channelName);
@@ -375,12 +393,24 @@ public class TvWatcherRestController {
         meta.setCountry(country);
         meta.setStreamUrl(streamUrl);
         meta.setDurationSec(durationSec);
+        meta.setVisibility(visibility);
+        meta.setFriendGroupId(friendGroupId);
+        meta.setFriendGroupIds(friendGroupIds);
         try {
-            return ResponseEntity.status(HttpStatus.CREATED).body(tvRecordingService.upload(sub, meta, file));
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(tvRecordingService.upload(sub, memberId, meta, file));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("error", e.getMessage()));
+            if ("FRIEND_GROUP_UNAUTHORIZED".equals(e.getMessage())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                        "error", "FRIEND_GROUP_UNAUTHORIZED",
+                        "message", "You are not authorized to use this friend group."));
+            }
+            if ("tv_recording_disabled".equals(e.getMessage()) || "upload_failed".equals(e.getMessage())) {
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("error", e.getMessage()));
+            }
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -392,12 +422,21 @@ public class TvWatcherRestController {
         if (sub == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
+        String memberId = tvRecordingService.resolveMemberByKeycloakId(sub)
+                .map(m -> m.getId())
+                .orElse(null);
         try {
-            String name = body != null ? body.getChannelName() : null;
-            return ResponseEntity.ok(tvRecordingService.rename(id, sub, name));
+            return ResponseEntity.ok(tvRecordingService.update(id, sub, memberId, body));
         } catch (IllegalArgumentException e) {
             if ("not_found".equals(e.getMessage())) {
                 return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            if ("FRIEND_GROUP_UNAUTHORIZED".equals(e.getMessage())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                        "error", "FRIEND_GROUP_UNAUTHORIZED",
+                        "message", "You are not authorized to use this friend group."));
             }
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -461,6 +500,30 @@ public class TvWatcherRestController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         return ResponseEntity.ok(tvFavoritesService.removeFavorite(sub, id));
+    }
+
+    /** Global filter preferences for the current user (apply-to-all-tabs + queries). */
+    @GetMapping("/filter-preferences")
+    public ResponseEntity<TvFilterPreferenceDto> getFilterPreferences() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(tvFilterPreferenceService.findForSubject(sub));
+    }
+
+    /** Persist global filter preferences for the current user. */
+    @PutMapping("/filter-preferences")
+    public ResponseEntity<?> putFilterPreferences(@RequestBody TvFilterPreferenceDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            return ResponseEntity.ok(tvFilterPreferenceService.saveForSubject(sub, body));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     /** Last watched channel for the current user (empty body when none). */
@@ -763,10 +826,12 @@ public class TvWatcherRestController {
         body.put("section", result.section());
         body.put("page", result.page());
         body.put("pages", result.pages());
+        body.put("pageSize", 20);
         body.put("total", result.total());
         body.put("programs", result.programs());
         return ResponseEntity.ok()
-                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(2)).cachePublic().mustRevalidate())
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(2)).cachePrivate().mustRevalidate())
+                .header("Vary", "Accept-Encoding")
                 .body(body);
     }
 
@@ -814,22 +879,26 @@ public class TvWatcherRestController {
 
     /**
      * Internet Archive movie listing (Advanced Search). Search when {@code q} has ≥ 2 characters.
+     * Optional {@code country} narrows results by language (e.g. {@code fr} → French metadata).
      */
     @GetMapping("/ia/programs")
     public ResponseEntity<Map<String, Object>> iaPrograms(
             @RequestParam(value = "section", defaultValue = "RECENT") String section,
             @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "country", required = false) String country,
             @RequestParam(value = "page", defaultValue = "1") int page) {
         InternetArchiveReplayService.IaCatalogResult result =
-                internetArchiveReplayService.listPrograms(section, q, page);
+                internetArchiveReplayService.listPrograms(section, q, page, country);
         Map<String, Object> body = new HashMap<>();
         body.put("section", result.section());
         body.put("page", result.page());
         body.put("pages", result.pages());
+        body.put("pageSize", result.pageSize());
         body.put("total", result.total());
         body.put("programs", result.programs());
         return ResponseEntity.ok()
-                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(2)).cachePublic())
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(2)).cachePrivate().mustRevalidate())
+                .header("Vary", "Accept-Encoding")
                 .body(body);
     }
 

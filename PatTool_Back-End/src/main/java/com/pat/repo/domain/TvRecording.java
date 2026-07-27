@@ -5,9 +5,11 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
+import java.util.List;
 
 /**
  * On-demand TV stream recording metadata. Binary is stored in GridFS ({@link #gridFsFileId}).
+ * Sharing uses the same visibility contract as activities / calendar / to-do lists.
  */
 @Document(collection = "tv_recordings")
 public class TvRecording {
@@ -26,6 +28,10 @@ public class TvRecording {
     /** JWT subject of the owner. */
     @Indexed
     private String ownerSub;
+
+    /** PatTool member id of the owner (for friends / friend-group visibility). */
+    @Indexed
+    private String ownerMemberId;
 
     private String channelId;
     private String channelName;
@@ -50,6 +56,19 @@ public class TvRecording {
     private Long byteLength;
     private String error;
 
+    /**
+     * Same values as {@link Evenement#getVisibility()}: {@code public}, {@code private}, {@code friends},
+     * {@code friendGroups}, or a friend group display name (legacy).
+     * Default: private (owner only).
+     */
+    private String visibility = "private";
+
+    /** Friend group id when visibility targets a specific group (legacy / single group). */
+    private String friendGroupId;
+
+    /** When visibility is {@code friendGroups}, ids of groups that may see the recording. */
+    private List<String> friendGroupIds;
+
     public TvRecording() {
     }
 
@@ -67,6 +86,14 @@ public class TvRecording {
 
     public void setOwnerSub(String ownerSub) {
         this.ownerSub = ownerSub;
+    }
+
+    public String getOwnerMemberId() {
+        return ownerMemberId;
+    }
+
+    public void setOwnerMemberId(String ownerMemberId) {
+        this.ownerMemberId = ownerMemberId;
     }
 
     public String getChannelId() {
@@ -187,5 +214,29 @@ public class TvRecording {
 
     public void setError(String error) {
         this.error = error;
+    }
+
+    public String getVisibility() {
+        return visibility;
+    }
+
+    public void setVisibility(String visibility) {
+        this.visibility = visibility;
+    }
+
+    public String getFriendGroupId() {
+        return friendGroupId;
+    }
+
+    public void setFriendGroupId(String friendGroupId) {
+        this.friendGroupId = friendGroupId;
+    }
+
+    public List<String> getFriendGroupIds() {
+        return friendGroupIds;
+    }
+
+    public void setFriendGroupIds(List<String> friendGroupIds) {
+        this.friendGroupIds = friendGroupIds;
     }
 }

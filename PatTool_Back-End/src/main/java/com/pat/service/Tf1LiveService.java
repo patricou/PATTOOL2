@@ -230,6 +230,17 @@ public class Tf1LiveService {
         streamCache.remove(slug.trim().toLowerCase(Locale.ROOT));
     }
 
+    public int invalidateAll() {
+        int n = streamCache.size() + (playlistCache != null ? 1 : 0);
+        streamCache.clear();
+        playlistCache = null;
+        return n;
+    }
+
+    public int cacheEntryCount() {
+        return streamCache.size() + (playlistCache != null ? 1 : 0);
+    }
+
     private Optional<String> resolveFromMirrors(ChannelDef def, String key, Instant now, String avoidUrl) {
         for (String candidate : buildMirrorCandidates(def)) {
             if (sameUrl(candidate, avoidUrl)) {

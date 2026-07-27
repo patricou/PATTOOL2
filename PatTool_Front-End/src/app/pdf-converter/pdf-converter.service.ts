@@ -12,6 +12,10 @@ export interface PdfConverterDocument {
   ownerDisplayName?: string | null;
   fileName: string;
   htmlContent?: string | null;
+  /** Optional personal agenda appointment; mutually exclusive with evenementId. */
+  calendarAppointmentId?: string | null;
+  /** Optional activity (evenement); mutually exclusive with calendarAppointmentId. */
+  evenementId?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }

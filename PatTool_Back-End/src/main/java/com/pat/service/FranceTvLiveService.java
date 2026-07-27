@@ -172,6 +172,16 @@ public class FranceTvLiveService {
         cache.remove(slug.trim().toLowerCase(Locale.ROOT));
     }
 
+    public int invalidateAll() {
+        int n = cache.size();
+        cache.clear();
+        return n;
+    }
+
+    public int cacheEntryCount() {
+        return cache.size();
+    }
+
     /**
      * Resolve a virtual {@code francetv:…} URL to a real https HLS URL.
      */

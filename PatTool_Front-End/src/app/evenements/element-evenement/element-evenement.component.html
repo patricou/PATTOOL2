@@ -273,8 +273,19 @@
                 </button>
             </li>
             <li class="card-info-item card-info-item-begin-dt">
-                <div>
-                    {{"EVENTELEM.BEGINDT" | translate }} : {{formatEventDateTime(evenement.beginEventDate, evenement.startHour)}}
+                <div class="card-info-begin-dt-row">
+                    <span>
+                        {{"EVENTELEM.BEGINDT" | translate }} : {{formatEventDateTime(evenement.beginEventDate, evenement.startHour)}}
+                    </span>
+                    <button *ngIf="evenement.beginEventDate"
+                            type="button"
+                            class="btn btn-sm btn-outline-secondary ms-1 dynamic-footer-btn begin-dt-agenda-btn"
+                            [ngStyle]="getFooterButtonStyles('details')"
+                            (click)="openEventInAgenda($event)"
+                            [title]="'EVENTELEM.OPEN_AGENDA' | translate"
+                            [attr.aria-label]="'EVENTELEM.OPEN_AGENDA' | translate">
+                        <i class="fa fa-calendar" aria-hidden="true"></i>
+                    </button>
                 </div>
                 <div *ngIf="getDaysUntilEventStart() as daysUntilStart" class="event-days-until-start">
                     <div class="event-days-lcd"

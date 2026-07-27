@@ -35,6 +35,163 @@
     cursor: not-allowed;
 }
 
+/* Cache registry */
+.cache-registry-card .stats-title {
+    flex: 1;
+    min-width: 0;
+}
+
+.registry-subtitle {
+    margin: 0.15rem 0 0;
+    font-size: 0.8rem;
+    color: #6b7280;
+    font-weight: 400;
+}
+
+.registry-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    margin-bottom: 0.65rem;
+}
+
+.registry-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.registry-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    background: #f3f4f6;
+    color: #374151;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.registry-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.registry-filter-btn {
+    border: 1px solid #d1d5db;
+    background: #fff;
+    color: #374151;
+    border-radius: 6px;
+    padding: 0.25rem 0.55rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+
+.registry-filter-btn.active,
+.registry-filter-btn:hover {
+    background: #1f2937;
+    border-color: #1f2937;
+    color: #fff;
+}
+
+.registry-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.btn-registry-refresh {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+}
+
+.btn-registry-refresh:disabled {
+    opacity: 0.6;
+}
+
+.btn-registry-selected {
+    background: #0f766e;
+    color: #fff;
+    border: none;
+}
+
+.btn-registry-selected:disabled {
+    opacity: 0.55;
+}
+
+.registry-check-col {
+    width: 2rem;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.registry-row-selected {
+    background: #f0fdf4;
+}
+
+.registry-feedback {
+    margin-bottom: 0.5rem;
+}
+
+.registry-table-wrap {
+    overflow-x: auto;
+}
+
+.registry-table {
+    margin-bottom: 0;
+    font-size: 0.85rem;
+}
+
+.registry-table th {
+    white-space: nowrap;
+    color: #4b5563;
+    font-weight: 600;
+    border-bottom-width: 1px;
+}
+
+.registry-cat-badge {
+    display: inline-block;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    background: #eef2ff;
+    color: #3730a3;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.registry-name {
+    font-weight: 600;
+    color: #111827;
+}
+
+.registry-desc {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.1rem;
+}
+
+.registry-entries {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.registry-row-actions {
+    white-space: nowrap;
+}
+
+.registry-row-actions .btn {
+    margin-right: 0.25rem;
+}
+
+.registry-readonly {
+    color: #9ca3af;
+}
+
 .cache-controls {
     display: flex;
     flex-direction: column;

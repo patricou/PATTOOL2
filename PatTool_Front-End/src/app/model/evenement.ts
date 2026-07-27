@@ -37,4 +37,15 @@ export class Evenement {
 
     /** Set by GET /api/even/{id} when a to-do list is linked; not part of the persisted event document. */
     linkedTodoListId?: string | null;
+    /** PDF converter drafts linked to this activity (from API enrichment). */
+    linkedPdfConverterDocuments?: PdfConverterDocumentLink[] | null;
+}
+
+/** Lightweight linked PDF converter document (no HTML body). */
+export interface PdfConverterDocumentLink {
+    id?: string;
+    fileName?: string;
+    ownerMemberId?: string;
+    ownerDisplayName?: string | null;
+    updatedAt?: string | Date | null;
 }

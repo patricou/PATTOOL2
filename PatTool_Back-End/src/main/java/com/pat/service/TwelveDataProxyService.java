@@ -490,6 +490,12 @@ public class TwelveDataProxyService {
     /** Vide l'intégralité du cache (outil de maintenance). */
     public void clearCache() {
         cache.clear();
+        errorCache.clear();
+        loadersBySymbol.clear();
+    }
+
+    public int cacheEntryCount() {
+        return cache.size();
     }
 
     // ===================================================================

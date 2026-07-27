@@ -3,6 +3,7 @@ package com.pat.controller;
 import com.pat.repo.domain.Member;
 import com.pat.service.CachePersistenceService;
 import com.pat.service.MaintenanceTask;
+import com.pat.service.PatToolCacheAdminService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,7 +16,9 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -38,6 +41,9 @@ public class CacheController {
     
     @Autowired
     private MaintenanceTask maintenanceTask;
+
+    @Autowired
+    private PatToolCacheAdminService patToolCacheAdminService;
     
     /**
      * Check if the current user has Admin role (case-insensitive)
@@ -430,6 +436,149 @@ public class CacheController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             log.error("Error getting cache stats", e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    /**
+     * List all known PatTool in-memory caches with entry counts and capabilities.
+     */
+    @GetMapping("/registry")
+    public ResponseEntity<Map<String, Object>> listCacheRegistry() {
+        try {
+            return ResponseEntity.ok(patToolCacheAdminService.listAll());
+        } catch (Exception e) {
+            log.error("Error listing cache registry", e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    /**
+     * Clear one cache by id (Admin).
+     */
+    @PostMapping("/registry/{id}/clear")
+    public ResponseEntity<Map<String, Object>> clearRegistryCache(
+            @PathVariable("id") String id,
+            @RequestBody(required = false) Member member) {
+        String userLabel = member != null ? member.getUserName() : "unknown";
+        log.info("Cache registry clear requested for id={} by {}", id, userLabel);
+        try {
+            if (!hasAdminRole()) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("authorized", false);
+                response.put("message", userLabel + " : Admin role required to clear caches.");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+            Map<String, Object> result = patToolCacheAdminService.clearOne(id);
+            result.put("authorized", true);
+            boolean ok = Boolean.TRUE.equals(result.get("success"));
+            return ok ? ResponseEntity.ok(result) : ResponseEntity.badRequest().body(result);
+        } catch (Exception e) {
+            log.error("Error clearing registry cache {}", id, e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    /**
+     * Clear every clearable cache (Admin). Does not start media catalog refresh.
+     */
+    @PostMapping("/registry/clear-all")
+    public ResponseEntity<Map<String, Object>> clearAllRegistryCaches(
+            @RequestBody(required = false) Member member) {
+        String userLabel = member != null ? member.getUserName() : "unknown";
+        log.info("Cache registry clear-all requested by {}", userLabel);
+        try {
+            if (!hasAdminRole()) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("authorized", false);
+                response.put("message", userLabel + " : Admin role required to clear caches.");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+            Map<String, Object> result = patToolCacheAdminService.clearAll();
+            result.put("authorized", true);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Error clearing all registry caches", e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    /**
+     * Clear a selection of caches by id (Admin).
+     * Body: {@code { "ids": ["stock","news-api", ...], ...member fields }}
+     */
+    @PostMapping("/registry/clear-selected")
+    public ResponseEntity<Map<String, Object>> clearSelectedRegistryCaches(
+            @RequestBody Map<String, Object> body) {
+        String userLabel = body != null && body.get("userName") != null
+                ? String.valueOf(body.get("userName"))
+                : "unknown";
+        log.info("Cache registry clear-selected requested by {}", userLabel);
+        try {
+            if (!hasAdminRole()) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("authorized", false);
+                response.put("message", userLabel + " : Admin role required to clear caches.");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+            List<String> ids = new ArrayList<>();
+            Object rawIds = body != null ? body.get("ids") : null;
+            if (rawIds instanceof List<?> list) {
+                for (Object item : list) {
+                    if (item != null) {
+                        ids.add(String.valueOf(item));
+                    }
+                }
+            }
+            Map<String, Object> result = patToolCacheAdminService.clearSelected(ids);
+            result.put("authorized", true);
+            boolean ok = Boolean.TRUE.equals(result.get("success"));
+            return ok ? ResponseEntity.ok(result) : ResponseEntity.badRequest().body(result);
+        } catch (Exception e) {
+            log.error("Error clearing selected registry caches", e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    /**
+     * Start a full media catalog refresh (TV + EPG + radio + Archive.org).
+     */
+    @PostMapping("/registry/media-catalog/refresh")
+    public ResponseEntity<Map<String, Object>> refreshMediaCatalog(
+            @RequestBody(required = false) Member member) {
+        String userLabel = member != null ? member.getUserName() : "unknown";
+        log.info("Media catalog refresh requested via cache registry by {}", userLabel);
+        try {
+            if (!hasAdminRole()) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("authorized", false);
+                response.put("message", userLabel + " : Admin role required to refresh media catalogs.");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+            Map<String, Object> result = patToolCacheAdminService.refreshMediaCatalog();
+            result.put("authorized", true);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Error refreshing media catalog", e);
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
             response.put("message", "Error: " + e.getMessage());

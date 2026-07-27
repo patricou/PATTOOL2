@@ -252,6 +252,19 @@ public class MeteoSwissObsService {
         return cleared;
     }
 
+    /** Clears observation + bounds + history caches. */
+    public int clearAllCaches() {
+        int cleared = obsCache.size() + boundsResponseCache.size() + historyResponseCache.size();
+        obsCache.clear();
+        boundsResponseCache.clear();
+        historyResponseCache.clear();
+        return cleared;
+    }
+
+    public int cacheEntryCount() {
+        return obsCache.size() + boundsResponseCache.size() + historyResponseCache.size();
+    }
+
     public Map<String, Object> getTemperatureLabelsInBounds(
             double minLat, double maxLat, double minLon, double maxLon, int maxStations) {
         if (!enabled) {

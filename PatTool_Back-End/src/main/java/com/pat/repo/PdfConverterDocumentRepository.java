@@ -15,4 +15,12 @@ public interface PdfConverterDocumentRepository extends MongoRepository<PdfConve
     Optional<PdfConverterDocument> findByIdAndOwnerMemberId(String id, String ownerMemberId);
 
     long deleteByIdAndOwnerMemberId(String id, String ownerMemberId);
+
+    List<PdfConverterDocument> findByEvenementIdIn(List<String> evenementIds);
+
+    List<PdfConverterDocument> findByEvenementIdOrderByUpdatedAtDesc(String evenementId);
+
+    List<PdfConverterDocument> findByCalendarAppointmentIdIn(List<String> appointmentIds);
+
+    List<PdfConverterDocument> findByCalendarAppointmentIdOrderByUpdatedAtDesc(String calendarAppointmentId);
 }

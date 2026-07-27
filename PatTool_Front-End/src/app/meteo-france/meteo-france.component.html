@@ -37,6 +37,16 @@
 
 <div class="container mt-0 meteo-france-page">
 
+  <div class="mf-viewport-loading"
+       *ngIf="showViewportLoadingSpinner"
+       role="status"
+       aria-live="polite">
+    <div class="mf-viewport-loading-inner">
+      <i class="fa fa-spinner fa-spin mf-viewport-loading-spinner" aria-hidden="true"></i>
+      <span>{{ viewportLoadingCustomMessage || (viewportLoadingMessageKey | translate) }}</span>
+    </div>
+  </div>
+
   <div class="row justify-content-center">
 
     <div class="col-12">
@@ -260,7 +270,7 @@
               <button type="button"
                       class="btn btn-sm btn-outline-secondary mf-section-head-btn"
                       (click)="onRefreshRadar()"
-                      [disabled]="!showRadar"
+                      [disabled]="!showRadar || isLoadingWeather || isLoadingTemperatureLabels"
                       [attr.title]="'METEO_FRANCE.RADAR_REFRESH_NOW' | translate"
                       [attr.aria-label]="'METEO_FRANCE.RADAR_REFRESH_NOW' | translate">
                 <i class="fa fa-refresh" aria-hidden="true"></i>
@@ -989,14 +999,7 @@
 
 
           <ng-container *ngIf="!climStatusMessageKey">
-            <div *ngIf="showClimTabSpinner" class="forecast-tab-loading-panel clim-tab-loading-panel" role="status" aria-live="polite">
-              <div class="forecast-tab-loading-inner">
-                <i class="fa fa-spinner fa-spin forecast-tab-loading-spinner" aria-hidden="true"></i>
-                <span>{{ 'METEO_FRANCE.CLIM_LOADING' | translate }}</span>
-              </div>
-            </div>
-
-            <div *ngIf="!showClimTabSpinner && climAvailable">
+            <div *ngIf="climAvailable">
 
             <div class="clim-controls mb-2">
 
@@ -1007,6 +1010,7 @@
                       [class.btn-outline-primary]="climFrequency !== 'quotidienne'"
 
                       (click)="climFrequency = 'quotidienne'; onClimFrequencyChange()"
+                      [disabled]="isLoadingClim"
                       [attr.title]="paramTooltipKey('CLIM_DAILY') | translate">
 
                 {{ 'METEO_FRANCE.CLIM_DAILY' | translate }}
@@ -1020,6 +1024,7 @@
                       [class.btn-outline-primary]="climFrequency !== 'horaire'"
 
                       (click)="climFrequency = 'horaire'; onClimFrequencyChange()"
+                      [disabled]="isLoadingClim"
                       [attr.title]="paramTooltipKey('CLIM_HOURLY') | translate">
 
                 {{ 'METEO_FRANCE.CLIM_HOURLY' | translate }}
@@ -1096,6 +1101,7 @@
               <select id="clim-station" class="form-select form-select-sm"
 
                       [(ngModel)]="climSelectedStationId" (ngModelChange)="onClimStationChange()"
+                      [disabled]="isLoadingClim"
                       [attr.title]="paramTooltipKey('CLIM_STATION') | translate"
                       [attr.aria-label]="paramTooltipKey('CLIM_STATION') | translate">
 
@@ -1239,7 +1245,7 @@
 
 
 
-            <p class="text-muted small mb-0" *ngIf="!climErrorKey && !climDisplayRows.length">
+            <p class="text-muted small mb-0" *ngIf="!climErrorKey && !climDisplayRows.length && !isLoadingClim">
 
               {{ 'METEO_FRANCE.CLIM_NO_DATA' | translate }}
 
@@ -1323,10 +1329,10 @@
             <div class="meteo-france-map-shell aromepi-map-shell mf-map-shell--aromepi" #aromepiMapShell
                  [class.meteo-france-map-shell--fullscreen]="aromepiMapFullscreen">
               <div class="aromepi-map-loading-overlay"
-                   *ngIf="isLoadingAromepiCapabilities"
+                   *ngIf="aromepiTilesLoading && !aromepiPlaying && !isLoadingAromepiCapabilities && !isLoadingAromepiForecast"
                    role="status" aria-live="polite">
                 <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
-                <span>{{ 'METEO_FRANCE.AROMEPI_LOADING' | translate }}</span>
+                <span>{{ 'METEO_FRANCE.FORECAST_MAP_LOADING_HINT' | translate }}</span>
               </div>
               <div class="mf-map-alert"
                    *ngIf="aromepiMapAlertKey && !isLoadingAromepiCapabilities"
@@ -1463,35 +1469,35 @@
                   <div class="aromepi-time-actions">
                     <button type="button" class="btn btn-sm btn-outline-primary aromepi-time-btn"
                             (click)="toggleAromepiPlayback()"
-                            [disabled]="aromepiEffectiveTimeSteps.length < 2"
+                            [disabled]="isLoadingAromepiCapabilities || aromepiEffectiveTimeSteps.length < 2"
                             [attr.title]="(aromepiPlaying ? 'METEO_FRANCE.AROMEPI_PAUSE' : 'METEO_FRANCE.AROMEPI_PLAY') | translate"
                             [attr.aria-label]="(aromepiPlaying ? 'METEO_FRANCE.AROMEPI_PAUSE' : 'METEO_FRANCE.AROMEPI_PLAY') | translate">
                       <i class="fa" [class.fa-pause]="aromepiPlaying" [class.fa-play]="!aromepiPlaying"></i>
                     </button>
                     <button type="button" class="btn btn-sm btn-outline-secondary aromepi-time-btn"
                             (click)="onAromepiStepFrame(-1)"
-                            [disabled]="aromepiFrameIndex === 0"
+                            [disabled]="aromepiForecastStepDisabled || aromepiFrameIndex === 0"
                             [attr.title]="'METEO_FRANCE.AROMEPI_STEP_BACK' | translate"
                             [attr.aria-label]="'METEO_FRANCE.AROMEPI_STEP_BACK' | translate">
                       <i class="fa fa-step-backward"></i>
                     </button>
                     <button type="button" class="btn btn-sm btn-outline-secondary aromepi-time-btn"
                             (click)="onAromepiStepFrame(1)"
-                            [disabled]="aromepiFrameIndex >= aromepiEffectiveTimeSteps.length - 1"
+                            [disabled]="aromepiForecastStepDisabled || aromepiFrameIndex >= aromepiEffectiveTimeSteps.length - 1"
                             [attr.title]="'METEO_FRANCE.AROMEPI_STEP_FORWARD' | translate"
                             [attr.aria-label]="'METEO_FRANCE.AROMEPI_STEP_FORWARD' | translate">
                       <i class="fa fa-step-forward"></i>
                     </button>
                     <button type="button" class="btn btn-sm btn-outline-secondary aromepi-time-btn"
                             (click)="onAromepiFrameIndexChange(0)"
-                            [disabled]="aromepiFrameIndex === 0"
+                            [disabled]="aromepiForecastStepDisabled || aromepiFrameIndex === 0"
                             [attr.title]="'METEO_FRANCE.AROMEPI_RESET' | translate"
                             [attr.aria-label]="'METEO_FRANCE.AROMEPI_RESET' | translate">
                       <i class="fa fa-fast-backward"></i>
                     </button>
                     <button type="button" class="btn btn-sm btn-outline-secondary aromepi-time-btn"
                             (click)="onRefreshAromepiLayer()"
-                            [disabled]="!aromepiSelectedLayer || isLoadingAromepiCapabilities"
+                            [disabled]="!aromepiSelectedLayer || aromepiForecastStepDisabled"
                             [attr.title]="'METEO_FRANCE.AROMEPI_REFRESH_LAYER' | translate"
                             [attr.aria-label]="'METEO_FRANCE.AROMEPI_REFRESH_LAYER' | translate">
                       <i class="fa fa-refresh" aria-hidden="true"></i>
@@ -1522,6 +1528,7 @@
                     <input type="range" class="form-range aromepi-time-slider"
                            [min]="0" [max]="aromepiEffectiveTimeSteps.length - 1" step="1"
                            [value]="aromepiFrameIndex"
+                           [disabled]="aromepiForecastStepDisabled"
                            (input)="onAromepiFrameSliderInput($event)"
                            [attr.title]="paramTooltipKey('AROMEPI_TIMELINE') | translate"
                            [attr.aria-label]="paramTooltipKey('AROMEPI_TIMELINE') | translate" />
@@ -1962,14 +1969,7 @@
               </div>
             </div>
 
-            <div *ngIf="showMsHistTabSpinner" class="forecast-tab-loading-panel clim-tab-loading-panel" role="status" aria-live="polite">
-              <div class="forecast-tab-loading-inner">
-                <i class="fa fa-spinner fa-spin forecast-tab-loading-spinner" aria-hidden="true"></i>
-                <span>{{ 'METEO_FRANCE.MS_HIST_LOADING' | translate }}</span>
-              </div>
-            </div>
-
-            <div *ngIf="!showMsHistTabSpinner">
+            <div>
 
               <div class="clim-controls mb-2">
                 <button type="button" class="btn btn-sm btn-outline-primary" (click)="loadMsHistData(true)"
@@ -2225,12 +2225,7 @@
 </div>
 
 <ng-template #forecastTabLoadingPanel let-loading="loading" let-messageKey="messageKey" let-customMessage="customMessage">
-  <div *ngIf="loading" class="forecast-tab-loading-panel" role="status" aria-live="polite">
-    <div class="forecast-tab-loading-inner">
-      <i class="fa fa-spinner fa-spin forecast-tab-loading-spinner" aria-hidden="true"></i>
-      <span>{{ customMessage || ((messageKey || 'METEO_FRANCE.FORECAST_LOADING') | translate) }}</span>
-    </div>
-  </div>
+  <!-- Loading feedback is handled by the page-level mf-viewport-loading overlay. -->
 </ng-template>
 
 <ng-template #aromepiLayerControls let-compact="compact">

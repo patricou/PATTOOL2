@@ -494,6 +494,23 @@
     color: #198754;
 }
 
+.todolists-item-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-shrink: 0;
+    margin-left: 4px;
+}
+
+.todolists-item-remind {
+    padding: 0.15rem 0.4rem;
+    line-height: 1.2;
+}
+
+.todolists-reminder-assignee {
+    margin-top: 0.15rem;
+}
+
 .todolists-empty-items {
     color: #6c757d;
     text-align: center;

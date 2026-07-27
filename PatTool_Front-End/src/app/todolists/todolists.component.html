@@ -248,6 +248,24 @@
                             </span>
                         </div>
                     </div>
+
+                    <div class="todolists-item-actions" role="group"
+                         [attr.aria-label]="'TODOLISTS.REMINDER.BUTTON' | translate">
+                        <button type="button"
+                                class="todolists-item-remind btn btn-sm btn-outline-info"
+                                (click)="openItemReminder(list, item, 'email')"
+                                [title]="'TODOLISTS.REMINDER.EMAIL_HINT' | translate">
+                            <i class="fa fa-envelope-o" aria-hidden="true"></i>
+                            <span class="visually-hidden">{{ 'TODOLISTS.REMINDER.EMAIL' | translate }}</span>
+                        </button>
+                        <button type="button"
+                                class="todolists-item-remind btn btn-sm btn-outline-success"
+                                (click)="openItemReminder(list, item, 'whatsapp')"
+                                [title]="'TODOLISTS.REMINDER.WHATSAPP_HINT' | translate">
+                            <i class="fa fa-whatsapp" aria-hidden="true"></i>
+                            <span class="visually-hidden">{{ 'TODOLISTS.REMINDER.WHATSAPP' | translate }}</span>
+                        </button>
+                    </div>
                 </li>
             </ul>
             <ng-template #noItems>
@@ -586,10 +604,18 @@
             </div>
             <div class="todolists-editor-header-top">
                 <h5 class="modal-title mb-0 fw-semibold d-flex align-items-center gap-2">
-                    <i class="fa opacity-90" [class.fa-whatsapp]="shareMode === 'whatsapp'"
-                       [class.fa-envelope-o]="shareMode === 'email'"></i>
-                    {{ (shareMode === 'whatsapp' ? 'TODOLISTS.SHARE.WHATSAPP_TITLE'
-                                                 : 'TODOLISTS.SHARE.EMAIL_TITLE') | translate }}
+                    <i class="fa opacity-90"
+                       [class.fa-bell]="shareKind === 'reminder'"
+                       [class.fa-whatsapp]="shareKind !== 'reminder' && shareMode === 'whatsapp'"
+                       [class.fa-envelope-o]="shareKind !== 'reminder' && shareMode === 'email'"></i>
+                    <ng-container *ngIf="shareKind === 'reminder'; else shareTitleTpl">
+                        {{ (shareMode === 'whatsapp' ? 'TODOLISTS.REMINDER.WHATSAPP_TITLE'
+                                                     : 'TODOLISTS.REMINDER.EMAIL_TITLE') | translate }}
+                    </ng-container>
+                    <ng-template #shareTitleTpl>
+                        {{ (shareMode === 'whatsapp' ? 'TODOLISTS.SHARE.WHATSAPP_TITLE'
+                                                     : 'TODOLISTS.SHARE.EMAIL_TITLE') | translate }}
+                    </ng-template>
                 </h5>
                 <button type="button" class="btn-close btn-close-white" aria-label="Close" (click)="d('close')"></button>
             </div>
@@ -627,8 +653,16 @@
 
             <div class="todolists-share-tasks-preview">
                 <div class="todolists-share-tasks-preview-title">
-                    <i class="fa fa-tasks"></i> {{ 'TODOLISTS.SHARE.TASKS_PREVIEW_TITLE' | translate }}
+                    <i class="fa fa-tasks"></i>
+                    {{ (shareKind === 'reminder'
+                        ? 'TODOLISTS.REMINDER.TASKS_PREVIEW_TITLE'
+                        : 'TODOLISTS.SHARE.TASKS_PREVIEW_TITLE') | translate }}
                 </div>
+                <p class="todolists-reminder-assignee small text-muted mb-2"
+                   *ngIf="shareKind === 'reminder' && reminderFocusItem?.assigneeMemberId">
+                    <i class="fa fa-user-circle"></i>
+                    {{ 'TODOLISTS.REMINDER.FOR_ASSIGNEE' | translate:{ name: assigneeLabel(reminderFocusItem?.assigneeMemberId) } }}
+                </p>
                 <ul class="todolists-share-tasks-preview-list mb-0"
                     *ngIf="shareTasksForPreview().length > 0; else shareNoTasksTpl">
                     <li *ngFor="let it of shareTasksForPreview()">
@@ -696,7 +730,9 @@
             <ng-container *ngIf="shareMode === 'whatsapp'">
                 <div class="alert alert-light border" role="note">
                     <i class="fa fa-info-circle text-success"></i>
-                    {{ 'TODOLISTS.SHARE.WHATSAPP_HINT' | translate }}
+                    {{ (shareKind === 'reminder'
+                        ? 'TODOLISTS.REMINDER.WHATSAPP_BODY_HINT'
+                        : 'TODOLISTS.SHARE.WHATSAPP_HINT') | translate }}
                 </div>
                 <div>
                     <label class="form-label">{{ 'TODOLISTS.SHARE.MESSAGE' | translate }}</label>
@@ -715,7 +751,9 @@
                     (click)="sendShareEmail()" [disabled]="shareSending">
                 <i class="fa fa-paper-plane" *ngIf="!shareSending"></i>
                 <i class="fa fa-spinner fa-spin" *ngIf="shareSending"></i>
-                {{ 'TODOLISTS.SHARE.SEND_EMAIL' | translate }}
+                {{ (shareKind === 'reminder'
+                    ? 'TODOLISTS.REMINDER.SEND_EMAIL'
+                    : 'TODOLISTS.SHARE.SEND_EMAIL') | translate }}
             </button>
             <button type="button" class="btn btn-success"
                     *ngIf="shareMode === 'whatsapp'"

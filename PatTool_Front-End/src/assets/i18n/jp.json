@@ -654,6 +654,25 @@
       "WHATSAPP_OPENED": "Ã¦Â–Â°Ã£ÂÂ—Ã£ÂÂ„Ã£Â‚Â¦Ã£Â‚Â£Ã£ÂƒÂ³Ã£ÂƒÂ‰Ã£Â‚Â¦Ã£ÂÂ§ WhatsApp Ã£Â‚Â’Ã©Â–Â‹Ã£ÂÂÃ£ÂÂ¾Ã£ÂÂ—Ã£ÂÂŸÃ£Â€Â‚",
       "WHATSAPP_IMAGE_ONLY": "Ã£Â‚Â«Ã£ÂƒÂÃ£ÂƒÂ¼Ã§Â”Â»Ã¥ÂƒÂÃ£Â‚Â’Ã¥Â…Â±Ã¦ÂœÂ‰Ã£ÂÂ—Ã£ÂÂ¾Ã£ÂÂ—Ã£ÂÂŸÃ£Â€Â‚Ã£Â‚Â¿Ã£Â‚Â¹Ã£Â‚Â¯Ã£ÂÂ®Ã£ÂƒÂ†Ã£Â‚Â­Ã£Â‚Â¹Ã£ÂƒÂˆÃ£ÂÂŒÃ¥Â…Â¥Ã£Â‚Â‰Ã£ÂÂªÃ£ÂÂ„Ã¥Â Â´Ã¥ÂÂˆÃ£ÂÂ¯Ã£Â€ÂÃ¤Â¸ÂŠÃ£ÂÂ®Ã£ÂƒÂ¡Ã£ÂƒÂƒÃ£Â‚Â»Ã£ÂƒÂ¼Ã£Â‚Â¸Ã¦Â¬Â„Ã£ÂÂ‹Ã£Â‚Â‰Ã¨Â²Â¼Ã£Â‚ÂŠÃ¤Â»Â˜Ã£ÂÂ‘Ã£Â‚Â‹Ã£ÂÂ‹Ã£Â€Â2Ã©Â€ÂšÃ§Â›Â®Ã£ÂÂ§Ã©Â€ÂÃ£ÂÂ£Ã£ÂÂ¦Ã£ÂÂÃ£ÂÂ Ã£ÂÂ•Ã£ÂÂ„Ã£Â€Â‚",
       "OPEN_IN_PATTOOL": "PatTool Ã£ÂÂ§Ã£ÂÂ“Ã£ÂÂ®Ã£ÂƒÂªÃ£Â‚Â¹Ã£ÂƒÂˆÃ£Â‚Â’Ã©Â–Â‹Ã£ÂÂÃ¯Â¼Âš"
+    },
+    "REMINDER": {
+      "BUTTON": "Send a reminder",
+      "EMAIL": "Email reminder",
+      "WHATSAPP": "WhatsApp reminder",
+      "EMAIL_HINT": "Remind by email of tasks still to do",
+      "WHATSAPP_HINT": "Remind on WhatsApp of tasks still to do",
+      "EMAIL_TITLE": "Email reminder",
+      "WHATSAPP_TITLE": "WhatsApp reminder",
+      "DEFAULT_MESSAGE": "Reminder: here are the tasks to do on the list \"{{name}}\" (task: {{task}}).",
+      "DEFAULT_MESSAGE_FOR": "Hi {{assignee}}! Reminder of your open tasks on the list \"{{name}}\".",
+      "FOR_ASSIGNEE": "Tasks for {{name}}",
+      "TASKS_PREVIEW_TITLE": "Tasks included in the reminder",
+      "WHATSAPP_TASKS_HEADER": "To do",
+      "WHATSAPP_BODY_HINT": "Tap \"Open WhatsApp\" — the message lists the open tasks for this person.",
+      "SEND_EMAIL": "Send reminder",
+      "SENT_OK": "Reminder sent to {{sent}} of {{total}} recipient(s).",
+      "SEND_ERROR": "Could not send the reminder. Please try again.",
+      "NEED_ASSIGNEE_OR_PAGE": "Assign the task, or open the full lists page to pick a recipient."
     }
   },
   "CALENDAR": {
@@ -1373,7 +1392,11 @@
     "DESELECT_ALL_PHOTOS": "Deselect all photos",
     "SELECTED_PHOTOS_COUNT": "{{count}} photo(s) selected",
     "DELETE_SELECTED_FILES": "Delete selected ({{count}})",
-    "DELETE_SELECTED_FILES_CONFIRM": "Are you sure you want to delete {{count}} file(s)?"
+    "DELETE_SELECTED_FILES_CONFIRM": "Are you sure you want to delete {{count}} file(s)?",
+    "PDF_CONVERTER_BUTTON_HINT": "PDF editor docs",
+    "PDF_CONVERTER_DOCUMENTS": "PDF editor documents",
+    "PDF_CONVERTER_OPEN": "Open in PDF editor",
+    "OPEN_AGENDA": "予定表を開く"
   },
   "EVENTCREATION": {
     "TITLE": "Ã¦Â´Â»Ã¥Â‹Â•Ã£ÂÂ®Ã¤Â½ÂœÃ¦ÂˆÂ",
@@ -1725,7 +1748,18 @@
     "ERR_FILENAME_REQUIRED": "PDF Ã£ÂƒÂ•Ã£Â‚Â¡Ã£Â‚Â¤Ã£ÂƒÂ«Ã¥ÂÂÃ£Â‚Â’Ã¥Â…Â¥Ã¥ÂŠÂ›Ã£ÂÂ—Ã£ÂÂ¦Ã£ÂÂÃ£ÂÂ Ã£ÂÂ•Ã£ÂÂ„Ã£Â€Â‚",
     "ERR_CONTENT_REQUIRED": "Ã£ÂƒÂ†Ã£Â‚Â­Ã£Â‚Â¹Ã£ÂƒÂˆÃ£ÂÂ¾Ã£ÂÂŸÃ£ÂÂ¯Ã§Â”Â»Ã¥ÂƒÂÃ£Â‚Â’ 1 Ã¦ÂžÂšÃ¤Â»Â¥Ã¤Â¸ÂŠÃ¨Â¿Â½Ã¥ÂŠÂ Ã£ÂÂ—Ã£ÂÂ¦Ã£ÂÂÃ£ÂÂ Ã£ÂÂ•Ã£ÂÂ„Ã£Â€Â‚",
     "ERR_EXPORT": "PDF Ã£ÂÂ®Ã§Â”ÂŸÃ¦ÂˆÂÃ£ÂÂ«Ã¥Â¤Â±Ã¦Â•Â—Ã£ÂÂ—Ã£ÂÂ¾Ã£ÂÂ—Ã£ÂÂŸÃ£Â€Â‚Ã£Â‚Â‚Ã£ÂÂ†Ã¤Â¸Â€Ã¥ÂºÂ¦Ã£ÂÂŠÃ¨Â©Â¦Ã£ÂÂ—Ã£ÂÂÃ£ÂÂ Ã£ÂÂ•Ã£ÂÂ„Ã£Â€Â‚",
-    "ERR_SHARE_WHATSAPP": "WhatsApp ã§ PDF ã‚’å…±æœ‰ã§ãã¾ã›ã‚“ã§ã—ãŸã€‚ã‚‚ã†ä¸€åº¦ãŠè©¦ã—ãã ã•ã„ã€‚"
+    "ERR_SHARE_WHATSAPP": "WhatsApp ã§ PDF ã‚’å…±æœ‰ã§ãã¾ã›ã‚“ã§ã—ãŸã€‚ã‚‚ã†ä¸€åº¦ãŠè©¦ã—ãã ã•ã„ã€‚",
+    "LINK_SECTION_TITLE": "この文書をカレンダーにリンク",
+    "LINK_SECTION_INTRO": "この文書を、予定表の個人予定またはアクセスできる活動（イベント）のいずれかにリンクできます。両方同時にはリンクできません。",
+    "LINK_PICK_APPOINTMENT": "個人予定（予定表）",
+    "LINK_PICK_ACTIVITY": "活動",
+    "LINK_NONE": "なし",
+    "LINK_LOADING_CALENDAR": "予定と活動を読み込み中…",
+    "LINK_LOAD_ERROR": "カレンダーを読み込めませんでした。文書は保存できます。リンクの選択は後でもう一度お試しください。",
+    "LINK_HINT": "予定を選ぶと活動リンクが解除され、その逆も同様です。",
+    "LINK_STALE_APPOINTMENT": "現在のリンク（予定 {{id}} — 読み込み範囲外または利用不可）",
+    "LINK_STALE_ACTIVITY": "現在のリンク（活動 {{id}} — 読み込み範囲外または利用不可）",
+    "ERR_LINK": "選択した活動または予定にこの文書をリンクできませんでした。アクセスを確認してもう一度お試しください。"
   },
   "LOTTO": {
     "TITLE": "Ã£ÂƒÂ•Ã£ÂƒÂ©Ã£ÂƒÂ³Ã£Â‚Â¹Ã¥Â¼ÂÃ£ÂƒÂ­Ã£ÂƒÂˆÃ¯Â¼ÂˆFDJÃ¯Â¼Â‰Ã¢Â€Â” Ã¦ÂŠÂ½Ã©ÂÂ¸",
@@ -3445,7 +3479,8 @@
     "ASSISTANT_EVENT": "AIÃ£Â‚Â¢Ã£Â‚Â·Ã£Â‚Â¹Ã£Â‚Â¿Ã£ÂƒÂ³Ã£ÂƒÂˆ",
     "WALL_UPLOADING": "Ã£ÂƒÂ•Ã£Â‚Â¡Ã£Â‚Â¤Ã£ÂƒÂ«Ã£Â‚Â’Ã£Â‚Â¢Ã£ÂƒÂƒÃ£ÂƒÂ—Ã£ÂƒÂ­Ã£ÂƒÂ¼Ã£ÂƒÂ‰Ã¤Â¸Â­Ã¢Â€Â¦",
     "WALL_UPLOAD_LOG_WAITING": "Ã£Â‚Â¢Ã£ÂƒÂƒÃ£ÂƒÂ—Ã£ÂƒÂ­Ã£ÂƒÂ¼Ã£ÂƒÂ‰Ã£ÂÂ®Ã©Â–Â‹Ã¥Â§Â‹Ã£Â‚Â’Ã¥Â¾Â…Ã£ÂÂ£Ã£ÂÂ¦Ã£ÂÂ„Ã£ÂÂ¾Ã£ÂÂ™Ã¢Â€Â¦",
-    "SHOW_MORE_GRID_PHOTOS": "ã™ã¹ã¦ã®å†™çœŸã‚’è¦‹ã‚‹"
+    "SHOW_MORE_GRID_PHOTOS": "ã™ã¹ã¦ã®å†™çœŸã‚’è¦‹ã‚‹",
+    "PDF_CONVERTER_WALL_TABLE_TITLE": "PDF editor documents"
   },
   "NEWS": {
     "PAGE_TITLE": "Ã£ÂƒÂ‹Ã£ÂƒÂ¥Ã£ÂƒÂ¼Ã£Â‚Â¹",
@@ -3864,7 +3899,23 @@
     "EPG_GUIDE_ERROR": "ç•ªçµ„è¡¨ã‚’èª­ã¿è¾¼ã‚ã¾ã›ã‚“ã§ã—ãŸã€‚",
     "RESTART_STREAM": "Reconnect stream from scratch",
     "RESTART_STREAM_DONE": "Stream reconnected",
-    "TOKEN_RENEWED": "Stream token renewed"
+    "TOKEN_RENEWED": "Stream token renewed",
+    "GLOBAL_FILTER_OPEN": "Global filter",
+    "SIDEBAR_FILTER": "リストを絞り込み",
+    "SIDEBAR_FILTER_PLACEHOLDER": "チャンネルや映画を絞り込み…",
+    "SIDEBAR_FILTER_CLEAR": "フィルターをクリア",
+    "GLOBAL_FILTER_TITLE": "Global filter (all tabs)",
+    "GLOBAL_FILTER_CLOSE": "Close",
+    "GLOBAL_FILTER_LEAD": "Configure a shared filter. Enable \"Apply to all tabs\" to use it on All TVs, Favorites, ARTE Replay, Archive.org and Recordings.",
+    "GLOBAL_FILTER_APPLY_ALL": "Apply to all tabs",
+    "GLOBAL_FILTER_APPLY_ALL_HINT": "When enabled, the filter stays active when switching tabs and is saved for your account.",
+    "GLOBAL_FILTER_APPLY": "Apply",
+    "GLOBAL_FILTER_CLEAR": "Clear",
+    "GLOBAL_FILTER_LOGIN": "Sign in to save this filter to your account.",
+    "GLOBAL_FILTER_COUNTRY_HINT": "For Archive.org: filters by the country language. For ARTE: catalog language. For All TVs: channel country.",
+    "GLOBAL_FILTER_CHANNEL_HINT": "Live TV / Favorites: channel name. Archive.org & ARTE: can also search a title.",
+    "GLOBAL_FILTER_PROGRAM_HINT": "Archive.org & ARTE: film or show title (server search). Live TV: EPG programme title.",
+    "GLOBAL_FILTER_PROGRAM_PLACEHOLDER": "E.g. Star Wars, news, documentary…"
   },
   "RADIO": {
     "TITLE": "Radio â€” world stations",

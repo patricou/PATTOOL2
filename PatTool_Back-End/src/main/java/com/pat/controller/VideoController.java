@@ -1,5 +1,7 @@
 package com.pat.controller;
 
+import com.pat.repo.domain.Member;
+import com.pat.service.TvRecordingService;
 import com.pat.service.VideoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,10 +11,15 @@ import org.springframework.data.mongodb.gridfs.GridFsResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.ByteArrayInputStream;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * REST Controller for video operations
@@ -25,6 +32,9 @@ public class VideoController {
 
     @Autowired
     private VideoService videoService;
+
+    @Autowired
+    private TvRecordingService tvRecordingService;
     
     // Compression service disabled - requires FFmpeg
     // @Autowired(required = false)
@@ -44,6 +54,9 @@ public class VideoController {
         log.debug("Attempting to retrieve video with ID: " + fileId + ", quality: " + quality);
 
         try {
+            if (!canAccessTvRecordingMedia(fileId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
             com.pat.service.VideoService.VideoQuality videoQuality = com.pat.service.VideoService.VideoQuality.fromString(quality);
             GridFsResource videoResource = videoService.getVideoResource(fileId, videoQuality);
             
@@ -88,6 +101,9 @@ public class VideoController {
         log.debug("Getting metadata for video: " + fileId);
         
         try {
+            if (!canAccessTvRecordingMedia(fileId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
             Map<String, Object> metadata = videoService.getVideoMetadata(fileId);
             
             if (metadata.isEmpty()) {
@@ -127,6 +143,30 @@ public class VideoController {
         response.put("isVideo", isVideo);
         
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Gate GridFS files that belong to a TV recording by visibility.
+     * Other videos keep the previous JWT-only behaviour.
+     */
+    private boolean canAccessTvRecordingMedia(String fileId) {
+        String sub = currentJwtSubject();
+        String memberId = null;
+        if (StringUtils.hasText(sub)) {
+            memberId = tvRecordingService.resolveMemberByKeycloakId(sub)
+                    .map(Member::getId)
+                    .orElse(null);
+        }
+        Optional<Boolean> gate = tvRecordingService.canAccessGridFsMedia(fileId, sub, memberId);
+        return gate.map(Boolean::booleanValue).orElse(true);
+    }
+
+    private static String currentJwtSubject() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof Jwt jwt)) {
+            return null;
+        }
+        return jwt.getSubject();
     }
 
     /**

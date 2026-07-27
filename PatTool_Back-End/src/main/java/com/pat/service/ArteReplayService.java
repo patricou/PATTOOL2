@@ -48,6 +48,8 @@ public class ArteReplayService {
     private static final Duration PAGE_CACHE_TTL = Duration.ofMinutes(3);
     private static final int MAX_PAGE = 20;
     private static final Pattern PROGRAM_ID = Pattern.compile("(?i)^(?:LIVE|\\d{6}-\\d{3}-[AF])$");
+    /** EMAC zone content URLs embed {@code authorizedCountry=XX}. */
+    private static final Pattern AUTH_COUNTRY = Pattern.compile("authorizedCountry=([A-Za-z]{2})");
 
     private static final Set<String> LANGS = Set.of("fr", "de", "en", "es", "it", "pl", "ro");
 
@@ -129,6 +131,9 @@ public class ArteReplayService {
 
     /**
      * List playable ARTE programs for a section or search query.
+     * <p>
+     * EMAC ignores {@code ?page=} on {@code /web/pages/{code}/} — pagination is served by
+     * {@code /web/zones/{zoneId}/content?page=N} (see zone {@code content.pagination.links}).
      */
     public ArteCatalogResult listPrograms(String lang, String section, String query, int page) {
         String language = normalizeLang(lang);
@@ -140,18 +145,18 @@ public class ArteReplayService {
             programs.add(liveTeaser(language));
         }
 
+        // Shell page always returns page-1 teaser data; do not pass page here.
         JsonNode pageJson;
         if (q.length() >= 2) {
-            pageJson = fetchEmacPage(language, "SEARCH", Map.of("query", q, "page", String.valueOf(safePage)));
+            pageJson = fetchEmacPage(language, "SEARCH", Map.of("query", q));
         } else {
-            String sec = normalizeSection(section);
-            pageJson = fetchEmacPage(language, sec, Map.of("page", String.valueOf(safePage)));
+            pageJson = fetchEmacPage(language, normalizeSection(section), Map.of());
         }
 
         int total = 0;
         int pages = 1;
         if (pageJson != null) {
-            ListingExtract extract = extractPrograms(pageJson, language);
+            ListingExtract extract = extractProgramsForPage(pageJson, language, safePage, q.length() >= 2 ? q : null);
             for (ArteProgramDto p : extract.programs()) {
                 if (programs.stream().noneMatch(x -> p.getProgramId().equalsIgnoreCase(x.getProgramId()))) {
                     programs.add(p);
@@ -208,6 +213,17 @@ public class ArteReplayService {
         hlsCache.remove(normalizeLang(lang) + "|" + id);
     }
 
+    public int invalidateAll() {
+        int n = hlsCache.size() + pageCache.size();
+        hlsCache.clear();
+        pageCache.clear();
+        return n;
+    }
+
+    public int cacheEntryCount() {
+        return hlsCache.size() + pageCache.size();
+    }
+
     public Optional<String> resolveVirtualOrPassthrough(String url) {
         return resolveVirtualOrPassthrough(url, false);
     }
@@ -238,7 +254,46 @@ public class ArteReplayService {
         return dto;
     }
 
-    private ListingExtract extractPrograms(JsonNode pageJson, String language) {
+    /**
+     * Prefer the primary listing zone; for page &gt; 1 fetch zone content (EMAC page shell is not paginated).
+     */
+    private ListingExtract extractProgramsForPage(JsonNode pageJson, String language, int page, String searchQuery) {
+        Optional<ListingZone> primary = findPrimaryListingZone(pageJson);
+        if (primary.isEmpty()) {
+            return extractProgramsMerged(pageJson, language);
+        }
+        ListingZone zone = primary.get();
+        int pages = Math.max(1, Math.min(zone.pages(), MAX_PAGE));
+        int total = Math.max(0, zone.totalCount());
+        int safePage = Math.max(1, Math.min(page, pages));
+
+        JsonNode data = zone.embeddedData();
+        if (safePage > 1) {
+            JsonNode zoneContent = fetchZoneContent(language, zone.zoneId(), safePage, searchQuery, zone.authorizedCountry());
+            if (zoneContent != null) {
+                JsonNode remoteData = zoneContent.path("data");
+                if (remoteData.isArray()) {
+                    data = remoteData;
+                }
+                JsonNode pagination = zoneContent.path("pagination");
+                if (pagination.isObject()) {
+                    total = Math.max(total, pagination.path("totalCount").asInt(0));
+                    pages = Math.max(1, Math.min(pagination.path("pages").asInt(pages), MAX_PAGE));
+                }
+            }
+        }
+
+        List<ArteProgramDto> out = new ArrayList<>();
+        if (data != null && data.isArray()) {
+            for (JsonNode item : data) {
+                toProgram(item, language).ifPresent(out::add);
+            }
+        }
+        return new ListingExtract(out, Math.max(total, out.size()), pages);
+    }
+
+    /** Fallback when no paginated listing zone is present (merge all zones). */
+    private ListingExtract extractProgramsMerged(JsonNode pageJson, String language) {
         List<ArteProgramDto> out = new ArrayList<>();
         int total = 0;
         int pages = 1;
@@ -247,11 +302,7 @@ public class ArteReplayService {
             return new ListingExtract(out, 0, 1);
         }
         for (JsonNode zone : zones) {
-            String zoneCode = zone.path("code").asText("");
-            // Skip boutique / chatbot / event teasers
-            if (zoneCode.toLowerCase(Locale.ROOT).contains("boutique")
-                    || zoneCode.toLowerCase(Locale.ROOT).contains("chatbot")
-                    || zoneCode.toLowerCase(Locale.ROOT).contains("newsletter")) {
+            if (isSkippedZone(zone.path("code").asText(""))) {
                 continue;
             }
             JsonNode content = zone.path("content");
@@ -269,6 +320,102 @@ public class ArteReplayService {
             }
         }
         return new ListingExtract(out, total, pages);
+    }
+
+    private Optional<ListingZone> findPrimaryListingZone(JsonNode pageJson) {
+        JsonNode zones = pageJson.path("zones");
+        if (!zones.isArray()) {
+            return Optional.empty();
+        }
+        ListingZone best = null;
+        for (JsonNode zone : zones) {
+            String zoneCode = zone.path("code").asText("");
+            if (isSkippedZone(zoneCode)) {
+                continue;
+            }
+            JsonNode content = zone.path("content");
+            JsonNode data = content.path("data");
+            if (!data.isArray() || data.isEmpty()) {
+                continue;
+            }
+            JsonNode pagination = content.path("pagination");
+            int zonePages = pagination.isObject() ? Math.max(1, pagination.path("pages").asInt(1)) : 1;
+            int total = pagination.isObject() ? Math.max(0, pagination.path("totalCount").asInt(0)) : data.size();
+            String zoneId = zone.path("id").asText(null);
+            if (!StringUtils.hasText(zoneId) && pagination.isObject()) {
+                zoneId = zoneIdFromPaginationLink(pagination.path("links").path("first").asText(""));
+            }
+            if (!StringUtils.hasText(zoneId)) {
+                continue;
+            }
+            String country = authorizedCountryFromPagination(pagination);
+            boolean listingCode = zoneCode.toLowerCase(Locale.ROOT).startsWith("listing_");
+            ListingZone candidate = new ListingZone(zoneId, data, zonePages, total, country, listingCode);
+            if (best == null
+                    || (candidate.listing() && !best.listing())
+                    || zonePages > best.pages()
+                    || (zonePages == best.pages() && total > best.totalCount())) {
+                best = candidate;
+            }
+        }
+        return Optional.ofNullable(best);
+    }
+
+    private static boolean isSkippedZone(String zoneCode) {
+        String code = zoneCode.toLowerCase(Locale.ROOT);
+        return code.contains("boutique") || code.contains("chatbot") || code.contains("newsletter");
+    }
+
+    private static String zoneIdFromPaginationLink(String link) {
+        if (!StringUtils.hasText(link)) {
+            return null;
+        }
+        int zonesIdx = link.indexOf("/zones/");
+        if (zonesIdx < 0) {
+            return null;
+        }
+        int start = zonesIdx + "/zones/".length();
+        int end = link.indexOf('/', start);
+        if (end < 0) {
+            end = link.indexOf('?', start);
+        }
+        if (end < 0) {
+            end = link.length();
+        }
+        String id = link.substring(start, end).trim();
+        return StringUtils.hasText(id) ? id : null;
+    }
+
+    private static String authorizedCountryFromPagination(JsonNode pagination) {
+        if (pagination == null || !pagination.isObject()) {
+            return null;
+        }
+        for (String rel : List.of("first", "next", "last")) {
+            String link = pagination.path("links").path(rel).asText("");
+            var m = AUTH_COUNTRY.matcher(link);
+            if (m.find()) {
+                return m.group(1).toUpperCase(Locale.ROOT);
+            }
+        }
+        return null;
+    }
+
+    private JsonNode fetchZoneContent(String language, String zoneId, int page, String searchQuery, String authorizedCountry) {
+        String country = StringUtils.hasText(authorizedCountry)
+                ? authorizedCountry.toUpperCase(Locale.ROOT)
+                : language.toUpperCase(Locale.ROOT);
+        StringBuilder url = new StringBuilder(EMAC_BASE)
+                .append('/').append(language)
+                .append("/web/zones/")
+                .append(zoneId)
+                .append("/content?authorizedCountry=")
+                .append(URLEncoder.encode(country, StandardCharsets.UTF_8))
+                .append("&page=")
+                .append(page);
+        if (StringUtils.hasText(searchQuery)) {
+            url.append("&query=").append(URLEncoder.encode(searchQuery, StandardCharsets.UTF_8));
+        }
+        return fetchJson(url.toString());
     }
 
     private Optional<ArteProgramDto> toProgram(JsonNode item, String language) {
@@ -390,14 +537,17 @@ public class ArteReplayService {
                 first = false;
             }
         }
-        String cacheKey = url.toString();
+        return fetchJson(url.toString());
+    }
+
+    private JsonNode fetchJson(String url) {
         Instant now = Instant.now();
-        CachedPage cached = pageCache.get(cacheKey);
+        CachedPage cached = pageCache.get(url);
         if (cached != null && cached.expiresAt.isAfter(now)) {
             return cached.json;
         }
         try {
-            HttpRequest request = HttpRequest.newBuilder(URI.create(cacheKey))
+            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                     .timeout(Duration.ofSeconds(20))
                     .header("User-Agent", USER_AGENT)
                     .header("Accept", "application/json")
@@ -407,14 +557,14 @@ public class ArteReplayService {
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (response.statusCode() != 200 || !StringUtils.hasText(response.body())) {
-                log.debug("ARTE EMAC {} -> HTTP {}", cacheKey, response.statusCode());
+                log.debug("ARTE EMAC {} -> HTTP {}", url, response.statusCode());
                 return null;
             }
             JsonNode json = objectMapper.readTree(response.body());
-            pageCache.put(cacheKey, new CachedPage(json, now.plus(PAGE_CACHE_TTL)));
+            pageCache.put(url, new CachedPage(json, now.plus(PAGE_CACHE_TTL)));
             return json;
         } catch (Exception e) {
-            log.debug("ARTE EMAC fetch failed {}: {}", cacheKey, e.getMessage());
+            log.debug("ARTE EMAC fetch failed {}: {}", url, e.getMessage());
             return null;
         }
     }
@@ -529,6 +679,16 @@ public class ArteReplayService {
     }
 
     private record ListingExtract(List<ArteProgramDto> programs, int totalCount, int pages) {
+    }
+
+    private record ListingZone(
+            String zoneId,
+            JsonNode embeddedData,
+            int pages,
+            int totalCount,
+            String authorizedCountry,
+            boolean listing
+    ) {
     }
 
     private record CachedUrl(String url, Instant expiresAt) {

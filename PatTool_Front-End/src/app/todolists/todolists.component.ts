@@ -23,6 +23,7 @@ import {
     TodoList,
     TodoListService,
     TodoPriority,
+    TodoReminderEmailPayload,
     TodoShareEmailPayload,
     TodoStatus,
     TodoVisibility,
@@ -176,8 +177,12 @@ export class TodolistsComponent implements OnInit, OnDestroy {
     detailsAssigneeMap = new Map<string, string>();
     private detailsModalRef: NgbModalRef | null = null;
 
-    // Share state
+    // Share / reminder state
     shareList: TodoList | null = null;
+    /** Full-list share vs per-assignee task reminder. */
+    shareKind: 'share' | 'reminder' = 'share';
+    /** When {@link shareKind} is reminder, the task that opened the modal. */
+    reminderFocusItem: TodoItem | null = null;
     shareMode: 'email' | 'whatsapp' = 'email';
     shareRecipients: TodoVisibilityRecipient[] = [];
     shareSelectedMemberIds = new Set<string>();
@@ -816,10 +821,39 @@ export class TodolistsComponent implements OnInit, OnDestroy {
     // ---------- Sharing (email / WhatsApp) ----------------------------------
 
     openShare(list: TodoList, mode: 'email' | 'whatsapp' = 'email'): void {
+        this.openShareOrReminder(list, mode, 'share', null);
+    }
+
+    /**
+     * Reminder for the assignee of {@code item}: open tasks they still have on this list,
+     * sent by e-mail or WhatsApp (user choice in the modal).
+     */
+    openItemReminder(list: TodoList, item: TodoItem, mode: 'email' | 'whatsapp' = 'email'): void {
+        this.openShareOrReminder(list, mode, 'reminder', item);
+    }
+
+    private openShareOrReminder(
+        list: TodoList,
+        mode: 'email' | 'whatsapp',
+        kind: 'share' | 'reminder',
+        focusItem: TodoItem | null
+    ): void {
+        this.shareKind = kind;
+        this.reminderFocusItem = focusItem ? { ...focusItem } : null;
         this.shareMode = mode;
         this.shareSelectedMemberIds = new Set<string>();
         this.shareExtraEmails = '';
-        this.shareCustomMessage = this.translate.instant('TODOLISTS.SHARE.DEFAULT_MESSAGE', { name: list.name });
+        const assigneeName = focusItem?.assigneeMemberId
+            ? this.assigneeLabel(focusItem.assigneeMemberId)
+            : '';
+        this.shareCustomMessage = kind === 'reminder'
+            ? this.translate.instant(
+                assigneeName
+                    ? 'TODOLISTS.REMINDER.DEFAULT_MESSAGE_FOR'
+                    : 'TODOLISTS.REMINDER.DEFAULT_MESSAGE',
+                { name: list.name, assignee: assigneeName, task: focusItem?.title || '' }
+            )
+            : this.translate.instant('TODOLISTS.SHARE.DEFAULT_MESSAGE', { name: list.name });
         this.shareErrorMessage = '';
         this.shareSuccessMessage = '';
         this.shareRecipients = [];
@@ -847,23 +881,40 @@ export class TodolistsComponent implements OnInit, OnDestroy {
                 })
             ).subscribe(({ full, recipients }) => {
                 this.shareList = full;
+                // Refresh focus item from the latest document (status / assignee may have changed).
+                if (this.shareKind === 'reminder' && this.reminderFocusItem?.id) {
+                    const fresh = (full.items || []).find(i => i.id === this.reminderFocusItem!.id);
+                    if (fresh) {
+                        this.reminderFocusItem = { ...fresh };
+                    }
+                }
                 const byId = new Map<string, TodoVisibilityRecipient>();
                 for (const r of recipients || []) {
                     if (r?.memberId) {
                         byId.set(r.memberId, r);
                     }
                 }
-                // Back-end inclut déjà le propriétaire ; on conserve tout le monde (y compris vous)
-                // pour pouvoir vous envoyer le partage par e-mail.
                 this.shareRecipients = Array.from(byId.values()).sort((a, b) =>
                     (a.displayName || '').localeCompare(b.displayName || '', undefined, { sensitivity: 'base' })
                 );
-                // Pré-sélection : membres avec e-mail sauf soi (le propriétaire peut se cocher manuellement).
-                this.shareSelectedMemberIds = new Set(
-                    this.shareRecipients
-                        .filter(r => r.hasEmail && r.memberId !== this.currentUserId)
-                        .map(r => r.memberId)
-                );
+                if (this.shareKind === 'reminder') {
+                    const assigneeId = (this.reminderFocusItem?.assigneeMemberId || '').trim();
+                    if (assigneeId) {
+                        const assignee = this.shareRecipients.find(r => r.memberId === assigneeId && r.hasEmail);
+                        this.shareSelectedMemberIds = new Set(
+                            assignee ? [assignee.memberId] : []
+                        );
+                    } else {
+                        this.shareSelectedMemberIds = new Set();
+                    }
+                } else {
+                    // Pré-sélection : membres avec e-mail sauf soi (le propriétaire peut se cocher manuellement).
+                    this.shareSelectedMemberIds = new Set(
+                        this.shareRecipients
+                            .filter(r => r.hasEmail && r.memberId !== this.currentUserId)
+                            .map(r => r.memberId)
+                    );
+                }
             })
         );
     }
@@ -903,6 +954,39 @@ export class TodolistsComponent implements OnInit, OnDestroy {
         const memberIds = Array.from(this.shareSelectedMemberIds);
         if (extra.length === 0 && memberIds.length === 0) {
             this.shareErrorMessage = this.translate.instant('TODOLISTS.SHARE.NO_RECIPIENT');
+            return;
+        }
+        if (this.shareKind === 'reminder') {
+            const itemId = (this.reminderFocusItem?.id || '').trim();
+            if (!itemId) {
+                this.shareErrorMessage = this.translate.instant('TODOLISTS.REMINDER.SEND_ERROR');
+                return;
+            }
+            const payload: TodoReminderEmailPayload = {
+                itemId,
+                toEmails: extra,
+                toMemberIds: memberIds,
+                customMessage: (this.shareCustomMessage || '').trim(),
+                mailLang: this.translate.currentLang || 'en',
+                listUrl: this.buildTodolistDeepLink(this.shareList.id)
+            };
+            this.shareSending = true;
+            this.shareErrorMessage = '';
+            this.shareSuccessMessage = '';
+            this.subs.push(this.todoService.sendReminderEmail(this.shareList.id, payload).pipe(
+                finalize(() => {
+                    this.shareSending = false;
+                    this.cdr.markForCheck();
+                })
+            ).subscribe({
+                next: resp => {
+                    this.shareSuccessMessage = this.translate.instant('TODOLISTS.REMINDER.SENT_OK',
+                        { sent: resp.sent, total: resp.total });
+                },
+                error: () => {
+                    this.shareErrorMessage = this.translate.instant('TODOLISTS.REMINDER.SEND_ERROR');
+                }
+            }));
             return;
         }
         const payload: TodoShareEmailPayload = {
@@ -1070,11 +1154,36 @@ export class TodolistsComponent implements OnInit, OnDestroy {
     closeShare(): void {
         this.shareModalRef?.dismiss();
         this.shareList = null;
+        this.shareKind = 'share';
+        this.reminderFocusItem = null;
     }
 
-    /** Tasks shown in the share modal preview (after {@link #openShare} refresh). */
+    /**
+     * Tasks shown in the share / reminder modal preview.
+     * Reminder mode: open tasks of the assignee (or the focused task alone).
+     */
     shareTasksForPreview(): TodoItem[] {
-        return this.shareList?.items ?? [];
+        return this.tasksForSharePayload(this.shareList);
+    }
+
+    /** Items included in reminder e-mail / WhatsApp text. */
+    private tasksForSharePayload(list: TodoList | null): TodoItem[] {
+        const items = list?.items ?? [];
+        if (this.shareKind !== 'reminder' || !this.reminderFocusItem) {
+            return items;
+        }
+        const focus = this.reminderFocusItem;
+        const assigneeId = (focus.assigneeMemberId || '').trim();
+        if (assigneeId) {
+            const pending = items.filter(
+                it => it.assigneeMemberId === assigneeId && it.status !== 'done'
+            );
+            if (pending.length > 0) {
+                return pending;
+            }
+        }
+        const match = items.find(it => it.id && it.id === focus.id);
+        return match ? [match] : [focus];
     }
 
     /** One-line plain preview of the list description in the share summary. */
@@ -1093,13 +1202,18 @@ export class TodolistsComponent implements OnInit, OnDestroy {
             lines.push('');
         }
         lines.push(`*${list.name}*`);
-        const descPlain = this.clipPlain(this.htmlToPlain(list.description), 450);
-        if (descPlain) {
-            lines.push(descPlain);
+        if (this.shareKind !== 'reminder') {
+            const descPlain = this.clipPlain(this.htmlToPlain(list.description), 450);
+            if (descPlain) {
+                lines.push(descPlain);
+            }
         }
         lines.push('');
-        lines.push(this.underlinePlain(this.translate.instant('TODOLISTS.SHARE.WHATSAPP_TASKS_HEADER')));
-        const items = list.items || [];
+        const tasksHeaderKey = this.shareKind === 'reminder'
+            ? 'TODOLISTS.REMINDER.WHATSAPP_TASKS_HEADER'
+            : 'TODOLISTS.SHARE.WHATSAPP_TASKS_HEADER';
+        lines.push(this.underlinePlain(this.translate.instant(tasksHeaderKey)));
+        const items = this.tasksForSharePayload(list);
         if (items.length === 0) {
             lines.push(this.translate.instant('TODOLISTS.SHARE.TASKS_NONE'));
         } else {
@@ -1121,12 +1235,16 @@ export class TodolistsComponent implements OnInit, OnDestroy {
             }
         }
         lines.push('');
-        const meta = this.metaFor(list);
-        if (meta.total > 0) {
-            lines.push(`📋 ${meta.completed}/${meta.total} (${meta.percent}%)`);
-        }
-        if (list.dueDate) {
-            lines.push(`📅 ${this.formatDate(list.dueDate)}`);
+        if (this.shareKind !== 'reminder') {
+            const meta = this.metaFor(list);
+            if (meta.total > 0) {
+                lines.push(`📋 ${meta.completed}/${meta.total} (${meta.percent}%)`);
+            }
+            if (list.dueDate) {
+                lines.push(`📅 ${this.formatDate(list.dueDate)}`);
+            }
+        } else {
+            lines.push(`📋 ${items.filter(i => i.status === 'done').length}/${items.length}`);
         }
         const joined = lines.join('\n');
         const linkSuffix = list.id

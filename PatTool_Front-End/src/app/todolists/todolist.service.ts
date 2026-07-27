@@ -70,10 +70,16 @@ export interface TodoShareEmailPayload {
     listUrl?: string;
 }
 
+export interface TodoReminderEmailPayload extends TodoShareEmailPayload {
+    /** Task that triggered the reminder (required server-side). */
+    itemId: string;
+}
+
 export interface TodoShareEmailResponse {
     sent: number;
     skipped: number;
     total: number;
+    taskCount?: number;
 }
 
 /**
@@ -199,6 +205,22 @@ export class TodoListService {
             switchMap(headers =>
                 this.http.post<TodoShareEmailResponse>(
                     `${environment.API_URL}todolists/${id}/share-email`,
+                    body,
+                    { headers }
+                )
+            )
+        );
+    }
+
+    /**
+     * E-mail reminder of open tasks for the assignee of {@code body.itemId}
+     * (or that single task when unassigned).
+     */
+    sendReminderEmail(id: string, body: TodoReminderEmailPayload): Observable<TodoShareEmailResponse> {
+        return this.withUserHeaders().pipe(
+            switchMap(headers =>
+                this.http.post<TodoShareEmailResponse>(
+                    `${environment.API_URL}todolists/${id}/reminder-email`,
                     body,
                     { headers }
                 )

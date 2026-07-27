@@ -417,6 +417,14 @@ public class IpGeolocationService {
         reverseGeocodeCache.clear();
         isoCountryCache.clear();
     }
+
+    public int cacheEntryCount() {
+        return locationCache.size()
+                + domainCache.size()
+                + coordinatesCache.size()
+                + reverseGeocodeCache.size()
+                + isoCountryCache.size();
+    }
     
     /**
      * Enforce cache size limit by removing oldest entries

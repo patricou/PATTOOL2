@@ -654,6 +654,25 @@
       "WHATSAPP_OPENED": "ÃŽÂ¤ÃŽÂ¿ WhatsApp ÃŽÂ¬ÃŽÂ½ÃŽÂ¿ÃŽÂ¹ÃŽÂ¾ÃŽÂµ ÃÂƒÃŽÂµ ÃŽÂ½ÃŽÂ­ÃŽÂ¿ ÃÂ€ÃŽÂ±ÃÂÃŽÂ¬ÃŽÂ¸ÃÂ…ÃÂÃŽÂ¿.",
       "WHATSAPP_IMAGE_ONLY": "ÃŽÂšÃŽÂ¿ÃŽÂ¹ÃŽÂ½ÃŽÂ¿ÃÂ€ÃŽÂ¿ÃŽÂ¹ÃŽÂ®ÃŽÂ¸ÃŽÂ·ÃŽÂºÃŽÂµ ÃŽÂ· ÃŽÂµÃŽÂ¹ÃŽÂºÃÂŒÃŽÂ½ÃŽÂ± ÃŽÂµÃŽÂ¾ÃÂ‰ÃÂ†ÃÂÃŽÂ»ÃŽÂ»ÃŽÂ¿ÃÂ…. ÃŽÂ‘ÃŽÂ½ ÃŽÂ»ÃŽÂµÃŽÂ¯ÃÂ€ÃŽÂµÃŽÂ¹ ÃÂ„ÃŽÂ¿ ÃŽÂºÃŽÂµÃŽÂ¯ÃŽÂ¼ÃŽÂµÃŽÂ½ÃŽÂ¿ ÃŽÂµÃÂÃŽÂ³ÃŽÂ±ÃÂƒÃŽÂ¹ÃÂŽÃŽÂ½, ÃŽÂµÃÂ€ÃŽÂ¹ÃŽÂºÃŽÂ¿ÃŽÂ»ÃŽÂ»ÃŽÂ®ÃÂƒÃÂ„ÃŽÂµ ÃÂ„ÃŽÂ¿ ÃŽÂ±ÃÂ€ÃÂŒ ÃÂ„ÃŽÂ¿ ÃÂ€ÃŽÂµÃŽÂ´ÃŽÂ¯ÃŽÂ¿ ÃŽÂ¼ÃŽÂ·ÃŽÂ½ÃÂÃŽÂ¼ÃŽÂ±ÃÂ„ÃŽÂ¿ÃÂ‚ ÃÂ€ÃŽÂ±ÃÂÃŽÂ±ÃÂ€ÃŽÂ¬ÃŽÂ½ÃÂ‰ ÃŽÂ® ÃÂƒÃÂ„ÃŽÂµÃŽÂ¯ÃŽÂ»ÃÂ„ÃŽÂµ ÃŽÂ´ÃŽÂµÃÂÃÂ„ÃŽÂµÃÂÃŽÂ¿ ÃŽÂ¼ÃŽÂ®ÃŽÂ½ÃÂ…ÃŽÂ¼ÃŽÂ±.",
       "OPEN_IN_PATTOOL": "ÃŽÂ†ÃŽÂ½ÃŽÂ¿ÃŽÂ¹ÃŽÂ³ÃŽÂ¼ÃŽÂ± ÃŽÂ±ÃÂ…ÃÂ„ÃŽÂ®ÃÂ‚ ÃÂ„ÃŽÂ·ÃÂ‚ ÃŽÂ»ÃŽÂ¯ÃÂƒÃÂ„ÃŽÂ±ÃÂ‚ ÃÂƒÃÂ„ÃŽÂ¿ PatTool:"
+    },
+    "REMINDER": {
+      "BUTTON": "Send a reminder",
+      "EMAIL": "Email reminder",
+      "WHATSAPP": "WhatsApp reminder",
+      "EMAIL_HINT": "Remind by email of tasks still to do",
+      "WHATSAPP_HINT": "Remind on WhatsApp of tasks still to do",
+      "EMAIL_TITLE": "Email reminder",
+      "WHATSAPP_TITLE": "WhatsApp reminder",
+      "DEFAULT_MESSAGE": "Reminder: here are the tasks to do on the list \"{{name}}\" (task: {{task}}).",
+      "DEFAULT_MESSAGE_FOR": "Hi {{assignee}}! Reminder of your open tasks on the list \"{{name}}\".",
+      "FOR_ASSIGNEE": "Tasks for {{name}}",
+      "TASKS_PREVIEW_TITLE": "Tasks included in the reminder",
+      "WHATSAPP_TASKS_HEADER": "To do",
+      "WHATSAPP_BODY_HINT": "Tap \"Open WhatsApp\" — the message lists the open tasks for this person.",
+      "SEND_EMAIL": "Send reminder",
+      "SENT_OK": "Reminder sent to {{sent}} of {{total}} recipient(s).",
+      "SEND_ERROR": "Could not send the reminder. Please try again.",
+      "NEED_ASSIGNEE_OR_PAGE": "Assign the task, or open the full lists page to pick a recipient."
     }
   },
   "CALENDAR": {
@@ -1372,7 +1391,11 @@
     "DESELECT_ALL_PHOTOS": "Deselect all photos",
     "SELECTED_PHOTOS_COUNT": "{{count}} photo(s) selected",
     "DELETE_SELECTED_FILES": "Delete selected ({{count}})",
-    "DELETE_SELECTED_FILES_CONFIRM": "Are you sure you want to delete {{count}} file(s)?"
+    "DELETE_SELECTED_FILES_CONFIRM": "Are you sure you want to delete {{count}} file(s)?",
+    "PDF_CONVERTER_BUTTON_HINT": "PDF editor docs",
+    "PDF_CONVERTER_DOCUMENTS": "PDF editor documents",
+    "PDF_CONVERTER_OPEN": "Open in PDF editor",
+    "OPEN_AGENDA": "Άνοιγμα ημερολογίου"
   },
   "EVENTCREATION": {
     "TITLE": "ÃŽÂ”ÃŽÂ·ÃŽÂ¼ÃŽÂ¹ÃŽÂ¿ÃÂ…ÃÂÃŽÂ³ÃŽÂ¯ÃŽÂ± ÃŽÂ”ÃÂÃŽÂ±ÃÂƒÃÂ„ÃŽÂ·ÃÂÃŽÂ¹ÃÂŒÃÂ„ÃŽÂ·ÃÂ„ÃŽÂ±ÃÂ‚",
@@ -1723,7 +1746,18 @@
     "ERR_FILENAME_REQUIRED": "ÃŽÂ”ÃÂŽÃÂƒÃÂ„ÃŽÂµ ÃÂŒÃŽÂ½ÃŽÂ¿ÃŽÂ¼ÃŽÂ± ÃŽÂ±ÃÂÃÂ‡ÃŽÂµÃŽÂ¯ÃŽÂ¿ÃÂ… PDF.",
     "ERR_CONTENT_REQUIRED": "ÃŽÂ ÃÂÃŽÂ¿ÃÂƒÃŽÂ¸ÃŽÂ­ÃÂƒÃÂ„ÃŽÂµ ÃŽÂºÃŽÂµÃŽÂ¯ÃŽÂ¼ÃŽÂµÃŽÂ½ÃŽÂ¿ ÃŽÂ® ÃÂ„ÃŽÂ¿ÃÂ…ÃŽÂ»ÃŽÂ¬ÃÂ‡ÃŽÂ¹ÃÂƒÃÂ„ÃŽÂ¿ÃŽÂ½ ÃŽÂ¼ÃŽÂ¯ÃŽÂ± ÃŽÂµÃŽÂ¹ÃŽÂºÃÂŒÃŽÂ½ÃŽÂ±.",
     "ERR_EXPORT": "ÃŽÂ‘ÃÂ€ÃŽÂ¿ÃÂ„ÃÂ…ÃÂ‡ÃŽÂ¯ÃŽÂ± ÃŽÂ´ÃŽÂ·ÃŽÂ¼ÃŽÂ¹ÃŽÂ¿ÃÂ…ÃÂÃŽÂ³ÃŽÂ¯ÃŽÂ±ÃÂ‚ PDF. ÃŽÂ”ÃŽÂ¿ÃŽÂºÃŽÂ¹ÃŽÂ¼ÃŽÂ¬ÃÂƒÃÂ„ÃŽÂµ ÃŽÂ¾ÃŽÂ±ÃŽÂ½ÃŽÂ¬.",
-    "ERR_SHARE_WHATSAPP": "Î‘Î´Ï…Î½Î±Î¼Î¯Î± ÎºÎ¿Î¹Î½Î¿Ï€Î¿Î¯Î·ÏƒÎ·Ï‚ PDF ÏƒÏ„Î¿ WhatsApp. Î”Î¿ÎºÎ¹Î¼Î¬ÏƒÏ„Îµ Î¾Î±Î½Î¬."
+    "ERR_SHARE_WHATSAPP": "Î‘Î´Ï…Î½Î±Î¼Î¯Î± ÎºÎ¿Î¹Î½Î¿Ï€Î¿Î¯Î·ÏƒÎ·Ï‚ PDF ÏƒÏ„Î¿ WhatsApp. Î”Î¿ÎºÎ¹Î¼Î¬ÏƒÏ„Îµ Î¾Î±Î½Î¬.",
+    "LINK_SECTION_TITLE": "Σύνδεση αυτού του εγγράφου με το ημερολόγιο",
+    "LINK_SECTION_INTRO": "Μπορείτε να συνδέσετε αυτό το έγγραφο είτε με ένα προσωπικό ραντεβού στο ημερολόγιό σας είτε με μια δραστηριότητα (εκδήλωση) στην οποία έχετε πρόσβαση — το ένα ή το άλλο, όχι και τα δύο ταυτόχρονα.",
+    "LINK_PICK_APPOINTMENT": "Προσωπικό ραντεβού (ημερολόγιο)",
+    "LINK_PICK_ACTIVITY": "Δραστηριότητα",
+    "LINK_NONE": "Κανένα",
+    "LINK_LOADING_CALENDAR": "Φόρτωση ημερολογίου και δραστηριοτήτων…",
+    "LINK_LOAD_ERROR": "Δεν ήταν δυνατή η φόρτωση του ημερολογίου. Μπορείτε να αποθηκεύσετε το έγγραφο· δοκιμάστε αργότερα για σύνδεση.",
+    "LINK_HINT": "Η επιλογή ραντεβού διαγράφει τη σύνδεση δραστηριότητας και αντίστροφα.",
+    "LINK_STALE_APPOINTMENT": "Τρέχουσα σύνδεση (ραντεβού {{id}} — εκτός φορτωμένου εύρους ή μη διαθέσιμο)",
+    "LINK_STALE_ACTIVITY": "Τρέχουσα σύνδεση (δραστηριότητα {{id}} — εκτός φορτωμένου εύρους ή μη διαθέσιμη)",
+    "ERR_LINK": "Δεν ήταν δυνατή η σύνδεση αυτού του εγγράφου με την επιλεγμένη δραστηριότητα ή ραντεβού. Ελέγξτε την πρόσβαση και δοκιμάστε ξανά."
   },
   "LOTTO": {
     "TITLE": "ÃŽÂ›ÃÂŒÃÂ„ÃŽÂ¿ (FDJ) Ã¢Â€Â” ÃŽÂºÃŽÂ»ÃŽÂ·ÃÂÃÂŽÃÂƒÃŽÂµÃŽÂ¹ÃÂ‚",
@@ -3442,7 +3476,8 @@
     "ASSISTANT_EVENT": "ÃŽÂ’ÃŽÂ¿ÃŽÂ·ÃŽÂ¸ÃÂŒÃÂ‚ AI",
     "WALL_UPLOADING": "ÃŽÂœÃŽÂµÃÂ„ÃŽÂ±ÃÂ†ÃÂŒÃÂÃÂ„ÃÂ‰ÃÂƒÃŽÂ· ÃŽÂ±ÃÂÃÂ‡ÃŽÂµÃŽÂ¯ÃÂ‰ÃŽÂ½Ã¢Â€Â¦",
     "WALL_UPLOAD_LOG_WAITING": "ÃŽÂ‘ÃŽÂ½ÃŽÂ±ÃŽÂ¼ÃŽÂ¿ÃŽÂ½ÃŽÂ® ÃŽÂ­ÃŽÂ½ÃŽÂ±ÃÂÃŽÂ¾ÃŽÂ·ÃÂ‚ ÃŽÂ¼ÃŽÂµÃÂ„ÃŽÂ±ÃÂ†ÃÂŒÃÂÃÂ„ÃÂ‰ÃÂƒÃŽÂ·ÃÂ‚Ã¢Â€Â¦",
-    "SHOW_MORE_GRID_PHOTOS": "Î ÏÎ¿Î²Î¿Î»Î® ÏŒÎ»Ï‰Î½ Ï„Ï‰Î½ Ï†Ï‰Ï„Î¿Î³ÏÎ±Ï†Î¹ÏŽÎ½"
+    "SHOW_MORE_GRID_PHOTOS": "Î ÏÎ¿Î²Î¿Î»Î® ÏŒÎ»Ï‰Î½ Ï„Ï‰Î½ Ï†Ï‰Ï„Î¿Î³ÏÎ±Ï†Î¹ÏŽÎ½",
+    "PDF_CONVERTER_WALL_TABLE_TITLE": "PDF editor documents"
   },
   "NEWS": {
     "PAGE_TITLE": "ÃŽÂ•ÃŽÂ¹ÃŽÂ´ÃŽÂ®ÃÂƒÃŽÂµÃŽÂ¹ÃÂ‚",
@@ -3861,7 +3896,23 @@
     "EPG_GUIDE_ERROR": "Î‘Î´Ï…Î½Î±Î¼Î¯Î± Ï†ÏŒÏÏ„Ï‰ÏƒÎ·Ï‚ Ï„Î¿Ï… Î¿Î´Î·Î³Î¿Ï.",
     "RESTART_STREAM": "Reconnect stream from scratch",
     "RESTART_STREAM_DONE": "Stream reconnected",
-    "TOKEN_RENEWED": "Stream token renewed"
+    "TOKEN_RENEWED": "Stream token renewed",
+    "GLOBAL_FILTER_OPEN": "Global filter",
+    "SIDEBAR_FILTER": "Φίλτρο λίστας",
+    "SIDEBAR_FILTER_PLACEHOLDER": "Φιλτράρισμα καναλιών ή ταινιών…",
+    "SIDEBAR_FILTER_CLEAR": "Καθαρισμός φίλτρου",
+    "GLOBAL_FILTER_TITLE": "Global filter (all tabs)",
+    "GLOBAL_FILTER_CLOSE": "Close",
+    "GLOBAL_FILTER_LEAD": "Configure a shared filter. Enable \"Apply to all tabs\" to use it on All TVs, Favorites, ARTE Replay, Archive.org and Recordings.",
+    "GLOBAL_FILTER_APPLY_ALL": "Apply to all tabs",
+    "GLOBAL_FILTER_APPLY_ALL_HINT": "When enabled, the filter stays active when switching tabs and is saved for your account.",
+    "GLOBAL_FILTER_APPLY": "Apply",
+    "GLOBAL_FILTER_CLEAR": "Clear",
+    "GLOBAL_FILTER_LOGIN": "Sign in to save this filter to your account.",
+    "GLOBAL_FILTER_COUNTRY_HINT": "For Archive.org: filters by the country language. For ARTE: catalog language. For All TVs: channel country.",
+    "GLOBAL_FILTER_CHANNEL_HINT": "Live TV / Favorites: channel name. Archive.org & ARTE: can also search a title.",
+    "GLOBAL_FILTER_PROGRAM_HINT": "Archive.org & ARTE: film or show title (server search). Live TV: EPG programme title.",
+    "GLOBAL_FILTER_PROGRAM_PLACEHOLDER": "E.g. Star Wars, news, documentary…"
   },
   "RADIO": {
     "TITLE": "Radio â€” world stations",

@@ -108,6 +108,10 @@ public class FrankfurterProxyService {
         cache.clear();
     }
 
+    public int cacheEntryCount() {
+        return cache.size();
+    }
+
     // ----------------- Internals -----------------
 
     private String buildRatesUrl(String pathSegment, String base, Set<String> symbols) {

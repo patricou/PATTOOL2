@@ -86,6 +86,16 @@ public class ElectricityProxyService {
         return getCached("overview", TTL_OVERVIEW_MS, this::buildOverview);
     }
 
+    public int clearCache() {
+        int n = cache.size();
+        cache.clear();
+        return n;
+    }
+
+    public int cacheEntryCount() {
+        return cache.size();
+    }
+
     public List<ElectricityGenerationPointDto> fetchFrGeneration(int hours) {
         int safeHours = Math.max(1, Math.min(hours, 96));
         return getCached("fr-gen-" + safeHours, TTL_GENERATION_MS, () -> fetchFrGenerationUncached(safeHours));

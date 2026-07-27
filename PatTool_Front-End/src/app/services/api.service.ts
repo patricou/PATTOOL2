@@ -2371,6 +2371,7 @@ export class ApiService {
   getIaPrograms(options?: {
     section?: string;
     q?: string;
+    country?: string;
     page?: number;
   }): Observable<IaProgramsResponse> {
     let params = new HttpParams()
@@ -2379,6 +2380,10 @@ export class ApiService {
     const q = (options?.q || '').trim();
     if (q) {
       params = params.set('q', q);
+    }
+    const country = (options?.country || '').trim().toLowerCase();
+    if (country && country !== 'all') {
+      params = params.set('country', country);
     }
     return this._http.get<IaProgramsResponse>(this.API_URL + 'external/tv/ia/programs', { params });
   }
@@ -2475,6 +2480,24 @@ export class ApiService {
     );
   }
 
+  /** GET /api/external/tv/filter-preferences — JWT required, per-user global filter. */
+  getTvFilterPreferences(): Observable<TvFilterPreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<TvFilterPreference>(this.API_URL + 'external/tv/filter-preferences', { headers })
+      )
+    );
+  }
+
+  /** PUT persist global TV filter preferences for the current user. */
+  saveTvFilterPreferences(body: TvFilterPreference): Observable<TvFilterPreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<TvFilterPreference>(this.API_URL + 'external/tv/filter-preferences', body, { headers })
+      )
+    );
+  }
+
   /** GET /api/external/tv/recordings/status — capability (public). */
   getTvRecordingStatus(): Observable<TvRecordingStatus> {
     return this._http.get<TvRecordingStatus>(this.API_URL + 'external/tv/recordings/status');
@@ -2512,6 +2535,19 @@ export class ApiService {
     if (meta.durationSec != null) {
       form.append('durationSec', String(meta.durationSec));
     }
+    if (meta.visibility) {
+      form.append('visibility', meta.visibility);
+    }
+    if (meta.friendGroupId) {
+      form.append('friendGroupId', meta.friendGroupId);
+    }
+    if (meta.friendGroupIds?.length) {
+      for (const gid of meta.friendGroupIds) {
+        if (gid) {
+          form.append('friendGroupIds', gid);
+        }
+      }
+    }
     // Auth only — do not set Content-Type so the browser adds multipart boundary.
     return from(this._keycloakService.getToken()).pipe(
       switchMap((token: string) => {
@@ -2530,13 +2566,18 @@ export class ApiService {
     );
   }
 
-  /** PATCH rename display title of a recording. */
+  /** PATCH rename display title and/or sharing of a recording. */
   renameTvRecording(id: string, channelName: string): Observable<TvRecording> {
+    return this.updateTvRecording(id, { channelName });
+  }
+
+  /** PATCH update recording (name and/or visibility). */
+  updateTvRecording(id: string, body: TvRecordingUpdateRequest): Observable<TvRecording> {
     return this.getHeaderWithToken().pipe(
       switchMap((headers) =>
         this._http.patch<TvRecording>(
           this.API_URL + 'external/tv/recordings/' + encodeURIComponent(id),
-          { channelName },
+          body,
           { headers }
         )
       )
@@ -3581,6 +3622,7 @@ export interface ArteProgramsResponse {
   section: string;
   page: number;
   pages: number;
+  pageSize?: number;
   total: number;
   programs: ArteProgram[];
 }
@@ -3615,6 +3657,7 @@ export interface IaProgramsResponse {
   section: string;
   page: number;
   pages: number;
+  pageSize?: number;
   total: number;
   programs: IaProgram[];
 }
@@ -3636,6 +3679,16 @@ export interface TvFavorites {
   channels: TvChannel[];
 }
 
+/** GET/PUT /api/external/tv/filter-preferences — global filter across all tabs */
+export interface TvFilterPreference {
+  applyToAllTabs?: boolean;
+  channelQuery?: string;
+  programQuery?: string;
+  country?: string;
+  group?: string;
+  persisted?: boolean;
+}
+
 /** On-demand TV recording (MongoDB metadata + GridFS video). */
 export interface TvRecording {
   id: string;
@@ -3655,6 +3708,12 @@ export interface TvRecording {
   byteLength?: number;
   error?: string;
   mediaUrl?: string;
+  /** public | private | friends | friendGroups */
+  visibility?: string;
+  friendGroupId?: string;
+  friendGroupIds?: string[];
+  ownedByMe?: boolean;
+  ownerMemberId?: string;
 }
 
 export interface TvRecordingStartRequest {
@@ -3664,6 +3723,16 @@ export interface TvRecordingStartRequest {
   country?: string;
   streamUrl: string;
   durationSec?: number;
+  visibility?: string;
+  friendGroupId?: string;
+  friendGroupIds?: string[];
+}
+
+export interface TvRecordingUpdateRequest {
+  channelName?: string;
+  visibility?: string;
+  friendGroupId?: string;
+  friendGroupIds?: string[];
 }
 
 export interface TvRecordingStatus {

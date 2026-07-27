@@ -1677,6 +1677,60 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
     return this.isLoadingMsForecast || this.msForecastCacheLoading;
   }
 
+  /** Centered full-screen spinner for the active tab while data is loading. */
+  get showViewportLoadingSpinner(): boolean {
+    switch (this.activeMainTab) {
+      case 'clim':
+        return this.showClimTabSpinner;
+      case 'ms-hist':
+        return this.isLoadingMsHist;
+      case 'forecast-owm':
+        return this.isLoadingOwmForecast;
+      case 'forecast-om':
+        return this.isLoadingOmForecast;
+      case 'forecast-ms':
+        return this.showMsForecastTabSpinner;
+      case 'forecast-aggregate':
+        return this.isLoadingAggregatedForecast;
+      case 'aromepi':
+        return this.isLoadingAromepiCapabilities || this.isLoadingAromepiForecast;
+      case 'radar':
+        return this.isLoadingWeather || this.isLoadingTemperatureLabels;
+      default:
+        return false;
+    }
+  }
+
+  get viewportLoadingMessageKey(): string {
+    switch (this.activeMainTab) {
+      case 'clim':
+        return 'METEO_FRANCE.CLIM_LOADING';
+      case 'ms-hist':
+        return 'METEO_FRANCE.MS_HIST_LOADING';
+      case 'aromepi':
+        if (this.isLoadingAromepiForecast) {
+          return 'METEO_FRANCE.AROMEPI_FORECAST_LOADING';
+        }
+        return 'METEO_FRANCE.AROMEPI_LOADING';
+      case 'radar':
+        return 'METEO_FRANCE.LOADING';
+      default:
+        return 'METEO_FRANCE.FORECAST_LOADING';
+    }
+  }
+
+  get viewportLoadingCustomMessage(): string | null {
+    if (this.activeMainTab === 'forecast-ms' && this.msForecastCacheLoading) {
+      return this.msForecastCacheLoadingLabel || null;
+    }
+    return null;
+  }
+
+  /** Disable AROME-PI prev/next/reset while the next forecast frame is loading. */
+  get aromepiForecastStepDisabled(): boolean {
+    return this.isLoadingAromepiCapabilities || this.aromepiTilesLoading;
+  }
+
   get climAvailable(): boolean {
     return this.mfStatus?.dpclimAuthValid === true;
   }
@@ -2011,7 +2065,7 @@ export class MeteoFranceComponent implements OnInit, OnDestroy {
   }
 
   get showMsHistTabSpinner(): boolean {
-    return this.isLoadingMsHist && !this.msHistDisplayRows.length;
+    return this.isLoadingMsHist;
   }
 
   get msHistDisplayRows(): any[] {

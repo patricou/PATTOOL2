@@ -66,6 +66,12 @@ public class Evenement {
     @Transient
     private String linkedTodoListId;
 
+    /**
+     * Populated on GET when one or more {@link PdfConverterDocument}s link to this event; not stored in MongoDB.
+     */
+    @Transient
+    private List<PdfConverterDocumentLink> linkedPdfConverterDocuments;
+
     public List<Member> getMembers() {
         return members;
     }
@@ -296,6 +302,14 @@ public class Evenement {
 
     public void setLinkedTodoListId(String linkedTodoListId) {
         this.linkedTodoListId = linkedTodoListId;
+    }
+
+    public List<PdfConverterDocumentLink> getLinkedPdfConverterDocuments() {
+        return linkedPdfConverterDocuments;
+    }
+
+    public void setLinkedPdfConverterDocuments(List<PdfConverterDocumentLink> linkedPdfConverterDocuments) {
+        this.linkedPdfConverterDocuments = linkedPdfConverterDocuments;
     }
 
     @Override

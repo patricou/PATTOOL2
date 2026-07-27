@@ -1,8 +1,13 @@
 package com.pat.service;
 
 import com.pat.controller.dto.TvRecordingDto;
+import com.pat.controller.dto.TvRecordingRenameRequest;
 import com.pat.controller.dto.TvRecordingStartRequest;
+import com.pat.repo.FriendGroupRepository;
+import com.pat.repo.MembersRepository;
 import com.pat.repo.TvRecordingRepository;
+import com.pat.repo.domain.FriendGroup;
+import com.pat.repo.domain.Member;
 import com.pat.repo.domain.TvRecording;
 import org.bson.Document;
 import org.bson.types.ObjectId;
@@ -19,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -27,6 +33,7 @@ import java.util.stream.Collectors;
 
 /**
  * Persists browser-captured TV recordings (MediaRecorder) into MongoDB GridFS.
+ * List/get honor the same visibility model as activities (private / public / friends / friendGroups).
  */
 @Service
 public class TvRecordingService {
@@ -48,6 +55,12 @@ public class TvRecordingService {
     @Autowired
     private GridFsTemplate gridFsTemplate;
 
+    @Autowired
+    private MembersRepository membersRepository;
+
+    @Autowired
+    private FriendGroupRepository friendGroupRepository;
+
     public Map<String, Object> statusInfo() {
         return Map.of(
                 "enabled", recordingEnabled,
@@ -58,20 +71,38 @@ public class TvRecordingService {
         );
     }
 
-    public List<TvRecordingDto> listForSubject(String ownerSub) {
-        return tvRecordingRepository.findByOwnerSubOrderByStartedAtDesc(ownerSub).stream()
-                .map(this::toDto)
+    public List<TvRecordingDto> listAccessible(String jwtSubject, String memberId) {
+        return tvRecordingRepository.findAccessible(jwtSubject, memberId).stream()
+                .map(rec -> toDto(rec, jwtSubject))
                 .collect(Collectors.toList());
     }
 
-    public Optional<TvRecordingDto> findForSubject(String id, String ownerSub) {
-        return tvRecordingRepository.findByIdAndOwnerSub(id, ownerSub).map(this::toDto);
+    public Optional<TvRecordingDto> findAccessible(String id, String jwtSubject, String memberId) {
+        return tvRecordingRepository.findAccessibleById(id, jwtSubject, memberId)
+                .map(rec -> toDto(rec, jwtSubject));
+    }
+
+    /**
+     * Whether the caller may stream a GridFS video that belongs to a TV recording.
+     * Non-recording GridFS files are not gated here (return empty → caller keeps legacy behaviour).
+     */
+    public Optional<Boolean> canAccessGridFsMedia(String gridFsFileId, String jwtSubject, String memberId) {
+        if (!StringUtils.hasText(gridFsFileId)) {
+            return Optional.empty();
+        }
+        Optional<TvRecording> opt = tvRecordingRepository.findByGridFsFileId(gridFsFileId);
+        if (opt.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(
+                tvRecordingRepository.findAccessibleById(opt.get().getId(), jwtSubject, memberId).isPresent()
+        );
     }
 
     /**
      * Store a browser-recorded video blob (typically {@code video/webm}) in GridFS.
      */
-    public TvRecordingDto upload(String ownerSub, TvRecordingStartRequest meta, MultipartFile file) {
+    public TvRecordingDto upload(String ownerSub, String ownerMemberId, TvRecordingStartRequest meta, MultipartFile file) {
         if (!recordingEnabled) {
             throw new IllegalStateException("tv_recording_disabled");
         }
@@ -101,6 +132,7 @@ public class TvRecordingService {
 
         TvRecording rec = new TvRecording();
         rec.setOwnerSub(ownerSub);
+        rec.setOwnerMemberId(trimToNull(ownerMemberId));
         rec.setChannelId(meta != null ? trimToNull(meta.getChannelId()) : null);
         rec.setChannelName(channelName);
         rec.setChannelLogo(meta != null ? trimToNull(meta.getChannelLogo()) : null);
@@ -112,6 +144,13 @@ public class TvRecordingService {
         rec.setActualDurationSec(durationSec > 0 ? durationSec : null);
         rec.setContentType(contentType);
         rec.setFileName(safeFileName(channelName) + "-" + now.toEpochMilli() + extensionFor(contentType, originalName));
+        // Default sharing is private unless the client explicitly chooses otherwise.
+        applySharingFields(
+                rec,
+                meta != null && StringUtils.hasText(meta.getVisibility()) ? meta.getVisibility() : "private",
+                meta != null ? meta.getFriendGroupId() : null,
+                meta != null ? meta.getFriendGroupIds() : null,
+                ownerMemberId);
         rec = tvRecordingRepository.save(rec);
 
         Document metaDoc = new Document();
@@ -132,7 +171,7 @@ public class TvRecordingService {
             tvRecordingRepository.save(rec);
             log.info("TV recording {} uploaded to GridFS {} ({} bytes, {})",
                     rec.getId(), gridFsId, file.getSize(), contentType);
-            return toDto(rec);
+            return toDto(rec, ownerSub);
         } catch (Exception e) {
             log.error("TV recording upload failed: {}", e.getMessage(), e);
             rec.setStatus(TvRecording.Status.FAILED);
@@ -159,9 +198,46 @@ public class TvRecordingService {
     }
 
     /**
-     * Rename the display title (and download file base name) for an owned recording.
+     * Rename and/or update sharing for an owned recording.
      */
+    public TvRecordingDto update(String id, String ownerSub, String ownerMemberId, TvRecordingRenameRequest body) {
+        TvRecording rec = tvRecordingRepository.findByIdAndOwnerSub(id, ownerSub)
+                .orElseThrow(() -> new IllegalArgumentException("not_found"));
+
+        boolean touched = false;
+        if (body != null && StringUtils.hasText(body.getChannelName())) {
+            applyRename(rec, body.getChannelName());
+            touched = true;
+        }
+        if (body != null && (body.getVisibility() != null
+                || body.getFriendGroupId() != null
+                || body.getFriendGroupIds() != null)) {
+            if (!StringUtils.hasText(rec.getOwnerMemberId()) && StringUtils.hasText(ownerMemberId)) {
+                rec.setOwnerMemberId(ownerMemberId.trim());
+            }
+            applySharingFields(
+                    rec,
+                    body.getVisibility() != null ? body.getVisibility() : rec.getVisibility(),
+                    body.getFriendGroupId(),
+                    body.getFriendGroupIds(),
+                    StringUtils.hasText(rec.getOwnerMemberId()) ? rec.getOwnerMemberId() : ownerMemberId);
+            touched = true;
+        }
+        if (!touched) {
+            throw new IllegalArgumentException("nothing_to_update");
+        }
+        tvRecordingRepository.save(rec);
+        return toDto(rec, ownerSub);
+    }
+
+    /** @deprecated Prefer {@link #update}; kept for callers that only rename. */
     public TvRecordingDto rename(String id, String ownerSub, String newName) {
+        TvRecordingRenameRequest body = new TvRecordingRenameRequest();
+        body.setChannelName(newName);
+        return update(id, ownerSub, null, body);
+    }
+
+    private void applyRename(TvRecording rec, String newName) {
         if (!StringUtils.hasText(newName)) {
             throw new IllegalArgumentException("name_required");
         }
@@ -169,8 +245,6 @@ public class TvRecordingService {
         if (name.length() > 120) {
             name = name.substring(0, 120);
         }
-        TvRecording rec = tvRecordingRepository.findByIdAndOwnerSub(id, ownerSub)
-                .orElseThrow(() -> new IllegalArgumentException("not_found"));
         rec.setChannelName(name);
         String ext = extensionFor(rec.getContentType(), rec.getFileName());
         String stamp = "";
@@ -189,11 +263,82 @@ public class TvRecordingService {
             stamp = "-" + Instant.now().toEpochMilli();
         }
         rec.setFileName(safeFileName(name) + stamp + ext);
-        tvRecordingRepository.save(rec);
-        return toDto(rec);
     }
 
-    private TvRecordingDto toDto(TvRecording rec) {
+    private void applySharingFields(TvRecording entity, String visibilityRaw, String friendGroupIdRaw,
+            List<String> friendGroupIdsRaw, String ownerMemberId) {
+        if (!StringUtils.hasText(visibilityRaw)) {
+            entity.setVisibility("private");
+            entity.setFriendGroupId(null);
+            entity.setFriendGroupIds(null);
+            return;
+        }
+        String v = visibilityRaw.trim();
+        entity.setVisibility(v);
+        if ("public".equals(v) || "private".equals(v) || "friends".equals(v)) {
+            entity.setFriendGroupId(null);
+            entity.setFriendGroupIds(null);
+            return;
+        }
+        if ("friendGroups".equals(v)) {
+            List<String> ids = normalizeIdList(friendGroupIdsRaw);
+            if (ids.isEmpty() && StringUtils.hasText(friendGroupIdRaw)) {
+                ids = List.of(friendGroupIdRaw.trim());
+            }
+            if (ids.isEmpty()) {
+                entity.setVisibility("private");
+                entity.setFriendGroupId(null);
+                entity.setFriendGroupIds(null);
+                return;
+            }
+            assertCanUseFriendGroups(ownerMemberId, ids);
+            entity.setFriendGroupIds(ids);
+            entity.setFriendGroupId(ids.get(0));
+            return;
+        }
+        // Legacy: visibility holds a friend-group display name.
+        if (StringUtils.hasText(friendGroupIdRaw)) {
+            String one = friendGroupIdRaw.trim();
+            assertCanUseFriendGroups(ownerMemberId, List.of(one));
+            entity.setFriendGroupId(one);
+        } else {
+            entity.setFriendGroupId(null);
+        }
+        entity.setFriendGroupIds(null);
+    }
+
+    private void assertCanUseFriendGroups(String ownerMemberId, List<String> groupIds) {
+        if (!StringUtils.hasText(ownerMemberId)) {
+            throw new IllegalStateException("FRIEND_GROUP_UNAUTHORIZED");
+        }
+        for (String groupId : groupIds) {
+            if (!StringUtils.hasText(groupId)) {
+                continue;
+            }
+            Optional<FriendGroup> groupOpt = friendGroupRepository.findById(groupId.trim());
+            if (groupOpt.isEmpty()) {
+                throw new IllegalArgumentException("friend_group_not_found");
+            }
+            FriendGroup group = groupOpt.get();
+            boolean isOwner = group.getOwner() != null && ownerMemberId.equals(group.getOwner().getId());
+            boolean isAuthorized = group.getAuthorizedUsers() != null
+                    && group.getAuthorizedUsers().stream()
+                    .anyMatch(u -> u != null && ownerMemberId.equals(u.getId()));
+            if (!isOwner && !isAuthorized) {
+                throw new IllegalStateException("FRIEND_GROUP_UNAUTHORIZED");
+            }
+        }
+    }
+
+    public Optional<Member> resolveMemberByKeycloakId(String jwtSubject) {
+        if (!StringUtils.hasText(jwtSubject)) {
+            return Optional.empty();
+        }
+        Member m = membersRepository.findByKeycloakId(jwtSubject.trim());
+        return Optional.ofNullable(m);
+    }
+
+    private TvRecordingDto toDto(TvRecording rec, String viewerSub) {
         TvRecordingDto dto = new TvRecordingDto();
         dto.setId(rec.getId());
         dto.setChannelId(rec.getChannelId());
@@ -211,10 +356,31 @@ public class TvRecordingService {
         dto.setFileName(rec.getFileName());
         dto.setByteLength(rec.getByteLength());
         dto.setError(rec.getError());
+        dto.setVisibility(StringUtils.hasText(rec.getVisibility()) ? rec.getVisibility() : "private");
+        dto.setFriendGroupId(rec.getFriendGroupId());
+        dto.setFriendGroupIds(rec.getFriendGroupIds());
+        dto.setOwnerMemberId(rec.getOwnerMemberId());
+        dto.setOwnedByMe(StringUtils.hasText(viewerSub) && viewerSub.equals(rec.getOwnerSub()));
         if (StringUtils.hasText(rec.getGridFsFileId()) && rec.getStatus() == TvRecording.Status.DONE) {
             dto.setMediaUrl("/api/video/" + rec.getGridFsFileId());
         }
         return dto;
+    }
+
+    private static List<String> normalizeIdList(List<String> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        List<String> out = new ArrayList<>();
+        for (String id : ids) {
+            if (StringUtils.hasText(id)) {
+                String t = id.trim();
+                if (!out.contains(t)) {
+                    out.add(t);
+                }
+            }
+        }
+        return out;
     }
 
     private static String trimToNull(String value) {

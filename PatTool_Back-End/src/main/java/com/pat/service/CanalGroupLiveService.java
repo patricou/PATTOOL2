@@ -133,6 +133,17 @@ public class CanalGroupLiveService {
         return resolveHlsUrl(slug.get());
     }
 
+    public int invalidateAll() {
+        int n = streamCache.size() + mediaIdCache.size();
+        streamCache.clear();
+        mediaIdCache.clear();
+        return n;
+    }
+
+    public int cacheEntryCount() {
+        return streamCache.size() + mediaIdCache.size();
+    }
+
     private String resolveMediaId(ChannelDef def) {
         String user = def.dailymotionUser();
         CachedMediaId cached = mediaIdCache.get(user);

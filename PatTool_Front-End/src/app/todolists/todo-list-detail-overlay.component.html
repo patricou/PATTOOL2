@@ -95,11 +95,36 @@
             </span>
           </div>
         </div>
+
+        <div class="todolists-item-actions" role="group"
+             [attr.aria-label]="'TODOLISTS.REMINDER.BUTTON' | translate">
+          <button type="button"
+                  class="todolists-item-remind btn btn-sm btn-outline-info"
+                  (click)="remindItem(item, 'email')"
+                  [disabled]="reminderSending"
+                  [title]="'TODOLISTS.REMINDER.EMAIL_HINT' | translate">
+            <i class="fa fa-envelope-o" aria-hidden="true"></i>
+            <span class="visually-hidden">{{ 'TODOLISTS.REMINDER.EMAIL' | translate }}</span>
+          </button>
+          <button type="button"
+                  class="todolists-item-remind btn btn-sm btn-outline-success"
+                  (click)="remindItem(item, 'whatsapp')"
+                  [disabled]="reminderSending"
+                  [title]="'TODOLISTS.REMINDER.WHATSAPP_HINT' | translate">
+            <i class="fa fa-whatsapp" aria-hidden="true"></i>
+            <span class="visually-hidden">{{ 'TODOLISTS.REMINDER.WHATSAPP' | translate }}</span>
+          </button>
+        </div>
       </li>
     </ul>
     <ng-template #noItems>
       <p class="todolists-empty-items">{{ 'TODOLISTS.EMPTY_ITEMS' | translate }}</p>
     </ng-template>
+
+    <div *ngIf="reminderFeedback" class="alert mt-3 mb-0"
+         [class.alert-success]="reminderFeedbackOk"
+         [class.alert-danger]="!reminderFeedbackOk"
+         role="status">{{ reminderFeedback }}</div>
   </div>
 
   <div class="modal-footer flex-wrap gap-2">

@@ -12,7 +12,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { finalize } from 'rxjs/operators';
 import { QuillEditorComponent, QuillModule } from 'ngx-quill';
 import Quill from 'quill';
 import ImageResize from '@mgreminger/quill-image-resize-module';
@@ -35,9 +34,19 @@ import {
   PdfConverterService
 } from './pdf-converter.service';
 import { MembersService } from '../services/members.service';
+import { CalendarEntry, CalendarService } from '../calendar/calendar.service';
 import { copyPlainTextToClipboard } from '../shared/clipboard-copy';
-import { Observable } from 'rxjs';
-import { switchMap, take } from 'rxjs/operators';
+import { forkJoin, Observable } from 'rxjs';
+import { finalize, map, switchMap, take } from 'rxjs/operators';
+import { ActivatedRoute, Router } from '@angular/router';
+
+interface PdfLinkOption {
+  id: string;
+  label: string;
+}
+
+/** Windows accepted by {@code /api/calendar/entries} (max ~370 days each). */
+const CALENDAR_ENTRIES_CHUNK_MS = 350 * 24 * 60 * 60 * 1000;
 
 let pdfConverterQuillExtrasRegistered = false;
 
@@ -65,8 +74,11 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
   private readonly assistant = inject(AssistantService);
   private readonly pdfService = inject(PdfConverterService);
   private readonly membersService = inject(MembersService);
+  private readonly calendarService = inject(CalendarService);
   private readonly translate = inject(TranslateService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   @ViewChild(QuillEditorComponent) quillEditor?: QuillEditorComponent;
   @ViewChild('quillImageInput') quillImageInput?: ElementRef<HTMLInputElement>;
@@ -76,6 +88,14 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
   htmlContent = '';
   documents: PdfConverterDocument[] = [];
   currentDocumentId: string | null = null;
+  /** Optional link to a personal calendar appointment. */
+  calendarAppointmentId: string | null = null;
+  /** Optional link to an activity (evenement). */
+  evenementId: string | null = null;
+  linkPickerAppointments: PdfLinkOption[] = [];
+  linkPickerActivities: PdfLinkOption[] = [];
+  linkPickerLoading = false;
+  linkPickerError = false;
   loadingDocuments = false;
   saving = false;
   deleting = false;
@@ -131,6 +151,13 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
 
   constructor() {
     this.loadDocuments();
+    this.loadLinkPickerOptions();
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      const docId = (params.get('doc') || '').trim();
+      if (docId && docId !== (this.currentDocumentId || '')) {
+        this.onDocumentSelected(docId);
+      }
+    });
   }
 
   ngAfterViewInit(): void {
@@ -324,9 +351,7 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (doc) => {
-          this.currentDocumentId = doc.id ?? id;
-          this.pdfFileName = doc.fileName ?? '';
-          this.applyHtmlToEditor(doc.htmlContent ?? '');
+          this.applyDocument(doc, id);
         },
         error: (err) => {
           console.error('pdf-converter load', err);
@@ -338,11 +363,30 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
   newDocument(): void {
     this.currentDocumentId = null;
     this.pdfFileName = '';
+    this.calendarAppointmentId = null;
+    this.evenementId = null;
     this.applyHtmlToEditor('');
     this.hasSelectedImage = false;
     this.errorKey = '';
     this.saveMessageKey = '';
     this.shareMessageKey = '';
+    this.syncDocQueryParam(null);
+  }
+
+  onAppointmentLinkSelect(value: string): void {
+    const v = (value || '').trim();
+    this.calendarAppointmentId = v.length > 0 ? v : null;
+    if (v.length > 0) {
+      this.evenementId = null;
+    }
+  }
+
+  onActivityLinkSelect(value: string): void {
+    const v = (value || '').trim();
+    this.evenementId = v.length > 0 ? v : null;
+    if (v.length > 0) {
+      this.calendarAppointmentId = null;
+    }
   }
 
   saveDocument(): void {
@@ -357,7 +401,9 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
     this.htmlContent = html;
     const body: PdfConverterDocument = {
       fileName,
-      htmlContent: html
+      htmlContent: html,
+      calendarAppointmentId: this.calendarAppointmentId,
+      evenementId: this.evenementId
     };
     this.saving = true;
     const req$ = this.currentDocumentId
@@ -372,15 +418,17 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
       )
       .subscribe({
         next: (saved) => {
-          this.currentDocumentId = saved.id ?? this.currentDocumentId;
-          this.pdfFileName = saved.fileName ?? fileName;
-          this.htmlContent = saved.htmlContent ?? this.htmlContent;
+          this.applyDocument(saved, this.currentDocumentId ?? undefined);
           this.saveMessageKey = 'PDF_CONVERTER.SAVED';
           this.loadDocuments();
         },
         error: (err) => {
           console.error('pdf-converter save', err);
-          this.errorKey = 'PDF_CONVERTER.ERR_SAVE';
+          const status = err?.status;
+          this.errorKey =
+            status === 400 || status === 403
+              ? 'PDF_CONVERTER.ERR_LINK'
+              : 'PDF_CONVERTER.ERR_SAVE';
         }
       });
   }
@@ -469,6 +517,143 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
           this.errorKey = 'PDF_CONVERTER.ERR_SHARE_WHATSAPP';
         }
       });
+  }
+
+  private applyDocument(doc: PdfConverterDocument, fallbackId?: string): void {
+    this.currentDocumentId = doc.id ?? fallbackId ?? null;
+    this.pdfFileName = doc.fileName ?? '';
+    this.calendarAppointmentId = (doc.calendarAppointmentId || '').trim() || null;
+    this.evenementId = (doc.evenementId || '').trim() || null;
+    this.applyHtmlToEditor(doc.htmlContent ?? '');
+    this.ensureStaleLinkOptions();
+    this.syncDocQueryParam(this.currentDocumentId);
+  }
+
+  private syncDocQueryParam(docId: string | null): void {
+    const current = (this.route.snapshot.queryParamMap.get('doc') || '').trim();
+    const next = (docId || '').trim();
+    if (current === next) {
+      return;
+    }
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: next ? { doc: next } : {},
+      replaceUrl: true
+    });
+  }
+
+  private loadLinkPickerOptions(): void {
+    this.linkPickerLoading = true;
+    this.linkPickerError = false;
+    const from = new Date();
+    from.setFullYear(from.getFullYear() - 3);
+    const to = new Date();
+    to.setFullYear(to.getFullYear() + 3);
+    const chunks = this.buildCalendarEntryChunks(from, to);
+    if (chunks.length === 0) {
+      this.linkPickerLoading = false;
+      this.linkPickerAppointments = [];
+      this.linkPickerActivities = [];
+      this.ensureStaleLinkOptions();
+      return;
+    }
+    const requests = chunks.map((ch) => this.calendarService.getEntries(ch.start, ch.end));
+    forkJoin(requests)
+      .pipe(
+        map((parts) => {
+          const merged = new Map<string, CalendarEntry>();
+          for (const part of parts) {
+            for (const e of part || []) {
+              merged.set(`${e.kind}:${e.id}`, e);
+            }
+          }
+          return Array.from(merged.values());
+        }),
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.linkPickerLoading = false;
+        })
+      )
+      .subscribe({
+        next: (rows) => {
+          const list = rows || [];
+          this.linkPickerAppointments = list
+            .filter((e) => e.kind === 'APPOINTMENT')
+            .sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime())
+            .map((e) => ({ id: e.id, label: this.formatCalendarEntryLabel(e) }));
+          this.linkPickerActivities = list
+            .filter((e) => e.kind === 'ACTIVITY')
+            .sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime())
+            .map((e) => ({ id: e.id, label: this.formatCalendarEntryLabel(e) }));
+          this.ensureStaleLinkOptions();
+        },
+        error: () => {
+          this.linkPickerAppointments = [];
+          this.linkPickerActivities = [];
+          this.linkPickerError = true;
+          this.ensureStaleLinkOptions();
+        }
+      });
+  }
+
+  private buildCalendarEntryChunks(from: Date, to: Date): { start: Date; end: Date }[] {
+    const out: { start: Date; end: Date }[] = [];
+    const t0 = from.getTime();
+    const t1 = to.getTime();
+    if (!(t1 > t0)) {
+      return out;
+    }
+    let cur = t0;
+    while (cur < t1) {
+      const end = Math.min(cur + CALENDAR_ENTRIES_CHUNK_MS, t1);
+      out.push({ start: new Date(cur), end: new Date(end) });
+      cur = end;
+    }
+    return out;
+  }
+
+  private formatCalendarEntryLabel(e: CalendarEntry): string {
+    const title = (e.title || '').trim() || '—';
+    const start = new Date(e.start);
+    if (Number.isNaN(start.getTime())) {
+      return title;
+    }
+    const rawLang = (this.translate.currentLang || 'fr').trim().replace(/_/g, '-');
+    const primary = rawLang.split('-')[0] || 'fr';
+    try {
+      const d = start.toLocaleString(rawLang, { dateStyle: 'medium', timeStyle: 'short' });
+      return `${title} · ${d}`;
+    } catch {
+      try {
+        const d = start.toLocaleString(primary, { dateStyle: 'medium', timeStyle: 'short' });
+        return `${title} · ${d}`;
+      } catch {
+        return `${title} · ${start.toISOString()}`;
+      }
+    }
+  }
+
+  private ensureStaleLinkOptions(): void {
+    const apId = (this.calendarAppointmentId || '').trim();
+    if (apId && !this.linkPickerAppointments.some((o) => o.id === apId)) {
+      this.linkPickerAppointments = [
+        {
+          id: apId,
+          label: this.translate.instant('PDF_CONVERTER.LINK_STALE_APPOINTMENT', { id: apId })
+        },
+        ...this.linkPickerAppointments
+      ];
+    }
+    const evId = (this.evenementId || '').trim();
+    if (evId && !this.linkPickerActivities.some((o) => o.id === evId)) {
+      this.linkPickerActivities = [
+        {
+          id: evId,
+          label: this.translate.instant('PDF_CONVERTER.LINK_STALE_ACTIVITY', { id: evId })
+        },
+        ...this.linkPickerActivities
+      ];
+    }
   }
 
   private validateForExport(): { title: string; html: string } | null {

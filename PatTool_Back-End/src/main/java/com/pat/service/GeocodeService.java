@@ -488,4 +488,40 @@ public class GeocodeService {
             return 0;
         }
     }
+
+    public int clearCache() {
+        int n;
+        searchCacheLock.lock();
+        try {
+            n = searchCache.size();
+            searchCache.clear();
+        } finally {
+            searchCacheLock.unlock();
+        }
+        reverseCacheLock.lock();
+        try {
+            n += reverseCache.size();
+            reverseCache.clear();
+        } finally {
+            reverseCacheLock.unlock();
+        }
+        return n;
+    }
+
+    public int cacheEntryCount() {
+        int n;
+        searchCacheLock.lock();
+        try {
+            n = searchCache.size();
+        } finally {
+            searchCacheLock.unlock();
+        }
+        reverseCacheLock.lock();
+        try {
+            n += reverseCache.size();
+        } finally {
+            reverseCacheLock.unlock();
+        }
+        return n;
+    }
 }

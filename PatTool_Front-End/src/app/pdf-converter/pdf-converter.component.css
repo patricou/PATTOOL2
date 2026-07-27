@@ -66,6 +66,11 @@
   align-items: center;
 }
 
+.pdf-converter-links {
+  padding-top: 0.25rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
 .pdf-converter-drop-caret {
   position: fixed;
   width: 3px;

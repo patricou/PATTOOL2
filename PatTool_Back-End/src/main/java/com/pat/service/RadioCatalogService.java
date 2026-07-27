@@ -152,6 +152,17 @@ public class RadioCatalogService {
         worldwideTagsCache = null;
     }
 
+    public int cacheEntryCount() {
+        int n = stationCache.size();
+        if (countriesCache != null) {
+            n++;
+        }
+        if (worldwideTagsCache != null) {
+            n++;
+        }
+        return n;
+    }
+
     /** Prefetch countries list, FR/CH stations, and worldwide genre tags. */
     public void warmFrequent() {
         try {

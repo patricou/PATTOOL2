@@ -654,6 +654,25 @@
       "WHATSAPP_OPENED": "WhatsApp Ã¥Â·Â²Ã¥ÂœÂ¨Ã¦Â–Â°Ã§ÂªÂ—Ã¥ÂÂ£Ã¤Â¸Â­Ã¦Â‰Â“Ã¥Â¼Â€Ã£Â€Â‚",
       "WHATSAPP_IMAGE_ONLY": "Ã¥Â·Â²Ã¥ÂˆÂ†Ã¤ÂºÂ«Ã¥Â°ÂÃ©ÂÂ¢Ã¥Â›Â¾Ã£Â€Â‚Ã¨Â‹Â¥Ã¤Â»Â»Ã¥ÂŠÂ¡Ã¦Â–Â‡Ã¥Â­Â—Ã¦ÂœÂªÃ¥Â‡ÂºÃ§ÂŽÂ°Ã¯Â¼ÂŒÃ¨Â¯Â·Ã¤Â»ÂŽÃ¤Â¸ÂŠÃ¦Â–Â¹Ã¦Â¶ÂˆÃ¦ÂÂ¯Ã¦Â¡Â†Ã§Â²Â˜Ã¨Â´Â´Ã¦ÂˆÂ–Ã¥Â†ÂÃ¥ÂÂ‘Ã¤Â¸Â€Ã¦ÂÂ¡Ã¦Â¶ÂˆÃ¦ÂÂ¯Ã£Â€Â‚",
       "OPEN_IN_PATTOOL": "Ã¥ÂœÂ¨ PatTool Ã¤Â¸Â­Ã¦Â‰Â“Ã¥Â¼Â€Ã¦Â­Â¤Ã¥ÂˆÂ—Ã¨Â¡Â¨Ã¯Â¼Âš"
+    },
+    "REMINDER": {
+      "BUTTON": "Send a reminder",
+      "EMAIL": "Email reminder",
+      "WHATSAPP": "WhatsApp reminder",
+      "EMAIL_HINT": "Remind by email of tasks still to do",
+      "WHATSAPP_HINT": "Remind on WhatsApp of tasks still to do",
+      "EMAIL_TITLE": "Email reminder",
+      "WHATSAPP_TITLE": "WhatsApp reminder",
+      "DEFAULT_MESSAGE": "Reminder: here are the tasks to do on the list \"{{name}}\" (task: {{task}}).",
+      "DEFAULT_MESSAGE_FOR": "Hi {{assignee}}! Reminder of your open tasks on the list \"{{name}}\".",
+      "FOR_ASSIGNEE": "Tasks for {{name}}",
+      "TASKS_PREVIEW_TITLE": "Tasks included in the reminder",
+      "WHATSAPP_TASKS_HEADER": "To do",
+      "WHATSAPP_BODY_HINT": "Tap \"Open WhatsApp\" — the message lists the open tasks for this person.",
+      "SEND_EMAIL": "Send reminder",
+      "SENT_OK": "Reminder sent to {{sent}} of {{total}} recipient(s).",
+      "SEND_ERROR": "Could not send the reminder. Please try again.",
+      "NEED_ASSIGNEE_OR_PAGE": "Assign the task, or open the full lists page to pick a recipient."
     }
   },
   "CALENDAR": {
@@ -1618,7 +1637,11 @@
     "DESELECT_ALL_PHOTOS": "Deselect all photos",
     "SELECTED_PHOTOS_COUNT": "{{count}} photo(s) selected",
     "DELETE_SELECTED_FILES": "Delete selected ({{count}})",
-    "DELETE_SELECTED_FILES_CONFIRM": "Are you sure you want to delete {{count}} file(s)?"
+    "DELETE_SELECTED_FILES_CONFIRM": "Are you sure you want to delete {{count}} file(s)?",
+    "PDF_CONVERTER_BUTTON_HINT": "PDF editor docs",
+    "PDF_CONVERTER_DOCUMENTS": "PDF editor documents",
+    "PDF_CONVERTER_OPEN": "Open in PDF editor",
+    "OPEN_AGENDA": "打开日程"
   },
   "EVENTCREATION": {
     "TITLE": "Ã¥ÂˆÂ›Ã¥Â»ÂºÃ¦Â´Â»Ã¥ÂŠÂ¨",
@@ -1970,7 +1993,18 @@
     "ERR_FILENAME_REQUIRED": "Ã¨Â¯Â·Ã¨Â¾Â“Ã¥Â…Â¥ PDF Ã¦Â–Â‡Ã¤Â»Â¶Ã¥ÂÂÃ£Â€Â‚",
     "ERR_CONTENT_REQUIRED": "Ã¨Â¯Â·Ã¦Â·Â»Ã¥ÂŠÂ Ã¦Â–Â‡Ã¥Â­Â—Ã¦ÂˆÂ–Ã¨Â‡Â³Ã¥Â°Â‘Ã¤Â¸Â€Ã¥Â¼Â Ã¥Â›Â¾Ã§Â‰Â‡Ã£Â€Â‚",
     "ERR_EXPORT": "PDF Ã§Â”ÂŸÃ¦ÂˆÂÃ¥Â¤Â±Ã¨Â´Â¥Ã¯Â¼ÂŒÃ¨Â¯Â·Ã©Â‡ÂÃ¨Â¯Â•Ã£Â€Â‚",
-    "ERR_SHARE_WHATSAPP": "æ— æ³•é€šè¿‡ WhatsApp åˆ†äº« PDFï¼Œè¯·é‡è¯•ã€‚"
+    "ERR_SHARE_WHATSAPP": "æ— æ³•é€šè¿‡ WhatsApp åˆ†äº« PDFï¼Œè¯·é‡è¯•ã€‚",
+    "LINK_SECTION_TITLE": "将此文档关联到日历",
+    "LINK_SECTION_INTRO": "您可以将此文档关联到日程中的个人预约，或关联到您可访问的活动（事件）——二者择一，不能同时关联。",
+    "LINK_PICK_APPOINTMENT": "个人预约（日程）",
+    "LINK_PICK_ACTIVITY": "活动",
+    "LINK_NONE": "无",
+    "LINK_LOADING_CALENDAR": "正在加载日程和活动…",
+    "LINK_LOAD_ERROR": "无法加载日历。仍可保存文档；请稍后再选择关联。",
+    "LINK_HINT": "选择预约会清除活动关联，反之亦然。",
+    "LINK_STALE_APPOINTMENT": "当前关联（预约 {{id}} — 超出已加载日期或不可用）",
+    "LINK_STALE_ACTIVITY": "当前关联（活动 {{id}} — 超出已加载日期或不可用）",
+    "ERR_LINK": "无法将此文档关联到所选活动或预约。请检查访问权限后重试。"
   },
   "LOTTO": {
     "TITLE": "Ã¦Â³Â•Ã¥Â›Â½Ã¤Â¹ÂÃ©Â€ÂÃ¯Â¼ÂˆFDJÃ¯Â¼Â‰Ã¢Â€Â” Ã¥Â¼Â€Ã¥Â¥Â–",
@@ -3440,7 +3474,8 @@
     "ASSISTANT_EVENT": "AI Ã¥ÂŠÂ©Ã¦Â‰Â‹",
     "WALL_UPLOADING": "Ã¦Â­Â£Ã¥ÂœÂ¨Ã¤Â¸ÂŠÃ¤Â¼Â Ã¦Â–Â‡Ã¤Â»Â¶Ã¢Â€Â¦",
     "WALL_UPLOAD_LOG_WAITING": "Ã§Â­Â‰Ã¥Â¾Â…Ã¤Â¸ÂŠÃ¤Â¼Â Ã¥Â¼Â€Ã¥Â§Â‹Ã¢Â€Â¦",
-    "SHOW_MORE_GRID_PHOTOS": "æŸ¥çœ‹å…¨éƒ¨ç…§ç‰‡"
+    "SHOW_MORE_GRID_PHOTOS": "æŸ¥çœ‹å…¨éƒ¨ç…§ç‰‡",
+    "PDF_CONVERTER_WALL_TABLE_TITLE": "PDF editor documents"
   },
   "NEWS": {
     "PAGE_TITLE": "Ã¦Â–Â°Ã©Â—Â»",
@@ -3859,7 +3894,23 @@
     "EPG_GUIDE_ERROR": "æ— æ³•åŠ è½½èŠ‚ç›®è¡¨ã€‚",
     "RESTART_STREAM": "Reconnect stream from scratch",
     "RESTART_STREAM_DONE": "Stream reconnected",
-    "TOKEN_RENEWED": "Stream token renewed"
+    "TOKEN_RENEWED": "Stream token renewed",
+    "GLOBAL_FILTER_OPEN": "Global filter",
+    "SIDEBAR_FILTER": "筛选列表",
+    "SIDEBAR_FILTER_PLACEHOLDER": "筛选频道或影片…",
+    "SIDEBAR_FILTER_CLEAR": "清除筛选",
+    "GLOBAL_FILTER_TITLE": "Global filter (all tabs)",
+    "GLOBAL_FILTER_CLOSE": "Close",
+    "GLOBAL_FILTER_LEAD": "Configure a shared filter. Enable \"Apply to all tabs\" to use it on All TVs, Favorites, ARTE Replay, Archive.org and Recordings.",
+    "GLOBAL_FILTER_APPLY_ALL": "Apply to all tabs",
+    "GLOBAL_FILTER_APPLY_ALL_HINT": "When enabled, the filter stays active when switching tabs and is saved for your account.",
+    "GLOBAL_FILTER_APPLY": "Apply",
+    "GLOBAL_FILTER_CLEAR": "Clear",
+    "GLOBAL_FILTER_LOGIN": "Sign in to save this filter to your account.",
+    "GLOBAL_FILTER_COUNTRY_HINT": "For Archive.org: filters by the country language. For ARTE: catalog language. For All TVs: channel country.",
+    "GLOBAL_FILTER_CHANNEL_HINT": "Live TV / Favorites: channel name. Archive.org & ARTE: can also search a title.",
+    "GLOBAL_FILTER_PROGRAM_HINT": "Archive.org & ARTE: film or show title (server search). Live TV: EPG programme title.",
+    "GLOBAL_FILTER_PROGRAM_PLACEHOLDER": "E.g. Star Wars, news, documentary…"
   },
   "RADIO": {
     "TITLE": "Radio â€” world stations",

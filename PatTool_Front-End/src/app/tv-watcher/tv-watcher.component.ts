@@ -16,9 +16,12 @@ import { Subject, Subscription, forkJoin, of, firstValueFrom } from 'rxjs';
 import { debounceTime, distinctUntilChanged, catchError } from 'rxjs/operators';
 import Hls from 'hls.js';
 
-import { ApiService, ArteProgram, ArteSection, IaProgram, IaSection, TvChannel, TvCountry, TvEpgNow, TvEpgProgramme, TvEpgSearchHit, TvRecording, TvRecordingStatus } from '../services/api.service';
+import { ApiService, ArteProgram, ArteSection, IaProgram, IaSection, TvChannel, TvCountry, TvEpgNow, TvEpgProgramme, TvEpgSearchHit, TvFilterPreference, TvRecording, TvRecordingStatus } from '../services/api.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { TvPlayerService } from '../services/tv-player.service';
+import { FriendsService } from '../services/friends.service';
+import { MembersService } from '../services/members.service';
+import { FriendGroup } from '../model/friend';
 import { environment } from '../../environments/environment';
 import {
   decodeShareQueryValue,
@@ -44,7 +47,7 @@ import {
   formatTvPlayErrorDisplay,
   resolveTvStreamErrorMessage
 } from './tv-stream-error.util';
-import { groupIconEmoji, groupIconFaClass, groupI18nKey } from './tv-group-icon.util';
+import { groupIconFaClass, groupI18nKey } from './tv-group-icon.util';
 import { epgLookupKey, resolveEpgChannelId } from './tv-epg.util';
 import {
   attachTvHlsLiveSyncWatchdog,
@@ -62,13 +65,15 @@ import {
 import { bustVirtualLiveCache, preflightVirtualLive, virtualLiveKeepAliveFromUrl } from './tv-virtual-live-keepalive';
 import { MediaCatalogCacheToolbarComponent } from '../shared/media-catalog-cache-toolbar/media-catalog-cache-toolbar.component';
 import { TvEpgBrowserComponent } from './tv-epg-browser.component';
+import { TvGlobalFilterModalComponent } from './tv-global-filter-modal.component';
 
 type TvListMode = 'catalog' | 'favorites' | 'recordings' | 'arte' | 'ia';
+type RecordingVisibilityPreset = 'private' | 'public' | 'friends' | 'friendGroups';
 
 @Component({
   selector: 'app-tv-watcher',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, MediaCatalogCacheToolbarComponent, TvEpgBrowserComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, MediaCatalogCacheToolbarComponent, TvEpgBrowserComponent, TvGlobalFilterModalComponent],
   templateUrl: './tv-watcher.component.html',
   styleUrls: ['./tv-watcher.component.css']
 })
@@ -82,7 +87,6 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   countries: TvCountry[] = [];
   channels: TvChannel[] = [];
-  groups: string[] = [];
   favorites: TvChannel[] = [];
   favoriteIds = new Set<string>();
   recordings: TvRecording[] = [];
@@ -92,6 +96,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   selectedGroup = '';
   /** Filter by channel name / group / country. */
   channelQuery = '';
+  /** Quick list filter above the tabs (AND with the global filter). */
+  sidebarFilterQuery = '';
   /** Filter by EPG programme title (server-side search). */
   programQuery = '';
   selectedChannel: TvChannel | null = null;
@@ -99,22 +105,13 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   playingRecording: TvRecording | null = null;
   /** Hint when « all countries » is selected but the query is too short. */
   worldwideSearchHint = false;
-  countryMenuOpen = false;
-  countryFilter = '';
-  /** Collapse state of the filters panel, remembered per tab. */
-  private filtersCollapsedByMode: Record<TvListMode, boolean> = {
-    catalog: true,
-    favorites: true,
-    recordings: true,
-    arte: false,
-    ia: false
-  };
 
   /** ARTE replay catalog (proxied EMAC). */
   arteSections: ArteSection[] = [];
   arteSection = 'MOST_RECENT';
   artePage = 1;
   artePages = 1;
+  artePageSize = 20;
   arteTotal = 0;
   isLoadingArte = false;
   arteError = '';
@@ -125,6 +122,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   iaSection = 'RECENT';
   iaPage = 1;
   iaPages = 1;
+  iaPageSize = 50;
   iaTotal = 0;
   isLoadingIa = false;
   iaError = '';
@@ -164,6 +162,16 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     { sec: 900, labelKey: 'TV.RECORD_DUR_15M' },
     { sec: 1800, labelKey: 'TV.RECORD_DUR_30M' }
   ];
+  /** Share dialog for a recording (owner only). */
+  shareRecordingOpen = false;
+  shareRecordingTarget: TvRecording | null = null;
+  shareVisibilityPreset: RecordingVisibilityPreset = 'private';
+  shareFriendGroupIds: string[] = [];
+  shareFriendGroups: FriendGroup[] = [];
+  shareFriendGroupsSorted: FriendGroup[] = [];
+  shareCurrentMemberId = '';
+  shareBusy = false;
+  shareError = '';
   isMuted = false;
   /** 0–100, mirrored to HTMLVideoElement.volume */
   volumePercent = 100;
@@ -176,6 +184,18 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   /** Share menu (WhatsApp / copy / native). */
   shareMenuOpen = false;
   epgBrowserOpen = false;
+  globalFilterOpen = false;
+  /** When true, channel/program/country/group filters stay applied across all tabs. */
+  applyGlobalFilterToAllTabs = false;
+  globalFilterPreference: TvFilterPreference = {
+    applyToAllTabs: false,
+    channelQuery: '',
+    programQuery: '',
+    country: 'all',
+    group: ''
+  };
+  globalFilterGroups: string[] = [];
+  isSavingGlobalFilter = false;
   shareFeedback = '';
   /** Brief status after manual A/V resync. */
   resyncFeedback = '';
@@ -216,6 +236,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   guideError = '';
 
   private catalogCountSub?: Subscription;
+  private arteProgramsSub?: Subscription;
+  private iaProgramsSub?: Subscription;
   private hls: Hls | null = null;
   private detachHlsLiveSync: (() => void) | null = null;
   private franceTvKeeper: FranceTvTokenKeeper | null = null;
@@ -267,44 +289,26 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     private tvPlayer: TvPlayerService,
     private cdr: ChangeDetectorRef,
     private route: ActivatedRoute,
-    private translate: TranslateService
+    private translate: TranslateService,
+    private friendsService: FriendsService,
+    private membersService: MembersService
   ) {}
 
   get isAllCountries(): boolean {
     return (this.selectedCountry || '').toLowerCase() === 'all';
   }
 
-  get filtersCollapsed(): boolean {
-    return !!this.filtersCollapsedByMode[this.listMode];
-  }
-
-  /** True when search/group inputs are non-empty (for collapsed indicator). */
-  get hasFilterInputs(): boolean {
-    if (this.channelQuery.trim() || this.programQuery.trim()) {
-      return true;
+  /** True when the global filter is active and has at least one non-default value. */
+  get hasActiveGlobalFilter(): boolean {
+    if (!this.applyGlobalFilterToAllTabs) {
+      return false;
     }
-    if (this.listMode === 'catalog' && this.selectedGroup) {
-      return true;
-    }
-    if (this.listMode === 'arte' && this.arteSection && this.arteSection !== 'MOST_RECENT') {
-      return true;
-    }
-    if (this.listMode === 'ia' && this.iaSection && this.iaSection !== 'RECENT') {
-      return true;
-    }
-    return false;
-  }
-
-  get filteredCountries(): TvCountry[] {
-    const q = this.countryFilter.trim().toLowerCase();
-    if (!q) {
-      return this.countries;
-    }
-    return this.countries.filter((c) => {
-      const name = (c.name || '').toLowerCase();
-      const code = (c.code || '').toLowerCase();
-      return name.includes(q) || code.includes(q);
-    });
+    return !!(
+      this.channelQuery.trim()
+      || this.programQuery.trim()
+      || this.selectedGroup
+      || (!this.isAllCountries && this.selectedCountry)
+    );
   }
 
   get isLoggedIn(): boolean {
@@ -319,25 +323,31 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (this.listMode === 'recordings') {
       return [];
     }
+    let source: TvChannel[];
     if (this.listMode === 'arte' || this.listMode === 'ia') {
-      // Server already filters by section / search query.
-      return this.channels;
+      // Server already filters by section / global search; sidebar applies on top.
+      source = this.channels;
+    } else {
+      source = this.listMode === 'favorites' ? this.favorites : this.channels;
+      const channelQ = this.channelQuery.trim().toLowerCase();
+      const programQ = this.programQuery.trim().toLowerCase();
+      if (channelQ || programQ) {
+        source = source.filter((ch) => {
+          if (channelQ && !this.matchesChannelQuery(ch, channelQ)) {
+            return false;
+          }
+          if (programQ && !this.matchesProgramQuery(ch, programQ)) {
+            return false;
+          }
+          return true;
+        });
+      }
     }
-    const source = this.listMode === 'favorites' ? this.favorites : this.channels;
-    const channelQ = this.channelQuery.trim().toLowerCase();
-    const programQ = this.programQuery.trim().toLowerCase();
-    if (!channelQ && !programQ) {
+    const quick = this.sidebarFilterQuery.trim().toLowerCase();
+    if (!quick) {
       return source;
     }
-    return source.filter((ch) => {
-      if (channelQ && !this.matchesChannelQuery(ch, channelQ)) {
-        return false;
-      }
-      if (programQ && !this.matchesProgramQuery(ch, programQ)) {
-        return false;
-      }
-      return true;
-    });
+    return source.filter((ch) => this.matchesSidebarFilter(ch, quick));
   }
 
   get activeRecording(): TvRecording | null {
@@ -387,14 +397,21 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   get filteredRecordings(): TvRecording[] {
-    const q = this.channelQuery.trim().toLowerCase();
-    if (!q) {
+    const channelQ = this.channelQuery.trim().toLowerCase();
+    const quick = this.sidebarFilterQuery.trim().toLowerCase();
+    if (!channelQ && !quick) {
       return this.recordings;
     }
     return this.recordings.filter((r) => {
       const name = (r.channelName || '').toLowerCase();
       const status = (r.status || '').toLowerCase();
-      return name.includes(q) || status.includes(q);
+      if (channelQ && !name.includes(channelQ) && !status.includes(channelQ)) {
+        return false;
+      }
+      if (quick && !name.includes(quick) && !status.includes(quick)) {
+        return false;
+      }
+      return true;
     });
   }
 
@@ -463,14 +480,48 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   /** True when country/group/search filters narrow the catalog list. */
   get hasActiveFilters(): boolean {
     if (this.listMode !== 'catalog') {
-      return !!(this.channelQuery.trim() || this.programQuery.trim());
+      return !!(this.channelQuery.trim() || this.programQuery.trim() || this.sidebarFilterQuery.trim());
     }
     return !!(
       this.channelQuery.trim()
       || this.programQuery.trim()
+      || this.sidebarFilterQuery.trim()
       || this.selectedGroup
       || this.isAllCountries
     );
+  }
+
+  /** Sidebar list is fetching channels / programmes / recordings. */
+  get isLoadingChannelList(): boolean {
+    switch (this.listMode) {
+      case 'catalog':
+        return this.isLoadingChannels;
+      case 'favorites':
+        return this.isLoadingFavorites;
+      case 'arte':
+        return this.isLoadingArte;
+      case 'ia':
+        return this.isLoadingIa;
+      case 'recordings':
+        return this.isLoadingRecordings;
+      default:
+        return false;
+    }
+  }
+
+  get channelListLoadingKey(): string {
+    switch (this.listMode) {
+      case 'favorites':
+        return 'TV.LOADING_FAVORITES';
+      case 'arte':
+        return 'TV.ARTE_LOADING';
+      case 'ia':
+        return 'TV.IA_LOADING';
+      case 'recordings':
+        return 'TV.RECORDINGS_LOADING';
+      default:
+        return 'TV.LOADING';
+    }
   }
 
   /** Match channel name / group / country. */
@@ -487,6 +538,38 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     }
     if ((channel.country || '').toLowerCase().includes(q)) {
       return true;
+    }
+    return false;
+  }
+
+  /** Sidebar quick filter: name / group, plus ARTE·IA metadata when present. */
+  matchesSidebarFilter(channel: TvChannel, queryLower: string): boolean {
+    if (this.matchesChannelQuery(channel, queryLower)) {
+      return true;
+    }
+    if (this.listMode === 'arte') {
+      const meta = this.arteMetaFor(channel);
+      if (meta) {
+        const blob = [meta.title, meta.subtitle, meta.description, meta.genre]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (blob.includes(queryLower)) {
+          return true;
+        }
+      }
+    }
+    if (this.listMode === 'ia') {
+      const meta = this.iaMetaFor(channel);
+      if (meta) {
+        const blob = [meta.title, meta.subtitle, meta.description, meta.genre]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (blob.includes(queryLower)) {
+          return true;
+        }
+      }
     }
     return false;
   }
@@ -559,9 +642,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
     this.loadCountries();
     this.loadFavorites();
+    this.loadFilterPreferences();
     this.loadTf1Status();
     this.loadRecordingCapability();
-    this.loadIaTabCount();
     if (this.isLoggedIn) {
       this.loadRecordings();
     }
@@ -599,6 +682,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.programSearchSub?.unsubscribe();
     this.channelsSub?.unsubscribe();
     this.catalogCountSub?.unsubscribe();
+    this.arteProgramsSub?.unsubscribe();
+    this.iaProgramsSub?.unsubscribe();
     this.resumeSub?.unsubscribe();
     this.lastChannelSaveSub?.unsubscribe();
     this.applyLeavePagePlaybackPolicy();
@@ -916,10 +1001,6 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       changed = true;
       closedOverlay = true;
     }
-    if (this.countryMenuOpen && !target?.closest?.('.tv-country-picker')) {
-      this.countryMenuOpen = false;
-      changed = true;
-    }
     if (changed) {
       this.cdr.markForCheck();
     }
@@ -1024,7 +1105,6 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.recordingsHint = '';
     this.arteError = '';
     this.iaError = '';
-    this.countryMenuOpen = false;
     if (mode === 'favorites' && !this.isLoggedIn) {
       this.favoritesHint = 'TV.FAVORITES_LOGIN';
     }
@@ -1039,21 +1119,14 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       this.loadCatalogCount();
       // Always reload: channels may still hold ARTE programmes from the replay tab.
       this.loadChannels();
-      if (!this.filtersCollapsed && this.isAllCountries && !this.groups.length) {
-        this.ensureWorldwideGroups();
-      }
     }
     if (mode === 'arte') {
-      this.channelQuery = '';
-      this.programQuery = '';
       if (!this.arteSections.length) {
         this.loadArteSections();
       }
       this.loadArtePrograms();
     }
     if (mode === 'ia') {
-      this.channelQuery = '';
-      this.programQuery = '';
       if (!this.iaSections.length) {
         this.loadIaSections();
       }
@@ -1066,49 +1139,6 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  toggleFiltersCollapsed(event?: Event): void {
-    event?.stopPropagation();
-    this.filtersCollapsedByMode[this.listMode] = !this.filtersCollapsedByMode[this.listMode];
-    if (this.filtersCollapsed) {
-      this.countryMenuOpen = false;
-    } else if (this.listMode === 'catalog' && this.isAllCountries) {
-      this.ensureWorldwideGroups();
-    }
-    this.cdr.markForCheck();
-  }
-
-  onCountryChange(): void {
-    this.selectedGroup = '';
-    this.groups = [];
-    this.worldwideSearchHint = false;
-    this.countryMenuOpen = false;
-    this.loadCatalogCount();
-    this.loadChannels();
-    if (this.programQuery.trim().length >= 2) {
-      this.runProgramSearch(this.programQuery.trim().toLowerCase());
-    }
-  }
-
-  toggleCountryMenu(event?: Event): void {
-    event?.stopPropagation();
-    event?.preventDefault();
-    this.countryMenuOpen = !this.countryMenuOpen;
-    this.shareMenuOpen = false;
-    if (this.countryMenuOpen) {
-      this.countryFilter = '';
-    }
-    this.cdr.markForCheck();
-  }
-
-  selectCountry(code: string, event?: Event): void {
-    event?.stopPropagation();
-    event?.preventDefault();
-    this.selectedCountry = code || 'all';
-    this.countryFilter = '';
-    this.onCountryChange();
-  }
-
-  /** ISO code for flag-icons CSS ({@code fi fi-xx}). */
   countryFlagCode(code: string | null | undefined): string {
     const c = (code || '').trim().toLowerCase();
     if (!c || c === 'all' || c === '*') {
@@ -1116,45 +1146,6 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     }
     // flag-icons uses "gb" for UK; keep catalog codes as-is otherwise.
     return c === 'uk' ? 'gb' : c;
-  }
-
-  selectedCountryName(): string {
-    if (this.isAllCountries) {
-      return this.translate.instant('TV.COUNTRY_ALL');
-    }
-    const found = this.countries.find(
-      (x) => (x.code || '').toLowerCase() === (this.selectedCountry || '').toLowerCase()
-    );
-    return found?.name || (this.selectedCountry || '').toUpperCase();
-  }
-
-  onGroupChange(): void {
-    this.loadChannels();
-  }
-
-  onChannelSearchInput(value: string): void {
-    this.channelQuery = value;
-    this.channelSearch$.next(value.trim().toLowerCase());
-  }
-
-  onProgramSearchInput(value: string): void {
-    this.programQuery = value;
-    this.programSearch$.next(value.trim().toLowerCase());
-  }
-
-  clearChannelSearch(): void {
-    this.channelQuery = '';
-    this.worldwideSearchHint = false;
-    this.channelSearch$.next('');
-  }
-
-  clearProgramSearch(): void {
-    this.programQuery = '';
-    this.clearProgramSearchState();
-    this.programSearch$.next('');
-    if (this.listMode === 'catalog' && this.isAllCountries && !this.channelQuery.trim()) {
-      this.loadChannels();
-    }
   }
 
   /** Matched programme title from server search for list hints. */
@@ -1205,13 +1196,75 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   openEpgBrowser(): void {
     this.epgBrowserOpen = true;
     this.shareMenuOpen = false;
-    this.countryMenuOpen = false;
     this.cdr.markForCheck();
   }
 
   closeEpgBrowser(): void {
     this.epgBrowserOpen = false;
     this.cdr.markForCheck();
+  }
+
+  onSidebarFilterChange(): void {
+    this.channelSearch$.next(this.sidebarFilterQuery.trim().toLowerCase());
+    this.cdr.markForCheck();
+  }
+
+  clearSidebarFilter(): void {
+    if (!this.sidebarFilterQuery) {
+      return;
+    }
+    this.sidebarFilterQuery = '';
+    this.onSidebarFilterChange();
+  }
+
+  /** Channel text sent to worldwide catalog search (global + sidebar). */
+  private catalogChannelSearchQuery(): string {
+    const parts: string[] = [];
+    const pushUnique = (value: string) => {
+      const v = (value || '').trim();
+      if (v.length < 2) {
+        return;
+      }
+      if (parts.some((p) => p.toLowerCase() === v.toLowerCase())) {
+        return;
+      }
+      parts.push(v);
+    };
+    pushUnique(this.channelQuery);
+    pushUnique(this.sidebarFilterQuery);
+    return parts.join(' ').trim();
+  }
+
+  openGlobalFilter(): void {
+    this.globalFilterPreference = {
+      applyToAllTabs: this.applyGlobalFilterToAllTabs,
+      channelQuery: this.channelQuery,
+      programQuery: this.programQuery,
+      country: this.selectedCountry || 'all',
+      group: this.selectedGroup || ''
+    };
+    this.loadGlobalFilterGroups(this.globalFilterPreference.country || 'all');
+    this.globalFilterOpen = true;
+    this.shareMenuOpen = false;
+    this.epgBrowserOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  closeGlobalFilter(): void {
+    this.globalFilterOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  onGlobalFilterCountryChanged(country: string): void {
+    this.loadGlobalFilterGroups(country || 'all');
+  }
+
+  onGlobalFilterApplied(pref: TvFilterPreference): void {
+    this.applyFilterPreference(pref, true);
+  }
+
+  onGlobalFilterCleared(pref: TvFilterPreference): void {
+    this.applyFilterPreference(pref, true);
   }
 
   onEpgBrowserPlay(channel: TvChannel): void {
@@ -1935,6 +1988,17 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     return ch.id;
   }
 
+  /** Continuous 1-based index across paginated ARTE / Archive.org lists. */
+  listItemNumber(indexZeroBased: number): number {
+    if (this.listMode === 'ia') {
+      return (Math.max(1, this.iaPage) - 1) * Math.max(1, this.iaPageSize) + indexZeroBased + 1;
+    }
+    if (this.listMode === 'arte') {
+      return (Math.max(1, this.artePage) - 1) * Math.max(1, this.artePageSize) + indexZeroBased + 1;
+    }
+    return indexZeroBased + 1;
+  }
+
   /** Display play errors: translate {@code TV.*} keys, show API/backend text as-is. */
   formatPlayError(message: string | null | undefined): string {
     return formatTvPlayErrorDisplay(message, (key) => this.translate.instant(key));
@@ -1942,10 +2006,6 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   groupIconClass(group: string | null | undefined): string {
     return groupIconFaClass(group);
-  }
-
-  groupEmoji(group: string | null | undefined): string {
-    return groupIconEmoji(group);
   }
 
   /**
@@ -2295,9 +2355,18 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         this.countries = [...(list || [])].sort((a, b) => {
           const pin = (code?: string) => {
             const c = (code || '').toLowerCase();
-            if (c === 'fr') return 0;
-            if (c === 'ch') return 1;
-            return 100;
+            switch (c) {
+              case 'fr': return 0;
+              case 'ch': return 1;
+              case 'be': return 2;
+              case 'us': return 3;
+              case 'gb': return 4;
+              case 'ca': return 5;
+              case 'de': return 6;
+              case 'es': return 7;
+              case 'it': return 8;
+              default: return 100;
+            }
           };
           const d = pin(a.code) - pin(b.code);
           if (d !== 0) {
@@ -2370,15 +2439,11 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.worldwideSearchHint = false;
     this.channelsSub?.unsubscribe();
     const country = this.selectedCountry || 'fr';
-    const channelQ = (this.channelQuery || '').trim();
+    const channelQ = this.catalogChannelSearchQuery();
     const programQ = (this.programQuery || '').trim();
     const group = (this.selectedGroup || '').trim();
 
     if (country.toLowerCase() === 'all') {
-      // Groups are heavy (scan all playlists) — load only when filters are open.
-      if (!this.filtersCollapsed) {
-        this.ensureWorldwideGroups();
-      }
       if (channelQ.length >= 2 || group) {
         this.channelsSub = this.api
           .getTvChannelsWorldwide(channelQ.length >= 2 ? channelQ : undefined, group || undefined)
@@ -2421,16 +2486,6 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.searchMatchTotal = null;
     this.searchListTruncated = false;
 
-    this.api.getTvGroups(country).subscribe({
-      next: (g) => {
-        this.groups = g || [];
-        this.cdr.markForCheck();
-      },
-      error: () => {
-        this.groups = [];
-      }
-    });
-
     this.channelsSub = this.api.getTvChannels(country, undefined, this.selectedGroup).subscribe({
       next: (list) => {
         this.channels = this.sortChannelsByName(list || []);
@@ -2443,27 +2498,6 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         this.channels = [];
         this.isLoadingChannels = false;
         this.channelsError = 'TV.ERR_CHANNELS';
-        this.cdr.markForCheck();
-      }
-    });
-  }
-
-  /** Load category list for worldwide mode (union of all country groups). */
-  private ensureWorldwideGroups(): void {
-    if (this.groups.length > 0 || !this.isAllCountries) {
-      return;
-    }
-    this.loadWorldwideGroups();
-  }
-
-  private loadWorldwideGroups(): void {
-    this.api.getTvGroups('all').subscribe({
-      next: (g) => {
-        this.groups = g || [];
-        this.cdr.markForCheck();
-      },
-      error: () => {
-        this.groups = [];
         this.cdr.markForCheck();
       }
     });
@@ -2592,6 +2626,146 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     });
   }
 
+  private loadFilterPreferences(): void {
+    if (!this.isLoggedIn) {
+      return;
+    }
+    this.api.getTvFilterPreferences().subscribe({
+      next: (pref) => {
+        if (!pref) {
+          return;
+        }
+        this.globalFilterPreference = {
+          applyToAllTabs: !!pref.applyToAllTabs,
+          channelQuery: pref.channelQuery || '',
+          programQuery: pref.programQuery || '',
+          country: (pref.country || 'all').toLowerCase(),
+          group: pref.group || '',
+          persisted: !!pref.persisted
+        };
+        if (pref.applyToAllTabs) {
+          this.applyFilterPreference(this.globalFilterPreference, false);
+        } else {
+          this.applyGlobalFilterToAllTabs = false;
+          this.cdr.markForCheck();
+        }
+      },
+      error: () => {
+        /* keep local defaults when offline / unauthorized */
+      }
+    });
+  }
+
+  private applyFilterPreference(pref: TvFilterPreference, persist: boolean): void {
+    const next: TvFilterPreference = {
+      applyToAllTabs: !!pref.applyToAllTabs,
+      channelQuery: (pref.channelQuery || '').trim(),
+      programQuery: (pref.programQuery || '').trim(),
+      country: ((pref.country || 'all').trim() || 'all').toLowerCase(),
+      group: (pref.group || '').trim()
+    };
+    this.globalFilterPreference = next;
+    // Without per-tab filters, any applied global filter must stick across tabs.
+    const hasQuery = !!(next.channelQuery || next.programQuery || next.group
+      || (next.country && next.country !== 'all'));
+    this.applyGlobalFilterToAllTabs = !!next.applyToAllTabs || hasQuery;
+    this.channelQuery = next.channelQuery || '';
+    this.programQuery = next.programQuery || '';
+    this.selectedCountry = next.country || 'all';
+    this.selectedGroup = next.group || '';
+    this.worldwideSearchHint = false;
+    this.artePage = 1;
+    this.iaPage = 1;
+
+    if (persist) {
+      this.persistFilterPreferences({
+        ...next,
+        applyToAllTabs: this.applyGlobalFilterToAllTabs
+      });
+    } else {
+      this.isSavingGlobalFilter = false;
+    }
+
+    this.reloadAfterGlobalFilter();
+    if (persist) {
+      this.closeGlobalFilter();
+    }
+    this.cdr.markForCheck();
+  }
+
+  private persistFilterPreferences(pref: TvFilterPreference): void {
+    if (!this.isLoggedIn) {
+      this.isSavingGlobalFilter = false;
+      return;
+    }
+    this.isSavingGlobalFilter = true;
+    this.api.saveTvFilterPreferences(pref).subscribe({
+      next: (saved) => {
+        this.isSavingGlobalFilter = false;
+        if (saved) {
+          this.globalFilterPreference = {
+            applyToAllTabs: !!saved.applyToAllTabs,
+            channelQuery: saved.channelQuery || '',
+            programQuery: saved.programQuery || '',
+            country: (saved.country || 'all').toLowerCase(),
+            group: saved.group || '',
+            persisted: true
+          };
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.isSavingGlobalFilter = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private loadGlobalFilterGroups(country: string): void {
+    const cc = (country || 'all').toLowerCase();
+    this.api.getTvGroups(cc).subscribe({
+      next: (g) => {
+        this.globalFilterGroups = g || [];
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.globalFilterGroups = [];
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private reloadAfterGlobalFilter(): void {
+    this.loadCatalogCount();
+    if (this.listMode === 'catalog') {
+      this.loadChannels();
+    } else if (this.listMode === 'arte') {
+      this.artePage = 1;
+      this.loadArtePrograms();
+    } else if (this.listMode === 'ia') {
+      this.iaPage = 1;
+      this.loadIaPrograms();
+    } else if (this.listMode === 'favorites') {
+      // Client-side filter uses channelQuery + programQuery via displayedChannels.
+      this.cdr.markForCheck();
+    } else if (this.listMode === 'recordings' && this.isLoggedIn) {
+      this.loadRecordings();
+    }
+    this.channelSearch$.next(this.replaySearchQuery().toLowerCase());
+    const liveProgramQ = this.programQuery.trim().toLowerCase();
+    if (
+      liveProgramQ.length >= 2
+      && this.listMode !== 'arte'
+      && this.listMode !== 'ia'
+      && this.listMode !== 'recordings'
+    ) {
+      this.runProgramSearch(liveProgramQ);
+    } else {
+      this.clearProgramSearchState();
+    }
+    this.refreshEpg();
+  }
+
   private loadTf1Status(): void {
     this.api.getTvTf1Status().subscribe({
       next: (s) => {
@@ -2652,16 +2826,19 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   private loadArtePrograms(): void {
     this.isLoadingArte = true;
     this.arteError = '';
-    const q = this.channelQuery.trim();
-    this.api.getArtePrograms({
-      lang: 'fr',
+    const q = this.replaySearchQuery();
+    const requestedPage = this.artePage;
+    this.arteProgramsSub?.unsubscribe();
+    this.arteProgramsSub = this.api.getArtePrograms({
+      lang: this.arteLangFromCountry(),
       section: this.arteSection || 'MOST_RECENT',
-      q: q.length >= 2 ? q : undefined,
-      page: this.artePage
+      q: q || undefined,
+      page: requestedPage
     }).subscribe({
       next: (res) => {
-        this.artePage = res?.page || 1;
+        this.artePage = res?.page || requestedPage;
         this.artePages = Math.max(1, res?.pages || 1);
+        this.artePageSize = Math.max(1, Number(res?.pageSize) || this.artePageSize || 20);
         this.arteTotal = res?.total || 0;
         this.arteMetaById.clear();
         const programs = res?.programs || [];
@@ -2742,38 +2919,22 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Warm the Archive.org tab badge without replacing the current channel list. */
-  private loadIaTabCount(): void {
-    if (this.listMode === 'ia' || this.iaTotal > 0) {
-      return;
-    }
-    this.api.getIaPrograms({
-      section: this.iaSection || 'RECENT',
-      page: 1
-    }).subscribe({
-      next: (res) => {
-        if (this.listMode === 'ia') {
-          return;
-        }
-        this.iaTotal = Math.max(0, Number(res?.total) || 0);
-        this.cdr.markForCheck();
-      },
-      error: () => { /* badge stays hidden */ }
-    });
-  }
-
   private loadIaPrograms(): void {
     this.isLoadingIa = true;
     this.iaError = '';
-    const q = this.channelQuery.trim();
-    this.api.getIaPrograms({
+    const q = this.replaySearchQuery();
+    const requestedPage = this.iaPage;
+    this.iaProgramsSub?.unsubscribe();
+    this.iaProgramsSub = this.api.getIaPrograms({
       section: this.iaSection || 'RECENT',
-      q: q.length >= 2 ? q : undefined,
-      page: this.iaPage
+      q: q || undefined,
+      country: this.iaCountryParam(),
+      page: requestedPage
     }).subscribe({
       next: (res) => {
-        this.iaPage = res?.page || 1;
+        this.iaPage = res?.page || requestedPage;
         this.iaPages = Math.max(1, res?.pages || 1);
+        this.iaPageSize = Math.max(1, Number(res?.pageSize) || this.iaPageSize || 50);
         this.iaTotal = res?.total || 0;
         this.iaMetaById.clear();
         const programs = res?.programs || [];
@@ -2793,6 +2954,62 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       }
     });
+  }
+
+  /** Country code for Archive.org language filter ({@code all} → omit). */
+  private iaCountryParam(): string | undefined {
+    const c = (this.selectedCountry || 'all').trim().toLowerCase();
+    if (!c || c === 'all' || c === '*') {
+      return undefined;
+    }
+    return c;
+  }
+
+  /** ARTE EMAC language from the global country filter. */
+  private arteLangFromCountry(): string {
+    const c = (this.selectedCountry || 'fr').trim().toLowerCase();
+    if (!c || c === 'all' || c === '*') {
+      return 'fr';
+    }
+    if (['gb', 'uk', 'us', 'au', 'nz', 'ie', 'ca'].includes(c)) {
+      return 'en';
+    }
+    const supported = new Set(['fr', 'de', 'en', 'es', 'it', 'pl', 'ro']);
+    return supported.has(c) ? c : 'fr';
+  }
+
+  /**
+   * Free-text search for ARTE / Archive.org.
+   * Prefers the programme field (film / show title), then channel/title text,
+   * then the sidebar quick filter — all combined so none is ignored.
+   */
+  private replaySearchQuery(): string {
+    const program = this.programQuery.trim();
+    const channel = this.channelQuery.trim();
+    const quick = this.sidebarFilterQuery.trim();
+    const parts: string[] = [];
+    const pushUnique = (value: string) => {
+      if (value.length < 2) {
+        return;
+      }
+      if (parts.some((p) => p.toLowerCase() === value.toLowerCase())) {
+        return;
+      }
+      parts.push(value);
+    };
+    pushUnique(program);
+    pushUnique(channel);
+    pushUnique(quick);
+    if (parts.length) {
+      return parts.join(' ').trim();
+    }
+    const combined = [program, channel, quick].filter((s) => !!s).join(' ').trim();
+    return combined.length >= 2 ? combined : '';
+  }
+
+  /** True when ARTE/IA free-text search overrides the section picker. */
+  get replaySearchActive(): boolean {
+    return this.replaySearchQuery().length >= 2;
   }
 
   private iaProgramToChannel(p: IaProgram): TvChannel {
@@ -3034,7 +3251,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
             channelLogo: channel.logo,
             country: channel.country,
             streamUrl: resolveTvStreamUrl(channel),
-            durationSec
+            durationSec,
+            visibility: 'private'
           },
           `tv-${(channel.name || 'rec').replace(/[^\w.-]+/g, '_').slice(0, 40)}${ext}`
         )
@@ -3169,7 +3387,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   deleteRecording(rec: TvRecording, event?: Event): void {
     event?.stopPropagation();
     event?.preventDefault();
-    if (!rec?.id || this.recordingBusy) {
+    if (!rec?.id || this.recordingBusy || rec.ownedByMe === false) {
       return;
     }
     this.recordingBusy = true;
@@ -3195,7 +3413,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   renameRecording(rec: TvRecording, event?: Event): void {
     event?.stopPropagation();
     event?.preventDefault();
-    if (!rec?.id || this.recordingBusy) {
+    if (!rec?.id || this.recordingBusy || rec.ownedByMe === false) {
       return;
     }
     const current = (rec.channelName || '').trim();
@@ -3234,6 +3452,205 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       }
     });
+  }
+
+  isRecordingOwned(rec: TvRecording | null | undefined): boolean {
+    return !!rec && rec.ownedByMe !== false;
+  }
+
+  recordingVisibilityLabelKey(visibility: string | undefined): string {
+    const v = (visibility || 'private').trim();
+    if (v === 'public') {
+      return 'EVENTCREATION.PUBLIC';
+    }
+    if (v === 'friends') {
+      return 'EVENTCREATION.FRIENDS';
+    }
+    if (v === 'friendGroups') {
+      return 'TV.RECORD_VISIBILITY_FRIEND_GROUPS';
+    }
+    if (v === 'private') {
+      return 'EVENTCREATION.PRIVATE';
+    }
+    return 'TV.RECORD_VISIBILITY_FRIEND_GROUPS';
+  }
+
+  openShareRecording(rec: TvRecording, event?: Event): void {
+    event?.stopPropagation();
+    event?.preventDefault();
+    if (!rec?.id || !this.isRecordingOwned(rec) || this.recordingBusy) {
+      return;
+    }
+    this.shareRecordingTarget = rec;
+    this.shareError = '';
+    this.shareBusy = false;
+    this.applyShareFormFromRecording(rec);
+    this.shareRecordingOpen = true;
+    this.ensureShareFriendGroupsLoaded();
+    this.cdr.markForCheck();
+  }
+
+  closeShareRecording(): void {
+    this.shareRecordingOpen = false;
+    this.shareRecordingTarget = null;
+    this.shareError = '';
+    this.shareBusy = false;
+    this.cdr.markForCheck();
+  }
+
+  onShareVisibilityPresetChange(): void {
+    if (this.shareVisibilityPreset !== 'friendGroups') {
+      this.shareFriendGroupIds = [];
+    }
+    this.cdr.markForCheck();
+  }
+
+  onShareFriendGroupToggle(groupId: string, checked: boolean): void {
+    const id = (groupId || '').trim();
+    if (!id) {
+      return;
+    }
+    const set = new Set(this.shareFriendGroupIds.map((x) => x.trim()).filter(Boolean));
+    if (checked) {
+      set.add(id);
+    } else {
+      set.delete(id);
+    }
+    this.shareFriendGroupIds = [...set];
+    this.cdr.markForCheck();
+  }
+
+  shareFriendGroupChecked(groupId: string | undefined): boolean {
+    const id = (groupId || '').trim();
+    return !!id && this.shareFriendGroupIds.some((x) => x.trim() === id);
+  }
+
+  trackByFriendGroupId(_index: number, g: FriendGroup): string {
+    return (g.id || '').trim() || String(_index);
+  }
+
+  saveShareRecording(): void {
+    const rec = this.shareRecordingTarget;
+    if (!rec?.id || this.shareBusy) {
+      return;
+    }
+    let visibility: string = this.shareVisibilityPreset;
+    let friendGroupIds: string[] | undefined;
+    if (this.shareVisibilityPreset === 'friendGroups') {
+      const ids = this.knownShareFriendGroupIds(this.shareFriendGroupIds);
+      if (!ids.length) {
+        this.shareError = 'TV.ERR_RECORD_SHARE_GROUPS';
+        this.cdr.markForCheck();
+        return;
+      }
+      friendGroupIds = ids;
+    } else {
+      friendGroupIds = [];
+    }
+    this.shareBusy = true;
+    this.shareError = '';
+    this.api
+      .updateTvRecording(rec.id, {
+        visibility,
+        friendGroupIds: friendGroupIds ?? []
+      })
+      .subscribe({
+        next: (updated) => {
+          this.shareBusy = false;
+          this.recordings = this.recordings.map((r) =>
+            r.id === updated.id ? { ...r, ...updated } : r
+          );
+          if (this.playingRecording?.id === updated.id) {
+            this.playingRecording = { ...this.playingRecording, ...updated };
+          }
+          this.closeShareRecording();
+        },
+        error: (err) => {
+          this.shareBusy = false;
+          const code = err?.error?.error || '';
+          this.shareError =
+            code === 'FRIEND_GROUP_UNAUTHORIZED'
+              ? 'TV.ERR_RECORD_SHARE_UNAUTHORIZED'
+              : 'TV.ERR_RECORD_SHARE';
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  private applyShareFormFromRecording(rec: TvRecording): void {
+    const v = (rec.visibility || 'private').trim();
+    if (v === 'public' || v === 'private' || v === 'friends') {
+      this.shareVisibilityPreset = v;
+      this.shareFriendGroupIds = [];
+      return;
+    }
+    if (v === 'friendGroups') {
+      this.shareVisibilityPreset = 'friendGroups';
+      const ids = [...(rec.friendGroupIds || [])];
+      if (!ids.length && rec.friendGroupId) {
+        ids.push(rec.friendGroupId);
+      }
+      this.shareFriendGroupIds = ids.map((x) => String(x).trim()).filter(Boolean);
+      return;
+    }
+    // Legacy: visibility is a group name
+    this.shareVisibilityPreset = 'friendGroups';
+    this.shareFriendGroupIds = rec.friendGroupId ? [rec.friendGroupId] : [];
+  }
+
+  private ensureShareFriendGroupsLoaded(): void {
+    if (!this.isLoggedIn) {
+      this.shareFriendGroups = [];
+      this.rebuildShareFriendGroupsSorted();
+      return;
+    }
+    this.membersService.getUserId({ skipGeolocation: true }).subscribe({
+      next: (m) => {
+        this.shareCurrentMemberId = (m?.id || '').trim();
+        this.rebuildShareFriendGroupsSorted();
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.shareCurrentMemberId = '';
+      }
+    });
+    this.friendsService.getFriendGroups().subscribe({
+      next: (groups) => {
+        this.shareFriendGroups = groups || [];
+        this.rebuildShareFriendGroupsSorted();
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.shareFriendGroups = [];
+        this.rebuildShareFriendGroupsSorted();
+      }
+    });
+  }
+
+  private rebuildShareFriendGroupsSorted(): void {
+    const memberId = this.shareCurrentMemberId;
+    const filtered = (this.shareFriendGroups || []).filter((group) => {
+      if (!group || !memberId) {
+        return false;
+      }
+      const isOwner = group.owner && group.owner.id === memberId;
+      const isAuthorized =
+        group.authorizedUsers &&
+        group.authorizedUsers.some((u) => u && u.id === memberId);
+      return !!(isOwner || isAuthorized);
+    });
+    this.shareFriendGroupsSorted = [...filtered].sort((a, b) => {
+      const na = (a.name || '').toLowerCase();
+      const nb = (b.name || '').toLowerCase();
+      return na.localeCompare(nb, 'fr', { sensitivity: 'base' });
+    });
+  }
+
+  private knownShareFriendGroupIds(ids: string[]): string[] {
+    const known = new Set(
+      this.shareFriendGroupsSorted.map((g) => (g.id || '').trim()).filter(Boolean)
+    );
+    return [...new Set(ids.map((x) => x.trim()).filter((id) => id && known.has(id)))];
   }
 
   downloadRecording(rec: TvRecording, event?: Event): void {

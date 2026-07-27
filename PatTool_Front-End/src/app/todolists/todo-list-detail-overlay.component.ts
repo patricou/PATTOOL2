@@ -64,9 +64,13 @@ export class TodoListDetailOverlayComponent implements OnInit, OnDestroy {
     loadError = false;
     currentUserId = '';
     friendGroups: FriendGroup[] = [];
+    reminderSending = false;
+    reminderFeedback = '';
+    reminderFeedbackOk = false;
     private ownerCache = new Map<string, OwnerLabel>();
     private detailsAssigneeMap = new Map<string, string>();
     private subs: Subscription[] = [];
+    private recipientsCache: TodoVisibilityRecipient[] = [];
 
     ngOnInit(): void {
         this.subs.push(
@@ -309,6 +313,7 @@ export class TodoListDetailOverlayComponent implements OnInit, OnDestroy {
                     m.set(r.memberId, r.displayName || r.userName || r.memberId);
                 }
                 this.detailsAssigneeMap = m;
+                this.recipientsCache = rows;
                 const owner = rows.find(r => r.memberId === this.list?.ownerMemberId);
                 if (owner && this.list?.ownerMemberId) {
                     this.ownerCache.set(this.list.ownerMemberId, {
@@ -320,6 +325,135 @@ export class TodoListDetailOverlayComponent implements OnInit, OnDestroy {
                 this.cdr.markForCheck();
             })
         );
+    }
+
+    /**
+     * Quick reminder from the overlay: e-mail to the assignee (when known), or WhatsApp text
+     * listing that person's open tasks on this list.
+     */
+    remindItem(item: TodoItem, channel: 'email' | 'whatsapp'): void {
+        const list = this.list;
+        if (!list?.id || !item?.id) {
+            return;
+        }
+        this.reminderFeedback = '';
+        if (channel === 'whatsapp') {
+            const text = this.composeReminderWhatsApp(list, item);
+            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+            this.reminderFeedbackOk = true;
+            this.reminderFeedback = this.translate.instant('TODOLISTS.SHARE.WHATSAPP_OPENED');
+            this.cdr.markForCheck();
+            return;
+        }
+        const assigneeId = (item.assigneeMemberId || '').trim();
+        const recipient = assigneeId
+            ? this.recipientsCache.find(r => r.memberId === assigneeId)
+            : undefined;
+        if (!assigneeId || !recipient?.hasEmail) {
+            this.reminderFeedbackOk = false;
+            this.reminderFeedback = this.translate.instant(
+                assigneeId ? 'TODOLISTS.SHARE.NO_EMAIL_FOR' : 'TODOLISTS.REMINDER.NEED_ASSIGNEE_OR_PAGE'
+            );
+            this.cdr.markForCheck();
+            return;
+        }
+        const assigneeName = this.assigneeLabel(assigneeId);
+        const customMessage = this.translate.instant(
+            'TODOLISTS.REMINDER.DEFAULT_MESSAGE_FOR',
+            { name: list.name, assignee: assigneeName, task: item.title || '' }
+        );
+        this.reminderSending = true;
+        this.subs.push(
+            this.todoService.sendReminderEmail(list.id, {
+                itemId: item.id,
+                toMemberIds: [assigneeId],
+                customMessage,
+                mailLang: this.translate.currentLang || 'en',
+                listUrl: this.buildTodolistDeepLink(list.id)
+            }).pipe(
+                finalize(() => {
+                    this.reminderSending = false;
+                    this.cdr.markForCheck();
+                })
+            ).subscribe({
+                next: resp => {
+                    this.reminderFeedbackOk = true;
+                    this.reminderFeedback = this.translate.instant('TODOLISTS.REMINDER.SENT_OK', {
+                        sent: resp.sent,
+                        total: resp.total
+                    });
+                },
+                error: () => {
+                    this.reminderFeedbackOk = false;
+                    this.reminderFeedback = this.translate.instant('TODOLISTS.REMINDER.SEND_ERROR');
+                }
+            })
+        );
+    }
+
+    private composeReminderWhatsApp(list: TodoList, focus: TodoItem): string {
+        const assigneeId = (focus.assigneeMemberId || '').trim();
+        const assigneeName = assigneeId ? this.assigneeLabel(assigneeId) : '';
+        const items = this.reminderTasks(list, focus);
+        const lines: string[] = [];
+        lines.push(this.translate.instant(
+            assigneeName ? 'TODOLISTS.REMINDER.DEFAULT_MESSAGE_FOR' : 'TODOLISTS.REMINDER.DEFAULT_MESSAGE',
+            { name: list.name, assignee: assigneeName, task: focus.title || '' }
+        ));
+        lines.push('');
+        lines.push(`*${list.name}*`);
+        lines.push('');
+        lines.push(this.translate.instant('TODOLISTS.REMINDER.WHATSAPP_TASKS_HEADER'));
+        for (const it of items) {
+            const mark = it.status === 'done' ? '☑' : '☐';
+            lines.push(`${mark} ${(it.title || '').trim() || '—'}`);
+        }
+        if (list.id) {
+            lines.push('');
+            lines.push(this.translate.instant('TODOLISTS.SHARE.OPEN_IN_PATTOOL'));
+            lines.push(this.buildTodolistDeepLink(list.id));
+        }
+        const text = lines.join('\n');
+        return text.length > 3200 ? text.slice(0, 3160) + '\n…' : text;
+    }
+
+    private reminderTasks(list: TodoList, focus: TodoItem): TodoItem[] {
+        const items = list.items || [];
+        const assigneeId = (focus.assigneeMemberId || '').trim();
+        if (assigneeId) {
+            const pending = items.filter(
+                it => it.assigneeMemberId === assigneeId && it.status !== 'done'
+            );
+            if (pending.length > 0) {
+                return pending;
+            }
+        }
+        const match = items.find(it => it.id && it.id === focus.id);
+        return match ? [match] : [focus];
+    }
+
+    private buildTodolistDeepLink(listId: string): string {
+        const u = new URL(window.location.href);
+        let path = u.pathname || '/';
+        if (path.length > 1 && path.endsWith('/')) {
+            path = path.slice(0, -1);
+        }
+        const marker = '/assets/todolist-link.html';
+        const at = path.indexOf(marker);
+        let basePath: string;
+        if (at >= 0) {
+            basePath = path.substring(0, at);
+        } else if (path === '/') {
+            basePath = '';
+        } else if (path.endsWith('/index.html')) {
+            basePath = path.slice(0, -'/index.html'.length);
+            if (basePath === '/') {
+                basePath = '';
+            }
+        } else {
+            basePath = path;
+        }
+        return `${u.origin}${basePath}/assets/todolist-link.html?list=${encodeURIComponent(listId)}`;
     }
 
     private fetchOwnerLabelForList(): void {

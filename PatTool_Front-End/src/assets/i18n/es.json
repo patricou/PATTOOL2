@@ -657,6 +657,25 @@
       "WHATSAPP_OPENED": "WhatsApp abierto en una nueva ventana.",
       "WHATSAPP_IMAGE_ONLY": "Foto de portada compartida. Si falta el texto de las tareas, pÃ‚Âgalo desde el campo de mensaje de arriba o envÃ‚Âa un segundo mensaje.",
       "OPEN_IN_PATTOOL": "Abrir esta lista en PatTool:"
+    },
+    "REMINDER": {
+      "BUTTON": "Send a reminder",
+      "EMAIL": "Email reminder",
+      "WHATSAPP": "WhatsApp reminder",
+      "EMAIL_HINT": "Remind by email of tasks still to do",
+      "WHATSAPP_HINT": "Remind on WhatsApp of tasks still to do",
+      "EMAIL_TITLE": "Email reminder",
+      "WHATSAPP_TITLE": "WhatsApp reminder",
+      "DEFAULT_MESSAGE": "Reminder: here are the tasks to do on the list \"{{name}}\" (task: {{task}}).",
+      "DEFAULT_MESSAGE_FOR": "Hi {{assignee}}! Reminder of your open tasks on the list \"{{name}}\".",
+      "FOR_ASSIGNEE": "Tasks for {{name}}",
+      "TASKS_PREVIEW_TITLE": "Tasks included in the reminder",
+      "WHATSAPP_TASKS_HEADER": "To do",
+      "WHATSAPP_BODY_HINT": "Tap \"Open WhatsApp\" — the message lists the open tasks for this person.",
+      "SEND_EMAIL": "Send reminder",
+      "SENT_OK": "Reminder sent to {{sent}} of {{total}} recipient(s).",
+      "SEND_ERROR": "Could not send the reminder. Please try again.",
+      "NEED_ASSIGNEE_OR_PAGE": "Assign the task, or open the full lists page to pick a recipient."
     }
   },
   "CALENDAR": {
@@ -1625,7 +1644,11 @@
     "DESELECT_ALL_PHOTOS": "Deselect all photos",
     "SELECTED_PHOTOS_COUNT": "{{count}} photo(s) selected",
     "DELETE_SELECTED_FILES": "Delete selected ({{count}})",
-    "DELETE_SELECTED_FILES_CONFIRM": "Are you sure you want to delete {{count}} file(s)?"
+    "DELETE_SELECTED_FILES_CONFIRM": "Are you sure you want to delete {{count}} file(s)?",
+    "PDF_CONVERTER_BUTTON_HINT": "Docs editor PDF",
+    "PDF_CONVERTER_DOCUMENTS": "Documentos del editor PDF",
+    "PDF_CONVERTER_OPEN": "Abrir en el editor PDF",
+    "OPEN_AGENDA": "Abrir agenda"
   },
   "EVENTCREATION": {
     "TITLE": "CreaciÃ‚Ân de actividad",
@@ -1977,7 +2000,18 @@
     "CONTENT_LABEL": "Contenido",
     "ERR_FILENAME_REQUIRED": "Indique un nombre de archivo PDF.",
     "ERR_CONTENT_REQUIRED": "AÃ‚Âada texto o al menos una imagen.",
-    "ERR_EXPORT": "Error al generar el PDF. IntÃ‚Ântelo de nuevo."
+    "ERR_EXPORT": "Error al generar el PDF. IntÃ‚Ântelo de nuevo.",
+    "LINK_SECTION_TITLE": "Vincular este documento al calendario",
+    "LINK_SECTION_INTRO": "Puede vincular este documento a una cita personal de su agenda o a una actividad (evento) a la que tenga acceso en el calendario: una u otra, no ambas a la vez.",
+    "LINK_PICK_APPOINTMENT": "Cita personal (agenda)",
+    "LINK_PICK_ACTIVITY": "Actividad",
+    "LINK_NONE": "Ninguno",
+    "LINK_LOADING_CALENDAR": "Cargando la agenda y las actividades…",
+    "LINK_LOAD_ERROR": "No se pudo cargar el calendario. Aun así puede guardar el documento; inténtelo más tarde para elegir un vínculo.",
+    "LINK_HINT": "Elegir una cita borra el vínculo a una actividad, y viceversa.",
+    "LINK_STALE_APPOINTMENT": "Vínculo actual (cita {{id}} — fuera del intervalo cargado o no disponible)",
+    "LINK_STALE_ACTIVITY": "Vínculo actual (actividad {{id}} — fuera del intervalo cargado o no disponible)",
+    "ERR_LINK": "No se pudo vincular este documento a la actividad o cita seleccionada. Compruebe el acceso e inténtelo de nuevo."
   },
   "LOTTO": {
     "TITLE": "Loto (FDJ) ? sorteos",
@@ -3455,7 +3489,8 @@
     "ASSISTANT_EVENT": "Asistente IA",
     "WALL_UPLOADING": "Subiendo archivos?",
     "WALL_UPLOAD_LOG_WAITING": "Esperando el inicio de la subida?",
-    "SHOW_MORE_GRID_PHOTOS": "Ver todas las fotos"
+    "SHOW_MORE_GRID_PHOTOS": "Ver todas las fotos",
+    "PDF_CONVERTER_WALL_TABLE_TITLE": "Documentos del editor PDF"
   },
   "NEWS": {
     "PAGE_TITLE": "Noticias",
@@ -3879,6 +3914,16 @@
     "RECORD": "Grabar este canal",
     "RECORD_STOP": "Detener grabación",
     "RECORD_DELETE": "Eliminar grabación",
+    "RECORD_SHARE": "Compartir grabación",
+    "RECORD_SHARE_TITLE": "Compartir esta grabación",
+    "RECORD_SHARE_CLOSE": "Cerrar",
+    "RECORD_SHARE_CANCEL": "Cancelar",
+    "RECORD_SHARE_SAVE": "Guardar",
+    "RECORD_VISIBILITY_LABEL": "Quién puede ver esta grabación",
+    "RECORD_VISIBILITY_FRIEND_GROUPS": "Uno o varios grupos de amigos",
+    "RECORD_VISIBILITY_GROUPS_HINT": "Marque cada grupo autorizado a ver esta grabación.",
+    "RECORD_VISIBILITY_GROUPS_EMPTY": "No hay grupos de amigos. Cree uno en la sección Amigos.",
+    "RECORD_SHARED_WITH_ME": "Compartido conmigo",
     "RECORD_DURATION": "Duración de grabación",
     "RECORD_DUR_1M": "1 min",
     "RECORD_DUR_5M": "5 min",
@@ -3901,11 +3946,30 @@
     "ERR_RECORD_START": "No se pudo iniciar la grabación.",
     "ERR_RECORD_STOP": "No se pudo detener la grabación.",
     "ERR_RECORD_DELETE": "No se pudo eliminar la grabación.",
+    "ERR_RECORD_SHARE": "No se pudo actualizar el uso compartido.",
+    "ERR_RECORD_SHARE_GROUPS": "Seleccione al menos un grupo de amigos.",
+    "ERR_RECORD_SHARE_UNAUTHORIZED": "No está autorizado a compartir con este grupo de amigos.",
     "ERR_RECORD_PLAY": "No se pudo reproducir esta grabación.",
     "ERR_RECORD_UNAVAILABLE": "Grabación no compatible con este navegador (se necesita MediaRecorder).",
     "ERR_RECORD_LIMIT": "Ya hay una grabación en curso.",
     "ERR_RECORD_NEED_PLAY": "Reproduzca el canal antes de grabar.",
-    "ERR_RECORD_TOO_LARGE": "El archivo de grabación es demasiado grande."
+    "ERR_RECORD_TOO_LARGE": "El archivo de grabación es demasiado grande.",
+    "GLOBAL_FILTER_OPEN": "Filtro global",
+    "SIDEBAR_FILTER": "Filtrar lista",
+    "SIDEBAR_FILTER_PLACEHOLDER": "Filtrar canales o películas…",
+    "SIDEBAR_FILTER_CLEAR": "Borrar filtro",
+    "GLOBAL_FILTER_TITLE": "Filtro global (todas las pestanas)",
+    "GLOBAL_FILTER_CLOSE": "Cerrar",
+    "GLOBAL_FILTER_LEAD": "Configure un filtro compartido. Active \"Aplicar a todas las pestanas\" para usarlo en Todas las TV, Favoritos, ARTE Replay, Archive.org y Grabaciones.",
+    "GLOBAL_FILTER_APPLY_ALL": "Aplicar a todas las pestanas",
+    "GLOBAL_FILTER_APPLY_ALL_HINT": "Cuando esta activado, el filtro permanece al cambiar de pestana y se guarda en su cuenta.",
+    "GLOBAL_FILTER_APPLY": "Aplicar",
+    "GLOBAL_FILTER_CLEAR": "Borrar",
+    "GLOBAL_FILTER_LOGIN": "Inicie sesion para guardar este filtro en su cuenta.",
+    "GLOBAL_FILTER_COUNTRY_HINT": "For Archive.org: filters by the country language. For ARTE: catalog language. For All TVs: channel country.",
+    "GLOBAL_FILTER_CHANNEL_HINT": "Live TV / Favorites: channel name. Archive.org & ARTE: can also search a title.",
+    "GLOBAL_FILTER_PROGRAM_HINT": "Archive.org & ARTE: film or show title (server search). Live TV: EPG programme title.",
+    "GLOBAL_FILTER_PROGRAM_PLACEHOLDER": "E.g. Star Wars, news, documentary…"
   },
   "RADIO": {
     "TITLE": "Radio â€” world stations",

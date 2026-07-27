@@ -15,6 +15,7 @@ import com.pat.repo.MembersRepository;
 import com.pat.repo.DiscussionRepository;
 import com.pat.repo.TodoListRepository;
 import com.pat.service.EvenementTodoListLinkService;
+import com.pat.service.EvenementPdfConverterLinkService;
 import com.pat.repo.UserConnectionLogRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,6 +81,9 @@ public class EvenementRestController {
 
     @Autowired
     private EvenementTodoListLinkService evenementTodoListLinkService;
+
+    @Autowired
+    private EvenementPdfConverterLinkService evenementPdfConverterLinkService;
     
     @Autowired
     private GridFsTemplate gridFsTemplate;
@@ -187,6 +191,7 @@ public class EvenementRestController {
         Page<Evenement> pageResult = evenementsRepository.searchByFilter(evenementName, userId, pageable);
         if (pageResult != null && StringUtils.hasText(userId)) {
             evenementTodoListLinkService.attachLinkedTodoListsForEvents(pageResult.getContent(), userId.trim());
+            evenementPdfConverterLinkService.attachLinkedPdfDocumentsForEvents(pageResult.getContent());
         }
         return pageResult;
     }
@@ -227,6 +232,7 @@ public class EvenementRestController {
             return;
         }
         evenementTodoListLinkService.attachLinkedTodoListsForEvents(buffer, memberId, listAccessCache);
+        evenementPdfConverterLinkService.attachLinkedPdfDocumentsForEvents(buffer);
         List<Evenement> toSend = new ArrayList<>(buffer);
         buffer.clear();
         for (int i = 0; i < toSend.size(); i++) {
@@ -268,6 +274,7 @@ public class EvenementRestController {
             java.util.concurrent.atomic.AtomicBoolean clientConnected,
             AtomicInteger sentCount) throws IOException {
         evenementTodoListLinkService.attachForStreamEvent(event, userId, listAccessCache);
+        evenementPdfConverterLinkService.attachLinkedPdfDocuments(event);
         resolveStreamEventDbRefs(event);
         if (!clientConnected.get()) {
             return;
@@ -512,6 +519,7 @@ public class EvenementRestController {
                     if (!nullDateEvents.isEmpty()) {
                         evenementTodoListLinkService.attachLinkedTodoListsForEvents(
                                 nullDateEvents, streamMemberId, streamTodoListAccessCache);
+                        evenementPdfConverterLinkService.attachLinkedPdfDocumentsForEvents(nullDateEvents);
                     }
                     for (Evenement event : nullDateEvents) {
                         try {
@@ -1418,6 +1426,7 @@ public class EvenementRestController {
         }
 
         evenementTodoListLinkService.attachLinkedTodoListIfAccessible(evenement, currentUserId);
+        evenementPdfConverterLinkService.attachLinkedPdfDocuments(evenement);
         
         // Handle discussionId: if it exists but the discussion doesn't, create it (like for FriendGroup)
         if (evenement.getDiscussionId() != null && !evenement.getDiscussionId().trim().isEmpty()) {

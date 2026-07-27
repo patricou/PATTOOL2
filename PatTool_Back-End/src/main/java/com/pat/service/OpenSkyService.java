@@ -123,6 +123,26 @@ public class OpenSkyService {
         return !clientId.isEmpty() && !clientSecret.isEmpty();
     }
 
+    public int clearCache() {
+        int n = cachedAllStates != null ? 1 : 0;
+        if (cachedToken != null) {
+            n++;
+        }
+        cachedAllStates = null;
+        cachedAllStatesAtMs = 0;
+        cachedToken = null;
+        cachedTokenExpiryMs = 0;
+        return n;
+    }
+
+    public int cacheEntryCount() {
+        int n = cachedAllStates != null ? 1 : 0;
+        if (cachedToken != null) {
+            n++;
+        }
+        return n;
+    }
+
     /** Valid callsign (radio callsign / flight number, 2–8 alphanumeric characters). */
     public static boolean isValidCallsign(String callsign) {
         return callsign != null && CALLSIGN_RE.matcher(callsign.trim().toUpperCase(Locale.ROOT)).matches();

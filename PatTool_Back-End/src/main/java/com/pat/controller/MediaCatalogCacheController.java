@@ -13,7 +13,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Manual / status endpoints for TV + radio in-memory catalog caches.
+ * Status + manual refresh for all media catalog caches (TV, EPG, radio, Archive.org).
+ * Same full refresh as the 07:00 / 17:00 / 20:00 schedule.
  */
 @RestController
 @RequestMapping("/api/external/media/catalog-cache")

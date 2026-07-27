@@ -585,6 +585,32 @@
     box-shadow: 0 2px 8px rgba(13, 110, 253, 0.35);
 }
 
+.group-action-btn--pdf-converter {
+    background: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+    border-color: rgba(220, 53, 69, 0.4);
+}
+.group-action-btn--pdf-converter:hover {
+    background: #dc3545;
+    color: #fff;
+    border-color: #b02a37;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.35);
+}
+
+.group-action-btn--agenda {
+    background: rgba(25, 135, 84, 0.1);
+    color: #198754;
+    border-color: rgba(25, 135, 84, 0.4);
+}
+.group-action-btn--agenda:hover {
+    background: #198754;
+    color: #fff;
+    border-color: #146c43;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(25, 135, 84, 0.35);
+}
+
 /*
  * Bouton IA mur de photos : rond, fond noir, bordure et glyphe jaunes.
  */

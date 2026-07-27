@@ -221,6 +221,19 @@
   font-weight: 500;
 }
 
+.meta-item-dates .meta-agenda-btn {
+  padding: 0.15rem 0.45rem;
+  min-height: auto;
+  line-height: 1;
+  font-size: 0.75rem;
+  border-radius: 999px;
+  margin-left: 0.15rem;
+}
+
+.meta-item-dates .meta-agenda-btn .fa {
+  margin: 0;
+}
+
 .meta-item {
   background: var(--color-very-light, rgba(255, 255, 255, 0.25));
   border: 1px solid var(--color-very-light-border, rgba(255, 255, 255, 0.4));
@@ -863,6 +876,7 @@
 .urls-card .card-header-compact { background: linear-gradient(270deg, var(--card-header-gradient-start) 0%, var(--card-header-gradient-end) 100%); }
 .photofromfs-card .card-header-compact { background: linear-gradient(45deg, var(--card-header-gradient-end) 0%, var(--card-header-gradient-start) 100%); }
 .pdfs-card .card-header-compact { background: linear-gradient(225deg, var(--card-header-gradient-end) 0%, var(--card-header-gradient-start) 100%); }
+.pdf-converter-docs-card .card-header-compact { background: linear-gradient(225deg, #c0392b 0%, #e74c3c 100%); }
 .tracks-card .card-header-compact { background: linear-gradient(315deg, var(--card-header-gradient-end) 0%, var(--card-header-gradient-start) 100%); }
 .video-card .card-header-compact { background: linear-gradient(90deg, var(--card-header-gradient-end) 0%, var(--card-header-gradient-start) 100%); }
 .upload-card .card-header-compact { background: linear-gradient(270deg, var(--card-header-gradient-start) 0%, var(--card-header-gradient-end) 100%); }

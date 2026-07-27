@@ -17,6 +17,20 @@ public class PdfConverterDocumentRequest {
     @Size(max = 5_000_000)
     private String htmlContent;
 
+    /**
+     * Optional personal calendar appointment id. Mutually exclusive with
+     * {@link #evenementId}.
+     */
+    @Size(max = 64)
+    private String calendarAppointmentId;
+
+    /**
+     * Optional activity (evenement) id. Mutually exclusive with
+     * {@link #calendarAppointmentId}.
+     */
+    @Size(max = 64)
+    private String evenementId;
+
     public String getFileName() {
         return fileName;
     }
@@ -31,5 +45,21 @@ public class PdfConverterDocumentRequest {
 
     public void setHtmlContent(String htmlContent) {
         this.htmlContent = htmlContent;
+    }
+
+    public String getCalendarAppointmentId() {
+        return calendarAppointmentId;
+    }
+
+    public void setCalendarAppointmentId(String calendarAppointmentId) {
+        this.calendarAppointmentId = calendarAppointmentId;
+    }
+
+    public String getEvenementId() {
+        return evenementId;
+    }
+
+    public void setEvenementId(String evenementId) {
+        this.evenementId = evenementId;
     }
 }

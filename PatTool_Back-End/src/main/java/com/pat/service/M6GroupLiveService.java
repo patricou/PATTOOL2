@@ -185,6 +185,16 @@ public class M6GroupLiveService {
             markFailed(cached.url, Duration.ofMinutes(2));
         }
     }
+
+    public int invalidateAll() {
+        int n = streamCache.size();
+        streamCache.clear();
+        return n;
+    }
+
+    public int cacheEntryCount() {
+        return streamCache.size();
+    }
     public Optional<String> resolveVirtualOrPassthrough(String url) {
         return resolveVirtualOrPassthrough(url, false);
     }

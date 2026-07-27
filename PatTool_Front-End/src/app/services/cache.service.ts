@@ -118,6 +118,50 @@ export class CacheService {
     );
   }
 
+  getCacheRegistry(): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get(this.API_URL + "cache/registry", { headers: headers })
+      )
+    );
+  }
+
+  clearRegistryCache(id: string, user: any): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post(this.API_URL + "cache/registry/" + encodeURIComponent(id) + "/clear", user, { headers: headers })
+      )
+    );
+  }
+
+  clearAllRegistryCaches(user: any): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post(this.API_URL + "cache/registry/clear-all", user, { headers: headers })
+      )
+    );
+  }
+
+  clearSelectedRegistryCaches(ids: string[], user: any): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post(
+          this.API_URL + "cache/registry/clear-selected",
+          { ...user, ids },
+          { headers: headers }
+        )
+      )
+    );
+  }
+
+  refreshMediaCatalog(user: any): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post(this.API_URL + "cache/registry/media-catalog/refresh", user, { headers: headers })
+      )
+    );
+  }
+
   getConnectionLogs(startDate?: Date, endDate?: Date, page: number = 0, size: number = 100, includeUsernames: boolean = false): Observable<any> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers => {

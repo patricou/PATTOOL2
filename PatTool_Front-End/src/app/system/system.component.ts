@@ -59,6 +59,20 @@ export class SystemComponent implements OnInit {
   isLoadingStats: boolean = false;
   statsError: string = '';
 
+  // Full PatTool cache registry
+  cacheRegistry: any[] = [];
+  cacheRegistryCategories: string[] = [];
+  isLoadingRegistry: boolean = false;
+  registryError: string = '';
+  clearingCacheId: string | null = null;
+  isClearingAllCaches: boolean = false;
+  isRefreshingMediaCatalog: boolean = false;
+  registryMessage: string = '';
+  registryMessageVisible: boolean = false;
+  selectedRegistryCategory: string = 'all';
+  selectedCacheIds: string[] = [];
+  isClearingSelectedCaches: boolean = false;
+
   // Performance Statistics
   performanceStats: any = null;
   private pageLoadStartTime: number = 0;
@@ -121,6 +135,7 @@ export class SystemComponent implements OnInit {
     // Check authorization based on roles (Iot or Admin)
     this.checkAuthorizations();
     this.loadCacheStats();
+    this.loadCacheRegistry();
     this.pageLoadStartTime = performance.now();
     this.collectPerformanceStats();
     this.loadAdditionalDebugInfo();
@@ -613,9 +628,300 @@ export class SystemComponent implements OnInit {
 
   refreshAllStats(): void {
     this.loadCacheStats();
+    this.loadCacheRegistry();
     this.calculateFrontendCacheStats();
     this.collectPerformanceStats();
     this.loadAdditionalDebugInfo();
+  }
+
+  loadCacheRegistry(): void {
+    this.isLoadingRegistry = true;
+    this.registryError = '';
+    this._cacheService.getCacheRegistry().subscribe({
+      next: (response: any) => {
+        let data = response;
+        if (response?._body) {
+          data = typeof response._body === 'string' ? JSON.parse(response._body) : response._body;
+        }
+        if (data?.success) {
+          this.cacheRegistry = Array.isArray(data.caches) ? data.caches : [];
+          const cats = new Set<string>();
+          for (const c of this.cacheRegistry) {
+            if (c?.category) {
+              cats.add(c.category);
+            }
+          }
+          this.cacheRegistryCategories = Array.from(cats);
+        } else {
+          this.registryError = data?.message || 'Failed to load cache registry';
+          this.cacheRegistry = [];
+          this.cacheRegistryCategories = [];
+        }
+        this.isLoadingRegistry = false;
+        this.cdr.detectChanges();
+      },
+      error: (error: any) => {
+        this.registryError = error?.message || 'Error loading cache registry';
+        this.cacheRegistry = [];
+        this.cacheRegistryCategories = [];
+        this.isLoadingRegistry = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  get filteredCacheRegistry(): any[] {
+    if (this.selectedRegistryCategory === 'all') {
+      return this.cacheRegistry;
+    }
+    return this.cacheRegistry.filter(c => c.category === this.selectedRegistryCategory);
+  }
+
+  get registryTotalEntries(): number {
+    return this.cacheRegistry.reduce((sum, c) => sum + (Number(c.entryCount) || 0), 0);
+  }
+
+  selectRegistryCategory(category: string): void {
+    this.selectedRegistryCategory = category;
+    // Keep only selections still visible in the new filter
+    const visible = new Set(this.filteredCacheRegistry.map(c => c.id));
+    this.selectedCacheIds = this.selectedCacheIds.filter(id => visible.has(id));
+  }
+
+  isCacheSelected(id: string): boolean {
+    return this.selectedCacheIds.includes(id);
+  }
+
+  toggleCacheSelection(id: string, checked: boolean): void {
+    if (!id) {
+      return;
+    }
+    if (checked) {
+      if (!this.selectedCacheIds.includes(id)) {
+        this.selectedCacheIds = [...this.selectedCacheIds, id];
+      }
+    } else {
+      this.selectedCacheIds = this.selectedCacheIds.filter(x => x !== id);
+    }
+  }
+
+  get allFilteredSelected(): boolean {
+    const rows = this.filteredCacheRegistry;
+    return rows.length > 0 && rows.every(c => this.selectedCacheIds.includes(c.id));
+  }
+
+  toggleSelectAllFiltered(checked: boolean): void {
+    const ids = this.filteredCacheRegistry.map(c => c.id);
+    if (checked) {
+      const set = new Set([...this.selectedCacheIds, ...ids]);
+      this.selectedCacheIds = Array.from(set);
+    } else {
+      const remove = new Set(ids);
+      this.selectedCacheIds = this.selectedCacheIds.filter(id => !remove.has(id));
+    }
+  }
+
+  clearSelectedRegistryCaches(): void {
+    if (!this.isClearCacheAuthorized || this.selectedCacheIds.length === 0) {
+      return;
+    }
+    if (!confirm(this.translate.instant('SYSTEM.CACHE_REGISTRY.CLEAR_SELECTED_CONFIRM', {
+      count: this.selectedCacheIds.length
+    }))) {
+      return;
+    }
+    this.isClearingSelectedCaches = true;
+    this.registryMessageVisible = false;
+    const ids = [...this.selectedCacheIds];
+    this._cacheService.clearSelectedRegistryCaches(ids, this.user).subscribe({
+      next: (response: any) => {
+        let data = response;
+        if (response?._body) {
+          data = typeof response._body === 'string' ? JSON.parse(response._body) : response._body;
+        }
+        if (data?.success) {
+          this.showRegistryMessage(
+            this.translate.instant('SYSTEM.CACHE_REGISTRY.CLEAR_SELECTED_DONE', {
+              count: data.clearedCount ?? ids.length,
+              entries: data.totalClearedEntries ?? 0
+            })
+          );
+          this.selectedCacheIds = [];
+          this.loadCacheRegistry();
+          if (ids.includes('image-compression')) {
+            this.loadCacheStats();
+            this.loadCompressionCacheStats();
+          }
+        } else {
+          this.showRegistryMessage(data?.message || this.translate.instant('SYSTEM.CACHE_REGISTRY.CLEAR_ERROR'));
+        }
+        this.isClearingSelectedCaches = false;
+      },
+      error: (error: any) => {
+        this.showRegistryMessage(error?.error?.message || error?.message || this.translate.instant('SYSTEM.CACHE_REGISTRY.CLEAR_ERROR'));
+        this.isClearingSelectedCaches = false;
+      }
+    });
+  }
+
+  clearRegistryCache(cache: any): void {
+    if (!this.isClearCacheAuthorized || !cache?.id || !cache.clearable) {
+      return;
+    }
+    const label = this.translate.instant(cache.nameKey || cache.id);
+    if (!confirm(this.translate.instant('SYSTEM.CACHE_REGISTRY.CLEAR_CONFIRM', { name: label }))) {
+      return;
+    }
+    this.clearingCacheId = cache.id;
+    this.registryMessageVisible = false;
+    this._cacheService.clearRegistryCache(cache.id, this.user).subscribe({
+      next: (response: any) => {
+        let data = response;
+        if (response?._body) {
+          data = typeof response._body === 'string' ? JSON.parse(response._body) : response._body;
+        }
+        if (data?.success) {
+          this.showRegistryMessage(
+            this.translate.instant('SYSTEM.CACHE_REGISTRY.CLEAR_DONE', {
+              name: label,
+              count: data.clearedEntries ?? 0
+            })
+          );
+          this.loadCacheRegistry();
+          if (cache.id === 'image-compression') {
+            this.loadCacheStats();
+            this.loadCompressionCacheStats();
+          }
+        } else {
+          this.showRegistryMessage(data?.message || this.translate.instant('SYSTEM.CACHE_REGISTRY.CLEAR_ERROR'));
+        }
+        this.clearingCacheId = null;
+      },
+      error: (error: any) => {
+        this.showRegistryMessage(error?.error?.message || error?.message || this.translate.instant('SYSTEM.CACHE_REGISTRY.CLEAR_ERROR'));
+        this.clearingCacheId = null;
+      }
+    });
+  }
+
+  clearAllRegistryCaches(): void {
+    if (!this.isClearCacheAuthorized) {
+      return;
+    }
+    if (!confirm(this.translate.instant('SYSTEM.CACHE_REGISTRY.CLEAR_ALL_CONFIRM'))) {
+      return;
+    }
+    this.isClearingAllCaches = true;
+    this.registryMessageVisible = false;
+    this._cacheService.clearAllRegistryCaches(this.user).subscribe({
+      next: (response: any) => {
+        let data = response;
+        if (response?._body) {
+          data = typeof response._body === 'string' ? JSON.parse(response._body) : response._body;
+        }
+        if (data?.success) {
+          this.showRegistryMessage(
+            this.translate.instant('SYSTEM.CACHE_REGISTRY.CLEAR_ALL_DONE', {
+              count: data.totalClearedEntries ?? 0
+            })
+          );
+          this.loadCacheRegistry();
+          this.loadCacheStats();
+          this.loadCompressionCacheStats();
+        } else {
+          this.showRegistryMessage(data?.message || this.translate.instant('SYSTEM.CACHE_REGISTRY.CLEAR_ERROR'));
+        }
+        this.isClearingAllCaches = false;
+      },
+      error: (error: any) => {
+        this.showRegistryMessage(error?.error?.message || error?.message || this.translate.instant('SYSTEM.CACHE_REGISTRY.CLEAR_ERROR'));
+        this.isClearingAllCaches = false;
+      }
+    });
+  }
+
+  refreshMediaCatalogFromRegistry(): void {
+    if (!this.isClearCacheAuthorized) {
+      return;
+    }
+    this.isRefreshingMediaCatalog = true;
+    this.registryMessageVisible = false;
+    this._cacheService.refreshMediaCatalog(this.user).subscribe({
+      next: (response: any) => {
+        let data = response;
+        if (response?._body) {
+          data = typeof response._body === 'string' ? JSON.parse(response._body) : response._body;
+        }
+        if (data?.started || data?.success) {
+          const cacheCount = data?.cacheCount ?? 9;
+          this.showRegistryMessage(
+            this.translate.instant('SYSTEM.CACHE_REGISTRY.MEDIA_REFRESH_STARTED_N', { count: cacheCount })
+          );
+          this.pollMediaCatalogUntilIdle();
+        } else {
+          this.showRegistryMessage(data?.message || this.translate.instant('SYSTEM.CACHE_REGISTRY.MEDIA_REFRESH_BUSY'));
+          this.isRefreshingMediaCatalog = false;
+          this.loadCacheRegistry();
+        }
+      },
+      error: (error: any) => {
+        this.showRegistryMessage(error?.error?.message || error?.message || this.translate.instant('SYSTEM.CACHE_REGISTRY.MEDIA_REFRESH_ERROR'));
+        this.isRefreshingMediaCatalog = false;
+      }
+    });
+  }
+
+  private pollMediaCatalogUntilIdle(attempt: number = 0): void {
+    if (attempt > 90) {
+      this.isRefreshingMediaCatalog = false;
+      this.loadCacheRegistry();
+      return;
+    }
+    setTimeout(() => {
+      this._cacheService.getCacheRegistry().subscribe({
+        next: (response: any) => {
+          let data = response;
+          if (response?._body) {
+            data = typeof response._body === 'string' ? JSON.parse(response._body) : response._body;
+          }
+          const caches = Array.isArray(data?.caches) ? data.caches : [];
+          this.cacheRegistry = caches;
+          const media = caches.find((c: any) => c.id === 'media-catalog');
+          const busy = media?.details?.busy === true;
+          if (busy) {
+            this.pollMediaCatalogUntilIdle(attempt + 1);
+          } else {
+            this.isRefreshingMediaCatalog = false;
+            const durationSec = media?.details?.lastDurationMs != null
+              ? Math.round(Number(media.details.lastDurationMs) / 1000)
+              : null;
+            this.showRegistryMessage(
+              durationSec != null
+                ? this.translate.instant('SYSTEM.CACHE_REGISTRY.MEDIA_REFRESH_DONE_SEC', { seconds: durationSec })
+                : this.translate.instant('SYSTEM.CACHE_REGISTRY.MEDIA_REFRESH_DONE')
+            );
+            this.loadCacheRegistry();
+          }
+        },
+        error: () => {
+          this.isRefreshingMediaCatalog = false;
+          this.loadCacheRegistry();
+        }
+      });
+    }, 2000);
+  }
+
+  private showRegistryMessage(message: string): void {
+    this.registryMessage = message;
+    this.registryMessageVisible = true;
+    setTimeout(() => {
+      this.registryMessageVisible = false;
+      this.registryMessage = '';
+    }, 8000);
+  }
+
+  categoryLabelKey(category: string): string {
+    return 'SYSTEM.CACHE_REGISTRY.CATEGORY.' + (category || 'other').toUpperCase();
   }
 
   loadAdditionalDebugInfo(): void {

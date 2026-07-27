@@ -15,6 +15,17 @@
       <i class="fa fa-list-alt" aria-hidden="true"></i>
       <span class="tv-epg-browser-open-label">{{ 'TV.EPG_BROWSER_OPEN' | translate }}</span>
     </button>
+    <button
+      type="button"
+      class="tv-global-filter-open-btn"
+      [class.is-active]="applyGlobalFilterToAllTabs"
+      (click)="openGlobalFilter()"
+      [attr.title]="'TV.GLOBAL_FILTER_TITLE' | translate"
+      [attr.aria-label]="'TV.GLOBAL_FILTER_TITLE' | translate">
+      <i class="fa fa-filter" aria-hidden="true"></i>
+      <span class="tv-global-filter-open-label">{{ 'TV.GLOBAL_FILTER_OPEN' | translate }}</span>
+      <span class="tv-global-filter-open-dot" *ngIf="hasActiveGlobalFilter" aria-hidden="true"></span>
+    </button>
   </h2>
 </div>
 
@@ -25,6 +36,19 @@
   (closed)="closeEpgBrowser()"
   (playChannel)="onEpgBrowserPlay($event)">
 </app-tv-epg-browser>
+
+<app-tv-global-filter-modal
+  [open]="globalFilterOpen"
+  [countries]="countries"
+  [groups]="globalFilterGroups"
+  [preference]="globalFilterPreference"
+  [saving]="isSavingGlobalFilter"
+  [loginHint]="!isLoggedIn"
+  (closed)="closeGlobalFilter()"
+  (applied)="onGlobalFilterApplied($event)"
+  (cleared)="onGlobalFilterCleared($event)"
+  (countryChanged)="onGlobalFilterCountryChanged($event)">
+</app-tv-global-filter-modal>
 
 <div class="tv-page">
   <div class="alert alert-info py-2 px-3 small tv-float-banner" *ngIf="isFloatingOpen" role="status">
@@ -37,6 +61,30 @@
 
   <div class="tv-layout">
     <aside class="tv-sidebar">
+      <div class="tv-sidebar-filter">
+        <label class="visually-hidden" for="tv-sidebar-filter">{{ 'TV.SIDEBAR_FILTER' | translate }}</label>
+        <div class="tv-sidebar-filter-row">
+          <i class="fa fa-search tv-sidebar-filter-icon" aria-hidden="true"></i>
+          <input
+            id="tv-sidebar-filter"
+            type="search"
+            class="form-control form-control-sm tv-sidebar-filter-input"
+            [(ngModel)]="sidebarFilterQuery"
+            (ngModelChange)="onSidebarFilterChange()"
+            [placeholder]="'TV.SIDEBAR_FILTER_PLACEHOLDER' | translate"
+            autocomplete="off"
+            spellcheck="false" />
+          <button
+            type="button"
+            class="tv-sidebar-filter-clear"
+            *ngIf="sidebarFilterQuery.trim()"
+            (click)="clearSidebarFilter()"
+            [attr.title]="'TV.SIDEBAR_FILTER_CLEAR' | translate"
+            [attr.aria-label]="'TV.SIDEBAR_FILTER_CLEAR' | translate">
+            <i class="fa fa-times" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
       <div class="tv-mode-tabs" role="tablist">
         <div class="tv-mode-tabs-row">
           <button
@@ -98,12 +146,6 @@
             (click)="setListMode('ia')">
             <i class="fa fa-film me-1" aria-hidden="true"></i>
             {{ 'TV.TAB_IA' | translate }}
-            <span
-              class="badge rounded-pill tv-ia-badge"
-              *ngIf="iaTotal > 0"
-              [attr.title]="'TV.IA_COUNT' | translate:{ count: iaTotal }">
-              {{ iaTotal }}
-            </span>
           </button>
           <button
             type="button"
@@ -123,225 +165,37 @@
         </div>
       </div>
 
-      <div class="tv-filters-panel">
-        <button
-          type="button"
-          class="tv-filters-toggle"
-          (click)="toggleFiltersCollapsed()"
-          [attr.aria-expanded]="!filtersCollapsed"
-          [attr.title]="(filtersCollapsed ? 'TV.FILTERS_SHOW' : 'TV.FILTERS_HIDE') | translate"
-          [attr.aria-label]="(filtersCollapsed ? 'TV.FILTERS_SHOW' : 'TV.FILTERS_HIDE') | translate">
-          <span class="tv-filters-toggle-label">
-            <i class="fa fa-filter" aria-hidden="true"></i>
-            {{ 'TV.FILTERS' | translate }}
-            <span
-              class="badge rounded-pill tv-filters-active-badge"
-              *ngIf="filtersCollapsed && hasFilterInputs"
-              [attr.title]="'TV.CHANNEL_COUNT_FILTERED' | translate">
-              <i class="fa fa-circle" aria-hidden="true"></i>
-            </span>
-          </span>
-          <i
-            class="fa tv-filters-toggle-caret"
-            [class.fa-chevron-down]="filtersCollapsed"
-            [class.fa-chevron-up]="!filtersCollapsed"
-            aria-hidden="true"></i>
-        </button>
-
-        <div class="tv-filters-body" *ngIf="!filtersCollapsed" id="tv-filters-body">
-          <div class="tv-filters" *ngIf="listMode === 'catalog'">
-            <label class="form-label small mb-1" id="tv-country-label">
-              {{ 'TV.COUNTRY' | translate }}
-            </label>
-            <div class="tv-country-picker" (click)="$event.stopPropagation()">
-              <button
-                type="button"
-                class="tv-country-btn form-select form-select-sm"
-                id="tv-country"
-                [attr.aria-labelledby]="'tv-country-label'"
-                [attr.aria-expanded]="countryMenuOpen"
-                [disabled]="isLoadingCountries"
-                (click)="toggleCountryMenu($event)">
-                <span
-                  *ngIf="!isAllCountries && countryFlagCode(selectedCountry) as flagCode"
-                  class="fi fi-{{ flagCode }} tv-fi-flag"
-                  aria-hidden="true"></span>
-                <i *ngIf="isAllCountries" class="fa fa-globe tv-country-globe" aria-hidden="true"></i>
-                <span class="tv-country-btn-label">{{ selectedCountryName() }}</span>
-                <i class="fa fa-caret-down tv-country-caret" aria-hidden="true"></i>
-              </button>
-              <div class="tv-country-menu" *ngIf="countryMenuOpen" role="listbox" [attr.aria-label]="'TV.COUNTRY' | translate">
-                <div class="tv-country-filter-wrap" (click)="$event.stopPropagation()">
-                  <input
-                    type="search"
-                    class="form-control form-control-sm tv-country-filter"
-                    [(ngModel)]="countryFilter"
-                    [placeholder]="'TV.COUNTRY_FILTER' | translate"
-                    autocomplete="off"
-                    (keydown.escape)="countryMenuOpen = false" />
-                </div>
-                <button
-                  type="button"
-                  class="tv-country-option"
-                  role="option"
-                  [attr.aria-selected]="isAllCountries"
-                  [class.active]="isAllCountries"
-                  (click)="selectCountry('all', $event)">
-                  <i class="fa fa-globe tv-country-globe" aria-hidden="true"></i>
-                  <span>{{ 'TV.COUNTRY_ALL' | translate }}</span>
-                </button>
-                <button
-                  type="button"
-                  class="tv-country-option"
-                  role="option"
-                  *ngFor="let c of filteredCountries"
-                  [attr.aria-selected]="selectedCountry === c.code"
-                  [class.active]="selectedCountry === c.code"
-                  (click)="selectCountry(c.code, $event)">
-                  <span class="fi fi-{{ countryFlagCode(c.code) }} tv-fi-flag" aria-hidden="true"></span>
-                  <span>{{ c.name }}</span>
-                </button>
-                <div
-                  class="tv-country-empty small text-muted"
-                  *ngIf="countryFilter.trim() && filteredCountries.length === 0">
-                  {{ 'TV.COUNTRY_FILTER_EMPTY' | translate }}
-                </div>
-                <div
-                  class="tv-country-empty small text-danger"
-                  *ngIf="!countryFilter.trim() && countries.length === 0 && !isLoadingCountries">
-                  {{ (countriesError || 'TV.ERR_COUNTRIES') | translate }}
-                </div>
-              </div>
-            </div>
-
-            <label class="form-label small mb-1 mt-2" for="tv-group">
-              <i class="fa me-1" [ngClass]="groupIconClass(selectedGroup)" aria-hidden="true"></i>
-              {{ 'TV.GROUP' | translate }}
-            </label>
-            <select
-              id="tv-group"
-              class="form-select form-select-sm"
-              [(ngModel)]="selectedGroup"
-              (ngModelChange)="onGroupChange()">
-              <option value="">{{ groupEmoji('') }} {{ 'TV.GROUP_ALL' | translate }}</option>
-              <option *ngFor="let g of groups" [value]="g">{{ groupEmoji(g) }} {{ groupLabelKey(g) | translate }}</option>
-            </select>
-          </div>
-
-          <div class="tv-filters" *ngIf="listMode === 'arte'">
-            <label class="form-label small mb-1" for="tv-arte-section">
-              {{ 'TV.ARTE_SECTION' | translate }}
-            </label>
-            <select
-              id="tv-arte-section"
-              class="form-select form-select-sm"
-              [(ngModel)]="arteSection"
-              [disabled]="isLoadingArte || channelQuery.trim().length >= 2"
-              (ngModelChange)="onArteSectionChange()">
-              <option *ngFor="let sec of arteSections" [value]="sec.code">{{ sec.label }}</option>
-            </select>
-            <p class="tv-arte-hint small text-muted mt-1 mb-0" *ngIf="channelQuery.trim().length >= 2">
-              {{ 'TV.ARTE_SEARCH_OVERRIDES_SECTION' | translate }}
-            </p>
-          </div>
-
-          <div class="tv-filters" *ngIf="listMode === 'ia'">
-            <label class="form-label small mb-1" for="tv-ia-section">
-              {{ 'TV.IA_SECTION' | translate }}
-            </label>
-            <select
-              id="tv-ia-section"
-              class="form-select form-select-sm"
-              [(ngModel)]="iaSection"
-              [disabled]="isLoadingIa || channelQuery.trim().length >= 2"
-              (ngModelChange)="onIaSectionChange()">
-              <option *ngFor="let sec of iaSections" [value]="sec.code">{{ sec.label }}</option>
-            </select>
-            <p class="tv-arte-hint small text-muted mt-1 mb-0" *ngIf="channelQuery.trim().length >= 2">
-              {{ 'TV.IA_SEARCH_OVERRIDES_SECTION' | translate }}
-            </p>
-          </div>
-
-          <div class="tv-filters" [class.tv-filters--search-only]="listMode === 'favorites' || listMode === 'recordings' || listMode === 'arte' || listMode === 'ia'">
-            <label class="form-label small mb-1" for="tv-search-channel">
-              {{ (listMode === 'recordings' ? 'TV.SEARCH_RECORDING' : (listMode === 'arte' ? 'TV.ARTE_SEARCH' : (listMode === 'ia' ? 'TV.IA_SEARCH' : 'TV.SEARCH_CHANNEL'))) | translate }}
-            </label>
-            <div class="input-group input-group-sm">
-              <input
-                id="tv-search-channel"
-                type="search"
-                class="form-control"
-                [ngModel]="channelQuery"
-                (ngModelChange)="onChannelSearchInput($event)"
-                [placeholder]="(listMode === 'recordings' ? 'TV.SEARCH_PLACEHOLDER_RECORDING' : (listMode === 'arte' ? 'TV.ARTE_SEARCH_PLACEHOLDER' : (listMode === 'ia' ? 'TV.IA_SEARCH_PLACEHOLDER' : (isAllCountries ? 'TV.SEARCH_PLACEHOLDER_ALL' : 'TV.SEARCH_PLACEHOLDER_CHANNEL')))) | translate"
-                autocomplete="off" />
-              <button
-                type="button"
-                class="btn btn-outline-secondary"
-                *ngIf="channelQuery"
-                (click)="clearChannelSearch()"
-                [attr.aria-label]="'TV.CLEAR_SEARCH' | translate">
-                <i class="fa fa-times"></i>
-              </button>
-            </div>
-            <div class="tv-worldwide-hint small text-muted mt-1" *ngIf="listMode === 'catalog' && worldwideSearchHint">
-              <i class="fa fa-globe me-1" aria-hidden="true"></i>
-              {{ 'TV.SEARCH_WORLDWIDE_HINT' | translate }}
-            </div>
-
-            <ng-container *ngIf="listMode !== 'recordings' && listMode !== 'arte' && listMode !== 'ia'">
-            <label class="form-label small mb-1 mt-2" for="tv-search-program">
-              {{ 'TV.SEARCH_PROGRAM' | translate }}
-            </label>
-            <div class="input-group input-group-sm">
-              <input
-                id="tv-search-program"
-                type="search"
-                class="form-control"
-                [ngModel]="programQuery"
-                (ngModelChange)="onProgramSearchInput($event)"
-                [placeholder]="'TV.SEARCH_PLACEHOLDER_PROGRAM' | translate"
-                autocomplete="off" />
-              <button
-                type="button"
-                class="btn btn-outline-secondary"
-                *ngIf="programQuery"
-                (click)="clearProgramSearch()"
-                [attr.aria-label]="'TV.CLEAR_SEARCH' | translate">
-                <i class="fa fa-times"></i>
-              </button>
-            </div>
-            <div
-              class="tv-epg-search-hint small text-muted mt-1"
-              *ngIf="programQuery.trim().length >= 2 && isLoadingProgramSearch">
-              <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
-              {{ 'TV.SEARCH_EPG_LOADING' | translate }}
-            </div>
-            </ng-container>
-          </div>
-        </div>
+      <div class="tv-section-bar" *ngIf="listMode === 'arte' || listMode === 'ia'">
+        <label class="form-label small mb-1" [attr.for]="listMode === 'arte' ? 'tv-arte-section' : 'tv-ia-section'">
+          {{ (listMode === 'arte' ? 'TV.ARTE_SECTION' : 'TV.IA_SECTION') | translate }}
+        </label>
+        <select
+          *ngIf="listMode === 'arte'"
+          id="tv-arte-section"
+          class="form-select form-select-sm"
+          [(ngModel)]="arteSection"
+          [disabled]="isLoadingArte || replaySearchActive"
+          (ngModelChange)="onArteSectionChange()">
+          <option *ngFor="let sec of arteSections" [value]="sec.code">{{ sec.label }}</option>
+        </select>
+        <select
+          *ngIf="listMode === 'ia'"
+          id="tv-ia-section"
+          class="form-select form-select-sm"
+          [(ngModel)]="iaSection"
+          [disabled]="isLoadingIa || replaySearchActive"
+          (ngModelChange)="onIaSectionChange()">
+          <option *ngFor="let sec of iaSections" [value]="sec.code">{{ sec.label }}</option>
+        </select>
+        <p class="tv-arte-hint small text-muted mt-1 mb-0" *ngIf="replaySearchActive">
+          {{ (listMode === 'arte' ? 'TV.ARTE_SEARCH_OVERRIDES_SECTION' : 'TV.IA_SEARCH_OVERRIDES_SECTION') | translate }}
+        </p>
       </div>
 
       <div class="tv-channel-meta" *ngIf="listMode === 'catalog' || listMode === 'favorites' || listMode === 'recordings' || listMode === 'arte' || listMode === 'ia'" role="status">
-        <span *ngIf="listMode === 'catalog' && isLoadingChannels">
+        <span *ngIf="isLoadingChannelList" class="tv-channel-meta-loading">
           <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
-          {{ 'TV.LOADING' | translate }}
-        </span>
-        <span *ngIf="listMode === 'favorites' && isLoadingFavorites">
-          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
-          {{ 'TV.LOADING_FAVORITES' | translate }}
-        </span>
-        <span *ngIf="listMode === 'recordings' && isLoadingRecordings">
-          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
-          {{ 'TV.RECORDINGS_LOADING' | translate }}
-        </span>
-        <span *ngIf="listMode === 'arte' && isLoadingArte">
-          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
-          {{ 'TV.ARTE_LOADING' | translate }}
-        </span>
-        <span *ngIf="listMode === 'ia' && isLoadingIa">
-          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
-          {{ 'TV.IA_LOADING' | translate }}
+          {{ channelListLoadingKey | translate }}
         </span>
         <span *ngIf="listMode === 'catalog' && !isLoadingChannels" class="tv-channel-meta-count">
           <i class="fa fa-television me-1" aria-hidden="true"></i>
@@ -403,11 +257,22 @@
         {{ recordingsHint | translate }}
       </div>
 
+      <div
+        class="tv-list-loading"
+        *ngIf="isLoadingChannelList"
+        role="status"
+        [attr.aria-label]="channelListLoadingKey | translate">
+        <div class="tv-list-loading-inner">
+          <span class="tv-list-loading-spinner" aria-hidden="true"></span>
+          <span class="tv-list-loading-text">{{ channelListLoadingKey | translate }}</span>
+        </div>
+      </div>
+
       <ul
         class="tv-channel-list"
         role="listbox"
         [attr.aria-label]="'TV.CHANNELS' | translate"
-        *ngIf="listMode !== 'recordings'">
+        *ngIf="listMode !== 'recordings' && !isLoadingChannelList">
         <li
           *ngFor="let ch of displayedChannels; let i = index; trackBy: trackByChannelId"
           class="tv-channel-item"
@@ -417,7 +282,7 @@
           (click)="selectChannel(ch)"
           (keydown.enter)="selectChannel(ch)"
           tabindex="0">
-          <span class="tv-channel-index" aria-hidden="true">{{ i + 1 }}</span>
+          <span class="tv-channel-index" aria-hidden="true">{{ listItemNumber(i) }}</span>
           <img
             *ngIf="ch.logo"
             class="tv-channel-logo"
@@ -506,7 +371,7 @@
         </li>
       </ul>
 
-      <div class="tv-arte-pager" *ngIf="listMode === 'arte' && artePages > 1" role="navigation" [attr.aria-label]="'TV.ARTE_PAGER' | translate">
+      <div class="tv-arte-pager" *ngIf="listMode === 'arte' && artePages > 1 && !isLoadingChannelList" role="navigation" [attr.aria-label]="'TV.ARTE_PAGER' | translate">
         <button
           type="button"
           class="btn btn-sm btn-outline-secondary"
@@ -524,7 +389,7 @@
         </button>
       </div>
 
-      <div class="tv-arte-pager" *ngIf="listMode === 'ia' && iaPages > 1" role="navigation" [attr.aria-label]="'TV.IA_PAGER' | translate">
+      <div class="tv-arte-pager" *ngIf="listMode === 'ia' && iaPages > 1 && !isLoadingChannelList" role="navigation" [attr.aria-label]="'TV.IA_PAGER' | translate">
         <button
           type="button"
           class="btn btn-sm btn-outline-secondary"
@@ -546,11 +411,7 @@
         class="tv-channel-list tv-recording-list"
         role="listbox"
         [attr.aria-label]="'TV.TAB_RECORDINGS' | translate"
-        *ngIf="listMode === 'recordings'">
-        <li *ngIf="isLoadingRecordings" class="tv-empty text-muted small">
-          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
-          {{ 'TV.RECORDINGS_LOADING' | translate }}
-        </li>
+        *ngIf="listMode === 'recordings' && !isLoadingChannelList">
         <li
           *ngFor="let rec of filteredRecordings; trackBy: trackByRecordingId"
           class="tv-channel-item tv-recording-item"
@@ -586,6 +447,20 @@
               <span class="tv-rec-status" [attr.data-status]="rec.status">
                 {{ recordingStatusLabelKey(rec.status) | translate }}
               </span>
+              <span
+                class="tv-rec-visibility"
+                [attr.data-visibility]="rec.visibility || 'private'"
+                [attr.title]="recordingVisibilityLabelKey(rec.visibility) | translate">
+                <i
+                  class="fa"
+                  [class.fa-lock]="(rec.visibility || 'private') === 'private'"
+                  [class.fa-globe]="rec.visibility === 'public'"
+                  [class.fa-users]="rec.visibility === 'friends' || rec.visibility === 'friendGroups'"
+                  aria-hidden="true"></i>
+                <span *ngIf="rec.ownedByMe === false" class="tv-rec-shared-tag">
+                  {{ 'TV.RECORD_SHARED_WITH_ME' | translate }}
+                </span>
+              </span>
               <span *ngIf="formatRecordingWhen(rec.startedAt) as when" class="tv-channel-meta-sep" aria-hidden="true">·</span>
               <span *ngIf="formatRecordingWhen(rec.startedAt) as when">{{ when }}</span>
               <span *ngIf="formatRecordingSize(rec.byteLength) as size" class="tv-channel-meta-sep" aria-hidden="true">·</span>
@@ -609,6 +484,17 @@
                 aria-hidden="true"></i>
             </button>
             <button
+              *ngIf="isRecordingOwned(rec)"
+              type="button"
+              class="tv-fav-btn tv-rec-action-btn"
+              [disabled]="recordingBusy"
+              (click)="openShareRecording(rec, $event)"
+              [attr.title]="'TV.RECORD_SHARE' | translate"
+              [attr.aria-label]="'TV.RECORD_SHARE' | translate">
+              <i class="fa fa-share-alt" aria-hidden="true"></i>
+            </button>
+            <button
+              *ngIf="isRecordingOwned(rec)"
               type="button"
               class="tv-fav-btn tv-rec-action-btn"
               [disabled]="recordingBusy"
@@ -618,6 +504,7 @@
               <i class="fa fa-pencil" aria-hidden="true"></i>
             </button>
             <button
+              *ngIf="isRecordingOwned(rec)"
               type="button"
               class="tv-fav-btn tv-rec-delete-btn"
               [disabled]="recordingBusy"
@@ -1037,4 +924,77 @@
       {{ 'TV.SUBTITLE' | translate }}
     </p>
   </footer>
+
+  <div
+    class="tv-rec-share-backdrop"
+    *ngIf="shareRecordingOpen"
+    (click)="closeShareRecording()"
+    role="presentation">
+    <div
+      class="tv-rec-share-dialog"
+      role="dialog"
+      aria-modal="true"
+      [attr.aria-label]="'TV.RECORD_SHARE_TITLE' | translate"
+      (click)="$event.stopPropagation()">
+      <div class="tv-rec-share-header">
+        <h2 class="tv-rec-share-title">{{ 'TV.RECORD_SHARE_TITLE' | translate }}</h2>
+        <button
+          type="button"
+          class="btn btn-sm btn-link text-secondary"
+          (click)="closeShareRecording()"
+          [attr.aria-label]="'TV.RECORD_SHARE_CLOSE' | translate">
+          <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+      <p class="tv-rec-share-name text-muted small mb-2" *ngIf="shareRecordingTarget">
+        {{ shareRecordingTarget.channelName || 'TV' }}
+      </p>
+      <label class="form-label small mb-1" for="tv-rec-share-visibility">
+        {{ 'TV.RECORD_VISIBILITY_LABEL' | translate }}
+      </label>
+      <select
+        id="tv-rec-share-visibility"
+        class="form-select form-select-sm"
+        name="shareVisibilityPreset"
+        [(ngModel)]="shareVisibilityPreset"
+        (ngModelChange)="onShareVisibilityPresetChange()"
+        [disabled]="shareBusy">
+        <option value="private">{{ 'EVENTCREATION.PRIVATE' | translate }}</option>
+        <option value="public">{{ 'EVENTCREATION.PUBLIC' | translate }}</option>
+        <option value="friends">{{ 'EVENTCREATION.FRIENDS' | translate }}</option>
+        <option value="friendGroups">{{ 'TV.RECORD_VISIBILITY_FRIEND_GROUPS' | translate }}</option>
+      </select>
+      <div *ngIf="shareVisibilityPreset === 'friendGroups'" class="mt-2 small">
+        <p class="text-secondary mb-1">{{ 'TV.RECORD_VISIBILITY_GROUPS_HINT' | translate }}</p>
+        <div
+          class="tv-rec-share-groups border rounded px-2 py-2"
+          role="group"
+          [attr.aria-label]="'TV.RECORD_VISIBILITY_GROUPS_HINT' | translate">
+          <p *ngIf="shareFriendGroupsSorted.length === 0" class="text-muted fst-italic mb-0">
+            {{ 'TV.RECORD_VISIBILITY_GROUPS_EMPTY' | translate }}
+          </p>
+          <div *ngFor="let g of shareFriendGroupsSorted; trackBy: trackByFriendGroupId" class="form-check mb-1">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              [id]="'tv-rec-vis-g-' + g.id"
+              [checked]="shareFriendGroupChecked(g.id)"
+              [disabled]="shareBusy"
+              (change)="onShareFriendGroupToggle(g.id, $any($event.target).checked)" />
+            <label class="form-check-label" [for]="'tv-rec-vis-g-' + g.id">{{ g.name }}</label>
+          </div>
+        </div>
+      </div>
+      <p class="text-danger small mt-2 mb-0" *ngIf="shareError">{{ shareError | translate }}</p>
+      <div class="tv-rec-share-actions mt-3">
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="closeShareRecording()" [disabled]="shareBusy">
+          {{ 'TV.RECORD_SHARE_CANCEL' | translate }}
+        </button>
+        <button type="button" class="btn btn-sm btn-primary" (click)="saveShareRecording()" [disabled]="shareBusy">
+          <i class="fa fa-spinner fa-spin me-1" *ngIf="shareBusy" aria-hidden="true"></i>
+          {{ 'TV.RECORD_SHARE_SAVE' | translate }}
+        </button>
+      </div>
+    </div>
+  </div>
 </div>

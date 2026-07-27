@@ -250,6 +250,10 @@ public class OpenMeteoService {
         return cleared;
     }
 
+    public int cacheEntryCount() {
+        return obsCache.size() + gridResponseCache.size();
+    }
+
     private static Map<String, Object> emptyPointsResult(List<Map<String, Object>> points) {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("points", points);

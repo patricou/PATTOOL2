@@ -263,6 +263,10 @@ public class MeteoFranceClimService {
         return cleared;
     }
 
+    public int cacheEntryCount() {
+        return climResponseCache.size();
+    }
+
     private static String climCacheKey(
             double lat, double lon, String dept, String freq, int days, String stationId) {
         String stationPart = stationId != null && !stationId.isBlank()

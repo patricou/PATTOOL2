@@ -27,6 +27,18 @@ public class PdfConverterDocument {
     /** Quill HTML body (bold, lists, inline images, etc.). */
     private String htmlContent;
 
+    /**
+     * Optional link to a personal calendar appointment. Mutually exclusive with
+     * {@link #evenementId}.
+     */
+    private String calendarAppointmentId;
+
+    /**
+     * Optional link to an activity ({@link Evenement}). Mutually exclusive with
+     * {@link #calendarAppointmentId}.
+     */
+    private String evenementId;
+
     private Date createdAt;
 
     private Date updatedAt;
@@ -65,6 +77,22 @@ public class PdfConverterDocument {
 
     public void setHtmlContent(String htmlContent) {
         this.htmlContent = htmlContent;
+    }
+
+    public String getCalendarAppointmentId() {
+        return calendarAppointmentId;
+    }
+
+    public void setCalendarAppointmentId(String calendarAppointmentId) {
+        this.calendarAppointmentId = calendarAppointmentId;
+    }
+
+    public String getEvenementId() {
+        return evenementId;
+    }
+
+    public void setEvenementId(String evenementId) {
+        this.evenementId = evenementId;
     }
 
     public Date getCreatedAt() {

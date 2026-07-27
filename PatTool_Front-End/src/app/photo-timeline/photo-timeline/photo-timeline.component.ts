@@ -4416,6 +4416,56 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         }
     }
 
+    getGroupLinkedPdfConverterDocuments(group: TimelineGroup): NonNullable<TimelineGroup['linkedPdfConverterDocuments']> {
+        const list = group?.linkedPdfConverterDocuments;
+        return Array.isArray(list) ? list.filter((d) => !!(d?.id || '').trim()) : [];
+    }
+
+    openWallPdfConverterDocs(group: TimelineGroup, ev?: Event): void {
+        ev?.stopPropagation();
+        const docs = this.getGroupLinkedPdfConverterDocuments(group);
+        if (docs.length === 1) {
+            this.openWallPdfConverterDocument(docs[0], ev);
+        }
+        // Several docs: table below the header already lists them.
+    }
+
+    openWallPdfConverterDocument(
+        doc: { id?: string },
+        ev?: Event
+    ): void {
+        ev?.stopPropagation();
+        const id = (doc?.id || '').trim();
+        if (!id) {
+            return;
+        }
+        void this.router.navigate(['/tools/pdf-converter'], { queryParams: { doc: id } });
+    }
+
+    /** Opens the agenda on this activity's start date. */
+    openWallEventInAgenda(group: TimelineGroup, ev?: Event): void {
+        ev?.stopPropagation();
+        const dateKey = this.toAgendaDateQueryParam(group?.eventDate);
+        if (!dateKey) {
+            return;
+        }
+        void this.router.navigate(['/calendrier'], { queryParams: { date: dateKey } });
+    }
+
+    private toAgendaDateQueryParam(value: Date | string | null | undefined): string | null {
+        if (!value) {
+            return null;
+        }
+        const d = value instanceof Date ? value : new Date(value);
+        if (Number.isNaN(d.getTime())) {
+            return null;
+        }
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+
     /** Live discussion: same flow as event detail. */
     openWallDiscussion(group: TimelineGroup): void {
         if (!group?.eventId) {

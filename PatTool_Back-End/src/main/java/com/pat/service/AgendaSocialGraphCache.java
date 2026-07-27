@@ -54,6 +54,14 @@ public class AgendaSocialGraphCache {
         }
     }
 
+    public void clearCache() {
+        cache.invalidateAll();
+    }
+
+    public long cacheEntryCount() {
+        return cache.size();
+    }
+
     private MemberSocialEdges computeEdges(String userId) {
         Member member = membersRepository.findById(userId).orElse(null);
         if (member == null) {

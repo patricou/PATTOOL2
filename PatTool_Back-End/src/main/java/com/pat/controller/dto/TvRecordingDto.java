@@ -1,6 +1,7 @@
 package com.pat.controller.dto;
 
 import java.time.Instant;
+import java.util.List;
 
 /**
  * TV recording metadata returned to the watcher UI.
@@ -25,6 +26,13 @@ public class TvRecordingDto {
     private String error;
     /** Relative API path for playback when DONE (e.g. {@code /api/video/{gridFsFileId}}). */
     private String mediaUrl;
+    /** {@code public} | {@code private} | {@code friends} | {@code friendGroups} (or legacy group name). */
+    private String visibility;
+    private String friendGroupId;
+    private List<String> friendGroupIds;
+    /** True when the authenticated caller owns this recording. */
+    private Boolean ownedByMe;
+    private String ownerMemberId;
 
     public TvRecordingDto() {
     }
@@ -163,5 +171,45 @@ public class TvRecordingDto {
 
     public void setMediaUrl(String mediaUrl) {
         this.mediaUrl = mediaUrl;
+    }
+
+    public String getVisibility() {
+        return visibility;
+    }
+
+    public void setVisibility(String visibility) {
+        this.visibility = visibility;
+    }
+
+    public String getFriendGroupId() {
+        return friendGroupId;
+    }
+
+    public void setFriendGroupId(String friendGroupId) {
+        this.friendGroupId = friendGroupId;
+    }
+
+    public List<String> getFriendGroupIds() {
+        return friendGroupIds;
+    }
+
+    public void setFriendGroupIds(List<String> friendGroupIds) {
+        this.friendGroupIds = friendGroupIds;
+    }
+
+    public Boolean getOwnedByMe() {
+        return ownedByMe;
+    }
+
+    public void setOwnedByMe(Boolean ownedByMe) {
+        this.ownedByMe = ownedByMe;
+    }
+
+    public String getOwnerMemberId() {
+        return ownerMemberId;
+    }
+
+    public void setOwnerMemberId(String ownerMemberId) {
+        this.ownerMemberId = ownerMemberId;
     }
 }
