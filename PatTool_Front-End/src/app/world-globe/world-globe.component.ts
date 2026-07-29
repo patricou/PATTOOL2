@@ -609,13 +609,19 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Nombre d’échantillons de calage déjà collectés pendant la marche GPS. */
   issCompassCalSamples = 0;
   /** Nombre d’échantillons requis pour valider une calibration par marche. */
-  readonly issCompassCalNeededSamples = 6;
+  readonly issCompassCalNeededSamples = 8;
   /** Vitesse de déplacement GPS courante (m/s), pour guider la marche de calibration. */
   issCompassWalkSpeedMps: number | null = null;
   /** Différences circulaires (cap GPS − cap capteur) accumulées pendant la calibration. */
   private issCompassCalAccum: number[] = [];
   /** Vitesse mini (m/s) au-dessus de laquelle le cap GPS est jugé exploitable. */
-  private readonly issCompassCalMinSpeedMps = 0.7;
+  private readonly issCompassCalMinSpeedMps = 0.6;
+  /** Cap capteur instantané (non lissé) — utilisé pour figer le calage Nord. */
+  private issCompassHeadingInstantDeg: number | null = null;
+  /** Dernière position GPS pour dériver un cap de marche si coords.heading est absent. */
+  private issCompassGpsPrev: { lat: number; lon: number; tMs: number } | null = null;
+  /** Source active du cap appareil (diagnostic). */
+  issCompassHeadingSource: 'absolute-sensor' | 'webkit' | 'deviceorientation' | null = null;
   /** Valeurs brutes du dernier évènement d’orientation (diagnostic capteurs). */
   issCompassSensorAlpha: number | null = null;
   issCompassSensorBeta: number | null = null;
@@ -631,6 +637,16 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private issCompassGeoWatchId: number | null = null;
   private issCompassOrientationListening = false;
   private issCompassOrientationEventName: 'deviceorientationabsolute' | 'deviceorientation' | null = null;
+  /** AbsoluteOrientationSensor (Chrome Android) — plus fiable que deviceorientationabsolute. */
+  private issCompassAbsSensor: {
+    start(): void;
+    stop(): void;
+    quaternion: ReadonlyArray<number>;
+    addEventListener(type: string, listener: (ev: Event) => void): void;
+    removeEventListener(type: string, listener: (ev: Event) => void): void;
+  } | null = null;
+  /** True si le capteur Abs. utilise referenceFrame:'screen' (pas de correction d’angle écran). */
+  private issCompassAbsSensorScreenFrame = false;
   private issCompassHeadingLastPaintMs = 0;
   /** Horodatage (epoch ms) de la dernière donnée ISS appliquée à la boussole. */
   issCompassUpdatedAtMs: number | null = null;
@@ -7983,6 +7999,17 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }
     this.issCompassGeoWatchId = null;
+    this.issCompassGpsPrev = null;
+    if (this.issCompassAbsSensor) {
+      try {
+        this.issCompassAbsSensor.removeEventListener('reading', this.handleIssCompassAbsSensorReading);
+        this.issCompassAbsSensor.removeEventListener('error', this.handleIssCompassAbsSensorError);
+        this.issCompassAbsSensor.stop();
+      } catch {
+        /* ignore */
+      }
+      this.issCompassAbsSensor = null;
+    }
     if (this.issCompassOrientationListening && this.issCompassOrientationEventName) {
       window.removeEventListener(
         this.issCompassOrientationEventName,
@@ -7995,6 +8022,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.resetIssCompassSensorReadings();
     this.resetIssCompassCalibration();
     this.issCompassOrientationEventName = null;
+    this.issCompassHeadingSource = null;
   }
 
   /** Remet à zéro les valeurs brutes de capteurs affichées dans le diagnostic. */
@@ -8005,10 +8033,17 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.issCompassSensorAbsolute = null;
     this.issCompassSensorWebkitHeading = null;
     this.issCompassSensorWebkitAccuracy = null;
+    this.issCompassHeadingInstantDeg = null;
   }
 
-  /** Nom de l’évènement d’orientation effectivement écouté (diagnostic capteurs). */
+  /** Nom de l’évènement / API d’orientation effectivement utilisé (diagnostic capteurs). */
   issCompassSensorEventName(): string | null {
+    if (this.issCompassHeadingSource === 'absolute-sensor') {
+      return 'AbsoluteOrientationSensor';
+    }
+    if (this.issCompassHeadingSource === 'webkit') {
+      return 'webkitCompassHeading';
+    }
     return this.issCompassOrientationEventName;
   }
 
@@ -8035,7 +8070,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
             if (this.issCompassStatus === 'locating' || this.issCompassStatus === 'no-geo') {
               this.issCompassStatus = 'ready';
             }
-            this.ingestIssCompassGpsCourse(pos.coords);
+            this.ingestIssCompassGpsCourse(pos.coords, pos.timestamp);
             this.recomputeIssCompass();
             this.cdr.markForCheck();
           });
@@ -8046,7 +8081,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
             this.cdr.markForCheck();
           });
         },
-        { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 }
+        { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 }
       );
     } catch {
       this.applyIssCompassGeoFallback();
@@ -8083,27 +8118,55 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
    * pendant une marche pour caler la boussole. Quand l’utilisateur marche en
    * ligne droite, le cap GPS donne la direction réelle ; on en déduit la
    * correction à appliquer au cap capteur (magnétique + biais de calibration).
+   *
+   * Sur beaucoup de smartphones (ex. Samsung), `coords.heading` reste null en
+   * marche lente : on dérive alors le cap depuis le déplacement entre positions.
    */
-  private ingestIssCompassGpsCourse(coords: GeolocationCoordinates): void {
+  private ingestIssCompassGpsCourse(coords: GeolocationCoordinates, timestampMs?: number): void {
     const speed =
       Number.isFinite(coords.speed as number) && (coords.speed as number) >= 0
         ? (coords.speed as number)
         : null;
     this.issCompassWalkSpeedMps = speed;
+
+    const tMs = Number.isFinite(timestampMs as number) ? (timestampMs as number) : Date.now();
+    let course = Number.isFinite(coords.heading as number) ? (coords.heading as number) : null;
+    const lat = coords.latitude;
+    const lon = coords.longitude;
+    const prev = this.issCompassGpsPrev;
+    if (prev != null && Number.isFinite(lat) && Number.isFinite(lon)) {
+      const dtSec = (tMs - prev.tMs) / 1000;
+      const distM =
+        WorldGlobeComponent.haversineGreatCircleKm(prev.lat, prev.lon, lat, lon) * 1000;
+      if (dtSec > 0.4 && dtSec < 8 && distM > 2.5) {
+        const derivedSpeed = distM / dtSec;
+        if (speed == null || speed < derivedSpeed) {
+          this.issCompassWalkSpeedMps = derivedSpeed;
+        }
+        if (course == null) {
+          course = WorldGlobeComponent.initialBearingDeg(prev.lat, prev.lon, lat, lon);
+        }
+      }
+    }
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+      this.issCompassGpsPrev = { lat, lon, tMs };
+    }
+
     if (this.issCompassCalStatus !== 'calibrating') {
       return;
     }
-    const course = Number.isFinite(coords.heading as number) ? (coords.heading as number) : null;
+    const sensorHeading = this.issCompassHeadingInstantDeg ?? this.issCompassHeadingRawDeg;
+    const walkSpeed = this.issCompassWalkSpeedMps;
     if (
       course == null ||
-      speed == null ||
-      speed < this.issCompassCalMinSpeedMps ||
-      this.issCompassHeadingRawDeg == null
+      walkSpeed == null ||
+      walkSpeed < this.issCompassCalMinSpeedMps ||
+      sensorHeading == null
     ) {
       return;
     }
     // Correction = vrai Nord (cap GPS) − cap capteur (magnétique) au même instant.
-    this.issCompassCalAccum.push(this.normalizeDeg(course - this.issCompassHeadingRawDeg));
+    this.issCompassCalAccum.push(this.normalizeDeg(course - sensorHeading));
     this.issCompassCalSamples = this.issCompassCalAccum.length;
     if (this.issCompassCalSamples >= this.issCompassCalNeededSamples) {
       const offset = this.circularMeanDeg(this.issCompassCalAccum);
@@ -8150,10 +8213,11 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
    * La correction = −cap capteur brut (pour que le cap affiché tombe à 0° = Nord).
    */
   confirmIssCompassManualNorth(): void {
-    if (this.issCompassHeadingRawDeg == null) {
+    const raw = this.issCompassHeadingInstantDeg ?? this.issCompassHeadingRawDeg;
+    if (raw == null) {
       return;
     }
-    const offset = this.normalizeDeg(-this.issCompassHeadingRawDeg);
+    const offset = this.normalizeDeg(-raw);
     this.issCompassNorthOffsetDeg = offset;
     this.issCompassCalMethod = 'manual';
     this.issCompassCalStatus = 'calibrated';
@@ -8164,7 +8228,10 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** Le calage manuel est possible (les capteurs fournissent un cap exploitable). */
   issCompassManualReady(): boolean {
-    return this.issCompassHeadingActive && this.issCompassHeadingRawDeg != null;
+    return (
+      this.issCompassHeadingActive &&
+      (this.issCompassHeadingInstantDeg != null || this.issCompassHeadingRawDeg != null)
+    );
   }
 
   /**
@@ -8173,10 +8240,11 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   confirmIssCompassSunCalibration(): void {
     const az = this.issCompassSunAzimuthDeg();
-    if (az == null || this.issCompassHeadingRawDeg == null) {
+    const raw = this.issCompassHeadingInstantDeg ?? this.issCompassHeadingRawDeg;
+    if (az == null || raw == null) {
       return;
     }
-    const offset = this.normalizeDeg(az - this.issCompassHeadingRawDeg);
+    const offset = this.normalizeDeg(az - raw);
     this.issCompassNorthOffsetDeg = offset;
     this.issCompassCalMethod = 'sun';
     this.issCompassCalStatus = 'calibrated';
@@ -8198,15 +8266,18 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   restartIssCompassCalibration(): void {
     this.issCompassCalStatus = 'uncalibrated';
     this.issCompassCalMethod = null;
+    this.issCompassNorthOffsetDeg = null;
     this.issCompassCalPersisted = false;
     this.issCompassCalAccum = [];
     this.issCompassCalSamples = 0;
+    this.applyIssCompassNorthOffset();
     this.cdr.markForCheck();
   }
 
   /** Remet le calage du Nord à zéro en mémoire (à l’ouverture/fermeture de la boussole). */
   private resetIssCompassCalibration(): void {
     this.issCompassHeadingRawDeg = null;
+    this.issCompassHeadingInstantDeg = null;
     this.issCompassNorthOffsetDeg = null;
     this.issCompassCalStatus = 'uncalibrated';
     this.issCompassCalMethod = null;
@@ -8216,6 +8287,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.issCompassCalAccum = [];
     this.issCompassCalSamples = 0;
     this.issCompassWalkSpeedMps = null;
+    this.issCompassGpsPrev = null;
   }
 
   /**
@@ -8457,13 +8529,10 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** Démarre l’écoute de l’orientation appareil (boussole magnétique / gyroscope). */
   private async startIssCompassOrientation(): Promise<void> {
+    // iOS 13+ : permission explicite requise (appel depuis le geste d’ouverture).
     const doe: any =
       typeof window !== 'undefined' ? (window as any).DeviceOrientationEvent : undefined;
-    if (!doe) {
-      return;
-    }
-    // iOS 13+ : permission explicite requise (appel depuis le geste d’ouverture).
-    if (typeof doe.requestPermission === 'function') {
+    if (doe && typeof doe.requestPermission === 'function') {
       try {
         const res = await doe.requestPermission();
         if (res !== 'granted') {
@@ -8472,6 +8541,96 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       } catch {
         return;
       }
+    }
+
+    // Chrome Android (Samsung, etc.) : AbsoluteOrientationSensor est nettement plus
+    // stable que deviceorientationabsolute (quaternion ENU, repère écran).
+    if (await this.tryStartIssCompassAbsoluteSensor()) {
+      return;
+    }
+
+    if (!doe) {
+      return;
+    }
+    const absolute = typeof window !== 'undefined' && 'ondeviceorientationabsolute' in window;
+    this.issCompassOrientationEventName = absolute ? 'deviceorientationabsolute' : 'deviceorientation';
+    const evtName = this.issCompassOrientationEventName;
+    this.zone.runOutsideAngular(() => {
+      window.addEventListener(evtName, this.handleIssCompassOrientation as EventListener, true);
+    });
+    this.issCompassOrientationListening = true;
+  }
+
+  /**
+   * Tente AbsoluteOrientationSensor (Generic Sensor API). Succès → true.
+   * En cas d’erreur (permission, indisponible), repli sur DeviceOrientation.
+   */
+  private async tryStartIssCompassAbsoluteSensor(): Promise<boolean> {
+    const Ctor = typeof window !== 'undefined' ? (window as any).AbsoluteOrientationSensor : null;
+    if (typeof Ctor !== 'function') {
+      return false;
+    }
+    try {
+      if (typeof navigator !== 'undefined' && navigator.permissions?.query) {
+        const names = ['accelerometer', 'gyroscope', 'magnetometer'] as const;
+        for (const name of names) {
+          try {
+            const status = await navigator.permissions.query({ name: name as PermissionName });
+            if (status.state === 'denied') {
+              return false;
+            }
+          } catch {
+            /* PermissionName non reconnu : on tente quand même le capteur. */
+          }
+        }
+      }
+      let sensor: any = null;
+      let screenFrame = true;
+      try {
+        // 'screen' : le haut du viewport = axe de visée du lubber (corrige landscape).
+        sensor = new Ctor({ frequency: 30, referenceFrame: 'screen' });
+      } catch {
+        sensor = new Ctor({ frequency: 30, referenceFrame: 'device' });
+        screenFrame = false;
+      }
+      this.issCompassAbsSensor = sensor;
+      this.issCompassAbsSensorScreenFrame = screenFrame;
+      sensor.addEventListener('reading', this.handleIssCompassAbsSensorReading);
+      sensor.addEventListener('error', this.handleIssCompassAbsSensorError);
+      sensor.start();
+      this.issCompassHeadingSource = 'absolute-sensor';
+      this.issCompassSensorAbsolute = true;
+      return true;
+    } catch {
+      this.issCompassAbsSensor = null;
+      this.issCompassAbsSensorScreenFrame = false;
+      return false;
+    }
+  }
+
+  private handleIssCompassAbsSensorError = (): void => {
+    // Capteur refusé / planté → bascule sur DeviceOrientation.
+    if (this.issCompassAbsSensor) {
+      try {
+        this.issCompassAbsSensor.removeEventListener('reading', this.handleIssCompassAbsSensorReading);
+        this.issCompassAbsSensor.removeEventListener('error', this.handleIssCompassAbsSensorError);
+        this.issCompassAbsSensor.stop();
+      } catch {
+        /* ignore */
+      }
+      this.issCompassAbsSensor = null;
+    }
+    if (!this.issCompassOrientationListening) {
+      void this.startIssCompassOrientationDeviceFallback();
+    }
+  };
+
+  /** Repli DeviceOrientation si AbsoluteOrientationSensor échoue après démarrage. */
+  private async startIssCompassOrientationDeviceFallback(): Promise<void> {
+    const doe: any =
+      typeof window !== 'undefined' ? (window as any).DeviceOrientationEvent : undefined;
+    if (!doe) {
+      return;
     }
     const absolute = 'ondeviceorientationabsolute' in window;
     this.issCompassOrientationEventName = absolute ? 'deviceorientationabsolute' : 'deviceorientation';
@@ -8482,16 +8641,34 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.issCompassOrientationListening = true;
   }
 
+  private handleIssCompassAbsSensorReading = (): void => {
+    const sensor = this.issCompassAbsSensor;
+    if (!sensor?.quaternion || sensor.quaternion.length < 4) {
+      return;
+    }
+    let heading = this.headingFromAbsoluteQuaternion(sensor.quaternion);
+    if (heading == null) {
+      return;
+    }
+    if (!this.issCompassAbsSensorScreenFrame) {
+      heading = this.normalizeDeg(heading - this.currentScreenAngle());
+    }
+    this.publishIssCompassHeading(heading, {
+      source: 'absolute-sensor',
+      absolute: true,
+      alpha: null,
+      beta: null,
+      gamma: null,
+      webkitHeading: null,
+      webkitAccuracy: null
+    });
+  };
+
   private handleIssCompassOrientation = (e: DeviceOrientationEvent): void => {
     const heading = this.deviceHeadingFromEvent(e);
     if (heading == null) {
       return;
     }
-    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    if (now - this.issCompassHeadingLastPaintMs < 80) {
-      return;
-    }
-    this.issCompassHeadingLastPaintMs = now;
     const anyE = e as any;
     const acc =
       typeof anyE.webkitCompassAccuracy === 'number' && anyE.webkitCompassAccuracy >= 0
@@ -8505,24 +8682,84 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       typeof e.absolute === 'boolean'
         ? e.absolute
         : this.issCompassOrientationEventName === 'deviceorientationabsolute';
+    const source = webkitHeading != null ? 'webkit' : 'deviceorientation';
+    this.publishIssCompassHeading(heading, {
+      source,
+      absolute: isAbsolute,
+      alpha: Number.isFinite(e.alpha as number) ? (e.alpha as number) : null,
+      beta: Number.isFinite(e.beta as number) ? (e.beta as number) : null,
+      gamma: Number.isFinite(e.gamma as number) ? (e.gamma as number) : null,
+      webkitHeading,
+      webkitAccuracy: acc
+    });
+  };
+
+  /** Publie un nouveau cap (lissage + offset Nord), avec throttle d’affichage. */
+  private publishIssCompassHeading(
+    heading: number,
+    meta: {
+      source: 'absolute-sensor' | 'webkit' | 'deviceorientation';
+      absolute: boolean;
+      alpha: number | null;
+      beta: number | null;
+      gamma: number | null;
+      webkitHeading: number | null;
+      webkitAccuracy: number | null;
+    }
+  ): void {
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (now - this.issCompassHeadingLastPaintMs < 50) {
+      return;
+    }
+    this.issCompassHeadingLastPaintMs = now;
     this.zone.run(() => {
-      // Lissage circulaire passe-bas pour atténuer le bruit du magnétomètre.
+      this.issCompassHeadingInstantDeg = heading;
+      // Lissage doux : assez réactif pour le calage, assez stable pour la lecture.
       this.issCompassHeadingRawDeg =
         this.issCompassHeadingRawDeg == null
           ? heading
-          : this.circularLerpDeg(this.issCompassHeadingRawDeg, heading, 0.3);
+          : this.circularLerpDeg(this.issCompassHeadingRawDeg, heading, 0.45);
       this.applyIssCompassNorthOffset();
-      this.issCompassHeadingAccuracyDeg = acc;
+      this.issCompassHeadingAccuracyDeg = meta.webkitAccuracy;
       this.issCompassHeadingActive = true;
-      this.issCompassSensorAlpha = Number.isFinite(e.alpha as number) ? (e.alpha as number) : null;
-      this.issCompassSensorBeta = Number.isFinite(e.beta as number) ? (e.beta as number) : null;
-      this.issCompassSensorGamma = Number.isFinite(e.gamma as number) ? (e.gamma as number) : null;
-      this.issCompassSensorAbsolute = isAbsolute;
-      this.issCompassSensorWebkitHeading = webkitHeading;
-      this.issCompassSensorWebkitAccuracy = acc;
+      this.issCompassHeadingSource = meta.source;
+      this.issCompassSensorAlpha = meta.alpha;
+      this.issCompassSensorBeta = meta.beta;
+      this.issCompassSensorGamma = meta.gamma;
+      this.issCompassSensorAbsolute = meta.absolute;
+      this.issCompassSensorWebkitHeading = meta.webkitHeading;
+      this.issCompassSensorWebkitAccuracy = meta.webkitAccuracy;
       this.cdr.markForCheck();
     });
-  };
+  }
+
+  /**
+   * Cap (0 = Nord, sens horaire) depuis le quaternion AbsoluteOrientationSensor.
+   * Repère ENU (X=Est, Y=Nord, Z=Haut) ; avec referenceFrame:'screen', le haut
+   * du viewport correspond à +Y — idéal pour le lubber de la boussole.
+   */
+  private headingFromAbsoluteQuaternion(q: ReadonlyArray<number>): number | null {
+    const x = q[0];
+    const y = q[1];
+    const z = q[2];
+    const w = q[3];
+    if (![x, y, z, w].every((n) => Number.isFinite(n))) {
+      return null;
+    }
+    // Matrice device/screen → ENU (colonnes = images des axes device).
+    // Axe « haut écran » (+Y) :
+    const topE = 2 * (x * y - z * w);
+    const topN = 1 - 2 * (x * x + z * z);
+    // Axe « dos » (−Z) — fiable téléphone dressé :
+    const backE = -(2 * (x * z + y * w));
+    const backN = -(2 * (y * z - x * w));
+    const east = topE + backE;
+    const north = topN + backN;
+    if (east * east + north * north < 1e-8) {
+      return null;
+    }
+    return this.normalizeDeg((Math.atan2(east, north) * 180) / Math.PI);
+  }
 
   /** Extrait un cap (0 = Nord, sens horaire) à partir d’un évènement d’orientation. */
   private deviceHeadingFromEvent(e: DeviceOrientationEvent): number | null {
@@ -8531,17 +8768,16 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       typeof anyE.webkitCompassHeading === 'number' &&
       Number.isFinite(anyE.webkitCompassHeading)
     ) {
-      // iOS : cap boussole déjà corrigé (0 = Nord magnétique).
-      return this.normalizeDeg(anyE.webkitCompassHeading);
+      // iOS : cap boussole déjà compensé ; on retire l’angle d’écran (lubber = haut viewport).
+      return this.normalizeDeg(anyE.webkitCompassHeading - this.currentScreenAngle());
     }
     if (
       e.alpha != null &&
       Number.isFinite(e.alpha) &&
       (e.absolute || this.issCompassOrientationEventName === 'deviceorientationabsolute')
     ) {
-      // Android (et navigateurs sans webkitCompassHeading) : cap absolu fourni par
-      // le magnétomètre, mais alpha seul ne vaut que téléphone à plat. On compense
-      // l'inclinaison (beta/gamma) pour rester juste quand l'appareil est dressé.
+      // Android fallback : matrice W3C + compensation d’inclinaison.
+      // Attention : screen.orientation.angle se SOUSTRAIT (Full-Tilt / W3C), pas s’ajoute.
       const beta = Number.isFinite(e.beta as number) ? (e.beta as number) : 0;
       const gamma = Number.isFinite(e.gamma as number) ? (e.gamma as number) : 0;
       return this.tiltCompensatedHeadingDeg(e.alpha, beta, gamma, this.currentScreenAngle());
@@ -8559,8 +8795,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
    *  - le dos de l'appareil (−Z appareil) — fiable quand il est dressé vers le ciel.
    * On les somme vectoriellement : chaque axe est naturellement pondéré par la
    * longueur de sa projection horizontale (un axe presque vertical pèse peu).
-   * Résultat : pas de saut quand on passe d'une pose à l'autre (≈ verticale),
-   * contrairement à un basculement brutal entre les deux axes.
+   * screenAngleDeg (screen.orientation.angle) est soustrait pour aligner le
+   * lubber sur le haut du viewport (portrait / paysage).
    */
   private tiltCompensatedHeadingDeg(
     alphaDeg: number,
@@ -8591,7 +8827,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const east = topE + backE;
     const north = topN + backN;
 
-    const heading = (Math.atan2(east, north) * 180) / Math.PI + screenAngleDeg;
+    const heading = (Math.atan2(east, north) * 180) / Math.PI - screenAngleDeg;
     return this.normalizeDeg(heading);
   }
 

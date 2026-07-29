@@ -49,7 +49,7 @@
         <i class="fa fa-clipboard-list todolists-empty-icon"></i>
         <h4>{{ 'TODOLISTS.EMPTY_TITLE' | translate }}</h4>
         <p>{{ 'TODOLISTS.EMPTY_HINT' | translate }}</p>
-        <button type="button" class="btn btn-outline-primary" (click)="openCreate()">
+        <button type="button" class="btn btn-sm btn-outline-primary" (click)="openCreate()">
             <i class="fa fa-plus"></i> {{ 'TODOLISTS.CREATE' | translate }}
         </button>
     </div>
@@ -125,6 +125,13 @@
                 <button type="button" class="btn btn-sm btn-outline-primary"
                         (click)="openDetails(list)" [title]="'TODOLISTS.OPEN' | translate">
                     <i class="fa fa-eye"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-primary"
+                        *ngIf="hasLinkedActivity(list)"
+                        (click)="openLinkedActivityPhotoWall(list)"
+                        [title]="'TODOLISTS.OPEN_ACTIVITY_PHOTOS' | translate"
+                        [attr.aria-label]="'TODOLISTS.OPEN_ACTIVITY_PHOTOS' | translate">
+                    <i class="fa fa-picture-o"></i>
                 </button>
                 <button type="button" class="btn btn-sm btn-outline-success"
                         (click)="openShare(list, 'whatsapp')" [title]="'TODOLISTS.SHARE.WHATSAPP' | translate">
@@ -275,19 +282,26 @@
         </div>
 
         <div class="modal-footer">
-            <button type="button" class="btn btn-outline-success me-auto"
+            <button type="button" class="btn btn-sm btn-outline-primary me-auto"
+                    *ngIf="hasLinkedActivity(list)"
+                    (click)="openLinkedActivityPhotoWall(list)"
+                    [title]="'TODOLISTS.OPEN_ACTIVITY_PHOTOS' | translate">
+                <i class="fa fa-picture-o"></i> {{ 'TODOLISTS.OPEN_ACTIVITY_PHOTOS' | translate }}
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-success"
+                    [class.me-auto]="!hasLinkedActivity(list)"
                     (click)="openShare(list, 'whatsapp')">
                 <i class="fa fa-whatsapp"></i> {{ 'TODOLISTS.SHARE.WHATSAPP' | translate }}
             </button>
-            <button type="button" class="btn btn-outline-info"
+            <button type="button" class="btn btn-sm btn-outline-info"
                     (click)="openShare(list, 'email')">
                 <i class="fa fa-envelope-o"></i> {{ 'TODOLISTS.SHARE.EMAIL' | translate }}
             </button>
-            <button type="button" class="btn btn-outline-primary"
+            <button type="button" class="btn btn-sm btn-outline-primary"
                     *ngIf="isOwner(list)" (click)="editFromDetails()">
                 <i class="fa fa-pencil"></i> {{ 'TODOLISTS.EDIT' | translate }}
             </button>
-            <button type="button" class="btn btn-secondary" (click)="closeDetails()">
+            <button type="button" class="btn btn-sm btn-secondary" (click)="closeDetails()">
                 <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
             </button>
         </div>
@@ -452,25 +466,72 @@
                 <div class="row g-2">
                     <div class="col-12 col-md-6">
                         <label class="form-label todolists-editor-label">{{ 'TODOLISTS.LINK_PICK_ACTIVITY' | translate }}</label>
-                        <select class="form-select form-select-sm"
+                        <div class="input-group input-group-sm mb-1">
+                            <span class="input-group-text" aria-hidden="true"><i class="fa fa-search"></i></span>
+                            <input type="search"
+                                   class="form-control"
+                                   name="todoEventPickFilter"
+                                   autocomplete="off"
+                                   [disabled]="linkPickerLoading"
+                                   [ngModel]="linkPickerActivityFilter"
+                                   (ngModelChange)="onLinkPickerActivityFilterChange($event)"
+                                   [placeholder]="'TODOLISTS.LINK_FILTER_PLACEHOLDER' | translate">
+                        </div>
+                        <select class="form-select form-select-sm todolists-link-picker-select"
                                 name="todoEventPick"
+                                [size]="linkPickerSelectSize(filteredLinkPickerActivities.length)"
                                 [disabled]="linkPickerLoading"
                                 [ngModel]="editing.evenementId || ''"
                                 (ngModelChange)="onActivityLinkSelect($event)">
                             <option value="">{{ 'TODOLISTS.LINK_NONE' | translate }}</option>
-                            <option *ngFor="let o of linkPickerActivities" [value]="o.id">{{ o.label }}</option>
+                            <option *ngFor="let o of filteredLinkPickerActivities" [value]="o.id">{{ o.label }}</option>
                         </select>
+                        <div class="small text-muted mt-1 d-flex flex-wrap align-items-center gap-2" *ngIf="!linkPickerLoading">
+                            <ng-container *ngIf="linkPickerActivityFilter.trim(); else actTotal">
+                                {{ 'TODOLISTS.LINK_FILTER_COUNT' | translate:{ shown: filteredLinkPickerActivities.length, total: linkPickerActivities.length } }}
+                            </ng-container>
+                            <ng-template #actTotal>
+                                {{ 'TODOLISTS.LINK_OPTIONS_COUNT' | translate:{ count: linkPickerActivities.length } }}
+                            </ng-template>
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-primary"
+                                    *ngIf="hasLinkedActivity(editing)"
+                                    (click)="openLinkedActivityPhotoWall(editing)"
+                                    [title]="'TODOLISTS.OPEN_ACTIVITY_PHOTOS' | translate">
+                                <i class="fa fa-picture-o"></i> {{ 'TODOLISTS.OPEN_ACTIVITY_PHOTOS' | translate }}
+                            </button>
+                        </div>
                     </div>
                     <div class="col-12 col-md-6">
                         <label class="form-label todolists-editor-label">{{ 'TODOLISTS.LINK_PICK_APPOINTMENT' | translate }}</label>
-                        <select class="form-select form-select-sm"
+                        <div class="input-group input-group-sm mb-1">
+                            <span class="input-group-text" aria-hidden="true"><i class="fa fa-search"></i></span>
+                            <input type="search"
+                                   class="form-control"
+                                   name="todoCalApptPickFilter"
+                                   autocomplete="off"
+                                   [disabled]="linkPickerLoading"
+                                   [ngModel]="linkPickerAppointmentFilter"
+                                   (ngModelChange)="onLinkPickerAppointmentFilterChange($event)"
+                                   [placeholder]="'TODOLISTS.LINK_FILTER_PLACEHOLDER' | translate">
+                        </div>
+                        <select class="form-select form-select-sm todolists-link-picker-select"
                                 name="todoCalApptPick"
+                                [size]="linkPickerSelectSize(filteredLinkPickerAppointments.length)"
                                 [disabled]="linkPickerLoading"
                                 [ngModel]="editing.calendarAppointmentId || ''"
                                 (ngModelChange)="onAppointmentLinkSelect($event)">
                             <option value="">{{ 'TODOLISTS.LINK_NONE' | translate }}</option>
-                            <option *ngFor="let o of linkPickerAppointments" [value]="o.id">{{ o.label }}</option>
+                            <option *ngFor="let o of filteredLinkPickerAppointments" [value]="o.id">{{ o.label }}</option>
                         </select>
+                        <div class="small text-muted mt-1" *ngIf="!linkPickerLoading">
+                            <ng-container *ngIf="linkPickerAppointmentFilter.trim(); else apptTotal">
+                                {{ 'TODOLISTS.LINK_FILTER_COUNT' | translate:{ shown: filteredLinkPickerAppointments.length, total: linkPickerAppointments.length } }}
+                            </ng-container>
+                            <ng-template #apptTotal>
+                                {{ 'TODOLISTS.LINK_OPTIONS_COUNT_APPT' | translate:{ count: linkPickerAppointments.length } }}
+                            </ng-template>
+                        </div>
                     </div>
                 </div>
                 <p class="small text-muted mb-0 mt-1">{{ 'TODOLISTS.LINK_HINT' | translate }}</p>
@@ -628,16 +689,14 @@
             <div class="todolists-share-tabs btn-group w-100 mb-3" role="group">
                 <input type="radio" class="btn-check" id="todo-share-mode-email"
                        [checked]="shareMode === 'email'" (change)="setShareMode('email')">
-                <label class="btn btn-outline-info"
-                       [class.btn-sm]="shareKind === 'reminder'"
+                <label class="btn btn-sm btn-outline-info"
                        for="todo-share-mode-email">
                     <i class="fa fa-envelope-o"></i> {{ 'TODOLISTS.SHARE.EMAIL' | translate }}
                 </label>
 
                 <input type="radio" class="btn-check" id="todo-share-mode-wa"
                        [checked]="shareMode === 'whatsapp'" (change)="setShareMode('whatsapp')">
-                <label class="btn btn-outline-success"
-                       [class.btn-sm]="shareKind === 'reminder'"
+                <label class="btn btn-sm btn-outline-success"
                        for="todo-share-mode-wa">
                     <i class="fa fa-whatsapp"></i> {{ 'TODOLISTS.SHARE.WHATSAPP' | translate }}
                 </label>
@@ -748,14 +807,12 @@
 
         </div>
 
-        <div class="modal-footer" [class.py-2]="shareKind === 'reminder'" [class.px-3]="shareKind === 'reminder'">
-            <button type="button" class="btn btn-secondary"
-                    [class.btn-sm]="shareKind === 'reminder'"
+        <div class="modal-footer py-2 px-3">
+            <button type="button" class="btn btn-sm btn-secondary"
                     (click)="closeShare()" [disabled]="shareSending">
                 <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
             </button>
-            <button type="button" class="btn btn-info"
-                    [class.btn-sm]="shareKind === 'reminder'"
+            <button type="button" class="btn btn-sm btn-info"
                     *ngIf="shareMode === 'email'"
                     (click)="sendShareEmail()" [disabled]="shareSending">
                 <i class="fa fa-paper-plane" *ngIf="!shareSending"></i>
@@ -764,11 +821,13 @@
                     ? 'TODOLISTS.REMINDER.SEND_EMAIL'
                     : 'TODOLISTS.SHARE.SEND_EMAIL') | translate }}
             </button>
-            <button type="button" class="btn btn-success"
-                    [class.btn-sm]="shareKind === 'reminder'"
+            <button type="button" class="btn btn-sm btn-success"
                     *ngIf="shareMode === 'whatsapp'"
                     (click)="sendShareWhatsApp()">
-                <i class="fa fa-whatsapp"></i> {{ 'TODOLISTS.SHARE.OPEN_WHATSAPP' | translate }}
+                <i class="fa fa-whatsapp"></i>
+                {{ (shareKind === 'reminder'
+                    ? 'TODOLISTS.REMINDER.OPEN_WHATSAPP'
+                    : 'TODOLISTS.SHARE.OPEN_WHATSAPP') | translate }}
             </button>
         </div>
     </div>

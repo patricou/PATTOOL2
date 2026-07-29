@@ -127,9 +127,20 @@ export function isProgressiveVod(url: string): boolean {
     || lower.includes('archive.org/download/');
 }
 
-/** True when playback uses a backend virtual live URL that needs periodic re-resolve. */
+/**
+ * Virtual lives that support resolve / bust / preflight / fatal-error recovery
+ * (france.tv, TF1, M6 mirrors).
+ */
 export function isKeepAliveVirtualLive(url: string): boolean {
   return isFranceTvVirtual(url) || isTf1Virtual(url) || isM6GroupVirtual(url);
+}
+
+/**
+ * Only france.tv / TF1 use expiring CDN tokens — they need silent MediaSource renewals.
+ * M6 is public IPTV mirrors (no token): proactive swaps cause visible cuts.
+ */
+export function needsProactiveTokenRenewal(url: string): boolean {
+  return isFranceTvVirtual(url) || isTf1Virtual(url);
 }
 
 export function arteProgramIdFromVirtualUrl(url: string): string | null {

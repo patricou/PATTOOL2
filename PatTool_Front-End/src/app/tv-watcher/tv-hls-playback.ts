@@ -27,7 +27,8 @@ export interface TvHlsPlaybackCallbacks {
  */
   onTokenExpired?: () => boolean;
   /**
-   * Silent keep-alive for virtual lives (france.tv / TF1 / M6): renew before CDN/mirror expiry.
+   * Silent keep-alive for signed CDN lives (france.tv / TF1): renew before token expiry.
+   * Do not enable for M6 IPTV mirrors — proactive MediaSource swaps cause visible cuts.
    * {@code onRenewed} should show a short on-screen toast (≈1s).
    */
   virtualLive?: {

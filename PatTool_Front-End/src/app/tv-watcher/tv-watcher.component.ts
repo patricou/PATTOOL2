@@ -40,6 +40,7 @@ import {
   isRadioFranceVirtual,
   isShareSafeStreamToken,
   isTf1Virtual,
+  needsProactiveTokenRenewal,
   resolveTvStreamUrl,
   virtualStreamFromShareChannelId
 } from './tv-stream.util';
@@ -4003,6 +4004,10 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     tryPlay: (allowMuteFallback?: boolean) => void
   ): void {
     const streamUrl = resolveTvStreamUrl(channel);
+    // M6 IPTV mirrors have no expiring CDN token — proactive MediaSource swaps cause cuts.
+    if (!needsProactiveTokenRenewal(streamUrl)) {
+      return;
+    }
     const keepAlive = virtualLiveKeepAliveFromUrl(streamUrl, this.api);
     if (!keepAlive) {
       return;

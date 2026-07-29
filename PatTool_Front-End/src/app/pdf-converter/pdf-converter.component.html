@@ -123,33 +123,95 @@
             <label class="form-label" for="pdfLinkActivity">{{
               'PDF_CONVERTER.LINK_PICK_ACTIVITY' | translate
             }}</label>
+            <div class="input-group input-group-sm mb-1">
+              <span class="input-group-text" aria-hidden="true"><i class="fa fa-search"></i></span>
+              <input
+                type="search"
+                id="pdfLinkActivityFilter"
+                class="form-control"
+                autocomplete="off"
+                [disabled]="linkPickerLoading"
+                [ngModel]="linkPickerActivityFilter"
+                (ngModelChange)="onLinkPickerActivityFilterChange($event)"
+                [placeholder]="'PDF_CONVERTER.LINK_FILTER_PLACEHOLDER' | translate" />
+            </div>
             <select
               id="pdfLinkActivity"
-              class="form-select form-select-sm"
+              class="form-select form-select-sm pdf-converter-link-picker-select"
+              [size]="linkPickerSelectSize(filteredLinkPickerActivities.length)"
               [disabled]="linkPickerLoading"
               [ngModel]="evenementId || ''"
               (ngModelChange)="onActivityLinkSelect($event)">
               <option value="">{{ 'PDF_CONVERTER.LINK_NONE' | translate }}</option>
-              <option *ngFor="let o of linkPickerActivities" [value]="o.id">
+              <option *ngFor="let o of filteredLinkPickerActivities" [value]="o.id">
                 {{ o.label }}
               </option>
             </select>
+            <div class="small text-muted mt-1" *ngIf="!linkPickerLoading">
+              <ng-container *ngIf="linkPickerActivityFilter.trim(); else pdfActTotal">
+                {{
+                  'PDF_CONVERTER.LINK_FILTER_COUNT'
+                    | translate
+                      : {
+                          shown: filteredLinkPickerActivities.length,
+                          total: linkPickerActivities.length
+                        }
+                }}
+              </ng-container>
+              <ng-template #pdfActTotal>
+                {{
+                  'PDF_CONVERTER.LINK_OPTIONS_COUNT'
+                    | translate: { count: linkPickerActivities.length }
+                }}
+              </ng-template>
+            </div>
           </div>
           <div class="col-12 col-md-6">
             <label class="form-label" for="pdfLinkAppointment">{{
               'PDF_CONVERTER.LINK_PICK_APPOINTMENT' | translate
             }}</label>
+            <div class="input-group input-group-sm mb-1">
+              <span class="input-group-text" aria-hidden="true"><i class="fa fa-search"></i></span>
+              <input
+                type="search"
+                id="pdfLinkAppointmentFilter"
+                class="form-control"
+                autocomplete="off"
+                [disabled]="linkPickerLoading"
+                [ngModel]="linkPickerAppointmentFilter"
+                (ngModelChange)="onLinkPickerAppointmentFilterChange($event)"
+                [placeholder]="'PDF_CONVERTER.LINK_FILTER_PLACEHOLDER' | translate" />
+            </div>
             <select
               id="pdfLinkAppointment"
-              class="form-select form-select-sm"
+              class="form-select form-select-sm pdf-converter-link-picker-select"
+              [size]="linkPickerSelectSize(filteredLinkPickerAppointments.length)"
               [disabled]="linkPickerLoading"
               [ngModel]="calendarAppointmentId || ''"
               (ngModelChange)="onAppointmentLinkSelect($event)">
               <option value="">{{ 'PDF_CONVERTER.LINK_NONE' | translate }}</option>
-              <option *ngFor="let o of linkPickerAppointments" [value]="o.id">
+              <option *ngFor="let o of filteredLinkPickerAppointments" [value]="o.id">
                 {{ o.label }}
               </option>
             </select>
+            <div class="small text-muted mt-1" *ngIf="!linkPickerLoading">
+              <ng-container *ngIf="linkPickerAppointmentFilter.trim(); else pdfApptTotal">
+                {{
+                  'PDF_CONVERTER.LINK_FILTER_COUNT'
+                    | translate
+                      : {
+                          shown: filteredLinkPickerAppointments.length,
+                          total: linkPickerAppointments.length
+                        }
+                }}
+              </ng-container>
+              <ng-template #pdfApptTotal>
+                {{
+                  'PDF_CONVERTER.LINK_OPTIONS_COUNT_APPT'
+                    | translate: { count: linkPickerAppointments.length }
+                }}
+              </ng-template>
+            </div>
           </div>
         </div>
         <p class="small text-muted mb-0 mt-1">{{ 'PDF_CONVERTER.LINK_HINT' | translate }}</p>

@@ -36,8 +36,8 @@ import {
 import { MembersService } from '../services/members.service';
 import { CalendarEntry, CalendarService } from '../calendar/calendar.service';
 import { copyPlainTextToClipboard } from '../shared/clipboard-copy';
-import { forkJoin, Observable } from 'rxjs';
-import { finalize, map, switchMap, take } from 'rxjs/operators';
+import { from, Observable, of } from 'rxjs';
+import { catchError, finalize, map, mergeMap, reduce, switchMap, take } from 'rxjs/operators';
 import { ActivatedRoute, Router } from '@angular/router';
 
 interface PdfLinkOption {
@@ -46,7 +46,9 @@ interface PdfLinkOption {
 }
 
 /** Windows accepted by {@code /api/calendar/entries} (max ~370 days each). */
-const CALENDAR_ENTRIES_CHUNK_MS = 350 * 24 * 60 * 60 * 1000;
+const CALENDAR_ENTRIES_CHUNK_MS = 360 * 24 * 60 * 60 * 1000;
+/** How far back/forward to load for activity / appointment link pickers. */
+const LINK_PICKER_RANGE_YEARS = 15;
 
 let pdfConverterQuillExtrasRegistered = false;
 
@@ -94,8 +96,12 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
   evenementId: string | null = null;
   linkPickerAppointments: PdfLinkOption[] = [];
   linkPickerActivities: PdfLinkOption[] = [];
+  filteredLinkPickerAppointments: PdfLinkOption[] = [];
+  filteredLinkPickerActivities: PdfLinkOption[] = [];
   linkPickerLoading = false;
   linkPickerError = false;
+  linkPickerActivityFilter = '';
+  linkPickerAppointmentFilter = '';
   loadingDocuments = false;
   saving = false;
   deleting = false;
@@ -365,6 +371,9 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
     this.pdfFileName = '';
     this.calendarAppointmentId = null;
     this.evenementId = null;
+    this.linkPickerActivityFilter = '';
+    this.linkPickerAppointmentFilter = '';
+    this.refreshFilteredLinkPickers();
     this.applyHtmlToEditor('');
     this.hasSelectedImage = false;
     this.errorKey = '';
@@ -378,6 +387,8 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
     this.calendarAppointmentId = v.length > 0 ? v : null;
     if (v.length > 0) {
       this.evenementId = null;
+      this.linkPickerActivityFilter = '';
+      this.refreshFilteredLinkPickers();
     }
   }
 
@@ -386,7 +397,28 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
     this.evenementId = v.length > 0 ? v : null;
     if (v.length > 0) {
       this.calendarAppointmentId = null;
+      this.linkPickerAppointmentFilter = '';
+      this.refreshFilteredLinkPickers();
     }
+  }
+
+  onLinkPickerActivityFilterChange(value: string): void {
+    this.linkPickerActivityFilter = value || '';
+    this.refreshFilteredLinkPickers();
+  }
+
+  onLinkPickerAppointmentFilterChange(value: string): void {
+    this.linkPickerAppointmentFilter = value || '';
+    this.refreshFilteredLinkPickers();
+  }
+
+  /** Visible rows for the link picker listbox (includes the empty « none » option). */
+  linkPickerSelectSize(filteredCount: number): number {
+    const rows = filteredCount + 1;
+    if (rows <= 1) {
+      return 2;
+    }
+    return Math.min(8, rows);
   }
 
   saveDocument(): void {
@@ -526,6 +558,7 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
     this.evenementId = (doc.evenementId || '').trim() || null;
     this.applyHtmlToEditor(doc.htmlContent ?? '');
     this.ensureStaleLinkOptions();
+    this.refreshFilteredLinkPickers();
     this.syncDocQueryParam(this.currentDocumentId);
   }
 
@@ -542,41 +575,92 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  private refreshFilteredLinkPickers(): void {
+    this.filteredLinkPickerActivities = this.filterLinkOptions(
+      this.linkPickerActivities,
+      this.linkPickerActivityFilter,
+      this.evenementId
+    );
+    this.filteredLinkPickerAppointments = this.filterLinkOptions(
+      this.linkPickerAppointments,
+      this.linkPickerAppointmentFilter,
+      this.calendarAppointmentId
+    );
+  }
+
+  private filterLinkOptions(
+    options: PdfLinkOption[],
+    filter: string,
+    selectedId: string | null | undefined
+  ): PdfLinkOption[] {
+    const q = (filter || '').trim().toLocaleLowerCase();
+    const selected = (selectedId || '').trim();
+    if (!q) {
+      return options;
+    }
+    const matched = options.filter((o) => (o.label || '').toLocaleLowerCase().includes(q));
+    if (selected && !matched.some((o) => o.id === selected)) {
+      const keep = options.find((o) => o.id === selected);
+      if (keep) {
+        return [keep, ...matched];
+      }
+    }
+    return matched;
+  }
+
   private loadLinkPickerOptions(): void {
     this.linkPickerLoading = true;
     this.linkPickerError = false;
-    const from = new Date();
-    from.setFullYear(from.getFullYear() - 3);
-    const to = new Date();
-    to.setFullYear(to.getFullYear() + 3);
-    const chunks = this.buildCalendarEntryChunks(from, to);
+    this.linkPickerActivityFilter = '';
+    this.linkPickerAppointmentFilter = '';
+    const rangeFrom = new Date();
+    rangeFrom.setFullYear(rangeFrom.getFullYear() - LINK_PICKER_RANGE_YEARS);
+    const rangeTo = new Date();
+    rangeTo.setFullYear(rangeTo.getFullYear() + LINK_PICKER_RANGE_YEARS);
+    const chunks = this.buildCalendarEntryChunks(rangeFrom, rangeTo);
     if (chunks.length === 0) {
       this.linkPickerLoading = false;
       this.linkPickerAppointments = [];
       this.linkPickerActivities = [];
       this.ensureStaleLinkOptions();
+      this.refreshFilteredLinkPickers();
       return;
     }
-    const requests = chunks.map((ch) => this.calendarService.getEntries(ch.start, ch.end));
-    forkJoin(requests)
+    from(chunks)
       .pipe(
-        map((parts) => {
-          const merged = new Map<string, CalendarEntry>();
-          for (const part of parts) {
-            for (const e of part || []) {
-              merged.set(`${e.kind}:${e.id}`, e);
+        mergeMap(
+          (ch) =>
+            this.calendarService.getEntries(ch.start, ch.end).pipe(
+              map((rows) => ({ ok: true as const, rows: rows || [] })),
+              catchError(() => of({ ok: false as const, rows: [] as CalendarEntry[] }))
+            ),
+          4
+        ),
+        reduce(
+          (acc, part) => {
+            if (part.ok) {
+              acc.okCount++;
             }
+            acc.partCount++;
+            for (const e of part.rows) {
+              acc.merged.set(`${e.kind}:${e.id}`, e);
+            }
+            return acc;
+          },
+          {
+            merged: new Map<string, CalendarEntry>(),
+            okCount: 0,
+            partCount: 0
           }
-          return Array.from(merged.values());
-        }),
+        ),
         takeUntilDestroyed(this.destroyRef),
         finalize(() => {
           this.linkPickerLoading = false;
         })
       )
       .subscribe({
-        next: (rows) => {
-          const list = rows || [];
+        next: ({ merged, okCount, partCount }) => {
+          const list = Array.from(merged.values());
           this.linkPickerAppointments = list
             .filter((e) => e.kind === 'APPOINTMENT')
             .sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime())
@@ -585,21 +669,24 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
             .filter((e) => e.kind === 'ACTIVITY')
             .sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime())
             .map((e) => ({ id: e.id, label: this.formatCalendarEntryLabel(e) }));
+          this.linkPickerError = partCount > 0 && okCount === 0;
           this.ensureStaleLinkOptions();
+          this.refreshFilteredLinkPickers();
         },
         error: () => {
           this.linkPickerAppointments = [];
           this.linkPickerActivities = [];
           this.linkPickerError = true;
           this.ensureStaleLinkOptions();
+          this.refreshFilteredLinkPickers();
         }
       });
   }
 
-  private buildCalendarEntryChunks(from: Date, to: Date): { start: Date; end: Date }[] {
+  private buildCalendarEntryChunks(rangeFrom: Date, rangeTo: Date): { start: Date; end: Date }[] {
     const out: { start: Date; end: Date }[] = [];
-    const t0 = from.getTime();
-    const t1 = to.getTime();
+    const t0 = rangeFrom.getTime();
+    const t1 = rangeTo.getTime();
     if (!(t1 > t0)) {
       return out;
     }

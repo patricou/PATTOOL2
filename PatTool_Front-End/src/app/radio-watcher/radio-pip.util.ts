@@ -141,6 +141,8 @@ function copyStylesToPip(doc: Document): void {
 /**
  * Opens a Document PiP window with the World Receiver cabinet inside
  * (same idea as TV PiP showing the video).
+ * @param options.replaceIfOpen When true, refresh an already-open Doc PiP with a new face
+ *   instead of toggling it closed (used when handing off across routes).
  */
 export async function enterRadioPictureInPicture(
   video: HTMLVideoElement,
@@ -152,7 +154,8 @@ export async function enterRadioPictureInPicture(
     faceEl?: HTMLElement | null;
     labels: RadioDocPipLabels;
     onClose?: () => void;
-  }
+  },
+  options?: { replaceIfOpen?: boolean }
 ): Promise<void> {
   applyRadioMediaSession(meta);
   await video.play().catch(() => undefined);
@@ -160,9 +163,15 @@ export async function enterRadioPictureInPicture(
   const dpi = getDocumentPipApi();
   if (dpi) {
     if (dpi.window && !dpi.window.closed) {
-      // Toggle off via shared teardown (restores face/media + one onClose).
-      closeRadioDocPip();
-      return;
+      if (options?.replaceIfOpen) {
+        // Tear down previous face/media homes, keep the window, then rebuild content.
+        closeRadioDocPip();
+        // closeRadioDocPip closes the window — reopen below.
+      } else {
+        // Toggle off via shared teardown (restores face/media + one onClose).
+        closeRadioDocPip();
+        return;
+      }
     }
     await openDocumentPip(video, meta, dpi);
     return;
@@ -239,7 +248,8 @@ async function openDocumentPip(
     .radio-player-panel--in-pip {
       width: 100% !important;
       max-width: none !important;
-      height: 100% !important;
+      height: auto !important;
+      min-height: 100% !important;
       margin: 0 !important;
       border-radius: 0 !important;
       box-sizing: border-box;
@@ -251,6 +261,9 @@ async function openDocumentPip(
     .radio-player-panel--in-pip .radio-whip-antenna,
     .radio-player-panel--in-pip .radio-cabinet-handle {
       display: none !important;
+    }
+    .radio-player-panel--in-pip .radio-presets {
+      display: grid !important;
     }
     .radio-doc-pip-media {
       position: absolute !important;
@@ -480,6 +493,10 @@ function buildFallbackFace(
 
   const dial = doc.createElement('div');
   dial.className = 'radio-doc-pip-dial';
+  dial.innerHTML =
+    '<span style="position:absolute;left:6%;bottom:2px;font-size:0.55rem;opacity:.7;font-family:system-ui">88</span>' +
+    '<span style="position:absolute;left:50%;bottom:2px;transform:translateX(-50%);font-size:0.55rem;opacity:.7;font-family:system-ui">100</span>' +
+    '<span style="position:absolute;right:6%;bottom:2px;font-size:0.55rem;opacity:.7;font-family:system-ui">108</span>';
   screen.appendChild(dial);
 
   const onAir = doc.createElement('div');

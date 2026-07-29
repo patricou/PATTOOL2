@@ -63,6 +63,7 @@ import { CALENDAR_HELP_TEXT_EN, CALENDAR_HELP_TEXT_FR } from './calendar-help-te
 import { NagerPublicHoliday, PublicHolidayService } from './public-holiday.service';
 import { SaintCalendarId, SaintDayOption, SaintOfDayService, SAINT_CALENDAR_STORAGE } from './saint-of-day.service';
 import { TodoList, TodoListService } from '../todolists/todolist.service';
+import { buildPhotosShareLink } from '../shared/share-deep-link.util';
 
 const HOLIDAY_COUNTRY_STORAGE = 'pat-tool-calendar-holiday-country';
 const HOLIDAY_NAMES_MODE_STORAGE = 'pat-tool-calendar-holiday-names-mode';
@@ -939,8 +940,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
                     this.cdr.markForCheck();
                     return;
                 }
-                const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                const eventUrl = `${origin}/#/photos?eventId=${encodeURIComponent(evId)}`;
+                const eventUrl = buildPhotosShareLink(evId, { publicLink: true });
                 const senderParts = [member.firstName, member.lastName].filter(x => !!(x || '').trim());
                 const mergedSender = senderParts.join(' ').trim() || (member.userName || '').trim();
                 const senderName = mergedSender.length > 0 ? mergedSender : undefined;

@@ -89,10 +89,27 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 		if (rangeStart == null || rangeEnd == null || rangeStart.after(rangeEnd)) {
 			return new ArrayList<>();
 		}
-		Query query = new Query();
-		query.addCriteria(buildAccessCriteria(userId));
-		query.addCriteria(Criteria.where("beginEventDate").lte(rangeEnd));
-		query.addCriteria(Criteria.where("endEventDate").gte(rangeStart));
+		/*
+		 * One top-level Criteria only: {@code buildAccessCriteria} is already an {@code $or},
+		 * and Spring Data MongoDB forbids adding a second null-key ({@code $or}/{@code $and}) via
+		 * {@code Query.addCriteria}. Wrap access + date window in a single {@code $and}.
+		 * Missing end dates are treated as a single day at {@code beginEventDate}.
+		 */
+		Criteria dateOverlap = new Criteria().orOperator(
+				Criteria.where("endEventDate").gte(rangeStart),
+				new Criteria().andOperator(
+						new Criteria().orOperator(
+								Criteria.where("endEventDate").exists(false),
+								Criteria.where("endEventDate").is(null)
+						),
+						Criteria.where("beginEventDate").gte(rangeStart)
+				)
+		);
+		Query query = new Query(new Criteria().andOperator(
+				buildAccessCriteria(userId),
+				Criteria.where("beginEventDate").lte(rangeEnd),
+				dateOverlap
+		));
 		// Agenda: strip DBRefs / large arrays — avoids resolving author, members, files per row.
 		query.fields()
 				.include("_id")

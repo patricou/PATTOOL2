@@ -128,10 +128,16 @@
   </div>
 
   <div class="modal-footer flex-wrap gap-2">
-    <button type="button" class="btn btn-outline-secondary me-auto" (click)="goToTodolistsPage()">
+    <button type="button" class="btn btn-sm btn-outline-primary"
+            *ngIf="hasLinkedActivity(l)"
+            (click)="openLinkedActivityPhotoWall()"
+            [title]="'TODOLISTS.OPEN_ACTIVITY_PHOTOS' | translate">
+      <i class="fa fa-picture-o me-1" aria-hidden="true"></i>{{ 'TODOLISTS.OPEN_ACTIVITY_PHOTOS' | translate }}
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-secondary me-auto" (click)="goToTodolistsPage()">
       <i class="fa fa-external-link me-1" aria-hidden="true"></i>{{ 'TODOLISTS.OPEN_FULL_PAGE' | translate }}
     </button>
-    <button type="button" class="btn btn-secondary" (click)="activeModal.dismiss()">
+    <button type="button" class="btn btn-sm btn-secondary" (click)="activeModal.dismiss()">
       <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
     </button>
   </div>

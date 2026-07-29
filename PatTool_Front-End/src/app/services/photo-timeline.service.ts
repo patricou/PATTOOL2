@@ -45,6 +45,8 @@ export interface TimelineGroup {
     eventDescription?: string;
     startLocation?: string;
     eventDate: string;
+    /** End of activity (from {@code endEventDate}); optional for older API payloads. */
+    eventEndDate?: string;
     visibility?: string;
     friendGroupId?: string;
     friendGroupIds?: string[];

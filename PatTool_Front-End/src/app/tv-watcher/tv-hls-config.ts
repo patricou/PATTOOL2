@@ -16,10 +16,11 @@ export function createTvHlsConfig(mode: TvHlsPlaybackMode = 'live'): Partial<Hls
   return {
     enableWorker: true,
     lowLatencyMode: false,
-    // Keep buffers modest so audio/video tracks stay aligned on flaky IPTV mirrors.
-    maxBufferLength: vod ? 30 : 12,
-    maxMaxBufferLength: vod ? 60 : 24,
-    backBufferLength: vod ? 30 : 18,
+    // Live IPTV (esp. M6 mirrors): a slightly deeper forward buffer absorbs jitter
+    // without the periodic MediaSource swaps that used to cut playback.
+    maxBufferLength: vod ? 30 : 18,
+    maxMaxBufferLength: vod ? 60 : 36,
+    backBufferLength: vod ? 30 : 24,
     liveSyncDurationCount: 3,
     liveMaxLatencyDurationCount: 6,
     // Must stay false for VOD: with true, hls.js exposes a liveSyncPosition near the

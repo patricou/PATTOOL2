@@ -15,9 +15,9 @@ import { NgbModal, NgbModalModule, NgbModalRef } from '@ng-bootstrap/ng-bootstra
 import { QuillModule } from 'ngx-quill';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { ActivatedRoute } from '@angular/router';
-import { Subscription, forkJoin, from, of } from 'rxjs';
-import { catchError, distinctUntilChanged, finalize, map, switchMap } from 'rxjs/operators';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Subscription, forkJoin, from as fromIterable, of } from 'rxjs';
+import { catchError, distinctUntilChanged, finalize, map, mergeMap, reduce, switchMap } from 'rxjs/operators';
 import {
     TodoItem,
     TodoList,
@@ -36,6 +36,7 @@ import { FriendGroup } from '../model/friend';
 import { Member } from '../model/member';
 import { environment } from '../../environments/environment';
 import { CalendarEntry, CalendarService } from '../calendar/calendar.service';
+import { buildTodolistShareLink } from '../shared/share-deep-link.util';
 
 interface OwnerLabel {
     id: string;
@@ -63,7 +64,9 @@ const ITEM_STATUS_PRESETS: TodoStatus[] = ['open', 'in_progress', 'done'];
 const PRIORITY_PRESETS: TodoPriority[] = ['low', 'normal', 'high'];
 
 /** Each {@code GET /api/calendar/entries} call must stay under the back-end window (~370 days). */
-const CALENDAR_ENTRIES_CHUNK_MS = 350 * 24 * 60 * 60 * 1000;
+const CALENDAR_ENTRIES_CHUNK_MS = 360 * 24 * 60 * 60 * 1000;
+/** How far back/forward to load for activity / appointment link pickers. */
+const LINK_PICKER_RANGE_YEARS = 15;
 
 type TodolistSortKey =
     | 'created_desc'
@@ -100,6 +103,7 @@ export class TodolistsComponent implements OnInit, OnDestroy {
     private http = inject(HttpClient);
     private sanitizer = inject(DomSanitizer);
     private route = inject(ActivatedRoute);
+    private router = inject(Router);
     private calendarService = inject(CalendarService);
 
     /** Same toolbar as the commentary editor used by events: full font / colour / size / etc. */
@@ -203,8 +207,14 @@ export class TodolistsComponent implements OnInit, OnDestroy {
     /** Agenda / activity rows for linking (owner editor only). */
     linkPickerAppointments: TodolistLinkOption[] = [];
     linkPickerActivities: TodolistLinkOption[] = [];
+    /** Filtered views of the pickers (kept in sync when options / filter text change). */
+    filteredLinkPickerAppointments: TodolistLinkOption[] = [];
+    filteredLinkPickerActivities: TodolistLinkOption[] = [];
     linkPickerLoading = false;
     linkPickerError = false;
+    /** Client-side filters for the link pickers (match label text). */
+    linkPickerActivityFilter = '';
+    linkPickerAppointmentFilter = '';
 
     private subs: Subscription[] = [];
 
@@ -276,29 +286,12 @@ export class TodolistsComponent implements OnInit, OnDestroy {
      * Lien pour e-mail / WhatsApp : page statique sans {@code #}, car WhatsApp (entre autres)
      * ne rend souvent pas cliquables les URL dont le fragment contient la route Angular.
      * {@code todolist-link.html} redirige vers {@code #/todolists?list=…}.
+     *
+     * {@code publicLink}: utilise {@link environment.sharePublicOrigin} (HTTPS public) —
+     * WhatsApp / destinataires e-mail ne peuvent pas ouvrir {@code localhost}.
      */
-    private buildTodolistDeepLink(listId: string): string {
-        const u = new URL(window.location.href);
-        let path = u.pathname || '/';
-        if (path.length > 1 && path.endsWith('/')) {
-            path = path.slice(0, -1);
-        }
-        const marker = '/assets/todolist-link.html';
-        const at = path.indexOf(marker);
-        let basePath: string;
-        if (at >= 0) {
-            basePath = path.substring(0, at);
-        } else if (path === '/') {
-            basePath = '';
-        } else if (path.endsWith('/index.html')) {
-            basePath = path.slice(0, -'/index.html'.length);
-            if (basePath === '/') {
-                basePath = '';
-            }
-        } else {
-            basePath = path;
-        }
-        return `${u.origin}${basePath}/assets/todolist-link.html?list=${encodeURIComponent(listId)}`;
+    private buildTodolistDeepLink(listId: string, opts?: { publicLink?: boolean }): string {
+        return buildTodolistShareLink(listId, opts);
     }
 
     ngOnDestroy(): void {
@@ -373,7 +366,7 @@ export class TodolistsComponent implements OnInit, OnDestroy {
         if (missing.length === 0) {
             return;
         }
-        from(this.keycloak.getToken()).pipe(
+        fromIterable(this.keycloak.getToken()).pipe(
             map(token => new HttpHeaders({
                 Accept: 'application/json',
                 'Content-Type': 'application/json',
@@ -563,7 +556,7 @@ export class TodolistsComponent implements OnInit, OnDestroy {
 
     addItem(): void {
         const items = this.editing.items || [];
-        items.push({
+        items.unshift({
             title: '',
             status: 'open',
             priority: 'normal',
@@ -818,6 +811,26 @@ export class TodolistsComponent implements OnInit, OnDestroy {
         this.openEdit(this.detailsList);
     }
 
+    /** True when the list is linked to a calendar activity (événement). */
+    hasLinkedActivity(list: TodoList | null | undefined): boolean {
+        return !!(list?.evenementId || '').trim();
+    }
+
+    /**
+     * Open the photo wall focused on the activity linked to this list.
+     * Closes detail / share / editor modals so navigation is not blocked.
+     */
+    openLinkedActivityPhotoWall(list: TodoList | null | undefined): void {
+        const eventId = (list?.evenementId || '').trim();
+        if (!eventId) {
+            return;
+        }
+        this.shareModalRef?.dismiss();
+        this.detailsModalRef?.dismiss();
+        this.editorModalRef?.dismiss();
+        void this.router.navigate(['/photos'], { queryParams: { eventId } });
+    }
+
     // ---------- Sharing (email / WhatsApp) ----------------------------------
 
     openShare(list: TodoList, mode: 'email' | 'whatsapp' = 'email'): void {
@@ -968,7 +981,7 @@ export class TodolistsComponent implements OnInit, OnDestroy {
                 toMemberIds: memberIds,
                 customMessage: (this.shareCustomMessage || '').trim(),
                 mailLang: this.translate.currentLang || 'en',
-                listUrl: this.buildTodolistDeepLink(this.shareList.id)
+                listUrl: this.buildTodolistDeepLink(this.shareList.id, { publicLink: true })
             };
             this.shareSending = true;
             this.shareErrorMessage = '';
@@ -994,7 +1007,7 @@ export class TodolistsComponent implements OnInit, OnDestroy {
             toMemberIds: memberIds,
             customMessage: (this.shareCustomMessage || '').trim(),
             mailLang: this.translate.currentLang || 'en',
-            listUrl: this.buildTodolistDeepLink(this.shareList.id)
+            listUrl: this.buildTodolistDeepLink(this.shareList.id, { publicLink: true })
         };
         this.shareSending = true;
         this.shareErrorMessage = '';
@@ -1054,10 +1067,16 @@ export class TodolistsComponent implements OnInit, OnDestroy {
             }
         };
 
+        /**
+         * Do not set ShareData.url — the deep link is already in {@code text}.
+         * Passing both makes WhatsApp append a second copy of the URL.
+         */
+        const shareBase = (): ShareData => ({ title: list.name || undefined, text });
+
         if (list.imageDataUrl && typeof nav.share === 'function') {
             const file = await this.dataUrlToFile(list.imageDataUrl, this.fileNameFor(list));
             if (file) {
-                let out = await invokeShare({ title: list.name || undefined, text, files: [file] });
+                let out = await invokeShare({ ...shareBase(), files: [file] });
                 if (out === 'ok') {
                     markOpened();
                     return;
@@ -1077,7 +1096,7 @@ export class TodolistsComponent implements OnInit, OnDestroy {
         }
 
         if (typeof nav.share === 'function') {
-            const out = await invokeShare({ title: list.name || undefined, text });
+            const out = await invokeShare(shareBase());
             if (out === 'ok') {
                 markOpened();
                 return;
@@ -1192,23 +1211,27 @@ export class TodolistsComponent implements OnInit, OnDestroy {
     }
 
     /**
-     * WhatsApp / Web Share text: list description right after the title, then tasks, then meta.
-     * The whole string is still clipped for {@code wa.me} length limits.
+     * WhatsApp / Web Share text: intro + tasks, then a single public HTTPS deep link
+     * alone on its last line (WhatsApp linkifies trailing HTTPS URLs; never localhost).
      */
     private composeWhatsAppMessage(list: TodoList): string {
+        const deepLink = (list.id || '').trim()
+            ? this.buildTodolistDeepLink(list.id!, { publicLink: true })
+            : '';
         const lines: string[] = [];
         if (this.shareCustomMessage?.trim()) {
             lines.push(this.clipPlain(this.shareCustomMessage.trim(), 480));
             lines.push('');
         }
         lines.push(`*${list.name}*`);
+        lines.push('');
         if (this.shareKind !== 'reminder') {
             const descPlain = this.clipPlain(this.htmlToPlain(list.description), 450);
             if (descPlain) {
                 lines.push(descPlain);
+                lines.push('');
             }
         }
-        lines.push('');
         const tasksHeaderKey = this.shareKind === 'reminder'
             ? 'TODOLISTS.REMINDER.WHATSAPP_TASKS_HEADER'
             : 'TODOLISTS.SHARE.WHATSAPP_TASKS_HEADER';
@@ -1246,13 +1269,12 @@ export class TodolistsComponent implements OnInit, OnDestroy {
         } else {
             lines.push(`📋 ${items.filter(i => i.status === 'done').length}/${items.length}`);
         }
-        const joined = lines.join('\n');
-        const linkSuffix = list.id
-            ? `\n\n${this.translate.instant('TODOLISTS.SHARE.OPEN_IN_PATTOOL')}\n${this.buildTodolistDeepLink(list.id)}`
-            : '';
-        const reserved = linkSuffix.length + 80;
-        const maxBody = Math.max(400, 3200 - reserved);
-        return this.clipForWhatsApp(joined, maxBody) + linkSuffix;
+        // Clip body first, then append URL so truncation never eats the clickable link.
+        let body = this.clipForWhatsApp(lines.join('\n'), deepLink ? 3000 : 3200);
+        if (deepLink) {
+            body = `${body}\n\n${this.translate.instant('TODOLISTS.SHARE.OPEN_IN_PATTOOL')}\n${deepLink}`;
+        }
+        return body;
     }
 
     private clipPlain(s: string, max: number): string {
@@ -1354,6 +1376,8 @@ export class TodolistsComponent implements OnInit, OnDestroy {
         this.editing.calendarAppointmentId = v.length > 0 ? v : null;
         if (v.length > 0) {
             this.editing.evenementId = null;
+            this.linkPickerActivityFilter = '';
+            this.refreshFilteredLinkPickers();
         }
         this.cdr.markForCheck();
     }
@@ -1363,51 +1387,128 @@ export class TodolistsComponent implements OnInit, OnDestroy {
         this.editing.evenementId = v.length > 0 ? v : null;
         if (v.length > 0) {
             this.editing.calendarAppointmentId = null;
+            this.linkPickerAppointmentFilter = '';
+            this.refreshFilteredLinkPickers();
         }
         this.cdr.markForCheck();
+    }
+
+    onLinkPickerActivityFilterChange(value: string): void {
+        this.linkPickerActivityFilter = value || '';
+        this.refreshFilteredLinkPickers();
+        this.cdr.markForCheck();
+    }
+
+    onLinkPickerAppointmentFilterChange(value: string): void {
+        this.linkPickerAppointmentFilter = value || '';
+        this.refreshFilteredLinkPickers();
+        this.cdr.markForCheck();
+    }
+
+    /** Visible rows for the link picker listbox (includes the empty « none » option). */
+    linkPickerSelectSize(filteredCount: number): number {
+        const rows = filteredCount + 1;
+        if (rows <= 1) {
+            return 2;
+        }
+        return Math.min(8, rows);
+    }
+
+    private refreshFilteredLinkPickers(): void {
+        this.filteredLinkPickerActivities = this.filterLinkOptions(
+            this.linkPickerActivities,
+            this.linkPickerActivityFilter,
+            this.editing.evenementId
+        );
+        this.filteredLinkPickerAppointments = this.filterLinkOptions(
+            this.linkPickerAppointments,
+            this.linkPickerAppointmentFilter,
+            this.editing.calendarAppointmentId
+        );
+    }
+
+    private filterLinkOptions(
+        options: TodolistLinkOption[],
+        filter: string,
+        selectedId: string | null | undefined
+    ): TodolistLinkOption[] {
+        const q = (filter || '').trim().toLocaleLowerCase();
+        const selected = (selectedId || '').trim();
+        if (!q) {
+            return options;
+        }
+        const matched = options.filter(o => (o.label || '').toLocaleLowerCase().includes(q));
+        if (selected && !matched.some(o => o.id === selected)) {
+            const keep = options.find(o => o.id === selected);
+            if (keep) {
+                return [keep, ...matched];
+            }
+        }
+        return matched;
     }
 
     private loadLinkPickerOptions(): void {
         if (!this.isOwner(this.editing)) {
             this.linkPickerAppointments = [];
             this.linkPickerActivities = [];
+            this.linkPickerActivityFilter = '';
+            this.linkPickerAppointmentFilter = '';
+            this.refreshFilteredLinkPickers();
             return;
         }
         this.linkPickerLoading = true;
         this.linkPickerError = false;
+        this.linkPickerActivityFilter = '';
+        this.linkPickerAppointmentFilter = '';
         this.cdr.markForCheck();
-        const from = new Date();
-        from.setFullYear(from.getFullYear() - 3);
-        const to = new Date();
-        to.setFullYear(to.getFullYear() + 3);
-        const chunks = this.buildCalendarEntryChunks(from, to);
+        const rangeFrom = new Date();
+        rangeFrom.setFullYear(rangeFrom.getFullYear() - LINK_PICKER_RANGE_YEARS);
+        const rangeTo = new Date();
+        rangeTo.setFullYear(rangeTo.getFullYear() + LINK_PICKER_RANGE_YEARS);
+        const chunks = this.buildCalendarEntryChunks(rangeFrom, rangeTo);
         if (chunks.length === 0) {
             this.linkPickerLoading = false;
             this.linkPickerAppointments = [];
             this.linkPickerActivities = [];
             this.ensureStaleLinkOptions();
+            this.refreshFilteredLinkPickers();
             this.cdr.markForCheck();
             return;
         }
-        const requests = chunks.map(ch => this.calendarService.getEntries(ch.start, ch.end));
+        // Bounded concurrency: ±15y ≈ 30 windows; avoid opening them all at once.
         this.subs.push(
-            forkJoin(requests).pipe(
-                map(parts => {
-                    const merged = new Map<string, CalendarEntry>();
-                    for (const part of parts) {
-                        for (const e of part || []) {
-                            merged.set(`${e.kind}:${e.id}`, e);
+            fromIterable(chunks).pipe(
+                mergeMap(
+                    (ch: { start: Date; end: Date }) => this.calendarService.getEntries(ch.start, ch.end).pipe(
+                        map(rows => ({ ok: true as const, rows: rows || [] })),
+                        catchError(() => of({ ok: false as const, rows: [] as CalendarEntry[] }))
+                    ),
+                    4
+                ),
+                reduce(
+                    (acc, part) => {
+                        if (part.ok) {
+                            acc.okCount++;
                         }
+                        acc.partCount++;
+                        for (const e of part.rows) {
+                            acc.merged.set(`${e.kind}:${e.id}`, e);
+                        }
+                        return acc;
+                    },
+                    {
+                        merged: new Map<string, CalendarEntry>(),
+                        okCount: 0,
+                        partCount: 0
                     }
-                    return Array.from(merged.values());
-                }),
+                ),
                 finalize(() => {
                     this.linkPickerLoading = false;
                     this.cdr.markForCheck();
                 })
             ).subscribe({
-                next: rows => {
-                    const list = rows || [];
+                next: ({ merged, okCount, partCount }) => {
+                    const list = Array.from(merged.values());
                     const appts = list
                         .filter(e => e.kind === 'APPOINTMENT')
                         .sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime())
@@ -1418,7 +1519,9 @@ export class TodolistsComponent implements OnInit, OnDestroy {
                         .map(e => ({ id: e.id, label: this.formatCalendarEntryLabel(e) }));
                     this.linkPickerAppointments = appts;
                     this.linkPickerActivities = acts;
+                    this.linkPickerError = partCount > 0 && okCount === 0;
                     this.ensureStaleLinkOptions();
+                    this.refreshFilteredLinkPickers();
                     this.cdr.markForCheck();
                 },
                 error: () => {
@@ -1426,17 +1529,18 @@ export class TodolistsComponent implements OnInit, OnDestroy {
                     this.linkPickerActivities = [];
                     this.linkPickerError = true;
                     this.ensureStaleLinkOptions();
+                    this.refreshFilteredLinkPickers();
                     this.cdr.markForCheck();
                 }
             })
         );
     }
 
-    /** Splits [from, to] into windows accepted by {@code /api/calendar/entries} (max ~370 days each). */
-    private buildCalendarEntryChunks(from: Date, to: Date): { start: Date; end: Date }[] {
+    /** Splits [rangeStart, rangeEnd] into windows accepted by {@code /api/calendar/entries} (max ~370 days each). */
+    private buildCalendarEntryChunks(rangeStart: Date, rangeEnd: Date): { start: Date; end: Date }[] {
         const out: { start: Date; end: Date }[] = [];
-        const t0 = from.getTime();
-        const t1 = to.getTime();
+        const t0 = rangeStart.getTime();
+        const t1 = rangeEnd.getTime();
         if (!(t1 > t0)) {
             return out;
         }

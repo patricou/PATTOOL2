@@ -247,6 +247,7 @@ public class PhotoTimelineRestController {
         private String eventDescription;
         private String startLocation;
         private Date eventDate;
+        private Date eventEndDate;
         private String visibility;
         private String friendGroupId;
         private List<String> friendGroupIds;
@@ -287,6 +288,8 @@ public class PhotoTimelineRestController {
         public void setStartLocation(String startLocation) { this.startLocation = startLocation; }
         public Date getEventDate() { return eventDate; }
         public void setEventDate(Date eventDate) { this.eventDate = eventDate; }
+        public Date getEventEndDate() { return eventEndDate; }
+        public void setEventEndDate(Date eventEndDate) { this.eventEndDate = eventEndDate; }
         public String getVisibility() { return visibility; }
         public void setVisibility(String visibility) { this.visibility = visibility; }
         public String getFriendGroupId() { return friendGroupId; }
@@ -388,6 +391,7 @@ public class PhotoTimelineRestController {
                 .include("evenementName")
                 .include("type")
                 .include("beginEventDate")
+                .include("endEventDate")
                 .include("ratingPlus")
                 .include("ratingMinus")
                 .include("fileUploadeds.fieldId")
@@ -559,6 +563,7 @@ public class PhotoTimelineRestController {
         group.setEventDescription(e.getComments());
         group.setStartLocation(e.getStartLocation());
         group.setEventDate(e.getBeginEventDate());
+        group.setEventEndDate(e.getEndEventDate());
         group.setVisibility(e.getVisibility());
         group.setFriendGroupId(e.getFriendGroupId());
         group.setFriendGroupIds(e.getFriendGroupIds());
@@ -654,6 +659,7 @@ public class PhotoTimelineRestController {
         group.setEventDescription(e.getComments());
         group.setStartLocation(e.getStartLocation());
         group.setEventDate(e.getBeginEventDate());
+        group.setEventEndDate(e.getEndEventDate());
         group.setVisibility(e.getVisibility());
         group.setFriendGroupId(e.getFriendGroupId());
         group.setFriendGroupIds(e.getFriendGroupIds());

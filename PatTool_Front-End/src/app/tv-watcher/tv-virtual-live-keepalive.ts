@@ -11,7 +11,8 @@ import {
 export type VirtualLiveResolveFn = (fresh: boolean) => Promise<FranceTvResolveMeta | null>;
 
 /**
- * Build resolveMeta + slug for france.tv / TF1 / M6 virtual live keep-alive.
+ * Build resolveMeta + slug for france.tv / TF1 / M6 virtual live resolve.
+ * Used for preflight, cache bust on fatal error, and (france.tv/TF1 only) proactive renewals.
  */
 export function virtualLiveKeepAliveFromUrl(
   streamUrl: string,

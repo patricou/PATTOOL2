@@ -21,6 +21,7 @@ import { Member } from '../model/member';
 import { FriendGroup } from '../model/friend';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { environment } from '../../environments/environment';
+import { buildTodolistShareLink } from '../shared/share-deep-link.util';
 
 interface ListMeta {
     completed: number;
@@ -300,6 +301,19 @@ export class TodoListDetailOverlayComponent implements OnInit, OnDestroy {
         }
     }
 
+    hasLinkedActivity(list: TodoList | null | undefined): boolean {
+        return !!(list?.evenementId || '').trim();
+    }
+
+    openLinkedActivityPhotoWall(): void {
+        const eventId = (this.list?.evenementId || '').trim();
+        if (!eventId) {
+            return;
+        }
+        this.activeModal.close();
+        void this.router.navigate(['/photos'], { queryParams: { eventId } });
+    }
+
     private fetchRecipients(): void {
         const id = this.list?.id;
         if (!id) {
@@ -369,7 +383,7 @@ export class TodoListDetailOverlayComponent implements OnInit, OnDestroy {
                 toMemberIds: [assigneeId],
                 customMessage,
                 mailLang: this.translate.currentLang || 'en',
-                listUrl: this.buildTodolistDeepLink(list.id)
+                listUrl: this.buildTodolistDeepLink(list.id, { publicLink: true })
             }).pipe(
                 finalize(() => {
                     this.reminderSending = false;
@@ -395,6 +409,9 @@ export class TodoListDetailOverlayComponent implements OnInit, OnDestroy {
         const assigneeId = (focus.assigneeMemberId || '').trim();
         const assigneeName = assigneeId ? this.assigneeLabel(assigneeId) : '';
         const items = this.reminderTasks(list, focus);
+        const deepLink = (list.id || '').trim()
+            ? this.buildTodolistDeepLink(list.id!, { publicLink: true })
+            : '';
         const lines: string[] = [];
         lines.push(this.translate.instant(
             assigneeName ? 'TODOLISTS.REMINDER.DEFAULT_MESSAGE_FOR' : 'TODOLISTS.REMINDER.DEFAULT_MESSAGE',
@@ -408,13 +425,14 @@ export class TodoListDetailOverlayComponent implements OnInit, OnDestroy {
             const mark = it.status === 'done' ? '☑' : '☐';
             lines.push(`${mark} ${(it.title || '').trim() || '—'}`);
         }
-        if (list.id) {
-            lines.push('');
-            lines.push(this.translate.instant('TODOLISTS.SHARE.OPEN_IN_PATTOOL'));
-            lines.push(this.buildTodolistDeepLink(list.id));
+        let text = lines.join('\n');
+        if (text.length > 3000) {
+            text = text.slice(0, 2960) + '\n…';
         }
-        const text = lines.join('\n');
-        return text.length > 3200 ? text.slice(0, 3160) + '\n…' : text;
+        if (deepLink) {
+            text += `\n\n${this.translate.instant('TODOLISTS.SHARE.OPEN_IN_PATTOOL')}\n${deepLink}`;
+        }
+        return text;
     }
 
     private reminderTasks(list: TodoList, focus: TodoItem): TodoItem[] {
@@ -432,28 +450,8 @@ export class TodoListDetailOverlayComponent implements OnInit, OnDestroy {
         return match ? [match] : [focus];
     }
 
-    private buildTodolistDeepLink(listId: string): string {
-        const u = new URL(window.location.href);
-        let path = u.pathname || '/';
-        if (path.length > 1 && path.endsWith('/')) {
-            path = path.slice(0, -1);
-        }
-        const marker = '/assets/todolist-link.html';
-        const at = path.indexOf(marker);
-        let basePath: string;
-        if (at >= 0) {
-            basePath = path.substring(0, at);
-        } else if (path === '/') {
-            basePath = '';
-        } else if (path.endsWith('/index.html')) {
-            basePath = path.slice(0, -'/index.html'.length);
-            if (basePath === '/') {
-                basePath = '';
-            }
-        } else {
-            basePath = path;
-        }
-        return `${u.origin}${basePath}/assets/todolist-link.html?list=${encodeURIComponent(listId)}`;
+    private buildTodolistDeepLink(listId: string, opts?: { publicLink?: boolean }): string {
+        return buildTodolistShareLink(listId, opts);
     }
 
     private fetchOwnerLabelForList(): void {

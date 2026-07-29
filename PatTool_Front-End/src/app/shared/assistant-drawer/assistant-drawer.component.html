@@ -1112,17 +1112,17 @@
   </div>
   <div class="modal-body">
     <div class="whatsapp-share-content">
-      <div class="text-center mb-3">
+      <div class="text-center mb-2">
         <img
           [src]="whatsappPreviewSrc()"
           alt=""
-          class="img-fluid rounded"
-          style="max-width: 88px; max-height: 88px; object-fit: cover; border: 2px solid #007bff; padding: 2px" />
+          class="img-fluid rounded whatsapp-share-thumb"
+          style="max-width: 72px; max-height: 72px; object-fit: cover; border: 2px solid #007bff; padding: 2px" />
       </div>
-      <div class="mb-3">
-        <h4 class="fw-bold text-white text-center p-3 rounded mb-0" style="background-color: #007bff">
+      <div class="mb-2 text-center">
+        <span class="whatsapp-share-title-link btn btn-sm btn-primary">
           {{ 'ASSISTANT.TITLE' | translate }}
-        </h4>
+        </span>
       </div>
       <fieldset class="mb-3 border rounded px-3 py-2">
         <legend class="float-none w-auto fs-6 fw-semibold px-1 mb-2">
@@ -1156,7 +1156,7 @@
       <div class="mb-3">
         <textarea
           id="assistantWaMsg"
-          class="form-control"
+          class="form-control form-control-sm"
           rows="3"
           [(ngModel)]="whatsappShareMessage"
           [attr.aria-label]="'ASSISTANT.SHARE_WHATSAPP_TEXTAREA_PLACEHOLDER' | translate"
@@ -1168,18 +1168,18 @@
         <div class="whatsapp-share-preview-pane" [innerHTML]="whatsappSharePreviewHtml()"></div>
         <small class="form-text text-muted">{{ 'ASSISTANT.SHARE_WHATSAPP_PREVIEW_HINT' | translate }}</small>
       </div>
-      <div class="alert alert-info small mb-0 mt-3">
+      <div class="alert alert-info small mb-0 mt-3 py-2">
         <i class="fa fa-info-circle me-2"></i>
         {{ 'ASSISTANT.WHATSAPP_NATIVE_SHARE_NOTE' | translate }}
       </div>
     </div>
   </div>
-  <div class="modal-footer">
-    <button type="button" class="btn btn-secondary" (click)="cancelAssistantWhatsAppShare()">
-      {{ 'EVENTELEM.CANCEL' | translate }}
+  <div class="modal-footer py-2 px-3">
+    <button type="button" class="btn btn-sm btn-secondary" (click)="cancelAssistantWhatsAppShare()">
+      {{ 'COMMUN.CANCEL' | translate }}
     </button>
-    <button type="button" class="btn btn-success" (click)="confirmAssistantWhatsAppShare()">
-      <i class="fa fa-whatsapp me-2"></i>
+    <button type="button" class="btn btn-sm btn-success" (click)="confirmAssistantWhatsAppShare()">
+      <i class="fa fa-whatsapp me-1"></i>
       {{ 'EVENTELEM.SHARE_NOW' | translate }}
     </button>
   </div>

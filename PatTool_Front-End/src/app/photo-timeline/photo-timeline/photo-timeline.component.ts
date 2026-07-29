@@ -25,6 +25,7 @@ import { asyncScheduler, forkJoin, of, Subscription } from 'rxjs';
 import { map, distinctUntilChanged, catchError, take, switchMap, finalize, observeOn, timeout } from 'rxjs/operators';
 import { DomSanitizer, SafeUrl, SafeStyle } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
+import { buildPhotosShareLink } from '../../shared/share-deep-link.util';
 import { EvenementsService } from '../../services/evenements.service';
 import { ApiService } from '../../services/api.service';
 import { KeycloakService } from '../../keycloak/keycloak.service';
@@ -366,6 +367,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     /** Per-event refresh: eventIds with an in-flight timeline refetch */
     private readonly refreshingGroupEventIds = new Set<string>();
     wallWhatsappShareMessage = '';
+    /** fieldId image pour WhatsApp (1ʳᵉ photo mur ou thumbnail activité). */
+    private wallShareImageFieldId: string | null = null;
     private wallWhatsappShareModalRef: NgbModalRef | null = null;
     private wallShareByEmailModalRef: NgbModalRef | null = null;
     wallShareByEmailPatToolSelected: string[] = [];
@@ -3358,6 +3361,72 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         });
     }
 
+    /** Dates début/fin pour aperçu + message WhatsApp / e-mail. */
+    formatWallShareDates(group: TimelineGroup | null | undefined): string {
+        if (!group) {
+            return '';
+        }
+        const begin = this.formatEventDate(group.eventDate);
+        const end = this.formatEventDate(group.eventEndDate || '');
+        if (begin && end) {
+            return `📅 ${this.translate.instant('COMMUN.FROM')} ${begin} ${this.translate.instant('COMMUN.TO')} ${end}`;
+        }
+        if (begin) {
+            return `📅 ${begin}`;
+        }
+        if (end) {
+            return `📅 ${end}`;
+        }
+        return '';
+    }
+
+    /** Remplit début/fin depuis l’activité (le mur n’a parfois que la date de début). */
+    private hydrateWallShareDatesFromEvent(group: TimelineGroup): void {
+        const eventId = (group.eventId || '').trim();
+        if (!eventId) {
+            return;
+        }
+        const sub = this.evenementsService.getEvenement(eventId).pipe(
+            take(1),
+            catchError(() => of(null))
+        ).subscribe(ev => {
+            if (!ev || this.shareWallContextGroup?.eventId !== eventId) {
+                return;
+            }
+            const begin = ev.beginEventDate
+                ? (ev.beginEventDate instanceof Date
+                    ? ev.beginEventDate.toISOString()
+                    : String(ev.beginEventDate))
+                : '';
+            const end = ev.endEventDate
+                ? (ev.endEventDate instanceof Date
+                    ? ev.endEventDate.toISOString()
+                    : String(ev.endEventDate))
+                : '';
+            const thumbId = (ev.thumbnail?.fieldId || '').trim();
+            if (thumbId && !this.wallShareImageFieldId) {
+                this.wallShareImageFieldId = thumbId;
+            }
+            if (!this.wallShareImageFieldId && ev.fileUploadeds?.length) {
+                const firstImg = ev.fileUploadeds.find(f => {
+                    const t = (f.fileType || f.fileName || '').toLowerCase();
+                    return t.includes('image') || /\.(jpe?g|png|gif|webp)$/i.test(f.fileName || '');
+                });
+                const fid = (firstImg?.fieldId || '').trim();
+                if (fid) {
+                    this.wallShareImageFieldId = fid;
+                }
+            }
+            this.shareWallContextGroup = {
+                ...this.shareWallContextGroup!,
+                eventDate: begin || this.shareWallContextGroup!.eventDate,
+                eventEndDate: end || this.shareWallContextGroup!.eventEndDate
+            };
+            this.cdr.markForCheck();
+        });
+        this.subscriptions.push(sub);
+    }
+
     formatDaysUntilLcd = formatDaysUntilLcd;
     getDaysUntilLcdDigits = getDaysUntilLcdDigits;
 
@@ -3453,32 +3522,12 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     getWallShareEventUrl(): string {
         const g = this.shareWallContextGroup;
         if (!g?.eventId) return '';
-        return this.buildPhotoWallDeepLink(g.eventId);
+        return this.buildPhotoWallDeepLink(g.eventId, { publicLink: true });
     }
 
-    /** URL sans hash (#) pour que WhatsApp détecte un lien cliquable (cf. todolist-link.html). */
-    private buildPhotoWallDeepLink(eventId: string): string {
-        const u = new URL(window.location.href);
-        let path = u.pathname || '/';
-        if (path.length > 1 && path.endsWith('/')) {
-            path = path.slice(0, -1);
-        }
-        const marker = '/assets/photos-link.html';
-        const at = path.indexOf(marker);
-        let basePath: string;
-        if (at >= 0) {
-            basePath = path.substring(0, at);
-        } else if (path === '/') {
-            basePath = '';
-        } else if (path.endsWith('/index.html')) {
-            basePath = path.slice(0, -'/index.html'.length);
-            if (basePath === '/') {
-                basePath = '';
-            }
-        } else {
-            basePath = path;
-        }
-        return `${u.origin}${basePath}/assets/photos-link.html?eventId=${encodeURIComponent(eventId.trim())}`;
+    /** URL sans hash (#) pour que WhatsApp / e-mail aient un lien cliquable (photos-link.html). */
+    private buildPhotoWallDeepLink(eventId: string, opts?: { publicLink?: boolean }): string {
+        return buildPhotosShareLink(eventId, opts);
     }
 
     getWallShareMainImageUrl(): SafeUrl {
@@ -3496,14 +3545,24 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
     private wallShareFirstImageFieldId(): string | null {
         const g = this.shareWallContextGroup;
-        const id = g?.photos?.[0]?.fileId;
-        return id && id.trim() ? id.trim() : null;
+        const fromPhotos = (g?.photos?.[0]?.fileId || '').trim();
+        if (fromPhotos) {
+            return fromPhotos;
+        }
+        const cached = (this.wallShareImageFieldId || '').trim();
+        return cached || null;
     }
 
     wallShareOnWhatsApp(group: TimelineGroup): void {
         if (!group.eventId) return;
-        this.shareWallContextGroup = group;
+        this.shareWallContextGroup = {
+            ...group,
+            photos: group.photos ? [...group.photos] : [],
+            videos: group.videos ? [...group.videos] : group.videos
+        };
+        this.wallShareImageFieldId = (group.photos?.[0]?.fileId || '').trim() || null;
         this.wallWhatsappShareMessage = this.translate.instant('EVENTELEM.DEFAULT_SHARE_MESSAGE');
+        this.hydrateWallShareDatesFromEvent(this.shareWallContextGroup);
         if (this.wallWhatsappShareModal) {
             this.wallWhatsappShareModalRef = this.modalService.open(this.wallWhatsappShareModal, {
                 size: 'lg',
@@ -3517,6 +3576,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
     wallCancelWhatsAppShare(): void {
         this.wallWhatsappShareMessage = '';
+        this.wallShareImageFieldId = null;
         if (this.wallWhatsappShareModalRef) {
             this.wallWhatsappShareModalRef.close();
             this.wallWhatsappShareModalRef = null;
@@ -3528,14 +3588,44 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         if (!g?.eventId) return;
 
         const eventUrl = this.getWallShareEventUrl();
-        let message = `*${g.eventName || 'Activité'}*\n\n${eventUrl}\n\n`;
+        const shareHeading = this.translate.instant('EVENTELEM.SHARE_ACTIVITY_TITLE');
+        const activityName = (g.eventName || '').trim() || this.translate.instant('EVENTELEM.EVENT_TITLE');
+        const datesLine = this.formatWallShareDates(g);
+        let message = `*${shareHeading}*\n*${activityName}*\n`;
+        if (datesLine) {
+            message += `${datesLine}\n`;
+        }
+        message += '\n';
         if (this.wallWhatsappShareMessage?.trim()) {
-            message += this.wallWhatsappShareMessage.trim();
+            message += `${this.wallWhatsappShareMessage.trim()}\n\n`;
+        }
+        if (eventUrl) {
+            message += eventUrl;
         }
 
         const imageFieldId = this.wallShareFirstImageFieldId();
+        const title = g.eventName || 'Activité';
+        const nav = window.navigator as Navigator & {
+            share?: (data: ShareData & { files?: File[] }) => Promise<void>;
+            canShare?: (data: ShareData & { files?: File[] }) => boolean;
+        };
 
-        if (navigator.share && imageFieldId) {
+        const invokeShare = async (data: ShareData & { files?: File[] }): Promise<'ok' | 'cancel' | 'fail'> => {
+            if (typeof nav.share !== 'function') {
+                return 'fail';
+            }
+            try {
+                await nav.share(data);
+                return 'ok';
+            } catch (err) {
+                if ((err as DOMException)?.name === 'AbortError') {
+                    return 'cancel';
+                }
+                return 'fail';
+            }
+        };
+
+        if (imageFieldId && typeof nav.share === 'function') {
             try {
                 const imageBlob = await new Promise<Blob | null>((resolve) => {
                     const sub = this.fileService.getFile(imageFieldId).subscribe({
@@ -3554,25 +3644,35 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                             sub.unsubscribe();
                             resolve(null);
                         }
-                    }, 5000);
+                    }, 8000);
                 });
 
-                if (imageBlob) {
+                if (imageBlob && imageBlob.size > 0) {
                     let extension = 'jpg';
                     if (imageBlob.type.includes('png')) extension = 'png';
                     else if (imageBlob.type.includes('gif')) extension = 'gif';
                     else if (imageBlob.type.includes('webp')) extension = 'webp';
 
-                    const fileName = `event-image.${extension}`;
-                    const file = new File([imageBlob], fileName, { type: imageBlob.type });
+                    const file = new File([imageBlob], `event-image.${extension}`, {
+                        type: imageBlob.type || 'image/jpeg'
+                    });
 
-                    if (navigator.canShare && navigator.canShare({ files: [file], text: message })) {
-                        await navigator.share({
-                            title: g.eventName || 'Activité',
-                            text: message,
-                            files: [file]
-                        });
+                    // Do not gate on canShare({files,text}) — often false while share() still works.
+                    let out = await invokeShare({ title, text: message, files: [file] });
+                    if (out === 'ok') {
                         this.wallCancelWhatsAppShare();
+                        return;
+                    }
+                    if (out === 'cancel') {
+                        return;
+                    }
+                    // Image alone (WhatsApp often drops caption with files — user can paste text).
+                    out = await invokeShare({ title, files: [file] });
+                    if (out === 'ok') {
+                        this.wallCancelWhatsAppShare();
+                        return;
+                    }
+                    if (out === 'cancel') {
                         return;
                     }
                 }
@@ -3586,6 +3686,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             this.wallWhatsappShareModalRef.close();
             this.wallWhatsappShareModalRef = null;
         }
+        this.wallShareImageFieldId = null;
         window.open(whatsappUrl, '_blank');
     }
 

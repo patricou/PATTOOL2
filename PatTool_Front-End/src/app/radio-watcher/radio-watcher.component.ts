@@ -9,10 +9,10 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, NavigationStart, Router } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Subject, Subscription } from 'rxjs';
-import { debounceTime, distinctUntilChanged, catchError } from 'rxjs/operators';
+import { debounceTime, distinctUntilChanged, catchError, filter } from 'rxjs/operators';
 import { of } from 'rxjs';
 import Hls from 'hls.js';
 
@@ -26,9 +26,11 @@ import {
   enterRadioPictureInPicture,
   isRadioDocPipOpen,
   stopRadioPipCarrier,
+  supportsRadioDocumentPip,
   supportsRadioPictureInPicture
 } from './radio-pip.util';
 import { MediaCatalogCacheToolbarComponent } from '../shared/media-catalog-cache-toolbar/media-catalog-cache-toolbar.component';
+import { buildRadioShareLink } from '../shared/share-deep-link.util';
 
 type RadioListMode = 'catalog' | 'favorites';
 
@@ -77,7 +79,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   chromeVisible = true;
   shareMenuOpen = false;
   shareFeedback = '';
-  /** When true, leaving the page with PiP open keeps OS PiP alive. */
+  /** When true, leaving the page with keep-alive keeps World Receiver playing. */
   keepAliveOnNavigate = true;
   isPipActive = false;
   pipSupported = supportsRadioPictureInPicture();
@@ -98,6 +100,8 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   private stationsSub?: Subscription;
   private resumeSub?: Subscription;
   private lastStationSaveSub?: Subscription;
+  private navLeaveSub?: Subscription;
+  private leavePolicyApplied = false;
   private restoredLastStation = false;
   private chromeHideTimer: ReturnType<typeof setTimeout> | null = null;
   private shareFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
@@ -115,6 +119,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     private radioPlayer: RadioPlayerService,
     private cdr: ChangeDetectorRef,
     private route: ActivatedRoute,
+    private router: Router,
     private translate: TranslateService
   ) {}
 
@@ -271,6 +276,18 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
       this.restoredLastStation = true;
     }
 
+    // Hand off during NavigationStart (still in the click gesture) so Document PiP
+    // can reopen with the floating World Receiver instead of the simplified fallback.
+    this.navLeaveSub = this.router.events
+      .pipe(filter((e): e is NavigationStart => e instanceof NavigationStart))
+      .subscribe((e) => {
+        const next = (e.url || '').toLowerCase();
+        if (next.includes('radio-watcher')) {
+          return;
+        }
+        this.applyLeavePagePlaybackPolicy();
+      });
+
     this.loadCountries();
     this.loadCatalogCount();
     this.loadFavorites();
@@ -289,18 +306,22 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     this.catalogCountSub?.unsubscribe();
     this.resumeSub?.unsubscribe();
     this.lastStationSaveSub?.unsubscribe();
+    this.navLeaveSub?.unsubscribe();
     this.applyLeavePagePlaybackPolicy();
     this.destroyPlayer();
   }
 
   /**
-   * Keep-alive ON + OS PiP active: hand stream to a hidden shell host so PiP survives navigation.
+   * Keep-alive ON: hand playback to the persistent floating World Receiver (app shell)
+   * and open Document PiP with that same cabinet — so leaving the page keeps the
+   * full World Receiver look (not the simplified fallback face).
    * Keep-alive OFF: stop page + floating playback.
-   * Keep-alive ON without PiP: do not auto-open the floating window.
    */
   private applyLeavePagePlaybackPolicy(): void {
-    // Always restore Doc PiP face/media before the page view is destroyed.
-    const pipOwned = isRadioDocPipOpen() || this.isPipElementOwned();
+    if (this.leavePolicyApplied) {
+      return;
+    }
+    this.leavePolicyApplied = true;
     if (!this.keepAliveOnNavigate) {
       if (this.radioPlayer.isOpen) {
         this.radioPlayer.close({ resumeOnPage: false });
@@ -309,19 +330,24 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     if (this.radioPlayer.isOpen) {
-      // Floating already owns playback — still close Doc PiP so DOM homes are restored.
+      // Floating already owns playback — still close page Doc PiP so DOM homes are restored.
       this.exitPictureInPictureIfOwned();
       return;
     }
     const station = this.selectedStation;
-    if (!station || this.playError || !pipOwned) {
+    if (!station || this.playError) {
       this.exitPictureInPictureIfOwned();
       return;
     }
-    // Close doc-pip first so media returns home, then hand off to shell host.
+    // Close page Doc PiP first (restores face into the page before Angular destroys it),
+    // then reopen PiP from the persistent floating World Receiver cabinet.
     closeRadioDocPip();
     this.persistLastStation(station);
-    this.radioPlayer.openFloating(station, { pipHostOnly: true });
+    const docPip = supportsRadioDocumentPip();
+    this.radioPlayer.openFloating(station, {
+      pipHostOnly: docPip,
+      autoPip: true
+    });
   }
 
   private isPipElementOwned(): boolean {
@@ -787,10 +813,12 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     if (!this.selectedStation || !this.canNativeShare) {
       return;
     }
-    const url = this.buildShareUrl(this.selectedStation);
-    const text = this.translate.instant('RADIO.SHARE_TEXT', { name: this.selectedStation.name });
+    const url = this.buildShareUrl(this.selectedStation, { publicLink: true });
+    const intro = this.translate.instant('RADIO.SHARE_TEXT', { name: this.selectedStation.name });
+    // URL once in text only — ShareData.url would duplicate it in WhatsApp.
+    const text = `${intro}\n\n${url}`;
     try {
-      await navigator.share({ title: this.selectedStation.name, text, url });
+      await navigator.share({ title: this.selectedStation.name, text });
       this.shareMenuOpen = false;
     } catch {
       // user cancelled
@@ -801,10 +829,11 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     if (!this.selectedStation) {
       return;
     }
-    const url = this.buildShareUrl(this.selectedStation);
-    const text = this.translate.instant('RADIO.SHARE_TEXT', { name: this.selectedStation.name });
+    const url = this.buildShareUrl(this.selectedStation, { publicLink: true });
+    const intro = this.translate.instant('RADIO.SHARE_TEXT', { name: this.selectedStation.name });
+    const text = `${intro}\n\n${url}`;
     window.open(
-      'https://wa.me/?text=' + encodeURIComponent(text + ' ' + url),
+      'https://wa.me/?text=' + encodeURIComponent(text),
       '_blank',
       'noopener'
     );
@@ -815,7 +844,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     if (!this.selectedStation) {
       return;
     }
-    const url = this.buildShareUrl(this.selectedStation);
+    const url = this.buildShareUrl(this.selectedStation, { publicLink: true });
     try {
       await navigator.clipboard.writeText(url);
       this.setShareFeedback('RADIO.SHARE_COPIED');
@@ -843,15 +872,20 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     }
   }
 
-  private buildShareUrl(station: RadioStation): string {
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const params = new URLSearchParams();
-    params.set('station', station.id || '');
+  private buildShareUrl(station: RadioStation, opts?: { publicLink?: boolean }): string {
     const stream = (station.streamUrl || '').trim();
-    if (stream && stream.length <= RadioWatcherComponent.SHARE_STREAM_MAX_LEN) {
-      params.set('stream', stream);
-    }
-    return `${origin}/#/tools/radio-watcher?${params.toString()}`;
+    // Never put bare http(s):// stream URLs in the query — WhatsApp truncates the link.
+    const includeStream =
+      !!stream &&
+      stream.length <= RadioWatcherComponent.SHARE_STREAM_MAX_LEN &&
+      !/:\/\//i.test(stream);
+    return buildRadioShareLink(
+      {
+        station: station.id || '',
+        stream: includeStream ? stream : undefined
+      },
+      opts
+    );
   }
 
   private tryOpenSharedStationFromQuery(): boolean {
@@ -1027,6 +1061,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     if (!this.isLoggedIn) {
       this.favorites = [];
       this.favoriteIds = new Set();
+      this.radioPlayer.setFavorites([]);
       this.favoritesHint = 'RADIO.FAVORITES_LOGIN';
       return;
     }
@@ -1050,6 +1085,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   private applyFavorites(stations: RadioStation[]): void {
     this.favorites = stations || [];
     this.favoriteIds = new Set(this.favorites.map((s) => s.id).filter(Boolean));
+    this.radioPlayer.setFavorites(this.favorites);
   }
 
   private tryResolvePendingShare(): void {

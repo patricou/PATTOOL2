@@ -3,14 +3,17 @@
   *ngIf="state.open"
   [class.radio-float--minimized]="state.minimized && !state.pipHostOnly"
   [class.radio-float--pip-host]="!!state.pipHostOnly"
+  [class.radio-float--cabinet]="!state.pipHostOnly"
   [style.left.px]="posX"
   [style.top.px]="posY"
   [style.width.px]="state.minimized || state.pipHostOnly ? null : widthPx"
-  [style.height.px]="state.minimized || state.pipHostOnly ? null : heightPx"
   role="dialog"
   [attr.aria-hidden]="!!state.pipHostOnly"
   [attr.aria-label]="'RADIO.FLOAT_TITLE' | translate">
-  <div class="radio-float-header" (mousedown)="startDrag($event)">
+  <div
+    class="radio-float-toolbar"
+    *ngIf="!state.pipHostOnly"
+    (mousedown)="startDrag($event)">
     <div class="radio-float-title">
       <i class="fa fa-headphones me-1" aria-hidden="true"></i>
       <span class="radio-float-title-text">{{ station?.name || ('RADIO.FLOAT_TITLE' | translate) }}</span>
@@ -42,14 +45,6 @@
         [attr.title]="(isPipActive ? 'RADIO.PIP_EXIT' : 'RADIO.PIP') | translate"
         [attr.aria-label]="(isPipActive ? 'RADIO.PIP_EXIT' : 'RADIO.PIP') | translate">
         <i class="fa" [class.fa-compress]="isPipActive" [class.fa-clone]="!isPipActive"></i>
-      </button>
-      <button
-        type="button"
-        class="radio-float-btn"
-        (click)="toggleFullscreen()"
-        [attr.title]="(isFullscreen ? 'RADIO.FULLSCREEN_EXIT' : 'RADIO.FULLSCREEN') | translate"
-        [attr.aria-label]="(isFullscreen ? 'RADIO.FULLSCREEN_EXIT' : 'RADIO.FULLSCREEN') | translate">
-        <i class="fa" [class.fa-compress]="isFullscreen" [class.fa-arrows-alt]="!isFullscreen"></i>
       </button>
       <a
         routerLink="/tools/radio-watcher"
@@ -83,40 +78,148 @@
     </div>
   </div>
 
-  <div class="radio-float-body" *ngIf="!state.minimized || state.pipHostOnly">
-    <div class="radio-float-video-wrap">
-      <video
-        #mediaEl
-        class="radio-float-video radio-float-audio"
-        playsinline
-        (volumechange)="onMediaVolumeChange()"></video>
-      <div class="radio-float-radio" *ngIf="station && !playError && !state.pipHostOnly">
-        <img
-          *ngIf="station.logo"
-          class="radio-float-radio-logo"
-          [src]="station.logo"
-          [alt]="station.name"
-          (error)="$any($event.target).style.display='none'" />
-        <div>{{ station.name }}</div>
+  <section
+    #playerPanel
+    class="radio-player-panel radio-float-cabinet"
+    [class.radio-player-panel--on]="!!station && !playError"
+    [class.radio-player-panel--live]="!!station && !isBuffering && !playError"
+    [class.radio-float-cabinet--collapsed]="state.minimized && !state.pipHostOnly"
+    aria-label="Radio">
+    <div class="radio-cabinet-handle" aria-hidden="true">
+      <span class="radio-cabinet-handle-grip"></span>
+    </div>
+    <div class="radio-whip-antenna" aria-hidden="true">
+      <span class="radio-whip-base"></span>
+      <span class="radio-whip-mast"></span>
+      <span class="radio-whip-tip"></span>
+      <span class="radio-whip-wave radio-whip-wave--1"></span>
+      <span class="radio-whip-wave radio-whip-wave--2"></span>
+    </div>
+    <div class="radio-feet" aria-hidden="true">
+      <span></span><span></span><span></span><span></span>
+    </div>
+
+    <div
+      class="radio-player-frame radio-player-frame--playing"
+      [class.radio-player-frame--live]="!!station && !isBuffering && !playError">
+      <div class="radio-brand-plate" aria-hidden="true">
+        <span class="radio-brand-name">PatTool</span>
+        <span class="radio-brand-model">World Receiver</span>
       </div>
-      <div class="radio-float-buffering" *ngIf="isBuffering && !playError && !state.pipHostOnly">
-        <i class="fa fa-spinner fa-spin me-1"></i>
-        {{ 'RADIO.BUFFERING' | translate }}
-      </div>
-      <div class="radio-float-error" *ngIf="playError && !state.pipHostOnly" role="alert">
-        {{ formatPlayError(playError) }}
+
+      <div class="radio-face" [class.radio-face--empty]="!station">
+        <video
+          #mediaEl
+          class="radio-video radio-audio-el radio-video--hidden"
+          playsinline
+          (volumechange)="onMediaVolumeChange()"></video>
+
+        <div class="radio-ambient" aria-hidden="true"></div>
+
+        <div class="radio-dial" aria-hidden="true">
+          <div class="radio-dial-glass">
+            <div class="radio-dial-glow"></div>
+            <div class="radio-dial-freqs">
+              <span>88</span><span>92</span><span>96</span><span>100</span><span>104</span><span>108</span>
+            </div>
+            <div class="radio-dial-scale">
+              <span *ngFor="let tick of dialTicks" class="radio-dial-tick"></span>
+            </div>
+            <div
+              class="radio-dial-needle"
+              [style.--needle-pos]="station ? '68%' : '22%'"></div>
+            <div class="radio-dial-bands">
+              <span>LW</span>
+              <span>AM</span>
+              <span class="is-active">FM</span>
+              <span>SW</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="radio-meter" aria-hidden="true">
+          <div class="radio-meter-glass">
+            <div class="radio-meter-scale"></div>
+            <div
+              class="radio-meter-needle"
+              [class.is-live]="!!station && !isBuffering && !playError"></div>
+            <span class="radio-meter-label">SIGNAL</span>
+          </div>
+        </div>
+
+        <div class="radio-tubes" aria-hidden="true">
+          <span class="radio-tube" *ngFor="let t of tubeSlots">
+            <span class="radio-tube-glow"></span>
+          </span>
+        </div>
+
+        <div class="radio-speaker" aria-hidden="true">
+          <div class="radio-speaker-cloth">
+            <div class="radio-eq" *ngIf="station && !isBuffering && !playError">
+              <span *ngFor="let b of eqBars" class="radio-eq-bar"></span>
+            </div>
+            <div class="radio-speaker-grille">
+              <span class="radio-speaker-ring" *ngFor="let r of speakerRings"></span>
+              <span class="radio-speaker-hub"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="radio-station-badge" *ngIf="station && !playError">
+          <div class="radio-on-air"><span></span> ON AIR</div>
+          <img
+            *ngIf="stationLogo(station) as logo"
+            class="radio-audio-logo"
+            [src]="logo"
+            [alt]="station.name"
+            (error)="$any($event.target).style.display='none'" />
+          <div class="radio-audio-label">
+            <i class="fa fa-rss" aria-hidden="true"></i>
+            <span>{{ station.name }}</span>
+          </div>
+          <div class="radio-station-meta">
+            <span *ngIf="station.country">{{ countryLabel(station.country) }}</span>
+            <span *ngIf="station.codec">{{ station.codec }}</span>
+            <span *ngIf="formatBitrate(station)">{{ formatBitrate(station) }}</span>
+          </div>
+        </div>
+
+        <div class="radio-controls-row" aria-hidden="true">
+          <div class="radio-power">
+            <span class="radio-power-led" [class.is-on]="!!station && !playError"></span>
+            <span class="radio-power-cap"></span>
+          </div>
+          <div class="radio-knobs">
+            <span class="radio-knob radio-knob--tune"></span>
+            <span class="radio-knob radio-knob--bass"></span>
+            <span class="radio-knob radio-knob--vol"></span>
+          </div>
+        </div>
+
+        <div class="radio-buffering" *ngIf="station && isBuffering && !playError">
+          <i class="fa fa-spinner fa-spin"></i>
+          {{ 'RADIO.BUFFERING' | translate }}
+        </div>
+        <div class="radio-play-error" *ngIf="playError" role="alert">
+          {{ formatPlayError(playError) }}
+        </div>
       </div>
     </div>
-  </div>
 
-  <ng-container *ngIf="!state.minimized && !state.pipHostOnly">
-    <div class="radio-float-resize radio-float-resize--n" (mousedown)="startResize('n', $event)"></div>
-    <div class="radio-float-resize radio-float-resize--s" (mousedown)="startResize('s', $event)"></div>
-    <div class="radio-float-resize radio-float-resize--e" (mousedown)="startResize('e', $event)"></div>
-    <div class="radio-float-resize radio-float-resize--w" (mousedown)="startResize('w', $event)"></div>
-    <div class="radio-float-resize radio-float-resize--ne" (mousedown)="startResize('ne', $event)"></div>
-    <div class="radio-float-resize radio-float-resize--nw" (mousedown)="startResize('nw', $event)"></div>
-    <div class="radio-float-resize radio-float-resize--se" (mousedown)="startResize('se', $event)"></div>
-    <div class="radio-float-resize radio-float-resize--sw" (mousedown)="startResize('sw', $event)"></div>
-  </ng-container>
+    <div class="radio-presets" role="toolbar" [attr.aria-label]="'RADIO.PRESETS' | translate">
+      <button
+        *ngFor="let slot of presetSlots; let i = index"
+        type="button"
+        class="radio-preset"
+        [class.is-active]="!!slot && station?.id === slot.id"
+        [class.is-empty]="!slot"
+        (click)="playPreset(slot, $event)"
+        [attr.title]="presetTitle(slot, i)"
+        [attr.aria-label]="presetTitle(slot, i)"
+        [attr.aria-pressed]="!!slot && station?.id === slot.id">
+        <span class="radio-preset-num">{{ i + 1 }}</span>
+        <span class="radio-preset-label">{{ slot ? shortPresetName(slot) : '—' }}</span>
+      </button>
+    </div>
+  </section>
 </div>

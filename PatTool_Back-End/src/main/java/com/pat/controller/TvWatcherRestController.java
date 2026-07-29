@@ -787,7 +787,8 @@ public class TvWatcherRestController {
                             + "Regardez sur https://www.m6.fr/m6/direct"
             ));
         }
-        long expiresAtEpoch = Instant.now().plus(Duration.ofMinutes(5)).getEpochSecond();
+        // Mirrors have no CDN token — long expiry so clients do not schedule MediaSource swaps.
+        long expiresAtEpoch = Instant.now().plus(Duration.ofMinutes(45)).getEpochSecond();
         return ResponseEntity.ok(Map.of(
                 "slug", slug,
                 "streamUrl", hls.get(),

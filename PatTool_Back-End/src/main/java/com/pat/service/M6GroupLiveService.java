@@ -46,6 +46,10 @@ public class M6GroupLiveService {
     private static final Pattern STREAM_INF = Pattern.compile(
             "#EXT-X-STREAM-INF:([^\\n\\r]*)[\\n\\r]+([^#\\n\\r][^\\n\\r]*)",
             Pattern.CASE_INSENSITIVE);
+    /** How long a working IPTV mirror stays sticky (mirrors have no CDN token expiry). */
+    private static final Duration MIRROR_CACHE_TTL = Duration.ofMinutes(25);
+    /** Shorter sticky window after an emergency re-pick. */
+    private static final Duration MIRROR_CACHE_TTL_SHORT = Duration.ofMinutes(8);
     private static final Map<String, ChannelDef> CHANNELS = new LinkedHashMap<>();
     static {
         // Prefer known clear AVC mirrors. Skip geo-blocked / DRM / HEVC-only hosts as primary seeds.
@@ -128,8 +132,9 @@ public class M6GroupLiveService {
     public Optional<String> resolveHlsUrl(String slug) {
         return resolveHlsUrl(slug, false);
     }
+
     /**
-     * @param forceRefresh when true, drop the cached mirror and prefer another candidate.
+     * @param forceRefresh when true, re-validate the sticky mirror; only switch if it is dead.
      */
     public Optional<String> resolveHlsUrl(String slug, boolean forceRefresh) {
         Optional<ChannelDef> defOpt = findChannel(slug);
@@ -141,40 +146,50 @@ public class M6GroupLiveService {
         Instant now = Instant.now();
         String avoidUrl = null;
         CachedUrl cached = streamCache.get(key);
-        if (forceRefresh) {
-            if (cached != null) {
-                avoidUrl = cached.url;
-                markFailed(cached.url, Duration.ofMinutes(2));
+
+        // Sticky path: keep the same working mirror to avoid mid-playback cuts.
+        if (cached != null && !isTemporarilyFailed(cached.url)) {
+            boolean cacheFresh = cached.expiresAt.isAfter(now);
+            if (cacheFresh && !forceRefresh) {
+                // Trust cache — do not re-probe on every playlist hit (probe latency causes stalls).
+                return Optional.of(cached.url);
             }
-            streamCache.remove(key);
-            cached = null;
-        } else if (cached != null && cached.expiresAt.isAfter(now)) {
-            if (!isTemporarilyFailed(cached.url) && probeClearHls(cached.url)) {
+            // forceRefresh or expired: re-probe the sticky URL first; keep it if still alive.
+            if (probeClearHls(cached.url)) {
+                streamCache.put(key, new CachedUrl(cached.url, now.plus(MIRROR_CACHE_TTL)));
                 return Optional.of(cached.url);
             }
             avoidUrl = cached.url;
             markFailed(cached.url, Duration.ofMinutes(2));
             streamCache.remove(key);
-            log.info("M6 group live {} dropped stale cached URL", key);
+            log.info("M6 group live {} dropped dead sticky URL", key);
+            cached = null;
+        } else if (cached != null) {
+            avoidUrl = cached.url;
+            streamCache.remove(key);
             cached = null;
         }
+
         List<String> candidates = buildCandidates(def);
         Optional<String> picked = probeFirstWorking(candidates, avoidUrl);
         if (picked.isPresent()) {
             clearFailed(picked.get());
-            streamCache.put(key, new CachedUrl(picked.get(), now.plus(Duration.ofMinutes(4))));
+            streamCache.put(key, new CachedUrl(picked.get(), now.plus(MIRROR_CACHE_TTL)));
             log.info("M6 group live resolved {} -> {}", key, picked.get());
             return picked;
         }
         if (StringUtils.hasText(avoidUrl) && probeClearHls(avoidUrl)) {
             clearFailed(avoidUrl);
-            streamCache.put(key, new CachedUrl(avoidUrl, now.plus(Duration.ofMinutes(2))));
+            streamCache.put(key, new CachedUrl(avoidUrl, now.plus(MIRROR_CACHE_TTL_SHORT)));
             return Optional.of(avoidUrl);
         }
         log.warn("M6 group live: no working public HLS for {} (official M6+ is DRM-only)", key);
         return Optional.empty();
     }
-    /** Drop a cached stream URL so the next resolve re-probes mirrors. */
+    /**
+     * Drop a cached stream URL so the next resolve re-probes mirrors.
+     * Short-blacklists the previous URL when the proxy already saw an upstream failure.
+     */
     public void invalidate(String slug) {
         if (slug == null) {
             return;
@@ -182,7 +197,8 @@ public class M6GroupLiveService {
         String key = slug.trim().toLowerCase(Locale.ROOT);
         CachedUrl cached = streamCache.remove(key);
         if (cached != null) {
-            markFailed(cached.url, Duration.ofMinutes(2));
+            // Short blacklist so the next resolve prefers another mirror when the proxy failed.
+            markFailed(cached.url, Duration.ofMinutes(1));
         }
     }
 
@@ -229,7 +245,7 @@ public class M6GroupLiveService {
             final String url = toProbe.get(i);
             final int order = i;
             futures.add(CompletableFuture.supplyAsync(() -> {
-                boolean ok = probeClearHls(url) || probeClearHls(url);
+                boolean ok = probeClearHls(url);
                 return new ProbeResult(url, ok, order);
             }, probeExecutor));
         }

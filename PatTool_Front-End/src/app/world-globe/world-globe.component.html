@@ -1449,15 +1449,19 @@
                 </div>
                 <p class="wg-compass-sensors-live__hint">{{ 'WORLD_GLOBE.ISS_COMPASS_SENSOR_LIVE_HINT' | translate }}</p>
                 <div class="wg-compass-sensors-live__grid" aria-live="polite">
-                  <div class="wg-compass-sensors-live__item">
+                  <div class="wg-compass-sensors-live__item" *ngIf="issCompassHeadingSource === 'absolute-sensor'">
+                    <span class="wg-compass-sensors-live__key">{{ 'WORLD_GLOBE.ISS_COMPASS_HEADING' | translate }}</span>
+                    <span class="wg-compass-sensors-live__val">{{ issCompassHeadingRawDeg != null ? (issCompassHeadingRawDeg | number : '1.1-1') + '°' : '—' }}</span>
+                  </div>
+                  <div class="wg-compass-sensors-live__item" *ngIf="issCompassHeadingSource !== 'absolute-sensor'">
                     <span class="wg-compass-sensors-live__key">{{ 'WORLD_GLOBE.ISS_COMPASS_SENSOR_ALPHA' | translate }}</span>
                     <span class="wg-compass-sensors-live__val">{{ issCompassSensorAlpha != null ? (issCompassSensorAlpha | number : '1.1-1') + '°' : '—' }}</span>
                   </div>
-                  <div class="wg-compass-sensors-live__item">
+                  <div class="wg-compass-sensors-live__item" *ngIf="issCompassHeadingSource !== 'absolute-sensor'">
                     <span class="wg-compass-sensors-live__key">{{ 'WORLD_GLOBE.ISS_COMPASS_SENSOR_BETA' | translate }}</span>
                     <span class="wg-compass-sensors-live__val">{{ issCompassSensorBeta != null ? (issCompassSensorBeta | number : '1.1-1') + '°' : '—' }}</span>
                   </div>
-                  <div class="wg-compass-sensors-live__item">
+                  <div class="wg-compass-sensors-live__item" *ngIf="issCompassHeadingSource !== 'absolute-sensor'">
                     <span class="wg-compass-sensors-live__key">{{ 'WORLD_GLOBE.ISS_COMPASS_SENSOR_GAMMA' | translate }}</span>
                     <span class="wg-compass-sensors-live__val">{{ issCompassSensorGamma != null ? (issCompassSensorGamma | number : '1.1-1') + '°' : '—' }}</span>
                   </div>

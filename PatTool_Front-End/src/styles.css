@@ -126,6 +126,45 @@ body .modal.show.whatsapp-share-modal .modal-dialog .modal-footer {
     flex-shrink: 0 !important;
 }
 
+/* Share modals (WhatsApp / e-mail): compact actions, same scale as todolists */
+body .modal.whatsapp-share-modal .modal-footer,
+body .modal.show.whatsapp-share-modal .modal-footer,
+body .modal.share-by-email-modal .modal-footer,
+body .modal.show.share-by-email-modal .modal-footer,
+body ngb-modal-window.modal.whatsapp-share-modal .modal-footer,
+body ngb-modal-window.modal.share-by-email-modal .modal-footer {
+    padding: 0.5rem 0.75rem !important;
+    gap: 0.4rem;
+}
+
+body .modal.whatsapp-share-modal .modal-footer .btn,
+body .modal.show.whatsapp-share-modal .modal-footer .btn,
+body .modal.share-by-email-modal .modal-footer .btn,
+body .modal.show.share-by-email-modal .modal-footer .btn,
+body ngb-modal-window.modal.whatsapp-share-modal .modal-footer .btn,
+body ngb-modal-window.modal.share-by-email-modal .modal-footer .btn {
+    padding: 0.25rem 0.65rem !important;
+    font-size: 0.875rem !important;
+    line-height: 1.4 !important;
+    border-radius: 0.375rem !important;
+}
+
+body .modal.whatsapp-share-modal .whatsapp-share-title-link,
+body .modal.show.whatsapp-share-modal .whatsapp-share-title-link,
+body ngb-modal-window.modal.whatsapp-share-modal .whatsapp-share-title-link {
+    display: inline-block;
+    max-width: 100%;
+    white-space: normal;
+    text-decoration: none;
+    vertical-align: middle;
+}
+
+body .modal.whatsapp-share-modal .whatsapp-share-content .form-label,
+body .modal.show.whatsapp-share-modal .whatsapp-share-content .form-label {
+    font-size: 0.9rem;
+    margin-bottom: 0.35rem;
+}
+
 body .modal.whatsapp-share-modal .whatsapp-share-preview-stack,
 body .modal.show.whatsapp-share-modal .whatsapp-share-preview-stack {
     display: flex;

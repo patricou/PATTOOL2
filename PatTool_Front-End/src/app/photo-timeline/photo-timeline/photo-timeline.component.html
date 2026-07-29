@@ -886,18 +886,25 @@
     </div>
     <div class="modal-body">
         <div *ngIf="shareWallContextGroup" class="whatsapp-share-content">
-            <div class="text-center mb-3">
+            <div class="text-center mb-2">
                 <img [src]="getWallShareMainImageUrl()"
                      [alt]="shareWallContextGroup.eventName"
-                     class="img-fluid rounded"
-                     style="max-width: 80px; max-height: 80px; object-fit: cover; border: 2px solid #007bff; padding: 2px;">
+                     class="img-fluid rounded whatsapp-share-thumb"
+                     style="max-width: 280px; max-height: 280px; width: 100%; object-fit: cover; border: 2px solid #007bff; padding: 2px;">
             </div>
-            <div class="mb-3">
-                <a [href]="getWallShareEventUrl()" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: block;">
-                    <h3 class="fw-bold text-white text-center p-3 rounded" style="background-color: #007bff;">
-                        {{ shareWallContextGroup.eventName }}
-                    </h3>
+            <div class="mb-1 text-center">
+                <div class="whatsapp-share-heading small text-uppercase text-muted fw-semibold">
+                    {{ 'EVENTELEM.SHARE_ACTIVITY_TITLE' | translate }}
+                </div>
+                <a [href]="getWallShareEventUrl()"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="whatsapp-share-title-link btn btn-sm btn-primary mt-1">
+                    {{ shareWallContextGroup.eventName }}
                 </a>
+                <div class="small text-muted mt-1" *ngIf="formatWallShareDates(shareWallContextGroup) as wallShareDates">
+                    {{ wallShareDates }}
+                </div>
             </div>
             <div class="mb-3 text-center">
                 <a [href]="getWallShareEventUrl()" target="_blank" rel="noopener noreferrer" class="small text-break">
@@ -909,8 +916,8 @@
                     {{ 'EVENTELEM.OPTIONAL_MESSAGE' | translate }}
                 </label>
                 <textarea id="wallWhatsappMessageTimeline"
-                          class="form-control"
-                          rows="4"
+                          class="form-control form-control-sm"
+                          rows="3"
                           [(ngModel)]="wallWhatsappShareMessage"
                           [placeholder]="'EVENTELEM.MESSAGE_PLACEHOLDER' | translate"
                           style="resize: vertical;"></textarea>
@@ -918,18 +925,18 @@
                     {{ 'EVENTELEM.MESSAGE_OPTIONAL_HINT' | translate }}
                 </small>
             </div>
-            <div class="alert alert-info small mb-0">
+            <div class="alert alert-info small mb-0 py-2">
                 <i class="fa fa-info-circle me-2"></i>
                 {{ 'EVENTELEM.WHATSAPP_SHARE_INFO' | translate }}
             </div>
         </div>
     </div>
-    <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" (click)="wallCancelWhatsAppShare()">
-            {{ 'EVENTELEM.CANCEL' | translate }}
+    <div class="modal-footer py-2 px-3">
+        <button type="button" class="btn btn-sm btn-secondary" (click)="wallCancelWhatsAppShare()">
+            {{ 'COMMUN.CANCEL' | translate }}
         </button>
-        <button type="button" class="btn btn-success" (click)="wallConfirmWhatsAppShare()">
-            <i class="fa fa-whatsapp me-2"></i>
+        <button type="button" class="btn btn-sm btn-success" (click)="wallConfirmWhatsAppShare()">
+            <i class="fa fa-whatsapp me-1"></i>
             {{ 'EVENTELEM.SHARE_NOW' | translate }}
         </button>
     </div>
@@ -1007,13 +1014,13 @@
             <div *ngIf="wallShareByEmailSuccess" class="alert alert-success small mb-2">{{ wallShareByEmailSuccess }}</div>
         </div>
     </div>
-    <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" (click)="wallCloseShareByEmailModal()">
-            {{ 'EVENTELEM.CANCEL' | translate }}
+    <div class="modal-footer py-2 px-3">
+        <button type="button" class="btn btn-sm btn-secondary" (click)="wallCloseShareByEmailModal()">
+            {{ 'COMMUN.CANCEL' | translate }}
         </button>
-        <button type="button" class="btn btn-primary" (click)="wallSendShareByEmail()" [disabled]="wallShareByEmailSending">
-            <i class="fa fa-spinner fa-spin me-2" *ngIf="wallShareByEmailSending"></i>
-            <i class="fa fa-envelope me-2" *ngIf="!wallShareByEmailSending"></i>
+        <button type="button" class="btn btn-sm btn-primary" (click)="wallSendShareByEmail()" [disabled]="wallShareByEmailSending">
+            <i class="fa fa-spinner fa-spin me-1" *ngIf="wallShareByEmailSending"></i>
+            <i class="fa fa-envelope me-1" *ngIf="!wallShareByEmailSending"></i>
             {{ 'EVENTELEM.SHARE_MAIL_SEND' | translate }}
         </button>
     </div>

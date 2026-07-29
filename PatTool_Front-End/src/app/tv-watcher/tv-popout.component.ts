@@ -23,6 +23,7 @@ import {
   isProgressiveVod,
   isRadioFranceVirtual,
   isTf1Virtual,
+  needsProactiveTokenRenewal,
   resolveTvStreamUrl
 } from './tv-stream.util';
 import { formatTvPlayErrorDisplay } from './tv-stream-error.util';
@@ -525,7 +526,8 @@ export class TvPopoutComponent implements OnInit, OnDestroy {
           });
           return true;
         },
-        virtualLive: keepAlive
+        // M6 mirrors have no CDN token — skip proactive MediaSource swaps (they cut playback).
+        virtualLive: keepAlive && needsProactiveTokenRenewal(streamUrl)
           ? {
               slug: keepAlive.slug,
               resolveMeta: keepAlive.resolveMeta,

@@ -32,6 +32,7 @@ import { FriendsService } from '../../services/friends.service';
 import { VideoCompressionService, CompressionProgress } from '../../services/video-compression.service';
 import { VideoUploadProcessingService } from '../../services/video-upload-processing.service';
 import { environment } from '../../../environments/environment';
+import { buildPhotosShareLink } from '../../shared/share-deep-link.util';
 import { FriendGroup } from '../../model/friend';
 import { EventColorService } from '../../services/event-color.service';
 import { EventVideoPreloadService } from '../../services/event-video-preload.service';
@@ -3339,7 +3340,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
       month: 'long',
       year: 'numeric'
     });
-    
+
     // Extract time from date if startHour is empty
     let timeToDisplay = time;
     if (!timeToDisplay || timeToDisplay.trim() === '') {
@@ -3355,6 +3356,55 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     }
     
     return formattedDate;
+  }
+
+  /** Dates début/fin pour le message WhatsApp de partage. */
+  private formatShareActivityDates(
+    begin: Date | string | null | undefined,
+    end: Date | string | null | undefined
+  ): string {
+    const currentLang = this.translateService.currentLang || 'fr';
+    const localeMap: { [key: string]: string } = {
+      fr: 'fr-FR',
+      en: 'en-US',
+      es: 'es-ES',
+      de: 'de-DE',
+      it: 'it-IT',
+      ru: 'ru-RU',
+      jp: 'ja-JP',
+      cn: 'zh-CN',
+      ar: 'ar-SA',
+      el: 'el-GR',
+      he: 'he-IL',
+      in: 'hi-IN'
+    };
+    const locale = localeMap[currentLang] || 'fr-FR';
+    const fmt = (d: Date | string | null | undefined): string => {
+      if (!d) {
+        return '';
+      }
+      const date = d instanceof Date ? d : new Date(d);
+      if (Number.isNaN(date.getTime())) {
+        return '';
+      }
+      return date.toLocaleDateString(locale, {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+    };
+    const beginLabel = fmt(begin);
+    const endLabel = fmt(end);
+    if (beginLabel && endLabel) {
+      return `📅 ${this.translateService.instant('COMMUN.FROM')} ${beginLabel} ${this.translateService.instant('COMMUN.TO')} ${endLabel}`;
+    }
+    if (beginLabel) {
+      return `📅 ${beginLabel}`;
+    }
+    if (endLabel) {
+      return `📅 ${endLabel}`;
+    }
+    return '';
   }
 
   // Get event type label
@@ -3821,12 +3871,12 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     return '';
   }
 
-  // Get event URL
+  // Get event URL (WhatsApp / e-mail): static photos-link.html + public HTTPS when configured.
   public getEventUrl(): string {
     if (!this.evenement || !this.evenement.id) {
       return '';
     }
-    return window.location.origin + '/#' + this.router.url;
+    return buildPhotosShareLink(this.evenement.id, { publicLink: true });
   }
 
   // Confirm WhatsApp share
@@ -3835,8 +3885,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
       return;
     }
     
-    // Get the current URL
-    const currentUrl = window.location.origin + '/#' + this.router.url;
+    const currentUrl = this.getEventUrl();
     
     // Get image fieldId if available
     let imageFieldId: string | null = null;
@@ -3846,21 +3895,31 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
       imageFieldId = this.photoItemsList[0].file.fieldId;
     }
     
-    // Build the message with clickable title
-    // In WhatsApp, URLs are automatically clickable when properly formatted
-    // Format: Title in bold, then clickable URL on separate line, then optional message
-    let message = `*${this.evenement.evenementName || 'Activité'}*\n\n`;
-    // Ensure URL is on its own line with proper spacing for WhatsApp Web to detect it as clickable
-    message += `${currentUrl}\n\n`;
-    
-    // Add optional user message
+    // Title « Partage d'activité », activity name, dates, optional message, then public HTTPS URL last.
+    const shareHeading = this.translateService.instant('EVENTELEM.SHARE_ACTIVITY_TITLE');
+    const activityName = (this.evenement.evenementName || '').trim()
+      || this.translateService.instant('EVENTELEM.EVENT_TITLE');
+    const datesLine = this.formatShareActivityDates(
+      this.evenement.beginEventDate,
+      this.evenement.endEventDate
+    );
+    let message = `*${shareHeading}*\n*${activityName}*\n`;
+    if (datesLine) {
+      message += `${datesLine}\n`;
+    }
+    message += '\n';
     if (this.whatsappShareMessage && this.whatsappShareMessage.trim()) {
-      message += `${this.whatsappShareMessage.trim()}`;
+      message += `${this.whatsappShareMessage.trim()}\n\n`;
+    }
+    if (currentUrl) {
+      message += currentUrl;
     }
     
-    // Try to use Web Share API first (supports images on mobile)
-    // This allows sharing image and text together in the same message
-    if (navigator.share && imageFieldId) {
+    // Try to use Web Share API first (supports images on mobile).
+    const nav = window.navigator as Navigator & {
+      share?: (data: ShareData & { files?: File[] }) => Promise<void>;
+    };
+    if (typeof nav.share === 'function' && imageFieldId) {
       try {
         // Get image blob using authenticated file service
         const imageBlob = await new Promise<Blob | null>((resolve) => {
@@ -3898,22 +3957,44 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
           else if (imageBlob.type.includes('webp')) extension = 'webp';
           
           const fileName = `event-image.${extension}`;
-          const file = new File([imageBlob], fileName, { type: imageBlob.type });
-          
-          // Try to share with image and text together
-          // The image will appear first, then the text message
-          if (navigator.canShare && navigator.canShare({ files: [file], text: message })) {
-            await navigator.share({
-              title: this.evenement.evenementName || 'Activité',
-              text: message,
-              files: [file]
-            });
-            
-            // Close modal
+          const file = new File([imageBlob], fileName, { type: imageBlob.type || 'image/jpeg' });
+          const title = this.evenement.evenementName || 'Activité';
+          const invokeShare = async (data: ShareData & { files?: File[] }): Promise<'ok' | 'cancel' | 'fail'> => {
+            if (typeof nav.share !== 'function') {
+              return 'fail';
+            }
+            try {
+              await nav.share(data);
+              return 'ok';
+            } catch (err) {
+              if ((err as DOMException)?.name === 'AbortError') {
+                return 'cancel';
+              }
+              return 'fail';
+            }
+          };
+
+          // Do not gate on canShare({files,text}) — often false while share() still works.
+          let out = await invokeShare({ title, text: message, files: [file] });
+          if (out === 'ok') {
             if (this.whatsappShareModalRef) {
               this.whatsappShareModalRef.close();
               this.whatsappShareModalRef = null;
             }
+            return;
+          }
+          if (out === 'cancel') {
+            return;
+          }
+          out = await invokeShare({ title, files: [file] });
+          if (out === 'ok') {
+            if (this.whatsappShareModalRef) {
+              this.whatsappShareModalRef.close();
+              this.whatsappShareModalRef = null;
+            }
+            return;
+          }
+          if (out === 'cancel') {
             return;
           }
         }
