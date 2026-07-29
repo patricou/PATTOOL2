@@ -26,6 +26,12 @@ import { map, distinctUntilChanged, catchError, take, switchMap, finalize, obser
 import { DomSanitizer, SafeUrl, SafeStyle } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
 import { buildPhotosShareLink } from '../../shared/share-deep-link.util';
+import { preferNativeFileShare } from '../../shared/clipboard-copy';
+import {
+    shareActivityImageOnWhatsApp,
+    whatsappShareInfoI18nKey,
+    whatsappShareOutcomeHintKey
+} from '../../shared/share-whatsapp-image.util';
 import { EvenementsService } from '../../services/evenements.service';
 import { ApiService } from '../../services/api.service';
 import { KeycloakService } from '../../keycloak/keycloak.service';
@@ -369,6 +375,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     wallWhatsappShareMessage = '';
     /** fieldId image pour WhatsApp (1ʳᵉ photo mur ou thumbnail activité). */
     private wallShareImageFieldId: string | null = null;
+    /** Feedback après partage (ex. photo copiée → coller dans WhatsApp). */
+    wallWhatsappShareFeedback = '';
     private wallWhatsappShareModalRef: NgbModalRef | null = null;
     private wallShareByEmailModalRef: NgbModalRef | null = null;
     wallShareByEmailPatToolSelected: string[] = [];
@@ -3562,6 +3570,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         };
         this.wallShareImageFieldId = (group.photos?.[0]?.fileId || '').trim() || null;
         this.wallWhatsappShareMessage = this.translate.instant('EVENTELEM.DEFAULT_SHARE_MESSAGE');
+        this.wallWhatsappShareFeedback = '';
         this.hydrateWallShareDatesFromEvent(this.shareWallContextGroup);
         if (this.wallWhatsappShareModal) {
             this.wallWhatsappShareModalRef = this.modalService.open(this.wallWhatsappShareModal, {
@@ -3577,6 +3586,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     wallCancelWhatsAppShare(): void {
         this.wallWhatsappShareMessage = '';
         this.wallShareImageFieldId = null;
+        this.wallWhatsappShareFeedback = '';
         if (this.wallWhatsappShareModalRef) {
             this.wallWhatsappShareModalRef.close();
             this.wallWhatsappShareModalRef = null;
@@ -3587,6 +3597,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         const g = this.shareWallContextGroup;
         if (!g?.eventId) return;
 
+        this.wallWhatsappShareFeedback = '';
         const eventUrl = this.getWallShareEventUrl();
         const shareHeading = this.translate.instant('EVENTELEM.SHARE_ACTIVITY_TITLE');
         const activityName = (g.eventName || '').trim() || this.translate.instant('EVENTELEM.EVENT_TITLE');
@@ -3605,89 +3616,74 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
         const imageFieldId = this.wallShareFirstImageFieldId();
         const title = g.eventName || 'Activité';
-        const nav = window.navigator as Navigator & {
-            share?: (data: ShareData & { files?: File[] }) => Promise<void>;
-            canShare?: (data: ShareData & { files?: File[] }) => boolean;
-        };
 
-        const invokeShare = async (data: ShareData & { files?: File[] }): Promise<'ok' | 'cancel' | 'fail'> => {
-            if (typeof nav.share !== 'function') {
-                return 'fail';
-            }
-            try {
-                await nav.share(data);
-                return 'ok';
-            } catch (err) {
-                if ((err as DOMException)?.name === 'AbortError') {
-                    return 'cancel';
-                }
-                return 'fail';
-            }
-        };
-
-        if (imageFieldId && typeof nav.share === 'function') {
-            try {
-                const imageBlob = await new Promise<Blob | null>((resolve) => {
-                    const sub = this.fileService.getFile(imageFieldId).subscribe({
-                        next: (res: any) => {
-                            let mimeType = 'image/jpeg';
-                            if (res instanceof Blob && res.type) {
-                                mimeType = res.type;
-                            }
-                            resolve(new Blob([res], { type: mimeType }));
-                        },
-                        error: () => resolve(null)
-                    });
-                    this.subscriptions.push(sub);
-                    setTimeout(() => {
-                        if (!sub.closed) {
-                            sub.unsubscribe();
-                            resolve(null);
+        let imageBlob: Blob | null = null;
+        if (imageFieldId) {
+            imageBlob = await new Promise<Blob | null>((resolve) => {
+                const sub = this.fileService.getFile(imageFieldId).subscribe({
+                    next: (res: ArrayBuffer | Blob) => {
+                        let mimeType = 'image/jpeg';
+                        if (res instanceof Blob && res.type) {
+                            mimeType = res.type;
                         }
-                    }, 8000);
+                        resolve(new Blob([res], { type: mimeType }));
+                    },
+                    error: () => resolve(null)
                 });
+                this.subscriptions.push(sub);
+                setTimeout(() => {
+                    if (!sub.closed) {
+                        sub.unsubscribe();
+                        resolve(null);
+                    }
+                }, 12000);
+            });
+        }
 
-                if (imageBlob && imageBlob.size > 0) {
-                    let extension = 'jpg';
-                    if (imageBlob.type.includes('png')) extension = 'png';
-                    else if (imageBlob.type.includes('gif')) extension = 'gif';
-                    else if (imageBlob.type.includes('webp')) extension = 'webp';
+        if (!imageBlob || imageBlob.size <= 0) {
+            window.open(
+                preferNativeFileShare()
+                    ? `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`
+                    : `https://wa.me/?text=${encodeURIComponent(message)}`,
+                '_blank',
+                'noopener,noreferrer'
+            );
+            this.wallCancelWhatsAppShare();
+            return;
+        }
 
-                    const file = new File([imageBlob], `event-image.${extension}`, {
-                        type: imageBlob.type || 'image/jpeg'
-                    });
+        const outcome = await shareActivityImageOnWhatsApp({
+            imageBlob,
+            title,
+            message
+        });
 
-                    // Do not gate on canShare({files,text}) — often false while share() still works.
-                    let out = await invokeShare({ title, text: message, files: [file] });
-                    if (out === 'ok') {
-                        this.wallCancelWhatsAppShare();
-                        return;
-                    }
-                    if (out === 'cancel') {
-                        return;
-                    }
-                    // Image alone (WhatsApp often drops caption with files — user can paste text).
-                    out = await invokeShare({ title, files: [file] });
-                    if (out === 'ok') {
-                        this.wallCancelWhatsAppShare();
-                        return;
-                    }
-                    if (out === 'cancel') {
-                        return;
-                    }
-                }
-            } catch {
-                // fall through to wa.me
+        if (outcome === 'cancel') {
+            return;
+        }
+        if (outcome === 'shared') {
+            const hint = whatsappShareOutcomeHintKey(outcome);
+            if (hint) {
+                this.wallWhatsappShareFeedback = this.translate.instant(hint);
+                this.cdr.markForCheck();
+                // Close shortly so the user can finish in WhatsApp; caption is already in clipboard.
+                setTimeout(() => this.wallCancelWhatsAppShare(), 2500);
+            } else {
+                this.wallCancelWhatsAppShare();
             }
+            return;
         }
 
-        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-        if (this.wallWhatsappShareModalRef) {
-            this.wallWhatsappShareModalRef.close();
-            this.wallWhatsappShareModalRef = null;
-        }
-        this.wallShareImageFieldId = null;
-        window.open(whatsappUrl, '_blank');
+        const hintKey = whatsappShareOutcomeHintKey(outcome);
+        this.wallWhatsappShareFeedback = hintKey
+            ? this.translate.instant(hintKey)
+            : '';
+        this.cdr.markForCheck();
+    }
+
+    /** Texte d’aide de la modale : smartphone vs PC. */
+    wallWhatsappShareInfoKey(): string {
+        return whatsappShareInfoI18nKey();
     }
 
     getWallShareByEmailMailLangOption(): { code: string; labelKey: string; flagCode: string } | undefined {

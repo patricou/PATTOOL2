@@ -927,7 +927,11 @@
             </div>
             <div class="alert alert-info small mb-0 py-2">
                 <i class="fa fa-info-circle me-2"></i>
-                {{ 'EVENTELEM.WHATSAPP_SHARE_INFO' | translate }}
+                {{ wallWhatsappShareInfoKey() | translate }}
+            </div>
+            <div *ngIf="wallWhatsappShareFeedback" class="alert alert-success small mt-2 mb-0 py-2">
+                <i class="fa fa-check-circle me-2"></i>
+                {{ wallWhatsappShareFeedback }}
             </div>
         </div>
     </div>

@@ -823,8 +823,10 @@
             </button>
             <button type="button" class="btn btn-sm btn-success"
                     *ngIf="shareMode === 'whatsapp'"
-                    (click)="sendShareWhatsApp()">
-                <i class="fa fa-whatsapp"></i>
+                    (click)="sendShareWhatsApp()"
+                    [disabled]="shareWhatsAppBusy">
+                <i class="fa fa-whatsapp" *ngIf="!shareWhatsAppBusy"></i>
+                <i class="fa fa-spinner fa-spin" *ngIf="shareWhatsAppBusy"></i>
                 {{ (shareKind === 'reminder'
                     ? 'TODOLISTS.REMINDER.OPEN_WHATSAPP'
                     : 'TODOLISTS.SHARE.OPEN_WHATSAPP') | translate }}

@@ -193,6 +193,7 @@ export class TodolistsComponent implements OnInit, OnDestroy {
     shareExtraEmails = '';
     shareCustomMessage = '';
     shareSending = false;
+    shareWhatsAppBusy = false;
     shareErrorMessage = '';
     shareSuccessMessage = '';
     shareRecipientsLoading = false;
@@ -1031,84 +1032,159 @@ export class TodolistsComponent implements OnInit, OnDestroy {
     /**
      * Share to WhatsApp.
      *
-     * Sur mobile, {@link Navigator#canShare} renvoie souvent {@code false} pour
-     * {@code { files, text }} alors que {@link Navigator#share} fonctionne : on appelle
-     * donc {@code share()} sans se fier uniquement à {@code canShare}. Si texte+fichier
-     * échoue, on retente avec la photo seule (légende à coller manuellement si besoin).
-     * Ensuite partage texte seul ou {@code wa.me} (sans image).
+     * Desktop: open {@code wa.me} synchronously on the click (no prior {@code await}) so the
+     * browser does not treat it as a blocked popup — that was causing a “click twice” feel.
+     *
+     * Mobile: try the system share sheet (with cover image when possible). A blank tab is
+     * reserved up-front so the {@code wa.me} fallback still works after async work.
      */
     async sendShareWhatsApp(): Promise<void> {
-        if (!this.shareList) {
+        if (!this.shareList || this.shareWhatsAppBusy) {
             return;
         }
-        const list = this.shareList;
-        const text = this.composeWhatsAppMessage(list);
-        const markOpened = (msgKey: 'TODOLISTS.SHARE.WHATSAPP_OPENED' | 'TODOLISTS.SHARE.WHATSAPP_IMAGE_ONLY' = 'TODOLISTS.SHARE.WHATSAPP_OPENED'): void => {
-            this.shareSuccessMessage = this.translate.instant(msgKey);
-            this.cdr.markForCheck();
-        };
+        this.shareWhatsAppBusy = true;
+        this.shareErrorMessage = '';
+        this.shareSuccessMessage = '';
+        this.cdr.markForCheck();
 
-        const nav = window.navigator as Navigator & {
-            share?: (data: ShareData & { files?: File[] }) => Promise<void>;
-        };
+        try {
+            const list = this.shareList;
+            const text = this.composeWhatsAppMessage(list);
+            const waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
 
-        const invokeShare = async (data: ShareData & { files?: File[] }): Promise<'ok' | 'cancel' | 'fail'> => {
-            if (typeof nav.share !== 'function') {
-                return 'fail';
-            }
-            try {
-                await nav.share(data);
-                return 'ok';
-            } catch (err) {
-                if ((err as DOMException)?.name === 'AbortError') {
-                    return 'cancel';
+            const markOpened = (
+                msgKey: 'TODOLISTS.SHARE.WHATSAPP_OPENED' | 'TODOLISTS.SHARE.WHATSAPP_IMAGE_ONLY'
+                    = 'TODOLISTS.SHARE.WHATSAPP_OPENED'
+            ): void => {
+                this.shareSuccessMessage = this.translate.instant(msgKey);
+                this.cdr.markForCheck();
+            };
+            const markBlocked = (): void => {
+                this.shareErrorMessage = this.translate.instant('TODOLISTS.SHARE.WHATSAPP_BLOCKED');
+                this.cdr.markForCheck();
+            };
+
+            const nav = window.navigator as Navigator & {
+                share?: (data: ShareData & { files?: File[] }) => Promise<void>;
+            };
+
+            const invokeShare = async (
+                data: ShareData & { files?: File[] }
+            ): Promise<'ok' | 'cancel' | 'fail'> => {
+                if (typeof nav.share !== 'function') {
+                    return 'fail';
                 }
-                return 'fail';
+                try {
+                    await nav.share(data);
+                    return 'ok';
+                } catch (err) {
+                    if ((err as DOMException)?.name === 'AbortError') {
+                        return 'cancel';
+                    }
+                    return 'fail';
+                }
+            };
+
+            /** Do not set ShareData.url — the deep link is already in {@code text}. */
+            const shareBase = (): ShareData => ({ title: list.name || undefined, text });
+
+            // Desktop (and browsers without a useful share sheet): open immediately.
+            if (!this.shouldUseNativeShareSheet()) {
+                const w = window.open(waUrl, '_blank', 'noopener,noreferrer');
+                if (w) {
+                    markOpened();
+                } else {
+                    markBlocked();
+                }
+                return;
             }
-        };
 
-        /**
-         * Do not set ShareData.url — the deep link is already in {@code text}.
-         * Passing both makes WhatsApp append a second copy of the URL.
-         */
-        const shareBase = (): ShareData => ({ title: list.name || undefined, text });
+            // Mobile: reserve a tab before any await so wa.me fallback keeps the user gesture.
+            const fallbackTab = window.open('about:blank', '_blank');
 
-        if (list.imageDataUrl && typeof nav.share === 'function') {
-            const file = await this.dataUrlToFile(list.imageDataUrl, this.fileNameFor(list));
-            if (file) {
-                let out = await invokeShare({ ...shareBase(), files: [file] });
+            const finishWithWaMe = (): void => {
+                if (fallbackTab && !fallbackTab.closed) {
+                    try {
+                        fallbackTab.location.href = waUrl;
+                        markOpened();
+                        return;
+                    } catch {
+                        // fall through
+                    }
+                }
+                const w = window.open(waUrl, '_blank', 'noopener,noreferrer');
+                if (w) {
+                    markOpened();
+                } else {
+                    markBlocked();
+                }
+            };
+
+            const closeFallback = (): void => {
+                try {
+                    fallbackTab?.close();
+                } catch {
+                    // ignore
+                }
+            };
+
+            if (list.imageDataUrl && typeof nav.share === 'function') {
+                const file = await this.dataUrlToFile(list.imageDataUrl, this.fileNameFor(list));
+                if (file) {
+                    let out = await invokeShare({ ...shareBase(), files: [file] });
+                    if (out === 'ok') {
+                        closeFallback();
+                        markOpened();
+                        return;
+                    }
+                    if (out === 'cancel') {
+                        closeFallback();
+                        return;
+                    }
+                    out = await invokeShare({ title: list.name || undefined, files: [file] });
+                    if (out === 'ok') {
+                        closeFallback();
+                        markOpened('TODOLISTS.SHARE.WHATSAPP_IMAGE_ONLY');
+                        return;
+                    }
+                    if (out === 'cancel') {
+                        closeFallback();
+                        return;
+                    }
+                }
+            }
+
+            if (typeof nav.share === 'function') {
+                const out = await invokeShare(shareBase());
                 if (out === 'ok') {
+                    closeFallback();
                     markOpened();
                     return;
                 }
                 if (out === 'cancel') {
-                    return;
-                }
-                out = await invokeShare({ title: list.name || undefined, files: [file] });
-                if (out === 'ok') {
-                    markOpened('TODOLISTS.SHARE.WHATSAPP_IMAGE_ONLY');
-                    return;
-                }
-                if (out === 'cancel') {
+                    closeFallback();
                     return;
                 }
             }
-        }
 
-        if (typeof nav.share === 'function') {
-            const out = await invokeShare(shareBase());
-            if (out === 'ok') {
-                markOpened();
-                return;
-            }
-            if (out === 'cancel') {
-                return;
-            }
+            finishWithWaMe();
+        } finally {
+            this.shareWhatsAppBusy = false;
+            this.cdr.markForCheck();
         }
+    }
 
-        const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-        window.open(url, '_blank');
-        markOpened();
+    /** True when the OS share sheet is the right path (phones / tablets). */
+    private shouldUseNativeShareSheet(): boolean {
+        if (typeof navigator.share !== 'function') {
+            return false;
+        }
+        const ua = navigator.userAgent || '';
+        if (/Android|iPhone|iPad|iPod/i.test(ua)) {
+            return true;
+        }
+        const maxTouch = (navigator as Navigator & { maxTouchPoints?: number }).maxTouchPoints || 0;
+        return maxTouch > 1 && !!window.matchMedia?.('(pointer: coarse)')?.matches;
     }
 
     /**
@@ -1175,6 +1251,7 @@ export class TodolistsComponent implements OnInit, OnDestroy {
         this.shareList = null;
         this.shareKind = 'share';
         this.reminderFocusItem = null;
+        this.shareWhatsAppBusy = false;
     }
 
     /**
@@ -1225,12 +1302,10 @@ export class TodolistsComponent implements OnInit, OnDestroy {
         }
         lines.push(`*${list.name}*`);
         lines.push('');
-        if (this.shareKind !== 'reminder') {
-            const descPlain = this.clipPlain(this.htmlToPlain(list.description), 450);
-            if (descPlain) {
-                lines.push(descPlain);
-                lines.push('');
-            }
+        const descPlain = this.clipPlain(this.htmlToPlain(list.description), 450);
+        if (descPlain) {
+            lines.push(descPlain);
+            lines.push('');
         }
         const tasksHeaderKey = this.shareKind === 'reminder'
             ? 'TODOLISTS.REMINDER.WHATSAPP_TASKS_HEADER'

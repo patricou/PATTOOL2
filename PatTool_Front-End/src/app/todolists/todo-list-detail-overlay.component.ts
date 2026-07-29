@@ -420,6 +420,11 @@ export class TodoListDetailOverlayComponent implements OnInit, OnDestroy {
         lines.push('');
         lines.push(`*${list.name}*`);
         lines.push('');
+        const descPlain = this.clipPlain(this.htmlToPlain(list.description), 450);
+        if (descPlain) {
+            lines.push(descPlain);
+            lines.push('');
+        }
         lines.push(this.translate.instant('TODOLISTS.REMINDER.WHATSAPP_TASKS_HEADER'));
         for (const it of items) {
             const mark = it.status === 'done' ? '☑' : '☐';
@@ -433,6 +438,34 @@ export class TodoListDetailOverlayComponent implements OnInit, OnDestroy {
             text += `\n\n${this.translate.instant('TODOLISTS.SHARE.OPEN_IN_PATTOOL')}\n${deepLink}`;
         }
         return text;
+    }
+
+    private clipPlain(s: string, max: number): string {
+        if (!s || s.length <= max) {
+            return s;
+        }
+        return s.slice(0, Math.max(0, max - 1)) + '…';
+    }
+
+    private htmlToPlain(html?: string | null): string {
+        if (!html) {
+            return '';
+        }
+        return html
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/<\/p>/gi, '\n')
+            .replace(/<\/li>/gi, '\n')
+            .replace(/<li[^>]*>/gi, '• ')
+            .replace(/<[^>]+>/g, '')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/[ \t]+\n/g, '\n')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
     }
 
     private reminderTasks(list: TodoList, focus: TodoItem): TodoItem[] {
