@@ -1,0 +1,348 @@
+<div class="pat-title">
+  <h2 class="book-page-title">
+    <span class="book-title-icon" aria-hidden="true">
+      <i class="fa fa-book"></i>
+    </span>
+    {{ 'BOOK.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="book-page">
+  <p class="book-lead">{{ 'BOOK.SUBTITLE' | translate }}</p>
+
+  <div class="book-layout">
+    <aside class="book-sidebar">
+      <div class="book-mode-tabs" role="tablist">
+        <button
+          type="button"
+          class="book-mode-tab"
+          role="tab"
+          [class.active]="source === 'openlibrary'"
+          [attr.aria-selected]="source === 'openlibrary'"
+          (click)="setSource('openlibrary')">
+          <i class="fa fa-university me-1"></i>
+          {{ 'BOOK.TAB_OPENLIBRARY' | translate }}
+        </button>
+        <button
+          type="button"
+          class="book-mode-tab"
+          role="tab"
+          [class.active]="source === 'gutenberg'"
+          [attr.aria-selected]="source === 'gutenberg'"
+          (click)="setSource('gutenberg')">
+          <i class="fa fa-align-left me-1"></i>
+          {{ 'BOOK.TAB_GUTENBERG' | translate }}
+        </button>
+        <button
+          type="button"
+          class="book-mode-tab"
+          role="tab"
+          [class.active]="source === 'librivox'"
+          [attr.aria-selected]="source === 'librivox'"
+          (click)="setSource('librivox')">
+          <i class="fa fa-headphones me-1"></i>
+          {{ 'BOOK.TAB_LIBRIVOX' | translate }}
+        </button>
+      </div>
+
+      <div class="book-filters">
+        <label class="form-label small mb-1" for="book-query">
+          {{ (source === 'librivox' ? 'BOOK.SEARCH_TITLE' : 'BOOK.SEARCH') | translate }}
+        </label>
+        <div class="book-search-row">
+          <input
+            id="book-query"
+            type="search"
+            class="form-control form-control-sm"
+            [(ngModel)]="query"
+            (ngModelChange)="onQueryChange()"
+            [placeholder]="'BOOK.SEARCH_PLACEHOLDER' | translate"
+            autocomplete="off" />
+          <button
+            type="button"
+            class="btn btn-sm book-clear-btn"
+            *ngIf="query || authorQuery"
+            (click)="clearSearch()"
+            [attr.title]="'BOOK.CLEAR_SEARCH' | translate"
+            [attr.aria-label]="'BOOK.CLEAR_SEARCH' | translate">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+
+        <div class="mt-2" *ngIf="source === 'librivox'">
+          <label class="form-label small mb-1" for="book-author">
+            {{ 'BOOK.SEARCH_AUTHOR' | translate }}
+          </label>
+          <input
+            id="book-author"
+            type="search"
+            class="form-control form-control-sm"
+            [(ngModel)]="authorQuery"
+            (ngModelChange)="onQueryChange()"
+            [placeholder]="'BOOK.SEARCH_AUTHOR_PLACEHOLDER' | translate"
+            autocomplete="off" />
+          <div class="form-text small mt-1">{{ 'BOOK.SEARCH_HINT_LIBRIVOX' | translate }}</div>
+        </div>
+
+        <div class="mt-2">
+          <label class="form-label small mb-1" for="book-genre">
+            {{ 'BOOK.GENRE' | translate }}
+          </label>
+          <select
+            id="book-genre"
+            class="form-select form-select-sm"
+            [(ngModel)]="genre"
+            (ngModelChange)="onGenreChange()">
+            <option value="">{{ 'BOOK.GENRE_ALL' | translate }}</option>
+            <option *ngFor="let g of genreOptions" [value]="g.value">{{ g.labelKey | translate }}</option>
+          </select>
+        </div>
+
+        <div class="mt-2" *ngIf="source !== 'librivox'">
+          <label class="form-label small mb-1" for="book-lang">
+            {{ 'BOOK.LANGUAGE' | translate }}
+          </label>
+          <select
+            id="book-lang"
+            class="form-select form-select-sm"
+            [(ngModel)]="language"
+            (ngModelChange)="onLanguageChange()">
+            <option value="">{{ 'BOOK.LANGUAGE_ALL' | translate }}</option>
+            <option *ngFor="let lang of languageOptions" [value]="lang.value">{{ lang.label }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="book-list-meta">
+        <span class="small text-muted" *ngIf="!isLoading && total > 0">
+          {{ 'BOOK.RESULT_COUNT' | translate:{ count: total } }}
+        </span>
+        <span class="small text-muted" *ngIf="isLoading">
+          <i class="fa fa-spinner fa-spin me-1"></i>
+          {{ 'BOOK.LOADING' | translate }}
+        </span>
+      </div>
+
+      <div class="alert alert-danger py-2 px-3 small" *ngIf="listError" role="alert">
+        {{ listError | translate }}
+      </div>
+
+      <div class="book-list" role="list">
+        <button
+          type="button"
+          class="book-list-item"
+          role="listitem"
+          *ngFor="let book of books; trackBy: trackByBookId"
+          [class.active]="selected?.id === book.id && selected?.source === book.source"
+          (click)="selectBook(book)">
+          <img
+            *ngIf="book.coverUrl"
+            class="book-cover"
+            [src]="book.coverUrl"
+            [alt]="book.title"
+            loading="lazy"
+            (error)="$any($event.target).style.display='none'" />
+          <span class="book-cover book-cover-placeholder" *ngIf="!book.coverUrl" aria-hidden="true">
+            <i class="fa fa-book"></i>
+          </span>
+          <span class="book-list-meta-col">
+            <span class="book-list-title">{{ book.title }}</span>
+            <span class="book-list-authors" *ngIf="book.authors">{{ book.authors }}</span>
+            <span class="book-list-extra">
+              <span *ngIf="book.year">{{ book.year }}</span>
+              <span *ngIf="book.year && book.language"> · </span>
+              <span *ngIf="book.language">{{ book.language }}</span>
+              <span *ngIf="book.hasFulltext && source !== 'librivox'" class="book-badge">
+                {{ 'BOOK.FULLTEXT' | translate }}
+              </span>
+              <span *ngIf="book.totalTime" class="book-badge book-badge-audio">
+                {{ book.totalTime }}
+              </span>
+            </span>
+          </span>
+        </button>
+
+        <div class="book-empty" *ngIf="!isLoading && !listError && books.length === 0">
+          {{ 'BOOK.NO_RESULTS' | translate }}
+        </div>
+      </div>
+
+      <div class="book-pager" *ngIf="books.length > 0">
+        <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="!canPrev" (click)="prevPage()">
+          <i class="fa fa-chevron-left"></i>
+        </button>
+        <span class="small text-muted">
+          {{ 'BOOK.PAGE' | translate:{ page: currentPageLabel } }}
+        </span>
+        <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="!canNext" (click)="nextPage()">
+          <i class="fa fa-chevron-right"></i>
+        </button>
+      </div>
+    </aside>
+
+    <main class="book-main" #readerStage [class.book-main--fullscreen]="isFullscreen">
+      <div class="book-empty-main" *ngIf="!selected">
+        <i class="fa fa-book-open book-empty-icon" aria-hidden="true"></i>
+        <p>{{ 'BOOK.PICK' | translate }}</p>
+      </div>
+
+      <ng-container *ngIf="selected">
+        <header class="book-detail-header">
+          <div class="book-detail-titles">
+            <h3 class="book-detail-title">{{ selected.title }}</h3>
+            <p class="book-detail-authors" *ngIf="selected.authors">{{ selected.authors }}</p>
+            <p class="book-detail-desc" *ngIf="selected.description && !isFullscreen">{{ selected.description }}</p>
+          </div>
+          <div class="book-detail-actions">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary"
+              *ngIf="canSpeak"
+              (click)="toggleSpeech()"
+              [disabled]="isPreparingSpeech"
+              [attr.title]="(isSpeaking && !isSpeechPaused ? 'BOOK.SPEECH_PAUSE' : isSpeechPaused ? 'BOOK.SPEECH_RESUME' : 'BOOK.SPEECH_PLAY') | translate"
+              [attr.aria-label]="(isSpeaking && !isSpeechPaused ? 'BOOK.SPEECH_PAUSE' : isSpeechPaused ? 'BOOK.SPEECH_RESUME' : 'BOOK.SPEECH_PLAY') | translate">
+              <i
+                class="fa me-1"
+                [ngClass]="isPreparingSpeech ? 'fa-spinner fa-spin' : isSpeaking && !isSpeechPaused ? 'fa-pause' : 'fa-volume-up'"
+                aria-hidden="true"></i>
+              {{
+                (isPreparingSpeech
+                  ? 'BOOK.SPEECH_LOADING'
+                  : isSpeaking && !isSpeechPaused
+                    ? 'BOOK.SPEECH_PAUSE'
+                    : isSpeechPaused
+                      ? 'BOOK.SPEECH_RESUME'
+                      : 'BOOK.SPEECH_PLAY') | translate
+              }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary"
+              *ngIf="isSpeaking || isSpeechPaused"
+              (click)="stopSpeech()"
+              [attr.title]="'BOOK.SPEECH_STOP' | translate"
+              [attr.aria-label]="'BOOK.SPEECH_STOP' | translate">
+              <i class="fa fa-stop me-1" aria-hidden="true"></i>
+              {{ 'BOOK.SPEECH_STOP' | translate }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary"
+              (click)="toggleFullscreen()"
+              [attr.title]="(isFullscreen ? 'BOOK.EXIT_FULLSCREEN' : 'BOOK.FULLSCREEN') | translate"
+              [attr.aria-label]="(isFullscreen ? 'BOOK.EXIT_FULLSCREEN' : 'BOOK.FULLSCREEN') | translate">
+              <i class="fa me-1" [ngClass]="isFullscreen ? 'fa-compress' : 'fa-expand'" aria-hidden="true"></i>
+              {{ (isFullscreen ? 'BOOK.EXIT_FULLSCREEN' : 'BOOK.FULLSCREEN') | translate }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary"
+              *ngIf="selected.homepage"
+              (click)="openExternal(selected.homepage)">
+              <i class="fa fa-external-link me-1"></i>
+              {{ 'BOOK.OPEN_SOURCE' | translate }}
+            </button>
+            <a
+              class="btn btn-sm btn-outline-secondary"
+              *ngIf="selected.epubUrl"
+              [href]="selected.epubUrl"
+              target="_blank"
+              rel="noopener noreferrer">
+              <i class="fa fa-download me-1"></i>
+              EPUB
+            </a>
+          </div>
+        </header>
+
+        <div class="alert alert-warning py-2 px-3 small" *ngIf="contentError" role="alert">
+          {{ contentError | translate }}
+        </div>
+        <div class="alert alert-danger py-2 px-3 small" *ngIf="playError" role="alert">
+          {{ playError | translate }}
+        </div>
+        <div class="alert alert-warning py-2 px-3 small" *ngIf="speechError" role="alert">
+          {{ speechError | translate }}
+        </div>
+        <p class="book-speech-hint small text-muted mb-0" *ngIf="readerMode === 'iframe' && canSpeak && !isSpeaking">
+          {{ 'BOOK.SPEECH_HINT_IFRAME' | translate }}
+        </p>
+
+        <div class="book-loading-content" *ngIf="isLoadingContent">
+          <i class="fa fa-spinner fa-spin me-2"></i>
+          {{ 'BOOK.LOADING_CONTENT' | translate }}
+        </div>
+
+        <!-- Plain text reader -->
+        <article
+          class="book-reader"
+          *ngIf="readerMode === 'text' && readerText"
+          #readerEl
+          tabindex="0">
+          <pre class="book-reader-text">{{ readerText }}</pre>
+        </article>
+
+        <!-- HTML / IA iframe -->
+        <div class="book-iframe-wrap" *ngIf="(readerMode === 'html' || readerMode === 'iframe') && readerHtmlUrl">
+          <iframe
+            class="book-iframe"
+            [src]="readerHtmlUrl"
+            [title]="selected.title"
+            referrerpolicy="no-referrer"
+            allowfullscreen></iframe>
+        </div>
+
+        <!-- LibriVox audio -->
+        <div class="book-audio" *ngIf="readerMode === 'audio'">
+          <div class="book-audio-player">
+            <div class="book-audio-now" *ngIf="selectedSection">
+              <strong>{{ 'BOOK.NOW_PLAYING' | translate }}</strong>
+              <span>{{ selectedSection.title || ('BOOK.CHAPTER' | translate) }}</span>
+              <span class="text-muted" *ngIf="selectedSection.durationSecs">
+                ({{ formatDuration(selectedSection.durationSecs) }})
+              </span>
+            </div>
+            <audio
+              #audioEl
+              class="book-audio-el"
+              controls
+              preload="metadata"
+              [src]="audioUrl"
+              (play)="onAudioPlay()"
+              (pause)="onAudioPause()"
+              (ended)="onAudioEnded()"
+              (error)="onAudioError()"></audio>
+            <div class="small text-muted" *ngIf="isLoadingAudio">
+              <i class="fa fa-spinner fa-spin me-1"></i>
+              {{ 'BOOK.BUFFERING' | translate }}
+            </div>
+          </div>
+
+          <div class="book-chapters" *ngIf="selected.sections?.length">
+            <h4 class="book-chapters-title">
+              {{ 'BOOK.CHAPTERS' | translate:{ count: selected.sections!.length } }}
+            </h4>
+            <button
+              type="button"
+              class="book-chapter"
+              *ngFor="let section of selected.sections; trackBy: trackBySectionId"
+              [class.active]="selectedSection?.id === section.id"
+              (click)="playSection(section)">
+              <span class="book-chapter-num" *ngIf="section.sectionNumber != null">
+                {{ section.sectionNumber }}
+              </span>
+              <span class="book-chapter-title">{{ section.title || ('BOOK.CHAPTER' | translate) }}</span>
+              <span class="book-chapter-dur" *ngIf="section.durationSecs">
+                {{ formatDuration(section.durationSecs) }}
+              </span>
+            </button>
+          </div>
+        </div>
+      </ng-container>
+    </main>
+  </div>
+
+  <footer class="book-footer">
+    <p class="book-lead text-muted mb-0">{{ 'BOOK.NOTE_FREE' | translate }}</p>
+  </footer>
+</div>

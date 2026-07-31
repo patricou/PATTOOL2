@@ -16,7 +16,7 @@ import { debounceTime, distinctUntilChanged, catchError, filter } from 'rxjs/ope
 import { of } from 'rxjs';
 import Hls from 'hls.js';
 
-import { ApiService, RadioCountry, RadioStation } from '../services/api.service';
+import { ApiService, RadioCountry, RadioFrancePodcastEpisode, RadioFrancePodcastShow, RadioStation } from '../services/api.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { RadioPlayerService } from '../services/radio-player.service';
 import { createTvHlsConfig, tryRecoverTvHlsError } from '../tv-watcher/tv-hls-config';
@@ -31,13 +31,18 @@ import {
 } from './radio-pip.util';
 import { MediaCatalogCacheToolbarComponent } from '../shared/media-catalog-cache-toolbar/media-catalog-cache-toolbar.component';
 import { buildRadioShareLink } from '../shared/share-deep-link.util';
+import {
+  RadioFilterPreference,
+  RadioGlobalFilterModalComponent
+} from './radio-global-filter-modal.component';
 
-type RadioListMode = 'catalog' | 'favorites';
+type RadioListMode = 'catalog' | 'favorites' | 'podcasts';
+type PodcastBrowseLevel = 'shows' | 'episodes';
 
 @Component({
   selector: 'app-radio-watcher',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, MediaCatalogCacheToolbarComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, MediaCatalogCacheToolbarComponent, RadioGlobalFilterModalComponent],
   templateUrl: './radio-watcher.component.html',
   styleUrls: ['./radio-watcher.component.css']
 })
@@ -55,14 +60,33 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   selectedCountry = 'all';
   selectedTag = '';
   stationQuery = '';
+  sidebarFilterQuery = '';
   selectedStation: RadioStation | null = null;
   worldwideSearchHint = false;
   countryMenuOpen = false;
   countryFilter = '';
-  private filtersCollapsedByMode: Record<RadioListMode, boolean> = {
-    catalog: true,
-    favorites: true
-  };
+
+  /** Same model as TV: 50 rows per page, client slice (worldwide uses returned search page). */
+  listPageSize = 50;
+  catalogPage = 1;
+  catalogPages = 1;
+  favoritesPage = 1;
+  podcastsPage = 1;
+
+  globalFilterOpen = false;
+  applyGlobalFilterToAllTabs = false;
+  globalFilterPreference: RadioFilterPreference = {};
+
+  podcastStations: Array<{ id: string; name: string }> = [];
+  podcastStation = 'franceinter';
+  podcastBrowse: PodcastBrowseLevel = 'shows';
+  podcastShows: RadioFrancePodcastShow[] = [];
+  podcastEpisodes: RadioFrancePodcastEpisode[] = [];
+  selectedPodcastShow: RadioFrancePodcastShow | null = null;
+  isLoadingPodcasts = false;
+  podcastsError = '';
+  private podcastShowsSub?: Subscription;
+  private podcastEpisodesSub?: Subscription;
 
   isLoadingCountries = false;
   isLoadingStations = false;
@@ -127,20 +151,6 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     return (this.selectedCountry || '').toLowerCase() === 'all';
   }
 
-  get filtersCollapsed(): boolean {
-    return !!this.filtersCollapsedByMode[this.listMode];
-  }
-
-  get hasFilterInputs(): boolean {
-    if (this.stationQuery.trim()) {
-      return true;
-    }
-    if (this.listMode === 'catalog' && this.selectedTag) {
-      return true;
-    }
-    return false;
-  }
-
   get filteredCountries(): RadioCountry[] {
     const q = this.countryFilter.trim().toLowerCase();
     if (!q) {
@@ -162,16 +172,115 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   }
 
   get displayedStations(): RadioStation[] {
-    const source = this.listMode === 'favorites' ? this.favorites : this.stations;
-    const q = this.stationQuery.trim().toLowerCase();
-    if (this.listMode === 'favorites' && q) {
-      return source.filter((st) => this.matchesStationQuery(st, q));
+    if (this.listMode === 'podcasts') {
+      return [];
     }
-    return source;
+    const unpaged = this.unpagedDisplayedStations;
+    const page = this.listMode === 'favorites' ? this.favoritesPage : this.catalogPage;
+    return this.sliceListPage(unpaged, page);
+  }
+
+  /** Filtered station rows before client-side pagination. */
+  private get unpagedDisplayedStations(): RadioStation[] {
+    let source = this.listMode === 'favorites' ? this.favorites : this.stations;
+    const q = this.stationQuery.trim().toLowerCase();
+    // Catalog: server already applied stationQuery (+ tag). Favorites: filter locally.
+    if (this.listMode === 'favorites' && q) {
+      source = source.filter((st) => this.matchesStationQuery(st, q));
+    }
+    const quick = this.sidebarFilterQuery.trim().toLowerCase();
+    if (!quick) {
+      return source;
+    }
+    // Worldwide catalog already applied sidebar text via catalogStationSearchQuery().
+    if (this.listMode === 'catalog' && this.isAllCountries) {
+      return source;
+    }
+    return source.filter((st) => this.matchesStationQuery(st, quick));
+  }
+
+  private sliceListPage(items: RadioStation[], page: number): RadioStation[] {
+    const size = Math.max(1, this.listPageSize);
+    const p = Math.max(1, page);
+    const start = (p - 1) * size;
+    return items.slice(start, start + size);
+  }
+
+  get favoritesPages(): number {
+    if (this.listMode !== 'favorites') {
+      return 1;
+    }
+    return Math.max(1, Math.ceil(this.unpagedDisplayedStations.length / Math.max(1, this.listPageSize)));
+  }
+
+  get effectiveCatalogPages(): number {
+    return Math.max(1, Math.ceil(this.unpagedDisplayedStations.length / Math.max(1, this.listPageSize)));
+  }
+
+  get podcastsPages(): number {
+    const total =
+      this.podcastBrowse === 'episodes' ? this.podcastEpisodes.length : this.unpagedPodcastShows.length;
+    return Math.max(1, Math.ceil(total / Math.max(1, this.listPageSize)));
+  }
+
+  get unpagedPodcastShows(): RadioFrancePodcastShow[] {
+    const q = this.sidebarFilterQuery.trim().toLowerCase();
+    if (!q) {
+      return this.podcastShows;
+    }
+    return this.podcastShows.filter((s) => {
+      const title = (s.title || '').toLowerCase();
+      const station = (s.stationName || '').toLowerCase();
+      return title.includes(q) || station.includes(q);
+    });
+  }
+
+  get displayedPodcastShows(): RadioFrancePodcastShow[] {
+    return this.sliceGenericPage(this.unpagedPodcastShows, this.podcastsPage);
+  }
+
+  get displayedPodcastEpisodes(): RadioFrancePodcastEpisode[] {
+    const q = this.sidebarFilterQuery.trim().toLowerCase();
+    let source = this.podcastEpisodes;
+    if (q) {
+      source = source.filter((ep) => (ep.title || '').toLowerCase().includes(q));
+    }
+    return this.sliceGenericPage(source, this.podcastsPage);
+  }
+
+  private sliceGenericPage<T>(items: T[], page: number): T[] {
+    const size = Math.max(1, this.listPageSize);
+    const p = Math.max(1, page);
+    const start = (p - 1) * size;
+    return items.slice(start, start + size);
   }
 
   get filteredStationCount(): number {
-    return this.displayedStations.length;
+    if (this.listMode === 'podcasts') {
+      if (this.podcastBrowse === 'episodes') {
+        const q = this.sidebarFilterQuery.trim().toLowerCase();
+        if (!q) {
+          return this.podcastEpisodes.length;
+        }
+        return this.podcastEpisodes.filter((ep) => (ep.title || '').toLowerCase().includes(q)).length;
+      }
+      return this.unpagedPodcastShows.length;
+    }
+    if (this.listMode === 'catalog' && this.isAllCountries && this.searchMatchTotal != null) {
+      const searching =
+        this.stationQuery.trim().length >= 2
+        || !!this.selectedTag
+        || this.sidebarFilterQuery.trim().length >= 2;
+      if (searching) {
+        return this.searchMatchTotal;
+      }
+    }
+    return this.unpagedDisplayedStations.length;
+  }
+
+  get podcastStationName(): string {
+    const found = this.podcastStations.find((s) => s.id === this.podcastStation);
+    return found?.name || this.podcastStation;
   }
 
   /**
@@ -179,11 +288,14 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
    * current country (or filtered catalog list), never the Favorites count.
    */
   get catalogTabCount(): number {
-    if (this.listMode === 'favorites') {
+    if (this.listMode === 'favorites' || this.listMode === 'podcasts') {
       return this.catalogTotalCount > 0 ? this.catalogTotalCount : 0;
     }
     if (this.isAllCountries) {
-      const searching = this.stationQuery.trim().length >= 2 || !!this.selectedTag;
+      const searching =
+        this.stationQuery.trim().length >= 2
+        || !!this.selectedTag
+        || this.sidebarFilterQuery.trim().length >= 2;
       if (!searching && this.catalogTotalCount > 0) {
         return this.catalogTotalCount;
       }
@@ -191,12 +303,12 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
         return this.searchMatchTotal;
       }
     }
-    // Country catalog: prefer server total when the list is unfiltered.
     if (
       !this.isAllCountries
       && this.catalogTotalCount > 0
       && !this.stationQuery.trim()
       && !this.selectedTag
+      && !this.sidebarFilterQuery.trim()
     ) {
       return this.catalogTotalCount;
     }
@@ -206,7 +318,10 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   /** Exact station count shown in the list header. */
   get listHeaderStationCount(): number {
     if (this.isAllCountries) {
-      const idle = !this.stationQuery.trim() && !this.selectedTag;
+      const idle =
+        !this.stationQuery.trim()
+        && !this.selectedTag
+        && !this.sidebarFilterQuery.trim();
       if (idle) {
         return this.catalogTotalCount > 0 ? this.catalogTotalCount : 0;
       }
@@ -219,17 +334,61 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
       && this.catalogTotalCount > 0
       && !this.stationQuery.trim()
       && !this.selectedTag
+      && !this.sidebarFilterQuery.trim()
     ) {
       return this.catalogTotalCount;
     }
-    return this.filteredStationCount;
+    return this.unpagedDisplayedStations.length;
   }
 
   get hasActiveFilters(): boolean {
-    if (this.listMode !== 'catalog') {
-      return !!this.stationQuery.trim();
+    if (this.listMode === 'podcasts') {
+      return !!(
+        this.stationQuery.trim()
+        || this.sidebarFilterQuery.trim()
+        || this.podcastStation !== 'franceinter'
+      );
     }
-    return !!(this.stationQuery.trim() || this.selectedTag || this.isAllCountries);
+    if (this.listMode !== 'catalog') {
+      return !!(this.stationQuery.trim() || this.sidebarFilterQuery.trim());
+    }
+    return !!(
+      this.stationQuery.trim()
+      || this.sidebarFilterQuery.trim()
+      || this.selectedTag
+      || this.isAllCountries
+    );
+  }
+
+  get hasActiveGlobalFilter(): boolean {
+    return !!(
+      this.stationQuery.trim()
+      || this.selectedTag
+      || (this.selectedCountry && this.selectedCountry !== 'all')
+      || this.applyGlobalFilterToAllTabs
+    );
+  }
+
+  get isLoadingStationList(): boolean {
+    if (this.listMode === 'catalog') {
+      return this.isLoadingStations;
+    }
+    if (this.listMode === 'favorites') {
+      return this.isLoadingFavorites;
+    }
+    return this.isLoadingPodcasts;
+  }
+
+  get stationListLoadingKey(): string {
+    if (this.listMode === 'favorites') {
+      return 'RADIO.LOADING_FAVORITES';
+    }
+    if (this.listMode === 'podcasts') {
+      return this.podcastBrowse === 'episodes'
+        ? 'RADIO.LOADING_PODCAST_EPISODES'
+        : 'RADIO.LOADING_PODCASTS';
+    }
+    return 'RADIO.LOADING';
   }
 
   matchesStationQuery(station: RadioStation, queryLower: string): boolean {
@@ -259,6 +418,12 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
       .subscribe(() => {
         if (this.listMode === 'catalog') {
           this.loadStations();
+        } else if (this.listMode === 'podcasts') {
+          if (this.podcastBrowse === 'shows') {
+            this.loadPodcastShows();
+          } else {
+            this.cdr.markForCheck();
+          }
         } else {
           this.cdr.markForCheck();
         }
@@ -291,6 +456,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     this.loadCountries();
     this.loadCatalogCount();
     this.loadFavorites();
+    this.loadPodcastStations();
     if (!this.tryOpenSharedStationFromQuery()) {
       this.restoreLastPlayedStation();
     }
@@ -304,6 +470,8 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     this.stationSearchSub?.unsubscribe();
     this.stationsSub?.unsubscribe();
     this.catalogCountSub?.unsubscribe();
+    this.podcastShowsSub?.unsubscribe();
+    this.podcastEpisodesSub?.unsubscribe();
     this.resumeSub?.unsubscribe();
     this.lastStationSaveSub?.unsubscribe();
     this.navLeaveSub?.unsubscribe();
@@ -521,11 +689,94 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     }
   }
 
-  toggleFiltersCollapsed(): void {
-    this.filtersCollapsedByMode[this.listMode] = !this.filtersCollapsedByMode[this.listMode];
-    if (!this.filtersCollapsed && this.listMode === 'catalog') {
-      this.ensureTagsLoaded();
+  openGlobalFilter(): void {
+    this.globalFilterPreference = {
+      applyToAllTabs: this.applyGlobalFilterToAllTabs,
+      stationQuery: this.stationQuery,
+      country: this.selectedCountry || 'all',
+      tag: this.selectedTag || ''
+    };
+    this.ensureTagsLoaded();
+    this.globalFilterOpen = true;
+    this.shareMenuOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  closeGlobalFilter(): void {
+    this.globalFilterOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  onGlobalFilterCountryChanged(country: string): void {
+    this.ensureTagsLoaded((country || 'all').toLowerCase());
+  }
+
+  onGlobalFilterApplied(pref: RadioFilterPreference): void {
+    this.applyFilterPreference(pref);
+  }
+
+  onGlobalFilterCleared(pref: RadioFilterPreference): void {
+    this.applyFilterPreference(pref);
+  }
+
+  private applyFilterPreference(pref: RadioFilterPreference): void {
+    this.applyGlobalFilterToAllTabs = !!pref.applyToAllTabs;
+    this.stationQuery = pref.stationQuery || '';
+    this.selectedTag = pref.tag || '';
+    const nextCountry = (pref.country || 'all').toLowerCase();
+    const countryChanged = this.selectedCountry !== nextCountry;
+    this.selectedCountry = nextCountry;
+    if (countryChanged) {
+      this.tags = [];
+      this.tagsLoadCountry = '';
+      this.loadCatalogCount();
     }
+    this.catalogPage = 1;
+    this.favoritesPage = 1;
+    this.podcastsPage = 1;
+    this.globalFilterOpen = false;
+    this.tagsLoadCountry = '';
+    this.ensureTagsLoaded();
+    this.loadStations();
+    if (this.listMode === 'podcasts' && this.podcastBrowse === 'shows') {
+      this.loadPodcastShows();
+    }
+    this.cdr.markForCheck();
+  }
+
+  onSidebarFilterChange(): void {
+    this.catalogPage = 1;
+    this.favoritesPage = 1;
+    this.podcastsPage = 1;
+    // Do not markForCheck here — ngModel already dirty-checks; marking every keystroke
+    // plus debounce timers can trip NG0103 infinite CD in Angular 21.
+    this.stationSearch$.next(this.catalogStationSearchQuery());
+  }
+
+  clearSidebarFilter(): void {
+    if (!this.sidebarFilterQuery) {
+      return;
+    }
+    this.sidebarFilterQuery = '';
+    this.onSidebarFilterChange();
+  }
+
+  /** Station text sent to worldwide catalog search (global + sidebar). */
+  private catalogStationSearchQuery(): string {
+    const parts: string[] = [];
+    const pushUnique = (value: string) => {
+      const v = (value || '').trim();
+      if (v.length < 2) {
+        return;
+      }
+      if (parts.some((p) => p.toLowerCase() === v.toLowerCase())) {
+        return;
+      }
+      parts.push(v);
+    };
+    pushUnique(this.stationQuery);
+    pushUnique(this.sidebarFilterQuery);
+    return parts.join(' ').trim();
   }
 
   setListMode(mode: RadioListMode): void {
@@ -534,14 +785,173 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     }
     this.listMode = mode;
     this.countryMenuOpen = false;
+    this.catalogPage = 1;
+    this.favoritesPage = 1;
+    this.podcastsPage = 1;
+    if (!this.applyGlobalFilterToAllTabs && mode !== 'catalog') {
+      // Keep global station query only when apply-to-all is on.
+    }
     if (mode === 'catalog') {
-      if (!this.filtersCollapsed) {
-        this.ensureTagsLoaded();
-      }
+      this.ensureTagsLoaded();
       if (!this.stations.length && !this.isLoadingStations) {
         this.loadStations();
       }
+    } else if (mode === 'podcasts') {
+      if (!this.podcastStations.length) {
+        this.loadPodcastStations();
+      }
+      if (this.podcastBrowse === 'shows') {
+        this.loadPodcastShows();
+      }
     }
+    this.cdr.markForCheck();
+  }
+
+  onPodcastStationChange(): void {
+    this.podcastBrowse = 'shows';
+    this.selectedPodcastShow = null;
+    this.podcastEpisodes = [];
+    this.stationQuery = '';
+    this.podcastsPage = 1;
+    this.loadPodcastShows();
+  }
+
+  openPodcastShow(show: RadioFrancePodcastShow): void {
+    if (!show?.slug) {
+      return;
+    }
+    this.selectedPodcastShow = show;
+    this.podcastBrowse = 'episodes';
+    this.stationQuery = '';
+    this.podcastsPage = 1;
+    this.loadPodcastEpisodes(show);
+  }
+
+  backToPodcastShows(): void {
+    this.podcastBrowse = 'shows';
+    this.selectedPodcastShow = null;
+    this.podcastEpisodes = [];
+    this.podcastsError = '';
+    this.podcastsPage = 1;
+    this.loadPodcastShows();
+  }
+
+  selectPodcastEpisode(episode: RadioFrancePodcastEpisode): void {
+    const station = this.episodeToRadioStation(episode);
+    this.selectStation(station);
+  }
+
+  trackByPodcastShowId(_index: number, show: RadioFrancePodcastShow): string {
+    return show.id || show.slug || String(_index);
+  }
+
+  trackByPodcastEpisodeId(_index: number, ep: RadioFrancePodcastEpisode): string {
+    return ep.id || ep.streamUrl || String(_index);
+  }
+
+  formatPodcastDuration(sec?: number | null): string {
+    const n = Number(sec);
+    if (!Number.isFinite(n) || n <= 0) {
+      return '';
+    }
+    const h = Math.floor(n / 3600);
+    const m = Math.floor((n % 3600) / 60);
+    const s = Math.floor(n % 60);
+    if (h > 0) {
+      return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  formatPodcastDate(raw?: string | null): string {
+    if (!raw) {
+      return '';
+    }
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) {
+      return raw;
+    }
+    try {
+      return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch {
+      return raw;
+    }
+  }
+
+  episodeToRadioStation(episode: RadioFrancePodcastEpisode): RadioStation {
+    const showTitle = episode.showTitle || this.selectedPodcastShow?.title || '';
+    return {
+      id: episode.id,
+      name: episode.title,
+      logo: episode.image || this.selectedPodcastShow?.image || '',
+      tags: showTitle ? `Radio France,${showTitle}` : 'Radio France',
+      country: 'fr',
+      streamUrl: episode.streamUrl,
+      codec: episode.codec || 'M4A',
+      language: 'fr',
+      homepage: episode.homepage || this.selectedPodcastShow?.homepage || ''
+    };
+  }
+
+  private loadPodcastStations(): void {
+    this.api.getRadioFrancePodcastStations().pipe(catchError(() => of([]))).subscribe((rows) => {
+      this.podcastStations = Array.isArray(rows) ? rows : [];
+      if (!this.podcastStations.some((s) => s.id === this.podcastStation) && this.podcastStations.length) {
+        this.podcastStation = this.podcastStations[0].id;
+      }
+      this.cdr.markForCheck();
+    });
+  }
+
+  private loadPodcastShows(): void {
+    this.podcastShowsSub?.unsubscribe();
+    this.isLoadingPodcasts = true;
+    this.podcastsError = '';
+    this.cdr.markForCheck();
+    const q = this.stationQuery.trim();
+    this.podcastShowsSub = this.api
+      .getRadioFrancePodcastShows(this.podcastStation, q || undefined)
+      .pipe(
+        catchError(() => {
+          this.podcastsError = 'RADIO.ERR_PODCASTS';
+          return of({ station: this.podcastStation, total: 0, shows: [] as RadioFrancePodcastShow[] });
+        })
+      )
+      .subscribe((res) => {
+        this.podcastShows = res?.shows || [];
+        this.isLoadingPodcasts = false;
+        this.cdr.markForCheck();
+      });
+  }
+
+  private loadPodcastEpisodes(show: RadioFrancePodcastShow): void {
+    this.podcastEpisodesSub?.unsubscribe();
+    this.isLoadingPodcasts = true;
+    this.podcastsError = '';
+    this.podcastEpisodes = [];
+    this.cdr.markForCheck();
+    this.podcastEpisodesSub = this.api
+      .getRadioFrancePodcastEpisodes(show.station || this.podcastStation, show.slug, 60)
+      .pipe(
+        catchError(() => {
+          this.podcastsError = 'RADIO.ERR_PODCAST_EPISODES';
+          return of({
+            station: this.podcastStation,
+            slug: show.slug,
+            total: 0,
+            episodes: [] as RadioFrancePodcastEpisode[],
+            show
+          });
+        })
+      )
+      .subscribe((res) => {
+        this.podcastEpisodes = res?.episodes || [];
+        if (res?.show) {
+          this.selectedPodcastShow = { ...show, ...res.show };
+        }
+        this.isLoadingPodcasts = false;
+        this.cdr.markForCheck();
+      });
   }
 
   toggleCountryMenu(event?: Event): void {
@@ -563,11 +973,10 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     this.selectedTag = '';
     this.tags = [];
     this.tagsLoadCountry = '';
+    this.catalogPage = 1;
     this.loadCatalogCount();
     this.loadStations();
-    if (!this.filtersCollapsed) {
-      this.ensureTagsLoaded();
-    }
+    this.ensureTagsLoaded();
   }
 
   selectedCountryName(): string {
@@ -593,21 +1002,91 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   }
 
   onTagChange(): void {
+    this.catalogPage = 1;
     this.loadStations();
   }
 
   onStationSearchInput(value: string): void {
     this.stationQuery = value || '';
-    this.stationSearch$.next(this.stationQuery);
+    this.catalogPage = 1;
+    this.favoritesPage = 1;
+    this.podcastsPage = 1;
+    this.stationSearch$.next(this.catalogStationSearchQuery());
   }
 
   clearStationSearch(): void {
     this.stationQuery = '';
-    this.stationSearch$.next('');
+    this.catalogPage = 1;
+    this.favoritesPage = 1;
+    this.podcastsPage = 1;
+    this.stationSearch$.next(this.catalogStationSearchQuery());
   }
 
   trackByStationId(_index: number, st: RadioStation): string {
     return st.id || st.streamUrl || String(_index);
+  }
+
+  /** Continuous 1-based index across paginated lists. */
+  listItemNumber(indexZeroBased: number): number {
+    const size = Math.max(1, this.listPageSize);
+    if (this.listMode === 'favorites') {
+      return (Math.max(1, this.favoritesPage) - 1) * size + indexZeroBased + 1;
+    }
+    if (this.listMode === 'podcasts') {
+      return (Math.max(1, this.podcastsPage) - 1) * size + indexZeroBased + 1;
+    }
+    if (this.listMode === 'catalog') {
+      return (Math.max(1, this.catalogPage) - 1) * size + indexZeroBased + 1;
+    }
+    return indexZeroBased + 1;
+  }
+
+  catalogPrevPage(): void {
+    if (this.catalogPage <= 1 || this.isLoadingStations) {
+      return;
+    }
+    this.catalogPage -= 1;
+    this.cdr.markForCheck();
+  }
+
+  catalogNextPage(): void {
+    if (this.catalogPage >= this.effectiveCatalogPages || this.isLoadingStations) {
+      return;
+    }
+    this.catalogPage += 1;
+    this.cdr.markForCheck();
+  }
+
+  favoritesPrevPage(): void {
+    if (this.favoritesPage <= 1) {
+      return;
+    }
+    this.favoritesPage -= 1;
+    this.cdr.markForCheck();
+  }
+
+  favoritesNextPage(): void {
+    if (this.favoritesPage >= this.favoritesPages) {
+      return;
+    }
+    this.favoritesPage += 1;
+    this.cdr.markForCheck();
+  }
+
+  podcastsPrevPage(): void {
+    if (this.podcastsPage <= 1) {
+      return;
+    }
+    this.podcastsPage -= 1;
+    this.cdr.markForCheck();
+  }
+
+  podcastsNextPage(): void {
+    if (this.podcastsPage >= this.podcastsPages) {
+      return;
+    }
+    this.podcastsPage += 1;
+    this.cdr.markForCheck();
   }
 
   primaryTag(station: RadioStation | null | undefined): string {
@@ -630,6 +1109,10 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
 
   isFavorite(station: RadioStation): boolean {
     return !!station?.id && this.favoriteIds.has(station.id);
+  }
+
+  isFavoriteId(id?: string | null): boolean {
+    return !!id && this.favoriteIds.has(id);
   }
 
   /** First N favorites mapped to physical-style preset buttons on the radio face. */
@@ -973,13 +1456,14 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     this.stationsError = '';
     this.worldwideSearchHint = false;
 
+    const searchQ = this.catalogStationSearchQuery();
     if (this.isAllCountries) {
-      const q = this.stationQuery.trim();
       const tag = this.selectedTag.trim();
-      if (q.length < 2 && !tag) {
+      if (searchQ.length < 2 && !tag) {
         this.stations = [];
         this.searchMatchTotal = null;
         this.searchListTruncated = false;
+        this.catalogPages = 1;
         this.worldwideSearchHint = true;
         this.isLoadingStations = false;
         this.tryResolvePendingShare();
@@ -989,7 +1473,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     }
 
     this.isLoadingStations = true;
-    const q = this.stationQuery.trim() || undefined;
+    const q = searchQ || undefined;
     const tag = this.selectedTag.trim() || undefined;
     if (this.isAllCountries) {
       this.stationsSub = this.api.getRadioStationsWorldwide(q, tag).subscribe({
@@ -997,6 +1481,13 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
           this.stations = page?.stations || [];
           this.searchMatchTotal = Math.max(0, Number(page?.total) || 0);
           this.searchListTruncated = !!page?.truncated;
+          this.catalogPages = Math.max(
+            1,
+            Math.ceil(this.stations.length / Math.max(1, this.listPageSize))
+          );
+          if (this.catalogPage > this.catalogPages) {
+            this.catalogPage = this.catalogPages;
+          }
           this.isLoadingStations = false;
           this.tryResolvePendingShare();
           this.cdr.markForCheck();
@@ -1005,6 +1496,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
           this.stations = [];
           this.searchMatchTotal = null;
           this.searchListTruncated = false;
+          this.catalogPages = 1;
           this.stationsError = 'RADIO.ERR_STATIONS';
           this.isLoadingStations = false;
           this.cdr.markForCheck();
@@ -1018,15 +1510,21 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     this.stationsSub = this.api.getRadioStations(this.selectedCountry, q, tag).subscribe({
       next: (list) => {
         this.stations = list || [];
-        this.isLoadingStations = false;
-        if (!this.filtersCollapsed) {
-          this.ensureTagsLoaded();
+        this.catalogPages = Math.max(
+          1,
+          Math.ceil(this.stations.length / Math.max(1, this.listPageSize))
+        );
+        if (this.catalogPage > this.catalogPages) {
+          this.catalogPage = this.catalogPages;
         }
+        this.isLoadingStations = false;
+        this.ensureTagsLoaded();
         this.tryResolvePendingShare();
         this.cdr.markForCheck();
       },
       error: () => {
         this.stations = [];
+        this.catalogPages = 1;
         this.stationsError = 'RADIO.ERR_STATIONS';
         this.isLoadingStations = false;
         this.cdr.markForCheck();
@@ -1036,19 +1534,19 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
 
   private tagsLoadCountry = '';
 
-  private ensureTagsLoaded(): void {
-    const country = this.selectedCountry || 'all';
+  private ensureTagsLoaded(forCountry?: string): void {
+    const country = (forCountry || this.selectedCountry || 'all').toLowerCase();
     if (this.tagsLoadCountry === country && this.tags.length > 0) {
       return;
     }
     this.tagsLoadCountry = country;
-    this.loadTags();
+    this.loadTags(country);
   }
 
-  private loadTags(): void {
-    const country = this.selectedCountry || 'all';
+  private loadTags(countryOverride?: string): void {
+    const country = (countryOverride || this.selectedCountry || 'all').toLowerCase();
     this.api.getRadioTags(country).pipe(catchError(() => of([] as string[]))).subscribe((tags) => {
-      if ((this.selectedCountry || 'all') !== country) {
+      if (this.tagsLoadCountry !== country) {
         return;
       }
       this.tags = tags || [];

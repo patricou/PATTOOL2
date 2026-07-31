@@ -217,6 +217,16 @@
     margin-left: 0.15rem;
 }
 
+.registry-refresh-meta {
+    display: block;
+    margin-top: 0.2rem;
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: #4b5563;
+    line-height: 1.25;
+    white-space: normal;
+}
+
 .registry-row-actions {
     white-space: nowrap;
 }

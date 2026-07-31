@@ -129,6 +129,7 @@ export class AppComponent implements OnInit {
     public showOrganisationDropdown: boolean = false;
     public showMathDropdown: boolean = false;
     public showFinanceDropdown: boolean = false;
+    public showMediaDropdown: boolean = false;
     public showLanguageSubmenu: boolean = false;
     public showDocumentationSubmenu: boolean = false;
     public isDragOver: boolean = false;
@@ -206,11 +207,14 @@ export class AppComponent implements OnInit {
         },
         { routerLink: ['api/openweathermap'], icon: 'fa fa-location-arrow', labelKey: 'MENU.POSITION_METEO' },
         { routerLink: ['api/address-geocode'], icon: 'fa fa-map-marker', labelKey: 'MENU.ADDRESS_TO_MAP' },
-        { routerLink: ['api/news'], icon: 'fa fa-newspaper-o', labelKey: 'MENU.NEWS' },
         { routerLink: ['api/timezone-converter'], icon: 'fa fa-clock-o', labelKey: 'MENU.TIME_ZONES' },
-        { routerLink: ['api/electricite'], icon: 'fa fa-bolt', labelKey: 'MENU.ELECTRICITE' },
+        { routerLink: ['api/electricite'], icon: 'fa fa-bolt', labelKey: 'MENU.ELECTRICITE' }
+    ];
+    readonly navMediaRaw: NavRouteMenuItem[] = [
         { routerLink: ['tools/tv-watcher'], icon: 'fa fa-television', labelKey: 'MENU.TV' },
-        { routerLink: ['tools/radio-watcher'], icon: 'fa fa-headphones', labelKey: 'MENU.RADIO' }
+        { routerLink: ['tools/radio-watcher'], icon: 'fa fa-headphones', labelKey: 'MENU.RADIO' },
+        { routerLink: ['tools/book-watcher'], icon: 'fa fa-book', labelKey: 'MENU.BOOK' },
+        { routerLink: ['api/news'], icon: 'fa fa-newspaper-o', labelKey: 'MENU.NEWS' }
     ];
     readonly navFinanceRaw: NavRouteMenuItem[] = [
         { routerLink: ['api/currency-converter'], icon: 'fa fa-money', labelKey: 'MENU.CURRENCY_CONVERTER' },
@@ -485,6 +489,10 @@ export class AppComponent implements OnInit {
         return this.sortMenuByLabel(this.navFinanceRaw);
     }
 
+    get sortedNavMedia(): NavRouteMenuItem[] {
+        return this.sortMenuByLabel(this.navMediaRaw);
+    }
+
     get sortedNavIot(): NavRouteMenuItem[] {
         return this.sortMenuByLabel(this.filterIotMenuItems(this.navIotRaw));
     }
@@ -567,7 +575,7 @@ export class AppComponent implements OnInit {
 
     navigateToHome(event: Event): void {
         // Only navigate if no dropdowns are open and it's not a dropdown trigger
-        if (!this.showEventsDropdown && !this.showToolsDropdown && !this.showIotDropdown && !this.showApiDropdown && !this.showOrganisationDropdown && !this.showMathDropdown && !this.showFinanceDropdown && !this.showLinksDropdown) {
+        if (!this.showEventsDropdown && !this.showToolsDropdown && !this.showIotDropdown && !this.showApiDropdown && !this.showOrganisationDropdown && !this.showMathDropdown && !this.showFinanceDropdown && !this.showMediaDropdown && !this.showLinksDropdown) {
             event.preventDefault();
             event.stopPropagation();
             this.router.navigate(['']);
@@ -1756,6 +1764,7 @@ export class AppComponent implements OnInit {
         this.showOrganisationDropdown = false; // Close other dropdown
         this.showMathDropdown = false; // Close other dropdown
         this.showFinanceDropdown = false; // Close other dropdown
+        this.showMediaDropdown = false;
     }
 
     toggleLinksDropdown(event: Event): void {
@@ -1769,6 +1778,7 @@ export class AppComponent implements OnInit {
         this.showOrganisationDropdown = false; // Close other dropdown
         this.showMathDropdown = false; // Close other dropdown
         this.showFinanceDropdown = false; // Close other dropdown
+        this.showMediaDropdown = false;
     }
 
     toggleIotDropdown(event: Event): void {
@@ -1782,6 +1792,7 @@ export class AppComponent implements OnInit {
         this.showOrganisationDropdown = false; // Close other dropdown
         this.showMathDropdown = false; // Close other dropdown
         this.showFinanceDropdown = false; // Close other dropdown
+        this.showMediaDropdown = false;
     }
 
     toggleApiDropdown(event: Event): void {
@@ -1795,6 +1806,7 @@ export class AppComponent implements OnInit {
         this.showOrganisationDropdown = false; // Close other dropdown
         this.showMathDropdown = false; // Close other dropdown
         this.showFinanceDropdown = false; // Close other dropdown
+        this.showMediaDropdown = false;
     }
 
     toggleOrganisationDropdown(event: Event): void {
@@ -1808,6 +1820,7 @@ export class AppComponent implements OnInit {
         this.showApiDropdown = false; // Close other dropdown
         this.showMathDropdown = false; // Close other dropdown
         this.showFinanceDropdown = false; // Close other dropdown
+        this.showMediaDropdown = false;
     }
 
     toggleMathDropdown(event: Event): void {
@@ -1821,6 +1834,7 @@ export class AppComponent implements OnInit {
         this.showApiDropdown = false;
         this.showOrganisationDropdown = false;
         this.showFinanceDropdown = false;
+        this.showMediaDropdown = false;
         this.showLanguageSubmenu = false;
         this.showDocumentationSubmenu = false;
     }
@@ -1836,6 +1850,21 @@ export class AppComponent implements OnInit {
         this.showApiDropdown = false;
         this.showOrganisationDropdown = false;
         this.showMathDropdown = false;
+        this.showMediaDropdown = false;
+    }
+
+    toggleMediaDropdown(event: Event): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this.showMediaDropdown = !this.showMediaDropdown;
+        this.showEventsDropdown = false;
+        this.showToolsDropdown = false;
+        this.showLinksDropdown = false;
+        this.showIotDropdown = false;
+        this.showApiDropdown = false;
+        this.showOrganisationDropdown = false;
+        this.showMathDropdown = false;
+        this.showFinanceDropdown = false;
     }
 
     toggleToolsDropdown(event: Event): void {
@@ -1849,6 +1878,7 @@ export class AppComponent implements OnInit {
         this.showOrganisationDropdown = false; // Close other dropdown
         this.showMathDropdown = false; // Close other dropdown
         this.showFinanceDropdown = false; // Close other dropdown
+        this.showMediaDropdown = false;
         if (!this.showToolsDropdown) {
             this.showLanguageSubmenu = false; // Close language submenu when tools dropdown closes
             this.showDocumentationSubmenu = false; // Close documentation submenu when tools dropdown closes
@@ -2099,6 +2129,7 @@ export class AppComponent implements OnInit {
         this.showOrganisationDropdown = false;
         this.showMathDropdown = false;
         this.showFinanceDropdown = false;
+        this.showMediaDropdown = false;
         this.showLanguageSubmenu = false;
         this.showDocumentationSubmenu = false;
     }
@@ -2112,6 +2143,7 @@ export class AppComponent implements OnInit {
         this.showOrganisationDropdown = false;
         this.showMathDropdown = false;
         this.showFinanceDropdown = false;
+        this.showMediaDropdown = false;
         this.showLanguageSubmenu = false;
         this.showDocumentationSubmenu = false;
     }
@@ -2143,6 +2175,8 @@ export class AppComponent implements OnInit {
         const isLinksDropdown = target.closest('#linksDropdown') || target.closest('[aria-labelledby="linksDropdown"]');
         const isToolsDropdown = target.closest('#toolsDropdown') || target.closest('[aria-labelledby="toolsDropdown"]');
         const isMathDropdown = target.closest('#mathDropdown') || target.closest('[aria-labelledby="mathDropdown"]');
+        const isFinanceDropdown = target.closest('#financeDropdown') || target.closest('[aria-labelledby="financeDropdown"]');
+        const isMediaDropdown = target.closest('#mediaDropdown') || target.closest('[aria-labelledby="mediaDropdown"]');
         const isIotDropdown = target.closest('#iotDropdown') || target.closest('[aria-labelledby="iotDropdown"]');
         const isLanguageSubmenu = target.closest('.language-submenu-list') || target.closest('[aria-labelledby="languageSubmenu"]');
         const isDocumentationSubmenu = target.closest('.documentation-submenu-list') || target.closest('[aria-labelledby="documentationSubmenu"]');
@@ -2150,7 +2184,7 @@ export class AppComponent implements OnInit {
         const isDropdownItem = target.closest('.dropdown-item');
         
         // If click is outside all dropdowns, navbar, and dropdown items, close them
-        if (!isEventsDropdown && !isToolsDropdown && !isMathDropdown && !isLinksDropdown && !isIotDropdown && !isLanguageSubmenu && !isDocumentationSubmenu && !isNavbar && !isDropdownItem) {
+        if (!isEventsDropdown && !isToolsDropdown && !isMathDropdown && !isFinanceDropdown && !isMediaDropdown && !isLinksDropdown && !isIotDropdown && !isLanguageSubmenu && !isDocumentationSubmenu && !isNavbar && !isDropdownItem) {
             this.closeDropdowns();
         }
     }

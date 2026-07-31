@@ -204,6 +204,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./radio-watcher/radio-watcher.component').then(m => m.RadioWatcherComponent)
 			},
 			{
+				path: 'tools/book-watcher',
+				loadComponent: () => import('./book-watcher/book-watcher.component').then(m => m.BookWatcherComponent)
+			},
+			{
 				path: 'tools/tv-popout',
 				loadComponent: () => import('./tv-watcher/tv-popout.component').then(m => m.TvPopoutComponent)
 			},

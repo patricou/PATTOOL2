@@ -5,8 +5,30 @@
     </span>
     {{ 'RADIO.TITLE' | translate }}
     <app-media-catalog-cache-toolbar></app-media-catalog-cache-toolbar>
+    <button
+      type="button"
+      class="radio-global-filter-open-btn"
+      [class.is-active]="applyGlobalFilterToAllTabs"
+      (click)="openGlobalFilter()"
+      [attr.title]="'RADIO.GLOBAL_FILTER_TITLE' | translate"
+      [attr.aria-label]="'RADIO.GLOBAL_FILTER_TITLE' | translate">
+      <i class="fa fa-filter" aria-hidden="true"></i>
+      <span class="radio-global-filter-open-label">{{ 'RADIO.GLOBAL_FILTER_OPEN' | translate }}</span>
+      <span class="radio-global-filter-open-dot" *ngIf="hasActiveGlobalFilter" aria-hidden="true"></span>
+    </button>
   </h2>
 </div>
+
+<app-radio-global-filter-modal
+  [open]="globalFilterOpen"
+  [countries]="countries"
+  [tags]="tags"
+  [preference]="globalFilterPreference"
+  (closed)="closeGlobalFilter()"
+  (applied)="onGlobalFilterApplied($event)"
+  (cleared)="onGlobalFilterCleared($event)"
+  (countryChanged)="onGlobalFilterCountryChanged($event)">
+</app-radio-global-filter-modal>
 
 <div class="radio-page">
   <div class="alert alert-info py-2 px-3 small radio-float-banner" *ngIf="isFloatingOpen" role="status">
@@ -19,6 +41,31 @@
 
   <div class="radio-layout">
     <aside class="radio-sidebar">
+      <div class="radio-sidebar-filter">
+        <label class="visually-hidden" for="radio-sidebar-filter">{{ 'RADIO.SIDEBAR_FILTER' | translate }}</label>
+        <div class="radio-sidebar-filter-row">
+          <i class="fa fa-search radio-sidebar-filter-icon" aria-hidden="true"></i>
+          <input
+            id="radio-sidebar-filter"
+            type="search"
+            class="form-control form-control-sm radio-sidebar-filter-input"
+            [(ngModel)]="sidebarFilterQuery"
+            (ngModelChange)="onSidebarFilterChange()"
+            [placeholder]="'RADIO.SIDEBAR_FILTER_PLACEHOLDER' | translate"
+            autocomplete="off"
+            spellcheck="false" />
+          <button
+            type="button"
+            class="radio-sidebar-filter-clear"
+            *ngIf="sidebarFilterQuery.trim()"
+            (click)="clearSidebarFilter()"
+            [attr.title]="'RADIO.SIDEBAR_FILTER_CLEAR' | translate"
+            [attr.aria-label]="'RADIO.SIDEBAR_FILTER_CLEAR' | translate">
+            <i class="fa fa-times" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
+
       <div class="radio-mode-tabs" role="tablist">
         <button
           type="button"
@@ -52,151 +99,46 @@
             {{ listMode === 'favorites' ? filteredStationCount : favorites.length }}
           </span>
         </button>
-      </div>
-
-      <div class="radio-filters-panel">
         <button
           type="button"
-          class="radio-filters-toggle"
-          (click)="toggleFiltersCollapsed()"
-          [attr.aria-expanded]="!filtersCollapsed"
-          [attr.title]="(filtersCollapsed ? 'RADIO.FILTERS_SHOW' : 'RADIO.FILTERS_HIDE') | translate"
-          [attr.aria-label]="(filtersCollapsed ? 'RADIO.FILTERS_SHOW' : 'RADIO.FILTERS_HIDE') | translate">
-          <span class="radio-filters-toggle-label">
-            <i class="fa fa-filter" aria-hidden="true"></i>
-            {{ 'RADIO.FILTERS' | translate }}
-            <span
-              class="badge rounded-pill radio-filters-active-badge"
-              *ngIf="filtersCollapsed && hasFilterInputs"
-              [attr.title]="'RADIO.STATION_COUNT_FILTERED' | translate">
-              <i class="fa fa-circle" aria-hidden="true"></i>
-            </span>
+          class="radio-mode-tab"
+          role="tab"
+          [class.active]="listMode === 'podcasts'"
+          [attr.aria-selected]="listMode === 'podcasts'"
+          (click)="setListMode('podcasts')">
+          <i class="fa fa-microphone me-1"></i>
+          {{ 'RADIO.TAB_PODCASTS' | translate }}
+          <span
+            class="badge rounded-pill radio-count-badge"
+            *ngIf="listMode === 'podcasts' && filteredStationCount > 0">
+            {{ filteredStationCount }}
           </span>
-          <i
-            class="fa radio-filters-toggle-caret"
-            [class.fa-chevron-down]="filtersCollapsed"
-            [class.fa-chevron-up]="!filtersCollapsed"
-            aria-hidden="true"></i>
         </button>
+      </div>
 
-        <div class="radio-filters-body" *ngIf="!filtersCollapsed" id="radio-filters-body">
-          <div class="radio-filters" *ngIf="listMode === 'catalog'">
-            <label class="form-label small mb-1" id="radio-country-label">
-              {{ 'RADIO.COUNTRY' | translate }}
-            </label>
-            <div class="radio-country-picker" (click)="$event.stopPropagation()">
-              <button
-                type="button"
-                class="radio-country-btn form-select form-select-sm"
-                id="radio-country"
-                [attr.aria-labelledby]="'radio-country-label'"
-                [attr.aria-expanded]="countryMenuOpen"
-                [disabled]="isLoadingCountries"
-                (click)="toggleCountryMenu($event)">
-                <span
-                  *ngIf="!isAllCountries && countryFlagCode(selectedCountry) as flagCode"
-                  class="fi fi-{{ flagCode }} radio-fi-flag"
-                  aria-hidden="true"></span>
-                <i *ngIf="isAllCountries" class="fa fa-globe radio-country-globe" aria-hidden="true"></i>
-                <span class="radio-country-btn-label">{{ selectedCountryName() }}</span>
-                <i class="fa fa-caret-down radio-country-caret" aria-hidden="true"></i>
-              </button>
-              <div class="radio-country-menu" *ngIf="countryMenuOpen" role="listbox" [attr.aria-label]="'RADIO.COUNTRY' | translate">
-                <div class="radio-country-filter-wrap" (click)="$event.stopPropagation()">
-                  <input
-                    type="search"
-                    class="form-control form-control-sm radio-country-filter"
-                    [(ngModel)]="countryFilter"
-                    [placeholder]="'RADIO.COUNTRY_FILTER' | translate"
-                    autocomplete="off"
-                    (keydown.escape)="countryMenuOpen = false" />
-                </div>
-                <button
-                  type="button"
-                  class="radio-country-option"
-                  role="option"
-                  [attr.aria-selected]="isAllCountries"
-                  [class.active]="isAllCountries"
-                  (click)="selectCountry('all', $event)">
-                  <i class="fa fa-globe radio-country-globe" aria-hidden="true"></i>
-                  <span>{{ 'RADIO.COUNTRY_ALL' | translate }}</span>
-                </button>
-                <button
-                  type="button"
-                  class="radio-country-option"
-                  role="option"
-                  *ngFor="let c of filteredCountries"
-                  [attr.aria-selected]="selectedCountry === c.code"
-                  [class.active]="selectedCountry === c.code"
-                  (click)="selectCountry(c.code, $event)">
-                  <span class="fi fi-{{ countryFlagCode(c.code) }} radio-fi-flag" aria-hidden="true"></span>
-                  <span>{{ c.name }}</span>
-                </button>
-                <div
-                  class="radio-country-empty small text-muted"
-                  *ngIf="countryFilter.trim() && filteredCountries.length === 0">
-                  {{ 'RADIO.COUNTRY_FILTER_EMPTY' | translate }}
-                </div>
-                <div
-                  class="radio-country-empty small text-danger"
-                  *ngIf="!countryFilter.trim() && countries.length === 0 && !isLoadingCountries">
-                  {{ (countriesError || 'RADIO.ERR_COUNTRIES') | translate }}
-                </div>
-              </div>
-            </div>
+      <div class="radio-section-bar" *ngIf="listMode === 'podcasts'">
+        <label class="form-label small mb-1" for="radio-podcast-station">
+          {{ 'RADIO.PODCAST_STATION' | translate }}
+        </label>
+        <select
+          id="radio-podcast-station"
+          class="form-select form-select-sm"
+          [(ngModel)]="podcastStation"
+          [disabled]="podcastBrowse === 'episodes'"
+          (ngModelChange)="onPodcastStationChange()">
+          <option *ngFor="let s of podcastStations" [value]="s.id">{{ s.name }}</option>
+        </select>
+      </div>
 
-            <label class="form-label small mb-1 mt-2" for="radio-tag">
-              <i class="fa fa-music me-1" aria-hidden="true"></i>
-              {{ 'RADIO.TAG' | translate }}
-            </label>
-            <select
-              id="radio-tag"
-              class="form-select form-select-sm"
-              [(ngModel)]="selectedTag"
-              (ngModelChange)="onTagChange()">
-              <option value="">{{ 'RADIO.TAG_ALL' | translate }}</option>
-              <option *ngFor="let t of tags" [value]="t">{{ t }}</option>
-            </select>
-          </div>
-
-          <div class="radio-filters" [class.radio-filters--search-only]="listMode === 'favorites'">
-            <label class="form-label small mb-1" for="radio-search-station">
-              {{ 'RADIO.SEARCH_STATION' | translate }}
-            </label>
-            <div class="input-group input-group-sm">
-              <input
-                id="radio-search-station"
-                type="search"
-                class="form-control"
-                [ngModel]="stationQuery"
-                (ngModelChange)="onStationSearchInput($event)"
-                [placeholder]="(isAllCountries ? 'RADIO.SEARCH_PLACEHOLDER_ALL' : 'RADIO.SEARCH_PLACEHOLDER') | translate"
-                autocomplete="off" />
-              <button
-                type="button"
-                class="btn btn-outline-secondary"
-                *ngIf="stationQuery"
-                (click)="clearStationSearch()"
-                [attr.aria-label]="'RADIO.CLEAR_SEARCH' | translate">
-                <i class="fa fa-times"></i>
-              </button>
-            </div>
-            <div class="radio-worldwide-hint small text-muted mt-1" *ngIf="listMode === 'catalog' && worldwideSearchHint">
-              <i class="fa fa-globe me-1" aria-hidden="true"></i>
-              {{ 'RADIO.SEARCH_WORLDWIDE_HINT' | translate }}
-            </div>
-          </div>
-        </div>
+      <div class="radio-worldwide-hint small text-muted px-2" *ngIf="listMode === 'catalog' && worldwideSearchHint">
+        <i class="fa fa-globe me-1" aria-hidden="true"></i>
+        {{ 'RADIO.SEARCH_WORLDWIDE_HINT' | translate }}
       </div>
 
       <div class="radio-channel-meta" *ngIf="listMode === 'catalog' || listMode === 'favorites'" role="status">
-        <span *ngIf="listMode === 'catalog' && isLoadingStations">
+        <span *ngIf="isLoadingStationList" class="radio-channel-meta-loading">
           <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
-          {{ 'RADIO.LOADING' | translate }}
-        </span>
-        <span *ngIf="listMode === 'favorites' && isLoadingFavorites">
-          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
-          {{ 'RADIO.LOADING_FAVORITES' | translate }}
+          {{ stationListLoadingKey | translate }}
         </span>
         <span *ngIf="listMode === 'catalog' && !isLoadingStations" class="radio-channel-meta-count">
           <i class="fa fa-headphones me-1" aria-hidden="true"></i>
@@ -206,14 +148,41 @@
           </span>
           <span
             class="radio-channel-meta-filter"
-            *ngIf="hasActiveFilters && !searchListTruncated && !(isAllCountries && !stationQuery.trim() && !selectedTag)">
+            *ngIf="hasActiveFilters && !searchListTruncated && !(isAllCountries && !stationQuery.trim() && !selectedTag && !sidebarFilterQuery.trim())">
             {{ 'RADIO.STATION_COUNT_FILTERED' | translate }}
           </span>
         </span>
         <span *ngIf="listMode === 'favorites' && !isLoadingFavorites" class="radio-channel-meta-count">
           <i class="fa fa-star me-1" aria-hidden="true"></i>
           {{ 'RADIO.FAVORITE_COUNT' | translate:{ count: filteredStationCount } }}
-          <span class="radio-channel-meta-filter" *ngIf="stationQuery.trim()">{{ 'RADIO.STATION_COUNT_FILTERED' | translate }}</span>
+          <span class="radio-channel-meta-filter" *ngIf="stationQuery.trim() || sidebarFilterQuery.trim()">{{ 'RADIO.STATION_COUNT_FILTERED' | translate }}</span>
+        </span>
+      </div>
+
+      <div class="radio-channel-meta" *ngIf="listMode === 'podcasts'" role="status">
+        <button
+          type="button"
+          class="btn btn-link btn-sm p-0 radio-podcast-back"
+          *ngIf="podcastBrowse === 'episodes'"
+          (click)="backToPodcastShows()">
+          <i class="fa fa-arrow-left me-1" aria-hidden="true"></i>
+          {{ 'RADIO.PODCAST_BACK_SHOWS' | translate }}
+        </button>
+        <span *ngIf="isLoadingPodcasts">
+          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
+          {{ (podcastBrowse === 'episodes' ? 'RADIO.LOADING_PODCAST_EPISODES' : 'RADIO.LOADING_PODCASTS') | translate }}
+        </span>
+        <span *ngIf="!isLoadingPodcasts && podcastBrowse === 'shows'" class="radio-channel-meta-count">
+          <i class="fa fa-microphone me-1" aria-hidden="true"></i>
+          {{ 'RADIO.PODCAST_SHOW_COUNT' | translate:{ count: unpagedPodcastShows.length } }}
+          <span class="radio-channel-meta-filter">· {{ podcastStationName }}</span>
+        </span>
+        <span *ngIf="!isLoadingPodcasts && podcastBrowse === 'episodes'" class="radio-channel-meta-count">
+          <i class="fa fa-list me-1" aria-hidden="true"></i>
+          {{ selectedPodcastShow?.title || ('RADIO.PODCAST_EPISODES' | translate) }}
+          <span class="radio-channel-meta-filter">
+            · {{ 'RADIO.PODCAST_EPISODE_COUNT' | translate:{ count: filteredStationCount } }}
+          </span>
         </span>
       </div>
 
@@ -226,8 +195,26 @@
       <div *ngIf="favoritesHint" class="alert alert-info py-2 px-2 small mb-2 mx-2">
         {{ favoritesHint | translate }}
       </div>
+      <div *ngIf="podcastsError && listMode === 'podcasts'" class="alert alert-warning py-2 px-2 small mb-2 mx-2">
+        {{ podcastsError | translate }}
+      </div>
 
-      <ul class="radio-channel-list" role="listbox" [attr.aria-label]="'RADIO.STATIONS' | translate">
+      <div
+        class="radio-list-loading"
+        *ngIf="isLoadingStationList"
+        role="status"
+        [attr.aria-label]="stationListLoadingKey | translate">
+        <div class="radio-list-loading-inner">
+          <span class="radio-list-loading-spinner" aria-hidden="true"></span>
+          <span class="radio-list-loading-text">{{ stationListLoadingKey | translate }}</span>
+        </div>
+      </div>
+
+      <ul
+        class="radio-channel-list"
+        role="listbox"
+        [attr.aria-label]="'RADIO.STATIONS' | translate"
+        *ngIf="listMode !== 'podcasts' && !isLoadingStationList">
         <li
           *ngFor="let st of displayedStations; let i = index; trackBy: trackByStationId"
           class="radio-channel-item"
@@ -237,7 +224,7 @@
           (click)="selectStation(st)"
           (keydown.enter)="selectStation(st)"
           tabindex="0">
-          <span class="radio-channel-index" aria-hidden="true">{{ i + 1 }}</span>
+          <span class="radio-channel-index" aria-hidden="true">{{ listItemNumber(i) }}</span>
           <img
             *ngIf="stationLogo(st) as logo"
             class="radio-channel-logo"
@@ -281,6 +268,114 @@
           {{ (isLoggedIn ? 'RADIO.NO_FAVORITES' : 'RADIO.FAVORITES_LOGIN') | translate }}
         </li>
       </ul>
+
+      <div class="radio-list-pager" *ngIf="listMode === 'catalog' && effectiveCatalogPages > 1 && !isLoadingStationList" role="navigation" [attr.aria-label]="'RADIO.LIST_PAGER' | translate">
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="catalogPrevPage()" [disabled]="catalogPage <= 1 || isLoadingStations">
+          <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        </button>
+        <span class="radio-list-pager-label">{{ 'RADIO.LIST_PAGE' | translate:{ page: catalogPage, pages: effectiveCatalogPages } }}</span>
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="catalogNextPage()" [disabled]="catalogPage >= effectiveCatalogPages || isLoadingStations">
+          <i class="fa fa-chevron-right" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="radio-list-pager" *ngIf="listMode === 'favorites' && favoritesPages > 1 && !isLoadingStationList" role="navigation" [attr.aria-label]="'RADIO.LIST_PAGER' | translate">
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="favoritesPrevPage()" [disabled]="favoritesPage <= 1">
+          <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        </button>
+        <span class="radio-list-pager-label">{{ 'RADIO.LIST_PAGE' | translate:{ page: favoritesPage, pages: favoritesPages } }}</span>
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="favoritesNextPage()" [disabled]="favoritesPage >= favoritesPages">
+          <i class="fa fa-chevron-right" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <ul
+        class="radio-channel-list"
+        role="listbox"
+        [attr.aria-label]="'RADIO.PODCAST_SHOWS' | translate"
+        *ngIf="listMode === 'podcasts' && podcastBrowse === 'shows' && !isLoadingStationList">
+        <li
+          *ngFor="let show of displayedPodcastShows; let i = index; trackBy: trackByPodcastShowId"
+          class="radio-channel-item"
+          role="option"
+          (click)="openPodcastShow(show)"
+          (keydown.enter)="openPodcastShow(show)"
+          tabindex="0">
+          <span class="radio-channel-index" aria-hidden="true">{{ listItemNumber(i) }}</span>
+          <span class="radio-channel-logo radio-channel-logo--placeholder">
+            <i class="fa fa-microphone"></i>
+          </span>
+          <span class="radio-channel-text">
+            <span class="radio-channel-name">{{ show.title }}</span>
+            <span class="radio-channel-group" *ngIf="show.stationName">{{ show.stationName }}</span>
+          </span>
+          <span class="radio-channel-chevron" aria-hidden="true"><i class="fa fa-chevron-right"></i></span>
+        </li>
+        <li *ngIf="!isLoadingPodcasts && !displayedPodcastShows.length" class="radio-empty text-muted small">
+          {{ 'RADIO.NO_PODCASTS' | translate }}
+        </li>
+      </ul>
+
+      <ul
+        class="radio-channel-list"
+        role="listbox"
+        [attr.aria-label]="'RADIO.PODCAST_EPISODES' | translate"
+        *ngIf="listMode === 'podcasts' && podcastBrowse === 'episodes' && !isLoadingStationList">
+        <li
+          *ngFor="let ep of displayedPodcastEpisodes; let i = index; trackBy: trackByPodcastEpisodeId"
+          class="radio-channel-item"
+          [class.active]="selectedStation?.id === ep.id"
+          role="option"
+          [attr.aria-selected]="selectedStation?.id === ep.id"
+          (click)="selectPodcastEpisode(ep)"
+          (keydown.enter)="selectPodcastEpisode(ep)"
+          tabindex="0">
+          <span class="radio-channel-index" aria-hidden="true">{{ listItemNumber(i) }}</span>
+          <img
+            *ngIf="ep.image"
+            class="radio-channel-logo"
+            [src]="ep.image"
+            alt=""
+            loading="lazy"
+            (error)="$any($event.target).style.display='none'" />
+          <span *ngIf="!ep.image" class="radio-channel-logo radio-channel-logo--placeholder">
+            <i class="fa fa-play"></i>
+          </span>
+          <span class="radio-channel-text">
+            <span class="radio-channel-name">{{ ep.title }}</span>
+            <span class="radio-channel-group">
+              <ng-container *ngIf="formatPodcastDate(ep.publishedAt) as d">{{ d }}</ng-container>
+              <ng-container *ngIf="formatPodcastDate(ep.publishedAt) && formatPodcastDuration(ep.durationSec)"> · </ng-container>
+              <ng-container *ngIf="formatPodcastDuration(ep.durationSec) as dur">{{ dur }}</ng-container>
+              <ng-container *ngIf="ep.codec && (formatPodcastDate(ep.publishedAt) || formatPodcastDuration(ep.durationSec))"> · </ng-container>
+              <ng-container *ngIf="ep.codec">{{ ep.codec }}</ng-container>
+            </span>
+          </span>
+          <button
+            type="button"
+            class="radio-fav-btn"
+            [class.is-fav]="isFavoriteId(ep.id)"
+            [disabled]="favoriteBusyId === ep.id"
+            (click)="toggleFavorite(episodeToRadioStation(ep), $event)"
+            [attr.title]="(isFavoriteId(ep.id) ? 'RADIO.UNFAVORITE' : 'RADIO.FAVORITE') | translate"
+            [attr.aria-label]="(isFavoriteId(ep.id) ? 'RADIO.UNFAVORITE' : 'RADIO.FAVORITE') | translate">
+            <i class="fa" [class.fa-star]="isFavoriteId(ep.id)" [class.fa-star-o]="!isFavoriteId(ep.id)"></i>
+          </button>
+        </li>
+        <li *ngIf="!isLoadingPodcasts && !displayedPodcastEpisodes.length" class="radio-empty text-muted small">
+          {{ 'RADIO.NO_PODCAST_EPISODES' | translate }}
+        </li>
+      </ul>
+
+      <div class="radio-list-pager" *ngIf="listMode === 'podcasts' && podcastsPages > 1 && !isLoadingStationList" role="navigation" [attr.aria-label]="'RADIO.LIST_PAGER' | translate">
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="podcastsPrevPage()" [disabled]="podcastsPage <= 1">
+          <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        </button>
+        <span class="radio-list-pager-label">{{ 'RADIO.LIST_PAGE' | translate:{ page: podcastsPage, pages: podcastsPages } }}</span>
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="podcastsNextPage()" [disabled]="podcastsPage >= podcastsPages">
+          <i class="fa fa-chevron-right" aria-hidden="true"></i>
+        </button>
+      </div>
     </aside>
 
     <section

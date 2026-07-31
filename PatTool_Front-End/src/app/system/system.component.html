@@ -138,6 +138,9 @@
                                         <small class="registry-entry-hint" *ngIf="cache.id === 'media-catalog' && cache.details?.lastDurationMs != null">
                                             ({{ formatMediaDuration(cache.details.lastDurationMs) }})
                                         </small>
+                                        <div class="registry-refresh-meta" *ngIf="cacheRefreshLabel(cache) as refreshed">
+                                            {{ refreshed }}
+                                        </div>
                                     </ng-container>
                                 </td>
                                 <td class="registry-row-actions">

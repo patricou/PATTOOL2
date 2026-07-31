@@ -107,6 +107,16 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   /** Hint when « all countries » is selected but the query is too short. */
   worldwideSearchHint = false;
 
+  /** Shared sidebar list page size (catalog / favorites / recordings). */
+  listPageSize = 50;
+  /** 1-based page for catalog (server-paged when worldwide). */
+  catalogPage = 1;
+  catalogPages = 1;
+  /** 1-based page for favorites (client-paged). */
+  favoritesPage = 1;
+  /** 1-based page for recordings (client-paged). */
+  recordingsPage = 1;
+
   /** ARTE replay catalog (proxied EMAC). */
   arteSections: ArteSection[] = [];
   arteSection = 'MOST_RECENT';
@@ -324,6 +334,20 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (this.listMode === 'recordings') {
       return [];
     }
+    const unpaged = this.unpagedDisplayedChannels;
+    if (this.listMode === 'arte' || this.listMode === 'ia') {
+      return unpaged;
+    }
+    // Worldwide catalog is already one server page.
+    if (this.listMode === 'catalog' && this.isAllCountries) {
+      return unpaged;
+    }
+    const page = this.listMode === 'favorites' ? this.favoritesPage : this.catalogPage;
+    return this.sliceListPage(unpaged, page);
+  }
+
+  /** Filtered channel rows before client-side pagination (favorites / single-country catalog). */
+  private get unpagedDisplayedChannels(): TvChannel[] {
     let source: TvChannel[];
     if (this.listMode === 'arte' || this.listMode === 'ia') {
       // Server already filters by section / global search; sidebar applies on top.
@@ -348,7 +372,46 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (!quick) {
       return source;
     }
+    // Worldwide catalog already applied sidebar text server-side.
+    if (this.listMode === 'catalog' && this.isAllCountries) {
+      return source;
+    }
     return source.filter((ch) => this.matchesSidebarFilter(ch, quick));
+  }
+
+  private sliceListPage(items: TvChannel[], page: number): TvChannel[] {
+    const size = Math.max(1, this.listPageSize);
+    const p = Math.max(1, page);
+    const start = (p - 1) * size;
+    return items.slice(start, start + size);
+  }
+
+  get favoritesPages(): number {
+    if (this.listMode !== 'favorites') {
+      return 1;
+    }
+    const total = this.unpagedDisplayedChannels.length;
+    return Math.max(1, Math.ceil(total / Math.max(1, this.listPageSize)));
+  }
+
+  /** Catalog page count (server total when worldwide, filtered length otherwise). */
+  get effectiveCatalogPages(): number {
+    if (this.isAllCountries) {
+      return Math.max(1, this.catalogPages);
+    }
+    return Math.max(1, Math.ceil(this.unpagedDisplayedChannels.length / Math.max(1, this.listPageSize)));
+  }
+
+  get recordingsPages(): number {
+    const total = this.filteredRecordings.length;
+    return Math.max(1, Math.ceil(total / Math.max(1, this.listPageSize)));
+  }
+
+  get pagedRecordings(): TvRecording[] {
+    const size = Math.max(1, this.listPageSize);
+    const p = Math.max(1, this.recordingsPage);
+    const start = (p - 1) * size;
+    return this.filteredRecordings.slice(start, start + size);
   }
 
   get activeRecording(): TvRecording | null {
@@ -416,8 +479,17 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Number of channels matching the current list mode + filters. */
+  /** Number of channels matching the current list mode + filters (all pages). */
   get filteredChannelCount(): number {
+    if (this.listMode === 'catalog' && this.isAllCountries) {
+      if (this.searchMatchTotal != null && this.searchMatchTotal >= 0) {
+        return this.searchMatchTotal;
+      }
+      return this.channels.length;
+    }
+    if (this.listMode === 'favorites' || (this.listMode === 'catalog' && !this.isAllCountries)) {
+      return this.unpagedDisplayedChannels.length;
+    }
     return this.displayedChannels.length;
   }
 
@@ -611,6 +683,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
           this.iaPage = 1;
           this.loadIaPrograms();
         } else if (this.listMode === 'catalog' && this.isAllCountries) {
+          this.catalogPage = 1;
           this.loadChannels();
         } else {
           this.cdr.markForCheck();
@@ -1110,6 +1183,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       this.favoritesHint = 'TV.FAVORITES_LOGIN';
     }
     if (mode === 'recordings') {
+      this.recordingsPage = 1;
       if (!this.isLoggedIn) {
         this.recordingsHint = 'TV.RECORD_LOGIN';
       } else {
@@ -1117,9 +1191,13 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       }
     }
     if (mode === 'catalog') {
+      this.catalogPage = 1;
       this.loadCatalogCount();
       // Always reload: channels may still hold ARTE programmes from the replay tab.
       this.loadChannels();
+    }
+    if (mode === 'favorites') {
+      this.favoritesPage = 1;
     }
     if (mode === 'arte') {
       if (!this.arteSections.length) {
@@ -1206,6 +1284,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   onSidebarFilterChange(): void {
+    this.catalogPage = 1;
+    this.favoritesPage = 1;
+    this.recordingsPage = 1;
     this.channelSearch$.next(this.sidebarFilterQuery.trim().toLowerCase());
     this.cdr.markForCheck();
   }
@@ -1344,9 +1425,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (q.length < 2) {
       this.clearProgramSearchState();
       if (this.listMode === 'catalog' && this.isAllCountries && !this.channelQuery.trim()) {
-        this.channels = [];
-        this.worldwideSearchHint = true;
-        this.isLoadingChannels = false;
+        this.loadChannels();
+        return;
       }
       this.cdr.markForCheck();
       return;
@@ -1389,7 +1469,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         this.programSearchEpgIds = new Set();
         this.isLoadingProgramSearch = false;
         if (this.listMode === 'catalog' && this.isAllCountries && !this.channelQuery.trim()) {
-          this.channels = [];
+          this.loadChannels();
+          return;
         }
         this.cdr.markForCheck();
       }
@@ -1415,6 +1496,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.channels = this.sortChannelsByName(merged);
     this.searchMatchTotal = merged.length;
     this.searchListTruncated = false;
+    this.catalogPage = 1;
+    this.catalogPages = Math.max(1, Math.ceil(merged.length / Math.max(1, this.listPageSize)));
     this.isLoadingChannels = false;
     this.applyPendingShareChannel();
     this.refreshEpg();
@@ -1989,15 +2072,78 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     return ch.id;
   }
 
-  /** Continuous 1-based index across paginated ARTE / Archive.org lists. */
+  /** Continuous 1-based index across paginated lists. */
   listItemNumber(indexZeroBased: number): number {
+    const size = Math.max(1, this.listPageSize);
     if (this.listMode === 'ia') {
       return (Math.max(1, this.iaPage) - 1) * Math.max(1, this.iaPageSize) + indexZeroBased + 1;
     }
     if (this.listMode === 'arte') {
       return (Math.max(1, this.artePage) - 1) * Math.max(1, this.artePageSize) + indexZeroBased + 1;
     }
+    if (this.listMode === 'favorites') {
+      return (Math.max(1, this.favoritesPage) - 1) * size + indexZeroBased + 1;
+    }
+    if (this.listMode === 'catalog') {
+      return (Math.max(1, this.catalogPage) - 1) * size + indexZeroBased + 1;
+    }
     return indexZeroBased + 1;
+  }
+
+  catalogPrevPage(): void {
+    if (this.catalogPage <= 1 || this.isLoadingChannels) {
+      return;
+    }
+    this.catalogPage -= 1;
+    if (this.isAllCountries) {
+      this.loadChannels();
+    } else {
+      this.cdr.markForCheck();
+    }
+  }
+
+  catalogNextPage(): void {
+    if (this.catalogPage >= this.effectiveCatalogPages || this.isLoadingChannels) {
+      return;
+    }
+    this.catalogPage += 1;
+    if (this.isAllCountries) {
+      this.loadChannels();
+    } else {
+      this.cdr.markForCheck();
+    }
+  }
+
+  favoritesPrevPage(): void {
+    if (this.favoritesPage <= 1) {
+      return;
+    }
+    this.favoritesPage -= 1;
+    this.cdr.markForCheck();
+  }
+
+  favoritesNextPage(): void {
+    if (this.favoritesPage >= this.favoritesPages) {
+      return;
+    }
+    this.favoritesPage += 1;
+    this.cdr.markForCheck();
+  }
+
+  recordingsPrevPage(): void {
+    if (this.recordingsPage <= 1) {
+      return;
+    }
+    this.recordingsPage -= 1;
+    this.cdr.markForCheck();
+  }
+
+  recordingsNextPage(): void {
+    if (this.recordingsPage >= this.recordingsPages) {
+      return;
+    }
+    this.recordingsPage += 1;
+    this.cdr.markForCheck();
   }
 
   /** Display play errors: translate {@code TV.*} keys, show API/backend text as-is. */
@@ -2443,44 +2589,47 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     const channelQ = this.catalogChannelSearchQuery();
     const programQ = (this.programQuery || '').trim();
     const group = (this.selectedGroup || '').trim();
+    const pageSize = Math.max(1, this.listPageSize);
+    const offset = (Math.max(1, this.catalogPage) - 1) * pageSize;
 
     if (country.toLowerCase() === 'all') {
-      if (channelQ.length >= 2 || group) {
-        this.channelsSub = this.api
-          .getTvChannelsWorldwide(channelQ.length >= 2 ? channelQ : undefined, group || undefined)
-          .subscribe({
-          next: (page) => {
-            this.channels = this.sortChannelsByName(page?.channels || []);
-            this.searchMatchTotal = Math.max(0, Number(page?.total) || 0);
-            this.searchListTruncated = !!page?.truncated;
-            this.isLoadingChannels = false;
-            this.applyPendingShareChannel();
-            this.refreshEpg();
-            this.cdr.markForCheck();
-          },
-          error: () => {
-            this.channels = [];
-            this.searchMatchTotal = null;
-            this.searchListTruncated = false;
-            this.isLoadingChannels = false;
-            this.channelsError = 'TV.ERR_CHANNELS';
-            this.cdr.markForCheck();
-          }
-        });
-        return;
-      }
-      if (programQ.length >= 2) {
+      if (programQ.length >= 2 && channelQ.length < 2 && !group) {
         // Channel list is filled by runProgramSearch → applyWorldwideProgramHits.
         this.isLoadingChannels = this.isLoadingProgramSearch;
         this.cdr.markForCheck();
         return;
       }
-      this.channels = [];
-      this.searchMatchTotal = null;
-      this.searchListTruncated = false;
-      this.isLoadingChannels = false;
-      this.worldwideSearchHint = true;
-      this.cdr.markForCheck();
+      this.channelsSub = this.api
+        .getTvChannelsWorldwide(
+          channelQ.length >= 2 ? channelQ : undefined,
+          group || undefined,
+          pageSize,
+          offset
+        )
+        .subscribe({
+        next: (page) => {
+          this.channels = this.sortChannelsByName(page?.channels || []);
+          this.searchMatchTotal = Math.max(0, Number(page?.total) || 0);
+          this.searchListTruncated = !!page?.truncated;
+          this.catalogPages = Math.max(1, Math.ceil(this.searchMatchTotal / pageSize));
+          if (this.catalogPage > this.catalogPages) {
+            this.catalogPage = this.catalogPages;
+          }
+          this.isLoadingChannels = false;
+          this.applyPendingShareChannel();
+          this.refreshEpg();
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.channels = [];
+          this.searchMatchTotal = null;
+          this.searchListTruncated = false;
+          this.catalogPages = 1;
+          this.isLoadingChannels = false;
+          this.channelsError = 'TV.ERR_CHANNELS';
+          this.cdr.markForCheck();
+        }
+      });
       return;
     }
 
@@ -2490,6 +2639,13 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.channelsSub = this.api.getTvChannels(country, undefined, this.selectedGroup).subscribe({
       next: (list) => {
         this.channels = this.sortChannelsByName(list || []);
+        this.catalogPages = Math.max(
+          1,
+          Math.ceil(this.unpagedDisplayedChannels.length / pageSize)
+        );
+        if (this.catalogPage > this.catalogPages) {
+          this.catalogPage = this.catalogPages;
+        }
         this.isLoadingChannels = false;
         this.applyPendingShareChannel();
         this.refreshEpg();
@@ -2497,6 +2653,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       },
       error: () => {
         this.channels = [];
+        this.catalogPages = 1;
         this.isLoadingChannels = false;
         this.channelsError = 'TV.ERR_CHANNELS';
         this.cdr.markForCheck();
@@ -2675,6 +2832,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.selectedCountry = next.country || 'all';
     this.selectedGroup = next.group || '';
     this.worldwideSearchHint = false;
+    this.catalogPage = 1;
+    this.favoritesPage = 1;
+    this.recordingsPage = 1;
     this.artePage = 1;
     this.iaPage = 1;
 

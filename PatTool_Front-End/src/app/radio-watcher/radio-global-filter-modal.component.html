@@ -1,0 +1,105 @@
+<div class="radio-global-filter-backdrop" *ngIf="open" (click)="close()" aria-hidden="true"></div>
+<div
+  class="radio-global-filter-modal"
+  *ngIf="open"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="'RADIO.GLOBAL_FILTER_TITLE' | translate"
+  (click)="$event.stopPropagation()">
+  <div class="radio-global-filter-header">
+    <h3 class="radio-global-filter-title">
+      <i class="fa fa-filter me-1" aria-hidden="true"></i>
+      {{ 'RADIO.GLOBAL_FILTER_TITLE' | translate }}
+    </h3>
+    <button
+      type="button"
+      class="radio-global-filter-close"
+      (click)="close()"
+      [attr.aria-label]="'RADIO.GLOBAL_FILTER_CLOSE' | translate">
+      <i class="fa fa-times" aria-hidden="true"></i>
+    </button>
+  </div>
+
+  <div class="radio-global-filter-body">
+    <p class="radio-global-filter-lead small text-muted mb-3">
+      {{ 'RADIO.GLOBAL_FILTER_LEAD' | translate }}
+    </p>
+
+    <div class="form-check radio-global-filter-apply-check mb-3">
+      <input
+        class="form-check-input"
+        type="checkbox"
+        id="radio-global-filter-apply-all"
+        [(ngModel)]="draft.applyToAllTabs" />
+      <label class="form-check-label" for="radio-global-filter-apply-all">
+        {{ 'RADIO.GLOBAL_FILTER_APPLY_ALL' | translate }}
+      </label>
+      <div class="form-text">{{ 'RADIO.GLOBAL_FILTER_APPLY_ALL_HINT' | translate }}</div>
+    </div>
+
+    <label class="form-label small mb-1" for="radio-global-filter-country">
+      {{ 'RADIO.COUNTRY' | translate }}
+    </label>
+    <input
+      id="radio-global-filter-country-search"
+      type="search"
+      class="form-control form-control-sm mb-1"
+      [(ngModel)]="countryFilter"
+      [placeholder]="'RADIO.COUNTRY_FILTER' | translate"
+      autocomplete="off"
+      spellcheck="false" />
+    <select
+      id="radio-global-filter-country"
+      class="form-select form-select-sm"
+      [(ngModel)]="draft.country"
+      (ngModelChange)="onCountryChange()">
+      <option value="all">{{ 'RADIO.COUNTRY_ALL' | translate }}</option>
+      <option *ngFor="let c of filteredCountries" [value]="c.code">
+        {{ c.name }} ({{ c.code | uppercase }})
+      </option>
+    </select>
+    <div class="form-text mb-1" *ngIf="countryFilter.trim() && filteredCountries.length === 0">
+      {{ 'RADIO.COUNTRY_FILTER_EMPTY' | translate }}
+    </div>
+
+    <label class="form-label small mb-1 mt-2" for="radio-global-filter-tag">
+      {{ 'RADIO.TAG' | translate }}
+    </label>
+    <select
+      id="radio-global-filter-tag"
+      class="form-select form-select-sm"
+      [(ngModel)]="draft.tag">
+      <option value="">{{ 'RADIO.TAG_ALL' | translate }}</option>
+      <option *ngFor="let t of tags" [value]="t">{{ t }}</option>
+    </select>
+
+    <label class="form-label small mb-1 mt-2" for="radio-global-filter-station">
+      {{ 'RADIO.SEARCH_STATION' | translate }}
+    </label>
+    <input
+      id="radio-global-filter-station"
+      type="search"
+      class="form-control form-control-sm"
+      [(ngModel)]="draft.stationQuery"
+      [placeholder]="'RADIO.SEARCH_PLACEHOLDER' | translate"
+      autocomplete="off" />
+    <div class="form-text">{{ 'RADIO.GLOBAL_FILTER_STATION_HINT' | translate }}</div>
+  </div>
+
+  <div class="radio-global-filter-footer">
+    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="clear()" [disabled]="saving">
+      <i class="fa fa-eraser me-1" aria-hidden="true"></i>
+      {{ 'RADIO.GLOBAL_FILTER_CLEAR' | translate }}
+    </button>
+    <div class="radio-global-filter-footer-right">
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="close()" [disabled]="saving">
+        {{ 'RADIO.GLOBAL_FILTER_CLOSE' | translate }}
+      </button>
+      <button type="button" class="btn btn-primary btn-sm" (click)="apply()" [disabled]="saving">
+        <i class="fa fa-spinner fa-spin me-1" *ngIf="saving" aria-hidden="true"></i>
+        <i class="fa fa-check me-1" *ngIf="!saving" aria-hidden="true"></i>
+        {{ 'RADIO.GLOBAL_FILTER_APPLY' | translate }}
+      </button>
+    </div>
+  </div>
+</div>

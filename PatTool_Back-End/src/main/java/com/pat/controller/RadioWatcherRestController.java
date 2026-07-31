@@ -2,9 +2,12 @@ package com.pat.controller;
 
 import com.pat.controller.dto.RadioCountryDto;
 import com.pat.controller.dto.RadioFavoritesDto;
+import com.pat.controller.dto.RadioFrancePodcastEpisodeDto;
+import com.pat.controller.dto.RadioFrancePodcastShowDto;
 import com.pat.controller.dto.RadioStationDto;
 import com.pat.service.RadioCatalogService;
 import com.pat.service.RadioFavoritesService;
+import com.pat.service.RadioFrancePodcastService;
 import com.pat.service.RadioLastStationService;
 import com.pat.service.RadioStreamProxyService;
 import com.pat.service.TvStreamProxyService;
@@ -45,6 +48,9 @@ import java.util.stream.Collectors;
  *   <li>{@code GET /api/external/radio/countries}</li>
  *   <li>{@code GET /api/external/radio/stations?country=fr&amp;q=...&amp;tag=...}</li>
  *   <li>{@code GET /api/external/radio/stream/{base64url}}</li>
+ *   <li>{@code GET /api/external/radio/podcasts/stations}</li>
+ *   <li>{@code GET /api/external/radio/podcasts/shows?station=franceinter&amp;q=...}</li>
+ *   <li>{@code GET /api/external/radio/podcasts/episodes?station=franceinter&amp;slug=affaires-sensibles}</li>
  * </ul>
  * Authenticated (per JWT subject):
  * <ul>
@@ -68,6 +74,9 @@ public class RadioWatcherRestController {
 
     @Autowired
     private RadioLastStationService radioLastStationService;
+
+    @Autowired
+    private RadioFrancePodcastService radioFrancePodcastService;
 
     @GetMapping("/countries")
     public ResponseEntity<List<RadioCountryDto>> countries() {
@@ -164,6 +173,52 @@ public class RadioWatcherRestController {
                         .cacheControl(CacheControl.maxAge(Duration.ofMinutes(30)).cachePublic())
                         .body(st))
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/podcasts/stations")
+    public ResponseEntity<List<Map<String, String>>> podcastStations() {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofHours(12)).cachePublic())
+                .body(radioFrancePodcastService.stations());
+    }
+
+    @GetMapping("/podcasts/shows")
+    public ResponseEntity<?> podcastShows(
+            @RequestParam(defaultValue = "franceinter") String station,
+            @RequestParam(required = false) String q) {
+        String st = radioFrancePodcastService.normalizeStation(station);
+        List<RadioFrancePodcastShowDto> shows = radioFrancePodcastService.listShows(st, q);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(30)).cachePublic().mustRevalidate())
+                .body(Map.of(
+                        "station", st,
+                        "total", shows.size(),
+                        "shows", shows
+                ));
+    }
+
+    @GetMapping("/podcasts/episodes")
+    public ResponseEntity<?> podcastEpisodes(
+            @RequestParam(defaultValue = "franceinter") String station,
+            @RequestParam String slug,
+            @RequestParam(required = false, defaultValue = "60") int limit) {
+        if (!StringUtils.hasText(slug)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "missing_slug"));
+        }
+        String st = radioFrancePodcastService.normalizeStation(station);
+        String showSlug = slug.trim().toLowerCase(Locale.ROOT);
+        List<RadioFrancePodcastEpisodeDto> episodes =
+                radioFrancePodcastService.listEpisodes(st, showSlug, limit);
+        Optional<RadioFrancePodcastShowDto> show = radioFrancePodcastService.findShow(st, showSlug);
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("station", st);
+        body.put("slug", showSlug);
+        body.put("total", episodes.size());
+        body.put("episodes", episodes);
+        show.ifPresent(s -> body.put("show", s));
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(10)).cachePublic().mustRevalidate())
+                .body(body);
     }
 
     @GetMapping("/favorites")

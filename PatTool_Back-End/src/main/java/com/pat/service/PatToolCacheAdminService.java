@@ -285,7 +285,18 @@ public class PatToolCacheAdminService {
             switch (cacheId) {
                 case "tv-catalog" -> {
                     tvCatalogService.invalidateAll();
-                    tvCatalogService.warmFrequentCountries();
+                    boolean started = tvCatalogService.scheduleReloadAllPlaylists();
+                    Map<String, Object> out = new LinkedHashMap<>();
+                    out.put("success", true);
+                    out.put("id", cacheId);
+                    out.put("action", "refresh");
+                    out.put("previousEntries", before);
+                    out.put("started", started);
+                    out.put("message", started
+                            ? "TV catalog full reload started (all countries + worldwide list)"
+                            : "TV catalog reload already running");
+                    out.put("cache", statusOf(def));
+                    return out;
                 }
                 case "tv-epg" -> {
                     tvEpgService.invalidateAll();
@@ -422,6 +433,10 @@ public class PatToolCacheAdminService {
                     Map<String, Object> status = new LinkedHashMap<>(mediaCatalogCacheService.status());
                     status.put("tvEntries", tvCatalogService.cacheEntryCount());
                     status.put("tvChannels", tvCatalogService.cachedChannelCount());
+                    Map<String, Object> tvStats = tvCatalogService.cacheStats();
+                    status.put("tvWorldwideChannels", tvStats.get("worldwideChannels"));
+                    status.put("tvWorldwideChannelsRefreshedAt", tvStats.get("worldwideChannelsRefreshedAt"));
+                    status.put("tvReloadBusy", tvStats.get("reloadBusy"));
                     Object epgObj = tvEpgService.cacheStats().get("epgCachedCountries");
                     status.put("epgEntries", epgObj instanceof Number n ? n.longValue() : 0L);
                     Object epgProg = tvEpgService.cacheStats().get("epgCachedProgrammes");
@@ -440,7 +455,7 @@ public class PatToolCacheAdminService {
 
         list.add(def("tv-catalog", "media",
                 "SYSTEM.CACHE_REGISTRY.TV_CATALOG", "SYSTEM.CACHE_REGISTRY.TV_CATALOG_DESC",
-                true, false,
+                true, true,
                 tvCatalogService::cachedChannelCount,
                 () -> {
                     int n = tvCatalogService.cacheEntryCount();
@@ -448,9 +463,7 @@ public class PatToolCacheAdminService {
                     return n;
                 },
                 () -> {
-                    Map<String, Object> d = new LinkedHashMap<>();
-                    d.put("countries", tvCatalogService.cacheEntryCount());
-                    d.put("channels", tvCatalogService.cachedChannelCount());
+                    Map<String, Object> d = new LinkedHashMap<>(tvCatalogService.cacheStats());
                     d.put("recordUnit", "channels");
                     return d;
                 }));

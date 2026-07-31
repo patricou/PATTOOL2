@@ -1018,6 +1018,63 @@ export class SystemComponent implements OnInit {
     return rem > 0 ? min + ' min ' + rem + ' s' : min + ' min';
   }
 
+  /** Human-readable last refresh time for a registry cache row. */
+  cacheRefreshLabel(cache: any): string {
+    if (!cache) {
+      return '';
+    }
+    const d = cache.details || {};
+    if (cache.id === 'tv-catalog') {
+      if (d.reloadBusy) {
+        return this.translate.instant('SYSTEM.CACHE_REGISTRY.REFRESH_IN_PROGRESS');
+      }
+      const at = d.worldwideChannelsRefreshedAt;
+      if (!at) {
+        return this.translate.instant('SYSTEM.CACHE_REGISTRY.NOT_YET_REFRESHED');
+      }
+      return this.translate.instant('SYSTEM.CACHE_REGISTRY.REFRESHED_AT', {
+        when: this.formatCacheInstant(at)
+      });
+    }
+    if (cache.id === 'media-catalog') {
+      if (d.busy) {
+        return this.translate.instant('SYSTEM.CACHE_REGISTRY.REFRESH_IN_PROGRESS');
+      }
+      const at = d.lastCompletedAt || d.tvWorldwideChannelsRefreshedAt;
+      if (!at) {
+        return '';
+      }
+      return this.translate.instant('SYSTEM.CACHE_REGISTRY.REFRESHED_AT', {
+        when: this.formatCacheInstant(at)
+      });
+    }
+    const at = d.worldwideChannelsRefreshedAt || d.lastCompletedAt || d.refreshedAt;
+    if (!at) {
+      return '';
+    }
+    return this.translate.instant('SYSTEM.CACHE_REGISTRY.REFRESHED_AT', {
+      when: this.formatCacheInstant(at)
+    });
+  }
+
+  formatCacheInstant(iso: string | null | undefined): string {
+    if (!iso) {
+      return '';
+    }
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) {
+      return String(iso);
+    }
+    return d.toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  }
+
   mediaCatalogEntriesTitle(cache: any): string {
     if (cache?.id !== 'media-catalog') {
       return '';
@@ -1050,7 +1107,11 @@ export class SystemComponent implements OnInit {
     if (cache?.details?.channels != null) {
       return this.translate.instant('SYSTEM.CACHE_REGISTRY.TV_BREAKDOWN', {
         channels: cache.details.channels,
-        countries: cache.details.countries ?? 0
+        countries: cache.details.countries ?? 0,
+        worldwide: cache.details.worldwideChannels ?? 0,
+        refreshedAt: cache.details.worldwideChannelsRefreshedAt
+          ? this.formatCacheInstant(cache.details.worldwideChannelsRefreshedAt)
+          : '—'
       });
     }
     if (cache?.details?.stations != null) {

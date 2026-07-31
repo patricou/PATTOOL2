@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -28,10 +29,11 @@ import java.util.Optional;
 /**
  * Proxies internet-radio streams:
  * <ul>
- *   <li>HLS playlists ({@code .m3u8}) and finite segments ({@code .ts}, {@code .m4s}) →
+ *   <li>HLS playlists ({@code .m3u8}) and finite TV segments ({@code .ts}, {@code .m4s}, {@code .mp4}) →
  *       {@link TvStreamProxyService} (buffered + playlist rewrite)</li>
- *   <li>Continuous Icecast / progressive MP3-AAC → raw pipe to {@link HttpServletResponse}
- *       (must not buffer; live radio never ends)</li>
+ *   <li>Finite podcast files ({@code .m4a}, progressive MP3/AAC on podcast CDNs) → streamed pipe
+ *       with {@code Range} / {@code Content-Length} (must not use the 12&nbsp;MiB TV buffer)</li>
+ *   <li>Continuous Icecast / progressive live MP3-AAC → raw pipe (no ranges)</li>
  * </ul>
  * Writing continuous streams via {@code StreamingResponseBody} inside {@code ResponseEntity&lt;?&gt;}
  * breaks Spring (no converter for Content-Type like {@code video/mp2t}).
@@ -46,7 +48,7 @@ public class RadioStreamProxyService {
 
     private static final int CONNECT_TIMEOUT_MS = 12_000;
     /**
-     * Idle read timeout for continuous Icecast/MP3 pipes.
+     * Idle read timeout for continuous Icecast/MP3 pipes and progressive podcast downloads.
      * Non-zero so a silent/hung upstream cannot pin a Tomcat worker forever after the browser
      * already aborted (station change / leave page). Client abort is still detected on write.
      */
@@ -62,6 +64,9 @@ public class RadioStreamProxyService {
 
     /**
      * HLS playlist or finite media segment that must go through the buffered TV proxy.
+     * <p>
+     * Note: {@code .m4a} podcast files are intentionally excluded — they are often 50–100+&nbsp;MiB
+     * and would hit the TV proxy's 12&nbsp;MiB cap. Use {@link #isProgressivePodcastFile(String)}.
      */
     public static boolean useBufferedProxy(String url) {
         if (url == null) {
@@ -77,6 +82,29 @@ public class RadioStreamProxyService {
                 || path.endsWith(".mp4")
                 || path.endsWith(".cmfv")
                 || path.endsWith(".cmfa");
+    }
+
+    /**
+     * Finite on-demand audio (podcasts) that need Content-Length / Range, not live Icecast semantics.
+     */
+    public static boolean isProgressivePodcastFile(String url) {
+        if (url == null) {
+            return false;
+        }
+        String u = url.toLowerCase(Locale.ROOT);
+        int q = u.indexOf('?');
+        String path = q >= 0 ? u.substring(0, q) : u;
+        if (path.endsWith(".m4a") || path.endsWith(".aac") || path.contains(".m4a?")) {
+            return true;
+        }
+        // Radio France / podcast CDNs often serve MP3 enclosures too.
+        if ((path.endsWith(".mp3") || path.contains("audio/mpeg"))
+                && (u.contains("radiofrance")
+                || u.contains("proxycast")
+                || u.contains("podcast"))) {
+            return true;
+        }
+        return false;
     }
 
     public static boolean isSimplePlaylistUrl(String url) {
@@ -111,12 +139,102 @@ public class RadioStreamProxyService {
             url = resolved.get();
         }
 
+        if (isProgressivePodcastFile(url)) {
+            writeProgressive(url, rangeHeader, response);
+            return;
+        }
+
         if (useBufferedProxy(url)) {
             writeEntity(tvStreamProxyService.proxy(url, proxyBase, rangeHeader), response);
             return;
         }
 
         writeContinuous(url, response);
+    }
+
+    /**
+     * Stream a finite podcast file with optional HTTP Range (no in-memory size cap).
+     */
+    private void writeProgressive(String upstreamUrl, String rangeHeader,
+                                  HttpServletResponse response) throws IOException {
+        URI uri;
+        try {
+            uri = URI.create(upstreamUrl);
+        } catch (Exception e) {
+            writeJsonError(response, HttpStatus.BAD_REQUEST, "invalid_url", "URL de flux invalide");
+            return;
+        }
+        String scheme = uri.getScheme();
+        if (scheme == null
+                || !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"))) {
+            writeJsonError(response, HttpStatus.BAD_REQUEST, "invalid_scheme",
+                    "L’URL du flux doit être http ou https");
+            return;
+        }
+        if (uri.getHost() == null || isBlockedHost(uri.getHost())) {
+            writeJsonError(response, HttpStatus.FORBIDDEN, "host_blocked", "Hôte de flux non autorisé");
+            return;
+        }
+
+        OpenedStream opened;
+        try {
+            opened = openUpstream(upstreamUrl, rangeHeader);
+        } catch (Exception e) {
+            log.debug("radio progressive open failed for {}: {}", upstreamUrl, e.toString());
+            writeJsonError(response, HttpStatus.BAD_GATEWAY, "upstream_unreachable",
+                    "Flux distant inaccessible ou bloqué");
+            return;
+        }
+        if (opened == null || opened.connection == null || opened.inputStream == null) {
+            writeJsonError(response, HttpStatus.BAD_GATEWAY, "upstream_unreachable",
+                    "Flux distant inaccessible ou bloqué");
+            return;
+        }
+        if (opened.status == 416) {
+            opened.connection.disconnect();
+            writeJsonError(response, HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE, "range_not_satisfiable",
+                    "Plage d’octets demandée indisponible");
+            return;
+        }
+        if (opened.status >= 400) {
+            opened.connection.disconnect();
+            writeJsonError(response, HttpStatus.BAD_GATEWAY, "upstream_http_error",
+                    "Le flux distant a répondu HTTP " + opened.status);
+            return;
+        }
+
+        String contentType = opened.contentType;
+        if (contentType == null || contentType.isBlank()
+                || contentType.toLowerCase(Locale.ROOT).contains("text/html")) {
+            contentType = guessAudioContentType(upstreamUrl);
+        }
+        contentType = stripSpuriousCharset(contentType);
+
+        int status = opened.status == 206 ? 206 : HttpServletResponse.SC_OK;
+        response.setStatus(status);
+        response.setContentType(contentType);
+        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        response.setHeader(HttpHeaders.ACCEPT_RANGES,
+                StringUtils.hasText(opened.acceptRanges) ? opened.acceptRanges : "bytes");
+        if (StringUtils.hasText(opened.contentRange)) {
+            response.setHeader(HttpHeaders.CONTENT_RANGE, opened.contentRange);
+        }
+        if (opened.contentLength >= 0) {
+            response.setContentLengthLong(opened.contentLength);
+        }
+
+        try (InputStream in = opened.inputStream; OutputStream out = response.getOutputStream()) {
+            byte[] buf = new byte[32 * 1024];
+            int n;
+            while ((n = in.read(buf)) >= 0) {
+                out.write(buf, 0, n);
+                out.flush();
+            }
+        } catch (Exception e) {
+            log.debug("radio progressive pipe ended: {}", e.toString());
+        } finally {
+            opened.connection.disconnect();
+        }
     }
 
     private void writeContinuous(String upstreamUrl, HttpServletResponse response) throws IOException {
@@ -141,7 +259,7 @@ public class RadioStreamProxyService {
 
         OpenedStream opened;
         try {
-            opened = openUpstream(upstreamUrl);
+            opened = openUpstream(upstreamUrl, null);
         } catch (Exception e) {
             log.debug("radio continuous open failed for {}: {}", upstreamUrl, e.toString());
             writeJsonError(response, HttpStatus.BAD_GATEWAY, "upstream_unreachable",
@@ -219,7 +337,7 @@ public class RadioStreamProxyService {
 
     private Optional<String> resolveSimplePlaylist(String playlistUrl) {
         try {
-            OpenedStream opened = openUpstream(playlistUrl);
+            OpenedStream opened = openUpstream(playlistUrl, null);
             if (opened == null || opened.inputStream == null) {
                 return Optional.empty();
             }
@@ -260,7 +378,7 @@ public class RadioStreamProxyService {
         return Optional.empty();
     }
 
-    private OpenedStream openUpstream(String url) throws Exception {
+    private OpenedStream openUpstream(String url, String rangeHeader) throws Exception {
         String current = url;
         for (int hop = 0; hop <= MAX_REDIRECTS; hop++) {
             URI uri = URI.create(current);
@@ -277,6 +395,16 @@ public class RadioStreamProxyService {
                 conn.setRequestProperty("User-Agent", USER_AGENT);
                 conn.setRequestProperty("Accept", "*/*");
                 conn.setRequestProperty("Icy-MetaData", "0");
+                String referer = resolveReferer(uri.getHost());
+                if (referer != null) {
+                    conn.setRequestProperty("Referer", referer);
+                    if (referer.contains("radiofrance.fr")) {
+                        conn.setRequestProperty("Origin", "https://www.radiofrance.fr");
+                    }
+                }
+                if (StringUtils.hasText(rangeHeader)) {
+                    conn.setRequestProperty("Range", rangeHeader.trim());
+                }
 
                 int code = conn.getResponseCode();
                 if (code >= 300 && code < 400) {
@@ -287,14 +415,26 @@ public class RadioStreamProxyService {
                     current = uri.resolve(location).toString();
                     continue;
                 }
-                if (code >= 400) {
+                InputStream in = code >= 400 ? conn.getErrorStream() : conn.getInputStream();
+                if (in == null && code >= 400) {
+                    OpenedStream err = new OpenedStream();
+                    err.connection = conn;
+                    err.status = code;
+                    retainConnection = true;
+                    return err;
+                }
+                if (in == null) {
                     return null;
                 }
-                InputStream in = conn.getInputStream();
                 OpenedStream opened = new OpenedStream();
                 opened.connection = conn;
                 opened.inputStream = in;
+                opened.status = code;
                 opened.contentType = conn.getContentType();
+                opened.contentRange = conn.getHeaderField("Content-Range");
+                opened.acceptRanges = conn.getHeaderField("Accept-Ranges");
+                long cl = conn.getContentLengthLong();
+                opened.contentLength = cl;
                 retainConnection = true;
                 return opened;
             } catch (Exception e) {
@@ -312,8 +452,38 @@ public class RadioStreamProxyService {
         return null;
     }
 
+    private static String resolveReferer(String host) {
+        if (host == null || host.isBlank()) {
+            return null;
+        }
+        String h = host.toLowerCase(Locale.ROOT);
+        if (h.endsWith("radiofrance.fr")
+                || h.contains("radiofrance-podcast")
+                || h.contains("proxycast.radiofrance")
+                || h.contains("media.radiofrance")) {
+            return "https://www.radiofrance.fr/";
+        }
+        return null;
+    }
+
+    private static String stripSpuriousCharset(String contentType) {
+        if (contentType == null || contentType.isBlank()) {
+            return contentType;
+        }
+        String lower = contentType.toLowerCase(Locale.ROOT);
+        if (!(lower.startsWith("audio/") || lower.startsWith("video/")
+                || lower.startsWith("application/octet-stream") || lower.contains("mp4"))) {
+            return contentType;
+        }
+        int semi = contentType.indexOf(';');
+        return semi >= 0 ? contentType.substring(0, semi).trim() : contentType;
+    }
+
     private static String guessAudioContentType(String url) {
         String u = url.toLowerCase(Locale.ROOT);
+        if (u.contains(".m4a") || u.contains("audio/mp4") || u.contains("audio/x-m4a")) {
+            return "audio/mp4";
+        }
         if (u.contains(".aac") || u.contains("audio/aac") || u.contains("aacp")) {
             return "audio/aac";
         }
@@ -353,5 +523,9 @@ public class RadioStreamProxyService {
         private HttpURLConnection connection;
         private InputStream inputStream;
         private String contentType;
+        private int status = 200;
+        private long contentLength = -1;
+        private String contentRange;
+        private String acceptRanges;
     }
 }

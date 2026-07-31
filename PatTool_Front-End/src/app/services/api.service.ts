@@ -2145,14 +2145,18 @@ export class ApiService {
   }
 
   /**
-   * Worldwide channel search with exact match total (list may be truncated server-side).
+   * Worldwide channel page (server-side offset/limit). Total uses the count cache when idle.
    */
   getTvChannelsWorldwide(
     q?: string,
     group?: string,
-    limit = 10000
-  ): Observable<{ channels: TvChannel[]; total: number; truncated: boolean; limit: number }> {
-    let params = new HttpParams().set('country', 'all').set('limit', String(Math.max(1, limit)));
+    limit = 50,
+    offset = 0
+  ): Observable<{ channels: TvChannel[]; total: number; truncated: boolean; limit: number; offset: number }> {
+    let params = new HttpParams()
+      .set('country', 'all')
+      .set('limit', String(Math.max(1, limit)))
+      .set('offset', String(Math.max(0, offset)));
     if (q && q.trim()) {
       params = params.set('q', q.trim());
     }
@@ -2160,7 +2164,7 @@ export class ApiService {
       params = params.set('group', group.trim());
     }
     return this._http
-      .get<{ channels?: TvChannel[]; total?: number; truncated?: boolean; limit?: number }>(
+      .get<{ channels?: TvChannel[]; total?: number; truncated?: boolean; limit?: number; offset?: number }>(
         this.API_URL + 'external/tv/channels',
         { params }
       )
@@ -2169,7 +2173,8 @@ export class ApiService {
           channels: body?.channels || [],
           total: Math.max(0, Number(body?.total) || 0),
           truncated: !!body?.truncated,
-          limit: Math.max(0, Number(body?.limit) || limit)
+          limit: Math.max(0, Number(body?.limit) || limit),
+          offset: Math.max(0, Number(body?.offset) || offset)
         }))
       );
   }
@@ -2709,6 +2714,41 @@ export class ApiService {
     return this._http.get<string[]>(this.API_URL + 'external/radio/tags', { params });
   }
 
+  getRadioFrancePodcastStations(): Observable<Array<{ id: string; name: string }>> {
+    return this._http.get<Array<{ id: string; name: string }>>(
+      this.API_URL + 'external/radio/podcasts/stations'
+    );
+  }
+
+  getRadioFrancePodcastShows(
+    station = 'franceinter',
+    q?: string
+  ): Observable<RadioFrancePodcastShowsResponse> {
+    let params = new HttpParams().set('station', station || 'franceinter');
+    if (q && q.trim()) {
+      params = params.set('q', q.trim());
+    }
+    return this._http.get<RadioFrancePodcastShowsResponse>(
+      this.API_URL + 'external/radio/podcasts/shows',
+      { params }
+    );
+  }
+
+  getRadioFrancePodcastEpisodes(
+    station: string,
+    slug: string,
+    limit = 60
+  ): Observable<RadioFrancePodcastEpisodesResponse> {
+    const params = new HttpParams()
+      .set('station', station || 'franceinter')
+      .set('slug', slug || '')
+      .set('limit', String(Math.max(1, Math.min(limit, 80))));
+    return this._http.get<RadioFrancePodcastEpisodesResponse>(
+      this.API_URL + 'external/radio/podcasts/episodes',
+      { params }
+    );
+  }
+
   /** Proxied audio / HLS URL for a radio stream (Base64-URL path segment). */
   radioStreamProxyUrl(streamUrl: string): string {
     const bytes = new TextEncoder().encode(streamUrl);
@@ -2772,6 +2812,102 @@ export class ApiService {
         this._http.put<RadioStation>(this.API_URL + 'external/radio/last-station', station, { headers })
       )
     );
+  }
+
+  // --- Book watcher (Open Library / Gutenberg / LibriVox) ---
+
+  searchOpenLibraryBooks(
+    q: string,
+    limit: number = 20,
+    offset: number = 0,
+    language?: string,
+    genre?: string
+  ): Observable<BookSearchPage> {
+    let params = new HttpParams()
+      .set('q', q || '')
+      .set('limit', String(Math.max(1, Math.min(limit, 40))))
+      .set('offset', String(Math.max(0, offset)));
+    if (language) {
+      params = params.set('language', language);
+    }
+    if (genre) {
+      params = params.set('genre', genre);
+    }
+    return this._http.get<BookSearchPage>(this.API_URL + 'external/book/openlibrary/search', { params });
+  }
+
+  getOpenLibraryWork(key: string): Observable<BookItem> {
+    const params = new HttpParams().set('key', key || '');
+    return this._http.get<BookItem>(this.API_URL + 'external/book/openlibrary/work', { params });
+  }
+
+  searchGutenbergBooks(
+    q: string,
+    languages?: string,
+    page: number = 1,
+    genre?: string
+  ): Observable<BookSearchPage> {
+    let params = new HttpParams()
+      .set('q', q || '')
+      .set('page', String(Math.max(1, page)));
+    if (languages) {
+      params = params.set('languages', languages);
+    }
+    if (genre) {
+      params = params.set('genre', genre);
+    }
+    return this._http.get<BookSearchPage>(this.API_URL + 'external/book/gutenberg/search', { params });
+  }
+
+  getGutenbergBook(id: string | number): Observable<BookItem> {
+    return this._http.get<BookItem>(
+      this.API_URL + 'external/book/gutenberg/' + encodeURIComponent(String(id || ''))
+    );
+  }
+
+  searchLibriVoxBooks(
+    q: string,
+    author?: string,
+    limit: number = 25,
+    offset: number = 0,
+    genre?: string
+  ): Observable<BookSearchPage> {
+    let params = new HttpParams()
+      .set('q', q || '')
+      .set('limit', String(Math.max(1, Math.min(limit, 50))))
+      .set('offset', String(Math.max(0, offset)));
+    if (author) {
+      params = params.set('author', author);
+    }
+    if (genre) {
+      params = params.set('genre', genre);
+    }
+    return this._http.get<BookSearchPage>(this.API_URL + 'external/book/librivox/search', { params });
+  }
+
+  getLibriVoxBook(id: string): Observable<BookItem> {
+    return this._http.get<BookItem>(
+      this.API_URL + 'external/book/librivox/' + encodeURIComponent(id || '')
+    );
+  }
+
+  /** Proxied book text/HTML URL (Base64-URL path segment). */
+  bookContentProxyUrl(contentUrl: string): string {
+    return this.API_URL + 'external/book/content/' + this.encodeUrlPathSegment(contentUrl);
+  }
+
+  /** Proxied LibriVox / audiobook stream URL. */
+  bookStreamProxyUrl(streamUrl: string): string {
+    return this.API_URL + 'external/book/stream/' + this.encodeUrlPathSegment(streamUrl);
+  }
+
+  private encodeUrlPathSegment(url: string): string {
+    const bytes = new TextEncoder().encode(url);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
 
   /** GET last visited app page — JWT required, per-user. 204 when none. */
@@ -3805,4 +3941,87 @@ export interface RadioStation {
 /** GET/PUT /api/external/radio/favorites — per authenticated user */
 export interface RadioFavorites {
   stations: RadioStation[];
+}
+
+/** GET /api/external/radio/podcasts/shows */
+export interface RadioFrancePodcastShow {
+  id: string;
+  station: string;
+  stationName?: string;
+  slug: string;
+  title: string;
+  description?: string;
+  image?: string;
+  path?: string;
+  homepage?: string;
+}
+
+export interface RadioFrancePodcastShowsResponse {
+  station: string;
+  total: number;
+  shows: RadioFrancePodcastShow[];
+}
+
+/** GET /api/external/radio/podcasts/episodes */
+export interface RadioFrancePodcastEpisode {
+  id: string;
+  showId?: string;
+  showTitle?: string;
+  station?: string;
+  title: string;
+  description?: string;
+  image?: string;
+  streamUrl: string;
+  homepage?: string;
+  publishedAt?: string;
+  durationSec?: number;
+  codec?: string;
+}
+
+export interface RadioFrancePodcastEpisodesResponse {
+  station: string;
+  slug: string;
+  total: number;
+  episodes: RadioFrancePodcastEpisode[];
+  show?: RadioFrancePodcastShow;
+}
+
+/** GET /api/external/book/.../search */
+export interface BookSection {
+  id?: string;
+  title?: string;
+  sectionNumber?: number;
+  listenUrl?: string;
+  durationSecs?: number;
+  readers?: string;
+}
+
+export interface BookItem {
+  id: string;
+  source: 'openlibrary' | 'gutenberg' | 'librivox' | string;
+  title: string;
+  authors?: string;
+  coverUrl?: string;
+  year?: number;
+  language?: string;
+  description?: string;
+  subjects?: string;
+  homepage?: string;
+  textUrl?: string;
+  htmlUrl?: string;
+  epubUrl?: string;
+  hasFulltext?: boolean;
+  iaId?: string;
+  totalTime?: string;
+  totalTimeSecs?: number;
+  sections?: BookSection[];
+}
+
+export interface BookSearchPage {
+  source: string;
+  query?: string;
+  total: number;
+  limit: number;
+  offset: number;
+  books: BookItem[];
 }

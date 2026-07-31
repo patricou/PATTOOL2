@@ -164,31 +164,23 @@ public class TvWatcherRestController {
             @RequestParam(defaultValue = "fr") String country,
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String group,
-            @RequestParam(required = false, defaultValue = "10000") int limit) {
+            @RequestParam(required = false, defaultValue = "0") int limit,
+            @RequestParam(required = false, defaultValue = "0") int offset) {
         if (tvCatalogService.isAllCountries(country)) {
             String query = q != null ? q.trim() : "";
             String groupFilter = group != null ? group.trim() : "";
-            int safeLimit = Math.max(1, Math.min(limit <= 0 ? TvCatalogService.WORLDWIDE_SEARCH_MAX : limit,
-                    TvCatalogService.WORLDWIDE_SEARCH_MAX));
-            if (query.length() < 2 && groupFilter.isEmpty()) {
-                return ResponseEntity.ok()
-                        .cacheControl(CacheControl.noStore())
-                        .body(Map.of(
-                                "channels", List.of(),
-                                "total", 0,
-                                "limit", safeLimit,
-                                "truncated", false
-                        ));
-            }
+            int safeLimit = Math.max(1, Math.min(limit <= 0 ? 50 : limit, TvCatalogService.WORLDWIDE_SEARCH_MAX));
+            int safeOffset = Math.max(0, offset);
             TvCatalogService.TvChannelSearchResult worldwide =
-                    tvCatalogService.searchAllCountries(query, groupFilter, safeLimit);
-            boolean truncated = worldwide.total() > worldwide.channels().size();
+                    tvCatalogService.searchAllCountries(query, groupFilter, safeOffset, safeLimit);
+            boolean truncated = worldwide.total() > worldwide.offset() + worldwide.channels().size();
             return ResponseEntity.ok()
                     .cacheControl(CacheControl.maxAge(Duration.ofMinutes(2)).cachePublic())
                     .body(Map.of(
                             "channels", worldwide.channels(),
                             "total", worldwide.total(),
                             "limit", worldwide.limit(),
+                            "offset", worldwide.offset(),
                             "truncated", truncated
                     ));
         }
@@ -207,9 +199,28 @@ public class TvWatcherRestController {
                         || (ch.getGroup() != null && ch.getGroup().toLowerCase(Locale.ROOT).contains(groupFilter)))
                 .collect(Collectors.toList());
 
+        // Backward compatible: no explicit paging → full array (existing clients).
+        if (offset <= 0 && limit <= 0) {
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePublic())
+                    .body(filtered);
+        }
+
+        int safeOffset = Math.max(0, offset);
+        int safeLimit = Math.max(1, Math.min(limit <= 0 ? filtered.size() : limit, TvCatalogService.WORLDWIDE_SEARCH_MAX));
+        int from = Math.min(safeOffset, filtered.size());
+        int to = Math.min(from + safeLimit, filtered.size());
+        List<TvChannelDto> page = filtered.subList(from, to);
+        boolean truncated = filtered.size() > to;
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePublic())
-                .body(filtered);
+                .body(Map.of(
+                        "channels", page,
+                        "total", filtered.size(),
+                        "limit", safeLimit,
+                        "offset", from,
+                        "truncated", truncated
+                ));
     }
 
     @GetMapping("/groups")

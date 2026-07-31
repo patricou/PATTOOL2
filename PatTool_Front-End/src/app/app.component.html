@@ -146,6 +146,29 @@
                 </ul>
             </li>
 
+            <!-- Media (TV, Radio, Livres) -->
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle"
+                   href="#"
+                   id="mediaDropdown"
+                   role="button"
+                   (click)="toggleMediaDropdown($event)"
+                   [attr.aria-expanded]="showMediaDropdown">
+                    <i class="fa fa-play-circle"></i> {{ 'MENU.MEDIA' | translate }}
+                </a>
+                <ul class="dropdown-menu"
+                    [class.show]="showMediaDropdown"
+                    aria-labelledby="mediaDropdown">
+                    <li *ngFor="let item of sortedNavMedia">
+                        <a class="dropdown-item"
+                           [routerLink]="item.routerLink"
+                           (click)="closeMenu()">
+                            <i [class]="item.icon"></i> {{ item.labelKey | translate }}
+                        </a>
+                    </li>
+                </ul>
+            </li>
+
             <!-- Maison / IoT (+ scan sécurité pour tout utilisateur connecté) -->
             <li class="nav-item dropdown" *ngIf="sortedNavIot.length > 0">
                 <a class="nav-link dropdown-toggle" 

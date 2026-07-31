@@ -325,7 +325,11 @@ public class TvStreamProxyService {
         if (h.contains("digiteka.com") || h.contains("20minutestv") || h.contains("20minutes.fr")) {
             return "https://www.20minutes.fr/";
         }
-        if (h.endsWith("radiofrance.fr") || h.contains("stream.radiofrance")) {
+        if (h.endsWith("radiofrance.fr")
+                || h.contains("stream.radiofrance")
+                || h.contains("radiofrance-podcast")
+                || h.contains("proxycast.radiofrance")
+                || h.contains("media.radiofrance")) {
             return "https://www.radiofrance.fr/";
         }
         if (h.contains("6cloud.fr") || h.contains("6play.fr") || h.contains("m6web")) {

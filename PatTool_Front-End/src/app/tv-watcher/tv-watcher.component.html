@@ -371,6 +371,42 @@
         </li>
       </ul>
 
+      <div class="tv-arte-pager" *ngIf="listMode === 'catalog' && effectiveCatalogPages > 1 && !isLoadingChannelList" role="navigation" [attr.aria-label]="'TV.LIST_PAGER' | translate">
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          (click)="catalogPrevPage()"
+          [disabled]="catalogPage <= 1 || isLoadingChannels">
+          <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        </button>
+        <span class="tv-arte-pager-label">{{ 'TV.LIST_PAGE' | translate:{ page: catalogPage, pages: effectiveCatalogPages } }}</span>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          (click)="catalogNextPage()"
+          [disabled]="catalogPage >= effectiveCatalogPages || isLoadingChannels">
+          <i class="fa fa-chevron-right" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="tv-arte-pager" *ngIf="listMode === 'favorites' && favoritesPages > 1 && !isLoadingChannelList" role="navigation" [attr.aria-label]="'TV.LIST_PAGER' | translate">
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          (click)="favoritesPrevPage()"
+          [disabled]="favoritesPage <= 1">
+          <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        </button>
+        <span class="tv-arte-pager-label">{{ 'TV.LIST_PAGE' | translate:{ page: favoritesPage, pages: favoritesPages } }}</span>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          (click)="favoritesNextPage()"
+          [disabled]="favoritesPage >= favoritesPages">
+          <i class="fa fa-chevron-right" aria-hidden="true"></i>
+        </button>
+      </div>
+
       <div class="tv-arte-pager" *ngIf="listMode === 'arte' && artePages > 1 && !isLoadingChannelList" role="navigation" [attr.aria-label]="'TV.ARTE_PAGER' | translate">
         <button
           type="button"
@@ -413,7 +449,7 @@
         [attr.aria-label]="'TV.TAB_RECORDINGS' | translate"
         *ngIf="listMode === 'recordings' && !isLoadingChannelList">
         <li
-          *ngFor="let rec of filteredRecordings; trackBy: trackByRecordingId"
+          *ngFor="let rec of pagedRecordings; trackBy: trackByRecordingId"
           class="tv-channel-item tv-recording-item"
           [class.active]="playingRecording?.id === rec.id"
           role="option"
@@ -522,6 +558,24 @@
           {{ 'TV.RECORD_LOGIN' | translate }}
         </li>
       </ul>
+
+      <div class="tv-arte-pager" *ngIf="listMode === 'recordings' && recordingsPages > 1 && !isLoadingChannelList" role="navigation" [attr.aria-label]="'TV.LIST_PAGER' | translate">
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          (click)="recordingsPrevPage()"
+          [disabled]="recordingsPage <= 1">
+          <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        </button>
+        <span class="tv-arte-pager-label">{{ 'TV.LIST_PAGE' | translate:{ page: recordingsPage, pages: recordingsPages } }}</span>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          (click)="recordingsNextPage()"
+          [disabled]="recordingsPage >= recordingsPages">
+          <i class="fa fa-chevron-right" aria-hidden="true"></i>
+        </button>
+      </div>
     </aside>
 
     <section class="tv-player-panel" aria-label="TV">

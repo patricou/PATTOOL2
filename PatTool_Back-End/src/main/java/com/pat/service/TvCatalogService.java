@@ -245,9 +245,15 @@ public class TvCatalogService {
     private volatile Instant worldwideCountExpires;
     private volatile List<String> worldwideGroupsCache;
     private volatile Instant worldwideGroupsExpires;
+    /** Flattened worldwide channel list (all countries), for fast paging / search. */
+    private volatile List<TvChannelDto> worldwideChannelsCache;
+    private volatile Instant worldwideChannelsRefreshedAt;
+    private volatile Instant worldwideChannelsExpires;
     private final AtomicBoolean worldwideCountRefreshing = new AtomicBoolean(false);
     private final AtomicBoolean worldwideGroupsRefreshing = new AtomicBoolean(false);
-    private final ExecutorService catalogRefreshExecutor = Executors.newFixedThreadPool(2, r -> {
+    private final AtomicBoolean worldwideChannelsRefreshing = new AtomicBoolean(false);
+    private final AtomicBoolean reloadAllBusy = new AtomicBoolean(false);
+    private final ExecutorService catalogRefreshExecutor = Executors.newFixedThreadPool(3, r -> {
         Thread t = new Thread(r, "tv-catalog-refresh");
         t.setDaemon(true);
         return t;
@@ -375,6 +381,9 @@ public class TvCatalogService {
         worldwideCountExpires = null;
         worldwideGroupsCache = null;
         worldwideGroupsExpires = null;
+        worldwideChannelsCache = null;
+        worldwideChannelsRefreshedAt = null;
+        worldwideChannelsExpires = null;
     }
 
     public int cacheEntryCount() {
@@ -385,11 +394,18 @@ public class TvCatalogService {
         if (worldwideGroupsCache != null) {
             n++;
         }
+        if (worldwideChannelsCache != null) {
+            n++;
+        }
         return n;
     }
 
-    /** Total TV channels held in playlist cache (sum across countries). */
+    /** Total TV channels held in playlist / worldwide list cache. */
     public long cachedChannelCount() {
+        List<TvChannelDto> worldwide = worldwideChannelsCache;
+        if (worldwide != null) {
+            return worldwide.size();
+        }
         long total = 0;
         for (CachedPlaylist playlist : cache.values()) {
             if (playlist != null && playlist.channels != null) {
@@ -397,6 +413,29 @@ public class TvCatalogService {
             }
         }
         return total;
+    }
+
+    /** Stats for the System cache registry page. */
+    public Map<String, Object> cacheStats() {
+        Map<String, Object> d = new LinkedHashMap<>();
+        d.put("countries", cache.size());
+        d.put("channels", cachedChannelCount());
+        List<TvChannelDto> worldwide = worldwideChannelsCache;
+        d.put("worldwideChannels", worldwide != null ? worldwide.size() : 0);
+        d.put("worldwideChannelsCached", worldwide != null);
+        d.put("worldwideChannelsRefreshedAt",
+                worldwideChannelsRefreshedAt != null ? worldwideChannelsRefreshedAt.toString() : null);
+        d.put("worldwideChannelsExpiresAt",
+                worldwideChannelsExpires != null ? worldwideChannelsExpires.toString() : null);
+        d.put("worldwideCount", worldwideCountCache);
+        d.put("worldwideCountExpiresAt",
+                worldwideCountExpires != null ? worldwideCountExpires.toString() : null);
+        d.put("worldwideGroups", worldwideGroupsCache != null ? worldwideGroupsCache.size() : 0);
+        d.put("worldwideGroupsExpiresAt",
+                worldwideGroupsExpires != null ? worldwideGroupsExpires.toString() : null);
+        d.put("reloadBusy", reloadAllBusy.get());
+        d.put("recordUnit", "channels");
+        return d;
     }
 
     /** Warm frequently used countries without scanning the full worldwide catalog. */
@@ -412,7 +451,7 @@ public class TvCatalogService {
 
     /**
      * Reload every country playlist into cache (including empty 404 entries),
-     * then refresh worldwide count + groups. Intended for background jobs.
+     * then refresh worldwide count, groups, and the flattened worldwide channel list.
      */
     public void reloadAllPlaylists() {
         for (String code : COUNTRY_CODES) {
@@ -424,51 +463,140 @@ public class TvCatalogService {
                 log.warn("TV reload {} failed: {}", code, e.toString());
             }
         }
-        recomputeWorldwideCount();
+        recomputeWorldwideChannels();
         recomputeWorldwideGroups();
     }
 
     /**
-     * Search channel name/group across all configured countries.
-     * Requires a name query of at least 2 characters <strong>or</strong> a non-empty category filter.
-     * Returns at most {@code limit} channels (default / max {@link #WORLDWIDE_SEARCH_MAX}) plus the exact match {@code total}.
+     * Background full reload of every country playlist + worldwide aggregates.
+     * Returns {@code false} if a reload is already running.
      */
-    public static final int WORLDWIDE_SEARCH_MAX = 10_000;
+    public boolean scheduleReloadAllPlaylists() {
+        if (!reloadAllBusy.compareAndSet(false, true)) {
+            return false;
+        }
+        catalogRefreshExecutor.execute(() -> {
+            try {
+                log.info("TV catalog full reload starting ({} countries)", COUNTRY_CODES.size());
+                reloadAllPlaylists();
+                log.info("TV catalog full reload done (worldwideChannels={})",
+                        worldwideChannelsCache != null ? worldwideChannelsCache.size() : 0);
+            } catch (Exception e) {
+                log.warn("TV catalog full reload failed: {}", e.toString());
+            } finally {
+                reloadAllBusy.set(false);
+            }
+        });
+        return true;
+    }
 
-    public TvChannelSearchResult searchAllCountries(String query, String group, int limit) {
+    /**
+     * Search / list channels across all configured countries.
+     * Uses the cached worldwide channel list when available.
+     * Empty query and group returns a page of the worldwide catalog.
+     * Returns at most {@code limit} channels starting at {@code offset}.
+     */
+    public static final int WORLDWIDE_SEARCH_MAX = 500;
+
+    public TvChannelSearchResult searchAllCountries(String query, String group, int offset, int limit) {
         String q = query != null ? query.trim().toLowerCase(Locale.ROOT) : "";
         String groupFilter = group != null ? group.trim().toLowerCase(Locale.ROOT) : "";
-        int max = Math.max(1, Math.min(limit <= 0 ? WORLDWIDE_SEARCH_MAX : limit, WORLDWIDE_SEARCH_MAX));
-        if (q.length() < 2 && groupFilter.isEmpty()) {
-            return new TvChannelSearchResult(Collections.emptyList(), 0, max);
+        int max = Math.max(1, Math.min(limit <= 0 ? 50 : limit, WORLDWIDE_SEARCH_MAX));
+        int skip = Math.max(0, offset);
+        boolean filterByName = q.length() >= 2;
+        boolean unfiltered = !filterByName && groupFilter.isEmpty();
+
+        List<TvChannelDto> source = ensureWorldwideChannels();
+        if (unfiltered) {
+            int total = source.size();
+            int from = Math.min(skip, total);
+            int to = Math.min(from + max, total);
+            List<TvChannelDto> page = from < to ? source.subList(from, to) : List.of();
+            return new TvChannelSearchResult(List.copyOf(page), total, max, from);
         }
-        List<TvChannelDto> out = new ArrayList<>(Math.min(max, 256));
+
+        List<TvChannelDto> out = new ArrayList<>(Math.min(max, 64));
+        int matched = 0;
         int total = 0;
+        for (TvChannelDto ch : source) {
+            if (filterByName && !matchesQuery(ch, q)) {
+                continue;
+            }
+            if (!groupFilter.isEmpty()
+                    && (ch.getGroup() == null
+                    || !ch.getGroup().toLowerCase(Locale.ROOT).contains(groupFilter))) {
+                continue;
+            }
+            total++;
+            if (matched >= skip && out.size() < max) {
+                out.add(ch);
+            }
+            matched++;
+        }
+        return new TvChannelSearchResult(out, total, max, skip);
+    }
+
+    /** @deprecated use {@link #searchAllCountries(String, String, int, int)} */
+    public TvChannelSearchResult searchAllCountries(String query, String group, int limit) {
+        return searchAllCountries(query, group, 0, limit);
+    }
+
+    /** Worldwide channel search page: truncated list + exact match count. */
+    public record TvChannelSearchResult(List<TvChannelDto> channels, int total, int limit, int offset) {
+        public TvChannelSearchResult(List<TvChannelDto> channels, int total, int limit) {
+            this(channels, total, limit, 0);
+        }
+    }
+
+    /**
+     * Cached flattened worldwide list (stale-while-revalidate). Builds synchronously if empty.
+     */
+    public List<TvChannelDto> ensureWorldwideChannels() {
+        Instant now = Instant.now();
+        List<TvChannelDto> cached = worldwideChannelsCache;
+        Instant expires = worldwideChannelsExpires;
+        if (cached != null && expires != null && expires.isAfter(now)) {
+            return cached;
+        }
+        if (cached != null && !cached.isEmpty()) {
+            scheduleWorldwideChannelsRefresh();
+            return cached;
+        }
+        return recomputeWorldwideChannels();
+    }
+
+    private void scheduleWorldwideChannelsRefresh() {
+        if (!worldwideChannelsRefreshing.compareAndSet(false, true)) {
+            return;
+        }
+        catalogRefreshExecutor.execute(() -> {
+            try {
+                recomputeWorldwideChannels();
+            } catch (Exception e) {
+                log.warn("TV worldwide channels refresh failed: {}", e.toString());
+            } finally {
+                worldwideChannelsRefreshing.set(false);
+            }
+        });
+    }
+
+    private List<TvChannelDto> recomputeWorldwideChannels() {
+        List<TvChannelDto> out = new ArrayList<>(12_000);
         for (String countryCode : COUNTRY_CODES) {
             List<TvChannelDto> channels = listChannels(countryCode);
             if (channels == null || channels.isEmpty()) {
                 continue;
             }
-            for (TvChannelDto ch : channels) {
-                if (q.length() >= 2 && !matchesQuery(ch, q)) {
-                    continue;
-                }
-                if (!groupFilter.isEmpty()
-                        && (ch.getGroup() == null
-                        || !ch.getGroup().toLowerCase(Locale.ROOT).contains(groupFilter))) {
-                    continue;
-                }
-                total++;
-                if (out.size() < max) {
-                    out.add(ch);
-                }
-            }
+            out.addAll(channels);
         }
-        return new TvChannelSearchResult(out, total, max);
-    }
-
-    /** Worldwide channel search page: truncated list + exact match count. */
-    public record TvChannelSearchResult(List<TvChannelDto> channels, int total, int limit) {
+        List<TvChannelDto> frozen = List.copyOf(out);
+        Instant now = Instant.now();
+        worldwideChannelsCache = frozen;
+        worldwideChannelsRefreshedAt = now;
+        worldwideChannelsExpires = now.plus(Duration.ofMinutes(Math.max(5, cacheMinutes)));
+        worldwideCountCache = frozen.size();
+        worldwideCountExpires = worldwideChannelsExpires;
+        return frozen;
     }
 
     /**
@@ -546,6 +674,10 @@ public class TvCatalogService {
      */
     public int countChannels(String country) {
         if (isAllCountries(country)) {
+            List<TvChannelDto> worldwide = worldwideChannelsCache;
+            if (worldwide != null) {
+                return worldwide.size();
+            }
             Instant now = Instant.now();
             Integer cached = worldwideCountCache;
             Instant expires = worldwideCountExpires;
