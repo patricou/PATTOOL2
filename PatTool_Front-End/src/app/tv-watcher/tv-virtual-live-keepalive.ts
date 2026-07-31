@@ -12,7 +12,7 @@ export type VirtualLiveResolveFn = (fresh: boolean) => Promise<FranceTvResolveMe
 
 /**
  * Build resolveMeta + slug for france.tv / TF1 / M6 virtual live resolve.
- * Used for preflight, cache bust on fatal error, and (france.tv/TF1 only) proactive renewals.
+ * Used for preflight, cache bust on fatal error, and (france.tv only) proactive renewals.
  */
 export function virtualLiveKeepAliveFromUrl(
   streamUrl: string,
@@ -80,8 +80,11 @@ export async function bustVirtualLiveCache(
 }
 
 /**
- * Warm / verify TF1·M6·france.tv resolve before attaching HLS.
- * Retries once with {@code fresh=true} when the first resolve fails.
+ * Warm / verify virtual live resolve before attaching HLS.
+ * <p>
+ * france.tv: blocking (needs a fresh Akamai token before play).
+ * TF1 / M6: non-blocking — mirrors resolve inside the HLS proxy; a preflight
+ * round-trip only doubles cold-start latency.
  */
 export async function preflightVirtualLive(
   streamUrl: string,
@@ -89,6 +92,10 @@ export async function preflightVirtualLive(
 ): Promise<{ ok: boolean; detail?: string }> {
   const keep = virtualLiveKeepAliveFromUrl(streamUrl, api);
   if (!keep) {
+    return { ok: true };
+  }
+  // IPTV-mirror lives: start HLS immediately (proxy will resolve).
+  if (tf1SlugFromVirtual(streamUrl) || m6GroupSlugFromVirtual(streamUrl)) {
     return { ok: true };
   }
   try {

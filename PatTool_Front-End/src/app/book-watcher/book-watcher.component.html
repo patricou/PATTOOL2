@@ -37,6 +37,36 @@
           type="button"
           class="book-mode-tab"
           role="tab"
+          [class.active]="source === 'archive'"
+          [attr.aria-selected]="source === 'archive'"
+          (click)="setSource('archive')">
+          <i class="fa fa-archive me-1"></i>
+          {{ 'BOOK.TAB_ARCHIVE' | translate }}
+        </button>
+        <button
+          type="button"
+          class="book-mode-tab"
+          role="tab"
+          [class.active]="source === 'googlebooks'"
+          [attr.aria-selected]="source === 'googlebooks'"
+          (click)="setSource('googlebooks')">
+          <i class="fa fa-book me-1"></i>
+          {{ 'BOOK.TAB_GOOGLE' | translate }}
+        </button>
+        <button
+          type="button"
+          class="book-mode-tab"
+          role="tab"
+          [class.active]="source === 'standardebooks'"
+          [attr.aria-selected]="source === 'standardebooks'"
+          (click)="setSource('standardebooks')">
+          <i class="fa fa-bookmark me-1"></i>
+          {{ 'BOOK.TAB_STANDARDEBOOKS' | translate }}
+        </button>
+        <button
+          type="button"
+          class="book-mode-tab"
+          role="tab"
           [class.active]="source === 'librivox'"
           [attr.aria-selected]="source === 'librivox'"
           (click)="setSource('librivox')">
@@ -47,7 +77,7 @@
 
       <div class="book-filters">
         <label class="form-label small mb-1" for="book-query">
-          {{ (source === 'librivox' ? 'BOOK.SEARCH_TITLE' : 'BOOK.SEARCH') | translate }}
+          {{ 'BOOK.SEARCH_TITLE' | translate }}
         </label>
         <div class="book-search-row">
           <input
@@ -56,6 +86,7 @@
             class="form-control form-control-sm"
             [(ngModel)]="query"
             (ngModelChange)="onQueryChange()"
+            (keyup.enter)="runSearch()"
             [placeholder]="'BOOK.SEARCH_PLACEHOLDER' | translate"
             autocomplete="off" />
           <button
@@ -69,7 +100,7 @@
           </button>
         </div>
 
-        <div class="mt-2" *ngIf="source === 'librivox'">
+        <div class="mt-2">
           <label class="form-label small mb-1" for="book-author">
             {{ 'BOOK.SEARCH_AUTHOR' | translate }}
           </label>
@@ -79,9 +110,15 @@
             class="form-control form-control-sm"
             [(ngModel)]="authorQuery"
             (ngModelChange)="onQueryChange()"
+            (keyup.enter)="runSearch()"
             [placeholder]="'BOOK.SEARCH_AUTHOR_PLACEHOLDER' | translate"
             autocomplete="off" />
-          <div class="form-text small mt-1">{{ 'BOOK.SEARCH_HINT_LIBRIVOX' | translate }}</div>
+          <div class="form-text small mt-1" *ngIf="source === 'librivox'">
+            {{ 'BOOK.SEARCH_HINT_LIBRIVOX' | translate }}
+          </div>
+          <div class="form-text small mt-1" *ngIf="source === 'standardebooks'">
+            {{ 'BOOK.SEARCH_HINT_STANDARDEBOOKS' | translate }}
+          </div>
         </div>
 
         <div class="mt-2">
@@ -92,13 +129,13 @@
             id="book-genre"
             class="form-select form-select-sm"
             [(ngModel)]="genre"
-            (ngModelChange)="onGenreChange()">
+            (change)="onGenreChange()">
             <option value="">{{ 'BOOK.GENRE_ALL' | translate }}</option>
             <option *ngFor="let g of genreOptions" [value]="g.value">{{ g.labelKey | translate }}</option>
           </select>
         </div>
 
-        <div class="mt-2" *ngIf="source !== 'librivox'">
+        <div class="mt-2">
           <label class="form-label small mb-1" for="book-lang">
             {{ 'BOOK.LANGUAGE' | translate }}
           </label>
@@ -106,16 +143,27 @@
             id="book-lang"
             class="form-select form-select-sm"
             [(ngModel)]="language"
-            (ngModelChange)="onLanguageChange()">
+            (change)="onLanguageChange()">
             <option value="">{{ 'BOOK.LANGUAGE_ALL' | translate }}</option>
             <option *ngFor="let lang of languageOptions" [value]="lang.value">{{ lang.label }}</option>
           </select>
         </div>
+
+        <div class="mt-2 book-search-actions">
+          <button
+            type="button"
+            class="btn btn-sm btn-dark book-search-btn"
+            (click)="runSearch()"
+            [disabled]="isLoading">
+            <i class="fa fa-search me-1" aria-hidden="true"></i>
+            {{ 'BOOK.SEARCH_BTN' | translate }}
+          </button>
+        </div>
       </div>
 
       <div class="book-list-meta">
-        <span class="small text-muted" *ngIf="!isLoading && total > 0">
-          {{ 'BOOK.RESULT_COUNT' | translate:{ count: total } }}
+        <span class="small text-muted" *ngIf="!isLoading && books.length > 0">
+          {{ resultCountKey | translate: resultCountParams }}
         </span>
         <span class="small text-muted" *ngIf="isLoading">
           <i class="fa fa-spinner fa-spin me-1"></i>
@@ -123,44 +171,63 @@
         </span>
       </div>
 
-      <div class="alert alert-danger py-2 px-3 small" *ngIf="listError" role="alert">
+      <div
+        class="alert py-2 px-3 small"
+        *ngIf="listError"
+        role="alert"
+        [class.alert-warning]="listError === 'BOOK.ERR_GOOGLE_RATE_LIMIT'"
+        [class.alert-danger]="listError !== 'BOOK.ERR_GOOGLE_RATE_LIMIT'">
         {{ listError | translate }}
       </div>
 
       <div class="book-list" role="list">
-        <button
-          type="button"
+        <div
           class="book-list-item"
           role="listitem"
           *ngFor="let book of books; trackBy: trackByBookId"
-          [class.active]="selected?.id === book.id && selected?.source === book.source"
-          (click)="selectBook(book)">
-          <img
-            *ngIf="book.coverUrl"
-            class="book-cover"
-            [src]="book.coverUrl"
-            [alt]="book.title"
-            loading="lazy"
-            (error)="$any($event.target).style.display='none'" />
-          <span class="book-cover book-cover-placeholder" *ngIf="!book.coverUrl" aria-hidden="true">
-            <i class="fa fa-book"></i>
-          </span>
-          <span class="book-list-meta-col">
-            <span class="book-list-title">{{ book.title }}</span>
-            <span class="book-list-authors" *ngIf="book.authors">{{ book.authors }}</span>
-            <span class="book-list-extra">
-              <span *ngIf="book.year">{{ book.year }}</span>
-              <span *ngIf="book.year && book.language"> · </span>
-              <span *ngIf="book.language">{{ book.language }}</span>
-              <span *ngIf="book.hasFulltext && source !== 'librivox'" class="book-badge">
-                {{ 'BOOK.FULLTEXT' | translate }}
-              </span>
-              <span *ngIf="book.totalTime" class="book-badge book-badge-audio">
-                {{ book.totalTime }}
+          [class.active]="selected?.id === book.id && selected?.source === book.source">
+          <button
+            type="button"
+            class="book-list-item-main"
+            (click)="selectBook(book)">
+            <img
+              *ngIf="book.coverUrl"
+              class="book-cover"
+              [src]="book.coverUrl"
+              [alt]="book.title"
+              loading="lazy"
+              (error)="$any($event.target).style.display='none'" />
+            <span class="book-cover book-cover-placeholder" *ngIf="!book.coverUrl" aria-hidden="true">
+              <i class="fa fa-book"></i>
+            </span>
+            <span class="book-list-meta-col">
+              <span class="book-list-title">{{ book.title }}</span>
+              <span class="book-list-authors" *ngIf="book.authors">{{ book.authors }}</span>
+              <span class="book-list-extra">
+                <span *ngIf="book.year">{{ book.year }}</span>
+                <span *ngIf="book.year && book.language"> · </span>
+                <span *ngIf="book.language">{{ book.language }}</span>
+                <span *ngIf="book.hasFulltext && source !== 'librivox'" class="book-badge">
+                  {{ 'BOOK.FULLTEXT' | translate }}
+                </span>
+                <span *ngIf="!book.hasFulltext && book.source === 'standardebooks'" class="book-badge book-badge-muted">
+                  {{ 'BOOK.NOT_YET_PD' | translate }}
+                </span>
+                <span *ngIf="book.totalTime" class="book-badge book-badge-audio">
+                  {{ book.totalTime }}
+                </span>
               </span>
             </span>
-          </span>
-        </button>
+          </button>
+          <button
+            type="button"
+            class="book-list-info-btn"
+            (click)="openBookInfo(book, $event)"
+            [attr.title]="'BOOK.INFO' | translate"
+            [attr.aria-label]="'BOOK.INFO' | translate">
+            <i class="fa fa-info-circle" aria-hidden="true"></i>
+          </button>
+        </div>
 
         <div class="book-empty" *ngIf="!isLoading && !listError && books.length === 0">
           {{ 'BOOK.NO_RESULTS' | translate }}
@@ -238,20 +305,39 @@
             <button
               type="button"
               class="btn btn-sm btn-outline-secondary"
-              *ngIf="selected.homepage"
+              *ngIf="isArchiveExternal"
+              (click)="openArchiveLogin()"
+              [attr.title]="'BOOK.ARCHIVE_LOGIN' | translate"
+              [attr.aria-label]="'BOOK.ARCHIVE_LOGIN' | translate">
+              <i class="fa fa-sign-in me-1" aria-hidden="true"></i>
+              {{ 'BOOK.ARCHIVE_LOGIN' | translate }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-primary"
+              *ngIf="readerMode === 'external'"
+              (click)="openArchiveBook()"
+              [attr.title]="(isArchiveExternal ? 'BOOK.ARCHIVE_READ' : 'BOOK.OPEN_EXTERNAL') | translate"
+              [attr.aria-label]="(isArchiveExternal ? 'BOOK.ARCHIVE_READ' : 'BOOK.OPEN_EXTERNAL') | translate">
+              <i class="fa fa-external-link me-1" aria-hidden="true"></i>
+              {{ (isArchiveExternal ? 'BOOK.ARCHIVE_READ' : 'BOOK.OPEN_EXTERNAL') | translate }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary"
+              *ngIf="selected.homepage && readerMode !== 'external'"
               (click)="openExternal(selected.homepage)">
               <i class="fa fa-external-link me-1"></i>
               {{ 'BOOK.OPEN_SOURCE' | translate }}
             </button>
-            <a
+            <button
+              type="button"
               class="btn btn-sm btn-outline-secondary"
               *ngIf="selected.epubUrl"
-              [href]="selected.epubUrl"
-              target="_blank"
-              rel="noopener noreferrer">
+              (click)="openExternal(selected.epubUrl)">
               <i class="fa fa-download me-1"></i>
               EPUB
-            </a>
+            </button>
           </div>
         </header>
 
@@ -267,30 +353,88 @@
         <p class="book-speech-hint small text-muted mb-0" *ngIf="readerMode === 'iframe' && canSpeak && !isSpeaking">
           {{ 'BOOK.SPEECH_HINT_IFRAME' | translate }}
         </p>
+        <p
+          class="book-speech-hint small text-muted mb-0"
+          *ngIf="(readerMode === 'text' || readerMode === 'html') && canSpeak && !isSpeaking && !isPreparingSpeech">
+          {{ 'BOOK.SPEECH_CLICK_HINT' | translate }}
+        </p>
 
         <div class="book-loading-content" *ngIf="isLoadingContent">
           <i class="fa fa-spinner fa-spin me-2"></i>
           {{ 'BOOK.LOADING_CONTENT' | translate }}
         </div>
 
+        <!-- External reader CTA (Google / Archive / sites that frame-bust) -->
+        <div class="book-archive-external" *ngIf="readerMode === 'external'">
+          <img
+            *ngIf="selected.coverUrl"
+            class="book-archive-external-cover"
+            [src]="selected.coverUrl"
+            [alt]="selected.title"
+            loading="lazy" />
+          <div class="book-archive-external-body">
+            <h4 class="book-archive-external-title">{{ selected.title }}</h4>
+            <p class="book-archive-external-authors" *ngIf="selected.authors">{{ selected.authors }}</p>
+            <p class="book-archive-external-hint">
+              {{ (isArchiveExternal ? 'BOOK.ARCHIVE_LOGIN_HINT' : 'BOOK.EXTERNAL_HINT') | translate }}
+            </p>
+            <ol class="book-archive-external-steps" *ngIf="isArchiveExternal">
+              <li>{{ 'BOOK.ARCHIVE_STEP_LOGIN' | translate }}</li>
+              <li>{{ 'BOOK.ARCHIVE_STEP_OPEN' | translate }}</li>
+            </ol>
+            <div class="book-archive-external-actions">
+              <ng-container *ngIf="isArchiveExternal; else externalOnly">
+                <button type="button" class="btn btn-sm btn-outline-secondary" (click)="openArchiveLogin()">
+                  <i class="fa fa-sign-in me-1" aria-hidden="true"></i>
+                  {{ 'BOOK.ARCHIVE_LOGIN' | translate }}
+                </button>
+                <button type="button" class="btn btn-sm btn-primary" (click)="openArchiveBook()">
+                  <i class="fa fa-external-link me-1" aria-hidden="true"></i>
+                  {{ 'BOOK.ARCHIVE_READ' | translate }}
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-primary"
+                  (click)="openArchiveLoginThenBook()"
+                  [attr.title]="'BOOK.ARCHIVE_LOGIN_THEN_READ' | translate">
+                  <i class="fa fa-sign-in me-1" aria-hidden="true"></i>
+                  {{ 'BOOK.ARCHIVE_LOGIN_THEN_READ' | translate }}
+                </button>
+              </ng-container>
+              <ng-template #externalOnly>
+                <button type="button" class="btn btn-sm btn-primary" (click)="openArchiveBook()">
+                  <i class="fa fa-external-link me-1" aria-hidden="true"></i>
+                  {{ 'BOOK.OPEN_EXTERNAL' | translate }}
+                </button>
+              </ng-template>
+            </div>
+            <p class="book-archive-external-note small text-muted mb-0">
+              {{ 'BOOK.ARCHIVE_POPUP_HINT' | translate }}
+            </p>
+          </div>
+        </div>
+
         <!-- Plain text reader -->
         <article
-          class="book-reader"
+          class="book-reader book-reader--speakable"
           *ngIf="readerMode === 'text' && readerText"
           #readerEl
-          tabindex="0">
+          tabindex="0"
+          (click)="onReaderClick($event)"
+          [attr.title]="canSpeak ? ('BOOK.SPEECH_CLICK_HINT' | translate) : null">
           <pre class="book-reader-text">{{ readerText }}</pre>
         </article>
 
-        <!-- HTML / IA iframe -->
-        <div class="book-iframe-wrap" *ngIf="(readerMode === 'html' || readerMode === 'iframe') && readerHtmlUrl">
-          <iframe
-            class="book-iframe"
-            [src]="readerHtmlUrl"
-            [title]="selected.title"
-            referrerpolicy="no-referrer"
-            allowfullscreen></iframe>
-        </div>
+        <!-- Proxied HTML inline (no iframe — providers frame-bust and reset PATTOOL) -->
+        <article
+          class="book-reader book-html-reader book-reader--speakable"
+          *ngIf="readerMode === 'html' && readerHtmlSafe"
+          #readerEl
+          tabindex="0"
+          (click)="onHtmlReaderClick($event)"
+          [attr.title]="canSpeak ? ('BOOK.SPEECH_CLICK_HINT' | translate) : null"
+          [innerHTML]="readerHtmlSafe">
+        </article>
 
         <!-- LibriVox audio -->
         <div class="book-audio" *ngIf="readerMode === 'audio'">
@@ -345,4 +489,113 @@
   <footer class="book-footer">
     <p class="book-lead text-muted mb-0">{{ 'BOOK.NOTE_FREE' | translate }}</p>
   </footer>
+</div>
+
+<!-- Book info modal -->
+<div
+  class="book-info-backdrop"
+  *ngIf="infoOpen"
+  (click)="closeBookInfo()"
+  role="presentation">
+  <div
+    class="book-info-modal"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-label]="'BOOK.INFO_TITLE' | translate"
+    (click)="$event.stopPropagation()">
+    <header class="book-info-header">
+      <h3 class="book-info-heading">{{ 'BOOK.INFO_TITLE' | translate }}</h3>
+      <button
+        type="button"
+        class="btn btn-sm book-info-close"
+        (click)="closeBookInfo()"
+        [attr.aria-label]="'COMMUN.CLOSE' | translate">
+        <i class="fa fa-times" aria-hidden="true"></i>
+      </button>
+    </header>
+
+    <div class="book-info-body" *ngIf="infoBook as book">
+      <div class="book-info-top">
+        <img
+          *ngIf="book.coverUrl"
+          class="book-info-cover"
+          [src]="book.coverUrl"
+          [alt]="book.title"
+          (error)="$any($event.target).style.display='none'" />
+        <div class="book-info-cover book-info-cover-placeholder" *ngIf="!book.coverUrl" aria-hidden="true">
+          <i class="fa fa-book"></i>
+        </div>
+        <div class="book-info-titles">
+          <h4 class="book-info-title">{{ book.title }}</h4>
+          <p class="book-info-authors" *ngIf="book.authors">{{ book.authors }}</p>
+          <p class="book-info-source">
+            <span class="book-badge">{{ book.source }}</span>
+            <span *ngIf="book.hasFulltext" class="book-badge">{{ 'BOOK.FULLTEXT' | translate }}</span>
+            <span *ngIf="book.totalTime" class="book-badge book-badge-audio">{{ book.totalTime }}</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="book-info-loading" *ngIf="isLoadingInfo">
+        <i class="fa fa-spinner fa-spin me-1"></i>
+        {{ 'BOOK.LOADING_CONTENT' | translate }}
+      </div>
+      <div class="alert alert-warning py-2 px-3 small" *ngIf="infoError" role="alert">
+        {{ infoError | translate }}
+      </div>
+
+      <dl class="book-info-dl">
+        <div class="book-info-row" *ngIf="book.year">
+          <dt>{{ 'BOOK.INFO_YEAR' | translate }}</dt>
+          <dd>{{ book.year }}</dd>
+        </div>
+        <div class="book-info-row" *ngIf="book.language">
+          <dt>{{ 'BOOK.LANGUAGE' | translate }}</dt>
+          <dd>{{ book.language }}</dd>
+        </div>
+        <div class="book-info-row" *ngIf="book.subjects">
+          <dt>{{ 'BOOK.INFO_SUBJECTS' | translate }}</dt>
+          <dd>{{ book.subjects }}</dd>
+        </div>
+        <div class="book-info-row" *ngIf="book.iaId">
+          <dt>{{ 'BOOK.INFO_IA' | translate }}</dt>
+          <dd class="book-info-mono">{{ book.iaId }}</dd>
+        </div>
+        <div class="book-info-row" *ngIf="book.id">
+          <dt>{{ 'BOOK.INFO_ID' | translate }}</dt>
+          <dd class="book-info-mono">{{ book.id }}</dd>
+        </div>
+        <div class="book-info-row" *ngIf="book.sections?.length">
+          <dt>{{ 'BOOK.INFO_SECTIONS' | translate }}</dt>
+          <dd>{{ book.sections!.length }}</dd>
+        </div>
+        <div class="book-info-row" *ngIf="book.description">
+          <dt>{{ 'BOOK.INFO_DESCRIPTION' | translate }}</dt>
+          <dd class="book-info-desc">{{ book.description }}</dd>
+        </div>
+        <div class="book-info-row" *ngIf="!isLoadingInfo && !book.description && !infoError">
+          <dt>{{ 'BOOK.INFO_DESCRIPTION' | translate }}</dt>
+          <dd class="text-muted">{{ 'BOOK.INFO_NO_DESCRIPTION' | translate }}</dd>
+        </div>
+      </dl>
+    </div>
+
+    <footer class="book-info-footer">
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        *ngIf="infoBook?.homepage"
+        (click)="openExternal(infoBook?.homepage)">
+        <i class="fa fa-external-link me-1"></i>
+        {{ 'BOOK.OPEN_SOURCE' | translate }}
+      </button>
+      <button type="button" class="btn btn-sm btn-dark" (click)="openBookFromInfo()">
+        <i class="fa fa-book-open me-1"></i>
+        {{ 'BOOK.INFO_OPEN' | translate }}
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" (click)="closeBookInfo()">
+        {{ 'COMMUN.CLOSE' | translate }}
+      </button>
+    </footer>
+  </div>
 </div>

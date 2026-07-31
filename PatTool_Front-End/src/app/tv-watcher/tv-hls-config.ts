@@ -16,13 +16,15 @@ export function createTvHlsConfig(mode: TvHlsPlaybackMode = 'live'): Partial<Hls
   return {
     enableWorker: true,
     lowLatencyMode: false,
-    // Live IPTV (esp. M6 mirrors): a slightly deeper forward buffer absorbs jitter
-    // without the periodic MediaSource swaps that used to cut playback.
-    maxBufferLength: vod ? 30 : 18,
-    maxMaxBufferLength: vod ? 60 : 36,
-    backBufferLength: vod ? 30 : 24,
-    liveSyncDurationCount: 3,
-    liveMaxLatencyDurationCount: 6,
+    // Progressive FetchLoader: demux MPEG-TS as chunks arrive through the streaming
+    // backend proxy — cuts time-to-first-frame on slow high-bitrate IPTV (TF1 HD).
+    progressive: !vod,
+    // Live IPTV: keep the forward buffer modest so playback can start after ~1 segment.
+    maxBufferLength: vod ? 30 : 10,
+    maxMaxBufferLength: vod ? 60 : 24,
+    backBufferLength: vod ? 30 : 18,
+    liveSyncDurationCount: vod ? 3 : 2,
+    liveMaxLatencyDurationCount: vod ? 6 : 5,
     // Must stay false for VOD: with true, hls.js exposes a liveSyncPosition near the
     // end and our live-edge watchdog seeks the replay straight to the finale.
     liveDurationInfinity: !vod,

@@ -2814,14 +2814,15 @@ export class ApiService {
     );
   }
 
-  // --- Book watcher (Open Library / Gutenberg / LibriVox) ---
+  // --- Book watcher (Open Library / Gutenberg / LibriVox / Archive / Google / Standard Ebooks) ---
 
   searchOpenLibraryBooks(
     q: string,
     limit: number = 20,
     offset: number = 0,
     language?: string,
-    genre?: string
+    genre?: string,
+    author?: string
   ): Observable<BookSearchPage> {
     let params = new HttpParams()
       .set('q', q || '')
@@ -2832,6 +2833,9 @@ export class ApiService {
     }
     if (genre) {
       params = params.set('genre', genre);
+    }
+    if (author) {
+      params = params.set('author', author);
     }
     return this._http.get<BookSearchPage>(this.API_URL + 'external/book/openlibrary/search', { params });
   }
@@ -2845,7 +2849,8 @@ export class ApiService {
     q: string,
     languages?: string,
     page: number = 1,
-    genre?: string
+    genre?: string,
+    author?: string
   ): Observable<BookSearchPage> {
     let params = new HttpParams()
       .set('q', q || '')
@@ -2855,6 +2860,9 @@ export class ApiService {
     }
     if (genre) {
       params = params.set('genre', genre);
+    }
+    if (author) {
+      params = params.set('author', author);
     }
     return this._http.get<BookSearchPage>(this.API_URL + 'external/book/gutenberg/search', { params });
   }
@@ -2870,7 +2878,8 @@ export class ApiService {
     author?: string,
     limit: number = 25,
     offset: number = 0,
-    genre?: string
+    genre?: string,
+    language?: string
   ): Observable<BookSearchPage> {
     let params = new HttpParams()
       .set('q', q || '')
@@ -2882,6 +2891,9 @@ export class ApiService {
     if (genre) {
       params = params.set('genre', genre);
     }
+    if (language) {
+      params = params.set('language', language);
+    }
     return this._http.get<BookSearchPage>(this.API_URL + 'external/book/librivox/search', { params });
   }
 
@@ -2889,6 +2901,282 @@ export class ApiService {
     return this._http.get<BookItem>(
       this.API_URL + 'external/book/librivox/' + encodeURIComponent(id || '')
     );
+  }
+
+  searchArchiveBooks(
+    q: string,
+    limit: number = 20,
+    offset: number = 0,
+    language?: string,
+    genre?: string,
+    author?: string
+  ): Observable<BookSearchPage> {
+    let params = new HttpParams()
+      .set('q', q || '')
+      .set('limit', String(Math.max(1, Math.min(limit, 40))))
+      .set('offset', String(Math.max(0, offset)));
+    if (language) {
+      params = params.set('language', language);
+    }
+    if (genre) {
+      params = params.set('genre', genre);
+    }
+    if (author) {
+      params = params.set('author', author);
+    }
+    return this._http.get<BookSearchPage>(this.API_URL + 'external/book/archive/search', { params });
+  }
+
+  getArchiveBook(id: string): Observable<BookItem> {
+    return this._http.get<BookItem>(
+      this.API_URL + 'external/book/archive/' + encodeURIComponent(id || '')
+    );
+  }
+
+  /** GET /api/external/archive/mediatypes */
+  getArchiveMediatypes(): Observable<{ mediatypes: ArchiveCodeLabel[] }> {
+    return this._http.get<{ mediatypes: ArchiveCodeLabel[] }>(
+      this.API_URL + 'external/archive/mediatypes'
+    );
+  }
+
+  /** GET /api/external/archive/sorts */
+  getArchiveSorts(): Observable<{ sorts: ArchiveCodeLabel[] }> {
+    return this._http.get<{ sorts: ArchiveCodeLabel[] }>(this.API_URL + 'external/archive/sorts');
+  }
+
+  /** GET /api/external/archive/sections?mediatype= */
+  getArchiveSections(mediatype: string): Observable<{
+    mediatype: string;
+    sections: ArchiveCodeLabel[];
+  }> {
+    const params = new HttpParams().set('mediatype', mediatype || 'all');
+    return this._http.get<{ mediatype: string; sections: ArchiveCodeLabel[] }>(
+      this.API_URL + 'external/archive/sections',
+      { params }
+    );
+  }
+
+  /** GET /api/external/archive/search */
+  searchArchiveOrg(options?: {
+    mediatype?: string;
+    section?: string;
+    q?: string;
+    creator?: string;
+    language?: string;
+    sort?: string;
+    page?: number;
+  }): Observable<ArchiveSearchPage> {
+    let params = new HttpParams()
+      .set('mediatype', options?.mediatype || 'all')
+      .set('page', String(options?.page && options.page > 0 ? options.page : 1));
+    const section = (options?.section || '').trim();
+    if (section) {
+      params = params.set('section', section);
+    }
+    const q = (options?.q || '').trim();
+    if (q) {
+      params = params.set('q', q);
+    }
+    const creator = (options?.creator || '').trim();
+    if (creator) {
+      params = params.set('creator', creator);
+    }
+    const language = (options?.language || '').trim();
+    if (language) {
+      params = params.set('language', language);
+    }
+    const sort = (options?.sort || '').trim();
+    if (sort) {
+      params = params.set('sort', sort);
+    }
+    return this._http.get<ArchiveSearchPage>(this.API_URL + 'external/archive/search', { params });
+  }
+
+  /** GET /api/external/archive/item/{identifier} */
+  getArchiveOrgItem(identifier: string): Observable<ArchiveItemDetail> {
+    return this._http.get<ArchiveItemDetail>(
+      this.API_URL + 'external/archive/item/' + encodeURIComponent(identifier || '')
+    );
+  }
+
+  /** GET /api/external/archive/resolve/{identifier} */
+  resolveArchiveOrgItem(
+    identifier: string,
+    fresh = false
+  ): Observable<{
+    identifier: string;
+    streamUrl: string;
+    playKind?: string;
+    mediatype?: string;
+    title?: string;
+    progressive: boolean;
+    expiresAtEpoch: number;
+  }> {
+    let params = new HttpParams();
+    if (fresh) {
+      params = params.set('fresh', 'true');
+    }
+    return this._http.get<{
+      identifier: string;
+      streamUrl: string;
+      playKind?: string;
+      mediatype?: string;
+      title?: string;
+      progressive: boolean;
+      expiresAtEpoch: number;
+    }>(this.API_URL + 'external/archive/resolve/' + encodeURIComponent(identifier || ''), {
+      params
+    });
+  }
+
+  /** GET /api/external/archive/wayback/available?url= */
+  getWaybackAvailable(url: string): Observable<WaybackAvailable> {
+    const params = new HttpParams().set('url', url || '');
+    return this._http.get<WaybackAvailable>(this.API_URL + 'external/archive/wayback/available', {
+      params
+    });
+  }
+
+  /** GET /api/external/archive/wayback/cdx?url=&limit= */
+  getWaybackCdx(url: string, limit = 20): Observable<WaybackCdxResult> {
+    const params = new HttpParams()
+      .set('url', url || '')
+      .set('limit', String(Math.max(1, Math.min(limit, 50))));
+    return this._http.get<WaybackCdxResult>(this.API_URL + 'external/archive/wayback/cdx', {
+      params
+    });
+  }
+
+  /** GET /api/external/webcam/status */
+  getWebcamStatus(): Observable<{ configured: boolean; provider?: string; docs?: string; keys?: string }> {
+    return this._http.get<{ configured: boolean; provider?: string; docs?: string; keys?: string }>(
+      this.API_URL + 'external/webcam/status'
+    );
+  }
+
+  /** GET /api/external/webcam/continents?lang= */
+  getWebcamContinents(lang = 'en'): Observable<{ continents: WebcamCodeLabel[]; configured?: boolean }> {
+    return this._http.get<{ continents: WebcamCodeLabel[]; configured?: boolean }>(
+      this.API_URL + 'external/webcam/continents',
+      { params: new HttpParams().set('lang', lang || 'en') }
+    );
+  }
+
+  /** GET /api/external/webcam/countries?lang= */
+  getWebcamCountries(lang = 'en'): Observable<{ countries: WebcamCodeLabel[]; configured?: boolean }> {
+    return this._http.get<{ countries: WebcamCodeLabel[]; configured?: boolean }>(
+      this.API_URL + 'external/webcam/countries',
+      { params: new HttpParams().set('lang', lang || 'en') }
+    );
+  }
+
+  /** GET /api/external/webcam/categories?lang= */
+  getWebcamCategories(lang = 'en'): Observable<{ categories: WebcamCodeLabel[]; configured?: boolean }> {
+    return this._http.get<{ categories: WebcamCodeLabel[]; configured?: boolean }>(
+      this.API_URL + 'external/webcam/categories',
+      { params: new HttpParams().set('lang', lang || 'en') }
+    );
+  }
+
+  /** GET /api/external/webcam/webcams */
+  searchWebcams(opts: {
+    countries?: string;
+    continents?: string;
+    categories?: string;
+    nearby?: string;
+    sortKey?: string;
+    sortDirection?: string;
+    limit?: number;
+    offset?: number;
+    lang?: string;
+  } = {}): Observable<WebcamSearchPage> {
+    let params = new HttpParams()
+      .set('limit', String(Math.max(1, Math.min(opts.limit ?? 24, 50))))
+      .set('offset', String(Math.max(0, opts.offset ?? 0)))
+      .set('lang', opts.lang || 'en')
+      .set('sortKey', opts.sortKey || 'popularity')
+      .set('sortDirection', opts.sortDirection || 'desc');
+    if (opts.countries) {
+      params = params.set('countries', opts.countries);
+    }
+    if (opts.continents) {
+      params = params.set('continents', opts.continents);
+    }
+    if (opts.categories) {
+      params = params.set('categories', opts.categories);
+    }
+    if (opts.nearby) {
+      params = params.set('nearby', opts.nearby);
+    }
+    return this._http.get<WebcamSearchPage>(this.API_URL + 'external/webcam/webcams', { params });
+  }
+
+  /** GET /api/external/webcam/webcams/{id} */
+  getWebcam(id: string, lang = 'en'): Observable<WebcamItem> {
+    return this._http.get<WebcamItem>(
+      this.API_URL + 'external/webcam/webcams/' + encodeURIComponent(id || ''),
+      { params: new HttpParams().set('lang', lang || 'en') }
+    );
+  }
+
+  searchGoogleBooks(
+    q: string,
+    limit: number = 20,
+    offset: number = 0,
+    language?: string,
+    genre?: string,
+    author?: string
+  ): Observable<BookSearchPage> {
+    let params = new HttpParams()
+      .set('q', q || '')
+      .set('limit', String(Math.max(1, Math.min(limit, 40))))
+      .set('offset', String(Math.max(0, offset)));
+    if (language) {
+      params = params.set('language', language);
+    }
+    if (genre) {
+      params = params.set('genre', genre);
+    }
+    if (author) {
+      params = params.set('author', author);
+    }
+    return this._http.get<BookSearchPage>(this.API_URL + 'external/book/google/search', { params });
+  }
+
+  getGoogleBook(id: string): Observable<BookItem> {
+    return this._http.get<BookItem>(
+      this.API_URL + 'external/book/google/' + encodeURIComponent(id || '')
+    );
+  }
+
+  searchStandardEbooks(
+    q: string,
+    limit: number = 20,
+    offset: number = 0,
+    genre?: string,
+    author?: string,
+    language?: string
+  ): Observable<BookSearchPage> {
+    let params = new HttpParams()
+      .set('q', q || '')
+      .set('limit', String(Math.max(1, Math.min(limit, 40))))
+      .set('offset', String(Math.max(0, offset)));
+    if (genre) {
+      params = params.set('genre', genre);
+    }
+    if (author) {
+      params = params.set('author', author);
+    }
+    if (language) {
+      params = params.set('language', language);
+    }
+    return this._http.get<BookSearchPage>(this.API_URL + 'external/book/standardebooks/search', { params });
+  }
+
+  getStandardEbook(key: string): Observable<BookItem> {
+    const params = new HttpParams().set('key', key || '');
+    return this._http.get<BookItem>(this.API_URL + 'external/book/standardebooks/work', { params });
   }
 
   /** Proxied book text/HTML URL (Base64-URL path segment). */
@@ -3998,7 +4286,14 @@ export interface BookSection {
 
 export interface BookItem {
   id: string;
-  source: 'openlibrary' | 'gutenberg' | 'librivox' | string;
+  source:
+    | 'openlibrary'
+    | 'gutenberg'
+    | 'librivox'
+    | 'archive'
+    | 'googlebooks'
+    | 'standardebooks'
+    | string;
   title: string;
   authors?: string;
   coverUrl?: string;
@@ -4024,4 +4319,136 @@ export interface BookSearchPage {
   limit: number;
   offset: number;
   books: BookItem[];
+  /** Upstream quota / rate limit (e.g. Google Books 429). */
+  rateLimited?: boolean;
 }
+
+export interface ArchiveCodeLabel {
+  code: string;
+  label: string;
+}
+
+export interface ArchiveItem {
+  id: string;
+  identifier: string;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  creator?: string;
+  mediatype?: string;
+  year?: string;
+  date?: string;
+  language?: string;
+  subject?: string;
+  collection?: string;
+  downloads?: number;
+  avgRating?: number;
+  imageUrl?: string;
+  detailsUrl?: string;
+  embedUrl?: string;
+  playable?: boolean;
+}
+
+export interface ArchiveFile {
+  name: string;
+  format?: string;
+  size?: number;
+  length?: string;
+  width?: number;
+  height?: number;
+  downloadUrl?: string;
+  kind?: string;
+  playable?: boolean;
+}
+
+export interface ArchiveItemDetail extends ArchiveItem {
+  runtime?: string;
+  publisher?: string;
+  licenseUrl?: string;
+  itemSize?: number;
+  dark?: boolean;
+  playUrl?: string;
+  playKind?: string;
+  collections?: string[];
+  subjects?: string[];
+  files?: ArchiveFile[];
+}
+
+export interface ArchiveSearchPage {
+  mediatype: string;
+  section: string;
+  query?: string;
+  sort?: string;
+  page: number;
+  pages: number;
+  pageSize: number;
+  total: number;
+  items: ArchiveItem[];
+}
+
+export interface WaybackAvailable {
+  url?: string;
+  available?: boolean;
+  snapshotUrl?: string;
+  timestamp?: string;
+  status?: string;
+  error?: string;
+}
+
+export interface WaybackSnapshot {
+  timestamp: string;
+  original?: string;
+  status?: string;
+  mimetype?: string;
+  length?: string;
+  snapshotUrl?: string;
+}
+
+export interface WaybackCdxResult {
+  url?: string;
+  snapshots?: WaybackSnapshot[];
+  error?: string;
+}
+
+export interface WebcamCodeLabel {
+  code: string;
+  label: string;
+}
+
+export interface WebcamItem {
+  id: string;
+  title: string;
+  status?: string;
+  viewCount?: number;
+  lastUpdatedOn?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  countryCode?: string;
+  continent?: string;
+  continentCode?: string;
+  latitude?: number;
+  longitude?: number;
+  imageUrl?: string;
+  imagePreviewUrl?: string;
+  playerDayUrl?: string;
+  playerLiveUrl?: string;
+  playerMonthUrl?: string;
+  detailUrl?: string;
+  categories?: string[];
+}
+
+export interface WebcamSearchPage {
+  total: number;
+  limit: number;
+  offset: number;
+  countries?: string;
+  continents?: string;
+  categories?: string;
+  nearby?: string;
+  sortKey?: string;
+  webcams: WebcamItem[];
+  error?: string;
+  message?: string;
+}
+

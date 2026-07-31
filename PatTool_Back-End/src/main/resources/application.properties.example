@@ -232,6 +232,24 @@ app.cache.persistence.restore-on-startup=true
 # app.coingecko.api-key=
 # app.coingecko.plan=demo
 
+# --- Book watcher (Open Library / Gutenberg / LibriVox / Internet Archive / Google Books / Standard Ebooks) ---
+# app.book.openlibrary-base-url=https://openlibrary.org
+# app.book.gutendex-base-url=https://gutendex.com
+# app.book.librivox-base-url=https://librivox.org
+# app.book.archive-base-url=https://archive.org
+# app.book.google-books-base-url=https://www.googleapis.com/books/v1
+# Optional Google Books API key (recommended — anonymous quota is often exhausted):
+# https://console.cloud.google.com/apis/library/books.googleapis.com
+# app.book.google-api-key=
+# app.book.standardebooks-base-url=https://standardebooks.org
+# app.book.search-cache-minutes=15
+
+# --- Webcam watcher (Windy Webcams API v3) ---
+# Free API key: https://api.windy.com/keys  — docs: https://api.windy.com/webcams/docs
+# app.webcam.windy-api-base=https://api.windy.com/webcams/api/v3
+# app.webcam.windy-api-key=
+# app.webcam.search-cache-minutes=2
+
 # Électricité (page Monde) — clés gratuites optionnelles pour Europe (ENTSO-E) et USA (EIA)
 # ENTSO-E : https://transparency.entsoe.eu (inscription gratuite)
 # app.electricity.entsoe-token=

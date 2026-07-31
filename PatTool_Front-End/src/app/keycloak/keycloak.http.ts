@@ -55,6 +55,14 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
             return next.handle(req);
         }
 
+        // Book catalog + content/stream proxies are permitAll. Waiting on getToken() here
+        // caused full-page Keycloak login redirects when opening a book (looks like book-watcher "reset").
+        const isBookPublicApiGet =
+            req.method === 'GET' && /\/api\/external\/book\//i.test(req.url);
+        if (isBookPublicApiGet) {
+            return next.handle(req);
+        }
+
         // If the caller already set Authorization (e.g. FileService.getHeaderWithToken()), pass through.
         // Avoids double getToken() and "Token retrieval failed" blocking uploads when token refresh is slow/fails.
         if (req.headers.has('Authorization')) {

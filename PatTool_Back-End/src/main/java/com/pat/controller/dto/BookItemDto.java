@@ -4,12 +4,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Unified book / audiobook entry from Open Library, Project Gutenberg (Gutendex) or LibriVox.
+ * Unified book / audiobook entry from Open Library, Project Gutenberg (Gutendex), LibriVox,
+ * Internet Archive, Google Books or Standard Ebooks.
  */
 public class BookItemDto {
 
     private String id;
-    /** openlibrary | gutenberg | librivox */
+    /** openlibrary | gutenberg | librivox | archive | googlebooks | standardebooks */
     private String source;
     private String title;
     private String authors;

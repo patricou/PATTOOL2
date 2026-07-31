@@ -126,6 +126,8 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   private lastStationSaveSub?: Subscription;
   private navLeaveSub?: Subscription;
   private leavePolicyApplied = false;
+  /** True only after the user clicked the PiP control (not browser auto-PiP). */
+  private userOpenedPip = false;
   private restoredLastStation = false;
   private chromeHideTimer: ReturnType<typeof setTimeout> | null = null;
   private shareFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
@@ -480,9 +482,8 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Keep-alive ON: hand playback to the persistent floating World Receiver (app shell)
-   * and open Document PiP with that same cabinet — so leaving the page keeps the
-   * full World Receiver look (not the simplified fallback face).
+   * Keep-alive ON + user-opened PiP: hand playback to a hidden host and reopen Document PiP.
+   * Keep-alive ON without user PiP: do not open floating/PiP — playback stops on leave.
    * Keep-alive OFF: stop page + floating playback.
    */
   private applyLeavePagePlaybackPolicy(): void {
@@ -503,7 +504,9 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     const station = this.selectedStation;
-    if (!station || this.playError) {
+    // Only the explicit PiP button counts — never auto-open PiP/floating on leave.
+    if (!station || this.playError || !this.userOpenedPip) {
+      this.preventPageAutoPip();
       this.exitPictureInPictureIfOwned();
       return;
     }
@@ -511,11 +514,28 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     // then reopen PiP from the persistent floating World Receiver cabinet.
     closeRadioDocPip();
     this.persistLastStation(station);
-    const docPip = supportsRadioDocumentPip();
+    if (!supportsRadioDocumentPip()) {
+      this.preventPageAutoPip();
+      return;
+    }
     this.radioPlayer.openFloating(station, {
-      pipHostOnly: docPip,
+      pipHostOnly: true,
       autoPip: true
     });
+  }
+
+  /** Block browser auto Picture-in-Picture on the page media during route leave. */
+  private preventPageAutoPip(): void {
+    const media = this.mediaEl?.nativeElement;
+    if (!media) {
+      return;
+    }
+    try {
+      media.disablePictureInPicture = true;
+      media.pause();
+    } catch {
+      /* ignore */
+    }
   }
 
   private isPipElementOwned(): boolean {
@@ -534,6 +554,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
       stopRadioPipCarrier();
     }
     this.isPipActive = false;
+    this.userOpenedPip = false;
   }
 
   async togglePictureInPicture(): Promise<void> {
@@ -552,6 +573,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
           stopRadioPipCarrier();
         }
         this.isPipActive = false;
+        this.userOpenedPip = false;
         this.cdr.markForCheck();
         return;
       }
@@ -566,6 +588,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
           close: this.translate.instant('RADIO.PIP_EXIT')
         },
         onClose: () => {
+          this.userOpenedPip = false;
           if (!this.isPipActive) {
             return;
           }
@@ -574,9 +597,11 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
         }
       });
       this.isPipActive = true;
+      this.userOpenedPip = true;
       this.cdr.markForCheck();
     } catch {
       this.playError = 'RADIO.ERR_PIP';
+      this.userOpenedPip = false;
       this.showChrome(true);
       this.cdr.markForCheck();
     }
@@ -592,6 +617,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   onLeavePip(): void {
     if (!isRadioDocPipOpen()) {
       this.isPipActive = false;
+      this.userOpenedPip = false;
       stopRadioPipCarrier();
       this.cdr.markForCheck();
     }
@@ -1810,6 +1836,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
       }
     }
     this.isPipActive = false;
+    this.userOpenedPip = false;
   }
 
   formatPlayError(message: string | null | undefined): string {

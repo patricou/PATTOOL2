@@ -21,9 +21,7 @@ import java.net.URI;
 import java.net.URL;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -299,28 +297,8 @@ public class RadioStreamProxyService {
         }
     }
 
-    private void writeEntity(ResponseEntity<byte[]> entity, HttpServletResponse response) throws IOException {
-        response.setStatus(entity.getStatusCode().value());
-        HttpHeaders headers = entity.getHeaders();
-        for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
-            String name = entry.getKey();
-            if (name == null) {
-                continue;
-            }
-            // Transfer-Encoding / Content-Length managed by container when writing body
-            if (HttpHeaders.TRANSFER_ENCODING.equalsIgnoreCase(name)
-                    || HttpHeaders.CONTENT_LENGTH.equalsIgnoreCase(name)) {
-                continue;
-            }
-            for (String value : entry.getValue()) {
-                response.addHeader(name, value);
-            }
-        }
-        byte[] body = entity.getBody();
-        if (body != null && body.length > 0) {
-            response.getOutputStream().write(body);
-            response.getOutputStream().flush();
-        }
+    private void writeEntity(ResponseEntity<?> entity, HttpServletResponse response) throws IOException {
+        TvStreamProxyService.writeTo(entity, response);
     }
 
     private static void writeJsonError(HttpServletResponse response, HttpStatus status,

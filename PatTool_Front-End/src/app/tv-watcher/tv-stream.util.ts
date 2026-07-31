@@ -136,11 +136,13 @@ export function isKeepAliveVirtualLive(url: string): boolean {
 }
 
 /**
- * Only france.tv / TF1 use expiring CDN tokens — they need silent MediaSource renewals.
- * M6 is public IPTV mirrors (no token): proactive swaps cause visible cuts.
+ * Only france.tv uses short-lived signed CDN tokens that need silent MediaSource renewals.
+ * TF1 / M6 play via public IPTV mirrors (no token): proactive swaps cause visible cuts
+ * and intermittent "won't connect" when a mid-play refresh races a flaky mirror.
+ * TF1 still uses resolve / preflight / fatal-error bust via {@link isKeepAliveVirtualLive}.
  */
 export function needsProactiveTokenRenewal(url: string): boolean {
-  return isFranceTvVirtual(url) || isTf1Virtual(url);
+  return isFranceTvVirtual(url);
 }
 
 export function arteProgramIdFromVirtualUrl(url: string): string | null {

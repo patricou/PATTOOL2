@@ -1,4 +1,5 @@
 import {
+  ChangeDetectorRef,
   Component,
   ElementRef,
   HostListener,
@@ -8,7 +9,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { DomSanitizer, SafeHtml, SafeResourceUrl } from '@angular/platform-browser';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
@@ -16,7 +17,13 @@ import { HttpClient } from '@angular/common/http';
 
 import { ApiService, BookItem, BookSection } from '../services/api.service';
 
-type BookSource = 'openlibrary' | 'gutenberg' | 'librivox';
+type BookSource =
+  | 'openlibrary'
+  | 'gutenberg'
+  | 'librivox'
+  | 'archive'
+  | 'googlebooks'
+  | 'standardebooks';
 
 @Component({
   selector: 'app-book-watcher',
@@ -69,6 +76,11 @@ export class BookWatcherComponent implements OnInit, OnDestroy {
   selected: BookItem | null = null;
   selectedSection: BookSection | null = null;
 
+  infoBook: BookItem | null = null;
+  infoOpen = false;
+  isLoadingInfo = false;
+  infoError = '';
+
   isLoading = false;
   isLoadingContent = false;
   isLoadingAudio = false;
@@ -76,9 +88,17 @@ export class BookWatcherComponent implements OnInit, OnDestroy {
   contentError = '';
   playError = '';
 
-  readerMode: 'text' | 'html' | 'iframe' | 'audio' | 'none' = 'none';
+  readerMode: 'text' | 'html' | 'iframe' | 'external' | 'audio' | 'none' = 'none';
   readerText = '';
   readerHtmlUrl: SafeResourceUrl | null = null;
+  /** In-page HTML (no iframe — avoids frame-bust that reloads PATTOOL). */
+  readerHtmlSafe: SafeHtml | null = null;
+  /** Bumps on each iframe navigation so the element is destroyed/recreated (avoids stale IA embed). */
+  iframeGen = 0;
+  iframeReferrerPolicy: 'no-referrer' | 'strict-origin-when-cross-origin' = 'no-referrer';
+  /** Sites that cannot be embedded (framebust / cookies) — open in a new tab via CTA. */
+  isArchiveExternal = false;
+  externalBookUrl = '';
   private lastIframeUrl = '';
   audioUrl = '';
   isPlaying = false;
@@ -99,11 +119,13 @@ export class BookWatcherComponent implements OnInit, OnDestroy {
   private listSub?: Subscription;
   private contentSub?: Subscription;
   private ttsSub?: Subscription;
+  private infoSub?: Subscription;
 
   constructor(
     private api: ApiService,
     private http: HttpClient,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -120,7 +142,19 @@ export class BookWatcherComponent implements OnInit, OnDestroy {
     if (this.source === 'openlibrary') {
       this.query = 'shakespeare';
     }
-    this.loadBooks();
+    // Defer past the first CD / Forms select bind so ngModel init cannot flip
+    // [disabled]="isLoading" mid-cycle (NG0100 on the search button).
+    setTimeout(() => this.loadBooks(), 0);
+    // Surface last crash after an unexpected full reload (Keycloak redirect, etc.).
+    try {
+      const last = sessionStorage.getItem('pattool.book.lastError');
+      if (last) {
+        this.contentError = last;
+        sessionStorage.removeItem('pattool.book.lastError');
+      }
+    } catch {
+      // ignore
+    }
   }
 
   ngOnDestroy(): void {
@@ -128,10 +162,18 @@ export class BookWatcherComponent implements OnInit, OnDestroy {
     this.listSub?.unsubscribe();
     this.contentSub?.unsubscribe();
     this.ttsSub?.unsubscribe();
+    this.infoSub?.unsubscribe();
     this.stopSpeech();
     this.stopAudio();
     if (document.fullscreenElement) {
       void document.exitFullscreen?.();
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.infoOpen) {
+      this.closeBookInfo();
     }
   }
 
@@ -203,8 +245,36 @@ export class BookWatcherComponent implements OnInit, OnDestroy {
     this.speechChunkIndex = 0;
   }
 
-  private async startSpeech(): Promise<void> {
-    const text = await this.resolveSpeechText();
+  /**
+   * Start (or restart) TTS from the clicked position in the reader.
+   * Ignores link clicks and text selections.
+   */
+  onReaderClick(event: MouseEvent): void {
+    if (!this.canSpeak) {
+      return;
+    }
+    const target = event.target as HTMLElement | null;
+    if (target?.closest?.('a')) {
+      return;
+    }
+    const root = event.currentTarget as HTMLElement | null;
+    if (!root) {
+      return;
+    }
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed && root.contains(sel.anchorNode)) {
+      return;
+    }
+    const fromText = this.textFromClickToEnd(event, root);
+    if (!fromText?.trim()) {
+      return;
+    }
+    this.speechError = '';
+    void this.startSpeech(fromText);
+  }
+
+  private async startSpeech(fromText?: string): Promise<void> {
+    const text = fromText?.trim() ? fromText : await this.resolveSpeechText();
     if (!text?.trim()) {
       this.speechError = 'BOOK.ERR_SPEECH_NO_TEXT';
       return;
@@ -221,6 +291,63 @@ export class BookWatcherComponent implements OnInit, OnDestroy {
     this.isSpeaking = true;
     this.isSpeechPaused = false;
     this.speakNextChunk();
+  }
+
+  /** Plain text from the caret under the click to the end of the reader. */
+  private textFromClickToEnd(event: MouseEvent, root: HTMLElement): string | null {
+    const caret = this.caretRangeFromPoint(event.clientX, event.clientY);
+    if (!caret || !root.contains(caret.startContainer)) {
+      return null;
+    }
+    this.snapRangeToWordStart(caret);
+    const endRange = document.createRange();
+    endRange.selectNodeContents(root);
+    endRange.setStart(caret.startContainer, caret.startOffset);
+    const text = endRange.toString().replace(/\r\n/g, '\n');
+    return text.trim() ? text : null;
+  }
+
+  private caretRangeFromPoint(x: number, y: number): Range | null {
+    const doc = document as Document & {
+      caretRangeFromPoint?: (x: number, y: number) => Range | null;
+      caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+    };
+    if (typeof doc.caretRangeFromPoint === 'function') {
+      return doc.caretRangeFromPoint(x, y);
+    }
+    if (typeof doc.caretPositionFromPoint === 'function') {
+      const pos = doc.caretPositionFromPoint(x, y);
+      if (!pos) {
+        return null;
+      }
+      const range = document.createRange();
+      try {
+        range.setStart(pos.offsetNode, pos.offset);
+        range.collapse(true);
+        return range;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /** Avoid starting mid-word when the user clicks inside a word. */
+  private snapRangeToWordStart(range: Range): void {
+    const node = range.startContainer;
+    if (node.nodeType !== Node.TEXT_NODE) {
+      return;
+    }
+    const text = node.textContent || '';
+    let offset = range.startOffset;
+    while (offset > 0 && !/\s/.test(text.charAt(offset - 1))) {
+      offset--;
+    }
+    try {
+      range.setStart(node, offset);
+    } catch {
+      // ignore invalid offsets
+    }
   }
 
   private async resolveSpeechText(): Promise<string> {
@@ -383,39 +510,92 @@ export class BookWatcherComponent implements OnInit, OnDestroy {
     this.total = 0;
     this.offset = 0;
     this.page = 1;
-    this.language = '';
     this.listError = '';
     this.clearReader();
     this.refreshLanguageOptions();
-    if (!this.query.trim() && !this.genre) {
-      if (source === 'openlibrary') {
+    // Keep title / author / genre / language across providers (map lang codes when needed).
+    this.language = this.mapLanguageForSource(this.language, source);
+    // Seed a default browse query only when every filter is empty.
+    if (!this.query.trim() && !this.authorQuery.trim() && !this.genre && !this.language) {
+      if (source === 'openlibrary' || source === 'googlebooks') {
         this.query = 'hugo';
-      } else if (source === 'gutenberg') {
+      } else if (source === 'gutenberg' || source === 'archive') {
         this.query = 'verne';
-      } else {
-        this.query = '';
       }
     }
     this.loadBooks();
+  }
+
+  /** Map ISO-639 language codes between Gutenberg/Google (en) and Open Library/Archive (eng). */
+  private mapLanguageForSource(lang: string, source: BookSource): string {
+    if (!lang) {
+      return '';
+    }
+    const shortCodes = source === 'gutenberg' || source === 'googlebooks';
+    const toShort: Record<string, string> = {
+      eng: 'en',
+      fre: 'fr',
+      ger: 'de',
+      spa: 'es',
+      ita: 'it',
+      en: 'en',
+      fr: 'fr',
+      de: 'de',
+      es: 'es',
+      it: 'it'
+    };
+    const toLong: Record<string, string> = {
+      en: 'eng',
+      fr: 'fre',
+      de: 'ger',
+      es: 'spa',
+      it: 'ita',
+      eng: 'eng',
+      fre: 'fre',
+      ger: 'ger',
+      spa: 'spa',
+      ita: 'ita'
+    };
+    const mapped = shortCodes ? toShort[lang] : toLong[lang];
+    if (!mapped || !this.languageOptions.some((o) => o.value === mapped)) {
+      return '';
+    }
+    return mapped;
   }
 
   onQueryChange(): void {
     this.search$.next(this.searchSignature());
   }
 
-  /** Language / genre changes should reload immediately (not wait for search debounce). */
-  onLanguageChange(): void {
+  /** Explicit search / refresh (title, author, genre, language). */
+  runSearch(): void {
     this.offset = 0;
     this.page = 1;
     this.clearReader();
     this.loadBooks();
   }
 
+  /** Language / genre: native (change) only — ngModelChange fires on Forms init and caused NG0100. */
+  onLanguageChange(): void {
+    this.runSearch();
+  }
+
   onGenreChange(): void {
-    this.offset = 0;
-    this.page = 1;
-    this.clearReader();
-    this.loadBooks();
+    this.runSearch();
+  }
+
+  get resultCountKey(): string {
+    if (this.source === 'librivox' || this.source === 'standardebooks') {
+      return this.canNext ? 'BOOK.RESULT_COUNT_LIBRIVOX_MORE' : 'BOOK.RESULT_COUNT_LIBRIVOX';
+    }
+    return 'BOOK.RESULT_COUNT';
+  }
+
+  get resultCountParams(): { count: number; page?: number } {
+    if (this.source === 'librivox' || this.source === 'standardebooks') {
+      return { count: this.books.length, page: this.currentPageLabel };
+    }
+    return { count: this.total };
   }
 
   private searchSignature(): string {
@@ -424,7 +604,7 @@ export class BookWatcherComponent implements OnInit, OnDestroy {
 
   private refreshLanguageOptions(): void {
     // Stable array identity — recreating options every CD rebinds <select> and loops NG0103.
-    if (this.source === 'gutenberg') {
+    if (this.source === 'gutenberg' || this.source === 'googlebooks') {
       this.languageOptions = [
         { value: 'en', label: 'English' },
         { value: 'fr', label: 'Français' },
@@ -453,72 +633,250 @@ export class BookWatcherComponent implements OnInit, OnDestroy {
     this.loadBooks();
   }
 
+  openBookInfo(book: BookItem, event?: Event): void {
+    event?.stopPropagation();
+    event?.preventDefault();
+    this.infoSub?.unsubscribe();
+    this.infoBook = { ...book };
+    this.infoOpen = true;
+    this.infoError = '';
+    this.isLoadingInfo = true;
+
+    const source = book.source;
+    const id = book.id;
+    if (!id) {
+      this.isLoadingInfo = false;
+      return;
+    }
+
+    if (source === 'openlibrary') {
+      this.infoSub = this.api.getOpenLibraryWork(id).subscribe({
+        next: (detail) => {
+          this.infoBook = this.mergeBookInfo(book, detail);
+          this.isLoadingInfo = false;
+        },
+        error: () => {
+          this.isLoadingInfo = false;
+          this.infoError = 'BOOK.ERR_DETAIL';
+        }
+      });
+      return;
+    }
+    if (source === 'gutenberg') {
+      this.infoSub = this.api.getGutenbergBook(id).subscribe({
+        next: (detail) => {
+          this.infoBook = this.mergeBookInfo(book, detail);
+          this.isLoadingInfo = false;
+        },
+        error: () => {
+          this.isLoadingInfo = false;
+          this.infoError = 'BOOK.ERR_DETAIL';
+        }
+      });
+      return;
+    }
+    if (source === 'librivox') {
+      this.infoSub = this.api.getLibriVoxBook(id).subscribe({
+        next: (detail) => {
+          this.infoBook = this.mergeBookInfo(book, detail);
+          this.isLoadingInfo = false;
+        },
+        error: () => {
+          this.isLoadingInfo = false;
+          this.infoError = 'BOOK.ERR_DETAIL';
+        }
+      });
+      return;
+    }
+    if (source === 'archive') {
+      this.infoSub = this.api.getArchiveBook(id).subscribe({
+        next: (detail) => {
+          this.infoBook = this.mergeBookInfo(book, detail);
+          this.isLoadingInfo = false;
+        },
+        error: () => {
+          this.isLoadingInfo = false;
+          this.infoError = 'BOOK.ERR_DETAIL';
+        }
+      });
+      return;
+    }
+    if (source === 'googlebooks') {
+      this.infoSub = this.api.getGoogleBook(id).subscribe({
+        next: (detail) => {
+          this.infoBook = this.mergeBookInfo(book, detail);
+          this.isLoadingInfo = false;
+        },
+        error: () => {
+          this.isLoadingInfo = false;
+          this.infoError = 'BOOK.ERR_DETAIL';
+        }
+      });
+      return;
+    }
+    if (source === 'standardebooks') {
+      this.infoSub = this.api.getStandardEbook(id).subscribe({
+        next: (detail) => {
+          this.infoBook = this.mergeBookInfo(book, detail);
+          this.isLoadingInfo = false;
+        },
+        error: () => {
+          this.isLoadingInfo = false;
+          this.infoError = 'BOOK.ERR_DETAIL';
+        }
+      });
+      return;
+    }
+    this.isLoadingInfo = false;
+  }
+
+  closeBookInfo(): void {
+    this.infoSub?.unsubscribe();
+    this.infoOpen = false;
+    this.infoBook = null;
+    this.isLoadingInfo = false;
+    this.infoError = '';
+  }
+
+  openBookFromInfo(): void {
+    if (!this.infoBook) {
+      return;
+    }
+    const book = this.infoBook;
+    this.closeBookInfo();
+    this.selectBook(book);
+  }
+
+  private mergeBookInfo(base: BookItem, detail: BookItem): BookItem {
+    return {
+      ...base,
+      ...detail,
+      title: detail.title || base.title,
+      authors: detail.authors || base.authors,
+      coverUrl: detail.coverUrl || base.coverUrl,
+      year: detail.year ?? base.year,
+      language: detail.language || base.language,
+      description: detail.description || base.description,
+      subjects: detail.subjects || base.subjects,
+      homepage: detail.homepage || base.homepage,
+      textUrl: detail.textUrl || base.textUrl,
+      htmlUrl: detail.htmlUrl || base.htmlUrl,
+      epubUrl: detail.epubUrl || base.epubUrl,
+      hasFulltext: detail.hasFulltext ?? base.hasFulltext,
+      iaId: detail.iaId || base.iaId,
+      totalTime: detail.totalTime || base.totalTime,
+      totalTimeSecs: detail.totalTimeSecs ?? base.totalTimeSecs,
+      sections: detail.sections?.length ? detail.sections : base.sections
+    };
+  }
+
+  private setListLoading(loading: boolean): void {
+    if (this.isLoading === loading) {
+      return;
+    }
+    this.isLoading = loading;
+    this.cdr.detectChanges();
+  }
+
   loadBooks(): void {
     this.listSub?.unsubscribe();
     const q = this.query.trim();
+    const author = this.authorQuery.trim();
     const genre = this.genre.trim() || undefined;
-    if (this.source === 'librivox') {
-      // Empty query browses the LibriVox catalog; title/author search needs ≥2 chars each when set.
-    } else if (q.length < 2 && this.source === 'openlibrary' && !genre) {
+    if (this.source === 'librivox' || this.source === 'standardebooks') {
+      // Empty query browses catalog / new releases; title/author search needs ≥2 chars when set.
+    } else if (
+      this.source === 'openlibrary' ||
+      this.source === 'archive' ||
+      this.source === 'googlebooks'
+    ) {
+      if (q.length < 2 && author.length < 2 && !genre) {
+        this.books = [];
+        this.total = 0;
+        this.setListLoading(false);
+        return;
+      }
+    }
+    // Gutenberg: empty query browses popular titles (or by genre / author)
+
+    this.setListLoading(true);
+    this.listError = '';
+
+    const onOk = (page: {
+      books?: BookItem[];
+      total?: number;
+      offset?: number;
+      rateLimited?: boolean;
+    }) => {
+      this.books = page.books || [];
+      this.total = page.total || 0;
+      if (page.offset != null) {
+        this.offset = page.offset;
+      }
+      this.setListLoading(false);
+      if (page.rateLimited) {
+        this.listError = 'BOOK.ERR_GOOGLE_RATE_LIMIT';
+      }
+    };
+    const onErr = () => {
       this.books = [];
       this.total = 0;
-      this.isLoading = false;
-      return;
-    }
-    // Gutenberg: empty query browses popular titles (or by genre)
-
-    this.isLoading = true;
-    this.listError = '';
+      this.setListLoading(false);
+      this.listError =
+        this.source === 'googlebooks' ? 'BOOK.ERR_GOOGLE_RATE_LIMIT' : 'BOOK.ERR_SEARCH';
+    };
 
     if (this.source === 'openlibrary') {
       this.listSub = this.api
-        .searchOpenLibraryBooks(q, this.pageSize, this.offset, this.language || undefined, genre)
-        .subscribe({
-          next: (page) => {
-            this.books = page.books || [];
-            this.total = page.total || 0;
-            this.isLoading = false;
-          },
-          error: () => {
-            this.books = [];
-            this.total = 0;
-            this.isLoading = false;
-            this.listError = 'BOOK.ERR_SEARCH';
-          }
-        });
+        .searchOpenLibraryBooks(
+          q,
+          this.pageSize,
+          this.offset,
+          this.language || undefined,
+          genre,
+          author || undefined
+        )
+        .subscribe({ next: onOk, error: onErr });
     } else if (this.source === 'gutenberg') {
       this.listSub = this.api
-        .searchGutenbergBooks(q, this.language || undefined, this.page, genre)
-        .subscribe({
-          next: (page) => {
-            this.books = page.books || [];
-            this.total = page.total || 0;
-            this.offset = page.offset || 0;
-            this.isLoading = false;
-          },
-          error: () => {
-            this.books = [];
-            this.total = 0;
-            this.isLoading = false;
-            this.listError = 'BOOK.ERR_SEARCH';
-          }
-        });
+        .searchGutenbergBooks(
+          q,
+          this.language || undefined,
+          this.page,
+          genre,
+          author || undefined
+        )
+        .subscribe({ next: onOk, error: onErr });
+    } else if (this.source === 'archive') {
+      this.listSub = this.api
+        .searchArchiveBooks(
+          q,
+          this.pageSize,
+          this.offset,
+          this.language || undefined,
+          genre,
+          author || undefined
+        )
+        .subscribe({ next: onOk, error: onErr });
+    } else if (this.source === 'googlebooks') {
+      this.listSub = this.api
+        .searchGoogleBooks(
+          q,
+          this.pageSize,
+          this.offset,
+          this.language || undefined,
+          genre,
+          author || undefined
+        )
+        .subscribe({ next: onOk, error: onErr });
+    } else if (this.source === 'standardebooks') {
+      this.listSub = this.api
+        .searchStandardEbooks(q, this.pageSize, this.offset, genre, author || undefined, this.language || undefined)
+        .subscribe({ next: onOk, error: onErr });
     } else {
       this.listSub = this.api
-        .searchLibriVoxBooks(q, this.authorQuery.trim() || undefined, this.pageSize, this.offset, genre)
-        .subscribe({
-          next: (page) => {
-            this.books = page.books || [];
-            this.total = page.total || 0;
-            this.isLoading = false;
-          },
-          error: () => {
-            this.books = [];
-            this.total = 0;
-            this.isLoading = false;
-            this.listError = 'BOOK.ERR_SEARCH';
-          }
-        });
+        .searchLibriVoxBooks(q, author || undefined, this.pageSize, this.offset, genre, this.language || undefined)
+        .subscribe({ next: onOk, error: onErr });
     }
   }
 
@@ -568,11 +926,26 @@ export class BookWatcherComponent implements OnInit, OnDestroy {
   }
 
   selectBook(book: BookItem): void {
-    this.clearReader();
-    this.selected = book;
-    this.playError = '';
-    this.contentError = '';
+    try {
+      // Do not null `selected` here — that remounts the whole main pane and feels like a page reset.
+      this.resetReaderContent();
+      this.selected = book;
+      this.playError = '';
+      this.contentError = '';
+      this.openSelectedBook(book);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      try {
+        sessionStorage.setItem('pattool.book.lastError', 'BOOK select failed: ' + msg);
+      } catch {
+        // ignore
+      }
+      this.contentError = 'BOOK.ERR_CONTENT';
+      console.error('[BOOK] selectBook failed', e);
+    }
+  }
 
+  private openSelectedBook(book: BookItem): void {
     if (book.source === 'librivox') {
       this.readerMode = 'audio';
       // Prefer detailed fetch for full section list
@@ -598,19 +971,127 @@ export class BookWatcherComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Text sources: Gutenberg / Open Library
-    // Open Library / Archive.org: iframe first — /stream/..._djvu.txt often returns HTML/CSS.
-    if (book.source === 'openlibrary') {
-      if (book.htmlUrl) {
-        this.openIframe(book.htmlUrl);
+    // Text sources: Gutenberg / Open Library / Archive / Google / Standard Ebooks
+    // Never iframe Google / Archive / sites that frame-bust (they navigate the whole PATTOOL page away).
+    if (book.source === 'openlibrary' || book.source === 'archive') {
+      const candidate = book.htmlUrl || book.homepage || '';
+      const isArchive =
+        book.source === 'archive' || (candidate && this.isArchiveOrgUrl(candidate));
+
+      if (book.source === 'archive' && book.id) {
+        // Resolve real public text (or clear it for CDL/lending) via Archive metadata.
+        this.isLoadingContent = true;
+        this.contentError = '';
+        this.contentSub?.unsubscribe();
+        this.contentSub = this.api.getArchiveBook(book.id).subscribe({
+          next: (detail) => {
+            this.selected = this.mergeBookInfo(book, detail);
+            if (detail.textUrl) {
+              this.loadTextContent(detail.textUrl);
+            } else {
+              this.showExternalReader(detail.homepage || candidate, true);
+            }
+          },
+          error: () => {
+            if (book.textUrl) {
+              this.loadTextContent(book.textUrl);
+            } else {
+              this.showExternalReader(candidate, true);
+            }
+          }
+        });
         return;
       }
-      if (book.homepage) {
-        this.openIframe(book.homepage);
+
+      if (isArchive) {
+        // Open Library editions linked to IA: resolve real public text via IA metadata when possible.
+        const iaId = book.iaId || this.extractArchiveId(candidate);
+        if (iaId) {
+          this.isLoadingContent = true;
+          this.contentError = '';
+          this.contentSub?.unsubscribe();
+          this.contentSub = this.api.getArchiveBook(iaId).subscribe({
+            next: (detail) => {
+              this.selected = this.mergeBookInfo(book, {
+                ...detail,
+                source: book.source,
+                id: book.id
+              });
+              if (detail.textUrl) {
+                this.loadTextContent(detail.textUrl);
+              } else {
+                this.showExternalReader(detail.homepage || candidate, true);
+              }
+            },
+            error: () => {
+              if (book.textUrl) {
+                this.loadTextContent(book.textUrl);
+              } else {
+                this.showExternalReader(candidate, true);
+              }
+            }
+          });
+          return;
+        }
+        if (book.textUrl) {
+          this.loadTextContent(book.textUrl);
+          return;
+        }
+        this.showExternalReader(candidate, true);
         return;
       }
       if (book.textUrl) {
         this.loadTextContent(book.textUrl);
+        return;
+      }
+      if (candidate) {
+        // openlibrary.org pages often frame-bust — open externally instead of iframe.
+        this.showExternalReader(candidate, false);
+        return;
+      }
+      this.contentError = 'BOOK.ERR_NO_CONTENT';
+      this.readerMode = 'none';
+      return;
+    }
+
+    if (book.source === 'googlebooks') {
+      const url = book.htmlUrl || book.homepage || '';
+      if (url) {
+        // Google Books web reader frame-busts and replaces the whole SPA.
+        this.showExternalReader(url, false);
+        return;
+      }
+      this.contentError = 'BOOK.ERR_NO_CONTENT';
+      this.readerMode = 'none';
+      return;
+    }
+
+    if (book.source === 'standardebooks') {
+      if (book.htmlUrl && book.hasFulltext !== false) {
+        this.loadHtmlContent(book.htmlUrl);
+        return;
+      }
+      if (book.homepage) {
+        this.showExternalReader(book.homepage, false);
+        return;
+      }
+      this.contentError = 'BOOK.ERR_NO_CONTENT';
+      this.readerMode = 'none';
+      return;
+    }
+
+    // Gutenberg (and any remaining text source)
+    if (book.source === 'gutenberg') {
+      if (book.textUrl) {
+        this.loadTextContent(book.textUrl);
+        return;
+      }
+      if (book.htmlUrl) {
+        this.loadHtmlContent(book.htmlUrl);
+        return;
+      }
+      if (book.homepage) {
+        this.showExternalReader(book.homepage, false);
         return;
       }
       this.contentError = 'BOOK.ERR_NO_CONTENT';
@@ -623,15 +1104,11 @@ export class BookWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     if (book.htmlUrl) {
-      if (book.source === 'gutenberg') {
-        this.loadHtmlContent(book.htmlUrl);
-      } else {
-        this.openIframe(book.htmlUrl);
-      }
+      this.loadHtmlContent(book.htmlUrl);
       return;
     }
     if (book.homepage) {
-      this.openIframe(book.homepage);
+      this.showExternalReader(book.homepage, false);
       return;
     }
     this.contentError = 'BOOK.ERR_NO_CONTENT';
@@ -713,7 +1190,143 @@ export class BookWatcherComponent implements OnInit, OnDestroy {
     if (!url) {
       return;
     }
-    window.open(url, '_blank', 'noopener,noreferrer');
+    // Always force a new tab — never navigate the PATTOOL window (frame-bust / popup fallback).
+    const opened = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!opened) {
+      this.contentError = 'BOOK.ERR_POPUP_BLOCKED';
+    }
+  }
+
+  /** Keep in-page HTML links from navigating the SPA away; otherwise start TTS from click. */
+  onHtmlReaderClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement | null;
+    const anchor = target?.closest?.('a') as HTMLAnchorElement | null;
+    if (!anchor) {
+      this.onReaderClick(event);
+      return;
+    }
+    const href = (anchor.getAttribute('href') || '').trim();
+    if (!href || href.startsWith('#')) {
+      event.preventDefault();
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      const abs = new URL(href, window.location.href).toString();
+      this.openExternal(abs);
+    } catch {
+      this.openExternal(href);
+    }
+  }
+
+  /**
+   * Open Archive.org login, then the book page (same gesture = usually allowed by popup blockers).
+   * Login must be top-level — Archive.org auth fails inside PATTOOL.
+   */
+  openArchiveLogin(): void {
+    const returnTo = this.externalBookUrl || this.archiveBookUrl() || 'https://archive.org/';
+    let loginUrl = 'https://archive.org/account/login';
+    try {
+      const u = new URL(loginUrl);
+      u.searchParams.set('referer', returnTo);
+      loginUrl = u.toString();
+    } catch {
+      // keep default
+    }
+    this.openExternal(loginUrl);
+  }
+
+  /** Login first, then open the book details page in a second tab. */
+  openArchiveLoginThenBook(): void {
+    this.openArchiveLogin();
+    const bookUrl = this.externalBookUrl || this.archiveBookUrl();
+    if (!bookUrl) {
+      return;
+    }
+    // Slight delay so the login tab gets focus first; second open may still be blocked.
+    setTimeout(() => this.openExternal(bookUrl), 350);
+  }
+
+  /**
+   * Open the external book page in a new tab (Archive.org / Google Books / etc.).
+   */
+  openArchiveBook(): void {
+    const url = this.externalBookUrl || this.archiveBookUrl();
+    if (!url) {
+      return;
+    }
+    this.openExternal(url);
+  }
+
+  /** Clean https://archive.org/details/{id} — strips embed/theater query params. */
+  private archiveBookUrl(): string {
+    const candidates = [
+      this.selected?.homepage,
+      this.selected?.iaId ? `https://archive.org/details/${this.selected.iaId}` : '',
+      this.selected?.htmlUrl,
+      this.externalBookUrl,
+      this.lastIframeUrl
+    ];
+    for (const raw of candidates) {
+      const clean = this.toArchiveDetailsUrl(raw);
+      if (clean) {
+        return clean;
+      }
+    }
+    return '';
+  }
+
+  /**
+   * Normalize any Archive.org book URL to /details/{id} without embed flags.
+   */
+  private toArchiveDetailsUrl(url?: string | null): string {
+    const raw = (url || '').trim();
+    if (!raw) {
+      return '';
+    }
+    if (/^[a-zA-Z0-9][a-zA-Z0-9._-]{1,200}$/.test(raw) && !raw.includes('://')) {
+      return `https://archive.org/details/${encodeURIComponent(raw)}`;
+    }
+    try {
+      const u = new URL(raw);
+      const host = u.hostname.replace(/^www\./, '');
+      if (host !== 'archive.org' && !host.endsWith('.archive.org')) {
+        return '';
+      }
+      const m = u.pathname.match(/^\/(?:details|embed|stream)\/([^/?#]+)/i);
+      if (m?.[1]) {
+        return `https://archive.org/details/${encodeURIComponent(decodeURIComponent(m[1]))}`;
+      }
+    } catch {
+      // ignore
+    }
+    return '';
+  }
+
+  /**
+   * In-app CTA for books that must open in a first-party tab.
+   * Do not auto-call window.open here (popup blockers / focus steal feel like a broken reload).
+   */
+  private showExternalReader(urlHint?: string, archive = false): void {
+    this.readerMode = 'external';
+    this.isArchiveExternal = archive;
+    this.isLoadingContent = false;
+    this.readerHtmlUrl = null;
+    this.contentError = '';
+    const details = archive
+      ? this.toArchiveDetailsUrl(urlHint) ||
+        this.toArchiveDetailsUrl(this.selected?.homepage) ||
+        this.toArchiveDetailsUrl(this.selected?.iaId) ||
+        this.toArchiveDetailsUrl(this.selected?.htmlUrl)
+      : (urlHint || this.selected?.homepage || this.selected?.htmlUrl || '').trim();
+    this.externalBookUrl = details;
+    this.lastIframeUrl = details;
+  }
+
+  /** @deprecated use showExternalReader */
+  private openArchiveExternal(urlHint?: string): void {
+    this.showExternalReader(urlHint, true);
   }
 
   formatDuration(secs?: number): string {
@@ -750,14 +1363,7 @@ export class BookWatcherComponent implements OnInit, OnDestroy {
         this.isLoadingContent = false;
         // Archive.org / mislabelled URLs sometimes return an HTML page (CSS/JS) instead of plain text.
         if (this.looksLikeHtmlOrCss(body)) {
-          if (this.selected?.htmlUrl) {
-            this.openIframe(this.selected.htmlUrl);
-          } else if (this.selected?.homepage) {
-            this.openIframe(this.selected.homepage);
-          } else {
-            this.contentError = 'BOOK.ERR_NO_CONTENT';
-            this.readerMode = 'none';
-          }
+          this.openReadableFallback();
           return;
         }
         this.readerText = body;
@@ -770,16 +1376,42 @@ export class BookWatcherComponent implements OnInit, OnDestroy {
       },
       error: () => {
         this.isLoadingContent = false;
-        if (this.selected?.htmlUrl) {
-          this.openIframe(this.selected.htmlUrl);
-        } else if (this.selected?.homepage) {
-          this.openIframe(this.selected.homepage);
-        } else {
-          this.contentError = 'BOOK.ERR_CONTENT';
-          this.readerMode = 'none';
-        }
+        this.openReadableFallback();
       }
     });
+  }
+
+  /** Prefer same-origin HTML proxy; only iframe third-party pages that allow embedding. */
+  private openReadableFallback(): void {
+    const htmlUrl = this.selected?.htmlUrl;
+    const homepage = this.selected?.homepage;
+    const source = this.selected?.source;
+    if (htmlUrl && (source === 'gutenberg' || source === 'standardebooks')) {
+      this.loadHtmlContent(htmlUrl);
+      return;
+    }
+    if (htmlUrl && this.isArchiveOrgUrl(htmlUrl)) {
+      this.showExternalReader(htmlUrl, true);
+      return;
+    }
+    if (homepage && this.isArchiveOrgUrl(homepage)) {
+      this.showExternalReader(homepage, true);
+      return;
+    }
+    if (source === 'googlebooks') {
+      this.showExternalReader(htmlUrl || homepage || '', false);
+      return;
+    }
+    if (htmlUrl) {
+      this.loadHtmlContent(htmlUrl);
+      return;
+    }
+    if (homepage) {
+      this.showExternalReader(homepage, false);
+      return;
+    }
+    this.contentError = 'BOOK.ERR_NO_CONTENT';
+    this.readerMode = 'none';
   }
 
   /** True when a "text" payload is actually a web page / stylesheet dump. */
@@ -806,44 +1438,138 @@ export class BookWatcherComponent implements OnInit, OnDestroy {
   }
 
   private loadHtmlContent(url: string): void {
-    // Serve HTML via proxy URL in an iframe (same-origin)
+    // Fetch via backend proxy and render inline — never use an iframe.
+    // Google/Gutenberg/SE pages in iframes frame-bust and reload the whole PATTOOL SPA.
     this.readerMode = 'html';
-    this.readerHtmlUrl = this.sanitizer.bypassSecurityTrustResourceUrl(
-      this.api.bookContentProxyUrl(url)
-    );
-    this.isLoadingContent = false;
+    this.isArchiveExternal = false;
+    this.readerHtmlUrl = null;
+    this.readerHtmlSafe = null;
+    this.lastIframeUrl = '';
+    this.isLoadingContent = true;
+    this.contentError = '';
+    const proxy = this.api.bookContentProxyUrl(url);
+    this.contentSub?.unsubscribe();
+    this.contentSub = this.http.get(proxy, { responseType: 'text' }).subscribe({
+      next: (html) => {
+        this.isLoadingContent = false;
+        const cleaned = this.sanitizeBookHtml(html || '');
+        if (!cleaned.trim()) {
+          this.contentError = 'BOOK.ERR_NO_CONTENT';
+          this.readerMode = 'none';
+          return;
+        }
+        this.readerHtmlSafe = this.sanitizer.bypassSecurityTrustHtml(cleaned);
+        // Plain-text extract for TTS when available
+        this.ttsText = cleaned.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      },
+      error: () => {
+        this.isLoadingContent = false;
+        this.contentError = 'BOOK.ERR_CONTENT';
+        this.readerMode = 'none';
+      }
+    });
+  }
+
+  /**
+   * Strip scripts / meta-refresh / target=_top so embedded book HTML cannot navigate PATTOOL away.
+   */
+  private sanitizeBookHtml(html: string): string {
+    let out = html || '';
+    out = out.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+    out = out.replace(/<meta[^>]+http-equiv\s*=\s*["']?refresh["']?[^>]*>/gi, '');
+    out = out.replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+    out = out.replace(/\s+target\s*=\s*("|')_?(top|parent)\1/gi, ' target="_blank"');
+    out = out.replace(/<base\b[^>]*>/gi, '');
+    // Keep body fragment when a full document is returned
+    const bodyMatch = out.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    if (bodyMatch?.[1]) {
+      out = bodyMatch[1];
+    }
+    return out;
   }
 
   private openIframe(url: string): void {
+    // Iframes of third-party readers frame-bust (reload PATTOOL). Always use external CTA.
     const target = (url || '').trim();
     if (!target) {
       this.contentError = 'BOOK.ERR_NO_CONTENT';
       this.readerMode = 'none';
       return;
     }
-    this.readerMode = 'iframe';
-    this.isLoadingContent = false;
-    // Avoid new SafeResourceUrl on every call with the same URL (can loop CD with iframe).
-    if (this.lastIframeUrl === target && this.readerHtmlUrl) {
-      return;
-    }
-    this.lastIframeUrl = target;
-    this.readerHtmlUrl = this.sanitizer.bypassSecurityTrustResourceUrl(target);
+    this.showExternalReader(target, this.isArchiveOrgUrl(target));
   }
 
-  private clearReader(): void {
+  private isArchiveOrgUrl(url: string): boolean {
+    try {
+      const host = new URL(url).hostname.replace(/^www\./, '');
+      return host === 'archive.org' || host.endsWith('.archive.org');
+    } catch {
+      return false;
+    }
+  }
+
+  /** Extract Archive.org item id from /details|embed|stream/{id} or a bare identifier. */
+  private extractArchiveId(url?: string | null): string {
+    const raw = (url || '').trim();
+    if (!raw) {
+      return '';
+    }
+    if (/^[a-zA-Z0-9][a-zA-Z0-9._-]{1,200}$/.test(raw) && !raw.includes('://')) {
+      return raw;
+    }
+    try {
+      const u = new URL(raw);
+      const host = u.hostname.replace(/^www\./, '');
+      if (host !== 'archive.org' && !host.endsWith('.archive.org')) {
+        return '';
+      }
+      const m = u.pathname.match(/^\/(?:details|embed|stream)\/([^/?#]+)/i);
+      if (m?.[1]) {
+        return decodeURIComponent(m[1]);
+      }
+    } catch {
+      // ignore
+    }
+    return '';
+  }
+
+  private isGoogleBooksUrl(url: string): boolean {
+    try {
+      const host = new URL(url).hostname.replace(/^www\./, '');
+      return host === 'books.google.com'
+        || (host.endsWith('.google.com') && url.toLowerCase().includes('/books'));
+    } catch {
+      return false;
+    }
+  }
+
+  private normalizeIframeUrl(url: string): string {
+    return (url || '').trim();
+  }
+
+  /** Reset reader pane without clearing the selected book (avoids main-pane remount). */
+  private resetReaderContent(): void {
     this.contentSub?.unsubscribe();
     this.stopSpeech();
     this.stopAudio();
-    this.selected = null;
+    this.isArchiveExternal = false;
+    this.externalBookUrl = '';
+    this.iframeReferrerPolicy = 'no-referrer';
     this.readerMode = 'none';
     this.readerText = '';
     this.ttsText = '';
     this.readerHtmlUrl = null;
+    this.readerHtmlSafe = null;
     this.lastIframeUrl = '';
+    this.iframeGen = 0;
     this.contentError = '';
     this.playError = '';
     this.speechError = '';
     this.isLoadingContent = false;
+  }
+
+  private clearReader(): void {
+    this.resetReaderContent();
+    this.selected = null;
   }
 }

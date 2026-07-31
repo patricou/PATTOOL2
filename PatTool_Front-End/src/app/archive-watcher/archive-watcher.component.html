@@ -1,0 +1,446 @@
+<div class="pat-title">
+  <h2 class="ia-page-title">
+    <span class="ia-title-icon" aria-hidden="true">
+      <i class="fa fa-archive"></i>
+    </span>
+    {{ 'ARCHIVE.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="ia-page">
+  <p class="ia-lead">{{ 'ARCHIVE.SUBTITLE' | translate }}</p>
+
+  <div class="ia-layout">
+    <aside class="ia-sidebar">
+      <div class="ia-mode-tabs" role="tablist">
+        <button
+          type="button"
+          class="ia-mode-tab"
+          role="tab"
+          [class.active]="viewMode === 'catalog'"
+          [attr.aria-selected]="viewMode === 'catalog'"
+          (click)="setViewMode('catalog')">
+          <i class="fa fa-th-large me-1"></i>
+          {{ 'ARCHIVE.TAB_CATALOG' | translate }}
+        </button>
+        <button
+          type="button"
+          class="ia-mode-tab"
+          role="tab"
+          [class.active]="viewMode === 'wayback'"
+          [attr.aria-selected]="viewMode === 'wayback'"
+          (click)="setViewMode('wayback')">
+          <i class="fa fa-history me-1"></i>
+          {{ 'ARCHIVE.TAB_WAYBACK' | translate }}
+        </button>
+      </div>
+
+      <ng-container *ngIf="viewMode === 'catalog'">
+        <div class="ia-mediatype-tabs" role="tablist">
+          <button
+            type="button"
+            class="ia-mediatype-tab"
+            role="tab"
+            *ngFor="let mt of mediatypes"
+            [class.active]="mediatype === mt.code"
+            [attr.aria-selected]="mediatype === mt.code"
+            (click)="setMediatype(mt.code)">
+            <i class="fa me-1" [ngClass]="mediatypeIcon(mt.code)" aria-hidden="true"></i>
+            {{ ('ARCHIVE.MT_' + mt.code.toUpperCase()) | translate }}
+          </button>
+        </div>
+
+        <div class="ia-filters">
+          <label class="form-label small mb-1" for="ia-query">{{ 'ARCHIVE.SEARCH' | translate }}</label>
+          <div class="ia-search-row">
+            <input
+              id="ia-query"
+              type="search"
+              class="form-control form-control-sm"
+              [(ngModel)]="query"
+              (ngModelChange)="onQueryChange()"
+              (keyup.enter)="runSearch()"
+              [placeholder]="'ARCHIVE.SEARCH_PLACEHOLDER' | translate"
+              autocomplete="off" />
+            <button
+              type="button"
+              class="btn btn-sm ia-clear-btn"
+              *ngIf="query || creator"
+              (click)="clearSearch()"
+              [attr.title]="'ARCHIVE.CLEAR_SEARCH' | translate"
+              [attr.aria-label]="'ARCHIVE.CLEAR_SEARCH' | translate">
+              <i class="fa fa-times"></i>
+            </button>
+          </div>
+
+          <div class="mt-2">
+            <label class="form-label small mb-1" for="ia-creator">{{ 'ARCHIVE.CREATOR' | translate }}</label>
+            <input
+              id="ia-creator"
+              type="search"
+              class="form-control form-control-sm"
+              [(ngModel)]="creator"
+              (ngModelChange)="onQueryChange()"
+              (keyup.enter)="runSearch()"
+              [placeholder]="'ARCHIVE.CREATOR_PLACEHOLDER' | translate"
+              autocomplete="off" />
+          </div>
+
+          <div class="mt-2" *ngIf="!query.trim() && !creator.trim()">
+            <label class="form-label small mb-1" for="ia-section">{{ 'ARCHIVE.SECTION' | translate }}</label>
+            <select
+              id="ia-section"
+              class="form-select form-select-sm"
+              [(ngModel)]="section"
+              (ngModelChange)="onSectionChange()">
+              <option *ngFor="let s of sections" [value]="s.code">{{ s.label }}</option>
+            </select>
+          </div>
+
+          <div class="mt-2">
+            <label class="form-label small mb-1" for="ia-sort">{{ 'ARCHIVE.SORT' | translate }}</label>
+            <select
+              id="ia-sort"
+              class="form-select form-select-sm"
+              [(ngModel)]="sort"
+              (ngModelChange)="onSortChange()">
+              <option *ngFor="let s of sorts" [value]="s.code">
+                {{ ('ARCHIVE.SORT_' + s.code.toUpperCase()) | translate }}
+              </option>
+            </select>
+          </div>
+
+          <div class="mt-2">
+            <label class="form-label small mb-1" for="ia-lang">{{ 'ARCHIVE.LANGUAGE' | translate }}</label>
+            <select
+              id="ia-lang"
+              class="form-select form-select-sm"
+              [(ngModel)]="language"
+              (ngModelChange)="onLanguageChange()">
+              <option *ngFor="let lang of languageOptions" [value]="lang.value">
+                {{ lang.value ? lang.label : ('ARCHIVE.LANGUAGE_ALL' | translate) }}
+              </option>
+            </select>
+          </div>
+
+          <div class="mt-2 ia-search-actions">
+            <button
+              type="button"
+              class="btn btn-sm btn-dark ia-search-btn"
+              (click)="runSearch()"
+              [disabled]="isLoading">
+              <i class="fa fa-search me-1" aria-hidden="true"></i>
+              {{ 'ARCHIVE.SEARCH_BTN' | translate }}
+            </button>
+          </div>
+        </div>
+
+        <div class="ia-list-meta">
+          <span class="small text-muted" *ngIf="!isLoading && items.length > 0">
+            {{ 'ARCHIVE.RESULT_COUNT' | translate:{ count: formatInteger(total) } }}
+          </span>
+          <span class="small text-muted" *ngIf="isLoading">
+            <i class="fa fa-spinner fa-spin me-1"></i>
+            {{ 'ARCHIVE.LOADING' | translate }}
+          </span>
+        </div>
+
+        <div class="alert alert-danger py-2 px-3 small" *ngIf="listError" role="alert">
+          {{ listError | translate }}
+        </div>
+
+        <div class="ia-list" role="list">
+          <button
+            type="button"
+            class="ia-list-item"
+            role="listitem"
+            *ngFor="let item of items; trackBy: trackByIdentifier"
+            [class.active]="selectedId === item.identifier"
+            (click)="selectItem(item)">
+            <img
+              *ngIf="item.imageUrl"
+              class="ia-thumb"
+              [src]="item.imageUrl"
+              [alt]="item.title"
+              loading="lazy"
+              (error)="$any($event.target).style.display='none'" />
+            <span class="ia-thumb ia-thumb-placeholder" *ngIf="!item.imageUrl" aria-hidden="true">
+              <i class="fa" [ngClass]="mediatypeIcon(item.mediatype)"></i>
+            </span>
+            <span class="ia-list-meta-col">
+              <span class="ia-list-title">{{ item.title }}</span>
+              <span class="ia-list-sub" *ngIf="item.subtitle">{{ item.subtitle }}</span>
+              <span class="ia-list-extra">
+                <span class="ia-badge" *ngIf="item.mediatype">{{ item.mediatype }}</span>
+                <span *ngIf="item.downloads != null">↓ {{ formatDownloads(item.downloads) }}</span>
+                <span *ngIf="item.avgRating != null">★ {{ item.avgRating | number:'1.1-1' }}</span>
+              </span>
+            </span>
+          </button>
+
+          <div class="ia-empty" *ngIf="!isLoading && !listError && items.length === 0">
+            {{ 'ARCHIVE.NO_RESULTS' | translate }}
+          </div>
+        </div>
+
+        <div class="ia-pager" *ngIf="items.length > 0">
+          <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="!canPrev" (click)="prevPage()">
+            <i class="fa fa-chevron-left"></i>
+          </button>
+          <span class="small text-muted">
+            {{ 'ARCHIVE.PAGE' | translate:{ page: formatInteger(page), pages: formatInteger(pages) } }}
+          </span>
+          <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="!canNext" (click)="nextPage()">
+            <i class="fa fa-chevron-right"></i>
+          </button>
+        </div>
+      </ng-container>
+
+      <ng-container *ngIf="viewMode === 'wayback'">
+        <div class="ia-filters">
+          <label class="form-label small mb-1" for="ia-wayback-url">{{ 'ARCHIVE.WAYBACK_URL' | translate }}</label>
+          <input
+            id="ia-wayback-url"
+            type="url"
+            class="form-control form-control-sm"
+            [(ngModel)]="waybackUrl"
+            (keyup.enter)="runWayback()"
+            [placeholder]="'ARCHIVE.WAYBACK_PLACEHOLDER' | translate"
+            autocomplete="off" />
+          <div class="mt-2 ia-search-actions">
+            <button
+              type="button"
+              class="btn btn-sm btn-dark ia-search-btn"
+              (click)="runWayback()"
+              [disabled]="waybackLoading">
+              <i class="fa fa-search me-1" aria-hidden="true"></i>
+              {{ 'ARCHIVE.WAYBACK_CHECK' | translate }}
+            </button>
+          </div>
+          <p class="form-text small mt-2">{{ 'ARCHIVE.WAYBACK_HINT' | translate }}</p>
+        </div>
+      </ng-container>
+    </aside>
+
+    <main class="ia-main" #detailStage [class.ia-main--fullscreen]="isFullscreen">
+      <ng-container *ngIf="viewMode === 'wayback'">
+        <div class="ia-empty-main" *ngIf="!waybackLoading && !waybackSnapshotUrl && !waybackError && waybackSnapshots.length === 0">
+          <i class="fa fa-history ia-empty-icon" aria-hidden="true"></i>
+          <p>{{ 'ARCHIVE.WAYBACK_PICK' | translate }}</p>
+        </div>
+
+        <div class="alert alert-danger py-2 px-3 small" *ngIf="waybackError" role="alert">
+          {{ waybackError | translate }}
+        </div>
+
+        <div class="ia-wayback-status" *ngIf="waybackLoading">
+          <i class="fa fa-spinner fa-spin me-1"></i>
+          {{ 'ARCHIVE.LOADING' | translate }}
+        </div>
+
+        <div class="ia-wayback-panel" *ngIf="!waybackLoading && (waybackSnapshotUrl || waybackSnapshots.length)">
+          <div class="ia-wayback-closest" *ngIf="waybackAvailable && waybackSnapshotUrl">
+            <h3>{{ 'ARCHIVE.WAYBACK_CLOSEST' | translate }}</h3>
+            <p class="small text-muted" *ngIf="waybackTimestamp">{{ waybackTimestamp }}</p>
+            <a class="btn btn-sm btn-dark" [href]="waybackSnapshotUrl" target="_blank" rel="noopener">
+              <i class="fa fa-external-link me-1"></i>
+              {{ 'ARCHIVE.WAYBACK_OPEN' | translate }}
+            </a>
+            <iframe
+              class="ia-wayback-frame"
+              *ngIf="waybackSnapshotSafe"
+              [src]="waybackSnapshotSafe"
+              title="Wayback Machine"
+              loading="lazy"></iframe>
+          </div>
+
+          <div class="ia-wayback-list" *ngIf="waybackSnapshots.length">
+            <h4>{{ 'ARCHIVE.WAYBACK_SNAPSHOTS' | translate }}</h4>
+            <a
+              class="ia-wayback-snap"
+              *ngFor="let snap of waybackSnapshots; trackBy: trackBySnapshot"
+              [href]="snap.snapshotUrl"
+              target="_blank"
+              rel="noopener">
+              <span class="ia-wayback-ts">{{ snap.timestamp }}</span>
+              <span class="ia-wayback-mime" *ngIf="snap.mimetype">{{ snap.mimetype }}</span>
+              <span class="ia-wayback-status-code" *ngIf="snap.status">HTTP {{ snap.status }}</span>
+            </a>
+          </div>
+
+          <div class="alert alert-warning py-2 px-3 small" *ngIf="!waybackAvailable && !waybackError">
+            {{ 'ARCHIVE.WAYBACK_NONE' | translate }}
+          </div>
+        </div>
+      </ng-container>
+
+      <ng-container *ngIf="viewMode === 'catalog'">
+        <div class="ia-empty-main" *ngIf="!selected && !isLoadingDetail">
+          <i class="fa fa-archive ia-empty-icon" aria-hidden="true"></i>
+          <p>{{ 'ARCHIVE.PICK' | translate }}</p>
+        </div>
+
+        <div class="ia-empty-main" *ngIf="isLoadingDetail">
+          <i class="fa fa-spinner fa-spin ia-empty-icon" aria-hidden="true"></i>
+          <p>{{ 'ARCHIVE.LOADING_DETAIL' | translate }}</p>
+        </div>
+
+        <div class="alert alert-danger py-2 px-3 small" *ngIf="detailError" role="alert">
+          {{ detailError | translate }}
+        </div>
+
+        <ng-container *ngIf="selected && !isLoadingDetail">
+          <header class="ia-detail-header">
+            <img
+              *ngIf="selected.imageUrl"
+              class="ia-detail-cover"
+              [src]="selected.imageUrl"
+              [alt]="selected.title"
+              loading="lazy"
+              (error)="$any($event.target).style.display='none'" />
+            <div class="ia-detail-titles">
+              <h3 class="ia-detail-title">{{ selected.title }}</h3>
+              <p class="ia-detail-sub" *ngIf="selected.subtitle">{{ selected.subtitle }}</p>
+              <p class="ia-detail-meta">
+                <span class="ia-badge" *ngIf="selected.mediatype">{{ selected.mediatype }}</span>
+                <span *ngIf="selected.language"> · {{ selected.language }}</span>
+                <span *ngIf="selected.downloads != null">
+                  · ↓ {{ formatDownloads(selected.downloads) }}
+                </span>
+                <span *ngIf="selected.avgRating != null">
+                  · ★ {{ selected.avgRating | number:'1.1-1' }}
+                </span>
+                <span *ngIf="selected.itemSize"> · {{ formatSize(selected.itemSize) }}</span>
+              </p>
+              <div
+                class="ia-detail-desc"
+                *ngIf="selected.description && !isFullscreen"
+                [innerHTML]="toSafeHtml(selected.description)">
+              </div>
+              <p class="ia-detail-subjects" *ngIf="selected.subjects?.length && !isFullscreen">
+                <span class="ia-chip" *ngFor="let s of selected.subjects!.slice(0, 8)">{{ s }}</span>
+              </p>
+            </div>
+            <div class="ia-detail-actions">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary"
+                *ngIf="selected.embedUrl"
+                (click)="openEmbed()"
+                [attr.title]="'ARCHIVE.OPEN_EMBED' | translate">
+                <i class="fa fa-play-circle me-1"></i>
+                {{ 'ARCHIVE.OPEN_EMBED' | translate }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary"
+                *ngIf="selected.detailsUrl"
+                (click)="openDetailsExternal()"
+                [attr.title]="'ARCHIVE.OPEN_SOURCE' | translate">
+                <i class="fa fa-external-link me-1"></i>
+                {{ 'ARCHIVE.OPEN_SOURCE' | translate }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary"
+                (click)="toggleFullscreen()"
+                [attr.title]="(isFullscreen ? 'ARCHIVE.EXIT_FULLSCREEN' : 'ARCHIVE.FULLSCREEN') | translate">
+                <i class="fa me-1" [ngClass]="isFullscreen ? 'fa-compress' : 'fa-expand'"></i>
+                {{ (isFullscreen ? 'ARCHIVE.EXIT_FULLSCREEN' : 'ARCHIVE.FULLSCREEN') | translate }}
+              </button>
+            </div>
+          </header>
+
+          <div class="alert alert-warning py-2 px-3 small" *ngIf="playError" role="alert">
+            {{ playError | translate }}
+          </div>
+
+          <div class="ia-player" *ngIf="playerMode !== 'none'">
+            <video
+              #videoEl
+              *ngIf="playerMode === 'video' && mediaUrl"
+              class="ia-video"
+              [src]="mediaUrl"
+              controls
+              playsinline
+              preload="metadata"></video>
+
+            <audio
+              #audioEl
+              *ngIf="playerMode === 'audio' && mediaUrl"
+              class="ia-audio"
+              [src]="mediaUrl"
+              controls
+              preload="metadata"></audio>
+
+            <img
+              *ngIf="playerMode === 'image' && mediaUrl"
+              class="ia-image"
+              [src]="mediaUrl"
+              [alt]="selected.title"
+              loading="lazy" />
+
+            <iframe
+              *ngIf="(playerMode === 'embed' || playerMode === 'iframe') && embedUrl"
+              class="ia-embed"
+              [src]="embedUrl"
+              [attr.data-gen]="iframeGen"
+              allowfullscreen
+              allow="encrypted-media"
+              loading="lazy"
+              [title]="selected.title"></iframe>
+          </div>
+
+          <section class="ia-files" *ngIf="selected.files?.length">
+            <div class="ia-files-header">
+              <h4>{{ 'ARCHIVE.FILES' | translate:{ count: formatInteger(selected.files!.length) } }}</h4>
+              <button
+                type="button"
+                class="btn btn-link btn-sm p-0"
+                *ngIf="hasMoreFiles || showAllFiles"
+                (click)="showAllFiles = !showAllFiles">
+                {{ (showAllFiles ? 'ARCHIVE.FILES_LESS' : 'ARCHIVE.FILES_MORE') | translate }}
+              </button>
+            </div>
+            <div class="ia-file-list">
+              <div class="ia-file" *ngFor="let file of visibleFiles; trackBy: trackByFile">
+                <div class="ia-file-info">
+                  <span class="ia-file-name">{{ file.name }}</span>
+                  <span class="ia-file-meta">
+                    <span class="ia-badge" *ngIf="file.kind">{{ file.kind }}</span>
+                    <span *ngIf="file.format">{{ file.format }}</span>
+                    <span *ngIf="file.size">{{ formatSize(file.size) }}</span>
+                    <span *ngIf="file.length">{{ file.length }}</span>
+                  </span>
+                </div>
+                <div class="ia-file-actions">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-dark"
+                    *ngIf="file.playable"
+                    (click)="playFile(file)">
+                    <i class="fa fa-play"></i>
+                  </button>
+                  <a
+                    class="btn btn-sm btn-outline-secondary"
+                    *ngIf="file.downloadUrl"
+                    [href]="file.downloadUrl"
+                    target="_blank"
+                    rel="noopener"
+                    [attr.title]="'ARCHIVE.DOWNLOAD' | translate">
+                    <i class="fa fa-download"></i>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="ia-collections" *ngIf="selected.collections?.length && !isFullscreen">
+            <h4>{{ 'ARCHIVE.COLLECTIONS' | translate }}</h4>
+            <span class="ia-chip" *ngFor="let c of selected.collections">{{ c }}</span>
+          </section>
+        </ng-container>
+      </ng-container>
+    </main>
+  </div>
+</div>

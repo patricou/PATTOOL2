@@ -27,13 +27,17 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Book watcher: Open Library, Project Gutenberg (Gutendex) and LibriVox audiobooks.
+ * Book watcher: Open Library, Project Gutenberg (Gutendex), LibriVox,
+ * Internet Archive, Google Books (free ebooks) and Standard Ebooks.
  * <p>
  * Public read-only:
  * <ul>
- *   <li>{@code GET /api/external/book/openlibrary/search?q=...}</li>
- *   <li>{@code GET /api/external/book/gutenberg/search?q=...}</li>
- *   <li>{@code GET /api/external/book/librivox/search?title=...&amp;author=...}</li>
+ *   <li>{@code GET /api/external/book/openlibrary/search?q=...&amp;author=...}</li>
+ *   <li>{@code GET /api/external/book/gutenberg/search?q=...&amp;author=...}</li>
+ *   <li>{@code GET /api/external/book/librivox/search?title=...&amp;author=...&amp;language=...}</li>
+ *   <li>{@code GET /api/external/book/archive/search?q=...&amp;author=...}</li>
+ *   <li>{@code GET /api/external/book/google/search?q=...&amp;author=...}</li>
+ *   <li>{@code GET /api/external/book/standardebooks/search?q=...&amp;author=...&amp;language=...}</li>
  *   <li>{@code GET /api/external/book/content/{base64url}} — text/html proxy</li>
  *   <li>{@code GET /api/external/book/stream/{base64url}} — audio proxy (LibriVox)</li>
  * </ul>
@@ -51,11 +55,12 @@ public class BookWatcherRestController {
     @GetMapping("/openlibrary/search")
     public ResponseEntity<BookSearchPageDto> openLibrarySearch(
             @RequestParam(required = false, defaultValue = "") String q,
+            @RequestParam(required = false, defaultValue = "") String author,
             @RequestParam(required = false, defaultValue = "20") int limit,
             @RequestParam(required = false, defaultValue = "0") int offset,
             @RequestParam(required = false) String language,
             @RequestParam(required = false) String genre) {
-        BookSearchPageDto page = bookCatalogService.searchOpenLibrary(q, limit, offset, language, genre);
+        BookSearchPageDto page = bookCatalogService.searchOpenLibrary(q, limit, offset, language, genre, author);
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePublic())
                 .body(page);
@@ -75,10 +80,11 @@ public class BookWatcherRestController {
     @GetMapping("/gutenberg/search")
     public ResponseEntity<BookSearchPageDto> gutenbergSearch(
             @RequestParam(required = false, defaultValue = "") String q,
+            @RequestParam(required = false, defaultValue = "") String author,
             @RequestParam(required = false) String languages,
             @RequestParam(required = false, defaultValue = "1") int page,
             @RequestParam(required = false) String genre) {
-        BookSearchPageDto result = bookCatalogService.searchGutenberg(q, languages, page, genre);
+        BookSearchPageDto result = bookCatalogService.searchGutenberg(q, languages, page, genre, author);
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePublic())
                 .body(result);
@@ -101,11 +107,12 @@ public class BookWatcherRestController {
             @RequestParam(required = false, defaultValue = "") String author,
             @RequestParam(required = false, defaultValue = "") String q,
             @RequestParam(required = false) String genre,
+            @RequestParam(required = false) String language,
             @RequestParam(required = false, defaultValue = "25") int limit,
             @RequestParam(required = false, defaultValue = "0") int offset) {
         // Convenience: q fills title when title is empty
         String t = StringUtils.hasText(title) ? title : q;
-        BookSearchPageDto page = bookCatalogService.searchLibriVox(t, author, limit, offset, genre);
+        BookSearchPageDto page = bookCatalogService.searchLibriVox(t, author, limit, offset, genre, language);
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePublic())
                 .body(page);
@@ -114,6 +121,81 @@ public class BookWatcherRestController {
     @GetMapping("/librivox/{id}")
     public ResponseEntity<?> librivoxBook(@PathVariable String id) {
         Optional<BookItemDto> item = bookCatalogService.getLibriVoxBook(id);
+        if (item.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "not_found"));
+        }
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(30)).cachePublic())
+                .body(item.get());
+    }
+
+    @GetMapping("/archive/search")
+    public ResponseEntity<BookSearchPageDto> archiveSearch(
+            @RequestParam(required = false, defaultValue = "") String q,
+            @RequestParam(required = false, defaultValue = "") String author,
+            @RequestParam(required = false, defaultValue = "20") int limit,
+            @RequestParam(required = false, defaultValue = "0") int offset,
+            @RequestParam(required = false) String language,
+            @RequestParam(required = false) String genre) {
+        BookSearchPageDto page = bookCatalogService.searchInternetArchive(q, limit, offset, language, genre, author);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePublic())
+                .body(page);
+    }
+
+    @GetMapping("/archive/{id}")
+    public ResponseEntity<?> archiveItem(@PathVariable String id) {
+        Optional<BookItemDto> item = bookCatalogService.getInternetArchiveItem(id);
+        if (item.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "not_found"));
+        }
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(30)).cachePublic())
+                .body(item.get());
+    }
+
+    @GetMapping("/google/search")
+    public ResponseEntity<BookSearchPageDto> googleBooksSearch(
+            @RequestParam(required = false, defaultValue = "") String q,
+            @RequestParam(required = false, defaultValue = "") String author,
+            @RequestParam(required = false, defaultValue = "20") int limit,
+            @RequestParam(required = false, defaultValue = "0") int offset,
+            @RequestParam(required = false) String language,
+            @RequestParam(required = false) String genre) {
+        BookSearchPageDto page = bookCatalogService.searchGoogleBooks(q, limit, offset, language, genre, author);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePublic())
+                .body(page);
+    }
+
+    @GetMapping("/google/{id}")
+    public ResponseEntity<?> googleBook(@PathVariable String id) {
+        Optional<BookItemDto> item = bookCatalogService.getGoogleBook(id);
+        if (item.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "not_found"));
+        }
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(30)).cachePublic())
+                .body(item.get());
+    }
+
+    @GetMapping("/standardebooks/search")
+    public ResponseEntity<BookSearchPageDto> standardEbooksSearch(
+            @RequestParam(required = false, defaultValue = "") String q,
+            @RequestParam(required = false, defaultValue = "") String author,
+            @RequestParam(required = false, defaultValue = "20") int limit,
+            @RequestParam(required = false, defaultValue = "0") int offset,
+            @RequestParam(required = false) String genre,
+            @RequestParam(required = false) String language) {
+        BookSearchPageDto page = bookCatalogService.searchStandardEbooks(q, limit, offset, genre, author, language);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePublic())
+                .body(page);
+    }
+
+    @GetMapping("/standardebooks/work")
+    public ResponseEntity<?> standardEbookWork(@RequestParam String key) {
+        Optional<BookItemDto> item = bookCatalogService.getStandardEbook(key);
         if (item.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "not_found"));
         }

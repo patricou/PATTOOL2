@@ -214,6 +214,8 @@ export class AppComponent implements OnInit {
         { routerLink: ['tools/tv-watcher'], icon: 'fa fa-television', labelKey: 'MENU.TV' },
         { routerLink: ['tools/radio-watcher'], icon: 'fa fa-headphones', labelKey: 'MENU.RADIO' },
         { routerLink: ['tools/book-watcher'], icon: 'fa fa-book', labelKey: 'MENU.BOOK' },
+        { routerLink: ['tools/archive-watcher'], icon: 'fa fa-archive', labelKey: 'MENU.ARCHIVE' },
+        { routerLink: ['tools/webcam'], icon: 'fa fa-video-camera', labelKey: 'MENU.WEBCAM' },
         { routerLink: ['api/news'], icon: 'fa fa-newspaper-o', labelKey: 'MENU.NEWS' }
     ];
     readonly navFinanceRaw: NavRouteMenuItem[] = [

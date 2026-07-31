@@ -573,7 +573,8 @@
             <div class="radio-now-actions" [class.radio-now-actions--share-open]="shareMenuOpen" role="toolbar">
               <button
                 type="button"
-                class="btn btn-sm btn-outline-light radio-now-action"
+                class="radio-now-action"
+                [class.is-lit]="!(isMuted || volumePercent === 0)"
                 (click)="toggleMute()"
                 [disabled]="isFloatingOpen"
                 [attr.title]="(isMuted || volumePercent === 0 ? 'RADIO.UNMUTE' : 'RADIO.MUTE') | translate">
@@ -594,7 +595,7 @@
 
               <button
                 type="button"
-                class="btn btn-sm btn-primary radio-now-action"
+                class="radio-now-action radio-now-action--accent"
                 *ngIf="!isFloatingOpen"
                 (click)="openFloatingWindow()"
                 [attr.title]="'RADIO.FLOAT_OPEN' | translate">
@@ -603,7 +604,8 @@
 
               <button
                 type="button"
-                class="btn btn-sm btn-outline-light radio-now-action"
+                class="radio-now-action"
+                [class.is-lit]="isPipActive"
                 *ngIf="pipSupported && !isFloatingOpen"
                 (click)="togglePictureInPicture()"
                 [attr.title]="(isPipActive ? 'RADIO.PIP_EXIT' : 'RADIO.PIP') | translate"
@@ -614,7 +616,8 @@
               <div class="radio-share-wrap">
                 <button
                   type="button"
-                  class="btn btn-sm btn-outline-light radio-now-action"
+                  class="radio-now-action"
+                  [class.is-lit]="shareMenuOpen"
                   (click)="toggleShareMenu($event)"
                   [attr.title]="'RADIO.SHARE' | translate">
                   <i class="fa fa-share-alt"></i>
@@ -634,7 +637,9 @@
 
               <button
                 type="button"
-                class="btn btn-sm btn-outline-light radio-now-action"
+                class="radio-now-action"
+                [class.is-lit]="isFavorite(selectedStation!)"
+                [class.radio-now-action--fav]="isFavorite(selectedStation!)"
                 (click)="toggleFavorite(selectedStation!, $event)"
                 [attr.title]="(isFavorite(selectedStation!) ? 'RADIO.UNFAVORITE' : 'RADIO.FAVORITE') | translate">
                 <i class="fa" [class.fa-star]="isFavorite(selectedStation!)" [class.fa-star-o]="!isFavorite(selectedStation!)"></i>
@@ -642,24 +647,27 @@
 
               <button
                 type="button"
-                class="btn btn-sm btn-outline-danger radio-now-action"
+                class="radio-now-action radio-now-action--stop"
                 (click)="stopPlayback()"
                 [attr.title]="'RADIO.STOP' | translate">
                 <i class="fa fa-stop"></i>
               </button>
 
               <label
-                class="radio-keep-alive form-check form-switch"
+                class="radio-keep-alive"
                 (click)="$event.stopPropagation()"
                 [attr.title]="'RADIO.KEEP_ALIVE_HINT' | translate">
                 <input
-                  class="form-check-input"
+                  class="radio-keep-alive-input"
                   type="checkbox"
                   role="switch"
                   id="radioKeepAliveSwitch"
                   [ngModel]="keepAliveOnNavigate"
                   (ngModelChange)="setKeepAliveOnNavigate($event)"
                   [attr.aria-label]="'RADIO.KEEP_ALIVE' | translate" />
+                <span class="radio-keep-alive-track" aria-hidden="true">
+                  <span class="radio-keep-alive-knob"></span>
+                </span>
                 <span class="visually-hidden">{{ 'RADIO.KEEP_ALIVE' | translate }}</span>
               </label>
             </div>

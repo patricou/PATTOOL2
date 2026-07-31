@@ -1,0 +1,246 @@
+<div class="pat-title">
+  <h2 class="wc-page-title">
+    <span class="wc-title-icon" aria-hidden="true">
+      <i class="fa fa-video-camera"></i>
+    </span>
+    {{ 'WEBCAM.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="wc-page">
+  <p class="wc-lead">{{ 'WEBCAM.SUBTITLE' | translate }}</p>
+
+  <div class="wc-api-warn" *ngIf="!configured" role="alert">
+    <i class="fa fa-key me-1" aria-hidden="true"></i>
+    {{ 'WEBCAM.ERROR_API_KEY' | translate }}
+    <a href="https://api.windy.com/keys" target="_blank" rel="noopener">api.windy.com/keys</a>
+  </div>
+
+  <div class="wc-layout">
+    <aside class="wc-sidebar">
+      <div class="wc-filters">
+        <div class="wc-nearby-row">
+          <button
+            type="button"
+            class="btn btn-sm wc-nearby-btn"
+            [class.active]="useNearby"
+            (click)="requestNearby()">
+            <i class="fa fa-crosshairs me-1" aria-hidden="true"></i>
+            {{ 'WEBCAM.NEARBY' | translate }}
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm wc-clear-btn"
+            *ngIf="useNearby"
+            (click)="clearNearby()"
+            [attr.title]="'WEBCAM.CLEAR_NEARBY' | translate">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+        <p class="wc-geo-error small text-danger mb-0" *ngIf="geoError">
+          {{ geoError | translate }}
+        </p>
+        <div class="mt-2" *ngIf="useNearby">
+          <label class="form-label small mb-1" for="wc-radius">
+            {{ 'WEBCAM.RADIUS' | translate }} ({{ nearbyRadiusKm }} km)
+          </label>
+          <input
+            id="wc-radius"
+            type="range"
+            class="form-range"
+            min="25"
+            max="300"
+            step="25"
+            [(ngModel)]="nearbyRadiusKm"
+            (change)="onFilterChange()" />
+        </div>
+
+        <ng-container *ngIf="!useNearby">
+          <div class="mt-2">
+            <label class="form-label small mb-1" for="wc-continent">
+              {{ 'WEBCAM.CONTINENT' | translate }}
+            </label>
+            <select
+              id="wc-continent"
+              class="form-select form-select-sm"
+              [(ngModel)]="continent"
+              (ngModelChange)="onContinentChange()">
+              <option value="">{{ 'WEBCAM.ALL_CONTINENTS' | translate }}</option>
+              <option *ngFor="let c of continents" [value]="c.code">{{ c.label }}</option>
+            </select>
+          </div>
+
+          <div class="mt-2">
+            <label class="form-label small mb-1" for="wc-country">
+              {{ 'WEBCAM.COUNTRY' | translate }}
+            </label>
+            <select
+              id="wc-country"
+              class="form-select form-select-sm"
+              [(ngModel)]="country"
+              (ngModelChange)="onFilterChange()">
+              <option value="">{{ 'WEBCAM.ALL_COUNTRIES' | translate }}</option>
+              <option *ngFor="let c of countries" [value]="c.code">{{ c.label }}</option>
+            </select>
+          </div>
+        </ng-container>
+
+        <div class="mt-2">
+          <label class="form-label small mb-1" for="wc-category">
+            {{ 'WEBCAM.CATEGORY' | translate }}
+          </label>
+          <select
+            id="wc-category"
+            class="form-select form-select-sm"
+            [(ngModel)]="category"
+            (ngModelChange)="onFilterChange()">
+            <option value="">{{ 'WEBCAM.ALL_CATEGORIES' | translate }}</option>
+            <option *ngFor="let c of categories" [value]="c.code">{{ c.label }}</option>
+          </select>
+        </div>
+
+        <div class="mt-2">
+          <label class="form-label small mb-1" for="wc-sort">{{ 'WEBCAM.SORT' | translate }}</label>
+          <select
+            id="wc-sort"
+            class="form-select form-select-sm"
+            [(ngModel)]="sortKey"
+            (ngModelChange)="onFilterChange()">
+            <option value="popularity">{{ 'WEBCAM.SORT_POPULARITY' | translate }}</option>
+            <option value="createdOn">{{ 'WEBCAM.SORT_RECENT' | translate }}</option>
+          </select>
+        </div>
+
+        <button type="button" class="btn btn-sm wc-reset-btn mt-2" (click)="clearFilters()">
+          <i class="fa fa-undo me-1" aria-hidden="true"></i>
+          {{ 'WEBCAM.RESET' | translate }}
+        </button>
+      </div>
+
+      <div class="wc-list-meta small">
+        <span *ngIf="isLoading">{{ 'WEBCAM.LOADING' | translate }}</span>
+        <span *ngIf="!isLoading && !listError">
+          {{ 'WEBCAM.RESULT_COUNT' | translate: { count: total } }}
+        </span>
+        <span class="text-danger" *ngIf="listError">{{ listError | translate }}</span>
+      </div>
+
+      <div class="wc-list" role="listbox" [attr.aria-busy]="isLoading">
+        <button
+          type="button"
+          class="wc-list-item"
+          role="option"
+          *ngFor="let cam of items"
+          [class.active]="selectedId === cam.id"
+          [attr.aria-selected]="selectedId === cam.id"
+          (click)="selectWebcam(cam)">
+          <img
+            *ngIf="cam.imageUrl"
+            class="wc-thumb"
+            [src]="cam.imageUrl"
+            [alt]="cam.title"
+            loading="lazy" />
+          <span class="wc-thumb wc-thumb-placeholder" *ngIf="!cam.imageUrl" aria-hidden="true">
+            <i class="fa fa-video-camera"></i>
+          </span>
+          <span class="wc-list-meta-col">
+            <span class="wc-list-title">{{ cam.title }}</span>
+            <span class="wc-list-sub">
+              {{ cam.city }}<span *ngIf="cam.city && cam.country"> · </span>{{ cam.country }}
+            </span>
+          </span>
+        </button>
+        <p class="wc-empty small" *ngIf="!isLoading && items.length === 0 && !listError">
+          {{ 'WEBCAM.NO_RESULTS' | translate }}
+        </p>
+      </div>
+
+      <div class="wc-pager" *ngIf="total > pageSize">
+        <button type="button" class="btn btn-sm" [disabled]="!canPrev" (click)="prevPage()">
+          <i class="fa fa-chevron-left"></i>
+        </button>
+        <span class="small">{{ 'WEBCAM.PAGE' | translate: { page: page, pages: pages } }}</span>
+        <button type="button" class="btn btn-sm" [disabled]="!canNext" (click)="nextPage()">
+          <i class="fa fa-chevron-right"></i>
+        </button>
+      </div>
+    </aside>
+
+    <section class="wc-stage">
+      <ng-container *ngIf="selected; else pickHint">
+        <div class="wc-stage-header">
+          <div>
+            <h3 class="wc-stage-title">{{ selected.title }}</h3>
+            <p class="wc-stage-loc small mb-0">{{ locationLabel }}</p>
+          </div>
+          <div class="wc-stage-actions">
+            <button
+              type="button"
+              class="btn btn-sm wc-mode-btn"
+              *ngIf="selected.playerDayUrl"
+              [class.active]="playerMode === 'day'"
+              (click)="setPlayerMode('day')">
+              {{ 'WEBCAM.PLAYER_DAY' | translate }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm wc-mode-btn"
+              *ngIf="selected.playerLiveUrl"
+              [class.active]="playerMode === 'live'"
+              (click)="setPlayerMode('live')">
+              {{ 'WEBCAM.PLAYER_LIVE' | translate }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm wc-mode-btn"
+              *ngIf="selected.playerMonthUrl"
+              [class.active]="playerMode === 'month'"
+              (click)="setPlayerMode('month')">
+              {{ 'WEBCAM.PLAYER_MONTH' | translate }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm wc-mode-btn"
+              [class.active]="playerMode === 'image'"
+              (click)="setPlayerMode('image')">
+              {{ 'WEBCAM.PLAYER_IMAGE' | translate }}
+            </button>
+            <button type="button" class="btn btn-sm wc-open-btn" (click)="openOnWindy()">
+              <i class="fa fa-external-link me-1" aria-hidden="true"></i>
+              {{ 'WEBCAM.OPEN_WINDY' | translate }}
+            </button>
+          </div>
+        </div>
+
+        <div class="wc-player-wrap" [attr.aria-busy]="isLoadingDetail">
+          <iframe
+            *ngIf="playerMode !== 'image' && playerUrl"
+            class="wc-player"
+            [src]="playerUrl"
+            [attr.title]="selected.title"
+            allowfullscreen
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade"
+            [attr.data-gen]="iframeGen"></iframe>
+          <img
+            *ngIf="playerMode === 'image'"
+            class="wc-still"
+            [src]="selected.imagePreviewUrl || selected.imageUrl"
+            [alt]="selected.title" />
+        </div>
+
+        <p class="wc-attribution small mb-0">
+          {{ 'WEBCAM.PROVIDED_BY' | translate }}
+          <a href="https://www.windy.com/webcams" target="_blank" rel="noopener">Windy.com</a>
+        </p>
+      </ng-container>
+
+      <ng-template #pickHint>
+        <div class="wc-pick">
+          <i class="fa fa-video-camera" aria-hidden="true"></i>
+          <p>{{ 'WEBCAM.PICK' | translate }}</p>
+        </div>
+      </ng-template>
+    </section>
+  </div>
+</div>

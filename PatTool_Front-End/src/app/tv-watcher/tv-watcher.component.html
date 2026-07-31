@@ -685,7 +685,8 @@
                 [attr.aria-label]="'TV.TITLE' | translate">
                 <button
                   type="button"
-                  class="btn btn-sm btn-outline-light tv-now-action"
+                  class="tv-now-action"
+                  [class.is-lit]="!(isMuted || volumePercent === 0)"
                   (click)="toggleMute()"
                   [disabled]="isFloatingOpen"
                   [attr.title]="(isMuted ? 'TV.UNMUTE' : 'TV.MUTE') | translate"
@@ -710,7 +711,7 @@
                 </label>
                 <button
                   type="button"
-                  class="btn btn-sm btn-outline-light tv-now-action"
+                  class="tv-now-action"
                   *ngIf="!isFloatingOpen && selectedChannel && !playError"
                   (click)="resyncAudioVideo($event)"
                   [attr.title]="'TV.RESYNC_AV' | translate"
@@ -719,7 +720,7 @@
                 </button>
                 <button
                   type="button"
-                  class="btn btn-sm btn-outline-light tv-now-action"
+                  class="tv-now-action"
                   *ngIf="!isFloatingOpen && selectedChannel && !playError"
                   (click)="restartStream($event)"
                   [attr.title]="'TV.RESTART_STREAM' | translate"
@@ -733,7 +734,7 @@
                   [attr.title]="'TV.RECORD_DURATION' | translate">
                   <span class="visually-hidden">{{ 'TV.RECORD_DURATION' | translate }}</span>
                   <select
-                    class="form-select form-select-sm tv-record-duration-select"
+                    class="tv-record-duration-select"
                     [(ngModel)]="recordDurationSec"
                     [attr.aria-label]="'TV.RECORD_DURATION' | translate">
                     <option *ngFor="let opt of recordDurationOptions" [ngValue]="opt.sec">
@@ -743,7 +744,7 @@
                 </label>
                 <button
                   type="button"
-                  class="btn btn-sm btn-outline-danger tv-now-action tv-now-record"
+                  class="tv-now-action tv-now-action--record tv-now-record"
                   *ngIf="!isFloatingOpen && selectedChannel && !playingRecording && !activeRecording"
                   [class.tv-now-record--unavailable]="!recordingAvailable"
                   [disabled]="recordingBusy"
@@ -754,7 +755,7 @@
                 </button>
                 <button
                   type="button"
-                  class="btn btn-sm btn-danger tv-now-action tv-now-record tv-now-record--active"
+                  class="tv-now-action tv-now-action--stop tv-now-record tv-now-record--active"
                   *ngIf="!isFloatingOpen && activeRecording"
                   [disabled]="recordingBusy"
                   (click)="stopActiveRecording($event)"
@@ -767,7 +768,8 @@
                 </span>
                 <button
                   type="button"
-                  class="btn btn-sm btn-outline-light tv-now-action"
+                  class="tv-now-action"
+                  [class.is-lit]="isPipActive"
                   *ngIf="pipSupported && !isFloatingOpen"
                   (click)="togglePictureInPicture()"
                   [attr.title]="(isPipActive ? 'TV.PIP_EXIT' : 'TV.PIP') | translate"
@@ -777,7 +779,8 @@
                 <div class="tv-share-wrap" (click)="$event.stopPropagation()">
                   <button
                     type="button"
-                    class="btn btn-sm btn-outline-light tv-now-action"
+                    class="tv-now-action"
+                    [class.is-lit]="shareMenuOpen"
                     (click)="toggleShareMenu($event)"
                     [attr.title]="'TV.SHARE' | translate"
                     [attr.aria-label]="'TV.SHARE' | translate"
@@ -817,7 +820,7 @@
                 </div>
                 <button
                   type="button"
-                  class="btn btn-sm btn-outline-warning tv-now-action"
+                  class="tv-now-action tv-now-action--warn"
                   *ngIf="isFloatingOpen"
                   (click)="closeFloatingWindow()"
                   [attr.title]="'TV.FLOAT_CLOSE' | translate"
@@ -826,9 +829,9 @@
                 </button>
                 <button
                   type="button"
-                  class="btn btn-sm tv-now-action tv-now-fav"
-                  [class.btn-warning]="isFavorite(selectedChannel)"
-                  [class.btn-outline-light]="!isFavorite(selectedChannel)"
+                  class="tv-now-action tv-now-fav"
+                  [class.is-lit]="isFavorite(selectedChannel)"
+                  [class.tv-now-action--fav]="isFavorite(selectedChannel)"
                   [disabled]="favoriteBusyId === selectedChannel.id"
                   (click)="toggleFavorite(selectedChannel, $event)"
                   [attr.title]="(isFavorite(selectedChannel) ? 'TV.UNFAVORITE' : 'TV.FAVORITE') | translate"
@@ -836,17 +839,20 @@
                   <i class="fa" [class.fa-star]="isFavorite(selectedChannel)" [class.fa-star-o]="!isFavorite(selectedChannel)" aria-hidden="true"></i>
                 </button>
                 <label
-                  class="tv-keep-alive form-check form-switch"
+                  class="tv-keep-alive"
                   (click)="$event.stopPropagation()"
                   [attr.title]="'TV.KEEP_ALIVE_HINT' | translate">
                   <input
-                    class="form-check-input"
+                    class="tv-keep-alive-input"
                     type="checkbox"
                     role="switch"
                     id="tvKeepAliveSwitch"
                     [ngModel]="keepAliveOnNavigate"
                     (ngModelChange)="setKeepAliveOnNavigate($event)"
                     [attr.aria-label]="'TV.KEEP_ALIVE' | translate" />
+                  <span class="tv-keep-alive-track" aria-hidden="true">
+                    <span class="tv-keep-alive-knob"></span>
+                  </span>
                   <span class="visually-hidden">{{ 'TV.KEEP_ALIVE' | translate }}</span>
                 </label>
               </div>

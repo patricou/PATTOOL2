@@ -2,6 +2,7 @@ package com.pat.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,13 +19,17 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -32,10 +37,9 @@ import java.util.regex.Pattern;
 /**
  * Resolves TF1 Group live HLS streams.
  * <p>
- * Primary path: official {@code mediainfo.tf1.fr} (same as streamlink) — TF1 / TMC / TFX need a
- * free TF1 account ({@code app.tv.tf1.email} + {@code app.tv.tf1.password}); LCI often works without.
- * Fallback: public IPTV mirrors (seed URLs + iptv-org FR playlist) when the official API fails
- * (bad credentials, geo, temporary 403).
+ * Authenticated channels (TF1 / TMC / TFX) and LCI: public IPTV seeds first for speed.
+ * Official {@code mediainfo.tf1.fr} is a fallback (TF1/TMC/TFX need credentials; WAF often
+ * blocks {@code www.tf1.fr/token/gigya/web}).
  * <p>
  * Virtual catalog URLs: {@code tf1:tf1}, {@code tf1:tmc}, {@code tf1:tfx}, {@code tf1:lci}.
  */
@@ -64,6 +68,12 @@ public class Tf1LiveService {
 
     private static final Pattern TVG_ID = Pattern.compile("tvg-id=\"([^\"]+)\"", Pattern.CASE_INSENSITIVE);
 
+    /** Sticky window for IPTV mirrors (no CDN token expiry). */
+    private static final Duration MIRROR_CACHE_TTL = Duration.ofMinutes(25);
+    /** Official TF1 CDN JWTs are short-lived. */
+    private static final Duration OFFICIAL_CACHE_TTL = Duration.ofMinutes(5);
+    private static final Duration CACHE_TTL_SHORT = Duration.ofMinutes(3);
+
     private static final Map<String, ChannelDef> CHANNELS = new LinkedHashMap<>();
 
     static {
@@ -71,7 +81,12 @@ public class Tf1LiveService {
                 "L_TF1", "TF1", true,
                 "https://i.imgur.com/QxHt9NC.png", "Entertainment",
                 "tf1.fr",
-                List.of("http://151.80.18.177:86/TF1_HD/index.m3u8")));
+                List.of(
+                        // Prefer lower-bitrate / faster hosts when available; HD on 151.80 is
+                        // ~5–7 Mb/s video on a ~1.5 Mb/s path → 15–25 s to first segment.
+                        "https://futbol9865.ultratv13.workers.dev/deportivo111/24.m3u8",
+                        "http://151.80.18.177:86/TF1_HD/index.m3u8"
+                )));
         CHANNELS.put("tmc", new ChannelDef(
                 "L_TMC", "TMC", true,
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/TMC_logo_2016.svg/512px-TMC_logo_2016.svg.png",
@@ -88,16 +103,27 @@ public class Tf1LiveService {
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/LCI_-_Logo_%28France%29.svg/512px-LCI_-_Logo_%28France%29.svg.png",
                 "News",
                 "lci.fr",
-                List.of("http://151.80.18.177:86/LCI_HD/index.m3u8")));
+                List.of(
+                        "http://145.239.5.177/368/index.m3u8",
+                        "http://151.80.18.177:86/LCI_HD/index.m3u8"
+                )));
     }
 
     private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(12))
+            .connectTimeout(Duration.ofSeconds(4))
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build();
 
+    private final ExecutorService probeExecutor = Executors.newFixedThreadPool(4, r -> {
+        Thread t = new Thread(r, "tf1-hls-probe");
+        t.setDaemon(true);
+        return t;
+    });
+
     private final ObjectMapper objectMapper;
     private final ConcurrentHashMap<String, CachedUrl> streamCache = new ConcurrentHashMap<>();
+    /** Temporary blacklist of dead mirror / CDN URLs (flaky IPTV or expired JWT). */
+    private final ConcurrentHashMap<String, Instant> failedUntil = new ConcurrentHashMap<>();
     private final AtomicReference<CachedToken> userToken = new AtomicReference<>();
     private final String playlistBaseUrl;
     private volatile CachedPlaylist playlistCache;
@@ -113,6 +139,20 @@ public class Tf1LiveService {
             @Value("${app.tv.playlist-base-url:https://iptv-org.github.io/iptv/countries}") String playlistBaseUrl) {
         this.objectMapper = objectMapper;
         this.playlistBaseUrl = playlistBaseUrl;
+    }
+
+    /** Prefetch mirror URLs so the first click is not a cold probe. */
+    @PostConstruct
+    void warmMirrorCache() {
+        probeExecutor.execute(() -> {
+            for (String slug : CHANNELS.keySet()) {
+                try {
+                    resolveHlsUrl(slug, false);
+                } catch (Exception e) {
+                    log.debug("TF1 warm {} skipped: {}", slug, e.toString());
+                }
+            }
+        });
     }
 
     public static boolean isVirtualUrl(String url) {
@@ -151,7 +191,7 @@ public class Tf1LiveService {
     }
 
     /**
-     * @param forceRefresh when true, drop the cached mirror/official URL and prefer another candidate.
+     * @param forceRefresh when true, re-validate the sticky URL; only switch if it is dead.
      */
     public Optional<String> resolveHlsUrl(String slug, boolean forceRefresh) {
         Optional<ChannelDef> defOpt = findChannel(slug);
@@ -163,76 +203,81 @@ public class Tf1LiveService {
         Instant now = Instant.now();
         String avoidUrl = null;
         CachedUrl cached = streamCache.get(key);
-        if (forceRefresh) {
-            if (cached != null) {
-                avoidUrl = cached.url;
-            }
-            streamCache.remove(key);
-            cached = null;
-        } else if (cached != null && cached.expiresAt.isAfter(now)) {
+
+        // Sticky path: keep the same working URL to avoid mid-playback cuts / resolve thrash.
+        if (cached != null && !isTemporarilyFailed(cached.url)) {
+            boolean cacheFresh = cached.expiresAt.isAfter(now);
             boolean official = isTf1CdnUrl(cached.url);
+            if (cacheFresh && !forceRefresh) {
+                // Trust cache — re-probing every playlist hit causes stalls on flaky mirrors.
+                return Optional.of(cached.url);
+            }
+            // forceRefresh or expired: re-probe sticky first; keep it if still alive.
             if (probeClearHls(cached.url, official)) {
+                Duration ttl = official ? OFFICIAL_CACHE_TTL : MIRROR_CACHE_TTL;
+                streamCache.put(key, new CachedUrl(cached.url, now.plus(ttl)));
                 return Optional.of(cached.url);
             }
             avoidUrl = cached.url;
+            markFailed(cached.url, Duration.ofMinutes(2));
             streamCache.remove(key);
-            log.info("TF1 live {} dropped stale cached URL ({})", key, official ? "official" : "mirror");
+            log.info("TF1 live {} dropped dead sticky URL ({})", key, official ? "official" : "mirror");
+            cached = null;
+        } else if (cached != null) {
+            avoidUrl = cached.url;
+            streamCache.remove(key);
             cached = null;
         }
 
-        // Official TF1+ token exchange (www.tf1.fr/token/gigya/web) is often blocked by bot
-        // protection ("Malicious request"). Prefer public IPTV mirrors for authenticated
-        // channels, then fall back to official when mirrors are down.
-        if (def.requiresAuth()) {
-            Optional<String> mirror = resolveFromMirrors(def, key, now, avoidUrl);
-            if (mirror.isPresent()) {
-                return mirror;
-            }
-            Optional<String> official = resolveOfficial(def, key);
-            if (official.isPresent() && !sameUrl(official.get(), avoidUrl) && probeClearHls(official.get(), true)) {
-                streamCache.put(key, new CachedUrl(official.get(), now.plus(Duration.ofMinutes(5))));
-                log.info("TF1 live {} resolved via official mediainfo", key);
-                return official;
-            }
-            if (official.isPresent()) {
-                log.warn("TF1 live {} official URL rejected by CDN probe", key);
-            }
-        } else {
-            Optional<String> official = resolveOfficial(def, key);
-            if (official.isPresent() && !sameUrl(official.get(), avoidUrl) && probeClearHls(official.get(), true)) {
-                streamCache.put(key, new CachedUrl(official.get(), now.plus(Duration.ofMinutes(5))));
-                log.info("TF1 live {} resolved via official mediainfo", key);
-                return official;
-            }
-            Optional<String> mirror = resolveFromMirrors(def, key, now, avoidUrl);
-            if (mirror.isPresent()) {
-                return mirror;
-            }
+        // Prefer IPTV seeds (fast). Official mediainfo / Gigya is a slow fallback
+        // (WAF often blocks the token exchange anyway).
+        Optional<String> mirror = resolveFromMirrors(def, key, now, avoidUrl);
+        if (mirror.isPresent()) {
+            return mirror;
+        }
+        Optional<String> official = resolveOfficial(def, key);
+        if (official.isPresent() && !sameUrl(official.get(), avoidUrl)
+                && !isTemporarilyFailed(official.get())
+                && probeClearHls(official.get(), true)) {
+            clearFailed(official.get());
+            streamCache.put(key, new CachedUrl(official.get(), now.plus(OFFICIAL_CACHE_TTL)));
+            log.info("TF1 live {} resolved via official mediainfo", key);
+            return official;
+        }
+        if (official.isPresent()) {
+            markFailed(official.get(), Duration.ofMinutes(1));
+            log.warn("TF1 live {} official URL rejected by CDN probe", key);
         }
 
-        if (cached != null) {
-            return Optional.of(cached.url);
-        }
         // Last resort: previously avoided URL if it still probes (better than nothing).
         if (StringUtils.hasText(avoidUrl) && probeClearHls(avoidUrl, isTf1CdnUrl(avoidUrl))) {
-            streamCache.put(key, new CachedUrl(avoidUrl, now.plus(Duration.ofMinutes(3))));
+            clearFailed(avoidUrl);
+            streamCache.put(key, new CachedUrl(avoidUrl, now.plus(CACHE_TTL_SHORT)));
             return Optional.of(avoidUrl);
         }
         log.warn("TF1 live: no official URL and no working IPTV mirror for {}", key);
         return Optional.empty();
     }
 
-    /** Drop a cached stream URL so the next resolve re-probes mirrors. */
+    /**
+     * Drop a cached stream URL so the next resolve re-probes mirrors.
+     * Short-blacklists the previous URL when the proxy already saw an upstream failure.
+     */
     public void invalidate(String slug) {
         if (slug == null) {
             return;
         }
-        streamCache.remove(slug.trim().toLowerCase(Locale.ROOT));
+        String key = slug.trim().toLowerCase(Locale.ROOT);
+        CachedUrl cached = streamCache.remove(key);
+        if (cached != null) {
+            markFailed(cached.url, Duration.ofMinutes(1));
+        }
     }
 
     public int invalidateAll() {
         int n = streamCache.size() + (playlistCache != null ? 1 : 0);
         streamCache.clear();
+        failedUntil.clear();
         playlistCache = null;
         return n;
     }
@@ -242,16 +287,94 @@ public class Tf1LiveService {
     }
 
     private Optional<String> resolveFromMirrors(ChannelDef def, String key, Instant now, String avoidUrl) {
-        for (String candidate : buildMirrorCandidates(def)) {
-            if (sameUrl(candidate, avoidUrl)) {
+        // Fast path: known seeds only — never block on iptv-org download first.
+        Optional<String> seedHit = probeFirstWorking(def.seedUrls(), avoidUrl);
+        if (seedHit.isPresent()) {
+            clearFailed(seedHit.get());
+            streamCache.put(key, new CachedUrl(seedHit.get(), now.plus(MIRROR_CACHE_TTL)));
+            log.info("TF1 live {} resolved via IPTV seed {}", key, seedHit.get());
+            return seedHit;
+        }
+        // Slow path: discover extra candidates from iptv-org (often empty for TF1).
+        List<String> discovered = discoverFromIptvOrg(def.tvgIdPrefix());
+        Optional<String> picked = probeFirstWorking(discovered, avoidUrl);
+        if (picked.isPresent()) {
+            clearFailed(picked.get());
+            streamCache.put(key, new CachedUrl(picked.get(), now.plus(MIRROR_CACHE_TTL)));
+            log.info("TF1 live {} resolved via IPTV mirror {}", key, picked.get());
+            return picked;
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Race candidates and return as soon as the first clear master playlist succeeds
+     * (prefer lower index = seed order). Caps wait at ~5s.
+     */
+    private Optional<String> probeFirstWorking(List<String> candidates, String avoidUrl) {
+        List<String> toProbe = new ArrayList<>();
+        for (String candidate : candidates) {
+            if (!StringUtils.hasText(candidate) || sameUrl(candidate, avoidUrl) || isTemporarilyFailed(candidate)) {
                 continue;
             }
-            if (probeClearHls(candidate, false)) {
-                streamCache.put(key, new CachedUrl(candidate, now.plus(Duration.ofMinutes(5))));
-                log.info("TF1 live {} resolved via IPTV mirror {}", key, candidate);
-                return Optional.of(candidate);
+            toProbe.add(candidate.trim());
+        }
+        if (toProbe.isEmpty()) {
+            for (String candidate : candidates) {
+                if (StringUtils.hasText(candidate) && !sameUrl(candidate, avoidUrl)) {
+                    toProbe.add(candidate.trim());
+                }
             }
         }
+        if (toProbe.isEmpty()) {
+            return Optional.empty();
+        }
+
+        // Common case: one seed — probe inline (no thread-pool hop).
+        if (toProbe.size() == 1) {
+            String url = toProbe.get(0);
+            if (probeClearHls(url, isTf1CdnUrl(url))) {
+                return Optional.of(url);
+            }
+            markFailed(url, Duration.ofSeconds(90));
+            return Optional.empty();
+        }
+
+        AtomicReference<String> winner = new AtomicReference<>();
+        AtomicInteger remaining = new AtomicInteger(toProbe.size());
+        CountDownLatch done = new CountDownLatch(1);
+        List<CompletableFuture<Void>> futures = new ArrayList<>(toProbe.size());
+
+        for (String url : toProbe) {
+            futures.add(CompletableFuture.runAsync(() -> {
+                try {
+                    if (winner.get() != null) {
+                        return;
+                    }
+                    if (probeClearHls(url, isTf1CdnUrl(url)) && winner.compareAndSet(null, url)) {
+                        done.countDown();
+                    }
+                } finally {
+                    if (remaining.decrementAndGet() == 0) {
+                        done.countDown();
+                    }
+                }
+            }, probeExecutor));
+        }
+
+        try {
+            done.await(5, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        // Cancel stragglers — result already decided.
+        futures.forEach(f -> f.cancel(true));
+
+        String url = winner.get();
+        if (url != null) {
+            return Optional.of(url);
+        }
+        toProbe.forEach(u -> markFailed(u, Duration.ofSeconds(90)));
         return Optional.empty();
     }
 
@@ -260,6 +383,34 @@ public class Tf1LiveService {
             return false;
         }
         return a.trim().equalsIgnoreCase(b.trim());
+    }
+
+    private void markFailed(String url, Duration ttl) {
+        if (!StringUtils.hasText(url)) {
+            return;
+        }
+        failedUntil.put(url.trim(), Instant.now().plus(ttl));
+    }
+
+    private void clearFailed(String url) {
+        if (StringUtils.hasText(url)) {
+            failedUntil.remove(url.trim());
+        }
+    }
+
+    private boolean isTemporarilyFailed(String url) {
+        if (!StringUtils.hasText(url)) {
+            return false;
+        }
+        Instant until = failedUntil.get(url.trim());
+        if (until == null) {
+            return false;
+        }
+        if (until.isBefore(Instant.now())) {
+            failedUntil.remove(url.trim());
+            return false;
+        }
+        return true;
     }
 
     public Optional<String> resolveVirtualOrPassthrough(String url) {
@@ -412,19 +563,6 @@ public class Tf1LiveService {
         return text(delivery, "url");
     }
 
-    private List<String> buildMirrorCandidates(ChannelDef def) {
-        Set<String> ordered = new LinkedHashSet<>();
-        for (String seed : def.seedUrls()) {
-            if (StringUtils.hasText(seed)) {
-                ordered.add(seed.trim());
-            }
-        }
-        for (String discovered : discoverFromIptvOrg(def.tvgIdPrefix())) {
-            ordered.add(discovered);
-        }
-        return new ArrayList<>(ordered);
-    }
-
     private List<String> discoverFromIptvOrg(String tvgPrefix) {
         String playlist = loadFrancePlaylist();
         if (!StringUtils.hasText(playlist)) {
@@ -467,7 +605,7 @@ public class Tf1LiveService {
         String url = playlistBaseUrl.replaceAll("/+$", "") + "/fr.m3u";
         try {
             HttpRequest request = HttpRequest.newBuilder(URI.create(url))
-                    .timeout(Duration.ofSeconds(20))
+                    .timeout(Duration.ofSeconds(12))
                     .header("User-Agent", DESKTOP_UA)
                     .header("Accept", "application/vnd.apple.mpegurl, text/plain, */*")
                     .GET()
@@ -485,44 +623,57 @@ public class Tf1LiveService {
         }
     }
 
-    private boolean probeClearHls(String url) {
-        return probeClearHls(url, isTf1CdnUrl(url));
-    }
-
     private boolean probeClearHls(String url, boolean officialTf1) {
         try {
-            HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(url))
-                    .timeout(Duration.ofSeconds(10))
-                    .header("User-Agent", officialTf1 ? IPHONE_UA : DESKTOP_UA)
-                    .header("Accept", "*/*")
-                    .GET();
-            if (officialTf1) {
-                b.header("Origin", "https://www.tf1.fr");
-                b.header("Referer", "https://www.tf1.fr/");
-            }
-            HttpResponse<String> response = httpClient.send(b.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                log.debug("TF1 HLS probe HTTP {} for {}", response.statusCode(), hostOf(url));
-                return false;
-            }
-            String body = response.body() != null ? response.body().trim() : "";
-            if (body.length() < 8 || !body.contains("#EXTM3U")) {
-                return false;
-            }
-            String upper = body.toUpperCase(Locale.ROOT);
-            if (upper.contains("SAMPLE-AES") || upper.contains("FAIRPLAY")
-                    || upper.contains("COM.APPLE.STREAMINGKEYDELIVERY")
-                    || upper.contains("SKD://")
-                    || upper.contains("WIDEVINE")
-                    || upper.contains("COM.WIDEVINE")) {
-                log.debug("TF1 HLS probe rejected DRM playlist for {}", hostOf(url));
-                return false;
-            }
-            return true;
+            // Master-only probe — media playlist fetch doubled cold-start latency for little gain;
+            // the HLS proxy will surface dead variants immediately and trigger invalidate+retry.
+            String master = fetchText(url, officialTf1);
+            return isClearMasterPlaylist(master);
         } catch (Exception e) {
             log.debug("TF1 HLS probe failed for {}: {}", hostOf(url), e.toString());
             return false;
         }
+    }
+
+    private String fetchText(String url, boolean officialTf1) throws Exception {
+        HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(url))
+                .timeout(Duration.ofSeconds(4))
+                .header("User-Agent", officialTf1 ? IPHONE_UA : DESKTOP_UA)
+                .header("Accept", "*/*")
+                .GET();
+        if (officialTf1) {
+            b.header("Origin", "https://www.tf1.fr");
+            b.header("Referer", "https://www.tf1.fr/");
+        }
+        HttpResponse<String> response = httpClient.send(b.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            log.debug("TF1 HLS probe HTTP {} for {}", response.statusCode(), hostOf(url));
+            return null;
+        }
+        return response.body();
+    }
+
+    private static boolean isClearMasterPlaylist(String body) {
+        if (!StringUtils.hasText(body)) {
+            return false;
+        }
+        String trimmed = body.trim();
+        if (trimmed.length() < 8 || !trimmed.contains("#EXTM3U")) {
+            return false;
+        }
+        String upper = trimmed.toUpperCase(Locale.ROOT);
+        if (upper.contains("ACCESS DENIED") || upper.contains("PROTOCOL DISABLED")
+                || upper.contains("WRONG_COUNTRY") || upper.contains("X-DENY")) {
+            return false;
+        }
+        if (upper.contains("SAMPLE-AES") || upper.contains("FAIRPLAY")
+                || upper.contains("COM.APPLE.STREAMINGKEYDELIVERY")
+                || upper.contains("SKD://")
+                || upper.contains("WIDEVINE")
+                || upper.contains("COM.WIDEVINE")) {
+            return false;
+        }
+        return true;
     }
 
     private static boolean isTf1CdnUrl(String url) {

@@ -208,6 +208,16 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./book-watcher/book-watcher.component').then(m => m.BookWatcherComponent)
 			},
 			{
+				path: 'tools/archive-watcher',
+				loadComponent: () =>
+					import('./archive-watcher/archive-watcher.component').then(m => m.ArchiveWatcherComponent)
+			},
+			{
+				path: 'tools/webcam',
+				loadComponent: () =>
+					import('./webcam-watcher/webcam-watcher.component').then(m => m.WebcamWatcherComponent)
+			},
+			{
 				path: 'tools/tv-popout',
 				loadComponent: () => import('./tv-watcher/tv-popout.component').then(m => m.TvPopoutComponent)
 			},

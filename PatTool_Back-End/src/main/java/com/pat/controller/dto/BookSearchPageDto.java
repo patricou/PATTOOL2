@@ -14,6 +14,8 @@ public class BookSearchPageDto {
     private int limit;
     private int offset;
     private List<BookItemDto> books = new ArrayList<>();
+    /** True when upstream refused the call (e.g. Google Books HTTP 429). */
+    private boolean rateLimited;
 
     public BookSearchPageDto() {
     }
@@ -74,5 +76,13 @@ public class BookSearchPageDto {
 
     public void setBooks(List<BookItemDto> books) {
         this.books = books != null ? books : new ArrayList<>();
+    }
+
+    public boolean isRateLimited() {
+        return rateLimited;
+    }
+
+    public void setRateLimited(boolean rateLimited) {
+        this.rateLimited = rateLimited;
     }
 }
