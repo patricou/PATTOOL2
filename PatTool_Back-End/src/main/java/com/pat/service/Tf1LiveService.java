@@ -100,11 +100,10 @@ public class Tf1LiveService {
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/LCI_-_Logo_%28France%29.svg/512px-LCI_-_Logo_%28France%29.svg.png",
                 "News",
                 "lci.fr",
-                // 151.80 LCI_HD often advertises video-only CODECS (no mp4a) → silent playback.
-                // Prefer the fast host variant that includes AAC audio.
+                // Prefer official LCI (no auth). Keep one labeled IPTV seed with AAC as fallback.
+                // Do not seed video-only LCI_HD (151.80) — probe rejects it and it wastes time.
                 List.of(
-                        "http://145.239.5.177/368/index.m3u8",
-                        "http://151.80.18.177:86/LCI_HD/index.m3u8"
+                        "http://145.239.5.177/368/index.m3u8"
                 )));
     }
 
@@ -228,24 +227,40 @@ public class Tf1LiveService {
             cached = null;
         }
 
-        // Prefer IPTV seeds (fast). Official mediainfo / Gigya is a slow fallback
-        // (WAF often blocks the token exchange anyway).
-        Optional<String> mirror = resolveFromMirrors(def, key, now, avoidUrl);
-        if (mirror.isPresent()) {
-            return mirror;
-        }
-        Optional<String> official = resolveOfficial(def, key);
-        if (official.isPresent() && !sameUrl(official.get(), avoidUrl)
-                && !isTemporarilyFailed(official.get())
-                && probeClearHls(official.get(), true)) {
-            clearFailed(official.get());
-            streamCache.put(key, new CachedUrl(official.get(), now.plus(OFFICIAL_CACHE_TTL)));
-            log.info("TF1 live {} resolved via official mediainfo", key);
-            return official;
-        }
-        if (official.isPresent()) {
-            markFailed(official.get(), Duration.ofMinutes(1));
-            log.warn("TF1 live {} official URL rejected by CDN probe", key);
+        // LCI (no Gigya auth): prefer official mediainfo — IPTV mirrors cause MSE/appendBuffer
+        // churn mid-play. TF1/TMC/TFX: mirrors first (official often needs credentials / WAF).
+        if (!def.requiresAuth()) {
+            Optional<String> officialFirst = resolveOfficial(def, key);
+            if (officialFirst.isPresent() && !sameUrl(officialFirst.get(), avoidUrl)
+                    && !isTemporarilyFailed(officialFirst.get())
+                    && probeClearHls(officialFirst.get(), true)) {
+                clearFailed(officialFirst.get());
+                streamCache.put(key, new CachedUrl(officialFirst.get(), now.plus(OFFICIAL_CACHE_TTL)));
+                log.info("TF1 live {} resolved via official mediainfo (preferred)", key);
+                return officialFirst;
+            }
+            Optional<String> mirrorFallback = resolveFromMirrors(def, key, now, avoidUrl);
+            if (mirrorFallback.isPresent()) {
+                return mirrorFallback;
+            }
+        } else {
+            Optional<String> mirror = resolveFromMirrors(def, key, now, avoidUrl);
+            if (mirror.isPresent()) {
+                return mirror;
+            }
+            Optional<String> official = resolveOfficial(def, key);
+            if (official.isPresent() && !sameUrl(official.get(), avoidUrl)
+                    && !isTemporarilyFailed(official.get())
+                    && probeClearHls(official.get(), true)) {
+                clearFailed(official.get());
+                streamCache.put(key, new CachedUrl(official.get(), now.plus(OFFICIAL_CACHE_TTL)));
+                log.info("TF1 live {} resolved via official mediainfo", key);
+                return official;
+            }
+            if (official.isPresent()) {
+                markFailed(official.get(), Duration.ofMinutes(1));
+                log.warn("TF1 live {} official URL rejected by CDN probe", key);
+            }
         }
 
         // Last resort: previously avoided URL if it still probes (better than nothing).

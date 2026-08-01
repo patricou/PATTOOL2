@@ -5,6 +5,7 @@ import {
   createTvHlsConfig,
   disableTvSubtitles,
   isTvHlsForbiddenError,
+  resetTvMediaElement,
   tryRecoverTvHlsError,
   type TvHlsRecoverAttempts
 } from './tv-hls-config';
@@ -38,6 +39,11 @@ export interface TvHlsPlaybackCallbacks {
   };
   /** Use VOD HLS tuning (ARTE replay). Skips live-edge seek watchdog. */
   vod?: boolean;
+  /**
+   * Skip live-edge seek watchdog (IPTV mirrors: TF1/LCI/M6/RTS).
+   * Seeking while the mirror lags poisons MSE mid-play.
+   */
+  skipLiveEdgeWatchdog?: boolean;
   /** Progressive MP4/WebM (Internet Archive) — use video.src instead of hls.js. */
   progressive?: boolean;
 }
@@ -124,7 +130,7 @@ export function startTvHlsPlayback(
         tryPlay(false);
         return;
       }
-      // TF1 / M6 mirrors (and france.tv) — one full re-resolve after soft recovery fails.
+      // Soft recovery exhausted (or MSE poison) — ask caller to hard re-resolve once.
       if (!tokenRefreshAttempted && callbacks.onTokenExpired?.()) {
         tokenRefreshAttempted = true;
         return;
@@ -172,7 +178,9 @@ export function startTvHlsPlayback(
           /* ignore */
         }
         hls = next;
-        detachLiveSync = callbacks.vod ? null : attachTvHlsLiveSyncWatchdog(next, media);
+        detachLiveSync = (callbacks.vod || callbacks.skipLiveEdgeWatchdog)
+          ? null
+          : attachTvHlsLiveSyncWatchdog(next, media);
         bindHlsHandlers(next);
       }
     });
@@ -242,7 +250,9 @@ export function startTvHlsPlayback(
     hls.attachMedia(video);
     disableTvSubtitles(hls, video);
     video.playbackRate = 1;
-    detachLiveSync = vod ? null : attachTvHlsLiveSyncWatchdog(hls, video);
+    detachLiveSync = (vod || callbacks.skipLiveEdgeWatchdog)
+      ? null
+      : attachTvHlsLiveSyncWatchdog(hls, video);
     bindHlsHandlers(hls);
     startKeeperIfNeeded();
   } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
@@ -275,9 +285,7 @@ export function startTvHlsPlayback(
         hls = null;
       }
       try {
-        video.pause();
-        video.removeAttribute('src');
-        video.load();
+        resetTvMediaElement(video);
       } catch {
         /* ignore */
       }

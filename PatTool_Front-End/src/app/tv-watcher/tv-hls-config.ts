@@ -98,6 +98,56 @@ export interface TvHlsRecoverAttempts {
 const MAX_NETWORK_RECOVERIES = 2;
 const MAX_MEDIA_RECOVERIES = 2;
 
+/**
+ * Fully reset a {@code <video>} after MediaSource / appendBuffer poison.
+ * {@code removeAttribute('src') + load()} alone is not always enough once
+ * {@code HTMLMediaElement.error} is set (Chromium keeps the element unusable).
+ */
+export function resetTvMediaElement(video: HTMLVideoElement | null | undefined): void {
+  if (!video) {
+    return;
+  }
+  try {
+    video.pause();
+  } catch {
+    /* ignore */
+  }
+  try {
+    video.removeAttribute('src');
+  } catch {
+    /* ignore */
+  }
+  try {
+    // Clear MSE blob URL / MediaSource attachment.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (video as any).srcObject = null;
+  } catch {
+    /* ignore */
+  }
+  try {
+    video.load();
+  } catch {
+    /* ignore */
+  }
+  try {
+    video.playbackRate = 1;
+  } catch {
+    /* ignore */
+  }
+}
+
+/** True when hls.js reported a fatal buffer/append failure (MSE often poisoned). */
+export function isTvHlsBufferAppendError(data: {
+  type?: string;
+  details?: string;
+} | null | undefined): boolean {
+  if (!data) {
+    return false;
+  }
+  const details = (data.details || '').toLowerCase();
+  return details.includes('buffer') || details.includes('append') || details.includes('mediaerror');
+}
+
 export function tryRecoverTvHlsError(
   hls: Hls,
   data: {
@@ -243,8 +293,8 @@ export function attachTvHlsLiveSyncWatchdog(
   let lastSeekAt = 0;
   // IPTV mirrors (TF1/LCI) are often slower than realtime — aggressive seeking to the
   // live edge while lag keeps growing poisons MSE (appendBuffer / media.error).
-  const MIN_SEEK_GAP_MS = 10_000;
-  const LAG_SEEK_SEC = 10;
+  const MIN_SEEK_GAP_MS = 14_000;
+  const LAG_SEEK_SEC = 14;
 
   const seekToLiveEdge = (reason: string) => {
     if (!isTvHlsLivePlaylist(hls)) {

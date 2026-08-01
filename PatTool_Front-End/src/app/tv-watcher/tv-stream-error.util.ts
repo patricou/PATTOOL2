@@ -170,7 +170,7 @@ export function extractTvStreamErrorFromHlsData(data: TvHlsErrorData): string | 
 
   const err = data?.error;
   if (typeof err === 'string' && err.trim()) {
-    return err.trim();
+    return classifyBrowserMediaMessage(err.trim());
   }
   if (err && typeof err === 'object' && 'message' in err) {
     const msg = String((err as { message?: unknown }).message || '').trim();
@@ -181,10 +181,18 @@ export function extractTvStreamErrorFromHlsData(data: TvHlsErrorData): string | 
       !/^load failed$/i.test(msg) &&
       !/^networkerror/i.test(msg)
     ) {
-      return msg;
+      return classifyBrowserMediaMessage(msg);
     }
   }
   return null;
+}
+
+/** Map Chromium MSE messages to TV.ERR_MEDIA instead of the generic "offline" banner. */
+function classifyBrowserMediaMessage(msg: string): string {
+  if (/appendbuffer|sourcebuffer|htmlmediaelement\.error|mediasource/i.test(msg)) {
+    return 'TV.ERR_MEDIA';
+  }
+  return msg;
 }
 
 /**

@@ -507,6 +507,8 @@ export class TvPopoutComponent implements OnInit, OnDestroy {
       this.playback = startTvHlsPlayback(video, playUrl, {
         vod: isArteReplayVod(streamUrl),
         progressive,
+        skipLiveEdgeWatchdog:
+          isTf1Virtual(streamUrl) || isM6GroupVirtual(streamUrl) || isRtsVirtual(streamUrl),
         onBuffering: (v) => {
           this.isBuffering = v;
           this.cdr.markForCheck();

@@ -56,6 +56,7 @@ import {
   createTvHlsConfig,
   disableTvSubtitles,
   isTvHlsForbiddenError,
+  resetTvMediaElement,
   resyncTvHlsAv,
   tryRecoverTvHlsError,
   type TvHlsRecoverAttempts
@@ -2536,6 +2537,15 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
           false,
           this.composeStatusMessage('TV.STATUS_LAYER_CLIENT', detailParts)
         );
+        // Manifest OK but MSE poisoned — rebuild the player once automatically.
+        if (this.virtualLiveHardRestarts < TvWatcherComponent.MAX_VIRTUAL_LIVE_HARD_RESTARTS) {
+          this.virtualLiveHardRestarts += 1;
+          window.setTimeout(() => {
+            if (this.selectedChannel?.id === channel.id) {
+              this.restartStream();
+            }
+          }, 350);
+        }
         return;
       }
       this.finishChannelStatus(
@@ -4204,7 +4214,11 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       disableTvSubtitles(this.hls, video);
       video.playbackRate = 1;
       // Never attach live-edge seek on ARTE replay — it jumps straight to the end.
-      this.detachHlsLiveSync = vod
+      // Also skip for IPTV mirrors (TF1/LCI/M6/RTS): seeking to live edge while the
+      // mirror lags poisons MSE (appendBuffer / media.error) — LCI regressions.
+      const iptvMirrorLive =
+        isTf1Virtual(streamUrl) || isM6GroupVirtual(streamUrl) || isRtsVirtual(streamUrl);
+      this.detachHlsLiveSync = vod || iptvMirrorLive
         ? null
         : attachTvHlsLiveSyncWatchdog(this.hls, video);
       this.bindWatcherHlsHandlers(this.hls, channel, effectiveProxyUrl, playGen, tryPlay);
@@ -4253,33 +4267,40 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         isKeepAliveVirtualLive(streamUrl) &&
         this.virtualLiveHardRestarts < TvWatcherComponent.MAX_VIRTUAL_LIVE_HARD_RESTARTS;
 
-      if (canHardRestart && isTvHlsForbiddenError(data)) {
+      const scheduleHardRestart = () => {
         this.virtualLiveHardRestarts += 1;
         this.isBuffering = true;
+        this.playError = '';
         this.cdr.markForCheck();
-        void bustVirtualLiveCache(streamUrl, this.api).finally(() => {
+        void bustVirtualLiveCache(streamUrl, this.api);
+        // Never destroy/recreate HLS inside its own ERROR callback — defer one tick.
+        window.setTimeout(() => {
           if (playGen === this.playGeneration) {
             this.playChannel(channel);
           }
-        });
+        }, 50);
+      };
+
+      if (canHardRestart && isTvHlsForbiddenError(data)) {
+        scheduleHardRestart();
         return;
       }
+
+      // Only skip soft recover when the <video> element is truly poisoned.
+      if (canHardRestart && videoEl?.error && data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+        scheduleHardRestart();
+        return;
+      }
+
       if (this.hls && tryRecoverTvHlsError(this.hls, data, this.hlsRecoverAttempts, videoEl)) {
         this.isBuffering = true;
         this.cdr.markForCheck();
         tryPlay(false);
         return;
       }
-      // IPTV mirrors / signed lives: full rebuild after soft recovery (MSE appendBuffer poison).
+      // Soft recovery exhausted — full rebuild (deferred).
       if (canHardRestart) {
-        this.virtualLiveHardRestarts += 1;
-        this.isBuffering = true;
-        this.cdr.markForCheck();
-        void bustVirtualLiveCache(streamUrl, this.api).finally(() => {
-          if (playGen === this.playGeneration) {
-            this.playChannel(channel);
-          }
-        });
+        scheduleHardRestart();
         return;
       }
       try {
@@ -4485,9 +4506,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     const video = this.videoEl?.nativeElement;
     // Do not touch the OS PiP carrier — it lives outside this view.
     if (video && document.pictureInPictureElement !== video) {
-      video.pause();
-      video.removeAttribute('src');
-      video.load();
+      resetTvMediaElement(video);
     }
   }
 }
