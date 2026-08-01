@@ -69,6 +69,9 @@ public class TodoListRestController {
     @Autowired
     private DiscussionService discussionService;
 
+    @Autowired
+    private com.pat.service.FriendsService friendsService;
+
     @GetMapping
     public ResponseEntity<List<TodoList>> listAccessible(
             @RequestHeader(value = "user-id", required = false) String userId) {
@@ -286,20 +289,11 @@ public class TodoListRestController {
         List<String> toEmails = (List<String>) body.get("toEmails");
         @SuppressWarnings("unchecked")
         List<String> toMemberIds = (List<String>) body.get("toMemberIds");
-        // Resolve emails from member ids: caller never has to know the underlying address.
-        List<String> resolved = new ArrayList<>();
-        if (toEmails != null) {
-            resolved.addAll(toEmails);
-        }
-        if (toMemberIds != null) {
-            for (String mid : toMemberIds) {
-                if (!StringUtils.hasText(mid)) continue;
-                membersRepository.findById(mid).ifPresent(member -> {
-                    if (StringUtils.hasText(member.getAddressEmail())) {
-                        resolved.add(member.getAddressEmail());
-                    }
-                });
-            }
+        List<String> resolved;
+        try {
+            resolved = resolveFriendShareEmails(userId, toMemberIds, toEmails);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         }
         if (resolved.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "toEmails or toMemberIds is required"));
@@ -399,27 +393,15 @@ public class TodoListRestController {
         List<String> toEmails = (List<String>) body.get("toEmails");
         @SuppressWarnings("unchecked")
         List<String> toMemberIds = (List<String>) body.get("toMemberIds");
-        List<String> resolved = new ArrayList<>();
-        if (toEmails != null) {
-            resolved.addAll(toEmails);
-        }
-        if (toMemberIds != null) {
-            for (String mid : toMemberIds) {
-                if (!StringUtils.hasText(mid)) continue;
-                membersRepository.findById(mid).ifPresent(member -> {
-                    if (StringUtils.hasText(member.getAddressEmail())) {
-                        resolved.add(member.getAddressEmail());
-                    }
-                });
+        List<String> resolved;
+        try {
+            resolved = resolveFriendShareEmails(userId, toMemberIds, toEmails);
+            // Default recipient = assignee of the focused task (must be self or a friend).
+            if (resolved.isEmpty() && StringUtils.hasText(focus.getAssigneeMemberId())) {
+                resolved = resolveFriendShareEmails(userId, List.of(focus.getAssigneeMemberId()), null);
             }
-        }
-        // Default recipient = assignee of the focused task.
-        if (resolved.isEmpty() && StringUtils.hasText(focus.getAssigneeMemberId())) {
-            membersRepository.findById(focus.getAssigneeMemberId()).ifPresent(member -> {
-                if (StringUtils.hasText(member.getAddressEmail())) {
-                    resolved.add(member.getAddressEmail());
-                }
-            });
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         }
         if (resolved.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "toEmails or toMemberIds is required"));
@@ -528,6 +510,17 @@ public class TodoListRestController {
         copy.setVisibility(source.getVisibility());
         copy.setItems(items != null ? items : new ArrayList<>());
         return copy;
+    }
+
+    /**
+     * Resolve recipient e-mails for sharing: only the current user and their friends.
+     */
+    private List<String> resolveFriendShareEmails(String currentUserId, List<String> memberIds, List<String> emails) {
+        Member me = membersRepository.findById(currentUserId).orElse(null);
+        if (me == null) {
+            throw new IllegalArgumentException("current_user_not_found");
+        }
+        return friendsService.resolveFriendShareEmails(me, memberIds, emails);
     }
 
     private String resolveSenderName(String userId) {

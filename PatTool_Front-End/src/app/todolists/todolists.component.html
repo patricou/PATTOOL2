@@ -748,8 +748,9 @@
             <ng-container *ngIf="shareMode === 'email'">
                 <div class="todolists-share-recipients">
                     <label class="form-label">
-                        <i class="fa fa-users"></i> {{ 'TODOLISTS.SHARE.PATTOOL_RECIPIENTS' | translate }}
+                        <i class="fa fa-users"></i> {{ 'TODOLISTS.SHARE.FRIEND_RECIPIENTS' | translate }}
                     </label>
+                    <p class="small text-muted mb-2">{{ 'TODOLISTS.SHARE.FRIENDS_ONLY' | translate }}</p>
                     <small *ngIf="shareRecipientsLoading" class="text-muted d-block">
                         <i class="fa fa-spinner fa-spin"></i> {{ 'TODOLISTS.LOADING_RECIPIENTS' | translate }}
                     </small>
@@ -774,15 +775,6 @@
                             <i *ngIf="!r.hasEmail" class="fa fa-ban text-muted ms-1"></i>
                         </button>
                     </div>
-                </div>
-
-                <div class="mt-3">
-                    <label class="form-label">
-                        <i class="fa fa-envelope"></i> {{ 'TODOLISTS.SHARE.EXTRA_EMAILS' | translate }}
-                    </label>
-                    <textarea class="form-control" rows="2"
-                              [(ngModel)]="shareExtraEmails"
-                              [placeholder]="'TODOLISTS.SHARE.EXTRA_EMAILS_HINT' | translate"></textarea>
                 </div>
 
                 <div class="mt-3">

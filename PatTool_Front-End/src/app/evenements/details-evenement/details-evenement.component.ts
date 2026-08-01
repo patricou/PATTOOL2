@@ -39,7 +39,7 @@ import {
   whatsappShareInfoI18nKey,
   whatsappShareOutcomeHintKey
 } from '../../shared/share-whatsapp-image.util';
-import { FriendGroup } from '../../model/friend';
+import { Friend, FriendGroup } from '../../model/friend';
 import { EventColorService } from '../../services/event-color.service';
 import { EventVideoPreloadService } from '../../services/event-video-preload.service';
 import { KeycloakService } from '../../keycloak/keycloak.service';
@@ -226,19 +226,37 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     return this.shareByEmailMailLangOptions.find(o => o.code === this.shareByEmailMailLang) ?? this.shareByEmailMailLangOptions[0];
   }
 
-  /** Nombre total d'adresses email sélectionnées (PatTool + adresses libres). */
+  /** Nombre total d'adresses email sélectionnées (amis PatTool uniquement). */
   public get shareByEmailRecipientCount(): number {
-    const patCount = (this.shareByEmailPatToolSelected || []).length;
-    const external = (this.shareByEmailExternalEmails || '')
-      .split(/[\s,;]+/)
-      .map((e: string) => e.trim())
-      .filter((e: string) => e.length > 0);
-    return patCount + external.length;
+    return (this.shareByEmailPatToolSelected || []).length;
   }
 
   /** trackBy pour la liste des utilisateurs dans la modale partage par mail (performance). */
   public trackByShareByEmailMemberId(_index: number, m: Member): string {
     return m.id ?? m.addressEmail ?? '';
+  }
+
+  /** Other party in a friendship (current user excluded). */
+  private otherFriendMemberForShare(friend: Friend, myId: string, myNameLower: string): Member | null {
+    const u1 = friend.user1;
+    const u2 = friend.user2;
+    if (myId) {
+      if (u1?.id === myId) {
+        return u2 || null;
+      }
+      if (u2?.id === myId) {
+        return u1 || null;
+      }
+    }
+    if (myNameLower) {
+      if (u1?.userName && u1.userName.trim().toLowerCase() === myNameLower) {
+        return u2 || null;
+      }
+      if (u2?.userName && u2.userName.trim().toLowerCase() === myNameLower) {
+        return u1 || null;
+      }
+    }
+    return u2 || u1 || null;
   }
 
   // Event access users
@@ -4038,18 +4056,38 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     const supported = this.shareByEmailMailLangOptions.map(o => o.code);
     this.shareByEmailMailLang = supported.includes(appLang) ? appLang : 'fr';
     this.cdr.markForCheck();
-    const sub = this.membersService.getListMembers().subscribe({
-      next: (members: Member[]) => {
-        const visibleOnly = (members || []).filter(m => m.visible !== false);
-        this.shareByEmailAllMembers = visibleOnly.slice().sort((a, b) => {
+    // PatTool recipients: friends only (never the full member directory).
+    const myId = this.user?.id || '';
+    const myName = (this.user?.userName || '').trim().toLowerCase();
+    const sub = this.friendsService.getFriends().subscribe({
+      next: (friends) => {
+        const byId = new Map<string, Member>();
+        for (const f of friends || []) {
+          const other = this.otherFriendMemberForShare(f, myId, myName);
+          if (!other?.id || !other.addressEmail) {
+            continue;
+          }
+          if (other.visible === false) {
+            continue;
+          }
+          byId.set(other.id, other);
+        }
+        this.shareByEmailAllMembers = Array.from(byId.values()).sort((a, b) => {
           const cmpFirst = (a.firstName || '').toLowerCase().localeCompare((b.firstName || '').toLowerCase());
           if (cmpFirst !== 0) return cmpFirst;
           return (a.lastName || '').toLowerCase().localeCompare((b.lastName || '').toLowerCase());
         });
+        // Drop pre-selected access emails that are not friends.
+        const friendEmails = new Set(
+          this.shareByEmailAllMembers.map(m => (m.addressEmail || '').trim().toLowerCase()).filter(Boolean)
+        );
+        this.shareByEmailPatToolSelected = (this.shareByEmailPatToolSelected || [])
+          .filter(e => friendEmails.has((e || '').trim().toLowerCase()));
+        this.syncShareByEmailSelectedSet();
         this.shareByEmailLoading = false;
         this.cdr.markForCheck();
       },
-      error: (err) => {
+      error: () => {
         this.shareByEmailLoading = false;
         this.shareByEmailError = this.translateService.instant('EVENTELEM.SHARE_MAIL_LOAD_ERROR');
         this.cdr.markForCheck();
@@ -4086,11 +4124,17 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     this.shareByEmailPatToolSelectedSet = new Set(this.shareByEmailPatToolSelected || []);
   }
 
-  /** Select all users who have access to the activity. */
+  /** Select friends who already have access to the activity. */
   public shareByEmailSelectAllWithAccess(): void {
+    const friendEmails = new Set(
+      (this.shareByEmailAllMembers || [])
+        .map(m => (m.addressEmail || '').trim().toLowerCase())
+        .filter(e => e.length > 0)
+    );
     const accessEmails = (this.eventAccessUsers || [])
       .map(m => m.addressEmail)
-      .filter((email): email is string => !!email && email.trim().length > 0);
+      .filter((email): email is string => !!email && email.trim().length > 0)
+      .filter(email => friendEmails.has(email.trim().toLowerCase()));
     this.shareByEmailPatToolSelected = [...new Set([...this.shareByEmailPatToolSelected, ...accessEmails])];
     this.syncShareByEmailSelectedSet();
     this.cdr.markForCheck();
@@ -4115,12 +4159,9 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
 
   public sendShareByEmail(): void {
     if (!this.evenement?.id) return;
-    const emails: string[] = [...this.shareByEmailPatToolSelected];
-    const external = (this.shareByEmailExternalEmails || '')
-      .split(/[\s,;]+/)
-      .map(e => e.trim())
+    const emails: string[] = [...this.shareByEmailPatToolSelected]
+      .map(e => (e || '').trim())
       .filter(e => e.length > 0);
-    emails.push(...external);
     emails.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
     if (emails.length === 0) {
       this.shareByEmailError = this.translateService.instant('EVENTELEM.SHARE_MAIL_NO_RECIPIENTS');

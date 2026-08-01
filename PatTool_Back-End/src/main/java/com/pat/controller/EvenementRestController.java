@@ -114,6 +114,9 @@ public class EvenementRestController {
     
     @Autowired
     private com.pat.controller.MailController mailController;
+
+    @Autowired
+    private com.pat.service.FriendsService friendsService;
     
     /**
      * Check if the current user has Admin role (case-insensitive)
@@ -2830,15 +2833,34 @@ public class EvenementRestController {
 
     /**
      * Share event by email: send HTML email with event thumbnail, type, dates, title, description and optional custom message.
-     * Request body: { "toEmails": ["a@b.com", ...], "customMessage": "...", "colorR": 120, "colorG": 130, "colorB": 140 } (color optional)
+     * Recipients must be the current user or one of their PatTool friends
+     * ({@code toMemberIds} and/or {@code toEmails} of those members).
+     * Request body: { "toMemberIds": [...], "toEmails": ["a@b.com", ...], "customMessage": "...", "colorR": 120, "colorG": 130, "colorB": 140 }
      */
     @PostMapping(value = "/{eventId}/share-email", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> shareEventByEmail(@PathVariable String eventId, @RequestBody Map<String, Object> body) {
         try {
+            String currentUserId = getCurrentUserId();
+            if (currentUserId == null || currentUserId.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Authentication required"));
+            }
+            Member me = membersRepository.findById(currentUserId).orElse(null);
+            if (me == null) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "current_user_not_found"));
+            }
+
             @SuppressWarnings("unchecked")
-            List<String> toEmails = (List<String>) body.get("toEmails");
+            List<String> toEmailsIn = (List<String>) body.get("toEmails");
+            @SuppressWarnings("unchecked")
+            List<String> toMemberIds = (List<String>) body.get("toMemberIds");
+            List<String> toEmails;
+            try {
+                toEmails = friendsService.resolveFriendShareEmails(me, toMemberIds, toEmailsIn);
+            } catch (IllegalArgumentException ex) {
+                return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+            }
             if (toEmails == null || toEmails.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "toEmails is required and must not be empty"));
+                return ResponseEntity.badRequest().body(Map.of("error", "toEmails or toMemberIds is required and must not be empty"));
             }
             String customMessage = body.get("customMessage") != null ? body.get("customMessage").toString() : "";
             String eventUrl = body.get("eventUrl") != null ? body.get("eventUrl").toString().trim() : null;

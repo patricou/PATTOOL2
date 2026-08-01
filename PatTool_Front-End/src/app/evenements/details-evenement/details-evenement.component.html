@@ -1327,7 +1327,8 @@
         </div>
       </div>
       <div class="mb-3">
-        <label class="form-label fw-bold">{{ 'EVENTELEM.SHARE_MAIL_PATTOOL_USERS' | translate }}</label>
+        <label class="form-label fw-bold">{{ 'EVENTELEM.SHARE_MAIL_PATTOOL_FRIENDS' | translate }}</label>
+        <p class="small text-muted mb-2">{{ 'EVENTELEM.SHARE_MAIL_FRIENDS_ONLY' | translate }}</p>
         <div *ngIf="!shareByEmailLoading && shareByEmailAllMembers.length > 0" class="mb-2 d-flex align-items-center flex-wrap gap-2">
           <button type="button" class="btn btn-sm btn-outline-primary" (click)="shareByEmailSelectAllWithAccess()">
             {{ 'EVENTELEM.SHARE_MAIL_SELECT_ACCESS' | translate }}
@@ -1353,13 +1354,6 @@
             </label>
           </div>
         </div>
-      </div>
-      <div class="mb-3">
-        <label for="shareByEmailExternal" class="form-label fw-bold">{{ 'EVENTELEM.SHARE_MAIL_OTHER_EMAILS' | translate }}</label>
-        <textarea id="shareByEmailExternal" class="form-control form-control-sm" rows="2"
-                  [(ngModel)]="shareByEmailExternalEmails"
-                  [placeholder]="'EVENTELEM.SHARE_MAIL_OTHER_PLACEHOLDER' | translate"></textarea>
-        <small class="form-text text-muted">{{ 'EVENTELEM.SHARE_MAIL_OTHER_HINT' | translate }}</small>
       </div>
       <div class="mb-3">
         <label for="shareByEmailMessage" class="form-label fw-bold">{{ 'EVENTELEM.SHARE_MAIL_MESSAGE' | translate }}</label>

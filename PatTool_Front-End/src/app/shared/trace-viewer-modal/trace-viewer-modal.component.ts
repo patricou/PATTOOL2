@@ -14,8 +14,9 @@ import { forkJoin, of, Subject } from 'rxjs';
 import { catchError, take, takeUntil } from 'rxjs/operators';
 import { WeatherPointTimelineComponent } from '../weather-point-timeline/weather-point-timeline.component';
 import { environment } from '../../../environments/environment';
-import * as L from 'leaflet';
+import { L, RotatableLeafletMap } from '../leaflet-rotate-setup';
 import { isValidGeoCoordinate } from '../geo-coordinates.util';
+import { GpsMapOrientation } from '../gps-map-orientation';
 import {
 	extractGeocodeCityName,
 	formatMfStationProximityLabel,
@@ -114,6 +115,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public trackFileName = '';
 	public trackStats: TraceStatistics | null = null;
 	public isFullscreen = false;
+	/** Carte : nord / sens de marche / direction du tracé (leaflet-rotate). */
+	public mapOrientation: GpsMapOrientation = 'north';
+	readonly mapOrientations: { id: GpsMapOrientation; labelKey: string; icon: string }[] = [
+		{ id: 'north', labelKey: 'GPS_ROUTING.ORIENT_NORTH', icon: 'fa-compass' },
+		{ id: 'heading', labelKey: 'GPS_ROUTING.ORIENT_HEADING', icon: 'fa-location-arrow' },
+		{ id: 'route', labelKey: 'GPS_ROUTING.ORIENT_ROUTE', icon: 'fa-road' }
+	];
 	public showGpsCoordinates = false;
 	public currentLat: number = 0;
 	public currentLng: number = 0;
@@ -240,6 +248,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private map?: L.Map;
 	private overlayLayer?: L.LayerGroup;
 	private pendingTrackPoints: L.LatLngTuple[] | null = null;
+	/** Coords du tracé affiché — pour orientation « Route ». */
+	private trackOrientationCoords: L.LatLngTuple[] = [];
+	private mapOrientationWatchId: number | null = null;
+	private deviceHeadingDeg: number | null = null;
+	private routeHeadingDeg = 0;
 	private pendingLocation: { lat: number; lng: number; label?: string; zoom?: number } | null = null;
 	private pendingPositions: Array<{ lat: number; lng: number; type?: string; datetime?: Date; label?: string }> | null = null;
 	private lastRenderedPosition: { lat: number; lng: number } | null = null; // Store the most recent position after rendering
@@ -568,6 +581,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			clearTimeout(this.traceViewerCdrTimer);
 			this.traceViewerCdrTimer = null;
 		}
+		this.stopMapOrientationWatch();
 		this.stopFollowDeviceLocation();
 		void this.releaseScreenWakeLock();
 		this.cleanupVisibilityChangeListener();
@@ -950,6 +964,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	public close(): void {
+		this.stopMapOrientationWatch();
 		this.stopFollowDeviceLocation();
 		void this.releaseScreenWakeLock();
 		if (this.document.fullscreenElement) {
@@ -1562,8 +1577,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 				// Keep a consistent max zoom across basemaps; basemaps handle over-zoom via maxNativeZoom.
 				maxZoom: 20,
 				scrollWheelZoom: false,
-				doubleClickZoom: false
-			});
+				doubleClickZoom: false,
+				rotate: true,
+				bearing: 0,
+				touchRotate: false,
+				shiftKeyRotate: false,
+				// Pas le contrôle Leaflet « Rotate map » (clic = modes touch/compas, rien de visible sur desktop).
+				// Orientation via boutons Nord / Marche / Route.
+				rotateControl: false
+			} as L.MapOptions);
 		} catch (e) {
 			this.releaseLeafletControlPassiveTouchPatch();
 			throw e;
@@ -1667,6 +1689,19 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 		event.preventDefault();
+
+		// Shift + molette : rotation (équivalent shiftKeyRotate de leaflet-rotate).
+		if (event.shiftKey) {
+			const rotatable = this.map as L.Map & {
+				setBearing?: (bearing: number) => void;
+				getBearing?: () => number;
+			};
+			if (typeof rotatable.setBearing === 'function' && typeof rotatable.getBearing === 'function') {
+				const deltaDeg = 5 * Math.sign(event.deltaY || 1);
+				rotatable.setBearing(rotatable.getBearing() + deltaDeg);
+			}
+			return;
+		}
 
 		const container = this.map.getContainer();
 		const rect = container.getBoundingClientRect();
@@ -1896,6 +1931,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const points = this.pendingTrackPoints;
 		this.pendingTrackPoints = null;
 		this.locationRecenterZoom = null;
+		this.trackOrientationCoords = points.slice();
+		this.updateRouteHeadingFromTrack();
 
 		this.overlayLayer.clearLayers();
 
@@ -1933,6 +1970,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			points: points.length,
 			distanceKm: this.computeDistance(points)
 		};
+		this.applyMapBearing();
 		this.cdr.detectChanges();
 	}
 
@@ -2332,6 +2370,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.isLoading = false;
 		this.trackStats = null;
 		this.pendingTrackPoints = null;
+		this.trackOrientationCoords = [];
+		this.routeHeadingDeg = 0;
+		this.deviceHeadingDeg = null;
+		this.mapOrientation = 'north';
+		this.stopMapOrientationWatch();
 		this.pendingLocation = null;
 		this.pendingPositions = null;
 		this.lastRenderedPosition = null;
@@ -3485,6 +3528,109 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 		this.fitMapToTrackBounds(this.trackBounds);
+	}
+
+	public setMapOrientation(orientation: GpsMapOrientation): void {
+		if (this.mapOrientation === orientation) {
+			this.applyMapBearing();
+			return;
+		}
+		this.mapOrientation = orientation;
+		this.syncMapOrientationWatch();
+		this.applyMapBearing();
+		this.scheduleTraceViewerCdr();
+	}
+
+	private syncMapOrientationWatch(): void {
+		if (this.mapOrientation === 'heading' || this.mapOrientation === 'route') {
+			this.startMapOrientationWatch();
+		} else {
+			this.stopMapOrientationWatch();
+		}
+	}
+
+	private startMapOrientationWatch(): void {
+		if (this.mapOrientationWatchId != null || !navigator.geolocation) {
+			return;
+		}
+		this.mapOrientationWatchId = navigator.geolocation.watchPosition(
+			(pos) => {
+				if (pos.coords.heading != null && Number.isFinite(pos.coords.heading)) {
+					this.deviceHeadingDeg = pos.coords.heading;
+				}
+				if (this.mapOrientation === 'route') {
+					this.updateRouteHeadingNear(pos.coords.latitude, pos.coords.longitude);
+				}
+				if (this.mapOrientation === 'heading' || this.mapOrientation === 'route') {
+					this.applyMapBearing();
+				}
+			},
+			() => { /* keep last heading */ },
+			{ enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
+		);
+	}
+
+	private stopMapOrientationWatch(): void {
+		if (this.mapOrientationWatchId != null && navigator.geolocation) {
+			navigator.geolocation.clearWatch(this.mapOrientationWatchId);
+			this.mapOrientationWatchId = null;
+		}
+	}
+
+	private updateRouteHeadingFromTrack(): void {
+		const coords = this.trackOrientationCoords;
+		if (!coords || coords.length < 2) {
+			this.routeHeadingDeg = 0;
+			return;
+		}
+		this.updateRouteHeadingNear(coords[0][0], coords[0][1]);
+	}
+
+	private updateRouteHeadingNear(lat: number, lon: number): void {
+		const coords = this.trackOrientationCoords;
+		if (!coords || coords.length < 2) {
+			return;
+		}
+		let bestI = 0;
+		let bestD = Infinity;
+		for (let i = 0; i < coords.length; i++) {
+			const d = Math.hypot(coords[i][0] - lat, coords[i][1] - lon);
+			if (d < bestD) {
+				bestD = d;
+				bestI = i;
+			}
+		}
+		const i = Math.min(bestI, coords.length - 2);
+		const a = coords[i];
+		const b = coords[i + 1];
+		const lat1 = a[0] * Math.PI / 180;
+		const lat2 = b[0] * Math.PI / 180;
+		const dLon = (b[1] - a[1]) * Math.PI / 180;
+		const y = Math.sin(dLon) * Math.cos(lat2);
+		const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+		this.routeHeadingDeg = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+	}
+
+	private applyMapBearing(): void {
+		const map = this.map as RotatableLeafletMap | undefined;
+		if (!map || typeof map.setBearing !== 'function') {
+			return;
+		}
+		let bearing = 0;
+		if (this.mapOrientation === 'heading') {
+			bearing = this.deviceHeadingDeg != null ? this.deviceHeadingDeg : this.routeHeadingDeg;
+		} else if (this.mapOrientation === 'route') {
+			if (!this.trackOrientationCoords.length) {
+				this.updateRouteHeadingFromTrack();
+			}
+			bearing = this.routeHeadingDeg;
+		}
+		try {
+			map.setBearing(((bearing % 360) + 360) % 360);
+			map.invalidateSize({ animate: false });
+		} catch {
+			/* plugin not ready */
+		}
 	}
 
 	/** Centre du viewport carte Leaflet → page Globe 3D (zoom corrélé au niveau de zoom carte). */

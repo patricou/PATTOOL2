@@ -14,7 +14,7 @@
   </div>
 
   <div class="row g-3 gps-main-row">
-    <div class="col-12 col-lg-4">
+    <div class="col-12 col-lg-4 order-2 order-lg-1">
       <div class="card shadow-sm gps-panel h-100">
         <div class="card-body">
           <div class="gps-modes btn-group w-100 mb-3" role="group" [attr.aria-label]="'GPS_ROUTING.MODE' | translate">
@@ -35,8 +35,14 @@
             <input id="gpsFrom"
                    type="search"
                    class="form-control"
+                   role="combobox"
+                   aria-autocomplete="list"
+                   aria-controls="gpsFromResults"
+                   [attr.aria-expanded]="fromResults.length > 0"
+                   [attr.aria-activedescendant]="fromActiveIndex >= 0 ? ('gpsFromOpt' + fromActiveIndex) : null"
                    [(ngModel)]="fromQuery"
                    (ngModelChange)="onFromQueryChange()"
+                   (keydown)="onFromKeydown($event)"
                    [placeholder]="'GPS_ROUTING.PLACE_PLACEHOLDER' | translate"
                    autocomplete="off" />
             <button type="button"
@@ -55,13 +61,21 @@
               <i class="fa fa-map-marker"></i>
             </button>
           </div>
-          <div class="gps-results mb-3" *ngIf="fromResults.length || isSearchingFrom">
+          <div id="gpsFromResults"
+               class="gps-results mb-3"
+               role="listbox"
+               *ngIf="fromResults.length || isSearchingFrom">
             <div class="small text-muted px-1 py-1" *ngIf="isSearchingFrom">
               <i class="fa fa-spinner fa-spin me-1"></i>{{ 'GPS_ROUTING.SEARCHING' | translate }}
             </div>
             <button type="button"
                     class="gps-result-row"
-                    *ngFor="let hit of fromResults"
+                    *ngFor="let hit of fromResults; let i = index"
+                    [id]="'gpsFromOpt' + i"
+                    role="option"
+                    [attr.aria-selected]="fromActiveIndex === i"
+                    [class.gps-result-row--active]="fromActiveIndex === i"
+                    (mouseenter)="fromActiveIndex = i"
                     (click)="selectFrom(hit)">
               {{ hit.displayName }}
             </button>
@@ -82,8 +96,14 @@
             <input id="gpsTo"
                    type="search"
                    class="form-control"
+                   role="combobox"
+                   aria-autocomplete="list"
+                   aria-controls="gpsToResults"
+                   [attr.aria-expanded]="toResults.length > 0"
+                   [attr.aria-activedescendant]="toActiveIndex >= 0 ? ('gpsToOpt' + toActiveIndex) : null"
                    [(ngModel)]="toQuery"
                    (ngModelChange)="onToQueryChange()"
+                   (keydown)="onToKeydown($event)"
                    [placeholder]="'GPS_ROUTING.PLACE_PLACEHOLDER' | translate"
                    autocomplete="off" />
             <button type="button"
@@ -95,13 +115,21 @@
               <i class="fa fa-map-marker"></i>
             </button>
           </div>
-          <div class="gps-results mb-3" *ngIf="toResults.length || isSearchingTo">
+          <div id="gpsToResults"
+               class="gps-results mb-3"
+               role="listbox"
+               *ngIf="toResults.length || isSearchingTo">
             <div class="small text-muted px-1 py-1" *ngIf="isSearchingTo">
               <i class="fa fa-spinner fa-spin me-1"></i>{{ 'GPS_ROUTING.SEARCHING' | translate }}
             </div>
             <button type="button"
                     class="gps-result-row"
-                    *ngFor="let hit of toResults"
+                    *ngFor="let hit of toResults; let i = index"
+                    [id]="'gpsToOpt' + i"
+                    role="option"
+                    [attr.aria-selected]="toActiveIndex === i"
+                    [class.gps-result-row--active]="toActiveIndex === i"
+                    (mouseenter)="toActiveIndex = i"
                     (click)="selectTo(hit)">
               {{ hit.displayName }}
             </button>
@@ -134,11 +162,116 @@
               <i class="fa fa-download me-1"></i>{{ 'GPS_ROUTING.EXPORT_GPX_SHORT' | translate }}
             </button>
             <button type="button"
+                    class="btn btn-sm"
+                    [class.btn-info]="nav3dActive"
+                    [class.btn-outline-info]="!nav3dActive"
+                    (click)="toggleNav3d()"
+                    [disabled]="!route?.coordinates?.length"
+                    [title]="'GPS_ROUTING.NAV3D_TITLE' | translate">
+              <i class="fa fa-cube me-1"></i>{{ 'GPS_ROUTING.NAV3D_SHORT' | translate }}
+            </button>
+            <button type="button"
                     class="btn btn-outline-secondary btn-sm"
                     (click)="clearRoute()"
                     [disabled]="!route && !fromPoint && !toPoint">
               {{ 'GPS_ROUTING.CLEAR' | translate }}
             </button>
+            <button type="button"
+                    class="btn btn-outline-primary btn-sm"
+                    (click)="saveCurrentSearch()"
+                    [disabled]="!fromPoint || !toPoint"
+                    [title]="'GPS_ROUTING.HISTORY_SAVE' | translate">
+              <i class="fa fa-bookmark me-1" aria-hidden="true"></i>{{ 'GPS_ROUTING.HISTORY_SAVE_SHORT' | translate }}
+            </button>
+            <button type="button"
+                    class="btn btn-sm"
+                    [class.btn-secondary]="historyOpen"
+                    [class.btn-outline-secondary]="!historyOpen"
+                    (click)="toggleHistory()"
+                    [title]="'GPS_ROUTING.HISTORY_TITLE' | translate">
+              <i class="fa fa-history me-1" aria-hidden="true"></i>{{ 'GPS_ROUTING.HISTORY_TOGGLE_SHORT' | translate }}
+              <span class="badge bg-light text-dark ms-1" *ngIf="recentSearches.length">{{ recentSearches.length }}</span>
+            </button>
+          </div>
+
+          <div class="gps-history mb-3" *ngIf="historyOpen">
+            <div class="d-flex align-items-center justify-content-between mb-1">
+              <span class="fw-semibold small">{{ 'GPS_ROUTING.HISTORY_TITLE' | translate }}</span>
+              <button type="button"
+                      class="btn btn-link btn-sm p-0"
+                      *ngIf="recentSearches.length"
+                      (click)="clearHistory()">
+                {{ 'GPS_ROUTING.HISTORY_CLEAR' | translate }}
+              </button>
+            </div>
+            <p class="small text-muted mb-0" *ngIf="!recentSearches.length">
+              {{ 'GPS_ROUTING.HISTORY_EMPTY' | translate }}
+            </p>
+            <div class="gps-history-list" *ngIf="recentSearches.length">
+              <button type="button"
+                      class="gps-history-row"
+                      *ngFor="let entry of recentSearches"
+                      (click)="applyHistoryEntry(entry)"
+                      [attr.title]="'GPS_ROUTING.HISTORY_RELOAD' | translate">
+                <span class="gps-history-icon">
+                  <i class="fa" [ngClass]="profileIcon(entry.profile)" aria-hidden="true"></i>
+                </span>
+                <span class="gps-history-text">
+                  <span class="gps-history-owner badge rounded-pill"
+                        *ngIf="historyOwnerLabel(entry) as owner"
+                        [attr.title]="'GPS_ROUTING.HISTORY_OWNER' | translate">
+                    <i class="fa fa-user me-1" aria-hidden="true"></i>{{ owner }}
+                  </span>
+                  <span class="gps-history-shared badge rounded-pill text-bg-success"
+                        *ngIf="entry.sharedWithMe"
+                        [attr.title]="'GPS_ROUTING.SHARE_RECEIVED' | translate">
+                    <i class="fa fa-share-alt me-1" aria-hidden="true"></i>{{ 'GPS_ROUTING.SHARE_RECEIVED_SHORT' | translate }}
+                  </span>
+                  <span class="gps-history-shared badge rounded-pill text-bg-info"
+                        *ngIf="!entry.sharedWithMe && entry.sharedWithUsernames?.length"
+                        [attr.title]="entry.sharedWithUsernames?.join(', ')">
+                    <i class="fa fa-users me-1" aria-hidden="true"></i>{{ entry.sharedWithUsernames!.length }}
+                  </span>
+                  <span class="gps-history-route">
+                    <span class="gps-history-line">{{ shortLabel(entry.from.label) }}</span>
+                    <span class="gps-history-arrow text-muted">→</span>
+                    <span class="gps-history-line">{{ shortLabel(entry.to.label) }}</span>
+                  </span>
+                  <span class="gps-history-meta text-muted" *ngIf="entry.distanceMeters != null">
+                    {{ formatDistance(entry.distanceMeters) }}
+                    <ng-container *ngIf="entry.durationSeconds != null"> · {{ formatDuration(entry.durationSeconds) }}</ng-container>
+                  </span>
+                </span>
+                <span class="gps-history-details"
+                      role="button"
+                      tabindex="0"
+                      (click)="openHistoryEntryDetails(entry, $event)"
+                      (keydown.enter)="openHistoryEntryDetails(entry, $event)"
+                      [attr.title]="'GPS_ROUTING.DETAILS_OPEN' | translate"
+                      [attr.aria-label]="'GPS_ROUTING.DETAILS_OPEN' | translate">
+                  <i class="fa fa-list-alt" aria-hidden="true"></i>
+                </span>
+                <span class="gps-history-share"
+                      *ngIf="canShareEntry(entry)"
+                      role="button"
+                      tabindex="0"
+                      (click)="openShareItinerary(entry, $event)"
+                      (keydown.enter)="openShareItinerary(entry, $event)"
+                      [attr.title]="'GPS_ROUTING.SHARE' | translate"
+                      [attr.aria-label]="'GPS_ROUTING.SHARE' | translate">
+                  <i class="fa fa-share-alt" aria-hidden="true"></i>
+                </span>
+                <span class="gps-history-remove"
+                      role="button"
+                      tabindex="0"
+                      (click)="removeHistoryEntry(entry, $event)"
+                      (keydown.enter)="removeHistoryEntry(entry, $event)"
+                      [attr.title]="'GPS_ROUTING.HISTORY_REMOVE' | translate"
+                      [attr.aria-label]="'GPS_ROUTING.HISTORY_REMOVE' | translate">
+                  <i class="fa fa-times" aria-hidden="true"></i>
+                </span>
+              </button>
+            </div>
           </div>
 
           <div class="gps-summary" *ngIf="route">
@@ -150,50 +283,79 @@
               <span class="text-muted small">{{ 'GPS_ROUTING.DURATION' | translate }}</span>
               <strong>{{ formatDuration(route.durationSeconds) }}</strong>
             </div>
+            <div class="gps-summary-item" *ngIf="route.ascentMeters != null">
+              <span class="text-muted small">{{ 'GPS_ROUTING.ASCENT' | translate }}</span>
+              <strong class="text-success">+{{ formatElevation(route.ascentMeters) }}</strong>
+            </div>
+            <div class="gps-summary-item" *ngIf="route.descentMeters != null">
+              <span class="text-muted small">{{ 'GPS_ROUTING.DESCENT' | translate }}</span>
+              <strong class="text-danger">−{{ formatElevation(route.descentMeters) }}</strong>
+            </div>
           </div>
 
-          <div class="gps-steps mt-3" *ngIf="steps.length">
-            <h3 class="h6 mb-2">{{ 'GPS_ROUTING.INSTRUCTIONS' | translate }}</h3>
-            <ol class="gps-steps-list">
-              <li *ngFor="let step of steps">
-                <div class="gps-step-instruction">{{ step.instruction || step.name || '—' }}</div>
-                <div class="small text-muted">
-                  {{ formatDistance(step.distanceMeters) }}
-                  <span *ngIf="step.durationSeconds != null"> · {{ formatDuration(step.durationSeconds) }}</span>
-                </div>
-              </li>
-            </ol>
-          </div>
-
-          <p class="small text-muted mt-3 mb-0" *ngIf="route?.attribution as attribution">
-            {{ attribution }}
-          </p>
+          <button type="button"
+                  class="btn btn-outline-primary btn-sm w-100 mt-2"
+                  *ngIf="route"
+                  (click)="openRouteDetails()">
+            <i class="fa fa-list-alt me-1" aria-hidden="true"></i>
+            {{ 'GPS_ROUTING.DETAILS_OPEN' | translate }}
+          </button>
         </div>
       </div>
     </div>
 
-    <div class="col-12 col-lg-8">
+    <div class="col-12 col-lg-8 order-1 order-lg-2">
       <div class="card shadow-sm gps-panel gps-map-panel">
         <div class="card-body p-2">
           <div class="gps-map-toolbar d-flex flex-wrap align-items-center gap-2 mb-2">
-            <label class="gps-basemap-field mb-0" for="gpsBasemap">
-              <span class="small text-muted me-1">{{ 'GPS_ROUTING.MAP_BASE_LAYER' | translate }}</span>
-              <select id="gpsBasemap"
-                      class="form-select form-select-sm gps-basemap-select"
-                      [(ngModel)]="mapBaseLayerId"
-                      (ngModelChange)="onMapBaseLayerChange()"
-                      [attr.aria-label]="'GPS_ROUTING.MAP_BASE_LAYER' | translate">
-                <option *ngFor="let layer of availableMapBaseLayers" [value]="layer.id">
-                  {{ getMapBaseLayerLabel(layer) }}
-                </option>
-              </select>
-            </label>
+            <div class="gps-map-toolbar-primary">
+              <label class="gps-basemap-field mb-0" for="gpsBasemap">
+                <span class="small text-muted me-1">{{ 'GPS_ROUTING.MAP_BASE_LAYER' | translate }}</span>
+                <select id="gpsBasemap"
+                        class="form-select form-select-sm gps-basemap-select"
+                        [(ngModel)]="mapBaseLayerId"
+                        (ngModelChange)="onMapBaseLayerChange()"
+                        [attr.aria-label]="'GPS_ROUTING.MAP_BASE_LAYER' | translate">
+                  <option *ngFor="let layer of availableMapBaseLayers" [value]="layer.id">
+                    {{ getMapBaseLayerLabel(layer) }}
+                  </option>
+                </select>
+              </label>
+              <div class="gps-orient btn-group btn-group-sm"
+                   role="group"
+                   [attr.aria-label]="'GPS_ROUTING.ORIENT_LABEL' | translate">
+                <button type="button"
+                        class="btn"
+                        *ngFor="let o of orientations"
+                        [class.btn-primary]="mapOrientation === o.id"
+                        [class.btn-outline-secondary]="mapOrientation !== o.id"
+                        (click)="setMapOrientation(o.id)"
+                        [attr.title]="o.labelKey | translate"
+                        [attr.aria-label]="o.labelKey | translate"
+                        [attr.aria-pressed]="mapOrientation === o.id">
+                  <i class="fa" [ngClass]="o.icon" aria-hidden="true"></i>
+                  <span class="gps-orient-label ms-1">{{ o.labelKey | translate }}</span>
+                </button>
+              </div>
+            </div>
+            <div class="form-check form-switch gps-follow-switch mb-0">
+              <input class="form-check-input"
+                     type="checkbox"
+                     id="gpsFollowUser"
+                     [(ngModel)]="followUserPosition"
+                     (ngModelChange)="onFollowUserChange()"
+                     [attr.aria-label]="'GPS_ROUTING.FOLLOW_USER' | translate">
+              <label class="form-check-label small" for="gpsFollowUser"
+                     [attr.title]="'GPS_ROUTING.FOLLOW_USER_HINT' | translate">
+                {{ 'GPS_ROUTING.FOLLOW_USER' | translate }}
+              </label>
+            </div>
           </div>
 
           <div class="gps-map-shell"
                #mapShell
                [class.gps-map-shell--fullscreen]="mapFullscreen">
-            <div class="gps-map-corner-actions">
+            <div class="gps-map-corner-actions" *ngIf="!nav3dActive">
               <button type="button"
                       class="btn btn-sm btn-light gps-map-action-btn shadow-sm"
                       (click)="openInTraceViewer()"
@@ -214,6 +376,15 @@
               </button>
               <button type="button"
                       class="btn btn-sm btn-light gps-map-action-btn shadow-sm"
+                      (click)="toggleNav3d()"
+                      [disabled]="!route?.coordinates?.length"
+                      [attr.title]="'GPS_ROUTING.NAV3D_TITLE' | translate"
+                      [attr.aria-label]="'GPS_ROUTING.NAV3D_TITLE' | translate">
+                <i class="fa fa-cube" aria-hidden="true"></i>
+                <span class="gps-map-action-label">{{ 'GPS_ROUTING.NAV3D_SHORT' | translate }}</span>
+              </button>
+              <button type="button"
+                      class="btn btn-sm btn-light gps-map-action-btn shadow-sm"
                       (click)="toggleMapFullscreen()"
                       [attr.title]="(mapFullscreen ? 'GPS_ROUTING.MAP_EXIT_FULLSCREEN' : 'GPS_ROUTING.MAP_FULLSCREEN') | translate"
                       [attr.aria-label]="(mapFullscreen ? 'GPS_ROUTING.MAP_EXIT_FULLSCREEN' : 'GPS_ROUTING.MAP_FULLSCREEN') | translate">
@@ -223,7 +394,18 @@
                 </span>
               </button>
             </div>
-            <div #mapHost class="gps-map" role="img" [attr.aria-label]="'GPS_ROUTING.MAP' | translate"></div>
+            <div #mapHost
+                 class="gps-map"
+                 [class.d-none]="nav3dActive"
+                 role="img"
+                 [attr.aria-label]="'GPS_ROUTING.MAP' | translate"></div>
+            <app-gps-nav-3d *ngIf="nav3dActive && route?.coordinates?.length"
+                            class="gps-nav3d-host"
+                            [coordinates]="route!.coordinates!"
+                            [steps]="steps"
+                            [orientation]="mapOrientation"
+                            [followUser]="followUserPosition"
+                            (closed)="nav3dActive = false; refreshMapAfterNav3d(); applyMapBearing()"></app-gps-nav-3d>
           </div>
         </div>
       </div>
@@ -232,3 +414,179 @@
 </div>
 
 <app-trace-viewer-modal></app-trace-viewer-modal>
+
+<ng-template #routeDetailsModal let-c="close" let-d="dismiss">
+  <div class="modal-header text-white bg-primary rounded-top">
+    <h5 class="modal-title">
+      <i class="fa fa-list-alt" aria-hidden="true"></i>
+      {{ 'GPS_ROUTING.DETAILS_TITLE' | translate }}
+    </h5>
+    <button type="button"
+            class="btn btn-outline-light btn-sm rounded-circle ms-auto"
+            (click)="c('Close click')"
+            [attr.aria-label]="'COMMUN.CLOSE' | translate">
+      <i class="fa fa-times" aria-hidden="true"></i>
+    </button>
+  </div>
+  <div class="modal-body gps-details-modal-body" *ngIf="route as r">
+    <div class="gps-details-endpoints small text-muted mb-3" *ngIf="fromPoint || toPoint">
+      <div *ngIf="fromPoint">
+        <span class="fw-semibold">{{ 'GPS_ROUTING.FROM' | translate }}:</span>
+        {{ fromPoint.label }}
+      </div>
+      <div *ngIf="toPoint">
+        <span class="fw-semibold">{{ 'GPS_ROUTING.TO' | translate }}:</span>
+        {{ toPoint.label }}
+      </div>
+    </div>
+
+    <div class="gps-summary mb-3">
+      <div class="gps-summary-item">
+        <span class="text-muted small">{{ 'GPS_ROUTING.DISTANCE' | translate }}</span>
+        <strong>{{ formatDistance(r.distanceMeters) }}</strong>
+      </div>
+      <div class="gps-summary-item">
+        <span class="text-muted small">{{ 'GPS_ROUTING.DURATION' | translate }}</span>
+        <strong>{{ formatDuration(r.durationSeconds) }}</strong>
+      </div>
+      <div class="gps-summary-item" *ngIf="r.ascentMeters != null">
+        <span class="text-muted small">{{ 'GPS_ROUTING.ASCENT' | translate }}</span>
+        <strong class="text-success">+{{ formatElevation(r.ascentMeters) }}</strong>
+      </div>
+      <div class="gps-summary-item" *ngIf="r.descentMeters != null">
+        <span class="text-muted small">{{ 'GPS_ROUTING.DESCENT' | translate }}</span>
+        <strong class="text-danger">−{{ formatElevation(r.descentMeters) }}</strong>
+      </div>
+      <div class="gps-summary-item" *ngIf="r.avgSpeedKmh != null">
+        <span class="text-muted small">{{ 'GPS_ROUTING.AVG_SPEED' | translate }}</span>
+        <strong>{{ formatSpeed(r.avgSpeedKmh) }}</strong>
+      </div>
+      <div class="gps-summary-item" *ngIf="r.pointCount != null">
+        <span class="text-muted small">{{ 'GPS_ROUTING.POINTS' | translate }}</span>
+        <strong>{{ r.pointCount }}</strong>
+      </div>
+      <div class="gps-summary-item" *ngIf="r.stepCount != null">
+        <span class="text-muted small">{{ 'GPS_ROUTING.STEPS' | translate }}</span>
+        <strong>{{ r.stepCount }}</strong>
+      </div>
+      <div class="gps-summary-item" *ngIf="r.segmentCount != null">
+        <span class="text-muted small">{{ 'GPS_ROUTING.SEGMENTS' | translate }}</span>
+        <strong>{{ r.segmentCount }}</strong>
+      </div>
+      <div class="gps-summary-item" *ngIf="r.elevationStartMeters != null">
+        <span class="text-muted small">{{ 'GPS_ROUTING.ELEV_START' | translate }}</span>
+        <strong>{{ formatElevation(r.elevationStartMeters) }}</strong>
+      </div>
+      <div class="gps-summary-item" *ngIf="r.elevationEndMeters != null">
+        <span class="text-muted small">{{ 'GPS_ROUTING.ELEV_END' | translate }}</span>
+        <strong>{{ formatElevation(r.elevationEndMeters) }}</strong>
+      </div>
+      <div class="gps-summary-item" *ngIf="r.elevationMinMeters != null">
+        <span class="text-muted small">{{ 'GPS_ROUTING.ELEV_MIN' | translate }}</span>
+        <strong>{{ formatElevation(r.elevationMinMeters) }}</strong>
+      </div>
+      <div class="gps-summary-item" *ngIf="r.elevationMaxMeters != null">
+        <span class="text-muted small">{{ 'GPS_ROUTING.ELEV_MAX' | translate }}</span>
+        <strong>{{ formatElevation(r.elevationMaxMeters) }}</strong>
+      </div>
+    </div>
+
+    <div class="alert alert-warning py-2 small" *ngIf="r.warnings?.length">
+      <div class="fw-semibold mb-1">{{ 'GPS_ROUTING.WARNINGS' | translate }}</div>
+      <ul class="mb-0 ps-3">
+        <li *ngFor="let w of r.warnings">{{ w }}</li>
+      </ul>
+    </div>
+
+    <div class="gps-extras mb-3" *ngIf="r.extras?.length">
+      <h3 class="h6 mb-2">{{ 'GPS_ROUTING.EXTRAS' | translate }}</h3>
+      <div class="gps-extra-group" *ngFor="let group of r.extras">
+        <div class="small fw-semibold mb-1">{{ extraGroupLabel(group.key) }}</div>
+        <ul class="gps-extra-list">
+          <li *ngFor="let item of group.items">
+            <span>{{ extraValueLabel(group.key, item.value) }}</span>
+            <span class="text-muted">
+              {{ formatDistance(item.distanceMeters) }}
+              <span *ngIf="item.amountPercent != null"> · {{ formatPercent(item.amountPercent) }}</span>
+            </span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="gps-steps mb-3" *ngIf="steps.length">
+      <h3 class="h6 mb-2">{{ 'GPS_ROUTING.INSTRUCTIONS' | translate }}</h3>
+      <ol class="gps-steps-list gps-steps-list--modal">
+        <li *ngFor="let step of steps">
+          <div class="gps-step-instruction">{{ step.instruction || step.name || '—' }}</div>
+          <div class="small text-muted">
+            {{ formatDistance(step.distanceMeters) }}
+            <span *ngIf="step.durationSeconds != null"> · {{ formatDuration(step.durationSeconds) }}</span>
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <div class="gps-meta small text-muted">
+      <div *ngIf="r.profile">{{ 'GPS_ROUTING.PROFILE' | translate }}: {{ profileLabel(r.profile) }}</div>
+      <div *ngIf="r.bbox?.length">{{ 'GPS_ROUTING.BBOX' | translate }}: {{ formatBbox(r.bbox) }}</div>
+      <div *ngIf="r.engineVersion">{{ 'GPS_ROUTING.ENGINE' | translate }}: {{ r.engineVersion }}</div>
+      <div *ngIf="r.graphDate">{{ 'GPS_ROUTING.GRAPH_DATE' | translate }}: {{ r.graphDate }}</div>
+      <div *ngIf="r.engineBuildDate">{{ 'GPS_ROUTING.BUILD_DATE' | translate }}: {{ r.engineBuildDate }}</div>
+      <div *ngIf="r.service">{{ 'GPS_ROUTING.SERVICE' | translate }}: {{ r.service }}</div>
+      <div *ngIf="r.timestamp">{{ 'GPS_ROUTING.TIMESTAMP' | translate }}: {{ formatTimestamp(r.timestamp) }}</div>
+    </div>
+
+    <p class="small text-muted mt-3 mb-0" *ngIf="r.attribution as attribution">
+      {{ attribution }}
+    </p>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" (click)="c()">
+      <i class="fa fa-times" aria-hidden="true"></i>
+      {{ 'COMMUN.CLOSE' | translate }}
+    </button>
+  </div>
+</ng-template>
+
+<ng-template #shareItineraryModal let-c="close" let-d="dismiss">
+  <div class="modal-header text-white bg-primary rounded-top">
+    <h5 class="modal-title">
+      <i class="fa fa-share-alt me-2" aria-hidden="true"></i>
+      {{ 'GPS_ROUTING.SHARE_TITLE' | translate }}
+    </h5>
+    <button type="button" class="btn-close btn-close-white" aria-label="Close" (click)="d()"></button>
+  </div>
+  <div class="modal-body">
+    <p class="small text-muted mb-2">{{ 'GPS_ROUTING.SHARE_FRIENDS_ONLY' | translate }}</p>
+    <p class="small text-muted" *ngIf="shareTarget as entry">
+      {{ shortLabel(entry.from.label, 36) }} → {{ shortLabel(entry.to.label, 36) }}
+    </p>
+    <div class="alert alert-danger py-2" *ngIf="shareError">{{ shareError | translate }}</div>
+    <div class="text-muted small" *ngIf="shareBusy && !shareFriends.length">
+      <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'GPS_ROUTING.SHARE_LOADING' | translate }}
+    </div>
+    <p class="small text-muted" *ngIf="!shareBusy && !shareFriends.length && !shareError">
+      {{ 'GPS_ROUTING.SHARE_NO_FRIENDS' | translate }}
+    </p>
+    <div class="gps-share-friends list-group" *ngIf="shareFriends.length">
+      <label class="list-group-item list-group-item-action d-flex align-items-center gap-2"
+             *ngFor="let row of shareFriends">
+        <input type="checkbox" class="form-check-input m-0" [(ngModel)]="row.selected" [disabled]="shareBusy">
+        <span class="flex-grow-1">{{ friendDisplayName(row.member) }}</span>
+      </label>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" (click)="d()" [disabled]="shareBusy">
+      {{ 'COMMUN.CLOSE' | translate }}
+    </button>
+    <button type="button"
+            class="btn btn-primary"
+            (click)="confirmShareItinerary()"
+            [disabled]="shareBusy || !shareTarget?.serverId">
+      <i class="fa fa-check me-1" aria-hidden="true"></i>
+      {{ 'GPS_ROUTING.SHARE_CONFIRM' | translate }}
+    </button>
+  </div>
+</ng-template>

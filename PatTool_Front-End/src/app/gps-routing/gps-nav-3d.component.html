@@ -1,0 +1,77 @@
+<div class="gps-nav3d"
+     #nav3dRoot
+     [class.gps-nav3d--fullscreen]="fullscreen">
+  <div class="gps-nav3d-hud">
+    <div class="gps-nav3d-hud-main">
+      <div class="gps-nav3d-status small">{{ statusKey | translate }}</div>
+      <div class="gps-nav3d-instruction">{{ nextInstruction || ('GPS_ROUTING.NAV3D_WAIT_ROUTE' | translate) }}</div>
+      <div class="gps-nav3d-metrics">
+        <span *ngIf="distanceToNextM != null">
+          {{ 'GPS_ROUTING.NAV3D_NEXT_IN' | translate }}: {{ formatDistance(distanceToNextM) }}
+        </span>
+        <span *ngIf="remainingDistanceM != null">
+          {{ 'GPS_ROUTING.NAV3D_REMAINING' | translate }}: {{ formatDistance(remainingDistanceM) }}
+        </span>
+        <span *ngIf="userSpeedKmh != null">
+          {{ 'GPS_ROUTING.AVG_SPEED' | translate }}: {{ userSpeedKmh | number:'1.0-0' }} km/h
+        </span>
+      </div>
+    </div>
+    <div class="gps-nav3d-hud-actions">
+      <button type="button"
+              class="btn btn-sm btn-light gps-nav3d-close"
+              (click)="toggleFullscreen()"
+              [attr.title]="(fullscreen ? 'GPS_ROUTING.MAP_EXIT_FULLSCREEN' : 'GPS_ROUTING.MAP_FULLSCREEN') | translate"
+              [attr.aria-label]="(fullscreen ? 'GPS_ROUTING.MAP_EXIT_FULLSCREEN' : 'GPS_ROUTING.MAP_FULLSCREEN') | translate">
+        <i class="fa" [class.fa-expand]="!fullscreen" [class.fa-compress]="fullscreen" aria-hidden="true"></i>
+      </button>
+      <button type="button"
+              class="btn btn-sm btn-light gps-nav3d-close"
+              (click)="close()"
+              [attr.title]="'GPS_ROUTING.NAV3D_EXIT' | translate"
+              [attr.aria-label]="'GPS_ROUTING.NAV3D_EXIT' | translate">
+        <i class="fa fa-times" aria-hidden="true"></i>
+        <span class="ms-1">{{ 'GPS_ROUTING.NAV3D_EXIT' | translate }}</span>
+      </button>
+    </div>
+  </div>
+  <div #canvasHost class="gps-nav3d-canvas" role="img" [attr.aria-label]="'GPS_ROUTING.NAV3D_TITLE' | translate"></div>
+  <svg class="gps-nav3d-route-overlay" aria-hidden="true">
+    <polyline #routeCasing class="gps-nav3d-route-casing" fill="none"></polyline>
+    <polyline #routeDone class="gps-nav3d-route-done" fill="none"></polyline>
+    <polyline #routeRemain class="gps-nav3d-route-remain" fill="none"></polyline>
+  </svg>
+  <div class="gps-nav3d-attrib small">© OpenStreetMap · © CARTO · via PatTool</div>
+  <div class="gps-nav3d-zoom" role="group" [attr.aria-label]="'GPS_ROUTING.NAV3D_ZOOM' | translate">
+    <button type="button"
+            class="btn btn-sm btn-light gps-nav3d-zoom-btn"
+            (click)="zoomIn()"
+            [disabled]="!canZoomIn"
+            [attr.title]="'GPS_ROUTING.NAV3D_ZOOM_IN' | translate"
+            [attr.aria-label]="'GPS_ROUTING.NAV3D_ZOOM_IN' | translate">
+      <i class="fa fa-plus" aria-hidden="true"></i>
+    </button>
+    <button type="button"
+            class="btn btn-sm btn-light gps-nav3d-zoom-btn"
+            (click)="resetZoom()"
+            [attr.title]="'GPS_ROUTING.NAV3D_ZOOM_RESET' | translate"
+            [attr.aria-label]="'GPS_ROUTING.NAV3D_ZOOM_RESET' | translate">
+      <span class="gps-nav3d-zoom-label">{{ zoomLevel | number:'1.0-1' }}</span>
+    </button>
+    <button type="button"
+            class="btn btn-sm btn-light gps-nav3d-zoom-btn"
+            (click)="zoomOut()"
+            [disabled]="!canZoomOut"
+            [attr.title]="'GPS_ROUTING.NAV3D_ZOOM_OUT' | translate"
+            [attr.aria-label]="'GPS_ROUTING.NAV3D_ZOOM_OUT' | translate">
+      <i class="fa fa-minus" aria-hidden="true"></i>
+    </button>
+    <button type="button"
+            class="btn btn-sm btn-light gps-nav3d-zoom-btn"
+            (click)="toggleFullscreen()"
+            [attr.title]="(fullscreen ? 'GPS_ROUTING.MAP_EXIT_FULLSCREEN' : 'GPS_ROUTING.MAP_FULLSCREEN') | translate"
+            [attr.aria-label]="(fullscreen ? 'GPS_ROUTING.MAP_EXIT_FULLSCREEN' : 'GPS_ROUTING.MAP_FULLSCREEN') | translate">
+      <i class="fa" [class.fa-expand]="!fullscreen" [class.fa-compress]="fullscreen" aria-hidden="true"></i>
+    </button>
+  </div>
+</div>

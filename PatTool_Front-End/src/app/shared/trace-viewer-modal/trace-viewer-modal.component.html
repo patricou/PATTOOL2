@@ -337,6 +337,23 @@
             </label>
           </div>
           </div>
+          <div class="btn-group btn-group-sm mt-2 w-100 trace-viewer-orient"
+               role="group"
+               [attr.aria-label]="'GPS_ROUTING.ORIENT_LABEL' | translate">
+            <button type="button"
+                    class="btn"
+                    *ngFor="let o of mapOrientations"
+                    [class.btn-primary]="mapOrientation === o.id"
+                    [class.btn-outline-secondary]="mapOrientation !== o.id"
+                    (click)="setMapOrientation(o.id)"
+                    [attr.title]="o.labelKey | translate"
+                    [attr.aria-label]="o.labelKey | translate"
+                    [attr.aria-pressed]="mapOrientation === o.id"
+                    [disabled]="!isMapReady || (o.id === 'route' && !trackStats)">
+              <i class="fa" [ngClass]="o.icon" aria-hidden="true"></i>
+              <span class="ms-1">{{ o.labelKey | translate }}</span>
+            </button>
+          </div>
           <button type="button"
                   class="btn btn-outline-secondary btn-sm mt-2 w-100"
                   (click)="recenterOnTrack()">
@@ -507,6 +524,23 @@
       </div>
       </div>
       <div class="trace-viewer-footer-buttons-group d-flex align-items-center flex-nowrap">
+      <div class="btn-group btn-group-sm flex-shrink-0 trace-viewer-orient"
+           role="group"
+           [attr.aria-label]="'GPS_ROUTING.ORIENT_LABEL' | translate">
+        <button type="button"
+                class="btn"
+                *ngFor="let o of mapOrientations"
+                [class.btn-primary]="mapOrientation === o.id"
+                [class.btn-outline-secondary]="mapOrientation !== o.id"
+                (click)="setMapOrientation(o.id)"
+                [attr.title]="o.labelKey | translate"
+                [attr.aria-label]="o.labelKey | translate"
+                [attr.aria-pressed]="mapOrientation === o.id"
+                [disabled]="!isMapReady || (o.id === 'route' && !trackStats)">
+          <i class="fa" [ngClass]="o.icon" aria-hidden="true"></i>
+          <span class="trace-viewer-footer-btn-text ms-1">{{ o.labelKey | translate }}</span>
+        </button>
+      </div>
       <button type="button"
               class="btn btn-outline-secondary flex-shrink-0"
               *ngIf="!isFullscreen"

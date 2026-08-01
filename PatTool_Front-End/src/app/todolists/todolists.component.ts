@@ -32,7 +32,7 @@ import {
 import { FriendsService } from '../services/friends.service';
 import { MembersService } from '../services/members.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
-import { FriendGroup } from '../model/friend';
+import { Friend, FriendGroup } from '../model/friend';
 import { Member } from '../model/member';
 import { environment } from '../../environments/environment';
 import { CalendarEntry, CalendarService } from '../calendar/calendar.service';
@@ -190,7 +190,6 @@ export class TodolistsComponent implements OnInit, OnDestroy {
     shareMode: 'email' | 'whatsapp' = 'email';
     shareRecipients: TodoVisibilityRecipient[] = [];
     shareSelectedMemberIds = new Set<string>();
-    shareExtraEmails = '';
     shareCustomMessage = '';
     shareSending = false;
     shareWhatsAppBusy = false;
@@ -856,7 +855,6 @@ export class TodolistsComponent implements OnInit, OnDestroy {
         this.reminderFocusItem = focusItem ? { ...focusItem } : null;
         this.shareMode = mode;
         this.shareSelectedMemberIds = new Set<string>();
-        this.shareExtraEmails = '';
         const assigneeName = focusItem?.assigneeMemberId
             ? this.assigneeLabel(focusItem.assigneeMemberId)
             : '';
@@ -887,13 +885,16 @@ export class TodolistsComponent implements OnInit, OnDestroy {
                 full: this.todoService.getOne(list.id).pipe(catchError(() => of(list))),
                 recipients: this.todoService.getVisibilityRecipients(list.id).pipe(
                     catchError(() => of([] as TodoVisibilityRecipient[]))
+                ),
+                friends: this.friendsService.getFriends().pipe(
+                    catchError(() => of([] as Friend[]))
                 )
             }).pipe(
                 finalize(() => {
                     this.shareRecipientsLoading = false;
                     this.cdr.markForCheck();
                 })
-            ).subscribe(({ full, recipients }) => {
+            ).subscribe(({ full, recipients, friends }) => {
                 this.shareList = full;
                 // Refresh focus item from the latest document (status / assignee may have changed).
                 if (this.shareKind === 'reminder' && this.reminderFocusItem?.id) {
@@ -903,8 +904,25 @@ export class TodolistsComponent implements OnInit, OnDestroy {
                     }
                 }
                 const byId = new Map<string, TodoVisibilityRecipient>();
+                // Friends only: email share targets are the current user's friends (+ self if already listed).
+                for (const f of friends || []) {
+                    const other = this.otherFriendMember(f);
+                    if (!other?.id) {
+                        continue;
+                    }
+                    const displayName = [other.firstName, other.lastName].filter(Boolean).join(' ').trim()
+                        || other.userName
+                        || other.id;
+                    byId.set(other.id, {
+                        memberId: other.id,
+                        displayName,
+                        userName: other.userName || undefined,
+                        hasEmail: !!(other.addressEmail && other.addressEmail.trim())
+                    });
+                }
+                // Keep owner from visibility recipients so self remains selectable.
                 for (const r of recipients || []) {
-                    if (r?.memberId) {
+                    if (r?.memberId && r.memberId === this.currentUserId) {
                         byId.set(r.memberId, r);
                     }
                 }
@@ -922,7 +940,7 @@ export class TodolistsComponent implements OnInit, OnDestroy {
                         this.shareSelectedMemberIds = new Set();
                     }
                 } else {
-                    // Pré-sélection : membres avec e-mail sauf soi (le propriétaire peut se cocher manuellement).
+                    // Pré-sélection : amis avec e-mail (le propriétaire peut se cocher manuellement).
                     this.shareSelectedMemberIds = new Set(
                         this.shareRecipients
                             .filter(r => r.hasEmail && r.memberId !== this.currentUserId)
@@ -931,6 +949,22 @@ export class TodolistsComponent implements OnInit, OnDestroy {
                 }
             })
         );
+    }
+
+    /** Other party in a friendship relative to the current user. */
+    private otherFriendMember(friend: Friend): Member | null {
+        const u1 = friend.user1;
+        const u2 = friend.user2;
+        const myId = this.currentUserId;
+        if (myId) {
+            if (u1?.id === myId) {
+                return u2 || null;
+            }
+            if (u2?.id === myId) {
+                return u1 || null;
+            }
+        }
+        return u2 || u1 || null;
     }
 
     setShareMode(mode: 'email' | 'whatsapp'): void {
@@ -961,12 +995,9 @@ export class TodolistsComponent implements OnInit, OnDestroy {
         if (!this.shareList || !this.shareList.id) {
             return;
         }
-        const extra = this.shareExtraEmails
-            .split(/[,;\s]+/)
-            .map(e => e.trim())
-            .filter(e => e.length > 0);
+        // Extra free-form emails are no longer accepted — friends only via toMemberIds.
         const memberIds = Array.from(this.shareSelectedMemberIds);
-        if (extra.length === 0 && memberIds.length === 0) {
+        if (memberIds.length === 0) {
             this.shareErrorMessage = this.translate.instant('TODOLISTS.SHARE.NO_RECIPIENT');
             return;
         }
@@ -978,7 +1009,6 @@ export class TodolistsComponent implements OnInit, OnDestroy {
             }
             const payload: TodoReminderEmailPayload = {
                 itemId,
-                toEmails: extra,
                 toMemberIds: memberIds,
                 customMessage: (this.shareCustomMessage || '').trim(),
                 mailLang: this.translate.currentLang || 'en',
@@ -1004,7 +1034,6 @@ export class TodolistsComponent implements OnInit, OnDestroy {
             return;
         }
         const payload: TodoShareEmailPayload = {
-            toEmails: extra,
             toMemberIds: memberIds,
             customMessage: (this.shareCustomMessage || '').trim(),
             mailLang: this.translate.currentLang || 'en',

@@ -974,7 +974,7 @@
                 </div>
             </div>
             <div class="mb-3">
-                <label class="form-label fw-bold">{{ 'EVENTELEM.SHARE_MAIL_PATTOOL_USERS' | translate }}</label>
+                <label class="form-label fw-bold">{{ 'EVENTELEM.SHARE_MAIL_PATTOOL_FRIENDS' | translate }}</label>
                 <div *ngIf="!wallShareByEmailLoading && wallShareByEmailAllMembers.length > 0" class="mb-2 d-flex align-items-center flex-wrap gap-2">
                     <button type="button" class="btn btn-sm btn-outline-primary" (click)="wallShareByEmailSelectAllWithAccess()">
                         {{ 'EVENTELEM.SHARE_MAIL_SELECT_ACCESS' | translate }}
@@ -1001,13 +1001,7 @@
                     </div>
                 </div>
             </div>
-            <div class="mb-3">
-                <label for="wallShareByEmailExternal" class="form-label fw-bold">{{ 'EVENTELEM.SHARE_MAIL_OTHER_EMAILS' | translate }}</label>
-                <textarea id="wallShareByEmailExternal" class="form-control" rows="2"
-                          [(ngModel)]="wallShareByEmailExternalEmails"
-                          [placeholder]="'EVENTELEM.SHARE_MAIL_OTHER_PLACEHOLDER' | translate"></textarea>
-                <small class="form-text text-muted">{{ 'EVENTELEM.SHARE_MAIL_OTHER_HINT' | translate }}</small>
-            </div>
+                <p class="small text-muted mb-2">{{ 'EVENTELEM.SHARE_MAIL_FRIENDS_ONLY' | translate }}</p>
             <div class="mb-3">
                 <label for="wallShareByEmailMessage" class="form-label fw-bold">{{ 'EVENTELEM.SHARE_MAIL_MESSAGE' | translate }}</label>
                 <textarea id="wallShareByEmailMessage" class="form-control" rows="4"

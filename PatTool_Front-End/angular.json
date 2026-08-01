@@ -42,11 +42,22 @@
                 "glob": "**/*",
                 "input": "src/assets/.well-known",
                 "output": "/.well-known"
+              },
+              {
+                "glob": "maplibre-gl-worker.mjs",
+                "input": "node_modules/maplibre-gl/dist",
+                "output": "/assets"
+              },
+              {
+                "glob": "maplibre-gl-shared.mjs",
+                "input": "node_modules/maplibre-gl/dist",
+                "output": "/assets"
               }
             ],
             "styles": [
               "node_modules/bootstrap/dist/css/bootstrap.min.css",
               "node_modules/leaflet/dist/leaflet.css",
+              "node_modules/maplibre-gl/dist/maplibre-gl.css",
               "node_modules/ag-grid-community/styles/ag-grid.css",
               "node_modules/ag-grid-community/styles/ag-theme-alpine.css",
               "node_modules/quill/dist/quill.snow.css",
@@ -58,6 +69,8 @@
             ],
             "allowedCommonJsDependencies": [
               "leaflet",
+              "leaflet-rotate",
+              "maplibre-gl",
               "jszip",
               "piexifjs",
               "typed-function",
@@ -149,10 +162,21 @@
                 "glob": "**/*",
                 "input": "src/assets/.well-known",
                 "output": "/.well-known"
+              },
+              {
+                "glob": "maplibre-gl-worker.mjs",
+                "input": "node_modules/maplibre-gl/dist",
+                "output": "/assets"
+              },
+              {
+                "glob": "maplibre-gl-shared.mjs",
+                "input": "node_modules/maplibre-gl/dist",
+                "output": "/assets"
               }
             ],
             "styles": [
               "node_modules/leaflet/dist/leaflet.css",
+              "node_modules/maplibre-gl/dist/maplibre-gl.css",
               "src/styles.css"
             ],
             "scripts": []

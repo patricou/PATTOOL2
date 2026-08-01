@@ -7,24 +7,32 @@ import {
   NgZone,
   OnDestroy,
   OnInit,
+  TemplateRef,
   ViewChild
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import * as L from 'leaflet';
+import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 
+import { L } from '../shared/leaflet-rotate-setup';
 import { LeafletBasemapOption, LeafletBasemapService } from '../shared/leaflet-basemap.service';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
+import { GpsNav3dComponent } from './gps-nav-3d.component';
+import { GpsMapOrientation } from '../shared/gps-map-orientation';
+import { KeycloakService } from '../keycloak/keycloak.service';
+import { FriendsService } from '../services/friends.service';
+import { Friend } from '../model/friend';
+import { Member } from '../model/member';
 import {
   ApiService,
+  GpsItinerary,
   OpenRouteDirections,
   OpenRouteProfile,
   OpenRouteStep
 } from '../services/api.service';
-
 interface PlacePoint {
   lat: number;
   lon: number;
@@ -37,7 +45,30 @@ interface GeocodeHit {
   displayName: string;
 }
 
+interface GpsHistoryEntry {
+  id: string;
+  profile: OpenRouteProfile;
+  from: PlacePoint;
+  to: PlacePoint;
+  distanceMeters?: number;
+  durationSeconds?: number;
+  savedAt: number;
+  /** Login Keycloak (ou libellé affiché) au moment de la sauvegarde. */
+  ownerUsername?: string;
+  /** Mongo id when persisted on the server. */
+  serverId?: string;
+  sharedWithMe?: boolean;
+  sharedWithMemberIds?: string[];
+  sharedWithUsernames?: string[];
+  coordinates?: number[][];
+}
+
 type PickTarget = 'from' | 'to' | null;
+
+type RotatableMap = L.Map & {
+  setBearing?: (bearing: number) => void;
+  getBearing?: () => number;
+};
 
 /**
  * GPS routing page (Monde) — OpenRouteService via PatTool backend proxy.
@@ -45,15 +76,24 @@ type PickTarget = 'from' | 'to' | null;
 @Component({
   selector: 'app-gps-routing',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, TraceViewerModalComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, TraceViewerModalComponent, GpsNav3dComponent],
   templateUrl: './gps-routing.component.html',
   styleUrls: ['./gps-routing.component.css']
 })
 export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
 
+  private static readonly DRAFT_STORAGE_KEY = 'pattool.gps.draft.v1';
+  private static readonly HISTORY_STORAGE_KEY = 'pattool.gps.history.v1';
+  private static readonly ORIENTATION_STORAGE_KEY = 'pattool.gps.orientation.v1';
+  private static readonly FOLLOW_STORAGE_KEY = 'pattool.gps.followUser.v1';
+  private static readonly HISTORY_MAX = 12;
+  private static readonly FOLLOW_INTERVAL_MS = 5000;
+
   @ViewChild('mapHost') mapHost?: ElementRef<HTMLDivElement>;
   @ViewChild('mapShell') mapShell?: ElementRef<HTMLElement>;
   @ViewChild(TraceViewerModalComponent) traceViewerModal?: TraceViewerModalComponent;
+  @ViewChild('routeDetailsModal') routeDetailsModal?: TemplateRef<unknown>;
+  @ViewChild('shareItineraryModal') shareItineraryModal?: TemplateRef<unknown>;
 
   readonly profiles: { id: OpenRouteProfile; labelKey: string; icon: string }[] = [
     { id: 'driving-car', labelKey: 'GPS_ROUTING.MODE_CAR', icon: 'fa-car' },
@@ -61,14 +101,24 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     { id: 'foot-walking', labelKey: 'GPS_ROUTING.MODE_WALK', icon: 'fa-male' }
   ];
 
+  readonly orientations: { id: GpsMapOrientation; labelKey: string; icon: string }[] = [
+    { id: 'north', labelKey: 'GPS_ROUTING.ORIENT_NORTH', icon: 'fa-compass' },
+    { id: 'heading', labelKey: 'GPS_ROUTING.ORIENT_HEADING', icon: 'fa-location-arrow' },
+    { id: 'route', labelKey: 'GPS_ROUTING.ORIENT_ROUTE', icon: 'fa-road' }
+  ];
+
   profile: OpenRouteProfile = 'driving-car';
+  mapOrientation: GpsMapOrientation = 'north';
   fromQuery = '';
   toQuery = '';
   fromResults: GeocodeHit[] = [];
   toResults: GeocodeHit[] = [];
+  fromActiveIndex = -1;
+  toActiveIndex = -1;
   fromPoint: PlacePoint | null = null;
   toPoint: PlacePoint | null = null;
   pickTarget: PickTarget = null;
+  recentSearches: GpsHistoryEntry[] = [];
 
   route: OpenRouteDirections | null = null;
   steps: OpenRouteStep[] = [];
@@ -81,23 +131,53 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
 
   mapBaseLayerId = 'osm-standard';
   mapFullscreen = false;
+  nav3dActive = false;
+  historyOpen = false;
+  /** Recenter 2D/3D maps on user GPS every 5s (default off, persisted per user). */
+  followUserPosition = false;
+  shareBusy = false;
+  shareError = '';
+  shareFriends: { member: Member; selected: boolean }[] = [];
+  shareTarget: GpsHistoryEntry | null = null;
 
-  private map?: L.Map;
+  private map?: RotatableMap;
   private baseLayer: L.TileLayer | L.LayerGroup | null = null;
   private routeLayer?: L.FeatureGroup;
   private fromSearch$ = new Subject<string>();
   private toSearch$ = new Subject<string>();
   private subs: Subscription[] = [];
+  private detailsModalRef?: NgbModalRef;
+  private shareModalRef?: NgbModalRef;
+  private orientationWatchId: number | null = null;
+  private followWatchId: number | null = null;
+  private followIntervalId: ReturnType<typeof setInterval> | null = null;
+  private lastUserLat: number | null = null;
+  private lastUserLon: number | null = null;
+  private deviceHeadingDeg: number | null = null;
+  private routeHeadingDeg = 0;
 
   constructor(
     private readonly api: ApiService,
     private readonly basemap: LeafletBasemapService,
     private readonly translate: TranslateService,
     private readonly cdr: ChangeDetectorRef,
-    private readonly ngZone: NgZone
+    private readonly ngZone: NgZone,
+    private readonly modalService: NgbModal,
+    private readonly keycloak: KeycloakService,
+    private readonly friendsService: FriendsService
   ) {}
 
   ngOnInit(): void {
+    this.recentSearches = this.loadHistory();
+    this.stampMissingOwners();
+    this.historyOpen = this.recentSearches.length > 0;
+    this.restoreDraft();
+    this.restoreOrientation();
+    this.restoreFollowUserLocal();
+    this.loadFollowUserPreference();
+    this.syncFollowTracking();
+    this.refreshServerItineraries();
+
     this.api.getOpenRouteStatus().subscribe({
       next: (status) => {
         this.isConfigured = !!status?.configured;
@@ -121,28 +201,48 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.ensureMap();
+    if (this.fromPoint || this.toPoint) {
+      setTimeout(() => this.refreshMarkers(true), 60);
+    }
   }
 
   ngOnDestroy(): void {
     this.subs.forEach((s) => s.unsubscribe());
+    this.stopOrientationWatch();
+    this.stopFollowTracking();
+    this.closeRouteDetails();
+    this.dismissShareModal();
+    this.nav3dActive = false;
     this.map?.remove();
     this.map = undefined;
   }
 
   onFromQueryChange(): void {
     this.fromPoint = null;
+    this.fromActiveIndex = -1;
     this.fromSearch$.next(this.fromQuery);
   }
 
   onToQueryChange(): void {
     this.toPoint = null;
+    this.toActiveIndex = -1;
     this.toSearch$.next(this.toQuery);
+  }
+
+  onFromKeydown(event: KeyboardEvent): void {
+    this.handleResultsKeydown(event, 'from');
+  }
+
+  onToKeydown(event: KeyboardEvent): void {
+    this.handleResultsKeydown(event, 'to');
   }
 
   selectFrom(hit: GeocodeHit): void {
     this.fromPoint = { lat: hit.lat, lon: hit.lon, label: hit.displayName };
     this.fromQuery = hit.displayName;
     this.fromResults = [];
+    this.fromActiveIndex = -1;
+    this.persistDraft();
     this.refreshMarkers();
     this.cdr.detectChanges();
   }
@@ -151,6 +251,8 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     this.toPoint = { lat: hit.lat, lon: hit.lon, label: hit.displayName };
     this.toQuery = hit.displayName;
     this.toResults = [];
+    this.toActiveIndex = -1;
+    this.persistDraft();
     this.refreshMarkers();
     this.cdr.detectChanges();
   }
@@ -175,6 +277,7 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
           this.fromQuery = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
           this.fromResults = [];
           this.isLocating = false;
+          this.persistDraft();
           this.refreshMarkers();
           this.cdr.detectChanges();
           this.api.geocodeReverse(lat, lon).subscribe({
@@ -183,6 +286,7 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
               if (name && this.fromPoint) {
                 this.fromPoint = { ...this.fromPoint, label: name };
                 this.fromQuery = name;
+                this.persistDraft();
                 this.cdr.detectChanges();
               }
             },
@@ -210,6 +314,7 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     this.toQuery = tmpQuery;
     this.fromResults = [];
     this.toResults = [];
+    this.persistDraft();
     this.refreshMarkers();
   }
 
@@ -219,9 +324,31 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
 
   setProfile(profile: OpenRouteProfile): void {
     this.profile = profile;
+    this.persistDraft();
   }
 
-  calculateRoute(): void {
+  setMapOrientation(orientation: GpsMapOrientation): void {
+    if (this.mapOrientation === orientation) {
+      return;
+    }
+    this.mapOrientation = orientation;
+    this.persistOrientation();
+    this.syncOrientationWatch();
+    this.applyMapBearing();
+    this.cdr.detectChanges();
+  }
+
+  onFollowUserChange(): void {
+    this.persistFollowUserLocal();
+    this.persistFollowUserRemote();
+    this.syncFollowTracking();
+    if (this.followUserPosition) {
+      this.recenterMapOnUser();
+    }
+    this.cdr.detectChanges();
+  }
+
+  calculateRoute(openDetails = false): void {
     if (!this.fromPoint || !this.toPoint) {
       this.errorMessage = 'GPS_ROUTING.POINTS_REQUIRED';
       return;
@@ -233,8 +360,10 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.isRouting = true;
     this.errorMessage = '';
+    this.closeRouteDetails();
     this.route = null;
     this.steps = [];
+    this.persistDraft();
 
     const lang = this.translate.currentLang || this.translate.defaultLang || 'en';
     this.api.getOpenRouteDirections(
@@ -249,8 +378,14 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
         this.route = data;
         this.steps = data?.steps || [];
         this.isRouting = false;
+        this.saveSuccessfulSearch(data);
+        this.updateRouteHeadingFromPath();
         this.drawRoute();
+        this.applyMapBearing();
         this.cdr.detectChanges();
+        if (openDetails) {
+          this.openRouteDetails();
+        }
       },
       error: (err) => {
         this.isRouting = false;
@@ -273,7 +408,284 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     this.route = null;
     this.steps = [];
     this.errorMessage = '';
+    this.nav3dActive = false;
+    this.fromPoint = null;
+    this.toPoint = null;
+    this.fromQuery = '';
+    this.toQuery = '';
+    this.fromResults = [];
+    this.toResults = [];
+    this.closeRouteDetails();
+    this.persistDraft();
     this.clearRouteLine();
+  }
+
+  openRouteDetails(): void {
+    if (!this.route || !this.routeDetailsModal) {
+      return;
+    }
+    if (this.detailsModalRef) {
+      return;
+    }
+    this.detailsModalRef = this.modalService.open(this.routeDetailsModal, {
+      size: 'lg',
+      scrollable: true,
+      centered: true,
+      backdrop: true,
+      keyboard: true,
+      animation: true,
+      windowClass: 'modal-smooth-animation gps-route-details-modal'
+    });
+    this.detailsModalRef.result.finally(() => {
+      this.detailsModalRef = undefined;
+    });
+  }
+
+  closeRouteDetails(): void {
+    if (this.detailsModalRef) {
+      this.detailsModalRef.close();
+      this.detailsModalRef = undefined;
+    }
+  }
+
+  applyHistoryEntry(entry: GpsHistoryEntry, openDetails = false): void {
+    if (!entry?.from || !entry?.to) {
+      return;
+    }
+    this.profile = entry.profile || 'driving-car';
+    this.fromPoint = { ...entry.from };
+    this.toPoint = { ...entry.to };
+    this.fromQuery = entry.from.label || '';
+    this.toQuery = entry.to.label || '';
+    this.fromResults = [];
+    this.toResults = [];
+    this.persistDraft();
+    this.refreshMarkers();
+    this.calculateRoute(openDetails);
+  }
+
+  openHistoryEntryDetails(entry: GpsHistoryEntry, event?: Event): void {
+    event?.stopPropagation();
+    this.applyHistoryEntry(entry, true);
+  }
+
+  removeHistoryEntry(entry: GpsHistoryEntry, event?: Event): void {
+    event?.stopPropagation();
+    const serverId = entry.serverId;
+    this.recentSearches = this.recentSearches.filter((e) => e.id !== entry.id);
+    this.persistLocalOnlyHistory();
+    if (serverId && !entry.sharedWithMe) {
+      this.api.deleteGpsItinerary(serverId).subscribe({
+        error: () => { /* keep UI optimistic */ }
+      });
+    }
+    this.cdr.detectChanges();
+  }
+
+  clearHistory(): void {
+    const ownedServerIds = this.recentSearches
+      .filter((e) => e.serverId && !e.sharedWithMe)
+      .map((e) => e.serverId!);
+    // Keep itineraries shared by others; clear mine (local + server).
+    this.recentSearches = this.recentSearches.filter((e) => !!e.sharedWithMe);
+    this.persistLocalOnlyHistory();
+    ownedServerIds.forEach((id) => {
+      this.api.deleteGpsItinerary(id).subscribe({ error: () => { /* ignore */ } });
+    });
+    this.cdr.detectChanges();
+  }
+
+  openShareItinerary(entry: GpsHistoryEntry, event?: Event): void {
+    event?.stopPropagation();
+    if (!entry.serverId || entry.sharedWithMe) {
+      // Persist on server first, then open share.
+      if (!entry.serverId && !entry.sharedWithMe) {
+        this.persistEntryToServer(entry, (saved) => this.openShareModalFor(saved));
+        return;
+      }
+      return;
+    }
+    this.openShareModalFor(entry);
+  }
+
+  canShareEntry(entry: GpsHistoryEntry): boolean {
+    return !entry.sharedWithMe;
+  }
+
+  friendDisplayName(member: Member): string {
+    const user = (member.userName || '').trim();
+    if (user) {
+      return user;
+    }
+    const full = `${member.firstName || ''} ${member.lastName || ''}`.trim();
+    return full || member.id || '—';
+  }
+
+  confirmShareItinerary(): void {
+    const entry = this.shareTarget;
+    if (!entry?.serverId || this.shareBusy) {
+      return;
+    }
+    const memberIds = this.shareFriends.filter((f) => f.selected).map((f) => f.member.id);
+    this.shareBusy = true;
+    this.shareError = '';
+    this.api.shareGpsItinerary(entry.serverId, memberIds).subscribe({
+      next: (it) => {
+        this.mergeServerItinerary(it);
+        this.shareBusy = false;
+        this.shareModalRef?.close();
+        this.shareModalRef = undefined;
+        this.shareTarget = null;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.shareBusy = false;
+        this.shareError = 'GPS_ROUTING.SHARE_ERROR';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  dismissShareModal(): void {
+    this.shareModalRef?.dismiss();
+    this.shareModalRef = undefined;
+    this.shareTarget = null;
+    this.shareError = '';
+  }
+
+  private openShareModalFor(entry: GpsHistoryEntry): void {
+    if (!this.shareItineraryModal) {
+      return;
+    }
+    this.shareTarget = entry;
+    this.shareError = '';
+    this.shareBusy = true;
+    this.shareFriends = [];
+    this.shareModalRef = this.modalService.open(this.shareItineraryModal, {
+      centered: true,
+      size: 'md'
+    });
+    this.shareModalRef.result.finally(() => {
+      this.shareModalRef = undefined;
+      this.shareBusy = false;
+    });
+    this.friendsService.getFriends().subscribe({
+      next: (friends: Friend[]) => {
+        const selected = new Set(entry.sharedWithMemberIds || []);
+        const myName = (this.keycloak.getUsernameForDisplay() || '').trim().toLowerCase();
+        const rows: { member: Member; selected: boolean }[] = [];
+        for (const f of friends || []) {
+          const other = this.otherFriendMember(f, myName);
+          if (!other?.id) {
+            continue;
+          }
+          rows.push({ member: other, selected: selected.has(other.id) });
+        }
+        rows.sort((a, b) => this.friendDisplayName(a.member).localeCompare(this.friendDisplayName(b.member)));
+        this.shareFriends = rows;
+        this.shareBusy = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.shareBusy = false;
+        this.shareError = 'GPS_ROUTING.SHARE_FRIENDS_ERROR';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  private otherFriendMember(friend: Friend, myNameLower: string): Member | null {
+    const u1 = friend.user1;
+    const u2 = friend.user2;
+    if (myNameLower) {
+      if (u1?.userName && u1.userName.trim().toLowerCase() === myNameLower) {
+        return u2 || null;
+      }
+      if (u2?.userName && u2.userName.trim().toLowerCase() === myNameLower) {
+        return u1 || null;
+      }
+    }
+    return u2 || u1 || null;
+  }
+
+  toggleHistory(): void {
+    this.historyOpen = !this.historyOpen;
+  }
+
+  saveCurrentSearch(): void {
+    if (!this.fromPoint || !this.toPoint) {
+      this.errorMessage = 'GPS_ROUTING.POINTS_REQUIRED';
+      return;
+    }
+    this.persistDraft();
+    this.saveSuccessfulSearch(this.route, true);
+    this.historyOpen = true;
+    this.errorMessage = '';
+    this.cdr.detectChanges();
+  }
+
+  shortLabel(label: string | undefined, max = 42): string {
+    const text = (label || '').trim();
+    if (text.length <= max) {
+      return text || '—';
+    }
+    return `${text.slice(0, max - 1)}…`;
+  }
+
+  historyOwnerLabel(entry: GpsHistoryEntry): string {
+    const stored = (entry.ownerUsername || '').trim();
+    if (stored) {
+      return stored;
+    }
+    return this.translate.instant('GPS_ROUTING.HISTORY_OWNER_UNKNOWN');
+  }
+
+  private currentOwnerUsername(): string | undefined {
+    const name = (this.keycloak.getUsernameForDisplay() || '').trim();
+    return name.length > 0 ? name : undefined;
+  }
+
+  /** Anciennes entrées sans owner : rattacher au login courant (historique local). */
+  private stampMissingOwners(): void {
+    const me = this.currentOwnerUsername();
+    if (!me || !this.recentSearches.length) {
+      return;
+    }
+    let changed = false;
+    this.recentSearches = this.recentSearches.map((e) => {
+      if ((e.ownerUsername || '').trim()) {
+        return e;
+      }
+      changed = true;
+      return { ...e, ownerUsername: me };
+    });
+    if (changed) {
+      this.persistLocalOnlyHistory();
+    }
+  }
+
+  profileIcon(profile: OpenRouteProfile): string {
+    return this.profiles.find((p) => p.id === profile)?.icon || 'fa-road';
+  }
+
+  toggleNav3d(): void {
+    if (!this.route?.coordinates?.length) {
+      return;
+    }
+    this.nav3dActive = !this.nav3dActive;
+    if (!this.nav3dActive) {
+      this.refreshMapAfterNav3d();
+      this.applyMapBearing();
+    }
+  }
+
+  refreshMapAfterNav3d(): void {
+    setTimeout(() => {
+      this.map?.invalidateSize();
+      if (this.route?.coordinates?.length) {
+        this.refreshMarkers(true);
+      }
+    }, 80);
   }
 
   get availableMapBaseLayers(): LeafletBasemapOption[] {
@@ -387,6 +799,76 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     return `${Math.round(meters)} m`;
   }
 
+  formatElevation(meters?: number | null): string {
+    if (meters == null || !Number.isFinite(meters)) {
+      return '—';
+    }
+    return `${Math.round(meters)} m`;
+  }
+
+  formatSpeed(kmh?: number | null): string {
+    if (kmh == null || !Number.isFinite(kmh)) {
+      return '—';
+    }
+    return `${kmh.toFixed(1)} km/h`;
+  }
+
+  formatPercent(amount?: number | null): string {
+    if (amount == null || !Number.isFinite(amount)) {
+      return '—';
+    }
+    return `${amount.toFixed(amount >= 10 ? 0 : 1)} %`;
+  }
+
+  formatBbox(bbox?: number[] | null): string {
+    if (!bbox?.length) {
+      return '—';
+    }
+    return bbox.map((v) => Number(v).toFixed(5)).join(', ');
+  }
+
+  formatTimestamp(ts?: number | null): string {
+    if (ts == null || !Number.isFinite(ts)) {
+      return '—';
+    }
+    const ms = ts > 1e12 ? ts : ts * 1000;
+    try {
+      return new Date(ms).toLocaleString();
+    } catch {
+      return String(ts);
+    }
+  }
+
+  profileLabel(profile?: string | null): string {
+    const found = this.profiles.find((p) => p.id === profile);
+    return found ? this.translate.instant(found.labelKey) : (profile || '—');
+  }
+
+  extraGroupLabel(key?: string | null): string {
+    if (!key) {
+      return '—';
+    }
+    const normalized = key.toLowerCase();
+    const i18nKey = `GPS_ROUTING.EXTRA_GROUP.${normalized}`;
+    const translated = this.translate.instant(i18nKey);
+    return translated !== i18nKey ? translated : key;
+  }
+
+  extraValueLabel(groupKey?: string | null, value?: number | null): string {
+    if (value == null || !Number.isFinite(value)) {
+      return '—';
+    }
+    const normalized = (groupKey || '').toLowerCase();
+    // ORS response key is often "waytypes" while request uses "waytype".
+    const mapKey = normalized === 'waytypes' ? 'waytype' : normalized;
+    const i18nKey = `GPS_ROUTING.EXTRA_VALUE.${mapKey}.${value}`;
+    const translated = this.translate.instant(i18nKey);
+    if (translated !== i18nKey) {
+      return translated;
+    }
+    return `${value}`;
+  }
+
   formatDuration(seconds?: number | null): string {
     if (seconds == null || !Number.isFinite(seconds)) {
       return '—';
@@ -403,13 +885,81 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     return `${total} s`;
   }
 
+  private handleResultsKeydown(event: KeyboardEvent, side: 'from' | 'to'): void {
+    const results = side === 'from' ? this.fromResults : this.toResults;
+    if (!results.length) {
+      return;
+    }
+    const active = side === 'from' ? this.fromActiveIndex : this.toActiveIndex;
+    const setActive = (index: number) => {
+      if (side === 'from') {
+        this.fromActiveIndex = index;
+      } else {
+        this.toActiveIndex = index;
+      }
+      this.cdr.detectChanges();
+      this.scrollActiveResultIntoView(side, index);
+    };
+
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        setActive(active < results.length - 1 ? active + 1 : 0);
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        setActive(active > 0 ? active - 1 : results.length - 1);
+        break;
+      case 'Enter':
+        if (active >= 0 && active < results.length) {
+          event.preventDefault();
+          if (side === 'from') {
+            this.selectFrom(results[active]);
+          } else {
+            this.selectTo(results[active]);
+          }
+        }
+        break;
+      case 'Escape':
+        event.preventDefault();
+        if (side === 'from') {
+          this.fromResults = [];
+          this.fromActiveIndex = -1;
+        } else {
+          this.toResults = [];
+          this.toActiveIndex = -1;
+        }
+        this.cdr.detectChanges();
+        break;
+      case 'Home':
+        event.preventDefault();
+        setActive(0);
+        break;
+      case 'End':
+        event.preventDefault();
+        setActive(results.length - 1);
+        break;
+      default:
+        break;
+    }
+  }
+
+  private scrollActiveResultIntoView(side: 'from' | 'to', index: number): void {
+    const listId = side === 'from' ? 'gpsFromResults' : 'gpsToResults';
+    const list = document.getElementById(listId);
+    const item = list?.querySelectorAll('.gps-result-row')[index] as HTMLElement | undefined;
+    item?.scrollIntoView({ block: 'nearest' });
+  }
+
   private runGeocode(side: 'from' | 'to', query: string): void {
     const q = query?.trim();
     if (!q || q.length < 3) {
       if (side === 'from') {
         this.fromResults = [];
+        this.fromActiveIndex = -1;
       } else {
         this.toResults = [];
+        this.toActiveIndex = -1;
       }
       this.cdr.detectChanges();
       return;
@@ -445,9 +995,11 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
         })).filter((h: GeocodeHit) => h.displayName && Number.isFinite(h.lat) && Number.isFinite(h.lon));
         if (side === 'from') {
           this.fromResults = hits.slice(0, 6);
+          this.fromActiveIndex = this.fromResults.length ? 0 : -1;
           this.isSearchingFrom = false;
         } else {
           this.toResults = hits.slice(0, 6);
+          this.toActiveIndex = this.toResults.length ? 0 : -1;
           this.isSearchingTo = false;
         }
         this.cdr.detectChanges();
@@ -455,9 +1007,11 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
       error: () => {
         if (side === 'from') {
           this.fromResults = [];
+          this.fromActiveIndex = -1;
           this.isSearchingFrom = false;
         } else {
           this.toResults = [];
+          this.toActiveIndex = -1;
           this.isSearchingTo = false;
         }
         this.cdr.detectChanges();
@@ -489,14 +1043,255 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.basemap.loadOptionalLayers(this.api);
-    this.map = L.map(el, { zoomControl: true, attributionControl: true });
+    this.map = L.map(el, {
+      zoomControl: true,
+      attributionControl: true,
+      rotate: true,
+      bearing: 0,
+      touchRotate: false,
+      shiftKeyRotate: false,
+      rotateControl: false
+    } as L.MapOptions) as RotatableMap;
     this.baseLayer = this.basemap.applyBaseLayer(this.map, this.mapBaseLayerId, null);
     this.routeLayer = L.featureGroup().addTo(this.map);
     this.map.setView([46.6, 2.5], 6);
     this.map.on('click', (e: L.LeafletMouseEvent) => {
       this.ngZone.run(() => this.onMapClick(e.latlng.lat, e.latlng.lng));
     });
+    this.syncOrientationWatch();
+    this.applyMapBearing();
     setTimeout(() => this.map?.invalidateSize(), 0);
+  }
+
+  private restoreOrientation(): void {
+    try {
+      const raw = localStorage.getItem(GpsRoutingComponent.ORIENTATION_STORAGE_KEY);
+      if (raw === 'north' || raw === 'heading' || raw === 'route') {
+        this.mapOrientation = raw;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  private persistOrientation(): void {
+    try {
+      localStorage.setItem(GpsRoutingComponent.ORIENTATION_STORAGE_KEY, this.mapOrientation);
+    } catch {
+      // ignore
+    }
+  }
+
+  private restoreFollowUserLocal(): void {
+    try {
+      const raw = localStorage.getItem(GpsRoutingComponent.FOLLOW_STORAGE_KEY);
+      if (raw === '0' || raw === 'false') {
+        this.followUserPosition = false;
+      } else if (raw === '1' || raw === 'true') {
+        this.followUserPosition = true;
+      }
+    } catch {
+      // default false
+    }
+  }
+
+  private persistFollowUserLocal(): void {
+    try {
+      localStorage.setItem(
+        GpsRoutingComponent.FOLLOW_STORAGE_KEY,
+        this.followUserPosition ? '1' : '0'
+      );
+    } catch {
+      // ignore
+    }
+  }
+
+  private loadFollowUserPreference(): void {
+    this.api.getGpsFollowPreferences().subscribe({
+      next: (pref) => {
+        this.followUserPosition = pref?.followUser === true;
+        this.persistFollowUserLocal();
+        this.syncFollowTracking();
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        // keep local / default (off)
+      }
+    });
+  }
+
+  private persistFollowUserRemote(): void {
+    this.api.saveGpsFollowPreferences(this.followUserPosition).subscribe({
+      error: () => { /* local already saved */ }
+    });
+  }
+
+  private syncFollowTracking(): void {
+    if (this.followUserPosition) {
+      this.startFollowWatch();
+      this.startFollowInterval();
+    } else {
+      this.stopFollowInterval();
+      // Keep last known fix; stop dedicated watch if orientation doesn't need GPS.
+      if (this.mapOrientation === 'north') {
+        this.stopFollowWatch();
+      }
+    }
+  }
+
+  private startFollowWatch(): void {
+    if (this.followWatchId != null || !navigator.geolocation) {
+      return;
+    }
+    this.followWatchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        this.ngZone.run(() => {
+          this.lastUserLat = pos.coords.latitude;
+          this.lastUserLon = pos.coords.longitude;
+          if (pos.coords.heading != null && Number.isFinite(pos.coords.heading)) {
+            this.deviceHeadingDeg = pos.coords.heading;
+          }
+        });
+      },
+      () => { /* keep last fix */ },
+      { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
+    );
+  }
+
+  private stopFollowWatch(): void {
+    if (this.followWatchId != null && navigator.geolocation) {
+      navigator.geolocation.clearWatch(this.followWatchId);
+      this.followWatchId = null;
+    }
+  }
+
+  private startFollowInterval(): void {
+    if (this.followIntervalId != null) {
+      return;
+    }
+    this.recenterMapOnUser();
+    this.followIntervalId = setInterval(() => {
+      this.ngZone.run(() => this.recenterMapOnUser());
+    }, GpsRoutingComponent.FOLLOW_INTERVAL_MS);
+  }
+
+  private stopFollowInterval(): void {
+    if (this.followIntervalId != null) {
+      clearInterval(this.followIntervalId);
+      this.followIntervalId = null;
+    }
+  }
+
+  private stopFollowTracking(): void {
+    this.stopFollowInterval();
+    this.stopFollowWatch();
+  }
+
+  /** Pan 2D map to last known user position (3D handles follow via its own input). */
+  private recenterMapOnUser(): void {
+    if (!this.followUserPosition || this.nav3dActive || !this.map) {
+      return;
+    }
+    if (this.lastUserLat == null || this.lastUserLon == null) {
+      return;
+    }
+    try {
+      this.map.panTo([this.lastUserLat, this.lastUserLon], { animate: true, duration: 0.6 });
+      this.applyMapBearing();
+    } catch {
+      // map not ready
+    }
+  }
+
+  private syncOrientationWatch(): void {
+    if (this.mapOrientation === 'heading' || this.mapOrientation === 'route') {
+      this.startOrientationWatch();
+    } else {
+      this.stopOrientationWatch();
+    }
+  }
+
+  private startOrientationWatch(): void {
+    if (this.orientationWatchId != null || !navigator.geolocation) {
+      return;
+    }
+    this.orientationWatchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        this.ngZone.run(() => {
+          if (pos.coords.heading != null && Number.isFinite(pos.coords.heading)) {
+            this.deviceHeadingDeg = pos.coords.heading;
+          }
+          if (this.mapOrientation === 'route') {
+            this.updateRouteHeadingNear(pos.coords.latitude, pos.coords.longitude);
+          }
+          if (this.mapOrientation === 'heading' || this.mapOrientation === 'route') {
+            this.applyMapBearing();
+          }
+        });
+      },
+      () => { /* keep last heading */ },
+      { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
+    );
+  }
+
+  private stopOrientationWatch(): void {
+    if (this.orientationWatchId != null && navigator.geolocation) {
+      navigator.geolocation.clearWatch(this.orientationWatchId);
+      this.orientationWatchId = null;
+    }
+  }
+
+  private updateRouteHeadingFromPath(): void {
+    const coords = this.route?.coordinates;
+    if (!coords || coords.length < 2) {
+      this.routeHeadingDeg = 0;
+      return;
+    }
+    this.updateRouteHeadingNear(coords[0][0], coords[0][1]);
+  }
+
+  private updateRouteHeadingNear(lat: number, lon: number): void {
+    const coords = this.route?.coordinates;
+    if (!coords || coords.length < 2) {
+      return;
+    }
+    let bestI = 0;
+    let bestD = Infinity;
+    for (let i = 0; i < coords.length; i++) {
+      const d = Math.hypot(coords[i][0] - lat, coords[i][1] - lon);
+      if (d < bestD) {
+        bestD = d;
+        bestI = i;
+      }
+    }
+    const i = Math.min(bestI, coords.length - 2);
+    const a = coords[i];
+    const b = coords[i + 1];
+    const lat1 = a[0] * Math.PI / 180;
+    const lat2 = b[0] * Math.PI / 180;
+    const dLon = (b[1] - a[1]) * Math.PI / 180;
+    const y = Math.sin(dLon) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    let bearing = Math.atan2(y, x) * 180 / Math.PI;
+    this.routeHeadingDeg = (bearing + 360) % 360;
+  }
+
+  applyMapBearing(): void {
+    if (!this.map?.setBearing || this.nav3dActive) {
+      return;
+    }
+    let bearing = 0;
+    if (this.mapOrientation === 'heading') {
+      bearing = this.deviceHeadingDeg != null ? this.deviceHeadingDeg : this.routeHeadingDeg;
+    } else if (this.mapOrientation === 'route') {
+      bearing = this.routeHeadingDeg;
+    }
+    try {
+      this.map.setBearing(((bearing % 360) + 360) % 360);
+      this.map.invalidateSize({ animate: false });
+    } catch {
+      // plugin not ready
+    }
   }
 
   private exitMapFullscreenIfActive(): void {
@@ -540,6 +1335,7 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
       this.toResults = [];
     }
     this.pickTarget = null;
+    this.persistDraft();
     this.refreshMarkers();
     this.cdr.detectChanges();
   }
@@ -617,11 +1413,28 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
   private buildGpx(points: number[][], name: string, profileLabel: string): string {
     const now = new Date().toISOString();
     const safeName = this.escapeXml(name);
+    const elevBits: string[] = [];
+    if (this.route?.ascentMeters != null) {
+      elevBits.push(`D+ ${this.formatElevation(this.route.ascentMeters)}`);
+    }
+    if (this.route?.descentMeters != null) {
+      elevBits.push(`D- ${this.formatElevation(this.route.descentMeters)}`);
+    }
     const safeDesc = this.escapeXml(
-      `${profileLabel} · ${this.formatDistance(this.route?.distanceMeters)} · ${this.formatDuration(this.route?.durationSeconds)}`
+      [
+        profileLabel,
+        this.formatDistance(this.route?.distanceMeters),
+        this.formatDuration(this.route?.durationSeconds),
+        ...elevBits
+      ].filter(Boolean).join(' · ')
     );
     const trkpts = points
-      .map((c) => `      <trkpt lat="${c[0]}" lon="${c[1]}"></trkpt>`)
+      .map((c) => {
+        const ele = c.length >= 3 && Number.isFinite(c[2])
+          ? `\n        <ele>${c[2].toFixed(1)}</ele>`
+          : '';
+        return `      <trkpt lat="${c[0]}" lon="${c[1]}">${ele}</trkpt>`;
+      })
       .join('\n');
     return [
       '<?xml version="1.0" encoding="UTF-8"?>',
@@ -665,5 +1478,237 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&apos;');
+  }
+
+  private restoreDraft(): void {
+    try {
+      const raw = localStorage.getItem(GpsRoutingComponent.DRAFT_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+      const draft = JSON.parse(raw);
+      if (draft?.profile && this.profiles.some((p) => p.id === draft.profile)) {
+        this.profile = draft.profile;
+      }
+      if (draft?.from && this.isValidPoint(draft.from)) {
+        this.fromPoint = {
+          lat: Number(draft.from.lat),
+          lon: Number(draft.from.lon),
+          label: String(draft.from.label || '')
+        };
+        this.fromQuery = this.fromPoint.label || `${this.fromPoint.lat.toFixed(5)}, ${this.fromPoint.lon.toFixed(5)}`;
+      }
+      if (draft?.to && this.isValidPoint(draft.to)) {
+        this.toPoint = {
+          lat: Number(draft.to.lat),
+          lon: Number(draft.to.lon),
+          label: String(draft.to.label || '')
+        };
+        this.toQuery = this.toPoint.label || `${this.toPoint.lat.toFixed(5)}, ${this.toPoint.lon.toFixed(5)}`;
+      }
+    } catch {
+      // ignore corrupt draft
+    }
+  }
+
+  private persistDraft(): void {
+    try {
+      const payload = {
+        profile: this.profile,
+        from: this.fromPoint,
+        to: this.toPoint,
+        savedAt: Date.now()
+      };
+      localStorage.setItem(GpsRoutingComponent.DRAFT_STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      // quota / private mode
+    }
+  }
+
+  private saveSuccessfulSearch(data: OpenRouteDirections | null, alsoPersistServer = false): void {
+    if (!this.fromPoint || !this.toPoint) {
+      return;
+    }
+    const entry: GpsHistoryEntry = {
+      id: `${Date.now()}-${Math.round(this.fromPoint.lat * 1e5)}-${Math.round(this.toPoint.lon * 1e5)}`,
+      profile: this.profile,
+      from: { ...this.fromPoint },
+      to: { ...this.toPoint },
+      distanceMeters: data?.distanceMeters,
+      durationSeconds: data?.durationSeconds,
+      savedAt: Date.now(),
+      ownerUsername: this.currentOwnerUsername(),
+      coordinates: data?.coordinates?.length ? data.coordinates : undefined
+    };
+    const sameKey = (a: GpsHistoryEntry, b: GpsHistoryEntry) =>
+      a.profile === b.profile
+      && Math.abs(a.from.lat - b.from.lat) < 1e-5
+      && Math.abs(a.from.lon - b.from.lon) < 1e-5
+      && Math.abs(a.to.lat - b.to.lat) < 1e-5
+      && Math.abs(a.to.lon - b.to.lon) < 1e-5;
+    const next = [entry, ...this.recentSearches.filter((e) => !sameKey(e, entry))]
+      .slice(0, GpsRoutingComponent.HISTORY_MAX);
+    this.recentSearches = next;
+    this.persistLocalOnlyHistory();
+    this.historyOpen = true;
+    if (alsoPersistServer) {
+      this.persistEntryToServer(entry);
+    }
+  }
+
+  private persistEntryToServer(entry: GpsHistoryEntry, onSaved?: (saved: GpsHistoryEntry) => void): void {
+    if (entry.sharedWithMe) {
+      return;
+    }
+    this.api.createGpsItinerary({
+      profile: entry.profile,
+      from: entry.from,
+      to: entry.to,
+      distanceMeters: entry.distanceMeters,
+      durationSeconds: entry.durationSeconds,
+      coordinates: entry.coordinates || this.route?.coordinates
+    }).subscribe({
+      next: (it) => {
+        const saved = this.mergeServerItinerary(it, entry.id);
+        onSaved?.(saved);
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        // Local history still available offline.
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  private refreshServerItineraries(): void {
+    this.api.listGpsItineraries().subscribe({
+      next: (list) => {
+        for (const it of list || []) {
+          this.mergeServerItinerary(it);
+        }
+        this.recentSearches = this.recentSearches
+          .slice()
+          .sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0))
+          .slice(0, GpsRoutingComponent.HISTORY_MAX);
+        this.persistLocalOnlyHistory();
+        if (this.recentSearches.length) {
+          this.historyOpen = true;
+        }
+        this.cdr.detectChanges();
+      },
+      error: () => { /* offline / unauthenticated */ }
+    });
+  }
+
+  private mergeServerItinerary(it: GpsItinerary, replaceLocalId?: string): GpsHistoryEntry {
+    const mapped = this.mapServerItinerary(it);
+    const sameKey = (a: GpsHistoryEntry, b: GpsHistoryEntry) =>
+      a.profile === b.profile
+      && Math.abs(a.from.lat - b.from.lat) < 1e-5
+      && Math.abs(a.from.lon - b.from.lon) < 1e-5
+      && Math.abs(a.to.lat - b.to.lat) < 1e-5
+      && Math.abs(a.to.lon - b.to.lon) < 1e-5;
+    this.recentSearches = [
+      mapped,
+      ...this.recentSearches.filter((e) => {
+        if (replaceLocalId && e.id === replaceLocalId) {
+          return false;
+        }
+        if (e.serverId && e.serverId === mapped.serverId) {
+          return false;
+        }
+        return !sameKey(e, mapped);
+      })
+    ].slice(0, GpsRoutingComponent.HISTORY_MAX);
+    this.persistLocalOnlyHistory();
+    return mapped;
+  }
+
+  private mapServerItinerary(it: GpsItinerary): GpsHistoryEntry {
+    return {
+      id: it.id,
+      serverId: it.id,
+      profile: (this.profiles.some((p) => p.id === it.profile) ? it.profile : 'driving-car') as OpenRouteProfile,
+      from: {
+        lat: Number(it.from?.lat),
+        lon: Number(it.from?.lon),
+        label: String(it.from?.label || '')
+      },
+      to: {
+        lat: Number(it.to?.lat),
+        lon: Number(it.to?.lon),
+        label: String(it.to?.label || '')
+      },
+      distanceMeters: typeof it.distanceMeters === 'number' ? it.distanceMeters : undefined,
+      durationSeconds: typeof it.durationSeconds === 'number' ? it.durationSeconds : undefined,
+      savedAt: it.updatedAt ? Date.parse(it.updatedAt) || Date.now() : Date.now(),
+      ownerUsername: it.ownerUsername || undefined,
+      sharedWithMe: !!it.sharedWithMe,
+      sharedWithMemberIds: it.sharedWithMemberIds || [],
+      sharedWithUsernames: it.sharedWithUsernames || [],
+      coordinates: it.coordinates?.length ? it.coordinates : undefined
+    };
+  }
+
+  /** Persist only local (non-server / owned mirror without shared-only) entries for offline cache. */
+  private persistLocalOnlyHistory(): void {
+    const local = this.recentSearches.filter((e) => !e.sharedWithMe);
+    this.writeHistory(local);
+  }
+
+  private loadHistory(): GpsHistoryEntry[] {
+    try {
+      const raw = localStorage.getItem(GpsRoutingComponent.HISTORY_STORAGE_KEY);
+      if (!raw) {
+        return [];
+      }
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+      return parsed
+        .filter((e: any) => e && this.isValidPoint(e.from) && this.isValidPoint(e.to))
+        .map((e: any) => ({
+          id: String(e.id || `${e.savedAt}-${e.from.lat}-${e.to.lon}`),
+          profile: (this.profiles.some((p) => p.id === e.profile) ? e.profile : 'driving-car') as OpenRouteProfile,
+          from: {
+            lat: Number(e.from.lat),
+            lon: Number(e.from.lon),
+            label: String(e.from.label || '')
+          },
+          to: {
+            lat: Number(e.to.lat),
+            lon: Number(e.to.lon),
+            label: String(e.to.label || '')
+          },
+          distanceMeters: typeof e.distanceMeters === 'number' ? e.distanceMeters : undefined,
+          durationSeconds: typeof e.durationSeconds === 'number' ? e.durationSeconds : undefined,
+          savedAt: Number(e.savedAt) || 0,
+          ownerUsername: typeof e.ownerUsername === 'string' && e.ownerUsername.trim()
+            ? e.ownerUsername.trim()
+            : undefined,
+          serverId: typeof e.serverId === 'string' && e.serverId.trim() ? e.serverId.trim() : undefined,
+          sharedWithMemberIds: Array.isArray(e.sharedWithMemberIds) ? e.sharedWithMemberIds.map(String) : undefined,
+          sharedWithUsernames: Array.isArray(e.sharedWithUsernames) ? e.sharedWithUsernames.map(String) : undefined,
+          coordinates: Array.isArray(e.coordinates) ? e.coordinates : undefined
+        }))
+        .slice(0, GpsRoutingComponent.HISTORY_MAX);
+    } catch {
+      return [];
+    }
+  }
+
+  private writeHistory(entries: GpsHistoryEntry[]): void {
+    try {
+      localStorage.setItem(GpsRoutingComponent.HISTORY_STORAGE_KEY, JSON.stringify(entries));
+    } catch {
+      // quota / private mode
+    }
+  }
+
+  private isValidPoint(point: any): boolean {
+    return !!point
+      && Number.isFinite(Number(point.lat))
+      && Number.isFinite(Number(point.lon));
   }
 }

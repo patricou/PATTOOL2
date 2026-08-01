@@ -60,6 +60,8 @@
     "jquery": "^3.7.0",
     "jszip": "^3.10.1",
     "leaflet": "^1.9.4",
+    "leaflet-rotate": "^0.2.8",
+    "maplibre-gl": "^6.1.0",
     "marked": "^18.0.3",
     "mathjs": "^15.2.0",
     "ng2-charts": "^8.0.0",

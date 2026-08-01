@@ -17,7 +17,7 @@ import { MembersService } from '../../services/members.service';
 import { FileService } from '../../services/file.service';
 import { UploadConfigService } from '../../services/upload-config.service';
 import { FriendsService } from '../../services/friends.service';
-import { FriendGroup } from '../../model/friend';
+import { Friend, FriendGroup } from '../../model/friend';
 import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { VideoCompressionService } from '../../services/video-compression.service';
 import { VideoUploadProcessingService } from '../../services/video-upload-processing.service';
@@ -3692,16 +3692,25 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     get wallShareByEmailRecipientCount(): number {
-        const patCount = (this.wallShareByEmailPatToolSelected || []).length;
-        const external = (this.wallShareByEmailExternalEmails || '')
-            .split(/[\s,;]+/)
-            .map((e: string) => e.trim())
-            .filter((e: string) => e.length > 0);
-        return patCount + external.length;
+        return (this.wallShareByEmailPatToolSelected || []).length;
     }
 
     wallTrackByShareByEmailMemberId(_index: number, m: Member): string {
         return m.id ?? m.addressEmail ?? '';
+    }
+
+    private otherFriendMemberForWallShare(friend: Friend, myId: string, myNameLower: string): Member | null {
+        const u1 = friend.user1;
+        const u2 = friend.user2;
+        if (myId) {
+            if (u1?.id === myId) return u2 || null;
+            if (u2?.id === myId) return u1 || null;
+        }
+        if (myNameLower) {
+            if (u1?.userName && u1.userName.trim().toLowerCase() === myNameLower) return u2 || null;
+            if (u2?.userName && u2.userName.trim().toLowerCase() === myNameLower) return u1 || null;
+        }
+        return u2 || u1 || null;
     }
 
     wallOpenShareByEmailModal(group: TimelineGroup): void {
@@ -3727,22 +3736,41 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             });
         }
 
+        const user = this.membersService.getUser();
+        const myId = (user?.id || this.userId || '').trim();
+        const myName = (user?.userName || '').trim().toLowerCase();
+
         const sub = forkJoin({
             access: this.evenementsService.getEventAccessUsers(group.eventId).pipe(catchError(() => of([] as any[]))),
-            members: this.membersService.getListMembers().pipe(catchError(() => of([] as Member[])))
+            friends: this.friendsService.getFriends().pipe(catchError(() => of([] as Friend[])))
         }).subscribe({
-            next: ({ access, members }) => {
+            next: ({ access, friends }) => {
                 this.wallShareEmailEventAccessUsers = this.wallMapAccessUsersToMembers(access);
-                this.wallShareByEmailPatToolSelected = this.wallShareEmailEventAccessUsers
-                    .map(m => m.addressEmail)
-                    .filter((email): email is string => !!email && email.trim().length > 0);
-                this.wallSyncShareByEmailSelectedSet();
-                const visibleOnly = (members || []).filter(m => m.visible !== false);
-                this.wallShareByEmailAllMembers = visibleOnly.slice().sort((a, b) => {
+                const byId = new Map<string, Member>();
+                for (const f of friends || []) {
+                    const other = this.otherFriendMemberForWallShare(f, myId, myName);
+                    if (!other?.id || !other.addressEmail) {
+                        continue;
+                    }
+                    if (other.visible === false) {
+                        continue;
+                    }
+                    byId.set(other.id, other);
+                }
+                this.wallShareByEmailAllMembers = Array.from(byId.values()).sort((a, b) => {
                     const cmpFirst = (a.firstName || '').toLowerCase().localeCompare((b.firstName || '').toLowerCase());
                     if (cmpFirst !== 0) return cmpFirst;
                     return (a.lastName || '').toLowerCase().localeCompare((b.lastName || '').toLowerCase());
                 });
+                const friendEmails = new Set(
+                    this.wallShareByEmailAllMembers
+                        .map(m => (m.addressEmail || '').trim().toLowerCase())
+                        .filter(Boolean)
+                );
+                this.wallShareByEmailPatToolSelected = this.wallShareEmailEventAccessUsers
+                    .map(m => m.addressEmail)
+                    .filter((email): email is string => !!email && friendEmails.has(email.trim().toLowerCase()));
+                this.wallSyncShareByEmailSelectedSet();
                 this.wallShareByEmailLoading = false;
                 this.cdr.markForCheck();
             },
@@ -3778,9 +3806,15 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     wallShareByEmailSelectAllWithAccess(): void {
+        const friendEmails = new Set(
+            (this.wallShareByEmailAllMembers || [])
+                .map(m => (m.addressEmail || '').trim().toLowerCase())
+                .filter(e => e.length > 0)
+        );
         const accessEmails = (this.wallShareEmailEventAccessUsers || [])
             .map(m => m.addressEmail)
-            .filter((email): email is string => !!email && email.trim().length > 0);
+            .filter((email): email is string => !!email && email.trim().length > 0)
+            .filter(email => friendEmails.has(email.trim().toLowerCase()));
         this.wallShareByEmailPatToolSelected = [...new Set([...this.wallShareByEmailPatToolSelected, ...accessEmails])];
         this.wallSyncShareByEmailSelectedSet();
         this.cdr.markForCheck();
@@ -3800,12 +3834,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         const g = this.shareWallContextGroup;
         if (!g?.eventId) return;
 
-        const emails: string[] = [...this.wallShareByEmailPatToolSelected];
-        const external = (this.wallShareByEmailExternalEmails || '')
-            .split(/[\s,;]+/)
-            .map(e => e.trim())
+        const emails: string[] = [...this.wallShareByEmailPatToolSelected]
+            .map(e => (e || '').trim())
             .filter(e => e.length > 0);
-        emails.push(...external);
         emails.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
         if (emails.length === 0) {
             this.wallShareByEmailError = this.translate.instant('EVENTELEM.SHARE_MAIL_NO_RECIPIENTS');

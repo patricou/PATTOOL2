@@ -1821,6 +1821,68 @@ export class ApiService {
     );
   }
 
+  /** Per-user GPS follow-user preference (recenter maps every 5s). */
+  getGpsFollowPreferences(): Observable<GpsFollowPreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<GpsFollowPreference>(this.API_URL + 'external/gps/follow-preferences', { headers })
+      )
+    );
+  }
+
+  saveGpsFollowPreferences(followUser: boolean): Observable<GpsFollowPreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<GpsFollowPreference>(
+          this.API_URL + 'external/gps/follow-preferences',
+          { followUser },
+          { headers }
+        )
+      )
+    );
+  }
+
+  // ===================================================================
+  // GPS itineraries — persist & share with friends
+  // Backend: /api/gps-itineraries (JWT required)
+  // ===================================================================
+
+  listGpsItineraries(): Observable<GpsItinerary[]> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<GpsItinerary[]>(this.API_URL + 'gps-itineraries', { headers })
+      )
+    );
+  }
+
+  createGpsItinerary(body: GpsItineraryWrite): Observable<GpsItinerary> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post<GpsItinerary>(this.API_URL + 'gps-itineraries', body, { headers })
+      )
+    );
+  }
+
+  deleteGpsItinerary(id: string): Observable<void> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.delete<void>(this.API_URL + 'gps-itineraries/' + encodeURIComponent(id), { headers })
+      )
+    );
+  }
+
+  shareGpsItinerary(id: string, memberIds: string[]): Observable<GpsItinerary> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post<GpsItinerary>(
+          this.API_URL + 'gps-itineraries/' + encodeURIComponent(id) + '/share',
+          { memberIds },
+          { headers }
+        )
+      )
+    );
+  }
+
   // ===================================================================
   // Twelve Data — stock exchange proxy
   // Backend: /api/external/stock/* (no auth required — server-side API key)
@@ -3511,6 +3573,50 @@ export interface TimezoneConvertResponse {
 /** OpenRouteService travel profile. */
 export type OpenRouteProfile = 'driving-car' | 'cycling-regular' | 'foot-walking';
 
+/** GET/PUT /api/external/gps/follow-preferences */
+export interface GpsFollowPreference {
+  followUser: boolean;
+}
+
+/** Place point for a saved GPS itinerary. */
+export interface GpsItineraryPlace {
+  lat: number;
+  lon: number;
+  label?: string;
+}
+
+/** Payload to create a GPS itinerary on the server. */
+export interface GpsItineraryWrite {
+  profile: OpenRouteProfile;
+  from: GpsItineraryPlace;
+  to: GpsItineraryPlace;
+  distanceMeters?: number;
+  durationSeconds?: number;
+  ascentMeters?: number;
+  descentMeters?: number;
+  coordinates?: number[][];
+}
+
+/** Saved GPS itinerary (mine or shared with me). */
+export interface GpsItinerary {
+  id: string;
+  ownerMemberId?: string;
+  ownerUsername?: string;
+  profile: OpenRouteProfile;
+  from: GpsItineraryPlace;
+  to: GpsItineraryPlace;
+  distanceMeters?: number;
+  durationSeconds?: number;
+  ascentMeters?: number;
+  descentMeters?: number;
+  coordinates?: number[][];
+  sharedWithMemberIds?: string[];
+  sharedWithUsernames?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+  sharedWithMe?: boolean;
+}
+
 /** One turn-by-turn step from /api/external/openroute/directions. */
 export interface OpenRouteStep {
   instruction?: string;
@@ -3520,14 +3626,45 @@ export interface OpenRouteStep {
   type?: number;
 }
 
-/** Normalized directions from OpenRouteService (coordinates are [lat, lon]). */
+/** One share in an OpenRouteService extras summary. */
+export interface OpenRouteExtraItem {
+  value?: number;
+  distanceMeters?: number;
+  amountPercent?: number;
+}
+
+/** Group of extras (surface, waytypes, steepness, …). */
+export interface OpenRouteExtraGroup {
+  key?: string;
+  items?: OpenRouteExtraItem[];
+}
+
+/** Normalized directions from OpenRouteService (coordinates are [lat, lon] or [lat, lon, elevation]). */
 export interface OpenRouteDirections {
   profile?: string;
   distanceMeters?: number;
   durationSeconds?: number;
+  ascentMeters?: number;
+  descentMeters?: number;
+  avgSpeedKmh?: number;
+  elevationStartMeters?: number;
+  elevationEndMeters?: number;
+  elevationMinMeters?: number;
+  elevationMaxMeters?: number;
+  pointCount?: number;
+  segmentCount?: number;
+  stepCount?: number;
+  bbox?: number[];
+  warnings?: string[];
+  extras?: OpenRouteExtraGroup[];
   coordinates?: number[][];
   steps?: OpenRouteStep[];
   attribution?: string;
+  service?: string;
+  engineVersion?: string;
+  engineBuildDate?: string;
+  graphDate?: string;
+  timestamp?: number;
   configured?: boolean;
 }
 

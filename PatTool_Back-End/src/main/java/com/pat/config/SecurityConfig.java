@@ -123,10 +123,12 @@ public class SecurityConfig {
                 // img-src: Allow blob: for Angular image handling
                 // media-src: Allow blob: for video compression and playback
                 // connect-src: Allow source maps, Keycloak, Nominatim (OpenStreetMap), and OpenElevation API connections
+                // worker-src: MapLibre GL JS GeoJSON tiling (same-origin worker + blob fallback)
                 .contentSecurityPolicy(csp -> csp
                     .policyDirectives("default-src 'self'; " +
                         "frame-ancestors 'self' " + frameAncestors + "; " +
                         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://apis.google.com https://*.googleapis.com https://*.gstatic.com https://www.gstatic.com https://www.googleapis.com; " +
+                        "worker-src 'self' blob:; " +
                         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://maxcdn.bootstrapcdn.com https://cdn.jsdelivr.net; " +
                         "img-src 'self' data: https: blob:; " +
                         "media-src 'self' data: https: blob:; " +
@@ -257,6 +259,7 @@ public class SecurityConfig {
                 // IANA time-zone conversion — server-side java.time, no auth
                 .requestMatchers(HttpMethod.GET, "/api/external/timezone/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/openroute/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/map/tile/**").permitAll()
                 // Stock exchange proxy (Twelve Data) — lecture seule + purge du cache ticker,
                 // sans auth (la clé API est côté serveur, aucun secret n'est exposé).
                 .requestMatchers(HttpMethod.GET, "/api/external/stock/**").permitAll()

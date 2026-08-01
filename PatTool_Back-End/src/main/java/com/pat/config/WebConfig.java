@@ -1,6 +1,10 @@
 package com.pat.config;
 
 import com.pat.converter.StringToMemberConverter;
+import org.springframework.boot.web.server.MimeMappings;
+import org.springframework.boot.web.server.WebServerFactoryCustomizer;
+import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerFactory;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.format.FormatterRegistry;
 import org.springframework.http.CacheControl;
@@ -21,6 +25,18 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addConverter(new StringToMemberConverter());
     }
 
+    /**
+     * MapLibre worker modules (.mjs) must be served as JavaScript for module workers.
+     */
+    @Bean
+    public WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> mjsMimeTypeCustomizer() {
+        return factory -> {
+            MimeMappings mappings = new MimeMappings(MimeMappings.DEFAULT);
+            mappings.add("mjs", "text/javascript");
+            factory.setMimeMappings(mappings);
+        };
+    }
+
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         // Large background clips: long cache so refresh reuses disk cache (URL is stable under assets/video/).
@@ -39,7 +55,7 @@ public class WebConfig implements WebMvcConfigurer {
         // Register static resource handlers for Angular app
         // Note: We use specific patterns to avoid interfering with API endpoints
         // API endpoints (/api/**) are handled by controllers and should not be intercepted here
-        registry.addResourceHandler("/assets/**", "/*.js", "/*.js.map", "/*.css", "/*.css.map",
+        registry.addResourceHandler("/assets/**", "/*.js", "/*.js.map", "/*.mjs", "/*.css", "/*.css.map",
                                     "/favicon.ico", "/robots.txt", "/i18n/**")
                 .addResourceLocations("classpath:/static/assets/", "classpath:/static/")
                 .resourceChain(false);

@@ -16,6 +16,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -120,6 +121,56 @@ public class FriendsService {
     public boolean areFriends(Member user1, Member user2) {
         return friendRepository.existsByUser1AndUser2(user1, user2) ||
                friendRepository.existsByUser2AndUser1(user1, user2);
+    }
+
+    /**
+     * Resolve recipient e-mails for in-app sharing. Only the current user and their
+     * friends are accepted — arbitrary members or external addresses are rejected with
+     * {@code not_friend:&lt;id-or-email&gt;}.
+     */
+    public List<String> resolveFriendShareEmails(Member me, List<String> memberIds, List<String> emails) {
+        if (me == null || me.getId() == null) {
+            throw new IllegalArgumentException("current_user_not_found");
+        }
+        List<String> resolved = new ArrayList<>();
+        if (memberIds != null) {
+            for (String raw : memberIds) {
+                if (raw == null || raw.trim().isEmpty()) {
+                    continue;
+                }
+                String memberId = raw.trim();
+                Member target = membersRepository.findById(memberId).orElse(null);
+                if (target == null) {
+                    throw new IllegalArgumentException("not_friend:" + memberId);
+                }
+                assertFriendOrSelf(me, target, memberId);
+                if (target.getAddressEmail() != null && !target.getAddressEmail().trim().isEmpty()) {
+                    resolved.add(target.getAddressEmail().trim());
+                }
+            }
+        }
+        if (emails != null) {
+            for (String raw : emails) {
+                if (raw == null || raw.trim().isEmpty()) {
+                    continue;
+                }
+                String email = raw.trim();
+                Member target = membersRepository.findByAddressEmail(email);
+                if (target == null) {
+                    throw new IllegalArgumentException("not_friend:" + email);
+                }
+                assertFriendOrSelf(me, target, email);
+                resolved.add(email);
+            }
+        }
+        return resolved;
+    }
+
+    private void assertFriendOrSelf(Member me, Member target, String token) {
+        boolean self = me.getId() != null && me.getId().equals(target.getId());
+        if (!self && !areFriends(me, target)) {
+            throw new IllegalArgumentException("not_friend:" + token);
+        }
     }
 
     /**
@@ -954,6 +1005,10 @@ public class FriendsService {
         }
 
         Member userToAuthorize = userOpt.get();
+
+        if (!areFriends(owner, userToAuthorize)) {
+            throw new IllegalArgumentException("not_friend:" + userId);
+        }
         
         // Check if user is already authorized
         if (group.getAuthorizedUsers() != null && 

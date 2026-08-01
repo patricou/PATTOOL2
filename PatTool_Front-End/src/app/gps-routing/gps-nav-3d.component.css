@@ -1,0 +1,198 @@
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.gps-nav3d {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  background: #1a2332;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.gps-nav3d-canvas {
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+}
+
+.gps-nav3d-canvas canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.gps-nav3d-route-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.gps-nav3d-route-casing {
+  stroke: #ffffff;
+  stroke-width: 10;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.9;
+}
+
+.gps-nav3d-route-done {
+  stroke: #343a40;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.gps-nav3d-route-remain {
+  stroke: #0d6efd;
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.gps-nav3d-hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.82), rgba(15, 23, 42, 0.35) 70%, transparent);
+  color: #fff;
+  pointer-events: none;
+}
+
+.gps-nav3d-hud-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.gps-nav3d-status {
+  opacity: 0.85;
+  margin-bottom: 0.15rem;
+}
+
+.gps-nav3d-instruction {
+  font-size: 1.05rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.gps-nav3d-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.85rem;
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  opacity: 0.92;
+}
+
+.gps-nav3d-hud-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+  pointer-events: auto;
+}
+
+.gps-nav3d-close {
+  pointer-events: auto;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.gps-nav3d--fullscreen,
+.gps-nav3d:fullscreen,
+.gps-nav3d:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
+  background: #1a2332;
+}
+
+.gps-nav3d--fullscreen .gps-nav3d-canvas,
+.gps-nav3d:fullscreen .gps-nav3d-canvas,
+.gps-nav3d:-webkit-full-screen .gps-nav3d-canvas {
+  height: 100%;
+  min-height: 100%;
+}
+
+.gps-nav3d-zoom {
+  position: absolute;
+  right: 0.65rem;
+  bottom: 0.75rem;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.gps-nav3d-zoom-btn {
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+
+.gps-nav3d-zoom-label {
+  font-size: 0.68rem;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.gps-nav3d-attrib {
+  position: absolute;
+  left: 0.5rem;
+  bottom: 0.4rem;
+  z-index: 5;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.25rem;
+  background: rgba(255, 255, 255, 0.78);
+  color: #333;
+  pointer-events: none;
+  font-size: 0.65rem;
+  line-height: 1.2;
+}
+
+.gps-nav3d-user-marker {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gps-nav3d-user-marker-arrow {
+  width: 0;
+  height: 0;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-bottom: 22px solid #0d6efd;
+  filter: drop-shadow(0 0 2px #fff) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45));
+}
+
+/* Keep MapLibre attribution/controls below our HUD */
+:host ::ng-deep .maplibregl-ctrl-top-right {
+  top: 4.5rem;
+  right: 0.5rem;
+}
+
+:host ::ng-deep .maplibregl-canvas {
+  outline: none;
+}

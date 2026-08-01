@@ -3,6 +3,8 @@ package com.pat.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pat.controller.dto.OpenRouteDirectionsDto;
+import com.pat.controller.dto.OpenRouteExtraGroupDto;
+import com.pat.controller.dto.OpenRouteExtraItemDto;
 import com.pat.controller.dto.OpenRouteStepDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -107,6 +109,9 @@ public class OpenRouteProxyService {
         body.put("instructions", true);
         body.put("language", lang);
         body.put("units", "m");
+        body.put("elevation", true);
+        body.put("extra_info", extraInfoForProfile(resolvedProfile));
+        body.put("attributes", List.of("avgspeed", "percentage"));
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -114,14 +119,15 @@ public class OpenRouteProxyService {
         headers.set("Authorization", apiKey.trim());
 
         try {
-            ResponseEntity<String> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.POST,
-                    new HttpEntity<>(body, headers),
-                    String.class
-            );
-            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-                log.warn("OpenRouteService directions unexpected status {}", response.getStatusCode());
+            ResponseEntity<String> response = exchangeDirections(url, body, headers);
+            if (response == null) {
+                // Some ORS deployments reject certain extras — retry with a minimal set.
+                body.put("extra_info", List.of("surface", "waytype", "steepness"));
+                response = exchangeDirections(url, body, headers);
+            }
+            if (response == null || !response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                log.warn("OpenRouteService directions unexpected status {}",
+                        response != null ? response.getStatusCode() : "null");
                 return null;
             }
             return parseGeoJson(response.getBody(), resolvedProfile);
@@ -142,6 +148,50 @@ public class OpenRouteProxyService {
         }
     }
 
+    private ResponseEntity<String> exchangeDirections(
+            String url,
+            Map<String, Object> body,
+            HttpHeaders headers) {
+        try {
+            ResponseEntity<String> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    new HttpEntity<>(body, headers),
+                    String.class
+            );
+            if (response.getStatusCode().is2xxSuccessful()) {
+                return response;
+            }
+            log.warn("OpenRouteService directions status {}", response.getStatusCode());
+            return null;
+        } catch (HttpStatusCodeException ex) {
+            if (ex.getStatusCode().value() == 404) {
+                throw ex;
+            }
+            log.warn("OpenRouteService directions HTTP {}: {}",
+                    ex.getStatusCode().value(),
+                    truncate(ex.getResponseBodyAsString(), 400));
+            return null;
+        }
+    }
+
+    private static List<String> extraInfoForProfile(String profile) {
+        List<String> extras = new ArrayList<>();
+        extras.add("surface");
+        extras.add("waytype");
+        extras.add("steepness");
+        if ("driving-car".equals(profile)) {
+            extras.add("tollways");
+            extras.add("waycategory");
+            extras.add("roadaccessrestrictions");
+        }
+        if ("foot-walking".equals(profile) || "cycling-regular".equals(profile)) {
+            extras.add("traildifficulty");
+            extras.add("suitability");
+        }
+        return extras;
+    }
+
     private OpenRouteDirectionsDto parseGeoJson(String json, String profile) throws Exception {
         JsonNode root = objectMapper.readTree(json);
         OpenRouteDirectionsDto dto = new OpenRouteDirectionsDto();
@@ -151,6 +201,33 @@ public class OpenRouteProxyService {
         JsonNode meta = root.path("metadata");
         if (meta.hasNonNull("attribution")) {
             dto.setAttribution(meta.get("attribution").asText());
+        }
+        if (meta.hasNonNull("service")) {
+            dto.setService(meta.get("service").asText());
+        }
+        if (meta.has("timestamp") && meta.get("timestamp").isNumber()) {
+            dto.setTimestamp(meta.get("timestamp").asLong());
+        }
+        JsonNode engine = meta.path("engine");
+        if (engine.hasNonNull("version")) {
+            dto.setEngineVersion(engine.get("version").asText());
+        }
+        if (engine.hasNonNull("build_date")) {
+            dto.setEngineBuildDate(engine.get("build_date").asText());
+        }
+        if (engine.hasNonNull("graph_date")) {
+            dto.setGraphDate(engine.get("graph_date").asText());
+        }
+
+        JsonNode rootBbox = root.path("bbox");
+        if (rootBbox.isArray() && rootBbox.size() >= 4) {
+            List<Double> bbox = new ArrayList<>();
+            for (JsonNode n : rootBbox) {
+                if (n.isNumber()) {
+                    bbox.add(n.asDouble());
+                }
+            }
+            dto.setBbox(bbox);
         }
 
         JsonNode features = root.path("features");
@@ -168,22 +245,138 @@ public class OpenRouteProxyService {
             dto.setDurationSeconds(summary.get("duration").asDouble());
         }
 
+        Double ascent = firstDouble(props, "ascent", summary, "ascent");
+        Double descent = firstDouble(props, "descent", summary, "descent");
+
         List<double[]> coords = new ArrayList<>();
+        double computedAscent = 0;
+        double computedDescent = 0;
+        Double previousEle = null;
+        Double eleMin = null;
+        Double eleMax = null;
+        Double eleStart = null;
+        Double eleEnd = null;
         JsonNode geometryCoords = feature.path("geometry").path("coordinates");
         if (geometryCoords.isArray()) {
             for (JsonNode pair : geometryCoords) {
                 if (pair.isArray() && pair.size() >= 2) {
                     double lon = pair.get(0).asDouble();
                     double lat = pair.get(1).asDouble();
-                    coords.add(new double[]{lat, lon});
+                    if (pair.size() >= 3 && pair.get(2).isNumber()) {
+                        double ele = pair.get(2).asDouble();
+                        coords.add(new double[]{lat, lon, ele});
+                        if (eleStart == null) {
+                            eleStart = ele;
+                        }
+                        eleEnd = ele;
+                        eleMin = eleMin == null ? ele : Math.min(eleMin, ele);
+                        eleMax = eleMax == null ? ele : Math.max(eleMax, ele);
+                        if (previousEle != null) {
+                            double delta = ele - previousEle;
+                            if (delta > 0) {
+                                computedAscent += delta;
+                            } else if (delta < 0) {
+                                computedDescent += -delta;
+                            }
+                        }
+                        previousEle = ele;
+                    } else {
+                        coords.add(new double[]{lat, lon});
+                    }
                 }
             }
         }
         dto.setCoordinates(coords);
+        dto.setPointCount(coords.size());
+        dto.setElevationStartMeters(eleStart);
+        dto.setElevationEndMeters(eleEnd);
+        dto.setElevationMinMeters(eleMin);
+        dto.setElevationMaxMeters(eleMax);
+
+        if (ascent != null) {
+            dto.setAscentMeters(ascent);
+        } else if (previousEle != null) {
+            dto.setAscentMeters(computedAscent);
+        }
+        if (descent != null) {
+            dto.setDescentMeters(descent);
+        } else if (previousEle != null) {
+            dto.setDescentMeters(computedDescent);
+        }
+
+        if (dto.getDistanceMeters() != null && dto.getDurationSeconds() != null
+                && dto.getDurationSeconds() > 0) {
+            dto.setAvgSpeedKmh(dto.getDistanceMeters() / dto.getDurationSeconds() * 3.6);
+        }
+
+        if (dto.getBbox().isEmpty()) {
+            JsonNode featureBbox = feature.path("bbox");
+            if (!featureBbox.isArray() || featureBbox.size() < 4) {
+                featureBbox = props.path("bbox");
+            }
+            if (featureBbox.isArray() && featureBbox.size() >= 4) {
+                List<Double> bbox = new ArrayList<>();
+                for (JsonNode n : featureBbox) {
+                    if (n.isNumber()) {
+                        bbox.add(n.asDouble());
+                    }
+                }
+                dto.setBbox(bbox);
+            }
+        }
+
+        List<String> warnings = new ArrayList<>();
+        JsonNode warningNodes = props.path("warnings");
+        if (warningNodes.isArray()) {
+            for (JsonNode w : warningNodes) {
+                if (w.isTextual()) {
+                    warnings.add(w.asText());
+                } else if (w.hasNonNull("message")) {
+                    warnings.add(w.get("message").asText());
+                } else if (w.isObject()) {
+                    warnings.add(w.toString());
+                }
+            }
+        }
+        dto.setWarnings(warnings);
+
+        List<OpenRouteExtraGroupDto> extras = new ArrayList<>();
+        JsonNode extrasNode = props.path("extras");
+        if (extrasNode.isObject()) {
+            extrasNode.fields().forEachRemaining(entry -> {
+                OpenRouteExtraGroupDto group = new OpenRouteExtraGroupDto();
+                group.setKey(entry.getKey());
+                List<OpenRouteExtraItemDto> items = new ArrayList<>();
+                JsonNode summaryArr = entry.getValue().path("summary");
+                if (summaryArr.isArray()) {
+                    for (JsonNode itemNode : summaryArr) {
+                        OpenRouteExtraItemDto item = new OpenRouteExtraItemDto();
+                        if (itemNode.has("value") && itemNode.get("value").isNumber()) {
+                            item.setValue(itemNode.get("value").asInt());
+                        }
+                        if (itemNode.has("distance") && itemNode.get("distance").isNumber()) {
+                            item.setDistanceMeters(itemNode.get("distance").asDouble());
+                        }
+                        if (itemNode.has("amount") && itemNode.get("amount").isNumber()) {
+                            item.setAmountPercent(itemNode.get("amount").asDouble());
+                        }
+                        items.add(item);
+                    }
+                }
+                items.sort((a, b) -> Double.compare(
+                        b.getAmountPercent() != null ? b.getAmountPercent() : 0,
+                        a.getAmountPercent() != null ? a.getAmountPercent() : 0));
+                group.setItems(items);
+                extras.add(group);
+            });
+        }
+        dto.setExtras(extras);
 
         List<OpenRouteStepDto> steps = new ArrayList<>();
         JsonNode segments = props.path("segments");
+        int segmentCount = 0;
         if (segments.isArray()) {
+            segmentCount = segments.size();
             for (JsonNode segment : segments) {
                 JsonNode segmentSteps = segment.path("steps");
                 if (!segmentSteps.isArray()) {
@@ -210,8 +403,20 @@ public class OpenRouteProxyService {
                 }
             }
         }
+        dto.setSegmentCount(segmentCount);
         dto.setSteps(steps);
+        dto.setStepCount(steps.size());
         return dto;
+    }
+
+    private static Double firstDouble(JsonNode primary, String primaryKey, JsonNode secondary, String secondaryKey) {
+        if (primary != null && primary.has(primaryKey) && primary.get(primaryKey).isNumber()) {
+            return primary.get(primaryKey).asDouble();
+        }
+        if (secondary != null && secondary.has(secondaryKey) && secondary.get(secondaryKey).isNumber()) {
+            return secondary.get(secondaryKey).asDouble();
+        }
+        return null;
     }
 
     private static String normalizeProfile(String profile) {

@@ -566,9 +566,9 @@ export class EvenementsService {
 	}
 
 	/**
-	 * Share event by email. Sends HTML email with thumbnail, type, dates, title, description, link to activity.
+	 * Share event by email. Recipients must be PatTool friends (or self).
 	 * @param eventId Event id
-	 * @param toEmails List of recipient emails (PatTool users or external)
+	 * @param toEmails List of friend recipient emails
 	 * @param customMessage Optional free text message
 	 * @param color Optional RGB for email styling (lightened on server)
 	 * @param eventUrl Optional URL of the activity (e.g. for "View activity" link in email)

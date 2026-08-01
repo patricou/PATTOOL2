@@ -37,7 +37,8 @@ public final class PatToolParameterCatalog {
             "meteofrance.temperature.cache.",
             "meteofrance.history.cache.",
             "meteofrance.aromepi.playback.prefetch.",
-            "trace.viewer."
+            "trace.viewer.",
+            "gps.follow-user."
     );
 
     public static final List<SectionDef> SECTIONS = List.of(

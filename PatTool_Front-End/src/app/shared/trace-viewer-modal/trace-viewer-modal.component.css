@@ -1412,6 +1412,16 @@
 	border-color: #20c997;
 }
 
+.trace-viewer-orient .btn {
+	font-size: 0.78rem;
+}
+
+@media (max-width: 699px) {
+	.trace-viewer-orient .trace-viewer-footer-btn-text {
+		display: none;
+	}
+}
+
 .zoom-footer-label {
 	font-size: 0.8rem;
 	font-style: italic;
