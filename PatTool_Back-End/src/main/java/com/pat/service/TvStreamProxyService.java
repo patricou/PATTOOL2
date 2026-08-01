@@ -8,14 +8,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.URI;
@@ -33,11 +31,6 @@ import java.util.Optional;
 /**
  * Proxies free IPTV / HLS media through the backend (CORS + mixed-content safe).
  * Rewrites {@code .m3u8} playlists so segment / variant URIs keep going through this proxy.
- * <p>
- * Media segments may return a {@link StreamingResponseBody}. Do not return that
- * {@code ResponseEntity} from a controller as {@code ResponseEntity&lt;?&gt;} — Spring has no
- * converter for the lambda under {@code video/mp4} / {@code video/mp2t}. Use
- * {@link #writeTo(ResponseEntity, HttpServletResponse)} instead (same pattern as radio).
  */
 @Service
 public class TvStreamProxyService {
@@ -151,8 +144,7 @@ public class TvStreamProxyService {
     }
 
     /**
-     * Write a {@link #proxy} result to the servlet response.
-     * Required when the body is a {@link StreamingResponseBody} (media segments).
+     * Write a {@link #proxy} / {@link #jsonError} result to the servlet response.
      */
     public static void writeTo(ResponseEntity<?> entity, HttpServletResponse response) throws IOException {
         if (entity == null) {
@@ -173,31 +165,20 @@ public class TvStreamProxyService {
             }
         }
         Object body = entity.getBody();
-        if (body instanceof byte[] bytes) {
-            if (bytes.length > 0) {
-                response.getOutputStream().write(bytes);
-                response.getOutputStream().flush();
-            }
-        } else if (body instanceof StreamingResponseBody srb) {
-            srb.writeTo(response.getOutputStream());
+        if (body instanceof byte[] bytes && bytes.length > 0) {
+            response.getOutputStream().write(bytes);
             response.getOutputStream().flush();
         }
     }
 
     /**
      * Fetch upstream media and return bytes (rewriting HLS playlists when needed).
-     * Media segments ({@code .ts}/{@code .m4s}/…) are streamed chunk-by-chunk so hls.js
-     * progressive mode can start decoding before the full segment arrives — critical for
-     * high-bitrate IPTV mirrors on slow links (e.g. TF1 HD ~4 MiB / 6 s segments).
-     * <p>
-     * Callers must pipe the result with {@link #writeTo} — returning
-     * {@code ResponseEntity&lt;?&gt;} from MVC breaks for streaming bodies.
      *
      * @param upstreamUrl absolute http(s) stream URL
      * @param proxyBase   absolute base of this proxy endpoint ending with {@code /stream/}
      * @param rangeHeader optional browser {@code Range} header
      */
-    public ResponseEntity<?> proxy(String upstreamUrl, String proxyBase, String rangeHeader) {
+    public ResponseEntity<byte[]> proxy(String upstreamUrl, String proxyBase, String rangeHeader) {
         URI uri;
         try {
             uri = URI.create(upstreamUrl);
@@ -219,11 +200,6 @@ public class TvStreamProxyService {
         }
 
         String referer = resolveReferer(host);
-
-        // Stream media segments — do not buffer multi-MB TS before the browser sees data.
-        if (looksLikeMediaSegment(upstreamUrl)) {
-            return proxyMediaStreaming(upstreamUrl, rangeHeader, referer, host);
-        }
 
         FetchResult fetched = fetch(upstreamUrl, rangeHeader, referer);
         if (fetched == null) {
@@ -272,178 +248,6 @@ public class TvStreamProxyService {
 
         HttpStatus status = fetched.status == 206 ? HttpStatus.PARTIAL_CONTENT : HttpStatus.OK;
         return ResponseEntity.status(status).headers(headers).body(body);
-    }
-
-    /**
-     * Pipe a media segment to the client as bytes arrive from upstream (chunked).
-     * Enables hls.js {@code progressive: true} to demux before the full segment is downloaded.
-     */
-    private ResponseEntity<?> proxyMediaStreaming(
-            String upstreamUrl, String rangeHeader, String referer, String host) {
-        Opened opened;
-        try {
-            opened = openUpstream(upstreamUrl, rangeHeader, referer);
-        } catch (Exception e) {
-            log.debug("TV proxy stream open failed for {}: {}", host, e.toString());
-            return jsonError(HttpStatus.BAD_GATEWAY, "upstream_unreachable",
-                    "Flux distant inaccessible ou bloqué (" + host + ")", host, null);
-        }
-        if (opened == null) {
-            return jsonError(HttpStatus.BAD_GATEWAY, "upstream_unreachable",
-                    "Flux distant inaccessible ou bloqué (" + host + ")", host, null);
-        }
-        if (opened.status == 416) {
-            opened.connection.disconnect();
-            return jsonError(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE, "range_not_satisfiable",
-                    "Plage d’octets demandée indisponible (" + host + ")", host, opened.status);
-        }
-        if (opened.status >= 400) {
-            int code = opened.status;
-            opened.connection.disconnect();
-            HttpStatus mapped = HttpStatus.resolve(code);
-            if (mapped == null || mapped.is2xxSuccessful()) {
-                mapped = HttpStatus.BAD_GATEWAY;
-            }
-            return jsonError(mapped, "upstream_http_error",
-                    "Le flux distant a répondu HTTP " + code + " (" + host + ")",
-                    host, code);
-        }
-
-        final HttpURLConnection conn = opened.connection;
-        final InputStream upstream = opened.inputStream;
-        String contentType = opened.contentType != null
-                ? stripSpuriousCharset(opened.contentType)
-                : MediaType.APPLICATION_OCTET_STREAM_VALUE;
-        HttpHeaders headers = new HttpHeaders();
-        headers.set(HttpHeaders.CONTENT_TYPE, contentType);
-        headers.set(HttpHeaders.CACHE_CONTROL, "no-store");
-        if (opened.contentRange != null) {
-            headers.set(HttpHeaders.CONTENT_RANGE, opened.contentRange);
-        }
-        if (opened.acceptRanges != null) {
-            headers.set(HttpHeaders.ACCEPT_RANGES, opened.acceptRanges);
-        }
-        HttpStatus status = opened.status == 206 ? HttpStatus.PARTIAL_CONTENT : HttpStatus.OK;
-
-        StreamingResponseBody body = (OutputStream out) -> {
-            try {
-                if (upstream == null) {
-                    return;
-                }
-                try (InputStream in = upstream) {
-                    byte[] buf = new byte[16 * 1024];
-                    int n;
-                    long total = 0;
-                    while ((n = in.read(buf)) >= 0) {
-                        if (total + n > MAX_BYTES) {
-                            int allow = (int) (MAX_BYTES - total);
-                            if (allow > 0) {
-                                out.write(buf, 0, allow);
-                                out.flush();
-                            }
-                            break;
-                        }
-                        out.write(buf, 0, n);
-                        // Flush often so FetchLoader progressive demux can start early.
-                        out.flush();
-                        total += n;
-                    }
-                }
-            } catch (Exception e) {
-                log.debug("TV proxy stream ended for {}: {}", host, e.toString());
-            } finally {
-                conn.disconnect();
-            }
-        };
-        return ResponseEntity.status(status).headers(headers).body(body);
-    }
-
-    /**
-     * True for HLS media segments / maps that benefit from chunked streaming.
-     * Playlists must stay buffered so we can rewrite URIs.
-     */
-    static boolean looksLikeMediaSegment(String url) {
-        if (url == null) {
-            return false;
-        }
-        String lower = url.toLowerCase(Locale.ROOT);
-        int q = lower.indexOf('?');
-        String path = q >= 0 ? lower.substring(0, q) : lower;
-        if (path.contains(".m3u8") || path.endsWith(".m3u") || path.contains(".mpd")) {
-            return false;
-        }
-        return path.contains(".ts")
-                || path.contains(".m4s")
-                || path.contains(".mp4")
-                || path.contains(".aac")
-                || path.contains(".cmfv")
-                || path.contains(".cmfa")
-                || path.contains("segment");
-    }
-
-    private Opened openUpstream(String url, String rangeHeader, String referer) throws Exception {
-        String current = url;
-        for (int hop = 0; hop <= MAX_REDIRECTS; hop++) {
-            URI uri = URI.create(current);
-            if (isBlockedHost(uri.getHost())) {
-                return null;
-            }
-            HttpURLConnection conn = (HttpURLConnection) uri.toURL().openConnection();
-            conn.setInstanceFollowRedirects(false);
-            conn.setConnectTimeout(CONNECT_TIMEOUT_MS);
-            conn.setReadTimeout(READ_TIMEOUT_MS);
-            conn.setRequestProperty("User-Agent", userAgentForHost(uri.getHost()));
-            conn.setRequestProperty("Accept", "*/*");
-            String ref = referer != null ? referer : resolveReferer(uri.getHost());
-            if (ref != null && !ref.isBlank()) {
-                conn.setRequestProperty("Referer", ref);
-                if (ref.contains("france.tv")) {
-                    conn.setRequestProperty("Origin", "https://www.france.tv");
-                } else if (ref.contains("tf1.fr")) {
-                    conn.setRequestProperty("Origin", "https://www.tf1.fr");
-                } else if (ref.contains("dailymotion.com") || ref.contains("cnews.fr") || ref.contains("cstar.fr")) {
-                    conn.setRequestProperty("Origin", "https://www.dailymotion.com");
-                } else if (ref.contains("arte.tv")) {
-                    conn.setRequestProperty("Origin", "https://www.arte.tv");
-                } else if (ref.contains("archive.org")) {
-                    conn.setRequestProperty("Origin", "https://archive.org");
-                }
-            } else if (defaultReferrer != null && !defaultReferrer.isBlank()) {
-                conn.setRequestProperty("Referer", defaultReferrer);
-            }
-            if (rangeHeader != null && !rangeHeader.isBlank()) {
-                conn.setRequestProperty("Range", rangeHeader);
-            }
-            int code = conn.getResponseCode();
-            if (code >= 300 && code < 400) {
-                String location = conn.getHeaderField("Location");
-                conn.disconnect();
-                if (location == null || location.isBlank()) {
-                    return null;
-                }
-                current = uri.resolve(location).toString();
-                continue;
-            }
-            InputStream raw = code >= 400 ? conn.getErrorStream() : conn.getInputStream();
-            Opened opened = new Opened();
-            opened.connection = conn;
-            opened.inputStream = raw;
-            opened.status = code;
-            opened.contentType = conn.getContentType();
-            opened.contentRange = conn.getHeaderField("Content-Range");
-            opened.acceptRanges = conn.getHeaderField("Accept-Ranges");
-            return opened;
-        }
-        return null;
-    }
-
-    private static final class Opened {
-        HttpURLConnection connection;
-        InputStream inputStream;
-        int status;
-        String contentType;
-        String contentRange;
-        String acceptRanges;
     }
 
     private FetchResult fetch(String url, String rangeHeader, String referer) {

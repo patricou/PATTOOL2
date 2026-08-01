@@ -26,7 +26,6 @@ import com.pat.service.TvLastChannelService;
 import com.pat.service.TvRecordingService;
 import com.pat.service.TvStreamProxyService;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
@@ -50,7 +49,6 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
@@ -569,41 +567,31 @@ public class TvWatcherRestController {
 
     /**
      * Proxy an upstream media URL. Path segment is Base64-URL (no padding) of the absolute URL.
-     * Writes to the servlet response (required for chunked media segments —
-     * {@code StreamingResponseBody} cannot be returned as {@code ResponseEntity<?>}).
      */
     @GetMapping(value = "/stream/{encodedUrl:.+}")
-    public void stream(
+    public ResponseEntity<byte[]> stream(
             @PathVariable("encodedUrl") String encodedUrl,
             @RequestHeader(value = "Range", required = false) String range,
-            HttpServletRequest request,
-            HttpServletResponse response) throws IOException {
+            HttpServletRequest request) {
         Optional<String> upstream = TvStreamProxyService.decodeUpstreamUrl(encodedUrl);
         if (upstream.isEmpty()) {
-            TvStreamProxyService.writeTo(
-                    TvStreamProxyService.jsonError(HttpStatus.BAD_REQUEST, "invalid_encoded_url",
-                            "URL de flux encodée invalide"),
-                    response);
-            return;
+            return TvStreamProxyService.jsonError(HttpStatus.BAD_REQUEST, "invalid_encoded_url",
+                    "URL de flux encodée invalide");
         }
-        proxyResolvedStream(upstream.get(), range, request, response);
+        return proxyResolvedStream(upstream.get(), range, request);
     }
 
     /**
      * Convenience: {@code GET /stream?url=https://...} (URL-encoded). Prefer the path form for HLS.
      */
-    @GetMapping(value = "/stream")
-    public void streamQuery(
+    @GetMapping(value = "/stream", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+    public ResponseEntity<byte[]> streamQuery(
             @RequestParam("url") String url,
             @RequestHeader(value = "Range", required = false) String range,
-            HttpServletRequest request,
-            HttpServletResponse response) throws IOException {
+            HttpServletRequest request) {
         if (!StringUtils.hasText(url)) {
-            TvStreamProxyService.writeTo(
-                    TvStreamProxyService.jsonError(HttpStatus.BAD_REQUEST, "missing_url",
-                            "URL de flux manquante"),
-                    response);
-            return;
+            return TvStreamProxyService.jsonError(HttpStatus.BAD_REQUEST, "missing_url",
+                    "URL de flux manquante");
         }
         String trimmed = url.trim();
         if (!(trimmed.startsWith("http://") || trimmed.startsWith("https://")
@@ -614,50 +602,41 @@ public class TvWatcherRestController {
                 || M6GroupLiveService.isVirtualUrl(trimmed)
                 || ArteReplayService.isVirtualUrl(trimmed)
                 || InternetArchiveReplayService.isVirtualUrl(trimmed))) {
-            TvStreamProxyService.writeTo(
-                    TvStreamProxyService.jsonError(HttpStatus.BAD_REQUEST, "invalid_url",
-                            "L’URL doit être http(s) ou un flux live virtuel supporté"),
-                    response);
-            return;
+            return TvStreamProxyService.jsonError(HttpStatus.BAD_REQUEST, "invalid_url",
+                    "L’URL doit être http(s) ou un flux live virtuel supporté");
         }
-        proxyResolvedStream(trimmed, range, request, response);
+        return proxyResolvedStream(trimmed, range, request);
     }
 
     /**
      * Resolve virtual live URLs then proxy. On 401/403/404/5xx for france.tv / TF1 / M6,
      * invalidate the cached upstream and retry once with a fresh resolve (new token or mirror).
      */
-    private void proxyResolvedStream(String upstream, String range, HttpServletRequest request,
-                                     HttpServletResponse response) throws IOException {
+    private ResponseEntity<byte[]> proxyResolvedStream(String upstream, String range, HttpServletRequest request) {
         String normalized = TvStreamProxyService.normalizeShareVirtualUrl(upstream);
         ResponseEntity<byte[]> resolveError = resolveLiveUpstreamOrError(normalized);
         if (resolveError != null) {
-            TvStreamProxyService.writeTo(resolveError, response);
-            return;
+            return resolveError;
         }
         Optional<String> resolved = resolveLiveUpstream(normalized);
         String proxyBase = buildProxyBase(request);
         String target = resolved.orElse(normalized);
-        ResponseEntity<?> first = tvStreamProxyService.proxy(target, proxyBase, range);
+        ResponseEntity<byte[]> first = tvStreamProxyService.proxy(target, proxyBase, range);
         if (!shouldRefreshVirtualLive(first, normalized)) {
-            TvStreamProxyService.writeTo(first, response);
-            return;
+            return first;
         }
         Optional<String> refreshed = refreshVirtualLiveUpstream(normalized);
         if (refreshed.isEmpty() || !StringUtils.hasText(refreshed.get())
                 || isStillVirtualUrl(refreshed.get())) {
-            TvStreamProxyService.writeTo(first, response);
-            return;
+            return first;
         }
         if (refreshed.get().equalsIgnoreCase(target)) {
-            TvStreamProxyService.writeTo(first, response);
-            return;
+            return first;
         }
-        TvStreamProxyService.writeTo(
-                tvStreamProxyService.proxy(refreshed.get(), proxyBase, range), response);
+        return tvStreamProxyService.proxy(refreshed.get(), proxyBase, range);
     }
 
-    private static boolean shouldRefreshVirtualLive(ResponseEntity<?> response, String upstream) {
+    private static boolean shouldRefreshVirtualLive(ResponseEntity<byte[]> response, String upstream) {
         if (response == null || !StringUtils.hasText(upstream)) {
             return false;
         }

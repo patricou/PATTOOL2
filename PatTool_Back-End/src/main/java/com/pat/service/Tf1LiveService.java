@@ -67,6 +67,8 @@ public class Tf1LiveService {
                     + "Chrome/124.0.0.0 Safari/537.36";
 
     private static final Pattern TVG_ID = Pattern.compile("tvg-id=\"([^\"]+)\"", Pattern.CASE_INSENSITIVE);
+    private static final Pattern CODECS_ATTR = Pattern.compile(
+            "CODECS=\"([^\"]+)\"", Pattern.CASE_INSENSITIVE);
 
     /** Sticky window for IPTV mirrors (no CDN token expiry). */
     private static final Duration MIRROR_CACHE_TTL = Duration.ofMinutes(25);
@@ -81,12 +83,7 @@ public class Tf1LiveService {
                 "L_TF1", "TF1", true,
                 "https://i.imgur.com/QxHt9NC.png", "Entertainment",
                 "tf1.fr",
-                List.of(
-                        // Prefer lower-bitrate / faster hosts when available; HD on 151.80 is
-                        // ~5–7 Mb/s video on a ~1.5 Mb/s path → 15–25 s to first segment.
-                        "https://futbol9865.ultratv13.workers.dev/deportivo111/24.m3u8",
-                        "http://151.80.18.177:86/TF1_HD/index.m3u8"
-                )));
+                List.of("http://151.80.18.177:86/TF1_HD/index.m3u8")));
         CHANNELS.put("tmc", new ChannelDef(
                 "L_TMC", "TMC", true,
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/TMC_logo_2016.svg/512px-TMC_logo_2016.svg.png",
@@ -103,6 +100,8 @@ public class Tf1LiveService {
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/LCI_-_Logo_%28France%29.svg/512px-LCI_-_Logo_%28France%29.svg.png",
                 "News",
                 "lci.fr",
+                // 151.80 LCI_HD often advertises video-only CODECS (no mp4a) → silent playback.
+                // Prefer the fast host variant that includes AAC audio.
                 List.of(
                         "http://145.239.5.177/368/index.m3u8",
                         "http://151.80.18.177:86/LCI_HD/index.m3u8"
@@ -671,6 +670,22 @@ public class Tf1LiveService {
                 || upper.contains("SKD://")
                 || upper.contains("WIDEVINE")
                 || upper.contains("COM.WIDEVINE")) {
+            return false;
+        }
+        // Reject video-only variants (e.g. LCI_HD on 151.80: CODECS="avc1…" without mp4a).
+        Matcher codecs = CODECS_ATTR.matcher(trimmed);
+        boolean sawCodecs = false;
+        boolean sawAudio = false;
+        while (codecs.find()) {
+            sawCodecs = true;
+            String c = codecs.group(1).toLowerCase(Locale.ROOT);
+            if (c.contains("mp4a") || c.contains("ac-3") || c.contains("ec-3")
+                    || c.contains("opus") || c.contains("mp3")) {
+                sawAudio = true;
+                break;
+            }
+        }
+        if (sawCodecs && !sawAudio) {
             return false;
         }
         return true;
