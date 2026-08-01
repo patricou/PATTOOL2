@@ -100,8 +100,15 @@ const MAX_MEDIA_RECOVERIES = 2;
 
 export function tryRecoverTvHlsError(
   hls: Hls,
-  data: { fatal?: boolean; type?: string; response?: { code?: number }; networkDetails?: { status?: number } | null },
-  attempts?: TvHlsRecoverAttempts
+  data: {
+    fatal?: boolean;
+    type?: string;
+    details?: string;
+    response?: { code?: number };
+    networkDetails?: { status?: number } | null;
+  },
+  attempts?: TvHlsRecoverAttempts,
+  video?: HTMLVideoElement | null
 ): boolean {
   if (!data?.fatal) {
     return false;
@@ -110,10 +117,24 @@ export function tryRecoverTvHlsError(
     return false;
   }
   if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+    // Once the media element itself is poisoned (appendBuffer → "error is not null"),
+    // recoverMediaError cannot clear it — caller must hard-rebuild the player.
+    if (video?.error) {
+      return false;
+    }
     if (attempts && attempts.media >= MAX_MEDIA_RECOVERIES) {
       return false;
     }
     try {
+      const details = (data.details || '').toLowerCase();
+      // Second media recovery: try audio codec swap before giving up (hls.js guidance).
+      if (attempts && attempts.media >= 1 && details.includes('buffer')) {
+        try {
+          hls.swapAudioCodec();
+        } catch {
+          /* ignore */
+        }
+      }
       hls.recoverMediaError();
       if (attempts) {
         attempts.media += 1;
@@ -220,11 +241,16 @@ export function attachTvHlsLiveSyncWatchdog(
   video: HTMLVideoElement
 ): () => void {
   let lastSeekAt = 0;
-  const MIN_SEEK_GAP_MS = 3500;
-  const LAG_SEEK_SEC = 2.5;
+  // IPTV mirrors (TF1/LCI) are often slower than realtime — aggressive seeking to the
+  // live edge while lag keeps growing poisons MSE (appendBuffer / media.error).
+  const MIN_SEEK_GAP_MS = 10_000;
+  const LAG_SEEK_SEC = 10;
 
   const seekToLiveEdge = (reason: string) => {
     if (!isTvHlsLivePlaylist(hls)) {
+      return;
+    }
+    if (video.error) {
       return;
     }
     const now = Date.now();
@@ -265,11 +291,11 @@ export function attachTvHlsLiveSyncWatchdog(
 
   // Periodic lag check (network jitter / buffer holes).
   const tick = window.setInterval(() => {
-    if (video.paused || video.ended || video.seeking) {
+    if (video.paused || video.ended || video.seeking || video.error) {
       return;
     }
     seekToLiveEdge('tick');
-  }, 2000);
+  }, 4000);
 
   video.addEventListener('waiting', onWaiting);
   video.addEventListener('stalled', onStalled);

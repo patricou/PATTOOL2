@@ -16,7 +16,7 @@ import { Subject, Subscription, forkJoin, of, firstValueFrom } from 'rxjs';
 import { debounceTime, distinctUntilChanged, catchError } from 'rxjs/operators';
 import Hls from 'hls.js';
 
-import { ApiService, ArteProgram, ArteSection, IaProgram, IaSection, TvChannel, TvCountry, TvEpgNow, TvEpgProgramme, TvEpgSearchHit, TvFilterPreference, TvRecording, TvRecordingStatus } from '../services/api.service';
+import { ApiService, ArteProgram, ArteSection, IaProgram, IaSection, TvChannel, TvCountry, TvEpgNow, TvEpgProgramme, TvEpgSearchHit, TvFilterPreference, TvRecording, TvRecordingStatus, TvStreamDiagnoseResult } from '../services/api.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { TvPlayerService } from '../services/tv-player.service';
 import { FriendsService } from '../services/friends.service';
@@ -38,6 +38,7 @@ import {
   isM6GroupVirtual,
   isProgressiveVod,
   isRadioFranceVirtual,
+  isRtsVirtual,
   isShareSafeStreamToken,
   isTf1Virtual,
   needsProactiveTokenRenewal,
@@ -210,6 +211,10 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   shareFeedback = '';
   /** Brief status after manual A/V resync. */
   resyncFeedback = '';
+  /** Already-translated channel status probe result (multiline OK). */
+  channelStatusFeedback = '';
+  channelStatusBusy = false;
+  channelStatusOk: boolean | null = null;
   /** Brief on-video toast when france.tv Akamai token was renewed silently. */
   tokenRenewedToast = false;
   private tokenRenewedToastTimer: ReturnType<typeof setTimeout> | null = null;
@@ -268,12 +273,18 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   private chromeHideTimer: ReturnType<typeof setTimeout> | null = null;
   private shareFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
   private resyncFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
+  private channelStatusFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
   /** Deep-link channel id waiting for catalog load. */
   private pendingShareChannelId = '';
   private playGeneration = 0;
   private hlsRecoverAttempts: TvHlsRecoverAttempts = { network: 0, media: 0 };
-  /** One auto re-resolve per play attempt when france.tv Akamai token returns 403. */
-  private franceTvTokenRefreshAttempted = false;
+  /**
+   * Auto hard-restarts (destroy + re-resolve) for france.tv / TF1 / M6 after soft recovery fails.
+   * Reset only on user channel select / manual restart — mid-play auto-restarts must not reset
+   * the counter or IPTV mirrors would loop forever on a permanently bad stream.
+   */
+  private virtualLiveHardRestarts = 0;
+  private static readonly MAX_VIRTUAL_LIVE_HARD_RESTARTS = 4;
   private static readonly CHROME_HIDE_MS = 2000;
   private static readonly LAST_CHANNEL_STORAGE_KEY = 'pattool.tv.last-channel';
   private static readonly KEEP_ALIVE_STORAGE_KEY = 'pattool.tv.keep-alive';
@@ -735,6 +746,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.clearChromeHideTimer();
     this.clearShareFeedbackTimer();
     this.clearResyncFeedbackTimer();
+    this.clearChannelStatusFeedbackTimer();
     this.stopRecordingsPoll();
     this.abortClientRecording(false);
     if (this.epgRefreshTimer != null) {
@@ -1526,7 +1538,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.selectedChannel = channel;
     this.playError = '';
     this.isBuffering = true;
-    this.franceTvTokenRefreshAttempted = false;
+    this.virtualLiveHardRestarts = 0;
     this.showChrome(true);
     this.persistLastWatchedChannel(channel);
     // Leave ARTE / IA replay list when switching to a live catalog channel.
@@ -1828,6 +1840,11 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     return isM6GroupVirtual(resolveTvStreamUrl(channel));
   }
 
+  /** True when RTS 1 / 2 / Info use public IPTV mirror probe. */
+  usesRtsWorkaround(channel: TvChannel | null | undefined): boolean {
+    return isRtsVirtual(resolveTvStreamUrl(channel));
+  }
+
   /** True when this item is an ARTE replay / live virtual stream. */
   usesArteReplay(channel: TvChannel | null | undefined): boolean {
     return isArteVirtual(resolveTvStreamUrl(channel));
@@ -1868,6 +1885,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       || this.usesCanalGroupWorkaround(channel)
       || this.usesRadioFranceWorkaround(channel)
       || this.usesM6GroupWorkaround(channel)
+      || this.usesRtsWorkaround(channel)
       || this.usesArteReplay(channel)
       || this.usesInternetArchive(channel);
   }
@@ -1891,6 +1909,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (this.usesM6GroupWorkaround(channel)) {
       return 'TV.WORKAROUND_BADGE_M6';
     }
+    if (this.usesRtsWorkaround(channel)) {
+      return 'TV.WORKAROUND_BADGE_RTS';
+    }
     return 'TV.WORKAROUND_BADGE';
   }
 
@@ -1913,6 +1934,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (this.usesM6GroupWorkaround(channel)) {
       return 'TV.WORKAROUND_HINT_M6';
     }
+    if (this.usesRtsWorkaround(channel)) {
+      return 'TV.WORKAROUND_HINT_RTS';
+    }
     return 'TV.WORKAROUND_HINT';
   }
 
@@ -1934,6 +1958,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     }
     if (this.usesM6GroupWorkaround(channel)) {
       return 'TV.WORKAROUND_ACTIVE_M6';
+    }
+    if (this.usesRtsWorkaround(channel)) {
+      return 'TV.WORKAROUND_ACTIVE_RTS';
     }
     return 'TV.WORKAROUND_ACTIVE';
   }
@@ -2439,6 +2466,118 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     }
   }
 
+  private clearChannelStatusFeedbackTimer(): void {
+    if (this.channelStatusFeedbackTimer != null) {
+      clearTimeout(this.channelStatusFeedbackTimer);
+      this.channelStatusFeedbackTimer = null;
+    }
+  }
+
+  /**
+   * Probe the current channel via PatTool diagnose API and classify the failure layer
+   * (IPTV / upstream / resolve / PatTool / client player).
+   */
+  async checkChannelStatus(event?: Event): Promise<void> {
+    event?.stopPropagation();
+    const channel = this.selectedChannel;
+    if (!channel || this.channelStatusBusy) {
+      return;
+    }
+    this.channelStatusBusy = true;
+    this.channelStatusOk = null;
+    this.channelStatusFeedback = this.translate.instant('TV.STATUS_CHECKING');
+    this.clearChannelStatusFeedbackTimer();
+    this.showChrome(true);
+    this.cdr.markForCheck();
+
+    const streamUrl = resolveTvStreamUrl(channel);
+    if (!streamUrl) {
+      this.finishChannelStatus(false, this.translate.instant('TV.STATUS_LAYER_PATTOOL'));
+      return;
+    }
+
+    let result: TvStreamDiagnoseResult | null = null;
+    try {
+      result = await firstValueFrom(
+        this.api.diagnoseTvStream(streamUrl).pipe(catchError(() => of(null)))
+      );
+    } catch {
+      result = null;
+    }
+
+    if (!result) {
+      this.finishChannelStatus(
+        false,
+        this.translate.instant('TV.STATUS_UNREACHABLE')
+      );
+      return;
+    }
+
+    const detail = (result.message || '').trim();
+    const host = (result.host || result.resolvedUrlHost || '').trim();
+    const http =
+      typeof result.upstreamStatus === 'number' && result.upstreamStatus > 0
+        ? `HTTP ${result.upstreamStatus}`
+        : '';
+    const detailParts = [detail, host && !detail.includes(host) ? host : '', http]
+      .filter(Boolean)
+      .join(' — ');
+
+    const layer = (result.layer || '').toLowerCase();
+    const video = this.videoEl?.nativeElement;
+    const playerSeemsBroken =
+      !!this.playError
+      || (!!video && video.error != null)
+      || (!!video && !video.paused && video.readyState < 2 && this.isBuffering);
+
+    if (result.ok) {
+      if (playerSeemsBroken) {
+        this.finishChannelStatus(
+          false,
+          this.composeStatusMessage('TV.STATUS_LAYER_CLIENT', detailParts)
+        );
+        return;
+      }
+      this.finishChannelStatus(
+        true,
+        this.composeStatusMessage('TV.STATUS_OK', detailParts)
+      );
+      return;
+    }
+
+    let key = 'TV.STATUS_LAYER_UPSTREAM';
+    if (layer === 'iptv') {
+      key = 'TV.STATUS_LAYER_IPTV';
+    } else if (layer === 'resolve') {
+      key = 'TV.STATUS_LAYER_RESOLVE';
+    } else if (layer === 'pattool') {
+      key = 'TV.STATUS_LAYER_PATTOOL';
+    } else if (layer === 'client') {
+      key = 'TV.STATUS_LAYER_CLIENT';
+    }
+    this.finishChannelStatus(false, this.composeStatusMessage(key, detailParts));
+  }
+
+  private composeStatusMessage(key: string, detail: string): string {
+    const head = this.translate.instant(key);
+    return detail ? `${head}\n${detail}` : head;
+  }
+
+  private finishChannelStatus(ok: boolean, message: string): void {
+    this.channelStatusBusy = false;
+    this.channelStatusOk = ok;
+    this.channelStatusFeedback = message;
+    this.clearChannelStatusFeedbackTimer();
+    this.showChrome(true);
+    this.cdr.markForCheck();
+    this.channelStatusFeedbackTimer = setTimeout(() => {
+      this.channelStatusFeedback = '';
+      this.channelStatusOk = null;
+      this.channelStatusFeedbackTimer = null;
+      this.cdr.markForCheck();
+    }, 3000);
+  }
+
   /** Force A/V resync (live edge seek + MediaSource recover). */
   resyncAudioVideo(event?: Event): void {
     event?.stopPropagation();
@@ -2473,7 +2612,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     }
     this.playError = '';
     this.isBuffering = true;
-    this.franceTvTokenRefreshAttempted = false;
+    this.virtualLiveHardRestarts = 0;
     this.resyncFeedback = 'TV.RESTART_STREAM_DONE';
     this.clearResyncFeedbackTimer();
     this.showChrome(true);
@@ -4108,13 +4247,14 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         return;
       }
       const streamUrl = resolveTvStreamUrl(channel);
-      if (
+      const videoEl = this.videoEl?.nativeElement || null;
+      const canHardRestart =
         playGen === this.playGeneration &&
-        !this.franceTvTokenRefreshAttempted &&
         isKeepAliveVirtualLive(streamUrl) &&
-        isTvHlsForbiddenError(data)
-      ) {
-        this.franceTvTokenRefreshAttempted = true;
+        this.virtualLiveHardRestarts < TvWatcherComponent.MAX_VIRTUAL_LIVE_HARD_RESTARTS;
+
+      if (canHardRestart && isTvHlsForbiddenError(data)) {
+        this.virtualLiveHardRestarts += 1;
         this.isBuffering = true;
         this.cdr.markForCheck();
         void bustVirtualLiveCache(streamUrl, this.api).finally(() => {
@@ -4124,18 +4264,15 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         });
         return;
       }
-      if (this.hls && tryRecoverTvHlsError(this.hls, data, this.hlsRecoverAttempts)) {
+      if (this.hls && tryRecoverTvHlsError(this.hls, data, this.hlsRecoverAttempts, videoEl)) {
         this.isBuffering = true;
         this.cdr.markForCheck();
         tryPlay(false);
         return;
       }
-      if (
-        playGen === this.playGeneration &&
-        !this.franceTvTokenRefreshAttempted &&
-        isKeepAliveVirtualLive(streamUrl)
-      ) {
-        this.franceTvTokenRefreshAttempted = true;
+      // IPTV mirrors / signed lives: full rebuild after soft recovery (MSE appendBuffer poison).
+      if (canHardRestart) {
+        this.virtualLiveHardRestarts += 1;
         this.isBuffering = true;
         this.cdr.markForCheck();
         void bustVirtualLiveCache(streamUrl, this.api).finally(() => {

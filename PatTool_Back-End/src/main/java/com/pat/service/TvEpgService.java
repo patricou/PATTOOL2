@@ -83,7 +83,10 @@ public class TvEpgService {
             Map.entry("m6group:m6", "M6.fr"),
             Map.entry("m6group:w9", "W9.fr"),
             Map.entry("m6group:6ter", "6ter.fr"),
-            Map.entry("m6group:gulli", "Gulli.fr")
+            Map.entry("m6group:gulli", "Gulli.fr"),
+            Map.entry("rts:rts1", "RTS1.ch"),
+            Map.entry("rts:rts2", "RTS2.ch"),
+            Map.entry("rts:rtsinfo", "RTSInfo.ch")
     );
 
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -174,6 +177,9 @@ public class TvEpgService {
         }
         if (id.toLowerCase(Locale.ROOT).startsWith("m6group-")) {
             return VIRTUAL_EPG_IDS.getOrDefault("m6group:" + id.substring(8).toLowerCase(Locale.ROOT), null);
+        }
+        if (id.toLowerCase(Locale.ROOT).startsWith("rts-")) {
+            return VIRTUAL_EPG_IDS.getOrDefault("rts:" + id.substring(4).toLowerCase(Locale.ROOT), null);
         }
         // Playlist ids look like "TF1.fr#0" or "TF1.fr@HD#1"
         int hash = id.indexOf('#');

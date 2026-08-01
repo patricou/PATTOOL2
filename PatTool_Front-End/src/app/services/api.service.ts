@@ -2322,6 +2322,28 @@ export class ApiService {
     }>(this.API_URL + 'external/tv/live/m6group/' + encodeURIComponent(slug), { params });
   }
 
+  /** Resolve RTS / TSR live via IPTV mirrors. {@code fresh} forces re-probe. */
+  resolveRtsLive(
+    slug: string,
+    fresh = false
+  ): Observable<{
+    slug: string;
+    streamUrl: string;
+    virtualUrl: string;
+    expiresAtEpoch: number;
+  }> {
+    let params = new HttpParams();
+    if (fresh) {
+      params = params.set('fresh', 'true');
+    }
+    return this._http.get<{
+      slug: string;
+      streamUrl: string;
+      virtualUrl: string;
+      expiresAtEpoch: number;
+    }>(this.API_URL + 'external/tv/live/rts/' + encodeURIComponent(slug), { params });
+  }
+
   /** GET /api/external/tv/arte/sections — ARTE replay section codes. */
   getArteSections(lang = 'fr'): Observable<ArteSectionsResponse> {
     const params = new HttpParams().set('lang', lang);
@@ -2423,6 +2445,15 @@ export class ApiService {
     }
     const b64 = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     return this.API_URL + 'external/tv/stream/' + b64;
+  }
+
+  /**
+   * GET /api/external/tv/diagnose?url=… — probe current channel (resolve + upstream).
+   * Classifies IPTV / upstream CDN / resolve / PatTool issues.
+   */
+  diagnoseTvStream(streamUrl: string): Observable<TvStreamDiagnoseResult> {
+    const params = new HttpParams().set('url', streamUrl || '');
+    return this._http.get<TvStreamDiagnoseResult>(this.API_URL + 'external/tv/diagnose', { params });
   }
 
   /** GET /api/external/tv/favorites — JWT required, per-user list. */
@@ -4009,6 +4040,23 @@ export interface TvChannel {
   country?: string;
   streamUrl: string;
   quality?: string;
+}
+
+/** GET /api/external/tv/diagnose — channel stream health probe */
+export interface TvStreamDiagnoseResult {
+  ok?: boolean;
+  layer?: 'ok' | 'iptv' | 'upstream' | 'resolve' | 'pattool' | 'client' | string;
+  error?: string | null;
+  message?: string | null;
+  host?: string | null;
+  upstreamStatus?: number | null;
+  playlist?: boolean;
+  contentType?: string | null;
+  backendReachable?: boolean;
+  virtual?: boolean;
+  resolveOk?: boolean;
+  requestedUrl?: string | null;
+  resolvedUrlHost?: string | null;
 }
 
 /** GET /api/external/tv/arte/programs */

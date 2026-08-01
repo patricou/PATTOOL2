@@ -5,13 +5,14 @@ import {
   franceTvSlugFromVirtualUrl,
   isKeepAliveVirtualLive,
   m6GroupSlugFromVirtual,
+  rtsSlugFromVirtual,
   tf1SlugFromVirtual
 } from './tv-stream.util';
 
 export type VirtualLiveResolveFn = (fresh: boolean) => Promise<FranceTvResolveMeta | null>;
 
 /**
- * Build resolveMeta + slug for france.tv / TF1 / M6 virtual live resolve.
+ * Build resolveMeta + slug for france.tv / TF1 / M6 / RTS virtual live resolve.
  * Used for preflight, cache bust on fatal error, and (france.tv only) proactive renewals.
  */
 export function virtualLiveKeepAliveFromUrl(
@@ -60,6 +61,19 @@ export function virtualLiveKeepAliveFromUrl(
       }
     };
   }
+  const rtsSlug = rtsSlugFromVirtual(streamUrl);
+  if (rtsSlug) {
+    return {
+      slug: rtsSlug,
+      resolveMeta: async (fresh) => {
+        try {
+          return await firstValueFrom(api.resolveRtsLive(rtsSlug, fresh));
+        } catch {
+          return null;
+        }
+      }
+    };
+  }
   return null;
 }
 
@@ -95,7 +109,8 @@ export async function preflightVirtualLive(
     return { ok: true };
   }
   // IPTV-mirror lives: start HLS immediately (proxy will resolve).
-  if (tf1SlugFromVirtual(streamUrl) || m6GroupSlugFromVirtual(streamUrl)) {
+  if (tf1SlugFromVirtual(streamUrl) || m6GroupSlugFromVirtual(streamUrl)
+      || rtsSlugFromVirtual(streamUrl)) {
     return { ok: true };
   }
   try {

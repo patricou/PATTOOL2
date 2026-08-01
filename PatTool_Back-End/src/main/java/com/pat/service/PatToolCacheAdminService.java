@@ -31,6 +31,7 @@ public class PatToolCacheAdminService {
     private final FranceTvLiveService franceTvLiveService;
     private final Tf1LiveService tf1LiveService;
     private final M6GroupLiveService m6GroupLiveService;
+    private final RtsLiveService rtsLiveService;
     private final CanalGroupLiveService canalGroupLiveService;
     private final ArteReplayService arteReplayService;
     private final MeteoFranceObsService meteoFranceObsService;
@@ -65,6 +66,7 @@ public class PatToolCacheAdminService {
             FranceTvLiveService franceTvLiveService,
             Tf1LiveService tf1LiveService,
             M6GroupLiveService m6GroupLiveService,
+            RtsLiveService rtsLiveService,
             CanalGroupLiveService canalGroupLiveService,
             ArteReplayService arteReplayService,
             MeteoFranceObsService meteoFranceObsService,
@@ -97,6 +99,7 @@ public class PatToolCacheAdminService {
         this.franceTvLiveService = franceTvLiveService;
         this.tf1LiveService = tf1LiveService;
         this.m6GroupLiveService = m6GroupLiveService;
+        this.rtsLiveService = rtsLiveService;
         this.canalGroupLiveService = canalGroupLiveService;
         this.arteReplayService = arteReplayService;
         this.meteoFranceObsService = meteoFranceObsService;
@@ -236,6 +239,8 @@ public class PatToolCacheAdminService {
         clearedLive.add("tf1-live");
         liveEntries += m6GroupLiveService.invalidateAll();
         clearedLive.add("m6-live");
+        liveEntries += rtsLiveService.invalidateAll();
+        clearedLive.add("rts-live");
         liveEntries += canalGroupLiveService.invalidateAll();
         clearedLive.add("canal-live");
         liveEntries += arteReplayService.invalidateAll();
@@ -538,6 +543,13 @@ public class PatToolCacheAdminService {
                 true, false,
                 () -> (long) m6GroupLiveService.cacheEntryCount(),
                 m6GroupLiveService::invalidateAll,
+                unit("urls")));
+
+        list.add(def("rts-live", "media",
+                "SYSTEM.CACHE_REGISTRY.RTS_LIVE", "SYSTEM.CACHE_REGISTRY.RTS_LIVE_DESC",
+                true, false,
+                () -> (long) rtsLiveService.cacheEntryCount(),
+                rtsLiveService::invalidateAll,
                 unit("urls")));
 
         list.add(def("canal-live", "media",

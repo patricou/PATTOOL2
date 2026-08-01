@@ -278,6 +278,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/arte/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/ia/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/stream", "/api/external/tv/stream/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/tv/diagnose").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/tv/recordings/status").permitAll()
                 // World radio catalog + stream proxy (radio-browser.info) — public read-only
                 // Favorites (GET/PUT/DELETE /api/external/radio/favorites**) stay authenticated via /api/**

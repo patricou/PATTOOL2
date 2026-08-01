@@ -22,6 +22,7 @@ import {
   isM6GroupVirtual,
   isProgressiveVod,
   isRadioFranceVirtual,
+  isRtsVirtual,
   isTf1Virtual,
   needsProactiveTokenRenewal,
   resolveTvStreamUrl
@@ -138,6 +139,10 @@ export class TvPopoutComponent implements OnInit, OnDestroy {
 
   usesM6Group(): boolean {
     return isM6GroupVirtual(resolveTvStreamUrl(this.channel));
+  }
+
+  usesRts(): boolean {
+    return isRtsVirtual(resolveTvStreamUrl(this.channel));
   }
 
   toggleMute(): void {

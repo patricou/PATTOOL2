@@ -119,7 +119,7 @@ export function startTvHlsPlayback(
         tokenRefreshAttempted = true;
         return;
       }
-      if (hls && tryRecoverTvHlsError(hls, data, recoverAttempts)) {
+      if (hls && tryRecoverTvHlsError(hls, data, recoverAttempts, video)) {
         setBuffering(true);
         tryPlay(false);
         return;

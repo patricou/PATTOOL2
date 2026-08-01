@@ -10,7 +10,8 @@ export function resolveTvStreamUrl(channel: TvChannel | null | undefined): strin
   const lower = existing.toLowerCase();
   if (lower.startsWith('francetv:') || lower.startsWith('tf1:')
       || lower.startsWith('canalgroup:') || lower.startsWith('radiofrance:')
-      || lower.startsWith('m6group:') || lower.startsWith('arte:')
+      || lower.startsWith('m6group:') || lower.startsWith('rts:')
+      || lower.startsWith('arte:')
       || lower.startsWith('ia:')) {
     return existing;
   }
@@ -70,6 +71,17 @@ export function resolveTvStreamUrl(channel: TvChannel | null | undefined): strin
   if (id.startsWith('gulli.fr') || /^gulli\b/.test(name)) {
     return 'm6group:gulli';
   }
+  if (id.startsWith('rts1.ch') || /^rts\s*1\b/.test(name) || /^rts\s*un\b/.test(name)
+      || /^tsr\s*1\b/.test(name) || name === 'rts1' || name === 'tsr1') {
+    return 'rts:rts1';
+  }
+  if (id.startsWith('rts2.ch') || /^rts\s*2\b/.test(name) || /^rts\s*deux\b/.test(name)
+      || /^tsr\s*2\b/.test(name) || name === 'rts2') {
+    return 'rts:rts2';
+  }
+  if (id.startsWith('rtsinfo.ch') || /rts\s*info\b/.test(name) || name.includes('rtsinfo')) {
+    return 'rts:rtsinfo';
+  }
   return existing;
 }
 
@@ -91,6 +103,10 @@ export function isRadioFranceVirtual(url: string): boolean {
 
 export function isM6GroupVirtual(url: string): boolean {
   return (url || '').toLowerCase().startsWith('m6group:');
+}
+
+export function isRtsVirtual(url: string): boolean {
+  return (url || '').toLowerCase().startsWith('rts:');
 }
 
 export function isArteVirtual(url: string): boolean {
@@ -129,15 +145,15 @@ export function isProgressiveVod(url: string): boolean {
 
 /**
  * Virtual lives that support resolve / bust / preflight / fatal-error recovery
- * (france.tv, TF1, M6 mirrors).
+ * (france.tv, TF1, M6, RTS mirrors).
  */
 export function isKeepAliveVirtualLive(url: string): boolean {
-  return isFranceTvVirtual(url) || isTf1Virtual(url) || isM6GroupVirtual(url);
+  return isFranceTvVirtual(url) || isTf1Virtual(url) || isM6GroupVirtual(url) || isRtsVirtual(url);
 }
 
 /**
  * Only france.tv uses short-lived signed CDN tokens that need silent MediaSource renewals.
- * TF1 / M6 play via public IPTV mirrors (no token): proactive swaps cause visible cuts
+ * TF1 / M6 / RTS play via public IPTV mirrors (no token): proactive swaps cause visible cuts
  * and intermittent "won't connect" when a mid-play refresh races a flaky mirror.
  * TF1 still uses resolve / preflight / fatal-error bust via {@link isKeepAliveVirtualLive}.
  */
@@ -190,9 +206,18 @@ export function m6GroupSlugFromVirtual(url: string): string | null {
   return slug || null;
 }
 
+export function rtsSlugFromVirtual(url: string): string | null {
+  const lower = (url || '').trim().toLowerCase();
+  if (!lower.startsWith('rts:')) {
+    return null;
+  }
+  const slug = lower.slice('rts:'.length).trim();
+  return slug || null;
+}
+
 /** Virtual live / VOD schemes used in PatTool stream tokens. */
 const VIRTUAL_STREAM_SCHEMES =
-  'francetv|tf1|canalgroup|radiofrance|m6group|arte|ia';
+  'francetv|tf1|canalgroup|radiofrance|m6group|rts|arte|ia';
 
 /**
  * WhatsApp (and some messengers) truncate auto-linked URLs when a bare

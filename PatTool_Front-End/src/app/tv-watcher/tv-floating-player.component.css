@@ -131,6 +131,12 @@
   border-color: rgba(250, 162, 193, 0.45);
 }
 
+.tv-float-badge--rts {
+  background: rgba(24, 100, 171, 0.28);
+  color: #a5d8ff;
+  border-color: rgba(165, 216, 255, 0.45);
+}
+
 .tv-float-actions {
   display: flex;
   align-items: center;

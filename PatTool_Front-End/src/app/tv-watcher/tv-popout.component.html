@@ -33,6 +33,12 @@
         [attr.title]="'TV.WORKAROUND_HINT_M6' | translate">
         {{ 'TV.WORKAROUND_BADGE_M6' | translate }}
       </span>
+      <span
+        *ngIf="usesRts()"
+        class="tv-popout-badge tv-popout-badge--rts"
+        [attr.title]="'TV.WORKAROUND_HINT_RTS' | translate">
+        {{ 'TV.WORKAROUND_BADGE_RTS' | translate }}
+      </span>
     </div>
     <div class="tv-popout-actions">
       <button

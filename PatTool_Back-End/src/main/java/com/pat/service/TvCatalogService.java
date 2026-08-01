@@ -743,10 +743,16 @@ public class TvCatalogService {
     /**
      * Replace broken third-party mirrors of major French FTA channels with virtual
      * {@code francetv:…} / {@code tf1:…} / {@code canalgroup:…} / {@code radiofrance:…} / {@code m6group:…}
-     * URLs resolved on play.
+     * / {@code rts:…} URLs resolved on play.
      */
     private List<TvChannelDto> overlayOfficialLiveSources(List<TvChannelDto> channels, String countryCode) {
-        if (!"fr".equals(countryCode) || channels == null || channels.isEmpty()) {
+        if (channels == null || channels.isEmpty()) {
+            return channels;
+        }
+        if ("ch".equals(countryCode)) {
+            return overlayRtsLiveSources(channels);
+        }
+        if (!"fr".equals(countryCode)) {
             return channels;
         }
         Map<String, String> franceByTvg = Map.of(
@@ -826,6 +832,29 @@ public class TvCatalogService {
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/6ter_2012.svg/512px-6ter_2012.svg.png");
         ensureM6GroupChannel(out, "gulli", "Gulli", "Kids",
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/Gulli_2017.svg/512px-Gulli_2017.svg.png");
+        return prioritizeOfficialLive(out);
+    }
+
+    private List<TvChannelDto> overlayRtsLiveSources(List<TvChannelDto> channels) {
+        Map<String, String> rtsByTvg = Map.of(
+                "rts1.ch", "rts1",
+                "rts2.ch", "rts2",
+                "rtsinfo.ch", "rtsinfo"
+        );
+        List<TvChannelDto> out = new ArrayList<>(channels.size());
+        for (TvChannelDto ch : channels) {
+            String rtsSlug = matchRtsSlug(ch, rtsByTvg);
+            if (rtsSlug != null) {
+                out.add(patchVirtual(ch, RtsLiveService.virtualUrl(rtsSlug)));
+            } else {
+                out.add(ch);
+            }
+        }
+        ensureRtsChannel(out, "rts1", "RTS 1", "General", "https://i.imgur.com/OP5lHv9.png");
+        ensureRtsChannel(out, "rts2", "RTS 2", "General",
+                "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/RTS_Deux_2016.svg/512px-RTS_Deux_2016.svg.png");
+        ensureRtsChannel(out, "rtsinfo", "RTS Info", "News",
+                "https://raw.githubusercontent.com/tv-logo/tv-logos/refs/heads/main/countries/switzerland/rts-info-ch.png");
         return prioritizeOfficialLive(out);
     }
 
@@ -920,6 +949,29 @@ public class TvCatalogService {
         return null;
     }
 
+    private static String matchRtsSlug(TvChannelDto ch, Map<String, String> byTvgPrefix) {
+        String id = ch.getId() != null ? ch.getId().toLowerCase(Locale.ROOT) : "";
+        String name = ch.getName() != null ? ch.getName().toLowerCase(Locale.ROOT) : "";
+        for (Map.Entry<String, String> e : byTvgPrefix.entrySet()) {
+            if (id.startsWith(e.getKey())) {
+                return e.getValue();
+            }
+        }
+        // Legacy brand TSR 1 / TSR Un still appears in some playlists.
+        if (name.matches("^rts\\s*1\\b.*") || name.matches("^rts\\s*un\\b.*")
+                || name.matches("^tsr\\s*1\\b.*") || name.equals("rts1") || name.equals("tsr1")) {
+            return "rts1";
+        }
+        if (name.matches("^rts\\s*2\\b.*") || name.matches("^rts\\s*deux\\b.*")
+                || name.matches("^tsr\\s*2\\b.*") || name.equals("rts2")) {
+            return "rts2";
+        }
+        if (name.contains("rts info") || name.equals("rtsinfo") || name.matches("^rts\\s*info\\b.*")) {
+            return "rtsinfo";
+        }
+        return null;
+    }
+
     private static void ensureFranceTvChannel(List<TvChannelDto> list, String slug, String name,
                                               String group, String logo) {
         String virtual = FranceTvLiveService.virtualUrl(slug);
@@ -965,6 +1017,15 @@ public class TvCatalogService {
         }
     }
 
+    private static void ensureRtsChannel(List<TvChannelDto> list, String slug, String name,
+                                         String group, String logo) {
+        String virtual = RtsLiveService.virtualUrl(slug);
+        boolean present = list.stream().anyMatch(c -> virtual.equalsIgnoreCase(c.getStreamUrl()));
+        if (!present) {
+            list.add(0, new TvChannelDto("rts-" + slug, name, logo, group, "ch", virtual, "720p"));
+        }
+    }
+
     private static List<TvChannelDto> prioritizeOfficialLive(List<TvChannelDto> channels) {
         List<TvChannelDto> priority = new ArrayList<>();
         List<TvChannelDto> rest = new ArrayList<>();
@@ -973,7 +1034,8 @@ public class TvCatalogService {
                     || Tf1LiveService.isVirtualUrl(ch.getStreamUrl())
                     || CanalGroupLiveService.isVirtualUrl(ch.getStreamUrl())
                     || RadioFranceLiveService.isVirtualUrl(ch.getStreamUrl())
-                    || M6GroupLiveService.isVirtualUrl(ch.getStreamUrl())) {
+                    || M6GroupLiveService.isVirtualUrl(ch.getStreamUrl())
+                    || RtsLiveService.isVirtualUrl(ch.getStreamUrl())) {
                 priority.add(ch);
             } else {
                 rest.add(ch);

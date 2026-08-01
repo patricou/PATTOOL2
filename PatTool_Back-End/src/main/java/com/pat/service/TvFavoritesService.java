@@ -141,13 +141,14 @@ public class TvFavoritesService {
         boolean virtualCanal = CanalGroupLiveService.isVirtualUrl(streamUrl);
         boolean virtualRadio = RadioFranceLiveService.isVirtualUrl(streamUrl);
         boolean virtualM6 = M6GroupLiveService.isVirtualUrl(streamUrl);
+        boolean virtualRts = RtsLiveService.isVirtualUrl(streamUrl);
         boolean virtualArte = ArteReplayService.isVirtualUrl(streamUrl);
         boolean virtualIa = InternetArchiveReplayService.isVirtualUrl(streamUrl);
         if (!StringUtils.hasText(streamUrl)) {
             return null;
         }
         if (!virtualFranceTv && !virtualTf1 && !virtualCanal && !virtualRadio && !virtualM6
-                && !virtualArte && !virtualIa
+                && !virtualRts && !virtualArte && !virtualIa
                 && !(streamUrl.startsWith("http://") || streamUrl.startsWith("https://"))) {
             return null;
         }

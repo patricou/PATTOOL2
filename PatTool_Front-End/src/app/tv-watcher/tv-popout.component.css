@@ -70,6 +70,10 @@
   background: #c2255c;
 }
 
+.tv-popout-badge--rts {
+  background: #1864ab;
+}
+
 .tv-popout-actions {
   display: flex;
   align-items: center;

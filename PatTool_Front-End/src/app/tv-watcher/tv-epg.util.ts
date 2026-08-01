@@ -16,7 +16,10 @@ const VIRTUAL_EPG_IDS: Record<string, string> = {
   'm6group:m6': 'M6.fr',
   'm6group:w9': 'W9.fr',
   'm6group:6ter': '6ter.fr',
-  'm6group:gulli': 'Gulli.fr'
+  'm6group:gulli': 'Gulli.fr',
+  'rts:rts1': 'RTS1.ch',
+  'rts:rts2': 'RTS2.ch',
+  'rts:rtsinfo': 'RTSInfo.ch'
 };
 
 /** Map a catalog channel to its XMLTV / iptv-epg.org channel id. */
@@ -35,7 +38,8 @@ export function resolveEpgChannelId(channel: TvChannel | null | undefined): stri
     ['tf1-', 'tf1:'],
     ['canalgroup-', 'canalgroup:'],
     ['radiofrance-', 'radiofrance:'],
-    ['m6group-', 'm6group:']
+    ['m6group-', 'm6group:'],
+    ['rts-', 'rts:']
   ];
   for (const [prefix, scheme] of prefixes) {
     if (lower.startsWith(prefix)) {

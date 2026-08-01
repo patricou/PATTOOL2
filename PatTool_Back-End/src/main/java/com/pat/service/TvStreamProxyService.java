@@ -100,7 +100,7 @@ public class TvStreamProxyService {
             return url;
         }
         return url.replaceFirst(
-                "(?i)^(francetv|tf1|canalgroup|radiofrance|m6group|arte|ia)~",
+                "(?i)^(francetv|tf1|canalgroup|radiofrance|m6group|rts|arte|ia)~",
                 "$1:");
     }
 
@@ -248,6 +248,119 @@ public class TvStreamProxyService {
 
         HttpStatus status = fetched.status == 206 ? HttpStatus.PARTIAL_CONTENT : HttpStatus.OK;
         return ResponseEntity.status(status).headers(headers).body(body);
+    }
+
+    /**
+     * Lightweight upstream probe for the TV channel status button.
+     * Does not rewrite playlists; only checks reachability and playlist/media shape.
+     *
+     * @return structured map: {@code ok}, {@code layer}, {@code error}, {@code message},
+     *         optional {@code host}, {@code upstreamStatus}, {@code playlist}, {@code contentType}
+     */
+    public Map<String, Object> diagnose(String upstreamUrl) {
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("ok", false);
+        out.put("backendReachable", true);
+
+        URI uri;
+        try {
+            uri = URI.create(upstreamUrl);
+        } catch (Exception e) {
+            out.put("layer", "pattool");
+            out.put("error", "invalid_url");
+            out.put("message", "URL de flux invalide");
+            return out;
+        }
+
+        String scheme = uri.getScheme();
+        if (scheme == null
+                || !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"))) {
+            out.put("layer", "pattool");
+            out.put("error", "invalid_scheme");
+            out.put("message", "L’URL du flux doit être http ou https");
+            return out;
+        }
+
+        String host = uri.getHost();
+        if (host == null || host.isBlank() || isBlockedHost(host)) {
+            out.put("layer", "pattool");
+            out.put("error", "host_blocked");
+            out.put("host", host);
+            out.put("message", "Hôte de flux non autorisé"
+                    + (host != null && !host.isBlank() ? " (" + host + ")" : ""));
+            return out;
+        }
+
+        out.put("host", host);
+        boolean catalogIptv = looksLikePublicIptvHost(host);
+        String referer = resolveReferer(host);
+        FetchResult fetched = fetch(upstreamUrl, null, referer);
+        if (fetched == null) {
+            out.put("layer", catalogIptv ? "iptv" : "upstream");
+            out.put("error", "upstream_unreachable");
+            out.put("message", catalogIptv
+                    ? "Lien IPTV public inaccessible ou bloqué (" + host + ")"
+                    : "Flux distant inaccessible ou bloqué (" + host + ")");
+            return out;
+        }
+
+        out.put("upstreamStatus", fetched.status);
+        if (fetched.contentType != null && !fetched.contentType.isBlank()) {
+            out.put("contentType", stripSpuriousCharset(fetched.contentType));
+        }
+
+        if (fetched.status >= 400) {
+            out.put("layer", catalogIptv ? "iptv" : "upstream");
+            out.put("error", "upstream_http_error");
+            out.put("message", "Le flux distant a répondu HTTP " + fetched.status + " (" + host + ")");
+            return out;
+        }
+        if (fetched.body == null || fetched.body.length == 0) {
+            out.put("layer", catalogIptv ? "iptv" : "upstream");
+            out.put("error", "upstream_empty");
+            out.put("message", "Le flux distant a renvoyé une réponse vide (" + host + ")");
+            return out;
+        }
+
+        boolean playlist = isPlaylist(upstreamUrl, fetched.contentType, fetched.body);
+        out.put("playlist", playlist);
+        if (playlist) {
+            String head = new String(fetched.body, 0, Math.min(fetched.body.length, 96), StandardCharsets.UTF_8)
+                    .trim();
+            if (!head.startsWith("#EXTM3U") && !head.startsWith("#EXTINF")) {
+                out.put("layer", catalogIptv ? "iptv" : "upstream");
+                out.put("error", "invalid_playlist");
+                out.put("message", "Réponse playlist invalide (pas de manifeste HLS) (" + host + ")");
+                return out;
+            }
+        }
+
+        out.put("ok", true);
+        out.put("layer", "ok");
+        out.put("error", null);
+        out.put("message", playlist
+                ? "Manifeste HLS joignable"
+                : "Flux distant joignable");
+        return out;
+    }
+
+    /** Heuristic: public IPTV / free CDN hosts vs official broadcaster CDNs. */
+    private static boolean looksLikePublicIptvHost(String host) {
+        if (host == null || host.isBlank()) {
+            return false;
+        }
+        String h = host.toLowerCase(Locale.ROOT);
+        if (h.endsWith("ftven.fr") || h.endsWith("francetelevisions.fr")
+                || h.contains("ssai.ftven") || h.endsWith("tf1.fr") || h.contains("diff.tf1.fr")
+                || h.contains("tf1info.fr") || h.contains("dailymotion.com") || h.contains("dmcdn.net")
+                || h.contains("6cloud.fr") || h.contains("6play.fr") || h.contains("m6web")
+                || h.contains("radiofrance.fr") || h.contains("arte.tv") || h.contains("arte-")
+                || h.equals("archive.org") || h.endsWith(".archive.org")
+                || h.contains("akamaized.net") || h.contains("akamai")
+                || h.contains("cloudfront.net") || h.contains("fastly")) {
+            return false;
+        }
+        return true;
     }
 
     private FetchResult fetch(String url, String rangeHeader, String referer) {
