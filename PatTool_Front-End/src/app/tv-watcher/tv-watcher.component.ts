@@ -488,9 +488,31 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       return this.channels.length;
     }
     if (this.listMode === 'favorites' || (this.listMode === 'catalog' && !this.isAllCountries)) {
+      // Prefer post-filter length (sidebar + channel/program) across all pages.
       return this.unpagedDisplayedChannels.length;
     }
     return this.displayedChannels.length;
+  }
+
+  /**
+   * True when channel/program/group/sidebar filters narrow the catalog
+   * (same thresholds as loadChannels / catalogChannelSearchQuery).
+   */
+  get hasCatalogSearchOrFilter(): boolean {
+    if (this.isAllCountries) {
+      return (
+        this.channelQuery.trim().length >= 2
+        || this.programQuery.trim().length >= 2
+        || this.sidebarFilterQuery.trim().length >= 2
+        || !!this.selectedGroup
+      );
+    }
+    return !!(
+      this.channelQuery.trim()
+      || this.programQuery.trim()
+      || this.sidebarFilterQuery.trim()
+      || this.selectedGroup
+    );
   }
 
   /**
@@ -502,25 +524,15 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       return this.catalogTotalCount > 0 ? this.catalogTotalCount : 0;
     }
     if (this.isAllCountries) {
-      const searching =
-        this.channelQuery.trim().length >= 2
-        || this.programQuery.trim().length >= 2
-        || !!this.selectedGroup;
-      if (!searching && this.catalogTotalCount > 0) {
+      if (!this.hasCatalogSearchOrFilter && this.catalogTotalCount > 0) {
         return this.catalogTotalCount;
       }
-      if (searching && this.searchMatchTotal != null && this.searchMatchTotal >= 0) {
+      if (this.hasCatalogSearchOrFilter && this.searchMatchTotal != null && this.searchMatchTotal >= 0) {
         return this.searchMatchTotal;
       }
     }
     // Country catalog: prefer server total when the list is unfiltered.
-    if (
-      !this.isAllCountries
-      && this.catalogTotalCount > 0
-      && !this.channelQuery.trim()
-      && !this.programQuery.trim()
-      && !this.selectedGroup
-    ) {
+    if (!this.isAllCountries && this.catalogTotalCount > 0 && !this.hasCatalogSearchOrFilter) {
       return this.catalogTotalCount;
     }
     return this.filteredChannelCount;
@@ -529,39 +541,17 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   /** Exact TV count shown in the list header (catalog total or search match total). */
   get listHeaderChannelCount(): number {
     if (this.isAllCountries) {
-      const idle =
-        !this.channelQuery.trim() && !this.programQuery.trim() && !this.selectedGroup;
-      if (idle) {
+      if (!this.hasCatalogSearchOrFilter) {
         return this.catalogTotalCount > 0 ? this.catalogTotalCount : 0;
       }
       if (this.searchMatchTotal != null) {
         return this.searchMatchTotal;
       }
     }
-    if (
-      !this.isAllCountries
-      && this.catalogTotalCount > 0
-      && !this.channelQuery.trim()
-      && !this.programQuery.trim()
-      && !this.selectedGroup
-    ) {
+    if (!this.isAllCountries && this.catalogTotalCount > 0 && !this.hasCatalogSearchOrFilter) {
       return this.catalogTotalCount;
     }
     return this.filteredChannelCount;
-  }
-
-  /** True when country/group/search filters narrow the catalog list. */
-  get hasActiveFilters(): boolean {
-    if (this.listMode !== 'catalog') {
-      return !!(this.channelQuery.trim() || this.programQuery.trim() || this.sidebarFilterQuery.trim());
-    }
-    return !!(
-      this.channelQuery.trim()
-      || this.programQuery.trim()
-      || this.sidebarFilterQuery.trim()
-      || this.selectedGroup
-      || this.isAllCountries
-    );
   }
 
   /** Sidebar list is fetching channels / programmes / recordings. */
@@ -682,7 +672,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         } else if (this.listMode === 'ia') {
           this.iaPage = 1;
           this.loadIaPrograms();
-        } else if (this.listMode === 'catalog' && this.isAllCountries) {
+        } else if (this.listMode === 'catalog') {
+          // Always reload catalog so the sidebar filter searches the full
+          // country / worldwide list, then pagination applies on matches only.
           this.catalogPage = 1;
           this.loadChannels();
         } else {
@@ -2633,12 +2625,17 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.searchMatchTotal = null;
     this.searchListTruncated = false;
 
-    this.channelsSub = this.api.getTvChannels(country, undefined, this.selectedGroup).subscribe({
+    // Sidebar text (≥2 chars) is applied server-side on the full country list so
+    // matches are not limited to the current client page. channelQuery / programQuery
+    // stay as extra client-side AND filters in unpagedDisplayedChannels.
+    const sidebarQ = this.sidebarFilterQuery.trim();
+    const countrySidebarQ = sidebarQ.length >= 2 ? sidebarQ : undefined;
+    this.channelsSub = this.api.getTvChannels(country, countrySidebarQ, this.selectedGroup).subscribe({
       next: (list) => {
         this.channels = this.sortChannelsByName(list || []);
+        this.searchMatchTotal = countrySidebarQ ? this.channels.length : null;
         this.catalogPages = Math.max(
           1,
           Math.ceil(this.unpagedDisplayedChannels.length / pageSize)
@@ -2653,6 +2650,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       },
       error: () => {
         this.channels = [];
+        this.searchMatchTotal = null;
         this.catalogPages = 1;
         this.isLoadingChannels = false;
         this.channelsError = 'TV.ERR_CHANNELS';

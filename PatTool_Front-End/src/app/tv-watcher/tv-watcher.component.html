@@ -205,14 +205,14 @@
           </span>
           <span
             class="tv-channel-meta-filter"
-            *ngIf="hasActiveFilters && !searchListTruncated && !(isAllCountries && !channelQuery.trim() && !programQuery.trim() && !selectedGroup)">
+            *ngIf="hasCatalogSearchOrFilter && !searchListTruncated">
             {{ 'TV.CHANNEL_COUNT_FILTERED' | translate }}
           </span>
         </span>
         <span *ngIf="listMode === 'favorites' && !isLoadingFavorites" class="tv-channel-meta-count">
           <i class="fa fa-star me-1" aria-hidden="true"></i>
           {{ 'TV.FAVORITE_COUNT' | translate:{ count: filteredChannelCount } }}
-          <span class="tv-channel-meta-filter" *ngIf="channelQuery.trim() || programQuery.trim()">{{ 'TV.CHANNEL_COUNT_FILTERED' | translate }}</span>
+          <span class="tv-channel-meta-filter" *ngIf="channelQuery.trim() || programQuery.trim() || sidebarFilterQuery.trim()">{{ 'TV.CHANNEL_COUNT_FILTERED' | translate }}</span>
         </span>
         <span *ngIf="listMode === 'recordings' && !isLoadingRecordings" class="tv-channel-meta-count">
           <i class="fa fa-circle me-1" aria-hidden="true"></i>
