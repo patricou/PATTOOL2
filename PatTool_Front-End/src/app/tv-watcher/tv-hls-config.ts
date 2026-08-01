@@ -18,23 +18,34 @@ export function createTvHlsConfig(mode: TvHlsPlaybackMode = 'live'): Partial<Hls
     lowLatencyMode: false,
     // Do NOT enable progressive FetchLoader for live IPTV MPEG-TS: partial demux
     // often drops the audio track or desyncs A/V (TF1 / LCI regressions).
-    // Live IPTV: a slightly deeper forward buffer absorbs jitter.
-    maxBufferLength: vod ? 30 : 18,
-    maxMaxBufferLength: vod ? 60 : 36,
-    backBufferLength: vod ? 30 : 24,
-    liveSyncDurationCount: 3,
-    liveMaxLatencyDurationCount: 6,
+    // Live IPTV (TF1/TMC on slow mirrors): deep buffer + stay behind the live edge
+    // so startup can fill before realtime catch-up pressure.
+    maxBufferLength: vod ? 30 : 45,
+    maxMaxBufferLength: vod ? 60 : 90,
+    backBufferLength: vod ? 30 : 30,
+    liveSyncDurationCount: vod ? 3 : 8,
+    liveMaxLatencyDurationCount: vod ? 6 : 24,
     // Must stay false for VOD: with true, hls.js exposes a liveSyncPosition near the
     // end and our live-edge watchdog seeks the replay straight to the finale.
     liveDurationInfinity: !vod,
     // Must stay 1 — values > 1 desync lipsync over time.
     maxLiveSyncPlaybackRate: 1,
-    highBufferWatchdogPeriod: 1,
+    highBufferWatchdogPeriod: 2,
     nudgeOffset: 0.1,
     nudgeMaxRetry: 5,
     maxFragLookUpTolerance: 0.25,
+    // Slow IPTV segments (TF1 HD ~4 MiB / 12–20 s) — default 20 s aborts mid-download.
+    manifestLoadingTimeOut: vod ? 20_000 : 25_000,
+    levelLoadingTimeOut: vod ? 20_000 : 25_000,
+    fragLoadingTimeOut: vod ? 20_000 : 60_000,
+    fragLoadingMaxRetry: vod ? 4 : 5,
+    fragLoadingRetryDelay: 1_000,
     xhrSetup: (xhr) => {
       xhr.withCredentials = false;
+      // Match fragLoadingTimeOut for XHR (hls.js also sets timeout, belt-and-suspenders).
+      if (!vod) {
+        xhr.timeout = 60_000;
+      }
     }
   };
 }
@@ -293,8 +304,8 @@ export function attachTvHlsLiveSyncWatchdog(
   let lastSeekAt = 0;
   // IPTV mirrors (TF1/LCI) are often slower than realtime — aggressive seeking to the
   // live edge while lag keeps growing poisons MSE (appendBuffer / media.error).
-  const MIN_SEEK_GAP_MS = 14_000;
-  const LAG_SEEK_SEC = 14;
+  const MIN_SEEK_GAP_MS = 20_000;
+  const LAG_SEEK_SEC = 22;
 
   const seekToLiveEdge = (reason: string) => {
     if (!isTvHlsLivePlaylist(hls)) {

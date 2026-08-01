@@ -256,6 +256,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/currency/**").permitAll()
                 // IANA time-zone conversion — server-side java.time, no auth
                 .requestMatchers(HttpMethod.GET, "/api/external/timezone/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/openroute/**").permitAll()
                 // Stock exchange proxy (Twelve Data) — lecture seule + purge du cache ticker,
                 // sans auth (la clé API est côté serveur, aucun secret n'est exposé).
                 .requestMatchers(HttpMethod.GET, "/api/external/stock/**").permitAll()

@@ -1790,6 +1790,38 @@ export class ApiService {
   }
 
   // ===================================================================
+  // OpenRouteService — GPS routing (car / bike / walk)
+  // Backend: /api/external/openroute/* (no auth required — server-side API key)
+  // ===================================================================
+
+  getOpenRouteStatus(): Observable<{ configured: boolean }> {
+    return this._http.get<{ configured: boolean }>(this.API_URL + 'external/openroute/status');
+  }
+
+  getOpenRouteDirections(
+    profile: OpenRouteProfile,
+    startLat: number,
+    startLon: number,
+    endLat: number,
+    endLon: number,
+    lang?: string
+  ): Observable<OpenRouteDirections> {
+    let params = new HttpParams()
+      .set('profile', profile)
+      .set('startLat', String(startLat))
+      .set('startLon', String(startLon))
+      .set('endLat', String(endLat))
+      .set('endLon', String(endLon));
+    if (lang) {
+      params = params.set('lang', lang);
+    }
+    return this._http.get<OpenRouteDirections>(
+      this.API_URL + 'external/openroute/directions',
+      { params }
+    );
+  }
+
+  // ===================================================================
   // Twelve Data — stock exchange proxy
   // Backend: /api/external/stock/* (no auth required — server-side API key)
   // ===================================================================
@@ -3474,6 +3506,29 @@ export interface TimezoneConvertResponse {
   input: TimezoneInstant;
   outputs: TimezoneInstant[];
   instantUtc: string;
+}
+
+/** OpenRouteService travel profile. */
+export type OpenRouteProfile = 'driving-car' | 'cycling-regular' | 'foot-walking';
+
+/** One turn-by-turn step from /api/external/openroute/directions. */
+export interface OpenRouteStep {
+  instruction?: string;
+  name?: string;
+  distanceMeters?: number;
+  durationSeconds?: number;
+  type?: number;
+}
+
+/** Normalized directions from OpenRouteService (coordinates are [lat, lon]). */
+export interface OpenRouteDirections {
+  profile?: string;
+  distanceMeters?: number;
+  durationSeconds?: number;
+  coordinates?: number[][];
+  steps?: OpenRouteStep[];
+  attribution?: string;
+  configured?: boolean;
 }
 
 // ===================================================================

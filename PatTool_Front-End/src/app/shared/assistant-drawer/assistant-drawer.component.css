@@ -75,13 +75,14 @@
 }
 
 .pat-assistant-fab--left {
-  left: max(1rem, 10%);
+  /* Far left of the viewport (TV page) — clear of the sidebar search row */
+  left: max(0.55rem, env(safe-area-inset-left, 0px));
   right: auto;
-  transform: translateX(-50%);
+  transform: none;
 }
 
 .pat-assistant-fab--left:hover {
-  transform: translateX(-50%) scale(1.06);
+  transform: scale(1.06);
 }
 
 .pat-assistant-fab--open {

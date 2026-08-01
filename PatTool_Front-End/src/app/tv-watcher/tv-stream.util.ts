@@ -153,11 +153,16 @@ export function isKeepAliveVirtualLive(url: string): boolean {
 
 /**
  * Only france.tv uses short-lived signed CDN tokens that need silent MediaSource renewals.
- * TF1 / M6 / RTS play via public IPTV mirrors (no token): proactive swaps cause visible cuts
- * and intermittent "won't connect" when a mid-play refresh races a flaky mirror.
- * TF1 still uses resolve / preflight / fatal-error bust via {@link isKeepAliveVirtualLive}.
+ * TF1/TMC/TFX play via IPTV mirrors when possible (official SSAI often 403s on segments).
+ * LCI uses official CDN without proactive swaps (stable for typical sessions).
+ * {@code opts.tf1Configured} is kept for API compatibility but does not enable renewals —
+ * enabling them re-pulls mediainfo and can flip playback onto a 403 CDN URL.
  */
-export function needsProactiveTokenRenewal(url: string): boolean {
+export function needsProactiveTokenRenewal(
+  url: string,
+  opts?: { tf1Configured?: boolean | null }
+): boolean {
+  void opts;
   return isFranceTvVirtual(url);
 }
 

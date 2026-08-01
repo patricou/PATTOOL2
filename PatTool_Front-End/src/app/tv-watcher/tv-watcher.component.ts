@@ -4320,8 +4320,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     tryPlay: (allowMuteFallback?: boolean) => void
   ): void {
     const streamUrl = resolveTvStreamUrl(channel);
-    // M6 IPTV mirrors have no expiring CDN token — proactive MediaSource swaps cause cuts.
-    if (!needsProactiveTokenRenewal(streamUrl)) {
+    // Official TF1 CDN (and LCI) need JWT renewals; IPTV mirrors must not swap MediaSource.
+    if (!needsProactiveTokenRenewal(streamUrl, { tf1Configured: this.tf1Configured })) {
       return;
     }
     const keepAlive = virtualLiveKeepAliveFromUrl(streamUrl, this.api);

@@ -45,7 +45,11 @@ public class TvStreamProxyService {
                     + "(KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
 
     private static final int CONNECT_TIMEOUT_MS = 10_000;
-    private static final int READ_TIMEOUT_MS = 45_000;
+    /**
+     * Slow IPTV mirrors (e.g. TF1 HD on 151.80) need ~12–20s for a single ~4 MiB segment.
+     * Keep above hls.js {@code fragLoadingTimeOut} so the proxy finishes before the player aborts.
+     */
+    private static final int READ_TIMEOUT_MS = 90_000;
     private static final int MAX_REDIRECTS = 8;
     /** Hard cap for a single proxied response (playlists + media segments). */
     private static final int MAX_BYTES = 12 * 1024 * 1024;

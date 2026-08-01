@@ -83,17 +83,24 @@ public class Tf1LiveService {
                 "L_TF1", "TF1", true,
                 "https://i.imgur.com/QxHt9NC.png", "Entertainment",
                 "tf1.fr",
-                List.of("http://151.80.18.177:86/TF1_HD/index.m3u8")));
+                // Prefer labeled 576p (sustainable bitrate). TF1_HD on 151.80 is ~5–7 Mb/s
+                // media but often only ~2–2.5 Mb/s from FR — live buffer never catches up.
+                List.of(
+                        "https://futbol9865.ultratv13.workers.dev/deportivo111/24.m3u8",
+                        "http://151.80.18.177:86/TF1_HD/index.m3u8"
+                )));
         CHANNELS.put("tmc", new ChannelDef(
                 "L_TMC", "TMC", true,
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/TMC_logo_2016.svg/512px-TMC_logo_2016.svg.png",
                 "Entertainment",
                 "tmc.fr",
+                // Labeled TMC only — 151.80 is borderline (~realtime). No verified fast mirror.
                 List.of("http://151.80.18.177:86/TMC/index.m3u8")));
         CHANNELS.put("tfx", new ChannelDef(
                 "L_TFX", "TFX", true,
                 "https://i.imgur.com/d91GcVf.png", "Entertainment",
                 "tfx.fr",
+                // Fast host (~10 Mb/s) — keep as sole labeled seed.
                 List.of("http://145.239.5.177/315/index.m3u8")));
         CHANNELS.put("lci", new ChannelDef(
                 "L_LCI", "LCI", false,
@@ -108,7 +115,7 @@ public class Tf1LiveService {
     }
 
     private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(4))
+            .connectTimeout(Duration.ofSeconds(8))
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build();
 
@@ -202,41 +209,53 @@ public class Tf1LiveService {
         String avoidUrl = null;
         CachedUrl cached = streamCache.get(key);
 
+        // LCI: official CDN first (no Gigya, stable).
+        // TF1/TMC/TFX: IPTV mirrors ONLY — official SSAI masters probe OK then 403 on segments.
+        boolean preferOfficial = !def.requiresAuth();
+        boolean mirrorsOnly = def.requiresAuth();
+
         // Sticky path: keep the same working URL to avoid mid-playback cuts / resolve thrash.
         if (cached != null && !isTemporarilyFailed(cached.url)) {
             boolean cacheFresh = cached.expiresAt.isAfter(now);
             boolean official = isTf1CdnUrl(cached.url);
-            if (cacheFresh && !forceRefresh) {
-                // Trust cache — re-probing every playlist hit causes stalls on flaky mirrors.
+            // Never keep a sticky official CDN URL for TF1/TMC/TFX (SSAI 403).
+            if (mirrorsOnly && official) {
+                markFailed(cached.url, Duration.ofMinutes(30));
+                streamCache.remove(key);
+                log.info("TF1 live {} dropped sticky official CDN (mirrors-only policy)", key);
+                avoidUrl = cached.url;
+                cached = null;
+            } else if (cacheFresh && !forceRefresh) {
+                // LCI only: upgrade sticky IPTV → official when available.
+                if (preferOfficial && !official) {
+                    Optional<String> upgrade = tryOfficialPreferred(def, key, now, null);
+                    if (upgrade.isPresent()) {
+                        return upgrade;
+                    }
+                }
                 return Optional.of(cached.url);
+            } else {
+                // forceRefresh or expired: re-probe sticky first; keep it if still alive.
+                if (!(forceRefresh && official) && probeClearHls(cached.url, official)) {
+                    Duration ttl = official ? OFFICIAL_CACHE_TTL : MIRROR_CACHE_TTL;
+                    streamCache.put(key, new CachedUrl(cached.url, now.plus(ttl)));
+                    return Optional.of(cached.url);
+                }
+                avoidUrl = cached.url;
+                markFailed(cached.url, official ? Duration.ofMinutes(30) : Duration.ofMinutes(2));
+                streamCache.remove(key);
+                log.info("TF1 live {} dropped dead sticky URL ({})", key, official ? "official" : "mirror");
+                cached = null;
             }
-            // forceRefresh or expired: re-probe sticky first; keep it if still alive.
-            if (probeClearHls(cached.url, official)) {
-                Duration ttl = official ? OFFICIAL_CACHE_TTL : MIRROR_CACHE_TTL;
-                streamCache.put(key, new CachedUrl(cached.url, now.plus(ttl)));
-                return Optional.of(cached.url);
-            }
-            avoidUrl = cached.url;
-            markFailed(cached.url, Duration.ofMinutes(2));
-            streamCache.remove(key);
-            log.info("TF1 live {} dropped dead sticky URL ({})", key, official ? "official" : "mirror");
-            cached = null;
         } else if (cached != null) {
             avoidUrl = cached.url;
             streamCache.remove(key);
             cached = null;
         }
 
-        // LCI (no Gigya auth): prefer official mediainfo — IPTV mirrors cause MSE/appendBuffer
-        // churn mid-play. TF1/TMC/TFX: mirrors first (official often needs credentials / WAF).
-        if (!def.requiresAuth()) {
-            Optional<String> officialFirst = resolveOfficial(def, key);
-            if (officialFirst.isPresent() && !sameUrl(officialFirst.get(), avoidUrl)
-                    && !isTemporarilyFailed(officialFirst.get())
-                    && probeClearHls(officialFirst.get(), true)) {
-                clearFailed(officialFirst.get());
-                streamCache.put(key, new CachedUrl(officialFirst.get(), now.plus(OFFICIAL_CACHE_TTL)));
-                log.info("TF1 live {} resolved via official mediainfo (preferred)", key);
+        if (preferOfficial) {
+            Optional<String> officialFirst = tryOfficialPreferred(def, key, now, avoidUrl);
+            if (officialFirst.isPresent()) {
                 return officialFirst;
             }
             Optional<String> mirrorFallback = resolveFromMirrors(def, key, now, avoidUrl);
@@ -248,29 +267,36 @@ public class Tf1LiveService {
             if (mirror.isPresent()) {
                 return mirror;
             }
-            Optional<String> official = resolveOfficial(def, key);
-            if (official.isPresent() && !sameUrl(official.get(), avoidUrl)
-                    && !isTemporarilyFailed(official.get())
-                    && probeClearHls(official.get(), true)) {
-                clearFailed(official.get());
-                streamCache.put(key, new CachedUrl(official.get(), now.plus(OFFICIAL_CACHE_TTL)));
-                log.info("TF1 live {} resolved via official mediainfo", key);
-                return official;
-            }
-            if (official.isPresent()) {
-                markFailed(official.get(), Duration.ofMinutes(1));
-                log.warn("TF1 live {} official URL rejected by CDN probe", key);
-            }
+            // Do NOT fall back to official mediainfo for TF1/TMC/TFX — SSAI 403s mid-play.
         }
 
-        // Last resort: previously avoided URL if it still probes (better than nothing).
-        if (StringUtils.hasText(avoidUrl) && probeClearHls(avoidUrl, isTf1CdnUrl(avoidUrl))) {
+        // Last resort: previously avoided mirror only (never revive official CDN for mirrors-only).
+        if (StringUtils.hasText(avoidUrl) && !isTf1CdnUrl(avoidUrl)
+                && probeClearHls(avoidUrl, false)) {
             clearFailed(avoidUrl);
             streamCache.put(key, new CachedUrl(avoidUrl, now.plus(CACHE_TTL_SHORT)));
             return Optional.of(avoidUrl);
         }
-        log.warn("TF1 live: no official URL and no working IPTV mirror for {}", key);
+        log.warn("TF1 live: no working IPTV mirror for {}{}", key,
+                mirrorsOnly ? " (official CDN disabled for this channel)" : "");
         return Optional.empty();
+    }
+
+    /** Resolve + probe official CDN; cache on success. */
+    private Optional<String> tryOfficialPreferred(ChannelDef def, String key, Instant now, String avoidUrl) {
+        Optional<String> official = resolveOfficial(def, key);
+        if (official.isEmpty() || sameUrl(official.get(), avoidUrl) || isTemporarilyFailed(official.get())) {
+            return Optional.empty();
+        }
+        if (!probeClearHls(official.get(), true)) {
+            markFailed(official.get(), Duration.ofMinutes(1));
+            log.warn("TF1 live {} official URL rejected by CDN probe", key);
+            return Optional.empty();
+        }
+        clearFailed(official.get());
+        streamCache.put(key, new CachedUrl(official.get(), now.plus(OFFICIAL_CACHE_TTL)));
+        log.info("TF1 live {} resolved via official mediainfo (preferred)", key);
+        return official;
     }
 
     /**
@@ -284,8 +310,29 @@ public class Tf1LiveService {
         String key = slug.trim().toLowerCase(Locale.ROOT);
         CachedUrl cached = streamCache.remove(key);
         if (cached != null) {
-            markFailed(cached.url, Duration.ofMinutes(1));
+            Duration ttl = isTf1CdnUrl(cached.url) ? Duration.ofMinutes(30) : Duration.ofMinutes(1);
+            markFailed(cached.url, ttl);
         }
+    }
+
+    /**
+     * Drop any sticky official TF1 CDN URLs (SSAI masters that 403 on segments).
+     * Called when the proxy sees HTTP 403 from {@code *.tf1.fr} / {@code diff.tf1.fr}.
+     */
+    public int dropOfficialStickyUrls() {
+        int n = 0;
+        for (Map.Entry<String, CachedUrl> e : streamCache.entrySet()) {
+            CachedUrl cached = e.getValue();
+            if (cached != null && isTf1CdnUrl(cached.url)) {
+                streamCache.remove(e.getKey(), cached);
+                markFailed(cached.url, Duration.ofMinutes(30));
+                n++;
+            }
+        }
+        if (n > 0) {
+            log.info("TF1 live dropped {} sticky official CDN URL(s) after upstream 403", n);
+        }
+        return n;
     }
 
     public int invalidateAll() {
@@ -331,11 +378,15 @@ public class Tf1LiveService {
             if (!StringUtils.hasText(candidate) || sameUrl(candidate, avoidUrl) || isTemporarilyFailed(candidate)) {
                 continue;
             }
+            // Never probe official TF1 CDN as an "IPTV mirror" — SSAI segments 403.
+            if (isTf1CdnUrl(candidate)) {
+                continue;
+            }
             toProbe.add(candidate.trim());
         }
         if (toProbe.isEmpty()) {
             for (String candidate : candidates) {
-                if (StringUtils.hasText(candidate) && !sameUrl(candidate, avoidUrl)) {
+                if (StringUtils.hasText(candidate) && !sameUrl(candidate, avoidUrl) && !isTf1CdnUrl(candidate)) {
                     toProbe.add(candidate.trim());
                 }
             }
@@ -344,29 +395,36 @@ public class Tf1LiveService {
             return Optional.empty();
         }
 
-        // Common case: one seed — probe inline (no thread-pool hop).
-        if (toProbe.size() == 1) {
-            String url = toProbe.get(0);
-            if (probeClearHls(url, isTf1CdnUrl(url))) {
-                return Optional.of(url);
+        // Small lists: probe in seed order (prefer lighter / listed-first mirrors).
+        if (toProbe.size() <= 3) {
+            for (String url : toProbe) {
+                if (probeClearHls(url, isTf1CdnUrl(url))) {
+                    return Optional.of(url);
+                }
+                markFailed(url, failureTtlFor(url));
             }
-            markFailed(url, Duration.ofSeconds(90));
             return Optional.empty();
         }
 
-        AtomicReference<String> winner = new AtomicReference<>();
+        // Larger discovery sets: probe in parallel, but keep seed-order preference
+        // among successes (first completion must NOT steal a lower-index candidate).
+        boolean[] ok = new boolean[toProbe.size()];
         AtomicInteger remaining = new AtomicInteger(toProbe.size());
         CountDownLatch done = new CountDownLatch(1);
         List<CompletableFuture<Void>> futures = new ArrayList<>(toProbe.size());
 
-        for (String url : toProbe) {
+        for (int i = 0; i < toProbe.size(); i++) {
+            final int idx = i;
+            final String url = toProbe.get(i);
             futures.add(CompletableFuture.runAsync(() -> {
                 try {
-                    if (winner.get() != null) {
-                        return;
-                    }
-                    if (probeClearHls(url, isTf1CdnUrl(url)) && winner.compareAndSet(null, url)) {
-                        done.countDown();
+                    if (probeClearHls(url, isTf1CdnUrl(url))) {
+                        ok[idx] = true;
+                        // Prefer early exit once the best (lowest) index is known good
+                        // and all better indices have finished (failed).
+                        if (idx == 0) {
+                            done.countDown();
+                        }
                     }
                 } finally {
                     if (remaining.decrementAndGet() == 0) {
@@ -381,15 +439,23 @@ public class Tf1LiveService {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-        // Cancel stragglers — result already decided.
         futures.forEach(f -> f.cancel(true));
 
-        String url = winner.get();
-        if (url != null) {
-            return Optional.of(url);
+        for (int i = 0; i < toProbe.size(); i++) {
+            if (ok[i]) {
+                return Optional.of(toProbe.get(i));
+            }
         }
-        toProbe.forEach(u -> markFailed(u, Duration.ofSeconds(90)));
+        toProbe.forEach(u -> markFailed(u, failureTtlFor(u)));
         return Optional.empty();
+    }
+
+    /** Longer blacklist for rate-limited CDNs (e.g. workers.dev 429). */
+    private static Duration failureTtlFor(String url) {
+        if (url != null && url.toLowerCase(Locale.ROOT).contains("workers.dev")) {
+            return Duration.ofMinutes(10);
+        }
+        return Duration.ofSeconds(90);
     }
 
     private static boolean sameUrl(String a, String b) {
@@ -596,7 +662,8 @@ public class Tf1LiveService {
                 continue;
             }
             if (pendingTvg != null && matchesTvg(pendingTvg, tvgPrefix)
-                    && (line.startsWith("http://") || line.startsWith("https://"))) {
+                    && (line.startsWith("http://") || line.startsWith("https://"))
+                    && !isTf1CdnUrl(line)) {
                 found.add(line);
             }
             pendingTvg = null;
@@ -650,8 +717,11 @@ public class Tf1LiveService {
     }
 
     private String fetchText(String url, boolean officialTf1) throws Exception {
+        // IPTV mirrors are often slow to answer; official CDN is fast when it works.
+        int timeoutSec = officialTf1 ? 4 : 10;
+        boolean workers = url != null && url.toLowerCase(Locale.ROOT).contains("workers.dev");
         HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(url))
-                .timeout(Duration.ofSeconds(4))
+                .timeout(Duration.ofSeconds(timeoutSec))
                 .header("User-Agent", officialTf1 ? IPHONE_UA : DESKTOP_UA)
                 .header("Accept", "*/*")
                 .GET();
@@ -661,6 +731,10 @@ public class Tf1LiveService {
         }
         HttpResponse<String> response = httpClient.send(b.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            // Rate-limited workers.dev — blacklist longer so HD seed is used.
+            if (workers && response.statusCode() == 429) {
+                markFailed(url, Duration.ofMinutes(10));
+            }
             log.debug("TF1 HLS probe HTTP {} for {}", response.statusCode(), hostOf(url));
             return null;
         }

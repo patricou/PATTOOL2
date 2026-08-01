@@ -164,6 +164,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./timezone-converter/timezone-converter.component').then(m => m.TimezoneConverterComponent)
 			},
 			{
+				path: 'api/gps-routing',
+				loadComponent: () => import('./gps-routing/gps-routing.component').then(m => m.GpsRoutingComponent)
+			},
+			{
 				path: 'api/stock-exchange',
 				loadComponent: () => import('./stock-exchange/stock-exchange.component').then(m => m.StockExchangeComponent)
 			},

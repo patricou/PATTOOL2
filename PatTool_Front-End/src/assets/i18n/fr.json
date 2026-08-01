@@ -50,6 +50,7 @@
     "POSITION_METEO": "Partage Position",
     "METEO_FRANCE": "Météo et prévisions",
     "ADDRESS_TO_MAP": "Adresse/GPS vers carte",
+    "GPS_ROUTING": "GPS / Itinéraire",
     "NEWS": "Actualités",
     "CURRENCY_CONVERTER": "Convertisseur de devises",
     "TIME_ZONES": "Fuseaux horaires",
@@ -358,7 +359,9 @@
       "app_connection_logs_excluded_users": "Noms d'utilisateurs (CSV) exclus des journaux de connexion (ex. comptes de service).",
       "app_webcam_windy_api_base": "URL de base de l’API Windy Webcams v3 utilisée par la page Webcam.",
       "app_webcam_windy_api_key": "Clé API Windy Webcams (header x-windy-api-key). Gratuite sur api.windy.com/keys.",
-      "app_webcam_search_cache_minutes": "Durée (minutes) du cache serveur pour les listes de webcams Windy."
+      "app_webcam_search_cache_minutes": "Durée (minutes) du cache serveur pour les listes de webcams Windy.",
+      "app_openroute_api_key": "Clé API OpenRouteService pour le calcul d’itinéraires GPS (jamais exposée au navigateur).",
+      "app_openroute_api_base": "URL de base de l’API OpenRouteService (proxy /api/external/openroute/*)."
     }
   },
   "CHIMIE": {
@@ -5630,5 +5633,41 @@
     "ERROR_API_KEY": "Clé API Windy manquante. Ajoutez app.webcam.windy-api-key dans application.properties — clé gratuite :",
     "GEO_UNSUPPORTED": "Géolocalisation non supportée par ce navigateur.",
     "GEO_DENIED": "Géolocalisation refusée ou indisponible."
+  },
+  "GPS_ROUTING": {
+    "TITLE": "GPS / Itinéraire",
+    "SUBTITLE": "Calculez un itinéraire en voiture, à vélo ou à pied (OpenRouteService). Recherchez une adresse, utilisez votre position ou cliquez sur la carte.",
+    "MODE": "Mode de transport",
+    "MODE_CAR": "Voiture",
+    "MODE_BIKE": "Vélo",
+    "MODE_WALK": "À pied",
+    "FROM": "Départ",
+    "TO": "Arrivée",
+    "PLACE_PLACEHOLDER": "Adresse ou lat, lon",
+    "USE_MY_POSITION": "Ma position",
+    "MY_POSITION": "Ma position",
+    "PICK_ON_MAP": "Choisir sur la carte",
+    "PICK_HINT": "Cliquez sur la carte pour définir le point.",
+    "SWAP": "Inverser",
+    "CALCULATE": "Calculer l’itinéraire",
+    "CLEAR": "Effacer",
+    "DISTANCE": "Distance",
+    "DURATION": "Durée",
+    "INSTRUCTIONS": "Instructions",
+    "MAP": "Carte de l’itinéraire",
+    "SEARCHING": "Recherche…",
+    "POINTS_REQUIRED": "Indiquez un point de départ et une arrivée.",
+    "NOT_CONFIGURED": "Clé OpenRouteService manquante. Définissez app.openroute.api-key dans application.properties (compte gratuit sur openrouteservice.org).",
+    "NO_ROUTE": "Aucun itinéraire trouvé entre ces points.",
+    "ROUTE_ERROR": "Impossible de calculer l’itinéraire. Réessayez plus tard.",
+    "GEOLOCATION_UNSUPPORTED": "La géolocalisation n’est pas prise en charge par votre navigateur.",
+    "GEOLOCATION_ERROR": "Impossible d’obtenir votre position.",
+    "OPEN_TRACE_VIEWER": "Ouvrir dans Trace Viewer",
+    "OPEN_TRACE_VIEWER_SHORT": "Trace",
+    "MAP_BASE_LAYER": "Fond de carte",
+    "MAP_FULLSCREEN": "Plein écran",
+    "MAP_EXIT_FULLSCREEN": "Quitter le plein écran",
+    "EXPORT_GPX": "Exporter GPX",
+    "EXPORT_GPX_SHORT": "GPX"
   }
 }

@@ -109,6 +109,8 @@ public final class PatToolParameterCodeDefaults {
             Map.entry("app.cern.opendata-portal-base", "https://opendata.cern.ch"),
             Map.entry("app.nager.api-base", "https://date.nager.at/api/v3"),
             Map.entry("app.frankfurter.api-base", "https://api.frankfurter.app"),
+            Map.entry("app.openroute.api-base", "https://api.openrouteservice.org"),
+            Map.entry("app.openroute.api-key", ""),
             Map.entry("app.ip.geolocation.cache.max-size", "5000"),
             Map.entry("app.ip.geolocation.cache.ttl-hours", "24"),
             Map.entry("app.exception.tracking.retention-hours", "168"),

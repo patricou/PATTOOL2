@@ -34,6 +34,8 @@ interface TraceViewerSource {
 	titleLabel?: string;
 	location?: { lat: number; lng: number; label?: string; zoom?: number };
 	positions?: Array<{ lat: number; lng: number; type?: string; datetime?: Date; label?: string }>;
+	/** Precomputed track polyline (e.g. GPS routing) — drawn like a GPX/GeoJSON file. */
+	trackPoints?: L.LatLngTuple[];
 	/** When set (e.g. globe embed), selects this base layer id after layers are created. */
 	initialBaseLayerId?: string;
 }
@@ -746,6 +748,43 @@ export class TraceViewerModalComponent implements OnDestroy {
 		});
 	}
 
+	/**
+	 * Open the trace viewer with a polyline track (e.g. GPS routing A→B).
+	 * Points are [lat, lng] like Leaflet LatLngTuple.
+	 */
+	public openWithTrackPoints(
+		points: Array<{ lat: number; lng: number } | L.LatLngTuple>,
+		fileName: string,
+		options?: { initialBaseLayerId?: string; eventColor?: { r: number; g: number; b: number } }
+	): void {
+		if (!points?.length) {
+			console.warn('No points provided to openWithTrackPoints');
+			return;
+		}
+
+		const trackPoints: L.LatLngTuple[] = [];
+		for (const p of points) {
+			const lat = Array.isArray(p) ? p[0] : p.lat;
+			const lng = Array.isArray(p) ? p[1] : p.lng;
+			if (isValidGeoCoordinate(lat, lng)) {
+				trackPoints.push([lat, lng]);
+			}
+		}
+		if (!trackPoints.length) {
+			console.warn('No valid points provided to openWithTrackPoints');
+			return;
+		}
+
+		this.eventColor = options?.eventColor ?? null;
+		this.selectionMode = false;
+		this.simpleShareMode = false;
+		this.open({
+			fileName: fileName || 'route.geojson',
+			trackPoints,
+			initialBaseLayerId: options?.initialBaseLayerId
+		});
+	}
+
 	private clearMapLayoutSyncDebouncer(): void {
 		if (this.mapLayoutSyncDebouncer != null) {
 			clearTimeout(this.mapLayoutSyncDebouncer);
@@ -1140,6 +1179,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.pendingLocation =
 			loc != null && isValidGeoCoordinate(loc.lat, loc.lng) ? loc : null;
 		this.pendingPositions = source.positions ?? null;
+		this.pendingTrackPoints = source.trackPoints?.length ? [...source.trackPoints] : null;
 		if (this.pendingLocation) {
 			this.pendingTrackPoints = null;
 			this.trackStats = null;
@@ -1147,6 +1187,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (this.pendingPositions) {
 			this.pendingTrackPoints = null;
 			this.pendingLocation = null;
+			this.trackStats = null;
+		}
+		if (this.pendingTrackPoints) {
+			this.pendingLocation = null;
+			this.pendingPositions = null;
 			this.trackStats = null;
 		}
 
@@ -1195,6 +1240,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.readFromBlob(source.blob, source.fileName);
 		} else if (source.fileId) {
 			this.loadFromFileId(source.fileId, source.fileName);
+		} else if (this.pendingTrackPoints && this.pendingTrackPoints.length > 0) {
+			this.tryRenderPendingTrack();
 		} else if (source.positions && source.positions.length > 0) {
 			this.tryRenderPendingPositions();
 		} else if (this.pendingLocation) {

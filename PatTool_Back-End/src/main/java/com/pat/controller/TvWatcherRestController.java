@@ -746,6 +746,11 @@ public class TvWatcherRestController {
         String proxyBase = buildProxyBase(request);
         String target = resolved.orElse(normalized);
         ResponseEntity<byte[]> first = tvStreamProxyService.proxy(target, proxyBase, range);
+        // Absolute CDN segment URLs are not virtual — still drop sticky official TF1
+        // URLs on 403 so the next playlist resolve switches to an IPTV mirror.
+        if (first.getStatusCode().value() == 403 && isTf1OfficialCdnHost(target)) {
+            tf1LiveService.dropOfficialStickyUrls();
+        }
         if (!shouldRefreshVirtualLive(first, normalized)) {
             return first;
         }
@@ -816,6 +821,19 @@ public class TvWatcherRestController {
                 || RtsLiveService.isVirtualUrl(url)
                 || ArteReplayService.isVirtualUrl(url)
                 || InternetArchiveReplayService.isVirtualUrl(url);
+    }
+
+    private static boolean isTf1OfficialCdnHost(String url) {
+        try {
+            String host = java.net.URI.create(url).getHost();
+            if (host == null) {
+                return false;
+            }
+            String h = host.toLowerCase(Locale.ROOT);
+            return h.endsWith("tf1.fr") || h.contains("diff.tf1.fr") || h.contains("tf1info.fr");
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /** Resolve a france.tv live channel to a fresh signed HLS URL (JSON). */

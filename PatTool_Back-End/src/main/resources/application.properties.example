@@ -232,6 +232,11 @@ app.cache.persistence.restore-on-startup=true
 # app.coingecko.api-key=
 # app.coingecko.plan=demo
 
+# --- OpenRouteService (GPS page, proxy /api/external/openroute/*) ---
+# Free API key: https://openrouteservice.org/dev/#/signup
+# app.openroute.api-base=https://api.openrouteservice.org
+# app.openroute.api-key=
+
 # --- Book watcher (Open Library / Gutenberg / LibriVox / Internet Archive / Google Books / Standard Ebooks) ---
 # app.book.openlibrary-base-url=https://openlibrary.org
 # app.book.gutendex-base-url=https://gutendex.com

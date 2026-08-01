@@ -50,6 +50,7 @@
     "POSITION_METEO": "Share Location",
     "METEO_FRANCE": "Weather and forecasts",
     "ADDRESS_TO_MAP": "Address/GPS to map",
+    "GPS_ROUTING": "GPS / Routing",
     "NEWS": "News",
     "CURRENCY_CONVERTER": "Currency converter",
     "TIME_ZONES": "Time zones",
@@ -358,7 +359,9 @@
       "app_connection_logs_excluded_users": "Comma-separated usernames excluded from connection audit logs (e.g. service accounts).",
       "app_webcam_windy_api_base": "Base URL for the Windy Webcams API v3 used by the Webcam page.",
       "app_webcam_windy_api_key": "Windy Webcams API key (x-windy-api-key header). Free at api.windy.com/keys.",
-      "app_webcam_search_cache_minutes": "Server cache duration (minutes) for Windy webcam listings."
+      "app_webcam_search_cache_minutes": "Server cache duration (minutes) for Windy webcam listings.",
+      "app_openroute_api_key": "OpenRouteService API key for GPS routing (never exposed to the browser).",
+      "app_openroute_api_base": "OpenRouteService API base URL (proxy /api/external/openroute/*)."
     }
   },
   "CHIMIE": {
@@ -5626,5 +5629,41 @@
     "ERROR_API_KEY": "Missing Windy API key. Set app.webcam.windy-api-key in application.properties — free key:",
     "GEO_UNSUPPORTED": "Geolocation is not supported by this browser.",
     "GEO_DENIED": "Geolocation denied or unavailable."
+  },
+  "GPS_ROUTING": {
+    "TITLE": "GPS / Routing",
+    "SUBTITLE": "Plan a route by car, bike or on foot (OpenRouteService). Search an address, use your location, or click the map.",
+    "MODE": "Travel mode",
+    "MODE_CAR": "Car",
+    "MODE_BIKE": "Bike",
+    "MODE_WALK": "Walk",
+    "FROM": "From",
+    "TO": "To",
+    "PLACE_PLACEHOLDER": "Address or lat, lon",
+    "USE_MY_POSITION": "My position",
+    "MY_POSITION": "My position",
+    "PICK_ON_MAP": "Pick on map",
+    "PICK_HINT": "Click the map to set the point.",
+    "SWAP": "Swap",
+    "CALCULATE": "Calculate route",
+    "CLEAR": "Clear",
+    "DISTANCE": "Distance",
+    "DURATION": "Duration",
+    "INSTRUCTIONS": "Instructions",
+    "MAP": "Route map",
+    "SEARCHING": "Searching…",
+    "POINTS_REQUIRED": "Please set a start and an end point.",
+    "NOT_CONFIGURED": "OpenRouteService API key missing. Set app.openroute.api-key in application.properties (free key at openrouteservice.org).",
+    "NO_ROUTE": "No route found between these points.",
+    "ROUTE_ERROR": "Could not calculate the route. Try again later.",
+    "GEOLOCATION_UNSUPPORTED": "Geolocation is not supported by your browser.",
+    "GEOLOCATION_ERROR": "Could not get your location.",
+    "OPEN_TRACE_VIEWER": "Open in Trace Viewer",
+    "OPEN_TRACE_VIEWER_SHORT": "Trace",
+    "MAP_BASE_LAYER": "Base map",
+    "MAP_FULLSCREEN": "Fullscreen",
+    "MAP_EXIT_FULLSCREEN": "Exit fullscreen",
+    "EXPORT_GPX": "Export GPX",
+    "EXPORT_GPX_SHORT": "GPX"
   }
 }

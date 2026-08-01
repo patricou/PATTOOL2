@@ -1,0 +1,234 @@
+<div class="pat-title">
+  <h2>
+    <i class="fa fa-location-arrow me-2" aria-hidden="true"></i>
+    {{ 'GPS_ROUTING.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="gps-page">
+  <p class="text-muted gps-lead mb-3">{{ 'GPS_ROUTING.SUBTITLE' | translate }}</p>
+
+  <div *ngIf="errorMessage" class="alert alert-warning gps-alert d-flex align-items-start" role="alert">
+    <i class="fa fa-exclamation-triangle me-2 mt-1" aria-hidden="true"></i>
+    <span>{{ errorMessage | translate }}</span>
+  </div>
+
+  <div class="row g-3 gps-main-row">
+    <div class="col-12 col-lg-4">
+      <div class="card shadow-sm gps-panel h-100">
+        <div class="card-body">
+          <div class="gps-modes btn-group w-100 mb-3" role="group" [attr.aria-label]="'GPS_ROUTING.MODE' | translate">
+            <button type="button"
+                    class="btn btn-sm"
+                    *ngFor="let p of profiles"
+                    [class.btn-primary]="profile === p.id"
+                    [class.btn-outline-primary]="profile !== p.id"
+                    (click)="setProfile(p.id)"
+                    [title]="p.labelKey | translate">
+              <i class="fa" [ngClass]="p.icon" aria-hidden="true"></i>
+              <span class="ms-1 d-none d-sm-inline">{{ p.labelKey | translate }}</span>
+            </button>
+          </div>
+
+          <label class="form-label fw-semibold" for="gpsFrom">{{ 'GPS_ROUTING.FROM' | translate }}</label>
+          <div class="input-group input-group-sm mb-1">
+            <input id="gpsFrom"
+                   type="search"
+                   class="form-control"
+                   [(ngModel)]="fromQuery"
+                   (ngModelChange)="onFromQueryChange()"
+                   [placeholder]="'GPS_ROUTING.PLACE_PLACEHOLDER' | translate"
+                   autocomplete="off" />
+            <button type="button"
+                    class="btn btn-outline-secondary"
+                    (click)="useMyPositionAsFrom()"
+                    [disabled]="isLocating"
+                    [title]="'GPS_ROUTING.USE_MY_POSITION' | translate">
+              <i class="fa" [class.fa-crosshairs]="!isLocating" [class.fa-spinner]="isLocating" [class.fa-spin]="isLocating"></i>
+            </button>
+            <button type="button"
+                    class="btn"
+                    [class.btn-success]="pickTarget === 'from'"
+                    [class.btn-outline-success]="pickTarget !== 'from'"
+                    (click)="setPickTarget('from')"
+                    [title]="'GPS_ROUTING.PICK_ON_MAP' | translate">
+              <i class="fa fa-map-marker"></i>
+            </button>
+          </div>
+          <div class="gps-results mb-3" *ngIf="fromResults.length || isSearchingFrom">
+            <div class="small text-muted px-1 py-1" *ngIf="isSearchingFrom">
+              <i class="fa fa-spinner fa-spin me-1"></i>{{ 'GPS_ROUTING.SEARCHING' | translate }}
+            </div>
+            <button type="button"
+                    class="gps-result-row"
+                    *ngFor="let hit of fromResults"
+                    (click)="selectFrom(hit)">
+              {{ hit.displayName }}
+            </button>
+          </div>
+
+          <div class="d-flex justify-content-center mb-2">
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    (click)="swapEnds()"
+                    [title]="'GPS_ROUTING.SWAP' | translate">
+              <i class="fa fa-exchange"></i>
+              <span class="ms-1">{{ 'GPS_ROUTING.SWAP' | translate }}</span>
+            </button>
+          </div>
+
+          <label class="form-label fw-semibold" for="gpsTo">{{ 'GPS_ROUTING.TO' | translate }}</label>
+          <div class="input-group input-group-sm mb-1">
+            <input id="gpsTo"
+                   type="search"
+                   class="form-control"
+                   [(ngModel)]="toQuery"
+                   (ngModelChange)="onToQueryChange()"
+                   [placeholder]="'GPS_ROUTING.PLACE_PLACEHOLDER' | translate"
+                   autocomplete="off" />
+            <button type="button"
+                    class="btn"
+                    [class.btn-danger]="pickTarget === 'to'"
+                    [class.btn-outline-danger]="pickTarget !== 'to'"
+                    (click)="setPickTarget('to')"
+                    [title]="'GPS_ROUTING.PICK_ON_MAP' | translate">
+              <i class="fa fa-map-marker"></i>
+            </button>
+          </div>
+          <div class="gps-results mb-3" *ngIf="toResults.length || isSearchingTo">
+            <div class="small text-muted px-1 py-1" *ngIf="isSearchingTo">
+              <i class="fa fa-spinner fa-spin me-1"></i>{{ 'GPS_ROUTING.SEARCHING' | translate }}
+            </div>
+            <button type="button"
+                    class="gps-result-row"
+                    *ngFor="let hit of toResults"
+                    (click)="selectTo(hit)">
+              {{ hit.displayName }}
+            </button>
+          </div>
+
+          <p class="small text-muted mb-3" *ngIf="pickTarget">
+            <i class="fa fa-info-circle me-1"></i>{{ 'GPS_ROUTING.PICK_HINT' | translate }}
+          </p>
+
+          <div class="gps-actions mb-3">
+            <button type="button"
+                    class="btn btn-primary btn-sm"
+                    (click)="calculateRoute()"
+                    [disabled]="isRouting || !fromPoint || !toPoint">
+              <i class="fa" [class.fa-road]="!isRouting" [class.fa-spinner]="isRouting" [class.fa-spin]="isRouting"></i>
+              <span class="ms-1">{{ 'GPS_ROUTING.CALCULATE' | translate }}</span>
+            </button>
+            <button type="button"
+                    class="btn btn-warning btn-sm"
+                    (click)="openInTraceViewer()"
+                    [disabled]="!route?.coordinates?.length"
+                    [title]="'GPS_ROUTING.OPEN_TRACE_VIEWER' | translate">
+              <i class="fa fa-map me-1"></i>{{ 'GPS_ROUTING.OPEN_TRACE_VIEWER_SHORT' | translate }}
+            </button>
+            <button type="button"
+                    class="btn btn-outline-success btn-sm"
+                    (click)="exportGpx()"
+                    [disabled]="!route?.coordinates?.length"
+                    [title]="'GPS_ROUTING.EXPORT_GPX' | translate">
+              <i class="fa fa-download me-1"></i>{{ 'GPS_ROUTING.EXPORT_GPX_SHORT' | translate }}
+            </button>
+            <button type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    (click)="clearRoute()"
+                    [disabled]="!route && !fromPoint && !toPoint">
+              {{ 'GPS_ROUTING.CLEAR' | translate }}
+            </button>
+          </div>
+
+          <div class="gps-summary" *ngIf="route">
+            <div class="gps-summary-item">
+              <span class="text-muted small">{{ 'GPS_ROUTING.DISTANCE' | translate }}</span>
+              <strong>{{ formatDistance(route.distanceMeters) }}</strong>
+            </div>
+            <div class="gps-summary-item">
+              <span class="text-muted small">{{ 'GPS_ROUTING.DURATION' | translate }}</span>
+              <strong>{{ formatDuration(route.durationSeconds) }}</strong>
+            </div>
+          </div>
+
+          <div class="gps-steps mt-3" *ngIf="steps.length">
+            <h3 class="h6 mb-2">{{ 'GPS_ROUTING.INSTRUCTIONS' | translate }}</h3>
+            <ol class="gps-steps-list">
+              <li *ngFor="let step of steps">
+                <div class="gps-step-instruction">{{ step.instruction || step.name || '—' }}</div>
+                <div class="small text-muted">
+                  {{ formatDistance(step.distanceMeters) }}
+                  <span *ngIf="step.durationSeconds != null"> · {{ formatDuration(step.durationSeconds) }}</span>
+                </div>
+              </li>
+            </ol>
+          </div>
+
+          <p class="small text-muted mt-3 mb-0" *ngIf="route?.attribution as attribution">
+            {{ attribution }}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-8">
+      <div class="card shadow-sm gps-panel gps-map-panel">
+        <div class="card-body p-2">
+          <div class="gps-map-toolbar d-flex flex-wrap align-items-center gap-2 mb-2">
+            <label class="gps-basemap-field mb-0" for="gpsBasemap">
+              <span class="small text-muted me-1">{{ 'GPS_ROUTING.MAP_BASE_LAYER' | translate }}</span>
+              <select id="gpsBasemap"
+                      class="form-select form-select-sm gps-basemap-select"
+                      [(ngModel)]="mapBaseLayerId"
+                      (ngModelChange)="onMapBaseLayerChange()"
+                      [attr.aria-label]="'GPS_ROUTING.MAP_BASE_LAYER' | translate">
+                <option *ngFor="let layer of availableMapBaseLayers" [value]="layer.id">
+                  {{ getMapBaseLayerLabel(layer) }}
+                </option>
+              </select>
+            </label>
+          </div>
+
+          <div class="gps-map-shell"
+               #mapShell
+               [class.gps-map-shell--fullscreen]="mapFullscreen">
+            <div class="gps-map-corner-actions">
+              <button type="button"
+                      class="btn btn-sm btn-light gps-map-action-btn shadow-sm"
+                      (click)="openInTraceViewer()"
+                      [disabled]="!route?.coordinates?.length"
+                      [attr.title]="'GPS_ROUTING.OPEN_TRACE_VIEWER' | translate"
+                      [attr.aria-label]="'GPS_ROUTING.OPEN_TRACE_VIEWER' | translate">
+                <i class="fa fa-map" aria-hidden="true"></i>
+                <span class="gps-map-action-label">{{ 'GPS_ROUTING.OPEN_TRACE_VIEWER_SHORT' | translate }}</span>
+              </button>
+              <button type="button"
+                      class="btn btn-sm btn-light gps-map-action-btn shadow-sm"
+                      (click)="exportGpx()"
+                      [disabled]="!route?.coordinates?.length"
+                      [attr.title]="'GPS_ROUTING.EXPORT_GPX' | translate"
+                      [attr.aria-label]="'GPS_ROUTING.EXPORT_GPX' | translate">
+                <i class="fa fa-download" aria-hidden="true"></i>
+                <span class="gps-map-action-label">{{ 'GPS_ROUTING.EXPORT_GPX_SHORT' | translate }}</span>
+              </button>
+              <button type="button"
+                      class="btn btn-sm btn-light gps-map-action-btn shadow-sm"
+                      (click)="toggleMapFullscreen()"
+                      [attr.title]="(mapFullscreen ? 'GPS_ROUTING.MAP_EXIT_FULLSCREEN' : 'GPS_ROUTING.MAP_FULLSCREEN') | translate"
+                      [attr.aria-label]="(mapFullscreen ? 'GPS_ROUTING.MAP_EXIT_FULLSCREEN' : 'GPS_ROUTING.MAP_FULLSCREEN') | translate">
+                <i class="fa" [class.fa-expand]="!mapFullscreen" [class.fa-compress]="mapFullscreen" aria-hidden="true"></i>
+                <span class="gps-map-action-label">
+                  {{ (mapFullscreen ? 'GPS_ROUTING.MAP_EXIT_FULLSCREEN' : 'GPS_ROUTING.MAP_FULLSCREEN') | translate }}
+                </span>
+              </button>
+            </div>
+            <div #mapHost class="gps-map" role="img" [attr.aria-label]="'GPS_ROUTING.MAP' | translate"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<app-trace-viewer-modal></app-trace-viewer-modal>

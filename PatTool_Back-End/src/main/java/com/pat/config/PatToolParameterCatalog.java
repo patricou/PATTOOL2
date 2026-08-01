@@ -237,6 +237,8 @@ public final class PatToolParameterCatalog {
                     def("app.cern.zenodo-api-base", false),
                     def("app.nager.api-base", false),
                     def("app.frankfurter.api-base", false),
+                    def("app.openroute.api-base", false),
+                    defSensitive("app.openroute.api-key"),
                     def("app.ip.geolocation.cache.max-size", false),
                     def("app.ip.geolocation.cache.ttl-hours", false),
                     def("app.chem.pubchem-rest-base", false),
