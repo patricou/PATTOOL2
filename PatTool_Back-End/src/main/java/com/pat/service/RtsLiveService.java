@@ -7,6 +7,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.ProxySelector;
+import java.net.SocketAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -38,6 +43,10 @@ import java.util.regex.Pattern;
  * HLS mirrors (Netplus OTT + iptv-org CH playlist) and returns the first clear
  * browser-playable stream (AVC + AAC when codecs are declared).
  * <p>
+ * Netplus {@code viamotionhsi} now issues short-lived JWT redirects to {@code cache1a}
+ * and often tarpits non-CH IPs. Configure {@code app.tv.rts.netplus-proxy} (HTTP/SOCKS
+ * exit in Switzerland) to obtain tokens; playback then uses {@code cache1a} without geo.
+ * <p>
  * Virtual catalog URLs: {@code rts:rts1}, {@code rts:rts2}, {@code rts:rtsinfo}.
  */
 @Service
@@ -58,6 +67,9 @@ public class RtsLiveService {
 
     private static final Duration MIRROR_CACHE_TTL = Duration.ofMinutes(25);
     private static final Duration MIRROR_CACHE_TTL_SHORT = Duration.ofMinutes(8);
+    /** Netplus often accepts TLS then never replies outside CH — keep probes short. */
+    private static final Duration NETPLUS_TIMEOUT = Duration.ofSeconds(4);
+    private static final Duration DEFAULT_FETCH_TIMEOUT = Duration.ofSeconds(10);
 
     private static final Map<String, ChannelDef> CHANNELS = new LinkedHashMap<>();
 
@@ -69,8 +81,7 @@ public class RtsLiveService {
                 "https://i.imgur.com/OP5lHv9.png",
                 "rts1.ch",
                 List.of(
-                        "https://viamotionhsi.netplus.ch/live/eds/rts1hd/browser-HLS8/rts1hd.m3u8",
-                        "http://41.205.70.146/RTSUN/index.m3u8"
+                        "https://viamotionhsi.netplus.ch/live/eds/rts1hd/browser-HLS8/rts1hd.m3u8"
                 )));
         CHANNELS.put("rts2", new ChannelDef(
                 "RTS 2",
@@ -103,19 +114,35 @@ public class RtsLiveService {
     });
 
     private final String playlistBaseUrl;
+    private final String netplusProxyUrl;
     private final ConcurrentHashMap<String, CachedUrl> streamCache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Instant> failedUntil = new ConcurrentHashMap<>();
     private volatile CachedPlaylist playlistCache;
+    private volatile HttpClient netplusClient;
 
     public RtsLiveService(
-            @Value("${app.tv.playlist-base-url:https://iptv-org.github.io/iptv/countries}") String playlistBaseUrl) {
+            @Value("${app.tv.playlist-base-url:https://iptv-org.github.io/iptv/countries}") String playlistBaseUrl,
+            @Value("${app.tv.rts.netplus-proxy:}") String netplusProxyUrl) {
         this.playlistBaseUrl = playlistBaseUrl;
+        this.netplusProxyUrl = netplusProxyUrl != null ? netplusProxyUrl.trim() : "";
     }
 
     @PostConstruct
-    void warmMirrorCache() {
+    void initNetplusClientAndWarm() {
+        this.netplusClient = buildNetplusHttpClient(netplusProxyUrl);
+        boolean hasProxy = hasNetplusProxy();
+        if (hasProxy) {
+            log.info("RTS Netplus token proxy configured ({})", redactProxy(netplusProxyUrl));
+        } else {
+            log.info("RTS Netplus: no geo proxy — RTS 1/2 unavailable outside CH "
+                    + "(set app.tv.rts.netplus-proxy); warm-probe only RTS Info");
+        }
         probeExecutor.execute(() -> {
             for (String slug : CHANNELS.keySet()) {
+                // Without a CH proxy, Netplus seeds cannot mint JWTs — skip fruitless rts1/rts2 probes.
+                if (!hasProxy && needsNetplusOnly(slug)) {
+                    continue;
+                }
                 try {
                     resolveHlsUrl(slug, false);
                 } catch (Exception e) {
@@ -123,6 +150,70 @@ public class RtsLiveService {
                 }
             }
         });
+    }
+
+    private boolean hasNetplusProxy() {
+        return StringUtils.hasText(netplusProxyUrl);
+    }
+
+    /** Channels whose only clear mirror is Netplus (no public Akamai seed). */
+    private static boolean needsNetplusOnly(String slug) {
+        return "rts1".equalsIgnoreCase(slug) || "rts2".equalsIgnoreCase(slug);
+    }
+
+    private static HttpClient buildNetplusHttpClient(String proxyUrl) {
+        HttpClient.Builder builder = HttpClient.newBuilder()
+                .connectTimeout(NETPLUS_TIMEOUT)
+                // Capture JWT Location; do not follow onto cache1a through the CH proxy.
+                .followRedirects(HttpClient.Redirect.NEVER);
+        Optional<ProxySelector> selector = proxySelectorFor(proxyUrl);
+        selector.ifPresent(builder::proxy);
+        return builder.build();
+    }
+
+    private static Optional<ProxySelector> proxySelectorFor(String proxyUrl) {
+        if (!StringUtils.hasText(proxyUrl)) {
+            return Optional.empty();
+        }
+        try {
+            URI uri = URI.create(proxyUrl.trim());
+            String scheme = uri.getScheme() != null ? uri.getScheme().toLowerCase(Locale.ROOT) : "";
+            String host = uri.getHost();
+            int port = uri.getPort();
+            if (!StringUtils.hasText(host) || port <= 0) {
+                log.warn("RTS netplus-proxy invalid (need host:port): {}", redactProxy(proxyUrl));
+                return Optional.empty();
+            }
+            Proxy.Type type = (scheme.startsWith("socks")) ? Proxy.Type.SOCKS : Proxy.Type.HTTP;
+            Proxy proxy = new Proxy(type, new InetSocketAddress(host, port));
+            return Optional.of(new ProxySelector() {
+                @Override
+                public List<Proxy> select(URI u) {
+                    if (u != null && isNetplusTokenHost(u.getHost())) {
+                        return List.of(proxy);
+                    }
+                    return List.of(Proxy.NO_PROXY);
+                }
+
+                @Override
+                public void connectFailed(URI u, SocketAddress sa, IOException ioe) {
+                    log.debug("RTS netplus-proxy connect failed {} via {}: {}", u, sa, ioe.toString());
+                }
+            });
+        } catch (Exception e) {
+            log.warn("RTS netplus-proxy parse failed: {}", e.toString());
+            return Optional.empty();
+        }
+    }
+
+    private static String redactProxy(String proxyUrl) {
+        try {
+            URI uri = URI.create(proxyUrl.trim());
+            String scheme = uri.getScheme() != null ? uri.getScheme() : "proxy";
+            return scheme + "://" + uri.getHost() + ":" + uri.getPort();
+        } catch (Exception e) {
+            return "(configured)";
+        }
     }
 
     public static boolean isVirtualUrl(String url) {
@@ -203,7 +294,15 @@ public class RtsLiveService {
             streamCache.put(key, new CachedUrl(avoidUrl, now.plus(MIRROR_CACHE_TTL_SHORT)));
             return Optional.of(avoidUrl);
         }
-        log.warn("RTS live: no working public HLS for {}", key);
+        String hint = hasNetplusProxy()
+                ? "proxy CH configuré mais JWT/miroir KO — vérifier le VPN"
+                : "Netplus needs a CH IP or app.tv.rts.netplus-proxy; Play RTS is DRM/geo";
+        // Expected outside CH without proxy — don't spam WARN on every click / warm.
+        if (hasNetplusProxy() || !needsNetplusOnly(key)) {
+            log.warn("RTS live: no working public HLS for {} ({})", key, hint);
+        } else {
+            log.debug("RTS live: no working public HLS for {} ({})", key, hint);
+        }
         return Optional.empty();
     }
 
@@ -269,7 +368,7 @@ public class RtsLiveService {
         }
         try {
             CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new))
-                    .orTimeout(18, TimeUnit.SECONDS)
+                    .orTimeout(12, TimeUnit.SECONDS)
                     .exceptionally(ex -> null)
                     .join();
         } catch (Exception ignored) {
@@ -331,14 +430,95 @@ public class RtsLiveService {
     private List<String> buildCandidates(ChannelDef def) {
         Set<String> ordered = new LinkedHashSet<>();
         for (String seed : def.seedUrls()) {
-            if (StringUtils.hasText(seed)) {
-                ordered.add(seed.trim());
+            if (!StringUtils.hasText(seed)) {
+                continue;
             }
+            addExpandedCandidate(ordered, seed.trim());
         }
         for (String discovered : discoverFromIptvOrg(def.tvgIdPrefix())) {
-            ordered.add(discovered);
+            addExpandedCandidate(ordered, discovered);
         }
         return new ArrayList<>(ordered);
+    }
+
+    private void addExpandedCandidate(Set<String> ordered, String url) {
+        if (!StringUtils.hasText(url)) {
+            return;
+        }
+        String trimmed = url.trim();
+        if (isNetplusTokenHost(hostOf(trimmed))) {
+            // Skip raw viamotionhsi URLs that failed to mint a JWT — they tarpit outside CH.
+            expandNetplusSeed(trimmed).ifPresent(ordered::add);
+            return;
+        }
+        if (isNetplusHost(trimmed) && trimmed.contains("/tok_")) {
+            ordered.add(trimmed);
+            return;
+        }
+        if (isNetplusHost(trimmed)) {
+            expandNetplusSeed(trimmed).ifPresentOrElse(ordered::add, () -> ordered.add(trimmed));
+            return;
+        }
+        ordered.add(trimmed);
+    }
+
+    /**
+     * Netplus OTT: {@code viamotionhsi} → 302 {@code cache1a/.../tok_JWT/.../….m3u8}.
+     * Outside CH the edge often tarpits; with {@code app.tv.rts.netplus-proxy} the Location
+     * is obtained via the proxy and the JWT URL is playable without geo.
+     */
+    private Optional<String> expandNetplusSeed(String url) {
+        if (!isNetplusTokenHost(hostOf(url))) {
+            return Optional.ofNullable(url);
+        }
+        try {
+            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+                    .timeout(NETPLUS_TIMEOUT)
+                    .header("User-Agent", USER_AGENT)
+                    .header("Accept", "*/*")
+                    .header("Referer", "https://www.netplus.ch/")
+                    .header("Origin", "https://www.netplus.ch")
+                    .GET()
+                    .build();
+            HttpClient client = netplusClient != null ? netplusClient : httpClient;
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            int code = response.statusCode();
+            if (code >= 300 && code < 400) {
+                Optional<String> location = response.headers().firstValue("Location");
+                if (location.isPresent() && StringUtils.hasText(location.get())) {
+                    String abs = resolveAgainst(url, location.get().trim());
+                    if (StringUtils.hasText(abs) && (abs.contains("/tok_") || isNetplusHost(abs))) {
+                        log.debug("RTS Netplus JWT redirect {} -> {}", hostOf(url), hostOf(abs));
+                        return Optional.of(abs);
+                    }
+                }
+                return Optional.empty();
+            }
+            if (code >= 200 && code < 300 && isClearMasterPlaylist(response.body())) {
+                return Optional.of(url);
+            }
+            return Optional.empty();
+        } catch (Exception e) {
+            log.debug("RTS Netplus expand failed for {}: {}", url, e.toString());
+            return Optional.empty();
+        }
+    }
+
+    private static String hostOf(String url) {
+        try {
+            return URI.create(url).getHost();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** Hosts that mint Netplus JWTs (geo / tarpit sensitive). */
+    private static boolean isNetplusTokenHost(String host) {
+        if (host == null) {
+            return false;
+        }
+        String h = host.toLowerCase(Locale.ROOT);
+        return h.contains("viamotion") || h.equals("viamotionhsi.netplus.ch");
     }
 
     private List<String> discoverFromIptvOrg(String tvgPrefix) {
@@ -449,8 +629,9 @@ public class RtsLiveService {
     }
 
     private String fetchText(String url) throws Exception {
+        Duration timeout = isNetplusTokenHost(hostOf(url)) ? NETPLUS_TIMEOUT : DEFAULT_FETCH_TIMEOUT;
         HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
-                .timeout(Duration.ofSeconds(10))
+                .timeout(timeout)
                 .header("User-Agent", USER_AGENT)
                 .header("Accept", "*/*")
                 .GET();
@@ -458,7 +639,20 @@ public class RtsLiveService {
             builder.header("Referer", "https://www.netplus.ch/");
             builder.header("Origin", "https://www.netplus.ch");
         }
-        HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        HttpClient client = isNetplusTokenHost(hostOf(url)) && netplusClient != null
+                ? netplusClient
+                : httpClient;
+        HttpResponse<String> response = client.send(builder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        if (response.statusCode() >= 300 && response.statusCode() < 400) {
+            Optional<String> location = response.headers().firstValue("Location");
+            if (location.isPresent() && StringUtils.hasText(location.get())) {
+                String next = resolveAgainst(url, location.get().trim());
+                if (!sameUrl(next, url)) {
+                    return fetchText(next);
+                }
+            }
+            return null;
+        }
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
             return null;
         }

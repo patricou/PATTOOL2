@@ -370,7 +370,7 @@
 	.fullscreen-info-btn {
 		padding: 0.3rem 0.5rem !important;
 		font-size: 0.75rem !important;
-		top: 8px !important;
+		top: 48px !important;
 		right: 8px !important;
 	}
 	.fullscreen-info-btn i {
@@ -629,7 +629,7 @@
 	.fullscreen-info-btn {
 		padding: 0.3rem 0.5rem !important;
 		font-size: 0.75rem !important;
-		top: 8px !important;
+		top: 48px !important;
 		right: 8px !important;
 	}
 	.fullscreen-info-btn i {
@@ -713,7 +713,7 @@
 .map-wrapper:-webkit-full-screen .fullscreen-info-btn {
 	padding: 0.25rem 0.4rem !important;
 	font-size: 0.7rem !important;
-	top: 6px !important;
+	top: 48px !important;
 	right: 6px !important;
 }
 .map-wrapper:fullscreen .fullscreen-info-panel,
@@ -1267,7 +1267,7 @@
 
 .fullscreen-info-btn {
 	position: absolute;
-	top: 12px;
+	top: 52px;
 	right: 12px;
 	z-index: 15;
 	background: var(--tv-card-bg);
@@ -1412,14 +1412,55 @@
 	border-color: #20c997;
 }
 
-.trace-viewer-orient .btn {
-	font-size: 0.78rem;
+.trace-viewer-orient-overlay {
+	position: absolute;
+	top: 10px;
+	right: 10px;
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	gap: 0.15rem;
+	pointer-events: none;
 }
 
-@media (max-width: 699px) {
-	.trace-viewer-orient .trace-viewer-footer-btn-text {
-		display: none;
-	}
+.trace-viewer-orient-btn {
+	pointer-events: auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2rem;
+	height: 2rem;
+	padding: 0;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	color: #fff;
+	font-size: 1.05rem;
+	line-height: 1;
+	cursor: pointer;
+	opacity: 0.85;
+	filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.85)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+	transition: opacity 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.trace-viewer-orient-btn:hover:not(:disabled) {
+	opacity: 1;
+	transform: scale(1.08);
+}
+
+.trace-viewer-orient-btn.active {
+	opacity: 1;
+	color: #20c997;
+}
+
+.trace-viewer-orient-btn:disabled {
+	opacity: 0.35;
+	cursor: not-allowed;
+}
+
+.trace-viewer-orient-btn:focus-visible {
+	outline: 2px solid rgba(32, 201, 151, 0.85);
+	outline-offset: 2px;
 }
 
 .zoom-footer-label {
@@ -1554,7 +1595,7 @@
 
 .gps-coordinates-overlay {
 	position: absolute;
-	top: 20px;
+	top: 52px;
 	right: 20px;
 	z-index: 1000;
 	pointer-events: none;

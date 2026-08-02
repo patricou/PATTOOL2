@@ -1,4 +1,4 @@
-{
+﻿{
   "LANGUAGE": {
     "FR": "Französisch",
     "EN": "Englisch",
@@ -1936,7 +1936,8 @@
       "METEO_TEMPERATURE_CACHE": "Temperatur-Cache",
       "METEO_HISTORY_CACHE": "Wetterverlauf-Cache",
       "METEO_AROMEPI_PREFETCH": "AROME-PI-Vorladen",
-      "TRACE_VIEWER": "Spur-Viewer"
+      "TRACE_VIEWER": "Spur-Viewer",
+      "WEBCAM_FAVORITES": "Lieblings-Webcams"
     }
   },
   "UPLOADFILE": {
@@ -4211,6 +4212,25 @@
   "WEBCAM": {
     "TITLE": "Webcam",
     "SUBTITLE": "Worldwide webcams via Windy — stills, timelapses and live players.",
+    "SUBTITLE_TRAFFIC": "US & Canada DOT traffic cameras via Road511 — stills and HLS when available.",
+    "TAB_WINDY": "WebCams / Windy",
+    "TAB_TRAFFIC": "Traffic / DOT",
+    "SUBTITLE_EUROPE": "European NAP traffic cameras via NAPSPAN — stills and HLS when available.",
+    "SUBTITLE_FAVORITES": "Ihre Lieblings-Webcams — mit Ihrem Konto synchronisiert.",
+    "TAB_EUROPE": "Europe / NAPSPAN",
+    "OPEN_NAPSPAN": "Open NAPSPAN",
+    "ERROR_EUROPE_LIST": "Could not load NAPSPAN traffic cameras.",
+    "ERROR_EUROPE_API_KEY": "Missing NAPSPAN API key. Set app.webcam.napspan-api-key in application.properties — key:",
+    "JURISDICTION": "State / province",
+    "ALL_JURISDICTIONS": "All jurisdictions",
+    "HLS_ONLY": "HLS video only",
+    "SEARCH_PLACEHOLDER_TRAFFIC": "Road or place (e.g. I-405, Los Angeles)…",
+    "SEARCH_PLACEHOLDER_EUROPE": "Road or place (e.g. A41, Étrembière)…",
+    "PLAYER_HLS": "HLS",
+    "OPEN_ROAD511": "Open Road511 map",
+    "ERROR_TRAFFIC_LIST": "Could not load Road511 traffic cameras.",
+    "ERROR_TRAFFIC_API_KEY": "Missing Road511 API key. Set app.webcam.road511-api-key in application.properties — key:",
+    "ERROR_HLS": "Could not play this HLS stream.",
     "CONTINENT": "Continent",
     "COUNTRY": "Country",
     "CATEGORY": "Category",
@@ -4223,10 +4243,15 @@
     "NEARBY": "Near me",
     "CLEAR_NEARBY": "Disable geolocation",
     "RADIUS": "Radius",
+    "SEARCH": "Search",
+    "SEARCH_PLACEHOLDER": "Name, city, region, country…",
+    "SEARCH_HINT": "Search a place (geocoded) or a word from the title / location.",
+    "CLEAR_SEARCH": "Clear search",
     "RESET": "Reset",
     "LOADING": "Loading…",
     "RESULT_COUNT": "{{count}} webcam(s)",
     "NO_RESULTS": "No webcams for these filters.",
+    "NO_RESULTS_EUROPE": "No cameras for this country in NAPSPAN (some NAPs publish traffic events only, e.g. Switzerland).",
     "PAGE": "Page {{page}} / {{pages}}",
     "PICK": "Pick a webcam from the list to preview it",
     "PLAYER_DAY": "Day",
@@ -4234,11 +4259,22 @@
     "PLAYER_MONTH": "Month",
     "PLAYER_IMAGE": "Image",
     "OPEN_WINDY": "Open on Windy",
+    "OPEN_TRACE_VIEWER": "Trace Viewer",
+    "OPEN_TRACE_VIEWER_SHORT": "Trace",
     "PROVIDED_BY": "Provided by",
     "ERROR_LIST": "Could not load Windy webcams.",
     "ERROR_API_KEY": "Missing Windy API key. Set app.webcam.windy-api-key in application.properties — free key:",
     "GEO_UNSUPPORTED": "Geolocation is not supported by this browser.",
-    "GEO_DENIED": "Geolocation denied or unavailable."
+    "GEO_DENIED": "Geolocation denied or unavailable.",
+    "TAB_FAVORITES": "Favoriten",
+    "FAVORITE": "Zu Favoriten hinzufügen",
+    "UNFAVORITE": "Aus Favoriten entfernen",
+    "FAVORITE_COUNT": "{{count}} Favorit(en)",
+    "LOADING_FAVORITES": "Favoriten werden geladen…",
+    "NO_FAVORITES": "Noch keine Favoriten. Markieren Sie eine Webcam mit einem Stern.",
+    "FAVORITES_LOGIN": "Melden Sie sich an, um Ihre Lieblings-Webcams zu speichern und zu synchronisieren.",
+    "ERR_FAVORITES_LOAD": "Favoriten konnten nicht geladen werden.",
+    "ERR_FAVORITES_SAVE": "Favoriten konnten nicht aktualisiert werden. Bitte erneut versuchen."
   },
   "GPS_ROUTING": {
     "TITLE": "GPS / Route",

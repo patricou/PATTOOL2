@@ -27,7 +27,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Per-user last visited page and inventory of stored app parameters.
+ * Per-user last visited page (keyed by Member surnom / {@code userName}, not Keycloak {@code sub})
+ * and inventory of stored app parameters.
  * <p>
  * {@code GET/PUT /api/external/app/last-route}<br>
  * {@code GET /api/external/app/user-parameters}
@@ -48,11 +49,14 @@ public class AppLastRouteRestController {
 
     @GetMapping("/last-route")
     public ResponseEntity<LastRouteDto> getLastRoute() {
-        String sub = currentJwtSubject();
-        if (sub == null) {
+        Jwt jwt = currentJwt();
+        if (jwt == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        String route = lastRouteService.findForSubject(sub);
+        if (lastRouteService.resolveOwnerUsername(jwt) == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String route = lastRouteService.findForUser(jwt);
         if (route == null) {
             return ResponseEntity.noContent().build();
         }
@@ -61,12 +65,12 @@ public class AppLastRouteRestController {
 
     @PutMapping("/last-route")
     public ResponseEntity<?> putLastRoute(@RequestBody LastRouteDto body) {
-        String sub = currentJwtSubject();
-        if (sub == null) {
+        Jwt jwt = currentJwt();
+        if (jwt == null || lastRouteService.resolveOwnerUsername(jwt) == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         try {
-            String route = lastRouteService.saveForSubject(sub, body != null ? body.getRoute() : null);
+            String route = lastRouteService.saveForUser(jwt, body != null ? body.getRoute() : null);
             return ResponseEntity.ok(new LastRouteDto(route));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -164,11 +168,6 @@ public class AppLastRouteRestController {
             return null;
         }
         return jwt;
-    }
-
-    private static String currentJwtSubject() {
-        Jwt jwt = currentJwt();
-        return jwt != null ? trimToNull(jwt.getSubject()) : null;
     }
 
     private static String trimToNull(String value) {

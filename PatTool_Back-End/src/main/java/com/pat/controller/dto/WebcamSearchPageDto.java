@@ -15,6 +15,7 @@ public class WebcamSearchPageDto {
     private String continents;
     private String categories;
     private String nearby;
+    private String q;
     private String sortKey;
     private List<WebcamItemDto> webcams = new ArrayList<>();
     private String error;
@@ -77,6 +78,14 @@ public class WebcamSearchPageDto {
 
     public void setNearby(String nearby) {
         this.nearby = nearby;
+    }
+
+    public String getQ() {
+        return q;
+    }
+
+    public void setQ(String q) {
+        this.q = q;
     }
 
     public String getSortKey() {

@@ -116,7 +116,7 @@ public class SecurityConfig {
             .headers(headers -> headers
                 // Content Security Policy - restrict resource loading
                 // frame-ancestors: allow Angular dev/prod origins to embed backend pages (e.g. Stellarium viewer)
-                // frame-src: Keycloak, cartes.gouv.fr, ISS live YouTube embeds, Stellarium Web sky map
+                // frame-src: Keycloak, cartes.gouv.fr, ISS live YouTube embeds, Stellarium Web sky map, Windy webcam players
                 // script-src: Allow Bootstrap CDN and inline scripts
                 // style-src: Allow Google Fonts, Bootstrap CDN, Font Awesome, Flag Icons
                 // font-src: Allow Google Fonts (fonts.gstatic.com) and Font Awesome (maxcdn.bootstrapcdn.com)
@@ -134,7 +134,7 @@ public class SecurityConfig {
                         "media-src 'self' data: https: blob:; " +
                         "font-src 'self' data: https://fonts.gstatic.com https://maxcdn.bootstrapcdn.com; " +
                         "connect-src 'self' blob: http://localhost:8080 http://localhost:8000 https://www.patrickdeschamps.com:8543 https://cdn.jsdelivr.net https://*.googleapis.com https://www.googleapis.com https://*.gstatic.com https://www.gstatic.com https://nominatim.openstreetmap.org https://api.open-elevation.com ws://localhost:8000 http://localhost:8000/ws; " +
-                        "frame-src 'self' https://www.patrickdeschamps.com:8543 http://localhost:8080 https://www.google.com https://maps.google.com https://*.google.com https://cartes.gouv.fr https://www.youtube.com https://www.youtube-nocookie.com https://stellarium-web.org https://*.stellarium-web.org https://d3ufh70wg9uzo4.cloudfront.net;")
+                        "frame-src 'self' https://www.patrickdeschamps.com:8543 http://localhost:8080 https://www.google.com https://maps.google.com https://*.google.com https://cartes.gouv.fr https://www.youtube.com https://www.youtube-nocookie.com https://stellarium-web.org https://*.stellarium-web.org https://d3ufh70wg9uzo4.cloudfront.net https://webcams.windy.com https://embed.windy.com https://*.windy.com;")
                 )
                 // Disable X-Frame-Options (defaults to DENY in Spring Security); framing is governed by CSP frame-ancestors.
                 .frameOptions(frame -> frame.disable())
@@ -302,7 +302,15 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/book/content", "/api/external/book/content/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/book/stream", "/api/external/book/stream/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/archive/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/external/webcam/**").permitAll()
+                // Last webcam + favorites (GET/PUT/DELETE /api/external/webcam/last|/favorites**) stay authenticated via /api/**
+                .requestMatchers(HttpMethod.GET, "/api/external/webcam/status").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/webcam/continents").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/webcam/countries").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/webcam/categories").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/webcam/webcams", "/api/external/webcam/webcams/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/webcam/traffic/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/webcam/europe/**").permitAll()
+
                 .requestMatchers(HttpMethod.GET, "/api/external/media/catalog-cache/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/external/media/catalog-cache/**").permitAll()
                 // Stellarium Web — sky map viewer + Noctua Sky catalogue proxy (read-only)

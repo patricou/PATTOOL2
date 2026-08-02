@@ -974,8 +974,9 @@ public class TvWatcherRestController {
         if (hls.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of(
                     "error", "rts_resolve_failed",
-                    "message", "Aucun miroir HLS public joignable pour RTS (souvent temporaire / géo). "
-                            + "Réessayez ou regardez sur https://www.rts.ch/"
+                    "message", "Aucun miroir HLS public joignable pour RTS 1/2 "
+                            + "(Netplus est géo-CH : configurer app.tv.rts.netplus-proxy, "
+                            + "ou VPN Suisse). RTS Info reste disponible."
             ));
         }
         long expiresAtEpoch = Instant.now().plus(Duration.ofMinutes(45)).getEpochSecond();
@@ -1211,7 +1212,8 @@ public class TvWatcherRestController {
             Optional<String> hls = rtsLiveService.resolveHlsUrl(slug.get());
             if (hls.isEmpty() || !StringUtils.hasText(hls.get())) {
                 return TvStreamProxyService.jsonError(HttpStatus.BAD_GATEWAY, "rts_resolve_failed",
-                        "Aucun miroir HLS public joignable pour RTS (souvent temporaire / géo)");
+                        "Aucun miroir HLS pour RTS 1/2 (Netplus géo-CH — "
+                                + "app.tv.rts.netplus-proxy ou VPN Suisse). RTS Info OK.");
             }
             return null;
         }

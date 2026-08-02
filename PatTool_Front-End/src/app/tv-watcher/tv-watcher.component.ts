@@ -161,11 +161,18 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   recordingStatusLoaded = false;
   /** Browser-side capture in progress (MediaRecorder). */
   clientRecordingActive = false;
+  /** Live elapsed seconds while recording (updated by tick). */
+  recordingElapsedSec = 0;
+  /** Accumulated blob size while recording. */
+  recordingBytes = 0;
+  /** Keycloak session expiry (Unix seconds), refreshed each tick. */
+  recordingSessionExpiresAt: number | null = null;
   private mediaRecorder: MediaRecorder | null = null;
   private recordedChunks: Blob[] = [];
   private clientRecordStartedAt = 0;
   private clientRecordChannel: TvChannel | null = null;
   private recordAutoStopTimer: ReturnType<typeof setTimeout> | null = null;
+  private recordStatsTimer: ReturnType<typeof setInterval> | null = null;
   /** Requested max duration when starting a recording (seconds). */
   recordDurationSec = 300;
   readonly recordDurationOptions = [
@@ -470,6 +477,34 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       return 'TV.ERR_RECORD_UNAVAILABLE';
     }
     return 'TV.RECORD';
+  }
+
+  /** Upload size cap from capability probe (fallback 800 MB). */
+  get recordingMaxUploadBytes(): number {
+    const fromStatus = this.recordingStatus?.maxUploadBytes;
+    if (typeof fromStatus === 'number' && fromStatus > 0) {
+      return fromStatus;
+    }
+    return 800 * 1024 * 1024;
+  }
+
+  get recordingNearSizeLimit(): boolean {
+    const max = this.recordingMaxUploadBytes;
+    return max > 0 && this.recordingBytes >= max * 0.9;
+  }
+
+  get recordingSessionExpiringSoon(): boolean {
+    if (this.recordingSessionExpiresAt == null) {
+      return false;
+    }
+    return this.recordingSessionExpiresAt * 1000 - Date.now() <= 5 * 60 * 1000;
+  }
+
+  get recordingSessionExpired(): boolean {
+    if (this.recordingSessionExpiresAt == null) {
+      return false;
+    }
+    return this.recordingSessionExpiresAt * 1000 <= Date.now();
   }
 
   get filteredRecordings(): TvRecording[] {
@@ -1137,13 +1172,14 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   private scheduleChromeHide(delayMs = TvWatcherComponent.CHROME_HIDE_MS): void {
     this.clearChromeHideTimer();
-    // Keep the bar while the share menu / EPG guide is open.
-    if (!this.selectedChannel || this.shareMenuOpen || this.guideOpen) {
+    // Keep the bar while the share menu / EPG guide is open, or while recording
+    // (stop button + live stats must stay reachable).
+    if (!this.selectedChannel || this.shareMenuOpen || this.guideOpen || this.clientRecordingActive) {
       return;
     }
     this.chromeHideTimer = setTimeout(() => {
       this.chromeHideTimer = null;
-      if (this.shareMenuOpen || this.guideOpen || !this.selectedChannel) {
+      if (this.shareMenuOpen || this.guideOpen || this.clientRecordingActive || !this.selectedChannel) {
         return;
       }
       this.hideChrome();
@@ -3481,6 +3517,10 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.mediaRecorder.ondataavailable = (ev: BlobEvent) => {
       if (ev.data && ev.data.size > 0) {
         this.recordedChunks.push(ev.data);
+        this.recordingBytes += ev.data.size;
+        if (this.recordingBytes >= this.recordingMaxUploadBytes) {
+          this.stopActiveRecording();
+        }
       }
     };
     this.mediaRecorder.onerror = () => {
@@ -3492,8 +3532,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.clientRecordChannel = channel;
     this.clientRecordStartedAt = Date.now();
     this.clientRecordingActive = true;
+    this.recordingElapsedSec = 0;
+    this.recordingBytes = 0;
+    this.recordingSessionExpiresAt = this.keycloak.getSessionExpiresAt();
     this.playError = '';
     this.mediaRecorder.start(1000);
+    this.startRecordStatsTick();
 
     if (this.recordAutoStopTimer != null) {
       clearTimeout(this.recordAutoStopTimer);
@@ -3505,7 +3549,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       }
     }, Math.max(5, this.recordDurationSec) * 1000);
 
-    this.showChrome(true);
+    this.showChrome(false);
     this.cdr.markForCheck();
   }
 
@@ -3524,6 +3568,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     const mimeType = recorder.mimeType || this.pickRecorderMimeType() || 'video/webm';
 
     this.recordingBusy = true;
+    this.stopRecordStatsTick();
     if (this.recordAutoStopTimer != null) {
       clearTimeout(this.recordAutoStopTimer);
       this.recordAutoStopTimer = null;
@@ -3536,6 +3581,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       this.mediaRecorder = null;
       this.clientRecordingActive = false;
       this.clientRecordChannel = null;
+      this.recordingElapsedSec = durationSec;
+      this.recordingBytes = blob.size;
 
       if (!blob.size || blob.size < 1024) {
         this.recordingBusy = false;
@@ -3605,6 +3652,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   private abortClientRecording(upload: boolean): void {
+    this.stopRecordStatsTick();
     if (this.recordAutoStopTimer != null) {
       clearTimeout(this.recordAutoStopTimer);
       this.recordAutoStopTimer = null;
@@ -3621,9 +3669,64 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.recordedChunks = [];
     this.clientRecordingActive = false;
     this.clientRecordChannel = null;
+    this.recordingElapsedSec = 0;
+    this.recordingBytes = 0;
+    this.recordingSessionExpiresAt = null;
     if (!upload) {
       this.recordingBusy = false;
     }
+  }
+
+  private startRecordStatsTick(): void {
+    this.stopRecordStatsTick();
+    this.tickRecordStats();
+    this.recordStatsTimer = setInterval(() => this.tickRecordStats(), 1000);
+  }
+
+  private stopRecordStatsTick(): void {
+    if (this.recordStatsTimer != null) {
+      clearInterval(this.recordStatsTimer);
+      this.recordStatsTimer = null;
+    }
+  }
+
+  private tickRecordStats(): void {
+    if (!this.clientRecordingActive || !this.clientRecordStartedAt) {
+      return;
+    }
+    this.recordingElapsedSec = Math.max(0, Math.floor((Date.now() - this.clientRecordStartedAt) / 1000));
+    this.recordingSessionExpiresAt = this.keycloak.getSessionExpiresAt();
+    this.cdr.markForCheck();
+  }
+
+  formatRecordingClock(totalSec: number | undefined | null): string {
+    const sec = Math.max(0, Math.floor(Number(totalSec) || 0));
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    if (h > 0) {
+      return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+
+  formatSessionExpiryTime(unixSec: number | null | undefined): string {
+    if (unixSec == null || !Number.isFinite(unixSec)) {
+      return '';
+    }
+    const d = new Date(unixSec * 1000);
+    if (Number.isNaN(d.getTime())) {
+      return '';
+    }
+    return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  formatSessionRemaining(unixSec: number | null | undefined): string {
+    if (unixSec == null || !Number.isFinite(unixSec)) {
+      return '';
+    }
+    const remaining = Math.max(0, Math.floor(unixSec - Date.now() / 1000));
+    return this.formatRecordingClock(remaining);
   }
 
   playRecording(rec: TvRecording, event?: Event): void {

@@ -1741,7 +1741,7 @@ export class AssistantDrawerComponent
         Math.round(anchorBottom + AssistantDrawerComponent.FAB_UNDER_TITLE_GAP_PX)
       );
     }
-    const alignLeft = /\/tools\/tv-watcher(?:\/|$|\?)/.test(this.router.url || '');
+    const alignLeft = /\/tools\/(?:tv-watcher|webcam)(?:\/|$|\?)/.test(this.router.url || '');
     let changed = false;
     if (next !== this.fabTopPx) {
       this.fabTopPx = next;

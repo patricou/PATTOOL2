@@ -193,6 +193,25 @@ export class KeycloakService {
     return '';
   }
 
+  /**
+   * Access-token expiry as Unix seconds, or null when unavailable.
+   */
+  getAccessTokenExpiresAt(): number | null {
+    const exp = KeycloakService.auth.authz?.tokenParsed?.exp;
+    return typeof exp === 'number' && Number.isFinite(exp) && exp > 0 ? exp : null;
+  }
+
+  /**
+   * Session expiry (refresh token when present, otherwise access token) as Unix seconds.
+   */
+  getSessionExpiresAt(): number | null {
+    const refreshExp = KeycloakService.auth.authz?.refreshTokenParsed?.exp;
+    if (typeof refreshExp === 'number' && Number.isFinite(refreshExp) && refreshExp > 0) {
+      return refreshExp;
+    }
+    return this.getAccessTokenExpiresAt();
+  }
+
   getAuth(): any {
     return KeycloakService.auth.authz;
   }

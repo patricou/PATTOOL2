@@ -9,6 +9,8 @@ import java.util.List;
 public class WebcamItemDto {
 
     private String id;
+    /** {@code windy} (default) or {@code road511}. */
+    private String provider;
     private String title;
     private String status;
     private Long viewCount;
@@ -27,6 +29,8 @@ public class WebcamItemDto {
     private String playerLiveUrl;
     private String playerMonthUrl;
     private String detailUrl;
+    /** True when {@link #playerLiveUrl} is a native HLS / DOT stream (Road511). */
+    private Boolean hasVideo;
     private List<String> categories = new ArrayList<>();
 
     public WebcamItemDto() {
@@ -38,6 +42,14 @@ public class WebcamItemDto {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public String getProvider() {
+        return provider;
+    }
+
+    public void setProvider(String provider) {
+        this.provider = provider;
     }
 
     public String getTitle() {
@@ -182,6 +194,14 @@ public class WebcamItemDto {
 
     public void setDetailUrl(String detailUrl) {
         this.detailUrl = detailUrl;
+    }
+
+    public Boolean getHasVideo() {
+        return hasVideo;
+    }
+
+    public void setHasVideo(Boolean hasVideo) {
+        this.hasVideo = hasVideo;
     }
 
     public List<String> getCategories() {

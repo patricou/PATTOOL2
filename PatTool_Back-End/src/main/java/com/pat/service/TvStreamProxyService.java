@@ -400,6 +400,8 @@ public class TvStreamProxyService {
                         conn.setRequestProperty("Origin", "https://www.arte.tv");
                     } else if (ref.contains("archive.org")) {
                         conn.setRequestProperty("Origin", "https://archive.org");
+                    } else if (ref.contains("netplus.ch")) {
+                        conn.setRequestProperty("Origin", "https://www.netplus.ch");
                     }
                 } else if (defaultReferrer != null && !defaultReferrer.isBlank()) {
                     conn.setRequestProperty("Referer", defaultReferrer);
@@ -511,6 +513,12 @@ public class TvStreamProxyService {
         if (h.equals("archive.org") || h.endsWith(".archive.org")) {
             return "https://archive.org/";
         }
+        if (h.contains("netplus.ch") || h.contains("viamotion")) {
+            return "https://www.netplus.ch/";
+        }
+        if (h.contains("viewsurf.com")) {
+            return "https://gieat.viewsurf.com/";
+        }
         return defaultReferrer;
     }
 
@@ -521,6 +529,10 @@ public class TvStreamProxyService {
         String lower = url.toLowerCase(Locale.ROOT);
         if (lower.contains(".m3u8") || lower.contains("/manifest") || lower.contains(".mpd")) {
             return false;
+        }
+        // NAPSPAN / French SANEF: Viewsurf mediaRedirect → short MP4 clip
+        if (lower.contains("action=mediaredirect") || lower.contains("viewsurf.com")) {
+            return true;
         }
         return lower.contains(".mp4") || lower.contains(".webm") || lower.contains(".ogv")
                 || lower.contains("archive.org/download/")

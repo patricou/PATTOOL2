@@ -17,13 +17,17 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -39,8 +43,13 @@ public class WindyWebcamCatalogService {
     private static final String INCLUDE = "categories,images,location,player,urls";
     private static final Duration META_CACHE_TTL = Duration.ofHours(12);
     private static final Duration LIST_CACHE_TTL = Duration.ofMinutes(2);
+    /** Windy has no free-text search; we scan pages then filter locally. */
+    private static final int TEXT_SCAN_PAGE_SIZE = 50;
+    private static final int TEXT_SCAN_MAX_ITEMS = 400;
+    private static final int TEXT_SEARCH_NEARBY_RADIUS_KM = 80;
 
     private final ObjectMapper objectMapper;
+    private final GeocodeService geocodeService;
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(15))
             .followRedirects(HttpClient.Redirect.NORMAL)
@@ -62,8 +71,9 @@ public class WindyWebcamCatalogService {
     @Value("${app.webcam.search-cache-minutes:2}")
     private int searchCacheMinutes;
 
-    public WindyWebcamCatalogService(ObjectMapper objectMapper) {
+    public WindyWebcamCatalogService(ObjectMapper objectMapper, GeocodeService geocodeService) {
         this.objectMapper = objectMapper;
+        this.geocodeService = geocodeService;
     }
 
     public boolean isConfigured() {
@@ -87,6 +97,7 @@ public class WindyWebcamCatalogService {
             String continents,
             String categories,
             String nearby,
+            String q,
             String sortKey,
             String sortDirection,
             int limit,
@@ -97,6 +108,7 @@ public class WindyWebcamCatalogService {
         String safeLang = normalizeLang(lang);
         String safeSort = normalizeSortKey(sortKey);
         String safeDir = "asc".equalsIgnoreCase(sortDirection) ? "asc" : "desc";
+        String safeQ = trimOrNull(q);
 
         WebcamSearchPageDto page = new WebcamSearchPageDto();
         page.setLimit(safeLimit);
@@ -105,6 +117,7 @@ public class WindyWebcamCatalogService {
         page.setContinents(trimOrNull(continents));
         page.setCategories(trimOrNull(categories));
         page.setNearby(trimOrNull(nearby));
+        page.setQ(safeQ);
         page.setSortKey(safeSort);
 
         if (!isConfigured()) {
@@ -113,8 +126,36 @@ public class WindyWebcamCatalogService {
             return page;
         }
 
-        String cacheKey = "list|" + safeLang + "|" + nullToEmpty(countries) + "|" + nullToEmpty(continents)
-                + "|" + nullToEmpty(categories) + "|" + nullToEmpty(nearby) + "|" + safeSort + "|" + safeDir
+        String effectiveCountries = trimOrNull(countries);
+        String effectiveContinents = trimOrNull(continents);
+        String effectiveNearby = trimOrNull(nearby);
+        if (safeQ != null) {
+            if (effectiveCountries == null) {
+                String matchedCountry = matchCountryCode(safeQ, safeLang);
+                if (matchedCountry != null) {
+                    effectiveCountries = matchedCountry;
+                } else if (effectiveNearby == null) {
+                    effectiveNearby = resolveNearbyFromQuery(safeQ);
+                    if (effectiveNearby != null) {
+                        // Place search: prefer geo radius over a whole continent.
+                        effectiveContinents = null;
+                    }
+                }
+            } else if (effectiveNearby == null) {
+                // Refine within the selected country (e.g. "Parma" + Italie).
+                effectiveNearby = resolveNearbyFromQuery(safeQ);
+                if (effectiveNearby != null) {
+                    effectiveContinents = null;
+                }
+            }
+        }
+        page.setCountries(effectiveCountries);
+        page.setContinents(effectiveContinents);
+        page.setNearby(effectiveNearby);
+
+        String cacheKey = "list|" + safeLang + "|" + nullToEmpty(effectiveCountries) + "|"
+                + nullToEmpty(effectiveContinents) + "|" + nullToEmpty(categories) + "|"
+                + nullToEmpty(effectiveNearby) + "|" + nullToEmpty(safeQ) + "|" + safeSort + "|" + safeDir
                 + "|" + safeLimit + "|" + safeOffset;
         CacheEntry<WebcamSearchPageDto> cached = listCache.get(cacheKey);
         if (cached != null && !cached.isExpired(listCacheTtl())) {
@@ -122,40 +163,25 @@ public class WindyWebcamCatalogService {
         }
 
         try {
-            StringBuilder url = new StringBuilder(trimSlash(apiBase))
-                    .append("/webcams?include=").append(enc(INCLUDE))
-                    .append("&lang=").append(enc(safeLang))
-                    .append("&limit=").append(safeLimit)
-                    .append("&offset=").append(safeOffset)
-                    .append("&sortKey=").append(enc(safeSort))
-                    .append("&sortDirection=").append(enc(safeDir));
-            if (StringUtils.hasText(countries)) {
-                url.append("&countries=").append(enc(countries.trim()));
-            }
-            if (StringUtils.hasText(continents)) {
-                url.append("&continents=").append(enc(continents.trim()));
-            }
-            if (StringUtils.hasText(categories)) {
-                url.append("&categories=").append(enc(categories.trim()));
-                url.append("&categoryOperation=or");
-            }
-            if (StringUtils.hasText(nearby)) {
-                url.append("&nearby=").append(enc(nearby.trim()));
-            }
-
-            JsonNode root = getJson(url.toString());
-            page.setTotal(root.path("total").asInt(0));
-            List<WebcamItemDto> items = new ArrayList<>();
-            JsonNode webcams = root.path("webcams");
-            if (webcams.isArray()) {
-                for (JsonNode node : webcams) {
-                    WebcamItemDto item = mapWebcam(node);
-                    if (item != null) {
-                        items.add(item);
-                    }
+            if (safeQ != null) {
+                boolean nearbyFromGeocode = effectiveNearby != null
+                        && (nearby == null || nearby.isBlank());
+                if (nearbyFromGeocode) {
+                    // Place resolved via Nominatim — Windy nearby already scopes by location.
+                    JsonNode root = fetchWindyList(effectiveCountries, effectiveContinents, categories,
+                            effectiveNearby, safeSort, safeDir, safeLimit, safeOffset, safeLang);
+                    page.setTotal(root.path("total").asInt(0));
+                    page.setWebcams(mapWebcamList(root));
+                } else {
+                    searchWithTextFilter(page, effectiveCountries, effectiveContinents, categories,
+                            effectiveNearby, safeQ, safeSort, safeDir, safeLimit, safeOffset, safeLang);
                 }
+            } else {
+                JsonNode root = fetchWindyList(effectiveCountries, effectiveContinents, categories,
+                        effectiveNearby, safeSort, safeDir, safeLimit, safeOffset, safeLang);
+                page.setTotal(root.path("total").asInt(0));
+                page.setWebcams(mapWebcamList(root));
             }
-            page.setWebcams(items);
             listCache.put(cacheKey, new CacheEntry<>(page));
             return page;
         } catch (Exception e) {
@@ -164,6 +190,209 @@ public class WindyWebcamCatalogService {
             page.setMessage(e.getMessage() != null ? e.getMessage() : "Windy API error");
             return page;
         }
+    }
+
+    private void searchWithTextFilter(
+            WebcamSearchPageDto page,
+            String countries,
+            String continents,
+            String categories,
+            String nearby,
+            String q,
+            String sortKey,
+            String sortDirection,
+            int limit,
+            int offset,
+            String lang) throws Exception {
+        List<String> tokens = tokenizeQuery(q);
+        List<WebcamItemDto> matches = new ArrayList<>();
+        int scanned = 0;
+        int windyTotal = Integer.MAX_VALUE;
+        int fetchOffset = 0;
+
+        while (scanned < TEXT_SCAN_MAX_ITEMS && fetchOffset < windyTotal && fetchOffset <= 1000) {
+            int batch = Math.min(TEXT_SCAN_PAGE_SIZE, TEXT_SCAN_MAX_ITEMS - scanned);
+            JsonNode root = fetchWindyList(countries, continents, categories, nearby,
+                    sortKey, sortDirection, batch, fetchOffset, lang);
+            windyTotal = root.path("total").asInt(0);
+            List<WebcamItemDto> batchItems = mapWebcamList(root);
+            if (batchItems.isEmpty()) {
+                break;
+            }
+            for (WebcamItemDto item : batchItems) {
+                if (matchesQuery(item, tokens)) {
+                    matches.add(item);
+                }
+            }
+            scanned += batchItems.size();
+            fetchOffset += batchItems.size();
+            if (batchItems.size() < batch) {
+                break;
+            }
+        }
+
+        page.setTotal(matches.size());
+        int from = Math.min(offset, matches.size());
+        int to = Math.min(from + limit, matches.size());
+        page.setWebcams(new ArrayList<>(matches.subList(from, to)));
+    }
+
+    private JsonNode fetchWindyList(
+            String countries,
+            String continents,
+            String categories,
+            String nearby,
+            String sortKey,
+            String sortDirection,
+            int limit,
+            int offset,
+            String lang) throws Exception {
+        StringBuilder url = new StringBuilder(trimSlash(apiBase))
+                .append("/webcams?include=").append(enc(INCLUDE))
+                .append("&lang=").append(enc(lang))
+                .append("&limit=").append(limit)
+                .append("&offset=").append(offset)
+                .append("&sortKey=").append(enc(sortKey))
+                .append("&sortDirection=").append(enc(sortDirection));
+        if (StringUtils.hasText(countries)) {
+            url.append("&countries=").append(enc(countries.trim()));
+        }
+        if (StringUtils.hasText(continents)) {
+            url.append("&continents=").append(enc(continents.trim()));
+        }
+        if (StringUtils.hasText(categories)) {
+            url.append("&categories=").append(enc(categories.trim()));
+            url.append("&categoryOperation=or");
+        }
+        if (StringUtils.hasText(nearby)) {
+            url.append("&nearby=").append(enc(nearby.trim()));
+        }
+        return getJson(url.toString());
+    }
+
+    private List<WebcamItemDto> mapWebcamList(JsonNode root) {
+        List<WebcamItemDto> items = new ArrayList<>();
+        JsonNode webcams = root.path("webcams");
+        if (webcams.isArray()) {
+            for (JsonNode node : webcams) {
+                WebcamItemDto item = mapWebcam(node);
+                if (item != null) {
+                    items.add(item);
+                }
+            }
+        }
+        return items;
+    }
+
+    private String matchCountryCode(String q, String lang) {
+        String needle = fold(q);
+        if (!StringUtils.hasText(needle)) {
+            return null;
+        }
+        for (WebcamCodeLabelDto c : countries(lang)) {
+            if (c.getCode() == null) {
+                continue;
+            }
+            if (fold(c.getCode()).equals(needle) || fold(c.getLabel()).equals(needle)) {
+                return c.getCode();
+            }
+        }
+        // Partial label match only for longer queries (avoid "a" → Australia).
+        if (needle.length() >= 4) {
+            for (WebcamCodeLabelDto c : countries(lang)) {
+                String label = fold(c.getLabel());
+                if (label != null && (label.contains(needle) || needle.contains(label))) {
+                    return c.getCode();
+                }
+            }
+        }
+        return null;
+    }
+
+    private String resolveNearbyFromQuery(String q) {
+        if (q.length() < 2) {
+            return null;
+        }
+        try {
+            List<Map<String, Object>> hits = geocodeService.search(q);
+            if (hits == null || hits.isEmpty()) {
+                return null;
+            }
+            Map<String, Object> first = hits.get(0);
+            Object latObj = first.get("lat");
+            Object lonObj = first.get("lon");
+            if (!(latObj instanceof Number) || !(lonObj instanceof Number)) {
+                return null;
+            }
+            double lat = ((Number) latObj).doubleValue();
+            double lon = ((Number) lonObj).doubleValue();
+            if (Double.isNaN(lat) || Double.isNaN(lon)) {
+                return null;
+            }
+            return lat + "," + lon + "," + TEXT_SEARCH_NEARBY_RADIUS_KM;
+        } catch (Exception e) {
+            log.debug("Webcam text search geocode failed for '{}': {}", q, e.toString());
+            return null;
+        }
+    }
+
+    private static List<String> tokenizeQuery(String q) {
+        String[] parts = fold(q).split("[\\s,;|/]+");
+        Set<String> tokens = new LinkedHashSet<>();
+        for (String part : parts) {
+            if (part != null && part.length() >= 2) {
+                tokens.add(part);
+            }
+        }
+        if (tokens.isEmpty() && StringUtils.hasText(q) && fold(q).length() >= 1) {
+            tokens.add(fold(q));
+        }
+        return new ArrayList<>(tokens);
+    }
+
+    private static boolean matchesQuery(WebcamItemDto item, List<String> tokens) {
+        if (tokens == null || tokens.isEmpty()) {
+            return true;
+        }
+        StringBuilder hay = new StringBuilder();
+        appendHay(hay, item.getTitle());
+        appendHay(hay, item.getCity());
+        appendHay(hay, item.getRegion());
+        appendHay(hay, item.getCountry());
+        appendHay(hay, item.getCountryCode());
+        appendHay(hay, item.getContinent());
+        appendHay(hay, item.getId());
+        if (item.getCategories() != null) {
+            for (String cat : item.getCategories()) {
+                appendHay(hay, cat);
+            }
+        }
+        String haystack = fold(hay.toString());
+        for (String token : tokens) {
+            if (!haystack.contains(token)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static void appendHay(StringBuilder hay, String value) {
+        if (StringUtils.hasText(value)) {
+            if (hay.length() > 0) {
+                hay.append(' ');
+            }
+            hay.append(value);
+        }
+    }
+
+    /** Lowercase + strip diacritics for tolerant matching (Parme / Parma). */
+    private static String fold(String s) {
+        if (s == null) {
+            return "";
+        }
+        String n = Normalizer.normalize(s.trim(), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "");
+        return n.toLowerCase(Locale.ROOT);
     }
 
     public Optional<WebcamItemDto> getWebcam(String webcamId, String lang) {
@@ -242,6 +471,7 @@ public class WindyWebcamCatalogService {
         }
         WebcamItemDto dto = new WebcamItemDto();
         dto.setId(id);
+        dto.setProvider("windy");
         dto.setTitle(text(node, "title"));
         dto.setStatus(text(node, "status"));
         if (node.has("viewCount") && !node.path("viewCount").isNull()) {
@@ -311,11 +541,11 @@ public class WindyWebcamCatalogService {
             return part.asText(null);
         }
         if (part.isObject()) {
-            String embed = text(part, "embed");
-            if (StringUtils.hasText(embed)) {
-                return embed;
+            // Prefer embed URLs only — Windy "link" pages (www.windy.com) refuse iframe embedding.
+            if (part.path("available").isBoolean() && !part.path("available").asBoolean()) {
+                return null;
             }
-            return text(part, "link");
+            return text(part, "embed");
         }
         return null;
     }

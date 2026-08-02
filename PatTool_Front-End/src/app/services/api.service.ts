@@ -3210,6 +3210,7 @@ export class ApiService {
     continents?: string;
     categories?: string;
     nearby?: string;
+    q?: string;
     sortKey?: string;
     sortDirection?: string;
     limit?: number;
@@ -3234,6 +3235,9 @@ export class ApiService {
     if (opts.nearby) {
       params = params.set('nearby', opts.nearby);
     }
+    if (opts.q && opts.q.trim()) {
+      params = params.set('q', opts.q.trim());
+    }
     return this._http.get<WebcamSearchPage>(this.API_URL + 'external/webcam/webcams', { params });
   }
 
@@ -3242,6 +3246,155 @@ export class ApiService {
     return this._http.get<WebcamItem>(
       this.API_URL + 'external/webcam/webcams/' + encodeURIComponent(id || ''),
       { params: new HttpParams().set('lang', lang || 'en') }
+    );
+  }
+
+  /** GET /api/external/webcam/last — JWT required, per-user last opened webcam. */
+  getWebcamLast(): Observable<WebcamItem | null> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<WebcamItem>(this.API_URL + 'external/webcam/last', {
+          headers,
+          observe: 'response'
+        }).pipe(map((res) => (res.status === 204 ? null : res.body || null)))
+      )
+    );
+  }
+
+  /** PUT persist last opened webcam for the current user. */
+  saveWebcamLast(webcam: WebcamItem): Observable<WebcamItem> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<WebcamItem>(this.API_URL + 'external/webcam/last', webcam, { headers })
+      )
+    );
+  }
+
+  /** GET /api/external/webcam/favorites — JWT required, per-user list. */
+  getWebcamFavorites(): Observable<WebcamFavorites> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<WebcamFavorites>(this.API_URL + 'external/webcam/favorites', { headers })
+      )
+    );
+  }
+
+  /** PUT add one favorite webcam. */
+  addWebcamFavorite(webcam: WebcamItem): Observable<WebcamFavorites> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<WebcamFavorites>(this.API_URL + 'external/webcam/favorites/item', webcam, {
+          headers
+        })
+      )
+    );
+  }
+
+  /** DELETE remove one favorite by webcam id (optional provider). */
+  removeWebcamFavorite(webcamId: string, provider?: string): Observable<WebcamFavorites> {
+    let params = new HttpParams().set('id', webcamId || '');
+    if (provider) {
+      params = params.set('provider', provider);
+    }
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.delete<WebcamFavorites>(this.API_URL + 'external/webcam/favorites/item', {
+          headers,
+          params
+        })
+      )
+    );
+  }
+
+  /** GET /api/external/webcam/traffic/status */
+  getWebcamTrafficStatus(): Observable<{ configured: boolean; provider?: string; docs?: string; keys?: string }> {
+    return this._http.get<{ configured: boolean; provider?: string; docs?: string; keys?: string }>(
+      this.API_URL + 'external/webcam/traffic/status'
+    );
+  }
+
+  /** GET /api/external/webcam/traffic/jurisdictions */
+  getWebcamTrafficJurisdictions(): Observable<{ jurisdictions: WebcamCodeLabel[]; configured?: boolean }> {
+    return this._http.get<{ jurisdictions: WebcamCodeLabel[]; configured?: boolean }>(
+      this.API_URL + 'external/webcam/traffic/jurisdictions'
+    );
+  }
+
+  /** GET /api/external/webcam/traffic/cameras */
+  searchWebcamTraffic(opts: {
+    jurisdiction?: string;
+    nearby?: string;
+    q?: string;
+    hasVideo?: boolean;
+    limit?: number;
+    offset?: number;
+  } = {}): Observable<WebcamSearchPage> {
+    let params = new HttpParams()
+      .set('limit', String(Math.max(1, Math.min(opts.limit ?? 24, 50))))
+      .set('offset', String(Math.max(0, opts.offset ?? 0)))
+      .set('hasVideo', opts.hasVideo ? 'true' : 'false');
+    if (opts.jurisdiction) {
+      params = params.set('jurisdiction', opts.jurisdiction);
+    }
+    if (opts.nearby) {
+      params = params.set('nearby', opts.nearby);
+    }
+    if (opts.q && opts.q.trim()) {
+      params = params.set('q', opts.q.trim());
+    }
+    return this._http.get<WebcamSearchPage>(this.API_URL + 'external/webcam/traffic/cameras', { params });
+  }
+
+  /** GET /api/external/webcam/traffic/cameras/{id} */
+  getWebcamTraffic(id: string): Observable<WebcamItem> {
+    return this._http.get<WebcamItem>(
+      this.API_URL + 'external/webcam/traffic/cameras/' + encodeURIComponent(id || '')
+    );
+  }
+
+  /** GET /api/external/webcam/europe/status */
+  getWebcamEuropeStatus(): Observable<{ configured: boolean; provider?: string; docs?: string; keys?: string }> {
+    return this._http.get<{ configured: boolean; provider?: string; docs?: string; keys?: string }>(
+      this.API_URL + 'external/webcam/europe/status'
+    );
+  }
+
+  /** GET /api/external/webcam/europe/jurisdictions */
+  getWebcamEuropeJurisdictions(): Observable<{ jurisdictions: WebcamCodeLabel[]; configured?: boolean }> {
+    return this._http.get<{ jurisdictions: WebcamCodeLabel[]; configured?: boolean }>(
+      this.API_URL + 'external/webcam/europe/jurisdictions'
+    );
+  }
+
+  /** GET /api/external/webcam/europe/cameras */
+  searchWebcamEurope(opts: {
+    jurisdiction?: string;
+    nearby?: string;
+    q?: string;
+    hasVideo?: boolean;
+    limit?: number;
+    offset?: number;
+  } = {}): Observable<WebcamSearchPage> {
+    let params = new HttpParams()
+      .set('limit', String(Math.max(1, Math.min(opts.limit ?? 24, 50))))
+      .set('offset', String(Math.max(0, opts.offset ?? 0)))
+      .set('hasVideo', opts.hasVideo ? 'true' : 'false');
+    if (opts.jurisdiction) {
+      params = params.set('jurisdiction', opts.jurisdiction);
+    }
+    if (opts.nearby) {
+      params = params.set('nearby', opts.nearby);
+    }
+    if (opts.q && opts.q.trim()) {
+      params = params.set('q', opts.q.trim());
+    }
+    return this._http.get<WebcamSearchPage>(this.API_URL + 'external/webcam/europe/cameras', { params });
+  }
+
+  /** GET /api/external/webcam/europe/cameras/{id} */
+  getWebcamEurope(id: string): Observable<WebcamItem> {
+    return this._http.get<WebcamItem>(
+      this.API_URL + 'external/webcam/europe/cameras/' + encodeURIComponent(id || '')
     );
   }
 
@@ -4657,6 +4810,8 @@ export interface WebcamCodeLabel {
 
 export interface WebcamItem {
   id: string;
+  /** windy (default), road511, or napspan */
+  provider?: string;
   title: string;
   status?: string;
   viewCount?: number;
@@ -4675,7 +4830,13 @@ export interface WebcamItem {
   playerLiveUrl?: string;
   playerMonthUrl?: string;
   detailUrl?: string;
+  /** Road511: true when playerLiveUrl is HLS */
+  hasVideo?: boolean;
   categories?: string[];
+}
+
+export interface WebcamFavorites {
+  webcams: WebcamItem[];
 }
 
 export interface WebcamSearchPage {
@@ -4686,6 +4847,7 @@ export interface WebcamSearchPage {
   continents?: string;
   categories?: string;
   nearby?: string;
+  q?: string;
   sortKey?: string;
   webcams: WebcamItem[];
   error?: string;

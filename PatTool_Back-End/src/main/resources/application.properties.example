@@ -89,6 +89,11 @@ globe.proxy.http.read-timeout-seconds=90
 # LCI usually works without credentials.
 # app.tv.tf1.email=
 # app.tv.tf1.password=
+# RTS 1 / RTS 2 (ex-TSR): Netplus OTT issues JWT redirects from viamotionhsi → cache1a.
+# Outside Switzerland the edge often tarpits; only RTS Info (Akamai) is free worldwide.
+# Optional HTTP or SOCKS proxy with a Swiss exit, used only to mint the Netplus JWT:
+# app.tv.rts.netplus-proxy=socks5://127.0.0.1:1080
+# app.tv.rts.netplus-proxy=http://127.0.0.1:8888
 # On-demand TV recording — browser MediaRecorder upload → MongoDB GridFS.
 # app.tv.recording.enabled=true
 # app.tv.recording.max-duration-sec=1800
@@ -253,6 +258,15 @@ app.cache.persistence.restore-on-startup=true
 # Free API key: https://api.windy.com/keys  — docs: https://api.windy.com/webcams/docs
 # app.webcam.windy-api-base=https://api.windy.com/webcams/api/v3
 # app.webcam.windy-api-key=
+# --- Webcam traffic tab (Road511 / DOT cameras, US+Canada; some HLS) ---
+# API key: https://portal.road511.com  — docs: https://road511.com/docs.html
+# app.webcam.road511-api-base=https://api.road511.com/api/v1
+# app.webcam.road511-api-key=
+# --- Webcam Europe tab (NAPSPAN / DATEX II NAPs; some HLS) ---
+# API key: https://portal.napspan.com  — docs: https://napspan.com/docs.html
+# Free tier is often Germany-only.
+# app.webcam.napspan-api-base=https://api.napspan.com/api/v1
+# app.webcam.napspan-api-key=
 # app.webcam.search-cache-minutes=2
 
 # Électricité (page Monde) — clés gratuites optionnelles pour Europe (ENTSO-E) et USA (EIA)

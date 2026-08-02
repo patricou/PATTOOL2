@@ -75,7 +75,7 @@
 }
 
 .pat-assistant-fab--left {
-  /* Far left of the viewport (TV page) — clear of the sidebar search row */
+  /* Far left of the viewport (TV / Webcam pages) — clear of the sidebar search row */
   left: max(0.55rem, env(safe-area-inset-left, 0px));
   right: auto;
   transform: none;

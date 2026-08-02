@@ -685,6 +685,44 @@
               aria-hidden="true"></i>
             <span class="tv-status-overlay-text">{{ channelStatusFeedback }}</span>
           </div>
+          <div
+            class="tv-record-hud"
+            *ngIf="clientRecordingActive && !isFloatingOpen"
+            role="status"
+            [attr.aria-label]="'TV.RECORD_STATUS_RUNNING' | translate">
+            <div class="tv-record-hud-title">
+              <i class="fa fa-circle" aria-hidden="true"></i>
+              <span>{{ 'TV.RECORD_STATUS_RUNNING' | translate }}</span>
+            </div>
+            <div class="tv-record-hud-row">
+              <span class="tv-record-hud-label">{{ 'TV.RECORD_LIVE_DURATION' | translate }}</span>
+              <strong class="tv-record-hud-value">
+                {{ formatRecordingClock(recordingElapsedSec) }}
+                <span class="tv-record-hud-sep">/</span>
+                {{ formatRecordingClock(recordDurationSec) }}
+              </strong>
+            </div>
+            <div class="tv-record-hud-row" [class.tv-record-hud-row--warn]="recordingNearSizeLimit">
+              <span class="tv-record-hud-label">{{ 'TV.RECORD_LIVE_SIZE' | translate }}</span>
+              <strong class="tv-record-hud-value">{{ formatRecordingSize(recordingBytes) || '0 B' }}</strong>
+            </div>
+            <div class="tv-record-hud-row tv-record-hud-row--max">
+              <span class="tv-record-hud-label">{{ 'TV.RECORD_LIVE_MAX_SIZE' | translate }}</span>
+              <strong class="tv-record-hud-value">{{ formatRecordingSize(recordingMaxUploadBytes) }}</strong>
+            </div>
+            <div
+              class="tv-record-hud-row"
+              *ngIf="recordingSessionExpiresAt as exp"
+              [class.tv-record-hud-row--warn]="recordingSessionExpiringSoon || recordingSessionExpired">
+              <span class="tv-record-hud-label">{{ 'TV.RECORD_LIVE_KEYCLOAK' | translate }}</span>
+              <strong class="tv-record-hud-value" *ngIf="!recordingSessionExpired">
+                {{ 'TV.RECORD_LIVE_KEYCLOAK_AT' | translate:{ time: formatSessionExpiryTime(exp), remaining: formatSessionRemaining(exp) } }}
+              </strong>
+              <strong class="tv-record-hud-value" *ngIf="recordingSessionExpired">
+                {{ 'TV.RECORD_LIVE_KEYCLOAK_EXPIRED' | translate }}
+              </strong>
+            </div>
+          </div>
         </div>
 
           <div

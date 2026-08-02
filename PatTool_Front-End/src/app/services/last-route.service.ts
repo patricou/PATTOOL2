@@ -5,8 +5,9 @@ import { ApiService } from './api.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
 
 /**
- * Persists the last visited Angular route per Keycloak user
- * (localStorage + backend {@code appParameters}), and restores it on cold start.
+ * Persists the last visited Angular route per user surnom
+ * ({@code preferred_username} / Member.userName — not Keycloak {@code sub}),
+ * via localStorage + backend {@code appParameters}, and restores it on cold start.
  */
 @Injectable({ providedIn: 'root' })
 export class LastRouteService {
@@ -42,11 +43,11 @@ export class LastRouteService {
     if (!LastRouteService.isBlankHash(window.location.hash)) {
       return;
     }
-    const sub = LastRouteService.readSubjectStatic();
-    if (!sub) {
+    const username = LastRouteService.readUsernameStatic();
+    if (!username) {
       return;
     }
-    const raw = LastRouteService.readLocalStatic(sub);
+    const raw = LastRouteService.readLocalWithLegacyFallback(username);
     const route = LastRouteService.normalizeRoute(raw);
     if (!route) {
       return;
@@ -77,11 +78,11 @@ export class LastRouteService {
     if (!route) {
       return;
     }
-    const sub = this.userKey();
-    if (!sub) {
+    const username = this.userKey();
+    if (!username) {
       return;
     }
-    LastRouteService.writeLocalStatic(sub, route);
+    LastRouteService.writeLocalStatic(username, route);
     if (this.saveTimer) {
       clearTimeout(this.saveTimer);
     }
@@ -97,7 +98,7 @@ export class LastRouteService {
       this.suppressPersist = false;
       return;
     }
-    if (!this.keycloak.getJwtSubject() && !KeycloakService.auth?.authz?.token) {
+    if (!this.userKey() && !KeycloakService.auth?.authz?.token) {
       this.suppressPersist = false;
       return;
     }
@@ -120,9 +121,9 @@ export class LastRouteService {
           this.remember(current);
           return;
         }
-        const sub = this.userKey();
-        if (sub) {
-          LastRouteService.writeLocalStatic(sub, normalized);
+        const username = this.userKey();
+        if (username) {
+          LastRouteService.writeLocalStatic(username, normalized);
         }
         void this.router.navigateByUrl(normalized);
       },
@@ -141,10 +142,11 @@ export class LastRouteService {
     });
   }
 
+  /** Owner key = surnom ({@code preferred_username}), never Keycloak {@code sub}. */
   private userKey(): string | null {
     return (
-      this.keycloak.getJwtSubject() ||
-      LastRouteService.readSubjectStatic()
+      this.keycloak.getPreferredUsername() ||
+      LastRouteService.readUsernameStatic()
     );
   }
 
@@ -194,6 +196,16 @@ export class LastRouteService {
     return !r || r === '/' || r === '/photos';
   }
 
+  private static readUsernameStatic(): string | null {
+    const authz = KeycloakService.auth?.authz;
+    const parsed = authz?.tokenParsed as { preferred_username?: string } | undefined;
+    const u =
+      (typeof parsed?.preferred_username === 'string' && parsed.preferred_username) ||
+      '';
+    return u.trim() || null;
+  }
+
+  /** Legacy localStorage was keyed by JWT {@code sub}; migrate once to surnom. */
   private static readSubjectStatic(): string | null {
     const authz = KeycloakService.auth?.authz;
     const sub =
@@ -203,21 +215,43 @@ export class LastRouteService {
     return sub.trim() || null;
   }
 
-  private static storageKey(sub: string): string {
-    return `${LastRouteService.STORAGE_PREFIX}:${sub}`;
+  private static storageKey(owner: string): string {
+    return `${LastRouteService.STORAGE_PREFIX}:${owner}`;
   }
 
-  private static readLocalStatic(sub: string): string | null {
+  private static readLocalStatic(owner: string): string | null {
     try {
-      return localStorage.getItem(LastRouteService.storageKey(sub));
+      return localStorage.getItem(LastRouteService.storageKey(owner));
     } catch {
       return null;
     }
   }
 
-  private static writeLocalStatic(sub: string, route: string): void {
+  private static readLocalWithLegacyFallback(username: string): string | null {
+    const current = LastRouteService.readLocalStatic(username);
+    if (current) {
+      return current;
+    }
+    const legacySub = LastRouteService.readSubjectStatic();
+    if (!legacySub || legacySub === username) {
+      return null;
+    }
+    const legacy = LastRouteService.readLocalStatic(legacySub);
+    if (!legacy) {
+      return null;
+    }
+    LastRouteService.writeLocalStatic(username, legacy);
     try {
-      localStorage.setItem(LastRouteService.storageKey(sub), route);
+      localStorage.removeItem(LastRouteService.storageKey(legacySub));
+    } catch {
+      /* ignore */
+    }
+    return legacy;
+  }
+
+  private static writeLocalStatic(owner: string, route: string): void {
+    try {
+      localStorage.setItem(LastRouteService.storageKey(owner), route);
     } catch {
       /* quota / private mode */
     }

@@ -127,7 +127,7 @@ export function isArteReplayVod(url: string): boolean {
   return isArteVirtual(url) && !isArteLiveVirtual(url);
 }
 
-/** Progressive MP4/WebM VOD (Internet Archive) — use video.src, not hls.js. */
+/** Progressive MP4/WebM VOD (Internet Archive / NAPSPAN Viewsurf) — use video.src, not hls.js. */
 export function isProgressiveVod(url: string): boolean {
   if (isInternetArchiveVirtual(url)) {
     return true;
@@ -138,6 +138,10 @@ export function isProgressiveVod(url: string): boolean {
   }
   if (lower.includes('.m3u8') || lower.includes('/manifest') || lower.includes('.mpd')) {
     return false;
+  }
+  // French NAPSPAN cameras: gieat.viewsurf.com?…&action=mediaRedirect → .mp4
+  if (lower.includes('action=mediaredirect') || lower.includes('viewsurf.com')) {
+    return true;
   }
   return lower.includes('.mp4') || lower.includes('.webm') || lower.includes('.ogv')
     || lower.includes('archive.org/download/');
