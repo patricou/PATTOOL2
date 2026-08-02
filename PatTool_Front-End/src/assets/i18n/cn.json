@@ -1,4 +1,4 @@
-﻿{
+{
   "LANGUAGE": {
     "FR": "法语",
     "EN": "英语",
@@ -43,6 +43,7 @@
     "METEO_FRANCE": "天气与预报",
     "ADDRESS_TO_MAP": "地址/GPS到地图",
     "GPS_ROUTING": "GPS / 路线",
+    "GPX_TRACE": "GPX 轨迹",
     "NEWS": "新闻",
     "CURRENCY_CONVERTER": "货币转换器",
     "TIME_ZONES": "Time zones",
@@ -1593,6 +1594,9 @@
     "TRACK_NO_SOURCE": "没有可用的轨迹来源。",
     "TRACK_BASEMAP": "底图",
     "TRACK_RECENTER": "重新居中轨迹 (R)",
+    "TRACK_GPX_STATS": "GPX 统计",
+    "TRACK_GPX_STATS_HINT": "显示 GPX 文件统计信息",
+    "TRACK_GPX_STATS_TITLE": "GPX 统计",
     "TRACK_VIEW_ON_GLOBE": "Globe 3D",
     "TRACK_OPEN_METEO_FRANCE": "Météo-France",
     "TRACK_OPEN_METEO_FRANCE_HINT": "在此位置打开 Météo-France（雷达和温度）",

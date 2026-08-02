@@ -1,4 +1,4 @@
-﻿{
+{
   "LANGUAGE": {
     "FR": "Französisch",
     "EN": "Englisch",
@@ -43,6 +43,7 @@
     "METEO_FRANCE": "Wetter und Vorhersagen",
     "ADDRESS_TO_MAP": "Adresse/GPS auf Karte",
     "GPS_ROUTING": "GPS / Route",
+    "GPX_TRACE": "GPX-Spur",
     "NEWS": "Nachrichten",
     "CURRENCY_CONVERTER": "W?hrungsrechner",
     "TIME_ZONES": "Zeitzonen",
@@ -1611,6 +1612,9 @@
     "TRACK_FOLLOW_DEVICE": "Meiner Position folgen",
     "TRACK_KEEP_SCREEN_AWAKE": "Bildschirm anlassen",
     "TRACK_FOOTER_KEEP_AWAKE_SHORT": "Bildschirm",
+    "TRACK_GPX_STATS": "GPX-Statistik",
+    "TRACK_GPX_STATS_HINT": "GPX-Dateistatistiken anzeigen",
+    "TRACK_GPX_STATS_TITLE": "GPX-Statistiken",
     "TRACK_VIEW_ON_GLOBE": "Globe 3D",
     "TRACK_OPEN_METEO_FRANCE": "Météo-France",
     "TRACK_OPEN_METEO_FRANCE_HINT": "Météo-France öffnen (Radar und Temperatur) an dieser Position",

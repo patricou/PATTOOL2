@@ -1,0 +1,191 @@
+<div class="wc-global-filter-backdrop" *ngIf="open" (click)="close()" aria-hidden="true"></div>
+<div
+  class="wc-global-filter-modal"
+  *ngIf="open"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="'WEBCAM.GLOBAL_FILTER_TITLE' | translate"
+  (click)="$event.stopPropagation()">
+  <div class="wc-global-filter-header">
+    <h3 class="wc-global-filter-title">
+      <i class="fa fa-filter me-1" aria-hidden="true"></i>
+      {{ 'WEBCAM.GLOBAL_FILTER_TITLE' | translate }}
+    </h3>
+    <button
+      type="button"
+      class="wc-global-filter-close"
+      (click)="close()"
+      [attr.aria-label]="'WEBCAM.GLOBAL_FILTER_CLOSE' | translate">
+      <i class="fa fa-times" aria-hidden="true"></i>
+    </button>
+  </div>
+
+  <div class="wc-global-filter-body">
+    <p class="wc-global-filter-lead small text-muted mb-3">
+      {{ 'WEBCAM.GLOBAL_FILTER_LEAD' | translate }}
+    </p>
+
+    <div class="form-check wc-global-filter-apply-check mb-3">
+      <input
+        class="form-check-input"
+        type="checkbox"
+        id="wc-global-filter-apply-all"
+        [(ngModel)]="draft.applyToAllTabs" />
+      <label class="form-check-label" for="wc-global-filter-apply-all">
+        {{ 'WEBCAM.GLOBAL_FILTER_APPLY_ALL' | translate }}
+      </label>
+      <div class="form-text">{{ 'WEBCAM.GLOBAL_FILTER_APPLY_ALL_HINT' | translate }}</div>
+    </div>
+
+    <ng-container *ngIf="!isFavorites">
+      <label class="form-label small mb-1" for="wc-global-filter-catalog-q">
+        {{ 'WEBCAM.SEARCH' | translate }}
+      </label>
+      <input
+        id="wc-global-filter-catalog-q"
+        type="search"
+        class="form-control form-control-sm"
+        [(ngModel)]="draft.catalogQuery"
+        [placeholder]="
+          (isEurope
+            ? 'WEBCAM.SEARCH_PLACEHOLDER_EUROPE'
+            : isTraffic
+              ? 'WEBCAM.SEARCH_PLACEHOLDER_TRAFFIC'
+              : 'WEBCAM.SEARCH_PLACEHOLDER'
+          ) | translate
+        "
+        autocomplete="off"
+        spellcheck="false" />
+      <div class="form-text mb-2">{{ 'WEBCAM.GLOBAL_FILTER_CATALOG_HINT' | translate }}</div>
+
+      <div class="wc-global-filter-nearby mb-3">
+        <div class="form-check">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            id="wc-global-filter-nearby"
+            [(ngModel)]="draft.useNearby" />
+          <label class="form-check-label" for="wc-global-filter-nearby">
+            <i class="fa fa-crosshairs me-1" aria-hidden="true"></i>
+            {{ 'WEBCAM.NEARBY' | translate }}
+          </label>
+        </div>
+        <div class="mt-2" *ngIf="draft.useNearby">
+          <label class="form-label small mb-0" for="wc-global-filter-radius">
+            {{ 'WEBCAM.RADIUS' | translate }} ({{ draft.nearbyRadiusKm }} km)
+          </label>
+          <input
+            id="wc-global-filter-radius"
+            type="range"
+            class="form-range"
+            min="25"
+            max="300"
+            step="25"
+            [(ngModel)]="draft.nearbyRadiusKm" />
+        </div>
+      </div>
+
+      <ng-container *ngIf="isWindy">
+        <div class="row g-2 mb-2" *ngIf="!draft.useNearby">
+          <div class="col-6">
+            <label class="form-label small mb-1" for="wc-global-filter-continent">
+              {{ 'WEBCAM.CONTINENT' | translate }}
+            </label>
+            <select
+              id="wc-global-filter-continent"
+              class="form-select form-select-sm"
+              [(ngModel)]="draft.continent"
+              (ngModelChange)="onContinentChange()">
+              <option value="">{{ 'WEBCAM.ALL_CONTINENTS' | translate }}</option>
+              <option *ngFor="let c of continents" [value]="c.code">{{ c.label }}</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label small mb-1" for="wc-global-filter-country">
+              {{ 'WEBCAM.COUNTRY' | translate }}
+            </label>
+            <select
+              id="wc-global-filter-country"
+              class="form-select form-select-sm"
+              [(ngModel)]="draft.country">
+              <option value="">{{ 'WEBCAM.ALL_COUNTRIES' | translate }}</option>
+              <option *ngFor="let c of countries" [value]="c.code">{{ c.label }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="form-label small mb-1" for="wc-global-filter-category">
+              {{ 'WEBCAM.CATEGORY' | translate }}
+            </label>
+            <select
+              id="wc-global-filter-category"
+              class="form-select form-select-sm"
+              [(ngModel)]="draft.category">
+              <option value="">{{ 'WEBCAM.ALL_CATEGORIES' | translate }}</option>
+              <option *ngFor="let c of categories" [value]="c.code">{{ c.label }}</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label small mb-1" for="wc-global-filter-sort">
+              {{ 'WEBCAM.SORT' | translate }}
+            </label>
+            <select
+              id="wc-global-filter-sort"
+              class="form-select form-select-sm"
+              [(ngModel)]="draft.sortKey">
+              <option value="popularity">{{ 'WEBCAM.SORT_POPULARITY' | translate }}</option>
+              <option value="createdOn">{{ 'WEBCAM.SORT_RECENT' | translate }}</option>
+            </select>
+          </div>
+        </div>
+      </ng-container>
+
+      <ng-container *ngIf="isDotCatalog">
+        <div *ngIf="!draft.useNearby || isEurope">
+          <label class="form-label small mb-1" for="wc-global-filter-jurisdiction">
+            {{ (isEurope ? 'WEBCAM.COUNTRY' : 'WEBCAM.JURISDICTION') | translate }}
+          </label>
+          <select
+            id="wc-global-filter-jurisdiction"
+            class="form-select form-select-sm"
+            [(ngModel)]="draft.jurisdiction">
+            <option *ngIf="!isEurope" value="">{{ 'WEBCAM.ALL_JURISDICTIONS' | translate }}</option>
+            <option *ngFor="let j of jurisdictions" [value]="j.code">{{ j.label }}</option>
+          </select>
+        </div>
+        <div class="form-check mt-3">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            id="wc-global-filter-hls"
+            [(ngModel)]="draft.hasVideoOnly" />
+          <label class="form-check-label" for="wc-global-filter-hls">
+            {{ 'WEBCAM.HLS_ONLY' | translate }}
+          </label>
+        </div>
+      </ng-container>
+    </ng-container>
+
+    <p class="small text-muted mb-0" *ngIf="isFavorites">
+      {{ 'WEBCAM.GLOBAL_FILTER_FAVORITES_HINT' | translate }}
+    </p>
+  </div>
+
+  <div class="wc-global-filter-footer">
+    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="clear()" [disabled]="saving">
+      <i class="fa fa-eraser me-1" aria-hidden="true"></i>
+      {{ 'WEBCAM.GLOBAL_FILTER_CLEAR' | translate }}
+    </button>
+    <div class="wc-global-filter-footer-right">
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="close()" [disabled]="saving">
+        {{ 'WEBCAM.GLOBAL_FILTER_CLOSE' | translate }}
+      </button>
+      <button type="button" class="btn btn-primary btn-sm" (click)="apply()" [disabled]="saving">
+        <i class="fa fa-spinner fa-spin me-1" *ngIf="saving" aria-hidden="true"></i>
+        <i class="fa fa-check me-1" *ngIf="!saving" aria-hidden="true"></i>
+        {{ 'WEBCAM.GLOBAL_FILTER_APPLY' | translate }}
+      </button>
+    </div>
+  </div>
+</div>

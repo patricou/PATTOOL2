@@ -1,0 +1,229 @@
+<div class="pat-title">
+  <h2>
+    <i class="fa fa-map-signs me-2" aria-hidden="true"></i>
+    {{ 'GPX_TRACE.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="gpx-page">
+  <p class="text-muted gpx-lead mb-3">{{ 'GPX_TRACE.SUBTITLE' | translate }}</p>
+
+  <div *ngIf="errorMessage" class="alert alert-warning gpx-alert d-flex align-items-start" role="alert">
+    <i class="fa fa-exclamation-triangle me-2 mt-1" aria-hidden="true"></i>
+    <span>{{ errorMessage | translate }}</span>
+  </div>
+
+  <div class="row g-3 gpx-main-row">
+    <div class="col-12 col-lg-4 order-2 order-lg-1">
+      <div class="card shadow-sm gpx-panel mb-3">
+        <div class="card-body">
+          <input #fileInput
+                 type="file"
+                 accept=".gpx,application/gpx+xml,application/xml,text/xml"
+                 class="d-none"
+                 (change)="onFileInputChange($event)" />
+
+          <div class="gpx-dropzone"
+               [class.gpx-dropzone--active]="isDragOver"
+               role="button"
+               tabindex="0"
+               (click)="openFilePicker()"
+               (keydown.enter)="openFilePicker()"
+               (keydown.space)="$event.preventDefault(); openFilePicker()"
+               (dragover)="onDragOver($event)"
+               (dragleave)="onDragLeave($event)"
+               (drop)="onDrop($event)">
+            <i class="fa fa-cloud-upload fa-2x mb-2" aria-hidden="true"></i>
+            <div class="fw-semibold">{{ 'GPX_TRACE.DROPZONE_TITLE' | translate }}</div>
+            <div class="small text-muted">{{ 'GPX_TRACE.DROPZONE_SUBTITLE' | translate }}</div>
+          </div>
+
+          <div class="d-flex flex-wrap gap-2 mt-3">
+            <button type="button" class="btn btn-sm btn-primary" (click)="openFilePicker()" [disabled]="isParsing">
+              <i class="fa fa-folder-open me-1" aria-hidden="true"></i>
+              {{ 'GPX_TRACE.CHOOSE_FILE' | translate }}
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="clear()" [disabled]="isParsing || !analysis">
+              <i class="fa fa-times me-1" aria-hidden="true"></i>
+              {{ 'GPX_TRACE.CLEAR' | translate }}
+            </button>
+          </div>
+
+          <div *ngIf="isParsing" class="small text-muted mt-3">
+            <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
+            {{ 'GPX_TRACE.PARSING' | translate }}
+          </div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm gpx-panel" *ngIf="analysis as a">
+        <div class="card-body">
+          <h3 class="h6 text-uppercase text-muted mb-3">{{ 'GPX_TRACE.SECTION_FILE' | translate }}</h3>
+          <dl class="gpx-dl">
+            <div><dt>{{ 'GPX_TRACE.FILE_NAME' | translate }}</dt><dd>{{ a.fileName }}</dd></div>
+            <div><dt>{{ 'GPX_TRACE.FILE_SIZE' | translate }}</dt><dd>{{ formatFileSize(a.fileSizeBytes) }}</dd></div>
+            <div *ngIf="a.name"><dt>{{ 'GPX_TRACE.NAME' | translate }}</dt><dd>{{ a.name }}</dd></div>
+            <div *ngIf="a.description"><dt>{{ 'GPX_TRACE.DESCRIPTION' | translate }}</dt><dd>{{ a.description }}</dd></div>
+            <div *ngIf="a.author"><dt>{{ 'GPX_TRACE.AUTHOR' | translate }}</dt><dd>{{ a.author }}</dd></div>
+            <div *ngIf="a.creator"><dt>{{ 'GPX_TRACE.CREATOR' | translate }}</dt><dd>{{ a.creator }}</dd></div>
+            <div *ngIf="a.keywords"><dt>{{ 'GPX_TRACE.KEYWORDS' | translate }}</dt><dd>{{ a.keywords }}</dd></div>
+            <div *ngIf="a.metadataTimeIso"><dt>{{ 'GPX_TRACE.METADATA_TIME' | translate }}</dt><dd>{{ formatDateTime(a.metadataTimeIso) }}</dd></div>
+            <div *ngIf="a.linkHref">
+              <dt>{{ 'GPX_TRACE.LINK' | translate }}</dt>
+              <dd><a [href]="a.linkHref" target="_blank" rel="noopener noreferrer">{{ a.linkText || a.linkHref }}</a></dd>
+            </div>
+          </dl>
+
+          <h3 class="h6 text-uppercase text-muted mb-3 mt-4">{{ 'GPX_TRACE.SECTION_STRUCTURE' | translate }}</h3>
+          <dl class="gpx-dl">
+            <div><dt>{{ 'GPX_TRACE.TRACKS' | translate }}</dt><dd>{{ a.trackCount }}</dd></div>
+            <div><dt>{{ 'GPX_TRACE.SEGMENTS' | translate }}</dt><dd>{{ a.segmentCount }}</dd></div>
+            <div><dt>{{ 'GPX_TRACE.TRACK_POINTS' | translate }}</dt><dd>{{ a.trackPointCount }}</dd></div>
+            <div><dt>{{ 'GPX_TRACE.ROUTES' | translate }}</dt><dd>{{ a.routeCount }}</dd></div>
+            <div><dt>{{ 'GPX_TRACE.ROUTE_POINTS' | translate }}</dt><dd>{{ a.routePointCount }}</dd></div>
+            <div><dt>{{ 'GPX_TRACE.WAYPOINTS' | translate }}</dt><dd>{{ a.waypointCount }}</dd></div>
+            <div *ngIf="a.trackNames.length">
+              <dt>{{ 'GPX_TRACE.TRACK_NAMES' | translate }}</dt>
+              <dd>{{ a.trackNames.join(', ') }}</dd>
+            </div>
+          </dl>
+
+          <h3 class="h6 text-uppercase text-muted mb-3 mt-4">{{ 'GPX_TRACE.SECTION_STATS' | translate }}</h3>
+          <p class="small text-muted mb-2" *ngIf="a.elevationFromDem">{{ 'GPX_TRACE.ELEV_FROM_DEM' | translate }}</p>
+          <div class="gpx-stat-grid">
+            <div class="gpx-stat">
+              <div class="gpx-stat-label">{{ 'GPX_TRACE.DISTANCE' | translate }}</div>
+              <div class="gpx-stat-value">{{ formatDistance(a.distanceM) }}</div>
+            </div>
+            <div class="gpx-stat">
+              <div class="gpx-stat-label">{{ 'GPX_TRACE.DURATION' | translate }}</div>
+              <div class="gpx-stat-value">{{ formatDuration(a.durationSec) }}</div>
+            </div>
+            <div class="gpx-stat">
+              <div class="gpx-stat-label">{{ 'GPX_TRACE.MOVING_TIME' | translate }}</div>
+              <div class="gpx-stat-value">{{ formatDuration(a.movingTimeSec) }}</div>
+            </div>
+            <div class="gpx-stat">
+              <div class="gpx-stat-label">{{ 'GPX_TRACE.AVG_SPEED' | translate }}</div>
+              <div class="gpx-stat-value">{{ formatSpeed(a.avgSpeedKmh) }}</div>
+            </div>
+            <div class="gpx-stat">
+              <div class="gpx-stat-label">{{ 'GPX_TRACE.MAX_SPEED' | translate }}</div>
+              <div class="gpx-stat-value">{{ formatSpeed(a.maxSpeedKmh) }}</div>
+            </div>
+            <div class="gpx-stat">
+              <div class="gpx-stat-label">{{ 'GPX_TRACE.ASCENT' | translate }}</div>
+              <div class="gpx-stat-value">{{ formatElev(a.elevationGainM) }}</div>
+            </div>
+            <div class="gpx-stat">
+              <div class="gpx-stat-label">{{ 'GPX_TRACE.DESCENT' | translate }}</div>
+              <div class="gpx-stat-value">{{ formatElev(a.elevationLossM) }}</div>
+            </div>
+            <div class="gpx-stat">
+              <div class="gpx-stat-label">{{ 'GPX_TRACE.ELEV_MIN' | translate }}</div>
+              <div class="gpx-stat-value">{{ formatElev(a.elevMinM) }}</div>
+            </div>
+            <div class="gpx-stat">
+              <div class="gpx-stat-label">{{ 'GPX_TRACE.ELEV_MAX' | translate }}</div>
+              <div class="gpx-stat-value">{{ formatElev(a.elevMaxM) }}</div>
+            </div>
+            <div class="gpx-stat">
+              <div class="gpx-stat-label">{{ 'GPX_TRACE.ELEV_START' | translate }}</div>
+              <div class="gpx-stat-value">{{ formatElev(a.elevStartM) }}</div>
+            </div>
+            <div class="gpx-stat">
+              <div class="gpx-stat-label">{{ 'GPX_TRACE.ELEV_END' | translate }}</div>
+              <div class="gpx-stat-value">{{ formatElev(a.elevEndM) }}</div>
+            </div>
+          </div>
+
+          <h3 class="h6 text-uppercase text-muted mb-3 mt-4">{{ 'GPX_TRACE.SECTION_GEO' | translate }}</h3>
+          <dl class="gpx-dl">
+            <div>
+              <dt>{{ 'GPX_TRACE.START' | translate }}</dt>
+              <dd>{{ formatCoord(a.startLat) }}, {{ formatCoord(a.startLon) }}</dd>
+            </div>
+            <div>
+              <dt>{{ 'GPX_TRACE.END' | translate }}</dt>
+              <dd>{{ formatCoord(a.endLat) }}, {{ formatCoord(a.endLon) }}</dd>
+            </div>
+            <div *ngIf="a.bounds as b">
+              <dt>{{ 'GPX_TRACE.BOUNDS' | translate }}</dt>
+              <dd>
+                {{ formatCoord(b.minLat) }}…{{ formatCoord(b.maxLat) }} /
+                {{ formatCoord(b.minLon) }}…{{ formatCoord(b.maxLon) }}
+              </dd>
+            </div>
+            <div>
+              <dt>{{ 'GPX_TRACE.START_TIME' | translate }}</dt>
+              <dd>{{ formatDateTime(a.startTimeIso) }}</dd>
+            </div>
+            <div>
+              <dt>{{ 'GPX_TRACE.END_TIME' | translate }}</dt>
+              <dd>{{ formatDateTime(a.endTimeIso) }}</dd>
+            </div>
+          </dl>
+
+          <div *ngIf="a.waypoints.length" class="mt-4">
+            <h3 class="h6 text-uppercase text-muted mb-2">{{ 'GPX_TRACE.SECTION_WAYPOINTS' | translate }}</h3>
+            <div class="gpx-wpt-list">
+              <div class="gpx-wpt-row" *ngFor="let w of a.waypoints">
+                <div class="fw-semibold">{{ w.name || ('GPX_TRACE.WAYPOINT_UNNAMED' | translate) }}</div>
+                <div class="small text-muted">
+                  {{ formatCoord(w.lat) }}, {{ formatCoord(w.lon) }}
+                  <span *ngIf="w.eleM != null"> · {{ formatElev(w.eleM) }}</span>
+                </div>
+                <div class="small" *ngIf="w.desc">{{ w.desc }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-8 order-1 order-lg-2">
+      <div class="card shadow-sm gpx-panel mb-3">
+        <div class="card-body">
+          <div class="gpx-map-shell"
+               #mapShell
+               [class.gpx-map-shell--fullscreen]="mapFullscreen">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+              <h3 class="h6 mb-0">{{ 'GPX_TRACE.MAP' | translate }}</h3>
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <label class="mb-0 small d-flex align-items-center gap-2">
+                  <span class="text-muted">{{ 'GPX_TRACE.MAP_BASE_LAYER' | translate }}</span>
+                  <select class="form-select form-select-sm gpx-basemap-select"
+                          [(ngModel)]="mapBaseLayerId"
+                          (ngModelChange)="onBasemapChange()">
+                    <option *ngFor="let opt of basemapOptions" [value]="opt.id">
+                      {{ opt.labelKey ? (opt.labelKey | translate) : opt.label }}
+                    </option>
+                  </select>
+                </label>
+                <button type="button"
+                        class="btn btn-sm btn-outline-secondary"
+                        (click)="toggleMapFullscreen()"
+                        [attr.title]="(mapFullscreen ? 'GPX_TRACE.MAP_EXIT_FULLSCREEN' : 'GPX_TRACE.MAP_FULLSCREEN') | translate"
+                        [attr.aria-label]="(mapFullscreen ? 'GPX_TRACE.MAP_EXIT_FULLSCREEN' : 'GPX_TRACE.MAP_FULLSCREEN') | translate">
+                  <i class="fa" [class.fa-expand]="!mapFullscreen" [class.fa-compress]="mapFullscreen" aria-hidden="true"></i>
+                  <span class="ms-1 d-none d-sm-inline">
+                    {{ (mapFullscreen ? 'GPX_TRACE.MAP_EXIT_FULLSCREEN' : 'GPX_TRACE.MAP_FULLSCREEN') | translate }}
+                  </span>
+                </button>
+              </div>
+            </div>
+            <div #mapHost class="gpx-map" role="img" [attr.aria-label]="'GPX_TRACE.MAP' | translate"></div>
+            <p class="small text-muted mt-2 mb-0" *ngIf="!analysis">{{ 'GPX_TRACE.MAP_HINT' | translate }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm gpx-panel" *ngIf="analysis">
+        <div class="card-body">
+          <h3 class="h6 mb-2">{{ 'GPX_TRACE.ELEVATION_PROFILE' | translate }}</h3>
+          <canvas #elevCanvas class="gpx-elev-canvas" aria-hidden="true"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

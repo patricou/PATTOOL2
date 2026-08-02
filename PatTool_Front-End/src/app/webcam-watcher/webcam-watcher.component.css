@@ -2,6 +2,112 @@
   display: block;
 }
 
+/* Mobile landscape: immersive webcam stage covering the viewport. */
+:host.wc-landscape-fs {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  background: #000;
+  overflow: hidden;
+}
+
+:host.wc-landscape-fs .pat-title,
+:host.wc-landscape-fs .wc-sidebar,
+:host.wc-landscape-fs .wc-footer,
+:host.wc-landscape-fs .wc-camera,
+:host.wc-landscape-fs .wc-attribution,
+:host.wc-landscape-fs .wc-stage-header,
+:host.wc-landscape-fs .wc-api-warn {
+  display: none !important;
+}
+
+:host.wc-landscape-fs .wc-page {
+  height: 100%;
+  max-height: none;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+:host.wc-landscape-fs .wc-layout {
+  display: block;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+:host.wc-landscape-fs .wc-stage {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: #000;
+  gap: 0;
+  overflow: hidden;
+}
+
+:host.wc-landscape-fs .wc-stage::before {
+  display: none;
+}
+
+:host.wc-landscape-fs .wc-player-frame {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: #000;
+}
+
+:host.wc-landscape-fs .wc-player-wrap {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  aspect-ratio: auto;
+  border-radius: 0;
+}
+
+:host.wc-landscape-fs .wc-player,
+:host.wc-landscape-fs .wc-still {
+  border-radius: 0;
+  object-fit: contain;
+}
+
+.wc-landscape-fs-exit {
+  position: absolute;
+  top: max(0.55rem, env(safe-area-inset-top, 0px));
+  right: max(0.55rem, env(safe-area-inset-right, 0px));
+  z-index: 8;
+  width: 2.35rem;
+  height: 2.35rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.wc-landscape-fs-exit:active,
+.wc-landscape-fs-exit:focus-visible {
+  background: rgba(13, 110, 253, 0.75);
+  outline: none;
+}
+
 /* Keep the global .pat-title spacing (navbar spacer via .pat-div); only tune text layout. */
 :host .pat-title {
   overflow: visible;
@@ -32,6 +138,53 @@
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
+}
+
+.wc-global-filter-open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  position: relative;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  color: #1d4ed8;
+  border-radius: 0.4rem;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  cursor: pointer;
+  margin-left: 0.15rem;
+}
+
+.wc-global-filter-open-btn:hover {
+  background: #eff6ff;
+}
+
+.wc-global-filter-open-btn.is-active {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1e40af;
+  font-weight: 600;
+}
+
+.wc-global-filter-open-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #2563eb;
+  flex: 0 0 auto;
+}
+
+.wc-list-meta-filter {
+  margin-left: 0.35rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+@media (max-width: 640px) {
+  .wc-global-filter-open-label {
+    display: none;
+  }
 }
 
 .wc-title-icon {

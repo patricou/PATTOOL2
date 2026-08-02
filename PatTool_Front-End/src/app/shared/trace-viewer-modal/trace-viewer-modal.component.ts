@@ -25,6 +25,14 @@ import {
 	resolvePlaceNameFromGeocode,
 	resolveWeatherPointLocationLabel,
 } from '../weather-point-popup.util';
+import {
+	analysisNeedsDemElevation,
+	analyzeGpxFileContent,
+	enrichAnalysisWithDemElevations,
+	GpxAnalysis,
+	isGpxFileName,
+	sampleLatLonsForElevation
+} from '../../gpx-trace/gpx-trace-analysis.util';
 
 interface TraceViewerSource {
 	fileId?: string;
@@ -102,6 +110,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	@ViewChild('traceViewerModal') traceViewerModal!: TemplateRef<any>;
 	@ViewChild(WeatherPointTimelineComponent) weatherPointTimeline?: WeatherPointTimelineComponent;
 	@ViewChild('cartesGouvModal') cartesGouvModal!: TemplateRef<any>;
+	@ViewChild('gpxStatsModal') gpxStatsModal!: TemplateRef<any>;
 	@ViewChild('mapContainer', { static: false }) mapContainerRef?: ElementRef<HTMLDivElement>;
 	@Output() closed = new EventEmitter<void>();
 	@Output() locationSelected = new EventEmitter<{ lat: number; lng: number }>();
@@ -114,6 +123,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public errorMessage = '';
 	public trackFileName = '';
 	public trackStats: TraceStatistics | null = null;
+	/** Full GPX analysis when the opened file is a GPX track (null otherwise). */
+	public gpxAnalysis: GpxAnalysis | null = null;
 	public isFullscreen = false;
 	/** Carte : nord / sens de marche / direction du tracé (leaflet-rotate). */
 	public mapOrientation: GpsMapOrientation = 'north';
@@ -243,6 +254,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private readonly destroy$ = new Subject<void>();
 	private modalRef?: NgbModalRef;
+	private gpxStatsModalRef?: NgbModalRef;
 	/** When set before `open()`, overrides default `NgbModal` options (e.g. attach into the globe div). */
 	private nextModalOptionsOverride: NgbModalOptions | null = null;
 	private map?: L.Map;
@@ -598,6 +610,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	@HostListener('window:keydown.escape', ['$event'])
 	onEscape(event: Event): void {
 		event.preventDefault();
+		if (this.gpxStatsModalRef) {
+			this.closeGpxStatsModal();
+			return;
+		}
 		if (this.weatherPointTimeline?.isFullscreen()) {
 			this.weatherPointTimeline.exitFullscreen();
 			return;
@@ -1114,6 +1130,117 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.cleanupCartesGouvFullscreenListener();
 		this.restoreBaseLayerAfterCartesGouvIfNeeded();
 		this.cdr.detectChanges();
+	}
+
+	/** Open GPX statistics modal over the trace viewer (only when a GPX file was loaded). */
+	public openGpxStatsModal(): void {
+		if (!this.gpxAnalysis || !this.gpxStatsModal) {
+			return;
+		}
+		if (this.gpxStatsModalRef) {
+			return;
+		}
+		const opts: NgbModalOptions = {
+			size: 'lg',
+			centered: true,
+			backdrop: 'static',
+			scrollable: true,
+			keyboard: true,
+			windowClass: 'trace-viewer-gpx-stats-modal'
+		};
+		const mountEl = this.getCartesGouvModalMountElement();
+		if (mountEl) {
+			opts.container = mountEl;
+		}
+		this.gpxStatsModalRef = this.modalService.open(this.gpxStatsModal, opts);
+		this.gpxStatsModalRef.result.finally(() => {
+			this.gpxStatsModalRef = undefined;
+			this.cdr.detectChanges();
+		});
+	}
+
+	public closeGpxStatsModal(): void {
+		if (!this.gpxStatsModalRef) {
+			return;
+		}
+		try {
+			this.gpxStatsModalRef.close();
+		} catch {
+			/* ignore */
+		}
+		this.gpxStatsModalRef = undefined;
+		this.cdr.detectChanges();
+	}
+
+	public formatGpxDistance(meters: number | null): string {
+		if (meters == null || !Number.isFinite(meters)) {
+			return '—';
+		}
+		if (meters < 1000) {
+			return `${Math.round(meters)} m`;
+		}
+		return `${(meters / 1000).toFixed(2)} km`;
+	}
+
+	public formatGpxDuration(sec: number | null): string {
+		if (sec == null || !Number.isFinite(sec) || sec < 0) {
+			return '—';
+		}
+		const h = Math.floor(sec / 3600);
+		const m = Math.floor((sec % 3600) / 60);
+		const s = Math.floor(sec % 60);
+		if (h > 0) {
+			return `${h} h ${m.toString().padStart(2, '0')} min`;
+		}
+		if (m > 0) {
+			return `${m} min ${s.toString().padStart(2, '0')} s`;
+		}
+		return `${s} s`;
+	}
+
+	public formatGpxCoord(v: number | null): string {
+		if (v == null || !Number.isFinite(v)) {
+			return '—';
+		}
+		return v.toFixed(6);
+	}
+
+	public formatGpxElev(v: number | null): string {
+		if (v == null || !Number.isFinite(v)) {
+			return '—';
+		}
+		return `${v} m`;
+	}
+
+	public formatGpxSpeed(v: number | null): string {
+		if (v == null || !Number.isFinite(v)) {
+			return '—';
+		}
+		return `${v} km/h`;
+	}
+
+	public formatGpxFileSize(bytes: number): string {
+		if (!Number.isFinite(bytes) || bytes < 0) {
+			return '—';
+		}
+		if (bytes < 1024) {
+			return `${bytes} B`;
+		}
+		if (bytes < 1024 * 1024) {
+			return `${(bytes / 1024).toFixed(1)} KB`;
+		}
+		return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+	}
+
+	public formatGpxDateTime(iso: string | null): string {
+		if (!iso) {
+			return '—';
+		}
+		const d = new Date(iso);
+		if (Number.isNaN(d.getTime())) {
+			return iso;
+		}
+		return d.toLocaleString();
 	}
 
 	private getCartesGouvModalContent(): HTMLElement | null {
@@ -1818,17 +1945,85 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private readFromBlob(blob: Blob, fileName: string): void {
 		this.isLoading = true;
+		this.gpxAnalysis = null;
 		this.cdr.detectChanges();
 
 		blob.arrayBuffer()
 			.then(buffer => {
 				const extension = this.getFileExtension(fileName);
 				const text = this.decodeArrayBuffer(buffer);
+				this.tryAnalyzeGpx(fileName, text, blob.size);
 				this.renderTrack(text, extension);
 			})
 			.catch(() => this.setError(this.translate('EVENTELEM.TRACK_LOAD_ERROR')))
 			.finally(() => {
 				this.isLoading = false;
+				this.cdr.detectChanges();
+			});
+	}
+
+	/** Populate `gpxAnalysis` when the loaded content is a GPX file. */
+	private tryAnalyzeGpx(fileName: string, text: string, fileSizeBytes: number): void {
+		this.gpxAnalysis = null;
+		const looksLikeGpx =
+			isGpxFileName(fileName) ||
+			this.getFileExtension(fileName) === 'gpx' ||
+			/<gpx[\s>]/i.test(text);
+		if (!looksLikeGpx) {
+			return;
+		}
+		try {
+			const analysis = analyzeGpxFileContent(fileName || 'track.gpx', text, fileSizeBytes);
+			if (
+				analysis.trackPointCount > 0 ||
+				analysis.routePointCount > 0 ||
+				analysis.waypointCount > 0
+			) {
+				this.gpxAnalysis = analysis;
+				this.syncTrackStatsFromGpxAnalysis(analysis);
+				if (analysisNeedsDemElevation(analysis)) {
+					this.enrichGpxAnalysisElevation(analysis);
+				}
+			}
+		} catch (error) {
+			console.warn('[TraceViewer] GPX analysis failed', error);
+		}
+	}
+
+	/** Prefer computed GPX distance in the footer when Leaflet stats are empty. */
+	private syncTrackStatsFromGpxAnalysis(analysis: GpxAnalysis): void {
+		if (analysis.distanceM == null || !Number.isFinite(analysis.distanceM)) {
+			return;
+		}
+		const km = Math.round((analysis.distanceM / 1000) * 100) / 100;
+		if (!this.trackStats) {
+			this.trackStats = {
+				points: analysis.points.length || analysis.trackPointCount || 0,
+				distanceKm: km
+			};
+			return;
+		}
+		if (this.trackStats.distanceKm == null) {
+			this.trackStats = { ...this.trackStats, distanceKm: km };
+		}
+	}
+
+	/** Fill elevation from DEM when the GPX has no ele tags. */
+	private enrichGpxAnalysisElevation(analysis: GpxAnalysis): void {
+		const samples = sampleLatLonsForElevation(analysis.points, 80);
+		if (samples.length < 2) {
+			return;
+		}
+		this.apiService
+			.lookupElevationsBatch(samples.map((s) => ({ lat: s.lat, lon: s.lon })))
+			.pipe(take(1), catchError(() => of(null)))
+			.subscribe((res) => {
+				if (!res || this.gpxAnalysis !== analysis) {
+					return;
+				}
+				enrichAnalysisWithDemElevations(analysis, samples, res.altitudesM || []);
+				this.gpxAnalysis = { ...analysis };
+				this.syncTrackStatsFromGpxAnalysis(analysis);
 				this.cdr.detectChanges();
 			});
 	}
@@ -2363,12 +2558,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private resetState(): void {
+		this.closeGpxStatsModal();
 		this.trackBounds = null;
 		this.locationRecenterZoom = null;
 		this.hasError = false;
 		this.errorMessage = '';
 		this.isLoading = false;
 		this.trackStats = null;
+		this.gpxAnalysis = null;
 		this.pendingTrackPoints = null;
 		this.trackOrientationCoords = [];
 		this.routeHeadingDeg = 0;
@@ -4210,6 +4407,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private closeModalInstance(): void {
+		this.closeGpxStatsModal();
 		if (this.cartesGouvModalRef) {
 			if (this.document.fullscreenElement) {
 				this.document.exitFullscreen().catch(() => {});
@@ -4251,6 +4449,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 				event.preventDefault();
 				event.stopPropagation();
 				event.stopImmediatePropagation?.();
+				if (this.gpxStatsModalRef) {
+					this.closeGpxStatsModal();
+					return;
+				}
 				this.close();
 			}
 		};

@@ -21,8 +21,8 @@ export interface TrackRouteStats {
 
 /** Max consecutive points without raw `ele` that we bridge by linear interpolation. */
 const ELEV_INTERPOLATE_MAX_GAP = 80;
-/** Positive delta (m) counted on smoothed profile; small floor to trim residual noise. */
-const ELEV_POSITIVE_DELTA_MIN_M = 2.5;
+/** Pairwise raw fallback: ignore tiny consecutive steps (m) when no dense profile. */
+const ELEV_PAIRWISE_MIN_STEP_M = 3;
 
 function normalizeFileDateIso(raw: string | null | undefined): string | null {
     const t = (raw || '').trim();
@@ -523,6 +523,8 @@ function elevationGainPairwiseRaw(points: ParsedTrackPoint[], minStepM: number):
 function computeElevationGainM(points: ParsedTrackPoint[]): number | null {
     const dense = interpolateElevationProfile(points);
     if (dense != null && dense.length >= 2) {
+        // Sum every positive step after smoothing (no per-step floor: dense
+        // tracks often have Δh ≪ 1 m between consecutive smoothed samples).
         const win =
             dense.length >= 200 ? 21 : dense.length >= 80 ? 15 : dense.length >= 35 ? 11 : 0;
         const sm =
@@ -530,13 +532,13 @@ function computeElevationGainM(points: ParsedTrackPoint[]): number | null {
         let gain = 0;
         for (let j = 1; j < sm.length; j++) {
             const d = sm[j] - sm[j - 1];
-            if (d > ELEV_POSITIVE_DELTA_MIN_M) {
+            if (d > 0) {
                 gain += d;
             }
         }
         return Math.round(gain);
     }
-    return elevationGainPairwiseRaw(points, 3);
+    return elevationGainPairwiseRaw(points, ELEV_PAIRWISE_MIN_STEP_M);
 }
 
 export function parseTrackFileToLatLonPoints(fileName: string, text: string): ParsedTrackPoint[] {

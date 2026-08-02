@@ -48,11 +48,16 @@ public class NapspanWebcamCatalogService {
     private static final Duration DETAIL_CACHE_TTL = Duration.ofMinutes(2);
     /** Radius when free-text q is resolved as a place name via Nominatim. */
     private static final int TEXT_SEARCH_NEARBY_RADIUS_KM = 50;
-    /** Max page size when scanning for local title/city matches. */
-    private static final int TEXT_FILTER_FETCH_LIMIT = 100;
+    /** Page size when scanning the catalog for local title / road matches. */
+    private static final int TEXT_FILTER_PAGE_SIZE = 100;
     /**
-     * Highway / route identifiers accepted by NAPSPAN {@code road=}
-     * (A10, M25, N7, E15, B10, D1006, RN7, …). Place names must not match.
+     * Max cameras to pull from NAPSPAN while applying a local filter.
+     * Features API has no {@code road=} param — road queries must be scanned client-side.
+     */
+    private static final int TEXT_FILTER_SCAN_MAX = 1000;
+    /**
+     * Highway / route identifiers (A10, M25, N7, E15, B10, D1006, RN7, …).
+     * Place names must not match — those are geocoded instead.
      */
     private static final Pattern ROAD_QUERY = Pattern.compile(
             "^(?:(?:autoroute|autostrada|autobahn|motorway|highway|route|strada|via)\\s+)?"
@@ -199,13 +204,16 @@ public class NapspanWebcamCatalogService {
             return page;
         }
 
-        // NAPSPAN only accepts road= for free text. Place names (e.g. "etrembiere") must
-        // be geocoded to lat/lng, otherwise the API ignores the filter and returns everything.
-        String roadParam = null;
+        // NAPSPAN Features API has no free-text / road= filter (docs: jurisdiction, geo, bbox only).
+        // Road ids (e.g. "a6") and other text must be matched locally after scanning pages.
+        // Place names (e.g. "etrembiere") are geocoded to lat/lng.
+        boolean roadFilter = false;
+        String roadId = null;
         boolean localTextFilter = false;
         if (safeQ != null) {
             if (looksLikeRoadQuery(safeQ)) {
-                roadParam = safeQ;
+                roadFilter = true;
+                roadId = normalizeRoadId(safeQ);
             } else if (safeNearby == null) {
                 String geoFromQ = resolveNearbyFromQuery(safeQ, safeJur);
                 if (geoFromQ != null) {
@@ -220,7 +228,8 @@ public class NapspanWebcamCatalogService {
         }
 
         String cacheKey = "list|" + safeJur + "|" + safeNearby + "|" + safeQ + "|" + hasVideoOnly
-                + "|" + roadParam + "|" + localTextFilter + "|" + safeLimit + "|" + safeOffset;
+                + "|" + roadFilter + "|" + nullToEmpty(roadId) + "|" + localTextFilter
+                + "|" + safeLimit + "|" + safeOffset;
         CacheEntry<WebcamSearchPageDto> hit = listCache.get(cacheKey);
         Duration ttl = listCacheTtl();
         if (hit != null && !hit.expired(ttl)) {
@@ -228,69 +237,32 @@ public class NapspanWebcamCatalogService {
         }
 
         try {
-            boolean fetchThenPage = hasVideoOnly || localTextFilter;
-            int fetchLimit = fetchThenPage
-                    ? Math.min(Math.max(safeLimit * 4, TEXT_FILTER_FETCH_LIMIT), 100)
-                    : safeLimit;
-            int fetchOffset = fetchThenPage ? 0 : safeOffset;
-
-            StringBuilder url = new StringBuilder(trimSlash(apiBase))
-                    .append("/features?type=cameras&active=true")
-                    .append("&limit=").append(fetchLimit)
-                    .append("&offset=").append(fetchOffset);
-
-            // Free plan requires jurisdiction on every features query — keep it even with
-            // lat/lng (docs: ...&jurisdiction=ESP&lat=...&lng=...&radius_km=50).
-            if (safeJur != null) {
-                url.append("&jurisdiction=").append(enc(safeJur));
-            }
-            Nearby geo = parseNearby(safeNearby);
-            if (geo != null) {
-                url.append("&lat=").append(geo.lat)
-                        .append("&lng=").append(geo.lon)
-                        .append("&radius_km=").append(geo.radiusKm);
-            }
-            if (roadParam != null) {
-                url.append("&road=").append(enc(roadParam));
-            }
-
-            JsonNode root = getJson(url.toString());
-            List<WebcamItemDto> mapped = new ArrayList<>();
-            JsonNode data = root != null ? firstArray(root, "data", "features", "items") : null;
-            if (data != null && data.isArray()) {
-                for (JsonNode n : data) {
-                    WebcamItemDto item = mapFeature(n);
-                    if (item == null || !StringUtils.hasText(item.getId())) {
-                        continue;
-                    }
-                    if (hasVideoOnly && !Boolean.TRUE.equals(item.getHasVideo())) {
-                        continue;
-                    }
-                    mapped.add(item);
-                }
-            }
-
-            if (localTextFilter && safeQ != null) {
-                List<String> tokens = tokenizeQuery(safeQ);
-                mapped = new ArrayList<>(mapped.stream().filter(item -> matchesQuery(item, tokens)).toList());
-            }
-
+            boolean fetchThenPage = hasVideoOnly || localTextFilter || roadFilter;
+            List<WebcamItemDto> mapped;
             int total;
+
             if (fetchThenPage) {
+                mapped = scanAndFilter(safeJur, safeNearby, hasVideoOnly, roadId, localTextFilter ? safeQ : null);
                 total = mapped.size();
+                if (!hasVideoOnly) {
+                    mapped.sort(Comparator
+                            .comparing((WebcamItemDto w) -> !Boolean.TRUE.equals(w.getHasVideo()))
+                            .thenComparing(w -> w.getTitle() != null ? w.getTitle() : "",
+                                    String.CASE_INSENSITIVE_ORDER));
+                }
                 int from = Math.min(safeOffset, mapped.size());
                 int to = Math.min(from + safeLimit, mapped.size());
                 mapped = new ArrayList<>(mapped.subList(from, to));
             } else {
+                JsonNode root = fetchFeaturesPage(safeJur, safeNearby, safeLimit, safeOffset);
+                mapped = mapFeatureArray(root, false);
                 total = root != null && root.has("total") && root.get("total").canConvertToInt()
                         ? root.get("total").asInt()
                         : mapped.size();
-            }
-
-            if (!hasVideoOnly) {
                 mapped.sort(Comparator
                         .comparing((WebcamItemDto w) -> !Boolean.TRUE.equals(w.getHasVideo()))
-                        .thenComparing(w -> w.getTitle() != null ? w.getTitle() : "", String.CASE_INSENSITIVE_ORDER));
+                        .thenComparing(w -> w.getTitle() != null ? w.getTitle() : "",
+                                String.CASE_INSENSITIVE_ORDER));
             }
 
             page.setTotal(Math.max(total, mapped.size()));
@@ -303,6 +275,92 @@ public class NapspanWebcamCatalogService {
             page.setMessage(e.getMessage() != null ? e.getMessage() : "NAPSPAN request failed");
             return page;
         }
+    }
+
+    /**
+     * Pull up to {@link #TEXT_FILTER_SCAN_MAX} cameras and keep those matching HLS / road / text.
+     */
+    private List<WebcamItemDto> scanAndFilter(
+            String jurisdiction,
+            String nearby,
+            boolean hasVideoOnly,
+            String roadId,
+            String textQ) throws Exception {
+        List<WebcamItemDto> matches = new ArrayList<>();
+        List<String> tokens = textQ != null ? tokenizeQuery(textQ) : List.of();
+        int scanned = 0;
+        int apiTotal = Integer.MAX_VALUE;
+        int fetchOffset = 0;
+
+        while (scanned < TEXT_FILTER_SCAN_MAX && fetchOffset < apiTotal) {
+            int batch = Math.min(TEXT_FILTER_PAGE_SIZE, TEXT_FILTER_SCAN_MAX - scanned);
+            JsonNode root = fetchFeaturesPage(jurisdiction, nearby, batch, fetchOffset);
+            if (root != null && root.has("total") && root.get("total").canConvertToInt()) {
+                apiTotal = root.get("total").asInt();
+            }
+            List<WebcamItemDto> batchItems = mapFeatureArray(root, false);
+            if (batchItems.isEmpty()) {
+                break;
+            }
+            for (WebcamItemDto item : batchItems) {
+                if (hasVideoOnly && !Boolean.TRUE.equals(item.getHasVideo())) {
+                    continue;
+                }
+                if (roadId != null && !matchesRoadId(item, roadId)) {
+                    continue;
+                }
+                if (!tokens.isEmpty() && !matchesQuery(item, tokens)) {
+                    continue;
+                }
+                matches.add(item);
+            }
+            scanned += batchItems.size();
+            fetchOffset += batchItems.size();
+            if (batchItems.size() < batch) {
+                break;
+            }
+        }
+        return matches;
+    }
+
+    private JsonNode fetchFeaturesPage(String jurisdiction, String nearby, int limit, int offset)
+            throws Exception {
+        StringBuilder url = new StringBuilder(trimSlash(apiBase))
+                .append("/features?type=cameras&active=true")
+                .append("&limit=").append(limit)
+                .append("&offset=").append(offset);
+
+        // Free plan requires jurisdiction on every features query — keep it even with
+        // lat/lng (docs: ...&jurisdiction=ESP&lat=...&lng=...&radius_km=50).
+        if (jurisdiction != null) {
+            url.append("&jurisdiction=").append(enc(jurisdiction));
+        }
+        Nearby geo = parseNearby(nearby);
+        if (geo != null) {
+            url.append("&lat=").append(geo.lat)
+                    .append("&lng=").append(geo.lon)
+                    .append("&radius_km=").append(geo.radiusKm);
+        }
+        return getJson(url.toString());
+    }
+
+    private List<WebcamItemDto> mapFeatureArray(JsonNode root, boolean hasVideoOnly) {
+        List<WebcamItemDto> mapped = new ArrayList<>();
+        JsonNode data = root != null ? firstArray(root, "data", "features", "items") : null;
+        if (data == null || !data.isArray()) {
+            return mapped;
+        }
+        for (JsonNode n : data) {
+            WebcamItemDto item = mapFeature(n);
+            if (item == null || !StringUtils.hasText(item.getId())) {
+                continue;
+            }
+            if (hasVideoOnly && !Boolean.TRUE.equals(item.getHasVideo())) {
+                continue;
+            }
+            mapped.add(item);
+        }
+        return mapped;
     }
 
     private String resolveNearbyFromQuery(String q, String jurisdictionIso3) {
@@ -348,6 +406,47 @@ public class NapspanWebcamCatalogService {
             return false;
         }
         return ROAD_QUERY.matcher(t).matches();
+    }
+
+    /** "a6" / "A-6" / "autoroute A6" → "A6". */
+    static String normalizeRoadId(String q) {
+        if (!StringUtils.hasText(q)) {
+            return "";
+        }
+        String t = q.trim();
+        t = t.replaceAll("(?i)^(autoroute|autostrada|autobahn|motorway|highway|route|strada|via)\\s+", "");
+        t = t.replaceAll("[\\s\\-]+", "");
+        return t.toUpperCase(Locale.ROOT);
+    }
+
+    /**
+     * Match road id as a whole token (A6 matches "Autoroute A6 …" / "A-6" / road_name A6,
+     * but not A10 / A61).
+     */
+    static boolean matchesRoadId(WebcamItemDto item, String roadId) {
+        if (item == null || !StringUtils.hasText(roadId)) {
+            return false;
+        }
+        String needle = roadId.trim().toUpperCase(Locale.ROOT);
+        Pattern boundary = Pattern.compile(
+                "(?<![A-Z0-9])" + Pattern.quote(needle) + "(?![0-9])");
+        StringBuilder hay = new StringBuilder();
+        appendHay(hay, item.getTitle());
+        appendHay(hay, item.getCity());
+        appendHay(hay, item.getId());
+        if (item.getCategories() != null) {
+            for (String cat : item.getCategories()) {
+                appendHay(hay, cat);
+            }
+        }
+        // Compact "A 6" / "A-6" → "A6" so spaced titles still match.
+        String compact = hay.toString().toUpperCase(Locale.ROOT)
+                .replaceAll("([A-Z])[\\s\\-]+(\\d)", "$1$2");
+        return boundary.matcher(compact).find();
+    }
+
+    private static String nullToEmpty(String s) {
+        return s == null ? "" : s;
     }
 
     private static List<String> tokenizeQuery(String q) {

@@ -2508,3 +2508,112 @@
 ::ng-deep .trace-viewer-leaflet-modal .mf-temp-action-btn .mf-temp-source-logo {
 	flex-shrink: 0;
 }
+
+/* Modale stats GPX au-dessus du TraceViewer */
+::ng-deep .trace-viewer-gpx-stats-modal .modal-dialog {
+	max-width: min(42rem, 92vw);
+	margin: 1.5rem auto;
+}
+::ng-deep .trace-viewer-gpx-stats-modal .modal-content {
+	max-height: min(88vh, 900px);
+	display: flex;
+	flex-direction: column;
+	border: 3px solid var(--slideshow-border, #fff);
+	border-radius: 8px;
+	overflow: hidden;
+}
+::ng-deep .trace-viewer-gpx-stats-modal .modal-header.gpx-stats-modal-header {
+	background: var(--slideshow-footer-bg, #2c3e50);
+	color: #fff;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+	flex-shrink: 0;
+}
+::ng-deep .trace-viewer-gpx-stats-modal .modal-title {
+	color: #fff;
+}
+::ng-deep .trace-viewer-gpx-stats-modal .btn-close-white {
+	filter: invert(1) grayscale(100%);
+}
+::ng-deep .trace-viewer-gpx-stats-modal .modal-body.gpx-stats-modal-body {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	padding: 1rem 1.15rem 1.25rem;
+	background: #fff;
+}
+::ng-deep .trace-viewer-gpx-stats-modal .modal-footer.gpx-stats-modal-footer {
+	flex-shrink: 0;
+	background: var(--slideshow-footer-bg, #2c3e50);
+	border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+::ng-deep .trace-viewer-gpx-stats-modal .tv-gpx-dl {
+	margin: 0;
+}
+::ng-deep .trace-viewer-gpx-stats-modal .tv-gpx-dl > div {
+	display: grid;
+	grid-template-columns: minmax(7rem, 38%) 1fr;
+	gap: 0.35rem 0.75rem;
+	padding: 0.35rem 0;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+	font-size: 0.875rem;
+}
+::ng-deep .trace-viewer-gpx-stats-modal .tv-gpx-dl dt {
+	margin: 0;
+	color: #6c757d;
+	font-weight: 500;
+}
+::ng-deep .trace-viewer-gpx-stats-modal .tv-gpx-dl dd {
+	margin: 0;
+	word-break: break-word;
+}
+::ng-deep .trace-viewer-gpx-stats-modal .tv-gpx-stat-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0.55rem;
+}
+@media (min-width: 576px) {
+	::ng-deep .trace-viewer-gpx-stats-modal .tv-gpx-stat-grid {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+}
+::ng-deep .trace-viewer-gpx-stats-modal .tv-gpx-stat {
+	border: 1px solid rgba(0, 0, 0, 0.06);
+	border-radius: 0.55rem;
+	padding: 0.55rem 0.65rem;
+	background: #f8f9fa;
+}
+::ng-deep .trace-viewer-gpx-stats-modal .tv-gpx-stat-label {
+	font-size: 0.72rem;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+	color: #6c757d;
+	margin-bottom: 0.15rem;
+}
+::ng-deep .trace-viewer-gpx-stats-modal .tv-gpx-stat-value {
+	font-size: 1rem;
+	font-weight: 650;
+	color: #212529;
+}
+::ng-deep .trace-viewer-gpx-stats-modal .tv-gpx-wpt-list {
+	max-height: 12rem;
+	overflow-y: auto;
+	border: 1px solid rgba(0, 0, 0, 0.06);
+	border-radius: 0.55rem;
+}
+::ng-deep .trace-viewer-gpx-stats-modal .tv-gpx-wpt-row {
+	padding: 0.5rem 0.65rem;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+	font-size: 0.875rem;
+}
+::ng-deep .trace-viewer-gpx-stats-modal .tv-gpx-wpt-row:last-child {
+	border-bottom: none;
+}
+@media (max-width: 576px) {
+	::ng-deep .trace-viewer-gpx-stats-modal .modal-dialog {
+		max-width: 100vw;
+		margin: 0.5rem;
+	}
+	::ng-deep .trace-viewer-gpx-stats-modal .modal-content {
+		max-height: 92vh;
+	}
+}

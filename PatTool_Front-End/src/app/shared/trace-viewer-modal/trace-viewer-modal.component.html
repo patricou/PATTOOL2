@@ -365,6 +365,14 @@
           </button>
           <button type="button"
                   class="btn btn-outline-secondary btn-sm mt-2 w-100"
+                  *ngIf="gpxAnalysis"
+                  (click)="openGpxStatsModal()"
+                  [title]="'EVENTELEM.TRACK_GPX_STATS_HINT' | translate"
+                  [attr.aria-label]="'EVENTELEM.TRACK_GPX_STATS' | translate">
+            <i class="fa fa-bar-chart me-1" aria-hidden="true"></i> {{ 'EVENTELEM.TRACK_GPX_STATS' | translate }}
+          </button>
+          <button type="button"
+                  class="btn btn-outline-secondary btn-sm mt-2 w-100"
                   (click)="openCartesGouvEmbed()"
                   [title]="'EVENTELEM.CARTES_GOUV_FR_TITLE' | translate">
             <i class="fa fa-map me-1"></i> IGN
@@ -539,6 +547,14 @@
       </button>
       <button type="button"
               class="btn btn-outline-secondary flex-shrink-0"
+              *ngIf="!isFullscreen && gpxAnalysis"
+              (click)="openGpxStatsModal()"
+              [title]="'EVENTELEM.TRACK_GPX_STATS_HINT' | translate"
+              [attr.aria-label]="'EVENTELEM.TRACK_GPX_STATS' | translate">
+        <i class="fa fa-bar-chart me-1" aria-hidden="true"></i><span class="trace-viewer-footer-btn-text">{{ 'EVENTELEM.TRACK_GPX_STATS' | translate }}</span>
+      </button>
+      <button type="button"
+              class="btn btn-outline-secondary flex-shrink-0"
               *ngIf="!isFullscreen"
               (click)="openCartesGouvEmbed()"
               [title]="'EVENTELEM.CARTES_GOUV_FR_TITLE' | translate">
@@ -573,6 +589,145 @@
       </div>
     </div>
     </div>
+  </div>
+</ng-template>
+
+<ng-template #gpxStatsModal let-modal>
+  <div class="modal-header gpx-stats-modal-header">
+    <h5 class="modal-title">
+      <i class="fa fa-bar-chart me-2" aria-hidden="true"></i>
+      {{ 'EVENTELEM.TRACK_GPX_STATS_TITLE' | translate }}
+    </h5>
+    <button type="button"
+            class="btn-close btn-close-white"
+            [attr.aria-label]="'COMMUN.CLOSE' | translate"
+            (click)="closeGpxStatsModal()"></button>
+  </div>
+  <div class="modal-body gpx-stats-modal-body" *ngIf="gpxAnalysis as a">
+    <h3 class="h6 text-uppercase text-muted mb-3">{{ 'GPX_TRACE.SECTION_FILE' | translate }}</h3>
+    <dl class="tv-gpx-dl">
+      <div><dt>{{ 'GPX_TRACE.FILE_NAME' | translate }}</dt><dd>{{ a.fileName }}</dd></div>
+      <div><dt>{{ 'GPX_TRACE.FILE_SIZE' | translate }}</dt><dd>{{ formatGpxFileSize(a.fileSizeBytes) }}</dd></div>
+      <div *ngIf="a.name"><dt>{{ 'GPX_TRACE.NAME' | translate }}</dt><dd>{{ a.name }}</dd></div>
+      <div *ngIf="a.description"><dt>{{ 'GPX_TRACE.DESCRIPTION' | translate }}</dt><dd>{{ a.description }}</dd></div>
+      <div *ngIf="a.author"><dt>{{ 'GPX_TRACE.AUTHOR' | translate }}</dt><dd>{{ a.author }}</dd></div>
+      <div *ngIf="a.creator"><dt>{{ 'GPX_TRACE.CREATOR' | translate }}</dt><dd>{{ a.creator }}</dd></div>
+      <div *ngIf="a.keywords"><dt>{{ 'GPX_TRACE.KEYWORDS' | translate }}</dt><dd>{{ a.keywords }}</dd></div>
+      <div *ngIf="a.metadataTimeIso"><dt>{{ 'GPX_TRACE.METADATA_TIME' | translate }}</dt><dd>{{ formatGpxDateTime(a.metadataTimeIso) }}</dd></div>
+      <div *ngIf="a.linkHref">
+        <dt>{{ 'GPX_TRACE.LINK' | translate }}</dt>
+        <dd><a [href]="a.linkHref" target="_blank" rel="noopener noreferrer">{{ a.linkText || a.linkHref }}</a></dd>
+      </div>
+    </dl>
+
+    <h3 class="h6 text-uppercase text-muted mb-3 mt-4">{{ 'GPX_TRACE.SECTION_STRUCTURE' | translate }}</h3>
+    <dl class="tv-gpx-dl">
+      <div><dt>{{ 'GPX_TRACE.TRACKS' | translate }}</dt><dd>{{ a.trackCount }}</dd></div>
+      <div><dt>{{ 'GPX_TRACE.SEGMENTS' | translate }}</dt><dd>{{ a.segmentCount }}</dd></div>
+      <div><dt>{{ 'GPX_TRACE.TRACK_POINTS' | translate }}</dt><dd>{{ a.trackPointCount }}</dd></div>
+      <div><dt>{{ 'GPX_TRACE.ROUTES' | translate }}</dt><dd>{{ a.routeCount }}</dd></div>
+      <div><dt>{{ 'GPX_TRACE.ROUTE_POINTS' | translate }}</dt><dd>{{ a.routePointCount }}</dd></div>
+      <div><dt>{{ 'GPX_TRACE.WAYPOINTS' | translate }}</dt><dd>{{ a.waypointCount }}</dd></div>
+      <div *ngIf="a.trackNames.length">
+        <dt>{{ 'GPX_TRACE.TRACK_NAMES' | translate }}</dt>
+        <dd>{{ a.trackNames.join(', ') }}</dd>
+      </div>
+    </dl>
+
+    <h3 class="h6 text-uppercase text-muted mb-3 mt-4">{{ 'GPX_TRACE.SECTION_STATS' | translate }}</h3>
+    <p class="small text-muted mb-2" *ngIf="a.elevationFromDem">{{ 'GPX_TRACE.ELEV_FROM_DEM' | translate }}</p>
+    <div class="tv-gpx-stat-grid">
+      <div class="tv-gpx-stat">
+        <div class="tv-gpx-stat-label">{{ 'GPX_TRACE.DISTANCE' | translate }}</div>
+        <div class="tv-gpx-stat-value">{{ formatGpxDistance(a.distanceM) }}</div>
+      </div>
+      <div class="tv-gpx-stat">
+        <div class="tv-gpx-stat-label">{{ 'GPX_TRACE.DURATION' | translate }}</div>
+        <div class="tv-gpx-stat-value">{{ formatGpxDuration(a.durationSec) }}</div>
+      </div>
+      <div class="tv-gpx-stat">
+        <div class="tv-gpx-stat-label">{{ 'GPX_TRACE.MOVING_TIME' | translate }}</div>
+        <div class="tv-gpx-stat-value">{{ formatGpxDuration(a.movingTimeSec) }}</div>
+      </div>
+      <div class="tv-gpx-stat">
+        <div class="tv-gpx-stat-label">{{ 'GPX_TRACE.AVG_SPEED' | translate }}</div>
+        <div class="tv-gpx-stat-value">{{ formatGpxSpeed(a.avgSpeedKmh) }}</div>
+      </div>
+      <div class="tv-gpx-stat">
+        <div class="tv-gpx-stat-label">{{ 'GPX_TRACE.MAX_SPEED' | translate }}</div>
+        <div class="tv-gpx-stat-value">{{ formatGpxSpeed(a.maxSpeedKmh) }}</div>
+      </div>
+      <div class="tv-gpx-stat">
+        <div class="tv-gpx-stat-label">{{ 'GPX_TRACE.ASCENT' | translate }}</div>
+        <div class="tv-gpx-stat-value">{{ formatGpxElev(a.elevationGainM) }}</div>
+      </div>
+      <div class="tv-gpx-stat">
+        <div class="tv-gpx-stat-label">{{ 'GPX_TRACE.DESCENT' | translate }}</div>
+        <div class="tv-gpx-stat-value">{{ formatGpxElev(a.elevationLossM) }}</div>
+      </div>
+      <div class="tv-gpx-stat">
+        <div class="tv-gpx-stat-label">{{ 'GPX_TRACE.ELEV_MIN' | translate }}</div>
+        <div class="tv-gpx-stat-value">{{ formatGpxElev(a.elevMinM) }}</div>
+      </div>
+      <div class="tv-gpx-stat">
+        <div class="tv-gpx-stat-label">{{ 'GPX_TRACE.ELEV_MAX' | translate }}</div>
+        <div class="tv-gpx-stat-value">{{ formatGpxElev(a.elevMaxM) }}</div>
+      </div>
+      <div class="tv-gpx-stat">
+        <div class="tv-gpx-stat-label">{{ 'GPX_TRACE.ELEV_START' | translate }}</div>
+        <div class="tv-gpx-stat-value">{{ formatGpxElev(a.elevStartM) }}</div>
+      </div>
+      <div class="tv-gpx-stat">
+        <div class="tv-gpx-stat-label">{{ 'GPX_TRACE.ELEV_END' | translate }}</div>
+        <div class="tv-gpx-stat-value">{{ formatGpxElev(a.elevEndM) }}</div>
+      </div>
+    </div>
+
+    <h3 class="h6 text-uppercase text-muted mb-3 mt-4">{{ 'GPX_TRACE.SECTION_GEO' | translate }}</h3>
+    <dl class="tv-gpx-dl">
+      <div>
+        <dt>{{ 'GPX_TRACE.START' | translate }}</dt>
+        <dd>{{ formatGpxCoord(a.startLat) }}, {{ formatGpxCoord(a.startLon) }}</dd>
+      </div>
+      <div>
+        <dt>{{ 'GPX_TRACE.END' | translate }}</dt>
+        <dd>{{ formatGpxCoord(a.endLat) }}, {{ formatGpxCoord(a.endLon) }}</dd>
+      </div>
+      <div *ngIf="a.bounds as b">
+        <dt>{{ 'GPX_TRACE.BOUNDS' | translate }}</dt>
+        <dd>
+          {{ formatGpxCoord(b.minLat) }}…{{ formatGpxCoord(b.maxLat) }} /
+          {{ formatGpxCoord(b.minLon) }}…{{ formatGpxCoord(b.maxLon) }}
+        </dd>
+      </div>
+      <div>
+        <dt>{{ 'GPX_TRACE.START_TIME' | translate }}</dt>
+        <dd>{{ formatGpxDateTime(a.startTimeIso) }}</dd>
+      </div>
+      <div>
+        <dt>{{ 'GPX_TRACE.END_TIME' | translate }}</dt>
+        <dd>{{ formatGpxDateTime(a.endTimeIso) }}</dd>
+      </div>
+    </dl>
+
+    <div *ngIf="a.waypoints.length" class="mt-4">
+      <h3 class="h6 text-uppercase text-muted mb-2">{{ 'GPX_TRACE.SECTION_WAYPOINTS' | translate }}</h3>
+      <div class="tv-gpx-wpt-list">
+        <div class="tv-gpx-wpt-row" *ngFor="let w of a.waypoints">
+          <div class="fw-semibold">{{ w.name || ('GPX_TRACE.WAYPOINT_UNNAMED' | translate) }}</div>
+          <div class="small text-muted">
+            {{ formatGpxCoord(w.lat) }}, {{ formatGpxCoord(w.lon) }}
+            <span *ngIf="w.eleM != null"> · {{ formatGpxElev(w.eleM) }}</span>
+          </div>
+          <div class="small" *ngIf="w.desc">{{ w.desc }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer gpx-stats-modal-footer">
+    <button type="button" class="btn btn-secondary" (click)="closeGpxStatsModal()">
+      <i class="fa fa-times me-1" aria-hidden="true"></i>{{ 'COMMUN.CLOSE' | translate }}
+    </button>
   </div>
 </ng-template>
 

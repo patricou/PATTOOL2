@@ -1841,6 +1841,34 @@ body.tv-landscape-fs app-tv-watcher {
   background: #000 !important;
 }
 
+/* Mobile landscape webcam watcher: hide app chrome, lock scroll */
+body.wc-landscape-fs {
+  overflow: hidden !important;
+}
+
+body.wc-landscape-fs app-root > nav.navbar,
+body.wc-landscape-fs app-root > app-news-ticker,
+body.wc-landscape-fs app-root > app-currency-ticker,
+body.wc-landscape-fs app-root > app-stock-ticker,
+body.wc-landscape-fs app-root > .pat-div,
+body.wc-landscape-fs app-root > .friend-requests-app-banner {
+  display: none !important;
+}
+
+body.wc-landscape-fs app-webcam-watcher {
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2000 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: #000 !important;
+}
+
 /* Detached TV pop-out window: no app chrome / no page scroll */
 body.tv-popout-mode {
   overflow: hidden !important;

@@ -427,6 +427,21 @@ public class ApiController {
     }
 
     /**
+     * Batch sea-level elevations for GPX track enrichment (Open-Meteo).
+     * Body: { "locations": [ { "lat": 46.5, "lon": 6.6 }, ... ] } (max 100).
+     */
+    @PostMapping(value = "/weather/elevation/batch", produces = MediaType.APPLICATION_JSON_VALUE)
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getElevationBatch(@RequestBody Map<String, Object> body) {
+        Object raw = body != null ? body.get("locations") : null;
+        List<Map<String, Object>> locations = raw instanceof List<?> list
+                ? (List<Map<String, Object>>) list
+                : List.of();
+        log.debug("Fetching elevation batch: {} locations", locations.size());
+        return openWeatherService.lookupElevationsBatch(locations);
+    }
+
+    /**
      * Test endpoint to check API configuration
      * @return Status information
      */

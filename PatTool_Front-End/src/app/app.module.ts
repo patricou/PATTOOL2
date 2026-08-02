@@ -168,6 +168,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./gps-routing/gps-routing.component').then(m => m.GpsRoutingComponent)
 			},
 			{
+				path: 'api/gpx-trace',
+				loadComponent: () => import('./gpx-trace/gpx-trace.component').then(m => m.GpxTraceComponent)
+			},
+			{
 				path: 'api/stock-exchange',
 				loadComponent: () => import('./stock-exchange/stock-exchange.component').then(m => m.StockExchangeComponent)
 			},

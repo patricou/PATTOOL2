@@ -1,4 +1,4 @@
-﻿{
+{
   "LANGUAGE": {
     "FR": "צרפתית",
     "EN": "אנגלית",
@@ -43,6 +43,7 @@
     "METEO_FRANCE": "מזג אוויר ותחזיות",
     "ADDRESS_TO_MAP": "כתובת/GPS למפה",
     "GPS_ROUTING": "GPS / מסלול",
+    "GPX_TRACE": "מסלול GPX",
     "NEWS": "חדשות",
     "CURRENCY_CONVERTER": "ממיר מטבעות",
     "TIME_ZONES": "Time zones",
@@ -1693,6 +1694,9 @@
     "TRACK_NO_SOURCE": "אין מקור למסלול.",
     "TRACK_BASEMAP": "מפת בסיס",
     "TRACK_RECENTER": "מרכז את המסלול (R)",
+    "TRACK_GPX_STATS": "סטטיסטיקת GPX",
+    "TRACK_GPX_STATS_HINT": "הצג סטטיסטיקה של קובץ GPX",
+    "TRACK_GPX_STATS_TITLE": "סטטיסטיקת GPX",
     "TRACK_VIEW_ON_GLOBE": "Globe 3D",
     "TRACK_OPEN_METEO_FRANCE": "Météo-France",
     "TRACK_OPEN_METEO_FRANCE_HINT": "פתח Météo-France (מכ\"ם וטמפרטורה) במיקום זה",

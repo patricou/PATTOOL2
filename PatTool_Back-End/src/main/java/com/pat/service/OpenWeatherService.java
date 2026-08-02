@@ -355,6 +355,142 @@ public class OpenWeatherService {
     }
 
     /**
+     * Batch sea-level elevations (m) for track enrichment (Open-Meteo, cached per point).
+     * Request body: { "locations": [ { "lat": 46.5, "lon": 6.6 }, ... ] } (max 100).
+     */
+    public Map<String, Object> lookupElevationsBatch(List<Map<String, Object>> locations) {
+        Map<String, Object> result = new HashMap<>();
+        java.util.ArrayList<Double> altitudes = new java.util.ArrayList<>();
+        if (locations == null || locations.isEmpty()) {
+            result.put("altitudesM", altitudes);
+            result.put("source", null);
+            return result;
+        }
+        int limit = Math.min(locations.size(), 100);
+        java.util.ArrayList<double[]> coords = new java.util.ArrayList<>(limit);
+        for (int i = 0; i < limit; i++) {
+            Map<String, Object> loc = locations.get(i);
+            Double lat = toDouble(loc != null ? loc.get("lat") : null);
+            Double lon = toDouble(loc != null ? loc.get("lon") : null);
+            if (lat == null || lon == null) {
+                coords.add(null);
+            } else {
+                coords.add(new double[]{lat, lon});
+            }
+        }
+
+        // Resolve via cache first; collect cache misses for one Open-Meteo batch call.
+        Double[] resolved = new Double[coords.size()];
+        java.util.ArrayList<Integer> missIdx = new java.util.ArrayList<>();
+        java.util.ArrayList<double[]> missCoords = new java.util.ArrayList<>();
+        String source = null;
+        for (int i = 0; i < coords.size(); i++) {
+            double[] c = coords.get(i);
+            if (c == null) {
+                continue;
+            }
+            String cacheKey = elevationCacheKey(c[0], c[1]);
+            ElevationCacheEntry cached = elevationCache.get(cacheKey);
+            if (cached != null && cached.isValid()) {
+                resolved[i] = cached.altitude();
+                if (source == null && cached.sourceKey() != null) {
+                    source = cached.sourceKey();
+                }
+            } else {
+                missIdx.add(i);
+                missCoords.add(c);
+            }
+        }
+
+        if (!missCoords.isEmpty()) {
+            List<Double> batch = fetchOpenMeteoElevationBatch(missCoords);
+            for (int j = 0; j < missIdx.size(); j++) {
+                int idx = missIdx.get(j);
+                Double alt = j < batch.size() ? batch.get(j) : null;
+                resolved[idx] = alt;
+                double[] c = missCoords.get(j);
+                if (alt != null) {
+                    cacheElevation(elevationCacheKey(c[0], c[1]),
+                            new SeaLevelElevation(alt, "open-meteo",
+                                    "Altitude from Open-Meteo elevation API (sea level)"),
+                            ELEVATION_HIT_CACHE_TTL);
+                    source = "open-meteo";
+                } else {
+                    elevationCache.put(elevationCacheKey(c[0], c[1]), new ElevationCacheEntry(
+                            null, null, null, Instant.now().plus(ELEVATION_MISS_CACHE_TTL)));
+                }
+            }
+        }
+
+        for (Double alt : resolved) {
+            altitudes.add(alt);
+        }
+        result.put("altitudesM", altitudes);
+        result.put("source", source);
+        return result;
+    }
+
+    private List<Double> fetchOpenMeteoElevationBatch(List<double[]> coords) {
+        java.util.ArrayList<Double> out = new java.util.ArrayList<>(coords.size());
+        if (coords.isEmpty()) {
+            return out;
+        }
+        try {
+            StringBuilder lats = new StringBuilder();
+            StringBuilder lons = new StringBuilder();
+            for (int i = 0; i < coords.size(); i++) {
+                if (i > 0) {
+                    lats.append(',');
+                    lons.append(',');
+                }
+                lats.append(formatCoordinate(coords.get(i)[0]));
+                lons.append(formatCoordinate(coords.get(i)[1]));
+            }
+            String url = UriComponentsBuilder.fromHttpUrl(OPEN_METEO_ELEVATION_URL)
+                    .queryParam("latitude", lats.toString())
+                    .queryParam("longitude", lons.toString())
+                    .toUriString();
+            @SuppressWarnings("unchecked")
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    new HttpEntity<>(new HttpHeaders()),
+                    (Class<Map<String, Object>>) (Class<?>) Map.class);
+            Map<String, Object> body = response.getBody();
+            if (body == null || !(body.get("elevation") instanceof List<?> list)) {
+                for (int i = 0; i < coords.size(); i++) {
+                    out.add(null);
+                }
+                return out;
+            }
+            for (int i = 0; i < coords.size(); i++) {
+                out.add(i < list.size() ? parseElevationValue(list.get(i)) : null);
+            }
+            return out;
+        } catch (Exception e) {
+            log.debug("Open-Meteo elevation batch error: {}", e.getMessage());
+            for (int i = 0; i < coords.size(); i++) {
+                out.add(null);
+            }
+            return out;
+        }
+    }
+
+    private static Double toDouble(Object raw) {
+        if (raw instanceof Number number) {
+            return number.doubleValue();
+        }
+        if (raw instanceof String text) {
+            try {
+                return Double.parseDouble(text.trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Sea-level elevation (m) for coordinates — cached server-side (OpenElevation / Open-Meteo).
      */
     public Map<String, Object> getSeaLevelElevationForCoordinates(double lat, double lon) {

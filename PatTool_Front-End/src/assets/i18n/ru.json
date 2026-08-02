@@ -1,4 +1,4 @@
-﻿{
+{
   "LANGUAGE": {
     "FR": "Французский",
     "EN": "Английский",
@@ -376,6 +376,9 @@
     "TRACK_NO_SOURCE": "Источник трека отсутствует.",
     "TRACK_BASEMAP": "Базовая карта",
     "TRACK_RECENTER": "Центрировать трек (R)",
+    "TRACK_GPX_STATS": "Стат. GPX",
+    "TRACK_GPX_STATS_HINT": "Показать статистику GPX-файла",
+    "TRACK_GPX_STATS_TITLE": "Статистика GPX",
     "TRACK_VIEW_ON_GLOBE": "Globe 3D",
     "TRACK_OPEN_METEO_FRANCE": "Météo-France",
     "TRACK_OPEN_METEO_FRANCE_HINT": "Открыть Météo-France (радар и температура) в этой точке",
@@ -469,6 +472,7 @@
     "METEO_FRANCE": "Погода и прогнозы",
     "ADDRESS_TO_MAP": "Адрес/GPS на карте",
     "GPS_ROUTING": "GPS / Маршрут",
+    "GPX_TRACE": "Трек GPX",
     "NEWS": "Новости",
     "CURRENCY_CONVERTER": "Конвертер валют",
     "TIME_ZONES": "Time zones",

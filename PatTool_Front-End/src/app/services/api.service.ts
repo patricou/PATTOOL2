@@ -1201,6 +1201,28 @@ export class ApiService {
   }
 
   /**
+   * Batch sea-level elevations for GPX track enrichment (Open-Meteo via backend).
+   * Max 100 locations per call.
+   */
+  lookupElevationsBatch(
+    locations: Array<{ lat: number; lon: number }>
+  ): Observable<{ altitudesM: Array<number | null>; source?: string | null }> {
+    const url = this.API_URL + 'external/weather/elevation/batch';
+    const body = { locations: (locations || []).slice(0, 100) };
+    const requestNoAuth = () =>
+      this._http.post<{ altitudesM: Array<number | null>; source?: string | null }>(url, body, {
+        headers: new HttpHeaders({
+          Accept: 'application/json',
+          'Content-Type': 'application/json; charset=UTF-8'
+        })
+      });
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) => this._http.post<{ altitudesM: Array<number | null>; source?: string | null }>(url, body, { headers })),
+      catchError(() => requestNoAuth())
+    );
+  }
+
+  /**
    * Get API status
    */
   getApiStatus(): Observable<any> {

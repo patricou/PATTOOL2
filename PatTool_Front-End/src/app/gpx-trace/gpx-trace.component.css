@@ -1,0 +1,186 @@
+:host {
+  display: block;
+}
+
+.gpx-page {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 0 1.25rem 2rem;
+  box-sizing: border-box;
+}
+
+.gpx-lead {
+  font-size: 0.925rem;
+  line-height: 1.5;
+  max-width: 48rem;
+}
+
+.gpx-alert {
+  border-radius: 0.65rem;
+}
+
+.gpx-panel {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0.75rem;
+}
+
+.gpx-dropzone {
+  border: 2px dashed rgba(13, 110, 253, 0.35);
+  border-radius: 0.75rem;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  background: rgba(13, 110, 253, 0.04);
+  color: #0d6efd;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.gpx-dropzone:hover,
+.gpx-dropzone:focus {
+  border-color: #0d6efd;
+  background: rgba(13, 110, 253, 0.08);
+  outline: none;
+}
+
+.gpx-dropzone--active {
+  border-color: #0d6efd;
+  background: rgba(13, 110, 253, 0.12);
+}
+
+.gpx-dl {
+  margin: 0;
+}
+
+.gpx-dl > div {
+  display: grid;
+  grid-template-columns: minmax(7rem, 38%) 1fr;
+  gap: 0.35rem 0.75rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  font-size: 0.875rem;
+}
+
+.gpx-dl dt {
+  margin: 0;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.gpx-dl dd {
+  margin: 0;
+  word-break: break-word;
+}
+
+.gpx-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.gpx-stat {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  background: #f8f9fa;
+}
+
+.gpx-stat-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #6c757d;
+  margin-bottom: 0.15rem;
+}
+
+.gpx-stat-value {
+  font-size: 1rem;
+  font-weight: 650;
+  color: #212529;
+}
+
+.gpx-map-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.gpx-map {
+  width: 100%;
+  height: min(62vh, 520px);
+  min-height: 280px;
+  border-radius: 0.55rem;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  z-index: 0;
+}
+
+.gpx-map-shell:fullscreen,
+.gpx-map-shell:-webkit-full-screen,
+.gpx-map-shell.gpx-map-shell--fullscreen {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  padding: 1rem;
+  box-sizing: border-box;
+  background: #fff;
+  border-radius: 0;
+}
+
+.gpx-map-shell.gpx-map-shell--fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+}
+
+.gpx-map-shell:fullscreen .gpx-map,
+.gpx-map-shell:-webkit-full-screen .gpx-map,
+.gpx-map-shell.gpx-map-shell--fullscreen .gpx-map {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  border-radius: 0;
+}
+
+.gpx-basemap-select {
+  width: auto;
+  min-width: 9rem;
+}
+
+.gpx-elev-canvas {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.gpx-wpt-list {
+  max-height: 16rem;
+  overflow: auto;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 0.5rem;
+}
+
+.gpx-wpt-row {
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  font-size: 0.85rem;
+}
+
+.gpx-wpt-row:last-child {
+  border-bottom: 0;
+}
+
+@media (max-width: 575.98px) {
+  .gpx-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .gpx-dl > div {
+    grid-template-columns: 1fr;
+  }
+}

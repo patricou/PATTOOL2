@@ -1,4 +1,4 @@
-﻿{
+{
   "LANGUAGE": {
     "FR": "フランス語",
     "EN": "英語",
@@ -43,6 +43,7 @@
     "METEO_FRANCE": "天気と予報",
     "ADDRESS_TO_MAP": "住所/GPSを地図に",
     "GPS_ROUTING": "GPS / ルート",
+    "GPX_TRACE": "GPXトラック",
     "NEWS": "ニュース",
     "CURRENCY_CONVERTER": "通貨コンバーター",
     "TIME_ZONES": "Time zones",
@@ -1348,6 +1349,9 @@
     "TRACK_NO_SOURCE": "利用可能なトラックソースがありません。",
     "TRACK_BASEMAP": "ベースマップ",
     "TRACK_RECENTER": "トラックを再中心表示 (R)",
+    "TRACK_GPX_STATS": "GPX統計",
+    "TRACK_GPX_STATS_HINT": "GPXファイルの統計を表示",
+    "TRACK_GPX_STATS_TITLE": "GPX統計",
     "TRACK_VIEW_ON_GLOBE": "Globe 3D",
     "TRACK_OPEN_METEO_FRANCE": "Météo-France",
     "TRACK_OPEN_METEO_FRANCE_HINT": "この位置で Météo-France（レーダーと気温）を開く",

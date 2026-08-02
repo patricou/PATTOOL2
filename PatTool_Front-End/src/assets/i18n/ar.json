@@ -1,4 +1,4 @@
-﻿{
+{
   "LANGUAGE": {
     "FR": "الفرنسية",
     "EN": "الإنجليزية",
@@ -43,6 +43,7 @@
     "METEO_FRANCE": "الطقس والتوقعات",
     "ADDRESS_TO_MAP": "العنوان/GPS على الخريطة",
     "GPS_ROUTING": "GPS / مسار",
+    "GPX_TRACE": "مسار GPX",
     "NEWS": "الأخبار",
     "CURRENCY_CONVERTER": "محول العملات",
     "TIME_ZONES": "Time zones",
@@ -1597,6 +1598,9 @@
     "TRACK_NO_SOURCE": "لا توجد مصدر للمسار.",
     "TRACK_BASEMAP": "خريطة الأساس",
     "TRACK_RECENTER": "إعادة تمركز المسار (R)",
+    "TRACK_GPX_STATS": "إحصائيات GPX",
+    "TRACK_GPX_STATS_HINT": "عرض إحصائيات ملف GPX",
+    "TRACK_GPX_STATS_TITLE": "إحصائيات GPX",
     "TRACK_VIEW_ON_GLOBE": "Globe 3D",
     "TRACK_OPEN_METEO_FRANCE": "Météo-France",
     "TRACK_OPEN_METEO_FRANCE_HINT": "فتح Météo-France (الرادار ودرجة الحرارة) في هذا الموقع",

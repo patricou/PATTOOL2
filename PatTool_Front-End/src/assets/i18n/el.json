@@ -1,4 +1,4 @@
-﻿{
+{
   "LANGUAGE": {
     "FR": "Γαλλικά",
     "EN": "Αγγλικά",
@@ -43,6 +43,7 @@
     "METEO_FRANCE": "Καιρός και προγνώσεις",
     "ADDRESS_TO_MAP": "Διεύθυνση/GPS στον χάρτη",
     "GPS_ROUTING": "GPS / Διαδρομή",
+    "GPX_TRACE": "Ίχνος GPX",
     "NEWS": "Ειδήσεις",
     "CURRENCY_CONVERTER": "Μετατροπέας νομισμάτων",
     "TIME_ZONES": "Time zones",
@@ -1347,6 +1348,9 @@
     "TRACK_NO_SOURCE": "Δεν υπάρχει διαθέσιμη πηγή διαδρομής.",
     "TRACK_BASEMAP": "Βασικός χάρτης",
     "TRACK_RECENTER": "Επανακεντρισμός διαδρομής (R)",
+    "TRACK_GPX_STATS": "Στατ. GPX",
+    "TRACK_GPX_STATS_HINT": "Εμφάνιση στατιστικών αρχείου GPX",
+    "TRACK_GPX_STATS_TITLE": "Στατιστικά GPX",
     "TRACK_VIEW_ON_GLOBE": "Globe 3D",
     "TRACK_OPEN_METEO_FRANCE": "Météo-France",
     "TRACK_OPEN_METEO_FRANCE_HINT": "Άνοιγμα Météo-France (ραντάρ και θερμοκρασία) σε αυτή τη θέση",

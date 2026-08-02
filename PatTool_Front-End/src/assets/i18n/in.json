@@ -1,4 +1,4 @@
-﻿{
+{
   "LANGUAGE": {
     "FR": "फ्रेंच",
     "EN": "अंग्रेजी",
@@ -375,6 +375,9 @@
     "TRACK_NO_SOURCE": "कोई ट्रैक स्रोत उपलब्ध नहीं है।",
     "TRACK_BASEMAP": "बेसमैप",
     "TRACK_RECENTER": "ट्रैक को पुनः केंद्रित करें (R)",
+    "TRACK_GPX_STATS": "GPX आँकड़े",
+    "TRACK_GPX_STATS_HINT": "GPX फ़ाइल के आँकड़े दिखाएँ",
+    "TRACK_GPX_STATS_TITLE": "GPX आँकड़े",
     "TRACK_VIEW_ON_GLOBE": "Globe 3D",
     "TRACK_OPEN_METEO_FRANCE": "Météo-France",
     "TRACK_OPEN_METEO_FRANCE_HINT": "इस स्थान पर Météo-France (रडार और तापमान) खोलें",
@@ -468,6 +471,7 @@
     "METEO_FRANCE": "मौसम और पूर्वानुमान",
     "ADDRESS_TO_MAP": "पता/GPS मानचित्र पर",
     "GPS_ROUTING": "GPS / मार्ग",
+    "GPX_TRACE": "GPX ट्रैक",
     "NEWS": "समाचार",
     "CURRENCY_CONVERTER": "मुद्रा कन्वर्टर",
     "TIME_ZONES": "Time zones",
