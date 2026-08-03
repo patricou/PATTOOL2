@@ -553,14 +553,30 @@ public class NapspanWebcamCatalogService {
 
         String name = text(n, "name", "title");
         if (!StringUtils.hasText(name)) {
-            name = text(props, "name", "title", "description");
+            name = text(props, "name", "title");
         }
-        String jurisdiction = text(n, "jurisdiction", "source");
+        String description = text(n, "description");
+        if (!StringUtils.hasText(description)) {
+            description = text(props, "description");
+        }
+        String jurisdiction = text(n, "jurisdiction");
         if (!StringUtils.hasText(jurisdiction)) {
-            jurisdiction = text(props, "jurisdiction", "country", "source");
+            jurisdiction = text(props, "jurisdiction", "country");
         }
         if (StringUtils.hasText(jurisdiction)) {
             jurisdiction = toNapspanJurisdiction(jurisdiction);
+        }
+        String source = text(n, "source");
+        if (!StringUtils.hasText(source)) {
+            source = text(props, "source");
+        }
+        String sourceId = text(n, "source_id", "sourceId");
+        if (!StringUtils.hasText(sourceId)) {
+            sourceId = text(props, "source_id", "sourceId");
+        }
+        String featureType = text(n, "feature_type", "featureType", "type");
+        if (!StringUtils.hasText(featureType)) {
+            featureType = text(props, "feature_type", "featureType", "type");
         }
         String roadName = text(n, "road_name", "road");
         if (!StringUtils.hasText(roadName)) {
@@ -571,10 +587,14 @@ public class NapspanWebcamCatalogService {
             direction = text(props, "direction");
         }
         String place = firstNonBlank(
-                text(props, "nearby_place", "city", "municipality", "county"),
-                text(n, "city"));
+                text(props, "nearby_place", "city", "municipality", "county", "region"),
+                text(n, "city", "region"));
         String imageUrl = text(props, "image_url", "imageUrl", "url");
         String videoUrl = text(props, "video_url", "videoUrl", "stream_url", "hls_url");
+        String lastImageTime = text(props, "last_image_time", "lastImageTime", "capture_time", "captured_at");
+        String lastUpdated = firstNonBlank(
+                text(n, "last_updated", "lastUpdated", "lastUpdatedOn"),
+                text(props, "last_updated", "lastUpdated", "lastUpdatedOn", "updated_at", "timestamp"));
 
         Double lat = number(n, "latitude", "lat");
         Double lon = number(n, "longitude", "lng", "lon");
@@ -592,10 +612,16 @@ public class NapspanWebcamCatalogService {
             return null;
         }
 
+        String decodedDescription = StringUtils.hasText(description) ? decodeBasicHtml(description.trim()) : null;
+        String decodedName = StringUtils.hasText(name) ? decodeBasicHtml(name.trim()) : null;
+        // Prefer full description over truncated list name ("…").
+        String title = firstNonBlank(decodedDescription, decodedName, id.trim());
+
         WebcamItemDto dto = new WebcamItemDto();
         dto.setId(id.trim());
         dto.setProvider(PROVIDER);
-        dto.setTitle(StringUtils.hasText(name) ? decodeBasicHtml(name.trim()) : id.trim());
+        dto.setTitle(title);
+        dto.setDescription(decodedDescription);
         dto.setStatus(active ? "active" : "inactive");
         dto.setRegion(jurisdiction);
         dto.setCity(place);
@@ -605,6 +631,19 @@ public class NapspanWebcamCatalogService {
         dto.setContinentCode("EU");
         dto.setLatitude(lat);
         dto.setLongitude(lon);
+        dto.setSource(source);
+        dto.setSourceId(sourceId);
+        dto.setFeatureType(StringUtils.hasText(featureType) ? featureType.trim() : "cameras");
+        dto.setRoadName(roadName);
+        dto.setDirection(direction);
+        if (StringUtils.hasText(lastImageTime)) {
+            dto.setLastImageTime(lastImageTime.trim());
+        }
+        if (StringUtils.hasText(lastUpdated)) {
+            dto.setLastUpdatedOn(lastUpdated.trim());
+        } else if (StringUtils.hasText(lastImageTime)) {
+            dto.setLastUpdatedOn(lastImageTime.trim());
+        }
         dto.setImageUrl(imageUrl);
         dto.setImagePreviewUrl(imageUrl);
         boolean hasVideo = StringUtils.hasText(videoUrl);
@@ -631,7 +670,81 @@ public class NapspanWebcamCatalogService {
             cats.add(direction.trim());
         }
         dto.setCategories(cats);
+        collectExtraDetails(dto, n, props);
         return dto;
+    }
+
+    /**
+     * Preserve every remaining scalar / simple field from the NAPSPAN payload for the UI.
+     */
+    private static void collectExtraDetails(WebcamItemDto dto, JsonNode root, JsonNode props) {
+        // Known structured fields already exposed on the DTO — skip duplicates in details.
+        Set<String> skip = Set.of(
+                "id", "name", "title", "description", "jurisdiction", "source", "source_id", "sourceId",
+                "feature_type", "featureType", "type", "road_name", "road", "direction",
+                "latitude", "lat", "longitude", "lng", "lon", "is_active", "isActive",
+                "last_updated", "lastUpdated", "lastUpdatedOn", "updated_at", "timestamp",
+                "image_url", "imageUrl", "url", "video_url", "videoUrl", "stream_url", "hls_url",
+                "last_image_time", "lastImageTime", "capture_time", "captured_at",
+                "nearby_place", "city", "municipality", "county", "region", "country",
+                "properties", "geometry", "has_details", "hasDetails");
+        collectNodeDetails(dto, root, skip);
+        if (props != null && props != root) {
+            collectNodeDetails(dto, props, skip);
+        }
+        // Multi-view cameras (e.g. Bavaria detail)
+        JsonNode views = props != null ? props.get("views") : null;
+        if (views != null && views.isArray() && views.size() > 0) {
+            List<String> labels = new ArrayList<>();
+            for (JsonNode v : views) {
+                if (v == null || v.isNull()) {
+                    continue;
+                }
+                if (v.isTextual() && StringUtils.hasText(v.asText())) {
+                    labels.add(v.asText().trim());
+                } else if (v.isObject()) {
+                    String label = firstNonBlank(text(v, "name", "title", "direction"), text(v, "url"));
+                    if (StringUtils.hasText(label)) {
+                        labels.add(label.trim());
+                    }
+                }
+            }
+            if (!labels.isEmpty()) {
+                putDetail(dto, "views", String.join(" · ", labels));
+            }
+        }
+    }
+
+    private static void collectNodeDetails(WebcamItemDto dto, JsonNode node, Set<String> skip) {
+        if (node == null || !node.isObject()) {
+            return;
+        }
+        node.fields().forEachRemaining(entry -> {
+            String key = entry.getKey();
+            if (!StringUtils.hasText(key) || skip.contains(key)) {
+                return;
+            }
+            JsonNode val = entry.getValue();
+            if (val == null || val.isNull() || val.isObject() || val.isArray()) {
+                return;
+            }
+            String s = val.isValueNode() ? val.asText(null) : null;
+            if (StringUtils.hasText(s)) {
+                putDetail(dto, key, s.trim());
+            }
+        });
+    }
+
+    private static void putDetail(WebcamItemDto dto, String key, String value) {
+        if (dto == null || !StringUtils.hasText(key) || !StringUtils.hasText(value)) {
+            return;
+        }
+        Map<String, String> details = dto.getDetails();
+        if (details == null) {
+            details = new java.util.LinkedHashMap<>();
+            dto.setDetails(details);
+        }
+        details.putIfAbsent(key, value);
     }
 
     private JsonNode getJson(String url) throws Exception {
@@ -974,9 +1087,11 @@ public class NapspanWebcamCatalogService {
         dto.setId(src.getId());
         dto.setProvider(src.getProvider());
         dto.setTitle(src.getTitle());
+        dto.setDescription(src.getDescription());
         dto.setStatus(src.getStatus());
         dto.setViewCount(src.getViewCount());
         dto.setLastUpdatedOn(src.getLastUpdatedOn());
+        dto.setLastImageTime(src.getLastImageTime());
         dto.setCity(src.getCity());
         dto.setRegion(src.getRegion());
         dto.setCountry(src.getCountry());
@@ -992,7 +1107,13 @@ public class NapspanWebcamCatalogService {
         dto.setPlayerMonthUrl(src.getPlayerMonthUrl());
         dto.setDetailUrl(src.getDetailUrl());
         dto.setHasVideo(src.getHasVideo());
+        dto.setRoadName(src.getRoadName());
+        dto.setDirection(src.getDirection());
+        dto.setSource(src.getSource());
+        dto.setSourceId(src.getSourceId());
+        dto.setFeatureType(src.getFeatureType());
         dto.setCategories(src.getCategories() != null ? new ArrayList<>(src.getCategories()) : new ArrayList<>());
+        dto.setDetails(src.getDetails());
         return dto;
     }
 

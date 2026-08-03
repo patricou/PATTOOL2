@@ -832,6 +832,10 @@ public class TvCatalogService {
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/6ter_2012.svg/512px-6ter_2012.svg.png");
         ensureM6GroupChannel(out, "gulli", "Gulli", "Kids",
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/Gulli_2017.svg/512px-Gulli_2017.svg.png");
+        ensureEurosportChannel(out, "1", "Eurosport 1", "Sports",
+                "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/france/eurosport-1-fr.png");
+        ensureEurosportChannel(out, "2", "Eurosport 2", "Sports",
+                "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/france/eurosport-2-fr.png");
         return prioritizeOfficialLive(out);
     }
 
@@ -1026,6 +1030,15 @@ public class TvCatalogService {
         }
     }
 
+    private static void ensureEurosportChannel(List<TvChannelDto> list, String slug, String name,
+                                               String group, String logo) {
+        String virtual = EurosportLiveService.virtualUrl(slug);
+        boolean present = list.stream().anyMatch(c -> virtual.equalsIgnoreCase(c.getStreamUrl()));
+        if (!present) {
+            list.add(0, new TvChannelDto("eurosport-" + slug, name, logo, group, "fr", virtual, "720p"));
+        }
+    }
+
     private static List<TvChannelDto> prioritizeOfficialLive(List<TvChannelDto> channels) {
         List<TvChannelDto> priority = new ArrayList<>();
         List<TvChannelDto> rest = new ArrayList<>();
@@ -1035,7 +1048,8 @@ public class TvCatalogService {
                     || CanalGroupLiveService.isVirtualUrl(ch.getStreamUrl())
                     || RadioFranceLiveService.isVirtualUrl(ch.getStreamUrl())
                     || M6GroupLiveService.isVirtualUrl(ch.getStreamUrl())
-                    || RtsLiveService.isVirtualUrl(ch.getStreamUrl())) {
+                    || RtsLiveService.isVirtualUrl(ch.getStreamUrl())
+                    || EurosportLiveService.isVirtualUrl(ch.getStreamUrl())) {
                 priority.add(ch);
             } else {
                 rest.add(ch);

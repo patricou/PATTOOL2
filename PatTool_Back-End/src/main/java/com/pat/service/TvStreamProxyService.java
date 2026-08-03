@@ -104,7 +104,7 @@ public class TvStreamProxyService {
             return url;
         }
         return url.replaceFirst(
-                "(?i)^(francetv|tf1|canalgroup|radiofrance|m6group|rts|arte|ia)~",
+                "(?i)^(francetv|tf1|canalgroup|radiofrance|m6group|rts|eurosport|arte|ia)~",
                 "$1:");
     }
 

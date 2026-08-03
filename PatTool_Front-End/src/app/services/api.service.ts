@@ -2335,11 +2335,17 @@ export class ApiService {
     return this._http.get<TvEpgSchedule>(this.API_URL + 'external/tv/epg/schedule', { params });
   }
 
-  /** Browse EPG channels for one country (now/next), optional TV name filter. */
-  getTvEpgBrowse(country: string, q?: string, limit = 120): Observable<TvEpgBrowseChannel[]> {
+  /** Browse EPG channels for one country (now/next), optional TV/programme filter. */
+  getTvEpgBrowse(
+    country: string,
+    q?: string,
+    limit = 120,
+    nowOnly = true
+  ): Observable<TvEpgBrowseChannel[]> {
     let params = new HttpParams()
       .set('country', country || 'fr')
-      .set('limit', String(Math.max(1, Math.min(limit, 300))));
+      .set('limit', String(Math.max(1, Math.min(limit, 300))))
+      .set('nowOnly', nowOnly ? 'true' : 'false');
     if (q && q.trim()) {
       params = params.set('q', q.trim());
     }
@@ -2349,8 +2355,14 @@ export class ApiService {
   /**
    * Server-side programme search across the cached EPG window.
    * Use {@code country=all} for major countries.
+   * {@code nowOnly} (default true) limits hits to currently airing programmes.
    */
-  getTvEpgSearch(country: string, query: string, limit = 40): Observable<TvEpgSearchHit[]> {
+  getTvEpgSearch(
+    country: string,
+    query: string,
+    limit = 40,
+    nowOnly = true
+  ): Observable<TvEpgSearchHit[]> {
     const q = (query || '').trim();
     if (q.length < 2) {
       return of([]);
@@ -2358,7 +2370,8 @@ export class ApiService {
     const params = new HttpParams()
       .set('country', country || 'fr')
       .set('q', q)
-      .set('limit', String(Math.min(80, Math.max(1, limit))));
+      .set('limit', String(Math.min(80, Math.max(1, limit))))
+      .set('nowOnly', nowOnly ? 'true' : 'false');
     return this._http.get<TvEpgSearchHit[]>(this.API_URL + 'external/tv/epg/search', { params });
   }
 
@@ -2458,6 +2471,28 @@ export class ApiService {
       virtualUrl: string;
       expiresAtEpoch: number;
     }>(this.API_URL + 'external/tv/live/rts/' + encodeURIComponent(slug), { params });
+  }
+
+  /** Resolve Eurosport 1/2 via configured HLS seeds or Discovery token. */
+  resolveEurosportLive(
+    slug: string,
+    fresh = false
+  ): Observable<{
+    slug: string;
+    streamUrl: string;
+    virtualUrl: string;
+    expiresAtEpoch: number;
+  }> {
+    let params = new HttpParams();
+    if (fresh) {
+      params = params.set('fresh', 'true');
+    }
+    return this._http.get<{
+      slug: string;
+      streamUrl: string;
+      virtualUrl: string;
+      expiresAtEpoch: number;
+    }>(this.API_URL + 'external/tv/live/eurosport/' + encodeURIComponent(slug), { params });
   }
 
   /** GET /api/external/tv/arte/sections — ARTE replay section codes. */
@@ -4603,6 +4638,7 @@ export interface TvEpgSchedule {
 
 /** GET /api/external/tv/epg/browse */
 export interface TvEpgBrowseChannel {
+  country?: string;
   channelId?: string;
   name?: string;
   channel?: TvChannel | null;
@@ -4835,9 +4871,12 @@ export interface WebcamItem {
   /** windy (default), road511, or napspan */
   provider?: string;
   title: string;
+  description?: string;
   status?: string;
   viewCount?: number;
-  lastUpdatedOn?: string;
+  lastUpdatedOn?: string | number;
+  /** Still/clip capture time when distinct from lastUpdatedOn (NAPSPAN). */
+  lastImageTime?: string | number;
   city?: string;
   region?: string;
   country?: string;
@@ -4852,9 +4891,16 @@ export interface WebcamItem {
   playerLiveUrl?: string;
   playerMonthUrl?: string;
   detailUrl?: string;
-  /** Road511: true when playerLiveUrl is HLS */
+  /** Road511 / NAPSPAN: true when playerLiveUrl is a stream */
   hasVideo?: boolean;
+  roadName?: string;
+  direction?: string;
+  source?: string;
+  sourceId?: string;
+  featureType?: string;
   categories?: string[];
+  /** Extra scalar upstream fields (km, angle, views, …). */
+  details?: Record<string, string>;
 }
 
 export interface WebcamFavorites {

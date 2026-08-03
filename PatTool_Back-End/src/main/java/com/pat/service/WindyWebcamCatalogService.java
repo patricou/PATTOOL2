@@ -477,7 +477,7 @@ public class WindyWebcamCatalogService {
         if (node.has("viewCount") && !node.path("viewCount").isNull()) {
             dto.setViewCount(node.path("viewCount").asLong());
         }
-        dto.setLastUpdatedOn(text(node, "lastUpdatedOn"));
+        dto.setLastUpdatedOn(normalizeEpochOrIso(text(node, "lastUpdatedOn")));
 
         JsonNode location = node.path("location");
         if (location.isObject()) {
@@ -617,8 +617,29 @@ public class WindyWebcamCatalogService {
         if (v.isMissingNode() || v.isNull()) {
             return null;
         }
+        if (v.isNumber()) {
+            return Long.toString(v.asLong());
+        }
         String s = v.asText(null);
         return StringUtils.hasText(s) ? s.trim() : null;
+    }
+
+    /** Windy often sends Unix epoch seconds; normalize to ISO-8601 for the UI. */
+    private static String normalizeEpochOrIso(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return null;
+        }
+        String t = raw.trim();
+        if (t.matches("^\\d{10,13}$")) {
+            try {
+                long n = Long.parseLong(t);
+                long epochMs = n < 1_000_000_000_000L ? n * 1000L : n;
+                return Instant.ofEpochMilli(epochMs).toString();
+            } catch (NumberFormatException ignored) {
+                return t;
+            }
+        }
+        return t;
     }
 
     private static String trimOrNull(String s) {

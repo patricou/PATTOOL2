@@ -33,6 +33,7 @@ public class PatToolCacheAdminService {
     private final M6GroupLiveService m6GroupLiveService;
     private final RtsLiveService rtsLiveService;
     private final CanalGroupLiveService canalGroupLiveService;
+    private final EurosportLiveService eurosportLiveService;
     private final ArteReplayService arteReplayService;
     private final MeteoFranceObsService meteoFranceObsService;
     private final OpenMeteoService openMeteoService;
@@ -68,6 +69,7 @@ public class PatToolCacheAdminService {
             M6GroupLiveService m6GroupLiveService,
             RtsLiveService rtsLiveService,
             CanalGroupLiveService canalGroupLiveService,
+            EurosportLiveService eurosportLiveService,
             ArteReplayService arteReplayService,
             MeteoFranceObsService meteoFranceObsService,
             OpenMeteoService openMeteoService,
@@ -101,6 +103,7 @@ public class PatToolCacheAdminService {
         this.m6GroupLiveService = m6GroupLiveService;
         this.rtsLiveService = rtsLiveService;
         this.canalGroupLiveService = canalGroupLiveService;
+        this.eurosportLiveService = eurosportLiveService;
         this.arteReplayService = arteReplayService;
         this.meteoFranceObsService = meteoFranceObsService;
         this.openMeteoService = openMeteoService;
@@ -243,6 +246,8 @@ public class PatToolCacheAdminService {
         clearedLive.add("rts-live");
         liveEntries += canalGroupLiveService.invalidateAll();
         clearedLive.add("canal-live");
+        liveEntries += eurosportLiveService.invalidateAll();
+        clearedLive.add("eurosport-live");
         liveEntries += arteReplayService.invalidateAll();
         clearedLive.add("arte-replay");
 
@@ -557,6 +562,13 @@ public class PatToolCacheAdminService {
                 true, false,
                 () -> (long) canalGroupLiveService.cacheEntryCount(),
                 canalGroupLiveService::invalidateAll,
+                unit("urls")));
+
+        list.add(def("eurosport-live", "media",
+                "SYSTEM.CACHE_REGISTRY.EUROSPORT_LIVE", "SYSTEM.CACHE_REGISTRY.EUROSPORT_LIVE_DESC",
+                true, false,
+                () -> (long) eurosportLiveService.cacheEntryCount(),
+                eurosportLiveService::invalidateAll,
                 unit("urls")));
 
         list.add(def("arte-replay", "media",

@@ -16,7 +16,7 @@ import { Subject, Subscription, forkJoin, of, firstValueFrom } from 'rxjs';
 import { debounceTime, distinctUntilChanged, catchError } from 'rxjs/operators';
 import Hls from 'hls.js';
 
-import { ApiService, ArteProgram, ArteSection, IaProgram, IaSection, TvChannel, TvCountry, TvEpgNow, TvEpgProgramme, TvEpgSearchHit, TvFilterPreference, TvRecording, TvRecordingStatus, TvStreamDiagnoseResult } from '../services/api.service';
+import { ApiService, ArteProgram, ArteSection, IaProgram, IaSection, TvChannel, TvCountry, TvEpgBrowseChannel, TvEpgNow, TvEpgProgramme, TvEpgSearchHit, TvFilterPreference, TvRecording, TvRecordingStatus, TvStreamDiagnoseResult } from '../services/api.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { TvPlayerService } from '../services/tv-player.service';
 import { FriendsService } from '../services/friends.service';
@@ -1390,12 +1390,143 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.applyFilterPreference(pref, true);
   }
 
+  onEpgBrowserPlayRow(row: TvEpgBrowseChannel): void {
+    if (!row) {
+      return;
+    }
+    // Close the programmes modal first so the stage is visible.
+    this.closeEpgBrowser();
+    const linked = row.channel;
+    if (linked?.streamUrl) {
+      this.ensureCountryForChannel(linked, row.country);
+      this.selectChannel(linked);
+      return;
+    }
+    this.resolveEpgBrowseRowAndPlay(row);
+  }
+
+  /** @deprecated kept for any leftover bindings — prefer {@link onEpgBrowserPlayRow}. */
   onEpgBrowserPlay(channel: TvChannel): void {
     if (!channel) {
       return;
     }
     this.closeEpgBrowser();
     this.selectChannel(channel);
+  }
+
+  private ensureCountryForChannel(channel: TvChannel, country?: string | null): void {
+    const cc = (country || channel.country || '').trim().toLowerCase();
+    if (cc && cc !== 'all' && !(channel.country || '').trim()) {
+      channel.country = cc;
+    }
+  }
+
+  private resolveEpgBrowseRowAndPlay(row: TvEpgBrowseChannel): void {
+    const country = (row.country || this.selectedCountry || 'fr').trim().toLowerCase();
+    const epgId = (row.channelId || '').trim();
+    const name = (row.name || '').trim();
+    if (!epgId || !country || country === 'all') {
+      this.playError = 'TV.EPG_BROWSER_PLAY_NOT_FOUND';
+      this.showChrome(true);
+      this.cdr.markForCheck();
+      return;
+    }
+
+    // 1) Prefer channels already loaded in the sidebar for this country.
+    const fromList = this.findCatalogChannelForEpg(this.channels || [], epgId, name);
+    if (fromList?.streamUrl) {
+      this.ensureCountryForChannel(fromList, country);
+      this.selectChannel(fromList);
+      return;
+    }
+
+    // 2) Name search, then full country catalog (EPG id often ≠ channel name).
+    const tryPlay = (list: TvChannel[]) => {
+      const match = this.findCatalogChannelForEpg(list || [], epgId, name);
+      if (match?.streamUrl) {
+        this.ensureCountryForChannel(match, country);
+        this.selectChannel(match);
+        return true;
+      }
+      return false;
+    };
+
+    this.isBuffering = true;
+    this.playError = '';
+    this.cdr.markForCheck();
+    const nameQ = name.length >= 2 ? name : undefined;
+    this.api.getTvChannels(country, nameQ).subscribe({
+      next: (list) => {
+        if (tryPlay(list)) {
+          return;
+        }
+        if (!nameQ) {
+          this.isBuffering = false;
+          this.playError = 'TV.EPG_BROWSER_PLAY_NOT_FOUND';
+          this.showChrome(true);
+          this.cdr.markForCheck();
+          return;
+        }
+        this.api.getTvChannels(country).subscribe({
+          next: (all) => {
+            if (tryPlay(all)) {
+              return;
+            }
+            this.isBuffering = false;
+            this.playError = 'TV.EPG_BROWSER_PLAY_NOT_FOUND';
+            this.showChrome(true);
+            this.cdr.markForCheck();
+          },
+          error: () => {
+            this.isBuffering = false;
+            this.playError = 'TV.EPG_BROWSER_PLAY_NOT_FOUND';
+            this.showChrome(true);
+            this.cdr.markForCheck();
+          }
+        });
+      },
+      error: () => {
+        this.isBuffering = false;
+        this.playError = 'TV.EPG_BROWSER_PLAY_NOT_FOUND';
+        this.showChrome(true);
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private findCatalogChannelForEpg(
+    list: TvChannel[],
+    epgId: string,
+    name?: string | null
+  ): TvChannel | null {
+    const idKey = epgLookupKey(epgId);
+    if (idKey) {
+      const byEpg = list.find((ch) => epgLookupKey(resolveEpgChannelId(ch)) === idKey);
+      if (byEpg) {
+        return byEpg;
+      }
+      const byId = list.find((ch) => epgLookupKey(ch.id) === idKey);
+      if (byId) {
+        return byId;
+      }
+    }
+    const nameKey = (name || '').trim().toLowerCase();
+    if (nameKey) {
+      const exact = list.find((ch) => (ch.name || '').trim().toLowerCase() === nameKey);
+      if (exact) {
+        return exact;
+      }
+      // "Eurosport 1" vs "Eurosport1 FR" etc.
+      const compact = nameKey.replace(/[\s_-]+/g, '');
+      const soft = list.find((ch) => {
+        const n = (ch.name || '').toLowerCase();
+        return n.includes(nameKey) || n.replace(/[\s_-]+/g, '').includes(compact);
+      });
+      if (soft) {
+        return soft;
+      }
+    }
+    return null;
   }
 
   isProgrammeLive(programme: TvEpgProgramme | null | undefined): boolean {

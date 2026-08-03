@@ -86,7 +86,9 @@ public class TvEpgService {
             Map.entry("m6group:gulli", "Gulli.fr"),
             Map.entry("rts:rts1", "RTS1.ch"),
             Map.entry("rts:rts2", "RTS2.ch"),
-            Map.entry("rts:rtsinfo", "RTSInfo.ch")
+            Map.entry("rts:rtsinfo", "RTSInfo.ch"),
+            Map.entry("eurosport:1", "EUROSPORT1.fr"),
+            Map.entry("eurosport:2", "EUROSPORT2.fr")
     );
 
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -181,6 +183,9 @@ public class TvEpgService {
         if (id.toLowerCase(Locale.ROOT).startsWith("rts-")) {
             return VIRTUAL_EPG_IDS.getOrDefault("rts:" + id.substring(4).toLowerCase(Locale.ROOT), null);
         }
+        if (id.toLowerCase(Locale.ROOT).startsWith("eurosport-")) {
+            return VIRTUAL_EPG_IDS.getOrDefault("eurosport:" + id.substring(10).toLowerCase(Locale.ROOT), null);
+        }
         // Playlist ids look like "TF1.fr#0" or "TF1.fr@HD#1"
         int hash = id.indexOf('#');
         String base = hash >= 0 ? id.substring(0, hash) : id;
@@ -264,66 +269,98 @@ public class TvEpgService {
     }
 
     /**
-     * Browse EPG channels for one country: now/next overview, optional name / programme filter.
+     * Browse EPG channels for one country (or {@code all} warm/worldwide guides).
      * Catalog resolver can attach the matching {@link TvChannelDto} when available.
+     *
+     * @param nowOnly when {@code true} and {@code query} is set, programme matches are limited
+     *                to the currently airing programme (channel-name matches still apply)
+     * @param catalogOnly when {@code true}, only rows with a matching IPTV catalog channel
+     *                    (“Toutes les TV”) are returned
      */
     public List<TvEpgBrowseChannelDto> browseChannels(
             String countryCode,
             String query,
             int limit,
+            boolean nowOnly,
+            boolean catalogOnly,
             BiFunction<String, String, TvChannelDto> channelResolver) {
-        String cc = normalizeCountry(countryCode);
-        if (cc == null) {
-            return List.of();
-        }
-        CountryGuide guide = loadGuide(cc);
-        if (guide == null || guide.byChannel() == null || guide.byChannel().isEmpty()) {
-            return List.of();
-        }
         String q = query != null ? query.trim().toLowerCase(Locale.ROOT) : "";
+        List<String> countries = resolveSearchCountries(countryCode);
+        if (countries.isEmpty()) {
+            return List.of();
+        }
+        // Worldwide browse without a query would return thousands of channels.
+        if (countries.size() > 1 && q.length() < MIN_SEARCH_QUERY_LEN) {
+            return List.of();
+        }
         int max = Math.min(300, Math.max(1, limit <= 0 ? 120 : limit));
         Instant now = Instant.now();
         List<TvEpgBrowseChannelDto> nameHits = new ArrayList<>();
         List<TvEpgBrowseChannelDto> progHits = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
 
-        List<Map.Entry<String, List<Programme>>> entries = new ArrayList<>(guide.byChannel().entrySet());
-        entries.sort(Comparator.comparing(e ->
-                guide.canonicalId().getOrDefault(e.getKey(), e.getKey()),
-                String.CASE_INSENSITIVE_ORDER));
+        for (String cc : countries) {
+            CountryGuide guide = loadGuide(cc);
+            if (guide == null || guide.byChannel() == null || guide.byChannel().isEmpty()) {
+                continue;
+            }
 
-        for (Map.Entry<String, List<Programme>> entry : entries) {
-            String canonical = guide.canonicalId().getOrDefault(entry.getKey(), entry.getKey());
-            TvChannelDto channel = channelResolver != null ? channelResolver.apply(cc, canonical) : null;
-            String displayName = channel != null && StringUtils.hasText(channel.getName())
-                    ? channel.getName()
-                    : humanizeEpgChannelId(canonical);
-            List<Programme> list = entry.getValue();
-            boolean nameMatch = true;
-            boolean progMatch = false;
-            if (!q.isEmpty()) {
-                String idLower = canonical.toLowerCase(Locale.ROOT);
-                String nameLower = displayName.toLowerCase(Locale.ROOT);
-                nameMatch = idLower.contains(q) || nameLower.contains(q);
-                progMatch = anyProgrammeMatches(list, q, now);
-                if (!nameMatch && !progMatch) {
+            List<Map.Entry<String, List<Programme>>> entries = new ArrayList<>(guide.byChannel().entrySet());
+            entries.sort(Comparator.comparing(e ->
+                    guide.canonicalId().getOrDefault(e.getKey(), e.getKey()),
+                    String.CASE_INSENSITIVE_ORDER));
+
+            for (Map.Entry<String, List<Programme>> entry : entries) {
+                String canonical = guide.canonicalId().getOrDefault(entry.getKey(), entry.getKey());
+                String dedupe = cc + "|" + canonical.toLowerCase(Locale.ROOT);
+                if (!seen.add(dedupe)) {
                     continue;
                 }
+                TvChannelDto channel = channelResolver != null ? channelResolver.apply(cc, canonical) : null;
+                // Only channels available in the IPTV catalog (“Toutes les TV”).
+                if (catalogOnly && (channel == null || !StringUtils.hasText(channel.getStreamUrl()))) {
+                    continue;
+                }
+                String displayName = channel != null && StringUtils.hasText(channel.getName())
+                        ? channel.getName()
+                        : humanizeEpgChannelId(canonical);
+                List<Programme> list = entry.getValue();
+                boolean nameMatch = true;
+                boolean progMatch = false;
+                if (!q.isEmpty()) {
+                    String idLower = canonical.toLowerCase(Locale.ROOT);
+                    String nameLower = displayName.toLowerCase(Locale.ROOT);
+                    nameMatch = idLower.contains(q) || nameLower.contains(q);
+                    progMatch = anyProgrammeMatches(list, q, now, nowOnly);
+                    if (!nameMatch && !progMatch) {
+                        continue;
+                    }
+                }
+                TvEpgNowDto nn = pickNowNext(list, now);
+                TvEpgBrowseChannelDto row = new TvEpgBrowseChannelDto(
+                        cc,
+                        canonical,
+                        displayName,
+                        channel,
+                        nn != null ? nn.getNow() : null,
+                        nn != null ? nn.getNext() : null,
+                        list != null ? list.size() : 0
+                );
+                if (q.isEmpty() || nameMatch) {
+                    nameHits.add(row);
+                } else {
+                    progHits.add(row);
+                }
+                if (nameHits.size() + progHits.size() >= max * 2) {
+                    // Soft cap while scanning many countries; trimmed below.
+                    break;
+                }
             }
-            TvEpgNowDto nn = pickNowNext(list, now);
-            TvEpgBrowseChannelDto row = new TvEpgBrowseChannelDto(
-                    canonical,
-                    displayName,
-                    channel,
-                    nn != null ? nn.getNow() : null,
-                    nn != null ? nn.getNext() : null,
-                    list != null ? list.size() : 0
-            );
-            if (q.isEmpty() || nameMatch) {
-                nameHits.add(row);
-            } else {
-                progHits.add(row);
+            if (nameHits.size() + progHits.size() >= max * 2) {
+                break;
             }
         }
+
         List<TvEpgBrowseChannelDto> out = new ArrayList<>(Math.min(max, nameHits.size() + progHits.size()));
         for (TvEpgBrowseChannelDto row : nameHits) {
             if (out.size() >= max) {
@@ -340,14 +377,22 @@ public class TvEpgService {
         return out;
     }
 
-    /** True when any upcoming / recent programme title or description contains {@code q}. */
-    private boolean anyProgrammeMatches(List<Programme> list, String q, Instant now) {
+    /**
+     * True when a programme title or description contains {@code q}.
+     * With {@code nowOnly}, only the currently airing programme is considered;
+     * otherwise recent (last 2h) and upcoming programmes are scanned.
+     */
+    private boolean anyProgrammeMatches(List<Programme> list, String q, Instant now, boolean nowOnly) {
         if (list == null || list.isEmpty() || !StringUtils.hasText(q)) {
             return false;
         }
         Instant cutoff = now.minus(Duration.ofHours(2));
         for (Programme p : list) {
-            if (p.stop != null && p.stop.isBefore(cutoff)) {
+            if (nowOnly) {
+                if (!isProgrammeLive(p, now)) {
+                    continue;
+                }
+            } else if (p.stop != null && p.stop.isBefore(cutoff)) {
                 continue;
             }
             if (matchScore(p, q) > 0) {
@@ -355,6 +400,14 @@ public class TvEpgService {
             }
         }
         return false;
+    }
+
+    private static boolean isProgrammeLive(Programme p, Instant now) {
+        return p != null
+                && p.start != null
+                && p.stop != null
+                && !p.start.isAfter(now)
+                && p.stop.isAfter(now);
     }
 
     private static String humanizeEpgChannelId(String channelId) {
@@ -381,6 +434,18 @@ public class TvEpgService {
             String query,
             int limit,
             BiFunction<String, String, TvChannelDto> channelResolver) {
+        return searchProgrammes(countryCode, query, limit, false, channelResolver);
+    }
+
+    /**
+     * @param nowOnly when {@code true}, only currently airing programmes are returned
+     */
+    public List<TvEpgSearchHitDto> searchProgrammes(
+            String countryCode,
+            String query,
+            int limit,
+            boolean nowOnly,
+            BiFunction<String, String, TvChannelDto> channelResolver) {
         String q = query != null ? query.trim().toLowerCase(Locale.ROOT) : "";
         if (q.length() < MIN_SEARCH_QUERY_LEN) {
             return List.of();
@@ -405,7 +470,11 @@ public class TvEpgService {
             for (Map.Entry<String, List<Programme>> entry : guide.byChannel.entrySet()) {
                 String canonical = guide.canonicalId.getOrDefault(entry.getKey(), entry.getKey());
                 for (Programme p : entry.getValue()) {
-                    if (p.stop != null && !p.stop.isAfter(now.minus(Duration.ofHours(1)))) {
+                    if (nowOnly) {
+                        if (!isProgrammeLive(p, now)) {
+                            continue;
+                        }
+                    } else if (p.stop != null && !p.stop.isAfter(now.minus(Duration.ofHours(1)))) {
                         continue;
                     }
                     int score = matchScore(p, q);

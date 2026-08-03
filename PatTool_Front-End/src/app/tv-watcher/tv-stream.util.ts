@@ -11,6 +11,7 @@ export function resolveTvStreamUrl(channel: TvChannel | null | undefined): strin
   if (lower.startsWith('francetv:') || lower.startsWith('tf1:')
       || lower.startsWith('canalgroup:') || lower.startsWith('radiofrance:')
       || lower.startsWith('m6group:') || lower.startsWith('rts:')
+      || lower.startsWith('eurosport:')
       || lower.startsWith('arte:')
       || lower.startsWith('ia:')) {
     return existing;
@@ -82,6 +83,14 @@ export function resolveTvStreamUrl(channel: TvChannel | null | undefined): strin
   if (id.startsWith('rtsinfo.ch') || /rts\s*info\b/.test(name) || name.includes('rtsinfo')) {
     return 'rts:rtsinfo';
   }
+  if (id.startsWith('eurosport1.fr') || id.startsWith('eurosport-1')
+      || /^eurosport\s*1\b/.test(name) || name === 'eurosport') {
+    return 'eurosport:1';
+  }
+  if (id.startsWith('eurosport2.fr') || id.startsWith('eurosport-2')
+      || /^eurosport\s*2\b/.test(name)) {
+    return 'eurosport:2';
+  }
   return existing;
 }
 
@@ -107,6 +116,10 @@ export function isM6GroupVirtual(url: string): boolean {
 
 export function isRtsVirtual(url: string): boolean {
   return (url || '').toLowerCase().startsWith('rts:');
+}
+
+export function isEurosportVirtual(url: string): boolean {
+  return (url || '').toLowerCase().startsWith('eurosport:');
 }
 
 export function isArteVirtual(url: string): boolean {
@@ -226,7 +239,7 @@ export function rtsSlugFromVirtual(url: string): string | null {
 
 /** Virtual live / VOD schemes used in PatTool stream tokens. */
 const VIRTUAL_STREAM_SCHEMES =
-  'francetv|tf1|canalgroup|radiofrance|m6group|rts|arte|ia';
+  'francetv|tf1|canalgroup|radiofrance|m6group|rts|eurosport|arte|ia';
 
 /**
  * WhatsApp (and some messengers) truncate auto-linked URLs when a bare

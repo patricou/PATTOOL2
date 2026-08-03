@@ -556,6 +556,28 @@ public class Road511WebcamCatalogService {
         }
         dto.setLatitude(lat);
         dto.setLongitude(lon);
+        String source = text(n, "source");
+        if (!StringUtils.hasText(source)) {
+            source = text(props, "source");
+        }
+        String sourceId = text(n, "source_id", "sourceId");
+        String lastUpdated = firstNonBlank(
+                text(n, "last_updated", "lastUpdated", "lastUpdatedOn"),
+                text(props, "last_updated", "lastUpdated", "lastUpdatedOn", "updated_at", "timestamp"));
+        String lastImageTime = text(props, "last_image_time", "lastImageTime", "capture_time", "captured_at");
+        dto.setSource(source);
+        dto.setSourceId(sourceId);
+        dto.setFeatureType("cameras");
+        dto.setRoadName(roadName);
+        dto.setDirection(direction);
+        if (StringUtils.hasText(lastImageTime)) {
+            dto.setLastImageTime(lastImageTime.trim());
+        }
+        if (StringUtils.hasText(lastUpdated)) {
+            dto.setLastUpdatedOn(lastUpdated.trim());
+        } else if (StringUtils.hasText(lastImageTime)) {
+            dto.setLastUpdatedOn(lastImageTime.trim());
+        }
         dto.setImageUrl(imageUrl);
         dto.setImagePreviewUrl(imageUrl);
         boolean hasVideo = StringUtils.hasText(videoUrl);
@@ -576,6 +598,34 @@ public class Road511WebcamCatalogService {
             cats.add(direction.trim());
         }
         dto.setCategories(cats);
+        // Preserve extra scalar properties (km, angle, …)
+        if (props != null && props.isObject()) {
+            java.util.Set<String> skip = java.util.Set.of(
+                    "id", "name", "title", "description", "jurisdiction", "state", "source", "source_id", "sourceId",
+                    "road_name", "road", "direction", "county", "nearby_place", "city",
+                    "image_url", "imageUrl", "url", "video_url", "videoUrl", "stream_url", "hls_url",
+                    "last_updated", "lastUpdated", "lastUpdatedOn", "updated_at", "timestamp",
+                    "last_image_time", "lastImageTime", "capture_time", "captured_at", "views");
+            props.fields().forEachRemaining(entry -> {
+                String key = entry.getKey();
+                if (!StringUtils.hasText(key) || skip.contains(key)) {
+                    return;
+                }
+                JsonNode val = entry.getValue();
+                if (val == null || val.isNull() || val.isObject() || val.isArray()) {
+                    return;
+                }
+                String s = val.asText(null);
+                if (StringUtils.hasText(s)) {
+                    java.util.Map<String, String> details = dto.getDetails();
+                    if (details == null) {
+                        details = new java.util.LinkedHashMap<>();
+                        dto.setDetails(details);
+                    }
+                    details.putIfAbsent(key, s.trim());
+                }
+            });
+        }
         return dto;
     }
 
@@ -742,9 +792,11 @@ public class Road511WebcamCatalogService {
         dto.setId(src.getId());
         dto.setProvider(src.getProvider());
         dto.setTitle(src.getTitle());
+        dto.setDescription(src.getDescription());
         dto.setStatus(src.getStatus());
         dto.setViewCount(src.getViewCount());
         dto.setLastUpdatedOn(src.getLastUpdatedOn());
+        dto.setLastImageTime(src.getLastImageTime());
         dto.setCity(src.getCity());
         dto.setRegion(src.getRegion());
         dto.setCountry(src.getCountry());
@@ -760,7 +812,13 @@ public class Road511WebcamCatalogService {
         dto.setPlayerMonthUrl(src.getPlayerMonthUrl());
         dto.setDetailUrl(src.getDetailUrl());
         dto.setHasVideo(src.getHasVideo());
+        dto.setRoadName(src.getRoadName());
+        dto.setDirection(src.getDirection());
+        dto.setSource(src.getSource());
+        dto.setSourceId(src.getSourceId());
+        dto.setFeatureType(src.getFeatureType());
         dto.setCategories(src.getCategories() != null ? new ArrayList<>(src.getCategories()) : new ArrayList<>());
+        dto.setDetails(src.getDetails());
         return dto;
     }
 

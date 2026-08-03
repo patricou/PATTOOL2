@@ -80,9 +80,11 @@ public class WebcamLastService {
         out.setId(webcam.getId().trim());
         out.setProvider(trimToNull(webcam.getProvider()));
         out.setTitle(trimToNull(webcam.getTitle()));
+        out.setDescription(trimToNull(webcam.getDescription()));
         out.setStatus(trimToNull(webcam.getStatus()));
         out.setViewCount(webcam.getViewCount());
         out.setLastUpdatedOn(trimToNull(webcam.getLastUpdatedOn()));
+        out.setLastImageTime(trimToNull(webcam.getLastImageTime()));
         out.setCity(trimToNull(webcam.getCity()));
         out.setRegion(trimToNull(webcam.getRegion()));
         out.setCountry(trimToNull(webcam.getCountry()));
@@ -98,8 +100,16 @@ public class WebcamLastService {
         out.setPlayerMonthUrl(trimToNull(webcam.getPlayerMonthUrl()));
         out.setDetailUrl(trimToNull(webcam.getDetailUrl()));
         out.setHasVideo(webcam.getHasVideo());
+        out.setRoadName(trimToNull(webcam.getRoadName()));
+        out.setDirection(trimToNull(webcam.getDirection()));
+        out.setSource(trimToNull(webcam.getSource()));
+        out.setSourceId(trimToNull(webcam.getSourceId()));
+        out.setFeatureType(trimToNull(webcam.getFeatureType()));
         if (webcam.getCategories() != null) {
             out.setCategories(webcam.getCategories());
+        }
+        if (webcam.getDetails() != null && !webcam.getDetails().isEmpty()) {
+            out.setDetails(webcam.getDetails());
         }
         if (!StringUtils.hasText(out.getTitle())) {
             out.setTitle(out.getId());

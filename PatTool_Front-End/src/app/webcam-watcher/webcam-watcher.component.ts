@@ -56,10 +56,22 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
   @ViewChild('wcStage') private stageRef?: ElementRef<HTMLElement>;
   @ViewChild('wcHlsVideo')
   set hlsVideoRef(ref: ElementRef<HTMLVideoElement> | undefined) {
+    this.unbindVideoPlaybackListeners();
     this.hlsVideo = ref;
     this.bindLandscapeVideoFsListener(ref?.nativeElement || null);
+    this.bindVideoPlaybackListeners(ref?.nativeElement || null);
   }
   private hlsVideo?: ElementRef<HTMLVideoElement>;
+  private readonly onVideoPlay = (): void => {
+    this.videoPaused = false;
+  };
+  private readonly onVideoPause = (): void => {
+    this.videoPaused = true;
+  };
+  private readonly onVideoEnded = (): void => {
+    this.videoPaused = true;
+  };
+  private videoPlaybackBound: HTMLVideoElement | null = null;
 
   /**
    * Mobile landscape: immersive webcam stage (CSS + best-effort native fullscreen).
@@ -89,6 +101,7 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
   hasVideoOnly = false;
 
   globalFilterOpen = false;
+  infoModalOpen = false;
   applyGlobalFilterToAllTabs = false;
   globalFilterPreference: WebcamFilterPreference = {};
 
@@ -122,10 +135,19 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
   selectedId = '';
   playerMode: PlayerMode = 'day';
   playerUrl: SafeResourceUrl | null = null;
+  /** Forces iframe remount when webcam / mode changes (Angular may reuse the same iframe). */
+  iframeMountKey = '';
   iframeGen = 0;
   hlsError = '';
+  /**
+   * Precomputed "Capturée le …" label (property, not getter) so the overlay/header
+   * always refresh when switching webcams.
+   */
+  captureStampText = '';
   /** Stage title/actions bar: shown briefly, then collapses until hover. */
   headerExpanded = false;
+  /** Native video (HLS / progressive) is paused — show a Play overlay. */
+  videoPaused = false;
 
   isLoading = false;
   isLoadingMeta = false;
@@ -205,6 +227,7 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
     this.exitLandscapeFullscreen(false);
     this.clearHeaderHideTimer();
     this.stopHls();
+    this.unbindVideoPlaybackListeners();
     this.lastWebcamSaveSub?.unsubscribe();
     this.favoritesSub?.unsubscribe();
     this.favoriteToggleSub?.unsubscribe();
@@ -237,6 +260,14 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
     setTimeout(() => {
       this.landscapeFsSuppressDismiss = false;
     }, 0);
+  }
+
+  @HostListener('document:keydown.escape', ['$event'])
+  onEscapeKey(ev: Event): void {
+    if (this.infoModalOpen) {
+      ev.preventDefault();
+      this.closeInfoModal();
+    }
   }
 
   @HostListener('window:orientationchange')
@@ -587,6 +618,189 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
       .join(' · ');
   }
 
+  /** Formatted capture / last-refresh time (prefer still capture when present). */
+  get lastUpdatedLabel(): string {
+    const raw = this.selected?.lastImageTime || this.selected?.lastUpdatedOn;
+    return this.formatWebcamDateTime(raw);
+  }
+
+  /**
+   * Overlay badge over the player — hidden for Windy day/month embeds: their
+   * scrubber already shows the frame time, and a static badge looks "stuck".
+   */
+  get showCaptureOverlay(): boolean {
+    return !!this.captureStampText && !this.hlsError && this.playerMode !== 'day' && this.playerMode !== 'month';
+  }
+
+  get lastImageTimeLabel(): string {
+    return this.formatWebcamDateTime(this.selected?.lastImageTime);
+  }
+
+  /** Rebuild captureStampText from the current selection (call after every selected change). */
+  private refreshCaptureStamp(): void {
+    const when = this.lastUpdatedLabel;
+    if (!when || !this.selectedId) {
+      this.captureStampText = '';
+      return;
+    }
+    this.captureStampText = this.translate.instant('WEBCAM.CAPTURED_AT', { when });
+  }
+
+  /** All non-empty metadata rows for the selected camera. */
+  get selectedInfoRows(): Array<{
+    key: string;
+    labelKey?: string;
+    label?: string;
+    value: string;
+    valueKey?: string;
+    link?: boolean;
+    mono?: boolean;
+  }> {
+    const cam = this.selected;
+    if (!cam) {
+      return [];
+    }
+    const rows: Array<{
+      key: string;
+      labelKey?: string;
+      label?: string;
+      value: string;
+      valueKey?: string;
+      link?: boolean;
+      mono?: boolean;
+    }> = [];
+    const add = (
+      key: string,
+      labelKey: string,
+      value: string | number | boolean | null | undefined,
+      opts?: { link?: boolean; mono?: boolean; valueKey?: string }
+    ) => {
+      if (opts?.valueKey) {
+        rows.push({
+          key,
+          labelKey,
+          value: '',
+          valueKey: opts.valueKey,
+          link: !!opts?.link,
+          mono: !!opts?.mono
+        });
+        return;
+      }
+      if (value === null || value === undefined) {
+        return;
+      }
+      const text = typeof value === 'string' ? value.trim() : String(value);
+      if (!text) {
+        return;
+      }
+      rows.push({
+        key,
+        labelKey,
+        value: text,
+        link: !!opts?.link,
+        mono: !!opts?.mono
+      });
+    };
+    const addRaw = (
+      key: string,
+      label: string,
+      value: string,
+      opts?: { link?: boolean; mono?: boolean }
+    ) => {
+      const text = (value || '').trim();
+      if (!text) {
+        return;
+      }
+      rows.push({ key, label, value: text, link: !!opts?.link, mono: !!opts?.mono });
+    };
+
+    add('id', 'WEBCAM.INFO_ID', cam.id, { mono: true });
+    add('provider', 'WEBCAM.INFO_PROVIDER', cam.provider || 'windy');
+    add('source', 'WEBCAM.INFO_SOURCE', cam.source);
+    add('sourceId', 'WEBCAM.INFO_SOURCE_ID', cam.sourceId, { mono: true });
+    add('featureType', 'WEBCAM.INFO_FEATURE_TYPE', cam.featureType);
+    add('status', 'WEBCAM.INFO_STATUS', cam.status);
+    add('road', 'WEBCAM.INFO_ROAD', cam.roadName);
+    add('direction', 'WEBCAM.INFO_DIRECTION', cam.direction);
+    add('city', 'WEBCAM.INFO_CITY', cam.city);
+    add('region', 'WEBCAM.INFO_REGION', cam.region);
+    add('country', 'WEBCAM.INFO_COUNTRY', cam.country);
+    add('countryCode', 'WEBCAM.INFO_COUNTRY_CODE', cam.countryCode);
+    add('continent', 'WEBCAM.INFO_CONTINENT', cam.continent);
+    if (cam.latitude != null && cam.longitude != null) {
+      add(
+        'coords',
+        'WEBCAM.INFO_COORDS',
+        `${cam.latitude.toFixed(5)}, ${cam.longitude.toFixed(5)}`,
+        { mono: true }
+      );
+    }
+    const capturedLabel = this.lastImageTimeLabel;
+    const updatedLabel = this.formatWebcamDateTime(cam.lastUpdatedOn);
+    if (capturedLabel) {
+      add('captured', 'WEBCAM.INFO_CAPTURED', capturedLabel);
+    }
+    if (updatedLabel && updatedLabel !== capturedLabel) {
+      add('updated', 'WEBCAM.INFO_UPDATED', updatedLabel);
+    } else if (!capturedLabel && updatedLabel) {
+      add('captured', 'WEBCAM.INFO_CAPTURED', updatedLabel);
+    }
+    if (cam.viewCount != null && cam.viewCount >= 0) {
+      add('viewsCount', 'WEBCAM.INFO_VIEW_COUNT', cam.viewCount);
+    }
+    if (cam.hasVideo === true) {
+      add('hasVideo', 'WEBCAM.INFO_HAS_VIDEO', '', { valueKey: 'WEBCAM.INFO_YES' });
+    } else if (cam.hasVideo === false) {
+      add('hasVideo', 'WEBCAM.INFO_HAS_VIDEO', '', { valueKey: 'WEBCAM.INFO_NO' });
+    }
+    if (cam.playerLiveUrl) {
+      add('stream', 'WEBCAM.INFO_STREAM', cam.playerLiveUrl, { link: true, mono: true });
+    }
+    if (cam.imageUrl) {
+      add('image', 'WEBCAM.INFO_IMAGE', cam.imageUrl, { link: true, mono: true });
+    }
+    if (cam.description && cam.description !== cam.title) {
+      add('description', 'WEBCAM.INFO_DESCRIPTION', cam.description);
+    }
+    const cats = (cam.categories || []).filter(
+      (c) => !!c && !['traffic', 'europe', 'hls', 'video'].includes(c.toLowerCase())
+    );
+    if (cats.length) {
+      add('categories', 'WEBCAM.INFO_CATEGORIES', cats.join(' · '));
+    }
+
+    const knownDetailKeys = new Set([
+      'id',
+      'source',
+      'source_id',
+      'sourceId',
+      'feature_type',
+      'featureType',
+      'road',
+      'road_name',
+      'direction',
+      'region',
+      'city',
+      'lastUpdated',
+      'last_updated',
+      'last_image_time',
+      'lastImageTime'
+    ]);
+    const details = cam.details || {};
+    for (const [rawKey, rawVal] of Object.entries(details)) {
+      if (!rawVal || knownDetailKeys.has(rawKey)) {
+        continue;
+      }
+      const mapped = this.infoLabelKeyForDetail(rawKey);
+      if (mapped) {
+        add(`detail:${rawKey}`, mapped, rawVal);
+      } else {
+        addRaw(`detail:${rawKey}`, this.prettifyDetailKey(rawKey), rawVal);
+      }
+    }
+    return rows;
+  }
+
   get hasSelectedLocation(): boolean {
     return !!this.selected && isValidGeoCoordinate(this.selected.latitude, this.selected.longitude);
   }
@@ -672,6 +886,14 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
     this.revealHeader(false);
   }
 
+  onStagePointerMove(): void {
+    if (!this.selected || !this.supportsHeaderAutoCollapse()) {
+      return;
+    }
+    this.headerPinnedByHover = true;
+    this.revealHeader(false);
+  }
+
   onStagePointerLeave(ev: MouseEvent): void {
     if (!this.selected || !this.supportsHeaderAutoCollapse()) {
       return;
@@ -687,10 +909,19 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
 
   @HostListener('document:mousemove', ['$event'])
   onDocumentMouseMove(ev: MouseEvent): void {
-    if (!this.headerPinnedByHover || !this.selected || !this.supportsHeaderAutoCollapse()) {
+    if (!this.selected || !this.supportsHeaderAutoCollapse()) {
       return;
     }
-    if (!this.isPointInsideStage(ev.clientX, ev.clientY)) {
+    const inside = this.isPointInsideStage(ev.clientX, ev.clientY);
+    if (inside) {
+      // Iframes swallow mouse events — detect hover via document coords.
+      if (!this.headerPinnedByHover || !this.headerExpanded) {
+        this.headerPinnedByHover = true;
+        this.revealHeader(false);
+      }
+      return;
+    }
+    if (this.headerPinnedByHover) {
       this.headerPinnedByHover = false;
       this.collapseHeader();
     }
@@ -732,6 +963,18 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
 
   closeGlobalFilter(): void {
     this.globalFilterOpen = false;
+  }
+
+  openInfoModal(): void {
+    if (!this.selected || this.selectedInfoRows.length === 0) {
+      return;
+    }
+    this.infoModalOpen = true;
+    this.revealHeader(false);
+  }
+
+  closeInfoModal(): void {
+    this.infoModalOpen = false;
   }
 
   onGlobalFilterApplied(pref: WebcamFilterPreference): void {
@@ -803,16 +1046,26 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
     if (!item?.id) {
       return;
     }
-    this.selectedId = item.id;
-    this.selected = item;
+    const requestId = item.id;
+    // Ignore re-click on the same row (keeps player/timelapse position).
+    if (this.selectedId === requestId && this.selected?.id === requestId && !this.isLoadingDetail) {
+      return;
+    }
+    this.selectedId = requestId;
+    // Shallow copy so list-row objects are never mutated by detail merges.
+    this.selected = { ...item };
+    this.refreshCaptureStamp();
     this.playerUrl = null;
+    this.iframeMountKey = '';
     this.hlsError = '';
     this.stopHls();
     this.isLoadingPlayer = false;
     this.headerPinnedByHover = false;
     this.revealHeader(true);
-    this.persistLastWebcam(item);
+    this.persistLastWebcam(this.selected);
     this.syncLandscapeFullscreen();
+    // Switch player immediately from list data so UI (incl. capture time) tracks the row.
+    this.setPlayerMode(this.preferredMode(this.selected));
     this.isLoadingDetail = true;
     this.detailSub?.unsubscribe();
     const catalog = this.providerTabFor(item);
@@ -827,15 +1080,46 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
           : this.api.getWebcam(item.id, this.apiLang());
     this.detailSub = detail$.subscribe({
       next: (detail) => {
-        this.selected = { ...item, ...detail };
+        // Stale response from a previous selection — ignore.
+        if (this.selectedId !== requestId) {
+          return;
+        }
+        const merged: WebcamItem = { ...item, ...detail, id: requestId };
+        // Detail payloads sometimes omit timestamps / extras — keep list values.
+        if ((merged.lastUpdatedOn === null || merged.lastUpdatedOn === undefined || merged.lastUpdatedOn === '')
+          && item.lastUpdatedOn != null && item.lastUpdatedOn !== '') {
+          merged.lastUpdatedOn = item.lastUpdatedOn;
+        }
+        if ((merged.lastImageTime === null || merged.lastImageTime === undefined || merged.lastImageTime === '')
+          && item.lastImageTime != null && item.lastImageTime !== '') {
+          merged.lastImageTime = item.lastImageTime;
+        }
+        if ((!merged.details || Object.keys(merged.details).length === 0) && item.details) {
+          merged.details = item.details;
+        }
+        if (!merged.description && item.description) {
+          merged.description = item.description;
+        }
+        if (!merged.roadName && item.roadName) {
+          merged.roadName = item.roadName;
+        }
+        if (!merged.direction && item.direction) {
+          merged.direction = item.direction;
+        }
+        this.selected = merged;
+        this.refreshCaptureStamp();
         this.isLoadingDetail = false;
         this.persistLastWebcam(this.selected);
         this.setPlayerMode(this.preferredMode(this.selected));
         this.syncLandscapeFullscreen();
       },
       error: () => {
+        if (this.selectedId !== requestId) {
+          return;
+        }
         this.isLoadingDetail = false;
-        this.setPlayerMode(this.preferredMode(item));
+        this.refreshCaptureStamp();
+        this.setPlayerMode(this.preferredMode(this.selected || item));
         this.syncLandscapeFullscreen();
       }
     });
@@ -844,6 +1128,7 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
   setPlayerMode(mode: PlayerMode): void {
     this.hlsError = '';
     this.stopHls();
+    this.videoPaused = false;
 
     if (mode === 'image') {
       this.playerMode = 'image';
@@ -882,6 +1167,7 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
     if (this.isHlsUrl(url) || (this.isStageDotCatalog && mode === 'live')) {
       this.playerUrl = null;
       this.isLoadingPlayer = true;
+      this.videoPaused = true;
       const progressive = !this.isHlsUrl(url) && (isProgressiveVod(url) || this.isStageDotCatalog);
       this.scheduleHlsStart(url, progressive);
       this.syncLandscapeFullscreen();
@@ -890,8 +1176,38 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
 
     this.isLoadingPlayer = true;
     this.iframeGen += 1;
-    this.playerUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
+    // New key → destroy/recreate iframe so a webcam switch never keeps the previous embed.
+    this.iframeMountKey = `${this.selectedId}|${mode}|${this.iframeGen}`;
+    // Windy day/month/live embeds: request autoplay (play=1).
+    this.playerUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.withEmbedAutoplay(url));
     this.syncLandscapeFullscreen();
+  }
+
+  /** Big Play overlay for native video when autoplay is blocked or the clip ended. */
+  toggleVideoPlayback(event?: Event): void {
+    event?.stopPropagation();
+    event?.preventDefault();
+    const video = this.hlsVideo?.nativeElement;
+    if (!video) {
+      return;
+    }
+    if (video.paused || video.ended) {
+      void video
+        .play()
+        .then(() => {
+          this.videoPaused = false;
+        })
+        .catch(() => {
+          this.videoPaused = true;
+        });
+      return;
+    }
+    video.pause();
+    this.videoPaused = true;
+  }
+
+  get showVideoPlayOverlay(): boolean {
+    return this.isHlsMode && this.videoPaused && !this.showPlayerSpinner && !this.hlsError;
   }
 
   onPlayerLoaded(): void {
@@ -1538,20 +1854,31 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
       if (!video || !url) {
         this.isLoadingPlayer = false;
         this.hlsError = 'WEBCAM.ERROR_HLS';
+        this.videoPaused = true;
         return;
       }
       const proxyUrl = this.api.tvStreamProxyUrl(url);
+      this.videoPaused = true;
       this.hlsHandle = startTvHlsPlayback(video, proxyUrl, {
         progressive,
         onBuffering: (buffering) => {
           this.isLoadingPlayer = buffering;
+          if (!buffering && video && !video.paused) {
+            this.videoPaused = false;
+          }
         },
         onError: (message) => {
           this.isLoadingPlayer = false;
+          this.videoPaused = true;
           this.hlsError =
             typeof message === 'string' && message.trim()
               ? message
               : 'WEBCAM.ERROR_HLS';
+        }
+      });
+      queueMicrotask(() => {
+        if (video && !video.paused) {
+          this.videoPaused = false;
         }
       });
     }, 40);
@@ -1564,18 +1891,71 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
     }
     this.hlsHandle?.destroy();
     this.hlsHandle = null;
+    this.videoPaused = false;
+  }
+
+  private bindVideoPlaybackListeners(video: HTMLVideoElement | null): void {
+    if (this.videoPlaybackBound === video) {
+      return;
+    }
+    this.unbindVideoPlaybackListeners();
+    if (!video) {
+      return;
+    }
+    video.addEventListener('play', this.onVideoPlay);
+    video.addEventListener('playing', this.onVideoPlay);
+    video.addEventListener('pause', this.onVideoPause);
+    video.addEventListener('ended', this.onVideoEnded);
+    this.videoPlaybackBound = video;
+    this.videoPaused = !!video.paused;
+  }
+
+  private unbindVideoPlaybackListeners(): void {
+    if (!this.videoPlaybackBound) {
+      return;
+    }
+    this.videoPlaybackBound.removeEventListener('play', this.onVideoPlay);
+    this.videoPlaybackBound.removeEventListener('playing', this.onVideoPlay);
+    this.videoPlaybackBound.removeEventListener('pause', this.onVideoPause);
+    this.videoPlaybackBound.removeEventListener('ended', this.onVideoEnded);
+    this.videoPlaybackBound = null;
+  }
+
+  /** Force autoplay on Windy (and similar) embed players. */
+  private withEmbedAutoplay(url: string): string {
+    const raw = (url || '').trim();
+    if (!raw) {
+      return raw;
+    }
+    try {
+      const u = new URL(raw);
+      const host = u.hostname.toLowerCase();
+      if (host !== 'windy.com' && !host.endsWith('.windy.com')) {
+        return raw;
+      }
+      u.searchParams.set('play', '1');
+      return u.toString();
+    } catch {
+      if (/[?&]play=/i.test(raw)) {
+        return raw;
+      }
+      return raw.includes('?') ? `${raw}&play=1` : `${raw}?play=1`;
+    }
   }
 
   private clearSelection(): void {
     this.stopHls();
     this.selected = null;
     this.selectedId = '';
+    this.captureStampText = '';
     this.playerUrl = null;
+    this.iframeMountKey = '';
     this.playerMode = 'day';
     this.hlsError = '';
     this.isLoadingDetail = false;
     this.isLoadingPlayer = false;
     this.headerPinnedByHover = false;
+    this.infoModalOpen = false;
     this.collapseHeader();
     this.syncLandscapeFullscreen();
   }
@@ -1634,5 +2014,70 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
       return 'zh';
     }
     return lang.substring(0, 2) || 'en';
+  }
+
+  private formatWebcamDateTime(raw: string | number | null | undefined): string {
+    if (raw === null || raw === undefined || raw === '') {
+      return '';
+    }
+    let d: Date;
+    const asText = String(raw).trim();
+    if (typeof raw === 'number' || /^\d{10,13}$/.test(asText)) {
+      const n = typeof raw === 'number' ? raw : Number(asText);
+      // Windy lastUpdatedOn is often Unix seconds; 13-digit values are ms.
+      d = new Date(n < 1e12 ? n * 1000 : n);
+    } else {
+      d = new Date(asText);
+    }
+    if (Number.isNaN(d.getTime())) {
+      return asText;
+    }
+    const lang = (this.translate.currentLang || this.translate.defaultLang || 'en').toLowerCase();
+    let locale = lang.substring(0, 2) || 'en';
+    if (lang.startsWith('jp') || lang === 'ja') {
+      locale = 'ja';
+    } else if (lang.startsWith('cn') || lang.startsWith('zh')) {
+      locale = 'zh-CN';
+    } else if (lang.startsWith('in') || lang === 'hi') {
+      locale = 'hi';
+    } else if (lang === 'he') {
+      locale = 'he';
+    } else if (lang === 'ar') {
+      locale = 'ar';
+    } else if (lang === 'el') {
+      locale = 'el';
+    }
+    try {
+      return new Intl.DateTimeFormat(locale, {
+        dateStyle: 'medium',
+        timeStyle: 'medium'
+      }).format(d);
+    } catch {
+      return d.toLocaleString();
+    }
+  }
+
+  private infoLabelKeyForDetail(rawKey: string): string | null {
+    const normalized = (rawKey || '')
+      .replace(/([a-z])([A-Z])/g, '$1_$2')
+      .replace(/[\s-]+/g, '_')
+      .toLowerCase();
+    const map: Record<string, string> = {
+      km: 'WEBCAM.INFO_KM',
+      angle: 'WEBCAM.INFO_ANGLE',
+      views: 'WEBCAM.INFO_VIEWS',
+      source: 'WEBCAM.INFO_SOURCE',
+      road: 'WEBCAM.INFO_ROAD',
+      region: 'WEBCAM.INFO_REGION'
+    };
+    return map[normalized] || null;
+  }
+
+  private prettifyDetailKey(rawKey: string): string {
+    return (rawKey || '')
+      .replace(/[_-]+/g, ' ')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 }

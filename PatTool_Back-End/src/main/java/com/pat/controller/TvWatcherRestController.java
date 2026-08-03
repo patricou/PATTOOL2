@@ -13,6 +13,7 @@ import com.pat.controller.dto.TvRecordingRenameRequest;
 import com.pat.controller.dto.TvRecordingStartRequest;
 import com.pat.service.ArteReplayService;
 import com.pat.service.CanalGroupLiveService;
+import com.pat.service.EurosportLiveService;
 import com.pat.service.FranceTvLiveService;
 import com.pat.service.InternetArchiveReplayService;
 import com.pat.service.M6GroupLiveService;
@@ -128,6 +129,9 @@ public class TvWatcherRestController {
 
     @Autowired
     private RtsLiveService rtsLiveService;
+
+    @Autowired
+    private EurosportLiveService eurosportLiveService;
 
     @Autowired
     private ArteReplayService arteReplayService;
@@ -263,32 +267,45 @@ public class TvWatcherRestController {
     }
 
     /**
-     * Browse programmes by TV for one country (now/next overview).
+     * Browse programmes by TV for one country, or {@code country=all} (warm EPG caches /
+     * major countries) when a programme/TV query is provided.
+     * Only channels present in the IPTV catalog (“Toutes les TV”) are returned.
      * Optional {@code q} filters by channel name / EPG id <strong>or</strong> programme title.
-     * Example: {@code GET /epg/browse?country=fr&q=jt&limit=120}
+     * Optional {@code nowOnly=true} limits programme-title matches to what is airing now.
+     * Example: {@code GET /epg/browse?country=all&q=cyclisme&nowOnly=true&limit=120}
      */
     @GetMapping("/epg/browse")
     public ResponseEntity<List<TvEpgBrowseChannelDto>> epgBrowse(
             @RequestParam(defaultValue = "fr") String country,
             @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "true") boolean nowOnly,
             @RequestParam(required = false, defaultValue = "120") int limit) {
-        if (tvCatalogService.isAllCountries(country)) {
+        boolean worldwide = tvCatalogService.isAllCountries(country);
+        if (!worldwide && !tvCatalogService.isSupportedCountry(country)) {
             return ResponseEntity.badRequest().build();
         }
-        if (!tvCatalogService.isSupportedCountry(country)) {
-            return ResponseEntity.badRequest().build();
-        }
-        String code = country.trim().toLowerCase(Locale.ROOT);
-        Map<String, TvChannelDto> index = new HashMap<>();
-        for (TvChannelDto ch : tvCatalogService.listChannels(code)) {
-            String resolved = TvEpgService.resolveEpgChannelId(ch);
-            if (StringUtils.hasText(resolved)) {
-                index.putIfAbsent(resolved.toLowerCase(Locale.ROOT), ch);
+        String code = worldwide ? "all" : country.trim().toLowerCase(Locale.ROOT);
+        Map<String, Map<String, TvChannelDto>> epgIndexByCountry = new HashMap<>();
+        BiFunction<String, String, TvChannelDto> resolver = (cc, epgId) -> {
+            if (!StringUtils.hasText(epgId)) {
+                return null;
             }
-        }
-        BiFunction<String, String, TvChannelDto> resolver =
-                (cc, epgId) -> index.get(epgId != null ? epgId.toLowerCase(Locale.ROOT) : "");
-        List<TvEpgBrowseChannelDto> rows = tvEpgService.browseChannels(code, q, limit, resolver);
+            Map<String, TvChannelDto> index = epgIndexByCountry.computeIfAbsent(cc, ccode -> {
+                Map<String, TvChannelDto> map = new HashMap<>();
+                if (!tvCatalogService.isSupportedCountry(ccode)) {
+                    return map;
+                }
+                for (TvChannelDto ch : tvCatalogService.listChannels(ccode)) {
+                    String resolved = TvEpgService.resolveEpgChannelId(ch);
+                    if (StringUtils.hasText(resolved)) {
+                        map.putIfAbsent(resolved.toLowerCase(Locale.ROOT), ch);
+                    }
+                }
+                return map;
+            });
+            return index.get(epgId.toLowerCase(Locale.ROOT));
+        };
+        List<TvEpgBrowseChannelDto> rows = tvEpgService.browseChannels(code, q, limit, nowOnly, true, resolver);
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofMinutes(2)).cachePublic())
                 .body(rows);
@@ -314,12 +331,14 @@ public class TvWatcherRestController {
     /**
      * Search programmes by title/description across the cached EPG window.
      * {@code country=all} scans major countries server-side.
-     * Example: {@code GET /epg/search?country=fr&q=journal&limit=40}
+     * Optional {@code nowOnly=true} returns only currently airing programmes.
+     * Example: {@code GET /epg/search?country=fr&q=journal&nowOnly=true&limit=40}
      */
     @GetMapping("/epg/search")
     public ResponseEntity<List<TvEpgSearchHitDto>> epgSearch(
             @RequestParam(defaultValue = "fr") String country,
             @RequestParam("q") String q,
+            @RequestParam(required = false, defaultValue = "true") boolean nowOnly,
             @RequestParam(required = false, defaultValue = "40") int limit) {
         String query = q != null ? q.trim() : "";
         if (query.length() < 2) {
@@ -345,7 +364,7 @@ public class TvWatcherRestController {
             });
             return index.get(epgId.toLowerCase(Locale.ROOT));
         };
-        List<TvEpgSearchHitDto> hits = tvEpgService.searchProgrammes(country, query, limit, resolver);
+        List<TvEpgSearchHitDto> hits = tvEpgService.searchProgrammes(country, query, limit, nowOnly, resolver);
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofMinutes(2)).cachePublic())
                 .body(hits);
@@ -606,6 +625,7 @@ public class TvWatcherRestController {
                 || RadioFranceLiveService.isVirtualUrl(trimmed)
                 || M6GroupLiveService.isVirtualUrl(trimmed)
                 || RtsLiveService.isVirtualUrl(trimmed)
+                || EurosportLiveService.isVirtualUrl(trimmed)
                 || ArteReplayService.isVirtualUrl(trimmed)
                 || InternetArchiveReplayService.isVirtualUrl(trimmed))) {
             return TvStreamProxyService.jsonError(HttpStatus.BAD_REQUEST, "invalid_url",
@@ -638,6 +658,7 @@ public class TvWatcherRestController {
                 || RadioFranceLiveService.isVirtualUrl(trimmed)
                 || M6GroupLiveService.isVirtualUrl(trimmed)
                 || RtsLiveService.isVirtualUrl(trimmed)
+                || EurosportLiveService.isVirtualUrl(trimmed)
                 || ArteReplayService.isVirtualUrl(trimmed)
                 || InternetArchiveReplayService.isVirtualUrl(trimmed);
         boolean http = trimmed.startsWith("http://") || trimmed.startsWith("https://");
@@ -778,6 +799,7 @@ public class TvWatcherRestController {
                 || Tf1LiveService.isVirtualUrl(upstream)
                 || M6GroupLiveService.isVirtualUrl(upstream)
                 || RtsLiveService.isVirtualUrl(upstream)
+                || EurosportLiveService.isVirtualUrl(upstream)
                 || ArteReplayService.isVirtualUrl(upstream)
                 || InternetArchiveReplayService.isVirtualUrl(upstream);
     }
@@ -799,6 +821,10 @@ public class TvWatcherRestController {
             RtsLiveService.slugFromVirtualUrl(upstream).ifPresent(rtsLiveService::invalidate);
             return rtsLiveService.resolveVirtualOrPassthrough(upstream, true);
         }
+        if (EurosportLiveService.isVirtualUrl(upstream)) {
+            EurosportLiveService.slugFromVirtualUrl(upstream).ifPresent(eurosportLiveService::invalidate);
+            return eurosportLiveService.resolveVirtualOrPassthrough(upstream, true);
+        }
         if (ArteReplayService.isVirtualUrl(upstream)) {
             ArteReplayService.programIdFromVirtualUrl(upstream)
                     .ifPresent(id -> arteReplayService.invalidate(id, "fr"));
@@ -819,6 +845,7 @@ public class TvWatcherRestController {
                 || RadioFranceLiveService.isVirtualUrl(url)
                 || M6GroupLiveService.isVirtualUrl(url)
                 || RtsLiveService.isVirtualUrl(url)
+                || EurosportLiveService.isVirtualUrl(url)
                 || ArteReplayService.isVirtualUrl(url)
                 || InternetArchiveReplayService.isVirtualUrl(url);
     }
@@ -989,6 +1016,34 @@ public class TvWatcherRestController {
     }
 
     /**
+     * Resolve Eurosport 1 / 2 via configured HLS seeds or Discovery session token.
+     */
+    @GetMapping("/live/eurosport/{slug}")
+    public ResponseEntity<?> resolveEurosport(
+            @PathVariable("slug") String slug,
+            @RequestParam(value = "fresh", defaultValue = "false") boolean fresh) {
+        if (eurosportLiveService.findChannel(slug).isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Unknown Eurosport channel"));
+        }
+        Optional<String> hls = eurosportLiveService.resolveHlsUrl(slug, fresh);
+        if (hls.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of(
+                    "error", "eurosport_resolve_failed",
+                    "message", "Eurosport officiel est payant (Max / Eurosport Player). "
+                            + "Configurez app.tv.eurosport.eurosport1-hls / eurosport2-hls "
+                            + "ou app.tv.eurosport.disco-token."
+            ));
+        }
+        long expiresAtEpoch = Instant.now().plus(Duration.ofMinutes(20)).getEpochSecond();
+        return ResponseEntity.ok(Map.of(
+                "slug", slug,
+                "streamUrl", hls.get(),
+                "virtualUrl", EurosportLiveService.virtualUrl(slug),
+                "expiresAtEpoch", expiresAtEpoch
+        ));
+    }
+
+    /**
      * ARTE replay catalog sections (EMAC v4 codes).
      */
     @GetMapping("/arte/sections")
@@ -1141,6 +1196,9 @@ public class TvWatcherRestController {
         if (RtsLiveService.isVirtualUrl(url)) {
             return rtsLiveService.resolveVirtualOrPassthrough(url);
         }
+        if (EurosportLiveService.isVirtualUrl(url)) {
+            return eurosportLiveService.resolveVirtualOrPassthrough(url);
+        }
         if (ArteReplayService.isVirtualUrl(url)) {
             return arteReplayService.resolveVirtualOrPassthrough(url);
         }
@@ -1214,6 +1272,21 @@ public class TvWatcherRestController {
                 return TvStreamProxyService.jsonError(HttpStatus.BAD_GATEWAY, "rts_resolve_failed",
                         "Aucun miroir HLS pour RTS 1/2 (Netplus géo-CH — "
                                 + "app.tv.rts.netplus-proxy ou VPN Suisse). RTS Info OK.");
+            }
+            return null;
+        }
+        if (EurosportLiveService.isVirtualUrl(url)) {
+            Optional<String> slug = EurosportLiveService.slugFromVirtualUrl(url);
+            if (slug.isEmpty() || eurosportLiveService.findChannel(slug.get()).isEmpty()) {
+                return TvStreamProxyService.jsonError(HttpStatus.BAD_REQUEST, "unknown_eurosport_channel",
+                        "Chaîne Eurosport inconnue");
+            }
+            Optional<String> hls = eurosportLiveService.resolveHlsUrl(slug.get());
+            if (hls.isEmpty() || !StringUtils.hasText(hls.get())) {
+                return TvStreamProxyService.jsonError(HttpStatus.BAD_GATEWAY, "eurosport_resolve_failed",
+                        "Eurosport officiel est payant (Max / Eurosport Player). "
+                                + "Configurez app.tv.eurosport.eurosport1-hls / eurosport2-hls "
+                                + "ou app.tv.eurosport.disco-token (session abonnée).");
             }
             return null;
         }

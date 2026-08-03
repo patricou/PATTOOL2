@@ -1,20 +1,26 @@
 package com.pat.controller.dto;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * Windy webcam list / detail teaser.
+ * Webcam list / detail teaser (Windy, Road511, NAPSPAN).
  */
 public class WebcamItemDto {
 
     private String id;
-    /** {@code windy} (default) or {@code road511}. */
+    /** {@code windy} (default), {@code road511}, or {@code napspan}. */
     private String provider;
     private String title;
+    /** Full description when the provider supplies one (often richer than {@link #title}). */
+    private String description;
     private String status;
     private Long viewCount;
     private String lastUpdatedOn;
+    /** Capture time of the still / clip when distinct from {@link #lastUpdatedOn}. */
+    private String lastImageTime;
     private String city;
     private String region;
     private String country;
@@ -29,9 +35,19 @@ public class WebcamItemDto {
     private String playerLiveUrl;
     private String playerMonthUrl;
     private String detailUrl;
-    /** True when {@link #playerLiveUrl} is a native HLS / DOT stream (Road511). */
+    /** True when {@link #playerLiveUrl} is a native HLS / DOT / NAPSPAN stream. */
     private Boolean hasVideo;
+    private String roadName;
+    private String direction;
+    private String source;
+    private String sourceId;
+    private String featureType;
     private List<String> categories = new ArrayList<>();
+    /**
+     * Extra scalar fields from the upstream payload (km, angle, views, …),
+     * preserved for display. Insertion order is kept.
+     */
+    private Map<String, String> details = new LinkedHashMap<>();
 
     public WebcamItemDto() {
     }
@@ -60,6 +76,14 @@ public class WebcamItemDto {
         this.title = title;
     }
 
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
     public String getStatus() {
         return status;
     }
@@ -82,6 +106,14 @@ public class WebcamItemDto {
 
     public void setLastUpdatedOn(String lastUpdatedOn) {
         this.lastUpdatedOn = lastUpdatedOn;
+    }
+
+    public String getLastImageTime() {
+        return lastImageTime;
+    }
+
+    public void setLastImageTime(String lastImageTime) {
+        this.lastImageTime = lastImageTime;
     }
 
     public String getCity() {
@@ -204,11 +236,59 @@ public class WebcamItemDto {
         this.hasVideo = hasVideo;
     }
 
+    public String getRoadName() {
+        return roadName;
+    }
+
+    public void setRoadName(String roadName) {
+        this.roadName = roadName;
+    }
+
+    public String getDirection() {
+        return direction;
+    }
+
+    public void setDirection(String direction) {
+        this.direction = direction;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String source) {
+        this.source = source;
+    }
+
+    public String getSourceId() {
+        return sourceId;
+    }
+
+    public void setSourceId(String sourceId) {
+        this.sourceId = sourceId;
+    }
+
+    public String getFeatureType() {
+        return featureType;
+    }
+
+    public void setFeatureType(String featureType) {
+        this.featureType = featureType;
+    }
+
     public List<String> getCategories() {
         return categories;
     }
 
     public void setCategories(List<String> categories) {
         this.categories = categories != null ? categories : new ArrayList<>();
+    }
+
+    public Map<String, String> getDetails() {
+        return details;
+    }
+
+    public void setDetails(Map<String, String> details) {
+        this.details = details != null ? new LinkedHashMap<>(details) : new LinkedHashMap<>();
     }
 }

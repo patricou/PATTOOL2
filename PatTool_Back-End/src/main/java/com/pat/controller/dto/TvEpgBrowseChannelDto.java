@@ -6,6 +6,8 @@ package com.pat.controller.dto;
  */
 public class TvEpgBrowseChannelDto {
 
+    /** ISO country code of the EPG guide (needed for worldwide browse). */
+    private String country;
     private String channelId;
     private String name;
     private TvChannelDto channel;
@@ -17,18 +19,28 @@ public class TvEpgBrowseChannelDto {
     }
 
     public TvEpgBrowseChannelDto(
+            String country,
             String channelId,
             String name,
             TvChannelDto channel,
             TvEpgProgrammeDto now,
             TvEpgProgrammeDto next,
             int programmeCount) {
+        this.country = country;
         this.channelId = channelId;
         this.name = name;
         this.channel = channel;
         this.now = now;
         this.next = next;
         this.programmeCount = programmeCount;
+    }
+
+    public String getCountry() {
+        return country;
+    }
+
+    public void setCountry(String country) {
+        this.country = country;
     }
 
     public String getChannelId() {
