@@ -99,6 +99,10 @@ export function resolveTvStreamUrl(channel: TvChannel | null | undefined): strin
   if (id.startsWith('rtsinfo.ch') || /rts\s*info\b/.test(name) || name.includes('rtsinfo')) {
     return 'rts:rtsinfo';
   }
+  // ARTE live: prefer official Akamai via arte:LIVE (IPTV mirrors reconnect constantly).
+  if (id.startsWith('arte.fr') || /^arte(\b|[\s\-_.(]|hd|fhd|sd|uhd|4k)/i.test(name)) {
+    return 'arte:LIVE';
+  }
   return existing;
 }
 
@@ -174,10 +178,8 @@ export function isKeepAliveVirtualLive(url: string): boolean {
 
 /**
  * Only france.tv uses short-lived signed CDN tokens that need silent MediaSource renewals.
- * TF1/TMC/TFX play via IPTV mirrors when possible (official SSAI often 403s on segments).
- * LCI uses official CDN without proactive swaps (stable for typical sessions).
- * {@code opts.tf1Configured} is kept for API compatibility but does not enable renewals —
- * enabling them re-pulls mediainfo and can flip playback onto a 403 CDN URL.
+ * TF1/LCI official JWTs last hours; IPTV mirrors have no CDN token — proactive MediaSource
+ * swaps are unnecessary and can cut playback. {@code opts.tf1Configured} is kept for API compat.
  */
 export function needsProactiveTokenRenewal(
   url: string,

@@ -890,7 +890,8 @@ public class TvWatcherRestController {
         if (tf1LiveService.findChannel(slug).isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Unknown TF1 channel"));
         }
-        // Official path prefers credentials; IPTV mirrors are tried automatically when missing/invalid.
+        // Official path prefers credentials; IPTV mirrors are tried when missing/invalid.
+        // SSAI masters need post-redirect playlist rewrite (TvStreamProxyService.finalUrl).
         Optional<String> hls = tf1LiveService.resolveHlsUrl(slug, fresh);
         if (hls.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of(

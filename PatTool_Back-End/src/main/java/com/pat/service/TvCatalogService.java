@@ -743,7 +743,7 @@ public class TvCatalogService {
     /**
      * Replace broken third-party mirrors of major French FTA channels with virtual
      * {@code francetv:…} / {@code tf1:…} / {@code canalgroup:…} / {@code radiofrance:…} / {@code m6group:…}
-     * / {@code rts:…} URLs resolved on play.
+     * / {@code rts:…} / {@code arte:LIVE} URLs resolved on play.
      */
     private List<TvChannelDto> overlayOfficialLiveSources(List<TvChannelDto> channels, String countryCode) {
         if (channels == null || channels.isEmpty()) {
@@ -803,6 +803,8 @@ public class TvCatalogService {
                 out.add(patchVirtual(ch, RadioFranceLiveService.virtualUrl(radioSlug)));
             } else if (m6Slug != null) {
                 out.add(patchVirtual(ch, M6GroupLiveService.virtualUrl(m6Slug)));
+            } else if (isArteLiveChannel(ch)) {
+                out.add(patchVirtual(ch, ArteReplayService.virtualUrl("LIVE")));
             } else {
                 out.add(ch);
             }
@@ -847,6 +849,8 @@ public class TvCatalogService {
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/6ter_2012.svg/512px-6ter_2012.svg.png");
         ensureM6GroupChannel(out, "gulli", "Gulli", "Kids",
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/Gulli_2017.svg/512px-Gulli_2017.svg.png");
+        ensureArteLiveChannel(out, "ARTE", "General",
+                "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Arte_Logo_2017.svg/512px-Arte_Logo_2017.svg.png");
         return prioritizeOfficialLive(out);
     }
 
@@ -1049,6 +1053,26 @@ public class TvCatalogService {
         }
     }
 
+    private static void ensureArteLiveChannel(List<TvChannelDto> list, String name,
+                                              String group, String logo) {
+        String virtual = ArteReplayService.virtualUrl("LIVE");
+        boolean present = list.stream().anyMatch(c -> virtual.equalsIgnoreCase(c.getStreamUrl()));
+        if (!present) {
+            list.add(0, new TvChannelDto("arte-LIVE", name, logo, group, "fr", virtual, "720p"));
+        }
+    }
+
+    /** ARTE main live (not regional / themed IPTV clones). */
+    private static boolean isArteLiveChannel(TvChannelDto ch) {
+        String id = ch.getId() != null ? ch.getId().toLowerCase(Locale.ROOT) : "";
+        String name = ch.getName() != null ? ch.getName().toLowerCase(Locale.ROOT).trim() : "";
+        if (id.startsWith("arte.fr")) {
+            return true;
+        }
+        // ARTE, ARTE HD, ARTE FHD, ARTE (1080p), …
+        return name.matches("^arte(\\b|[\\s\\-_.(]|hd|fhd|sd|uhd|4k).*");
+    }
+
     private static List<TvChannelDto> prioritizeOfficialLive(List<TvChannelDto> channels) {
         List<TvChannelDto> priority = new ArrayList<>();
         List<TvChannelDto> rest = new ArrayList<>();
@@ -1058,7 +1082,8 @@ public class TvCatalogService {
                     || CanalGroupLiveService.isVirtualUrl(ch.getStreamUrl())
                     || RadioFranceLiveService.isVirtualUrl(ch.getStreamUrl())
                     || M6GroupLiveService.isVirtualUrl(ch.getStreamUrl())
-                    || RtsLiveService.isVirtualUrl(ch.getStreamUrl())) {
+                    || RtsLiveService.isVirtualUrl(ch.getStreamUrl())
+                    || ArteReplayService.isVirtualUrl(ch.getStreamUrl())) {
                 priority.add(ch);
             } else {
                 rest.add(ch);

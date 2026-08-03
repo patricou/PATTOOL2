@@ -29,6 +29,7 @@ import {
   encodeShareQueryValue,
   encodeShareStreamToken,
   isArteReplayVod,
+  isArteLiveVirtual,
   isArteVirtual,
   isCanalGroupVirtual,
   isFranceTvVirtual,
@@ -4453,11 +4454,13 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       disableTvSubtitles(this.hls, video);
       video.playbackRate = 1;
       // Never attach live-edge seek on ARTE replay — it jumps straight to the end.
-      // Also skip for IPTV mirrors (TF1/LCI/M6/RTS): seeking to live edge while the
-      // mirror lags poisons MSE (appendBuffer / media.error) — LCI regressions.
-      const iptvMirrorLive =
-        isTf1Virtual(streamUrl) || isM6GroupVirtual(streamUrl) || isRtsVirtual(streamUrl);
-      this.detachHlsLiveSync = vod || iptvMirrorLive
+      // Also skip for IPTV mirrors (TF1/LCI/M6/RTS) and ARTE LIVE: seeking to the
+      // live edge while lag builds (or while hls.js flips Akamai failover levels)
+      // poisons MSE (appendBuffer / media.error) — visible connect/disconnect loops.
+      const skipLiveEdge =
+        isTf1Virtual(streamUrl) || isM6GroupVirtual(streamUrl) || isRtsVirtual(streamUrl)
+        || isArteLiveVirtual(streamUrl);
+      this.detachHlsLiveSync = vod || skipLiveEdge
         ? null
         : attachTvHlsLiveSyncWatchdog(this.hls, video);
       this.bindWatcherHlsHandlers(this.hls, channel, effectiveProxyUrl, playGen, tryPlay);
@@ -4596,7 +4599,11 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
           /* ignore */
         }
         this.hls = next;
-        this.detachHlsLiveSync = isArteReplayVod(resolveTvStreamUrl(channel))
+        const swappedUrl = resolveTvStreamUrl(channel);
+        const skipLiveEdge =
+          isArteReplayVod(swappedUrl) || isArteLiveVirtual(swappedUrl)
+          || isTf1Virtual(swappedUrl) || isM6GroupVirtual(swappedUrl) || isRtsVirtual(swappedUrl);
+        this.detachHlsLiveSync = skipLiveEdge
           ? null
           : attachTvHlsLiveSyncWatchdog(next, media);
         this.bindWatcherHlsHandlers(next, channel, proxyUrl, playGen, tryPlay);

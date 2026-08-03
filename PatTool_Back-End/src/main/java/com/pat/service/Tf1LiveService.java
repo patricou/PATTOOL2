@@ -37,9 +37,10 @@ import java.util.regex.Pattern;
 /**
  * Resolves TF1 Group live HLS streams.
  * <p>
- * Authenticated channels (TF1 / TMC / TFX) and LCI: public IPTV seeds first for speed.
- * Official {@code mediainfo.tf1.fr} is a fallback (TF1/TMC/TFX need credentials; WAF often
- * blocks {@code www.tf1.fr/token/gigya/web}).
+ * LCI and authenticated TF1/TMC/TFX (when {@code app.tv.tf1.*} is set) prefer the official
+ * {@code mediainfo.tf1.fr} HLS URL. TF1 SSAI masters 307 onto a session URL — the stream
+ * proxy must rewrite playlists against that post-redirect base (see {@link TvStreamProxyService}).
+ * Public IPTV mirrors remain a fallback when official is unavailable (no credentials / WAF).
  * <p>
  * Virtual catalog URLs: {@code tf1:tf1}, {@code tf1:tmc}, {@code tf1:tfx}, {@code tf1:lci}.
  */
@@ -83,8 +84,8 @@ public class Tf1LiveService {
                 "L_TF1", "TF1", true,
                 "https://i.imgur.com/QxHt9NC.png", "Entertainment",
                 "tf1.fr",
-                // Prefer labeled 576p (sustainable bitrate). TF1_HD on 151.80 is ~5–7 Mb/s
-                // media but often only ~2–2.5 Mb/s from FR — live buffer never catches up.
+                // Fallback mirrors only (official preferred when credentials are set).
+                // workers.dev ≈576p but often 429; TF1_HD ≈5 Mb/s and frequently unsustainable.
                 List.of(
                         "https://futbol9865.ultratv13.workers.dev/deportivo111/24.m3u8",
                         "http://151.80.18.177:86/TF1_HD/index.m3u8"
@@ -209,24 +210,24 @@ public class Tf1LiveService {
         String avoidUrl = null;
         CachedUrl cached = streamCache.get(key);
 
-        // LCI: official CDN first (no Gigya, stable).
-        // TF1/TMC/TFX: IPTV mirrors ONLY — official SSAI masters probe OK then 403 on segments.
-        boolean preferOfficial = !def.requiresAuth();
-        boolean mirrorsOnly = def.requiresAuth();
+        // LCI: official CDN first (no Gigya).
+        // TF1/TMC/TFX: official when credentials are configured; else IPTV mirrors only.
+        boolean preferOfficial = !def.requiresAuth() || isConfigured();
+        boolean mirrorsOnly = def.requiresAuth() && !isConfigured();
 
         // Sticky path: keep the same working URL to avoid mid-playback cuts / resolve thrash.
         if (cached != null && !isTemporarilyFailed(cached.url)) {
             boolean cacheFresh = cached.expiresAt.isAfter(now);
             boolean official = isTf1CdnUrl(cached.url);
-            // Never keep a sticky official CDN URL for TF1/TMC/TFX (SSAI 403).
+            // Without credentials, never keep a sticky official CDN URL (auth required).
             if (mirrorsOnly && official) {
                 markFailed(cached.url, Duration.ofMinutes(30));
                 streamCache.remove(key);
-                log.info("TF1 live {} dropped sticky official CDN (mirrors-only policy)", key);
+                log.info("TF1 live {} dropped sticky official CDN (mirrors-only / no credentials)", key);
                 avoidUrl = cached.url;
                 cached = null;
             } else if (cacheFresh && !forceRefresh) {
-                // LCI only: upgrade sticky IPTV → official when available.
+                // Upgrade sticky IPTV → official when preferred and available.
                 if (preferOfficial && !official) {
                     Optional<String> upgrade = tryOfficialPreferred(def, key, now, null);
                     if (upgrade.isPresent()) {
@@ -267,18 +268,18 @@ public class Tf1LiveService {
             if (mirror.isPresent()) {
                 return mirror;
             }
-            // Do NOT fall back to official mediainfo for TF1/TMC/TFX — SSAI 403s mid-play.
         }
 
-        // Last resort: previously avoided mirror only (never revive official CDN for mirrors-only).
-        if (StringUtils.hasText(avoidUrl) && !isTf1CdnUrl(avoidUrl)
-                && probeClearHls(avoidUrl, false)) {
+        // Last resort: previously avoided URL if it still probes clean.
+        if (StringUtils.hasText(avoidUrl)
+                && !(mirrorsOnly && isTf1CdnUrl(avoidUrl))
+                && probeClearHls(avoidUrl, isTf1CdnUrl(avoidUrl))) {
             clearFailed(avoidUrl);
             streamCache.put(key, new CachedUrl(avoidUrl, now.plus(CACHE_TTL_SHORT)));
             return Optional.of(avoidUrl);
         }
-        log.warn("TF1 live: no working IPTV mirror for {}{}", key,
-                mirrorsOnly ? " (official CDN disabled for this channel)" : "");
+        log.warn("TF1 live: no working stream for {}{}", key,
+                mirrorsOnly ? " (configure app.tv.tf1.email/password for official CDN)" : "");
         return Optional.empty();
     }
 

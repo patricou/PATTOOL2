@@ -253,7 +253,12 @@ public class TvStreamProxyService {
         contentType = stripSpuriousCharset(contentType);
 
         if (isPlaylist(upstreamUrl, contentType, body)) {
-            String rewritten = rewritePlaylist(new String(body, StandardCharsets.UTF_8), upstreamUrl, proxyBase);
+            // TF1 SSAI (and similar CDNs) 307 from …/{serviceId}/{jwt}/…/master.m3u8 to
+            // …/{jwt}/…/master.m3u8?bpkio_sessionid=… — relative variant URIs must resolve
+            // against the post-redirect URL or the CDN returns edge-vhost/invalid-token (403).
+            String playlistBase = (fetched.finalUrl != null && !fetched.finalUrl.isBlank())
+                    ? fetched.finalUrl : upstreamUrl;
+            String rewritten = rewritePlaylist(new String(body, StandardCharsets.UTF_8), playlistBase, proxyBase);
             body = rewritten.getBytes(StandardCharsets.UTF_8);
             contentType = "application/vnd.apple.mpegurl; charset=utf-8";
         }
@@ -461,6 +466,7 @@ public class TvStreamProxyService {
                     result.contentType = conn.getContentType();
                     result.contentRange = conn.getHeaderField("Content-Range");
                     result.acceptRanges = conn.getHeaderField("Accept-Ranges");
+                    result.finalUrl = current;
                     long declaredLength = conn.getContentLengthLong();
                     if (chunk.truncated && chunk.body != null && chunk.body.length > 0) {
                         result.status = 206;
@@ -532,6 +538,8 @@ public class TvStreamProxyService {
                 result.contentType = resp.headers().firstValue("Content-Type").orElse(null);
                 result.contentRange = resp.headers().firstValue("Content-Range").orElse(null);
                 result.acceptRanges = resp.headers().firstValue("Accept-Ranges").orElse(null);
+                // HttpClient follows redirects — use the effective URI for HLS rewrite.
+                result.finalUrl = resp.uri() != null ? resp.uri().toString() : url;
                 long declaredLength = resp.headers().firstValueAsLong("Content-Length").orElse(-1L);
                 if (chunk.truncated && chunk.body != null && chunk.body.length > 0) {
                     result.status = 206;
@@ -815,26 +823,73 @@ public class TvStreamProxyService {
         }
         String[] lines = playlist.split("\\R", -1);
         StringBuilder out = new StringBuilder(playlist.length() + 256);
+        boolean emitted = false;
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i];
-            if (i > 0) {
-                out.append('\n');
-            }
             if (line == null) {
                 continue;
             }
             String trimmed = line.trim();
             if (trimmed.isEmpty() || trimmed.startsWith("#EXTM3U")) {
+                if (emitted) {
+                    out.append('\n');
+                }
                 out.append(line);
+                emitted = true;
                 continue;
             }
             if (trimmed.startsWith("#")) {
+                // ARTE Akamai master lists each rendition twice (primary + "-b" failover)
+                // with identical BANDWIDTH — hls.js thrash between them looks like
+                // constant connect/disconnect. Drop the failover STREAM-INF + URI pair.
+                if (trimmed.toUpperCase(Locale.ROOT).startsWith("#EXT-X-STREAM-INF")
+                        && i + 1 < lines.length) {
+                    String next = lines[i + 1] != null ? lines[i + 1].trim() : "";
+                    if (!next.isEmpty() && !next.startsWith("#")
+                            && isArteAkamaiFailoverUri(resolveUri(base, next))) {
+                        i++; // skip failover URI
+                        continue;
+                    }
+                }
+                if (emitted) {
+                    out.append('\n');
+                }
                 out.append(rewritePlaylistTagUris(line, base, proxyBase));
+                emitted = true;
                 continue;
             }
-            out.append(toProxyUrl(resolveUri(base, trimmed), proxyBase));
+            URI absolute = resolveUri(base, trimmed);
+            if (isArteAkamaiFailoverUri(absolute)) {
+                continue;
+            }
+            if (emitted) {
+                out.append('\n');
+            }
+            out.append(toProxyUrl(absolute, proxyBase));
+            emitted = true;
         }
         return out.toString();
+    }
+
+    /**
+     * ARTE live masters advertise primary + failover paths ({@code /live/2031003-b/…})
+     * at the same bitrate. Prefer the primary only.
+     */
+    private static boolean isArteAkamaiFailoverUri(URI uri) {
+        if (uri == null) {
+            return false;
+        }
+        String host = uri.getHost();
+        String path = uri.getPath();
+        if (host == null || path == null) {
+            return false;
+        }
+        String h = host.toLowerCase(Locale.ROOT);
+        if (!(h.contains("artesimulcast")
+                || (h.contains("akamaized.net") && path.toLowerCase(Locale.ROOT).contains("arte")))) {
+            return false;
+        }
+        return path.matches("(?i).*/live/\\d+-b(/|$).*");
     }
 
     private String rewritePlaylistTagUris(String line, URI base, String proxyBase) {
@@ -918,6 +973,8 @@ public class TvStreamProxyService {
         private String contentType;
         private String contentRange;
         private String acceptRanges;
+        /** Effective URL after redirects (needed to resolve relative HLS URIs correctly). */
+        private String finalUrl;
     }
 
     private static final class ReadChunk {

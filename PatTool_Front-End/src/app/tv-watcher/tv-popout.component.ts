@@ -13,6 +13,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ApiService, TvChannel } from '../services/api.service';
 import { TvPlayerService } from '../services/tv-player.service';
 import {
+  isArteLiveVirtual,
   isArteReplayVod,
   internetArchiveIdFromVirtualUrl,
   isCanalGroupVirtual,
@@ -508,7 +509,8 @@ export class TvPopoutComponent implements OnInit, OnDestroy {
         vod: isArteReplayVod(streamUrl),
         progressive,
         skipLiveEdgeWatchdog:
-          isTf1Virtual(streamUrl) || isM6GroupVirtual(streamUrl) || isRtsVirtual(streamUrl),
+          isTf1Virtual(streamUrl) || isM6GroupVirtual(streamUrl) || isRtsVirtual(streamUrl)
+          || isArteLiveVirtual(streamUrl),
         onBuffering: (v) => {
           this.isBuffering = v;
           this.cdr.markForCheck();
