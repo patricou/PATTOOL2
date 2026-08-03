@@ -771,9 +771,14 @@ public class TvCatalogService {
                 "tfx.fr", "tfx",
                 "lci.fr", "lci"
         );
-        Map<String, String> canalByTvg = Map.of(
-                "cnews.fr", "cnews",
-                "cstar.fr", "cstar"
+        Map<String, String> canalByTvg = Map.ofEntries(
+                Map.entry("cnews.fr", "cnews"),
+                Map.entry("cstar.fr", "cstar"),
+                Map.entry("lequipe.fr", "lequipe"),
+                Map.entry("publicsenat.fr", "publicsenat"),
+                Map.entry("sudradio.fr", "sudradio"),
+                Map.entry("funradio.fr", "funradio"),
+                Map.entry("rtl2.fr", "rtl2")
         );
         Map<String, String> m6ByTvg = Map.of(
                 "m6.fr", "m6",
@@ -824,6 +829,16 @@ public class TvCatalogService {
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/CNews_logo_2017.svg/512px-CNews_logo_2017.svg.png");
         ensureCanalGroupChannel(out, "cstar", "CStar", "Entertainment",
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/CStar_logo_2016.svg/512px-CStar_logo_2016.svg.png");
+        ensureCanalGroupChannel(out, "lequipe", "L'Équipe", "Sports",
+                "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/france/lequipe-fr.png");
+        ensureCanalGroupChannel(out, "publicsenat", "Public Sénat", "News",
+                "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/france/public-senat-fr.png");
+        ensureCanalGroupChannel(out, "sudradio", "Sud Radio", "Radio",
+                "https://s2.dmcdn.net/u/1ERZ11gSEqESArNIw/720x720");
+        ensureCanalGroupChannel(out, "funradio", "Fun Radio", "Radio",
+                "https://s2.dmcdn.net/u/2MYk91gSFHm8UswjE/720x720");
+        ensureCanalGroupChannel(out, "rtl2", "RTL2", "Radio",
+                "https://s2.dmcdn.net/u/2MjtK1gSFHmYn42_n/720x720");
         ensureM6GroupChannel(out, "m6", "M6", "Entertainment",
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Logo_M6_2015.svg/512px-Logo_M6_2015.svg.png");
         ensureM6GroupChannel(out, "w9", "W9", "Entertainment",
@@ -832,10 +847,6 @@ public class TvCatalogService {
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/6ter_2012.svg/512px-6ter_2012.svg.png");
         ensureM6GroupChannel(out, "gulli", "Gulli", "Kids",
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/Gulli_2017.svg/512px-Gulli_2017.svg.png");
-        ensureEurosportChannel(out, "1", "Eurosport 1", "Sports",
-                "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/france/eurosport-1-fr.png");
-        ensureEurosportChannel(out, "2", "Eurosport 2", "Sports",
-                "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/france/eurosport-2-fr.png");
         return prioritizeOfficialLive(out);
     }
 
@@ -932,6 +943,14 @@ public class TvCatalogService {
         }
         if (name.matches("c\\s*news\\b.*") || name.equals("cnews")) return "cnews";
         if (name.matches("c\\s*star\\b.*") || name.equals("cstar")) return "cstar";
+        if (name.contains("equipe") || name.contains("équipe") || name.equals("lequipe")) return "lequipe";
+        if ((name.contains("public") && (name.contains("senat") || name.contains("sénat")))
+                || name.contains("publicsenat")) {
+            return "publicsenat";
+        }
+        if (name.contains("sud radio") || name.equals("sudradio")) return "sudradio";
+        if (name.contains("fun radio") || name.equals("funradio")) return "funradio";
+        if (name.equals("rtl2") || name.matches("rtl\\s*2\\b.*")) return "rtl2";
         return null;
     }
 
@@ -1030,15 +1049,6 @@ public class TvCatalogService {
         }
     }
 
-    private static void ensureEurosportChannel(List<TvChannelDto> list, String slug, String name,
-                                               String group, String logo) {
-        String virtual = EurosportLiveService.virtualUrl(slug);
-        boolean present = list.stream().anyMatch(c -> virtual.equalsIgnoreCase(c.getStreamUrl()));
-        if (!present) {
-            list.add(0, new TvChannelDto("eurosport-" + slug, name, logo, group, "fr", virtual, "720p"));
-        }
-    }
-
     private static List<TvChannelDto> prioritizeOfficialLive(List<TvChannelDto> channels) {
         List<TvChannelDto> priority = new ArrayList<>();
         List<TvChannelDto> rest = new ArrayList<>();
@@ -1048,8 +1058,7 @@ public class TvCatalogService {
                     || CanalGroupLiveService.isVirtualUrl(ch.getStreamUrl())
                     || RadioFranceLiveService.isVirtualUrl(ch.getStreamUrl())
                     || M6GroupLiveService.isVirtualUrl(ch.getStreamUrl())
-                    || RtsLiveService.isVirtualUrl(ch.getStreamUrl())
-                    || EurosportLiveService.isVirtualUrl(ch.getStreamUrl())) {
+                    || RtsLiveService.isVirtualUrl(ch.getStreamUrl())) {
                 priority.add(ch);
             } else {
                 rest.add(ch);

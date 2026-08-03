@@ -1516,7 +1516,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       if (exact) {
         return exact;
       }
-      // "Eurosport 1" vs "Eurosport1 FR" etc.
+      // Soft match: ignore spaces/underscores ("TF1 HD" vs "TF1HD" etc.).
       const compact = nameKey.replace(/[\s_-]+/g, '');
       const soft = list.find((ch) => {
         const n = (ch.name || '').toLowerCase();
@@ -1996,6 +1996,11 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   /** True when this channel is played via Canal group (CNews/CStar) Dailymotion live. */
   usesCanalGroupWorkaround(channel: TvChannel | null | undefined): boolean {
     return isCanalGroupVirtual(resolveTvStreamUrl(channel));
+  }
+
+  /** Free live channels resolved through Dailymotion (CNews, CStar, L'Équipe). */
+  isDailymotionLiveChannel(channel: TvChannel | null | undefined): boolean {
+    return this.usesCanalGroupWorkaround(channel);
   }
 
   /** True when this channel is played via Radio France official HLS. */

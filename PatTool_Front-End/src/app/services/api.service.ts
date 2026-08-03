@@ -2473,28 +2473,6 @@ export class ApiService {
     }>(this.API_URL + 'external/tv/live/rts/' + encodeURIComponent(slug), { params });
   }
 
-  /** Resolve Eurosport 1/2 via configured HLS seeds or Discovery token. */
-  resolveEurosportLive(
-    slug: string,
-    fresh = false
-  ): Observable<{
-    slug: string;
-    streamUrl: string;
-    virtualUrl: string;
-    expiresAtEpoch: number;
-  }> {
-    let params = new HttpParams();
-    if (fresh) {
-      params = params.set('fresh', 'true');
-    }
-    return this._http.get<{
-      slug: string;
-      streamUrl: string;
-      virtualUrl: string;
-      expiresAtEpoch: number;
-    }>(this.API_URL + 'external/tv/live/eurosport/' + encodeURIComponent(slug), { params });
-  }
-
   /** GET /api/external/tv/arte/sections — ARTE replay section codes. */
   getArteSections(lang = 'fr'): Observable<ArteSectionsResponse> {
     const params = new HttpParams().set('lang', lang);

@@ -925,6 +925,60 @@
   flex: 0 0 36px;
 }
 
+.tv-channel-logo-wrap {
+  position: relative;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+}
+
+.tv-channel-logo-wrap .tv-channel-logo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  flex: none;
+}
+
+.tv-dailymotion-badge {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1.5px #fff;
+  line-height: 0;
+  cursor: help;
+  z-index: 1;
+}
+
+.tv-dailymotion-badge-icon {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 4px;
+}
+
+.tv-dailymotion-badge--on-dark {
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.35);
+}
+
+.tv-now-logo-wrap {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-block;
+  line-height: 0;
+  min-width: 36px;
+  min-height: 36px;
+}
+
+.tv-now-logo-wrap .tv-dailymotion-badge {
+  width: 18px;
+  height: 18px;
+  right: -6px;
+  bottom: -6px;
+}
+
 .tv-channel-logo--placeholder {
   display: inline-flex;
   align-items: center;

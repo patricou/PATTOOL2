@@ -22,10 +22,11 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Resolves free Canal+ Group live channels (CNews / CStar) via Dailymotion live metadata
- * (same approach as streamlink's dailymotion plugin).
+ * Resolves free Dailymotion live channels (CNews / CStar / L'Équipe / Public Sénat
+ * and selected radio video lives).
  * <p>
- * Virtual catalog URLs: {@code canalgroup:cnews}, {@code canalgroup:cstar}.
+ * Virtual catalog URLs use the {@code canalgroup:} scheme for historical reasons
+ * (first channels were Canal+ Group).
  */
 @Service
 public class CanalGroupLiveService {
@@ -56,9 +57,48 @@ public class CanalGroupLiveService {
                 "Entertainment",
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/CStar_logo_2016.svg/512px-CStar_logo_2016.svg.png",
                 "https://www.cstar.fr/"));
+        // Free TNT sports channel (lequipe.fr / TF1+).
+        CHANNELS.put("lequipe", new ChannelDef(
+                "LEQUIPE",
+                "x2lefik",
+                "L'Équipe",
+                "Sports",
+                "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/france/lequipe-fr.png",
+                "https://www.lequipe.fr/"));
+        // Parliamentary TNT (channel 13 / LCP–Public Sénat family).
+        CHANNELS.put("publicsenat", new ChannelDef(
+                "PublicSenat",
+                "xkxbzc",
+                "Public Sénat",
+                "News",
+                "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/france/public-senat-fr.png",
+                "https://www.publicsenat.fr/"));
+        // Radio stations with free Dailymotion video livestreams.
+        CHANNELS.put("sudradio", new ChannelDef(
+                "SudRadio",
+                "x8jqxru",
+                "Sud Radio",
+                "Radio",
+                "https://s2.dmcdn.net/u/1ERZ11gSEqESArNIw/720x720",
+                "https://www.sudradio.fr/"));
+        CHANNELS.put("funradio", new ChannelDef(
+                "FunRadio",
+                "xxtuy6",
+                "Fun Radio",
+                "Radio",
+                "https://s2.dmcdn.net/u/2MYk91gSFHm8UswjE/720x720",
+                "https://www.funradio.fr/"));
+        CHANNELS.put("rtl2", new ChannelDef(
+                "RTL2",
+                "x2tzzpj",
+                "RTL2",
+                "Radio",
+                "https://s2.dmcdn.net/u/2MjtK1gSFHmYn42_n/720x720",
+                "https://www.rtl2.fr/"));
     }
 
     private final HttpClient httpClient = HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
             .connectTimeout(Duration.ofSeconds(12))
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build();

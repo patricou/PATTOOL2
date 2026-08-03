@@ -283,15 +283,28 @@
           (keydown.enter)="selectChannel(ch)"
           tabindex="0">
           <span class="tv-channel-index" aria-hidden="true">{{ listItemNumber(i) }}</span>
-          <img
-            *ngIf="ch.logo"
-            class="tv-channel-logo"
-            [src]="ch.logo"
-            alt=""
-            loading="lazy"
-            (error)="$any($event.target).style.display='none'" />
-          <span *ngIf="!ch.logo" class="tv-channel-logo tv-channel-logo--placeholder">
-            <i class="fa fa-television"></i>
+          <span class="tv-channel-logo-wrap">
+            <img
+              *ngIf="ch.logo"
+              class="tv-channel-logo"
+              [src]="ch.logo"
+              alt=""
+              loading="lazy"
+              (error)="$any($event.target).style.display='none'" />
+            <span *ngIf="!ch.logo" class="tv-channel-logo tv-channel-logo--placeholder">
+              <i class="fa fa-television"></i>
+            </span>
+            <span
+              *ngIf="isDailymotionLiveChannel(ch)"
+              class="tv-dailymotion-badge"
+              [attr.title]="'TV.DAILYMOTION_LIVE_TOOLTIP' | translate"
+              [attr.aria-label]="'TV.DAILYMOTION_LIVE_TOOLTIP' | translate"
+              role="img">
+              <svg class="tv-dailymotion-badge-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <rect x="1" y="1" width="22" height="22" rx="5" fill="#0d0d0d"/>
+                <path fill="#00d2d8" d="M8.2 5.2h3.1c2.9 0 4.5 1.5 4.5 3.9 0 1.7-.8 2.9-2.2 3.5l2.8 6.2h-3.3l-2.5-5.7H11.3v5.7H8.2V5.2zm3.1 2.4v3.1h.5c1.1 0 1.7-.5 1.7-1.55 0-1-.6-1.55-1.7-1.55h-.5z"/>
+              </svg>
+            </span>
           </span>
           <span class="tv-channel-text">
             <span class="tv-channel-name">
@@ -938,12 +951,27 @@
             [attr.inert]="!chromeVisible ? '' : null"
             (click)="$event.stopPropagation()">
               <div class="tv-now-info">
-                <img
-                  *ngIf="selectedChannel.logo"
-                  class="tv-now-logo"
-                  [src]="selectedChannel.logo"
-                  alt=""
-                  (error)="$any($event.target).style.display='none'" />
+                <span
+                  class="tv-now-logo-wrap"
+                  *ngIf="selectedChannel.logo || isDailymotionLiveChannel(selectedChannel)">
+                  <img
+                    *ngIf="selectedChannel.logo"
+                    class="tv-now-logo"
+                    [src]="selectedChannel.logo"
+                    alt=""
+                    (error)="$any($event.target).style.display='none'" />
+                  <span
+                    *ngIf="isDailymotionLiveChannel(selectedChannel)"
+                    class="tv-dailymotion-badge tv-dailymotion-badge--on-dark"
+                    [attr.title]="'TV.DAILYMOTION_LIVE_TOOLTIP' | translate"
+                    [attr.aria-label]="'TV.DAILYMOTION_LIVE_TOOLTIP' | translate"
+                    role="img">
+                    <svg class="tv-dailymotion-badge-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <rect x="1" y="1" width="22" height="22" rx="5" fill="#0d0d0d"/>
+                      <path fill="#00d2d8" d="M8.2 5.2h3.1c2.9 0 4.5 1.5 4.5 3.9 0 1.7-.8 2.9-2.2 3.5l2.8 6.2h-3.3l-2.5-5.7H11.3v5.7H8.2V5.2zm3.1 2.4v3.1h.5c1.1 0 1.7-.5 1.7-1.55 0-1-.6-1.55-1.7-1.55h-.5z"/>
+                    </svg>
+                  </span>
+                </span>
                 <div class="tv-now-text">
                   <div class="tv-now-name">
                     {{ selectedChannel.name }}

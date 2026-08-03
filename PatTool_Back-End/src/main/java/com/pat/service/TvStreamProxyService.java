@@ -21,7 +21,11 @@ import java.net.URL;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.net.UnknownHostException;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
@@ -56,6 +60,22 @@ public class TvStreamProxyService {
 
     @Value("${app.tv.proxy-referrer:}")
     private String defaultReferrer;
+
+    /**
+     * Dailymotion CDN ({@code cdndirector} / {@code dmcdn}) returns HTTP 403 to
+     * {@link HttpURLConnection} and to {@link HttpClient} over HTTP/2 (Cloudflare).
+     * HTTP/1.1 + browser-like headers matches curl / streamlink behaviour.
+     */
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
+            .connectTimeout(Duration.ofMillis(CONNECT_TIMEOUT_MS))
+            .followRedirects(HttpClient.Redirect.NORMAL)
+            .build();
+
+    static {
+        // Streamlink: French DM CDN often 403s when TLS session tickets are enabled.
+        System.setProperty("jdk.tls.client.enableSessionTicketExtension", "false");
+    }
 
     public static String encodeUpstreamUrl(String url) {
         return Base64.getUrlEncoder().withoutPadding()
@@ -104,7 +124,7 @@ public class TvStreamProxyService {
             return url;
         }
         return url.replaceFirst(
-                "(?i)^(francetv|tf1|canalgroup|radiofrance|m6group|rts|eurosport|arte|ia)~",
+                "(?i)^(francetv|tf1|canalgroup|radiofrance|m6group|rts|arte|ia)~",
                 "$1:");
     }
 
@@ -368,6 +388,15 @@ public class TvStreamProxyService {
     }
 
     private FetchResult fetch(String url, String rangeHeader, String referer) {
+        try {
+            URI probe = URI.create(url);
+            if (needsHttpClientFetch(probe.getHost())) {
+                return fetchViaHttpClient(url, rangeHeader, referer);
+            }
+        } catch (Exception e) {
+            log.debug("TV proxy HttpClient route check failed for {}: {}", url, e.toString());
+        }
+
         String current = url;
         for (int hop = 0; hop <= MAX_REDIRECTS; hop++) {
             HttpURLConnection conn = null;
@@ -385,27 +414,7 @@ public class TvStreamProxyService {
                 conn.setRequestProperty("User-Agent", userAgentForHost(uri.getHost()));
                 conn.setRequestProperty("Accept", "*/*");
                 String ref = referer != null ? referer : resolveReferer(uri.getHost());
-                if (ref != null && !ref.isBlank()) {
-                    conn.setRequestProperty("Referer", ref);
-                    if (ref.contains("france.tv")) {
-                        conn.setRequestProperty("Origin", "https://www.france.tv");
-                    } else if (ref.contains("tf1.fr")) {
-                        conn.setRequestProperty("Origin", "https://www.tf1.fr");
-                    } else if (ref.contains("dailymotion.com") || ref.contains("cnews.fr") || ref.contains("cstar.fr")) {
-                        conn.setRequestProperty("Origin", "https://www.dailymotion.com");
-                        conn.setRequestProperty("priority", "u=1, i");
-                    } else if (ref.contains("20minutes.fr")) {
-                        conn.setRequestProperty("Origin", "https://www.20minutes.fr");
-                    } else if (ref.contains("arte.tv")) {
-                        conn.setRequestProperty("Origin", "https://www.arte.tv");
-                    } else if (ref.contains("archive.org")) {
-                        conn.setRequestProperty("Origin", "https://archive.org");
-                    } else if (ref.contains("netplus.ch")) {
-                        conn.setRequestProperty("Origin", "https://www.netplus.ch");
-                    }
-                } else if (defaultReferrer != null && !defaultReferrer.isBlank()) {
-                    conn.setRequestProperty("Referer", defaultReferrer);
-                }
+                applyBrowserHeaders(conn, ref);
                 if (rangeHeader != null && !rangeHeader.isBlank()) {
                     conn.setRequestProperty("Range", rangeHeader);
                 } else if (looksLikeProgressiveMedia(current)) {
@@ -473,6 +482,155 @@ public class TvStreamProxyService {
                     conn.disconnect();
                 }
             }
+        }
+        return null;
+    }
+
+    /**
+     * Dailymotion live CDN rejects {@link HttpURLConnection} with HTTP 403 (same URL works
+     * with {@link HttpClient} / curl). Used for CNews, CStar, L'Équipe playlists and segments.
+     */
+    private FetchResult fetchViaHttpClient(String url, String rangeHeader, String referer) {
+        try {
+            URI uri = stripFragment(URI.create(url));
+            if (isBlockedHost(uri.getHost())) {
+                log.warn("TV proxy rejected host: {}", uri.getHost());
+                return null;
+            }
+            String ref = referer != null ? referer : resolveReferer(uri.getHost());
+            HttpRequest.Builder builder = HttpRequest.newBuilder(uri)
+                    .timeout(Duration.ofMillis(READ_TIMEOUT_MS))
+                    .header("User-Agent", userAgentForHost(uri.getHost()))
+                    .header("Accept", "*/*");
+            applyBrowserHeaders(builder, ref);
+            if (rangeHeader != null && !rangeHeader.isBlank()) {
+                builder.header("Range", rangeHeader);
+            } else if (looksLikeProgressiveMedia(url)) {
+                builder.header("Range", "bytes=0-" + (MAX_BYTES - 1));
+            }
+            HttpResponse<InputStream> resp = httpClient.send(
+                    builder.GET().build(), HttpResponse.BodyHandlers.ofInputStream());
+            int code = resp.statusCode();
+            InputStream raw = resp.body();
+            if (raw == null) {
+                FetchResult empty = new FetchResult();
+                empty.status = code;
+                return empty;
+            }
+            try (InputStream stream = raw) {
+                boolean progressive = looksLikeProgressiveMedia(url);
+                boolean allowTruncate = progressive
+                        || (rangeHeader != null && !rangeHeader.isBlank());
+                ReadChunk chunk = readLimited(stream, MAX_BYTES);
+                if (chunk.truncated && !allowTruncate) {
+                    log.warn("TV proxy response too large for {}", url);
+                    return null;
+                }
+                FetchResult result = new FetchResult();
+                result.status = code;
+                result.body = chunk.body;
+                result.contentType = resp.headers().firstValue("Content-Type").orElse(null);
+                result.contentRange = resp.headers().firstValue("Content-Range").orElse(null);
+                result.acceptRanges = resp.headers().firstValue("Accept-Ranges").orElse(null);
+                long declaredLength = resp.headers().firstValueAsLong("Content-Length").orElse(-1L);
+                if (chunk.truncated && chunk.body != null && chunk.body.length > 0) {
+                    result.status = 206;
+                    result.contentRange = contentRangeForTruncated(
+                            result.contentRange, declaredLength, chunk.body.length);
+                    if (result.acceptRanges == null || result.acceptRanges.isBlank()) {
+                        result.acceptRanges = "bytes";
+                    }
+                } else if (progressive && (result.acceptRanges == null || result.acceptRanges.isBlank())) {
+                    result.acceptRanges = "bytes";
+                }
+                return result;
+            }
+        } catch (Exception e) {
+            log.debug("TV proxy HttpClient fetch failed for {}: {}", url, e.toString());
+            return null;
+        }
+    }
+
+    /** {@link HttpRequest} rejects URIs with a fragment (Dailymotion playlists use {@code #cell=…}). */
+    private static URI stripFragment(URI uri) {
+        if (uri == null || uri.getFragment() == null) {
+            return uri;
+        }
+        try {
+            return new URI(uri.getScheme(), uri.getAuthority(), uri.getPath(), uri.getQuery(), null);
+        } catch (Exception e) {
+            String s = uri.toString();
+            int hash = s.indexOf('#');
+            return hash >= 0 ? URI.create(s.substring(0, hash)) : uri;
+        }
+    }
+
+    private static boolean needsHttpClientFetch(String host) {
+        if (host == null || host.isBlank()) {
+            return false;
+        }
+        String h = host.toLowerCase(Locale.ROOT);
+        return h.contains("dailymotion.com") || h.contains("dmcdn.net") || h.contains("dmxleo.com");
+    }
+
+    private void applyBrowserHeaders(HttpURLConnection conn, String ref) {
+        if (ref != null && !ref.isBlank()) {
+            conn.setRequestProperty("Referer", ref);
+            String origin = originForReferer(ref);
+            if (origin != null) {
+                conn.setRequestProperty("Origin", origin);
+            }
+            if (needsDailymotionPriority(ref)) {
+                conn.setRequestProperty("priority", "u=1, i");
+            }
+        } else if (defaultReferrer != null && !defaultReferrer.isBlank()) {
+            conn.setRequestProperty("Referer", defaultReferrer);
+        }
+    }
+
+    private void applyBrowserHeaders(HttpRequest.Builder builder, String ref) {
+        if (ref != null && !ref.isBlank()) {
+            builder.header("Referer", ref);
+            String origin = originForReferer(ref);
+            if (origin != null) {
+                builder.header("Origin", origin);
+            }
+            if (needsDailymotionPriority(ref)) {
+                builder.header("priority", "u=1, i");
+            }
+        } else if (defaultReferrer != null && !defaultReferrer.isBlank()) {
+            builder.header("Referer", defaultReferrer);
+        }
+    }
+
+    private static boolean needsDailymotionPriority(String ref) {
+        return ref.contains("dailymotion.com") || ref.contains("cnews.fr")
+                || ref.contains("cstar.fr") || ref.contains("lequipe.fr")
+                || ref.contains("publicsenat.fr") || ref.contains("sudradio.fr")
+                || ref.contains("funradio.fr") || ref.contains("rtl2.fr");
+    }
+
+    private static String originForReferer(String ref) {
+        if (ref.contains("france.tv")) {
+            return "https://www.france.tv";
+        }
+        if (ref.contains("tf1.fr")) {
+            return "https://www.tf1.fr";
+        }
+        if (needsDailymotionPriority(ref)) {
+            return "https://www.dailymotion.com";
+        }
+        if (ref.contains("20minutes.fr")) {
+            return "https://www.20minutes.fr";
+        }
+        if (ref.contains("arte.tv")) {
+            return "https://www.arte.tv";
+        }
+        if (ref.contains("archive.org")) {
+            return "https://archive.org";
+        }
+        if (ref.contains("netplus.ch")) {
+            return "https://www.netplus.ch";
         }
         return null;
     }

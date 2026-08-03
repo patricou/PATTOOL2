@@ -12,6 +12,11 @@ const VIRTUAL_EPG_IDS: Record<string, string> = {
   'tf1:lci': 'LCI.fr',
   'canalgroup:cnews': 'CNews.fr',
   'canalgroup:cstar': 'CStar.fr',
+  'canalgroup:lequipe': 'LEquipe.fr',
+  'canalgroup:publicsenat': 'PublicSenat.fr',
+  'canalgroup:sudradio': 'SudRadio.fr',
+  'canalgroup:funradio': 'FunRadio.fr',
+  'canalgroup:rtl2': 'RTL2.fr',
   'radiofrance:franceinter': 'FranceInter.fr',
   'm6group:m6': 'M6.fr',
   'm6group:w9': 'W9.fr',
@@ -19,9 +24,7 @@ const VIRTUAL_EPG_IDS: Record<string, string> = {
   'm6group:gulli': 'Gulli.fr',
   'rts:rts1': 'RTS1.ch',
   'rts:rts2': 'RTS2.ch',
-  'rts:rtsinfo': 'RTSInfo.ch',
-  'eurosport:1': 'EUROSPORT1.fr',
-  'eurosport:2': 'EUROSPORT2.fr'
+  'rts:rtsinfo': 'RTSInfo.ch'
 };
 
 /** Map a catalog channel to its XMLTV / iptv-epg.org channel id. */
@@ -41,8 +44,7 @@ export function resolveEpgChannelId(channel: TvChannel | null | undefined): stri
     ['canalgroup-', 'canalgroup:'],
     ['radiofrance-', 'radiofrance:'],
     ['m6group-', 'm6group:'],
-    ['rts-', 'rts:'],
-    ['eurosport-', 'eurosport:']
+    ['rts-', 'rts:']
   ];
   for (const [prefix, scheme] of prefixes) {
     if (lower.startsWith(prefix)) {

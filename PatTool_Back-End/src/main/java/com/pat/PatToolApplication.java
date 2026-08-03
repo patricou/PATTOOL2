@@ -72,6 +72,8 @@ public class PatToolApplication implements CommandLineRunner {
     private static final Logger log = LoggerFactory.getLogger(PatToolApplication.class);
 
     public static void main(String[] args) {
+        // Dailymotion CDN (CNews / CStar / L'Équipe / …) 403s Java TLS session tickets.
+        System.setProperty("jdk.tls.client.enableSessionTicketExtension", "false");
         SpringApplication.run(PatToolApplication.class, args);
     }
 

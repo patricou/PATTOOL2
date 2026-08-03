@@ -273,6 +273,18 @@ export class TvEpgBrowserComponent implements OnChanges, OnDestroy {
     this.filteredExpandedProgrammes = matches.length ? [...matches, ...rest] : this.expandedProgrammes;
   }
 
+  private sortChannelsByName(list: TvEpgBrowseChannel[]): TvEpgBrowseChannel[] {
+    return [...list].sort((a, b) => {
+      const an = (a.name || a.channelId || '').trim();
+      const bn = (b.name || b.channelId || '').trim();
+      const byName = an.localeCompare(bn, undefined, { sensitivity: 'base' });
+      if (byName !== 0) {
+        return byName;
+      }
+      return (a.channelId || '').localeCompare(b.channelId || '', undefined, { sensitivity: 'base' });
+    });
+  }
+
   private loadBrowse(): void {
     const country = (this.browseCountry || 'fr').toLowerCase();
     if (!country) {
@@ -296,7 +308,7 @@ export class TvEpgBrowserComponent implements OnChanges, OnDestroy {
       .getTvEpgBrowse(country, q || undefined, 150, this.nowOnlyPlaying)
       .subscribe({
         next: (list) => {
-          this.rows = list || [];
+          this.rows = this.sortChannelsByName(list || []);
           this.loading = false;
           if (!this.rows.length) {
             this.errorKey = 'TV.EPG_BROWSER_EMPTY';

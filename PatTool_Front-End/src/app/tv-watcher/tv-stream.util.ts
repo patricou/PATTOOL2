@@ -11,7 +11,6 @@ export function resolveTvStreamUrl(channel: TvChannel | null | undefined): strin
   if (lower.startsWith('francetv:') || lower.startsWith('tf1:')
       || lower.startsWith('canalgroup:') || lower.startsWith('radiofrance:')
       || lower.startsWith('m6group:') || lower.startsWith('rts:')
-      || lower.startsWith('eurosport:')
       || lower.startsWith('arte:')
       || lower.startsWith('ia:')) {
     return existing;
@@ -57,6 +56,23 @@ export function resolveTvStreamUrl(channel: TvChannel | null | undefined): strin
   if (id.startsWith('cstar.fr') || /^c\s*star\b/.test(name) || name === 'cstar') {
     return 'canalgroup:cstar';
   }
+  if (id.startsWith('lequipe.fr') || id.startsWith('l\'equipe') || id.includes('lequipe')
+      || /l[''\u2019]?\s*equipe\b/.test(name) || name.includes('lequipe')) {
+    return 'canalgroup:lequipe';
+  }
+  if (id.startsWith('publicsenat.fr') || id.includes('publicsenat')
+      || (name.includes('public') && (name.includes('senat') || name.includes('sénat')))) {
+    return 'canalgroup:publicsenat';
+  }
+  if (id.startsWith('sudradio.fr') || id.includes('sudradio') || name.includes('sud radio')) {
+    return 'canalgroup:sudradio';
+  }
+  if (id.startsWith('funradio.fr') || id.includes('funradio') || name.includes('fun radio')) {
+    return 'canalgroup:funradio';
+  }
+  if (id.startsWith('rtl2.fr') || name === 'rtl2' || /^rtl\s*2\b/.test(name)) {
+    return 'canalgroup:rtl2';
+  }
   if (id.startsWith('m6music.fr') || name.includes('m6 music')) {
     return existing;
   }
@@ -83,14 +99,6 @@ export function resolveTvStreamUrl(channel: TvChannel | null | undefined): strin
   if (id.startsWith('rtsinfo.ch') || /rts\s*info\b/.test(name) || name.includes('rtsinfo')) {
     return 'rts:rtsinfo';
   }
-  if (id.startsWith('eurosport1.fr') || id.startsWith('eurosport-1')
-      || /^eurosport\s*1\b/.test(name) || name === 'eurosport') {
-    return 'eurosport:1';
-  }
-  if (id.startsWith('eurosport2.fr') || id.startsWith('eurosport-2')
-      || /^eurosport\s*2\b/.test(name)) {
-    return 'eurosport:2';
-  }
   return existing;
 }
 
@@ -116,10 +124,6 @@ export function isM6GroupVirtual(url: string): boolean {
 
 export function isRtsVirtual(url: string): boolean {
   return (url || '').toLowerCase().startsWith('rts:');
-}
-
-export function isEurosportVirtual(url: string): boolean {
-  return (url || '').toLowerCase().startsWith('eurosport:');
 }
 
 export function isArteVirtual(url: string): boolean {
@@ -239,7 +243,7 @@ export function rtsSlugFromVirtual(url: string): string | null {
 
 /** Virtual live / VOD schemes used in PatTool stream tokens. */
 const VIRTUAL_STREAM_SCHEMES =
-  'francetv|tf1|canalgroup|radiofrance|m6group|rts|eurosport|arte|ia';
+  'francetv|tf1|canalgroup|radiofrance|m6group|rts|arte|ia';
 
 /**
  * WhatsApp (and some messengers) truncate auto-linked URLs when a bare

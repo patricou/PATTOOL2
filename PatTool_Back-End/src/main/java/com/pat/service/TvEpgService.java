@@ -79,6 +79,11 @@ public class TvEpgService {
             Map.entry("tf1:lci", "LCI.fr"),
             Map.entry("canalgroup:cnews", "CNews.fr"),
             Map.entry("canalgroup:cstar", "CStar.fr"),
+            Map.entry("canalgroup:lequipe", "LEquipe.fr"),
+            Map.entry("canalgroup:publicsenat", "PublicSenat.fr"),
+            Map.entry("canalgroup:sudradio", "SudRadio.fr"),
+            Map.entry("canalgroup:funradio", "FunRadio.fr"),
+            Map.entry("canalgroup:rtl2", "RTL2.fr"),
             Map.entry("radiofrance:franceinter", "FranceInter.fr"),
             Map.entry("m6group:m6", "M6.fr"),
             Map.entry("m6group:w9", "W9.fr"),
@@ -86,9 +91,7 @@ public class TvEpgService {
             Map.entry("m6group:gulli", "Gulli.fr"),
             Map.entry("rts:rts1", "RTS1.ch"),
             Map.entry("rts:rts2", "RTS2.ch"),
-            Map.entry("rts:rtsinfo", "RTSInfo.ch"),
-            Map.entry("eurosport:1", "EUROSPORT1.fr"),
-            Map.entry("eurosport:2", "EUROSPORT2.fr")
+            Map.entry("rts:rtsinfo", "RTSInfo.ch")
     );
 
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -182,9 +185,6 @@ public class TvEpgService {
         }
         if (id.toLowerCase(Locale.ROOT).startsWith("rts-")) {
             return VIRTUAL_EPG_IDS.getOrDefault("rts:" + id.substring(4).toLowerCase(Locale.ROOT), null);
-        }
-        if (id.toLowerCase(Locale.ROOT).startsWith("eurosport-")) {
-            return VIRTUAL_EPG_IDS.getOrDefault("eurosport:" + id.substring(10).toLowerCase(Locale.ROOT), null);
         }
         // Playlist ids look like "TF1.fr#0" or "TF1.fr@HD#1"
         int hash = id.indexOf('#');
@@ -374,6 +374,11 @@ public class TvEpgService {
             }
             out.add(row);
         }
+        out.sort(Comparator
+                .comparing((TvEpgBrowseChannelDto r) -> r.getName() != null ? r.getName() : "",
+                        String.CASE_INSENSITIVE_ORDER)
+                .thenComparing(r -> r.getChannelId() != null ? r.getChannelId() : "",
+                        String.CASE_INSENSITIVE_ORDER));
         return out;
     }
 
