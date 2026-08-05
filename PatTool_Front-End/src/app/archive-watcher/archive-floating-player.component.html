@@ -1,0 +1,90 @@
+<div class="ia-float" *ngIf="visible" role="complementary" [attr.aria-label]="'ARCHIVE.PLAYLIST_PLAY_ALL' | translate">
+  <button
+    type="button"
+    class="ia-float-cover"
+    *ngIf="cover; else coverPlaceholder"
+    (click)="openArchive()"
+    [attr.title]="'ARCHIVE.TITLE' | translate">
+    <img [src]="cover" [alt]="title" loading="lazy" />
+  </button>
+  <ng-template #coverPlaceholder>
+    <button
+      type="button"
+      class="ia-float-cover ia-float-cover--placeholder"
+      (click)="openArchive()"
+      [attr.title]="'ARCHIVE.TITLE' | translate">
+      <i class="fa fa-music" aria-hidden="true"></i>
+    </button>
+  </ng-template>
+
+  <div class="ia-float-meta">
+    <button type="button" class="ia-float-title" (click)="openArchive()">
+      {{ title }}
+    </button>
+    <span class="ia-float-pos" *ngIf="state.index >= 0">
+      {{ 'ARCHIVE.PLAYLIST_PLAYING' | translate:{ index: state.index + 1, count: state.queue.length } }}
+      <span *ngIf="state.trackCount > 1 && state.trackIndex >= 0">
+        · {{ 'ARCHIVE.TRACK_PLAYING' | translate:{ index: state.trackIndex + 1, count: state.trackCount } }}
+      </span>
+      <span *ngIf="state.duration > 0">
+        · {{ formatTime(state.currentTime) }} / {{ formatTime(state.duration) }}
+      </span>
+    </span>
+  </div>
+
+  <div class="ia-float-controls">
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-light ia-float-btn"
+      *ngIf="canPrevAlbum"
+      (click)="prevAlbum()"
+      [attr.title]="'ARCHIVE.PLAYLIST_PREV_ALBUM' | translate"
+      [attr.aria-label]="'ARCHIVE.PLAYLIST_PREV_ALBUM' | translate">
+      <i class="fa fa-fast-backward" aria-hidden="true"></i>
+    </button>
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-light ia-float-btn"
+      *ngIf="canPrev"
+      (click)="prev()"
+      [attr.title]="'ARCHIVE.PLAYLIST_PREV' | translate"
+      [attr.aria-label]="'ARCHIVE.PLAYLIST_PREV' | translate">
+      <i class="fa fa-step-backward" aria-hidden="true"></i>
+    </button>
+    <button
+      type="button"
+      class="btn btn-sm btn-light ia-float-btn ia-float-btn--main"
+      (click)="togglePause()"
+      [attr.title]="(state.paused ? 'ARCHIVE.PLAYLIST_RESUME' : 'ARCHIVE.PLAYLIST_PAUSE') | translate"
+      [attr.aria-label]="(state.paused ? 'ARCHIVE.PLAYLIST_RESUME' : 'ARCHIVE.PLAYLIST_PAUSE') | translate">
+      <i class="fa" [ngClass]="state.paused ? 'fa-play' : 'fa-pause'" aria-hidden="true"></i>
+    </button>
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-light ia-float-btn"
+      *ngIf="canNext"
+      (click)="next()"
+      [attr.title]="'ARCHIVE.PLAYLIST_NEXT' | translate"
+      [attr.aria-label]="'ARCHIVE.PLAYLIST_NEXT' | translate">
+      <i class="fa fa-step-forward" aria-hidden="true"></i>
+    </button>
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-light ia-float-btn"
+      *ngIf="canNextAlbum"
+      (click)="nextAlbum()"
+      [attr.title]="'ARCHIVE.PLAYLIST_NEXT_ALBUM' | translate"
+      [attr.aria-label]="'ARCHIVE.PLAYLIST_NEXT_ALBUM' | translate">
+      <i class="fa fa-fast-forward" aria-hidden="true"></i>
+    </button>
+  </div>
+
+  <button
+    type="button"
+    class="btn btn-sm btn-outline-light ia-float-btn ia-float-close"
+    (click)="close()"
+    [attr.title]="'COMMUN.CLOSE' | translate"
+    [attr.aria-label]="'COMMUN.CLOSE' | translate">
+    <i class="fa fa-times" aria-hidden="true"></i>
+  </button>
+</div>

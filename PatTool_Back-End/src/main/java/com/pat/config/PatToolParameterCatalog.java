@@ -31,6 +31,8 @@ public final class PatToolParameterCatalog {
             "radio.last-station.",
             "webcam.favorites.",
             "webcam.last.",
+            "archive.recent.",
+            "archive.audioPlaylist.",
             "globe.flight.tracking.",
             "globe.iss.alert.",
             "globe.iss.compass.calibration.",

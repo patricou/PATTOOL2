@@ -3153,10 +3153,114 @@ export class ApiService {
     return this._http.get<ArchiveSearchPage>(this.API_URL + 'external/archive/search', { params });
   }
 
+  /** GET /api/external/archive/catalog-cache/status */
+  getArchiveCatalogCacheStatus(): Observable<ArchiveCatalogCacheStatus> {
+    return this._http.get<ArchiveCatalogCacheStatus>(this.API_URL + 'external/archive/catalog-cache/status');
+  }
+
+  /** POST /api/external/archive/catalog-cache/refresh — rebuild browse catalogue from archive.org */
+  refreshArchiveCatalogCache(force = true): Observable<ArchiveCatalogCacheStatus & { accepted?: boolean }> {
+    const q = force ? '?force=true' : '?force=false';
+    return this._http.post<ArchiveCatalogCacheStatus & { accepted?: boolean }>(
+      this.API_URL + 'external/archive/catalog-cache/refresh' + q,
+      {}
+    );
+  }
+
   /** GET /api/external/archive/item/{identifier} */
   getArchiveOrgItem(identifier: string): Observable<ArchiveItemDetail> {
     return this._http.get<ArchiveItemDetail>(
       this.API_URL + 'external/archive/item/' + encodeURIComponent(identifier || '')
+    );
+  }
+
+  /** GET /api/external/archive/recent — JWT required, last 10 selections. */
+  getArchiveRecent(): Observable<ArchiveRecent> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<ArchiveRecent>(this.API_URL + 'external/archive/recent', { headers })
+      )
+    );
+  }
+
+  /** PUT replace full recent list. */
+  saveArchiveRecent(body: ArchiveRecent): Observable<ArchiveRecent> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<ArchiveRecent>(this.API_URL + 'external/archive/recent', body, { headers })
+      )
+    );
+  }
+
+  /** PUT touch one item (MRU front, max 10). */
+  touchArchiveRecentItem(item: ArchiveItem): Observable<ArchiveRecent> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<ArchiveRecent>(this.API_URL + 'external/archive/recent/item', item, { headers })
+      )
+    );
+  }
+
+  /** DELETE remove one recent item by identifier. */
+  removeArchiveRecentItem(identifier: string): Observable<ArchiveRecent> {
+    const params = new HttpParams().set('identifier', identifier || '');
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.delete<ArchiveRecent>(this.API_URL + 'external/archive/recent/item', {
+          headers,
+          params
+        })
+      )
+    );
+  }
+
+  /** GET /api/external/archive/audio-playlist — JWT required. */
+  getArchiveAudioPlaylist(): Observable<ArchiveAudioPlaylist> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<ArchiveAudioPlaylist>(this.API_URL + 'external/archive/audio-playlist', {
+          headers
+        })
+      )
+    );
+  }
+
+  /** PUT replace full audio playlist. */
+  saveArchiveAudioPlaylist(body: ArchiveAudioPlaylist): Observable<ArchiveAudioPlaylist> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<ArchiveAudioPlaylist>(
+          this.API_URL + 'external/archive/audio-playlist',
+          body,
+          { headers }
+        )
+      )
+    );
+  }
+
+  /** PUT add one audio item to the playlist. */
+  addArchiveAudioPlaylistItem(item: ArchiveItem): Observable<ArchiveAudioPlaylist> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<ArchiveAudioPlaylist>(
+          this.API_URL + 'external/archive/audio-playlist/item',
+          item,
+          { headers }
+        )
+      )
+    );
+  }
+
+  /** DELETE remove one audio playlist item by identifier. */
+  removeArchiveAudioPlaylistItem(identifier: string): Observable<ArchiveAudioPlaylist> {
+    const params = new HttpParams().set('identifier', identifier || '');
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.delete<ArchiveAudioPlaylist>(
+          this.API_URL + 'external/archive/audio-playlist/item',
+          { headers, params }
+        )
+      )
     );
   }
 
@@ -4404,6 +4508,20 @@ export interface MediaCatalogCacheStatus {
   lastPhase?: string | null;
 }
 
+/** GET/POST /api/external/archive/catalog-cache/* */
+export interface ArchiveCatalogCacheStatus {
+  busy?: boolean;
+  accepted?: boolean;
+  lastStartedAt?: string | null;
+  lastCompletedAt?: string | null;
+  lastDurationMs?: number | null;
+  lastError?: string | null;
+  lastPhase?: string | null;
+  archiveCatalogEntries?: number;
+  archiveCatalogTypes?: number;
+  archiveCatalogPerType?: Record<string, number>;
+}
+
 /** GET /api/external/tv/countries */
 export interface TvCountry {
   code: string;
@@ -4812,6 +4930,14 @@ export interface ArchiveSearchPage {
   pages: number;
   pageSize: number;
   total: number;
+  items: ArchiveItem[];
+}
+
+export interface ArchiveRecent {
+  items: ArchiveItem[];
+}
+
+export interface ArchiveAudioPlaylist {
   items: ArchiveItem[];
 }
 

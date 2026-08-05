@@ -5,10 +5,7 @@ import { AboutComponent } from './about/about.component';
 import { TranslateModule, TranslateLoader } from '@ngx-translate/core';
 import { TranslateHttpLoader } from '@ngx-translate/http-loader';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
-import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
-import { ExceptionReportService } from '../services/exception-report.service';
 
-// AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
   return new TranslateHttpLoader(http, './assets/i18n/', '.json');
 }
@@ -25,13 +22,9 @@ export function HttpLoaderFactory(http: HttpClient) {
       }
     }),
     NgbModule,
-    NavigationButtonsModule,
     AboutComponent
   ],
   declarations: [],
-  exports: [AboutComponent],
-  providers: [
-    ExceptionReportService
-  ]
+  exports: [AboutComponent]
 })
 export class MapsModule { }

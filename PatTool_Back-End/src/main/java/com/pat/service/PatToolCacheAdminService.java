@@ -28,6 +28,7 @@ public class PatToolCacheAdminService {
     private final TvEpgService tvEpgService;
     private final RadioCatalogService radioCatalogService;
     private final InternetArchiveReplayService internetArchiveReplayService;
+    private final InternetArchiveCatalogService internetArchiveCatalogService;
     private final FranceTvLiveService franceTvLiveService;
     private final Tf1LiveService tf1LiveService;
     private final M6GroupLiveService m6GroupLiveService;
@@ -63,6 +64,7 @@ public class PatToolCacheAdminService {
             TvEpgService tvEpgService,
             RadioCatalogService radioCatalogService,
             InternetArchiveReplayService internetArchiveReplayService,
+            InternetArchiveCatalogService internetArchiveCatalogService,
             FranceTvLiveService franceTvLiveService,
             Tf1LiveService tf1LiveService,
             M6GroupLiveService m6GroupLiveService,
@@ -96,6 +98,7 @@ public class PatToolCacheAdminService {
         this.tvEpgService = tvEpgService;
         this.radioCatalogService = radioCatalogService;
         this.internetArchiveReplayService = internetArchiveReplayService;
+        this.internetArchiveCatalogService = internetArchiveCatalogService;
         this.franceTvLiveService = franceTvLiveService;
         this.tf1LiveService = tf1LiveService;
         this.m6GroupLiveService = m6GroupLiveService;
@@ -248,7 +251,7 @@ public class PatToolCacheAdminService {
 
         boolean started = mediaCatalogCacheService.startFullRefresh();
         List<String> rebuilding = List.of(
-                "media-catalog", "tv-catalog", "tv-epg", "radio-catalog", "archive-org");
+                "media-catalog", "tv-catalog", "tv-epg", "radio-catalog", "archive-org", "archive-catalog");
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("success", started);
@@ -311,6 +314,18 @@ public class PatToolCacheAdminService {
                 case "archive-org" -> {
                     internetArchiveReplayService.invalidateAll();
                     internetArchiveReplayService.warmCatalog();
+                }
+                case "archive-catalog" -> {
+                    boolean started = internetArchiveCatalogService.startCatalogRefresh();
+                    Map<String, Object> out = new LinkedHashMap<>();
+                    out.put("success", started);
+                    out.put("id", cacheId);
+                    out.put("action", "refresh");
+                    out.put("message", started
+                            ? "Archive explorer catalogue refresh started (daily 05:00 job)"
+                            : "Archive explorer catalogue refresh already running");
+                    out.put("cache", statusOf(def));
+                    return out;
                 }
                 case "image-compression" -> {
                     CachePersistenceService.CacheLoadResult loaded = cachePersistenceService.loadCache();
@@ -520,6 +535,17 @@ public class PatToolCacheAdminService {
                 internetArchiveReplayService::invalidateAll,
                 () -> {
                     Map<String, Object> d = new LinkedHashMap<>(internetArchiveReplayService.cacheStats());
+                    d.put("recordUnit", "items");
+                    return d;
+                }));
+
+        list.add(def("archive-catalog", "media",
+                "SYSTEM.CACHE_REGISTRY.ARCHIVE_CATALOG", "SYSTEM.CACHE_REGISTRY.ARCHIVE_CATALOG_DESC",
+                true, false,
+                () -> (long) internetArchiveCatalogService.catalogEntryCount(),
+                internetArchiveCatalogService::invalidateAll,
+                () -> {
+                    Map<String, Object> d = new LinkedHashMap<>(internetArchiveCatalogService.cacheStats());
                     d.put("recordUnit", "items");
                     return d;
                 }));

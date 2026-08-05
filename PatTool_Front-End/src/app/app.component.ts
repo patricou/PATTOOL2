@@ -23,6 +23,7 @@ import { StockTickerService } from './services/stock-ticker.service';
 import { AssistantDrawerComponent } from './shared/assistant-drawer/assistant-drawer.component';
 import { TvFloatingPlayerComponent } from './tv-watcher/tv-floating-player.component';
 import { RadioFloatingPlayerComponent } from './radio-watcher/radio-floating-player.component';
+import { ArchiveFloatingPlayerComponent } from './archive-watcher/archive-floating-player.component';
 import { GlobeIssNowService } from './services/globe-iss-now.service';
 import { MongoHealthService, MongoHealthStatus } from './services/mongodb-health.service';
 import { LastRouteService } from './services/last-route.service';
@@ -72,6 +73,8 @@ const USER_PARAM_LABEL_KEYS: Record<string, string> = {
     'radio.last-station': 'USERINFO.PARAM_LABELS.RADIO_LAST_STATION',
     'webcam.favorites': 'USERINFO.PARAM_LABELS.WEBCAM_FAVORITES',
     'webcam.last': 'USERINFO.PARAM_LABELS.WEBCAM_LAST',
+    'archive.recent': 'USERINFO.PARAM_LABELS.ARCHIVE_RECENT',
+    'archive.audioPlaylist': 'USERINFO.PARAM_LABELS.ARCHIVE_AUDIO_PLAYLIST',
     'globe.flight.tracking': 'USERINFO.PARAM_LABELS.GLOBE_FLIGHT_TRACKING',
     'globe.iss.alert': 'USERINFO.PARAM_LABELS.GLOBE_ISS_ALERT',
     'globe.iss.compass.calibration': 'USERINFO.PARAM_LABELS.GLOBE_ISS_COMPASS',
@@ -89,7 +92,7 @@ const USER_PARAM_LABEL_KEYS: Record<string, string> = {
     templateUrl: './app.component.html',
     styleUrls: ['./app.component.css'],
     standalone: true,
-    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule, NewsTickerComponent, CurrencyTickerComponent, StockTickerComponent, AssistantDrawerComponent, TvFloatingPlayerComponent, RadioFloatingPlayerComponent]
+    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule, NewsTickerComponent, CurrencyTickerComponent, StockTickerComponent, AssistantDrawerComponent, TvFloatingPlayerComponent, RadioFloatingPlayerComponent, ArchiveFloatingPlayerComponent]
 })
 export class AppComponent implements OnInit {
 

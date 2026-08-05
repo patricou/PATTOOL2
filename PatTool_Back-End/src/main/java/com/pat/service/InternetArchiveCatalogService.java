@@ -8,6 +8,9 @@ import com.pat.controller.dto.ArchiveItemDto;
 import com.pat.controller.dto.ArchiveSearchPageDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -29,8 +32,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 /**
- * Full Internet Archive catalog: Advanced Search, metadata, files, playable
- * resolve and Wayback Machine availability / CDX snapshots.
+ * Internet Archive catalog for archive-watcher: Advanced Search, metadata, files,
+ * playable resolve and Wayback Machine. List/search always hits archive.org live
+ * (no browse catalogue warm).
  */
 @Service
 public class InternetArchiveCatalogService {
@@ -47,8 +51,7 @@ public class InternetArchiveCatalogService {
     private static final String WAYBACK_CDX = "https://web.archive.org/cdx/search/cdx";
     private static final String USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-    private static final Duration PAGE_CACHE_TTL = Duration.ofMinutes(30);
-    private static final Duration ITEM_CACHE_TTL = Duration.ofMinutes(30);
+    private static final Duration ITEM_CACHE_TTL = Duration.ofHours(24);
     private static final int ROWS_PER_PAGE = 40;
     private static final Pattern IDENTIFIER = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9._-]{1,120}$");
 
@@ -172,11 +175,26 @@ public class InternetArchiveCatalogService {
             .build();
 
     private final ObjectMapper objectMapper;
-    private final ConcurrentHashMap<String, CachedJson> pageCache = new ConcurrentHashMap<>();
+    private final MongoTemplate mongoTemplate;
+    /** Item metadata/files cache only (not browse listings). */
     private final ConcurrentHashMap<String, CachedItem> itemCache = new ConcurrentHashMap<>();
 
-    public InternetArchiveCatalogService(ObjectMapper objectMapper) {
+    public InternetArchiveCatalogService(ObjectMapper objectMapper, MongoTemplate mongoTemplate) {
         this.objectMapper = objectMapper;
+        this.mongoTemplate = mongoTemplate;
+    }
+
+    /** Drop the abandoned full Mongo catalogue collection if present. */
+    @EventListener(ApplicationReadyEvent.class)
+    public void dropLegacyMongoCatalog() {
+        try {
+            if (mongoTemplate.collectionExists("archive_catalog")) {
+                mongoTemplate.dropCollection("archive_catalog");
+                log.info("Dropped legacy archive_catalog Mongo collection");
+            }
+        } catch (Exception e) {
+            log.warn("Could not drop legacy archive_catalog: {}", e.toString());
+        }
     }
 
     public boolean isValidIdentifier(String identifier) {
@@ -251,25 +269,92 @@ public class InternetArchiveCatalogService {
         String q = query != null ? query.trim() : "";
         String creatorQ = creator != null ? creator.trim() : "";
         String lang = language != null ? language.trim() : "";
-        String sortCode;
-        String sectionCode;
-        String lucene;
-        String sortClause;
 
+        // Always live against archive.org (no browse catalogue warm).
         if (q.length() >= 2 || creatorQ.length() >= 2) {
-            sectionCode = "SEARCH";
-            sortCode = normalizeSort(sort);
-            sortClause = SORTS.get(sortCode);
-            lucene = buildSearchLucene(type, q, creatorQ, lang);
-        } else {
-            sectionCode = normalizeSection(type, section);
-            SectionDef def = SECTIONS_BY_TYPE.get(type).get(sectionCode);
-            sortCode = StringUtils.hasText(sort) ? normalizeSort(sort) : inferSortCode(def.sort());
-            sortClause = StringUtils.hasText(sort) ? SORTS.get(sortCode) : def.sort();
-            lucene = buildSectionLucene(type, def.query(), lang);
+            return searchLive(type, q, creatorQ, lang, sort, requestedPage);
         }
 
-        JsonNode response = fetchSearchPage(lucene, sortClause, requestedPage);
+        String sectionCode = normalizeSection(type, section);
+        SectionDef def = SECTIONS_BY_TYPE.get(type).get(sectionCode);
+        String sortCode = StringUtils.hasText(sort) ? normalizeSort(sort) : inferSortCode(def.sort());
+        return searchLiveSection(type, sectionCode, def, lang, sortCode, requestedPage);
+    }
+
+    /** No browse catalogue to warm — clears item metadata cache only. */
+    public boolean startCatalogRefresh() {
+        return startCatalogRefresh(false);
+    }
+
+    public boolean startCatalogRefresh(boolean force) {
+        invalidateAll();
+        return true;
+    }
+
+    public Map<String, Object> catalogCacheStatus() {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("busy", false);
+        out.put("lastStartedAt", null);
+        out.put("lastCompletedAt", null);
+        out.put("lastDurationMs", null);
+        out.put("lastError", null);
+        out.put("lastPhase", "live-only");
+        out.putAll(cacheStats());
+        return out;
+    }
+
+    public Map<String, Object> cacheStats() {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("archiveCatalogTypes", 0);
+        out.put("archiveCatalogEntries", 0);
+        out.put("archiveItemCache", itemCache.size());
+        out.put("archiveCatalogPerType", Map.of());
+        out.put("mode", "live");
+        return out;
+    }
+
+    public int catalogEntryCount() {
+        return 0;
+    }
+
+    public void warmCatalog() {
+        // No-op: browse listings are always fetched live from archive.org.
+    }
+
+    private ArchiveSearchPageDto searchLive(
+            String type,
+            String q,
+            String creatorQ,
+            String lang,
+            String sort,
+            int requestedPage) {
+        String sortCode = normalizeSort(sort);
+        String sortClause = SORTS.get(sortCode);
+        String lucene = buildSearchLucene(type, q, creatorQ, lang);
+        return buildLivePage(type, "SEARCH", q, sortCode, lucene, sortClause, requestedPage);
+    }
+
+    private ArchiveSearchPageDto searchLiveSection(
+            String type,
+            String sectionCode,
+            SectionDef def,
+            String lang,
+            String sortCode,
+            int requestedPage) {
+        String sortClause = SORTS.getOrDefault(sortCode, def.sort());
+        String lucene = buildSectionLucene(type, def.query(), lang);
+        return buildLivePage(type, sectionCode, "", sortCode, lucene, sortClause, requestedPage);
+    }
+
+    private ArchiveSearchPageDto buildLivePage(
+            String type,
+            String sectionCode,
+            String q,
+            String sortCode,
+            String lucene,
+            String sortClause,
+            int requestedPage) {
+        JsonNode response = fetchSearchPage(lucene, sortClause, requestedPage, ROWS_PER_PAGE);
         int total = 0;
         int pages = 1;
         if (response != null) {
@@ -278,7 +363,7 @@ public class InternetArchiveCatalogService {
         }
         int safePage = Math.min(requestedPage, pages);
         if (safePage != requestedPage) {
-            response = fetchSearchPage(lucene, sortClause, safePage);
+            response = fetchSearchPage(lucene, sortClause, safePage, ROWS_PER_PAGE);
         }
 
         List<ArchiveItemDto> items = new ArrayList<>();
@@ -466,9 +551,15 @@ public class InternetArchiveCatalogService {
     }
 
     public int invalidateAll() {
-        int n = pageCache.size() + itemCache.size();
-        pageCache.clear();
+        int n = itemCache.size();
         itemCache.clear();
+        try {
+            if (mongoTemplate.collectionExists("archive_catalog")) {
+                mongoTemplate.dropCollection("archive_catalog");
+            }
+        } catch (Exception e) {
+            log.debug("archive_catalog drop on invalidate: {}", e.toString());
+        }
         return n;
     }
 
@@ -898,24 +989,19 @@ public class InternetArchiveCatalogService {
         return objectMapper.readTree(response.body());
     }
 
-    private JsonNode fetchSearchPage(String lucene, String sort, int page) {
+    private JsonNode fetchSearchPage(String lucene, String sort, int page, int rows) {
         StringBuilder url = new StringBuilder(SEARCH_URL)
                 .append("?q=").append(URLEncoder.encode(lucene, StandardCharsets.UTF_8))
                 .append("&fl[]=identifier&fl[]=title&fl[]=description&fl[]=year&fl[]=date")
                 .append("&fl[]=creator&fl[]=subject&fl[]=mediatype&fl[]=language")
-                .append("&fl[]=collection&fl[]=avg_rating&fl[]=downloads")
+                .append("&fl[]=collection&fl[]=avg_rating&fl[]=downloads&fl[]=format")
                 .append("&sort[]=").append(URLEncoder.encode(sort, StandardCharsets.UTF_8))
-                .append("&rows=").append(ROWS_PER_PAGE)
+                .append("&rows=").append(Math.max(1, Math.min(rows, 500)))
                 .append("&page=").append(page)
                 .append("&output=json");
-        String cacheKey = url.toString();
-        Instant now = Instant.now();
-        CachedJson cached = pageCache.get(cacheKey);
-        if (cached != null && cached.expiresAt.isAfter(now)) {
-            return cached.json;
-        }
+        String requestUrl = url.toString();
         try {
-            HttpRequest request = HttpRequest.newBuilder(URI.create(cacheKey))
+            HttpRequest request = HttpRequest.newBuilder(URI.create(requestUrl))
                     .timeout(Duration.ofSeconds(25))
                     .header("User-Agent", USER_AGENT)
                     .header("Accept", "application/json")
@@ -931,7 +1017,6 @@ public class InternetArchiveCatalogService {
             if (!resp.isObject()) {
                 return null;
             }
-            pageCache.put(cacheKey, new CachedJson(resp, now.plus(PAGE_CACHE_TTL)));
             return resp;
         } catch (Exception e) {
             log.debug("IA catalog search failed: {}", e.getMessage());
@@ -956,7 +1041,10 @@ public class InternetArchiveCatalogService {
         if (trimmed.length() > 120) {
             trimmed = trimmed.substring(0, 120);
         }
-        return trimmed.replace("\\", "\\\\")
+        // IA tokenizes on hyphens; escaping "-" as \- looks for a literal token that
+        // is never indexed (e.g. "jean-luc godard" → 0 hits). Treat "-" as a space.
+        String normalized = trimmed.replace('-', ' ').replaceAll("\\s+", " ").trim();
+        return normalized.replace("\\", "\\\\")
                 .replace("\"", "\\\"")
                 .replace(":", "\\:")
                 .replace("(", "\\(")
@@ -966,7 +1054,6 @@ public class InternetArchiveCatalogService {
                 .replace("{", "\\{")
                 .replace("}", "\\}")
                 .replace("+", "\\+")
-                .replace("-", "\\-")
                 .replace("!", "\\!")
                 .replace("^", "\\^")
                 .replace("~", "\\~")
@@ -1043,9 +1130,6 @@ public class InternetArchiveCatalogService {
     }
 
     private record SectionDef(String label, String query, String sort) {
-    }
-
-    private record CachedJson(JsonNode json, Instant expiresAt) {
     }
 
     private record CachedItem(ArchiveItemDetailDto item, Instant expiresAt) {

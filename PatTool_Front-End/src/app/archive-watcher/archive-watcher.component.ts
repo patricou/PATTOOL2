@@ -1,4 +1,5 @@
 import {
+  ChangeDetectorRef,
   Component,
   ElementRef,
   HostListener,
@@ -11,8 +12,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml, SafeResourceUrl } from '@angular/platform-browser';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { Subject, Subscription } from 'rxjs';
-import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { Subscription, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 import {
   ApiService,
@@ -22,8 +23,14 @@ import {
   ArchiveItemDetail,
   WaybackSnapshot
 } from '../services/api.service';
+import { KeycloakService } from '../keycloak/keycloak.service';
+import {
+  ArchiveAudioQueueService,
+  ArchiveAudioQueueState,
+  ArchiveQueueSource
+} from '../services/archive-audio-queue.service';
 
-type ArchiveViewMode = 'catalog' | 'wayback';
+type ArchiveViewMode = 'catalog' | 'recent' | 'playlist' | 'wayback';
 type PlayerMode = 'none' | 'video' | 'audio' | 'image' | 'embed' | 'iframe';
 
 const LOCALE_MAP: Record<string, string> = {
@@ -40,6 +47,21 @@ const LOCALE_MAP: Record<string, string> = {
   he: 'he-IL',
   in: 'hi-IN'
 };
+
+/** Survives leaving Archive for another app page (same browser tab). */
+const ARCHIVE_FILTERS_STORAGE_KEY = 'pat.archive.catalogFilters.v1';
+
+interface ArchiveFiltersState {
+  viewMode?: ArchiveViewMode;
+  mediatype?: string;
+  section?: string;
+  sort?: string;
+  query?: string;
+  creator?: string;
+  language?: string;
+  page?: number;
+  waybackUrl?: string;
+}
 
 @Component({
   selector: 'app-archive-watcher',
@@ -66,6 +88,8 @@ export class ArchiveWatcherComponent implements OnInit, OnDestroy {
   sorts: ArchiveCodeLabel[] = [];
 
   items: ArchiveItem[] = [];
+  recentItems: ArchiveItem[] = [];
+  playlistItems: ArchiveItem[] = [];
   total = 0;
   page = 1;
   pages = 1;
@@ -75,9 +99,29 @@ export class ArchiveWatcherComponent implements OnInit, OnDestroy {
 
   isLoading = false;
   isLoadingDetail = false;
+  isLoadingRecent = false;
+  isLoadingPlaylist = false;
+  /** Full-screen spinner only for intentional search (Rechercher), not filter tabs. */
+  showSearchOverlay = false;
   listError = '';
   detailError = '';
   playError = '';
+  recentHint = '';
+  recentError = '';
+  playlistHint = '';
+  playlistError = '';
+
+  /** Sequential play-through queue (saved playlist, catalog page, or recent). */
+  queueItems: ArchiveItem[] = [];
+  queueSource: ArchiveQueueSource = 'none';
+  playlistIndex = -1;
+  playlistActive = false;
+  /** Mirrors queue / &lt;audio&gt; paused state for the play/pause button. */
+  audioIsPaused = true;
+  queueCurrentTime = 0;
+  queueDuration = 0;
+  /** When true, start/resume the local &lt;audio&gt; element (non-queue playFile). */
+  private wantAudioPlay = false;
 
   playerMode: PlayerMode = 'none';
   mediaUrl = '';
@@ -86,6 +130,9 @@ export class ArchiveWatcherComponent implements OnInit, OnDestroy {
 
   isFullscreen = false;
   showAllFiles = false;
+  showItemInfoModal = false;
+  isLoadingItemInfo = false;
+  infoDetail: ArchiveItemDetail | null = null;
 
   waybackUrl = '';
   waybackLoading = false;
@@ -111,18 +158,74 @@ export class ArchiveWatcherComponent implements OnInit, OnDestroy {
     { value: 'ara OR arabic', label: 'العربية' }
   ];
 
-  private search$ = new Subject<string>();
-  private searchSub?: Subscription;
   private listSub?: Subscription;
   private detailSub?: Subscription;
+  private infoSub?: Subscription;
   private metaSub?: Subscription;
   private waybackSub?: Subscription;
+  private recentSub?: Subscription;
+  private playlistSub?: Subscription;
+  private queueSub?: Subscription;
+  private queueUiRestored = false;
 
   constructor(
     private api: ApiService,
     private sanitizer: DomSanitizer,
-    private translate: TranslateService
+    private translate: TranslateService,
+    private keycloak: KeycloakService,
+    private cdr: ChangeDetectorRef,
+    private archiveQueue: ArchiveAudioQueueService
   ) {}
+
+  get isLoggedIn(): boolean {
+    return this.keycloak.isLoggedIn();
+  }
+
+  get recentCount(): number {
+    return this.recentItems.length;
+  }
+
+  get playlistCount(): number {
+    return this.playlistItems.length;
+  }
+
+  /** Audio / concert rows on the current catalog page — used by « Tout lire ». */
+  get catalogAudioItems(): ArchiveItem[] {
+    return this.items.filter((i) => this.isAudioItem(i));
+  }
+
+  get canPlayAllCatalog(): boolean {
+    return !this.isLoading && this.catalogAudioItems.length > 0;
+  }
+
+  /** Audio / concert rows in recent — used by « Tout lire ». */
+  get recentAudioItems(): ArchiveItem[] {
+    return this.recentItems.filter((i) => this.isAudioItem(i));
+  }
+
+  get canPlayAllRecent(): boolean {
+    return !this.isLoadingRecent && this.isLoggedIn && this.recentAudioItems.length > 0;
+  }
+
+  get canAddToPlaylist(): boolean {
+    if (!this.isLoggedIn || !this.selected) {
+      return false;
+    }
+    return this.isAudioItem(this.selected);
+  }
+
+  get isSelectedInPlaylist(): boolean {
+    const id = this.selected?.identifier;
+    if (!id) {
+      return false;
+    }
+    return this.playlistItems.some((i) => i.identifier === id);
+  }
+
+  /** True while audio/video is mounted — keep the player alive across UI tab changes. */
+  get isPlayingMedia(): boolean {
+    return (this.playerMode === 'audio' || this.playerMode === 'video') && !!this.mediaUrl;
+  }
 
   /** Archive.org descriptions often include HTML (&lt;br&gt;, links); sanitize then render. */
   toSafeHtml(value: string | null | undefined): SafeHtml {
@@ -132,21 +235,39 @@ export class ArchiveWatcherComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.searchSub = this.search$.pipe(debounceTime(450), distinctUntilChanged()).subscribe(() => {
-      this.page = 1;
-      this.loadItems();
-    });
+    const restoredFilters = this.restoreFilters();
+    this.queueSub = this.archiveQueue.state$.subscribe((s) => this.applyQueueState(s));
+    const snap = this.archiveQueue.snapshot;
+    const reclaiming = snap.active;
+    if (reclaiming && !this.queueUiRestored) {
+      this.restoreQueueViewMode(snap.source);
+      this.queueUiRestored = true;
+    }
+    this.archiveQueue.setPageAttached(true);
     this.loadMeta();
-    this.loadItems();
+    // Do not steal the tab away from a reclaimed « Tout lire » session, or wipe a restored catalog tab.
+    this.loadRecent(!reclaiming && !restoredFilters);
+    this.loadPlaylist(false);
+    if (this.viewMode === 'catalog') {
+      this.loadItems();
+    }
   }
 
   ngOnDestroy(): void {
-    this.searchSub?.unsubscribe();
+    this.persistFilters();
     this.listSub?.unsubscribe();
     this.detailSub?.unsubscribe();
+    this.infoSub?.unsubscribe();
     this.metaSub?.unsubscribe();
     this.waybackSub?.unsubscribe();
-    this.stopMedia();
+    this.recentSub?.unsubscribe();
+    this.playlistSub?.unsubscribe();
+    this.queueSub?.unsubscribe();
+    this.archiveQueue.setPageAttached(false);
+    // Keep persistent queue audio running across routes.
+    if (!this.archiveQueue.isActive) {
+      this.stopMedia();
+    }
     if (document.fullscreenElement) {
       void document.exitFullscreen?.();
     }
@@ -157,13 +278,48 @@ export class ArchiveWatcherComponent implements OnInit, OnDestroy {
     this.isFullscreen = !!document.fullscreenElement;
   }
 
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.showItemInfoModal) {
+      this.closeItemInfo();
+    }
+  }
+
   setViewMode(mode: ArchiveViewMode): void {
     if (this.viewMode === mode) {
       return;
     }
     this.viewMode = mode;
+    this.persistFilters();
+    this.recentHint = '';
+    this.recentError = '';
+    this.playlistHint = '';
+    this.playlistError = '';
     if (mode === 'catalog' && this.items.length === 0 && !this.isLoading) {
       this.loadItems();
+    }
+    if (mode === 'recent') {
+      if (!this.isLoggedIn) {
+        this.recentHint = 'ARCHIVE.RECENT_LOGIN';
+        this.recentItems = [];
+      } else {
+        // Already in DB / preloaded — show cache immediately, refresh quietly.
+        this.loadRecent(false, this.recentItems.length > 0);
+      }
+    }
+    if (mode === 'playlist') {
+      if (!this.isLoggedIn) {
+        this.playlistHint = 'ARCHIVE.PLAYLIST_LOGIN';
+        this.playlistItems = [];
+      } else {
+        const hasCache = this.playlistItems.length > 0;
+        const idle = this.playerMode === 'none' && !this.archiveQueue.isActive;
+        // Do not interrupt whatever is already playing — only auto-start when idle.
+        if (hasCache && idle) {
+          this.playPlaylistFrom(0);
+        }
+        this.loadPlaylist(!hasCache && idle, hasCache);
+      }
     }
   }
 
@@ -174,41 +330,37 @@ export class ArchiveWatcherComponent implements OnInit, OnDestroy {
     this.mediatype = code;
     this.section = 'RECENT';
     this.page = 1;
-    this.clearSelection();
+    this.persistFilters();
     this.loadSections();
-    this.loadItems();
   }
 
   onSectionChange(): void {
     this.page = 1;
-    this.clearSelection();
-    this.loadItems();
+    this.persistFilters();
   }
 
   onSortChange(): void {
     this.page = 1;
-    this.loadItems();
+    this.persistFilters();
   }
 
   onLanguageChange(): void {
     this.page = 1;
-    this.loadItems();
-  }
-
-  onQueryChange(): void {
-    this.search$.next(`${this.query}|${this.creator}`);
+    this.persistFilters();
   }
 
   runSearch(): void {
     this.page = 1;
-    this.loadItems();
+    this.persistFilters();
+    this.loadItems(true);
   }
 
   clearSearch(): void {
     this.query = '';
     this.creator = '';
     this.page = 1;
-    this.loadItems();
+    this.persistFilters();
+    this.loadItems(true);
   }
 
   get canPrev(): boolean {
@@ -224,6 +376,7 @@ export class ArchiveWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     this.page -= 1;
+    this.persistFilters();
     this.loadItems();
   }
 
@@ -232,25 +385,41 @@ export class ArchiveWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     this.page += 1;
+    this.persistFilters();
     this.loadItems();
   }
 
-  selectItem(item: ArchiveItem): void {
+  selectItem(item: ArchiveItem, fromPlaylist = false): void {
     if (!item?.identifier) {
       return;
+    }
+    // Same item already loaded/playing — leave playback alone.
+    if (this.selectedId === item.identifier && this.selected && !this.isLoadingDetail) {
+      return;
+    }
+    if (!fromPlaylist) {
+      this.clearQueue();
     }
     this.selectedId = item.identifier;
     this.isLoadingDetail = true;
     this.detailError = '';
     this.playError = '';
     this.showAllFiles = false;
+    this.showItemInfoModal = false;
+    this.infoDetail = null;
+    this.isLoadingItemInfo = false;
     this.stopMedia();
     this.detailSub?.unsubscribe();
     this.detailSub = this.api.getArchiveOrgItem(item.identifier).subscribe({
       next: (detail) => {
         this.selected = detail;
         this.isLoadingDetail = false;
-        this.autoPlay(detail);
+        this.autoPlay(detail, false);
+        // Queue / « Tout lire » must not pollute « Derniers ».
+        if (!fromPlaylist) {
+          this.persistRecentSelection(detail);
+        }
+        this.scrollDetailIntoViewOnMobile();
       },
       error: () => {
         this.selected = null;
@@ -260,11 +429,331 @@ export class ArchiveWatcherComponent implements OnInit, OnDestroy {
     });
   }
 
+  playPlaylistFrom(index: number): void {
+    this.archiveQueue.start(this.playlistItems, index, 'playlist');
+  }
+
+  /** Start sequential playback from any audio list (catalog / recent / playlist). */
+  playFromQueue(index: number): void {
+    if (index < 0 || index >= this.queueItems.length) {
+      return;
+    }
+    if (this.archiveQueue.isActive && this.archiveQueue.snapshot.source === this.queueSource) {
+      this.archiveQueue.playAt(index);
+      return;
+    }
+    this.archiveQueue.start(this.queueItems, index, this.queueSource);
+  }
+
+  /** Start the whole audio playlist from the first track. */
+  playAllPlaylist(): void {
+    this.archiveQueue.start(this.playlistItems, 0, 'playlist');
+  }
+
+  /** Play every audio item on the current catalog page, one after another. */
+  playAllCatalog(): void {
+    const list = this.catalogAudioItems;
+    if (list.length === 0) {
+      return;
+    }
+    this.archiveQueue.start(list, 0, 'catalog');
+  }
+
+  /** Play every audio item in recent, one after another. */
+  playAllRecent(): void {
+    const list = this.recentAudioItems;
+    if (list.length === 0) {
+      return;
+    }
+    this.archiveQueue.start(list, 0, 'recent');
+  }
+
+  isQueuePlayingItem(item: ArchiveItem, source: ArchiveQueueSource): boolean {
+    if (!this.playlistActive || this.queueSource !== source || this.playlistIndex < 0) {
+      return false;
+    }
+    return this.queueItems[this.playlistIndex]?.identifier === item?.identifier;
+  }
+
+  get canQueuePrev(): boolean {
+    return this.playlistActive && this.archiveQueue.hasPrev;
+  }
+
+  get canQueueNext(): boolean {
+    return this.playlistActive && this.archiveQueue.hasNext;
+  }
+
+  get canQueuePrevAlbum(): boolean {
+    return this.playlistActive && this.archiveQueue.hasPrevAlbum;
+  }
+
+  get canQueueNextAlbum(): boolean {
+    return this.playlistActive && this.archiveQueue.hasNextAlbum;
+  }
+
+  get queueTrackIndex(): number {
+    return this.archiveQueue.snapshot.trackIndex;
+  }
+
+  get queueTrackCount(): number {
+    return this.archiveQueue.snapshot.trackCount;
+  }
+
+  get queueTrackName(): string {
+    return this.archiveQueue.snapshot.trackName || '';
+  }
+
+  isQueuePlayingFile(file: ArchiveFile): boolean {
+    if (!this.playlistActive || !file?.name || !this.queueTrackName) {
+      return false;
+    }
+    return file.name === this.queueTrackName;
+  }
+
+  onAudioPlay(): void {
+    this.audioIsPaused = false;
+  }
+
+  onAudioPause(): void {
+    this.audioIsPaused = true;
+  }
+
+  queuePrev(): void {
+    this.archiveQueue.prev();
+  }
+
+  queueNext(): void {
+    this.archiveQueue.next();
+  }
+
+  queuePrevAlbum(): void {
+    this.archiveQueue.prevAlbum();
+  }
+
+  queueNextAlbum(): void {
+    this.archiveQueue.nextAlbum();
+  }
+
+  toggleQueuePause(): void {
+    this.archiveQueue.togglePause();
+  }
+
+  seekQueue(event: Event): void {
+    const value = Number((event.target as HTMLInputElement)?.value);
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    this.archiveQueue.seekTo(value);
+  }
+
+  formatQueueTime(sec: number): string {
+    if (!Number.isFinite(sec) || sec < 0) {
+      return '0:00';
+    }
+    const s = Math.floor(sec % 60);
+    const m = Math.floor(sec / 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  }
+
+  onPlaylistAudioEnded(): void {
+    /* Queue advancement is owned by ArchiveAudioQueueService. */
+  }
+
+  /** Retry play once the local &lt;audio&gt; element has enough data (non-queue). */
+  onAudioCanPlay(): void {
+    if (this.playlistActive || !this.wantAudioPlay) {
+      return;
+    }
+    this.tryPlayAudioElement();
+  }
+
+  private applyQueueState(s: ArchiveAudioQueueState): void {
+    this.audioIsPaused = s.paused;
+    this.queueCurrentTime = s.currentTime;
+    this.queueDuration = s.duration;
+
+    if (!s.active) {
+      const wasActive = this.playlistActive;
+      this.playlistActive = false;
+      this.playlistIndex = -1;
+      this.queueSource = 'none';
+      if (wasActive) {
+        this.cdr.markForCheck();
+      }
+      return;
+    }
+
+    this.playlistActive = true;
+    this.queueItems = s.queue;
+    this.playlistIndex = s.index;
+    this.queueSource = s.source;
+    this.mediaUrl = s.mediaUrl || this.mediaUrl;
+    if (s.mediaUrl) {
+      this.playerMode = 'audio';
+    }
+    this.isLoadingDetail = s.loading;
+
+    if (s.detail) {
+      this.selected = s.detail;
+      this.selectedId = s.detail.identifier;
+      this.detailError = '';
+      this.playError = '';
+    } else if (s.current) {
+      this.selectedId = s.current.identifier;
+      // New item still loading — clear stale detail so the spinner shows.
+      if (this.selected?.identifier !== s.current.identifier) {
+        this.selected = null;
+      }
+    }
+    this.cdr.markForCheck();
+  }
+
+  private restoreQueueViewMode(source: ArchiveQueueSource): void {
+    if (source === 'playlist') {
+      this.viewMode = 'playlist';
+    } else if (source === 'recent') {
+      this.viewMode = 'recent';
+    } else if (source === 'catalog') {
+      this.viewMode = 'catalog';
+    }
+  }
+
+  private persistFilters(): void {
+    try {
+      const state: ArchiveFiltersState = {
+        viewMode: this.viewMode,
+        mediatype: this.mediatype,
+        section: this.section,
+        sort: this.sort,
+        query: this.query,
+        creator: this.creator,
+        language: this.language,
+        page: this.page,
+        waybackUrl: this.waybackUrl
+      };
+      sessionStorage.setItem(ARCHIVE_FILTERS_STORAGE_KEY, JSON.stringify(state));
+    } catch {
+      /* ignore quota / private mode */
+    }
+  }
+
+  /** @returns true when a previous filter snapshot was applied */
+  private restoreFilters(): boolean {
+    try {
+      const raw = sessionStorage.getItem(ARCHIVE_FILTERS_STORAGE_KEY);
+      if (!raw) {
+        return false;
+      }
+      const state = JSON.parse(raw) as ArchiveFiltersState;
+      if (!state || typeof state !== 'object') {
+        return false;
+      }
+      const modes: ArchiveViewMode[] = ['catalog', 'recent', 'playlist', 'wayback'];
+      if (state.viewMode && modes.includes(state.viewMode)) {
+        this.viewMode = state.viewMode;
+      }
+      if (typeof state.mediatype === 'string' && state.mediatype.trim()) {
+        this.mediatype = state.mediatype.trim();
+      }
+      if (typeof state.section === 'string' && state.section.trim()) {
+        this.section = state.section.trim();
+      }
+      if (typeof state.sort === 'string' && state.sort.trim()) {
+        this.sort = state.sort.trim();
+      }
+      if (typeof state.query === 'string') {
+        this.query = state.query;
+      }
+      if (typeof state.creator === 'string') {
+        this.creator = state.creator;
+      }
+      if (typeof state.language === 'string') {
+        this.language = state.language;
+      }
+      if (typeof state.page === 'number' && Number.isFinite(state.page) && state.page >= 1) {
+        this.page = Math.floor(state.page);
+      }
+      if (typeof state.waybackUrl === 'string') {
+        this.waybackUrl = state.waybackUrl;
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  addSelectedToPlaylist(): void {
+    if (!this.canAddToPlaylist || !this.selected) {
+      return;
+    }
+    if (this.isSelectedInPlaylist) {
+      return;
+    }
+    const teaser = this.toTeaser(this.selected);
+    const mt = (teaser.mediatype || '').toLowerCase();
+    if (mt !== 'audio' && mt !== 'etree') {
+      teaser.mediatype = 'audio';
+    }
+    this.playlistSub?.unsubscribe();
+    this.playlistSub = this.api.addArchiveAudioPlaylistItem(teaser).subscribe({
+      next: (res) => {
+        this.playlistItems = res?.items || [];
+      },
+      error: () => {
+        this.playlistError = 'ARCHIVE.ERR_PLAYLIST_SAVE';
+      }
+    });
+  }
+
+  removePlaylistItem(event: Event, item: ArchiveItem): void {
+    event.stopPropagation();
+    if (!this.isLoggedIn || !item?.identifier) {
+      return;
+    }
+    this.playlistSub?.unsubscribe();
+    this.playlistSub = this.api.removeArchiveAudioPlaylistItem(item.identifier).subscribe({
+      next: (res) => {
+        this.playlistItems = res?.items || [];
+        if (this.queueSource === 'playlist') {
+          this.queueItems = [...this.playlistItems];
+        }
+        if (this.selectedId === item.identifier) {
+          this.clearSelection();
+        } else if (this.playlistIndex >= this.queueItems.length) {
+          this.playlistIndex = this.queueItems.length - 1;
+        }
+      },
+      error: () => {
+        this.playlistError = 'ARCHIVE.ERR_PLAYLIST_SAVE';
+      }
+    });
+  }
+
+  removeRecentItem(event: Event, item: ArchiveItem): void {
+    event.stopPropagation();
+    if (!this.isLoggedIn || !item?.identifier) {
+      return;
+    }
+    this.recentSub?.unsubscribe();
+    this.recentSub = this.api.removeArchiveRecentItem(item.identifier).subscribe({
+      next: (res) => {
+        this.recentItems = res?.items || [];
+        if (this.selectedId === item.identifier) {
+          this.clearSelection();
+        }
+      },
+      error: () => {
+        this.recentError = 'ARCHIVE.ERR_RECENT_SAVE';
+      }
+    });
+  }
+
   clearSelection(): void {
     this.selected = null;
     this.selectedId = '';
     this.detailError = '';
     this.playError = '';
+    this.clearQueue();
     this.stopMedia();
   }
 
@@ -272,25 +761,32 @@ export class ArchiveWatcherComponent implements OnInit, OnDestroy {
     if (!file?.downloadUrl) {
       return;
     }
+    this.clearQueue();
+    this.wantAudioPlay = true;
     const kind = (file.kind || '').toLowerCase();
     this.playError = '';
     this.stopMedia();
     if (kind === 'video') {
       this.playerMode = 'video';
       this.mediaUrl = this.api.tvStreamProxyUrl(file.downloadUrl);
-      setTimeout(() => this.videoEl?.nativeElement?.play?.().catch(() => undefined), 50);
+      this.cdr.detectChanges();
+      setTimeout(() => this.videoEl?.nativeElement?.play?.().catch(() => undefined), 0);
     } else if (kind === 'audio') {
       this.playerMode = 'audio';
       this.mediaUrl = this.api.tvStreamProxyUrl(file.downloadUrl);
-      setTimeout(() => this.audioEl?.nativeElement?.play?.().catch(() => undefined), 50);
+      this.cdr.detectChanges();
+      this.tryPlayAudioElement();
     } else if (kind === 'image') {
+      this.wantAudioPlay = false;
       this.playerMode = 'image';
       this.mediaUrl = file.downloadUrl;
     } else if (kind === 'pdf' || kind === 'text') {
+      this.wantAudioPlay = false;
       this.playerMode = 'iframe';
       this.embedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(file.downloadUrl);
       this.iframeGen += 1;
     } else if (file.downloadUrl) {
+      this.wantAudioPlay = false;
       window.open(file.downloadUrl, '_blank', 'noopener');
     }
   }
@@ -311,6 +807,55 @@ export class ArchiveWatcherComponent implements OnInit, OnDestroy {
     }
   }
 
+  openItemInfo(): void {
+    if (!this.selected) {
+      return;
+    }
+    this.infoDetail = this.selected;
+    this.isLoadingItemInfo = false;
+    this.showItemInfoModal = true;
+    if (document.fullscreenElement) {
+      void document.exitFullscreen?.();
+    }
+  }
+
+  /** Icon-only info on catalog / recent / playlist rows — does not change playback. */
+  openItemInfoFromList(event: Event, item: ArchiveItem): void {
+    event.stopPropagation();
+    event.preventDefault();
+    if (!item?.identifier) {
+      return;
+    }
+    if (this.selected?.identifier === item.identifier) {
+      this.openItemInfo();
+      return;
+    }
+    this.infoDetail = null;
+    this.isLoadingItemInfo = true;
+    this.showItemInfoModal = true;
+    this.infoSub?.unsubscribe();
+    this.infoSub = this.api.getArchiveOrgItem(item.identifier).subscribe({
+      next: (detail) => {
+        this.infoDetail = detail;
+        this.isLoadingItemInfo = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.isLoadingItemInfo = false;
+        this.showItemInfoModal = false;
+        this.infoDetail = null;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  closeItemInfo(): void {
+    this.showItemInfoModal = false;
+    this.isLoadingItemInfo = false;
+    this.infoDetail = null;
+    this.infoSub?.unsubscribe();
+  }
+
   toggleFullscreen(): void {
     const el = this.detailStage?.nativeElement;
     if (!el) {
@@ -321,6 +866,22 @@ export class ArchiveWatcherComponent implements OnInit, OnDestroy {
     } else {
       void document.exitFullscreen?.();
     }
+  }
+
+  private scrollDetailIntoViewOnMobile(): void {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
+    if (!window.matchMedia('(max-width: 960px)').matches) {
+      return;
+    }
+    const el = this.detailStage?.nativeElement;
+    if (!el) {
+      return;
+    }
+    setTimeout(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
   }
 
   formatSize(size?: number): string {
@@ -459,6 +1020,175 @@ export class ArchiveWatcherComponent implements OnInit, OnDestroy {
     });
   }
 
+  private loadRecent(preferTabIfAny: boolean, silent = false): void {
+    if (!this.isLoggedIn) {
+      this.recentItems = [];
+      this.isLoadingRecent = false;
+      if (preferTabIfAny) {
+        this.loadItems();
+      }
+      return;
+    }
+    if (!silent) {
+      this.isLoadingRecent = true;
+    }
+    this.recentError = '';
+    this.recentHint = '';
+    this.recentSub?.unsubscribe();
+    this.recentSub = this.api.getArchiveRecent().subscribe({
+      next: (res) => {
+        this.recentItems = res?.items || [];
+        this.isLoadingRecent = false;
+        if (preferTabIfAny) {
+          if (this.recentItems.length > 0) {
+            this.viewMode = 'recent';
+          } else {
+            this.loadItems();
+          }
+        }
+      },
+      error: () => {
+        this.recentItems = [];
+        this.isLoadingRecent = false;
+        this.recentError = 'ARCHIVE.ERR_RECENT_LOAD';
+        if (preferTabIfAny) {
+          this.loadItems();
+        }
+      }
+    });
+  }
+
+  private persistRecentSelection(source: ArchiveItem | ArchiveItemDetail): void {
+    if (!this.isLoggedIn || !source?.identifier) {
+      return;
+    }
+    const teaser = this.toTeaser(source);
+    this.api.touchArchiveRecentItem(teaser).subscribe({
+      next: (res) => {
+        this.recentItems = res?.items || [];
+      },
+      error: () => {
+        /* non-blocking: selection still works without history sync */
+      }
+    });
+  }
+
+  private loadPlaylist(startPlayback: boolean, silent = false): void {
+    if (!this.isLoggedIn) {
+      this.playlistItems = [];
+      this.isLoadingPlaylist = false;
+      if (this.archiveQueue.snapshot.source === 'playlist') {
+        this.clearQueue();
+      }
+      return;
+    }
+    if (!silent) {
+      this.isLoadingPlaylist = true;
+    }
+    this.playlistError = '';
+    this.playlistHint = '';
+    this.playlistSub?.unsubscribe();
+    this.playlistSub = this.api.getArchiveAudioPlaylist().subscribe({
+      next: (res) => {
+        this.playlistItems = res?.items || [];
+        this.isLoadingPlaylist = false;
+        if (
+          startPlayback &&
+          this.viewMode === 'playlist' &&
+          this.playerMode === 'none' &&
+          !this.archiveQueue.isActive
+        ) {
+          if (this.playlistItems.length > 0) {
+            this.playPlaylistFrom(0);
+          }
+        }
+      },
+      error: () => {
+        this.playlistItems = [];
+        this.isLoadingPlaylist = false;
+        this.playlistError = 'ARCHIVE.ERR_PLAYLIST_LOAD';
+        if (this.archiveQueue.snapshot.source === 'playlist') {
+          this.clearQueue();
+        }
+      }
+    });
+  }
+
+  private clearQueue(): void {
+    if (this.archiveQueue.isActive) {
+      this.archiveQueue.stop();
+    }
+    this.playlistActive = false;
+    this.playlistIndex = -1;
+    this.queueItems = [];
+    this.queueSource = 'none';
+    this.wantAudioPlay = false;
+    this.queueCurrentTime = 0;
+    this.queueDuration = 0;
+  }
+
+  private tryPlayAudioElement(): void {
+    if (!this.wantAudioPlay) {
+      return;
+    }
+    const el = this.audioEl?.nativeElement;
+    if (!el || !this.mediaUrl) {
+      return;
+    }
+    try {
+      if (el.paused || el.ended || el.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+        if (el.readyState < HTMLMediaElement.HAVE_METADATA) {
+          el.load();
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    const playResult = el.play?.();
+    if (playResult && typeof playResult.then === 'function') {
+      void playResult
+        .then(() => {
+          this.wantAudioPlay = false;
+          this.audioIsPaused = false;
+        })
+        .catch(() => {
+          // Autoplay may be blocked until canplay; keep wantAudioPlay for retry.
+        });
+    }
+  }
+
+  private isAudioItem(item: ArchiveItem | ArchiveItemDetail): boolean {
+    const mt = (item.mediatype || '').toLowerCase();
+    if (mt === 'audio' || mt === 'etree') {
+      return true;
+    }
+    const kind = ((item as ArchiveItemDetail).playKind || '').toLowerCase();
+    return kind === 'audio';
+  }
+
+  private toTeaser(source: ArchiveItem | ArchiveItemDetail): ArchiveItem {
+    return {
+      id: source.id || source.identifier,
+      identifier: source.identifier,
+      title: source.title || source.identifier,
+      subtitle: source.subtitle,
+      description: source.description,
+      creator: source.creator,
+      mediatype: source.mediatype,
+      year: source.year,
+      date: source.date,
+      language: source.language,
+      subject: source.subject,
+      collection: source.collection,
+      downloads: source.downloads,
+      avgRating: source.avgRating,
+      imageUrl: source.imageUrl,
+      detailsUrl: source.detailsUrl,
+      embedUrl: source.embedUrl,
+      playable: source.playable
+    };
+  }
+
   private loadMeta(): void {
     this.metaSub?.unsubscribe();
     this.metaSub = this.api.getArchiveMediatypes().subscribe({
@@ -512,8 +1242,9 @@ export class ArchiveWatcherComponent implements OnInit, OnDestroy {
     });
   }
 
-  private loadItems(): void {
+  private loadItems(showOverlay = false): void {
     this.isLoading = true;
+    this.showSearchOverlay = showOverlay;
     this.listError = '';
     this.listSub?.unsubscribe();
     this.listSub = this.api
@@ -533,23 +1264,31 @@ export class ArchiveWatcherComponent implements OnInit, OnDestroy {
           this.page = page.page || 1;
           this.pages = page.pages || 1;
           this.isLoading = false;
+          this.showSearchOverlay = false;
         },
         error: () => {
           this.items = [];
           this.total = 0;
           this.isLoading = false;
+          this.showSearchOverlay = false;
           this.listError = 'ARCHIVE.ERROR_LIST';
         }
       });
   }
 
-  private autoPlay(detail: ArchiveItemDetail): void {
+  private autoPlay(detail: ArchiveItemDetail, forcePlay = false): void {
     const kind = (detail.playKind || '').toLowerCase();
     const mt = (detail.mediatype || '').toLowerCase();
     if (detail.dark) {
       this.playError = 'ARCHIVE.ITEM_DARK';
       return;
     }
+
+    // Persistent queue owns its own HTMLAudioElement — never mount a second player.
+    if (this.playlistActive || this.archiveQueue.isActive) {
+      return;
+    }
+
     if (kind === 'video' && detail.playUrl) {
       this.playerMode = 'video';
       this.mediaUrl = this.api.tvStreamProxyUrl(detail.playUrl);
@@ -558,6 +1297,13 @@ export class ArchiveWatcherComponent implements OnInit, OnDestroy {
     if (kind === 'audio' && detail.playUrl) {
       this.playerMode = 'audio';
       this.mediaUrl = this.api.tvStreamProxyUrl(detail.playUrl);
+      if (forcePlay) {
+        this.wantAudioPlay = true;
+        this.cdr.detectChanges();
+        this.tryPlayAudioElement();
+        setTimeout(() => this.tryPlayAudioElement(), 0);
+        setTimeout(() => this.tryPlayAudioElement(), 120);
+      }
       return;
     }
     if (kind === 'image' && detail.playUrl) {
@@ -599,5 +1345,6 @@ export class ArchiveWatcherComponent implements OnInit, OnDestroy {
     this.playerMode = 'none';
     this.mediaUrl = '';
     this.embedUrl = null;
+    this.audioIsPaused = true;
   }
 }

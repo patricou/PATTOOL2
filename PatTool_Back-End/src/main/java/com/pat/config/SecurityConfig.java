@@ -302,7 +302,16 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/book/standardebooks/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/book/content", "/api/external/book/content/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/book/stream", "/api/external/book/stream/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/external/archive/**").permitAll()
+                // Archive.org catalog + Wayback (public). Recent selections stay JWT-checked in the controller.
+                .requestMatchers(HttpMethod.GET, "/api/external/archive/mediatypes").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/archive/sorts").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/archive/sections").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/archive/search").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/archive/catalog-cache/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/external/archive/catalog-cache/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/archive/item/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/archive/resolve/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/archive/wayback/**").permitAll()
                 // Last webcam + favorites (GET/PUT/DELETE /api/external/webcam/last|/favorites**) stay authenticated via /api/**
                 .requestMatchers(HttpMethod.GET, "/api/external/webcam/status").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/webcam/continents").permitAll()

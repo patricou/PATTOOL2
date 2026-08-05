@@ -242,6 +242,11 @@ app.cache.persistence.restore-on-startup=true
 # app.openroute.api-base=https://api.openrouteservice.org
 # app.openroute.api-key=
 
+# --- Archive watcher (Internet Archive) ---
+# Light in-memory browse warm; free-text search hits archive.org live.
+# Refresh: daily at 05:00 (server time) or UI button « Rafraîchir le catalogue ».
+# app.archive.catalog.refresh-cron=0 0 5 * * *
+
 # --- Book watcher (Open Library / Gutenberg / LibriVox / Internet Archive / Google Books / Standard Ebooks) ---
 # app.book.openlibrary-base-url=https://openlibrary.org
 # app.book.gutendex-base-url=https://gutendex.com

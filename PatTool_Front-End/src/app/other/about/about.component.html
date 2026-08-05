@@ -1,293 +1,300 @@
-<div class="about-container">
-    <!-- Hero Section -->
-    <div class="pat-title">
-        <h2>{{ 'MAP.TITLE' | translate }}</h2>
+<div class="about-page">
+  <div class="pat-title about-title">
+    <div class="about-title-row">
+      <h2>{{ 'ABOUT.TITLE' | translate }}</h2>
+      <div class="about-title-meta">
+        <span class="about-env-badge" [class.prod]="isProduction" [class.dev]="!isProduction">
+          {{ (isProduction ? 'ABOUT.ENV_PROD' : 'ABOUT.ENV_DEV') | translate }}
+        </span>
+        <button
+          type="button"
+          class="about-version-btn"
+          (click)="copyText(appVersion)"
+          [title]="'ABOUT.COPY_VERSION' | translate">
+          <i class="fa fa-tag"></i>
+          <span>{{ 'ABOUT.VERSION_LABEL' | translate }} {{ appVersion }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="about-root container-fluid px-3 px-lg-4 pb-5">
+    <p class="about-subtitle">{{ 'ABOUT.SUBTITLE' | translate }}</p>
+
+    <div *ngIf="copyFeedback" class="about-toast" role="status">
+      <i class="fa fa-check-circle"></i>
+      {{ copyFeedback | translate }}
     </div>
 
-    <!-- Author Section -->
-    <div class="author-section">
-        <div class="author-content">
-            <div class="author-info">
-                <h4>{{ 'MAP.REF' | translate }}</h4>
-                <p>{{ 'ABOUT.DESIGNED_BY' | translate }}</p>
+    <ul class="nav nav-tabs nav-fill flex-column flex-sm-row gap-1 mb-3 about-tabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button
+          type="button"
+          class="nav-link"
+          [class.active]="activeTab === 'overview'"
+          (click)="setTab('overview')"
+          role="tab"
+          [attr.aria-selected]="activeTab === 'overview'">
+          {{ 'ABOUT.TAB_OVERVIEW' | translate }}
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button
+          type="button"
+          class="nav-link"
+          [class.active]="activeTab === 'stack'"
+          (click)="setTab('stack')"
+          role="tab"
+          [attr.aria-selected]="activeTab === 'stack'">
+          {{ 'ABOUT.TAB_STACK' | translate }}
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button
+          type="button"
+          class="nav-link"
+          [class.active]="activeTab === 'streaming'"
+          (click)="setTab('streaming')"
+          role="tab"
+          [attr.aria-selected]="activeTab === 'streaming'">
+          {{ 'MAP.STREAMING' | translate }}
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button
+          type="button"
+          class="nav-link"
+          [class.active]="activeTab === 'resources'"
+          (click)="setTab('resources')"
+          role="tab"
+          [attr.aria-selected]="activeTab === 'resources'">
+          {{ 'ABOUT.TAB_RESOURCES' | translate }}
+        </button>
+      </li>
+    </ul>
+
+    <!-- Overview -->
+    <div class="about-panel" *ngIf="activeTab === 'overview'" role="tabpanel">
+      <section class="about-author">
+        <div class="about-author-text">
+          <p class="about-kicker">{{ 'MAP.REF' | translate }}</p>
+          <h3>{{ authorName }}</h3>
+          <p>{{ 'ABOUT.INTRO' | translate }}</p>
+          <div class="about-author-actions">
+            <a [href]="authorSite" target="_blank" rel="noopener noreferrer" class="about-link-btn">
+              <i class="fa fa-globe"></i>
+              www.patrickdeschamps.com
+            </a>
+            <a [href]="authorCardUrl" target="_blank" rel="noopener noreferrer" class="about-link-btn secondary">
+              <i class="fa fa-id-card-o"></i>
+              {{ 'ABOUT.BUSINESS_CARD' | translate }}
+            </a>
+          </div>
+          <p class="about-copyright">© {{ copyrightYears }} — {{ 'ABOUT.ALL_RIGHTS_RESERVED' | translate }}</p>
+        </div>
+        <a [href]="authorCardUrl" target="_blank" rel="noopener noreferrer" class="about-card-image-link">
+          <img
+            class="about-card-image"
+            src="assets/images/carte-visite.jpg"
+            [alt]="authorName"
+            loading="lazy" />
+        </a>
+      </section>
+
+      <section class="about-section">
+        <h4>{{ 'ABOUT.FEATURES_TITLE' | translate }}</h4>
+        <p class="about-section-desc">{{ 'ABOUT.FEATURES_DESC' | translate }}</p>
+        <div class="about-feature-grid">
+          <a
+            *ngFor="let feat of featureLinks"
+            [routerLink]="feat.route"
+            class="about-feature-tile">
+            <span class="about-feature-icon"><i class="fa" [ngClass]="feat.icon"></i></span>
+            <span class="about-feature-body">
+              <strong>{{ feat.labelKey | translate }}</strong>
+              <span>{{ feat.descKey | translate }}</span>
+            </span>
+            <i class="fa fa-angle-right about-feature-chevron"></i>
+          </a>
+        </div>
+      </section>
+    </div>
+
+    <!-- Stack -->
+    <div class="about-panel" *ngIf="activeTab === 'stack'" role="tabpanel">
+      <div class="about-stack-grid">
+        <article class="about-stack-card">
+          <header>
+            <i class="fa fa-desktop"></i>
+            <h3>{{ 'MAP.FRONTEND' | translate }}</h3>
+          </header>
+          <div class="about-stack-body">
+            <div class="about-stack-item">
+              <h4>Angular {{ frontendVersions.angular }}</h4>
+              <p>{{ 'ABOUT.ANGULAR_DESC' | translate }}</p>
+              <div class="about-tags">
+                <span class="about-tag" *ngFor="let tag of frontendTags">{{ tag }}</span>
+              </div>
             </div>
-            <div class="business-card">
-                <a href="https://patrickdeschamps.com:8001/" target="_blank">
-                    <img class="business-image" src="assets/images/carte-visite.jpg" alt="Patrick Deschamps Business Card">
+            <div class="about-stack-item">
+              <h4>{{ 'ABOUT.UI_TECHNOLOGIES' | translate }}</h4>
+              <p>Bootstrap {{ frontendVersions.bootstrap }}, HTML5, CSS3, jQuery {{ frontendVersions.jquery }}</p>
+            </div>
+            <div class="about-stack-item">
+              <h4>{{ 'ABOUT.DEVELOPMENT_TOOLS' | translate }}</h4>
+              <p>Node.js, npm, Angular CLI {{ frontendVersions.angular }}, VS Code, TypeScript {{ frontendVersions.typescript }}</p>
+              <div class="about-inline-links">
+                <a [href]="githubFront" target="_blank" rel="noopener noreferrer">
+                  <i class="fa fa-github"></i> {{ 'ABOUT.FRONT_END' | translate }}
                 </a>
-                <div class="business-info">
-                    <h5>Patrick Deschamps</h5>
-                    <a href="https://www.patrickdeschamps.com/#/" target="_blank" class="website-link">
-                        www.patrickdeschamps.com
-                    </a>
-                    <p class="copyright">© 2017/2025 - {{ 'ABOUT.ALL_RIGHTS_RESERVED' | translate }}</p>
-                </div>
+                <a [href]="githubBack" target="_blank" rel="noopener noreferrer">
+                  <i class="fa fa-github"></i> {{ 'ABOUT.BACK_END' | translate }}
+                </a>
+              </div>
             </div>
-        </div>
+          </div>
+        </article>
+
+        <article class="about-stack-card">
+          <header>
+            <i class="fa fa-server"></i>
+            <h3>{{ 'MAP.BACKEND' | translate }}</h3>
+          </header>
+          <div class="about-stack-body">
+            <div class="about-stack-item">
+              <h4>Java {{ backendVersions.java }}</h4>
+              <p>{{ 'ABOUT.JAVA_DESC' | translate }}</p>
+            </div>
+            <div class="about-stack-item">
+              <h4>Spring Boot {{ backendVersions.springBoot }}</h4>
+              <p>{{ 'ABOUT.SPRING_BOOT_DESC' | translate }}</p>
+              <div class="about-tags">
+                <span class="about-tag" *ngFor="let tag of backendTags">{{ tag }}</span>
+              </div>
+            </div>
+            <div class="about-stack-item">
+              <h4>{{ 'ABOUT.DEVELOPMENT_TOOLS' | translate }}</h4>
+              <p>IntelliJ IDEA, Maven, Git, Docker</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="about-stack-card">
+          <header>
+            <i class="fa fa-database"></i>
+            <h3>{{ 'MAP.DATA' | translate }}</h3>
+          </header>
+          <div class="about-stack-body">
+            <div class="about-stack-item">
+              <h4>{{ 'ABOUT.API_ARCHITECTURE' | translate }}</h4>
+              <p>{{ 'ABOUT.API_DESC' | translate }}</p>
+              <div class="about-inline-links">
+                <a [href]="swaggerUrl" target="_blank" rel="noopener noreferrer">
+                  <i class="fa fa-book"></i> {{ 'ABOUT.SWAGGER_DOCS' | translate }}
+                </a>
+                <button type="button" class="about-copy-inline" (click)="copyText(swaggerUrl)">
+                  <i class="fa fa-copy"></i> {{ 'ABOUT.COPY' | translate }}
+                </button>
+              </div>
+            </div>
+            <div class="about-stack-item">
+              <h4>{{ 'ABOUT.MONGODB' | translate }}</h4>
+              <p>{{ 'ABOUT.MONGODB_DESC' | translate }}</p>
+              <div class="about-inline-links">
+                <a [href]="mongoAtlasUrl" target="_blank" rel="noopener noreferrer">
+                  <i class="fa fa-database"></i> {{ 'ABOUT.MONGODB_ATLAS' | translate }}
+                </a>
+              </div>
+              <div class="about-tags">
+                <span class="about-tag">Collections</span>
+                <span class="about-tag">Documents</span>
+                <span class="about-tag">GridFS</span>
+                <span class="about-tag">Spring Data</span>
+              </div>
+            </div>
+            <div class="about-stack-item">
+              <h4>{{ 'ABOUT.DISCUSSION_REALTIME' | translate }}</h4>
+              <p>{{ 'ABOUT.DISCUSSION_DESC' | translate }}</p>
+              <div class="about-tags">
+                <span class="about-tag">WebSocket</span>
+                <span class="about-tag">STOMP {{ frontendVersions.stomp }}</span>
+                <span class="about-tag">SockJS {{ frontendVersions.sockjs }}</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="about-stack-card">
+          <header>
+            <i class="fa fa-shield"></i>
+            <h3>{{ 'MAP.SECURITY' | translate }}</h3>
+          </header>
+          <div class="about-stack-body">
+            <div class="about-stack-item">
+              <h4>{{ 'ABOUT.KEYCLOAK_AUTH' | translate }}</h4>
+              <p>{{ 'ABOUT.KEYCLOAK_DESC' | translate }} ({{ backendVersions.keycloak }})</p>
+              <div class="about-inline-links">
+                <a [href]="keycloakDevUrl" target="_blank" rel="noopener noreferrer">
+                  <i class="fa fa-cog"></i> {{ 'ABOUT.DEV_ADMIN' | translate }}
+                </a>
+                <a [href]="keycloakProdUrl" target="_blank" rel="noopener noreferrer">
+                  <i class="fa fa-globe"></i> {{ 'ABOUT.PROD_ADMIN' | translate }}
+                </a>
+              </div>
+            </div>
+            <div class="about-stack-item">
+              <h4>{{ 'ABOUT.SECURITY_FRAMEWORK' | translate }}</h4>
+              <p>{{ 'ABOUT.SPRING_SECURITY_DESC' | translate }}</p>
+            </div>
+            <div class="about-stack-item">
+              <h4>{{ 'ABOUT.SSL_CERTIFICATE' | translate }}</h4>
+              <p>{{ 'ABOUT.SSL_DESC' | translate }}</p>
+            </div>
+          </div>
+        </article>
+      </div>
     </div>
 
-    <!-- Main Content -->
-    <div class="main-content">
-        <div class="tech-grid">
-            <!-- Frontend Card -->
-            <div class="tech-card frontend-card">
-                <div class="card-header">
-                    <i class="fa fa-desktop"></i>
-                    <h3>{{ 'MAP.FRONTEND' | translate }}</h3>
-                </div>
-                <div class="card-content">
-                    <div class="tech-item">
-                        <div class="tech-icon">
-                            <i class="fa fa-code"></i>
-                        </div>
-                        <div class="tech-info">
-                            <h4>Angular 21.0.3</h4>
-                            <p>{{ 'ABOUT.ANGULAR_DESC' | translate }}</p>
-                            <div class="tech-tags">
-                                <span class="tag">&#64;ng-bootstrap 20.0.0</span>
-                                <span class="tag">&#64;ngx-translate 15.0.0</span>
-                                <span class="tag">ag-grid 33.2.1</span>
-                                <span class="tag">leaflet 1.9.4</span>
-                                <span class="tag">rxjs 7.8.1</span>
-                                <span class="tag">zone.js 0.15.0</span>
-                                <span class="tag">&#64;stomp/stompjs 7.2.1</span>
-                                <span class="tag">sockjs-client 1.6.1</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="tech-item">
-                        <div class="tech-icon">
-                            <i class="fa fa-code"></i>
-                        </div>
-                        <div class="tech-info">
-                            <h4>{{ 'ABOUT.UI_TECHNOLOGIES' | translate }}</h4>
-                            <p>Bootstrap 5.3.3, HTML5, CSS3, jQuery 3.7.1</p>
-                        </div>
-                    </div>
-                    <div class="tech-item">
-                        <div class="tech-icon">
-                            <i class="fa fa-wrench"></i>
-                        </div>
-                        <div class="tech-info">
-                            <h4>{{ 'ABOUT.DEVELOPMENT_TOOLS' | translate }}</h4>
-                            <p>Node.js, npm, Angular CLI 21.0.3, Visual Studio Code, TypeScript 5.9.2</p>
-                            <div class="links">
-                                <a href="https://github.com/patricou/PATTOOL2/tree/main/PatTool_Front-End" target="_blank" class="github-link">
-                                    <i class="fa fa-github"></i> {{ 'ABOUT.FRONT_END' | translate }}
-                                </a>
-                                <a href="https://github.com/patricou/PATTOOL2/tree/main/PatTool_Back-End" target="_blank" class="github-link">
-                                    <i class="fa fa-github"></i> {{ 'ABOUT.BACK_END' | translate }}
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <!-- Streaming -->
+    <div class="about-panel" *ngIf="activeTab === 'streaming'" role="tabpanel">
+      <p class="about-section-desc mb-3">{{ 'ABOUT.STREAMING_OVERVIEW' | translate }}</p>
+      <div class="about-stream-list">
+        <article class="about-stream-step" *ngFor="let step of streamingSteps; let i = index">
+          <span class="about-stream-index">{{ i + 1 }}</span>
+          <span class="about-stream-icon"><i class="fa" [ngClass]="step.icon"></i></span>
+          <div>
+            <h4>{{ step.titleKey | translate }}</h4>
+            <p>{{ step.descKey | translate }}</p>
+          </div>
+        </article>
+      </div>
+    </div>
 
-            <!-- Backend Card -->
-            <div class="tech-card backend-card">
-                <div class="card-header">
-                    <i class="fa fa-server"></i>
-                    <h3>{{ 'MAP.BACKEND' | translate }}</h3>
-                </div>
-                <div class="card-content">
-                    <div class="tech-item">
-                        <div class="tech-icon">
-                            <i class="fa fa-coffee"></i>
-                        </div>
-                        <div class="tech-info">
-                            <h4>Java 21</h4>
-                            <p>{{ 'ABOUT.JAVA_DESC' | translate }}</p>
-                        </div>
-                    </div>
-                    <div class="tech-item">
-                        <div class="tech-icon">
-                            <i class="fa fa-coffee"></i>
-                        </div>
-                        <div class="tech-info">
-                            <h4>Spring Framework</h4>
-                            <p>Spring Boot 3.3.0 with Spring Security</p>
-                            <div class="tech-tags" style="margin-top: 8px;">
-                                <span class="tag">Spring Data MongoDB</span>
-                                <span class="tag">Spring WebSocket</span>
-                                <span class="tag">Springdoc OpenAPI 2.3.0</span>
-                                <span class="tag">Keycloak 23.0.7</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="tech-item">
-                        <div class="tech-icon">
-                            <i class="fa fa-wrench"></i>
-                        </div>
-                        <div class="tech-info">
-                            <h4>{{ 'ABOUT.DEVELOPMENT_TOOLS' | translate }}</h4>
-                            <p>IntelliJ IDEA, Maven, Git, Docker</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Data Card -->
-            <div class="tech-card data-card">
-                <div class="card-header">
-                    <i class="fa fa-database"></i>
-                    <h3>{{ 'MAP.DATA' | translate }}</h3>
-                </div>
-                <div class="card-content">
-                    <div class="tech-item">
-                        <div class="tech-icon">
-                            <i class="fa fa-plug"></i>
-                        </div>
-                        <div class="tech-info">
-                            <h4>{{ 'ABOUT.API_ARCHITECTURE' | translate }}</h4>
-                            <p>{{ 'ABOUT.API_DESC' | translate }}</p>
-                            <a href="http://localhost:8000/swagger-ui.html" target="_blank" class="api-link">
-                                <i class="fa fa-book"></i> {{ 'ABOUT.SWAGGER_DOCS' | translate }}
-                            </a>
-                        </div>
-                    </div>
-                    <div class="tech-item">
-                        <div class="tech-icon">
-                            <i class="fa fa-plug"></i>
-                        </div>
-                        <div class="tech-info">
-                            <h4>{{ 'ABOUT.DATA_PERSISTENCE' | translate }}</h4>
-                            <div class="storage-options">
-                                <div class="storage-item">
-                                    <strong>{{ 'ABOUT.MONGODB' | translate }}</strong>
-                                    <a href="https://www.mongodb.com/cloud/atlas" target="_blank" class="storage-link">
-                                        <i class="fa fa-database"></i> {{ 'ABOUT.MONGODB_ATLAS' | translate }}
-                                    </a>
-                                    <p>{{ 'ABOUT.MONGODB_DESC' | translate }}</p>
-                                    <div class="tech-tags">
-                                        <span class="tag">Collections</span>
-                                        <span class="tag">Documents</span>
-                                        <span class="tag">Authentication</span>
-                                        <span class="tag">Spring Data</span>
-                                    </div>
-                                </div>
-                                <div class="storage-item">
-                                    <strong>{{ 'ABOUT.DISCUSSION_REALTIME' | translate }}</strong>
-                                    <p>{{ 'ABOUT.DISCUSSION_DESC' | translate }}</p>
-                                    <div class="tech-tags">
-                                        <span class="tag">WebSocket</span>
-                                        <span class="tag">STOMP 7.2.1</span>
-                                        <span class="tag">SockJS 1.6.1</span>
-                                        <span class="tag">Spring WebSocket</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-</div>
-
-            <!-- Security Card -->
-            <div class="tech-card security-card">
-                <div class="card-header">
-                    <i class="fa fa-shield"></i>
-                    <h3>{{ 'MAP.SECURITY' | translate }}</h3>
-                </div>
-                <div class="card-content">
-                    <div class="tech-item">
-                        <div class="tech-icon">
-                            <i class="fa fa-key"></i>
-                        </div>
-                        <div class="tech-info">
-                            <h4>{{ 'ABOUT.KEYCLOAK_AUTH' | translate }}</h4>
-                            <p>{{ 'ABOUT.KEYCLOAK_DESC' | translate }}</p>
-                            <div class="keycloak-links">
-                                <a href="http://localhost:8080" target="_blank" class="keycloak-link">
-                                    <i class="fa fa-cog"></i> {{ 'ABOUT.DEV_ADMIN' | translate }}
-                                </a>
-                                <a href="https://www.patrickdeschamps.com:8543/auth" target="_blank" class="keycloak-link">
-                                    <i class="fa fa-globe"></i> {{ 'ABOUT.PROD_ADMIN' | translate }}
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="tech-item">
-                        <div class="tech-icon">
-                            <i class="fa fa-lock"></i>
-                        </div>
-                        <div class="tech-info">
-                            <h4>{{ 'ABOUT.SECURITY_FRAMEWORK' | translate }}</h4>
-                            <p>{{ 'ABOUT.SPRING_SECURITY_DESC' | translate }}</p>
-                        </div>
-                    </div>
-                    <div class="tech-item">
-                        <div class="tech-icon">
-                            <i class="fa fa-certificate"></i>
-                        </div>
-                        <div class="tech-info">
-                            <h4>{{ 'ABOUT.SSL_CERTIFICATE' | translate }}</h4>
-                            <p>{{ 'ABOUT.SSL_DESC' | translate }}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Streaming Architecture Card -->
-            <div class="tech-card streaming-card">
-                <div class="card-header">
-                    <i class="fa fa-stream"></i>
-                    <h3>{{ 'MAP.STREAMING' | translate }}</h3>
-                </div>
-                <div class="card-content">
-                    <div class="tech-item">
-                        <div class="tech-icon">
-                            <i class="fa fa-info-circle"></i>
-                        </div>
-                        <div class="tech-info">
-                            <h4>{{ 'ABOUT.STREAMING_ARCHITECTURE' | translate }}</h4>
-                            <p>{{ 'ABOUT.STREAMING_ARCHITECTURE_DESC' | translate }}</p>
-                        </div>
-                    </div>
-                    <div class="tech-item">
-                        <div class="tech-icon">
-                            <i class="fa fa-eye"></i>
-                        </div>
-                        <div class="tech-info">
-                            <h4>{{ 'ABOUT.STREAMING_OVERVIEW' | translate }}</h4>
-                        </div>
-                    </div>
-                    <div class="tech-item">
-                        <div class="tech-icon">
-                            <i class="fa fa-server"></i>
-                        </div>
-                        <div class="tech-info">
-                            <h4>{{ 'ABOUT.STREAMING_BACKEND' | translate }}</h4>
-                            <p>{{ 'ABOUT.STREAMING_BACKEND_DESC' | translate }}</p>
-                        </div>
-                    </div>
-                    <div class="tech-item">
-                        <div class="tech-icon">
-                            <i class="fa fa-desktop"></i>
-                        </div>
-                        <div class="tech-info">
-                            <h4>{{ 'ABOUT.STREAMING_FRONTEND' | translate }}</h4>
-                            <p>{{ 'ABOUT.STREAMING_FRONTEND_DESC' | translate }}</p>
-                        </div>
-                    </div>
-                    <div class="tech-item">
-                        <div class="tech-icon">
-                            <i class="fa fa-check-circle"></i>
-                        </div>
-                        <div class="tech-info">
-                            <h4>{{ 'ABOUT.STREAMING_BENEFITS' | translate }}</h4>
-                            <p>{{ 'ABOUT.STREAMING_BENEFITS_DESC' | translate }}</p>
-                        </div>
-                    </div>
-                    <div class="tech-item">
-                        <div class="tech-icon">
-                            <i class="fa fa-lightbulb-o"></i>
-                        </div>
-                        <div class="tech-info">
-                            <h4>{{ 'ABOUT.STREAMING_APPROACH' | translate }}</h4>
-                            <p>{{ 'ABOUT.STREAMING_APPROACH_DESC' | translate }}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <!-- Resources -->
+    <div class="about-panel" *ngIf="activeTab === 'resources'" role="tabpanel">
+      <p class="about-section-desc mb-3">{{ 'ABOUT.RESOURCES_DESC' | translate }}</p>
+      <div class="about-resource-grid">
+        <a
+          *ngFor="let link of resourceLinks"
+          [href]="link.url"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="about-resource-card">
+          <span class="about-resource-icon"><i class="fa" [ngClass]="link.icon"></i></span>
+          <span class="about-resource-body">
+            <strong>{{ link.labelKey | translate }}</strong>
+            <span>{{ link.descKey | translate }}</span>
+            <code class="about-resource-url">{{ link.url }}</code>
+          </span>
+          <button
+            type="button"
+            class="about-resource-copy"
+            (click)="$event.preventDefault(); $event.stopPropagation(); copyText(link.url)"
+            [title]="'ABOUT.COPY' | translate">
+            <i class="fa fa-copy"></i>
+          </button>
+        </a>
+      </div>
+    </div>
+  </div>
 </div>

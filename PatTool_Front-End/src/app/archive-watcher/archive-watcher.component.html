@@ -10,6 +10,17 @@
 <div class="ia-page">
   <p class="ia-lead">{{ 'ARCHIVE.SUBTITLE' | translate }}</p>
 
+  <div
+    class="ia-loading-overlay"
+    *ngIf="(viewMode === 'catalog' && showSearchOverlay) || (viewMode === 'wayback' && waybackLoading)"
+    role="status"
+    [attr.aria-label]="'ARCHIVE.LOADING' | translate">
+    <div class="ia-loading-overlay-inner">
+      <span class="ia-loading-spinner" aria-hidden="true"></span>
+      <span class="ia-loading-text">{{ 'ARCHIVE.LOADING' | translate }}</span>
+    </div>
+  </div>
+
   <div class="ia-layout">
     <aside class="ia-sidebar">
       <div class="ia-mode-tabs" role="tablist">
@@ -25,12 +36,38 @@
         </button>
         <button
           type="button"
+          class="ia-mode-tab ia-mode-tab--recent"
+          role="tab"
+          [class.active]="viewMode === 'recent'"
+          [attr.aria-selected]="viewMode === 'recent'"
+          [attr.title]="'ARCHIVE.TAB_RECENT_TOOLTIP' | translate"
+          [attr.aria-description]="'ARCHIVE.TAB_RECENT_TOOLTIP' | translate"
+          (click)="setViewMode('recent')">
+          <i class="fa fa-history me-1"></i>
+          {{ 'ARCHIVE.TAB_RECENT' | translate }}
+          <span class="ia-count-badge" *ngIf="isLoggedIn && recentCount > 0">{{ recentCount }}</span>
+        </button>
+        <button
+          type="button"
+          class="ia-mode-tab ia-mode-tab--playlist"
+          role="tab"
+          [class.active]="viewMode === 'playlist'"
+          [attr.aria-selected]="viewMode === 'playlist'"
+          [attr.title]="'ARCHIVE.TAB_PLAYLIST_TOOLTIP' | translate"
+          [attr.aria-description]="'ARCHIVE.TAB_PLAYLIST_TOOLTIP' | translate"
+          (click)="setViewMode('playlist')">
+          <i class="fa fa-music me-1"></i>
+          {{ 'ARCHIVE.TAB_PLAYLIST' | translate }}
+          <span class="ia-count-badge" *ngIf="isLoggedIn && playlistCount > 0">{{ playlistCount }}</span>
+        </button>
+        <button
+          type="button"
           class="ia-mode-tab"
           role="tab"
           [class.active]="viewMode === 'wayback'"
           [attr.aria-selected]="viewMode === 'wayback'"
           (click)="setViewMode('wayback')">
-          <i class="fa fa-history me-1"></i>
+          <i class="fa fa-globe me-1"></i>
           {{ 'ARCHIVE.TAB_WAYBACK' | translate }}
         </button>
       </div>
@@ -58,7 +95,6 @@
               type="search"
               class="form-control form-control-sm"
               [(ngModel)]="query"
-              (ngModelChange)="onQueryChange()"
               (keyup.enter)="runSearch()"
               [placeholder]="'ARCHIVE.SEARCH_PLACEHOLDER' | translate"
               autocomplete="off" />
@@ -80,7 +116,6 @@
               type="search"
               class="form-control form-control-sm"
               [(ngModel)]="creator"
-              (ngModelChange)="onQueryChange()"
               (keyup.enter)="runSearch()"
               [placeholder]="'ARCHIVE.CREATOR_PLACEHOLDER' | translate"
               autocomplete="off" />
@@ -93,7 +128,9 @@
               class="form-select form-select-sm"
               [(ngModel)]="section"
               (ngModelChange)="onSectionChange()">
-              <option *ngFor="let s of sections" [value]="s.code">{{ s.label }}</option>
+              <option *ngFor="let s of sections" [value]="s.code">
+                {{ ('ARCHIVE.SEC_' + s.code) | translate }}
+              </option>
             </select>
           </div>
 
@@ -137,12 +174,74 @@
 
         <div class="ia-list-meta">
           <span class="small text-muted" *ngIf="!isLoading && items.length > 0">
-            {{ 'ARCHIVE.RESULT_COUNT' | translate:{ count: formatInteger(total) } }}
+            <ng-container *ngIf="playlistActive && queueSource === 'catalog' && playlistIndex >= 0; else catalogCountOnly">
+              {{ 'ARCHIVE.PLAYLIST_PLAYING' | translate:{ index: formatInteger(playlistIndex + 1), count: formatInteger(queueItems.length) } }}
+            </ng-container>
+            <ng-template #catalogCountOnly>
+              {{ 'ARCHIVE.RESULT_COUNT' | translate:{ count: formatInteger(total) } }}
+            </ng-template>
           </span>
           <span class="small text-muted" *ngIf="isLoading">
             <i class="fa fa-spinner fa-spin me-1"></i>
             {{ 'ARCHIVE.LOADING' | translate }}
           </span>
+          <div class="ia-list-meta-actions" *ngIf="canPlayAllCatalog || (playlistActive && queueSource === 'catalog')">
+            <div class="ia-list-queue-controls" *ngIf="playlistActive && queueSource === 'catalog'">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary ia-list-queue-btn"
+                [disabled]="!canQueuePrevAlbum"
+                (click)="queuePrevAlbum()"
+                [attr.title]="'ARCHIVE.PLAYLIST_PREV_ALBUM' | translate"
+                [attr.aria-label]="'ARCHIVE.PLAYLIST_PREV_ALBUM' | translate">
+                <i class="fa fa-fast-backward" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary ia-list-queue-btn"
+                [disabled]="!canQueuePrev"
+                (click)="queuePrev()"
+                [attr.title]="'ARCHIVE.PLAYLIST_PREV' | translate"
+                [attr.aria-label]="'ARCHIVE.PLAYLIST_PREV' | translate">
+                <i class="fa fa-step-backward" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-dark ia-list-queue-btn"
+                (click)="toggleQueuePause()"
+                [attr.title]="(audioIsPaused ? 'ARCHIVE.PLAYLIST_RESUME' : 'ARCHIVE.PLAYLIST_PAUSE') | translate"
+                [attr.aria-label]="(audioIsPaused ? 'ARCHIVE.PLAYLIST_RESUME' : 'ARCHIVE.PLAYLIST_PAUSE') | translate">
+                <i class="fa" [ngClass]="audioIsPaused ? 'fa-play' : 'fa-pause'" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary ia-list-queue-btn"
+                [disabled]="!canQueueNext"
+                (click)="queueNext()"
+                [attr.title]="'ARCHIVE.PLAYLIST_NEXT' | translate"
+                [attr.aria-label]="'ARCHIVE.PLAYLIST_NEXT' | translate">
+                <i class="fa fa-step-forward" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary ia-list-queue-btn"
+                [disabled]="!canQueueNextAlbum"
+                (click)="queueNextAlbum()"
+                [attr.title]="'ARCHIVE.PLAYLIST_NEXT_ALBUM' | translate"
+                [attr.aria-label]="'ARCHIVE.PLAYLIST_NEXT_ALBUM' | translate">
+                <i class="fa fa-fast-forward" aria-hidden="true"></i>
+              </button>
+            </div>
+            <button
+              type="button"
+              class="btn btn-sm btn-dark ia-playlist-play-all"
+              *ngIf="canPlayAllCatalog"
+              (click)="playAllCatalog()"
+              [attr.title]="'ARCHIVE.PLAYLIST_PLAY_ALL' | translate">
+              <i class="fa fa-play me-1" aria-hidden="true"></i>
+              {{ 'ARCHIVE.PLAYLIST_PLAY_ALL' | translate }}
+            </button>
+          </div>
         </div>
 
         <div class="alert alert-danger py-2 px-3 small" *ngIf="listError" role="alert">
@@ -150,13 +249,15 @@
         </div>
 
         <div class="ia-list" role="list">
-          <button
-            type="button"
+          <div
             class="ia-list-item"
             role="listitem"
             *ngFor="let item of items; trackBy: trackByIdentifier"
             [class.active]="selectedId === item.identifier"
-            (click)="selectItem(item)">
+            [class.ia-list-item--playing]="isQueuePlayingItem(item, 'catalog')"
+            (click)="selectItem(item)"
+            (keyup.enter)="selectItem(item)"
+            tabindex="0">
             <img
               *ngIf="item.imageUrl"
               class="ia-thumb"
@@ -174,9 +275,22 @@
                 <span class="ia-badge" *ngIf="item.mediatype">{{ item.mediatype }}</span>
                 <span *ngIf="item.downloads != null">↓ {{ formatDownloads(item.downloads) }}</span>
                 <span *ngIf="item.avgRating != null">★ {{ item.avgRating | number:'1.1-1' }}</span>
+                <span *ngIf="isQueuePlayingItem(item, 'catalog')">
+                  <i class="fa fa-play" aria-hidden="true"></i>
+                </span>
               </span>
             </span>
-          </button>
+            <div class="ia-list-actions">
+              <button
+                type="button"
+                class="btn btn-sm ia-clear-btn ia-list-info"
+                (click)="openItemInfoFromList($event, item)"
+                [attr.title]="'ARCHIVE.ITEM_INFO' | translate"
+                [attr.aria-label]="'ARCHIVE.ITEM_INFO' | translate">
+                <i class="fa fa-info" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
 
           <div class="ia-empty" *ngIf="!isLoading && !listError && items.length === 0">
             {{ 'ARCHIVE.NO_RESULTS' | translate }}
@@ -193,6 +307,273 @@
           <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="!canNext" (click)="nextPage()">
             <i class="fa fa-chevron-right"></i>
           </button>
+        </div>
+      </ng-container>
+
+      <ng-container *ngIf="viewMode === 'recent'">
+        <p class="form-text small mb-0" *ngIf="recentHint">{{ recentHint | translate }}</p>
+        <div class="alert alert-danger py-2 px-3 small" *ngIf="recentError" role="alert">
+          {{ recentError | translate }}
+        </div>
+        <div class="ia-list-meta">
+          <span class="small text-muted" *ngIf="isLoadingRecent">
+            <i class="fa fa-spinner fa-spin me-1"></i>
+            {{ 'ARCHIVE.LOADING_RECENT' | translate }}
+          </span>
+          <span class="small text-muted" *ngIf="!isLoadingRecent && isLoggedIn && recentItems.length > 0">
+            <ng-container *ngIf="playlistActive && queueSource === 'recent' && playlistIndex >= 0; else recentCountOnly">
+              {{ 'ARCHIVE.PLAYLIST_PLAYING' | translate:{ index: formatInteger(playlistIndex + 1), count: formatInteger(queueItems.length) } }}
+            </ng-container>
+            <ng-template #recentCountOnly>
+              {{ 'ARCHIVE.RECENT_COUNT' | translate:{ count: formatInteger(recentItems.length) } }}
+            </ng-template>
+          </span>
+          <div class="ia-list-meta-actions" *ngIf="canPlayAllRecent || (playlistActive && queueSource === 'recent')">
+            <div class="ia-list-queue-controls" *ngIf="playlistActive && queueSource === 'recent'">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary ia-list-queue-btn"
+                [disabled]="!canQueuePrevAlbum"
+                (click)="queuePrevAlbum()"
+                [attr.title]="'ARCHIVE.PLAYLIST_PREV_ALBUM' | translate"
+                [attr.aria-label]="'ARCHIVE.PLAYLIST_PREV_ALBUM' | translate">
+                <i class="fa fa-fast-backward" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary ia-list-queue-btn"
+                [disabled]="!canQueuePrev"
+                (click)="queuePrev()"
+                [attr.title]="'ARCHIVE.PLAYLIST_PREV' | translate"
+                [attr.aria-label]="'ARCHIVE.PLAYLIST_PREV' | translate">
+                <i class="fa fa-step-backward" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-dark ia-list-queue-btn"
+                (click)="toggleQueuePause()"
+                [attr.title]="(audioIsPaused ? 'ARCHIVE.PLAYLIST_RESUME' : 'ARCHIVE.PLAYLIST_PAUSE') | translate"
+                [attr.aria-label]="(audioIsPaused ? 'ARCHIVE.PLAYLIST_RESUME' : 'ARCHIVE.PLAYLIST_PAUSE') | translate">
+                <i class="fa" [ngClass]="audioIsPaused ? 'fa-play' : 'fa-pause'" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary ia-list-queue-btn"
+                [disabled]="!canQueueNext"
+                (click)="queueNext()"
+                [attr.title]="'ARCHIVE.PLAYLIST_NEXT' | translate"
+                [attr.aria-label]="'ARCHIVE.PLAYLIST_NEXT' | translate">
+                <i class="fa fa-step-forward" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary ia-list-queue-btn"
+                [disabled]="!canQueueNextAlbum"
+                (click)="queueNextAlbum()"
+                [attr.title]="'ARCHIVE.PLAYLIST_NEXT_ALBUM' | translate"
+                [attr.aria-label]="'ARCHIVE.PLAYLIST_NEXT_ALBUM' | translate">
+                <i class="fa fa-fast-forward" aria-hidden="true"></i>
+              </button>
+            </div>
+            <button
+              type="button"
+              class="btn btn-sm btn-dark ia-playlist-play-all"
+              *ngIf="canPlayAllRecent"
+              (click)="playAllRecent()"
+              [attr.title]="'ARCHIVE.PLAYLIST_PLAY_ALL' | translate">
+              <i class="fa fa-play me-1" aria-hidden="true"></i>
+              {{ 'ARCHIVE.PLAYLIST_PLAY_ALL' | translate }}
+            </button>
+          </div>
+        </div>
+        <div class="ia-list" role="list">
+          <div
+            class="ia-list-item"
+            role="listitem"
+            *ngFor="let item of recentItems; trackBy: trackByIdentifier"
+            [class.active]="selectedId === item.identifier"
+            [class.ia-list-item--playing]="isQueuePlayingItem(item, 'recent')"
+            (click)="selectItem(item)"
+            (keyup.enter)="selectItem(item)"
+            tabindex="0">
+            <img
+              *ngIf="item.imageUrl"
+              class="ia-thumb"
+              [src]="item.imageUrl"
+              [alt]="item.title"
+              loading="lazy"
+              (error)="$any($event.target).style.display='none'" />
+            <span class="ia-thumb ia-thumb-placeholder" *ngIf="!item.imageUrl" aria-hidden="true">
+              <i class="fa" [ngClass]="mediatypeIcon(item.mediatype)"></i>
+            </span>
+            <span class="ia-list-meta-col">
+              <span class="ia-list-title">{{ item.title }}</span>
+              <span class="ia-list-sub" *ngIf="item.subtitle">{{ item.subtitle }}</span>
+              <span class="ia-list-extra">
+                <span class="ia-badge" *ngIf="item.mediatype">{{ item.mediatype }}</span>
+                <span *ngIf="item.downloads != null">↓ {{ formatDownloads(item.downloads) }}</span>
+                <span *ngIf="isQueuePlayingItem(item, 'recent')">
+                  <i class="fa fa-play" aria-hidden="true"></i>
+                </span>
+              </span>
+            </span>
+            <div class="ia-list-actions">
+              <button
+                type="button"
+                class="btn btn-sm ia-clear-btn ia-list-info"
+                (click)="openItemInfoFromList($event, item)"
+                [attr.title]="'ARCHIVE.ITEM_INFO' | translate"
+                [attr.aria-label]="'ARCHIVE.ITEM_INFO' | translate">
+                <i class="fa fa-info" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm ia-clear-btn ia-recent-remove"
+                (click)="removeRecentItem($event, item)"
+                [attr.title]="'ARCHIVE.RECENT_REMOVE' | translate"
+                [attr.aria-label]="'ARCHIVE.RECENT_REMOVE' | translate">
+                <i class="fa fa-times"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="ia-empty" *ngIf="!isLoadingRecent && !recentHint && !recentError && recentItems.length === 0">
+            {{ 'ARCHIVE.NO_RECENT' | translate }}
+          </div>
+        </div>
+      </ng-container>
+
+      <ng-container *ngIf="viewMode === 'playlist'">
+        <p class="form-text small mb-0" *ngIf="playlistHint">{{ playlistHint | translate }}</p>
+        <div class="alert alert-danger py-2 px-3 small" *ngIf="playlistError" role="alert">
+          {{ playlistError | translate }}
+        </div>
+        <div class="ia-list-meta">
+          <span class="small text-muted" *ngIf="isLoadingPlaylist">
+            <i class="fa fa-spinner fa-spin me-1"></i>
+            {{ 'ARCHIVE.LOADING_PLAYLIST' | translate }}
+          </span>
+          <span class="small text-muted" *ngIf="!isLoadingPlaylist && isLoggedIn && playlistItems.length > 0">
+            <ng-container *ngIf="playlistActive && queueSource === 'playlist' && playlistIndex >= 0; else playlistCountOnly">
+              {{ 'ARCHIVE.PLAYLIST_PLAYING' | translate:{ index: formatInteger(playlistIndex + 1), count: formatInteger(queueItems.length) } }}
+            </ng-container>
+            <ng-template #playlistCountOnly>
+              {{ 'ARCHIVE.PLAYLIST_COUNT' | translate:{ count: formatInteger(playlistItems.length) } }}
+            </ng-template>
+          </span>
+          <div
+            class="ia-list-meta-actions"
+            *ngIf="(!isLoadingPlaylist && isLoggedIn && playlistItems.length > 0) || (playlistActive && queueSource === 'playlist')">
+            <div class="ia-list-queue-controls" *ngIf="playlistActive && queueSource === 'playlist'">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary ia-list-queue-btn"
+                [disabled]="!canQueuePrevAlbum"
+                (click)="queuePrevAlbum()"
+                [attr.title]="'ARCHIVE.PLAYLIST_PREV_ALBUM' | translate"
+                [attr.aria-label]="'ARCHIVE.PLAYLIST_PREV_ALBUM' | translate">
+                <i class="fa fa-fast-backward" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary ia-list-queue-btn"
+                [disabled]="!canQueuePrev"
+                (click)="queuePrev()"
+                [attr.title]="'ARCHIVE.PLAYLIST_PREV' | translate"
+                [attr.aria-label]="'ARCHIVE.PLAYLIST_PREV' | translate">
+                <i class="fa fa-step-backward" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-dark ia-list-queue-btn"
+                (click)="toggleQueuePause()"
+                [attr.title]="(audioIsPaused ? 'ARCHIVE.PLAYLIST_RESUME' : 'ARCHIVE.PLAYLIST_PAUSE') | translate"
+                [attr.aria-label]="(audioIsPaused ? 'ARCHIVE.PLAYLIST_RESUME' : 'ARCHIVE.PLAYLIST_PAUSE') | translate">
+                <i class="fa" [ngClass]="audioIsPaused ? 'fa-play' : 'fa-pause'" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary ia-list-queue-btn"
+                [disabled]="!canQueueNext"
+                (click)="queueNext()"
+                [attr.title]="'ARCHIVE.PLAYLIST_NEXT' | translate"
+                [attr.aria-label]="'ARCHIVE.PLAYLIST_NEXT' | translate">
+                <i class="fa fa-step-forward" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary ia-list-queue-btn"
+                [disabled]="!canQueueNextAlbum"
+                (click)="queueNextAlbum()"
+                [attr.title]="'ARCHIVE.PLAYLIST_NEXT_ALBUM' | translate"
+                [attr.aria-label]="'ARCHIVE.PLAYLIST_NEXT_ALBUM' | translate">
+                <i class="fa fa-fast-forward" aria-hidden="true"></i>
+              </button>
+            </div>
+            <button
+              type="button"
+              class="btn btn-sm btn-dark ia-playlist-play-all"
+              *ngIf="!isLoadingPlaylist && isLoggedIn && playlistItems.length > 0"
+              (click)="playAllPlaylist()"
+              [attr.title]="'ARCHIVE.PLAYLIST_PLAY_ALL' | translate">
+              <i class="fa fa-play me-1" aria-hidden="true"></i>
+              {{ 'ARCHIVE.PLAYLIST_PLAY_ALL' | translate }}
+            </button>
+          </div>
+        </div>
+        <div class="ia-list" role="list">
+          <div
+            class="ia-list-item"
+            role="listitem"
+            *ngFor="let item of playlistItems; let i = index; trackBy: trackByIdentifier"
+            [class.active]="selectedId === item.identifier"
+            [class.ia-list-item--playing]="isQueuePlayingItem(item, 'playlist')"
+            (click)="playPlaylistFrom(i)"
+            (keyup.enter)="playPlaylistFrom(i)"
+            tabindex="0">
+            <img
+              *ngIf="item.imageUrl"
+              class="ia-thumb"
+              [src]="item.imageUrl"
+              [alt]="item.title"
+              loading="lazy"
+              (error)="$any($event.target).style.display='none'" />
+            <span class="ia-thumb ia-thumb-placeholder" *ngIf="!item.imageUrl" aria-hidden="true">
+              <i class="fa fa-music"></i>
+            </span>
+            <span class="ia-list-meta-col">
+              <span class="ia-list-title">{{ item.title }}</span>
+              <span class="ia-list-sub" *ngIf="item.subtitle">{{ item.subtitle }}</span>
+              <span class="ia-list-extra">
+                <span class="ia-badge" *ngIf="item.mediatype">{{ item.mediatype }}</span>
+                <span *ngIf="isQueuePlayingItem(item, 'playlist')">
+                  <i class="fa fa-play" aria-hidden="true"></i>
+                </span>
+              </span>
+            </span>
+            <div class="ia-list-actions">
+              <button
+                type="button"
+                class="btn btn-sm ia-clear-btn ia-list-info"
+                (click)="openItemInfoFromList($event, item)"
+                [attr.title]="'ARCHIVE.ITEM_INFO' | translate"
+                [attr.aria-label]="'ARCHIVE.ITEM_INFO' | translate">
+                <i class="fa fa-info" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm ia-clear-btn ia-recent-remove"
+                (click)="removePlaylistItem($event, item)"
+                [attr.title]="'ARCHIVE.PLAYLIST_REMOVE' | translate"
+                [attr.aria-label]="'ARCHIVE.PLAYLIST_REMOVE' | translate">
+                <i class="fa fa-times"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="ia-empty" *ngIf="!isLoadingPlaylist && !playlistHint && !playlistError && playlistItems.length === 0">
+            {{ 'ARCHIVE.NO_PLAYLIST' | translate }}
+          </div>
         </div>
       </ng-container>
 
@@ -223,19 +604,14 @@
     </aside>
 
     <main class="ia-main" #detailStage [class.ia-main--fullscreen]="isFullscreen">
-      <ng-container *ngIf="viewMode === 'wayback'">
-        <div class="ia-empty-main" *ngIf="!waybackLoading && !waybackSnapshotUrl && !waybackError && waybackSnapshots.length === 0">
+      <ng-container *ngIf="viewMode === 'wayback' && !waybackLoading && !isPlayingMedia">
+        <div class="ia-empty-main" *ngIf="!waybackSnapshotUrl && !waybackError && waybackSnapshots.length === 0">
           <i class="fa fa-history ia-empty-icon" aria-hidden="true"></i>
           <p>{{ 'ARCHIVE.WAYBACK_PICK' | translate }}</p>
         </div>
 
         <div class="alert alert-danger py-2 px-3 small" *ngIf="waybackError" role="alert">
           {{ waybackError | translate }}
-        </div>
-
-        <div class="ia-wayback-status" *ngIf="waybackLoading">
-          <i class="fa fa-spinner fa-spin me-1"></i>
-          {{ 'ARCHIVE.LOADING' | translate }}
         </div>
 
         <div class="ia-wayback-panel" *ngIf="!waybackLoading && (waybackSnapshotUrl || waybackSnapshots.length)">
@@ -274,7 +650,8 @@
         </div>
       </ng-container>
 
-      <ng-container *ngIf="viewMode === 'catalog'">
+      <!-- Keep the player mounted during search overlay / tab switches so playback is not torn down. -->
+      <ng-container *ngIf="viewMode === 'catalog' || viewMode === 'recent' || viewMode === 'playlist' || isPlayingMedia">
         <div class="ia-empty-main" *ngIf="!selected && !isLoadingDetail">
           <i class="fa fa-archive ia-empty-icon" aria-hidden="true"></i>
           <p>{{ 'ARCHIVE.PICK' | translate }}</p>
@@ -324,6 +701,24 @@
             <div class="ia-detail-actions">
               <button
                 type="button"
+                class="btn btn-sm btn-outline-primary"
+                *ngIf="canAddToPlaylist && !isSelectedInPlaylist"
+                (click)="addSelectedToPlaylist()"
+                [attr.title]="'ARCHIVE.PLAYLIST_ADD' | translate">
+                <i class="fa fa-plus me-1"></i>
+                {{ 'ARCHIVE.PLAYLIST_ADD' | translate }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-primary"
+                *ngIf="canAddToPlaylist && isSelectedInPlaylist"
+                disabled
+                [attr.title]="'ARCHIVE.PLAYLIST_IN' | translate">
+                <i class="fa fa-check me-1"></i>
+                {{ 'ARCHIVE.PLAYLIST_IN' | translate }}
+              </button>
+              <button
+                type="button"
                 class="btn btn-sm btn-outline-secondary"
                 *ngIf="selected.embedUrl"
                 (click)="openEmbed()"
@@ -343,6 +738,14 @@
               <button
                 type="button"
                 class="btn btn-sm btn-outline-secondary"
+                (click)="openItemInfo()"
+                [attr.title]="'ARCHIVE.ITEM_INFO' | translate"
+                [attr.aria-label]="'ARCHIVE.ITEM_INFO' | translate">
+                <i class="fa fa-info" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary"
                 (click)="toggleFullscreen()"
                 [attr.title]="(isFullscreen ? 'ARCHIVE.EXIT_FULLSCREEN' : 'ARCHIVE.FULLSCREEN') | translate">
                 <i class="fa me-1" [ngClass]="isFullscreen ? 'fa-compress' : 'fa-expand'"></i>
@@ -356,6 +759,62 @@
           </div>
 
           <div class="ia-player" *ngIf="playerMode !== 'none'">
+            <div class="ia-queue-controls" *ngIf="playlistActive && playerMode === 'audio'">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-light ia-queue-btn"
+                *ngIf="canQueuePrevAlbum"
+                (click)="queuePrevAlbum()"
+                [attr.title]="'ARCHIVE.PLAYLIST_PREV_ALBUM' | translate"
+                [attr.aria-label]="'ARCHIVE.PLAYLIST_PREV_ALBUM' | translate">
+                <i class="fa fa-fast-backward" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-light ia-queue-btn"
+                *ngIf="canQueuePrev"
+                (click)="queuePrev()"
+                [attr.title]="'ARCHIVE.PLAYLIST_PREV' | translate"
+                [attr.aria-label]="'ARCHIVE.PLAYLIST_PREV' | translate">
+                <i class="fa fa-step-backward" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-light ia-queue-btn ia-queue-btn--main"
+                (click)="toggleQueuePause()"
+                [attr.title]="(audioIsPaused ? 'ARCHIVE.PLAYLIST_RESUME' : 'ARCHIVE.PLAYLIST_PAUSE') | translate"
+                [attr.aria-label]="(audioIsPaused ? 'ARCHIVE.PLAYLIST_RESUME' : 'ARCHIVE.PLAYLIST_PAUSE') | translate">
+                <i class="fa" [ngClass]="audioIsPaused ? 'fa-play' : 'fa-pause'" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-light ia-queue-btn"
+                *ngIf="canQueueNext"
+                (click)="queueNext()"
+                [attr.title]="'ARCHIVE.PLAYLIST_NEXT' | translate"
+                [attr.aria-label]="'ARCHIVE.PLAYLIST_NEXT' | translate">
+                <i class="fa fa-step-forward" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-light ia-queue-btn"
+                *ngIf="canQueueNextAlbum"
+                (click)="queueNextAlbum()"
+                [attr.title]="'ARCHIVE.PLAYLIST_NEXT_ALBUM' | translate"
+                [attr.aria-label]="'ARCHIVE.PLAYLIST_NEXT_ALBUM' | translate">
+                <i class="fa fa-fast-forward" aria-hidden="true"></i>
+              </button>
+              <span class="ia-queue-position small" *ngIf="playlistIndex >= 0">
+                {{ 'ARCHIVE.PLAYLIST_PLAYING' | translate:{ index: formatInteger(playlistIndex + 1), count: formatInteger(queueItems.length) } }}
+                <span *ngIf="queueTrackCount > 1 && queueTrackIndex >= 0">
+                  · {{ 'ARCHIVE.TRACK_PLAYING' | translate:{ index: formatInteger(queueTrackIndex + 1), count: formatInteger(queueTrackCount) } }}
+                </span>
+                <span *ngIf="queueDuration > 0">
+                  · {{ formatQueueTime(queueCurrentTime) }} / {{ formatQueueTime(queueDuration) }}
+                </span>
+              </span>
+            </div>
+
             <video
               #videoEl
               *ngIf="playerMode === 'video' && mediaUrl"
@@ -365,13 +824,31 @@
               playsinline
               preload="metadata"></video>
 
+            <!-- Local audio only for single-item play; queue uses ArchiveAudioQueueService. -->
             <audio
               #audioEl
-              *ngIf="playerMode === 'audio' && mediaUrl"
+              *ngIf="playerMode === 'audio' && mediaUrl && !playlistActive"
               class="ia-audio"
               [src]="mediaUrl"
               controls
-              preload="metadata"></audio>
+              preload="auto"
+              (canplay)="onAudioCanPlay()"
+              (play)="onAudioPlay()"
+              (pause)="onAudioPause()"
+              (ended)="onPlaylistAudioEnded()"></audio>
+
+            <div class="ia-queue-progress" *ngIf="playlistActive && mediaUrl">
+              <input
+                type="range"
+                class="ia-queue-seek"
+                min="0"
+                [max]="queueDuration || 0"
+                step="0.25"
+                [value]="queueCurrentTime"
+                (input)="seekQueue($event)"
+                [disabled]="!queueDuration"
+                [attr.aria-label]="'ARCHIVE.PLAYLIST_PLAYING' | translate:{ index: formatInteger(playlistIndex + 1), count: formatInteger(queueItems.length) }" />
+            </div>
 
             <img
               *ngIf="playerMode === 'image' && mediaUrl"
@@ -403,7 +880,10 @@
               </button>
             </div>
             <div class="ia-file-list">
-              <div class="ia-file" *ngFor="let file of visibleFiles; trackBy: trackByFile">
+              <div
+                class="ia-file"
+                *ngFor="let file of visibleFiles; trackBy: trackByFile"
+                [class.ia-file--playing]="isQueuePlayingFile(file)">
                 <div class="ia-file-info">
                   <span class="ia-file-name">{{ file.name }}</span>
                   <span class="ia-file-meta">
@@ -442,5 +922,197 @@
         </ng-container>
       </ng-container>
     </main>
+  </div>
+
+  <div
+    class="ia-stats-backdrop"
+    *ngIf="showItemInfoModal"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-label]="'ARCHIVE.ITEM_INFO_TITLE' | translate"
+    (click)="closeItemInfo()">
+    <div class="ia-stats-modal ia-item-info-modal" (click)="$event.stopPropagation()">
+      <header class="ia-stats-header">
+        <h3>{{ 'ARCHIVE.ITEM_INFO_TITLE' | translate }}</h3>
+        <button
+          type="button"
+          class="ia-stats-close"
+          (click)="closeItemInfo()"
+          [attr.title]="'ARCHIVE.ITEM_INFO_CLOSE' | translate"
+          [attr.aria-label]="'ARCHIVE.ITEM_INFO_CLOSE' | translate">
+          <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+      </header>
+
+      <div class="ia-stats-body ia-item-info-body">
+        <p class="ia-stats-loading" *ngIf="isLoadingItemInfo">
+          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
+          {{ 'ARCHIVE.LOADING_DETAIL' | translate }}
+        </p>
+
+        <ng-container *ngIf="infoDetail && !isLoadingItemInfo">
+          <div class="ia-item-info-hero" *ngIf="infoDetail.imageUrl || infoDetail.title">
+            <img
+              *ngIf="infoDetail.imageUrl"
+              class="ia-item-info-cover"
+              [src]="infoDetail.imageUrl"
+              [alt]="infoDetail.title"
+              loading="lazy"
+              (error)="$any($event.target).style.display='none'" />
+            <div class="ia-item-info-hero-text">
+              <p class="ia-item-info-title">{{ infoDetail.title }}</p>
+              <p class="ia-item-info-subtitle" *ngIf="infoDetail.subtitle">{{ infoDetail.subtitle }}</p>
+            </div>
+          </div>
+
+          <dl class="ia-item-info-grid">
+            <ng-container *ngIf="infoDetail.identifier">
+              <dt>{{ 'ARCHIVE.INFO_IDENTIFIER' | translate }}</dt>
+              <dd>
+                <code>{{ infoDetail.identifier }}</code>
+              </dd>
+            </ng-container>
+
+            <ng-container *ngIf="infoDetail.creator">
+              <dt>{{ 'ARCHIVE.CREATOR' | translate }}</dt>
+              <dd>{{ infoDetail.creator }}</dd>
+            </ng-container>
+
+            <ng-container *ngIf="infoDetail.mediatype">
+              <dt>{{ 'ARCHIVE.INFO_MEDIATYPE' | translate }}</dt>
+              <dd>{{ infoDetail.mediatype }}</dd>
+            </ng-container>
+
+            <ng-container *ngIf="infoDetail.year">
+              <dt>{{ 'ARCHIVE.INFO_YEAR' | translate }}</dt>
+              <dd>{{ infoDetail.year }}</dd>
+            </ng-container>
+
+            <ng-container *ngIf="infoDetail.date">
+              <dt>{{ 'ARCHIVE.INFO_DATE' | translate }}</dt>
+              <dd>{{ infoDetail.date }}</dd>
+            </ng-container>
+
+            <ng-container *ngIf="infoDetail.language">
+              <dt>{{ 'ARCHIVE.LANGUAGE' | translate }}</dt>
+              <dd>{{ infoDetail.language }}</dd>
+            </ng-container>
+
+            <ng-container *ngIf="infoDetail.publisher">
+              <dt>{{ 'ARCHIVE.INFO_PUBLISHER' | translate }}</dt>
+              <dd>{{ infoDetail.publisher }}</dd>
+            </ng-container>
+
+            <ng-container *ngIf="infoDetail.runtime">
+              <dt>{{ 'ARCHIVE.INFO_RUNTIME' | translate }}</dt>
+              <dd>{{ infoDetail.runtime }}</dd>
+            </ng-container>
+
+            <ng-container *ngIf="infoDetail.downloads != null">
+              <dt>{{ 'ARCHIVE.INFO_DOWNLOADS' | translate }}</dt>
+              <dd>{{ formatDownloads(infoDetail.downloads) }}</dd>
+            </ng-container>
+
+            <ng-container *ngIf="infoDetail.avgRating != null">
+              <dt>{{ 'ARCHIVE.INFO_RATING' | translate }}</dt>
+              <dd>★ {{ infoDetail.avgRating | number:'1.1-1' }}</dd>
+            </ng-container>
+
+            <ng-container *ngIf="infoDetail.itemSize">
+              <dt>{{ 'ARCHIVE.INFO_SIZE' | translate }}</dt>
+              <dd>{{ formatSize(infoDetail.itemSize) }}</dd>
+            </ng-container>
+
+            <ng-container *ngIf="infoDetail.playKind">
+              <dt>{{ 'ARCHIVE.INFO_PLAY_KIND' | translate }}</dt>
+              <dd>{{ infoDetail.playKind }}</dd>
+            </ng-container>
+
+            <dt>{{ 'ARCHIVE.INFO_PLAYABLE' | translate }}</dt>
+            <dd>
+              {{ (infoDetail.playable ? 'ARCHIVE.INFO_YES' : 'ARCHIVE.INFO_NO') | translate }}
+            </dd>
+
+            <ng-container *ngIf="infoDetail.dark">
+              <dt>{{ 'ARCHIVE.INFO_STATUS' | translate }}</dt>
+              <dd>{{ 'ARCHIVE.ITEM_DARK' | translate }}</dd>
+            </ng-container>
+
+            <ng-container *ngIf="infoDetail.licenseUrl">
+              <dt>{{ 'ARCHIVE.INFO_LICENSE' | translate }}</dt>
+              <dd>
+                <a [href]="infoDetail.licenseUrl" target="_blank" rel="noopener">{{ infoDetail.licenseUrl }}</a>
+              </dd>
+            </ng-container>
+
+            <ng-container *ngIf="infoDetail.detailsUrl">
+              <dt>{{ 'ARCHIVE.INFO_DETAILS_URL' | translate }}</dt>
+              <dd>
+                <a [href]="infoDetail.detailsUrl" target="_blank" rel="noopener">{{ infoDetail.detailsUrl }}</a>
+              </dd>
+            </ng-container>
+
+            <ng-container *ngIf="infoDetail.embedUrl">
+              <dt>{{ 'ARCHIVE.INFO_EMBED_URL' | translate }}</dt>
+              <dd>
+                <a [href]="infoDetail.embedUrl" target="_blank" rel="noopener">{{ infoDetail.embedUrl }}</a>
+              </dd>
+            </ng-container>
+
+            <ng-container *ngIf="infoDetail.playUrl">
+              <dt>{{ 'ARCHIVE.INFO_PLAY_URL' | translate }}</dt>
+              <dd>
+                <a [href]="infoDetail.playUrl" target="_blank" rel="noopener">{{ infoDetail.playUrl }}</a>
+              </dd>
+            </ng-container>
+
+            <ng-container *ngIf="infoDetail.files?.length">
+              <dt>{{ 'ARCHIVE.INFO_FILES_COUNT' | translate }}</dt>
+              <dd>{{ infoDetail.files!.length }}</dd>
+            </ng-container>
+          </dl>
+
+          <section class="ia-item-info-section" *ngIf="infoDetail.description">
+            <h4>{{ 'ARCHIVE.INFO_DESCRIPTION' | translate }}</h4>
+            <div class="ia-item-info-desc" [innerHTML]="toSafeHtml(infoDetail.description)"></div>
+          </section>
+
+          <section class="ia-item-info-section" *ngIf="infoDetail.subjects?.length">
+            <h4>{{ 'ARCHIVE.INFO_SUBJECTS' | translate }}</h4>
+            <div class="ia-item-info-chips">
+              <span class="ia-chip" *ngFor="let s of infoDetail.subjects">{{ s }}</span>
+            </div>
+          </section>
+
+          <section class="ia-item-info-section" *ngIf="infoDetail.collections?.length">
+            <h4>{{ 'ARCHIVE.COLLECTIONS' | translate }}</h4>
+            <div class="ia-item-info-chips">
+              <span class="ia-chip" *ngFor="let c of infoDetail.collections">{{ c }}</span>
+            </div>
+          </section>
+
+          <section class="ia-item-info-section" *ngIf="infoDetail.files?.length">
+            <h4>{{ 'ARCHIVE.FILES' | translate:{ count: infoDetail.files!.length } }}</h4>
+            <ul class="ia-item-info-files">
+              <li *ngFor="let file of infoDetail.files; trackBy: trackByFile">
+                <span class="ia-item-info-file-name">{{ file.name }}</span>
+                <span class="ia-item-info-file-meta">
+                  <span *ngIf="file.format">{{ file.format }}</span>
+                  <span *ngIf="file.size">{{ formatSize(file.size) }}</span>
+                  <span *ngIf="file.length">{{ file.length }}</span>
+                  <span *ngIf="file.kind">{{ file.kind }}</span>
+                </span>
+              </li>
+            </ul>
+          </section>
+        </ng-container>
+      </div>
+
+      <footer class="ia-stats-footer">
+        <button type="button" class="btn btn-sm btn-secondary" (click)="closeItemInfo()">
+          {{ 'ARCHIVE.ITEM_INFO_CLOSE' | translate }}
+        </button>
+      </footer>
+    </div>
   </div>
 </div>

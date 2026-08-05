@@ -575,7 +575,10 @@ public class InternetArchiveReplayService {
         if (trimmed.length() > 120) {
             trimmed = trimmed.substring(0, 120);
         }
-        return trimmed.replace("\\", "\\\\")
+        // IA tokenizes on hyphens; escaping "-" as \- looks for a literal token that
+        // is never indexed (e.g. "jean-luc godard" → 0 hits). Treat "-" as a space.
+        String normalized = trimmed.replace('-', ' ').replaceAll("\\s+", " ").trim();
+        return normalized.replace("\\", "\\\\")
                 .replace("\"", "\\\"")
                 .replace(":", "\\:")
                 .replace("(", "\\(")
@@ -585,7 +588,6 @@ public class InternetArchiveReplayService {
                 .replace("{", "\\{")
                 .replace("}", "\\}")
                 .replace("+", "\\+")
-                .replace("-", "\\-")
                 .replace("!", "\\!")
                 .replace("^", "\\^")
                 .replace("~", "\\~")
