@@ -4,7 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Per-user Archive.org audio playlist, stored as JSON in {@code appParameters}.
+ * Legacy per-user Archive.org audio playlist JSON blob in {@code appParameters}.
+ * Kept for one-shot migration into {@code archive_audio_collections}.
  */
 public class ArchiveAudioPlaylistDto {
 

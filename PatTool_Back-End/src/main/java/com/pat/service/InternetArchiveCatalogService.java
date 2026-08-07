@@ -262,6 +262,7 @@ public class InternetArchiveCatalogService {
             String query,
             String creator,
             String language,
+            String country,
             String sort,
             int page) {
         int requestedPage = Math.max(1, page <= 0 ? 1 : page);
@@ -269,16 +270,17 @@ public class InternetArchiveCatalogService {
         String q = query != null ? query.trim() : "";
         String creatorQ = creator != null ? creator.trim() : "";
         String lang = language != null ? language.trim() : "";
+        String countryQ = country != null ? country.trim() : "";
 
         // Always live against archive.org (no browse catalogue warm).
         if (q.length() >= 2 || creatorQ.length() >= 2) {
-            return searchLive(type, q, creatorQ, lang, sort, requestedPage);
+            return searchLive(type, q, creatorQ, lang, countryQ, sort, requestedPage);
         }
 
         String sectionCode = normalizeSection(type, section);
         SectionDef def = SECTIONS_BY_TYPE.get(type).get(sectionCode);
         String sortCode = StringUtils.hasText(sort) ? normalizeSort(sort) : inferSortCode(def.sort());
-        return searchLiveSection(type, sectionCode, def, lang, sortCode, requestedPage);
+        return searchLiveSection(type, sectionCode, def, lang, countryQ, sortCode, requestedPage);
     }
 
     /** No browse catalogue to warm — clears item metadata cache only. */
@@ -326,11 +328,12 @@ public class InternetArchiveCatalogService {
             String q,
             String creatorQ,
             String lang,
+            String countryQ,
             String sort,
             int requestedPage) {
         String sortCode = normalizeSort(sort);
         String sortClause = SORTS.get(sortCode);
-        String lucene = buildSearchLucene(type, q, creatorQ, lang);
+        String lucene = buildSearchLucene(type, q, creatorQ, lang, countryQ);
         return buildLivePage(type, "SEARCH", q, sortCode, lucene, sortClause, requestedPage);
     }
 
@@ -339,10 +342,11 @@ public class InternetArchiveCatalogService {
             String sectionCode,
             SectionDef def,
             String lang,
+            String countryQ,
             String sortCode,
             int requestedPage) {
         String sortClause = SORTS.getOrDefault(sortCode, def.sort());
-        String lucene = buildSectionLucene(type, def.query(), lang);
+        String lucene = buildSectionLucene(type, def.query(), lang, countryQ);
         return buildLivePage(type, sectionCode, "", sortCode, lucene, sortClause, requestedPage);
     }
 
@@ -563,7 +567,7 @@ public class InternetArchiveCatalogService {
         return n;
     }
 
-    private String buildSearchLucene(String type, String q, String creator, String language) {
+    private String buildSearchLucene(String type, String q, String creator, String language, String country) {
         StringBuilder sb = new StringBuilder();
         MediatypeDef def = MEDIATYPES.get(type);
         if (def != null && StringUtils.hasText(def.luceneMediatype())) {
@@ -581,10 +585,11 @@ public class InternetArchiveCatalogService {
         if (StringUtils.hasText(language)) {
             appendAnd(sb, "language:(" + escapeLucene(language) + ")");
         }
+        appendCountryFilter(sb, country);
         return sb.length() == 0 ? "*:*" : sb.toString();
     }
 
-    private String buildSectionLucene(String type, String sectionQuery, String language) {
+    private String buildSectionLucene(String type, String sectionQuery, String language, String country) {
         StringBuilder sb = new StringBuilder();
         MediatypeDef def = MEDIATYPES.get(type);
         if (def != null && StringUtils.hasText(def.luceneMediatype())) {
@@ -596,7 +601,20 @@ public class InternetArchiveCatalogService {
         if (StringUtils.hasText(language)) {
             appendAnd(sb, "language:(" + escapeLucene(language) + ")");
         }
+        appendCountryFilter(sb, country);
         return sb.length() == 0 ? "*:*" : sb.toString();
+    }
+
+    /**
+     * Archive.org stores place as {@code country} and/or geographic {@code coverage}.
+     * Match either field so country filters work across mediatypes.
+     */
+    private static void appendCountryFilter(StringBuilder sb, String country) {
+        if (!StringUtils.hasText(country)) {
+            return;
+        }
+        String phrase = "\"" + escapeLucene(country.trim()) + "\"";
+        appendAnd(sb, "(country:(" + phrase + ") OR coverage:(" + phrase + "))");
     }
 
     private static void appendAnd(StringBuilder sb, String clause) {
@@ -675,7 +693,7 @@ public class InternetArchiveCatalogService {
         dto.setIdentifier(identifier);
         String title = firstText(meta.path("title"));
         dto.setTitle(StringUtils.hasText(title) ? title : identifier);
-        dto.setDescription(firstText(meta.path("description")));
+        dto.setDescription(fullText(meta.path("description")));
         dto.setCreator(firstText(meta.path("creator")));
         dto.setMediatype(firstText(meta.path("mediatype")));
         dto.setYear(firstText(meta.path("year")));
@@ -1102,6 +1120,15 @@ public class InternetArchiveCatalogService {
             return v.substring(0, 397) + "…";
         }
         return v;
+    }
+
+    /** Full metadata text for detail views (no list-card truncation). */
+    private static String fullText(JsonNode node) {
+        List<String> parts = allTexts(node);
+        if (parts.isEmpty()) {
+            return null;
+        }
+        return String.join("\n\n", parts);
     }
 
     private static String textOrNull(JsonNode node) {

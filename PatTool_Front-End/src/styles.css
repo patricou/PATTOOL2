@@ -5,6 +5,15 @@
 
 /* You can add global styles to this file, and also import other style files */
 
+/* Archive.org search-term highlights injected via [innerHTML] (outside component encapsulation). */
+mark.ia-search-hit {
+    background: #ff9800 !important;
+    color: #111 !important;
+    font-weight: 700;
+    padding: 0 0.15em;
+    border-radius: 2px;
+}
+
 /* Fix for view transitions warning: prevent overflow:visible on img, video, canvas */
 img, video, canvas {
     overflow: hidden !important;

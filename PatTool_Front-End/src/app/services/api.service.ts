@@ -3124,6 +3124,7 @@ export class ApiService {
     q?: string;
     creator?: string;
     language?: string;
+    country?: string;
     sort?: string;
     page?: number;
   }): Observable<ArchiveSearchPage> {
@@ -3145,6 +3146,10 @@ export class ApiService {
     const language = (options?.language || '').trim();
     if (language) {
       params = params.set('language', language);
+    }
+    const country = (options?.country || '').trim();
+    if (country) {
+      params = params.set('country', country);
     }
     const sort = (options?.sort || '').trim();
     if (sort) {
@@ -3214,23 +3219,37 @@ export class ApiService {
     );
   }
 
-  /** GET /api/external/archive/audio-playlist — JWT required. */
-  getArchiveAudioPlaylist(): Observable<ArchiveAudioPlaylist> {
-    return this.getHeaderWithToken().pipe(
-      switchMap((headers) =>
-        this._http.get<ArchiveAudioPlaylist>(this.API_URL + 'external/archive/audio-playlist', {
-          headers
-        })
-      )
-    );
+  /** GET /api/external/archive/audio-collections — public; send JWT when logged in for ownedByMe. */
+  listArchiveAudioCollections(): Observable<ArchiveAudioCollection[]> {
+    const url = this.API_URL + 'external/archive/audio-collections';
+    if (this._keycloakService.isLoggedIn()) {
+      return this.getHeaderWithToken().pipe(
+        switchMap((headers) => this._http.get<ArchiveAudioCollection[]>(url, { headers }))
+      );
+    }
+    return this._http.get<ArchiveAudioCollection[]>(url);
   }
 
-  /** PUT replace full audio playlist. */
-  saveArchiveAudioPlaylist(body: ArchiveAudioPlaylist): Observable<ArchiveAudioPlaylist> {
+  /** GET /api/external/archive/audio-collections/{id} */
+  getArchiveAudioCollection(id: string): Observable<ArchiveAudioCollection> {
+    const url = this.API_URL + 'external/archive/audio-collections/' + encodeURIComponent(id || '');
+    if (this._keycloakService.isLoggedIn()) {
+      return this.getHeaderWithToken().pipe(
+        switchMap((headers) => this._http.get<ArchiveAudioCollection>(url, { headers }))
+      );
+    }
+    return this._http.get<ArchiveAudioCollection>(url);
+  }
+
+  /** POST create a new audio collection (owner = current user). */
+  createArchiveAudioCollection(body: {
+    name: string;
+    description?: string;
+  }): Observable<ArchiveAudioCollection> {
     return this.getHeaderWithToken().pipe(
       switchMap((headers) =>
-        this._http.put<ArchiveAudioPlaylist>(
-          this.API_URL + 'external/archive/audio-playlist',
+        this._http.post<ArchiveAudioCollection>(
+          this.API_URL + 'external/archive/audio-collections',
           body,
           { headers }
         )
@@ -3238,12 +3257,43 @@ export class ApiService {
     );
   }
 
-  /** PUT add one audio item to the playlist. */
-  addArchiveAudioPlaylistItem(item: ArchiveItem): Observable<ArchiveAudioPlaylist> {
+  /** PUT rename / update collection metadata (owner only). */
+  updateArchiveAudioCollection(
+    id: string,
+    body: { name: string; description?: string }
+  ): Observable<ArchiveAudioCollection> {
     return this.getHeaderWithToken().pipe(
       switchMap((headers) =>
-        this._http.put<ArchiveAudioPlaylist>(
-          this.API_URL + 'external/archive/audio-playlist/item',
+        this._http.put<ArchiveAudioCollection>(
+          this.API_URL + 'external/archive/audio-collections/' + encodeURIComponent(id || ''),
+          body,
+          { headers }
+        )
+      )
+    );
+  }
+
+  /** DELETE collection (owner only). */
+  deleteArchiveAudioCollection(id: string): Observable<void> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.delete<void>(
+          this.API_URL + 'external/archive/audio-collections/' + encodeURIComponent(id || ''),
+          { headers }
+        )
+      )
+    );
+  }
+
+  /** PUT add one audio item to a collection (owner only). */
+  addArchiveAudioCollectionItem(collectionId: string, item: ArchiveItem): Observable<ArchiveAudioCollection> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<ArchiveAudioCollection>(
+          this.API_URL +
+            'external/archive/audio-collections/' +
+            encodeURIComponent(collectionId || '') +
+            '/items',
           item,
           { headers }
         )
@@ -3251,13 +3301,19 @@ export class ApiService {
     );
   }
 
-  /** DELETE remove one audio playlist item by identifier. */
-  removeArchiveAudioPlaylistItem(identifier: string): Observable<ArchiveAudioPlaylist> {
+  /** DELETE remove one item from a collection (owner only). */
+  removeArchiveAudioCollectionItem(
+    collectionId: string,
+    identifier: string
+  ): Observable<ArchiveAudioCollection> {
     const params = new HttpParams().set('identifier', identifier || '');
     return this.getHeaderWithToken().pipe(
       switchMap((headers) =>
-        this._http.delete<ArchiveAudioPlaylist>(
-          this.API_URL + 'external/archive/audio-playlist/item',
+        this._http.delete<ArchiveAudioCollection>(
+          this.API_URL +
+            'external/archive/audio-collections/' +
+            encodeURIComponent(collectionId || '') +
+            '/items',
           { headers, params }
         )
       )
@@ -4937,8 +4993,17 @@ export interface ArchiveRecent {
   items: ArchiveItem[];
 }
 
-export interface ArchiveAudioPlaylist {
-  items: ArchiveItem[];
+export interface ArchiveAudioCollection {
+  id: string;
+  name: string;
+  description?: string;
+  ownerMemberId?: string;
+  ownerUsername?: string;
+  ownedByMe?: boolean;
+  itemCount?: number;
+  items?: ArchiveItem[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface WaybackAvailable {

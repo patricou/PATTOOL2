@@ -1,12 +1,14 @@
 package com.pat.controller;
 
-import com.pat.controller.dto.ArchiveAudioPlaylistDto;
+import com.pat.controller.dto.ArchiveAudioCollectionDto;
 import com.pat.controller.dto.ArchiveItemDetailDto;
 import com.pat.controller.dto.ArchiveItemDto;
 import com.pat.controller.dto.ArchiveRecentDto;
 import com.pat.controller.dto.ArchiveSearchPageDto;
-import com.pat.service.ArchiveAudioPlaylistService;
+import com.pat.repo.domain.Member;
+import com.pat.service.ArchiveAudioCollectionService;
 import com.pat.service.ArchiveRecentService;
+import com.pat.service.FriendsService;
 import com.pat.service.InternetArchiveCatalogService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.CacheControl;
@@ -47,15 +49,15 @@ import java.util.Optional;
  *   <li>{@code GET /api/external/archive/resolve/{identifier}}</li>
  *   <li>{@code GET /api/external/archive/wayback/available?url=}</li>
  *   <li>{@code GET /api/external/archive/wayback/cdx?url=&amp;limit=}</li>
+ *   <li>{@code GET /api/external/archive/audio-collections}</li>
+ *   <li>{@code GET /api/external/archive/audio-collections/{id}}</li>
  * </ul>
  * Authenticated (JWT):
  * <ul>
  *   <li>{@code GET/PUT /api/external/archive/recent} — last 10 selections</li>
  *   <li>{@code PUT /api/external/archive/recent/item} — touch one item (MRU)</li>
  *   <li>{@code DELETE /api/external/archive/recent/item?identifier=}</li>
- *   <li>{@code GET/PUT /api/external/archive/audio-playlist} — audio playlist</li>
- *   <li>{@code PUT /api/external/archive/audio-playlist/item} — add one audio item</li>
- *   <li>{@code DELETE /api/external/archive/audio-playlist/item?identifier=}</li>
+ *   <li>{@code POST/PUT/DELETE /api/external/archive/audio-collections**} — owner-managed collections</li>
  * </ul>
  */
 @RestController
@@ -69,7 +71,10 @@ public class ArchiveWatcherRestController {
     private ArchiveRecentService archiveRecentService;
 
     @Autowired
-    private ArchiveAudioPlaylistService archiveAudioPlaylistService;
+    private ArchiveAudioCollectionService archiveAudioCollectionService;
+
+    @Autowired
+    private FriendsService friendsService;
 
     @GetMapping("/mediatypes")
     public ResponseEntity<Map<String, Object>> mediatypes() {
@@ -107,10 +112,11 @@ public class ArchiveWatcherRestController {
             @RequestParam(value = "q", required = false) String q,
             @RequestParam(value = "creator", required = false) String creator,
             @RequestParam(value = "language", required = false) String language,
+            @RequestParam(value = "country", required = false) String country,
             @RequestParam(value = "sort", required = false) String sort,
             @RequestParam(value = "page", defaultValue = "1") int page) {
         ArchiveSearchPageDto result = internetArchiveCatalogService.search(
-                mediatype, section, q, creator, language, sort, page);
+                mediatype, section, q, creator, language, country, sort, page);
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofMinutes(2)).cachePrivate().mustRevalidate())
                 .header("Vary", "Accept-Encoding")
@@ -244,51 +250,134 @@ public class ArchiveWatcherRestController {
         return ResponseEntity.ok(archiveRecentService.removeRecent(sub, identifier));
     }
 
-    @GetMapping("/audio-playlist")
-    public ResponseEntity<ArchiveAudioPlaylistDto> getAudioPlaylist() {
-        String sub = currentJwtSubject();
-        if (sub == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        return ResponseEntity.ok(archiveAudioPlaylistService.findForSubject(sub));
+    @GetMapping("/audio-collections")
+    public ResponseEntity<?> listAudioCollections(Authentication authentication) {
+        Member me = optionalUser(authentication);
+        return ResponseEntity.ok(archiveAudioCollectionService.listAll(me));
     }
 
-    @PutMapping("/audio-playlist")
-    public ResponseEntity<?> putAudioPlaylist(@RequestBody ArchiveAudioPlaylistDto body) {
-        String sub = currentJwtSubject();
-        if (sub == null) {
+    @GetMapping("/audio-collections/{id}")
+    public ResponseEntity<?> getAudioCollection(@PathVariable String id, Authentication authentication) {
+        Member me = optionalUser(authentication);
+        return archiveAudioCollectionService.get(id, me)
+                .<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/audio-collections")
+    public ResponseEntity<?> createAudioCollection(
+            @RequestBody ArchiveAudioCollectionDto body,
+            Authentication authentication) {
+        Member me = requireUser(authentication);
+        if (me == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         try {
-            return ResponseEntity.ok(archiveAudioPlaylistService.saveForSubject(sub, body));
+            return ResponseEntity.status(HttpStatus.CREATED).body(archiveAudioCollectionService.create(me, body));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
-    /** Add one audio/etree item to the playlist (append, dedupe). */
-    @PutMapping("/audio-playlist/item")
-    public ResponseEntity<?> addAudioPlaylistItem(@RequestBody ArchiveItemDto item) {
-        String sub = currentJwtSubject();
-        if (sub == null) {
+    @PutMapping("/audio-collections/{id}")
+    public ResponseEntity<?> updateAudioCollection(
+            @PathVariable String id,
+            @RequestBody ArchiveAudioCollectionDto body,
+            Authentication authentication) {
+        Member me = requireUser(authentication);
+        if (me == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         try {
-            return ResponseEntity.ok(archiveAudioPlaylistService.addItem(sub, item));
+            return archiveAudioCollectionService.updateMeta(id, me, body)
+                    .<ResponseEntity<?>>map(ResponseEntity::ok)
+                    .orElseGet(() -> ResponseEntity.notFound().build());
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (IllegalArgumentException e) {
+            if ("not_found".equals(e.getMessage())) {
+                return ResponseEntity.notFound().build();
+            }
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
-    /** Remove one item from the audio playlist by identifier. */
-    @DeleteMapping("/audio-playlist/item")
-    public ResponseEntity<ArchiveAudioPlaylistDto> removeAudioPlaylistItem(
-            @RequestParam("identifier") String identifier) {
-        String sub = currentJwtSubject();
-        if (sub == null) {
+    @DeleteMapping("/audio-collections/{id}")
+    public ResponseEntity<?> deleteAudioCollection(@PathVariable String id, Authentication authentication) {
+        Member me = requireUser(authentication);
+        if (me == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        return ResponseEntity.ok(archiveAudioPlaylistService.removeItem(sub, identifier));
+        try {
+            if (!archiveAudioCollectionService.delete(id, me)) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.noContent().build();
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            if ("not_found".equals(e.getMessage())) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/audio-collections/{id}/items")
+    public ResponseEntity<?> addAudioCollectionItem(
+            @PathVariable String id,
+            @RequestBody ArchiveItemDto item,
+            Authentication authentication) {
+        Member me = requireUser(authentication);
+        if (me == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            return ResponseEntity.ok(archiveAudioCollectionService.addItem(id, me, item));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            if ("not_found".equals(e.getMessage())) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/audio-collections/{id}/items")
+    public ResponseEntity<?> removeAudioCollectionItem(
+            @PathVariable String id,
+            @RequestParam("identifier") String identifier,
+            Authentication authentication) {
+        Member me = requireUser(authentication);
+        if (me == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            return ResponseEntity.ok(archiveAudioCollectionService.removeItem(id, me, identifier));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            if ("not_found".equals(e.getMessage())) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    private Member requireUser(Authentication authentication) {
+        return friendsService.getCurrentUser(authentication);
+    }
+
+    private Member optionalUser(Authentication authentication) {
+        if (authentication == null) {
+            return null;
+        }
+        try {
+            return friendsService.getCurrentUser(authentication);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private static String currentJwtSubject() {
