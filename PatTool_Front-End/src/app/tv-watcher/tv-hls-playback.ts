@@ -9,6 +9,7 @@ import {
   tryRecoverTvHlsError,
   type TvHlsRecoverAttempts
 } from './tv-hls-config';
+import { tvPlayLog } from './tv-play-log';
 import {
   FranceTvResolveMeta,
   FranceTvTokenKeeper,
@@ -46,6 +47,8 @@ export interface TvHlsPlaybackCallbacks {
   skipLiveEdgeWatchdog?: boolean;
   /** Progressive MP4/WebM (Internet Archive) — use video.src instead of hls.js. */
   progressive?: boolean;
+  /** Channel display name for console diagnostics ({@code [TV] Cap Terre — …}). */
+  channelLabel?: string;
 }
 
 export interface TvHlsPlaybackHandle {
@@ -69,6 +72,7 @@ export function startTvHlsPlayback(
   let tokenRefreshAttempted = false;
   let franceTvKeeper: FranceTvTokenKeeper | null = null;
   const recoverAttempts: TvHlsRecoverAttempts = { network: 0, media: 0 };
+  const channelLabel = (callbacks.channelLabel || '').trim() || null;
   disableTvSubtitles(null, video);
 
   const setBuffering = (v: boolean) => {
@@ -94,6 +98,13 @@ export function startTvHlsPlayback(
     if (destroyed) {
       return;
     }
+    tvPlayLog('lecture arrêtée avec erreur (float/popout)', {
+      channel: channelLabel,
+      what: 'soft-recover épuisé — bandeau d’erreur affiché',
+      message,
+      hlsType: data?.type ?? null,
+      hlsDetails: data?.details ?? null
+    });
     setError(message);
   };
 
@@ -117,15 +128,34 @@ export function startTvHlsPlayback(
       if (!data?.fatal) {
         return;
       }
+      tvPlayLog('erreur HLS fatale détectée (float/popout)', {
+        channel: channelLabel,
+        what:
+          data.type === Hls.ErrorTypes.NETWORK_ERROR
+            ? 'panne réseau / segment ou manifeste inaccessible'
+            : data.type === Hls.ErrorTypes.MEDIA_ERROR
+              ? 'buffer/MSE cassé (souvent après seek ou segment pourri)'
+              : 'erreur lecteur HLS fatale',
+        type: data.type,
+        details: data.details,
+        http: data.response?.code ?? data.networkDetails?.status ?? null,
+        recoverNetwork: recoverAttempts.network,
+        recoverMedia: recoverAttempts.media,
+        videoError: video.error ? `${video.error.code}:${video.error.message}` : null
+      });
       if (
         !tokenRefreshAttempted &&
         isTvHlsForbiddenError(data) &&
         callbacks.onTokenExpired?.()
       ) {
         tokenRefreshAttempted = true;
+        tvPlayLog('token expiré → redémarrage', {
+          channel: channelLabel,
+          what: 'HTTP 401/403 — renouvellement token / hard restart'
+        });
         return;
       }
-      if (hls && tryRecoverTvHlsError(hls, data, recoverAttempts, video)) {
+      if (hls && tryRecoverTvHlsError(hls, data, recoverAttempts, video, channelLabel)) {
         setBuffering(true);
         tryPlay(false);
         return;
@@ -133,6 +163,10 @@ export function startTvHlsPlayback(
       // Soft recovery exhausted (or MSE poison) — ask caller to hard re-resolve once.
       if (!tokenRefreshAttempted && callbacks.onTokenExpired?.()) {
         tokenRefreshAttempted = true;
+        tvPlayLog('soft-recover épuisé → callback restart', {
+          channel: channelLabel,
+          what: 'demande de hard restart au composant parent'
+        });
         return;
       }
       try {
@@ -180,7 +214,7 @@ export function startTvHlsPlayback(
         hls = next;
         detachLiveSync = (callbacks.vod || callbacks.skipLiveEdgeWatchdog)
           ? null
-          : attachTvHlsLiveSyncWatchdog(next, media);
+          : attachTvHlsLiveSyncWatchdog(next, media, channelLabel);
         bindHlsHandlers(next);
       }
     });
@@ -252,7 +286,7 @@ export function startTvHlsPlayback(
     video.playbackRate = 1;
     detachLiveSync = (vod || callbacks.skipLiveEdgeWatchdog)
       ? null
-      : attachTvHlsLiveSyncWatchdog(hls, video);
+      : attachTvHlsLiveSyncWatchdog(hls, video, channelLabel);
     bindHlsHandlers(hls);
     startKeeperIfNeeded();
   } else if (video.canPlayType('application/vnd.apple.mpegurl')) {

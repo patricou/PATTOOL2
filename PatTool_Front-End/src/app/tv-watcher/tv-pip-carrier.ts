@@ -162,7 +162,11 @@ export class TvPipCarrier {
       opts.hls.detachMedia();
       opts.hls.attachMedia(carrier);
       this.hls = opts.hls;
-      this.detachLiveSync = attachTvHlsLiveSyncWatchdog(opts.hls, carrier);
+      this.detachLiveSync = attachTvHlsLiveSyncWatchdog(
+        opts.hls,
+        carrier,
+        opts.channel?.name || null
+      );
     } else {
       const src = opts.pageVideo.currentSrc || opts.pageVideo.getAttribute('src') || '';
       const time = opts.pageVideo.currentTime;
@@ -750,7 +754,11 @@ export class TvPipCarrier {
     if (hls) {
       hls.detachMedia();
       hls.attachMedia(pageVideo);
-      const detachLiveSync = attachTvHlsLiveSyncWatchdog(hls, pageVideo);
+      const detachLiveSync = attachTvHlsLiveSyncWatchdog(
+        hls,
+        pageVideo,
+        this.channel?.name || null
+      );
       pageVideo.volume = carrier.volume;
       pageVideo.muted = carrier.muted;
       try {

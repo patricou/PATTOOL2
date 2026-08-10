@@ -62,6 +62,7 @@ import {
   tryRecoverTvHlsError,
   type TvHlsRecoverAttempts
 } from './tv-hls-config';
+import { tvPlayLog } from './tv-play-log';
 import {
   FranceTvTokenKeeper,
   startFranceTvTokenKeeper
@@ -4462,7 +4463,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         || isArteLiveVirtual(streamUrl);
       this.detachHlsLiveSync = vod || skipLiveEdge
         ? null
-        : attachTvHlsLiveSyncWatchdog(this.hls, video);
+        : attachTvHlsLiveSyncWatchdog(this.hls, video, channel.name);
       this.bindWatcherHlsHandlers(this.hls, channel, effectiveProxyUrl, playGen, tryPlay);
       this.startFranceTvKeeperIfNeeded(channel, effectiveProxyUrl, playGen, tryPlay);
       return;
@@ -4509,11 +4510,36 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         isKeepAliveVirtualLive(streamUrl) &&
         this.virtualLiveHardRestarts < TvWatcherComponent.MAX_VIRTUAL_LIVE_HARD_RESTARTS;
 
+      tvPlayLog('erreur HLS fatale détectée', {
+        channel: channel.name,
+        channelId: channel.id,
+        what:
+          data.type === Hls.ErrorTypes.NETWORK_ERROR
+            ? 'panne réseau / segment ou manifeste inaccessible'
+            : data.type === Hls.ErrorTypes.MEDIA_ERROR
+              ? 'buffer/MSE cassé (souvent après seek ou segment pourri)'
+              : 'erreur lecteur HLS fatale',
+        type: data.type,
+        details: data.details,
+        http: data.response?.code ?? data.networkDetails?.status ?? null,
+        canHardRestart,
+        recoverNetwork: this.hlsRecoverAttempts.network,
+        recoverMedia: this.hlsRecoverAttempts.media,
+        videoError: videoEl?.error ? `${videoEl.error.code}:${videoEl.error.message}` : null
+      });
+
       const scheduleHardRestart = () => {
         this.virtualLiveHardRestarts += 1;
         this.isBuffering = true;
         this.playError = '';
         this.cdr.markForCheck();
+        tvPlayLog('hard restart chaîne virtuelle → affichage spinner', {
+          channel: channel.name,
+          channelId: channel.id,
+          what: 'reconstruction complète du player après échec soft-recover / token',
+          attempt: this.virtualLiveHardRestarts,
+          streamUrl
+        });
         void bustVirtualLiveCache(streamUrl, this.api);
         // Never destroy/recreate HLS inside its own ERROR callback — defer one tick.
         window.setTimeout(() => {
@@ -4534,7 +4560,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         return;
       }
 
-      if (this.hls && tryRecoverTvHlsError(this.hls, data, this.hlsRecoverAttempts, videoEl)) {
+      if (this.hls && tryRecoverTvHlsError(this.hls, data, this.hlsRecoverAttempts, videoEl, channel.name)) {
         this.isBuffering = true;
         this.cdr.markForCheck();
         tryPlay(false);
@@ -4605,7 +4631,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
           || isTf1Virtual(swappedUrl) || isM6GroupVirtual(swappedUrl) || isRtsVirtual(swappedUrl);
         this.detachHlsLiveSync = skipLiveEdge
           ? null
-          : attachTvHlsLiveSyncWatchdog(next, media);
+          : attachTvHlsLiveSyncWatchdog(next, media, channel.name);
         this.bindWatcherHlsHandlers(next, channel, proxyUrl, playGen, tryPlay);
       }
     });
@@ -4638,6 +4664,14 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (playGen !== this.playGeneration) {
       return;
     }
+    tvPlayLog('lecture arrêtée avec erreur', {
+      channel: this.selectedChannel?.name ?? null,
+      channelId: this.selectedChannel?.id ?? null,
+      what: 'soft-recover épuisé — bandeau d’erreur affiché',
+      message,
+      hlsType: hlsData?.type ?? null,
+      hlsDetails: hlsData?.details ?? null
+    });
     this.playError = message;
     this.showChrome(true);
     this.cdr.markForCheck();

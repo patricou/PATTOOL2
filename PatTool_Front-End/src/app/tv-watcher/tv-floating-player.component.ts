@@ -530,6 +530,7 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
       this.playback = startTvHlsPlayback(video, playUrl, {
         vod: isArteReplayVod(streamUrl),
         progressive,
+        channelLabel: channel.name,
         skipLiveEdgeWatchdog:
           isTf1Virtual(streamUrl) || isM6GroupVirtual(streamUrl) || isRtsVirtual(streamUrl)
           || isArteLiveVirtual(streamUrl),

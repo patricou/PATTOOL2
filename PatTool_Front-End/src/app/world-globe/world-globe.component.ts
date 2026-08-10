@@ -130,11 +130,11 @@ const ISS_LIVE_HD_DESTINATION_ORBITE_URL =
 	'https://destination-orbite.net/exploration/direct/en-direct-hd-depuis-l-iss';
 /**
  * IDs YouTube embarqués par Destination Orbite (balise lite-youtube sur leurs pages direct).
- * Standard : flux NASA officiel — https://www.youtube.com/watch?v=uwXgcTc8oY8
+ * Standard : flux NASA officiel — https://www.youtube.com/watch?v=M3HKLzjvKPc
  * HD : https://www.youtube.com/watch?v=awQzjn72bI0
  */
-/** Page standard Destination Orbite → lite-youtube `uwXgcTc8oY8` (NASA officiel). */
-const ISS_LIVE_YOUTUBE_VIDEO_ID = 'uwXgcTc8oY8';
+/** Page standard Destination Orbite → lite-youtube `M3HKLzjvKPc` (màj 10-08-2026 ; ancien `uwXgcTc8oY8` hors ligne). */
+const ISS_LIVE_YOUTUBE_VIDEO_ID = 'M3HKLzjvKPc';
 /** Page HD Destination Orbite → lite-youtube `awQzjn72bI0` (màj 06-11-2025 ; ancien `FuuC4dpSQ1M` hors ligne). */
 const ISS_LIVE_HD_YOUTUBE_VIDEO_ID = 'awQzjn72bI0';
 

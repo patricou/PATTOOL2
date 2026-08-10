@@ -1,4 +1,5 @@
 import Hls, { type HlsConfig } from 'hls.js';
+import { tvPlayLog } from './tv-play-log';
 
 export type TvHlsPlaybackMode = 'live' | 'vod';
 
@@ -169,21 +170,42 @@ export function tryRecoverTvHlsError(
     networkDetails?: { status?: number } | null;
   },
   attempts?: TvHlsRecoverAttempts,
-  video?: HTMLVideoElement | null
+  video?: HTMLVideoElement | null,
+  channel?: string | null
 ): boolean {
   if (!data?.fatal) {
     return false;
   }
+  const http = data?.response?.code ?? data?.networkDetails?.status;
+  const what =
+    data.type === Hls.ErrorTypes.NETWORK_ERROR
+      ? 'erreur réseau HLS fatale'
+      : data.type === Hls.ErrorTypes.MEDIA_ERROR
+        ? 'erreur média HLS fatale (MSE/buffer)'
+        : `erreur HLS fatale (${data.type || '?'})`;
+  const baseDetail: Record<string, unknown> = {
+    channel: channel || null,
+    what,
+    type: data.type,
+    details: data.details,
+    http,
+    networkAttempts: attempts?.network ?? 0,
+    mediaAttempts: attempts?.media ?? 0,
+    videoError: video?.error ? `${video.error.code}:${video.error.message}` : null
+  };
   if (isTvHlsForbiddenError(data)) {
+    tvPlayLog(`${what} — soft-recover ignoré (HTTP 401/403)`, baseDetail);
     return false;
   }
   if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
     // Once the media element itself is poisoned (appendBuffer → "error is not null"),
     // recoverMediaError cannot clear it — caller must hard-rebuild the player.
     if (video?.error) {
+      tvPlayLog(`${what} — soft-recover impossible (élément <video> empoisonné)`, baseDetail);
       return false;
     }
     if (attempts && attempts.media >= MAX_MEDIA_RECOVERIES) {
+      tvPlayLog(`${what} — soft-recover média épuisé`, baseDetail);
       return false;
     }
     try {
@@ -192,6 +214,7 @@ export function tryRecoverTvHlsError(
       if (attempts && attempts.media >= 1 && details.includes('buffer')) {
         try {
           hls.swapAudioCodec();
+          tvPlayLog(`${what} — soft-recover: swapAudioCodec`, baseDetail);
         } catch {
           /* ignore */
         }
@@ -200,13 +223,22 @@ export function tryRecoverTvHlsError(
       if (attempts) {
         attempts.media += 1;
       }
+      tvPlayLog(`${what} — soft-recover média → affichage spinner`, {
+        ...baseDetail,
+        mediaAttempts: attempts?.media ?? 0
+      });
       return true;
-    } catch {
+    } catch (err) {
+      tvPlayLog(`${what} — soft-recover média a échoué`, {
+        ...baseDetail,
+        err: err instanceof Error ? err.message : String(err)
+      });
       return false;
     }
   }
   if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
     if (attempts && attempts.network >= MAX_NETWORK_RECOVERIES) {
+      tvPlayLog(`${what} — soft-recover réseau épuisé`, baseDetail);
       return false;
     }
     try {
@@ -214,11 +246,20 @@ export function tryRecoverTvHlsError(
       if (attempts) {
         attempts.network += 1;
       }
+      tvPlayLog(`${what} — soft-recover réseau (startLoad) → affichage spinner`, {
+        ...baseDetail,
+        networkAttempts: attempts?.network ?? 0
+      });
       return true;
-    } catch {
+    } catch (err) {
+      tvPlayLog(`${what} — soft-recover réseau a échoué`, {
+        ...baseDetail,
+        err: err instanceof Error ? err.message : String(err)
+      });
       return false;
     }
   }
+  tvPlayLog(`${what} — type non géré par soft-recover`, baseDetail);
   return false;
 }
 
@@ -299,7 +340,8 @@ export function resyncTvHlsAv(hls: Hls | null, video: HTMLVideoElement): boolean
  */
 export function attachTvHlsLiveSyncWatchdog(
   hls: Hls,
-  video: HTMLVideoElement
+  video: HTMLVideoElement,
+  channel?: string | null
 ): () => void {
   let lastSeekAt = 0;
   // IPTV mirrors (TF1/LCI) are often slower than realtime — aggressive seeking to the
@@ -327,6 +369,18 @@ export function attachTvHlsLiveSyncWatchdog(
       return;
     }
     lastSeekAt = now;
+    const lagSec = Math.round(lag * 10) / 10;
+    tvPlayLog(
+      `seek live-edge (retard ${lagSec}s, trigger=${reason}) — peut provoquer reconnect/spinner`,
+      {
+        channel: channel || null,
+        what: 'rattrapage forcé vers le direct car le lecteur a trop de retard',
+        reason,
+        lagSec,
+        currentTime: Math.round(video.currentTime * 10) / 10,
+        liveSync: Math.round(liveSync * 10) / 10
+      }
+    );
     try {
       // Ensure normal rate — leftover catch-up rates from older configs cause desync.
       if (video.playbackRate !== 1) {
@@ -336,10 +390,14 @@ export function attachTvHlsLiveSyncWatchdog(
       if (video.paused) {
         void video.play().catch(() => undefined);
       }
-    } catch {
-      /* ignore */
+    } catch (err) {
+      tvPlayLog(`seek live-edge a échoué (trigger=${reason})`, {
+        channel: channel || null,
+        what: 'échec du seek vers le direct',
+        reason,
+        err: err instanceof Error ? err.message : String(err)
+      });
     }
-    void reason;
   };
 
   const onWaiting = () => seekToLiveEdge('waiting');
