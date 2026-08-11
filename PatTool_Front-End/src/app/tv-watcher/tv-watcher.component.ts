@@ -29,7 +29,6 @@ import {
   encodeShareQueryValue,
   encodeShareStreamToken,
   isArteReplayVod,
-  isArteLiveVirtual,
   isArteVirtual,
   isCanalGroupVirtual,
   isFranceTvVirtual,
@@ -41,9 +40,11 @@ import {
   isRadioFranceVirtual,
   isRtsVirtual,
   isShareSafeStreamToken,
+  isCapTerreChannel,
   isTf1Virtual,
   needsProactiveTokenRenewal,
   resolveTvStreamUrl,
+  shouldSkipTvLiveEdgeWatchdog,
   virtualStreamFromShareChannelId
 } from './tv-stream.util';
 import {
@@ -54,6 +55,8 @@ import { groupIconFaClass, groupI18nKey } from './tv-group-icon.util';
 import { epgLookupKey, resolveEpgChannelId } from './tv-epg.util';
 import {
   attachTvHlsLiveSyncWatchdog,
+  attachTvSlowMirrorPaceGuard,
+  attachTvUnderrunSpinnerWatch,
   createTvHlsConfig,
   disableTvSubtitles,
   isTvHlsForbiddenError,
@@ -197,7 +200,47 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   isMuted = false;
   /** 0–100, mirrored to HTMLVideoElement.volume */
   volumePercent = 100;
-  isBuffering = false;
+  /**
+   * Buffering overlay. Setter always logs so mid-play spinners cannot appear silently.
+   * Prefer assigning through this field rather than a parallel flag.
+   */
+  private playBuffering = false;
+  get isBuffering(): boolean {
+    return this.playBuffering;
+  }
+  set isBuffering(value: boolean) {
+    const on = !!value;
+    const changed = on !== this.playBuffering;
+    this.playBuffering = on;
+    if (!on && !changed) {
+      return;
+    }
+    const video = this.videoEl?.nativeElement;
+    const channel =
+      this.selectedChannel?.name ||
+      this.playingRecording?.channelName ||
+      null;
+    // Short stack to see *which* call site flipped the spinner.
+    const stack = on
+      ? (new Error().stack || '')
+          .split('\n')
+          .map((l) => l.trim())
+          .filter((l) => l && !l.includes('set isBuffering') && !l.includes('tvPlayLog'))
+          .slice(1, 5)
+          .join(' ← ')
+      : undefined;
+    tvPlayLog(on ? 'spinner AFFICHÉ' : 'spinner MASQUÉ', {
+      channel,
+      what: on
+        ? 'overlay « chargement » visible sur le player'
+        : 'overlay « chargement » masqué',
+      readyState: video?.readyState,
+      networkState: video?.networkState,
+      paused: video?.paused,
+      currentTime: video ? Math.round(video.currentTime * 10) / 10 : null,
+      stack
+    });
+  }
   tf1Configured: boolean | null = null;
   isPipActive = false;
   pipSupported = TvPlayerService.supportsVideoPictureInPicture();
@@ -266,6 +309,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   private iaProgramsSub?: Subscription;
   private hls: Hls | null = null;
   private detachHlsLiveSync: (() => void) | null = null;
+  private detachUnderrunSpinner: (() => void) | null = null;
+  private detachSlowMirrorPace: (() => void) | null = null;
   private franceTvKeeper: FranceTvTokenKeeper | null = null;
   private channelSearch$ = new Subject<string>();
   private programSearch$ = new Subject<string>();
@@ -4449,21 +4494,55 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     // HLS — that path hangs on proxied ARTE CMAF (demuxed) VOD.
     if (Hls.isSupported()) {
       const vod = isArteReplayVod(streamUrl);
-      this.hls = new Hls(createTvHlsConfig(vod ? 'vod' : 'live'));
+      const slowMirror = isCapTerreChannel(channel) || isCapTerreChannel(streamUrl);
+      this.hls = new Hls(createTvHlsConfig(vod ? 'vod' : 'live', { slowMirror }));
       this.hls.loadSource(effectiveProxyUrl);
       this.hls.attachMedia(video);
       disableTvSubtitles(this.hls, video);
       video.playbackRate = 1;
       // Never attach live-edge seek on ARTE replay — it jumps straight to the end.
-      // Also skip for IPTV mirrors (TF1/LCI/M6/RTS) and ARTE LIVE: seeking to the
-      // live edge while lag builds (or while hls.js flips Akamai failover levels)
-      // poisons MSE (appendBuffer / media.error) — visible connect/disconnect loops.
-      const skipLiveEdge =
-        isTf1Virtual(streamUrl) || isM6GroupVirtual(streamUrl) || isRtsVirtual(streamUrl)
-        || isArteLiveVirtual(streamUrl);
+      // Also skip for IPTV mirrors (TF1/LCI/M6/RTS), ARTE LIVE, and Cap Terre: seeking
+      // while lag builds empties the buffer cushion (spinner loops) / poisons MSE.
+      const skipLiveEdge = shouldSkipTvLiveEdgeWatchdog(streamUrl, channel);
       this.detachHlsLiveSync = vod || skipLiveEdge
         ? null
         : attachTvHlsLiveSyncWatchdog(this.hls, video, channel.name);
+      try {
+        this.detachUnderrunSpinner?.();
+      } catch {
+        /* ignore */
+      }
+      this.detachUnderrunSpinner = attachTvUnderrunSpinnerWatch(
+        video,
+        (buffering) => {
+          // Underrun mid-play: show the same overlay as soft-recover.
+          this.isBuffering = buffering;
+          this.cdr.markForCheck();
+        },
+        channel.name
+      );
+      try {
+        this.detachSlowMirrorPace?.();
+      } catch {
+        /* ignore */
+      }
+      this.detachSlowMirrorPace = slowMirror
+        ? attachTvSlowMirrorPaceGuard(video, channel.name)
+        : null;
+      tvPlayLog('lecture HLS démarrée (diag spinner actif)', {
+        channel: channel.name,
+        channelId: channel.id,
+        what: 'player attaché — les underruns et recoveries seront logués',
+        skipLiveEdge,
+        slowMirror,
+        proxyHost: (() => {
+          try {
+            return new URL(effectiveProxyUrl, window.location.origin).pathname.slice(0, 80);
+          } catch {
+            return null;
+          }
+        })()
+      });
       this.bindWatcherHlsHandlers(this.hls, channel, effectiveProxyUrl, playGen, tryPlay);
       this.startFranceTvKeeperIfNeeded(channel, effectiveProxyUrl, playGen, tryPlay);
       return;
@@ -4627,8 +4706,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         this.hls = next;
         const swappedUrl = resolveTvStreamUrl(channel);
         const skipLiveEdge =
-          isArteReplayVod(swappedUrl) || isArteLiveVirtual(swappedUrl)
-          || isTf1Virtual(swappedUrl) || isM6GroupVirtual(swappedUrl) || isRtsVirtual(swappedUrl);
+          isArteReplayVod(swappedUrl) || shouldSkipTvLiveEdgeWatchdog(swappedUrl, channel);
         this.detachHlsLiveSync = skipLiveEdge
           ? null
           : attachTvHlsLiveSyncWatchdog(next, media, channel.name);
@@ -4771,6 +4849,22 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       this.tokenRenewedToastTimer = null;
     }
     this.tokenRenewedToast = false;
+    if (this.detachUnderrunSpinner) {
+      try {
+        this.detachUnderrunSpinner();
+      } catch {
+        /* ignore */
+      }
+      this.detachUnderrunSpinner = null;
+    }
+    if (this.detachSlowMirrorPace) {
+      try {
+        this.detachSlowMirrorPace();
+      } catch {
+        /* ignore */
+      }
+      this.detachSlowMirrorPace = null;
+    }
     if (this.detachHlsLiveSync) {
       this.detachHlsLiveSync();
       this.detachHlsLiveSync = null;

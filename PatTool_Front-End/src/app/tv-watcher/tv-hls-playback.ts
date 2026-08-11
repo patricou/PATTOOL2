@@ -2,6 +2,8 @@ import Hls from 'hls.js';
 import { resolveTvStreamErrorMessage } from './tv-stream-error.util';
 import {
   attachTvHlsLiveSyncWatchdog,
+  attachTvSlowMirrorPaceGuard,
+  attachTvUnderrunSpinnerWatch,
   createTvHlsConfig,
   disableTvSubtitles,
   isTvHlsForbiddenError,
@@ -41,10 +43,14 @@ export interface TvHlsPlaybackCallbacks {
   /** Use VOD HLS tuning (ARTE replay). Skips live-edge seek watchdog. */
   vod?: boolean;
   /**
-   * Skip live-edge seek watchdog (IPTV mirrors: TF1/LCI/M6/RTS).
+   * Skip live-edge seek watchdog (IPTV mirrors: TF1/LCI/M6/RTS / Cap Terre).
    * Seeking while the mirror lags poisons MSE mid-play.
    */
   skipLiveEdgeWatchdog?: boolean;
+  /**
+   * Cap Terre–class: deeper buffer + stay far behind live (download ≈ realtime).
+   */
+  slowMirror?: boolean;
   /** Progressive MP4/WebM (Internet Archive) — use video.src instead of hls.js. */
   progressive?: boolean;
   /** Channel display name for console diagnostics ({@code [TV] Cap Terre — …}). */
@@ -69,6 +75,8 @@ export function startTvHlsPlayback(
   let destroyed = false;
   let muted = false;
   let detachLiveSync: (() => void) | null = null;
+  let detachUnderrun: (() => void) | null = null;
+  let detachSlowPace: (() => void) | null = null;
   let tokenRefreshAttempted = false;
   let franceTvKeeper: FranceTvTokenKeeper | null = null;
   const recoverAttempts: TvHlsRecoverAttempts = { network: 0, media: 0 };
@@ -77,6 +85,12 @@ export function startTvHlsPlayback(
 
   const setBuffering = (v: boolean) => {
     if (!destroyed) {
+      if (v) {
+        tvPlayLog('spinner AFFICHÉ (float/popout)', {
+          channel: channelLabel,
+          what: 'overlay buffering demandé par le player partagé'
+        });
+      }
       callbacks.onBuffering?.(v);
     }
   };
@@ -215,6 +229,16 @@ export function startTvHlsPlayback(
         detachLiveSync = (callbacks.vod || callbacks.skipLiveEdgeWatchdog)
           ? null
           : attachTvHlsLiveSyncWatchdog(next, media, channelLabel);
+        try {
+          detachUnderrun?.();
+        } catch {
+          /* ignore */
+        }
+        detachUnderrun = attachTvUnderrunSpinnerWatch(
+          media,
+          (buffering) => setBuffering(buffering),
+          channelLabel
+        );
         bindHlsHandlers(next);
       }
     });
@@ -279,7 +303,8 @@ export function startTvHlsPlayback(
     tryPlay();
   } else if (Hls.isSupported()) {
     const vod = !!callbacks.vod;
-    hls = new Hls(createTvHlsConfig(vod ? 'vod' : 'live'));
+    const slowMirror = !!callbacks.slowMirror;
+    hls = new Hls(createTvHlsConfig(vod ? 'vod' : 'live', { slowMirror }));
     hls.loadSource(proxyUrl);
     hls.attachMedia(video);
     disableTvSubtitles(hls, video);
@@ -287,6 +312,20 @@ export function startTvHlsPlayback(
     detachLiveSync = (vod || callbacks.skipLiveEdgeWatchdog)
       ? null
       : attachTvHlsLiveSyncWatchdog(hls, video, channelLabel);
+    detachUnderrun = attachTvUnderrunSpinnerWatch(
+      video,
+      (buffering) => setBuffering(buffering),
+      channelLabel
+    );
+    detachSlowPace = slowMirror
+      ? attachTvSlowMirrorPaceGuard(video, channelLabel)
+      : null;
+    tvPlayLog('lecture HLS démarrée (float/popout, diag spinner actif)', {
+      channel: channelLabel,
+      what: 'player attaché — underruns et recoveries logués',
+      slowMirror,
+      skipLiveEdge: !!callbacks.skipLiveEdgeWatchdog
+    });
     bindHlsHandlers(hls);
     startKeeperIfNeeded();
   } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
@@ -306,6 +345,22 @@ export function startTvHlsPlayback(
       destroyed = true;
       franceTvKeeper?.stop();
       franceTvKeeper = null;
+      if (detachUnderrun) {
+        try {
+          detachUnderrun();
+        } catch {
+          /* ignore */
+        }
+        detachUnderrun = null;
+      }
+      if (detachSlowPace) {
+        try {
+          detachSlowPace();
+        } catch {
+          /* ignore */
+        }
+        detachSlowPace = null;
+      }
       if (detachLiveSync) {
         detachLiveSync();
         detachLiveSync = null;

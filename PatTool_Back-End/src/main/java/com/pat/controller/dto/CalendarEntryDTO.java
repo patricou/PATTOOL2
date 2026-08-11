@@ -33,6 +33,9 @@ public class CalendarEntryDTO {
     /** When a {@link com.pat.repo.domain.TodoList} is linked to this row; null if none. */
     private String todoListId;
 
+    /** When a {@link com.pat.repo.domain.Note} is linked to this row; null if none. */
+    private String noteId;
+
     /** For appointments: optional linked activity ({@code evenements}) id. */
     private String evenementId;
 
@@ -133,6 +136,14 @@ public class CalendarEntryDTO {
 
     public void setTodoListId(String todoListId) {
         this.todoListId = todoListId;
+    }
+
+    public String getNoteId() {
+        return noteId;
+    }
+
+    public void setNoteId(String noteId) {
+        this.noteId = noteId;
     }
 
     public String getEvenementId() {

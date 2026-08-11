@@ -2120,6 +2120,86 @@ export class ApiService {
   }
 
   // ===================================================================
+  // Eclipse — USNO + OPALE/IMCCE proxy
+  // Backend: /api/external/eclipse/* (no auth required — public data)
+  // ===================================================================
+
+  getUsnoSolarEclipseYear(year: number): Observable<UsnoSolarYearResponse> {
+    const params = new HttpParams().set('year', year.toString());
+    return this._http.get<UsnoSolarYearResponse>(
+      this.API_URL + 'external/eclipse/usno/solar/year',
+      { params }
+    );
+  }
+
+  getUsnoSolarEclipseLocal(
+    date: string,
+    lat: number,
+    lon: number,
+    height = 0
+  ): Observable<UsnoSolarLocalResponse> {
+    const params = new HttpParams()
+      .set('date', date)
+      .set('lat', lat.toString())
+      .set('lon', lon.toString())
+      .set('height', height.toString());
+    return this._http.get<UsnoSolarLocalResponse>(
+      this.API_URL + 'external/eclipse/usno/solar/local',
+      { params }
+    );
+  }
+
+  getOpaleEclipseYear(body: 10 | 301, year: number): Observable<OpaleEclipseYearResponse> {
+    const params = new HttpParams()
+      .set('body', body.toString())
+      .set('year', year.toString());
+    return this._http.get<OpaleEclipseYearResponse>(
+      this.API_URL + 'external/eclipse/opale/year',
+      { params }
+    );
+  }
+
+  getOpaleEclipseDay(
+    body: 10 | 301,
+    date: string,
+    lat?: number,
+    lon?: number,
+    height?: number
+  ): Observable<OpaleEclipseDayResponse> {
+    let params = new HttpParams()
+      .set('body', body.toString())
+      .set('date', date);
+    if (lat != null && lon != null) {
+      params = params.set('lat', lat.toString()).set('lon', lon.toString());
+      if (height != null) {
+        params = params.set('height', height.toString());
+      }
+    }
+    return this._http.get<OpaleEclipseDayResponse>(
+      this.API_URL + 'external/eclipse/opale/day',
+      { params }
+    );
+  }
+
+  /** Next / current solar eclipse visibility at observer coordinates (USNO-based). */
+  getEclipseVisibility(
+    lat: number,
+    lon: number,
+    height = 0,
+    yearsAhead = 5
+  ): Observable<EclipseVisibilityResponse> {
+    const params = new HttpParams()
+      .set('lat', lat.toString())
+      .set('lon', lon.toString())
+      .set('height', height.toString())
+      .set('yearsAhead', yearsAhead.toString());
+    return this._http.get<EclipseVisibilityResponse>(
+      this.API_URL + 'external/eclipse/visibility',
+      { params }
+    );
+  }
+
+  // ===================================================================
   // CERN — Open Data Portal & CDS Repository proxy
   // Backend: /api/external/cern/* (no auth required — public data)
   // ===================================================================
@@ -4418,6 +4498,96 @@ export interface StellariumConfig {
   placeLabel?: string;
   embedUrl: string;
   viewerUrl: string;
+}
+
+/** USNO solar eclipse year list entry. */
+export interface UsnoSolarEclipseYearItem {
+  day: number;
+  month: number;
+  year: number;
+  event: string;
+}
+
+export interface UsnoSolarYearResponse {
+  apiversion?: string;
+  year?: number;
+  eclipses_in_year?: UsnoSolarEclipseYearItem[];
+  error?: string;
+}
+
+export interface UsnoSolarLocalResponse {
+  type?: string;
+  geometry?: unknown;
+  properties?: Record<string, unknown>;
+  error?: string;
+}
+
+/** OPALE (IMCCE) summarized eclipse entry. */
+export interface OpaleEclipseSummary {
+  calendarDate?: string;
+  type?: string;
+  magnitude?: number;
+  obscuration?: unknown;
+  duration?: Record<string, string | null>;
+  events?: Record<string, { date?: string }>;
+  [key: string]: unknown;
+}
+
+export interface OpaleEclipseYearResponse {
+  source?: string;
+  body?: number;
+  kind?: string;
+  year?: number;
+  eclipses?: OpaleEclipseSummary[];
+}
+
+export interface OpaleEclipseDayResponse {
+  source?: string;
+  body?: number;
+  kind?: string;
+  date?: string;
+  request?: unknown;
+  eclipses?: OpaleEclipseSummary[];
+}
+
+/** Local solar visibility result from GET /external/eclipse/visibility. */
+export interface EclipseVisibilityEvent {
+  kind?: string;
+  date?: string;
+  event?: string;
+  description?: string;
+  visibilityType?: 'partial' | 'annular' | 'total' | string;
+  magnitude?: number;
+  obscurationPercent?: number;
+  obscuration?: string;
+  duration?: string;
+  durationOfTotality?: string;
+  begins?: string;
+  maximum?: string;
+  ends?: string;
+  inProgress?: boolean;
+  millisecondsUntil?: number;
+  daysUntil?: number;
+  hoursUntil?: number;
+  type?: string;
+  note?: string;
+}
+
+export interface EclipseVisibilityResponse {
+  source?: string;
+  kind?: string;
+  lat?: number;
+  lon?: number;
+  height?: number;
+  asOf?: string;
+  yearsScanned?: number;
+  candidatesChecked?: number;
+  candidatesNotVisible?: number;
+  visibleFromHere?: boolean;
+  current?: EclipseVisibilityEvent | null;
+  next?: EclipseVisibilityEvent | null;
+  upcoming?: EclipseVisibilityEvent[];
+  nextLunar?: EclipseVisibilityEvent | null;
 }
 
 /** Noctua Sky catalogue entry (Stellarium Web API). */

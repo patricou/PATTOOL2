@@ -197,14 +197,25 @@ export class FriendsComponent implements OnInit {
   @ViewChild(TraceViewerModalComponent) traceViewerModalComponent?: TraceViewerModalComponent;
   @ViewChild('positionsModal') positionsModalTemplate?: TemplateRef<any>;
   @ViewChild('sendRequestModal') sendRequestModalTemplate?: TemplateRef<any>;
+  @ViewChild('sendEmailModal') sendEmailModalTemplate?: TemplateRef<any>;
   private positionsModalRef?: NgbModalRef;
   private sendRequestModalRef?: NgbModalRef;
+  private sendEmailModalRef?: NgbModalRef;
   public selectedUserIdsForRequest: Set<string> = new Set();
   public sendingSelectedRequests: boolean = false;
   public sendRequestModalSort: 'firstName' | 'lastName' | 'userName' = 'lastName';
   /** Modal step: none = list, prompt = ask message?, input = enter message */
   public sendRequestModalMessageStep: 'none' | 'prompt' | 'input' = 'none';
   public sendRequestModalMessage: string = '';
+
+  /** Send email to PatTool user modal state */
+  public sendEmailRecipientId: string = '';
+  public sendEmailSubject: string = '';
+  public sendEmailMessage: string = '';
+  public sendEmailRecipientFilter: string = '';
+  public sendEmailSending: boolean = false;
+  public sendEmailError: string = '';
+  public sendEmailSuccess: string = '';
   
   // Map to store addresses for each position (index -> address)
   public positionAddresses: Map<number, string> = new Map();
@@ -439,11 +450,16 @@ export class FriendsComponent implements OnInit {
     const sentRequest = this.sentRequests.find(r => r.recipient.id === userId);
     if (sentRequest) {
       this.loading = true;
-      // Use rejectFriendRequest to cancel our own sent request
-      this._friendsService.rejectFriendRequest(sentRequest.id).subscribe(
+      this._friendsService.cancelSentFriendRequest(sentRequest.id).subscribe(
         () => {
-          this.loadAllUsers(); // Reload only users
+          this.sentRequests = this.sentRequests.filter(r => r.id !== sentRequest.id);
+          if (this.activeTab === 'users') {
+            this.loadAllUsers();
+          } else if (this.activeTab === 'requests') {
+            this.loadPendingRequests();
+          }
           this.loading = false;
+          this.cdr.detectChanges();
         },
         error => {
           console.error('Error canceling sent request:', error);
@@ -487,7 +503,11 @@ export class FriendsComponent implements OnInit {
         this.friendRequestMessages.delete(userId);
         this.friendRequestPromptUserId = null;
         this.friendRequestInputUserId = null;
-        this.loadAllUsers(); // Reload only users
+        if (this.activeTab === 'requests') {
+          this.loadPendingRequests();
+        } else {
+          this.loadAllUsers();
+        }
         this.loading = false;
       },
       error => {
@@ -946,6 +966,14 @@ export class FriendsComponent implements OnInit {
     });
   }
 
+  getSortedSentRequests(): FriendRequest[] {
+    return [...this.sentRequests].sort((a, b) => {
+      const nameA = ((a.recipient.firstName || '') + ' ' + (a.recipient.lastName || '')).toLowerCase().trim();
+      const nameB = ((b.recipient.firstName || '') + ' ' + (b.recipient.lastName || '')).toLowerCase().trim();
+      return nameA.localeCompare(nameB);
+    });
+  }
+
   /**
    * All users + Mes amis — last connection: ≤2 days green, >30 days red, otherwise orange.
    */
@@ -1342,7 +1370,11 @@ export class FriendsComponent implements OnInit {
     this.loading = true;
     this._friendsService.sendFriendRequest(userId, message).subscribe(
       request => {
-        this.loadAllUsers(); // Reload only users
+        if (this.activeTab === 'requests') {
+          this.loadPendingRequests();
+        } else {
+          this.loadAllUsers();
+        }
         this.loading = false;
       },
       error => {
@@ -1427,17 +1459,42 @@ export class FriendsComponent implements OnInit {
   loadPendingRequests() {
     this.loading = true;
     this.errorMessage = '';
+    let pendingDone = false;
+    let sentDone = false;
+    const finish = () => {
+      if (pendingDone && sentDone) {
+        this.loading = false;
+        this.cdr.detectChanges();
+      }
+    };
+
     this._friendsService.getPendingRequests().subscribe({
       next: (requests) => {
         this.pendingRequests = requests;
-        this.loading = false;
-        this.cdr.detectChanges();
+        pendingDone = true;
+        finish();
       },
       error: (error) => {
         console.error('Error loading pending requests:', error);
         this.errorMessage = 'Error loading pending requests';
-        this.loading = false;
-        this.cdr.detectChanges();
+        pendingDone = true;
+        finish();
+      }
+    });
+
+    this._friendsService.getSentRequests().subscribe({
+      next: (requests) => {
+        this.sentRequests = requests;
+        sentDone = true;
+        finish();
+      },
+      error: (error) => {
+        console.error('Error loading sent requests:', error);
+        if (!this.errorMessage) {
+          this.errorMessage = 'Error loading sent requests';
+        }
+        sentDone = true;
+        finish();
       }
     });
   }
@@ -1984,6 +2041,158 @@ export class FriendsComponent implements OnInit {
    */
   public hasAdminRole(): boolean {
     return this._keycloakService.hasAdminRole();
+  }
+
+  /**
+   * Open modal to send an email to a PatTool user (prefill with friend when provided).
+   */
+  public openSendEmailModal(prefillUser?: Member): void {
+    this.sendEmailError = '';
+    this.sendEmailSuccess = '';
+    this.sendEmailMessage = '';
+    this.sendEmailSubject = '';
+    this.sendEmailRecipientFilter = '';
+    this.sendEmailSending = false;
+
+    const ensureUsers = () => {
+      const candidates = this.getEmailRecipientCandidates();
+      if (prefillUser?.id && candidates.some(u => u.id === prefillUser.id)) {
+        this.sendEmailRecipientId = prefillUser.id;
+      } else if (candidates.length > 0) {
+        this.sendEmailRecipientId = candidates[0].id;
+      } else {
+        this.sendEmailRecipientId = '';
+      }
+
+      if (!this.sendEmailModalTemplate) {
+        return;
+      }
+      this.sendEmailModalRef = this.modalService.open(this.sendEmailModalTemplate, {
+        size: 'lg',
+        backdrop: 'static',
+        windowClass: 'send-email-modal-window'
+      });
+      this.sendEmailModalRef.result.finally(() => {
+        this.sendEmailModalRef = undefined;
+        this.sendEmailSending = false;
+        this.sendEmailError = '';
+        this.sendEmailSuccess = '';
+      });
+    };
+
+    if (this.allUsers.length === 0) {
+      this._friendsService.getAllUsers().subscribe({
+        next: (users) => {
+          this.allUsers = users;
+          ensureUsers();
+        },
+        error: () => ensureUsers()
+      });
+    } else {
+      ensureUsers();
+    }
+  }
+
+  /** PatTool users (except self) that have an email address. */
+  public getEmailRecipientCandidates(): Member[] {
+    const meId = this.currentUser?.id;
+    const byId = new Map<string, Member>();
+
+    (this.allUsers || []).forEach(u => {
+      if (u?.id && u.id !== meId && u.addressEmail && u.addressEmail.trim()) {
+        byId.set(u.id, u);
+      }
+    });
+
+    // Also include friends (may be hidden from "all users" for non-admins)
+    (this.friends || []).forEach(friend => {
+      const other = this.getOtherUser(friend);
+      if (other?.id && other.id !== meId && other.addressEmail && other.addressEmail.trim()) {
+        byId.set(other.id, other);
+      }
+    });
+
+    return Array.from(byId.values()).sort((a, b) => {
+      const an = `${a.lastName || ''} ${a.firstName || ''}`.trim().toLowerCase();
+      const bn = `${b.lastName || ''} ${b.firstName || ''}`.trim().toLowerCase();
+      return an.localeCompare(bn);
+    });
+  }
+
+  public getFilteredEmailRecipients(): Member[] {
+    const q = (this.sendEmailRecipientFilter || '').trim().toLowerCase();
+    const list = this.getEmailRecipientCandidates();
+    if (!q) {
+      return list;
+    }
+    const filtered = list.filter(u => {
+      const hay = `${u.firstName || ''} ${u.lastName || ''} ${u.userName || ''} ${u.addressEmail || ''}`.toLowerCase();
+      return hay.includes(q);
+    });
+    // Keep current selection visible even when it does not match the filter
+    if (this.sendEmailRecipientId && !filtered.some(u => u.id === this.sendEmailRecipientId)) {
+      const selected = list.find(u => u.id === this.sendEmailRecipientId);
+      if (selected) {
+        return [selected, ...filtered];
+      }
+    }
+    return filtered;
+  }
+
+  public getSelectedEmailRecipient(): Member | undefined {
+    if (!this.sendEmailRecipientId) {
+      return undefined;
+    }
+    return this.getEmailRecipientCandidates().find(u => u.id === this.sendEmailRecipientId);
+  }
+
+  public submitSendEmail(): void {
+    const recipient = this.getSelectedEmailRecipient();
+    if (!recipient?.addressEmail) {
+      this.sendEmailError = 'FRIENDS.SEND_EMAIL_NO_RECIPIENT';
+      this.sendEmailSuccess = '';
+      return;
+    }
+    if (!this.sendEmailMessage || !this.sendEmailMessage.trim()) {
+      this.sendEmailError = 'FRIENDS.SEND_EMAIL_MESSAGE_REQUIRED';
+      this.sendEmailSuccess = '';
+      return;
+    }
+
+    this.sendEmailSending = true;
+    this.sendEmailError = '';
+    this.sendEmailSuccess = '';
+
+    this._friendsService.sendEmailToMember({
+      toMemberId: recipient.id,
+      toEmail: recipient.addressEmail,
+      subject: this.sendEmailSubject?.trim() || undefined,
+      message: this.sendEmailMessage.trim()
+    }).subscribe({
+      next: () => {
+        this.sendEmailSending = false;
+        this.sendEmailSuccess = 'FRIENDS.SEND_EMAIL_SUCCESS';
+        this.sendEmailMessage = '';
+        setTimeout(() => {
+          this.sendEmailModalRef?.close('sent');
+        }, 900);
+      },
+      error: (err) => {
+        this.sendEmailSending = false;
+        const apiError = err?.error?.error;
+        if (apiError === 'Recipient is not a PatTool user') {
+          this.sendEmailError = 'FRIENDS.SEND_EMAIL_NOT_PATTOOL';
+        } else if (apiError === 'Recipient has no valid email') {
+          this.sendEmailError = 'FRIENDS.SEND_EMAIL_NO_RECIPIENT';
+        } else if (apiError === 'Cannot send email to yourself') {
+          this.sendEmailError = 'FRIENDS.SEND_EMAIL_SELF';
+        } else if (apiError === 'Message is required') {
+          this.sendEmailError = 'FRIENDS.SEND_EMAIL_MESSAGE_REQUIRED';
+        } else {
+          this.sendEmailError = 'FRIENDS.SEND_EMAIL_ERROR';
+        }
+      }
+    });
   }
 
   /**

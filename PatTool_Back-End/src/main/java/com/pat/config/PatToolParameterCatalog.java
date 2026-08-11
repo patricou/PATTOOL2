@@ -253,6 +253,8 @@ public final class PatToolParameterCatalog {
                     def("app.stellarium.noctuasky-api-base", false),
                     def("app.stellarium.freegeoip-base", false),
                     def("app.stellarium.patool-viewer-base", false),
+                    def("app.eclipse.usno-api-base", false),
+                    def("app.eclipse.opale-api-base", false),
                     def("app.twelvedata.api-base", false),
                     defSensitive("app.twelvedata.api-key"),
                     def("app.coingecko.api-base", false),

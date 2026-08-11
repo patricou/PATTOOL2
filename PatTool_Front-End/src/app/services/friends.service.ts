@@ -612,6 +612,48 @@ export class FriendsService {
     }
 
     /**
+     * Send a free-text email to any registered PatTool member (server-side SMTP).
+     */
+    sendEmailToMember(payload: {
+        toMemberId?: string;
+        toEmail?: string;
+        subject?: string;
+        message: string;
+    }): Observable<{ message: string; toEmail?: string }> {
+        return from(this._keycloakService.getToken()).pipe(
+            map(token => {
+                return new HttpHeaders({
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                });
+            }),
+            switchMap(headers => {
+                const body: any = { message: payload.message };
+                if (payload.toMemberId) {
+                    body.toMemberId = payload.toMemberId;
+                }
+                if (payload.toEmail) {
+                    body.toEmail = payload.toEmail;
+                }
+                if (payload.subject && payload.subject.trim()) {
+                    body.subject = payload.subject.trim();
+                }
+                return this._http.post<{ message: string; toEmail?: string }>(
+                    this.API_URL + 'friends/send-email',
+                    body,
+                    { headers: headers }
+                ).pipe(
+                    catchError((error: any) => {
+                        console.error('Error sending email to member:', error);
+                        throw error;
+                    })
+                );
+            })
+        );
+    }
+
+    /**
      * Create a new friend group
      */
     createFriendGroup(name: string, memberIds: string[]): Observable<FriendGroup> {

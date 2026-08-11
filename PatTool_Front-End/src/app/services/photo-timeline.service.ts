@@ -62,6 +62,8 @@ export interface TimelineGroup {
     ratingMinus?: number;
     /** Linked to-do list when the activity has one (from timeline API). */
     linkedTodoListId?: string | null;
+    /** Linked note when the activity has one (from timeline API). */
+    linkedNoteId?: string | null;
     /** PDF converter drafts linked to this activity (from timeline API). */
     linkedPdfConverterDocuments?: Array<{
         id?: string;

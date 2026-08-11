@@ -74,6 +74,7 @@ export class EvenementsService {
 				evenement.notes
 			);
 			ev.linkedTodoListId = evenement.linkedTodoListId ?? null;
+			ev.linkedNoteId = evenement.linkedNoteId ?? null;
 			return ev;
 		};
 		const isEventAccessDenied = (err: any) => err?.error?.code === 'EVENT_ACCESS_DENIED';
@@ -493,6 +494,7 @@ export class EvenementsService {
 					parsed.notes
 				);
 				evenement.linkedTodoListId = parsed.linkedTodoListId ?? undefined;
+				evenement.linkedNoteId = parsed.linkedNoteId ?? undefined;
 				subject.next({
 					type: 'event',
 					data: evenement

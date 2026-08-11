@@ -226,6 +226,9 @@ opensky.client-secret=
 # app.stellarium.freegeoip-base=https://freegeoip.stellarium.org
 # Optional override when behind a reverse proxy (public URL of the viewer endpoint):
 # app.stellarium.patool-viewer-base=https://www.example.com/api/external/stellarium/viewer
+# Eclipse proxies (USNO + OPALE/IMCCE)
+# app.eclipse.usno-api-base=https://aa.usno.navy.mil/api
+# app.eclipse.opale-api-base=https://opale.imcce.fr/api/v1
 
 # --- Image cache (PatToolApplication) ---
 app.cache.persistence.restore-on-startup=true

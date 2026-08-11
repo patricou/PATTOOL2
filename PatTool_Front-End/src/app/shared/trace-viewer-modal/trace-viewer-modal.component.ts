@@ -254,6 +254,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private readonly destroy$ = new Subject<void>();
 	private modalRef?: NgbModalRef;
+	/** Bumped on each open so a dismissed modal's finalize cannot tear down the newer one. */
+	private modalGeneration = 0;
 	private gpxStatsModalRef?: NgbModalRef;
 	/** When set before `open()`, overrides default `NgbModal` options (e.g. attach into the globe div). */
 	private nextModalOptionsOverride: NgbModalOptions | null = null;
@@ -1309,6 +1311,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private open(source: TraceViewerSource): void {
+		// Invalidate any pending finalize from a previous modal before dismissing it.
+		const generation = ++this.modalGeneration;
 		this.dismissTraceViewerModalIfOpen();
 		this.resetState();
 		const label = source.titleLabel != null && source.titleLabel.trim().length > 0 ? source.titleLabel.trim() : '';
@@ -1357,6 +1361,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.registerMobileViewportListener();
 
 		const finalizeModal = () => {
+			// Ignore stale closed/dismissed from a modal that was replaced by a newer open().
+			if (generation !== this.modalGeneration) {
+				return;
+			}
 			this.resetModalState();
 		};
 
@@ -2309,6 +2317,33 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.cdr.detectChanges();
 	}
 
+	/** SVG pin (same shape as friends / selection) — avoids fragile default Leaflet PNG icons. */
+	private createPinDivIcon(fill: string, className: string): L.DivIcon {
+		return L.divIcon({
+			className,
+			html: `
+				<div style="width: 25px; height: 41px; position: relative;">
+					<svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+						<path d="M12.5 0C5.596 0 0 5.596 0 12.5c0 12.5 12.5 28.5 12.5 28.5s12.5-16 12.5-28.5C25 5.596 19.404 0 12.5 0z" fill="${fill}" stroke="#FFFFFF" stroke-width="1"/>
+						<circle cx="12.5" cy="12.5" r="5" fill="#FFFFFF"/>
+					</svg>
+				</div>
+			`,
+			iconSize: [25, 41],
+			iconAnchor: [12.5, 41],
+			popupAnchor: [0, -41]
+		});
+	}
+
+	private resolveLocationPinColor(): string {
+		if (this.eventColor) {
+			const { r, g, b } = this.eventColor;
+			const toHex = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
+			return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+		}
+		return '#0066FF';
+	}
+
 	private tryRenderPendingLocation(): void {
 		if (!this.map || !this.overlayLayer || !this.pendingLocation) {
 			return;
@@ -2319,7 +2354,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 
-		const { lat, lng, label } = this.pendingLocation;
+		const { lat, lng } = this.pendingLocation;
 		if (!isValidGeoCoordinate(lat, lng)) {
 			this.pendingLocation = null;
 			return;
@@ -2341,23 +2376,26 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 
-		// Normal mode: create standard marker
+		// Normal mode: SVG pin (photo / webcam / address position)
 		this.pendingLocation = null;
 
 		this.overlayLayer.clearLayers();
 		this.locationRecenterZoom = viewZoom;
 
-		const marker = L.marker([lat, lng]);
-		if (label && label.trim().length > 0) {
-			marker.on('click', (e: L.LeafletMouseEvent) => {
-				e.originalEvent?.stopPropagation();
-				L.DomEvent.stopPropagation(e);
-				if (e.originalEvent) {
-					L.DomEvent.preventDefault(e.originalEvent);
-				}
-				this.updateSwitchesForPoint(lat, lng);
-			});
-		}
+		const markerIcon = this.createPinDivIcon(this.resolveLocationPinColor(), 'custom-location-marker');
+		const marker = L.marker([lat, lng], {
+			icon: markerIcon,
+			zIndexOffset: 1000,
+			riseOnHover: true
+		});
+		marker.on('click', (e: L.LeafletMouseEvent) => {
+			e.originalEvent?.stopPropagation();
+			L.DomEvent.stopPropagation(e);
+			if (e.originalEvent) {
+				L.DomEvent.preventDefault(e.originalEvent);
+			}
+			this.updateSwitchesForPoint(lat, lng);
+		});
 		marker.addTo(this.overlayLayer);
 
 		this.trackBounds = L.latLngBounds([lat, lng], [lat, lng]);
@@ -2366,16 +2404,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		if (this.showAddress) {
 			this.showAddressInOverlay(lat, lng);
-		}
-
-		if (label && label.trim().length > 0) {
-			setTimeout(() => {
-				try {
-					marker.openPopup();
-				} catch {
-					// Ignore popup errors
-				}
-			}, 150);
 		}
 
 		this.trackStats = null;
@@ -2623,8 +2651,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.weatherStationMapLayer.detach();
 		this.clearStationSelection();
 		this.removeDeviceLocationMarker();
-		this.pendingTrackPoints = null;
-		this.pendingLocation = null;
+		// Do not clear pendingLocation / pendingPositions / pendingTrackPoints here:
+		// destroyMap can run from a stale modal finalize during reopen and would drop the pin to render.
 		this.selectionMarker = undefined;
 		this.clickMarker = undefined;
 		this.locationSelectionClickHandler = undefined;

@@ -59,6 +59,7 @@ import java.time.format.DateTimeFormatter;
             com.pat.repo.MembersRepository.class,
             com.pat.repo.NetworkDeviceMappingRepository.class,
             com.pat.repo.NewDeviceHistoryRepository.class,
+            com.pat.repo.NoteRepository.class,
             com.pat.repo.OdsEditorDocumentRepository.class,
             com.pat.repo.PdfConverterDocumentRepository.class,
             com.pat.repo.TodoListRepository.class,

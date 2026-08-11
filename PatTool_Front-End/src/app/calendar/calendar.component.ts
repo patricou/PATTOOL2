@@ -16,6 +16,7 @@ import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NgbActiveModal, NgbModal, NgbModalModule } from '@ng-bootstrap/ng-bootstrap';
 import { TodoListDetailOverlayService } from '../todolists/todo-list-detail-overlay.service';
+import { NoteDetailOverlayService } from '../notes/note-detail-overlay.service';
 import { FullCalendarComponent, FullCalendarModule } from '@fullcalendar/angular';
 import {
     CalendarOptions,
@@ -86,6 +87,8 @@ interface MobileCalendarEntryDetail {
     activityCanSendDetailsMail?: boolean;
     /** When a to-do list is linked to this calendar row (appointment or activity). */
     todoListId?: string | null;
+    /** When a note is linked to this calendar row. */
+    noteId?: string | null;
 }
 
 @Component({
@@ -138,6 +141,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     private evenementsService = inject(EvenementsService);
     private todoListService = inject(TodoListService);
     private todoListOverlay = inject(TodoListDetailOverlayService);
+    private noteOverlay = inject(NoteDetailOverlayService);
     private saintOfDayService = inject(SaintOfDayService);
 
     private thumbnailBlobUrls = new Map<string, string>();
@@ -169,6 +173,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     /** Libellés pour le rendu DOM natif des pastilles (évite le template Angular par événement). */
     calMongoEntryHint = '';
     calTodoListBtnHint = '';
+    calNotesBtnHint = '';
 
     calendarOptions!: CalendarOptions;
     errorMessage = '';
@@ -203,6 +208,8 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     /** Selected list id, or empty string for none. */
     appointmentLinkedTodoListId = '';
     appointmentLinkedTodoListIdInitial = '';
+    /** Linked note id on the appointment being edited (read-only open shortcut). */
+    appointmentLinkedNoteId = '';
 
     /** Accessible activities for linking a personal appointment to an event. */
     appointmentLinkableEvents: Evenement[] = [];
@@ -656,6 +663,36 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         }
         const open = (): void => {
             this.todoListOverlay.open(id);
+        };
+        if (parentModal && closeParent === 'close') {
+            parentModal.close();
+            setTimeout(open, 0);
+            return;
+        }
+        if (parentModal && closeParent === 'dismiss') {
+            parentModal.dismiss();
+            setTimeout(open, 0);
+            return;
+        }
+        open();
+    }
+
+    /**
+     * Opens the linked note in a modal above the calendar (no navigation).
+     */
+    openLinkedNotes(
+        noteId: string | null | undefined,
+        entryId?: string | null | undefined,
+        kind?: 'ACTIVITY' | 'APPOINTMENT' | string | null | undefined,
+        parentModal?: NgbActiveModal,
+        closeParent: 'close' | 'dismiss' | 'none' = 'none'
+    ): void {
+        const nid = (noteId || '').trim();
+        if (!nid) {
+            return;
+        }
+        const open = (): void => {
+            this.noteOverlay.open(nid);
         };
         if (parentModal && closeParent === 'close') {
             parentModal.close();
@@ -1346,6 +1383,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         this.formNotes = '';
         this.appointmentLinkedTodoListId = '';
         this.appointmentLinkedTodoListIdInitial = '';
+        this.appointmentLinkedNoteId = '';
         this.appointmentLinkedEvenementId = '';
         this.resetAppointmentVisibilityForm();
         this.appointmentCanEdit = true;
@@ -1518,6 +1556,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         }
         this.mobileEntryClickArg = arg;
         const extTodo = String(arg.event.extendedProps?.['todoListId'] ?? '').trim();
+        const extNote = String(arg.event.extendedProps?.['noteId'] ?? '').trim();
         this.mobileEntryDetail = {
             kind,
             kindI18nKey,
@@ -1526,7 +1565,8 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
             detailText,
             appointmentCanSendReminder,
             activityCanSendDetailsMail,
-            todoListId: extTodo || null
+            todoListId: extTodo || null,
+            noteId: extNote || null
         };
         this.cdr.markForCheck();
         const ref = this.modal.open(this.mobileEntryDetailModal, {
@@ -1600,6 +1640,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
                 const tl = String(ext['todoListId'] ?? '').trim();
                 this.appointmentLinkedTodoListId = tl;
                 this.appointmentLinkedTodoListIdInitial = tl;
+                this.appointmentLinkedNoteId = String(ext['noteId'] ?? '').trim();
                 this.appointmentLinkedEvenementId = String(ext['evenementId'] ?? '').trim();
                 this.appointmentCanEdit =
                     this.currentMemberId.length > 0 && owner.length > 0 && owner === this.currentMemberId;
@@ -1622,6 +1663,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         this.formNotes = '';
         this.appointmentLinkedTodoListId = '';
         this.appointmentLinkedTodoListIdInitial = '';
+        this.appointmentLinkedNoteId = '';
         this.appointmentLinkedEvenementId = '';
         this.resetAppointmentVisibilityForm();
         this.appointmentCanEdit = true;
@@ -1760,6 +1802,11 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
                 ext['todoListId'] = (e.todoListId || '').trim();
             } else {
                 ext['todoListId'] = null;
+            }
+            if ((e.noteId || '').trim()) {
+                ext['noteId'] = (e.noteId || '').trim();
+            } else {
+                ext['noteId'] = null;
             }
             if (e.kind === 'APPOINTMENT' && (e.evenementId || '').trim()) {
                 ext['evenementId'] = (e.evenementId || '').trim();
@@ -2156,6 +2203,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     private refreshCalendarEventUiStrings(): void {
         this.calMongoEntryHint = this.translate.instant('CALENDAR.MONGODB_ENTRY_HINT');
         this.calTodoListBtnHint = this.translate.instant('EVENTELEM.TODO_LIST_BUTTON_HINT');
+        this.calNotesBtnHint = this.translate.instant('EVENTELEM.NOTES_BUTTON_HINT');
     }
 
     /** @returns token to match against {@link onCalendarEventsSet} after paint. */
@@ -2375,6 +2423,24 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
             root.appendChild(btn);
         }
 
+        const noteId = String(ext['noteId'] ?? '').trim();
+        if (this.isAuthenticated() && noteId) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className =
+                'fc-event-note-link flex-shrink-0 ms-1 text-decoration-none bg-transparent border-0';
+            btn.title = this.calNotesBtnHint;
+            btn.setAttribute('aria-label', this.calNotesBtnHint);
+            btn.dataset['noteId'] = noteId;
+            btn.dataset['entryId'] = String(ev.id || '');
+            btn.dataset['kind'] = String(ext['kind'] ?? '');
+            const noteIcon = document.createElement('i');
+            noteIcon.className = 'fa fa-sticky-note';
+            noteIcon.setAttribute('aria-hidden', 'true');
+            btn.appendChild(noteIcon);
+            root.appendChild(btn);
+        }
+
         return { domNodes: [root] };
     }
 
@@ -2383,20 +2449,34 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         if (kind === 'ACTIVITY' || kind === 'APPOINTMENT') {
             this.tryCompleteCalendarEntriesPaint();
         }
-        const btn = arg.el.querySelector('.fc-event-todolist-link') as HTMLButtonElement | null;
-        if (!btn || btn.dataset['patBound'] === '1') {
-            return;
+        const todoBtn = arg.el.querySelector('.fc-event-todolist-link') as HTMLButtonElement | null;
+        if (todoBtn && todoBtn.dataset['patBound'] !== '1') {
+            const listId = (todoBtn.dataset['todoListId'] || '').trim();
+            if (listId) {
+                todoBtn.dataset['patBound'] = '1';
+                todoBtn.addEventListener('click', (e: MouseEvent) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    this.openTodoListOverlay(listId);
+                });
+            }
         }
-        const listId = (btn.dataset['todoListId'] || '').trim();
-        if (!listId) {
-            return;
+        const noteBtn = arg.el.querySelector('.fc-event-note-link') as HTMLButtonElement | null;
+        if (noteBtn && noteBtn.dataset['patBound'] !== '1') {
+            const noteId = (noteBtn.dataset['noteId'] || '').trim();
+            if (noteId) {
+                noteBtn.dataset['patBound'] = '1';
+                noteBtn.addEventListener('click', (e: MouseEvent) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    this.openLinkedNotes(
+                        noteId,
+                        noteBtn.dataset['entryId'] || arg.event.id,
+                        noteBtn.dataset['kind'] || kind
+                    );
+                });
+            }
         }
-        btn.dataset['patBound'] = '1';
-        btn.addEventListener('click', (e: MouseEvent) => {
-            e.stopPropagation();
-            e.preventDefault();
-            this.openTodoListOverlay(listId);
-        });
     }
 
     private loadFriendGroupsForCalendar(): void {

@@ -27,6 +27,9 @@ public class RestTemplateConfig {
     /** Open data électricité (ODRÉ, EDF, GeoNuclearData) — réponses parfois lentes. */
     public static final String ELECTRICITY_REST_TEMPLATE = "electricityRestTemplate";
 
+    /** USNO + OPALE eclipses — OPALE year payloads can be multi-MB JSON. */
+    public static final String ECLIPSE_REST_TEMPLATE = "eclipseRestTemplate";
+
 
     /**
      * Client HTTP court pour proxies et API externes (échec rapide si indisponible).
@@ -83,6 +86,14 @@ public class RestTemplateConfig {
         return builder
                 .setConnectTimeout(Duration.ofSeconds(5))
                 .setReadTimeout(Duration.ofSeconds(20))
+                .build();
+    }
+
+    @Bean(ECLIPSE_REST_TEMPLATE)
+    public RestTemplate eclipseRestTemplate(RestTemplateBuilder builder) {
+        return builder
+                .setConnectTimeout(Duration.ofSeconds(5))
+                .setReadTimeout(Duration.ofSeconds(60))
                 .build();
     }
 

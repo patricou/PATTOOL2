@@ -25,6 +25,7 @@ import { EvenementsService } from '../../services/evenements.service';
 import { MembersService } from '../../services/members.service';
 import { AssistantLaunchService, ASSISTANT_EVENT_ELEMENT_LAUNCH_ROUTING } from '../../services/assistant-launch.service';
 import { TodoListDetailOverlayService } from '../../todolists/todo-list-detail-overlay.service';
+import { NoteDetailOverlayService } from '../../notes/note-detail-overlay.service';
 import { FileService, ImageDownloadResult } from '../../services/file.service';
 import { UploadConfigService } from '../../services/upload-config.service';
 import { WindowRefService } from '../../services/window-ref.service';
@@ -379,6 +380,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     private addToDbLayer: AddToDbLayerService,
     private assistantLaunch: AssistantLaunchService,
     private todoListOverlay: TodoListDetailOverlayService,
+    private noteOverlay: NoteDetailOverlayService,
     private odsEditorLaunch: OdsEditorLaunchService
   ) {
     this.nativeWindow = winRef.getNativeWindow();
@@ -3734,6 +3736,19 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     if (id) {
       this.todoListOverlay.open(id);
     }
+  }
+
+  public hasLinkedNote(): boolean {
+    const raw = this.evenement?.linkedNoteId;
+    return !!raw && String(raw).trim().length > 0;
+  }
+
+  public openLinkedNotes(): void {
+    const noteId = (this.evenement?.linkedNoteId || '').trim();
+    if (!noteId) {
+      return;
+    }
+    this.noteOverlay.open(noteId);
   }
 
   public getLinkedPdfConverterDocuments(): PdfConverterDocumentLink[] {

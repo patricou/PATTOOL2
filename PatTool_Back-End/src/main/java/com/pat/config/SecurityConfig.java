@@ -327,6 +327,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/external/media/catalog-cache/**").permitAll()
                 // Stellarium Web — sky map viewer + Noctua Sky catalogue proxy (read-only)
                 .requestMatchers(HttpMethod.GET, "/api/external/stellarium/**").permitAll()
+                // Éclipses — USNO + OPALE/IMCCE (lecture seule, données publiques)
+                .requestMatchers(HttpMethod.GET, "/api/external/eclipse/**").permitAll()
                 // Tirages Loto importés (lecture seule, données publiques d'archive)
                 .requestMatchers(HttpMethod.GET, "/api/loto/**").permitAll()
                 // Sync Loto (scraping) — réservé aux administrateurs

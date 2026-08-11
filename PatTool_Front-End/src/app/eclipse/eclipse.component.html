@@ -1,0 +1,484 @@
+<div class="pat-title">
+  <h2>
+    <i class="fa fa-moon-o me-2"></i>
+    {{ 'ECLIPSE.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="eclipse-page">
+  <p class="text-muted small mb-3">
+    {{ 'ECLIPSE.SUBTITLE' | translate }}
+  </p>
+
+  <div *ngIf="errorMessage" class="alert alert-warning d-flex align-items-center" role="alert">
+    <i class="fa fa-exclamation-triangle me-2"></i>
+    <span>{{ errorMessage | translate }}</span>
+  </div>
+
+  <div class="eclipse-stack d-flex flex-column">
+  <!-- Location form: always below the player -->
+  <div class="order-2">
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-6 col-md-2">
+          <label class="form-label small">{{ 'ECLIPSE.YEAR' | translate }}</label>
+          <input type="number" class="form-control form-control-sm" min="1800" max="2050" [(ngModel)]="year" />
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small">{{ 'ECLIPSE.LAT' | translate }}</label>
+          <input type="number" class="form-control form-control-sm" step="any" min="-90" max="90"
+                 [(ngModel)]="lat" (ngModelChange)="onCoordsChange()" />
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small">{{ 'ECLIPSE.LON' | translate }}</label>
+          <input type="number" class="form-control form-control-sm" step="any" min="-180" max="180"
+                 [(ngModel)]="lon" (ngModelChange)="onCoordsChange()" />
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label small">{{ 'ECLIPSE.HEIGHT' | translate }}</label>
+          <input type="number" class="form-control form-control-sm" step="1"
+                 [(ngModel)]="height" (ngModelChange)="onHeightChange()" />
+        </div>
+        <div class="col-12 col-md-4 d-flex flex-wrap gap-2">
+          <button type="button" class="btn btn-primary btn-sm" (click)="reloadAll()"
+                  [disabled]="loadingUsno || loadingOpale">
+            <i class="fa fa-refresh me-1" [class.fa-spin]="loadingUsno || loadingOpale"></i>
+            {{ 'ECLIPSE.LOAD' | translate }}
+          </button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="useMyLocation()">
+            <i class="fa fa-crosshairs me-1"></i>
+            {{ 'ECLIPSE.USE_MY_LOCATION' | translate }}
+          </button>
+          <button type="button" class="btn btn-outline-primary btn-sm" (click)="openTraceViewerForSelection()">
+            <i class="fa fa-map me-1"></i>
+            {{ 'ECLIPSE.MAP_PICK' | translate }}
+          </button>
+          <button type="button" class="btn btn-success btn-sm" (click)="checkVisibility()"
+                  [disabled]="loadingVisibility">
+            <i class="fa fa-eye me-1" [class.fa-spin]="loadingVisibility"></i>
+            {{ 'ECLIPSE.CHECK_VISIBILITY' | translate }}
+          </button>
+        </div>
+      </div>
+      <p class="small text-muted mt-2 mb-1">{{ 'ECLIPSE.LOCATION_HINT' | translate }}</p>
+      <div class="eclipse-address small">
+        <span class="text-muted">{{ 'ECLIPSE.ADDRESS' | translate }}:</span>
+        <span *ngIf="loadingAddress" class="ms-1 text-muted">
+          <i class="fa fa-spinner fa-spin me-1"></i>{{ 'ECLIPSE.ADDRESS_LOADING' | translate }}
+        </span>
+        <strong *ngIf="!loadingAddress && placeLabel" class="ms-1">{{ placeLabel }}</strong>
+        <span *ngIf="!loadingAddress && !placeLabel" class="ms-1 text-muted">
+          {{ 'ECLIPSE.ADDRESS_UNKNOWN' | translate }}
+        </span>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <!-- Player: always first -->
+  <div class="order-1">
+  <div class="card shadow-sm mb-3 eclipse-player-card">
+    <div class="card-body">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+        <h5 class="card-title mb-0">
+          <i class="fa fa-play-circle me-1"></i>
+          {{ 'ECLIPSE.PLAYER_TITLE' | translate }}
+        </h5>
+        <div class="btn-group btn-group-sm" role="group">
+          <button type="button" class="btn"
+                  [class.btn-warning]="playerMode === 'solar'"
+                  [class.btn-outline-secondary]="playerMode !== 'solar'"
+                  (click)="setPlayerMode('solar')">
+            {{ 'ECLIPSE.PLAYER_SOLAR' | translate }}
+          </button>
+          <button type="button" class="btn"
+                  [class.btn-secondary]="playerMode === 'lunar'"
+                  [class.btn-outline-secondary]="playerMode !== 'lunar'"
+                  (click)="setPlayerMode('lunar')">
+            {{ 'ECLIPSE.PLAYER_LUNAR' | translate }}
+          </button>
+        </div>
+      </div>
+      <p class="small text-muted mb-2">{{ 'ECLIPSE.PLAYER_HINT' | translate }}</p>
+
+      <div class="row g-2">
+        <div class="col-12 col-xl-8">
+          <div class="eclipse-canvas-wrap">
+            <canvas #eclipseCanvas class="eclipse-canvas" width="960" height="600"></canvas>
+          </div>
+        </div>
+        <div class="col-12 col-xl-4">
+          <div class="row g-2 align-items-end mb-2">
+            <div class="col-12">
+              <label class="form-label small">{{ 'ECLIPSE.SIM_DATETIME' | translate }}</label>
+              <input type="datetime-local" class="form-control form-control-sm"
+                     [(ngModel)]="simDateLocal" (ngModelChange)="onSimDateChange()" />
+            </div>
+            <div class="col-6">
+              <label class="form-label small">{{ 'ECLIPSE.PLAY_SPEED' | translate }}</label>
+              <select class="form-select form-select-sm" [(ngModel)]="playSpeedMinPerSec">
+                <option [ngValue]="1">1 min/s</option>
+                <option [ngValue]="5">5 min/s</option>
+                <option [ngValue]="15">15 min/s</option>
+                <option [ngValue]="60">1 h/s</option>
+                <option [ngValue]="360">6 h/s</option>
+              </select>
+            </div>
+            <div class="col-12 d-flex flex-wrap gap-1">
+              <button type="button" class="btn btn-sm btn-outline-secondary" (click)="stepMinutes(-15)">-15</button>
+              <button type="button" class="btn btn-sm btn-primary" (click)="togglePlay()">
+                <i class="fa" [class.fa-play]="!playing" [class.fa-pause]="playing"></i>
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" (click)="stepMinutes(15)">+15</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" (click)="jumpToNow()">
+                {{ 'ECLIPSE.NOW' | translate }}
+              </button>
+              <button type="button" class="btn btn-sm btn-warning"
+                      (click)="jumpToNextEclipse()"
+                      [disabled]="!hasNextEclipseTarget()">
+                <i class="fa fa-moon-o me-1"></i>{{ 'ECLIPSE.JUMP_NEXT' | translate }}
+              </button>
+            </div>
+          </div>
+
+          <div *ngIf="snapshot as s" class="small eclipse-sky-stats">
+            <div><span class="text-muted">{{ 'ECLIPSE.SEP' | translate }}:</span> {{ s.separationDeg | number:'1.3-3' }}°</div>
+            <div><span class="text-muted">{{ 'ECLIPSE.SUN_RAD' | translate }}:</span> {{ s.sunRadiusDeg | number:'1.3-3' }}°</div>
+            <div><span class="text-muted">{{ 'ECLIPSE.MOON_RAD' | translate }}:</span> {{ s.moonRadiusDeg | number:'1.3-3' }}°</div>
+            <div *ngIf="playerMode === 'solar'">
+              <span class="text-muted">{{ 'ECLIPSE.OBSCURATION' | translate }} ≈</span>
+              {{ s.obscurationApprox | number:'1.1-1' }} %
+              · {{ 'ECLIPSE.MAGNITUDE' | translate }} ≈ {{ s.magnitudeApprox | number:'1.2-3' }}
+            </div>
+            <div>
+              <span class="text-muted">☀ {{ 'ECLIPSE.ALT' | translate }}:</span> {{ s.sunAlt | number:'1.1-1' }}°
+              · <span class="text-muted">{{ 'ECLIPSE.AZ' | translate }}:</span> {{ s.sunAz | number:'1.1-1' }}°
+              <span *ngIf="!s.sunUp" class="badge bg-secondary ms-1">{{ 'ECLIPSE.BELOW_HORIZON' | translate }}</span>
+            </div>
+            <div>
+              <span class="text-muted">☾ {{ 'ECLIPSE.ALT' | translate }}:</span> {{ s.moonAlt | number:'1.1-1' }}°
+              · <span class="text-muted">{{ 'ECLIPSE.AZ' | translate }}:</span> {{ s.moonAz | number:'1.1-1' }}°
+              <span *ngIf="!s.moonUp" class="badge bg-secondary ms-1">{{ 'ECLIPSE.BELOW_HORIZON' | translate }}</span>
+            </div>
+            <div *ngIf="playerMode === 'lunar'">
+              <span class="text-muted">{{ 'ECLIPSE.MOON_PHASE' | translate }}:</span> {{ s.moonPhaseDeg | number:'1.1-1' }}°
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <!-- Visibility -->
+  <div class="order-3">
+  <div class="card shadow-sm mb-3 eclipse-visibility-card">
+    <div class="card-body">
+      <h5 class="card-title mb-2">
+        <i class="fa fa-map-marker me-1"></i>
+        {{ 'ECLIPSE.VISIBILITY_TITLE' | translate }}
+      </h5>
+      <p class="small text-muted">{{ 'ECLIPSE.VISIBILITY_HINT' | translate }}</p>
+
+      <div *ngIf="loadingVisibility" class="text-muted small py-2">
+        <i class="fa fa-spinner fa-spin me-1"></i>{{ 'ECLIPSE.VISIBILITY_LOADING' | translate }}
+      </div>
+
+      <ng-container *ngIf="!loadingVisibility && visibility as vis">
+        <div *ngIf="vis.current as cur" class="alert alert-success mb-3">
+          <div class="fw-semibold mb-1">
+            <i class="fa fa-check-circle me-1"></i>
+            {{ 'ECLIPSE.VISIBLE_NOW' | translate }}
+          </div>
+          <div>{{ cur.event || cur.date }}</div>
+          <div class="mt-1">
+            <span class="badge bg-dark me-1">{{ visibilityTypeKey(cur.visibilityType) | translate }}</span>
+            <span *ngIf="obscurationLabel(cur)" class="badge bg-primary me-1">
+              {{ 'ECLIPSE.OBSCURATION' | translate }}: {{ obscurationLabel(cur) }}
+            </span>
+            <span *ngIf="cur.magnitude != null" class="badge bg-secondary">
+              {{ 'ECLIPSE.MAGNITUDE' | translate }}: {{ cur.magnitude | number:'1.2-3' }}
+            </span>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-success mt-2" (click)="jumpPlayerToEvent(cur)">
+            <i class="fa fa-play me-1"></i>{{ 'ECLIPSE.JUMP_PLAYER' | translate }}
+          </button>
+        </div>
+
+        <div *ngIf="!vis.current && vis.next as nxt" class="eclipse-next-box mb-3">
+          <div class="fw-semibold mb-1">
+            <i class="fa fa-clock-o me-1"></i>
+            {{ 'ECLIPSE.NEXT_VISIBLE' | translate }}
+          </div>
+          <div class="fs-5 mb-1">{{ nxt.event || nxt.date }}</div>
+          <div class="mb-2">
+            <span class="badge bg-dark me-1">{{ visibilityTypeKey(nxt.visibilityType) | translate }}</span>
+            <span *ngIf="obscurationLabel(nxt)" class="badge bg-primary me-1">
+              {{ 'ECLIPSE.OBSCURATION' | translate }}: {{ obscurationLabel(nxt) }}
+            </span>
+            <span *ngIf="nxt.magnitude != null" class="badge bg-secondary">
+              {{ 'ECLIPSE.MAGNITUDE' | translate }}: {{ nxt.magnitude | number:'1.2-3' }}
+            </span>
+          </div>
+          <div class="eclipse-countdown">
+            {{ 'ECLIPSE.TIME_UNTIL' | translate }}:
+            <strong>{{ formatCountdown(nxt) }}</strong>
+            <span class="text-muted small ms-2">({{ nxt.daysUntil }} {{ 'ECLIPSE.DAYS' | translate }})</span>
+          </div>
+          <div class="small text-muted mt-1" *ngIf="nxt.description">{{ nxt.description }}</div>
+          <button type="button" class="btn btn-sm btn-outline-primary mt-2" (click)="jumpPlayerToEvent(nxt)">
+            <i class="fa fa-play me-1"></i>{{ 'ECLIPSE.JUMP_PLAYER' | translate }}
+          </button>
+        </div>
+
+        <div *ngIf="!vis.current && !vis.next" class="alert alert-secondary mb-3">
+          {{ 'ECLIPSE.NONE_VISIBLE' | translate }}
+        </div>
+
+        <div *ngIf="vis.upcoming?.length" class="mb-2">
+          <div class="small fw-semibold mb-1">{{ 'ECLIPSE.UPCOMING' | translate }}</div>
+          <ul class="list-group list-group-flush eclipse-list">
+            <li *ngFor="let u of vis.upcoming" class="list-group-item list-group-item-action py-2 px-0"
+                (click)="jumpPlayerToEvent(u)">
+              <div class="d-flex flex-wrap justify-content-between gap-2">
+                <span>{{ u.date }} — {{ visibilityTypeKey(u.visibilityType) | translate }}</span>
+                <span class="small text-muted">
+                  <span *ngIf="obscurationLabel(u)">{{ obscurationLabel(u) }}</span>
+                  · {{ formatCountdown(u) }}
+                </span>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <div *ngIf="vis.nextLunar as lunar" class="small text-muted border-top pt-2 mt-2">
+          <i class="fa fa-moon-o me-1"></i>
+          {{ 'ECLIPSE.NEXT_LUNAR' | translate }}:
+          <strong>{{ lunar.date }}</strong>
+          <span *ngIf="lunar.type"> ({{ lunar.type }})</span>
+          <span *ngIf="lunar.magnitude != null"> · {{ 'ECLIPSE.MAGNITUDE' | translate }} {{ lunar.magnitude | number:'1.2-3' }}</span>
+          · {{ formatCountdown(lunar) }}
+          <button type="button" class="btn btn-link btn-sm p-0 ms-2" (click)="jumpPlayerToEvent(lunar)">
+            {{ 'ECLIPSE.JUMP_PLAYER' | translate }}
+          </button>
+        </div>
+
+        <button type="button" class="btn btn-link btn-sm px-0 mt-2" (click)="showRawVisibility = !showRawVisibility">
+          {{ (showRawVisibility ? 'ECLIPSE.HIDE_RAW' : 'ECLIPSE.SHOW_RAW') | translate }}
+        </button>
+        <pre *ngIf="showRawVisibility" class="eclipse-raw">{{ visibility | json }}</pre>
+      </ng-container>
+    </div>
+  </div>
+  </div>
+
+  <div class="order-4">
+  <div class="row g-3">
+    <!-- USNO -->
+    <div class="col-12 col-xl-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <h5 class="card-title">
+            <i class="fa fa-sun-o me-1"></i>
+            {{ 'ECLIPSE.USNO_TITLE' | translate }}
+          </h5>
+          <p class="small text-muted">{{ 'ECLIPSE.USNO_HINT' | translate }}</p>
+
+          <div *ngIf="loadingUsno" class="text-muted small py-3">
+            <i class="fa fa-spinner fa-spin me-1"></i>{{ 'ECLIPSE.LOADING' | translate }}
+          </div>
+
+          <ul *ngIf="!loadingUsno && usnoYear?.eclipses_in_year?.length" class="list-group list-group-flush eclipse-list mb-3">
+            <li *ngFor="let e of usnoYear?.eclipses_in_year"
+                class="list-group-item list-group-item-action py-2"
+                [class.active]="selectedUsnoDate === usnoItemDate(e)"
+                (click)="selectUsnoEclipse(e.day, e.month, e.year)">
+              <div class="fw-semibold">{{ e.event }}</div>
+              <div class="small opacity-75">{{ usnoItemDate(e) }}</div>
+            </li>
+          </ul>
+          <p *ngIf="!loadingUsno && !usnoYear?.eclipses_in_year?.length" class="text-muted small">
+            {{ 'ECLIPSE.EMPTY' | translate }}
+          </p>
+
+          <button type="button" class="btn btn-link btn-sm px-0" (click)="showRawUsnoYear = !showRawUsnoYear"
+                  [disabled]="!usnoYear">
+            {{ (showRawUsnoYear ? 'ECLIPSE.HIDE_RAW' : 'ECLIPSE.SHOW_RAW') | translate }} (year)
+          </button>
+          <pre *ngIf="showRawUsnoYear" class="eclipse-raw">{{ usnoYear | json }}</pre>
+
+          <div *ngIf="loadingDetail && selectedUsnoDate" class="text-muted small">
+            <i class="fa fa-spinner fa-spin me-1"></i>{{ 'ECLIPSE.LOADING_DETAIL' | translate }}
+          </div>
+
+          <div *ngIf="usnoLocal?.properties" class="eclipse-detail">
+            <h6 class="mb-2">{{ 'ECLIPSE.LOCAL_CIRCUMSTANCES' | translate }} — {{ selectedUsnoDate }}</h6>
+            <div class="table-responsive mb-2">
+              <table class="table table-sm table-striped mb-0">
+                <tbody>
+                  <tr *ngFor="let p of usnoPropertyEntries()">
+                    <td class="text-muted text-nowrap">{{ p.key }}</td>
+                    <td class="text-break">{{ formatValue(p.value) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-responsive" *ngIf="usnoLocalData().length">
+              <table class="table table-sm table-striped mb-0">
+                <thead>
+                  <tr>
+                    <th *ngFor="let col of objectEntries(usnoLocalData()[0])">{{ col.key }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of usnoLocalData()">
+                    <td *ngFor="let col of objectEntries(row)">{{ formatValue(col.value) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div *ngIf="usnoLocal?.geometry" class="mt-2">
+              <div class="small fw-semibold">geometry</div>
+              <pre class="eclipse-raw mb-0">{{ usnoLocal?.geometry | json }}</pre>
+            </div>
+            <button type="button" class="btn btn-link btn-sm px-0" (click)="showRawUsnoLocal = !showRawUsnoLocal">
+              {{ (showRawUsnoLocal ? 'ECLIPSE.HIDE_RAW' : 'ECLIPSE.SHOW_RAW') | translate }} (local)
+            </button>
+            <pre *ngIf="showRawUsnoLocal" class="eclipse-raw">{{ usnoLocal | json }}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPALE -->
+    <div class="col-12 col-xl-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <h5 class="card-title">
+            <i class="fa fa-globe me-1"></i>
+            {{ 'ECLIPSE.OPALE_TITLE' | translate }}
+          </h5>
+          <p class="small text-muted">{{ 'ECLIPSE.OPALE_HINT' | translate }}</p>
+
+          <div *ngIf="loadingOpale" class="text-muted small py-3">
+            <i class="fa fa-spinner fa-spin me-1"></i>{{ 'ECLIPSE.LOADING' | translate }}
+          </div>
+
+          <ng-container *ngIf="!loadingOpale">
+            <h6 class="mt-1">{{ 'ECLIPSE.SOLAR' | translate }}</h6>
+            <ul *ngIf="opaleSolar?.eclipses?.length; else emptySolar" class="list-group list-group-flush eclipse-list mb-2">
+              <li *ngFor="let e of opaleSolar?.eclipses"
+                  class="list-group-item list-group-item-action py-2"
+                  [class.active]="selectedOpaleBody === 10 && selectedOpaleDate === e.calendarDate"
+                  (click)="selectOpaleEclipse(10, e.calendarDate!)">
+                <div class="fw-semibold">{{ e.type || e.calendarDate }}</div>
+                <div class="small opacity-75">
+                  {{ e.calendarDate }}
+                  <span *ngIf="e.magnitude != null"> · {{ 'ECLIPSE.MAGNITUDE' | translate }} {{ e.magnitude | number:'1.2-3' }}</span>
+                </div>
+              </li>
+            </ul>
+            <ng-template #emptySolar>
+              <p class="text-muted small">{{ 'ECLIPSE.EMPTY' | translate }}</p>
+            </ng-template>
+            <button type="button" class="btn btn-link btn-sm px-0 mb-2" (click)="showRawOpaleSolar = !showRawOpaleSolar"
+                    [disabled]="!opaleSolar">
+              {{ (showRawOpaleSolar ? 'ECLIPSE.HIDE_RAW' : 'ECLIPSE.SHOW_RAW') | translate }} (solar year)
+            </button>
+            <pre *ngIf="showRawOpaleSolar" class="eclipse-raw">{{ opaleSolar | json }}</pre>
+
+            <h6>{{ 'ECLIPSE.LUNAR' | translate }}</h6>
+            <ul *ngIf="opaleLunar?.eclipses?.length; else emptyLunar" class="list-group list-group-flush eclipse-list mb-2">
+              <li *ngFor="let e of opaleLunar?.eclipses"
+                  class="list-group-item list-group-item-action py-2"
+                  [class.active]="selectedOpaleBody === 301 && selectedOpaleDate === e.calendarDate"
+                  (click)="selectOpaleEclipse(301, e.calendarDate!)">
+                <div class="fw-semibold">{{ e.type || e.calendarDate }}</div>
+                <div class="small opacity-75">
+                  {{ e.calendarDate }}
+                  <span *ngIf="e.magnitude != null"> · {{ 'ECLIPSE.MAGNITUDE' | translate }} {{ e.magnitude | number:'1.2-3' }}</span>
+                </div>
+              </li>
+            </ul>
+            <ng-template #emptyLunar>
+              <p class="text-muted small">{{ 'ECLIPSE.EMPTY' | translate }}</p>
+            </ng-template>
+            <button type="button" class="btn btn-link btn-sm px-0" (click)="showRawOpaleLunar = !showRawOpaleLunar"
+                    [disabled]="!opaleLunar">
+              {{ (showRawOpaleLunar ? 'ECLIPSE.HIDE_RAW' : 'ECLIPSE.SHOW_RAW') | translate }} (lunar year)
+            </button>
+            <pre *ngIf="showRawOpaleLunar" class="eclipse-raw">{{ opaleLunar | json }}</pre>
+          </ng-container>
+
+          <div *ngIf="loadingDetail && selectedOpaleDate" class="text-muted small">
+            <i class="fa fa-spinner fa-spin me-1"></i>{{ 'ECLIPSE.LOADING_DETAIL' | translate }}
+          </div>
+
+          <div *ngIf="opaleDay?.eclipses?.length" class="eclipse-detail">
+            <h6 class="mb-2">
+              {{ 'ECLIPSE.DETAIL' | translate }} —
+              {{ selectedOpaleBody === 10 ? ('ECLIPSE.SOLAR' | translate) : ('ECLIPSE.LUNAR' | translate) }}
+              {{ selectedOpaleDate }}
+            </h6>
+            <div *ngFor="let eclipse of opaleDay?.eclipses" class="mb-3">
+              <div class="table-responsive mb-2">
+                <table class="table table-sm table-striped mb-0">
+                  <tbody>
+                    <ng-container *ngFor="let p of objectEntries(eclipse)">
+                      <tr *ngIf="p.key !== 'events'">
+                        <td class="text-muted text-nowrap">{{ p.key }}</td>
+                        <td class="text-break">{{ formatValue(p.value) }}</td>
+                      </tr>
+                    </ng-container>
+                  </tbody>
+                </table>
+              </div>
+              <div class="table-responsive" *ngIf="opaleEventEntries(eclipse).length">
+                <table class="table table-sm table-striped mb-0">
+                  <thead>
+                    <tr>
+                      <th>{{ 'ECLIPSE.PHENOMENON' | translate }}</th>
+                      <th>{{ 'ECLIPSE.TIME_UT' | translate }}</th>
+                      <th>{{ 'ECLIPSE.DETAIL' | translate }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let ev of opaleEventEntries(eclipse)">
+                      <td>{{ ev.key }}</td>
+                      <td>{{ ev.date || '—' }}</td>
+                      <td class="small text-break">{{ formatValue(ev.value) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div *ngIf="opaleDay?.request" class="mb-2">
+              <div class="small fw-semibold">request</div>
+              <pre class="eclipse-raw mb-0">{{ opaleDay?.request | json }}</pre>
+            </div>
+            <button type="button" class="btn btn-link btn-sm px-0" (click)="showRawOpaleDay = !showRawOpaleDay">
+              {{ (showRawOpaleDay ? 'ECLIPSE.HIDE_RAW' : 'ECLIPSE.SHOW_RAW') | translate }} (day)
+            </button>
+            <pre *ngIf="showRawOpaleDay" class="eclipse-raw">{{ opaleDay | json }}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <p class="small text-muted mt-3 mb-0">
+    {{ 'ECLIPSE.CREDIT' | translate }}
+    <a href="https://aa.usno.navy.mil/data/api" target="_blank" rel="noopener noreferrer">USNO</a>
+    ·
+    <a href="https://opale.imcce.fr/" target="_blank" rel="noopener noreferrer">OPALE / IMCCE</a>
+    · astronomy-engine
+  </p>
+  </div>
+</div>
+
+<app-trace-viewer-modal
+  #traceViewerModalComponent
+  (locationSelected)="onLocationSelected($event)">
+</app-trace-viewer-modal>

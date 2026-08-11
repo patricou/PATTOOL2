@@ -13,10 +13,10 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ApiService, TvChannel } from '../services/api.service';
 import { TvPlayerService } from '../services/tv-player.service';
 import {
-  isArteLiveVirtual,
   isArteReplayVod,
   internetArchiveIdFromVirtualUrl,
   isCanalGroupVirtual,
+  isCapTerreChannel,
   isFranceTvVirtual,
   isInternetArchiveVirtual,
   isKeepAliveVirtualLive,
@@ -26,7 +26,8 @@ import {
   isRtsVirtual,
   isTf1Virtual,
   needsProactiveTokenRenewal,
-  resolveTvStreamUrl
+  resolveTvStreamUrl,
+  shouldSkipTvLiveEdgeWatchdog
 } from './tv-stream.util';
 import { formatTvPlayErrorDisplay } from './tv-stream-error.util';
 import { startTvHlsPlayback, TvHlsPlaybackHandle } from './tv-hls-playback';
@@ -509,9 +510,8 @@ export class TvPopoutComponent implements OnInit, OnDestroy {
         vod: isArteReplayVod(streamUrl),
         progressive,
         channelLabel: channel.name,
-        skipLiveEdgeWatchdog:
-          isTf1Virtual(streamUrl) || isM6GroupVirtual(streamUrl) || isRtsVirtual(streamUrl)
-          || isArteLiveVirtual(streamUrl),
+        skipLiveEdgeWatchdog: shouldSkipTvLiveEdgeWatchdog(streamUrl, channel),
+        slowMirror: isCapTerreChannel(channel) || isCapTerreChannel(streamUrl),
         onBuffering: (v) => {
           this.isBuffering = v;
           this.cdr.markForCheck();

@@ -20,6 +20,8 @@ export interface CalendarEntry {
     friendGroupIds?: string[] | null;
     /** Linked to-do list id when the back-end attached one to this row. */
     todoListId?: string | null;
+    /** Linked note id when the back-end attached one to this row. */
+    noteId?: string | null;
     /** Linked activity id when this appointment references an event. */
     evenementId?: string | null;
 }

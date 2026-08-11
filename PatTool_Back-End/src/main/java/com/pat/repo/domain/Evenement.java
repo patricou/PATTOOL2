@@ -67,6 +67,13 @@ public class Evenement {
     private String linkedTodoListId;
 
     /**
+     * Populated on GET when a {@link com.pat.repo.domain.Note} links to this event; not stored in MongoDB.
+     * When several notes link to the same event, one accessible id is exposed (same pattern as to-do lists).
+     */
+    @Transient
+    private String linkedNoteId;
+
+    /**
      * Populated on GET when one or more {@link PdfConverterDocument}s link to this event; not stored in MongoDB.
      */
     @Transient
@@ -302,6 +309,14 @@ public class Evenement {
 
     public void setLinkedTodoListId(String linkedTodoListId) {
         this.linkedTodoListId = linkedTodoListId;
+    }
+
+    public String getLinkedNoteId() {
+        return linkedNoteId;
+    }
+
+    public void setLinkedNoteId(String linkedNoteId) {
+        this.linkedNoteId = linkedNoteId;
     }
 
     public List<PdfConverterDocumentLink> getLinkedPdfConverterDocuments() {

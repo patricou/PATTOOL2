@@ -1,0 +1,218 @@
+.pat-title h2 {
+  font-size: 1.15rem;
+  margin-bottom: 0.25rem;
+}
+
+.eclipse-page {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 0.35rem 1.25rem;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.eclipse-page .text-muted.small,
+.eclipse-page .small,
+.eclipse-page .form-label,
+.eclipse-page .form-label.small {
+  font-size: 0.7rem !important;
+  margin-bottom: 0.15rem;
+}
+
+.eclipse-page > .text-muted.small {
+  margin-bottom: 0.5rem !important;
+}
+
+.eclipse-page .card {
+  margin-bottom: 0.5rem !important;
+}
+
+.eclipse-page .card-body {
+  padding: 0.55rem 0.7rem;
+}
+
+.eclipse-page .card-title,
+.eclipse-page h5,
+.eclipse-page h6 {
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.eclipse-page .fs-5 {
+  font-size: 0.95rem !important;
+}
+
+.eclipse-page .form-control,
+.eclipse-page .form-select {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.4rem;
+  min-height: calc(1.4em + 0.4rem + 2px);
+  height: calc(1.4em + 0.4rem + 2px);
+}
+
+.eclipse-page .form-control-sm,
+.eclipse-page .form-select-sm {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.35rem;
+  min-height: calc(1.35em + 0.3rem + 2px);
+  height: calc(1.35em + 0.3rem + 2px);
+}
+
+.eclipse-page .btn,
+.eclipse-page .btn-sm {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+  line-height: 1.25;
+}
+
+.eclipse-page .btn-group-sm > .btn {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+}
+
+.eclipse-page .btn-link {
+  font-size: 0.7rem;
+  padding: 0.1rem 0;
+}
+
+.eclipse-page .badge {
+  font-size: 0.65rem;
+  font-weight: 500;
+  padding: 0.2em 0.4em;
+}
+
+.eclipse-page .alert {
+  font-size: 0.75rem;
+  padding: 0.4rem 0.55rem;
+  margin-bottom: 0.5rem;
+}
+
+.eclipse-page .list-group-item {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.55rem;
+}
+
+.eclipse-page .table {
+  font-size: 0.7rem;
+}
+
+.eclipse-page .table > :not(caption) > * > * {
+  padding: 0.2rem 0.35rem;
+}
+
+.eclipse-page .row.g-3 {
+  --bs-gutter-y: 0.5rem;
+  --bs-gutter-x: 0.5rem;
+}
+
+.eclipse-page .row.g-2 {
+  --bs-gutter-y: 0.35rem;
+  --bs-gutter-x: 0.35rem;
+}
+
+.eclipse-page .mb-2 {
+  margin-bottom: 0.35rem !important;
+}
+
+.eclipse-page .mb-3 {
+  margin-bottom: 0.5rem !important;
+}
+
+.eclipse-page .mt-2 {
+  margin-top: 0.35rem !important;
+}
+
+.eclipse-page .mt-3 {
+  margin-top: 0.5rem !important;
+}
+
+.eclipse-page .gap-2 {
+  gap: 0.3rem !important;
+}
+
+.eclipse-page .gap-1 {
+  gap: 0.2rem !important;
+}
+
+.eclipse-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.eclipse-list .list-group-item {
+  cursor: pointer;
+}
+
+.eclipse-list .list-group-item.active {
+  background-color: var(--bs-primary);
+  border-color: var(--bs-primary);
+}
+
+.eclipse-detail {
+  border-top: 1px solid var(--bs-border-color, #dee2e6);
+  padding-top: 0.45rem;
+}
+
+.eclipse-visibility-card {
+  border-left: 3px solid var(--bs-success);
+}
+
+.eclipse-player-card {
+  border-left: 3px solid #f0a202;
+}
+
+.eclipse-next-box {
+  background: linear-gradient(135deg, rgba(13, 110, 253, 0.08), rgba(25, 135, 84, 0.08));
+  border-radius: 0.35rem;
+  padding: 0.55rem 0.7rem;
+}
+
+.eclipse-countdown {
+  font-size: 0.85rem;
+}
+
+.eclipse-canvas-wrap {
+  position: relative;
+  background: #070b14;
+  border-radius: 0.35rem;
+  overflow: hidden;
+  /* Wide sky panel; circles stay round because bitmap matches this box 1:1 */
+  width: 100%;
+  aspect-ratio: 16 / 10;
+}
+
+.eclipse-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.eclipse-address {
+  line-height: 1.3;
+}
+
+.eclipse-address strong {
+  font-weight: 600;
+}
+
+.eclipse-sky-stats {
+  font-size: 0.7rem;
+}
+
+.eclipse-sky-stats > div {
+  margin-bottom: 0.1rem;
+}
+
+.eclipse-raw {
+  max-height: 200px;
+  overflow: auto;
+  font-size: 0.65rem;
+  background: #f8f9fa;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 0.3rem;
+  padding: 0.35rem 0.45rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

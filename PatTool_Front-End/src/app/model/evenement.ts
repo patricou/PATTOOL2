@@ -37,6 +37,8 @@ export class Evenement {
 
     /** Set by GET /api/even/{id} when a to-do list is linked; not part of the persisted event document. */
     linkedTodoListId?: string | null;
+    /** Set when a Note is linked to this event (API enrichment). */
+    linkedNoteId?: string | null;
     /** PDF converter drafts linked to this activity (from API enrichment). */
     linkedPdfConverterDocuments?: PdfConverterDocumentLink[] | null;
 }

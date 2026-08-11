@@ -42,6 +42,7 @@ import { computeTrackStatsFromFileContent } from '../../photo-timeline/track-rou
 import { getEventTypeFaIconSuffix } from '../../shared/event-type-icon.util';
 import { formatDaysUntilLcd, getDaysUntilEventStart, getDaysUntilLcdDigits } from '../../shared/event-days-lcd.util';
 import { TodoListDetailOverlayService } from '../../todolists/todo-list-detail-overlay.service';
+import { NoteDetailOverlayService } from '../../notes/note-detail-overlay.service';
 import { isOdsFile as isOdsSpreadsheetFile } from '../../shared/uploaded-file-types';
 import { OdsEditorLaunchService } from '../../ods-editor/ods-editor-launch.service';
 import { ApiService } from '../../services/api.service';
@@ -389,6 +390,18 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			this.todoListOverlay.open(id);
 		}
 	}
+
+	/** Opens linked note in a modal (no navigation away from the wall / card). */
+	public openLinkedNotes(ev: MouseEvent): void {
+		ev.preventDefault();
+		ev.stopPropagation();
+		this.storeEventIdForReturn();
+		const noteId = (this.evenement?.linkedNoteId || '').trim();
+		if (!noteId) {
+			return;
+		}
+		this.noteOverlay.open(noteId);
+	}
 	
 	// Emit card ready event when thumbnail is successfully set
 	private emitCardReady(): void {
@@ -422,6 +435,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		private ngZone: NgZone,
 		private addToDbLayer: AddToDbLayerService,
 			private todoListOverlay: TodoListDetailOverlayService,
+			private noteOverlay: NoteDetailOverlayService,
 		private odsEditorLaunch: OdsEditorLaunchService,
 		private apiService: ApiService
 	) {

@@ -1533,14 +1533,25 @@
 	z-index: 1001;
 }
 
-/* Custom red marker for location selection */
-:host ::ng-deep .custom-red-marker {
+/* Custom pin markers (SVG divIcon) — hide Leaflet's default white div-icon chrome */
+:host ::ng-deep .custom-red-marker,
+:host ::ng-deep .custom-blue-marker,
+:host ::ng-deep .custom-location-marker,
+:host ::ng-deep .custom-red-marker-icon,
+:host ::ng-deep .custom-position-marker-icon {
 	background: transparent !important;
 	border: none !important;
+}
+
+:host ::ng-deep .custom-red-marker {
 	cursor: move !important;
 }
 
-:host ::ng-deep .custom-red-marker svg {
+:host ::ng-deep .custom-red-marker svg,
+:host ::ng-deep .custom-blue-marker svg,
+:host ::ng-deep .custom-location-marker svg,
+:host ::ng-deep .custom-red-marker-icon svg,
+:host ::ng-deep .custom-position-marker-icon svg {
 	display: block;
 	pointer-events: none;
 }

@@ -7,10 +7,12 @@ import com.pat.controller.dto.CalendarVisibilityPreviewRequest;
 import com.pat.controller.dto.CalendarVisibilityRecipientDTO;
 import com.pat.repo.CalendarAppointmentRepository;
 import com.pat.repo.EvenementsRepository;
+import com.pat.repo.NoteRepository;
 import com.pat.repo.TodoListRepository;
 import com.pat.repo.domain.CalendarAppointment;
 import com.pat.repo.domain.Evenement;
 import com.pat.repo.domain.FileUploaded;
+import com.pat.repo.domain.Note;
 import com.pat.repo.domain.TodoList;
 import com.pat.service.CalendarAppointmentReminderMailService;
 import com.pat.service.DiscussionService;
@@ -49,6 +51,9 @@ public class CalendarRestController {
 
     @Autowired
     private TodoListRepository todoListRepository;
+
+    @Autowired
+    private NoteRepository noteRepository;
 
     @Autowired
     private CalendarAppointmentReminderMailService calendarAppointmentReminderMailService;
@@ -136,10 +141,52 @@ public class CalendarRestController {
             });
         });
 
+        CompletableFuture<Map<String, String>> eventNotesFuture = eventsFuture.thenCompose(events -> {
+            List<String> eventIds = events.stream().map(Evenement::getId).filter(StringUtils::hasText).distinct().toList();
+            if (eventIds.isEmpty()) {
+                return CompletableFuture.completedFuture(new HashMap<String, String>());
+            }
+            return CompletableFuture.supplyAsync(() -> {
+                Map<String, String> map = new HashMap<>();
+                for (Note n : noteRepository.findByEvenementIdIn(eventIds)) {
+                    if (n != null && StringUtils.hasText(n.getEvenementId()) && StringUtils.hasText(n.getId())) {
+                        map.putIfAbsent(n.getEvenementId(), n.getId());
+                    }
+                }
+                return map;
+            });
+        });
+
+        CompletableFuture<Map<String, String>> appointmentNotesFuture = appointmentsFuture.thenCompose(appointments -> {
+            if (!loadAppointments) {
+                return CompletableFuture.completedFuture(new HashMap<String, String>());
+            }
+            List<String> appointmentIds = appointments.stream()
+                    .map(CalendarAppointment::getId)
+                    .filter(StringUtils::hasText)
+                    .distinct()
+                    .toList();
+            if (appointmentIds.isEmpty()) {
+                return CompletableFuture.completedFuture(new HashMap<String, String>());
+            }
+            return CompletableFuture.supplyAsync(() -> {
+                Map<String, String> map = new HashMap<>();
+                for (Note n : noteRepository.findByCalendarAppointmentIdIn(appointmentIds)) {
+                    if (n != null && StringUtils.hasText(n.getCalendarAppointmentId())
+                            && StringUtils.hasText(n.getId())) {
+                        map.putIfAbsent(n.getCalendarAppointmentId(), n.getId());
+                    }
+                }
+                return map;
+            });
+        });
+
         List<Evenement> events = eventsFuture.join();
         List<CalendarAppointment> appointments = appointmentsFuture.join();
         Map<String, String> eventIdToTodoListId = eventTodosFuture.join();
         Map<String, String> appointmentIdToTodoListId = appointmentTodosFuture.join();
+        Map<String, String> eventIdToNoteId = eventNotesFuture.join();
+        Map<String, String> appointmentIdToNoteId = appointmentNotesFuture.join();
 
         for (Evenement ev : events) {
             CalendarEntryDTO row = new CalendarEntryDTO();
@@ -154,6 +201,7 @@ public class CalendarRestController {
                 row.setThumbnailFileId(thumb.getFieldId());
             }
             row.setTodoListId(eventIdToTodoListId.get(ev.getId()));
+            row.setNoteId(eventIdToNoteId.get(ev.getId()));
             out.add(row);
         }
 
@@ -172,6 +220,7 @@ public class CalendarRestController {
                 row.setFriendGroupId(a.getFriendGroupId());
                 row.setFriendGroupIds(a.getFriendGroupIds());
                 row.setTodoListId(appointmentIdToTodoListId.get(a.getId()));
+                row.setNoteId(appointmentIdToNoteId.get(a.getId()));
                 row.setEvenementId(a.getEvenementId());
                 out.add(row);
             }

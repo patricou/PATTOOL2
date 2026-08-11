@@ -203,7 +203,8 @@ export class AppComponent implements OnInit {
     ];
     readonly navOrganisationRaw: NavRouteMenuItem[] = [
         { routerLink: ['calendrier'], icon: 'fa fa-calendar-check-o', labelKey: 'MENU.CALENDAR' },
-        { routerLink: ['todolists'], icon: 'fa fa-tasks', labelKey: 'MENU.TODOLISTS' }
+        { routerLink: ['todolists'], icon: 'fa fa-tasks', labelKey: 'MENU.TODOLISTS' },
+        { routerLink: ['notes'], icon: 'fa fa-sticky-note', labelKey: 'MENU.NOTES' }
     ];
     readonly navGeoLocalRaw: NavRouteMenuItem[] = [
         {
@@ -235,7 +236,8 @@ export class AppComponent implements OnInit {
     readonly navGeoWorldRaw: NavRouteMenuItem[] = [
         { routerLink: ['tools/world-globe'], icon: 'fa fa-map', labelKey: 'MENU.WORLD_GLOBE' },
         { routerLink: ['tools/solar-system'], icon: 'fa fa-globe', labelKey: 'MENU.SOLAR_SYSTEM' },
-        { routerLink: ['tools/ciel'], icon: 'fa fa-star', labelKey: 'MENU.SKY' }
+        { routerLink: ['tools/ciel'], icon: 'fa fa-star', labelKey: 'MENU.SKY' },
+        { routerLink: ['tools/eclipse'], icon: 'fa fa-moon-o', labelKey: 'MENU.ECLIPSE' }
     ];
     readonly navIotRaw: NavRouteMenuItem[] = [
         { routerLink: ['iot'], icon: 'fa fa-home', labelKey: 'MENU.IOT_HOME' },

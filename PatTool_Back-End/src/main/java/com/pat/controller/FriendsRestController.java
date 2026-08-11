@@ -432,6 +432,202 @@ public class FriendsRestController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
+    /**
+     * Send a free-text email from the current user to any registered PatTool member (SMTP via PatTool).
+     * Body: toMemberId and/or toEmail, message (required), subject (optional).
+     */
+    @PostMapping(value = "/send-email", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, String>> sendEmailToMember(
+            @RequestBody Map<String, String> requestBody,
+            Authentication authentication) {
+        try {
+            Member sender = friendsService.getCurrentUser(authentication);
+            if (sender == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            String message = requestBody.get("message");
+            if (message == null || message.trim().isEmpty()) {
+                Map<String, String> response = new java.util.HashMap<>();
+                response.put("error", "Message is required");
+                return ResponseEntity.badRequest().body(response);
+            }
+            message = message.trim();
+
+            String toMemberId = requestBody.get("toMemberId");
+            String toEmail = requestBody.get("toEmail");
+            Member recipient = null;
+
+            if (toMemberId != null && !toMemberId.trim().isEmpty()) {
+                recipient = membersRepository.findById(toMemberId.trim()).orElse(null);
+            }
+            if (recipient == null && toEmail != null && !toEmail.trim().isEmpty()) {
+                recipient = membersRepository.findByAddressEmail(toEmail.trim());
+            }
+            if (recipient == null) {
+                Map<String, String> response = new java.util.HashMap<>();
+                response.put("error", "Recipient is not a PatTool user");
+                return ResponseEntity.badRequest().body(response);
+            }
+            if (recipient.getAddressEmail() == null || recipient.getAddressEmail().trim().isEmpty()
+                    || !mailController.isValidEmail(recipient.getAddressEmail())) {
+                Map<String, String> response = new java.util.HashMap<>();
+                response.put("error", "Recipient has no valid email");
+                return ResponseEntity.badRequest().body(response);
+            }
+            if (sender.getId() != null && sender.getId().equals(recipient.getId())) {
+                Map<String, String> response = new java.util.HashMap<>();
+                response.put("error", "Cannot send email to yourself");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            String subject = requestBody.get("subject");
+            if (subject != null && subject.trim().isEmpty()) {
+                subject = null;
+            } else if (subject != null) {
+                subject = subject.trim();
+            }
+
+            sendMemberMessageEmail(sender, recipient, subject, message);
+
+            Map<String, String> response = new java.util.HashMap<>();
+            response.put("message", "Email sent successfully");
+            response.put("toEmail", recipient.getAddressEmail());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error sending member email", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Send a user-to-user message email via PatTool SMTP.
+     */
+    private void sendMemberMessageEmail(Member sender, Member recipient, String subject, String message) {
+        boolean isFrench = false;
+        String senderLocale = sender.getLocale();
+        if (senderLocale != null && senderLocale.toLowerCase().startsWith("fr")) {
+            isFrench = true;
+        }
+
+        String senderName = ((sender.getFirstName() != null ? sender.getFirstName() : "") + " "
+                + (sender.getLastName() != null ? sender.getLastName() : "")).trim();
+        if (senderName.isEmpty()) {
+            senderName = sender.getUserName() != null ? sender.getUserName() : "PatTool";
+        }
+
+        String emailSubject = subject;
+        if (emailSubject == null || emailSubject.isEmpty()) {
+            emailSubject = isFrench
+                    ? "Message de " + senderName + " via PATTOOL"
+                    : "Message from " + senderName + " via PATTOOL";
+        }
+
+        String body = generateMemberMessageEmailHtml(sender, recipient, message, isFrench);
+
+        String ccRecipient = null;
+        if (sender.getAddressEmail() != null && !sender.getAddressEmail().trim().isEmpty()
+                && mailController.isValidEmail(sender.getAddressEmail())) {
+            ccRecipient = sender.getAddressEmail();
+        }
+
+        mailController.sendMailToRecipient(
+                recipient.getAddressEmail(),
+                emailSubject,
+                body,
+                true,
+                ccRecipient,
+                mailController.getMailSentTo());
+        log.info("Member email sent from {} to {}", sender.getId(), recipient.getId());
+    }
+
+    private String generateMemberMessageEmailHtml(Member sender, Member recipient, String message, boolean isFrench) {
+        String headerTitle = isFrench ? "Message PATTOOL" : "PATTOOL Message";
+        String greeting = isFrench ? "Bonjour" : "Hello";
+        String intro = isFrench
+                ? " vous a envoyé un message via PATTOOL :"
+                : " sent you a message via PATTOOL:";
+        String fromLabel = isFrench ? "Expéditeur :" : "From:";
+        String nameLabel = isFrench ? "Nom :" : "Name:";
+        String emailLabel = isFrench ? "Email :" : "Email:";
+        String messageLabel = isFrench ? "Message :" : "Message:";
+        String footerText1 = isFrench
+                ? "Cet email a été envoyé automatiquement par PATTOOL."
+                : "This email was automatically sent by PATTOOL.";
+        String footerText2 = isFrench
+                ? "Vous recevez cet email car un utilisateur PATTOOL vous a écrit."
+                : "You are receiving this email because a PATTOOL user wrote to you.";
+
+        String recipientName = ((recipient.getFirstName() != null ? recipient.getFirstName() : "") + " "
+                + (recipient.getLastName() != null ? recipient.getLastName() : "")).trim();
+        if (recipientName.isEmpty()) {
+            recipientName = recipient.getUserName() != null ? recipient.getUserName() : "";
+        }
+
+        StringBuilder bodyBuilder = new StringBuilder();
+        bodyBuilder.append("<!DOCTYPE html><html><head><meta charset='UTF-8'>");
+        bodyBuilder.append("<style>");
+        bodyBuilder.append("body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 15px; line-height: 1.8; color: #2c3e50; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin: 0; padding: 20px; }");
+        bodyBuilder.append(".container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; }");
+        bodyBuilder.append(".header { background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; padding: 25px; text-align: center; border-bottom: 4px solid #004085; }");
+        bodyBuilder.append(".header h1 { margin: 0; font-size: 24px; font-weight: 700; }");
+        bodyBuilder.append(".content { padding: 30px; background: #fafafa; }");
+        bodyBuilder.append(".message { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #007bff; }");
+        bodyBuilder.append(".custom-message { background: #e7f1ff; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #007bff; }");
+        bodyBuilder.append(".custom-message p { margin: 0; white-space: pre-wrap; }");
+        bodyBuilder.append(".sender-info { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }");
+        bodyBuilder.append(".sender-info h3 { margin: 0 0 15px 0; color: #333; font-weight: 600; }");
+        bodyBuilder.append(".info-item { margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 6px; }");
+        bodyBuilder.append(".info-label { font-weight: 700; color: #495057; margin-right: 10px; }");
+        bodyBuilder.append(".info-value { color: #212529; }");
+        bodyBuilder.append(".footer { background: #e9ecef; padding: 20px; text-align: center; color: #6c757d; font-size: 12px; }");
+        bodyBuilder.append("</style></head><body>");
+        bodyBuilder.append("<div class='container'>");
+
+        bodyBuilder.append("<div class='header'><h1>").append(escapeHtml(headerTitle)).append("</h1></div>");
+
+        bodyBuilder.append("<div class='content'>");
+        bodyBuilder.append("<div class='message'>");
+        bodyBuilder.append("<p>").append(escapeHtml(greeting));
+        if (!recipientName.isEmpty()) {
+            bodyBuilder.append(" ").append(escapeHtml(recipientName));
+        }
+        bodyBuilder.append(",</p>");
+        bodyBuilder.append("<p><strong>")
+                .append(escapeHtml(((sender.getFirstName() != null ? sender.getFirstName() : "") + " "
+                        + (sender.getLastName() != null ? sender.getLastName() : "")).trim()))
+                .append("</strong>")
+                .append(escapeHtml(intro))
+                .append("</p>");
+        bodyBuilder.append("</div>");
+
+        bodyBuilder.append("<div class='custom-message'>");
+        bodyBuilder.append("<p><strong>").append(escapeHtml(messageLabel)).append("</strong></p>");
+        bodyBuilder.append("<p>").append(escapeHtml(message).replace("\n", "<br>")).append("</p>");
+        bodyBuilder.append("</div>");
+
+        bodyBuilder.append("<div class='sender-info'>");
+        bodyBuilder.append("<h3>").append(escapeHtml(fromLabel)).append("</h3>");
+        bodyBuilder.append("<div class='info-item'><span class='info-label'>").append(escapeHtml(nameLabel)).append("</span>");
+        bodyBuilder.append("<span class='info-value'>")
+                .append(escapeHtml(((sender.getFirstName() != null ? sender.getFirstName() : "") + " "
+                        + (sender.getLastName() != null ? sender.getLastName() : "")).trim()))
+                .append("</span></div>");
+        if (sender.getAddressEmail() != null && !sender.getAddressEmail().trim().isEmpty()) {
+            bodyBuilder.append("<div class='info-item'><span class='info-label'>").append(escapeHtml(emailLabel)).append("</span>");
+            bodyBuilder.append("<span class='info-value'>").append(escapeHtml(sender.getAddressEmail())).append("</span></div>");
+        }
+        bodyBuilder.append("</div>");
+
+        bodyBuilder.append("</div>");
+        bodyBuilder.append("<div class='footer'>");
+        bodyBuilder.append("<p>").append(escapeHtml(footerText1)).append("</p>");
+        bodyBuilder.append("<p>").append(escapeHtml(footerText2)).append("</p>");
+        bodyBuilder.append("</div>");
+        bodyBuilder.append("</div></body></html>");
+        return bodyBuilder.toString();
+    }
     
     /**
      * Send invitation email to join PATTOOL

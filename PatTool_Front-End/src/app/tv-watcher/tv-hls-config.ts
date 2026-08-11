@@ -12,8 +12,21 @@ export type TvHlsPlaybackMode = 'live' | 'vod';
  * the element to catch the live edge is a known cause of progressive A/V (lip-sync) drift
  * in hls.js / Chromium (see video-dev/hls.js#5220). Prefer a hard seek back to the live edge.
  */
-export function createTvHlsConfig(mode: TvHlsPlaybackMode = 'live'): Partial<HlsConfig> {
+export type TvHlsConfigOptions = {
+  /**
+   * Cap Terre–class: bare-HTTP 1080p with a tiny live window (~4×5 s segments).
+   * Stay near the back of that window, never force-seek on latency, prefer buffered
+   * sync — deep “70 s behind” settings are impossible and trigger underrun loops.
+   */
+  slowMirror?: boolean;
+};
+
+export function createTvHlsConfig(
+  mode: TvHlsPlaybackMode = 'live',
+  opts: TvHlsConfigOptions = {}
+): Partial<HlsConfig> {
   const vod = mode === 'vod';
+  const slow = !vod && !!opts.slowMirror;
   return {
     enableWorker: true,
     lowLatencyMode: false,
@@ -21,31 +34,39 @@ export function createTvHlsConfig(mode: TvHlsPlaybackMode = 'live'): Partial<Hls
     // often drops the audio track or desyncs A/V (TF1 / LCI regressions).
     // Live IPTV (TF1/TMC on slow mirrors): deep buffer + stay behind the live edge
     // so startup can fill before realtime catch-up pressure.
-    maxBufferLength: vod ? 30 : 45,
-    maxMaxBufferLength: vod ? 60 : 90,
-    backBufferLength: vod ? 30 : 30,
-    liveSyncDurationCount: vod ? 3 : 8,
-    liveMaxLatencyDurationCount: vod ? 6 : 24,
+    // Cap Terre playlist ≈ 20 s — cannot buffer more than the sliding window.
+    maxBufferLength: vod ? 30 : slow ? 25 : 45,
+    maxMaxBufferLength: vod ? 60 : slow ? 40 : 90,
+    backBufferLength: vod ? 30 : slow ? 10 : 30,
+    // Cap Terre TARGETDURATION=7, ~4 segments: sync ≈ 3×7 s ≈ back of the window.
+    liveSyncDurationCount: vod ? 3 : slow ? 3 : 8,
+    // Infinity (hls.js default) — never seek because “max latency” was exceeded.
+    // A finite cap (even 60) + tiny window + underrun → synchronizeToLiveEdge seeks.
+    liveMaxLatencyDurationCount: vod ? 6 : slow ? Number.POSITIVE_INFINITY : 24,
+    // Prefer next buffered range over hard jump to liveSync when recovering.
+    ...(slow ? { liveSyncMode: 'buffered' as const } : {}),
     // Must stay false for VOD: with true, hls.js exposes a liveSyncPosition near the
     // end and our live-edge watchdog seeks the replay straight to the finale.
     liveDurationInfinity: !vod,
-    // Must stay 1 — values > 1 desync lipsync over time.
+    // Must stay 1 — values > 1 desync lipsync over time. Cap Terre pacing uses a
+    // separate buffer guard that may briefly go below 1 (slowMirror only).
     maxLiveSyncPlaybackRate: 1,
-    highBufferWatchdogPeriod: 2,
+    highBufferWatchdogPeriod: slow ? 4 : 2,
     nudgeOffset: 0.1,
-    nudgeMaxRetry: 5,
+    nudgeMaxRetry: slow ? 8 : 5,
     maxFragLookUpTolerance: 0.25,
+    startFragPrefetch: true,
     // Slow IPTV segments (TF1 HD ~4 MiB / 12–20 s) — default 20 s aborts mid-download.
     manifestLoadingTimeOut: vod ? 20_000 : 25_000,
     levelLoadingTimeOut: vod ? 20_000 : 25_000,
-    fragLoadingTimeOut: vod ? 20_000 : 60_000,
-    fragLoadingMaxRetry: vod ? 4 : 5,
-    fragLoadingRetryDelay: 1_000,
+    fragLoadingTimeOut: vod ? 20_000 : slow ? 90_000 : 60_000,
+    fragLoadingMaxRetry: vod ? 4 : slow ? 8 : 5,
+    fragLoadingRetryDelay: slow ? 1_500 : 1_000,
     xhrSetup: (xhr) => {
       xhr.withCredentials = false;
       // Match fragLoadingTimeOut for XHR (hls.js also sets timeout, belt-and-suspenders).
       if (!vod) {
-        xhr.timeout = 60_000;
+        xhr.timeout = slow ? 90_000 : 60_000;
       }
     }
   };
@@ -331,6 +352,74 @@ export function resyncTvHlsAv(hls: Hls | null, video: HTMLVideoElement): boolean
 }
 
 /**
+ * Show / log the buffering spinner on media underrun ({@code waiting}/{@code stalled}).
+ * Mid-play freezes often never go through fatal HLS recovery — without this, the UI
+ * spinner can appear from other paths (or look like a freeze) with no console trail.
+ */
+export function attachTvUnderrunSpinnerWatch(
+  video: HTMLVideoElement,
+  onBuffering: (buffering: boolean, reason: string) => void,
+  channel?: string | null
+): () => void {
+  let underrun = false;
+  const set = (next: boolean, reason: string) => {
+    if (next === underrun && next) {
+      // Still log repeated waiting while already buffering.
+      tvPlayLog(`underrun (${reason}) — spinner déjà affiché`, {
+        channel: channel || null,
+        what: 'le flux n’alimente plus assez vite le buffer',
+        readyState: video.readyState,
+        networkState: video.networkState,
+        paused: video.paused,
+        currentTime: Math.round(video.currentTime * 10) / 10
+      });
+      return;
+    }
+    if (next === underrun) {
+      return;
+    }
+    underrun = next;
+    tvPlayLog(
+      next
+        ? `underrun (${reason}) — affichage spinner`
+        : `reprise lecture (${reason}) — masquage spinner`,
+      {
+        channel: channel || null,
+        what: next
+          ? 'le <video> attend des données (buffer vide / réseau lent)'
+          : 'le <video> a repris la lecture',
+        readyState: video.readyState,
+        networkState: video.networkState,
+        paused: video.paused,
+        currentTime: Math.round(video.currentTime * 10) / 10
+      }
+    );
+    onBuffering(next, reason);
+  };
+
+  const onWaiting = () => set(true, 'waiting');
+  const onStalled = () => set(true, 'stalled');
+  const onPlaying = () => set(false, 'playing');
+  const onCanPlay = () => {
+    if (underrun && !video.paused) {
+      set(false, 'canplay');
+    }
+  };
+
+  video.addEventListener('waiting', onWaiting);
+  video.addEventListener('stalled', onStalled);
+  video.addEventListener('playing', onPlaying);
+  video.addEventListener('canplay', onCanPlay);
+
+  return () => {
+    video.removeEventListener('waiting', onWaiting);
+    video.removeEventListener('stalled', onStalled);
+    video.removeEventListener('playing', onPlaying);
+    video.removeEventListener('canplay', onCanPlay);
+  };
+}
+
+/**
  * Keep live playback near the edge and hard-seek when lag builds up.
  * Seeking resets video+audio SourceBuffers together (fixes lip-sync drift better than
  * changing {@code playbackRate}).
@@ -425,6 +514,93 @@ export function attachTvHlsLiveSyncWatchdog(
     video.removeEventListener('waiting', onWaiting);
     video.removeEventListener('stalled', onStalled);
     video.removeEventListener('playing', onPlaying);
+    try {
+      if (video.playbackRate !== 1) {
+        video.playbackRate = 1;
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+}
+
+/**
+ * Cap Terre only: keep a forward-buffer cushion by briefly playing under 1× when the
+ * download cannot keep realtime. Prevents {@code waiting} → hls.js
+ * {@code synchronizeToLiveEdge} seeks that empty the tiny ~20 s live window.
+ */
+export function attachTvSlowMirrorPaceGuard(
+  video: HTMLVideoElement,
+  channel?: string | null
+): () => void {
+  const LOW_SEC = 8;
+  const CRITICAL_SEC = 4;
+  const HEALTHY_SEC = 14;
+  const RATE_LOW = 0.9;
+  const RATE_CRITICAL = 0.8;
+  let lastRate = 1;
+  let lastLogAt = 0;
+
+  const forwardBufferSec = (): number => {
+    try {
+      const b = video.buffered;
+      if (!b.length) {
+        return 0;
+      }
+      const t = video.currentTime;
+      for (let i = 0; i < b.length; i++) {
+        if (t >= b.start(i) - 0.15 && t <= b.end(i) + 0.15) {
+          return Math.max(0, b.end(i) - t);
+        }
+      }
+      return Math.max(0, b.end(b.length - 1) - t);
+    } catch {
+      return 0;
+    }
+  };
+
+  const applyRate = (rate: number, fwd: number, why: string) => {
+    if (Math.abs(rate - lastRate) < 0.01) {
+      return;
+    }
+    try {
+      video.playbackRate = rate;
+    } catch {
+      return;
+    }
+    lastRate = rate;
+    const now = Date.now();
+    if (now - lastLogAt < 2_000 && rate !== 1) {
+      return;
+    }
+    lastLogAt = now;
+    tvPlayLog(`pace Cap Terre → ${rate}× (${why})`, {
+      channel: channel || null,
+      what:
+        rate < 1
+          ? 'ralentissement pour reconstruire le buffer (flux trop lent)'
+          : 'vitesse normale — buffer suffisant',
+      fwdSec: Math.round(fwd * 10) / 10,
+      readyState: video.readyState
+    });
+  };
+
+  const tick = window.setInterval(() => {
+    if (video.paused || video.ended || video.seeking || video.error) {
+      return;
+    }
+    const fwd = forwardBufferSec();
+    if (fwd < CRITICAL_SEC) {
+      applyRate(RATE_CRITICAL, fwd, `buffer ${fwd.toFixed(1)}s < ${CRITICAL_SEC}s`);
+    } else if (fwd < LOW_SEC) {
+      applyRate(RATE_LOW, fwd, `buffer ${fwd.toFixed(1)}s < ${LOW_SEC}s`);
+    } else if (fwd >= HEALTHY_SEC) {
+      applyRate(1, fwd, `buffer ${fwd.toFixed(1)}s ≥ ${HEALTHY_SEC}s`);
+    }
+  }, 500);
+
+  return () => {
+    window.clearInterval(tick);
     try {
       if (video.playbackRate !== 1) {
         video.playbackRate = 1;

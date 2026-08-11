@@ -377,14 +377,6 @@
                   [title]="'EVENTELEM.CARTES_GOUV_FR_TITLE' | translate">
             <i class="fa fa-map me-1"></i> IGN
           </button>
-          <button type="button"
-                  class="btn btn-outline-secondary btn-sm mt-2 w-100"
-                  (click)="openWorldGlobeAtMapCenter()"
-                  [disabled]="!isMapReady"
-                  [title]="'EVENTELEM.TRACK_VIEW_ON_GLOBE_HINT' | translate"
-                  [attr.aria-label]="'EVENTELEM.TRACK_VIEW_ON_GLOBE' | translate">
-            <i class="fa fa-globe me-1" aria-hidden="true"></i>3D
-          </button>
             </div>
           </ng-container>
         </div>
@@ -559,15 +551,6 @@
               (click)="openCartesGouvEmbed()"
               [title]="'EVENTELEM.CARTES_GOUV_FR_TITLE' | translate">
         <i class="fa fa-map me-1"></i>IGN
-      </button>
-      <button type="button"
-              class="btn btn-outline-primary flex-shrink-0"
-              *ngIf="!isFullscreen"
-              (click)="openWorldGlobeAtMapCenter()"
-              [disabled]="!isMapReady"
-              [title]="'EVENTELEM.TRACK_VIEW_ON_GLOBE_HINT' | translate"
-              [attr.aria-label]="'EVENTELEM.TRACK_VIEW_ON_GLOBE' | translate">
-        <i class="fa fa-globe me-1" aria-hidden="true"></i>3D
       </button>
       <button type="button"
               class="btn btn-secondary flex-shrink-0"

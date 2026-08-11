@@ -22,6 +22,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import com.pat.service.EvenementTodoListLinkService;
+import com.pat.service.EvenementNoteLinkService;
 import com.pat.service.EvenementPdfConverterLinkService;
 import com.pat.repo.domain.PdfConverterDocumentLink;
 
@@ -128,6 +129,9 @@ public class PhotoTimelineRestController {
 
     @Autowired
     private EvenementTodoListLinkService evenementTodoListLinkService;
+
+    @Autowired
+    private EvenementNoteLinkService evenementNoteLinkService;
 
     @Autowired
     private EvenementPdfConverterLinkService evenementPdfConverterLinkService;
@@ -263,6 +267,8 @@ public class PhotoTimelineRestController {
         private Integer ratingMinus;
         /** Linked to-do list id when the activity has one (same as {@link Evenement#getLinkedTodoListId()}). */
         private String linkedTodoListId;
+        /** Linked note id when the activity has one (same as {@link Evenement#getLinkedNoteId()}). */
+        private String linkedNoteId;
         /** PDF converter drafts linked to this activity (same as {@link Evenement#getLinkedPdfConverterDocuments()}). */
         private List<PdfConverterDocumentLink> linkedPdfConverterDocuments;
         /** Number of rich-text commentaries on the activity (same as {@link Evenement#getCommentaries()} size). */
@@ -314,6 +320,8 @@ public class PhotoTimelineRestController {
         public void setRatingMinus(Integer ratingMinus) { this.ratingMinus = ratingMinus; }
         public String getLinkedTodoListId() { return linkedTodoListId; }
         public void setLinkedTodoListId(String linkedTodoListId) { this.linkedTodoListId = linkedTodoListId; }
+        public String getLinkedNoteId() { return linkedNoteId; }
+        public void setLinkedNoteId(String linkedNoteId) { this.linkedNoteId = linkedNoteId; }
         public List<PdfConverterDocumentLink> getLinkedPdfConverterDocuments() { return linkedPdfConverterDocuments; }
         public void setLinkedPdfConverterDocuments(List<PdfConverterDocumentLink> linkedPdfConverterDocuments) {
             this.linkedPdfConverterDocuments = linkedPdfConverterDocuments;
@@ -503,6 +511,7 @@ public class PhotoTimelineRestController {
             }
 
             evenementTodoListLinkService.attachLinkedTodoListsForEvents(batch, userIdTrimmed);
+            evenementNoteLinkService.attachLinkedNotesForEvents(batch, userIdTrimmed);
             evenementPdfConverterLinkService.attachLinkedPdfDocumentsForEvents(batch);
 
             boolean filledPage = false;
@@ -568,6 +577,7 @@ public class PhotoTimelineRestController {
         group.setFriendGroupId(e.getFriendGroupId());
         group.setFriendGroupIds(e.getFriendGroupIds());
         group.setLinkedTodoListId(e.getLinkedTodoListId());
+        group.setLinkedNoteId(e.getLinkedNoteId());
         group.setLinkedPdfConverterDocuments(e.getLinkedPdfConverterDocuments());
         group.setCommentariesCount(countCommentaries(e));
         applyWallListingMediaCaps(group, photos, videos, singleEventWall, photoTotal, videoTotal);
@@ -664,6 +674,7 @@ public class PhotoTimelineRestController {
         group.setFriendGroupId(e.getFriendGroupId());
         group.setFriendGroupIds(e.getFriendGroupIds());
         group.setLinkedTodoListId(e.getLinkedTodoListId());
+        group.setLinkedNoteId(e.getLinkedNoteId());
         group.setLinkedPdfConverterDocuments(e.getLinkedPdfConverterDocuments());
         group.setCommentariesCount(countCommentaries(e));
         if (!singleEventWall && videos.size() > WALL_VIDEOS_PER_EVENT_CAP) {

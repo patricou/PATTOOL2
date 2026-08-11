@@ -260,14 +260,34 @@ public class FriendsService {
      * Get pending friend requests (incoming)
      */
     public List<FriendRequest> getPendingRequests(Member currentUser) {
-        return friendRequestRepository.findByRecipientAndStatus(currentUser, "PENDING");
+        List<FriendRequest> requests = friendRequestRepository.findByRecipientAndStatus(currentUser, "PENDING");
+        List<FriendRequest> valid = new java.util.ArrayList<>();
+        for (FriendRequest r : requests) {
+            if (r.getRequester() != null && r.getRequester().getId() != null) {
+                valid.add(r);
+            } else {
+                log.warn("Removing pending friend request {} with missing requester", r.getId());
+                friendRequestRepository.deleteById(r.getId());
+            }
+        }
+        return valid;
     }
 
     /**
      * Get sent friend requests (outgoing)
      */
     public List<FriendRequest> getSentRequests(Member currentUser) {
-        return friendRequestRepository.findByRequesterAndStatus(currentUser, "PENDING");
+        List<FriendRequest> requests = friendRequestRepository.findByRequesterAndStatus(currentUser, "PENDING");
+        List<FriendRequest> valid = new java.util.ArrayList<>();
+        for (FriendRequest r : requests) {
+            if (r.getRecipient() != null && r.getRecipient().getId() != null) {
+                valid.add(r);
+            } else {
+                log.warn("Removing sent friend request {} with missing recipient", r.getId());
+                friendRequestRepository.deleteById(r.getId());
+            }
+        }
+        return valid;
     }
 
     /**
@@ -339,16 +359,21 @@ public class FriendsService {
         }
 
         FriendRequest request = requestOpt.get();
-        if (!request.getRequester().getId().equals(currentUser.getId())) {
+        Member requester = request.getRequester();
+        if (requester == null || requester.getId() == null || !requester.getId().equals(currentUser.getId())) {
             throw new IllegalStateException("User is not the requester of this request");
         }
 
-        // Delete the request instead of just marking it as rejected
-        friendRequestRepository.delete(request);
+        String requesterName = requester.getUserName() != null ? requester.getUserName() : requester.getId();
+        Member recipient = request.getRecipient();
+        String recipientName = recipient != null
+                ? (recipient.getUserName() != null ? recipient.getUserName() : recipient.getId())
+                : "unknown";
 
-        log.debug("Sent friend request canceled: {} -> {}", 
-                request.getRequester().getUserName(), 
-                request.getRecipient().getUserName());
+        // Delete the request instead of just marking it as rejected
+        friendRequestRepository.deleteById(requestId);
+
+        log.debug("Sent friend request canceled: {} -> {}", requesterName, recipientName);
     }
 
     /**

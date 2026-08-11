@@ -48,6 +48,7 @@ import { computeTrackStatsFromFileContent } from '../track-route-stats.util';
 import { getEventTypeFaIconSuffix } from '../../shared/event-type-icon.util';
 import { formatDaysUntilLcd, getDaysUntilEventStart, getDaysUntilLcdDigits } from '../../shared/event-days-lcd.util';
 import { TodoListDetailOverlayService } from '../../todolists/todo-list-detail-overlay.service';
+import { NoteDetailOverlayService } from '../../notes/note-detail-overlay.service';
 import { AssistantLaunchService } from '../../services/assistant-launch.service';
 import { OdsEditorLaunchService } from '../../ods-editor/ods-editor-launch.service';
 import { isOdsFile as isOdsSpreadsheetFile } from '../../shared/uploaded-file-types';
@@ -434,6 +435,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         private videoCompressionService: VideoCompressionService,
         private videoUploadProcessingService: VideoUploadProcessingService,
         private todoListOverlay: TodoListDetailOverlayService,
+        private noteOverlay: NoteDetailOverlayService,
         private assistantLaunch: AssistantLaunchService,
         private odsEditorLaunch: OdsEditorLaunchService,
         private apiService: ApiService
@@ -4542,6 +4544,17 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         if (id) {
             this.todoListOverlay.open(id);
         }
+    }
+
+    /** Opens the linked note in a modal (stay on the photo wall). */
+    openWallNotes(group: TimelineGroup, ev?: Event): void {
+        ev?.preventDefault();
+        ev?.stopPropagation();
+        const noteId = (group?.linkedNoteId || '').trim();
+        if (!noteId) {
+            return;
+        }
+        this.noteOverlay.open(noteId);
     }
 
     getGroupLinkedPdfConverterDocuments(group: TimelineGroup): NonNullable<TimelineGroup['linkedPdfConverterDocuments']> {

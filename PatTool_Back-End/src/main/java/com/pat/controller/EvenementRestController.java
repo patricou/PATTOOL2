@@ -15,6 +15,7 @@ import com.pat.repo.MembersRepository;
 import com.pat.repo.DiscussionRepository;
 import com.pat.repo.TodoListRepository;
 import com.pat.service.EvenementTodoListLinkService;
+import com.pat.service.EvenementNoteLinkService;
 import com.pat.service.EvenementPdfConverterLinkService;
 import com.pat.repo.UserConnectionLogRepository;
 import org.slf4j.Logger;
@@ -81,6 +82,9 @@ public class EvenementRestController {
 
     @Autowired
     private EvenementTodoListLinkService evenementTodoListLinkService;
+
+    @Autowired
+    private EvenementNoteLinkService evenementNoteLinkService;
 
     @Autowired
     private EvenementPdfConverterLinkService evenementPdfConverterLinkService;
@@ -194,6 +198,7 @@ public class EvenementRestController {
         Page<Evenement> pageResult = evenementsRepository.searchByFilter(evenementName, userId, pageable);
         if (pageResult != null && StringUtils.hasText(userId)) {
             evenementTodoListLinkService.attachLinkedTodoListsForEvents(pageResult.getContent(), userId.trim());
+            evenementNoteLinkService.attachLinkedNotesForEvents(pageResult.getContent(), userId.trim());
             evenementPdfConverterLinkService.attachLinkedPdfDocumentsForEvents(pageResult.getContent());
         }
         return pageResult;
@@ -227,6 +232,7 @@ public class EvenementRestController {
             List<Evenement> buffer,
             String memberId,
             Map<String, Boolean> listAccessCache,
+            Map<String, Boolean> noteAccessCache,
             ObjectMapper mapper,
             SseEmitter emitter,
             java.util.concurrent.atomic.AtomicBoolean clientConnected,
@@ -235,6 +241,7 @@ public class EvenementRestController {
             return;
         }
         evenementTodoListLinkService.attachLinkedTodoListsForEvents(buffer, memberId, listAccessCache);
+        evenementNoteLinkService.attachLinkedNotesForEvents(buffer, memberId, noteAccessCache);
         evenementPdfConverterLinkService.attachLinkedPdfDocumentsForEvents(buffer);
         List<Evenement> toSend = new ArrayList<>(buffer);
         buffer.clear();
@@ -272,11 +279,13 @@ public class EvenementRestController {
             Evenement event,
             String userId,
             Map<String, Boolean> listAccessCache,
+            Map<String, Boolean> noteAccessCache,
             ObjectMapper mapper,
             SseEmitter emitter,
             java.util.concurrent.atomic.AtomicBoolean clientConnected,
             AtomicInteger sentCount) throws IOException {
         evenementTodoListLinkService.attachForStreamEvent(event, userId, listAccessCache);
+        evenementNoteLinkService.attachForStreamEvent(event, userId, noteAccessCache);
         evenementPdfConverterLinkService.attachLinkedPdfDocuments(event);
         resolveStreamEventDbRefs(event);
         if (!clientConnected.get()) {
@@ -418,6 +427,7 @@ public class EvenementRestController {
                 // Limit size to prevent excessive memory usage (max 1000 null-dated events)
                 List<Evenement> nullDateEvents = new java.util.ArrayList<>(1000);
                 Map<String, Boolean> streamTodoListAccessCache = new HashMap<>();
+                Map<String, Boolean> streamNoteAccessCache = new HashMap<>();
                 int streamTodoBatchSize = normalizedFilter.isEmpty()
                         ? STREAM_TODO_LINK_BATCH
                         : STREAM_TODO_LINK_BATCH_SEARCH;
@@ -461,7 +471,7 @@ public class EvenementRestController {
                                                 return;
                                             }
                                             sendStreamEventAfterTodoAttach(
-                                                    event, userId, streamTodoListAccessCache,
+                                                    event, userId, streamTodoListAccessCache, streamNoteAccessCache,
                                                     objectMapper, emitter, clientConnected, sentCount);
                                             log.debug("Sent null-dated event immediately (limit reached): {}", event.getId());
                                         } catch (IOException | IllegalStateException e) {
@@ -484,6 +494,7 @@ public class EvenementRestController {
                                                     streamDatedTodoBuffer,
                                                     streamMemberId,
                                                     streamTodoListAccessCache,
+                                                    streamNoteAccessCache,
                                                     objectMapper,
                                                     emitter,
                                                     clientConnected,
@@ -507,6 +518,7 @@ public class EvenementRestController {
                                 streamDatedTodoBuffer,
                                 streamMemberId,
                                 streamTodoListAccessCache,
+                                streamNoteAccessCache,
                                 objectMapper,
                                 emitter,
                                 clientConnected,
@@ -522,6 +534,8 @@ public class EvenementRestController {
                     if (!nullDateEvents.isEmpty()) {
                         evenementTodoListLinkService.attachLinkedTodoListsForEvents(
                                 nullDateEvents, streamMemberId, streamTodoListAccessCache);
+                        evenementNoteLinkService.attachLinkedNotesForEvents(
+                                nullDateEvents, streamMemberId, streamNoteAccessCache);
                         evenementPdfConverterLinkService.attachLinkedPdfDocumentsForEvents(nullDateEvents);
                     }
                     for (Evenement event : nullDateEvents) {
@@ -1429,6 +1443,7 @@ public class EvenementRestController {
         }
 
         evenementTodoListLinkService.attachLinkedTodoListIfAccessible(evenement, currentUserId);
+        evenementNoteLinkService.attachLinkedNoteIfAccessible(evenement, currentUserId);
         evenementPdfConverterLinkService.attachLinkedPdfDocuments(evenement);
         
         // Handle discussionId: if it exists but the discussion doesn't, create it (like for FriendGroup)

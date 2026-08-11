@@ -2759,20 +2759,21 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: 1.5rem;
 }
 
 .requests-container {
   width: 100%;
-  max-width: 720px;
-  margin-left: auto;
-  margin-right: auto;
+  max-width: 100%;
+  margin-left: 0;
+  margin-right: 0;
   padding: 1.25rem 1.5rem;
   background: #fff;
   border-radius: 12px;
   border: 1px solid #dee2e6;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-sizing: border-box;
 }
 
 .requests-container-title {
@@ -2861,7 +2862,8 @@
   padding: 0.5rem 1.25rem;
 }
 
-.requests-container-pending .requests-list {
+.requests-container-pending .requests-list,
+.requests-container-sent .requests-list {
   margin-top: 0;
 }
 
@@ -2917,30 +2919,38 @@
   padding: 0.35rem 0.9rem;
 }
 
-.requests-tab .requests-container-pending .request-card.compact-user-card {
+.requests-tab .requests-container-pending .request-card.compact-user-card,
+.requests-tab .requests-container-sent .request-card.compact-user-card {
   padding: 0.5rem 0.6rem !important;
   font-size: 0.8rem;
 }
 
 .requests-tab .requests-container-pending .request-header,
-.requests-tab .requests-container-pending .friend-header {
+.requests-tab .requests-container-pending .friend-header,
+.requests-tab .requests-container-sent .request-header,
+.requests-tab .requests-container-sent .friend-header {
   padding: 0.35rem 0.6rem;
   margin: -0.5rem -0.6rem 0.5rem -0.6rem;
   width: calc(100% + 1.2rem);
 }
 
 .requests-tab .requests-container-pending .request-header h6,
-.requests-tab .requests-container-pending .friend-header h6 {
+.requests-tab .requests-container-pending .friend-header h6,
+.requests-tab .requests-container-sent .request-header h6,
+.requests-tab .requests-container-sent .friend-header h6 {
   font-size: 0.9rem;
 }
 
 .requests-tab .requests-container-pending .request-details p,
-.requests-tab .requests-container-pending .request-info .compact-text {
+.requests-tab .requests-container-pending .request-info .compact-text,
+.requests-tab .requests-container-sent .request-details p,
+.requests-tab .requests-container-sent .request-info .compact-text {
   font-size: 0.75rem;
   margin-bottom: 0.2rem;
 }
 
-.requests-tab .requests-container-pending .request-actions.request-actions-pending {
+.requests-tab .requests-container-pending .request-actions.request-actions-pending,
+.requests-tab .requests-container-sent .request-actions.request-actions-pending {
   padding-top: 0.65rem;
   gap: 0.5rem;
   flex-wrap: wrap;
@@ -2948,7 +2958,8 @@
 }
 
 /* Approve / Refuse : pleine largeur lisible (évite le 32px global + texte tronqué « Accep » / « Refus ») */
-.requests-tab .requests-container-pending .request-actions.request-actions-pending .btn-request-pending-action {
+.requests-tab .requests-container-pending .request-actions.request-actions-pending .btn-request-pending-action,
+.requests-tab .requests-container-sent .request-actions.request-actions-pending .btn-request-pending-action {
   flex: 1 1 calc(50% - 0.25rem);
   min-width: min(100%, 8.5rem);
   width: auto !important;
@@ -2967,40 +2978,48 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
-.requests-tab .requests-container-pending .request-actions.request-actions-pending .btn-request-pending-action i {
+.requests-tab .requests-container-pending .request-actions.request-actions-pending .btn-request-pending-action i,
+.requests-tab .requests-container-sent .request-actions.request-actions-pending .btn-request-pending-action i {
   font-size: 0.95rem;
   flex-shrink: 0;
 }
 
-.requests-tab .requests-container-pending .request-actions.request-actions-pending .btn-request-pending-action span {
+.requests-tab .requests-container-pending .request-actions.request-actions-pending .btn-request-pending-action span,
+.requests-tab .requests-container-sent .request-actions.request-actions-pending .btn-request-pending-action span {
   text-align: center;
 }
 
-.requests-tab .requests-container-pending .friend-actions button {
+.requests-tab .requests-container-pending .friend-actions button,
+.requests-tab .requests-container-sent .friend-actions button {
   font-size: 0.75rem !important;
   padding: 0.25rem 0.5rem !important;
   min-width: 26px;
 }
 
-.requests-tab .requests-container-pending .friend-actions button i {
+.requests-tab .requests-container-pending .friend-actions button i,
+.requests-tab .requests-container-sent .friend-actions button i {
   font-size: 0.7rem;
 }
 
-.requests-tab .requests-container-pending .profile-icon {
+.requests-tab .requests-container-pending .profile-icon,
+.requests-tab .requests-container-sent .profile-icon {
   font-size: 0.7rem;
 }
 
-.requests-tab .requests-container-pending .alert.request-pending-message {
+.requests-tab .requests-container-pending .alert.request-pending-message,
+.requests-tab .requests-container-sent .alert.request-pending-message {
   font-size: 0.75rem;
   padding: 0.5rem 0.65rem;
 }
 
-.requests-tab .requests-container-pending .request-pending-message-label {
+.requests-tab .requests-container-pending .request-pending-message-label,
+.requests-tab .requests-container-sent .request-pending-message-label {
   display: block;
   margin-bottom: 0.35rem;
 }
 
-.requests-tab .requests-container-pending .request-pending-message-body {
+.requests-tab .requests-container-pending .request-pending-message-body,
+.requests-tab .requests-container-sent .request-pending-message-body {
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.35;
@@ -3269,4 +3288,61 @@
   border-radius: 20px;
   font-size: 0.85rem;
   font-weight: 700;
+}
+
+/* ========== Modale Envoyer un email ========== */
+::ng-deep .send-email-modal-window .modal-content {
+  border: 4px solid white !important;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+::ng-deep .send-email-modal-window .modal-header.send-email-modal-header {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: #fff;
+  border: none;
+  padding: 1.25rem 1.5rem;
+}
+
+::ng-deep .send-email-modal-window .modal-header .modal-title {
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+::ng-deep .send-email-modal-window .modal-header .btn-close-white {
+  filter: invert(1);
+  opacity: 0.9;
+}
+
+::ng-deep .send-email-modal-window .modal-header .btn-close-white:hover {
+  opacity: 1;
+}
+
+.send-email-modal-title-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.send-email-modal-subtitle {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.9rem;
+  margin-top: 0.35rem;
+}
+
+::ng-deep .send-email-modal-window .modal-body.send-email-modal-body {
+  padding: 1.25rem 1.5rem;
+}
+
+.send-email-message-textarea {
+  min-height: 140px;
+  resize: vertical;
+}
+
+::ng-deep .send-email-modal-window .modal-footer.send-email-modal-footer {
+  border-top: 1px solid #e9ecef;
+  padding: 0.9rem 1.5rem;
+  gap: 0.5rem;
 }

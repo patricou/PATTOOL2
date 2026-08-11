@@ -517,7 +517,135 @@
       </div>
     </div>
 
-    <!-- Container 2: Envoyer des demandes (une seule fois le bouton) -->
+    <!-- Container 2: Demandes envoyées en attente de réponse -->
+    <div class="requests-container requests-container-sent">
+      <h3 class="requests-container-title">
+        <i class="fa fa-paper-plane me-2"></i>
+        {{ 'FRIENDS.REQUESTS_SENT' | translate }}
+        <span *ngIf="sentRequests.length > 0" class="badge requests-badge">{{ sentRequests.length }}</span>
+      </h3>
+      <div *ngIf="sentRequests.length === 0" class="requests-empty-state">
+        <div class="requests-empty-card">
+          <div class="requests-empty-icon">
+            <i class="fa fa-paper-plane-o"></i>
+          </div>
+          <h4 class="requests-empty-title">{{ 'FRIENDS.NO_SENT_REQUESTS' | translate }}</h4>
+          <p class="requests-empty-text text-muted">{{ 'FRIENDS.NO_SENT_REQUESTS_HINT' | translate }}</p>
+        </div>
+      </div>
+      <div *ngIf="sentRequests.length > 0" class="requests-list">
+        <div *ngFor="let request of getSortedSentRequests()" class="request-card compact-user-card">
+          <div class="request-header">
+            <h6 class="mb-0 card-header-content">
+              <span class="user-name">
+                <i class="fa fa-user-circle me-2"></i>
+                {{ request.recipient.firstName }} {{ request.recipient.lastName }}
+              </span>
+              <span class="header-indicators">
+                <span class="status-indicator connection-indicator"
+                      [style.background-color]="getUserOnlineStatus(request.recipient.id).online ? '#28a745' : '#dc3545'"
+                      [style.border]="getUserOnlineStatus(request.recipient.id).online ? '2px solid #28a745' : '2px solid #dc3545'"
+                      [ngbTooltip]="getUserOnlineStatus(request.recipient.id).online ? ('FRIENDS.ONLINE' | translate) : ('FRIENDS.OFFLINE' | translate)"
+                      placement="top"></span>
+                <span class="status-indicator visibility-indicator"
+                      [style.background-color]="(request.recipient.visible !== undefined && request.recipient.visible !== null) ? (request.recipient.visible ? '#28a745' : '#dc3545') : '#28a745'"
+                      [style.border]="(request.recipient.visible !== undefined && request.recipient.visible !== null) ? (request.recipient.visible ? '2px solid #28a745' : '2px solid #dc3545') : '2px solid #28a745'"
+                      [ngbTooltip]="(request.recipient.visible !== undefined && request.recipient.visible !== null) ? (request.recipient.visible ? ('FRIENDS.VISIBLE' | translate) : ('FRIENDS.HIDDEN' | translate)) : ('FRIENDS.VISIBLE' | translate)"
+                      placement="top"></span>
+              </span>
+            </h6>
+          </div>
+          <div class="request-info">
+            <div class="request-details">
+              <p class="text-muted compact-text mb-2">
+                <i class="fa fa-at profile-icon"></i>
+                <span class="profile-value">{{ request.recipient.userName }}</span>
+              </p>
+              <p class="text-muted compact-text mb-2">
+                <i class="fa fa-clock profile-icon"></i>
+                <strong class="profile-label">{{ 'FRIENDS.REQUESTED_ON' | translate }}</strong>
+                <span class="profile-value ms-1">{{ request.requestDate | date:'short' }}</span>
+              </p>
+              <div *ngIf="request.message" class="alert alert-info compact-text mb-0 mt-2 request-pending-message">
+                <div class="request-pending-message-label">
+                  <i class="fa fa-envelope me-1" aria-hidden="true"></i>
+                  <strong>{{ 'FRIENDS.CUSTOM_MESSAGE' | translate }}</strong>
+                </div>
+                <div class="request-pending-message-body">{{ request.message }}</div>
+              </div>
+            </div>
+          </div>
+          <div *ngIf="friendRequestPromptUserId === request.recipient.id" class="alert alert-info compact-alert mt-2">
+            <i class="fa fa-question-circle"></i>
+            <span class="compact-text">{{ 'FRIENDS.ADD_CUSTOM_MESSAGE' | translate }}</span>
+            <div class="mt-2 d-flex gap-2">
+              <button
+                type="button"
+                class="btn btn-primary btn-xs compact-btn"
+                (click)="confirmAddFriendRequestMessage(request.recipient.id)">
+                <i class="fa fa-check"></i>
+                {{ 'FRIENDS.YES' | translate }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-secondary btn-xs compact-btn"
+                (click)="skipFriendRequestMessage(request.recipient.id)">
+                <i class="fa fa-times"></i>
+                {{ 'FRIENDS.NO' | translate }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-outline-secondary btn-xs compact-btn"
+                (click)="cancelFriendRequestMessage(request.recipient.id)">
+                {{ 'FRIENDS.CANCEL' | translate }}
+              </button>
+            </div>
+          </div>
+          <div *ngIf="friendRequestInputUserId === request.recipient.id" class="alert alert-info compact-alert mt-2">
+            <label class="compact-text mb-1 d-block">{{ 'FRIENDS.CUSTOM_MESSAGE' | translate }}</label>
+            <textarea
+              class="form-control form-control-sm"
+              rows="2"
+              [ngModel]="getFriendRequestMessage(request.recipient.id)"
+              (ngModelChange)="setFriendRequestMessage(request.recipient.id, $event)"
+              [placeholder]="'FRIENDS.CUSTOM_MESSAGE_PLACEHOLDER' | translate"></textarea>
+            <div class="mt-2 d-flex gap-2">
+              <button
+                type="button"
+                class="btn btn-primary btn-xs compact-btn"
+                (click)="resendFriendRequest(request.recipient.id)">
+                <i class="fa fa-paper-plane"></i>
+                {{ 'FRIENDS.RESEND_REQUEST' | translate }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-outline-secondary btn-xs compact-btn"
+                (click)="cancelFriendRequestMessage(request.recipient.id)">
+                {{ 'FRIENDS.CANCEL' | translate }}
+              </button>
+            </div>
+          </div>
+          <div class="request-actions request-actions-pending" *ngIf="friendRequestPromptUserId !== request.recipient.id && friendRequestInputUserId !== request.recipient.id">
+            <button
+              type="button"
+              class="btn btn-info btn-request-pending-action"
+              (click)="resendFriendRequest(request.recipient.id)">
+              <i class="fa fa-paper-plane" aria-hidden="true"></i>
+              <span>{{ 'FRIENDS.RESEND_REQUEST' | translate }}</span>
+            </button>
+            <button
+              type="button"
+              class="btn btn-outline-danger btn-request-pending-action"
+              (click)="cancelSentRequest(request.recipient.id)">
+              <i class="fa fa-times" aria-hidden="true"></i>
+              <span>{{ 'FRIENDS.CANCEL_SENT_REQUEST' | translate }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Container 3: Envoyer des demandes (une seule fois le bouton) -->
     <div class="requests-container requests-container-send">
       <h3 class="requests-container-title">
         <i class="fa fa-user-plus me-2"></i>
@@ -605,6 +733,15 @@
         </div>
         <div class="friend-actions">
           <div class="d-flex gap-2 flex-wrap">
+            <!-- Email the friend (other user) -->
+            <button
+              *ngIf="getOtherUser(friend).addressEmail"
+              class="btn btn-xs btn-primary compact-btn"
+              (click)="openSendEmailModal(getOtherUser(friend))"
+              [ngbTooltip]="'FRIENDS.SEND_EMAIL_TITLE' | translate"
+              placement="top">
+              <i class="fa fa-envelope"></i>
+            </button>
             <!-- WhatsApp Link for the friend (other user) only -->
             <button 
               *ngIf="getOtherUser(friend).whatsappLink"
@@ -1954,6 +2091,99 @@
       <i class="fa fa-paper-plane me-2" *ngIf="!sendingSelectedRequests"></i>
       {{ 'FRIENDS.SEND_SELECTED_REQUESTS' | translate }}
       <span *ngIf="getSelectedUsersForRequestCount() > 0" class="send-request-count">{{ getSelectedUsersForRequestCount() }}</span>
+    </button>
+  </div>
+</ng-template>
+
+<!-- Send email to PatTool user modal -->
+<ng-template #sendEmailModal let-modal>
+  <div class="modal-header send-email-modal-header">
+    <div class="send-email-modal-title-wrap">
+      <h5 class="modal-title">
+        <i class="fa fa-envelope me-2"></i>
+        {{ 'FRIENDS.SEND_EMAIL_TITLE' | translate }}
+      </h5>
+      <p class="send-email-modal-subtitle mb-0">{{ 'FRIENDS.SEND_EMAIL_SUBTITLE' | translate }}</p>
+    </div>
+    <button type="button" class="btn-close btn-close-white" aria-label="Close" (click)="modal.dismiss('Cross click')"></button>
+  </div>
+  <div class="modal-body send-email-modal-body">
+    <div *ngIf="sendEmailError" class="alert alert-danger" role="alert">
+      {{ sendEmailError | translate }}
+    </div>
+    <div *ngIf="sendEmailSuccess" class="alert alert-success" role="alert">
+      {{ sendEmailSuccess | translate }}
+    </div>
+
+    <div class="mb-3" *ngIf="getEmailRecipientCandidates().length === 0">
+      <p class="text-muted mb-0">
+        <i class="fa fa-info-circle me-1"></i>
+        {{ 'FRIENDS.SEND_EMAIL_NO_USERS' | translate }}
+      </p>
+    </div>
+
+    <ng-container *ngIf="getEmailRecipientCandidates().length > 0">
+      <div class="mb-3">
+        <label class="form-label">
+          <i class="fa fa-search me-1"></i>{{ 'FRIENDS.SEND_EMAIL_SEARCH' | translate }}
+        </label>
+        <input type="text"
+               class="form-control"
+               [(ngModel)]="sendEmailRecipientFilter"
+               [placeholder]="'FRIENDS.SEND_EMAIL_SEARCH_PLACEHOLDER' | translate">
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">
+          <i class="fa fa-user me-1"></i>{{ 'FRIENDS.SEND_EMAIL_RECIPIENT' | translate }}
+        </label>
+        <select class="form-select"
+                [(ngModel)]="sendEmailRecipientId">
+          <option *ngFor="let user of getFilteredEmailRecipients()" [value]="user.id">
+            {{ user.firstName }} {{ user.lastName }} (@{{ user.userName }}) — {{ user.addressEmail }}
+          </option>
+        </select>
+        <small class="text-muted d-block mt-1" *ngIf="getSelectedEmailRecipient() as selected">
+          <i class="fa fa-envelope-o me-1"></i>{{ selected.addressEmail }}
+        </small>
+        <small class="text-muted d-block mt-1" *ngIf="getFilteredEmailRecipients().length === 0">
+          {{ 'FRIENDS.SEND_EMAIL_NO_MATCH' | translate }}
+        </small>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">
+          <i class="fa fa-tag me-1"></i>{{ 'FRIENDS.SEND_EMAIL_SUBJECT' | translate }}
+          <span class="text-muted">({{ 'FRIENDS.OPTIONAL' | translate }})</span>
+        </label>
+        <input type="text"
+               class="form-control"
+               [(ngModel)]="sendEmailSubject"
+               [placeholder]="'FRIENDS.SEND_EMAIL_SUBJECT_PLACEHOLDER' | translate">
+      </div>
+
+      <div class="mb-2">
+        <label class="form-label">
+          <i class="fa fa-comment me-1"></i>{{ 'FRIENDS.SEND_EMAIL_MESSAGE' | translate }}
+        </label>
+        <textarea class="form-control send-email-message-textarea"
+                  rows="6"
+                  [(ngModel)]="sendEmailMessage"
+                  [placeholder]="'FRIENDS.SEND_EMAIL_MESSAGE_PLACEHOLDER' | translate"></textarea>
+      </div>
+    </ng-container>
+  </div>
+  <div class="modal-footer send-email-modal-footer">
+    <button type="button" class="btn btn-outline-secondary" (click)="modal.dismiss('cancel')" [disabled]="sendEmailSending">
+      {{ 'FRIENDS.CANCEL' | translate }}
+    </button>
+    <button type="button"
+            class="btn btn-primary"
+            (click)="submitSendEmail()"
+            [disabled]="sendEmailSending || getEmailRecipientCandidates().length === 0 || !sendEmailRecipientId || !(sendEmailMessage || '').trim()">
+      <i class="fa fa-spinner fa-spin me-2" *ngIf="sendEmailSending"></i>
+      <i class="fa fa-paper-plane me-2" *ngIf="!sendEmailSending"></i>
+      {{ 'FRIENDS.SEND_EMAIL_SUBMIT' | translate }}
     </button>
   </div>
 </ng-template>

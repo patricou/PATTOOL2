@@ -15,7 +15,7 @@ import { Subscription, firstValueFrom } from 'rxjs';
 
 import { ApiService, TvChannel } from '../services/api.service';
 import { TvFloatingState, TvPlayerService } from '../services/tv-player.service';
-import { isCanalGroupVirtual, isFranceTvVirtual, isArteLiveVirtual, isArteReplayVod, isInternetArchiveVirtual, internetArchiveIdFromVirtualUrl, isKeepAliveVirtualLive, isM6GroupVirtual, isProgressiveVod, isRadioFranceVirtual, isRtsVirtual, isTf1Virtual, needsProactiveTokenRenewal, resolveTvStreamUrl } from '../tv-watcher/tv-stream.util';
+import { isCanalGroupVirtual, isCapTerreChannel, isFranceTvVirtual, isArteReplayVod, isInternetArchiveVirtual, internetArchiveIdFromVirtualUrl, isKeepAliveVirtualLive, isM6GroupVirtual, isProgressiveVod, isRadioFranceVirtual, isRtsVirtual, isTf1Virtual, needsProactiveTokenRenewal, resolveTvStreamUrl, shouldSkipTvLiveEdgeWatchdog } from '../tv-watcher/tv-stream.util';
 import { formatTvPlayErrorDisplay } from './tv-stream-error.util';
 import { startTvHlsPlayback, TvHlsPlaybackHandle } from './tv-hls-playback';
 import { bustVirtualLiveCache, preflightVirtualLive, virtualLiveKeepAliveFromUrl } from './tv-virtual-live-keepalive';
@@ -531,9 +531,8 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
         vod: isArteReplayVod(streamUrl),
         progressive,
         channelLabel: channel.name,
-        skipLiveEdgeWatchdog:
-          isTf1Virtual(streamUrl) || isM6GroupVirtual(streamUrl) || isRtsVirtual(streamUrl)
-          || isArteLiveVirtual(streamUrl),
+        skipLiveEdgeWatchdog: shouldSkipTvLiveEdgeWatchdog(streamUrl, channel),
+        slowMirror: isCapTerreChannel(channel) || isCapTerreChannel(streamUrl),
         onBuffering: (v) => {
           this.isBuffering = v;
           this.cdr.markForCheck();

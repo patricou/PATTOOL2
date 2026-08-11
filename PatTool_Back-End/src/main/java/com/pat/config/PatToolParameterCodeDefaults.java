@@ -171,6 +171,8 @@ public final class PatToolParameterCodeDefaults {
             Map.entry("app.stellarium.noctuasky-api-base", "https://api.noctuasky.com/api/v1"),
             Map.entry("app.stellarium.freegeoip-base", "https://freegeoip.stellarium.org"),
             Map.entry("app.stellarium.patool-viewer-base", ""),
+            Map.entry("app.eclipse.usno-api-base", "https://aa.usno.navy.mil/api"),
+            Map.entry("app.eclipse.opale-api-base", "https://opale.imcce.fr/api/v1"),
             Map.entry("app.twelvedata.api-base", "https://api.twelvedata.com"),
             Map.entry("app.twelvedata.api-key", "demo"),
             Map.entry("app.coingecko.api-base", "https://api.coingecko.com/api/v3"),

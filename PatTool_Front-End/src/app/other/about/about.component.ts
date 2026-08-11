@@ -102,6 +102,7 @@ export class AboutComponent {
     { route: ['results'], icon: 'fa-comments', labelKey: 'MENU.RESULTS', descKey: 'ABOUT.FEAT_WHATSPAT' },
     { route: ['calendrier'], icon: 'fa-calendar-check-o', labelKey: 'MENU.CALENDAR', descKey: 'ABOUT.FEAT_CALENDAR' },
     { route: ['todolists'], icon: 'fa-tasks', labelKey: 'MENU.TODOLISTS', descKey: 'ABOUT.FEAT_TODO' },
+    { route: ['notes'], icon: 'fa-sticky-note', labelKey: 'MENU.NOTES', descKey: 'ABOUT.FEAT_NOTES' },
     { route: ['friends'], icon: 'fa-users', labelKey: 'MENU.FRIENDS', descKey: 'ABOUT.FEAT_FRIENDS' },
     { route: ['links'], icon: 'fa-link', labelKey: 'MENU.LINKS', descKey: 'ABOUT.FEAT_LINKS' },
     { route: ['iot'], icon: 'fa-home', labelKey: 'MENU.IOT_HOME', descKey: 'ABOUT.FEAT_IOT' },

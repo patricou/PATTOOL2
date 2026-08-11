@@ -238,6 +238,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./ciel/ciel.component').then(m => m.CielComponent)
 			},
 			{
+				path: 'tools/eclipse',
+				loadComponent: () => import('./eclipse/eclipse.component').then(m => m.EclipseComponent)
+			},
+			{
 				path: 'tools/world-globe',
 				loadComponent: () => import('./world-globe/world-globe.component').then(m => m.WorldGlobeComponent)
 			},
@@ -263,6 +267,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 			{
 				path: 'todolists',
 				loadComponent: () => import('./todolists/todolists.component').then(m => m.TodolistsComponent)
+			},
+			{
+				path: 'notes',
+				loadComponent: () => import('./notes/notes.component').then(m => m.NotesComponent)
 			},
 			{ path: '**', redirectTo: 'home', pathMatch: 'full' }
 		], { onSameUrlNavigation: 'reload' }),

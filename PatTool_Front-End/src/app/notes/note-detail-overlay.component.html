@@ -1,0 +1,324 @@
+<div class="notes-overlay notes-overlay--loading" *ngIf="loading" role="status">
+  <div class="spinner-border text-primary" aria-hidden="true"></div>
+  <span class="ms-2">{{ 'NOTES.LOADING' | translate }}</span>
+</div>
+
+<div class="notes-overlay" *ngIf="!loading && loadError">
+  <div class="modal-header notes-modal-header py-2">
+    <h5 class="modal-title mb-0">{{ 'NOTES.VIEW_TITLE' | translate }}</h5>
+    <button type="button" class="btn-close" (click)="activeModal.dismiss()" [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+  </div>
+  <div class="modal-body">
+    <div class="alert alert-warning mb-0">{{ 'NOTES.LOAD_ERROR' | translate }}</div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" (click)="activeModal.dismiss()">{{ 'NOTES.CLOSE' | translate }}</button>
+  </div>
+</div>
+
+<!-- Post-it preview -->
+<div class="notes-overlay" *ngIf="!loading && !loadError && note && !editing">
+  <div class="modal-header notes-modal-header py-2"
+       [style.background-color]="note.color || '#ffe066'">
+    <h5 class="modal-title mb-0">
+      <i class="fa fa-sticky-note me-1" aria-hidden="true"></i>{{ 'NOTES.VIEW_TITLE' | translate }}
+    </h5>
+    <button type="button" class="btn-close" (click)="activeModal.dismiss()" [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+  </div>
+
+  <div class="modal-body notes-overlay-body notes-overlay-body--postit">
+    <article class="notes-overlay-postit"
+             [style.background-color]="note.color || '#ffe066'">
+      <h3 class="notes-overlay-postit-title" *ngIf="note.title">{{ note.title }}</h3>
+      <p class="notes-overlay-postit-body" *ngIf="note.content">{{ note.content }}</p>
+      <div class="notes-overlay-postit-photos" *ngIf="photoCount() > 0">
+        <img *ngFor="let src of draft.imageDataUrls | slice:0:4" [src]="src" alt="">
+        <span class="notes-overlay-postit-photo-more" *ngIf="photoCount() > 4">+{{ photoCount() - 4 }}</span>
+      </div>
+      <footer class="notes-overlay-postit-meta">
+        <span *ngIf="note.ownerDisplayName"><i class="fa fa-user"></i> {{ note.ownerDisplayName }}</span>
+        <span *ngIf="note.createdAt"><i class="fa fa-clock-o"></i> {{ formatDate(note.createdAt) }}</span>
+      </footer>
+    </article>
+  </div>
+
+  <div class="modal-footer py-2 gap-1">
+    <button type="button" class="btn btn-sm btn-secondary" (click)="activeModal.dismiss()">
+      {{ 'NOTES.CLOSE' | translate }}
+    </button>
+    <button *ngIf="canEdit()"
+            type="button"
+            class="btn btn-sm btn-primary"
+            (click)="startEditing()">
+      <i class="fa fa-pencil me-1" aria-hidden="true"></i>{{ 'NOTES.EDIT_NOTE_BUTTON' | translate }}
+    </button>
+  </div>
+</div>
+
+<!-- Full edit form (only after "modifier la note") -->
+<div class="notes-overlay" *ngIf="!loading && !loadError && note && editing">
+  <div class="modal-header notes-modal-header py-2" [style.background-color]="draft.color || '#ffe066'">
+    <h5 class="modal-title mb-0">{{ 'NOTES.EDIT_TITLE' | translate }}</h5>
+    <button type="button" class="btn-close" (click)="activeModal.dismiss()" [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+  </div>
+
+  <div class="modal-body notes-overlay-body notes-modal-body py-2 px-3">
+    <div *ngIf="saveError" class="alert alert-danger py-1 px-2 small mb-2">{{ saveError }}</div>
+
+    <div class="notes-field mb-2">
+      <label class="form-label notes-field-label" for="overlay-note-title">{{ 'NOTES.NOTE_TITLE' | translate }}</label>
+      <input id="overlay-note-title"
+             type="text"
+             class="form-control form-control-sm"
+             maxlength="200"
+             [(ngModel)]="draft.title"
+             name="overlay-noteTitle"
+             [placeholder]="'NOTES.NOTE_TITLE_PLACEHOLDER' | translate">
+    </div>
+
+    <div class="notes-field mb-2">
+      <label class="form-label notes-field-label" for="overlay-note-content">{{ 'NOTES.CONTENT' | translate }}</label>
+      <textarea id="overlay-note-content"
+                class="form-control form-control-sm notes-content-area"
+                rows="3"
+                maxlength="8000"
+                [(ngModel)]="draft.content"
+                name="overlay-noteContent"
+                [placeholder]="'NOTES.CONTENT_PLACEHOLDER' | translate"></textarea>
+    </div>
+
+    <div class="notes-field mb-2">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-1 mb-1">
+        <label class="form-label notes-field-label mb-0">{{ 'NOTES.PHOTOS' | translate }}</label>
+        <label *ngIf="photoCount() < maxPhotos"
+               class="btn btn-sm btn-outline-primary mb-0 notes-photo-add-btn py-0 px-2"
+               [class.disabled]="isCompressingPhotos">
+          <i class="fa me-1"
+             [class.fa-camera]="!isCompressingPhotos"
+             [class.fa-spinner]="isCompressingPhotos"
+             [class.fa-spin]="isCompressingPhotos"></i>
+          {{ (isCompressingPhotos ? 'NOTES.PHOTOS_COMPRESSING' : 'NOTES.ADD_PHOTOS') | translate }}
+          <input type="file"
+                 accept="image/*"
+                 multiple
+                 hidden
+                 [disabled]="isCompressingPhotos"
+                 (change)="onPhotosSelected($event)">
+        </label>
+      </div>
+      <div class="notes-photo-grid" *ngIf="photoCount() > 0">
+        <div class="notes-photo-tile" *ngFor="let src of draft.imageDataUrls; let i = index">
+          <img [src]="src" alt="">
+          <button type="button"
+                  class="notes-photo-remove"
+                  (click)="removePhoto(i)"
+                  [attr.title]="'NOTES.REMOVE_PHOTO' | translate"
+                  [attr.aria-label]="'NOTES.REMOVE_PHOTO' | translate">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+      </div>
+      <p class="notes-hint mb-0" *ngIf="photoCount() === 0">
+        {{ 'NOTES.PHOTOS_HINT' | translate:{ max: maxPhotos } }}
+      </p>
+    </div>
+
+    <div class="notes-field mb-2">
+      <label class="form-label notes-field-label d-block">{{ 'NOTES.COLOR' | translate }}</label>
+      <div class="notes-color-picker" role="listbox">
+        <button *ngFor="let c of colorPalette"
+                type="button"
+                class="notes-color-swatch"
+                [class.notes-color-swatch--active]="draft.color === c"
+                [style.background-color]="c"
+                (click)="pickColor(c)"
+                [attr.aria-label]="c"
+                role="option">
+        </button>
+      </div>
+    </div>
+
+    <div class="notes-editor-links mb-2">
+      <span class="notes-field-label d-block mb-1">{{ 'NOTES.LINK_SECTION_TITLE' | translate }}</span>
+      <p class="notes-hint mb-1">{{ 'NOTES.LINK_SECTION_INTRO' | translate }}</p>
+      <div *ngIf="linkPickerLoading" class="notes-hint mb-1">
+        <i class="fa fa-spinner fa-spin"></i> {{ 'NOTES.LINK_LOADING_CALENDAR' | translate }}
+      </div>
+      <div *ngIf="linkPickerError && !linkPickerLoading" class="text-warning small mb-1">
+        {{ 'NOTES.LINK_LOAD_ERROR' | translate }}
+      </div>
+      <div class="row g-1">
+        <div class="col-12 col-md-6">
+          <label class="form-label notes-field-label mb-0" for="overlay-note-event-filter">{{ 'NOTES.LINK_PICK_ACTIVITY' | translate }}</label>
+          <div class="input-group input-group-sm mb-1">
+            <span class="input-group-text py-0"><i class="fa fa-search"></i></span>
+            <input id="overlay-note-event-filter"
+                   type="search"
+                   class="form-control form-control-sm"
+                   name="overlay-noteEventPickFilter"
+                   autocomplete="off"
+                   [disabled]="linkPickerLoading"
+                   [ngModel]="linkPickerActivityFilter"
+                   (ngModelChange)="onLinkPickerActivityFilterChange($event)"
+                   [placeholder]="'NOTES.LINK_FILTER_PLACEHOLDER' | translate">
+          </div>
+          <select id="overlay-note-event-pick"
+                  class="form-select form-select-sm notes-link-picker-select"
+                  name="overlay-noteEventPick"
+                  [size]="linkPickerSelectSize(filteredLinkPickerActivities.length)"
+                  [disabled]="linkPickerLoading"
+                  [ngModel]="draft.evenementId || ''"
+                  (ngModelChange)="onActivityLinkSelect($event)">
+            <option value="">{{ 'NOTES.LINK_NONE' | translate }}</option>
+            <option *ngFor="let o of filteredLinkPickerActivities" [value]="o.id">{{ o.label }}</option>
+          </select>
+          <div class="notes-hint mt-1" *ngIf="!linkPickerLoading">
+            <ng-container *ngIf="linkPickerActivityFilter.trim(); else overlayActTotal">
+              {{ 'NOTES.LINK_FILTER_COUNT' | translate:{ shown: filteredLinkPickerActivities.length, total: linkPickerActivities.length } }}
+            </ng-container>
+            <ng-template #overlayActTotal>
+              {{ 'NOTES.LINK_OPTIONS_COUNT' | translate:{ count: linkPickerActivities.length } }}
+            </ng-template>
+          </div>
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label notes-field-label mb-0" for="overlay-note-appt-filter">{{ 'NOTES.LINK_PICK_APPOINTMENT' | translate }}</label>
+          <div class="input-group input-group-sm mb-1">
+            <span class="input-group-text py-0"><i class="fa fa-search"></i></span>
+            <input id="overlay-note-appt-filter"
+                   type="search"
+                   class="form-control form-control-sm"
+                   name="overlay-noteCalApptPickFilter"
+                   autocomplete="off"
+                   [disabled]="linkPickerLoading"
+                   [ngModel]="linkPickerAppointmentFilter"
+                   (ngModelChange)="onLinkPickerAppointmentFilterChange($event)"
+                   [placeholder]="'NOTES.LINK_FILTER_PLACEHOLDER' | translate">
+          </div>
+          <select id="overlay-note-appt-pick"
+                  class="form-select form-select-sm notes-link-picker-select"
+                  name="overlay-noteCalApptPick"
+                  [size]="linkPickerSelectSize(filteredLinkPickerAppointments.length)"
+                  [disabled]="linkPickerLoading"
+                  [ngModel]="draft.calendarAppointmentId || ''"
+                  (ngModelChange)="onAppointmentLinkSelect($event)">
+            <option value="">{{ 'NOTES.LINK_NONE' | translate }}</option>
+            <option *ngFor="let o of filteredLinkPickerAppointments" [value]="o.id">{{ o.label }}</option>
+          </select>
+          <div class="notes-hint mt-1" *ngIf="!linkPickerLoading">
+            <ng-container *ngIf="linkPickerAppointmentFilter.trim(); else overlayApptTotal">
+              {{ 'NOTES.LINK_FILTER_COUNT' | translate:{ shown: filteredLinkPickerAppointments.length, total: linkPickerAppointments.length } }}
+            </ng-container>
+            <ng-template #overlayApptTotal>
+              {{ 'NOTES.LINK_OPTIONS_COUNT_APPT' | translate:{ count: linkPickerAppointments.length } }}
+            </ng-template>
+          </div>
+        </div>
+      </div>
+      <p class="notes-hint mb-0 mt-1">{{ 'NOTES.LINK_HINT' | translate }}</p>
+    </div>
+
+    <div class="notes-editor-visibility mb-2">
+      <label class="form-label notes-field-label d-flex align-items-center gap-1 mb-1">
+        <i class="fa fa-eye" aria-hidden="true"></i>
+        {{ 'NOTES.VISIBILITY_LABEL' | translate }}
+      </label>
+      <div class="btn-group btn-group-sm flex-wrap notes-vis-presets" role="group">
+        <ng-container *ngFor="let v of visibilityPresets">
+          <input type="radio" class="btn-check"
+                 [id]="'overlay-note-vis-' + v"
+                 [name]="'overlay-noteVisibility'"
+                 [checked]="draft.visibility === v"
+                 (change)="draft.visibility = v; onVisibilityChange()">
+          <label class="btn btn-outline-primary notes-vis-preset-btn py-0 px-2" [for]="'overlay-note-vis-' + v">
+            <i class="fa me-1" [ngClass]="visibilityIcon(v)"></i>
+            <span>{{ visibilityLabelKey(v) | translate }}</span>
+          </label>
+        </ng-container>
+      </div>
+
+      <div *ngIf="draft.visibility === 'friendGroups'" class="notes-editor-groups mt-1">
+        <label class="form-label notes-field-label mb-1">{{ 'NOTES.PICK_GROUPS' | translate }}</label>
+        <div *ngIf="friendGroups.length === 0" class="notes-hint mb-0">
+          {{ 'NOTES.NO_GROUPS' | translate }}
+        </div>
+        <div class="notes-editor-group-chips" *ngIf="friendGroups.length > 0">
+          <button type="button" class="btn btn-sm notes-group-chip"
+                  *ngFor="let g of friendGroups"
+                  [class.btn-primary]="isFriendGroupSelected(g.id)"
+                  [class.btn-outline-primary]="!isFriendGroupSelected(g.id)"
+                  (click)="toggleFriendGroupSelection(g.id)">
+            <i class="fa me-1"
+               [class.fa-check-circle]="isFriendGroupSelected(g.id)"
+               [class.fa-circle-o]="!isFriendGroupSelected(g.id)"></i>
+            {{ g.name }}
+          </button>
+        </div>
+      </div>
+
+      <div class="notes-editor-recipients d-flex flex-wrap align-items-center gap-1 mt-2">
+        <span *ngIf="editorRecipientsLoading" class="text-primary notes-hint mb-0">
+          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
+          {{ 'NOTES.LOADING_RECIPIENTS' | translate }}
+        </span>
+        <span *ngIf="!editorRecipientsLoading" class="notes-recipients-summary notes-hint mb-0">
+          <i class="fa fa-users text-primary me-1" aria-hidden="true"></i>
+          {{ 'NOTES.RECIPIENTS_COUNT' | translate:{ count: editorRecipients.length } }}
+        </span>
+        <button type="button"
+                class="btn btn-sm py-0 px-2"
+                [ngClass]="editorRecipientsDetailOpen ? 'btn-outline-secondary' : 'btn-outline-primary'"
+                (click)="toggleEditorRecipientsDetail()"
+                [disabled]="editorRecipientsLoading">
+          <i class="fa me-1"
+             [class.fa-chevron-up]="editorRecipientsDetailOpen"
+             [class.fa-binoculars]="!editorRecipientsDetailOpen"></i>
+          {{ (editorRecipientsDetailOpen ? 'NOTES.HIDE_WHO_CAN_SEE' : 'NOTES.VIEW_WHO_CAN_SEE') | translate }}
+        </button>
+      </div>
+      <div *ngIf="editorRecipientsDetailOpen" class="notes-recipients-panel mt-1 small">
+        <div class="notes-recipients-panel-head px-2 py-1 text-white">
+          <i class="fa fa-users me-1" aria-hidden="true"></i>
+          {{ 'NOTES.WHO_CAN_SEE_TITLE' | translate }}
+        </div>
+        <div class="px-2 py-1 notes-recipients-panel-scroll">
+          <ul class="list-unstyled mb-0" *ngIf="!editorRecipientsLoading && editorRecipients.length > 0">
+            <li *ngFor="let r of editorRecipients; let i = index"
+                class="d-flex align-items-center gap-1 py-1 px-1 rounded-1"
+                [class.bg-light]="i % 2 === 0">
+              <i class="fa fa-user-circle" aria-hidden="true"></i>
+              <div class="flex-grow-1 min-w-0">
+                <div class="text-truncate">{{ r.displayName }}</div>
+              </div>
+            </li>
+          </ul>
+          <p *ngIf="!editorRecipientsLoading && editorRecipients.length === 0" class="mb-0 notes-hint">
+            {{ 'NOTES.RECIPIENTS_PREVIEW_EMPTY' | translate }}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes-draft-meta text-muted">
+      <div *ngIf="draft.ownerDisplayName">
+        <i class="fa fa-user me-1"></i>{{ draft.ownerDisplayName }}
+      </div>
+      <div *ngIf="note.createdAt">
+        <i class="fa fa-clock-o me-1"></i>{{ formatDate(note.createdAt) }}
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-footer py-2 gap-1">
+    <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelEditing()" [disabled]="isSaving">
+      {{ 'NOTES.CANCEL' | translate }}
+    </button>
+    <button type="button"
+            class="btn btn-sm btn-primary"
+            [disabled]="!canSave()"
+            (click)="save()">
+      <span *ngIf="isSaving" class="spinner-border spinner-border-sm me-1" role="status"></span>
+      {{ 'NOTES.SAVE' | translate }}
+    </button>
+  </div>
+</div>

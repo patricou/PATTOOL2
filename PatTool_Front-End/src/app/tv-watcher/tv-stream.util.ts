@@ -143,6 +143,52 @@ export function isArteLiveVirtual(url: string): boolean {
   return !!id && id.toUpperCase() === 'LIVE';
 }
 
+/**
+ * Cap Terre (iptv-org {@code CapTerre.es@FR}): lone 1080p ~5.5 Mbps on a bare-HTTP
+ * mirror whose segment download often barely keeps realtime — underrun spinner loops.
+ */
+export function isCapTerreChannel(
+  channelOrUrl:
+    | string
+    | { name?: string | null; id?: string | null; streamUrl?: string | null }
+    | null
+    | undefined
+): boolean {
+  if (channelOrUrl == null) {
+    return false;
+  }
+  if (typeof channelOrUrl === 'string') {
+    return isCapTerreStreamUrl(channelOrUrl);
+  }
+  const name = (channelOrUrl.name || '').toLowerCase();
+  const id = (channelOrUrl.id || '').toLowerCase();
+  if (/cap\s*terre/.test(name) || id.includes('capterre') || id.includes('cap-terre')) {
+    return true;
+  }
+  return isCapTerreStreamUrl(channelOrUrl.streamUrl || '');
+}
+
+function isCapTerreStreamUrl(url: string): boolean {
+  const u = (url || '').toLowerCase();
+  // iptv-org FR entry: http://145.239.5.177/359a/index.m3u8
+  return u.includes('145.239.5.177') && u.includes('/359a/');
+}
+
+/**
+ * Live-edge seeks poison MSE on IPTV mirrors that lag behind realtime
+ * (TF1/M6/RTS, ARTE LIVE failover, Cap Terre slow 1080p).
+ */
+export function shouldSkipTvLiveEdgeWatchdog(
+  streamUrl: string,
+  channel?: { name?: string | null; id?: string | null; streamUrl?: string | null } | null
+): boolean {
+  return isTf1Virtual(streamUrl)
+    || isM6GroupVirtual(streamUrl)
+    || isRtsVirtual(streamUrl)
+    || isArteLiveVirtual(streamUrl)
+    || isCapTerreChannel(channel || streamUrl);
+}
+
 /** Finite ARTE replay (not the live channel) — use VOD HLS config, no live-edge seek. */
 export function isArteReplayVod(url: string): boolean {
   return isArteVirtual(url) && !isArteLiveVirtual(url);

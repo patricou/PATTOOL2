@@ -273,6 +273,14 @@
                         <span class="group-action-btn-text">{{ 'EVENTELEM.TODO_LIST_BUTTON_HINT' | translate }}</span>
                     </button>
                     <button type="button"
+                            class="btn btn-sm group-action-btn group-action-btn--notes"
+                            *ngIf="group.linkedNoteId"
+                            (click)="openWallNotes(group, $event)"
+                            [title]="'EVENTELEM.NOTES_BUTTON_HINT' | translate">
+                        <i class="fa fa-sticky-note"></i>
+                        <span class="group-action-btn-text">{{ 'EVENTELEM.NOTES_BUTTON_HINT' | translate }}</span>
+                    </button>
+                    <button type="button"
                             class="btn btn-sm group-action-btn group-action-btn--pdf-converter"
                             *ngIf="getGroupLinkedPdfConverterDocuments(group).length > 0"
                             (click)="openWallPdfConverterDocs(group, $event)"
