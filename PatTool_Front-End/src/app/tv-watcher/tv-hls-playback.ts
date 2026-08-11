@@ -315,10 +315,11 @@ export function startTvHlsPlayback(
     detachUnderrun = attachTvUnderrunSpinnerWatch(
       video,
       (buffering) => setBuffering(buffering),
-      channelLabel
+      channelLabel,
+      slowMirror ? 2_500 : 0
     );
     detachSlowPace = slowMirror
-      ? attachTvSlowMirrorPaceGuard(video, channelLabel)
+      ? attachTvSlowMirrorPaceGuard(video, channelLabel, (buffering) => setBuffering(buffering))
       : null;
     tvPlayLog('lecture HLS démarrée (float/popout, diag spinner actif)', {
       channel: channelLabel,

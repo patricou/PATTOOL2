@@ -31,6 +31,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Proxies free IPTV / HLS media through the backend (CORS + mixed-content safe).
@@ -57,6 +61,30 @@ public class TvStreamProxyService {
     private static final int MAX_REDIRECTS = 8;
     /** Hard cap for a single proxied response (playlists + media segments). */
     private static final int MAX_BYTES = 12 * 1024 * 1024;
+
+    /**
+     * Cap Terre ({@code 145.239.5.177/359a}): lone 1080p @ ~5 Mbps on a ~20 s window.
+     * Segment download ≈ segment duration → player underruns unless the proxy
+     * prefetches the tiny playlist into RAM before hls.js asks for each .ts.
+     */
+    private static final long CAP_TERRE_SEGMENT_TTL_MS = 45_000L;
+    private static final int CAP_TERRE_CACHE_MAX = 8;
+
+    private final ConcurrentHashMap<String, CapTerreCachedSegment> capTerreSegmentCache =
+            new ConcurrentHashMap<>();
+    private final Set<String> capTerrePrefetchInFlight =
+            ConcurrentHashMap.newKeySet();
+    private final ExecutorService capTerrePrefetchExecutor = Executors.newFixedThreadPool(3, r -> {
+        Thread t = new Thread(r, "cap-terre-prefetch");
+        t.setDaemon(true);
+        return t;
+    });
+
+    private record CapTerreCachedSegment(byte[] body, String contentType, long expiresAtMs) {
+        boolean alive() {
+            return body != null && body.length > 0 && System.currentTimeMillis() < expiresAtMs;
+        }
+    }
 
     @Value("${app.tv.proxy-referrer:}")
     private String defaultReferrer;
@@ -225,6 +253,21 @@ public class TvStreamProxyService {
 
         String referer = resolveReferer(host);
 
+        // Cap Terre: serve .ts from RAM when prefetched (player otherwise waits ~5–6 s/seg).
+        if (isCapTerreUpstream(upstreamUrl) && rangeHeader == null) {
+            CapTerreCachedSegment cached = getCapTerreCachedSegment(upstreamUrl);
+            if (cached != null) {
+                HttpHeaders headers = new HttpHeaders();
+                headers.set(HttpHeaders.CONTENT_TYPE,
+                        cached.contentType() != null
+                                ? cached.contentType()
+                                : MediaType.APPLICATION_OCTET_STREAM_VALUE);
+                headers.set(HttpHeaders.CACHE_CONTROL, "no-store");
+                headers.set("X-PatTool-CapTerre-Cache", "HIT");
+                return ResponseEntity.ok().headers(headers).body(cached.body());
+            }
+        }
+
         FetchResult fetched = fetch(upstreamUrl, rangeHeader, referer);
         if (fetched == null) {
             return jsonError(HttpStatus.BAD_GATEWAY, "upstream_unreachable",
@@ -258,9 +301,15 @@ public class TvStreamProxyService {
             // against the post-redirect URL or the CDN returns edge-vhost/invalid-token (403).
             String playlistBase = (fetched.finalUrl != null && !fetched.finalUrl.isBlank())
                     ? fetched.finalUrl : upstreamUrl;
-            String rewritten = rewritePlaylist(new String(body, StandardCharsets.UTF_8), playlistBase, proxyBase);
+            String rawPlaylist = new String(body, StandardCharsets.UTF_8);
+            if (isCapTerreUpstream(upstreamUrl) || isCapTerreUpstream(playlistBase)) {
+                scheduleCapTerrePrefetch(rawPlaylist, playlistBase, referer);
+            }
+            String rewritten = rewritePlaylist(rawPlaylist, playlistBase, proxyBase);
             body = rewritten.getBytes(StandardCharsets.UTF_8);
             contentType = "application/vnd.apple.mpegurl; charset=utf-8";
+        } else if (isCapTerreUpstream(upstreamUrl)) {
+            putCapTerreCachedSegment(upstreamUrl, body, contentType);
         }
 
         HttpHeaders headers = new HttpHeaders();
@@ -273,6 +322,9 @@ public class TvStreamProxyService {
         }
         if (fetched.acceptRanges != null) {
             headers.set(HttpHeaders.ACCEPT_RANGES, fetched.acceptRanges);
+        }
+        if (isCapTerreUpstream(upstreamUrl) && !isPlaylist(upstreamUrl, contentType, body)) {
+            headers.set("X-PatTool-CapTerre-Cache", "MISS");
         }
 
         HttpStatus status = fetched.status == 206 ? HttpStatus.PARTIAL_CONTENT : HttpStatus.OK;
@@ -390,6 +442,117 @@ public class TvStreamProxyService {
             return false;
         }
         return true;
+    }
+
+    /** Cap Terre iptv-org FR entry: {@code http://145.239.5.177/359a/…}. */
+    static boolean isCapTerreUpstream(String url) {
+        if (url == null || url.isBlank()) {
+            return false;
+        }
+        String u = url.toLowerCase(Locale.ROOT);
+        return u.contains("145.239.5.177") && u.contains("/359a/");
+    }
+
+    private CapTerreCachedSegment getCapTerreCachedSegment(String upstreamUrl) {
+        CapTerreCachedSegment hit = capTerreSegmentCache.get(upstreamUrl);
+        if (hit == null || !hit.alive()) {
+            if (hit != null) {
+                capTerreSegmentCache.remove(upstreamUrl, hit);
+            }
+            return null;
+        }
+        return hit;
+    }
+
+    private void putCapTerreCachedSegment(String upstreamUrl, byte[] body, String contentType) {
+        if (upstreamUrl == null || body == null || body.length == 0) {
+            return;
+        }
+        evictExpiredCapTerreCache();
+        if (capTerreSegmentCache.size() >= CAP_TERRE_CACHE_MAX
+                && !capTerreSegmentCache.containsKey(upstreamUrl)) {
+            // Drop an arbitrary entry (tiny cache; order is irrelevant).
+            var victim = capTerreSegmentCache.keySet().iterator();
+            if (victim.hasNext()) {
+                capTerreSegmentCache.remove(victim.next());
+            }
+        }
+        capTerreSegmentCache.put(
+                upstreamUrl,
+                new CapTerreCachedSegment(
+                        body,
+                        contentType,
+                        System.currentTimeMillis() + CAP_TERRE_SEGMENT_TTL_MS));
+    }
+
+    private void evictExpiredCapTerreCache() {
+        long now = System.currentTimeMillis();
+        capTerreSegmentCache.entrySet().removeIf(e ->
+                e.getValue() == null || e.getValue().expiresAtMs() <= now);
+    }
+
+    /**
+     * When Cap Terre's media playlist is served, pull every listed .ts into RAM so the
+     * next player requests are cache HITs (parallel fetch; playlist has only ~4 segments).
+     */
+    private void scheduleCapTerrePrefetch(String rawPlaylist, String playlistBase, String referer) {
+        if (rawPlaylist == null || playlistBase == null) {
+            return;
+        }
+        URI base;
+        try {
+            base = URI.create(playlistBase);
+        } catch (Exception e) {
+            return;
+        }
+        for (String line : rawPlaylist.split("\\R", -1)) {
+            if (line == null) {
+                continue;
+            }
+            String trimmed = line.trim();
+            if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+                continue;
+            }
+            URI absolute = resolveUri(base, trimmed);
+            if (absolute == null) {
+                continue;
+            }
+            String segUrl = absolute.toString();
+            if (!isCapTerreUpstream(segUrl)) {
+                continue;
+            }
+            String path = absolute.getPath();
+            if (path == null || !path.toLowerCase(Locale.ROOT).endsWith(".ts")) {
+                continue;
+            }
+            if (getCapTerreCachedSegment(segUrl) != null) {
+                continue;
+            }
+            if (!capTerrePrefetchInFlight.add(segUrl)) {
+                continue;
+            }
+            final String refererFinal = referer;
+            capTerrePrefetchExecutor.execute(() -> {
+                try {
+                    if (getCapTerreCachedSegment(segUrl) != null) {
+                        return;
+                    }
+                    FetchResult fetched = fetch(segUrl, null, refererFinal);
+                    if (fetched != null && fetched.status >= 200 && fetched.status < 300
+                            && fetched.body != null && fetched.body.length > 0) {
+                        String ct = fetched.contentType != null
+                                ? stripSpuriousCharset(fetched.contentType)
+                                : MediaType.APPLICATION_OCTET_STREAM_VALUE;
+                        putCapTerreCachedSegment(segUrl, fetched.body, ct);
+                        log.debug("Cap Terre prefetch OK ({} bytes) {}", fetched.body.length, segUrl);
+                    }
+                } catch (Exception e) {
+                    log.debug("Cap Terre prefetch failed {}: {}", segUrl, e.toString());
+                } finally {
+                    capTerrePrefetchInFlight.remove(segUrl);
+                }
+            });
+        }
     }
 
     private FetchResult fetch(String url, String rangeHeader, String referer) {

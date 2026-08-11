@@ -153,6 +153,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private weatherOverlayDismissed = false;
 	/** Météo-France / MeteoSwiss station temperature labels on the map (France / Switzerland). */
 	public showWeatherStations: boolean = false;
+	/**
+	 * Cached i18n key for the stations-switch tooltip.
+	 * Avoids NG0100: a live getter re-reads selection/geocode mid change-detection.
+	 */
+	showWeatherStationsHintKey = 'EVENTELEM.SHOW_WEATHER_STATIONS_HINT_OUTSIDE';
 	/** Backend status (dpclim / MeteoSwiss SMN) for station tooltip history buttons. */
 	private mfStatus: { dpclimAuthValid?: boolean; meteoswissSmnEnabled?: boolean } | null = null;
 	/** Last double-clicked point used to choose MF vs MeteoSwiss station layer. */
@@ -3313,7 +3318,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.persistTraceViewerPreferences();
 	}
 
-	get showWeatherStationsHintKey(): string {
+	private computeShowWeatherStationsHintKey(): string {
 		const provider = this.resolveMapWeatherStationProvider();
 		if (provider === 'ms') {
 			return 'METEO_FRANCE.SHOW_TEMPERATURE_MAP_HINT_MS';
@@ -3322,6 +3327,20 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return 'METEO_FRANCE.SHOW_TEMPERATURE_MAP_HINT';
 		}
 		return 'EVENTELEM.SHOW_WEATHER_STATIONS_HINT_OUTSIDE';
+	}
+
+	/** Sync hint key immediately (safe inside deferWeatherUiUpdate / before first bind). */
+	private syncShowWeatherStationsHintKey(): void {
+		this.showWeatherStationsHintKey = this.computeShowWeatherStationsHintKey();
+	}
+
+	/** Defer hint key update — avoids NG0100 when selection/country changes mid CD cycle. */
+	private refreshShowWeatherStationsHintKey(): void {
+		const key = this.computeShowWeatherStationsHintKey();
+		if (key === this.showWeatherStationsHintKey) {
+			return;
+		}
+		this.deferWeatherUiUpdate(() => this.syncShowWeatherStationsHintKey());
 	}
 
 	public onShowWeatherStationsChange(): void {
@@ -3398,6 +3417,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.stationSelectionLat = null;
 		this.stationSelectionLng = null;
 		this.stationSelectionCountryCode = '';
+		this.refreshShowWeatherStationsHintKey();
 	}
 
 	/** Reuse last clicked / weather / track point when enabling the stations switch. */
@@ -3410,17 +3430,20 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.stationSelectionLat = this.clickedWeatherLat;
 			this.stationSelectionLng = this.clickedWeatherLng;
 			this.stationSelectionCountryCode = this.clickedWeatherCountryCode;
+			this.refreshShowWeatherStationsHintKey();
 			return;
 		}
 		if (Number.isFinite(this.clickedLat) && Number.isFinite(this.clickedLng)
 			&& (this.clickedLat !== 0 || this.clickedLng !== 0)) {
 			this.stationSelectionLat = this.clickedLat;
 			this.stationSelectionLng = this.clickedLng;
+			this.refreshShowWeatherStationsHintKey();
 			return;
 		}
 		if (this.lastRenderedPosition) {
 			this.stationSelectionLat = this.lastRenderedPosition.lat;
 			this.stationSelectionLng = this.lastRenderedPosition.lng;
+			this.refreshShowWeatherStationsHintKey();
 		}
 	}
 
@@ -3428,6 +3451,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.stationSelectionLat = lat;
 		this.stationSelectionLng = lng;
 		this.stationSelectionCountryCode = '';
+		this.refreshShowWeatherStationsHintKey();
 		this.refreshWeatherStationsForSelection();
 		this.apiService.geocodeReverse(lat, lng).pipe(take(1)).subscribe({
 			next: (data) => {
@@ -3436,7 +3460,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				}
 				this.stationSelectionCountryCode = this.extractGeocodeCountryCode(data);
 				this.refreshWeatherStationsForSelection();
-				this.scheduleTraceViewerCdr();
+				this.refreshShowWeatherStationsHintKey();
 			},
 			error: () => { /* bbox-based provider until geocode succeeds */ }
 		});
@@ -5673,6 +5697,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 						if (this.stationSelectionLat === lat && this.stationSelectionLng === lng) {
 							this.stationSelectionCountryCode = countryCode;
 							this.refreshWeatherStationsForSelection();
+							this.syncShowWeatherStationsHintKey();
 						}
 						if (countryCode && countryCode !== previousCode && this.showWeather) {
 							this.fetchWeather(lat, lng, this.clickedWeatherAlt, false);

@@ -15,8 +15,8 @@ export type TvHlsPlaybackMode = 'live' | 'vod';
 export type TvHlsConfigOptions = {
   /**
    * Cap Terre–class: bare-HTTP 1080p with a tiny live window (~4×5 s segments).
-   * Stay near the back of that window, never force-seek on latency, prefer buffered
-   * sync — deep “70 s behind” settings are impossible and trigger underrun loops.
+   * Stay near the *live* edge (old segments 404 within seconds), never force-seek on
+   * latency, and pace below 1× when the download cannot keep realtime.
    */
   slowMirror?: boolean;
 };
@@ -35,11 +35,12 @@ export function createTvHlsConfig(
     // Live IPTV (TF1/TMC on slow mirrors): deep buffer + stay behind the live edge
     // so startup can fill before realtime catch-up pressure.
     // Cap Terre playlist ≈ 20 s — cannot buffer more than the sliding window.
-    maxBufferLength: vod ? 30 : slow ? 25 : 45,
-    maxMaxBufferLength: vod ? 60 : slow ? 40 : 90,
-    backBufferLength: vod ? 30 : slow ? 10 : 30,
-    // Cap Terre TARGETDURATION=7, ~4 segments: sync ≈ 3×7 s ≈ back of the window.
-    liveSyncDurationCount: vod ? 3 : slow ? 3 : 8,
+    maxBufferLength: vod ? 30 : slow ? 18 : 45,
+    maxMaxBufferLength: vod ? 60 : slow ? 30 : 90,
+    backBufferLength: vod ? 30 : slow ? 6 : 30,
+    // Cap Terre: stay near the *newest* edge. Syncing to the back of a 4-segment
+    // window loads segments that 404 while downloading (seen in console).
+    liveSyncDurationCount: vod ? 3 : slow ? 2 : 8,
     // Infinity (hls.js default) — never seek because “max latency” was exceeded.
     // A finite cap (even 60) + tiny window + underrun → synchronizeToLiveEdge seeks.
     liveMaxLatencyDurationCount: vod ? 6 : slow ? Number.POSITIVE_INFINITY : 24,
@@ -57,16 +58,17 @@ export function createTvHlsConfig(
     maxFragLookUpTolerance: 0.25,
     startFragPrefetch: true,
     // Slow IPTV segments (TF1 HD ~4 MiB / 12–20 s) — default 20 s aborts mid-download.
+    // Cap Terre 404s on expired frags: fail fast and skip (don't retry a dead .ts).
     manifestLoadingTimeOut: vod ? 20_000 : 25_000,
     levelLoadingTimeOut: vod ? 20_000 : 25_000,
-    fragLoadingTimeOut: vod ? 20_000 : slow ? 90_000 : 60_000,
-    fragLoadingMaxRetry: vod ? 4 : slow ? 8 : 5,
-    fragLoadingRetryDelay: slow ? 1_500 : 1_000,
+    fragLoadingTimeOut: vod ? 20_000 : slow ? 25_000 : 60_000,
+    fragLoadingMaxRetry: vod ? 4 : slow ? 2 : 5,
+    fragLoadingRetryDelay: slow ? 500 : 1_000,
     xhrSetup: (xhr) => {
       xhr.withCredentials = false;
       // Match fragLoadingTimeOut for XHR (hls.js also sets timeout, belt-and-suspenders).
       if (!vod) {
-        xhr.timeout = slow ? 90_000 : 60_000;
+        xhr.timeout = slow ? 25_000 : 60_000;
       }
     }
   };
@@ -355,16 +357,49 @@ export function resyncTvHlsAv(hls: Hls | null, video: HTMLVideoElement): boolean
  * Show / log the buffering spinner on media underrun ({@code waiting}/{@code stalled}).
  * Mid-play freezes often never go through fatal HLS recovery — without this, the UI
  * spinner can appear from other paths (or look like a freeze) with no console trail.
+ *
+ * {@code debounceMs}: Cap Terre — ignore stalls shorter than this (segment jitter ~2–3 s)
+ * so the overlay does not flash on every brief underrun.
  */
 export function attachTvUnderrunSpinnerWatch(
   video: HTMLVideoElement,
   onBuffering: (buffering: boolean, reason: string) => void,
-  channel?: string | null
+  channel?: string | null,
+  debounceMs = 0
 ): () => void {
   let underrun = false;
-  const set = (next: boolean, reason: string) => {
+  let showTimer: number | null = null;
+  const clearShowTimer = () => {
+    if (showTimer != null) {
+      window.clearTimeout(showTimer);
+      showTimer = null;
+    }
+  };
+  const set = (next: boolean, reason: string, fromDebounce = false) => {
+    if (next && debounceMs > 0 && !underrun && !fromDebounce) {
+      // Delay spinner; if canplay arrives first, never flash the overlay.
+      if (showTimer != null) {
+        return;
+      }
+      tvPlayLog(`underrun (${reason}) — spinner différé ${debounceMs}ms`, {
+        channel: channel || null,
+        what: 'attente courte ignorée si le flux reprend assez vite',
+        readyState: video.readyState,
+        currentTime: Math.round(video.currentTime * 10) / 10
+      });
+      showTimer = window.setTimeout(() => {
+        showTimer = null;
+        if (video.readyState >= 3 && !video.paused) {
+          return;
+        }
+        set(true, reason, true);
+      }, debounceMs);
+      return;
+    }
+    if (!next) {
+      clearShowTimer();
+    }
     if (next === underrun && next) {
-      // Still log repeated waiting while already buffering.
       tvPlayLog(`underrun (${reason}) — spinner déjà affiché`, {
         channel: channel || null,
         what: 'le flux n’alimente plus assez vite le buffer',
@@ -401,6 +436,7 @@ export function attachTvUnderrunSpinnerWatch(
   const onStalled = () => set(true, 'stalled');
   const onPlaying = () => set(false, 'playing');
   const onCanPlay = () => {
+    clearShowTimer();
     if (underrun && !video.paused) {
       set(false, 'canplay');
     }
@@ -412,6 +448,7 @@ export function attachTvUnderrunSpinnerWatch(
   video.addEventListener('canplay', onCanPlay);
 
   return () => {
+    clearShowTimer();
     video.removeEventListener('waiting', onWaiting);
     video.removeEventListener('stalled', onStalled);
     video.removeEventListener('playing', onPlaying);
@@ -525,78 +562,48 @@ export function attachTvHlsLiveSyncWatchdog(
 }
 
 /**
- * Cap Terre only: keep a forward-buffer cushion by briefly playing under 1× when the
- * download cannot keep realtime. Prevents {@code waiting} → hls.js
- * {@code synchronizeToLiveEdge} seeks that empty the tiny ~20 s live window.
+ * Cap Terre only: hard-lock playback under realtime.
+ * Upstream download of each ~5 s / ~2.7 MiB segment takes ≈5–6 s — 1× (and even 0.85×)
+ * cannot stay ahead. Keep ~0.72× so wall-clock outpaces download; backend prefetch
+ * fills the rest.
  */
 export function attachTvSlowMirrorPaceGuard(
   video: HTMLVideoElement,
-  channel?: string | null
+  channel?: string | null,
+  _onBuffering?: (buffering: boolean) => void
 ): () => void {
-  const LOW_SEC = 8;
-  const CRITICAL_SEC = 4;
-  const HEALTHY_SEC = 14;
-  const RATE_LOW = 0.9;
-  const RATE_CRITICAL = 0.8;
-  let lastRate = 1;
+  void _onBuffering;
+  const RATE = 0.72;
   let lastLogAt = 0;
 
-  const forwardBufferSec = (): number => {
+  const lock = (why: string) => {
     try {
-      const b = video.buffered;
-      if (!b.length) {
-        return 0;
+      if (Math.abs(video.playbackRate - RATE) < 0.01) {
+        return;
       }
-      const t = video.currentTime;
-      for (let i = 0; i < b.length; i++) {
-        if (t >= b.start(i) - 0.15 && t <= b.end(i) + 0.15) {
-          return Math.max(0, b.end(i) - t);
-        }
-      }
-      return Math.max(0, b.end(b.length - 1) - t);
-    } catch {
-      return 0;
-    }
-  };
-
-  const applyRate = (rate: number, fwd: number, why: string) => {
-    if (Math.abs(rate - lastRate) < 0.01) {
-      return;
-    }
-    try {
-      video.playbackRate = rate;
+      video.playbackRate = RATE;
     } catch {
       return;
     }
-    lastRate = rate;
     const now = Date.now();
-    if (now - lastLogAt < 2_000 && rate !== 1) {
+    if (now - lastLogAt < 5_000) {
       return;
     }
     lastLogAt = now;
-    tvPlayLog(`pace Cap Terre → ${rate}× (${why})`, {
+    tvPlayLog(`pace Cap Terre verrouillé ${RATE}× (${why})`, {
       channel: channel || null,
-      what:
-        rate < 1
-          ? 'ralentissement pour reconstruire le buffer (flux trop lent)'
-          : 'vitesse normale — buffer suffisant',
-      fwdSec: Math.round(fwd * 10) / 10,
+      what: 'vitesse plafonnée — le miroir 1080p ne tient pas le temps réel',
+      fwdSec: Math.round(forwardBufferSeconds(video) * 10) / 10,
       readyState: video.readyState
     });
   };
 
+  lock('démarrage');
   const tick = window.setInterval(() => {
-    if (video.paused || video.ended || video.seeking || video.error) {
+    if (video.ended || video.error) {
       return;
     }
-    const fwd = forwardBufferSec();
-    if (fwd < CRITICAL_SEC) {
-      applyRate(RATE_CRITICAL, fwd, `buffer ${fwd.toFixed(1)}s < ${CRITICAL_SEC}s`);
-    } else if (fwd < LOW_SEC) {
-      applyRate(RATE_LOW, fwd, `buffer ${fwd.toFixed(1)}s < ${LOW_SEC}s`);
-    } else if (fwd >= HEALTHY_SEC) {
-      applyRate(1, fwd, `buffer ${fwd.toFixed(1)}s ≥ ${HEALTHY_SEC}s`);
-    }
+    lock('keep');
   }, 500);
 
   return () => {
@@ -609,4 +616,23 @@ export function attachTvSlowMirrorPaceGuard(
       /* ignore */
     }
   };
+}
+
+/** Seconds of continuous media buffered ahead of {@code currentTime}. */
+export function forwardBufferSeconds(video: HTMLVideoElement): number {
+  try {
+    const b = video.buffered;
+    if (!b.length) {
+      return 0;
+    }
+    const t = video.currentTime;
+    for (let i = 0; i < b.length; i++) {
+      if (t >= b.start(i) - 0.15 && t <= b.end(i) + 0.15) {
+        return Math.max(0, b.end(i) - t);
+      }
+    }
+    return Math.max(0, b.end(b.length - 1) - t);
+  } catch {
+    return 0;
+  }
 }

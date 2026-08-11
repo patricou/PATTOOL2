@@ -4519,7 +4519,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
           this.isBuffering = buffering;
           this.cdr.markForCheck();
         },
-        channel.name
+        channel.name,
+        slowMirror ? 2_500 : 0
       );
       try {
         this.detachSlowMirrorPace?.();
@@ -4527,7 +4528,10 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         /* ignore */
       }
       this.detachSlowMirrorPace = slowMirror
-        ? attachTvSlowMirrorPaceGuard(video, channel.name)
+        ? attachTvSlowMirrorPaceGuard(video, channel.name, (buffering) => {
+            this.isBuffering = buffering;
+            this.cdr.markForCheck();
+          })
         : null;
       tvPlayLog('lecture HLS démarrée (diag spinner actif)', {
         channel: channel.name,
