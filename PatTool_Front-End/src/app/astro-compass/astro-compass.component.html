@@ -64,7 +64,11 @@
                 (pointerup)="onDialPointerUp($event)"
                 (pointercancel)="onDialPointerUp($event)">
                 <span class="ac-compass-lubber" aria-hidden="true"></span>
-                <div class="ac-compass-rose" [style.transform]="'rotate(' + roseRotationDeg() + 'deg)'">
+                <div
+                  class="ac-compass-rose"
+                  [style.transform]="
+                    headingDeg != null ? 'rotate(' + (-headingDeg) + 'deg)' : 'rotate(0deg)'
+                  ">
                   <span
                     class="ac-compass-deg"
                     *ngFor="let d of bezelDegrees"

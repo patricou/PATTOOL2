@@ -58,13 +58,17 @@ const PITCH_PAINT_MIN_MS = 50;
  * Lissage du cap (lerp circulaire vers la lecture brute).
  * Faible = stable (anti-sauts Samsung) ; plus haut seulement pour les grands mouvements.
  */
-const HEADING_LERP_MIN = 0.08;
-const HEADING_LERP_MAX = 0.26;
-const HEADING_LERP_SNAP_DEG = 40;
+const HEADING_LERP_MIN = 0.05;
+const HEADING_LERP_MAX = 0.18;
+const HEADING_LERP_SNAP_DEG = 55;
 /** Au-delà de ce saut instantané, on ignore l'échantillon (bruit / glitch). */
-const HEADING_OUTLIER_DEG = 40;
+const HEADING_OUTLIER_DEG = 35;
+/** Médiane circulaire sur N échantillons (anti-saccades Samsung). */
+const HEADING_MEDIAN_N = 7;
+/** Sous ces |β|/|γ|, utiliser 360−α (formule W3C invalide à plat). */
+const HEADING_FLAT_BETA_GAMMA_DEG = 12;
 /** Lissage inclinaison (α vers la lecture instantanée). */
-const PITCH_SMOOTH_ALPHA = 0.28;
+const PITCH_SMOOTH_ALPHA = 0.22;
 /** Cône d'auto-détection autour de la direction du téléphone. */
 const AUTO_DETECT_MAX_SEP_DEG = 15;
 const AUTO_DETECT_TOP_N = 8;
@@ -285,6 +289,8 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   mouseCalDragging = false;
   /** Offset souris prévisualisé, pas encore validé par le bouton. */
   private mouseNorthDraft = false;
+  /** Angle visé sur le cadran (0 = haut) pendant le calage souris/tactile. */
+  private mouseAimDeg: number | null = null;
   /** Snapshot du calage avant ouverture « Recaler », restauré si annulation. */
   private calBackup: {
     offset: number;
@@ -342,6 +348,8 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   private pitchLastPaintMs = 0;
   /** Spike en attente de confirmation (anti-sauts Samsung). */
   private headingOutlierPendingDeg: number | null = null;
+  /** Buffer pour médiane circulaire du cap. */
+  private headingSampleBuf: number[] = [];
   private calLoadPending = false;
 
   private skyTickTimer: ReturnType<typeof setInterval> | null = null;
@@ -2385,6 +2393,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     this.calStatus = 'calibrated';
     this.mouseNorthDraft = false;
     this.mouseCalDragging = false;
+    this.mouseAimDeg = null;
     this.persistCalibration('mouse', this.northOffsetDeg);
     this.cdr.markForCheck();
   }
@@ -2395,6 +2404,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
       this.northOffsetDeg = null;
       this.mouseVirtualActive = false;
       this.mouseNorthDraft = false;
+      this.mouseAimDeg = null;
       this.applyNorthOffset();
     }
     this.calAccum = [];
@@ -2424,6 +2434,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     this.mouseCalDragging = false;
     this.mouseNorthDraft = false;
     this.mouseVirtualActive = false;
+    this.mouseAimDeg = null;
     this.applyNorthOffset();
     this.calModalOpen = openModal;
     this.cdr.markForCheck();
@@ -2498,6 +2509,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     }
     // 0° = haut, sens horaire (comme la boussole).
     const alphaDeg = this.normalizeDeg((Math.atan2(dx, -dy) * 180) / Math.PI);
+    this.mouseAimDeg = alphaDeg;
     const sensorRaw =
       this.headingSource != null && !this.mouseVirtualActive
         ? this.headingInstantDeg ?? this.headingRawDeg
@@ -2562,9 +2574,9 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
         this.calLoadPending = false;
         if (cal && this.isKnownCalMethod(cal.method)) {
           if (this.calStatus === 'uncalibrated' && this.calMethod == null) {
-            // Sur téléphone avec magnétomètre : ne pas réappliquer un calage souris PC.
-            if (cal.method === 'mouse' && this.isMobileDevice()) {
-              this.useMagneticNorthFromSensors(false);
+            // Sur téléphone : calage souris PC ignoré → Cap appareil (= magnétomètre) = Nord.
+            if ((cal.method === 'mouse' || cal.method === 'sensor') && this.isMobileDevice()) {
+              this.useMagneticNorthFromSensors(cal.method !== 'sensor');
               this.cdr.markForCheck();
               return;
             }
@@ -2603,6 +2615,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     this.mouseVirtualActive = false;
     this.mouseCalDragging = false;
     this.mouseNorthDraft = false;
+    this.mouseAimDeg = null;
     this.northOffsetDeg = 0;
     this.calMethod = 'sensor';
     this.calStatus = 'calibrated';
@@ -2921,14 +2934,6 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
         ? e.absolute
         : this.orientationEventName === 'deviceorientationabsolute';
     const source = webkitHeading != null ? 'webkit' : 'deviceorientation';
-    // Téléphone + orientation absolue : abandonner un calage souris PC qui bloque / décale le Nord.
-    if (
-      isAbsolute &&
-      this.isMobileDevice() &&
-      (this.mouseVirtualActive || this.calMethod === 'mouse')
-    ) {
-      this.useMagneticNorthFromSensors(true);
-    }
     this.publishHeading(heading, {
       source,
       absolute: isAbsolute,
@@ -2959,20 +2964,20 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
       return;
     }
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    // Toujours filtrer (ne pas jeter les échantillons), throttle uniquement le paint UI.
+    // Médiane puis lissage — réduit les sauts Samsung avant le lerp.
+    const medianHeading = this.pushHeadingMedian(heading);
     // Sauts isolés > HEADING_OUTLIER_DEG : ignorer jusqu'à confirmation (2 lectures proches).
-    let accepted = heading;
+    let accepted = medianHeading;
     if (this.headingRawDeg != null) {
-      const jump = Math.abs(this.circularDiffDeg(heading, this.headingRawDeg));
+      const jump = Math.abs(this.circularDiffDeg(medianHeading, this.headingRawDeg));
       if (jump >= HEADING_OUTLIER_DEG) {
         if (
           this.headingOutlierPendingDeg != null &&
-          Math.abs(this.circularDiffDeg(heading, this.headingOutlierPendingDeg)) < 18
+          Math.abs(this.circularDiffDeg(medianHeading, this.headingOutlierPendingDeg)) < 18
         ) {
-          // 2e lecture cohérente → vrai virage, on accepte.
           this.headingOutlierPendingDeg = null;
         } else {
-          this.headingOutlierPendingDeg = heading;
+          this.headingOutlierPendingDeg = medianHeading;
           accepted = this.headingRawDeg;
         }
       } else {
@@ -2982,12 +2987,16 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     this.headingInstantDeg = accepted;
     this.headingRawDeg =
       this.headingRawDeg == null
-        ? heading
+        ? accepted
         : this.circularLerpDeg(
             this.headingRawDeg,
             accepted,
             this.headingLerpFactor(this.headingRawDeg, accepted)
           );
+    // Calage souris/tactile en cours : garder le N sur l'angle cliqué malgré le cap live.
+    if (this.isMouseCalMode() && this.mouseAimDeg != null && this.headingRawDeg != null) {
+      this.northOffsetDeg = this.normalizeDeg(-this.mouseAimDeg - this.headingRawDeg);
+    }
     this.applyNorthOffset();
     this.headingAccuracyDeg = meta.webkitAccuracy;
     this.headingActive = true;
@@ -3102,8 +3111,27 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     this.sensorWebkitAccuracy = null;
     this.headingInstantDeg = null;
     this.headingOutlierPendingDeg = null;
+    this.headingSampleBuf = [];
     this.devicePitchInstantDeg = null;
     this.devicePitchDeg = null;
+  }
+
+  /** Médiane circulaire des derniers caps (anti-bruit). */
+  private pushHeadingMedian(heading: number): number {
+    this.headingSampleBuf.push(this.normalizeDeg(heading));
+    while (this.headingSampleBuf.length > HEADING_MEDIAN_N) {
+      this.headingSampleBuf.shift();
+    }
+    if (this.headingSampleBuf.length < 3) {
+      return this.normalizeDeg(heading);
+    }
+    // Projeter sur un cercle centré sur la dernière valeur pour trier.
+    const ref = this.headingSampleBuf[this.headingSampleBuf.length - 1];
+    const sorted = this.headingSampleBuf
+      .map((d) => this.circularDiffDeg(d, ref))
+      .sort((a, b) => a - b);
+    const mid = sorted[Math.floor(sorted.length / 2)];
+    return this.normalizeDeg(ref + mid);
   }
 
   private applyNorthOffset(): void {
@@ -3111,7 +3139,9 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
       this.headingDeg = null;
       return;
     }
-    const offset = this.northOffsetDeg ?? 0;
+    // Mode capteurs : Cap appareil = raw (pas d'offset) → c'est le Nord de la rose.
+    const offset =
+      this.calMethod === 'sensor' || this.calMethod == null ? 0 : (this.northOffsetDeg ?? 0);
     this.headingDeg = this.normalizeDeg(this.headingRawDeg + offset);
   }
 
@@ -3419,17 +3449,53 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
       Number.isFinite(e.alpha) &&
       (e.absolute || this.orientationEventName === 'deviceorientationabsolute')
     ) {
-      const screen = this.currentScreenAngle();
-      // Android / Samsung : 360 − α est nettement plus stable que la matrice
-      // tilt-compensée (qui saute dès que β/γ bougent en tournant le téléphone).
-      if (this.isAndroidDevice()) {
-        return this.normalizeDeg(360 - e.alpha - screen);
-      }
       const beta = Number.isFinite(e.beta as number) ? (e.beta as number) : 0;
       const gamma = Number.isFinite(e.gamma as number) ? (e.gamma as number) : 0;
-      return this.tiltCompensatedHeadingDeg(e.alpha, beta, gamma, screen);
+      return this.compassHeadingW3c(e.alpha, beta, gamma, this.currentScreenAngle());
     }
     return null;
+  }
+
+  /**
+   * Cap boussole (0° = Nord, sens horaire) — formule W3C Device Orientation.
+   * https://w3c.github.io/deviceorientation/#compassheading
+   * À plat (β/γ ≈ 0) la formule est indéterminée → 360 − α.
+   */
+  private compassHeadingW3c(
+    alphaDeg: number,
+    betaDeg: number,
+    gammaDeg: number,
+    screenAngleDeg: number
+  ): number {
+    if (
+      Math.abs(betaDeg) < HEADING_FLAT_BETA_GAMMA_DEG &&
+      Math.abs(gammaDeg) < HEADING_FLAT_BETA_GAMMA_DEG
+    ) {
+      return this.normalizeDeg(360 - alphaDeg - screenAngleDeg);
+    }
+    const d2r = Math.PI / 180;
+    const x = betaDeg * d2r;
+    const y = gammaDeg * d2r;
+    const z = alphaDeg * d2r;
+    const cX = Math.cos(x);
+    const cY = Math.cos(y);
+    const cZ = Math.cos(z);
+    const sX = Math.sin(x);
+    const sY = Math.sin(y);
+    const sZ = Math.sin(z);
+    // Vecteur « dos appareil » projeté (spec W3C).
+    const vx = -cZ * sY - sZ * sX * cY;
+    const vy = -sZ * sY + cZ * sX * cY;
+    if (vx * vx + vy * vy < 1e-10) {
+      return this.normalizeDeg(360 - alphaDeg - screenAngleDeg);
+    }
+    let heading = Math.atan(vx / vy);
+    if (vy < 0) {
+      heading += Math.PI;
+    } else if (vx < 0) {
+      heading += 2 * Math.PI;
+    }
+    return this.normalizeDeg((heading * 180) / Math.PI - screenAngleDeg);
   }
 
   /**
