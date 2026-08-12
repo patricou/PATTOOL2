@@ -94,8 +94,8 @@
                     <div class="notes-postit-date" *ngIf="note.createdAt">
                         <i class="fa fa-clock-o"></i> {{ formatDate(note.createdAt) }}
                     </div>
-                    <div class="notes-postit-links" *ngIf="hasLinkedActivity(note) || hasLinkedAppointment(note)">
-                        <button *ngIf="hasLinkedActivity(note)"
+                    <div class="notes-postit-links" *ngIf="(hasLinkedActivity(note) && photoCount(note) > 0) || hasLinkedAppointment(note)">
+                        <button *ngIf="hasLinkedActivity(note) && photoCount(note) > 0"
                                 type="button"
                                 class="notes-postit-link-btn"
                                 (click)="openLinkedActivityPhotoWall(note, $event)"

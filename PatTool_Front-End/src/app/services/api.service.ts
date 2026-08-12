@@ -12,9 +12,10 @@ import { environment } from '../../environments/environment';
  * - 'manual': user pointed the phone top to North; offset corrects the raw heading.
  * - 'gps':    calibrated by walking (true GPS course).
  * - 'sun':    calibrated by aiming at the Sun (computed solar azimuth).
+ * - 'mouse':  calibrated by clicking/dragging North on the compass dial.
  */
 export interface IssCompassCalibration {
-  method: 'sensor' | 'manual' | 'gps' | 'sun';
+  method: 'sensor' | 'manual' | 'gps' | 'sun' | 'mouse';
   northOffsetDeg: number;
   calibratedAt?: string | null;
 }

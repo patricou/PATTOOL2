@@ -1,0 +1,10 @@
+{
+  "CAL_METHOD_MOUSE": "Avec la souris",
+  "CAL_METHOD_MOUSE_HINT": "Cliquez ou glissez sur le cadran vers le Nord",
+  "CAL_MOUSE_TITLE": "Caler le Nord avec la souris",
+  "CAL_MOUSE_STEP1": "Le haut du cadran (repère bleu) est la direction vers l'avant.",
+  "CAL_MOUSE_STEP2": "Cliquez ou glissez sur le cadran dans la direction du vrai Nord.",
+  "CAL_MOUSE_STEP3": "Relâchez pour enregistrer — le N se place sous le curseur.",
+  "CAL_MOUSE_DRAGGING": "Glissez pour ajuster le Nord…",
+  "CAL_DONE_MOUSE": "Nord calé avec la souris"
+}

@@ -314,6 +314,26 @@ public class GlobeProxyController {
         }
     }
 
+    /**
+     * Classic TLE (CelesTrak) for an allowlisted NORAD spacecraft — used by the astro compass
+     * for Hubble, Tiangong, JWST, Earth-obs sats, etc. (SGP4 runs client-side).
+     */
+    @GetMapping(value = "/satellites/{noradId}/tle", produces = MediaType.TEXT_PLAIN_VALUE)
+    public ResponseEntity<byte[]> satelliteTle(@PathVariable("noradId") int noradId) {
+        try {
+            byte[] body = globeProxyService.fetchSatelliteTle(noradId);
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(30, TimeUnit.MINUTES).cachePublic())
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(body);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            log.debug("Satellite TLE proxy failed for {}: {}", noradId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
+    }
+
     /** Predicted ISS ground track for the next hour (WhereTheISS.at SGP4, proxied). */
     @GetMapping("/iss/forecast")
     public ResponseEntity<byte[]> issForecast(

@@ -7,8 +7,8 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  * collection {@code appParameters} (clé {@code globe.iss.compass.calibration.<sub JWT>}).
  *
  * <ul>
- *   <li>{@code method} : {@code sensor} (Nord géré par les capteurs, offset nul) ou
- *       {@code manual} (l'utilisateur a orienté le haut du téléphone vers le Nord).</li>
+ *   <li>{@code method} : {@code sensor}, {@code manual}, {@code gps}, {@code sun}
+ *       ou {@code mouse} (Nord indiqué au clic / glisser sur le cadran).</li>
  *   <li>{@code northOffsetDeg} : correction (degrés, 0..360) à ajouter au cap capteur brut
  *       pour obtenir le vrai Nord.</li>
  *   <li>{@code calibratedAt} : horodatage ISO-8601 du dernier calage (informatif).</li>

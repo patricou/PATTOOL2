@@ -337,11 +337,17 @@ public class EclipseProxyService {
         }
         String visibilityType = classifySolarVisibility(description, properties, magnitude);
 
-        Instant begins = parseLocalPhenomenonInstant(properties, date, "Eclipse Begins");
+        Instant begins = parseFirstPhenomenonInstant(properties, date,
+                "Eclipse Begins", "Sunrise");
         Instant maximum = parseLocalPhenomenonInstant(properties, date, "Maximum Eclipse");
-        Instant ends = parseLocalPhenomenonInstant(properties, date, "Eclipse Ends");
+        // When the Sun sets during the eclipse, USNO emits "Sunset" instead of "Eclipse Ends".
+        Instant ends = parseFirstPhenomenonInstant(properties, date,
+                "Eclipse Ends", "Sunset");
         if (begins == null && maximum != null) {
             begins = maximum;
+        }
+        if (ends == null && begins != null) {
+            ends = endsFromDuration(begins, textOrEmpty(properties, "duration"));
         }
         Instant countdownTarget = begins != null ? begins : (maximum != null ? maximum : date.atStartOfDay().toInstant(ZoneOffset.UTC));
         boolean inProgress = begins != null && ends != null
@@ -408,6 +414,19 @@ public class EclipseProxyService {
         return "partial";
     }
 
+    private Instant parseFirstPhenomenonInstant(JsonNode properties, LocalDate date, String... phenomena) {
+        if (phenomena == null) {
+            return null;
+        }
+        for (String phenomenon : phenomena) {
+            Instant instant = parseLocalPhenomenonInstant(properties, date, phenomenon);
+            if (instant != null) {
+                return instant;
+            }
+        }
+        return null;
+    }
+
     private Instant parseLocalPhenomenonInstant(JsonNode properties, LocalDate date, String phenomenon) {
         JsonNode localData = properties.path("local_data");
         if (!localData.isArray()) {
@@ -446,6 +465,30 @@ public class EclipseProxyService {
             }
         }
         return null;
+    }
+
+    /** Parse USNO duration like "1h 22m 49.4s" and add it to begins. */
+    private static Instant endsFromDuration(Instant begins, String duration) {
+        if (begins == null || !StringUtils.hasText(duration)) {
+            return null;
+        }
+        Matcher h = Pattern.compile("(\\d+)\\s*h").matcher(duration);
+        Matcher m = Pattern.compile("(\\d+)\\s*m").matcher(duration);
+        Matcher s = Pattern.compile("(\\d+(?:\\.\\d+)?)\\s*s").matcher(duration);
+        long millis = 0L;
+        if (h.find()) {
+            millis += Long.parseLong(h.group(1)) * 3_600_000L;
+        }
+        if (m.find()) {
+            millis += Long.parseLong(m.group(1)) * 60_000L;
+        }
+        if (s.find()) {
+            millis += Math.round(Double.parseDouble(s.group(1)) * 1000.0);
+        }
+        if (millis <= 0L) {
+            return null;
+        }
+        return begins.plusMillis(millis);
     }
 
     private JsonNode fetchUsnoLocalSoft(String date, double lat, double lon, int heightMeters) {

@@ -27,6 +27,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Proxies fixed allow-listed globe imagery URLs (Three.js sample textures, NASA BMNG, NASA GIBS WMS),
@@ -115,12 +117,40 @@ public class GlobeProxyService {
     private static final String WHERE_THE_ISS_AT_ISS_POSITIONS =
             "https://api.wheretheiss.at/v1/satellites/25544/positions";
 
+    /**
+     * CelesTrak GP/TLE for a NORAD catalog number (FORMAT=TLE → name + 2 lines).
+     * Used for human-made spacecraft beyond ISS (Hubble, Tiangong, …).
+     */
+    private static final String CELESTRAK_TLE_BY_CATNR =
+            "https://celestrak.org/NORAD/elements/gp.php?CATNR=%d&FORMAT=TLE";
+
+    /**
+     * Allowlisted NORAD IDs for the multi-satellite TLE proxy (astro compass).
+     * Keep in sync with the frontend {@code ASTRO_SATELLITES} catalog.
+     */
+    private static final Set<Integer> ALLOWED_SATELLITE_NORAD_IDS = Set.of(
+            25544, // ISS
+            48274, // Tiangong / CSS (Tianhe)
+            20580, // Hubble
+            50463, // James Webb
+            25994, // Terra
+            27424, // Aqua
+            39084, // Landsat 8
+            43226, // Landsat 9
+            40697, // Sentinel-2A
+            42063, // Sentinel-2B
+            43013  // NOAA-20
+    );
+
     private static final long ISS_NOW_MEMORY_CACHE_MS = 3_000L;
+    private static final long SAT_TLE_MEMORY_CACHE_MS = 3_600_000L; // 1 h
+    private static final int MAX_BYTES_SAT_TLE = 4_096;
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final IssTraceService issTraceService;
     private volatile IssNowMemoryCache issNowMemoryCache;
+    private final ConcurrentHashMap<Integer, SatTleMemoryCache> satTleMemoryCache = new ConcurrentHashMap<>();
 
     public GlobeProxyService(
             @Qualifier(RestTemplateConfig.GLOBE_PROXY_REST_TEMPLATE) RestTemplate globeProxyRestTemplate,
@@ -132,6 +162,12 @@ public class GlobeProxyService {
     }
 
     private record IssNowMemoryCache(byte[] payload, long fetchedAtMs) {
+        boolean isFresh(long maxAgeMs) {
+            return fetchedAtMs > 0 && System.currentTimeMillis() - fetchedAtMs <= maxAgeMs;
+        }
+    }
+
+    private record SatTleMemoryCache(byte[] payload, long fetchedAtMs) {
         boolean isFresh(long maxAgeMs) {
             return fetchedAtMs > 0 && System.currentTimeMillis() - fetchedAtMs <= maxAgeMs;
         }
@@ -463,7 +499,35 @@ public class GlobeProxyService {
     }
 
     public int cacheEntryCount() {
-        return issNowMemoryCache != null ? 1 : 0;
+        return (issNowMemoryCache != null ? 1 : 0) + satTleMemoryCache.size();
+    }
+
+    /** Allowlisted NORAD catalog IDs exposable via the TLE proxy. */
+    public Set<Integer> allowedSatelliteNoradIds() {
+        return ALLOWED_SATELLITE_NORAD_IDS;
+    }
+
+    /**
+     * Classic 3-line TLE (name + line1 + line2) from CelesTrak for an allowlisted NORAD id.
+     * Cached ~1 h — element sets do not need sub-minute refresh.
+     */
+    public byte[] fetchSatelliteTle(int noradId) {
+        if (!ALLOWED_SATELLITE_NORAD_IDS.contains(noradId)) {
+            throw new IllegalArgumentException("NORAD id not allowlisted: " + noradId);
+        }
+        SatTleMemoryCache cached = satTleMemoryCache.get(noradId);
+        if (cached != null && cached.isFresh(SAT_TLE_MEMORY_CACHE_MS)) {
+            return cached.payload();
+        }
+        String url = String.format(Locale.US, CELESTRAK_TLE_BY_CATNR, noradId);
+        byte[] raw = fetchBytes(url, MAX_BYTES_SAT_TLE, true);
+        String text = new String(raw, java.nio.charset.StandardCharsets.UTF_8).trim();
+        if (text.isEmpty() || !text.contains("1 ") || !text.contains("2 ")) {
+            throw new IllegalStateException("Unexpected CelesTrak TLE payload for NORAD " + noradId);
+        }
+        byte[] payload = text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        satTleMemoryCache.put(noradId, new SatTleMemoryCache(payload, System.currentTimeMillis()));
+        return payload;
     }
 
     /**

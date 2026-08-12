@@ -1,0 +1,6 @@
+{
+  "OBSERVER_BANNER_TITLE": "Point d'observation",
+  "OBSERVER_BANNER_HINT": "Tous les calculs (direction, elevation, visibilite) partent de cette position.",
+  "OBSERVER_ADDRESS": "Adresse",
+  "OBSERVER_GPS": "GPS"
+}

@@ -1,0 +1,7 @@
+{
+  "line": 145,
+  "name": "StrReplace",
+  "path": "c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json",
+  "new_string": "    \"FACING\": \"Vous pointez la cible\",\n    \"TURN_LEFT\": \"Tournez de {{deg}}° à gauche\",\n    \"TURN_RIGHT\": \"Tournez de {{deg}}° à droite\",\n    \"TILT_UP\": \"Levez le téléphone de {{deg}}°\",\n    \"TILT_DOWN\": \"Baissez le téléphone de {{deg}}°\",\n    \"DEVICE_PITCH\": \"Inclinaison\",",
+  "old_string": "    \"FACING\": \"Vous êtes face à la cible\",\n    \"TURN_LEFT\": \"Tournez de {{deg}}° à gauche\",\n    \"TURN_RIGHT\": \"Tournez de {{deg}}° à droite\","
+}

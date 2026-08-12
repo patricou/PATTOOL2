@@ -134,6 +134,17 @@
   gap: 0.2rem !important;
 }
 
+.eclipse-address-results {
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.eclipse-address-results .list-group-item {
+  cursor: pointer;
+  font-size: 0.72rem;
+  padding: 0.35rem 0.55rem;
+}
+
 .eclipse-list {
   max-height: 200px;
   overflow-y: auto;
@@ -187,6 +198,11 @@
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.eclipse-view-from {
+  line-height: 1.3;
+  word-break: break-word;
 }
 
 .eclipse-address {

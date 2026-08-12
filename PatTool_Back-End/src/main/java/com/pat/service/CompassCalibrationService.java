@@ -26,8 +26,8 @@ public class CompassCalibrationService {
     private static final Logger log = LoggerFactory.getLogger(CompassCalibrationService.class);
 
     static final String PARAM_KEY_PREFIX = "globe.iss.compass.calibration.";
-    /** Méthodes d'identification du Nord prises en charge (4 : capteurs / manuel / marche GPS / Soleil). */
-    private static final Set<String> SUPPORTED_METHODS = Set.of("sensor", "manual", "gps", "sun");
+    /** Méthodes d'identification du Nord : capteurs / manuel / marche GPS / Soleil / souris. */
+    private static final Set<String> SUPPORTED_METHODS = Set.of("sensor", "manual", "gps", "sun", "mouse");
 
     private final AppParameterService appParameterService;
     private final ObjectMapper objectMapper;

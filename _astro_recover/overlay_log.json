@@ -1,0 +1,533 @@
+[
+  {
+    "k": "SUBTITLE",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:StrReplace:strreplace",
+    "action": "replace",
+    "from": "Choisissez une planète du système solaire, une étoile brillante ou des coordonnées libres, puis voyez où regarder : azimut, élévation et cap en direct — avec le même calibrage du Nord que la boussole ISS.",
+    "to": "Choisissez l'ISS, une planète, une étoile brillante ou des coordonnées libres, puis voyez où regarder : azimut, élévation et cap en direct — avec le même calibrage du Nord que la boussole ISS.",
+    "ps": 5,
+    "ns": 5
+  },
+  {
+    "k": "SATELLITES_TITLE",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:StrReplace:strreplace",
+    "action": "add",
+    "v": "Satellites"
+  },
+  {
+    "k": "BODY_ISS",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:StrReplace:strreplace",
+    "action": "add",
+    "v": "ISS"
+  },
+  {
+    "k": "ISS_WAITING",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:StrReplace:strreplace",
+    "action": "add",
+    "v": "En attente de la position de l'ISS…"
+  },
+  {
+    "k": "ISS_ERROR",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:StrReplace:strreplace",
+    "action": "add",
+    "v": "Impossible de récupérer la position de l'ISS."
+  },
+  {
+    "k": "ISS_NO_PASS",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:StrReplace:strreplace",
+    "action": "add",
+    "v": "Aucun passage prévu bientôt pour cette position."
+  },
+  {
+    "k": "ISS_ALTITUDE",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:StrReplace:strreplace",
+    "action": "add",
+    "v": "Altitude ISS"
+  },
+  {
+    "k": "ISS_VELOCITY",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:StrReplace:strreplace",
+    "action": "add",
+    "v": "Vitesse"
+  },
+  {
+    "k": "ISS_SLANT",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:StrReplace:strreplace",
+    "action": "add",
+    "v": "Distance directe"
+  },
+  {
+    "k": "ISS_GROUND",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:StrReplace:strreplace",
+    "action": "add",
+    "v": "Distance au sol"
+  },
+  {
+    "k": "ISS_NEXT_PASS",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:StrReplace:strreplace",
+    "action": "add",
+    "v": "Prochain passage"
+  },
+  {
+    "k": "ISS_PASS_START",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:StrReplace:strreplace",
+    "action": "add",
+    "v": "Début du passage"
+  },
+  {
+    "k": "ISS_PASS_END",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:StrReplace:strreplace",
+    "action": "add",
+    "v": "Fin du passage"
+  },
+  {
+    "k": "VISIBLE_ONLY",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:StrReplace:strreplace",
+    "action": "add",
+    "v": "Astres / planètes / ISS visibles"
+  },
+  {
+    "k": "VISIBLE_ONLY_HINT",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:StrReplace:strreplace",
+    "action": "add",
+    "v": "N’affiche que les cibles actuellement au-dessus de l’horizon depuis votre position."
+  },
+  {
+    "k": "ISS_NOT_VISIBLE",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:StrReplace:strreplace",
+    "action": "add",
+    "v": "ISS hors de vue pour le moment."
+  },
+  {
+    "k": "PLANETS_NONE_VISIBLE",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:StrReplace:strreplace",
+    "action": "add",
+    "v": "Aucune planète visible maintenant."
+  },
+  {
+    "k": "STARS_NONE_VISIBLE",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:StrReplace:strreplace",
+    "action": "add",
+    "v": "Aucune étoile du catalogue visible maintenant."
+  },
+  {
+    "k": "LOOK_TITLE",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:StrReplace:strreplace",
+    "action": "add",
+    "v": "Où regarder dans le ciel"
+  },
+  {
+    "k": "LOOK_DIRECTION",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:StrReplace:strreplace",
+    "action": "add",
+    "v": "Direction"
+  },
+  {
+    "k": "LOOK_DIRECTION_HINT",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:StrReplace:strreplace",
+    "action": "add",
+    "v": "Orientez-vous vers {{cardinal}} ({{deg}}°)"
+  },
+  {
+    "k": "LOOK_ANGLE",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:StrReplace:strreplace",
+    "action": "add",
+    "v": "Angle"
+  },
+  {
+    "k": "LOOK_ANGLE_SHORT",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:StrReplace:strreplace",
+    "action": "add",
+    "v": "Angle"
+  },
+  {
+    "k": "LOOK_ANGLE_UP",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:StrReplace:strreplace",
+    "action": "add",
+    "v": "Levez le regard de {{deg}}° au-dessus de l'horizon"
+  },
+  {
+    "k": "LOOK_ANGLE_HORIZON",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:StrReplace:strreplace",
+    "action": "add",
+    "v": "Presque à l'horizon"
+  },
+  {
+    "k": "LOOK_ANGLE_BELOW",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:StrReplace:strreplace",
+    "action": "add",
+    "v": "Sous l'horizon — pas visible maintenant"
+  },
+  {
+    "k": "LOOK_STEP1",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:StrReplace:strreplace",
+    "action": "add",
+    "v": "Tournez-vous vers {{cardinal}} (azimut {{deg}}°)."
+  },
+  {
+    "k": "LOOK_STEP2_UP",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:StrReplace:strreplace",
+    "action": "add",
+    "v": "Levez les yeux de {{deg}}° au-dessus de l'horizon."
+  },
+  {
+    "k": "LOOK_STEP2_BELOW",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:StrReplace:strreplace",
+    "action": "add",
+    "v": "L'objet est sous l'horizon depuis votre position."
+  },
+  {
+    "k": "LOOK_STEP1",
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:Write:kv_fr",
+    "action": "replace",
+    "from": "Tournez-vous vers {{cardinal}} (azimut {{deg}}°).",
+    "to": "Turn toward {{cardinal}} (azimuth {{deg}}°).",
+    "ps": 2,
+    "ns": 2
+  },
+  {
+    "k": "CAL_OPEN",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L24:StrReplace:strreplace",
+    "action": "add",
+    "v": "Caler le Nord"
+  },
+  {
+    "k": "CAL_MODAL_TITLE",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L24:StrReplace:strreplace",
+    "action": "add",
+    "v": "Recalage du Nord"
+  },
+  {
+    "k": "CAL_MOUSE_STEP3",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L24:StrReplace:strreplace",
+    "action": "add",
+    "v": "Puis appuyez sur « Valider le Nord » pour enregistrer."
+  },
+  {
+    "k": "CAL_MOUSE_DRAGGING",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L24:StrReplace:strreplace",
+    "action": "add",
+    "v": "Glissez pour ajuster le Nord…"
+  },
+  {
+    "k": "CAL_MOUSE_CONFIRM",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L24:StrReplace:strreplace",
+    "action": "add",
+    "v": "Valider le Nord"
+  },
+  {
+    "k": "CAL_MOUSE_HINT_BAR",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L24:StrReplace:strreplace",
+    "action": "add",
+    "v": "Placez le N sur le cadran, puis validez"
+  },
+  {
+    "k": "CAL_DONE_MOUSE",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L24:StrReplace:strreplace",
+    "action": "add",
+    "v": "Nord calé avec la souris"
+  },
+  {
+    "k": "GALAXIES_TITLE",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L57:StrReplace:strreplace",
+    "action": "add",
+    "v": "Galaxies"
+  },
+  {
+    "k": "GALAXY_SEARCH",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L57:StrReplace:strreplace",
+    "action": "add",
+    "v": "Rechercher une galaxie"
+  },
+  {
+    "k": "GALAXY_SEARCH_PLACEHOLDER",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L57:StrReplace:strreplace",
+    "action": "add",
+    "v": "Andromède, M51, LMC…"
+  },
+  {
+    "k": "GALAXY_SELECT",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L71:StrReplace:strreplace",
+    "action": "add",
+    "v": "Choisir une galaxie"
+  },
+  {
+    "k": "GALAXY_SELECT_PLACEHOLDER",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L71:StrReplace:strreplace",
+    "action": "add",
+    "v": "— Sélectionner —"
+  },
+  {
+    "k": "STAR_SELECT",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L84:StrReplace:strreplace",
+    "action": "add",
+    "v": "Choisir une étoile"
+  },
+  {
+    "k": "STAR_SELECT_PLACEHOLDER",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L84:StrReplace:strreplace",
+    "action": "add",
+    "v": "— Sélectionner —"
+  },
+  {
+    "k": "STAR_FILTER",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:Write:fr_block",
+    "action": "add",
+    "v": "Filtrer les étoiles"
+  },
+  {
+    "k": "STAR_FILTER_EMPTY",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:Write:fr_block",
+    "action": "add",
+    "v": "Aucune étoile ne correspond au filtre."
+  },
+  {
+    "k": "GALAXY_FILTER",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:Write:fr_block",
+    "action": "add",
+    "v": "Filtrer les galaxies"
+  },
+  {
+    "k": "GALAXY_FILTER_EMPTY",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:Write:fr_block",
+    "action": "add",
+    "v": "Aucune galaxie ne correspond au filtre."
+  },
+  {
+    "k": "GALAXIES_NONE_VISIBLE",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L98:Write:fr_block",
+    "action": "add",
+    "v": "Aucune galaxie du catalogue visible maintenant."
+  },
+  {
+    "k": "TILT_UP",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L143:Write:fr_block",
+    "action": "add",
+    "v": "Levez le téléphone de {{deg}}°"
+  },
+  {
+    "k": "TILT_DOWN",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L143:Write:fr_block",
+    "action": "add",
+    "v": "Baissez le téléphone de {{deg}}°"
+  },
+  {
+    "k": "DEVICE_PITCH",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L143:Write:fr_block",
+    "action": "add",
+    "v": "Inclinaison"
+  },
+  {
+    "k": "AUTO_DETECT",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:StrReplace:strreplace",
+    "action": "add",
+    "v": "Auto-détection"
+  },
+  {
+    "k": "AUTO_DETECT_SHORT",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:StrReplace:strreplace",
+    "action": "add",
+    "v": "Auto"
+  },
+  {
+    "k": "AUTO_SCANNING",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:StrReplace:strreplace",
+    "action": "add",
+    "v": "Scan du ciel dans votre direction…"
+  },
+  {
+    "k": "AUTO_NEED_LOCATION",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:StrReplace:strreplace",
+    "action": "add",
+    "v": "Position GPS requise pour l'auto-détection."
+  },
+  {
+    "k": "AUTO_NEED_HEADING",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:StrReplace:strreplace",
+    "action": "add",
+    "v": "Orientez le téléphone (capteurs) puis réessayez."
+  },
+  {
+    "k": "AUTO_NEED_PITCH",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:StrReplace:strreplace",
+    "action": "add",
+    "v": "Inclinez le téléphone pour mesurer l'élévation, puis réessayez."
+  },
+  {
+    "k": "AUTO_NONE",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:StrReplace:strreplace",
+    "action": "add",
+    "v": "Aucun objet du catalogue dans cette direction (±15°)."
+  },
+  {
+    "k": "AUTO_ERROR",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:StrReplace:strreplace",
+    "action": "add",
+    "v": "Échec du scan. Réessayez."
+  },
+  {
+    "k": "AUTO_AIM",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:StrReplace:strreplace",
+    "action": "add",
+    "v": "Visée : azimut {{az}}° · élévation {{el}}°"
+  },
+  {
+    "k": "AUTO_CLEAR",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:StrReplace:strreplace",
+    "action": "add",
+    "v": "Fermer"
+  },
+  {
+    "k": "KIND_PLANET",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:StrReplace:strreplace",
+    "action": "add",
+    "v": "Système solaire"
+  },
+  {
+    "k": "KIND_STAR",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:StrReplace:strreplace",
+    "action": "add",
+    "v": "Étoile"
+  },
+  {
+    "k": "KIND_GALAXY",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:StrReplace:strreplace",
+    "action": "add",
+    "v": "Galaxie"
+  },
+  {
+    "k": "KIND_ISS",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:StrReplace:strreplace",
+    "action": "add",
+    "v": "ISS"
+  },
+  {
+    "k": "AUTO_FOUND",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L172:Write:fr_block",
+    "action": "add",
+    "v": "Objet identifié"
+  },
+  {
+    "k": "AUTO_SEP",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L172:Write:fr_block",
+    "action": "add",
+    "v": "à {{deg}}° de votre visée"
+  },
+  {
+    "k": "AUTO_OTHERS",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L172:Write:fr_block",
+    "action": "add",
+    "v": "Autres candidats proches"
+  },
+  {
+    "k": "AUTO_LIVE_ON",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:Write:fr_block",
+    "action": "add",
+    "v": "Live"
+  },
+  {
+    "k": "AUTO_LIVE_START",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:Write:fr_block",
+    "action": "add",
+    "v": "Démarrer l’auto-détection live"
+  },
+  {
+    "k": "AUTO_LIVE_STOP",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:Write:fr_block",
+    "action": "add",
+    "v": "Arrêter l’auto-détection live"
+  },
+  {
+    "k": "AUTO_LIVE_HINT",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:Write:fr_block",
+    "action": "add",
+    "v": "Suit en continu l’astre pointé — bougez le téléphone pour changer de cible."
+  },
+  {
+    "k": "AUTO_MODAL_TITLE",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:Write:fr_block",
+    "action": "add",
+    "v": "Cible pointée — suivi live"
+  },
+  {
+    "k": "AUTO_FILTER_PLANETS",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:Write:fr_block",
+    "action": "add",
+    "v": "Planètes"
+  },
+  {
+    "k": "AUTO_FILTER_STARS",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:Write:fr_block",
+    "action": "add",
+    "v": "Astres"
+  },
+  {
+    "k": "AUTO_FILTER_ISS",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:Write:fr_block",
+    "action": "add",
+    "v": "ISS"
+  },
+  {
+    "k": "AUTO_RATE",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:Write:fr_block",
+    "action": "add",
+    "v": "Rafraîchissement"
+  },
+  {
+    "k": "TILT_OK",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L209:Write:fr_block",
+    "action": "add",
+    "v": "Inclinaison correcte"
+  },
+  {
+    "k": "TURN_OK",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L209:Write:fr_block",
+    "action": "add",
+    "v": "Direction correcte"
+  },
+  {
+    "k": "PHONE_TILT_SCALE",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L227:Write:fr_block",
+    "action": "add",
+    "v": "0° plat · 90° vertical"
+  },
+  {
+    "k": "PHONE_TILT_FLAT",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L227:Write:fr_block",
+    "action": "add",
+    "v": "Téléphone à plat (horizontal)"
+  },
+  {
+    "k": "PHONE_TILT_VERTICAL",
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L227:Write:fr_block",
+    "action": "add",
+    "v": "Téléphone vertical"
+  },
+  {
+    "k": "SUBTITLE",
+    "meta": "recovered_merged",
+    "action": "replace",
+    "from": "Choisissez l'ISS, une planète, une étoile brillante ou des coordonnées libres, puis voyez où regarder : azimut, élévation et cap en direct — avec le même calibrage du Nord que la boussole ISS.",
+    "to": "Choisissez une planète du système solaire, une étoile brillante ou des coordonnées libres, puis voyez où regarder : azimut, élévation et cap en direct — avec le même calibrage du Nord que la boussole ISS.",
+    "ps": 5,
+    "ns": 5
+  },
+  {
+    "k": "LOOK_STEP1",
+    "meta": "recovered_merged",
+    "action": "replace",
+    "from": "Turn toward {{cardinal}} (azimuth {{deg}}°).",
+    "to": "Tournez-vous vers {{cardinal}} (azimut {{deg}}°).",
+    "ps": 2,
+    "ns": 2
+  },
+  {
+    "k": "SUBTITLE",
+    "meta": "e0:L114:fr_patch",
+    "action": "replace",
+    "from": "Choisissez une planète du système solaire, une étoile brillante ou des coordonnées libres, puis voyez où regarder : azimut, élévation et cap en direct — avec le même calibrage du Nord que la boussole ISS.",
+    "to": "Choisissez l'ISS, une planète, une étoile brillante ou des coordonnées libres, puis voyez où regarder : azimut, élévation et cap en direct — avec le même calibrage du Nord que la boussole ISS.",
+    "ps": 5,
+    "ns": 5
+  }
+]

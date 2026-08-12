@@ -1,0 +1,7 @@
+{
+  "line": 84,
+  "name": "StrReplace",
+  "path": "c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json",
+  "new_string": "    \"STARS_TITLE\": \"Étoiles brillantes\",\n    \"STAR_SEARCH\": \"Rechercher une étoile\",\n    \"STAR_SEARCH_PLACEHOLDER\": \"Sirius, Véga, Polaris…\",\n    \"STAR_SELECT\": \"Choisir une étoile\",\n    \"STAR_SELECT_PLACEHOLDER\": \"— Sélectionner —\",\n    \"GALAXIES_TITLE\": \"Galaxies\",",
+  "old_string": "    \"STARS_TITLE\": \"Étoiles brillantes\",\n    \"STAR_SEARCH\": \"Rechercher une étoile\",\n    \"STAR_SEARCH_PLACEHOLDER\": \"Sirius, Véga, Polaris…\",\n    \"GALAXIES_TITLE\": \"Galaxies\","
+}

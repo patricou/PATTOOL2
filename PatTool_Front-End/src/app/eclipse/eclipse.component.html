@@ -20,6 +20,41 @@
   <div class="order-2">
   <div class="card shadow-sm mb-3">
     <div class="card-body">
+      <div class="row g-2 align-items-end mb-2">
+        <div class="col-12 col-md-8 col-lg-9">
+          <label class="form-label small" for="eclipseAddressSearch">{{ 'ECLIPSE.ADDRESS_SEARCH' | translate }}</label>
+          <input id="eclipseAddressSearch"
+                 type="text"
+                 class="form-control form-control-sm"
+                 [(ngModel)]="addressQuery"
+                 [placeholder]="'ECLIPSE.ADDRESS_PLACEHOLDER' | translate"
+                 (keydown.enter)="$event.preventDefault(); searchAddressByQuery()"
+                 autocomplete="street-address" />
+        </div>
+        <div class="col-12 col-md-4 col-lg-3">
+          <button type="button" class="btn btn-outline-primary btn-sm w-100"
+                  (click)="searchAddressByQuery()"
+                  [disabled]="loadingAddressSearch">
+            <i class="fa fa-search me-1" [class.fa-spin]="loadingAddressSearch"></i>
+            {{ 'ECLIPSE.ADDRESS_SEARCH_BTN' | translate }}
+          </button>
+        </div>
+      </div>
+      <p class="small text-muted mb-1">{{ 'ECLIPSE.ADDRESS_SEARCH_HINT' | translate }}</p>
+      <div *ngIf="addressSearchError" class="small text-danger mb-2">
+        {{ addressSearchError | translate }}
+      </div>
+      <ul *ngIf="addressResults.length" class="list-group eclipse-address-results mb-2">
+        <li *ngFor="let r of addressResults"
+            class="list-group-item list-group-item-action"
+            (click)="selectAddressResult(r)"
+            role="button"
+            tabindex="0"
+            (keydown.enter)="selectAddressResult(r)">
+          {{ r.displayName }}
+          <span class="text-muted ms-1">({{ r.lat | number:'1.4-4' }}, {{ r.lon | number:'1.4-4' }})</span>
+        </li>
+      </ul>
       <div class="row g-2 align-items-end">
         <div class="col-6 col-md-2">
           <label class="form-label small">{{ 'ECLIPSE.YEAR' | translate }}</label>
@@ -37,7 +72,7 @@
         </div>
         <div class="col-6 col-md-2">
           <label class="form-label small">{{ 'ECLIPSE.HEIGHT' | translate }}</label>
-          <input type="number" class="form-control form-control-sm" step="1"
+          <input type="number" class="form-control form-control-sm" step="any"
                  [(ngModel)]="height" (ngModelChange)="onHeightChange()" />
         </div>
         <div class="col-12 col-md-4 d-flex flex-wrap gap-2">
@@ -46,8 +81,9 @@
             <i class="fa fa-refresh me-1" [class.fa-spin]="loadingUsno || loadingOpale"></i>
             {{ 'ECLIPSE.LOAD' | translate }}
           </button>
-          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="useMyLocation()">
-            <i class="fa fa-crosshairs me-1"></i>
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="useMyLocation()"
+                  [disabled]="locatingUser">
+            <i class="fa fa-crosshairs me-1" [class.fa-spin]="locatingUser"></i>
             {{ 'ECLIPSE.USE_MY_LOCATION' | translate }}
           </button>
           <button type="button" class="btn btn-outline-primary btn-sm" (click)="openTraceViewerForSelection()">
@@ -64,11 +100,14 @@
       <p class="small text-muted mt-2 mb-1">{{ 'ECLIPSE.LOCATION_HINT' | translate }}</p>
       <div class="eclipse-address small">
         <span class="text-muted">{{ 'ECLIPSE.ADDRESS' | translate }}:</span>
-        <span *ngIf="loadingAddress" class="ms-1 text-muted">
+        <span *ngIf="locatingUser" class="ms-1 text-muted">
+          <i class="fa fa-spinner fa-spin me-1"></i>{{ 'ECLIPSE.LOCATING' | translate }}
+        </span>
+        <span *ngIf="!locatingUser && loadingAddress" class="ms-1 text-muted">
           <i class="fa fa-spinner fa-spin me-1"></i>{{ 'ECLIPSE.ADDRESS_LOADING' | translate }}
         </span>
-        <strong *ngIf="!loadingAddress && placeLabel" class="ms-1">{{ placeLabel }}</strong>
-        <span *ngIf="!loadingAddress && !placeLabel" class="ms-1 text-muted">
+        <strong *ngIf="!locatingUser && !loadingAddress && placeLabel" class="ms-1">{{ placeLabel }}</strong>
+        <span *ngIf="!locatingUser && !loadingAddress && !placeLabel" class="ms-1 text-muted">
           {{ 'ECLIPSE.ADDRESS_UNKNOWN' | translate }}
         </span>
       </div>
@@ -106,6 +145,14 @@
         <div class="col-12 col-xl-8">
           <div class="eclipse-canvas-wrap">
             <canvas #eclipseCanvas class="eclipse-canvas" width="960" height="600"></canvas>
+          </div>
+          <div class="eclipse-view-from small mt-1">
+            <span class="text-muted">{{ 'ECLIPSE.VIEW_FROM' | translate }}:</span>
+            <strong class="ms-1" *ngIf="placeLabel">{{ placeLabel }}</strong>
+            <strong class="ms-1" *ngIf="!placeLabel && isValidCoords()">
+              {{ lat | number:'1.4-4' }}°, {{ lon | number:'1.4-4' }}°
+            </strong>
+            <span class="ms-1 text-muted" *ngIf="!placeLabel && !isValidCoords()">—</span>
           </div>
         </div>
         <div class="col-12 col-xl-4">
@@ -201,6 +248,17 @@
               {{ 'ECLIPSE.MAGNITUDE' | translate }}: {{ cur.magnitude | number:'1.2-3' }}
             </span>
           </div>
+          <div class="eclipse-visible-window small mt-2" *ngIf="hasVisibilityTimes(cur)">
+            <div *ngIf="formatVisibilityInterval(cur) as interval">
+              <span class="text-muted">{{ 'ECLIPSE.VISIBLE_WINDOW' | translate }}:</span>
+              <strong class="ms-1">{{ interval }}</strong>
+            </div>
+            <div class="text-muted mt-1">
+              <span *ngIf="cur.begins">{{ 'ECLIPSE.BEGINS' | translate }} {{ formatLocalDateTime(cur.begins) }}</span>
+              <span *ngIf="cur.maximum"> · {{ 'ECLIPSE.MAXIMUM' | translate }} {{ formatLocalDateTime(cur.maximum) }}</span>
+              <span *ngIf="cur.ends"> · {{ 'ECLIPSE.ENDS' | translate }} {{ formatLocalDateTime(cur.ends) }}</span>
+            </div>
+          </div>
           <button type="button" class="btn btn-sm btn-outline-success mt-2" (click)="jumpPlayerToEvent(cur)">
             <i class="fa fa-play me-1"></i>{{ 'ECLIPSE.JUMP_PLAYER' | translate }}
           </button>
@@ -226,6 +284,17 @@
             <strong>{{ formatCountdown(nxt) }}</strong>
             <span class="text-muted small ms-2">({{ nxt.daysUntil }} {{ 'ECLIPSE.DAYS' | translate }})</span>
           </div>
+          <div class="eclipse-visible-window small mt-2" *ngIf="hasVisibilityTimes(nxt)">
+            <div *ngIf="formatVisibilityInterval(nxt) as interval">
+              <span class="text-muted">{{ 'ECLIPSE.VISIBLE_WINDOW' | translate }}:</span>
+              <strong class="ms-1">{{ interval }}</strong>
+            </div>
+            <div class="text-muted mt-1">
+              <span *ngIf="nxt.begins">{{ 'ECLIPSE.BEGINS' | translate }} {{ formatLocalDateTime(nxt.begins) }}</span>
+              <span *ngIf="nxt.maximum"> · {{ 'ECLIPSE.MAXIMUM' | translate }} {{ formatLocalDateTime(nxt.maximum) }}</span>
+              <span *ngIf="nxt.ends"> · {{ 'ECLIPSE.ENDS' | translate }} {{ formatLocalDateTime(nxt.ends) }}</span>
+            </div>
+          </div>
           <div class="small text-muted mt-1" *ngIf="nxt.description">{{ nxt.description }}</div>
           <button type="button" class="btn btn-sm btn-outline-primary mt-2" (click)="jumpPlayerToEvent(nxt)">
             <i class="fa fa-play me-1"></i>{{ 'ECLIPSE.JUMP_PLAYER' | translate }}
@@ -248,6 +317,10 @@
                   · {{ formatCountdown(u) }}
                 </span>
               </div>
+              <div class="small text-muted mt-1" *ngIf="formatVisibilityInterval(u) as interval">
+                {{ 'ECLIPSE.VISIBLE_WINDOW' | translate }}: {{ interval }}
+                <span *ngIf="u.maximum"> · {{ 'ECLIPSE.MAXIMUM' | translate }} {{ formatLocalDateTime(u.maximum) }}</span>
+              </div>
             </li>
           </ul>
         </div>
@@ -259,6 +332,10 @@
           <span *ngIf="lunar.type"> ({{ lunar.type }})</span>
           <span *ngIf="lunar.magnitude != null"> · {{ 'ECLIPSE.MAGNITUDE' | translate }} {{ lunar.magnitude | number:'1.2-3' }}</span>
           · {{ formatCountdown(lunar) }}
+          <div class="mt-1" *ngIf="formatVisibilityInterval(lunar) as interval">
+            {{ 'ECLIPSE.VISIBLE_WINDOW' | translate }}: <strong>{{ interval }}</strong>
+            <span *ngIf="lunar.maximum"> · {{ 'ECLIPSE.MAXIMUM' | translate }} {{ formatLocalDateTime(lunar.maximum) }}</span>
+          </div>
           <button type="button" class="btn btn-link btn-sm p-0 ms-2" (click)="jumpPlayerToEvent(lunar)">
             {{ 'ECLIPSE.JUMP_PLAYER' | translate }}
           </button>

@@ -77,7 +77,8 @@
               "seedrandom",
               "javascript-natural-sort",
               "escape-latex",
-              "quill-delta"
+              "quill-delta",
+              "satellite.js"
             ]
           },
           "configurations": {

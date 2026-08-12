@@ -1,0 +1,7 @@
+{
+  "line": 159,
+  "name": "StrReplace",
+  "path": "c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json",
+  "new_string": "    \"TILT_UP\": \"Levez le téléphone de {{deg}}°\",\n    \"TILT_DOWN\": \"Baissez le téléphone de {{deg}}°\",\n    \"DEVICE_PITCH\": \"Inclinaison\",\n    \"AUTO_DETECT\": \"Auto-détection\",\n    \"AUTO_DETECT_SHORT\": \"Auto\",\n    \"AUTO_SCANNING\": \"Scan du ciel dans votre direction…\",\n    \"AUTO_NEED_LOCATION\": \"Position GPS requise pour l'auto-détection.\",\n    \"AUTO_NEED_HEADING\": \"Orientez le téléphone (capteurs) puis réessayez.\",\n    \"AUTO_NEED_PITCH\": \"Inclinez le téléphone pour mesurer l'élévation, puis réessayez.\",\n    \"AUTO_NONE\": \"Aucun objet du catalogue dans cette direction (±15°).\",\n    \"AUTO_ERROR\": \"Échec du scan. Réessayez.\",\n    \"AUTO_AIM\": \"Visée : azimut {{az}}° · élévation {{el}}°\",\n    \"AUTO_CLEAR\": \"Fermer\",\n    \"KIND_PLANET\": \"Système solaire\",\n    \"KIND_STAR\": \"Étoile\",\n    \"KIND_GALAXY\": \"Galaxie\",\n    \"KIND_ISS\": \"ISS\",",
+  "old_string": "    \"TILT_UP\": \"Levez le téléphone de {{deg}}°\",\n    \"TILT_DOWN\": \"Baissez le téléphone de {{deg}}°\",\n    \"DEVICE_PITCH\": \"Inclinaison\","
+}

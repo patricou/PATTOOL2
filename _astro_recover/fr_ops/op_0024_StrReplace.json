@@ -1,0 +1,7 @@
+{
+  "line": 24,
+  "name": "StrReplace",
+  "path": "c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json",
+  "new_string": "    \"CAL_MOUSE_STEP3\": \"Puis appuyez sur « Valider le Nord » pour enregistrer.\",\n    \"CAL_MOUSE_DRAGGING\": \"Glissez pour ajuster le Nord…\",\n    \"CAL_MOUSE_CONFIRM\": \"Valider le Nord\",\n    \"CAL_MOUSE_HINT_BAR\": \"Placez le N sur le cadran, puis validez\",\n    \"CAL_DONE_MOUSE\": \"Nord calé avec la souris\",",
+  "old_string": "    \"CAL_MOUSE_STEP3\": \"Relâchez pour enregistrer — le N se place sous le curseur.\",\n    \"CAL_MOUSE_DRAGGING\": \"Glissez pour ajuster le Nord…\",\n    \"CAL_DONE_MOUSE\": \"Nord calé avec la souris\","
+}

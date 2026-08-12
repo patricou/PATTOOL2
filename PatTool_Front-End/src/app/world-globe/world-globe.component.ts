@@ -8543,8 +8543,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }
 
-    // Chrome Android (Samsung, etc.) : AbsoluteOrientationSensor est nettement plus
-    // stable que deviceorientationabsolute (quaternion ENU, repère écran).
+    // Chrome Android (Samsung Galaxy S23, etc.) : deviceorientationabsolute (α)
+    // est plus fiable pour le Nord que AbsoluteOrientationSensor (quaternion).
+    // Sur iOS / desktop on tente d'abord AbsoluteOrientationSensor.
     if (await this.tryStartIssCompassAbsoluteSensor()) {
       return;
     }
@@ -8566,6 +8567,10 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
    * En cas d’erreur (permission, indisponible), repli sur DeviceOrientation.
    */
   private async tryStartIssCompassAbsoluteSensor(): Promise<boolean> {
+    // Samsung / Chrome Android : privilégier deviceorientationabsolute (voir astro-compass).
+    if (typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)) {
+      return false;
+    }
     const Ctor = typeof window !== 'undefined' ? (window as any).AbsoluteOrientationSensor : null;
     if (typeof Ctor !== 'function') {
       return false;

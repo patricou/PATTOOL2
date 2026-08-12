@@ -1,0 +1,7 @@
+{
+  "line": 67,
+  "name": "StrReplace",
+  "path": "c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json",
+  "new_string": "    \"ASTRO_COMPASS\": \"Boussole Astres\"",
+  "old_string": "    \"ASTRO_COMPASS\": \"Boussole astres\""
+}

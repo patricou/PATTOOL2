@@ -56,6 +56,12 @@ interface SkySnapshot {
   moonUp: boolean;
 }
 
+interface AddressSearchResult {
+  lat: number;
+  lon: number;
+  displayName: string;
+}
+
 @Component({
   selector: 'app-eclipse',
   standalone: true,
@@ -69,11 +75,18 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('eclipseCanvas') canvasRef?: ElementRef<HTMLCanvasElement>;
 
   year = new Date().getFullYear();
-  lat = 48.8566;
-  lon = 2.3522;
-  height = 0;
+  /** Set from GPS / IP on load — not a hard-coded city. null until resolved (number inputs reject NaN). */
+  lat: number | null = null;
+  lon: number | null = null;
+  height: number | null = 0;
   placeLabel = '';
   loadingAddress = false;
+  locatingUser = false;
+
+  addressQuery = '';
+  addressResults: AddressSearchResult[] = [];
+  loadingAddressSearch = false;
+  addressSearchError = '';
 
   usnoYear: UsnoSolarYearResponse | null = null;
   usnoLocal: UsnoSolarLocalResponse | null = null;
@@ -111,6 +124,8 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
   private subscriptions = new Subscription();
   private readonly coordsChange$ = new Subject<{ lat: number; lon: number }>();
   private addressSub: Subscription | null = null;
+  private altitudeSub: Subscription | null = null;
+  private addressSearchSub: Subscription | null = null;
 
   constructor(
     private readonly api: ApiService,
@@ -127,28 +142,9 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
           Math.abs(a.lat - b.lat) < 1e-5 && Math.abs(a.lon - b.lon) < 1e-5)
       ).subscribe(({ lat, lon }) => this.resolveAddress(lat, lon))
     );
-    // Resolve immediately (same API as address-geocode); do not wait for IP lookup.
-    this.resolveAddress(this.lat, this.lon);
+    // Year lists do not need coordinates; sky / visibility wait for user location.
     this.reloadAll();
-    this.checkVisibility();
-    this.refreshSky();
-    this.subscriptions.add(
-      this.api.getLocationByIp().subscribe({
-        next: loc => {
-          if (loc.status === 'success' && loc.lat != null && loc.lon != null) {
-            const moved =
-              Math.abs(this.lat - loc.lat) > 1e-4 || Math.abs(this.lon - loc.lon) > 1e-4;
-            this.lat = loc.lat;
-            this.lon = loc.lon;
-            if (moved) {
-              this.resolveAddress(this.lat, this.lon);
-              this.checkVisibility();
-              this.refreshSky();
-            }
-          }
-        }
-      })
-    );
+    this.useMyLocation();
   }
 
   ngAfterViewInit(): void {
@@ -158,7 +154,69 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.stopPlay();
     this.addressSub?.unsubscribe();
+    this.altitudeSub?.unsubscribe();
+    this.addressSearchSub?.unsubscribe();
     this.subscriptions.unsubscribe();
+  }
+
+  /** Forward geocode: address → GPS, then refresh sky / visibility from that place. */
+  searchAddressByQuery(): void {
+    (document.activeElement as HTMLElement)?.blur?.();
+    const query = this.addressQuery?.trim();
+    if (!query) {
+      this.addressSearchError = 'ECLIPSE.ADDRESS_REQUIRED';
+      this.addressResults = [];
+      return;
+    }
+    this.addressSearchError = '';
+    this.loadingAddressSearch = true;
+    this.addressResults = [];
+    this.addressSearchSub?.unsubscribe();
+    this.addressSearchSub = this.api.geocodeSearch(query).subscribe({
+      next: (data: any[]) => {
+        this.addressResults = (data || []).map((item: any) => ({
+          lat: typeof item.lat === 'number' ? item.lat : parseFloat(item.lat) || 0,
+          lon: typeof item.lon === 'number' ? item.lon : parseFloat(item.lon) || 0,
+          displayName: String(item.displayName || item.display_name || '').trim()
+        })).filter(r => Number.isFinite(r.lat) && Number.isFinite(r.lon)
+          && r.lat >= -90 && r.lat <= 90 && r.lon >= -180 && r.lon <= 180);
+        this.loadingAddressSearch = false;
+        if (this.addressResults.length === 0) {
+          this.addressSearchError = 'ECLIPSE.ADDRESS_NO_RESULTS';
+        } else if (this.addressResults.length === 1) {
+          this.selectAddressResult(this.addressResults[0]);
+        }
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.addressResults = [];
+        this.loadingAddressSearch = false;
+        this.addressSearchError = 'ECLIPSE.ADDRESS_ERROR';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  selectAddressResult(result: AddressSearchResult): void {
+    if (!result) {
+      return;
+    }
+    this.lat = result.lat;
+    this.lon = result.lon;
+    this.placeLabel = result.displayName || '';
+    this.addressQuery = result.displayName || this.addressQuery;
+    this.addressResults = [];
+    this.addressSearchError = '';
+    this.resolveAddress(this.lat, this.lon);
+    this.checkVisibility();
+    this.refreshSky();
+    if (this.selectedUsnoDate) {
+      this.loadUsnoLocal(this.selectedUsnoDate);
+    }
+    if (this.selectedOpaleDate) {
+      this.loadOpaleDay(this.selectedOpaleBody, this.selectedOpaleDate);
+    }
+    this.cdr.detectChanges();
   }
 
   reloadAll(): void {
@@ -177,6 +235,7 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   useMyLocation(): void {
     this.errorMessage = '';
+    this.locatingUser = true;
     if (!navigator.geolocation) {
       this.useIpLocationFallback();
       return;
@@ -186,9 +245,8 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
         this.ngZone.run(() => {
           this.lat = position.coords.latitude;
           this.lon = position.coords.longitude;
-          if (position.coords.altitude != null && Number.isFinite(position.coords.altitude)) {
-            this.height = Math.round(position.coords.altitude);
-          }
+          this.locatingUser = false;
+          // Altitude: same as Trace Viewer (DEM sea-level via getAllAltitudes), not GPS HAE.
           this.resolveAddress(this.lat, this.lon);
           this.checkVisibility();
           this.refreshSky();
@@ -207,6 +265,7 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
     this.subscriptions.add(
       this.api.getLocationByIp().subscribe({
         next: loc => {
+          this.locatingUser = false;
           if (loc.status === 'success' && loc.lat != null && loc.lon != null) {
             this.lat = loc.lat;
             this.lon = loc.lon;
@@ -220,6 +279,7 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
           }
         },
         error: () => {
+          this.locatingUser = false;
           this.errorMessage = 'ECLIPSE.ERROR_GEO';
           this.cdr.detectChanges();
         }
@@ -228,20 +288,19 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   openTraceViewerForSelection(): void {
-    if (!this.traceViewerModalComponent || !this.isValidCoords()) {
+    const coords = this.requireCoords();
+    if (!this.traceViewerModalComponent || !coords) {
       this.errorMessage = 'ECLIPSE.ERROR_COORDS';
       return;
     }
-    const label = `${this.lat.toFixed(5)}, ${this.lon.toFixed(5)}`;
-    this.traceViewerModalComponent.openAtLocation(this.lat, this.lon, label, undefined, true, true);
+    const label = `${coords.lat.toFixed(5)}, ${coords.lon.toFixed(5)}`;
+    this.traceViewerModalComponent.openAtLocation(coords.lat, coords.lon, label, undefined, true, true);
   }
 
   onLocationSelected(location: { lat: number; lng: number; alt?: number | null }): void {
     this.lat = location.lat;
     this.lon = location.lng;
-    if (location.alt != null && Number.isFinite(location.alt)) {
-      this.height = Math.round(location.alt);
-    }
+    // Trace Viewer emits lat/lng only; altitude comes from the same DEM API it uses.
     this.resolveAddress(this.lat, this.lon);
     this.checkVisibility();
     this.refreshSky();
@@ -254,14 +313,15 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   checkVisibility(): void {
-    if (!this.isValidCoords()) {
+    const coords = this.requireCoords();
+    if (!coords) {
       this.errorMessage = 'ECLIPSE.ERROR_COORDS';
       return;
     }
     this.loadingVisibility = true;
     this.errorMessage = '';
     this.subscriptions.add(
-      this.api.getEclipseVisibility(this.lat, this.lon, this.height, 5).subscribe({
+      this.api.getEclipseVisibility(coords.lat, coords.lon, coords.height, 5).subscribe({
         next: data => {
           this.visibility = data;
           this.loadingVisibility = false;
@@ -406,20 +466,78 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
     return event.obscuration || '';
   }
 
+  hasVisibilityTimes(event: EclipseVisibilityEvent | null | undefined): boolean {
+    return !!(event && (event.begins || event.maximum || event.ends));
+  }
+
+  /** Local wall-clock without timezone offset (same convention as the sky player). */
+  formatLocalDateTime(iso: string | null | undefined): string {
+    if (!iso) {
+      return '';
+    }
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) {
+      return iso;
+    }
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+      + ` ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  formatLocalTimeOnly(iso: string | null | undefined): string {
+    if (!iso) {
+      return '';
+    }
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) {
+      return iso;
+    }
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  /** Visible window: begins – ends in local time. */
+  formatVisibilityInterval(event: EclipseVisibilityEvent | null | undefined): string {
+    if (!event?.begins || !event?.ends) {
+      return '';
+    }
+    const start = new Date(event.begins);
+    const end = new Date(event.ends);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return '';
+    }
+    const sameDay = start.getFullYear() === end.getFullYear()
+      && start.getMonth() === end.getMonth()
+      && start.getDate() === end.getDate();
+    const left = this.formatLocalDateTime(event.begins);
+    const right = sameDay ? this.formatLocalTimeOnly(event.ends) : this.formatLocalDateTime(event.ends);
+    return `${left} – ${right}`;
+  }
+
   onSimDateChange(): void {
     this.refreshSky();
   }
 
   onCoordsChange(): void {
+    // Number inputs stringify NaN as "NaN" (browser warning); keep null for empty/invalid.
+    if (this.lat != null && !Number.isFinite(this.lat)) {
+      this.lat = null;
+    }
+    if (this.lon != null && !Number.isFinite(this.lon)) {
+      this.lon = null;
+    }
     this.refreshSky();
     if (this.isValidCoords()) {
-      this.coordsChange$.next({ lat: this.lat, lon: this.lon });
+      this.coordsChange$.next({ lat: this.lat as number, lon: this.lon as number });
     } else {
       this.placeLabel = '';
     }
   }
 
   onHeightChange(): void {
+    if (this.height != null && !Number.isFinite(this.height)) {
+      this.height = null;
+    }
     this.refreshSky();
   }
 
@@ -437,18 +555,42 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
         // Same label path as address-geocode: prefer backend displayName.
         this.placeLabel = this.formatAddress(data);
         this.loadingAddress = false;
-        if ((this.height === 0 || this.height == null) && data?.extratags?.ele) {
-          const elev = parseFloat(data.extratags.ele);
-          if (Number.isFinite(elev)) {
-            this.height = Math.round(elev);
-          }
-        }
         this.cdr.detectChanges();
       },
       error: () => {
         this.placeLabel = '';
         this.loadingAddress = false;
         this.cdr.detectChanges();
+      }
+    });
+    this.fetchAltitude(lat, lon);
+  }
+
+  /** Same as Trace Viewer: getAllAltitudes(lat, lng, null), keep exact DEM value (no rounding). */
+  private fetchAltitude(lat: number, lon: number): void {
+    this.altitudeSub?.unsubscribe();
+    this.altitudeSub = this.api.getAllAltitudes(lat, lon, null).subscribe({
+      next: (response: any) => {
+        const list = response?.altitudes;
+        if (!list || !Array.isArray(list) || list.length === 0) {
+          return;
+        }
+        const raw = list[0].altitude;
+        const altitude = typeof raw === 'number' && Number.isFinite(raw)
+          ? raw
+          : parseFloat(String(raw));
+        if (!Number.isFinite(altitude)) {
+          return;
+        }
+        if (this.height != null && Math.abs(altitude - this.height) < 1e-6) {
+          return;
+        }
+        this.height = altitude;
+        this.refreshSky();
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        // Keep current height on failure.
       }
     });
   }
@@ -594,7 +736,11 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private computeSky(date: Date): SkySnapshot {
-    const observer = new Observer(this.lat, this.lon, this.height);
+    const coords = this.requireCoords();
+    if (!coords) {
+      throw new Error('invalid coords');
+    }
+    const observer = new Observer(coords.lat, coords.lon, coords.height);
     const sunEq = Equator(Body.Sun, date, observer, true, true);
     const moonEq = Equator(Body.Moon, date, observer, true, true);
     const sunHor = Horizon(date, observer, sunEq.ra, sunEq.dec, 'normal');
@@ -718,9 +864,19 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
     ctx.fillStyle = 'rgba(255,255,255,0.75)';
     ctx.font = '12px sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(snap.date.toISOString().replace('.000Z', 'Z'), 12, 20);
+    ctx.fillText(this.formatSimDateLocal(snap.date), 12, 20);
     ctx.textAlign = 'right';
-    ctx.fillText(`${this.lat.toFixed(3)}°, ${this.lon.toFixed(3)}°`, w - 12, 20);
+    const coords = this.requireCoords();
+    if (coords) {
+      ctx.fillText(`${coords.lat.toFixed(3)}°, ${coords.lon.toFixed(3)}°`, w - 12, 20);
+    }
+  }
+
+  /** Canvas clock in the user's local timezone (same as datetime-local), without UTC offset. */
+  private formatSimDateLocal(date: Date): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+      + `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
   }
 
   private drawSolarEclipse(
@@ -913,14 +1069,15 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private loadUsnoLocal(date: string): void {
-    if (!this.isValidCoords()) {
+    const coords = this.requireCoords();
+    if (!coords) {
       this.errorMessage = 'ECLIPSE.ERROR_COORDS';
       return;
     }
     this.loadingDetail = true;
     this.errorMessage = '';
     this.subscriptions.add(
-      this.api.getUsnoSolarEclipseLocal(date, this.lat, this.lon, this.height).subscribe({
+      this.api.getUsnoSolarEclipseLocal(date, coords.lat, coords.lon, coords.height).subscribe({
         next: data => {
           this.usnoLocal = data;
           this.loadingDetail = false;
@@ -960,9 +1117,10 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
   private loadOpaleDay(body: 10 | 301, date: string): void {
     this.loadingDetail = true;
     this.errorMessage = '';
-    const lat = this.isValidCoords() ? this.lat : undefined;
-    const lon = this.isValidCoords() ? this.lon : undefined;
-    const height = this.isValidCoords() ? this.height : undefined;
+    const coords = this.requireCoords();
+    const lat = coords?.lat;
+    const lon = coords?.lon;
+    const height = coords?.height;
     this.subscriptions.add(
       this.api.getOpaleEclipseDay(body, date, lat, lon, height).subscribe({
         next: data => {
@@ -995,9 +1153,20 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
     return Number.isInteger(year) && year >= 1800 && year <= 2050;
   }
 
-  private isValidCoords(): boolean {
-    return Number.isFinite(this.lat) && Number.isFinite(this.lon)
-      && this.lat >= -90 && this.lat <= 90
-      && this.lon >= -180 && this.lon <= 180;
+  isValidCoords(): boolean {
+    return this.requireCoords() != null;
+  }
+
+  /** Finite lat/lon in range; height defaults to 0 when empty. */
+  private requireCoords(): { lat: number; lon: number; height: number } | null {
+    const lat = this.lat;
+    const lon = this.lon;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)
+      || (lat as number) < -90 || (lat as number) > 90
+      || (lon as number) < -180 || (lon as number) > 180) {
+      return null;
+    }
+    const height = Number.isFinite(this.height) ? (this.height as number) : 0;
+    return { lat: lat as number, lon: lon as number, height };
   }
 }

@@ -1,0 +1,29 @@
+[
+  {
+    "file": "\\7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea\\7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl",
+    "size": 647396,
+    "frHints": 63,
+    "hasBlock": false,
+    "hasSat": false,
+    "hasLook": true,
+    "hasCalNeeded": true
+  },
+  {
+    "file": "\\e0ea2004-7545-419c-b896-c17ad1317bef\\e0ea2004-7545-419c-b896-c17ad1317bef.jsonl",
+    "size": 415240,
+    "frHints": 51,
+    "hasBlock": false,
+    "hasSat": true,
+    "hasLook": true,
+    "hasCalNeeded": true
+  },
+  {
+    "file": "\\7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea\\subagents\\f80c1006-fa69-4e96-8258-389df3504954.jsonl",
+    "size": 1998,
+    "frHints": 6,
+    "hasBlock": false,
+    "hasSat": true,
+    "hasLook": true,
+    "hasCalNeeded": false
+  }
+]

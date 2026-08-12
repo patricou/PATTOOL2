@@ -1,0 +1,2190 @@
+{
+  "TITLE": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Boussole des astres",
+      "score": 2
+    }
+  ],
+  "SUBTITLE": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Choisissez une planète du système solaire, une étoile brillante ou des coordonné",
+      "score": 5
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Choisissez l'ISS, une planète, une étoile brillante ou des coordonnées libres, p",
+      "score": 5
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Choisissez une planète du système solaire, une étoile brillante ou des coordonné",
+      "score": 5
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:input:new_string:kv",
+      "v": "Choisissez l'ISS, une planète, une étoile brillante ou des coordonnées libres, p",
+      "score": 5
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\en.json:kv",
+      "v": "Pick the ISS, a Solar System body, a bright star, or custom coordinates, then se",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:input:new_string:kv",
+      "v": "Pick the ISS, a Solar System body, a bright star, or custom coordinates, then se",
+      "score": 0
+    }
+  ],
+  "TARGET_SECTION": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Choix de la cible",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Choix de la cible",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Choix de la cible",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:input:new_string:kv",
+      "v": "Choix de la cible",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\en.json:kv",
+      "v": "Target selection",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:input:new_string:kv",
+      "v": "Target selection",
+      "score": 0
+    }
+  ],
+  "COMPASS_SECTION": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Boussole",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Boussole",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Boussole",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:input:new_string:kv",
+      "v": "Boussole",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\en.json:kv",
+      "v": "Compass",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:input:new_string:kv",
+      "v": "Compass",
+      "score": 0
+    }
+  ],
+  "PLANETS_TITLE": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Système solaire",
+      "score": 3
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Système solaire",
+      "score": 3
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Système solaire",
+      "score": 3
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:input:new_string:kv",
+      "v": "Système solaire",
+      "score": 3
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\en.json:kv",
+      "v": "Solar System",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:input:new_string:kv",
+      "v": "Solar System",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Système solaire",
+      "score": 3
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Système solaire",
+      "score": 3
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Solar System",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Solar System",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Système solaire",
+      "score": 3
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Système solaire",
+      "score": 3
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Solar System",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Solar System",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Système solaire",
+      "score": 3
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Système solaire",
+      "score": 3
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:input:new_string:kv",
+      "v": "Système solaire",
+      "score": 3
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:input:old_string:kv",
+      "v": "Système solaire",
+      "score": 3
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\en.json:kv",
+      "v": "Solar System",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\en.json:kv",
+      "v": "Solar System",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:input:new_string:kv",
+      "v": "Solar System",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:input:old_string:kv",
+      "v": "Solar System",
+      "score": 0
+    }
+  ],
+  "STAR_SEARCH": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Rechercher une étoile",
+      "score": 5
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L57:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Rechercher une étoile",
+      "score": 5
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L84:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Rechercher une étoile",
+      "score": 5
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L84:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Rechercher une étoile",
+      "score": 5
+    }
+  ],
+  "STAR_SEARCH_PLACEHOLDER": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Sirius, Véga, Polaris…",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L57:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Sirius, Véga, Polaris…",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L84:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Sirius, Véga, Polaris…",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L84:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Sirius, Véga, Polaris…",
+      "score": 3
+    }
+  ],
+  "SELECTED": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Sélection",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L57:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Sélection",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L71:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Sélection",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L71:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Sélection",
+      "score": 3
+    }
+  ],
+  "CUSTOM_TITLE": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Coordonnées libres (AD / Déc)",
+      "score": 3
+    }
+  ],
+  "CUSTOM_APPLY": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Viser",
+      "score": 0
+    }
+  ],
+  "CUSTOM_NAME": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Nom (optionnel)",
+      "score": 0
+    }
+  ],
+  "CUSTOM_NAME_PLACEHOLDER": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Mon objet",
+      "score": 0
+    }
+  ],
+  "CUSTOM_TARGET": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Objet libre",
+      "score": 0
+    }
+  ],
+  "RA_HOURS": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "AD (heures)",
+      "score": 0
+    }
+  ],
+  "DEC_DEG": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Déc (°)",
+      "score": 3
+    }
+  ],
+  "LAT": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Lat",
+      "score": 0
+    }
+  ],
+  "LON": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Lon",
+      "score": 0
+    }
+  ],
+  "GPS_REFRESH": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Rafraîchir le GPS",
+      "score": 5
+    }
+  ],
+  "GPS_ACCURACY": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Précision GPS",
+      "score": 3
+    }
+  ],
+  "AZIMUTH": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Direction",
+      "score": 0
+    }
+  ],
+  "ELEVATION": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Élévation",
+      "score": 3
+    }
+  ],
+  "HEADING": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Cap appareil",
+      "score": 0
+    }
+  ],
+  "HEADING_TRUE": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "vrai Nord",
+      "score": 2
+    }
+  ],
+  "HEADING_APPROX": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "approximatif",
+      "score": 0
+    }
+  ],
+  "BELOW_HORIZON": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "sous l'horizon",
+      "score": 0
+    }
+  ],
+  "UPDATED": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Mis à jour",
+      "score": 3
+    }
+  ],
+  "UPDATED_NOW": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "à l'instant",
+      "score": 3
+    }
+  ],
+  "UPDATED_AGO_S": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "il y a {{s}} s",
+      "score": 0
+    }
+  ],
+  "UPDATED_AGO_M": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "il y a {{m}} min",
+      "score": 0
+    }
+  ],
+  "FACING": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Vous êtes face à la cible",
+      "score": 5
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L143:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_patch-i18n-pitch.js:fr_block",
+      "v": "Vous pointez la cible",
+      "score": 2
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L143:assistant:tool_use:Write:input:fr_block",
+      "v": "Vous pointez la cible",
+      "score": 2
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L143:assistant:input:contents:fr_block",
+      "v": "Vous pointez la cible",
+      "score": 2
+    }
+  ],
+  "TURN_LEFT": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Tournez de {{deg}}° à gauche",
+      "score": 3
+    }
+  ],
+  "TURN_RIGHT": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Tournez de {{deg}}° à droite",
+      "score": 3
+    }
+  ],
+  "CAL_NEEDED": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Nord non calé — la direction peut être fausse",
+      "score": 5
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L24:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Nord non calé — la direction peut être fausse",
+      "score": 5
+    }
+  ],
+  "CAL_CHOOSE": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Choisissez la méthode de calibrage :",
+      "score": 5
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L24:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Choisissez la méthode de calibrage :",
+      "score": 5
+    }
+  ],
+  "CAL_METHOD_AUTO": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Automatique (capteurs)",
+      "score": 2
+    }
+  ],
+  "CAL_METHOD_AUTO_HINT": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Magnétomètre du téléphone (faire un 8 d'abord)",
+      "score": 3
+    }
+  ],
+  "CAL_METHOD_MANUAL": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Manuel (viser le Nord)",
+      "score": 2
+    }
+  ],
+  "CAL_METHOD_MANUAL_HINT": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Orientez le haut du téléphone vers le Nord",
+      "score": 3
+    }
+  ],
+  "CAL_METHOD_GPS": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Marche GPS (jour et nuit)",
+      "score": 0
+    }
+  ],
+  "CAL_METHOD_SUN": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Avec le Soleil (de jour)",
+      "score": 2
+    }
+  ],
+  "CAL_MANUAL_TITLE": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Calibrage manuel du Nord",
+      "score": 2
+    }
+  ],
+  "CAL_MANUAL_STEP1": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Éloignez-vous du métal et des aimants.",
+      "score": 3
+    }
+  ],
+  "CAL_MANUAL_STEP2": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Tournez pour que le haut du téléphone pointe vers le Nord.",
+      "score": 3
+    }
+  ],
+  "CAL_MANUAL_STEP3": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Quand c'est le cas, appuyez sur Enregistrer.",
+      "score": 0
+    }
+  ],
+  "CAL_MANUAL_CONFIRM": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Enregistrer le Nord",
+      "score": 2
+    }
+  ],
+  "CAL_SUN_TITLE": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Calibrer avec le Soleil",
+      "score": 2
+    }
+  ],
+  "CAL_SUN_STEP1": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Éloignez-vous du métal et des aimants.",
+      "score": 3
+    }
+  ],
+  "CAL_SUN_STEP2": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Tenez le téléphone à plat et visez le Soleil avec le bord supérieur.",
+      "score": 3
+    }
+  ],
+  "CAL_SUN_STEP3": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Quand c'est aligné, appuyez sur Confirmer.",
+      "score": 3
+    }
+  ],
+  "CAL_SUN_AZIMUTH": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Azimut du Soleil",
+      "score": 2
+    }
+  ],
+  "CAL_SUN_ELEVATION": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Altitude",
+      "score": 0
+    }
+  ],
+  "CAL_SUN_CONFIRM": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Confirmer l'alignement",
+      "score": 0
+    }
+  ],
+  "CAL_SUN_NIGHT": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Soleil sous l'horizon — utilisez la marche GPS.",
+      "score": 2
+    }
+  ],
+  "CAL_WALKING": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Calibrage… marchez en ligne droite",
+      "score": 0
+    }
+  ],
+  "CAL_STEP1": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Éloignez-vous du métal et des aimants.",
+      "score": 3
+    }
+  ],
+  "CAL_STEP2": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Tenez le téléphone devant vous, bord supérieur vers l'avant.",
+      "score": 3
+    }
+  ],
+  "CAL_STEP3": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Marchez ~10 pas en ligne droite sans tourner.",
+      "score": 0
+    }
+  ],
+  "CAL_MOVING_OK": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Mouvement détecté, continuez",
+      "score": 3
+    }
+  ],
+  "CAL_MOVE_MORE": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Marchez un peu plus vite, en ligne droite",
+      "score": 0
+    }
+  ],
+  "CAL_CANCEL": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Annuler",
+      "score": 0
+    }
+  ],
+  "CAL_BACK": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Retour",
+      "score": 0
+    }
+  ],
+  "CAL_REDO": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Recaler",
+      "score": 2
+    }
+  ],
+  "CAL_DONE_AUTO": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Nord géré par les capteurs du téléphone",
+      "score": 3
+    }
+  ],
+  "CAL_DONE_MANUAL": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Nord calé manuellement",
+      "score": 5
+    }
+  ],
+  "CAL_DONE_SUN": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Nord calé avec le Soleil",
+      "score": 5
+    }
+  ],
+  "CAL_DONE_GPS": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Nord calé sur le vrai Nord (GPS)",
+      "score": 5
+    }
+  ],
+  "CAL_SAVED": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Réglage mémorisé — pas besoin de recaler à chaque fois",
+      "score": 5
+    }
+  ],
+  "SENSOR_LIVE_TITLE": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Capteurs magnétiques (mode auto)",
+      "score": 5
+    }
+  ],
+  "SENSOR_LIVE_HINT": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Faites un 8 dans l'air pour calibrer, puis tournez : le cap doit suivre.",
+      "score": 0
+    }
+  ],
+  "SENSOR_ALPHA": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Alpha (Z)",
+      "score": 0
+    }
+  ],
+  "SENSOR_BETA": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Beta (X)",
+      "score": 0
+    }
+  ],
+  "SENSOR_GAMMA": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Gamma (Y)",
+      "score": 0
+    }
+  ],
+  "BODY_SUN": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Soleil",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Soleil",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Soleil",
+      "score": 2
+    }
+  ],
+  "BODY_MOON": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Lune",
+      "score": 0
+    }
+  ],
+  "BODY_MERCURY": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Mercure",
+      "score": 0
+    }
+  ],
+  "BODY_VENUS": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Vénus",
+      "score": 3
+    }
+  ],
+  "BODY_MARS": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Mars",
+      "score": 0
+    }
+  ],
+  "BODY_JUPITER": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Jupiter",
+      "score": 0
+    }
+  ],
+  "BODY_SATURN": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Saturne",
+      "score": 0
+    }
+  ],
+  "BODY_URANUS": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Uranus",
+      "score": 0
+    }
+  ],
+  "BODY_NEPTUNE": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Neptune",
+      "score": 0
+    }
+  ],
+  "BODY_PLUTO": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json:kv",
+      "v": "Pluton",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Pluton",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Pluto",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Pluton",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Pluto",
+      "score": 0
+    }
+  ],
+  "SATELLITES_TITLE": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Satellites",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:input:new_string:kv",
+      "v": "Satellites",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\en.json:kv",
+      "v": "Satellites",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L114:assistant:input:new_string:kv",
+      "v": "Satellites",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Satellites",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Satellites",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Satellites",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Satellites",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Satellites",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Satellites",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:input:new_string:kv",
+      "v": "Satellites",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:input:old_string:kv",
+      "v": "Satellites",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\en.json:kv",
+      "v": "Satellites",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\en.json:kv",
+      "v": "Satellites",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:input:new_string:kv",
+      "v": "Satellites",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:input:old_string:kv",
+      "v": "Satellites",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L137:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_visible_only_i18n.py:kv",
+      "v": "Satellites",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L137:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_visible_only_i18n.py:kv",
+      "v": "Satellites",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L137:assistant:input:contents:kv",
+      "v": "Satellites",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L137:assistant:input:contents:kv",
+      "v": "Satellites",
+      "score": 2
+    }
+  ],
+  "BODY_ISS": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "ISS",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "ISS",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "ISS",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "ISS",
+      "score": 0
+    }
+  ],
+  "ISS_WAITING": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Waiting for ISS position…",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "En attente de la position de l'ISS…",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Waiting for ISS position…",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "En attente de la position de l'ISS…",
+      "score": 0
+    }
+  ],
+  "ISS_ERROR": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Could not fetch ISS position.",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Impossible de récupérer la position de l'ISS.",
+      "score": 3
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Could not fetch ISS position.",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Impossible de récupérer la position de l'ISS.",
+      "score": 3
+    }
+  ],
+  "ISS_NO_PASS": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "No upcoming pass for this location.",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Aucun passage prévu bientôt pour cette position.",
+      "score": 3
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "No upcoming pass for this location.",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Aucun passage prévu bientôt pour cette position.",
+      "score": 3
+    }
+  ],
+  "ISS_ALTITUDE": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "ISS altitude",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Altitude ISS",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "ISS altitude",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Altitude ISS",
+      "score": 0
+    }
+  ],
+  "ISS_VELOCITY": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Speed",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Vitesse",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Speed",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Vitesse",
+      "score": 0
+    }
+  ],
+  "ISS_SLANT": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Slant range",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Distance directe",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Slant range",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Distance directe",
+      "score": 0
+    }
+  ],
+  "ISS_GROUND": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Ground distance",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Distance au sol",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Ground distance",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Distance au sol",
+      "score": 0
+    }
+  ],
+  "ISS_NEXT_PASS": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Next pass",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Prochain passage",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Next pass",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Prochain passage",
+      "score": 0
+    }
+  ],
+  "ISS_PASS_START": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Pass starts",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Début du passage",
+      "score": 3
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Pass starts",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Début du passage",
+      "score": 3
+    }
+  ],
+  "ISS_PASS_END": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Pass ends",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py:kv",
+      "v": "Fin du passage",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Pass ends",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents:kv",
+      "v": "Fin du passage",
+      "score": 0
+    }
+  ],
+  "VISIBLE_ONLY": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Astres / planètes / ISS visibles",
+      "score": 5
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:input:new_string:kv",
+      "v": "Astres / planètes / ISS visibles",
+      "score": 5
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\en.json:kv",
+      "v": "Visible bodies / planets / ISS",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:input:new_string:kv",
+      "v": "Visible bodies / planets / ISS",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L137:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_visible_only_i18n.py:kv",
+      "v": "Visible bodies / planets / ISS",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L137:assistant:input:contents:kv",
+      "v": "Visible bodies / planets / ISS",
+      "score": 2
+    }
+  ],
+  "VISIBLE_ONLY_HINT": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "N’affiche que les cibles actuellement au-dessus de l’horizon depuis votre positi",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:input:new_string:kv",
+      "v": "N’affiche que les cibles actuellement au-dessus de l’horizon depuis votre positi",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\en.json:kv",
+      "v": "Show only targets currently above the horizon from your location.",
+      "score": -2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:input:new_string:kv",
+      "v": "Show only targets currently above the horizon from your location.",
+      "score": -2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L137:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_visible_only_i18n.py:kv",
+      "v": "Show only targets currently above the horizon from your location.",
+      "score": -2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L137:assistant:input:contents:kv",
+      "v": "Show only targets currently above the horizon from your location.",
+      "score": -2
+    }
+  ],
+  "ISS_NOT_VISIBLE": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "ISS hors de vue pour le moment.",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:input:new_string:kv",
+      "v": "ISS hors de vue pour le moment.",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\en.json:kv",
+      "v": "ISS is out of view right now.",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:input:new_string:kv",
+      "v": "ISS is out of view right now.",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L137:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_visible_only_i18n.py:kv",
+      "v": "ISS is out of view right now.",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L137:assistant:input:contents:kv",
+      "v": "ISS is out of view right now.",
+      "score": 0
+    }
+  ],
+  "PLANETS_NONE_VISIBLE": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Aucune planète visible maintenant.",
+      "score": 5
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:input:new_string:kv",
+      "v": "Aucune planète visible maintenant.",
+      "score": 5
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\en.json:kv",
+      "v": "No planets visible right now.",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L135:assistant:input:new_string:kv",
+      "v": "No planets visible right now.",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L137:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_visible_only_i18n.py:kv",
+      "v": "No planets visible right now.",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L137:assistant:input:contents:kv",
+      "v": "No planets visible right now.",
+      "score": 2
+    }
+  ],
+  "STARS_NONE_VISIBLE": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L137:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_visible_only_i18n.py:kv",
+      "v": "No catalog stars visible right now.",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L137:assistant:input:contents:kv",
+      "v": "No catalog stars visible right now.",
+      "score": 2
+    }
+  ],
+  "LOOK_TITLE": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Où regarder dans le ciel",
+      "score": 3
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_look_i18n.py:kv",
+      "v": "Where to look in the sky",
+      "score": -2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:input:contents:kv",
+      "v": "Where to look in the sky",
+      "score": -2
+    }
+  ],
+  "LOOK_DIRECTION": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Direction",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_look_i18n.py:kv",
+      "v": "Direction",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:input:contents:kv",
+      "v": "Direction",
+      "score": 0
+    }
+  ],
+  "LOOK_DIRECTION_HINT": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Orientez-vous vers {{cardinal}} ({{deg}}°)",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_look_i18n.py:kv",
+      "v": "Face {{cardinal}} ({{deg}}°)",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:input:contents:kv",
+      "v": "Face {{cardinal}} ({{deg}}°)",
+      "score": 0
+    }
+  ],
+  "LOOK_ANGLE": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Angle",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_look_i18n.py:kv",
+      "v": "Angle",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:input:contents:kv",
+      "v": "Angle",
+      "score": 0
+    }
+  ],
+  "LOOK_ANGLE_SHORT": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Angle",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_look_i18n.py:kv",
+      "v": "Angle",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:input:contents:kv",
+      "v": "Angle",
+      "score": 0
+    }
+  ],
+  "LOOK_ANGLE_UP": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Levez le regard de {{deg}}° au-dessus de l'horizon",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_look_i18n.py:kv",
+      "v": "Look up {{deg}}° above the horizon",
+      "score": -2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:input:contents:kv",
+      "v": "Look up {{deg}}° above the horizon",
+      "score": -2
+    }
+  ],
+  "LOOK_ANGLE_HORIZON": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Presque à l'horizon",
+      "score": 3
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_look_i18n.py:kv",
+      "v": "Near the horizon",
+      "score": -2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:input:contents:kv",
+      "v": "Near the horizon",
+      "score": -2
+    }
+  ],
+  "LOOK_ANGLE_BELOW": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Sous l'horizon — pas visible maintenant",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_look_i18n.py:kv",
+      "v": "Below the horizon — not visible now",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:input:contents:kv",
+      "v": "Below the horizon — not visible now",
+      "score": 0
+    }
+  ],
+  "LOOK_STEP1": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Tournez-vous vers {{cardinal}} (azimut {{deg}}°).",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_look_i18n.py:kv",
+      "v": "Turn toward {{cardinal}} (azimuth {{deg}}°).",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:input:contents:kv",
+      "v": "Turn toward {{cardinal}} (azimuth {{deg}}°).",
+      "score": 2
+    }
+  ],
+  "LOOK_STEP2_UP": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Levez les yeux de {{deg}}° au-dessus de l'horizon.",
+      "score": 2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_look_i18n.py:kv",
+      "v": "Look up {{deg}}° above the horizon.",
+      "score": -2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:input:contents:kv",
+      "v": "Look up {{deg}}° above the horizon.",
+      "score": -2
+    }
+  ],
+  "LOOK_STEP2_BELOW": [
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "L'objet est sous l'horizon depuis votre position.",
+      "score": 0
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_look_i18n.py:kv",
+      "v": "The object is below the horizon from your location.",
+      "score": -2
+    },
+    {
+      "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:input:contents:kv",
+      "v": "The object is below the horizon from your location.",
+      "score": -2
+    }
+  ],
+  "CAL_OPEN": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L24:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Caler le Nord",
+      "score": 2
+    }
+  ],
+  "CAL_MODAL_TITLE": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L24:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Recalage du Nord",
+      "score": 2
+    }
+  ],
+  "GALAXIES_TITLE": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L57:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Galaxies",
+      "score": 2
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L71:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Galaxies",
+      "score": 2
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L71:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Galaxies",
+      "score": 2
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L84:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Galaxies",
+      "score": 2
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L84:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Galaxies",
+      "score": 2
+    }
+  ],
+  "GALAXY_SEARCH": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L57:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Rechercher une galaxie",
+      "score": 2
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L71:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Rechercher une galaxie",
+      "score": 2
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L71:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Rechercher une galaxie",
+      "score": 2
+    }
+  ],
+  "GALAXY_SEARCH_PLACEHOLDER": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L57:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Andromède, M51, LMC…",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L71:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Andromède, M51, LMC…",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L71:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Andromède, M51, LMC…",
+      "score": 3
+    }
+  ],
+  "ASTRO_COMPASS": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L67:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Boussole Astres",
+      "score": 2
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L67:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Boussole astres",
+      "score": 2
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L67:assistant:input:new_string:kv",
+      "v": "Boussole Astres",
+      "score": 2
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L67:assistant:input:old_string:kv",
+      "v": "Boussole astres",
+      "score": 2
+    }
+  ],
+  "GALAXY_SELECT": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L71:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Choisir une galaxie",
+      "score": 2
+    }
+  ],
+  "GALAXY_SELECT_PLACEHOLDER": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L71:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "— Sélectionner —",
+      "score": 3
+    }
+  ],
+  "STAR_SELECT": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L84:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Choisir une étoile",
+      "score": 5
+    }
+  ],
+  "STAR_SELECT_PLACEHOLDER": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L84:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "— Sélectionner —",
+      "score": 3
+    }
+  ],
+  "STAR_FILTER": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\tmp-i18n-filter.js:fr_block",
+      "v": "Filtrer les étoiles",
+      "score": 5
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:assistant:tool_use:Write:input:fr_block",
+      "v": "Filtrer les étoiles",
+      "score": 5
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:assistant:input:contents:fr_block",
+      "v": "Filtrer les étoiles",
+      "score": 5
+    }
+  ],
+  "STAR_FILTER_EMPTY": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\tmp-i18n-filter.js:fr_block",
+      "v": "Aucune étoile ne correspond au filtre.",
+      "score": 5
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:assistant:tool_use:Write:input:fr_block",
+      "v": "Aucune étoile ne correspond au filtre.",
+      "score": 5
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:assistant:input:contents:fr_block",
+      "v": "Aucune étoile ne correspond au filtre.",
+      "score": 5
+    }
+  ],
+  "GALAXY_FILTER": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\tmp-i18n-filter.js:fr_block",
+      "v": "Filtrer les galaxies",
+      "score": 2
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:assistant:tool_use:Write:input:fr_block",
+      "v": "Filtrer les galaxies",
+      "score": 2
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:assistant:input:contents:fr_block",
+      "v": "Filtrer les galaxies",
+      "score": 2
+    }
+  ],
+  "GALAXY_FILTER_EMPTY": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\tmp-i18n-filter.js:fr_block",
+      "v": "Aucune galaxie ne correspond au filtre.",
+      "score": 2
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:assistant:tool_use:Write:input:fr_block",
+      "v": "Aucune galaxie ne correspond au filtre.",
+      "score": 2
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:assistant:input:contents:fr_block",
+      "v": "Aucune galaxie ne correspond au filtre.",
+      "score": 2
+    }
+  ],
+  "GALAXIES_NONE_VISIBLE": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L98:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\tmp-i18n-gal-none.js",
+      "v": "Aucune galaxie du catalogue visible maintenant.",
+      "score": 2
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L98:assistant:tool_use:Write:input",
+      "v": "Aucune galaxie du catalogue visible maintenant.",
+      "score": 2
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L98:assistant:input:contents",
+      "v": "Aucune galaxie du catalogue visible maintenant.",
+      "score": 2
+    }
+  ],
+  "TILT_UP": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L143:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_patch-i18n-pitch.js:fr_block",
+      "v": "Levez le téléphone de {{deg}}°",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L143:assistant:tool_use:Write:input:fr_block",
+      "v": "Levez le téléphone de {{deg}}°",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L143:assistant:input:contents:fr_block",
+      "v": "Levez le téléphone de {{deg}}°",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Levez le téléphone de {{deg}}°",
+      "score": 3
+    }
+  ],
+  "TILT_DOWN": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L143:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_patch-i18n-pitch.js:fr_block",
+      "v": "Baissez le téléphone de {{deg}}°",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L143:assistant:tool_use:Write:input:fr_block",
+      "v": "Baissez le téléphone de {{deg}}°",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L143:assistant:input:contents:fr_block",
+      "v": "Baissez le téléphone de {{deg}}°",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Baissez le téléphone de {{deg}}°",
+      "score": 3
+    }
+  ],
+  "DEVICE_PITCH": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L143:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_patch-i18n-pitch.js:fr_block",
+      "v": "Inclinaison",
+      "score": 2
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L143:assistant:tool_use:Write:input:fr_block",
+      "v": "Inclinaison",
+      "score": 2
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L143:assistant:input:contents:fr_block",
+      "v": "Inclinaison",
+      "score": 2
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Inclinaison",
+      "score": 2
+    }
+  ],
+  "AUTO_DETECT": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Auto-détection",
+      "score": 3
+    }
+  ],
+  "AUTO_DETECT_SHORT": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Auto",
+      "score": 0
+    }
+  ],
+  "AUTO_SCANNING": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Scan du ciel dans votre direction…",
+      "score": 0
+    }
+  ],
+  "AUTO_NEED_LOCATION": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Position GPS requise pour l'auto-détection.",
+      "score": 3
+    }
+  ],
+  "AUTO_NEED_HEADING": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Orientez le téléphone (capteurs) puis réessayez.",
+      "score": 3
+    }
+  ],
+  "AUTO_NEED_PITCH": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Inclinez le téléphone pour mesurer l'élévation, puis réessayez.",
+      "score": 3
+    }
+  ],
+  "AUTO_NONE": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Aucun objet du catalogue dans cette direction (±15°).",
+      "score": 0
+    }
+  ],
+  "AUTO_ERROR": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Échec du scan. Réessayez.",
+      "score": 3
+    }
+  ],
+  "AUTO_AIM": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Visée : azimut {{az}}° · élévation {{el}}°",
+      "score": 5
+    }
+  ],
+  "AUTO_CLEAR": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Fermer",
+      "score": 0
+    }
+  ],
+  "KIND_PLANET": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Système solaire",
+      "score": 3
+    }
+  ],
+  "KIND_STAR": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Étoile",
+      "score": 5
+    }
+  ],
+  "KIND_GALAXY": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "Galaxie",
+      "score": 2
+    }
+  ],
+  "KIND_ISS": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+      "v": "ISS",
+      "score": 0
+    }
+  ],
+  "AUTO_FOUND": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L172:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-found.js:fr_block",
+      "v": "Objet identifié",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L172:assistant:tool_use:Write:input:fr_block",
+      "v": "Objet identifié",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L172:assistant:input:contents:fr_block",
+      "v": "Objet identifié",
+      "score": 3
+    }
+  ],
+  "AUTO_SEP": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L172:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-found.js:fr_block",
+      "v": "à {{deg}}° de votre visée",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L172:assistant:tool_use:Write:input:fr_block",
+      "v": "à {{deg}}° de votre visée",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L172:assistant:input:contents:fr_block",
+      "v": "à {{deg}}° de votre visée",
+      "score": 3
+    }
+  ],
+  "AUTO_OTHERS": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L172:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-found.js:fr_block",
+      "v": "Autres candidats proches",
+      "score": 0
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L172:assistant:tool_use:Write:input:fr_block",
+      "v": "Autres candidats proches",
+      "score": 0
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L172:assistant:input:contents:fr_block",
+      "v": "Autres candidats proches",
+      "score": 0
+    }
+  ],
+  "AUTO_LIVE_ON": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-live.js:fr_block",
+      "v": "Live",
+      "score": 0
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:assistant:tool_use:Write:input:fr_block",
+      "v": "Live",
+      "score": 0
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:assistant:input:contents:fr_block",
+      "v": "Live",
+      "score": 0
+    }
+  ],
+  "AUTO_LIVE_START": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-live.js:fr_block",
+      "v": "Démarrer l’auto-détection live",
+      "score": 5
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:assistant:tool_use:Write:input:fr_block",
+      "v": "Démarrer l’auto-détection live",
+      "score": 5
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:assistant:input:contents:fr_block",
+      "v": "Démarrer l’auto-détection live",
+      "score": 5
+    }
+  ],
+  "AUTO_LIVE_STOP": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-live.js:fr_block",
+      "v": "Arrêter l’auto-détection live",
+      "score": 5
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:assistant:tool_use:Write:input:fr_block",
+      "v": "Arrêter l’auto-détection live",
+      "score": 5
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:assistant:input:contents:fr_block",
+      "v": "Arrêter l’auto-détection live",
+      "score": 5
+    }
+  ],
+  "AUTO_LIVE_HINT": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-live.js:fr_block",
+      "v": "Suit en continu l’astre pointé — bougez le téléphone pour changer de cible.",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:assistant:tool_use:Write:input:fr_block",
+      "v": "Suit en continu l’astre pointé — bougez le téléphone pour changer de cible.",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:assistant:input:contents:fr_block",
+      "v": "Suit en continu l’astre pointé — bougez le téléphone pour changer de cible.",
+      "score": 3
+    }
+  ],
+  "AUTO_MODAL_TITLE": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-modal.js:fr_block",
+      "v": "Cible pointée — suivi live",
+      "score": 5
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:tool_use:Write:input:fr_block",
+      "v": "Cible pointée — suivi live",
+      "score": 5
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:input:contents:fr_block",
+      "v": "Cible pointée — suivi live",
+      "score": 5
+    }
+  ],
+  "AUTO_FILTER_PLANETS": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-modal.js:fr_block",
+      "v": "Planètes",
+      "score": 5
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:tool_use:Write:input:fr_block",
+      "v": "Planètes",
+      "score": 5
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:input:contents:fr_block",
+      "v": "Planètes",
+      "score": 5
+    }
+  ],
+  "AUTO_FILTER_STARS": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-modal.js:fr_block",
+      "v": "Astres",
+      "score": 0
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:tool_use:Write:input:fr_block",
+      "v": "Astres",
+      "score": 0
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:input:contents:fr_block",
+      "v": "Astres",
+      "score": 0
+    }
+  ],
+  "AUTO_FILTER_ISS": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-modal.js:fr_block",
+      "v": "ISS",
+      "score": 0
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:tool_use:Write:input:fr_block",
+      "v": "ISS",
+      "score": 0
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:input:contents:fr_block",
+      "v": "ISS",
+      "score": 0
+    }
+  ],
+  "AUTO_RATE": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-modal.js:fr_block",
+      "v": "Rafraîchissement",
+      "score": 5
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:tool_use:Write:input:fr_block",
+      "v": "Rafraîchissement",
+      "score": 5
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:input:contents:fr_block",
+      "v": "Rafraîchissement",
+      "score": 5
+    }
+  ],
+  "TILT_OK": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L209:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-tilt-ok.js:fr_block",
+      "v": "Inclinaison correcte",
+      "score": 2
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L209:assistant:tool_use:Write:input:fr_block",
+      "v": "Inclinaison correcte",
+      "score": 2
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L209:assistant:input:contents:fr_block",
+      "v": "Inclinaison correcte",
+      "score": 2
+    }
+  ],
+  "TURN_OK": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L209:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-tilt-ok.js:fr_block",
+      "v": "Direction correcte",
+      "score": 0
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L209:assistant:tool_use:Write:input:fr_block",
+      "v": "Direction correcte",
+      "score": 0
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L209:assistant:input:contents:fr_block",
+      "v": "Direction correcte",
+      "score": 0
+    }
+  ],
+  "PHONE_TILT_SCALE": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L227:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-phone-tilt.js:fr_block",
+      "v": "0° plat · 90° vertical",
+      "score": 0
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L227:assistant:tool_use:Write:input:fr_block",
+      "v": "0° plat · 90° vertical",
+      "score": 0
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L227:assistant:input:contents:fr_block",
+      "v": "0° plat · 90° vertical",
+      "score": 0
+    }
+  ],
+  "PHONE_TILT_FLAT": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L227:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-phone-tilt.js:fr_block",
+      "v": "Téléphone à plat (horizontal)",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L227:assistant:tool_use:Write:input:fr_block",
+      "v": "Téléphone à plat (horizontal)",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L227:assistant:input:contents:fr_block",
+      "v": "Téléphone à plat (horizontal)",
+      "score": 3
+    }
+  ],
+  "PHONE_TILT_VERTICAL": [
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L227:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-phone-tilt.js:fr_block",
+      "v": "Téléphone vertical",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L227:assistant:tool_use:Write:input:fr_block",
+      "v": "Téléphone vertical",
+      "score": 3
+    },
+    {
+      "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L227:assistant:input:contents:fr_block",
+      "v": "Téléphone vertical",
+      "score": 3
+    }
+  ]
+}

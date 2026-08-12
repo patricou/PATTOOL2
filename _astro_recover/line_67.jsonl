@@ -1,0 +1,1 @@
+﻿{"role":"assistant","message":{"content":[{"type":"tool_use","name":"StrReplace","input":{"new_string":"    \"ASTRO_COMPASS\": \"Boussole Astres\"","old_string":"    \"ASTRO_COMPASS\": \"Boussole astres\"","path":"c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json"}}]}}

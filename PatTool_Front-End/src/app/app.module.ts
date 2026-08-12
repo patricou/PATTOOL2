@@ -242,6 +242,11 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./eclipse/eclipse.component').then(m => m.EclipseComponent)
 			},
 			{
+				path: 'tools/astro-compass',
+				loadComponent: () =>
+					import('./astro-compass/astro-compass.component').then(m => m.AstroCompassComponent)
+			},
+			{
 				path: 'tools/world-globe',
 				loadComponent: () => import('./world-globe/world-globe.component').then(m => m.WorldGlobeComponent)
 			},

@@ -1,0 +1,187 @@
+{
+  "CAL_NEEDED": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L24:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "CAL_OPEN": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L24:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "CAL_MODAL_TITLE": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L24:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "CAL_CHOOSE": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L24:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "STARS_TITLE": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L57:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L84:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L84:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "STAR_SEARCH": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L57:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L84:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L84:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "STAR_SEARCH_PLACEHOLDER": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L57:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L84:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L84:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "GALAXIES_TITLE": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L57:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L71:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L71:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L84:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L84:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "GALAXY_SEARCH": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L57:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L71:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L71:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "GALAXY_SEARCH_PLACEHOLDER": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L57:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L71:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L71:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "SELECTED": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L57:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L71:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L71:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "ASTRO_COMPASS": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L67:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv",
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L67:assistant:tool_use:StrReplace:old_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "GALAXY_SELECT": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L71:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "GALAXY_SELECT_PLACEHOLDER": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L71:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "STAR_SELECT": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L84:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "STAR_SELECT_PLACEHOLDER": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L84:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "STAR_FILTER": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\tmp-i18n-filter.js:fr_block"
+  ],
+  "STAR_FILTER_EMPTY": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\tmp-i18n-filter.js:fr_block"
+  ],
+  "GALAXY_FILTER": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\tmp-i18n-filter.js:fr_block"
+  ],
+  "GALAXY_FILTER_EMPTY": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\tmp-i18n-filter.js:fr_block"
+  ],
+  "TILT_UP": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L143:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_patch-i18n-pitch.js:fr_block",
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "TILT_DOWN": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L143:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_patch-i18n-pitch.js:fr_block",
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "DEVICE_PITCH": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L143:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_patch-i18n-pitch.js:fr_block",
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "FACING": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L143:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_patch-i18n-pitch.js:fr_block"
+  ],
+  "AUTO_DETECT": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "AUTO_DETECT_SHORT": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "AUTO_SCANNING": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "AUTO_NEED_LOCATION": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "AUTO_NEED_HEADING": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "AUTO_NEED_PITCH": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "AUTO_NONE": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "AUTO_ERROR": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "AUTO_AIM": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "AUTO_CLEAR": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "KIND_PLANET": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "KIND_STAR": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "KIND_GALAXY": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "KIND_ISS": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json:kv"
+  ],
+  "AUTO_FOUND": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L172:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-found.js:fr_block"
+  ],
+  "AUTO_SEP": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L172:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-found.js:fr_block"
+  ],
+  "AUTO_OTHERS": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L172:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-found.js:fr_block"
+  ],
+  "AUTO_LIVE_ON": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-live.js:fr_block"
+  ],
+  "AUTO_LIVE_START": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-live.js:fr_block"
+  ],
+  "AUTO_LIVE_STOP": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-live.js:fr_block"
+  ],
+  "AUTO_LIVE_HINT": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-live.js:fr_block"
+  ],
+  "AUTO_MODAL_TITLE": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-modal.js:fr_block"
+  ],
+  "AUTO_FILTER_PLANETS": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-modal.js:fr_block"
+  ],
+  "AUTO_FILTER_STARS": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-modal.js:fr_block"
+  ],
+  "AUTO_FILTER_ISS": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-modal.js:fr_block"
+  ],
+  "AUTO_RATE": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-modal.js:fr_block"
+  ],
+  "TILT_OK": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L209:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-tilt-ok.js:fr_block"
+  ],
+  "TURN_OK": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L209:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-tilt-ok.js:fr_block"
+  ],
+  "PHONE_TILT_SCALE": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L227:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-phone-tilt.js:fr_block"
+  ],
+  "PHONE_TILT_FLAT": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L227:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-phone-tilt.js:fr_block"
+  ],
+  "PHONE_TILT_VERTICAL": [
+    "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L227:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-phone-tilt.js:fr_block"
+  ]
+}

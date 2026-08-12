@@ -113,7 +113,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	@ViewChild('gpxStatsModal') gpxStatsModal!: TemplateRef<any>;
 	@ViewChild('mapContainer', { static: false }) mapContainerRef?: ElementRef<HTMLDivElement>;
 	@Output() closed = new EventEmitter<void>();
-	@Output() locationSelected = new EventEmitter<{ lat: number; lng: number }>();
+	@Output() locationSelected = new EventEmitter<{ lat: number; lng: number; alt?: number | null }>();
 
 	// Expose Math to template
 	Math = Math;
@@ -146,7 +146,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public clickedLat: number = 0;
 	public clickedLng: number = 0;
 	public clickedAlt: number | null = null;
-	private finalSelectedCoordinates?: { lat: number; lng: number };
+	private finalSelectedCoordinates?: { lat: number; lng: number; alt?: number | null };
 	public showAddress: boolean = false;
 	public showWeather: boolean = false;
 	/** Blue weather popup dismissed (data kept), same as Météo-France temperature map overlay. */
@@ -4539,7 +4539,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		// Emit coordinates to parent component when closing (if coordinates were selected)
 		if (this.finalSelectedCoordinates) {
-			this.locationSelected.emit(this.finalSelectedCoordinates);
+			const alt =
+				this.isFiniteAltitude(this.clickedAlt)
+					? this.clickedAlt
+					: this.isFiniteAltitude(this.currentAlt)
+						? this.currentAlt
+						: this.finalSelectedCoordinates.alt ?? null;
+			this.locationSelected.emit({
+				lat: this.finalSelectedCoordinates.lat,
+				lng: this.finalSelectedCoordinates.lng,
+				alt
+			});
 			this.finalSelectedCoordinates = undefined;
 		}
 
@@ -5828,6 +5838,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 					} else {
 						this.clickedAlt = finiteAlt;
 						this.clickedWeatherAlt = finiteAlt; // Also update weather altitude
+						if (this.finalSelectedCoordinates) {
+							this.finalSelectedCoordinates = {
+								...this.finalSelectedCoordinates,
+								alt: finiteAlt
+							};
+						}
 					}
 					this.scheduleTraceViewerCdr();
 				}

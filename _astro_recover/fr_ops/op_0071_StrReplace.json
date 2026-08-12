@@ -1,0 +1,7 @@
+{
+  "line": 71,
+  "name": "StrReplace",
+  "path": "c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json",
+  "new_string": "    \"GALAXIES_TITLE\": \"Galaxies\",\n    \"GALAXY_SEARCH\": \"Rechercher une galaxie\",\n    \"GALAXY_SEARCH_PLACEHOLDER\": \"Andromède, M51, LMC…\",\n    \"GALAXY_SELECT\": \"Choisir une galaxie\",\n    \"GALAXY_SELECT_PLACEHOLDER\": \"— Sélectionner —\",\n    \"SELECTED\": \"Sélection\",",
+  "old_string": "    \"GALAXIES_TITLE\": \"Galaxies\",\n    \"GALAXY_SEARCH\": \"Rechercher une galaxie\",\n    \"GALAXY_SEARCH_PLACEHOLDER\": \"Andromède, M51, LMC…\",\n    \"SELECTED\": \"Sélection\","
+}

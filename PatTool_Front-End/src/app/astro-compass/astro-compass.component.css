@@ -1,0 +1,3086 @@
+﻿/* Boussole ISS : modale Â« oÃ¹ regarder pour voir l'ISS Â»                       */
+/* -------------------------------------------------------------------------- */
+.ac-compass-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1058;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(2, 5, 12, 0.72);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.ac-compass-card {
+  box-sizing: border-box;
+  width: min(94vw, 24rem);
+  max-height: min(94vh, 44rem);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1rem 1.1rem 1.2rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(120, 150, 220, 0.4);
+  background: radial-gradient(120% 90% at 50% -10%, #1a2748 0%, #0c1326 60%, #070b16 100%);
+  color: #dce7fb;
+  box-shadow: 0 18px 56px rgba(0, 0, 0, 0.6);
+}
+
+/* Page : pas de scroll interne — tout le contenu reste visible */
+.astro-compass-page .ac-compass-card {
+  width: 100%;
+  max-width: 24rem;
+  max-height: none;
+  overflow: visible;
+  margin: 0 auto;
+  gap: 0.45rem;
+  padding: 0.15rem 0.1rem 0.25rem;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.ac-compass-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.ac-compass-title {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #eaf1ff;
+}
+
+.ac-compass-title .ac-body-icon {
+  color: #ffd54a;
+}
+
+.ac-compass-close {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: #c8d8f4;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.ac-compass-close:hover,
+.ac-compass-close:focus-visible {
+  background: rgba(248, 113, 113, 0.18);
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #ffc8c4;
+  outline: none;
+}
+
+.ac-compass-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.ac-compass-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(120, 200, 255, 0.28);
+  background: rgba(80, 150, 255, 0.12);
+  color: #bfe0ff;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.ac-compass-refresh:hover:not(:disabled),
+.ac-compass-refresh:focus-visible {
+  background: rgba(80, 150, 255, 0.28);
+  border-color: rgba(120, 200, 255, 0.6);
+  color: #eaf4ff;
+  outline: none;
+}
+
+.ac-compass-refresh:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.ac-compass-autodetect {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0 0.55rem;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(255, 200, 80, 0.45);
+  background: rgba(255, 180, 40, 0.14);
+  color: #ffe6a8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.ac-compass-autodetect:hover:not(:disabled),
+.ac-compass-autodetect:focus-visible {
+  background: rgba(255, 180, 40, 0.28);
+  border-color: rgba(255, 210, 100, 0.75);
+  color: #fff3cc;
+  outline: none;
+}
+
+.ac-compass-autodetect:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.ac-compass-autodetect--live {
+  border-color: rgba(93, 216, 121, 0.7);
+  background: rgba(40, 140, 80, 0.28);
+  color: #c9ffd6;
+  box-shadow: 0 0 12px rgba(93, 216, 121, 0.35);
+}
+
+.ac-compass-autodetect__txt {
+  line-height: 1;
+}
+
+.ac-autodetect {
+  width: 100%;
+  margin: 0.1rem 0 0.15rem;
+  padding: 0.45rem 0.55rem 0.5rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(255, 200, 80, 0.4);
+  background: linear-gradient(180deg, rgba(70, 50, 12, 0.55) 0%, rgba(18, 26, 48, 0.82) 100%);
+}
+
+.ac-autodetect--live {
+  border-color: rgba(93, 216, 121, 0.5);
+}
+
+.ac-autodetect__live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: 0.35rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #b8ffc8;
+  background: rgba(93, 216, 121, 0.18);
+  border: 1px solid rgba(93, 216, 121, 0.45);
+}
+
+.ac-autodetect__live-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: #5dd879;
+  box-shadow: 0 0 6px rgba(93, 216, 121, 0.9);
+  animation: ac-autodetect-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes ac-autodetect-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.ac-autodetect__hint {
+  margin: 0 0 0.35rem;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: #9dffb4;
+}
+
+.ac-autodetect__head {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #ffe9a8;
+  margin-bottom: 0.35rem;
+}
+
+.ac-autodetect__close {
+  margin-left: auto;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: none;
+  border-radius: 0.35rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: #c5d4ef;
+  cursor: pointer;
+}
+
+.ac-autodetect__busy,
+.ac-autodetect__err,
+.ac-autodetect__aim {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: #c5d4ef;
+}
+
+.ac-autodetect__err {
+  color: #ffb3a8;
+}
+
+.ac-autodetect__winner {
+  margin: 0.15rem 0 0.45rem;
+  padding: 0.55rem 0.6rem 0.6rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(93, 216, 121, 0.55);
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(93, 216, 121, 0.18), transparent 70%),
+    rgba(8, 20, 16, 0.65);
+  box-shadow: 0 0 16px rgba(93, 216, 121, 0.18);
+}
+
+.ac-autodetect__winner-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #9dffb4;
+}
+
+.ac-autodetect__winner-body {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.45rem;
+}
+
+.ac-autodetect__winner-icon {
+  flex: 0 0 auto;
+  width: 2.2rem;
+  height: 2.2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.28);
+  font-size: 1.15rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.ac-autodetect__winner-text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ac-autodetect__winner-name {
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1.15;
+  color: #fff8d8;
+  word-break: break-word;
+}
+
+.ac-autodetect__winner-kind {
+  margin-top: 0.15rem;
+  font-size: 0.7rem;
+  color: #b8d0ef;
+}
+
+.ac-autodetect__winner-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem 0.45rem;
+}
+
+.ac-autodetect__winner-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  padding: 0.28rem 0.35rem;
+  border-radius: 0.35rem;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(140, 180, 255, 0.15);
+}
+
+.ac-autodetect__winner-k {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #8fa3c8;
+}
+
+.ac-autodetect__winner-v {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #e8f0ff;
+  font-variant-numeric: tabular-nums;
+}
+
+.ac-autodetect__winner-v--warn {
+  color: #ffb3a8;
+}
+
+.ac-autodetect__others-label {
+  margin: 0.15rem 0 0.25rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #9fb2d8;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.ac-autodetect__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-height: 11rem;
+  overflow-y: auto;
+}
+
+.ac-autodetect__hit {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0.4rem 0.45rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(140, 180, 255, 0.22);
+  background: rgba(8, 14, 28, 0.45);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ac-autodetect__hit--best {
+  border-color: rgba(255, 210, 100, 0.55);
+  box-shadow: 0 0 10px rgba(255, 196, 60, 0.12);
+}
+
+.ac-autodetect__hit--active {
+  border-color: rgba(93, 216, 121, 0.65);
+  background: rgba(30, 60, 40, 0.35);
+}
+
+.ac-autodetect__hit-icon {
+  flex: 0 0 auto;
+  width: 1.4rem;
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+.ac-autodetect__hit-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+}
+
+.ac-autodetect__hit-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fff6d0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ac-autodetect__hit-meta {
+  font-size: 0.62rem;
+  color: #9fb2d8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ac-autodetect__hit-sep {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #9ed4ff;
+  font-variant-numeric: tabular-nums;
+}
+
+.astro-compass-page .ac-autodetect {
+  padding: 0.35rem 0.45rem 0.4rem;
+}
+
+.astro-compass-page .ac-autodetect__list {
+  max-height: 8.5rem;
+}
+
+.ac-compass-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.astro-compass-page .ac-compass-body {
+  gap: 0.45rem;
+}
+
+.ac-compass-status {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: #b9c7e8;
+  padding: 0.4rem 0.2rem;
+}
+
+.ac-compass-status--warn {
+  color: #ffd79a;
+}
+
+/* Instrument : cadran + jauge d'élévation côte à côte */
+.ac-compass-instrument {
+  display: flex;
+  align-items: center; /* pas stretch : sinon le cadran devient ovale */
+  justify-content: center;
+  gap: 0.7rem;
+  width: 100%;
+}
+
+/* Cadran — toujours un cercle parfait */
+.ac-compass-dial {
+  position: relative;
+  width: min(72vw, 17rem);
+  height: auto;
+  aspect-ratio: 1 / 1;
+  margin: 0.25rem 0 0;
+  flex: 0 0 auto;
+  align-self: center;
+  max-width: 100%;
+}
+
+.astro-compass-page .ac-compass-dial {
+  width: min(78vw, 18rem);
+  margin: 0;
+}
+
+/* RepÃ¨re fixe (lubber line) : direction de visÃ©e appareil, en haut, hors rose */
+.ac-compass-lubber {
+  position: absolute;
+  top: -0.55rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 0.5rem solid transparent;
+  border-right: 0.5rem solid transparent;
+  border-top: 0.7rem solid #9ed4ff;
+  filter: drop-shadow(0 0 4px rgba(120, 200, 255, 0.6));
+  z-index: 3;
+}
+
+.ac-compass-rose {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(130, 165, 235, 0.55);
+  background:
+    radial-gradient(circle at 50% 50%, rgba(20, 32, 60, 0.2) 0%, rgba(10, 18, 38, 0.9) 72%),
+    conic-gradient(
+      from 0deg,
+      rgba(255, 255, 255, 0.5) 0deg 0.6deg,
+      transparent 0.6deg 30deg,
+      rgba(255, 255, 255, 0.22) 30deg 30.5deg,
+      transparent 30.5deg 60deg,
+      rgba(255, 255, 255, 0.22) 60deg 60.5deg,
+      transparent 60.5deg 90deg,
+      rgba(255, 255, 255, 0.35) 90deg 90.6deg,
+      transparent 90.6deg 120deg,
+      rgba(255, 255, 255, 0.22) 120deg 120.5deg,
+      transparent 120.5deg 150deg,
+      rgba(255, 255, 255, 0.22) 150deg 150.5deg,
+      transparent 150.5deg 180deg,
+      rgba(255, 255, 255, 0.35) 180deg 180.6deg,
+      transparent 180.6deg 210deg,
+      rgba(255, 255, 255, 0.22) 210deg 210.5deg,
+      transparent 210.5deg 240deg,
+      rgba(255, 255, 255, 0.22) 240deg 240.5deg,
+      transparent 240.5deg 270deg,
+      rgba(255, 255, 255, 0.35) 270deg 270.6deg,
+      transparent 270.6deg 300deg,
+      rgba(255, 255, 255, 0.22) 300deg 300.5deg,
+      transparent 300.5deg 330deg,
+      rgba(255, 255, 255, 0.22) 330deg 330.5deg,
+      transparent 330.5deg 360deg
+    );
+  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.55);
+  /* Lissage CSS : absorbe le reste du bruit capteurs (Samsung). */
+  transition: transform 0.14s ease-out;
+  will-change: transform;
+}
+
+.ac-compass-dial--live .ac-compass-rose {
+  border-color: rgba(120, 200, 255, 0.7);
+  transition: transform 0.14s ease-out;
+}
+
+.ac-compass-card-letter {
+  position: absolute;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  color: #cfe0ff;
+  transform: translate(-50%, -50%);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.ac-compass-card-letter--n {
+  top: 9%;
+  left: 50%;
+  color: #ff7a7a;
+}
+
+.ac-compass-card-letter--s {
+  top: 91%;
+  left: 50%;
+}
+
+.ac-compass-card-letter--e {
+  top: 50%;
+  left: 91%;
+}
+
+.ac-compass-card-letter--w {
+  top: 50%;
+  left: 9%;
+}
+
+/* Lettres intercardinales (NE/SE/SW/NW) */
+.ac-compass-inter {
+  position: absolute;
+  font-weight: 600;
+  font-size: 0.6rem;
+  letter-spacing: 0.02em;
+  color: #9fb6e0;
+  transform: translate(-50%, -50%);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.ac-compass-inter--ne {
+  top: 21.5%;
+  left: 78.5%;
+}
+
+.ac-compass-inter--se {
+  top: 78.5%;
+  left: 78.5%;
+}
+
+.ac-compass-inter--sw {
+  top: 78.5%;
+  left: 21.5%;
+}
+
+.ac-compass-inter--nw {
+  top: 21.5%;
+  left: 21.5%;
+}
+
+/* Graduations chiffrÃ©es (tous les 30Â°) sur le pourtour */
+.ac-compass-deg {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 0;
+  height: 50%;
+  transform-origin: bottom center;
+  margin-left: 0;
+  pointer-events: none;
+}
+
+.ac-compass-deg__txt {
+  position: absolute;
+  top: 17%;
+  left: 50%;
+  transform-origin: center;
+  translate: -50% 0;
+  font-size: 0.52rem;
+  font-weight: 600;
+  color: rgba(180, 200, 235, 0.75);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Aiguille ISS (pivote autour du centre, pointe vers le haut = direction ISS) */
+.ac-compass-needle {
+  position: absolute;
+  inset: 0;
+  transition: transform 0.14s ease-out;
+  will-change: transform;
+  pointer-events: none;
+}
+
+.ac-compass-dial--live .ac-compass-needle {
+  transition: transform 0.14s ease-out;
+}
+
+/* Hampe Ã©paisse reliant le centre Ã  la pointe ISS */
+.ac-compass-needle__shaft {
+  position: absolute;
+  top: 16%;
+  bottom: 50%;
+  left: 50%;
+  width: 0.55rem;
+  transform: translateX(-50%);
+  border-radius: 0.3rem 0.3rem 0 0;
+  background: linear-gradient(to top, rgba(255, 196, 60, 0.55), #ffd54a);
+  filter: drop-shadow(0 0 6px rgba(255, 196, 60, 0.75));
+  z-index: 1;
+}
+
+.ac-compass-needle__arrow {
+  position: absolute;
+  top: 2%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform: translate(-50%, 0);
+  border-left: 1.05rem solid transparent;
+  border-right: 1.05rem solid transparent;
+  border-bottom: 1.9rem solid #ffd54a;
+  filter: drop-shadow(0 0 8px rgba(255, 196, 60, 0.85));
+  z-index: 2;
+}
+
+.ac-compass-needle__body {
+  position: absolute;
+  top: -7%;
+  left: 50%;
+  transform: translate(-50%, 0);
+  font-size: 1.35rem;
+  color: #ffd54a;
+  text-shadow: 0 0 10px rgba(255, 196, 60, 0.9);
+  z-index: 3;
+}
+
+.ac-compass-dial--below .ac-compass-needle__arrow {
+  border-bottom-color: #8aa0c8;
+  filter: none;
+  opacity: 0.7;
+}
+
+.ac-compass-dial--below .ac-compass-needle__shaft {
+  background: linear-gradient(to top, rgba(138, 160, 200, 0.35), #8aa0c8);
+  filter: none;
+  opacity: 0.7;
+}
+
+.ac-compass-dial--below .ac-compass-needle__body {
+  color: #8aa0c8;
+  opacity: 0.7;
+  text-shadow: none;
+}
+
+.ac-compass-needle__tail {
+  position: absolute;
+  bottom: 11%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform: translate(-50%, 0);
+  border-left: 0.45rem solid transparent;
+  border-right: 0.45rem solid transparent;
+  border-top: 0.9rem solid rgba(160, 185, 225, 0.6);
+}
+
+.ac-compass-hub {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.85rem;
+  height: 0.85rem;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffd54a 0%, #b8860b 70%, #6b4e08 100%);
+  box-shadow: 0 0 0 3px rgba(10, 18, 38, 0.9), 0 0 10px rgba(255, 196, 60, 0.5);
+  z-index: 2;
+}
+
+/* Azimut numÃ©rique au centre du cadran */
+.ac-compass-center {
+  position: absolute;
+  top: 64%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.ac-compass-center__az {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #eaf1ff;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+}
+
+.ac-compass-center__card {
+  margin-top: 0.12rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #9ed4ff;
+}
+
+/* Jauge d'Ã©lÃ©vation (0Â° horizon â†’ 90Â° zÃ©nith) */
+.ac-compass-elev {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.2rem;
+  padding: 0.15rem 0;
+  flex: 0 0 auto;
+}
+
+.ac-compass-elev__zenith,
+.ac-compass-elev__horizon {
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: #8fa3c8;
+  font-variant-numeric: tabular-nums;
+}
+
+.ac-compass-elev__track {
+  position: relative;
+  flex: 1 1 auto;
+  width: 0.5rem;
+  min-height: 8rem;
+  border-radius: 0.4rem;
+  background: linear-gradient(to top, rgba(60, 90, 150, 0.25) 0%, rgba(40, 60, 110, 0.45) 100%);
+  border: 1px solid rgba(120, 160, 230, 0.3);
+  overflow: visible;
+}
+
+.astro-compass-page .ac-compass-elev__track {
+  min-height: 9.5rem;
+}
+
+.ac-compass-elev__fill {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  border-radius: 0.4rem;
+  background: linear-gradient(to top, #4aa3ff 0%, #ffd54a 100%);
+  box-shadow: 0 0 8px rgba(120, 200, 255, 0.4);
+  transition: height 0.2s ease-out;
+}
+
+.ac-compass-elev--below .ac-compass-elev__fill {
+  background: rgba(138, 160, 200, 0.4);
+  box-shadow: none;
+}
+
+.ac-compass-elev__marker {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, 50%);
+  color: #ffd54a;
+  font-size: 0.8rem;
+  text-shadow: 0 0 6px rgba(255, 196, 60, 0.8);
+  transition: bottom 0.2s ease-out;
+  z-index: 2;
+}
+
+.ac-compass-elev__phone {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, 50%);
+  color: #7ec8ff;
+  font-size: 0.85rem;
+  text-shadow: 0 0 8px rgba(100, 180, 255, 0.85);
+  transition: bottom 0.15s ease-out;
+  z-index: 1;
+  opacity: 0.95;
+}
+
+.ac-compass-elev__phone-val {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #7ec8ff;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  margin-top: -0.1rem;
+}
+
+.ac-compass-tilt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #b8e0ff;
+  text-align: center;
+  min-height: 1.35rem;
+}
+
+.ac-compass-tilt--ok {
+  color: #b8ffc8;
+  font-weight: 700;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  background: radial-gradient(circle at 50% 50%, rgba(93, 216, 121, 0.38) 0%, rgba(34, 197, 94, 0.18) 70%);
+  border: 1px solid rgba(120, 255, 150, 0.85);
+  text-shadow: 0 0 8px rgba(93, 216, 121, 0.85);
+  box-shadow: 0 0 14px rgba(93, 216, 121, 0.5);
+}
+
+.ac-compass-tilt--ok .fa-check-circle {
+  color: #8dffa6;
+  filter: drop-shadow(0 0 6px rgba(93, 216, 121, 0.95));
+}
+
+.ac-compass-turn--ok {
+  color: #b8ffc8;
+  font-weight: 700;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  background: radial-gradient(circle at 50% 50%, rgba(93, 216, 121, 0.38) 0%, rgba(34, 197, 94, 0.18) 70%);
+  border: 1px solid rgba(120, 255, 150, 0.85);
+  text-shadow: 0 0 8px rgba(93, 216, 121, 0.85);
+  box-shadow: 0 0 14px rgba(93, 216, 121, 0.5);
+}
+
+.ac-compass-turn--ok .fa-check-circle,
+.ac-compass-turn--ok .fa-check {
+  color: #8dffa6;
+  filter: drop-shadow(0 0 6px rgba(93, 216, 121, 0.95));
+}
+
+.ac-compass-elev--pitch-ok .ac-compass-elev__track {
+  border-color: rgba(93, 216, 121, 0.75);
+  box-shadow: 0 0 12px rgba(93, 216, 121, 0.45);
+  background: linear-gradient(to top, rgba(40, 110, 60, 0.4) 0%, rgba(30, 80, 50, 0.55) 100%);
+}
+
+.ac-compass-elev__phone--ok {
+  color: #8dffa6 !important;
+  text-shadow: 0 0 10px rgba(93, 216, 121, 0.95);
+}
+
+.ac-compass-elev__phone-val--ok {
+  color: #8dffa6;
+}
+
+.astro-compass-page .ac-compass-tilt {
+  font-size: 0.88rem;
+  min-height: 0;
+  padding: 0.05rem 0;
+}
+
+.astro-compass-page .ac-compass-tilt--ok {
+  padding: 0.18rem 0.65rem;
+}
+
+.ac-compass-elev--below .ac-compass-elev__marker {
+  color: #8aa0c8;
+  text-shadow: none;
+}
+
+.ac-compass-elev__value {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #ffe08a;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-shadow: 0 0 10px rgba(255, 210, 100, 0.35);
+}
+
+.ac-compass-elev__value--warn {
+  color: #ff9b8a;
+  text-shadow: none;
+}
+
+.ac-compass-elev__caption {
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #8fa3c8;
+  text-align: center;
+  line-height: 1.15;
+  max-width: 3.6rem;
+}
+
+/* Bandeau « où regarder » — direction + angle */
+.ac-look {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0.15rem 0 0.25rem;
+  padding: 0.7rem 0.75rem 0.75rem;
+  border-radius: 0.7rem;
+  border: 1px solid rgba(255, 213, 74, 0.45);
+  background:
+    linear-gradient(180deg, rgba(70, 55, 18, 0.55) 0%, rgba(22, 32, 58, 0.75) 100%);
+  box-shadow: 0 0 18px rgba(255, 196, 60, 0.12);
+}
+
+.astro-compass-page .ac-look {
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0.35rem 0.45rem 0.4rem;
+}
+
+.ac-look--below {
+  border-color: rgba(180, 120, 140, 0.45);
+  background: linear-gradient(180deg, rgba(60, 30, 40, 0.45) 0%, rgba(22, 28, 48, 0.75) 100%);
+  box-shadow: none;
+}
+
+.ac-look__title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #ffe9a8;
+  text-align: center;
+}
+
+.ac-look__target {
+  color: #cfe0ff;
+  font-weight: 600;
+}
+
+.ac-look__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.ac-look__tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.65rem 0.4rem 0.55rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(140, 180, 255, 0.28);
+  background: rgba(8, 14, 28, 0.45);
+  text-align: center;
+  min-height: 6.2rem;
+}
+
+.astro-compass-page .ac-look__tile {
+  min-height: 0;
+  padding: 0.28rem 0.3rem 0.25rem;
+  gap: 0.02rem;
+}
+
+.astro-compass-page .ac-look__cardinal {
+  font-size: 1.15rem;
+}
+
+.astro-compass-page .ac-look__deg {
+  font-size: 0.95rem;
+}
+
+.astro-compass-page .ac-look__elev {
+  font-size: 1.3rem;
+}
+
+.astro-compass-page .ac-look__hint {
+  font-size: 0.6rem;
+  max-width: none;
+  margin-top: 0.05rem;
+  line-height: 1.2;
+}
+
+.astro-compass-page .ac-look__title {
+  font-size: 0.7rem;
+}
+
+.astro-compass-page .ac-look__k {
+  font-size: 0.58rem;
+}
+
+.astro-compass-page .ac-look__steps {
+  display: none;
+}
+
+.astro-compass-page .ac-compass-mid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  margin: 0.15rem 0 0.2rem;
+  padding: 0.15rem 0.25rem;
+}
+
+.astro-compass-page .ac-compass-fresh {
+  font-size: 0.68rem;
+  margin: 0;
+}
+
+.astro-compass-page .ac-compass-turn {
+  font-size: 0.88rem;
+  min-height: 0;
+  padding: 0.15rem 0;
+  font-weight: 700;
+}
+
+.astro-compass-page .ac-compass-cal-strip {
+  padding: 0.4rem 0.55rem;
+  font-size: 0.72rem;
+  gap: 0.35rem 0.5rem;
+}
+
+.astro-compass-page .ac-compass-sensors-live {
+  display: none;
+}
+
+.ac-look__tile--warn {
+  border-color: rgba(255, 140, 120, 0.45);
+  background: rgba(50, 20, 24, 0.4);
+}
+
+.ac-look__k {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #9fb2d8;
+}
+
+.ac-look__cardinal {
+  font-size: 1.85rem;
+  font-weight: 800;
+  line-height: 1.05;
+  color: #fff6d0;
+  letter-spacing: 0.02em;
+}
+
+.ac-look__deg {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #9ed4ff;
+  font-variant-numeric: tabular-nums;
+}
+
+.ac-look__elev {
+  font-size: 2.1rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffe08a;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 14px rgba(255, 210, 100, 0.35);
+}
+
+.ac-look__tile--warn .ac-look__elev {
+  color: #ff9b8a;
+  text-shadow: none;
+}
+
+.ac-look__hint {
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: #c5d4ef;
+  max-width: 11rem;
+}
+
+.ac-look__hint--warn {
+  color: #ffb3a8;
+}
+
+.ac-look__steps {
+  margin: 0.1rem 0 0;
+  padding: 0.45rem 0.55rem 0.45rem 1.55rem;
+  border-radius: 0.45rem;
+  background: rgba(0, 0, 0, 0.22);
+  color: #dce7fb;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.ac-look__steps li + li {
+  margin-top: 0.2rem;
+}
+
+@media (max-width: 420px) {
+  .ac-look__cardinal {
+    font-size: 1.45rem;
+  }
+
+  .ac-look__elev {
+    font-size: 1.7rem;
+  }
+
+  .ac-look__tile {
+    min-height: 5.6rem;
+  }
+}
+
+/* Indicateur de fraîcheur + consigne de rotation (entre boussole et « où regarder ») */
+.ac-compass-mid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  margin: 0.2rem 0 0.15rem;
+}
+
+/* Indicateur de fraîcheur des données */
+.ac-compass-fresh {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  color: #9fb2d8;
+}
+
+.ac-compass-fresh__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #5dd879;
+  box-shadow: 0 0 6px rgba(93, 216, 121, 0.7);
+}
+
+.ac-compass-fresh__dot--stale {
+  background: #ffb347;
+  box-shadow: 0 0 6px rgba(255, 179, 71, 0.7);
+}
+
+.ac-compass-turn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #9ed4ff;
+  text-align: center;
+  min-height: 1.5rem;
+}
+
+.ac-compass-turn .fa-check-circle {
+  color: #5dd879;
+}
+
+/* Voyant Â« face Ã  l'ISS Â» : badge lumineux pulsant */
+.ac-compass-turn--facing {
+  color: #c9ffd6;
+  font-weight: 700;
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  background: radial-gradient(circle at 50% 50%, rgba(93, 216, 121, 0.32) 0%, rgba(34, 197, 94, 0.14) 70%);
+  border: 1px solid rgba(93, 216, 121, 0.7);
+  text-shadow: 0 0 8px rgba(93, 216, 121, 0.9);
+  box-shadow: 0 0 16px rgba(93, 216, 121, 0.55), inset 0 0 10px rgba(93, 216, 121, 0.3);
+  animation: ac-compass-facing-pulse 1.25s ease-in-out infinite;
+}
+
+.ac-compass-turn--facing .fa-check-circle {
+  color: #8dffa6;
+  filter: drop-shadow(0 0 6px rgba(93, 216, 121, 0.95));
+}
+
+@keyframes ac-compass-facing-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 12px rgba(93, 216, 121, 0.4), inset 0 0 8px rgba(93, 216, 121, 0.25);
+    border-color: rgba(93, 216, 121, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 26px rgba(93, 216, 121, 0.85), inset 0 0 14px rgba(93, 216, 121, 0.45);
+    border-color: rgba(140, 255, 170, 0.95);
+  }
+}
+
+/* Direction OK → aiguille verte (même sans inclinaison OK) */
+.ac-compass-dial--yaw-ok .ac-compass-needle__arrow {
+  border-bottom-color: #8dffa6;
+  filter: drop-shadow(0 0 8px rgba(93, 216, 121, 0.9));
+}
+
+.ac-compass-dial--yaw-ok .ac-compass-needle__shaft {
+  background: linear-gradient(to top, rgba(93, 216, 121, 0.45), #8dffa6);
+  filter: drop-shadow(0 0 8px rgba(93, 216, 121, 0.75));
+}
+
+.ac-compass-dial--yaw-ok .ac-compass-needle__body {
+  color: #8dffa6;
+  text-shadow: 0 0 10px rgba(93, 216, 121, 0.95);
+}
+
+.ac-compass-dial--yaw-ok .ac-compass-lubber {
+  border-top-color: #8dffa6;
+  filter: drop-shadow(0 0 5px rgba(93, 216, 121, 0.8));
+}
+
+/* Cadran qui s'illumine en vert quand direction + inclinaison sont OK */
+.ac-compass-dial--facing .ac-compass-rose {
+  border-color: rgba(140, 255, 170, 0.95);
+  background:
+    radial-gradient(circle at 50% 50%, rgba(60, 180, 90, 0.55) 0%, rgba(18, 90, 45, 0.88) 55%, rgba(8, 40, 22, 0.95) 100%),
+    conic-gradient(
+      from 0deg,
+      rgba(255, 255, 255, 0.45) 0deg 0.6deg,
+      transparent 0.6deg 30deg,
+      rgba(255, 255, 255, 0.18) 30deg 30.5deg,
+      transparent 30.5deg 60deg,
+      rgba(255, 255, 255, 0.18) 60deg 60.5deg,
+      transparent 60.5deg 90deg,
+      rgba(255, 255, 255, 0.3) 90deg 90.6deg,
+      transparent 90.6deg 120deg,
+      rgba(255, 255, 255, 0.18) 120deg 120.5deg,
+      transparent 120.5deg 150deg,
+      rgba(255, 255, 255, 0.18) 150deg 150.5deg,
+      transparent 150.5deg 180deg,
+      rgba(255, 255, 255, 0.3) 180deg 180.6deg,
+      transparent 180.6deg 210deg,
+      rgba(255, 255, 255, 0.18) 210deg 210.5deg,
+      transparent 210.5deg 240deg,
+      rgba(255, 255, 255, 0.18) 240deg 240.5deg,
+      transparent 240.5deg 270deg,
+      rgba(255, 255, 255, 0.3) 270deg 270.6deg,
+      transparent 270.6deg 300deg,
+      rgba(255, 255, 255, 0.18) 300deg 300.5deg,
+      transparent 300.5deg 330deg,
+      rgba(255, 255, 255, 0.18) 330deg 330.5deg,
+      transparent 330.5deg 360deg
+    );
+  box-shadow: inset 0 0 28px rgba(40, 160, 80, 0.45), 0 0 28px rgba(93, 216, 121, 0.7);
+  animation: ac-compass-rose-glow 1.25s ease-in-out infinite;
+}
+
+@keyframes ac-compass-rose-glow {
+  0%,
+  100% {
+    box-shadow: inset 0 0 28px rgba(40, 160, 80, 0.35), 0 0 18px rgba(93, 216, 121, 0.5);
+  }
+  50% {
+    box-shadow: inset 0 0 32px rgba(50, 200, 100, 0.55), 0 0 38px rgba(93, 216, 121, 0.95);
+  }
+}
+
+.ac-compass-dial--facing .ac-compass-needle__arrow {
+  border-bottom-color: #8dffa6;
+  filter: drop-shadow(0 0 9px rgba(93, 216, 121, 0.95));
+}
+
+.ac-compass-dial--facing .ac-compass-needle__shaft {
+  background: linear-gradient(to top, rgba(93, 216, 121, 0.5), #8dffa6);
+  filter: drop-shadow(0 0 9px rgba(93, 216, 121, 0.9));
+}
+
+.ac-compass-dial--facing .ac-compass-needle__body {
+  color: #8dffa6;
+  text-shadow: 0 0 12px rgba(93, 216, 121, 1);
+}
+
+.ac-compass-dial--facing .ac-compass-hub {
+  background: radial-gradient(circle, #8dffa6 0%, #2bb54a 70%, #0f6b29 100%);
+  box-shadow: 0 0 0 3px rgba(10, 18, 38, 0.9), 0 0 14px rgba(93, 216, 121, 0.85);
+}
+
+.ac-compass-dial--facing .ac-compass-center__az {
+  color: #e8ffe8;
+  text-shadow: 0 0 10px rgba(93, 216, 121, 0.9);
+}
+
+.ac-compass-dial--facing .ac-compass-center__card {
+  color: #c9ffd6;
+}
+
+.ac-compass-dial--facing .ac-compass-card-letter {
+  color: #e0ffe8;
+  text-shadow: 0 0 8px rgba(93, 216, 121, 0.55);
+}
+
+.ac-compass-dial--facing .ac-compass-card-letter--n {
+  color: #fff2a8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ac-compass-turn--facing,
+  .ac-compass-dial--facing .ac-compass-rose {
+    animation: none;
+  }
+}
+
+.ac-compass-hint {
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: #8fa3c8;
+  text-align: center;
+  padding: 0 0.5rem;
+}
+
+.ac-compass-hint--nosensor {
+  text-align: left;
+  width: 100%;
+  border-radius: 0.6rem;
+  padding: 0.75rem 0.85rem;
+  background: rgba(52, 38, 14, 0.45);
+  border: 1px solid rgba(255, 196, 60, 0.35);
+  color: #e8d4a8;
+}
+
+.ac-compass-hint__head {
+  font-weight: 700;
+  font-size: 0.82rem;
+  margin-bottom: 0.35rem;
+}
+
+.ac-compass-hint__intro {
+  margin: 0 0 0.5rem;
+  font-size: 0.76rem;
+}
+
+.ac-compass-hint__steps {
+  margin: 0 0 0.55rem;
+  padding-left: 1.2rem;
+  font-size: 0.74rem;
+}
+
+.ac-compass-hint__steps li + li {
+  margin-top: 0.3rem;
+}
+
+.ac-compass-hint__fallback {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #b8c8e8;
+  font-style: italic;
+}
+
+.ac-compass-sensors-live {
+  width: 100%;
+  border-radius: 0.6rem;
+  padding: 0.7rem 0.8rem;
+  background: rgba(14, 38, 70, 0.55);
+  border: 1px solid rgba(120, 200, 255, 0.4);
+  color: #cfe3ff;
+}
+
+.ac-compass-sensors-live__head {
+  font-weight: 700;
+  font-size: 0.82rem;
+  margin-bottom: 0.25rem;
+}
+
+.ac-compass-sensors-live__hint {
+  margin: 0 0 0.55rem;
+  font-size: 0.72rem;
+  color: #9eb8dc;
+}
+
+.ac-compass-sensors-live__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.45rem;
+}
+
+.ac-compass-sensors-live__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.45rem 0.3rem;
+  border-radius: 0.45rem;
+  background: rgba(8, 22, 44, 0.65);
+  border: 1px solid rgba(100, 160, 220, 0.25);
+}
+
+.ac-compass-sensors-live__key {
+  font-size: 0.68rem;
+  color: #8faed4;
+  text-align: center;
+}
+
+.ac-compass-sensors-live__val {
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #e8f4ff;
+  letter-spacing: 0.02em;
+}
+
+/* Calibration du Nord (marche GPS) */
+.ac-compass-cal {
+  width: 100%;
+  border-radius: 0.6rem;
+  padding: 0.7rem 0.8rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ac-compass-cal--warn {
+  background: rgba(70, 52, 14, 0.5);
+  border: 1px solid rgba(255, 196, 60, 0.4);
+  color: #ffe2a8;
+}
+
+.ac-compass-cal--active {
+  background: rgba(14, 38, 70, 0.6);
+  border: 1px solid rgba(120, 200, 255, 0.45);
+  color: #cfe3ff;
+}
+
+.ac-compass-cal--ok {
+  background: rgba(16, 52, 30, 0.5);
+  border: 1px solid rgba(93, 216, 121, 0.45);
+  color: #c9ffd6;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ac-compass-cal__head {
+  font-weight: 700;
+}
+
+.ac-compass-cal__steps {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.ac-compass-cal__instr {
+  margin: 0;
+  font-weight: 600;
+}
+
+.ac-compass-cal__bar {
+  width: 100%;
+  height: 0.5rem;
+  border-radius: 0.4rem;
+  background: rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+}
+
+.ac-compass-cal__fill {
+  display: block;
+  height: 100%;
+  border-radius: 0.4rem;
+  background: linear-gradient(90deg, #5cc8ff, #8dffa6);
+  transition: width 0.3s ease-out;
+}
+
+.ac-compass-cal__count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: center;
+}
+
+.ac-compass-cal__okmsg {
+  font-weight: 600;
+}
+
+.ac-compass-cal__btn {
+  align-self: stretch;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.8rem;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  background: linear-gradient(90deg, #ffd54a, #ffb347);
+  color: #2a1e02;
+}
+
+.ac-compass-cal__btn--ghost {
+  align-self: center;
+  background: transparent;
+  border: 1px solid currentColor;
+  color: inherit;
+  padding: 0.4rem 0.9rem;
+}
+
+.ac-compass-cal__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ac-compass-cal__btn--sun {
+  background: linear-gradient(90deg, #ffd54a, #ff8a3d);
+}
+
+.ac-compass-cal__methods {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.ac-compass-cal--sun {
+  background: rgba(60, 40, 10, 0.5);
+  border: 1px solid rgba(255, 160, 60, 0.45);
+  color: #ffdca6;
+}
+
+.ac-compass-cal__sundata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.ac-compass-cal__night {
+  margin: 0;
+  font-size: 0.74rem;
+  opacity: 0.85;
+}
+
+/* MÃ©thodes d'identification du Nord : capteurs (auto) / manuel */
+.ac-compass-cal__methods .ac-compass-cal__btn {
+  display: flex;
+  align-items: center;
+  text-align: left;
+  gap: 0.55rem;
+}
+
+.ac-compass-cal__btn--manual {
+  background: linear-gradient(90deg, #7ec8ff, #5c9dff);
+  color: #04203f;
+}
+
+.ac-compass-cal__btn--mouse {
+  background: linear-gradient(90deg, #c4b5fd, #818cf8);
+  color: #1e1b4b;
+}
+
+/* Bandeau compact sous la boussole */
+.ac-compass-cal-strip {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem 0.75rem;
+  border-radius: 0.6rem;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.ac-compass-cal-strip--warn {
+  background: rgba(70, 52, 14, 0.5);
+  border: 1px solid rgba(255, 196, 60, 0.4);
+  color: #ffe2a8;
+}
+
+.ac-compass-cal-strip--ok {
+  background: rgba(16, 52, 30, 0.5);
+  border: 1px solid rgba(93, 216, 121, 0.45);
+  color: #c9ffd6;
+}
+
+.ac-compass-cal-strip--mouse {
+  background: rgba(36, 28, 70, 0.55);
+  border: 1px solid rgba(167, 139, 250, 0.5);
+  color: #e9e0ff;
+}
+
+.ac-compass-cal-strip__msg {
+  flex: 1 1 12rem;
+  font-weight: 600;
+}
+
+.ac-compass-cal-strip__saved {
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.ac-compass-cal-strip__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.ac-compass-cal-strip .ac-compass-cal__btn {
+  align-self: auto;
+  white-space: nowrap;
+}
+
+.ac-compass-cal-strip .ac-compass-cal__btn--ghost {
+  padding: 0.4rem 0.75rem;
+}
+
+/* Modale de recalage */
+.ac-cal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(4, 10, 24, 0.62);
+  backdrop-filter: blur(3px);
+}
+
+.ac-cal-modal {
+  position: fixed;
+  z-index: 1101;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(26rem, calc(100vw - 1.25rem));
+  max-height: min(92vh, 40rem);
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(165deg, #121a2e 0%, #0b1220 100%);
+  border: 1px solid rgba(120, 170, 255, 0.35);
+  border-radius: 0.75rem;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  color: #e8eefc;
+}
+
+.ac-cal-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border-bottom: 1px solid rgba(120, 170, 255, 0.2);
+  background: linear-gradient(90deg, rgba(30, 58, 120, 0.55), rgba(20, 35, 70, 0.4));
+}
+
+.ac-cal-modal__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.ac-cal-modal__close {
+  border: 0;
+  background: transparent;
+  color: #cfe0ff;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.2rem 0.35rem;
+  cursor: pointer;
+  opacity: 0.9;
+}
+
+.ac-cal-modal__close:hover {
+  opacity: 1;
+}
+
+.ac-cal-modal__body {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 0.85rem 0.9rem 1rem;
+}
+
+.ac-cal-modal__body .ac-compass-cal {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.ac-compass-cal__btnlabel {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.ac-compass-cal__btntitle {
+  font-weight: 800;
+}
+
+.ac-compass-cal__btnhint {
+  font-weight: 600;
+  font-size: 0.72rem;
+  opacity: 0.8;
+}
+
+.ac-compass-cal--manual {
+  background: rgba(10, 30, 60, 0.55);
+  border: 1px solid rgba(90, 160, 255, 0.45);
+  color: #cfe4ff;
+}
+
+.ac-compass-cal__saved {
+  font-size: 0.74rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.ac-compass-readout {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: 0.5rem;
+  background: rgba(12, 22, 48, 0.6);
+  border: 1px solid rgba(100, 160, 255, 0.18);
+}
+
+.ac-compass-readout__item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+}
+
+.ac-compass-sensors {
+  width: 100%;
+}
+
+.ac-compass-sensors__summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.35rem 0.2rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #9fb2d8;
+  user-select: none;
+}
+
+.ac-compass-sensors__summary::-webkit-details-marker {
+  display: none;
+}
+
+.ac-compass-sensors__summary::after {
+  content: '\025be';
+  margin-left: 0.4rem;
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+.ac-compass-sensors[open] .ac-compass-sensors__summary::after {
+  content: '\025b4';
+}
+
+.ac-compass-readout--sensors {
+  margin-top: 0.3rem;
+  background: rgba(8, 16, 36, 0.7);
+  border-style: dashed;
+}
+
+.ac-compass-readout--sensors .ac-compass-readout__val {
+  font-size: 0.78rem;
+}
+
+.ac-compass-readout__key {
+  color: #9fb2d8;
+  flex: 0 0 auto;
+}
+
+.ac-compass-readout__val {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: #eaf1ff;
+  text-align: right;
+}
+
+.ac-compass-readout__val--warn {
+  color: #ffd79a;
+}
+
+.ac-compass-readout__note {
+  font-weight: 400;
+  font-size: 0.72rem;
+  color: #ffb868;
+}
+
+.ac-compass-readout__note--warn {
+  color: #ff9d6b;
+  font-weight: 600;
+}
+
+.ac-compass-source {
+  width: 100%;
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: #b9c7e8;
+  text-align: center;
+}
+
+.ac-compass-explain {
+  width: 100%;
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: #8298bd;
+  text-align: center;
+}
+
+@media (max-width: 575.98px) {
+  .ac-compass-card {
+    width: 96vw;
+    padding: 0.85rem 0.9rem 1rem;
+  }
+
+  .astro-compass-page .ac-compass-card {
+    width: 100%;
+    padding: 0.1rem 0;
+  }
+
+  .ac-compass-title {
+    font-size: 0.92rem;
+  }
+
+  .ac-compass-dial {
+    width: min(62vw, 14.5rem);
+    flex: 0 0 auto;
+  }
+
+  .astro-compass-page .ac-compass-dial {
+    width: min(64vw, 15rem);
+    flex: 0 0 auto;
+  }
+
+  .ac-compass-instrument {
+    gap: 0.45rem;
+    align-items: center;
+  }
+
+  .ac-compass-elev__track {
+    min-height: 7.5rem;
+  }
+
+  .astro-compass-page .ac-compass-elev__track {
+    min-height: 8.5rem;
+  }
+
+  .astro-compass-page .ac-look__hint {
+    display: none;
+  }
+
+  .astro-compass-page .ac-look {
+    padding: 0.3rem 0.4rem 0.35rem;
+  }
+
+  .astro-compass-page .ac-look__grid {
+    gap: 0.35rem;
+  }
+}
+
+/* Page shell — fond noir étoilé */
+:host {
+  display: block;
+  min-height: calc(100vh - 80px);
+  color: #dce7fb;
+}
+
+/* Supprime le filet / marge blanche sous le bandeau titre global */
+:host .pat-title {
+  margin-bottom: 0 !important;
+  border-bottom: none !important;
+}
+
+.astro-compass-shell {
+  position: relative;
+  isolation: isolate;
+  min-height: calc(100vh - 160px);
+  margin: 0 -0.75rem 0;
+  padding: 0.85rem 0.75rem 2rem;
+  color: #dce7fb;
+  background:
+    radial-gradient(1.2px 1.2px at 8% 12%, rgba(255, 255, 255, 0.95), transparent),
+    radial-gradient(1px 1px at 18% 42%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1.4px 1.4px at 28% 78%, rgba(210, 230, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 36% 22%, rgba(255, 255, 255, 0.55), transparent),
+    radial-gradient(1.6px 1.6px at 48% 58%, rgba(255, 255, 255, 0.95), transparent),
+    radial-gradient(1px 1px at 58% 14%, rgba(200, 220, 255, 0.75), transparent),
+    radial-gradient(1.2px 1.2px at 68% 66%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 76% 34%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1.5px 1.5px at 84% 82%, rgba(220, 235, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 92% 28%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1.1px 1.1px at 12% 88%, rgba(255, 255, 255, 0.65), transparent),
+    radial-gradient(1px 1px at 42% 8%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1.3px 1.3px at 62% 92%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1px 1px at 88% 52%, rgba(200, 220, 255, 0.55), transparent),
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(40, 60, 120, 0.45), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(30, 40, 90, 0.35), transparent 50%),
+    linear-gradient(180deg, #050714 0%, #02040c 45%, #010208 100%);
+  background-color: #02040c;
+}
+
+.astro-compass-shell .text-muted {
+  color: #8fa3c8 !important;
+}
+
+/* Page shell (not modal) */
+.astro-compass-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 0.5rem 1.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+.ac-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  grid-template-areas:
+    "controls compass"
+    "visibility visibility"
+    "sensors sensors";
+  gap: 1rem;
+  align-items: start;
+}
+
+.ac-panel--controls {
+  grid-area: controls;
+}
+
+.ac-compass-column {
+  grid-area: compass;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.ac-panel--visibility {
+  grid-area: visibility;
+}
+
+.ac-panel--sensors {
+  grid-area: sensors;
+}
+
+@media (max-width: 900px) {
+  .ac-layout {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "compass-panel"
+      "controls"
+      "observer"
+      "visibility"
+      "sensors";
+  }
+
+  /* Éclate la colonne pour pouvoir intercaler les cibles entre boussole et point d'observation */
+  .ac-compass-column {
+    display: contents;
+  }
+
+  .ac-panel--compass {
+    grid-area: compass-panel;
+  }
+
+  .ac-observer-banner {
+    grid-area: observer;
+  }
+
+  .ac-panel--controls {
+    grid-area: controls;
+  }
+
+  .ac-panel--visibility {
+    grid-area: visibility;
+  }
+
+  .ac-panel--sensors {
+    grid-area: sensors;
+  }
+
+  .ac-subtitle {
+    display: none;
+  }
+}
+
+.ac-address-row {
+  display: flex;
+  gap: 0.35rem;
+  align-items: stretch;
+}
+
+.ac-address-row input {
+  flex: 1 1 auto;
+}
+
+.ac-address-row button {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(120, 200, 255, 0.4);
+  background: rgba(80, 150, 255, 0.18);
+  color: #cfe8ff;
+  cursor: pointer;
+}
+
+.ac-loc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.ac-loc-btn {
+  font-size: 0.72rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(120, 200, 255, 0.4);
+  background: rgba(80, 150, 255, 0.18);
+  color: #cfe8ff;
+  cursor: pointer;
+}
+
+.ac-loc-btn:hover,
+.ac-loc-btn:focus-visible {
+  background: rgba(80, 150, 255, 0.32);
+  outline: none;
+}
+
+.ac-place--warn {
+  color: #ffb347 !important;
+}
+
+.ac-vis-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.55rem 0 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.ac-vis-status--ok {
+  background: rgba(34, 120, 70, 0.28);
+  border: 1px solid rgba(93, 216, 121, 0.45);
+  color: #c9ffd6;
+}
+
+.ac-vis-status--warn {
+  background: rgba(80, 50, 20, 0.4);
+  border: 1px solid rgba(255, 180, 80, 0.4);
+  color: #ffe0b0;
+}
+
+.ac-vis-status__el {
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.ac-vis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.45rem;
+  margin-bottom: 0.75rem;
+}
+
+.ac-vis-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.45rem;
+  background: rgba(8, 16, 36, 0.55);
+  border: 1px solid rgba(100, 140, 200, 0.25);
+}
+
+.ac-vis-item__k {
+  font-size: 0.68rem;
+  color: #8faed4;
+}
+
+.ac-vis-item__v {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #eaf1ff;
+  font-variant-numeric: tabular-nums;
+}
+
+.ac-vis-days__title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #9ed4ff;
+  margin-bottom: 0.4rem;
+}
+
+.ac-vis-day {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.85rem;
+  align-items: baseline;
+  padding: 0.35rem 0;
+  border-top: 1px solid rgba(100, 140, 200, 0.2);
+  font-size: 0.74rem;
+}
+
+.ac-vis-day__date {
+  font-weight: 700;
+  color: #cfe8ff;
+  min-width: 5.5rem;
+}
+
+.ac-vis-day__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.9rem;
+  color: #b9c7e8;
+}
+
+.ac-panel {
+  border-radius: 0.85rem;
+  border: 1px solid rgba(120, 150, 220, 0.35);
+  background: radial-gradient(120% 90% at 50% -10%, rgba(26, 39, 72, 0.92) 0%, rgba(12, 19, 38, 0.9) 60%, rgba(7, 11, 22, 0.88) 100%);
+  color: #dce7fb;
+  padding: 0.9rem 1rem 1.1rem;
+  backdrop-filter: blur(2px);
+}
+
+.ac-panel--compass {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ac-panel h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 0.55rem;
+  color: #eaf1ff;
+}
+
+.ac-count {
+  margin-left: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #9fb2d8;
+  font-variant-numeric: tabular-nums;
+}
+
+.ac-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.65rem;
+}
+
+.ac-visible-switch {
+  box-sizing: border-box;
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(120, 180, 255, 0.28);
+  background: rgba(30, 50, 90, 0.35);
+}
+
+.ac-visible-switch__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+
+.ac-visible-switch__input {
+  flex: 0 0 auto;
+  width: 2.4rem;
+  height: 1.25rem;
+  margin: 0.15rem 0 0;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid rgba(160, 200, 255, 0.55);
+  border-radius: 999px;
+  background-color: rgba(20, 30, 55, 0.9);
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23cfe8ff'/%3e%3c/svg%3e");
+  background-position: left center;
+  background-repeat: no-repeat;
+  background-size: 1.1rem 1.1rem;
+  cursor: pointer;
+  transition: background-position 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.ac-visible-switch__input:checked {
+  background-color: rgba(80, 150, 255, 0.55);
+  border-color: rgba(140, 200, 255, 0.85);
+  background-position: right center;
+}
+
+.ac-visible-switch__input:focus-visible {
+  outline: 2px solid rgba(140, 200, 255, 0.7);
+  outline-offset: 2px;
+}
+
+.ac-visible-switch__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0;
+  cursor: pointer;
+}
+
+.ac-visible-switch__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #dce7fb;
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.ac-visible-switch__hint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #9fb2d8;
+  line-height: 1.35;
+  font-weight: 400;
+}
+
+.ac-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 160, 230, 0.35);
+  background: rgba(20, 35, 70, 0.65);
+  color: #dce7fb;
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.ac-chip:hover,
+.ac-chip:focus-visible {
+  border-color: rgba(160, 200, 255, 0.7);
+  background: rgba(40, 70, 130, 0.75);
+  outline: none;
+}
+
+.ac-chip--active {
+  border-color: rgba(255, 213, 74, 0.75);
+  background: rgba(80, 60, 20, 0.55);
+  box-shadow: 0 0 10px rgba(255, 196, 60, 0.25);
+}
+
+.ac-chip--iss.ac-chip--active {
+  border-color: rgba(126, 200, 255, 0.85);
+  background: rgba(30, 70, 110, 0.55);
+  box-shadow: 0 0 12px rgba(100, 180, 255, 0.3);
+}
+
+.ac-chip i {
+  font-size: 0.78rem;
+}
+
+.ac-search {
+  margin-bottom: 0.65rem;
+}
+
+.ac-search label {
+  display: block;
+  font-size: 0.72rem;
+  color: #9fb2d8;
+  margin-bottom: 0.2rem;
+}
+
+.ac-search__select-label {
+  display: block;
+  font-size: 0.72rem;
+  color: #9fb2d8;
+  margin: 0.45rem 0 0.2rem;
+}
+
+.ac-search input,
+.ac-search select.ac-select,
+.ac-custom input {
+  width: 100%;
+  font-size: 0.78rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(120, 160, 230, 0.35);
+  background: rgba(8, 16, 36, 0.85);
+  color: #eaf1ff;
+}
+
+.ac-search select.ac-select {
+  cursor: pointer;
+  appearance: auto;
+}
+
+.ac-star-results {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  max-height: none;
+  overflow: visible;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(100, 140, 200, 0.3);
+}
+
+.ac-star-results li button {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: #dce7fb;
+  font-size: 0.74rem;
+  padding: 0.35rem 0.55rem;
+  cursor: pointer;
+}
+
+.ac-star-results li button:hover,
+.ac-star-results li button:focus-visible {
+  background: rgba(60, 100, 180, 0.35);
+  outline: none;
+}
+
+.ac-custom {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.4rem;
+  align-items: end;
+  margin-top: 0.5rem;
+}
+
+.ac-custom label {
+  display: block;
+  font-size: 0.68rem;
+  color: #9fb2d8;
+  margin-bottom: 0.15rem;
+}
+
+.ac-custom button {
+  font-size: 0.72rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(120, 200, 255, 0.4);
+  background: rgba(80, 150, 255, 0.18);
+  color: #cfe8ff;
+  cursor: pointer;
+  height: calc(1.5em + 0.7rem + 2px);
+}
+
+.ac-loc {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 0.4rem;
+  align-items: end;
+  margin-top: 0.65rem;
+}
+
+.ac-loc label {
+  display: block;
+  font-size: 0.68rem;
+  color: #9fb2d8;
+  margin-bottom: 0.15rem;
+}
+
+.ac-loc input {
+  width: 100%;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.4rem;
+  border-radius: 0.35rem;
+  border: 1px solid rgba(120, 160, 230, 0.35);
+  background: rgba(8, 16, 36, 0.85);
+  color: #eaf1ff;
+}
+
+.ac-loc button {
+  font-size: 0.72rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(120, 200, 255, 0.4);
+  background: rgba(80, 150, 255, 0.18);
+  color: #cfe8ff;
+  cursor: pointer;
+}
+
+.ac-place {
+  font-size: 0.72rem;
+  color: #9ed4ff;
+  margin: 0.35rem 0 0;
+}
+
+.ac-place--section-gap {
+  margin-bottom: 0.75rem;
+}
+
+.ac-needle-body-dot {
+  display: inline-block;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 50%;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.ac-compass-needle__body {
+  position: absolute;
+  top: -7%;
+  left: 50%;
+  transform: translate(-50%, 0);
+  font-size: 1.35rem;
+  color: #ffd54a;
+  text-shadow: 0 0 10px rgba(255, 196, 60, 0.9);
+  z-index: 3;
+}
+
+.ac-compass-dial--below .ac-compass-needle__body {
+  color: #8aa0c8;
+  opacity: 0.7;
+  text-shadow: none;
+}
+
+.ac-compass-dial--facing .ac-compass-needle__body {
+  color: #8dffa6;
+  text-shadow: 0 0 12px rgba(93, 216, 121, 1);
+}
+
+.ac-compass-elev__marker .ac-needle-body-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+}
+
+.ac-subtitle {
+  font-size: 0.78rem;
+  color: #9fb2d8;
+  margin-bottom: 0.85rem;
+}
+
+.ac-compass-cal__btn--mouse {
+  border-color: rgba(140, 200, 255, 0.55);
+}
+
+.ac-compass-cal--mouse {
+  background: rgba(20, 40, 80, 0.5);
+  border: 1px solid rgba(140, 200, 255, 0.45);
+  color: #cfe8ff;
+}
+
+.ac-compass-dial--mouse-cal {
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+
+.ac-compass-dial--mouse-cal::after {
+  content: '';
+  position: absolute;
+  inset: -0.15rem;
+  border-radius: 50%;
+  border: 2px dashed rgba(158, 212, 255, 0.55);
+  pointer-events: none;
+  animation: ac-mouse-cal-pulse 1.4s ease-in-out infinite;
+  z-index: 4;
+}
+
+@keyframes ac-mouse-cal-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.ac-compass-dial--mouse-cal-active::after {
+  display: block;
+}
+
+.ac-compass-dial--mouse-cal:not(.ac-compass-dial--mouse-cal-active)::after {
+  display: none;
+}
+
+.ac-observer-banner {
+  width: 100%;
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.7rem;
+  border: 1px solid rgba(120, 180, 255, 0.35);
+  background: rgba(12, 24, 52, 0.72);
+  color: #dce7fb;
+  box-sizing: border-box;
+}
+
+.ac-observer-banner__head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #9ed4ff;
+  margin-bottom: 0.2rem;
+}
+
+.ac-observer-banner__hint {
+  margin: 0 0 0.55rem;
+  font-size: 0.72rem;
+  color: #8fa3c8;
+}
+
+.ac-observer-banner__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  align-items: baseline;
+  margin-bottom: 0.3rem;
+  font-size: 0.8rem;
+}
+
+.ac-observer-banner__k {
+  color: #8faed4;
+  min-width: 4.5rem;
+}
+
+.ac-observer-banner__v {
+  color: #eaf1ff;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.ac-observer-banner__v--mono {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.ac-observer-banner__meta {
+  margin-top: 0.35rem;
+  font-size: 0.7rem;
+  color: #9fb2d8;
+}
+
+.ac-observer-banner__warn {
+  color: #ffb347;
+}
+
+/* ===== Auto-detect immersive live modal ===== */
+.ac-live-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(2, 6, 18, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.ac-live-modal {
+  position: fixed;
+  z-index: 1201;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(26.5rem, calc(100vw - 0.85rem));
+  max-height: min(94vh, 46rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.75rem 0.8rem 0.9rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(140, 200, 255, 0.35);
+  background:
+    radial-gradient(ellipse 90% 55% at 50% -10%, rgba(60, 100, 200, 0.35), transparent 60%),
+    linear-gradient(165deg, #0a1228 0%, #050914 55%, #02040c 100%);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.65), inset 0 0 40px rgba(80, 140, 255, 0.08);
+  color: #e8f0ff;
+  overflow: hidden;
+}
+
+.ac-live-modal__stars,
+.ac-live-modal__aurora {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+}
+
+.ac-live-modal__stars {
+  background-image:
+    radial-gradient(1.2px 1.2px at 12% 18%, rgba(255, 255, 255, 0.95), transparent),
+    radial-gradient(1px 1px at 28% 62%, rgba(200, 220, 255, 0.8), transparent),
+    radial-gradient(1.4px 1.4px at 48% 22%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 66% 74%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1.5px 1.5px at 82% 34%, rgba(210, 230, 255, 0.95), transparent),
+    radial-gradient(1px 1px at 90% 88%, rgba(255, 255, 255, 0.65), transparent),
+    radial-gradient(1.2px 1.2px at 8% 80%, rgba(255, 255, 255, 0.75), transparent);
+  opacity: 0.7;
+  animation: ac-live-twinkle 4.5s ease-in-out infinite;
+}
+
+.ac-live-modal__aurora {
+  background:
+    radial-gradient(ellipse 70% 40% at 20% 100%, rgba(40, 180, 120, 0.18), transparent 70%),
+    radial-gradient(ellipse 60% 35% at 85% 0%, rgba(80, 120, 255, 0.2), transparent 65%);
+  animation: ac-live-aurora 7s ease-in-out infinite alternate;
+}
+
+@keyframes ac-live-twinkle {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes ac-live-aurora {
+  from {
+    opacity: 0.55;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-6px);
+  }
+}
+
+.ac-live-modal__header,
+.ac-live-modal__controls,
+.ac-live-modal__rate,
+.ac-live-modal__stage,
+.ac-live-empty {
+  position: relative;
+  z-index: 1;
+}
+
+.ac-live-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ac-live-modal__title {
+  margin: 0.15rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.ac-live-modal__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9dffb4;
+}
+
+.ac-live-modal__live-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #5dd879;
+  box-shadow: 0 0 8px rgba(93, 216, 121, 0.95);
+  animation: ac-autodetect-pulse 1.1s ease-in-out infinite;
+}
+
+.ac-live-modal__close {
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid rgba(160, 190, 255, 0.25);
+  border-radius: 0.45rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: #dce7fb;
+  cursor: pointer;
+}
+
+.ac-live-modal__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.ac-live-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.28rem 0.5rem 0.28rem 0.35rem;
+  border-radius: 999px;
+  border: 1px solid rgba(140, 180, 255, 0.25);
+  background: rgba(8, 14, 28, 0.45);
+  cursor: pointer;
+  user-select: none;
+}
+
+.ac-live-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ac-live-switch__ui {
+  width: 1.7rem;
+  height: 0.95rem;
+  border-radius: 999px;
+  background: rgba(120, 140, 180, 0.35);
+  position: relative;
+  flex: 0 0 auto;
+  transition: background 0.15s ease;
+}
+
+.ac-live-switch__ui::after {
+  content: '';
+  position: absolute;
+  top: 0.12rem;
+  left: 0.12rem;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: #e8eefc;
+  transition: transform 0.15s ease;
+}
+
+.ac-live-switch input:checked + .ac-live-switch__ui {
+  background: rgba(93, 216, 121, 0.55);
+}
+
+.ac-live-switch input:checked + .ac-live-switch__ui::after {
+  transform: translateX(0.72rem);
+}
+
+.ac-live-switch__label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #cfe0ff;
+}
+
+.ac-live-modal__rate {
+  padding: 0.35rem 0.45rem 0.4rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(140, 180, 255, 0.2);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.ac-live-modal__rate-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: #9fb2d8;
+  margin-bottom: 0.2rem;
+}
+
+.ac-live-modal__rate-head strong {
+  color: #ffe08a;
+  font-variant-numeric: tabular-nums;
+}
+
+.ac-live-modal__slider {
+  width: 100%;
+  accent-color: #7ec8ff;
+}
+
+.ac-live-modal__rate-ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.58rem;
+  color: #7f93b8;
+}
+
+.ac-live-modal__stage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding-right: 0.1rem;
+}
+
+.ac-live-radar {
+  position: relative;
+  width: min(100%, 12.5rem);
+  aspect-ratio: 1 / 1;
+  margin: 0.1rem auto 0.15rem;
+  border-radius: 50%;
+  border: 1px solid rgba(120, 200, 255, 0.35);
+  background: radial-gradient(circle at 50% 50%, rgba(40, 90, 160, 0.25) 0%, rgba(8, 14, 28, 0.65) 70%);
+  box-shadow: inset 0 0 24px rgba(80, 160, 255, 0.18), 0 0 20px rgba(80, 140, 255, 0.15);
+}
+
+.ac-live-radar__ring {
+  position: absolute;
+  border: 1px dashed rgba(140, 190, 255, 0.28);
+  border-radius: 50%;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.ac-live-radar__ring--1 {
+  width: 32%;
+  height: 32%;
+}
+
+.ac-live-radar__ring--2 {
+  width: 58%;
+  height: 58%;
+}
+
+.ac-live-radar__ring--3 {
+  width: 84%;
+  height: 84%;
+}
+
+.ac-live-radar__cross-h,
+.ac-live-radar__cross-v {
+  position: absolute;
+  background: rgba(160, 200, 255, 0.22);
+}
+
+.ac-live-radar__cross-h {
+  left: 8%;
+  right: 8%;
+  top: 50%;
+  height: 1px;
+}
+
+.ac-live-radar__cross-v {
+  top: 8%;
+  bottom: 8%;
+  left: 50%;
+  width: 1px;
+}
+
+.ac-live-radar__center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0.55rem;
+  height: 0.55rem;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #9ed4ff;
+  box-shadow: 0 0 10px rgba(120, 200, 255, 0.9);
+}
+
+.ac-live-radar__target {
+  position: absolute;
+  transform: translate(-50%, 50%);
+  width: 1.55rem;
+  height: 1.55rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid currentColor;
+  font-size: 0.85rem;
+  transition: left 0.2s ease, bottom 0.2s ease;
+}
+
+.ac-live-hero {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.ac-live-hero__orb {
+  --ac-live-accent: #ffd54a;
+  flex: 0 0 auto;
+  width: 3.6rem;
+  height: 3.6rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.55rem;
+  color: var(--ac-live-accent);
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.25), transparent 45%),
+    radial-gradient(circle at 50% 50%, rgba(255, 213, 74, 0.35), rgba(0, 0, 0, 0.35));
+  border: 1px solid rgba(255, 213, 74, 0.55);
+  box-shadow: 0 0 28px rgba(255, 196, 60, 0.45);
+  animation: ac-live-orb 2.4s ease-in-out infinite;
+}
+
+@keyframes ac-live-orb {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.06);
+    filter: brightness(1.15);
+  }
+}
+
+.ac-live-hero__kind {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9ed4ff;
+}
+
+.ac-live-hero__name {
+  margin: 0.1rem 0 0.15rem;
+  font-size: 1.45rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: #fff8d8;
+  text-shadow: 0 0 18px rgba(255, 220, 120, 0.25);
+}
+
+.ac-live-hero__sep,
+.ac-live-hero__aim {
+  margin: 0;
+  font-size: 0.7rem;
+  color: #b8d0ef;
+}
+
+.ac-live-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem;
+}
+
+.ac-live-info__cell {
+  padding: 0.32rem 0.4rem;
+  border-radius: 0.4rem;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(140, 180, 255, 0.16);
+}
+
+.ac-live-info__k {
+  display: block;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8fa3c8;
+}
+
+.ac-live-info__v {
+  display: block;
+  margin-top: 0.08rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #eaf1ff;
+  font-variant-numeric: tabular-nums;
+}
+
+.ac-live-info__v--warn {
+  color: #ffb3a8;
+}
+
+.ac-live-others {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ac-live-others__label {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9fb2d8;
+}
+
+.ac-live-others__btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.35rem 0.45rem;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(140, 180, 255, 0.2);
+  background: rgba(8, 14, 28, 0.4);
+  color: #e8f0ff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.ac-live-others__btn span {
+  flex: 1 1 auto;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.ac-live-others__btn em {
+  font-style: normal;
+  font-size: 0.72rem;
+  color: #9ed4ff;
+  font-weight: 800;
+}
+
+.ac-live-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 10rem;
+  text-align: center;
+  color: #9fb2d8;
+  font-size: 0.85rem;
+}
+
+.ac-live-empty .fa {
+  font-size: 1.8rem;
+  color: #7ec8ff;
+  opacity: 0.8;
+}
+
+@media (max-width: 420px) {
+  .ac-live-modal {
+    width: calc(100vw - 0.5rem);
+    max-height: 96vh;
+    border-radius: 0.75rem;
+    padding: 0.6rem 0.65rem 0.75rem;
+  }
+
+  .ac-live-hero__name {
+    font-size: 1.25rem;
+  }
+
+  .ac-live-radar {
+    width: min(100%, 10.5rem);
+  }
+}
+

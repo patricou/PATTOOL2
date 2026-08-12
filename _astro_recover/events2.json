@@ -1,0 +1,142 @@
+[
+  {
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L19:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\app\\astro-compass\\_i18n_fr.json",
+    "kind": "kv_dump",
+    "keys": 82
+  },
+  {
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_astro_iss_i18n.py",
+    "kind": "kv_dump",
+    "keys": 30
+  },
+  {
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L116:assistant:input:contents",
+    "kind": "kv_dump",
+    "keys": 30
+  },
+  {
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L146:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json",
+    "kind": "kv_dump",
+    "keys": 12
+  },
+  {
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\scripts\\_patch_look_i18n.py",
+    "kind": "kv_dump",
+    "keys": 11
+  },
+  {
+    "meta": "e0ea2004-7545-419c-b896-c17ad1317bef.jsonl:L147:assistant:input:contents",
+    "kind": "kv_dump",
+    "keys": 11
+  },
+  {
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\tmp-i18n-filter.js",
+    "kind": "fr_script_block",
+    "keys": 4
+  },
+  {
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:assistant:tool_use:Write:input",
+    "kind": "fr_script_block",
+    "keys": 4
+  },
+  {
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L90:assistant:input:contents",
+    "kind": "fr_script_block",
+    "keys": 4
+  },
+  {
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L143:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_patch-i18n-pitch.js",
+    "kind": "fr_script_block",
+    "keys": 4
+  },
+  {
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L143:assistant:tool_use:Write:input",
+    "kind": "fr_script_block",
+    "keys": 4
+  },
+  {
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L143:assistant:input:contents",
+    "kind": "fr_script_block",
+    "keys": 4
+  },
+  {
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L159:assistant:tool_use:StrReplace:new_string:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\src\\assets\\i18n\\fr.json",
+    "kind": "kv_dump",
+    "keys": 17
+  },
+  {
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L172:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-found.js",
+    "kind": "fr_script_block",
+    "keys": 3
+  },
+  {
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L172:assistant:tool_use:Write:input",
+    "kind": "fr_script_block",
+    "keys": 3
+  },
+  {
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L172:assistant:input:contents",
+    "kind": "fr_script_block",
+    "keys": 3
+  },
+  {
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-live.js",
+    "kind": "fr_script_block",
+    "keys": 4
+  },
+  {
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:assistant:tool_use:Write:input",
+    "kind": "fr_script_block",
+    "keys": 4
+  },
+  {
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L187:assistant:input:contents",
+    "kind": "fr_script_block",
+    "keys": 4
+  },
+  {
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-modal.js",
+    "kind": "fr_script_block",
+    "keys": 5
+  },
+  {
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:tool_use:Write:input",
+    "kind": "fr_script_block",
+    "keys": 5
+  },
+  {
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L202:assistant:input:contents",
+    "kind": "fr_script_block",
+    "keys": 5
+  },
+  {
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L209:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-tilt-ok.js",
+    "kind": "fr_script_block",
+    "keys": 2
+  },
+  {
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L209:assistant:tool_use:Write:input",
+    "kind": "fr_script_block",
+    "keys": 2
+  },
+  {
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L209:assistant:input:contents",
+    "kind": "fr_script_block",
+    "keys": 2
+  },
+  {
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L227:assistant:tool_use:Write:contents:c:\\Dev\\PATTOOL2\\PatTool_Front-End\\_i18n-phone-tilt.js",
+    "kind": "fr_script_block",
+    "keys": 3
+  },
+  {
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L227:assistant:tool_use:Write:input",
+    "kind": "fr_script_block",
+    "keys": 3
+  },
+  {
+    "meta": "7ca33cae-94fc-4f96-bf90-2d0c3b4b5cea.jsonl:L227:assistant:input:contents",
+    "kind": "fr_script_block",
+    "keys": 3
+  }
+]
