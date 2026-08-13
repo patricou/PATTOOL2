@@ -61,8 +61,8 @@ const PITCH_PAINT_MIN_MS = 50;
  * Lissage du cap (lerp circulaire vers la lecture brute).
  * Faible = stable (anti-sauts Samsung) ; plus haut seulement pour les grands mouvements.
  */
-const HEADING_LERP_MIN = 0.05;
-const HEADING_LERP_MAX = 0.18;
+const HEADING_LERP_MIN = 0.04;
+const HEADING_LERP_MAX = 0.16;
 const HEADING_LERP_SNAP_DEG = 55;
 /** Au-delà de ce saut instantané, on ignore l'échantillon (bruit / glitch). */
 const HEADING_OUTLIER_DEG = 35;
@@ -70,6 +70,23 @@ const HEADING_OUTLIER_DEG = 35;
 const HEADING_MEDIAN_N = 7;
 /** Sous ces |β|/|γ|, utiliser 360−α (formule W3C invalide à plat). */
 const HEADING_FLAT_BETA_GAMMA_DEG = 12;
+
+type NorthHeadingMode = 'os-yaw' | 'os-mag' | 'w3c' | 'tilt-mix' | 'tilt-top' | 'mag' | 'mag-gyro';
+
+const NORTH_HEADING_MODE_KEY = 'pat.astro-compass.north-heading-mode';
+const NORTH_HEADING_MODE_IDS: ReadonlyArray<NorthHeadingMode> = [
+  'os-yaw',
+  'os-mag',
+  'w3c',
+  'tilt-mix',
+  'tilt-top',
+  'mag',
+  'mag-gyro'
+];
+/** Fusion OS+mag : n’attirer vers le mag que s’il est assez proche (sinon bruit / métal). */
+const OS_MAG_AGREE_DEG = 28;
+/** Fraction du mag injectée à chaque sample OS (~20 Hz) → rappel lent. */
+const OS_MAG_PULL = 0.05;
 /** Lissage inclinaison (α vers la lecture instantanée). */
 const PITCH_SMOOTH_ALPHA = 0.22;
 /** Cône d'auto-détection autour de la direction du téléphone. */
@@ -324,6 +341,22 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   walkSpeedMps: number | null = null;
 
   headingSource: 'absolute-sensor' | 'webkit' | 'deviceorientation' | 'magnetometer' | null = null;
+  /** Algorithme de cap Nord (interrupteurs d’essai). */
+  northHeadingMode: NorthHeadingMode = 'os-yaw';
+  northHeadingModePersisted = false;
+  readonly northHeadingModeOptions: ReadonlyArray<{
+    id: NorthHeadingMode;
+    titleKey: string;
+    hintKey: string;
+  }> = [
+    { id: 'os-yaw', titleKey: 'ASTRO_COMPASS.NORTH_MODE_OS_YAW', hintKey: 'ASTRO_COMPASS.NORTH_MODE_OS_YAW_HINT' },
+    { id: 'os-mag', titleKey: 'ASTRO_COMPASS.NORTH_MODE_OS_MAG', hintKey: 'ASTRO_COMPASS.NORTH_MODE_OS_MAG_HINT' },
+    { id: 'w3c', titleKey: 'ASTRO_COMPASS.NORTH_MODE_W3C', hintKey: 'ASTRO_COMPASS.NORTH_MODE_W3C_HINT' },
+    { id: 'tilt-mix', titleKey: 'ASTRO_COMPASS.NORTH_MODE_TILT_MIX', hintKey: 'ASTRO_COMPASS.NORTH_MODE_TILT_MIX_HINT' },
+    { id: 'tilt-top', titleKey: 'ASTRO_COMPASS.NORTH_MODE_TILT_TOP', hintKey: 'ASTRO_COMPASS.NORTH_MODE_TILT_TOP_HINT' },
+    { id: 'mag', titleKey: 'ASTRO_COMPASS.NORTH_MODE_MAG', hintKey: 'ASTRO_COMPASS.NORTH_MODE_MAG_HINT' },
+    { id: 'mag-gyro', titleKey: 'ASTRO_COMPASS.NORTH_MODE_MAG_GYRO', hintKey: 'ASTRO_COMPASS.NORTH_MODE_MAG_GYRO_HINT' }
+  ];
   /** Calage figure-8 / hard-iron / fusion gyro (partagé avec la page Nord). */
   readonly northEngine = new CompassNorthEngine();
   /** Copie UI des octants (primitive → détection de changement fiable). */
@@ -382,6 +415,9 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   private headingOutlierPendingDeg: number | null = null;
   /** Buffer pour médiane circulaire du cap. */
   private headingSampleBuf: number[] = [];
+  private lastOrientationEvent: DeviceOrientationEvent | null = null;
+  private lastMagHeadingInstant: number | null = null;
+  private northHeadingModeLoadGen = 0;
   private calLoadPending = false;
   private alignCuePrevYaw = false;
   private alignCuePrevPitch = false;
@@ -405,6 +441,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     this.onStarQueryChange();
     this.northEngine.loadPersisted();
     this.loadAlignCuePref();
+    this.loadNorthHeadingModePref();
     this.loadCalibration();
     this.startGeolocation();
     this.startNorthSensors();
@@ -3066,6 +3103,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
       this.currentScreenAngle()
     );
     if (heading != null) {
+      this.lastMagHeadingInstant = heading;
       this.publishMagNorthHeading(heading);
     }
     this.paintCalNow();
@@ -3104,6 +3142,9 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     if (this.mouseVirtualActive && this.calMethod === 'mouse') {
       return;
     }
+    if (!this.usesMagnetometerHeading()) {
+      return;
+    }
     const locked = this.calStatus === 'calibrated' && this.calMethod === 'sensor';
     const fused = this.northEngine.fuseMagHeading(raw, locked);
     this.headingInstantDeg = fused;
@@ -3116,6 +3157,9 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   }
 
   private tickNorthGyro(): void {
+    if (!this.usesGyroFusion()) {
+      return;
+    }
     const locked = this.calStatus === 'calibrated' && this.calMethod === 'sensor';
     const fused = this.northEngine.tickGyro(locked);
     if (fused == null) {
@@ -3164,6 +3208,114 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     }
     this.headingLastPaintMs = now;
     this.zone.run(() => this.cdr.markForCheck());
+  }
+
+  usesMagnetometerHeading(): boolean {
+    return this.northHeadingMode === 'mag' || this.northHeadingMode === 'mag-gyro';
+  }
+
+  usesGyroFusion(): boolean {
+    return this.northHeadingMode === 'mag-gyro';
+  }
+
+  /** Yaw OS + rappel lent vers le mag s’ils sont d’accord. */
+  private blendOsWithMagnetometer(): void {
+    if (this.northHeadingMode !== 'os-mag' || this.headingRawDeg == null || this.lastMagHeadingInstant == null) {
+      return;
+    }
+    const diff = Math.abs(this.circularDiffDeg(this.lastMagHeadingInstant, this.headingRawDeg));
+    if (diff > OS_MAG_AGREE_DEG) {
+      return;
+    }
+    this.headingRawDeg = this.circularLerpDeg(
+      this.headingRawDeg,
+      this.lastMagHeadingInstant,
+      OS_MAG_PULL
+    );
+  }
+
+  northHeadingModeTitleKey(): string {
+    const opt = this.northHeadingModeOptions.find((o) => o.id === this.northHeadingMode);
+    return opt?.titleKey ?? 'ASTRO_COMPASS.NORTH_MODE_OS_YAW';
+  }
+
+  setNorthHeadingMode(mode: NorthHeadingMode): void {
+    this.northHeadingModeLoadGen++;
+    this.applyNorthHeadingMode(mode, true);
+  }
+
+  private applyNorthHeadingMode(mode: NorthHeadingMode, persistRemote: boolean): void {
+    const changed = this.northHeadingMode !== mode;
+    this.northHeadingMode = mode;
+    this.writeNorthHeadingModeLocal(mode);
+    this.northHeadingModePersisted = true;
+    if (changed) {
+      this.headingSampleBuf = [];
+      this.headingOutlierPendingDeg = null;
+      this.headingRawDeg = null;
+      this.headingInstantDeg = null;
+      this.northEngine.resetFusion();
+      if (this.usesMagnetometerHeading()) {
+        if (this.lastMagHeadingInstant != null) {
+          this.publishMagNorthHeading(this.lastMagHeadingInstant);
+        }
+      } else if (this.lastOrientationEvent) {
+        this.handleOrientation(this.lastOrientationEvent);
+      }
+    }
+    if (persistRemote) {
+      this.persistNorthHeadingModeRemote(mode);
+    }
+    this.cdr.markForCheck();
+  }
+
+  private writeNorthHeadingModeLocal(mode: NorthHeadingMode): void {
+    try {
+      localStorage.setItem(NORTH_HEADING_MODE_KEY, mode);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private persistNorthHeadingModeRemote(mode: NorthHeadingMode): void {
+    this.api.setCompassHeadingMode(mode).subscribe({
+      next: () => {
+        this.zone.run(() => {
+          this.northHeadingModePersisted = true;
+          this.cdr.markForCheck();
+        });
+      },
+      error: () => {
+        /* hors connexion / anonyme : le localStorage suffit */
+      }
+    });
+  }
+
+  private loadNorthHeadingModePref(): void {
+    try {
+      const raw = localStorage.getItem(NORTH_HEADING_MODE_KEY);
+      if (raw && (NORTH_HEADING_MODE_IDS as ReadonlyArray<string>).includes(raw)) {
+        this.northHeadingMode = raw as NorthHeadingMode;
+        this.northHeadingModePersisted = true;
+      }
+    } catch {
+      /* ignore */
+    }
+    const gen = ++this.northHeadingModeLoadGen;
+    this.api.getCompassHeadingMode().subscribe({
+      next: (dto) => {
+        if (gen !== this.northHeadingModeLoadGen) {
+          return;
+        }
+        const mode = dto?.headingMode;
+        if (mode && (NORTH_HEADING_MODE_IDS as ReadonlyArray<string>).includes(mode)) {
+          this.applyNorthHeadingMode(mode as NorthHeadingMode, false);
+        }
+      },
+      error: () => {
+        /* anonyme ou API indisponible : on garde le localStorage */
+      }
+    });
   }
 
   private async tryStartAbsoluteSensor(): Promise<boolean> {
@@ -3236,9 +3388,6 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   }
 
   private handleAbsSensorReading = (): void => {
-    if (this.northEngine.hasMag) {
-      return;
-    }
     const sensor = this.absSensor;
     if (!sensor?.quaternion || sensor.quaternion.length < 4) {
       return;
@@ -3266,12 +3415,14 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   };
 
   private handleOrientation = (e: DeviceOrientationEvent): void => {
+    this.lastOrientationEvent = e;
     const beta = Number.isFinite(e.beta as number) ? (e.beta as number) : null;
     const gamma = Number.isFinite(e.gamma as number) ? (e.gamma as number) : null;
     const pitch = beta != null ? this.devicePitchFromBetaGamma(beta, gamma ?? 0) : null;
 
-    // Magnétomètre + accéléro : le cap vient du moteur Nord (hard-iron + fusion).
-    if (this.absSensor != null || this.northEngine.hasMag) {
+    // AbsoluteOrientationSensor gère déjà le cap ; DeviceOrientation sert alors au pitch.
+    // Le magnétomètre brut ne doit PAS masquer 360−α / webkit (plus stable).
+    if (this.absSensor != null) {
       if (pitch != null) {
         this.publishPitchOnly(pitch, {
           alpha: Number.isFinite(e.alpha as number) ? (e.alpha as number) : null,
@@ -3336,10 +3487,6 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     if (this.mouseVirtualActive && this.calMethod === 'mouse') {
       return;
     }
-    if (this.northEngine.hasMag) {
-      return;
-    }
-    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     // Médiane puis lissage — réduit les sauts Samsung avant le lerp.
     const medianHeading = this.pushHeadingMedian(heading);
     // Sauts isolés > HEADING_OUTLIER_DEG : ignorer jusqu'à confirmation (2 lectures proches).
@@ -3360,20 +3507,18 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
         this.headingOutlierPendingDeg = null;
       }
     }
-    const locked = this.calStatus === 'calibrated' && this.calMethod === 'sensor';
     this.headingInstantDeg = accepted;
-    if (this.northEngine.hasGyro) {
-      this.headingRawDeg = this.northEngine.fuseMagHeading(accepted, locked);
-    } else {
-      this.headingRawDeg =
-        this.headingRawDeg == null
-          ? accepted
-          : this.circularLerpDeg(
-              this.headingRawDeg,
-              accepted,
-              this.headingLerpFactor(this.headingRawDeg, accepted)
-            );
-    }
+    // Cap OS déjà fusionné par le téléphone : lerp doux, pas de 2e intégration gyro.
+    this.headingRawDeg =
+      this.headingRawDeg == null
+        ? accepted
+        : this.circularLerpDeg(
+            this.headingRawDeg,
+            accepted,
+            this.headingLerpFactor(this.headingRawDeg, accepted)
+          );
+    this.blendOsWithMagnetometer();
+    this.northEngine.fusedHeading = this.headingRawDeg;
     if (
       this.calMethod === 'sensor' &&
       this.northEngine.calPhase === 'figure8' &&
@@ -3398,14 +3543,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     this.sensorWebkitHeading = meta.webkitHeading;
     this.sensorWebkitAccuracy = meta.webkitAccuracy;
     this.applyDevicePitch(meta.pitch);
-
-    if (now - this.headingLastPaintMs < HEADING_PAINT_MIN_MS) {
-      return;
-    }
-    this.headingLastPaintMs = now;
-    this.zone.run(() => {
-      this.cdr.markForCheck();
-    });
+    this.scheduleHeadingPaint();
   }
 
   private publishPitchOnly(
@@ -3435,7 +3573,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
    */
   private headingLerpFactor(fromDeg: number, toDeg: number): number {
     const mag = Math.abs(this.circularDiffDeg(toDeg, fromDeg));
-    if (mag < 0.05) {
+    if (mag < 0.2) {
       return 0;
     }
     if (mag >= HEADING_LERP_SNAP_DEG) {
@@ -4102,21 +4240,50 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   }
 
   private deviceHeadingFromEvent(e: DeviceOrientationEvent): number | null {
-    const anyE = e as any;
-    if (
-      typeof anyE.webkitCompassHeading === 'number' &&
-      Number.isFinite(anyE.webkitCompassHeading)
-    ) {
-      return this.normalizeDeg(anyE.webkitCompassHeading - this.currentScreenAngle());
+    if (this.usesMagnetometerHeading()) {
+      return null;
     }
-    if (
-      e.alpha != null &&
-      Number.isFinite(e.alpha) &&
-      (e.absolute || this.orientationEventName === 'deviceorientationabsolute')
-    ) {
-      const beta = Number.isFinite(e.beta as number) ? (e.beta as number) : 0;
-      const gamma = Number.isFinite(e.gamma as number) ? (e.gamma as number) : 0;
-      return this.compassHeadingW3c(e.alpha, beta, gamma, this.currentScreenAngle());
+    const anyE = e as any;
+    const webkitHeading =
+      typeof anyE.webkitCompassHeading === 'number' && Number.isFinite(anyE.webkitCompassHeading)
+        ? (anyE.webkitCompassHeading as number)
+        : null;
+    const alpha = e.alpha != null && Number.isFinite(e.alpha) ? e.alpha : null;
+    const beta = Number.isFinite(e.beta as number) ? (e.beta as number) : 0;
+    const gamma = Number.isFinite(e.gamma as number) ? (e.gamma as number) : 0;
+    const screen = this.currentScreenAngle();
+    const abs =
+      (typeof e.absolute === 'boolean' ? e.absolute : false) ||
+      this.orientationEventName === 'deviceorientationabsolute';
+
+    if (this.northHeadingMode === 'os-yaw' || this.northHeadingMode === 'os-mag') {
+      if (webkitHeading != null && !this.isAndroidDevice()) {
+        return this.normalizeDeg(webkitHeading - screen);
+      }
+      if (alpha != null && abs) {
+        return this.normalizeDeg(360 - alpha - screen);
+      }
+      if (webkitHeading != null) {
+        return this.normalizeDeg(webkitHeading - screen);
+      }
+      return null;
+    }
+
+    if (alpha == null || !abs) {
+      if (webkitHeading != null) {
+        return this.normalizeDeg(webkitHeading - screen);
+      }
+      return null;
+    }
+
+    if (this.northHeadingMode === 'w3c') {
+      return this.compassHeadingW3c(alpha, beta, gamma, screen);
+    }
+    if (this.northHeadingMode === 'tilt-mix') {
+      return this.tiltCompensatedHeadingDeg(alpha, beta, gamma, screen);
+    }
+    if (this.northHeadingMode === 'tilt-top') {
+      return this.tiltTopHeadingDeg(alpha, beta, gamma, screen);
     }
     return null;
   }
@@ -4198,6 +4365,29 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
 
     // atan2(Est, Nord) : 0° = Nord, 90° = Est (ne pas inverser Est/Nord).
     const heading = (Math.atan2(east, north) * 180) / Math.PI - screenAngleDeg;
+    return this.normalizeDeg(heading);
+  }
+
+  /** Cap = direction du haut de l’écran seulement (sans le dos / caméra). */
+  private tiltTopHeadingDeg(
+    alphaDeg: number,
+    betaDeg: number,
+    gammaDeg: number,
+    screenAngleDeg: number
+  ): number {
+    void gammaDeg;
+    const d2r = Math.PI / 180;
+    const a = alphaDeg * d2r;
+    const b = betaDeg * d2r;
+    const cA = Math.cos(a);
+    const sA = Math.sin(a);
+    const cB = Math.cos(b);
+    const topE = -cB * sA;
+    const topN = cA * cB;
+    if (topE * topE + topN * topN < 1e-8) {
+      return this.normalizeDeg(360 - alphaDeg - screenAngleDeg);
+    }
+    const heading = (Math.atan2(topE, topN) * 180) / Math.PI - screenAngleDeg;
     return this.normalizeDeg(heading);
   }
 

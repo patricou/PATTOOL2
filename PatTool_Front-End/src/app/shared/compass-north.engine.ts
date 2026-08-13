@@ -5,8 +5,11 @@ export const NORD_CAL_STORAGE_KEY = 'pat.nord.calibration.v1';
 export const FIGURE8_MIN_SAMPLES = 80;
 export const FIGURE8_MIN_SPAN_UT = 18;
 export const SETTLE_MS = 1800;
-const FUSION_GYRO_LOCKED = 0.97;
-const FUSION_GYRO_LIVE = 0.82;
+/** Constante de temps (s) : le mag corrige le gyro, sans coller au bruit 50 Hz. */
+const MAG_TAU_LOCKED_S = 2.4;
+const MAG_TAU_LIVE_S = 0.7;
+/** Seuil (rad/s) sous lequel on estime le biais gyro (téléphone quasi immobile). */
+const GYRO_STILL_RAD_S = 0.035;
 
 export type SensorCalPhase = 'idle' | 'figure8' | 'settle' | 'done';
 
@@ -47,6 +50,7 @@ export class CompassNorthEngine {
   fusedHeading: number | null = null;
   roseUnwrappedDeg = 0;
 
+  private gyroYawBias = 0;
   private magMin = { x: Infinity, y: Infinity, z: Infinity };
   private magMax = { x: -Infinity, y: -Infinity, z: -Infinity };
   private magSamples = 0;
@@ -113,6 +117,8 @@ export class CompassNorthEngine {
     this.octantMask = 0;
     this.magSamples = 0;
     this.figure8Headings = [];
+    this.gyroYawBias = 0;
+    this.lastFusionTs = null;
     this.magMin = { x: Infinity, y: Infinity, z: Infinity };
     this.magMax = { x: -Infinity, y: -Infinity, z: -Infinity };
     this.magCalibrated = false;
@@ -137,6 +143,8 @@ export class CompassNorthEngine {
     this.octantMask = 0;
     this.fusedHeading = null;
     this.roseUnwrappedDeg = 0;
+    this.gyroYawBias = 0;
+    this.lastFusionTs = null;
     try {
       localStorage.removeItem(NORD_CAL_STORAGE_KEY);
     } catch {
@@ -295,14 +303,28 @@ export class CompassNorthEngine {
       y: up.z * east.x - up.x * east.z,
       z: up.x * east.y - up.y * east.x
     };
-    const flat = Math.abs(up.z) >= Math.abs(up.y);
-    const nx = 0;
-    const ny = flat ? 1 : 0;
-    const nz = flat ? 0 : -1;
-    const d = nx * up.x + ny * up.y + nz * up.z;
-    const hx = nx - up.x * d;
-    const hy = ny - up.y * d;
-    const hz = nz - up.z * d;
+    // Toujours le haut de l’écran (lubber), jamais un bascule plat / caméra :
+    // le switch |z|≥|y| faisait sauter le Nord vers ~45° d’inclinaison.
+    const sa = ((screenAngleDeg % 360) + 360) % 360;
+    let tx = 0;
+    let ty = 1;
+    if (sa === 90) {
+      tx = 1;
+      ty = 0;
+    } else if (sa === 180) {
+      tx = 0;
+      ty = -1;
+    } else if (sa === 270) {
+      tx = -1;
+      ty = 0;
+    }
+    const d = tx * up.x + ty * up.y;
+    const hx = tx - up.x * d;
+    const hy = ty - up.y * d;
+    const hz = -up.z * d;
+    if (Math.hypot(hx, hy, hz) < 0.12) {
+      return null;
+    }
     const heading =
       (Math.atan2(
         hx * east.x + hy * east.y + hz * east.z,
@@ -310,15 +332,25 @@ export class CompassNorthEngine {
       ) *
         180) /
       Math.PI;
-    return this.normalizeDeg(heading - screenAngleDeg);
+    return this.normalizeDeg(heading);
   }
 
   fuseMagHeading(correctedDeg: number, locked: boolean): number {
-    if (this.fusedHeading == null || !this.hasGyro) {
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (this.fusedHeading == null) {
       this.fusedHeading = correctedDeg;
+      this.lastFusionTs = now;
       return correctedDeg;
     }
-    const a = locked ? 1 - FUSION_GYRO_LOCKED : 1 - FUSION_GYRO_LIVE;
+    const dt =
+      this.lastFusionTs == null ? 0.02 : Math.min(0.08, (now - this.lastFusionTs) / 1000);
+    this.lastFusionTs = now;
+    const jump = Math.abs(this.circularDiff(correctedDeg, this.fusedHeading));
+    if (jump < 0.2) {
+      return this.fusedHeading;
+    }
+    const tau = locked ? MAG_TAU_LOCKED_S : MAG_TAU_LIVE_S;
+    const a = 1 - Math.exp(-dt / Math.max(tau, 1e-3));
     this.fusedHeading = this.circularLerp(this.fusedHeading, correctedDeg, a);
     return this.fusedHeading;
   }
@@ -339,7 +371,14 @@ export class CompassNorthEngine {
       return this.fusedHeading;
     }
     const yawRate = -(this.gyro.x * up.x + this.gyro.y * up.y + this.gyro.z * up.z);
-    const gyroDeg = (yawRate * 180) / Math.PI;
+    if (Math.abs(yawRate) < GYRO_STILL_RAD_S) {
+      this.gyroYawBias = this.gyroYawBias * 0.992 + yawRate * 0.008;
+    }
+    const gyroDeg = ((yawRate - this.gyroYawBias) * 180) / Math.PI;
+    if (Math.abs(gyroDeg) * dt < 0.02 && Math.abs(yawRate) < GYRO_STILL_RAD_S) {
+      void locked;
+      return this.fusedHeading;
+    }
     this.fusedHeading = this.normalizeDeg(this.fusedHeading + gyroDeg * dt);
     void locked;
     return this.fusedHeading;
@@ -412,6 +451,14 @@ export class CompassNorthEngine {
 
   destroy(): void {
     this.clearSettleTimer();
+  }
+
+  resetFusion(): void {
+    this.fusedHeading = null;
+    this.roseUnwrappedDeg = 0;
+    this.roseInited = false;
+    this.gyroYawBias = 0;
+    this.lastFusionTs = null;
   }
 
   private clearSettleTimer(): void {

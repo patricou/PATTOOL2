@@ -20,6 +20,10 @@ export interface IssCompassCalibration {
   calibratedAt?: string | null;
 }
 
+export interface CompassHeadingModePref {
+  headingMode: string;
+}
+
 /** Current state of a tracked flight (proxy GET /external/globe/flight/state, OpenSky Network). */
 export interface FlightState {
   icao24?: string | null;
@@ -1432,6 +1436,30 @@ export class ApiService {
         this._http.put<IssCompassCalibration>(
           this.API_URL + 'external/globe/iss/compass/calibration',
           body,
+          { headers }
+        )
+      )
+    );
+  }
+
+  getCompassHeadingMode(): Observable<CompassHeadingModePref | null> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<CompassHeadingModePref | null>(
+          this.API_URL + 'external/globe/iss/compass/heading-mode',
+          { headers }
+        )
+      ),
+      catchError(() => of(null))
+    );
+  }
+
+  setCompassHeadingMode(headingMode: string): Observable<CompassHeadingModePref> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<CompassHeadingModePref>(
+          this.API_URL + 'external/globe/iss/compass/heading-mode',
+          { headingMode },
           { headers }
         )
       )

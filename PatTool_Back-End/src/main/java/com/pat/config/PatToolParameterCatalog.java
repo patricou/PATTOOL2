@@ -36,6 +36,7 @@ public final class PatToolParameterCatalog {
             "globe.flight.tracking.",
             "globe.iss.alert.",
             "globe.iss.compass.calibration.",
+            "globe.iss.compass.heading-mode.",
             "meteofrance.forecast.horizon.",
             "meteofrance.forecast.step.",
             "meteofrance.forecast.cache.",

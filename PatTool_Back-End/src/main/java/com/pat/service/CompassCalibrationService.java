@@ -3,6 +3,7 @@ package com.pat.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pat.controller.dto.CompassCalibrationDto;
+import com.pat.controller.dto.CompassHeadingModeDto;
 import com.pat.repo.domain.AppParameter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,8 +27,11 @@ public class CompassCalibrationService {
     private static final Logger log = LoggerFactory.getLogger(CompassCalibrationService.class);
 
     static final String PARAM_KEY_PREFIX = "globe.iss.compass.calibration.";
+    static final String HEADING_MODE_KEY_PREFIX = "globe.iss.compass.heading-mode.";
     /** Méthodes d'identification du Nord : capteurs / manuel / marche GPS / Soleil / souris. */
     private static final Set<String> SUPPORTED_METHODS = Set.of("sensor", "manual", "gps", "sun", "mouse");
+    private static final Set<String> SUPPORTED_HEADING_MODES =
+            Set.of("os-yaw", "os-mag", "w3c", "tilt-mix", "tilt-top", "mag", "mag-gyro");
 
     private final AppParameterService appParameterService;
     private final ObjectMapper objectMapper;
@@ -85,6 +89,57 @@ public class CompassCalibrationService {
             return;
         }
         appParameterService.delete(PARAM_KEY_PREFIX + jwtSubject);
+    }
+
+    public Optional<String> findHeadingModeForSubject(String jwtSubject) {
+        if (jwtSubject == null || jwtSubject.isBlank()) {
+            return Optional.empty();
+        }
+        String key = HEADING_MODE_KEY_PREFIX + jwtSubject;
+        Optional<AppParameter> row = appParameterService.find(key);
+        if (row.isEmpty()) {
+            return Optional.empty();
+        }
+        String raw = row.get().getParamValue();
+        if (raw == null || raw.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            CompassHeadingModeDto dto = objectMapper.readValue(raw, CompassHeadingModeDto.class);
+            return normalizeHeadingMode(dto != null ? dto.headingMode() : null);
+        } catch (JsonProcessingException e) {
+            return normalizeHeadingMode(raw.trim());
+        }
+    }
+
+    public String saveHeadingModeForSubject(String jwtSubject, String headingMode) {
+        if (jwtSubject == null || jwtSubject.isBlank()) {
+            throw new IllegalArgumentException("jwtSubject required");
+        }
+        String mode = normalizeHeadingMode(headingMode)
+                .orElseThrow(() -> new IllegalArgumentException("invalid heading mode"));
+        String key = HEADING_MODE_KEY_PREFIX + jwtSubject;
+        try {
+            String json = objectMapper.writeValueAsString(new CompassHeadingModeDto(mode));
+            appParameterService.setJson(
+                    key,
+                    json,
+                    "Boussole astres : méthode de cap Nord choisie par l'utilisateur (JSON).");
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Serialization compass heading mode", e);
+        }
+        return mode;
+    }
+
+    private Optional<String> normalizeHeadingMode(String headingMode) {
+        if (headingMode == null || headingMode.isBlank()) {
+            return Optional.empty();
+        }
+        String mode = headingMode.trim().toLowerCase(Locale.ROOT);
+        if (!SUPPORTED_HEADING_MODES.contains(mode)) {
+            return Optional.empty();
+        }
+        return Optional.of(mode);
     }
 
     /** Valide la méthode et borne l'offset dans [0, 360[ ; renvoie {@code empty} si invalide. */

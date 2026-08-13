@@ -27,6 +27,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { environment } from '../../environments/environment';
 import { Body, Equator, Observer, SiderealTime } from 'astronomy-engine';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
+import { CompassNorthEngine } from '../shared/compass-north.engine';
 import { drawIssTopViewIcon } from '../shared/globe-iss-icon.util';
 import earcut from 'earcut';
 
@@ -137,6 +138,23 @@ const ISS_LIVE_HD_DESTINATION_ORBITE_URL =
 const ISS_LIVE_YOUTUBE_VIDEO_ID = 'M3HKLzjvKPc';
 /** Page HD Destination Orbite → lite-youtube `awQzjn72bI0` (màj 06-11-2025 ; ancien `FuuC4dpSQ1M` hors ligne). */
 const ISS_LIVE_HD_YOUTUBE_VIDEO_ID = 'awQzjn72bI0';
+
+const ISS_COMPASS_FACING_DEG = 8;
+const ISS_COMPASS_PITCH_DEG = 8;
+const ISS_COMPASS_NORTH_SENSOR_HZ = 50;
+const ISS_COMPASS_PITCH_SMOOTH = 0.22;
+const ISS_COMPASS_ALIGN_CUE_KEY = 'pat.astro-compass.align-cue';
+const ISS_OS_HEADING_FRESH_MS = 800;
+
+interface IssCompassGenericSensor {
+  start(): void;
+  stop(): void;
+  x?: number;
+  y?: number;
+  z?: number;
+  addEventListener(type: string, listener: () => void): void;
+  removeEventListener(type: string, listener: () => void): void;
+}
 
 /** Sphère repère géocodage : rayon monde, légèrement au-dessus du maillage Terre (rayon 1). */
 const GLOBE_GEOCODE_MARKER_SURFACE_OFFSET = 1.003;
@@ -621,7 +639,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Dernière position GPS pour dériver un cap de marche si coords.heading est absent. */
   private issCompassGpsPrev: { lat: number; lon: number; tMs: number } | null = null;
   /** Source active du cap appareil (diagnostic). */
-  issCompassHeadingSource: 'absolute-sensor' | 'webkit' | 'deviceorientation' | null = null;
+  issCompassHeadingSource: 'absolute-sensor' | 'webkit' | 'deviceorientation' | 'magnetometer' | null = null;
   /** Valeurs brutes du dernier évènement d’orientation (diagnostic capteurs). */
   issCompassSensorAlpha: number | null = null;
   issCompassSensorBeta: number | null = null;
@@ -648,6 +666,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   /** True si le capteur Abs. utilise referenceFrame:'screen' (pas de correction d’angle écran). */
   private issCompassAbsSensorScreenFrame = false;
   private issCompassHeadingLastPaintMs = 0;
+  private issCompassLastOsHeadingMs = 0;
   /** Horodatage (epoch ms) de la dernière donnée ISS appliquée à la boussole. */
   issCompassUpdatedAtMs: number | null = null;
   /** Rafraîchissement manuel de la boussole en cours. */
@@ -655,6 +674,23 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   /** « Maintenant » mis en cache (epoch ms) pour calculer la fraîcheur des données sans recalcul permanent. */
   issCompassNowMs = Date.now();
   private issCompassFreshnessTimer: ReturnType<typeof setInterval> | null = null;
+  readonly issNorthEngine = new CompassNorthEngine();
+  issCompassOctantMask = 0;
+  issCompassDevicePitchDeg: number | null = null;
+  issCompassAlignCue: 'off' | 'beep' | 'vibrate' = 'off';
+  private issCompassDevicePitchInstant: number | null = null;
+  private issCompassNeedleUnwrappedDeg = 0;
+  private issCompassNeedleInited = false;
+  private issCompassNorthSensors: IssCompassGenericSensor[] = [];
+  private issCompassNorthSensorsStarted = false;
+  private issCompassAccelFromGeneric = false;
+  private issCompassGyroFromGeneric = false;
+  private issCompassMotionListening = false;
+  private issCompassCalPaintLastMs = 0;
+  private issCompassAlignCuePrevYaw = false;
+  private issCompassAlignCuePrevPitch = false;
+  private issCompassAlignCuePrevBoth = false;
+  private issCompassAlignAudioCtx: AudioContext | null = null;
   /** Chargement du calage mémorisé en cours (retarde l’application auto capteurs sur smartphone). */
   private issCompassCalLoadPending = false;
   /** Horloge mise en cache (epoch ms), rafraîchie par les timers : évite NG0100 dans le template. */
@@ -7893,10 +7929,20 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.issCompassHeadingAccuracyDeg = null;
     this.resetIssCompassSensorReadings();
     this.resetIssCompassCalibration();
+    this.issNorthEngine.loadPersisted();
+    if (this.issNorthEngine.magCalibrated) {
+      this.issCompassCalMethod = 'sensor';
+      this.issCompassCalStatus = 'calibrated';
+      this.issCompassNorthOffsetDeg = 0;
+      this.issCompassCalPersisted = true;
+    }
+    this.loadIssCompassAlignCuePref();
     // Recharge le dernier calage du Nord enregistré : pas besoin de recaler à chaque ouverture.
     this.loadIssCompassCalibration();
     this.startIssCompassGeolocation();
     void this.startIssCompassOrientation();
+    this.startIssCompassNorthSensors();
+    this.startIssCompassDeviceMotion();
     // Si l’ISS n’a pas encore de position connue, déclencher un rafraîchissement immédiat.
     if (this.globeIssLat == null || this.globeIssLon == null) {
       void this.refreshIssNow();
@@ -8019,10 +8065,12 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.issCompassOrientationListening = false;
     this.issCompassHeadingActive = false;
+    this.stopIssCompassNorthSensors();
     this.resetIssCompassSensorReadings();
     this.resetIssCompassCalibration();
     this.issCompassOrientationEventName = null;
     this.issCompassHeadingSource = null;
+    this.closeIssCompassAlignAudio();
   }
 
   /** Remet à zéro les valeurs brutes de capteurs affichées dans le diagnostic. */
@@ -8034,10 +8082,18 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.issCompassSensorWebkitHeading = null;
     this.issCompassSensorWebkitAccuracy = null;
     this.issCompassHeadingInstantDeg = null;
+    this.issCompassDevicePitchDeg = null;
+    this.issCompassDevicePitchInstant = null;
+    this.issCompassNeedleUnwrappedDeg = 0;
+    this.issCompassNeedleInited = false;
+    this.issCompassLastOsHeadingMs = 0;
   }
 
   /** Nom de l’évènement / API d’orientation effectivement utilisé (diagnostic capteurs). */
   issCompassSensorEventName(): string | null {
+    if (this.issCompassHeadingSource === 'magnetometer') {
+      return 'Magnetometer';
+    }
     if (this.issCompassHeadingSource === 'absolute-sensor') {
       return 'AbsoluteOrientationSensor';
     }
@@ -8180,8 +8236,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * Choisit la méthode d’identification du Nord (4 méthodes).
-   *  - 'sensor' : on fait entièrement confiance aux capteurs du smartphone
-   *    (boussole/magnétomètre absolu) ; le calage est immédiat (offset nul).
+   *  - 'sensor' : figure en 8 + octants (hard-iron), puis calage offset nul.
    *  - 'manual' : mode « viser le Nord » ; l’utilisateur oriente le haut du
    *    téléphone vers le Nord puis valide via {@link confirmIssCompassManualNorth}.
    *  - 'gps'    : calage par marche GPS ; la collecte démarre immédiatement.
@@ -8190,11 +8245,12 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   chooseIssCompassCalMethod(method: 'sensor' | 'manual' | 'gps' | 'sun'): void {
     this.issCompassCalMethod = method;
     if (method === 'sensor') {
-      // Nord géré par les capteurs : aucune correction à appliquer.
       this.issCompassNorthOffsetDeg = 0;
-      this.issCompassCalStatus = 'calibrated';
+      this.issCompassCalStatus = 'calibrating';
+      this.issCompassCalPersisted = false;
+      this.issCompassOctantMask = 0;
+      this.issNorthEngine.startFigure8();
       this.applyIssCompassNorthOffset();
-      this.persistIssCompassCalibration('sensor', 0);
     } else if (method === 'gps') {
       // Marche GPS : on collecte des échantillons pendant le déplacement.
       this.issCompassCalStatus = 'calibrating';
@@ -8255,15 +8311,27 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** Annule le choix de méthode en cours (revient à l’écran de choix ou au calage précédent). */
   cancelIssCompassCalibration(): void {
-    this.issCompassCalStatus = this.issCompassNorthOffsetDeg != null ? 'calibrated' : 'uncalibrated';
-    this.issCompassCalMethod = null;
+    this.issNorthEngine.cancelCal();
     this.issCompassCalAccum = [];
     this.issCompassCalSamples = 0;
+    if (this.issCompassNorthOffsetDeg != null && this.issCompassCalPersisted) {
+      this.issCompassCalStatus = 'calibrated';
+    } else if (this.issNorthEngine.magCalibrated) {
+      this.issCompassCalStatus = 'calibrated';
+      this.issCompassCalMethod = 'sensor';
+      this.issCompassNorthOffsetDeg = 0;
+      this.issCompassCalPersisted = true;
+    } else {
+      this.issCompassCalStatus = 'uncalibrated';
+      this.issCompassCalMethod = null;
+      this.issCompassNorthOffsetDeg = null;
+    }
     this.cdr.markForCheck();
   }
 
   /** Relance le choix de méthode pour recaler le Nord (à la demande de l’utilisateur). */
   restartIssCompassCalibration(): void {
+    this.issNorthEngine.cancelCal();
     this.issCompassCalStatus = 'uncalibrated';
     this.issCompassCalMethod = null;
     this.issCompassNorthOffsetDeg = null;
@@ -8713,17 +8781,19 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   ): void {
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    this.issCompassLastOsHeadingMs = now;
     if (now - this.issCompassHeadingLastPaintMs < 50) {
       return;
     }
     this.issCompassHeadingLastPaintMs = now;
     this.zone.run(() => {
       this.issCompassHeadingInstantDeg = heading;
-      // Lissage doux : assez réactif pour le calage, assez stable pour la lecture.
+      const prev = this.issCompassHeadingRawDeg;
+      const jump = prev == null ? 0 : Math.abs(this.circularDiffDeg(heading, prev));
+      const t = jump < 0.2 ? 0 : jump >= 40 ? 0.16 : 0.06 + 0.1 * (jump / 40);
       this.issCompassHeadingRawDeg =
-        this.issCompassHeadingRawDeg == null
-          ? heading
-          : this.circularLerpDeg(this.issCompassHeadingRawDeg, heading, 0.45);
+        prev == null ? heading : this.circularLerpDeg(prev, heading, t);
+      this.issNorthEngine.fusedHeading = this.issCompassHeadingRawDeg;
       this.applyIssCompassNorthOffset();
       this.issCompassHeadingAccuracyDeg = meta.webkitAccuracy;
       this.issCompassHeadingActive = true;
@@ -8781,11 +8851,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       Number.isFinite(e.alpha) &&
       (e.absolute || this.issCompassOrientationEventName === 'deviceorientationabsolute')
     ) {
-      // Android fallback : matrice W3C + compensation d’inclinaison.
-      // Attention : screen.orientation.angle se SOUSTRAIT (Full-Tilt / W3C), pas s’ajoute.
-      const beta = Number.isFinite(e.beta as number) ? (e.beta as number) : 0;
-      const gamma = Number.isFinite(e.gamma as number) ? (e.gamma as number) : 0;
-      return this.tiltCompensatedHeadingDeg(e.alpha, beta, gamma, this.currentScreenAngle());
+      return this.normalizeDeg(360 - e.alpha - this.currentScreenAngle());
     }
     return null;
   }
@@ -8868,8 +8934,12 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.issCompassHeadingDeg = null;
       return;
     }
-    const offset = this.issCompassNorthOffsetDeg ?? 0;
+    const offset =
+      this.issCompassCalMethod === 'sensor' || this.issCompassCalMethod == null
+        ? 0
+        : (this.issCompassNorthOffsetDeg ?? 0);
     this.issCompassHeadingDeg = this.normalizeDeg(this.issCompassHeadingRawDeg + offset);
+    this.tickIssCompassAlignCue();
   }
 
   private currentScreenAngle(): number {
@@ -9019,18 +9089,26 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** Rotation (deg) de la rose des vents : le Nord pointe vers le Nord réel selon le cap appareil. */
   issCompassRoseRotationDeg(): number {
-    return this.issCompassHeadingActive && this.issCompassHeadingDeg != null
-      ? -this.issCompassHeadingDeg
-      : 0;
+    if (!this.issCompassHeadingActive || this.issCompassHeadingDeg == null) {
+      return 0;
+    }
+    return this.issNorthEngine.unwrapRose(this.issCompassHeadingDeg);
   }
 
-  /** Rotation (deg) de l’aiguille ISS : pointe vers l’ISS, relative au haut de l’appareil. */
   issCompassNeedleRotationDeg(): number {
     const az = this.issCompassAzimuthDeg ?? 0;
-    if (this.issCompassHeadingActive && this.issCompassHeadingDeg != null) {
-      return this.normalizeDeg(az - this.issCompassHeadingDeg);
-    }
-    return az;
+    const target =
+      this.issCompassHeadingActive && this.issCompassHeadingDeg != null
+        ? this.normalizeDeg(az - this.issCompassHeadingDeg)
+        : az;
+    const r = this.issNorthEngine.unwrapAngle(
+      this.issCompassNeedleUnwrappedDeg,
+      target,
+      this.issCompassNeedleInited
+    );
+    this.issCompassNeedleUnwrappedDeg = r.value;
+    this.issCompassNeedleInited = r.inited;
+    return this.issCompassNeedleUnwrappedDeg;
   }
 
   /** Libellé cardinal (16 points) de l’azimut courant, traduit. */
@@ -9055,8 +9133,11 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     let diff = this.issCompassAzimuthDeg - this.issCompassHeadingDeg;
     diff = ((diff + 540) % 360) - 180;
     const mag = Math.abs(diff);
-    if (mag <= 7) {
-      return { key: 'WORLD_GLOBE.COMPASS_FACING', deg: 0 };
+    if (mag <= ISS_COMPASS_FACING_DEG) {
+      if (this.issCompassIsPitchAligned()) {
+        return { key: 'WORLD_GLOBE.COMPASS_FACING', deg: 0 };
+      }
+      return { key: 'WORLD_GLOBE.ISS_COMPASS_TURN_OK', deg: 0 };
     }
     return {
       key: diff > 0 ? 'WORLD_GLOBE.COMPASS_TURN_RIGHT' : 'WORLD_GLOBE.COMPASS_TURN_LEFT',
@@ -9066,13 +9147,19 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** ISS au-dessus de l’horizon (visible géométriquement) selon l’élévation calculée. */
   issCompassIssAboveHorizon(): boolean {
-    return this.issCompassElevationDeg != null && this.issCompassElevationDeg >= 0;
+    return this.issCompassElevationDeg != null && this.issCompassElevationDeg >= -1;
   }
 
-  /** L’appareil pointe vers l’ISS (cap connu et écart d’azimut faible) : déclenche le voyant lumineux. */
   issCompassIsFacing(): boolean {
-    const instr = this.issCompassRelativeInstruction();
-    return instr != null && instr.key === 'WORLD_GLOBE.COMPASS_FACING';
+    if (
+      !this.issCompassHeadingActive ||
+      this.issCompassHeadingDeg == null ||
+      this.issCompassAzimuthDeg == null ||
+      !this.issCompassIssAboveHorizon()
+    ) {
+      return false;
+    }
+    return this.issCompassIsYawAligned() && this.issCompassIsPitchAligned();
   }
 
   /** Altitude de l’ISS (km) utilisée pour le calcul (valeur API ou repli 420 km). */
@@ -9082,12 +9169,529 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** Hauteur (%) de la jauge d’élévation : 0° = horizon, 90° = zénith (élévations < 0 repliées à 0). */
   issCompassElevationGaugePercent(): number {
-    const el = this.issCompassElevationDeg;
-    if (el == null) {
+    return this.issCompassSignedTiltToGaugePercent(this.issCompassTargetPhoneTiltDeg());
+  }
+
+  issCompassDevicePitchGaugePercent(): number {
+    return this.issCompassSignedTiltToGaugePercent(this.issCompassDevicePitchDeg);
+  }
+
+  issCompassPitchFillHeightPct(): number {
+    if (this.issCompassDevicePitchDeg == null) {
       return 0;
     }
-    const clamped = Math.max(0, Math.min(90, el));
-    return (clamped / 90) * 100;
+    return (Math.min(90, Math.abs(this.issCompassDevicePitchDeg)) / 90) * 50;
+  }
+
+  issCompassPitchFillBottomPct(): number {
+    if (this.issCompassDevicePitchDeg == null || this.issCompassDevicePitchDeg >= 0) {
+      return 50;
+    }
+    return 50 - this.issCompassPitchFillHeightPct();
+  }
+
+  issCompassTargetPhoneTiltDeg(): number | null {
+    if (this.issCompassElevationDeg == null) {
+      return null;
+    }
+    return 90 - this.issCompassElevationDeg;
+  }
+
+  issCompassFormatSignedDeg(deg: number | null): string {
+    if (deg == null || !Number.isFinite(deg)) {
+      return '—';
+    }
+    const n = Math.round(deg);
+    return n > 0 ? `+${n}°` : `${n}°`;
+  }
+
+  private issCompassSignedTiltToGaugePercent(tilt: number | null): number {
+    if (tilt == null || !Number.isFinite(tilt)) {
+      return 50;
+    }
+    const p = Math.max(-90, Math.min(90, tilt));
+    return ((p + 90) / 180) * 100;
+  }
+
+  issCompassDirectionArrow(): 'left' | 'right' | 'ok' | null {
+    const instr = this.issCompassRelativeInstruction();
+    if (instr == null) {
+      return null;
+    }
+    if (instr.key === 'WORLD_GLOBE.COMPASS_TURN_LEFT') {
+      return 'left';
+    }
+    if (instr.key === 'WORLD_GLOBE.COMPASS_TURN_RIGHT') {
+      return 'right';
+    }
+    return 'ok';
+  }
+
+  issCompassTiltInstruction(): {
+    key: string;
+    hintKey: string;
+    delta: string;
+    current: string;
+    target: string;
+  } | null {
+    const target = this.issCompassTargetPhoneTiltDeg();
+    const current = this.issCompassDevicePitchDeg;
+    if (target == null || current == null || !this.issCompassIssAboveHorizon()) {
+      return null;
+    }
+    const diff = Math.round(target) - Math.round(current);
+    const mag = Math.abs(diff);
+    if (mag <= ISS_COMPASS_PITCH_DEG) {
+      return {
+        key: 'ASTRO_COMPASS.TILT_OK',
+        hintKey: '',
+        delta: this.issCompassFormatSignedDeg(0),
+        current: this.issCompassFormatSignedDeg(Math.round(current)),
+        target: this.issCompassFormatSignedDeg(Math.round(target))
+      };
+    }
+    return {
+      key: diff > 0 ? 'ASTRO_COMPASS.TILT_PLUS' : 'ASTRO_COMPASS.TILT_MINUS',
+      hintKey: diff > 0 ? 'ASTRO_COMPASS.TILT_HINT_PLUS' : 'ASTRO_COMPASS.TILT_HINT_MINUS',
+      delta: this.issCompassFormatSignedDeg(diff),
+      current: this.issCompassFormatSignedDeg(Math.round(current)),
+      target: this.issCompassFormatSignedDeg(Math.round(target))
+    };
+  }
+
+  issCompassAngleArrow(): 'up' | 'down' | 'ok' | null {
+    if (!this.issCompassIssAboveHorizon()) {
+      return 'down';
+    }
+    const tilt = this.issCompassTiltInstruction();
+    if (tilt == null) {
+      if ((this.issCompassElevationDeg ?? 0) >= 2) {
+        return 'up';
+      }
+      return null;
+    }
+    if (tilt.key === 'ASTRO_COMPASS.TILT_OK') {
+      return 'ok';
+    }
+    if (tilt.key === 'ASTRO_COMPASS.TILT_PLUS') {
+      return 'up';
+    }
+    if (tilt.key === 'ASTRO_COMPASS.TILT_MINUS') {
+      return 'down';
+    }
+    return null;
+  }
+
+  issCompassIsYawAligned(): boolean {
+    if (
+      !this.issCompassHeadingActive ||
+      this.issCompassHeadingDeg == null ||
+      this.issCompassAzimuthDeg == null
+    ) {
+      return false;
+    }
+    return Math.abs(this.circularDiffDeg(this.issCompassAzimuthDeg, this.issCompassHeadingDeg)) <
+      ISS_COMPASS_FACING_DEG;
+  }
+
+  issCompassIsPitchAligned(): boolean {
+    const target = this.issCompassTargetPhoneTiltDeg();
+    if (target == null || this.issCompassDevicePitchDeg == null || !this.issCompassIssAboveHorizon()) {
+      return this.issCompassDevicePitchDeg == null;
+    }
+    return Math.abs(target - this.issCompassDevicePitchDeg) <= ISS_COMPASS_PITCH_DEG;
+  }
+
+  issCompassIsOctantLit(bit: number): boolean {
+    return (this.issCompassOctantMask & (1 << bit)) !== 0;
+  }
+
+  issCompassSensorCalProgressPct(): number {
+    return this.issNorthEngine.calProgressPct;
+  }
+
+  issCompassSensorSettlePercent(): number {
+    return Math.max(0, Math.min(100, 100 - this.issNorthEngine.settleRemainMs / 18));
+  }
+
+  setIssCompassAlignCue(mode: 'off' | 'beep' | 'vibrate'): void {
+    this.issCompassAlignCue = mode;
+    try {
+      localStorage.setItem(ISS_COMPASS_ALIGN_CUE_KEY, mode);
+    } catch {
+      /* ignore */
+    }
+    if (mode === 'beep') {
+      this.ensureIssCompassAlignAudio();
+    }
+    this.cdr.markForCheck();
+  }
+
+  private loadIssCompassAlignCuePref(): void {
+    try {
+      const raw = localStorage.getItem(ISS_COMPASS_ALIGN_CUE_KEY);
+      if (raw === 'off' || raw === 'beep' || raw === 'vibrate') {
+        this.issCompassAlignCue = raw;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private tickIssCompassAlignCue(): void {
+    if (this.issCompassAlignCue === 'off') {
+      this.issCompassAlignCuePrevYaw = this.issCompassIsYawAligned();
+      this.issCompassAlignCuePrevPitch = this.issCompassIsPitchAligned() && this.issCompassIssAboveHorizon();
+      this.issCompassAlignCuePrevBoth = this.issCompassIsFacing();
+      return;
+    }
+    const yaw = this.issCompassIsYawAligned();
+    const pitch =
+      this.issCompassIssAboveHorizon() &&
+      this.issCompassDevicePitchDeg != null &&
+      this.issCompassIsPitchAligned();
+    const both = yaw && pitch;
+    if (both && !this.issCompassAlignCuePrevBoth) {
+      this.fireIssCompassAlignCue(2);
+    } else if (yaw && !this.issCompassAlignCuePrevYaw && !pitch) {
+      this.fireIssCompassAlignCue(1);
+    } else if (pitch && !this.issCompassAlignCuePrevPitch && !yaw) {
+      this.fireIssCompassAlignCue(1);
+    }
+    this.issCompassAlignCuePrevYaw = yaw;
+    this.issCompassAlignCuePrevPitch = pitch;
+    this.issCompassAlignCuePrevBoth = both;
+  }
+
+  private fireIssCompassAlignCue(count: 1 | 2): void {
+    if (this.issCompassAlignCue === 'vibrate') {
+      try {
+        if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+          navigator.vibrate(count === 1 ? 90 : [90, 110, 90]);
+        }
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+    if (this.issCompassAlignCue === 'beep') {
+      this.playIssCompassAlignBeeps(count);
+    }
+  }
+
+  private ensureIssCompassAlignAudio(): AudioContext | null {
+    const w = window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext };
+    const Ctor = w.AudioContext ?? w.webkitAudioContext;
+    if (!Ctor) {
+      return null;
+    }
+    if (this.issCompassAlignAudioCtx == null) {
+      this.issCompassAlignAudioCtx = new Ctor();
+    }
+    const ctx = this.issCompassAlignAudioCtx;
+    if (ctx.state === 'suspended') {
+      void ctx.resume();
+    }
+    return ctx;
+  }
+
+  private playIssCompassAlignBeeps(count: 1 | 2): void {
+    const ctx = this.ensureIssCompassAlignAudio();
+    if (!ctx) {
+      return;
+    }
+    const beep = (at: number): void => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, at);
+      gain.gain.exponentialRampToValueAtTime(0.12, at + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.12);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(at);
+      osc.stop(at + 0.14);
+    };
+    const t0 = ctx.currentTime;
+    beep(t0);
+    if (count === 2) {
+      beep(t0 + 0.2);
+    }
+  }
+
+  private closeIssCompassAlignAudio(): void {
+    if (this.issCompassAlignAudioCtx) {
+      try {
+        void this.issCompassAlignAudioCtx.close();
+      } catch {
+        /* ignore */
+      }
+      this.issCompassAlignAudioCtx = null;
+    }
+  }
+
+  private startIssCompassNorthSensors(): void {
+    if (this.issCompassNorthSensorsStarted || typeof window === 'undefined') {
+      return;
+    }
+    this.issCompassNorthSensorsStarted = true;
+    const w = window as unknown as Record<string, unknown>;
+    this.tryIssCompassGenericSensor(
+      w['Magnetometer'] as (new (opts: { frequency: number }) => IssCompassGenericSensor) | undefined,
+      (s) => {
+        this.issNorthEngine.hasMag = true;
+        this.onIssCompassMagSample(s.x ?? 0, s.y ?? 0, s.z ?? 0);
+      }
+    );
+    this.tryIssCompassGenericSensor(
+      w['Accelerometer'] as (new (opts: { frequency: number }) => IssCompassGenericSensor) | undefined,
+      (s) => {
+        const x = s.x ?? 0;
+        const y = s.y ?? 0;
+        const z = s.z ?? 0;
+        if (!this.issCompassAccelFromGeneric) {
+          this.issNorthEngine.accel = { x, y, z };
+          this.issNorthEngine.hasAccel = true;
+          this.issCompassAccelFromGeneric = true;
+        }
+        this.onIssCompassAccelSample(x, y, z);
+      }
+    );
+    this.tryIssCompassGenericSensor(
+      w['GravitySensor'] as (new (opts: { frequency: number }) => IssCompassGenericSensor) | undefined,
+      (s) => {
+        const x = s.x ?? 0;
+        const y = s.y ?? 0;
+        const z = s.z ?? 0;
+        this.issNorthEngine.accel = { x, y, z };
+        this.issNorthEngine.hasAccel = true;
+        this.issCompassAccelFromGeneric = true;
+        this.onIssCompassAccelSample(x, y, z);
+      }
+    );
+    this.tryIssCompassGenericSensor(
+      w['Gyroscope'] as (new (opts: { frequency: number }) => IssCompassGenericSensor) | undefined,
+      (s) => {
+        this.issNorthEngine.gyro = { x: s.x ?? 0, y: s.y ?? 0, z: s.z ?? 0 };
+        this.issNorthEngine.hasGyro = true;
+        this.issCompassGyroFromGeneric = true;
+        this.tickIssCompassGyro();
+      }
+    );
+  }
+
+  private tryIssCompassGenericSensor(
+    Ctor: (new (opts: { frequency: number }) => IssCompassGenericSensor) | undefined,
+    onReading: (s: IssCompassGenericSensor) => void
+  ): void {
+    if (typeof Ctor !== 'function') {
+      return;
+    }
+    try {
+      const sensor = new Ctor({ frequency: ISS_COMPASS_NORTH_SENSOR_HZ });
+      const reading = (): void => onReading(sensor);
+      sensor.addEventListener('reading', reading);
+      sensor.addEventListener('error', () => {
+        /* ignore */
+      });
+      sensor.start();
+      this.issCompassNorthSensors.push(sensor);
+    } catch {
+      /* permission / unsupported */
+    }
+  }
+
+  private startIssCompassDeviceMotion(): void {
+    if (
+      this.issCompassMotionListening ||
+      typeof window === 'undefined' ||
+      !('DeviceMotionEvent' in window)
+    ) {
+      return;
+    }
+    this.zone.runOutsideAngular(() => {
+      window.addEventListener('devicemotion', this.handleIssCompassDeviceMotion, true);
+    });
+    this.issCompassMotionListening = true;
+  }
+
+  private handleIssCompassDeviceMotion = (e: DeviceMotionEvent): void => {
+    const a = e.accelerationIncludingGravity;
+    if (!this.issCompassAccelFromGeneric && a?.x != null && a.y != null && a.z != null) {
+      this.issNorthEngine.accel = { x: a.x, y: a.y, z: a.z };
+      this.issNorthEngine.hasAccel = true;
+      this.onIssCompassAccelSample(a.x, a.y, a.z);
+    }
+    const r = e.rotationRate;
+    if (this.issCompassGyroFromGeneric || r?.alpha == null || r.beta == null || r.gamma == null) {
+      return;
+    }
+    const k = Math.PI / 180;
+    this.issNorthEngine.gyro = { x: r.beta * k, y: r.gamma * k, z: r.alpha * k };
+    this.issNorthEngine.hasGyro = true;
+    this.tickIssCompassGyro();
+  };
+
+  private stopIssCompassNorthSensors(): void {
+    this.issNorthEngine.destroy();
+    this.issNorthEngine.hasMag = false;
+    this.issNorthEngine.hasGyro = false;
+    this.issNorthEngine.hasAccel = false;
+    this.issNorthEngine.fusedHeading = null;
+    for (const s of this.issCompassNorthSensors) {
+      try {
+        s.stop();
+      } catch {
+        /* ignore */
+      }
+    }
+    this.issCompassNorthSensors = [];
+    this.issCompassNorthSensorsStarted = false;
+    this.issCompassAccelFromGeneric = false;
+    this.issCompassGyroFromGeneric = false;
+    if (this.issCompassMotionListening) {
+      window.removeEventListener('devicemotion', this.handleIssCompassDeviceMotion, true);
+      this.issCompassMotionListening = false;
+    }
+  }
+
+  private onIssCompassMagSample(x: number, y: number, z: number): void {
+    if (this.issNorthEngine.calPhase === 'figure8' && this.issNorthEngine.ingestFigure8Mag(x, y, z)) {
+      this.beginIssCompassSensorSettle();
+    }
+    this.issCompassOctantMask = this.issNorthEngine.octantMask;
+    const c = this.issNorthEngine.correctMag(x, y, z);
+    const heading = this.issNorthEngine.headingFromMagAccel(c.x, c.y, c.z, this.currentScreenAngle());
+    if (heading != null) {
+      this.publishIssCompassMagHeading(heading);
+    }
+    this.paintIssCompassCalNow();
+  }
+
+  private onIssCompassAccelSample(x: number, y: number, z: number): void {
+    this.updateIssCompassPitchFromAccel();
+    if (this.issNorthEngine.calPhase === 'figure8' && this.issNorthEngine.ingestFigure8Accel(x, y, z)) {
+      this.beginIssCompassSensorSettle();
+    }
+    this.issCompassOctantMask = this.issNorthEngine.octantMask;
+    this.paintIssCompassCalNow();
+  }
+
+  private publishIssCompassMagHeading(raw: number): void {
+    if (this.issOsHeadingIsFresh()) {
+      return;
+    }
+    const locked = this.issCompassCalStatus === 'calibrated' && this.issCompassCalMethod === 'sensor';
+    const fused = this.issNorthEngine.fuseMagHeading(raw, locked);
+    this.issCompassHeadingInstantDeg = fused;
+    this.issCompassHeadingRawDeg = fused;
+    this.applyIssCompassNorthOffset();
+    this.issCompassHeadingActive = true;
+    this.issCompassHeadingSource = 'magnetometer';
+    this.issCompassSensorAbsolute = true;
+    this.scheduleIssCompassHeadingPaint();
+  }
+
+  private tickIssCompassGyro(): void {
+    if (this.issOsHeadingIsFresh()) {
+      return;
+    }
+    const locked = this.issCompassCalStatus === 'calibrated' && this.issCompassCalMethod === 'sensor';
+    const fused = this.issNorthEngine.tickGyro(locked);
+    if (fused == null) {
+      return;
+    }
+    this.issCompassHeadingInstantDeg = fused;
+    this.issCompassHeadingRawDeg = fused;
+    this.applyIssCompassNorthOffset();
+    this.issCompassHeadingActive = true;
+    this.scheduleIssCompassHeadingPaint();
+  }
+
+  private beginIssCompassSensorSettle(): void {
+    if (this.issNorthEngine.calPhase === 'settle') {
+      return;
+    }
+    this.issNorthEngine.beginSettle(
+      () => this.finishIssCompassSensorCal(),
+      () => this.scheduleIssCompassHeadingPaint()
+    );
+    this.scheduleIssCompassHeadingPaint();
+  }
+
+  private finishIssCompassSensorCal(): void {
+    this.issCompassNorthOffsetDeg = 0;
+    this.issCompassCalMethod = 'sensor';
+    this.issCompassCalStatus = 'calibrated';
+    this.applyIssCompassNorthOffset();
+    this.persistIssCompassCalibration('sensor', 0);
+    this.zone.run(() => this.cdr.markForCheck());
+  }
+
+  private paintIssCompassCalNow(): void {
+    if (this.issNorthEngine.calPhase !== 'figure8' && this.issNorthEngine.calPhase !== 'settle') {
+      return;
+    }
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (now - this.issCompassCalPaintLastMs < 40) {
+      return;
+    }
+    this.issCompassCalPaintLastMs = now;
+    this.zone.run(() => this.cdr.detectChanges());
+  }
+
+  private scheduleIssCompassHeadingPaint(): void {
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (now - this.issCompassHeadingLastPaintMs < 50) {
+      return;
+    }
+    this.issCompassHeadingLastPaintMs = now;
+    this.zone.run(() => this.cdr.markForCheck());
+  }
+
+  private issOsHeadingIsFresh(): boolean {
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    return now - this.issCompassLastOsHeadingMs < ISS_OS_HEADING_FRESH_MS;
+  }
+
+  private updateIssCompassPitchFromAccel(): void {
+    const up = this.issNorthEngine.normalizeVec(
+      this.issNorthEngine.accel.x,
+      this.issNorthEngine.accel.y,
+      this.issNorthEngine.accel.z
+    );
+    if (!up) {
+      return;
+    }
+    const sa = ((this.currentScreenAngle() % 360) + 360) % 360;
+    let topX = 0;
+    let topY = 1;
+    if (sa === 90) {
+      topX = 1;
+      topY = 0;
+    } else if (sa === 180) {
+      topX = 0;
+      topY = -1;
+    } else if (sa === 270) {
+      topX = -1;
+      topY = 0;
+    }
+    const topDotUp = topX * up.x + topY * up.y;
+    const pitch = (Math.atan2(topDotUp, up.z) * 180) / Math.PI;
+    this.applyIssCompassDevicePitch(pitch);
+  }
+
+  private applyIssCompassDevicePitch(pitch: number | null): void {
+    if (pitch == null || !Number.isFinite(pitch)) {
+      return;
+    }
+    this.issCompassDevicePitchInstant = pitch;
+    this.issCompassDevicePitchDeg =
+      this.issCompassDevicePitchDeg == null
+        ? pitch
+        : this.issCompassDevicePitchDeg * (1 - ISS_COMPASS_PITCH_SMOOTH) + pitch * ISS_COMPASS_PITCH_SMOOTH;
+    this.tickIssCompassAlignCue();
   }
 
   /** Âge des données ISS, formaté « à l’instant / il y a Ns / il y a Nmin », sinon null. */

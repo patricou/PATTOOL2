@@ -1,6 +1,7 @@
 package com.pat.controller;
 
 import com.pat.controller.dto.CompassCalibrationDto;
+import com.pat.controller.dto.CompassHeadingModeDto;
 import com.pat.controller.dto.FlightStateDto;
 import com.pat.controller.dto.FlightTrackDto;
 import com.pat.controller.dto.FlightTrackingPreferenceDto;
@@ -629,6 +630,39 @@ public class GlobeProxyController {
         }
         compassCalibrationService.deleteForSubject(sub);
         return ResponseEntity.noContent().build();
+    }
+
+    /** Méthode de cap Nord (boussole astres) mémorisée pour l'utilisateur courant. */
+    @GetMapping("/iss/compass/heading-mode")
+    public ResponseEntity<CompassHeadingModeDto> getCompassHeadingMode() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return compassCalibrationService.findHeadingModeForSubject(sub)
+                .map(mode -> ResponseEntity.ok(new CompassHeadingModeDto(mode)))
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    /** Mémorise la méthode de cap Nord choisie par l'utilisateur. */
+    @PutMapping("/iss/compass/heading-mode")
+    public ResponseEntity<CompassHeadingModeDto> setCompassHeadingMode(@RequestBody CompassHeadingModeDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (body == null || body.headingMode() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            String saved = compassCalibrationService.saveHeadingModeForSubject(sub, body.headingMode());
+            return ResponseEntity.ok(new CompassHeadingModeDto(saved));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        } catch (Exception e) {
+            log.warn("Compass heading mode save failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     /* ===================================================================== */

@@ -443,6 +443,31 @@
               </div>
             </div>
 
+            <div class="ac-north-mode" role="radiogroup" [attr.aria-label]="'ASTRO_COMPASS.NORTH_MODE_TITLE' | translate">
+              <div class="ac-north-mode__head">
+                <div class="ac-north-mode__title">
+                  <i class="fa fa-sliders me-2" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.NORTH_MODE_TITLE' | translate }}
+                </div>
+                <p class="ac-north-mode__intro">{{ 'ASTRO_COMPASS.NORTH_MODE_HINT' | translate }}</p>
+                <p class="ac-north-mode__saved" *ngIf="northHeadingModePersisted">
+                  <i class="fa fa-floppy-o me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.NORTH_MODE_SAVED' | translate }}
+                </p>
+              </div>
+              <div class="ac-north-mode__row" *ngFor="let m of northHeadingModeOptions">
+                <input
+                  class="ac-visible-switch__input"
+                  type="checkbox"
+                  role="switch"
+                  [id]="'acNorthMode-' + m.id"
+                  [checked]="northHeadingMode === m.id"
+                  (click)="$event.preventDefault(); setNorthHeadingMode(m.id)" />
+                <label class="ac-visible-switch__label" [attr.for]="'acNorthMode-' + m.id">
+                  <span class="ac-visible-switch__title">{{ m.titleKey | translate }}</span>
+                  <span class="ac-visible-switch__hint">{{ m.hintKey | translate }}</span>
+                </label>
+              </div>
+            </div>
+
             <div class="ac-compass-hint ac-compass-hint--nosensor" *ngIf="!headingActive">
               <div class="ac-compass-hint__head">
                 <i class="fa fa-exclamation-triangle me-2" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.NO_SENSOR_TITLE' | translate }}
@@ -1021,6 +1046,10 @@
       <div class="ac-compass-readout__item">
         <span class="ac-compass-readout__key">{{ 'ASTRO_COMPASS.SENSOR_EVENT' | translate }}</span>
         <span class="ac-compass-readout__val">{{ sensorEventName() || '—' }}</span>
+      </div>
+      <div class="ac-compass-readout__item">
+        <span class="ac-compass-readout__key">{{ 'ASTRO_COMPASS.NORTH_MODE_TITLE' | translate }}</span>
+        <span class="ac-compass-readout__val">{{ northHeadingModeTitleKey() | translate }}</span>
       </div>
       <div class="ac-compass-readout__item" *ngIf="calMethodLabelKey() as calKey">
         <span class="ac-compass-readout__key">{{ 'ASTRO_COMPASS.SENSOR_CAL_METHOD' | translate }}</span>
