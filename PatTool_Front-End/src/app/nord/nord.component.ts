@@ -8,6 +8,8 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
+import { Subscription } from 'rxjs';
+import { ApiService } from '../services/api.service';
 import { magneticDeclinationDeg } from './magnetic-declination';
 
 const STORAGE_KEY = 'pat.nord.calibration.v1';
@@ -81,6 +83,10 @@ export class NordComponent implements OnInit, OnDestroy {
   headingMagDeg: number | null = null;
   headingTrueDeg: number | null = null;
   headingSource: HeadingSource | null = null;
+  /** 0° = à plat (écran vers le ciel), 90° = vertical. */
+  pitchDeg: number | null = null;
+  /** Roulis, 0° = pas de bascule gauche/droite. */
+  rollDeg: number | null = null;
   northOffsetDeg = 0;
   trueNorth = true;
   declinationDeg: number | null = null;
@@ -100,10 +106,14 @@ export class NordComponent implements OnInit, OnDestroy {
   gpsAccuracyM: number | null = null;
   gpsHeadingDeg: number | null = null;
   gpsSpeedMs: number | null = null;
+  addressLabel: string | null = null;
+  addressBusy = false;
+  addressError: string | null = null;
 
   tiles: SensorTile[] = NordComponent.initialTiles();
 
-  readonly bezelDegrees = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
+  /** Pas de 0/90/180/270 : les lettres N/E/S/O occupent déjà ces positions. */
+  readonly bezelDegrees = [30, 60, 120, 150, 210, 240, 300, 330];
   readonly octantBits = [0, 1, 2, 3, 4, 5, 6, 7];
 
   private octantMask = 0;
@@ -115,6 +125,8 @@ export class NordComponent implements OnInit, OnDestroy {
   private figure8Headings: number[] = [];
 
   private fusedHeading: number | null = null;
+  private roseUnwrappedDeg = 0;
+  private roseInited = false;
   private lastFusionTs: number | null = null;
   private headingSamples: number[] = [];
   private lastPaintMs = 0;
@@ -122,6 +134,7 @@ export class NordComponent implements OnInit, OnDestroy {
   private accel = { x: 0, y: 0, z: 9.81 };
   private gyro = { x: 0, y: 0, z: 0 };
   private hasAccel = false;
+  private accelFromGeneric = false;
   private hasGyro = false;
   private hasMag = false;
 
@@ -137,6 +150,10 @@ export class NordComponent implements OnInit, OnDestroy {
   private networkHandler: EventListener | null = null;
   private screenHandler: (() => void) | null = null;
   private settleTimer: ReturnType<typeof setInterval> | null = null;
+  private reverseGeocodeSub: Subscription | null = null;
+  private lastAddressLat: number | null = null;
+  private lastAddressLon: number | null = null;
+  private lastAddressAtMs = 0;
   private handleOrientation = (e: DeviceOrientationEvent): void => this.onDeviceOrientation(e);
   private handleMotion = (e: DeviceMotionEvent): void => this.onDeviceMotion(e);
   private handleBattery = (): void => {
@@ -145,7 +162,8 @@ export class NordComponent implements OnInit, OnDestroy {
 
   constructor(
     private readonly zone: NgZone,
-    private readonly cdr: ChangeDetectorRef
+    private readonly cdr: ChangeDetectorRef,
+    private readonly api: ApiService
   ) {}
 
   ngOnInit(): void {
@@ -188,12 +206,49 @@ export class NordComponent implements OnInit, OnDestroy {
     this.scale = { x: 1, y: 1, z: 1 };
     this.octantMask = 0;
     this.fusedHeading = null;
+    this.roseInited = false;
     this.clearSettleTimer();
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {
       /* ignore */
     }
+  }
+
+  refreshAddress(): void {
+    this.addressError = null;
+    this.addressBusy = true;
+    this.cdr.markForCheck();
+    if (!navigator.geolocation) {
+      if (this.gpsLat != null && this.gpsLon != null) {
+        this.resolveAddress(this.gpsLat, this.gpsLon);
+        return;
+      }
+      this.addressBusy = false;
+      this.addressError = 'NORD.ADDRESS_NEED_GPS';
+      this.cdr.markForCheck();
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        this.gpsLat = pos.coords.latitude;
+        this.gpsLon = pos.coords.longitude;
+        this.gpsAccuracyM = pos.coords.accuracy;
+        this.declinationDeg = magneticDeclinationDeg(this.gpsLat, this.gpsLon);
+        this.applyDeclination();
+        this.resolveAddress(this.gpsLat, this.gpsLon);
+      },
+      () => {
+        if (this.gpsLat != null && this.gpsLon != null) {
+          this.resolveAddress(this.gpsLat, this.gpsLon);
+          return;
+        }
+        this.addressBusy = false;
+        this.addressError = 'NORD.ADDRESS_NEED_GPS';
+        this.cdr.markForCheck();
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
   }
 
   toggleTrueNorth(): void {
@@ -203,8 +258,7 @@ export class NordComponent implements OnInit, OnDestroy {
   }
 
   roseRotationDeg(): number {
-    const h = this.displayedHeading();
-    return h == null ? 0 : -h;
+    return this.roseUnwrappedDeg;
   }
 
   displayedHeading(): number | null {
@@ -243,7 +297,33 @@ export class NordComponent implements OnInit, OnDestroy {
 
   headingText(): string {
     const h = this.displayedHeading();
-    return h == null ? '—' : h.toFixed(0);
+    if (h == null) {
+      return '—';
+    }
+    return String(((Math.round(h) % 360) + 360) % 360);
+  }
+
+  pitchText(): string {
+    return this.pitchDeg == null ? '—' : `${this.pitchDeg.toFixed(0)}°`;
+  }
+
+  rollText(): string {
+    if (this.rollDeg == null) {
+      return '—';
+    }
+    const r = this.rollDeg;
+    const abs = Math.abs(r).toFixed(0);
+    if (Math.abs(r) < 1) {
+      return '0°';
+    }
+    return r > 0 ? `${abs}° D` : `${abs}° G`;
+  }
+
+  pitchGaugePercent(): number {
+    if (this.pitchDeg == null) {
+      return 0;
+    }
+    return Math.max(0, Math.min(100, (Math.min(Math.abs(this.pitchDeg), 90) / 90) * 100));
   }
 
   headingSourceKey(): string {
@@ -419,7 +499,10 @@ export class NordComponent implements OnInit, OnDestroy {
         const z = s.z ?? 0;
         this.accel = { x, y, z };
         this.hasAccel = true;
+        this.accelFromGeneric = true;
+        this.updateAttitudeFromAccel();
         this.setTile('accelerometer', 'live', this.xyzRows(x, y, z, 'm/s²'));
+        this.schedulePaint();
       }
     );
     this.tryGeneric(
@@ -431,7 +514,10 @@ export class NordComponent implements OnInit, OnDestroy {
         const z = s.z ?? 0;
         this.accel = { x, y, z };
         this.hasAccel = true;
+        this.accelFromGeneric = true;
+        this.updateAttitudeFromAccel();
         this.setTile('gravity', 'live', this.xyzRows(x, y, z, 'm/s²'));
+        this.schedulePaint();
       }
     );
     this.tryGeneric(
@@ -593,6 +679,7 @@ export class NordComponent implements OnInit, OnDestroy {
           this.publishMagHeading(this.gpsHeadingDeg, 'gps');
         }
         this.schedulePaint();
+        this.maybeResolveAddressFromGps(this.gpsLat, this.gpsLon);
       },
       () => this.setTile('geolocation', 'denied', []),
       { enableHighAccuracy: true, maximumAge: 1000, timeout: 20000 }
@@ -715,6 +802,11 @@ export class NordComponent implements OnInit, OnDestroy {
     }
     this.setTile('device-orientation', 'live', rows);
 
+    const beta = Number.isFinite(e.beta as number) ? (e.beta as number) : null;
+    const gamma = Number.isFinite(e.gamma as number) ? (e.gamma as number) : null;
+    if (!this.hasAccel && beta != null && gamma != null) {
+      this.updateAttitudeFromBetaGamma(beta, gamma);
+    }
     if (this.hasMag) {
       this.schedulePaint();
       return;
@@ -755,9 +847,10 @@ export class NordComponent implements OnInit, OnDestroy {
         { label: 'ay', value: this.fmt(a.y) },
         { label: 'az', value: this.fmt(a.z) }
       );
-      if (!this.hasAccel && a.x != null && a.y != null && a.z != null) {
+      if (!this.accelFromGeneric && a.x != null && a.y != null && a.z != null) {
         this.accel = { x: a.x, y: a.y, z: a.z };
         this.hasAccel = true;
+        this.updateAttitudeFromAccel();
       }
     }
     if (lin) {
@@ -933,6 +1026,93 @@ export class NordComponent implements OnInit, OnDestroy {
     }
     const d = this.declinationDeg ?? 0;
     this.headingTrueDeg = this.normalizeDeg(this.headingMagDeg + d);
+    this.syncRose();
+  }
+
+  private maybeResolveAddressFromGps(lat: number, lon: number): void {
+    const now = Date.now();
+    const moved =
+      this.lastAddressLat == null ||
+      this.lastAddressLon == null ||
+      Math.abs(lat - this.lastAddressLat) > 0.002 ||
+      Math.abs(lon - this.lastAddressLon) > 0.002;
+    if (!moved && this.addressLabel && now - this.lastAddressAtMs < 45000) {
+      return;
+    }
+    if (!moved && this.addressLabel) {
+      return;
+    }
+    this.resolveAddress(lat, lon);
+  }
+
+  private resolveAddress(lat: number, lon: number): void {
+    this.lastAddressLat = lat;
+    this.lastAddressLon = lon;
+    this.lastAddressAtMs = Date.now();
+    this.addressBusy = true;
+    this.addressError = null;
+    this.reverseGeocodeSub?.unsubscribe();
+    this.reverseGeocodeSub = this.api.geocodeReverse(lat, lon).subscribe({
+      next: (res: { display_name?: string; displayName?: string }) => {
+        const name = String(res?.display_name || res?.displayName || '').trim();
+        this.addressLabel = name || null;
+        this.addressBusy = false;
+        if (!name) {
+          this.addressError = 'NORD.ADDRESS_NOT_FOUND';
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.addressBusy = false;
+        this.addressError = 'NORD.ADDRESS_ERROR';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  /**
+   * Angle CSS continu : on n’écrit jamais 359→0, sinon la transition (ou le navigateur)
+   * interpolait un tour complet au passage du N sous la flèche.
+   */
+  private syncRose(): void {
+    const h = this.displayedHeading();
+    if (h == null) {
+      return;
+    }
+    const target = this.normalizeDeg(-h);
+    if (!this.roseInited) {
+      this.roseUnwrappedDeg = -h;
+      this.roseInited = true;
+      return;
+    }
+    const current = this.normalizeDeg(this.roseUnwrappedDeg);
+    this.roseUnwrappedDeg += this.circularDiff(target, current);
+  }
+
+  private updateAttitudeFromAccel(): void {
+    const up = this.normalizeVec(this.accel.x, this.accel.y, this.accel.z);
+    if (!up) {
+      return;
+    }
+    const z = Math.max(-1, Math.min(1, up.z));
+    const skyEl = (Math.asin(z) * 180) / Math.PI;
+    const pitch = 90 - skyEl;
+    const roll = (Math.atan2(up.x, Math.hypot(up.y, up.z)) * 180) / Math.PI;
+    this.smoothAttitude(pitch, roll);
+  }
+
+  private updateAttitudeFromBetaGamma(betaDeg: number, gammaDeg: number): void {
+    const b = (betaDeg * Math.PI) / 180;
+    const g = (gammaDeg * Math.PI) / 180;
+    const upZ = Math.cos(b) * Math.cos(g);
+    const skyEl = (Math.asin(Math.max(-1, Math.min(1, upZ))) * 180) / Math.PI;
+    this.smoothAttitude(90 - skyEl, gammaDeg);
+  }
+
+  private smoothAttitude(pitch: number, roll: number): void {
+    const a = 0.28;
+    this.pitchDeg = this.pitchDeg == null ? pitch : this.pitchDeg * (1 - a) + pitch * a;
+    this.rollDeg = this.rollDeg == null ? roll : this.rollDeg * (1 - a) + roll * a;
   }
 
   private headingFromMagAccel(
@@ -1102,6 +1282,8 @@ export class NordComponent implements OnInit, OnDestroy {
 
   private stopAll(): void {
     this.clearSettleTimer();
+    this.reverseGeocodeSub?.unsubscribe();
+    this.reverseGeocodeSub = null;
     for (const s of this.liveSensors) {
       try {
         s.stop();
@@ -1190,7 +1372,7 @@ export class NordComponent implements OnInit, OnDestroy {
   }
 
   private circularDiff(a: number, b: number): number {
-    return ((a - b + 540) % 360) - 180;
+    return ((((a - b) % 360) + 540) % 360) - 180;
   }
 
   private circularLerp(fromDeg: number, toDeg: number, t: number): number {

@@ -123,14 +123,18 @@
                     <span *ngIf="bodyIconClass === 'fa fa-circle'" class="ac-needle-body-dot" [style.background]="bodyColor"></span>
                   </span>
                 </div>
-                <span class="ac-compass-elev__value" [class.ac-compass-elev__value--warn]="!aboveHorizon()">
-                  {{ (targetPhoneTiltDeg() ?? elevationDeg) | number : '1.0-0' }}°
-                </span>
                 <span
                   class="ac-compass-elev__phone-val"
                   *ngIf="devicePitchDeg != null"
-                  [class.ac-compass-elev__phone-val--ok]="isPitchAligned()">
+                  [class.ac-compass-elev__phone-val--ok]="isPitchAligned()"
+                  [class.ac-compass-elev__phone-val--neg]="devicePitchDeg < 0"
+                  [attr.title]="'ASTRO_COMPASS.DEVICE_PITCH' | translate">
                   {{ devicePitchDeg | number : '1.0-0' }}°
+                </span>
+                <span
+                  class="ac-compass-elev__value"
+                  [class.ac-compass-elev__value--warn]="!aboveHorizon()">
+                  {{ (targetPhoneTiltDeg() ?? elevationDeg) | number : '1.0-0' }}°
                 </span>
                 <span class="ac-compass-elev__horizon" [attr.title]="'ASTRO_COMPASS.PHONE_TILT_FLAT' | translate">0°</span>
                 <span class="ac-compass-elev__caption">{{ 'ASTRO_COMPASS.PHONE_TILT_SCALE' | translate }}</span>

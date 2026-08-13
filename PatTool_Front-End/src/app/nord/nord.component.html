@@ -27,6 +27,7 @@
 
   <div class="nord-stage">
     <section class="nord-instrument" [attr.aria-label]="'NORD.COMPASS_ARIA' | translate">
+      <div class="nord-instrument-row">
       <div class="nord-bezel">
         <div class="nord-lubber" aria-hidden="true"></div>
         <div class="nord-card" [style.transform]="'rotate(' + roseRotationDeg() + 'deg)'">
@@ -50,6 +51,25 @@
         </div>
       </div>
 
+      <div
+        class="nord-pitch"
+        [attr.aria-label]="'NORD.PITCH' | translate">
+        <span class="nord-pitch__end">90°</span>
+        <div class="nord-pitch__track">
+          <span class="nord-pitch__fill" [style.height.%]="pitchGaugePercent()"></span>
+          <span
+            class="nord-pitch__marker"
+            *ngIf="pitchDeg != null"
+            [style.bottom.%]="pitchGaugePercent()">
+            <i class="fa fa-mobile" aria-hidden="true"></i>
+          </span>
+        </div>
+        <span class="nord-pitch__end">0°</span>
+        <span class="nord-pitch__val">{{ pitchText() }}</span>
+        <span class="nord-pitch__cap">{{ 'NORD.PITCH' | translate }}</span>
+      </div>
+      </div>
+
       <ul class="nord-readout">
         <li>
           <span>{{ 'NORD.SOURCE' | translate }}</span>
@@ -71,11 +91,42 @@
             {{ stabilityDeg == null ? '—' : '±' + (stabilityDeg | number : '1.0-1') + '°' }}
           </strong>
         </li>
+        <li>
+          <span>{{ 'NORD.PITCH' | translate }}</span>
+          <strong>{{ pitchText() }}</strong>
+        </li>
+        <li>
+          <span>{{ 'NORD.ROLL' | translate }}</span>
+          <strong>{{ rollText() }}</strong>
+        </li>
         <li *ngIf="gpsLat != null">
           <span>{{ 'NORD.GPS' | translate }}</span>
           <strong>{{ gpsLat | number : '1.4-4' }} / {{ gpsLon | number : '1.4-4' }}</strong>
         </li>
       </ul>
+
+      <div class="nord-address">
+        <div class="nord-address__head">
+          <span>{{ 'NORD.ADDRESS' | translate }}</span>
+          <button
+            type="button"
+            class="nord-btn nord-btn--icon"
+            (click)="refreshAddress()"
+            [disabled]="addressBusy"
+            [attr.title]="'NORD.ADDRESS_REFRESH' | translate"
+            [attr.aria-label]="'NORD.ADDRESS_REFRESH' | translate">
+            <i class="fa fa-refresh" [class.fa-spin]="addressBusy" aria-hidden="true"></i>
+          </button>
+        </div>
+        <p class="nord-address__text" *ngIf="addressLabel">{{ addressLabel }}</p>
+        <p class="nord-address__text nord-address__text--muted" *ngIf="!addressLabel && !addressBusy && !addressError">
+          {{ 'NORD.ADDRESS_EMPTY' | translate }}
+        </p>
+        <p class="nord-address__text nord-address__text--muted" *ngIf="addressBusy && !addressLabel">
+          {{ 'NORD.ADDRESS_LOADING' | translate }}
+        </p>
+        <p class="nord-warn" *ngIf="addressError">{{ addressError | translate }}</p>
+      </div>
       <p class="nord-field-warn" *ngIf="fieldStatus() === 'interference'">{{ 'NORD.FIELD_INTERFERENCE' | translate }}</p>
     </section>
 

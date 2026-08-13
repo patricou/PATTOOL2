@@ -842,12 +842,17 @@
 }
 
 .ac-compass-elev__phone-val {
-  font-size: 0.68rem;
-  font-weight: 700;
+  font-size: 0.95rem;
+  font-weight: 800;
   color: #7ec8ff;
   font-variant-numeric: tabular-nums;
   line-height: 1;
-  margin-top: -0.1rem;
+  margin-top: -0.05rem;
+  text-shadow: 0 0 8px rgba(100, 180, 255, 0.45);
+}
+
+.ac-compass-elev__phone-val--neg {
+  color: #9ad0ff;
 }
 
 .ac-compass-tilt {
@@ -926,8 +931,8 @@
 }
 
 .ac-compass-elev__value {
-  font-size: 0.95rem;
-  font-weight: 800;
+  font-size: 0.68rem;
+  font-weight: 700;
   color: #ffe08a;
   font-variant-numeric: tabular-nums;
   line-height: 1;

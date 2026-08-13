@@ -271,9 +271,10 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   headingRawDeg: number | null = null;
   northOffsetDeg: number | null = null;
   /**
-   * Inclinaison du téléphone (angle depuis l'horizontale).
-   * 0° ≈ à plat (écran vers le ciel), 90° ≈ vertical (visée horizon).
-   * L'élévation de visée ciel = 90° − devicePitchDeg.
+   * Inclinaison du téléphone (angle du haut de l'appareil depuis l'horizontale).
+   * 0° = à plat (écran vers le ciel), 90° = vertical (haut vers le ciel),
+   * négatif = haut du téléphone vers le bas.
+   * L'élévation de visée ciel (à travers l'écran) = 90° − devicePitchDeg.
    */
   devicePitchDeg: number | null = null;
 
@@ -3206,27 +3207,29 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   /**
    * Consigne d'inclinaison (toujours active dès que le pitch téléphone est connu) :
    * indépendante de l'auto-détection et du calage azimut.
-   * Compare l'élévation ciel cible à la visée dérivée de l'inclinaison téléphone.
+   * Compare l'inclinaison téléphone actuelle à la consigne (même convention que la jauge).
+   * Différence positive → lever (plus vertical) ; négative → baisser (plus plat / haut en bas).
    */
   tiltInstruction(): { key: string; deg: number } | null {
-    const lookEl = this.deviceSkyElevationDeg();
-    if (lookEl == null || this.elevationDeg == null || this.elevationDeg < -1) {
+    const target = this.targetPhoneTiltDeg();
+    const current = this.devicePitchDeg;
+    if (target == null || current == null || this.elevationDeg == null || this.elevationDeg < -1) {
       return null;
     }
-    const diff = this.elevationDeg - lookEl;
+    const diff = Math.round(target) - Math.round(current);
     const mag = Math.abs(diff);
     if (mag <= PITCH_THRESHOLD_DEG) {
       return { key: 'ASTRO_COMPASS.TILT_OK', deg: 0 };
     }
     return {
       key: diff > 0 ? 'ASTRO_COMPASS.TILT_UP' : 'ASTRO_COMPASS.TILT_DOWN',
-      deg: Math.round(mag)
+      deg: mag
     };
   }
 
   /**
-   * Inclinaison téléphone attendue pour la cible (0° plat → 90° vertical).
-   * Conservée pour l'affichage jauge / match, distincte de l'élévation ciel.
+   * Inclinaison téléphone attendue pour la cible (0° plat → 90° vertical, négatif = haut en bas).
+   * Distincte de l'élévation ciel (0° horizon → 90° zénith) : tilt = 90° − élévation.
    */
   targetPhoneTiltDeg(): number | null {
     if (this.elevationDeg == null) {
@@ -3243,23 +3246,31 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     return 90 - this.devicePitchDeg;
   }
 
+  /** Écart consigne − inclinaison actuelle (même unité que la jauge). */
+  private phoneTiltErrorDeg(): number | null {
+    const target = this.targetPhoneTiltDeg();
+    if (target == null || this.devicePitchDeg == null) {
+      return null;
+    }
+    return target - this.devicePitchDeg;
+  }
+
   /** Position jauge de la cible en convention téléphone (0 plat → 90 vertical). */
   elevationGaugePercent(): number {
-    const tilt = this.targetPhoneTiltDeg();
-    if (tilt == null) {
-      return 0;
-    }
-    const clamped = Math.max(0, Math.min(90, tilt));
-    return (clamped / 90) * 100;
+    return this.tiltToGaugePercent(this.targetPhoneTiltDeg());
   }
 
   /** Position (0–100 %) du téléphone sur la jauge (0 plat → 90 vertical). */
   devicePitchGaugePercent(): number {
-    const p = this.devicePitchDeg;
-    if (p == null) {
+    return this.tiltToGaugePercent(this.devicePitchDeg);
+  }
+
+  /** Les valeurs < 0° (haut en bas) restent affichées en chiffre, pinées en bas de jauge. */
+  private tiltToGaugePercent(tilt: number | null): number {
+    if (tilt == null || !Number.isFinite(tilt)) {
       return 0;
     }
-    const clamped = Math.max(0, Math.min(90, p));
+    const clamped = Math.max(0, Math.min(90, tilt));
     return (clamped / 90) * 100;
   }
 
@@ -3268,12 +3279,12 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   }
 
   isPitchAligned(): boolean {
-    const lookEl = this.deviceSkyElevationDeg();
-    if (lookEl == null || this.elevationDeg == null || this.elevationDeg < -1) {
+    const err = this.phoneTiltErrorDeg();
+    if (err == null || this.elevationDeg == null || this.elevationDeg < -1) {
       // Sans inclinaison (desktop) : on ne bloque pas sur le pitch.
       return this.devicePitchDeg == null;
     }
-    return Math.abs(this.elevationDeg - lookEl) <= PITCH_THRESHOLD_DEG;
+    return Math.abs(err) <= PITCH_THRESHOLD_DEG;
   }
 
   isYawAligned(): boolean {
@@ -3407,8 +3418,9 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Inclinaison téléphone depuis le quaternion (0° = à plat, 90° = vertical).
-   * Dérivée de la composante verticale du +Z appareil (sortie d'écran).
+   * Inclinaison signée depuis le quaternion AbsoluteOrientationSensor.
+   * 0° = à plat, 90° = vertical, négatif = haut du téléphone vers le bas.
+   * atan2(haut·up, normale écran·up) : même convention que beta DeviceOrientation.
    */
   private pitchFromAbsoluteQuaternion(q: ReadonlyArray<number>): number | null {
     const x = q[0];
@@ -3418,22 +3430,21 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     if (![x, y, z, w].every((n) => Number.isFinite(n))) {
       return null;
     }
-    // Élévation ciel de la normale écran → inclinaison téléphone = 90° − élévation.
-    const up = 1 - 2 * (x * x + y * y);
-    const skyEl = (Math.asin(Math.max(-1, Math.min(1, up))) * 180) / Math.PI;
-    return 90 - skyEl;
+    const yUp = 2 * (y * z + x * w);
+    const zUp = 1 - 2 * (x * x + y * y);
+    return (Math.atan2(yUp, zUp) * 180) / Math.PI;
   }
 
   /**
-   * Inclinaison téléphone depuis DeviceOrientation beta/gamma.
-   * 0° ≈ horizontal (à plat), 90° ≈ vertical.
+   * Inclinaison signée depuis DeviceOrientation beta/gamma.
+   * 0° = à plat (écran vers le ciel), 90° = vertical, négatif = haut vers le bas.
    */
   private devicePitchFromBetaGamma(betaDeg: number, gammaDeg: number): number {
     const b = (betaDeg * Math.PI) / 180;
     const g = (gammaDeg * Math.PI) / 180;
-    const up = Math.cos(b) * Math.cos(g);
-    const skyEl = (Math.asin(Math.max(-1, Math.min(1, up))) * 180) / Math.PI;
-    return 90 - skyEl;
+    const yUp = Math.sin(b);
+    const zUp = Math.cos(b) * Math.cos(g);
+    return (Math.atan2(yUp, zUp) * 180) / Math.PI;
   }
 
   private deviceHeadingFromEvent(e: DeviceOrientationEvent): number | null {
