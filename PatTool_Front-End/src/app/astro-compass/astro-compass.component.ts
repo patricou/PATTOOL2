@@ -162,6 +162,9 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   /** Si true : n'affiche que satellites / planètes actuellement au-dessus de l'horizon. */
   visibleOnly = true;
   issVisibleNow = false;
+  /** L'utilisateur a choisi une cible (ne plus forcer ISS / astre visible). */
+  private userChoseTarget = false;
+  private applyingAutoTarget = false;
   private visiblePlanetIds = new Set<string>();
   private visibleStarIds = new Set<string>();
   private visibleGalaxyIds = new Set<string>();
@@ -409,11 +412,14 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     void this.startOrientation();
     this.startSkyTick();
     this.issNow.startBackgroundPrefetch();
-    void this.issNow.refresh(false);
+    void this.issNow.refresh(false).then(() => {
+      this.refreshVisibleCatalog();
+      this.selectDefaultVisibleTarget();
+      this.cdr.markForCheck();
+    });
     this.satNow.prefetch(
       ASTRO_SATELLITES.filter((s) => !s.useIssLiveFeed && !s.skipLiveTle).map((s) => s.noradId)
     );
-    this.selectPlanet('mars');
     this.cdr.markForCheck();
   }
 
@@ -437,6 +443,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     if (!planet) {
       return;
     }
+    this.noteUserTargetChoice();
     this.selectedKind = 'planet';
     this.selectedPlanetId = id;
     this.selectedStarId = undefined;
@@ -455,6 +462,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     if (!sat) {
       return;
     }
+    this.noteUserTargetChoice();
     this.selectedKind = 'iss';
     this.selectedSatelliteId = sat.id;
     this.selectedStarId = undefined;
@@ -496,6 +504,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     if (!star) {
       return;
     }
+    this.noteUserTargetChoice();
     this.selectedKind = 'star';
     this.selectedStarId = star.id;
     this.selectedGalaxyId = undefined;
@@ -508,6 +517,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     if (!galaxy) {
       return;
     }
+    this.noteUserTargetChoice();
     this.selectedKind = 'galaxy';
     this.selectedGalaxyId = galaxy.id;
     this.selectedStarId = undefined;
@@ -1077,26 +1087,83 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     }
   }
 
+  private noteUserTargetChoice(): void {
+    if (!this.applyingAutoTarget) {
+      this.userChoseTarget = true;
+    }
+  }
+
+  /** Au démarrage : ISS si visible, sinon un astre au-dessus de l'horizon. */
+  private selectDefaultVisibleTarget(): void {
+    if (this.userChoseTarget) {
+      return;
+    }
+    if (!Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
+      return;
+    }
+    this.applyingAutoTarget = true;
+    try {
+      this.applyBestVisibleTarget();
+    } finally {
+      this.applyingAutoTarget = false;
+    }
+  }
+
   /** Bascule sur un satellite / planète / étoile / galaxie visible. */
   private selectFallbackVisibleTarget(): void {
-    const firstSat = this.displayedSatellites[0];
-    if (firstSat) {
-      this.selectSatellite(firstSat.id);
+    this.applyingAutoTarget = true;
+    try {
+      this.applyBestVisibleTarget();
+    } finally {
+      this.applyingAutoTarget = false;
+    }
+  }
+
+  private static readonly DEFAULT_VISIBLE_PLANETS = [
+    'moon',
+    'venus',
+    'jupiter',
+    'saturn',
+    'mars',
+    'mercury',
+    'sun',
+    'uranus',
+    'neptune',
+    'pluto'
+  ] as const;
+
+  private applyBestVisibleTarget(): void {
+    if (this.visibleSatelliteIds.has('iss')) {
+      if (!(this.selectedKind === 'iss' && this.selectedSatelliteId === 'iss')) {
+        this.selectSatellite('iss');
+      }
       return;
     }
-    const firstPlanet = this.displayedPlanets[0];
-    if (firstPlanet) {
-      this.selectPlanet(firstPlanet.id);
+    for (const id of AstroCompassComponent.DEFAULT_VISIBLE_PLANETS) {
+      if (this.visiblePlanetIds.has(id)) {
+        if (!(this.selectedKind === 'planet' && this.selectedPlanetId === id)) {
+          this.selectPlanet(id);
+        }
+        return;
+      }
+    }
+    const star = ASTRO_BRIGHT_STARS.find((s) => this.visibleStarIds.has(s.id));
+    if (star) {
+      if (!(this.selectedKind === 'star' && this.selectedStarId === star.id)) {
+        this.selectStar(star);
+      }
       return;
     }
-    const firstStar = this.starResults[0];
-    if (firstStar) {
-      this.selectStar(firstStar);
+    const galaxy = ASTRO_GALAXIES.find((g) => this.visibleGalaxyIds.has(g.id));
+    if (galaxy) {
+      if (!(this.selectedKind === 'galaxy' && this.selectedGalaxyId === galaxy.id)) {
+        this.selectGalaxy(galaxy);
+      }
       return;
     }
-    const firstGalaxy = this.galaxyResults[0];
-    if (firstGalaxy) {
-      this.selectGalaxy(firstGalaxy);
+    const sat = ASTRO_SATELLITES.find((s) => s.id !== 'iss' && this.visibleSatelliteIds.has(s.id));
+    if (sat && !(this.selectedKind === 'iss' && this.selectedSatelliteId === sat.id)) {
+      this.selectSatellite(sat.id);
     }
   }
 
@@ -1133,6 +1200,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     if (this.customDecDeg < -90 || this.customDecDeg > 90) {
       return;
     }
+    this.noteUserTargetChoice();
     this.selectedKind = 'custom';
     this.selectedStarId = undefined;
     this.selectedGalaxyId = undefined;
@@ -1280,9 +1348,8 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     if (this.selectedKind === 'iss') {
       this.refreshIssPasses(true);
     }
-    if (this.visibleOnly) {
-      this.refreshVisibleCatalog();
-    }
+    this.refreshVisibleCatalog();
+    this.selectDefaultVisibleTarget();
     if (reverseGeocode) {
       this.resolveAddress(lat, lon);
     }
@@ -2151,9 +2218,10 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
         this.zone.run(() => {
           this.nowMs = Date.now();
           this.recomputeSky();
-          if (this.visibleOnly) {
+          if (this.visibleOnly || !this.userChoseTarget) {
             this.refreshVisibleCatalog();
           }
+          this.selectDefaultVisibleTarget();
           this.cdr.markForCheck();
         });
       }, 1000);
