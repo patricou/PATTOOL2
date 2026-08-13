@@ -33,6 +33,10 @@ export interface AstroSatelliteOption {
    * and ISS pass predictions instead of TLE-only.
    */
   useIssLiveFeed?: boolean;
+  /**
+   * When true, skip TLE / SGP4 (e.g. JWST at L2 — no useful two-line elements).
+   */
+  skipLiveTle?: boolean;
 }
 
 /** Human-made spacecraft with public TLEs (CelesTrak). */
@@ -72,7 +76,8 @@ export const ASTRO_SATELLITES: ReadonlyArray<AstroSatelliteOption> = [
     labelKey: 'ASTRO_COMPASS.BODY_JWST',
     iconClass: 'fa fa-star',
     color: '#f9a8d4',
-    defaultAltKm: 1_500_000
+    defaultAltKm: 1_500_000,
+    skipLiveTle: true
   },
   {
     id: 'terra',
@@ -104,7 +109,7 @@ export const ASTRO_SATELLITES: ReadonlyArray<AstroSatelliteOption> = [
   {
     id: 'landsat9',
     kind: 'iss',
-    noradId: 43226,
+    noradId: 49260,
     labelKey: 'ASTRO_COMPASS.BODY_LANDSAT9',
     iconClass: 'fa fa-map',
     color: '#fbbf24',

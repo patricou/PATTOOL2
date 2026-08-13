@@ -43,6 +43,19 @@
           </div>
         </div>
 
+        <div class="ac-compass-notvis" *ngIf="azimuthDeg != null && !aboveHorizon()" role="status">
+          <i class="fa fa-eye-slash" aria-hidden="true"></i>
+          <div class="ac-compass-notvis__text">
+            <strong>{{ 'ASTRO_COMPASS.LOOK_NOT_VISIBLE' | translate }}</strong>
+            <span>
+              {{ 'ASTRO_COMPASS.LOOK_NOT_VISIBLE_HINT' | translate : {
+                name: notVisibleName(),
+                deg: (elevationDeg | number : '1.0-0')
+              } }}
+            </span>
+          </div>
+        </div>
+
         <div class="ac-compass-body">
           <div class="ac-compass-status" *ngIf="geoStatus === 'locating' && azimuthDeg == null">
             <i class="fa fa-spinner fa-spin me-2" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.LOCATING' | translate }}
@@ -155,53 +168,6 @@
                 <span class="ac-compass-fresh__dot"></span>
                 <span class="ac-compass-fresh__txt">{{ 'ASTRO_COMPASS.UPDATED' | translate }} {{ ago }}</span>
               </div>
-
-              <ng-container *ngIf="relativeInstruction() as instr">
-                <div
-                  class="ac-compass-turn"
-                  [class.ac-compass-turn--facing]="instr.key === 'ASTRO_COMPASS.FACING'"
-                  [class.ac-compass-turn--ok]="isYawAligned()">
-                  <ng-container *ngIf="instr.key === 'ASTRO_COMPASS.FACING'">
-                    <i class="fa fa-check-circle me-2" aria-hidden="true"></i>{{ instr.key | translate }}
-                  </ng-container>
-                  <ng-container *ngIf="instr.key === 'ASTRO_COMPASS.TURN_OK'">
-                    <i class="fa fa-check-circle me-2" aria-hidden="true"></i>{{ instr.key | translate }}
-                  </ng-container>
-                  <ng-container *ngIf="instr.key !== 'ASTRO_COMPASS.FACING' && instr.key !== 'ASTRO_COMPASS.TURN_OK'">
-                    <i class="fa" [class.fa-arrow-left]="instr.key === 'ASTRO_COMPASS.TURN_LEFT'" [class.fa-arrow-right]="instr.key === 'ASTRO_COMPASS.TURN_RIGHT'" aria-hidden="true"></i>
-                    <span class="ms-2">{{ instr.key | translate : { deg: instr.deg } }}</span>
-                  </ng-container>
-                </div>
-              </ng-container>
-
-              <ng-container *ngIf="tiltInstruction() as tilt">
-                <div
-                  class="ac-compass-tilt"
-                  [class.ac-compass-tilt--ok]="isPitchAligned()"
-                  [class.ac-compass-tilt--plus]="tilt.key === 'ASTRO_COMPASS.TILT_PLUS'"
-                  [class.ac-compass-tilt--minus]="tilt.key === 'ASTRO_COMPASS.TILT_MINUS'">
-                  <ng-container *ngIf="tilt.key === 'ASTRO_COMPASS.TILT_OK'">
-                    <i class="fa fa-check-circle me-2" aria-hidden="true"></i>{{ tilt.key | translate }}
-                    <span class="ac-compass-tilt__meta">{{ tilt.current }} → {{ tilt.target }}</span>
-                  </ng-container>
-                  <ng-container *ngIf="tilt.key !== 'ASTRO_COMPASS.TILT_OK'">
-                    <i
-                      class="fa"
-                      [class.fa-arrow-up]="tilt.key === 'ASTRO_COMPASS.TILT_PLUS'"
-                      [class.fa-arrow-down]="tilt.key === 'ASTRO_COMPASS.TILT_MINUS'"
-                      aria-hidden="true"></i>
-                    <span class="ms-2 ac-compass-tilt__main">
-                      {{ tilt.key | translate : { delta: tilt.delta } }}
-                    </span>
-                    <span class="ac-compass-tilt__hint">{{ tilt.hintKey | translate }}</span>
-                    <span class="ac-compass-tilt__meta">
-                      {{ 'ASTRO_COMPASS.TILT_CURRENT' | translate : { deg: tilt.current } }}
-                      →
-                      {{ 'ASTRO_COMPASS.TILT_TARGET' | translate : { deg: tilt.target } }}
-                    </span>
-                  </ng-container>
-                </div>
-              </ng-container>
             </div>
 
             <div
@@ -347,63 +313,134 @@
               </ul>
             </div>
 
-            <div class="ac-look" *ngIf="azimuthDeg != null" [class.ac-look--below]="!aboveHorizon()">
-              <div class="ac-look__title">
-                <i class="fa fa-eye me-2" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.LOOK_TITLE' | translate }}
-                <span *ngIf="bodyLabel" class="ac-look__target"> — {{ bodyLabel }}</span>
+            <div
+              class="ac-look"
+              *ngIf="azimuthDeg != null"
+              [class.ac-look--below]="!aboveHorizon()"
+              [class.ac-look--facing]="isFacing()">
+              <div class="ac-look__head">
+                <div class="ac-look__title">
+                  <i class="fa fa-eye me-2" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.LOOK_TITLE' | translate }}
+                  <span *ngIf="bodyLabel" class="ac-look__target"> — {{ bodyLabel }}</span>
+                </div>
+                <div class="ac-look__cue" role="group" [attr.aria-label]="'ASTRO_COMPASS.CUE_LABEL' | translate">
+                  <span class="ac-look__cue-lab">{{ 'ASTRO_COMPASS.CUE_LABEL' | translate }}</span>
+                  <button
+                    type="button"
+                    class="ac-look__cue-btn"
+                    [class.ac-look__cue-btn--on]="alignCue === 'off'"
+                    (click)="setAlignCue('off')">
+                    {{ 'ASTRO_COMPASS.CUE_OFF' | translate }}
+                  </button>
+                  <button
+                    type="button"
+                    class="ac-look__cue-btn"
+                    [class.ac-look__cue-btn--on]="alignCue === 'beep'"
+                    (click)="setAlignCue('beep')">
+                    <i class="fa fa-volume-up" aria-hidden="true"></i>
+                    {{ 'ASTRO_COMPASS.CUE_BEEP' | translate }}
+                  </button>
+                  <button
+                    type="button"
+                    class="ac-look__cue-btn"
+                    [class.ac-look__cue-btn--on]="alignCue === 'vibrate'"
+                    (click)="setAlignCue('vibrate')">
+                    <i class="fa fa-mobile" aria-hidden="true"></i>
+                    {{ 'ASTRO_COMPASS.CUE_VIBRATE' | translate }}
+                  </button>
+                </div>
               </div>
               <div class="ac-look__grid">
-                <div class="ac-look__tile ac-look__tile--dir">
+                <div
+                  class="ac-look__tile ac-look__tile--dir"
+                  [class.ac-look__tile--ok]="isYawAligned()"
+                  [class.ac-look__tile--wait]="headingActive && !isYawAligned()">
                   <span class="ac-look__k">
                     <i class="fa fa-compass me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.LOOK_DIRECTION' | translate }}
                   </span>
-                  <span class="ac-look__cardinal">{{ cardinalLabel() }}</span>
-                  <span class="ac-look__deg">{{ azimuthDeg | number : '1.0-0' }}°</span>
-                  <span class="ac-look__hint">{{ 'ASTRO_COMPASS.LOOK_DIRECTION_HINT' | translate : { cardinal: cardinalLabel(), deg: (azimuthDeg | number : '1.0-0') } }}</span>
+                  <div class="ac-look__arrows ac-look__arrows--h">
+                    <span
+                      class="ac-look__arrow"
+                      [class.ac-look__arrow--on]="directionArrow() === 'left'"
+                      [class.ac-look__arrow--ok]="directionArrow() === 'ok'">
+                      <i class="fa fa-arrow-left" aria-hidden="true"></i>
+                    </span>
+                    <div class="ac-look__main">
+                      <span class="ac-look__cardinal">{{ cardinalLabel() }}</span>
+                      <span class="ac-look__deg">{{ azimuthDeg | number : '1.0-0' }}°</span>
+                    </div>
+                    <span
+                      class="ac-look__arrow"
+                      [class.ac-look__arrow--on]="directionArrow() === 'right'"
+                      [class.ac-look__arrow--ok]="directionArrow() === 'ok'">
+                      <i class="fa fa-arrow-right" aria-hidden="true"></i>
+                    </span>
+                  </div>
+                  <ng-container *ngIf="relativeInstruction() as instr; else lookDirHint">
+                    <span class="ac-look__hint ac-look__hint--action" *ngIf="instr.key === 'ASTRO_COMPASS.TURN_LEFT' || instr.key === 'ASTRO_COMPASS.TURN_RIGHT'">
+                      {{ instr.key | translate : { deg: instr.deg } }}
+                    </span>
+                    <span class="ac-look__hint ac-look__hint--ok" *ngIf="instr.key === 'ASTRO_COMPASS.TURN_OK' || instr.key === 'ASTRO_COMPASS.FACING'">
+                      <i class="fa fa-check-circle me-1" aria-hidden="true"></i>{{ instr.key | translate }}
+                    </span>
+                  </ng-container>
+                  <ng-template #lookDirHint>
+                    <span class="ac-look__hint">{{ 'ASTRO_COMPASS.LOOK_DIRECTION_HINT' | translate : { cardinal: cardinalLabel(), deg: (azimuthDeg | number : '1.0-0') } }}</span>
+                  </ng-template>
                 </div>
-                <div class="ac-look__tile ac-look__tile--tilt" *ngIf="devicePitchDeg != null && aboveHorizon()">
-                  <span class="ac-look__k">
-                    <i class="fa fa-mobile me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.LOOK_TILT' | translate }}
-                  </span>
-                  <span class="ac-look__elev" [class.ac-look__elev--neg]="devicePitchDeg < 0">{{ formatSignedDeg(devicePitchDeg) }}</span>
-                  <span class="ac-look__hint" *ngIf="targetPhoneTiltDeg() != null">
-                    {{ 'ASTRO_COMPASS.TILT_TARGET' | translate : { deg: formatSignedDeg(targetPhoneTiltDeg()) } }}
-                  </span>
-                  <span class="ac-look__hint ac-look__hint--action" *ngIf="tiltInstruction() as lookTilt">
-                    <ng-container *ngIf="lookTilt.key === 'ASTRO_COMPASS.TILT_OK'">{{ lookTilt.key | translate }}</ng-container>
-                    <ng-container *ngIf="lookTilt.key !== 'ASTRO_COMPASS.TILT_OK'">
-                      {{ lookTilt.key | translate : { delta: lookTilt.delta } }}
-                      — {{ lookTilt.hintKey | translate }}
-                    </ng-container>
-                  </span>
-                </div>
-                <div class="ac-look__tile ac-look__tile--elev" [class.ac-look__tile--warn]="!aboveHorizon()">
+
+                <div
+                  class="ac-look__tile ac-look__tile--elev"
+                  [class.ac-look__tile--warn]="!aboveHorizon()"
+                  [class.ac-look__tile--ok]="aboveHorizon() && isPitchAligned()"
+                  [class.ac-look__tile--wait]="aboveHorizon() && devicePitchDeg != null && !isPitchAligned()">
                   <span class="ac-look__k">
                     <i class="fa fa-arrows-v me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.LOOK_ANGLE' | translate }}
                   </span>
-                  <span class="ac-look__elev">{{ elevationDeg | number : '1.0-0' }}°</span>
-                  <span class="ac-look__hint" *ngIf="aboveHorizon() && (elevationDeg ?? 0) >= 2">
-                    {{ 'ASTRO_COMPASS.LOOK_ANGLE_UP' | translate : { deg: (elevationDeg | number : '1.0-0') } }}
-                  </span>
-                  <span class="ac-look__hint" *ngIf="aboveHorizon() && (elevationDeg ?? 0) < 2">
-                    {{ 'ASTRO_COMPASS.LOOK_ANGLE_HORIZON' | translate }}
-                  </span>
-                  <span class="ac-look__hint ac-look__hint--warn" *ngIf="!aboveHorizon()">
-                    {{ 'ASTRO_COMPASS.LOOK_ANGLE_BELOW' | translate }}
-                  </span>
+                  <div class="ac-look__arrows ac-look__arrows--v">
+                    <span
+                      class="ac-look__arrow"
+                      [class.ac-look__arrow--on]="angleArrow() === 'up'">
+                      <i class="fa fa-arrow-up" aria-hidden="true"></i>
+                    </span>
+                    <span
+                      class="ac-look__elev"
+                      [class.ac-look__elev--neg]="!aboveHorizon() || (targetPhoneTiltDeg() ?? 0) < 0">
+                      {{ formatSignedDeg(aboveHorizon() ? (targetPhoneTiltDeg() ?? elevationDeg) : elevationDeg) }}
+                    </span>
+                    <span
+                      class="ac-look__arrow"
+                      [class.ac-look__arrow--on]="angleArrow() === 'down'">
+                      <i class="fa fa-arrow-down" aria-hidden="true"></i>
+                    </span>
+                  </div>
+                  <ng-container *ngIf="!aboveHorizon()">
+                    <span class="ac-look__hint ac-look__hint--warn">{{ 'ASTRO_COMPASS.LOOK_ANGLE_BELOW' | translate }}</span>
+                  </ng-container>
+                  <ng-container *ngIf="aboveHorizon() && tiltInstruction() as tilt">
+                    <span class="ac-look__hint ac-look__hint--action" *ngIf="tilt.key !== 'ASTRO_COMPASS.TILT_OK'">
+                      {{ tilt.key | translate : { delta: tilt.delta } }}
+                    </span>
+                    <span class="ac-look__hint" *ngIf="tilt.key !== 'ASTRO_COMPASS.TILT_OK'">{{ tilt.hintKey | translate }}</span>
+                    <span class="ac-look__hint" *ngIf="tilt.key !== 'ASTRO_COMPASS.TILT_OK'">
+                      {{ 'ASTRO_COMPASS.TILT_CURRENT' | translate : { deg: tilt.current } }}
+                      →
+                      {{ 'ASTRO_COMPASS.TILT_TARGET' | translate : { deg: tilt.target } }}
+                    </span>
+                    <span class="ac-look__hint ac-look__hint--ok" *ngIf="tilt.key === 'ASTRO_COMPASS.TILT_OK'">
+                      <i class="fa fa-check-circle me-1" aria-hidden="true"></i>{{ tilt.key | translate }}
+                    </span>
+                  </ng-container>
+                  <ng-container *ngIf="aboveHorizon() && !tiltInstruction()">
+                    <span class="ac-look__hint" *ngIf="(elevationDeg ?? 0) >= 2">
+                      {{ 'ASTRO_COMPASS.LOOK_ANGLE_UP' | translate : { deg: (elevationDeg | number : '1.0-0') } }}
+                    </span>
+                    <span class="ac-look__hint" *ngIf="(elevationDeg ?? 0) < 2">
+                      {{ 'ASTRO_COMPASS.LOOK_ANGLE_HORIZON' | translate }}
+                    </span>
+                  </ng-container>
                 </div>
               </div>
-              <ol class="ac-look__steps">
-                <li>{{ 'ASTRO_COMPASS.LOOK_STEP1' | translate : { cardinal: cardinalLabel(), deg: (azimuthDeg | number : '1.0-0') } }}</li>
-                <li *ngIf="aboveHorizon()">{{ 'ASTRO_COMPASS.LOOK_STEP2_UP' | translate : { deg: (elevationDeg | number : '1.0-0') } }}</li>
-                <li *ngIf="!aboveHorizon()">{{ 'ASTRO_COMPASS.LOOK_STEP2_BELOW' | translate }}</li>
-                <li *ngIf="tiltInstruction() as stepTilt">
-                  <ng-container *ngIf="stepTilt.key === 'ASTRO_COMPASS.TILT_OK'">{{ stepTilt.key | translate }}</ng-container>
-                  <ng-container *ngIf="stepTilt.key !== 'ASTRO_COMPASS.TILT_OK'">
-                    {{ 'ASTRO_COMPASS.LOOK_STEP_TILT' | translate : { delta: stepTilt.delta, current: stepTilt.current, target: stepTilt.target, hint: (stepTilt.hintKey | translate) } }}
-                  </ng-container>
-                </li>
-              </ol>
             </div>
 
             <div class="ac-compass-hint ac-compass-hint--nosensor" *ngIf="!headingActive">
@@ -824,7 +861,7 @@
           <span class="ac-compass-readout__key">{{ 'ASTRO_COMPASS.ELEVATION' | translate }}</span>
           <span class="ac-compass-readout__val" [class.ac-compass-readout__val--warn]="!aboveHorizon()">
             {{ elevationDeg | number : '1.1-1' }}°
-            <span class="ac-compass-readout__note" *ngIf="!aboveHorizon()">· {{ 'ASTRO_COMPASS.BELOW_HORIZON' | translate }}</span>
+            <span class="ac-compass-readout__note" *ngIf="!aboveHorizon()">· {{ 'ASTRO_COMPASS.LOOK_NOT_VISIBLE' | translate }}</span>
           </span>
         </div>
         <div class="ac-compass-readout__item" *ngIf="selectedKind === 'iss' && issAltKm != null">
@@ -913,7 +950,7 @@
     <div class="ac-vis-status" *ngIf="visibilityHint"
          [class.ac-vis-status--ok]="currentlyVisible || alwaysAbove"
          [class.ac-vis-status--warn]="!currentlyVisible && !alwaysAbove">
-      <i class="fa" [ngClass]="currentlyVisible || alwaysAbove ? 'fa-check-circle' : 'fa-moon-o'" aria-hidden="true"></i>
+      <i class="fa" [ngClass]="currentlyVisible || alwaysAbove ? 'fa-check-circle' : 'fa-eye-slash'" aria-hidden="true"></i>
       <span>{{ visibilityHint | translate }}</span>
       <span *ngIf="elevationDeg != null" class="ac-vis-status__el">
         · {{ 'ASTRO_COMPASS.ELEVATION' | translate }} {{ elevationDeg | number:'1.1-1' }}°

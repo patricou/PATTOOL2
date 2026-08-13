@@ -160,7 +160,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   galaxyResults: AstroGalaxyOption[] = findGalaxiesByQuery('');
 
   /** Si true : n'affiche que satellites / planètes actuellement au-dessus de l'horizon. */
-  visibleOnly = false;
+  visibleOnly = true;
   issVisibleNow = false;
   private visiblePlanetIds = new Set<string>();
   private visibleStarIds = new Set<string>();
@@ -325,6 +325,8 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   readonly northEngine = new CompassNorthEngine();
   /** Copie UI des octants (primitive → détection de changement fiable). */
   octantMask = 0;
+  /** Retour d’alignement : silence, bip ou vibration. */
+  alignCue: 'off' | 'beep' | 'vibrate' = 'off';
   sensorAlpha: number | null = null;
   sensorBeta: number | null = null;
   sensorGamma: number | null = null;
@@ -378,6 +380,11 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   /** Buffer pour médiane circulaire du cap. */
   private headingSampleBuf: number[] = [];
   private calLoadPending = false;
+  private alignCuePrevYaw = false;
+  private alignCuePrevPitch = false;
+  private alignCuePrevBoth = false;
+  private alignAudioCtx: AudioContext | null = null;
+  private static readonly ALIGN_CUE_KEY = 'pat.astro-compass.align-cue';
 
   private skyTickTimer: ReturnType<typeof setInterval> | null = null;
   private ipFallbackAttempted = false;
@@ -394,6 +401,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.onStarQueryChange();
     this.northEngine.loadPersisted();
+    this.loadAlignCuePref();
     this.loadCalibration();
     this.startGeolocation();
     this.startNorthSensors();
@@ -402,7 +410,9 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     this.startSkyTick();
     this.issNow.startBackgroundPrefetch();
     void this.issNow.refresh(false);
-    this.satNow.prefetch(ASTRO_SATELLITES.map((s) => s.noradId));
+    this.satNow.prefetch(
+      ASTRO_SATELLITES.filter((s) => !s.useIssLiveFeed && !s.skipLiveTle).map((s) => s.noradId)
+    );
     this.selectPlanet('mars');
     this.cdr.markForCheck();
   }
@@ -411,6 +421,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     this.stopAutoDetectLive();
     this.stopSensors();
     this.stopSkyTick();
+    this.closeAlignAudio();
     this.addressSearchSub?.unsubscribe();
     this.reverseGeocodeSub?.unsubscribe();
     this.issPassSub?.unsubscribe();
@@ -458,13 +469,17 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
         }
       });
       this.refreshIssPasses(true);
-    } else {
+    } else if (!sat.skipLiveTle) {
       void this.satNow.ensureTle(sat.noradId, true).then(() => {
         if (this.selectedKind === 'iss' && this.selectedSatelliteId === sat.id) {
           this.recomputeSky();
           this.cdr.markForCheck();
         }
       });
+      this.issPasses = [];
+      this.riseAt = null;
+      this.setAt = null;
+    } else {
       this.issPasses = [];
       this.riseAt = null;
       this.setAt = null;
@@ -889,6 +904,8 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
           if (snap.altKm != null && snap.altKm > 0) {
             altKm = snap.altKm;
           }
+        } else if (sat.skipLiveTle) {
+          continue;
         } else {
           const snap = this.satNow.snapshotForDisplay(sat.noradId, now);
           if (!snap) {
@@ -1531,7 +1548,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
           }
         });
       }
-    } else if (now - this.issLastNetworkRefreshMs > ISS_REFRESH_MIN_MS) {
+    } else if (!sat.skipLiveTle && now - this.issLastNetworkRefreshMs > ISS_REFRESH_MIN_MS) {
       this.issLastNetworkRefreshMs = now;
       void this.satNow.ensureTle(sat.noradId, false).then(() => {
         if (this.selectedKind === 'iss' && this.selectedSatelliteId === sat.id) {
@@ -2082,6 +2099,9 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
 
   private computeSatelliteAboveHorizonNow(sat: AstroSatelliteOption, nowMs = Date.now()): boolean {
     if (!Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
+      return false;
+    }
+    if (sat.skipLiveTle) {
       return false;
     }
     let snapLat: number | null = null;
@@ -3366,6 +3386,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
       this.devicePitchDeg == null
         ? pitch
         : this.devicePitchDeg * (1 - PITCH_SMOOTH_ALPHA) + pitch * PITCH_SMOOTH_ALPHA;
+    this.tickAlignCue();
   }
 
   /**
@@ -3494,6 +3515,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     const offset =
       this.calMethod === 'sensor' || this.calMethod == null ? 0 : (this.northOffsetDeg ?? 0);
     this.headingDeg = this.normalizeDeg(this.headingRawDeg + offset);
+    this.tickAlignCue();
   }
 
   sensorEventName(): string | null {
@@ -3564,6 +3586,20 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     };
   }
 
+  directionArrow(): 'left' | 'right' | 'ok' | null {
+    const instr = this.relativeInstruction();
+    if (instr == null) {
+      return null;
+    }
+    if (instr.key === 'ASTRO_COMPASS.TURN_LEFT') {
+      return 'left';
+    }
+    if (instr.key === 'ASTRO_COMPASS.TURN_RIGHT') {
+      return 'right';
+    }
+    return 'ok';
+  }
+
   /**
    * Consigne d'inclinaison signée (même convention que la page Nord) :
    * 0° = à plat, + = haut vers le ciel, − = haut vers le sol.
@@ -3610,6 +3646,154 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     }
     const n = Math.round(deg);
     return n > 0 ? `+${n}°` : `${n}°`;
+  }
+
+  turnDeltaDeg(): number | null {
+    if (!this.headingActive || this.headingDeg == null || this.azimuthDeg == null) {
+      return null;
+    }
+    return Math.round(this.circularDiffDeg(this.azimuthDeg, this.headingDeg));
+  }
+
+  /** Flèche d’inclinaison : haut = plus vertical (+), bas = plus à plat / vers le sol (−). */
+  angleArrow(): 'up' | 'down' | 'ok' | null {
+    if (!this.aboveHorizon()) {
+      return 'down';
+    }
+    const tilt = this.tiltInstruction();
+    if (tilt == null) {
+      if ((this.elevationDeg ?? 0) >= 2) {
+        return 'up';
+      }
+      return null;
+    }
+    if (tilt.key === 'ASTRO_COMPASS.TILT_OK') {
+      return 'ok';
+    }
+    if (tilt.key === 'ASTRO_COMPASS.TILT_PLUS') {
+      return 'up';
+    }
+    if (tilt.key === 'ASTRO_COMPASS.TILT_MINUS') {
+      return 'down';
+    }
+    return null;
+  }
+
+  setAlignCue(mode: 'off' | 'beep' | 'vibrate'): void {
+    this.alignCue = mode;
+    try {
+      localStorage.setItem(AstroCompassComponent.ALIGN_CUE_KEY, mode);
+    } catch {
+      /* ignore */
+    }
+    if (mode === 'beep') {
+      this.ensureAlignAudio();
+    }
+    this.cdr.markForCheck();
+  }
+
+  private loadAlignCuePref(): void {
+    try {
+      const raw = localStorage.getItem(AstroCompassComponent.ALIGN_CUE_KEY);
+      if (raw === 'off' || raw === 'beep' || raw === 'vibrate') {
+        this.alignCue = raw;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private tickAlignCue(): void {
+    if (this.alignCue === 'off') {
+      this.alignCuePrevYaw = this.isYawAligned();
+      this.alignCuePrevPitch = this.isPitchAligned() && this.aboveHorizon();
+      this.alignCuePrevBoth = this.isFacing();
+      return;
+    }
+    const yaw = this.isYawAligned();
+    const pitch = this.aboveHorizon() && this.devicePitchDeg != null && this.isPitchAligned();
+    const both = yaw && pitch;
+    if (both && !this.alignCuePrevBoth) {
+      this.fireAlignCue(2);
+    } else if (yaw && !this.alignCuePrevYaw && !pitch) {
+      this.fireAlignCue(1);
+    } else if (pitch && !this.alignCuePrevPitch && !yaw) {
+      this.fireAlignCue(1);
+    }
+    this.alignCuePrevYaw = yaw;
+    this.alignCuePrevPitch = pitch;
+    this.alignCuePrevBoth = both;
+  }
+
+  private fireAlignCue(count: 1 | 2): void {
+    if (this.alignCue === 'vibrate') {
+      try {
+        if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+          navigator.vibrate(count === 1 ? 90 : [90, 110, 90]);
+        }
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+    if (this.alignCue === 'beep') {
+      this.playAlignBeeps(count);
+    }
+  }
+
+  private ensureAlignAudio(): AudioContext | null {
+    const w = window as unknown as {
+      AudioContext?: typeof AudioContext;
+      webkitAudioContext?: typeof AudioContext;
+    };
+    const Ctor = w.AudioContext ?? w.webkitAudioContext;
+    if (!Ctor) {
+      return null;
+    }
+    if (this.alignAudioCtx == null) {
+      this.alignAudioCtx = new Ctor();
+    }
+    const ctx = this.alignAudioCtx;
+    if (ctx.state === 'suspended') {
+      void ctx.resume();
+    }
+    return ctx;
+  }
+
+  private playAlignBeeps(count: 1 | 2): void {
+    const ctx = this.ensureAlignAudio();
+    if (!ctx) {
+      return;
+    }
+    const beep = (at: number): void => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, at);
+      gain.gain.exponentialRampToValueAtTime(0.14, at + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.11);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(at);
+      osc.stop(at + 0.13);
+    };
+    const t0 = ctx.currentTime;
+    beep(t0);
+    if (count === 2) {
+      beep(t0 + 0.2);
+    }
+  }
+
+  private closeAlignAudio(): void {
+    if (this.alignAudioCtx) {
+      try {
+        void this.alignAudioCtx.close();
+      } catch {
+        /* ignore */
+      }
+      this.alignAudioCtx = null;
+    }
   }
 
   /**
@@ -3673,6 +3857,11 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
 
   aboveHorizon(): boolean {
     return this.elevationDeg != null && this.elevationDeg >= -1;
+  }
+
+  notVisibleName(): string {
+    const n = this.bodyLabel?.trim();
+    return n || this.translate.instant('ASTRO_COMPASS.LOOK_THE_OBJECT');
   }
 
   isPitchAligned(): boolean {

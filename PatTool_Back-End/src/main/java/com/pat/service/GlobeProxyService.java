@@ -119,10 +119,25 @@ public class GlobeProxyService {
 
     /**
      * CelesTrak GP/TLE for a NORAD catalog number (FORMAT=TLE → name + 2 lines).
-     * Used for human-made spacecraft beyond ISS (Hubble, Tiangong, …).
+     * Used as last resort — celestrak.org is often unreachable (connect timeout).
      */
     private static final String CELESTRAK_TLE_BY_CATNR =
             "https://celestrak.org/NORAD/elements/gp.php?CATNR=%d&FORMAT=TLE";
+
+    /** Public TLE JSON by NORAD id (browser UA required; covers Hubble / Sentinel / Landsat). */
+    private static final String IVAN_TLE_BY_CATNR =
+            "https://tle.ivanstanojevic.me/api/tle/%d";
+
+    /** SatNOGS DB TLE JSON (subset of amateur / well-known sats). */
+    private static final String SATNOGS_TLE_BY_CATNR =
+            "https://db.satnogs.org/api/tle/?format=json&norad_cat_id=%d";
+
+    /**
+     * Some TLE hosts (mod_security) reject a short custom User-Agent with HTTP 406.
+     * Identify as a normal browser; PATTOOL is still the server-side proxy.
+     */
+    private static final String TLE_CLIENT_UA =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
     /**
      * Allowlisted NORAD IDs for the multi-satellite TLE proxy (astro compass).
@@ -136,7 +151,7 @@ public class GlobeProxyService {
             25994, // Terra
             27424, // Aqua
             39084, // Landsat 8
-            43226, // Landsat 9
+            49260, // Landsat 9
             40697, // Sentinel-2A
             42063, // Sentinel-2B
             43013  // NOAA-20
@@ -144,7 +159,7 @@ public class GlobeProxyService {
 
     private static final long ISS_NOW_MEMORY_CACHE_MS = 3_000L;
     private static final long SAT_TLE_MEMORY_CACHE_MS = 3_600_000L; // 1 h
-    private static final int MAX_BYTES_SAT_TLE = 4_096;
+    private static final int MAX_BYTES_SAT_TLE = 16_384;
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -508,8 +523,8 @@ public class GlobeProxyService {
     }
 
     /**
-     * Classic 3-line TLE (name + line1 + line2) from CelesTrak for an allowlisted NORAD id.
-     * Cached ~1 h — element sets do not need sub-minute refresh.
+     * Classic 3-line TLE (name + line1 + line2) for an allowlisted NORAD id.
+     * Cached ~1 h. Tries Ivan → SatNOGS → CelesTrak (CelesTrak often times out).
      */
     public byte[] fetchSatelliteTle(int noradId) {
         if (!ALLOWED_SATELLITE_NORAD_IDS.contains(noradId)) {
@@ -519,15 +534,91 @@ public class GlobeProxyService {
         if (cached != null && cached.isFresh(SAT_TLE_MEMORY_CACHE_MS)) {
             return cached.payload();
         }
+        Exception last = null;
+        try {
+            return cacheSatelliteTle(noradId, fetchSatelliteTleFromIvan(noradId));
+        } catch (Exception e) {
+            last = e;
+            log.debug("TLE Ivan failed for {}: {}", noradId, e.getMessage());
+        }
+        try {
+            return cacheSatelliteTle(noradId, fetchSatelliteTleFromSatnogs(noradId));
+        } catch (Exception e) {
+            last = e;
+            log.debug("TLE SatNOGS failed for {}: {}", noradId, e.getMessage());
+        }
+        try {
+            return cacheSatelliteTle(noradId, fetchSatelliteTleFromCelestrak(noradId));
+        } catch (Exception e) {
+            last = e;
+            log.warn("TLE CelesTrak failed for {}: {}", noradId, e.getMessage());
+        }
+        throw new IllegalStateException("TLE unavailable for NORAD " + noradId, last);
+    }
+
+    private byte[] cacheSatelliteTle(int noradId, byte[] payload) {
+        satTleMemoryCache.put(noradId, new SatTleMemoryCache(payload, System.currentTimeMillis()));
+        return payload;
+    }
+
+    private byte[] fetchSatelliteTleFromIvan(int noradId) {
+        String url = String.format(Locale.US, IVAN_TLE_BY_CATNR, noradId);
+        byte[] raw = fetchBytes(url, MAX_BYTES_SAT_TLE, false, TLE_CLIENT_UA, MediaType.APPLICATION_JSON_VALUE);
+        JsonNode root = readJsonTree(raw);
+        if (root == null || !root.hasNonNull("line1") || !root.hasNonNull("line2")) {
+            throw new IllegalStateException("Ivan TLE missing lines for NORAD " + noradId);
+        }
+        String name = root.path("name").asText("NORAD " + noradId);
+        return classicTlePayload(name, root.get("line1").asText(), root.get("line2").asText());
+    }
+
+    private byte[] fetchSatelliteTleFromSatnogs(int noradId) {
+        String url = String.format(Locale.US, SATNOGS_TLE_BY_CATNR, noradId);
+        byte[] raw = fetchBytes(url, MAX_BYTES_SAT_TLE, false, TLE_CLIENT_UA, MediaType.APPLICATION_JSON_VALUE);
+        JsonNode root = readJsonTree(raw);
+        if (root == null || !root.isArray() || root.isEmpty()) {
+            throw new IllegalStateException("SatNOGS TLE empty for NORAD " + noradId);
+        }
+        JsonNode first = root.get(0);
+        return classicTlePayload(
+                first.path("tle0").asText("NORAD " + noradId),
+                first.path("tle1").asText(null),
+                first.path("tle2").asText(null));
+    }
+
+    private byte[] fetchSatelliteTleFromCelestrak(int noradId) {
         String url = String.format(Locale.US, CELESTRAK_TLE_BY_CATNR, noradId);
-        byte[] raw = fetchBytes(url, MAX_BYTES_SAT_TLE, true);
+        byte[] raw = fetchBytes(url, MAX_BYTES_SAT_TLE, false);
         String text = new String(raw, java.nio.charset.StandardCharsets.UTF_8).trim();
         if (text.isEmpty() || !text.contains("1 ") || !text.contains("2 ")) {
             throw new IllegalStateException("Unexpected CelesTrak TLE payload for NORAD " + noradId);
         }
-        byte[] payload = text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        satTleMemoryCache.put(noradId, new SatTleMemoryCache(payload, System.currentTimeMillis()));
-        return payload;
+        return text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private JsonNode readJsonTree(byte[] raw) {
+        try {
+            return objectMapper.readTree(raw);
+        } catch (Exception e) {
+            throw new IllegalStateException("Invalid TLE JSON: " + e.getMessage(), e);
+        }
+    }
+
+    private static byte[] classicTlePayload(String name, String line1, String line2) {
+        if (line1 == null || line2 == null) {
+            throw new IllegalStateException("Missing TLE lines");
+        }
+        String l1 = line1.trim();
+        String l2 = line2.trim();
+        if (!l1.startsWith("1 ") || !l2.startsWith("2 ")) {
+            throw new IllegalStateException("Invalid TLE lines");
+        }
+        String n = name == null || name.isBlank() ? "NORAD" : name.trim();
+        if (n.startsWith("0 ")) {
+            n = n.substring(2).trim();
+        }
+        String text = n + "\n" + l1 + "\n" + l2 + "\n";
+        return text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
     }
 
     /**
@@ -790,9 +881,14 @@ public class GlobeProxyService {
     }
 
     private byte[] fetchBytes(String url, int maxBytes, boolean warnOnFailure) {
+        return fetchBytes(url, maxBytes, warnOnFailure, UA, "*/*");
+    }
+
+    private byte[] fetchBytes(
+            String url, int maxBytes, boolean warnOnFailure, String userAgent, String accept) {
         HttpHeaders headers = new HttpHeaders();
-        headers.set(HttpHeaders.USER_AGENT, UA);
-        headers.set(HttpHeaders.ACCEPT, "*/*");
+        headers.set(HttpHeaders.USER_AGENT, userAgent != null && !userAgent.isBlank() ? userAgent : UA);
+        headers.set(HttpHeaders.ACCEPT, accept != null && !accept.isBlank() ? accept : "*/*");
         try {
             ResponseEntity<byte[]> response = restTemplate.exchange(
                     url,

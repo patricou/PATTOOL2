@@ -33,12 +33,15 @@ interface CachedTle {
 
 /** TLE usable for several hours; refresh periodically while the compass is open. */
 const TLE_MAX_AGE_MS = 3_600_000;
+/** After a 502 / empty TLE, wait before retrying (astro compass ticks every 1 s). */
+const TLE_FAIL_RETRY_MS = 120_000;
 
 @Injectable({ providedIn: 'root' })
 export class GlobeSatelliteNowService {
   private readonly http = inject(HttpClient);
   private readonly tleByNorad = new Map<number, CachedTle>();
   private readonly inflight = new Map<number, Promise<CachedTle | null>>();
+  private readonly failUntilMs = new Map<number, number>();
 
   /** Prefetch TLEs for a set of NORAD ids (fire-and-forget). */
   prefetch(noradIds: ReadonlyArray<number>): void {
@@ -52,6 +55,12 @@ export class GlobeSatelliteNowService {
     if (!forceNetwork && existing && Date.now() - existing.fetchedAtMs < TLE_MAX_AGE_MS) {
       return existing;
     }
+    if (!forceNetwork) {
+      const until = this.failUntilMs.get(noradId);
+      if (until != null && Date.now() < until) {
+        return existing ?? null;
+      }
+    }
     const pending = this.inflight.get(noradId);
     if (pending) {
       return pending;
@@ -60,6 +69,9 @@ export class GlobeSatelliteNowService {
       .then((entry) => {
         if (entry) {
           this.tleByNorad.set(noradId, entry);
+          this.failUntilMs.delete(noradId);
+        } else {
+          this.failUntilMs.set(noradId, Date.now() + TLE_FAIL_RETRY_MS);
         }
         return entry;
       })
