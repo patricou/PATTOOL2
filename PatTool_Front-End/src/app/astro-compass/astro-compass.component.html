@@ -66,9 +66,7 @@
                 <span class="ac-compass-lubber" aria-hidden="true"></span>
                 <div
                   class="ac-compass-rose"
-                  [style.transform]="
-                    headingDeg != null ? 'rotate(' + (-headingDeg) + 'deg)' : 'rotate(0deg)'
-                  ">
+                  [style.transform]="'rotate(' + roseRotationDeg() + 'deg)'">
                   <span
                     class="ac-compass-deg"
                     *ngFor="let d of bezelDegrees"
@@ -423,6 +421,68 @@
                 {{ (isCalibrated() ? 'ASTRO_COMPASS.CAL_REDO' : 'ASTRO_COMPASS.CAL_OPEN') | translate }}
               </button>
             </div>
+
+            <!-- Même calage figure-8 que la page Nord -->
+            <section class="ac-nord-cal" [attr.aria-label]="'NORD.CAL_TITLE' | translate">
+              <h3 class="ac-nord-cal__title">
+                <i class="fa fa-magnet me-2" aria-hidden="true"></i>{{ 'NORD.CAL_TITLE' | translate }}
+              </h3>
+              <p class="ac-nord-cal__intro">{{ 'NORD.CAL_INTRO' | translate }}</p>
+
+              <div class="ac-nord-cal__figure" *ngIf="northEngine.calPhase === 'figure8'">
+                <div class="ac-octants" aria-hidden="true">
+                  <span
+                    class="ac-octant"
+                    *ngFor="let b of northEngine.octantBits"
+                    [class.ac-octant--on]="northEngine.octantOn(b)"></span>
+                  <i class="fa fa-mobile ac-octants__phone" aria-hidden="true"></i>
+                </div>
+                <p>{{ 'ASTRO_COMPASS.CAL_FIGURE8_HINT' | translate }}</p>
+                <div class="ac-compass-cal__bar" aria-hidden="true">
+                  <span class="ac-compass-cal__fill" [style.width.%]="sensorCalProgressPct()"></span>
+                </div>
+                <p class="ac-nord-cal__meta">
+                  {{ 'ASTRO_COMPASS.CAL_OCTANTS' | translate : { n: northEngine.calOctants } }}
+                  <ng-container *ngIf="northEngine.calSpanUt > 0">
+                    · {{ 'ASTRO_COMPASS.CAL_AXIS_SPAN' | translate : { ut: (northEngine.calSpanUt | number : '1.0-0') } }}
+                  </ng-container>
+                </p>
+              </div>
+
+              <div class="ac-nord-cal__settle" *ngIf="northEngine.calPhase === 'settle'">
+                <p>{{ 'ASTRO_COMPASS.CAL_SETTLE_HINT' | translate }}</p>
+                <div class="ac-compass-cal__bar" aria-hidden="true">
+                  <span class="ac-compass-cal__fill" [style.width.%]="sensorSettlePercent()"></span>
+                </div>
+              </div>
+
+              <div class="ac-nord-cal__done" *ngIf="northEngine.calPhase === 'done'">
+                <p>
+                  <i class="fa fa-lock me-2" aria-hidden="true"></i>{{ 'NORD.CAL_DONE' | translate }}
+                </p>
+                <p class="ac-nord-cal__meta" *ngIf="northEngine.calibratedAt">
+                  {{ northEngine.calibratedAt | date : 'short' }}
+                </p>
+              </div>
+
+              <div class="ac-nord-cal__actions">
+                <button
+                  type="button"
+                  class="ac-compass-cal__btn"
+                  *ngIf="northEngine.calPhase === 'idle' || northEngine.calPhase === 'done'"
+                  [disabled]="!headingActive"
+                  (click)="startNordFigure8Cal()">
+                  {{ (northEngine.magCalibrated ? 'NORD.CAL_AGAIN' : 'NORD.CAL_START') | translate }}
+                </button>
+                <button
+                  type="button"
+                  class="ac-compass-cal__btn ac-compass-cal__btn--ghost"
+                  *ngIf="northEngine.magCalibrated || northEngine.calPhase === 'done'"
+                  (click)="resetNordFigure8Cal()">
+                  {{ 'NORD.CAL_RESET' | translate }}
+                </button>
+              </div>
+            </section>
 
             <p class="ac-compass-explain">{{ 'ASTRO_COMPASS.EXPLAIN' | translate }}</p>
           </ng-container>
@@ -1046,7 +1106,7 @@
       </button>
     </div>
 
-    <div class="ac-compass-cal ac-compass-cal--active" *ngIf="calStatus === 'calibrating'">
+    <div class="ac-compass-cal ac-compass-cal--active" *ngIf="calStatus === 'calibrating' && calMethod === 'gps'">
       <div class="ac-compass-cal__head">
         <i class="fa fa-spinner fa-spin me-2" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.CAL_WALKING' | translate }}
       </div>
@@ -1069,6 +1129,40 @@
       <div class="ac-compass-cal__count">{{ calSamples }} / {{ calNeededSamples }}</div>
       <button type="button" class="ac-compass-cal__btn ac-compass-cal__btn--ghost" (click)="cancelCalibration()">
         {{ 'ASTRO_COMPASS.CAL_CANCEL' | translate }}
+      </button>
+    </div>
+
+    <div class="ac-compass-cal ac-compass-cal--active" *ngIf="calStatus === 'calibrating' && calMethod === 'sensor'">
+      <div class="ac-compass-cal__head" *ngIf="northEngine.calPhase === 'figure8'">
+        <i class="fa fa-spinner fa-spin me-2" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.CAL_METHOD_AUTO' | translate }}
+      </div>
+      <div class="ac-compass-cal__figure" *ngIf="northEngine.calPhase === 'figure8'">
+        <div class="ac-octants" aria-hidden="true">
+          <span
+            class="ac-octant"
+            *ngFor="let b of northEngine.octantBits"
+            [class.ac-octant--on]="northEngine.octantOn(b)"></span>
+          <i class="fa fa-mobile ac-octants__phone" aria-hidden="true"></i>
+        </div>
+        <p class="ac-compass-cal__instr">{{ 'ASTRO_COMPASS.CAL_FIGURE8_HINT' | translate }}</p>
+        <div class="ac-compass-cal__bar" aria-hidden="true">
+          <span class="ac-compass-cal__fill" [style.width.%]="sensorCalProgressPct()"></span>
+        </div>
+        <div class="ac-compass-cal__count">
+          {{ 'ASTRO_COMPASS.CAL_OCTANTS' | translate : { n: northEngine.calOctants } }}
+          <ng-container *ngIf="northEngine.calSpanUt > 0">
+            · {{ 'ASTRO_COMPASS.CAL_AXIS_SPAN' | translate : { ut: (northEngine.calSpanUt | number : '1.0-0') } }}
+          </ng-container>
+        </div>
+      </div>
+      <div class="ac-compass-cal__settle" *ngIf="northEngine.calPhase === 'settle'">
+        <p class="ac-compass-cal__instr">{{ 'ASTRO_COMPASS.CAL_SETTLE_HINT' | translate }}</p>
+        <div class="ac-compass-cal__bar ac-compass-cal__bar--settle" aria-hidden="true">
+          <span class="ac-compass-cal__fill" [style.width.%]="sensorSettlePercent()"></span>
+        </div>
+      </div>
+      <button type="button" class="ac-compass-cal__btn ac-compass-cal__btn--ghost" (click)="backCalMethod()">
+        {{ 'ASTRO_COMPASS.CAL_BACK' | translate }}
       </button>
     </div>
   </div>

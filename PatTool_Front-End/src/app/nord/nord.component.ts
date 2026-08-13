@@ -83,7 +83,7 @@ export class NordComponent implements OnInit, OnDestroy {
   headingMagDeg: number | null = null;
   headingTrueDeg: number | null = null;
   headingSource: HeadingSource | null = null;
-  /** 0° = à plat (écran vers le ciel), 90° = vertical. */
+  /** 0° = à plat (écran vers le ciel) ; + = haut vers le ciel ; − = avant vers le sol. */
   pitchDeg: number | null = null;
   /** Roulis, 0° = pas de bascule gauche/droite. */
   rollDeg: number | null = null;
@@ -321,9 +321,24 @@ export class NordComponent implements OnInit, OnDestroy {
 
   pitchGaugePercent(): number {
     if (this.pitchDeg == null) {
+      return 50;
+    }
+    const p = Math.max(-90, Math.min(90, this.pitchDeg));
+    return ((p + 90) / 180) * 100;
+  }
+
+  pitchFillHeightPct(): number {
+    if (this.pitchDeg == null) {
       return 0;
     }
-    return Math.max(0, Math.min(100, (Math.min(Math.abs(this.pitchDeg), 90) / 90) * 100));
+    return (Math.min(90, Math.abs(this.pitchDeg)) / 90) * 50;
+  }
+
+  pitchFillBottomPct(): number {
+    if (this.pitchDeg == null || this.pitchDeg >= 0) {
+      return 50;
+    }
+    return 50 - this.pitchFillHeightPct();
   }
 
   headingSourceKey(): string {
@@ -1094,19 +1109,29 @@ export class NordComponent implements OnInit, OnDestroy {
     if (!up) {
       return;
     }
-    const z = Math.max(-1, Math.min(1, up.z));
-    const skyEl = (Math.asin(z) * 180) / Math.PI;
-    const pitch = 90 - skyEl;
-    const roll = (Math.atan2(up.x, Math.hypot(up.y, up.z)) * 180) / Math.PI;
+    const sa = ((this.screenAngle() % 360) + 360) % 360;
+    let topX = 0;
+    let topY = 1;
+    if (sa === 90) {
+      topX = 1;
+      topY = 0;
+    } else if (sa === 180) {
+      topX = 0;
+      topY = -1;
+    } else if (sa === 270) {
+      topX = -1;
+      topY = 0;
+    }
+    const topDotUp = topX * up.x + topY * up.y;
+    const pitch = (Math.atan2(topDotUp, up.z) * 180) / Math.PI;
+    const rightX = topY;
+    const rightY = -topX;
+    const roll = (Math.atan2(rightX * up.x + rightY * up.y, up.z) * 180) / Math.PI;
     this.smoothAttitude(pitch, roll);
   }
 
   private updateAttitudeFromBetaGamma(betaDeg: number, gammaDeg: number): void {
-    const b = (betaDeg * Math.PI) / 180;
-    const g = (gammaDeg * Math.PI) / 180;
-    const upZ = Math.cos(b) * Math.cos(g);
-    const skyEl = (Math.asin(Math.max(-1, Math.min(1, upZ))) * 180) / Math.PI;
-    this.smoothAttitude(90 - skyEl, gammaDeg);
+    this.smoothAttitude(betaDeg, gammaDeg);
   }
 
   private smoothAttitude(pitch: number, roll: number): void {

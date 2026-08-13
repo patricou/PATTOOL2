@@ -547,14 +547,11 @@
       transparent 330.5deg 360deg
     );
   box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.55);
-  /* Lissage CSS : absorbe le reste du bruit capteurs (Samsung). */
-  transition: transform 0.14s ease-out;
   will-change: transform;
 }
 
 .ac-compass-dial--live .ac-compass-rose {
   border-color: rgba(120, 200, 255, 0.7);
-  transition: transform 0.14s ease-out;
 }
 
 .ac-compass-card-letter {
@@ -647,13 +644,8 @@
 .ac-compass-needle {
   position: absolute;
   inset: 0;
-  transition: transform 0.14s ease-out;
   will-change: transform;
   pointer-events: none;
-}
-
-.ac-compass-dial--live .ac-compass-needle {
-  transition: transform 0.14s ease-out;
 }
 
 /* Hampe Ã©paisse reliant le centre Ã  la pointe ISS */
@@ -1523,6 +1515,44 @@
   text-align: center;
 }
 
+.ac-octants {
+  position: relative;
+  width: 6.4rem;
+  height: 6.4rem;
+  margin: 0.35rem auto 0.55rem;
+}
+
+.ac-octant {
+  position: absolute;
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(140, 200, 255, 0.35);
+}
+
+.ac-octant--on {
+  background: #8fd18f;
+}
+
+.ac-octant:nth-child(1) { top: 0; left: 50%; transform: translateX(-50%); }
+.ac-octant:nth-child(2) { top: 14%; right: 14%; }
+.ac-octant:nth-child(3) { top: 50%; right: 0; transform: translateY(-50%); }
+.ac-octant:nth-child(4) { bottom: 14%; right: 14%; }
+.ac-octant:nth-child(5) { bottom: 0; left: 50%; transform: translateX(-50%); }
+.ac-octant:nth-child(6) { bottom: 14%; left: 14%; }
+.ac-octant:nth-child(7) { top: 50%; left: 0; transform: translateY(-50%); }
+.ac-octant:nth-child(8) { top: 14%; left: 14%; }
+
+.ac-octants__phone {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.55rem;
+  color: #cfe0ff;
+}
+
 .ac-compass-cal__okmsg {
   font-weight: 600;
 }
@@ -1656,6 +1686,54 @@
 
 .ac-compass-cal-strip .ac-compass-cal__btn--ghost {
   padding: 0.4rem 0.75rem;
+}
+
+.ac-nord-cal {
+  width: 100%;
+  margin-top: 0.65rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.7rem;
+  background: rgba(12, 28, 52, 0.55);
+  border: 1px solid rgba(120, 200, 255, 0.28);
+  color: #d7e6ff;
+}
+
+.ac-nord-cal__title {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.ac-nord-cal__intro,
+.ac-nord-cal__figure p,
+.ac-nord-cal__settle p,
+.ac-nord-cal__done p {
+  margin: 0 0 0.55rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  opacity: 0.92;
+}
+
+.ac-nord-cal__meta {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+.ac-nord-cal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.ac-nord-cal .ac-compass-cal__btn {
+  align-self: auto;
+}
+
+.ac-nord-cal .ac-octants {
+  margin-top: 0.15rem;
 }
 
 /* Modale de recalage */

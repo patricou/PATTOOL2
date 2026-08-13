@@ -336,9 +336,26 @@
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
   background: linear-gradient(to top, #5c4030, #c4a35a);
   border-radius: 99px;
+}
+
+.nord-pitch__fill--neg {
+  background: linear-gradient(to bottom, #5c1212, #d94a4a);
+}
+
+.nord-pitch__mid {
+  position: absolute;
+  left: -3px;
+  right: -3px;
+  top: 50%;
+  height: 1px;
+  background: rgba(243, 230, 196, 0.55);
+  z-index: 1;
+}
+
+.nord-pitch__val--neg {
+  color: #e8b86a;
 }
 
 .nord-pitch__marker {

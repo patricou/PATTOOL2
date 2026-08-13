@@ -43,6 +43,7 @@ import {
 import { ApiService, IssCompassCalibration } from '../services/api.service';
 import { GlobeIssNowService } from '../services/globe-iss-now.service';
 import { GlobeSatelliteNowService } from '../services/globe-satellite-now.service';
+import { CompassNorthEngine } from '../shared/compass-north.engine';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 
 /** Seuil (degrés) pour considérer que l'utilisateur vise la cible (azimut / inclinaison). */
@@ -50,6 +51,8 @@ const FACING_THRESHOLD_DEG = 8;
 const PITCH_THRESHOLD_DEG = 8;
 /** Fréquence AbsoluteOrientationSensor (Hz) — plus élevé = Nord plus réactif. */
 const ABS_ORIENTATION_HZ = 60;
+/** Magnétomètre / accéléro / gyro (Generic Sensor API), comme la page Nord. */
+const NORTH_SENSOR_HZ = 50;
 /** Intervalle min. entre paints UI cap (ms) — ~20 fps suffit, évite le scintillement. */
 const HEADING_PAINT_MIN_MS = 50;
 /** Intervalle min. entre paints inclinaison seule (ms). */
@@ -99,6 +102,17 @@ interface IssPassItem {
   setAt: Date;
   durationSec: number;
   maxElevationDeg: number | null;
+}
+
+interface GenericSensorLike {
+  start(): void;
+  stop(): void;
+  x?: number;
+  y?: number;
+  z?: number;
+  quaternion?: number[];
+  addEventListener(type: string, listener: () => void): void;
+  removeEventListener(type: string, listener: () => void): void;
 }
 
 interface AutoDetectHit {
@@ -306,7 +320,9 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
 
   walkSpeedMps: number | null = null;
 
-  headingSource: 'absolute-sensor' | 'webkit' | 'deviceorientation' | null = null;
+  headingSource: 'absolute-sensor' | 'webkit' | 'deviceorientation' | 'magnetometer' | null = null;
+  /** Calage figure-8 / hard-iron / fusion gyro (partagé avec la page Nord). */
+  readonly northEngine = new CompassNorthEngine();
   sensorAlpha: number | null = null;
   sensorBeta: number | null = null;
   sensorGamma: number | null = null;
@@ -318,7 +334,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   nowMs = Date.now();
 
   readonly bezelDegrees: ReadonlyArray<number> = [
-    0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330
+    30, 60, 120, 150, 210, 240, 300, 330
   ];
 
   private static readonly COMPASS_POINTS: ReadonlyArray<ReadonlyArray<'N' | 'E' | 'S' | 'W'>> = [
@@ -345,6 +361,13 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     removeEventListener(type: string, listener: (ev: Event) => void): void;
   } | null = null;
   private absSensorScreenFrame = false;
+  private northSensorsStarted = false;
+  private motionListening = false;
+  private accelFromGeneric = false;
+  private gyroFromGeneric = false;
+  private liveNorthSensors: GenericSensorLike[] = [];
+  private needleUnwrappedDeg = 0;
+  private needleInited = false;
   private headingLastPaintMs = 0;
   private pitchLastPaintMs = 0;
   /** Spike en attente de confirmation (anti-sauts Samsung). */
@@ -367,6 +390,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.onStarQueryChange();
+    this.northEngine.loadPersisted();
     this.loadCalibration();
     this.startGeolocation();
     void this.startOrientation();
@@ -2317,6 +2341,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   }
 
   backCalMethod(): void {
+    this.northEngine.cancelCal();
     this.calMethod = null;
     this.calStatus = 'uncalibrated';
     this.calAccum = [];
@@ -2330,12 +2355,8 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     this.mouseCalDragging = false;
     this.mouseNorthDraft = false;
     if (method === 'sensor') {
-      this.mouseVirtualActive = false;
-      this.northOffsetDeg = 0;
-      this.calStatus = 'calibrated';
-      this.applyNorthOffset();
-      this.persistCalibration('sensor', 0);
-      this.calModalOpen = false;
+      this.startNordFigure8Cal();
+      return;
     } else if (method === 'gps') {
       this.mouseVirtualActive = false;
       this.calStatus = 'calibrating';
@@ -2353,6 +2374,32 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
       this.mouseVirtualActive = false;
       this.calStatus = 'uncalibrated';
     }
+    this.cdr.markForCheck();
+  }
+
+  /** Même calage que la page Nord : figure-8, pause, verrouillage gyro. */
+  startNordFigure8Cal(): void {
+    this.clearCalBackup();
+    this.mouseVirtualActive = false;
+    this.mouseCalDragging = false;
+    this.mouseNorthDraft = false;
+    this.northOffsetDeg = 0;
+    this.calMethod = 'sensor';
+    this.calStatus = 'calibrating';
+    this.calPersisted = false;
+    this.calModalOpen = false;
+    this.northEngine.startFigure8();
+    this.applyNorthOffset();
+    this.cdr.markForCheck();
+  }
+
+  resetNordFigure8Cal(): void {
+    this.northEngine.resetHardIron();
+    this.northOffsetDeg = 0;
+    this.calMethod = null;
+    this.calStatus = 'uncalibrated';
+    this.calPersisted = false;
+    this.applyNorthOffset();
     this.cdr.markForCheck();
   }
 
@@ -2401,6 +2448,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
 
   cancelCalibration(): void {
     this.mouseCalDragging = false;
+    this.northEngine.cancelCal();
     if (this.calMethod === 'mouse' && this.mouseNorthDraft && !this.calPersisted) {
       this.northOffsetDeg = null;
       this.mouseVirtualActive = false;
@@ -2426,6 +2474,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
 
   restartCalibration(openModal = true): void {
     this.clearCalBackup();
+    this.northEngine.cancelCal();
     this.calStatus = 'uncalibrated';
     this.calMethod = null;
     this.northOffsetDeg = null;
@@ -2722,7 +2771,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
       this.gpsPrev = { lat, lon, tMs };
     }
 
-    if (this.calStatus !== 'calibrating') {
+    if (this.calStatus !== 'calibrating' || this.calMethod !== 'gps') {
       return;
     }
     const sensorHeading = this.headingInstantDeg ?? this.headingRawDeg;
@@ -2757,6 +2806,8 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   private async startOrientation(): Promise<void> {
     const doe: any =
       typeof window !== 'undefined' ? (window as any).DeviceOrientationEvent : undefined;
+    const dme: any =
+      typeof window !== 'undefined' ? (window as any).DeviceMotionEvent : undefined;
     if (doe && typeof doe.requestPermission === 'function') {
       try {
         const res = await doe.requestPermission();
@@ -2767,6 +2818,16 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
         return;
       }
     }
+    if (dme && typeof dme.requestPermission === 'function') {
+      try {
+        await dme.requestPermission();
+      } catch {
+        /* optional */
+      }
+    }
+
+    this.startNorthSensors();
+    this.startDeviceMotion();
 
     if (await this.tryStartAbsoluteSensor()) {
       // Abs sensor pour le cap ; DeviceOrientation reste utile pour beta/gamma (inclinaison).
@@ -2795,6 +2856,181 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
       window.addEventListener(evtName, this.handleOrientation as EventListener, true);
     });
     this.orientationListening = true;
+  }
+
+  private startNorthSensors(): void {
+    if (this.northSensorsStarted || typeof window === 'undefined') {
+      return;
+    }
+    this.northSensorsStarted = true;
+    const w = window as unknown as Record<string, unknown>;
+    this.tryNorthGeneric(
+      w['Magnetometer'] as (new (opts: { frequency: number }) => GenericSensorLike) | undefined,
+      (s) => {
+        this.northEngine.hasMag = true;
+        this.onNorthMagSample(s.x ?? 0, s.y ?? 0, s.z ?? 0);
+      }
+    );
+    this.tryNorthGeneric(
+      w['Accelerometer'] as (new (opts: { frequency: number }) => GenericSensorLike) | undefined,
+      (s) => {
+        if (this.accelFromGeneric) {
+          return;
+        }
+        this.northEngine.accel = { x: s.x ?? 0, y: s.y ?? 0, z: s.z ?? 0 };
+        this.northEngine.hasAccel = true;
+        this.accelFromGeneric = true;
+      }
+    );
+    this.tryNorthGeneric(
+      w['GravitySensor'] as (new (opts: { frequency: number }) => GenericSensorLike) | undefined,
+      (s) => {
+        this.northEngine.accel = { x: s.x ?? 0, y: s.y ?? 0, z: s.z ?? 0 };
+        this.northEngine.hasAccel = true;
+        this.accelFromGeneric = true;
+      }
+    );
+    this.tryNorthGeneric(
+      w['Gyroscope'] as (new (opts: { frequency: number }) => GenericSensorLike) | undefined,
+      (s) => {
+        this.northEngine.gyro = { x: s.x ?? 0, y: s.y ?? 0, z: s.z ?? 0 };
+        this.northEngine.hasGyro = true;
+        this.gyroFromGeneric = true;
+        this.tickNorthGyro();
+      }
+    );
+  }
+
+  private tryNorthGeneric(
+    Ctor: (new (opts: { frequency: number }) => GenericSensorLike) | undefined,
+    onReading: (s: GenericSensorLike) => void
+  ): void {
+    if (typeof Ctor !== 'function') {
+      return;
+    }
+    try {
+      const sensor = new Ctor({ frequency: NORTH_SENSOR_HZ });
+      const reading = (): void => onReading(sensor);
+      sensor.addEventListener('reading', reading);
+      sensor.addEventListener('error', () => {
+        /* ignore */
+      });
+      sensor.start();
+      this.liveNorthSensors.push(sensor);
+    } catch {
+      /* permission / unsupported */
+    }
+  }
+
+  private startDeviceMotion(): void {
+    if (this.motionListening || typeof window === 'undefined' || !('DeviceMotionEvent' in window)) {
+      return;
+    }
+    this.zone.runOutsideAngular(() => {
+      window.addEventListener('devicemotion', this.handleDeviceMotion, true);
+    });
+    this.motionListening = true;
+  }
+
+  private handleDeviceMotion = (e: DeviceMotionEvent): void => {
+    const a = e.accelerationIncludingGravity;
+    if (!this.accelFromGeneric && a?.x != null && a.y != null && a.z != null) {
+      this.northEngine.accel = { x: a.x, y: a.y, z: a.z };
+      this.northEngine.hasAccel = true;
+    }
+    const r = e.rotationRate;
+    if (this.gyroFromGeneric || r?.alpha == null || r.beta == null || r.gamma == null) {
+      return;
+    }
+    const k = Math.PI / 180;
+    this.northEngine.gyro = { x: r.beta * k, y: r.gamma * k, z: r.alpha * k };
+    this.northEngine.hasGyro = true;
+    this.tickNorthGyro();
+  };
+
+  private onNorthMagSample(x: number, y: number, z: number): void {
+    if (
+      this.northEngine.calPhase === 'figure8' &&
+      this.northEngine.ingestFigure8Mag(x, y, z)
+    ) {
+      this.beginSensorSettle();
+    }
+    const c = this.northEngine.correctMag(x, y, z);
+    const heading = this.northEngine.headingFromMagAccel(
+      c.x,
+      c.y,
+      c.z,
+      this.currentScreenAngle()
+    );
+    if (heading != null) {
+      this.publishMagNorthHeading(heading);
+    }
+  }
+
+  private publishMagNorthHeading(raw: number): void {
+    if (this.mouseVirtualActive && this.calMethod === 'mouse') {
+      return;
+    }
+    const locked = this.calStatus === 'calibrated' && this.calMethod === 'sensor';
+    const fused = this.northEngine.fuseMagHeading(raw, locked);
+    this.headingInstantDeg = fused;
+    this.headingRawDeg = fused;
+    this.applyNorthOffset();
+    this.headingActive = true;
+    this.headingSource = 'magnetometer';
+    this.sensorAbsolute = true;
+    this.scheduleHeadingPaint();
+  }
+
+  private tickNorthGyro(): void {
+    const locked = this.calStatus === 'calibrated' && this.calMethod === 'sensor';
+    const fused = this.northEngine.tickGyro(locked);
+    if (fused == null) {
+      return;
+    }
+    this.headingInstantDeg = fused;
+    this.headingRawDeg = fused;
+    this.applyNorthOffset();
+    this.headingActive = true;
+    this.scheduleHeadingPaint();
+  }
+
+  private beginSensorSettle(): void {
+    if (this.northEngine.calPhase === 'settle') {
+      return;
+    }
+    this.northEngine.beginSettle(
+      () => this.finishSensorCal(),
+      () => this.scheduleHeadingPaint()
+    );
+    this.scheduleHeadingPaint();
+  }
+
+  private finishSensorCal(): void {
+    this.northOffsetDeg = 0;
+    this.calMethod = 'sensor';
+    this.calStatus = 'calibrated';
+    this.applyNorthOffset();
+    this.persistCalibration('sensor', 0);
+    this.calModalOpen = false;
+    this.zone.run(() => this.cdr.markForCheck());
+  }
+
+  sensorCalProgressPct(): number {
+    return this.northEngine.calProgressPct;
+  }
+
+  sensorSettlePercent(): number {
+    return Math.max(0, Math.min(100, 100 - this.northEngine.settleRemainMs / 18));
+  }
+
+  private scheduleHeadingPaint(): void {
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (now - this.headingLastPaintMs < HEADING_PAINT_MIN_MS) {
+      return;
+    }
+    this.headingLastPaintMs = now;
+    this.zone.run(() => this.cdr.markForCheck());
   }
 
   private async tryStartAbsoluteSensor(): Promise<boolean> {
@@ -2867,6 +3103,9 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   }
 
   private handleAbsSensorReading = (): void => {
+    if (this.northEngine.hasMag) {
+      return;
+    }
     const sensor = this.absSensor;
     if (!sensor?.quaternion || sensor.quaternion.length < 4) {
       return;
@@ -2898,8 +3137,8 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     const gamma = Number.isFinite(e.gamma as number) ? (e.gamma as number) : null;
     const pitch = beta != null ? this.devicePitchFromBetaGamma(beta, gamma ?? 0) : null;
 
-    // AbsoluteOrientationSensor gère déjà le cap : ici on ne prend que l'inclinaison.
-    if (this.absSensor != null) {
+    // Magnétomètre + accéléro : le cap vient du moteur Nord (hard-iron + fusion).
+    if (this.absSensor != null || this.northEngine.hasMag) {
       if (pitch != null) {
         this.publishPitchOnly(pitch, {
           alpha: Number.isFinite(e.alpha as number) ? (e.alpha as number) : null,
@@ -2964,6 +3203,9 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     if (this.mouseVirtualActive && this.calMethod === 'mouse') {
       return;
     }
+    if (this.northEngine.hasMag) {
+      return;
+    }
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     // Médiane puis lissage — réduit les sauts Samsung avant le lerp.
     const medianHeading = this.pushHeadingMedian(heading);
@@ -2985,15 +3227,27 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
         this.headingOutlierPendingDeg = null;
       }
     }
+    const locked = this.calStatus === 'calibrated' && this.calMethod === 'sensor';
     this.headingInstantDeg = accepted;
-    this.headingRawDeg =
-      this.headingRawDeg == null
-        ? accepted
-        : this.circularLerpDeg(
-            this.headingRawDeg,
-            accepted,
-            this.headingLerpFactor(this.headingRawDeg, accepted)
-          );
+    if (this.northEngine.hasGyro) {
+      this.headingRawDeg = this.northEngine.fuseMagHeading(accepted, locked);
+    } else {
+      this.headingRawDeg =
+        this.headingRawDeg == null
+          ? accepted
+          : this.circularLerpDeg(
+              this.headingRawDeg,
+              accepted,
+              this.headingLerpFactor(this.headingRawDeg, accepted)
+            );
+    }
+    if (
+      this.calMethod === 'sensor' &&
+      this.northEngine.calPhase === 'figure8' &&
+      this.northEngine.ingestFigure8Heading(accepted)
+    ) {
+      this.beginSensorSettle();
+    }
     // Calage souris/tactile en cours : garder le N sur l'angle cliqué malgré le cap live.
     if (this.isMouseCalMode() && this.mouseAimDeg != null && this.headingRawDeg != null) {
       this.northOffsetDeg = this.normalizeDeg(-this.mouseAimDeg - this.headingRawDeg);
@@ -3068,6 +3322,24 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   }
 
   private stopSensors(): void {
+    this.northEngine.destroy();
+    for (const s of this.liveNorthSensors) {
+      try {
+        s.stop();
+      } catch {
+        /* ignore */
+      }
+    }
+    this.liveNorthSensors = [];
+    this.northSensorsStarted = false;
+    this.accelFromGeneric = false;
+    this.gyroFromGeneric = false;
+
+    if (this.motionListening) {
+      window.removeEventListener('devicemotion', this.handleDeviceMotion, true);
+      this.motionListening = false;
+    }
+
     if (this.geoWatchId != null && typeof navigator !== 'undefined' && navigator.geolocation) {
       try {
         navigator.geolocation.clearWatch(this.geoWatchId);
@@ -3147,6 +3419,9 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   }
 
   sensorEventName(): string | null {
+    if (this.headingSource === 'magnetometer') {
+      return 'Magnetometer';
+    }
     if (this.headingSource === 'absolute-sensor') {
       return 'AbsoluteOrientationSensor';
     }
@@ -3165,15 +3440,22 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   /* ------------------------------------------------------------------ */
 
   roseRotationDeg(): number {
-    return this.headingActive && this.headingDeg != null ? -this.headingDeg : 0;
+    if (!this.headingActive || this.headingDeg == null) {
+      return 0;
+    }
+    return this.northEngine.unwrapRose(this.headingDeg);
   }
 
   needleRotationDeg(): number {
     const az = this.azimuthDeg ?? 0;
-    if (this.headingActive && this.headingDeg != null) {
-      return this.normalizeDeg(az - this.headingDeg);
-    }
-    return az;
+    const target =
+      this.headingActive && this.headingDeg != null
+        ? this.normalizeDeg(az - this.headingDeg)
+        : az;
+    const r = this.northEngine.unwrapAngle(this.needleUnwrappedDeg, target, this.needleInited);
+    this.needleUnwrappedDeg = r.value;
+    this.needleInited = r.inited;
+    return this.needleUnwrappedDeg;
   }
 
   cardinalLabel(): string {

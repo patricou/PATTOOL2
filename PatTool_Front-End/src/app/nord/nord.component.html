@@ -54,9 +54,14 @@
       <div
         class="nord-pitch"
         [attr.aria-label]="'NORD.PITCH' | translate">
-        <span class="nord-pitch__end">90°</span>
+        <span class="nord-pitch__end">+90°</span>
         <div class="nord-pitch__track">
-          <span class="nord-pitch__fill" [style.height.%]="pitchGaugePercent()"></span>
+          <span class="nord-pitch__mid" aria-hidden="true"></span>
+          <span
+            class="nord-pitch__fill"
+            [class.nord-pitch__fill--neg]="pitchDeg != null && pitchDeg < 0"
+            [style.bottom.%]="pitchFillBottomPct()"
+            [style.height.%]="pitchFillHeightPct()"></span>
           <span
             class="nord-pitch__marker"
             *ngIf="pitchDeg != null"
@@ -64,8 +69,8 @@
             <i class="fa fa-mobile" aria-hidden="true"></i>
           </span>
         </div>
-        <span class="nord-pitch__end">0°</span>
-        <span class="nord-pitch__val">{{ pitchText() }}</span>
+        <span class="nord-pitch__end">−90°</span>
+        <span class="nord-pitch__val" [class.nord-pitch__val--neg]="pitchDeg != null && pitchDeg < 0">{{ pitchText() }}</span>
         <span class="nord-pitch__cap">{{ 'NORD.PITCH' | translate }}</span>
       </div>
       </div>
