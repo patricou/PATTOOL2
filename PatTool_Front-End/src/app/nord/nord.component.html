@@ -1,0 +1,162 @@
+<div class="pat-title nord-title">
+  <h2>
+    <i class="fa fa-compass me-2" aria-hidden="true"></i>
+    {{ 'NORD.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="nord-shell">
+  <p class="nord-lede">{{ 'NORD.SUBTITLE' | translate }}</p>
+
+  <div class="nord-toolbar">
+    <button
+      type="button"
+      class="nord-btn nord-btn--primary"
+      *ngIf="!sensorsEnabled || permissionNeeded"
+      (click)="enableSensors()">
+      <i class="fa fa-wifi me-2" aria-hidden="true"></i>{{ 'NORD.START_SENSORS' | translate }}
+    </button>
+    <p class="nord-warn" *ngIf="permissionDenied">{{ 'NORD.PERMISSION_DENIED' | translate }}</p>
+    <p class="nord-hint" *ngIf="permissionNeeded && !permissionDenied">{{ 'NORD.PERMISSION_NEEDED' | translate }}</p>
+
+    <label class="nord-switch" *ngIf="sensorsEnabled">
+      <input type="checkbox" [checked]="trueNorth" (change)="toggleTrueNorth()" />
+      <span>{{ 'NORD.TRUE_NORTH' | translate }}</span>
+    </label>
+  </div>
+
+  <div class="nord-stage">
+    <section class="nord-instrument" [attr.aria-label]="'NORD.COMPASS_ARIA' | translate">
+      <div class="nord-bezel">
+        <div class="nord-lubber" aria-hidden="true"></div>
+        <div class="nord-card" [style.transform]="'rotate(' + roseRotationDeg() + 'deg)'">
+          <span class="nord-ticks" aria-hidden="true"></span>
+          <span
+            class="nord-deg"
+            *ngFor="let d of bezelDegrees"
+            [style.transform]="'rotate(' + d + 'deg)'">
+            <span class="nord-deg__txt" [style.transform]="'rotate(' + (-d) + 'deg)'">{{ d }}</span>
+          </span>
+          <span class="nord-letter nord-letter--n">{{ 'NORD.DIR_N' | translate }}</span>
+          <span class="nord-letter nord-letter--e">{{ 'NORD.DIR_E' | translate }}</span>
+          <span class="nord-letter nord-letter--s">{{ 'NORD.DIR_S' | translate }}</span>
+          <span class="nord-letter nord-letter--w">{{ 'NORD.DIR_W' | translate }}</span>
+          <span class="nord-needle" aria-hidden="true"></span>
+        </div>
+        <div class="nord-hub">
+          <span class="nord-hub__deg">{{ headingText() }}°</span>
+          <span class="nord-hub__card">{{ cardinalLabel() }}</span>
+          <span class="nord-hub__kind">{{ (trueNorth ? 'NORD.TRUE' : 'NORD.MAGNETIC') | translate }}</span>
+        </div>
+      </div>
+
+      <ul class="nord-readout">
+        <li>
+          <span>{{ 'NORD.SOURCE' | translate }}</span>
+          <strong>{{ headingSource ? (headingSourceKey() | translate) : '—' }}</strong>
+        </li>
+        <li>
+          <span>{{ 'NORD.DECLINATION' | translate }}</span>
+          <strong>{{ declinationText() }}</strong>
+        </li>
+        <li>
+          <span>{{ 'NORD.FIELD' | translate }}</span>
+          <strong [class.nord-bad]="fieldStatus() === 'interference'">
+            {{ magFieldUt == null ? '—' : (magFieldUt | number : '1.0-1') + ' µT' }}
+          </strong>
+        </li>
+        <li>
+          <span>{{ 'NORD.STABILITY' | translate }}</span>
+          <strong [class.nord-ok]="stabilityStatus() === 'good'" [class.nord-bad]="stabilityStatus() === 'jitter'">
+            {{ stabilityDeg == null ? '—' : '±' + (stabilityDeg | number : '1.0-1') + '°' }}
+          </strong>
+        </li>
+        <li *ngIf="gpsLat != null">
+          <span>{{ 'NORD.GPS' | translate }}</span>
+          <strong>{{ gpsLat | number : '1.4-4' }} / {{ gpsLon | number : '1.4-4' }}</strong>
+        </li>
+      </ul>
+      <p class="nord-field-warn" *ngIf="fieldStatus() === 'interference'">{{ 'NORD.FIELD_INTERFERENCE' | translate }}</p>
+    </section>
+
+    <section class="nord-cal" [attr.aria-label]="'NORD.CAL_TITLE' | translate">
+      <h3>{{ 'NORD.CAL_TITLE' | translate }}</h3>
+      <p class="nord-cal__intro">{{ 'NORD.CAL_INTRO' | translate }}</p>
+
+      <div class="nord-cal__figure" *ngIf="calPhase === 'figure8'">
+        <div class="nord-octants" aria-hidden="true">
+          <span
+            class="nord-octant"
+            *ngFor="let b of octantBits"
+            [class.nord-octant--on]="octantOn(b)"></span>
+          <i class="fa fa-mobile nord-octants__phone" aria-hidden="true"></i>
+        </div>
+        <p>{{ 'NORD.CAL_FIGURE8_HINT' | translate }}</p>
+        <div class="nord-bar" [attr.aria-valuenow]="calProgressPct">
+          <span [style.width.%]="calProgressPct"></span>
+        </div>
+        <p class="nord-cal__meta">
+          {{ 'NORD.OCTANTS' | translate : { n: calOctants } }}
+          <ng-container *ngIf="calSpanUt > 0">
+            · {{ 'NORD.AXIS_SPAN' | translate : { ut: (calSpanUt | number : '1.0-0') } }}
+          </ng-container>
+        </p>
+      </div>
+
+      <div class="nord-cal__settle" *ngIf="calPhase === 'settle'">
+        <p>{{ 'NORD.CAL_SETTLE_HINT' | translate }}</p>
+        <div class="nord-bar nord-bar--settle">
+          <span [style.width.%]="100 - (settleRemainMs / 18)"></span>
+        </div>
+      </div>
+
+      <div class="nord-cal__done" *ngIf="calPhase === 'done'">
+        <p>
+          <i class="fa fa-lock me-2" aria-hidden="true"></i>{{ 'NORD.CAL_DONE' | translate }}
+        </p>
+        <p class="nord-cal__meta" *ngIf="calibratedAt">{{ calibratedAt | date : 'short' }}</p>
+      </div>
+
+      <div class="nord-cal__actions">
+        <button
+          type="button"
+          class="nord-btn nord-btn--primary"
+          *ngIf="calPhase === 'idle' || calPhase === 'done'"
+          [disabled]="!sensorsEnabled"
+          (click)="startCalibration()">
+          {{ (calibrated ? 'NORD.CAL_AGAIN' : 'NORD.CAL_START') | translate }}
+        </button>
+        <button
+          type="button"
+          class="nord-btn"
+          *ngIf="calibrated"
+          (click)="resetCalibration()">
+          {{ 'NORD.CAL_RESET' | translate }}
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <section class="nord-sensors" [attr.aria-label]="'NORD.SENSORS_TITLE' | translate">
+    <h3>{{ 'NORD.SENSORS_TITLE' | translate }}</h3>
+    <p class="nord-sensors__hint">{{ 'NORD.SENSORS_HINT' | translate }}</p>
+    <div class="nord-grid">
+      <article
+        class="nord-tile"
+        *ngFor="let t of tiles"
+        [attr.data-status]="t.status">
+        <header>
+          <h4>{{ t.labelKey | translate }}</h4>
+          <span class="nord-pill">{{ ('NORD.ST_' + t.status) | translate }}</span>
+        </header>
+        <dl *ngIf="t.rows.length">
+          <div *ngFor="let r of t.rows">
+            <dt>{{ r.label }}</dt>
+            <dd>{{ r.value }}</dd>
+          </div>
+        </dl>
+        <p class="nord-tile__empty" *ngIf="!t.rows.length">—</p>
+      </article>
+    </div>
+  </section>
+</div>

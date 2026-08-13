@@ -238,7 +238,8 @@ export class AppComponent implements OnInit {
         { routerLink: ['tools/solar-system'], icon: 'fa fa-globe', labelKey: 'MENU.SOLAR_SYSTEM' },
         { routerLink: ['tools/ciel'], icon: 'fa fa-star', labelKey: 'MENU.SKY' },
         { routerLink: ['tools/eclipse'], icon: 'fa fa-moon-o', labelKey: 'MENU.ECLIPSE' },
-        { routerLink: ['tools/astro-compass'], icon: 'fa fa-compass', labelKey: 'MENU.ASTRO_COMPASS' }
+        { routerLink: ['tools/astro-compass'], icon: 'fa fa-compass', labelKey: 'MENU.ASTRO_COMPASS' },
+        { routerLink: ['tools/nord'], icon: 'fa fa-location-arrow', labelKey: 'MENU.NORD' }
     ];
     readonly navIotRaw: NavRouteMenuItem[] = [
         { routerLink: ['iot'], icon: 'fa fa-home', labelKey: 'MENU.IOT_HOME' },

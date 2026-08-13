@@ -247,6 +247,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 					import('./astro-compass/astro-compass.component').then(m => m.AstroCompassComponent)
 			},
 			{
+				path: 'tools/nord',
+				loadComponent: () => import('./nord/nord.component').then(m => m.NordComponent)
+			},
+			{
 				path: 'tools/world-globe',
 				loadComponent: () => import('./world-globe/world-globe.component').then(m => m.WorldGlobeComponent)
 			},

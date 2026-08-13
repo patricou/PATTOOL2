@@ -1,0 +1,437 @@
+:host {
+  display: block;
+  color: #efe6d4;
+}
+
+:host .pat-title.nord-title {
+  margin-bottom: 0 !important;
+  border-bottom: none !important;
+}
+
+.nord-shell {
+  isolation: isolate;
+  min-height: calc(100vh - 160px);
+  margin: 0 -0.75rem;
+  padding: 0.75rem 0.9rem 2.4rem;
+  background:
+    radial-gradient(ellipse 70% 40% at 50% -8%, rgba(196, 149, 74, 0.18), transparent 55%),
+    radial-gradient(ellipse 50% 35% at 100% 100%, rgba(80, 40, 20, 0.35), transparent 50%),
+    linear-gradient(180deg, #1c1610 0%, #120e0b 55%, #0c0907 100%);
+}
+
+.nord-lede {
+  max-width: 44rem;
+  margin: 0 auto 1rem;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: #cbb89a;
+}
+
+.nord-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.1rem;
+  max-width: 1100px;
+  margin: 0 auto 1.1rem;
+}
+
+.nord-btn {
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  background: rgba(255, 255, 255, 0.05);
+  color: #efe6d4;
+  border-radius: 0.45rem;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.nord-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.nord-btn--primary {
+  background: linear-gradient(180deg, #8b1e1e 0%, #5c1212 100%);
+  border-color: #c44;
+  color: #fff5ea;
+}
+
+.nord-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.88rem;
+  color: #e4d4b4;
+  cursor: pointer;
+}
+
+.nord-warn,
+.nord-hint,
+.nord-field-warn {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #e8b86a;
+}
+
+.nord-field-warn {
+  margin-top: 0.55rem;
+}
+
+.nord-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  gap: 1.25rem;
+  max-width: 1100px;
+  margin: 0 auto 1.6rem;
+  align-items: start;
+}
+
+.nord-instrument {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.nord-bezel {
+  position: relative;
+  width: min(86vw, 22.5rem);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 42%, #3a2c1c 0%, #1a120c 70%),
+    #1a120c;
+  box-shadow:
+    0 0 0 10px #c4a35a,
+    0 0 0 14px #5c4030,
+    0 18px 40px rgba(0, 0, 0, 0.55);
+}
+
+.nord-lubber {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  z-index: 4;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 16px solid #f3e6c4;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 1px 2px #000);
+}
+
+.nord-card {
+  position: absolute;
+  inset: 18px;
+  border-radius: 50%;
+  transition: transform 0.08s linear;
+}
+
+.nord-ticks {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: repeating-conic-gradient(
+    from -0.4deg,
+    #e8d5a3 0deg 0.7deg,
+    transparent 0.7deg 15deg
+  );
+  -webkit-mask: radial-gradient(circle, transparent 71%, #000 72% 86%, transparent 87%);
+  mask: radial-gradient(circle, transparent 71%, #000 72% 86%, transparent 87%);
+}
+
+.nord-deg {
+  position: absolute;
+  inset: 9%;
+  display: flex;
+  justify-content: center;
+}
+
+.nord-deg__txt {
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  color: #d8c49a;
+}
+
+.nord-letter {
+  position: absolute;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.nord-letter--n {
+  top: 16%;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #d94a4a;
+  font-size: 1.35rem;
+}
+
+.nord-letter--s {
+  bottom: 16%;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #d8c49a;
+  font-size: 1.05rem;
+}
+
+.nord-letter--e {
+  right: 17%;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #d8c49a;
+  font-size: 1.05rem;
+}
+
+.nord-letter--w {
+  left: 17%;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #d8c49a;
+  font-size: 1.05rem;
+}
+
+.nord-needle {
+  position: absolute;
+  left: 50%;
+  top: 18%;
+  bottom: 18%;
+  width: 10px;
+  margin-left: -5px;
+  background: linear-gradient(to bottom, #d94a4a 0 50%, #d8d2c4 50% 100%);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  opacity: 0.92;
+}
+
+.nord-hub {
+  position: absolute;
+  inset: 38%;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 30%, #4a3824, #1a120c 70%);
+  box-shadow: inset 0 0 0 2px rgba(196, 163, 90, 0.55);
+  text-align: center;
+}
+
+.nord-hub__deg {
+  font-size: 1.55rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff4dc;
+}
+
+.nord-hub__card {
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  color: #d94a4a;
+}
+
+.nord-hub__kind {
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #cbb89a;
+}
+
+.nord-readout {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  width: min(86vw, 22.5rem);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem 0.8rem;
+  font-size: 0.78rem;
+  color: #cbb89a;
+}
+
+.nord-readout strong {
+  display: block;
+  color: #efe6d4;
+  font-weight: 600;
+}
+
+.nord-ok {
+  color: #8fd18f !important;
+}
+
+.nord-bad {
+  color: #e8b86a !important;
+}
+
+.nord-cal {
+  background: rgba(255, 244, 220, 0.04);
+  border: 1px solid rgba(196, 163, 90, 0.28);
+  border-radius: 0.7rem;
+  padding: 0.95rem 1rem 1.1rem;
+}
+
+.nord-cal h3,
+.nord-sensors h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+  color: #f3e6c4;
+}
+
+.nord-cal__intro,
+.nord-sensors__hint,
+.nord-cal__meta {
+  font-size: 0.82rem;
+  color: #cbb89a;
+  line-height: 1.4;
+}
+
+.nord-cal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+.nord-octants {
+  position: relative;
+  width: 7.5rem;
+  height: 7.5rem;
+  margin: 0.4rem auto 0.7rem;
+}
+
+.nord-octant {
+  position: absolute;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  background: #3a2c1c;
+  box-shadow: inset 0 0 0 1px rgba(196, 163, 90, 0.35);
+}
+
+.nord-octant--on {
+  background: #8fd18f;
+}
+
+.nord-octant:nth-child(1) { top: 0; left: 50%; transform: translateX(-50%); }
+.nord-octant:nth-child(2) { top: 14%; right: 14%; }
+.nord-octant:nth-child(3) { top: 50%; right: 0; transform: translateY(-50%); }
+.nord-octant:nth-child(4) { bottom: 14%; right: 14%; }
+.nord-octant:nth-child(5) { bottom: 0; left: 50%; transform: translateX(-50%); }
+.nord-octant:nth-child(6) { bottom: 14%; left: 14%; }
+.nord-octant:nth-child(7) { top: 50%; left: 0; transform: translateY(-50%); }
+.nord-octant:nth-child(8) { top: 14%; left: 14%; }
+
+.nord-octants__phone {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.8rem;
+  color: #e4d4b4;
+}
+
+.nord-bar {
+  height: 0.45rem;
+  border-radius: 99px;
+  background: #2a2016;
+  overflow: hidden;
+}
+
+.nord-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #8b1e1e, #c4a35a);
+}
+
+.nord-sensors {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.nord-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr));
+  gap: 0.7rem;
+  margin-top: 0.75rem;
+}
+
+.nord-tile {
+  background: rgba(255, 244, 220, 0.04);
+  border: 1px solid rgba(196, 163, 90, 0.2);
+  border-radius: 0.55rem;
+  padding: 0.65rem 0.75rem 0.7rem;
+}
+
+.nord-tile header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+
+.nord-tile h4 {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #f3e6c4;
+}
+
+.nord-pill {
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.12rem 0.4rem;
+  border-radius: 99px;
+  background: #2a2016;
+  color: #cbb89a;
+}
+
+.nord-tile[data-status='live'] .nord-pill {
+  background: #1e3a24;
+  color: #8fd18f;
+}
+
+.nord-tile[data-status='unsupported'] {
+  opacity: 0.55;
+}
+
+.nord-tile[data-status='denied'],
+.nord-tile[data-status='error'] .nord-pill {
+  background: #3a1c12;
+  color: #e8b86a;
+}
+
+.nord-tile dl {
+  margin: 0;
+}
+
+.nord-tile dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.nord-tile dt {
+  color: #9a8a70;
+}
+
+.nord-tile dd {
+  margin: 0;
+  color: #efe6d4;
+}
+
+.nord-tile__empty {
+  margin: 0;
+  color: #6d5e48;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 800px) {
+  .nord-stage {
+    grid-template-columns: 1fr;
+  }
+}
