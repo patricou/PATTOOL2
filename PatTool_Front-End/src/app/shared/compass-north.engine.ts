@@ -148,6 +148,35 @@ export class CompassNorthEngine {
     return (this.octantMask & (1 << bit)) !== 0;
   }
 
+  /** Allume un octant pendant le 8 (magnétomètre ou accéléro). */
+  noteOctant(x: number, y: number, z: number): void {
+    if (this.calPhase !== 'figure8') {
+      return;
+    }
+    const bit = (x >= 0 ? 1 : 0) | (y >= 0 ? 2 : 0) | (z >= 0 ? 4 : 0);
+    this.octantMask |= 1 << bit;
+    this.calOctants = this.popcount(this.octantMask);
+  }
+
+  /**
+   * Sans magnétomètre : le 8 s’appuie sur l’accéléro (même geste).
+   * Avec magnétomètre : allume seulement les points, le hard-iron reste au mag.
+   */
+  ingestFigure8Accel(x: number, y: number, z: number): boolean {
+    if (this.calPhase !== 'figure8') {
+      return false;
+    }
+    this.noteOctant(x, y, z);
+    if (this.hasMag) {
+      return false;
+    }
+    this.magSamples++;
+    const cover = this.calOctants / 8;
+    const nScore = Math.min(1, this.magSamples / FIGURE8_MIN_SAMPLES);
+    this.calProgressPct = Math.round(100 * (0.6 * cover + 0.4 * nScore));
+    return this.calOctants >= 6 && this.magSamples >= FIGURE8_MIN_SAMPLES;
+  }
+
   correctMag(x: number, y: number, z: number): MagVec {
     return {
       x: (x - this.bias.x) * this.scale.x,

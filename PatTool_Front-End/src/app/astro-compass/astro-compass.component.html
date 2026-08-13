@@ -103,39 +103,50 @@
                 class="ac-compass-elev"
                 [class.ac-compass-elev--below]="!aboveHorizon()"
                 [class.ac-compass-elev--pitch-ok]="devicePitchDeg != null && isPitchAligned()"
-                [attr.aria-label]="'ASTRO_COMPASS.ELEVATION' | translate">
-                <span class="ac-compass-elev__zenith" [attr.title]="'ASTRO_COMPASS.PHONE_TILT_VERTICAL' | translate">90°</span>
+                [attr.aria-label]="'ASTRO_COMPASS.DEVICE_PITCH' | translate">
+                <span class="ac-compass-elev__zenith">+90°</span>
                 <div class="ac-compass-elev__track">
-                  <span class="ac-compass-elev__fill" [style.height.%]="elevationGaugePercent()"></span>
+                  <span class="ac-pitch-mid" aria-hidden="true"></span>
+                  <span class="ac-pitch-zero" aria-hidden="true">0</span>
+                  <span
+                    class="ac-pitch-fill"
+                    [class.ac-pitch-fill--neg]="devicePitchDeg != null && devicePitchDeg < 0"
+                    [style.bottom.%]="pitchFillBottomPct()"
+                    [style.height.%]="pitchFillHeightPct()"></span>
+                  <span
+                    class="ac-compass-elev__marker"
+                    *ngIf="targetPhoneTiltDeg() != null"
+                    [style.bottom.%]="targetPitchGaugePercent()"
+                    [style.color]="bodyColor"
+                    [attr.title]="('ASTRO_COMPASS.TILT_TARGET' | translate : { deg: formatSignedDeg(targetPhoneTiltDeg()) })">
+                    <i *ngIf="bodyIconClass !== 'fa fa-circle'" [ngClass]="bodyIconClass" aria-hidden="true"></i>
+                    <span *ngIf="bodyIconClass === 'fa fa-circle'" class="ac-needle-body-dot" [style.background]="bodyColor"></span>
+                  </span>
                   <span
                     class="ac-compass-elev__phone"
                     *ngIf="devicePitchDeg != null"
                     [class.ac-compass-elev__phone--ok]="isPitchAligned()"
                     [style.bottom.%]="devicePitchGaugePercent()"
-                    [attr.title]="('ASTRO_COMPASS.DEVICE_PITCH' | translate) + ' ' + (devicePitchDeg | number : '1.0-0') + '°'"
+                    [attr.title]="('ASTRO_COMPASS.DEVICE_PITCH' | translate) + ' ' + formatSignedDeg(devicePitchDeg)"
                     aria-hidden="true">
                     <i class="fa fa-mobile" aria-hidden="true"></i>
                   </span>
-                  <span class="ac-compass-elev__marker" [style.bottom.%]="elevationGaugePercent()" [style.color]="bodyColor">
-                    <i *ngIf="bodyIconClass !== 'fa fa-circle'" [ngClass]="bodyIconClass" aria-hidden="true"></i>
-                    <span *ngIf="bodyIconClass === 'fa fa-circle'" class="ac-needle-body-dot" [style.background]="bodyColor"></span>
-                  </span>
                 </div>
+                <span class="ac-compass-elev__horizon">−90°</span>
                 <span
                   class="ac-compass-elev__phone-val"
                   *ngIf="devicePitchDeg != null"
                   [class.ac-compass-elev__phone-val--ok]="isPitchAligned()"
-                  [class.ac-compass-elev__phone-val--neg]="devicePitchDeg < 0"
-                  [attr.title]="'ASTRO_COMPASS.DEVICE_PITCH' | translate">
-                  {{ devicePitchDeg | number : '1.0-0' }}°
+                  [class.ac-compass-elev__phone-val--neg]="devicePitchDeg < 0">
+                  {{ formatSignedDeg(devicePitchDeg) }}
                 </span>
                 <span
                   class="ac-compass-elev__value"
+                  *ngIf="targetPhoneTiltDeg() != null"
                   [class.ac-compass-elev__value--warn]="!aboveHorizon()">
-                  {{ (targetPhoneTiltDeg() ?? elevationDeg) | number : '1.0-0' }}°
+                  {{ formatSignedDeg(targetPhoneTiltDeg()) }}
                 </span>
-                <span class="ac-compass-elev__horizon" [attr.title]="'ASTRO_COMPASS.PHONE_TILT_FLAT' | translate">0°</span>
-                <span class="ac-compass-elev__caption">{{ 'ASTRO_COMPASS.PHONE_TILT_SCALE' | translate }}</span>
+                <span class="ac-compass-elev__caption">{{ 'ASTRO_COMPASS.PITCH_SCALE' | translate }}</span>
               </div>
             </div>
 
@@ -166,17 +177,28 @@
               <ng-container *ngIf="tiltInstruction() as tilt">
                 <div
                   class="ac-compass-tilt"
-                  [class.ac-compass-tilt--ok]="isPitchAligned()">
+                  [class.ac-compass-tilt--ok]="isPitchAligned()"
+                  [class.ac-compass-tilt--plus]="tilt.key === 'ASTRO_COMPASS.TILT_PLUS'"
+                  [class.ac-compass-tilt--minus]="tilt.key === 'ASTRO_COMPASS.TILT_MINUS'">
                   <ng-container *ngIf="tilt.key === 'ASTRO_COMPASS.TILT_OK'">
                     <i class="fa fa-check-circle me-2" aria-hidden="true"></i>{{ tilt.key | translate }}
+                    <span class="ac-compass-tilt__meta">{{ tilt.current }} → {{ tilt.target }}</span>
                   </ng-container>
                   <ng-container *ngIf="tilt.key !== 'ASTRO_COMPASS.TILT_OK'">
                     <i
                       class="fa"
-                      [class.fa-arrow-up]="tilt.key === 'ASTRO_COMPASS.TILT_UP'"
-                      [class.fa-arrow-down]="tilt.key === 'ASTRO_COMPASS.TILT_DOWN'"
+                      [class.fa-arrow-up]="tilt.key === 'ASTRO_COMPASS.TILT_PLUS'"
+                      [class.fa-arrow-down]="tilt.key === 'ASTRO_COMPASS.TILT_MINUS'"
                       aria-hidden="true"></i>
-                    <span class="ms-2">{{ tilt.key | translate : { deg: tilt.deg } }}</span>
+                    <span class="ms-2 ac-compass-tilt__main">
+                      {{ tilt.key | translate : { delta: tilt.delta } }}
+                    </span>
+                    <span class="ac-compass-tilt__hint">{{ tilt.hintKey | translate }}</span>
+                    <span class="ac-compass-tilt__meta">
+                      {{ 'ASTRO_COMPASS.TILT_CURRENT' | translate : { deg: tilt.current } }}
+                      →
+                      {{ 'ASTRO_COMPASS.TILT_TARGET' | translate : { deg: tilt.target } }}
+                    </span>
                   </ng-container>
                 </div>
               </ng-container>
@@ -339,6 +361,22 @@
                   <span class="ac-look__deg">{{ azimuthDeg | number : '1.0-0' }}°</span>
                   <span class="ac-look__hint">{{ 'ASTRO_COMPASS.LOOK_DIRECTION_HINT' | translate : { cardinal: cardinalLabel(), deg: (azimuthDeg | number : '1.0-0') } }}</span>
                 </div>
+                <div class="ac-look__tile ac-look__tile--tilt" *ngIf="devicePitchDeg != null && aboveHorizon()">
+                  <span class="ac-look__k">
+                    <i class="fa fa-mobile me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.LOOK_TILT' | translate }}
+                  </span>
+                  <span class="ac-look__elev" [class.ac-look__elev--neg]="devicePitchDeg < 0">{{ formatSignedDeg(devicePitchDeg) }}</span>
+                  <span class="ac-look__hint" *ngIf="targetPhoneTiltDeg() != null">
+                    {{ 'ASTRO_COMPASS.TILT_TARGET' | translate : { deg: formatSignedDeg(targetPhoneTiltDeg()) } }}
+                  </span>
+                  <span class="ac-look__hint ac-look__hint--action" *ngIf="tiltInstruction() as lookTilt">
+                    <ng-container *ngIf="lookTilt.key === 'ASTRO_COMPASS.TILT_OK'">{{ lookTilt.key | translate }}</ng-container>
+                    <ng-container *ngIf="lookTilt.key !== 'ASTRO_COMPASS.TILT_OK'">
+                      {{ lookTilt.key | translate : { delta: lookTilt.delta } }}
+                      — {{ lookTilt.hintKey | translate }}
+                    </ng-container>
+                  </span>
+                </div>
                 <div class="ac-look__tile ac-look__tile--elev" [class.ac-look__tile--warn]="!aboveHorizon()">
                   <span class="ac-look__k">
                     <i class="fa fa-arrows-v me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.LOOK_ANGLE' | translate }}
@@ -359,6 +397,12 @@
                 <li>{{ 'ASTRO_COMPASS.LOOK_STEP1' | translate : { cardinal: cardinalLabel(), deg: (azimuthDeg | number : '1.0-0') } }}</li>
                 <li *ngIf="aboveHorizon()">{{ 'ASTRO_COMPASS.LOOK_STEP2_UP' | translate : { deg: (elevationDeg | number : '1.0-0') } }}</li>
                 <li *ngIf="!aboveHorizon()">{{ 'ASTRO_COMPASS.LOOK_STEP2_BELOW' | translate }}</li>
+                <li *ngIf="tiltInstruction() as stepTilt">
+                  <ng-container *ngIf="stepTilt.key === 'ASTRO_COMPASS.TILT_OK'">{{ stepTilt.key | translate }}</ng-container>
+                  <ng-container *ngIf="stepTilt.key !== 'ASTRO_COMPASS.TILT_OK'">
+                    {{ 'ASTRO_COMPASS.LOOK_STEP_TILT' | translate : { delta: stepTilt.delta, current: stepTilt.current, target: stepTilt.target, hint: (stepTilt.hintKey | translate) } }}
+                  </ng-container>
+                </li>
               </ol>
             </div>
 
@@ -434,7 +478,8 @@
                   <span
                     class="ac-octant"
                     *ngFor="let b of northEngine.octantBits"
-                    [class.ac-octant--on]="northEngine.octantOn(b)"></span>
+                    [attr.data-b]="b"
+                    [class.ac-octant--on]="isOctantLit(b)"></span>
                   <i class="fa fa-mobile ac-octants__phone" aria-hidden="true"></i>
                 </div>
                 <p>{{ 'ASTRO_COMPASS.CAL_FIGURE8_HINT' | translate }}</p>
@@ -1141,7 +1186,8 @@
           <span
             class="ac-octant"
             *ngFor="let b of northEngine.octantBits"
-            [class.ac-octant--on]="northEngine.octantOn(b)"></span>
+            [attr.data-b]="b"
+            [class.ac-octant--on]="isOctantLit(b)"></span>
           <i class="fa fa-mobile ac-octants__phone" aria-hidden="true"></i>
         </div>
         <p class="ac-compass-cal__instr">{{ 'ASTRO_COMPASS.CAL_FIGURE8_HINT' | translate }}</p>

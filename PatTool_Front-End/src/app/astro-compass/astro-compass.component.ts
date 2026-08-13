@@ -323,6 +323,8 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   headingSource: 'absolute-sensor' | 'webkit' | 'deviceorientation' | 'magnetometer' | null = null;
   /** Calage figure-8 / hard-iron / fusion gyro (partagé avec la page Nord). */
   readonly northEngine = new CompassNorthEngine();
+  /** Copie UI des octants (primitive → détection de changement fiable). */
+  octantMask = 0;
   sensorAlpha: number | null = null;
   sensorBeta: number | null = null;
   sensorGamma: number | null = null;
@@ -369,6 +371,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   private needleUnwrappedDeg = 0;
   private needleInited = false;
   private headingLastPaintMs = 0;
+  private calPaintLastMs = 0;
   private pitchLastPaintMs = 0;
   /** Spike en attente de confirmation (anti-sauts Samsung). */
   private headingOutlierPendingDeg: number | null = null;
@@ -393,6 +396,8 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     this.northEngine.loadPersisted();
     this.loadCalibration();
     this.startGeolocation();
+    this.startNorthSensors();
+    this.startDeviceMotion();
     void this.startOrientation();
     this.startSkyTick();
     this.issNow.startBackgroundPrefetch();
@@ -2388,6 +2393,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     this.calStatus = 'calibrating';
     this.calPersisted = false;
     this.calModalOpen = false;
+    this.octantMask = 0;
     this.northEngine.startFigure8();
     this.applyNorthOffset();
     this.cdr.markForCheck();
@@ -2874,20 +2880,27 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     this.tryNorthGeneric(
       w['Accelerometer'] as (new (opts: { frequency: number }) => GenericSensorLike) | undefined,
       (s) => {
-        if (this.accelFromGeneric) {
-          return;
+        const x = s.x ?? 0;
+        const y = s.y ?? 0;
+        const z = s.z ?? 0;
+        if (!this.accelFromGeneric) {
+          this.northEngine.accel = { x, y, z };
+          this.northEngine.hasAccel = true;
+          this.accelFromGeneric = true;
         }
-        this.northEngine.accel = { x: s.x ?? 0, y: s.y ?? 0, z: s.z ?? 0 };
-        this.northEngine.hasAccel = true;
-        this.accelFromGeneric = true;
+        this.onNorthAccelSample(x, y, z);
       }
     );
     this.tryNorthGeneric(
       w['GravitySensor'] as (new (opts: { frequency: number }) => GenericSensorLike) | undefined,
       (s) => {
-        this.northEngine.accel = { x: s.x ?? 0, y: s.y ?? 0, z: s.z ?? 0 };
+        const x = s.x ?? 0;
+        const y = s.y ?? 0;
+        const z = s.z ?? 0;
+        this.northEngine.accel = { x, y, z };
         this.northEngine.hasAccel = true;
         this.accelFromGeneric = true;
+        this.onNorthAccelSample(x, y, z);
       }
     );
     this.tryNorthGeneric(
@@ -2937,6 +2950,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     if (!this.accelFromGeneric && a?.x != null && a.y != null && a.z != null) {
       this.northEngine.accel = { x: a.x, y: a.y, z: a.z };
       this.northEngine.hasAccel = true;
+      this.onNorthAccelSample(a.x, a.y, a.z);
     }
     const r = e.rotationRate;
     if (this.gyroFromGeneric || r?.alpha == null || r.beta == null || r.gamma == null) {
@@ -2955,6 +2969,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     ) {
       this.beginSensorSettle();
     }
+    this.syncCalOctants();
     const c = this.northEngine.correctMag(x, y, z);
     const heading = this.northEngine.headingFromMagAccel(
       c.x,
@@ -2965,6 +2980,36 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     if (heading != null) {
       this.publishMagNorthHeading(heading);
     }
+    this.paintCalNow();
+  }
+
+  private onNorthAccelSample(x: number, y: number, z: number): void {
+    this.updatePitchFromAccel();
+    if (this.northEngine.calPhase === 'figure8' && this.northEngine.ingestFigure8Accel(x, y, z)) {
+      this.beginSensorSettle();
+    }
+    this.syncCalOctants();
+    this.paintCalNow();
+  }
+
+  private syncCalOctants(): void {
+    this.octantMask = this.northEngine.octantMask;
+  }
+
+  isOctantLit(bit: number): boolean {
+    return (this.octantMask & (1 << bit)) !== 0;
+  }
+
+  private paintCalNow(): void {
+    if (this.northEngine.calPhase !== 'figure8' && this.northEngine.calPhase !== 'settle') {
+      return;
+    }
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (now - this.calPaintLastMs < 40) {
+      return;
+    }
+    this.calPaintLastMs = now;
+    this.zone.run(() => this.cdr.detectChanges());
   }
 
   private publishMagNorthHeading(raw: number): void {
@@ -3248,6 +3293,8 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     ) {
       this.beginSensorSettle();
     }
+    this.syncCalOctants();
+    this.paintCalNow();
     // Calage souris/tactile en cours : garder le N sur l'angle cliqué malgré le cap live.
     if (this.isMouseCalMode() && this.mouseAimDeg != null && this.headingRawDeg != null) {
       this.northOffsetDeg = this.normalizeDeg(-this.mouseAimDeg - this.headingRawDeg);
@@ -3319,6 +3366,37 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
       this.devicePitchDeg == null
         ? pitch
         : this.devicePitchDeg * (1 - PITCH_SMOOTH_ALPHA) + pitch * PITCH_SMOOTH_ALPHA;
+  }
+
+  /**
+   * Inclinaison signée comme la page Nord :
+   * 0° = à plat (écran vers le ciel), + = haut vers le ciel, − = haut vers le sol.
+   */
+  private updatePitchFromAccel(): void {
+    const up = this.northEngine.normalizeVec(
+      this.northEngine.accel.x,
+      this.northEngine.accel.y,
+      this.northEngine.accel.z
+    );
+    if (!up) {
+      return;
+    }
+    const sa = ((this.currentScreenAngle() % 360) + 360) % 360;
+    let topX = 0;
+    let topY = 1;
+    if (sa === 90) {
+      topX = 1;
+      topY = 0;
+    } else if (sa === 180) {
+      topX = 0;
+      topY = -1;
+    } else if (sa === 270) {
+      topX = -1;
+      topY = 0;
+    }
+    const topDotUp = topX * up.x + topY * up.y;
+    const pitch = (Math.atan2(topDotUp, up.z) * 180) / Math.PI;
+    this.applyDevicePitch(pitch);
   }
 
   private stopSensors(): void {
@@ -3487,12 +3565,18 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Consigne d'inclinaison (toujours active dès que le pitch téléphone est connu) :
-   * indépendante de l'auto-détection et du calage azimut.
-   * Compare l'inclinaison téléphone actuelle à la consigne (même convention que la jauge).
-   * Différence positive → lever (plus vertical) ; négative → baisser (plus plat / haut en bas).
+   * Consigne d'inclinaison signée (même convention que la page Nord) :
+   * 0° = à plat, + = haut vers le ciel, − = haut vers le sol.
+   * delta = cible − actuel : +N° = incliner vers le positif, −N° vers le négatif.
    */
-  tiltInstruction(): { key: string; deg: number } | null {
+  tiltInstruction(): {
+    key: string;
+    hintKey: string;
+    deg: number;
+    delta: string;
+    current: string;
+    target: string;
+  } | null {
     const target = this.targetPhoneTiltDeg();
     const current = this.devicePitchDeg;
     if (target == null || current == null || this.elevationDeg == null || this.elevationDeg < -1) {
@@ -3501,12 +3585,31 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     const diff = Math.round(target) - Math.round(current);
     const mag = Math.abs(diff);
     if (mag <= PITCH_THRESHOLD_DEG) {
-      return { key: 'ASTRO_COMPASS.TILT_OK', deg: 0 };
+      return {
+        key: 'ASTRO_COMPASS.TILT_OK',
+        hintKey: '',
+        deg: 0,
+        delta: this.formatSignedDeg(0),
+        current: this.formatSignedDeg(Math.round(current)),
+        target: this.formatSignedDeg(Math.round(target))
+      };
     }
     return {
-      key: diff > 0 ? 'ASTRO_COMPASS.TILT_UP' : 'ASTRO_COMPASS.TILT_DOWN',
-      deg: mag
+      key: diff > 0 ? 'ASTRO_COMPASS.TILT_PLUS' : 'ASTRO_COMPASS.TILT_MINUS',
+      hintKey: diff > 0 ? 'ASTRO_COMPASS.TILT_HINT_PLUS' : 'ASTRO_COMPASS.TILT_HINT_MINUS',
+      deg: mag,
+      delta: this.formatSignedDeg(diff),
+      current: this.formatSignedDeg(Math.round(current)),
+      target: this.formatSignedDeg(Math.round(target))
     };
+  }
+
+  formatSignedDeg(deg: number | null): string {
+    if (deg == null || !Number.isFinite(deg)) {
+      return '—';
+    }
+    const n = Math.round(deg);
+    return n > 0 ? `+${n}°` : `${n}°`;
   }
 
   /**
@@ -3537,23 +3640,35 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     return target - this.devicePitchDeg;
   }
 
-  /** Position jauge de la cible en convention téléphone (0 plat → 90 vertical). */
-  elevationGaugePercent(): number {
-    return this.tiltToGaugePercent(this.targetPhoneTiltDeg());
-  }
-
-  /** Position (0–100 %) du téléphone sur la jauge (0 plat → 90 vertical). */
+  /** Position 0–100 % sur la jauge −90° (bas) → 0° (milieu) → +90° (haut). */
   devicePitchGaugePercent(): number {
-    return this.tiltToGaugePercent(this.devicePitchDeg);
+    return this.signedTiltToGaugePercent(this.devicePitchDeg);
   }
 
-  /** Les valeurs < 0° (haut en bas) restent affichées en chiffre, pinées en bas de jauge. */
-  private tiltToGaugePercent(tilt: number | null): number {
-    if (tilt == null || !Number.isFinite(tilt)) {
+  targetPitchGaugePercent(): number {
+    return this.signedTiltToGaugePercent(this.targetPhoneTiltDeg());
+  }
+
+  pitchFillHeightPct(): number {
+    if (this.devicePitchDeg == null) {
       return 0;
     }
-    const clamped = Math.max(0, Math.min(90, tilt));
-    return (clamped / 90) * 100;
+    return (Math.min(90, Math.abs(this.devicePitchDeg)) / 90) * 50;
+  }
+
+  pitchFillBottomPct(): number {
+    if (this.devicePitchDeg == null || this.devicePitchDeg >= 0) {
+      return 50;
+    }
+    return 50 - this.pitchFillHeightPct();
+  }
+
+  private signedTiltToGaugePercent(tilt: number | null): number {
+    if (tilt == null || !Number.isFinite(tilt)) {
+      return 50;
+    }
+    const p = Math.max(-90, Math.min(90, tilt));
+    return ((p + 90) / 180) * 100;
   }
 
   aboveHorizon(): boolean {
