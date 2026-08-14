@@ -31,18 +31,16 @@ public class WebcamFavoritesService {
 
     private final AppParameterService appParameterService;
     private final ObjectMapper objectMapper;
+    private final UserOwnerService userOwnerService;
 
-    public WebcamFavoritesService(AppParameterService appParameterService, ObjectMapper objectMapper) {
+    public WebcamFavoritesService(AppParameterService appParameterService, ObjectMapper objectMapper, UserOwnerService userOwnerService) {
         this.appParameterService = appParameterService;
         this.objectMapper = objectMapper;
+        this.userOwnerService = userOwnerService;
     }
 
     public WebcamFavoritesDto findForSubject(String jwtSubject) {
-        if (!StringUtils.hasText(jwtSubject)) {
-            return new WebcamFavoritesDto();
-        }
-        String key = PARAM_KEY_PREFIX + jwtSubject;
-        Optional<AppParameter> row = appParameterService.find(key);
+        Optional<AppParameter> row = userOwnerService.findParam(PARAM_KEY_PREFIX, jwtSubject);
         if (row.isEmpty()) {
             return new WebcamFavoritesDto();
         }
@@ -54,17 +52,14 @@ public class WebcamFavoritesService {
             WebcamFavoritesDto dto = objectMapper.readValue(raw, WebcamFavoritesDto.class);
             return normalize(dto);
         } catch (JsonProcessingException e) {
-            log.debug("webcam.favorites unreadable JSON for key {}: {}", key, e.getMessage());
+            log.debug("webcam.favorites unreadable JSON: {}", e.getMessage());
             return new WebcamFavoritesDto();
         }
     }
 
     public WebcamFavoritesDto saveForSubject(String jwtSubject, WebcamFavoritesDto dto) {
-        if (!StringUtils.hasText(jwtSubject)) {
-            throw new IllegalArgumentException("jwtSubject required");
-        }
         WebcamFavoritesDto normalized = normalize(dto);
-        String key = PARAM_KEY_PREFIX + jwtSubject;
+        String key = userOwnerService.writeKey(PARAM_KEY_PREFIX, jwtSubject);
         try {
             String json = objectMapper.writeValueAsString(normalized);
             appParameterService.setJson(
@@ -74,6 +69,7 @@ public class WebcamFavoritesService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Serialization webcam favorites", e);
         }
+        userOwnerService.dropAliasKeys(PARAM_KEY_PREFIX, jwtSubject);
         return normalized;
     }
 

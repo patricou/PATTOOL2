@@ -22,12 +22,15 @@ public class MeteoFranceAromepiPlaybackPreferenceService {
     private static final int MAX_PREFETCH = 6;
 
     private final AppParameterService appParameterService;
+    private final UserOwnerService userOwnerService;
     private final int propertiesDefaultPrefetch;
 
     public MeteoFranceAromepiPlaybackPreferenceService(
             AppParameterService appParameterService,
+            UserOwnerService userOwnerService,
             @Value("${meteofrance.aromepi.playback.prefetch:2}") int propertiesDefaultPrefetch) {
         this.appParameterService = appParameterService;
+        this.userOwnerService = userOwnerService;
         this.propertiesDefaultPrefetch = clamp(propertiesDefaultPrefetch);
     }
 
@@ -54,19 +57,17 @@ public class MeteoFranceAromepiPlaybackPreferenceService {
     }
 
     public MeteoFranceAromepiPlaybackPreferenceDto saveForSubject(String jwtSubject, int prefetchAhead) {
-        if (jwtSubject == null || jwtSubject.isBlank()) {
-            throw new IllegalArgumentException("jwtSubject required");
-        }
         int clamped = clamp(prefetchAhead);
         appParameterService.setLong(
-                USER_PARAM_KEY_PREFIX + jwtSubject,
+                userOwnerService.writeKey(USER_PARAM_KEY_PREFIX, jwtSubject),
                 clamped,
                 "Météo France: AROME-PI playback prefetch (frames ahead) for user.");
+        userOwnerService.dropAliasKeys(USER_PARAM_KEY_PREFIX, jwtSubject);
         return new MeteoFranceAromepiPlaybackPreferenceDto(clamped, true);
     }
 
     private Optional<Integer> readUserPrefetch(String jwtSubject) {
-        return appParameterService.find(USER_PARAM_KEY_PREFIX + jwtSubject)
+        return userOwnerService.findParam(USER_PARAM_KEY_PREFIX, jwtSubject)
                 .map(AppParameter::getParamValue)
                 .filter(v -> v != null && !v.isBlank())
                 .map(v -> parsePrefetch(v, propertiesDefaultPrefetch));

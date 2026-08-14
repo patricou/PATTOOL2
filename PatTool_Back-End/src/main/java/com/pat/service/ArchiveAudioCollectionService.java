@@ -139,13 +139,17 @@ public class ArchiveAudioCollectionService {
     }
 
     private void maybeMigrateLegacy(Member viewer) {
-        if (viewer == null || !StringUtils.hasText(viewer.getId()) || !StringUtils.hasText(viewer.getKeycloakId())) {
+        if (viewer == null || !StringUtils.hasText(viewer.getId())) {
             return;
         }
         if (repository.countByOwnerMemberId(viewer.getId()) > 0) {
             return;
         }
-        ArchiveAudioPlaylistDto legacy = legacyPlaylistService.findForSubject(viewer.getKeycloakId());
+        String hint = StringUtils.hasText(viewer.getKeycloakId()) ? viewer.getKeycloakId() : viewer.getUserName();
+        if (!StringUtils.hasText(hint)) {
+            return;
+        }
+        ArchiveAudioPlaylistDto legacy = legacyPlaylistService.findForSubject(hint);
         if (legacy == null || legacy.getItems() == null || legacy.getItems().isEmpty()) {
             return;
         }

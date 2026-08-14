@@ -31,14 +31,17 @@ public class MeteoFranceForecastPreferenceService {
     private static final Set<Integer> LEGACY_STEP_HOURS = Set.of(1, 3, 6, 12, 24);
 
     private final AppParameterService appParameterService;
+    private final UserOwnerService userOwnerService;
     private final int propertiesDefaultHorizonHours;
     private final int propertiesDefaultStepMinutes;
 
     public MeteoFranceForecastPreferenceService(
             AppParameterService appParameterService,
+            UserOwnerService userOwnerService,
             @Value("${meteofrance.forecast.horizon.hours:24}") int propertiesDefaultHorizonHours,
             @Value("${meteofrance.forecast.step.minutes:60}") int propertiesDefaultStepMinutes) {
         this.appParameterService = appParameterService;
+        this.userOwnerService = userOwnerService;
         this.propertiesDefaultHorizonHours = clampHorizon(propertiesDefaultHorizonHours);
         this.propertiesDefaultStepMinutes = clampStep(propertiesDefaultStepMinutes);
     }
@@ -87,31 +90,30 @@ public class MeteoFranceForecastPreferenceService {
 
     public MeteoFranceForecastPreferenceDto saveForSubject(
             String jwtSubject, int forecastHorizonHours, int forecastStepMinutes) {
-        if (jwtSubject == null || jwtSubject.isBlank()) {
-            throw new IllegalArgumentException("jwtSubject required");
-        }
         int horizon = clampHorizon(forecastHorizonHours);
         int step = clampStep(forecastStepMinutes);
         appParameterService.setLong(
-                USER_HORIZON_KEY_PREFIX + jwtSubject,
+                userOwnerService.writeKey(USER_HORIZON_KEY_PREFIX, jwtSubject),
                 horizon,
                 "Météo France: forecast horizon (hours) for user.");
         appParameterService.setLong(
-                USER_STEP_KEY_PREFIX + jwtSubject,
+                userOwnerService.writeKey(USER_STEP_KEY_PREFIX, jwtSubject),
                 step,
                 "Météo France: forecast step (minutes) for user.");
+        userOwnerService.dropAliasKeys(USER_HORIZON_KEY_PREFIX, jwtSubject);
+        userOwnerService.dropAliasKeys(USER_STEP_KEY_PREFIX, jwtSubject);
         return new MeteoFranceForecastPreferenceDto(horizon, step, true);
     }
 
     private Optional<Integer> readUserHorizon(String jwtSubject) {
-        return appParameterService.find(USER_HORIZON_KEY_PREFIX + jwtSubject)
+        return userOwnerService.findParam(USER_HORIZON_KEY_PREFIX, jwtSubject)
                 .map(AppParameter::getParamValue)
                 .filter(v -> v != null && !v.isBlank())
                 .map(v -> parseHorizon(v, propertiesDefaultHorizonHours));
     }
 
     private Optional<Integer> readUserStep(String jwtSubject) {
-        return appParameterService.find(USER_STEP_KEY_PREFIX + jwtSubject)
+        return userOwnerService.findParam(USER_STEP_KEY_PREFIX, jwtSubject)
                 .map(AppParameter::getParamValue)
                 .filter(v -> v != null && !v.isBlank())
                 .map(v -> parseStep(v, propertiesDefaultStepMinutes));

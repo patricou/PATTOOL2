@@ -23,12 +23,15 @@ public class MeteoFranceHistoryCachePreferenceService {
     private static final int MAX_DAYS = 90;
 
     private final AppParameterService appParameterService;
+    private final UserOwnerService userOwnerService;
     private final int propertiesDefaultDays;
 
     public MeteoFranceHistoryCachePreferenceService(
             AppParameterService appParameterService,
+            UserOwnerService userOwnerService,
             @Value("${meteofrance.history.cache.days:14}") int propertiesDefaultDays) {
         this.appParameterService = appParameterService;
+        this.userOwnerService = userOwnerService;
         this.propertiesDefaultDays = clamp(propertiesDefaultDays);
     }
 
@@ -59,19 +62,17 @@ public class MeteoFranceHistoryCachePreferenceService {
     }
 
     public MeteoFranceHistoryCachePreferenceDto saveForSubject(String jwtSubject, int historyCacheDays) {
-        if (jwtSubject == null || jwtSubject.isBlank()) {
-            throw new IllegalArgumentException("jwtSubject required");
-        }
         int clamped = clamp(historyCacheDays);
         appParameterService.setLong(
-                USER_PARAM_KEY_PREFIX + jwtSubject,
+                userOwnerService.writeKey(USER_PARAM_KEY_PREFIX, jwtSubject),
                 clamped,
                 "Météo France: MF/MS station history cache retention (days) for user.");
+        userOwnerService.dropAliasKeys(USER_PARAM_KEY_PREFIX, jwtSubject);
         return new MeteoFranceHistoryCachePreferenceDto(clamped, true);
     }
 
     private Optional<Integer> readUserDays(String jwtSubject) {
-        return appParameterService.find(USER_PARAM_KEY_PREFIX + jwtSubject)
+        return userOwnerService.findParam(USER_PARAM_KEY_PREFIX, jwtSubject)
                 .map(AppParameter::getParamValue)
                 .filter(v -> v != null && !v.isBlank())
                 .map(v -> parseDays(v, propertiesDefaultDays));

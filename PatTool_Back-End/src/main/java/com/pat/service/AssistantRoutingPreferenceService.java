@@ -23,20 +23,19 @@ public class AssistantRoutingPreferenceService {
 
     private final AppParameterService appParameterService;
     private final ObjectMapper objectMapper;
+    private final UserOwnerService userOwnerService;
 
     public AssistantRoutingPreferenceService(
             AppParameterService appParameterService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            UserOwnerService userOwnerService) {
         this.appParameterService = appParameterService;
         this.objectMapper = objectMapper;
+        this.userOwnerService = userOwnerService;
     }
 
     public Optional<AssistantRoutingPreferenceDto> findForSubject(String jwtSubject) {
-        if (jwtSubject == null || jwtSubject.isBlank()) {
-            return Optional.empty();
-        }
-        String key = PARAM_KEY_PREFIX + jwtSubject;
-        Optional<AppParameter> row = appParameterService.find(key);
+        Optional<AppParameter> row = userOwnerService.findParam(PARAM_KEY_PREFIX, jwtSubject);
         if (row.isEmpty()) {
             return Optional.empty();
         }
@@ -60,16 +59,13 @@ public class AssistantRoutingPreferenceService {
                     dto.modelPreset(),
                     dto.modelCustom() != null ? dto.modelCustom() : ""));
         } catch (JsonProcessingException e) {
-            log.debug("assistant.routing JSON illisible pour clé {}: {}", key, e.getMessage());
+            log.debug("assistant.routing JSON illisible: {}", e.getMessage());
             return Optional.empty();
         }
     }
 
     public void saveForSubject(String jwtSubject, AssistantRoutingPreferenceDto dto) {
-        if (jwtSubject == null || jwtSubject.isBlank()) {
-            throw new IllegalArgumentException("jwtSubject required");
-        }
-        String key = PARAM_KEY_PREFIX + jwtSubject;
+        String key = userOwnerService.writeKey(PARAM_KEY_PREFIX, jwtSubject);
         String custom = dto.modelCustom() != null ? dto.modelCustom() : "";
         AssistantRoutingPreferenceDto normalized = new AssistantRoutingPreferenceDto(
                 dto.provider(),
@@ -84,5 +80,6 @@ public class AssistantRoutingPreferenceService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Serialization assistant routing preference", e);
         }
+        userOwnerService.dropAliasKeys(PARAM_KEY_PREFIX, jwtSubject);
     }
 }

@@ -35,18 +35,16 @@ public class ArchiveRecentService {
 
     private final AppParameterService appParameterService;
     private final ObjectMapper objectMapper;
+    private final UserOwnerService userOwnerService;
 
-    public ArchiveRecentService(AppParameterService appParameterService, ObjectMapper objectMapper) {
+    public ArchiveRecentService(AppParameterService appParameterService, ObjectMapper objectMapper, UserOwnerService userOwnerService) {
         this.appParameterService = appParameterService;
         this.objectMapper = objectMapper;
+        this.userOwnerService = userOwnerService;
     }
 
     public ArchiveRecentDto findForSubject(String jwtSubject) {
-        if (!StringUtils.hasText(jwtSubject)) {
-            return new ArchiveRecentDto();
-        }
-        String key = PARAM_KEY_PREFIX + jwtSubject;
-        Optional<AppParameter> row = appParameterService.find(key);
+        Optional<AppParameter> row = userOwnerService.findParam(PARAM_KEY_PREFIX, jwtSubject);
         if (row.isEmpty()) {
             return new ArchiveRecentDto();
         }
@@ -58,17 +56,14 @@ public class ArchiveRecentService {
             ArchiveRecentDto dto = objectMapper.readValue(raw, ArchiveRecentDto.class);
             return normalize(dto);
         } catch (JsonProcessingException e) {
-            log.debug("archive.recent unreadable JSON for key {}: {}", key, e.getMessage());
+            log.debug("archive.recent unreadable JSON: {}", e.getMessage());
             return new ArchiveRecentDto();
         }
     }
 
     public ArchiveRecentDto saveForSubject(String jwtSubject, ArchiveRecentDto dto) {
-        if (!StringUtils.hasText(jwtSubject)) {
-            throw new IllegalArgumentException("jwtSubject required");
-        }
         ArchiveRecentDto normalized = normalize(dto);
-        String key = PARAM_KEY_PREFIX + jwtSubject;
+        String key = userOwnerService.writeKey(PARAM_KEY_PREFIX, jwtSubject);
         try {
             String json = objectMapper.writeValueAsString(normalized);
             appParameterService.setJson(
@@ -78,6 +73,7 @@ public class ArchiveRecentService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Serialization archive recent", e);
         }
+        userOwnerService.dropAliasKeys(PARAM_KEY_PREFIX, jwtSubject);
         return normalized;
     }
 

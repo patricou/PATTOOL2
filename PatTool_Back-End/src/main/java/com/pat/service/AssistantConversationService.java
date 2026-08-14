@@ -33,12 +33,15 @@ public class AssistantConversationService {
 
     private final AssistantConversationRepository repository;
     private final AssistantConversationAssetService assetService;
+    private final UserOwnerService userOwnerService;
 
     public AssistantConversationService(
             AssistantConversationRepository repository,
-            AssistantConversationAssetService assetService) {
+            AssistantConversationAssetService assetService,
+            UserOwnerService userOwnerService) {
         this.repository = repository;
         this.assetService = assetService;
+        this.userOwnerService = userOwnerService;
     }
 
     /**
@@ -50,10 +53,16 @@ public class AssistantConversationService {
         if (viewerSubject == null || viewerSubject.isBlank()) {
             return List.of();
         }
-        List<AssistantConversation> rows =
-                assistantAdmin
-                        ? repository.findTop100ByOrderByUpdatedAtDesc()
-                        : repository.findTop100ByOwnerSubjectOrderByUpdatedAtDesc(viewerSubject);
+        List<AssistantConversation> rows;
+        if (assistantAdmin) {
+            rows = repository.findTop100ByOrderByUpdatedAtDesc();
+        } else {
+            List<String> aliases = userOwnerService.aliases(viewerSubject);
+            if (aliases.isEmpty()) {
+                return List.of();
+            }
+            rows = repository.findTop100ByOwnerSubjectInOrderByUpdatedAtDesc(aliases);
+        }
         return rows.stream()
                 .map(doc -> toSummary(doc, viewerSubject, viewerPreferredUsername))
                 .toList();
@@ -65,18 +74,20 @@ public class AssistantConversationService {
         }
         return repository
                 .findById(id.strip())
-                .filter(d -> assistantAdmin || ownerSubject.equals(d.getOwnerSubject()))
+                .filter(d -> assistantAdmin || userOwnerService.ownsStored(d.getOwnerSubject(), ownerSubject))
                 .map(this::toDetail);
     }
 
     public AssistantConversationCreatedDto create(
             String ownerSubject, String ownerPreferredUsername, AssistantConversationSaveRequestDto req) {
         validate(ownerSubject, req, false);
+        UserOwnerService.Owner owner = userOwnerService.require(ownerSubject);
         AssistantConversation doc = new AssistantConversation();
-        doc.setOwnerSubject(ownerSubject);
-        if (ownerPreferredUsername != null && !ownerPreferredUsername.isBlank()) {
-            doc.setOwnerPreferredUsername(ownerPreferredUsername.strip());
-        }
+        doc.setOwnerSubject(owner.username());
+        String preferred = ownerPreferredUsername != null && !ownerPreferredUsername.isBlank()
+                ? ownerPreferredUsername.strip()
+                : owner.username();
+        doc.setOwnerPreferredUsername(preferred);
         Instant now = Instant.now();
         doc.setCreatedAt(now);
         doc.setUpdatedAt(now);
@@ -100,8 +111,12 @@ public class AssistantConversationService {
         }
         AssistantConversation doc =
                 repository.findById(id.strip()).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        if (!assistantAdmin && !ownerSubject.equals(doc.getOwnerSubject())) {
+        if (!assistantAdmin && !userOwnerService.ownsStored(doc.getOwnerSubject(), ownerSubject)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+        String username = userOwnerService.require(ownerSubject).username();
+        if (!username.equals(doc.getOwnerSubject())) {
+            doc.setOwnerSubject(username);
         }
         final String assetOwner = doc.getOwnerSubject();
         List<String> previousAssets = collectGeneratedAssetIds(doc.getTurns());
@@ -113,7 +128,7 @@ public class AssistantConversationService {
         if ((doc.getOwnerPreferredUsername() == null || doc.getOwnerPreferredUsername().isBlank())
                 && jwtPreferredUsername != null
                 && !jwtPreferredUsername.isBlank()
-                && ownerSubject.equals(doc.getOwnerSubject())) {
+                && userOwnerService.ownsStored(doc.getOwnerSubject(), ownerSubject)) {
             doc.setOwnerPreferredUsername(jwtPreferredUsername.strip());
         }
         repository.save(doc);
@@ -134,7 +149,7 @@ public class AssistantConversationService {
         if (doc.isEmpty()) {
             return false;
         }
-        if (!assistantAdmin && !ownerSubject.equals(doc.get().getOwnerSubject())) {
+        if (!assistantAdmin && !userOwnerService.ownsStored(doc.get().getOwnerSubject(), ownerSubject)) {
             return false;
         }
         List<String> assets = collectGeneratedAssetIds(doc.get().getTurns());
@@ -301,10 +316,9 @@ public class AssistantConversationService {
         String stored = doc.getOwnerPreferredUsername();
         String preferredForApi = stored;
         if ((preferredForApi == null || preferredForApi.isBlank())
-                && viewerSubject != null
-                && viewerSubject.equals(doc.getOwnerSubject())
                 && viewerPreferredUsername != null
-                && !viewerPreferredUsername.isBlank()) {
+                && !viewerPreferredUsername.isBlank()
+                && userOwnerService.ownsStored(doc.getOwnerSubject(), viewerSubject)) {
             preferredForApi = viewerPreferredUsername.strip();
         }
         return new AssistantConversationSummaryDto(

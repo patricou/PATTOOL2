@@ -6,6 +6,7 @@ import com.pat.repo.domain.Member;
 import com.pat.repo.domain.TvRecording;
 import com.pat.service.AgendaSocialGraphCache;
 import com.pat.service.MemberSocialEdges;
+import com.pat.service.UserOwnerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -33,6 +34,9 @@ public class TvRecordingRepositoryImpl implements TvRecordingRepositoryCustom {
 
     @Autowired
     private MembersRepository membersRepository;
+
+    @Autowired
+    private UserOwnerService userOwnerService;
 
     @Autowired
     public TvRecordingRepositoryImpl(MongoTemplate mongoTemplate) {
@@ -63,7 +67,12 @@ public class TvRecordingRepositoryImpl implements TvRecordingRepositoryCustom {
         accessCriteria.add(Criteria.where("visibility").is("public"));
 
         if (StringUtils.hasText(jwtSubject)) {
-            accessCriteria.add(Criteria.where("ownerSub").is(jwtSubject));
+            List<String> aliases = userOwnerService.aliases(jwtSubject);
+            if (!aliases.isEmpty()) {
+                accessCriteria.add(Criteria.where("ownerSub").in(aliases));
+            } else {
+                accessCriteria.add(Criteria.where("ownerSub").is(jwtSubject));
+            }
         }
 
         if (StringUtils.hasText(memberId)) {

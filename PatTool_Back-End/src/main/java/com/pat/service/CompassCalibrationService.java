@@ -35,20 +35,19 @@ public class CompassCalibrationService {
 
     private final AppParameterService appParameterService;
     private final ObjectMapper objectMapper;
+    private final UserOwnerService userOwnerService;
 
     public CompassCalibrationService(
             AppParameterService appParameterService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            UserOwnerService userOwnerService) {
         this.appParameterService = appParameterService;
         this.objectMapper = objectMapper;
+        this.userOwnerService = userOwnerService;
     }
 
     public Optional<CompassCalibrationDto> findForSubject(String jwtSubject) {
-        if (jwtSubject == null || jwtSubject.isBlank()) {
-            return Optional.empty();
-        }
-        String key = PARAM_KEY_PREFIX + jwtSubject;
-        Optional<AppParameter> row = appParameterService.find(key);
+        Optional<AppParameter> row = userOwnerService.findParam(PARAM_KEY_PREFIX, jwtSubject);
         if (row.isEmpty()) {
             return Optional.empty();
         }
@@ -60,18 +59,15 @@ public class CompassCalibrationService {
             CompassCalibrationDto dto = objectMapper.readValue(raw, CompassCalibrationDto.class);
             return validate(dto);
         } catch (JsonProcessingException e) {
-            log.debug("globe.iss.compass.calibration JSON illisible pour clé {}: {}", key, e.getMessage());
+            log.debug("globe.iss.compass.calibration JSON illisible: {}", e.getMessage());
             return Optional.empty();
         }
     }
 
     public CompassCalibrationDto saveForSubject(String jwtSubject, CompassCalibrationDto dto) {
-        if (jwtSubject == null || jwtSubject.isBlank()) {
-            throw new IllegalArgumentException("jwtSubject required");
-        }
         CompassCalibrationDto normalized = validate(dto)
                 .orElseThrow(() -> new IllegalArgumentException("invalid compass calibration payload"));
-        String key = PARAM_KEY_PREFIX + jwtSubject;
+        String key = userOwnerService.writeKey(PARAM_KEY_PREFIX, jwtSubject);
         try {
             String json = objectMapper.writeValueAsString(normalized);
             appParameterService.setJson(
@@ -81,22 +77,16 @@ public class CompassCalibrationService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Serialization compass calibration", e);
         }
+        userOwnerService.dropAliasKeys(PARAM_KEY_PREFIX, jwtSubject);
         return normalized;
     }
 
     public void deleteForSubject(String jwtSubject) {
-        if (jwtSubject == null || jwtSubject.isBlank()) {
-            return;
-        }
-        appParameterService.delete(PARAM_KEY_PREFIX + jwtSubject);
+        userOwnerService.deleteParams(PARAM_KEY_PREFIX, jwtSubject);
     }
 
     public Optional<String> findHeadingModeForSubject(String jwtSubject) {
-        if (jwtSubject == null || jwtSubject.isBlank()) {
-            return Optional.empty();
-        }
-        String key = HEADING_MODE_KEY_PREFIX + jwtSubject;
-        Optional<AppParameter> row = appParameterService.find(key);
+        Optional<AppParameter> row = userOwnerService.findParam(HEADING_MODE_KEY_PREFIX, jwtSubject);
         if (row.isEmpty()) {
             return Optional.empty();
         }
@@ -113,12 +103,9 @@ public class CompassCalibrationService {
     }
 
     public String saveHeadingModeForSubject(String jwtSubject, String headingMode) {
-        if (jwtSubject == null || jwtSubject.isBlank()) {
-            throw new IllegalArgumentException("jwtSubject required");
-        }
         String mode = normalizeHeadingMode(headingMode)
                 .orElseThrow(() -> new IllegalArgumentException("invalid heading mode"));
-        String key = HEADING_MODE_KEY_PREFIX + jwtSubject;
+        String key = userOwnerService.writeKey(HEADING_MODE_KEY_PREFIX, jwtSubject);
         try {
             String json = objectMapper.writeValueAsString(new CompassHeadingModeDto(mode));
             appParameterService.setJson(
@@ -128,6 +115,7 @@ public class CompassCalibrationService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Serialization compass heading mode", e);
         }
+        userOwnerService.dropAliasKeys(HEADING_MODE_KEY_PREFIX, jwtSubject);
         return mode;
     }
 

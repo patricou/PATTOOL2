@@ -44,6 +44,7 @@ import java.time.format.DateTimeFormatter;
             com.pat.repo.CameraRepository.class,
             com.pat.repo.CategoryLinkRepository.class,
             com.pat.repo.DiscussionRepository.class,
+            com.pat.repo.DirectionPattoolSampleRepository.class,
             com.pat.repo.EvenementsRepository.class,
             com.pat.repo.FriendGroupRepository.class,
             com.pat.repo.FriendRepository.class,

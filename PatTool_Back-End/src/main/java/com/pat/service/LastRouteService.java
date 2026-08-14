@@ -1,14 +1,11 @@
 package com.pat.service;
 
-import com.pat.repo.MembersRepository;
 import com.pat.repo.domain.AppParameter;
-import com.pat.repo.domain.Member;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.Locale;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -30,11 +27,11 @@ public class LastRouteService {
     );
 
     private final AppParameterService appParameterService;
-    private final MembersRepository membersRepository;
+    private final UserOwnerService userOwnerService;
 
-    public LastRouteService(AppParameterService appParameterService, MembersRepository membersRepository) {
+    public LastRouteService(AppParameterService appParameterService, UserOwnerService userOwnerService) {
         this.appParameterService = appParameterService;
-        this.membersRepository = membersRepository;
+        this.userOwnerService = userOwnerService;
     }
 
     /**
@@ -42,53 +39,14 @@ public class LastRouteService {
      * Falls back to JWT {@code preferred_username} when the member row is not yet in Mongo.
      */
     public String resolveOwnerUsername(Jwt jwt) {
-        if (jwt == null) {
-            return null;
-        }
-        String sub = trimToNull(jwt.getSubject());
-        if (sub != null) {
-            Member byKc = membersRepository.findByKeycloakId(sub);
-            String fromMember = trimToNull(byKc != null ? byKc.getUserName() : null);
-            if (fromMember != null) {
-                return fromMember;
-            }
-        }
-        String preferred = trimToNull(jwt.getClaimAsString("preferred_username"));
-        if (preferred != null) {
-            Member byName = membersRepository.findByUserName(preferred);
-            String fromMember = trimToNull(byName != null ? byName.getUserName() : null);
-            if (fromMember != null) {
-                return fromMember;
-            }
-            return preferred;
-        }
-        return null;
+        return userOwnerService.username(jwt);
     }
 
     public String findForUser(Jwt jwt) {
-        String username = resolveOwnerUsername(jwt);
-        if (username == null) {
-            return null;
-        }
-        String route = readNormalized(PARAM_KEY_PREFIX + username);
-        if (route != null) {
-            return route;
-        }
-        // Legacy: rows written under JWT sub before surnom-based keys.
-        String sub = trimToNull(jwt != null ? jwt.getSubject() : null);
-        if (sub == null || sub.equals(username)) {
-            return null;
-        }
-        route = readNormalized(PARAM_KEY_PREFIX + sub);
-        if (route == null) {
-            return null;
-        }
-        // Migrate to surnom key so subsequent reads stay on Member.userName.
-        appParameterService.setString(
-                PARAM_KEY_PREFIX + username,
-                route,
-                "Last visited PatTool page (Angular hash route) per user (surnom).");
-        return route;
+        return userOwnerService.findParam(PARAM_KEY_PREFIX, jwt != null ? jwt.getSubject() : null)
+                .map(AppParameter::getParamValue)
+                .map(LastRouteService::normalizeRoute)
+                .orElse(null);
     }
 
     public String saveForUser(Jwt jwt, String route) {
@@ -105,15 +63,8 @@ public class LastRouteService {
                 key,
                 normalized,
                 "Last visited PatTool page (Angular hash route) per user (surnom).");
+        userOwnerService.dropAliasKeys(PARAM_KEY_PREFIX, jwt != null ? jwt.getSubject() : username);
         return normalized;
-    }
-
-    private String readNormalized(String key) {
-        Optional<AppParameter> row = appParameterService.find(key);
-        if (row.isEmpty()) {
-            return null;
-        }
-        return normalizeRoute(row.get().getParamValue());
     }
 
     static String normalizeRoute(String raw) {
@@ -148,12 +99,5 @@ public class LastRouteService {
             return null;
         }
         return route;
-    }
-
-    private static String trimToNull(String value) {
-        if (!StringUtils.hasText(value)) {
-            return null;
-        }
-        return value.trim();
     }
 }

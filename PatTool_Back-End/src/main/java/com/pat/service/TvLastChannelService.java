@@ -28,18 +28,16 @@ public class TvLastChannelService {
 
     private final AppParameterService appParameterService;
     private final ObjectMapper objectMapper;
+    private final UserOwnerService userOwnerService;
 
-    public TvLastChannelService(AppParameterService appParameterService, ObjectMapper objectMapper) {
+    public TvLastChannelService(AppParameterService appParameterService, ObjectMapper objectMapper, UserOwnerService userOwnerService) {
         this.appParameterService = appParameterService;
         this.objectMapper = objectMapper;
+        this.userOwnerService = userOwnerService;
     }
 
     public TvChannelDto findForSubject(String jwtSubject) {
-        if (!StringUtils.hasText(jwtSubject)) {
-            return null;
-        }
-        String key = PARAM_KEY_PREFIX + jwtSubject;
-        Optional<AppParameter> row = appParameterService.find(key);
+        Optional<AppParameter> row = userOwnerService.findParam(PARAM_KEY_PREFIX, jwtSubject);
         if (row.isEmpty()) {
             return null;
         }
@@ -50,20 +48,17 @@ public class TvLastChannelService {
         try {
             return normalizeChannel(objectMapper.readValue(raw, TvChannelDto.class));
         } catch (JsonProcessingException e) {
-            log.debug("tv.last-channel unreadable JSON for key {}: {}", key, e.getMessage());
+            log.debug("tv.last-channel unreadable JSON: {}", e.getMessage());
             return null;
         }
     }
 
     public TvChannelDto saveForSubject(String jwtSubject, TvChannelDto channel) {
-        if (!StringUtils.hasText(jwtSubject)) {
-            throw new IllegalArgumentException("jwtSubject required");
-        }
         TvChannelDto normalized = normalizeChannel(channel);
         if (normalized == null) {
             throw new IllegalArgumentException("invalid channel");
         }
-        String key = PARAM_KEY_PREFIX + jwtSubject;
+        String key = userOwnerService.writeKey(PARAM_KEY_PREFIX, jwtSubject);
         try {
             String json = objectMapper.writeValueAsString(normalized);
             appParameterService.setJson(
@@ -73,6 +68,7 @@ public class TvLastChannelService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Serialization TV last channel", e);
         }
+        userOwnerService.dropAliasKeys(PARAM_KEY_PREFIX, jwtSubject);
         return normalized;
     }
 

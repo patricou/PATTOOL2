@@ -61,6 +61,9 @@ public class TvRecordingService {
     @Autowired
     private FriendGroupRepository friendGroupRepository;
 
+    @Autowired
+    private UserOwnerService userOwnerService;
+
     public Map<String, Object> statusInfo() {
         return Map.of(
                 "enabled", recordingEnabled,
@@ -109,6 +112,7 @@ public class TvRecordingService {
         if (!StringUtils.hasText(ownerSub)) {
             throw new IllegalArgumentException("owner_required");
         }
+        ownerSub = userOwnerService.require(ownerSub).username();
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("file_required");
         }
@@ -183,8 +187,7 @@ public class TvRecordingService {
     }
 
     public void delete(String id, String ownerSub) {
-        TvRecording rec = tvRecordingRepository.findByIdAndOwnerSub(id, ownerSub)
-                .orElseThrow(() -> new IllegalArgumentException("not_found"));
+        TvRecording rec = requireOwned(id, ownerSub);
         if (StringUtils.hasText(rec.getGridFsFileId())) {
             try {
                 ObjectId oid = new ObjectId(rec.getGridFsFileId());
@@ -201,8 +204,7 @@ public class TvRecordingService {
      * Rename and/or update sharing for an owned recording.
      */
     public TvRecordingDto update(String id, String ownerSub, String ownerMemberId, TvRecordingRenameRequest body) {
-        TvRecording rec = tvRecordingRepository.findByIdAndOwnerSub(id, ownerSub)
-                .orElseThrow(() -> new IllegalArgumentException("not_found"));
+        TvRecording rec = requireOwned(id, ownerSub);
 
         boolean touched = false;
         if (body != null && StringUtils.hasText(body.getChannelName())) {
@@ -330,11 +332,30 @@ public class TvRecordingService {
         }
     }
 
+    private TvRecording requireOwned(String id, String ownerHint) {
+        TvRecording rec = tvRecordingRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("not_found"));
+        if (!userOwnerService.ownsStored(rec.getOwnerSub(), ownerHint)) {
+            throw new IllegalArgumentException("not_found");
+        }
+        return rec;
+    }
+
     public Optional<Member> resolveMemberByKeycloakId(String jwtSubject) {
         if (!StringUtils.hasText(jwtSubject)) {
             return Optional.empty();
         }
-        Member m = membersRepository.findByKeycloakId(jwtSubject.trim());
+        String id = jwtSubject.trim();
+        Member m = membersRepository.findByKeycloakId(id);
+        if (m == null) {
+            m = membersRepository.findByUserName(id);
+        }
+        if (m == null) {
+            String username = userOwnerService.resolve(id).username();
+            if (StringUtils.hasText(username)) {
+                m = membersRepository.findByUserName(username);
+            }
+        }
         return Optional.ofNullable(m);
     }
 
@@ -360,7 +381,7 @@ public class TvRecordingService {
         dto.setFriendGroupId(rec.getFriendGroupId());
         dto.setFriendGroupIds(rec.getFriendGroupIds());
         dto.setOwnerMemberId(rec.getOwnerMemberId());
-        dto.setOwnedByMe(StringUtils.hasText(viewerSub) && viewerSub.equals(rec.getOwnerSub()));
+        dto.setOwnedByMe(userOwnerService.ownsStored(rec.getOwnerSub(), viewerSub));
         if (StringUtils.hasText(rec.getGridFsFileId()) && rec.getStatus() == TvRecording.Status.DONE) {
             dto.setMediaUrl("/api/video/" + rec.getGridFsFileId());
         }

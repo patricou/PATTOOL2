@@ -504,7 +504,8 @@
     "ARCHIVE": "Internet Archive",
     "WEBCAM": "Веб-камера",
     "ASTRO_COMPASS": "Небесный компас",
-    "NORD": "Север"
+    "NORD": "Север",
+    "DIRECTION": "Направление"
   },
   "SOLAR_SYSTEM": {
     "TITLE": "Solar system map",

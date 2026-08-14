@@ -204,6 +204,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 	weatherTimelineOpenWeatherObservedAt: string | null = null;
 	weatherTimelineStationId = '';
 	weatherTimelineStationName = '';
+	/**
+	 * Cached FR/CH region for the timeline inputs.
+	 * Template must not call a live method here: Swiss coords sit inside the France bbox,
+	 * so region flips france → switzerland when geocode returns CH (NG0100).
+	 */
+	weatherTimelineRegion: 'france' | 'switzerland' = 'france';
+	private syncWeatherTimelineRegion(): void {
+		this.weatherTimelineRegion = this.isWeatherPointInSwitzerland() ? 'switzerland' : 'france';
+	}
 	private weatherPointRequestId = 0;
 	readonly weatherLogoMf = TraceViewerModalComponent.LOGO_MF;
 	readonly weatherLogoMs = TraceViewerModalComponent.LOGO_MS;
@@ -1559,7 +1568,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.weatherTimelineMsObservedAt = this.weatherPointMsObservedAt;
 		this.weatherTimelineOpenMeteoObservedAt = this.weatherPointOpenMeteoObservedAt;
 		this.weatherTimelineOpenWeatherObservedAt = this.weatherPointOpenWeatherObservedAt;
-		if (this.isWeatherPointInSwitzerland()) {
+		this.syncWeatherTimelineRegion();
+		if (this.weatherTimelineRegion === 'switzerland') {
 			this.weatherTimelineStationId = this.weatherPointMsStationId;
 			this.weatherTimelineStationName = this.weatherPointMsStationName;
 		} else {
@@ -4987,6 +4997,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			if (lat !== null && lng !== null) {
 				this.clickedWeatherLat = lat;
 				this.clickedWeatherLng = lng;
+				this.syncWeatherTimelineRegion();
 				if (alt != null) {
 					this.clickedWeatherAlt = alt;
 				}
@@ -5116,10 +5127,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 			&& Number.isFinite(this.clickedWeatherLng);
 	}
 
-	public weatherTimelineRegion(): 'france' | 'switzerland' {
-		return this.isWeatherPointInSwitzerland() ? 'switzerland' : 'france';
-	}
-
 	public openWeatherTimeline(): void {
 		if (!this.canShowWeatherTimelineButton()) {
 			return;
@@ -5218,7 +5225,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (code) {
 			return false;
 		}
-		return this.isCoordinateInFranceMetropole(this.clickedWeatherLat, this.clickedWeatherLng);
+		return this.isCoordinateInFranceForMfObs(this.clickedWeatherLat, this.clickedWeatherLng);
 	}
 
 	private isWeatherLocationInSwitzerland(): boolean {
@@ -5232,8 +5239,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (code) {
 			return false;
 		}
-		return this.isCoordinateInSwitzerland(this.clickedWeatherLat, this.clickedWeatherLng)
-			&& !this.isCoordinateInFranceMetropole(this.clickedWeatherLat, this.clickedWeatherLng);
+		return this.isCoordinateInSwitzerland(this.clickedWeatherLat, this.clickedWeatherLng);
 	}
 
 	public getWeatherBrandAlt(brand: TraceViewerWeatherBrand): string {
@@ -5606,6 +5612,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.weatherPointPlaceName = '';
 		this.clickedWeatherCountryCode = '';
 		this.refreshWeatherPointWeatherLocationLabel();
+		this.syncWeatherTimelineRegion();
 		this.setWeatherLoadingState(true);
 		this.scheduleTraceViewerCdr();
 
@@ -5647,6 +5654,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.clickedWeatherCountryCode = '';
 		this.clearWeatherPointComparison(false);
 		this.refreshWeatherPointWeatherLocationLabel();
+		this.syncWeatherTimelineRegion();
 		this.setWeatherLoadingState(true);
 		this.scheduleTraceViewerCdr();
 
@@ -5704,6 +5712,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 						}
 						this.clickedWeatherCountryCode = countryCode;
 						this.refreshWeatherPointWeatherLocationLabel();
+						this.syncWeatherTimelineRegion();
 						if (this.stationSelectionLat === lat && this.stationSelectionLng === lng) {
 							this.stationSelectionCountryCode = countryCode;
 							this.refreshWeatherStationsForSelection();
@@ -5772,11 +5781,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 			if (!samePoint) {
 				this.clickedWeatherAlt = null;
 				this.clickedWeatherAddress = '';
+				this.clickedWeatherCountryCode = '';
 				this.weatherLocationName = '';
 				this.weatherCity = '';
 				this.weatherPointPlaceName = '';
 			}
 			this.refreshWeatherPointWeatherLocationLabel();
+			this.syncWeatherTimelineRegion();
 			this.resetWeatherOverlayDismissed();
 			this.setWeatherLoadingState(true);
 			this.scheduleTraceViewerCdr();

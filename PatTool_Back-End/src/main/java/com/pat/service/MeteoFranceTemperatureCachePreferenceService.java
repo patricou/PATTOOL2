@@ -23,12 +23,15 @@ public class MeteoFranceTemperatureCachePreferenceService {
     private static final int MAX_MINUTES = 120;
 
     private final AppParameterService appParameterService;
+    private final UserOwnerService userOwnerService;
     private final int propertiesDefaultMinutes;
 
     public MeteoFranceTemperatureCachePreferenceService(
             AppParameterService appParameterService,
+            UserOwnerService userOwnerService,
             @Value("${meteofrance.temperature.cache.minutes:5}") int propertiesDefaultMinutes) {
         this.appParameterService = appParameterService;
+        this.userOwnerService = userOwnerService;
         this.propertiesDefaultMinutes = clamp(propertiesDefaultMinutes);
     }
 
@@ -59,19 +62,17 @@ public class MeteoFranceTemperatureCachePreferenceService {
     }
 
     public MeteoFranceTemperatureCachePreferenceDto saveForSubject(String jwtSubject, int temperatureCacheMinutes) {
-        if (jwtSubject == null || jwtSubject.isBlank()) {
-            throw new IllegalArgumentException("jwtSubject required");
-        }
         int clamped = clamp(temperatureCacheMinutes);
         appParameterService.setLong(
-                USER_PARAM_KEY_PREFIX + jwtSubject,
+                userOwnerService.writeKey(USER_PARAM_KEY_PREFIX, jwtSubject),
                 clamped,
                 "Météo France: temperature observation cache TTL (minutes) for user.");
+        userOwnerService.dropAliasKeys(USER_PARAM_KEY_PREFIX, jwtSubject);
         return new MeteoFranceTemperatureCachePreferenceDto(clamped, true);
     }
 
     private Optional<Integer> readUserMinutes(String jwtSubject) {
-        return appParameterService.find(USER_PARAM_KEY_PREFIX + jwtSubject)
+        return userOwnerService.findParam(USER_PARAM_KEY_PREFIX, jwtSubject)
                 .map(AppParameter::getParamValue)
                 .filter(v -> v != null && !v.isBlank())
                 .map(v -> parseMinutes(v, propertiesDefaultMinutes));

@@ -24,6 +24,56 @@ export interface CompassHeadingModePref {
   headingMode: string;
 }
 
+export interface DirectionPattoolSamplePayload {
+  sessionId: string;
+  poseId: string;
+  poseIndex: number;
+  expectedAz: number | null;
+  expectedEl: number;
+  capturedAt: string;
+  userAgent: string;
+  quat: number[] | null;
+  mag: { x: number; y: number; z: number } | null;
+  accel: { x: number; y: number; z: number } | null;
+  gyro: { x: number; y: number; z: number } | null;
+  orient: {
+    alpha: number | null;
+    beta: number | null;
+    gamma: number | null;
+    absolute: boolean;
+    webkit: number | null;
+  } | null;
+  screenAngle: number;
+  gps: { lat: number | null; lon: number | null; heading: number | null };
+  computed: {
+    az: number | null;
+    el: number | null;
+    rl: number | null;
+    source: string | null;
+    lookEast?: number | null;
+    lookNorth?: number | null;
+    lookUp?: number | null;
+  };
+  extras?: Record<string, unknown>;
+}
+
+export interface DirectionPattoolSaveResult {
+  id: string;
+  sessionId: string;
+  poseId: string;
+  ownerUsername?: string;
+  count: number;
+}
+
+export interface DirectionPattoolExport {
+  version: number;
+  kind: string;
+  ownerUsername?: string;
+  exportedAt: string;
+  count: number;
+  samples: DirectionPattoolSamplePayload[];
+}
+
 /** Current state of a tracked flight (proxy GET /external/globe/flight/state, OpenSky Network). */
 export interface FlightState {
   icao24?: string | null;
@@ -1462,6 +1512,45 @@ export class ApiService {
           { headingMode },
           { headers }
         )
+      )
+    );
+  }
+
+  saveDirectionPattoolSample(body: DirectionPattoolSamplePayload): Observable<DirectionPattoolSaveResult> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post<DirectionPattoolSaveResult>(this.API_URL + 'direction/pattool-cal/samples', body, { headers })
+      )
+    );
+  }
+
+  getDirectionPattoolSamples(): Observable<{
+    count: number;
+    ownerUsername?: string;
+    samples: DirectionPattoolSamplePayload[];
+  }> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<{ count: number; ownerUsername?: string; samples: DirectionPattoolSamplePayload[] }>(
+          this.API_URL + 'direction/pattool-cal/samples',
+          { headers }
+        )
+      )
+    );
+  }
+
+  exportDirectionPattoolCal(): Observable<DirectionPattoolExport> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<DirectionPattoolExport>(this.API_URL + 'direction/pattool-cal/export', { headers })
+      )
+    );
+  }
+
+  deleteDirectionPattoolSamples(): Observable<void> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.delete<void>(this.API_URL + 'direction/pattool-cal/samples', { headers })
       )
     );
   }

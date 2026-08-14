@@ -375,6 +375,30 @@ export class KeycloakService {
   }
 
   /**
+   * True if {@code stored} is this session's JWT {@code sub} or login (surnom /
+   * {@code preferred_username}). Used so rows persisted under either Keycloak id
+   * or username still count as "me".
+   */
+  isCurrentUserIdentity(stored: string | null | undefined): boolean {
+    const v = (stored ?? '').trim();
+    if (!v) {
+      return false;
+    }
+    const aliases = [
+      this.getJwtSubject(),
+      this.getPreferredUsername(),
+      this.getUsernameForDisplay()
+    ];
+    const lower = v.toLowerCase();
+    for (const a of aliases) {
+      if (a && a.trim().toLowerCase() === lower) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Check if the current user has FileSystem role
    * @returns true if user has FileSystem role, false otherwise
    */

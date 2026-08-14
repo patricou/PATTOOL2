@@ -24,12 +24,15 @@ public class MeteoFranceForecastCachePreferenceService {
     private static final int MAX_MINUTES = 120;
 
     private final AppParameterService appParameterService;
+    private final UserOwnerService userOwnerService;
     private final int propertiesDefaultMinutes;
 
     public MeteoFranceForecastCachePreferenceService(
             AppParameterService appParameterService,
+            UserOwnerService userOwnerService,
             @Value("${meteofrance.forecast.cache.minutes:5}") int propertiesDefaultMinutes) {
         this.appParameterService = appParameterService;
+        this.userOwnerService = userOwnerService;
         this.propertiesDefaultMinutes = clamp(propertiesDefaultMinutes);
     }
 
@@ -65,14 +68,12 @@ public class MeteoFranceForecastCachePreferenceService {
     }
 
     public MeteoFranceForecastCachePreferenceDto saveForSubject(String jwtSubject, int forecastCacheMinutes) {
-        if (jwtSubject == null || jwtSubject.isBlank()) {
-            throw new IllegalArgumentException("jwtSubject required");
-        }
         int clamped = clamp(forecastCacheMinutes);
         appParameterService.setLong(
-                USER_PARAM_KEY_PREFIX + jwtSubject,
+                userOwnerService.writeKey(USER_PARAM_KEY_PREFIX, jwtSubject),
                 clamped,
                 "Météo France: AROME-PI/ARPEGE forecast cache TTL (minutes) for user.");
+        userOwnerService.dropAliasKeys(USER_PARAM_KEY_PREFIX, jwtSubject);
         // Keep WMS tile TTL in sync for anonymous tile requests.
         appParameterService.setLong(
                 GLOBAL_PARAM_KEY,
@@ -82,7 +83,7 @@ public class MeteoFranceForecastCachePreferenceService {
     }
 
     private Optional<Integer> readUserMinutes(String jwtSubject) {
-        return appParameterService.find(USER_PARAM_KEY_PREFIX + jwtSubject)
+        return userOwnerService.findParam(USER_PARAM_KEY_PREFIX, jwtSubject)
                 .map(AppParameter::getParamValue)
                 .filter(v -> v != null && !v.isBlank())
                 .map(v -> parseMinutes(v, propertiesDefaultMinutes));

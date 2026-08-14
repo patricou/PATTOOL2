@@ -74,7 +74,8 @@
     "ARCHIVE": "Internet Archive",
     "WEBCAM": "ウェブカメラ",
     "ASTRO_COMPASS": "天空コンパス",
-    "NORD": "北"
+    "NORD": "北",
+    "DIRECTION": "方向"
   },
   "SOLAR_SYSTEM": {
     "TITLE": "Solar system map",

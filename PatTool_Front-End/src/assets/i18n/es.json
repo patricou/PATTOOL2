@@ -74,7 +74,8 @@
     "ARCHIVE": "Internet Archive",
     "WEBCAM": "Webcam",
     "ASTRO_COMPASS": "Brújula celeste",
-    "NORD": "Norte"
+    "NORD": "Norte",
+    "DIRECTION": "Dirección"
   },
   "SOLAR_SYSTEM": {
     "TITLE": "Solar system map",

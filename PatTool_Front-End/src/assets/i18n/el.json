@@ -74,7 +74,8 @@
     "ARCHIVE": "Internet Archive",
     "WEBCAM": "Webcam",
     "ASTRO_COMPASS": "Ουράνια πυξίδα",
-    "NORD": "Βορράς"
+    "NORD": "Βορράς",
+    "DIRECTION": "Κατεύθυνση"
   },
   "SOLAR_SYSTEM": {
     "TITLE": "Solar system map",

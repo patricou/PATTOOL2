@@ -24,18 +24,16 @@ public class WebcamLastService {
 
     private final AppParameterService appParameterService;
     private final ObjectMapper objectMapper;
+    private final UserOwnerService userOwnerService;
 
-    public WebcamLastService(AppParameterService appParameterService, ObjectMapper objectMapper) {
+    public WebcamLastService(AppParameterService appParameterService, ObjectMapper objectMapper, UserOwnerService userOwnerService) {
         this.appParameterService = appParameterService;
         this.objectMapper = objectMapper;
+        this.userOwnerService = userOwnerService;
     }
 
     public WebcamItemDto findForSubject(String jwtSubject) {
-        if (!StringUtils.hasText(jwtSubject)) {
-            return null;
-        }
-        String key = PARAM_KEY_PREFIX + jwtSubject;
-        Optional<AppParameter> row = appParameterService.find(key);
+        Optional<AppParameter> row = userOwnerService.findParam(PARAM_KEY_PREFIX, jwtSubject);
         if (row.isEmpty()) {
             return null;
         }
@@ -46,20 +44,17 @@ public class WebcamLastService {
         try {
             return normalize(objectMapper.readValue(raw, WebcamItemDto.class));
         } catch (JsonProcessingException e) {
-            log.debug("webcam.last unreadable JSON for key {}: {}", key, e.getMessage());
+            log.debug("webcam.last unreadable JSON: {}", e.getMessage());
             return null;
         }
     }
 
     public WebcamItemDto saveForSubject(String jwtSubject, WebcamItemDto webcam) {
-        if (!StringUtils.hasText(jwtSubject)) {
-            throw new IllegalArgumentException("jwtSubject required");
-        }
         WebcamItemDto normalized = normalize(webcam);
         if (normalized == null) {
             throw new IllegalArgumentException("invalid webcam");
         }
-        String key = PARAM_KEY_PREFIX + jwtSubject;
+        String key = userOwnerService.writeKey(PARAM_KEY_PREFIX, jwtSubject);
         try {
             String json = objectMapper.writeValueAsString(normalized);
             appParameterService.setJson(
@@ -69,6 +64,7 @@ public class WebcamLastService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Serialization webcam last", e);
         }
+        userOwnerService.dropAliasKeys(PARAM_KEY_PREFIX, jwtSubject);
         return normalized;
     }
 

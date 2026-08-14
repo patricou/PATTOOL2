@@ -74,7 +74,8 @@
     "ARCHIVE": "Internet Archive",
     "WEBCAM": "מצלמת רשת",
     "ASTRO_COMPASS": "מצפן שמיים",
-    "NORD": "צפון"
+    "NORD": "צפון",
+    "DIRECTION": "כיוון"
   },
   "SOLAR_SYSTEM": {
     "TITLE": "Solar system map",

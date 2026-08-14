@@ -28,10 +28,12 @@ public class TvFilterPreferenceService {
 
     private final AppParameterService appParameterService;
     private final ObjectMapper objectMapper;
+    private final UserOwnerService userOwnerService;
 
-    public TvFilterPreferenceService(AppParameterService appParameterService, ObjectMapper objectMapper) {
+    public TvFilterPreferenceService(AppParameterService appParameterService, ObjectMapper objectMapper, UserOwnerService userOwnerService) {
         this.appParameterService = appParameterService;
         this.objectMapper = objectMapper;
+        this.userOwnerService = userOwnerService;
     }
 
     public TvFilterPreferenceDto findForSubject(String jwtSubject) {
@@ -45,11 +47,8 @@ public class TvFilterPreferenceService {
     }
 
     public TvFilterPreferenceDto saveForSubject(String jwtSubject, TvFilterPreferenceDto dto) {
-        if (!StringUtils.hasText(jwtSubject)) {
-            throw new IllegalArgumentException("jwtSubject required");
-        }
         TvFilterPreferenceDto normalized = normalize(dto != null ? dto : defaults(false));
-        String key = PARAM_KEY_PREFIX + jwtSubject;
+        String key = userOwnerService.writeKey(PARAM_KEY_PREFIX, jwtSubject);
         try {
             TvFilterPreferenceDto toStore = new TvFilterPreferenceDto(
                     normalized.getApplyToAllTabs(),
@@ -67,16 +66,13 @@ public class TvFilterPreferenceService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Serialization TV filter preferences", e);
         }
+        userOwnerService.dropAliasKeys(PARAM_KEY_PREFIX, jwtSubject);
         normalized.setPersisted(true);
         return normalized;
     }
 
     private Optional<TvFilterPreferenceDto> readStored(String jwtSubject) {
-        if (!StringUtils.hasText(jwtSubject)) {
-            return Optional.empty();
-        }
-        String key = PARAM_KEY_PREFIX + jwtSubject;
-        Optional<AppParameter> row = appParameterService.find(key);
+        Optional<AppParameter> row = userOwnerService.findParam(PARAM_KEY_PREFIX, jwtSubject);
         if (row.isEmpty()) {
             return Optional.empty();
         }
@@ -87,7 +83,7 @@ public class TvFilterPreferenceService {
         try {
             return Optional.ofNullable(objectMapper.readValue(raw, TvFilterPreferenceDto.class));
         } catch (JsonProcessingException e) {
-            log.debug("tv.filter-preferences unreadable JSON for key {}: {}", key, e.getMessage());
+            log.debug("tv.filter-preferences unreadable JSON: {}", e.getMessage());
             return Optional.empty();
         }
     }

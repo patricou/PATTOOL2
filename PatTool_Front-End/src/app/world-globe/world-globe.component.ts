@@ -2511,8 +2511,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.hasIssAlertAdminRole()) {
       return true;
     }
-    const currentSub = (this.keycloakService.getJwtSubject() || '').trim();
-    return !!currentSub && userId === currentSub;
+    return this.keycloakService.isCurrentUserIdentity(userId);
   }
 
   isIssAlertEditingOtherUser(): boolean {
@@ -2520,8 +2519,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!editing) {
       return false;
     }
-    const currentSub = (this.keycloakService.getJwtSubject() || '').trim();
-    return !!currentSub && editing !== currentSub;
+    return !this.keycloakService.isCurrentUserIdentity(editing);
   }
 
   editIssAlertAdminEntry(row: IssAlertAdminEntry): void {
@@ -2529,8 +2527,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     const userId = (row.userId || '').trim();
-    const currentSub = (this.keycloakService.getJwtSubject() || '').trim();
-    const isOther = !!userId && userId !== currentSub;
+    const isOther = !!userId && !this.keycloakService.isCurrentUserIdentity(userId);
     if (isOther) {
       this.issAlertEditingUserId = userId;
       this.issAlertEditingOwnerLabel = this.formatIssAlertAdminOwner(row);
@@ -2757,9 +2754,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     const userId = (row.userId || '').trim();
-    const currentSub = (this.keycloakService.getJwtSubject() || '').trim();
     const isAdmin = this.hasIssAlertAdminRole();
-    const isAdminDeletingOther = isAdmin && !!userId && userId !== currentSub;
+    const isAdminDeletingOther = isAdmin && !!userId && !this.keycloakService.isCurrentUserIdentity(userId);
     if (isAdmin && !userId) {
       return;
     }

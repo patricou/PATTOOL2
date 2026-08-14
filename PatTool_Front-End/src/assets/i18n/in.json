@@ -503,7 +503,8 @@
     "ARCHIVE": "Internet Archive",
     "WEBCAM": "वेबकैम",
     "ASTRO_COMPASS": "Kompas langit",
-    "NORD": "Utara"
+    "NORD": "Utara",
+    "DIRECTION": "Arah"
   },
   "SOLAR_SYSTEM": {
     "TITLE": "Solar system map",

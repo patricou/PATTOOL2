@@ -73,7 +73,8 @@
     "ARCHIVE": "Internet Archive",
     "WEBCAM": "Webcam",
     "ASTRO_COMPASS": "Bussola celeste",
-    "NORD": "Nord"
+    "NORD": "Nord",
+    "DIRECTION": "Direzione"
   },
   "SOLAR_SYSTEM": {
     "TITLE": "Solar system map",

@@ -5,6 +5,7 @@ import com.pat.controller.dto.UserAppParameterDto;
 import com.pat.repo.domain.AppParameter;
 import com.pat.service.AppParameterService;
 import com.pat.service.LastRouteService;
+import com.pat.service.UserOwnerService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -41,10 +42,15 @@ public class AppLastRouteRestController {
 
     private final LastRouteService lastRouteService;
     private final AppParameterService appParameterService;
+    private final UserOwnerService userOwnerService;
 
-    public AppLastRouteRestController(LastRouteService lastRouteService, AppParameterService appParameterService) {
+    public AppLastRouteRestController(
+            LastRouteService lastRouteService,
+            AppParameterService appParameterService,
+            UserOwnerService userOwnerService) {
         this.lastRouteService = lastRouteService;
         this.appParameterService = appParameterService;
+        this.userOwnerService = userOwnerService;
     }
 
     @GetMapping("/last-route")
@@ -78,8 +84,8 @@ public class AppLastRouteRestController {
     }
 
     /**
-     * All {@code appParameters} rows keyed with the current user's JWT {@code sub}
-     * and/or {@code preferred_username} (legacy rows may use either).
+     * All {@code appParameters} rows keyed with the current user's surnom,
+     * JWT {@code sub}, and legacy Keycloak ids.
      * <p>
      * Optional {@code owner=sub|username|&lt;exactKey&gt;} filters to one owner suffix.
      */
@@ -91,15 +97,10 @@ public class AppLastRouteRestController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         String sub = trimToNull(jwt.getSubject());
-        String username = trimToNull(jwt.getClaimAsString("preferred_username"));
+        UserOwnerService.Owner identity = userOwnerService.resolve(jwt, sub);
+        String username = identity.username();
 
-        LinkedHashSet<String> owners = new LinkedHashSet<>();
-        if (sub != null) {
-            owners.add(sub);
-        }
-        if (username != null) {
-            owners.add(username);
-        }
+        LinkedHashSet<String> owners = new LinkedHashSet<>(identity.aliases());
         if (owners.isEmpty()) {
             return ResponseEntity.ok(List.of());
         }

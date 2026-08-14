@@ -38,18 +38,16 @@ public class ArchiveAudioPlaylistService {
 
     private final AppParameterService appParameterService;
     private final ObjectMapper objectMapper;
+    private final UserOwnerService userOwnerService;
 
-    public ArchiveAudioPlaylistService(AppParameterService appParameterService, ObjectMapper objectMapper) {
+    public ArchiveAudioPlaylistService(AppParameterService appParameterService, ObjectMapper objectMapper, UserOwnerService userOwnerService) {
         this.appParameterService = appParameterService;
         this.objectMapper = objectMapper;
+        this.userOwnerService = userOwnerService;
     }
 
     public ArchiveAudioPlaylistDto findForSubject(String jwtSubject) {
-        if (!StringUtils.hasText(jwtSubject)) {
-            return new ArchiveAudioPlaylistDto();
-        }
-        String key = PARAM_KEY_PREFIX + jwtSubject;
-        Optional<AppParameter> row = appParameterService.find(key);
+        Optional<AppParameter> row = userOwnerService.findParam(PARAM_KEY_PREFIX, jwtSubject);
         if (row.isEmpty()) {
             return new ArchiveAudioPlaylistDto();
         }
@@ -61,17 +59,14 @@ public class ArchiveAudioPlaylistService {
             ArchiveAudioPlaylistDto dto = objectMapper.readValue(raw, ArchiveAudioPlaylistDto.class);
             return normalize(dto);
         } catch (JsonProcessingException e) {
-            log.debug("archive.audioPlaylist unreadable JSON for key {}: {}", key, e.getMessage());
+            log.debug("archive.audioPlaylist unreadable JSON: {}", e.getMessage());
             return new ArchiveAudioPlaylistDto();
         }
     }
 
     public ArchiveAudioPlaylistDto saveForSubject(String jwtSubject, ArchiveAudioPlaylistDto dto) {
-        if (!StringUtils.hasText(jwtSubject)) {
-            throw new IllegalArgumentException("jwtSubject required");
-        }
         ArchiveAudioPlaylistDto normalized = normalize(dto);
-        String key = PARAM_KEY_PREFIX + jwtSubject;
+        String key = userOwnerService.writeKey(PARAM_KEY_PREFIX, jwtSubject);
         try {
             String json = objectMapper.writeValueAsString(normalized);
             appParameterService.setJson(
@@ -81,6 +76,7 @@ public class ArchiveAudioPlaylistService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Serialization archive audio playlist", e);
         }
+        userOwnerService.dropAliasKeys(PARAM_KEY_PREFIX, jwtSubject);
         return normalized;
     }
 

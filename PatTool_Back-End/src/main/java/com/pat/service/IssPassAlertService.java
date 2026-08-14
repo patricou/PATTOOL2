@@ -66,6 +66,7 @@ public class IssPassAlertService {
     private final MembersRepository membersRepository;
     private final MailController mailController;
     private final ObjectMapper objectMapper;
+    private final UserOwnerService userOwnerService;
 
     @Value("${globe.iss.alert.lead-minutes:30}")
     private int leadMinutes;
@@ -83,7 +84,8 @@ public class IssPassAlertService {
             AppParameterRepository appParameterRepository,
             MembersRepository membersRepository,
             MailController mailController,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            UserOwnerService userOwnerService) {
         this.globeProxyService = globeProxyService;
         this.geocodeService = geocodeService;
         this.appParameterService = appParameterService;
@@ -91,6 +93,7 @@ public class IssPassAlertService {
         this.membersRepository = membersRepository;
         this.mailController = mailController;
         this.objectMapper = objectMapper;
+        this.userOwnerService = userOwnerService;
     }
 
     @PostConstruct
@@ -288,11 +291,10 @@ public class IssPassAlertService {
         if (isLegacyAlertKeySuffix(userId)) {
             return false;
         }
-        String key = PARAM_KEY_PREFIX + userId;
-        if (!appParameterRepository.existsByParamKey(key)) {
+        if (userOwnerService.findParam(PARAM_KEY_PREFIX, userId).isEmpty()) {
             return false;
         }
-        appParameterService.delete(key);
+        userOwnerService.deleteParams(PARAM_KEY_PREFIX, userId);
         return true;
     }
 
@@ -300,6 +302,9 @@ public class IssPassAlertService {
         Member member = null;
         if (StringUtils.hasText(keycloakId)) {
             member = membersRepository.findByKeycloakId(keycloakId.trim());
+            if (member == null) {
+                member = membersRepository.findByUserName(keycloakId.trim());
+            }
         }
         if (member == null && StringUtils.hasText(alertEmail)) {
             member = membersRepository.findByAddressEmail(alertEmail.trim());
@@ -733,8 +738,7 @@ public class IssPassAlertService {
         if (isLegacyAlertKeySuffix(jwtSubject)) {
             return StoredUserAlert.empty();
         }
-        String key = PARAM_KEY_PREFIX + jwtSubject;
-        Optional<AppParameter> row = appParameterService.find(key);
+        Optional<AppParameter> row = userOwnerService.findParam(PARAM_KEY_PREFIX, jwtSubject);
         if (row.isEmpty()) {
             return StoredUserAlert.empty();
         }
@@ -781,7 +785,7 @@ public class IssPassAlertService {
     }
 
     private void saveStored(String jwtSubject, StoredUserAlert stored) {
-        String key = PARAM_KEY_PREFIX + jwtSubject;
+        String key = userOwnerService.writeKey(PARAM_KEY_PREFIX, jwtSubject);
         try {
             String json = objectMapper.writeValueAsString(stored);
             appParameterService.setJson(
@@ -791,6 +795,7 @@ public class IssPassAlertService {
         } catch (Exception e) {
             throw new IllegalStateException("Serialization ISS alert config", e);
         }
+        userOwnerService.dropAliasKeys(PARAM_KEY_PREFIX, jwtSubject);
     }
 
     private AlertConfig toAlertConfig(StoredUserAlert stored) {

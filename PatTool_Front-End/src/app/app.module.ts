@@ -251,6 +251,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./nord/nord.component').then(m => m.NordComponent)
 			},
 			{
+				path: 'tools/direction',
+				loadComponent: () => import('./direction/direction.component').then(m => m.DirectionComponent)
+			},
+			{
 				path: 'tools/world-globe',
 				loadComponent: () => import('./world-globe/world-globe.component').then(m => m.WorldGlobeComponent)
 			},

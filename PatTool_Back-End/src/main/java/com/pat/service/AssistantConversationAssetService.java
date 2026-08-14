@@ -11,7 +11,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Collection;
-import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -20,15 +19,19 @@ public class AssistantConversationAssetService {
     static final int MAX_DECODED_BYTES = AssistantMessageSupport.MAX_IMAGE_DECODED_BYTES;
 
     private final AssistantConversationAssetRepository repository;
+    private final UserOwnerService userOwnerService;
 
-    public AssistantConversationAssetService(AssistantConversationAssetRepository repository) {
+    public AssistantConversationAssetService(
+            AssistantConversationAssetRepository repository, UserOwnerService userOwnerService) {
         this.repository = repository;
+        this.userOwnerService = userOwnerService;
     }
 
     public String saveForOwner(String ownerSubject, AssistantConversationAssetUploadDto dto) {
         if (ownerSubject == null || ownerSubject.isBlank()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
         }
+        String writeOwner = userOwnerService.require(ownerSubject).username();
         String mime = dto.mimeType().trim().toLowerCase();
         if (!AssistantMessageSupport.ALLOWED_IMAGE_MIMES.contains(mime)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported image MIME type");
@@ -55,7 +58,7 @@ public class AssistantConversationAssetService {
             throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Image too large");
         }
         AssistantConversationAsset doc = new AssistantConversationAsset();
-        doc.setOwnerSubject(ownerSubject.strip());
+        doc.setOwnerSubject(writeOwner);
         doc.setMimeType(mime);
         doc.setData(decoded);
         doc.setCreatedAt(Instant.now());
@@ -76,7 +79,7 @@ public class AssistantConversationAssetService {
             return Optional.empty();
         }
         AssistantConversationAsset doc = row.get();
-        if (!assistantAdmin && !jwtSubject.equals(doc.getOwnerSubject())) {
+        if (!assistantAdmin && !userOwnerService.ownsStored(doc.getOwnerSubject(), jwtSubject)) {
             return Optional.empty();
         }
         return Optional.ofNullable(doc.getData());
@@ -88,7 +91,7 @@ public class AssistantConversationAssetService {
         }
         return repository
                 .findById(assetId.strip())
-                .filter(a -> assistantAdmin || jwtSubject.equals(a.getOwnerSubject()))
+                .filter(a -> assistantAdmin || userOwnerService.ownsStored(a.getOwnerSubject(), jwtSubject))
                 .map(AssistantConversationAsset::getMimeType);
     }
 
@@ -102,7 +105,7 @@ public class AssistantConversationAssetService {
         if (assistantAdmin) {
             return;
         }
-        if (!Objects.equals(jwtSubject, a.getOwnerSubject())) {
+        if (!userOwnerService.ownsStored(a.getOwnerSubject(), jwtSubject)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
     }
@@ -116,7 +119,7 @@ public class AssistantConversationAssetService {
         }
         repository
                 .findById(assetId.strip())
-                .filter(a -> ownerSubject.equals(a.getOwnerSubject()))
+                .filter(a -> userOwnerService.ownsStored(a.getOwnerSubject(), ownerSubject))
                 .ifPresent(a -> repository.deleteById(a.getId()));
     }
 

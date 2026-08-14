@@ -44,12 +44,15 @@ public class TraceViewerPreferenceService {
 
     private final AppParameterService appParameterService;
     private final ObjectMapper objectMapper;
+    private final UserOwnerService userOwnerService;
 
     public TraceViewerPreferenceService(
             AppParameterService appParameterService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            UserOwnerService userOwnerService) {
         this.appParameterService = appParameterService;
         this.objectMapper = objectMapper;
+        this.userOwnerService = userOwnerService;
     }
 
     public TraceViewerPreferenceDto readForSubject(String jwtSubject) {
@@ -74,9 +77,6 @@ public class TraceViewerPreferenceService {
     }
 
     public TraceViewerPreferenceDto saveForSubject(String jwtSubject, TraceViewerPreferenceDto body) {
-        if (jwtSubject == null || jwtSubject.isBlank()) {
-            throw new IllegalArgumentException("jwtSubject required");
-        }
         if (body == null) {
             throw new IllegalArgumentException("body required");
         }
@@ -84,7 +84,7 @@ public class TraceViewerPreferenceService {
         TraceViewerPreferenceDto merged = merge(existing.orElse(defaults(false)), body);
         TraceViewerPreferenceDto normalized = validate(merged)
                 .orElseThrow(() -> new IllegalArgumentException("invalid trace viewer preference payload"));
-        String key = PARAM_KEY_PREFIX + jwtSubject;
+        String key = userOwnerService.writeKey(PARAM_KEY_PREFIX, jwtSubject);
         try {
             String json = objectMapper.writeValueAsString(normalized);
             appParameterService.setJson(
@@ -94,6 +94,7 @@ public class TraceViewerPreferenceService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Serialization trace viewer preference", e);
         }
+        userOwnerService.dropAliasKeys(PARAM_KEY_PREFIX, jwtSubject);
         return new TraceViewerPreferenceDto(
                 normalized.showAddress(),
                 normalized.showWeather(),
@@ -110,11 +111,7 @@ public class TraceViewerPreferenceService {
     }
 
     private Optional<TraceViewerPreferenceDto> findForSubject(String jwtSubject) {
-        if (jwtSubject == null || jwtSubject.isBlank()) {
-            return Optional.empty();
-        }
-        String key = PARAM_KEY_PREFIX + jwtSubject;
-        Optional<AppParameter> row = appParameterService.find(key);
+        Optional<AppParameter> row = userOwnerService.findParam(PARAM_KEY_PREFIX, jwtSubject);
         if (row.isEmpty()) {
             return Optional.empty();
         }
@@ -126,7 +123,7 @@ public class TraceViewerPreferenceService {
             TraceViewerPreferenceDto dto = objectMapper.readValue(raw, TraceViewerPreferenceDto.class);
             return validate(dto);
         } catch (JsonProcessingException e) {
-            log.debug("trace.viewer unreadable JSON for key {}: {}", key, e.getMessage());
+            log.debug("trace.viewer unreadable JSON: {}", e.getMessage());
             return Optional.empty();
         }
     }

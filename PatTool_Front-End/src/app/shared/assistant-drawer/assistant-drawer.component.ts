@@ -2794,8 +2794,7 @@ export class AssistantDrawerComponent
         return fromSibling;
       }
     }
-    const mySub = this.keycloak.getJwtSubject();
-    const isMine = !!(mySub && ownerSub === mySub);
+    const isMine = this.keycloak.isCurrentUserIdentity(ownerSub);
     if (isMine || (!ownerSub && this.historyItemsBelongToCurrentUserOnly())) {
       const selfLabel = (this.chatUserLabel() || this.keycloak.getUsernameForDisplay() || '').trim();
       if (selfLabel.length > 0) {
@@ -2814,8 +2813,10 @@ export class AssistantDrawerComponent
     if (!target) {
       return null;
     }
+    const targetIsMe = this.keycloak.isCurrentUserIdentity(target);
     for (const row of this.historyItems) {
-      if ((row.ownerSubject ?? '').trim() !== target) {
+      const rowSub = (row.ownerSubject ?? '').trim();
+      if (rowSub !== target && !(targetIsMe && this.keycloak.isCurrentUserIdentity(rowSub))) {
         continue;
       }
       const user = (row.ownerPreferredUsername ?? '').trim();
@@ -2828,16 +2829,13 @@ export class AssistantDrawerComponent
 
   /** Historique limité au compte connecté (pas la vue admin multi-utilisateurs). */
   private historyItemsBelongToCurrentUserOnly(): boolean {
-    const mySub = (this.keycloak.getJwtSubject() ?? '').trim();
-    if (!mySub) {
+    if (this.historyItems.length === 0) {
       return false;
     }
-    const subjects = new Set(
-      this.historyItems
-        .map((row) => (row.ownerSubject ?? '').trim())
-        .filter((s) => s.length > 0)
-    );
-    return subjects.size <= 1;
+    return this.historyItems.every((row) => {
+      const sub = (row.ownerSubject ?? '').trim();
+      return !sub || this.keycloak.isCurrentUserIdentity(sub);
+    });
   }
 
   /** Couleurs de badge stables par utilisateur (même compte → même couleur sur toutes ses questions). */

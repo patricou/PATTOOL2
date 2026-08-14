@@ -34,18 +34,16 @@ public class RadioFavoritesService {
 
     private final AppParameterService appParameterService;
     private final ObjectMapper objectMapper;
+    private final UserOwnerService userOwnerService;
 
-    public RadioFavoritesService(AppParameterService appParameterService, ObjectMapper objectMapper) {
+    public RadioFavoritesService(AppParameterService appParameterService, ObjectMapper objectMapper, UserOwnerService userOwnerService) {
         this.appParameterService = appParameterService;
         this.objectMapper = objectMapper;
+        this.userOwnerService = userOwnerService;
     }
 
     public RadioFavoritesDto findForSubject(String jwtSubject) {
-        if (!StringUtils.hasText(jwtSubject)) {
-            return new RadioFavoritesDto();
-        }
-        String key = PARAM_KEY_PREFIX + jwtSubject;
-        Optional<AppParameter> row = appParameterService.find(key);
+        Optional<AppParameter> row = userOwnerService.findParam(PARAM_KEY_PREFIX, jwtSubject);
         if (row.isEmpty()) {
             return new RadioFavoritesDto();
         }
@@ -57,17 +55,14 @@ public class RadioFavoritesService {
             RadioFavoritesDto dto = objectMapper.readValue(raw, RadioFavoritesDto.class);
             return normalize(dto);
         } catch (JsonProcessingException e) {
-            log.debug("radio.favorites unreadable JSON for key {}: {}", key, e.getMessage());
+            log.debug("radio.favorites unreadable JSON: {}", e.getMessage());
             return new RadioFavoritesDto();
         }
     }
 
     public RadioFavoritesDto saveForSubject(String jwtSubject, RadioFavoritesDto dto) {
-        if (!StringUtils.hasText(jwtSubject)) {
-            throw new IllegalArgumentException("jwtSubject required");
-        }
         RadioFavoritesDto normalized = normalize(dto);
-        String key = PARAM_KEY_PREFIX + jwtSubject;
+        String key = userOwnerService.writeKey(PARAM_KEY_PREFIX, jwtSubject);
         try {
             String json = objectMapper.writeValueAsString(normalized);
             appParameterService.setJson(
@@ -77,6 +72,7 @@ public class RadioFavoritesService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Serialization radio favorites", e);
         }
+        userOwnerService.dropAliasKeys(PARAM_KEY_PREFIX, jwtSubject);
         return normalized;
     }
 

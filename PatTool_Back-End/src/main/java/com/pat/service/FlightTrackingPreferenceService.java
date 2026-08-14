@@ -33,20 +33,19 @@ public class FlightTrackingPreferenceService {
 
     private final AppParameterService appParameterService;
     private final ObjectMapper objectMapper;
+    private final UserOwnerService userOwnerService;
 
     public FlightTrackingPreferenceService(
             AppParameterService appParameterService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            UserOwnerService userOwnerService) {
         this.appParameterService = appParameterService;
         this.objectMapper = objectMapper;
+        this.userOwnerService = userOwnerService;
     }
 
     public Optional<FlightTrackingPreferenceDto> findForSubject(String jwtSubject) {
-        if (jwtSubject == null || jwtSubject.isBlank()) {
-            return Optional.empty();
-        }
-        String key = PARAM_KEY_PREFIX + jwtSubject;
-        Optional<AppParameter> row = appParameterService.find(key);
+        Optional<AppParameter> row = userOwnerService.findParam(PARAM_KEY_PREFIX, jwtSubject);
         if (row.isEmpty()) {
             return Optional.empty();
         }
@@ -58,18 +57,15 @@ public class FlightTrackingPreferenceService {
             FlightTrackingPreferenceDto dto = objectMapper.readValue(raw, FlightTrackingPreferenceDto.class);
             return validate(dto);
         } catch (JsonProcessingException e) {
-            log.debug("globe.flight.tracking unreadable JSON for key {}: {}", key, e.getMessage());
+            log.debug("globe.flight.tracking unreadable JSON: {}", e.getMessage());
             return Optional.empty();
         }
     }
 
     public FlightTrackingPreferenceDto saveForSubject(String jwtSubject, FlightTrackingPreferenceDto dto) {
-        if (jwtSubject == null || jwtSubject.isBlank()) {
-            throw new IllegalArgumentException("jwtSubject required");
-        }
         FlightTrackingPreferenceDto normalized = validate(dto)
                 .orElseThrow(() -> new IllegalArgumentException("invalid flight tracking payload"));
-        String key = PARAM_KEY_PREFIX + jwtSubject;
+        String key = userOwnerService.writeKey(PARAM_KEY_PREFIX, jwtSubject);
         try {
             String json = objectMapper.writeValueAsString(normalized);
             appParameterService.setJson(
@@ -79,14 +75,12 @@ public class FlightTrackingPreferenceService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Serialization flight tracking preference", e);
         }
+        userOwnerService.dropAliasKeys(PARAM_KEY_PREFIX, jwtSubject);
         return normalized;
     }
 
     public void deleteForSubject(String jwtSubject) {
-        if (jwtSubject == null || jwtSubject.isBlank()) {
-            return;
-        }
-        appParameterService.delete(PARAM_KEY_PREFIX + jwtSubject);
+        userOwnerService.deleteParams(PARAM_KEY_PREFIX, jwtSubject);
     }
 
     /** Validates mode + query and clamps interval; returns {@code empty} if invalid. */

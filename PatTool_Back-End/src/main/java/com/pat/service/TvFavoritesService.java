@@ -34,18 +34,16 @@ public class TvFavoritesService {
 
     private final AppParameterService appParameterService;
     private final ObjectMapper objectMapper;
+    private final UserOwnerService userOwnerService;
 
-    public TvFavoritesService(AppParameterService appParameterService, ObjectMapper objectMapper) {
+    public TvFavoritesService(AppParameterService appParameterService, ObjectMapper objectMapper, UserOwnerService userOwnerService) {
         this.appParameterService = appParameterService;
         this.objectMapper = objectMapper;
+        this.userOwnerService = userOwnerService;
     }
 
     public TvFavoritesDto findForSubject(String jwtSubject) {
-        if (!StringUtils.hasText(jwtSubject)) {
-            return new TvFavoritesDto();
-        }
-        String key = PARAM_KEY_PREFIX + jwtSubject;
-        Optional<AppParameter> row = appParameterService.find(key);
+        Optional<AppParameter> row = userOwnerService.findParam(PARAM_KEY_PREFIX, jwtSubject);
         if (row.isEmpty()) {
             return new TvFavoritesDto();
         }
@@ -57,17 +55,14 @@ public class TvFavoritesService {
             TvFavoritesDto dto = objectMapper.readValue(raw, TvFavoritesDto.class);
             return normalize(dto);
         } catch (JsonProcessingException e) {
-            log.debug("tv.favorites unreadable JSON for key {}: {}", key, e.getMessage());
+            log.debug("tv.favorites unreadable JSON: {}", e.getMessage());
             return new TvFavoritesDto();
         }
     }
 
     public TvFavoritesDto saveForSubject(String jwtSubject, TvFavoritesDto dto) {
-        if (!StringUtils.hasText(jwtSubject)) {
-            throw new IllegalArgumentException("jwtSubject required");
-        }
         TvFavoritesDto normalized = normalize(dto);
-        String key = PARAM_KEY_PREFIX + jwtSubject;
+        String key = userOwnerService.writeKey(PARAM_KEY_PREFIX, jwtSubject);
         try {
             String json = objectMapper.writeValueAsString(normalized);
             appParameterService.setJson(
@@ -77,6 +72,7 @@ public class TvFavoritesService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Serialization TV favorites", e);
         }
+        userOwnerService.dropAliasKeys(PARAM_KEY_PREFIX, jwtSubject);
         return normalized;
     }
 

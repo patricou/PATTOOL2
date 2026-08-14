@@ -24,18 +24,16 @@ public class RadioLastStationService {
 
     private final AppParameterService appParameterService;
     private final ObjectMapper objectMapper;
+    private final UserOwnerService userOwnerService;
 
-    public RadioLastStationService(AppParameterService appParameterService, ObjectMapper objectMapper) {
+    public RadioLastStationService(AppParameterService appParameterService, ObjectMapper objectMapper, UserOwnerService userOwnerService) {
         this.appParameterService = appParameterService;
         this.objectMapper = objectMapper;
+        this.userOwnerService = userOwnerService;
     }
 
     public RadioStationDto findForSubject(String jwtSubject) {
-        if (!StringUtils.hasText(jwtSubject)) {
-            return null;
-        }
-        String key = PARAM_KEY_PREFIX + jwtSubject;
-        Optional<AppParameter> row = appParameterService.find(key);
+        Optional<AppParameter> row = userOwnerService.findParam(PARAM_KEY_PREFIX, jwtSubject);
         if (row.isEmpty()) {
             return null;
         }
@@ -46,20 +44,17 @@ public class RadioLastStationService {
         try {
             return RadioFavoritesService.normalizeStation(objectMapper.readValue(raw, RadioStationDto.class));
         } catch (JsonProcessingException e) {
-            log.debug("radio.last-station unreadable JSON for key {}: {}", key, e.getMessage());
+            log.debug("radio.last-station unreadable JSON: {}", e.getMessage());
             return null;
         }
     }
 
     public RadioStationDto saveForSubject(String jwtSubject, RadioStationDto station) {
-        if (!StringUtils.hasText(jwtSubject)) {
-            throw new IllegalArgumentException("jwtSubject required");
-        }
         RadioStationDto normalized = RadioFavoritesService.normalizeStation(station);
         if (normalized == null) {
             throw new IllegalArgumentException("invalid station");
         }
-        String key = PARAM_KEY_PREFIX + jwtSubject;
+        String key = userOwnerService.writeKey(PARAM_KEY_PREFIX, jwtSubject);
         try {
             String json = objectMapper.writeValueAsString(normalized);
             appParameterService.setJson(
@@ -69,6 +64,7 @@ public class RadioLastStationService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Serialization radio last station", e);
         }
+        userOwnerService.dropAliasKeys(PARAM_KEY_PREFIX, jwtSubject);
         return normalized;
     }
 }

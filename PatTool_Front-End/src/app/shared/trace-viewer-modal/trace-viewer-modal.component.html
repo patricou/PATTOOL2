@@ -230,8 +230,8 @@
           [openWeatherObservedAt]="weatherTimelineOpenWeatherObservedAt"
           [stationId]="weatherTimelineStationId || undefined"
           [stationName]="weatherTimelineStationName || undefined"
-          [region]="weatherTimelineRegion()"
-          [climEnabled]="weatherTimelineRegion() === 'france'"
+          [region]="weatherTimelineRegion"
+          [climEnabled]="weatherTimelineRegion === 'france'"
           overlayMode="embedded">
         </app-weather-point-timeline>
 
