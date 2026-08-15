@@ -331,6 +331,10 @@
                     <span class="ac-autodetect__winner-k">{{ 'ASTRO_COMPASS.GEO_DIST' | translate }}</span>
                     <span class="ac-autodetect__winner-v">{{ geoDistAu | number : '1.4-4' }} AU</span>
                   </div>
+                  <div class="ac-autodetect__winner-cell" *ngIf="distLy != null">
+                    <span class="ac-autodetect__winner-k">{{ 'ASTRO_COMPASS.DIST_FROM_YOU' | translate }}</span>
+                    <span class="ac-autodetect__winner-v">{{ formatLightYears(distLy) }} {{ 'ASTRO_COMPASS.DIST_LY_UNIT' | translate }}</span>
+                  </div>
                   <div class="ac-autodetect__winner-cell" *ngIf="selectedKind === 'iss' && issAltKm != null">
                     <span class="ac-autodetect__winner-k">{{ 'ASTRO_COMPASS.ISS_ALTITUDE' | translate }}</span>
                     <span class="ac-autodetect__winner-v">{{ issAltKm | number : '1.0-0' }} km</span>
@@ -722,6 +726,10 @@
             <span *ngIf="geoDistKm != null">· {{ geoDistKm | number : '1.0-0' }} km</span>
           </span>
         </div>
+        <div class="ac-compass-readout__item" *ngIf="distLy != null">
+          <span class="ac-compass-readout__key">{{ 'ASTRO_COMPASS.DIST_FROM_YOU' | translate }}</span>
+          <span class="ac-compass-readout__val">{{ formatLightYears(distLy) }} {{ 'ASTRO_COMPASS.DIST_LY_UNIT' | translate }}</span>
+        </div>
         <div class="ac-compass-readout__item" *ngIf="helioDistAu != null">
           <span class="ac-compass-readout__key">{{ 'ASTRO_COMPASS.HELIO_DIST' | translate }}</span>
           <span class="ac-compass-readout__val">{{ helioDistAu | number : '1.4-4' }} AU</span>
@@ -822,6 +830,7 @@
   *ngIf="autoDetectModalOpen"
   role="dialog"
   aria-modal="true"
+  [class.ac-live-modal--paused]="autoDetectPaused"
   [attr.aria-label]="'ASTRO_COMPASS.AUTO_MODAL_TITLE' | translate"
   (click)="$event.stopPropagation()">
   <div class="ac-live-modal__stars" aria-hidden="true"></div>
@@ -829,19 +838,29 @@
 
   <header class="ac-live-modal__header">
     <div class="ac-live-modal__header-main">
-      <span class="ac-live-modal__live">
+      <span class="ac-live-modal__live" [class.ac-live-modal__live--paused]="autoDetectPaused">
         <span class="ac-live-modal__live-dot"></span>
-        {{ 'ASTRO_COMPASS.AUTO_LIVE_ON' | translate }}
+        {{ (autoDetectPaused ? 'ASTRO_COMPASS.AUTO_PAUSED' : 'ASTRO_COMPASS.AUTO_LIVE_ON') | translate }}
       </span>
       <h3 class="ac-live-modal__title">{{ 'ASTRO_COMPASS.AUTO_MODAL_TITLE' | translate }}</h3>
     </div>
-    <button
-      type="button"
-      class="ac-live-modal__close"
-      (click)="closeAutoDetectModal()"
-      [attr.aria-label]="'ASTRO_COMPASS.AUTO_CLEAR' | translate">
-      <i class="fa fa-times" aria-hidden="true"></i>
-    </button>
+    <div class="ac-live-modal__header-actions">
+      <button
+        type="button"
+        class="ac-live-modal__close ac-live-modal__help"
+        (click)="openHelpModal()"
+        [attr.title]="'ASTRO_COMPASS.HELP_OPEN_HINT' | translate"
+        [attr.aria-label]="'ASTRO_COMPASS.HELP_OPEN' | translate">
+        <i class="fa fa-question-circle" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        class="ac-live-modal__close"
+        (click)="closeAutoDetectModal()"
+        [attr.aria-label]="'ASTRO_COMPASS.AUTO_EXIT' | translate">
+        <i class="fa fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
   </header>
 
   <div class="ac-live-modal__controls">
@@ -910,13 +929,31 @@
         <p class="ac-live-hero__sep">
           {{ 'ASTRO_COMPASS.AUTO_SEP' | translate : { deg: (hit.separationDeg | number : '1.0-1') } }}
         </p>
-        <p class="ac-live-hero__aim" *ngIf="autoDetectLookAz != null && autoDetectLookEl != null">
+        <p class="ac-live-hero__aim" *ngIf="autoDetectLookAz != null && autoDetectLookEl != null && !autoDetectPaused">
           {{ 'ASTRO_COMPASS.AUTO_AIM' | translate : {
             az: (autoDetectLookAz | number : '1.0-0'),
             el: (autoDetectLookEl | number : '1.0-0')
           } }}
         </p>
+        <p class="ac-live-hero__paused" *ngIf="autoDetectPaused">
+          {{ 'ASTRO_COMPASS.AUTO_PAUSE_HINT' | translate }}
+        </p>
       </div>
+    </div>
+
+    <div class="ac-live-dist" *ngIf="observerDistanceAvailable()">
+      <span class="ac-live-dist__k">{{ 'ASTRO_COMPASS.DIST_FROM_YOU' | translate }}</span>
+      <span class="ac-live-dist__v" *ngIf="selectedKind === 'iss' && issSlantKm != null">
+        {{ issSlantKm | number : '1.0-0' }} km
+        <em *ngIf="issGroundKm != null">· {{ 'ASTRO_COMPASS.ISS_GROUND' | translate }} {{ issGroundKm | number : '1.0-0' }} km</em>
+      </span>
+      <span class="ac-live-dist__v" *ngIf="geoDistAu != null">
+        {{ geoDistAu | number : '1.4-4' }} AU
+        <em *ngIf="geoDistKm != null">· {{ geoDistKm | number : '1.0-0' }} km</em>
+      </span>
+      <span class="ac-live-dist__v" *ngIf="distLy != null">
+        {{ formatLightYears(distLy) }} {{ 'ASTRO_COMPASS.DIST_LY_UNIT' | translate }}
+      </span>
     </div>
 
     <div class="ac-live-info">
@@ -955,9 +992,16 @@
         <span class="ac-live-info__k">{{ 'ASTRO_COMPASS.HELIO_DIST' | translate }}</span>
         <span class="ac-live-info__v">{{ helioDistAu | number : '1.4-4' }} AU</span>
       </div>
+      <div class="ac-live-info__cell" *ngIf="distLy != null">
+        <span class="ac-live-info__k">{{ 'ASTRO_COMPASS.DIST_FROM_YOU' | translate }}</span>
+        <span class="ac-live-info__v">{{ formatLightYears(distLy) }} {{ 'ASTRO_COMPASS.DIST_LY_UNIT' | translate }}</span>
+      </div>
       <div class="ac-live-info__cell" *ngIf="phaseFraction != null">
         <span class="ac-live-info__k">{{ 'ASTRO_COMPASS.PHASE' | translate }}</span>
-        <span class="ac-live-info__v">{{ phaseFraction * 100 | number : '1.0-0' }}%</span>
+        <span class="ac-live-info__v">
+          {{ phaseFraction * 100 | number : '1.0-0' }}%
+          <span *ngIf="phaseAngleDeg != null">· {{ phaseAngleDeg | number : '1.0-0' }}°</span>
+        </span>
       </div>
       <div class="ac-live-info__cell" *ngIf="elongationDeg != null">
         <span class="ac-live-info__k">{{ 'ASTRO_COMPASS.ELONGATION' | translate }}</span>
@@ -975,13 +1019,28 @@
         <span class="ac-live-info__k">{{ 'ASTRO_COMPASS.ISS_SLANT' | translate }}</span>
         <span class="ac-live-info__v">{{ issSlantKm | number : '1.0-0' }} km</span>
       </div>
+      <div class="ac-live-info__cell" *ngIf="selectedKind === 'iss' && issGroundKm != null">
+        <span class="ac-live-info__k">{{ 'ASTRO_COMPASS.ISS_GROUND' | translate }}</span>
+        <span class="ac-live-info__v">{{ issGroundKm | number : '1.0-0' }} km</span>
+      </div>
       <div class="ac-live-info__cell" *ngIf="riseAt">
-        <span class="ac-live-info__k">{{ 'ASTRO_COMPASS.RISE' | translate }}</span>
+        <span class="ac-live-info__k">{{ selectedKind === 'iss' ? ('ASTRO_COMPASS.ISS_PASS_START' | translate) : ('ASTRO_COMPASS.RISE' | translate) }}</span>
         <span class="ac-live-info__v">{{ riseAt | date : 'HH:mm' }}</span>
       </div>
       <div class="ac-live-info__cell" *ngIf="setAt">
-        <span class="ac-live-info__k">{{ 'ASTRO_COMPASS.SET' | translate }}</span>
+        <span class="ac-live-info__k">{{ selectedKind === 'iss' ? ('ASTRO_COMPASS.ISS_PASS_END' | translate) : ('ASTRO_COMPASS.SET' | translate) }}</span>
         <span class="ac-live-info__v">{{ setAt | date : 'HH:mm' }}</span>
+      </div>
+      <div class="ac-live-info__cell" *ngIf="culminationAt">
+        <span class="ac-live-info__k">{{ 'ASTRO_COMPASS.VIS_CULMINATION' | translate }}</span>
+        <span class="ac-live-info__v">
+          {{ formatVisTime(culminationAt) }}
+          <span *ngIf="culminationAltDeg != null"> · {{ culminationAltDeg | number:'1.0-0' }}°</span>
+        </span>
+      </div>
+      <div class="ac-live-info__cell" *ngIf="visibilityDurationLabel() as dur">
+        <span class="ac-live-info__k">{{ 'ASTRO_COMPASS.VIS_DURATION' | translate }}</span>
+        <span class="ac-live-info__v">{{ dur }}</span>
       </div>
       <div class="ac-live-info__cell" *ngIf="devicePitchDeg != null">
         <span class="ac-live-info__k">{{ 'ASTRO_COMPASS.DEVICE_PITCH' | translate }}</span>
@@ -1013,6 +1072,27 @@
       <p *ngIf="!autoDetectBusy && !autoDetectErrorKey">{{ 'ASTRO_COMPASS.AUTO_NONE' | translate }}</p>
     </div>
   </ng-template>
+
+  <div class="ac-live-modal__actions">
+    <button
+      type="button"
+      class="ac-live-modal__action ac-live-modal__action--pause"
+      [class.ac-live-modal__action--paused]="autoDetectPaused"
+      (click)="toggleAutoDetectPause()"
+      [attr.aria-pressed]="autoDetectPaused"
+      [attr.title]="(autoDetectPaused ? 'ASTRO_COMPASS.AUTO_RESUME' : 'ASTRO_COMPASS.AUTO_PAUSE') | translate">
+      <i class="fa" [ngClass]="autoDetectPaused ? 'fa-play' : 'fa-pause'" aria-hidden="true"></i>
+      {{ (autoDetectPaused ? 'ASTRO_COMPASS.AUTO_RESUME' : 'ASTRO_COMPASS.AUTO_PAUSE') | translate }}
+    </button>
+    <button
+      type="button"
+      class="ac-live-modal__action ac-live-modal__action--exit"
+      (click)="closeAutoDetectModal()"
+      [attr.title]="'ASTRO_COMPASS.AUTO_EXIT' | translate">
+      <i class="fa fa-sign-out" aria-hidden="true"></i>
+      {{ 'ASTRO_COMPASS.AUTO_EXIT' | translate }}
+    </button>
+  </div>
 </div>
 
 <div class="ac-help-backdrop" *ngIf="helpModalOpen" (click)="closeHelpModal()" aria-hidden="true"></div>

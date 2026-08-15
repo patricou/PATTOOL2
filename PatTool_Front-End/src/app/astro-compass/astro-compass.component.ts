@@ -273,6 +273,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   autoDetectLive = false;
   /** Modale immersive de suivi live. */
   autoDetectModalOpen = false;
+  /** Pause : fige l'objet détecté même si le téléphone change de direction. */
+  autoDetectPaused = false;
   autoDetectIncludePlanets = true;
   /** Étoiles + galaxies. */
   autoDetectIncludeStars = true;
@@ -361,6 +363,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   geoDistAu: number | null = null;
   helioDistAu: number | null = null;
   geoDistKm: number | null = null;
+  /** Distance catalogue (étoiles / galaxies), depuis la Terre ≈ depuis l'observateur. */
+  distLy: number | null = null;
   constellationName: string | null = null;
   elongationDeg: number | null = null;
   riseAt: Date | null = null;
@@ -766,13 +770,18 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   filteredHelpTerms(): HelpTerm[] {
     const q = this.helpFilter.trim().toLowerCase();
-    if (!q) {
-      return [...this.helpTerms];
-    }
-    return this.helpTerms.filter((t) => {
-      const term = String(this.translate.instant(t.termKey)).toLowerCase();
-      const def = String(this.translate.instant(t.defKey)).toLowerCase();
-      return term.includes(q) || def.includes(q) || t.aliases.toLowerCase().includes(q);
+    const list = !q
+      ? [...this.helpTerms]
+      : this.helpTerms.filter((t) => {
+          const term = String(this.translate.instant(t.termKey)).toLowerCase();
+          const def = String(this.translate.instant(t.defKey)).toLowerCase();
+          return term.includes(q) || def.includes(q) || t.aliases.toLowerCase().includes(q);
+        });
+    const locale = this.translate.currentLang || undefined;
+    return list.sort((a, b) => {
+      const ta = String(this.translate.instant(a.termKey));
+      const tb = String(this.translate.instant(b.termKey));
+      return ta.localeCompare(tb, locale, { sensitivity: 'base' });
     });
   }
 
@@ -952,6 +961,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.autoDetectLive = true;
     this.autoDetectModalOpen = true;
+    this.autoDetectPaused = false;
     this.autoDetectBusy = true;
     this.autoDetectLastAppliedKey = null;
     this.autoDetectCache = [];
@@ -971,11 +981,27 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.clearAutoDetect();
   }
 
+  toggleAutoDetectPause(): void {
+    if (!this.autoDetectModalOpen) {
+      return;
+    }
+    if (this.autoDetectPaused) {
+      this.autoDetectPaused = false;
+      this.autoDetectLive = true;
+      this.runAutoDetectPass(false);
+      this.restartAutoDetectTimer();
+    } else {
+      this.autoDetectPaused = true;
+      this.stopAutoDetectTimerOnly();
+    }
+    this.cdr.markForCheck();
+  }
+
   onAutoDetectFiltersChange(): void {
     this.autoDetectCache = [];
     this.autoDetectCacheAtMs = 0;
     this.autoDetectLastAppliedKey = null;
-    if (this.autoDetectLive) {
+    if (this.autoDetectLive && !this.autoDetectPaused) {
       this.runAutoDetectPass(true);
     }
     this.cdr.markForCheck();
@@ -992,7 +1018,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.autoDetectIntervalMinMs,
       Math.min(this.autoDetectIntervalMaxMs, stepped)
     );
-    if (this.autoDetectLive) {
+    if (this.autoDetectLive && !this.autoDetectPaused) {
       this.restartAutoDetectTimer();
     }
     this.cdr.markForCheck();
@@ -1050,6 +1076,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private stopAutoDetectLive(): void {
     this.autoDetectLive = false;
     this.autoDetectBusy = false;
+    this.autoDetectPaused = false;
     this.autoDetectModalOpen = false;
     this.stopAutoDetectTimerOnly();
     this.cdr.markForCheck();
@@ -1063,6 +1090,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private runAutoDetectPass(forceSelect: boolean): void {
+    if (this.autoDetectPaused && !forceSelect) {
+      return;
+    }
     if (!this.autoDetectLive && !forceSelect) {
       return;
     }
@@ -1872,6 +1902,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       ra = eq.ra;
       dec = eq.dec;
       bodyForIllum = planet.body;
+      this.distLy = null;
       this.applyBodyDisplayFromPlanet(planet);
     } else if (this.selectedKind === 'star') {
       const star = this.selectedStarId ? findStarById(this.selectedStarId) : undefined;
@@ -1884,6 +1915,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       ra = eq.ra;
       dec = eq.dec;
       isStarLike = true;
+      this.distLy = star.distLy;
       this.applyBodyDisplayFromStar(star);
       this.mag = star.mag;
     } else if (this.selectedKind === 'galaxy') {
@@ -1897,6 +1929,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       ra = eq.ra;
       dec = eq.dec;
       isStarLike = true;
+      this.distLy = galaxy.distLy;
       this.applyBodyDisplayFromGalaxy(galaxy);
       this.mag = galaxy.mag;
     } else {
@@ -1909,6 +1942,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       ra = eq.ra;
       dec = eq.dec;
       isStarLike = true;
+      this.distLy = null;
       this.bodyIconClass = 'fa fa-star';
       this.bodyColor = '#a8cfff';
       this.bodyLabel = this.customName.trim() || this.translate.instant('ASTRO_COMPASS.CUSTOM_TARGET');
@@ -2000,6 +2034,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.phaseAngleDeg = null;
     this.geoDistAu = null;
     this.helioDistAu = null;
+    this.distLy = null;
     this.constellationName = null;
     this.elongationDeg = null;
 
@@ -2398,6 +2433,23 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.visibilityDays = days;
   }
 
+  observerDistanceAvailable(): boolean {
+    return this.issSlantKm != null || this.geoDistAu != null || this.distLy != null;
+  }
+
+  formatLightYears(ly: number): string {
+    if (!Number.isFinite(ly) || ly <= 0) {
+      return '—';
+    }
+    if (ly >= 1_000_000) {
+      return (ly / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' M';
+    }
+    if (ly >= 10_000) {
+      return Math.round(ly).toLocaleString();
+    }
+    return ly.toLocaleString(undefined, { maximumFractionDigits: ly < 10 ? 2 : 1 });
+  }
+
   /** Durée approximative de la prochaine fenêtre de visibilité (libellé). */
   visibilityDurationLabel(): string | null {
     const rise = this.currentlyVisible ? null : this.nextRiseAt;
@@ -2446,6 +2498,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.geoDistAu = null;
     this.helioDistAu = null;
     this.geoDistKm = null;
+    this.distLy = null;
     this.constellationName = null;
     this.elongationDeg = null;
     this.riseAt = null;
