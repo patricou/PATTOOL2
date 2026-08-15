@@ -3741,6 +3741,10 @@ a.ac-compass-cal__btn--direction {
   box-shadow: 0 0 0 3px #3dff9a, 0 0 28px rgba(61, 255, 154, 0.35);
 }
 
+.ac-finder--posed {
+  box-shadow: 0 0 0 3px #7ec8ff, 0 0 28px rgba(126, 200, 255, 0.4);
+}
+
 .ac-finder__video {
   position: absolute;
   inset: 0;
@@ -3961,6 +3965,15 @@ a.ac-compass-cal__btn--direction {
   background: #3dff9a !important;
 }
 
+.ac-finder__obj--posed {
+  color: #7ec8ff !important;
+  animation: none;
+}
+
+.ac-finder__obj--posed .ac-finder__dot {
+  background: #7ec8ff !important;
+}
+
 @keyframes ac-finder-pulse {
   0%, 100% { transform: translate(-50%, -50%) scale(1); }
   50% { transform: translate(-50%, -50%) scale(1.12); }
@@ -4130,15 +4143,29 @@ a.ac-compass-cal__btn--direction {
   top: 8.4rem;
 }
 
-.ac-finder__north {
+.ac-finder__right-btns {
   position: absolute;
   right: 0.4rem;
   top: 0.4rem;
   z-index: 5;
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.ac-finder--fs .ac-finder__right-btns,
+.ac-finder:fullscreen .ac-finder__right-btns,
+.ac-finder:-webkit-full-screen .ac-finder__right-btns {
+  top: max(0.4rem, env(safe-area-inset-top, 0px));
+  right: max(0.4rem, env(safe-area-inset-right, 0px));
+}
+
+.ac-finder__north {
+  display: flex;
   align-items: center;
   gap: 0.35rem;
-  max-width: calc(100% - 0.8rem);
+  max-width: calc(100vw - 1.2rem);
   padding: 0.4rem 0.65rem;
   border: 0;
   border-radius: 0.45rem;
@@ -4159,6 +4186,33 @@ a.ac-compass-cal__btn--direction {
   background: #3dff9a;
   color: #062414;
 }
+
+.ac-finder__pose {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.65rem;
+  border: 0;
+  border-radius: 0.45rem;
+  background: rgba(90, 170, 255, 0.92);
+  color: #061018;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ac-finder__pose:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ac-finder__pose--on {
+  background: #7ec8ff;
+  color: #061018;
+  box-shadow: 0 0 14px rgba(126, 200, 255, 0.55);
+}
+
 
 .ac-finder__north-hint {
   margin: 0.35rem 0 0;

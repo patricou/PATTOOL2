@@ -82,14 +82,15 @@
               class="ac-finder"
               #camStage
               [class.ac-finder--fs]="isFullscreen"
-              [class.ac-finder--locked]="finderProj?.centered"
-              [class.ac-finder--inview]="finderProj?.inView && !finderProj?.centered">
+              [class.ac-finder--locked]="finderProj?.centered && !finderPoseFrozen"
+              [class.ac-finder--posed]="finderPoseFrozen"
+              [class.ac-finder--inview]="finderProj?.inView && !finderProj?.centered && !finderPoseFrozen">
               <video #cam class="ac-finder__video" playsinline muted autoplay webkit-playsinline></video>
               <div class="ac-finder__empty" *ngIf="!camLive">{{ 'ASTRO_COMPASS.CAM_PLACEHOLDER' | translate }}</div>
               <div class="ac-finder__reticle" aria-hidden="true"></div>
               <div
                 class="ac-finder__guide"
-                *ngIf="finderGuide && headingActive"
+                *ngIf="finderGuide && headingActive && !finderPoseFrozen"
                 [attr.aria-label]="'ASTRO_COMPASS.GUIDE_LABEL' | translate">
                 <div
                   *ngIf="finderGuide.left"
@@ -124,10 +125,11 @@
                 </div>
               </div>
               <button
-                *ngIf="finderProj?.inView"
+                *ngIf="finderProj?.inView || finderPoseFrozen"
                 type="button"
                 class="ac-finder__obj"
-                [class.ac-finder__obj--locked]="finderProj?.centered"
+                [class.ac-finder__obj--locked]="finderProj?.centered && !finderPoseFrozen"
+                [class.ac-finder__obj--posed]="finderPoseFrozen"
                 [style.left.%]="finderProj?.xPct"
                 [style.top.%]="finderProj?.yPct"
                 [style.color]="bodyColor"
@@ -181,16 +183,30 @@
                   <span *ngIf="lookTracker.manualElOffsetDeg" class="ac-finder__hud-sight">Él {{ lookTracker.manualElOffsetDeg > 0 ? '+' : '' }}{{ lookTracker.manualElOffsetDeg }}°</span>
                 </div>
               </div>
-              <button
-                type="button"
-                class="ac-finder__north"
-                [class.ac-finder__north--ok]="northMarked"
-                [disabled]="lookTracker.azimuthDeg == null"
-                (click)="markFinderNorth()"
-                [attr.title]="'ASTRO_COMPASS.MARK_NORTH_HINT' | translate">
-                <i class="fa" [ngClass]="northMarked ? 'fa-check' : 'fa-location-arrow'" aria-hidden="true"></i>
-                {{ (northMarked ? 'ASTRO_COMPASS.MARK_NORTH_DONE' : 'ASTRO_COMPASS.MARK_NORTH') | translate }}
-              </button>
+              <div class="ac-finder__right-btns">
+                <button
+                  type="button"
+                  class="ac-finder__north"
+                  [class.ac-finder__north--ok]="northMarked"
+                  [disabled]="lookTracker.azimuthDeg == null"
+                  (click)="markFinderNorth()"
+                  [attr.title]="'ASTRO_COMPASS.MARK_NORTH_HINT' | translate">
+                  <i class="fa" [ngClass]="northMarked ? 'fa-check' : 'fa-location-arrow'" aria-hidden="true"></i>
+                  {{ (northMarked ? 'ASTRO_COMPASS.MARK_NORTH_DONE' : 'ASTRO_COMPASS.MARK_NORTH') | translate }}
+                </button>
+                <button
+                  type="button"
+                  class="ac-finder__pose"
+                  [class.ac-finder__pose--on]="finderPoseFrozen"
+                  [disabled]="!canFreezeFinderPose()"
+                  (click)="toggleFinderPose()"
+                  [attr.aria-pressed]="finderPoseFrozen"
+                  [attr.title]="(finderPoseFrozen ? 'ASTRO_COMPASS.FINDER_RESUME' : 'ASTRO_COMPASS.FINDER_PAUSE_HINT') | translate"
+                  [attr.aria-label]="(finderPoseFrozen ? 'ASTRO_COMPASS.FINDER_RESUME' : 'ASTRO_COMPASS.FINDER_PAUSE') | translate">
+                  <i class="fa" [ngClass]="finderPoseFrozen ? 'fa-play' : 'fa-pause'" aria-hidden="true"></i>
+                  {{ (finderPoseFrozen ? 'ASTRO_COMPASS.FINDER_RESUME' : 'ASTRO_COMPASS.FINDER_PAUSE') | translate }}
+                </button>
+              </div>
               <button
                 type="button"
                 class="ac-finder__exact"
@@ -243,10 +259,14 @@
             </div>
             <p class="ac-finder__north-hint">{{ 'ASTRO_COMPASS.MARK_NORTH_HINT' | translate }}</p>
             <p class="ac-finder__north-hint">{{ 'ASTRO_COMPASS.EXACT_POS_HINT' | translate }}</p>
-            <p class="ac-finder__lock" *ngIf="finderProj?.centered">
+            <p class="ac-finder__north-hint">{{ 'ASTRO_COMPASS.FINDER_PAUSE_HINT' | translate }}</p>
+            <p class="ac-finder__lock" *ngIf="finderPoseFrozen">
+              <i class="fa fa-pause me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.FINDER_PAUSED' | translate }}
+            </p>
+            <p class="ac-finder__lock" *ngIf="finderProj?.centered && !finderPoseFrozen">
               <i class="fa fa-bullseye me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.LOCKED' | translate }}
             </p>
-            <p class="ac-finder__seek" *ngIf="headingActive && finderProj && !finderProj.inView && aboveHorizon()">
+            <p class="ac-finder__seek" *ngIf="headingActive && finderProj && !finderProj.inView && aboveHorizon() && !finderPoseFrozen">
               {{ 'ASTRO_COMPASS.SEEK_HINT' | translate }}
             </p>
 

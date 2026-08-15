@@ -2,7 +2,8 @@ import {
   cameraFromEarthToDeviceQuat,
   circularDiff,
   computeFinderTurnGuide,
-  projectCelestialToScreen
+  projectCelestialToScreen,
+  uprightRollDeg
 } from './direction-attitude';
 import {
   derivePattoolCal,
@@ -63,6 +64,13 @@ describe('camera look from AbsoluteOrientationSensor quaternion', () => {
     }
   });
 
+  it('does not report an upside-down roll when pointing at the sky', () => {
+    for (const s of SAMPLES.filter((x) => x.poseId === 'sky')) {
+      const a = att(s.quat)!;
+      expect(Math.abs(a.rollDeg)).toBeLessThan(90);
+    }
+  });
+
   it('looks along −Z : horizon poses have |lookUp| small, north has lookNorth > 0', () => {
     const n = att(SAMPLES[10].quat)!;
     expect(n.lookNorth).toBeGreaterThan(0.9);
@@ -98,6 +106,18 @@ describe('camera look from AbsoluteOrientationSensor quaternion', () => {
   });
 });
 
+describe('uprightRollDeg', () => {
+  it('keeps a normal bank unchanged', () => {
+    expect(uprightRollDeg(12)).toBeCloseTo(12, 5);
+    expect(uprightRollDeg(-25)).toBeCloseTo(-25, 5);
+  });
+
+  it('folds the zenith 180° flip back to a small roll', () => {
+    expect(uprightRollDeg(176.7)).toBeCloseTo(-3.3, 5);
+    expect(uprightRollDeg(-177)).toBeCloseTo(3, 5);
+  });
+});
+
 describe('projectCelestialToScreen', () => {
   it('places a matching target at the center', () => {
     const p = projectCelestialToScreen(40, 30, 0, 40, 30);
@@ -105,6 +125,24 @@ describe('projectCelestialToScreen', () => {
     expect(p.centered).toBeTrue();
     expect(p.xPct).toBeCloseTo(50, 0);
     expect(p.yPct).toBeCloseTo(50, 0);
+  });
+
+  it('puts the object below the reticle when the camera points above it', () => {
+    const p = projectCelestialToScreen(40, 45, 0, 40, 30);
+    expect(p.inView).toBeTrue();
+    expect(p.yPct).toBeGreaterThan(58);
+    expect(p.xPct).toBeCloseTo(50, 0);
+  });
+
+  it('puts the object above the reticle when the camera points below it', () => {
+    const p = projectCelestialToScreen(40, 15, 0, 40, 30);
+    expect(p.inView).toBeTrue();
+    expect(p.yPct).toBeLessThan(42);
+  });
+
+  it('does not invert up/down when the raw sky roll is ~180°', () => {
+    const p = projectCelestialToScreen(40, 45, 176.7, 40, 30);
+    expect(p.yPct).toBeGreaterThan(58);
   });
 
   it('hides a target behind the camera', () => {

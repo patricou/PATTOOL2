@@ -73,6 +73,24 @@ export function circularDiff(a: number, b: number): number {
   return ((((a - b) % 360) + 540) % 360) - 180;
 }
 
+/**
+ * Roulis utile pour le viseur, dans ]-90°, 90°].
+ * Près du zénith, le « droite horizon » dérivé de la visée s’anti-aligne avec +X
+ * appareil → le roulis brut saute à ~±180° et inverse le haut/bas de l’image.
+ */
+export function uprightRollDeg(rollDeg: number): number {
+  let r = ((rollDeg % 360) + 360) % 360;
+  if (r > 180) {
+    r -= 360;
+  }
+  if (r > 90) {
+    r -= 180;
+  } else if (r < -90) {
+    r += 180;
+  }
+  return r;
+}
+
 export function circularLerp(fromDeg: number, toDeg: number, t: number): number {
   return normalizeDeg(fromDeg + circularDiff(toDeg, fromDeg) * t);
 }
@@ -308,11 +326,11 @@ export function attitudeFromLookAndTop(look: Vec3, top: Vec3, right: Vec3): Came
   const elevationDeg = (Math.atan2(look.z, Math.max(lookH, 1e-6)) * 180) / Math.PI;
   const horizonRight: Vec3 =
     lookH < 1e-4 ? { x: 1, y: 0, z: 0 } : { x: look.y / lookH, y: -look.x / lookH, z: 0 };
-  const rollDeg = (Math.atan2(dot(right, { x: 0, y: 0, z: 1 }), dot(right, horizonRight)) * 180) / Math.PI;
+  const rawRollDeg = (Math.atan2(dot(right, { x: 0, y: 0, z: 1 }), dot(right, horizonRight)) * 180) / Math.PI;
   return {
     azimuthDeg,
     elevationDeg,
-    rollDeg,
+    rollDeg: uprightRollDeg(rawRollDeg),
     lookEast: look.x,
     lookNorth: look.y,
     lookUp: look.z
@@ -422,7 +440,7 @@ export function projectCelestialToScreen(
   const cosEl = Math.cos((camElDeg * Math.PI) / 180);
   const xAng0 = dAz * Math.max(0.15, cosEl);
   const yAng0 = dEl;
-  const rr = (camRollDeg * Math.PI) / 180;
+  const rr = (uprightRollDeg(camRollDeg) * Math.PI) / 180;
   const cr = Math.cos(rr);
   const sr = Math.sin(rr);
   const xAng = xAng0 * cr - yAng0 * sr;

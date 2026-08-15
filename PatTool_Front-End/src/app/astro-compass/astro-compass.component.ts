@@ -253,7 +253,8 @@ const ASTRO_HELP_TERMS: ReadonlyArray<HelpTerm> = [
   { id: 'nadir', termKey: 'ASTRO_COMPASS.HELP_NADIR', defKey: 'ASTRO_COMPASS.HELP_NADIR_DEF', aliases: 'nadir -90' },
   { id: 'card', termKey: 'ASTRO_COMPASS.HELP_CARD', defKey: 'ASTRO_COMPASS.HELP_CARD_DEF', aliases: 'cardinal n e s o ne no' },
   { id: 'obs', termKey: 'ASTRO_COMPASS.HELP_OBS', defKey: 'ASTRO_COMPASS.HELP_OBS_DEF', aliases: 'observateur position gps adresse' },
-  { id: 'sight', termKey: 'ASTRO_COMPASS.HELP_SIGHT', defKey: 'ASTRO_COMPASS.HELP_SIGHT_DEF', aliases: 'position exacte calage visee pointeur reticle sighting' }
+  { id: 'sight', termKey: 'ASTRO_COMPASS.HELP_SIGHT', defKey: 'ASTRO_COMPASS.HELP_SIGHT_DEF', aliases: 'position exacte calage visee pointeur reticle sighting' },
+  { id: 'pose', termKey: 'ASTRO_COMPASS.HELP_POSE', defKey: 'ASTRO_COMPASS.HELP_POSE_DEF', aliases: 'pause pose figer freeze hold viseur objet' }
 ];
 
 @Component({
@@ -501,6 +502,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   finderGuide: FinderTurnGuide | null = null;
   northMarked = false;
   sightingMarked = false;
+  /** Pause viseur : fige l’objet à l’écran même si le téléphone bouge. */
+  finderPoseFrozen = false;
+  /** True si la pause viseur a elle-même mis l’auto-détection en pause. */
+  private finderPosePausedAuto = false;
   helpModalOpen = false;
   objectInfoModalOpen = false;
   helpFilter = '';
@@ -853,7 +858,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private maybeReloadObjectDossier(): void {
-    if (this.objectInfoModalOpen || this.autoDetectPaused) {
+    if (this.objectInfoModalOpen || this.autoDetectPaused || this.finderPoseFrozen) {
       this.loadObjectDossier();
     }
   }
@@ -923,7 +928,65 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  canFreezeFinderPose(): boolean {
+    return this.azimuthDeg != null && this.elevationDeg != null && !!this.bodyLabel;
+  }
+
+  toggleFinderPose(): void {
+    if (this.finderPoseFrozen) {
+      this.clearFinderPose(true);
+      return;
+    }
+    if (!this.canFreezeFinderPose()) {
+      return;
+    }
+    this.snapshotFinderPose();
+    this.finderPoseFrozen = true;
+    if (this.autoDetectLive && !this.autoDetectPaused) {
+      this.autoDetectPaused = true;
+      this.finderPosePausedAuto = true;
+      this.stopAutoDetectTimerOnly();
+      this.loadObjectDossier();
+    }
+    this.cdr.markForCheck();
+  }
+
+  private snapshotFinderPose(): void {
+    const prev = this.finderProj;
+    const inView = !!prev?.inView;
+    this.finderProj = {
+      xPct: inView ? prev!.xPct : 50,
+      yPct: inView ? prev!.yPct : 50,
+      inView: true,
+      inFront: true,
+      sepDeg: prev?.sepDeg ?? 0,
+      centered: inView ? !!prev!.centered : true
+    };
+    this.finderGuide = null;
+  }
+
+  private clearFinderPose(resumeTracking: boolean): void {
+    const resumeAuto = this.finderPosePausedAuto;
+    this.finderPoseFrozen = false;
+    this.finderPosePausedAuto = false;
+    if (resumeAuto && this.autoDetectModalOpen) {
+      this.autoDetectPaused = false;
+      this.autoDetectLive = true;
+      this.clearObjectDossier();
+      this.runAutoDetectPass(false);
+      this.restartAutoDetectTimer();
+    }
+    if (resumeTracking) {
+      this.updateFinderProjection();
+    }
+    this.cdr.markForCheck();
+  }
+
   private updateFinderProjection(): void {
+    if (this.finderPoseFrozen && this.finderProj) {
+      this.finderGuide = null;
+      return;
+    }
     const camAz = this.lookTracker.azimuthDeg;
     const camEl = this.lookTracker.elevationDeg;
     const camRl = this.lookTracker.rollDeg ?? 0;
@@ -1211,7 +1274,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private runAutoDetectPass(forceSelect: boolean): void {
-    if (this.autoDetectPaused && !forceSelect) {
+    if ((this.autoDetectPaused || this.finderPoseFrozen) && !forceSelect) {
       return;
     }
     if (!this.autoDetectLive && !forceSelect) {
@@ -1646,6 +1709,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private noteUserTargetChoice(): void {
     if (!this.applyingAutoTarget) {
       this.userChoseTarget = true;
+      if (this.finderPoseFrozen) {
+        this.clearFinderPose(false);
+      }
     }
   }
 
