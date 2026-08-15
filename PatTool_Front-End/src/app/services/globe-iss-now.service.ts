@@ -44,7 +44,9 @@ const DISPLAY_MAX_AGE_MS = 900_000;
 const FORECAST_DISPLAY_MAX_AGE_MS = 900_000;
 /** Prefetch périodique tant que l’app est ouverte. */
 const PREFETCH_INTERVAL_MS = 45_000;
-const ISS_FORECAST_MINUTES = 60;
+const ISS_FORECAST_MINUTES_DEFAULT = 90;
+const ISS_FORECAST_MINUTES_MIN = 5;
+const ISS_FORECAST_MINUTES_MAX = 1440;
 const ISS_FORECAST_STEP_SEC = 120;
 const ISS_DEFAULT_VELOCITY_KMH = 27_600;
 
@@ -60,6 +62,7 @@ export class GlobeIssNowService {
 
   private snapshot: GlobeIssNowSnapshot | null = null;
   private forecastSnapshot: GlobeIssForecastSnapshot | null = null;
+  private forecastMinutes = ISS_FORECAST_MINUTES_DEFAULT;
   private inflight: Promise<GlobeIssNowSnapshot | null> | null = null;
   private forecastInflight: Promise<GlobeIssForecastSnapshot | null> | null = null;
   private prefetchTimer: ReturnType<typeof setInterval> | null = null;
@@ -88,6 +91,22 @@ export class GlobeIssNowService {
     void this.refreshForecast(false);
   }
 
+  private static forecastStepSec(minutes: number): number {
+    const targetPts = 180;
+    const raw = Math.round((minutes * 60) / targetPts);
+    return Math.min(600, Math.max(ISS_FORECAST_STEP_SEC, raw));
+  }
+
+  setForecastMinutes(minutes: number): void {
+    if (!Number.isFinite(minutes)) {
+      return;
+    }
+    this.forecastMinutes = Math.min(
+      ISS_FORECAST_MINUTES_MAX,
+      Math.max(ISS_FORECAST_MINUTES_MIN, Math.round(minutes))
+    );
+  }
+
   getForecastSnapshot(): GlobeIssForecastSnapshot | null {
     const cached = this.forecastSnapshot;
     if (!cached || Date.now() - cached.fetchedAtMs > FORECAST_DISPLAY_MAX_AGE_MS) {
@@ -98,7 +117,7 @@ export class GlobeIssNowService {
 
   /** Trace prévue approximative immédiate (sans attendre l’API forecast). */
   buildApproximateForecast(snap: GlobeIssNowSnapshot): GlobeIssForecastSnapshot | null {
-    const pts = GlobeIssNowService.buildFallbackForecastPoints(snap);
+    const pts = GlobeIssNowService.buildFallbackForecastPoints(snap, this.forecastMinutes);
     if (pts.length === 0) {
       return null;
     }
@@ -285,8 +304,8 @@ export class GlobeIssNowService {
       const data = await firstValueFrom(
         this.http.get<IssForecastResponse>(`${environment.API_URL}external/globe/iss/forecast`, {
           params: {
-            minutes: String(ISS_FORECAST_MINUTES),
-            stepSec: String(ISS_FORECAST_STEP_SEC)
+            minutes: String(this.forecastMinutes),
+            stepSec: String(GlobeIssNowService.forecastStepSec(this.forecastMinutes))
           }
         })
       );
@@ -312,7 +331,10 @@ export class GlobeIssNowService {
     }
   }
 
-  private static buildFallbackForecastPoints(snap: GlobeIssNowSnapshot): GlobeIssForecastPoint[] {
+  private static buildFallbackForecastPoints(
+    snap: GlobeIssNowSnapshot,
+    minutes: number
+  ): GlobeIssForecastPoint[] {
     const lat = snap.lat;
     const lon = snap.lon;
     const speedKmh = snap.velocityKmh ?? ISS_DEFAULT_VELOCITY_KMH;
@@ -330,8 +352,12 @@ export class GlobeIssNowService {
       fromLon = back.lon;
     }
     const bearing = GlobeIssNowService.initialBearingDeg(fromLat, fromLon, lat, lon);
-    const stepSec = ISS_FORECAST_STEP_SEC;
-    const steps = Math.floor((ISS_FORECAST_MINUTES * 60) / stepSec);
+    const horizonMin = Math.min(
+      ISS_FORECAST_MINUTES_MAX,
+      Math.max(ISS_FORECAST_MINUTES_MIN, minutes)
+    );
+    const stepSec = GlobeIssNowService.forecastStepSec(horizonMin);
+    const steps = Math.floor((horizonMin * 60) / stepSec);
     const orbitTurnDegPerStep = (360 / (92 * 60)) * stepSec;
     const distKm = speedKmh * (stepSec / 3600);
     const nowSec = Math.floor(Date.now() / 1000);

@@ -359,7 +359,7 @@ public class GlobeProxyController {
         }
     }
 
-    /** Predicted ISS ground track for the next hour (WhereTheISS.at SGP4, proxied). */
+    /** Predicted ISS ground track (WhereTheISS.at SGP4, proxied; 5–1440 min). */
     @GetMapping("/iss/forecast")
     public ResponseEntity<byte[]> issForecast(
             @RequestParam(value = "minutes", defaultValue = "60") int minutes,

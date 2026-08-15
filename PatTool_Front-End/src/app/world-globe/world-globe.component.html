@@ -608,7 +608,20 @@
             <div class="wg-opt-section__body">
               <p class="wg-opt-iss-meta text-muted small mb-1">{{ 'WORLD_GLOBE.SATELLITE_LAYER_HINT' | translate }}</p>
               <div class="wg-opt-row">
-                <label class="wg-opt-row__label" for="wgSatFutureTrace" [attr.title]="'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_HINT' | translate : { minutes: satelliteFutureTraceMinutes }">{{ 'WORLD_GLOBE.SATELLITE_FUTURE_TRACE' | translate }}</label>
+                <label class="wg-opt-row__label" for="wgSatAll" [attr.title]="'WORLD_GLOBE.SATELLITE_LAYER_ALL_HINT' | translate">{{ 'WORLD_GLOBE.SATELLITE_LAYER_ALL' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="wgSatAll"
+                    name="wgSatAll"
+                    [(ngModel)]="satelliteOverlayMasterEnabled"
+                    (ngModelChange)="onGlobeSatelliteOverlayMasterToggle()"
+                    [disabled]="!globeSurfaceReady" />
+                </div>
+              </div>
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgSatFutureTrace" [attr.title]="'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_HINT' | translate : { hours: satelliteFutureTraceHours }">{{ 'WORLD_GLOBE.SATELLITE_FUTURE_TRACE' | translate }}</label>
                 <div class="form-check form-switch wg-opt-switch mb-0">
                   <input
                     class="form-check-input"
@@ -623,38 +636,38 @@
               <div class="wg-opt-row wg-opt-row--tools">
                 <label
                   class="wg-opt-row__label"
-                  for="wgSatFutureTraceMin"
-                  [attr.title]="'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_DURATION_HINT' | translate : { min: satelliteFutureTraceMinutesMin, max: satelliteFutureTraceMinutesMax }">
+                  for="wgSatFutureTraceHours"
+                  [attr.title]="'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_DURATION_HINT' | translate : { min: satelliteFutureTraceHoursMin, max: satelliteFutureTraceHoursMax }">
                   {{ 'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_DURATION' | translate }}
                 </label>
                 <div class="wg-opt-row__tools">
                   <button
                     type="button"
                     class="btn btn-sm wg-opt-icon-btn"
-                    (click)="onGlobeSatelliteFutureTraceMinutesDelta(-satelliteFutureTraceMinutesStep)"
-                    [disabled]="!globeSurfaceReady || satelliteFutureTraceMinutes <= satelliteFutureTraceMinutesMin"
+                    (click)="onGlobeSatelliteFutureTraceHoursDelta(-satelliteFutureTraceHoursStep)"
+                    [disabled]="!globeSurfaceReady || satelliteFutureTraceHours <= satelliteFutureTraceHoursMin"
                     [attr.title]="'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_MINUS' | translate"
                     [attr.aria-label]="'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_MINUS' | translate">
                     <i class="fa fa-minus" aria-hidden="true"></i>
                   </button>
                   <input
-                    id="wgSatFutureTraceMin"
+                    id="wgSatFutureTraceHours"
                     type="number"
-                    class="form-control form-control-sm wg-iss-interval-input"
-                    [(ngModel)]="satelliteFutureTraceMinutes"
-                    (blur)="onGlobeSatelliteFutureTraceMinutesCommitted()"
-                    (change)="onGlobeSatelliteFutureTraceMinutesCommitted()"
-                    [min]="satelliteFutureTraceMinutesMin"
-                    [max]="satelliteFutureTraceMinutesMax"
-                    [step]="satelliteFutureTraceMinutesStep"
+                    class="form-control form-control-sm wg-iss-interval-input wg-sat-trace-min-input"
+                    [(ngModel)]="satelliteFutureTraceHours"
+                    (blur)="onGlobeSatelliteFutureTraceHoursCommitted()"
+                    (change)="onGlobeSatelliteFutureTraceHoursCommitted()"
+                    [min]="satelliteFutureTraceHoursMin"
+                    [max]="satelliteFutureTraceHoursMax"
+                    [step]="satelliteFutureTraceHoursStep"
                     [disabled]="!globeSurfaceReady"
                     [attr.aria-label]="'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_DURATION' | translate" />
-                  <span class="wg-opt-inline__cd wg-opt-unit">{{ 'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_MINUTES_ABBR' | translate }}</span>
+                  <span class="wg-opt-inline__cd wg-opt-unit">{{ 'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_HOURS_ABBR' | translate }}</span>
                   <button
                     type="button"
                     class="btn btn-sm wg-opt-icon-btn"
-                    (click)="onGlobeSatelliteFutureTraceMinutesDelta(satelliteFutureTraceMinutesStep)"
-                    [disabled]="!globeSurfaceReady || satelliteFutureTraceMinutes >= satelliteFutureTraceMinutesMax"
+                    (click)="onGlobeSatelliteFutureTraceHoursDelta(satelliteFutureTraceHoursStep)"
+                    [disabled]="!globeSurfaceReady || satelliteFutureTraceHours >= satelliteFutureTraceHoursMax"
                     [attr.title]="'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_PLUS' | translate"
                     [attr.aria-label]="'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_PLUS' | translate">
                     <i class="fa fa-plus" aria-hidden="true"></i>
@@ -708,7 +721,7 @@
                   </div>
                   <div
                     class="form-check form-switch wg-opt-switch wg-opt-switch--trace mb-0"
-                    [attr.title]="'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_ONE_HINT' | translate : { name: (sat.labelKey | translate), minutes: satelliteFutureTraceMinutes }">
+                    [attr.title]="'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_ONE_HINT' | translate : { name: (sat.labelKey | translate), hours: satelliteFutureTraceHours }">
                     <input
                       class="form-check-input"
                       type="checkbox"

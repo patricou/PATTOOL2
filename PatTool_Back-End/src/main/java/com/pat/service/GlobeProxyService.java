@@ -708,7 +708,7 @@ public class GlobeProxyService {
      * falls back to a spherical orbit approximation from the current live ISS position.
      */
     public byte[] fetchIssForecastPositions(int minutesAhead, int stepSec) {
-        int minutes = Math.min(120, Math.max(5, minutesAhead));
+        int minutes = Math.min(1440, Math.max(5, minutesAhead));
         int step = Math.min(600, Math.max(30, stepSec));
         try {
             return fetchIssForecastFromWhereTheIssAt(minutes, step);

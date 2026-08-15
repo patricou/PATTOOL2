@@ -918,6 +918,20 @@ body:has(.wg-fs-root--viewport-locked) {
   text-align: center;
 }
 
+.wg-opt-row--tools .wg-sat-trace-min-input {
+  width: 5.1rem;
+  min-width: 5.1rem;
+  max-width: 5.3rem;
+  padding: 0.12rem 0.35rem;
+  -moz-appearance: textfield;
+}
+
+.wg-opt-row--tools .wg-sat-trace-min-input::-webkit-outer-spin-button,
+.wg-opt-row--tools .wg-sat-trace-min-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 .wg-opt-row--tools .wg-opt-inline__cd {
   font-size: var(--wg-label, 0.66rem);
   min-width: 1.75ch;

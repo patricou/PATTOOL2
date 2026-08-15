@@ -235,7 +235,6 @@ const GLOBE_ISS_HISTORICAL_DATE_LABEL_RADIUS = GLOBE_ISS_HISTORICAL_TRAIL_RADIUS
 /** Segments par segment de traînée (grand cercle entre deux relevés). */
 const GLOBE_ISS_TRAIL_ARC_SEGMENTS = 14;
 /** Trace ISS anticipée (prédiction SGP4) : rouge, légèrement au-dessus de la traînée live. */
-const GLOBE_ISS_FORECAST_MINUTES = 60;
 const GLOBE_ISS_FORECAST_STEP_SEC = 120;
 const GLOBE_ISS_FORECAST_TRAIL_RADIUS = GLOBE_ISS_TRAIL_RADIUS * 1.003;
 const GLOBE_ISS_FORECAST_TRAIL_COLOR = 0xff2e2e;
@@ -256,19 +255,22 @@ const GLOBE_ISS_CAMERA_CENTER_HALF_LIFE_SEC = 0.26;
 const GLOBE_ISS_CAMERA_CENTER_ERROR_BOOST_REF_RAD = 0.055;
 /** Satellites astro-compass (hors ISS) : icône + nom sur le globe. */
 const GLOBE_SAT_ICON_WORLD_SIZE = 0.026;
+const GLOBE_SAT_GEO_ICON_WORLD_SIZE = 0.045;
 const GLOBE_SAT_LABEL_SPRITE_WORLD_H = 0.018;
 const GLOBE_SAT_OVERLAY_STORAGE_KEY = 'pat.world-globe.satellite-overlays';
 const GLOBE_SAT_MIN_ALT_KM = 80;
 const GLOBE_SAT_MAX_ALT_KM = 40_000;
+/** GEO réel (~6,6 rayons) sort de la vue : on le plaque sur un anneau visible. */
+const GLOBE_SAT_DISPLAY_RADIUS_MAX = 1.22;
 const GLOBE_SAT_PASS_LOOKBACK_MS = 45 * 60_000;
 const GLOBE_SAT_PASS_HORIZON_MS = 18 * 60 * 60_000;
 const GLOBE_SAT_PASS_STEP_MS = 30_000;
 const GLOBE_SAT_PASS_MAX = 6;
 /** Trajectoire future SGP4 : ~1 orbite LEO, dans la couleur du satellite. */
 const GLOBE_SAT_FORECAST_MINUTES_DEFAULT = 90;
-const GLOBE_SAT_FORECAST_MINUTES_MIN = 15;
-const GLOBE_SAT_FORECAST_MINUTES_MAX = 180;
-const GLOBE_SAT_FORECAST_MINUTES_STEP = 15;
+const GLOBE_SAT_FORECAST_MINUTES_MIN = 5;
+const GLOBE_SAT_FORECAST_MINUTES_MAX = 1440;
+const GLOBE_SAT_FORECAST_HOURS_STEP = 0.25;
 const GLOBE_SAT_FORECAST_STEP_MS = 60_000;
 const GLOBE_SAT_FORECAST_TRAIL_OPACITY = 0.78;
 const GLOBE_SAT_FORECAST_TRAIL_ARC_SEGMENTS = 8;
@@ -468,6 +470,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       s.constellation !== 'starlink'
     ])
   );
+  /** Interrupteur maître : afficher ou masquer tous les satellites. */
+  satelliteOverlayMasterEnabled = false;
   /** Trajectoire future (SGP4) : interrupteur maître (tous les satellites). */
   satelliteFutureTraceEnabled = false;
   /** Trajectoire future par satellite (désactivée par défaut). */
@@ -475,11 +479,17 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     ASTRO_SATELLITES.filter((s) => s.id !== 'iss' && !s.skipLiveTle).map((s) => [s.id, false])
   );
   satelliteFutureTraceMinutes = GLOBE_SAT_FORECAST_MINUTES_DEFAULT;
-  readonly satelliteFutureTraceMinutesMin = GLOBE_SAT_FORECAST_MINUTES_MIN;
-  readonly satelliteFutureTraceMinutesMax = GLOBE_SAT_FORECAST_MINUTES_MAX;
-  readonly satelliteFutureTraceMinutesStep = GLOBE_SAT_FORECAST_MINUTES_STEP;
+  satelliteFutureTraceHours = WorldGlobeComponent.hoursFromTraceMinutes(GLOBE_SAT_FORECAST_MINUTES_DEFAULT);
+  readonly satelliteFutureTraceHoursMin = WorldGlobeComponent.hoursFromTraceMinutes(
+    GLOBE_SAT_FORECAST_MINUTES_MIN
+  );
+  readonly satelliteFutureTraceHoursMax = WorldGlobeComponent.hoursFromTraceMinutes(
+    GLOBE_SAT_FORECAST_MINUTES_MAX
+  );
+  readonly satelliteFutureTraceHoursStep = GLOBE_SAT_FORECAST_HOURS_STEP;
   /** Satellite dont les données remplissent le bandeau ; `null` = ISS. */
   tickerFocusSatId: string | null = null;
+  private lastSoleEnabledSatId: string | null = null;
   private readonly starlinkCompanionIds = new Set<string>();
   satTickerLat: number | null = null;
   satTickerLon: number | null = null;
@@ -1158,6 +1168,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   };
 
   ngOnInit(): void {
+    this.issNowService.setForecastMinutes(this.satelliteFutureTraceMinutes);
     const cached = this.issNowService.getSnapshot();
     if (cached) {
       this.applyIssNowSnapshot(cached, true);
@@ -2230,24 +2241,51 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.tryCenterGlobeOnSatellite(satId);
   }
 
+  onGlobeSatelliteOverlayMasterToggle(): void {
+    const enabled = this.satelliteOverlayMasterEnabled;
+    for (const sat of this.globeSatelliteOptions) {
+      this.satelliteOverlayEnabled[sat.id] = enabled;
+      if (!enabled) {
+        this.disposeGlobeSatelliteVisual(sat.id);
+        this.disposeGlobeSatelliteForecastTrail(sat.id);
+        if (sat.constellation === 'starlink') {
+          this.updateStarlinkTrainCompanions(false);
+        }
+      } else {
+        this.satNowService.setObserver(this.userObserverLat, this.userObserverLon);
+        void this.satNowService.ensureOption(sat);
+      }
+    }
+    this.satelliteOverlayPrefsTouched = true;
+    this.schedulePersistGlobeSatelliteOverlayPrefs();
+    if (enabled) {
+      this.satelliteForecastLastRebuildMs = 0;
+      this.updateGlobeSatelliteOverlays();
+      this.updateGlobeSatelliteForecastTrails(true);
+    }
+    this.syncTickerFocusToEnabledSatellites();
+    this.cdr.markForCheck();
+  }
+
   onGlobeSatelliteToggle(satId: string, enabled: boolean): void {
     this.satelliteOverlayEnabled[satId] = enabled;
+    this.syncGlobeSatelliteOverlayMaster();
     this.satelliteOverlayPrefsTouched = true;
     this.schedulePersistGlobeSatelliteOverlayPrefs();
     if (!enabled) {
       this.disposeGlobeSatelliteVisual(satId);
       this.disposeGlobeSatelliteForecastTrail(satId);
-      if (this.tickerFocusSatId === satId) {
-        this.onSelectSatelliteForTicker(null);
-      }
     } else {
       const sat = this.globeSatelliteOptions.find((s) => s.id === satId);
       if (sat) {
         this.satNowService.setObserver(this.userObserverLat, this.userObserverLon);
         void this.satNowService.ensureOption(sat);
       }
+      this.satelliteForecastLastRebuildMs = 0;
       this.updateGlobeSatelliteOverlays();
+      this.updateGlobeSatelliteForecastTrails(true);
     }
+    this.syncTickerFocusToEnabledSatellites();
     this.cdr.markForCheck();
   }
 
@@ -2278,6 +2316,37 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  private enabledGlobeSatelliteIds(): string[] {
+    return this.globeSatelliteOptions
+      .filter((s) => this.satelliteOverlayEnabled[s.id] !== false)
+      .map((s) => s.id);
+  }
+
+  /** Un seul satellite affiché → le bandeau montre ses données ; sinon ISS si le focus n’est plus visible. */
+  private syncTickerFocusToEnabledSatellites(): void {
+    const enabled = this.enabledGlobeSatelliteIds();
+    if (enabled.length === 1) {
+      const sole = enabled[0];
+      this.onSelectSatelliteForTicker(sole);
+      if (this.lastSoleEnabledSatId !== sole) {
+        this.lastSoleEnabledSatId = sole;
+        this.pendingCenterSatelliteId = sole;
+        this.tryCenterGlobeOnSatellite(sole);
+      }
+      return;
+    }
+    this.lastSoleEnabledSatId = null;
+    if (this.tickerFocusSatId && !enabled.includes(this.tickerFocusSatId)) {
+      this.onSelectSatelliteForTicker(null);
+    }
+  }
+
+  private syncGlobeSatelliteOverlayMaster(): void {
+    this.satelliteOverlayMasterEnabled =
+      this.globeSatelliteOptions.length > 0 &&
+      this.globeSatelliteOptions.every((s) => this.satelliteOverlayEnabled[s.id] !== false);
+  }
+
   private syncGlobeSatelliteFutureTraceMaster(): void {
     this.satelliteFutureTraceEnabled =
       this.globeSatelliteOptions.length > 0 &&
@@ -2291,16 +2360,17 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     );
   }
 
-  onGlobeSatelliteFutureTraceMinutesDelta(delta: number): void {
-    this.setGlobeSatelliteFutureTraceMinutes(this.satelliteFutureTraceMinutes + delta);
+  onGlobeSatelliteFutureTraceHoursDelta(deltaHours: number): void {
+    this.setGlobeSatelliteFutureTraceMinutes((this.satelliteFutureTraceHours + deltaHours) * 60);
   }
 
-  onGlobeSatelliteFutureTraceMinutesCommitted(): void {
-    this.setGlobeSatelliteFutureTraceMinutes(this.satelliteFutureTraceMinutes);
+  onGlobeSatelliteFutureTraceHoursCommitted(): void {
+    this.setGlobeSatelliteFutureTraceMinutes(this.satelliteFutureTraceHours * 60);
   }
 
   private setGlobeSatelliteFutureTraceMinutes(raw: number): void {
     const next = WorldGlobeComponent.clampSatelliteFutureTraceMinutes(raw);
+    this.satelliteFutureTraceHours = WorldGlobeComponent.hoursFromTraceMinutes(next);
     if (next === this.satelliteFutureTraceMinutes) {
       this.satelliteFutureTraceMinutes = next;
       this.cdr.markForCheck();
@@ -2311,17 +2381,57 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.schedulePersistGlobeSatelliteOverlayPrefs();
     this.satelliteForecastLastRebuildMs = 0;
     this.updateGlobeSatelliteForecastTrails(true);
+    this.refreshIssForecastTrailForDuration();
     this.cdr.markForCheck();
+  }
+
+  private satelliteForecastStepMs(): number {
+    const targetPts = 360;
+    const raw = Math.round((this.satelliteFutureTraceMinutes * 60_000) / targetPts);
+    return Math.min(300_000, Math.max(GLOBE_SAT_FORECAST_STEP_MS, raw));
+  }
+
+  private issForecastStepSec(): number {
+    const targetPts = 180;
+    const raw = Math.round((this.satelliteFutureTraceMinutes * 60) / targetPts);
+    return Math.min(600, Math.max(GLOBE_ISS_FORECAST_STEP_SEC, raw));
+  }
+
+  private refreshIssForecastTrailForDuration(): void {
+    this.issNowService.setForecastMinutes(this.satelliteFutureTraceMinutes);
+    if (
+      !this.issOverlayEnabled ||
+      !this.issTraceVisible ||
+      this.globeIssLat == null ||
+      this.globeIssLon == null
+    ) {
+      return;
+    }
+    this.issForecastLastFetchMs = 0;
+    void this.loadIssForecastTrail(
+      this.globeIssLat,
+      this.globeIssLon,
+      this.issSpeedSampleLat,
+      this.issSpeedSampleLon,
+      this.issGroundSpeedKmh,
+      true
+    );
+  }
+
+  private static hoursFromTraceMinutes(minutes: number): number {
+    return Math.round((minutes / 60) * 100) / 100;
   }
 
   private static clampSatelliteFutureTraceMinutes(raw: number): number {
     if (!Number.isFinite(raw)) {
       return GLOBE_SAT_FORECAST_MINUTES_DEFAULT;
     }
-    const stepped = Math.round(raw / GLOBE_SAT_FORECAST_MINUTES_STEP) * GLOBE_SAT_FORECAST_MINUTES_STEP;
+    const hours = raw / 60;
+    const steppedHours = Math.round(hours / GLOBE_SAT_FORECAST_HOURS_STEP) * GLOBE_SAT_FORECAST_HOURS_STEP;
+    const minutes = Math.round(steppedHours * 60);
     return Math.min(
       GLOBE_SAT_FORECAST_MINUTES_MAX,
-      Math.max(GLOBE_SAT_FORECAST_MINUTES_MIN, stepped)
+      Math.max(GLOBE_SAT_FORECAST_MINUTES_MIN, minutes)
     );
   }
 
@@ -8752,12 +8862,18 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         this.satelliteFutureTraceById[sat.id] = prefs.futureTraceEnabled;
       }
     }
+    this.syncGlobeSatelliteOverlayMaster();
     this.syncGlobeSatelliteFutureTraceMaster();
+    this.syncTickerFocusToEnabledSatellites();
     if (typeof prefs.futureTraceMinutes === 'number') {
       this.satelliteFutureTraceMinutes = WorldGlobeComponent.clampSatelliteFutureTraceMinutes(
         prefs.futureTraceMinutes
       );
     }
+    this.satelliteFutureTraceHours = WorldGlobeComponent.hoursFromTraceMinutes(
+      this.satelliteFutureTraceMinutes
+    );
+    this.refreshIssForecastTrailForDuration();
   }
 
   private buildGlobeSatelliteOverlayPrefsPayload(): GlobeSatelliteOverlayPrefs {
@@ -8888,7 +9004,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private globeSatelliteOrbitRadius(altKm: number | null, fallbackKm: number): number {
     const alt = altKm != null && Number.isFinite(altKm) ? altKm : fallbackKm;
     const clamped = Math.min(GLOBE_SAT_MAX_ALT_KM, Math.max(GLOBE_SAT_MIN_ALT_KM, alt));
-    return 1 + clamped / GLOBE_EARTH_RADIUS_KM;
+    const trueR = 1 + clamped / GLOBE_EARTH_RADIUS_KM;
+    return Math.min(trueR, GLOBE_SAT_DISPLAY_RADIUS_MAX);
   }
 
   private updateGlobeSatelliteOverlays(): void {
@@ -9224,7 +9341,12 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     const name = this.translate.instant(sat.labelKey) || sat.id;
-    const marker = WorldGlobeComponent.createSatelliteIconMesh(sat.color);
+    const marker = WorldGlobeComponent.createSatelliteIconMesh(
+      sat.color,
+      sat.fixedGeo || sat.defaultAltKm >= 10_000
+        ? GLOBE_SAT_GEO_ICON_WORLD_SIZE
+        : GLOBE_SAT_ICON_WORLD_SIZE
+    );
     const label = WorldGlobeComponent.createSatelliteNameSprite(name, sat.color);
     if (!label) {
       WorldGlobeComponent.disposeIconPlaneMesh(marker);
@@ -9312,7 +9434,14 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     const now = Date.now();
-    if (!force && now - this.satelliteForecastLastRebuildMs < GLOBE_SAT_FORECAST_REBUILD_MIN_MS) {
+    const missingTrail = this.globeSatelliteOptions.some(
+      (s) => this.isGlobeSatelliteFutureTraceOn(s.id) && !this.globeSatelliteForecastLines.has(s.id)
+    );
+    if (
+      !force &&
+      !missingTrail &&
+      now - this.satelliteForecastLastRebuildMs < GLOBE_SAT_FORECAST_REBUILD_MIN_MS
+    ) {
       this.syncGlobeSatelliteForecastTrailVisibility();
       return;
     }
@@ -9355,8 +9484,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     const endMs = now + this.satelliteFutureTraceMinutes * 60_000;
+    const stepMs = this.satelliteForecastStepMs();
     const pts: { lat: number; lon: number }[] = [{ lat: current.lat, lon: current.lon }];
-    for (let t = now + GLOBE_SAT_FORECAST_STEP_MS; t <= endMs; t += GLOBE_SAT_FORECAST_STEP_MS) {
+    for (let t = now + stepMs; t <= endMs; t += stepMs) {
       const snap = this.satNowService.snapshotForOption(sat, t);
       if (!snap) {
         continue;
@@ -9431,11 +9561,14 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  private static createSatelliteIconMesh(colorHex: string): THREE.Mesh {
+  private static createSatelliteIconMesh(
+    colorHex: string,
+    worldSize = GLOBE_SAT_ICON_WORLD_SIZE
+  ): THREE.Mesh {
     const tex = WorldGlobeComponent.createGlobeIconCanvasTexture((ctx, size) => {
       WorldGlobeComponent.drawSatelliteTopViewIcon(ctx, size, colorHex);
     });
-    return WorldGlobeComponent.createIconPlaneMesh(tex, GLOBE_SAT_ICON_WORLD_SIZE);
+    return WorldGlobeComponent.createIconPlaneMesh(tex, worldSize);
   }
 
   private static drawSatelliteTopViewIcon(
@@ -10919,6 +11052,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.issOverlayEnabled || !this.issTraceVisible || !this.earthMesh) {
       return;
     }
+    this.issNowService.setForecastMinutes(this.satelliteFutureTraceMinutes);
     if (!force && Date.now() - this.issForecastLastFetchMs < GLOBE_ISS_FORECAST_REFRESH_MIN_MS) {
       return;
     }
@@ -10929,11 +11063,11 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         this.http
           .get<IssForecastResponse>(this.globeIssForecastUrl(), {
             params: {
-              minutes: String(GLOBE_ISS_FORECAST_MINUTES),
-              stepSec: String(GLOBE_ISS_FORECAST_STEP_SEC)
+              minutes: String(this.satelliteFutureTraceMinutes),
+              stepSec: String(this.issForecastStepSec())
             }
           })
-          .pipe(timeout(45_000))
+          .pipe(timeout(90_000))
       );
       if (seq !== this.issForecastRequestSeq || !this.issOverlayEnabled || !this.issTraceVisible) {
         return;
@@ -11012,8 +11146,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       segment.fromLat,
       segment.fromLon
     );
-    const stepSec = GLOBE_ISS_FORECAST_STEP_SEC;
-    const steps = Math.floor((GLOBE_ISS_FORECAST_MINUTES * 60) / stepSec);
+    const stepSec = this.issForecastStepSec();
+    const steps = Math.floor((this.satelliteFutureTraceMinutes * 60) / stepSec);
     const orbitTurnDegPerStep = (360 / (92 * 60)) * stepSec;
     const distKm = speedKmh * (stepSec / 3600);
     const nowSec = Math.floor(Date.now() / 1000);
@@ -11067,10 +11201,11 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     const nowSec = Math.floor(Date.now() / 1000);
+    const endSec = nowSec + this.satelliteFutureTraceMinutes * 60;
     let write = 0;
     for (let read = 0; read < this.issForecastTrailPoints.length; read++) {
       const p = this.issForecastTrailPoints[read];
-      if (p.atSec > nowSec) {
+      if (p.atSec > nowSec && p.atSec <= endSec) {
         this.issForecastTrailPoints[write++] = p;
       }
     }
