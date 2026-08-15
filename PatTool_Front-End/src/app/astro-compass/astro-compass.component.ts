@@ -57,7 +57,9 @@ import { CompassNorthEngine } from '../shared/compass-north.engine';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { CameraLookTracker } from '../direction/camera-look-tracker';
 import {
+  loadPattoolCal,
   persistPattoolCalFromSamples,
+  sameCalSampleSet,
   snapshotFromPayload
 } from '../direction/direction-pattool-cal';
 import {
@@ -658,10 +660,12 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.api.getDirectionPattoolSamples().subscribe({
       next: (res) => {
         const snaps = (res.samples ?? []).map((s) => snapshotFromPayload(s));
-        if (snaps.length >= 4) {
+        const local = loadPattoolCal();
+        if (snaps.length >= 4 && !sameCalSampleSet(local?.samples, snaps)) {
           persistPattoolCalFromSamples(
             snaps,
-            typeof navigator !== 'undefined' ? navigator.userAgent : ''
+            typeof navigator !== 'undefined' ? navigator.userAgent : '',
+            local?.mixMode
           );
         }
       },
@@ -4572,6 +4576,12 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private applyNorthOffset(): void {
+    if (this.lookTracker?.azimuthDeg != null) {
+      this.headingDeg = this.lookTracker.azimuthDeg;
+      this.headingActive = true;
+      this.tickAlignCue();
+      return;
+    }
     if (this.headingRawDeg == null) {
       this.headingDeg = null;
       return;

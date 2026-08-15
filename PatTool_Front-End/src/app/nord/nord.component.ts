@@ -11,11 +11,6 @@ import { TranslateModule } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import { ApiService } from '../services/api.service';
 import { CompassNorthEngine } from '../shared/compass-north.engine';
-import {
-  MANUAL_AZ_OFFSET_KEY,
-  loadManualAzOffset,
-  saveManualAzOffset
-} from '../direction/direction-pattool-cal';
 import { magneticDeclinationDeg } from './magnetic-declination';
 
 const PAINT_MIN_MS = 50;
@@ -861,7 +856,6 @@ export class NordComponent implements OnInit, OnDestroy {
   }
 
   private lockNorth(): void {
-    this.northOffsetDeg = loadManualAzOffset();
     this.persist();
     this.schedulePaint();
   }
@@ -1071,23 +1065,10 @@ export class NordComponent implements OnInit, OnDestroy {
 
   private persist(): void {
     this.northEngine.persistShared(this.northOffsetDeg, this.trueNorth);
-    try {
-      saveManualAzOffset(this.northOffsetDeg);
-    } catch {
-      /* ignore */
-    }
   }
 
   private loadPersisted(): void {
-    let directionOffset: number | undefined;
-    try {
-      if (localStorage.getItem(MANUAL_AZ_OFFSET_KEY) != null) {
-        directionOffset = loadManualAzOffset();
-      }
-    } catch {
-      /* ignore */
-    }
-    const loaded = this.northEngine.loadShared(directionOffset);
+    const loaded = this.northEngine.loadShared();
     this.northOffsetDeg = loaded.northOffsetDeg;
     this.trueNorth = loaded.trueNorth;
   }

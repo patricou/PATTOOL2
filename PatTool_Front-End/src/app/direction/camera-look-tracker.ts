@@ -9,18 +9,16 @@ import {
   cameraFromDeviceOrientation,
   cameraFromEarthToDeviceQuat,
   cameraFromMagAccel,
-  normalizeDeg,
-  wrapSignedDeg
+  normalizeDeg
 } from './direction-attitude';
+import { NORD_CAL_STORAGE_KEY, type PersistedNordCal } from '../shared/compass-north.engine';
 import {
-  clearManualAzOffset,
-  clearManualElOffset,
-  loadManualAzOffset,
-  loadManualElOffset,
+  canonicalizeLookCal,
+  composeLookAzimuth,
+  composeLookElevation,
   loadPattoolCal,
-  saveManualAzOffset,
-  saveManualElOffset,
-  sightingOffsetsFromLook
+  resetLookOffsetsFromSamples,
+  setLookFromRawToTarget
 } from './direction-pattool-cal';
 
 interface GenericSensor {
@@ -86,6 +84,7 @@ export class CameraLookTracker {
   ) {}
 
   async start(fromTap: boolean): Promise<void> {
+    canonicalizeLookCal();
     this.needTap = false;
     this.denied = false;
     const doe = window.DeviceOrientationEvent as unknown as {
@@ -128,15 +127,13 @@ export class CameraLookTracker {
 
   /**
    * La visée caméra actuelle devient le Nord géographique (azimut 0°).
-   * Le décalage est mémorisé (même clé que la page Calibrage direction).
+   * Remplace le décalage d’azimut (ne s’empile pas sur les 7 poses).
    */
   markCameraAsNorth(): boolean {
     if (this.magAzimuthDeg == null) {
       return false;
     }
-    const calOff = loadPattoolCal()?.derived.azOffsetDeg ?? 0;
-    saveManualAzOffset(wrapSignedDeg(-(this.magAzimuthDeg + calOff)));
-    clearManualElOffset();
+    setLookFromRawToTarget(this.magAzimuthDeg, 0);
     this.lastPaint = 0;
     this.publish();
     return true;
@@ -144,7 +141,6 @@ export class CameraLookTracker {
 
   /**
    * La visée caméra actuelle devient la direction de l’astre (azimut + élévation).
-   * L’utilisateur a placé l’objet réel sur le pointeur du viseur.
    */
   markCameraAsTarget(targetAzDeg: number, targetElDeg: number): boolean {
     if (this.magAzimuthDeg == null || this.rawElevationDeg == null) {
@@ -153,28 +149,19 @@ export class CameraLookTracker {
     if (!Number.isFinite(targetAzDeg) || !Number.isFinite(targetElDeg)) {
       return false;
     }
-    const calOff = loadPattoolCal()?.derived.azOffsetDeg ?? 0;
-    const off = sightingOffsetsFromLook(
-      this.magAzimuthDeg,
-      this.rawElevationDeg,
-      targetAzDeg,
-      targetElDeg,
-      calOff
-    );
-    saveManualAzOffset(off.azOffsetDeg);
-    saveManualElOffset(off.elOffsetDeg);
+    setLookFromRawToTarget(this.magAzimuthDeg, targetAzDeg, this.rawElevationDeg, targetElDeg);
     this.lastPaint = 0;
     this.publish();
     return true;
   }
 
   hasManualAlign(): boolean {
-    return this.manualOffsetDeg !== 0 || this.manualElOffsetDeg !== 0;
+    const d = loadPattoolCal()?.derived;
+    return (d?.azOffsetDeg ?? 0) !== 0 || (d?.elOffsetDeg ?? 0) !== 0;
   }
 
   clearManualNorth(): void {
-    clearManualAzOffset();
-    clearManualElOffset();
+    resetLookOffsetsFromSamples();
     this.lastPaint = 0;
     this.publish();
   }
@@ -300,14 +287,15 @@ export class CameraLookTracker {
   }
 
   private onMag(raw: Vec3): void {
+    const v = applyStoredHardIron(raw);
     if (this.hasMag) {
       this.mag = {
-        x: this.mag.x * 0.72 + raw.x * 0.28,
-        y: this.mag.y * 0.72 + raw.y * 0.28,
-        z: this.mag.z * 0.72 + raw.z * 0.28
+        x: this.mag.x * 0.72 + v.x * 0.28,
+        y: this.mag.y * 0.72 + v.y * 0.28,
+        z: this.mag.z * 0.72 + v.z * 0.28
       };
     } else {
-      this.mag = raw;
+      this.mag = v;
     }
     this.hasMag = true;
     this.fuse();
@@ -458,16 +446,16 @@ export class CameraLookTracker {
   }
 
   private publish(): void {
-    let az = this.magAzimuthDeg;
+    const az = this.magAzimuthDeg;
     if (az == null) {
       return;
     }
-    const d = loadPattoolCal()?.derived;
-    this.manualOffsetDeg = loadManualAzOffset();
-    this.manualElOffsetDeg = loadManualElOffset();
-    this.azimuthDeg = normalizeDeg(az + (d?.azOffsetDeg ?? 0) + this.manualOffsetDeg);
+    const d = loadPattoolCal()?.derived ?? null;
+    this.manualOffsetDeg = d?.azOffsetDeg ?? 0;
+    this.manualElOffsetDeg = d?.elOffsetDeg ?? 0;
+    this.azimuthDeg = composeLookAzimuth(az, d);
     if (this.rawElevationDeg != null) {
-      this.elevationDeg = this.rawElevationDeg + this.manualElOffsetDeg + (d?.elOffsetDeg ?? 0);
+      this.elevationDeg = composeLookElevation(this.rawElevationDeg, d);
     }
     const now = performance.now();
     if (now - this.lastPaint < 40) {
@@ -475,5 +463,26 @@ export class CameraLookTracker {
     }
     this.lastPaint = now;
     this.zone.run(() => this.onUpdate());
+  }
+}
+
+function applyStoredHardIron(v: Vec3): Vec3 {
+  try {
+    const raw = localStorage.getItem(NORD_CAL_STORAGE_KEY);
+    if (!raw) {
+      return v;
+    }
+    const d = JSON.parse(raw) as PersistedNordCal;
+    if (!d?.bias) {
+      return v;
+    }
+    const s = d.scale ?? { x: 1, y: 1, z: 1 };
+    return {
+      x: (v.x - d.bias.x) * (s.x ?? 1),
+      y: (v.y - d.bias.y) * (s.y ?? 1),
+      z: (v.z - d.bias.z) * (s.z ?? 1)
+    };
+  } catch {
+    return v;
   }
 }

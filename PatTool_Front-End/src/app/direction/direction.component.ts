@@ -48,12 +48,14 @@ import {
   PattoolCalSnapshot,
   averageQuat,
   averageVec,
+  canonicalizeLookCal,
   clearPattoolCal,
-  loadManualAzOffset,
-  loadPattoolCal,
+  composeLookAzimuth,
+  composeLookElevation,
   loadPattoolCalMixMode,
-  saveManualAzOffset,
+  patchLookOffsets,
   savePattoolCalMixMode,
+  sameCalSampleSet,
   snapshotFromPayload,
   snapshotsFromExport,
   mergeCalSamples,
@@ -132,7 +134,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   camLive = false;
   isFullscreen = false;
   fsShowParams = true;
-  trueNorth = false;
+  trueNorth = true;
   calibrating = false;
   calPct = 0;
   calMethod: NorthCalMethod | null = null;
@@ -235,7 +237,6 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   ) {}
 
   ngAfterViewInit(): void {
-    this.loadOffset();
     this.loadCal();
     this.loadPatCal();
     this.refreshPatDbCount();
@@ -1164,7 +1165,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     const g = this.hasAccel ? cameraElevationFromGravity(this.accel) : null;
     const fromQuat = att.elevationDeg * (cal?.elSign ?? 1);
     const raw = cal?.elSource === 'attitude' ? fromQuat : (g ?? fromQuat);
-    this.elevationDeg = raw + (cal?.elOffsetDeg ?? 0);
+    this.elevationDeg = composeLookElevation(raw, cal ?? null);
     this.rollDeg = att.rollDeg;
     this.magAzimuthDeg = att.azimuthDeg;
     this.publish();
@@ -1176,10 +1177,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
       this.schedule();
       return;
     }
-    if (this.trueNorth && this.declinationDeg != null) {
-      az = normalizeDeg(az + this.declinationDeg);
-    }
-    this.azimuthDeg = normalizeDeg(az + this.offsetDeg + (this.patFile?.derived.azOffsetDeg ?? 0));
+    this.azimuthDeg = composeLookAzimuth(az, this.patFile?.derived ?? null);
     this.schedule();
   }
 
@@ -1341,27 +1339,21 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   }
 
   private setOffset(deg: number): void {
-    this.offsetDeg = Math.round(wrapSignedDeg(deg));
-    try {
-      saveManualAzOffset(this.offsetDeg);
-    } catch {
-      /* ignore */
-    }
+    this.patFile = patchLookOffsets({ azOffsetDeg: deg });
+    this.offsetDeg = this.patFile.derived.azOffsetDeg;
     this.syncSharedNordCal();
     this.publish();
   }
 
   /**
-   * Aligne la visée caméra sur un azimut géographique (0 = Nord vrai, soleil, cap GPS).
+   * Aligne la visée caméra sur un azimut géographique (0 = Nord, soleil, cap GPS).
+   * Un seul offset : on remplace, on n’empile pas sur les 7 poses.
    */
   private calibrateToTrueAzimuth(targetTrueDeg: number): void {
     if (this.magAzimuthDeg == null) {
       return;
     }
-    const dec = this.declinationDeg ?? 0;
-    const displayed = this.trueNorth ? this.magAzimuthDeg + dec : this.magAzimuthDeg;
-    const target = this.trueNorth ? targetTrueDeg : targetTrueDeg - dec;
-    this.setOffset(circularDiff(target, displayed));
+    this.setOffset(circularDiff(targetTrueDeg, this.magAzimuthDeg));
   }
 
   /** iOS DeviceMotion : accélération y compris gravité = vecteur gravité (vers le bas). W3C / Android = vers le haut. */
@@ -1401,10 +1393,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     if (course == null || this.walkSpeedMps == null || this.walkSpeedMps < this.calMinSpeedMps) {
       return;
     }
-    const dec = this.declinationDeg ?? 0;
-    const displayed = this.trueNorth ? this.magAzimuthDeg + dec : this.magAzimuthDeg;
-    const target = this.trueNorth ? course : course - dec;
-    this.calAccum.push(circularDiff(target, displayed));
+    this.calAccum.push(circularDiff(course, this.magAzimuthDeg));
     this.calSamples = this.calAccum.length;
     if (this.calSamples >= this.calNeededSamples) {
       this.setOffset(circularMeanDeg(this.calAccum));
@@ -1412,10 +1401,6 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
       this.calAccum = [];
       this.calSamples = 0;
     }
-  }
-
-  private loadOffset(): void {
-    this.offsetDeg = loadManualAzOffset();
   }
 
   private loadFsParams(): void {
@@ -1449,8 +1434,9 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   }
 
   private loadPatCal(): void {
-    this.patFile = loadPattoolCal();
+    this.patFile = canonicalizeLookCal();
     this.patMixMode = loadPattoolCalMixMode(this.patFile?.mixMode);
+    this.offsetDeg = this.patFile?.derived.azOffsetDeg ?? 0;
   }
 
   private refreshPatDbCount(): void {
@@ -1461,7 +1447,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
         this.patDbCount = res.count ?? res.samples?.length ?? 0;
         this.patDbUser = res.ownerUsername ?? '';
         const snaps = (res.samples ?? []).map((s) => snapshotFromPayload(s));
-        if (snaps.length >= 4) {
+        if (snaps.length >= 4 && !sameCalSampleSet(this.patFile?.samples, snaps)) {
           this.commitPatCal(snaps);
         }
         this.cdr.markForCheck();
@@ -1653,6 +1639,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     }
     this.patFile = file;
     savePattoolCalMixMode(this.patMixMode);
+    this.offsetDeg = file.derived.azOffsetDeg;
     this.publish();
   }
 

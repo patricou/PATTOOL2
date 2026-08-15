@@ -11,12 +11,20 @@ import {
   wrapSignedDeg
 } from './direction-attitude';
 import {
+  MANUAL_AZ_OFFSET_KEY,
+  PATTOOL_CAL_KEY,
+  canonicalizeLookCal,
+  composeLookAzimuth,
+  composeLookElevation,
   derivePattoolCal,
   derivePattoolCalMixed,
+  patchLookOffsets,
+  persistPattoolCalFromSamples,
   sightingOffsetsFromLook,
   snapshotFromPayload,
   snapshotsFromExport,
   usableCalSeries,
+  type PattoolCalDerived,
   type PattoolCalSnapshot
 } from './direction-pattool-cal';
 
@@ -387,5 +395,59 @@ describe('sightingOffsetsFromLook', () => {
     const off = sightingOffsetsFromLook(80, 20, 95, 28, 5);
     expect(off.azOffsetDeg).toBe(10);
     expect(off.elOffsetDeg).toBe(8);
+  });
+});
+
+const LOOK_CAL: PattoolCalDerived = {
+  family: 'quat',
+  conjugateQuat: false,
+  cameraMinusZ: true,
+  azOffsetDeg: 20,
+  elSign: 1,
+  meanErrDeg: 0,
+  elSource: 'gravity',
+  elOffsetDeg: 5
+};
+
+describe('composeLookAzimuth / composeLookElevation', () => {
+  it('wraps past 360 with a single offset', () => {
+    expect(composeLookAzimuth(350, LOOK_CAL)).toBe(10);
+    expect(composeLookElevation(12, LOOK_CAL)).toBe(17);
+  });
+
+  it('does not stack a second offset on an already composed heading', () => {
+    const published = composeLookAzimuth(350, LOOK_CAL);
+    expect(composeLookAzimuth(published, { ...LOOK_CAL, azOffsetDeg: 0 })).toBe(10);
+  });
+});
+
+describe('canonicalizeLookCal', () => {
+  afterEach(() => {
+    localStorage.removeItem(PATTOOL_CAL_KEY);
+    localStorage.removeItem(MANUAL_AZ_OFFSET_KEY);
+    localStorage.removeItem('pat.direction.el-offset.v1');
+  });
+
+  it('folds leftover manual Nord into derived when there are no poses', () => {
+    localStorage.setItem(MANUAL_AZ_OFFSET_KEY, '15');
+    const file = canonicalizeLookCal();
+    expect(file?.derived.azOffsetDeg).toBe(15);
+    expect(localStorage.getItem(MANUAL_AZ_OFFSET_KEY)).toBeNull();
+  });
+
+  it('keeps a Nord/slider patch when poses exist and leftover manuals are gone', () => {
+    persistPattoolCalFromSamples(snaps(), 'test-ua');
+    patchLookOffsets({ azOffsetDeg: 33 });
+    const file = canonicalizeLookCal();
+    expect(file?.derived.azOffsetDeg).toBe(33);
+  });
+
+  it('drops stacked leftover manual when poses exist', () => {
+    const fromPoses = persistPattoolCalFromSamples(snaps(), 'test-ua');
+    expect(fromPoses).toBeTruthy();
+    localStorage.setItem(MANUAL_AZ_OFFSET_KEY, '25');
+    const file = canonicalizeLookCal();
+    expect(file?.derived.azOffsetDeg).toBe(fromPoses!.derived.azOffsetDeg);
+    expect(localStorage.getItem(MANUAL_AZ_OFFSET_KEY)).toBeNull();
   });
 });

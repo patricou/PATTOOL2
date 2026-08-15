@@ -8,6 +8,7 @@ import {
   cameraFromMagAccel,
   circularDiff,
   circularMeanDeg,
+  normalizeDeg,
   wrapSignedDeg
 } from './direction-attitude';
 
@@ -502,7 +503,147 @@ export function persistPattoolCalFromSamples(
     return null;
   }
   savePattoolCal(file);
+  clearManualAzOffset();
+  clearManualElOffset();
   return file;
+}
+
+export function lookAzOffsetDeg(cal?: PattoolCalDerived | null): number {
+  const d = cal === undefined ? loadPattoolCal()?.derived : cal;
+  return d?.azOffsetDeg ?? 0;
+}
+
+export function lookElOffsetDeg(cal?: PattoolCalDerived | null): number {
+  const d = cal === undefined ? loadPattoolCal()?.derived : cal;
+  return d?.elOffsetDeg ?? 0;
+}
+
+/** Un seul décalage d’azimut : capteur brut + calibrage. */
+export function composeLookAzimuth(rawAzDeg: number, cal?: PattoolCalDerived | null): number {
+  return normalizeDeg(rawAzDeg + lookAzOffsetDeg(cal));
+}
+
+/** Un seul décalage d’élévation : mesure (gravité / attitude) + calibrage. */
+export function composeLookElevation(rawElDeg: number, cal?: PattoolCalDerived | null): number {
+  return rawElDeg + lookElOffsetDeg(cal);
+}
+
+export function ensurePattoolCalStub(): PattoolCalFile {
+  const existing = loadPattoolCal();
+  if (existing) {
+    return existing;
+  }
+  const file: PattoolCalFile = {
+    version: 1,
+    calibratedAt: new Date().toISOString(),
+    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+    samples: [],
+    derived: {
+      family: 'quat',
+      conjugateQuat: false,
+      cameraMinusZ: true,
+      azOffsetDeg: 0,
+      elSign: 1,
+      meanErrDeg: 0,
+      elSource: 'gravity',
+      elOffsetDeg: 0
+    },
+    mixMode: loadPattoolCalMixMode(),
+    seriesCount: 0
+  };
+  savePattoolCal(file);
+  return file;
+}
+
+export function patchLookOffsets(partial: { azOffsetDeg?: number; elOffsetDeg?: number }): PattoolCalFile {
+  const file = ensurePattoolCalStub();
+  if (partial.azOffsetDeg != null && Number.isFinite(partial.azOffsetDeg)) {
+    file.derived.azOffsetDeg = Math.round(wrapSignedDeg(partial.azOffsetDeg));
+  }
+  if (partial.elOffsetDeg != null && Number.isFinite(partial.elOffsetDeg)) {
+    file.derived.elOffsetDeg = Math.round(partial.elOffsetDeg);
+  }
+  file.calibratedAt = new Date().toISOString();
+  savePattoolCal(file);
+  return file;
+}
+
+/** « Cette visée = cette cible » : remplace l’offset, ne l’empile pas. */
+export function setLookFromRawToTarget(
+  rawAzDeg: number,
+  targetAzDeg: number,
+  rawElDeg?: number | null,
+  targetElDeg?: number | null
+): PattoolCalFile {
+  const patch: { azOffsetDeg: number; elOffsetDeg?: number } = {
+    azOffsetDeg: wrapSignedDeg(targetAzDeg - rawAzDeg)
+  };
+  if (rawElDeg != null && targetElDeg != null && Number.isFinite(rawElDeg) && Number.isFinite(targetElDeg)) {
+    patch.elOffsetDeg = Math.round(targetElDeg - rawElDeg);
+  }
+  return patchLookOffsets(patch);
+}
+
+export function resetLookOffsetsFromSamples(): PattoolCalFile | null {
+  const file = loadPattoolCal();
+  if (file?.samples && file.samples.length >= 4) {
+    return persistPattoolCalFromSamples(file.samples, file.userAgent, file.mixMode);
+  }
+  return patchLookOffsets({ azOffsetDeg: 0, elOffsetDeg: 0 });
+}
+
+export function sameCalSampleSet(
+  a?: PattoolCalSnapshot[] | null,
+  b?: PattoolCalSnapshot[] | null
+): boolean {
+  if (!a?.length && !b?.length) {
+    return true;
+  }
+  if (!a?.length || !b?.length || a.length !== b.length) {
+    return false;
+  }
+  const sig = (s: PattoolCalSnapshot): string =>
+    `${s.sessionId ?? ''}|${s.poseId}|${s.at}|${(s.quat ?? []).map((n) => n.toFixed(5)).join(',')}`;
+  const sa = a.map(sig).sort();
+  const sb = b.map(sig).sort();
+  return sa.every((v, i) => v === sb[i]);
+}
+
+function leftoverManualOffset(): { az: number; el: number } | null {
+  const az = loadManualAzOffset();
+  const el = loadManualElOffset();
+  if (az === 0 && el === 0) {
+    return null;
+  }
+  return { az, el };
+}
+
+/** Une seule source d’azimut/élévation. Les poses ne sont recalculées que pour défaire l’ancien empilement. */
+export function canonicalizeLookCal(): PattoolCalFile | null {
+  const leftover = leftoverManualOffset();
+  const file = loadPattoolCal();
+  if (leftover && file?.samples && file.samples.length >= 4) {
+    return persistPattoolCalFromSamples(file.samples, file.userAgent, file.mixMode);
+  }
+  if (leftover) {
+    foldLegacyManualOffsets();
+  }
+  return loadPattoolCal();
+}
+
+/** Ancien offset « Nord » empilé par-dessus les poses : on le fusionne une fois. */
+export function foldLegacyManualOffsets(): void {
+  const az = loadManualAzOffset();
+  const el = loadManualElOffset();
+  if (az === 0 && el === 0) {
+    return;
+  }
+  const file = ensurePattoolCalStub();
+  file.derived.azOffsetDeg = Math.round(wrapSignedDeg(file.derived.azOffsetDeg + az));
+  file.derived.elOffsetDeg = Math.round((file.derived.elOffsetDeg ?? 0) + el);
+  savePattoolCal(file);
+  clearManualAzOffset();
+  clearManualElOffset();
 }
 
 export function clearPattoolCal(): void {
