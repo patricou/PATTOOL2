@@ -2,6 +2,7 @@ import {
   AttitudeOptions,
   CameraAttitude,
   Vec3,
+  cameraElevationFromGravity,
   cameraFromDeviceOrientation,
   cameraFromEarthToDeviceQuat,
   cameraFromMagAccel,
@@ -54,6 +55,13 @@ export const PATTOOL_POSES: readonly PattoolCalPose[] = [
     expectedEl: 0
   },
   {
+    id: 'tilt',
+    titleKey: 'DIRECTION.PAT_TILT_TITLE',
+    hintKey: 'DIRECTION.PAT_TILT_HINT',
+    expectedAz: null,
+    expectedEl: 45
+  },
+  {
     id: 'sky',
     titleKey: 'DIRECTION.PAT_SKY_TITLE',
     hintKey: 'DIRECTION.PAT_SKY_HINT',
@@ -102,6 +110,9 @@ export interface PattoolCalSnapshot {
 }
 
 export type PattoolCalFamily = 'quat' | 'mag' | 'do';
+export type PattoolCalMixMode = 'latest' | 'average';
+
+export const PATTOOL_CAL_MIX_KEY = 'pat.direction.pattool-cal-mix.v1';
 
 export interface PattoolCalDerived {
   family: PattoolCalFamily;
@@ -110,6 +121,10 @@ export interface PattoolCalDerived {
   azOffsetDeg: number;
   elSign: 1 | -1;
   meanErrDeg: number;
+  /** Élévation : gravité si elle colle mieux aux poses que le quaternion. */
+  elSource?: 'gravity' | 'attitude';
+  /** Ajouté à l’élévation mesurée (degrés). */
+  elOffsetDeg?: number;
 }
 
 export interface PattoolCalFile {
@@ -118,6 +133,8 @@ export interface PattoolCalFile {
   userAgent: string;
   samples: PattoolCalSnapshot[];
   derived: PattoolCalDerived;
+  mixMode?: PattoolCalMixMode;
+  seriesCount?: number;
 }
 
 interface MethodCandidate {
@@ -172,6 +189,17 @@ function poseOf(id: string): PattoolCalPose | undefined {
   return PATTOOL_POSES.find((p) => p.id === id);
 }
 
+function poseMatchesGravity(snap: PattoolCalSnapshot, pose: PattoolCalPose): boolean {
+  if (!snap.accel) {
+    return true;
+  }
+  const g = cameraElevationFromGravity(snap.accel);
+  if (g == null) {
+    return true;
+  }
+  return Math.abs(g - pose.expectedEl) <= 35;
+}
+
 function fitCandidate(
   samples: PattoolCalSnapshot[],
   cand: MethodCandidate
@@ -182,7 +210,7 @@ function fitCandidate(
   for (const snap of samples) {
     const pose = poseOf(snap.poseId);
     const att = attitudeFromSnapshot(snap, cand);
-    if (!pose || !att) {
+    if (!pose || !att || !poseMatchesGravity(snap, pose)) {
       continue;
     }
     atts.push({ pose, att });
@@ -262,9 +290,10 @@ export function snapshotFromPayload(p: {
 
 export function buildPattoolCalFile(
   samples: PattoolCalSnapshot[],
-  userAgent = ''
+  userAgent = '',
+  mixMode: PattoolCalMixMode = loadPattoolCalMixMode()
 ): PattoolCalFile | null {
-  const derived = derivePattoolCal(samples);
+  const derived = derivePattoolCalMixed(samples, mixMode);
   if (!derived) {
     return null;
   }
@@ -273,7 +302,9 @@ export function buildPattoolCalFile(
     calibratedAt: new Date().toISOString(),
     userAgent,
     samples,
-    derived
+    derived,
+    mixMode,
+    seriesCount: usableCalSeries(samples).length
   };
 }
 
@@ -300,14 +331,141 @@ export function derivePattoolCal(samples: PattoolCalSnapshot[]): PattoolCalDeriv
   if (!best || !bestFit) {
     return null;
   }
+  const extra = deriveElevationFromSamples(samples, best, bestFit.elSign);
   return {
     family: best.family,
     conjugateQuat: best.conjugateQuat,
     cameraMinusZ: best.cameraMinusZ,
     azOffsetDeg: Math.round(bestFit.azOffsetDeg),
     elSign: bestFit.elSign,
-    meanErrDeg: Math.round(bestFit.err * 10) / 10
+    meanErrDeg: Math.round(bestFit.err * 10) / 10,
+    elSource: extra.elSource,
+    elOffsetDeg: extra.elOffsetDeg
   };
+}
+
+export function groupSnapshotsBySession(samples: PattoolCalSnapshot[]): PattoolCalSnapshot[][] {
+  const bySession = new Map<string, PattoolCalSnapshot[]>();
+  for (const s of samples) {
+    const id = s.sessionId || '_';
+    const arr = bySession.get(id) ?? [];
+    arr.push(s);
+    bySession.set(id, arr);
+  }
+  return [...bySession.values()];
+}
+
+function sessionTimeMs(snaps: PattoolCalSnapshot[]): number {
+  let t = 0;
+  for (const s of snaps) {
+    const n = Date.parse(s.at);
+    if (Number.isFinite(n) && n > t) {
+      t = n;
+    }
+  }
+  return t;
+}
+
+/** Séries dont on arrive à dériver un calibrage (≥ 4 poses cohérentes). */
+export function usableCalSeries(samples: PattoolCalSnapshot[]): PattoolCalSnapshot[][] {
+  return groupSnapshotsBySession(samples).filter((s) => !!derivePattoolCal(s));
+}
+
+export function derivePattoolCalMixed(
+  samples: PattoolCalSnapshot[],
+  mode: PattoolCalMixMode = 'latest'
+): PattoolCalDerived | null {
+  const series = usableCalSeries(samples);
+  if (!series.length) {
+    return derivePattoolCal(samples);
+  }
+  if (mode !== 'average' || series.length === 1) {
+    const latest = series.reduce((a, b) => (sessionTimeMs(b) >= sessionTimeMs(a) ? b : a));
+    return derivePattoolCal(latest);
+  }
+  const derived: PattoolCalDerived[] = [];
+  for (const snaps of series) {
+    const d = derivePattoolCal(snaps);
+    if (d) {
+      derived.push(d);
+    }
+  }
+  return averageDerived(derived);
+}
+
+function averageDerived(list: PattoolCalDerived[]): PattoolCalDerived | null {
+  if (!list.length) {
+    return null;
+  }
+  if (list.length === 1) {
+    return list[0];
+  }
+  const keyOf = (d: PattoolCalDerived) =>
+    `${d.family}|${d.conjugateQuat ? 1 : 0}|${d.cameraMinusZ ? 1 : 0}`;
+  const votes = new Map<string, number>();
+  for (const d of list) {
+    const k = keyOf(d);
+    votes.set(k, (votes.get(k) ?? 0) + 1);
+  }
+  const bestKey = [...votes.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  const same = list.filter((d) => keyOf(d) === bestKey);
+  const proto = same[0];
+  const elSign: 1 | -1 = same.filter((d) => d.elSign === -1).length > same.length / 2 ? -1 : 1;
+  const gravityN = same.filter((d) => d.elSource === 'gravity').length;
+  return {
+    family: proto.family,
+    conjugateQuat: proto.conjugateQuat,
+    cameraMinusZ: proto.cameraMinusZ,
+    azOffsetDeg: Math.round(wrapSignedDeg(circularMeanDeg(same.map((d) => d.azOffsetDeg)))),
+    elSign,
+    meanErrDeg: Math.round((same.reduce((s, d) => s + d.meanErrDeg, 0) / same.length) * 10) / 10,
+    elSource: gravityN * 2 >= same.length ? 'gravity' : proto.elSource ?? 'attitude',
+    elOffsetDeg: Math.round(same.reduce((s, d) => s + (d.elOffsetDeg ?? 0), 0) / same.length)
+  };
+}
+
+function deriveElevationFromSamples(
+  samples: PattoolCalSnapshot[],
+  cand: MethodCandidate,
+  elSign: 1 | -1
+): { elSource: 'gravity' | 'attitude'; elOffsetDeg: number } {
+  let gErr = 0;
+  let aErr = 0;
+  let gN = 0;
+  const offs: number[] = [];
+  for (const snap of samples) {
+    const pose = poseOf(snap.poseId);
+    const att = attitudeFromSnapshot(snap, cand);
+    if (!pose || !att || !poseMatchesGravity(snap, pose)) {
+      continue;
+    }
+    const attEl = att.elevationDeg * elSign;
+    const g = snap.accel ? cameraElevationFromGravity(snap.accel) : null;
+    aErr += Math.abs(attEl - pose.expectedEl);
+    if (g != null) {
+      gErr += Math.abs(g - pose.expectedEl);
+      gN++;
+    }
+    const measured = g != null ? g : attEl;
+    offs.push(pose.expectedEl - measured);
+  }
+  const elSource: 'gravity' | 'attitude' = gN >= 2 && gErr <= aErr ? 'gravity' : 'attitude';
+  const elOffsetDeg = offs.length
+    ? Math.round(offs.reduce((a, b) => a + b, 0) / offs.length)
+    : 0;
+  return { elSource, elOffsetDeg };
+}
+
+export function snapshotsFromExport(raw: unknown): PattoolCalSnapshot[] {
+  const obj = raw as { samples?: unknown[] };
+  const list = Array.isArray(raw)
+    ? raw
+    : Array.isArray(obj?.samples)
+      ? obj.samples
+      : [];
+  return list
+    .map((s) => snapshotFromPayload(s as Parameters<typeof snapshotFromPayload>[0]))
+    .filter((s) => !!s.poseId);
 }
 
 export function loadPattoolCal(): PattoolCalFile | null {
@@ -330,8 +488,49 @@ export function savePattoolCal(file: PattoolCalFile): void {
   localStorage.setItem(PATTOOL_CAL_KEY, JSON.stringify(file));
 }
 
+/** Recalcule et mémorise le calibrage à partir des poses (base ou import). */
+export function persistPattoolCalFromSamples(
+  samples: PattoolCalSnapshot[],
+  userAgent = '',
+  mixMode?: PattoolCalMixMode
+): PattoolCalFile | null {
+  if (samples.length < 4) {
+    return null;
+  }
+  const file = buildPattoolCalFile(samples, userAgent, mixMode ?? loadPattoolCalMixMode());
+  if (!file) {
+    return null;
+  }
+  savePattoolCal(file);
+  return file;
+}
+
 export function clearPattoolCal(): void {
   localStorage.removeItem(PATTOOL_CAL_KEY);
+}
+
+export function loadPattoolCalMixMode(fallback?: PattoolCalMixMode): PattoolCalMixMode {
+  try {
+    const raw = localStorage.getItem(PATTOOL_CAL_MIX_KEY);
+    if (raw === 'average' || raw === 'latest') {
+      return raw;
+    }
+  } catch {
+    /* ignore */
+  }
+  return fallback === 'average' ? 'average' : 'latest';
+}
+
+export function savePattoolCalMixMode(mode: PattoolCalMixMode): void {
+  localStorage.setItem(PATTOOL_CAL_MIX_KEY, mode === 'average' ? 'average' : 'latest');
+}
+
+export function mergeCalSamples(
+  prev: PattoolCalSnapshot[],
+  incoming: PattoolCalSnapshot[]
+): PattoolCalSnapshot[] {
+  const ids = new Set(incoming.map((s) => s.sessionId || '_'));
+  return [...prev.filter((s) => !ids.has(s.sessionId || '_')), ...incoming];
 }
 
 export function loadManualAzOffset(): number {

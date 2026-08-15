@@ -70,6 +70,7 @@ export class CameraLookTracker {
   private gyroFromGeneric = false;
   private magAzimuthDeg: number | null = null;
   private rawElevationDeg: number | null = null;
+  private smoothedElevationDeg: number | null = null;
   private lastBetaDeg: number | null = null;
   private lastGammaDeg: number | null = null;
   private generics: GenericSensor[] = [];
@@ -193,6 +194,9 @@ export class CameraLookTracker {
     window.removeEventListener('devicemotion', this.onMotion, true);
     this.sensorsOn = false;
     this.fusion.reset();
+    this.smoothedElevationDeg = null;
+    this.hasRotationVector = false;
+    this.source = null;
   }
 
   private attitudeOpt(): AttitudeOptions {
@@ -403,24 +407,45 @@ export class CameraLookTracker {
     this.source = src;
     this.rollDeg = att.rollDeg;
     this.magAzimuthDeg = att.azimuthDeg;
-    const tiltEl = this.tiltElevationDeg();
-    this.rawElevationDeg =
-      tiltEl != null ? tiltEl : att.elevationDeg * (loadPattoolCal()?.derived.elSign ?? 1);
+    const d = loadPattoolCal()?.derived;
+    const fromQuat = att.elevationDeg * (d?.elSign ?? 1);
+    const tiltEl = d?.elSource === 'attitude' ? null : this.tiltElevationDeg();
+    this.rawElevationDeg = this.smoothElevation(tiltEl ?? fromQuat, tiltEl != null);
     this.publish();
   }
 
   /**
-   * Haut / bas du viseur : gravité ou beta, pas le look.z du quaternion
-   * (celui-ci passe à −90° près du zénith et bloque l’astre au-dessus du centre).
+   * Gravité dès qu’on a un accéléro (y compris DeviceMotion iOS).
+   * Beta/gamma sautent près du zénith (180° ↔ −180°) et font claquer l’astre
+   * sous le réticule.
    */
   private tiltElevationDeg(): number | null {
+    if (this.hasAccel) {
+      const g = cameraElevationFromGravity(this.accel);
+      if (g != null) {
+        return g;
+      }
+    }
     if (this.lastBetaDeg != null) {
       return cameraElevationFromBetaGamma(this.lastBetaDeg, this.lastGammaDeg ?? 0);
     }
-    if (this.hasAccel) {
-      return cameraElevationFromGravity(this.accel);
-    }
     return null;
+  }
+
+  private smoothElevation(next: number, fromGravity: boolean): number {
+    if (this.smoothedElevationDeg == null) {
+      this.smoothedElevationDeg = next;
+      return next;
+    }
+    const d = next - this.smoothedElevationDeg;
+    // Euler beta wrap only. Gravity is continuous: horizon → zénith ≈ 90°,
+    // il ne faut pas figer l’astre sous le réticule.
+    if (!fromGravity && Math.abs(d) > 45) {
+      return this.smoothedElevationDeg;
+    }
+    const a = Math.abs(d) > 20 ? 0.55 : 0.4;
+    this.smoothedElevationDeg += d * a;
+    return this.smoothedElevationDeg;
   }
 
   private applyTiltElevation(): void {
@@ -428,7 +453,7 @@ export class CameraLookTracker {
     if (el == null || this.magAzimuthDeg == null) {
       return;
     }
-    this.rawElevationDeg = el;
+    this.rawElevationDeg = this.smoothElevation(el, true);
     this.publish();
   }
 
@@ -442,7 +467,7 @@ export class CameraLookTracker {
     this.manualElOffsetDeg = loadManualElOffset();
     this.azimuthDeg = normalizeDeg(az + (d?.azOffsetDeg ?? 0) + this.manualOffsetDeg);
     if (this.rawElevationDeg != null) {
-      this.elevationDeg = this.rawElevationDeg + this.manualElOffsetDeg;
+      this.elevationDeg = this.rawElevationDeg + this.manualElOffsetDeg + (d?.elOffsetDeg ?? 0);
     }
     const now = performance.now();
     if (now - this.lastPaint < 40) {

@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { ApiService } from '../services/api.service';
 import {
   AttitudeOptions,
@@ -19,6 +19,7 @@ import {
   GyroMagComplementary,
   HardIronCal,
   Vec3,
+  cameraElevationFromGravity,
   cameraFromDeviceOrientation,
   cameraFromEarthToDeviceQuat,
   cameraFromMagAccel,
@@ -43,16 +44,20 @@ import {
 import {
   PATTOOL_POSES,
   PattoolCalFile,
+  PattoolCalMixMode,
   PattoolCalSnapshot,
   averageQuat,
   averageVec,
-  buildPattoolCalFile,
   clearPattoolCal,
   loadManualAzOffset,
   loadPattoolCal,
+  loadPattoolCalMixMode,
   saveManualAzOffset,
-  savePattoolCal,
-  snapshotFromPayload
+  savePattoolCalMixMode,
+  snapshotFromPayload,
+  snapshotsFromExport,
+  mergeCalSamples,
+  persistPattoolCalFromSamples
 } from './direction-pattool-cal';
 
 type SensorStatus = 'off' | 'live' | 'missing' | 'denied';
@@ -138,6 +143,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   offsetDeg = 0;
   source: HeadingSource | null = null;
   patWizard = false;
+  patPhase: 'north' | 'poses' = 'poses';
   patCapturing = false;
   patStep = 0;
   patError: string | null = null;
@@ -146,6 +152,8 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   patDbUser = '';
   patDbLoading = false;
   patSaving = false;
+  patSeriesDone = false;
+  patMixMode: PattoolCalMixMode = 'latest';
   readonly patPoses = PATTOOL_POSES;
 
   azimuthDeg: number | null = null;
@@ -222,7 +230,8 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   constructor(
     private readonly zone: NgZone,
     private readonly cdr: ChangeDetectorRef,
-    private readonly api: ApiService
+    private readonly api: ApiService,
+    private readonly translate: TranslateService
   ) {}
 
   ngAfterViewInit(): void {
@@ -400,14 +409,147 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     return !!this.patFile?.derived;
   }
 
+  patSeriesCount(): number {
+    return this.patFile?.seriesCount ?? 0;
+  }
+
+  setPatMixMode(mode: PattoolCalMixMode): void {
+    if (this.patMixMode === mode) {
+      return;
+    }
+    this.patMixMode = mode;
+    savePattoolCalMixMode(mode);
+    const samples = this.patFile?.samples ?? this.patSamples;
+    if (samples.length >= 4) {
+      this.commitPatCal(samples);
+    }
+    this.cdr.markForCheck();
+  }
+
+  patPoseDone(id: string): boolean {
+    return this.patSamples.some((s) => s.poseId === id);
+  }
+
+  patCardFor(az: number | null | undefined): string {
+    if (az == null || !Number.isFinite(az)) {
+      return '—';
+    }
+    const names = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+    return names[Math.round(normalizeDeg(az) / 45) % 8];
+  }
+
+  patAzDelta(): number | null {
+    const want = this.patPose().expectedAz;
+    const got = this.azInited ? this.displayedAz : this.azimuthDeg;
+    if (want == null || got == null) {
+      return null;
+    }
+    return circularDiff(got, want);
+  }
+
+  patElDelta(): number | null {
+    const got = this.elInited ? this.displayedEl : this.elevationDeg;
+    if (got == null) {
+      return null;
+    }
+    return got - this.patPose().expectedEl;
+  }
+
+  patAligned(): boolean {
+    const el = this.patElDelta();
+    if (el == null) {
+      return false;
+    }
+    const elTol = Math.abs(this.patPose().expectedEl) >= 80 ? 22 : 16;
+    if (Math.abs(el) > elTol) {
+      return false;
+    }
+    const az = this.patAzDelta();
+    return az == null || Math.abs(az) <= 22;
+  }
+
+  patCoachKey(): string {
+    if (!this.sensorsOn) {
+      return 'DIRECTION.PAT_COACH_SENSORS';
+    }
+    if (this.patPhase === 'north') {
+      return 'DIRECTION.PAT_COACH_NORTH';
+    }
+    if (this.patCapturing) {
+      return 'DIRECTION.PAT_HOLD';
+    }
+    if (this.patSaving) {
+      return 'DIRECTION.PAT_SAVING';
+    }
+    if (!this.patAligned()) {
+      const id = this.patPose().id;
+      if (id === 'tilt') {
+        return 'DIRECTION.PAT_COACH_ALIGN_TILT';
+      }
+      if (id === 'sky') {
+        return 'DIRECTION.PAT_COACH_ALIGN_SKY';
+      }
+      if (id === 'ground') {
+        return 'DIRECTION.PAT_COACH_ALIGN_GROUND';
+      }
+      return 'DIRECTION.PAT_COACH_ALIGN';
+    }
+    return 'DIRECTION.PAT_COACH_SAVE';
+  }
+
+  patProgressN(): number {
+    return this.patPhase === 'north' ? 1 : this.patStep + 2;
+  }
+
+  patProgressTotal(): number {
+    return this.patPoses.length + 1;
+  }
+
+  confirmPatNorth(): void {
+    if (this.magAzimuthDeg == null) {
+      this.patError = 'DIRECTION.PAT_FAIL';
+      this.cdr.markForCheck();
+      return;
+    }
+    this.confirmManualNorth();
+    this.patPhase = 'poses';
+    this.patStep = 0;
+    this.patError = null;
+    this.cdr.markForCheck();
+  }
+
+  patExpectParams(): { az: number; card: string; el: number } {
+    const pose = this.patPose();
+    return {
+      az: pose.expectedAz ?? 0,
+      card: this.patCardFor(pose.expectedAz),
+      el: pose.expectedEl
+    };
+  }
+
+  patLiveParams(): { az: string; card: string; el: string } {
+    const az = this.azInited ? this.displayedAz : this.azimuthDeg;
+    const el = this.elInited ? this.displayedEl : this.elevationDeg;
+    return {
+      az: az != null ? az.toFixed(0) : '—',
+      card: this.patCardFor(az),
+      el: el != null ? `${el >= 0 ? '+' : ''}${el.toFixed(0)}` : '—'
+    };
+  }
+
   startPatWizard(): void {
     if (!this.sensorsOn) {
       void this.enable();
     }
+    if (!this.camLive) {
+      void this.startCamera();
+    }
     this.cancelCalMethod();
     this.clearPatHold();
     this.patWizard = true;
+    this.patPhase = 'north';
     this.patCapturing = false;
+    this.patSeriesDone = false;
     this.patStep = 0;
     this.patSamples = [];
     this.patSessionId = DirectionComponent.newSessionId();
@@ -464,12 +606,50 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  importPatFile(ev: Event): void {
+    const input = ev.target as HTMLInputElement | null;
+    const file = input?.files?.[0];
+    if (!file) {
+      return;
+    }
+    this.patError = null;
+    void file.text().then((text) => {
+      try {
+        const snaps = snapshotsFromExport(JSON.parse(text) as unknown);
+        if (snaps.length < 4) {
+          this.patError = 'DIRECTION.PAT_IMPORT_FAIL';
+          this.cdr.markForCheck();
+          return;
+        }
+        this.patSamples = snaps;
+        this.commitPatCal(snaps);
+        if (!this.patFile) {
+          this.patError = 'DIRECTION.PAT_IMPORT_FAIL';
+        } else {
+          this.patSeriesDone = true;
+          this.patError = null;
+        }
+      } catch {
+        this.patError = 'DIRECTION.PAT_IMPORT_FAIL';
+      }
+      if (input) {
+        input.value = '';
+      }
+      this.cdr.markForCheck();
+    });
+  }
+
   clearPatDb(): void {
+    if (!window.confirm(this.translate.instant('DIRECTION.PAT_FORGET_CONFIRM'))) {
+      return;
+    }
+    this.patError = null;
     this.api.deleteDirectionPattoolSamples().subscribe({
       next: () => {
         this.patDbCount = 0;
         this.patFile = null;
         this.patSamples = [];
+        this.patSeriesDone = false;
         clearPattoolCal();
         this.fusion.reset();
         this.publish();
@@ -483,7 +663,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   }
 
   capturePatPose(): void {
-    if (!this.patWizard || this.patCapturing || this.patSaving) {
+    if (!this.patWizard || this.patPhase !== 'poses' || this.patCapturing || this.patSaving) {
       return;
     }
     this.patCapturing = true;
@@ -980,7 +1160,11 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     this.lookEast = att.lookEast;
     this.lookNorth = att.lookNorth;
     this.lookUp = att.lookUp;
-    this.elevationDeg = att.elevationDeg * (this.patFile?.derived.elSign ?? 1);
+    const cal = this.patFile?.derived;
+    const g = this.hasAccel ? cameraElevationFromGravity(this.accel) : null;
+    const fromQuat = att.elevationDeg * (cal?.elSign ?? 1);
+    const raw = cal?.elSource === 'attitude' ? fromQuat : (g ?? fromQuat);
+    this.elevationDeg = raw + (cal?.elOffsetDeg ?? 0);
     this.rollDeg = att.rollDeg;
     this.magAzimuthDeg = att.azimuthDeg;
     this.publish();
@@ -1038,12 +1222,18 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     }
     rows.push({ id: 'off', labelKey: 'DIRECTION.OFFSET', value: `${this.offsetDeg.toFixed(0)}°` });
     const pat = this.patFile?.derived;
+    const n = this.patSeriesCount();
+    const mix =
+      n > 1
+        ? ` · ${this.translate.instant(
+            this.patMixMode === 'average' ? 'DIRECTION.PAT_MIX_AVG' : 'DIRECTION.PAT_MIX_LATEST',
+            { n }
+          )}`
+        : '';
     rows.push({
       id: 'pat',
       labelKey: 'DIRECTION.PAT_TITLE',
-      value: pat
-        ? `${pat.family} · ${pat.azOffsetDeg}° · ${pat.meanErrDeg}°`
-        : '—'
+      value: pat ? `${pat.family} · ${pat.azOffsetDeg}° · ${pat.meanErrDeg}°${mix}` : '—'
     });
     if (this.lookEast != null) {
       rows.push({
@@ -1260,6 +1450,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
 
   private loadPatCal(): void {
     this.patFile = loadPattoolCal();
+    this.patMixMode = loadPattoolCalMixMode(this.patFile?.mixMode);
   }
 
   private refreshPatDbCount(): void {
@@ -1348,6 +1539,18 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
       this.cdr.markForCheck();
       return;
     }
+    const accel = averageVec(burst.accels);
+    const gEl = accel ? cameraElevationFromGravity(accel) : null;
+    if (gEl != null && Math.abs(gEl - pose.expectedEl) > 35) {
+      this.patError =
+        pose.expectedEl < -45
+          ? 'DIRECTION.PAT_POSE_NOT_GROUND'
+          : pose.expectedEl > 60
+            ? 'DIRECTION.PAT_POSE_NOT_SKY'
+            : 'DIRECTION.PAT_POSE_MISMATCH';
+      this.cdr.markForCheck();
+      return;
+    }
     const lastOri = burst.orients.length ? burst.orients[burst.orients.length - 1] : this.lastOrient;
     const sessionId = this.patSessionId ?? DirectionComponent.newSessionId();
     this.patSessionId = sessionId;
@@ -1360,7 +1563,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
       at: new Date().toISOString(),
       quat: averageQuat(burst.quats),
       mag: averageVec(burst.mags),
-      accel: averageVec(burst.accels),
+      accel,
       gyro: averageVec(burst.gyros),
       orient: lastOri,
       screenAngle: this.screenAngle(),
@@ -1436,19 +1639,20 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
       return;
     }
     this.patWizard = false;
-    this.commitPatCal(this.patSamples);
+    this.patSeriesDone = true;
+    this.commitPatCal(mergeCalSamples(this.patFile?.samples ?? [], this.patSamples));
     this.refreshPatDbCount();
     this.cdr.markForCheck();
   }
 
   private commitPatCal(samples: PattoolCalSnapshot[]): void {
     const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
-    const file = buildPattoolCalFile(samples, ua);
+    const file = persistPattoolCalFromSamples(samples, ua, this.patMixMode);
     if (!file) {
       return;
     }
     this.patFile = file;
-    savePattoolCal(file);
+    savePattoolCalMixMode(this.patMixMode);
     this.publish();
   }
 

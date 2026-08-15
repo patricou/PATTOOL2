@@ -3,14 +3,20 @@ import {
   cameraElevationFromBetaGamma,
   cameraElevationFromGravity,
   circularDiff,
+  circularMeanDeg,
   computeFinderTurnGuide,
+  displayedCameraFovDeg,
   projectCelestialToScreen,
-  uprightRollDeg
+  uprightRollDeg,
+  wrapSignedDeg
 } from './direction-attitude';
 import {
   derivePattoolCal,
+  derivePattoolCalMixed,
   sightingOffsetsFromLook,
   snapshotFromPayload,
+  snapshotsFromExport,
+  usableCalSeries,
   type PattoolCalSnapshot
 } from './direction-pattool-cal';
 
@@ -105,6 +111,112 @@ describe('camera look from AbsoluteOrientationSensor quaternion', () => {
     expect(derived!.cameraMinusZ).toBeTrue();
     expect(derived!.elSign).toBe(1);
     expect(derived!.meanErrDeg).toBeLessThan(20);
+    expect(derived!.elSource).toBe('attitude');
+  });
+
+  it('ignores a ground pose still aimed at the sky so elSign stays +1', () => {
+    const cardinalSky = [SAMPLES[10], SAMPLES[11], SAMPLES[12], SAMPLES[13], SAMPLES[14]];
+    const samples = [
+      ...cardinalSky.map((s) => snapshotFromPayload(s)),
+      snapshotFromPayload({
+        poseId: 'ground',
+        expectedAz: null,
+        expectedEl: -90,
+        quat: SAMPLES[14].quat,
+        accel: { x: -0.15, y: -0.11, z: -9.8 }
+      })
+    ];
+    const derived = derivePattoolCal(samples);
+    expect(derived).toBeTruthy();
+    expect(derived!.elSign).toBe(1);
+  });
+
+  it('prefers gravity elevation when accel matches the poses', () => {
+    const samples = snaps().map((s) =>
+      snapshotFromPayload({
+        poseId: s.poseId,
+        expectedAz: s.expectedAz,
+        expectedEl: s.expectedEl,
+        quat: s.quat,
+        accel:
+          s.poseId === 'sky'
+            ? { x: 0, y: 0, z: -9.81 }
+            : s.poseId === 'ground'
+              ? { x: 0, y: 0, z: 9.81 }
+              : { x: 0, y: 9.81, z: 0 }
+      })
+    );
+    const derived = derivePattoolCal(samples);
+    expect(derived!.elSource).toBe('gravity');
+    expect(Math.abs(derived!.elOffsetDeg ?? 0)).toBeLessThan(5);
+  });
+});
+
+describe('snapshotsFromExport', () => {
+  it('keeps every session from the file', () => {
+    const main = snaps().map((s) =>
+      snapshotFromPayload({
+        sessionId: 'sess-big',
+        poseId: s.poseId,
+        expectedAz: s.expectedAz,
+        expectedEl: s.expectedEl,
+        quat: s.quat
+      })
+    );
+    const stray = snapshotFromPayload({
+      sessionId: 'sess-tiny',
+      poseId: 'n',
+      expectedAz: 0,
+      expectedEl: 0,
+      quat: SAMPLES[0].quat
+    });
+    const out = snapshotsFromExport({ samples: [...main, stray] });
+    expect(out.length).toBe(main.length + 1);
+    expect(out.filter((s) => s.sessionId === 'sess-tiny').length).toBe(1);
+  });
+});
+
+describe('derivePattoolCalMixed', () => {
+  const seriesA = SAMPLES.slice(4, 10).map((s) =>
+    snapshotFromPayload({
+      ...s,
+      sessionId: 'a',
+      capturedAt: '2026-08-14T10:00:00.000Z'
+    })
+  );
+  const seriesB = SAMPLES.slice(10, 16).map((s) =>
+    snapshotFromPayload({
+      ...s,
+      sessionId: 'b',
+      capturedAt: '2026-08-14T12:00:00.000Z'
+    })
+  );
+  const stray = snapshotFromPayload({
+    sessionId: 'c',
+    poseId: 'n',
+    expectedAz: 0,
+    expectedEl: 0,
+    quat: SAMPLES[0].quat,
+    capturedAt: '2026-08-14T13:00:00.000Z'
+  });
+
+  it('counts two usable series and ignores a stray pose', () => {
+    expect(usableCalSeries([...seriesA, ...seriesB, stray]).length).toBe(2);
+  });
+
+  it('uses the later series in latest mode', () => {
+    const last = derivePattoolCal(seriesB)!;
+    const mixed = derivePattoolCalMixed([...seriesA, ...seriesB, stray], 'latest')!;
+    expect(mixed.azOffsetDeg).toBe(last.azOffsetDeg);
+    expect(mixed.elSign).toBe(last.elSign);
+  });
+
+  it('averages azimuth offsets of the usable series', () => {
+    const a = derivePattoolCal(seriesA)!;
+    const b = derivePattoolCal(seriesB)!;
+    const mixed = derivePattoolCalMixed([...seriesA, ...seriesB, stray], 'average')!;
+    const expectAvg = Math.round(wrapSignedDeg(circularMeanDeg([a.azOffsetDeg, b.azOffsetDeg])));
+    expect(mixed.azOffsetDeg).toBe(expectAvg);
   });
 });
 
@@ -130,6 +242,61 @@ describe('cameraElevationFromGravity / beta', () => {
     expect(horizon).toBeCloseTo(0, 0);
     expect(towardSky).toBeCloseTo(45, 0);
     expect(towardSky).toBeGreaterThan(horizon + 20);
+  });
+
+  it('drops from zenith to 45° when beta wraps past ±180 (the finder jump)', () => {
+    expect(cameraElevationFromBetaGamma(180, 0)).toBeCloseTo(90, 0);
+    expect(cameraElevationFromBetaGamma(-135, 0)).toBeCloseTo(45, 0);
+  });
+});
+
+describe('patricou 2026-08-15 capture', () => {
+  it('reads the horizon from gravity on the North pose', () => {
+    expect(cameraElevationFromGravity({ x: -0.275, y: 9.721, z: -1.037 })).toBeCloseTo(6, 0);
+  });
+
+  it('reads about 43° on the 45° tilt pose', () => {
+    expect(cameraElevationFromGravity({ x: -0.138, y: 7.209, z: -6.621 })).toBeCloseTo(43, 0);
+  });
+
+  it('agrees with gravity on the averaged zenith quaternion', () => {
+    expect(cameraElevationFromGravity({ x: -0.285, y: -0.374, z: -9.796 })).toBeGreaterThan(85);
+    const att = cameraFromEarthToDeviceQuat({
+      x: -0.5763392382602275,
+      y: 0.8169783651513143,
+      z: 0.010545444602493924,
+      w: 0.016377634580194124
+    });
+    expect(att).toBeTruthy();
+    expect(att!.elevationDeg).toBeGreaterThan(85);
+  });
+
+  it('shows the live HUD lagged at 77° while gravity was already ~87°', () => {
+    const liveEl =
+      (Math.atan2(0.9757316013270391, Math.hypot(0.16329343420647446, -0.14588727332028906)) * 180) /
+      Math.PI;
+    expect(liveEl).toBeCloseTo(77, 0);
+  });
+
+  it('detects the Ground pose was still aimed at the sky', () => {
+    const g = cameraElevationFromGravity({ x: -0.15, y: -0.11, z: -9.8 });
+    expect(g).toBeGreaterThan(80);
+    expect(Math.abs((g ?? 0) - -90)).toBeGreaterThan(35);
+  });
+});
+
+describe('displayedCameraFovDeg', () => {
+  it('uses the short side of a landscape stream as portrait VFOV after cover crop', () => {
+    const fov = displayedCameraFovDeg(1280, 720, 360, 640);
+    expect(fov.vfov).toBeLessThan(45);
+    expect(fov.vfov).toBeGreaterThan(32);
+    expect(fov.hfov).toBeLessThan(fov.vfov);
+  });
+
+  it('uses the sensor wide axis as VFOV when the video is already portrait', () => {
+    const fov = displayedCameraFovDeg(720, 1280, 360, 640);
+    expect(fov.vfov).toBeCloseTo(64, 0);
+    expect(fov.hfov).toBeLessThan(45);
   });
 });
 
@@ -159,6 +326,13 @@ describe('projectCelestialToScreen', () => {
     expect(p.inView).toBeTrue();
     expect(p.yPct).toBeGreaterThan(58);
     expect(p.xPct).toBeCloseTo(50, 0);
+  });
+
+  it('moves further below the reticle when the displayed VFOV is the 16:9 short side', () => {
+    const wide = projectCelestialToScreen(40, 58, 0, 40, 43, 38, 64);
+    const cover = projectCelestialToScreen(40, 58, 0, 40, 43, 22, 39);
+    expect(cover.yPct).toBeGreaterThan(wide.yPct + 8);
+    expect(cover.yPct).toBeGreaterThan(68);
   });
 
   it('puts the object above the reticle when the camera points below it', () => {

@@ -5284,6 +5284,11 @@
     "PAT_UNCAL": "עדיין אין תנוחות במסד הנתונים.",
     "PAT_DB": "{{count}} תנוחה/ות עבור {{name}}",
     "PAT_EXPORT": "ייצוא JSON",
+    "PAT_IMPORT": "ייבוא JSON",
+    "PAT_IMPORT_FAIL": "קובץ תנוחות לא קריא או חסר (דרושות לפחות 4 תנוחות).",
+    "PAT_MIX": "{{n}} series — which one should the viewfinder use?",
+    "PAT_MIX_LATEST": "Latest series",
+    "PAT_MIX_AVG": "Average of {{n}}",
     "PAT_LOADING": "קורא את מסד הנתונים…",
     "PAT_EMPTY": "אין תנוחות במסד הנתונים לחשבון זה. הקליטו בטלפון (אותו משתמש), ואז ייצאו כאן.",
     "PAT_SYNC_FAIL": "לא ניתן להגיע למסד הנתונים. היכנסו, ואז נסו שוב.",
@@ -5301,6 +5306,32 @@
     "PAT_SKY_TITLE": "מצלמה לכיוון השמיים",
     "PAT_SKY_HINT": "כוונו את המצלמה האחורית ישר לזניט (+90°).",
     "PAT_GROUND_TITLE": "מצלמה לכיוון הקרקע",
-    "PAT_GROUND_HINT": "כוונו את המצלמה האחורית ישר לקרקע (−90°)."
+    "PAT_GROUND_HINT": "כוונו את המצלמה האחורית ישר לקרקע (−90°).",
+    "PAT_HOW": "How to: 1) Enable sensors 2) Start the camera 3) New series 4) At each pose, align as shown (green banner) then Save while still 5) Export JSON and send the file.",
+    "PAT_EXPECT": "Target: azimuth {{az}}° ({{card}}) · elevation {{el}}°",
+    "PAT_EXPECT_EL": "Target: elevation {{el}}° (keep the same heading, change tilt only)",
+    "PAT_LIVE": "Your aim: {{az}}° {{card}} · elevation {{el}}°",
+    "PAT_ALIGNED": "Aligned — you can save",
+    "PAT_NOT_ALIGNED": "Not aligned yet — follow the instruction below",
+    "PAT_COACH_SENSORS": "First tap Enable sensors and camera at the top of the page.",
+    "PAT_COACH_ALIGN": "Phone upright, portrait, screen toward you. Aim at the horizon. Turn until azimuth is close to the target.",
+    "PAT_COACH_ALIGN_TILT": "Do not turn (same azimuth). Slowly tilt the top of the phone backward until elevation is about +45°.",
+    "PAT_COACH_ALIGN_SKY": "Keep tilting slowly backward until elevation is about +90° (zenith). Hold still 1 s even if the readout jumps.",
+    "PAT_COACH_ALIGN_GROUND": "Point the rear camera straight at the ground, under your feet, until elevation is about -90°.",
+    "PAT_COACH_SAVE": "Good. Hold still and tap Save.",
+    "PAT_DONE": "Series saved. The viewfinder uses these poses (azimuth, gravity, offset). Export the JSON to keep it, or import one later.",
+    "PAT_TILT_TITLE": "Camera 45° toward the sky",
+    "PAT_TILT_HINT": "Keep the same heading. From the horizon, slowly tilt the top of the phone backward until you aim about 45° above the horizon (halfway to zenith). This is where the object crosses below the reticle.",
+    "PAT_FORGET_CONFIRM": "Delete all sensor poses stored in the database for this account?",
+    "PAT_COACH_NORTH": "Point the rear camera North, phone upright, horizon. When the heading shows about 0 N, tap This is North.",
+    "PAT_NORTH_TITLE": "First: set North",
+    "PAT_NORTH_HINT": "Phone upright, aim at the horizon. Point the rear camera toward geographic North.",
+    "PAT_NORTH_SAVE": "This is North",
+    "PAT_POSE_MISMATCH": "The aim does not match this pose. Reposition the phone, then try again.",
+    "PAT_POSE_NOT_SKY": "The camera is not pointing at the zenith. Tilt until it aims straight overhead.",
+    "PAT_POSE_NOT_GROUND": "The camera is still pointing at the sky. For the ground: screen toward the sky, rear camera toward your feet."
+
+
+
   }
 }

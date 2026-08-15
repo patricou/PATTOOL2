@@ -454,6 +454,55 @@ export function computeFinderTurnGuide(
 
 const DEFAULT_HFOV_DEG = 62;
 const CENTER_SEP_DEG = 2.8;
+/** Grand côté du capteur / du flux — grand angle téléphone typique. */
+const SENSOR_WIDE_DEG = 64;
+
+function fovFromAspect(wideDeg: number, shortOverWide: number): number {
+  const half = (wideDeg * Math.PI) / 360;
+  return ((2 * Math.atan(Math.tan(half) * Math.max(0.05, shortOverWide))) * 180) / Math.PI;
+}
+
+function sliceFovDeg(fullDeg: number, visibleRatio: number): number {
+  return ((2 * Math.atan(Math.tan((fullDeg * Math.PI) / 360) * visibleRatio)) * 180) / Math.PI;
+}
+
+/**
+ * Champ réellement affiché dans le viseur (`object-fit: cover`).
+ * Un flux 16:9 en boîte portrait montre le petit côté de l’image en vertical
+ * (~38°), pas les ~64° du grand côté capteur — sinon l’astre descend à peine
+ * sous le réticule.
+ */
+export function displayedCameraFovDeg(
+  videoWidth: number,
+  videoHeight: number,
+  stageWidth: number,
+  stageHeight: number,
+  sensorWideDeg = SENSOR_WIDE_DEG
+): { hfov: number; vfov: number } {
+  const vw = videoWidth;
+  const vh = videoHeight;
+  const sw = stageWidth;
+  const sh = stageHeight;
+  if (vw > 1 && vh > 1) {
+    const videoHfov = vw >= vh ? sensorWideDeg : fovFromAspect(sensorWideDeg, vw / vh);
+    const videoVfov = vh >= vw ? sensorWideDeg : fovFromAspect(sensorWideDeg, vh / vw);
+    if (sw > 1 && sh > 1) {
+      const s = Math.max(sw / vw, sh / vh);
+      return {
+        hfov: sliceFovDeg(videoHfov, sw / s / vw),
+        vfov: sliceFovDeg(videoVfov, sh / s / vh)
+      };
+    }
+    return { hfov: videoHfov, vfov: videoVfov };
+  }
+  if (sw > 1 && sh > 1) {
+    if (sh >= sw) {
+      return { hfov: fovFromAspect(sensorWideDeg, sw / sh), vfov: sensorWideDeg };
+    }
+    return { hfov: sensorWideDeg, vfov: fovFromAspect(sensorWideDeg, sh / sw) };
+  }
+  return { hfov: sensorWideDeg * 0.75, vfov: sensorWideDeg };
+}
 
 /** Projette un azimut/élévation ciel sur l’image caméra (visée −Z). */
 export function projectCelestialToScreen(
@@ -474,9 +523,11 @@ export function projectCelestialToScreen(
   const yAng = dEl;
   const sepDeg = Math.hypot(xAng, yAng);
   const inFront = Math.abs(dAz) < 90 && camElDeg * tgtElDeg > -80;
-  const xPct = 50 + (xAng / (hfovDeg / 2)) * 50;
-  // CSS top : 0 = haut de l’image. Caméra au-dessus de l’astre (dEl < 0) → yPct > 50.
-  const yPct = 50 - (yAng / (vfov / 2)) * 50;
+  const halfH = (hfovDeg * Math.PI) / 360;
+  const halfV = (vfov * Math.PI) / 360;
+  const clampTan = (deg: number) => Math.tan((Math.max(-80, Math.min(80, deg)) * Math.PI) / 180);
+  const xPct = 50 + (clampTan(xAng) / Math.tan(halfH)) * 50;
+  const yPct = 50 - (clampTan(yAng) / Math.tan(halfV)) * 50;
   const inView =
     inFront && xPct >= 4 && xPct <= 96 && yPct >= 4 && yPct <= 96 && sepDeg < Math.max(hfovDeg, vfov) * 0.7;
   return {

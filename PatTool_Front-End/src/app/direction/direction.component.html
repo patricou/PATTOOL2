@@ -21,7 +21,7 @@
       {{ 'DIRECTION.CAM_STOP' | translate }}
     </button>
     <p class="dir-msg dir-msg--bad" *ngIf="camDenied">{{ 'DIRECTION.CAM_DENIED' | translate }}</p>
-    <label class="dir-toggle" *ngIf="sensorsOn && gpsKnown">
+    <label class="dir-toggle" *ngIf="sensorsOn && gpsKnown && !patWizard">
       <input type="checkbox" [checked]="trueNorth" (change)="toggleTrueNorth()" />
       {{ 'DIRECTION.TRUE_NORTH' | translate }}
     </label>
@@ -44,7 +44,7 @@
     </a>
   </div>
 
-  <div class="dir-stage" [attr.aria-label]="'DIRECTION.STAGE_ARIA' | translate">
+  <div class="dir-stage" [class.dir-stage--pat]="patWizard" [attr.aria-label]="'DIRECTION.STAGE_ARIA' | translate">
     <div class="dir-cam" #camStage [class.dir-cam--fs]="isFullscreen">
       <video #cam playsinline muted autoplay></video>
       <div class="dir-cam__empty" *ngIf="!camLive">{{ 'DIRECTION.CAM_PLACEHOLDER' | translate }}</div>
@@ -87,7 +87,7 @@
     </div>
 
     <aside class="dir-side">
-      <div class="dir-rose" [attr.aria-label]="'DIRECTION.ROSE_ARIA' | translate">
+      <div class="dir-rose" *ngIf="!patWizard" [attr.aria-label]="'DIRECTION.ROSE_ARIA' | translate">
         <div class="dir-rose__disk" [style.transform]="'rotate(' + roseDeg() + 'deg)'">
           <span class="dir-rose__n">N</span>
           <span class="dir-rose__e">E</span>
@@ -97,7 +97,58 @@
         <span class="dir-rose__aim" aria-hidden="true"></span>
       </div>
 
-      <label class="dir-offset">
+      <div
+        class="dir-pat-card"
+        *ngIf="patWizard"
+        [class.dir-pat-card--ok]="patPhase === 'poses' && patAligned() && !patCapturing && !patSaving">
+        <p class="dir-pat-card__step">
+          {{ 'DIRECTION.PAT_STEP' | translate : { n: patProgressN(), total: patProgressTotal() } }}
+        </p>
+        <p class="dir-pat-card__title">
+          {{ (patPhase === 'north' ? 'DIRECTION.PAT_NORTH_TITLE' : patPose().titleKey) | translate }}
+        </p>
+        <p class="dir-pat-card__hint">
+          {{ (patPhase === 'north' ? 'DIRECTION.PAT_NORTH_HINT' : patPose().hintKey) | translate }}
+        </p>
+        <p class="dir-pat-card__live">{{ 'DIRECTION.PAT_LIVE' | translate : patLiveParams() }}</p>
+        <ng-container *ngIf="patPhase === 'poses'">
+          <p class="dir-pat-card__expect" *ngIf="patPose().expectedAz != null">
+            {{ 'DIRECTION.PAT_EXPECT' | translate : patExpectParams() }}
+          </p>
+          <p class="dir-pat-card__expect" *ngIf="patPose().expectedAz == null">
+            {{ 'DIRECTION.PAT_EXPECT_EL' | translate : patExpectParams() }}
+          </p>
+          <p class="dir-pat-card__align">
+            {{ (patAligned() ? 'DIRECTION.PAT_ALIGNED' : 'DIRECTION.PAT_NOT_ALIGNED') | translate }}
+          </p>
+        </ng-container>
+        <p class="dir-pat-card__coach">{{ patCoachKey() | translate }}</p>
+        <p class="dir-pat-card__hold" *ngIf="patCapturing">{{ 'DIRECTION.PAT_HOLD' | translate }}</p>
+        <p class="dir-pat-card__hold" *ngIf="patSaving">{{ 'DIRECTION.PAT_SAVING' | translate }}</p>
+        <div class="dir-pat-card__btns">
+          <button
+            type="button"
+            class="dir-btn dir-btn--go"
+            *ngIf="patPhase === 'north'"
+            [disabled]="magAzimuthDeg == null"
+            (click)="confirmPatNorth()">
+            {{ 'DIRECTION.PAT_NORTH_SAVE' | translate }}
+          </button>
+          <button
+            type="button"
+            class="dir-btn dir-btn--go"
+            *ngIf="patPhase === 'poses'"
+            [disabled]="patCapturing || patSaving"
+            (click)="capturePatPose()">
+            {{ 'DIRECTION.PAT_SAVE' | translate }}
+          </button>
+          <button type="button" class="dir-btn" [disabled]="patCapturing || patSaving" (click)="cancelPatWizard()">
+            {{ 'DIRECTION.CAL_CANCEL' | translate }}
+          </button>
+        </div>
+      </div>
+
+      <label class="dir-offset" *ngIf="!patWizard">
         <span>{{ 'DIRECTION.OFFSET' | translate }} ({{ offsetDeg }}°)</span>
         <input
           type="range"
@@ -119,95 +170,168 @@
           <button type="button" class="dir-btn dir-btn--tiny" (click)="nudgeOffset(15)">+15°</button>
         </div>
       </label>
-
-      <div class="dir-cal" *ngIf="sensorsOn">
-        <p class="dir-cal__title">{{ 'DIRECTION.CAL_CHOOSE' | translate }}</p>
-        <div class="dir-cal__methods">
-          <button type="button" class="dir-btn" [class.dir-btn--on]="calMethod === 'figure8'" [disabled]="!magKnown" (click)="chooseCal('figure8')">
-            <i class="fa fa-magnet me-1" aria-hidden="true"></i>{{ 'DIRECTION.CAL_METHOD_AUTO' | translate }}
-          </button>
-          <button type="button" class="dir-btn" [class.dir-btn--on]="calMethod === 'manual'" (click)="chooseCal('manual')">
-            <i class="fa fa-compass me-1" aria-hidden="true"></i>{{ 'DIRECTION.CAL_METHOD_MANUAL' | translate }}
-          </button>
-          <button type="button" class="dir-btn" [class.dir-btn--on]="calMethod === 'gps'" [disabled]="!gpsKnown" (click)="chooseCal('gps')">
-            <i class="fa fa-location-arrow me-1" aria-hidden="true"></i>{{ 'DIRECTION.CAL_METHOD_GPS' | translate }}
-          </button>
-          <button
-            type="button"
-            class="dir-btn"
-            [class.dir-btn--on]="calMethod === 'sun'"
-            [disabled]="sunAzimuthDeg() == null"
-            [attr.title]="sunBelowHorizon() ? ('DIRECTION.CAL_SUN_NIGHT' | translate) : null"
-            (click)="chooseCal('sun')">
-            <i class="fa fa-sun-o me-1" aria-hidden="true"></i>{{ 'DIRECTION.CAL_METHOD_SUN' | translate }}
-          </button>
-        </div>
-        <p class="dir-msg" *ngIf="sunBelowHorizon()">{{ 'DIRECTION.CAL_SUN_NIGHT' | translate }}</p>
-
-        <ng-container *ngIf="calMethod === 'figure8' || (!calMethod && magKnown)">
-          <p *ngIf="!calibrating && !hardIronReady()">{{ 'DIRECTION.CAL_HINT' | translate }}</p>
-          <p *ngIf="calibrating">{{ 'DIRECTION.CAL_MOVE' | translate }} — {{ calPct }}%</p>
-          <p *ngIf="!calibrating && hardIronReady()">{{ 'DIRECTION.CAL_OK' | translate }}</p>
-          <div class="dir-cal__bar" *ngIf="calibrating"><i [style.width.%]="calPct"></i></div>
-          <div class="dir-cal__btns">
-            <button type="button" class="dir-btn dir-btn--go" [disabled]="!magKnown" (click)="startCal()">
-              {{ 'DIRECTION.CAL_START' | translate }}
-            </button>
-            <button type="button" class="dir-btn" [disabled]="!hardIronReady()" (click)="forgetCal()">
-              {{ 'DIRECTION.CAL_RESET' | translate }}
-            </button>
-          </div>
-        </ng-container>
-
-        <div class="dir-cal__panel" *ngIf="calMethod === 'manual'">
-          <ol>
-            <li>{{ 'DIRECTION.CAL_MANUAL_STEP1' | translate }}</li>
-            <li>{{ 'DIRECTION.CAL_MANUAL_STEP2' | translate }}</li>
-            <li>{{ 'DIRECTION.CAL_MANUAL_STEP3' | translate }}</li>
-          </ol>
-          <div class="dir-cal__btns">
-            <button type="button" class="dir-btn dir-btn--go" [disabled]="magAzimuthDeg == null" (click)="confirmManualNorth()">
-              {{ 'DIRECTION.CAL_MANUAL_CONFIRM' | translate }}
-            </button>
-            <button type="button" class="dir-btn" (click)="cancelCalMethod()">{{ 'DIRECTION.CAL_CANCEL' | translate }}</button>
-          </div>
-        </div>
-
-        <div class="dir-cal__panel" *ngIf="calMethod === 'gps'">
-          <ol>
-            <li>{{ 'DIRECTION.CAL_GPS_STEP1' | translate }}</li>
-            <li>{{ 'DIRECTION.CAL_GPS_STEP2' | translate }}</li>
-            <li>{{ 'DIRECTION.CAL_GPS_STEP3' | translate }}</li>
-          </ol>
-          <p *ngIf="walkingFastEnough()">{{ 'DIRECTION.CAL_MOVING_OK' | translate }}</p>
-          <p *ngIf="!walkingFastEnough()">{{ 'DIRECTION.CAL_MOVE_MORE' | translate }}</p>
-          <div class="dir-cal__bar"><i [style.width.%]="(calSamples / calNeededSamples) * 100"></i></div>
-          <p>{{ calSamples }} / {{ calNeededSamples }}</p>
-          <button type="button" class="dir-btn" (click)="cancelCalMethod()">{{ 'DIRECTION.CAL_CANCEL' | translate }}</button>
-        </div>
-
-        <div class="dir-cal__panel" *ngIf="calMethod === 'sun'">
-          <ol>
-            <li>{{ 'DIRECTION.CAL_SUN_STEP1' | translate }}</li>
-            <li>{{ 'DIRECTION.CAL_SUN_STEP2' | translate }}</li>
-            <li>{{ 'DIRECTION.CAL_SUN_STEP3' | translate }}</li>
-          </ol>
-          <p *ngIf="sunAzimuthDeg() as sunAz">
-            {{ 'DIRECTION.CAL_SUN_AZIMUTH' | translate }} : {{ sunAz | number : '1.0-0' }}°
-            <span *ngIf="sunElevationDeg() != null">
-              · {{ 'DIRECTION.CAL_SUN_ELEVATION' | translate }} : {{ sunElevationDeg() | number : '1.0-0' }}°
-            </span>
-          </p>
-          <div class="dir-cal__btns">
-            <button type="button" class="dir-btn dir-btn--go" [disabled]="sunAzimuthDeg() == null || magAzimuthDeg == null" (click)="confirmSunNorth()">
-              {{ 'DIRECTION.CAL_SUN_CONFIRM' | translate }}
-            </button>
-            <button type="button" class="dir-btn" (click)="cancelCalMethod()">{{ 'DIRECTION.CAL_CANCEL' | translate }}</button>
-          </div>
-        </div>
-      </div>
     </aside>
   </div>
+
+  <section class="dir-cal" *ngIf="!patWizard" [attr.aria-label]="'DIRECTION.CAL_CHOOSE' | translate">
+    <p class="dir-cal__title">{{ 'DIRECTION.CAL_CHOOSE' | translate }}</p>
+    <p class="dir-cal__help">{{ 'DIRECTION.CAL_NORTH_HELP' | translate }}</p>
+    <div class="dir-cal__methods">
+      <button type="button" class="dir-btn" [class.dir-btn--on]="calMethod === 'figure8'" [disabled]="!magKnown" (click)="chooseCal('figure8')" [attr.title]="'DIRECTION.CAL_METHOD_AUTO_HINT' | translate">
+        <i class="fa fa-magnet me-1" aria-hidden="true"></i>{{ 'DIRECTION.CAL_METHOD_AUTO' | translate }}
+      </button>
+      <button type="button" class="dir-btn" [class.dir-btn--on]="calMethod === 'manual'" (click)="chooseCal('manual')" [attr.title]="'DIRECTION.CAL_METHOD_MANUAL_HINT' | translate">
+        <i class="fa fa-compass me-1" aria-hidden="true"></i>{{ 'DIRECTION.CAL_METHOD_MANUAL' | translate }}
+      </button>
+      <button type="button" class="dir-btn" [class.dir-btn--on]="calMethod === 'gps'" [disabled]="!gpsKnown" (click)="chooseCal('gps')" [attr.title]="'DIRECTION.CAL_METHOD_GPS_HINT' | translate">
+        <i class="fa fa-location-arrow me-1" aria-hidden="true"></i>{{ 'DIRECTION.CAL_METHOD_GPS' | translate }}
+      </button>
+      <button
+        type="button"
+        class="dir-btn"
+        [class.dir-btn--on]="calMethod === 'sun'"
+        [disabled]="sunAzimuthDeg() == null"
+        [attr.title]="sunBelowHorizon() ? ('DIRECTION.CAL_SUN_NIGHT' | translate) : ('DIRECTION.CAL_METHOD_SUN_HINT' | translate)"
+        (click)="chooseCal('sun')">
+        <i class="fa fa-sun-o me-1" aria-hidden="true"></i>{{ 'DIRECTION.CAL_METHOD_SUN' | translate }}
+      </button>
+    </div>
+    <p class="dir-msg" *ngIf="sunBelowHorizon()">{{ 'DIRECTION.CAL_SUN_NIGHT' | translate }}</p>
+
+    <ng-container *ngIf="calMethod === 'figure8' || (!calMethod && magKnown)">
+      <p *ngIf="!calibrating && !hardIronReady()">{{ 'DIRECTION.CAL_HINT' | translate }}</p>
+      <p *ngIf="calibrating">{{ 'DIRECTION.CAL_MOVE' | translate }} — {{ calPct }}%</p>
+      <p *ngIf="!calibrating && hardIronReady()">{{ 'DIRECTION.CAL_OK' | translate }}</p>
+      <div class="dir-cal__bar" *ngIf="calibrating"><i [style.width.%]="calPct"></i></div>
+      <div class="dir-cal__btns">
+        <button type="button" class="dir-btn dir-btn--go" [disabled]="!magKnown" (click)="startCal()">
+          {{ 'DIRECTION.CAL_START' | translate }}
+        </button>
+        <button type="button" class="dir-btn" [disabled]="!hardIronReady()" (click)="forgetCal()">
+          {{ 'DIRECTION.CAL_RESET' | translate }}
+        </button>
+      </div>
+    </ng-container>
+
+    <div class="dir-cal__panel" *ngIf="calMethod === 'manual'">
+      <ol>
+        <li>{{ 'DIRECTION.CAL_MANUAL_STEP1' | translate }}</li>
+        <li>{{ 'DIRECTION.CAL_MANUAL_STEP2' | translate }}</li>
+        <li>{{ 'DIRECTION.CAL_MANUAL_STEP3' | translate }}</li>
+      </ol>
+      <div class="dir-cal__btns">
+        <button type="button" class="dir-btn dir-btn--go" [disabled]="magAzimuthDeg == null" (click)="confirmManualNorth()">
+          {{ 'DIRECTION.CAL_MANUAL_CONFIRM' | translate }}
+        </button>
+        <button type="button" class="dir-btn" (click)="cancelCalMethod()">{{ 'DIRECTION.CAL_CANCEL' | translate }}</button>
+      </div>
+    </div>
+
+    <div class="dir-cal__panel" *ngIf="calMethod === 'gps'">
+      <ol>
+        <li>{{ 'DIRECTION.CAL_GPS_STEP1' | translate }}</li>
+        <li>{{ 'DIRECTION.CAL_GPS_STEP2' | translate }}</li>
+        <li>{{ 'DIRECTION.CAL_GPS_STEP3' | translate }}</li>
+      </ol>
+      <p *ngIf="walkingFastEnough()">{{ 'DIRECTION.CAL_MOVING_OK' | translate }}</p>
+      <p *ngIf="!walkingFastEnough()">{{ 'DIRECTION.CAL_MOVE_MORE' | translate }}</p>
+      <div class="dir-cal__bar"><i [style.width.%]="(calSamples / calNeededSamples) * 100"></i></div>
+      <p>{{ calSamples }} / {{ calNeededSamples }}</p>
+      <button type="button" class="dir-btn" (click)="cancelCalMethod()">{{ 'DIRECTION.CAL_CANCEL' | translate }}</button>
+    </div>
+
+    <div class="dir-cal__panel" *ngIf="calMethod === 'sun'">
+      <ol>
+        <li>{{ 'DIRECTION.CAL_SUN_STEP1' | translate }}</li>
+        <li>{{ 'DIRECTION.CAL_SUN_STEP2' | translate }}</li>
+        <li>{{ 'DIRECTION.CAL_SUN_STEP3' | translate }}</li>
+      </ol>
+      <p *ngIf="sunAzimuthDeg() as sunAz">
+        {{ 'DIRECTION.CAL_SUN_AZIMUTH' | translate }} : {{ sunAz | number : '1.0-0' }}°
+        <span *ngIf="sunElevationDeg() != null">
+          · {{ 'DIRECTION.CAL_SUN_ELEVATION' | translate }} : {{ sunElevationDeg() | number : '1.0-0' }}°
+        </span>
+      </p>
+      <div class="dir-cal__btns">
+        <button type="button" class="dir-btn dir-btn--go" [disabled]="sunAzimuthDeg() == null || magAzimuthDeg == null" (click)="confirmSunNorth()">
+          {{ 'DIRECTION.CAL_SUN_CONFIRM' | translate }}
+        </button>
+        <button type="button" class="dir-btn" (click)="cancelCalMethod()">{{ 'DIRECTION.CAL_CANCEL' | translate }}</button>
+      </div>
+    </div>
+
+    <p class="dir-cal__title dir-cal__title--gap">{{ 'DIRECTION.PAT_TITLE' | translate }}</p>
+    <p class="dir-cal__help">{{ 'DIRECTION.PAT_VISOR_HELP' | translate }}</p>
+    <p class="dir-pat__status">
+      {{ 'DIRECTION.PAT_DB' | translate : { count: patDbCount, name: patDbUser || '—' } }}
+    </p>
+    <div class="dir-pat__mix" *ngIf="patSeriesCount() > 1">
+      <p class="dir-pat__status">{{ 'DIRECTION.PAT_MIX' | translate : { n: patSeriesCount() } }}</p>
+      <div class="dir-cal__methods">
+        <button
+          type="button"
+          class="dir-btn"
+          [class.dir-btn--on]="patMixMode === 'latest'"
+          (click)="setPatMixMode('latest')"
+          [attr.title]="'DIRECTION.PAT_MIX_LATEST_HINT' | translate">
+          {{ 'DIRECTION.PAT_MIX_LATEST' | translate }}
+        </button>
+        <button
+          type="button"
+          class="dir-btn"
+          [class.dir-btn--on]="patMixMode === 'average'"
+          (click)="setPatMixMode('average')"
+          [attr.title]="'DIRECTION.PAT_MIX_AVG_HINT' | translate : { n: patSeriesCount() }">
+          {{ 'DIRECTION.PAT_MIX_AVG' | translate : { n: patSeriesCount() } }}
+        </button>
+      </div>
+    </div>
+    <p class="dir-pat__status" *ngIf="patDbLoading">{{ 'DIRECTION.PAT_LOADING' | translate }}</p>
+    <p class="dir-msg dir-msg--ok" *ngIf="patSeriesDone">{{ 'DIRECTION.PAT_DONE' | translate }}</p>
+    <p class="dir-msg dir-msg--bad" *ngIf="patError">{{ patError | translate }}</p>
+    <div class="dir-cal__methods">
+      <button
+        type="button"
+        class="dir-btn dir-btn--go"
+        [disabled]="!sensorsOn"
+        (click)="startPatWizard()"
+        [attr.title]="'DIRECTION.PAT_START_HINT' | translate">
+        {{ (patDbCount > 0 ? 'DIRECTION.PAT_RECAL' : 'DIRECTION.PAT_START') | translate }}
+      </button>
+      <button
+        type="button"
+        class="dir-btn"
+        (click)="exportPatDb()"
+        [disabled]="patDbLoading"
+        [attr.title]="'DIRECTION.PAT_EXPORT_HINT' | translate">
+        {{ 'DIRECTION.PAT_EXPORT' | translate }}
+      </button>
+      <label class="dir-btn" [attr.title]="'DIRECTION.PAT_IMPORT_HINT' | translate">
+        {{ 'DIRECTION.PAT_IMPORT' | translate }}
+        <input type="file" accept="application/json,.json" (change)="importPatFile($event)" />
+      </label>
+      <button
+        type="button"
+        class="dir-btn dir-btn--danger"
+        (click)="clearPatDb()"
+        [disabled]="patDbLoading"
+        [attr.title]="'DIRECTION.PAT_FORGET_HINT' | translate">
+        {{ 'DIRECTION.PAT_FORGET' | translate }}
+      </button>
+    </div>
+    <ol class="dir-pat__list">
+      <li>
+        <span class="dir-pat__n">1</span>
+        <span><strong>{{ 'DIRECTION.PAT_NORTH_TITLE' | translate }}</strong></span>
+      </li>
+      <li *ngFor="let pose of patPoses; let i = index" [class.dir-pat__li--done]="patPoseDone(pose.id)">
+        <span class="dir-pat__n">{{ i + 2 }}</span>
+        <span>
+          <strong>{{ pose.titleKey | translate }}</strong>
+        </span>
+      </li>
+    </ol>
+  </section>
 
   <section
     class="dir-dash"

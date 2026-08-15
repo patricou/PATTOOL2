@@ -57,7 +57,12 @@ import { CompassNorthEngine } from '../shared/compass-north.engine';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { CameraLookTracker } from '../direction/camera-look-tracker';
 import {
+  persistPattoolCalFromSamples,
+  snapshotFromPayload
+} from '../direction/direction-pattool-cal';
+import {
   computeFinderTurnGuide,
+  displayedCameraFovDeg,
   projectCelestialToScreen,
   type FinderTurnGuide,
   type ScreenProjection
@@ -594,6 +599,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.onStarQueryChange();
     this.loadAlignCuePref();
     this.startGeolocation();
+    this.hydratePattoolCalFromDb();
     void this.lookTracker.start(false).then(() => {
       if (this.lookTracker.sensorsOn) {
         void this.startCamera();
@@ -645,6 +651,24 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   get finderDenied(): boolean {
     return this.lookTracker.denied;
+  }
+
+  /** Recharge les poses du compte : pas besoin de refaire les 7 visées sur ce téléphone. */
+  private hydratePattoolCalFromDb(): void {
+    this.api.getDirectionPattoolSamples().subscribe({
+      next: (res) => {
+        const snaps = (res.samples ?? []).map((s) => snapshotFromPayload(s));
+        if (snaps.length >= 4) {
+          persistPattoolCalFromSamples(
+            snaps,
+            typeof navigator !== 'undefined' ? navigator.userAgent : ''
+          );
+        }
+      },
+      error: () => {
+        /* hors-ligne ou non connecté : le calibrage local reste */
+      }
+    });
   }
 
   async enableFinder(): Promise<void> {
@@ -994,23 +1018,15 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.finderGuide = null;
       return;
     }
-    const video = this.camEl?.nativeElement;
-    const stage = this.camStage?.nativeElement;
-    let vfov: number | undefined;
-    const dispW = stage?.clientWidth || video?.clientWidth || 0;
-    const dispH = stage?.clientHeight || video?.clientHeight || 0;
-    if (dispW > 0 && dispH > 0) {
-      const hfov = 62;
-      vfov = ((2 * Math.atan(Math.tan((hfov * Math.PI) / 360) / (dispW / dispH))) * 180) / Math.PI;
-    }
+    const fov = this.finderFovDeg();
     this.finderProj = projectCelestialToScreen(
       camAz,
       camEl,
       0,
       this.azimuthDeg,
       this.elevationDeg,
-      62,
-      vfov
+      fov.hfov,
+      fov.vfov
     );
     this.finderGuide = computeFinderTurnGuide(
       camAz,
@@ -1018,6 +1034,21 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.azimuthDeg,
       this.elevationDeg,
       this.finderProj
+    );
+  }
+
+  /**
+   * Portrait + flux 16:9 en `cover` : le vertical affiché est le petit côté
+   * de la vidéo (~38°), pas 64°. Sinon l’astre stagne sous le réticule.
+   */
+  private finderFovDeg(): { hfov: number; vfov: number } {
+    const video = this.camEl?.nativeElement;
+    const stage = this.camStage?.nativeElement;
+    return displayedCameraFovDeg(
+      video?.videoWidth || 0,
+      video?.videoHeight || 0,
+      stage?.clientWidth || video?.clientWidth || 0,
+      stage?.clientHeight || video?.clientHeight || 0
     );
   }
 
