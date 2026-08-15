@@ -262,6 +262,38 @@ export function cameraFromEarthToDeviceQuat(q: Quat, opt?: AttitudeOptions): Cam
 }
 
 /**
+ * Élévation de la caméra arrière depuis la gravité (accéléro au repos).
+ * Écran vers le ciel → −90° (nadir). Écran vers le sol / visée zénith → +90°.
+ * Ne dépend pas du quaternion (souvent inversé près du zénith).
+ */
+export function cameraElevationFromGravity(accel: Vec3): number | null {
+  const n = hypot3(accel);
+  if (n < 2) {
+    return null;
+  }
+  const inv = 1 / n;
+  return (Math.atan2(-accel.z * inv, Math.hypot(accel.x, accel.y) * inv) * 180) / Math.PI;
+}
+
+/**
+ * Élévation caméra arrière depuis DeviceOrientation beta/gamma (alpha ignoré).
+ * Téléphone vertical → ~0°. Incliné vers le zénith (caméra vers le ciel) → positif.
+ */
+export function cameraElevationFromBetaGamma(betaDeg: number, gammaDeg: number): number {
+  const b = (betaDeg * Math.PI) / 180;
+  const g = (gammaDeg * Math.PI) / 180;
+  const sb = Math.sin(b);
+  const cb = Math.cos(b);
+  const cg = Math.cos(g);
+  const sg = Math.sin(g);
+  const lookEast = -sg;
+  const lookNorth = cg * sb;
+  const lookUp = -cb * cg;
+  const lookH = Math.hypot(lookEast, lookNorth);
+  return (Math.atan2(lookUp, Math.max(lookH, 1e-6)) * 180) / Math.PI;
+}
+
+/**
  * DeviceOrientation W3C → même pipeline caméra Android.
  */
 export function cameraFromDeviceOrientation(
@@ -427,7 +459,7 @@ const CENTER_SEP_DEG = 2.8;
 export function projectCelestialToScreen(
   camAzDeg: number,
   camElDeg: number,
-  camRollDeg: number,
+  _camRollDeg: number,
   tgtAzDeg: number,
   tgtElDeg: number,
   hfovDeg = DEFAULT_HFOV_DEG,
@@ -438,16 +470,12 @@ export function projectCelestialToScreen(
   const dAz = circularDiff(tgtAzDeg, camAzDeg);
   const dEl = tgtElDeg - camElDeg;
   const cosEl = Math.cos((camElDeg * Math.PI) / 180);
-  const xAng0 = dAz * Math.max(0.15, cosEl);
-  const yAng0 = dEl;
-  const rr = (uprightRollDeg(camRollDeg) * Math.PI) / 180;
-  const cr = Math.cos(rr);
-  const sr = Math.sin(rr);
-  const xAng = xAng0 * cr - yAng0 * sr;
-  const yAng = xAng0 * sr + yAng0 * cr;
-  const sepDeg = Math.hypot(xAng0, yAng0);
+  const xAng = dAz * Math.max(0.15, cosEl);
+  const yAng = dEl;
+  const sepDeg = Math.hypot(xAng, yAng);
   const inFront = Math.abs(dAz) < 90 && camElDeg * tgtElDeg > -80;
   const xPct = 50 + (xAng / (hfovDeg / 2)) * 50;
+  // CSS top : 0 = haut de l’image. Caméra au-dessus de l’astre (dEl < 0) → yPct > 50.
   const yPct = 50 - (yAng / (vfov / 2)) * 50;
   const inView =
     inFront && xPct >= 4 && xPct <= 96 && yPct >= 4 && yPct <= 96 && sepDeg < Math.max(hfovDeg, vfov) * 0.7;

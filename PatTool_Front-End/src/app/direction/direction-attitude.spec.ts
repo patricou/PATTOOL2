@@ -1,5 +1,7 @@
 import {
   cameraFromEarthToDeviceQuat,
+  cameraElevationFromBetaGamma,
+  cameraElevationFromGravity,
   circularDiff,
   computeFinderTurnGuide,
   projectCelestialToScreen,
@@ -103,6 +105,31 @@ describe('camera look from AbsoluteOrientationSensor quaternion', () => {
     expect(derived!.cameraMinusZ).toBeTrue();
     expect(derived!.elSign).toBe(1);
     expect(derived!.meanErrDeg).toBeLessThan(20);
+  });
+});
+
+describe('cameraElevationFromGravity / beta', () => {
+  it('is nadir when the screen faces the sky', () => {
+    expect(cameraElevationFromGravity({ x: 0, y: 0, z: 9.81 })).toBeCloseTo(-90, 0);
+    expect(cameraElevationFromBetaGamma(0, 0)).toBeCloseTo(-90, 0);
+  });
+
+  it('is horizon when the phone is upright', () => {
+    expect(cameraElevationFromGravity({ x: 0, y: 9.81, z: 0 })).toBeCloseTo(0, 0);
+    expect(cameraElevationFromBetaGamma(90, 0)).toBeCloseTo(0, 0);
+  });
+
+  it('is zenith when the rear camera faces the sky', () => {
+    expect(cameraElevationFromGravity({ x: 0, y: 0, z: -9.81 })).toBeCloseTo(90, 0);
+    expect(cameraElevationFromBetaGamma(180, 0)).toBeCloseTo(90, 0);
+  });
+
+  it('rises when tilting from the horizon toward the zenith', () => {
+    const horizon = cameraElevationFromBetaGamma(90, 0);
+    const towardSky = cameraElevationFromBetaGamma(135, 0);
+    expect(horizon).toBeCloseTo(0, 0);
+    expect(towardSky).toBeCloseTo(45, 0);
+    expect(towardSky).toBeGreaterThan(horizon + 20);
   });
 });
 

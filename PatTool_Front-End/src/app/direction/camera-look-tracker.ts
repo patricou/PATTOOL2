@@ -4,6 +4,8 @@ import {
   CameraAttitude,
   GyroMagComplementary,
   Vec3,
+  cameraElevationFromBetaGamma,
+  cameraElevationFromGravity,
   cameraFromDeviceOrientation,
   cameraFromEarthToDeviceQuat,
   cameraFromMagAccel,
@@ -68,6 +70,8 @@ export class CameraLookTracker {
   private gyroFromGeneric = false;
   private magAzimuthDeg: number | null = null;
   private rawElevationDeg: number | null = null;
+  private lastBetaDeg: number | null = null;
+  private lastGammaDeg: number | null = null;
   private generics: GenericSensor[] = [];
   private orientName: 'deviceorientationabsolute' | 'deviceorientation' | null = null;
   private fusion = new GyroMagComplementary();
@@ -306,7 +310,18 @@ export class CameraLookTracker {
   }
 
   private handleOrient(e: DeviceOrientationEvent): void {
-    if (this.hasRotationVector || this.hasMag) {
+    if (Number.isFinite(e.beta as number)) {
+      this.lastBetaDeg = e.beta as number;
+    }
+    if (Number.isFinite(e.gamma as number)) {
+      this.lastGammaDeg = e.gamma as number;
+    }
+    if (this.hasRotationVector) {
+      this.applyTiltElevation();
+      return;
+    }
+    if (this.hasMag) {
+      this.applyTiltElevation();
       return;
     }
     const anyE = e as DeviceOrientationEvent & { webkitCompassHeading?: number };
@@ -354,6 +369,10 @@ export class CameraLookTracker {
       z: this.accel.z * (1 - a) + v.z * a
     };
     this.hasAccel = true;
+    if (this.hasRotationVector) {
+      this.applyTiltElevation();
+      return;
+    }
     this.fuse();
   }
 
@@ -382,9 +401,34 @@ export class CameraLookTracker {
       return;
     }
     this.source = src;
-    this.rawElevationDeg = att.elevationDeg * (loadPattoolCal()?.derived.elSign ?? 1);
     this.rollDeg = att.rollDeg;
     this.magAzimuthDeg = att.azimuthDeg;
+    const tiltEl = this.tiltElevationDeg();
+    this.rawElevationDeg =
+      tiltEl != null ? tiltEl : att.elevationDeg * (loadPattoolCal()?.derived.elSign ?? 1);
+    this.publish();
+  }
+
+  /**
+   * Haut / bas du viseur : gravité ou beta, pas le look.z du quaternion
+   * (celui-ci passe à −90° près du zénith et bloque l’astre au-dessus du centre).
+   */
+  private tiltElevationDeg(): number | null {
+    if (this.lastBetaDeg != null) {
+      return cameraElevationFromBetaGamma(this.lastBetaDeg, this.lastGammaDeg ?? 0);
+    }
+    if (this.hasAccel) {
+      return cameraElevationFromGravity(this.accel);
+    }
+    return null;
+  }
+
+  private applyTiltElevation(): void {
+    const el = this.tiltElevationDeg();
+    if (el == null || this.magAzimuthDeg == null) {
+      return;
+    }
+    this.rawElevationDeg = el;
     this.publish();
   }
 

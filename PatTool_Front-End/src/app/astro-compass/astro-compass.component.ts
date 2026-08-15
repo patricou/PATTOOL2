@@ -989,22 +989,24 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     const camAz = this.lookTracker.azimuthDeg;
     const camEl = this.lookTracker.elevationDeg;
-    const camRl = this.lookTracker.rollDeg ?? 0;
     if (camAz == null || camEl == null || this.azimuthDeg == null || this.elevationDeg == null) {
       this.finderProj = null;
       this.finderGuide = null;
       return;
     }
     const video = this.camEl?.nativeElement;
+    const stage = this.camStage?.nativeElement;
     let vfov: number | undefined;
-    if (video && video.videoWidth > 0 && video.videoHeight > 0) {
+    const dispW = stage?.clientWidth || video?.clientWidth || 0;
+    const dispH = stage?.clientHeight || video?.clientHeight || 0;
+    if (dispW > 0 && dispH > 0) {
       const hfov = 62;
-      vfov = ((2 * Math.atan(Math.tan((hfov * Math.PI) / 360) / (video.videoWidth / video.videoHeight))) * 180) / Math.PI;
+      vfov = ((2 * Math.atan(Math.tan((hfov * Math.PI) / 360) / (dispW / dispH))) * 180) / Math.PI;
     }
     this.finderProj = projectCelestialToScreen(
       camAz,
       camEl,
-      camRl,
+      0,
       this.azimuthDeg,
       this.elevationDeg,
       62,

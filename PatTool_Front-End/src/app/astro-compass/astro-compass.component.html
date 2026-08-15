@@ -125,17 +125,18 @@
                 </div>
               </div>
               <button
-                *ngIf="finderProj?.inView || finderPoseFrozen"
+                *ngIf="finderProj?.inFront || finderProj?.inView || finderPoseFrozen"
                 type="button"
                 class="ac-finder__obj"
                 [class.ac-finder__obj--locked]="finderProj?.centered && !finderPoseFrozen"
                 [class.ac-finder__obj--posed]="finderPoseFrozen"
-                [style.left.%]="finderProj?.xPct"
-                [style.top.%]="finderProj?.yPct"
+                [ngStyle]="{ left: (finderProj?.xPct ?? 50) + '%', top: (finderProj?.yPct ?? 50) + '%' }"
                 [style.color]="bodyColor"
                 [attr.title]="bodyLabel">
-                <i *ngIf="bodyIconClass !== 'fa fa-circle'" [ngClass]="bodyIconClass" aria-hidden="true"></i>
-                <span *ngIf="bodyIconClass === 'fa fa-circle'" class="ac-finder__dot" [style.background]="bodyColor"></span>
+                <span class="ac-finder__obj-pin">
+                  <i *ngIf="bodyIconClass !== 'fa fa-circle'" [ngClass]="bodyIconClass" aria-hidden="true"></i>
+                  <span *ngIf="bodyIconClass === 'fa fa-circle'" class="ac-finder__dot" [style.background]="bodyColor"></span>
+                </span>
                 <span class="ac-finder__name">{{ bodyLabel }}</span>
               </button>
               <div class="ac-finder__hud">
