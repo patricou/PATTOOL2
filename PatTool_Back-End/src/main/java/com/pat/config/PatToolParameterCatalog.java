@@ -35,6 +35,7 @@ public final class PatToolParameterCatalog {
             "archive.recent.",
             "archive.audioPlaylist.",
             "globe.flight.tracking.",
+            "globe.satellite.overlays.",
             "globe.iss.alert.",
             "globe.iss.compass.calibration.",
             "globe.iss.compass.heading-mode.",

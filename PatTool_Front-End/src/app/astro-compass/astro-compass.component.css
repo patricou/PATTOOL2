@@ -3455,6 +3455,7 @@ a.ac-compass-cal__btn--direction {
   color: #fff8d8;
   font-variant-numeric: tabular-nums;
   line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .ac-live-dist__v em {
@@ -3488,6 +3489,19 @@ a.ac-compass-cal__btn--direction {
   color: #8fa3c8;
 }
 
+.ac-fact-tip {
+  width: fit-content;
+  max-width: 100%;
+  cursor: help;
+  border-bottom: 1px dotted rgba(158, 178, 210, 0.55);
+}
+
+.ac-fact-tip:focus-visible {
+  outline: 1px solid rgba(158, 212, 255, 0.7);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .ac-live-info__v {
   display: block;
   margin-top: 0.08rem;
@@ -3495,6 +3509,7 @@ a.ac-compass-cal__btn--direction {
   font-weight: 700;
   color: #eaf1ff;
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 
 .ac-live-info__v--warn {
@@ -3540,14 +3555,59 @@ a.ac-compass-cal__btn--direction {
   align-items: flex-start;
 }
 
-.ac-live-dossier__thumb {
+.ac-live-dossier__thumb-btn {
+  position: relative;
   flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 0.4rem;
+}
+
+.ac-live-dossier__thumb-btn:focus-visible {
+  outline: 2px solid #9ed4ff;
+  outline-offset: 2px;
+}
+
+.ac-live-dossier__thumb {
+  display: block;
   width: 4.6rem;
   height: 4.6rem;
   object-fit: cover;
   border-radius: 0.4rem;
   border: 1px solid rgba(255, 255, 255, 0.15);
   background: #0b1220;
+}
+
+.ac-live-dossier__thumb-zoom {
+  position: absolute;
+  right: 0.18rem;
+  bottom: 0.18rem;
+  width: 1.15rem;
+  height: 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 0.58rem;
+  color: #fff8d8;
+  background: rgba(8, 14, 28, 0.72);
+  pointer-events: none;
+}
+
+.ac-live-dossier__thumb-btn:hover .ac-live-dossier__thumb {
+  border-color: rgba(255, 213, 74, 0.55);
+}
+
+:host.ac-dossier-slideshow-open .ac-help-backdrop,
+:host.ac-dossier-slideshow-open .ac-live-backdrop {
+  z-index: 1040;
+}
+
+:host.ac-dossier-slideshow-open .ac-help-modal,
+:host.ac-dossier-slideshow-open .ac-live-modal {
+  z-index: 1041;
 }
 
 .ac-live-dossier__text {
@@ -4477,6 +4537,33 @@ a.ac-compass-cal__btn--direction {
 
 .ac-object-modal .ac-live-hero__orb {
   animation: none;
+}
+
+::ng-deep .tooltip.ac-fact-tooltip {
+  z-index: 1400;
+}
+
+::ng-deep .tooltip.ac-fact-tooltip .tooltip-inner {
+  max-width: 18.5rem;
+  padding: 0.48rem 0.58rem;
+  text-align: left;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: #eaf1ff;
+  background: #121a2e;
+  border: 1px solid rgba(120, 170, 255, 0.38);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+
+::ng-deep .tooltip.ac-fact-tooltip.bs-tooltip-top .tooltip-arrow::before,
+::ng-deep .tooltip.ac-fact-tooltip.bs-tooltip-auto[data-popper-placement^='top'] .tooltip-arrow::before {
+  border-top-color: #121a2e;
+}
+
+::ng-deep .tooltip.ac-fact-tooltip.bs-tooltip-bottom .tooltip-arrow::before,
+::ng-deep .tooltip.ac-fact-tooltip.bs-tooltip-auto[data-popper-placement^='bottom'] .tooltip-arrow::before {
+  border-bottom-color: #121a2e;
 }
 
 

@@ -18,9 +18,11 @@ import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { Subscription, firstValueFrom, timeout } from 'rxjs';
 import { finalize } from 'rxjs/operators';
-import { ApiService, GlobeIssGlobalPrefs, IssAlertAdminEntry, IssAlertConfig } from '../services/api.service';
+import { ApiService, GlobeIssGlobalPrefs, GlobeSatelliteOverlayPrefs, IssAlertAdminEntry, IssAlertConfig } from '../services/api.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { GlobeIssNowService, GlobeIssNowSnapshot } from '../services/globe-iss-now.service';
+import { GlobeSatelliteNowService } from '../services/globe-satellite-now.service';
+import { ASTRO_SATELLITES, type AstroSatelliteOption } from '../astro-compass/astro-compass-catalog';
 import { AirportIcaoEntry, AirportLookupService } from '../services/airport-lookup.service';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -232,6 +234,12 @@ const GLOBE_ISS_OVER_MIN_MOVE_DEG = 0.25;
 const GLOBE_ISS_CAMERA_CENTER_HALF_LIFE_SEC = 0.26;
 /** Au-delà de cet écart angulaire (rad), le recadrage ISS accélère pour rattraper le sous-point. */
 const GLOBE_ISS_CAMERA_CENTER_ERROR_BOOST_REF_RAD = 0.055;
+/** Satellites astro-compass (hors ISS) : icône + nom sur le globe. */
+const GLOBE_SAT_ICON_WORLD_SIZE = 0.026;
+const GLOBE_SAT_LABEL_SPRITE_WORLD_H = 0.018;
+const GLOBE_SAT_OVERLAY_STORAGE_KEY = 'pat.world-globe.satellite-overlays';
+const GLOBE_SAT_MIN_ALT_KM = 80;
+const GLOBE_SAT_MAX_ALT_KM = 2000;
 
 /* --- Flight tracking (OpenSky Network) --- */
 /** Fallback globe radius for the aircraft marker when altitude is unknown (just above the surface). */
@@ -319,6 +327,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly apiService = inject(ApiService);
   private readonly keycloakService = inject(KeycloakService);
   private readonly issNowService = inject(GlobeIssNowService);
+  private readonly satNowService = inject(GlobeSatelliteNowService);
   private readonly airportLookup = inject(AirportLookupService);
   private readonly http = inject(HttpClient);
   private readonly translate = inject(TranslateService);
@@ -410,6 +419,16 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   citiesEnabled = false;
   /** Fuseaux horaires remplis (NE 10m). */
   timeZonesEnabled = false;
+  /**
+   * Satellites visibles dans astro-compass, hors ISS (déjà gérée à part) et hors JWST (pas de TLE utile).
+   */
+  readonly globeSatelliteOptions: ReadonlyArray<AstroSatelliteOption> = ASTRO_SATELLITES.filter(
+    (s) => s.id !== 'iss' && !s.skipLiveTle
+  );
+  /** Interrupteurs d’affichage : tous activés par défaut. */
+  satelliteOverlayEnabled: Record<string, boolean> = Object.fromEntries(
+    ASTRO_SATELLITES.filter((s) => s.id !== 'iss' && !s.skipLiveTle).map((s) => [s.id, true])
+  );
   issOverlayEnabled = true;
   /**
    * Interrupteur maître d’affichage de la trace ISS live : masque/affiche la traînée temps réel
@@ -720,6 +739,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private issAlertConfigLoaded = false;
   private issGlobalPrefsLoaded = false;
   private issGlobalPrefsSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  private satelliteOverlayPrefsLoaded = false;
+  private satelliteOverlayPrefsTouched = false;
+  private satelliteOverlayPrefsSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
   private renderer?: THREE.WebGLRenderer;
   private scene?: THREE.Scene;
@@ -756,6 +778,11 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private citiesPoints?: THREE.Points;
   private timeZonesMesh?: THREE.Mesh;
   private issMarkerMesh?: THREE.Mesh;
+  /** Marqueur + étiquette nom pour chaque satellite astro-compass (hors ISS). */
+  private readonly globeSatelliteVisuals = new Map<
+    string,
+    { group: THREE.Group; marker: THREE.Mesh; label: THREE.Sprite; labelText: string }
+  >();
   /** Petit cercle + calotte au sol : zone depuis laquelle l’ISS est visible. */
   private issVisibilityCircleLine?: THREE.LineLoop;
   private issVisibilityFillMesh?: THREE.Mesh;
@@ -1054,6 +1081,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.applyIssNowSnapshot(cached, true);
     }
     this.kickIssPositionRefreshOnce();
+    this.loadGlobeSatelliteOverlayPrefs();
+    this.prefetchGlobeSatelliteTles();
   }
 
   ngAfterViewInit(): void {
@@ -1093,6 +1122,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         this.scheduleWorldGlobeCdr();
       }
       this.onTranslateLangChangedForGlobeCountryLabels();
+      this.rebuildGlobeSatelliteLabels();
     });
     queueMicrotask(() => this.bootstrapThree());
     this.loadIssFsPipStackTopFromStorage();
@@ -1198,6 +1228,10 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       clearTimeout(this.issGlobalPrefsSaveTimer);
       this.issGlobalPrefsSaveTimer = null;
     }
+    if (this.satelliteOverlayPrefsSaveTimer != null) {
+      clearTimeout(this.satelliteOverlayPrefsSaveTimer);
+      this.satelliteOverlayPrefsSaveTimer = null;
+    }
     this.endIssFsSplitResizeDrag();
     this.endIssFsPipStackResizeDrag();
     void this.exitGlobeFullscreenIfActive();
@@ -1218,6 +1252,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.disposeCitiesPoints();
     this.disposeTimeZonesMesh();
     this.disposeIssMarkerMesh();
+    this.disposeAllGlobeSatelliteVisuals();
     this.disposeIssVisibilityCircle();
     this.clearIssTrail();
     this.disposeIssForecastTrail();
@@ -2003,6 +2038,22 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.cdr.markForCheck();
     }
     this.schedulePersistIssGlobalPrefs();
+  }
+
+  onGlobeSatelliteToggle(satId: string, enabled: boolean): void {
+    this.satelliteOverlayEnabled[satId] = enabled;
+    this.satelliteOverlayPrefsTouched = true;
+    this.schedulePersistGlobeSatelliteOverlayPrefs();
+    if (!enabled) {
+      this.disposeGlobeSatelliteVisual(satId);
+    } else {
+      const sat = this.globeSatelliteOptions.find((s) => s.id === satId);
+      if (sat) {
+        void this.satNowService.ensureTle(sat.noradId);
+      }
+      this.updateGlobeSatelliteOverlays();
+    }
+    this.cdr.markForCheck();
   }
 
   onIssTickerToggle(): void {
@@ -7545,6 +7596,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         void this.refreshFlightNow();
       }
     }
+    this.updateGlobeSatelliteOverlays();
   }
 
   private applyBasemapMode(): void {
@@ -7845,6 +7897,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         this.applyIssEarthCenteredCameraIfNeeded();
       }
       this.syncIssForecastTrailGeometryIfDirty();
+      this.updateGlobeSatelliteOverlays();
       this.updateCountryLabelsScaleForZoom();
       renderer.render(scene, camera);
     };
@@ -8285,6 +8338,297 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.earthMesh?.remove(mesh);
     WorldGlobeComponent.disposeIconPlaneMesh(mesh);
     this.issMarkerMesh = undefined;
+  }
+
+  private prefetchGlobeSatelliteTles(): void {
+    this.satNowService.prefetch(this.globeSatelliteOptions.map((s) => s.noradId));
+  }
+
+  private loadGlobeSatelliteOverlayPrefs(): void {
+    this.applyGlobeSatelliteOverlayPrefsMap(this.readGlobeSatelliteOverlayLocalCache());
+    this.apiService.getSatelliteOverlays().subscribe({
+      next: (prefs) => {
+        if (!this.satelliteOverlayPrefsTouched && prefs?.enabled) {
+          this.applyGlobeSatelliteOverlayPrefsMap(prefs.enabled);
+          this.writeGlobeSatelliteOverlayLocalCache();
+        }
+        this.satelliteOverlayPrefsLoaded = true;
+        this.updateGlobeSatelliteOverlays();
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.satelliteOverlayPrefsLoaded = true;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private applyGlobeSatelliteOverlayPrefsMap(enabled: Record<string, boolean> | null | undefined): void {
+    if (!enabled) {
+      return;
+    }
+    for (const sat of this.globeSatelliteOptions) {
+      if (typeof enabled[sat.id] === 'boolean') {
+        this.satelliteOverlayEnabled[sat.id] = enabled[sat.id];
+      }
+    }
+  }
+
+  private buildGlobeSatelliteOverlayPrefsPayload(): GlobeSatelliteOverlayPrefs {
+    const enabled: Record<string, boolean> = {};
+    for (const sat of this.globeSatelliteOptions) {
+      enabled[sat.id] = this.satelliteOverlayEnabled[sat.id] !== false;
+    }
+    return { enabled };
+  }
+
+  private schedulePersistGlobeSatelliteOverlayPrefs(): void {
+    this.writeGlobeSatelliteOverlayLocalCache();
+    if (this.satelliteOverlayPrefsSaveTimer != null) {
+      clearTimeout(this.satelliteOverlayPrefsSaveTimer);
+    }
+    this.satelliteOverlayPrefsSaveTimer = setTimeout(() => {
+      this.satelliteOverlayPrefsSaveTimer = null;
+      this.apiService.setSatelliteOverlays(this.buildGlobeSatelliteOverlayPrefsPayload()).subscribe({
+        error: () => {}
+      });
+    }, 400);
+  }
+
+  private readGlobeSatelliteOverlayLocalCache(): Record<string, boolean> | null {
+    if (typeof localStorage === 'undefined') {
+      return null;
+    }
+    try {
+      const raw = localStorage.getItem(GLOBE_SAT_OVERLAY_STORAGE_KEY);
+      if (!raw) {
+        return null;
+      }
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const out: Record<string, boolean> = {};
+      for (const sat of this.globeSatelliteOptions) {
+        if (typeof parsed[sat.id] === 'boolean') {
+          out[sat.id] = parsed[sat.id] as boolean;
+        }
+      }
+      return out;
+    } catch {
+      return null;
+    }
+  }
+
+  private writeGlobeSatelliteOverlayLocalCache(): void {
+    if (typeof localStorage === 'undefined') {
+      return;
+    }
+    try {
+      localStorage.setItem(
+        GLOBE_SAT_OVERLAY_STORAGE_KEY,
+        JSON.stringify(this.buildGlobeSatelliteOverlayPrefsPayload().enabled)
+      );
+    } catch {
+      /* quota / mode privé */
+    }
+  }
+
+  private globeSatelliteOrbitRadius(altKm: number | null, fallbackKm: number): number {
+    const alt = altKm != null && Number.isFinite(altKm) ? altKm : fallbackKm;
+    const clamped = Math.min(GLOBE_SAT_MAX_ALT_KM, Math.max(GLOBE_SAT_MIN_ALT_KM, alt));
+    return 1 + clamped / GLOBE_EARTH_RADIUS_KM;
+  }
+
+  private updateGlobeSatelliteOverlays(): void {
+    if (!this.earthMesh || !this.globeSurfaceReady) {
+      return;
+    }
+    const now = Date.now();
+    for (const sat of this.globeSatelliteOptions) {
+      if (this.satelliteOverlayEnabled[sat.id] === false) {
+        this.disposeGlobeSatelliteVisual(sat.id);
+        continue;
+      }
+      const snap = this.satNowService.snapshotForDisplay(sat.noradId, now);
+      if (!snap) {
+        void this.satNowService.ensureTle(sat.noradId);
+        continue;
+      }
+      this.ensureGlobeSatelliteVisual(sat);
+      this.positionGlobeSatelliteVisual(sat.id, snap.lat, snap.lon, snap.altKm, sat.defaultAltKm);
+    }
+  }
+
+  private ensureGlobeSatelliteVisual(sat: AstroSatelliteOption): void {
+    const earth = this.earthMesh;
+    if (!earth || this.globeSatelliteVisuals.has(sat.id)) {
+      return;
+    }
+    const name = this.translate.instant(sat.labelKey) || sat.id;
+    const marker = WorldGlobeComponent.createSatelliteIconMesh(sat.color);
+    const label = WorldGlobeComponent.createSatelliteNameSprite(name, sat.color);
+    if (!label) {
+      WorldGlobeComponent.disposeIconPlaneMesh(marker);
+      return;
+    }
+    const group = new THREE.Group();
+    group.name = `GlobeSatellite:${sat.id}`;
+    group.add(marker);
+    group.add(label);
+    earth.add(group);
+    this.globeSatelliteVisuals.set(sat.id, { group, marker, label, labelText: name });
+  }
+
+  private positionGlobeSatelliteVisual(
+    satId: string,
+    lat: number,
+    lon: number,
+    altKm: number | null,
+    fallbackAltKm: number
+  ): void {
+    const visual = this.globeSatelliteVisuals.get(satId);
+    if (!visual) {
+      return;
+    }
+    const radius = this.globeSatelliteOrbitRadius(altKm, fallbackAltKm);
+    WorldGlobeComponent.orientGlobeIconMesh(visual.marker, lat, lon, radius, null);
+    const labelPos = WorldGlobeComponent.latLonToVector3(lat, lon, radius * 1.012);
+    visual.label.position.copy(labelPos);
+  }
+
+  private rebuildGlobeSatelliteLabels(): void {
+    for (const sat of this.globeSatelliteOptions) {
+      const visual = this.globeSatelliteVisuals.get(sat.id);
+      if (!visual) {
+        continue;
+      }
+      const name = this.translate.instant(sat.labelKey) || sat.id;
+      if (name === visual.labelText) {
+        continue;
+      }
+      const next = WorldGlobeComponent.createSatelliteNameSprite(name, sat.color);
+      if (!next) {
+        continue;
+      }
+      visual.group.remove(visual.label);
+      const sm = visual.label.material;
+      if (sm instanceof THREE.SpriteMaterial) {
+        sm.map?.dispose();
+        sm.dispose();
+      }
+      visual.group.add(next);
+      visual.label = next;
+      visual.labelText = name;
+    }
+  }
+
+  private disposeGlobeSatelliteVisual(satId: string): void {
+    const visual = this.globeSatelliteVisuals.get(satId);
+    if (!visual) {
+      return;
+    }
+    this.earthMesh?.remove(visual.group);
+    WorldGlobeComponent.disposeIconPlaneMesh(visual.marker);
+    const sm = visual.label.material;
+    if (sm instanceof THREE.SpriteMaterial) {
+      sm.map?.dispose();
+      sm.dispose();
+    }
+    this.globeSatelliteVisuals.delete(satId);
+  }
+
+  private disposeAllGlobeSatelliteVisuals(): void {
+    for (const id of [...this.globeSatelliteVisuals.keys()]) {
+      this.disposeGlobeSatelliteVisual(id);
+    }
+  }
+
+  private static createSatelliteIconMesh(colorHex: string): THREE.Mesh {
+    const tex = WorldGlobeComponent.createGlobeIconCanvasTexture((ctx, size) => {
+      WorldGlobeComponent.drawSatelliteTopViewIcon(ctx, size, colorHex);
+    });
+    return WorldGlobeComponent.createIconPlaneMesh(tex, GLOBE_SAT_ICON_WORLD_SIZE);
+  }
+
+  private static drawSatelliteTopViewIcon(
+    ctx: CanvasRenderingContext2D,
+    size: number,
+    colorHex: string
+  ): void {
+    const cx = size / 2;
+    const cy = size / 2;
+    const s = size;
+    ctx.clearRect(0, 0, s, s);
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = Math.max(1.5, s * 0.03);
+    ctx.fillStyle = colorHex;
+    ctx.fillRect(cx - s * 0.42, cy - s * 0.1, s * 0.16, s * 0.2);
+    ctx.strokeRect(cx - s * 0.42, cy - s * 0.1, s * 0.16, s * 0.2);
+    ctx.fillRect(cx + s * 0.26, cy - s * 0.1, s * 0.16, s * 0.2);
+    ctx.strokeRect(cx + s * 0.26, cy - s * 0.1, s * 0.16, s * 0.2);
+    ctx.fillRect(cx - s * 0.22, cy - s * 0.03, s * 0.44, s * 0.06);
+    ctx.strokeRect(cx - s * 0.22, cy - s * 0.03, s * 0.44, s * 0.06);
+    ctx.beginPath();
+    ctx.arc(cx, cy, s * 0.07, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  private static createSatelliteNameSprite(displayRaw: string, colorHex: string): THREE.Sprite | null {
+    const display = displayRaw.trim();
+    if (!display || typeof document === 'undefined') {
+      return null;
+    }
+    const canvas = document.createElement('canvas');
+    const scaleCss = Math.min(Math.max(Math.floor(window.devicePixelRatio || 1), 1), 2);
+    const ctxMaybe = canvas.getContext('2d');
+    if (!ctxMaybe) {
+      return null;
+    }
+    const ctx = ctxMaybe;
+    const fontPx = Math.round(16 * scaleCss);
+    ctx.font = `700 ${fontPx}px Segoe UI,Roboto,Helvetica,Arial,sans-serif`;
+    const measured = ctx.measureText(display).width + Math.floor(16 * scaleCss);
+    canvas.width = Math.max(64, Math.min(Math.ceil(measured), 360 * scaleCss));
+    canvas.height = Math.ceil(30 * scaleCss);
+    ctx.font = `700 ${fontPx}px Segoe UI,Roboto,Helvetica,Arial,sans-serif`;
+    ctx.fillStyle = 'rgba(8,16,36,0.72)';
+    const rPx = Math.floor(8 * scaleCss);
+    ctx.beginPath();
+    ctx.moveTo(rPx, 0);
+    ctx.lineTo(canvas.width - rPx, 0);
+    ctx.quadraticCurveTo(canvas.width, 0, canvas.width, rPx);
+    ctx.lineTo(canvas.width, canvas.height - rPx);
+    ctx.quadraticCurveTo(canvas.width, canvas.height, canvas.width - rPx, canvas.height);
+    ctx.lineTo(rPx, canvas.height);
+    ctx.quadraticCurveTo(0, canvas.height, 0, canvas.height - rPx);
+    ctx.lineTo(0, rPx);
+    ctx.quadraticCurveTo(0, 0, rPx, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = colorHex;
+    ctx.lineWidth = Math.max(1.5, scaleCss);
+    ctx.stroke();
+    ctx.fillStyle = colorHex;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(display, Math.floor(8 * scaleCss), canvas.height / 2);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    tex.needsUpdate = true;
+    const mat = new THREE.SpriteMaterial({
+      map: tex,
+      transparent: true,
+      depthWrite: false,
+      depthTest: true,
+      opacity: 0.96
+    });
+    const sprite = new THREE.Sprite(mat);
+    const h = GLOBE_SAT_LABEL_SPRITE_WORLD_H;
+    sprite.center.set(0.5, 0);
+    const aspect = canvas.width / canvas.height;
+    sprite.scale.set(aspect * h, h, 1);
+    sprite.renderOrder = 7;
+    return sprite;
   }
 
   /**

@@ -749,6 +749,12 @@ body:has(.wg-fs-root--viewport-locked) {
   cursor: pointer;
 }
 
+.wg-sat-opt-icon {
+  width: 0.85rem;
+  text-align: center;
+  margin-right: 0.28rem;
+}
+
 .wg-opt-switch .form-check-input {
   width: 1.55em;
   height: 0.82em;

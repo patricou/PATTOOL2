@@ -13,8 +13,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { Subscription, forkJoin, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
+import { Observable, Subscription, forkJoin, of } from 'rxjs';
+import { catchError, map, switchMap } from 'rxjs/operators';
 import {
   Body,
   DefineStar,
@@ -55,6 +56,10 @@ import { GlobeIssNowService } from '../services/globe-iss-now.service';
 import { GlobeSatelliteNowService } from '../services/globe-satellite-now.service';
 import { CompassNorthEngine } from '../shared/compass-north.engine';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
+import {
+  SlideshowModalComponent,
+  SlideshowImageSource
+} from '../shared/slideshow-modal/slideshow-modal.component';
 import { CameraLookTracker } from '../direction/camera-look-tracker';
 import {
   loadPattoolCal,
@@ -192,6 +197,7 @@ interface ObjectDossier {
   extract: string | null;
   description: string | null;
   thumbUrl: string | null;
+  imageUrl: string | null;
   wikiUrl: string | null;
   wikiTitle: string | null;
   skyNames: string[];
@@ -278,13 +284,25 @@ const ASTRO_HELP_TERMS: ReadonlyArray<HelpTerm> = [
 @Component({
   selector: 'app-astro-compass',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, TranslateModule, TraceViewerModalComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterModule,
+    TranslateModule,
+    NgbModule,
+    TraceViewerModalComponent,
+    SlideshowModalComponent
+  ],
   templateUrl: './astro-compass.component.html',
-  styleUrls: ['./astro-compass.component.css']
+  styleUrls: ['./astro-compass.component.css'],
+  host: {
+    '[class.ac-dossier-slideshow-open]': 'dossierSlideshowOpen'
+  }
 })
 export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @ViewChild(TraceViewerModalComponent) traceViewerModalComponent?: TraceViewerModalComponent;
+  @ViewChild('slideshowModalComponent') slideshowModalComponent?: SlideshowModalComponent;
   @ViewChild('camStage') camStage?: ElementRef<HTMLElement>;
   private camEl?: ElementRef<HTMLVideoElement>;
 
@@ -526,6 +544,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private finderPosePausedAuto = false;
   helpModalOpen = false;
   objectInfoModalOpen = false;
+  dossierSlideshowOpen = false;
   helpFilter = '';
   helpLetterFilter = '';
   readonly helpTerms = ASTRO_HELP_TERMS;
@@ -2940,6 +2959,46 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     return au.toExponential(2);
   }
 
+  formatKm(km: number): string {
+    if (!Number.isFinite(km) || km < 0) {
+      return '—';
+    }
+    const unit = this.translate.instant('ASTRO_COMPASS.DIST_KM_UNIT');
+    const scaled = (value: number, suffix: string, digits: number): string =>
+      value.toLocaleString(undefined, { maximumFractionDigits: digits }) + ' ' + suffix + unit;
+    if (km >= 1e15) {
+      return scaled(km / 1e15, 'P ', 2);
+    }
+    if (km >= 1e12) {
+      return scaled(km / 1e12, 'T ', 2);
+    }
+    if (km >= 1e9) {
+      const g = km / 1e9;
+      return scaled(g, 'G ', g >= 100 ? 0 : g >= 10 ? 1 : 2);
+    }
+    if (km >= 1e6) {
+      const m = km / 1e6;
+      return scaled(m, 'M ', m >= 100 ? 0 : m >= 10 ? 1 : 2);
+    }
+    if (km >= 10_000) {
+      return Math.round(km).toLocaleString() + ' ' + unit;
+    }
+    if (km >= 100) {
+      return km.toLocaleString(undefined, { maximumFractionDigits: 0 }) + ' ' + unit;
+    }
+    if (km >= 1) {
+      return km.toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' ' + unit;
+    }
+    if (km === 0) {
+      return '0 ' + unit;
+    }
+    return km.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' ' + unit;
+  }
+
+  formatKmFromAu(au: number): string {
+    return this.formatKm(au * KM_PER_AU);
+  }
+
   lightTravelLabel(): string | null {
     let ly = this.distLy;
     if ((ly == null || ly <= 0) && this.geoDistKm != null && this.geoDistKm > 0) {
@@ -2979,13 +3038,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     const fallbackLang = preferFr ? 'en' : 'fr';
 
     this.objectDossierSub = forkJoin({
-      wiki: this.api.getWikipediaSummary(firstTitle, firstLang).pipe(
-        catchError(() =>
-          firstTitle === fallbackTitle
-            ? of(null)
-            : this.api.getWikipediaSummary(fallbackTitle, fallbackLang).pipe(catchError(() => of(null)))
-        )
-      ),
+      wiki: this.fetchWikiSummary(firstTitle, firstLang, fallbackTitle, fallbackLang),
       sky: this.api.searchStellariumSkySources(lookup.sky).pipe(catchError(() => of([] as StellariumSkySource[])))
     }).subscribe({
       next: ({ wiki, sky }) => {
@@ -2999,6 +3052,34 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     });
     this.cdr.markForCheck();
+  }
+
+  private fetchWikiSummary(
+    firstTitle: string,
+    firstLang: string,
+    fallbackTitle: string,
+    fallbackLang: string
+  ): Observable<WikipediaSummary | null> {
+    return this.api.getWikipediaSummary(firstTitle, firstLang).pipe(
+      switchMap((wiki) => {
+        if (this.wikiSummaryUsable(wiki) || firstTitle === fallbackTitle) {
+          return of(wiki);
+        }
+        return this.api.getWikipediaSummary(fallbackTitle, fallbackLang).pipe(
+          map((fallback) => this.wikiSummaryUsable(fallback) ? fallback : wiki),
+          catchError(() => of(wiki))
+        );
+      }),
+      catchError(() =>
+        firstTitle === fallbackTitle
+          ? of(null)
+          : this.api.getWikipediaSummary(fallbackTitle, fallbackLang).pipe(catchError(() => of(null)))
+      )
+    );
+  }
+
+  private wikiSummaryUsable(wiki: WikipediaSummary | null | undefined): boolean {
+    return !!(wiki && wiki.type !== 'disambiguation' && (wiki.extract || wiki.description || wiki.title));
   }
 
   private clearObjectDossier(): void {
@@ -3060,6 +3141,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     const extract = wikiOk ? wiki.extract?.trim() || null : null;
     const description = wikiOk ? wiki.description?.trim() || null : null;
     const thumbUrl = wiki?.thumbnail?.source || wiki?.originalimage?.source || null;
+    const imageUrl = wiki?.originalimage?.source || wiki?.thumbnail?.source || null;
     const wikiUrl = wiki?.content_urls?.desktop?.page || wiki?.content_urls?.mobile?.page || null;
     const wikiTitle = wiki?.title || wiki?.displaytitle || null;
     const skyNames = (sky?.names || []).filter((n) => !!n).slice(0, 6);
@@ -3069,7 +3151,41 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!extract && !description && !thumbUrl && !skyNames.length && vMag == null && bMag == null) {
       return null;
     }
-    return { extract, description, thumbUrl, wikiUrl, wikiTitle, skyNames, skyTypes, vMag, bMag };
+    return { extract, description, thumbUrl, imageUrl, wikiUrl, wikiTitle, skyNames, skyTypes, vMag, bMag };
+  }
+
+  openDossierImage(): void {
+    const dossier = this.objectDossier;
+    const url = dossier?.imageUrl || dossier?.thumbUrl;
+    if (!url || !this.slideshowModalComponent) {
+      return;
+    }
+    this.dossierSlideshowOpen = true;
+    const title = dossier.wikiTitle || this.bodyLabel || this.translate.instant('ASTRO_COMPASS.OBJECT_INFO_TITLE');
+    const source: SlideshowImageSource = {
+      blobUrl: url,
+      fileName: this.dossierImageFileName(url, title)
+    };
+    this.slideshowModalComponent.open([source], title, false);
+    this.cdr.markForCheck();
+  }
+
+  onDossierSlideshowClosed(): void {
+    this.dossierSlideshowOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  private dossierImageFileName(url: string, title: string): string {
+    try {
+      const last = decodeURIComponent(new URL(url).pathname.split('/').pop() || '');
+      if (last && /\.(jpe?g|png|gif|webp|svg|tif{1,2})$/i.test(last)) {
+        return last;
+      }
+    } catch {
+      /* ignore */
+    }
+    const base = title.replace(/[^\p{L}\p{N}._-]+/gu, '_').replace(/^_+|_+$/g, '') || 'object';
+    return base + '.jpg';
   }
 
   private asFiniteNumber(value: unknown): number | null {

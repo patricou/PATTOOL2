@@ -116,6 +116,11 @@ export interface FlightState {
   arrivalTimeEpoch?: number | null;
 }
 
+/** Per-user satellite overlay switches (GET/PUT /external/globe/satellites/overlays). */
+export interface GlobeSatelliteOverlayPrefs {
+  enabled?: Record<string, boolean> | null;
+}
+
 /** Per-user last tracked flight (GET/PUT /external/globe/flight/tracking). */
 export interface FlightTrackingPreference {
   mode: 'callsign' | 'icao24';
@@ -1620,6 +1625,32 @@ export class ApiService {
         )
       ),
       catchError(() => from([null as FlightTrack | null]))
+    );
+  }
+
+  /** Saved satellite overlay switches for the current user, or null when none is stored (204). */
+  getSatelliteOverlays(): Observable<GlobeSatelliteOverlayPrefs | null> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<GlobeSatelliteOverlayPrefs | null>(
+          this.API_URL + 'external/globe/satellites/overlays',
+          { headers }
+        )
+      ),
+      catchError(() => from([null as GlobeSatelliteOverlayPrefs | null]))
+    );
+  }
+
+  /** Persist the user's satellite overlay switches. */
+  setSatelliteOverlays(body: GlobeSatelliteOverlayPrefs): Observable<GlobeSatelliteOverlayPrefs> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<GlobeSatelliteOverlayPrefs>(
+          this.API_URL + 'external/globe/satellites/overlays',
+          body,
+          { headers }
+        )
+      )
     );
   }
 

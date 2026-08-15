@@ -7,12 +7,14 @@ import com.pat.controller.dto.FlightStateDto;
 import com.pat.controller.dto.FlightTrackDto;
 import com.pat.controller.dto.FlightTrackingPreferenceDto;
 import com.pat.controller.dto.GlobeIssGlobalPrefsDto;
+import com.pat.controller.dto.GlobeSatelliteOverlayPrefsDto;
 import com.pat.controller.dto.IssAlertAdminEntryDto;
 import com.pat.controller.dto.IssTraceResponseDto;
 import com.pat.service.AstroLastTargetService;
 import com.pat.service.CompassCalibrationService;
 import com.pat.service.FlightTrackingPreferenceService;
 import com.pat.service.GlobeIssGlobalPrefsService;
+import com.pat.service.GlobeSatelliteOverlayPrefsService;
 import com.pat.service.OpenSkyService;
 import com.pat.service.OpenSkyUnavailableException;
 import com.pat.service.GlobeProxyService;
@@ -69,6 +71,7 @@ public class GlobeProxyController {
     private final AstroLastTargetService astroLastTargetService;
     private final OpenSkyService openSkyService;
     private final FlightTrackingPreferenceService flightTrackingPreferenceService;
+    private final GlobeSatelliteOverlayPrefsService globeSatelliteOverlayPrefsService;
 
     public GlobeProxyController(
             GlobeProxyService globeProxyService,
@@ -80,7 +83,8 @@ public class GlobeProxyController {
             CompassCalibrationService compassCalibrationService,
             AstroLastTargetService astroLastTargetService,
             OpenSkyService openSkyService,
-            FlightTrackingPreferenceService flightTrackingPreferenceService) {
+            FlightTrackingPreferenceService flightTrackingPreferenceService,
+            GlobeSatelliteOverlayPrefsService globeSatelliteOverlayPrefsService) {
         this.globeProxyService = globeProxyService;
         this.issTraceService = issTraceService;
         this.issPassLookupService = issPassLookupService;
@@ -91,6 +95,7 @@ public class GlobeProxyController {
         this.astroLastTargetService = astroLastTargetService;
         this.openSkyService = openSkyService;
         this.flightTrackingPreferenceService = flightTrackingPreferenceService;
+        this.globeSatelliteOverlayPrefsService = globeSatelliteOverlayPrefsService;
     }
 
     @GetMapping("/texture/planets/{name}")
@@ -816,6 +821,41 @@ public class GlobeProxyController {
         }
         flightTrackingPreferenceService.deleteForSubject(sub);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Satellite overlay switches for the current user (JWT {@code sub}).
+     * Returns 204 if nothing is stored or the call is anonymous.
+     */
+    @GetMapping("/satellites/overlays")
+    public ResponseEntity<GlobeSatelliteOverlayPrefsDto> getSatelliteOverlays() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return globeSatelliteOverlayPrefsService.findForSubject(sub)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    /** Stores satellite overlay switches for the current user. */
+    @PutMapping("/satellites/overlays")
+    public ResponseEntity<GlobeSatelliteOverlayPrefsDto> setSatelliteOverlays(
+            @RequestBody GlobeSatelliteOverlayPrefsDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (body == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            GlobeSatelliteOverlayPrefsDto saved = globeSatelliteOverlayPrefsService.saveForSubject(sub, body);
+            return ResponseEntity.ok(saved);
+        } catch (Exception e) {
+            log.warn("Satellite overlay prefs save failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     /** Identifiant ({@code sub}) de l'utilisateur Keycloak courant, ou {@code null} si anonyme. */

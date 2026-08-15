@@ -17,6 +17,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
@@ -76,20 +77,28 @@ public class WikiProxyService {
             return first;
         }
         if (!"en".equals(code)) {
-            JsonNode fallback = fetchOne(trimmed, "en");
-            if (isUsable(fallback)) {
-                return fallback;
+            String englishTitle = resolveEnglishTitle(trimmed, code);
+            if (StringUtils.hasText(englishTitle)) {
+                JsonNode fallback = fetchOne(englishTitle, "en");
+                if (isUsable(fallback)) {
+                    return fallback;
+                }
             }
         }
         return objectMapper.createObjectNode();
     }
 
     private JsonNode fetchOne(String title, String code) {
-        String encoded = URLEncoder.encode(title.replace(' ', '_'), StandardCharsets.UTF_8).replace("+", "%20");
+        String encoded = encodeTitle(title);
         String url = "https://" + code + ".wikipedia.org/api/rest_v1/page/summary/" + encoded;
         return fetchJson(url, title, code);
     }
 
+    /**
+     * RestTemplate.exchange(String) re-encodes the URL. Titles with parentheses or
+     * accents then become {@code %2528} / {@code %25C3} and Wikipedia REST answers
+     * {@code 403 {"type":"Internal error"}}. Pass a prebuilt {@link URI} instead.
+     */
     private JsonNode fetchJson(String url, String label, String code) {
         try {
             HttpHeaders headers = new HttpHeaders();
@@ -97,7 +106,7 @@ public class WikiProxyService {
             headers.set("Api-User-Agent", USER_AGENT);
             headers.set(HttpHeaders.ACCEPT, "application/json");
             ResponseEntity<String> response = restTemplate.exchange(
-                    url,
+                    URI.create(url),
                     HttpMethod.GET,
                     new HttpEntity<>(headers),
                     String.class
@@ -108,7 +117,7 @@ public class WikiProxyService {
             }
             return objectMapper.readTree(body);
         } catch (HttpStatusCodeException e) {
-            if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
+            if (isExpectedMiss(e)) {
                 log.debug("Wikipedia page missing for {} ({}): {}", label, code, e.getStatusCode());
                 return objectMapper.nullNode();
             }
@@ -121,6 +130,36 @@ public class WikiProxyService {
             log.warn("Wikipedia parse failed for {} ({}): {}", label, code, e.getMessage());
             return objectMapper.nullNode();
         }
+    }
+
+    private String resolveEnglishTitle(String title, String fromLang) {
+        String url = "https://" + fromLang + ".wikipedia.org/w/api.php?action=query&format=json&formatversion=2"
+                + "&redirects=1&prop=langlinks&lllang=en&titles=" + encodeTitle(title);
+        JsonNode raw = fetchJson(url, "langlinks " + title, fromLang);
+        if (raw == null || !raw.isObject()) {
+            return "";
+        }
+        JsonNode pages = raw.path("query").path("pages");
+        if (!pages.isArray() || pages.isEmpty()) {
+            return "";
+        }
+        JsonNode page = pages.get(0);
+        if (page == null || page.path("missing").asBoolean(false)) {
+            return "";
+        }
+        JsonNode links = page.get("langlinks");
+        if (links == null || !links.isArray()) {
+            return "";
+        }
+        for (JsonNode link : links) {
+            if (link != null && "en".equals(textOrEmpty(link.get("lang")))) {
+                String english = textOrEmpty(link.get("title")).replace(' ', '_');
+                if (StringUtils.hasText(english) && !sameTitle(english, title)) {
+                    return english;
+                }
+            }
+        }
+        return "";
     }
 
     private JsonNode mapSearch(String query, String lang, JsonNode raw) {
@@ -212,6 +251,25 @@ public class WikiProxyService {
             return DEFAULT_SEARCH_LIMIT;
         }
         return Math.max(1, Math.min(MAX_SEARCH_LIMIT, limit));
+    }
+
+    private static String encodeTitle(String title) {
+        return URLEncoder.encode(title.replace(' ', '_'), StandardCharsets.UTF_8).replace("+", "%20");
+    }
+
+    private static boolean sameTitle(String left, String right) {
+        return left.replace(' ', '_').equalsIgnoreCase(right.replace(' ', '_'));
+    }
+
+    private static boolean isExpectedMiss(HttpStatusCodeException e) {
+        if (e.getStatusCode().isSameCodeAs(HttpStatus.NOT_FOUND)) {
+            return true;
+        }
+        if (!e.getStatusCode().isSameCodeAs(HttpStatus.FORBIDDEN)) {
+            return false;
+        }
+        String body = e.getResponseBodyAsString();
+        return StringUtils.hasText(body) && body.contains("\"type\":\"Internal error\"");
     }
 
     private static boolean isUsable(JsonNode node) {

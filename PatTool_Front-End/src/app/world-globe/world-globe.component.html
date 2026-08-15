@@ -585,6 +585,32 @@
             </div>
           </details>
 
+          <details class="wg-opt-section" [open]="openGlobeOptSectionId === 'satellites'">
+            <summary class="wg-opt-section__head" (click)="onGlobeOptSectionSummaryClick('satellites', $event)">
+              <i class="fa fa-rocket wg-opt-section__icon" aria-hidden="true"></i>
+              <span>{{ 'WORLD_GLOBE.OPT_SECTION_SATELLITES' | translate }}</span>
+            </summary>
+            <div class="wg-opt-section__body">
+              <p class="wg-opt-iss-meta text-muted small mb-1">{{ 'WORLD_GLOBE.SATELLITE_LAYER_HINT' | translate }}</p>
+              <div class="wg-opt-row" *ngFor="let sat of globeSatelliteOptions">
+                <label class="wg-opt-row__label" [attr.for]="'wgSat-' + sat.id">
+                  <i class="wg-sat-opt-icon" [ngClass]="sat.iconClass" [style.color]="sat.color" aria-hidden="true"></i>
+                  {{ sat.labelKey | translate }}
+                </label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    [id]="'wgSat-' + sat.id"
+                    [name]="'wgSat-' + sat.id"
+                    [ngModel]="satelliteOverlayEnabled[sat.id]"
+                    (ngModelChange)="onGlobeSatelliteToggle(sat.id, $event)"
+                    [disabled]="!globeSurfaceReady" />
+                </div>
+              </div>
+            </div>
+          </details>
+
           <details class="wg-opt-section" [open]="openGlobeOptSectionId === 'flight'">
             <summary class="wg-opt-section__head" (click)="onGlobeOptSectionSummaryClick('flight', $event)">
               <i class="fa fa-plane wg-opt-section__icon" aria-hidden="true"></i>
