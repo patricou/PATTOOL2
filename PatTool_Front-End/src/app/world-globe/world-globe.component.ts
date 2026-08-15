@@ -24,6 +24,7 @@ import { GlobeIssNowService, GlobeIssNowSnapshot } from '../services/globe-iss-n
 import { GlobeSatelliteNowService } from '../services/globe-satellite-now.service';
 import { ASTRO_SATELLITES, type AstroSatelliteOption } from '../astro-compass/astro-compass-catalog';
 import { AirportIcaoEntry, AirportLookupService } from '../services/airport-lookup.service';
+import { PositionService } from '../services/position.service';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { environment } from '../../environments/environment';
@@ -97,6 +98,25 @@ interface IssForecastResponse {
   stepSec: number;
   approximate?: boolean;
   points: IssForecastPointDto[];
+}
+
+interface GlobeSatellitePass {
+  riseAt: Date;
+  setAt: Date;
+  maxElevationDeg: number;
+  maxAt: Date;
+}
+
+interface GlobeSatelliteInfoSnapshot {
+  lat: number;
+  lon: number;
+  altKm: number | null;
+  velocityKmh: number | null;
+  azimuthDeg: number | null;
+  elevationDeg: number | null;
+  groundKm: number | null;
+  slantKm: number | null;
+  visible: boolean;
 }
 
 /** Plus de subdivisions pour des courbes lisibles très zoomées (sans tuiles HR). */
@@ -240,6 +260,10 @@ const GLOBE_SAT_LABEL_SPRITE_WORLD_H = 0.018;
 const GLOBE_SAT_OVERLAY_STORAGE_KEY = 'pat.world-globe.satellite-overlays';
 const GLOBE_SAT_MIN_ALT_KM = 80;
 const GLOBE_SAT_MAX_ALT_KM = 2000;
+const GLOBE_SAT_PASS_LOOKBACK_MS = 45 * 60_000;
+const GLOBE_SAT_PASS_HORIZON_MS = 18 * 60 * 60_000;
+const GLOBE_SAT_PASS_STEP_MS = 30_000;
+const GLOBE_SAT_PASS_MAX = 6;
 
 /* --- Flight tracking (OpenSky Network) --- */
 /** Fallback globe radius for the aircraft marker when altitude is unknown (just above the surface). */
@@ -328,6 +352,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly keycloakService = inject(KeycloakService);
   private readonly issNowService = inject(GlobeIssNowService);
   private readonly satNowService = inject(GlobeSatelliteNowService);
+  private readonly positionService = inject(PositionService);
   private readonly airportLookup = inject(AirportLookupService);
   private readonly http = inject(HttpClient);
   private readonly translate = inject(TranslateService);
@@ -429,6 +454,13 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   satelliteOverlayEnabled: Record<string, boolean> = Object.fromEntries(
     ASTRO_SATELLITES.filter((s) => s.id !== 'iss' && !s.skipLiveTle).map((s) => [s.id, true])
   );
+  /** Satellite au-dessus de l’horizon depuis la position GPS de l’utilisateur. */
+  satelliteVisibleFromUser: Record<string, boolean> = {};
+  satelliteInfoOpen = false;
+  satelliteInfoSat: AstroSatelliteOption | null = null;
+  satelliteInfoLoading = false;
+  satelliteInfoSnapshot: GlobeSatelliteInfoSnapshot | null = null;
+  satelliteInfoPasses: GlobeSatellitePass[] = [];
   issOverlayEnabled = true;
   /**
    * Interrupteur maître d’affichage de la trace ISS live : masque/affiche la traînée temps réel
@@ -742,6 +774,10 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private satelliteOverlayPrefsLoaded = false;
   private satelliteOverlayPrefsTouched = false;
   private satelliteOverlayPrefsSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Recentrage demandé avant que le TLE / la position soit disponible. */
+  private pendingCenterSatelliteId: string | null = null;
+  userObserverLat: number | null = null;
+  userObserverLon: number | null = null;
 
   private renderer?: THREE.WebGLRenderer;
   private scene?: THREE.Scene;
@@ -1083,6 +1119,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.kickIssPositionRefreshOnce();
     this.loadGlobeSatelliteOverlayPrefs();
     this.prefetchGlobeSatelliteTles();
+    this.requestUserObserverPosition();
   }
 
   ngAfterViewInit(): void {
@@ -2038,6 +2075,64 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.cdr.markForCheck();
     }
     this.schedulePersistIssGlobalPrefs();
+  }
+
+  onOpenSatelliteInfo(satId: string): void {
+    const sat = this.globeSatelliteOptions.find((s) => s.id === satId);
+    if (!sat) {
+      return;
+    }
+    this.satelliteInfoSat = sat;
+    this.satelliteInfoOpen = true;
+    this.satelliteInfoLoading = true;
+    this.satelliteInfoSnapshot = null;
+    this.satelliteInfoPasses = [];
+    this.cdr.markForCheck();
+    void this.loadSatelliteInfoDetails(sat);
+  }
+
+  closeSatelliteInfo(): void {
+    this.satelliteInfoOpen = false;
+    this.satelliteInfoSat = null;
+    this.satelliteInfoLoading = false;
+    this.satelliteInfoSnapshot = null;
+    this.satelliteInfoPasses = [];
+    this.cdr.markForCheck();
+  }
+
+  formatSatelliteInfoTime(d: Date | null | undefined): string {
+    if (!d) {
+      return '—';
+    }
+    return d.toLocaleString(undefined, {
+      weekday: 'short',
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  formatSatelliteInfoDuration(pass: GlobeSatellitePass): string {
+    const sec = Math.max(0, Math.round((pass.setAt.getTime() - pass.riseAt.getTime()) / 1000));
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    if (m >= 60) {
+      const h = Math.floor(m / 60);
+      return `${h} h ${m % 60} min`;
+    }
+    return s > 0 ? `${m} min ${s} s` : `${m} min`;
+  }
+
+  onCenterGlobeOnSatellite(satId: string): void {
+    if (!this.globeSurfaceReady) {
+      return;
+    }
+    if (this.satelliteOverlayEnabled[satId] === false) {
+      this.onGlobeSatelliteToggle(satId, true);
+    }
+    this.pendingCenterSatelliteId = satId;
+    this.tryCenterGlobeOnSatellite(satId);
   }
 
   onGlobeSatelliteToggle(satId: string, enabled: boolean): void {
@@ -8454,7 +8549,245 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       this.ensureGlobeSatelliteVisual(sat);
       this.positionGlobeSatelliteVisual(sat.id, snap.lat, snap.lon, snap.altKm, sat.defaultAltKm);
+      if (this.pendingCenterSatelliteId === sat.id) {
+        this.tryCenterGlobeOnSatellite(sat.id);
+      }
     }
+    this.refreshSatelliteVisibilityFromUser();
+    if (this.satelliteInfoOpen) {
+      this.refreshSatelliteInfoSnapshot();
+    }
+  }
+
+  private requestUserObserverPosition(): void {
+    this.positionService.getCurrentPosition().subscribe((pos) => {
+      if (!pos || !Number.isFinite(pos.latitude) || !Number.isFinite(pos.longitude)) {
+        return;
+      }
+      if (Math.abs(pos.latitude) > 90 || Math.abs(pos.longitude) > 180) {
+        return;
+      }
+      this.userObserverLat = pos.latitude;
+      this.userObserverLon = pos.longitude;
+      this.refreshSatelliteVisibilityFromUser();
+      this.scheduleWorldGlobeCdr();
+    });
+  }
+
+  private refreshSatelliteVisibilityFromUser(): void {
+    const obsLat = this.userObserverLat;
+    const obsLon = this.userObserverLon;
+    if (obsLat == null || obsLon == null) {
+      return;
+    }
+    const now = Date.now();
+    let changed = false;
+    for (const sat of this.globeSatelliteOptions) {
+      const snap = this.satNowService.snapshotForDisplay(sat.noradId, now);
+      if (!snap) {
+        void this.satNowService.ensureTle(sat.noradId);
+      }
+      const visible =
+        snap != null &&
+        WorldGlobeComponent.satelliteElevationRadFromLatLon(
+          obsLat,
+          obsLon,
+          snap.lat,
+          snap.lon,
+          snap.altKm ?? sat.defaultAltKm
+        ) >
+          0;
+      if (this.satelliteVisibleFromUser[sat.id] !== visible) {
+        this.satelliteVisibleFromUser[sat.id] = visible;
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.scheduleWorldGlobeCdr();
+    }
+  }
+
+  private tryCenterGlobeOnSatellite(satId: string): void {
+    const sat = this.globeSatelliteOptions.find((s) => s.id === satId);
+    const camera = this.camera;
+    const controls = this.controls;
+    if (!sat || !camera || !controls) {
+      return;
+    }
+    const snap = this.satNowService.snapshotForDisplay(sat.noradId);
+    if (!snap) {
+      void this.satNowService.ensureTle(sat.noradId);
+      return;
+    }
+    this.pendingCenterSatelliteId = null;
+    this.issGlobeFreeOrbit = true;
+    this.flightGlobeFreeOrbit = true;
+    const dist = THREE.MathUtils.clamp(
+      this.globeOrbitDistance(),
+      controls.minDistance,
+      controls.maxDistance
+    );
+    this.animateCameraToLatLon(snap.lat, snap.lon, dist, GLOBE_RESET_VIEW_ANIM_MS, 0);
+    this.cdr.markForCheck();
+  }
+
+  private async loadSatelliteInfoDetails(sat: AstroSatelliteOption): Promise<void> {
+    if (this.userObserverLat == null || this.userObserverLon == null) {
+      await firstValueFrom(this.positionService.getCurrentPosition())
+        .then((pos) => {
+          if (pos && Number.isFinite(pos.latitude) && Number.isFinite(pos.longitude)) {
+            this.userObserverLat = pos.latitude;
+            this.userObserverLon = pos.longitude;
+          }
+        })
+        .catch(() => undefined);
+    }
+    await this.satNowService.ensureTle(sat.noradId);
+    if (this.satelliteInfoSat?.id !== sat.id) {
+      return;
+    }
+    this.refreshSatelliteInfoSnapshot();
+    this.satelliteInfoPasses = this.predictSatellitePassesFromUser(sat);
+    this.satelliteInfoLoading = false;
+    this.scheduleWorldGlobeCdr();
+  }
+
+  private refreshSatelliteInfoSnapshot(): void {
+    const sat = this.satelliteInfoSat;
+    if (!sat) {
+      return;
+    }
+    const snap = this.satNowService.snapshotForDisplay(sat.noradId);
+    if (!snap) {
+      this.satelliteInfoSnapshot = null;
+      return;
+    }
+    const obsLat = this.userObserverLat;
+    const obsLon = this.userObserverLon;
+    const altKm = snap.altKm ?? sat.defaultAltKm;
+    let azimuthDeg: number | null = null;
+    let elevationDeg: number | null = null;
+    let groundKm: number | null = null;
+    let slantKm: number | null = null;
+    let visible = false;
+    if (obsLat != null && obsLon != null) {
+      groundKm = WorldGlobeComponent.haversineGreatCircleKm(obsLat, obsLon, snap.lat, snap.lon);
+      const elevRad = WorldGlobeComponent.satelliteElevationRadFromLatLon(
+        obsLat,
+        obsLon,
+        snap.lat,
+        snap.lon,
+        altKm
+      );
+      elevationDeg = (elevRad * 180) / Math.PI;
+      azimuthDeg = WorldGlobeComponent.initialBearingDeg(obsLat, obsLon, snap.lat, snap.lon);
+      const gamma = groundKm / GLOBE_EARTH_RADIUS_KM;
+      slantKm = WorldGlobeComponent.satelliteSlantRangeKmFromNadirCentralAngle(gamma, altKm);
+      visible = elevationDeg > 0;
+    }
+    this.satelliteInfoSnapshot = {
+      lat: snap.lat,
+      lon: snap.lon,
+      altKm,
+      velocityKmh: snap.velocityKmh,
+      azimuthDeg,
+      elevationDeg,
+      groundKm,
+      slantKm,
+      visible
+    };
+  }
+
+  private predictSatellitePassesFromUser(sat: AstroSatelliteOption): GlobeSatellitePass[] {
+    const obsLat = this.userObserverLat;
+    const obsLon = this.userObserverLon;
+    if (obsLat == null || obsLon == null) {
+      return [];
+    }
+    const startMs = Date.now() - GLOBE_SAT_PASS_LOOKBACK_MS;
+    const endMs = Date.now() + GLOBE_SAT_PASS_HORIZON_MS;
+    const passes: GlobeSatellitePass[] = [];
+    let riseMs: number | null = null;
+    let maxEl = -90;
+    let maxAtMs = startMs;
+    let prevEl: number | null = null;
+    let prevMs = startMs;
+    for (let t = startMs; t <= endMs; t += GLOBE_SAT_PASS_STEP_MS) {
+      const el = this.satelliteElevationDegAt(sat, obsLat, obsLon, t);
+      if (el == null) {
+        continue;
+      }
+      if (prevEl != null && prevEl <= 0 && el > 0) {
+        riseMs = WorldGlobeComponent.interpolateHorizonCrossing(prevMs, prevEl, t, el);
+        maxEl = el;
+        maxAtMs = t;
+      } else if (riseMs != null && el > maxEl) {
+        maxEl = el;
+        maxAtMs = t;
+      }
+      if (prevEl != null && prevEl > 0 && el <= 0 && riseMs != null) {
+        const setMs = WorldGlobeComponent.interpolateHorizonCrossing(prevMs, prevEl, t, el);
+        if (setMs > Date.now() - 15_000) {
+          passes.push({
+            riseAt: new Date(riseMs),
+            setAt: new Date(setMs),
+            maxElevationDeg: maxEl,
+            maxAt: new Date(maxAtMs)
+          });
+          if (passes.length >= GLOBE_SAT_PASS_MAX) {
+            break;
+          }
+        }
+        riseMs = null;
+        maxEl = -90;
+      }
+      prevEl = el;
+      prevMs = t;
+    }
+    return passes;
+  }
+
+  private satelliteElevationDegAt(
+    sat: AstroSatelliteOption,
+    obsLat: number,
+    obsLon: number,
+    atMs: number
+  ): number | null {
+    const snap = this.satNowService.snapshotForDisplay(sat.noradId, atMs);
+    if (!snap) {
+      return null;
+    }
+    const elevRad = WorldGlobeComponent.satelliteElevationRadFromLatLon(
+      obsLat,
+      obsLon,
+      snap.lat,
+      snap.lon,
+      snap.altKm ?? sat.defaultAltKm
+    );
+    return (elevRad * 180) / Math.PI;
+  }
+
+  private static interpolateHorizonCrossing(
+    t0: number,
+    el0: number,
+    t1: number,
+    el1: number
+  ): number {
+    const den = el1 - el0;
+    if (Math.abs(den) < 1e-9) {
+      return t1;
+    }
+    const u = Math.min(1, Math.max(0, (0 - el0) / den));
+    return t0 + (t1 - t0) * u;
+  }
+
+  private static initialBearingDeg(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const r1 = (lat1 * Math.PI) / 180;
+    const r2 = (lat2 * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const y = Math.sin(dLon) * Math.cos(r2);
+    const x = Math.cos(r1) * Math.sin(r2) - Math.sin(r1) * Math.cos(r2) * Math.cos(dLon);
+    return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
   }
 
   private ensureGlobeSatelliteVisual(sat: AstroSatelliteOption): void {

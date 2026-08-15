@@ -592,20 +592,46 @@
             </summary>
             <div class="wg-opt-section__body">
               <p class="wg-opt-iss-meta text-muted small mb-1">{{ 'WORLD_GLOBE.SATELLITE_LAYER_HINT' | translate }}</p>
-              <div class="wg-opt-row" *ngFor="let sat of globeSatelliteOptions">
+              <div class="wg-opt-row wg-opt-row--tools" *ngFor="let sat of globeSatelliteOptions">
                 <label class="wg-opt-row__label" [attr.for]="'wgSat-' + sat.id">
                   <i class="wg-sat-opt-icon" [ngClass]="sat.iconClass" [style.color]="sat.color" aria-hidden="true"></i>
                   {{ sat.labelKey | translate }}
                 </label>
-                <div class="form-check form-switch wg-opt-switch mb-0">
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    [id]="'wgSat-' + sat.id"
-                    [name]="'wgSat-' + sat.id"
-                    [ngModel]="satelliteOverlayEnabled[sat.id]"
-                    (ngModelChange)="onGlobeSatelliteToggle(sat.id, $event)"
-                    [disabled]="!globeSurfaceReady" />
+                <div class="wg-opt-row__tools">
+                  <div class="form-check form-switch wg-opt-switch mb-0">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      [id]="'wgSat-' + sat.id"
+                      [name]="'wgSat-' + sat.id"
+                      [ngModel]="satelliteOverlayEnabled[sat.id]"
+                      (ngModelChange)="onGlobeSatelliteToggle(sat.id, $event)"
+                      [disabled]="!globeSurfaceReady" />
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-sm wg-opt-icon-btn"
+                    (click)="onCenterGlobeOnSatellite(sat.id)"
+                    [disabled]="!globeSurfaceReady"
+                    [attr.title]="'WORLD_GLOBE.SATELLITE_CENTER_HINT' | translate : { name: (sat.labelKey | translate) }"
+                    [attr.aria-label]="'WORLD_GLOBE.SATELLITE_CENTER' | translate : { name: (sat.labelKey | translate) }">
+                    <i class="fa fa-crosshairs" aria-hidden="true"></i>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-sm wg-opt-icon-btn"
+                    (click)="onOpenSatelliteInfo(sat.id)"
+                    [attr.title]="'WORLD_GLOBE.SATELLITE_INFO_HINT' | translate : { name: (sat.labelKey | translate) }"
+                    [attr.aria-label]="'WORLD_GLOBE.SATELLITE_INFO' | translate : { name: (sat.labelKey | translate) }">
+                    <i class="fa fa-info-circle" aria-hidden="true"></i>
+                  </button>
+                  <span
+                    class="wg-sat-visible"
+                    *ngIf="satelliteVisibleFromUser[sat.id]"
+                    [attr.title]="'WORLD_GLOBE.SATELLITE_VISIBLE_HINT' | translate">
+                    <i class="fa fa-eye" aria-hidden="true"></i>
+                    {{ 'WORLD_GLOBE.SATELLITE_VISIBLE' | translate }}
+                  </span>
                 </div>
               </div>
             </div>
@@ -1288,6 +1314,102 @@
     </div>
 
     <div class="alert alert-danger py-2 small mb-0 mt-2" *ngIf="issAlertAdminDeleteError">{{ issAlertAdminDeleteError }}</div>
+  </div>
+</div>
+
+<div
+  class="wg-share-preview-overlay"
+  *ngIf="satelliteInfoOpen && satelliteInfoSat"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="'WORLD_GLOBE.SATELLITE_INFO_TITLE' | translate : { name: (satelliteInfoSat.labelKey | translate) }"
+  (click)="closeSatelliteInfo()">
+  <div class="wg-share-preview-card wg-sat-info-modal" (click)="$event.stopPropagation()">
+    <div class="wg-share-preview-head">
+      <h3 class="wg-share-preview-title mb-0">
+        <i class="wg-sat-opt-icon" [ngClass]="satelliteInfoSat.iconClass" [style.color]="satelliteInfoSat.color" aria-hidden="true"></i>
+        {{ satelliteInfoSat.labelKey | translate }}
+      </h3>
+      <button
+        type="button"
+        class="wg-share-preview-close btn btn-sm btn-dark border-secondary"
+        (click)="closeSatelliteInfo()"
+        [attr.aria-label]="'COMMUN.CLOSE' | translate">
+        <i class="fa fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+
+    <p class="wg-sat-visible mb-2" *ngIf="satelliteInfoSnapshot?.visible">
+      <i class="fa fa-eye" aria-hidden="true"></i>
+      {{ 'ASTRO_COMPASS.VIS_NOW_VISIBLE' | translate }}
+    </p>
+    <p class="text-muted small mb-2" *ngIf="satelliteInfoSnapshot && !satelliteInfoSnapshot.visible && userObserverLat != null">
+      {{ 'ASTRO_COMPASS.VIS_BELOW' | translate }}
+    </p>
+    <p class="text-warning small mb-2" *ngIf="!satelliteInfoLoading && userObserverLat == null">
+      {{ 'WORLD_GLOBE.SATELLITE_INFO_NO_GPS' | translate }}
+    </p>
+
+    <div class="text-muted small py-2" *ngIf="satelliteInfoLoading">
+      <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+      {{ 'WORLD_GLOBE.SATELLITE_INFO_LOADING' | translate }}
+    </div>
+
+    <div class="wg-sat-info-grid" *ngIf="!satelliteInfoLoading && satelliteInfoSnapshot as snap">
+      <div class="wg-sat-info-row">
+        <span>{{ 'ASTRO_COMPASS.AZIMUTH' | translate }}</span>
+        <strong>{{ snap.azimuthDeg != null ? (snap.azimuthDeg | number : '1.0-0') + '°' : '—' }}</strong>
+      </div>
+      <div class="wg-sat-info-row">
+        <span>{{ 'ASTRO_COMPASS.ELEVATION' | translate }}</span>
+        <strong>{{ snap.elevationDeg != null ? (snap.elevationDeg | number : '1.1-1') + '°' : '—' }}</strong>
+      </div>
+      <div class="wg-sat-info-row">
+        <span>{{ 'ASTRO_COMPASS.ISS_ALTITUDE' | translate }}</span>
+        <strong>{{ snap.altKm != null ? (snap.altKm | number : '1.0-0') + ' km' : '—' }}</strong>
+      </div>
+      <div class="wg-sat-info-row">
+        <span>{{ 'ASTRO_COMPASS.ISS_VELOCITY' | translate }}</span>
+        <strong>{{ snap.velocityKmh != null ? (snap.velocityKmh | number : '1.0-0') + ' km/h' : '—' }}</strong>
+      </div>
+      <div class="wg-sat-info-row">
+        <span>{{ 'ASTRO_COMPASS.ISS_SLANT' | translate }}</span>
+        <strong>{{ snap.slantKm != null ? (snap.slantKm | number : '1.0-0') + ' km' : '—' }}</strong>
+      </div>
+      <div class="wg-sat-info-row">
+        <span>{{ 'ASTRO_COMPASS.ISS_GROUND' | translate }}</span>
+        <strong>{{ snap.groundKm != null ? (snap.groundKm | number : '1.0-0') + ' km' : '—' }}</strong>
+      </div>
+      <div class="wg-sat-info-row">
+        <span>{{ 'WORLD_GLOBE.ISS_TICKER_LAT' | translate }}</span>
+        <strong>{{ snap.lat | number : '1.2-4' }}°</strong>
+      </div>
+      <div class="wg-sat-info-row">
+        <span>{{ 'WORLD_GLOBE.ISS_TICKER_LON' | translate }}</span>
+        <strong>{{ snap.lon | number : '1.2-4' }}°</strong>
+      </div>
+    </div>
+
+    <div class="wg-sat-info-passes" *ngIf="!satelliteInfoLoading && userObserverLat != null">
+      <h4 class="wg-sat-info-passes__title">{{ 'WORLD_GLOBE.SATELLITE_INFO_PASSES' | translate }}</h4>
+      <p class="text-muted small mb-1" *ngIf="satelliteInfoPasses.length === 0">
+        {{ 'ASTRO_COMPASS.ISS_NO_PASS' | translate }}
+      </p>
+      <ul class="list-unstyled mb-0" *ngIf="satelliteInfoPasses.length">
+        <li class="wg-sat-info-pass" *ngFor="let pass of satelliteInfoPasses; let i = index">
+          <div class="wg-sat-info-pass__when">
+            <span class="wg-sat-info-pass__k">{{ i === 0 && satelliteInfoSnapshot?.visible ? ('ASTRO_COMPASS.ISS_PASS_END' | translate) : ('ASTRO_COMPASS.VIS_NEXT_RISE' | translate) }}</span>
+            <strong>{{ formatSatelliteInfoTime(i === 0 && satelliteInfoSnapshot?.visible ? pass.setAt : pass.riseAt) }}</strong>
+          </div>
+          <div class="wg-sat-info-pass__meta">
+            <span>{{ 'ASTRO_COMPASS.ISS_PASS_START' | translate }} : {{ formatSatelliteInfoTime(pass.riseAt) }}</span>
+            <span>{{ 'ASTRO_COMPASS.ISS_PASS_END' | translate }} : {{ formatSatelliteInfoTime(pass.setAt) }}</span>
+            <span>{{ 'ASTRO_COMPASS.VIS_CULMINATION' | translate }} : {{ formatSatelliteInfoTime(pass.maxAt) }} · {{ pass.maxElevationDeg | number : '1.0-0' }}°</span>
+            <span>{{ 'WORLD_GLOBE.SATELLITE_INFO_DURATION' | translate }} : {{ formatSatelliteInfoDuration(pass) }}</span>
+          </div>
+        </li>
+      </ul>
+    </div>
   </div>
 </div>
 

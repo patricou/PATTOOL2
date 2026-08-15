@@ -755,6 +755,84 @@ body:has(.wg-fs-root--viewport-locked) {
   margin-right: 0.28rem;
 }
 
+.wg-sat-visible {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.05rem 0.32rem;
+  border-radius: 999px;
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  color: #9ef0c2;
+  background: rgba(46, 160, 90, 0.22);
+  border: 1px solid rgba(110, 220, 150, 0.35);
+  white-space: nowrap;
+}
+
+.wg-sat-visible .fa {
+  font-size: 0.62rem;
+}
+
+.wg-sat-info-modal {
+  width: min(96vw, 28rem);
+  max-height: min(88vh, 40rem);
+  overflow: auto;
+}
+
+.wg-sat-info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  margin-bottom: 0.75rem;
+}
+
+.wg-sat-info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.78rem;
+  color: #b9c7e8;
+}
+
+.wg-sat-info-row strong {
+  color: #e8eef8;
+  font-weight: 600;
+  text-align: right;
+}
+
+.wg-sat-info-passes__title {
+  margin: 0 0 0.4rem;
+  font-size: 0.82rem;
+  color: #d7e4fb;
+}
+
+.wg-sat-info-pass {
+  padding: 0.45rem 0.5rem;
+  margin-bottom: 0.4rem;
+  border: 1px solid rgba(120, 150, 220, 0.28);
+  border-radius: 0.4rem;
+  background: rgba(8, 14, 28, 0.55);
+}
+
+.wg-sat-info-pass__when {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-size: 0.78rem;
+  color: #9ef0c2;
+  margin-bottom: 0.25rem;
+}
+
+.wg-sat-info-pass__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  font-size: 0.7rem;
+  color: #9fb0d4;
+}
+
 .wg-opt-switch .form-check-input {
   width: 1.55em;
   height: 0.82em;
