@@ -1,6 +1,9 @@
 import {
+  AfterViewInit,
   ChangeDetectorRef,
   Component,
+  ElementRef,
+  HostListener,
   NgZone,
   OnDestroy,
   OnInit,
@@ -8,6 +11,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import {
@@ -45,6 +49,8 @@ import { GlobeIssNowService } from '../services/globe-iss-now.service';
 import { GlobeSatelliteNowService } from '../services/globe-satellite-now.service';
 import { CompassNorthEngine } from '../shared/compass-north.engine';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
+import { CameraLookTracker } from '../direction/camera-look-tracker';
+import { projectCelestialToScreen, type ScreenProjection } from '../direction/direction-attitude';
 
 /** Seuil (degrés) pour considérer que l'utilisateur vise la cible (azimut / inclinaison). */
 const FACING_THRESHOLD_DEG = 8;
@@ -144,16 +150,74 @@ interface AutoDetectHit {
   mag: number | null;
 }
 
+interface HelpTerm {
+  id: string;
+  termKey: string;
+  defKey: string;
+  aliases: string;
+}
+
+const ASTRO_HELP_TERMS: ReadonlyArray<HelpTerm> = [
+  { id: 'azimuth', termKey: 'ASTRO_COMPASS.HELP_AZIMUTH', defKey: 'ASTRO_COMPASS.HELP_AZIMUTH_DEF', aliases: 'azimut azimuth direction nord est sud ouest' },
+  { id: 'elevation', termKey: 'ASTRO_COMPASS.HELP_ELEVATION', defKey: 'ASTRO_COMPASS.HELP_ELEVATION_DEF', aliases: 'elevation altitude angle ciel horizon' },
+  { id: 'horizon', termKey: 'ASTRO_COMPASS.HELP_HORIZON', defKey: 'ASTRO_COMPASS.HELP_HORIZON_DEF', aliases: 'horizon visible invisible' },
+  { id: 'heading', termKey: 'ASTRO_COMPASS.HELP_HEADING', defKey: 'ASTRO_COMPASS.HELP_HEADING_DEF', aliases: 'cap heading boussole telephone' },
+  { id: 'ra', termKey: 'ASTRO_COMPASS.HELP_RA', defKey: 'ASTRO_COMPASS.HELP_RA_DEF', aliases: 'ad ra ascension droite right ascension heures' },
+  { id: 'dec', termKey: 'ASTRO_COMPASS.HELP_DEC', defKey: 'ASTRO_COMPASS.HELP_DEC_DEF', aliases: 'dec declinaison declination latitude celeste' },
+  { id: 'mag', termKey: 'ASTRO_COMPASS.HELP_MAG', defKey: 'ASTRO_COMPASS.HELP_MAG_DEF', aliases: 'magnitude luminosite brillance mag' },
+  { id: 'phase', termKey: 'ASTRO_COMPASS.HELP_PHASE', defKey: 'ASTRO_COMPASS.HELP_PHASE_DEF', aliases: 'phase fraction eclairee lune' },
+  { id: 'phase-angle', termKey: 'ASTRO_COMPASS.HELP_PHASE_ANGLE', defKey: 'ASTRO_COMPASS.HELP_PHASE_ANGLE_DEF', aliases: 'angle de phase opposition conjonction' },
+  { id: 'elong', termKey: 'ASTRO_COMPASS.HELP_ELONG', defKey: 'ASTRO_COMPASS.HELP_ELONG_DEF', aliases: 'elongation mercure venus soleil' },
+  { id: 'geo', termKey: 'ASTRO_COMPASS.HELP_GEO', defKey: 'ASTRO_COMPASS.HELP_GEO_DEF', aliases: 'distance terre geo au km' },
+  { id: 'helio', termKey: 'ASTRO_COMPASS.HELP_HELIO', defKey: 'ASTRO_COMPASS.HELP_HELIO_DEF', aliases: 'distance soleil helio perihelie' },
+  { id: 'au', termKey: 'ASTRO_COMPASS.HELP_AU', defKey: 'ASTRO_COMPASS.HELP_AU_DEF', aliases: 'au ua unite astronomique astronomical unit' },
+  { id: 'const', termKey: 'ASTRO_COMPASS.HELP_CONST', defKey: 'ASTRO_COMPASS.HELP_CONST_DEF', aliases: 'constellation orion ours' },
+  { id: 'rise', termKey: 'ASTRO_COMPASS.HELP_RISE', defKey: 'ASTRO_COMPASS.HELP_RISE_DEF', aliases: 'lever rise' },
+  { id: 'set', termKey: 'ASTRO_COMPASS.HELP_SET', defKey: 'ASTRO_COMPASS.HELP_SET_DEF', aliases: 'coucher set' },
+  { id: 'culm', termKey: 'ASTRO_COMPASS.HELP_CULM', defKey: 'ASTRO_COMPASS.HELP_CULM_DEF', aliases: 'culmination plus haut' },
+  { id: 'transit', termKey: 'ASTRO_COMPASS.HELP_TRANSIT', defKey: 'ASTRO_COMPASS.HELP_TRANSIT_DEF', aliases: 'meridien transit passage' },
+  { id: 'circum', termKey: 'ASTRO_COMPASS.HELP_CIRCUM', defKey: 'ASTRO_COMPASS.HELP_CIRCUM_DEF', aliases: 'circumpolaire toujours visible' },
+  { id: 'viswin', termKey: 'ASTRO_COMPASS.HELP_VISWIN', defKey: 'ASTRO_COMPASS.HELP_VISWIN_DEF', aliases: 'fenetre visibilite duree' },
+  { id: 'alt', termKey: 'ASTRO_COMPASS.HELP_ALT', defKey: 'ASTRO_COMPASS.HELP_ALT_DEF', aliases: 'altitude satellite km' },
+  { id: 'slant', termKey: 'ASTRO_COMPASS.HELP_SLANT', defKey: 'ASTRO_COMPASS.HELP_SLANT_DEF', aliases: 'distance directe slant range' },
+  { id: 'ground', termKey: 'ASTRO_COMPASS.HELP_GROUND', defKey: 'ASTRO_COMPASS.HELP_GROUND_DEF', aliases: 'distance sol ground nadir' },
+  { id: 'pass', termKey: 'ASTRO_COMPASS.HELP_PASS', defKey: 'ASTRO_COMPASS.HELP_PASS_DEF', aliases: 'passage satellite pass iss' },
+  { id: 'vel', termKey: 'ASTRO_COMPASS.HELP_VEL', defKey: 'ASTRO_COMPASS.HELP_VEL_DEF', aliases: 'vitesse velocity orbite' },
+  { id: 'lat', termKey: 'ASTRO_COMPASS.HELP_LAT', defKey: 'ASTRO_COMPASS.HELP_LAT_DEF', aliases: 'latitude lat gps' },
+  { id: 'lon', termKey: 'ASTRO_COMPASS.HELP_LON', defKey: 'ASTRO_COMPASS.HELP_LON_DEF', aliases: 'longitude lon gps' },
+  { id: 'pitch', termKey: 'ASTRO_COMPASS.HELP_PITCH', defKey: 'ASTRO_COMPASS.HELP_PITCH_DEF', aliases: 'inclinaison pitch telephone' },
+  { id: 'true-n', termKey: 'ASTRO_COMPASS.HELP_TRUE_N', defKey: 'ASTRO_COMPASS.HELP_TRUE_N_DEF', aliases: 'nord geographique magnetique declinaison' },
+  { id: 'planet', termKey: 'ASTRO_COMPASS.HELP_PLANET', defKey: 'ASTRO_COMPASS.HELP_PLANET_DEF', aliases: 'planete systeme solaire lune soleil' },
+  { id: 'star', termKey: 'ASTRO_COMPASS.HELP_STAR', defKey: 'ASTRO_COMPASS.HELP_STAR_DEF', aliases: 'etoile star' },
+  { id: 'galaxy', termKey: 'ASTRO_COMPASS.HELP_GALAXY', defKey: 'ASTRO_COMPASS.HELP_GALAXY_DEF', aliases: 'galaxie andromede' },
+  { id: 'sat', termKey: 'ASTRO_COMPASS.HELP_SAT', defKey: 'ASTRO_COMPASS.HELP_SAT_DEF', aliases: 'satellite iss hubble' },
+  { id: 'iss', termKey: 'ASTRO_COMPASS.HELP_ISS', defKey: 'ASTRO_COMPASS.HELP_ISS_DEF', aliases: 'iss station spatiale' },
+  { id: 'zenith', termKey: 'ASTRO_COMPASS.HELP_ZENITH', defKey: 'ASTRO_COMPASS.HELP_ZENITH_DEF', aliases: 'zenith 90' },
+  { id: 'nadir', termKey: 'ASTRO_COMPASS.HELP_NADIR', defKey: 'ASTRO_COMPASS.HELP_NADIR_DEF', aliases: 'nadir -90' },
+  { id: 'card', termKey: 'ASTRO_COMPASS.HELP_CARD', defKey: 'ASTRO_COMPASS.HELP_CARD_DEF', aliases: 'cardinal n e s o ne no' },
+  { id: 'obs', termKey: 'ASTRO_COMPASS.HELP_OBS', defKey: 'ASTRO_COMPASS.HELP_OBS_DEF', aliases: 'observateur position gps adresse' }
+];
+
 @Component({
   selector: 'app-astro-compass',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, TraceViewerModalComponent],
+  imports: [CommonModule, FormsModule, RouterModule, TranslateModule, TraceViewerModalComponent],
   templateUrl: './astro-compass.component.html',
   styleUrls: ['./astro-compass.component.css']
 })
-export class AstroCompassComponent implements OnInit, OnDestroy {
+export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @ViewChild(TraceViewerModalComponent) traceViewerModalComponent?: TraceViewerModalComponent;
+  @ViewChild('camStage') camStage?: ElementRef<HTMLElement>;
+  private camEl?: ElementRef<HTMLVideoElement>;
+
+  @ViewChild('cam')
+  set camRef(el: ElementRef<HTMLVideoElement> | undefined) {
+    this.camEl = el;
+    queueMicrotask(() => {
+      void this.attachCameraStream();
+    });
+  }
 
   /* ------------------------------------------------------------------ */
   /* Catalogue & sélection de cible                                      */
@@ -363,6 +427,17 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   octantMask = 0;
   /** Retour d’alignement : silence, bip ou vibration. */
   alignCue: 'off' | 'beep' | 'vibrate' = 'off';
+  lookTracker!: CameraLookTracker;
+  camLive = false;
+  camDenied = false;
+  isFullscreen = false;
+  finderProj: ScreenProjection | null = null;
+  northMarked = false;
+  helpModalOpen = false;
+  helpFilter = '';
+  readonly helpTerms = ASTRO_HELP_TERMS;
+  private northMarkTimer: ReturnType<typeof setTimeout> | null = null;
+  private camStream: MediaStream | null = null;
   sensorAlpha: number | null = null;
   sensorBeta: number | null = null;
   sensorGamma: number | null = null;
@@ -435,18 +510,20 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     private readonly translate: TranslateService,
     private readonly cdr: ChangeDetectorRef,
     private readonly zone: NgZone
-  ) {}
+  ) {
+    this.lookTracker = new CameraLookTracker(this.zone, () => this.onLookUpdate());
+  }
 
   ngOnInit(): void {
     this.onStarQueryChange();
-    this.northEngine.loadPersisted();
     this.loadAlignCuePref();
-    this.loadNorthHeadingModePref();
-    this.loadCalibration();
     this.startGeolocation();
-    this.startNorthSensors();
-    this.startDeviceMotion();
-    void this.startOrientation();
+    void this.lookTracker.start(false).then(() => {
+      if (this.lookTracker.sensorsOn) {
+        void this.startCamera();
+      }
+      this.cdr.markForCheck();
+    });
     this.startSkyTick();
     this.issNow.startBackgroundPrefetch();
     void this.issNow.refresh(false).then(() => {
@@ -460,7 +537,17 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  ngAfterViewInit(): void {
+    if (this.lookTracker.sensorsOn) {
+      void this.startCamera();
+    }
+  }
+
   ngOnDestroy(): void {
+    if (this.northMarkTimer != null) {
+      clearTimeout(this.northMarkTimer);
+      this.northMarkTimer = null;
+    }
     this.stopAutoDetectLive();
     this.stopSensors();
     this.stopSkyTick();
@@ -469,6 +556,220 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     this.reverseGeocodeSub?.unsubscribe();
     this.issPassSub?.unsubscribe();
     this.altitudeSub?.unsubscribe();
+  }
+
+  get finderNeedTap(): boolean {
+    return this.lookTracker.needTap;
+  }
+
+  get finderDenied(): boolean {
+    return this.lookTracker.denied;
+  }
+
+  async enableFinder(): Promise<void> {
+    await this.lookTracker.start(true);
+    if (this.lookTracker.sensorsOn) {
+      await this.startCamera();
+    }
+    this.cdr.markForCheck();
+  }
+
+  async startCamera(): Promise<void> {
+    this.camDenied = false;
+    try {
+      this.camStream?.getTracks().forEach((t) => t.stop());
+      this.camStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      });
+      await this.attachCameraStream();
+    } catch {
+      this.camDenied = true;
+      this.camLive = false;
+    }
+    this.cdr.markForCheck();
+  }
+
+  private async attachCameraStream(): Promise<void> {
+    const video = this.camEl?.nativeElement;
+    if (!video || !this.camStream) {
+      return;
+    }
+    if (video.srcObject !== this.camStream) {
+      video.srcObject = this.camStream;
+    }
+    try {
+      await video.play();
+      this.camLive = true;
+    } catch {
+      this.camLive = false;
+    }
+    this.cdr.markForCheck();
+  }
+
+  stopCamera(): void {
+    this.camStream?.getTracks().forEach((t) => t.stop());
+    this.camStream = null;
+    this.camLive = false;
+    const video = this.camEl?.nativeElement;
+    if (video) {
+      video.srcObject = null;
+    }
+  }
+
+  markFinderNorth(): void {
+    if (!this.lookTracker.markCameraAsNorth()) {
+      return;
+    }
+    this.northMarked = true;
+    if (this.northMarkTimer != null) {
+      clearTimeout(this.northMarkTimer);
+    }
+    this.northMarkTimer = setTimeout(() => {
+      this.northMarked = false;
+      this.northMarkTimer = null;
+      this.cdr.markForCheck();
+    }, 2500);
+    this.cdr.markForCheck();
+  }
+
+  clearFinderNorth(): void {
+    this.lookTracker.clearManualNorth();
+    this.northMarked = false;
+    if (this.northMarkTimer != null) {
+      clearTimeout(this.northMarkTimer);
+      this.northMarkTimer = null;
+    }
+    this.cdr.markForCheck();
+  }
+
+  async toggleFinderFullscreen(): Promise<void> {
+    const el = this.camStage?.nativeElement;
+    if (!el) {
+      return;
+    }
+    const doc = document as Document & { webkitExitFullscreen?: () => Promise<void> | void };
+    const cur = document.fullscreenElement ?? (doc as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement;
+    try {
+      if (cur) {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (doc.webkitExitFullscreen) {
+          await Promise.resolve(doc.webkitExitFullscreen());
+        }
+      } else if (this.isFullscreen) {
+        this.isFullscreen = false;
+        this.cdr.markForCheck();
+        return;
+      } else {
+        const req =
+          el.requestFullscreen?.bind(el) ??
+          (el as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen?.bind(el);
+        if (req) {
+          await req();
+        } else {
+          const video = this.camEl?.nativeElement as
+            | (HTMLVideoElement & { webkitEnterFullscreen?: () => void })
+            | undefined;
+          if (video?.webkitEnterFullscreen) {
+            video.webkitEnterFullscreen();
+          } else {
+            this.isFullscreen = true;
+            this.cdr.markForCheck();
+            return;
+          }
+        }
+      }
+    } catch {
+      this.isFullscreen = !this.isFullscreen;
+      this.cdr.markForCheck();
+      return;
+    }
+    this.syncFullscreenFlag();
+  }
+
+  @HostListener('document:keydown.escape')
+  onFinderEscape(): void {
+    if (this.helpModalOpen) {
+      this.closeHelpModal();
+      return;
+    }
+    if (this.isFullscreen && !document.fullscreenElement) {
+      this.isFullscreen = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  openHelpModal(): void {
+    this.helpFilter = '';
+    this.helpModalOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  closeHelpModal(): void {
+    this.helpModalOpen = false;
+    this.helpFilter = '';
+    this.cdr.markForCheck();
+  }
+
+  filteredHelpTerms(): HelpTerm[] {
+    const q = this.helpFilter.trim().toLowerCase();
+    if (!q) {
+      return [...this.helpTerms];
+    }
+    return this.helpTerms.filter((t) => {
+      const term = String(this.translate.instant(t.termKey)).toLowerCase();
+      const def = String(this.translate.instant(t.defKey)).toLowerCase();
+      return term.includes(q) || def.includes(q) || t.aliases.toLowerCase().includes(q);
+    });
+  }
+
+  @HostListener('document:fullscreenchange')
+  @HostListener('document:webkitfullscreenchange')
+  onFinderFullscreenChange(): void {
+    this.syncFullscreenFlag();
+  }
+
+  private syncFullscreenFlag(): void {
+    const doc = document as Document & { webkitFullscreenElement?: Element | null };
+    this.isFullscreen = !!(document.fullscreenElement ?? doc.webkitFullscreenElement);
+    this.cdr.markForCheck();
+  }
+
+  private onLookUpdate(): void {
+    const az = this.lookTracker.azimuthDeg;
+    const el = this.lookTracker.elevationDeg;
+    this.headingDeg = az;
+    this.headingActive = az != null;
+    this.devicePitchDeg = el != null ? 90 - el : null;
+    this.updateFinderProjection();
+    this.tickAlignCue();
+    this.cdr.markForCheck();
+  }
+
+  private updateFinderProjection(): void {
+    const camAz = this.lookTracker.azimuthDeg;
+    const camEl = this.lookTracker.elevationDeg;
+    const camRl = this.lookTracker.rollDeg ?? 0;
+    if (camAz == null || camEl == null || this.azimuthDeg == null || this.elevationDeg == null) {
+      this.finderProj = null;
+      return;
+    }
+    const video = this.camEl?.nativeElement;
+    let vfov: number | undefined;
+    if (video && video.videoWidth > 0 && video.videoHeight > 0) {
+      const hfov = 62;
+      vfov = ((2 * Math.atan(Math.tan((hfov * Math.PI) / 360) / (video.videoWidth / video.videoHeight))) * 180) / Math.PI;
+    }
+    this.finderProj = projectCelestialToScreen(
+      camAz,
+      camEl,
+      camRl,
+      this.azimuthDeg,
+      this.elevationDeg,
+      62,
+      vfov
+    );
   }
 
   /* ------------------------------------------------------------------ */
@@ -1625,6 +1926,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     this.updatedAtMs = Date.now();
     this.nowMs = this.updatedAtMs;
     this.recomputeVisibility(date, observer, bodyForIllum, isStarLike);
+    this.updateFinderProjection();
   }
 
   /** Azimut / élévation satellite depuis lat/lon live (ISS feed ou TLE/SGP4). */
@@ -1729,6 +2031,7 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
     this.geoDistKm = slantKm;
     this.updatedAtMs = now;
     this.nowMs = now;
+    this.updateFinderProjection();
 
     if (sat.useIssLiveFeed) {
       this.refreshIssPasses(false);
@@ -3627,6 +3930,8 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   }
 
   private stopSensors(): void {
+    this.lookTracker.stop();
+    this.stopCamera();
     this.northEngine.destroy();
     for (const s of this.liveNorthSensors) {
       try {
@@ -3910,25 +4215,15 @@ export class AstroCompassComponent implements OnInit, OnDestroy {
   }
 
   private tickAlignCue(): void {
+    const locked = !!this.finderProj?.centered && this.aboveHorizon();
     if (this.alignCue === 'off') {
-      this.alignCuePrevYaw = this.isYawAligned();
-      this.alignCuePrevPitch = this.isPitchAligned() && this.aboveHorizon();
-      this.alignCuePrevBoth = this.isFacing();
+      this.alignCuePrevBoth = locked;
       return;
     }
-    const yaw = this.isYawAligned();
-    const pitch = this.aboveHorizon() && this.devicePitchDeg != null && this.isPitchAligned();
-    const both = yaw && pitch;
-    if (both && !this.alignCuePrevBoth) {
+    if (locked && !this.alignCuePrevBoth) {
       this.fireAlignCue(2);
-    } else if (yaw && !this.alignCuePrevYaw && !pitch) {
-      this.fireAlignCue(1);
-    } else if (pitch && !this.alignCuePrevPitch && !yaw) {
-      this.fireAlignCue(1);
     }
-    this.alignCuePrevYaw = yaw;
-    this.alignCuePrevPitch = pitch;
-    this.alignCuePrevBoth = both;
+    this.alignCuePrevBoth = locked;
   }
 
   private fireAlignCue(count: 1 | 2): void {

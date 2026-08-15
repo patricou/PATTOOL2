@@ -25,10 +25,6 @@
       <input type="checkbox" [checked]="trueNorth" (change)="toggleTrueNorth()" />
       {{ 'DIRECTION.TRUE_NORTH' | translate }}
     </label>
-    <label class="dir-toggle">
-      <input type="checkbox" [checked]="fsShowParams" (change)="toggleFsParams()" />
-      {{ 'DIRECTION.FS_PARAMS' | translate }}
-    </label>
     <button
       type="button"
       class="dir-btn"
@@ -38,6 +34,14 @@
       <i class="fa me-1" [class.fa-compress]="isFullscreen" [class.fa-expand]="!isFullscreen" aria-hidden="true"></i>
       {{ (isFullscreen ? 'DIRECTION.EXIT_FULLSCREEN' : 'DIRECTION.FULLSCREEN') | translate }}
     </button>
+    <a
+      class="dir-btn dir-btn--link dir-btn--astro"
+      routerLink="/tools/astro-compass"
+      [attr.title]="'DIRECTION.OPEN_ASTRO_HINT' | translate"
+      [attr.aria-label]="'DIRECTION.OPEN_ASTRO' | translate">
+      <i class="fa fa-video-camera me-1" aria-hidden="true"></i>
+      {{ 'DIRECTION.OPEN_ASTRO' | translate }}
+    </a>
   </div>
 
   <div class="dir-stage" [attr.aria-label]="'DIRECTION.STAGE_ARIA' | translate">
@@ -58,39 +62,24 @@
         [attr.aria-label]="(isFullscreen ? 'DIRECTION.EXIT_FULLSCREEN' : 'DIRECTION.FULLSCREEN') | translate">
         <i class="fa" [class.fa-compress]="isFullscreen" [class.fa-expand]="!isFullscreen" aria-hidden="true"></i>
       </button>
-      <button
-        type="button"
-        class="dir-fs dir-fs--params"
-        (click)="toggleFsParams()"
-        [class.dir-fs--on]="fsShowParams"
-        [attr.title]="'DIRECTION.FS_PARAMS' | translate"
-        [attr.aria-label]="'DIRECTION.FS_PARAMS' | translate"
-        [attr.aria-pressed]="fsShowParams">
-        <i class="fa fa-list" aria-hidden="true"></i>
-      </button>
-      <aside class="dir-fs-overlay" *ngIf="isFullscreen && fsShowParams && groupBtnList.length && !openGroupId">
-        <nav class="dir-groups dir-groups--fs" [attr.aria-label]="'DIRECTION.GROUPS_ARIA' | translate">
-          <button
-            type="button"
-            class="dir-groups__btn"
-            *ngFor="let g of groupBtnList; trackBy: trackGroup"
-            (click)="openGroup(g.id)">
-            <span>{{ g.labelKey | translate }}</span>
-            <em>{{ g.count }}</em>
-          </button>
-        </nav>
-      </aside>
-      <div class="dir-modal-host dir-modal-host--cam" *ngIf="openGroupId && isFullscreen">
-        <ng-container *ngTemplateOutlet="groupModal"></ng-container>
-      </div>
       <div class="dir-hud">
-        <div class="dir-hud__az">
-          <span class="dir-hud__num">{{ azText() }}</span>
-          <span class="dir-hud__unit">°</span>
-          <span class="dir-hud__card">{{ cardinal() }}</span>
+        <div class="dir-hud__pair">
+          <div class="dir-hud__metric">
+            <span class="dir-hud__lab">{{ 'DIRECTION.AZIMUTH' | translate }}</span>
+            <div class="dir-hud__az">
+              <span class="dir-hud__num">{{ azText() }}</span>
+              <span class="dir-hud__unit">°</span>
+              <span class="dir-hud__card">{{ cardinal() }}</span>
+            </div>
+          </div>
+          <div class="dir-hud__metric">
+            <span class="dir-hud__lab">{{ 'DIRECTION.ELEVATION' | translate }}</span>
+            <div class="dir-hud__az">
+              <span class="dir-hud__num">{{ elText() }}</span>
+            </div>
+          </div>
         </div>
         <div class="dir-hud__row">
-          <span>{{ 'DIRECTION.ELEVATION' | translate }} {{ elText() }}</span>
           <span>{{ 'DIRECTION.ROLL' | translate }} {{ rollText() }}</span>
         </div>
         <div class="dir-hud__src">{{ sourceKey() | translate }}</div>
@@ -220,104 +209,40 @@
     </aside>
   </div>
 
-  <div class="dir-pat">
-    <p class="dir-pat__title">{{ 'DIRECTION.PAT_TITLE' | translate }}</p>
-    <p class="dir-pat__status">
-      {{ 'DIRECTION.PAT_DB' | translate : { count: patDbCount, name: patDbUser || '—' } }}
-    </p>
-    <p class="dir-pat__status" *ngIf="patDbLoading">{{ 'DIRECTION.PAT_LOADING' | translate }}</p>
-    <p class="dir-pat__intro" *ngIf="!patWizard">
-      {{ (patCalibrated() ? 'DIRECTION.PAT_STATUS' : 'DIRECTION.PAT_INTRO') | translate : { err: patFile?.derived?.meanErrDeg } }}
-    </p>
-    <p class="dir-msg dir-msg--bad" *ngIf="patError">{{ patError | translate }}</p>
-    <ng-container *ngIf="patWizard">
-      <p class="dir-pat__step">{{ 'DIRECTION.PAT_STEP' | translate : { n: patStep + 1, total: patPoses.length } }}</p>
-      <p class="dir-pat__pose">{{ patPose().titleKey | translate }}</p>
-      <p>{{ patPose().hintKey | translate }}</p>
-      <p *ngIf="patCapturing">{{ 'DIRECTION.PAT_HOLD' | translate }}</p>
-      <p *ngIf="patSaving">{{ 'DIRECTION.PAT_SAVING' | translate }}</p>
-      <div class="dir-cal__bar"><i [style.width.%]="((patStep + (patCapturing || patSaving ? 0.5 : 0)) / patPoses.length) * 100"></i></div>
-      <div class="dir-cal__btns">
-        <button type="button" class="dir-btn dir-btn--go" [disabled]="patCapturing || patSaving" (click)="capturePatPose()">
-          {{ 'DIRECTION.PAT_SAVE' | translate }}
-        </button>
-        <button type="button" class="dir-btn" (click)="cancelPatWizard()">{{ 'DIRECTION.CAL_CANCEL' | translate }}</button>
+  <section
+    class="dir-dash"
+    *ngIf="dashSections.length || liveCardList.length || unavailableCardList.length"
+    [attr.aria-label]="'DIRECTION.PARAMS' | translate">
+    <article class="dir-dash__sec" *ngFor="let sec of dashSections; trackBy: trackDash">
+      <h3 class="dir-dash__h">{{ sec.labelKey | translate }}</h3>
+      <div class="dir-dash__grid">
+        <div class="dir-dash__cell" *ngFor="let p of sec.rows; trackBy: trackParam" [class.dir-dash__cell--warn]="p.warn">
+          <span class="dir-dash__k">{{ p.labelKey | translate }}</span>
+          <span class="dir-dash__v">{{ isI18nValue(p) ? (p.value | translate) : p.value }}</span>
+        </div>
       </div>
-    </ng-container>
-    <div class="dir-cal__btns" *ngIf="!patWizard">
-      <button type="button" class="dir-btn dir-btn--go" *ngIf="sensorsOn" (click)="startPatWizard()">
-        {{ (patDbCount > 0 ? 'DIRECTION.PAT_RECAL' : 'DIRECTION.PAT_START') | translate }}
-      </button>
-      <button type="button" class="dir-btn dir-btn--go" [disabled]="patDbLoading" (click)="exportPatDb()">
-        {{ 'DIRECTION.PAT_EXPORT' | translate }}
-      </button>
-      <button type="button" class="dir-btn" [disabled]="patDbCount < 1" (click)="clearPatDb()">
-        {{ 'DIRECTION.PAT_FORGET' | translate }}
-      </button>
-    </div>
-  </div>
-
-  <nav class="dir-groups" *ngIf="groupBtnList.length" [attr.aria-label]="'DIRECTION.GROUPS_ARIA' | translate">
-    <button
-      type="button"
-      class="dir-groups__btn"
-      *ngFor="let g of groupBtnList; trackBy: trackGroup"
-      [class.dir-groups__on]="openGroupId === g.id"
-      (click)="openGroup(g.id)">
-      <span>{{ g.labelKey | translate }}</span>
-      <em>{{ g.count }}</em>
-    </button>
-  </nav>
-</div>
-
-<ng-template #groupModal>
-  <div class="dir-modal-backdrop" (click)="closeGroup()" role="presentation">
-    <div
-      class="dir-modal"
-      role="dialog"
-      aria-modal="true"
-      (click)="$event.stopPropagation()"
-      [attr.aria-label]="(openGroupBtn()?.labelKey || 'DIRECTION.PARAMS') | translate">
-      <header class="dir-modal__head">
-        <h3>{{ (openGroupBtn()?.labelKey || 'DIRECTION.PARAMS') | translate }}</h3>
-        <button
-          type="button"
-          class="dir-modal__close"
-          (click)="closeGroup()"
-          [attr.aria-label]="'COMMUN.CLOSE' | translate">
-          <i class="fa fa-times" aria-hidden="true"></i>
-        </button>
-      </header>
-      <div class="dir-modal__body">
-        <dl *ngIf="openGroupBtn()?.kind === 'params'">
-          <div *ngFor="let p of modalParams(); trackBy: trackParam" [class.dir-params__warn]="p.warn">
-            <dt>{{ p.labelKey | translate }}</dt>
-            <dd>{{ isI18nValue(p) ? (p.value | translate) : p.value }}</dd>
-          </div>
-        </dl>
-        <article *ngIf="modalSensor() as s" [attr.data-st]="s.status">
-          <header>
-            <h4>{{ s.labelKey | translate }}</h4>
-            <span>{{ ('DIRECTION.ST_' + s.status) | translate }}</span>
-          </header>
-          <dl *ngIf="s.lines.length">
-            <div *ngFor="let ln of s.lines; trackBy: trackLine">
-              <dt>{{ ln.k }}</dt>
-              <dd>{{ ln.v }}</dd>
-            </div>
-          </dl>
-        </article>
-        <ul class="dir-missing-list" *ngIf="openGroupBtn()?.kind === 'missing'">
-          <li *ngFor="let c of unavailableCardList; trackBy: trackCard" [attr.data-st]="c.status">
-            <span>{{ c.labelKey | translate }}</span>
-            <em>{{ ('DIRECTION.ST_' + c.status) | translate }}</em>
-          </li>
-        </ul>
+    </article>
+    <article class="dir-dash__sec" *ngFor="let s of liveCardList; trackBy: trackCard">
+      <h3 class="dir-dash__h">
+        <span class="dir-dash__dot" aria-hidden="true"></span>
+        {{ s.labelKey | translate }}
+        <em>{{ 'DIRECTION.ST_live' | translate }}</em>
+      </h3>
+      <div class="dir-dash__grid dir-dash__grid--xyz" *ngIf="s.lines.length">
+        <div class="dir-dash__cell" *ngFor="let ln of s.lines; trackBy: trackLine">
+          <span class="dir-dash__k">{{ ln.k }}</span>
+          <span class="dir-dash__v">{{ ln.v }}</span>
+        </div>
       </div>
-    </div>
-  </div>
-</ng-template>
-
-<div class="dir-modal-host" *ngIf="openGroupId && !isFullscreen">
-  <ng-container *ngTemplateOutlet="groupModal"></ng-container>
+    </article>
+    <article class="dir-dash__sec dir-dash__sec--muted" *ngIf="unavailableCardList.length">
+      <h3 class="dir-dash__h">{{ 'DIRECTION.UNAVAILABLE' | translate }}</h3>
+      <div class="dir-dash__chips">
+        <span class="dir-dash__chip" *ngFor="let c of unavailableCardList; trackBy: trackCard" [attr.data-st]="c.status">
+          {{ c.labelKey | translate }}
+          <em>{{ ('DIRECTION.ST_' + c.status) | translate }}</em>
+        </span>
+      </div>
+    </article>
+  </section>
 </div>

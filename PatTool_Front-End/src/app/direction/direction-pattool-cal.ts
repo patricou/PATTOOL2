@@ -11,6 +11,8 @@ import {
 } from './direction-attitude';
 
 export const PATTOOL_CAL_KEY = 'pat.direction.pattool-cal.v2';
+/** Décalage azimut manuel (page Calibrage + bouton « C’est le Nord » du viseur). */
+export const MANUAL_AZ_OFFSET_KEY = 'pat.direction.az-offset.v1';
 
 export interface PattoolCalPose {
   id: string;
@@ -328,6 +330,27 @@ export function savePattoolCal(file: PattoolCalFile): void {
 
 export function clearPattoolCal(): void {
   localStorage.removeItem(PATTOOL_CAL_KEY);
+}
+
+export function loadManualAzOffset(): number {
+  try {
+    const raw = localStorage.getItem(MANUAL_AZ_OFFSET_KEY);
+    if (raw == null || raw === '') {
+      return 0;
+    }
+    const n = Number(raw);
+    return Number.isFinite(n) ? Math.round(wrapSignedDeg(n)) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function saveManualAzOffset(deg: number): void {
+  localStorage.setItem(MANUAL_AZ_OFFSET_KEY, String(Math.round(wrapSignedDeg(deg))));
+}
+
+export function clearManualAzOffset(): void {
+  localStorage.removeItem(MANUAL_AZ_OFFSET_KEY);
 }
 
 export function averageVec(items: Vec3[]): Vec3 | null {

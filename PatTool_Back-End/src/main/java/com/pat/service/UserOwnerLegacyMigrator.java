@@ -1,6 +1,6 @@
 package com.pat.service;
 
-import com.pat.repo.AssistantConversationAssetRepository;
+import com.pat.repo .AssistantConversationAssetRepository;
 import com.pat.repo.AssistantConversationRepository;
 import com.pat.repo.DirectionPattoolSampleRepository;
 import com.pat.repo.MembersRepository;

@@ -1,4 +1,4 @@
-import { cameraFromEarthToDeviceQuat, circularDiff } from './direction-attitude';
+import { cameraFromEarthToDeviceQuat, circularDiff, projectCelestialToScreen } from './direction-attitude';
 import {
   derivePattoolCal,
   snapshotFromPayload,
@@ -89,5 +89,21 @@ describe('camera look from AbsoluteOrientationSensor quaternion', () => {
     expect(derived!.cameraMinusZ).toBeTrue();
     expect(derived!.elSign).toBe(1);
     expect(derived!.meanErrDeg).toBeLessThan(20);
+  });
+});
+
+describe('projectCelestialToScreen', () => {
+  it('places a matching target at the center', () => {
+    const p = projectCelestialToScreen(40, 30, 0, 40, 30);
+    expect(p.inView).toBeTrue();
+    expect(p.centered).toBeTrue();
+    expect(p.xPct).toBeCloseTo(50, 0);
+    expect(p.yPct).toBeCloseTo(50, 0);
+  });
+
+  it('hides a target behind the camera', () => {
+    const p = projectCelestialToScreen(0, 20, 0, 180, 20);
+    expect(p.inView).toBeFalse();
+    expect(p.inFront).toBeFalse();
   });
 });

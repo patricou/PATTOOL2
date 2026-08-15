@@ -10,6 +10,7 @@ import {
   ViewChild
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { ApiService } from '../services/api.service';
 import {
@@ -41,7 +42,9 @@ import {
   averageVec,
   buildPattoolCalFile,
   clearPattoolCal,
+  loadManualAzOffset,
   loadPattoolCal,
+  saveManualAzOffset,
   savePattoolCal,
   snapshotFromPayload
 } from './direction-pattool-cal';
@@ -64,13 +67,10 @@ interface ParamRow {
   warn?: boolean;
 }
 
-type ParamGroupKind = 'params' | 'sensor' | 'missing';
-
-interface ParamGroupBtn {
+interface DashSection {
   id: string;
-  kind: ParamGroupKind;
   labelKey: string;
-  count: number;
+  rows: ParamRow[];
 }
 
 interface SensorCard {
@@ -91,7 +91,6 @@ interface GenericSensor {
   quaternion?: number[];
 }
 
-const OFFSET_KEY = 'pat.direction.az-offset.v1';
 const PARAM_GROUPS: { id: string; labelKey: string; keys: string[] }[] = [
   { id: 'attitude', labelKey: 'DIRECTION.G_ATTITUDE', keys: ['az', 'el', 'rl', 'card', 'kind'] },
   { id: 'setup', labelKey: 'DIRECTION.G_SETUP', keys: ['src', 'off', 'pat'] },
@@ -106,7 +105,7 @@ const PAINT_MS = 50;
 @Component({
   selector: 'app-direction',
   standalone: true,
-  imports: [CommonModule, TranslateModule],
+  imports: [CommonModule, RouterModule, TranslateModule],
   templateUrl: './direction.component.html',
   styleUrls: ['./direction.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -161,8 +160,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   cards: SensorCard[] = DirectionComponent.emptyCards();
   liveCardList: SensorCard[] = [];
   unavailableCardList: SensorCard[] = [];
-  groupBtnList: ParamGroupBtn[] = [];
-  openGroupId: string | null = null;
+  dashSections: DashSection[] = [];
   magKnown = false;
   gpsKnown = false;
 
@@ -236,13 +234,6 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     this.clearPatHold();
     this.leaveFullscreen();
     this.stopEverything();
-  }
-
-  @HostListener('document:keydown.escape')
-  onEscape(): void {
-    if (this.openGroupId) {
-      this.closeGroup();
-    }
   }
 
   @HostListener('document:fullscreenchange')
@@ -563,39 +554,8 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     return ln.k;
   }
 
-  trackGroup(_i: number, g: ParamGroupBtn): string {
-    return g.id;
-  }
-
-  openGroup(id: string): void {
-    this.openGroupId = id;
-    this.cdr.markForCheck();
-  }
-
-  closeGroup(): void {
-    this.openGroupId = null;
-    this.cdr.markForCheck();
-  }
-
-  openGroupBtn(): ParamGroupBtn | null {
-    return this.groupBtnList.find((g) => g.id === this.openGroupId) ?? null;
-  }
-
-  modalParams(): ParamRow[] {
-    const g = PARAM_GROUPS.find((x) => x.id === this.openGroupId);
-    if (!g) {
-      return [];
-    }
-    const keys = new Set(g.keys);
-    return this.params.filter((p) => keys.has(p.id));
-  }
-
-  modalSensor(): SensorCard | null {
-    if (!this.openGroupId?.startsWith('sensor:')) {
-      return null;
-    }
-    const id = this.openGroupId.slice(7);
-    return this.liveCardList.find((c) => c.id === id) ?? null;
+  trackDash(_i: number, s: DashSection): string {
+    return s.id;
   }
 
   sensorLive(id: string): boolean {
@@ -1096,6 +1056,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
       });
     }
     this.params = this.mergeParams(rows);
+    this.rebuildDash();
   }
 
   private mergeParams(next: ParamRow[]): ParamRow[] {
@@ -1134,7 +1095,6 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
       this.rlInited = true;
     }
     this.rebuildParams();
-    this.rebuildGroupButtons();
     this.cdr.markForCheck();
   }
 
@@ -1160,44 +1120,15 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   private syncCardLists(): void {
     this.liveCardList = this.cards.filter((c) => c.status === 'live');
     this.unavailableCardList = this.cards.filter((c) => c.status === 'missing' || c.status === 'denied');
-    this.rebuildGroupButtons();
+    this.rebuildDash();
   }
 
-  private rebuildGroupButtons(): void {
-    const next: ParamGroupBtn[] = [];
-    for (const g of PARAM_GROUPS) {
-      const n = this.params.filter((p) => g.keys.includes(p.id)).length;
-      if (n) {
-        next.push({ id: g.id, kind: 'params', labelKey: g.labelKey, count: n });
-      }
-    }
-    for (const c of this.liveCardList) {
-      next.push({
-        id: `sensor:${c.id}`,
-        kind: 'sensor',
-        labelKey: c.labelKey,
-        count: c.lines.length
-      });
-    }
-    if (this.unavailableCardList.length) {
-      next.push({
-        id: 'missing',
-        kind: 'missing',
-        labelKey: 'DIRECTION.UNAVAILABLE',
-        count: this.unavailableCardList.length
-      });
-    }
-    const prev = new Map(this.groupBtnList.map((g) => [g.id, g]));
-    this.groupBtnList = next.map((g) => {
-      const old = prev.get(g.id);
-      if (!old) {
-        return g;
-      }
-      old.count = g.count;
-      old.labelKey = g.labelKey;
-      old.kind = g.kind;
-      return old;
-    });
+  private rebuildDash(): void {
+    this.dashSections = PARAM_GROUPS.map((g) => ({
+      id: g.id,
+      labelKey: g.labelKey,
+      rows: this.params.filter((p) => g.keys.includes(p.id))
+    })).filter((s) => s.rows.length);
   }
 
   private xyz(v: Vec3, unit: string): { k: string; v: string }[] {
@@ -1215,7 +1146,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   private setOffset(deg: number): void {
     this.offsetDeg = Math.round(wrapSignedDeg(deg));
     try {
-      localStorage.setItem(OFFSET_KEY, String(this.offsetDeg));
+      saveManualAzOffset(this.offsetDeg);
     } catch {
       /* ignore */
     }
@@ -1286,14 +1217,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   }
 
   private loadOffset(): void {
-    try {
-      const raw = localStorage.getItem(OFFSET_KEY);
-      if (raw) {
-        this.offsetDeg = Math.round(wrapSignedDeg(Number(raw) || 0));
-      }
-    } catch {
-      /* ignore */
-    }
+    this.offsetDeg = loadManualAzOffset();
   }
 
   private loadFsParams(): void {

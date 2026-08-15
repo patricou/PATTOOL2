@@ -319,6 +319,56 @@ export function attitudeFromLookAndTop(look: Vec3, top: Vec3, right: Vec3): Came
   };
 }
 
+export interface ScreenProjection {
+  xPct: number;
+  yPct: number;
+  inView: boolean;
+  inFront: boolean;
+  sepDeg: number;
+  centered: boolean;
+}
+
+const DEFAULT_HFOV_DEG = 62;
+const CENTER_SEP_DEG = 2.8;
+
+/** Projette un azimut/élévation ciel sur l’image caméra (visée −Z). */
+export function projectCelestialToScreen(
+  camAzDeg: number,
+  camElDeg: number,
+  camRollDeg: number,
+  tgtAzDeg: number,
+  tgtElDeg: number,
+  hfovDeg = DEFAULT_HFOV_DEG,
+  vfovDeg?: number,
+  centerSepDeg = CENTER_SEP_DEG
+): ScreenProjection {
+  const vfov = vfovDeg != null && vfovDeg > 5 ? vfovDeg : hfovDeg * 0.75;
+  const dAz = circularDiff(tgtAzDeg, camAzDeg);
+  const dEl = tgtElDeg - camElDeg;
+  const cosEl = Math.cos((camElDeg * Math.PI) / 180);
+  const xAng0 = dAz * Math.max(0.15, cosEl);
+  const yAng0 = dEl;
+  const rr = (camRollDeg * Math.PI) / 180;
+  const cr = Math.cos(rr);
+  const sr = Math.sin(rr);
+  const xAng = xAng0 * cr - yAng0 * sr;
+  const yAng = xAng0 * sr + yAng0 * cr;
+  const sepDeg = Math.hypot(xAng0, yAng0);
+  const inFront = Math.abs(dAz) < 90 && camElDeg * tgtElDeg > -80;
+  const xPct = 50 + (xAng / (hfovDeg / 2)) * 50;
+  const yPct = 50 - (yAng / (vfov / 2)) * 50;
+  const inView =
+    inFront && xPct >= 4 && xPct <= 96 && yPct >= 4 && yPct <= 96 && sepDeg < Math.max(hfovDeg, vfov) * 0.7;
+  return {
+    xPct: Math.max(-8, Math.min(108, xPct)),
+    yPct: Math.max(-8, Math.min(108, yPct)),
+    inView,
+    inFront,
+    sepDeg,
+    centered: inView && sepDeg <= centerSepDeg
+  };
+}
+
 export function circularMeanDeg(degrees: ReadonlyArray<number>): number {
   if (!degrees.length) {
     return 0;
