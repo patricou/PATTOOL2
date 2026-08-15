@@ -323,6 +323,8 @@ export class AssistantDrawerComponent
   fabTopPx = 72;
   /** Sur TV watcher : bouton à gauche pour ne pas masquer l’antenne / le centre de l’écran. */
   fabAlignLeft = false;
+  /** Viseur d’astres : le FAB recouvre la caméra — on le masque. */
+  fabHidden = false;
 
   isOpen = false;
   fullscreen = false;
@@ -1741,7 +1743,9 @@ export class AssistantDrawerComponent
         Math.round(anchorBottom + AssistantDrawerComponent.FAB_UNDER_TITLE_GAP_PX)
       );
     }
-    const alignLeft = /\/tools\/(?:tv-watcher|webcam)(?:\/|$|\?)/.test(this.router.url || '');
+    const url = this.router.url || '';
+    const alignLeft = /\/tools\/(?:tv-watcher|webcam)(?:\/|$|\?)/.test(url);
+    const hideFab = /\/tools\/astro-compass(?:\/|$|\?)/.test(url);
     let changed = false;
     if (next !== this.fabTopPx) {
       this.fabTopPx = next;
@@ -1750,6 +1754,13 @@ export class AssistantDrawerComponent
     if (alignLeft !== this.fabAlignLeft) {
       this.fabAlignLeft = alignLeft;
       changed = true;
+    }
+    if (hideFab !== this.fabHidden) {
+      this.fabHidden = hideFab;
+      changed = true;
+      if (hideFab && this.isOpen) {
+        this.close();
+      }
     }
     if (changed) {
       window.setTimeout(() => this.cdr.markForCheck(), 0);

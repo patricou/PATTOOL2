@@ -1,6 +1,6 @@
 <!-- Floating control: visible on all routes when authenticated -->
 <button
-  *ngIf="isAuthenticated() && !fullscreen"
+  *ngIf="isAuthenticated() && !fullscreen && !fabHidden"
   type="button"
   class="pat-assistant-fab"
   [class.pat-assistant-fab--left]="fabAlignLeft"

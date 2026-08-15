@@ -366,6 +366,15 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  @ViewChild('liveModal')
+  set liveModalRef(el: ElementRef<HTMLElement> | undefined) {
+    this.unbindLiveModalZoomGestures();
+    this.liveModalEl = el;
+    if (el) {
+      queueMicrotask(() => this.bindLiveModalZoomGestures());
+    }
+  }
+
   /* ------------------------------------------------------------------ */
   /* Catalogue & sélection de cible                                      */
   /* ------------------------------------------------------------------ */
@@ -590,6 +599,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   camLive = false;
   camDenied = false;
   isFullscreen = false;
+  isAutoDetectFullscreen = false;
   finderProj: ScreenProjection | null = null;
   finderGuide: FinderTurnGuide | null = null;
   /** Switch viseur : overlay de la trajectoire future de l’objet. */
@@ -684,10 +694,16 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private finderPinchStartDist = 0;
   private finderPinchStartZoom = FINDER_ZOOM_MIN;
   private finderZoomGesturesBound = false;
+  private liveModalEl?: ElementRef<HTMLElement>;
+  private liveModalZoomGesturesBound = false;
   private readonly onFinderWheelNative = (ev: WheelEvent) => this.onFinderWheel(ev);
   private readonly onFinderTouchStartNative = (ev: TouchEvent) => this.onFinderTouchStart(ev);
   private readonly onFinderTouchMoveNative = (ev: TouchEvent) => this.onFinderTouchMove(ev);
   private readonly onFinderTouchEndNative = () => this.onFinderTouchEnd();
+  private readonly onLiveModalWheelNative = (ev: WheelEvent) => this.onLiveModalWheel(ev);
+  private readonly onLiveModalTouchStartNative = (ev: TouchEvent) => this.onFinderTouchStart(ev);
+  private readonly onLiveModalTouchMoveNative = (ev: TouchEvent) => this.onFinderTouchMove(ev);
+  private readonly onLiveModalTouchEndNative = () => this.onFinderTouchEnd();
   private static readonly LAST_TARGET_KEY = 'pat.astro-compass.last-target.v1';
   private finderTrailSky: FinderTrailSkyPt[] = [];
   private finderTrailSkyAtMs = 0;
@@ -731,6 +747,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     });
     this.startSkyTick();
     this.issNow.startBackgroundPrefetch();
+    this.refreshVisibleSkyNow(false);
     void this.issNow.refresh(false).then(() => {
       this.refreshVisibleCatalog();
       this.selectDefaultVisibleTarget();
@@ -766,6 +783,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.altitudeSub?.unsubscribe();
     this.objectDossierSub?.unsubscribe();
     this.unbindFinderZoomGestures();
+    this.unbindLiveModalZoomGestures();
     this.persistLastTarget();
   }
 
@@ -928,21 +946,48 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async toggleFinderFullscreen(): Promise<void> {
-    const el = this.camStage?.nativeElement;
+    await this.toggleElementFullscreen(this.camStage?.nativeElement, 'finder');
+  }
+
+  async toggleAutoDetectFullscreen(): Promise<void> {
+    await this.toggleElementFullscreen(this.liveModalEl?.nativeElement, 'autodetect');
+  }
+
+  private currentFullscreenElement(): Element | null {
+    const doc = document as Document & { webkitFullscreenElement?: Element | null };
+    return document.fullscreenElement ?? doc.webkitFullscreenElement ?? null;
+  }
+
+  private async exitAnyFullscreen(): Promise<void> {
+    const doc = document as Document & { webkitExitFullscreen?: () => Promise<void> | void };
+    if (!this.currentFullscreenElement()) {
+      return;
+    }
+    if (document.exitFullscreen) {
+      await document.exitFullscreen();
+    } else if (doc.webkitExitFullscreen) {
+      await Promise.resolve(doc.webkitExitFullscreen());
+    }
+  }
+
+  private async toggleElementFullscreen(
+    el: HTMLElement | undefined,
+    which: 'finder' | 'autodetect'
+  ): Promise<void> {
     if (!el) {
       return;
     }
-    const doc = document as Document & { webkitExitFullscreen?: () => Promise<void> | void };
-    const cur = document.fullscreenElement ?? (doc as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement;
+    const cssOn = which === 'finder' ? this.isFullscreen : this.isAutoDetectFullscreen;
     try {
+      const cur = this.currentFullscreenElement();
       if (cur) {
-        if (document.exitFullscreen) {
-          await document.exitFullscreen();
-        } else if (doc.webkitExitFullscreen) {
-          await Promise.resolve(doc.webkitExitFullscreen());
+        await this.exitAnyFullscreen();
+      } else if (cssOn) {
+        if (which === 'finder') {
+          this.isFullscreen = false;
+        } else {
+          this.isAutoDetectFullscreen = false;
         }
-      } else if (this.isFullscreen) {
-        this.isFullscreen = false;
         this.cdr.markForCheck();
         return;
       } else {
@@ -951,7 +996,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
           (el as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen?.bind(el);
         if (req) {
           await req();
-        } else {
+        } else if (which === 'finder') {
           const video = this.camEl?.nativeElement as
             | (HTMLVideoElement & { webkitEnterFullscreen?: () => void })
             | undefined;
@@ -962,14 +1007,29 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
             this.cdr.markForCheck();
             return;
           }
+        } else {
+          this.isAutoDetectFullscreen = true;
+          this.cdr.markForCheck();
+          return;
         }
       }
     } catch {
-      this.isFullscreen = !this.isFullscreen;
+      if (which === 'finder') {
+        this.isFullscreen = !this.isFullscreen;
+      } else {
+        this.isAutoDetectFullscreen = !this.isAutoDetectFullscreen;
+      }
       this.cdr.markForCheck();
       return;
     }
     this.syncFullscreenFlag();
+  }
+
+  @HostListener('document:visibilitychange')
+  onPageVisibilityChange(): void {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      this.refreshVisibleSkyNow(true);
+    }
   }
 
   @HostListener('document:keydown.escape')
@@ -982,7 +1042,12 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.closeObjectInfoModal();
       return;
     }
-    if (this.isFullscreen && !document.fullscreenElement) {
+    if (this.isAutoDetectFullscreen && !this.currentFullscreenElement()) {
+      this.isAutoDetectFullscreen = false;
+      this.cdr.markForCheck();
+      return;
+    }
+    if (this.isFullscreen && !this.currentFullscreenElement()) {
       this.isFullscreen = false;
       this.cdr.markForCheck();
     }
@@ -1078,8 +1143,19 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private syncFullscreenFlag(): void {
-    const doc = document as Document & { webkitFullscreenElement?: Element | null };
-    this.isFullscreen = !!(document.fullscreenElement ?? doc.webkitFullscreenElement);
+    const cur = this.currentFullscreenElement();
+    const live = this.liveModalEl?.nativeElement;
+    const stage = this.camStage?.nativeElement;
+    if (cur === live) {
+      this.isAutoDetectFullscreen = true;
+      this.isFullscreen = false;
+    } else if (cur === stage) {
+      this.isFullscreen = true;
+      this.isAutoDetectFullscreen = false;
+    } else if (!cur) {
+      this.isFullscreen = false;
+      this.isAutoDetectFullscreen = false;
+    }
     this.cdr.markForCheck();
   }
 
@@ -1264,6 +1340,14 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.setFinderZoom(next, false);
   }
 
+  private onLiveModalWheel(ev: WheelEvent): void {
+    const target = ev.target instanceof Element ? ev.target : null;
+    if (target?.closest('input, button, label, a, select, textarea')) {
+      return;
+    }
+    this.onFinderWheel(ev);
+  }
+
   private onFinderTouchStart(ev: TouchEvent): void {
     if (ev.touches.length !== 2) {
       this.finderPinchStartDist = 0;
@@ -1369,6 +1453,32 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     el.removeEventListener('touchend', this.onFinderTouchEndNative);
     el.removeEventListener('touchcancel', this.onFinderTouchEndNative);
     this.finderZoomGesturesBound = false;
+  }
+
+  private bindLiveModalZoomGestures(): void {
+    const el = this.liveModalEl?.nativeElement;
+    if (!el || this.liveModalZoomGesturesBound) {
+      return;
+    }
+    el.addEventListener('wheel', this.onLiveModalWheelNative, { passive: false });
+    el.addEventListener('touchstart', this.onLiveModalTouchStartNative, { passive: true });
+    el.addEventListener('touchmove', this.onLiveModalTouchMoveNative, { passive: false });
+    el.addEventListener('touchend', this.onLiveModalTouchEndNative, { passive: true });
+    el.addEventListener('touchcancel', this.onLiveModalTouchEndNative, { passive: true });
+    this.liveModalZoomGesturesBound = true;
+  }
+
+  private unbindLiveModalZoomGestures(): void {
+    const el = this.liveModalEl?.nativeElement;
+    if (!el || !this.liveModalZoomGesturesBound) {
+      return;
+    }
+    el.removeEventListener('wheel', this.onLiveModalWheelNative);
+    el.removeEventListener('touchstart', this.onLiveModalTouchStartNative);
+    el.removeEventListener('touchmove', this.onLiveModalTouchMoveNative);
+    el.removeEventListener('touchend', this.onLiveModalTouchEndNative);
+    el.removeEventListener('touchcancel', this.onLiveModalTouchEndNative);
+    this.liveModalZoomGesturesBound = false;
   }
 
   private loadFinderZoomPref(): void {
@@ -1772,6 +1882,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectedGalaxyId = undefined;
     this.applyBodyDisplayFromStar(star);
     this.recomputeSky();
+    this.onStarQueryChange();
     this.maybeReloadObjectDossier();
     this.cdr.markForCheck();
   }
@@ -1786,6 +1897,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectedStarId = undefined;
     this.applyBodyDisplayFromGalaxy(galaxy);
     this.recomputeSky();
+    this.onGalaxyQueryChange();
     this.maybeReloadObjectDossier();
     this.cdr.markForCheck();
   }
@@ -1941,7 +2053,31 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  /** Figé le dernier astre vu en auto-détection comme cible du viseur. */
+  private commitAutoDetectSelection(): void {
+    const hit = this.autoDetectBestHit;
+    if (!hit) {
+      return;
+    }
+    this.userChoseTarget = true;
+    this.persistUserTarget = true;
+    if (!this.isAutoDetectSelected(hit)) {
+      this.applyAutoDetectHit(hit);
+    } else {
+      this.persistLastTarget();
+    }
+    this.onStarQueryChange();
+    this.onGalaxyQueryChange();
+    this.refreshVisibleSkyNow(false);
+  }
+
   private stopAutoDetectLive(): void {
+    this.commitAutoDetectSelection();
+    if (this.isAutoDetectFullscreen) {
+      void this.exitAnyFullscreen();
+    }
+    this.isAutoDetectFullscreen = false;
+    this.unbindLiveModalZoomGestures();
     this.autoDetectLive = false;
     this.autoDetectBusy = false;
     this.autoDetectPaused = false;
@@ -3927,6 +4063,20 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
    * Recalcule quels corps du catalogue sont au-dessus de l'horizon
    * (pour le filtre « visibles seulement »).
    */
+  /** Recalcule tout de suite les astres au-dessus de l’horizon (retour sur la page). */
+  private refreshVisibleSkyNow(refreshIss: boolean): void {
+    this.nowMs = Date.now();
+    this.recomputeSky();
+    this.refreshVisibleCatalog();
+    if (refreshIss) {
+      void this.issNow.refresh(false).then(() => {
+        this.refreshVisibleCatalog();
+        this.cdr.markForCheck();
+      });
+    }
+    this.cdr.markForCheck();
+  }
+
   private refreshVisibleCatalog(): void {
     if (!Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
       this.visiblePlanetIds = new Set();
@@ -4055,9 +4205,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         this.zone.run(() => {
           this.nowMs = Date.now();
           this.recomputeSky();
-          if (this.visibleOnly || !this.userChoseTarget) {
-            this.refreshVisibleCatalog();
-          }
+          this.refreshVisibleCatalog();
           this.selectDefaultVisibleTarget();
           this.cdr.markForCheck();
         });
@@ -5819,6 +5967,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.api.getAstroLastTarget().subscribe({
       next: (remote) => {
         if (gen !== this.lastTargetLoadGen) {
+          return;
+        }
+        if (this.autoDetectModalOpen || this.autoDetectLive) {
           return;
         }
         if (remote?.kind) {

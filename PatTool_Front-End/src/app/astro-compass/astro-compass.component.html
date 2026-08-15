@@ -949,16 +949,20 @@
 <div class="ac-live-backdrop" *ngIf="autoDetectModalOpen" (click)="closeAutoDetectModal()" aria-hidden="true"></div>
 <div
   class="ac-live-modal"
+  #liveModal
   *ngIf="autoDetectModalOpen"
   role="dialog"
   aria-modal="true"
   [class.ac-live-modal--paused]="autoDetectPaused"
   [class.ac-live-modal--cam]="camLive"
+  [class.ac-live-modal--fs]="isAutoDetectFullscreen"
+  [class.ac-live-modal--zoomed]="finderZoom > 1"
   [attr.aria-label]="'ASTRO_COMPASS.AUTO_MODAL_TITLE' | translate"
   (click)="$event.stopPropagation()">
   <video
     #camLive
     class="ac-live-modal__cam"
+    [style.transform]="'scale(' + finderDigitalZoom + ')'"
     playsinline
     muted
     autoplay
@@ -978,6 +982,14 @@
       <h3 class="ac-live-modal__title">{{ 'ASTRO_COMPASS.AUTO_MODAL_TITLE' | translate }}</h3>
     </div>
     <div class="ac-live-modal__header-actions">
+      <button
+        type="button"
+        class="ac-live-modal__close ac-live-modal__fs"
+        (click)="toggleAutoDetectFullscreen()"
+        [attr.title]="(isAutoDetectFullscreen ? 'ASTRO_COMPASS.EXIT_FULLSCREEN' : 'ASTRO_COMPASS.FULLSCREEN') | translate"
+        [attr.aria-label]="(isAutoDetectFullscreen ? 'ASTRO_COMPASS.EXIT_FULLSCREEN' : 'ASTRO_COMPASS.FULLSCREEN') | translate">
+        <i class="fa" [ngClass]="isAutoDetectFullscreen ? 'fa-compress' : 'fa-expand'" aria-hidden="true"></i>
+      </button>
       <button
         type="button"
         class="ac-live-modal__close ac-live-modal__help"
@@ -1140,6 +1152,50 @@
       <p *ngIf="!autoDetectBusy && !autoDetectErrorKey">{{ 'ASTRO_COMPASS.AUTO_NONE' | translate }}</p>
     </div>
   </ng-template>
+
+  <div
+    class="ac-live-modal__zoom"
+    *ngIf="camLive"
+    role="group"
+    [attr.aria-label]="'ASTRO_COMPASS.FINDER_ZOOM' | translate">
+    <button
+      type="button"
+      class="ac-finder__zoom-btn"
+      (click)="finderZoomOut()"
+      [disabled]="finderZoom <= finderZoomMin"
+      [attr.title]="'ASTRO_COMPASS.FINDER_ZOOM_OUT' | translate"
+      [attr.aria-label]="'ASTRO_COMPASS.FINDER_ZOOM_OUT' | translate">
+      <i class="fa fa-minus" aria-hidden="true"></i>
+    </button>
+    <input
+      type="range"
+      class="ac-finder__zoom-range"
+      [min]="finderZoomMin"
+      [max]="finderZoomMax"
+      [step]="finderZoomStep"
+      [ngModel]="finderZoom"
+      (ngModelChange)="onFinderZoomSlider($event)"
+      [attr.aria-valuetext]="finderZoomLabel"
+      [attr.aria-label]="'ASTRO_COMPASS.FINDER_ZOOM' | translate" />
+    <button
+      type="button"
+      class="ac-finder__zoom-btn"
+      (click)="finderZoomIn()"
+      [disabled]="finderZoom >= finderZoomMax"
+      [attr.title]="'ASTRO_COMPASS.FINDER_ZOOM_IN' | translate"
+      [attr.aria-label]="'ASTRO_COMPASS.FINDER_ZOOM_IN' | translate">
+      <i class="fa fa-plus" aria-hidden="true"></i>
+    </button>
+    <button
+      type="button"
+      class="ac-finder__zoom-val"
+      (click)="resetFinderZoom()"
+      [disabled]="finderZoom <= finderZoomMin"
+      [attr.title]="'ASTRO_COMPASS.FINDER_ZOOM_RESET' | translate"
+      [attr.aria-label]="'ASTRO_COMPASS.FINDER_ZOOM_RESET' | translate">
+      {{ finderZoomLabel }}
+    </button>
+  </div>
 
   <div class="ac-live-modal__actions">
     <button

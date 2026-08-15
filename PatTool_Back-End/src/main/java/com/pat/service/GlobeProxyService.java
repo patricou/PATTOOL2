@@ -29,6 +29,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Proxies fixed allow-listed globe imagery URLs (Three.js sample textures, NASA BMNG, NASA GIBS WMS),
@@ -178,6 +180,12 @@ public class GlobeProxyService {
 
     private static final long ISS_NOW_MEMORY_CACHE_MS = 3_000L;
     private static final long SAT_TLE_MEMORY_CACHE_MS = 3_600_000L; // 1 h
+    /** SGP4 stays usable for many hours; serve this if live TLE hosts fail. */
+    private static final long SAT_TLE_STALE_MAX_MS = 24 * 3_600_000L;
+    /** Avoid repeating Ivan → SatNOGS → CelesTrak on every compass tick after a miss. */
+    private static final long SAT_TLE_FAIL_BACKOFF_MS = 120_000L;
+    /** celestrak.org/com often black-holes TCP; one timeout opens this skip window. */
+    private static final long CELESTRAK_CIRCUIT_MS = 30 * 60_000L;
     private static final long SAT_TLE_GROUP_CACHE_MS = 3_600_000L;
     private static final int MAX_BYTES_SAT_TLE = 16_384;
     private static final int MAX_BYTES_SAT_TLE_GROUP = 3 * 1024 * 1024;
@@ -188,6 +196,9 @@ public class GlobeProxyService {
     private volatile IssNowMemoryCache issNowMemoryCache;
     private volatile SatTleMemoryCache starlinkTleCache;
     private final ConcurrentHashMap<Integer, SatTleMemoryCache> satTleMemoryCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, Long> satTleFailUntilMs = new ConcurrentHashMap<>();
+    private final AtomicLong celestrakSkipUntilMs = new AtomicLong(0);
+    private final AtomicBoolean celestrakAttemptInFlight = new AtomicBoolean(false);
 
     public GlobeProxyService(
             @Qualifier(RestTemplateConfig.GLOBE_PROXY_REST_TEMPLATE) RestTemplate globeProxyRestTemplate,
@@ -570,36 +581,79 @@ public class GlobeProxyService {
 
     /**
      * Classic 3-line TLE (name + line1 + line2) for an allowlisted NORAD id.
-     * Cached ~1 h. Tries Ivan → SatNOGS → CelesTrak (CelesTrak often times out).
+     * Cached ~1 h. Tries Ivan → SatNOGS, then stale cache. CelesTrak is last resort
+     * and circuit-broken after a connect timeout (often unreachable).
      */
     public byte[] fetchSatelliteTle(int noradId) {
         if (!ALLOWED_SATELLITE_NORAD_IDS.contains(noradId)) {
             throw new IllegalArgumentException("NORAD id not allowlisted: " + noradId);
         }
+        long now = System.currentTimeMillis();
         SatTleMemoryCache cached = satTleMemoryCache.get(noradId);
         if (cached != null && cached.isFresh(SAT_TLE_MEMORY_CACHE_MS)) {
             return cached.payload();
         }
+        Long failUntil = satTleFailUntilMs.get(noradId);
+        if (failUntil != null && now < failUntil) {
+            if (cached != null && cached.isFresh(SAT_TLE_STALE_MAX_MS)) {
+                return cached.payload();
+            }
+            throw new IllegalStateException("TLE unavailable for NORAD " + noradId);
+        }
         Exception last = null;
         try {
-            return cacheSatelliteTle(noradId, fetchSatelliteTleFromIvan(noradId));
+            byte[] fresh = cacheSatelliteTle(noradId, fetchSatelliteTleFromIvan(noradId));
+            satTleFailUntilMs.remove(noradId);
+            return fresh;
         } catch (Exception e) {
             last = e;
             log.debug("TLE Ivan failed for {}: {}", noradId, e.getMessage());
         }
         try {
-            return cacheSatelliteTle(noradId, fetchSatelliteTleFromSatnogs(noradId));
+            byte[] fresh = cacheSatelliteTle(noradId, fetchSatelliteTleFromSatnogs(noradId));
+            satTleFailUntilMs.remove(noradId);
+            return fresh;
         } catch (Exception e) {
             last = e;
             log.debug("TLE SatNOGS failed for {}: {}", noradId, e.getMessage());
         }
-        try {
-            return cacheSatelliteTle(noradId, fetchSatelliteTleFromCelestrak(noradId));
-        } catch (Exception e) {
-            last = e;
-            log.warn("TLE CelesTrak failed for {}: {}", noradId, e.getMessage());
+        if (cached != null && cached.isFresh(SAT_TLE_STALE_MAX_MS)) {
+            log.debug("TLE live sources failed for {}; serving stale cache.", noradId);
+            return cached.payload();
         }
+        byte[] fromCelestrak = tryCelestrakTle(noradId);
+        if (fromCelestrak != null) {
+            satTleFailUntilMs.remove(noradId);
+            return cacheSatelliteTle(noradId, fromCelestrak);
+        }
+        satTleFailUntilMs.put(noradId, now + SAT_TLE_FAIL_BACKOFF_MS);
         throw new IllegalStateException("TLE unavailable for NORAD " + noradId, last);
+    }
+
+    /**
+     * At most one CelesTrak attempt at a time. A timeout opens a skip window so
+     * parallel compass prefetches do not each block a Tomcat thread for ~10 s.
+     */
+    private byte[] tryCelestrakTle(int noradId) {
+        long now = System.currentTimeMillis();
+        if (now < celestrakSkipUntilMs.get()) {
+            return null;
+        }
+        if (!celestrakAttemptInFlight.compareAndSet(false, true)) {
+            return null;
+        }
+        try {
+            return fetchSatelliteTleFromCelestrak(noradId);
+        } catch (Exception e) {
+            celestrakSkipUntilMs.set(System.currentTimeMillis() + CELESTRAK_CIRCUIT_MS);
+            log.warn(
+                    "TLE CelesTrak unreachable ({}), skipping for {} min",
+                    e.getMessage(),
+                    CELESTRAK_CIRCUIT_MS / 60_000L);
+            return null;
+        } finally {
+            celestrakAttemptInFlight.set(false);
+        }
     }
 
     private byte[] cacheSatelliteTle(int noradId, byte[] payload) {
@@ -609,7 +663,8 @@ public class GlobeProxyService {
 
     private byte[] fetchSatelliteTleFromIvan(int noradId) {
         String url = String.format(Locale.US, IVAN_TLE_BY_CATNR, noradId);
-        byte[] raw = fetchBytes(url, MAX_BYTES_SAT_TLE, false, TLE_CLIENT_UA, MediaType.APPLICATION_JSON_VALUE);
+        byte[] raw = fetchBytes(
+                url, MAX_BYTES_SAT_TLE, false, TLE_CLIENT_UA, "application/json, application/ld+json, */*");
         JsonNode root = readJsonTree(raw);
         if (root == null || !root.hasNonNull("line1") || !root.hasNonNull("line2")) {
             throw new IllegalStateException("Ivan TLE missing lines for NORAD " + noradId);
