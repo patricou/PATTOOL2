@@ -1,6 +1,8 @@
-/** Calage Nord partagé (page Nord + Boussole Astres) : figure-8, hard-iron, fusion gyro. */
+/** Calage Nord partagé (Direction + page Nord + Boussole Astres) : figure-8, hard-iron, fusion gyro. */
 
 export const NORD_CAL_STORAGE_KEY = 'pat.nord.calibration.v1';
+/** Même hard-iron que la page Direction (`pat.direction.hardiron.v1`). */
+export const DIRECTION_HARDIRON_KEY = 'pat.direction.hardiron.v1';
 
 export const FIGURE8_MIN_SAMPLES = 80;
 export const FIGURE8_MIN_SPAN_UT = 18;
@@ -25,6 +27,48 @@ export interface PersistedNordCal {
   northOffsetDeg: number;
   trueNorth: boolean;
   calibratedAt: string;
+}
+
+export function loadDirectionHardIron(): { bias: MagVec; scale: MagVec } | null {
+  try {
+    const raw = localStorage.getItem(DIRECTION_HARDIRON_KEY);
+    if (!raw) {
+      return null;
+    }
+    const data = JSON.parse(raw) as { bias?: MagVec; scale?: MagVec };
+    if (data.bias && data.scale) {
+      return { bias: data.bias, scale: data.scale };
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+export function saveDirectionHardIron(bias: MagVec, scale: MagVec): void {
+  try {
+    localStorage.setItem(DIRECTION_HARDIRON_KEY, JSON.stringify({ bias, scale }));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearDirectionHardIron(): void {
+  try {
+    localStorage.removeItem(DIRECTION_HARDIRON_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Écrit le hard-iron partagé (Nord / astro-compass / Direction). */
+export function writeSharedNordCal(payload: PersistedNordCal): void {
+  try {
+    localStorage.setItem(NORD_CAL_STORAGE_KEY, JSON.stringify(payload));
+  } catch {
+    /* ignore */
+  }
+  saveDirectionHardIron(payload.bias, payload.scale);
 }
 
 export class CompassNorthEngine {
@@ -60,31 +104,65 @@ export class CompassNorthEngine {
   private settleTimer: ReturnType<typeof setInterval> | null = null;
 
   loadPersisted(): boolean {
+    let loaded = false;
     try {
       const raw = localStorage.getItem(NORD_CAL_STORAGE_KEY);
-      if (!raw) {
-        return false;
-      }
-      const data = JSON.parse(raw) as PersistedNordCal;
-      if (data.bias) {
-        this.bias = data.bias;
-      }
-      if (data.scale) {
-        this.scale = data.scale;
-      }
-      if (data.calibratedAt) {
-        this.calibratedAt = data.calibratedAt;
-        this.magCalibrated = true;
-        this.calPhase = 'done';
-        return true;
+      if (raw) {
+        const data = JSON.parse(raw) as PersistedNordCal;
+        if (data.bias) {
+          this.bias = data.bias;
+        }
+        if (data.scale) {
+          this.scale = data.scale;
+        }
+        if (data.calibratedAt) {
+          this.calibratedAt = data.calibratedAt;
+          this.magCalibrated = true;
+          this.calPhase = 'done';
+          loaded = true;
+        }
       }
     } catch {
       /* ignore */
     }
-    return false;
+    const dir = loadDirectionHardIron();
+    if (dir) {
+      this.bias = dir.bias;
+      this.scale = dir.scale;
+      this.magCalibrated = true;
+      this.calPhase = 'done';
+      if (!this.calibratedAt) {
+        this.calibratedAt = new Date().toISOString();
+      }
+      loaded = true;
+    }
+    return loaded;
   }
 
-  persistHardIron(): void {
+  /** Charge le hard-iron partagé. L’offset Direction remplace celui de Nord s’il est fourni. */
+  loadShared(directionOffsetDeg?: number): { northOffsetDeg: number; trueNorth: boolean } {
+    let northOffsetDeg = 0;
+    let trueNorth = true;
+    try {
+      const raw = localStorage.getItem(NORD_CAL_STORAGE_KEY);
+      if (raw) {
+        const data = JSON.parse(raw) as PersistedNordCal;
+        if (Number.isFinite(data.northOffsetDeg)) {
+          northOffsetDeg = data.northOffsetDeg;
+        }
+        trueNorth = data.trueNorth !== false;
+      }
+    } catch {
+      /* ignore */
+    }
+    this.loadPersisted();
+    if (directionOffsetDeg != null && Number.isFinite(directionOffsetDeg)) {
+      northOffsetDeg = directionOffsetDeg;
+    }
+    return { northOffsetDeg, trueNorth };
+  }
+
+  persistHardIron(extra?: { northOffsetDeg?: number; trueNorth?: boolean }): void {
     let prev: Partial<PersistedNordCal> = {};
     try {
       const raw = localStorage.getItem(NORD_CAL_STORAGE_KEY);
@@ -97,8 +175,8 @@ export class CompassNorthEngine {
     const payload: PersistedNordCal = {
       bias: this.bias,
       scale: this.scale,
-      northOffsetDeg: prev.northOffsetDeg ?? 0,
-      trueNorth: prev.trueNorth !== false,
+      northOffsetDeg: extra?.northOffsetDeg ?? prev.northOffsetDeg ?? 0,
+      trueNorth: extra?.trueNorth ?? prev.trueNorth !== false,
       calibratedAt: this.calibratedAt ?? new Date().toISOString()
     };
     try {
@@ -106,6 +184,13 @@ export class CompassNorthEngine {
     } catch {
       /* ignore */
     }
+    if (this.magCalibrated) {
+      saveDirectionHardIron(this.bias, this.scale);
+    }
+  }
+
+  persistShared(northOffsetDeg: number, trueNorth: boolean): void {
+    this.persistHardIron({ northOffsetDeg, trueNorth });
   }
 
   startFigure8(): void {
@@ -150,6 +235,7 @@ export class CompassNorthEngine {
     } catch {
       /* ignore */
     }
+    clearDirectionHardIron();
   }
 
   octantOn(bit: number): boolean {

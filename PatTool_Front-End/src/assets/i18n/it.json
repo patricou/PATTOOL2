@@ -73,7 +73,7 @@
     "ARCHIVE": "Internet Archive",
     "WEBCAM": "Webcam",
     "ASTRO_COMPASS": "Mirino celeste",
-    "NORD": "Nord",
+    "NORD": "Bussola",
     "DIRECTION": "Calibrazione"
   },
   "SOLAR_SYSTEM": {
@@ -5064,7 +5064,7 @@
     "HELP_OBS_DEF": "Your position (GPS, address or map). All azimuth, elevation and visibility calculations start from this point."
   },
   "NORD": {
-    "TITLE": "North",
+    "TITLE": "Bussola",
     "SUBTITLE": "North compass, figure-8 magnetometer calibration, and a live readout of every sensor the phone exposes.",
     "START_SENSORS": "Enable sensors",
     "PERMISSION_NEEDED": "iOS needs a tap: use the button to allow compass and motion access.",
@@ -5129,8 +5129,7 @@
     "SRC_absolute_event": "absolute orientation",
     "SRC_abs_sensor": "AbsoluteOrientation",
     "SRC_gps": "GPS heading"
-  }
-,
+  },
   "DIRECTION": {
     "TITLE": "Calibrazione",
     "OPEN_ASTRO": "Mirino celeste",

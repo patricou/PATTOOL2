@@ -3297,6 +3297,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.northSensorsStarted = true;
+    this.northEngine.loadPersisted();
     const w = window as unknown as Record<string, unknown>;
     this.tryNorthGeneric(
       w['Magnetometer'] as (new (opts: { frequency: number }) => GenericSensorLike) | undefined,

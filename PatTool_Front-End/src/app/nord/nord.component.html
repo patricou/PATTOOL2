@@ -134,63 +134,6 @@
       </div>
       <p class="nord-field-warn" *ngIf="fieldStatus() === 'interference'">{{ 'NORD.FIELD_INTERFERENCE' | translate }}</p>
     </section>
-
-    <section class="nord-cal" [attr.aria-label]="'NORD.CAL_TITLE' | translate">
-      <h3>{{ 'NORD.CAL_TITLE' | translate }}</h3>
-      <p class="nord-cal__intro">{{ 'NORD.CAL_INTRO' | translate }}</p>
-
-      <div class="nord-cal__figure" *ngIf="calPhase === 'figure8'">
-        <div class="nord-octants" aria-hidden="true">
-          <span
-            class="nord-octant"
-            *ngFor="let b of octantBits"
-            [class.nord-octant--on]="octantOn(b)"></span>
-          <i class="fa fa-mobile nord-octants__phone" aria-hidden="true"></i>
-        </div>
-        <p>{{ 'NORD.CAL_FIGURE8_HINT' | translate }}</p>
-        <div class="nord-bar" [attr.aria-valuenow]="calProgressPct">
-          <span [style.width.%]="calProgressPct"></span>
-        </div>
-        <p class="nord-cal__meta">
-          {{ 'NORD.OCTANTS' | translate : { n: calOctants } }}
-          <ng-container *ngIf="calSpanUt > 0">
-            · {{ 'NORD.AXIS_SPAN' | translate : { ut: (calSpanUt | number : '1.0-0') } }}
-          </ng-container>
-        </p>
-      </div>
-
-      <div class="nord-cal__settle" *ngIf="calPhase === 'settle'">
-        <p>{{ 'NORD.CAL_SETTLE_HINT' | translate }}</p>
-        <div class="nord-bar nord-bar--settle">
-          <span [style.width.%]="100 - (settleRemainMs / 18)"></span>
-        </div>
-      </div>
-
-      <div class="nord-cal__done" *ngIf="calPhase === 'done'">
-        <p>
-          <i class="fa fa-lock me-2" aria-hidden="true"></i>{{ 'NORD.CAL_DONE' | translate }}
-        </p>
-        <p class="nord-cal__meta" *ngIf="calibratedAt">{{ calibratedAt | date : 'short' }}</p>
-      </div>
-
-      <div class="nord-cal__actions">
-        <button
-          type="button"
-          class="nord-btn nord-btn--primary"
-          *ngIf="calPhase === 'idle' || calPhase === 'done'"
-          [disabled]="!sensorsEnabled"
-          (click)="startCalibration()">
-          {{ (calibrated ? 'NORD.CAL_AGAIN' : 'NORD.CAL_START') | translate }}
-        </button>
-        <button
-          type="button"
-          class="nord-btn"
-          *ngIf="calibrated"
-          (click)="resetCalibration()">
-          {{ 'NORD.CAL_RESET' | translate }}
-        </button>
-      </div>
-    </section>
   </div>
 
   <section class="nord-sensors" [attr.aria-label]="'NORD.SENSORS_TITLE' | translate">

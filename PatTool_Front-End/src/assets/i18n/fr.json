@@ -86,7 +86,7 @@
     "ARCHIVE": "Internet Archive",
     "WEBCAM": "WebCams",
     "ASTRO_COMPASS": "Viseur astres",
-    "NORD": "Nord",
+    "NORD": "Boussole",
     "DIRECTION": "Calibrage"
   },
   "PATTOOL_PARAMS": {
@@ -6703,7 +6703,7 @@
     "HELP_OBS_DEF": "Votre position (GPS, adresse ou carte). Tous les calculs d'azimut, d'élévation et de visibilité partent de ce point."
   },
   "NORD": {
-    "TITLE": "Nord",
+    "TITLE": "Boussole",
     "SUBTITLE": "Boussole du Nord, calage figure-8 du magnétomètre, et lecture en direct de tous les capteurs du téléphone.",
     "START_SENSORS": "Activer les capteurs",
     "PERMISSION_NEEDED": "iOS exige une action : touchez le bouton pour autoriser boussole et mouvement.",

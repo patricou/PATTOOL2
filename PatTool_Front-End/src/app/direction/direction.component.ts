@@ -35,6 +35,12 @@ import {
 } from './direction-attitude';
 import { magneticFieldAt } from '../nord/magnetic-declination';
 import {
+  DIRECTION_HARDIRON_KEY,
+  NORD_CAL_STORAGE_KEY,
+  writeSharedNordCal,
+  type PersistedNordCal
+} from '../shared/compass-north.engine';
+import {
   PATTOOL_POSES,
   PattoolCalFile,
   PattoolCalSnapshot,
@@ -98,7 +104,7 @@ const PARAM_GROUPS: { id: string; labelKey: string; keys: string[] }[] = [
   { id: 'gps', labelKey: 'DIRECTION.G_GPS', keys: ['gps'] },
   { id: 'look', labelKey: 'DIRECTION.G_LOOK', keys: ['look', 'q'] }
 ];
-const CAL_KEY = 'pat.direction.hardiron.v1';
+const CAL_KEY = DIRECTION_HARDIRON_KEY;
 const FS_PARAMS_KEY = 'pat.direction.fs-params.v1';
 const PAINT_MS = 50;
 
@@ -381,6 +387,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     } catch {
       /* ignore */
     }
+    this.clearSharedNordHardIron();
     this.fusion.reset();
     this.cdr.markForCheck();
   }
@@ -1150,6 +1157,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     } catch {
       /* ignore */
     }
+    this.syncSharedNordCal();
     this.publish();
   }
 
@@ -1449,6 +1457,62 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
       localStorage.setItem(
         CAL_KEY,
         JSON.stringify({ bias: this.hardIron.bias, scale: this.hardIron.scale })
+      );
+    } catch {
+      /* ignore */
+    }
+    this.syncSharedNordCal();
+  }
+
+  private syncSharedNordCal(): void {
+    let prev: Partial<PersistedNordCal> = {};
+    try {
+      const raw = localStorage.getItem(NORD_CAL_STORAGE_KEY);
+      if (raw) {
+        prev = JSON.parse(raw) as PersistedNordCal;
+      }
+    } catch {
+      /* ignore */
+    }
+    const payload: PersistedNordCal = {
+      bias: this.hardIron.ready ? this.hardIron.bias : prev.bias ?? { x: 0, y: 0, z: 0 },
+      scale: this.hardIron.ready ? this.hardIron.scale : prev.scale ?? { x: 1, y: 1, z: 1 },
+      northOffsetDeg: this.offsetDeg,
+      trueNorth: prev.trueNorth !== false,
+      calibratedAt: this.hardIron.ready
+        ? prev.calibratedAt || new Date().toISOString()
+        : prev.calibratedAt ?? ''
+    };
+    try {
+      localStorage.setItem(NORD_CAL_STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      /* ignore */
+    }
+    if (this.hardIron.ready) {
+      writeSharedNordCal(payload);
+    }
+  }
+
+  private clearSharedNordHardIron(): void {
+    let prev: Partial<PersistedNordCal> = {};
+    try {
+      const raw = localStorage.getItem(NORD_CAL_STORAGE_KEY);
+      if (raw) {
+        prev = JSON.parse(raw) as PersistedNordCal;
+      }
+    } catch {
+      /* ignore */
+    }
+    try {
+      localStorage.setItem(
+        NORD_CAL_STORAGE_KEY,
+        JSON.stringify({
+          bias: { x: 0, y: 0, z: 0 },
+          scale: { x: 1, y: 1, z: 1 },
+          northOffsetDeg: this.offsetDeg,
+          trueNorth: prev.trueNorth !== false,
+          calibratedAt: ''
+        } satisfies PersistedNordCal)
       );
     } catch {
       /* ignore */

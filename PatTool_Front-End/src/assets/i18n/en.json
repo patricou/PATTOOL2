@@ -86,7 +86,7 @@
     "ARCHIVE": "Internet Archive",
     "WEBCAM": "WebCams",
     "ASTRO_COMPASS": "Sky finder",
-    "NORD": "North",
+    "NORD": "Compass",
     "DIRECTION": "Calibration"
   },
   "PATTOOL_PARAMS": {
@@ -6699,7 +6699,7 @@
     "HELP_OBS_DEF": "Your position (GPS, address or map). All azimuth, elevation and visibility calculations start from this point."
   },
   "NORD": {
-    "TITLE": "North",
+    "TITLE": "Compass",
     "SUBTITLE": "North compass, figure-8 magnetometer calibration, and a live readout of every sensor the phone exposes.",
     "START_SENSORS": "Enable sensors",
     "PERMISSION_NEEDED": "iOS needs a tap: use the button to allow compass and motion access.",
