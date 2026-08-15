@@ -167,6 +167,8 @@ const ASTRO_HELP_TERMS: ReadonlyArray<HelpTerm> = [
   { id: 'elevation', termKey: 'ASTRO_COMPASS.HELP_ELEVATION', defKey: 'ASTRO_COMPASS.HELP_ELEVATION_DEF', aliases: 'elevation altitude angle ciel horizon' },
   { id: 'horizon', termKey: 'ASTRO_COMPASS.HELP_HORIZON', defKey: 'ASTRO_COMPASS.HELP_HORIZON_DEF', aliases: 'horizon visible invisible' },
   { id: 'heading', termKey: 'ASTRO_COMPASS.HELP_HEADING', defKey: 'ASTRO_COMPASS.HELP_HEADING_DEF', aliases: 'cap heading boussole telephone' },
+  { id: 'hud-target', termKey: 'ASTRO_COMPASS.HELP_HUD_TARGET', defKey: 'ASTRO_COMPASS.HELP_HUD_TARGET_DEF', aliases: 'cible objet direction elevation azimut' },
+  { id: 'hud-camera', termKey: 'ASTRO_COMPASS.HELP_HUD_CAMERA', defKey: 'ASTRO_COMPASS.HELP_HUD_CAMERA_DEF', aliases: 'camera visee telephone direction elevation' },
   { id: 'ra', termKey: 'ASTRO_COMPASS.HELP_RA', defKey: 'ASTRO_COMPASS.HELP_RA_DEF', aliases: 'ad ra ascension droite right ascension heures' },
   { id: 'dec', termKey: 'ASTRO_COMPASS.HELP_DEC', defKey: 'ASTRO_COMPASS.HELP_DEC_DEF', aliases: 'dec declinaison declination latitude celeste' },
   { id: 'mag', termKey: 'ASTRO_COMPASS.HELP_MAG', defKey: 'ASTRO_COMPASS.HELP_MAG_DEF', aliases: 'magnitude luminosite brillance mag' },
@@ -4128,13 +4130,17 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.needleUnwrappedDeg;
   }
 
-  cardinalLabel(): string {
-    if (this.azimuthDeg == null) {
+  cardinalLabel(deg: number | null = this.azimuthDeg): string {
+    if (deg == null) {
       return '';
     }
-    const idx = ((Math.round(this.azimuthDeg / 22.5) % 16) + 16) % 16;
+    const idx = ((Math.round(deg / 22.5) % 16) + 16) % 16;
     const letters = AstroCompassComponent.COMPASS_POINTS[idx];
     return letters.map((l) => this.translate.instant('ASTRO_COMPASS.DIR_' + l)).join('');
+  }
+
+  headingCardinalLabel(): string {
+    return this.cardinalLabel(this.headingDeg);
   }
 
   relativeInstruction(): { key: string; deg: number } | null {
